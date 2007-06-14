@@ -1,6 +1,6 @@
 package pointlike
 
-version v1
+version v1r0
 
 # $Header$
 
@@ -8,9 +8,12 @@ use STpolicy *
 use map_tools *
 use embed_python *
 
+private
 apply_pattern ST_library option=-no_share
 
-# simple application, eventually a "tool"?
-application pointfit pointfit/*.cxx
+# simple application, 
+macro source "*.cxx" WIN32 "*.cxx *.h *.py"
+application pointfit -s=pointfit $(source) -s=../python $(source)
+
 
 

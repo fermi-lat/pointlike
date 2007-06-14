@@ -31,7 +31,7 @@ namespace {
         AddPhoton (map_tools::PhotonMap& map, int select, int source=-1)
             : m_map(map), m_select(select), m_source(source)
         {}
-        void operator()(astro::Photon& gamma)
+        void operator()(const astro::Photon& gamma)
         {
             int event_class = gamma.eventClass();
             int sourceid = gamma.source();
@@ -103,7 +103,7 @@ namespace {
     {
         float ra, dec, energy;
         double time;
-        short layer = 0;
+        //? short layer = 0;
         int event_class;
         int source;
 
