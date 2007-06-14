@@ -2,10 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.1.1.1 2007/06/10 01:05:26 burnett Exp $
+$Id: release.notes,v 1.1.1.1 2007/06/14 18:30:14 burnett Exp $
 @verbatim
  --------- -----  --- -----------------------------------------------------------------------
- 09-jun-07 v0     THB Initial tag
+ 14-jun-07 v1    THB Initial tag
 
 @endverbatim
 
