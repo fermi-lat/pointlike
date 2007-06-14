@@ -1,4 +1,33 @@
 ------------------------------------------------------------
+TAG
+Tag name: v1r1, operation: add
+Package: pointlike
+User: burnett  Thu Jun 14 14:07:31 2007
+Files:
+  pointlike/.cvsignore  1.1.1.1
+  pointlike/ChangeLog  1.1.1.2
+  pointlike/cmt/.cvsignore  1.1.1.1
+  pointlike/cmt/requirements  1.4
+  pointlike/doc/release.notes  1.4
+  pointlike/pointlike/PsfFunction.h  1.1.1.1
+  pointlike/pointlike/Data.h  1.1.1.1
+  pointlike/pointlike/PointSourceLikelihood.h  1.2
+  pointlike/pointlike/SimpleLikelihood.h  1.2
+  pointlike/python/pointfit_setup.py  1.1.1.1
+  pointlike/src/Data.cxx  1.2
+  pointlike/src/mainpage.h  1.2
+  pointlike/src/PsfFunction.cxx  1.1.1.1
+  pointlike/src/SimpleLikelihood.cxx  1.2
+  pointlike/src/PointSourceLikelihood.cxx  1.2
+  pointlike/src/likelihood/likelihood_main.cxx  1.1.1.1
+  pointlike/src/pointfit/pointfit_main.cxx  1.2
+  pointlike/src/test/PhotonList.h  1.1.1.1
+  pointlike/src/test/test_main.cxx  1.2
+  pointlike/src/test/PhotonList.cxx  1.1.1.1
+  pointlike/src/test/test_events.root  1.1.1.1
+
+    *
+------------------------------------------------------------
 User: burnett  Thu Jun 14 14:07:05 PDT 2007
 pointlike/src/test
 
