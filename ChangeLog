@@ -1,4 +1,41 @@
 ------------------------------------------------------------
+User: burnett  Thu Jun 14 11:30:15 PDT 2007
+pointlike
+
+Log Message:
+inital import for science tools
+
+Status:
+
+Vendor Tag:	v0
+Release Tags:	UW
+		
+N pointlike/.cvsignore
+N pointlike/ChangeLog
+N pointlike/cmt/.cvsignore
+N pointlike/cmt/requirements
+N pointlike/doc/release.notes
+N pointlike/pointlike/Data.h
+N pointlike/pointlike/PointSourceLikelihood.h
+N pointlike/pointlike/PsfFunction.h
+N pointlike/pointlike/SimpleLikelihood.h
+N pointlike/python/pointfit_setup.py
+N pointlike/src/Data.cxx
+N pointlike/src/mainpage.h
+N pointlike/src/PointSourceLikelihood.cxx
+N pointlike/src/PsfFunction.cxx
+N pointlike/src/SimpleLikelihood.cxx
+N pointlike/src/likelihood/likelihood_main.cxx
+N pointlike/src/pointfit/pointfit_main.cxx
+N pointlike/src/test/PhotonList.cxx
+N pointlike/src/test/PhotonList.h
+N pointlike/src/test/test_events.root
+N pointlike/src/test/test_main.cxx
+
+No conflicts created by this import
+
+    *
+------------------------------------------------------------
 User: burnett  Sat Jun  9 18:05:26 PDT 2007
 users/burnett/pointlike
 
