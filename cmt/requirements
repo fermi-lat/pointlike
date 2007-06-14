@@ -1,0 +1,16 @@
+package pointlike
+
+version v1
+
+# $Header $
+
+use STpolicy *
+use map_tools *
+use embed_python *
+
+apply_pattern ST_library option=-no_share
+
+# simple application, eventually a "tool"?
+application pointfit pointfit/*.cxx
+
+

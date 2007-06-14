@@ -1,0 +1,35 @@
+------------------------------------------------------------
+User: burnett  Sat Jun  9 18:05:26 PDT 2007
+users/burnett/pointlike
+
+Log Message:
+revised point package
+
+Status:
+
+Vendor Tag:	THB
+Release Tags:	v0
+		
+N users/burnett/pointlike/.cvsignore
+N users/burnett/pointlike/cmt/.cvsignore
+N users/burnett/pointlike/cmt/requirements
+N users/burnett/pointlike/doc/release.notes
+N users/burnett/pointlike/pointlike/Data.h
+N users/burnett/pointlike/pointlike/PointSourceLikelihood.h
+N users/burnett/pointlike/pointlike/PsfFunction.h
+N users/burnett/pointlike/pointlike/SimpleLikelihood.h
+N users/burnett/pointlike/src/Data.cxx
+N users/burnett/pointlike/src/mainpage.h
+N users/burnett/pointlike/src/PointSourceLikelihood.cxx
+N users/burnett/pointlike/src/PsfFunction.cxx
+N users/burnett/pointlike/src/SimpleLikelihood.cxx
+N users/burnett/pointlike/src/likelihood/likelihood_main.cxx
+N users/burnett/pointlike/src/pointfit/pointfit_main.cxx
+N users/burnett/pointlike/src/test/PhotonList.cxx
+N users/burnett/pointlike/src/test/PhotonList.h
+N users/burnett/pointlike/src/test/test_events.root
+N users/burnett/pointlike/src/test/test_main.cxx
+
+No conflicts created by this import
+
+    *
