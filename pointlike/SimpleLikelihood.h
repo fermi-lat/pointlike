@@ -93,7 +93,6 @@ public:
 
 private:
 
-    double m_umax; ///< maximum value of u, for selection of data, fits
     //! @brief a quick estimate of the signal fraction
     //! @return the value of of the signal fraction
     double estimate() const;
@@ -105,22 +104,22 @@ private:
     astro::SkyDir m_dir;
     mutable int    m_photon_count; // total number of photons
     double m_fint, m_fint2; //integral of f, f^2
-    double m_averageF;
 
-    pointlike::PsfFunction m_psf;
-    double m_sigma;
-    double m_alpha, m_sigma_alpha; ///< current fit value, error
 
-    double m_background;  ///< expected background (negative: no estimate)
-    mutable double m_curv;  // saved curvature from gradient calculation
     mutable double m_w;      // likelihood from gradient
-
-
 
     //! vector of healpixels and the number of photons in each
     const std::vector<std::pair<astro::HealPixel,int> >& m_vec;
     //! simplified set with function or distances from m_dir 
     std::vector<std::pair<float, int> > m_vec2;
+    double m_averageF;
+    pointlike::PsfFunction m_psf;
+    double m_sigma;
+    double m_alpha, m_sigma_alpha; ///< current fit value, error
+    mutable double m_curv;  // saved curvature from gradient calculation
+    double m_background;  ///< expected background (negative: no estimate)
+
+    double m_umax; ///< maximum value of u, for selection of data, fits
     
 };
 }
