@@ -33,9 +33,9 @@ public:
     AddPhoton (map_tools::PhotonMap& map)
         : m_map(map)
     {}
-    void operator()(astro::Photon& gamma)
+    void operator()(const astro::Photon& gamma)
     {
-        int event_class = gamma.eventClass();
+        //int event_class = gamma.eventClass();
 
         m_map.addPhoton(gamma);
     }
@@ -44,7 +44,7 @@ public:
 
 
 
-int main(int argc, char** argv)
+int main(int , char** )
 {
     using namespace astro;
     using namespace pointlike;
