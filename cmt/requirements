@@ -1,16 +1,19 @@
 package pointlike
 
-version v1
+version v1r1
 
-# $Header $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.3 2007/06/14 20:01:45 burnett Exp $
 
 use STpolicy *
 use map_tools *
 use embed_python *
 
+private
 apply_pattern ST_library option=-no_share
 
-# simple application, eventually a "tool"?
-application pointfit pointfit/*.cxx
+# simple application, 
+macro source "*.cxx" WIN32 "*.cxx *.h *.py"
+application pointfit -s=pointfit $(source) -s=../python $(source)
+
 
 

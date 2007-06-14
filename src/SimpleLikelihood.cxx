@@ -45,7 +45,7 @@ namespace {
             if( u>m_umax) return;
             double t=m_f(u);
             // just to see what is there
-            astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
+            // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
             m_sum+=x.second*t;
             m_count += x.second;
             double q( 1./(t/m_fbar-1));
@@ -129,7 +129,7 @@ void SimpleLikelihood::setDir(const astro::SkyDir& dir)
     Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
 
-    m_photon_count = result.count();
+    m_photon_count = static_cast<int>(result.count());
 
     if( m_photon_count==0) return; //throw std::invalid_argument("SimpleLikelihood: no data after transform");
 
@@ -228,7 +228,7 @@ Hep3Vector SimpleLikelihood::gradient() const
 
     double sig2( sqr(m_sigma) );
     double gamma( m_psf.gamma() );
-    double w(0); // -log likelihood (check)
+    //double w(0); // -log likelihood (check)
     int count(0);
 
     Hep3Vector perp(m_dir().orthogonal());
