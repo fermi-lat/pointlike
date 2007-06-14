@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 User: burnett  Thu Jun 14 13:01:45 PDT 2007
+pointlike/src
+
+Modified Files:
+	Data.cxx PointSourceLikelihood.cxx SimpleLikelihood.cxx 
+	mainpage.h 
+Log Message:
+linux error fixes
+    *
+------------------------------------------------------------
+User: burnett  Thu Jun 14 13:01:45 PDT 2007
 pointlike/pointlike
 
 Modified Files:
