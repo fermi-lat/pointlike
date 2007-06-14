@@ -2,7 +2,7 @@ package pointlike
 
 version v1
 
-# $Header $
+# $Header$
 
 use STpolicy *
 use map_tools *
