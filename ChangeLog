@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jun 14 14:07:05 PDT 2007
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+make gcc happy, tag
+    *
+------------------------------------------------------------
 TAG
 Tag name: v1r0, operation: add
 Package: pointlike
