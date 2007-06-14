@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Thu Jun 14 14:07:05 PDT 2007
+pointlike/src/test
+
+Modified Files:
+	test_main.cxx 
+Log Message:
+make gcc happy, tag
+    *
+------------------------------------------------------------
+User: burnett  Thu Jun 14 14:07:05 PDT 2007
 pointlike/src/pointfit
 
 Modified Files:
