@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jun 14 13:01:45 PDT 2007
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+linux error fixes
+    *
+------------------------------------------------------------
 TAG
 Tag name: v1, operation: add
 Package: pointlike
