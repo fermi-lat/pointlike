@@ -1,13 +1,14 @@
 package pointlike
 
-version v1r1
+version v1r2
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.3 2007/06/14 20:01:45 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.4 2007/06/14 21:07:05 burnett Exp $
 
 use STpolicy *
 use map_tools *
 use embed_python *
 
+apply_pattern package_include
 private
 apply_pattern ST_library option=-no_share
 
