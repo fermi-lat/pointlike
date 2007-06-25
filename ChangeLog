@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Jun 25 13:59:25 PDT 2007
+pointlike/src
+
+Modified Files:
+	Data.cxx PointSourceLikelihood.cxx SimpleLikelihood.cxx 
+Log Message:
+add support for ROOT "MeritTuple" format; add back conversion by energy scaling
+    *
+------------------------------------------------------------
+User: burnett  Mon Jun 25 13:59:25 PDT 2007
 pointlike/python
 
 Modified Files:
