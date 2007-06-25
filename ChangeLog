@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Jun 25 13:59:25 PDT 2007
+pointlike/src/pointfit
+
+Modified Files:
+	pointfit_main.cxx 
+Log Message:
+add support for ROOT "MeritTuple" format; add back conversion by energy scaling
+    *
+------------------------------------------------------------
+User: burnett  Mon Jun 25 13:59:25 PDT 2007
 pointlike/src
 
 Modified Files:
