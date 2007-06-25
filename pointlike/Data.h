@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/users/burnett/pointlike/pointlike/Data.h,v 1.1.1.1 2007/06/10 01:05:26 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.1.1.1 2007/06/14 18:30:14 burnett Exp $
 */
 
 
@@ -15,21 +15,23 @@ class PhotonMap;
 #include <vector>
 
 namespace pointlike {
-/**
-@brief wrapper for PhotonData -- maybe move there
+/***
+wrapper for PhotonMap-- maybe move there
 */
 class Data {
 public:
 
-    //! constructor loads data from a fits file to make a PhotonMap
+    //! constructor loads data from a fits FT1 or root file (MeritTuple) to make a PhotonMap
     //! @param event_type 0 for class A front, etc, -1 for all
     //! @param source_id select given source
     Data(const std::string& file, int event_type, int source_id=-1)
         ;
-    //! constructor loads data from a list of fits files to make a PhotonMap
+    //! constructor loads data from a list of fits or root files to make a PhotonMap
     //! @param event_type 0 for class A front, etc, -1 for all
     //! @param source_id select given source
-    Data(std::vector<std::string> files, int event_type, int source_id=-1);
+    Data(std::vector<std::string> files, int event_type, int source_id=-1, 
+        std::string ft2file=""
+        );
 
     //! constructor loads a PhotonMap that was saved in a fits file
     //! @param inputFile the fits file name
@@ -38,7 +40,7 @@ public:
 
 
     //! add  data from the file to current set
-    //! @param file Either FT1 or special ROOT file
+    //! @param file Either FT1 or  MeritTuple ROOT file
     //! @param event_type 0 for class A front, etc
     //! @param source_id select given source
     void add(const std::string& file, int event_type=-1, int source_id=-1);
@@ -46,8 +48,10 @@ public:
     //! behave like a PhotonMap object
     operator const map_tools::PhotonMap&() const {return *m_data;}
 
+
 private:
     map_tools::PhotonMap * m_data;
+    std::string m_ft2file;
 };
 
 }

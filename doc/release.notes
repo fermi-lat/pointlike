@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.2 2007/06/14 18:35:04 burnett Exp $
+$Id: release.notes,v 1.4 2007/06/14 21:07:05 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 25-jun-07 v1r2    THB Add root support, front and back converions fit
  14-jun-07 v1r1    THB Initial version
 
 @endverbatim

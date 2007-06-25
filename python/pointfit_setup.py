@@ -1,10 +1,10 @@
 #  setup for point fit test
-# $Header$
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.1.1.1 2007/06/14 18:30:14 burnett Exp $
 
 # data selection parameters
 
 radius = 7.0   # radius in degrees for initial data selection
-event_type = 0 # 0, select front only; -1 no selection
+event_type = -1 # 0, select front only; -1 no selection
                # note that current algorithm only works on front-conversion events
 source_id =-1  # -1: all sources -- select according to Monte Carlo source id, if present
 
@@ -23,23 +23,22 @@ itermax=2    # maximum number of iterations
 
 verbose = 0  # set non-zero to get lots of output
 
-
-
 #  specify files with FT1 data and points to fit.
 
 path = "F:/glast/data/SourceDetection"  #location on glast-ts
-files = [path+"/pl_0_events_0000.fits" ,path+"/bg_low_0_events_0000.fits"]
+#files = [path+"/pl_0_events_0000.fits" ,path+"/bg_low_0_events_0000.fits"]
+files = ["F:/condor/alignment/scanning/jobs100-149/tuple.root"]
+#,
+#        "F:/condor/alignment/scanning/jobs200-299/tuple.root",
+#]
 
-points = [
-        ["Source_54",   186.31,  -18],
-        ["Source_55",   192.62,  -18],
-        ["Source_56",   198.93,  -18],
-        ["Source_57",   205.24,  -18],
-        ["Source_58",   211.54,  -18],
-        ["Source_59",   217.85,  -18],
-        ["Source_60",   224.16,  -18],
-        ["Source_61",   230.47,  -18]]
+        
+points=[['vela',   128.73, -45.2 ]]
+#        ['crab',    83.57,  22.01],
+#        ['geminga', 98.49,  17.86]]
 
+# program expects separate lists
 name  = [point[0] for point in points]
 ra    = [point[1] for point in points]
 dec   = [point[2] for point in points]
+
