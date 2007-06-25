@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jun 25 13:59:25 PDT 2007
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+add support for ROOT "MeritTuple" format; add back conversion by energy scaling
+    *
+------------------------------------------------------------
 TAG
 Tag name: v1r1, operation: add
 Package: pointlike
