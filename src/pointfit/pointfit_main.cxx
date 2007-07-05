@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.2 2007/06/14 21:07:05 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.3 2007/06/25 20:59:25 burnett Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include <fstream>
 
 void help(){
     std::cout << "This program expects a single command-line parameter which is the path to a folder containing a file\n"
@@ -17,6 +18,7 @@ void help(){
         << std::endl;
         
 }
+
 
 int main(int argc, char** argv)
 {
@@ -60,9 +62,11 @@ int main(int argc, char** argv)
         setup.getValue("verbose", verbose, 0);
     
         std::vector<std::string> filelist;
-        std::string ft2file;
+        std::string ft2file, outfile;
         setup.getList("files", filelist);
         setup.getValue("FT2file",  ft2file, "");
+        setup.getValue("outfile",  outfile, "");
+
 
         // separate lists of names, ra's, and dec's
         std::vector<std::string> names;
@@ -74,7 +78,11 @@ int main(int argc, char** argv)
         // use the  Data class to create the PhotonData object
         Data healpixdata(filelist,  event_type, source_id, ft2file);
 
-        std::cout << std::left << std::setw(15) <<"name" << "     TS   error    fit direction\n";
+        std::ostream* out = &std::cout;
+        if( !outfile.empty() ) {
+            out = new std::ofstream(outfile.c_str());
+        }
+        (*out) << std::left << std::setw(15) <<"name" << "     TS   error    ra     dec\n";
 
         for( size_t n=0; n< names.size(); ++n){
             astro::SkyDir dir(ras[n], decs[n]);
@@ -92,13 +100,17 @@ int main(int argc, char** argv)
             double sigma =like.localize(skip1, skip2, itermax, TSmin);
 
             // add entry to table with name, total TS, localizatino sigma, fit direction
-            std::cout << std::left << std::setw(15) << name 
+            (*out) << std::left << std::setw(15) << name 
                 << std::setprecision(2) << std::setw(8) << std::fixed << std::right
                 << like.TS() 
-                << std::setprecision(3) << std::setw(8) << sigma
-                << " (" << std::setw(7) << like.dir().ra() 
-                << ", " << std::setw(7) << like.dir().dec() <<") " 
+                << std::setprecision(4) 
+                << std::setw(10) << sigma
+                << std::setw(10) << like.dir().ra() 
+                << std::setw(10) << like.dir().dec() 
                 << std::endl;
+        }
+        if( !outfile.empty()){
+            delete out;
         }
 
     }catch(const std::exception& e){
