@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Wed Jul  4 17:43:40 PDT 2007
+pointlike/src/pointfit
+
+Modified Files:
+	pointfit_main.cxx 
+Log Message:
+slight change of output format; support optional filename to write list to
+    *
+------------------------------------------------------------
+User: burnett  Wed Jul  4 17:43:40 PDT 2007
 pointlike/doc
 
 Modified Files:
