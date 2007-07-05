@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jul  4 17:43:39 PDT 2007
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+slight change of output format; support optional filename to write list to
+    *
+------------------------------------------------------------
 TAG
 Tag name: v1r2, operation: add
 Package: pointlike
