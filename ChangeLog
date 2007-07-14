@@ -1,5 +1,17 @@
 ------------------------------------------------------------
 User: burnett  Fri Jul 13 20:50:54 PDT 2007
+pointlike/src
+
+Modified Files:
+	Data.cxx PointSourceLikelihood.cxx PsfFunction.cxx 
+	SimpleLikelihood.cxx 
+Added Files:
+	PowerLawFilter.cxx PowerLawFilter.h SourceFinder.cxx 
+Log Message:
+added SourceFinder; fixed up likelihood.
+    *
+------------------------------------------------------------
+User: burnett  Fri Jul 13 20:50:54 PDT 2007
 pointlike/pointlike
 
 Modified Files:
