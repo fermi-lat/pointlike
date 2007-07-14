@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 13 20:50:54 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	Data.h PointSourceLikelihood.h 
+Added Files:
+	PowerLawFilter.h SourceFinder.h 
+Log Message:
+added SourceFinder; fixed up likelihood.
+    *
+------------------------------------------------------------
 TAG
 Tag name: v1r2p1, operation: add
 Package: pointlike
