@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.3 2007/06/25 20:59:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.4 2007/07/14 03:50:54 burnett Exp $
 
 */
 
@@ -26,9 +26,11 @@ namespace {
     double fit_sigma[]={0,0,0,0,0,0,
         0.335,0.319,0.332,0.352,0.397,0.446,0.526,0.657};
 #else // from empirical study of a single source 
-    // set level 8 from special fit
+    // set level 8 -13 using handoff (7/14/07) tweak level 12 from .52 to .62
     double fit_sigma[]={0,0,0,0,0,0,
-        0.335,0.319, 0.422, 0.9, 0.9, 1.0, 1.1, 1.0 };
+        0.335,0.319, //0.422, 0.9, 0.9, 1.0, 1.1, 1.0 
+    0.42899897,  0.45402442,  0.4742285,   0.60760651,  0.62,  0.94671
+    };
 
 #endif
     // the scale_factor used: 2.5 degree at level 6, approximately the 68% containment

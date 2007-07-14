@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/users/burnett/pointlike/pointlike/SimpleLikelihood.h,v 1.1.1.1 2007/06/10 01:05:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.2 2007/06/14 20:01:45 burnett Exp $
 
 */
 
@@ -89,6 +89,9 @@ public:
     /// set/retrieve the umax parameter
     double umax()const {return m_umax;}
 
+    /// check average u
+    double average_u()const{ return m_avu;}
+
     static double s_defaultUmax;
 
 private:
@@ -120,6 +123,7 @@ private:
     double m_background;  ///< expected background (negative: no estimate)
 
     double m_umax; ///< maximum value of u, for selection of data, fits
+    double m_avu;
     
 };
 }

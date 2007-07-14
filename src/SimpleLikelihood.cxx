@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.3 2007/06/25 20:59:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.4 2007/07/14 03:50:54 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -9,6 +9,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.3 2
 #include <cmath>
 #include <numeric>
 #include <iomanip>
+#include <fstream>
 
 using namespace astro;
 using namespace pointlike;
@@ -20,6 +21,7 @@ namespace {
 
     bool debug(false);
     inline double sqr(float x){return x*x;}
+    std::ostream * psf_data = &std::cout;
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     class Convert  {
@@ -32,11 +34,16 @@ namespace {
             , m_vec2(vec2) 
             , m_umax(umax)
             , m_sum(0), m_count(0)
+            , m_sumu(0) // average u, useful for calibration
         {
             m_fbar = f.integral(umax)/umax; //Integral(f, umax)/umax;
             if(debug){
-                std::cout << "     u        f(u)      count    q" << std:: endl;
+                //psf_data = new std::ofstream("d:/users/burnett/temp/psf.txt");
+                (*psf_data) << "u        f(u)      count    q" << std:: endl;
             }
+        }
+        ~Convert(){
+            //if(debug){ psf_data->close();}
         }
 
         void operator()(const std::pair<HealPixel, int>& x){
@@ -49,15 +56,20 @@ namespace {
             // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
             m_sum+=x.second*t;
             m_count += x.second;
+            m_sumu += x.second*u;
             double q( 1./(t/m_fbar-1));
             if(debug){
-                std::cout << std::left<< std::setw(10) << u << std::setw(12) << t << std::setw(5)<<  x.second << std::setw(10)<< q<<std::endl;
+                (*psf_data) << std::left<< std::setw(12) 
+                    << u << std::setw(12) 
+                    << t << std::setw(5)
+                    <<  x.second << std::setw(10)<< q<<std::endl;
             }
     
             // todo: combine elements with vanishing t
             m_vec2.push_back(std::make_pair(q, x.second) );
         }
         double average_f()const {return m_count>0? m_sum/m_count : -1.;}
+        double average_u()const {return m_count>0? m_sumu/m_count : -1;}
         double count()const{return m_count;}
 
     private:
@@ -66,7 +78,7 @@ namespace {
         double m_sigma;
         std::vector<std::pair<float, int> >& m_vec2;
         double m_umax, m_fbar;
-        double m_sum, m_count;
+        double m_sum, m_count, m_sumu;
     };
 
      //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -136,6 +148,7 @@ void SimpleLikelihood::setDir(const astro::SkyDir& dir)
     if( m_photon_count==0) return; //throw std::invalid_argument("SimpleLikelihood: no data after transform");
 
     m_averageF = result.average_f();
+    m_avu = result.average_u();
 
     // initialize to estimate.
     if( m_alpha<0) m_alpha = estimate();
