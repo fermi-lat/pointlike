@@ -1,7 +1,7 @@
 /** @file PsfFunction.cxx
     @brief Class to define psf function.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/users/burnett/pointlike/src/PsfFunction.cxx,v 1.1.1.1 2007/06/10 01:05:26 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PsfFunction.cxx,v 1.1.1.1 2007/06/14 18:30:14 burnett Exp $
     */
 #include "pointlike/PsfFunction.h"    
 
@@ -15,7 +15,7 @@ double PsfFunction::operator () (const astro::SkyDir & r, const astro::SkyDir & 
 }
 double PsfFunction::operator ()(double u)const
 {
-    return m_norm*(u<25? pow(1+u/m_gamma, -m_gamma) : 0);
+    return m_norm*(u<100? pow(1+u/m_gamma, -m_gamma) : 0);
 
 }
 

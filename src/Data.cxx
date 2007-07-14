@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.2 2007/06/14 20:01:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.3 2007/06/25 20:59:25 burnett Exp $
 
 */
 
@@ -20,12 +20,14 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.2 2007/06/14 20
 #include <iomanip>
 #include <algorithm>
 #include <numeric>
+#include <cassert>
 
 
 using namespace astro;
 using namespace pointlike;
 using namespace CLHEP;
 
+double Data::s_scale[4]={1.8, 1.0, 1.0, 1.0}; // wired in for back, front !!
 
 
 namespace {
@@ -56,9 +58,10 @@ namespace {
 
             // account for worse energy resolution of back events by simply scaling up the energy.
             int evtclass(eventClass());
+            assert( evtclass>=0 && evtclass<3); // just a check: should be 0 or 1 if not DC2
             double 
                 emeas(energy()),                    // measured energy
-                eff_energy( evtclass==0? emeas : emeas/1.8 ); // "effective" energy
+                eff_energy( emeas/Data::s_scale[evtclass] ); // "effective" energy
             return astro::Photon(SkyDir(transformed), eff_energy,time(),evtclass, source());
         }
 
@@ -80,7 +83,9 @@ namespace {
             if( m_select>-1 && event_class!= m_select) return;
             if( m_source>-1 && sourceid != m_source)return;
 
-            m_map.addPhoton(gamma);
+            double energy(gamma.energy());
+            astro::Photon gcopy(gamma.dir(), energy/Data::s_scale[event_class], gamma.time(), event_class, sourceid); 
+            m_map.addPhoton(gcopy);
         }
         map_tools::PhotonMap& m_map;
         int m_select;
