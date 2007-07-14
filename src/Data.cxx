@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.4 2007/07/14 03:50:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.5 2007/07/14 22:09:20 burnett Exp $
 
 */
 
@@ -26,8 +26,11 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.4 2007/07/14 03
 using namespace astro;
 using namespace pointlike;
 using namespace CLHEP;
-
+#if 0
 double Data::s_scale[4]={1.86, 1.0, 1.0, 1.0}; // wired in for back, front !!
+#else
+double Data::s_scale[4]={1.0, 1.86, 1.0, 1.0}; // wired in for front, back !!
+#endif
 
 
 namespace {
