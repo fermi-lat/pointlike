@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.1.1.1 2007/06/14 18:30:14 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.2 2007/06/25 20:59:25 burnett Exp $
 */
 
 
@@ -32,11 +32,12 @@ public:
     Data(std::vector<std::string> files, int event_type, int source_id=-1, 
         std::string ft2file=""
         );
-
+#if 0 // not currently implemented?
     //! constructor loads a PhotonMap that was saved in a fits file
     //! @param inputFile the fits file name
     //! @param tablename ["PHOTONMAP"] the fits table name
     Data(const std::string & inputFile, const std::string & tablename="PHOTONMAP");
+#endif
 
 
     //! add  data from the file to current set
@@ -48,6 +49,11 @@ public:
     //! behave like a PhotonMap object
     operator const map_tools::PhotonMap&() const {return *m_data;}
 
+    //! same as above, for python use
+    const map_tools::PhotonMap& map()const{return *m_data;}
+
+    static double s_scale[4]; // scale factors
+    static double set_scale(int i, double s){double t(s_scale[i]);  s_scale[i]=s; return t;}
 
 private:
     map_tools::PhotonMap * m_data;
