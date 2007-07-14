@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+TAG
+Tag name: v1r2, operation: add
+Package: pointlike
+User: burnett  Sat Jul 14 15:13:26 2007
+Files:
+  pointlike/pointlike/SourceFinder.h  1.1
+  pointlike/pointlike/PowerLawFilter.h  1.1
+  pointlike/src/PowerLawFilter.h  1.1
+  pointlike/src/SourceFinder.cxx  1.1
+  pointlike/src/PowerLawFilter.cxx  1.1
+
+    *
+------------------------------------------------------------
 User: burnett  Sat Jul 14 15:13:03 PDT 2007
 pointlike/src
 
