@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Jul 18 16:28:27 PDT 2007
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+added features to simplhood, implemented a simple test program
+    *
+------------------------------------------------------------
 TAG
 Tag name: v1r3p1, operation: add
 Package: pointlike
