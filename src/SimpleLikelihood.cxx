@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.4 2007/07/14 03:50:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.4 2007/06/25 20:59:25 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -28,10 +28,12 @@ namespace {
     public:
         Convert( const SkyDir& dir, PsfFunction& f, 
             double sigma, double umax,
-            std::vector< std::pair<float, int> >& vec2
+            std::vector< std::pair<double, int> >& vec2,
+            std::vector<double>& vec3
             )
             : m_dir(dir), m_f(f), m_sigma(sigma)
-            , m_vec2(vec2) 
+            , m_vec2(vec2)
+            , m_vec3(vec3)
             , m_umax(umax)
             , m_sum(0), m_count(0)
             , m_sumu(0) // average u, useful for calibration
@@ -67,6 +69,7 @@ namespace {
     
             // todo: combine elements with vanishing t
             m_vec2.push_back(std::make_pair(q, x.second) );
+            m_vec3.push_back(u);
         }
         double average_f()const {return m_count>0? m_sum/m_count : -1.;}
         double average_u()const {return m_count>0? m_sumu/m_count : -1;}
@@ -76,7 +79,8 @@ namespace {
         SkyDir m_dir;
         PsfFunction& m_f;
         double m_sigma;
-        std::vector<std::pair<float, int> >& m_vec2;
+        std::vector<std::pair<double, int> >& m_vec2;
+        std::vector<double>& m_vec3;
         double m_umax, m_fbar;
         double m_sum, m_count, m_sumu;
     };
@@ -140,7 +144,8 @@ void SimpleLikelihood::setDir(const astro::SkyDir& dir)
     m_dir = dir;
     // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
     m_vec2.clear();
-    Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2);
+    m_vec3.clear();
+    Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2, m_vec3);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
 
     m_photon_count = static_cast<int>(result.count());
@@ -288,4 +293,24 @@ double SimpleLikelihood::TS(double alpha)const {
 }
 double SimpleLikelihood::solidAngle()const{
     return 2*M_PI* sqr(m_sigma)*m_umax;
+}
+
+double SimpleLikelihood::feval(double k) {
+    std::vector<std::pair<double,int> > temp;
+    std::vector<std::pair<double,int> >::iterator it2 = m_vec2.begin();
+    for(std::vector<double>::iterator ite = m_vec3.begin();ite!= m_vec3.end();++ite,++it2) {
+        double f = m_psf(k*(*ite));
+        double fbar = m_psf.integral(k*m_umax);
+        double q = m_alpha*k*f/fbar+(1-m_alpha)/m_umax;
+        temp.push_back(std::make_pair(q,it2->second));
+    }
+    m_vec2 = temp;
+    double current = 0;
+    for(std::vector<std::pair<double,int> >::iterator it = m_vec2.begin();it!=m_vec2.end();++it) {
+        double q = it->first;
+        int count = it->second;
+        double w_i = count*log(q);
+        current-=w_i;
+    }
+    return current;
 }
