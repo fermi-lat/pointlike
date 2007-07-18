@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: mar0  Wed Jul 18 16:28:27 PDT 2007
+pointlike/doc
+
+Modified Files:
+	release.notes 
+Log Message:
+added features to simplhood, implemented a simple test program
+    *
+------------------------------------------------------------
+User: mar0  Wed Jul 18 16:28:27 PDT 2007
 pointlike/cmt
 
 Modified Files:
