@@ -1,4 +1,22 @@
 ------------------------------------------------------------
+User: mar0  Wed Jul 18 16:28:28 PDT 2007
+pointlike/src/pointfit
+
+Modified Files:
+	pointfit_main.cxx 
+Log Message:
+added features to simplhood, implemented a simple test program
+    *
+------------------------------------------------------------
+User: mar0  Wed Jul 18 16:28:28 PDT 2007
+pointlike/src
+
+Modified Files:
+	PsfFunction.cxx SimpleLikelihood.cxx 
+Log Message:
+added features to simplhood, implemented a simple test program
+    *
+------------------------------------------------------------
 User: mar0  Wed Jul 18 16:28:27 PDT 2007
 pointlike/pointlike
 
