@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/users/burnett/tools/src/SourceFinder.cxx,v 1.10 2007/06/25 21:48:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.1 2007/07/14 03:50:54 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -27,7 +27,7 @@ namespace {
     // Show percent complete
     void ShowPercent(int sofar, int total, int found)
     {
-        static toskip(50), skipped(0);
+        static int toskip(50), skipped(0);
         if(++skipped<toskip) return; skipped=0;
         static int lastpercent(-1);
         int percent( static_cast<int>(100 * sofar / total +0.5) );
@@ -86,11 +86,11 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
                                  double polar_TS_min,
                                  int    pix_level, 
                                  int    count_threshold,
-                                 bool   includeChildren, 
-                                 bool   weighted,
+                                 bool   /*includeChildren */, 
+                                 bool   /* weighted */,
                                  bool   background_filter,
                                  int	skip_TS_levels,
-                                 RegionSelector region,
+                                 SourceFinder::RegionSelector region,
                                  double equator_boundary,
                                  double polar_boundary) 
 {  
@@ -149,9 +149,9 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
         astro::SkyDir sd;
         //if (it->first.level() != pix_level) continue; // Only want to examine at pixelization level at this point.
         double abs_b = fabs((it->first)().b());
-        if (region == RegionSelector::EQUATORIAL && abs_b >= equator_boundary
-            || region == RegionSelector::POLAR && abs_b <= polar_boundary
-            || region == RegionSelector::MIDDLE && (abs_b < equator_boundary || abs_b > polar_boundary))
+        if (region == SourceFinder::RegionSelector::EQUATORIAL && abs_b >= equator_boundary
+            || region == SourceFinder::RegionSelector::POLAR && abs_b <= polar_boundary
+            || region == SourceFinder::RegionSelector::MIDDLE && (abs_b < equator_boundary || abs_b > polar_boundary))
             continue;
         int count = m_pmap.photonCount(it->first, sd);
         if (count >= count_threshold)
@@ -233,7 +233,7 @@ void SourceFinder::checkDir(astro::SkyDir & sd,
 
     astro::HealPixel hp(sd, pix_level);
     astro::SkyDir new_dir;
-    int count = m_pmap.photonCount(hp, new_dir);
+    double count = m_pmap.photonCount(hp, new_dir);
     std::cout << "\nChecking for a source at (ra, dec) = ("
         << sd.ra() << ", " << sd.dec() <<
         ") (l, b) = (" << sd.l() << ", " << sd.b() <<
@@ -425,7 +425,7 @@ void SourceFinder::createReg(const std::string& fileName, double radius, const s
         << " font=\"helvetica 10 normal\" select=1 edit=1 move=1 delete=1 include=1 fixed=0 width=2;";
     for (Candidates::const_iterator it = m_can.begin(); it != m_can.end(); ++it)
     {
-        int value = it->second.value() + 0.5;
+        int value = static_cast<int>(it->second.value() + 0.5);
         reg << "fk5; circle("
             << (it->first)().ra() << ", "
             << (it->first)().dec() << ", ";
@@ -442,7 +442,9 @@ static float precision(double x, double s) // s is power of 10, like 0.01
 {
     return float(int(x/s+0.5))*s;
 }
-void SourceFinder::createTable(const std::string& fileName, bool get_background, int skip_TS)
+void SourceFinder::createTable(const std::string& fileName, 
+                               bool/* get_background*/,   // not used?
+                               int skip_TS)
 {
     std::cout << "Writing results to the table " << fileName << std::endl;
 

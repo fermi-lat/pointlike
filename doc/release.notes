@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.6 2007/07/05 00:43:39 burnett Exp $
+$Id: release.notes,v 1.7 2007/07/14 22:09:20 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 18-jul-07 v1r3p1  THB Linux fix
  14-jul-07 v1r3    THB Tune default PSF parameters using handoff data; access to average u
  04-jul-07 v1r2p1  THB slight format change; new fileoutput parameter
  25-jun-07 v1r2    THB Add root support, front and back converions fit
