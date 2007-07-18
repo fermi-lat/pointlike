@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.2 2007/06/14 20:01:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.3 2007/07/18 16:17:14 burnett Exp $
 
 */
 
@@ -91,8 +91,10 @@ public:
 
     /// check average u
     double average_u()const{ return m_avu;}
-
     static double s_defaultUmax;
+
+    double feval(double k);
+
 
 private:
 
@@ -114,7 +116,8 @@ private:
     //! vector of healpixels and the number of photons in each
     const std::vector<std::pair<astro::HealPixel,int> >& m_vec;
     //! simplified set with function or distances from m_dir 
-    std::vector<std::pair<float, int> > m_vec2;
+    std::vector<std::pair<double, int> > m_vec2;
+    std::vector<double> m_vec3; //storage of u values for fast Likelihood recalculation
     double m_averageF;
     pointlike::PsfFunction m_psf;
     double m_sigma;
