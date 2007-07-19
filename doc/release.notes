@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.8 2007/07/18 16:22:23 burnett Exp $
+$Id: release.notes,v 1.9 2007/07/18 23:28:27 mar0 Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 18-jul-07 v1r4p1  THB Finding application(preliminary);  linux fix
  18-jul-07 v1r4    MR  Added scale factor manip to SimpLhood, updated test program
  18-jul-07 v1r3p1  THB Linux fix
  14-jul-07 v1r3    THB Tune default PSF parameters using handoff data; access to average u
