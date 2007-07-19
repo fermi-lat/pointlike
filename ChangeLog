@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jul 19 12:07:28 PDT 2007
+pointlike/src/pointfit
+
+Modified Files:
+	pointfit_main.cxx 
+Log Message:
+fabs fix
+    *
+------------------------------------------------------------
 TAG
 Tag name: v1r4p2, operation: add
 Package: pointlike
