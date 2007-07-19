@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.5 2007/07/18 23:28:28 mar0 Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.6 2007/07/19 14:45:12 burnett Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
@@ -31,7 +31,7 @@ double goldensearch(std::vector<astro::SkyDir> directions, pointlike::Data healp
     double x3 = cx;
     double x1,x2;
     double xmin,fmin;
-    if (abs(cx-bx) > abs(bx-ax)) {
+    if (fabs(cx-bx) > fabs(bx-ax)) {
         x1 = bx;
         x2 = bx + C*(cx-bx);
     }else {
