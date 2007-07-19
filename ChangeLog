@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Thu Jul 19 07:45:12 PDT 2007
+pointlike/src/pointfit
+
+Modified Files:
+	pointfit_main.cxx 
+Log Message:
+make sigma fitter optional.
+    *
+------------------------------------------------------------
+User: burnett  Thu Jul 19 07:45:12 PDT 2007
 pointlike/python
 
 Modified Files:
