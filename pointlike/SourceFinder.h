@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/users/burnett/tools/tools/SourceFinder.h,v 1.9 2007/06/03 18:00:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.1 2007/07/14 03:50:54 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -59,6 +59,8 @@ namespace pointlike {
     class SourceFinder {
     public:
 
+        SourceFinder(const pointlike::Data& data);
+
         typedef std::map<astro::HealPixel, CanInfo> Candidates; 
 
         //! Region selection
@@ -70,6 +72,8 @@ namespace pointlike {
             POLAR = 3, ///< Select polar region only.
         } RegionSelector;
 
+#if 0 // not currently implemented
+
         /** @brief ctor sets up search
         @param datafile the root file containing the data, to be ingested to a PhotonMap
         */
@@ -77,14 +81,12 @@ namespace pointlike {
 
         SourceFinder(const std::string& rootfile, int event_type=-1, int source_id=-1 );
 
-#if 0 // not currently implemented
         /** @brief ctor sets up search
         @param inputFile fits file containing stored PhotonMap structure
         @param tablename fits table name
         */
         SourceFinder(const std::string & inputFile, const std::string & tablename,
             DiffuseCounts* dc);
-#endif
 
         //! add  data from the file to current set
         //! @param event_type 0 for class A front, etc
@@ -93,6 +95,7 @@ namespace pointlike {
         {
             m_data.add(file, event_type, source_id);
         }
+#endif
 
 
         /** @brief return modifiable reference to candidates map
@@ -157,7 +160,6 @@ namespace pointlike {
 
 
     private:
-        Data m_data;
         const map_tools::PhotonMap& m_pmap;
         Candidates m_can;
         DiffuseCounts* m_counts;

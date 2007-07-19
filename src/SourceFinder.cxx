@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.1 2007/07/14 03:50:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.2 2007/07/18 16:22:23 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -51,8 +51,11 @@ using namespace map_tools;
 using namespace astro;
 using namespace pointlike;
 
-
-
+SourceFinder::SourceFinder(const pointlike::Data& map)
+: m_pmap(map)
+, m_counts(0)
+{}
+#if 0
 SourceFinder::SourceFinder( const std::string& datafile, DiffuseCounts* dc)
 : m_data(datafile, 0)
 , m_pmap(m_data)
@@ -60,7 +63,6 @@ SourceFinder::SourceFinder( const std::string& datafile, DiffuseCounts* dc)
 {
 }
 
-#if 0 // not currently implementd
 SourceFinder::SourceFinder( const std::string & inputFile, const std::string & tablename,
                            DiffuseCounts* dc)
                            : m_data(inputFile, tablename)
@@ -68,12 +70,12 @@ SourceFinder::SourceFinder( const std::string & inputFile, const std::string & t
                            , m_counts(dc)
 {
 }
-#endif
 SourceFinder::SourceFinder(const std::string& rootfile, int event_type, int source_id)
 : m_data(rootfile, event_type, source_id)
 , m_pmap(m_data)
 {
 }
+#endif
 
 
 /** @brief
@@ -149,9 +151,9 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
         astro::SkyDir sd;
         //if (it->first.level() != pix_level) continue; // Only want to examine at pixelization level at this point.
         double abs_b = fabs((it->first)().b());
-        if (region == SourceFinder::RegionSelector::EQUATORIAL && abs_b >= equator_boundary
-            || region == SourceFinder::RegionSelector::POLAR && abs_b <= polar_boundary
-            || region == SourceFinder::RegionSelector::MIDDLE && (abs_b < equator_boundary || abs_b > polar_boundary))
+        if (region == SourceFinder::EQUATORIAL && abs_b >= equator_boundary
+            || region == SourceFinder::POLAR && abs_b <= polar_boundary
+            || region == SourceFinder::MIDDLE && (abs_b < equator_boundary || abs_b > polar_boundary))
             continue;
         int count = m_pmap.photonCount(it->first, sd);
         if (count >= count_threshold)
@@ -179,7 +181,7 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
 
 
         // perform likelihood analysis at the current candidate position  
-        PointSourceLikelihood ps(m_data, "test",currentpos , 7.0);//<=========== wired
+        PointSourceLikelihood ps(m_pmap, "test",currentpos , 7.0);//<=========== wired
         //double ts = ps.maximize(); // debug only.  delete this statement
         //double ra = currentpos.ra(), dec = currentpos.dec(); // debug only
         //ps.setBackgroundDensity(GetBackgroundDensity(currentpos));
@@ -256,7 +258,7 @@ void SourceFinder::checkDir(astro::SkyDir & sd,
         ts_min = polar_TS_min;
     else
         ts_min = mid_TS_min;
-    PointSourceLikelihood ps(m_data, "test", new_dir, 7.0);
+    PointSourceLikelihood ps(m_pmap, "test", new_dir, 7.0);
     ps.set_verbose(true);
 #if 0
     if (background_filter)
@@ -462,7 +464,7 @@ void SourceFinder::createTable(const std::string& fileName,
     for (Candidates::const_iterator it = m_can.begin(); it != m_can.end(); ++it) {
         // refit to get energy spectrum
         astro::SkyDir dir = it->second.dir();
-        PointSourceLikelihood ps(m_data, "test", dir, 7.0);
+        PointSourceLikelihood ps(m_pmap, "test", dir, 7.0);
 #if 0
         if (get_background)
             ps.setBackgroundDensity(m_counts->integral(dir, m_pmap.energyBins()));
