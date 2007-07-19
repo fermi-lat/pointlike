@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Thu Jul 19 08:20:59 PDT 2007
+pointlike/src/pointfit
+
+Modified Files:
+	pointfit_main.cxx 
+Log Message:
+linux fixes
+    *
+------------------------------------------------------------
+User: burnett  Thu Jul 19 08:20:59 PDT 2007
 pointlike/src/finder
 
 Modified Files:
