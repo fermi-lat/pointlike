@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.6 2007/07/19 14:45:12 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.7 2007/07/19 15:20:59 burnett Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
@@ -50,7 +50,7 @@ double goldensearch(std::vector<astro::SkyDir> directions, pointlike::Data healp
     }
     if(f1==0||f2==0) return -1;
     int k = 1;
-    while(abs(x3-x0) > tol*(abs(x1)+abs(x2))) {
+    while(fabs(x3-x0) > tol*(fabs(x1)+fabs(x2))) {
         iter2=0;
         double a1=0;
         double a2=0;
@@ -190,14 +190,14 @@ int main(int argc, char** argv)
             for(int i=minlevel;i<=maxlevel;i++) {
                 PointSourceLikelihood::set_sigma_level(i,1.);
             }
-            double num2look = 10;
+            int num2look = 10;
             int timeout = 30;
             double tol = 1e-3;
             for(int iter=minlevel;iter<=maxlevel;++iter) {
                 int whileit =0;
                 double maxfactor = 0;
                 double osigma=0;
-                while(maxfactor>=0&&abs(maxfactor-1.)>tol&&whileit<timeout){
+                while(maxfactor>=0 && fabs(maxfactor-1.)>tol && whileit<timeout){
                     maxfactor = goldensearch(directions,healpixdata,num2look,iter);
                     if(maxfactor>0) {
                         osigma = PointSourceLikelihood::set_sigma_level(iter,pow(maxfactor,-0.5));
