@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jul 19 07:45:12 PDT 2007
+pointlike/python
+
+Modified Files:
+	pointfit_setup.py 
+Log Message:
+make sigma fitter optional.
+    *
+------------------------------------------------------------
 TAG
 Tag name: v1r4p1, operation: add
 Package: pointlike
