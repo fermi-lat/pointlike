@@ -1,7 +1,7 @@
 /** @file finder_main.cxx
     @brief  Finder
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.4 2007/07/05 00:43:40 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/finder/finder_main.cxx,v 1.1 2007/07/19 14:07:57 burnett Exp $
 
 */
 #include "pointlike/SourceFinder.h"
@@ -55,7 +55,7 @@ int main(int argc, char** argv)
             ;
 
         pointlike::SourceFinder::RegionSelector region =
-            pointlike::SourceFinder::RegionSelector::ALL;
+            pointlike::SourceFinder::ALL;
 
         bool includeChildren (true), 
              weighted( true),
