@@ -1,11 +1,10 @@
 #  setup for point fit test
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.1.1.1 2007/06/14 18:30:14 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.2 2007/06/25 20:59:25 burnett Exp $
 
 # data selection parameters
 
 radius = 7.0   # radius in degrees for initial data selection
 event_type = -1 # 0, select front only; -1 no selection
-               # note that current algorithm only works on front-conversion events
 source_id =-1  # -1: all sources -- select according to Monte Carlo source id, if present
 
 
@@ -25,20 +24,25 @@ verbose = 0  # set non-zero to get lots of output
 
 #  specify files with FT1 data and points to fit.
 
+# test data from the pattern
 path = "F:/glast/data/SourceDetection"  #location on glast-ts
-#files = [path+"/pl_0_events_0000.fits" ,path+"/bg_low_0_events_0000.fits"]
-files = ["F:/condor/alignment/scanning/jobs100-149/tuple.root"]
-#,
-#        "F:/condor/alignment/scanning/jobs200-299/tuple.root",
-#]
+files = [path+"/pl_0_events_0000.fits" ,
+         path+"/bg_low_0_events_0000.fits"]
 
-        
-points=[['vela',   128.73, -45.2 ]]
-#        ['crab',    83.57,  22.01],
-#        ['geminga', 98.49,  17.86]]
+# this list is from  the sourcelist.txt, the strongest, hardest ones
+sourceinfo="""\
+Source_15       1.6     1.1643E-4      207.71  -30
+Source_16       1.6     1.5527E-4      214.64  -30 
+Source_17       1.6     2.0705E-4      221.57  -30 
+Source_18       1.6     2.7611E-4       228.5  -30
+Source_19       1.6     3.6820E-4      235.43  -30
+Source_20       1.6     4.9100E-4      242.35  -30
+Source_21       1.6     6.5476E-4      249.28  -30"""
 
-# program expects separate lists
-name  = [point[0] for point in points]
-ra    = [point[1] for point in points]
-dec   = [point[2] for point in points]
-
+name=[]; ra=[]; dec=[]
+for line in sourceinfo.split('\n'):
+   fields = line.split()
+   name.append( fields[0])
+   ra.append(float(fields[3]))
+   dec.append(float(fields[4]))
+  

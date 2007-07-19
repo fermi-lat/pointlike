@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.4 2007/07/05 00:43:40 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.5 2007/07/18 23:28:28 mar0 Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
@@ -145,6 +145,10 @@ int main(int argc, char** argv)
         setup.getList("ra", ras);
         setup.getList("dec", decs);
 
+        // flag, if present, to run sigma fitter
+        int check_sigma;
+        setup.getValue("check_sigma", check_sigma, 0);
+
         // use the  Data class to create the PhotonData object
         Data healpixdata(filelist,  event_type, source_id, ft2file);
 
@@ -181,26 +185,28 @@ int main(int argc, char** argv)
 
             directions.push_back(like.dir());
         }
-        std::cout << "Creating Likelihood set from data" << std::endl;
-        for(int i=minlevel;i<=maxlevel;i++) {
-            PointSourceLikelihood::set_sigma_level(i,1.);
-        }
-        double num2look = 10;
-        int timeout = 30;
-        double tol = 1e-3;
-        for(int iter=minlevel;iter<=maxlevel;++iter) {
-            int whileit =0;
-            double maxfactor = 0;
-            double osigma=0;
-            while(maxfactor>=0&&abs(maxfactor-1.)>tol&&whileit<timeout){
-                maxfactor = goldensearch(directions,healpixdata,num2look,iter);
-                if(maxfactor>0) {
-                    osigma = PointSourceLikelihood::set_sigma_level(iter,pow(maxfactor,-0.5));
-                    osigma*= PointSourceLikelihood::set_sigma_level(iter,osigma*pow(maxfactor,-0.5));
-                }
-                whileit++;
+        if( check_sigma){
+            std::cout << "Creating Likelihood set from data" << std::endl;
+            for(int i=minlevel;i<=maxlevel;i++) {
+                PointSourceLikelihood::set_sigma_level(i,1.);
             }
-            std::cout << "Best value of sigma for level " << iter << " was " << (maxfactor>0?osigma:-1) << " with a scale factor of: " << (maxfactor>0?maxfactor:-1) << std::endl;
+            double num2look = 10;
+            int timeout = 30;
+            double tol = 1e-3;
+            for(int iter=minlevel;iter<=maxlevel;++iter) {
+                int whileit =0;
+                double maxfactor = 0;
+                double osigma=0;
+                while(maxfactor>=0&&abs(maxfactor-1.)>tol&&whileit<timeout){
+                    maxfactor = goldensearch(directions,healpixdata,num2look,iter);
+                    if(maxfactor>0) {
+                        osigma = PointSourceLikelihood::set_sigma_level(iter,pow(maxfactor,-0.5));
+                        osigma*= PointSourceLikelihood::set_sigma_level(iter,osigma*pow(maxfactor,-0.5));
+                    }
+                    whileit++;
+                }
+                std::cout << "Best value of sigma for level " << iter << " was " << (maxfactor>0?osigma:-1) << " with a scale factor of: " << (maxfactor>0?maxfactor:-1) << std::endl;
+            }
         }
         if( !outfile.empty()){
             delete out;
