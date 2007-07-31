@@ -1,8 +1,8 @@
 package pointlike
 
-version v1r4p2
+version v1r5
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.10 2007/07/19 13:52:13 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.11 2007/07/19 15:22:11 burnett Exp $
 
 use STpolicy *
 use map_tools *
