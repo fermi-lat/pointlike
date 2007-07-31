@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jul 31 12:56:07 PDT 2007
+pointlike/src
+
+Modified Files:
+	Data.cxx PointSourceLikelihood.cxx 
+Log Message:
+modify energy scaling. Wire in better scale parameters.
+    *
+------------------------------------------------------------
 User: burnett  Thu Jul 19 12:07:28 PDT 2007
 pointlike/src/pointfit
 
