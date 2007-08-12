@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.7 2007/07/19 15:20:59 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.8 2007/07/19 19:07:27 burnett Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
@@ -109,9 +109,7 @@ int main(int argc, char** argv)
         double radius(7.0)
             , TSmin (5)
             ; // 
-        int   event_type(0)  // 0: select front only; -1 no selection
-            , source_id(-1)  // -1: all sources 
-            , minlevel(8)    // minimum level to use for fits (>-6)  
+        int   minlevel(8)    // minimum level to use for fits (>-6)  
             , maxlevel(13)   // maximum level for fits  (<=13)
             , skip1(2)       // inital number of layers to skip in localization fit
             , skip2(4)       // don't skip beyond this
@@ -120,8 +118,6 @@ int main(int argc, char** argv)
         int verbose(0); // set true to see fit progress
 
         setup.getValue("radius", radius, 7.0);
-        setup.getValue("event_type", event_type, 0);
-        setup.getValue("source_id", source_id, -1);
         setup.getValue("TSmin",   TSmin, 5);
         setup.getValue("minlevel", minlevel, 8);
         setup.getValue("maxlevel", maxlevel, 13);
@@ -130,10 +126,7 @@ int main(int argc, char** argv)
         setup.getValue("itermax", itermax, 2);
         setup.getValue("verbose", verbose, 0);
     
-        std::vector<std::string> filelist;
-        std::string ft2file, outfile;
-        setup.getList("files", filelist);
-        setup.getValue("FT2file",  ft2file, "");
+        std::string outfile;
         setup.getValue("outfile",  outfile, "");
 
 
@@ -150,13 +143,13 @@ int main(int argc, char** argv)
         setup.getValue("check_sigma", check_sigma, 0);
 
         // use the  Data class to create the PhotonData object
-        Data healpixdata(filelist,  event_type, source_id, ft2file);
+        Data healpixdata(setup);
 
         std::ostream* out = &std::cout;
         if( !outfile.empty() ) {
             out = new std::ofstream(outfile.c_str());
         }
-        (*out) << std::left << std::setw(15) <<"name" << "     TS   error    ra     dec\n";
+        (*out) << std::left << std::setw(20) <<"name" << "     TS   error    ra     dec\n";
 
         for( size_t n=0; n< names.size(); ++n){
             astro::SkyDir dir(ras[n], decs[n]);
@@ -174,10 +167,10 @@ int main(int argc, char** argv)
             double sigma =like.localize(skip1, skip2, itermax, TSmin);
 
             // add entry to table with name, total TS, localizatino sigma, fit direction
-            (*out) << std::left << std::setw(15) << name 
+            (*out) << std::left << std::setw(20) << name 
                 << std::setprecision(2) << std::setw(8) << std::fixed << std::right
                 << like.TS() 
-                << std::setprecision(4) 
+                << std::setprecision(5) 
                 << std::setw(10) << sigma
                 << std::setw(10) << like.dir().ra() 
                 << std::setw(10) << like.dir().dec() 

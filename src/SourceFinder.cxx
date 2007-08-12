@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.2 2007/07/18 16:22:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.3 2007/07/19 13:46:44 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -140,7 +140,7 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
     }
     std::cout << std::endl;
 
-    m_pmap.extract(dir, radius, v, pix_level, true);
+    m_pmap.extract_level(dir, radius, v, pix_level, true);
     std::cout << v.size() << " pixels will be examined.\n";
     Candidates can;
     can.clear();

@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.6 2007/07/14 22:13:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.7 2007/07/31 19:56:07 burnett Exp $
 
 */
 
@@ -31,6 +31,7 @@ double Data::s_scale[4]={1.0, 1.86, 1.0, 1.0}; // wired in for front, back !!
 
 
 namespace {
+
     /** @class Photon
         @brief derive from astro::Photon to allow transformation
 
@@ -226,6 +227,32 @@ namespace {
 
 } // anon namespace
 
+Data::Data(embed_python::Module& setup)
+{
+    std::string pixelfile(""), tablename("PHOTONMAP");
+
+    setup.getValue("pixelfile", pixelfile, "");
+
+    if(!pixelfile.empty()){
+        m_data = new map_tools::PhotonMap(pixelfile, tablename);
+        return;
+    }
+
+    m_data = new map_tools::PhotonMap();
+    int  event_class, source_id;
+    std::vector<std::string> filelist;
+
+    setup.getList("files", filelist);
+    setup.getValue("event_class", event_class, -1);
+    setup.getValue("source_id",  source_id, -1);
+
+    for( std::vector<std::string>::const_iterator it = filelist.begin(); 
+        it !=filelist.end(); ++it)
+    {
+        const std::string& inputFile(*it);
+        add(inputFile, event_class, source_id);
+    }
+}
 
 void Data::add(const std::string& inputFile, int event_type, int source_id)
 {
@@ -250,14 +277,12 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
 }
 Data::Data(const std::string& inputFile, int event_type, int source_id)
 : m_data(new map_tools::PhotonMap())
-, m_ft2file("")
 {
     add(inputFile, event_type, source_id);
 }
 
-Data::Data(std::vector<std::string> inputFiles, int event_type, int source_id, std::string ft2file )
+Data::Data(std::vector<std::string> inputFiles, int event_type, int source_id )
 : m_data(new map_tools::PhotonMap())
-, m_ft2file(ft2file)
 {
 
     for( std::vector<std::string>::const_iterator it = inputFiles.begin(); 
@@ -268,4 +293,14 @@ Data::Data(std::vector<std::string> inputFiles, int event_type, int source_id, s
     }
 }
 
+Data::Data(const std::string & inputFile, const std::string & tablename)
+: m_data(new map_tools::PhotonMap(inputFile, tablename))
+{
 
+
+}
+
+Data::~Data()
+{
+    delete m_data;
+}
