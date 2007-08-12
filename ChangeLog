@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sat Aug 11 21:18:57 PDT 2007
+pointlike/src
+
+Modified Files:
+	Data.cxx SourceFinder.cxx 
+Log Message:
+create pointfind application; use python module for data
+    *
+------------------------------------------------------------
+User: burnett  Sat Aug 11 21:18:57 PDT 2007
 pointlike/pointlike
 
 Modified Files:
