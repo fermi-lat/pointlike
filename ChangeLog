@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Fri Aug 24 15:02:25 PDT 2007
+pointlike/src
+
+Modified Files:
+	Data.cxx 
+Log Message:
+add possibility to write density image file
+    *
+------------------------------------------------------------
+User: burnett  Fri Aug 24 15:02:25 PDT 2007
 pointlike/pointlike
 
 Modified Files:
