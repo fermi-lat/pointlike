@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.7 2007/07/31 19:56:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.8 2007/08/12 04:18:57 burnett Exp $
 
 */
 
@@ -12,6 +12,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.7 2007/07/31 19
 #include "astro/PointingTransform.h"
 
 #include "map_tools/PhotonMap.h"
+#include "map_tools/SkyImage.h"
 
 #include "tip/IFileSvc.h"
 #include "tip/Table.h"
@@ -296,11 +297,74 @@ Data::Data(std::vector<std::string> inputFiles, int event_type, int source_id )
 Data::Data(const std::string & inputFile, const std::string & tablename)
 : m_data(new map_tools::PhotonMap(inputFile, tablename))
 {
-
-
 }
 
 Data::~Data()
 {
     delete m_data;
+}
+
+void Data::draw_region(const astro::SkyDir& dir, std::string outputFile, double pixel, double fov)
+{
+    int layers(1);
+    bool galactic(true);
+        
+    map_tools::SkyImage image(dir, outputFile, pixel, fov, layers, 
+        fov>90? "AIT":"ZEA",  galactic);
+    std::cout << "Filling image layer 0 with density ..." << std::endl;
+    image.fill(*m_data, 0); // PhotonMap is a SkyFunction of the density 
+    std::cout 
+        <<   "\t minimum "<< image.minimum()
+        << "\n\t maximum "<< image.maximum()
+        << "\n\t average "<< (image.total()/image.count())
+        << std::endl;
+#if 0 // maybe implement later?
+    class SkyCount : public astro::SkyFunction {
+    public:
+        SkyCount(const map_tools::PhotonMap& data, int level, CountType counts):
+          m_data(data), m_level(level), m_counts(counts) {}
+
+          double operator()(const astro::SkyDir & sd) const {
+              bool includeChildren = (m_counts == CountType::CHILDREN || m_counts == CountType::WEIGHTED),
+                  weighted        = (m_counts == CountType::WEIGHTED);
+              double  value = m_data.photonCount(astro::HealPixel(sd, m_level), includeChildren, weighted); 
+              return value;    
+          }
+    private:
+        const map_tools::PhotonMap& m_data;
+        int m_level;
+        CountType m_counts;
+    };
+
+    // Where HealPixel width for level > display pixel width, use fill().
+    int layer = 1, level = m_data->minLevel(), minLevel=level;
+    for (; level < minLevel + m_data->levels()
+        && (sqrt(HealPixel(SkyDir(0,0), level).area())) * (180/M_PI) >= 1.15 * pixel;
+        ++level, ++ layer)
+    {
+        std::cout << "Filling image layer "<<layer<< " with  counts on level "<<level << std::endl;
+        image.fill(SkyCount(*m_data, level, counts), layer);  
+    }
+    // Where HealPixel width for level <= display pixel width, use addPoint().
+
+    std::cout << "Filling layers "<< layer << " and above with ... ";
+    int points(0);
+    for (map_tools::PhotonMap::const_iterator it = m_data->begin();
+        it!= m_data->end(); ++it)
+    {
+        if (it->first.level() >= level) {
+            int layer = it->first.level() - m_data->minLevel() + 1;
+            if(image.addPoint((it->first)(), it->second, layer)) points+= it->second;
+        }
+    }
+    std::cout <<  points << " hit display pixels" << std::endl;
+#endif
+
+    std::cout << "Writing image to file \""
+        << outputFile << "\""<<std::endl;
+
+}
+void Data::draw_sky(std::string outputfile, double pixel)
+{
+    draw_region(SkyDir(0,0, SkyDir::GALACTIC), outputfile, pixel, 180.);
 }
