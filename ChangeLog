@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Aug 24 15:02:25 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	Data.h 
+Log Message:
+add possibility to write density image file
+    *
+------------------------------------------------------------
 User: burnett  Sat Aug 11 21:18:57 PDT 2007
 pointlike/python
 
