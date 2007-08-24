@@ -1,19 +1,19 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.3 2007/07/14 03:50:54 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.4 2007/08/12 04:18:57 burnett Exp $
 */
 
 
 #ifndef pointlike_Data_h
 #define pointlike_Data_h
 
-namespace map_tools {
-class PhotonMap;
-}
+namespace map_tools {class PhotonMap;}
+namespace astro { class SkyDir; }
 #include <string>
 #include <vector>
 #include "embed_python/Module.h"
+
 
 namespace pointlike {
 /***
@@ -57,6 +57,15 @@ public:
     //! same as above, for python use
     const map_tools::PhotonMap& map()const{return *m_data;}
 
+    
+    //! create FITS image file using the data
+    //! @param dir center
+    //! @param dir file to write
+    //! @param pixel
+    //! @param fov
+
+    void draw_region(const astro::SkyDir& dir, std::string outputFile, double pixel, double fov);
+    void draw_sky(std::string outputfile, double pixel);
     ~Data();
 
     static double s_scale[4]; // scale factors
