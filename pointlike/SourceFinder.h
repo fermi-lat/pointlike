@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.1 2007/07/14 03:50:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.2 2007/07/19 13:45:15 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -9,6 +9,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.1 2
 
 //#include "tools/PowerLawFilter.h"
 #include "pointlike/Data.h"
+#include "pointlike/CalData.h"
 
 #include "map_tools/PhotonMap.h"
 
@@ -29,9 +30,13 @@ namespace pointlike {
     public:
         CanInfo(double value = 0, double sigma = 0, astro::SkyDir dir = astro::SkyDir(0,0)):
           m_value(value), m_sigma(sigma), m_dir(dir), m_2bdeleted(false),
-              m_isSource(false) {}
+              m_isSource(false) {
+              }
 
               double value () const {return m_value;}
+              double values (int level) {return m_values[level];}
+              double photons (int level) {return m_photons[level];}
+              double sigalph (int level)  {return m_sigalph[level];}
               double sigma () const {return m_sigma;}
               astro::SkyDir dir () const {return m_dir;}
               double ra() const {return m_dir.ra();}
@@ -40,9 +45,15 @@ namespace pointlike {
               bool isSource () const {return m_isSource;}
               void setDelete () {m_2bdeleted = true;}
               void setSource (bool value = true) {m_isSource = value;}
+              void setValue(int level, double val) {m_values[level] = val;}
+              void setPhotons(int level, double photons) {m_photons[level] = photons;}
+              void setSigalph(int level, double sigalph) {m_sigalph[level] = sigalph;}
 
     private:
         double m_value; ///< TS value.
+        std::map<int,double> m_values;
+        std::map<int,double> m_photons;
+        std::map<int,double> m_sigalph;
         double m_sigma; ///< localization sigma
         astro::SkyDir m_dir;
         bool   m_2bdeleted; // True means this is flagged to be deleted later.
@@ -60,6 +71,8 @@ namespace pointlike {
     public:
 
         SourceFinder(const pointlike::Data& data);
+
+        SourceFinder(const pointlike::CalData& data);
 
         typedef std::map<astro::HealPixel, CanInfo> Candidates; 
 

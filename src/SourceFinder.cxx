@@ -6,7 +6,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.3 2007/
 
 #include "pointlike/SourceFinder.h"
 #include "pointlike/PointSourceLikelihood.h"
-#include "PowerLawFilter.h"
+#include "pointlike/PowerLawFilter.h"
 
 #include <fstream>
 #include <iostream>
@@ -52,6 +52,11 @@ using namespace astro;
 using namespace pointlike;
 
 SourceFinder::SourceFinder(const pointlike::Data& map)
+: m_pmap(map)
+, m_counts(0)
+{}
+
+SourceFinder::SourceFinder(const pointlike::CalData& map)
 : m_pmap(map)
 , m_counts(0)
 {}
@@ -140,14 +145,15 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
     }
     std::cout << std::endl;
 
-    m_pmap.extract_level(dir, radius, v, pix_level, true);
+    m_pmap.extract(dir, radius, v, pix_level, true);
     std::cout << v.size() << " pixels will be examined.\n";
     Candidates can;
     can.clear();
-
+    int num(0);
     for(std::vector<std::pair<astro::HealPixel, int> >::const_iterator it = v.begin();
         it != v.end(); ++it)
     {
+        ShowPercent(num,v.size(),can.size());
         astro::SkyDir sd;
         //if (it->first.level() != pix_level) continue; // Only want to examine at pixelization level at this point.
         double abs_b = fabs((it->first)().b());
@@ -156,8 +162,10 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
             || region == SourceFinder::MIDDLE && (abs_b < equator_boundary || abs_b > polar_boundary))
             continue;
         int count = m_pmap.photonCount(it->first, sd);
+        
         if (count >= count_threshold)
             can[it->first] = CanInfo(count, 0, sd);
+        ++num;
     }
 
     std::cout << can.size() << " pixels at level " << pix_level << " passed weighted count test.\n";
@@ -213,6 +221,10 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
             // add to the final list, indexed according to level 13 location
             HealPixel px(ps.dir(), 13); 
             m_can[px] = CanInfo(ts, error, ps.dir());
+            for(int id = 6;id<14;++id) {
+                m_can[px].setValue(id,ps.levelTS(id));
+                m_can[px].setPhotons(id,ps[id]->photons()*ps[id]->alpha());
+            }
         }
     }
     std::cout << m_can.size() << " sources found before pruning neighbors.\n";
@@ -461,15 +473,9 @@ void SourceFinder::createTable(const std::string& fileName,
     table << std::endl;
 
 
-    for (Candidates::const_iterator it = m_can.begin(); it != m_can.end(); ++it) {
+    for (Candidates::iterator it = m_can.begin(); it != m_can.end(); ++it) {
         // refit to get energy spectrum
         astro::SkyDir dir = it->second.dir();
-        PointSourceLikelihood ps(m_pmap, "test", dir, 7.0);
-#if 0
-        if (get_background)
-            ps.setBackgroundDensity(m_counts->integral(dir, m_pmap.energyBins()));
-#endif
-        double ts = ps.maximize(skip_TS);
 
         table
             << "UW_J"<< int(dir.ra()*10+0.5) 
@@ -477,17 +483,17 @@ void SourceFinder::createTable(const std::string& fileName,
             << it->second.isSource() << delim
             << dir.ra()  << delim
             << dir.dec() << delim
-            << sqrt(ts)  << delim  // sigma
+            << sqrt(it->second.value())  << delim  // sigma
             << 3.*it->second.sigma() << delim // error circle
             << dir.l() << delim
             << dir.b() << delim
             ;
         for( int i=6; i<14; ++i){
-            table << precision(ps[i]->TS(),0.1) << delim;
+            table << precision(it->second.values(i),0.1) << delim;
         }
         // measured number of signal photons per band
         for( int i=6; i<14; ++i){
-            table << precision(ps[i]->photons()* ps[i]->alpha(),0.1) << delim;
+            table << precision(it->second.photons(i),0.1) << delim;
         }
 
         // check power law fit
@@ -496,7 +502,7 @@ void SourceFinder::createTable(const std::string& fileName,
         std::vector<double> energyBins = m_pmap.energyBins();
         for( int i=8; i<14; ++i)
         {
-            double count = ps[i]->photons()* ps[i]->alpha();
+            double count = it->second.photons(i);
             if (count > 1e-10)
                 values.push_back(std::make_pair(energyBins[i - 6], count));
         }
@@ -509,10 +515,10 @@ void SourceFinder::createTable(const std::string& fileName,
         double chi_sq = 0.0;
         for( int i=8; i<14; ++i)
         {
-            double sigma =  1 - ps[i]->sigma_alpha();
+            double sigma =  1 - it->second.sigalph(i);
             if (fabs(sigma) < 1e-10)
                 sigma = 1e-10;
-            double chi = (ps[i]->photons()* ps[i]->alpha()) - (pl.constant() * pow(energyBins[i - 6], pl.slope()))
+            double chi = (it->second.photons(i)) - (pl.constant() * pow(energyBins[i - 6], pl.slope()))
                 / sigma;
             chi_sq += chi * chi;
         }
