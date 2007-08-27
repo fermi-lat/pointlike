@@ -1,5 +1,17 @@
 ------------------------------------------------------------
 User: mar0  Mon Aug 27 16:24:00 PDT 2007
+pointlike/src
+
+Modified Files:
+	PowerLawFilter.cxx SimpleLikelihood.cxx SourceFinder.cxx 
+Added Files:
+	CalData.cxx SigmaOptimization.cxx UbPointSourceLikelihood.cxx 
+	UbSimpleLikelihood.cxx 
+Log Message:
+added: unbinned lhood, sigma optimization, and alignment data input; fixed: finder output efficiency
+    *
+------------------------------------------------------------
+User: mar0  Mon Aug 27 16:24:00 PDT 2007
 pointlike/pointlike
 
 Modified Files:
