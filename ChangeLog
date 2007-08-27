@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: mar0  Mon Aug 27 16:24:01 PDT 2007
+pointlike/src/alignment
+
+Added Files:
+	alignment.txt alignment_main.cxx vela.txt 
+Log Message:
+added: unbinned lhood, sigma optimization, and alignment data input; fixed: finder output efficiency
+    *
+------------------------------------------------------------
+User: mar0  Mon Aug 27 16:24:01 PDT 2007
 pointlike/python
 
 Added Files:
