@@ -1,7 +1,7 @@
 /** @file PowerLawFilter.h
 @brief declare class PowerLawFilter
 
-$Header: /nfs/slac/g/glast/ground/cvs/users/burnett/tools/tools/PowerLawFilter.h,v 1.2 2007/06/03 18:00:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PowerLawFilter.h,v 1.1 2007/07/14 03:50:54 burnett Exp $
 */
 
 #ifndef tools_PowerLawFilter_h
@@ -11,7 +11,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/users/burnett/tools/tools/PowerLawFilter.h
 #include <cmath>
 
 
-namespace tools {
+namespace pointlike {
 
     /**
     @class DataPoint
@@ -81,6 +81,6 @@ namespace tools {
 
 
 
-} // namespace tools
+} // namespace pointlike
 
 #endif
