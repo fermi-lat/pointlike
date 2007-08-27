@@ -1,10 +1,10 @@
 /** @file PowerLawFilter.cxx
 @brief implementation of PowerLawFilter
 
-$Header: /nfs/slac/g/glast/ground/cvs/users/burnett/tools/src/PowerLawFilter.cxx,v 1.2 2007/06/03 18:00:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PowerLawFilter.cxx,v 1.1 2007/07/14 03:50:54 burnett Exp $
 */
 
-#include "PowerLawFilter.h"
+#include "pointlike/PowerLawFilter.h"
 
 #include <vector>
 #include <cmath>

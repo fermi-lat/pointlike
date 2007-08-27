@@ -1,14 +1,14 @@
-/** @file SimpleLikelihood.h
-    @brief declaration of class SimpleLikelihood
+/** @file UbSimpleLikelihood.h
+    @brief declaration of class UbSimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.4 2007/07/18 23:28:27 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/UbSimpleLikelihood.h,v 1.4 2007/07/18 23:28:27 mar0 Exp $
 
 */
 
-#ifndef tools_Likelihood_h
-#define tools_Likelihood_h
+#ifndef pointlike_Likelihood_h
+#define pointlike_Likelihood_h
 
-#include "astro/HealPixel.h"
+#include "astro/Photon.h"
 #include "astro/SkyDir.h"
 
 #include "pointlike/PsfFunction.h"
@@ -17,15 +17,15 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1
 #include <utility>
 
 namespace pointlike {
-/** @class SimpleLikelihood
-@brief Simple SimpleLikelihood analysis
+/** @class UbSimpleLikelihood
+@brief Simple UbSimpleLikelihood analysis
 
 Manage likelihood analysis of a simple model: constant background plus a point source, for data in an
 energy band such that the PSF is constant.
 
 */
 
-class SimpleLikelihood {
+class UbSimpleLikelihood {
 public:
     /** ctor
     @param data   vector of directions, weights
@@ -35,9 +35,9 @@ public:
     @param background [-1] background density, events/solid angle (negative to not use)
     @param umax   [25] maximum value for the u variable
     */
-    SimpleLikelihood(const std::vector<std::pair<astro::HealPixel,int> >& data,
+    UbSimpleLikelihood(const std::vector<astro::Photon>& data,
         const astro::SkyDir& dir, 
-        double gamma, double sigma, double background=-1, double umax=s_defaultUmax);
+        double gamma, double background=-1, double umax=s_defaultUmax);
 
 
     //! @return log likelihood for the signal fraction
@@ -81,10 +81,7 @@ public:
     double signal(double a=-1)const{return (a<0?m_alpha:a)*m_photon_count;}
 
     /// @return background estimte
-    double background()const{return m_background*solidAngle();}
-
-    /// @return the solid angle in sr for the circular aperature used for analysis
-    double solidAngle()const;
+    double background()const{return m_background;}
 
     /// set/retrieve the umax parameter
     double umax()const {return m_umax;}
@@ -96,7 +93,10 @@ public:
     double feval(double k);
 
     double kcurvature(double k);
+
+    double errorCircle() {return  sqrt(1./curvature())*180/M_PI;}
 private:
+
 
     //! @brief a quick estimate of the signal fraction
     //! @return the value of of the signal fraction
@@ -113,14 +113,13 @@ private:
 
     mutable double m_w;      // likelihood from gradient
 
-    //! vector of healpixels and the number of photons in each
-    const std::vector<std::pair<astro::HealPixel,int> >& m_vec;
+    //! vector of photons
+    const std::vector<astro::Photon> m_vec;
     //! simplified set with function or distances from m_dir 
     std::vector<std::pair<double, int> > m_vec2;
     std::vector<double> m_vec3; //storage of u values for fast Likelihood recalculation
     double m_averageF;
     pointlike::PsfFunction m_psf;
-    double m_sigma;
     double m_alpha, m_sigma_alpha; ///< current fit value, error
     mutable double m_curv;  // saved curvature from gradient calculation
     double m_background;  ///< expected background (negative: no estimate)
