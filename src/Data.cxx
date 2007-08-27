@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.8 2007/08/12 04:18:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.9 2007/08/24 22:02:25 burnett Exp $
 
 */
 
@@ -278,12 +278,14 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
 }
 Data::Data(const std::string& inputFile, int event_type, int source_id)
 : m_data(new map_tools::PhotonMap())
+, m_ft2file("")
 {
     add(inputFile, event_type, source_id);
 }
 
-Data::Data(std::vector<std::string> inputFiles, int event_type, int source_id )
+Data::Data(std::vector<std::string> inputFiles, int event_type, int source_id, std::string ft2file)
 : m_data(new map_tools::PhotonMap())
+, m_ft2file(ft2file)
 {
 
     for( std::vector<std::string>::const_iterator it = inputFiles.begin(); 
