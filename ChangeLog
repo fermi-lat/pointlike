@@ -1,5 +1,17 @@
 ------------------------------------------------------------
 User: mar0  Mon Aug 27 16:24:00 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	SimpleLikelihood.h SourceFinder.h 
+Added Files:
+	CalData.h SigmaOptimization.h UbPointSourceLikelihood.h 
+	UbSimpleLikeLihood.h 
+Log Message:
+added: unbinned lhood, sigma optimization, and alignment data input; fixed: finder output efficiency
+    *
+------------------------------------------------------------
+User: mar0  Mon Aug 27 16:24:00 PDT 2007
 pointlike/doc
 
 Modified Files:
