@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Mon Aug 27 16:24:01 PDT 2007
+pointlike/python
+
+Added Files:
+	alignment_setup.py 
+Log Message:
+added: unbinned lhood, sigma optimization, and alignment data input; fixed: finder output efficiency
+    *
+------------------------------------------------------------
 User: mar0  Mon Aug 27 16:24:00 PDT 2007
 pointlike/src/pointfit
 
