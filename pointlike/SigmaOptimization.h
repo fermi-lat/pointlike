@@ -1,9 +1,10 @@
 /** @file SigmaOptimization.h 
     @brief declaration of the SigmaOptimization class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/CalData.h,v 1.3 2007/07/14 03:50:54 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SigmaOptimization.h,v 1.1 2007/08/27 23:24:00 mar0 Exp $
 */
-
+#ifndef POINTLIKE_SIGMAOPTIMIZATION_H
+#define POINTLIKE_SIGMAOPTIMIZATION_H
 #include "pointlike/PointSourceLikelihood.h"
 #include "map_tools/PhotonMap.h"
 #include <iostream>
@@ -34,3 +35,4 @@ private:
 };
 
 }
+#endif
