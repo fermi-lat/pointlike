@@ -1,7 +1,7 @@
 /** @file Draw.cxx
 @brief implementation of Draw
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.9 2007/08/24 22:02:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.1 2007/08/30 18:12:54 burnett Exp $
 
 */
 
@@ -18,9 +18,9 @@ using astro::SkyDir;
 
 Draw::Draw(const map_tools::PhotonMap& map)
 : m_map(map)
-, m_countType(WEIGHTED)
 , m_galactic(true)
 , m_proj("")
+, m_countType(WEIGHTED)
 {}
 
 void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel, double fov )

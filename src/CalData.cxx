@@ -1,7 +1,7 @@
 /** @file CalData.cxx
 @brief implementation of CalData
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CalData.cxx,v 1.7 2007/07/31 19:56:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CalData.cxx,v 1.1 2007/08/27 23:24:00 mar0 Exp $
 
 */
 
@@ -113,10 +113,10 @@ namespace {
             }
         }
         map_tools::PhotonMap& m_map;
+        const HepRotation m_rot; 
         int m_select;
         int m_source;
         const std::vector<astro::SkyDir> m_sources;
-        const HepRotation m_rot; 
     };
     /**
     @class EventList
@@ -260,7 +260,7 @@ void CalData::add(const std::string& inputFile, int event_type, int source_id)
     HepRotation hr(0,0,0);
     AddPhoton adder(*m_data, hr, m_sources, event_type, source_id);
     EventList::Iterator it = photons.begin();
-    int starttime = (*(photons.begin())).time();
+    double starttime = (*(photons.begin())).time();
     for(EventList::Iterator it = photons.begin();it!=photons.end()&&((((*it).time()-starttime<=m_stop)&&((*it).time()-starttime>=m_start))||m_start==-1);++it) {
         adder(*it);
     }

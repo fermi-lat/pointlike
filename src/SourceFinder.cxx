@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.5 2007/08/27 23:24:00 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.6 2007/08/30 14:34:47 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -38,7 +38,7 @@ namespace {
         std::cout << s;
         if (sofar < total)
         {
-            for (int j = 0; j < strlen(s); ++j)
+            for (size_t j = 0; j < strlen(s); ++j)
                 std::cout << "\b";
         }
         else
@@ -161,7 +161,7 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
             || region == SourceFinder::POLAR && abs_b <= polar_boundary
             || region == SourceFinder::MIDDLE && (abs_b < equator_boundary || abs_b > polar_boundary))
             continue;
-        int count = m_pmap.photonCount(it->first, sd);
+        int count = static_cast<int>(m_pmap.photonCount(it->first, sd));
         
         if (count >= count_threshold)
             can[it->first] = CanInfo(count, 0, sd);
@@ -215,7 +215,7 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
 
         // also check number of photons in pixel
         HealPixel px_check(ps.dir(), 8);
-        int count = m_pmap.photonCount(px_check, true, false);
+        int count = static_cast<int>(m_pmap.photonCount(px_check, true, false));
         if (count >= photon_count_check) {  
 
             // add to the final list, indexed according to level 13 location
@@ -236,7 +236,7 @@ void SourceFinder::checkDir(astro::SkyDir & sd,
                             double polar_TS_min,
                             int    pix_level, 
                             int count_threshold,
-                            bool   background_filter,
+                            bool   /*background_filter*/,
                             int	skip_TS_levels,
                             double equator_boundary,
                             double polar_boundary) 
@@ -458,7 +458,7 @@ static float precision(double x, double s) // s is power of 10, like 0.01
 }
 void SourceFinder::createTable(const std::string& fileName, 
                                bool/* get_background*/,   // not used?
-                               int skip_TS)
+                               int /*skip_TS*/)
 {
     std::cout << "Writing results to the table " << fileName << std::endl;
 
