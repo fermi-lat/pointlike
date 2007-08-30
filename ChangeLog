@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Aug 30 10:51:37 PDT 2007
+pointlike/doc
+
+Modified Files:
+	release.notes 
+Log Message:
+remove, for now, the unbinned guys; fix other linux errors
+    *
+------------------------------------------------------------
 TAG
 Tag name: v2r0, operation: add
 Package: pointlike
