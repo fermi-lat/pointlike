@@ -26,7 +26,7 @@ m_data(data)
         double maxfactor = 0;
         double osigma=0;
         //iterative method for finding best fit (k->1)
-        while(maxfactor>=0&&abs(maxfactor-1.)>tol&&whileit<timeout){
+        while(maxfactor>=0&&fabs(maxfactor-1.)>tol&&whileit<timeout){
             maxfactor = goldensearch(directions,num2look,iter,radius);
             // sigma = sigma*maxfactor if maxfactor is an appropriate value
             if(maxfactor>0) {
@@ -69,7 +69,7 @@ double SigmaOptimization::goldensearch(const std::vector<astro::SkyDir>& directi
     double x3 = cx;
     double x1,x2;
     double xmin,fmin;
-    if (abs(cx-bx) > abs(bx-ax)) {
+    if (fabs(cx-bx) > fabs(bx-ax)) {
         x1 = bx;
         x2 = bx + C*(cx-bx);
     }else {
@@ -88,7 +88,7 @@ double SigmaOptimization::goldensearch(const std::vector<astro::SkyDir>& directi
     }
     if(f1==0||f2==0) return -1;
     int k = 1;
-    while(abs(x3-x0) > tol*(abs(x1)+abs(x2))) {
+    while(fabs(x3-x0) > tol*(fabs(x1)+fabs(x2))) {
         iter2=0;
         double a1=0;
         double a2=0;

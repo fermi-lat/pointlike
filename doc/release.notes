@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.14 2007/08/27 23:54:30 mar0 Exp $
+$Id: release.notes,v 1.15 2007/08/30 14:40:59 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 30-aug-07 v2r0p1  THB fix Linux issues
  30-aug-07 v2r0    MR  fixed data class and power law version issues
                        added: unbinned lhood, sigma optimization, and alignment data input; 
                        fixed: finder output efficiency 
