@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.13 2007/08/27 23:24:00 mar0 Exp $
+$Id: release.notes,v 1.14 2007/08/27 23:54:30 mar0 Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
- 27-aug-07 v1r7    MR  fixed data class and power law version issues
- 27-aug-07 v1r6    MR  added: unbinned lhood, sigma optimization, and alignment data input; fixed: finder output efficiency 
+ 30-aug-07 v2r0    MR  fixed data class and power law version issues
+                       added: unbinned lhood, sigma optimization, and alignment data input; 
+                       fixed: finder output efficiency 
  31-jul-07 v1r5    THB improve back strategy; use better scale constants
  18-jul-07 v1r4p2  THB Finding application(preliminary);  linux fix
  18-jul-07 v1r4    MR  Added scale factor manip to SimpLhood, updated test program
