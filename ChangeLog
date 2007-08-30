@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Aug 30 11:12:54 PDT 2007
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+add Draw,
+    *
+------------------------------------------------------------
 TAG
 Tag name: v2r0p1, operation: add
 Package: pointlike
