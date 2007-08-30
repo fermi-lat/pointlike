@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.6 2007/08/27 23:54:30 mar0 Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.7 2007/08/30 14:34:47 burnett Exp $
 */
 
 
@@ -53,10 +53,6 @@ public:
 
     //! behave like a PhotonMap object
     operator const map_tools::PhotonMap&() const {return *m_data;}
-
-    //fits image output
-    void draw_sky(std::string outputfile, double pixel);
-    void draw_region(const astro::SkyDir& dir, std::string outputFile, double pixel, double fov);
 
     //! same as above, for python use
     const map_tools::PhotonMap& map()const{return *m_data;}
