@@ -1,5 +1,16 @@
 ------------------------------------------------------------
 User: burnett  Thu Aug 30 10:51:37 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	SigmaOptimization.h 
+Removed Files:
+	UbPointSourceLikelihood.h UbSimpleLikeLihood.h 
+Log Message:
+remove, for now, the unbinned guys; fix other linux errors
+    *
+------------------------------------------------------------
+User: burnett  Thu Aug 30 10:51:37 PDT 2007
 pointlike/doc
 
 Modified Files:
