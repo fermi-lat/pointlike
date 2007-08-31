@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Aug 30 19:07:44 PDT 2007
+pointlike/src/pointfind
+
+Added Files:
+	finder_main.cxx 
+Log Message:
+needed by the pointfind application
+    *
+------------------------------------------------------------
 User: burnett  Thu Aug 30 19:07:01 PDT 2007
 pointlike/src/pointfind
 
