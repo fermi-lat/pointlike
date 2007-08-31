@@ -1,0 +1,130 @@
+/** @file finder_main.cxx
+    @brief  Finder
+
+    $Header$
+
+*/
+#include "pointlike/SourceFinder.h"
+#include "pointlike/Data.h"
+#include "embed_python/Module.h"
+
+#include <iostream>
+#include <iomanip>
+#include <fstream>
+
+void help(){
+    std::cout << "This program expects a single command-line parameter which is the path to a folder containing a file\n"
+        "\tpointfind_setup.py" 
+        << std::endl;
+        
+}
+
+
+int main(int argc, char** argv)
+{
+    using namespace astro;
+    using namespace pointlike;
+    using namespace embed_python;
+
+    int rc(0);
+    try{
+
+        std::string python_path("../python");
+
+        if( argc>1){
+            python_path = argv[1];
+        }
+
+        Module setup(python_path , "pointfind_setup",  argc, argv);
+
+        // direction and radius to use: default all sky
+        double  radius;
+        setup.getValue("radius", radius, 180);
+        SkyDir dir(0,0, SkyDir::GALACTIC);
+        if( radius<180){
+            // if radius is not all sky, look for direction
+            double ra, dec;
+            setup.getValue("ra", ra, -999);
+            setup.getValue("dec", dec,-999);
+            if( ra!=-999 && dec !=-999){
+                dir=SkyDir(ra, dec);
+            }else {
+                // ra, dec not specified: use l,b if there
+                double l,b;
+                setup.getValue("l", l, 0);
+                setup.getValue("b", b, 0);
+                dir  = SkyDir(l, b, SkyDir::GALACTIC);
+            }
+        }
+
+        // set up output summary file
+        std::string  outfile;
+        setup.getValue("outfile",  outfile, "");
+        std::ostream* out = &std::cout;
+        if( !outfile.empty() ) {
+            out = new std::ofstream(outfile.c_str());
+        }
+  
+        // create healpix database using parameters in the setup file
+        Data healpixdata(setup);
+
+        // create the SourceFinder
+        pointlike::SourceFinder finder(healpixdata);
+
+
+        // parameters for the source finding examineRegion call
+        bool includeChildren (true), 
+             weighted( true),
+	     background_filter(false);
+        int   pix_level(8)
+            , count_threshold(200)
+            , skip_TS(2);
+        double
+              prune_radius(0.25)//1.0)
+            , eq_TS_min(18.)
+            , mid_TS_min(18.)
+            , polar_TS_min(18.)
+            , eq_boundary(6.)
+            , TSmin
+            ;
+
+        pointlike::SourceFinder::RegionSelector region =
+            pointlike::SourceFinder::ALL;
+
+        // set some of them from the module
+        setup.getValue("TSmin",      TSmin,  0);
+        setup.getValue("prune_radius", prune_radius, 0.25);
+        setup.getValue("count_threshold", count_threshold, 200);
+        setup.getValue("pix_level",   pix_level, 8);
+
+        if( TSmin>0){
+            eq_TS_min = mid_TS_min=polar_TS_min = TSmin;
+        }
+        finder.examineRegion( dir, radius, 
+            eq_TS_min, mid_TS_min, polar_TS_min, 
+            pix_level, 
+            count_threshold, true, true, 
+            background_filter, 
+            skip_TS, 
+            region, 
+            eq_boundary);
+        
+        // prune the result
+        finder.prune_neighbors(prune_radius);
+
+        // and write out the table
+        finder.createTable(outfile);
+        
+        if( !outfile.empty()){
+            delete out;
+        }
+
+    }catch(const std::exception& e){
+        std::cerr << "Caught exception " << typeid(e).name() 
+            << " \"" << e.what() << "\"" << std::endl;
+        help();
+        rc=1;
+    }
+     return rc;
+}
+
