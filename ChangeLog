@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Aug 31 13:44:49 PDT 2007
+pointlike/src
+
+Modified Files:
+	Data.cxx 
+Log Message:
+fix incompatibility with DC2-era FT1 files.
+    *
+------------------------------------------------------------
 TAG
 Tag name: v2r1, operation: add
 Package: pointlike
