@@ -1,5 +1,16 @@
 ------------------------------------------------------------
 User: burnett  Thu Aug 30 21:24:41 PDT 2007
+pointlike/src/test
+
+Modified Files:
+	test_main.cxx 
+Added Files:
+	pointlike_test.fits 
+Log Message:
+tagging after fixes for pointfit default
+    *
+------------------------------------------------------------
+User: burnett  Thu Aug 30 21:24:41 PDT 2007
 pointlike/python
 
 Modified Files:
