@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.10 2007/08/27 23:54:30 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.11 2007/08/30 14:34:47 burnett Exp $
 
 */
 
@@ -114,9 +114,10 @@ namespace {
 
         /** @brief ctor sets up container
         @param infile name of the input FT1 or ROOT file
+        @param selectid True if will be selecting on eventid
         @param table_name must be "EVENTS" for FT1, or "MeritTuple"
         */
-        EventList( std::string infile, 
+        EventList( std::string infile, bool selectid=false,
              std::string table_name="EVENTS");
 
         ~EventList();
@@ -124,13 +125,13 @@ namespace {
         // make it a container by implementing a forward iterator
         class Iterator {
         public:
-            Iterator(tip::Table::ConstIterator it, bool fits):m_it(it), m_fits(fits){}
+            Iterator(tip::Table::ConstIterator it, bool fits, bool selectid=false):m_it(it), m_fits(fits), m_selectid(selectid){}
             Photon operator*()const;             ///< dereference
             tip::Table::ConstIterator operator++(){return ++m_it;} ///< increment operator
             bool operator!=(const Iterator& other)const{return other.m_it!=m_it;}
         private:
             tip::Table::ConstIterator m_it;
-            bool m_fits;
+            bool m_fits, m_selectid;
         };
 
         /// return iterator to access 
@@ -142,11 +143,13 @@ namespace {
         tip::Table::ConstIterator m_itbegin, m_itend;
         const tip::Table * m_table;
         bool m_fits;
+        bool m_selectid;
     };
 
-    EventList::EventList(const std::string infile, 
+    EventList::EventList(const std::string infile, bool selectid,
          std::string table_name)
-         :m_fits(true)
+         : m_fits(true)
+         , m_selectid(selectid)
     {
         if( infile.find(".root") != std::string::npos) {
             table_name = "MeritTuple"; 
@@ -171,7 +174,7 @@ namespace {
         float raz(0), decz(0), rax(90), decx(0); // sc orientation: default orthogonal
         double time;
         int event_class;
-        int source;
+        int source(-1);
 
         // FT1 names
         static std::string fits_names[]={"RA", "DEC", 
@@ -188,7 +191,9 @@ namespace {
         (*m_it)[*names++].get(energy);
         (*m_it)[*names++].get(time);
         (*m_it)[*names++].get(event_class);
-        (*m_it)[*names++].get(source);
+        if( m_selectid) { // check for source id only if requested
+            (*m_it)[*names++].get(source);
+        }
  
         if(! m_fits){
             // A root file: apply standard cuts
@@ -217,7 +222,7 @@ namespace {
 
     EventList::Iterator EventList::begin()
     { 
-        return Iterator(m_itbegin, m_fits);
+        return Iterator(m_itbegin, m_fits, m_selectid);
     }
 
     EventList::Iterator EventList::end()
@@ -259,14 +264,14 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
 {
     std::cout << "Loading data from file " << inputFile 
         << ", selecting event type " << event_type ;
-    if( source_id>0 ) {
+    if( source_id>-1) {
         std::cout << " and source id " << source_id;
     }
     std::cout  << std::endl;
 
     int photoncount(m_data->photonCount()), pixelcount(m_data->pixelCount());
 
-    EventList photons(inputFile);
+    EventList photons(inputFile, source_id>-1);
     AddPhoton adder(*m_data, event_type, source_id);
 
     std::for_each(photons.begin(), photons.end(), adder );
