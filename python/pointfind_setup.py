@@ -1,23 +1,29 @@
 #  setup for pointlike source finder
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/finder_setup.py,v 1.2 2007/07/19 14:07:11 burnett Exp $
-print 'setup for pointfind'
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfind_setup.py,v 1.1 2007/08/12 04:18:57 burnett Exp $
+print 'runing setup for pointfind'
 
 # data source 
 
-pixelfile = "F:/glast/data/SC2/obssim/sc2_obssim_map.fits"
+def test():
+  " define the pixelfile for a quick test, running the pixel file created by the test program"
+  import os
+  path = os.environ['POINTLIKEROOT']
+  return os.path.join(path, 'src', 'test', 'pointlike_test.fits')
+
+pixelfile = test()
 
 # direction and cone or radius about it to examine
-l,b = 0, -90
+l,b = 0, 0
 
-radius   = 60 # 180 for all sky
+radius   = 180 # 180 for all sky
 
-count_threshold=346  
+count_threshold=346  # this number is a bit arbitray
 
 TSmin   = 10   # minimum TS for candidates
 
-# parameter for pruning: radius in degrees
+# parameter for pruning: radius in degrees (also needs to be tuned)
 prune_radius = 0.25
 
 # file to write a table of results to
-outfile='south_sources.txt'
+outfile='pointfind_test.txt'
         
