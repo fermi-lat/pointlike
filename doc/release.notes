@@ -2,10 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.16 2007/08/30 17:51:37 burnett Exp $
+$Id: release.notes,v 1.17 2007/08/30 18:12:54 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
- 30-aug-07 v2r0p2  THB fix Linux issues, remove unbinned for now, add Draw class
+ 30-aug-07 v2r1    THB fix Linux issues, remove unbinned for now, add Draw class, fix pointfind app
  30-aug-07 v2r0    MR  fixed data class and power law version issues
                        added: unbinned lhood, sigma optimization, and alignment data input; 
                        fixed: finder output efficiency 

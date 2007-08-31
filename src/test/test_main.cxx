@@ -63,6 +63,8 @@ int main(int , char** )
         std::cout << "photons found: "<< x.photonCount() 
             <<"  pixels created: " << x.pixelCount() <<std::endl;
 
+        x.write("pointlike_test.fits");
+
 
         for( int n=0; !points[n].name.empty(); ++n){
                         
