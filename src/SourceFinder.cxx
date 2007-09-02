@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.6 2007/08/30 14:34:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.7 2007/08/30 19:52:13 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -224,6 +224,7 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
             for(int id = 6;id<14;++id) {
                 m_can[px].setValue(id,ps.levelTS(id));
                 m_can[px].setPhotons(id,ps[id]->photons()*ps[id]->alpha());
+                m_can[px].setSigalph(id,ps[id]->sigma_alpha());
             }
         }
     }
