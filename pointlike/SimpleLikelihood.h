@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.4 2007/07/18 23:28:27 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.5 2007/08/27 23:24:00 mar0 Exp $
 
 */
 
@@ -17,6 +17,8 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1
 #include <utility>
 
 namespace pointlike {
+class DiffuseFunction;
+
 /** @class SimpleLikelihood
 @brief Simple SimpleLikelihood analysis
 
@@ -54,7 +56,7 @@ public:
     /// @brief First derivitive: gradient of function just evaluated  
     Hep3Vector gradient() const;
 
-    /// @return Second derivitive along arbitrary direction.
+    /// @return Second derivative along arbitrary direction.
     double curvature() const;
 
     /// @return value of likelihood determined by gradient calculation
@@ -96,6 +98,8 @@ public:
     double feval(double k);
 
     double kcurvature(double k);
+
+    static DiffuseFunction* s_diffuse;
 private:
 
     //! @brief a quick estimate of the signal fraction
