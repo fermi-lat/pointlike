@@ -1,5 +1,16 @@
 ------------------------------------------------------------
 User: burnett  Mon Sep  3 16:32:23 PDT 2007
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx SimpleLikelihood.cxx 
+Added Files:
+	DiffuseFunction.cxx 
+Log Message:
+
+    *
+------------------------------------------------------------
+User: burnett  Mon Sep  3 16:32:23 PDT 2007
 pointlike/pointlike
 
 Modified Files:
