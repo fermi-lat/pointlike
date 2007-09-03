@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Mon Sep  3 16:32:23 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	Data.h PointSourceLikelihood.h SimpleLikelihood.h 
+Added Files:
+	DiffuseFunction.h 
+Log Message:
+
+    *
+------------------------------------------------------------
 User: burnett  Sun Sep  2 09:11:56 PDT 2007
 pointlike/src
 
