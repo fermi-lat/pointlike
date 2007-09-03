@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.7 2007/08/30 14:34:47 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.8 2007/08/30 18:12:54 burnett Exp $
 */
 
 
@@ -43,6 +43,11 @@ public:
     //! @param tablename ["PHOTONMAP"] the fits table name
     Data(const std::string & inputFile, const std::string & tablename="PHOTONMAP");
 
+
+    //! constructor configure from a python "data" file
+    //! @param inputFile the fits file name
+    //! Must define either "pixelfile", or "files", latter a list of root or fits files
+    //! if "files" is specified, then "event_class" or "source_id" may be specified to select
     Data(embed_python::Module& setup);
 
     //! add  data from the file to current set

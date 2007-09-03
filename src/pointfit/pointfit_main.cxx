@@ -1,12 +1,14 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.8 2007/07/19 19:07:27 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.10 2007/08/27 23:24:00 mar0 Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
 #include "pointlike/Data.h"
 #include "pointlike/SigmaOptimization.h"
+#include "pointlike/DiffuseFunction.h"
+
 #include "embed_python/Module.h"
 
 #include <iostream>
@@ -41,9 +43,7 @@ int main(int argc, char** argv)
         double radius(7.0)
             , TSmin (5)
             ; // 
-        int   event_type(0)  // 0: select front only; -1 no selection
-            , source_id(-1)  // -1: all sources 
-            , minlevel(8)    // minimum level to use for fits (>-6)  
+        int   minlevel(8)    // minimum level to use for fits (>-6)  
             , maxlevel(13)   // maximum level for fits  (<=13)
             , skip1(2)       // inital number of layers to skip in localization fit
             , skip2(4)       // don't skip beyond this
@@ -52,8 +52,6 @@ int main(int argc, char** argv)
         int verbose(0); // set true to see fit progress
 
         setup.getValue("radius", radius, 7.0);
-        setup.getValue("event_type", event_type, 0);
-        setup.getValue("source_id", source_id, -1);
         setup.getValue("TSmin",   TSmin, 5);
         setup.getValue("minlevel", minlevel, 8);
         setup.getValue("maxlevel", maxlevel, 13);
@@ -62,10 +60,7 @@ int main(int argc, char** argv)
         setup.getValue("itermax", itermax, 2);
         setup.getValue("verbose", verbose, 0);
     
-        std::vector<std::string> filelist;
-        std::string ft2file, outfile;
-        setup.getList("files", filelist);
-        setup.getValue("FT2file",  ft2file, "");
+        std::string outfile;
         setup.getValue("outfile",  outfile, "");
 
 
@@ -82,7 +77,17 @@ int main(int argc, char** argv)
         setup.getValue("check_sigma", check_sigma, 0);
 
         // use the  Data class to create the PhotonData object
-        Data healpixdata(filelist,  event_type, source_id, ft2file);
+        Data healpixdata(setup);
+
+        // check 
+        std::string diffusefile;
+        DiffuseFunction* diffuse(0);
+        setup.getValue("diffusefile", diffusefile, "");
+        if( ! diffusefile.empty() ) {
+            diffuse = new DiffuseFunction(diffusefile);
+
+        }
+
 
         std::ostream* out = &std::cout;
         if( !outfile.empty() ) {

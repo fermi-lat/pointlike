@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.2 2007/06/14 20:01:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.3 2007/07/14 03:50:54 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -14,6 +14,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.
 namespace map_tools { class PhotonMap; }
 
 namespace pointlike {
+    class DiffuseFunction;
 
 
     /** @class PointSourceLikelihood
@@ -105,6 +106,9 @@ namespace pointlike {
         static double set_sigma_level(int level, double v){
             double t = sigma_level[level]; sigma_level[level]=v; return t;}
 
+        ///! Set diffuse function
+        static set_diffuse(pointlike::DiffuseFunction* diffuse){SimpleLikelihood::s_diffuse = diffuse;}
+
     private:
         std::string m_name;
         astro::SkyDir m_dir; ///< common direction
@@ -117,6 +121,8 @@ namespace pointlike {
 
         // the data to feed each guy, extracted from the database
         std::map<int, std::vector<std::pair<astro::HealPixel,int> > >m_data_vec;
+
+        static DiffuseFunction * s_diffuse;
     };
 
 }

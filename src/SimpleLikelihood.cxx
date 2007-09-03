@@ -1,10 +1,11 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.6 2007/07/18 23:28:28 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.7 2007/08/27 23:24:00 mar0 Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
+#include "pointlike/DiffuseFunction.h"
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -16,6 +17,8 @@ using namespace pointlike;
 
 //#define DEBUG_PRINT
 double SimpleLikelihood::s_defaultUmax =50;
+
+pointlike::DiffuseFunction* SimpleLikelihood::s_diffuse(0);
 
 namespace {
 
@@ -35,10 +38,11 @@ namespace {
             , m_vec2(vec2)
             , m_vec3(vec3)
             , m_umax(umax)
+            , m_F( f.integral(umax) ) // for normalization of the PSF
             , m_sum(0), m_count(0)
             , m_sumu(0) // average u, useful for calibration
+            , m_back_norm(1)
         {
-            m_fbar = f.integral(umax)/umax; //Integral(f, umax)/umax;
             if(debug){
                 //psf_data = new std::ofstream("d:/users/burnett/temp/psf.txt");
                 (*psf_data) << "u        f(u)      count    q" << std:: endl;
@@ -46,6 +50,15 @@ namespace {
         }
         ~Convert(){
             //if(debug){ psf_data->close();}
+        }
+        //! the normalized (in 0<u<umax)  background in the direction dir
+        double b(const SkyDir& dir){
+            if( SimpleLikelihood::s_diffuse==0){
+                // no function, so assume uniform in u, so 1/umax 
+                return 1./m_umax;
+            }
+            // a return value in the given direction
+            return (*SimpleLikelihood::s_diffuse)(dir)/m_back_norm;
         }
 
         void operator()(const std::pair<HealPixel, int>& x){
@@ -59,7 +72,7 @@ namespace {
             m_sum+=x.second*t;
             m_count += x.second;
             m_sumu += x.second*u;
-            double q( 1./(t/m_fbar-1));
+            double q( 1./(t/m_F/b(x.first())-1));
             if(debug){
                 (*psf_data) << std::left<< std::setw(12) 
                     << u << std::setw(12) 
@@ -81,8 +94,9 @@ namespace {
         double m_sigma;
         std::vector<std::pair<double, int> >& m_vec2;
         std::vector<double>& m_vec3;
-        double m_umax, m_fbar;
+        double m_umax, m_F;
         double m_sum, m_count, m_sumu;
+        double m_back_norm;
     };
 
      //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.6 2007/07/31 19:56:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.7 2007/08/30 14:34:47 burnett Exp $
 
 */
 
@@ -43,6 +43,9 @@ namespace {
 // set these from preliminary data above
 std::vector<double> PointSourceLikelihood::gamma_level(fit_gamma, fit_gamma+sizeof(fit_gamma)/sizeof(double)); 
 std::vector<double> PointSourceLikelihood::sigma_level(fit_sigma, fit_sigma+sizeof(fit_gamma)/sizeof(double)); 
+
+// pointer to a diffuse function. (May be flux only.)
+pointlike::DiffuseFunction* s_diffuse(0);
 
 PointSourceLikelihood::PointSourceLikelihood(const map_tools::PhotonMap& data,
                                              std::string name,
