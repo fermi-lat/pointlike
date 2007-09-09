@@ -2,7 +2,7 @@ package pointlike
 
 version v2r1
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.17 2007/08/30 18:12:54 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.18 2007/08/31 04:24:40 burnett Exp $
 
 use STpolicy *
 use map_tools *
@@ -20,3 +20,6 @@ application pointfit -s=pointfit $(source) -s=../python pointfit_setup.py
 
 #souce-finding application
 application pointfind -s=pointfind $(source) -s=../python pointfind_setup.py
+
+# convenient setup alias using DOSKEY for Windows version
+setup_script alias
