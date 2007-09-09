@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sun Sep  9 13:21:13 PDT 2007
+pointlike/src
+
+Modified Files:
+	PowerLawFilter.cxx SourceFinder.cxx 
+Log Message:
+use python Module parameters in SourceFinder
+    *
+------------------------------------------------------------
+User: burnett  Sun Sep  9 13:21:13 PDT 2007
 pointlike/pointlike
 
 Modified Files:
