@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Sep  9 13:21:13 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	SourceFinder.h 
+Log Message:
+use python Module parameters in SourceFinder
+    *
+------------------------------------------------------------
 User: burnett  Sun Sep  9 12:54:53 PDT 2007
 pointlike/src/test
 
