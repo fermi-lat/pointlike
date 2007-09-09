@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.8 2007/09/02 16:11:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.9 2007/09/09 19:54:53 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -50,27 +50,25 @@ namespace {
 using namespace map_tools;
 using namespace astro;
 using namespace pointlike;
+using namespace embed_python;
 
-SourceFinder::SourceFinder(const pointlike::Data& map)
+SourceFinder::SourceFinder(const pointlike::Data& map, Module & Mod)
 : m_pmap(map)
 , m_counts(0)
+, m_module(Mod)
 {}
 
-SourceFinder::SourceFinder(const pointlike::CalData& map)
+SourceFinder::SourceFinder(const pointlike::CalData& map,Module & Mod)
 : m_pmap(map)
 , m_counts(0)
+, m_module(Mod)
 {}
 
 
 /** @brief
 Analyze range of likelihood significance values for all pixels at a particular level  
 */
-void SourceFinder::examineRegion(const astro::SkyDir& dir, 
-                                 double radius, 
-                                 double eq_TS_min,
-                                 double mid_TS_min,
-                                 double polar_TS_min,
-                                 int    pix_level, 
+void SourceFinder::examineRegion(int    pix_level, 
                                  int    count_threshold,
                                  bool   /*includeChildren */, 
                                  bool   /* weighted */,
@@ -84,6 +82,25 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
         photon_count_check(2);
     double min_alpha(0.15); // miniumum alpha for TS computation
     double sigma_max(0.25); // maximum allowable sigma
+
+    // Get parameters
+    double l, b;
+    m_module.getValue("l", l, 0);
+    m_module.getValue("b", b, 0);
+    astro::SkyDir dir(l,b, astro::SkyDir::GALACTIC);
+
+    double  radius;
+    m_module.getValue("radius", radius, 180);
+
+    double  eq_TS_min;
+    m_module.getValue("eqTSmin", eq_TS_min, 10);
+
+    double  mid_TS_min;
+    m_module.getValue("midTSmin", mid_TS_min, 10);
+
+    double  polar_TS_min;
+    m_module.getValue("polarTSmin", polar_TS_min, 10);
+
 
     timer("---------------SourceFinder::examineRegion----------------");  
     std::vector<std::pair<astro::HealPixel, int> > v;
@@ -186,16 +203,33 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
         // also check number of photons in pixel
         HealPixel px_check(ps.dir(), 8);
         int count = static_cast<int>(m_pmap.photonCount(px_check, true, false));
-        if (count >= photon_count_check) {  
+        if (count >= photon_count_check)
+        {  
 
             // add to the final list, indexed according to level 13 location
             HealPixel px(ps.dir(), 13); 
             m_can[px] = CanInfo(ts, error, ps.dir());
-            for(int id = 6;id<14;++id) {
+            for(int id = 6;id<14;++id)
+            {
                 m_can[px].setValue(id,ps.levelTS(id));
                 m_can[px].setPhotons(id,ps[id]->photons()*ps[id]->alpha());
                 m_can[px].setSigalph(id,ps[id]->sigma_alpha());
             }
+	    
+            // Calculate and store power law fit values.  New as of 6/5/07
+	    std::vector<std::pair<double, double> > values;
+	    values.clear();
+	    std::vector<double> energyBins = m_pmap.energyBins();
+            // ignore first two levels
+	    for( int i = 2, lvl = m_pmap.minLevel() + 2; lvl < m_pmap.minLevel() + m_pmap.levels(); ++i, ++lvl)
+	    {
+                double count = m_can[px].photons(lvl);
+		values.push_back(std::make_pair(energyBins[i], count));
+	    }
+	    pointlike::PowerLawFilter pl(values);
+	    m_can[px].set_pl_slope(pl.slope());
+	    m_can[px].set_pl_constant(pl.constant());
+	    m_can[px].set_pl_confidence(pl.metric());
         }
     }
     std::cout << m_can.size() << " sources found before pruning neighbors.\n";
