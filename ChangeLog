@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sun Sep  9 12:54:53 PDT 2007
+pointlike/src/test
+
+Modified Files:
+	test_main.cxx 
+Log Message:
+reorganization using extensive use of the python Module for setting parameters
+    *
+------------------------------------------------------------
+User: burnett  Sun Sep  9 12:54:53 PDT 2007
 pointlike/src/pointfit
 
 Modified Files:
