@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.5 2007/08/27 23:24:00 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.6 2007/09/03 23:32:23 burnett Exp $
 
 */
 
@@ -39,7 +39,7 @@ public:
     */
     SimpleLikelihood(const std::vector<std::pair<astro::HealPixel,int> >& data,
         const astro::SkyDir& dir, 
-        double gamma, double sigma, double background=-1, double umax=s_defaultUmax);
+        double gamma, double sigma, double background=-1, double umax=s_defaultUmax, double energy=1000);
 
 
     //! @return log likelihood for the signal fraction
@@ -93,12 +93,16 @@ public:
 
     /// check average u
     double average_u()const{ return m_avu;}
+
+    /// average normalized background: should be 1
+    double average_b()const{ return m_avb;}
     static double s_defaultUmax;
 
     double feval(double k);
 
     double kcurvature(double k);
 
+    void setEnergy(double e){m_energy = e;}
     static DiffuseFunction* s_diffuse;
 private:
 
@@ -130,7 +134,8 @@ private:
     double m_background;  ///< expected background (negative: no estimate)
 
     double m_umax; ///< maximum value of u, for selection of data, fits
-    double m_avu;
+    double m_avu, m_avb;
+    double m_energy; ///< median energy
     
 };
 }

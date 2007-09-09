@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.10 2007/08/27 23:24:00 mar0 Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.11 2007/09/03 23:32:23 burnett Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
@@ -39,27 +39,6 @@ int main(int argc, char** argv)
         }
 
         Module setup(python_path , "pointfit_setup",  argc, argv);
-
-        double radius(7.0)
-            , TSmin (5)
-            ; // 
-        int   minlevel(8)    // minimum level to use for fits (>-6)  
-            , maxlevel(13)   // maximum level for fits  (<=13)
-            , skip1(2)       // inital number of layers to skip in localization fit
-            , skip2(4)       // don't skip beyond this
-            , itermax(2)     // maximum number of iterations
-            ;
-        int verbose(0); // set true to see fit progress
-
-        setup.getValue("radius", radius, 7.0);
-        setup.getValue("TSmin",   TSmin, 5);
-        setup.getValue("minlevel", minlevel, 8);
-        setup.getValue("maxlevel", maxlevel, 13);
-        setup.getValue("skip1", skip1, 2);
-        setup.getValue("skip2", skip2, 4);
-        setup.getValue("itermax", itermax, 2);
-        setup.getValue("verbose", verbose, 0);
-    
         std::string outfile;
         setup.getValue("outfile",  outfile, "");
 
@@ -79,15 +58,8 @@ int main(int argc, char** argv)
         // use the  Data class to create the PhotonData object
         Data healpixdata(setup);
 
-        // check 
-        std::string diffusefile;
-        DiffuseFunction* diffuse(0);
-        setup.getValue("diffusefile", diffusefile, "");
-        if( ! diffusefile.empty() ) {
-            diffuse = new DiffuseFunction(diffusefile);
-
-        }
-
+        // define all parameters used by PointSourceLikelihood
+        PointSourceLikelihood::setParameters(setup);
 
         std::ostream* out = &std::cout;
         if( !outfile.empty() ) {
@@ -100,15 +72,11 @@ int main(int argc, char** argv)
             std::string name(names[n]);
 
             // fit the point: create the fitting object 
-
-            PointSourceLikelihood like(healpixdata, name, dir, radius, minlevel, maxlevel);
-            like.set_verbose(verbose>0);
-            
+            PointSourceLikelihood like(healpixdata, name, dir);
             // initial fit to all levels at current point
             like.maximize(); 
-
             // now localize it, return error circle radius
-            double sigma =like.localize(skip1, skip2, itermax, TSmin);
+            double sigma =like.localize();
 
             // add entry to table with name, total TS, localizatino sigma, fit direction
             (*out) << std::left << std::setw(15) << name 
@@ -123,6 +91,7 @@ int main(int argc, char** argv)
             directions.push_back(like.dir());
         }
         if( check_sigma){
+            int minlevel(6), maxlevel(13);
             SigmaOptimization so(healpixdata,directions,out,minlevel,maxlevel);
         }
         if( !outfile.empty()){

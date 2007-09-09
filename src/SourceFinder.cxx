@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.7 2007/08/30 19:52:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.8 2007/09/02 16:11:56 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -60,27 +60,6 @@ SourceFinder::SourceFinder(const pointlike::CalData& map)
 : m_pmap(map)
 , m_counts(0)
 {}
-#if 0
-SourceFinder::SourceFinder( const std::string& datafile, DiffuseCounts* dc)
-: m_data(datafile, 0)
-, m_pmap(m_data)
-, m_counts(dc)
-{
-}
-
-SourceFinder::SourceFinder( const std::string & inputFile, const std::string & tablename,
-                           DiffuseCounts* dc)
-                           : m_data(inputFile, tablename)
-                           , m_pmap(m_data)
-                           , m_counts(dc)
-{
-}
-SourceFinder::SourceFinder(const std::string& rootfile, int event_type, int source_id)
-: m_data(rootfile, event_type, source_id)
-, m_pmap(m_data)
-{
-}
-#endif
 
 
 /** @brief
@@ -103,6 +82,7 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
 {  
     int skip1(2), skip2(3),
         photon_count_check(2);
+    double min_alpha(0.15); // miniumum alpha for TS computation
     double sigma_max(0.25); // maximum allowable sigma
 
     timer("---------------SourceFinder::examineRegion----------------");  
@@ -117,6 +97,7 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
         << "    Middle     " << mid_TS_min << "\n"
         << "    Polar      " << polar_TS_min << "\n"
         << "  skip when localizing: " << skip1<< " to " << skip2  <<"\n"
+        << "  min alpha: " << min_alpha << "\n"
         << "  sigma_max: " << sigma_max << "\n"
         << "  background filtering: " << background_filter << "\n"
         << "  skip TS levels: " << skip_TS_levels << "\n"
@@ -189,25 +170,14 @@ void SourceFinder::examineRegion(const astro::SkyDir& dir,
 
 
         // perform likelihood analysis at the current candidate position  
-        PointSourceLikelihood ps(m_pmap, "test",currentpos , 7.0);//<=========== wired
-        //double ts = ps.maximize(); // debug only.  delete this statement
-        //double ra = currentpos.ra(), dec = currentpos.dec(); // debug only
-        //ps.setBackgroundDensity(GetBackgroundDensity(currentpos));
-#if 0
-        if (background_filter)
-            ps.setBackgroundDensity(m_counts->integral(currentpos, m_pmap.energyBins()));
-#endif
+        PointSourceLikelihood ps(m_pmap, "test",currentpos );
+
         double ts = ps.maximize(skip_TS_levels);
         if (ts < ts_min) continue;  // apply initial threshold
 
         // adjust position to maximize likelhood
         double error = ps.localize(skip1, skip2);
         if (error >= sigma_max) continue; // quit if fail to find maximum or > 1 degree
-        //ps.setBackgroundDensity(GetBackgroundDensity(ps.dir()));
-#if 0
-        if (background_filter)
-            ps.setBackgroundDensity(m_counts->integral(ps.dir(), m_pmap.energyBins()));
-#endif
         ts = ps.maximize(skip_TS_levels); // readjust likelihood at current position
         if (ts <ts_min) continue;
 
@@ -271,12 +241,9 @@ void SourceFinder::checkDir(astro::SkyDir & sd,
         ts_min = polar_TS_min;
     else
         ts_min = mid_TS_min;
-    PointSourceLikelihood ps(m_pmap, "test", new_dir, 7.0);
+    PointSourceLikelihood ps(m_pmap, "test", new_dir);
     ps.set_verbose(true);
-#if 0
-    if (background_filter)
-        ps.setBackgroundDensity(m_counts->integral(new_dir, m_pmap.energyBins()));
-#endif
+
     double ts = ps.maximize(skip_TS_levels);
     ps.printSpectrum();
     std::cout << "Initial ts: " << ts << std::endl;
@@ -289,10 +256,6 @@ void SourceFinder::checkDir(astro::SkyDir & sd,
         std::cout << "  ** No max found. " << error << " returned from localize.\n";
         return;
     }
-#if 0
-    if (background_filter)
-        ps.setBackgroundDensity(m_counts->integral(ps.dir(), m_pmap.energyBins()));
-#endif
     ts = ps.maximize(skip_TS_levels); // readjust likelihood at current position
     ps.printSpectrum();
     std::cout << "Final ts: " << ts << std::endl;
@@ -316,27 +279,6 @@ void SourceFinder::checkDir(astro::SkyDir & sd,
     std::cout << "Distance from starting direction: " << distance << " degrees.  distance/sigma = " << distance/ps.errorCircle() << std::endl;
 }
 
-
-#if 0 // maybe don't want this
-double SourceFinder::examinePoint(const astro::SkyDir& currentpos, 
-                                  double ts_min, double sigma_max, 
-                                  int skip1, int skip2)
-{
-
-    // perform likelihood analysis at the current candidate position          
-    PointSourceLikelihood ps(m_data, "test", currentpos, 7.0);//<=========== wired
-    double ts = ps.maximize();
-    if (ts < ts_min) return ts;  // apply initial threshold
-
-    // adjust position to maximize likelhood
-    double error = ps.localize(skip1, skip2);
-    if (error >= sigma_max) return ts; // quit if fail to find maximum or > 1 degree
-    ts = ps.maximize(); // readjust likelihood at current position
-    return ts;
-
-
-}
-#endif
 
 
 

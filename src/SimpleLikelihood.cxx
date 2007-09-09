@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.7 2007/08/27 23:24:00 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.8 2007/09/03 23:32:23 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -32,17 +32,23 @@ namespace {
         Convert( const SkyDir& dir, PsfFunction& f, 
             double sigma, double umax,
             std::vector< std::pair<double, int> >& vec2,
-            std::vector<double>& vec3
+            std::vector<double>& vec3,
+            double energy
             )
             : m_dir(dir), m_f(f), m_sigma(sigma)
             , m_vec2(vec2)
             , m_vec3(vec3)
             , m_umax(umax)
             , m_F( f.integral(umax) ) // for normalization of the PSF
-            , m_sum(0), m_count(0)
+            , m_sum(0), m_count(0), m_pixels(0)
             , m_sumu(0) // average u, useful for calibration
             , m_back_norm(1)
         {
+            if( SimpleLikelihood::s_diffuse!=0){
+               SimpleLikelihood::s_diffuse->setEnergy(energy);
+               double angle(sqrt(2.*umax)*sigma);
+               m_back_norm = SimpleLikelihood::s_diffuse->average(dir, angle);
+            }
             if(debug){
                 //psf_data = new std::ofstream("d:/users/burnett/temp/psf.txt");
                 (*psf_data) << "u        f(u)      count    q" << std:: endl;
@@ -53,12 +59,12 @@ namespace {
         }
         //! the normalized (in 0<u<umax)  background in the direction dir
         double b(const SkyDir& dir){
-            if( SimpleLikelihood::s_diffuse==0){
-                // no function, so assume uniform in u, so 1/umax 
-                return 1./m_umax;
+            double val(1.);
+            if( SimpleLikelihood::s_diffuse!=0){
+                val=(*SimpleLikelihood::s_diffuse)(dir)/m_back_norm;
             }
             // a return value in the given direction
-            return (*SimpleLikelihood::s_diffuse)(dir)/m_back_norm;
+            return val;
         }
 
         void operator()(const std::pair<HealPixel, int>& x){
@@ -66,18 +72,22 @@ namespace {
             double diff =x.first().difference(m_dir); 
             double  u = sqr(diff/m_sigma)/2.;
             if( u>m_umax) return;
-            double t=m_f(u);
             // just to see what is there
             // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
-            m_sum+=x.second*t;
+            double signal(m_f(u)/m_F)
+                 , bkg(b(x.first()))
+                 , q( bkg/(signal*m_umax-bkg)); 
+            m_sum   += x.second*signal;
             m_count += x.second;
-            m_sumu += x.second*u;
-            double q( 1./(t/m_F/b(x.first())-1));
+            m_sumu  += x.second*u;
+            m_sumb  += bkg;
+            m_pixels+= 1;
             if(debug){
                 (*psf_data) << std::left<< std::setw(12) 
                     << u << std::setw(12) 
-                    << t << std::setw(5)
-                    <<  x.second << std::setw(10)<< q<<std::endl;
+                    << signal << std::setw(5)
+                    <<  x.second 
+                    << std::setw(10)<<  bkg << std::endl;
             }
     
             // todo: combine elements with vanishing t
@@ -86,6 +96,7 @@ namespace {
         }
         double average_f()const {return m_count>0? m_sum/m_count : -1.;}
         double average_u()const {return m_count>0? m_sumu/m_count : -1;}
+        double average_b()const {return m_count>0? m_sumb/m_pixels: -1;}
         double count()const{return m_count;}
 
     private:
@@ -95,7 +106,7 @@ namespace {
         std::vector<std::pair<double, int> >& m_vec2;
         std::vector<double>& m_vec3;
         double m_umax, m_F;
-        double m_sum, m_count, m_sumu;
+        double m_sum, m_count, m_sumu, m_sumb, m_pixels;
         double m_back_norm;
     };
 
@@ -134,7 +145,7 @@ namespace {
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SimpleLikelihood::SimpleLikelihood(const std::vector<std::pair<astro::HealPixel, int> >& vec,
         const astro::SkyDir& dir, 
-        double gamma, double sigma, double background, double umax)
+        double gamma, double sigma, double background, double umax, double energy)
         : m_vec(vec)
         , m_averageF(0)
         , m_psf(gamma)
@@ -143,6 +154,7 @@ SimpleLikelihood::SimpleLikelihood(const std::vector<std::pair<astro::HealPixel,
         , m_curv(-1)
         , m_background(background)  // default: no estimate
         , m_umax(umax)
+        , m_energy(energy)
 { 
 
     m_fint = m_psf.integral(m_umax);// integral out to umax
@@ -159,7 +171,7 @@ void SimpleLikelihood::setDir(const astro::SkyDir& dir)
     // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
     m_vec2.clear();
     m_vec3.clear();
-    Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2, m_vec3);
+    Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2, m_vec3,m_energy);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
 
     m_photon_count = static_cast<int>(result.count());
@@ -168,6 +180,7 @@ void SimpleLikelihood::setDir(const astro::SkyDir& dir)
 
     m_averageF = result.average_f();
     m_avu = result.average_u();
+    m_avb = result.average_b();
 
     // initialize to estimate.
     if( m_alpha<0) m_alpha = estimate();

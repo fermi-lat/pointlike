@@ -1,12 +1,14 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.7 2007/08/30 14:34:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.8 2007/09/03 23:32:23 burnett Exp $
 
 */
 
 #include "pointlike/PointSourceLikelihood.h"
+#include "pointlike/DiffuseFunction.h"
 
 #include "map_tools/PhotonMap.h"
+#include "embed_python/Module.h"
 
 #include <iostream>
 #include <fstream>
@@ -39,37 +41,85 @@ namespace {
     double scale_factor(int level){return 2.5*pow(2.0, base_level-level)*M_PI/180.;}
 
     double s_TScut(2.);  // only combine energy bands
+
+    // temporary kluge: energy to assume per level, or band
+    // todo: setup more central place for this, worry about event class
+    double energy_level(int level){ return 120*pow(2.35, level-6);} 
+
 }
+
+//---    Static (class) variables: defaults here, that can be set by a static function.
 // set these from preliminary data above
 std::vector<double> PointSourceLikelihood::gamma_level(fit_gamma, fit_gamma+sizeof(fit_gamma)/sizeof(double)); 
-std::vector<double> PointSourceLikelihood::sigma_level(fit_sigma, fit_sigma+sizeof(fit_gamma)/sizeof(double)); 
+std::vector<double> PointSourceLikelihood::sigma_level(fit_sigma, fit_sigma+sizeof(fit_gamma)/sizeof(double));
 
-// pointer to a diffuse function. (May be flux only.)
-pointlike::DiffuseFunction* s_diffuse(0);
 
-PointSourceLikelihood::PointSourceLikelihood(const map_tools::PhotonMap& data,
-                                             std::string name,
-                                             const astro::SkyDir& dir, 
-                                             double radius,
-                                             int minlevel, int maxlevel
-                                             )
-                                             : m_name(name)
-                                             , m_dir(dir)
-                                             , m_verbose(false)
-                                             , m_out(&std::cout)
+double PointSourceLikelihood::s_radius(7.0);
+int    PointSourceLikelihood::s_minlevel(6);
+int    PointSourceLikelihood::s_maxlevel(13);
+double PointSourceLikelihood::s_minalpha(0.15);
+int    PointSourceLikelihood::s_skip1(1);
+int    PointSourceLikelihood::s_skip2(2);
+int    PointSourceLikelihood::s_itermax(2);
+double PointSourceLikelihood::s_TSmin(5.0);
+int    PointSourceLikelihood::s_verbose(0);
+
+void PointSourceLikelihood::setParameters(embed_python::Module& par)
 {
-    int begin(minlevel), end(maxlevel+1); // levels: extract from data?
+    
+    par.getValue("radius",   s_radius,   s_radius);
+    par.getValue("minlevel", s_minlevel, s_minlevel);
+    par.getValue("maxlevel", s_maxlevel, s_maxlevel);
+    par.getValue("minalpha", s_minalpha, s_minalpha);
 
-    for( int level=begin; level<end; ++level){
+    par.getValue("skip1",    s_skip1, s_skip1);
+    par.getValue("skip2",    s_skip2, s_skip2);
+    par.getValue("itermax",  s_itermax, s_itermax);
+    par.getValue("TSmin",    s_TSmin, s_TSmin);
+
+    par.getValue("verbose",  s_verbose, s_verbose);
+
+    // needed by SimpleLikelihood
+    par.getValue("umax", SimpleLikelihood::s_defaultUmax, SimpleLikelihood::s_defaultUmax);
+    std::string diffusefile;
+    par.getValue("diffusefile", diffusefile, "");
+    if( ! diffusefile.empty() ) {
+        SimpleLikelihood::s_diffuse = new DiffuseFunction(diffusefile);
+        std::cout << "Using diffuse definition "<< diffusefile << std::endl; 
+    }
+}
+
+PointSourceLikelihood::PointSourceLikelihood(
+    const map_tools::PhotonMap& data,    
+    std::string name,
+    const astro::SkyDir& dir) 
+    : m_name(name)
+    , m_dir(dir)
+    , m_out(&std::cout)
+{
+    m_verbose = s_verbose!=0;
+    setup( data, s_radius, s_minlevel, s_maxlevel);
+}
+
+
+void PointSourceLikelihood::setup(const map_tools::PhotonMap& data,double radius, int minlevel, int maxlevel)
+{
+    for( int level=minlevel; level<maxlevel+1; ++level){
 
         // create and fill the vector of data for this level 
-        data.extract(  dir, radius, m_data_vec[level], -1, level);
+        data.extract(  m_dir, radius, m_data_vec[level], -1, level);
 
         // get PSF parameters from fits
         double gamma( gamma_level[level] ),
             sigma ( scale_factor(level)* sigma_level[level]);
+
         // and create the simple likelihood object
-        (*this)[level] = new SimpleLikelihood(m_data_vec[level], dir, gamma, sigma);
+        SimpleLikelihood* sl = new SimpleLikelihood(m_data_vec[level], m_dir, 
+            gamma, sigma,
+            -1, // background level?
+            SimpleLikelihood::s_defaultUmax, energy_level(level));
+        (*this)[level] = sl;
+
         if( false ) { // make table of parameters
             out() << std::setw(6) << level 
                 << " " << std::setw(10) << std::left << gamma 
@@ -79,6 +129,7 @@ PointSourceLikelihood::PointSourceLikelihood(const map_tools::PhotonMap& data,
 
     }
 }
+
 PointSourceLikelihood::~PointSourceLikelihood()
 {
     for( iterator it = begin(); it!=end(); ++it){
@@ -93,12 +144,15 @@ double PointSourceLikelihood::maximize(int skip)
     for( int i = 0; i< skip; ++it, ++i);
 
     for( ; it!=end(); ++it){
-        it->second->maximize();
-        m_TS+= it->second->TS();
+        SimpleLikelihood& like = *(it->second);
+        std::pair<double,double> a(like.maximize());
+        if( a.first > s_minalpha ) {
+            m_TS+= like.TS();
+        }
     }
     return m_TS;
 }
-
+#if 0
 void PointSourceLikelihood::setBackgroundDensity(const std::vector<double>& density)
 {
     std::vector<double>::const_iterator id = density.begin();
@@ -107,7 +161,7 @@ void PointSourceLikelihood::setBackgroundDensity(const std::vector<double>& dens
         it->second->setBackgroundDensity(bk);
     }
 }
-
+#endif
 void PointSourceLikelihood::setDir(const astro::SkyDir& dir){
     for( iterator it = begin(); it!=end(); ++it){
         it->second->setDir(dir);
@@ -175,16 +229,26 @@ void PointSourceLikelihood::printSpectrum()
             continue;
         }
         std::pair<double,double> a(levellike.maximize());
-        double ts(levellike.TS()); m_TS+=ts;
+        double ts(levellike.TS()); 
+        if( a.first > s_minalpha ) {
+           m_TS+=ts;
+        }
 
         if( verbose() ){
             out() << setprecision(2) << setw(6)<< a.first<<" +/- "
                 << std::setw(4)<< a.second 
-                << setw(6)<< setprecision(0)<< ts << std::endl;
+                << setw(6)<< setprecision(0)<< ts
+                << setw(8) << setprecision(2) << levellike.average_b()
+                << std::endl;
         }
     }
     if( verbose() ){
-        out() << std::setw(32) << m_TS << std::endl;
+        if( s_minalpha>0){
+            out() << "\tTS sum  (alpha>"<<s_minalpha<<")  ";
+        }else{
+            out() << "\tTS sum                            ";
+        }
+        out() <<  m_TS << std::endl;
     }
 }
 double PointSourceLikelihood::localize(int skip1, int skip2)
@@ -275,8 +339,11 @@ double PointSourceLikelihood::localize(int skip)
 
 }
 
-double PointSourceLikelihood::localize(int skip1, int skip2, int itermax, double TSmin )
+double PointSourceLikelihood::localize()
 {
+    int skip1(s_skip1), skip2(s_skip2), itermax(s_itermax);
+    double TSmin(s_TSmin);
+
     double sig(99);
 
     double currentTS(TS());
