@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Sun Sep  9 12:52:53 PDT 2007
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Added Files:
+	alias.bat 
+Log Message:
+add convenient alias for Windows users to run applications in command line
+    *
+------------------------------------------------------------
 User: burnett  Sun Sep  9 12:50:06 PDT 2007
 pointlike/src
 
