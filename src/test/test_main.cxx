@@ -68,10 +68,9 @@ int main(int , char** )
 
         for( int n=0; !points[n].name.empty(); ++n){
                         
-            PointSourceLikelihood like(x, points[n].name, astro::SkyDir(points[n].ra,points[n].dec), 
-                radius);
+            PointSourceLikelihood like(x, points[n].name, astro::SkyDir(points[n].ra,points[n].dec));
             // test setting background expectation
-#if 1
+#if 0
             std::vector<double> background(8,1E5);
             like.setBackgroundDensity(background);
 #endif

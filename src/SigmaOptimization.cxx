@@ -40,7 +40,7 @@ m_data(data)
         double t_alpha(0.);
         //calculate fit statistics for all sources
         for(std::vector<astro::SkyDir>::const_iterator it = directions.begin();it!=directions.end();++it) {
-            PointSourceLikelihood ps(m_data,"test",(*it),radius,m_minlevel,m_maxlevel);
+            PointSourceLikelihood ps(m_data,"test",(*it)); //,radius,m_minlevel,m_maxlevel);
             PointSourceLikelihood::iterator ite = ps.find(iter);
             ite->second->maximize();
             if(ite->second->photons()>0) {
@@ -79,7 +79,7 @@ double SigmaOptimization::goldensearch(const std::vector<astro::SkyDir>& directi
     double f1 = 0;
     double f2 = 0;
     for(std::vector<astro::SkyDir>::const_iterator it=directions.begin(); (it!=directions.end())&& (iter2<num2look);++it,++iter2) {
-        pointlike::PointSourceLikelihood ps(m_data, "test", (*it),radius,m_minlevel,m_maxlevel);
+        pointlike::PointSourceLikelihood ps(m_data, "test", (*it)); //,radius,m_minlevel,m_maxlevel);
         ps.maximize(2);
         pointlike::PointSourceLikelihood::iterator ite = ps.find(level);
         if(ite->second->photons()==0) continue;
@@ -93,7 +93,7 @@ double SigmaOptimization::goldensearch(const std::vector<astro::SkyDir>& directi
         double a1=0;
         double a2=0;
         for(std::vector<astro::SkyDir>::const_iterator it=directions.begin(); (it!=directions.end())&& (iter2<num2look);++it,++iter2) {
-            pointlike::PointSourceLikelihood ps(m_data, "test", (*it),radius,m_minlevel,m_maxlevel);
+            pointlike::PointSourceLikelihood ps(m_data, "test", (*it)); //,radius,m_minlevel,m_maxlevel);
             ps.maximize(2);
             pointlike::PointSourceLikelihood::iterator ite = ps.find(level);
             if(ite->second->photons()==0) continue;

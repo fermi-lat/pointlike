@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.3 2007/07/14 03:50:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.4 2007/09/03 23:32:23 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -11,10 +11,10 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.
 #include <iostream>
 #include <map>
 
+namespace embed_python { class Module; }
 namespace map_tools { class PhotonMap; }
 
 namespace pointlike {
-    class DiffuseFunction;
 
 
     /** @class PointSourceLikelihood
@@ -27,19 +27,16 @@ namespace pointlike {
     */
     class PointSourceLikelihood : public  std::map<int, SimpleLikelihood*> {
     public:
+
+
         /** ctor
         @param data   source of the data to fit
-        @param name   descriptive name for printout
+        @param name   source name for printout
         @param dir    initial direction
-        @param radius selection radius (degrees) [5.]
-        @param minlevel minimum healpix level [6]
-        @param maxlevel maximum healpix level [13]
         */
         PointSourceLikelihood(const map_tools::PhotonMap& data,
             std::string name,
-            const astro::SkyDir& dir,  
-            double radius=5.0,
-            int minlevel=6, int maxlevel=13);
+            const astro::SkyDir& dir);;
 
         ~PointSourceLikelihood();
 
@@ -50,9 +47,6 @@ namespace pointlike {
 
         //! change the current direction
         void setDir(const astro::SkyDir& dir);
-
-        //! set the background density for all the layers
-        void setBackgroundDensity(const std::vector<double>& density);
 
         /// @return the gradient, summed over all levels, skiping skip
         Hep3Vector gradient(int skip=0) const;
@@ -66,13 +60,13 @@ namespace pointlike {
         /// @brief perform localization fit, maximizing joint likelihood
         /// @param skip [0] number of levels to skip
         /// @return error circle radius (deg) or negative if bad or no fit.
-        double localize(int skip=0);
+        double localize(int skip);
 
         /// @brief invoke localize with skip values from skip1 to skip 2 or until good fit
         double localize(int skip1, int skip2);
 
-        /// @brief localate with iteration to refit the levels
-        double localize(int skip1, int skip2, int itermax, double TSmin=5.0 );
+        /// @brief localate with iteration to refit the levels, using parameters set in ctor
+        double localize();
 
         const std::string& name()const{return m_name;}
 
@@ -94,6 +88,8 @@ namespace pointlike {
 
         bool verbose()const{return m_verbose;}
 
+        static void PointSourceLikelihood::setParameters(embed_python::Module& par);
+
         /// @brief set radius for individual fits
         static void setDefaultUmax(double umax){ SimpleLikelihood::s_defaultUmax=umax; }
 
@@ -110,6 +106,8 @@ namespace pointlike {
         static set_diffuse(pointlike::DiffuseFunction* diffuse){SimpleLikelihood::s_diffuse = diffuse;}
 
     private:
+        void setup(const map_tools::PhotonMap& data,double radius, int minlevel, int maxlevel);
+
         std::string m_name;
         astro::SkyDir m_dir; ///< common direction
         double m_dir_sigma;  ///< error circle from fit (radians)
@@ -123,6 +121,8 @@ namespace pointlike {
         std::map<int, std::vector<std::pair<astro::HealPixel,int> > >m_data_vec;
 
         static DiffuseFunction * s_diffuse;
+        static double s_radius, s_minalpha, s_TSmin;
+        static int s_minlevel, s_maxlevel, s_skip1, s_skip2, s_itermax, s_verbose;
     };
 
 }
