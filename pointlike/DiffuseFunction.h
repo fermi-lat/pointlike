@@ -1,6 +1,6 @@
 /** @file DiffuseFunction.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/users/burnett/tools/tools/DiffuseFunction.h,v 1.5 2007/06/03 18:00:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DiffuseFunction.h,v 1.1 2007/09/03 23:32:23 burnett Exp $
 
 */
 #ifndef pointlike_DiffuseFunction_h
@@ -57,6 +57,9 @@ public:
 
     ///@return integral for the energy limits, in the given direction
     double integral(const astro::SkyDir& dir, double a, double b)const;
+
+    ///! average, for the given energy, about the direction and cone angle
+    double average(const astro::SkyDir& dir, double angle)const;
 
 #if 0 // not implemented yet
     ///@return integral for the energy limits, over the function, in the given direction

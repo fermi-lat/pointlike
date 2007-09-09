@@ -1,9 +1,11 @@
 /** @file DiffuseFunction.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/users/burnett/tools/src/DiffuseFunction.cxx,v 1.4 2006/08/15 21:26:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.1 2007/09/03 23:32:23 burnett Exp $
 */
 
 #include "pointlike/DiffuseFunction.h"
+#include "CLHEP/Vector/ThreeVector.h"
+#include "CLHEP/Vector/Rotation.h"
 #include <cmath>
 
 using namespace pointlike;
@@ -86,3 +88,22 @@ std::vector<double> DiffuseFunction::integral(const astro::SkyDir& dir, const st
     }
     return result;
 }
+
+double DiffuseFunction::average(const astro::SkyDir& dir, double angle)const
+{
+    using astro::SkyDir;
+    using CLHEP::HepRotation;
+    // get orthogonal directions
+    CLHEP::Hep3Vector 
+        d (dir()),
+        perp1( d.orthogonal() ), 
+        perp2(d.cross(perp1) );
+    //  pattern of 4 
+    double av(0);
+    av += (*this)( SkyDir(HepRotation(perp1, angle/2) * d));
+    av += (*this)( SkyDir(HepRotation(perp1, -angle/2) * d));
+    av += (*this)( SkyDir(HepRotation(perp2, angle/2) * d));
+    av += (*this)( SkyDir(HepRotation(perp2, -angle/2) * d));
+    return av/4.;
+}
+    
