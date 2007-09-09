@@ -1,7 +1,7 @@
 /** @file PowerLawFilter.cxx
 @brief implementation of PowerLawFilter
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PowerLawFilter.cxx,v 1.1 2007/07/14 03:50:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PowerLawFilter.cxx,v 1.2 2007/08/27 23:24:00 mar0 Exp $
 */
 
 #include "pointlike/PowerLawFilter.h"
@@ -31,6 +31,14 @@ PowerLawFilter::PowerLawFilter(const std::vector<std::pair<double, double> > & v
             ln_y = (it->second > 0)? log(it->second): -300.0;
         log_values.push_back(std::make_pair(ln_x, ln_y));
     }
+
+    // Now remove entries from the back end of the vector with log values that are very small, coresponding to "near zero" input values.
+    while (log_values.size() > 1 && log_values.back().second < -299.0)
+    {
+	    log_values.pop_back();
+    }
+
+    if (log_values.size() < 2) return;  // No pattern if less than two points.
 
     double sum_x_sqrd(0), sum_y_sqrd(0), sum_xy(0), x_ave(0), y_ave(0);
 

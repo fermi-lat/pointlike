@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.2 2007/07/19 13:45:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.3 2007/08/27 23:24:00 mar0 Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -15,6 +15,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.2 2
 
 #include "astro/SkyDir.h"
 #include "astro/HealPixel.h"
+#include "embed_python/Module.h"
 
 #include <vector>
 #include <map>
@@ -25,29 +26,45 @@ namespace pointlike {
     /** @class CanInfo
 
     */
+
+
     class CanInfo // Candidate info.  
     {
     public:
         CanInfo(double value = 0, double sigma = 0, astro::SkyDir dir = astro::SkyDir(0,0)):
-          m_value(value), m_sigma(sigma), m_dir(dir), m_2bdeleted(false),
-              m_isSource(false) {
-              }
+          m_value(value),
+          m_sigma(sigma), 
+          m_dir(dir), 
+          m_2bdeleted(false),
+          m_isSource(false) 
+          {
+              m_values.clear();
+              m_photons.clear();
+              m_sigalph.clear();
+          }
 
-              double value () const {return m_value;}
-              double values (int level) {return m_values[level];}
-              double photons (int level) {return m_photons[level];}
-              double sigalph (int level)  {return m_sigalph[level];}
-              double sigma () const {return m_sigma;}
-              astro::SkyDir dir () const {return m_dir;}
-              double ra() const {return m_dir.ra();}
-              double dec() const {return m_dir.dec();}
-              bool is2bdeleted () const {return m_2bdeleted;}
-              bool isSource () const {return m_isSource;}
-              void setDelete () {m_2bdeleted = true;}
-              void setSource (bool value = true) {m_isSource = value;}
-              void setValue(int level, double val) {m_values[level] = val;}
-              void setPhotons(int level, double photons) {m_photons[level] = photons;}
-              void setSigalph(int level, double sigalph) {m_sigalph[level] = sigalph;}
+        double value () const {return m_value;}
+        double values (int level) {return m_values[level];}
+        double photons (int level) {return m_photons[level];}
+        double sigalph (int level)  {return m_sigalph[level];}
+        double sigma () const {return m_sigma;}
+        astro::SkyDir dir () const {return m_dir;}
+        double ra() const {return m_dir.ra();}
+        double dec() const {return m_dir.dec();}
+        bool is2bdeleted () const {return m_2bdeleted;}
+        bool isSource () const {return m_isSource;}
+	double pl_slope () const {return m_pl_slope;}
+	double pl_constant () const {return m_pl_constant;}
+	double pl_confidence () const {return m_pl_confidence;}
+
+        void setDelete () {m_2bdeleted = true;}
+        void setSource (bool value = true) {m_isSource = value;}
+        void setValue(int level, double val) {m_values[level] = val;}
+        void setPhotons(int level, double photons) {m_photons[level] = photons;}
+        void setSigalph(int level, double sigalph) {m_sigalph[level] = sigalph;}
+	void set_pl_slope (double value = 0.0) {m_pl_slope = value;}
+        void set_pl_constant (double value = 0.0) {m_pl_constant = value;}
+	void set_pl_confidence (double value = 0.0) {m_pl_confidence = value;}
 
     private:
         double m_value; ///< TS value.
@@ -58,6 +75,9 @@ namespace pointlike {
         astro::SkyDir m_dir;
         bool   m_2bdeleted; // True means this is flagged to be deleted later.
         bool   m_isSource;  // True if this corresponds to a confirmed source
+	double m_pl_slope; // Slope of power law fit.
+	double m_pl_constant; // b from (y = mx + b) for power law fit.
+	double m_pl_confidence; // Confidence of the power law fit. 1 == perfect fit.
     }; 
 
     class DiffuseCounts; // forward declaration: disabled for now
@@ -70,9 +90,9 @@ namespace pointlike {
     class SourceFinder {
     public:
 
-        SourceFinder(const pointlike::Data& data);
+        SourceFinder(const pointlike::Data& data,  embed_python::Module & Mod);
 
-        SourceFinder(const pointlike::CalData& data);
+        SourceFinder(const pointlike::CalData& data, embed_python::Module & Mod);
 
         typedef std::map<astro::HealPixel, CanInfo> Candidates; 
 
@@ -90,16 +110,17 @@ namespace pointlike {
         /** @brief ctor sets up search
         @param datafile the root file containing the data, to be ingested to a PhotonMap
         */
-        SourceFinder(const std::string& datafile, DiffuseCounts* dc);
+        SourceFinder(const std::string& datafile, DiffuseCounts* dc, const Module & Mod);
 
-        SourceFinder(const std::string& rootfile, int event_type=-1, int source_id=-1 );
+        SourceFinder(const std::string& rootfile, int event_type=-1, int source_id=-1, 
+                     const Module & Mod );
 
         /** @brief ctor sets up search
         @param inputFile fits file containing stored PhotonMap structure
         @param tablename fits table name
         */
         SourceFinder(const std::string & inputFile, const std::string & tablename,
-            DiffuseCounts* dc);
+            DiffuseCounts* dc, const Module & Mod);
 
         //! add  data from the file to current set
         //! @param event_type 0 for class A front, etc
@@ -119,11 +140,6 @@ namespace pointlike {
         Analyze range of likelihood significance values for all pixels at a particular level  
         */
         void examineRegion(
-            const astro::SkyDir& dir, 
-            double radius = 30, 
-            double eq_TS_min = 25.0, // Equatorial TS cutoff
-            double mid_TS_min = 19.0, // Mid-latitude TS cutoff
-            double polar_TS_min = 18.0, // Polar TS cutoff
             int    pix_level = 8, 
             int    count_threshold = 16,
             bool   includeChildren = true, 
@@ -176,6 +192,7 @@ namespace pointlike {
         const map_tools::PhotonMap& m_pmap;
         Candidates m_can;
         DiffuseCounts* m_counts;
+        embed_python::Module & m_module;
 
     };
 
