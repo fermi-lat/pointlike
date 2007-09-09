@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Sep  9 12:50:06 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	DiffuseFunction.h 
+Log Message:
+Define and implement an average over a cone
+    *
+------------------------------------------------------------
 User: burnett  Mon Sep  3 16:32:23 PDT 2007
 pointlike/src/pointfit
 
