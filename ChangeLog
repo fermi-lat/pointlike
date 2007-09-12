@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Sep 11 19:44:35 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	SourceFinder.h 
+Log Message:
+move parameter access from main to client
+    *
+------------------------------------------------------------
 TAG
 Tag name: v2r2, operation: add
 Package: pointlike
