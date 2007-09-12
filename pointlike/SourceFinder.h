@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.3 2007/08/27 23:24:00 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.4 2007/09/09 20:21:13 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -139,17 +139,7 @@ namespace pointlike {
         /** @brief
         Analyze range of likelihood significance values for all pixels at a particular level  
         */
-        void examineRegion(
-            int    pix_level = 8, 
-            int    count_threshold = 16,
-            bool   includeChildren = true, 
-            bool   weighted = true,
-            bool   background_filter = true,
-            int	   skip_TS_levels = 0,
-            RegionSelector region = ALL,
-            double equator_boundary = 10.0, // abs(b)in degrees for equatorial region < this number.
-            double polar_boundary = 40.0 // abs(b)in degrees for polar region > this number.
-            ) ;
+        void examineRegion(void) ;
 
         /** @brief
         Analyze likelihood significance for a particular direction  
@@ -170,10 +160,10 @@ namespace pointlike {
         void list_pixels();
 
         //! Eliminate neighbors within cone
-        void prune_neighbors( double degrees);
+        void prune_neighbors(void);
 
         //! Eliminate weaker adjacent neighbors
-        void prune_neighbors();
+        void prune_adjacent_neighbors();
 
         //! summarize results in a ds9 region file
         void createReg(const std::string& filename, double radius = -1., const std::string& color = "white");

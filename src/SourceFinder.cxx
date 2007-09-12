@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.9 2007/09/09 19:54:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.10 2007/09/09 20:21:13 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -68,18 +68,9 @@ SourceFinder::SourceFinder(const pointlike::CalData& map,Module & Mod)
 /** @brief
 Analyze range of likelihood significance values for all pixels at a particular level  
 */
-void SourceFinder::examineRegion(int    pix_level, 
-                                 int    count_threshold,
-                                 bool   /*includeChildren */, 
-                                 bool   /* weighted */,
-                                 bool   background_filter,
-                                 int	skip_TS_levels,
-                                 SourceFinder::RegionSelector region,
-                                 double equator_boundary,
-                                 double polar_boundary) 
+void SourceFinder::examineRegion(void) 
 {  
-    int skip1(2), skip2(3),
-        photon_count_check(2);
+    int skip1(2), skip2(3);
     double min_alpha(0.15); // miniumum alpha for TS computation
     double sigma_max(0.25); // maximum allowable sigma
 
@@ -101,6 +92,26 @@ void SourceFinder::examineRegion(int    pix_level,
     double  polar_TS_min;
     m_module.getValue("polarTSmin", polar_TS_min, 10);
 
+    int  pix_level;
+    m_module.getValue("pixLevel", pix_level, 8);
+
+    int  count_threshold;
+    m_module.getValue("countThreshold", count_threshold, 16);
+
+    int  final_pix_lvl;
+    m_module.getValue("finalPixlvl", final_pix_lvl, 8);
+
+    int  final_count_threshold;
+    m_module.getValue("finalCntThresold", final_count_threshold, 2);
+
+    int  skip_TS_levels;
+    m_module.getValue("skipTSlevels", skip_TS_levels, 2);
+
+    double  equator_boundary;
+    m_module.getValue("eqBoundary", equator_boundary, 6);
+
+    double  polar_boundary;
+    m_module.getValue("polarBoundary", polar_boundary, 40);
 
     timer("---------------SourceFinder::examineRegion----------------");  
     std::vector<std::pair<astro::HealPixel, int> > v;
@@ -116,32 +127,10 @@ void SourceFinder::examineRegion(int    pix_level,
         << "  skip when localizing: " << skip1<< " to " << skip2  <<"\n"
         << "  min alpha: " << min_alpha << "\n"
         << "  sigma_max: " << sigma_max << "\n"
-        << "  background filtering: " << background_filter << "\n"
         << "  skip TS levels: " << skip_TS_levels << "\n"
-        << "  include region: ";
-    switch(region)
-    {
-    case ALL:
-        std::cout << "All\n";
-        break;
-    case EQUATORIAL:
-        std::cout << "Equatorial\n";
-        break;
-    case POLAR:
-        std::cout << "Polar\n";
-        break;
-    case MIDDLE:
-        std::cout << "Middle\n";
-        break;
-    default:
-        std::cout << "???\n";
-    }
-    if (region != ALL)
-    {
-        std::cout << "  Equatorial boundary: " << equator_boundary << "\n";
-        std::cout << "  Polar boundary: " << polar_boundary << "\n";
-    }
-    std::cout << std::endl;
+        << "  Equatorial boundary: " << equator_boundary << "\n"
+        << "  Polar boundary: " << polar_boundary << "\n"
+        << std::endl;
 
     m_pmap.extract_level(dir, radius, v, pix_level, true);
     std::cout << v.size() << " pixels will be examined.\n";
@@ -155,10 +144,6 @@ void SourceFinder::examineRegion(int    pix_level,
         astro::SkyDir sd;
         //if (it->first.level() != pix_level) continue; // Only want to examine at pixelization level at this point.
         double abs_b = fabs((it->first)().b());
-        if (region == SourceFinder::EQUATORIAL && abs_b >= equator_boundary
-            || region == SourceFinder::POLAR && abs_b <= polar_boundary
-            || region == SourceFinder::MIDDLE && (abs_b < equator_boundary || abs_b > polar_boundary))
-            continue;
         int count = static_cast<int>(m_pmap.photonCount(it->first, sd));
         
         if (count >= count_threshold)
@@ -201,9 +186,9 @@ void SourceFinder::examineRegion(int    pix_level,
         // found candidate
 
         // also check number of photons in pixel
-        HealPixel px_check(ps.dir(), 8);
+        HealPixel px_check(ps.dir(), final_pix_lvl);
         int count = static_cast<int>(m_pmap.photonCount(px_check, true, false));
-        if (count >= photon_count_check)
+        if (count >= final_count_threshold)
         {  
 
             // add to the final list, indexed according to level 13 location
@@ -335,8 +320,11 @@ void SourceFinder::list_pixels()
 
 // Eliminate weaker neighbors
 // criterion is closer that tolerance, or 3-sigma circles overlap
-void SourceFinder::prune_neighbors( double radius)
+void SourceFinder::prune_neighbors(void)
 {
+    double  radius;
+    m_module.getValue("prune_radius", radius, 0.25);
+    
     std::cout << "Eliminating weaker neighbors using radius of " << radius << " degrees...";
 
     // Mark weaker neighbors: loop over all pairs
@@ -372,7 +360,7 @@ void SourceFinder::prune_neighbors( double radius)
 }
 
 // Eliminate weaker neighbors
-void SourceFinder::prune_neighbors()
+void SourceFinder::prune_adjacent_neighbors()
 {
     std::cout << "Eliminating weaker neighbors...";
 
