@@ -1,7 +1,7 @@
 /** @file finder_main.cxx
     @brief  Finder
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.2 2007/09/09 19:54:53 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.3 2007/09/09 20:21:13 burnett Exp $
 
 */
 #include "pointlike/SourceFinder.h"
@@ -85,45 +85,11 @@ int main(int argc, char** argv)
         // create the SourceFinder
         pointlike::SourceFinder finder(healpixdata, setup);
 
-
-        // parameters for the source finding examineRegion call
-        bool includeChildren (true), 
-             weighted( true),
-	     background_filter(false);
-        int   pix_level(8)
-            , count_threshold(200)
-            , skip_TS(2);
-        double
-              prune_radius(0.25)//1.0)
-            , eq_TS_min(18.)
-            , mid_TS_min(18.)
-            , polar_TS_min(18.)
-            , eq_boundary(6.)
-            , TSmin
-            ;
-
-        pointlike::SourceFinder::RegionSelector region =
-            pointlike::SourceFinder::ALL;
-
-        // set some of them from the module
-        setup.getValue("TSmin",      TSmin,  0);
-        setup.getValue("prune_radius", prune_radius, 0.25);
-        setup.getValue("count_threshold", count_threshold, 200);
-        setup.getValue("pix_level",   pix_level, 8);
-
-        if( TSmin>0){
-            eq_TS_min = mid_TS_min=polar_TS_min = TSmin;
-        }
-        finder.examineRegion( 
-            pix_level, 
-            count_threshold, true, true, 
-            background_filter, 
-            skip_TS, 
-            region, 
-            eq_boundary);
+        // look for sources
+        finder.examineRegion();
         
         // prune the result
-        finder.prune_neighbors(prune_radius);
+        finder.prune_neighbors();
 
         // and write out the table
         finder.createTable(outfile);
