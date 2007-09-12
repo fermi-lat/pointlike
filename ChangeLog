@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Sep 11 19:44:35 PDT 2007
+pointlike/src
+
+Modified Files:
+	SourceFinder.cxx 
+Log Message:
+move parameter access from main to client
+    *
+------------------------------------------------------------
+User: burnett  Tue Sep 11 19:44:35 PDT 2007
 pointlike/pointlike
 
 Modified Files:
