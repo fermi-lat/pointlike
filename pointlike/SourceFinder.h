@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.4 2007/09/09 20:21:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.5 2007/09/12 02:44:35 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -158,6 +158,9 @@ namespace pointlike {
 
         // List selected pixels
         void list_pixels();
+
+        //! Eliminate candidates that don't meet power law tests
+        void prune_power_law(void);
 
         //! Eliminate neighbors within cone
         void prune_neighbors(void);
