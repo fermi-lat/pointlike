@@ -1,7 +1,7 @@
 /** @file finder_main.cxx
     @brief  Finder
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.3 2007/09/09 20:21:13 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.4 2007/09/12 02:44:35 burnett Exp $
 
 */
 #include "pointlike/SourceFinder.h"
@@ -87,6 +87,9 @@ int main(int argc, char** argv)
 
         // look for sources
         finder.examineRegion();
+        
+        // prune by power law fit
+        finder.prune_power_law();
         
         // prune the result
         finder.prune_neighbors();

@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.10 2007/09/09 20:21:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.11 2007/09/12 02:44:35 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -316,6 +316,73 @@ void SourceFinder::list_pixels()
             << it->first.index() << "\t"
             << it->second.value() << "\n";
     }
+}
+// Eliminate candidates that don't meet power law criteria
+void SourceFinder::prune_power_law(void)
+{
+    // Get parameters 
+    double  plEqTSmin;
+    m_module.getValue("plEqTSmin", plEqTSmin, 38.0);
+
+    double  plMidTSmin;
+    m_module.getValue("plMidTSmin", plMidTSmin, 19.0);
+
+    double  plPolarTSmin;
+    m_module.getValue("plPolarTSmin", plPolarTSmin, 24.0);
+
+    double  plSlopeCutoff;
+    m_module.getValue("plSlopeCutoff", plSlopeCutoff, -1.5);
+
+    double  plFitCutoff;
+    m_module.getValue("plFitCutoff", plFitCutoff, 0.9);
+
+    double  eqBoundary;
+    m_module.getValue("eqBoundary", eqBoundary, 6.0);
+
+    double  polarBoundary;
+    m_module.getValue("polarBoundary", polarBoundary, 6.0);
+
+    int minlevel = m_pmap.minLevel() + 2;  // Ignore lowest 2 TS levels
+    
+    std::cout << "Eliminating candidates by power law test:\n" 
+        << "  Slope cutoff: " << plSlopeCutoff << std::endl
+        << "  Confidence cutoff: " << plFitCutoff << std::endl
+        << "  Ignore power law fit if total TS for levels >= " << minlevel << std::endl
+        << "    >= " << plEqTSmin << " in equatorial region" << std::endl
+        << "    >= " << plMidTSmin << " in middle region" << std::endl
+        << "    >= " << plPolarTSmin << " in polar region" << std::endl;
+
+    for (Candidates::iterator it1 = m_can.begin(); it1 != m_can.end();) 
+    {
+        // 2nd iterator makes it possible to delete and still iterate with the other one
+        Candidates::iterator it2 = it1;  
+        ++ it1;
+
+        double totalTS = 0;
+        for (int i = minlevel; i < m_pmap.minLevel() + m_pmap.levels(); ++i)
+            totalTS += it2->second.values(i);
+
+        double abs_b = fabs(it2->first().b());
+
+
+        // Skip power law test for candidates with big enough TS
+        if (abs_b < eqBoundary)
+        {
+            if (totalTS >= plEqTSmin) continue;
+        }
+        else if (abs_b > polarBoundary)
+        {
+            if (totalTS >= plPolarTSmin) continue;
+        }
+        else if (totalTS >= plMidTSmin) continue;
+
+        if (it2->second.pl_slope() > plSlopeCutoff 
+        || it2->second.pl_confidence() < plFitCutoff)
+            m_can.erase(it2);
+    }
+
+    std::cout << m_can.size() << " source Candidates remain.\n";
+    timer();
 }
 
 // Eliminate weaker neighbors
