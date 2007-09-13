@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Sep 13 15:28:43 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	DiffuseFunction.h SourceFinder.h 
+Log Message:
+Bruce's mods to DiffuseFunction::average and new filter on power-law fits
+    *
+------------------------------------------------------------
 User: burnett  Tue Sep 11 19:44:35 PDT 2007
 pointlike/src/pointfind
 
