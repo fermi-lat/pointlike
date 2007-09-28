@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Sep 28 13:17:10 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	DiffuseFunction.h 
+Log Message:
+Bruce's implemetation of an adaptive cone integral
+    *
+------------------------------------------------------------
 User: burnett  Thu Sep 13 15:28:43 PDT 2007
 pointlike/src/pointfind
 
