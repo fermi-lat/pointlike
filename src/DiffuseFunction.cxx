@@ -1,6 +1,6 @@
 /** @file DiffuseFunction.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.2 2007/09/09 19:50:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.3 2007/09/13 22:28:43 burnett Exp $
 */
 
 #include "pointlike/DiffuseFunction.h"
@@ -91,23 +91,63 @@ std::vector<double> DiffuseFunction::integral(const astro::SkyDir& dir, const st
     return result;
 }
 
-double DiffuseFunction::average(const astro::SkyDir& dir, double angle, int level)const
+double DiffuseFunction::average(const astro::SkyDir& dir, double angle, double tolerance)const
 {
     using astro::SkyDir;
     using astro::Healpix;
 
-    int nside( 1 << level);
-    std::vector<int> v;
-    astro::Healpix hpx(nside, astro::Healpix::NESTED, astro::SkyDir::GALACTIC);
-    hpx.query_disc(dir, angle, v); 
-    double av(0);
+    int level, min_level = 6, max_level = 13;
+    double result(0.0), previous(1e20);
 
-    for (std::vector<int>::const_iterator it = v.begin(); it != v.end(); ++it)
+    // Get value for one point at center
+    previous = (*this) (dir);
+
+    // Pick starting level such that pixel size is <= half of input angle
+    for (level = min_level; level < max_level; ++ level)
     {
-        astro::HealPixel hp(*it, level);
-        av += (*this) (hp());
+        int nside(1 << level);
+        int npix(12 * nside * nside);
+        double width = sqrt(4 * M_PI / npix);  // Width of healpixel in radians
+        if (2 * width <= angle)
+            break;
     }
 
-    return av/v.size();
+    // Get value for starting pixel level
+    {   
+        int nside(1 << level);
+        std::vector<int> v;
+        astro::Healpix hpx(nside, astro::Healpix::NESTED, astro::SkyDir::GALACTIC);
+        hpx.query_disc(dir, angle, v); 
+        double av(0);
+
+        for (std::vector<int>::const_iterator it = v.begin(); it != v.end(); ++it)
+        {
+            astro::HealPixel hp(*it, level);
+            av += (*this) (hp());
+        }
+
+        result = av/v.size();
+    }
+
+    // Iterate until result changes less than tolerance
+    for(level += 1 ; fabs(result - previous) > tolerance && level < max_level; ++ level)
+    {
+        int nside(1 << level);
+        std::vector<int> v;
+        astro::Healpix hpx(nside, astro::Healpix::NESTED, astro::SkyDir::GALACTIC);
+        hpx.query_disc(dir, angle, v); 
+        double av(0);
+
+        for (std::vector<int>::const_iterator it = v.begin(); it != v.end(); ++it)
+        {
+            astro::HealPixel hp(*it, level);
+            av += (*this) (hp());
+        }
+
+        previous = result;
+        result = av/v.size();
+    }
+
+    return result;
 }
     
