@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Oct  6 10:08:38 PDT 2007
+pointlike/src
+
+Modified Files:
+	DiffuseFunction.cxx 
+Log Message:
+Bruce mods for efficiency
+    *
+------------------------------------------------------------
 User: burnett  Fri Sep 28 13:17:10 PDT 2007
 pointlike/src
 
