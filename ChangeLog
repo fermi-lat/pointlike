@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Oct  6 10:18:55 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	DiffuseFunction.h PointSourceLikelihood.h SimpleLikelihood.h 
+Log Message:
+updates using average computation, with tolerance a new parameter
+    *
+------------------------------------------------------------
 User: burnett  Sat Oct  6 10:08:38 PDT 2007
 pointlike/src
 
