@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.6 2007/09/03 23:32:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.7 2007/09/09 19:54:53 burnett Exp $
 
 */
 
@@ -104,6 +104,7 @@ public:
 
     void setEnergy(double e){m_energy = e;}
     static DiffuseFunction* s_diffuse;
+    static double s_tolerance; // for integral
 private:
 
     //! @brief a quick estimate of the signal fraction

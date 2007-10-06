@@ -1,6 +1,6 @@
 /** @file DiffuseFunction.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DiffuseFunction.h,v 1.3 2007/09/13 22:28:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DiffuseFunction.h,v 1.4 2007/09/28 20:17:09 burnett Exp $
 
 */
 #ifndef pointlike_DiffuseFunction_h
@@ -58,8 +58,12 @@ public:
     ///@return integral for the energy limits, in the given direction
     double integral(const astro::SkyDir& dir, double a, double b)const;
 
-    ///! average, for the given energy, about the direction and cone angle (in radians).  level is healpix level for pixelization.
+    ///! average, for the given energy, about the direction and cone angle (in radians).  
+    /// @param dir direction
+    /// @param cone half-angle, radians
+    /// @param tolerance relative error 
     double average(const astro::SkyDir& dir, double angle, double tolerance = 1e-3)const;
+
 
 #if 0 // not implemented yet
     ///@return integral for the energy limits, over the function, in the given direction
@@ -82,6 +86,8 @@ public:
 
 
 private:
+    double level_ave(const astro::SkyDir& dir, double angle, int level) const;
+
     static double s_emin;
     mutable double m_energy;
     int layer(double e)const;

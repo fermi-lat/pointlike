@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.11 2007/09/12 02:44:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.12 2007/09/13 22:28:43 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -71,17 +71,25 @@ Analyze range of likelihood significance values for all pixels at a particular l
 void SourceFinder::examineRegion(void) 
 {  
     int skip1(2), skip2(3);
-    double min_alpha(0.15); // miniumum alpha for TS computation
     double sigma_max(0.25); // maximum allowable sigma
 
     // Get parameters
-    double l, b;
-    m_module.getValue("l", l, 0);
-    m_module.getValue("b", b, 0);
-    astro::SkyDir dir(l,b, astro::SkyDir::GALACTIC);
+    // position is
+    double l, b, ra, dec;
+    m_module.getValue("l", l, 999.);
+    m_module.getValue("b", b, 999.);
+    m_module.getValue("ra", ra, 999.);
+    m_module.getValue("dec", dec, 999.);
+    astro::SkyDir dir;
+    if( l <999 && b < 999) {
+       dir = astro::SkyDir(l,b, astro::SkyDir::GALACTIC);
+    }else if( ra<999 && dec<999) {
+        dir = astro::SkyDir(ra,dec);
+    }
 
     double  radius;
     m_module.getValue("radius", radius, 180);
+    if( radius>=180) radius = 179.99999; // bug in gcc version of healpix code
 
     double  eq_TS_min;
     m_module.getValue("eqTSmin", eq_TS_min, 10);
@@ -112,6 +120,10 @@ void SourceFinder::examineRegion(void)
 
     double  polar_boundary;
     m_module.getValue("polarBoundary", polar_boundary, 40);
+
+    double min_alpha; // miniumum alpha for TS computation
+    m_module.getValue("min_alpha", min_alpha, 0.10);
+    
 
     timer("---------------SourceFinder::examineRegion----------------");  
     std::vector<std::pair<astro::HealPixel, int> > v;
@@ -391,6 +403,7 @@ void SourceFinder::prune_neighbors(void)
 {
     double  radius;
     m_module.getValue("prune_radius", radius, 0.25);
+    if(radius==0) return;
     
     std::cout << "Eliminating weaker neighbors using radius of " << radius << " degrees...";
 

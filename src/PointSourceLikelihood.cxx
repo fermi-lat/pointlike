@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.8 2007/09/03 23:32:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.9 2007/09/09 19:54:53 burnett Exp $
 
 */
 
@@ -78,6 +78,8 @@ void PointSourceLikelihood::setParameters(embed_python::Module& par)
     par.getValue("TSmin",    s_TSmin, s_TSmin);
 
     par.getValue("verbose",  s_verbose, s_verbose);
+
+    par.getValue("tolerance",  SimpleLikelihood::s_tolerance, SimpleLikelihood::s_tolerance);
 
     // needed by SimpleLikelihood
     par.getValue("umax", SimpleLikelihood::s_defaultUmax, SimpleLikelihood::s_defaultUmax);
