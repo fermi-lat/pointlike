@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.8 2007/09/03 23:32:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.9 2007/09/09 19:54:53 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -19,10 +19,12 @@ using namespace pointlike;
 double SimpleLikelihood::s_defaultUmax =50;
 
 pointlike::DiffuseFunction* SimpleLikelihood::s_diffuse(0);
+double  SimpleLikelihood::s_tolerance(0.05);
 
 namespace {
 
     bool debug(false);
+    double tolerance(0.05); // integral tolerance
     inline double sqr(float x){return x*x;}
     std::ostream * psf_data = &std::cout;
 
@@ -47,7 +49,7 @@ namespace {
             if( SimpleLikelihood::s_diffuse!=0){
                SimpleLikelihood::s_diffuse->setEnergy(energy);
                double angle(sqrt(2.*umax)*sigma);
-               m_back_norm = SimpleLikelihood::s_diffuse->average(dir, angle);
+               m_back_norm = SimpleLikelihood::s_diffuse->average(dir, angle, SimpleLikelihood::s_tolerance);
             }
             if(debug){
                 //psf_data = new std::ofstream("d:/users/burnett/temp/psf.txt");

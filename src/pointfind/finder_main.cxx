@@ -1,7 +1,7 @@
 /** @file finder_main.cxx
     @brief  Finder
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.4 2007/09/12 02:44:35 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.5 2007/09/13 22:28:43 burnett Exp $
 
 */
 #include "pointlike/SourceFinder.h"
@@ -71,26 +71,19 @@ int main(int argc, char** argv)
         // create healpix database using parameters in the setup file
         Data healpixdata(setup);
 
-
-        // Setup diffuse component for fits, if requested
-        std::string diffusefile;
-        DiffuseFunction* diffuse(0);
-        setup.getValue("diffusefile", diffusefile, "");
-        if( ! diffusefile.empty() ) {
-            diffuse = new DiffuseFunction(diffusefile);
-            PointSourceLikelihood::set_diffuse(diffuse);
-
-        }
+        // define all parameters used by PointSourceLikelihood
+        PointSourceLikelihood::setParameters(setup);
 
         // create the SourceFinder
         pointlike::SourceFinder finder(healpixdata, setup);
 
         // look for sources
         finder.examineRegion();
-        
+
+#if 0 // make these independent?
         // prune by power law fit
         finder.prune_power_law();
-        
+#endif
         // prune the result
         finder.prune_neighbors();
 

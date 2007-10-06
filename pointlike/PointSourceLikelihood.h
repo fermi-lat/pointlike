@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.4 2007/09/03 23:32:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.5 2007/09/09 19:54:53 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -121,7 +121,7 @@ namespace pointlike {
         std::map<int, std::vector<std::pair<astro::HealPixel,int> > >m_data_vec;
 
         static DiffuseFunction * s_diffuse;
-        static double s_radius, s_minalpha, s_TSmin;
+        static double s_radius, s_minalpha, s_TSmin, s_tolerance;
         static int s_minlevel, s_maxlevel, s_skip1, s_skip2, s_itermax, s_verbose;
     };
 
