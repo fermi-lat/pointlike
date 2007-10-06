@@ -1,6 +1,6 @@
 /** @file DiffuseFunction.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.3 2007/09/13 22:28:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.4 2007/09/28 20:17:10 burnett Exp $
 */
 
 #include "pointlike/DiffuseFunction.h"
@@ -9,6 +9,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.3 20
 #include "astro/Healpix.h"
 #include "astro/HealPixel.h"
 #include <cmath>
+#include <map>
 
 using namespace pointlike;
 
@@ -96,58 +97,69 @@ double DiffuseFunction::average(const astro::SkyDir& dir, double angle, double t
     using astro::SkyDir;
     using astro::Healpix;
 
+    static std::map<double, int> width_map;
+    static bool map_built(false);
+
     int level, min_level = 6, max_level = 13;
     double result(0.0), previous(1e20);
 
     // Get value for one point at center
     previous = (*this) (dir);
+    if (tolerance >= 0.5)  // If tolerance is higher than this, just return value at center.
+        return previous;
 
-    // Pick starting level such that pixel size is <= half of input angle
-    for (level = min_level; level < max_level; ++ level)
+    /* Build map of pixel widths by level, if not done yet.  Store twice the healpixel
+       width for easy comparison. */
+    if (!map_built)
     {
-        int nside(1 << level);
-        int npix(12 * nside * nside);
-        double width = sqrt(4 * M_PI / npix);  // Width of healpixel in radians
-        if (2 * width <= angle)
-            break;
+        width_map.clear();
+        for (level = min_level; level <= max_level; ++level)
+        {
+            int nside(1 << level);
+            int npix(12 * nside * nside);
+            double width = sqrt(4 * M_PI / npix);  // Width of healpixel in radians
+            width_map[2 * width] = level;
+        }
+        map_built = true;
     }
+
+    // Use map to determine starting pixel level
+    std::map<double, int>::iterator it = width_map.lower_bound(angle);
+    if (it == width_map.end() || (it->first > angle && it != width_map.begin()))
+        --it;
+    level = it->second;
 
     // Get value for starting pixel level
-    {   
-        int nside(1 << level);
-        std::vector<int> v;
-        astro::Healpix hpx(nside, astro::Healpix::NESTED, astro::SkyDir::GALACTIC);
-        hpx.query_disc(dir, angle, v); 
-        double av(0);
-
-        for (std::vector<int>::const_iterator it = v.begin(); it != v.end(); ++it)
-        {
-            astro::HealPixel hp(*it, level);
-            av += (*this) (hp());
-        }
-
-        result = av/v.size();
-    }
+    result = level_ave(dir, angle, level);
 
     // Iterate until result changes less than tolerance
     for(level += 1 ; fabs(result - previous) > tolerance && level < max_level; ++ level)
     {
-        int nside(1 << level);
-        std::vector<int> v;
-        astro::Healpix hpx(nside, astro::Healpix::NESTED, astro::SkyDir::GALACTIC);
-        hpx.query_disc(dir, angle, v); 
-        double av(0);
-
-        for (std::vector<int>::const_iterator it = v.begin(); it != v.end(); ++it)
-        {
-            astro::HealPixel hp(*it, level);
-            av += (*this) (hp());
-        }
-
         previous = result;
-        result = av/v.size();
+        result = level_ave(dir, angle, level);
     }
 
     return result;
+
+}
+
+// Calculate average for a given level
+double DiffuseFunction::level_ave(const astro::SkyDir& dir, double angle, int level) const
+{   
+    using astro::Healpix;
+
+    int nside(1 << level);
+    std::vector<int> v;
+    Healpix hpx(nside, astro::Healpix::NESTED, astro::SkyDir::GALACTIC);
+    hpx.query_disc(dir, angle, v); 
+    double av(0);
+
+    for (std::vector<int>::const_iterator it = v.begin(); it != v.end(); ++it)
+    {
+        astro::HealPixel hp(*it, level);
+        av += (*this) (hp());
+    }
+
+    return av/v.size();
 }
     
