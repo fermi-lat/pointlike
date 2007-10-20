@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.12 2007/09/13 22:28:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.13 2007/10/06 17:18:55 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -144,22 +144,25 @@ void SourceFinder::examineRegion(void)
         << "  Polar boundary: " << polar_boundary << "\n"
         << std::endl;
 
+    // Extract the pixels to be examined
     m_pmap.extract_level(dir, radius, v, pix_level, true);
     std::cout << v.size() << " pixels will be examined.\n";
-    Candidates can;
+    Prelim can;
     can.clear();
     int num(0);
+
+    // Use weighted count to select preliminary candidates
     for(std::vector<std::pair<astro::HealPixel, int> >::const_iterator it = v.begin();
         it != v.end(); ++it)
     {
         ShowPercent(num,v.size(),can.size());
         astro::SkyDir sd;
-        //if (it->first.level() != pix_level) continue; // Only want to examine at pixelization level at this point.
         double abs_b = fabs((it->first)().b());
         int count = static_cast<int>(m_pmap.photonCount(it->first, sd));
         
         if (count >= count_threshold)
-            can[it->first] = CanInfo(count, 0, sd);
+            can.insert(std::pair<int, CanInfo>(count, CanInfo(count, 0, sd)) );
+            //can[it->first] = CanInfo(count, 0, sd);
         ++num;
     }
 
@@ -169,9 +172,11 @@ void SourceFinder::examineRegion(void)
     m_can.clear();
     int i(0);
 
-    for (Candidates::const_iterator it = can.begin(); it != can.end(); ++ it)
+    // Examine likelihood fit for each preliminary candidate
+    for (Prelim::reverse_iterator it = can.rbegin(); it != can.rend(); ++ it)
     {
         ShowPercent(i++, can.size(), m_can.size());
+        int check = it->first;
 
         const astro::SkyDir& currentpos = it->second.dir();
         double ts_min, abs_b = fabs(currentpos.b());
