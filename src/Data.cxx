@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.11 2007/08/30 14:34:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.12 2007/08/31 20:44:49 burnett Exp $
 
 */
 
@@ -74,7 +74,7 @@ namespace {
 
     class AddPhoton: public std::unary_function<astro::Photon, void> {
     public:
-        AddPhoton (map_tools::PhotonMap& map, int select, int source )
+        AddPhoton (map_tools::PhotonMap& map, int select, double start, double stop, int source )
             : m_map(map), m_select(select), m_source(source)
         {}
         double rescale(double energy, int eventclass)
@@ -91,6 +91,7 @@ namespace {
             int sourceid = gamma.source();
 
             if( m_select>-1 && event_class!= m_select) return;
+            if( m_start>0   && gamma.time()<m_start ||  m_stop>m_start && gamma.time()>m_stop) return;
             if( m_source>-1 && sourceid != m_source)return;
 
             double energy(gamma.energy());
@@ -100,6 +101,7 @@ namespace {
         }
         map_tools::PhotonMap& m_map;
         int m_select;
+        double m_start, m_stop;
         int m_source;
     };
     /**
@@ -251,6 +253,8 @@ Data::Data(embed_python::Module& setup)
     setup.getList("files", filelist);
     setup.getValue("event_class", event_class, -1);
     setup.getValue("source_id",  source_id, -1);
+    setup.getValue("start_timet", m_start, 0);
+    setup.getValue("stop_time" , m_stop, 0);
 
     for( std::vector<std::string>::const_iterator it = filelist.begin(); 
         it !=filelist.end(); ++it)
@@ -267,29 +271,33 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
     if( source_id>-1) {
         std::cout << " and source id " << source_id;
     }
+    if( m_start>0 || m_stop>0 ) std::cout << " time range: (" << m_start << " to " << m_stop;
     std::cout  << std::endl;
 
     int photoncount(m_data->photonCount()), pixelcount(m_data->pixelCount());
 
     EventList photons(inputFile, source_id>-1);
-    AddPhoton adder(*m_data, event_type, source_id);
+    AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id);
 
     std::for_each(photons.begin(), photons.end(), adder );
     
-    std::cout << "photons found: "<< (m_data->photonCount() -photoncount) << " (total: " << m_data->photonCount() <<") "
-        <<"  pixels created: " << (m_data->pixelCount() -pixelcount) << " (total: " << m_data->pixelCount() << ") "
-        <<std::endl;
+    std::cout 
+        << "photons found: "  << (m_data->photonCount() -photoncount) << " (total: " << m_data->photonCount() <<") "
+        << "  pixels created: " << (m_data->pixelCount() -pixelcount) << " (total: " << m_data->pixelCount() << ") "
+        << std::endl;
 
 }
-Data::Data(const std::string& inputFile, int event_type, int source_id)
+Data::Data(const std::string& inputFile, int event_type, double tstart, double tstop, int source_id)
 : m_data(new map_tools::PhotonMap())
+, m_start(tstart), m_stop(tstop)
 , m_ft2file("")
 {
     add(inputFile, event_type, source_id);
 }
 
-Data::Data(std::vector<std::string> inputFiles, int event_type, int source_id, std::string ft2file)
+Data::Data(std::vector<std::string> inputFiles, int event_type, double tstart, double tstop, int source_id, std::string ft2file)
 : m_data(new map_tools::PhotonMap())
+, m_start(tstart), m_stop(tstop)
 , m_ft2file(ft2file)
 {
 
