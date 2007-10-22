@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Oct 22 13:54:35 PDT 2007
+pointlike/src
+
+Modified Files:
+	Data.cxx 
+Log Message:
+Add time limits to Data; apply branch status for root fils
+    *
+------------------------------------------------------------
+User: burnett  Mon Oct 22 13:54:35 PDT 2007
 pointlike/pointlike
 
 Modified Files:
