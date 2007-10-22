@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.12 2007/08/31 20:44:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.13 2007/10/20 23:15:58 burnett Exp $
 
 */
 
@@ -16,6 +16,11 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.12 2007/08/31 2
 
 #include "tip/IFileSvc.h"
 #include "tip/Table.h"
+
+// --ROOT --
+#include "TROOT.h"
+#include "TTree.h"
+#include "TFile.h"
 
 #include <iostream>
 #include <iomanip>
@@ -140,6 +145,8 @@ namespace {
         Iterator begin();
         Iterator end();
 
+        static std::string root_names[];
+
 
     private:
         tip::Table::ConstIterator m_itbegin, m_itend;
@@ -147,6 +154,13 @@ namespace {
         bool m_fits;
         bool m_selectid;
     };
+
+    std::string EventList::root_names[]={
+        "FT1Ra", "FT1Dec", 
+        "CTBBestEnergy", "EvtElapsedTime"
+          , "FT1ConvLayer", "McSourceId", 
+            "PtRaz", "PtDecz","PtRax","PtDecx"};                   
+
 
     EventList::EventList(const std::string infile, bool selectid,
          std::string table_name)
@@ -159,6 +173,17 @@ namespace {
         }
         // connect to input data
         const tip::Table * m_table = tip::IFileSvc::instance().readTable(infile, table_name, "");
+
+        if( ! m_fits ){
+            // if it is ROOT, peek at the TTree and fix the branch status for efficiency
+            TTree* tree;
+            gROOT->GetFile()->GetObject(table_name.c_str(), tree);
+            if( tree==0) throw std::runtime_error("EventList::EventList: did not find the ttree object");
+            tree->SetBranchStatus("*", 0); // turn off all branches
+            for( int j(0); j< sizeof(root_names)/sizeof(std::string); j++){
+                tree->SetBranchStatus(root_names[j].c_str(), 1);
+            }
+        }
         // save the iterators
         m_itbegin= m_table->begin();
         m_itend = m_table->end();
