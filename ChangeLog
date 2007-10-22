@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Oct 22 13:54:35 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	Data.h SourceFinder.h 
+Log Message:
+Add time limits to Data; apply branch status for root fils
+    *
+------------------------------------------------------------
 User: burnett  Sat Oct 20 16:18:32 PDT 2007
 pointlike/src
 
