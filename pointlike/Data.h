@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.9 2007/09/03 23:32:23 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.10 2007/10/22 20:54:35 burnett Exp $
 */
 
 
@@ -68,6 +68,7 @@ public:
     static double s_scale[4]; // scale factors
     static double set_scale(int i, double s){double t(s_scale[i]);  s_scale[i]=s; return t;}
 
+    static int s_class_level; // set to 1,2,3 for transient, source, diffuse
 private:
     map_tools::PhotonMap * m_data;
     std::string m_ft2file;
