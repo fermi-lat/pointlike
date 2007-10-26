@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Thu Oct 25 17:28:16 PDT 2007
+pointlike/src/test
+
+Modified Files:
+	test_main.cxx 
+Log Message:
+implement SkyFunction.
+    *
+------------------------------------------------------------
+User: burnett  Thu Oct 25 17:28:16 PDT 2007
 pointlike/src
 
 Modified Files:
