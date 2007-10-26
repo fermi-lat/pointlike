@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.7 2007/09/09 19:54:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.8 2007/10/06 17:18:55 burnett Exp $
 
 */
 
@@ -10,6 +10,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1
 
 #include "astro/HealPixel.h"
 #include "astro/SkyDir.h"
+#include "astro/SkyFunction.h"
 
 #include "pointlike/PsfFunction.h"
 
@@ -27,7 +28,7 @@ energy band such that the PSF is constant.
 
 */
 
-class SimpleLikelihood {
+class SimpleLikelihood  : public astro::SkyFunction{
 public:
     /** ctor
     @param data   vector of directions, weights
@@ -103,6 +104,11 @@ public:
     double kcurvature(double k);
 
     void setEnergy(double e){m_energy = e;}
+
+    /// @brief implement the SkyFunction interface
+    /// @return the events/pixel corresponding to the solution
+    double operator()(const astro::SkyDir& dir)const;
+
     static DiffuseFunction* s_diffuse;
     static double s_tolerance; // for integral
 private:
