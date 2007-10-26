@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.9 2007/09/09 19:54:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.10 2007/10/06 17:18:55 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -25,7 +25,7 @@ namespace {
 
     bool debug(false);
     double tolerance(0.05); // integral tolerance
-    inline double sqr(float x){return x*x;}
+    inline double sqr(double x){return x*x;}
     std::ostream * psf_data = &std::cout;
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -365,4 +365,16 @@ double SimpleLikelihood::kcurvature(double k) {
     }
     if(d2Ldk2<0) return -1;
     return pow(d2Ldk2,-0.5);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
+{
+    double diff =dir.difference(m_dir); 
+    double  u = sqr(diff/m_sigma)/2.;
+    if( u>m_umax) return 0;
+    // just to see what is there
+    // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
+   
+    return signal()*m_psf(u)/ m_fint/(2*M_PI*sqr(m_sigma));
 }

@@ -68,7 +68,8 @@ int main(int , char** )
 
         for( int n=0; !points[n].name.empty(); ++n){
                         
-            PointSourceLikelihood like(x, points[n].name, astro::SkyDir(points[n].ra,points[n].dec));
+            astro::SkyDir dir(points[n].ra,points[n].dec);
+            PointSourceLikelihood like(x, points[n].name, dir);
             // test setting background expectation
 #if 0
             std::vector<double> background(8,1E5);
@@ -80,6 +81,8 @@ int main(int , char** )
             if( like.TS()>10) {
                like.localize();
             }
+            // check function value at peak
+            double value = like(dir);
         };
 
     }catch(const std::exception& e){

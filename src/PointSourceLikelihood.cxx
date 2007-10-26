@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.9 2007/09/09 19:54:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.10 2007/10/06 17:18:55 burnett Exp $
 
 */
 
@@ -98,6 +98,7 @@ PointSourceLikelihood::PointSourceLikelihood(
     : m_name(name)
     , m_dir(dir)
     , m_out(&std::cout)
+    , m_energy(1000)
 {
     m_verbose = s_verbose!=0;
     setup( data, s_radius, s_minlevel, s_maxlevel);
@@ -122,7 +123,8 @@ void PointSourceLikelihood::setup(const map_tools::PhotonMap& data,double radius
             SimpleLikelihood::s_defaultUmax, energy_level(level));
         (*this)[level] = sl;
 
-        if( false ) { // make table of parameters
+        bool debug_print(false);
+        if( debug_print ) { // make table of parameters
             out() << std::setw(6) << level 
                 << " " << std::setw(10) << std::left << gamma 
                 << std::setw(10)<< std::setprecision(5) << sigma  
@@ -365,3 +367,11 @@ double PointSourceLikelihood::localize()
     return sig;
 }
 
+double PointSourceLikelihood::operator ()(const astro::SkyDir&dir)const{
+    //select according to energy
+    int level(base_level);
+    for(; m_energy>energy_level(level) && level<14; ++level);
+    PointSourceLikelihood * self = const_cast<PointSourceLikelihood*>(this);
+    return (*self)[level]->operator()(dir);
+
+}
