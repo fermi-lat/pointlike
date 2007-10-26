@@ -1,6 +1,6 @@
 /** @file DiffuseFunction.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DiffuseFunction.h,v 1.4 2007/09/28 20:17:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DiffuseFunction.h,v 1.5 2007/10/06 17:18:55 burnett Exp $
 
 */
 #ifndef pointlike_DiffuseFunction_h
@@ -43,7 +43,7 @@ public:
         assert( emin>0 && emax/emin<3); // otherwise integral not (now) valid
     }
     
-    /// Implement SkyFunction
+    /// Implement the SkyFunction interface, convenient for creating a SkyImage.
     ///@return interpolation of the table for given direction and current energy 
     /// 
     double operator()(const astro::SkyDir& dir)const; 
@@ -62,6 +62,7 @@ public:
     /// @param dir direction
     /// @param cone half-angle, radians
     /// @param tolerance relative error 
+    /// Note that if the tolerance is > 0.5, the value returned will be that at the center
     double average(const astro::SkyDir& dir, double angle, double tolerance = 1e-3)const;
 
 
