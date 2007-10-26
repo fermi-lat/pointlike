@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Oct 25 17:28:16 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h SimpleLikelihood.h 
+Log Message:
+implement SkyFunction.
+    *
+------------------------------------------------------------
 User: burnett  Thu Oct 25 17:27:20 PDT 2007
 pointlike/src
 
