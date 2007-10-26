@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.13 2007/10/20 23:15:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.14 2007/10/22 20:54:35 burnett Exp $
 
 */
 
@@ -34,7 +34,7 @@ using namespace pointlike;
 using namespace CLHEP;
 double Data::s_scale[4]={1.0, 1.86, 1.0, 1.0}; // wired in for front, back !!
 
-
+int Data::s_class_level=2; 
 
 namespace {
 
@@ -80,7 +80,7 @@ namespace {
     class AddPhoton: public std::unary_function<astro::Photon, void> {
     public:
         AddPhoton (map_tools::PhotonMap& map, int select, double start, double stop, int source )
-            : m_map(map), m_select(select), m_source(source)
+            : m_map(map), m_select(select), m_start(start), m_stop(stop), m_source(source)
         {}
         double rescale(double energy, int eventclass)
         {
@@ -154,13 +154,15 @@ namespace {
         bool m_fits;
         bool m_selectid;
     };
-
+#if 0
     std::string EventList::root_names[]={
         "FT1Ra", "FT1Dec", 
-        "CTBBestEnergy", "EvtElapsedTime"
-          , "FT1ConvLayer", "McSourceId", 
-            "PtRaz", "PtDecz","PtRax","PtDecx"};                   
-
+        "CTBBestEnergy", "EvtElapsedTime",
+        "FT1ConvLayer", "McSourceId", 
+        "PtRaz", "PtDecz","PtRax","PtDecx"
+       , "CTBClassLevel"
+    };                   
+#endif
 
     EventList::EventList(const std::string infile, bool selectid,
          std::string table_name)
@@ -174,6 +176,7 @@ namespace {
         // connect to input data
         const tip::Table * m_table = tip::IFileSvc::instance().readTable(infile, table_name, "");
 
+#if 0 
         if( ! m_fits ){
             // if it is ROOT, peek at the TTree and fix the branch status for efficiency
             TTree* tree;
@@ -184,6 +187,7 @@ namespace {
                 tree->SetBranchStatus(root_names[j].c_str(), 1);
             }
         }
+#endif
         // save the iterators
         m_itbegin= m_table->begin();
         m_itend = m_table->end();
@@ -224,12 +228,12 @@ namespace {
  
         if(! m_fits){
             // A root file: apply standard cuts
-            event_class = event_class>4? 0 : 1;  // front/back map to event class 0/1
             if( energy==0) event_class=99; // reject if not well measured
             else {
-                double gammaprob; 
-                (*m_it)["CTBGAM"].get(gammaprob);
-                if( gammaprob<0.1) event_class=99;
+                event_class = event_class>4? 0 : 1;  // front/back map to event class 0/1
+                double class_level; 
+                (*m_it)["CTBClassLevel"].get(class_level);
+                if( class_level<Data::s_class_level) event_class=99;
                 else{
                     // gets S/C pointing info for this event
                     (*m_it)["PtRaz" ].get(raz);
@@ -278,7 +282,7 @@ Data::Data(embed_python::Module& setup)
     setup.getList("files", filelist);
     setup.getValue("event_class", event_class, -1);
     setup.getValue("source_id",  source_id, -1);
-    setup.getValue("start_timet", m_start, 0);
+    setup.getValue("start_time", m_start, 0);
     setup.getValue("stop_time" , m_stop, 0);
 
     for( std::vector<std::string>::const_iterator it = filelist.begin(); 
