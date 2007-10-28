@@ -1,6 +1,6 @@
 /** @file DiffuseFunction.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DiffuseFunction.h,v 1.5 2007/10/06 17:18:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DiffuseFunction.h,v 1.6 2007/10/26 00:27:19 burnett Exp $
 
 */
 #ifndef pointlike_DiffuseFunction_h
@@ -82,8 +82,11 @@ public:
         const std::vector<double>&energies)const;
 
     /// @return number of layers
-    /// @todo: get number from file
-    int layers()const { return 17;}
+    int layers()const { return m_data.layers();}
+
+    /// @brief access to the contained SkyImage
+    const map_tools::SkyImage& image()const { return m_data;}
+
 
 
 private:

@@ -1,6 +1,6 @@
 /** @file DiffuseFunction.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.5 2007/10/06 17:08:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.6 2007/10/26 00:27:20 burnett Exp $
 */
 
 #include "pointlike/DiffuseFunction.h"
@@ -44,7 +44,6 @@ void DiffuseFunction::setEnergy(double e)const
         m_fract=0;
     }else {
         m_fract = step - m_layer;
-        m_fract = sqrt(m_fract); // interpolate according to e**-2?.
     }
 }
 
@@ -57,7 +56,7 @@ double DiffuseFunction::operator()(const astro::SkyDir& dir)const {
         double a ( m_data.pixelValue(dir, m_layer) );
         if( m_fract==0) return a;
         double b(m_data.pixelValue(dir, m_layer+1) );
-        return b*m_fract + a*(1-m_fract) 
+        return b* m_fract + a*(1-m_fract) 
             + extraGal(m_energy);
     }
 
