@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Oct 28 15:43:50 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	DiffuseFunction.h 
+Log Message:
+get proper number of layers; improve interpolation
+    *
+------------------------------------------------------------
 User: burnett  Thu Oct 25 17:28:16 PDT 2007
 pointlike/src/test
 
