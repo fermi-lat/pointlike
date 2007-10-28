@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.6 2007/10/06 17:18:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.7 2007/10/26 00:28:16 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -107,7 +107,7 @@ namespace pointlike {
             double t = sigma_level[level]; sigma_level[level]=v; return t;}
 
         ///! Set diffuse function
-        static set_diffuse(pointlike::DiffuseFunction* diffuse){SimpleLikelihood::s_diffuse = diffuse;}
+        static void set_diffuse(pointlike::DiffuseFunction* diffuse){SimpleLikelihood::s_diffuse = diffuse;}
 
     private:
         void setup(const map_tools::PhotonMap& data,double radius, int minlevel, int maxlevel);
