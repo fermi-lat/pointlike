@@ -1,6 +1,6 @@
 /** @file DiffuseFunction.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.6 2007/10/26 00:27:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.7 2007/10/28 22:43:50 burnett Exp $
 */
 
 #include "pointlike/DiffuseFunction.h"
@@ -8,16 +8,47 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.6 20
 #include "CLHEP/Vector/Rotation.h"
 #include "astro/Healpix.h"
 #include "astro/HealPixel.h"
+#include "tip/Table.h"
+#include "tip/IFileSvc.h"
 #include <cmath>
 #include <map>
+#include <stdexcept>
 
 using namespace pointlike;
 
-double DiffuseFunction::s_emin(10.);
 
-double DiffuseFunction::energy_bin(int k)
+DiffuseFunction::DiffuseFunction(std::string diffuse_cube_file, double energy)
+: m_data(diffuse_cube_file)
+, m_fract(0)
+, m_emin(0), m_emax(0)
 {
-    return s_emin*pow(2., k);
+    // expect to find a table with the energies to correspond with the layers
+    try {
+        using namespace tip;
+        Table* table = IFileSvc::instance().editTable(diffuse_cube_file, "ENERGIES");
+
+        for (Table::Iterator itor = table->begin(); itor != table->end(); ++itor) {
+
+            double e = (*itor)["energy"].get();
+            m_energies.push_back(e);
+
+        }
+    }catch(const std::exception& ){
+        throw std::invalid_argument("DiffuseFunction: the diffuse cube is not valid");
+    }
+    if( layers() != m_energies.size() ){
+        throw std::invalid_argument("DiffuseFunction: the diffuse cube is not valid");
+    }
+    m_emin = m_energies[0];
+    m_emax = m_energies.back();
+    std::cout << "DiffuseFunction: read file "<< diffuse_cube_file <<", with " 
+        << layers() << " energies from " << m_emin << " to " << m_emax << std::endl;
+    setEnergy(energy);
+}
+
+double DiffuseFunction::energy_bin(int k)const
+{
+    return m_energies[k];
 }
 
 double DiffuseFunction::extraGal(double energy)const
@@ -28,23 +59,29 @@ double DiffuseFunction::extraGal(double energy)const
 
 int DiffuseFunction::layer(double e)const
 {
-    static double log2(log(2.0));
-    double step ( log(e/s_emin)/log2 );
-    return static_cast<int>(step);
+    if( e< m_emin || e>m_emax ){
+        std::stringstream error; 
+        error << "Diffuse function: energy out of range: "<< e ;
+        throw std::invalid_argument(error.str());
+    }
+    int step(0);
+    for( std::vector<double>::const_iterator it( m_energies.begin()); it!=m_energies.end(); ++it, ++step){
+        if( (*it) > e ) break;
+    }
+    return step-1;
 }
 
-void DiffuseFunction::setEnergy(double e)const
+int DiffuseFunction::setEnergy(double e)const
 {
-    static double log2(log(2.0));
-    m_energy = e;
-    double step ( log(e/s_emin)/log2 );
-    m_layer = static_cast<int>(step);
+    m_energy =e;
+    m_layer=layer(e);
     if( m_layer >= layers()-1 ){
         m_layer = layers()-1; // set for maximum
         m_fract=0;
     }else {
-        m_fract = step - m_layer;
+        m_fract = (e-m_energies[m_layer])/(m_energies[m_layer+1] - m_energies[m_layer]);
     }
+    return m_layer;
 }
 
 double DiffuseFunction::h(double r, double alpha)

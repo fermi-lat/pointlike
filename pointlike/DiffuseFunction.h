@@ -1,6 +1,6 @@
 /** @file DiffuseFunction.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DiffuseFunction.h,v 1.6 2007/10/26 00:27:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DiffuseFunction.h,v 1.7 2007/10/28 22:43:50 burnett Exp $
 
 */
 #ifndef pointlike_DiffuseFunction_h
@@ -15,23 +15,24 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DiffuseFunction.h,v 1.
 namespace pointlike {
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 /** @class DiffuseFunction
-    @brief a SkyFunction that adapts a diffuse map. also computes extragal diffuse
+    @brief a SkyFunction that adapts a diffuse map. also includes extragal diffuse
 
 */
 
 class DiffuseFunction : public astro::SkyFunction {
 public:
-    DiffuseFunction(std::string diffuse_cube_file, double energy=1000.)
-        : m_data(diffuse_cube_file)
-        , m_fract(0)
-        , m_emin(0), m_emax(0)
-    {
-        setEnergy(energy);
-    }
 
+    /** @brief ctor that reads a FITS cube represention of the diffuse, with multple layers for
+         eneries. 
+         @param diffuse_cube_file Name of file. It must have an extension ENERGIES with the corresponding energy valuse
+         @param energy[1000] initial energy for the SkyFunction 
+
+    */
+    DiffuseFunction(std::string diffuse_cube_file, double energy=1000.);
+ 
     double extraGal(double energy) const; ///< access to the extra galactic component
 
-    void setEnergy(double e)const;
+    int setEnergy(double e)const;
 
     void setLayer(int layer){ 
         m_layer=layer;
@@ -92,12 +93,12 @@ public:
 private:
     double level_ave(const astro::SkyDir& dir, double angle, int level) const;
 
-    static double s_emin;
+    std::vector<double> m_energies; ///< list of energies
     mutable double m_energy;
     int layer(double e)const;
     static double h(double r, double alpha);
 
-    static double energy_bin(int k);
+    double energy_bin(int k) const;
     map_tools::SkyImage m_data;
     mutable int m_layer;
     mutable double m_fract; ///< current fractional
