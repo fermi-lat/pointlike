@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Oct 29 09:41:34 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	DiffuseFunction.h 
+Log Message:
+use the energies in the FITS table associated wiith the image data
+    *
+------------------------------------------------------------
 User: burnett  Sun Oct 28 15:44:28 PDT 2007
 pointlike/pointlike
 
