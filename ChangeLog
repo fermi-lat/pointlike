@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Oct 29 11:25:57 PDT 2007
+pointlike/src/likelihood
+
+Removed Files:
+	likelihood_main.cxx 
+Log Message:
+tagging patch, after removing obsolete file
+    *
+------------------------------------------------------------
+User: burnett  Mon Oct 29 11:25:57 PDT 2007
 pointlike/doc
 
 Modified Files:
