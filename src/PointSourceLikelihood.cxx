@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.10 2007/10/06 17:18:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.11 2007/10/26 00:28:16 burnett Exp $
 
 */
 
@@ -283,6 +283,7 @@ double PointSourceLikelihood::localize(int skip)
                 <<std::endl;
         }
         double oldTs( maximize(skip)); // initial (partial) TS
+        SkyDir last_dir(dir()); // save current direction
 
         for( ; iter<maxiter; ++iter){
             Hep3Vector grad( gradient(skip) );
@@ -334,6 +335,7 @@ double PointSourceLikelihood::localize(int skip)
         }// iter loop
         if( iter==maxiter){
             if( verbose() ) out() << "   >>>did not converge" << std::endl;
+            setDir(last_dir()); // restore position
             return 99.;
         }
         if( iter<5 ){
