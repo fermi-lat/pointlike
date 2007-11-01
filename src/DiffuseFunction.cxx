@@ -1,6 +1,6 @@
 /** @file DiffuseFunction.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.7 2007/10/28 22:43:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.8 2007/10/29 16:41:34 burnett Exp $
 */
 
 #include "pointlike/DiffuseFunction.h"
@@ -18,9 +18,8 @@ using namespace pointlike;
 
 
 DiffuseFunction::DiffuseFunction(std::string diffuse_cube_file, double energy)
-: m_data(diffuse_cube_file)
-, m_fract(0)
-, m_emin(0), m_emax(0)
+: SkySpectrum(energy)
+, m_data(diffuse_cube_file)
 {
     // expect to find a table with the energies to correspond with the layers
     try {
@@ -44,6 +43,10 @@ DiffuseFunction::DiffuseFunction(std::string diffuse_cube_file, double energy)
     std::cout << "DiffuseFunction: read file "<< diffuse_cube_file <<", with " 
         << layers() << " energies from " << m_emin << " to " << m_emax << std::endl;
     setEnergy(energy);
+}
+
+DiffuseFunction::~DiffuseFunction()
+{
 }
 
 double DiffuseFunction::energy_bin(int k)const
@@ -71,47 +74,23 @@ int DiffuseFunction::layer(double e)const
     return step-1;
 }
 
-int DiffuseFunction::setEnergy(double e)const
-{
-    m_energy =e;
-    m_layer=layer(e);
-    if( m_layer >= layers()-1 ){
-        m_layer = layers()-1; // set for maximum
-        m_fract=0;
-    }else {
-        m_fract = (e-m_energies[m_layer])/(m_energies[m_layer+1] - m_energies[m_layer]);
-    }
-    return m_layer;
-}
 
-double DiffuseFunction::h(double r, double alpha)
+double DiffuseFunction::value(const astro::SkyDir& dir, double e)const
 {
-    return (1.-pow(r,-alpha))/alpha;
-}
+    int l(layer(e)); 
+    double e1(m_energies[l]), e2(m_energies[l+1]);
+    double f1( m_data.pixelValue(dir,l) ), f2(m_data.pixelValue(dir,l+1) );
+    double alpha ( log(f1/f2)/log(e2/e1) );
+    return f1*pow( e1/e, alpha);
 
-double DiffuseFunction::operator()(const astro::SkyDir& dir)const {
-        double a ( m_data.pixelValue(dir, m_layer) );
-        if( m_fract==0) return a;
-        double b(m_data.pixelValue(dir, m_layer+1) );
-        return b* m_fract + a*(1-m_fract) 
-            + extraGal(m_energy);
-    }
+}
 
 double DiffuseFunction::integral(const astro::SkyDir& dir, double a, double b)const
 {
-    static double log2(log(2.));
-    ///@todo: generalize this for intervals larger than a factor of 3 
-    int k(layer(a));   // nearest index
-    double Ek( energy_bin(k) ); // energy for nearest value
-
-    // flux*energy values for this and the next bin
-    double Fk( Ek*m_data.pixelValue(dir,k) ) 
-        ,  Fkp( 2.*Ek*m_data.pixelValue(dir,k+1) );
-
-    // the power law index, and final integral
-    double alpha( log(Fk/Fkp)/log2 )
-        ,  Q( Fk * (h(b/Ek,alpha) - h(a/Ek,alpha)) );
-    return Q;
+    // estimate integral by assuming power-law from start to end
+    double fa(value(dir, a)), fb(value(dir,b));
+    double q ( 1. - log(fa/fb)/log(b/a) );
+    return fa* a * (pow(b/a, q)-1)/q;
 }
 
 std::vector<double> DiffuseFunction::integral(const astro::SkyDir& dir, const std::vector<double>&energies)const
@@ -127,75 +106,3 @@ std::vector<double> DiffuseFunction::integral(const astro::SkyDir& dir, const st
     }
     return result;
 }
-
-double DiffuseFunction::average(const astro::SkyDir& dir, double angle, double tolerance)const
-{
-    using astro::SkyDir;
-    using astro::Healpix;
-
-    static std::map<double, int> width_map;
-    static bool map_built(false);
-
-    int level, min_level = 6, max_level = 13;
-    double result(0.0);
-
-    // Get value for one point at center
-    double previous = (*this) (dir);
-    if (tolerance >= 0.5)  // If tolerance is higher than this, just return value at center.
-        return previous;
-
-    /* Build map of pixel widths by level, if not done yet.  Store twice the healpixel
-       width for easy comparison. */
-    if (!map_built)
-    {
-        width_map.clear();
-        for (level = min_level; level <= max_level; ++level)
-        {
-            int nside(1 << level);
-            int npix(12 * nside * nside);
-            double width = sqrt(4 * M_PI / npix);  // Width of healpixel in radians
-            width_map[2 * width] = level;
-        }
-        map_built = true;
-    }
-
-    // Use map to determine starting pixel level
-    std::map<double, int>::iterator it = width_map.lower_bound(angle);
-    if (it == width_map.end() || (it->first > angle && it != width_map.begin()))
-        --it;
-    level = it->second;
-
-    // Get value for starting pixel level
-    result = level_ave(dir, angle, level);
-
-    // Iterate until result changes less than tolerance
-    for(level += 1 ; fabs(result - previous) > tolerance && level < max_level; ++ level)
-    {
-        previous = result;
-        result = level_ave(dir, angle, level);
-    }
-
-    return result;
-
-}
-
-// Calculate average for a given level
-double DiffuseFunction::level_ave(const astro::SkyDir& dir, double angle, int level) const
-{   
-    using astro::Healpix;
-
-    int nside(1 << level);
-    std::vector<int> v;
-    Healpix hpx(nside, astro::Healpix::NESTED, astro::SkyDir::GALACTIC);
-    hpx.query_disc(dir, angle, v); 
-    double av(0);
-
-    for (std::vector<int>::const_iterator it = v.begin(); it != v.end(); ++it)
-    {
-        astro::HealPixel hp(*it, level);
-        av += (*this) (hp());
-    }
-
-    return av/v.size();
-}
-    
