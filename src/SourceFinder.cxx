@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.13 2007/10/06 17:18:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.14 2007/10/20 23:18:32 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -53,12 +53,6 @@ using namespace pointlike;
 using namespace embed_python;
 
 SourceFinder::SourceFinder(const pointlike::Data& map, Module & Mod)
-: m_pmap(map)
-, m_counts(0)
-, m_module(Mod)
-{}
-
-SourceFinder::SourceFinder(const pointlike::CalData& map,Module & Mod)
 : m_pmap(map)
 , m_counts(0)
 , m_module(Mod)
