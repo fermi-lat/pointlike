@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Thu Nov  1 14:49:59 PDT 2007
+pointlike/pointlike
+
+Added Files:
+	ParamOptimization.h 
+Log Message:
+New class abstracts parameter optimization
+    *
+------------------------------------------------------------
 User: burnett  Thu Nov  1 14:43:41 PDT 2007
 pointlike/src
 
