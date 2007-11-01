@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.7 2007/10/22 20:54:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.8 2007/11/01 21:33:33 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -90,9 +90,6 @@ namespace pointlike {
     public:
 
         SourceFinder(const pointlike::Data& data,  embed_python::Module & Mod);
-#if 0
-        SourceFinder(const pointlike::CalData& data, embed_python::Module & Mod);
-#endif
        typedef std::map<astro::HealPixel, CanInfo> Candidates;
        typedef std::multimap<int, CanInfo> Prelim; // Preliminary candidates
 

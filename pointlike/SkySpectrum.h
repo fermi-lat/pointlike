@@ -1,7 +1,7 @@
 /** @file SkySpectrum.h
     @brief declare class SkySpectrum
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DiffuseFunction.h,v 1.8 2007/10/29 16:41:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SkySpectrum.h,v 1.1 2007/11/01 21:33:33 burnett Exp $
 
 */
 #ifndef pointlike_SkySpectrum_h
@@ -47,7 +47,7 @@ public:
     /// functor that returns an integral over the energies as well
     double operator()(const astro::SkyDir& dir, double emin, double emax)const;
 
-
+    ///! average, for the given energy, about the direction and cone angle(radians)
     double average(const astro::SkyDir& dir, double angle, double tolerance)const;
 
 

@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.8 2007/10/06 17:18:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.9 2007/10/26 00:28:16 burnett Exp $
 
 */
 
@@ -18,7 +18,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1
 #include <utility>
 
 namespace pointlike {
-class DiffuseFunction;
+class SkySpectrum;
 
 /** @class SimpleLikelihood
 @brief Simple SimpleLikelihood analysis
@@ -109,7 +109,7 @@ public:
     /// @return the events/pixel corresponding to the solution
     double operator()(const astro::SkyDir& dir)const;
 
-    static DiffuseFunction* s_diffuse;
+    static SkySpectrum* s_diffuse;
     static double s_tolerance; // for integral
 private:
 
