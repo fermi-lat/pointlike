@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.19 2007/09/10 20:59:37 burnett Exp $
+$Id: release.notes,v 1.20 2007/10/29 18:25:57 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 01-nov-07 v2r2p2  THB Fix diffuse to account for ENERGIES 
  29-oct-07 v2r2p1  THB Fix diffuse to account for ENERGIES 
  10-oct-07 v2r2    THB Implement use of diffuse; refactor parameter specification
  30-aug-07 v2r1    THB fix Linux issues, remove unbinned for now, add Draw class, fix pointfind app
