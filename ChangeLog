@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: burnett  Thu Nov  1 14:33:33 PDT 2007
+pointlike/pointlike
+
+Modified Files:
+	DiffuseFunction.h SourceFinder.h 
+Added Files:
+	Neighbor.h SkySpectrum.h 
+Removed Files:
+	CalData.h 
+Log Message:
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: v2r2p2, operation: add
 Package: pointlike
