@@ -1,5 +1,18 @@
 ------------------------------------------------------------
 User: burnett  Thu Nov  1 14:33:33 PDT 2007
+pointlike/src
+
+Modified Files:
+	DiffuseFunction.cxx SourceFinder.cxx 
+Added Files:
+	Neighbor.cxx SkySpectrum.cxx 
+Removed Files:
+	CalData.cxx 
+Log Message:
+
+    *
+------------------------------------------------------------
+User: burnett  Thu Nov  1 14:33:33 PDT 2007
 pointlike/pointlike
 
 Modified Files:
