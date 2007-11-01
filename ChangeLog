@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Nov  1 07:58:23 PDT 2007
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+tag after fix to behavior of pointfit after non-convergence
+    *
+------------------------------------------------------------
 TAG
 Tag name: v2r2p1, operation: add
 Package: pointlike
