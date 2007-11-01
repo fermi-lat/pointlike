@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Thu Nov  1 07:58:23 PDT 2007
+pointlike/doc
+
+Modified Files:
+	release.notes 
+Log Message:
+tag after fix to behavior of pointfit after non-convergence
+    *
+------------------------------------------------------------
+User: burnett  Thu Nov  1 07:58:23 PDT 2007
 pointlike/cmt
 
 Modified Files:
