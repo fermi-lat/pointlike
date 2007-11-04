@@ -1,7 +1,7 @@
 /** @file SkySpectrum.cxx
     @brief implement class SkySpectrum
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SkySpectrum.h,v 1.8 2007/10/29 16:41:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SkySpectrum.cxx,v 1.1 2007/11/01 21:33:33 burnett Exp $
 
 */
 
@@ -94,7 +94,7 @@ double SkySpectrum::average(const astro::SkyDir& dir, double angle, double toler
     result = level_ave(dir, angle, level);
 
     // Iterate until result changes less than tolerance
-    for(level += 1 ; fabs(result - previous) > tolerance && level < max_level; ++ level)
+    for(level += 1 ; fabs(result/previous -1.) > tolerance && level < max_level; ++ level)
     {
         previous = result;
         result = level_ave(dir, angle, level);
