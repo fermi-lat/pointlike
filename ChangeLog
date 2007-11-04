@@ -1,5 +1,19 @@
 ------------------------------------------------------------
 User: burnett  Sun Nov  4 14:11:32 PST 2007
+pointlike/src
+
+Modified Files:
+	DiffuseFunction.cxx PointSourceLikelihood.cxx 
+	SimpleLikelihood.cxx SkySpectrum.cxx 
+Added Files:
+	CompositeSkySpectrum.cxx PhotonMap.cxx 
+Removed Files:
+	Neighbor.cxx 
+Log Message:
+refactor to use polymorphism from new SkySpectrum to facilitate display
+    *
+------------------------------------------------------------
+User: burnett  Sun Nov  4 14:11:32 PST 2007
 pointlike/python
 
 Modified Files:
