@@ -1,4 +1,18 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov  4 14:11:32 PST 2007
+pointlike/pointlike
+
+Modified Files:
+	DiffuseFunction.h PointSourceLikelihood.h SimpleLikelihood.h 
+	SkySpectrum.h SourceFinder.h 
+Added Files:
+	CompositeSkySpectrum.h PhotonMap.h 
+Removed Files:
+	Neighbor.h 
+Log Message:
+refactor to use polymorphism from new SkySpectrum to facilitate display
+    *
+------------------------------------------------------------
 User: mar0  Thu Nov  1 14:50:22 PDT 2007
 pointlike/src
 
