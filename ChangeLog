@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sun Nov  4 14:11:32 PST 2007
+pointlike/python
+
+Modified Files:
+	pointfind_setup.py pointfit_setup.py 
+Log Message:
+refactor to use polymorphism from new SkySpectrum to facilitate display
+    *
+------------------------------------------------------------
+User: burnett  Sun Nov  4 14:11:32 PST 2007
 pointlike/pointlike
 
 Modified Files:
