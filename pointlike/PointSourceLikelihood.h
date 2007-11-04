@@ -1,11 +1,11 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.8 2007/10/28 22:44:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.9 2007/11/01 21:43:41 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
 #define tools_PointSourceLikelihood_h
-
+#include "pointlike/SkySpectrum.h"
 #include "pointlike/SimpleLikelihood.h"
 #include "astro/SkyDir.h"
 #include <iostream>
@@ -25,7 +25,7 @@ namespace pointlike {
 
 
     */
-    class PointSourceLikelihood : public  std::map<int, SimpleLikelihood*>, public astro::SkyFunction{
+    class PointSourceLikelihood : public  std::map<int, SimpleLikelihood*>, public pointlike::SkySpectrum{
     public:
 
 
@@ -68,7 +68,7 @@ namespace pointlike {
         /// @brief localate with iteration to refit the levels, using parameters set in ctor
         double localize();
 
-        const std::string& name()const{return m_name;}
+        std::string name()const{return m_name;}
 
         const astro::SkyDir& dir()const{return m_dir;}
 
@@ -89,9 +89,12 @@ namespace pointlike {
         bool verbose()const{return m_verbose;}
 
         ///! implement the SkyFunction interface
-        double operator ()(const astro::SkyDir&dir)const;
-        void setEnergy(double energy){m_energy=energy;}
+           ///@brief return differential value 
+        ///@param e energy in MeV
+        virtual double value(const astro::SkyDir& dir, double e)const;
 
+        ///@brief integral for the energy limits, in the given direction
+        virtual double integral(const astro::SkyDir& dir, double a, double b)const;
         static void PointSourceLikelihood::setParameters(embed_python::Module& par);
 
         /// @brief set radius for individual fits
@@ -107,11 +110,12 @@ namespace pointlike {
             double t = sigma_level[level]; sigma_level[level]=v; return t;}
 
         ///! Set diffuse function
-        static void set_diffuse(pointlike::SkySpectrum* diffuse){SimpleLikelihood::s_diffuse = diffuse;}
+        static void set_diffuse(const pointlike::SkySpectrum* diffuse){SimpleLikelihood::s_diffuse = diffuse;}
 
     private:
         void setup(const map_tools::PhotonMap& data,double radius, int minlevel, int maxlevel);
-
+        std::vector<double> m_energies; ///< array of left edge energies, indexed by level-m_minlevel
+        int m_minlevel, m_nlevels;      ///< from the data.
         std::string m_name;
         astro::SkyDir m_dir; ///< common direction
         double m_dir_sigma;  ///< error circle from fit (radians)
@@ -119,7 +123,6 @@ namespace pointlike {
 
         bool m_verbose;
         std::ostream * m_out;
-        double m_energy; ///< used to select appropriate SimpleLikelihood object for this
         std::ostream& out()const{return *m_out;}
 
         // the data to feed each guy, extracted from the database

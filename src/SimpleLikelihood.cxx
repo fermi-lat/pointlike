@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.11 2007/10/26 00:28:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.12 2007/11/01 21:43:41 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -18,7 +18,7 @@ using namespace pointlike;
 //#define DEBUG_PRINT
 double SimpleLikelihood::s_defaultUmax =50;
 
-pointlike::SkySpectrum* SimpleLikelihood::s_diffuse(0);
+const pointlike::SkySpectrum* SimpleLikelihood::s_diffuse(0);
 double  SimpleLikelihood::s_tolerance(0.05);
 
 namespace {
@@ -35,7 +35,7 @@ namespace {
             double sigma, double umax,
             std::vector< std::pair<double, int> >& vec2,
             std::vector<double>& vec3,
-            double energy
+            double emin, double emax
             )
             : m_dir(dir), m_f(f), m_sigma(sigma)
             , m_vec2(vec2)
@@ -47,9 +47,13 @@ namespace {
             , m_back_norm(1)
         {
             if( SimpleLikelihood::s_diffuse!=0){
-               SimpleLikelihood::s_diffuse->setEnergy(energy);
+               SimpleLikelihood::s_diffuse->setEnergyRange(emin, emax);
                double angle(sqrt(2.*umax)*sigma);
                m_back_norm = SimpleLikelihood::s_diffuse->average(dir, angle, SimpleLikelihood::s_tolerance);
+               if( m_back_norm==0){
+                   std::cerr << "Warning: normalization zero" << std::endl;
+                   m_back_norm=0.1; // kluge, like below
+               }
             }
             if(debug){
                 //psf_data = new std::ofstream("d:/users/burnett/temp/psf.txt");
@@ -66,6 +70,7 @@ namespace {
                 val=(*SimpleLikelihood::s_diffuse)(dir)/m_back_norm;
             }
             // a return value in the given direction
+            if( val==0){ val=0.1;} // prevent zero, which is bad
             return val;
         }
 
@@ -147,7 +152,7 @@ namespace {
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SimpleLikelihood::SimpleLikelihood(const std::vector<std::pair<astro::HealPixel, int> >& vec,
         const astro::SkyDir& dir, 
-        double gamma, double sigma, double background, double umax, double energy)
+        double gamma, double sigma, double background, double umax, double emin,double emax)
         : m_vec(vec)
         , m_averageF(0)
         , m_psf(gamma)
@@ -156,7 +161,7 @@ SimpleLikelihood::SimpleLikelihood(const std::vector<std::pair<astro::HealPixel,
         , m_curv(-1)
         , m_background(background)  // default: no estimate
         , m_umax(umax)
-        , m_energy(energy)
+        , m_emin(emin), m_emax(emax)
 { 
 
     m_fint = m_psf.integral(m_umax);// integral out to umax
@@ -173,7 +178,7 @@ void SimpleLikelihood::setDir(const astro::SkyDir& dir)
     // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
     m_vec2.clear();
     m_vec3.clear();
-    Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2, m_vec3,m_energy);
+    Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2, m_vec3,m_emin, m_emax);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
 
     m_photon_count = static_cast<int>(result.count());
@@ -220,14 +225,13 @@ std::pair<double,double> SimpleLikelihood::maximize()
         
         // accumulate first and second derivatives
         dw = accumulate(m_vec2.begin(), m_vec2.end(), poissonDerivatives(x), Derivatives(x));
-#if 0
-        std::cout 
+        if( debug) std::cout 
             << std::setw(5)  << iteration 
             << std::setw(10) << std::setprecision(3) << x 
             << std::setw(15) << dw.first 
             << std::setw(15) << dw.second << std::endl;
      
-#endif
+
         if( fabs(dw.second) < 1e-6 ) {
             dw.second = 1.0;
             break;
@@ -372,7 +376,6 @@ double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
 {
     double diff =dir.difference(m_dir); 
     double  u = sqr(diff/m_sigma)/2.;
-    if( u>m_umax) return 0;
     // just to see what is there
     // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
    

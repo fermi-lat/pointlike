@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.8 2007/11/01 21:33:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.9 2007/11/01 21:43:41 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -134,13 +134,11 @@ namespace pointlike {
         */
         Candidates & getCandidates() {return m_can;}
 
-        /** @brief
-        Analyze range of likelihood significance values for all pixels at a particular level  
+        /** @brief Analyze range of likelihood significance values for all pixels at a particular level  
         */
         void examineRegion(void) ;
 
-        /** @brief
-        Analyze likelihood significance for a particular direction  
+        /** @brief Analyze likelihood significance for a particular direction  
         */
 
         void checkDir(astro::SkyDir & sd,

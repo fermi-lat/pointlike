@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.11 2007/10/26 00:28:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.12 2007/11/01 14:58:23 burnett Exp $
 
 */
 
@@ -14,6 +14,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 
 #include <fstream>
 #include <algorithm>
 #include <iomanip>
+#include <stdexcept>
 
 
 using namespace astro;
@@ -94,13 +95,19 @@ void PointSourceLikelihood::setParameters(embed_python::Module& par)
 PointSourceLikelihood::PointSourceLikelihood(
     const map_tools::PhotonMap& data,    
     std::string name,
-    const astro::SkyDir& dir) 
-    : m_name(name)
+    const astro::SkyDir& dir)
+    : m_energies( data.energyBins() ) // load energies from the data object
+    , m_minlevel (data.minLevel() )   // and the minimum level
+    , m_nlevels( data.levels() )      // and the number of levels
+    , m_name(name)
     , m_dir(dir)
     , m_out(&std::cout)
-    , m_energy(1000)
 {
     m_verbose = s_verbose!=0;
+    if( s_minlevel< m_minlevel || s_maxlevel>m_minlevel+m_nlevels ){
+        throw std::invalid_argument("PointSourceLikelihood: invalid levels for data");
+    }
+    m_energies.push_back(1e5); // put guard at 100GeV
     setup( data, s_radius, s_minlevel, s_maxlevel);
 }
 
@@ -116,11 +123,15 @@ void PointSourceLikelihood::setup(const map_tools::PhotonMap& data,double radius
         double gamma( gamma_level[level] ),
             sigma ( scale_factor(level)* sigma_level[level]);
 
+        double emin( m_energies[level-m_minlevel]), emax( m_energies[level-m_minlevel+1]);
+
         // and create the simple likelihood object
         SimpleLikelihood* sl = new SimpleLikelihood(m_data_vec[level], m_dir, 
             gamma, sigma,
-            -1, // background level?
-            SimpleLikelihood::s_defaultUmax, energy_level(level));
+            -1, // background (not used now)
+            SimpleLikelihood::s_defaultUmax, 
+            emin, emax
+            );
         (*this)[level] = sl;
 
         bool debug_print(false);
@@ -243,6 +254,9 @@ void PointSourceLikelihood::printSpectrum()
                 << std::setw(4)<< a.second 
                 << setw(6)<< setprecision(0)<< ts
                 << setw(8) << setprecision(2) << levellike.average_b()
+#if 1 // temporary log likelihood
+                << setw(10) << setprecision(2) << levellike() 
+#endif
                 << std::endl;
         }
     }
@@ -269,11 +283,11 @@ double PointSourceLikelihood::localize(int skip)
 {
     using std::setw; using std::left; using std::setprecision; using std::right;
     using std::fixed;
-    int wd(10), iter(0), maxiter(10);
+    int wd(10), iter(0), maxiter(5);
  
         if( verbose()){
             out() 
-                << "      Searching for best position, skipping first "<< skip <<" layers \n"
+                << "      Searching for best position, start at level "<< skip+s_minlevel<<"\n"
                 << setw(wd) << left<< "Gradient   " 
                 << setw(wd) << left<< "delta  "   
                 << setw(wd) << left<< "ra"
@@ -326,7 +340,7 @@ double PointSourceLikelihood::localize(int skip)
                     break;
                 }
                 delta*=0.5;
-                if( verbose() ){ out()<< setw(54) <<setprecision(0) << newTs << " --back off"
+                if( verbose() ){ out()<< setw(52) <<setprecision(0) << newTs << " --back off"
                     <<setprecision(3) << std::endl; }
 
             }
@@ -369,11 +383,21 @@ double PointSourceLikelihood::localize()
     return sig;
 }
 
-double PointSourceLikelihood::operator ()(const astro::SkyDir&dir)const{
-    //select according to energy
-    int level(base_level);
-    for(; m_energy>energy_level(level) && level<14; ++level);
-    PointSourceLikelihood * self = const_cast<PointSourceLikelihood*>(this);
-    return (*self)[level]->operator()(dir);
+double PointSourceLikelihood::value(const astro::SkyDir& dir, double energy) const
+{
+    int level(m_minlevel);
+    for(; energy> m_energies[level-m_minlevel] && level<= s_maxlevel; ++level);
+    std::map<int, SimpleLikelihood*>::const_iterator it = find(level-1);
+    if( it==end() ){
+        throw std::invalid_argument("PointSourceLikelihood::value--no fit for the requested energy");
+    }
+    return it->second->operator()(dir);
+
+}
+    ///@brief integral for the energy limits, in the given direction
+double PointSourceLikelihood::integral(const astro::SkyDir& dir, double emin, double emax)const
+{
+    // implement by just finding the right bin
+    return value(dir, sqrt(emin*emax) );
 
 }
