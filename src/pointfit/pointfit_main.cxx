@@ -1,12 +1,12 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.12 2007/09/09 19:54:53 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.13 2007/11/05 20:07:55 mar0 Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
 #include "pointlike/Data.h"
-#include "pointlike/SigmaOptimization.h"
+#include "pointlike/ParamOptimization.h"
 #include "pointlike/DiffuseFunction.h"
 
 #include "embed_python/Module.h"
@@ -92,8 +92,8 @@ int main(int argc, char** argv)
         }
         if( check_sigma){
             int minlevel(6), maxlevel(13);
-            SigmaOptimization so(healpixdata,directions,out,minlevel,maxlevel);
-            so.compute_s();
+            ParamOptimization so(healpixdata,directions,out,minlevel,maxlevel);
+            so.compute();
         }
         if( !outfile.empty()){
             delete out;
