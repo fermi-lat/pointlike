@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: mar0  Mon Nov  5 12:07:55 PST 2007
+pointlike/pointlike
+
+Modified Files:
+	ParamOptimization.h PointSourceLikelihood.h SimpleLikelihood.h 
+Removed Files:
+	SigmaOptimization.h 
+Log Message:
+Removed SigmaOptimization and replaced with general ParamOptimization.
+Added a function in PSL that recalculates the likelihood without creating an entirely new set of SL.
+Changed keyword for PSL search radius from "radius" to "pslradius" and added minimum level keyword "minlevel"
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov  4 14:11:32 PST 2007
 pointlike/src
 
