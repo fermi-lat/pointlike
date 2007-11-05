@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.12 2007/11/01 14:58:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.13 2007/11/04 22:11:32 burnett Exp $
 
 */
 
@@ -23,14 +23,14 @@ namespace {
 
    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // from fits 2/26/2006 
-    double fit_gamma[]={0,0,0,0,0,0,
+    double fit_gamma[]={0,0,0,0,0,2.25,
         2.27,2.22,2.25,2.25,2.29,2.14,2.02,1.87};
 #if 0 // old
     double fit_sigma[]={0,0,0,0,0,0,
         0.335,0.319,0.332,0.352,0.397,0.446,0.526,0.657};
 #else // from empirical study of a single source 
     // set level 8 -13 using handoff (7/14/07) tweak level 12 from .52 to .62
-    double fit_sigma[]={0,0,0,0,0,0,
+    double fit_sigma[]={0,0,0,0,0,0.343,
         0.335,0.319, //0.422, 0.9, 0.9, 1.0, 1.1, 1.0 
 //    0.42899897,  0.45402442,  0.4742285,   0.60760651,  0.62,  0.94671
     0.431, 0.449, 0.499, 0.566, 0.698, 0.818 // from Marshall
@@ -68,7 +68,7 @@ int    PointSourceLikelihood::s_verbose(0);
 void PointSourceLikelihood::setParameters(embed_python::Module& par)
 {
     
-    par.getValue("radius",   s_radius,   s_radius);
+    par.getValue("pslradius",   s_radius,   s_radius);
     par.getValue("minlevel", s_minlevel, s_minlevel);
     par.getValue("maxlevel", s_maxlevel, s_maxlevel);
     par.getValue("minalpha", s_minalpha, s_minalpha);
@@ -77,7 +77,7 @@ void PointSourceLikelihood::setParameters(embed_python::Module& par)
     par.getValue("skip2",    s_skip2, s_skip2);
     par.getValue("itermax",  s_itermax, s_itermax);
     par.getValue("TSmin",    s_TSmin, s_TSmin);
-
+    par.getValue("minlevel", s_minlevel, s_minlevel);
     par.getValue("verbose",  s_verbose, s_verbose);
 
     par.getValue("tolerance",  SimpleLikelihood::s_tolerance, SimpleLikelihood::s_tolerance);
@@ -400,4 +400,15 @@ double PointSourceLikelihood::integral(const astro::SkyDir& dir, double emin, do
     // implement by just finding the right bin
     return value(dir, sqrt(emin*emax) );
 
+void PointSourceLikelihood::recalc(int level) {
+    // get PSF parameters from fits
+        double gamma( gamma_level[level] ),
+            sigma ( scale_factor(level)* sigma_level[level]);
+
+        // and create the simple likelihood object
+        SimpleLikelihood* sl = new SimpleLikelihood(m_data_vec[level], m_dir, 
+            gamma, sigma,
+            -1, // background level?
+            SimpleLikelihood::s_defaultUmax, energy_level(level));
+        (*this)[level] = sl;
 }

@@ -1,7 +1,7 @@
 /** @file ParamOptimization.cxx 
     @brief ParamOptimization member functions
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.2 2007/08/30 17:51:37 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.1 2007/11/01 21:50:22 mar0 Exp $
 
 */
 
@@ -19,10 +19,14 @@ ParamOptimization::ParamOptimization(const map_tools::PhotonMap &data, const std
 m_data(data)
 , m_minlevel(minlevel)
 , m_maxlevel(maxlevel)
-, m_directions(directions)
 , m_out(out){
     m_minlevel<data.minLevel()?m_minlevel=data.minLevel():m_minlevel;
     m_maxlevel>data.minLevel()+data.levels()-1?m_maxlevel=data.minLevel()+data.levels()-1:m_maxlevel;
+    for(std::vector<astro::SkyDir>::const_iterator it = directions.begin();it!=directions.end();++it) {
+        PointSourceLikelihood *pl = new pointlike::PointSourceLikelihood(data,"",*it);
+        pl->maximize();
+        m_likes.push_back(pl);
+    }
 }
 
 void ParamOptimization::compute(ParamOptimization::Param p) {
@@ -36,7 +40,7 @@ void ParamOptimization::compute(ParamOptimization::Param p) {
     }
     *m_out << "***************************************************************************\n";
 
-    double num2look = m_directions.size();
+    double num2look = m_likes.size();
     int timeout = 30;
     double tol = 1e-3;
     m_alphas.clear();
@@ -47,7 +51,7 @@ void ParamOptimization::compute(ParamOptimization::Param p) {
         double osigma=0;
         //iterative method for finding best fit (k->1)
         while(maxfactor>=0&&fabs(maxfactor-1.)>tol&&whileit<timeout){
-            maxfactor = goldensearch(m_directions,num2look,iter,sigma);
+            maxfactor = goldensearch(num2look,iter,sigma);
             // param = param*maxfactor if maxfactor is an appropriate value
             if(maxfactor>0) {
                 if(sigma) {
@@ -58,15 +62,18 @@ void ParamOptimization::compute(ParamOptimization::Param p) {
                     osigma*= PointSourceLikelihood::set_gamma_level(iter,osigma*maxfactor);
                 }
             }
+            for(std::vector<PointSourceLikelihood*>::iterator it = m_likes.begin();it!=m_likes.end();++it) {
+                (*it)->recalc(iter);
+                (*it)->maximize();
+            }
             whileit++;
         }
         int t_photons(0);
         double t_curvature(0.);
         double t_alpha(0.);
         //calculate fit statistics for all sources
-        for(std::vector<astro::SkyDir>::const_iterator it = m_directions.begin();it!=m_directions.end();++it) {
-            PointSourceLikelihood ps(m_data,"test",(*it)); //,radius,m_minlevel,m_maxlevel);
-            PointSourceLikelihood::iterator ite = ps.find(iter);
+        for(std::vector<PointSourceLikelihood*>::iterator it = m_likes.begin();it!=m_likes.end();++it) {
+            PointSourceLikelihood::iterator ite = (*it)->find(iter);
             ite->second->maximize();
             if(ite->second->photons()>0) {
                 double curv = sigma?ite->second->kcurvature(maxfactor)/2:ite->second->gcurvature(maxfactor)/2;
@@ -83,13 +90,13 @@ void ParamOptimization::compute(ParamOptimization::Param p) {
     }
 }
 
-double ParamOptimization::goldensearch(const std::vector<astro::SkyDir>& directions, int num2look, int level, bool sigma) {
+double ParamOptimization::goldensearch(int num2look, int level, bool sigma) {
     // Numerical Recipes section 10.1 - finding a minimum in one dimension with Golden Search
     double tol = 1e-2;
     double C = (3-sqrt(5.))/2;
     int iter2=0;
     double R = 1-C;
-    double ax = 1e-1;
+    double ax = 1e-2;
     double bx = 1.;
     double cx = 1.e1;
     double x0 = ax;
@@ -105,10 +112,9 @@ double ParamOptimization::goldensearch(const std::vector<astro::SkyDir>& directi
     }
     double f1 = 0;
     double f2 = 0;
-    for(std::vector<astro::SkyDir>::const_iterator it=directions.begin(); (it!=directions.end())&& (iter2<num2look);++it,++iter2) {
-        pointlike::PointSourceLikelihood ps(m_data, "test", (*it)); //,radius,m_minlevel,m_maxlevel);
-        ps.maximize();
-        pointlike::PointSourceLikelihood::iterator ite = ps.find(level);
+    for(std::vector<PointSourceLikelihood*>::iterator it=m_likes.begin(); (it!=m_likes.end())&& (iter2<num2look);++it,++iter2) {
+        (*it)->maximize();
+        pointlike::PointSourceLikelihood::iterator ite = (*it)->find(level);
         if(ite->second->photons()==0) continue;
         if(sigma) {
             f1+=ite->second->feval(x1);
@@ -125,10 +131,9 @@ double ParamOptimization::goldensearch(const std::vector<astro::SkyDir>& directi
         iter2=0;
         double a1=0;
         double a2=0;
-        for(std::vector<astro::SkyDir>::const_iterator it=directions.begin(); (it!=directions.end())&& (iter2<num2look);++it,++iter2) {
-            pointlike::PointSourceLikelihood ps(m_data, "test", (*it)); //,radius,m_minlevel,m_maxlevel);
-            ps.maximize();
-            pointlike::PointSourceLikelihood::iterator ite = ps.find(level);
+        for(std::vector<PointSourceLikelihood*>::iterator it=m_likes.begin(); (it!=m_likes.end())&& (iter2<num2look);++it,++iter2) {
+
+            pointlike::PointSourceLikelihood::iterator ite = (*it)->find(level);
             if(ite->second->photons()==0) continue;
             if(sigma) {
                 a1+=ite->second->feval(R*x1+C*x0);

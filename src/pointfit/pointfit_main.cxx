@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.11 2007/09/03 23:32:23 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.12 2007/09/09 19:54:53 burnett Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
@@ -93,6 +93,7 @@ int main(int argc, char** argv)
         if( check_sigma){
             int minlevel(6), maxlevel(13);
             SigmaOptimization so(healpixdata,directions,out,minlevel,maxlevel);
+            so.compute_s();
         }
         if( !outfile.empty()){
             delete out;

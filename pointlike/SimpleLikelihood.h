@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.10 2007/11/01 21:43:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.11 2007/11/04 22:11:32 burnett Exp $
 
 */
 
@@ -103,8 +103,12 @@ public:
     static double s_defaultUmax;
 
     double feval(double k);
-
     double kcurvature(double k);
+
+    double geval(double k);
+    double gcurvature(double k);
+
+    void changepsf();
 
     /// @brief implement the SkyFunction interface
     /// @return the events/pixel corresponding to the solution

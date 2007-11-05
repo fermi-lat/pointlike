@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.12 2007/11/01 21:43:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.13 2007/11/04 22:11:32 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -371,6 +371,52 @@ double SimpleLikelihood::kcurvature(double k) {
     return pow(d2Ldk2,-0.5);
 }
 
+double SimpleLikelihood::geval(double k) {
+    std::vector<std::pair<double,int> > temp;
+    std::vector<std::pair<double,int> >::iterator it2 = m_vec2.begin();
+    PsfFunction ps(k*m_psf.gamma());
+    for(std::vector<double>::iterator ite = m_vec3.begin();ite!= m_vec3.end();++ite,++it2) {
+        double f = ps((*ite));
+        double fbar = ps.integral(m_umax);
+        double q = m_alpha*f/fbar+(1-m_alpha)/m_umax;
+        temp.push_back(std::make_pair(q,it2->second));
+    }
+    m_vec2 = temp;
+    double current = 0;
+    for(std::vector<std::pair<double,int> >::iterator it = m_vec2.begin();it!=m_vec2.end();++it) {
+        double q = it->first;
+        int count = it->second;
+        double w_i = count*log(q);
+        current-=w_i;
+    }
+    return current;
+}
+
+double SimpleLikelihood::gcurvature(double k) {
+    PsfFunction ps(k*m_psf.gamma());
+    double gamma = ps.gamma();
+    double F = ps.integral(m_umax);
+    double arg = 1+m_umax/(k*gamma);
+    double Fp = (F-1)*(-gamma*log(arg)+(k*gamma-1)*m_umax/(k*k*gamma*arg));
+    double Fdp = Fp*Fp/(F-1)+(F-1)*(2*m_umax/(k*k*arg)-2*(k*gamma-1)*m_umax/(k*k*k*gamma*arg)+(k*gamma-1)*m_umax*m_umax/(k*k*k*k*gamma*gamma*arg*arg));
+    double d2Ldk2 = 0;
+    std::vector<std::pair<double,int> >::iterator it2 = m_vec2.begin();
+    for(std::vector<double>::iterator it = m_vec3.begin();it!=m_vec3.end()&&it2!=m_vec2.end();++it,++it2) {
+        double weight = it2->second;
+        double u = (*it);
+        double f = ps(u);
+        arg = 1+u/(k*gamma);
+        double logl = m_alpha*f/F+(1-m_alpha)/m_umax;
+        double fp = f*(1/(k*k*gamma*(1-1/(k*gamma)))-gamma*log(arg)+u/(k*arg));
+        double fdp = -2*f/(k*k*gamma*(1-1/(k*gamma)))*(1/k+gamma*log(arg)-u/(k*arg))+f*(-gamma*log(arg)+u/(k*arg))*(-gamma*log(arg)+u/(k*arg))+f*u*u/(k*k*k*arg*arg*gamma);
+        double first = m_alpha*((fdp/F)-2*fp*Fp/(F*F)+2*f*Fp*Fp/(F*F*F)-f*Fdp/(F*F))/logl;
+        double second = m_alpha*m_alpha*(fp/F-f*Fp/(F*F))*(fp/F-f*Fp/(F*F))/logl/logl;
+        double total = first+second;
+        d2Ldk2+=total;
+    }
+    if(d2Ldk2<0) return -1;
+    return pow(d2Ldk2,-0.5);
+}
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
 {
