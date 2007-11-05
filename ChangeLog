@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: mar0  Mon Nov  5 12:44:38 PST 2007
+pointlike/src/pointfit
+
+Modified Files:
+	pointfit_main.cxx 
+Log Message:
+Fixed error in PSL and poinfit app
+    *
+------------------------------------------------------------
+User: mar0  Mon Nov  5 12:44:38 PST 2007
 pointlike/src
 
 Modified Files:
