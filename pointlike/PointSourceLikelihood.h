@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.9 2007/11/01 21:43:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.10 2007/11/04 22:11:32 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -111,6 +111,9 @@ namespace pointlike {
 
         ///! Set diffuse function
         static void set_diffuse(const pointlike::SkySpectrum* diffuse){SimpleLikelihood::s_diffuse = diffuse;}
+
+        //recalculate likelihoods using any static changes made to parameters
+        void recalc(int level);
 
     private:
         void setup(const map_tools::PhotonMap& data,double radius, int minlevel, int maxlevel);
