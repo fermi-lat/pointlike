@@ -1,7 +1,7 @@
 /** @file CompositeSkySpectrum.cxx
     @brief implement class CompositeSkySpectrum
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CompositeSkySpectrum.cxx,v 1.1 2007/11/01 21:33:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CompositeSkySpectrum.cxx,v 1.1 2007/11/04 22:11:32 burnett Exp $
 
 */
 
@@ -10,9 +10,14 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CompositeSkySpectrum.cxx,v 1
 
 using namespace pointlike;
 
-void CompositeSkySpectrum::add(const pointlike::SkySpectrum* diffuse, double norm)
+CompositeSkySpectrum::CompositeSkySpectrum(const pointlike::SkySpectrum* component, double norm)
 {
-    push_back(std::make_pair(norm, diffuse));
+    if( component!=0 ) add(component, norm);
+}
+
+void CompositeSkySpectrum::add(const pointlike::SkySpectrum* component, double norm)
+{
+    push_back(std::make_pair(norm, component));
 }
 
 
@@ -43,11 +48,12 @@ double CompositeSkySpectrum::integral(const astro::SkyDir& dir, double emin, dou
 }
 
 std::string CompositeSkySpectrum::name()const {
-    std::string ret;
-
-    std::vector< std::pair<double, const pointlike::SkySpectrum*> >::const_iterator it = begin();
-    for( ; it!=end(); ++it){
-        ret+= ", " + (it->second)->name();
+    std::string ret(m_name);
+    if( ret.empty()){
+        std::vector< std::pair<double, const pointlike::SkySpectrum*> >::const_iterator it = begin();
+        for( ; it!=end(); ++it){
+            ret+= ", " + (it->second)->name();
+        }
     }
     return ret;
 }
