@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Fri Nov  9 14:20:37 PST 2007
+pointlike/pointlike
+
+Modified Files:
+	CompositeSkySpectrum.h PointSourceLikelihood.h 
+	SimpleLikelihood.h 
+Log Message:
+updates to facilitate refitting
+    *
+------------------------------------------------------------
 User: mar0  Mon Nov  5 12:44:38 PST 2007
 pointlike/src/pointfit
 
