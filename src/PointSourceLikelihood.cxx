@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.14 2007/11/05 20:07:55 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.15 2007/11/05 20:44:38 mar0 Exp $
 
 */
 
@@ -167,7 +167,7 @@ double PointSourceLikelihood::maximize(int skip)
     }
     return m_TS;
 }
-#if 0
+#if 0 // obsolete?
 void PointSourceLikelihood::setBackgroundDensity(const std::vector<double>& density)
 {
     std::vector<double>::const_iterator id = density.begin();
@@ -254,7 +254,7 @@ void PointSourceLikelihood::printSpectrum()
                 << std::setw(4)<< a.second 
                 << setw(6)<< setprecision(0)<< ts
                 << setw(8) << setprecision(2) << levellike.average_b()
-#if 1 // temporary log likelihood
+#if 0 // temporary log likelihood
                 << setw(10) << setprecision(2) << levellike() 
 #endif
                 << std::endl;
@@ -283,7 +283,7 @@ double PointSourceLikelihood::localize(int skip)
 {
     using std::setw; using std::left; using std::setprecision; using std::right;
     using std::fixed;
-    int wd(10), iter(0), maxiter(5);
+    int wd(10), iter(0), maxiter(7);
  
         if( verbose()){
             out() 
@@ -415,4 +415,13 @@ void PointSourceLikelihood::recalc(int level) {
             emin, emax
             );
         (*this)[level] = sl;
+}
+
+double PointSourceLikelihood::sigma(int level)const
+{
+    std::map<int, SimpleLikelihood*>::const_iterator it = find(level);
+    if( it==end() ){
+        throw std::invalid_argument("PointSourceLikelihood::sigma--no fit for the requested level");
+    }
+    return it->second->sigma();
 }

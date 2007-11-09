@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.10 2007/11/04 22:11:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.11 2007/11/05 20:07:55 mar0 Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -95,10 +95,15 @@ namespace pointlike {
 
         ///@brief integral for the energy limits, in the given direction
         virtual double integral(const astro::SkyDir& dir, double a, double b)const;
+
+        /// @brief set all parameters using the embedded python module
         static void PointSourceLikelihood::setParameters(embed_python::Module& par);
 
         /// @brief set radius for individual fits
         static void setDefaultUmax(double umax){ SimpleLikelihood::s_defaultUmax=umax; }
+
+        /// @brief access to the sigma (radians) used for the individual SimpleLikelihood objects
+        double sigma(int level)const;
 
         static std::vector<double> gamma_level;
         static std::vector<double> sigma_level;
@@ -112,8 +117,16 @@ namespace pointlike {
         ///! Set diffuse function
         static void set_diffuse(const pointlike::SkySpectrum* diffuse){SimpleLikelihood::s_diffuse = diffuse;}
 
-        //recalculate likelihoods using any static changes made to parameters
+        ///! Get diffuse function: zero means use uniform.
+        static const pointlike::SkySpectrum* get_diffuse() { return SimpleLikelihood::s_diffuse;}
+
+        ///! @brief recalculate likelihoods using any static changes made to parameters
         void recalc(int level);
+
+        /// @brief get the starting, ending levels used
+        static int minlevel(){return s_minlevel;}
+        static int maxlevel(){return s_maxlevel;}
+        static void set_levels(int minlevel, int maxlevel=13){ s_minlevel= minlevel; s_maxlevel = maxlevel;}
 
     private:
         void setup(const map_tools::PhotonMap& data,double radius, int minlevel, int maxlevel);
