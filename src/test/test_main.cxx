@@ -4,7 +4,9 @@
 */
 #include "map_tools/PhotonMap.h"
 
+
 #include "pointlike/PointSourceLikelihood.h"
+#include "pointlike/DiffuseFunction.h"
 
 #include "PhotonList.h"
 
@@ -21,6 +23,9 @@ class Points{public:
     {"three", 40, 0},
     {"",0,0}
 };
+
+    using namespace astro;
+    using namespace pointlike;
 
 // test data file, generated using obsSim with 3 sources
 std::string inputFile(  "../src/test/test_events.root" );
@@ -46,12 +51,25 @@ public:
 
 int main(int , char** )
 {
-    using namespace astro;
-    using namespace pointlike;
 
     int rc(0);
     try{
+#if 1  // test code for the DiffuseFunction
+        std::string path( ::getenv("EXTFILESSYS"));
+//        DiffuseFunction df( path + "/galdiffuse/GP_gamma_v0r0p1.fits");
+        DiffuseFunction df( path + "/galdiffuse/GP_gamma.fits");
+        SkyDir gc(0,0, SkyDir::GALACTIC);
+        double e1(1000), e2(2000);
+        double t1 ( df(gc, e1) );  // differential at 1000
+        double t2 ( df(gc, e2) ); // check integral
+        double power ( log(t1/t2)/log(e2/e1) );
+        double t12 = df(gc, e1, e2); // integral?
+        double check ( t1 * e1 *(pow(e2/e1, 1-power)-1)/(1-power) );
+        double diff( t12/check-1 );
         
+
+
+#endif
         double  radius(10);
 
  

@@ -1,11 +1,12 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.15 2007/11/05 20:44:38 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.16 2007/11/09 22:20:37 burnett Exp $
 
 */
 
 #include "pointlike/PointSourceLikelihood.h"
 #include "pointlike/DiffuseFunction.h"
+#include "pointlike/CompositeSkySpectrum.h"
 
 #include "map_tools/PhotonMap.h"
 #include "embed_python/Module.h"
@@ -67,30 +68,40 @@ int    PointSourceLikelihood::s_verbose(0);
 
 void PointSourceLikelihood::setParameters(embed_python::Module& par)
 {
+    static std::string prefix("PointSourceLikelihood.");
     
-    par.getValue("pslradius",   s_radius,   s_radius);
-    par.getValue("minlevel", s_minlevel, s_minlevel);
-    par.getValue("maxlevel", s_maxlevel, s_maxlevel);
-    par.getValue("minalpha", s_minalpha, s_minalpha);
+    par.getValue(prefix+"pslradius",   s_radius,   s_radius);
+    par.getValue(prefix+"minlevel", s_minlevel, s_minlevel);
+    par.getValue(prefix+"maxlevel", s_maxlevel, s_maxlevel);
+    par.getValue(prefix+"minalpha", s_minalpha, s_minalpha);
 
-    par.getValue("skip1",    s_skip1, s_skip1);
-    par.getValue("skip2",    s_skip2, s_skip2);
-    par.getValue("itermax",  s_itermax, s_itermax);
-    par.getValue("TSmin",    s_TSmin, s_TSmin);
-    par.getValue("minlevel", s_minlevel, s_minlevel);
-    par.getValue("verbose",  s_verbose, s_verbose);
-
-    par.getValue("tolerance",  SimpleLikelihood::s_tolerance, SimpleLikelihood::s_tolerance);
+    par.getValue(prefix+"skip1",    s_skip1, s_skip1);
+    par.getValue(prefix+"skip2",    s_skip2, s_skip2);
+    par.getValue(prefix+"itermax",  s_itermax, s_itermax);
+    par.getValue(prefix+"TSmin",    s_TSmin, s_TSmin);
+    par.getValue(prefix+"minlevel", s_minlevel, s_minlevel);
+    par.getValue(prefix+"verbose",  s_verbose, s_verbose);
+    par.getValue("verbose",  s_verbose, s_verbose); // override with global
 
     // needed by SimpleLikelihood
-    par.getValue("umax", SimpleLikelihood::s_defaultUmax, SimpleLikelihood::s_defaultUmax);
+    par.getValue(prefix+"umax", SimpleLikelihood::s_defaultUmax, SimpleLikelihood::s_defaultUmax);
+
+    par.getValue("Diffuse.tolerance",  SimpleLikelihood::s_tolerance, SimpleLikelihood::s_tolerance);
+
     std::string diffusefile;
-    par.getValue("diffusefile", diffusefile, "");
+    par.getValue("Diffuse.file", diffusefile);
+    double exposure(1.0);
+    par.getValue("Diffuse.exposure", exposure);
     if( ! diffusefile.empty() ) {
-        SimpleLikelihood::s_diffuse = new DiffuseFunction(diffusefile);
-        std::cout << "Using diffuse definition "<< diffusefile << std::endl; 
+        SimpleLikelihood::s_diffuse =new CompositeSkySpectrum(
+            new DiffuseFunction(diffusefile), exposure) ;
+
+        std::cout << "Using diffuse definition "<< diffusefile 
+            << " with exposure factor " << exposure << std::endl; 
     }
 }
+
+
 
 PointSourceLikelihood::PointSourceLikelihood(
     const map_tools::PhotonMap& data,    
@@ -425,3 +436,33 @@ double PointSourceLikelihood::sigma(int level)const
     }
     return it->second->sigma();
 }
+
+pointlike::SkySpectrum* PointSourceLikelihood::set_diffuse(pointlike::SkySpectrum* diffuse)
+{  SkySpectrum* ret =   SimpleLikelihood::s_diffuse;
+   SimpleLikelihood::s_diffuse= diffuse;
+   return ret;
+}
+
+
+void PointSourceLikelihood::addBackgroundPointSource(const PointSourceLikelihood* fit)
+{
+    CompositeSkySpectrum* backgnd = dynamic_cast<CompositeSkySpectrum*>(SimpleLikelihood::s_diffuse);
+    if( backgnd==0){
+        throw std::invalid_argument("PointSourceLikelihood::setBackgroundFit: no diffuse to add to");
+    }
+    if( s_verbose>0 ) {
+        std::cout << "Adding source " << fit->name() << " to background" << std::endl;
+    }
+    backgnd->add(fit);
+}
+
+void PointSourceLikelihood::clearBackgroundPointSource()
+{
+    CompositeSkySpectrum* backgnd = dynamic_cast<CompositeSkySpectrum*>(SimpleLikelihood::s_diffuse);
+
+    if( backgnd==0){
+        throw std::invalid_argument("PointSourceLikelihood::setBackgroundFit: no diffuse to add to");
+    }
+    if( backgnd->size()>0) {backgnd->resize(1);}
+}
+

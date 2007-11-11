@@ -1,7 +1,7 @@
 /** @file finder_main.cxx
     @brief  Finder
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.5 2007/09/13 22:28:43 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.6 2007/10/06 17:18:55 burnett Exp $
 
 */
 #include "pointlike/SourceFinder.h"
@@ -103,3 +103,8 @@ int main(int argc, char** argv)
      return rc;
 }
 
+/** @page pointfind The pointfind application
+
+
+
+*/

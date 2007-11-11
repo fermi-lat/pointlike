@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.13 2007/11/04 22:11:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.14 2007/11/05 20:07:55 mar0 Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -18,7 +18,7 @@ using namespace pointlike;
 //#define DEBUG_PRINT
 double SimpleLikelihood::s_defaultUmax =50;
 
-const pointlike::SkySpectrum* SimpleLikelihood::s_diffuse(0);
+pointlike::SkySpectrum* SimpleLikelihood::s_diffuse(0);
 double  SimpleLikelihood::s_tolerance(0.05);
 
 namespace {
