@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.11 2007/11/05 20:07:55 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.12 2007/11/09 22:20:37 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -114,11 +114,14 @@ namespace pointlike {
         static double set_sigma_level(int level, double v){
             double t = sigma_level[level]; sigma_level[level]=v; return t;}
 
-        ///! Set diffuse function
-        static void set_diffuse(const pointlike::SkySpectrum* diffuse){SimpleLikelihood::s_diffuse = diffuse;}
+        ///! Set diffuse background function, return current value 
+        static  pointlike::SkySpectrum* set_diffuse( pointlike::SkySpectrum* diffuse);
 
-        ///! Get diffuse function: zero means use uniform.
-        static const pointlike::SkySpectrum* get_diffuse() { return SimpleLikelihood::s_diffuse;}
+        ///! add a point source fit to the background for subsequent fits
+        static void addBackgroundPointSource(const PointSourceLikelihood* fit);
+
+        ///! remove all such
+        static void clearBackgroundPointSource();
 
         ///! @brief recalculate likelihoods using any static changes made to parameters
         void recalc(int level);
@@ -144,7 +147,7 @@ namespace pointlike {
         // the data to feed each guy, extracted from the database
         std::map<int, std::vector<std::pair<astro::HealPixel,int> > >m_data_vec;
 
-        static SkySpectrum * s_diffuse;
+        //static SkySpectrum * s_diffuse;
         static double s_radius, s_minalpha, s_TSmin, s_tolerance;
         static int s_minlevel, s_maxlevel, s_skip1, s_skip2, s_itermax, s_verbose;
     };

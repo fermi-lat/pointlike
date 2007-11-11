@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.12 2007/11/05 20:07:55 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.13 2007/11/09 22:20:37 burnett Exp $
 
 */
 
@@ -117,7 +117,7 @@ public:
     /// @brief access to the effective sigma (radians)  used for the fits
     double sigma()const{ return m_sigma;}
 
-    static const SkySpectrum* s_diffuse;
+    static SkySpectrum* s_diffuse;
     static double s_tolerance; // for integral
 private:
 
