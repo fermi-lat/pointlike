@@ -1,11 +1,12 @@
 package pointlike
 
-version v2r2p2
+version v3r0
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.20 2007/09/10 20:59:37 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.22 2007/11/01 14:58:22 burnett Exp $
 
 use STpolicy *
-use map_tools *
+use astro *
+#use map_tools *
 use embed_python *
 
 apply_pattern package_include

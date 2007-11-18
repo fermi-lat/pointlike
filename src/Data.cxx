@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.14 2007/10/22 20:54:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.15 2007/10/26 00:25:33 burnett Exp $
 
 */
 
@@ -9,10 +9,11 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.14 2007/10/22 2
 #include "pointlike/Data.h"
 
 #include "astro/SkyDir.h"
+#include "astro/Photon.h"
 #include "astro/PointingTransform.h"
 
-#include "map_tools/PhotonMap.h"
-#include "map_tools/SkyImage.h"
+#include "pointlike/PhotonMap.h"
+#include "pointlike/SkyImage.h"
 
 #include "tip/IFileSvc.h"
 #include "tip/Table.h"
@@ -79,7 +80,7 @@ namespace {
 
     class AddPhoton: public std::unary_function<astro::Photon, void> {
     public:
-        AddPhoton (map_tools::PhotonMap& map, int select, double start, double stop, int source )
+        AddPhoton (pointlike::PhotonMap& map, int select, double start, double stop, int source )
             : m_map(map), m_select(select), m_start(start), m_stop(stop), m_source(source)
         {}
         double rescale(double energy, int eventclass)
@@ -104,7 +105,7 @@ namespace {
             astro::Photon gcopy(gamma.dir(), rescale(energy, event_class), gamma.time(), event_class, sourceid); 
             m_map.addPhoton(gcopy);
         }
-        map_tools::PhotonMap& m_map;
+        pointlike::PhotonMap& m_map;
         int m_select;
         double m_start, m_stop;
         int m_source;
@@ -271,11 +272,11 @@ Data::Data(embed_python::Module& setup)
     setup.getValue("pixelfile", pixelfile, "");
 
     if(!pixelfile.empty()){
-        m_data = new map_tools::PhotonMap(pixelfile, tablename);
+        m_data = new pointlike::PhotonMap(pixelfile, tablename);
         return;
     }
 
-    m_data = new map_tools::PhotonMap();
+    m_data = new pointlike::PhotonMap();
     int  event_class, source_id;
     std::vector<std::string> filelist;
 
@@ -317,7 +318,7 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
 
 }
 Data::Data(const std::string& inputFile, int event_type, double tstart, double tstop, int source_id)
-: m_data(new map_tools::PhotonMap())
+: m_data(new pointlike::PhotonMap())
 , m_start(tstart), m_stop(tstop)
 , m_ft2file("")
 {
@@ -325,7 +326,7 @@ Data::Data(const std::string& inputFile, int event_type, double tstart, double t
 }
 
 Data::Data(std::vector<std::string> inputFiles, int event_type, double tstart, double tstop, int source_id, std::string ft2file)
-: m_data(new map_tools::PhotonMap())
+: m_data(new pointlike::PhotonMap())
 , m_start(tstart), m_stop(tstop)
 , m_ft2file(ft2file)
 {
@@ -339,7 +340,7 @@ Data::Data(std::vector<std::string> inputFiles, int event_type, double tstart, d
 }
 
 Data::Data(const std::string & inputFile, const std::string & tablename)
-: m_data(new map_tools::PhotonMap(inputFile, tablename))
+: m_data(new pointlike::PhotonMap(inputFile, tablename))
 {
 }
 

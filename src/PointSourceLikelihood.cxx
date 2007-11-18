@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.16 2007/11/09 22:20:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.17 2007/11/11 21:52:06 burnett Exp $
 
 */
 
@@ -8,7 +8,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 
 #include "pointlike/DiffuseFunction.h"
 #include "pointlike/CompositeSkySpectrum.h"
 
-#include "map_tools/PhotonMap.h"
+#include "pointlike/PhotonMap.h"
 #include "embed_python/Module.h"
 
 #include <iostream>
@@ -66,7 +66,7 @@ int    PointSourceLikelihood::s_itermax(2);
 double PointSourceLikelihood::s_TSmin(5.0);
 int    PointSourceLikelihood::s_verbose(0);
 
-void PointSourceLikelihood::setParameters(embed_python::Module& par)
+void PointSourceLikelihood::setParameters(const embed_python::Module& par)
 {
     static std::string prefix("PointSourceLikelihood.");
     
@@ -92,9 +92,11 @@ void PointSourceLikelihood::setParameters(embed_python::Module& par)
     par.getValue("Diffuse.file", diffusefile);
     double exposure(1.0);
     par.getValue("Diffuse.exposure", exposure);
+    int interpolate(0);
+    par.getValue("interpolate", interpolate, interpolate);
     if( ! diffusefile.empty() ) {
         SimpleLikelihood::s_diffuse =new CompositeSkySpectrum(
-            new DiffuseFunction(diffusefile), exposure) ;
+            new DiffuseFunction(diffusefile, interpolate!=0), exposure) ;
 
         std::cout << "Using diffuse definition "<< diffusefile 
             << " with exposure factor " << exposure << std::endl; 
@@ -104,7 +106,7 @@ void PointSourceLikelihood::setParameters(embed_python::Module& par)
 
 
 PointSourceLikelihood::PointSourceLikelihood(
-    const map_tools::PhotonMap& data,    
+    const pointlike::PhotonMap& data,    
     std::string name,
     const astro::SkyDir& dir)
     : m_energies( data.energyBins() ) // load energies from the data object
@@ -123,7 +125,7 @@ PointSourceLikelihood::PointSourceLikelihood(
 }
 
 
-void PointSourceLikelihood::setup(const map_tools::PhotonMap& data,double radius, int minlevel, int maxlevel)
+void PointSourceLikelihood::setup(const pointlike::PhotonMap& data,double radius, int minlevel, int maxlevel)
 {
     for( int level=minlevel; level<maxlevel+1; ++level){
 

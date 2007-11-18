@@ -1,7 +1,7 @@
 /** @file Draw.cxx
 @brief implementation of Draw
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.1 2007/08/30 18:12:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.2 2007/08/30 19:52:13 burnett Exp $
 
 */
 
@@ -10,13 +10,13 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.1 2007/08/30 18
 
 #include "astro/SkyDir.h"
 
-#include "map_tools/PhotonMap.h"
-#include "map_tools/SkyImage.h"
+#include "pointlike/PhotonMap.h"
+#include "pointlike/SkyImage.h"
 
 using namespace pointlike;
 using astro::SkyDir;
 
-Draw::Draw(const map_tools::PhotonMap& map)
+Draw::Draw(const pointlike::PhotonMap& map)
 : m_map(map)
 , m_galactic(true)
 , m_proj("")
@@ -30,7 +30,7 @@ void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel
     std::string proj (fov>90? "AIT":"ZEA");
     if( !m_proj.empty()){ proj = m_proj;}
                 
-    map_tools::SkyImage image(dir, outputFile, pixel, fov, layers, proj,  m_galactic);
+    pointlike::SkyImage image(dir, outputFile, pixel, fov, layers, proj,  m_galactic);
     std::cout << "Filling image layer 0 with density ..." << std::endl;
     image.fill(m_map, 0); // PhotonMap is a SkyFunction of the density 
     std::cout 
@@ -45,7 +45,7 @@ void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel
     /// @brief adapt a PhotonMap to give weighted value
     class SkyCount : public astro::SkyFunction {
     public:
-        SkyCount(const map_tools::PhotonMap& data, int level, CountType counts=WEIGHTED):
+        SkyCount(const pointlike::PhotonMap& data, int level, CountType counts=WEIGHTED):
           m_data(data), m_level(level), m_counts(counts) {}
 
           double operator()(const astro::SkyDir & sd) const {
@@ -55,7 +55,7 @@ void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel
               return value;    
           }
     private:
-        const map_tools::PhotonMap& m_data;
+        const pointlike::PhotonMap& m_data;
         int m_level;
         CountType m_counts;
     };
@@ -73,7 +73,7 @@ void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel
 
     std::cout << "Filling layers "<< layer << " and above with ... ";
     int points(0);
-    for (map_tools::PhotonMap::const_iterator it = m_map.begin();
+    for (pointlike::PhotonMap::const_iterator it = m_map.begin();
         it!= m_map.end(); ++it)
     {
         if (it->first.level() >= level) {

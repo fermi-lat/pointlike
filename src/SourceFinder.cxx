@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.15 2007/11/01 21:33:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.16 2007/11/09 22:20:37 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -47,7 +47,6 @@ namespace {
 
 } // anon namespace
 
-using namespace map_tools;
 using namespace astro;
 using namespace pointlike;
 using namespace embed_python;
