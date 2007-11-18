@@ -1,6 +1,6 @@
 /** @file DiffuseFunction.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.9 2007/11/01 21:33:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.10 2007/11/04 22:11:32 burnett Exp $
 */
 
 #include "pointlike/DiffuseFunction.h"
@@ -17,10 +17,10 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.9 20
 using namespace pointlike;
 
 
-DiffuseFunction::DiffuseFunction(std::string diffuse_cube_file, double energy)
+DiffuseFunction::DiffuseFunction(std::string diffuse_cube_file, double energy, bool interpolate)
 : SkySpectrum(energy)
 , m_name(diffuse_cube_file)
-, m_data(diffuse_cube_file)
+, m_data(diffuse_cube_file, "", interpolate)
 {
     // expect to find a table with the energies to correspond with the layers
     try {

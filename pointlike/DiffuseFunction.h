@@ -1,21 +1,22 @@
 /** @file DiffuseFunction.h
     @brief declare class DiffuseFunction
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DiffuseFunction.h,v 1.9 2007/11/01 21:33:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DiffuseFunction.h,v 1.10 2007/11/04 22:11:32 burnett Exp $
 
 */
 #ifndef pointlike_DiffuseFunction_h
 #define pointlike_DiffuseFunction_h
+
 #include "pointlike/SkySpectrum.h"
 #include "astro/SkyFunction.h"
 #include "astro/SkyDir.h"
-#include "map_tools/SkyImage.h"
-//#include "tools/Aeff.h"
+#include "pointlike/SkyImage.h"
 
 #include <vector>
 #include <cassert>
 
 namespace pointlike {
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 /** @class DiffuseFunction
     @brief a SkyFunction that adapts a diffuse map. also includes extragal diffuse
@@ -29,9 +30,10 @@ public:
          eneries. 
          @param diffuse_cube_file Name of file. It must have an extension ENERGIES with the corresponding energy valuse
          @param energy[1000] initial energy for the SkyFunction 
+         @param interpolate[true] interpolate the input map
 
     */
-    DiffuseFunction(std::string diffuse_cube_file, double energy=1000.);
+    DiffuseFunction(std::string diffuse_cube_file, double energy=1000., bool interpolate=true);
  
     virtual ~DiffuseFunction();
 
@@ -60,7 +62,7 @@ public:
     int layers()const { return m_data.layers();}
 
     /// @brief access to the contained SkyImage
-    const map_tools::SkyImage& image()const { return m_data;}
+    const pointlike::SkyImage& image()const { return m_data;}
 
 private:
     double level_ave(const astro::SkyDir& dir, double angle, int level) const;
@@ -70,7 +72,7 @@ private:
     int layer(double e)const;
 
     double energy_bin(int k) const;
-    map_tools::SkyImage m_data;
+    pointlike::SkyImage m_data;
     std::string m_name;
     double m_emin, m_emax;
 

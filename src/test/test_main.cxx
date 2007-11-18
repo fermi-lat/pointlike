@@ -2,7 +2,7 @@
 
 
 */
-#include "map_tools/PhotonMap.h"
+#include "pointlike/PhotonMap.h"
 
 
 #include "pointlike/PointSourceLikelihood.h"
@@ -35,7 +35,7 @@ std::string inputFile(  "../src/test/test_events.root" );
 */
 class AddPhoton: public std::unary_function<astro::Photon, void> {
 public:
-    AddPhoton (map_tools::PhotonMap& map)
+    AddPhoton (pointlike::PhotonMap& map)
         : m_map(map)
     {}
     void operator()(const astro::Photon& gamma)
@@ -44,7 +44,7 @@ public:
 
         m_map.addPhoton(gamma);
     }
-    map_tools::PhotonMap& m_map;
+    pointlike::PhotonMap& m_map;
 };
 
 
@@ -73,7 +73,7 @@ int main(int , char** )
         double  radius(10);
 
  
-        map_tools::PhotonMap x;
+        pointlike::PhotonMap x;
         std::cout << "Loading data from file " << inputFile  <<std::endl;
         PhotonList photons(inputFile);
 

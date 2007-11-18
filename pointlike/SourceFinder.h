@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.9 2007/11/01 21:43:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.10 2007/11/04 22:11:32 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -10,7 +10,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.9 2
 //#include "tools/PowerLawFilter.h"
 #include "pointlike/Data.h"
 
-#include "map_tools/PhotonMap.h"
+#include "pointlike/PhotonMap.h"
 
 #include "astro/SkyDir.h"
 #include "astro/HealPixel.h"
@@ -170,7 +170,7 @@ namespace pointlike {
         void createTable(const std::string& filename, bool get_background = false, int skip_TS = 0);
 
         //! allow access to map
-        const map_tools::PhotonMap& getMap() {return(m_pmap);}
+        const pointlike::PhotonMap& getMap() {return(m_pmap);}
 
         //! return vector of candidates, copy of current list
 
@@ -178,7 +178,7 @@ namespace pointlike {
 
 
     private:
-        const map_tools::PhotonMap& m_pmap;
+        const pointlike::PhotonMap& m_pmap;
         Candidates m_can;
         DiffuseCounts* m_counts;
         embed_python::Module & m_module;
