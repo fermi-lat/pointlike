@@ -1,5 +1,17 @@
 ------------------------------------------------------------
 User: burnett  Sun Nov 18 14:56:56 PST 2007
+pointlike/pointlike
+
+Modified Files:
+	Data.h DiffuseFunction.h Draw.h ParamOptimization.h 
+	PhotonMap.h PointSourceLikelihood.h SourceFinder.h 
+Added Files:
+	SkyImage.h 
+Log Message:
+Copy SkyImage from map_tools, and fix 1/2 pixel offset bug; merge PhotonMap; remove map_tools dependence.
+    *
+------------------------------------------------------------
+User: burnett  Sun Nov 18 14:56:56 PST 2007
 pointlike/doc
 
 Modified Files:
