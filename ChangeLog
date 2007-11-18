@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sun Nov 18 14:56:56 PST 2007
+pointlike/src/test
+
+Modified Files:
+	test_main.cxx 
+Log Message:
+Copy SkyImage from map_tools, and fix 1/2 pixel offset bug; merge PhotonMap; remove map_tools dependence.
+    *
+------------------------------------------------------------
+User: burnett  Sun Nov 18 14:56:56 PST 2007
 pointlike/src
 
 Modified Files:
