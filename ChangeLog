@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov 18 17:09:36 PST 2007
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+fix input python files to be consistent (but still not very general); add SWIG capability.
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov 18 14:56:56 PST 2007
 pointlike/src/test
 
