@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Mon Nov 19 12:40:19 PST 2007
+pointlike/pointlike
+
+Added Files:
+	AlignProc.h RotationInfo.h 
+Log Message:
+Added classes for alignment routines AlignProc and RotationInfo
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov 18 17:09:36 PST 2007
 pointlike/src
 
