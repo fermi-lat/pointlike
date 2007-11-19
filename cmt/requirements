@@ -2,12 +2,20 @@ package pointlike
 
 version v3r0
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.22 2007/11/01 14:58:22 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.23 2007/11/18 22:56:55 burnett Exp $
 
 use STpolicy *
 use astro *
 #use map_tools *
 use embed_python *
+use SwigPolicy v*
+
+path_remove PYTHONPATH py_point
+path_prepend PYTHONPATH $(POINTLIKEROOT)/python;$(POINTLIKEROOT)/$(BINDIR)
+
+apply_pattern swig_module name="py_point"
+
+path_append PATH "$(SWIG_dir)/bin"
 
 apply_pattern package_include
 private
