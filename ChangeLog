@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Mon Nov 19 12:40:39 PST 2007
+pointlike/src
+
+Added Files:
+	AlignProc.cxx RotationInfo.cxx 
+Log Message:
+Added classes for alignment routines AlignProc and RotationInfo (source(
+    *
+------------------------------------------------------------
 User: mar0  Mon Nov 19 12:40:19 PST 2007
 pointlike/pointlike
 
