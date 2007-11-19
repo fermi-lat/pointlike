@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Mon Nov 19 14:21:49 PST 2007
+pointlike/pointlike
+
+Added Files:
+	Convolution.h 
+Log Message:
+Added class to support convolutions
+    *
+------------------------------------------------------------
 User: mar0  Mon Nov 19 12:40:39 PST 2007
 pointlike/src
 
