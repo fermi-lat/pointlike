@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 User: burnett  Tue Nov 20 15:14:28 PST 2007
+pointlike/pointlike
+
+Modified Files:
+	PhotonMap.h PointSourceLikelihood.h SimpleLikelihood.h 
+	SourceFinder.h 
+Log Message:
+change all healpix from astro to healpix package
+    *
+------------------------------------------------------------
+User: burnett  Tue Nov 20 15:14:28 PST 2007
 pointlike/cmt
 
 Modified Files:
