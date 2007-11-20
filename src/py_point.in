@@ -5,8 +5,8 @@
 
 #include "astro/SkyDir.h"
 #include "astro/SkyProj.h"
-#include "astro/Healpix.h"
-#include "astro/HealPixel.h"
+#include "healpix/Healpix.h"
+#include "healpix/HealPixel.h"
 #include "astro/Photon.h"
 #include "astro/PointingTransform.h"
 #include "astro/PointingHistory.h"
@@ -116,12 +116,13 @@ public:
 %include $(ASTROROOT)/astro/PointingTransform.h
 %include $(ASTROROOT)/astro/PointingHistory.h
 %include $(ASTROROOT)/astro/PointingInfo.h
-%include $(ASTROROOT)/astro/EarthCoordinate.h
+// need to fix earthRadius()
+//%include $(ASTROROOT)/astro/EarthCoordinate.h
 
-%include $(ASTROROOT)/astro/Healpix.h
+%include $(HEALPIXROOT)/healpix/Healpix.h
 
 // fails now
-//%include $(ASTROROOT)/astro/HealPixel.h
+//%include $(HEALPIXROOT)/healpix/HealPixel.h
 
     
 %include $(POINTLIKEROOT)/pointlike/SimpleLikelihood.h
