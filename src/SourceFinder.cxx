@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.16 2007/11/09 22:20:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.17 2007/11/18 22:56:56 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -47,9 +47,10 @@ namespace {
 
 } // anon namespace
 
-using namespace astro;
 using namespace pointlike;
 using namespace embed_python;
+using healpix::HealPixel;
+using astro::SkyDir;
 
 SourceFinder::SourceFinder(const pointlike::Data& map, Module & Mod)
 : m_pmap(map)
@@ -119,7 +120,7 @@ void SourceFinder::examineRegion(void)
     
 
     timer("---------------SourceFinder::examineRegion----------------");  
-    std::vector<std::pair<astro::HealPixel, int> > v;
+    std::vector<std::pair<healpix::HealPixel, int> > v;
     std::cout << "\nAnalyzing likelihood significance using:\n"
         << "  " << radius << " degree radius about gal(" << dir.l() << ", " << dir.b() << 
         ") =eq("<<dir.ra()<<", "<< dir.dec()<< ")\n"
@@ -145,7 +146,7 @@ void SourceFinder::examineRegion(void)
     int num(0);
 
     // Use weighted count to select preliminary candidates
-    for(std::vector<std::pair<astro::HealPixel, int> >::const_iterator it = v.begin();
+    for(std::vector<std::pair<healpix::HealPixel, int> >::const_iterator it = v.begin();
         it != v.end(); ++it)
     {
         ShowPercent(num,v.size(),can.size());
@@ -246,7 +247,7 @@ void SourceFinder::checkDir(astro::SkyDir & sd,
         photon_count_check(2);
     double sigma_max(0.25); // maximum allowable sigma
 
-    astro::HealPixel hp(sd, pix_level);
+    healpix::HealPixel hp(sd, pix_level);
     astro::SkyDir new_dir;
     double count = m_pmap.photonCount(hp, new_dir);
     std::cout << "\nChecking for a source at (ra, dec) = ("
@@ -446,8 +447,8 @@ void SourceFinder::prune_adjacent_neighbors()
     // Mark weaker neighbors.
     for (Candidates::iterator it = m_can.begin(); it != m_can.end(); ++it) 
     {
-        std::vector<astro::HealPixel> hv = it->first.neighbors();
-        for (std::vector<astro::HealPixel>::const_iterator n = hv.begin();
+        std::vector<healpix::HealPixel> hv = it->first.neighbors();
+        for (std::vector<healpix::HealPixel>::const_iterator n = hv.begin();
             n != hv.end(); ++n)
         {
             Candidates::const_iterator p = m_can.find(*n);

@@ -1,6 +1,6 @@
 /** @file PhotonMap.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PhotonMap.cxx,v 1.1 2007/11/04 22:11:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PhotonMap.cxx,v 1.2 2007/11/18 22:56:56 burnett Exp $
 */
 
 #include "pointlike/PhotonMap.h"
@@ -13,11 +13,13 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PhotonMap.cxx,v 1.1 2007/11/
 #include <stdexcept>
 //#include <errno.h>
 
-using astro::HealPixel;
+using healpix::HealPixel;
+using healpix::Healpix;
 using astro::SkyDir;
 #include "astro/Photon.h"
 
 using astro::Photon;
+using healpix::HealPixel;
 
 using namespace pointlike;
 
@@ -32,17 +34,17 @@ PhotonMap::PhotonMap(const std::string & inputFile,const std::string & tablename
 
    ///@brief data value for bin with given energy 
     ///@param e energy in MeV
-double PhotonMap::value(const astro::SkyDir& dir, double energy)const
+double PhotonMap::value(const SkyDir& dir, double energy)const
 {
-    astro::Photon gam(dir, energy, 0); // just for the next interface :-)
+    Photon gam(dir, energy, 0); // just for the next interface :-)
     PhotonMap* self = const_cast<PhotonMap*>(this);  // pixel not const
-    astro::HealPixel pix( self->pixel(gam) );
+    healpix::HealPixel pix( self->pixel(gam) );
     return photonCount(pix) ;
 }
 
     ///@brief integral for the energy limits, in the given direction
     /// Assume that request is for an energy bin.
-double PhotonMap::integral(const astro::SkyDir& dir, double a, double b)const
+double PhotonMap::integral(const SkyDir& dir, double a, double b)const
 {
     return value(dir, sqrt(a*b));
 }
@@ -107,7 +109,7 @@ PhotonMap::PhotonMap(const std::string & inputFile, const std::string & tablenam
 
 
 
-void PhotonMap::addPhoton(const astro::Photon& gamma)
+void PhotonMap::addPhoton(const Photon& gamma)
 {
     if( gamma.energy() < m_emin) return;
     HealPixel p = pixel(gamma);
@@ -123,7 +125,7 @@ void PhotonMap::addPhoton(const astro::Photon& gamma)
     ++m_photons;
 }
 
-void PhotonMap::addPixel(const astro::HealPixel & px, int count)
+void PhotonMap::addPixel(const healpix::HealPixel & px, int count)
 {
     this->insert( value_type(px, count) );
     m_pixels ++;
@@ -131,7 +133,7 @@ void PhotonMap::addPixel(const astro::HealPixel & px, int count)
 }
 
 
-HealPixel PhotonMap::pixel(const astro::Photon& gamma)
+HealPixel PhotonMap::pixel(const Photon& gamma)
 {
     int i( static_cast<int>(log(gamma.energy()/m_emin)/m_logeratio) );
     if( i>m_levels-1) i= m_levels-1;
@@ -139,12 +141,12 @@ HealPixel PhotonMap::pixel(const astro::Photon& gamma)
 }
 
 // Return density for a given direction, in photons/area of base pixel.
-double PhotonMap::density (const astro::SkyDir & sd) const
+double PhotonMap::density (const SkyDir & sd) const
 {
     double result(0), weight(1.0);
 
     for (int ebin = 0; ebin < m_levels; ++ebin, weight*=4.0) { 
-        astro::HealPixel hpx(sd, ebin+m_minlevel);
+        HealPixel hpx(sd, ebin+m_minlevel);
         const_iterator mit = this->find(hpx);
 
         if (mit != this->end()) {
@@ -155,8 +157,8 @@ double PhotonMap::density (const astro::SkyDir & sd) const
     return result;
 }
 
-int PhotonMap::extract(const astro::SkyDir& dir, double radius,
-                       std::vector<std::pair<astro::HealPixel, int> >& vec,
+int PhotonMap::extract(const SkyDir& dir, double radius,
+                       std::vector<std::pair<HealPixel, int> >& vec,
                        int summary_level, int select_level) const
 {
     bool allsky(radius>=180); // maybe use to simplify below, but seems fast
@@ -170,7 +172,7 @@ int PhotonMap::extract(const astro::SkyDir& dir, double radius,
 
     // Get pixels in summary level that are within radius
     std::vector<int> v;
-    astro::Healpix hpx(nside, astro::Healpix::NESTED, HealPixel::s_coordsys);
+    healpix::Healpix hpx(nside, Healpix::NESTED, HealPixel::s_coordsys);
     hpx.query_disc(dir, radius, v);  
     int max_level = m_minlevel + m_levels - 1;
 
@@ -178,8 +180,8 @@ int PhotonMap::extract(const astro::SkyDir& dir, double radius,
     for (std::vector<int>::const_iterator it = v.begin(); it != v.end(); ++it)
     {
 
-        astro::HealPixel hp(*it, summary_level);
-        astro::HealPixel boundary(hp.lastChildIndex(max_level), max_level);
+        HealPixel hp(*it, summary_level);
+        HealPixel boundary(hp.lastChildIndex(max_level), max_level);
         for(const_iterator it2 = lower_bound(hp);
             it2 != end() && it2->first <= boundary; ++it2)
         {
@@ -193,8 +195,8 @@ int PhotonMap::extract(const astro::SkyDir& dir, double radius,
     return total;
 }
 
-int PhotonMap::extract_level(const astro::SkyDir& dir, double radius,
-                       std::vector<std::pair<astro::HealPixel, int> >& vec,
+int PhotonMap::extract_level(const SkyDir& dir, double radius,
+                       std::vector<std::pair<HealPixel, int> >& vec,
                        int select_level, bool include_all) const
 {
     bool allsky(radius>=180); // maybe use to simplify below, but seems fast
@@ -207,14 +209,14 @@ int PhotonMap::extract_level(const astro::SkyDir& dir, double radius,
 
     // Get pixels in select level that are within radius
     std::vector<int> v;
-    astro::Healpix hpx(nside, astro::Healpix::NESTED, HealPixel::s_coordsys);
+    Healpix hpx(nside, Healpix::NESTED, HealPixel::s_coordsys);
     hpx.query_disc(dir, radius, v);  
 
     // Add select level pixels to return vector
     for (std::vector<int>::const_iterator it = v.begin(); it != v.end(); ++it)
     {
 
-        astro::HealPixel hp(*it, select_level);
+        HealPixel hp(*it, select_level);
         const_iterator it2 = find(hp);
         if (it2 == end()) // Not in PhotonMap
         {
@@ -232,7 +234,7 @@ int PhotonMap::extract_level(const astro::SkyDir& dir, double radius,
     return total;
 }
 //! Count the photons, perhaps weighted, within a given pixel.
-double PhotonMap::photonCount(const astro::HealPixel & px, bool includeChildren,
+double PhotonMap::photonCount(const HealPixel & px, bool includeChildren,
                               bool weighted) const
 {
 
@@ -248,7 +250,7 @@ double PhotonMap::photonCount(const astro::HealPixel & px, bool includeChildren,
 
         double count = 0;
         int maxLevel = m_minlevel + m_levels - 1;
-        astro::HealPixel boundary(px.lastChildIndex(maxLevel), maxLevel);
+        HealPixel boundary(px.lastChildIndex(maxLevel), maxLevel);
         for (PhotonMap::const_iterator it =lower_bound(px);
             it != end() && it->first <= boundary; ++it)
         {
@@ -262,13 +264,13 @@ double PhotonMap::photonCount(const astro::HealPixel & px, bool includeChildren,
 }
 
 //! Count the photons within a given pixel, weighted with children.  Also return weighted direction.
-double PhotonMap::photonCount(const astro::HealPixel & px, astro::SkyDir & NewDir) const
+double PhotonMap::photonCount(const HealPixel & px, SkyDir & NewDir) const
 {
 
 
     double count = 0;
     int maxLevel = m_minlevel + m_levels - 1;
-    astro::HealPixel boundary(px.lastChildIndex(maxLevel), maxLevel);
+    HealPixel boundary(px.lastChildIndex(maxLevel), maxLevel);
     CLHEP::Hep3Vector v(0,0,0);
 
     for (PhotonMap::const_iterator it = lower_bound(px);
@@ -280,7 +282,7 @@ double PhotonMap::photonCount(const astro::HealPixel & px, astro::SkyDir & NewDi
         v +=  weight * it->second * (it->first)().dir();
     }
 
-    NewDir = astro::SkyDir(v);
+    NewDir = SkyDir(v);
     return count;
 }
 

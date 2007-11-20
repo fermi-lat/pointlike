@@ -1,14 +1,14 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.13 2007/11/09 22:20:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.14 2007/11/11 21:52:06 burnett Exp $
 
 */
 
 #ifndef tools_Likelihood_h
 #define tools_Likelihood_h
 
-#include "astro/HealPixel.h"
+#include "healpix/HealPixel.h"
 #include "astro/SkyDir.h"
 #include "astro/SkyFunction.h"
 
@@ -38,7 +38,7 @@ public:
     @param background [-1] background density, events/solid angle (negative to not use)
     @param umax   [25] maximum value for the u variable
     */
-    SimpleLikelihood(const std::vector<std::pair<astro::HealPixel,int> >& data,
+    SimpleLikelihood(const std::vector<std::pair<healpix::HealPixel,int> >& data,
         const astro::SkyDir& dir, 
         double gamma, double sigma, 
         double background, 
@@ -137,7 +137,7 @@ private:
     mutable double m_w;      // likelihood from gradient
 
     //! vector of healpixels and the number of photons in each
-    const std::vector<std::pair<astro::HealPixel,int> >& m_vec;
+    const std::vector<std::pair<healpix::HealPixel,int> >& m_vec;
     //! simplified set with function or distances from m_dir 
     std::vector<std::pair<double, int> > m_vec2;
     std::vector<double> m_vec3; //storage of u values for fast Likelihood recalculation

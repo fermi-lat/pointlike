@@ -1,15 +1,15 @@
 /** @file PhotonMap.h
 @brief declare class PhotonMap
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PhotonMap.h,v 1.1 2007/11/04 22:11:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PhotonMap.h,v 1.2 2007/11/18 22:56:56 burnett Exp $
 
 */
 #ifndef pointlike_PhotonMap_h
 #define pointlike_PhotonMap_h
 
 #include "pointlike/SkySpectrum.h"
-#include "astro/Healpix.h"
-#include "astro/HealPixel.h"
+#include "healpix/Healpix.h"
+#include "healpix/HealPixel.h"
 #include <map>
 
 namespace astro {class Photon;}
@@ -24,7 +24,7 @@ namespace pointlike {
 */
 
 class PhotonMap : public pointlike::SkySpectrum
-    ,  public std::map<astro::HealPixel, unsigned int> {
+    ,  public std::map<healpix::HealPixel, unsigned int> {
 public:
     /** @brief ctor defines energy binning
     @param emin [100] Minimum energy
@@ -55,24 +55,24 @@ public:
     void addPhoton(const astro::Photon& gamma);
 
     /// add a healpixel to the map with an associated count
-    void addPixel(const astro::HealPixel & px, int count);
+    void addPixel(const healpix::HealPixel & px, int count);
 
     /// @return density for a given direction, in photons/area of the base pixel.
     double density (const astro::SkyDir & sd) const;
 
     //! Count the photons within a given pixel.
-    double photonCount(const astro::HealPixel & px, bool includeChildren=false,
+    double photonCount(const healpix::HealPixel & px, bool includeChildren=false,
         bool weighted=false) const;
 
     //! Count the photons within a given pixel, weighted with children.  Also return weighted direction.
-    double photonCount(const astro::HealPixel & px, astro::SkyDir & NewDir) const;
+    double photonCount(const healpix::HealPixel & px, astro::SkyDir & NewDir) const;
 
     ///  implement the SkyFunction class by returning density
     double operator()(const astro::SkyDir & sd) const{ return density(sd);}
 
     /// the binning function: return a HealPixel corresponding to the 
     /// direction and energy
-    astro::HealPixel pixel(const astro::Photon& gamma);
+    healpix::HealPixel pixel(const astro::Photon& gamma);
 
     /** @brief extract a subset around a given direction. include selected pixels and all children.
     @param radius The maximum radius (deg). Set to >=180 for all
@@ -82,7 +82,7 @@ public:
     @return the total number of photons (sum of count)
     */
     int extract(const astro::SkyDir& dir, double radius,
-        std::vector<std::pair<astro::HealPixel, int> >& vec,
+        std::vector<std::pair<healpix::HealPixel, int> >& vec,
         int summary_level = -1, int select_level = -1) const;
 
     /** @brief extract a subset around a given direction.  single level only.
@@ -94,7 +94,7 @@ public:
     */
 
     int extract_level(const astro::SkyDir& dir, double radius,
-        std::vector<std::pair<astro::HealPixel, int> >& vec,
+        std::vector<std::pair<healpix::HealPixel, int> >& vec,
         int select_level = -1, bool include_all = false) const;
 
     int photonCount()const { return m_photons;} ///< current number of photons

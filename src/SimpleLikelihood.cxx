@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.14 2007/11/05 20:07:55 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.15 2007/11/11 21:52:06 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -12,7 +12,8 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.14 
 #include <iomanip>
 #include <fstream>
 
-using namespace astro;
+using astro::SkyDir;
+using healpix::HealPixel;
 using namespace pointlike;
 
 //#define DEBUG_PRINT
@@ -150,7 +151,7 @@ namespace {
     };
 } // anon namespace
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-SimpleLikelihood::SimpleLikelihood(const std::vector<std::pair<astro::HealPixel, int> >& vec,
+SimpleLikelihood::SimpleLikelihood(const std::vector<std::pair<healpix::HealPixel, int> >& vec,
         const astro::SkyDir& dir, 
         double gamma, double sigma, double background, double umax, double emin,double emax)
         : m_vec(vec)
@@ -286,10 +287,10 @@ Hep3Vector SimpleLikelihood::gradient() const
 
     Hep3Vector perp(m_dir().orthogonal());
 
-    std::vector<std::pair<astro::HealPixel,int> >::const_iterator it = m_vec.begin();
+    std::vector<std::pair<healpix::HealPixel,int> >::const_iterator it = m_vec.begin();
 
     for( ; it< m_vec.end(); ++it){
-        const std::pair<astro::HealPixel,int>& h = *it;
+        const std::pair<healpix::HealPixel,int>& h = *it;
 
         SkyDir d( h.first );
         int nphoton( h.second);
