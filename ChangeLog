@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Tue Nov 20 13:49:10 PST 2007
+pointlike/pointlike
+
+Modified Files:
+	Convolution.h 
+Log Message:
+added skyspectrum function
+    *
+------------------------------------------------------------
 User: mar0  Mon Nov 19 14:22:15 PST 2007
 pointlike/src
 
