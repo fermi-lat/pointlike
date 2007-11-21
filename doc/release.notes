@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.21 2007/11/01 14:58:23 burnett Exp $
+$Id: release.notes,v 1.22 2007/11/18 22:56:55 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
- 18-nov-07 v3r0    THB New classes to handle mulitple diffuse, including point sources
+ 21-nov-07 v3r0    THB New classes to handle mulitple diffuse, including point sources
                        Remove dependence on map_tools, by copying SkyImage and merging PhotonMap 
+                       Change all healpix use to the healpix package
  01-nov-07 v2r2p2  THB Fix diffuse to account for ENERGIES 
  29-oct-07 v2r2p1  THB Fix diffuse to account for ENERGIES 
  10-oct-07 v2r2    THB Implement use of diffuse; refactor parameter specification
