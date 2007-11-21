@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Nov 21 08:36:21 PST 2007
+pointlike/pointlike
+
+Modified Files:
+	AlignProc.h RotationInfo.h 
+Log Message:
+fix some linux warnings, errors
+    *
+------------------------------------------------------------
 User: burnett  Wed Nov 21 07:43:19 PST 2007
 pointlike/src
 
