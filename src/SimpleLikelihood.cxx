@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.15 2007/11/11 21:52:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.16 2007/11/20 23:14:29 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -43,8 +43,9 @@ namespace {
             , m_vec3(vec3)
             , m_umax(umax)
             , m_F( f.integral(umax) ) // for normalization of the PSF
-            , m_sum(0), m_count(0), m_pixels(0)
+            , m_sum(0), m_count(0)
             , m_sumu(0) // average u, useful for calibration
+            , m_pixels(0)
             , m_back_norm(1)
         {
             if( SimpleLikelihood::s_diffuse!=0){
@@ -403,7 +404,7 @@ double SimpleLikelihood::gcurvature(double k) {
     double d2Ldk2 = 0;
     std::vector<std::pair<double,int> >::iterator it2 = m_vec2.begin();
     for(std::vector<double>::iterator it = m_vec3.begin();it!=m_vec3.end()&&it2!=m_vec2.end();++it,++it2) {
-        double weight = it2->second;
+        //unused double weight = it2->second;
         double u = (*it);
         double f = ps(u);
         arg = 1+u/(k*gamma);
