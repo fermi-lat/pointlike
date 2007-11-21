@@ -24,6 +24,7 @@
 #include "pointlike/DiffuseFunction.h"
 #include "pointlike/CompositeSkySpectrum.h"
 #include "pointlike/PhotonMap.h"
+#include "pointlike/Exposure.h"
 
 
 #include "CLHEP/Vector/Rotation.h"
@@ -106,8 +107,6 @@ public:
     }
 
 }
-   
-   
 
   
 %include $(ASTROROOT)/astro/SkyProj.h
@@ -134,6 +133,7 @@ public:
 %include $(POINTLIKEROOT)/pointlike/CompositeSkySpectrum.h
 %include $(POINTLIKEROOT)/pointlike/PhotonMap.h
 %include $(POINTLIKEROOT)/pointlike/SkyImage.h
+%include $(POINTLIKEROOT)/pointlike/Exposure.h
 
 %template(CanInfoVector) std::vector<pointlike::CanInfo>;
 
