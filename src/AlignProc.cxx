@@ -1,7 +1,7 @@
 /** 
 Data Processing file, operates on a given Photon
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.1 2007/11/19 20:40:39 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.2 2007/11/21 16:36:21 burnett Exp $
 
 */
 
@@ -13,6 +13,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.1 2007/11/
 #include "TSystem.h"
 
 #include <float.h>
+#include <stdexcept>
 
 using namespace pointlike;
 using namespace CLHEP;
@@ -138,7 +139,7 @@ void AlignProc::loadroot(const std::string& file) {
     }
 }
 
-void AlignProc::loadfits(const std::string& file) {
+void AlignProc::loadfits(const std::string& /*file */) {
     //todo : process fits file in same manner as ROOT
 }
 
@@ -153,7 +154,7 @@ pointlike::AlignProc::Photona AlignProc::event(std::vector<float>& row) {
     }
     if(flag) {
         time = row[3];
-        event_class = row[4];
+        event_class = static_cast<int>(row[4]);
         event_class = event_class>4? 0 : 1;  // front/back map to event class 0/1
         energy = row[2];
         if(event_class<99){
@@ -172,7 +173,7 @@ pointlike::AlignProc::Photona AlignProc::event(std::vector<float>& row) {
 
 int AlignProc::add(pointlike::AlignProc::Photona& p){
     int added(0);
-    int cl = p.eventClass();
+    //unused int cl = p.eventClass();
     //above healpix level 8 (mostly signal photons)
     if(p.energy()>=minE&&p.eventClass()<2){
         double diff = 1e9;
