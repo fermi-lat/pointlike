@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Nov 20 23:00:39 PST 2007
+pointlike/pointlike
+
+Added Files:
+	Exposure.h 
+Log Message:
+add Exposure dummy
+    *
+------------------------------------------------------------
+User: burnett  Tue Nov 20 23:00:39 PST 2007
 pointlike/src
 
 Modified Files:
