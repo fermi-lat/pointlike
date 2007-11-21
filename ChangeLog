@@ -1,5 +1,16 @@
 ------------------------------------------------------------
 User: burnett  Tue Nov 20 23:00:39 PST 2007
+pointlike/src
+
+Modified Files:
+	mainpage.h py_point.in 
+Added Files:
+	Exposure.cxx 
+Log Message:
+add Exposure dummy
+    *
+------------------------------------------------------------
+User: burnett  Tue Nov 20 23:00:39 PST 2007
 pointlike/cmt
 
 Modified Files:
