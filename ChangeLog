@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 User: burnett  Wed Nov 21 14:52:32 PST 2007
+pointlike/src
+
+Modified Files:
+	AlignProc.cxx PhotonMap.cxx RotationInfo.cxx 
+	SimpleLikelihood.cxx 
+Log Message:
+more linux issues
+    *
+------------------------------------------------------------
+User: burnett  Wed Nov 21 14:52:32 PST 2007
 pointlike/pointlike
 
 Modified Files:
