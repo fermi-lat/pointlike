@@ -1,7 +1,7 @@
 /** 
 Data Processing file, operates on a given Photon
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.1 2007/11/19 20:40:39 mar0 Exp $
 
 */
 
@@ -36,7 +36,7 @@ namespace{
         std::cout << s;
         if (sofar < total)
         {
-            for (int j = 0; j < strlen(s); ++j)
+            for (unsigned int j = 0; j < strlen(s); ++j)
                 std::cout << "\b";
         }
         else
@@ -101,13 +101,13 @@ void AlignProc::loadroot(const std::string& file) {
     TTree *tt = static_cast<TTree*>(tf->Get("MeritTuple"));
     tt->SetBranchStatus("*", 0); // turn off all branches
     //turn on appropriate branches
-    for( int j(0); j< sizeof(root_names)/sizeof(std::string); j++){
+    for(unsigned int j(0); j< sizeof(root_names)/sizeof(std::string); j++){
         tt->SetBranchStatus(root_names[j].c_str(), 1);
     }
     int entries = static_cast<int>(tt->GetEntries());
     std::vector<float> row;
     tt->GetEvent(0);
-    int starttime = tt->GetLeaf("EvtElapsedTime")->GetValue();
+    int starttime = static_cast<int>(tt->GetLeaf("EvtElapsedTime")->GetValue());
     bool flag(true);
     //for each entry  
     for(int i(0);i<entries&&(flag||m_start==-1);++i) {
@@ -148,7 +148,7 @@ pointlike::AlignProc::Photona AlignProc::event(std::vector<float>& row) {
     double time(0);
     int event_class(99);
     int flag =1;
-    for(int i = 0;i<row.size();++i) {
+    for(unsigned int i = 0;i<row.size();++i) {
         if(row[i]<-1e7) flag=0;
     }
     if(flag) {
@@ -213,7 +213,7 @@ int AlignProc::add(pointlike::AlignProc::Photona& p){
             ++m_photons;
         }
     }
-    return p.time();
+    return static_cast<int>(p.time());
 }
 
 std::vector<double> AlignProc::fitparam() {
