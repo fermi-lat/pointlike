@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.11 2007/11/18 22:56:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.12 2007/11/20 23:14:28 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -35,7 +35,10 @@ namespace pointlike {
           m_sigma(sigma), 
           m_dir(dir), 
           m_2bdeleted(false),
-          m_isSource(false) 
+          m_weighted_count(0),
+          m_isSource(false),
+          m_hasStrongNeighbor(false),
+          m_strongNeighbor(healpix::HealPixel(0,0))
           {
               m_values.clear();
               m_photons.clear();
@@ -55,6 +58,10 @@ namespace pointlike {
 	double pl_slope () const {return m_pl_slope;}
 	double pl_constant () const {return m_pl_constant;}
 	double pl_confidence () const {return m_pl_confidence;}
+        int weighted_count () const {return m_weighted_count;}
+        int skipped () const {return m_skipped;}
+        bool hasStrongNeighbor() const {return m_hasStrongNeighbor;}
+        healpix::HealPixel strongNeighbor() const {return m_strongNeighbor;}
 
         void setDelete () {m_2bdeleted = true;}
         void setSource (bool value = true) {m_isSource = value;}
@@ -64,6 +71,10 @@ namespace pointlike {
 	void set_pl_slope (double value = 0.0) {m_pl_slope = value;}
         void set_pl_constant (double value = 0.0) {m_pl_constant = value;}
 	void set_pl_confidence (double value = 0.0) {m_pl_confidence = value;}
+        void set_weighted_count (int value = 0) {m_weighted_count = value;}
+        void set_skipped (int value = 0) {m_skipped = value;}
+        void setHasStrongNeighbor (bool value = true) {m_hasStrongNeighbor = value;}
+        void setStrongNeighbor (healpix::HealPixel value) {m_strongNeighbor = value;}
 
     private:
         double m_value; ///< TS value.
@@ -77,6 +88,11 @@ namespace pointlike {
 	double m_pl_slope; // Slope of power law fit.
 	double m_pl_constant; // b from (y = mx + b) for power law fit.
 	double m_pl_confidence; // Confidence of the power law fit. 1 == perfect fit.
+        int m_weighted_count; // weighted count of photons in enclosing pixel.  level of enclosing pixel is determined by pointfind_setup.py
+        int m_skipped; // number of candidates rejected before this one was accepted.  Count is reset each time a candidate is accepted.
+        bool m_hasStrongNeighbor;  // Is there a stronger nearby candidate?
+        healpix::HealPixel m_strongNeighbor;  // Location of strongest nearby candidate.
+
     }; 
 
     class DiffuseCounts; // forward declaration: disabled for now
@@ -157,15 +173,20 @@ namespace pointlike {
 
         //! Eliminate candidates that don't meet power law tests
         void prune_power_law(void);
-
-        //! Eliminate neighbors within cone
+ 
+        //! Group nearby candidates to facilitate further examination
+        //! Any candidate that is within "prune_radius" of another is matched with its strongest neighbor
+        void group_neighbors(void);
+        
+         //! Eliminate neighbors within cone
         void prune_neighbors(void);
 
         //! Eliminate weaker adjacent neighbors
         void prune_adjacent_neighbors();
 
         //! summarize results in a ds9 region file
-        void createReg(const std::string& filename, double radius = -1., const std::string& color = "white");
+        void createReg(const std::string& filename, double radius = -1.,
+              const std::string& color = "white");
 
         void createTable(const std::string& filename, bool get_background = false, int skip_TS = 0);
 

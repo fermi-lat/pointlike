@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.17 2007/11/18 22:56:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.18 2007/11/20 23:14:29 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -165,6 +165,8 @@ void SourceFinder::examineRegion(void)
 
     m_can.clear();
     int i(0);
+    int failed_photon_count_check(0), nbr_skipped(0);
+
 
     // Examine likelihood fit for each preliminary candidate
     for (Prelim::reverse_iterator it = can.rbegin(); it != can.rend(); ++ it)
@@ -186,31 +188,46 @@ void SourceFinder::examineRegion(void)
         PointSourceLikelihood ps(m_pmap, "test",currentpos );
 
         double ts = ps.maximize(skip_TS_levels);
-        if (ts < ts_min) continue;  // apply initial threshold
+        if (ts < ts_min)
+        {
+            ++ nbr_skipped;
+            continue;  // apply initial threshold
+        }
 
         // adjust position to maximize likelhood
         double error = ps.localize(skip1, skip2);
-        if (error >= sigma_max) continue; // quit if fail to find maximum or > 1 degree
+        if (error >= sigma_max) // quit if fail to find maximum or > 1 degree
+        {
+            ++ nbr_skipped;
+            continue;  // apply initial threshold
+        }
         ts = ps.maximize(skip_TS_levels); // readjust likelihood at current position
-        if (ts <ts_min) continue;
+        if (ts <ts_min)
+        {
+            ++ nbr_skipped;
+            continue;  // apply initial threshold
+        }
 
         // found candidate
 
         // also check number of photons in pixel
         HealPixel px_check(ps.dir(), final_pix_lvl);
         int count = static_cast<int>(m_pmap.photonCount(px_check, true, false));
-        if (count >= final_count_threshold)
+        if (count < final_count_threshold)
+        {
+            ++ nbr_skipped;
+            ++ failed_photon_count_check;
+        }
+        else
         {  
-
             // add to the final list, indexed according to level 13 location
             HealPixel px(ps.dir(), 13); 
             m_can[px] = CanInfo(ts, error, ps.dir());
-            for(int id = ps.minlevel();id<=ps.maxlevel();++id)
+            for(int id = 6;id<14;++id)
             {
-                
-                m_can[px].setValue(id,   ps.levelTS(id));
-                m_can[px].setPhotons(id, ps[id]->photons()*ps[id]->alpha());
-                m_can[px].setSigalph(id, ps[id]->sigma_alpha());
+                m_can[px].setValue(id,ps.levelTS(id));
+                m_can[px].setPhotons(id,ps[id]->photons()*ps[id]->alpha());
+                m_can[px].setSigalph(id,ps[id]->sigma_alpha());
             }
 	    
             // Calculate and store power law fit values.  New as of 6/5/07
@@ -473,6 +490,44 @@ void SourceFinder::prune_adjacent_neighbors()
     timer();
 }
 
+// Group nearby candidates to facilitate further examination
+// Any candidate that is within "prune_radius" of another is matched with its strongest neighbor
+void SourceFinder::group_neighbors(void)
+{
+    double  radius;
+    int nbr_found = 0;
+    m_module.getValue("prune_radius", radius, 0.25);
+    if(radius==0) return;
+    
+    std::cout << "Grouping neighbors using radius of " << radius << " degrees...";
+
+    // Mark candidates with stronger neighbors: loop over all pairs
+    for (Candidates::iterator it1 = m_can.begin(); it1 != m_can.end(); ++it1) 
+    {
+        double max_value = 0.0;
+        for (Candidates::iterator it2 = m_can.begin();  it2 != m_can.end(); ++it2)
+        {
+            if (it1 == it2)   continue;  // Don't compare to yourself.  
+
+            double diff = (it1->first)().difference((it2->first)())*180/M_PI;
+            if (diff <= radius && it2->second.value() > it1->second.value())
+            {
+                if (it2->second.value() > max_value)
+                {
+                    max_value = it2->second.value();
+                    it1->second.setHasStrongNeighbor(true);
+                    it1->second.setStrongNeighbor(it2->first);
+                }
+            }
+        }
+        if (max_value > 0.0)
+            ++ nbr_found;
+    }
+
+    std::cout << nbr_found << " candidates have stronger neighbors.\n";
+    timer();
+}
+
 void SourceFinder::createReg(const std::string& fileName, double radius, const std::string& color)
 {
     std::cout << "Writing results to the reg file " << fileName << std::endl;
@@ -485,13 +540,22 @@ void SourceFinder::createReg(const std::string& fileName, double radius, const s
     for (Candidates::const_iterator it = m_can.begin(); it != m_can.end(); ++it)
     {
         int value = static_cast<int>(it->second.value() + 0.5);
-        reg << "fk5; circle("
-            << (it->first)().ra() << ", "
-            << (it->first)().dec() << ", ";
-        if (radius > 0.0)
-            reg << radius;
+        if (radius < -1.0) // Use a cross instead of a circle
+        {
+            reg << "fk5; cross point("
+                << (it->first)().ra() << ", "
+                << (it->first)().dec();
+        }
         else
-            reg << it->second.sigma() * 100.0;
+        {
+            reg << "fk5; circle("
+                << (it->first)().ra() << ", "
+                << (it->first)().dec() << ", ";
+            if (radius > 0.0)
+                reg << radius;
+            else
+                reg << it->second.sigma() * 100.0;
+        }
         reg << ") " << "# text = {" << value << "};";
     }
     reg.close();
@@ -514,6 +578,7 @@ void SourceFinder::createTable(const std::string& fileName,
     table << "TS6 TS7 TS8 TS9 TS10 TS11 TS12 TS13 ";
     table << "n6 n7 n8 n9 n10 n11 n12 n13 ";
     table << "pl_m pl_b pl_sigma pl_chi_sq";
+    table << "weighted_count skipped";
 
     table << std::endl;
 
@@ -568,8 +633,11 @@ void SourceFinder::createTable(const std::string& fileName,
             chi_sq += chi * chi;
         }
 
-        // table << pl.chi_sq() << delim;
         table << chi_sq << delim;
+
+        // add weighted count and nbr skipped
+        table << it->second.weighted_count() << delim;
+        table << it->second.skipped() << delim;
         table << std::endl;
 
     }
