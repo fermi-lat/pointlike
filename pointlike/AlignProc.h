@@ -34,7 +34,7 @@ namespace pointlike{
                 CLHEP::Hep3Vector scy (scz().cross(scx()));
                 CLHEP::Hep3Vector sz = scz();
                 CLHEP::Hep3Vector sx = scx();
-                double dot = scz().dot(scx());
+                //unused double dot = scz().dot(scx());
                 m_rot = CLHEP::HepRotation(scx(), scy, scz());
                 m_gdir = dir();
             }
@@ -90,11 +90,11 @@ namespace pointlike{
     private:
         void loadroot(const std::string& file);
         void loadfits(const std::string& file);
-        RotationInfo m_roti; //contains likelihood data for each rotation grid point
         int m_photons; //number of photons
         int m_start; //start time 0... (-1 for all)
         int m_stop; //end time ...stop
         double m_arcmin; //resolution of the grid
+        RotationInfo m_roti; //contains likelihood data for each rotation grid point
         const std::vector<astro::SkyDir> m_skydir; //source positions
     };
 }

@@ -1,9 +1,10 @@
 /** @file RotationInfo.h 
 @brief declaration of the rotation likelihood class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/RotationInfo.h,v 1.3 2007/07/14 03:50:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/RotationInfo.h,v 1.1 2007/11/19 20:40:19 mar0 Exp $
 */
-
+#ifndef pointlike__Rotation_h
+#define pointlike__Rotation_h
 #include "CLHEP/Vector/Rotation.h"
 #include <vector>
 using namespace CLHEP;
@@ -38,7 +39,7 @@ namespace pointlike {
         //! @param tru source direction
         //! @param meas measured direction
         //! @param sigmasq sigma-squared (angular resolution)
-        void acc(Hep3Vector& tru, Hep3Vector& meas, double sigmasq, int level);
+        void acc(const Hep3Vector& tru, Hep3Vector& meas, double sigmasq, int level);
 
         static std::vector<double> s_alphas;
         static void setalphas(std::vector<double>& newalpha) {s_alphas=newalpha;}
@@ -50,3 +51,5 @@ namespace pointlike {
     };
 
 }//namespace
+
+#endif
