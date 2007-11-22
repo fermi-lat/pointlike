@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Nov 21 18:38:49 PST 2007
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+use the same name for python. a few linux fixes
+    *
+------------------------------------------------------------
 TAG
 Tag name: v3r0p2, operation: add
 Package: pointlike
