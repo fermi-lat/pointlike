@@ -3,8 +3,10 @@
 
 @author M. Roth 
 
-$Header: /nfs/slac/g/glast/ground/cvs/healpix/healpix/Map.h,v 1.4 2007/06/04 22:14:25 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Convolution.h,v 1.2 2007/11/20 21:49:10 mar0 Exp $
 */
+#ifndef pointlike_Convolution_h
+#define pointlike_Convolution_h
 
 #include "pointlike/SkySpectrum.h"
 #include "healpix/Map.h"
@@ -59,3 +61,4 @@ namespace pointlike {
 
 
 }
+#endif
