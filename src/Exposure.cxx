@@ -1,6 +1,6 @@
 /** @file Exposure.cxx
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Exposure.cxx,v 1.1 2007/11/21 07:00:39 burnett Exp $
 */
 
 #include "pointlike/Exposure.h"
@@ -18,13 +18,13 @@ Exposure::~Exposure()
 {}
 
 
-double Exposure::value(const astro::SkyDir& dir, double e)const
+double Exposure::value(const astro::SkyDir& dir, double)const
 {
     return 0;
 }
 
 ///@brief integral for the energy limits, in the given direction
-double Exposure::integral(const astro::SkyDir& dir, double a, double b)const
+double Exposure::integral(const astro::SkyDir& dir, double , double )const
 {
     return 0;
 }

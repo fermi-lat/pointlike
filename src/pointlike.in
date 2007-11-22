@@ -1,4 +1,4 @@
-%module(docstring="Interface to pointlike") py_point
+%module(docstring="Interface to pointlike") pointlike
 %{
 #include <stdexcept>
 #include <vector>

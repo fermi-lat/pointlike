@@ -3,13 +3,15 @@
 
 @author M. Roth 
 
-$Header: /nfs/slac/g/glast/ground/cvs/healpix/healpix/Map.h,v 1.4 2007/06/04 22:14:25 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Convolution.cxx,v 1.2 2007/11/20 21:49:30 mar0 Exp $
 */
 #include "pointlike/Convolution.h"
 #include "healpix/AlmOp.h"
 #include "healpix/HealPixel.h"
 #include "src/base/alm_filter_tools.h"
 #include "pointlike/PointSourceLikelihood.h"
+#include <map>
+
 #include <iostream>
 
 using namespace healpix;

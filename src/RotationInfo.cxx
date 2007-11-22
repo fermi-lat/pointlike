@@ -1,7 +1,7 @@
 /** @file RotationInfo.cxx 
 @brief Methods for rotation information
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/RotationInfo.cxx,v 1.2 2007/11/21 16:36:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/RotationInfo.cxx,v 1.3 2007/11/21 22:52:32 burnett Exp $
 */
 
 #include "pointlike/AlignProc.h"
@@ -24,3 +24,4 @@ void RotationInfo::acc(const Hep3Vector& tru, const Hep3Vector& meas, double sig
         *il -= u;
     }
 }
+
