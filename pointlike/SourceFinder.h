@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.12 2007/11/20 23:14:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.13 2007/11/21 15:43:19 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -35,8 +35,8 @@ namespace pointlike {
           m_sigma(sigma), 
           m_dir(dir), 
           m_2bdeleted(false),
-          m_weighted_count(0),
           m_isSource(false),
+          m_weighted_count(0),
           m_hasStrongNeighbor(false),
           m_strongNeighbor(healpix::HealPixel(0,0))
           {

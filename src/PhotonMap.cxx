@@ -1,6 +1,6 @@
 /** @file PhotonMap.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PhotonMap.cxx,v 1.3 2007/11/20 23:14:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PhotonMap.cxx,v 1.4 2007/11/21 22:52:32 burnett Exp $
 */
 
 #include "pointlike/PhotonMap.h"
@@ -11,7 +11,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PhotonMap.cxx,v 1.3 2007/11/
 #include <cmath>
 #include <utility>
 #include <stdexcept>
-//#include <errno.h>
+#include <errno.h>
 
 using healpix::HealPixel;
 using healpix::Healpix;

@@ -5,7 +5,7 @@
 $Id: release.notes,v 1.25 2007/11/21 22:52:31 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
- 21-nov-07 v3r0p3  THB New classes to handle mulitple diffuse, including point sources
+ 21-nov-07 v3r0p4  THB New classes to handle mulitple diffuse, including point sources
                        Remove dependence on map_tools, by copying SkyImage and merging PhotonMap 
                        Change all healpix use to the healpix package
                        Include alignment code
