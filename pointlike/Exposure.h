@@ -1,13 +1,16 @@
 /** @file Exposure.h
     @brief declare class Exposure
 
-$Header:$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Exposure.h,v 1.1 2007/11/21 07:00:39 burnett Exp $
 
 */
 #ifndef pointlike_Exposure_h
 #define pointlike_Exposure_h
 
 #include "pointlike/SkySpectrum.h"
+#include <string>
+#include "healpix/HealpixArrayIO.h"
+#include "healpix/CosineBinner.h"
 
 
 namespace pointlike {
@@ -22,7 +25,7 @@ namespace pointlike {
 
 class Exposure : public pointlike::SkySpectrum {
 public:
-    Exposure();
+    Exposure(const std::string & fits_file, const std::string& tablename="Exposure");
     ~Exposure();
 
     ///@brief a single energy 
@@ -36,6 +39,9 @@ public:
 
 
 private:
+    std::string m_filename;
+    healpix::HealpixArray<healpix::CosineBinner> m_exposure;
+    
 };
 
 

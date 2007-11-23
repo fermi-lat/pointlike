@@ -37,7 +37,7 @@
 %exception {
    try {
       $action
-   } catch (std::exception & eObj) {
+   } catch (const std::exception & eObj) {
       if( strcmp(eObj.what(),"StopIteration")==0 ){
           PyErr_SetString(PyExc_StopIteration, const_cast<char *>(eObj.what()));
       } else if(strcmp(eObj.what(),"IndexError")==0 ){
@@ -53,6 +53,7 @@
 %template(DoublePair) std::pair<double, double>;
 %template(StringVector) std::vector<std::string>;
 %template(DoubleVector) std::vector<double>;
+%template(FloatVector) std::vector<float>;
 
 %include $(CLHEPBASE)/include/CLHEP/Vector/ThreeVector.h
 //%include $(CLHEPBASE)/include/CLHEP/Vector/Rotation.h

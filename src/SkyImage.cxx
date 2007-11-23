@@ -1,7 +1,7 @@
 /** @file SkyImage.cxx
 
 @brief implement the class SkyImage
-$Header: /nfs/slac/g/glast/ground/cvs/map_tools/src/SkyImage.cxx,v 1.55 2007/05/07 18:29:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SkyImage.cxx,v 1.1 2007/11/18 22:56:56 burnett Exp $
 */
 
 #include "pointlike/SkyImage.h"
@@ -23,6 +23,14 @@ namespace {
 }
 using namespace pointlike;
 
+double SkyImage::setNaN(double nan)
+{ 
+    double oldnan = dnan;
+    dnan=nan;
+    return oldnan;
+}
+
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SkyImage::SkyImage(const astro::SkyDir& center,  
                    const std::string& outputFile, 
@@ -31,7 +39,7 @@ SkyImage::SkyImage(const astro::SkyDir& center,
                    bool galactic)
 : m_naxis3(layers)  
 , m_image(0)
-, m_save(true)
+, m_save(false)
 , m_layer(0)
 , m_interpolate(false)
 {
@@ -62,7 +70,12 @@ SkyImage::SkyImage(const astro::SkyDir& center,
     double crpix[2] = { (m_naxis1+1)/2.0, (m_naxis2+1)/2.0};
 
     m_wcs = new astro::SkyProj(ptype, crpix, crval, cdelt, 0., galactic);
-    this->setupImage(outputFile);
+    m_pixelCount = m_naxis1*m_naxis2*m_naxis3;
+    m_imageData.resize(m_pixelCount);
+
+    if( ! outputFile.empty() ){
+        this->setupImage(outputFile);
+    }
 }
 #if 0
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -231,6 +244,7 @@ void SkyImage::setupImage(const std::string& outputFile,  bool clobber)
     tip::IFileSvc::instance().appendImage(outputFile, extension, naxes);
     // create a float image
     m_image = tip::IFileSvc::instance().editImageFlt(outputFile, extension);
+    m_save=true;
 
     m_pixelCount = m_naxis1*m_naxis2*m_naxis3;
     m_imageData.resize(m_pixelCount);
@@ -323,6 +337,11 @@ void SkyImage::fill(const astro::SkyFunction& req, unsigned int layer)
         }
     }
     return;
+}
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void SkyImage::fill(const pointlike::SkySpectrum& req, unsigned int layer)
+{
+    fill(dynamic_cast<const astro::SkyFunction&>(req),layer);
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void SkyImage::clear()
