@@ -2,7 +2,7 @@ package pointlike
 
 version v3r0p4
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.30 2007/11/22 02:40:37 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.31 2007/11/22 15:28:38 burnett Exp $
 
 use STpolicy *
 use astro *
@@ -12,7 +12,7 @@ use SwigPolicy v*
  
 path_remove PYTHONPATH pointlike
 path_prepend PYTHONPATH $(POINTLIKEROOT)/python;$(POINTLIKEROOT)/$(BINDIR)
-
+macro_append winsource "*.h *.cxx *.py"
 apply_pattern swig_module name="pointlike"
 path_append PATH "$(SWIG_dir)/bin"
 

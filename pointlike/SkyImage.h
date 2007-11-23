@@ -3,14 +3,14 @@
     @brief declare  the class SkyImage
 
     @author Toby Burnett <tburnett@u.washington.edu>
-    $Header: /nfs/slac/g/glast/ground/cvs/map_tools/map_tools/SkyImage.h,v 1.32 2007/03/12 04:25:56 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SkyImage.h,v 1.1 2007/11/18 22:56:56 burnett Exp $
 
 */
 
 #ifndef POINTLIKE_SKYIMAGE_H
 #define POINTLIKE_SKYIMAGE_H
 
-#include "astro/SkyFunction.h"
+#include "pointlike/SkySpectrum.h"
 #include "astro/SkyDir.h"
 
 #include <string>
@@ -68,12 +68,15 @@ public:
 
     /** @brief create an image, using the projection
         @param center coords of image center
-        @param outputFile FITS file to write the image to
+        @param outputFile FITS file to write the image to. If null, do not setup
         @param pixel_size [0.5] degree size of indivitual pixel
         @param fov [20] (degrees) size of field of view, square if <90, full sky if>90
         @param layers [1] number of layers to allocate
         @param ptype ["ZEA"] projection type.
         @param galactic [false] use galactic or equatorial coords
+
+        Note that if the outputFile is empty, which is useful to get the the transformation, most methods are not valid
+        until setupImage() is called with a filename.
     */
     SkyImage(const astro::SkyDir& center,  
                    const std::string& outputFile, 
@@ -114,6 +117,9 @@ public:
     */
     void fill( const astro::SkyFunction& req, unsigned int layer=0);
 
+    /// @brief needed since SWIG does not check inheritance?
+    void fill( const pointlike::SkySpectrum& req, unsigned int layer=0);
+
     /** brief clear the image, putting nulls around a AIT map
     */
     void clear();
@@ -148,8 +154,18 @@ public:
     /// @brief access to the projection object
     const astro::SkyProj* projector()const { return m_wcs; }
 
-private:
+    /// @brief setup a FITS image 
     void setupImage(const std::string& outputFile,  bool clobber=true);
+
+    int naxis1()const{return m_naxis1;}
+    int naxis2()const{return m_naxis2;}
+
+    const std::vector<float>& image()const{return m_imageData;}
+
+    /// @brief change the value to use for invalid
+    static double setNaN(double nan);
+
+private:
     //! @brief internal routine to convert SkyDir to pixel index
     unsigned int pixel_index(const astro::SkyDir& pos, int layer=-1) const;
 

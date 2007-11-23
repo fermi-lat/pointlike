@@ -7,6 +7,7 @@
 
 #include "pointlike/PointSourceLikelihood.h"
 #include "pointlike/DiffuseFunction.h"
+#include "pointlike/Exposure.h"
 
 #include "PhotonList.h"
 
@@ -54,6 +55,15 @@ int main(int , char** )
 
     int rc(0);
     try{
+
+#if 1 // test code for Exposure
+
+        std::string testexp("d:\\users\\kerrm\\Comparison\\expCube.fits");
+        Exposure exp(testexp);
+        double t = exp(SkyDir());
+        std::cout << "exposure check: " << t << std::endl;
+#endif
+
 #if 1  // test code for the DiffuseFunction
         std::string path( ::getenv("EXTFILESSYS"));
 //        DiffuseFunction df( path + "/galdiffuse/GP_gamma_v0r0p1.fits");
@@ -67,8 +77,6 @@ int main(int , char** )
         double check ( t1 * e1 *(pow(e2/e1, 1-power)-1)/(1-power) );
         double diff( t12/check-1 );
         
-
-
 #endif
         double  radius(10);
 
