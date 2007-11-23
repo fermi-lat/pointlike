@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Thu Nov 22 17:35:44 PST 2007
+pointlike/pointlike
+
+Modified Files:
+	Exposure.h SkyImage.h 
+Log Message:
+implement Exposure prototype; SkyImage flexibility for python convenience
+    *
+------------------------------------------------------------
+User: burnett  Thu Nov 22 17:35:44 PST 2007
 pointlike/cmt
 
 Modified Files:
