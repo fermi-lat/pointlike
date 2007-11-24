@@ -71,7 +71,7 @@ def show_image( fun,sdir, level=9, scale=0.5, step=0.01):
 
 #---------------------------------------------------------------------------
 class AIT(object):
-    """ Manage afull-sky image of a SkyProjection or SkyFunction, wrapping SkyImage
+    """ Manage a full-sky image of a SkyProjection or SkyFunction, wrapping SkyImage
      """
     
     def __init__(self, skyfun, pixelsize=0.5, galactic=True, fitsfile='', proj='AIT'):
@@ -83,7 +83,8 @@ class AIT(object):
 
         """
         from pointlike import SkyImage, SkyDir
-        from numpy import array
+        from numpy import array, isnan, ma
+        from pylab import normalize
         
         self.skyfun = skyfun
         self.galactic = galactic
@@ -91,14 +92,15 @@ class AIT(object):
         center = SkyDir(0,0, SkyDir.GALACTIC if galactic else SkyDir.EQUATORIAL)
         self.skyimage = SkyImage(center, fitsfile, pixelsize, 180, 1, proj, galactic)
         self.skyimage.fill(skyfun)
-        # now extract stuff for the pylab image
+        # now extract stuff for the pylab image, creating a masked array to deal with the NaN values
         self.nx, self.ny = self.skyimage.naxis1(), self.skyimage.naxis2()
         self.image = array(self.skyimage.image()).reshape((self.ny, self.nx))
-        valid = self.image>-1e-10  # the NANs will be false for any comparison (how to do it right?)
-        self.invalid = valid != True   # klugy
+        self.mask = isnan(self.image)
+        self.masked_image = ma.array( self.image, mask=self.mask)
         self.extent = (180,-180, -90, 90)
         self.vmin ,self.vmax = self.skyimage.minimum(), self.skyimage.maximum()
-        self.fix() 
+        self.norm = normalize(vmin=self.vmin, vmax=self.vmax, clip=False)
+        #self.fix() 
         
     def fix(self, value=None):
         ' fix the invalid values to something, default the maximum'
@@ -108,11 +110,7 @@ class AIT(object):
     def show(self, scale='linear', title=None, **kwargs):
         'run imshow'
         import pylab
-        from numpy import log10
-        if scale=='log':
-            pylab.imshow(log10(self.image), origin='lower', interpolation ='nearest', extent=self.extent, **kwargs)
-        else:
-            pylab.imshow(self.image,origin='lower', interpolation ='nearest', extent=self.extent, **kwargs)
+        pylab.imshow(self.masked_image,origin='lower', interpolation ='nearest',norm=self.norm, extent=self.extent, **kwargs)
         pylab.colorbar()
         if self.galactic:
             pylab.xlabel('glon'); pylab.ylabel('glat')
