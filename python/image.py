@@ -75,11 +75,12 @@ class AIT(object):
      """
     
     def __init__(self, skyfun, pixelsize=0.5, galactic=True, fitsfile='', proj='AIT'):
-        """ skyfun SkyProjection or SkyFunction object
-            pixelsize [0.5] size, in degrees, of pixels
-            galactic [True] galactic or equatorial coordinates
-            fitsfile [''] if set, write the projection to a FITS file
-            proj ['AIT']could be 'CAR' for carree: used by wcslib
+        """
+        skyfun SkyProjection or SkyFunction object
+        pixelsize [0.5] size, in degrees, of pixels
+        galactic [True] galactic or equatorial coordinates
+        fitsfile [''] if set, write the projection to a FITS file
+        proj ['AIT'] could be 'CAR' for carree: used by wcslib
 
         """
         from pointlike import SkyImage, SkyDir
@@ -100,14 +101,8 @@ class AIT(object):
         self.extent = (180,-180, -90, 90)
         self.vmin ,self.vmax = self.skyimage.minimum(), self.skyimage.maximum()
         self.norm = normalize(vmin=self.vmin, vmax=self.vmax, clip=False)
-        #self.fix() 
-        
-    def fix(self, value=None):
-        ' fix the invalid values to something, default the maximum'
-        if value is None: value =self.vmax
-        self.image[self.invalid] = value 
 
-    def show(self, scale='linear', title=None, **kwargs):
+    def show(self,  title=None, **kwargs):
         'run imshow'
         import pylab
         pylab.imshow(self.masked_image,origin='lower', interpolation ='nearest',norm=self.norm, extent=self.extent, **kwargs)
