@@ -1,20 +1,22 @@
 /** @file SkySpectrum.cxx
     @brief implement class SkySpectrum
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SkySpectrum.cxx,v 1.1 2007/11/01 21:33:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SkySpectrum.cxx,v 1.2 2007/11/04 22:11:32 burnett Exp $
 
 */
 
 #include "pointlike/SkySpectrum.h"
 #include "astro/SkyDir.h"
-#include "astro/Healpix.h"
-#include "astro/HealPixel.h"
+#include "healpix//Healpix.h"
+#include "healpix//HealPixel.h"
 
 #include <vector>
 #include <map>
 #include <cassert>
 
 using namespace pointlike;
+using healpix::Healpix;
+
 SkySpectrum::SkySpectrum(double energy)
 {
     setEnergy(energy);
@@ -56,7 +58,7 @@ double SkySpectrum::operator()(const astro::SkyDir& dir, double emin, double ema
 double SkySpectrum::average(const astro::SkyDir& dir, double angle, double tolerance)const
 {
     using astro::SkyDir;
-    using astro::Healpix;
+    using healpix::Healpix;
 
     static std::map<double, int> width_map;
     static bool map_built(false);
@@ -107,17 +109,16 @@ double SkySpectrum::average(const astro::SkyDir& dir, double angle, double toler
 // Calculate average for a given level
 double SkySpectrum::level_ave(const astro::SkyDir& dir, double angle, int level) const
 {   
-    using astro::Healpix;
 
     int nside(1 << level);
     std::vector<int> v;
-    Healpix hpx(nside, astro::Healpix::NESTED, astro::SkyDir::GALACTIC);
+    Healpix hpx(nside, healpix::Healpix::NESTED, astro::SkyDir::GALACTIC);
     hpx.query_disc(dir, angle, v); 
     double av(0);
 
     for (std::vector<int>::const_iterator it = v.begin(); it != v.end(); ++it)
     {
-        astro::HealPixel hp(*it, level);
+        healpix::HealPixel hp(*it, level);
         av += (*this) (hp());
     }
 
