@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.25 2007/11/21 22:52:31 burnett Exp $
+$Id: release.notes,v 1.27 2007/11/22 15:28:39 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 26-nov-07 v3r1    THB New class SimpleTSmap for faster seed-finding
  21-nov-07 v3r0p4  THB New classes to handle mulitple diffuse, including point sources
                        Remove dependence on map_tools, by copying SkyImage and merging PhotonMap 
                        Change all healpix use to the healpix package

@@ -1,5 +1,5 @@
 #  setup for pointlike source finder
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfind_setup.py,v 1.4 2007/11/04 22:11:32 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfind_setup.py,v 1.5 2007/11/19 01:09:36 burnett Exp $
 print 'runing setup for pointfind'
 
 # data source 
@@ -36,7 +36,7 @@ pixelfile = r'F:\glast\data\SC2\obssim\allsky_noGRBs.fits'
 #------------------------------------------------------------------
 # Common parameters
 #------------------------------------------------------------------
-class PointSourceLikelihood:
+class PointSourceLikelihood: #parameters for the likelihood calculation
     # HEALpix level range for energy band  fits
 
     minlevel=8   # minimum level to use for fits (>-6)  
@@ -52,40 +52,26 @@ class PointSourceLikelihood:
 
     verbose = 0  # set non-zero to get lots of output
 
-# direction and cone or radius about it to examine: either l,b, or ra,dec
-#l,b = 0, 0
 
-ra, dec = 248.79, -17.86 # 3EGJ1635m1751 
-radius   = 10 #  179.999 # 180 for all sky
+class SourceFinder:  # parameters for the SourceFinder.
 
-# file to write a table of results to
-#outfile='pointfind_3EGJ1635m1751.txt'
-
-prune_radius = 0.25  # pruning radius in degrees (also needs to be tuned) nominal 0.25
+    TSmin = 10           # overall minimum TS
+    skipTSlevels = 2     # number of lowest energy levels to skip when localizing
 
 
-eqTSmin   = 10       # minimum TS for candidates in equitorial region
-midTSmin   = 10      # minimum TS for candidates in middle region
-polarTSmin   = 10    # minimum TS for candidates in polar region
-skipTSlevels = 2     # number of lowest energy levels to skip when localizing
+    pixLevel = 8         # pixelization level for first pass.  Higher number -> more points tested for possible sources
+    countThreshold = 32  # minimum count (weighted, with children) to consider examining location further
+    finalPixlvl = 8      # after source is localized, pixel level to check for sufficient photons
+    finalCntThresold = 2 # after source is localized, min nbr photons (with children, NOT weighted) required in surrounding pixel
+    prune_radius =1.0  # pruning radius in degrees (also needs to be tuned)
 
+    countThreshold = 346  # override for 1-year obssim
+            
+    # direction and cone or radius about it to examine: either l,b, or ra,dec
+    #l,b = 0, 0
 
-pixLevel = 8         # pixelization level for first pass.  Higher number -> more points tested for possible sources
-countThreshold = 32  # minimum count (weighted, with children) to consider examining location further
-finalPixlvl = 8      # after source is localized, pixel level to check for sufficient photons
-finalCntThresold = 2 # after source is localized, min nbr photons (with children, NOT weighted) required in surrounding pixel
+    ra, dec = 248.79, -17.86 # 3EGJ1635m1751 
+    radius   = 7 #  179.999 # 180 for all sky
 
-eqBoundary = 6       # abs(b)in degrees for equatorial region < this number
-polarBoundary = 40   # abs(b)in degrees for polar region > this number
-
-plEqTSmin   = 38     # \
-plMidTSmin   = 19    #  |-TS above this number is considered good, regardless of power law fit
-plPolarTSmin   = 24  # /
-
-plSlopeCutoff = -1.5 # power law slope <= this is good candidate
-plFitCutoff = 0.9    # power law fit confidence factor >= this is good candidate
-
-prune_radius = 0.25  # pruning radius in degrees (also needs to be tuned)
-
-countThreshold = 346  # override for 1-year obssim
-        
+    # file to write a table of results to
+    outfile='../outputpointfind_3EGJ1635m1751.txt'

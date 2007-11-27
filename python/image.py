@@ -1,8 +1,10 @@
 """ image processing
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/image.py,v 1.3 2007/11/24 19:50:27 burnett Exp $
 
 """
+
+import matplotlib
 
 def date_tag():
     import datetime, pylab
@@ -70,6 +72,20 @@ def show_image( fun,sdir, level=9, scale=0.5, step=0.01):
     pylab.title('level %d (%d-%d)' %(level, emin, emax), size=10)
 
 #---------------------------------------------------------------------------
+class LogNorm(matplotlib.colors.normalize):
+    ' replacement for the non-existent colors.LogNorm'
+    def __init__(self, vmin=None, vmax=None):
+        self.vmin, self.vmax= vmin, vmax
+    def __call__(self, val):
+        ' expect val to be a masked arrray'
+        from matplotlib.numerix import ma, minimum, maximum
+        logval = ma.log10(val)
+        #self.autoscale(logval) #calls base class
+        vmin, vmax = ma.minimum(logval), ma.maximum(logval) #self.vmax
+        print 'autoscale: vmin =%f, vmax=%f' % (vmin, vmax)
+        return (logval-vmin)/(vmax-vmin)
+
+#---------------------------------------------------------------------------
 class AIT(object):
     """ Manage a full-sky image of a SkyProjection or SkyFunction, wrapping SkyImage
      """
@@ -89,10 +105,12 @@ class AIT(object):
         
         self.skyfun = skyfun
         self.galactic = galactic
+        self.pixelsize = pixelsize
         # set up, then create a SkyImage object to perform the projection to a grid
         center = SkyDir(0,0, SkyDir.GALACTIC if galactic else SkyDir.EQUATORIAL)
         self.skyimage = SkyImage(center, fitsfile, pixelsize, 180, 1, proj, galactic)
         self.skyimage.fill(skyfun)
+        
         # now extract stuff for the pylab image, creating a masked array to deal with the NaN values
         self.nx, self.ny = self.skyimage.naxis1(), self.skyimage.naxis2()
         self.image = array(self.skyimage.image()).reshape((self.ny, self.nx))
@@ -100,12 +118,24 @@ class AIT(object):
         self.masked_image = ma.array( self.image, mask=self.mask)
         self.extent = (180,-180, -90, 90)
         self.vmin ,self.vmax = self.skyimage.minimum(), self.skyimage.maximum()
-        self.norm = normalize(vmin=self.vmin, vmax=self.vmax, clip=False)
 
-    def show(self,  title=None, **kwargs):
+        # we want access to the projection object, to allow interactive display via pix2sph function
+        self.proj = self.skyimage.projector()
+        self.x = self.y = 100 # initial def
+                  
+    def show(self,  title=None, scale='linear',  **kwargs):
         'run imshow'
+        from numpy import ma
         import pylab
-        pylab.imshow(self.masked_image,origin='lower', interpolation ='nearest',norm=self.norm, extent=self.extent, **kwargs)
+        # change defaults
+        if 'origin'        not in kwargs: kwargs['origin']='lower'
+        if 'interpolation' not in kwargs: kwargs['interpolation']='nearest'
+        if 'extent'        not in kwargs: kwargs['extent']=self.extent
+        
+        if   scale=='linear':  pylab.imshow(self.masked_image,   **kwargs)
+        elif scale=='log':     pylab.imshow(ma.log10(self.masked_image), **kwargs)
+        else: raise Exception('bad scale: %s'%scale)
+                                        
         pylab.colorbar()
         if self.galactic:
             pylab.xlabel('glon'); pylab.ylabel('glat')
@@ -113,19 +143,36 @@ class AIT(object):
             pylab.xlabel('ra'); pylab.ylabel('dec')
         self.title(title)
 
-    def axes(self, **kwargs):
+        # for interactive formatting of the coordinates when hovering
+        pylab.gca().format_coord = self.format_coord # replace the function on the fly!
+
+
+    def axes(self, color='black',  **kwargs):
         ' overplot axis lines'
         import pylab
-        pylab.axvline(0, color='black', **kwargs)
-        pylab.axhline(0, color='black', **kwargs)
+        pylab.axvline(0, color=color, **kwargs)
+        pylab.axhline(0, color=color, **kwargs)
         pylab.axis(self.extent)
  
     def title(self, text=None, **kwargs):
         ' plot a title, default the name of the SkySpectrum'
         import pylab
-        pylab.title( text if text else self.skyfun.name(), **kwargs)
-        
-        
-             
-        
-            
+        try:
+            pylab.title( text if text else self.skyfun.name(), **kwargs)
+        except AttributeError: #no name?
+            pass
+
+    def format_coord(self, x, y):
+        " replacement for Axes.format_coord"
+        from pointlike import SkyDir
+        xpixel = (180-x)*float(self.nx)/360.
+        ypixel = (y+90)*float(self.ny)/180.
+        if self.proj.testpix2sph(xpixel,ypixel) !=0: return '' #outside valid region
+        l, b = self.proj.pix2sph(xpixel,ypixel)
+        sdir = SkyDir(l, b, SkyDir.GALACTIC if self.galactic else SkyDir.EQUATORIAL)
+        val  = self.skyfun(sdir)
+
+        return 'ra,dec: (%7.2f,%6.2f); l,b: (%7.2f,%6.2f), value:%6.3g' %\
+            ( sdir.ra(), sdir.dec(), sdir.l(), sdir.b(), val)
+                
+           

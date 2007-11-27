@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.17 2007/11/11 21:52:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.18 2007/11/18 22:56:56 burnett Exp $
 
 */
 
@@ -59,7 +59,7 @@ std::vector<double> PointSourceLikelihood::sigma_level(fit_sigma, fit_sigma+size
 double PointSourceLikelihood::s_radius(7.0);
 int    PointSourceLikelihood::s_minlevel(6);
 int    PointSourceLikelihood::s_maxlevel(13);
-double PointSourceLikelihood::s_minalpha(0.15);
+double PointSourceLikelihood::s_minalpha(0.05);
 int    PointSourceLikelihood::s_skip1(1);
 int    PointSourceLikelihood::s_skip2(2);
 int    PointSourceLikelihood::s_itermax(2);

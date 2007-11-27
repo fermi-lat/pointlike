@@ -1,6 +1,6 @@
 /** @file Exposure.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Exposure.cxx,v 1.2 2007/11/22 02:38:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Exposure.cxx,v 1.3 2007/11/23 01:35:44 burnett Exp $
 */
 
 #include "pointlike/Exposure.h"
@@ -12,6 +12,8 @@ namespace{  // anonymous namespace for helper classes
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 /** @class IrfAeff
 @brief function class implements effective area, as adapter to irfInterface::IAeff
+
+(currently linear only, no area.)
 */
 class IrfAeff {
 public:
@@ -38,13 +40,10 @@ using namespace pointlike;
 Exposure::Exposure(const std::string& fits_file, const std::string& tablename)
 : m_filename(fits_file)
 , m_exposure( healpix::HealpixArrayIO::instance().read(fits_file, tablename) )
-{
-    
-}
+{}
 
 Exposure::~Exposure()
 {}
-
 
 double Exposure::value(const astro::SkyDir& dir, double)const
 {

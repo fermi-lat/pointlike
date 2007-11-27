@@ -5,13 +5,15 @@
 
 #include "astro/SkyDir.h"
 #include "astro/SkyProj.h"
-#include "healpix/Healpix.h"
-#include "healpix/HealPixel.h"
 #include "astro/Photon.h"
 #include "astro/PointingTransform.h"
 #include "astro/PointingHistory.h"
 #include "astro/PointingInfo.h"
 #include "astro/EarthCoordinate.h"
+
+#include "healpix/Healpix.h"
+#include "healpix/HealPixel.h"
+#include "healpix/HealPixMap.h"
 
 #include "pointlike/SkyImage.h"
 
@@ -25,6 +27,7 @@
 #include "pointlike/CompositeSkySpectrum.h"
 #include "pointlike/PhotonMap.h"
 #include "pointlike/Exposure.h"
+#include "pointlike/SimpleTSmap.h"
 
 
 #include "CLHEP/Vector/Rotation.h"
@@ -54,6 +57,7 @@
 %template(StringVector) std::vector<std::string>;
 %template(DoubleVector) std::vector<double>;
 %template(FloatVector) std::vector<float>;
+%template(LongVector) std::vector<long>;
 
 %include $(CLHEPBASE)/include/CLHEP/Vector/ThreeVector.h
 //%include $(CLHEPBASE)/include/CLHEP/Vector/Rotation.h
@@ -103,13 +107,18 @@ public:
 }
 
 %extend pointlike::PointSourceLikelihood{
-   pointlike::SimpleLikelihood * __getitem__(size_t i){
-      return (*self)[i];
-    }
-
+   pointlike::SimpleLikelihood * __getitem__(size_t i){  return (*self)[i]; }
 }
 
-  
+%extend pointlike::SimpleTSmap{
+   float __getitem__(size_t i)            {return (*self)[i];}
+   double __call__(const astro::SkyDir& d){return (*self)(d);}
+}
+%extend healpix::HealpixMap{
+   float __getitem__(size_t i)            {return (*self)[i];}
+   double __call__(const astro::SkyDir& d){return (*self)(d);}
+   size_t __len__() {return self->size();}
+}  
 %include $(ASTROROOT)/astro/SkyProj.h
 %include $(ASTROROOT)/astro/SkyDir.h
 %include $(ASTROROOT)/astro/Photon.h
@@ -120,6 +129,7 @@ public:
 //%include $(ASTROROOT)/astro/EarthCoordinate.h
 
 %include $(HEALPIXROOT)/healpix/Healpix.h
+%include $(HEALPIXROOT)/healpix/HealpixMap.h
 
 // fails now
 //%include $(HEALPIXROOT)/healpix/HealPixel.h
@@ -135,6 +145,7 @@ public:
 %include $(POINTLIKEROOT)/pointlike/PhotonMap.h
 %include $(POINTLIKEROOT)/pointlike/SkyImage.h
 %include $(POINTLIKEROOT)/pointlike/Exposure.h
+%include $(POINTLIKEROOT)/pointlike/SimpleTSmap.h
 
 %template(CanInfoVector) std::vector<pointlike::CanInfo>;
 
