@@ -1,13 +1,13 @@
 /** @file DiffuseFunction.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.10 2007/11/04 22:11:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DiffuseFunction.cxx,v 1.11 2007/11/18 22:56:56 burnett Exp $
 */
 
 #include "pointlike/DiffuseFunction.h"
 #include "CLHEP/Vector/ThreeVector.h"
 #include "CLHEP/Vector/Rotation.h"
-#include "astro/Healpix.h"
-#include "astro/HealPixel.h"
+#include "healpix/Healpix.h"
+#include "healpix/HealPixel.h"
 #include "tip/Table.h"
 #include "tip/IFileSvc.h"
 #include <cmath>
