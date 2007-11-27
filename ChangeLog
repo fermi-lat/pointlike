@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Nov 26 21:31:51 PST 2007
+pointlike/src
+
+Modified Files:
+	DiffuseFunction.cxx 
+Log Message:
+vestiges of healpix in astor :-(
+    *
+------------------------------------------------------------
+User: burnett  Mon Nov 26 21:31:51 PST 2007
 pointlike/pointlike
 
 Modified Files:
