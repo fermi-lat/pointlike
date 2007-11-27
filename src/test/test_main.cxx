@@ -8,6 +8,7 @@
 #include "pointlike/PointSourceLikelihood.h"
 #include "pointlike/DiffuseFunction.h"
 #include "pointlike/Exposure.h"
+#include "pointlike/SimpleTSmap.h"
 
 #include "PhotonList.h"
 
@@ -56,7 +57,15 @@ int main(int , char** )
     int rc(0);
     try{
 
-#if 1 // test code for Exposure
+#if 0 // test code for SimpleTSmap
+        std::string path( ::getenv("EXTFILESSYS"));
+        DiffuseFunction df1( path + "/galdiffuse/GP_gamma.fits");
+        PhotonMap pmap("f:\\glast\\data\\SC2\\obssim\\allsky_noGRBs.fits","PHOTONMAP");
+        SimpleTSmap tsmap(pmap, df1);
+        tsmap.run();
+    
+#endif
+#if 0 // test code for Exposure
 
         std::string testexp("d:\\users\\kerrm\\Comparison\\expCube.fits");
         Exposure exp(testexp);
@@ -64,7 +73,7 @@ int main(int , char** )
         std::cout << "exposure check: " << t << std::endl;
 #endif
 
-#if 1  // test code for the DiffuseFunction
+#if 0  // test code for the DiffuseFunction
         std::string path( ::getenv("EXTFILESSYS"));
 //        DiffuseFunction df( path + "/galdiffuse/GP_gamma_v0r0p1.fits");
         DiffuseFunction df( path + "/galdiffuse/GP_gamma.fits");

@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.18 2007/11/20 23:14:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.19 2007/11/21 15:43:19 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -45,6 +45,9 @@ namespace {
             std::cout << std::endl;
     }
 
+    static std::string prefix("SourceFinder.");
+
+
 } // anon namespace
 
 using namespace pointlike;
@@ -67,56 +70,56 @@ void SourceFinder::examineRegion(void)
     int skip1(2), skip2(3);
     double sigma_max(0.25); // maximum allowable sigma
 
+
     // Get parameters
     // position is
     double l, b, ra, dec;
-    m_module.getValue("l", l, 999.);
-    m_module.getValue("b", b, 999.);
-    m_module.getValue("ra", ra, 999.);
-    m_module.getValue("dec", dec, 999.);
+    m_module.getValue(prefix+"l", l, 999.);
+    m_module.getValue(prefix+"b", b, 999.);
+    m_module.getValue(prefix+"ra", ra, 999.);
+    m_module.getValue(prefix+"dec", dec, 999.);
     astro::SkyDir dir;
     if( l <999 && b < 999) {
        dir = astro::SkyDir(l,b, astro::SkyDir::GALACTIC);
     }else if( ra<999 && dec<999) {
         dir = astro::SkyDir(ra,dec);
     }
-
     double  radius;
-    m_module.getValue("radius", radius, 180);
+    m_module.getValue(prefix+"radius", radius, 180);
     if( radius>=180) radius = 179.99999; // bug in gcc version of healpix code
 
     double  eq_TS_min;
-    m_module.getValue("eqTSmin", eq_TS_min, 10);
+    m_module.getValue(prefix+"eqTSmin", eq_TS_min, 10);
 
     double  mid_TS_min;
-    m_module.getValue("midTSmin", mid_TS_min, 10);
+    m_module.getValue(prefix+"midTSmin", mid_TS_min, 10);
 
     double  polar_TS_min;
-    m_module.getValue("polarTSmin", polar_TS_min, 10);
+    m_module.getValue(prefix+"polarTSmin", polar_TS_min, 10);
 
     int  pix_level;
-    m_module.getValue("pixLevel", pix_level, 8);
+    m_module.getValue(prefix+"pixLevel", pix_level, 8);
 
     int  count_threshold;
-    m_module.getValue("countThreshold", count_threshold, 16);
+    m_module.getValue(prefix+"countThreshold", count_threshold, 16);
 
     int  final_pix_lvl;
-    m_module.getValue("finalPixlvl", final_pix_lvl, 8);
+    m_module.getValue(prefix+"finalPixlvl", final_pix_lvl, 8);
 
     int  final_count_threshold;
-    m_module.getValue("finalCntThresold", final_count_threshold, 2);
+    m_module.getValue(prefix+"finalCntThresold", final_count_threshold, 2);
 
     int  skip_TS_levels;
-    m_module.getValue("skipTSlevels", skip_TS_levels, 2);
+    m_module.getValue(prefix+"skipTSlevels", skip_TS_levels, 2);
 
     double  equator_boundary;
-    m_module.getValue("eqBoundary", equator_boundary, 6);
+    m_module.getValue(prefix+"eqBoundary", equator_boundary, 6);
 
     double  polar_boundary;
-    m_module.getValue("polarBoundary", polar_boundary, 40);
+    m_module.getValue(prefix+"polarBoundary", polar_boundary, 40);
 
     double min_alpha; // miniumum alpha for TS computation
-    m_module.getValue("min_alpha", min_alpha, 0.10);
+    m_module.getValue(prefix+"min_alpha", min_alpha, 0.10);
     
 
     timer("---------------SourceFinder::examineRegion----------------");  
@@ -134,8 +137,6 @@ void SourceFinder::examineRegion(void)
         << "  min alpha: " << min_alpha << "\n"
         << "  sigma_max: " << sigma_max << "\n"
         << "  skip TS levels: " << skip_TS_levels << "\n"
-        << "  Equatorial boundary: " << equator_boundary << "\n"
-        << "  Polar boundary: " << polar_boundary << "\n"
         << std::endl;
 
     // Extract the pixels to be examined
@@ -223,7 +224,7 @@ void SourceFinder::examineRegion(void)
             // add to the final list, indexed according to level 13 location
             HealPixel px(ps.dir(), 13); 
             m_can[px] = CanInfo(ts, error, ps.dir());
-            for(int id = 6;id<14;++id)
+            for(int id =ps.minlevel() ;id<=ps.maxlevel();++id)
             {
                 m_can[px].setValue(id,ps.levelTS(id));
                 m_can[px].setPhotons(id,ps[id]->photons()*ps[id]->alpha());
@@ -351,25 +352,25 @@ void SourceFinder::prune_power_law(void)
 {
     // Get parameters 
     double  plEqTSmin;
-    m_module.getValue("plEqTSmin", plEqTSmin, 38.0);
+    m_module.getValue(prefix+"plEqTSmin", plEqTSmin, 38.0);
 
     double  plMidTSmin;
-    m_module.getValue("plMidTSmin", plMidTSmin, 19.0);
+    m_module.getValue(prefix+"plMidTSmin", plMidTSmin, 19.0);
 
     double  plPolarTSmin;
-    m_module.getValue("plPolarTSmin", plPolarTSmin, 24.0);
+    m_module.getValue(prefix+"plPolarTSmin", plPolarTSmin, 24.0);
 
     double  plSlopeCutoff;
-    m_module.getValue("plSlopeCutoff", plSlopeCutoff, -1.5);
+    m_module.getValue(prefix+"plSlopeCutoff", plSlopeCutoff, -1.5);
 
     double  plFitCutoff;
-    m_module.getValue("plFitCutoff", plFitCutoff, 0.9);
+    m_module.getValue(prefix+"plFitCutoff", plFitCutoff, 0.9);
 
     double  eqBoundary;
-    m_module.getValue("eqBoundary", eqBoundary, 6.0);
+    m_module.getValue(prefix+"eqBoundary", eqBoundary, 6.0);
 
     double  polarBoundary;
-    m_module.getValue("polarBoundary", polarBoundary, 6.0);
+    m_module.getValue(prefix+"polarBoundary", polarBoundary, 6.0);
 
     int minlevel = m_pmap.minLevel() + 2;  // Ignore lowest 2 TS levels
     
@@ -418,8 +419,9 @@ void SourceFinder::prune_power_law(void)
 // criterion is closer that tolerance, or 3-sigma circles overlap
 void SourceFinder::prune_neighbors(void)
 {
+
     double  radius;
-    m_module.getValue("prune_radius", radius, 0.25);
+    m_module.getValue(prefix+"prune_radius", radius, 0.25);
     if(radius==0) return;
     
     std::cout << "Eliminating weaker neighbors using radius of " << radius << " degrees...";
@@ -496,7 +498,7 @@ void SourceFinder::group_neighbors(void)
 {
     double  radius;
     int nbr_found = 0;
-    m_module.getValue("prune_radius", radius, 0.25);
+    m_module.getValue(prefix+"prune_radius", radius, 1.0);
     if(radius==0) return;
     
     std::cout << "Grouping neighbors using radius of " << radius << " degrees...";
@@ -505,7 +507,7 @@ void SourceFinder::group_neighbors(void)
     for (Candidates::iterator it1 = m_can.begin(); it1 != m_can.end(); ++it1) 
     {
         double max_value = 0.0;
-        for (Candidates::iterator it2 = m_can.begin();  it2 != m_can.end(); ++it2)
+        for (Candidates::iterator it2 = it1;  it2 != m_can.end(); ++it2)
         {
             if (it1 == it2)   continue;  // Don't compare to yourself.  
 
@@ -642,6 +644,8 @@ void SourceFinder::createTable(const std::string& fileName,
 
     }
     table.close();
+    timer();
+
 }
 
 std::vector<CanInfo> SourceFinder::candidateList()const

@@ -1,7 +1,7 @@
 /** @file Exposure.h
     @brief declare class Exposure
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Exposure.h,v 1.1 2007/11/21 07:00:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Exposure.h,v 1.2 2007/11/23 01:35:44 burnett Exp $
 
 */
 #ifndef pointlike_Exposure_h
@@ -9,7 +9,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Exposure.h,v 1.1 2007/
 
 #include "pointlike/SkySpectrum.h"
 #include <string>
-#include "healpix/HealpixArrayIO.h"
+#include "healpix/HealpixArray.h"
 #include "healpix/CosineBinner.h"
 
 
@@ -17,14 +17,22 @@ namespace pointlike {
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 /** @class Exposure
-    @brief a SkyFunction that represents the exposure over the sky
+    @brief a SkySpectrum that represents the exposure over the sky
 
 
-    (dummy for now)
+  
 */
 
 class Exposure : public pointlike::SkySpectrum {
 public:
+
+    /** @brief ctor
+    @param fits_file create from a FITS exposure cube
+    @param tablename [Exposure]
+    
+    (need to connect to a discription of the effective area function or functions)
+
+    */
     Exposure(const std::string & fits_file, const std::string& tablename="Exposure");
     ~Exposure();
 
@@ -33,6 +41,8 @@ public:
     virtual double value(const astro::SkyDir& dir, double e)const;
 
     ///@brief integral for the energy limits, in the given direction
+    ///@param a lower limit
+    ///@param b upper limit
     virtual double integral(const astro::SkyDir& dir, double a, double b)const;
 
     virtual std::string name()const;
