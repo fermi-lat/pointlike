@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Nov 26 20:35:33 PST 2007
+pointlike/src/pointfind
+
+Modified Files:
+	finder_main.cxx 
+Log Message:
+add SimpleTSmap. add prefix to SourceFinder
+    *
+------------------------------------------------------------
+User: burnett  Mon Nov 26 20:35:33 PST 2007
 pointlike/src
 
 Modified Files:
