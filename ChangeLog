@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Nov 26 21:31:51 PST 2007
+pointlike/pointlike
+
+Modified Files:
+	PsfFunction.h 
+Log Message:
+vestiges of healpix in astor :-(
+    *
+------------------------------------------------------------
 TAG
 Tag name: v3r1, operation: add
 Package: pointlike
