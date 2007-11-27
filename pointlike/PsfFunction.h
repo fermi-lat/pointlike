@@ -1,14 +1,14 @@
 /** @file PsfFunction.h
 @brief declear PsfFunction.
 
-$Header: /nfs/slac/g/glast/ground/cvs/users/burnett/pointlike/pointlike/PsfFunction.h,v 1.1.1.1 2007/06/10 01:05:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PsfFunction.h,v 1.1.1.1 2007/06/14 18:30:14 burnett Exp $
 */
 
 #ifndef wavelet_PsfFunction_h
 #define wavelet_PsfFunction_h
 
 #include "astro/SkyDir.h"
-#include "astro/HealPixel.h"
+#include "healpix/HealPixel.h"
 #include "CLHEP/Vector/ThreeVector.h"
 
 namespace pointlike{
