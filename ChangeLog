@@ -1,5 +1,17 @@
 ------------------------------------------------------------
 User: burnett  Mon Nov 26 20:35:33 PST 2007
+pointlike/src
+
+Modified Files:
+	Exposure.cxx PointSourceLikelihood.cxx SimpleLikelihood.cxx 
+	SourceFinder.cxx pointlike.in 
+Added Files:
+	SimpleTSmap.cxx 
+Log Message:
+add SimpleTSmap. add prefix to SourceFinder
+    *
+------------------------------------------------------------
+User: burnett  Mon Nov 26 20:35:33 PST 2007
 pointlike/python
 
 Modified Files:
