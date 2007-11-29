@@ -71,19 +71,6 @@ def show_image( fun,sdir, level=9, scale=0.5, step=0.01):
     emin, emax = energy_range(level)
     pylab.title('level %d (%d-%d)' %(level, emin, emax), size=10)
 
-#---------------------------------------------------------------------------
-class LogNorm(matplotlib.colors.normalize):
-    ' replacement for the non-existent colors.LogNorm'
-    def __init__(self, vmin=None, vmax=None):
-        self.vmin, self.vmax= vmin, vmax
-    def __call__(self, val):
-        ' expect val to be a masked arrray'
-        from matplotlib.numerix import ma, minimum, maximum
-        logval = ma.log10(val)
-        #self.autoscale(logval) #calls base class
-        vmin, vmax = ma.minimum(logval), ma.maximum(logval) #self.vmax
-        print 'autoscale: vmin =%f, vmax=%f' % (vmin, vmax)
-        return (logval-vmin)/(vmax-vmin)
 
 #---------------------------------------------------------------------------
 class AIT(object):
