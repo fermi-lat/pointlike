@@ -1,10 +1,9 @@
 package pointlike
 
-version v3r1
+version v4r0
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.32 2007/11/23 01:35:44 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.33 2007/11/27 04:35:33 burnett Exp $
 
-use STpolicy *
 use astro *
 use healpix *
 use embed_python *
@@ -12,15 +11,22 @@ use SwigPolicy v*
  
 path_remove PYTHONPATH pointlike
 path_prepend PYTHONPATH $(POINTLIKEROOT)/python;$(POINTLIKEROOT)/$(BINDIR)
-macro_append winsource "*.h *.cxx *.py"
-apply_pattern swig_module name="pointlike"
-path_append PATH "$(SWIG_dir)/bin"
 
 apply_pattern package_include
+apply_pattern shared_library
+
 private
-apply_pattern ST_library option=-no_share
+
+macro swig_module healpix
+
+ macro swig_begin "" 
+ macro swig_end ""
 
 macro source "*.cxx" WIN32 "*.cxx *.h *.py"
+
+library pointlike \
+ -s=../pointlike $(source) \
+ -s=../src $(source) 
 
 # fitting application, 
 application pointfit -s=pointfit $(source) -s=../python pointfit_setup.py
@@ -28,6 +34,9 @@ application pointfit -s=pointfit $(source) -s=../python pointfit_setup.py
 
 #souce-finding application
 application pointfind -s=pointfind $(source) -s=../python pointfind_setup.py
+
+
+application test_pointlike -s=test $(source)
 
 # convenient setup alias using DOSKEY for Windows version
 setup_script alias

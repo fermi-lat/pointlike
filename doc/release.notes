@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.27 2007/11/22 15:28:39 burnett Exp $
+$Id: release.notes,v 1.28 2007/11/27 04:35:33 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 28-nov-07 v4r0    THB Swigify! Now a shareable that is compatible with Python
  26-nov-07 v3r1    THB New class SimpleTSmap for faster seed-finding
  21-nov-07 v3r0p4  THB New classes to handle mulitple diffuse, including point sources
                        Remove dependence on map_tools, by copying SkyImage and merging PhotonMap 
