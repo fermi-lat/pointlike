@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.14 2007/11/18 22:56:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.15 2007/11/20 23:14:28 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -133,6 +133,14 @@ public:
     static int minlevel(){return s_minlevel;}
     static int maxlevel(){return s_maxlevel;}
     static void set_levels(int minlevel, int maxlevel=13){ s_minlevel= minlevel; s_maxlevel = maxlevel;}
+
+    /// @brief set the integration tolerance for the background, return present value
+    static double set_tolerance(double tol){
+        double old(SimpleLikelihood::s_tolerance);
+        SimpleLikelihood::s_tolerance= tol;
+        return old;
+    }
+
 
 private:
     void setup(const pointlike::PhotonMap& data,double radius, int minlevel, int maxlevel);
