@@ -1,6 +1,6 @@
 /** @file SimpleTSmap.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleTSmap.cxx,v 1.3 2007/11/23 01:35:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleTSmap.cxx,v 1.1 2007/11/27 04:35:33 burnett Exp $
 */
 
 #include "pointlike/SimpleTSmap.h"
@@ -25,6 +25,7 @@ namespace{  // anonymous namespace
         out << "\n"<< ctime(&t1);
         if( !label.empty()) out << label<<std::endl;;
     }
+    std::string names[]={"TS", "signal", "gradient"};
 
 }  // anonymous namespace
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -58,6 +59,7 @@ void SimpleTSmap::run( astro::SkyDir& center, double radius, int level, bool ver
     {
 
         HealPixel hpix(it->first);
+        size_t index = hpix.index();
         SkyDir sd;
         int count = static_cast<int>(m_pmap.photonCount(hpix, sd));
 
@@ -67,9 +69,14 @@ void SimpleTSmap::run( astro::SkyDir& center, double radius, int level, bool ver
         ps.set_diffuse(const_cast<pointlike::SkySpectrum*>(&m_background));
         double ts(ps.maximize());
         //ps.printSpectrum();
-        if( ts>5 && verbose ){
-            m_tsmap[hpix.index()] = ts;
-            std::cout << hpix.index() << "\t" << ts << std::endl;
+        if( ts>5 ){
+            SimpleLikelihood& like(*ps[m_level]);
+            m_tsmap[index].push_back(ts);
+            m_tsmap[index].push_back(like.signal());
+            m_tsmap[index].push_back(like.gradient().mag());
+            if( verbose ){
+                std::cout << hpix.index() << "\t" << ts << std::endl;
+            }
         }
 
     }
@@ -83,8 +90,8 @@ SimpleTSmap::~SimpleTSmap()
 double SimpleTSmap::value(const astro::SkyDir& dir, double )const
 {
     HealPixel hp(dir, m_level);
-    std::map<int, float>::const_iterator it (m_tsmap.find(hp.index()) );
-    return it != m_tsmap.end() ? it->second : 0;    
+    std::map<int, std::vector<float> >::const_iterator it (m_tsmap.find(hp.index()) );
+    return it != m_tsmap.end() ? it->second[0] : 0;    
 }
 
 double SimpleTSmap::integral(const astro::SkyDir& dir, double , double )const
@@ -102,8 +109,11 @@ void SimpleTSmap::save(std::string filename)
 {
     std::ofstream out(filename.c_str());
     out << m_level << std::endl;
-    for( std::map<int,float>::const_iterator it = m_tsmap.begin(); it!=m_tsmap.end(); ++it){
-        out << it->first << "\t" << it->second << std::endl;
+    for( std::map<int,std::vector<float> >::const_iterator it = m_tsmap.begin(); it!=m_tsmap.end(); ++it){
+        out << it->first << "\t";
+        std::copy(it->second.begin(), it->second.end() , 
+                         std::ostream_iterator<float>(out, "\t") );
+        out << std::endl;
     }
 }
 
@@ -115,14 +125,14 @@ void SimpleTSmap::restore(std::string filename)
         int index;
         float ts;
         in >> index >> ts;
-        m_tsmap[index] = ts;
+        m_tsmap[index].push_back(ts);
     }
 }
 
 float SimpleTSmap::operator[] (int index)const
 {
-    std::map<int,float>::const_iterator it = m_tsmap.find(index);
-    return it==m_tsmap.end()? 0 : it->second;
+    std::map<int,std::vector<float> >::const_iterator it = m_tsmap.find(index);
+    return it==m_tsmap.end()? 0 : it->second[0];
 }
 
 

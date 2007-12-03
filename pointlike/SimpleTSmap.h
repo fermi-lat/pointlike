@@ -1,7 +1,7 @@
 /** @file SimpleTSmap.h
     @brief declare class SimpleTSmap
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleTSmap.h,v 1.2 2007/11/23 01:35:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleTSmap.h,v 1.1 2007/11/27 04:35:33 burnett Exp $
 
 */
 #ifndef pointlike_SimpleTSmap_h
@@ -11,6 +11,8 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleTSmap.h,v 1.2 20
 
 #include "astro/SkyDir.h"
 #include <map>
+#include <vector>
+
 namespace pointlike {
     class PhotonMap;
 }
@@ -21,8 +23,7 @@ namespace pointlike {
 /** @class SimpleTSmap
     @brief a SkySpectrum that represents the TS calculated at the center of each pixel
 
-
-  
+ 
 */
 
 class SimpleTSmap : public pointlike::SkySpectrum {
@@ -71,7 +72,7 @@ public:
 private:
     const pointlike::PhotonMap& m_pmap;
     const pointlike::SkySpectrum& m_background;
-    std::map<int, float> m_tsmap; ///< the data: a sparse map
+    std::map<int, std::vector<float> > m_tsmap; ///< the data: a sparse map of a vector of floats
     int m_level;
     
 };
