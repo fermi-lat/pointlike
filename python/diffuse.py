@@ -2,11 +2,6 @@
 Test addition of diffuse, nearby sources
 
 """
-
-import uw.sane
-uw.sane.userArea=r'd:\users\burnett\ST-dev\pointlike\v3r0\python'
-
-uw.sane.pointlike()
 from numpy import arange, array, log10
 from pointlike import *
 galdiffuse_file = r'F:\glast\extlib\extFiles\v0r7\galdiffuse\GP_gamma_v0r0p1.fits'
