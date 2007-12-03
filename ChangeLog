@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sun Dec  2 16:37:16 PST 2007
+pointlike/src
+
+Modified Files:
+	SimpleTSmap.cxx 
+Log Message:
+further development; allow for storing multiple values at each pixel location
+    *
+------------------------------------------------------------
+User: burnett  Sun Dec  2 16:37:16 PST 2007
 pointlike/pointlike
 
 Modified Files:
