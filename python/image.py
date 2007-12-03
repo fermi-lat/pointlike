@@ -1,10 +1,12 @@
 """ image processing
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/image.py,v 1.3 2007/11/24 19:50:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/image.py,v 1.5 2007/11/29 03:54:51 burnett Exp $
 
 """
 
 import matplotlib
+from numpy import arange, array
+from pointlike import SkyDir
 
 def date_tag():
     import datetime, pylab
@@ -43,6 +45,40 @@ class Image(object):
         pylab.title('level %d (%d-%d)' %(self.level, emin, emax), size=10)
 
 #---------------------------------------------------------------------------
+class Square(object):
+    " make a simple square image at the location"
+    
+    def __init__(self, fun, sdir, level=9, size=0.5, step=0.01):
+        import math
+        self.fun = fun
+        self.ra, self.dec = sdir.ra(),sdir.dec()
+        self.cosdec = math.cos(math.radians(self.dec))
+        grid=arange(-size, size+step/2, step)
+        self.level = level
+        self.size = size
+        self.emin, self.emax = energy_range(level)
+        # note reversal of both coordinates
+        self.image = array([self(-dx,-dy) for dy in grid for dx in grid]).reshape((len(grid),len(grid)))
+        
+    def __call__(self, dx, dy):
+        t = self.fun.integral(SkyDir(self.ra+dx/self.cosdec, self.dec+dy), self.emin, self.emax)
+        return t
+
+    def show(self, scale ='linear', **kwargs):
+        import pylab
+        from numpy import ma
+        size=self.size
+        if scale=='log': pylab.imshow(ma.log10(self.image), extent=[-size, size, -size, size], **kwargs)
+        else:     pylab.imshow(self.image, extent=[-size, size, -size, size], **kwargs)
+        pylab.axvline(0, color='white')
+        pylab.axhline(0, color='white')
+        pylab.colorbar()
+        pylab.title('level %d (%d-%d)' %(self.level, self.emin, self.emax), size=10)
+        pylab.gca().format_coord = lambda dx, dy: '%s: f(%6.3f,%6.3f)=%8.3g'%(self.fun.name(),dx,dy, self(dx,dy))
+
+        
+        
+
 def make_image( fun, sdir, level=9, scale = 0.5, step = 0.02):
     """ Return an image array ready to be plotted by imshow
         fun: a SkySpectrum object
@@ -70,6 +106,7 @@ def show_image( fun,sdir, level=9, scale=0.5, step=0.01):
     pylab.colorbar()
     emin, emax = energy_range(level)
     pylab.title('level %d (%d-%d)' %(level, emin, emax), size=10)
+    pylab.gca().format_coord = lambda x, y: 'f(%6.3f,%6.3f)='%(x,y, fun(x,y))
 
 
 #---------------------------------------------------------------------------
