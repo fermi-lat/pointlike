@@ -3,7 +3,7 @@
 
 @author M. Roth 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Convolution.cxx,v 1.2 2007/11/20 21:49:30 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Convolution.cxx,v 1.3 2007/11/22 02:38:49 burnett Exp $
 */
 #include "pointlike/Convolution.h"
 #include "healpix/AlmOp.h"
