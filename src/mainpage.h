@@ -1,4 +1,4 @@
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/mainpage.h,v 1.3 2007/10/26 00:25:33 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/mainpage.h,v 1.4 2007/11/21 07:00:39 burnett Exp $
 // Mainpage for doxygen
 
 /*! \mainpage package pointlike
@@ -57,7 +57,7 @@ Class hierarchy:
 - pointlike::PointSourceLikelihood - represent a fit
 - pointlike::Convolution - convolution of a SkySpectrum object with another SkySpectrum, perhaps a PSF.
 - pointlike::CompositeSkySpectrum - linear combination of SkySpectrum objects. Used to combine the galactic diffuse with nearby (< 1deg) strong sources
-- pointlike::Exposure - [planned]
+- pointlike::Exposure - Integrate an expouse cube over the acceptance to define the exposure at any point.
 
 
 \section notes release notes
