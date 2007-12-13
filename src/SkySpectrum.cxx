@@ -1,7 +1,7 @@
 /** @file SkySpectrum.cxx
     @brief implement class SkySpectrum
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SkySpectrum.cxx,v 1.2 2007/11/04 22:11:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SkySpectrum.cxx,v 1.3 2007/11/27 05:35:59 burnett Exp $
 
 */
 
@@ -124,4 +124,5 @@ double SkySpectrum::level_ave(const astro::SkyDir& dir, double angle, int level)
 
     return av/v.size();
 }
+
     
