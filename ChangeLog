@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Dec 12 18:13:27 PST 2007
+pointlike/pointlike
+
+Modified Files:
+	SourceFinder.h 
+Log Message:
+update to tag in desparate attempt to make the RM happy
+    *
+------------------------------------------------------------
 TAG
 Tag name: v4r0p1, operation: add
 Package: pointlike
