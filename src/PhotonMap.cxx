@@ -1,6 +1,6 @@
 /** @file PhotonMap.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PhotonMap.cxx,v 1.4 2007/11/21 22:52:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PhotonMap.cxx,v 1.5 2007/11/22 15:28:39 burnett Exp $
 */
 
 #include "pointlike/PhotonMap.h"
@@ -172,7 +172,7 @@ int PhotonMap::extract(const SkyDir& dir, double radius,
 
     // Get pixels in summary level that are within radius
     std::vector<int> v;
-    healpix::Healpix hpx(nside, Healpix::NESTED, HealPixel::s_coordsys);
+    healpix::Healpix hpx(nside, Healpix::NESTED);
     hpx.query_disc(dir, radius, v);  
     int max_level = m_minlevel + m_levels - 1;
 
@@ -209,7 +209,8 @@ int PhotonMap::extract_level(const SkyDir& dir, double radius,
 
     // Get pixels in select level that are within radius
     std::vector<int> v;
-    Healpix hpx(nside, Healpix::NESTED, HealPixel::s_coordsys);
+    healpix::Healpix hpx(nside, Healpix::NESTED);
+
     hpx.query_disc(dir, radius, v);  
 
     // Add select level pixels to return vector

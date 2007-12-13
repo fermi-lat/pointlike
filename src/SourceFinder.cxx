@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.19 2007/11/21 15:43:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.20 2007/11/27 04:35:33 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -12,6 +12,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.19 2007
 #include <iostream>
 #include <time.h>
 #include <cmath>
+#include <cassert>
 
 namespace {
 
@@ -186,49 +187,54 @@ void SourceFinder::examineRegion(void)
 
 
         // perform likelihood analysis at the current candidate position  
-        PointSourceLikelihood ps(m_pmap, "test",currentpos );
+        PointSourceLikelihood * ps = new PointSourceLikelihood(m_pmap, "test", currentpos );
 
-        double ts = ps.maximize(skip_TS_levels);
+        double ts = ps->maximize(skip_TS_levels);
         if (ts < ts_min)
         {
             ++ nbr_skipped;
+            delete(ps);
             continue;  // apply initial threshold
         }
 
         // adjust position to maximize likelhood
-        double error = ps.localize(skip1, skip2);
+        double error = ps->localize(skip1, skip2);
         if (error >= sigma_max) // quit if fail to find maximum or > 1 degree
         {
             ++ nbr_skipped;
+            delete(ps);
             continue;  // apply initial threshold
         }
-        ts = ps.maximize(skip_TS_levels); // readjust likelihood at current position
+        ts = ps->maximize(skip_TS_levels); // readjust likelihood at current position
         if (ts <ts_min)
         {
             ++ nbr_skipped;
+            delete(ps);
             continue;  // apply initial threshold
         }
 
         // found candidate
 
         // also check number of photons in pixel
-        HealPixel px_check(ps.dir(), final_pix_lvl);
+        HealPixel px_check(ps->dir(), final_pix_lvl);
         int count = static_cast<int>(m_pmap.photonCount(px_check, true, false));
         if (count < final_count_threshold)
         {
             ++ nbr_skipped;
+            delete(ps);
             ++ failed_photon_count_check;
         }
         else
         {  
             // add to the final list, indexed according to level 13 location
-            HealPixel px(ps.dir(), 13); 
-            m_can[px] = CanInfo(ts, error, ps.dir());
-            for(int id =ps.minlevel() ;id<=ps.maxlevel();++id)
+            HealPixel px(ps->dir(), 13); 
+            m_can[px] = CanInfo(ts, error, ps->dir());
+            m_can[px].set_ps(ps);
+            for(int id =ps->minlevel() ;id<=ps->maxlevel();++id)
             {
-                m_can[px].setValue(id,ps.levelTS(id));
-                m_can[px].setPhotons(id,ps[id]->photons()*ps[id]->alpha());
-                m_can[px].setSigalph(id,ps[id]->sigma_alpha());
+                m_can[px].setValue(id,ps->levelTS(id));
+                m_can[px].setPhotons(id,((*ps)[id]->photons()) * ((*ps)[id]->alpha()));
+                m_can[px].setSigalph(id,(*ps)[id]->sigma_alpha());
             }
 	    
             // Calculate and store power law fit values.  New as of 6/5/07
@@ -250,6 +256,114 @@ void SourceFinder::examineRegion(void)
     std::cout << m_can.size() << " sources found before pruning neighbors.\n";
     timer();
 }       
+void SourceFinder::reExamine(void) 
+{  
+    int skip1(2), skip2(3);
+    double sigma_max(0.25); // maximum allowable sigma
+
+    // Get parameters
+
+    double  eq_TS_min;
+    m_module.getValue(prefix+"eqTSmin", eq_TS_min, 10);
+
+    double  mid_TS_min;
+    m_module.getValue(prefix+"midTSmin", mid_TS_min, 10);
+
+    double  polar_TS_min;
+    m_module.getValue(prefix+"polarTSmin", polar_TS_min, 10);
+
+    int  final_pix_lvl;
+    m_module.getValue(prefix+"finalPixlvl", final_pix_lvl, 8);
+
+    int  skip_TS_levels;
+    m_module.getValue(prefix+"skipTSlevels", skip_TS_levels, 2);
+
+    double  equator_boundary;
+    m_module.getValue(prefix+"eqBoundary", equator_boundary, 6);
+
+    double  polar_boundary;
+    m_module.getValue(prefix+"polarBoundary", polar_boundary, 40);
+
+    double min_alpha; // miniumum alpha for TS computation
+    m_module.getValue(prefix+"min_alpha", min_alpha, 0.10);
+    
+
+    timer("---------------SourceFinder::reExamine----------------");  
+    std::cout << "\nAnalyzing likelihood significance of candidates near stronger sources using:\n"
+        << "  Likelihood minimum: \n"
+        << "    Equatorial " << eq_TS_min << "\n"
+        << "    Middle     " << mid_TS_min << "\n"
+        << "    Polar      " << polar_TS_min << "\n"
+        << "  skip when localizing: " << skip1<< " to " << skip2  <<"\n"
+        << "  min alpha: " << min_alpha << "\n"
+        << "  sigma_max: " << sigma_max << "\n"
+        << "  skip TS levels: " << skip_TS_levels << "\n"
+        << "  Equatorial boundary: " << equator_boundary << "\n"
+        << "  Polar boundary: " << polar_boundary << "\n"
+        << std::endl;
+
+    int i(0), nbr_to_examine(m_can.size()), nbr_purged(0);
+
+    // Re-examine likelihood fit for each candidate that has a strong neighbor.
+    // Add the strong neighbor to the background first
+    for (Candidates::iterator it = m_can.begin(); it != m_can.end(); ) 
+    {
+        // 2nd iterator makes it possible to delete and still iterate with the other one
+        Candidates::iterator it2 = it;  
+        ++ it;
+
+        ShowPercent(i++, nbr_to_examine, nbr_purged);
+        if (! (it2->second.hasStrongNeighbor())) continue;  // Only care about ones with strong neighbors
+
+        const astro::SkyDir& currentpos = it2->second.dir();
+        double ts_min, abs_b = fabs(currentpos.b());
+        if (abs_b < equator_boundary)
+            ts_min = eq_TS_min;
+        else if (abs_b > polar_boundary)
+            ts_min = polar_TS_min;
+        else
+            ts_min = mid_TS_min;
+
+        PointSourceLikelihood * ps = it2->second.ps();
+
+        // Add strong neighbor to this candidate's background
+        PointSourceLikelihood* strong(m_can[it2->second.strongNeighbor()].ps() );
+        assert(strong);
+        PointSourceLikelihood::clearBackgroundPointSource();
+        PointSourceLikelihood::addBackgroundPointSource(strong);
+
+        // perform likelihood analysis at the current candidate position 
+        double oldts( ps->TS() );
+        double ts = ps->maximize(skip_TS_levels);
+
+        // eliminate candidate if now below threshold
+        if (ts < ts_min)
+        {
+            ++ nbr_purged;
+            m_can.erase(it2);
+            continue; 
+        }
+
+        // adjust position to maximize likelhood
+        double error = ps->localize(skip1, skip2);
+        if (error >= sigma_max) // quit if fail to find maximum or > 1 degree
+        {
+            ++ nbr_purged;
+            m_can.erase(it2);
+            continue;  
+        }
+
+        ts = ps->maximize(skip_TS_levels); // readjust likelihood at current position
+        if (ts <ts_min)
+        {
+            ++ nbr_purged;
+            m_can.erase(it2);
+            continue;  // apply initial threshold
+        }
+    }
+    std::cout << nbr_purged << " candidates purged,  " << m_can.size() << " candidates left.\n";
+    timer();
+}     
 void SourceFinder::checkDir(astro::SkyDir & sd,
                             double eq_TS_min,
                             double mid_TS_min,
@@ -496,21 +610,24 @@ void SourceFinder::prune_adjacent_neighbors()
 // Any candidate that is within "prune_radius" of another is matched with its strongest neighbor
 void SourceFinder::group_neighbors(void)
 {
-    double  radius;
+    double  radius = 1.00;
     int nbr_found = 0;
-    m_module.getValue(prefix+"prune_radius", radius, 1.0);
+    //m_module.getValue(prefix+"prune_radius", radius, 0.25);
     if(radius==0) return;
     
     std::cout << "Grouping neighbors using radius of " << radius << " degrees...";
 
     // Mark candidates with stronger neighbors: loop over all pairs
-    for (Candidates::iterator it1 = m_can.begin(); it1 != m_can.end(); ++it1) 
+    int i,j;
+    Candidates::iterator it1, it2;
+    for ( it1 = m_can.begin() , i=0; it1 != m_can.end(); ++it1,++i) 
     {
         double max_value = 0.0;
-        for (Candidates::iterator it2 = it1;  it2 != m_can.end(); ++it2)
+        for (it2 = m_can.begin(), j=0;  it2 != m_can.end(); ++it2, ++j)
         {
-            if (it1 == it2)   continue;  // Don't compare to yourself.  
-
+            int index1 = it1->first.index(), index2 = it2->first.index();
+            if (i==j)   continue;  // Don't compare to yourself.  
+    
             double diff = (it1->first)().difference((it2->first)())*180/M_PI;
             if (diff <= radius && it2->second.value() > it1->second.value())
             {
@@ -524,6 +641,19 @@ void SourceFinder::group_neighbors(void)
         }
         if (max_value > 0.0)
             ++ nbr_found;
+    }
+
+    // Follow chains.  If A points to B and B points to C, have A point to C.
+    for (Candidates::iterator it1 = m_can.begin(); it1 != m_can.end(); ++it1)
+    {
+        if (! (it1->second.hasStrongNeighbor())) continue; // Only look at ones with stronger neighbor.
+        
+        healpix::HealPixel px = it1->second.strongNeighbor();
+        while (m_can[px].hasStrongNeighbor())
+        {
+            px = m_can[px].strongNeighbor();
+            it1->second.setStrongNeighbor(px);
+        }
     }
 
     std::cout << nbr_found << " candidates have stronger neighbors.\n";
