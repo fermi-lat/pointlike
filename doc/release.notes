@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.30 2007/12/03 00:43:59 burnett Exp $
+$Id: release.notes,v 1.31 2007/12/13 02:15:15 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 13-dec-07 v4r1p1  THB linux compilation
  12-dec-07 v4r1    THB New pointfind feature, and hoping that RM will not choke
  02-dec-07 v4r0p1  THB A few fixes, especially change tolerance default
  28-nov-07 v4r0    THB Swigify! Now a shareable that is compatible with Python
