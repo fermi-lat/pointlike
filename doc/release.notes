@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.29 2007/11/29 03:54:50 burnett Exp $
+$Id: release.notes,v 1.30 2007/12/03 00:43:59 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 12-dec-07 v4r1    THB New pointfind feature, and hoping that RM will not choke
  02-dec-07 v4r0p1  THB A few fixes, especially change tolerance default
  28-nov-07 v4r0    THB Swigify! Now a shareable that is compatible with Python
  26-nov-07 v3r1    THB New class SimpleTSmap for faster seed-finding
