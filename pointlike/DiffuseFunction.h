@@ -1,7 +1,7 @@
 /** @file DiffuseFunction.h
     @brief declare class DiffuseFunction
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DiffuseFunction.h,v 1.10 2007/11/04 22:11:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DiffuseFunction.h,v 1.11 2007/11/18 22:56:56 burnett Exp $
 
 */
 #ifndef pointlike_DiffuseFunction_h
@@ -59,7 +59,7 @@ public:
         const std::vector<double>&energies)const;
 
     /// @return number of layers
-    int layers()const { return m_data.layers();}
+    size_t layers()const { return m_data.layers();}
 
     /// @brief access to the contained SkyImage
     const pointlike::SkyImage& image()const { return m_data;}
@@ -69,11 +69,11 @@ private:
 
 
     std::vector<double> m_energies; ///< list of energies
-    int layer(double e)const;
+    size_t layer(double e)const;
 
     double energy_bin(int k) const;
-    pointlike::SkyImage m_data;
     std::string m_name;
+    pointlike::SkyImage m_data;
     double m_emin, m_emax;
 
 };

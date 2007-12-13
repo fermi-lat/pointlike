@@ -1,6 +1,6 @@
 /** @file SimpleTSmap.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleTSmap.cxx,v 1.1 2007/11/27 04:35:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleTSmap.cxx,v 1.2 2007/12/03 00:37:16 burnett Exp $
 */
 
 #include "pointlike/SimpleTSmap.h"
@@ -13,6 +13,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleTSmap.cxx,v 1.1 2007/1
 #include <fstream>
 #include <stdexcept>
 #include <sstream>
+#include <iterator>
 #include <time.h>
 
 
