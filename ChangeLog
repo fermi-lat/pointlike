@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Dec 12 18:16:31 PST 2007
+pointlike/python
+
+Added Files:
+	swig_setup.in 
+Log Message:
+tagging
+    *
+------------------------------------------------------------
 TAG
 Tag name: v4r1, operation: add
 Package: pointlike
