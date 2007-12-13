@@ -9,8 +9,8 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.13 
 
 //#include "tools/PowerLawFilter.h"
 #include "pointlike/Data.h"
-
 #include "pointlike/PhotonMap.h"
+#include "pointlike/PointSourceLikelihood.h"
 
 #include "astro/SkyDir.h"
 #include "healpix/HealPixel.h"
@@ -30,14 +30,16 @@ namespace pointlike {
     class CanInfo // Candidate info.  
     {
     public:
-        CanInfo(double value = 0, double sigma = 0, astro::SkyDir dir = astro::SkyDir(0,0)):
+        CanInfo(double value = 0, double sigma = 0, 
+                astro::SkyDir dir = astro::SkyDir(0,0)):
           m_value(value),
           m_sigma(sigma), 
           m_dir(dir), 
           m_2bdeleted(false),
-          m_isSource(false),
           m_weighted_count(0),
+          m_isSource(false),
           m_hasStrongNeighbor(false),
+          m_ps(0),
           m_strongNeighbor(healpix::HealPixel(0,0))
           {
               m_values.clear();
@@ -60,6 +62,7 @@ namespace pointlike {
 	double pl_confidence () const {return m_pl_confidence;}
         int weighted_count () const {return m_weighted_count;}
         int skipped () const {return m_skipped;}
+        PointSourceLikelihood * ps () {return m_ps;}
         bool hasStrongNeighbor() const {return m_hasStrongNeighbor;}
         healpix::HealPixel strongNeighbor() const {return m_strongNeighbor;}
 
@@ -73,8 +76,14 @@ namespace pointlike {
 	void set_pl_confidence (double value = 0.0) {m_pl_confidence = value;}
         void set_weighted_count (int value = 0) {m_weighted_count = value;}
         void set_skipped (int value = 0) {m_skipped = value;}
+        void set_ps (PointSourceLikelihood * value) {m_ps = value;}
         void setHasStrongNeighbor (bool value = true) {m_hasStrongNeighbor = value;}
         void setStrongNeighbor (healpix::HealPixel value) {m_strongNeighbor = value;}
+
+        ~CanInfo()
+        {
+            delete(m_ps);
+        }
 
     private:
         double m_value; ///< TS value.
@@ -90,6 +99,7 @@ namespace pointlike {
 	double m_pl_confidence; // Confidence of the power law fit. 1 == perfect fit.
         int m_weighted_count; // weighted count of photons in enclosing pixel.  level of enclosing pixel is determined by pointfind_setup.py
         int m_skipped; // number of candidates rejected before this one was accepted.  Count is reset each time a candidate is accepted.
+        PointSourceLikelihood * m_ps;
         bool m_hasStrongNeighbor;  // Is there a stronger nearby candidate?
         healpix::HealPixel m_strongNeighbor;  // Location of strongest nearby candidate.
 
@@ -105,8 +115,9 @@ namespace pointlike {
     class SourceFinder {
     public:
 
-        SourceFinder(const pointlike::Data& data,  embed_python::Module & Mod);
+       SourceFinder(const pointlike::Data& data,  embed_python::Module & Mod);
        typedef std::map<healpix::HealPixel, CanInfo> Candidates;
+       typedef std::map<healpix::HealPixel, pointlike::PointSourceLikelihood > LikelihoodMap;
        typedef std::multimap<int, CanInfo> Prelim; // Preliminary candidates
 
  
@@ -153,6 +164,10 @@ namespace pointlike {
         /** @brief Analyze range of likelihood significance values for all pixels at a particular level  
         */
         void examineRegion(void) ;
+
+        /** @brief Analyze likelihood again for candidates that had a strong neighbor.  Strong neighbor is added to background.  
+        */
+        void reExamine(void) ;
 
         /** @brief Analyze likelihood significance for a particular direction  
         */
