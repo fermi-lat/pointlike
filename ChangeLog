@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Dec 13 06:42:44 PST 2007
+pointlike/pointlike
+
+Modified Files:
+	DiffuseFunction.h 
+Log Message:
+linux compilation errors and warnings
+    *
+------------------------------------------------------------
 TAG
 Tag name: v4r1, operation: add
 Package: pointlike
