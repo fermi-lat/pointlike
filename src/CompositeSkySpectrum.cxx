@@ -1,7 +1,7 @@
 /** @file CompositeSkySpectrum.cxx
     @brief implement class CompositeSkySpectrum
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CompositeSkySpectrum.cxx,v 1.1 2007/11/04 22:11:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CompositeSkySpectrum.cxx,v 1.2 2007/11/09 22:20:37 burnett Exp $
 
 */
 
@@ -41,6 +41,11 @@ double CompositeSkySpectrum::integral(const astro::SkyDir& dir, double emin, dou
     std::vector< std::pair<double, const pointlike::SkySpectrum*> >::const_iterator it = begin();
 
     for( ; it!=end(); ++it){
+        if( it->second==0) {
+       //     std::cerr << "Warning: trying to integrate " << emin << " to " << emax << ", no data?" << std::endl;
+
+            continue;
+        }
         ret+= it->first * (it->second)->integral(dir, emin, emax);
     }
     return ret;
