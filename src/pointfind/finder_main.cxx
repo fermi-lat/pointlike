@@ -1,7 +1,7 @@
 /** @file finder_main.cxx
     @brief  Finder
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.8 2007/11/27 04:35:33 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.9 2007/12/13 02:15:15 burnett Exp $
 
 */
 #include "pointlike/SourceFinder.h"
@@ -80,20 +80,17 @@ int main(int argc, char** argv)
         // look for sources
         finder.examineRegion();
 
-#if 0 // make these independent?
-        // prune by power law fit
-        finder.prune_power_law();
-        // prune the result
-        finder.prune_neighbors();
-#endif
        // group nearby candidates with strongest neighbor
         finder.group_neighbors();
 
         finder.reExamine();
 
+        // prune the result
+        finder.prune_neighbors();
+
         // and write out the table
         finder.createTable(outfile);
-        
+
         if( !outfile.empty()){
             delete out;
         }
@@ -104,6 +101,7 @@ int main(int argc, char** argv)
         help();
         rc=1;
     }
+
      return rc;
 }
 
