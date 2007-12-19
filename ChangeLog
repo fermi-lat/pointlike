@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Dec 18 19:36:14 PST 2007
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h 
+Log Message:
+implement new maxstep parameter
+    *
+------------------------------------------------------------
 User: burnett  Sun Dec 16 18:17:14 PST 2007
 pointlike/src
 
