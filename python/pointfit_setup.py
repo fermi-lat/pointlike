@@ -1,50 +1,17 @@
 #  setup for point fit test
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.4 2007/11/04 22:11:32 burnett Exp $
-
-# data selection parameters
-class Data:
-    radius = 7.0   # radius in degrees for initial data selection
-    event_type = -1 # 0, select front only; -1 no selection
-    source_id =-1  # -1: all sources -- select according to Monte Carlo source id, if present
-
-class PointSourceLikelihood:
-    # HEALpix level range for energy band  fits
-
-    minlevel=8   # minimum level to use for fits (>-6)  
-    maxlevel=13  # maximum level for fits  (<=13)
-    minalpha=0.15# minimum value for signal fraction to use in TS total
-
-    # parameters governing iteration cycle of bands/position
-
-    TSmin= 5     # minimum TS value to allow during iteration
-    skip1=1      # inital number of layers to skip in localization fit
-    skip2=4      # don't skip beyond this
-    itermax=1    # maximum number of iterations
-
-    verbose = 0  # set non-zero to get lots of output
-
-class Diffuse:
-    # diffuse input file image file
-    file = ''
-    exposure=3e10
-    import os
-    if 'EXTFILESSYS' in os.environ:
-        file = os.path.join(os.environ['EXTFILESSYS'],'galdiffuse','GP_gamma.fits')
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.5 2007/11/19 01:09:36 burnett Exp $
+from  pointlike_defaults import *
 
 #  specify files with FT1 data and points to fit. pixelfile for PhotonMap, files for FT1 or merit
-# files = [] 
+def test():
+  " define the pixelfile for a quick test, running the pixel file created by the test program"
+  import os
+  path = os.environ['POINTLIKEROOT']
+  return os.path.join(path, 'src', 'test', 'pointlike_test.fits')
+
+pixelfile = test()
 pixelfile = r'F:\glast\data\SC2\obssim\allsky_noGRBs.fits'
-#files = [r'F:\glast\data\octobertest\merit\r0252672900_t0213642152_merit.root']
 
-# near gal equator, confused by diffuse
-name = ['UW_J266p622', 'UW_J3587p604']
-ra   = [  266.55  , 358.662]
-dec  = [ 31.534 , 60.4437]
-
-# high latitude, strong local source
-name = ['UW_J83m142', 'UW_J78m151']
-ra   = [ 8.3398,   7.8164]
-dec  = [-14.225, -15.1306]
 
 # the troublesome triplet: the 3EG blazar is very strong, affects the HLCloud
 name = ['DC2_3EGJ1635m1751', 'HLCloud_SC1_05', 'Giommi_blazar_1237']
