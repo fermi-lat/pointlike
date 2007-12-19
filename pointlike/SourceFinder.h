@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.13 2007/11/21 15:43:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.15 2007/12/13 02:13:27 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -115,7 +115,7 @@ namespace pointlike {
     class SourceFinder {
     public:
 
-       SourceFinder(const pointlike::Data& data,  embed_python::Module & Mod);
+       SourceFinder(const pointlike::Data& data,  const embed_python::Module & Mod);
        typedef std::map<healpix::HealPixel, CanInfo> Candidates;
        typedef std::map<healpix::HealPixel, pointlike::PointSourceLikelihood > LikelihoodMap;
        typedef std::multimap<int, CanInfo> Prelim; // Preliminary candidates
@@ -217,7 +217,7 @@ namespace pointlike {
         const pointlike::PhotonMap& m_pmap;
         Candidates m_can;
         DiffuseCounts* m_counts;
-        embed_python::Module & m_module;
+        const embed_python::Module & m_module;
 
     };
 

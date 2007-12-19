@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.20 2007/11/27 04:35:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.21 2007/12/13 02:13:27 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -46,8 +46,39 @@ namespace {
             std::cout << std::endl;
     }
 
-    static std::string prefix("SourceFinder.");
+    
+    // source finding parameters
+    int skip1(2), skip2(3);
+    double sigma_max(0.25); // maximum allowable sigma
 
+
+    double  ts_min;
+    int  pix_level;
+    int  final_pix_lvl;
+    int  skip_TS_levels;
+    int  count_threshold;
+ 
+    int  final_count_threshold;
+
+    static std::string prefix("SourceFinder.");
+    
+    void getParameters(const embed_python::Module & module)
+    {
+        module.getValue(prefix+"TSmin", ts_min, 10);
+        module.getValue(prefix+"finalPixlvl", final_pix_lvl, 8);
+        module.getValue(prefix+"skipTSlevels", skip_TS_levels, 2);
+        module.getValue(prefix+"pixLevel", pix_level, 8);
+
+        module.getValue(prefix+"countThreshold", count_threshold, 16);
+        module.getValue(prefix+"finalCntThresold", final_count_threshold, 2);
+
+        std::cout << "\nSourceFinder paramters:\n"
+            << "  Likelihood minimum: " << ts_min<< "\n" 
+            << "  skip when localizing: " << skip1<< " to " << skip2  <<"\n"
+            << "  sigma_max: " << sigma_max << "\n"
+            << "  skip TS levels: " << skip_TS_levels << "\n"
+            << std::endl;
+    }
 
 } // anon namespace
 
@@ -56,7 +87,7 @@ using namespace embed_python;
 using healpix::HealPixel;
 using astro::SkyDir;
 
-SourceFinder::SourceFinder(const pointlike::Data& map, Module & Mod)
+SourceFinder::SourceFinder(const pointlike::Data& map, const Module & Mod)
 : m_pmap(map)
 , m_counts(0)
 , m_module(Mod)
@@ -68,9 +99,6 @@ Analyze range of likelihood significance values for all pixels at a particular l
 */
 void SourceFinder::examineRegion(void) 
 {  
-    int skip1(2), skip2(3);
-    double sigma_max(0.25); // maximum allowable sigma
-
 
     // Get parameters
     // position is
@@ -89,56 +117,10 @@ void SourceFinder::examineRegion(void)
     m_module.getValue(prefix+"radius", radius, 180);
     if( radius>=180) radius = 179.99999; // bug in gcc version of healpix code
 
-    double  eq_TS_min;
-    m_module.getValue(prefix+"eqTSmin", eq_TS_min, 10);
-
-    double  mid_TS_min;
-    m_module.getValue(prefix+"midTSmin", mid_TS_min, 10);
-
-    double  polar_TS_min;
-    m_module.getValue(prefix+"polarTSmin", polar_TS_min, 10);
-
-    int  pix_level;
-    m_module.getValue(prefix+"pixLevel", pix_level, 8);
-
-    int  count_threshold;
-    m_module.getValue(prefix+"countThreshold", count_threshold, 16);
-
-    int  final_pix_lvl;
-    m_module.getValue(prefix+"finalPixlvl", final_pix_lvl, 8);
-
-    int  final_count_threshold;
-    m_module.getValue(prefix+"finalCntThresold", final_count_threshold, 2);
-
-    int  skip_TS_levels;
-    m_module.getValue(prefix+"skipTSlevels", skip_TS_levels, 2);
-
-    double  equator_boundary;
-    m_module.getValue(prefix+"eqBoundary", equator_boundary, 6);
-
-    double  polar_boundary;
-    m_module.getValue(prefix+"polarBoundary", polar_boundary, 40);
-
-    double min_alpha; // miniumum alpha for TS computation
-    m_module.getValue(prefix+"min_alpha", min_alpha, 0.10);
-    
+   getParameters(m_module);
 
     timer("---------------SourceFinder::examineRegion----------------");  
     std::vector<std::pair<healpix::HealPixel, int> > v;
-    std::cout << "\nAnalyzing likelihood significance using:\n"
-        << "  " << radius << " degree radius about gal(" << dir.l() << ", " << dir.b() << 
-        ") =eq("<<dir.ra()<<", "<< dir.dec()<< ")\n"
-        << "  Pixelization level: " << pix_level << "\n"
-        << "  Weighted count threshold: " << count_threshold << "\n"
-        << "  Likelihood minimum: (boundaries: " <<equator_boundary <<", "<< polar_boundary<<")\n"
-        << "    Equatorial " << eq_TS_min << "\n"
-        << "    Middle     " << mid_TS_min << "\n"
-        << "    Polar      " << polar_TS_min << "\n"
-        << "  skip when localizing: " << skip1<< " to " << skip2  <<"\n"
-        << "  min alpha: " << min_alpha << "\n"
-        << "  sigma_max: " << sigma_max << "\n"
-        << "  skip TS levels: " << skip_TS_levels << "\n"
-        << std::endl;
 
     // Extract the pixels to be examined
     m_pmap.extract_level(dir, radius, v, pix_level, true);
@@ -177,14 +159,6 @@ void SourceFinder::examineRegion(void)
         int check = it->first;
 
         const astro::SkyDir& currentpos = it->second.dir();
-        double ts_min, abs_b = fabs(currentpos.b());
-        if (abs_b < equator_boundary)
-            ts_min = eq_TS_min;
-        else if (abs_b > polar_boundary)
-            ts_min = polar_TS_min;
-        else
-            ts_min = mid_TS_min;
-
 
         // perform likelihood analysis at the current candidate position  
         PointSourceLikelihood * ps = new PointSourceLikelihood(m_pmap, "test", currentpos );
@@ -251,6 +225,7 @@ void SourceFinder::examineRegion(void)
 	    m_can[px].set_pl_slope(pl.slope());
 	    m_can[px].set_pl_constant(pl.constant());
 	    m_can[px].set_pl_confidence(pl.metric());
+            m_can[px].set_weighted_count(check);
         }
     }
     std::cout << m_can.size() << " sources found before pruning neighbors.\n";
@@ -258,50 +233,7 @@ void SourceFinder::examineRegion(void)
 }       
 void SourceFinder::reExamine(void) 
 {  
-    int skip1(2), skip2(3);
-    double sigma_max(0.25); // maximum allowable sigma
-
-    // Get parameters
-
-    double  eq_TS_min;
-    m_module.getValue(prefix+"eqTSmin", eq_TS_min, 10);
-
-    double  mid_TS_min;
-    m_module.getValue(prefix+"midTSmin", mid_TS_min, 10);
-
-    double  polar_TS_min;
-    m_module.getValue(prefix+"polarTSmin", polar_TS_min, 10);
-
-    int  final_pix_lvl;
-    m_module.getValue(prefix+"finalPixlvl", final_pix_lvl, 8);
-
-    int  skip_TS_levels;
-    m_module.getValue(prefix+"skipTSlevels", skip_TS_levels, 2);
-
-    double  equator_boundary;
-    m_module.getValue(prefix+"eqBoundary", equator_boundary, 6);
-
-    double  polar_boundary;
-    m_module.getValue(prefix+"polarBoundary", polar_boundary, 40);
-
-    double min_alpha; // miniumum alpha for TS computation
-    m_module.getValue(prefix+"min_alpha", min_alpha, 0.10);
-    
-
     timer("---------------SourceFinder::reExamine----------------");  
-    std::cout << "\nAnalyzing likelihood significance of candidates near stronger sources using:\n"
-        << "  Likelihood minimum: \n"
-        << "    Equatorial " << eq_TS_min << "\n"
-        << "    Middle     " << mid_TS_min << "\n"
-        << "    Polar      " << polar_TS_min << "\n"
-        << "  skip when localizing: " << skip1<< " to " << skip2  <<"\n"
-        << "  min alpha: " << min_alpha << "\n"
-        << "  sigma_max: " << sigma_max << "\n"
-        << "  skip TS levels: " << skip_TS_levels << "\n"
-        << "  Equatorial boundary: " << equator_boundary << "\n"
-        << "  Polar boundary: " << polar_boundary << "\n"
-        << std::endl;
-
     int i(0), nbr_to_examine(m_can.size()), nbr_purged(0);
 
     // Re-examine likelihood fit for each candidate that has a strong neighbor.
@@ -316,13 +248,6 @@ void SourceFinder::reExamine(void)
         if (! (it2->second.hasStrongNeighbor())) continue;  // Only care about ones with strong neighbors
 
         const astro::SkyDir& currentpos = it2->second.dir();
-        double ts_min, abs_b = fabs(currentpos.b());
-        if (abs_b < equator_boundary)
-            ts_min = eq_TS_min;
-        else if (abs_b > polar_boundary)
-            ts_min = polar_TS_min;
-        else
-            ts_min = mid_TS_min;
 
         PointSourceLikelihood * ps = it2->second.ps();
 
@@ -709,7 +634,7 @@ void SourceFinder::createTable(const std::string& fileName,
     table << "Name  source_flag ra  dec  sigma  circle  l b ";
     table << "TS6 TS7 TS8 TS9 TS10 TS11 TS12 TS13 ";
     table << "n6 n7 n8 n9 n10 n11 n12 n13 ";
-    table << "pl_m pl_b pl_sigma pl_chi_sq";
+    table << "pl_m pl_b pl_sigma pl_chi_sq ";
     table << "weighted_count skipped";
 
     table << std::endl;
