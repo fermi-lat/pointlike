@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.15 2007/11/20 23:14:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.16 2007/12/03 00:35:55 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -159,7 +159,8 @@ private:
     std::map<int, std::vector<std::pair<healpix::HealPixel,int> > >m_data_vec;
 
     //static SkySpectrum * s_diffuse;
-    static double s_radius, s_minalpha, s_TSmin, s_tolerance;
+    static double s_radius, s_minalpha, s_TSmin, s_tolerance, 
+        s_maxstep; //
     static int s_minlevel, s_maxlevel, s_skip1, s_skip2, s_itermax, s_verbose;
 };
 

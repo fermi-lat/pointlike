@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.18 2007/11/18 22:56:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.19 2007/11/27 04:35:33 burnett Exp $
 
 */
 
@@ -65,6 +65,7 @@ int    PointSourceLikelihood::s_skip2(2);
 int    PointSourceLikelihood::s_itermax(2);
 double PointSourceLikelihood::s_TSmin(5.0);
 int    PointSourceLikelihood::s_verbose(0);
+double PointSourceLikelihood::s_maxstep(0.25);  // if calculated step is larger then this (deg), abort localization
 
 void PointSourceLikelihood::setParameters(const embed_python::Module& par)
 {
@@ -81,6 +82,7 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getValue(prefix+"TSmin",    s_TSmin, s_TSmin);
     par.getValue(prefix+"minlevel", s_minlevel, s_minlevel);
     par.getValue(prefix+"verbose",  s_verbose, s_verbose);
+    par.getValue(prefix+"maxstep",  s_maxstep, s_maxstep); // override with global
     par.getValue("verbose",  s_verbose, s_verbose); // override with global
 
     // needed by SimpleLikelihood
@@ -263,14 +265,16 @@ void PointSourceLikelihood::printSpectrum()
         }
 
         if( verbose() ){
+            double avb(levellike.average_b());
             out() << setprecision(2) << setw(6)<< a.first<<" +/- "
                 << std::setw(4)<< a.second 
                 << setw(6)<< setprecision(0)<< ts
-                << setw(8) << setprecision(2) << levellike.average_b()
+                //<< setw(8) 
+                << setprecision(2) << std::scientific << " " <<levellike.average_b()
 #if 0 // temporary log likelihood
                 << setw(10) << setprecision(2) << levellike() 
 #endif
-                << std::endl;
+                << std::fixed << std::endl;
         }
     }
     if( verbose() ){
@@ -287,7 +291,7 @@ double PointSourceLikelihood::localize(int skip1, int skip2)
     double t(100);
     for( int skip=skip1; skip<=skip2; ++skip){
         t = localize(skip);
-        if (t<1) return t;
+        if (t<1) break;
     }
     return t;
 }
@@ -327,20 +331,29 @@ double PointSourceLikelihood::localize(int skip)
                 ;
             //,      oldTs( TS() );
             Hep3Vector delta = grad/curv;
+            double step(delta.mag());
 
             if( verbose() ){
                 out() << fixed << setprecision(0)
                     <<  setw(wd-2)  << right<< gradmag << "  "
                     <<  setprecision(4)
-                    <<  setw(wd) << left<< delta.mag()*180/M_PI
+                    <<  setw(wd) << left<< step*180/M_PI
                     <<  setw(wd) << left<< m_dir.ra()
                     <<  setw(wd) << left<< m_dir.dec() 
                     <<  setw(wd) << left<< sig*180/M_PI
                     <<  setw(wd) << left <<setprecision(0)<< oldTs
                     <<  right <<setprecision(3) <<std::endl;
             }
+            if( step*180/M_PI > s_maxstep) {
+                if( verbose() ){ out() << " >>> aborting, attempted step " 
+                    << (step*180/M_PI) << " deg  greater than limit " 
+                    << s_maxstep << std::endl;
+                }
+                return 97.;
+                break;
+            }
             // check for too large step, limit to 3 sigma
-            if( delta.mag() > 3.* sig) delta = 3.*sig* delta.unit(); 
+            if( step > 3.* sig) delta = 3.*sig* delta.unit(); 
 
             // here decide to back off if likelihood does not increase
             Hep3Vector olddir(m_dir()); int count(5);
