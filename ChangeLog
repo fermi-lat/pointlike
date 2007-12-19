@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Tue Dec 18 19:38:42 PST 2007
+pointlike/python
+
+Modified Files:
+	pointfind_setup.py pointfit_setup.py 
+Added Files:
+	pointlike_defaults.py 
+Log Message:
+rearrange default parameters
+    *
+------------------------------------------------------------
 User: burnett  Tue Dec 18 19:38:05 PST 2007
 pointlike/src
 
