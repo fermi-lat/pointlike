@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.31 2007/12/13 02:15:15 burnett Exp $
+$Id: release.notes,v 1.32 2007/12/13 14:44:16 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 16-dec-07 v4r2    THB refactored pointfind with refit
  13-dec-07 v4r1p1  THB linux compilation
  12-dec-07 v4r1    THB New pointfind feature, and hoping that RM will not choke
  02-dec-07 v4r0p1  THB A few fixes, especially change tolerance default
