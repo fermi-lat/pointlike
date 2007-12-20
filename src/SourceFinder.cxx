@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.22 2007/12/19 03:38:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.23 2007/12/19 18:27:59 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -145,8 +145,11 @@ void SourceFinder::examineRegion(void)
         double abs_b = fabs((it->first)().b());
         int count = static_cast<int>(m_pmap.photonCount(it->first, sd));
         
-        can.insert(std::pair<int, CanInfo>(count, CanInfo(count, 0, sd)) );
-        ++num;
+        if (count > 0)
+        {
+            can.insert(std::pair<int, CanInfo>(count, CanInfo(count, 0, sd)) );
+            ++num;
+        }
     }
 
     size_t fract = static_cast<size_t>(num*pixel_fraction); 
@@ -162,7 +165,7 @@ void SourceFinder::examineRegion(void)
     // Examine likelihood fit for each preliminary candidate
     for (Prelim::reverse_iterator it = can.rbegin(); it != can.rend() && i<fract; ++ it, ++i)
     {
-        ShowPercent(i++, can.size(), m_can.size());
+        ShowPercent(i, can.size(), m_can.size());
         int check = it->first;
 
         const astro::SkyDir& currentpos = it->second.dir();
@@ -279,6 +282,32 @@ void SourceFinder::reExamine(void)
             m_can.erase(it2);
             continue;  // apply initial threshold
         }
+
+        // candidate is still good!  update CanInfo values
+        it2->second.set_total_value(ts);
+        it2->second.set_sigma(error);
+        it2->second.set_dir(ps->dir());
+        for(int id =ps->minlevel() ;id<=ps->maxlevel();++id)
+        {
+            it2->second.setValue(id,ps->levelTS(id));
+            it2->second.setPhotons(id,((*ps)[id]->photons()) * ((*ps)[id]->alpha()));
+            it2->second.setSigalph(id,(*ps)[id]->sigma_alpha());
+        }
+	
+        // Calculate and store power law fit values.  
+	std::vector<std::pair<double, double> > values;
+	values.clear();
+	std::vector<double> energyBins = m_pmap.energyBins();
+        // ignore first two levels
+	for( int i = 2, lvl = m_pmap.minLevel() + 2; lvl < m_pmap.minLevel() + m_pmap.levels(); ++i, ++lvl)
+	{
+            double count = it2->second.photons(lvl);
+	    values.push_back(std::make_pair(energyBins[i], count));
+	}
+	pointlike::PowerLawFilter pl(values);
+	it2->second.set_pl_slope(pl.slope());
+	it2->second.set_pl_constant(pl.constant());
+	it2->second.set_pl_confidence(pl.metric());
     }
     std::cout << nbr_purged << " candidates purged,  " << m_can.size() << " candidates left.\n";
     timer();
@@ -449,7 +478,7 @@ void SourceFinder::prune_power_law(void)
 }
 
 // Eliminate weaker neighbors
-// criterion is closer that tolerance, or 3-sigma circles overlap
+// criterion is closer than tolerance, or 3-sigma circles overlap
 void SourceFinder::prune_neighbors(void)
 {
     double radius(prune_radius);
@@ -524,7 +553,7 @@ void SourceFinder::prune_adjacent_neighbors()
 }
 
 // Group nearby candidates to facilitate further examination
-// Any candidate that is within "prune_radius" of another is matched with its strongest neighbor
+// Any candidate that is within "group_radius" of another is matched with its strongest neighbor
 void SourceFinder::group_neighbors(void)
 {
     double radius(group_radius); // use radius from file-scope varialbe
@@ -535,15 +564,12 @@ void SourceFinder::group_neighbors(void)
     std::cout << "Grouping neighbors using radius of " << radius << " degrees...";
 
     // Mark candidates with stronger neighbors: loop over all pairs
-    int i,j;
-    Candidates::iterator it1, it2;
-    for ( it1 = m_can.begin() , i=0; it1 != m_can.end(); ++it1,++i) 
+    for (Candidates::iterator it1 = m_can.begin(); it1 != m_can.end(); ++it1) 
     {
         double max_value = 0.0;
-        for (it2 = m_can.begin(), j=0;  it2 != m_can.end(); ++it2, ++j)
+        for (Candidates::iterator it2 = m_can.begin();  it2 != m_can.end(); ++it2)
         {
-            int index1 = it1->first.index(), index2 = it2->first.index();
-            if (i==j)   continue;  // Don't compare to yourself.  
+            if (it1 == it2)   continue;  // Don't compare to yourself.  
     
             double diff = (it1->first)().difference((it2->first)())*180/M_PI;
             if (diff <= radius && it2->second.value() > it1->second.value())
@@ -598,8 +624,8 @@ void SourceFinder::createReg(const std::string& fileName, double radius, const s
         else
         {
             reg << "fk5; circle("
-                << (it->first)().ra() << ", "
-                << (it->first)().dec() << ", ";
+                << it->second.dir().ra() << ", "
+                << it->second.dir().dec() << ", ";
             if (radius > 0.0)
                 reg << radius;
             else
