@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.15 2007/12/13 02:13:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.16 2007/12/19 03:38:05 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -68,6 +68,9 @@ namespace pointlike {
 
         void setDelete () {m_2bdeleted = true;}
         void setSource (bool value = true) {m_isSource = value;}
+        void set_total_value (double value = 0.0) {m_value = value;}
+        void set_sigma (double value = 0.0) {m_sigma = value;}
+        void set_dir (astro::SkyDir value = astro::SkyDir(0,0)) {m_dir = value;}
         void setValue(int level, double val) {m_values[level] = val;}
         void setPhotons(int level, double photons) {m_photons[level] = photons;}
         void setSigalph(int level, double sigalph) {m_sigalph[level] = sigalph;}
