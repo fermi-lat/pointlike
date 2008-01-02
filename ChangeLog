@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jan  2 11:15:01 PST 2008
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+remove static variables from inline code
+    *
+------------------------------------------------------------
 TAG
 Tag name: v4r2p1, operation: add
 Package: pointlike
