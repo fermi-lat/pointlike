@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Wed Jan  2 11:15:01 PST 2008
+pointlike/pointlike
+
+Modified Files:
+	Data.h PointSourceLikelihood.h SimpleLikelihood.h 
+Log Message:
+remove static variables from inline code
+    *
+------------------------------------------------------------
+User: burnett  Wed Jan  2 11:15:01 PST 2008
 pointlike/cmt
 
 Modified Files:
