@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 User: burnett  Wed Jan  2 11:15:01 PST 2008
+pointlike/src
+
+Modified Files:
+	AlignProc.cxx Data.cxx PointSourceLikelihood.cxx 
+	RotationInfo.cxx SimpleLikelihood.cxx SourceFinder.cxx 
+Log Message:
+remove static variables from inline code
+    *
+------------------------------------------------------------
+User: burnett  Wed Jan  2 11:15:01 PST 2008
 pointlike/python
 
 Modified Files:
