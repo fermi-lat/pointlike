@@ -11,7 +11,7 @@
 #include "astro/PointingHistory.h"
 #include "astro/PointingInfo.h"
 #include "astro/EarthCoordinate.h"
-#include "astro/GPS.h"
+//#include "astro/GPS.h"
 
 #include "healpix/Healpix.h"
 #include "healpix/HealPixel.h"
@@ -61,8 +61,8 @@
 %template(FloatVector) std::vector<float>;
 %template(LongVector) std::vector<long>;
 
-%include $(CLHEPBASE)/include/CLHEP/Vector/ThreeVector.h
-//%include $(CLHEPBASE)/include/CLHEP/Vector/Rotation.h
+%include $(CLHEPROOT)/include/CLHEP/Vector/ThreeVector.h
+//%include $(CLHEPROOT)/include/CLHEP/Vector/Rotation.h
 namespace CLHEP {
  class HepRotation {
 public:
@@ -129,7 +129,8 @@ public:
 %include $(ASTROROOT)/astro/PointingInfo.h
 // need to fix earthRadius()
 %include $(ASTROROOT)/astro/EarthCoordinate.h
-%include $(ASTROROOT)/astro/GPS.h
+// need to fix throw
+//%include $(ASTROROOT)/astro/GPS.h
 
 %include $(HEALPIXROOT)/healpix/Healpix.h
 %include $(HEALPIXROOT)/healpix/HealpixMap.h

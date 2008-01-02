@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.19 2007/11/27 04:35:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.20 2007/12/19 03:36:15 burnett Exp $
 
 */
 
@@ -26,18 +26,13 @@ namespace {
     // from fits 2/26/2006 
     double fit_gamma[]={0,0,0,0,0,2.25,
         2.27,2.22,2.25,2.25,2.29,2.14,2.02,1.87};
-#if 0 // old
-    double fit_sigma[]={0,0,0,0,0,0,
-        0.335,0.319,0.332,0.352,0.397,0.446,0.526,0.657};
-#else // from empirical study of a single source 
+ // from empirical study of a single source 
     // set level 8 -13 using handoff (7/14/07) tweak level 12 from .52 to .62
     double fit_sigma[]={0,0,0,0,0,0.343,
         0.335,0.319, //0.422, 0.9, 0.9, 1.0, 1.1, 1.0 
 //    0.42899897,  0.45402442,  0.4742285,   0.60760651,  0.62,  0.94671
     0.431, 0.449, 0.499, 0.566, 0.698, 0.818 // from Marshall
     };
-
-#endif
     // the scale_factor used: 2.5 degree at level 6, approximately the 68% containment
     int base_level(6);
     double scale_factor(int level){return 2.5*pow(2.0, base_level-level)*M_PI/180.;}
@@ -52,8 +47,8 @@ namespace {
 
 //---    Static (class) variables: defaults here, that can be set by a static function.
 // set these from preliminary data above
-std::vector<double> PointSourceLikelihood::gamma_level(fit_gamma, fit_gamma+sizeof(fit_gamma)/sizeof(double)); 
-std::vector<double> PointSourceLikelihood::sigma_level(fit_sigma, fit_sigma+sizeof(fit_gamma)/sizeof(double));
+std::vector<double> PointSourceLikelihood::s_gamma_level(fit_gamma, fit_gamma+sizeof(fit_gamma)/sizeof(double)); 
+std::vector<double> PointSourceLikelihood::s_sigma_level(fit_sigma, fit_sigma+sizeof(fit_gamma)/sizeof(double));
 
 
 double PointSourceLikelihood::s_radius(7.0);
@@ -86,9 +81,14 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getValue("verbose",  s_verbose, s_verbose); // override with global
 
     // needed by SimpleLikelihood
-    par.getValue(prefix+"umax", SimpleLikelihood::s_defaultUmax, SimpleLikelihood::s_defaultUmax);
+    double umax(SimpleLikelihood::defaultUmax());
+    par.getValue(prefix+"umax", umax, umax);
+    SimpleLikelihood::setDefaultUmax(umax);
 
-    par.getValue("Diffuse.tolerance",  SimpleLikelihood::s_tolerance, SimpleLikelihood::s_tolerance);
+    double tolerance(SimpleLikelihood::tolerance());
+    par.getValue("Diffuse.tolerance",  tolerance, tolerance);
+    SimpleLikelihood::setTolerance(tolerance);
+
 
     std::string diffusefile;
     par.getValue("Diffuse.file", diffusefile);
@@ -97,8 +97,8 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     int interpolate(0);
     par.getValue("interpolate", interpolate, interpolate);
     if( ! diffusefile.empty() ) {
-        SimpleLikelihood::s_diffuse =new CompositeSkySpectrum(
-            new DiffuseFunction(diffusefile, interpolate!=0), exposure) ;
+        SimpleLikelihood::setDiffuse(new CompositeSkySpectrum(
+            new DiffuseFunction(diffusefile, interpolate!=0), exposure) );
 
         std::cout << "Using diffuse definition "<< diffusefile 
             << " with exposure factor " << exposure << std::endl; 
@@ -135,8 +135,8 @@ void PointSourceLikelihood::setup(const pointlike::PhotonMap& data,double radius
         data.extract(  m_dir, radius, m_data_vec[level], -1, level);
 
         // get PSF parameters from fits
-        double gamma( gamma_level[level] ),
-            sigma ( scale_factor(level)* sigma_level[level]);
+        double gamma( gamma_level(level) ),
+            sigma ( scale_factor(level)* sigma_level(level));
 
         double emin( m_energies[level-m_minlevel]), emax( m_energies[level-m_minlevel+1]);
 
@@ -144,7 +144,7 @@ void PointSourceLikelihood::setup(const pointlike::PhotonMap& data,double radius
         SimpleLikelihood* sl = new SimpleLikelihood(m_data_vec[level], m_dir, 
             gamma, sigma,
             -1, // background (not used now)
-            SimpleLikelihood::s_defaultUmax, 
+            SimpleLikelihood::defaultUmax(), 
             emin, emax
             );
         (*this)[level] = sl;
@@ -429,15 +429,15 @@ double PointSourceLikelihood::integral(const astro::SkyDir& dir, double emin, do
 
 void PointSourceLikelihood::recalc(int level) {
     // get PSF parameters from fits
-        double gamma( gamma_level[level] ),
-            sigma ( scale_factor(level)* sigma_level[level]);
+        double gamma( gamma_level(level) ),
+            sigma ( scale_factor(level)* sigma_level(level));
 
         double emin( m_energies[level-m_minlevel]), emax( m_energies[level-m_minlevel+1]);
         // and create the simple likelihood object
         SimpleLikelihood* sl = new SimpleLikelihood(m_data_vec[level], m_dir, 
             gamma, sigma,
             -1, // background (not used now)
-            SimpleLikelihood::s_defaultUmax, 
+            SimpleLikelihood::defaultUmax(), 
             emin, emax
             );
         (*this)[level] = sl;
@@ -453,15 +453,15 @@ double PointSourceLikelihood::sigma(int level)const
 }
 
 pointlike::SkySpectrum* PointSourceLikelihood::set_diffuse(pointlike::SkySpectrum* diffuse)
-{  SkySpectrum* ret =   SimpleLikelihood::s_diffuse;
-   SimpleLikelihood::s_diffuse= diffuse;
+{  SkySpectrum* ret =   SimpleLikelihood::diffuse();
+   SimpleLikelihood::setDiffuse( diffuse);
    return ret;
 }
 
 
 void PointSourceLikelihood::addBackgroundPointSource(const PointSourceLikelihood* fit)
 {
-    CompositeSkySpectrum* backgnd = dynamic_cast<CompositeSkySpectrum*>(SimpleLikelihood::s_diffuse);
+    CompositeSkySpectrum* backgnd = dynamic_cast<CompositeSkySpectrum*>(SimpleLikelihood::diffuse());
     if( backgnd==0){
         throw std::invalid_argument("PointSourceLikelihood::setBackgroundFit: no diffuse to add to");
     }
@@ -473,11 +473,57 @@ void PointSourceLikelihood::addBackgroundPointSource(const PointSourceLikelihood
 
 void PointSourceLikelihood::clearBackgroundPointSource()
 {
-    CompositeSkySpectrum* backgnd = dynamic_cast<CompositeSkySpectrum*>(SimpleLikelihood::s_diffuse);
+    CompositeSkySpectrum* backgnd = dynamic_cast<CompositeSkySpectrum*>(SimpleLikelihood::diffuse());
 
     if( backgnd==0){
         throw std::invalid_argument("PointSourceLikelihood::setBackgroundFit: no diffuse to add to");
     }
     if( backgnd->size()>0) {backgnd->resize(1);}
+}
+
+/// @brief set radius for individual fits
+void PointSourceLikelihood::setDefaultUmax(double umax)
+{ 
+    SimpleLikelihood::setDefaultUmax(umax); 
+}
+
+
+double PointSourceLikelihood::set_gamma_level(int level, double v)
+{
+    double t = s_gamma_level[level]; s_gamma_level[level]=v; 
+    return t;
+}
+
+double PointSourceLikelihood::set_sigma_level(int level, double v)
+{
+    double t = s_sigma_level[level]; s_sigma_level[level]=v; 
+    return t;
+}
+
+
+
+    /// @brief get the starting, ending levels used
+int PointSourceLikelihood::minlevel(){return s_minlevel;}
+
+int PointSourceLikelihood::maxlevel(){return s_maxlevel;}
+
+void PointSourceLikelihood::set_levels(int minlevel, int maxlevel)
+{ s_minlevel= minlevel; s_maxlevel = maxlevel;
+}
+
+double PointSourceLikelihood::set_tolerance(double tol)
+{
+    double old(SimpleLikelihood::tolerance());
+    SimpleLikelihood::setTolerance(tol);
+    return old;
+}
+
+double PointSourceLikelihood::gamma_level(int i)
+{
+    return s_gamma_level.at(i);
+}
+double PointSourceLikelihood::sigma_level(int i)
+{
+    return s_sigma_level.at(i);
 }
 

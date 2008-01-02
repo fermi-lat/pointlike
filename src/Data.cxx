@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.17 2007/11/20 23:14:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.18 2007/11/21 16:36:21 burnett Exp $
 
 */
 
@@ -68,7 +68,7 @@ namespace {
             assert( evtclass>=0 && evtclass<3); // just a check: should be 0 or 1 if not DC2
             double 
                 emeas(energy()),                    // measured energy
-                eff_energy( emeas/Data::s_scale[evtclass] ); // "effective" energy
+                eff_energy( emeas/Data::scale(evtclass) ); // "effective" energy
             return astro::Photon(SkyDir(transformed), eff_energy,time(),evtclass, source());
         }
 
@@ -233,7 +233,7 @@ namespace {
                 event_class = event_class>4? 0 : 1;  // front/back map to event class 0/1
                 double class_level; 
                 (*m_it)["CTBClassLevel"].get(class_level);
-                if( class_level<Data::s_class_level) event_class=99;
+                if( class_level<Data::class_level()) event_class=99;
                 else{
                     // gets S/C pointing info for this event
                     (*m_it)["PtRaz" ].get(raz);
@@ -348,3 +348,18 @@ Data::~Data()
     delete m_data;
 }
 
+
+double Data::set_scale(int i, double s)
+{
+    double t(s_scale[i]);  s_scale[i]=s; return t;
+}
+
+double Data::scale(int i)
+{
+    return s_scale[i];
+}
+
+double Data::class_level()
+{
+    return s_class_level;
+}

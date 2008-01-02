@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.23 2007/12/19 18:27:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.24 2007/12/20 02:45:08 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -201,13 +201,17 @@ void SourceFinder::examineRegion(void)
         // add to the final list, indexed according to level 13 location
         HealPixel px(ps->dir(), 13); 
         m_can[px] = CanInfo(ts, error, ps->dir());
-        m_can[px].set_ps(ps);
         for(int id =ps->minlevel() ;id<=ps->maxlevel();++id)
         {
             m_can[px].setValue(id,ps->levelTS(id));
             m_can[px].setPhotons(id,((*ps)[id]->photons()) * ((*ps)[id]->alpha()));
             m_can[px].setSigalph(id,(*ps)[id]->sigma_alpha());
         }
+#if 0 // test not saving the PSL object
+        m_can[px].set_ps(ps);
+#else
+        delete ps;
+#endif
 
         // Calculate and store power law fit values.  New as of 6/5/07
         std::vector<std::pair<double, double> > values;
