@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Wed Jan  2 11:15:01 PST 2008
+pointlike/src/pointfind
+
+Modified Files:
+	finder_main.cxx 
+Log Message:
+remove static variables from inline code
+    *
+------------------------------------------------------------
+User: burnett  Wed Jan  2 11:15:01 PST 2008
 pointlike/src
 
 Modified Files:
