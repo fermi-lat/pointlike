@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.16 2007/12/03 00:35:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.17 2007/12/19 03:36:14 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -103,19 +103,14 @@ public:
     static void PointSourceLikelihood::setParameters(const embed_python::Module& par);
 
     /// @brief set radius for individual fits
-    static void setDefaultUmax(double umax){ SimpleLikelihood::s_defaultUmax=umax; }
+    static void setDefaultUmax(double umax);
 
     /// @brief access to the sigma (radians) used for the individual SimpleLikelihood objects
     double sigma(int level)const;
 
-    static std::vector<double> gamma_level;
-    static std::vector<double> sigma_level;
+    static double set_gamma_level(int level, double v);
 
-    static double set_gamma_level(int level, double v){
-        double t = gamma_level[level]; gamma_level[level]=v; return t;}
-
-    static double set_sigma_level(int level, double v){
-        double t = sigma_level[level]; sigma_level[level]=v; return t;}
+    static double set_sigma_level(int level, double v);
 
     ///! Set diffuse background function, return current value 
     static  pointlike::SkySpectrum* set_diffuse( pointlike::SkySpectrum* diffuse);
@@ -130,16 +125,15 @@ public:
     void recalc(int level);
 
     /// @brief get the starting, ending levels used
-    static int minlevel(){return s_minlevel;}
-    static int maxlevel(){return s_maxlevel;}
-    static void set_levels(int minlevel, int maxlevel=13){ s_minlevel= minlevel; s_maxlevel = maxlevel;}
+    static int minlevel();
+    static int maxlevel();
+    static void set_levels(int minlevel, int maxlevel=13);
 
     /// @brief set the integration tolerance for the background, return present value
-    static double set_tolerance(double tol){
-        double old(SimpleLikelihood::s_tolerance);
-        SimpleLikelihood::s_tolerance= tol;
-        return old;
-    }
+    static double set_tolerance(double tol);
+
+    static double gamma_level(int i);
+    static double sigma_level(int i);
 
 
 private:
@@ -162,6 +156,11 @@ private:
     static double s_radius, s_minalpha, s_TSmin, s_tolerance, 
         s_maxstep; //
     static int s_minlevel, s_maxlevel, s_skip1, s_skip2, s_itermax, s_verbose;
+
+    static std::vector<double> s_gamma_level;
+    static std::vector<double> s_sigma_level;
+
+ 
 };
 
 }

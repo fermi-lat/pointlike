@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.18 2007/11/27 04:35:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.19 2007/12/03 00:39:19 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -48,10 +48,10 @@ namespace {
             , m_pixels(0)
             , m_back_norm(1)
         {
-            if( SimpleLikelihood::s_diffuse!=0){
-               SimpleLikelihood::s_diffuse->setEnergyRange(emin, emax);
+            if( SimpleLikelihood::diffuse()!=0){
+               SimpleLikelihood::diffuse()->setEnergyRange(emin, emax);
                double angle(sqrt(2.*umax)*sigma);
-               m_back_norm = SimpleLikelihood::s_diffuse->average(dir, angle, SimpleLikelihood::s_tolerance);
+               m_back_norm = SimpleLikelihood::diffuse()->average(dir, angle, SimpleLikelihood::tolerance());
                if( m_back_norm==0){
                    std::cerr << "Warning: normalization zero" << std::endl;
                    m_back_norm=0.1; // kluge, like below
@@ -68,8 +68,8 @@ namespace {
         //! the normalized (in 0<u<umax)  background in the direction dir
         double b(const SkyDir& dir){
             double val(1.);
-            if( SimpleLikelihood::s_diffuse!=0){
-                val=(*SimpleLikelihood::s_diffuse)(dir)/m_back_norm;
+            if( SimpleLikelihood::diffuse()!=0){
+                val=(*SimpleLikelihood::diffuse())(dir)/m_back_norm;
             }
             // a return value in the given direction
             if( val==0){ val=0.1;} // prevent zero, which is bad
@@ -428,4 +428,34 @@ double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
     // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
    
     return signal()*m_psf(u)/ m_fint/(2*M_PI*sqr(m_sigma));
+}
+
+
+SkySpectrum* SimpleLikelihood::diffuse()
+{
+    return s_diffuse;
+}
+
+void SimpleLikelihood::setDiffuse(SkySpectrum* diff)
+{
+    s_diffuse = diff;
+}
+
+double SimpleLikelihood::tolerance()
+{
+    return s_tolerance;
+}
+
+double SimpleLikelihood::defaultUmax()
+{
+    return s_defaultUmax;
+}
+void SimpleLikelihood::setDefaultUmax(double umax)
+{
+    s_defaultUmax = umax;
+}
+
+void SimpleLikelihood::setTolerance(double tol)
+{
+    s_tolerance = tol;
 }

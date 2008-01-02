@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.14 2007/11/11 21:52:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.15 2007/11/20 23:14:28 burnett Exp $
 
 */
 
@@ -100,7 +100,6 @@ public:
 
     /// average normalized background: should be 1
     double average_b()const{ return m_avb;}
-    static double s_defaultUmax;
 
     double feval(double k);
     double kcurvature(double k);
@@ -117,9 +116,24 @@ public:
     /// @brief access to the effective sigma (radians)  used for the fits
     double sigma()const{ return m_sigma;}
 
+    /// @brief access to the diffuse component
+    static SkySpectrum* diffuse();
+
+    /// @brief set the diffuse component
+    static void setDiffuse(SkySpectrum* diff);
+
+    static double tolerance();
+    static void setTolerance(double tol);
+    static double defaultUmax();
+    static void setDefaultUmax(double umax);
+
+private:
+
+
+    static double s_defaultUmax;
     static SkySpectrum* s_diffuse;
     static double s_tolerance; // for integral
-private:
+
 
     //! @brief a quick estimate of the signal fraction
     //! @return the value of of the signal fraction
