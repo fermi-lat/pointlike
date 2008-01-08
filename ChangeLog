@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan  8 14:40:15 PST 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h SourceFinder.h 
+Log Message:
+source finder updates to use refit
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan  8 14:40:14 PST 2008
 pointlike/doc
 
