@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Jan  8 14:40:15 PST 2008
+pointlike/python
+
+Modified Files:
+	pointfind_setup.py pointfit_setup.py pointlike_defaults.py 
+Log Message:
+source finder updates to use refit
+    *
+------------------------------------------------------------
+User: burnett  Tue Jan  8 14:40:15 PST 2008
 pointlike/pointlike
 
 Modified Files:
