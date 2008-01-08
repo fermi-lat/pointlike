@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.16 2007/12/19 03:38:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.17 2007/12/20 03:13:54 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -39,7 +39,6 @@ namespace pointlike {
           m_weighted_count(0),
           m_isSource(false),
           m_hasStrongNeighbor(false),
-          m_ps(0),
           m_strongNeighbor(healpix::HealPixel(0,0))
           {
               m_values.clear();
@@ -62,7 +61,6 @@ namespace pointlike {
 	double pl_confidence () const {return m_pl_confidence;}
         int weighted_count () const {return m_weighted_count;}
         int skipped () const {return m_skipped;}
-        PointSourceLikelihood * ps () {return m_ps;}
         bool hasStrongNeighbor() const {return m_hasStrongNeighbor;}
         healpix::HealPixel strongNeighbor() const {return m_strongNeighbor;}
 
@@ -79,14 +77,8 @@ namespace pointlike {
 	void set_pl_confidence (double value = 0.0) {m_pl_confidence = value;}
         void set_weighted_count (int value = 0) {m_weighted_count = value;}
         void set_skipped (int value = 0) {m_skipped = value;}
-        void set_ps (PointSourceLikelihood * value) {m_ps = value;}
         void setHasStrongNeighbor (bool value = true) {m_hasStrongNeighbor = value;}
         void setStrongNeighbor (healpix::HealPixel value) {m_strongNeighbor = value;}
-
-        ~CanInfo()
-        {
-            delete(m_ps);
-        }
 
     private:
         double m_value; ///< TS value.
@@ -102,7 +94,6 @@ namespace pointlike {
 	double m_pl_confidence; // Confidence of the power law fit. 1 == perfect fit.
         int m_weighted_count; // weighted count of photons in enclosing pixel.  level of enclosing pixel is determined by pointfind_setup.py
         int m_skipped; // number of candidates rejected before this one was accepted.  Count is reset each time a candidate is accepted.
-        PointSourceLikelihood * m_ps;
         bool m_hasStrongNeighbor;  // Is there a stronger nearby candidate?
         healpix::HealPixel m_strongNeighbor;  // Location of strongest nearby candidate.
 

@@ -1,7 +1,7 @@
 /** @file finder_main.cxx
     @brief  Finder
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.10 2007/12/19 18:27:59 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.11 2008/01/02 19:15:01 burnett Exp $
 
 */
 #include "pointlike/SourceFinder.h"
@@ -82,9 +82,10 @@ int main(int argc, char** argv)
 
        // group nearby candidates with strongest neighbor
         finder.group_neighbors();
-#if 0
+
+        // reexamine the groups of candidates
         finder.reExamine();
-#endif
+
         // prune the result
         finder.prune_neighbors();
 

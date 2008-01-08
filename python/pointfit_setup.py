@@ -1,5 +1,5 @@
 #  setup for point fit test
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.5 2007/11/19 01:09:36 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.6 2007/12/19 03:38:42 burnett Exp $
 from  pointlike_defaults import *
 
 #  specify files with FT1 data and points to fit. pixelfile for PhotonMap, files for FT1 or merit
@@ -9,12 +9,19 @@ def test():
   path = os.environ['POINTLIKEROOT']
   return os.path.join(path, 'src', 'test', 'pointlike_test.fits')
 
+# data selection: either "pixelfile", or "files", the latter a list of FT1 files
 pixelfile = test()
 pixelfile = r'F:\glast\data\SC2\obssim\allsky_noGRBs.fits'
 
+# if this is non-zero, lots of output
+PointSourceLikelihood.verbose=0
+
+# if this is non-zero, use the first of the list as a background for the remainder
+first_is_center=0
+
 
 # the troublesome triplet: the 3EG blazar is very strong, affects the HLCloud
-name = ['DC2_3EGJ1635m1751', 'HLCloud_SC1_05', 'Giommi_blazar_1237']
-ra   = [248.788,    248.4804, 248.34]
-dec  = [-17.861,   -18.294,  -18.71]
+name = ['DC2_3EGJ1635m1751', 'HLCloud_SC1_05', 'Giommi_blazar_1237', 'bogus1', 'bogus2']
+ra   = [248.788,    248.4804, 248.34, 248.51, 248.27]
+dec  = [-17.861,   -18.294,  -18.71  ,-17.88, -18.12]
  

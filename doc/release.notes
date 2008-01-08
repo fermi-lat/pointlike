@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.33 2007/12/19 03:41:00 burnett Exp $
+$Id: release.notes,v 1.34 2007/12/20 14:45:20 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 02-jan-08 v4r3    THB remove static variables from inline code, make all private
  16-dec-07 v4r2p1  THB Fix output parameters of refits
  16-dec-07 v4r2    THB refactored pointfind with refit
  13-dec-07 v4r1p1  THB linux compilation

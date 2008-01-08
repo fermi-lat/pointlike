@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.20 2007/12/19 03:36:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.21 2008/01/02 19:15:01 burnett Exp $
 
 */
 
@@ -478,7 +478,9 @@ void PointSourceLikelihood::clearBackgroundPointSource()
     if( backgnd==0){
         throw std::invalid_argument("PointSourceLikelihood::setBackgroundFit: no diffuse to add to");
     }
-    if( backgnd->size()>0) {backgnd->resize(1);}
+    while( backgnd->size()>1) {
+        backgnd->pop_back();
+    }
 }
 
 /// @brief set radius for individual fits
