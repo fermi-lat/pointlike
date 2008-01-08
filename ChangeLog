@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan  8 14:40:14 PST 2008
+pointlike/doc
+
+Modified Files:
+	release.notes 
+Log Message:
+source finder updates to use refit
+    *
+------------------------------------------------------------
 TAG
 Tag name: v4r3, operation: add
 Package: pointlike
