@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.17 2007/12/19 03:36:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.18 2008/01/02 19:15:01 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -48,7 +48,7 @@ public:
     /// @param skip levels to skip
     double  maximize(int skip=0);
 
-    //! change the current direction
+    //! change the current direction -- resets data and refits
     void setDir(const astro::SkyDir& dir);
 
     /// @return the gradient, summed over all levels, skiping skip

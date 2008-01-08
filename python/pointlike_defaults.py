@@ -1,6 +1,8 @@
-#  setup for pointlike source finder
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.1 2007/12/19 03:38:42 burnett Exp $
-
+# default parameters for the various parameter files
+#
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.2 2007/12/19 18:27:58 burnett Exp $
+#
+# Include this to set defaults, then override 
 
 class Diffuse:
     # diffuse input file image file
@@ -17,9 +19,6 @@ class Data:
     source_id =-1  # -1: all sources -- select according to Monte Carlo source id, if present
 
 
-#------------------------------------------------------------------
-# Common parameters
-#------------------------------------------------------------------
 class PointSourceLikelihood: #parameters for the likelihood calculation
     # HEALpix level range for energy band  fits
 
@@ -39,10 +38,9 @@ class PointSourceLikelihood: #parameters for the likelihood calculation
 
 class SourceFinder:  # parameters for the SourceFinder.
 
-    TSmin = 10           # overall minimum TS
-    skipTSlevels = 2     # number of lowest energy levels to skip when localizing
+    TSmin = 8.0           # overall minimum TS
     pixLevel = 8         # pixelization level for first pass.  Higher number -> more points tested for possible sources
-    pixel_fraction = 0.4 # fraction of pixels to sample, sorted according to weighted photon count
+    pixel_fraction = 0.2 # fraction of pixels to sample, sorted according to weighted photon count
     group_radius = 1.0   # radius for making groups
     prune_radius =0.25   # pruning radius in degrees (also needs to be tuned)
             

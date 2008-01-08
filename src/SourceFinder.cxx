@@ -171,47 +171,39 @@ void SourceFinder::examineRegion(void)
         const astro::SkyDir& currentpos = it->second.dir();
 
         // perform likelihood analysis at the current candidate position  
-        PointSourceLikelihood * ps = new PointSourceLikelihood(m_pmap, "test", currentpos );
+        PointSourceLikelihood ps(m_pmap, "test", currentpos );
 
-        double ts = ps->maximize(skip_TS_levels);
+        double ts = ps.maximize(skip_TS_levels);
         if (ts < ts_min)
         {
             ++ nbr_skipped;
-            delete(ps);
             continue;  // apply initial threshold
         }
 
         // adjust position to maximize likelhood
-        double error = ps->localize(skip1, skip2);
+        double error = ps.localize(skip1, skip2);
         if (error >= sigma_max) // quit if fail to find maximum or > 1 degree
         {
             ++ nbr_skipped;
-            delete(ps);
             continue;  // apply initial threshold
         }
-        ts = ps->maximize(skip_TS_levels); // readjust likelihood at current position
+        ts = ps.maximize(skip_TS_levels); // readjust likelihood at current position
         if (ts <ts_min)
         {
             ++ nbr_skipped;
-            delete(ps);
             continue;  // apply initial threshold
         }
 
         // found candidate
         // add to the final list, indexed according to level 13 location
-        HealPixel px(ps->dir(), 13); 
-        m_can[px] = CanInfo(ts, error, ps->dir());
-        for(int id =ps->minlevel() ;id<=ps->maxlevel();++id)
+        HealPixel px(ps.dir(), 13); 
+        m_can[px] = CanInfo(ts, error, ps.dir());
+        for(int id =ps.minlevel() ;id<=ps.maxlevel();++id)
         {
-            m_can[px].setValue(id,ps->levelTS(id));
-            m_can[px].setPhotons(id,((*ps)[id]->photons()) * ((*ps)[id]->alpha()));
-            m_can[px].setSigalph(id,(*ps)[id]->sigma_alpha());
+            m_can[px].setValue(id,ps.levelTS(id));
+            m_can[px].setPhotons(id,(ps[id]->photons()) * (ps[id]->alpha()));
+            m_can[px].setSigalph(id,ps[id]->sigma_alpha());
         }
-#if 0 // test not saving the PSL object
-        m_can[px].set_ps(ps);
-#else
-        delete ps;
-#endif
 
         // Calculate and store power law fit values.  New as of 6/5/07
         std::vector<std::pair<double, double> > values;
@@ -243,24 +235,26 @@ void SourceFinder::reExamine(void)
     {
         // 2nd iterator makes it possible to delete and still iterate with the other one
         Candidates::iterator it2 = it;  
+        CanInfo& cand(it->second);
         ++ it;
 
         ShowPercent(i++, nbr_to_examine, nbr_purged);
         if (! (it2->second.hasStrongNeighbor())) continue;  // Only care about ones with strong neighbors
 
-        const astro::SkyDir& currentpos = it2->second.dir();
+        const astro::SkyDir& currentpos = cand.dir();
 
-        PointSourceLikelihood * ps = it2->second.ps();
+        // Recalculate likelihood for strong neighbor
+        PointSourceLikelihood::clearBackgroundPointSource();
+        PointSourceLikelihood strong(m_pmap, "test", m_can[cand.strongNeighbor()].dir());
+        double strong_ts = strong.maximize(skip_TS_levels);
 
         // Add strong neighbor to this candidate's background
-        PointSourceLikelihood* strong(m_can[it2->second.strongNeighbor()].ps() );
-        assert(strong);
-        PointSourceLikelihood::clearBackgroundPointSource();
-        PointSourceLikelihood::addBackgroundPointSource(strong);
+        PointSourceLikelihood::addBackgroundPointSource(& strong);
 
-        // perform likelihood analysis at the current candidate position 
-        double oldts( ps->TS() );
-        double ts = ps->maximize(skip_TS_levels);
+        // Recalculate likelihood for this candidate
+        PointSourceLikelihood ps(m_pmap, "test", cand.dir());
+        double ts( ps.maximize(skip_TS_levels) ), oldts( cand.value() );
+
 
         // eliminate candidate if now below threshold
         if (ts < ts_min)
@@ -271,7 +265,7 @@ void SourceFinder::reExamine(void)
         }
 
         // adjust position to maximize likelhood
-        double error = ps->localize(skip1, skip2);
+        double error = ps.localize(skip1, skip2);
         if (error >= sigma_max) // quit if fail to find maximum or > 1 degree
         {
             ++ nbr_purged;
@@ -279,8 +273,8 @@ void SourceFinder::reExamine(void)
             continue;  
         }
 
-        ts = ps->maximize(skip_TS_levels); // readjust likelihood at current position
-        if (ts <ts_min)
+        ts = ps.maximize(skip_TS_levels); // readjust likelihood at current position
+        if (ts < ts_min)
         {
             ++ nbr_purged;
             m_can.erase(it2);
@@ -288,14 +282,14 @@ void SourceFinder::reExamine(void)
         }
 
         // candidate is still good!  update CanInfo values
-        it2->second.set_total_value(ts);
-        it2->second.set_sigma(error);
-        it2->second.set_dir(ps->dir());
-        for(int id =ps->minlevel() ;id<=ps->maxlevel();++id)
+        cand.set_total_value(ts);
+        cand.set_sigma(error);
+        cand.set_dir(ps.dir());
+        for(int id =ps.minlevel(); id <= ps.maxlevel(); ++id)
         {
-            it2->second.setValue(id,ps->levelTS(id));
-            it2->second.setPhotons(id,((*ps)[id]->photons()) * ((*ps)[id]->alpha()));
-            it2->second.setSigalph(id,(*ps)[id]->sigma_alpha());
+            cand.setValue(id,ps.levelTS(id));
+            cand.setPhotons(id,(ps[id]->photons()) * (ps[id]->alpha()));
+            cand.setSigalph(id,ps[id]->sigma_alpha());
         }
 	
         // Calculate and store power law fit values.  
@@ -305,13 +299,13 @@ void SourceFinder::reExamine(void)
         // ignore first two levels
 	for( int i = 2, lvl = m_pmap.minLevel() + 2; lvl < m_pmap.minLevel() + m_pmap.levels(); ++i, ++lvl)
 	{
-            double count = it2->second.photons(lvl);
+            double count = cand.photons(lvl);
 	    values.push_back(std::make_pair(energyBins[i], count));
 	}
 	pointlike::PowerLawFilter pl(values);
-	it2->second.set_pl_slope(pl.slope());
-	it2->second.set_pl_constant(pl.constant());
-	it2->second.set_pl_confidence(pl.metric());
+	cand.set_pl_slope(pl.slope());
+	cand.set_pl_constant(pl.constant());
+	cand.set_pl_confidence(pl.metric());
     }
     std::cout << nbr_purged << " candidates purged,  " << m_can.size() << " candidates left.\n";
     timer();
