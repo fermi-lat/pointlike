@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Jan 16 12:38:24 PST 2008
+pointlike/src
+
+Modified Files:
+	Draw.cxx 
+Log Message:
+Fixed countType error when calling SkyCount (only produced weighted counts with children)
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan  8 14:40:15 PST 2008
 pointlike/src/pointfind
 
