@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jan 20 11:06:15 PST 2008
+pointlike/src
+
+Modified Files:
+	Data.cxx 
+Log Message:
+protect against bad data
+    *
+------------------------------------------------------------
 User: mar0  Wed Jan 16 12:38:24 PST 2008
 pointlike/src
 
