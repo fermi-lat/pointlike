@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.12 2007/11/18 22:56:56 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.13 2008/01/02 19:15:01 burnett Exp $
 */
 
 
@@ -17,6 +17,7 @@ class PhotonMap;
 }
 
 #include "embed_python/Module.h"
+#include "CLHEP/Vector/Rotation.h"
 #include <string>
 #include <vector>
 
@@ -68,11 +69,15 @@ public:
     static double scale(int i);
     static double set_scale(int i, double s);
     static double class_level();
+    //corrections to fixed rotation in GLAST frame, default is (0,0,0)
+    static CLHEP::HepRotation set_rot(double arcsecx, double arcsecy, double arcsecz);
+    static CLHEP::HepRotation get_rot();
 
 private:
+    void lroot(const std::string& infile);
     static double s_scale[4]; // scale factors
     static int s_class_level; // set to 1,2,3 for transient, source, diffuse
-
+    static CLHEP::HepRotation s_rot;
     pointlike::PhotonMap * m_data;
     std::string m_ft2file;
     double m_start, m_stop;

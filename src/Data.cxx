@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.20 2008/01/20 19:06:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.21 2008/01/25 01:07:06 burnett Exp $
 
 */
 
@@ -22,6 +22,8 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.20 2008/01/20 1
 #include "TROOT.h"
 #include "TTree.h"
 #include "TFile.h"
+#include "TLeaf.h"
+#include "TSystem.h"
 
 #include <iostream>
 #include <iomanip>
@@ -36,6 +38,7 @@ using namespace pointlike;
 double Data::s_scale[4]={1.0, 1.86, 1.0, 1.0}; // wired in for front, back !!
 
 int Data::s_class_level=2; 
+CLHEP::HepRotation Data::s_rot = CLHEP::HepRotationX(0)*CLHEP::HepRotationY(0)*CLHEP::HepRotationZ(0);
 
 #ifdef WIN32
 #include <float.h> // used to check for NaN
@@ -44,6 +47,13 @@ int Data::s_class_level=2;
 #endif
 
 namespace {
+
+    std::string root_names[] = {"FT1Ra", "FT1Dec", 
+        "CTBBestEnergy", "EvtElapsedTime",
+        "FT1ConvLayer","PtRaz", 
+        "PtDecz","PtRax",
+        "PtDecx", "CTBClassLevel", "McSourceId"//,"FT1ZenithTheta","CTBBestEnergyRatio","CTBCORE","CTBGAM"
+    };
 
     bool isFinite(double val) {
         using namespace std; // should allow either std::isfinite or ::isfinite
@@ -54,9 +64,19 @@ namespace {
 #endif
     }
 
+    inline static void do_load (void)
+    {
+        static bool first = true;
+        if( first) {
+            gSystem->Load("libTree");
+            first=false;
+        }
+    }
+
+
 
     /** @class Photon
-        @brief derive from astro::Photon to allow transformation
+    @brief derive from astro::Photon to allow transformation
 
     */
 
@@ -142,7 +162,7 @@ namespace {
         @param table_name must be "EVENTS" for FT1, or "MeritTuple"
         */
         EventList( std::string infile, bool selectid=false,
-             std::string table_name="EVENTS");
+            std::string table_name="EVENTS");
 
         ~EventList();
 
@@ -173,9 +193,9 @@ namespace {
     };
 
     EventList::EventList(const std::string infile, bool selectid,
-         std::string table_name)
-         : m_fits(true)
-         , m_selectid(selectid)
+        std::string table_name)
+        : m_fits(true)
+        , m_selectid(selectid)
     {
         if( infile.find(".root") != std::string::npos) {
             table_name = "MeritTuple"; 
@@ -191,8 +211,8 @@ namespace {
     }
     EventList::~EventList()
     {
-       // seems to create crash
-       // delete m_table;
+        // seems to create crash
+        // delete m_table;
     }
 
     Photon EventList::Iterator::operator*()const
@@ -221,7 +241,7 @@ namespace {
         if( m_selectid) { // check for source id only if requested
             (*m_it)[*names++].get(source);
         }
- 
+
         if( !isFinite(energy) || !isFinite(dec) || !isFinite(ra) ){
             std::stringstream s;
             s << "Bad data: time = " << std::setprecision(10)<< time;
@@ -263,9 +283,40 @@ namespace {
         return Iterator(m_itend, m_fits);
     }
 
-
-
-
+    //ROOT event extraction
+    Photon events(std::vector<float>& row) {
+        float ra(0), dec(0), energy(0); // photon info
+        float raz(0), decz(0), rax(90), decx(0); // sc orientation: default orthogonal
+        double time(0);
+        int event_class(99);
+        int source_id(0);
+        int class_level(0);
+        int flag =1;
+        for(unsigned int i = 0;i<row.size();++i) {
+            if(row[i]<-1e7) flag=0;
+        }
+        if(flag) {
+            time = row[3];
+            event_class = static_cast<int>(row[4]);
+            event_class = event_class>4? 0 : 1;  // front/back map to event class 0/1
+            energy = row[2];
+            class_level = row[9];
+            source_id = row[10];
+            if( class_level < Data::class_level()) event_class=99;
+            else{
+                ra = row[0];
+                dec = row[1];
+                raz = row[5];
+                decz = row[6];
+                rax = row[7];
+                decx = row[8];
+                energy/=Data::scale(event_class);
+            }
+        }
+        Photon p(astro::SkyDir(ra, dec), energy, time, event_class , source_id, astro::SkyDir(raz,decz),astro::SkyDir(rax,decx));
+        astro::Photon ap = p.transform(Data::get_rot().inverse());
+        return Photon(ap.dir(),ap.energy(),ap.time(),ap.eventClass(),source_id,astro::SkyDir(raz,decz),astro::SkyDir(rax,decx));
+    }
 } // anon namespace
 
 Data::Data(embed_python::Module& setup)
@@ -287,8 +338,8 @@ Data::Data(embed_python::Module& setup)
     setup.getList(prefix+"files", filelist);
     setup.getValue(prefix+"event_class", event_class);
     setup.getValue(prefix+"source_id",  source_id);
-    setup.getValue(prefix+"start_time", m_start, 0);
-    setup.getValue(prefix+"stop_time" , m_stop, 0);
+    setup.getValue(prefix+"start_time", m_start, -1);
+    setup.getValue(prefix+"stop_time" , m_stop, -1);
     setup.getValue(prefix+"output_pixelfile", output_pixelfile, "");
 
     for( std::vector<std::string>::const_iterator it = filelist.begin(); 
@@ -314,12 +365,14 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
     std::cout  << std::endl;
 
     int photoncount(m_data->photonCount()), pixelcount(m_data->pixelCount());
+    if( inputFile.find(".root") != std::string::npos) {
+        lroot(inputFile);
+    }else {
+        EventList photons(inputFile, source_id>-1);
+        AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id);
 
-    EventList photons(inputFile, source_id>-1);
-    AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id);
-
-    std::for_each(photons.begin(), photons.end(), adder );
-    
+        std::for_each(photons.begin(), photons.end(), adder );
+    }
     std::cout 
         << "photons found: "  << (m_data->photonCount() -photoncount) << " (total: " << m_data->photonCount() <<") "
         << "  pixels created: " << (m_data->pixelCount() -pixelcount) << " (total: " << m_data->pixelCount() << ") "
@@ -372,4 +425,55 @@ double Data::scale(int i)
 double Data::class_level()
 {
     return s_class_level;
+}
+
+void Data::lroot(const std::string& inputFile) {
+    TFile *tf = new TFile(inputFile.c_str(),"READ");
+    TTree *tt = static_cast<TTree*>(tf->Get("MeritTuple"));
+    tt->SetBranchStatus("*", 0); // turn off all branches
+    //turn on appropriate branches
+    for(unsigned int j(0); j< sizeof(root_names)/sizeof(std::string); j++){
+        tt->SetBranchStatus(root_names[j].c_str(), 1);
+    }
+    int entries = static_cast<int>(tt->GetEntries());
+    std::vector<float> row;
+    tt->GetEvent(0);
+    //int starttime = static_cast<int>(tt->GetLeaf("EvtElapsedTime")->GetValue());
+    bool flag(true);
+    //for each entry  
+    for(int i(0);i<entries&&(flag||m_start==-1);++i) {
+        tt->GetEvent(i);
+        //for each
+        for( int j(0); j< sizeof(root_names)/sizeof(std::string); j++){
+            TLeaf * tl = tt->GetLeaf(root_names[j].c_str());
+            if(0==tl) {
+                tl = tt->GetLeaf(("_" + root_names[j]).c_str());
+                if(0==tl) {
+                    tt->Print();
+                    throw std::invalid_argument(std::string("Tuple: could not find leaf ")+root_names[j]);
+                }
+            }
+            float v = tl->GetValue();
+            row.push_back(isFinite(v)?v:-1e8);
+        }
+        Photon p = events(row);
+        if(row[3]>=m_start&&p.eventClass()<99) {
+            m_data->addPhoton(p);
+            //ShowPercent(i,entries,i);
+        }
+        if(row[3]>m_stop) {
+            flag=false;
+        }
+        row.clear();
+    }
+}
+
+CLHEP::HepRotation Data::set_rot(double arcsecx,double arcsecy,double arcsecz) {
+    CLHEP::HepRotation current = s_rot;
+    s_rot = CLHEP::HepRotationX(arcsecx*M_PI/648000)*CLHEP::HepRotationY(arcsecy*M_PI/648000)*CLHEP::HepRotationZ(arcsecz*M_PI/648000);
+    return s_rot;
+}
+
+CLHEP::HepRotation Data::get_rot() {
+    return s_rot;
 }
