@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.17 2007/12/20 03:13:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.19 2008/01/25 00:44:54 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -209,6 +209,9 @@ namespace pointlike {
         //! write contents of CanInfo to fits file
         void write(const std::string & outputFile,
             const std::string & tablename="SOURCEFINDER", bool clobber= true) const;
+
+        //! run the current set of steps
+        void run();
 
     private:
         const pointlike::PhotonMap& m_pmap;
