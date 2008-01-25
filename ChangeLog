@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Fri Jan 25 15:09:43 PST 2008
+pointlike/pointlike
+
+Modified Files:
+	AlignProc.h Data.h RotationInfo.h 
+Log Message:
+Changed alignment units to arcseconds, added faster ROOT access to Data class
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-04-05-02, operation: add
 Package: pointlike
