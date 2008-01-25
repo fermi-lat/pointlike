@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan 24 16:44:54 PST 2008
+pointlike/pointlike
+
+Modified Files:
+	SourceFinder.h 
+Log Message:
+Bruce mods, including new FITS output function
+    *
+------------------------------------------------------------
 User: burnett  Sun Jan 20 11:06:15 PST 2008
 pointlike/src
 
