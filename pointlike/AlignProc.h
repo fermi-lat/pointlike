@@ -21,8 +21,8 @@ namespace pointlike{
     class AlignProc{
     public:
 
-    //! class Photon
-    //! Wrapper class for astro::Photon with added pointing information
+        //! class Photon
+        //! Wrapper class for astro::Photon with added pointing information
         class Photona : public astro::Photon {
         public:
             Photona(const astro::SkyDir& dir, double energy, 
@@ -41,6 +41,20 @@ namespace pointlike{
             CLHEP::Hep3Vector GDir() {return m_gdir;}
             CLHEP::HepRotation Rot() {return m_rot;}
 
+            /// make transformation in GLAST frame
+            /// @param corr matrix that corrects direction in the GLAST frame
+            astro::Photon transform(const HepRotation& corr)const
+            {
+                Hep3Vector 
+                    local( m_rot.inverse()*dir()),
+                    transformed( m_rot * corr * local );
+
+                // account for worse energy resolution of back events by simply scaling up the energy.
+                int evtclass(eventClass());
+                //assert( evtclass>=0 && evtclass<3); // just a check: should be 0 or 1 if not DC2
+                return astro::Photon(SkyDir(transformed), energy(),time(),evtclass, source());
+            }
+
         private:
             CLHEP::HepRotation m_rot;
             CLHEP::Hep3Vector m_gdir;
@@ -51,10 +65,10 @@ namespace pointlike{
         //! @param sources an array of source positions
         //! @param files an array of either root merit or FT1 fits files 
         //! @param arcmins determines the resolution of the grid about the identity rotation (0,0,0)
-        AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::string>& files, double arcmins, double offx, double offy, double offz, int start=-1, int stop=-1); 
+        AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::string>& files, double arcsecs, double offx, double offy, double offz, int start=-1, int stop=-1); 
 
         //! takes event information and returns a photon with pointing information
-        pointlike::AlignProc::Photona event(std::vector<float>& row);
+        pointlike::AlignProc::Photona events(std::vector<float>& row);
 
         //! accumulates likelihood information from each alignment photon (contains pointing information)
         int add(pointlike::AlignProc::Photona& p);
@@ -73,13 +87,13 @@ namespace pointlike{
         std::vector<double> fitparam();
 
         //! Rotation for performing iterative correction to misalignment
-        static HepRotation s_hr;
+
 
         //! Corrects previous rotation by adding in new rotation
-        //! @param x rotation about x-axis in radians
-        //! @param y rotation about y-axis in radians
-        //! @param z rotation about z-axis in radians
-        static void addRot(double x,double y, double z) { HepRotationX mx(x); HepRotationY my(y); HepRotationZ mz(z); s_hr = mx*my*mz*s_hr;}
+        //! @param x rotation about x-axis in arcseconds
+        //! @param y rotation about y-axis in arcseconds
+        //! @param z rotation about z-axis in arcseconds
+        static void addRot(double x,double y, double z); 
 
         //maximum scaled deviation
         static int s_umax;
@@ -88,12 +102,13 @@ namespace pointlike{
         static double setscale(double scale) {double t = s_scale; s_scale = scale; return t;}
 
     private:
+        static HepRotation s_hr;
         void loadroot(const std::string& file);
         void loadfits(const std::string& file);
         int m_photons; //number of photons
         int m_start; //start time 0... (-1 for all)
         int m_stop; //end time ...stop
-        double m_arcmin; //resolution of the grid
+        double m_arcsec; //resolution of the grid
         RotationInfo m_roti; //contains likelihood data for each rotation grid point
         const std::vector<astro::SkyDir> m_skydir; //source positions
     };

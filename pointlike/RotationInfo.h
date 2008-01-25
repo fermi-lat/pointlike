@@ -1,7 +1,7 @@
 /** @file RotationInfo.h 
 @brief declaration of the rotation likelihood class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/RotationInfo.h,v 1.2 2007/11/21 16:36:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/RotationInfo.h,v 1.3 2007/11/21 22:52:32 burnett Exp $
 */
 #ifndef pointlike__Rotation_h
 #define pointlike__Rotation_h
@@ -16,24 +16,24 @@ namespace pointlike {
     class RotationInfo {
 
     public:
-        //! constructor makes a grid of rotations +2,+1,0,-1,-2 arcmin +offset about the X-Y-Z axes  
-        //! @param arcmin rotation in arcminutes
-        RotationInfo(double arcmin, double offx, double offy, double offz){
-            for(int x=-2;x<=2;++x) {
-                for(int y=-2;y<=2;++y) {
-                    for(int z=-2;z<=2;++z) {
-                        m_matrices.push_back(HepRotationX(arcmin*x+offx)*HepRotationY(arcmin*y+offy)*HepRotationZ(arcmin*z+offz));
+        //! constructor makes a grid of rotations {-s_points*arsec,...0,...+s_points*arsec}+offset about the X-Y-Z axes  
+        //! @param arcsec rotation in arcminutes
+        RotationInfo(double arcsec, double offx, double offy, double offz){
+            for(int x=-s_points;x<=s_points;++x) {
+                for(int y=-s_points;y<=s_points;++y) {
+                    for(int z=-s_points;z<=s_points;++z) {
+                        m_matrices.push_back(HepRotationX(arcsec*x+offx)*HepRotationY(arcsec*y+offy)*HepRotationZ(arcsec*z+offz));
                         m_likelihood.push_back(0);
                     }
                 }
             }
         }
 
-        //! returns the loglikelihood of one of the 125 grid points
-        //! @param x +2,+1,0,-1,-2
-        //! @param y +2,+1,0,-1,-2
-        //! @param z +2,+1,0,-1,-2
-        double likelihood(int x,int y,int z) {return (fabs(x*1.)<=2&&fabs(y*1.)<=2&&fabs(z*1.)<=2)?m_likelihood[25*(x+2)+5*(y+2)+z+2]:0;}
+        //! returns the loglikelihood of one of the (2*s_points+1)**3 grid points
+        //! @param x -s_points,...0,...s_points
+        //! @param y -s_points,...0,...s_points
+        //! @param z -s_points,...0,...s_points
+        double likelihood(int x,int y,int z) {return (fabs(x*1.)<=s_points&&fabs(y*1.)<=s_points&&fabs(z*1.)<=s_points)?m_likelihood[(2*s_points+1)*(2*s_points+1)*(x+s_points)+(2*s_points+1)*(y+s_points)+z+s_points]:0;}
 
         //! accumulates the loglikelihood
         //! @param tru source direction
@@ -42,9 +42,11 @@ namespace pointlike {
         void acc(const Hep3Vector& tru, const Hep3Vector& meas, double sigmasq, int level);
 
         static std::vector<double> s_alphas;
-        static void setalphas(std::vector<double>& newalpha) {s_alphas=newalpha;}
+        static void setalphas(const std::vector<double>& newalpha) {s_alphas = newalpha;}
 
+        static int points() {return s_points;}
     private:
+        const static int s_points = 3; //grid points: will crash matrix multiplication if larger than 3
         std::vector<HepRotation> m_matrices; //matrix storage
         std::vector<double> m_likelihood; //loglikelihood for each rotation
 

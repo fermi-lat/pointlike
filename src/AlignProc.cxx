@@ -1,7 +1,7 @@
 /** 
 Data Processing file, operates on a given Photon
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.3 2007/11/21 22:52:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.4 2008/01/02 19:15:01 burnett Exp $
 
 */
 
@@ -14,10 +14,15 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.3 2007/11/
 
 #include <float.h>
 #include <stdexcept>
+#include <fstream>
 
 using namespace pointlike;
 using namespace CLHEP;
 //#define PRINT
+#ifdef PRINT
+std::ofstream outfile("surfaceyz.txt");
+std::ofstream outfile2("surfacexz.txt");
+#endif
 
 namespace{
 
@@ -77,13 +82,13 @@ HepRotation AlignProc::s_hr(0,0,0);
 int AlignProc::s_umax = 50;
 double AlignProc::s_scale = 0.46;
 
-AlignProc::AlignProc(std::vector<astro::SkyDir>& sources,std::vector<std::string>& files,double arcmins, double offx, double offy, double offz, int start, int stop): 
+AlignProc::AlignProc(std::vector<astro::SkyDir>& sources,std::vector<std::string>& files,double arcsecs, double offx, double offy, double offz, int start, int stop): 
 m_photons(0),
 m_start(start),
 m_stop(stop),
 m_skydir(sources),
-m_arcmin(arcmins),
-m_roti(arcmins*M_PI/10800,offx*M_PI/10800,offy*M_PI/10800,offz*M_PI/10800)
+m_arcsec(arcsecs),
+m_roti(arcsecs*M_PI/648000,offx*M_PI/648000,offy*M_PI/648000,offz*M_PI/648000)
 {
     for(std::vector<std::string>::const_iterator it = files.begin();it!=files.end();++it) {
         //either load through ROOT or cfitsio
@@ -127,7 +132,7 @@ void AlignProc::loadroot(const std::string& file) {
             float v = tl->GetValue();
             row.push_back(isFinite(v)?v:-1e8);
         }
-        pointlike::AlignProc::Photona p = event(row);
+        pointlike::AlignProc::Photona p = events(row);
         if(row[3]-starttime>=m_start) {
             add(p);
             ShowPercent(i,entries,i);
@@ -141,9 +146,10 @@ void AlignProc::loadroot(const std::string& file) {
 
 void AlignProc::loadfits(const std::string& /*file */) {
     //todo : process fits file in same manner as ROOT
+
 }
 
-pointlike::AlignProc::Photona AlignProc::event(std::vector<float>& row) {
+pointlike::AlignProc::Photona AlignProc::events(std::vector<float>& row) {
     float ra(0), dec(0), energy(0); // photon info
     float raz(0), decz(0), rax(90), decx(0); // sc orientation: default orthogonal
     double time(0);
@@ -167,8 +173,10 @@ pointlike::AlignProc::Photona AlignProc::event(std::vector<float>& row) {
             energy/=scale[event_class];
         }
     }
-    return pointlike::AlignProc::Photona(astro::SkyDir(ra, dec), energy, time, event_class ,
+    pointlike::AlignProc::Photona p(astro::SkyDir(ra, dec), energy, time, event_class ,
         astro::SkyDir(raz,decz),astro::SkyDir(rax,decx));
+    astro::Photon ap = p.transform(AlignProc::s_hr.inverse());
+    return pointlike::AlignProc::Photona(ap.dir(),ap.energy(),ap.time(),ap.eventClass(),astro::SkyDir(raz,decz),astro::SkyDir(rax,decx));
 }
 
 int AlignProc::add(pointlike::AlignProc::Photona& p){
@@ -210,7 +218,7 @@ int AlignProc::add(pointlike::AlignProc::Photona& p){
             Hep3Vector meas = glast.inverse()*p.dir();
             Hep3Vector tru = glast.inverse()*sd();
             //accumulate likelihood statistics
-            m_roti.acc(tru,s_hr.inverse()*meas,sigmasq,level);
+            m_roti.acc(tru,meas,sigmasq,level);
             ++m_photons;
         }
     }
@@ -220,33 +228,54 @@ int AlignProc::add(pointlike::AlignProc::Photona& p){
 std::vector<double> AlignProc::fitparam() {
     //Least squares method described in Numerical Recipes 15.4 - General Least Squares fit
     std::vector<double> params;
-    HepMatrix A(125,10,0);
-    HepMatrix b(125,1,0);
-    // Rows of A are [ xi**2  xi  yi**2  yi  zi**2  zi   1 ] 
-    for(int x=-2;x<=2;++x) {
-        for(int y=-2;y<=2;++y) {
-            for(int z=-2;z<=2;++z) {
-                int row = 25*(x+2)+5*(y+2)+z+2;
-                A[row][0]=m_arcmin*m_arcmin*x*x;
-                A[row][1]=m_arcmin*x;
-                A[row][2]=m_arcmin*m_arcmin*y*y;
-                A[row][3]=m_arcmin*y;
-                A[row][4]=m_arcmin*m_arcmin*z*z;
-                A[row][5]=m_arcmin*z;
+
+    double norm = m_roti.likelihood(0,0,0);
+    // Rows of A are [ xi**2  xi  yi**2  yi  zi**2  zi   1 ]
+    int n = RotationInfo::points();
+    HepMatrix A((2*n+1)*(2*n+1)*(2*n+1),10,0);
+    HepMatrix b((2*n+1)*(2*n+1)*(2*n+1),1,0);
+    for(int x=-n;x<=n;++x) {
+        for(int y=-n;y<=n;++y) {
+            for(int z=-n;z<=n;++z) {
+                int row = (2*n+1)*(2*n+1)*(x+n)+(2*n+1)*(y+n)+(z+n);
+                A[row][0]=m_arcsec*m_arcsec*x*x;
+                A[row][1]=m_arcsec*x;
+                A[row][2]=m_arcsec*m_arcsec*y*y;
+                A[row][3]=m_arcsec*y;
+                A[row][4]=m_arcsec*m_arcsec*z*z;
+                A[row][5]=m_arcsec*z;
                 A[row][6]=1;
-                A[row][7]=m_arcmin*m_arcmin*x*y;
-                A[row][8]=m_arcmin*m_arcmin*x*z;
-                A[row][9]=m_arcmin*m_arcmin*y*z;
+                A[row][7]=m_arcsec*m_arcsec*x*y;
+                A[row][8]=m_arcsec*m_arcsec*x*z;
+                A[row][9]=m_arcsec*m_arcsec*y*z;
                 b[row][0]=m_roti.likelihood(x,y,z);
+#ifdef PRINT
+                outfile << m_roti.likelihood(x,y,z)-norm << "\t"; 
+#endif
+            }
+#ifdef PRINT
+            outfile << std::endl;
+#endif
+        }
+    }
+    for(int z=-n;z<=n;++z) {
+        for(int y=-n;y<=n;++y) {
+            for(int x=-n;x<=n;++x) {
+                int row = (2*n+1)*(2*n+1)*(x+n)+(2*n+1)*(y+n)+(z+n);
+#ifdef PRINT
+                outfile2 << m_arcsec*x << "\t" << m_arcsec*y << "\t" << m_arcsec*z << "\t" << m_roti.likelihood(x,y,z)-norm << std::endl; 
+#endif
             }
         }
     }
     int err;
 #ifdef PRINT
-    std::cout << A << std::endl;
+    //std::cout << A << std::endl;
 #endif
     //Least squares equation: (At A)*x = At*b, x = (At A)**(-1)*At*b
-    HepMatrix pmatrix = (A.T()*A).inverse(err);
+    HepMatrix pmatrix = A.T();
+    pmatrix = pmatrix*A;
+    pmatrix = pmatrix.inverse(err);
     if(err) std::cout << "BAD INVERSE - Covariance Matrix is singular" << std::endl;
     pmatrix = pmatrix*A.T()*b;
     for(int x=0;x<10;++x) {
@@ -255,3 +284,9 @@ std::vector<double> AlignProc::fitparam() {
     return params;
 }
 
+void AlignProc::addRot(double x, double y, double z) { 
+    HepRotationX mx(x*M_PI/648000);
+    HepRotationY my(y*M_PI/648000);
+    HepRotationZ mz(z*M_PI/648000);
+    s_hr = mx*my*mz*s_hr;
+}
