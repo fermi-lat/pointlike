@@ -2,10 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.36 2008/01/25 01:36:25 burnett Exp $
+$Id: release.notes,v 1.37 2008/01/25 22:36:11 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
- 25-jan-08 v4r3p2  THB Test tag including new SourceFinder capability, mainly for Navid to have a tag
+ 25-jan-08 v4r5p2  THB Test tag including new SourceFinder capability, mainly for Navid to have a tag
  02-jan-08 v4r3    THB remove static variables from inline code, make all private
  16-dec-07 v4r2p1  THB Fix output parameters of refits
  16-dec-07 v4r2    THB refactored pointfind with refit
