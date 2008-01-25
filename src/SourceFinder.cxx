@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.24 2007/12/20 02:45:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.27 2008/01/25 00:44:54 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -63,6 +63,7 @@ namespace {
     int  skip_TS_levels;
     double pixel_fraction;
     astro::SkyDir examine_dir;
+    std::string outfile;
 
     static std::string prefix("SourceFinder.");
 
@@ -76,6 +77,8 @@ namespace {
         module.getValue(prefix+"examine_radius", examine_radius);
         module.getValue(prefix+"group_radius", group_radius, 1.0);
         module.getValue(prefix+"prune_radius", prune_radius, 0.25);
+
+        module.getValue(prefix+"outfile", outfile, "");
 
         double l,b,ra,dec;
         module.getValue(prefix+"l", l, 999.);
@@ -105,11 +108,13 @@ using namespace embed_python;
 using healpix::HealPixel;
 using astro::SkyDir;
 
-SourceFinder::SourceFinder(const pointlike::Data& map, const Module & Mod)
+SourceFinder::SourceFinder(const pointlike::Data& map, const Module & py_module)
 : m_pmap(map)
 , m_counts(0)
-, m_module(Mod)
-{}
+, m_module(py_module)
+{
+    getParameters(py_module);
+}
 
 
 /** @brief
@@ -820,6 +825,25 @@ void SourceFinder::write(const std::string & outputFile,
 
     // close it?
     delete &table;
+}
+
+void SourceFinder::run()
+{
+    examineRegion();
+
+    // group nearby candidates with strongest neighbor   
+    group_neighbors();   
+
+    // reexamine the groups of candidates   
+    reExamine();   
+
+    // prune the result   
+    prune_neighbors();   
+
+    // and write out the table
+    if( ! outfile.empty() )  createTable(outfile);   
+
+
 }
 
 
