@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.19 2008/01/02 19:15:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.20 2008/01/20 19:06:15 burnett Exp $
 
 */
 
@@ -171,15 +171,6 @@ namespace {
         bool m_fits;
         bool m_selectid;
     };
-#if 0
-    std::string EventList::root_names[]={
-        "FT1Ra", "FT1Dec", 
-        "CTBBestEnergy", "EvtElapsedTime",
-        "FT1ConvLayer", "McSourceId", 
-        "PtRaz", "PtDecz","PtRax","PtDecx"
-       , "CTBClassLevel"
-    };                   
-#endif
 
     EventList::EventList(const std::string infile, bool selectid,
          std::string table_name)
@@ -193,18 +184,6 @@ namespace {
         // connect to input data
         const tip::Table * m_table = tip::IFileSvc::instance().readTable(infile, table_name, "");
 
-#if 0 
-        if( ! m_fits ){
-            // if it is ROOT, peek at the TTree and fix the branch status for efficiency
-            TTree* tree;
-            gROOT->GetFile()->GetObject(table_name.c_str(), tree);
-            if( tree==0) throw std::runtime_error("EventList::EventList: did not find the ttree object");
-            tree->SetBranchStatus("*", 0); // turn off all branches
-            for( int j(0); j< sizeof(root_names)/sizeof(std::string); j++){
-                tree->SetBranchStatus(root_names[j].c_str(), 1);
-            }
-        }
-#endif
         // save the iterators
         m_itbegin= m_table->begin();
         m_itend = m_table->end();
@@ -285,13 +264,16 @@ namespace {
     }
 
 
+
+
 } // anon namespace
 
 Data::Data(embed_python::Module& setup)
 {
-    std::string pixelfile(""), tablename("PHOTONMAP");
+    std::string pixelfile(""), tablename("PHOTONMAP"), output_pixelfile("");
 
-    setup.getValue("pixelfile", pixelfile, "");
+    static std::string prefix("Data.");
+    setup.getValue(prefix+"pixelfile", pixelfile, "");
 
     if(!pixelfile.empty()){
         m_data = new pointlike::PhotonMap(pixelfile, tablename);
@@ -302,17 +284,22 @@ Data::Data(embed_python::Module& setup)
     int  event_class, source_id;
     std::vector<std::string> filelist;
 
-    setup.getList("files", filelist);
-    setup.getValue("event_class", event_class, -1);
-    setup.getValue("source_id",  source_id, -1);
-    setup.getValue("start_time", m_start, 0);
-    setup.getValue("stop_time" , m_stop, 0);
+    setup.getList(prefix+"files", filelist);
+    setup.getValue(prefix+"event_class", event_class);
+    setup.getValue(prefix+"source_id",  source_id);
+    setup.getValue(prefix+"start_time", m_start, 0);
+    setup.getValue(prefix+"stop_time" , m_stop, 0);
+    setup.getValue(prefix+"output_pixelfile", output_pixelfile, "");
 
     for( std::vector<std::string>::const_iterator it = filelist.begin(); 
         it !=filelist.end(); ++it)
     {
         const std::string& inputFile(*it);
         add(inputFile, event_class, source_id);
+    }
+    if( !output_pixelfile.empty() ) {
+        std::cout << "writing output pixel file :" << output_pixelfile << std::endl;
+        m_data->write(output_pixelfile);
     }
 }
 
