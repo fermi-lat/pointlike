@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Fri Jan 25 15:09:44 PST 2008
+pointlike/src
+
+Modified Files:
+	AlignProc.cxx Data.cxx RotationInfo.cxx 
+Log Message:
+Changed alignment units to arcseconds, added faster ROOT access to Data class
+    *
+------------------------------------------------------------
 User: mar0  Fri Jan 25 15:09:43 PST 2008
 pointlike/pointlike
 
