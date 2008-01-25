@@ -1,7 +1,7 @@
 /** @file Draw.cxx
 @brief implementation of Draw
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.4 2007/11/20 23:14:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.3 2007/11/18 22:56:56 burnett Exp $
 
 */
 
@@ -67,7 +67,7 @@ void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel
         ++level, ++ layer)
     {
         std::cout << "Filling image layer "<<layer<< " with  counts on level "<<level << std::endl;
-        image.fill(SkyCount(m_map, level, m_countType), layer);  
+        image.fill(SkyCount(m_map, level), layer);  
     }
     // Where HealPixel width for level <= display pixel width, use addPoint().
 
