@@ -31,20 +31,20 @@ namespace pointlike {
     {
     public:
         CanInfo(double value = 0, double sigma = 0, 
-                astro::SkyDir dir = astro::SkyDir(0,0)):
-          m_value(value),
-          m_sigma(sigma), 
-          m_dir(dir), 
-          m_2bdeleted(false),
-          m_weighted_count(0),
-          m_isSource(false),
-          m_hasStrongNeighbor(false),
-          m_strongNeighbor(healpix::HealPixel(0,0))
-          {
-              m_values.clear();
-              m_photons.clear();
-              m_sigalph.clear();
-          }
+            astro::SkyDir dir = astro::SkyDir(0,0)):
+        m_value(value),
+            m_sigma(sigma), 
+            m_dir(dir), 
+            m_2bdeleted(false),
+            m_weighted_count(0),
+            m_isSource(false),
+            m_hasStrongNeighbor(false),
+            m_strongNeighbor(healpix::HealPixel(0,0))
+        {
+            m_values.clear();
+            m_photons.clear();
+            m_sigalph.clear();
+        }
 
         double value () const {return m_value;}
         double values (int level) {return m_values[level];}
@@ -56,9 +56,9 @@ namespace pointlike {
         double dec() const {return m_dir.dec();}
         bool is2bdeleted () const {return m_2bdeleted;}
         bool isSource () const {return m_isSource;}
-	double pl_slope () const {return m_pl_slope;}
-	double pl_constant () const {return m_pl_constant;}
-	double pl_confidence () const {return m_pl_confidence;}
+        double pl_slope () const {return m_pl_slope;}
+        double pl_constant () const {return m_pl_constant;}
+        double pl_confidence () const {return m_pl_confidence;}
         int weighted_count () const {return m_weighted_count;}
         int skipped () const {return m_skipped;}
         bool hasStrongNeighbor() const {return m_hasStrongNeighbor;}
@@ -72,9 +72,9 @@ namespace pointlike {
         void setValue(int level, double val) {m_values[level] = val;}
         void setPhotons(int level, double photons) {m_photons[level] = photons;}
         void setSigalph(int level, double sigalph) {m_sigalph[level] = sigalph;}
-	void set_pl_slope (double value = 0.0) {m_pl_slope = value;}
+        void set_pl_slope (double value = 0.0) {m_pl_slope = value;}
         void set_pl_constant (double value = 0.0) {m_pl_constant = value;}
-	void set_pl_confidence (double value = 0.0) {m_pl_confidence = value;}
+        void set_pl_confidence (double value = 0.0) {m_pl_confidence = value;}
         void set_weighted_count (int value = 0) {m_weighted_count = value;}
         void set_skipped (int value = 0) {m_skipped = value;}
         void setHasStrongNeighbor (bool value = true) {m_hasStrongNeighbor = value;}
@@ -89,9 +89,9 @@ namespace pointlike {
         astro::SkyDir m_dir;
         bool   m_2bdeleted; // True means this is flagged to be deleted later.
         bool   m_isSource;  // True if this corresponds to a confirmed source
-	double m_pl_slope; // Slope of power law fit.
-	double m_pl_constant; // b from (y = mx + b) for power law fit.
-	double m_pl_confidence; // Confidence of the power law fit. 1 == perfect fit.
+        double m_pl_slope; // Slope of power law fit.
+        double m_pl_constant; // b from (y = mx + b) for power law fit.
+        double m_pl_confidence; // Confidence of the power law fit. 1 == perfect fit.
         int m_weighted_count; // weighted count of photons in enclosing pixel.  level of enclosing pixel is determined by pointfind_setup.py
         int m_skipped; // number of candidates rejected before this one was accepted.  Count is reset each time a candidate is accepted.
         bool m_hasStrongNeighbor;  // Is there a stronger nearby candidate?
@@ -109,12 +109,12 @@ namespace pointlike {
     class SourceFinder {
     public:
 
-       SourceFinder(const pointlike::Data& data,  const embed_python::Module & Mod);
-       typedef std::map<healpix::HealPixel, CanInfo> Candidates;
-       typedef std::map<healpix::HealPixel, pointlike::PointSourceLikelihood > LikelihoodMap;
-       typedef std::multimap<int, CanInfo> Prelim; // Preliminary candidates
+        SourceFinder(const pointlike::Data& data,  const embed_python::Module & Mod);
+        typedef std::map<healpix::HealPixel, CanInfo> Candidates;
+        typedef std::map<healpix::HealPixel, pointlike::PointSourceLikelihood > LikelihoodMap;
+        typedef std::multimap<int, CanInfo> Prelim; // Preliminary candidates
 
- 
+
         //! Region selection
         typedef enum  
         {
@@ -132,7 +132,7 @@ namespace pointlike {
         SourceFinder(const std::string& datafile, DiffuseCounts* dc, const Module & Mod);
 
         SourceFinder(const std::string& rootfile, int event_type=-1, int source_id=-1, 
-                     const Module & Mod );
+            const Module & Mod );
 
         /** @brief ctor sets up search
         @param inputFile fits file containing stored PhotonMap structure
@@ -182,12 +182,12 @@ namespace pointlike {
 
         //! Eliminate candidates that don't meet power law tests
         void prune_power_law(void);
- 
+
         //! Group nearby candidates to facilitate further examination
         //! Any candidate that is within "prune_radius" of another is matched with its strongest neighbor
         void group_neighbors(void);
-        
-         //! Eliminate neighbors within cone
+
+        //! Eliminate neighbors within cone
         void prune_neighbors(void);
 
         //! Eliminate weaker adjacent neighbors
@@ -195,7 +195,7 @@ namespace pointlike {
 
         //! summarize results in a ds9 region file
         void createReg(const std::string& filename, double radius = -1.,
-              const std::string& color = "white");
+            const std::string& color = "white");
 
         void createTable(const std::string& filename, bool get_background = false, int skip_TS = 0);
 
@@ -206,6 +206,9 @@ namespace pointlike {
 
         std::vector<CanInfo> candidateList()const;
 
+        //! write contents of CanInfo to fits file
+        void write(const std::string & outputFile,
+            const std::string & tablename="SOURCEFINDER", bool clobber= true) const;
 
     private:
         const pointlike::PhotonMap& m_pmap;

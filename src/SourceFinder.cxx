@@ -7,6 +7,8 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.24 2007
 #include "pointlike/SourceFinder.h"
 #include "pointlike/PointSourceLikelihood.h"
 #include "pointlike/PowerLawFilter.h"
+#include "tip/IFileSvc.h"
+#include "tip/Table.h"
 
 #include <fstream>
 #include <iostream>
@@ -14,6 +16,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.24 2007
 #include <time.h>
 #include <cmath>
 #include <cassert>
+#include <errno.h>
 
 namespace {
 
@@ -47,7 +50,7 @@ namespace {
             std::cout << std::endl;
     }
 
-    
+
     // source finding parameters
     int skip1(2), skip2(3);
     double sigma_max(0.25); // maximum allowable sigma
@@ -62,7 +65,7 @@ namespace {
     astro::SkyDir examine_dir;
 
     static std::string prefix("SourceFinder.");
-    
+
     void getParameters(const embed_python::Module & module)
     {
         module.getValue(prefix+"TSmin", ts_min, 10);
@@ -144,7 +147,7 @@ void SourceFinder::examineRegion(void)
         astro::SkyDir sd;
         double abs_b = fabs((it->first)().b());
         int count = static_cast<int>(m_pmap.photonCount(it->first, sd));
-        
+
         if (count > 0)
         {
             can.insert(std::pair<int, CanInfo>(count, CanInfo(count, 0, sd)) );
@@ -235,26 +238,28 @@ void SourceFinder::reExamine(void)
     {
         // 2nd iterator makes it possible to delete and still iterate with the other one
         Candidates::iterator it2 = it;  
-        CanInfo& cand(it->second);
         ++ it;
 
         ShowPercent(i++, nbr_to_examine, nbr_purged);
         if (! (it2->second.hasStrongNeighbor())) continue;  // Only care about ones with strong neighbors
 
-        const astro::SkyDir& currentpos = cand.dir();
+        const astro::SkyDir& currentpos = it2->second.dir();
+        PointSourceLikelihood::clearBackgroundPointSource();
 
         // Recalculate likelihood for strong neighbor
-        PointSourceLikelihood::clearBackgroundPointSource();
-        PointSourceLikelihood strong(m_pmap, "test", m_can[cand.strongNeighbor()].dir());
+        PointSourceLikelihood strong(m_pmap, "test", m_can[it2->second.strongNeighbor()].dir());
         double strong_ts = strong.maximize(skip_TS_levels);
 
         // Add strong neighbor to this candidate's background
         PointSourceLikelihood::addBackgroundPointSource(& strong);
 
         // Recalculate likelihood for this candidate
-        PointSourceLikelihood ps(m_pmap, "test", cand.dir());
-        double ts( ps.maximize(skip_TS_levels) ), oldts( cand.value() );
+        PointSourceLikelihood ps(m_pmap, "test", it2->second.dir());
+        double ts = ps.maximize(skip_TS_levels);
 
+        // perform likelihood analysis at the current candidate position 
+        double oldts(ts);
+        ts = ps.maximize(skip_TS_levels);
 
         // eliminate candidate if now below threshold
         if (ts < ts_min)
@@ -282,30 +287,30 @@ void SourceFinder::reExamine(void)
         }
 
         // candidate is still good!  update CanInfo values
-        cand.set_total_value(ts);
-        cand.set_sigma(error);
-        cand.set_dir(ps.dir());
+        it2->second.set_total_value(ts);
+        it2->second.set_sigma(error);
+        it2->second.set_dir(ps.dir());
         for(int id =ps.minlevel(); id <= ps.maxlevel(); ++id)
         {
-            cand.setValue(id,ps.levelTS(id));
-            cand.setPhotons(id,(ps[id]->photons()) * (ps[id]->alpha()));
-            cand.setSigalph(id,ps[id]->sigma_alpha());
+            it2->second.setValue(id,ps.levelTS(id));
+            it2->second.setPhotons(id,(ps[id]->photons()) * (ps[id]->alpha()));
+            it2->second.setSigalph(id,ps[id]->sigma_alpha());
         }
-	
+
         // Calculate and store power law fit values.  
-	std::vector<std::pair<double, double> > values;
-	values.clear();
-	std::vector<double> energyBins = m_pmap.energyBins();
+        std::vector<std::pair<double, double> > values;
+        values.clear();
+        std::vector<double> energyBins = m_pmap.energyBins();
         // ignore first two levels
-	for( int i = 2, lvl = m_pmap.minLevel() + 2; lvl < m_pmap.minLevel() + m_pmap.levels(); ++i, ++lvl)
-	{
-            double count = cand.photons(lvl);
-	    values.push_back(std::make_pair(energyBins[i], count));
-	}
-	pointlike::PowerLawFilter pl(values);
-	cand.set_pl_slope(pl.slope());
-	cand.set_pl_constant(pl.constant());
-	cand.set_pl_confidence(pl.metric());
+        for( int i = 2, lvl = m_pmap.minLevel() + 2; lvl < m_pmap.minLevel() + m_pmap.levels(); ++i, ++lvl)
+        {
+            double count = it2->second.photons(lvl);
+            values.push_back(std::make_pair(energyBins[i], count));
+        }
+        pointlike::PowerLawFilter pl(values);
+        it2->second.set_pl_slope(pl.slope());
+        it2->second.set_pl_constant(pl.constant());
+        it2->second.set_pl_confidence(pl.metric());
     }
     std::cout << nbr_purged << " candidates purged,  " << m_can.size() << " candidates left.\n";
     timer();
@@ -433,7 +438,7 @@ void SourceFinder::prune_power_law(void)
     m_module.getValue(prefix+"polarBoundary", polarBoundary, 6.0);
 
     int minlevel = m_pmap.minLevel() + 2;  // Ignore lowest 2 TS levels
-    
+
     std::cout << "Eliminating candidates by power law test:\n" 
         << "  Slope cutoff: " << plSlopeCutoff << std::endl
         << "  Confidence cutoff: " << plFitCutoff << std::endl
@@ -467,7 +472,7 @@ void SourceFinder::prune_power_law(void)
         else if (totalTS >= plMidTSmin) continue;
 
         if (it2->second.pl_slope() > plSlopeCutoff 
-        || it2->second.pl_confidence() < plFitCutoff)
+            || it2->second.pl_confidence() < plFitCutoff)
             m_can.erase(it2);
     }
 
@@ -481,8 +486,9 @@ void SourceFinder::prune_neighbors(void)
 {
     double radius(prune_radius);
     if(radius==0) return;
-    
-    std::cout << "Eliminating weaker neighbors using radius of " << radius << " degrees...";
+    int pruned_by_distance(0), pruned_by_sigma(0);
+
+    std::cout << "Eliminating weaker neighbors using radius of " << radius << " degrees...\n";
 
     // Mark weaker neighbors: loop over all pairs
     for (Candidates::iterator it1 = m_can.begin(); it1 != m_can.end(); ++it1) 
@@ -496,7 +502,12 @@ void SourceFinder::prune_neighbors(void)
             double sigma2(it2->second.sigma());
 
             double diff = (it1->first)().difference((it2->first)())*180/M_PI;
-            if (diff <= radius || diff < 3*(sigma1+sigma2) ) {
+            if (diff <= radius || diff < 3*(sigma1+sigma2) )
+            {
+                if (diff <= radius)
+                    ++ pruned_by_distance;
+                if (diff < 3*(sigma1+sigma2))
+                    ++ pruned_by_sigma;
                 if (sigma2 < sigma1 )it1->second.setDelete();
                 else                 it2->second.setDelete();
             }
@@ -512,6 +523,8 @@ void SourceFinder::prune_neighbors(void)
             m_can.erase(it2);
     }
 
+    std::cout << pruned_by_distance << " pruned by distance.\n";
+    std::cout << pruned_by_sigma << " pruned by sigma.\n";
     std::cout << m_can.size() << " source Candidates remain.\n";
     timer();
 }
@@ -558,7 +571,7 @@ void SourceFinder::group_neighbors(void)
 
     int nbr_found = 0;
     if(radius==0) return;
-    
+
     std::cout << "Grouping neighbors using radius of " << radius << " degrees...";
 
     // Mark candidates with stronger neighbors: loop over all pairs
@@ -568,7 +581,7 @@ void SourceFinder::group_neighbors(void)
         for (Candidates::iterator it2 = m_can.begin();  it2 != m_can.end(); ++it2)
         {
             if (it1 == it2)   continue;  // Don't compare to yourself.  
-    
+
             double diff = (it1->first)().difference((it2->first)())*180/M_PI;
             if (diff <= radius && it2->second.value() > it1->second.value())
             {
@@ -588,7 +601,7 @@ void SourceFinder::group_neighbors(void)
     for (Candidates::iterator it1 = m_can.begin(); it1 != m_can.end(); ++it1)
     {
         if (! (it1->second.hasStrongNeighbor())) continue; // Only look at ones with stronger neighbor.
-        
+
         healpix::HealPixel px = it1->second.strongNeighbor();
         while (m_can[px].hasStrongNeighbor())
         {
@@ -730,5 +743,83 @@ std::vector<CanInfo> SourceFinder::candidateList()const
     return ret;
 }
 
+void SourceFinder::write(const std::string & outputFile,
+                         const std::string & tablename,
+                         bool clobber) const
+{
+    std::cout << "Writing results to the table " << outputFile << std::endl;
+
+    if (clobber)
+    {
+        int rc = std::remove(outputFile.c_str());
+        if( rc == -1 && errno == EACCES ) 
+            throw std::runtime_error(std::string(" Cannot remove file " + outputFile));
+    }
+
+    // now add a table to the file
+    tip::IFileSvc::instance().appendTable(outputFile, tablename);
+    tip::Table & table = *tip::IFileSvc::instance().editTable( outputFile, tablename);
+
+    table.appendField("NAME", "24A");
+    table.appendField("TYPE", "30A");
+    table.appendField("RA", "1E");
+    table.appendField("DEC", "1E");
+    table.appendField("L", "1E");
+    table.appendField("B", "1E");
+    table.appendField("F100", "1E");
+    table.appendField("EMIN", "1E");
+    table.appendField("EMAX", "1E");
+    table.appendField("G1", "1E");
+    table.appendField("G2", "1E");
+    table.appendField("EB", "1E");
+    table.appendField("SRCID", "1J");
+    table.appendField("Z", "1E");
+    table.appendField("NEVT", "1J");
+    table.appendField("TO", "1E");
+    table.appendField("CLOSEST", "1J");
+    table.appendField("DISTIN", "1E");
+    table.appendField("CONFUSED", "1I");
+    table.appendField("TS", "1E");
+    table.appendField("ERRX", "1E");
+    table.appendField("NPRED", "1E");
+    table.setNumRecords(m_can.size());
+
+    // get iterator for the Table 
+    tip::Table::Iterator itor = table.begin();
+
+    // now just copy
+    for (Candidates::const_iterator it = m_can.begin(); it != m_can.end(); ++itor, ++it)
+    {
+        (*itor)["NAME"].set(" ");
+        (*itor)["TYPE"].set(" ");
+        (*itor)["RA"].set(it->second.dir().ra());
+        (*itor)["DEC"].set(it->second.dir().dec());
+        (*itor)["L"].set(it->second.dir().l());
+        (*itor)["B"].set(it->second.dir().b());
+        (*itor)["F100"].set(0.0);
+        (*itor)["EMIN"].set(m_pmap.energyBins().front());
+        (*itor)["EMAX"].set(m_pmap.energyBins().back());
+        (*itor)["G1"].set(0.0);
+        (*itor)["G2"].set(0.0);
+        (*itor)["EB"].set(0.0);
+        (*itor)["SRCID"].set(0);
+        (*itor)["Z"].set(0.0);
+        (*itor)["NEVT"].set(0.0);
+        (*itor)["TO"].set(0.0);
+        (*itor)["CLOSEST"].set(0.0);
+        (*itor)["DISTIN"].set(0.0);
+        (*itor)["CONFUSED"].set(0);
+        (*itor)["TS"].set(it->second.value());
+        (*itor)["ERRX"].set(it->second.sigma());
+        (*itor)["NPRED"].set(0.0);
+    }
+
+    // set the headers (TODO: do the comments, too)
+    tip::Header& hdr = table.getHeader();
+    hdr["NAXIS1"].set((20 * sizeof(long)) + 50);
+
+    // close it?
+    delete &table;
+}
 
 
