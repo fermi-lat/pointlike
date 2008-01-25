@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Fri Jan 25 14:35:14 PST 2008
+pointlike/src
+
+Modified Files:
+	SourceFinder.cxx 
+Log Message:
+merge in some changes Bruce didn't have
+    *
+------------------------------------------------------------
+User: burnett  Fri Jan 25 14:35:14 PST 2008
 pointlike/python
 
 Modified Files:
