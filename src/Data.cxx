@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.23 2008/01/27 02:31:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.24 2008/01/27 03:30:47 burnett Exp $
 
 */
 
@@ -302,8 +302,8 @@ namespace {
             event_class = static_cast<int>(row[4]);
             event_class = event_class>4? 0 : 1;  // front/back map to event class 0/1
             energy = row[2];
-            class_level = row[9];
-            source_id = row[10];
+            class_level = static_cast<int>(row[9]);
+            source_id = static_cast<int>(row[10]);
             if( class_level < Data::class_level()) event_class=99;
             else{
                 ra = row[0];
@@ -446,7 +446,7 @@ void Data::lroot(const std::string& inputFile) {
     for(int i(0);i<entries&&(flag||m_start==-1);++i) {
         tt->GetEvent(i);
         //for each
-        for( int j(0); j< sizeof(root_names)/sizeof(std::string); j++){
+        for( size_t j(0); j< sizeof(root_names)/sizeof(std::string); j++){
             TLeaf * tl = tt->GetLeaf(root_names[j].c_str());
             if(0==tl) {
                 tl = tt->GetLeaf(("_" + root_names[j]).c_str());

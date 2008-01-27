@@ -1,7 +1,7 @@
 /** 
 Data Processing file, operates on a given Photon
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.5 2008/01/25 23:09:44 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.6 2008/01/27 03:30:47 burnett Exp $
 
 */
 
@@ -120,7 +120,7 @@ void AlignProc::loadroot(const std::string& file) {
 
         tt->GetEvent(i);
         //for each
-        for( int j(0); j< sizeof(root_names)/sizeof(std::string); j++){
+        for( size_t j(0); j< sizeof(root_names)/sizeof(std::string); j++){
             TLeaf * tl = tt->GetLeaf(root_names[j].c_str());
             if(0==tl) {
                 tl = tt->GetLeaf(("_" + root_names[j]).c_str());
@@ -229,7 +229,7 @@ std::vector<double> AlignProc::fitparam() {
     //Least squares method described in Numerical Recipes 15.4 - General Least Squares fit
     std::vector<double> params;
 
-    double norm = m_roti.likelihood(0,0,0);
+    //unused: double norm = m_roti.likelihood(0,0,0);
     // Rows of A are [ xi**2  xi  yi**2  yi  zi**2  zi   1 ]
     int n = RotationInfo::points();
     HepMatrix A((2*n+1)*(2*n+1)*(2*n+1),10,0);
@@ -261,7 +261,7 @@ std::vector<double> AlignProc::fitparam() {
     for(int z=-n;z<=n;++z) {
         for(int y=-n;y<=n;++y) {
             for(int x=-n;x<=n;++x) {
-                int row = (2*n+1)*(2*n+1)*(x+n)+(2*n+1)*(y+n)+(z+n);
+                //unused: int row = (2*n+1)*(2*n+1)*(x+n)+(2*n+1)*(y+n)+(z+n);
 #ifdef PRINT
                 outfile2 << m_arcsec*x << "\t" << m_arcsec*y << "\t" << m_arcsec*z << "\t" << m_roti.likelihood(x,y,z)-norm << std::endl; 
 #endif

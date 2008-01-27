@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.28 2008/01/25 22:35:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.29 2008/01/27 02:31:33 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -151,7 +151,6 @@ void SourceFinder::examineRegion(void)
         it != v.end(); ++it)
     {
         astro::SkyDir sd;
-        double abs_b = fabs((it->first)().b());
         int count = static_cast<int>(m_pmap.photonCount(it->first, sd));
 
         if (count > 0)
@@ -167,8 +166,8 @@ void SourceFinder::examineRegion(void)
         << "; will examine " << fract<< std::endl;
 
     m_can.clear();
-    int i(0);
-    int failed_photon_count_check(0), nbr_skipped(0);
+    size_t i(0);
+    int nbr_skipped(0);
 
 
     // Examine likelihood fit for each preliminary candidate
@@ -249,12 +248,12 @@ void SourceFinder::reExamine(void)
         ShowPercent(i++, nbr_to_examine, nbr_purged);
         if (! (it2->second.hasStrongNeighbor())) continue;  // Only care about ones with strong neighbors
 
-        const astro::SkyDir& currentpos = it2->second.dir();
+        //not used? const astro::SkyDir& currentpos = it2->second.dir();
         PointSourceLikelihood::clearBackgroundPointSource();
 
         // Recalculate likelihood for strong neighbor
         PointSourceLikelihood strong(m_pmap, "test", m_can[it2->second.strongNeighbor()].dir());
-        double strong_ts = strong.maximize(skip_TS_levels);
+        //not used double strong_ts = strong.maximize(skip_TS_levels);
 
         // Add strong neighbor to this candidate's background
         PointSourceLikelihood::addBackgroundPointSource(& strong);
@@ -264,7 +263,6 @@ void SourceFinder::reExamine(void)
         double ts = ps.maximize(skip_TS_levels);
 
         // perform likelihood analysis at the current candidate position 
-        double oldts(ts);
         ts = ps.maximize(skip_TS_levels);
 
         // eliminate candidate if now below threshold
