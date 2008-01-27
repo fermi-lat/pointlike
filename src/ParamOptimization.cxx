@@ -1,7 +1,7 @@
 /** @file ParamOptimization.cxx 
     @brief ParamOptimization member functions
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.2 2007/11/05 20:07:55 mar0 Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.3 2007/11/18 22:56:56 burnett Exp $
 
 */
 
@@ -15,7 +15,7 @@ using namespace pointlike;
 std::ofstream goldout("bracket_output.xls");
 #endif
 
-ParamOptimization::ParamOptimization(const pointlike::PhotonMap &data, const std::vector<astro::SkyDir>& directions, std::ostream *out,int minlevel,int maxlevel) : 
+ParamOptimization::ParamOptimization(const skymaps::PhotonMap &data, const std::vector<astro::SkyDir>& directions, std::ostream *out,int minlevel,int maxlevel) : 
 m_data(data)
 , m_minlevel(minlevel)
 , m_maxlevel(maxlevel)

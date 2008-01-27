@@ -1,7 +1,7 @@
 /** @file Draw.h 
 @brief declaration of the Draw wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.1 2007/08/30 18:12:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.2 2007/11/18 22:56:56 burnett Exp $
 */
 
 
@@ -12,10 +12,9 @@ namespace astro { class SkyDir; }
 #include <string>
 #include <vector>
 #include "embed_python/Module.h"
-
+#include "skymaps/PhotonMap.h"
 
 namespace pointlike {
-    class PhotonMap;
 
     //! @class Draw
     //! @brief manage creating images to FITS files from a PhotonMap
@@ -32,7 +31,7 @@ namespace pointlike {
         } CountType;
 
 
-        Draw(const pointlike::PhotonMap& map);
+        Draw(const skymaps::PhotonMap& map);
 
         //! create FITS image file using the data
         //! @param dir center
@@ -51,7 +50,7 @@ namespace pointlike {
         void projection(std::string p){m_proj = p;} ///< set the projection
 
     private:
-        const pointlike::PhotonMap& m_map;
+        const skymaps::PhotonMap& m_map;
         bool m_galactic;    ///< galactic or equatorial
         std::string m_proj; ///< projection (CAR, AIT, etc.)
         CountType m_countType; 

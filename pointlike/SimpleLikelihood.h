@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.15 2007/11/20 23:14:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.16 2008/01/02 19:15:01 burnett Exp $
 
 */
 
@@ -12,7 +12,8 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1
 #include "astro/SkyDir.h"
 #include "astro/SkyFunction.h"
 
-#include "pointlike/PsfFunction.h"
+#include "skymaps/PsfFunction.h"
+#include "skymaps/SkySpectrum.h"
 
 #include <vector>
 #include <utility>
@@ -117,10 +118,10 @@ public:
     double sigma()const{ return m_sigma;}
 
     /// @brief access to the diffuse component
-    static SkySpectrum* diffuse();
+    static skymaps::SkySpectrum* diffuse();
 
     /// @brief set the diffuse component
-    static void setDiffuse(SkySpectrum* diff);
+    static void setDiffuse(skymaps::SkySpectrum* diff);
 
     static double tolerance();
     static void setTolerance(double tol);
@@ -131,7 +132,7 @@ private:
 
 
     static double s_defaultUmax;
-    static SkySpectrum* s_diffuse;
+    static skymaps::SkySpectrum* s_diffuse;
     static double s_tolerance; // for integral
 
 
@@ -156,7 +157,7 @@ private:
     std::vector<std::pair<double, int> > m_vec2;
     std::vector<double> m_vec3; //storage of u values for fast Likelihood recalculation
     double m_averageF;
-    pointlike::PsfFunction m_psf;
+    skymaps::PsfFunction m_psf;
     double m_sigma;
     double m_alpha, m_sigma_alpha; ///< current fit value, error
     mutable double m_curv;  // saved curvature from gradient calculation

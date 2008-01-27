@@ -2,12 +2,12 @@
 
 
 */
-#include "pointlike/PhotonMap.h"
-
-
 #include "pointlike/PointSourceLikelihood.h"
-#include "pointlike/DiffuseFunction.h"
-#include "pointlike/Exposure.h"
+
+#include "skymaps/PhotonMap.h"
+#include "skymaps/DiffuseFunction.h"
+#include "skymaps/Exposure.h"
+
 #include "pointlike/SimpleTSmap.h"
 
 #include "PhotonList.h"
@@ -28,6 +28,7 @@ class Points{public:
 
     using namespace astro;
     using namespace pointlike;
+    using skymaps::PhotonMap;
 
 // test data file, generated using obsSim with 3 sources
 std::string inputFile(  "../src/test/test_events.root" );
@@ -37,7 +38,7 @@ std::string inputFile(  "../src/test/test_events.root" );
 */
 class AddPhoton: public std::unary_function<astro::Photon, void> {
 public:
-    AddPhoton (pointlike::PhotonMap& map)
+    AddPhoton (skymaps::PhotonMap& map)
         : m_map(map)
     {}
     void operator()(const astro::Photon& gamma)
@@ -46,7 +47,7 @@ public:
 
         m_map.addPhoton(gamma);
     }
-    pointlike::PhotonMap& m_map;
+    skymaps::PhotonMap& m_map;
 };
 
 
@@ -65,32 +66,10 @@ int main(int , char** )
         tsmap.run();
     
 #endif
-#if 0 // test code for Exposure
-
-        std::string testexp("d:\\users\\kerrm\\Comparison\\expCube.fits");
-        Exposure exp(testexp);
-        double t = exp(SkyDir());
-        std::cout << "exposure check: " << t << std::endl;
-#endif
-
-#if 0  // test code for the DiffuseFunction
-        std::string path( ::getenv("EXTFILESSYS"));
-//        DiffuseFunction df( path + "/galdiffuse/GP_gamma_v0r0p1.fits");
-        DiffuseFunction df( path + "/galdiffuse/GP_gamma.fits");
-        SkyDir gc(0,0, SkyDir::GALACTIC);
-        double e1(1000), e2(2000);
-        double t1 ( df(gc, e1) );  // differential at 1000
-        double t2 ( df(gc, e2) ); // check integral
-        double power ( log(t1/t2)/log(e2/e1) );
-        double t12 = df(gc, e1, e2); // integral?
-        double check ( t1 * e1 *(pow(e2/e1, 1-power)-1)/(1-power) );
-        double diff( t12/check-1 );
-        
-#endif
         double  radius(10);
 
  
-        pointlike::PhotonMap x;
+        skymaps::PhotonMap x;
         std::cout << "Loading data from file " << inputFile  <<std::endl;
         PhotonList photons(inputFile);
 

@@ -1,11 +1,11 @@
 /** @file SimpleTSmap.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleTSmap.cxx,v 1.2 2007/12/03 00:37:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleTSmap.cxx,v 1.3 2007/12/13 14:42:44 burnett Exp $
 */
 
 #include "pointlike/SimpleTSmap.h"
 #include "pointlike/PointSourceLikelihood.h"
-#include "pointlike/PhotonMap.h"
+#include "skymaps/PhotonMap.h"
 
 #include "healpix/HealPixel.h"
 
@@ -35,8 +35,8 @@ using namespace pointlike;
 using astro::SkyDir;
 using healpix::HealPixel;
 
-SimpleTSmap::SimpleTSmap(const pointlike::PhotonMap& pmap, 
-                         const pointlike::SkySpectrum& background)
+SimpleTSmap::SimpleTSmap(const skymaps::PhotonMap& pmap, 
+                         const skymaps::SkySpectrum& background)
 : m_pmap(pmap)
 , m_background(background)
 , m_level(8)
@@ -67,7 +67,7 @@ void SimpleTSmap::run( astro::SkyDir& center, double radius, int level, bool ver
         PointSourceLikelihood ps(m_pmap, "test", sd);
         //ps.set_verbose(true);
         // todo: fix this need for a cast
-        ps.set_diffuse(const_cast<pointlike::SkySpectrum*>(&m_background));
+        ps.set_diffuse(const_cast<skymaps::SkySpectrum*>(&m_background));
         double ts(ps.maximize());
         //ps.printSpectrum();
         if( ts>5 ){

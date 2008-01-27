@@ -1,13 +1,16 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.18 2008/01/02 19:15:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.19 2008/01/08 22:40:14 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
 #define tools_PointSourceLikelihood_h
 
-#include "pointlike/SkySpectrum.h"
 #include "pointlike/SimpleLikelihood.h"
+
+#include "skymaps/SkySpectrum.h"
+#include "skymaps/PhotonMap.h"
+
 #include "astro/SkyDir.h"
 #include "healpix/HealPixel.h"
 
@@ -18,7 +21,6 @@ namespace embed_python { class Module; }
 
 namespace pointlike {
 
-class PhotonMap; // forward declaration
 
 /** @class PointSourceLikelihood
 @brief manage a set of SimpleLikelihood objects, one for each energy band
@@ -28,7 +30,7 @@ usually starting at 6, for 0.9 degree bins.
 
 
 */
-class PointSourceLikelihood : public  std::map<int, SimpleLikelihood*>, public pointlike::SkySpectrum{
+class PointSourceLikelihood : public  std::map<int, SimpleLikelihood*>, public skymaps::SkySpectrum{
 public:
 
 
@@ -37,7 +39,7 @@ public:
     @param name   source name for printout
     @param dir    initial direction
     */
-    PointSourceLikelihood(const pointlike::PhotonMap& data,
+    PointSourceLikelihood(const skymaps::PhotonMap& data,
         std::string name,
         const astro::SkyDir& dir);;
 
@@ -113,7 +115,7 @@ public:
     static double set_sigma_level(int level, double v);
 
     ///! Set diffuse background function, return current value 
-    static  pointlike::SkySpectrum* set_diffuse( pointlike::SkySpectrum* diffuse);
+    static  skymaps::SkySpectrum* set_diffuse( skymaps::SkySpectrum* diffuse);
 
     ///! add a point source fit to the background for subsequent fits
     static void addBackgroundPointSource(const PointSourceLikelihood* fit);
@@ -137,7 +139,7 @@ public:
 
 
 private:
-    void setup(const pointlike::PhotonMap& data,double radius, int minlevel, int maxlevel);
+    void setup(const skymaps::PhotonMap& data,double radius, int minlevel, int maxlevel);
     std::vector<double> m_energies; ///< array of left edge energies, indexed by level-m_minlevel
     int m_minlevel, m_nlevels;      ///< from the data.
     std::string m_name;
