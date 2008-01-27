@@ -1,11 +1,11 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.20 2008/01/02 19:15:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.21 2008/01/27 02:31:33 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
-#include "skymaps/DIffuseFunction.h"
+#include "skymaps/DiffuseFunction.h"
 #include "astro/SkyDir.h"
 #include <algorithm>
 #include <cmath>
