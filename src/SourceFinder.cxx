@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.27 2008/01/25 00:44:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.28 2008/01/25 22:35:14 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -17,6 +17,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.27 2008
 #include <cmath>
 #include <cassert>
 #include <errno.h>
+#include <stdexcept>
 
 namespace {
 

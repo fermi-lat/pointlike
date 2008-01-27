@@ -1,19 +1,19 @@
 /** @file SimpleTSmap.h
     @brief declare class SimpleTSmap
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleTSmap.h,v 1.1 2007/11/27 04:35:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleTSmap.h,v 1.2 2007/12/03 00:37:16 burnett Exp $
 
 */
 #ifndef pointlike_SimpleTSmap_h
 #define pointlike_SimpleTSmap_h
 
-#include "pointlike/SkySpectrum.h"
+#include "skymaps/SkySpectrum.h"
 
 #include "astro/SkyDir.h"
 #include <map>
 #include <vector>
 
-namespace pointlike {
+namespace skymaps {
     class PhotonMap;
 }
 
@@ -26,7 +26,7 @@ namespace pointlike {
  
 */
 
-class SimpleTSmap : public pointlike::SkySpectrum {
+class SimpleTSmap : public skymaps::SkySpectrum {
 public:
 
     /** @brief ctor
@@ -36,7 +36,7 @@ public:
     (need to connect to a discription of the effective area function or functions)
 
     */
-    SimpleTSmap(const pointlike::PhotonMap& pmap, const pointlike::SkySpectrum& background);
+    SimpleTSmap(const skymaps::PhotonMap& pmap, const skymaps::SkySpectrum& background);
     
     ~SimpleTSmap();
 
@@ -70,8 +70,8 @@ public:
     float operator[](int index)const; 
 
 private:
-    const pointlike::PhotonMap& m_pmap;
-    const pointlike::SkySpectrum& m_background;
+    const skymaps::PhotonMap& m_pmap;
+    const skymaps::SkySpectrum& m_background;
     std::map<int, std::vector<float> > m_tsmap; ///< the data: a sparse map of a vector of floats
     int m_level;
     

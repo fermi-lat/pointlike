@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.13 2008/01/02 19:15:01 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.14 2008/01/25 23:09:43 mar0 Exp $
 */
 
 
@@ -12,7 +12,7 @@ namespace astro {
 class SkyDir;
 }
 
-namespace pointlike {
+namespace skymaps {
 class PhotonMap;
 }
 
@@ -58,10 +58,10 @@ public:
     void add(const std::string& file, int event_type=-1, int source_id=-1);
 
     //! behave like a PhotonMap object
-    operator const pointlike::PhotonMap&() const {return *m_data;}
+    operator const skymaps::PhotonMap&() const {return *m_data;}
 
     //! same as above, for python use
-    const pointlike::PhotonMap& map()const{return *m_data;}
+    const skymaps::PhotonMap& map()const{return *m_data;}
 
     
     ~Data();
@@ -77,8 +77,9 @@ private:
     void lroot(const std::string& infile);
     static double s_scale[4]; // scale factors
     static int s_class_level; // set to 1,2,3 for transient, source, diffuse
+
+    skymaps::PhotonMap * m_data;
     static CLHEP::HepRotation s_rot;
-    pointlike::PhotonMap * m_data;
     std::string m_ft2file;
     double m_start, m_stop;
 };

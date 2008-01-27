@@ -1,13 +1,12 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.14 2007/11/05 20:44:38 mar0 Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.15 2007/11/11 21:52:06 burnett Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
 #include "pointlike/Data.h"
 #include "pointlike/ParamOptimization.h"
-#include "pointlike/DiffuseFunction.h"
 
 #include "embed_python/Module.h"
 

@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.21 2008/01/25 01:07:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.22 2008/01/25 23:09:44 mar0 Exp $
 
 */
 
@@ -12,8 +12,8 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.21 2008/01/25 0
 #include "astro/Photon.h"
 #include "astro/PointingTransform.h"
 
-#include "pointlike/PhotonMap.h"
-#include "pointlike/SkyImage.h"
+#include "skymaps/PhotonMap.h"
+#include "skymaps/SkyImage.h"
 
 #include "tip/IFileSvc.h"
 #include "tip/Table.h"
@@ -34,6 +34,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.21 2008/01/25 0
 
 
 using astro::SkyDir;
+using skymaps::PhotonMap;
 using namespace pointlike;
 double Data::s_scale[4]={1.0, 1.86, 1.0, 1.0}; // wired in for front, back !!
 
@@ -116,7 +117,7 @@ namespace {
 
     class AddPhoton: public std::unary_function<astro::Photon, void> {
     public:
-        AddPhoton (pointlike::PhotonMap& map, int select, double start, double stop, int source )
+        AddPhoton (PhotonMap& map, int select, double start, double stop, int source )
             : m_map(map), m_select(select), m_start(start), m_stop(stop), m_source(source)
         {}
         double rescale(double energy, int eventclass)
@@ -141,7 +142,7 @@ namespace {
             astro::Photon gcopy(gamma.dir(), rescale(energy, event_class), gamma.time(), event_class, sourceid); 
             m_map.addPhoton(gcopy);
         }
-        pointlike::PhotonMap& m_map;
+        PhotonMap& m_map;
         int m_select;
         double m_start, m_stop;
         int m_source;
@@ -327,11 +328,11 @@ Data::Data(embed_python::Module& setup)
     setup.getValue(prefix+"pixelfile", pixelfile, "");
 
     if(!pixelfile.empty()){
-        m_data = new pointlike::PhotonMap(pixelfile, tablename);
+        m_data = new PhotonMap(pixelfile, tablename);
         return;
     }
 
-    m_data = new pointlike::PhotonMap();
+    m_data = new PhotonMap();
     int  event_class, source_id;
     std::vector<std::string> filelist;
 
@@ -380,7 +381,7 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
 
 }
 Data::Data(const std::string& inputFile, int event_type, double tstart, double tstop, int source_id)
-: m_data(new pointlike::PhotonMap())
+: m_data(new PhotonMap())
 , m_ft2file("")
 , m_start(tstart), m_stop(tstop)
 {
@@ -388,7 +389,7 @@ Data::Data(const std::string& inputFile, int event_type, double tstart, double t
 }
 
 Data::Data(std::vector<std::string> inputFiles, int event_type, double tstart, double tstop, int source_id, std::string ft2file)
-: m_data(new pointlike::PhotonMap())
+: m_data(new PhotonMap())
 , m_ft2file(ft2file)
 , m_start(tstart), m_stop(tstop)
 {
@@ -402,7 +403,7 @@ Data::Data(std::vector<std::string> inputFiles, int event_type, double tstart, d
 }
 
 Data::Data(const std::string & inputFile, const std::string & tablename)
-: m_data(new pointlike::PhotonMap(inputFile, tablename))
+: m_data(new PhotonMap(inputFile, tablename))
 {
 }
 

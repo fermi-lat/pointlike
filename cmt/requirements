@@ -1,11 +1,12 @@
 package pointlike
 
-version v4r5p2
+version v5r0
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.42 2008/01/25 22:36:11 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.43 2008/01/25 22:37:33 burnett Exp $
 
 use astro *
 use healpix *
+use skymaps *
 use embed_python *
 
 
@@ -16,14 +17,8 @@ path_prepend PYTHONPATH $(POINTLIKEROOT)/python;$(POINTLIKEROOT)/$(BINDIR)
 
 private
 
-########### for SWIG ###########
-#use SwigPolicy v*
 path_remove PYTHONPATH pointlike
 path_prepend PYTHONPATH $(POINTLIKEROOT)/python;$(POINTLIKEROOT)/$(BINDIR)
-#macro swig_module pointlike
-# macro swig_begin "" 
-# macro swig_end ""
-
 
 macro source "*.cxx" WIN32 "*.cxx *.h *.py"
 

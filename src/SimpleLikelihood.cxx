@@ -1,11 +1,12 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.19 2007/12/03 00:39:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.20 2008/01/02 19:15:01 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
-#include "pointlike/SkySpectrum.h"
+#include "skymaps/DIffuseFunction.h"
+#include "astro/SkyDir.h"
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -14,12 +15,16 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.19 
 
 using astro::SkyDir;
 using healpix::HealPixel;
+using skymaps::SkySpectrum;
+using skymaps::DiffuseFunction;
+using skymaps::PsfFunction;
+
 using namespace pointlike;
 
 //#define DEBUG_PRINT
 double SimpleLikelihood::s_defaultUmax =50;
 
-pointlike::SkySpectrum* SimpleLikelihood::s_diffuse(0);
+skymaps::SkySpectrum* SimpleLikelihood::s_diffuse(0);
 double  SimpleLikelihood::s_tolerance(0.05); // default:
 
 namespace {
@@ -431,12 +436,12 @@ double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
 }
 
 
-SkySpectrum* SimpleLikelihood::diffuse()
+skymaps::SkySpectrum* SimpleLikelihood::diffuse()
 {
     return s_diffuse;
 }
 
-void SimpleLikelihood::setDiffuse(SkySpectrum* diff)
+void SimpleLikelihood::setDiffuse(skymaps::SkySpectrum* diff)
 {
     s_diffuse = diff;
 }

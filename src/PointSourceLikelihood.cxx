@@ -1,14 +1,13 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.21 2008/01/02 19:15:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.22 2008/01/08 22:40:15 burnett Exp $
 
 */
 
 #include "pointlike/PointSourceLikelihood.h"
-#include "pointlike/DiffuseFunction.h"
-#include "pointlike/CompositeSkySpectrum.h"
+#include "skymaps/DiffuseFunction.h"
+#include "skymaps/CompositeSkySpectrum.h"
 
-#include "pointlike/PhotonMap.h"
 #include "embed_python/Module.h"
 
 #include <iostream>
@@ -20,6 +19,8 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 
 
 using namespace astro;
 using namespace pointlike;
+using skymaps::CompositeSkySpectrum;
+using skymaps::DiffuseFunction;
 namespace {
 
    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -108,7 +109,7 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
 
 
 PointSourceLikelihood::PointSourceLikelihood(
-    const pointlike::PhotonMap& data,    
+    const skymaps::PhotonMap& data,    
     std::string name,
     const astro::SkyDir& dir)
     : m_energies( data.energyBins() ) // load energies from the data object
@@ -127,7 +128,7 @@ PointSourceLikelihood::PointSourceLikelihood(
 }
 
 
-void PointSourceLikelihood::setup(const pointlike::PhotonMap& data,double radius, int minlevel, int maxlevel)
+void PointSourceLikelihood::setup(const skymaps::PhotonMap& data,double radius, int minlevel, int maxlevel)
 {
     for( int level=minlevel; level<maxlevel+1; ++level){
 
@@ -452,8 +453,8 @@ double PointSourceLikelihood::sigma(int level)const
     return it->second->sigma();
 }
 
-pointlike::SkySpectrum* PointSourceLikelihood::set_diffuse(pointlike::SkySpectrum* diffuse)
-{  SkySpectrum* ret =   SimpleLikelihood::diffuse();
+skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(skymaps::SkySpectrum* diffuse)
+{  skymaps::SkySpectrum* ret =   SimpleLikelihood::diffuse();
    SimpleLikelihood::setDiffuse( diffuse);
    return ret;
 }
