@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.22 2008/01/25 23:09:44 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.23 2008/01/27 02:31:33 burnett Exp $
 
 */
 
@@ -31,6 +31,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.22 2008/01/25 2
 #include <numeric>
 #include <cassert>
 #include <sstream>
+#include <stdexcept>
 
 
 using astro::SkyDir;
