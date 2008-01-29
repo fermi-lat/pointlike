@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.14 2008/01/25 23:09:43 mar0 Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.15 2008/01/27 02:31:33 burnett Exp $
 */
 
 
@@ -10,6 +10,7 @@
 
 namespace astro {
 class SkyDir;
+class PointingHistory;
 }
 
 namespace skymaps {
@@ -46,9 +47,19 @@ public:
 
 
     //! constructor configure from a python "data" file
-    //! @param inputFile the fits file name
-    //! Must define either "pixelfile", or "files", latter a list of root or fits files
-    //! if "files" is specified, then "event_class" or "source_id" may be specified to select
+    //! @param setup the Python module--the following parameters can be set with a "Data." preceding.
+    /** @verbatum
+    pixelfile=''    # set to a photon data FITS file, or use a list of FT1 files, If set, ignore alignment, times, output
+    files = []      # set to a list of FT1-like FITS files (if no pixefile)
+    event_class = -1 # 0, select front only; -1 no selection
+    source_id =-1   # -1: all sources -- select according to Monte Carlo source id, if present
+    output_pixelfile = '' # set to create an output pixel file (if reading FT1 or ROOT files)
+    start_time=0.   # select interval if non zero
+    stop_time=0.    # "
+    history = ''    # optional history or FT2 file, needed to correct for misalignment if readign FT1
+    Latalignment=[] # alignment correction angles about x,y,z axes, in arcseconds
+    @endverbatum
+    */
     Data(embed_python::Module& setup);
 
     //! add  data from the file to current set
@@ -63,15 +74,20 @@ public:
     //! same as above, for python use
     const skymaps::PhotonMap& map()const{return *m_data;}
 
-    
+    //! @brief define FT2 file to use for rotation
+    //! Needed for FT1 file.
+    void setHistoryFile(const std::string& history);
+
     ~Data();
 
     static double scale(int i);
     static double set_scale(int i, double s);
     static double class_level();
-    //corrections to fixed rotation in GLAST frame, default is (0,0,0)
+
+    //! set corrections to fixed rotation in GLAST frame, default is (0,0,0)
     static CLHEP::HepRotation set_rot(double arcsecx, double arcsecy, double arcsecz);
-    static CLHEP::HepRotation get_rot();
+    static void set_rot(std::vector<double> align);
+    static const CLHEP::HepRotation& get_rot();
 
 private:
     void lroot(const std::string& infile);
@@ -82,6 +98,7 @@ private:
     static CLHEP::HepRotation s_rot;
     std::string m_ft2file;
     double m_start, m_stop;
+    astro::PointingHistory* m_history; ///< pointer to optional FT2 info.
 };
 
 }

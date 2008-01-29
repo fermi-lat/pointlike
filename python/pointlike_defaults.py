@@ -1,6 +1,6 @@
 # default parameters for the various parameter files
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.3 2008/01/08 22:40:15 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.4 2008/01/25 01:07:06 burnett Exp $
 #
 # Include this to set defaults, then override 
 import sys
@@ -8,13 +8,15 @@ print 'runing %s' % sys.argv[0]
 
 # data selection parameters
 class Data:
-    pixelfile=''    # set to a photon data FITS file, or use a list of FT1 files
+    pixelfile=''    # set to a photon data FITS file, or use a list of FT1 files, If set, ignore alignment, times, output
     files = []      # set to a list of FT1-like FITS files (if no pixefile)
     event_class = -1 # 0, select front only; -1 no selection
     source_id =-1   # -1: all sources -- select according to Monte Carlo source id, if present
-    output_pixelfile = '' # set to create an output pixel file (if reading FT1 files)
+    output_pixelfile = '' # set to create an output pixel file (if reading FT1 or ROOT files)
     start_time=0.   # select interval if non zero
     stop_time=0.    # "
+    history = ''    # optional history or FT2 file, needed to correct for misalignment if readign FT1
+    Latalignment=[] # alignment correction angles about x,y,z axes, in arcseconds
 
 
 class Diffuse:
