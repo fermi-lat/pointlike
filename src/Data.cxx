@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.24 2008/01/27 03:30:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.25 2008/01/27 15:23:23 burnett Exp $
 
 */
 
@@ -11,9 +11,10 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.24 2008/01/27 0
 #include "astro/SkyDir.h"
 #include "astro/Photon.h"
 #include "astro/PointingTransform.h"
+#include "astro/PointingHistory.h"
 
-#include "skymaps/PhotonMap.h"
 #include "skymaps/SkyImage.h"
+#include "skymaps/PhotonMap.h"
 
 #include "tip/IFileSvc.h"
 #include "tip/Table.h"
@@ -54,7 +55,7 @@ namespace {
         "CTBBestEnergy", "EvtElapsedTime",
         "FT1ConvLayer","PtRaz", 
         "PtDecz","PtRax",
-        "PtDecx", "CTBClassLevel", "McSourceId"//,"FT1ZenithTheta","CTBBestEnergyRatio","CTBCORE","CTBGAM"
+        "PtDecx", "CTBClassLevel"//THB, "McSourceId"//,"FT1ZenithTheta","CTBBestEnergyRatio","CTBCORE","CTBGAM"
     };
 
     bool isFinite(double val) {
@@ -322,6 +323,7 @@ namespace {
 } // anon namespace
 
 Data::Data(embed_python::Module& setup)
+: m_history(0)
 {
     std::string pixelfile(""), tablename("PHOTONMAP"), output_pixelfile("");
 
@@ -336,6 +338,8 @@ Data::Data(embed_python::Module& setup)
     m_data = new PhotonMap();
     int  event_class, source_id;
     std::vector<std::string> filelist;
+    std::string history_filename;
+    std::vector<double>alignment;
 
     setup.getList(prefix+"files", filelist);
     setup.getValue(prefix+"event_class", event_class);
@@ -343,6 +347,14 @@ Data::Data(embed_python::Module& setup)
     setup.getValue(prefix+"start_time", m_start, -1);
     setup.getValue(prefix+"stop_time" , m_stop, -1);
     setup.getValue(prefix+"output_pixelfile", output_pixelfile, "");
+    setup.getValue(prefix+"history",   history_filename, "");
+    if( !history_filename.empty()){
+        std::cout << "loading history file: " << history_filename << std::endl;
+        m_history = new astro::PointingHistory(history_filename);
+    }
+    setup.getList(prefix+"LATalignment", alignment);
+    if( alignment.size()>0) Data::set_rot(alignment);
+
 
     for( std::vector<std::string>::const_iterator it = filelist.begin(); 
         it !=filelist.end(); ++it)
@@ -385,6 +397,7 @@ Data::Data(const std::string& inputFile, int event_type, double tstart, double t
 : m_data(new PhotonMap())
 , m_ft2file("")
 , m_start(tstart), m_stop(tstop)
+, m_history(0)
 {
     add(inputFile, event_type, source_id);
 }
@@ -393,6 +406,7 @@ Data::Data(std::vector<std::string> inputFiles, int event_type, double tstart, d
 : m_data(new PhotonMap())
 , m_ft2file(ft2file)
 , m_start(tstart), m_stop(tstop)
+, m_history(0)
 {
 
     for( std::vector<std::string>::const_iterator it = inputFiles.begin(); 
@@ -405,12 +419,14 @@ Data::Data(std::vector<std::string> inputFiles, int event_type, double tstart, d
 
 Data::Data(const std::string & inputFile, const std::string & tablename)
 : m_data(new PhotonMap(inputFile, tablename))
+, m_history(0)
 {
 }
 
 Data::~Data()
 {
     delete m_data;
+    delete m_history;
 }
 
 
@@ -475,7 +491,22 @@ CLHEP::HepRotation Data::set_rot(double arcsecx,double arcsecy,double arcsecz) {
     s_rot = CLHEP::HepRotationX(arcsecx*M_PI/648000)*CLHEP::HepRotationY(arcsecy*M_PI/648000)*CLHEP::HepRotationZ(arcsecz*M_PI/648000);
     return s_rot;
 }
+void Data::set_rot(std::vector<double> align) {
+    using CLHEP::HepRotation;
+    assert( align.size()==3); // otherwise bad interface setup
+    CLHEP::HepRotation current = s_rot;
+    static double torad(M_PI/(180*60*60));
+    s_rot = HepRotationX(align[0]*torad) 
+          * HepRotationY(align[1]*torad) 
+          * HepRotationZ(align[2]*torad);
+}
 
-CLHEP::HepRotation Data::get_rot() {
+const CLHEP::HepRotation& Data::get_rot() {
     return s_rot;
+}
+
+    //! @brief define FT2 file to use for rotation
+void Data::setHistoryFile(const std::string& history)
+{
+    m_history = new astro::PointingHistory(history);
 }
