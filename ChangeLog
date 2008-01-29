@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Jan 29 11:17:52 PST 2008
+pointlike/python
+
+Modified Files:
+	pointlike_defaults.py 
+Log Message:
+update Data interface for alignment correction
+    *
+------------------------------------------------------------
+User: burnett  Tue Jan 29 11:17:52 PST 2008
 pointlike/pointlike
 
 Modified Files:
