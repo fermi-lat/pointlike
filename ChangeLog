@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Jan 29 11:17:52 PST 2008
+pointlike/src
+
+Modified Files:
+	Data.cxx 
+Log Message:
+update Data interface for alignment correction
+    *
+------------------------------------------------------------
+User: burnett  Tue Jan 29 11:17:52 PST 2008
 pointlike/python
 
 Modified Files:
