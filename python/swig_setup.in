@@ -17,7 +17,11 @@
 #include "healpix/HealPixel.h"
 #include "healpix/HealPixMap.h"
 
-#include "pointlike/SkyImage.h"
+#include "skymaps/DiffuseFunction.h"
+#include "skymaps/CompositeSkySpectrum.h"
+#include "skymaps/PhotonMap.h"
+#include "skymaps/Exposure.h"
+#include "skymaps/SkyImage.h"
 
 
 #include "pointlike/PointSourceLikelihood.h"
@@ -25,10 +29,8 @@
 #include "pointlike/SourceFinder.h"
 #include "pointlike/Data.h"
 #include "pointlike/Draw.h"
-#include "pointlike/DiffuseFunction.h"
-#include "pointlike/CompositeSkySpectrum.h"
-#include "pointlike/PhotonMap.h"
-#include "pointlike/Exposure.h"
+
+
 #include "pointlike/SimpleTSmap.h"
 
 
@@ -144,11 +146,13 @@ public:
 %include $(POINTLIKEROOT)/pointlike/Data.h
 %include $(POINTLIKEROOT)/pointlike/SourceFinder.h
 %include $(POINTLIKEROOT)/pointlike/Draw.h
-%include $(POINTLIKEROOT)/pointlike/DiffuseFunction.h
-%include $(POINTLIKEROOT)/pointlike/CompositeSkySpectrum.h
-%include $(POINTLIKEROOT)/pointlike/PhotonMap.h
-%include $(POINTLIKEROOT)/pointlike/SkyImage.h
-%include $(POINTLIKEROOT)/pointlike/Exposure.h
+
+%include $(SKYMAPSROOT)/skymaps/DiffuseFunction.h
+%include $(SKYMAPSROOT)/skymaps/CompositeSkySpectrum.h
+%include $(SKYMAPSROOT)/skymaps/PhotonMap.h
+%include $(SKYMAPSROOT)/skymaps/SkyImage.h
+%include $(SKYMAPSROOT)/skymaps/Exposure.h
+
 %include $(POINTLIKEROOT)/pointlike/SimpleTSmap.h
 
 %template(CanInfoVector) std::vector<pointlike::CanInfo>;
