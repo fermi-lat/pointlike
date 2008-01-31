@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan 31 08:31:57 PST 2008
+pointlike/python
+
+Modified Files:
+	swig_setup.in 
+Log Message:
+fix paths
+    *
+------------------------------------------------------------
 User: burnett  Wed Jan 30 13:10:13 PST 2008
 pointlike/python
 
