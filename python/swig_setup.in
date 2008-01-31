@@ -1,4 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
+// $Header$
 %{
 #include <stdexcept>
 #include <vector>
