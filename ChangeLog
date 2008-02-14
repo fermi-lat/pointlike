@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Feb 13 17:27:45 PST 2008
+pointlike/doc
+
+Modified Files:
+	release.notes 
+Log Message:
+Fixed alignment procedure, optimizer errors, and code to fix data set in likelihood. Added functionality to data class for FITS.
+    *
+------------------------------------------------------------
 User: mar0  Wed Feb 13 17:27:44 PST 2008
 pointlike/cmt
 
