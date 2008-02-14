@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.40 2008/01/27 03:30:47 burnett Exp $
+$Id: release.notes,v 1.41 2008/01/27 15:23:23 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 13-feb-08 v5r0p3  MR  Fixed alignment procedure, optimizer errors, and code to keep data set constant
  27-jan-08 v5r0p2  THB Move SkySpectrum classes to new package skymaps
  25-jan-08 v4r5p2  THB Test tag including new SourceFinder capability, mainly for Navid to have a tag
  02-jan-08 v4r3    THB remove static variables from inline code, make all private

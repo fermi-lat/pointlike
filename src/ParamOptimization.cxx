@@ -1,11 +1,12 @@
 /** @file ParamOptimization.cxx 
-    @brief ParamOptimization member functions
+@brief ParamOptimization member functions
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.3 2007/11/18 22:56:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.3 2007/11/18 22:56:56 burnett Exp $
 
 */
 
 #include "pointlike/ParamOptimization.h"
+#include "TMatrixD.h"
 #include <fstream>
 //#define PRINT_DEBUG
 
@@ -40,31 +41,35 @@ void ParamOptimization::compute(ParamOptimization::Param p) {
     }
     *m_out << "***************************************************************************\n";
 
-    double num2look = m_likes.size();
+    int num2look = m_likes.size();
     int timeout = 30;
     double tol = 1e-3;
-    m_alphas.clear();
     //for each level, optimize
     for(int iter=m_minlevel;iter<=m_maxlevel;++iter) {
         int whileit =0;
         double maxfactor = 0;
         double osigma=0;
+        std::vector<double> alphas;
+        for(std::vector<PointSourceLikelihood*>::iterator it = m_likes.begin();it!=m_likes.end();++it) {
+            alphas.push_back((*it)->find(iter)->second->alpha());
+        }
         //iterative method for finding best fit (k->1)
         while(maxfactor>=0&&fabs(maxfactor-1.)>tol&&whileit<timeout){
             maxfactor = goldensearch(num2look,iter,sigma);
             // param = param*maxfactor if maxfactor is an appropriate value
             if(maxfactor>0) {
                 if(sigma) {
-                    osigma = PointSourceLikelihood::set_sigma_level(iter,pow(maxfactor,-0.5));
-                    osigma*= PointSourceLikelihood::set_sigma_level(iter,osigma*pow(maxfactor,-0.5));
+                    osigma = PointSourceLikelihood::sigma_level(iter);
+                    PointSourceLikelihood::set_sigma_level(iter,osigma*pow(maxfactor,-0.5));
                 }else {
-                    osigma = PointSourceLikelihood::set_gamma_level(iter,maxfactor);
-                    osigma*= PointSourceLikelihood::set_gamma_level(iter,osigma*maxfactor);
+                    osigma = PointSourceLikelihood::gamma_level(iter);
+                    PointSourceLikelihood::set_gamma_level(iter,osigma*maxfactor);
                 }
             }
-            for(std::vector<PointSourceLikelihood*>::iterator it = m_likes.begin();it!=m_likes.end();++it) {
+            int i(0);
+            for(std::vector<PointSourceLikelihood*>::iterator it = m_likes.begin();it!=m_likes.end();++it,++i) {
                 (*it)->recalc(iter);
-                (*it)->maximize();
+                (*it)->find(iter)->second->setalpha(alphas[i]);
             }
             whileit++;
         }
@@ -74,19 +79,20 @@ void ParamOptimization::compute(ParamOptimization::Param p) {
         //calculate fit statistics for all sources
         for(std::vector<PointSourceLikelihood*>::iterator it = m_likes.begin();it!=m_likes.end();++it) {
             PointSourceLikelihood::iterator ite = (*it)->find(iter);
-            ite->second->maximize();
             if(ite->second->photons()>0) {
                 double curv = sigma?ite->second->kcurvature(maxfactor)/2:ite->second->gcurvature(maxfactor)/2;
-                t_curvature += pow(curv,-2);
                 t_photons += ite->second->photons();
-                t_alpha += ite->second->alpha()*pow(curv,-2.);
+                t_alpha += ite->second->alpha()*ite->second->photons();
             }
         }
-        m_alphas.push_back(t_alpha/t_curvature);
         *m_out << std::left << std::setw(10) << 
-            iter << std::setw(15) << (maxfactor>0?osigma:-1) << 
-            std::setw(15) << pow(t_curvature,-0.5) << std::setw(10) << maxfactor << std::setw(15) << t_alpha/t_curvature <<
+            iter << std::setw(15) << (maxfactor>0?osigma*maxfactor:-1) << 
+            std::setw(15) << curvature(sigma,iter,osigma*maxfactor) << std::setw(10) << maxfactor << std::setw(15) << t_alpha/t_photons <<
             std::setw(10) << t_photons << std::endl;
+#if 0
+
+        std::cout << std::endl;
+#endif
     }
 }
 
@@ -113,7 +119,6 @@ double ParamOptimization::goldensearch(int num2look, int level, bool sigma) {
     double f1 = 0;
     double f2 = 0;
     for(std::vector<PointSourceLikelihood*>::iterator it=m_likes.begin(); (it!=m_likes.end())&& (iter2<num2look);++it,++iter2) {
-        (*it)->maximize();
         pointlike::PointSourceLikelihood::iterator ite = (*it)->find(level);
         if(ite->second->photons()==0) continue;
         if(sigma) {
@@ -125,12 +130,12 @@ double ParamOptimization::goldensearch(int num2look, int level, bool sigma) {
             f2+=ite->second->geval(x2);
         }
     }
-    if(f1==0||f2==0) return -1;
+    if(f1==0||f2==0) return -1.0;
     int k = 1;
     while(fabs(x3-x0) > tol*(fabs(x1)+fabs(x2))) {
         iter2=0;
-        double a1=0;
-        double a2=0;
+        double a1=0.;
+        double a2=0.;
         for(std::vector<PointSourceLikelihood*>::iterator it=m_likes.begin(); (it!=m_likes.end())&& (iter2<num2look);++it,++iter2) {
 
             pointlike::PointSourceLikelihood::iterator ite = (*it)->find(level);
@@ -174,3 +179,36 @@ double ParamOptimization::goldensearch(int num2look, int level, bool sigma) {
     return xmin;
 }
 
+double ParamOptimization::curvature(bool sigma,int level,double val)
+{
+    //Find least squares solution to a quadratic about the minimum likelihood position
+    int npts = 15;        //number of points
+    double sep = 0.003;   //spacing between sampling points
+    TMatrixD A(npts,3);
+    TMatrixD b(npts,1);
+    for(int j(0);j<npts;++j) {
+        double k = 1.-(npts/2-j)*sep;
+        double like(0);
+        A[j][0]= (k*val)*(k*val);
+        A[j][1]= k*val;
+        A[j][2]= 1;
+        for(std::vector<PointSourceLikelihood*>::iterator it = m_likes.begin();it!=m_likes.end();++it) {
+            if(sigma) {
+                like+=(*it)->find(level)->second->feval(k);
+            }
+            else {
+                like+=(*it)->find(level)->second->geval(k);
+            }
+        }
+        b[j][0]=like;
+    }
+    Double_t* err(0);
+    TMatrixD At(3,npts);
+    At.Transpose(A);
+    TMatrixD Cv(3,3);
+    Cv = At*A;
+    Cv = Cv.Invert(err);
+    TMatrixD Cf(3,1);
+    Cf = Cv*At*b;
+    return 1/sqrt(Cf[0][0]);
+}

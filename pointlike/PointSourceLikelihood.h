@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.19 2008/01/08 22:40:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.20 2008/01/27 02:31:33 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -51,7 +51,7 @@ public:
     double  maximize(int skip=0);
 
     //! change the current direction -- resets data and refits
-    void setDir(const astro::SkyDir& dir);
+    void setDir(const astro::SkyDir& dir,bool subset=false);
 
     /// @return the gradient, summed over all levels, skiping skip
     Hep3Vector gradient(int skip=0) const;

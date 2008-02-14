@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.25 2008/01/27 15:23:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.26 2008/01/29 19:17:52 burnett Exp $
 
 */
 
@@ -322,7 +322,7 @@ namespace {
     }
 } // anon namespace
 
-Data::Data(embed_python::Module& setup)
+Data::Data(const embed_python::Module& setup)
 : m_history(0)
 {
     std::string pixelfile(""), tablename("PHOTONMAP"), output_pixelfile("");
@@ -375,7 +375,7 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
     if( source_id>-1) {
         std::cout << " and source id " << source_id;
     }
-    if( m_start>0 || m_stop>0 ) std::cout << " time range: (" << m_start << " to " << m_stop;
+    if( m_start>0 || m_stop>0 ) std::cout << " time range: (" << int(m_start) << " to " << int(m_stop) << ")";
     std::cout  << std::endl;
 
     int photoncount(m_data->photonCount()), pixelcount(m_data->pixelCount());
@@ -474,13 +474,13 @@ void Data::lroot(const std::string& inputFile) {
             float v = tl->GetValue();
             row.push_back(isFinite(v)?v:-1e8);
         }
-        Photon p = events(row);
-        if(row[3]>=m_start&&p.eventClass()<99) {
-            m_data->addPhoton(p);
-            //ShowPercent(i,entries,i);
-        }
-        if(row[3]>m_stop) {
-            flag=false;
+        double time(row[3]);
+        if( m_start<=0 || time >= m_start){
+            if( m_stop<=0 || time < m_stop){
+                m_data->addPhoton( events(row) );
+            }else{
+                flag=false; // here if off the end
+            }
         }
         row.clear();
     }
@@ -489,12 +489,11 @@ void Data::lroot(const std::string& inputFile) {
 CLHEP::HepRotation Data::set_rot(double arcsecx,double arcsecy,double arcsecz) {
     CLHEP::HepRotation current = s_rot;
     s_rot = CLHEP::HepRotationX(arcsecx*M_PI/648000)*CLHEP::HepRotationY(arcsecy*M_PI/648000)*CLHEP::HepRotationZ(arcsecz*M_PI/648000);
-    return s_rot;
+    return current;
 }
 void Data::set_rot(std::vector<double> align) {
     using CLHEP::HepRotation;
     assert( align.size()==3); // otherwise bad interface setup
-    CLHEP::HepRotation current = s_rot;
     static double torad(M_PI/(180*60*60));
     s_rot = HepRotationX(align[0]*torad) 
           * HepRotationY(align[1]*torad) 

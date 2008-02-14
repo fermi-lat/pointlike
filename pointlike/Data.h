@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.15 2008/01/27 02:31:33 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.16 2008/01/29 19:17:52 burnett Exp $
 */
 
 
@@ -54,13 +54,13 @@ public:
     event_class = -1 # 0, select front only; -1 no selection
     source_id =-1   # -1: all sources -- select according to Monte Carlo source id, if present
     output_pixelfile = '' # set to create an output pixel file (if reading FT1 or ROOT files)
-    start_time=0.   # select interval if non zero
+    start_time=0.   # select interval if greater than zero
     stop_time=0.    # "
     history = ''    # optional history or FT2 file, needed to correct for misalignment if readign FT1
     Latalignment=[] # alignment correction angles about x,y,z axes, in arcseconds
     @endverbatum
     */
-    Data(embed_python::Module& setup);
+    Data(const embed_python::Module& setup);
 
     //! add  data from the file to current set
     //! @param file Either FT1 or  MeritTuple ROOT file
@@ -80,6 +80,8 @@ public:
 
     ~Data();
 
+    double minTime()const { return m_start;}
+    double maxTime()const { return m_stop; }
     static double scale(int i);
     static double set_scale(int i, double s);
     static double class_level();
@@ -97,8 +99,9 @@ private:
     skymaps::PhotonMap * m_data;
     static CLHEP::HepRotation s_rot;
     std::string m_ft2file;
-    double m_start, m_stop;
+    double m_start, m_stop;  ///< overall time
     astro::PointingHistory* m_history; ///< pointer to optional FT2 info.
+    std::vector<std::pair<double,double> > m_gti; ///< time intervals (Good Time Interval)
 };
 
 }

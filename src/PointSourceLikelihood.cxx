@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.22 2008/01/08 22:40:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.23 2008/01/27 02:31:33 burnett Exp $
 
 */
 
@@ -193,9 +193,9 @@ void PointSourceLikelihood::setBackgroundDensity(const std::vector<double>& dens
     }
 }
 #endif
-void PointSourceLikelihood::setDir(const astro::SkyDir& dir){
+void PointSourceLikelihood::setDir(const astro::SkyDir& dir, bool subset){
     for( iterator it = begin(); it!=end(); ++it){
-        it->second->setDir(dir);
+        it->second->setDir(dir,subset);
     }
     m_dir = dir;
 }
@@ -219,6 +219,7 @@ double PointSourceLikelihood::curvature(int skip) const{
     for( int i = 0; i< skip; ++it, ++i);
     for( ; it!=end(); ++it){
         if( it->second->TS()< s_TScut) continue;
+        it->second->gradient();
         double curv(it->second->curvature());
         if( curv>0 )  t+= curv;
     }
@@ -360,7 +361,7 @@ double PointSourceLikelihood::localize(int skip)
             Hep3Vector olddir(m_dir()); int count(5);
             while( count-->0){
                 m_dir = olddir -delta;
-                setDir(m_dir);
+                setDir(m_dir,true);
                 double newTs(maximize(skip));
                 if( newTs > oldTs ){
                     oldTs=newTs;
@@ -371,7 +372,7 @@ double PointSourceLikelihood::localize(int skip)
                     <<setprecision(3) << std::endl; }
 
             }
-
+            
             if( gradmag < 0.1 || delta.mag()< 0.1*sig) break;
         }// iter loop
         if( iter==maxiter){
@@ -432,16 +433,9 @@ void PointSourceLikelihood::recalc(int level) {
     // get PSF parameters from fits
         double gamma( gamma_level(level) ),
             sigma ( scale_factor(level)* sigma_level(level));
-
-        double emin( m_energies[level-m_minlevel]), emax( m_energies[level-m_minlevel+1]);
-        // and create the simple likelihood object
-        SimpleLikelihood* sl = new SimpleLikelihood(m_data_vec[level], m_dir, 
-            gamma, sigma,
-            -1, // background (not used now)
-            SimpleLikelihood::defaultUmax(), 
-            emin, emax
-            );
-        (*this)[level] = sl;
+        find(level)->second->setgamma(gamma);
+        find(level)->second->setsigma(sigma);
+        find(level)->second->recalc();
 }
 
 double PointSourceLikelihood::sigma(int level)const
@@ -529,4 +523,3 @@ double PointSourceLikelihood::sigma_level(int i)
 {
     return s_sigma_level.at(i);
 }
-

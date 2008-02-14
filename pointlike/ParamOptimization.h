@@ -1,7 +1,7 @@
 /** @file ParamOptimization.h 
     @brief declaration of the ParamOptimization class for optimizing point spread parameters
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ParamOptimization.h,v 1.3 2007/11/18 22:56:56 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ParamOptimization.h,v 1.4 2008/01/27 02:31:33 burnett Exp $
 */
 #ifndef POINTLIKE_PARAMOPTIMIZATION_H
 #define POINTLIKE_PARAMOPTIMIZATION_H
@@ -29,9 +29,7 @@ public:
         @param radius is the radius cone in degrees
     */
     ParamOptimization(const skymaps::PhotonMap &data, const std::vector<astro::SkyDir>& directions, std::ostream* out=&std::cout, int minlevel=6, int maxlevel=13);
-    
-    //returns signal fraction for each energy bin
-    std::vector<double> get_alphas() {return m_alphas;}
+  
 
     /** @brief computes and stores parameter value which maximizes overall likelihood
         @param p parameter to optimize; SIGMA or GAMMA from the point spread function
@@ -41,7 +39,7 @@ public:
 private:
     // Numerical Recipes algorithm for finding the minimum
     double goldensearch(int num2look, int level, bool sigma);
-    std::vector<double> m_alphas;                 //signal fractions for each energy bin
+    double curvature(bool sigma, int level, double val);
     std::vector<pointlike::PointSourceLikelihood*> m_likes; 
     std::ostream * m_out;                         //where to send output
     const skymaps::PhotonMap m_data;            //points to skymap
