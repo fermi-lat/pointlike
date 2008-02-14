@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 User: mar0  Wed Feb 13 17:27:45 PST 2008
+pointlike/pointlike
+
+Modified Files:
+	AlignProc.h Data.h ParamOptimization.h PointSourceLikelihood.h 
+	RotationInfo.h SimpleLikelihood.h 
+Log Message:
+Fixed alignment procedure, optimizer errors, and code to fix data set in likelihood. Added functionality to data class for FITS.
+    *
+------------------------------------------------------------
+User: mar0  Wed Feb 13 17:27:45 PST 2008
 pointlike/doc
 
 Modified Files:
