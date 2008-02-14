@@ -1,12 +1,14 @@
 /** 
 Data Processing file, operates on a given Photon
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.7 2008/01/27 15:23:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.5 2008/01/25 23:09:44 mar0 Exp $
 
 */
 
 #include "pointlike/AlignProc.h"
-#include "CLHEP/Matrix/Matrix.h"
+#include "skymaps/PhotonMap.h"
+#include "pointlike/Draw.h"
+#include "TMatrixD.h"
 #include "TFile.h"
 #include "TTree.h"
 #include "TLeaf.h"
@@ -20,15 +22,16 @@ using namespace pointlike;
 using namespace CLHEP;
 //#define PRINT
 #ifdef PRINT
-std::ofstream outfile("surfaceyz.txt");
-std::ofstream outfile2("surfacexz.txt");
+std::ofstream outfile("covar.txt");
+std::ofstream surfacexyz("surfacexyz.txt");
 #endif
 
 namespace{
 
     //extra factor (kluge for now) for correcting scaled deviation
-    double minE = 555;
-
+    double E6 =100;
+    int minlevel = 8;
+    int maxlevel = 13;
     void ShowPercent(int sofar, int total, int found)
     {
         static int toskip(50), skipped(0);
@@ -71,7 +74,7 @@ namespace{
         "CTBBestEnergy", "EvtElapsedTime",
         "FT1ConvLayer","PtRaz", 
         "PtDecz","PtRax",
-        "PtDecx"//, "CTBClassLevel"
+        "PtDecx", "CTBClassLevel"
     };
 
     double scale[] = {1.,1.86,1.,1.};
@@ -79,16 +82,17 @@ namespace{
 
 //setup initally with no rotation
 HepRotation AlignProc::s_hr(0,0,0);
+int AlignProc::s_classlevel = 2;
 int AlignProc::s_umax = 50;
-double AlignProc::s_scale = 0.46;
 
-AlignProc::AlignProc(std::vector<astro::SkyDir>& sources,std::vector<std::string>& files,double arcsecs, double offx, double offy, double offz, int start, int stop): 
-m_photons(0),
+AlignProc::AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::vector<double> >& alphas, std::vector<std::string>& files,double arcsecs, double start, double stop): 
+m_photons(6,0),
 m_start(start),
 m_stop(stop),
+m_skydir(sources),
+m_alphas(alphas),
 m_arcsec(arcsecs),
-m_roti(arcsecs*M_PI/648000,offx*M_PI/648000,offy*M_PI/648000,offz*M_PI/648000),
-m_skydir(sources)
+m_roti(arcsecs*M_PI/648000)//offx*M_PI/648000,offy*M_PI/648000,offz*M_PI/648000)
 {
     for(std::vector<std::string>::const_iterator it = files.begin();it!=files.end();++it) {
         //either load through ROOT or cfitsio
@@ -112,15 +116,13 @@ void AlignProc::loadroot(const std::string& file) {
     }
     int entries = static_cast<int>(tt->GetEntries());
     std::vector<float> row;
-    tt->GetEvent(0);
-    int starttime = static_cast<int>(tt->GetLeaf("EvtElapsedTime")->GetValue());
     bool flag(true);
-    //for each entry  
-    for(int i(0);i<entries&&(flag||m_start==-1);++i) {
+    //for each entry
+    for(int i(0);i<entries&&(flag||m_start<0);++i) {
 
         tt->GetEvent(i);
         //for each
-        for( size_t j(0); j< sizeof(root_names)/sizeof(std::string); j++){
+        for( int j(0); j< sizeof(root_names)/sizeof(std::string); j++){
             TLeaf * tl = tt->GetLeaf(root_names[j].c_str());
             if(0==tl) {
                 tl = tt->GetLeaf(("_" + root_names[j]).c_str());
@@ -133,11 +135,11 @@ void AlignProc::loadroot(const std::string& file) {
             row.push_back(isFinite(v)?v:-1e8);
         }
         pointlike::AlignProc::Photona p = events(row);
-        if(row[3]-starttime>=m_start) {
-            add(p);
+        if(row[3]>=m_start) {
+            add(p); 
             ShowPercent(i,entries,i);
         }
-        if(row[3]-starttime>m_stop) {
+        if(row[3]>m_stop) {
             flag=false;
         }
         row.clear();
@@ -155,6 +157,8 @@ pointlike::AlignProc::Photona AlignProc::events(std::vector<float>& row) {
     double time(0);
     int event_class(99);
     int flag =1;
+    int source_id(0);
+    int class_level(0);
     for(unsigned int i = 0;i<row.size();++i) {
         if(row[i]<-1e7) flag=0;
     }
@@ -163,7 +167,10 @@ pointlike::AlignProc::Photona AlignProc::events(std::vector<float>& row) {
         event_class = static_cast<int>(row[4]);
         event_class = event_class>4? 0 : 1;  // front/back map to event class 0/1
         energy = row[2];
-        if(event_class<99){
+        class_level = static_cast<int>(row[9]);
+        source_id = static_cast<int>(row[10]);
+        if( class_level < AlignProc::class_level()) event_class=99;
+        else{
             ra = row[0];
             dec = row[1];
             raz = row[5];
@@ -183,23 +190,30 @@ int AlignProc::add(pointlike::AlignProc::Photona& p){
     int added(0);
     //unused int cl = p.eventClass();
     //above healpix level 8 (mostly signal photons)
-    if(p.energy()>=minE&&p.eventClass()<2){
+    if(p.eventClass()<2){
+
+        int i( static_cast<int>(log(p.energy()/E6)/log(2.35)) );
+        int level = i+6;
+        if( level>maxlevel) level= maxlevel;
+        if( level<minlevel) return 0;
+
         double diff = 1e9;
         astro::SkyDir sd(0,0);
+
+        double alpha(0.);
         //figure out the associated source
-        for(std::vector<astro::SkyDir>::const_iterator it = m_skydir.begin();it!=m_skydir.end();++it) {
-            double dot = p.difference(*it);
+        for(int it(0);it<m_skydir.size();++it) {
+            double dot = p.difference(m_skydir[it]);
             if(dot<diff) {
                 diff=dot;
-                sd = *it;
+                sd = m_skydir[it];
+                alpha = m_alphas[it][i];
             }
         }
+        if(alpha<0) alpha=0;
         double p0,p1;
         //From IRF parameters of 68% containment
 
-        int i( static_cast<int>(log(p.energy()/42)/log(2.35)) );
-        if( i>9-1) i= 9-1;
-        int level = i+5;
 
         if(p.eventClass()==0) {
             p0 = 0.058;
@@ -210,30 +224,30 @@ int AlignProc::add(pointlike::AlignProc::Photona& p){
         }  
         double sigmasq = (p0*p0*pow(p.energy()/100,-1.6))+p1*p1;
         double utest = diff*diff/sigmasq/pointlike::PointSourceLikelihood::sigma_level(level)/pointlike::PointSourceLikelihood::sigma_level(level)/2;
-        //if scaled deviation is within the cone
-        if(utest<s_umax) {
+        //if scaled deviation is within the cone and enough signal photons
+        if(utest<s_umax&&alpha>0.15) {
             added=1;
             HepRotation glast = p.Rot();
             //rotate skydirs into glast centric coordinates
             Hep3Vector meas = glast.inverse()*p.dir();
             Hep3Vector tru = glast.inverse()*sd();
             //accumulate likelihood statistics
-            m_roti.acc(tru,meas,sigmasq,level);
-            ++m_photons;
+            m_roti.acc(tru,meas,sigmasq,alpha,level);
+            ++m_photons[level-minlevel];
         }
     }
-    return static_cast<int>(p.time());
+    return added;
 }
 
-std::vector<double> AlignProc::fitparam() {
+AlignProc::LikeSurface AlignProc::fitsurface() {
     //Least squares method described in Numerical Recipes 15.4 - General Least Squares fit
     std::vector<double> params;
 
-    //unused: double norm = m_roti.likelihood(0,0,0);
+    double norm = m_roti.likelihood(0,0,0);
     // Rows of A are [ xi**2  xi  yi**2  yi  zi**2  zi   1 ]
     int n = RotationInfo::points();
-    HepMatrix A((2*n+1)*(2*n+1)*(2*n+1),10,0);
-    HepMatrix b((2*n+1)*(2*n+1)*(2*n+1),1,0);
+    TMatrixD A((2*n+1)*(2*n+1)*(2*n+1),10);
+    TMatrixD b((2*n+1)*(2*n+1)*(2*n+1),1);
     for(int x=-n;x<=n;++x) {
         for(int y=-n;y<=n;++y) {
             for(int z=-n;z<=n;++z) {
@@ -248,45 +262,82 @@ std::vector<double> AlignProc::fitparam() {
                 A[row][7]=m_arcsec*m_arcsec*x*y;
                 A[row][8]=m_arcsec*m_arcsec*x*z;
                 A[row][9]=m_arcsec*m_arcsec*y*z;
-                b[row][0]=m_roti.likelihood(x,y,z);
-#ifdef PRINT
-                outfile << m_roti.likelihood(x,y,z)-norm << "\t"; 
-#endif
+                double element = m_roti.likelihood(x,y,z)-norm;
+                b[row][0]=element;
             }
-#ifdef PRINT
-            outfile << std::endl;
-#endif
         }
     }
+#ifdef PRINT
     for(int z=-n;z<=n;++z) {
         for(int y=-n;y<=n;++y) {
             for(int x=-n;x<=n;++x) {
-                //unused: int row = (2*n+1)*(2*n+1)*(x+n)+(2*n+1)*(y+n)+(z+n);
-#ifdef PRINT
-                outfile2 << m_arcsec*x << "\t" << m_arcsec*y << "\t" << m_arcsec*z << "\t" << m_roti.likelihood(x,y,z)-norm << std::endl; 
-#endif
+                //int row = (2*n+1)*(2*n+1)*(x+n)+(2*n+1)*(y+n)+(z+n);
+                surfacexyz << m_roti.likelihood(x,y,z)-norm << "\t";
             }
+            surfacexyz << std::endl;
         }
     }
-    int err;
-#ifdef PRINT
-    //std::cout << A << std::endl;
 #endif
+    Double_t* err(0);
     //Least squares equation: (At A)*x = At*b, x = (At A)**(-1)*At*b
-    HepMatrix pmatrix = A.T();
-    pmatrix = pmatrix*A;
-    pmatrix = pmatrix.inverse(err);
-    if(err) std::cout << "BAD INVERSE - Covariance Matrix is singular" << std::endl;
-    pmatrix = pmatrix*A.T()*b;
-    for(int x=0;x<10;++x) {
-        params.push_back(pmatrix[x][0]);
+    TMatrixD pmatrix(10,(2*n+1)*(2*n+1)*(2*n+1));
+    TMatrixD p2(10,10);
+    pmatrix.Transpose(A);
+    p2 = pmatrix*(A);
+    p2 = p2.Invert(err);
+#ifdef PRINT
+    for(int i=0;i<=9;++i) {
+        for(int j=0;j<=9;++j) {
+            outfile << sqrt(p2[i][j]) << "\t";
+        }
+        outfile << std::endl;
     }
-    return params;
+#endif
+    if(err) std::cout << "BAD INVERSE - Covariance Matrix is singular" << std::endl;
+    TMatrixD p3(10,1);
+    p3 = p2*A.T()*b;
+    for(int x=0;x<10;++x) {
+        params.push_back(p3[x][0]);
+    }
+    return AlignProc::LikeSurface(params);
 }
 
 void AlignProc::addRot(double x, double y, double z) { 
     HepRotationX mx(x*M_PI/648000);
     HepRotationY my(y*M_PI/648000);
     HepRotationZ mz(z*M_PI/648000);
-    s_hr = mx*my*mz*s_hr;
+    s_hr = mx*my*mz;
+}
+
+std::vector<double> AlignProc::alignment() {
+    LikeSurface l = fitsurface();
+    TMatrixD A(3,3);
+    TMatrixD b(3,1);
+    //Least squares solution to the second order likelihood surface maxmimum
+    A[0][0]=2*l(0);
+    A[0][1]=l(7);
+    A[0][2]=l(8);
+    A[1][0]=A[0][1];
+    A[1][1]=2*l(2);
+    A[1][2]=l(9);
+    A[2][0]=A[0][2];
+    A[2][1]=A[1][2];
+    A[2][2]=2*l(4);
+    b[0][0]=-l(1);
+    b[1][0]=-l(3);
+    b[2][0]=-l(5);
+    Double_t* err(0);
+    A = A.Invert(err);
+    b = A*b;
+    if(err) std::cout << "BAD INVERSE - Matrix is nearly singular" << std::endl;
+    std::vector<double> alignment;
+    for(int i=0;i<3;++i) {
+        alignment.push_back(b[i][0]);
+    }
+    return alignment;
+}
+
+void  AlignProc::set_rot(const CLHEP::HepRotation& R)
+{
+    s_hr=R;
 }

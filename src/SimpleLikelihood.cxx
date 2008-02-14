@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.21 2008/01/27 02:31:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.22 2008/01/27 15:23:23 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -41,17 +41,20 @@ namespace {
             double sigma, double umax,
             std::vector< std::pair<double, int> >& vec2,
             std::vector<double>& vec3,
-            double emin, double emax
+            std::vector<int>& vec4,
+            double emin, double emax, bool subset
             )
             : m_dir(dir), m_f(f), m_sigma(sigma)
             , m_vec2(vec2)
             , m_vec3(vec3)
+            , m_vec4(vec4)
             , m_umax(umax)
             , m_F( f.integral(umax) ) // for normalization of the PSF
             , m_sum(0), m_count(0)
             , m_sumu(0) // average u, useful for calibration
             , m_pixels(0)
             , m_back_norm(1)
+            , m_subset(subset)
         {
             if( SimpleLikelihood::diffuse()!=0){
                SimpleLikelihood::diffuse()->setEnergyRange(emin, emax);
@@ -62,6 +65,7 @@ namespace {
                    m_back_norm=0.1; // kluge, like below
                }
             }
+            m_first = m_vec4.size()==0;
             if(debug){
                 //psf_data = new std::ofstream("d:/users/burnett/temp/psf.txt");
                 (*psf_data) << "u        f(u)      count    q" << std:: endl;
@@ -82,10 +86,14 @@ namespace {
         }
 
         void operator()(const std::pair<HealPixel, int>& x){
-
             double diff =x.first().difference(m_dir); 
             double  u = sqr(diff/m_sigma)/2.;
-            if( u>m_umax) return;
+            std::vector<int>::iterator it = find(m_vec4.begin(),m_vec4.end(),x.first.index());
+            //return if 
+            //1)normal mode and outside of cone 
+            //2)first time in selection mode and the pixel is outside of cone
+            //3)subsequent time in selection mode and the pixel is not in the original data set
+            if((!m_subset&&u>m_umax)||(m_subset&&m_first&&u>m_umax)||(!m_first&&it==m_vec4.end()&&m_subset)) return;
             // just to see what is there
             // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
             double signal(m_f(u)/m_F)
@@ -107,6 +115,7 @@ namespace {
             // todo: combine elements with vanishing t
             m_vec2.push_back(std::make_pair(q, x.second) );
             m_vec3.push_back(u);
+            if(m_first) m_vec4.push_back(x.first.index());
         }
         double average_f()const {return m_count>0? m_sum/m_count : -1.;}
         double average_u()const {return m_count>0? m_sumu/m_count : -1;}
@@ -119,9 +128,12 @@ namespace {
         double m_sigma;
         std::vector<std::pair<double, int> >& m_vec2;
         std::vector<double>& m_vec3;
+        std::vector<int>& m_vec4;
         double m_umax, m_F;
         double m_sum, m_count, m_sumu, m_sumb, m_pixels;
         double m_back_norm;
+        bool m_first;   //first call?
+        bool m_subset;
     };
 
      //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -179,13 +191,13 @@ SimpleLikelihood::SimpleLikelihood(const std::vector<std::pair<healpix::HealPixe
     setDir(dir);
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-void SimpleLikelihood::setDir(const astro::SkyDir& dir)
+void SimpleLikelihood::setDir(const astro::SkyDir& dir, bool subset)
 {
     m_dir = dir;
     // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
     m_vec2.clear();
     m_vec3.clear();
-    Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2, m_vec3,m_emin, m_emax);
+    Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2, m_vec3, m_vec4, m_emin, m_emax, subset);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
 
     m_photon_count = static_cast<int>(result.count());
@@ -302,7 +314,7 @@ Hep3Vector SimpleLikelihood::gradient() const
         int nphoton( h.second);
         Hep3Vector delta( m_dir() - d() ); 
         double u( 0.5*delta.mag2()/sig2);
-        if( u>m_umax) continue;
+        if((u>m_umax&&m_vec4.size()==0)||(find(m_vec4.begin(),m_vec4.end(),h.first.index())==m_vec4.end()&&m_vec4.size()!=0)) continue;
         double y = perp*delta; // pick an arbitrary direction for the curvature
 
         double fhat( m_psf(u)*m_umax/m_fint)
@@ -463,4 +475,23 @@ void SimpleLikelihood::setDefaultUmax(double umax)
 void SimpleLikelihood::setTolerance(double tol)
 {
     s_tolerance = tol;
+}
+
+void SimpleLikelihood::recalc(bool subset) 
+{
+    // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
+    m_vec2.clear();
+    m_vec3.clear();
+    Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2, m_vec3, m_vec4, m_emin, m_emax, subset);
+    Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
+
+    if(m_photon_count!= static_cast<int>(result.count())) {
+        m_photon_count=m_photon_count;
+    } 
+
+    if( m_photon_count==0) return; //throw std::invalid_argument("SimpleLikelihood: no data after transform");
+
+    m_averageF = result.average_f();
+    m_avu = result.average_u();
+    m_avb = result.average_b();
 }

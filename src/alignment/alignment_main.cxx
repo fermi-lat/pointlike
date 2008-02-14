@@ -1,32 +1,122 @@
-/** @file finder_main.cxx
-@brief  Finder
+/** @file alignment_main.cxx
+@brief  LAT alignment main program
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/finder/finder_main.cxx,v 1.2 2007/07/19 15:20:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/alignment/alignment_main.cxx,v 1.1 2007/08/27 23:24:01 mar0 Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
-#include "pointlike/SourceFinder.h"
-#include "pointlike/CalData.h"
+#include "pointlike/Data.h"
+#include "pointlike/AlignProc.h"
+#include "pointlike/ParamOptimization.h"
+#include "skymaps/PhotonMap.h"
 #include "embed_python/Module.h"
+
 
 #include <iostream>
 #include <iomanip>
 #include <fstream>
 #include <string>
 
+//#define SELECT
+
+using namespace pointlike;
+
 void help(){
     std::cout << "This program expects a single command-line parameter which is the path to a folder containing a file\n"
-        "\tfinder_setup.py" 
+        "\talignment_setup.py" 
         << std::endl;
 
 }
 
 
+class AlignmentSources {
+public:
+    AlignmentSources(const embed_python::Module& setup )
+        :healpixdata(setup)
+    {
+        // set these in calling program from the Data class
+        setup.getList("Data.files",m_filelist);  // get same list of (root for now) files as used in the Data instance
+
+        // get list of candidate sources from the setup module 
+        double separation,maxerr;
+        std::vector<double> ras,decs;
+        std::vector<std::string> names;
+        std::vector<astro::SkyDir> sources,temp;
+        setup.getList("ra_list", ras);
+        setup.getList("dec_list", decs);
+        setup.getList("name_list",names);
+        setup.getValue("separation",separation,M_PI);
+        setup.getValue("maxerr",maxerr,97);
+        separation*=M_PI/180;
+
+        std::vector<double>::iterator id = decs.begin();
+        int current(0);
+        for(std::vector<double>::iterator ir = ras.begin();ir!=ras.end()&&id!=decs.end();++id,++ir) {
+            temp.push_back(astro::SkyDir(*ir,*id));
+        }
+        for(std::vector<astro::SkyDir>::iterator it1=temp.begin();it1!=temp.end();++it1) {
+            double min = 1e9;
+            for(std::vector<astro::SkyDir>::iterator it2=temp.begin();it2!=temp.end();++it2) {
+                double diff = it1->difference(*it2);
+                if(min>diff&&diff>0) {
+                    min = diff;
+                }
+            }
+            if(min>separation) sources.push_back(*it1);
+        }
+
+        int usefitdirection(1);
+        setup.getValue("usefitdirection", usefitdirection, 1);
+        // run likelihood on all of them, select strong ones
+
+        PointSourceLikelihood::setParameters(setup);
+        int minlevel = PointSourceLikelihood::minlevel();
+        int maxlevel = PointSourceLikelihood::maxlevel();
+        std::cout << std::left << std::setw(20) <<"name" << "     TS   error    ra     dec\n";
+        int added = 0;
+        for(int i(0);i<sources.size();++i) {
+            PointSourceLikelihood ps(healpixdata,names[i],sources[i]);
+            ps.maximize();
+            double err = ps.localize();
+            if(ps.TS()>25 && err<maxerr) { //must be 5-sigma and 1 arcmin resolution 
+                ++added;
+                used_sources.push_back( usefitdirection!=0? ps.dir() : sources[i] );
+                std::vector<double> alphat;
+                for(int j(minlevel);j<=maxlevel;++j) {
+                    alphat.push_back(ps.find(j)->second->alpha());
+                }
+                used_alphas.push_back(alphat);
+                used_names.push_back(names[i]);
+                std::cout << std::left << std::setw(20) << names[i] 
+                << std::setprecision(2) << std::setw(8) << std::fixed << std::right
+                    << ps.TS() 
+                    << std::setprecision(4) 
+                    << std::setw(10) << err
+                    << std::setw(10) << ps.dir().ra() 
+                    << std::setw(10) << ps.dir().dec() 
+                    << std::endl;
+            }
+        }
+        std::cout << "Used " << added << " of " << sources.size() << " sources" << std::endl;
+    }
+    const std::vector<astro::SkyDir>& usedSourceList()const{return used_sources;}
+    const std::vector<std::vector<double> >& usedAlphas() const{return used_alphas;}
+    const std::vector<std::string>& usedNames() const{return used_names;}
+    double tstart()const{return healpixdata.minTime();}
+    double tstop()const {return healpixdata.maxTime();}
+    const std::vector<std::string>& filelist() { return m_filelist;}
+private:
+    Data healpixdata;
+    std::vector<std::string> m_filelist;
+    std::vector<astro::SkyDir> used_sources;
+    std::vector<std::vector<double> > used_alphas;
+    std::vector<std::string> used_names;
+
+};
+
+
 int main(int argc, char** argv)
 {
-    using namespace astro;
-    using namespace pointlike;
-    using namespace embed_python;
 
     int rc(0);
     try{
@@ -37,106 +127,96 @@ int main(int argc, char** argv)
             python_path = argv[1];
         }
 
-        Module setup(python_path , "alignment_setup",  argc, argv);
-
-        int   pix_level(8)
-            , count_threshold(16)
-            , skip_TS(2)
-            , event_class(-1)    // selection of A/B?
-            , source_id
-            ;
-        double
-            ra(250.), dec(-47.)
-            , radius(180) // 180 for all sky
-            , prune_radius(0.25)//1.0)
-            , eq_TS_min(25.)
-            , mid_TS_min(25.)
-            , polar_TS_min(25.)
-            , eq_boundary(6.)
-            , TSmin
-            ;
-
-        pointlike::SourceFinder::RegionSelector region =
-            pointlike::SourceFinder::ALL;
-
-        bool includeChildren (true), 
-            weighted( true),
-            background_filter(false);
-        int verbose(0); // set true to see fit progress
-        std::vector<double> ras,decs;
-        std::vector<astro::SkyDir> sources;
-
-        setup.getList("ra", ras);
-        setup.getList("dec", decs);
-        std::vector<double>::iterator id = decs.begin();
-        for(std::vector<double>::iterator ir = ras.begin();ir!=ras.end()&&id!=decs.end();++id,++ir) {
-            //if(*ir>200) {
-                sources.push_back(astro::SkyDir(*ir,*id));
-            //}
-        }
-        setup.getValue("radius",     radius, 180);
-        setup.getValue("event_class", event_class, 0);
-        setup.getValue("source_id",  source_id, -1);
-        setup.getValue("TSmin",      TSmin, 10);
-        setup.getValue("prune_radius", prune_radius, 0.25);
+        embed_python::Module setup(python_path , "alignment_setup",  argc, argv);
 
 
-        setup.getValue("verbose", verbose, 0);
+        // set up a list of sources for alignment, by fitting them.
+        // get the parameters for rerunning the data from the Data object (list of files, time limits)
+        AlignmentSources sources(setup);
+        double start(sources.tstart()), stop(sources.tstop());
 
-        std::vector<std::string> filelist;
-        std::string ft2file, outfile;
+        std::vector<astro::SkyDir> used_sources = sources.usedSourceList();
+        std::vector<std::vector<double> > used_alphas = sources.usedAlphas();
+        std::vector<std::string> used_names = sources.usedNames();
+        std::vector<std::string> filelist = sources.filelist();
 
-        setup.getList("files", filelist);
-        setup.getValue("outfile",  outfile, "");
-        setup.getValue("count_threshold",count_threshold,count_threshold);
 
-        // use the  Data class to create the PhotonData object
-        CalData healpixdata(filelist,sources,event_class,source_id);// event_class, source_id);
+        // copy the alignment matrix from the Data class
+        AlignProc::set_rot(Data::get_rot());
 
+        // analyze the data
+        double resolution;
+        setup.getValue("Alignment.resolution",resolution,1);
+        // report results
         std::ostream* out = &std::cout;
+        std::string outfile;
+        setup.getValue("Alignment.outfile",outfile,"");
         if( !outfile.empty() ) {
             out = new std::ofstream(outfile.c_str());
         }
+#ifdef SELECT
+        for(int j(0);j<used_sources.size();++j) {
+            std::vector<astro::SkyDir> used_sources2;
+            std::vector<std::vector<double> > used_alphas2;
+            used_sources2.push_back(used_sources[j]);
+            used_alphas2.push_back(used_alphas[j]);
+
+            AlignProc ap(used_sources2,used_alphas2
+#else
+        AlignProc ap(used_sources,used_alphas
+#endif
+            ,filelist, resolution, start, stop);
 
 
-        pointlike::SourceFinder finder(healpixdata);
-
-        astro::SkyDir dir(ra, dec, astro::SkyDir::GALACTIC);
 
 
-        finder.examineRegion( dir, radius, 
-            eq_TS_min, mid_TS_min, polar_TS_min, 
-            pix_level, 
-            count_threshold, true, true, 
-            background_filter, 
-            skip_TS, 
-            region, 
-            eq_boundary);
+        std::vector<double> b = ap.alignment();
 
-        //finder.prune_neighbors(prune_radius);
-
-        finder.createTable(outfile);
-        double TS = 0;
-        SourceFinder::Candidates cd = finder.getCandidates();
-        CanInfo ci;
-        for(SourceFinder::Candidates::iterator it = cd.begin();it!=cd.end();++it) {           
-            if(it->second.value()>TS) {
-                ci = it->second;
-                TS = it->second.value();
-            }
+        //output most likely rotation
+        std::cout << "Alignment corrections (arcsec):\n"
+            << std::setw(10) << "x" << std::setw(10)<< "y"<< std::setw(10)<<"z" << "\n   ";
+#ifdef SELECT
+        (*out) << used_names[j]<< std::endl;
+#endif
+        for(int ir(0);ir<=2;++ir) {
+            std::cout << std::setprecision(1) << std::setw(10) << (b[ir]);
+            (*out) << std::setprecision(1) << std::setw(10) << (b[ir]);
         }
 
-        std::cout << "Most likely misalignment was phi=" << (ci.ra()>0?"+":"") << ci.ra() << " theta=" << (ci.dec()>0?"+":"") << ci.dec() << "\nwith a TS of " << ci.value() << std::endl; 
-        if( !outfile.empty()){
-            delete out;
+        std::cout << std::endl << "+/-";
+        //output sigma values
+        AlignProc::LikeSurface l = ap.fitsurface();
+        for(int ir(0);ir<=2;++ir) {
+            std::cout << std::setprecision(1) << std::setw(10) << pow(-2*l.curvature()[ir],-0.5);
+            (*out) << std::setprecision(1) << std::setw(10) << pow(-2*l.curvature()[ir],-0.5);
         }
+        (*out) << std::endl;
+        std::cout << std::endl;
 
-    }catch(const std::exception& e){
-        std::cerr << "Caught exception " << typeid(e).name() 
-            << " \"" << e.what() << "\"" << std::endl;
-        help();
-        rc=1;
+#if 0
+        std::cout << "\nFit Parameters" << std::endl;
+        (*out) << "\nFit Parameters" << std::endl;
+
+        //output fit parameters
+        std::cout << std::setprecision(6); // restore
+        (*out) << std::setprecision(6);
+        for(int k(0);k<10;++k) {
+            std::cout << "a[" << k << "]= " <<l(k) << std::endl;
+            (*out) << l(k) << std::endl;
+        }
+#endif
+#ifdef SELECT
     }
-    return rc;
-}
+#endif
+    if( !outfile.empty()){
+        delete out;
+    }
 
+}catch(const std::exception& e){
+    std::cerr << "Caught exception " << typeid(e).name() 
+        << " \"" << e.what() << "\"" << std::endl;
+    help();
+    rc=1;
+}
+return rc;
+}
