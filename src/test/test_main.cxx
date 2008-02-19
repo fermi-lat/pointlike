@@ -3,6 +3,7 @@
 
 */
 #include "pointlike/PointSourceLikelihood.h"
+#include "embed_python/Module.h"
 
 #include "skymaps/PhotonMap.h"
 #include "skymaps/DiffuseFunction.h"
@@ -52,7 +53,7 @@ public:
 
 
 
-int main(int , char** )
+int main(int argc , char** argv )
 {
 
     int rc(0);
@@ -66,6 +67,11 @@ int main(int , char** )
         tsmap.run();
     
 #endif
+        // use the python module to setup
+        std::string python_path("../python");
+        
+        PointSourceLikelihood::setParameters(embed_python::Module(python_path , "test_pointlike_setup",  argc, argv));
+
         double  radius(10);
 
  
