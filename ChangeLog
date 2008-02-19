@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Feb 19 13:04:37 PST 2008
+pointlike/src/test
+
+Modified Files:
+	test_main.cxx 
+Log Message:
+convert test program to use embedded python for setup
+    *
+------------------------------------------------------------
 User: burnett  Tue Feb 19 13:03:54 PST 2008
 pointlike/src
 
