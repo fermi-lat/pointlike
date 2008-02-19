@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.23 2008/01/27 02:31:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.24 2008/02/14 01:27:45 mar0 Exp $
 
 */
 
@@ -23,33 +23,17 @@ using skymaps::CompositeSkySpectrum;
 using skymaps::DiffuseFunction;
 namespace {
 
-   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    // from fits 2/26/2006 
-    double fit_gamma[]={0,0,0,0,0,2.25,
-        2.27,2.22,2.25,2.25,2.29,2.14,2.02,1.87};
- // from empirical study of a single source 
-    // set level 8 -13 using handoff (7/14/07) tweak level 12 from .52 to .62
-    double fit_sigma[]={0,0,0,0,0,0.343,
-        0.335,0.319, //0.422, 0.9, 0.9, 1.0, 1.1, 1.0 
-//    0.42899897,  0.45402442,  0.4742285,   0.60760651,  0.62,  0.94671
-    0.431, 0.449, 0.499, 0.566, 0.698, 0.818 // from Marshall
-    };
     // the scale_factor used: 2.5 degree at level 6, approximately the 68% containment
     int base_level(6);
     double scale_factor(int level){return 2.5*pow(2.0, base_level-level)*M_PI/180.;}
 
     double s_TScut(2.);  // only combine energy bands
 
-    // temporary kluge: energy to assume per level, or band
-    // todo: setup more central place for this, worry about event class
-    double energy_level(int level){ return 120*pow(2.35, level-6);} 
-
 }
 
-//---    Static (class) variables: defaults here, that can be set by a static function.
-// set these from preliminary data above
-std::vector<double> PointSourceLikelihood::s_gamma_level(fit_gamma, fit_gamma+sizeof(fit_gamma)/sizeof(double)); 
-std::vector<double> PointSourceLikelihood::s_sigma_level(fit_sigma, fit_sigma+sizeof(fit_gamma)/sizeof(double));
+//  ----- static (class) variables -----
+std::vector<double> PointSourceLikelihood::s_gamma_level;
+std::vector<double> PointSourceLikelihood::s_sigma_level;
 
 
 double PointSourceLikelihood::s_radius(7.0);
@@ -66,7 +50,7 @@ double PointSourceLikelihood::s_maxstep(0.25);  // if calculated step is larger 
 void PointSourceLikelihood::setParameters(const embed_python::Module& par)
 {
     static std::string prefix("PointSourceLikelihood.");
-    
+
     par.getValue(prefix+"pslradius",   s_radius,   s_radius);
     par.getValue(prefix+"minlevel", s_minlevel, s_minlevel);
     par.getValue(prefix+"maxlevel", s_maxlevel, s_maxlevel);
@@ -90,6 +74,13 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getValue("Diffuse.tolerance",  tolerance, tolerance);
     SimpleLikelihood::setTolerance(tolerance);
 
+    // load parameters from the setup
+    par.getList(prefix+"gamma_list", s_gamma_level);
+    par.getList(prefix+"sigma_list", s_sigma_level);
+    // require that all  levels were set
+    if( s_gamma_level.size() !=14 || s_sigma_level.size() !=14){
+        throw std::invalid_argument("PointSourceLikelihood::setParameters: gamma or sigma parameter not set properly");
+    }
 
     std::string diffusefile;
     par.getValue("Diffuse.file", diffusefile);
@@ -119,6 +110,9 @@ PointSourceLikelihood::PointSourceLikelihood(
     , m_dir(dir)
     , m_out(&std::cout)
 {
+    if( s_gamma_level.size()==0){
+        throw std::invalid_argument("PointSourceLikelihood: PSF not set up");
+    }
     m_verbose = s_verbose!=0;
     if( s_minlevel< m_minlevel || s_maxlevel>m_minlevel+m_nlevels ){
         throw std::invalid_argument("PointSourceLikelihood: invalid levels for data");
@@ -200,17 +194,17 @@ void PointSourceLikelihood::setDir(const astro::SkyDir& dir, bool subset){
     m_dir = dir;
 }
 
-Hep3Vector PointSourceLikelihood::gradient(int skip) const{
-    Hep3Vector t(0);
+const Hep3Vector& PointSourceLikelihood::gradient(int skip) const{
+    m_gradient=Hep3Vector(0);  
     const_iterator it = begin();
     for( int i = 0; i< skip; ++it, ++i);
     for( ; it!=end(); ++it){
         if( it->second->TS()< s_TScut) continue;
         Hep3Vector grad(it->second->gradient());
         double curv(it->second->curvature());
-        if( curv > 0 ) t+= grad;
+        if( curv > 0 ) m_gradient+= grad;
     }
-    return t;
+    return m_gradient;
 }
 
 double PointSourceLikelihood::curvature(int skip) const{
@@ -219,7 +213,9 @@ double PointSourceLikelihood::curvature(int skip) const{
     for( int i = 0; i< skip; ++it, ++i);
     for( ; it!=end(); ++it){
         if( it->second->TS()< s_TScut) continue;
+#if 0 // Marshall?
         it->second->gradient();
+#endif
         double curv(it->second->curvature());
         if( curv>0 )  t+= curv;
     }
@@ -247,8 +243,8 @@ void PointSourceLikelihood::printSpectrum()
         if( verbose() ){
             double bkg(levellike.background());
             out()  << std::setw(5) << std::fixed << level 
-                   << setw(6) << levellike.photons()
-                    << setw(10);
+                << setw(6) << levellike.photons()
+                << setw(10);
             if(bkg>=0) {
                 out() << setprecision(1) << levellike.background();
             }else{
@@ -263,7 +259,7 @@ void PointSourceLikelihood::printSpectrum()
         std::pair<double,double> a(levellike.maximize());
         double ts(levellike.TS()); 
         if( a.first > s_minalpha ) {
-           m_TS+=ts;
+            m_TS+=ts;
         }
 
         if( verbose() ){
@@ -302,88 +298,101 @@ double PointSourceLikelihood::localize(int skip)
 {
     using std::setw; using std::left; using std::setprecision; using std::right;
     using std::fixed;
-    int wd(10), iter(0), maxiter(7);
- 
-        if( verbose()){
-            out() 
-                << "      Searching for best position, start at level "<< skip+s_minlevel<<"\n"
-                << setw(wd) << left<< "Gradient   " 
-                << setw(wd) << left<< "delta  "   
-                << setw(wd) << left<< "ra"
-                << setw(wd) << left<< "dec "
-                << setw(wd) << left<< "error "
-                << setw(wd) << left<< "Ts "
-                <<std::endl;
+    int wd(10), iter(0), maxiter(20);
+    double steplimit(10.0), // in units of sigma
+        stepmin(0.1);     // quit if step this small
+    double backoff_ratio(0.5); // scale step back if TS does not increase
+    int backoff_count(2);
+
+    if( verbose()){
+        out() 
+            << "      Searching for best position, start at level "<< skip+s_minlevel<<"\n"
+            << setw(wd) << left<< "Gradient   " 
+            << setw(wd) << left<< "delta  "   
+            << setw(wd) << left<< "ra"
+            << setw(wd) << left<< "dec "
+            << setw(wd) << left<< "error "
+            << setw(wd) << left<< "Ts "
+            <<std::endl;
+    }
+    SkyDir last_dir(dir()); // save current direction
+    setDir(dir(), true);    // initialize
+    double oldTs( maximize(skip)); // initial (partial) TS
+    bool backingoff;  // keep track of backing
+
+
+    for( ; iter<maxiter; ++iter){
+        Hep3Vector grad( gradient(skip) );
+        double     curv( curvature(skip) );
+
+        // check that resolution is ok: if curvature gets small or negative we are lost
+        if( curv < 1.e4){
+            if( verbose()) out() << "  >>>aborting, lost" << std::endl;
+            return 98.;
+            break;
         }
-        double oldTs( maximize(skip)); // initial (partial) TS
-        SkyDir last_dir(dir()); // save current direction
+        double     sig( 1/sqrt(curv))
+            ,      gradmag( grad.mag() )
+            ;
+        //,      oldTs( TS() );
+        Hep3Vector delta = grad/curv;
+        double step(delta.mag());
 
-        for( ; iter<maxiter; ++iter){
-            Hep3Vector grad( gradient(skip) );
-            double     curv( curvature(skip) );
+        if( verbose() ){
+            out() << fixed << setprecision(0)
+                <<  setw(wd-2)  << right<< gradmag << "  "
+                <<  setprecision(4)
+                <<  setw(wd) << left<< step*180/M_PI
+                <<  setw(wd) << left<< m_dir.ra()
+                <<  setw(wd) << left<< m_dir.dec() 
+                <<  setw(wd) << left<< sig*180/M_PI
+                <<  setw(wd) << left <<setprecision(1)<< oldTs
+                <<  right <<setprecision(3) <<std::endl;
+        }
+#if 0
+        if( step*180/M_PI > s_maxstep) {
+            if( verbose() ){ out() << " >>> aborting, attempted step " 
+                << (step*180/M_PI) << " deg  greater than limit " 
+                << s_maxstep << std::endl;
+            }
+            return 97.;
+            break;
+        }
+#endif
+        // check for too large step, limit to steplimt* sigma
+        if( step > steplimit* sig ) {
+            delta = steplimit*sig* delta.unit();
+            if( verbose() ) out() << setw(52) << "reduced step to "
+                <<setprecision(5)<< delta.mag() << std::endl;
+        }
 
-            // check that resolution is ok: if curvature gets small or negative we are lost
-            if( curv < 1.e4){
-                if( verbose()) out() << "  >>>aborting, lost" << std::endl;
-                return 98.;
+        // here decide to back off if likelihood does not increase
+        Hep3Vector olddir(m_dir()); int count(backoff_count); 
+        backingoff =true;
+        while( count-->0){
+            m_dir = olddir -delta;
+            setDir(m_dir,true);
+            double newTs(maximize(skip));
+            if( newTs > oldTs-0.01 ){ // allow a little slop
+                oldTs=newTs;
+                backingoff=false;
                 break;
             }
-            double     sig( 1/sqrt(curv))
-                ,      gradmag( grad.mag() )
-                ;
-            //,      oldTs( TS() );
-            Hep3Vector delta = grad/curv;
-            double step(delta.mag());
+            delta*=backoff_ratio; 
+            if( verbose() ){ out()<< setw(56) <<setprecision(1) << newTs << " --back off "
+                <<setprecision(5)<< delta.mag() << std::endl; }
 
-            if( verbose() ){
-                out() << fixed << setprecision(0)
-                    <<  setw(wd-2)  << right<< gradmag << "  "
-                    <<  setprecision(4)
-                    <<  setw(wd) << left<< step*180/M_PI
-                    <<  setw(wd) << left<< m_dir.ra()
-                    <<  setw(wd) << left<< m_dir.dec() 
-                    <<  setw(wd) << left<< sig*180/M_PI
-                    <<  setw(wd) << left <<setprecision(0)<< oldTs
-                    <<  right <<setprecision(3) <<std::endl;
-            }
-            if( step*180/M_PI > s_maxstep) {
-                if( verbose() ){ out() << " >>> aborting, attempted step " 
-                    << (step*180/M_PI) << " deg  greater than limit " 
-                    << s_maxstep << std::endl;
-                }
-                return 97.;
-                break;
-            }
-            // check for too large step, limit to 3 sigma
-            if( step > 3.* sig) delta = 3.*sig* delta.unit(); 
-
-            // here decide to back off if likelihood does not increase
-            Hep3Vector olddir(m_dir()); int count(5);
-            while( count-->0){
-                m_dir = olddir -delta;
-                setDir(m_dir,true);
-                double newTs(maximize(skip));
-                if( newTs > oldTs ){
-                    oldTs=newTs;
-                    break;
-                }
-                delta*=0.5;
-                if( verbose() ){ out()<< setw(52) <<setprecision(0) << newTs << " --back off"
-                    <<setprecision(3) << std::endl; }
-
-            }
-            
-            if( gradmag < 0.1 || delta.mag()< 0.1*sig) break;
-        }// iter loop
-        if( iter==maxiter){
-            if( verbose() ) out() << "   >>>did not converge" << std::endl;
-            setDir(last_dir()); // restore position
-            return 99.;
         }
-        if( iter<5 ){
-            if(verbose() ) out() << "    *** good fit *** " << std::endl;
-        }
-        return errorCircle(skip);
+
+        if( gradmag < 0.1 || delta.mag()< stepmin*sig) break;
+    }// iter loop
+    if( iter==maxiter && ! backingoff ){
+        if( verbose() ) out() << "   >>>did not converge" << std::endl;
+        setDir(last_dir()); // restore position
+        return 99.;
+    }
+    if(verbose() ) out() << "    *** good fit *** " << std::endl;
+    return errorCircle(skip);
 
 }
 
@@ -422,7 +431,7 @@ double PointSourceLikelihood::value(const astro::SkyDir& dir, double energy) con
     return it->second->operator()(dir);
 
 }
-    ///@brief integral for the energy limits, in the given direction
+///@brief integral for the energy limits, in the given direction
 double PointSourceLikelihood::integral(const astro::SkyDir& dir, double emin, double emax)const
 {
     // implement by just finding the right bin
@@ -431,11 +440,11 @@ double PointSourceLikelihood::integral(const astro::SkyDir& dir, double emin, do
 
 void PointSourceLikelihood::recalc(int level) {
     // get PSF parameters from fits
-        double gamma( gamma_level(level) ),
-            sigma ( scale_factor(level)* sigma_level(level));
-        find(level)->second->setgamma(gamma);
-        find(level)->second->setsigma(sigma);
-        find(level)->second->recalc();
+    double gamma( gamma_level(level) ),
+        sigma ( scale_factor(level)* sigma_level(level));
+    find(level)->second->setgamma(gamma);
+    find(level)->second->setsigma(sigma);
+    find(level)->second->recalc();
 }
 
 double PointSourceLikelihood::sigma(int level)const
@@ -449,8 +458,8 @@ double PointSourceLikelihood::sigma(int level)const
 
 skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(skymaps::SkySpectrum* diffuse)
 {  skymaps::SkySpectrum* ret =   SimpleLikelihood::diffuse();
-   SimpleLikelihood::setDiffuse( diffuse);
-   return ret;
+SimpleLikelihood::setDiffuse( diffuse);
+return ret;
 }
 
 
@@ -499,7 +508,7 @@ double PointSourceLikelihood::set_sigma_level(int level, double v)
 
 
 
-    /// @brief get the starting, ending levels used
+/// @brief get the starting, ending levels used
 int PointSourceLikelihood::minlevel(){return s_minlevel;}
 
 int PointSourceLikelihood::maxlevel(){return s_maxlevel;}
