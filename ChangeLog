@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Feb 19 13:04:37 PST 2008
+pointlike/python
+
+Added Files:
+	test_pointlike_setup.py 
+Log Message:
+convert test program to use embedded python for setup
+    *
+------------------------------------------------------------
+User: burnett  Tue Feb 19 13:04:37 PST 2008
 pointlike/src/test
 
 Modified Files:
