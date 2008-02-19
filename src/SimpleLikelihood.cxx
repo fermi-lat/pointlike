@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.22 2008/01/27 15:23:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.23 2008/02/14 01:27:45 mar0 Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -88,12 +88,16 @@ namespace {
         void operator()(const std::pair<HealPixel, int>& x){
             double diff =x.first().difference(m_dir); 
             double  u = sqr(diff/m_sigma)/2.;
+#if 0 // old
+            if( u>m_umax ) return;
+#else // new
             std::vector<int>::iterator it = find(m_vec4.begin(),m_vec4.end(),x.first.index());
             //return if 
             //1)normal mode and outside of cone 
             //2)first time in selection mode and the pixel is outside of cone
             //3)subsequent time in selection mode and the pixel is not in the original data set
             if((!m_subset&&u>m_umax)||(m_subset&&m_first&&u>m_umax)||(!m_first&&it==m_vec4.end()&&m_subset)) return;
+#endif
             // just to see what is there
             // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
             double signal(m_f(u)/m_F)
@@ -314,7 +318,11 @@ Hep3Vector SimpleLikelihood::gradient() const
         int nphoton( h.second);
         Hep3Vector delta( m_dir() - d() ); 
         double u( 0.5*delta.mag2()/sig2);
+#if 0 // original version
+        if(u>m_umax) continue;
+#else // Marshal mod
         if((u>m_umax&&m_vec4.size()==0)||(find(m_vec4.begin(),m_vec4.end(),h.first.index())==m_vec4.end()&&m_vec4.size()!=0)) continue;
+#endif
         double y = perp*delta; // pick an arbitrary direction for the curvature
 
         double fhat( m_psf(u)*m_umax/m_fint)
