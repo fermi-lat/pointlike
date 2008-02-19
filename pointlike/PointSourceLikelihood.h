@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.20 2008/01/27 02:31:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.21 2008/02/14 01:27:45 mar0 Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -54,7 +54,7 @@ public:
     void setDir(const astro::SkyDir& dir,bool subset=false);
 
     /// @return the gradient, summed over all levels, skiping skip
-    Hep3Vector gradient(int skip=0) const;
+    const CLHEP::Hep3Vector& gradient(int skip=0) const;
 
     ///@return the curvature, summed over all levels
     double curvature(int skip=0) const;
@@ -153,6 +153,7 @@ private:
 
     // the data to feed each guy, extracted from the database
     std::map<int, std::vector<std::pair<healpix::HealPixel,int> > >m_data_vec;
+    mutable CLHEP::Hep3Vector m_gradient; ///< current gradient
 
     //static SkySpectrum * s_diffuse;
     static double s_radius, s_minalpha, s_TSmin, s_tolerance, 

@@ -1,6 +1,6 @@
 # default parameters for the various parameter files
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.4 2008/01/25 01:07:06 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.5 2008/01/29 19:17:52 burnett Exp $
 #
 # Include this to set defaults, then override 
 import sys
@@ -15,8 +15,8 @@ class Data:
     output_pixelfile = '' # set to create an output pixel file (if reading FT1 or ROOT files)
     start_time=0.   # select interval if non zero
     stop_time=0.    # "
-    history = ''    # optional history or FT2 file, needed to correct for misalignment if readign FT1
-    Latalignment=[] # alignment correction angles about x,y,z axes, in arcseconds
+    history = ''    # optional history or FT2 file, needed to correct for misalignment if reading FT1
+    LATalignment=[] # alignment correction angles about x,y,z axes, in arcseconds
 
 
 class Diffuse:
@@ -25,9 +25,6 @@ class Diffuse:
     import os
     if 'GLAST_EXT' in os.environ and file=='':
 		file = os.path.join(os.environ['GLAST_EXT'],'extFiles','v0r7','galdiffuse', 'GP_gamma.fits')
-
-#    if 'EXTFILESSYS' in os.environ and file!='':
-#        file = os.path.join(os.environ['EXTFILESSYS'],'galdiffuse','GP_gamma.fits')
 
 
 class PointSourceLikelihood: #parameters for the likelihood calculation
@@ -46,6 +43,12 @@ class PointSourceLikelihood: #parameters for the likelihood calculation
 
     verbose = 0  # set non-zero to get lots of output
     maxstep = 0.2 # max step allowed during localization: abort if larger
+    
+    # values for the gamma and sigma PSF parameters, indexed by level
+    gamma_list =[0,0,0,0,0,
+           2.25,  2.27,  2.22,  2.31,  2.30,  2.31,  2.16,  2.19,  2.07]
+    sigma_list =[0,0,0,0,0,
+           0.343, 0.335, 0.319, 0.431, 0.449, 0.499, 0.566, 0.698, 0.818]
 
 class SourceFinder:  # parameters for the SourceFinder.
 
