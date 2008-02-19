@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Feb 19 13:02:12 PST 2008
+pointlike/python
+
+Modified Files:
+	swig_setup.in 
+Log Message:
+add embed_python:;Module to SWIG inteface
+    *
+------------------------------------------------------------
 User: burnett  Tue Feb 19 13:00:33 PST 2008
 pointlike/src
 
