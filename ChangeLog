@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Feb 19 13:00:32 PST 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h 
+Log Message:
+move default PSF parameters to python setup; implement code to control fit reselection; make gradient  accessible to SWIG.
+    *
+------------------------------------------------------------
 User: mar0  Wed Feb 13 17:27:45 PST 2008
 pointlike/src/alignment
 
