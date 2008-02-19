@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header$
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.4 2008/01/31 16:31:57 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -24,6 +24,7 @@
 #include "skymaps/Exposure.h"
 #include "skymaps/SkyImage.h"
 
+#include "embed_python/Module.h"
 
 #include "pointlike/PointSourceLikelihood.h"
 #include "pointlike/SimpleLikelihood.h"
@@ -141,6 +142,7 @@ public:
 // fails now
 //%include $(HEALPIXROOT)/healpix/HealPixel.h
 
+%include $(EMBED_PYTHONROOT)/embed_python/Module.h
     
 %include $(POINTLIKEROOT)/pointlike/SimpleLikelihood.h
 %include $(POINTLIKEROOT)/pointlike/PointSourceLikelihood.h
