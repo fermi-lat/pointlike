@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Feb 19 13:00:33 PST 2008
+pointlike/python
+
+Modified Files:
+	pointlike_defaults.py 
+Log Message:
+move default PSF parameters to python setup; implement code to control fit reselection; make gradient  accessible to SWIG.
+    *
+------------------------------------------------------------
 User: burnett  Tue Feb 19 13:00:32 PST 2008
 pointlike/pointlike
 
