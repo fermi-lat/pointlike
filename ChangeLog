@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Feb 19 13:03:54 PST 2008
+pointlike/src
+
+Modified Files:
+	SimpleLikelihood.cxx 
+Log Message:
+Marshall's mod to control when data is reselected
+    *
+------------------------------------------------------------
 User: burnett  Tue Feb 19 13:02:12 PST 2008
 pointlike/python
 
