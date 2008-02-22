@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: golpa  Thu Feb 21 17:42:15 PST 2008
+pointlike
+
+Added Files:
+	SConscript pointlikeLib.py 
+Log Message:
+Initial import of SCons files
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-05-01-00, operation: add
 Package: pointlike
