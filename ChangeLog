@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Feb 22 07:07:08 PST 2008
+pointlike
+
+Modified Files:
+	SConscript pointlikeLib.py 
+Log Message:
+clean up code a bit.
+    *
+------------------------------------------------------------
 User: burnett  Thu Feb 21 20:17:10 PST 2008
 pointlike
 
