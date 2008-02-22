@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Feb 21 20:17:10 PST 2008
+pointlike
+
+Modified Files:
+	SConscript 
+Log Message:
+make it readable.
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-05-01-00, operation: add
 Package: pointlike
