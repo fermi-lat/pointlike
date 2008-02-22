@@ -1,25 +1,24 @@
 # @file SConscript
-# @brief build info
+# @brief scons build specifications
 #
-# $Header$
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/SConscript,v 1.2 2008/02/22 04:17:10 burnett Exp $
 
+#specify package name, applications
+package= 'pointlike'
+apps   =['pointfit', 'pointfind', 'alignment']
+
+# this part is standard: assume includes, a shareable lib, zero or more applications, a test program
 Import('baseEnv')
 Import('listFiles')
 progEnv = baseEnv.Clone()
 libEnv = baseEnv.Clone()
 
-progEnv.Tool('pointlikeLib')
-
+progEnv.Tool(package+'Lib')
 progEnv.Tool('registerObjects', 
-    package  = 'pointlike', 
-    includes = listFiles(['pointlike/*.h']),
+    package  = package, 
+    includes = listFiles([package+'/*.h']),
     libraries= [
-        libEnv.SharedLibrary('pointlike', listFiles(['src/*.cxx']))], 
-    binaries = [
-        progEnv.Program('pointfit',  listFiles(['src/pointfit/*.cxx'])),
-        progEnv.Program('pointfind', listFiles(['src/pointfind/*.cxx'])),
-	progEnv.Program('alignment', listFiles(['src/alignment/*.cxx'])),
-    ], 
-    testApps = [progEnv.Program('test_pointlike', listFiles(['src/test/*.cxx']))],
+        libEnv.SharedLibrary(package, listFiles(['src/*.cxx']))], 
+    binaries = [progEnv.Program(name, listFiles(['src/%s/*.cxx'%name])) for name in apps], 
+    testApps = [progEnv.Program('test_'+package, listFiles(['src/test/*.cxx']))],
  )
-
