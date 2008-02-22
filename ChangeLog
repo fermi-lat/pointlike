@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 TAG
+Tag name: pointlike-05-01-00, operation: add
+Package: pointlike
+User: glast  Thu Feb 21 17:43:34 2008
+Files:
+  pointlike/SConscript  1.1
+  pointlike/pointlikeLib.py  1.1
+
+    *
+------------------------------------------------------------
+TAG
 Tag name: v5r1, operation: add
 Package: pointlike
 User: glast  Thu Feb 21 17:43:24 2008
