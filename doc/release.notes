@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.42 2008/02/14 01:27:45 mar0 Exp $
+$Id: release.notes,v 1.43 2008/02/19 21:07:11 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 24-feb-08 v5r1p1  THB Provide sensible PSF default parameters
  19-feb-08 v5r1    THB Improve convergence; move PSF configuration parameters to python setup
  13-feb-08 v5r0p3  MR  Fixed alignment procedure, optimizer errors, and code to keep data set constant
  27-jan-08 v5r0p2  THB Move SkySpectrum classes to new package skymaps
