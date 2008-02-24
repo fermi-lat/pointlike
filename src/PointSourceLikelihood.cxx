@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.24 2008/02/14 01:27:45 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.25 2008/02/19 21:00:33 burnett Exp $
 
 */
 
@@ -28,12 +28,19 @@ namespace {
     double scale_factor(int level){return 2.5*pow(2.0, base_level-level)*M_PI/180.;}
 
     double s_TScut(2.);  // only combine energy bands
+    // default PSF
+    double gamma_list[] ={0,0,0,0,0,
+        2.25,  2.27,  2.22,  2.31,  2.30,  2.31,  2.16,  2.19,  2.07};
+    double sigma_list[] ={0,0,0,0,0,
+        0.343, 0.4199,0.4249 ,0.4202 ,0.4028 ,0.4223 ,0.4438 ,0.5113 ,0.5596 };
+
+
 
 }
 
 //  ----- static (class) variables -----
-std::vector<double> PointSourceLikelihood::s_gamma_level;
-std::vector<double> PointSourceLikelihood::s_sigma_level;
+std::vector<double> PointSourceLikelihood::s_gamma_level(gamma_list,gamma_list+14);
+std::vector<double> PointSourceLikelihood::s_sigma_level(sigma_list,sigma_list+14);
 
 
 double PointSourceLikelihood::s_radius(7.0);
@@ -74,7 +81,8 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getValue("Diffuse.tolerance",  tolerance, tolerance);
     SimpleLikelihood::setTolerance(tolerance);
 
-    // load parameters from the setup
+    // load parameters from the setup 
+    s_gamma_level.clear(); s_sigma_level.clear();
     par.getList(prefix+"gamma_list", s_gamma_level);
     par.getList(prefix+"sigma_list", s_sigma_level);
     // require that all  levels were set
@@ -111,7 +119,10 @@ PointSourceLikelihood::PointSourceLikelihood(
     , m_out(&std::cout)
 {
     if( s_gamma_level.size()==0){
-        throw std::invalid_argument("PointSourceLikelihood: PSF not set up");
+        s_gamma_level.resize(14,2.2);
+        s_sigma_level.resize(14,0.4); 
+        std::cerr << "Warning, PointSourceLikelihood: PSF not set up, setting default gamma, sigma to 2.2, 0.4" 
+            << std::endl;
     }
     m_verbose = s_verbose!=0;
     if( s_minlevel< m_minlevel || s_maxlevel>m_minlevel+m_nlevels ){
