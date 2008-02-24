@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb 24 11:06:35 PST 2008
+pointlike
+
+Modified Files:
+	pointlikeLib.py 
+Log Message:
+provide sensible default for PSF parameters
+    *
+------------------------------------------------------------
 User: burnett  Fri Feb 22 07:07:08 PST 2008
 pointlike
 
