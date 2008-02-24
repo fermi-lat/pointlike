@@ -1,13 +1,14 @@
 package pointlike
 
-version v5r1
+version v5r1p1
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.47 2008/02/14 01:27:44 mar0 Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.48 2008/02/19 21:07:11 burnett Exp $
 
 use astro *
 use healpix *
 use skymaps *
 use embed_python *
+
 
 
 apply_pattern shared_library
