@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sun Feb 24 11:06:35 PST 2008
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx 
+Log Message:
+provide sensible default for PSF parameters
+    *
+------------------------------------------------------------
+User: burnett  Sun Feb 24 11:06:35 PST 2008
 pointlike
 
 Modified Files:
