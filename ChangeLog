@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: glastrm  Mon Feb 25 21:25:20 PST 2008
+ScienceTools-scons/pointlike
+
+Modified Files:
+	pointlikeLib.py SConscript 
+Log Message:
+Set lib dependencies up for when building libraries
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-05-02-01, operation: add
 Package: pointlike
