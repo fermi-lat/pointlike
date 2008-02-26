@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+TAG
+Tag name: v5r2p1, operation: mov
+Package: pointlike
+User: glast  Mon Feb 25 21:25:50 2008
+Files:
+  pointlike/SConscript  1.4
+  pointlike/pointlikeLib.py  1.4
+
+    *
+------------------------------------------------------------
 User: glastrm  Mon Feb 25 21:25:20 PST 2008
 ScienceTools-scons/pointlike
 
