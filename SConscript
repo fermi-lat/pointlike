@@ -1,7 +1,7 @@
 # @file SConscript
 # @brief scons build specifications
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/SConscript,v 1.2 2008/02/22 04:17:10 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/SConscript,v 1.3 2008/02/22 15:07:08 burnett Exp $
 
 #specify package name, applications
 package= 'pointlike'
@@ -13,6 +13,7 @@ Import('listFiles')
 progEnv = baseEnv.Clone()
 libEnv = baseEnv.Clone()
 
+libEnv.Tool(package+'Lib', depsOnly = 1)
 progEnv.Tool(package+'Lib')
 progEnv.Tool('registerObjects', 
     package  = package, 
