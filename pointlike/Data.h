@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.16 2008/01/29 19:17:52 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.17 2008/02/14 01:27:45 mar0 Exp $
 */
 
 
@@ -67,6 +67,10 @@ public:
     //! @param event_type 0 for class A front, etc
     //! @param source_id select given source
     void add(const std::string& file, int event_type=-1, int source_id=-1);
+
+    //! add  gti info from the file to current set
+    //! @param file Either FT1 or  MeritTuple ROOT file
+    void addgti(const std::string& file);
 
     //! behave like a PhotonMap object
     operator const skymaps::PhotonMap&() const {return *m_data;}
