@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.27 2008/02/14 01:27:45 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.28 2008/03/02 21:29:14 burnett Exp $
 
 */
 
@@ -39,6 +39,8 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.27 2008/02/14 0
 
 using astro::SkyDir;
 using skymaps::PhotonMap;
+using skymaps::Gti;
+
 using namespace pointlike;
 double Data::s_scale[4]={1.0, 1.86, 1.0, 1.0}; // wired in for front, back !!
 
@@ -358,6 +360,9 @@ Data::Data(const embed_python::Module& setup)
     if( alignment.size()>0) Data::set_rot(alignment);
 
 
+    if( filelist.empty()){
+        throw std::invalid_argument("Data: no data specified: expected either a pixel file or a list of data files");
+    }
     for( std::vector<std::string>::const_iterator it = filelist.begin(); 
         it !=filelist.end(); ++it)
     {
@@ -366,8 +371,10 @@ Data::Data(const embed_python::Module& setup)
         addgti(inputFile);
     }
     if( !output_pixelfile.empty() ) {
-        std::cout << "writing output pixel file :" << output_pixelfile << std::endl;
+        std::cout << "writing output pixel file :" << output_pixelfile ;
         m_data->write(output_pixelfile);
+        std::cout << " with GTI range " << int(m_data->gti().minValue())<<"-"<<int(m_data->gti().maxValue())
+                  << std::endl;
     }
 }
 
@@ -402,8 +409,10 @@ void Data::addgti(const std::string& inputFile)
     try
     {
         std::cout << "Loading gti info from file " << inputFile << "...";
-        m_data->gti() |= skymaps::Gti(inputFile); 
-        std::cout << "done." << std::endl;
+        skymaps::Gti tnew(inputFile); 
+        m_data->addgti(tnew); 
+        std::cout << " found interval " 
+            << int(tnew.minValue())<<"-"<< int(tnew.maxValue())<<  std::endl;
     }
     catch(const std::exception& e)
     {
