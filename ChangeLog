@@ -1,5 +1,16 @@
 ------------------------------------------------------------
 User: burnett  Mon Mar  3 13:07:33 PST 2008
+pointlike/python
+
+Modified Files:
+	swig_setup.in 
+Added Files:
+	__init__.py 
+Log Message:
+tagging
+    *
+------------------------------------------------------------
+User: burnett  Mon Mar  3 13:07:33 PST 2008
 pointlike/doc
 
 Modified Files:
