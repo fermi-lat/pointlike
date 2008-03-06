@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Mar  5 23:22:28 PST 2008
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+added FT2 support for Data and Alignment classes
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-05-03-00, operation: add
 Package: pointlike
