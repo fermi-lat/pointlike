@@ -1,7 +1,7 @@
 /** @file alignment_main.cxx
 @brief  LAT alignment main program
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/alignment/alignment_main.cxx,v 1.1 2007/08/27 23:24:01 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/alignment/alignment_main.cxx,v 1.2 2008/02/14 01:27:45 mar0 Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
@@ -142,42 +142,34 @@ int main(int argc, char** argv)
 
 
         // copy the alignment matrix from the Data class
-        AlignProc::set_rot(Data::get_rot());
 
         // analyze the data
         double resolution;
         setup.getValue("Alignment.resolution",resolution,1);
         // report results
         std::ostream* out = &std::cout;
-        std::string outfile;
+        std::string outfile,ft2file;
         setup.getValue("Alignment.outfile",outfile,"");
+        setup.getValue("Data.history",ft2file,"");
         if( !outfile.empty() ) {
             out = new std::ofstream(outfile.c_str());
         }
-#ifdef SELECT
-        for(int j(0);j<used_sources.size();++j) {
-            std::vector<astro::SkyDir> used_sources2;
-            std::vector<std::vector<double> > used_alphas2;
-            used_sources2.push_back(used_sources[j]);
-            used_alphas2.push_back(used_alphas[j]);
 
-            AlignProc ap(used_sources2,used_alphas2
-#else
-        AlignProc ap(used_sources,used_alphas
-#endif
-            ,filelist, resolution, start, stop);
+        AlignProc * ap;
+        if(ft2file.empty()) {
+            ap = new AlignProc(used_sources,used_alphas,filelist, resolution, start, stop);
+        }
+        else {
+            ap = new AlignProc(used_sources,used_alphas,filelist, ft2file, resolution, start, stop);
+        }
 
 
-
-
-        std::vector<double> b = ap.alignment();
+        std::vector<double> b = ap->alignment();
 
         //output most likely rotation
         std::cout << "Alignment corrections (arcsec):\n"
             << std::setw(10) << "x" << std::setw(10)<< "y"<< std::setw(10)<<"z" << "\n   ";
-#ifdef SELECT
-        (*out) << used_names[j]<< std::endl;
-#endif
+
         for(int ir(0);ir<=2;++ir) {
             std::cout << std::setprecision(1) << std::setw(10) << (b[ir]);
             (*out) << std::setprecision(1) << std::setw(10) << (b[ir]);
@@ -185,7 +177,7 @@ int main(int argc, char** argv)
 
         std::cout << std::endl << "+/-";
         //output sigma values
-        AlignProc::LikeSurface l = ap.fitsurface();
+        AlignProc::LikeSurface l = ap->fitsurface();
         for(int ir(0);ir<=2;++ir) {
             std::cout << std::setprecision(1) << std::setw(10) << pow(-2*l.curvature()[ir],-0.5);
             (*out) << std::setprecision(1) << std::setw(10) << pow(-2*l.curvature()[ir],-0.5);
@@ -193,21 +185,6 @@ int main(int argc, char** argv)
         (*out) << std::endl;
         std::cout << std::endl;
 
-#if 0
-        std::cout << "\nFit Parameters" << std::endl;
-        (*out) << "\nFit Parameters" << std::endl;
-
-        //output fit parameters
-        std::cout << std::setprecision(6); // restore
-        (*out) << std::setprecision(6);
-        for(int k(0);k<10;++k) {
-            std::cout << "a[" << k << "]= " <<l(k) << std::endl;
-            (*out) << l(k) << std::endl;
-        }
-#endif
-#ifdef SELECT
-    }
-#endif
     if( !outfile.empty()){
         delete out;
     }

@@ -1,14 +1,16 @@
 #  setup for point fit test
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/alignment_setup.py,v 1.1 2007/08/27 23:24:01 mar0 Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/alignment_setup.py,v 1.2 2008/02/14 01:27:45 mar0 Exp $
 
 from  pointlike_defaults import *
 
 # setup the data file, including setting alignment
-Data.files = [r'F:\glast\data\55-day\alignment_cuts.root'] # file to test for alignment
+Data.files = [r'F:\glast\data\55-day\alignment_cuts.root'] # file to test for alignment     252460800
+Data.files = [r'F:\glast\data\SC2\OneYrAllSky_startingApril\allSky_Month_01_events.fits'] # starts at 260238030
+Data.history = r'F:\glast\data\SC2\OneYrAllSky_startingApril\Gleam_survey_orbit8_long.fits'
 #Data.files = [r'F:\glast\data\SC2\interleave\Interleave_pruned.root']
 
 Data.LATalignment=[72,0,-36]    # LAT alignment in arcsec
-#Data.LATalignment=[0,0,0]
+Data.LATalignment=[0,0,0]
 print 'LAT alignment angles: %s' % Data.LATalignment
 
 day=1+2*14 # weeks 5,6
@@ -27,7 +29,7 @@ day, ndays=1, 7 # week 1
 
 def set_days(day, nday=1):
 	seconds=86400
-	tzero=252460800
+	tzero=260238030
 	Data.start_time = tzero+(day-1)*seconds # start time in GLAST time format (252460800 for test file)
 	Data.stop_time =  Data.start_time+ nday*seconds #  stop time in GLAST time format
 	print 'set days %d-%d' % (day, day+nday-1)

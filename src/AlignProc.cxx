@@ -1,13 +1,20 @@
 /** 
 Data Processing file, operates on a given Photon
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.5 2008/01/25 23:09:44 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.9 2008/02/14 01:27:45 mar0 Exp $
 
 */
 
 #include "pointlike/AlignProc.h"
 #include "skymaps/PhotonMap.h"
 #include "pointlike/Draw.h"
+#include "astro/PointingHistory.h"
+
+//tip stuff
+#include "tip/IFileSvc.h"
+#include "tip/Table.h"
+
+//ROOT stuff
 #include "TMatrixD.h"
 #include "TFile.h"
 #include "TTree.h"
@@ -77,6 +84,10 @@ namespace{
         "PtDecx", "CTBClassLevel"
     };
 
+    std::string fits_names[] = {"RA", "DEC", 
+     "ENERGY", "TIME", "EVENT_CLASS"
+    };
+
     double scale[] = {1.,1.86,1.,1.};
 }
 
@@ -96,14 +107,28 @@ m_roti(arcsecs*M_PI/648000)//offx*M_PI/648000,offy*M_PI/648000,offz*M_PI/648000)
 {
     for(std::vector<std::string>::const_iterator it = files.begin();it!=files.end();++it) {
         //either load through ROOT or cfitsio
-        if( (*it).find(".root") != std::string::npos) {
             loadroot(*it);
-        }else {
-            loadfits(*it);
-        }
     }
 };
 
+AlignProc::AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::vector<double> >& alphas, std::vector<std::string>& files,const std::string& ft2file,double arcsecs, double start, double stop): 
+m_photons(6,0),
+m_start(start),
+m_stop(stop),
+m_skydir(sources),
+m_alphas(alphas),
+m_arcsec(arcsecs),
+m_roti(arcsecs*M_PI/648000)//offx*M_PI/648000,offy*M_PI/648000,offz*M_PI/648000)
+{
+    if(ft2file.empty()) {
+        std::cout << "No pointing file - exiting alignment procedure" << std::endl;
+    } else {
+        m_ph = new astro::PointingHistory(ft2file);
+        for(std::vector<std::string>::const_iterator it = files.begin();it!=files.end();++it) {
+                        loadfits(*it);
+        }
+    }
+};
 
 void AlignProc::loadroot(const std::string& file) {
     do_load(); //load necessary libraries, but only on first file
@@ -146,9 +171,38 @@ void AlignProc::loadroot(const std::string& file) {
     }
 }
 
-void AlignProc::loadfits(const std::string& /*file */) {
+void AlignProc::loadfits(const std::string& file ) {
     //todo : process fits file in same manner as ROOT
-
+    const tip::Table * m_table = tip::IFileSvc::instance().readTable(file, "EVENTS", "");
+    bool flag(true);
+    std::vector<float> row;
+    tip::Table::ConstIterator m_it = m_table->begin();
+    int entries = m_table->getNumRecords();
+    int i(0);
+    for(;m_it!=m_table->end()&&(flag||m_start<0);++m_it,++i){
+        std::string *names = fits_names;
+        float data;
+        for(int j(0);j<5;++j) {
+            (*m_it)[*names++].get(data);
+            row.push_back(data);
+        }
+        row[4] = row[4]<1? 5 : 0;
+        row.push_back((*m_ph)(row[3]).zAxis().ra());
+        row.push_back((*m_ph)(row[3]).zAxis().dec());
+        row.push_back((*m_ph)(row[3]).xAxis().ra());
+        row.push_back((*m_ph)(row[3]).xAxis().dec());
+        row.push_back(AlignProc::class_level());
+        row.push_back(0);
+        pointlike::AlignProc::Photona p = events(row);
+        if(row[3]>=m_start) {
+            add(p); 
+            ShowPercent(i,entries,i);
+        }
+        if(row[3]>m_stop) {
+            flag=false;
+        }
+        row.clear();
+    }
 }
 
 pointlike::AlignProc::Photona AlignProc::events(std::vector<float>& row) {
@@ -191,10 +245,11 @@ int AlignProc::add(pointlike::AlignProc::Photona& p){
     //unused int cl = p.eventClass();
     //above healpix level 8 (mostly signal photons)
     if(p.eventClass()<2){
-
-        int i( static_cast<int>(log(p.energy()/E6)/log(2.35)) );
+        double prefact = p.eventClass()?1.86:1.;
+        int i( static_cast<int>(log(p.energy()/E6/prefact)/log(2.35)) );
         int level = i+6;
         if( level>maxlevel) level= maxlevel;
+        if( p.eventClass()==1 && level>11) level =11;
         if( level<minlevel) return 0;
 
         double diff = 1e9;
@@ -207,11 +262,11 @@ int AlignProc::add(pointlike::AlignProc::Photona& p){
             if(dot<diff) {
                 diff=dot;
                 sd = m_skydir[it];
-                alpha = m_alphas[it][i];
+                alpha = m_alphas[it][level-minlevel];
             }
         }
         if(alpha<0) alpha=0;
-        double p0,p1;
+        /*double p0,p1;
         //From IRF parameters of 68% containment
 
 
@@ -222,8 +277,10 @@ int AlignProc::add(pointlike::AlignProc::Photona& p){
             p0 = 0.096;
             p1 = 0.0013;
         }  
-        double sigmasq = (p0*p0*pow(p.energy()/100,-1.6))+p1*p1;
-        double utest = diff*diff/sigmasq/pointlike::PointSourceLikelihood::sigma_level(level)/pointlike::PointSourceLikelihood::sigma_level(level)/2;
+        double sigmasq = (p0*p0*pow(p.energy()/100,-1.6))+p1*p1;*/
+        double sigmasq = 2.5*pow(2.0,6-level)*M_PI/180.*pointlike::PointSourceLikelihood::sigma_level(level);
+        sigmasq *= sigmasq;
+        double utest = diff*diff/sigmasq/2;
         //if scaled deviation is within the cone and enough signal photons
         if(utest<s_umax&&alpha>0.15) {
             added=1;
