@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.30 2008/03/06 07:22:28 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.31 2008/03/06 08:02:22 mar0 Exp $
 
 */
 
@@ -274,7 +274,7 @@ namespace {
             }
         }else{
             ///@todo: process FT2 to extact pointing information as above.
-			if(!Data::historyfile().empty()) {
+            if(!Data::historyfile().empty()&&Data::inTimeRange(time)) {
                 astro::PointingInfo pi = Data::get_pointing(time);
                 raz = pi.zAxis().ra();
                 decz = pi.zAxis().dec();
@@ -381,7 +381,7 @@ Data::Data(const embed_python::Module& setup)
         std::cout << "writing output pixel file :" << output_pixelfile ;
         m_data->write(output_pixelfile);
         std::cout << " with GTI range " << int(m_data->gti().minValue())<<"-"<<int(m_data->gti().maxValue())
-                  << std::endl;
+            << std::endl;
     }
 }
 
@@ -528,8 +528,8 @@ void Data::set_rot(std::vector<double> align) {
     assert( align.size()==3); // otherwise bad interface setup
     static double torad(M_PI/(180*60*60));
     s_rot = HepRotationX(align[0]*torad) 
-          * HepRotationY(align[1]*torad) 
-          * HepRotationZ(align[2]*torad);
+        * HepRotationY(align[1]*torad) 
+        * HepRotationZ(align[2]*torad);
 }
 
 const CLHEP::HepRotation& Data::get_rot() {
@@ -540,7 +540,7 @@ const astro::PointingInfo& Data::get_pointing(double time) {
     return (*s_history)(time);
 }
 
-    //! @brief define FT2 file to use for rotation
+//! @brief define FT2 file to use for rotation
 void Data::setHistoryFile(const std::string& history)
 {
     s_ft2file = history;
@@ -549,4 +549,8 @@ void Data::setHistoryFile(const std::string& history)
 
 const std::string Data::historyfile() {
     return s_ft2file;
+}
+
+bool Data::inTimeRange(double time) {
+    return time>(*s_history).startTime()&&time<(*s_history).endTime();
 }
