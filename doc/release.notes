@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.44 2008/02/24 19:09:00 burnett Exp $
+$Id: release.notes,v 1.45 2008/03/03 21:07:33 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 05-mar-08 v5r3p1  MR  Added FT2 support to Data and Alignment classes
  03-mar-08 v5r3    THB Use Gti
  24-feb-08 v5r1p1  THB Provide sensible PSF default parameters
  19-feb-08 v5r1    THB Improve convergence; move PSF configuration parameters to python setup

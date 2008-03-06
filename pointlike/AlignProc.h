@@ -11,6 +11,9 @@
 #include "pointlike/PointSourceLikelihood.h"
 #include <vector>
 
+namespace astro {
+    class PointingHistory;
+}
 
 namespace pointlike{
 
@@ -92,10 +95,11 @@ namespace pointlike{
 
         //! constructor takes an array of source positions and creates an grid of rotations
         //! @param sources an array of source positions
-        //! @param files an array of either root merit or FT1 fits files 
+        //! @param files an array of either root merit file
         //! @param arcmins determines the resolution of the grid about the identity rotation (0,0,0)
-        AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::vector<double> >& alphas ,std::vector<std::string>& files, double arcsecs, double start=-1.0, double stop=-1.0); 
+        AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::vector<double> >& alphas ,std::vector<std::string>& rootfiles, double arcsecs, double start=-1.0, double stop=-1.0); 
 
+        AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::vector<double> >& alphas ,std::vector<std::string>& fitsfiles, const std::string& ft2file, double arcsecs, double start=-1.0, double stop=-1.0);
         //! takes event information and returns a photon with pointing information
         pointlike::AlignProc::Photona events(std::vector<float>& row);
 
@@ -137,6 +141,7 @@ namespace pointlike{
         void loadroot(const std::string& file);
         void loadfits(const std::string& file);
         std::vector<int> m_photons; //number of photons
+        astro::PointingHistory* m_ph;
         double m_start; //start time 0... (-1 for all)
         double m_stop; //end time ...stop
         double m_arcsec; //resolution of the grid

@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.28 2008/03/02 21:29:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.29 2008/03/03 21:07:34 burnett Exp $
 
 */
 
@@ -43,7 +43,8 @@ using skymaps::Gti;
 
 using namespace pointlike;
 double Data::s_scale[4]={1.0, 1.86, 1.0, 1.0}; // wired in for front, back !!
-
+std::string Data::s_ft2file = std::string("");
+astro::PointingHistory* Data::s_history;
 int Data::s_class_level=2; 
 CLHEP::HepRotation Data::s_rot = CLHEP::HepRotationX(0)*CLHEP::HepRotationY(0)*CLHEP::HepRotationZ(0);
 
@@ -327,7 +328,6 @@ namespace {
 } // anon namespace
 
 Data::Data(const embed_python::Module& setup)
-: m_history(0)
 {
     std::string pixelfile(""), tablename("PHOTONMAP"), output_pixelfile("");
 
@@ -354,7 +354,7 @@ Data::Data(const embed_python::Module& setup)
     setup.getValue(prefix+"history",   history_filename, "");
     if( !history_filename.empty()){
         std::cout << "loading history file: " << history_filename << std::endl;
-        m_history = new astro::PointingHistory(history_filename);
+        Data::setHistoryFile(history_filename);
     }
     setup.getList(prefix+"LATalignment", alignment);
     if( alignment.size()>0) Data::set_rot(alignment);
@@ -423,9 +423,7 @@ void Data::addgti(const std::string& inputFile)
 }
 Data::Data(const std::string& inputFile, int event_type, double tstart, double tstop, int source_id)
 : m_data(new PhotonMap())
-, m_ft2file("")
 , m_start(tstart), m_stop(tstop)
-, m_history(0)
 {
     add(inputFile, event_type, source_id);
     addgti(inputFile);
@@ -433,9 +431,7 @@ Data::Data(const std::string& inputFile, int event_type, double tstart, double t
 
 Data::Data(std::vector<std::string> inputFiles, int event_type, double tstart, double tstop, int source_id, std::string ft2file)
 : m_data(new PhotonMap())
-, m_ft2file(ft2file)
 , m_start(tstart), m_stop(tstop)
-, m_history(0)
 {
 
     for( std::vector<std::string>::const_iterator it = inputFiles.begin(); 
@@ -449,7 +445,6 @@ Data::Data(std::vector<std::string> inputFiles, int event_type, double tstart, d
 
 Data::Data(const std::string & inputFile, const std::string & tablename)
 : m_data(new PhotonMap(inputFile, tablename))
-, m_history(0)
 {
     addgti(inputFile);
 }
@@ -457,7 +452,7 @@ Data::Data(const std::string & inputFile, const std::string & tablename)
 Data::~Data()
 {
     delete m_data;
-    delete m_history;
+    delete s_history;
 }
 
 
@@ -535,8 +530,17 @@ const CLHEP::HepRotation& Data::get_rot() {
     return s_rot;
 }
 
+const astro::PointingInfo& Data::get_pointing(double time) {
+    return (*s_history)(time);
+}
+
     //! @brief define FT2 file to use for rotation
 void Data::setHistoryFile(const std::string& history)
 {
-    m_history = new astro::PointingHistory(history);
+    s_ft2file = history;
+    s_history = new astro::PointingHistory(history);
+}
+
+const std::string Data::historyfile() {
+    return s_ft2file;
 }
