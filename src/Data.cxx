@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.29 2008/03/03 21:07:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.30 2008/03/06 07:22:28 mar0 Exp $
 
 */
 
@@ -274,6 +274,13 @@ namespace {
             }
         }else{
             ///@todo: process FT2 to extact pointing information as above.
+			if(!Data::historyfile().empty()) {
+                astro::PointingInfo pi = Data::get_pointing(time);
+                raz = pi.zAxis().ra();
+                decz = pi.zAxis().dec();
+                rax = pi.xAxis().ra();
+                decx = pi.xAxis().dec();
+            }
         }
 
         return Photon(astro::SkyDir(ra, dec), energy, time, event_class , source, 
@@ -452,7 +459,6 @@ Data::Data(const std::string & inputFile, const std::string & tablename)
 Data::~Data()
 {
     delete m_data;
-    delete s_history;
 }
 
 
