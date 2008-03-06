@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: mar0  Wed Mar  5 23:22:28 PST 2008
+pointlike/python
+
+Modified Files:
+	alignment_setup.py 
+Log Message:
+added FT2 support for Data and Alignment classes
+    *
+------------------------------------------------------------
+User: mar0  Wed Mar  5 23:22:28 PST 2008
 pointlike/pointlike
 
 Modified Files:
