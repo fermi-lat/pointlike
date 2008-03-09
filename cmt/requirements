@@ -1,25 +1,24 @@
 package pointlike
 
-version v5r3p1
+version v5r4
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.50 2008/03/03 21:07:33 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.51 2008/03/06 07:22:27 mar0 Exp $
 
 use astro *
 use healpix *
 use skymaps *
 use embed_python *
 
-
+use python * IExternal
 
 apply_pattern shared_library
 
 path_remove PYTHONPATH pointlike
 path_prepend PYTHONPATH $(POINTLIKEROOT)/python;$(POINTLIKEROOT)/$(BINDIR)
 
-private
+apply_tag have_python
 
-path_remove PYTHONPATH pointlike
-path_prepend PYTHONPATH $(POINTLIKEROOT)/python;$(POINTLIKEROOT)/$(BINDIR)
+private
 
 macro source "*.cxx" WIN32 "*.cxx *.h *.py"
 
@@ -40,3 +39,4 @@ application test_pointlike -s=test $(source)
 
 # convenient setup alias using DOSKEY for Windows version
 setup_script alias
+
