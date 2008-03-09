@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.31 2008/03/06 08:02:22 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.32 2008/03/06 08:41:42 mar0 Exp $
 
 */
 
@@ -110,7 +110,11 @@ namespace {
 
             // account for worse energy resolution of back events by simply scaling up the energy.
             int evtclass(eventClass());
-            assert( evtclass>=0 && evtclass<3); // just a check: should be 0 or 1 if not DC2
+            if( evtclass<0 || evtclass>1){ // just a check: should be 0 or 1 for front/back
+                //std::stringstream err;
+                std::cerr << "Data::Photon::transform--invalid eventclass value, expect 0 or 1, got: "<< evtclass<< std::endl;
+                //throw std::runtime_error(err.str());
+            }
             double 
                 emeas(energy()),                    // measured energy
                 eff_energy( emeas/Data::scale(evtclass) ); // "effective" energy
@@ -308,7 +312,10 @@ namespace {
         int class_level(0);
         int flag =1;
         for(unsigned int i = 0;i<row.size();++i) {
-            if(row[i]<-1e7) flag=0;
+            if(row[i]<-1e7) {
+                flag=0;
+                std::cerr << "Bad data: time="<< std::fixed<< row[3]<< ", index, value: " << i << ", " << row[i]<< std::endl;
+            }
         }
         if(flag) {
             time = row[3];
@@ -415,11 +422,39 @@ void Data::addgti(const std::string& inputFile)
 {
     try
     {
+
         std::cout << "Loading gti info from file " << inputFile << "...";
-        skymaps::Gti tnew(inputFile); 
-        m_data->addgti(tnew); 
-        std::cout << " found interval " 
-            << int(tnew.minValue())<<"-"<< int(tnew.maxValue())<<  std::endl;
+        if(inputFile.find(".root") == std::string::npos) {
+
+            skymaps::Gti tnew(inputFile); 
+            m_data->addgti(tnew); 
+            std::cout << " found interval " 
+                << int(tnew.minValue())<<"-"<< int(tnew.maxValue())<<  std::endl;
+        }else {
+
+            // extract begin and end times from the ROOT file
+            TFile *tf = new TFile(inputFile.c_str(),"READONLY");
+            TTree *tt = static_cast<TTree*>(tf->Get("MeritTuple"));
+            TLeaf *tl = tt->GetLeaf(root_names[3].c_str());
+            tt->SetBranchStatus("*", 0); // turn off all branches
+            // but the EvtElapsedTime
+            tt->SetBranchStatus(root_names[3].c_str(), 1);
+            int entries (static_cast<int>(tt->GetEntries()) );
+            tt->GetEvent(0);
+            double start( tl->GetValue());
+            tt->GetEvent(entries-1);
+            double stop( tl->GetValue() );
+            delete tf;
+
+            skymaps::Gti tnew;
+            tnew.insertInterval( m_start>start? m_start:start, 
+                                  m_stop<stop&&m_stop>0? m_stop:stop);
+            m_data->addgti(tnew);
+            std::cout << " found interval " 
+                << int(tnew.minValue())<<"-"<< int(tnew.maxValue())<<  std::endl;
+        }
+
+ 
     }
     catch(const std::exception& e)
     {
@@ -506,7 +541,7 @@ void Data::lroot(const std::string& inputFile) {
             float v = tl->GetValue();
             row.push_back(isFinite(v)?v:-1e8);
         }
-        double time(row[3]);
+        double time(row[3]), energy(row[2]), convlayer(row[4]);
         if( m_start<=0 || time >= m_start){
             if( m_stop<=0 || time < m_stop){
                 m_data->addPhoton( events(row) );
@@ -516,6 +551,7 @@ void Data::lroot(const std::string& inputFile) {
         }
         row.clear();
     }
+    delete tf;
 }
 
 CLHEP::HepRotation Data::set_rot(double arcsecx,double arcsecy,double arcsecz) {
