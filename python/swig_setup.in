@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.5 2008/02/19 21:02:12 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.6 2008/03/03 21:07:33 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -24,6 +24,7 @@
 #include "skymaps/Exposure.h"
 #include "skymaps/SkyImage.h"
 #include "skymaps/Gti.h"
+#include "skymaps/IsotropicPowerLaw.h"
 
 #include "embed_python/Module.h"
 
@@ -157,6 +158,7 @@ public:
 %include $(SKYMAPSROOT)/skymaps/SkyImage.h
 %include $(SKYMAPSROOT)/skymaps/Exposure.h
 %include $(SKYMAPSROOT)/skymaps/Gti.h
+%include $(SKYMAPSROOT)/skymaps/IsotropicPowerLaw.h
 
 %include $(POINTLIKEROOT)/pointlike/SimpleTSmap.h
 
