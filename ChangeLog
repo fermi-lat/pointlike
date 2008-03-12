@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Mar 12 11:51:41 PDT 2008
+pointlike/python
+
+Modified Files:
+	swig_setup.in 
+Log Message:
+add skymaps.IsotropicPowerLaw
+    *
+------------------------------------------------------------
 User: burnett  Sun Mar  9 14:27:52 PDT 2008
 pointlike/src
 
