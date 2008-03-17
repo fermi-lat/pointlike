@@ -2,7 +2,7 @@ package pointlike
 
 version v5r4
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.51 2008/03/06 07:22:27 mar0 Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.52 2008/03/09 21:27:51 burnett Exp $
 
 use astro *
 use healpix *
@@ -13,9 +13,9 @@ use python * IExternal
 
 apply_pattern shared_library
 
-path_remove PYTHONPATH pointlike
-path_prepend PYTHONPATH $(POINTLIKEROOT)/python;$(POINTLIKEROOT)/$(BINDIR)
+apply_pattern python_module
 
+# this should cause the IExternal/python setup to avoid modifying PYTHONPATH or PATH
 apply_tag have_python
 
 private
