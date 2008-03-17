@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Mar 16 18:37:33 PDT 2008
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+simple change to automatically make a python module with the build
+    *
+------------------------------------------------------------
 User: burnett  Wed Mar 12 11:51:41 PDT 2008
 pointlike/python
 
