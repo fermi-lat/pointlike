@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Mar 19 20:05:42 PDT 2008
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+add pointfit module; tag for new SwigModule
+    *
+------------------------------------------------------------
 User: burnett  Sun Mar 16 18:37:33 PDT 2008
 pointlike/python
 
