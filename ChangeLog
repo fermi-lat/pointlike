@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Wed Mar 19 20:05:42 PDT 2008
+pointlike/doc
+
+Modified Files:
+	release.notes 
+Log Message:
+add pointfit module; tag for new SwigModule
+    *
+------------------------------------------------------------
+User: burnett  Wed Mar 19 20:05:42 PDT 2008
 pointlike/cmt
 
 Modified Files:
