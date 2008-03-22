@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Mar 22 10:43:55 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	SourceFinder.h 
+Log Message:
+fix refit issue; add reg file creation
+    *
+------------------------------------------------------------
 User: burnett  Thu Mar 20 21:06:31 PDT 2008
 pointlike/python
 
