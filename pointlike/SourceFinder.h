@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.21 2008/01/27 02:31:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.22 2008/01/27 18:07:47 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -207,8 +207,12 @@ namespace pointlike {
         std::vector<CanInfo> candidateList()const;
 
         //! write contents of CanInfo to fits file
-        void write(const std::string & outputFile,
-            const std::string & tablename="SOURCEFINDER", bool clobber= true) const;
+        void createFitsFile(const std::string & outputFile,
+            const std::string & tablename="PNTFIND", bool clobber= true) const;
+
+        //! write a reg file
+        void createRegFile(std::string filename, std::string color="white")const;
+
 
         //! run the current set of steps
         void run();
