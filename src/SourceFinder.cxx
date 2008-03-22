@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.29 2008/01/27 02:31:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.30 2008/01/27 15:23:23 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -65,21 +65,27 @@ namespace {
     double pixel_fraction;
     astro::SkyDir examine_dir;
     std::string outfile;
+    std::string regfile;
+    std::string fitsfile;
+    int refit(1);
 
     static std::string prefix("SourceFinder.");
 
     void getParameters(const embed_python::Module & module)
     {
         module.getValue(prefix+"TSmin", ts_min, 10);
-        module.getValue(prefix+"skipTSlevels", skip_TS_levels, 2);
+        module.getValue(prefix+"skipTSlevels", skip_TS_levels, 0);
         module.getValue(prefix+"pixLevel", pix_level, 8);
         module.getValue(prefix+"pixel_fraction", pixel_fraction, 0.5);
 
         module.getValue(prefix+"examine_radius", examine_radius);
         module.getValue(prefix+"group_radius", group_radius, 1.0);
         module.getValue(prefix+"prune_radius", prune_radius, 0.25);
+        module.getValue(prefix+"refit", refit, 1);
 
         module.getValue(prefix+"outfile", outfile, "");
+        module.getValue(prefix+"regfile", regfile, "");
+        module.getValue(prefix+"fitsfile", fitsfile, "");
 
         double l,b,ra,dec;
         module.getValue(prefix+"l", l, 999.);
@@ -205,9 +211,19 @@ void SourceFinder::examineRegion(void)
         // found candidate
         // add to the final list, indexed according to level 13 location
         HealPixel px(ps.dir(), 13); 
+        //std::cout << "Found candidate: pixel, ts:" << px.index() <<", " << ts << std::endl;
+        Candidates::iterator newit = m_can.find(px);
+        if( newit != m_can.end() ) {
+            //std::cout << "--duplicate!" << std::endl;
+            continue;
+        }
         m_can[px] = CanInfo(ts, error, ps.dir());
         for(int id =ps.minlevel() ;id<=ps.maxlevel();++id)
         {
+            double levTS = ps.levelTS(id);
+            if( levTS<-1 ) {
+                std::cout << "   Warning: negative TS for level:" << id << ", " << levTS << std::endl; 
+            }
             m_can[px].setValue(id,ps.levelTS(id));
             m_can[px].setPhotons(id,(ps[id]->photons()) * (ps[id]->alpha()));
             m_can[px].setSigalph(id,ps[id]->sigma_alpha());
@@ -248,12 +264,15 @@ void SourceFinder::reExamine(void)
         ShowPercent(i++, nbr_to_examine, nbr_purged);
         if (! (it2->second.hasStrongNeighbor())) continue;  // Only care about ones with strong neighbors
 
+        CanInfo& cand = it2->second;
+        double oldts(cand.value());
+
         //not used? const astro::SkyDir& currentpos = it2->second.dir();
         PointSourceLikelihood::clearBackgroundPointSource();
 
         // Recalculate likelihood for strong neighbor
         PointSourceLikelihood strong(m_pmap, "test", m_can[it2->second.strongNeighbor()].dir());
-        //not used double strong_ts = strong.maximize(skip_TS_levels);
+        double strong_ts = strong.maximize(skip_TS_levels); // not used
 
         // Add strong neighbor to this candidate's background
         PointSourceLikelihood::addBackgroundPointSource(& strong);
@@ -263,7 +282,7 @@ void SourceFinder::reExamine(void)
         double ts = ps.maximize(skip_TS_levels);
 
         // perform likelihood analysis at the current candidate position 
-        ts = ps.maximize(skip_TS_levels);
+        //already done ts = ps.maximize(skip_TS_levels);
 
         // eliminate candidate if now below threshold
         if (ts < ts_min)
@@ -747,11 +766,12 @@ std::vector<CanInfo> SourceFinder::candidateList()const
     return ret;
 }
 
-void SourceFinder::write(const std::string & outputFile,
+void SourceFinder::createFitsFile(const std::string & outputFile,
                          const std::string & tablename,
                          bool clobber) const
 {
-    std::cout << "Writing results to the table " << outputFile << std::endl;
+    std::cout << "Writing results to the FITS file, table " 
+        << outputFile <<", " << tablename << std::endl;
 
     if (clobber)
     {
@@ -825,24 +845,43 @@ void SourceFinder::write(const std::string & outputFile,
     // close it?
     delete &table;
 }
+void SourceFinder::createRegFile(std::string filename, std::string color)const
+{
+    std::ofstream out(filename.c_str());
+    out << "global color="<< color 
+        << " font=\"helvetica 10 normal\" select=1 edit=1 move=0 delete=1 include=1 fixed=0 width=2;fk5;"
+        << std::fixed << std::setprecision(4) << std::endl;
+    for( Candidates::const_iterator it = m_can.begin(); it != m_can.end();  ++it)  {
+        const CanInfo& cand = it->second;
+        out << "cross point("<< cand.ra()<< ","<<cand.dec() <<") # text={TS=" 
+            << int(cand.value()+0.5) << "};\n";
+    }
+    out.close();
+}
+
+
+
 
 void SourceFinder::run()
 {
     examineRegion();
-
-    // group nearby candidates with strongest neighbor   
-    group_neighbors();   
-
-    // reexamine the groups of candidates   
-    reExamine();   
-
-    // prune the result   
+    // inital prune
     prune_neighbors();   
 
-    // and write out the table
+    if( refit) {    // group nearby candidates with strongest neighbor   
+        group_neighbors();   
+        // reexamine the groups of candidates   
+        reExamine();   
+        // prune the result   
+    prune_neighbors();   
+    }
+
+    // and write out the ascii table, reg or fits files
     if( ! outfile.empty() )  createTable(outfile);   
 
+    if( ! regfile.empty() ) createRegFile(regfile);
 
+    if( ! fitsfile.empty() ) createFitsFile(fitsfile);
 }
 
 
