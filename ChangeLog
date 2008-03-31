@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Mar 31 02:33:07 PDT 2008
+pointlike/src/swig
+
+Added Files:
+	swig_wrap.cxx 
+Log Message:
+tentative setup for linux.
+    *
+------------------------------------------------------------
+User: burnett  Mon Mar 31 02:33:07 PDT 2008
 pointlike/cmt
 
 Modified Files:
