@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.7 2008/03/12 18:51:41 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.8 2008/03/17 01:37:33 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -16,7 +16,7 @@
 
 #include "healpix/Healpix.h"
 #include "healpix/HealPixel.h"
-#include "healpix/HealPixMap.h"
+#include "healpix/HealpixMap.h"
 
 #include "skymaps/DiffuseFunction.h"
 #include "skymaps/CompositeSkySpectrum.h"
@@ -94,8 +94,8 @@ public:
       case 0: return self->dir().x();
       case 1: return self->dir().y();
       case 2: return self->dir().z();
-      case 3: throw std::exception("StopIteration"); //must be exactly this string
-      default: throw std::exception("IndexError");
+      case 3: throw std::range_error("StopIteration"); //must be exactly this string
+      default: throw std::range_error("IndexError");
       }
    }
    size_t __len__() {      return 3;       }
@@ -107,8 +107,8 @@ public:
       case 0: return self->xx(); case 1: return self->xy(); case 2: return self->xz();
       case 3: return self->yx(); case 4: return self->yy(); case 5: return self->yz();
       case 6: return self->zx(); case 7: return self->zy(); case 8: return self->zz();
-      case 9: throw std::exception("StopIteration"); //must be exactly this string
-      default: throw std::exception("IndexError");
+      case 9: throw std::range_error("StopIteration"); //must be exactly this string
+      default: throw std::range_error("IndexError");
       }
    }
    size_t __len__() {return 9;}
