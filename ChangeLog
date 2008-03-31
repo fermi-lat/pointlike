@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Mar 31 01:59:22 PDT 2008
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx 
+Log Message:
+remove roi radius specification, derive from umax only
+    *
+------------------------------------------------------------
+User: burnett  Mon Mar 31 01:59:22 PDT 2008
 pointlike/pointlike
 
 Modified Files:
