@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.21 2008/02/14 01:27:45 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.22 2008/02/19 21:00:32 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -139,7 +139,7 @@ public:
 
 
 private:
-    void setup(const skymaps::PhotonMap& data,double radius, int minlevel, int maxlevel);
+    void setup(const skymaps::PhotonMap& data, int minlevel, int maxlevel);
     std::vector<double> m_energies; ///< array of left edge energies, indexed by level-m_minlevel
     int m_minlevel, m_nlevels;      ///< from the data.
     std::string m_name;
