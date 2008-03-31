@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Mar 31 02:01:37 PDT 2008
+pointlike/src
+
+Modified Files:
+	SimpleLikelihood.cxx 
+Log Message:
+disable for now the selection cuts that were intended to make the set of pixels stable during localization, since they seeme to limiit the number of photons found.
+    *
+------------------------------------------------------------
 User: burnett  Mon Mar 31 01:59:22 PDT 2008
 pointlike/src
 
