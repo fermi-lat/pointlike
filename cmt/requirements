@@ -1,8 +1,8 @@
 package pointlike
 
-version v5r4p2
+version v5r4p3
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.56 2008/03/31 09:07:40 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.57 2008/03/31 09:33:07 burnett Exp $
 
 use astro *
 use healpix *
@@ -21,11 +21,10 @@ private
 use SwigModule *
 #apply_pattern python_module
 # sets the path to local python folder
-apply_pattern set_pythonpath
+apply_pattern use_swig
 
 
 macro source "*.cxx" WIN32 "*.cxx *.h *.py"
-macro swig_source "swig_wrap.cxx" 
 
 library pointlike \
  -s=../pointlike $(source) \

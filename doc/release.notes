@@ -2,10 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.49 2008/03/22 17:45:55 burnett Exp $
+$Id: release.notes,v 1.50 2008/03/31 09:07:40 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
- 31-mar-08 v5r4p2  THB pointfit python module update; make selection radius depend on umax
+ 31-mar-08 v5r4p3  THB pointfit python module update; make selection radius depend on umax
  22-mar-08 v5r4p1  THB Start on pointfit python module; fix refit issue with pointfind 
  05-mar-08 v5r3p1  MR  Added FT2 support to Data and Alignment classes
  03-mar-08 v5r3    THB Use Gti
