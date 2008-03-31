@@ -1,5 +1,6 @@
 """
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.2 2008/03/21 02:48:22 burnett Exp $
+ Utility classes or functions to implement pointlike 
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitter.py,v 1.1 2008/03/22 17:44:31 burnett Exp $
 """
 try: import uw.pointlike
 except: pass
@@ -7,6 +8,7 @@ except: pass
 from pointlike import SkyDir, PointSourceLikelihood, Data, DiffuseFunction, CompositeSkySpectrum
 import os, sys, math
 
+#----------------------------------------------------------------------------------------
 class Source(object):
     def __init__(self, *args):
         if len(args)==1:
@@ -18,12 +20,14 @@ class Source(object):
             self.ra, self.dec = [float(a) for a in args[1:3]]
 
         self.sdir = SkyDir(self.ra, self.dec)
+#----------------------------------------------------------------------------------------
 
 class Fitter(object):
     
     def __init__(self, source, data,  background=None, skip=3, verbose=0):
         psl = PointSourceLikelihood(data.map(), source.name, source.sdir)
         if background is not None: psl.set_diffuse(background)
+        else: print 'fitting with default constant background'
         psl.set_verbose(verbose)
         psl.maximize()
         self.sigma =psl.localize(skip)
@@ -32,19 +36,21 @@ class Fitter(object):
         self.ra = psl.dir().ra()
         self.dec= psl.dir().dec()
         self.delta = math.degrees(psl.dir().difference(source.sdir))
+#----------------------------------------------------------------------------------------
 
-def photonmap(filename, pixeloutput=None):
+def photonmap(filename, eventtype=-1, pixeloutput=None, tstart=0, tstop=0):
     """ return a Data object, determined one of 3 ways:
         * the name of a file containing a list of photon files, preceded by an @
         * the name of a photon file, that will be expanded by glob
         * the name of a photon map file.
         if pixeloutput is set, write the photonmap to the file
+        eventtype is -1 for all events, 0/1 for front back
     """
     data = None
     if filename[0]=='@':
         # it is a list of data files
         filelist = [line for line in file(filename[1:]) if len(line)>0]
-        data =  Data(filelist, -1, 0, 0)
+        data =  Data(filelist, eventtype, tstart, tstop)
     elif filename[-5:]=='.fits':
         # a fits file: either data to read, or a photonmap
         import pyfits, glob
@@ -60,13 +66,14 @@ def photonmap(filename, pixeloutput=None):
             data = Data(files[0], 'PHOTONMAP')
         else:
             hd.close()
-            data = Data(files, -1, 0 , 0)
+            data = Data(files, eventtype, tstart , tstop)
     else:
         raise Exception('filename %s not a valid list of files or fits file' % filename)
     if pixeloutput is not None:
         data.map().write(pixeloutput)
         print 'created a photonmap file: %s' % pixeloutput
     return data
+#----------------------------------------------------------------------------------------
     
 def sourcelist(filename):
     if filename[-5:]=='.fits':
@@ -86,10 +93,11 @@ class Background(object):
     """
     def __init__(self, diffusefilename, exposure=3e10):
         self.background=None
-        if diffusefilename is not None:
-            print 'setting up background from file %s, exposure=%.2g' % (diffusefilename, exposure)
-            if 'GLAST_EXT' in os.environ and diffusefilename=='galdiffuse':
-                diffusefilename = os.path.join(os.environ['GLAST_EXT'],'extFiles','v0r7','galdiffuse', 'GP_gamma.fits')
+        if diffusefilename is None: return
+        
+        print 'setting up background from file %s, exposure=%.2g' % (diffusefilename, exposure)
+        if 'GLAST_EXT' in os.environ and diffusefilename=='galdiffuse':
+            diffusefilename = os.path.join(os.environ['GLAST_EXT'],'extFiles','v0r7','galdiffuse', 'GP_gamma.fits')
 
         if diffusefilename !='':
             self._df = DiffuseFunction(diffusefilename) # need to keep this reference open!
@@ -97,7 +105,9 @@ class Background(object):
     def __call__(self):
         return self.background
 
+#----------------------------------------------------------------------------------------
 
 if __name__=='__main__':
+    print 'testing Background with galdiffuse option'
     t = Background('galdiffuse')
     pass
