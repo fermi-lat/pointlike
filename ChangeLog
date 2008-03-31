@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Mar 31 05:13:42 PDT 2008
+pointlike/src/swig
+
+Modified Files:
+	swig_wrap.cxx 
+Log Message:
+hand fixes for linux
+    *
+------------------------------------------------------------
 User: burnett  Mon Mar 31 02:58:05 PDT 2008
 pointlike/python
 
