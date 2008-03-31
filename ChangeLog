@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Mar 31 01:59:22 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h 
+Log Message:
+remove roi radius specification, derive from umax only
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-05-04-01, operation: add
 Package: pointlike
