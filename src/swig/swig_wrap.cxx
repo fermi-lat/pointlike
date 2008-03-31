@@ -4625,8 +4625,8 @@ SWIGINTERN double CLHEP_Hep3Vector___getitem__(CLHEP::Hep3Vector *self,size_t i)
       case 0: return self->x();
       case 1: return self->y();
       case 2: return self->z();
-      case 3: throw std::exception("StopIteration"); //must be exactly this string
-      default: throw std::exception("IndexError");
+      case 3: throw std::range_error("StopIteration"); //must be exactly this string
+      default: throw std::range_error("IndexError");
       }
    }
 SWIGINTERN size_t CLHEP_Hep3Vector___len__(CLHEP::Hep3Vector *self){      return 3;       }
@@ -4635,8 +4635,8 @@ SWIGINTERN double CLHEP_HepRotation___getitem__(CLHEP::HepRotation *self,size_t 
       case 0: return self->xx(); case 1: return self->xy(); case 2: return self->xz();
       case 3: return self->yx(); case 4: return self->yy(); case 5: return self->yz();
       case 6: return self->zx(); case 7: return self->zy(); case 8: return self->zz();
-      case 9: throw std::exception("StopIteration"); //must be exactly this string
-      default: throw std::exception("IndexError");
+      case 9: throw std::range_error("StopIteration"); //must be exactly this string
+      default: throw std::range_error("IndexError");
       }
    }
 SWIGINTERN size_t CLHEP_HepRotation___len__(CLHEP::HepRotation *self){return 9;}
@@ -4663,8 +4663,8 @@ SWIGINTERN double astro_SkyDir___getitem__(astro::SkyDir *self,size_t i){
       case 0: return self->dir().x();
       case 1: return self->dir().y();
       case 2: return self->dir().z();
-      case 3: throw std::exception("StopIteration"); //must be exactly this string
-      default: throw std::exception("IndexError");
+      case 3: throw std::range_error("StopIteration"); //must be exactly this string
+      default: throw std::range_error("IndexError");
       }
    }
 SWIGINTERN size_t astro_SkyDir___len__(astro::SkyDir *self){      return 3;       }
