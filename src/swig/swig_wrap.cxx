@@ -2639,6 +2639,7 @@ namespace swig {
 #include <stdexcept>
 #include <vector>
 #include <utility>
+#include <exception>
 
 #include "astro/SkyDir.h"
 #include "astro/SkyProj.h"
@@ -2651,7 +2652,7 @@ namespace swig {
 
 #include "healpix/Healpix.h"
 #include "healpix/HealPixel.h"
-#include "healpix/HealPixMap.h"
+#include "healpix/HealpixMap.h"
 
 #include "skymaps/DiffuseFunction.h"
 #include "skymaps/CompositeSkySpectrum.h"
