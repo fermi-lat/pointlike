@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Mar 31 05:54:11 PDT 2008
+pointlike/src/swig
+
+Modified Files:
+	swig_wrap.cxx 
+Log Message:
+exception has no such constructor
+    *
+------------------------------------------------------------
 User: burnett  Mon Mar 31 05:13:42 PDT 2008
 pointlike/src/swig
 
