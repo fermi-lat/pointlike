@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.23 2008/02/14 01:27:45 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.24 2008/02/19 21:03:54 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -23,6 +23,7 @@ using namespace pointlike;
 
 //#define DEBUG_PRINT
 double SimpleLikelihood::s_defaultUmax =50;
+#define UMAXCUT
 
 skymaps::SkySpectrum* SimpleLikelihood::s_diffuse(0);
 double  SimpleLikelihood::s_tolerance(0.05); // default:
@@ -88,7 +89,7 @@ namespace {
         void operator()(const std::pair<HealPixel, int>& x){
             double diff =x.first().difference(m_dir); 
             double  u = sqr(diff/m_sigma)/2.;
-#if 0 // old
+#ifndef  UMAXCUT // old
             if( u>m_umax ) return;
 #else // new
             std::vector<int>::iterator it = find(m_vec4.begin(),m_vec4.end(),x.first.index());
@@ -318,7 +319,7 @@ Hep3Vector SimpleLikelihood::gradient() const
         int nphoton( h.second);
         Hep3Vector delta( m_dir() - d() ); 
         double u( 0.5*delta.mag2()/sig2);
-#if 0 // original version
+#ifndef UMAXCUT // original version
         if(u>m_umax) continue;
 #else // Marshal mod
         if((u>m_umax&&m_vec4.size()==0)||(find(m_vec4.begin(),m_vec4.end(),h.first.index())==m_vec4.end()&&m_vec4.size()!=0)) continue;
