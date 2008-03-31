@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Mar 31 02:05:05 PDT 2008
+pointlike/python
+
+Modified Files:
+	fitter.py pointfit.py 
+Log Message:
+update pointfit as a python module
+    *
+------------------------------------------------------------
 User: burnett  Mon Mar 31 02:01:37 PDT 2008
 pointlike/src
 
