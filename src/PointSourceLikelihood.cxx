@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.25 2008/02/19 21:00:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.26 2008/02/24 19:06:35 burnett Exp $
 
 */
 
@@ -43,13 +43,12 @@ std::vector<double> PointSourceLikelihood::s_gamma_level(gamma_list,gamma_list+1
 std::vector<double> PointSourceLikelihood::s_sigma_level(sigma_list,sigma_list+14);
 
 
-double PointSourceLikelihood::s_radius(7.0);
 int    PointSourceLikelihood::s_minlevel(6);
 int    PointSourceLikelihood::s_maxlevel(13);
 double PointSourceLikelihood::s_minalpha(0.05);
 int    PointSourceLikelihood::s_skip1(1);
-int    PointSourceLikelihood::s_skip2(2);
-int    PointSourceLikelihood::s_itermax(2);
+int    PointSourceLikelihood::s_skip2(3);
+int    PointSourceLikelihood::s_itermax(1);
 double PointSourceLikelihood::s_TSmin(5.0);
 int    PointSourceLikelihood::s_verbose(0);
 double PointSourceLikelihood::s_maxstep(0.25);  // if calculated step is larger then this (deg), abort localization
@@ -58,7 +57,6 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
 {
     static std::string prefix("PointSourceLikelihood.");
 
-    par.getValue(prefix+"pslradius",   s_radius,   s_radius);
     par.getValue(prefix+"minlevel", s_minlevel, s_minlevel);
     par.getValue(prefix+"maxlevel", s_maxlevel, s_maxlevel);
     par.getValue(prefix+"minalpha", s_minalpha, s_minalpha);
@@ -128,21 +126,26 @@ PointSourceLikelihood::PointSourceLikelihood(
     if( s_minlevel< m_minlevel || s_maxlevel>m_minlevel+m_nlevels ){
         throw std::invalid_argument("PointSourceLikelihood: invalid levels for data");
     }
-    m_energies.push_back(1e5); // put guard at 100GeV
-    setup( data, s_radius, s_minlevel, s_maxlevel);
+    m_energies.push_back(2e5); // put guard at 200GeV
+    setup( data, s_minlevel, s_maxlevel);
 }
 
 
-void PointSourceLikelihood::setup(const skymaps::PhotonMap& data,double radius, int minlevel, int maxlevel)
+void PointSourceLikelihood::setup(const skymaps::PhotonMap& data, int minlevel, int maxlevel)
 {
     for( int level=minlevel; level<maxlevel+1; ++level){
 
-        // create and fill the vector of data for this level 
-        data.extract(  m_dir, radius, m_data_vec[level], -1, level);
 
         // get PSF parameters from fits
         double gamma( gamma_level(level) ),
             sigma ( scale_factor(level)* sigma_level(level));
+
+        // and then the radius of the roi for extraction
+
+        double roi_radius( sigma*sqrt(2.*SimpleLikelihood::defaultUmax()) * 180/M_PI);
+
+        // create and fill the vector of data for this level (slight fudge) 
+        data.extract(  m_dir, 1.5* roi_radius, m_data_vec[level], -1, level);
 
         double emin( m_energies[level-m_minlevel]), emax( m_energies[level-m_minlevel+1]);
 
@@ -241,7 +244,7 @@ void PointSourceLikelihood::printSpectrum()
         out() << "\nSpectrum of source " << m_name << " at ra, dec=" 
             << setprecision(6) << m_dir.ra() << ", "<< m_dir.dec() << std::endl;
 
-        out() << "level events  backgnd  sig fraction  TS " << std::endl;
+        out() << "level events   signal_fract  TS " << std::endl;
         //  level events  sig fraction    TS
         //    6  592  0.56 +/-  0.036     193.9
     }
@@ -259,7 +262,7 @@ void PointSourceLikelihood::printSpectrum()
             if(bkg>=0) {
                 out() << setprecision(1) << levellike.background();
             }else{
-                out() << "     -    ";
+                //out() << "     -    ";
             }
             if( levellike.photons()==0)  out() << std::endl; 
         }
@@ -277,13 +280,11 @@ void PointSourceLikelihood::printSpectrum()
             double avb(levellike.average_b());
             out() << setprecision(2) << setw(6)<< a.first<<" +/- "
                 << std::setw(4)<< a.second 
-                << setw(6)<< setprecision(0)<< ts
-                //<< setw(8) 
-                << setprecision(2) << std::scientific << " " <<levellike.average_b()
-#if 0 // temporary log likelihood
-                << setw(10) << setprecision(2) << levellike() 
+                << setw(6)<< setprecision(0)<< ts;
+#if 0 // debug output for average background check
+            out() << setprecision(2) << std::scientific << " " <<levellike.average_b()<< std::fixed ;
 #endif
-                << std::fixed << std::endl;
+            out() << std::endl;
         }
     }
     if( verbose() ){
