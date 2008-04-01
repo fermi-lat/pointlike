@@ -1,5 +1,5 @@
 #  setup for point fit test
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.7 2008/01/08 22:40:15 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.8 2008/01/25 22:36:11 burnett Exp $
 from  pointlike_defaults import *
 
 #  specify files with FT1 data and points to fit. pixelfile for PhotonMap, files for FT1 or merit
@@ -28,27 +28,13 @@ dec  = [-17.861,   -18.294,  -18.71  ,-17.88, -18.12]
 PointSourceLikelihood.verbose=1
 name= ['vela']
 ra = [128.8359]; dec=[-45.1763]
-pixelfile = r'F:\glast\data\SC2\obssim\allsky_noGRBs.fits'
-#files = [r'F:\glast\data\SC2\interleave\Interleave_pruned.root']
-#files = glob.glob(r'F:\glast\data\octobertest\merit\cutfile*.root')
-#files = [r'F:\glast\data\octobertest\merit\cutfile8.root']
-#files = glob.glob(r'F:\glast\data\octobertest\FT\*ft1.fits')
+Data.pixelfile = r'F:\glast\data\SC2\obssim\allsky_noGRBs.fits'
 
-#Data.files=[r'F:\glast\data\55-day\Skimmer_pruned.root']
-#Data.output_pixelfile = '55-day_pmap.fits'
-#Data.pixelfile = '55-day_pmap.fits'
-#PointSourceLikelihood.skip1=3 # try skipping first
-
-# setup for selecting a range.
-#tzero = 252460800
-#week = 7*86400
-#Data.start_time = tzero+7*week
-#Data.stop_time = Data.start_time+week
-#Data.output_pixelfile = 'week8_pmap.fits'
-Data.pixelfile='week1_pmap.fits'
-
-#dec=[-45.16]
-ra=[128.835939]; dec=[-45.177672] # best level-10 fit?
 dir =(128.836673, -45.188701)
 ra=[dir[0]]; dec=[dir[1]]
+name = ['crab']; ra=[83.57]; dec=[22.01]
+#name= ['DC2_3EGJ1048m5840']; dir = (137.496,	58.8367)
+
+ra=[dir[0]]; dec=[dir[1]]
 PointSourceLikelihood.skip1=1 # add to minlevel for fitting position
+PointSourceLikelihood.minlevel=6
