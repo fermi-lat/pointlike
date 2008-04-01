@@ -1,5 +1,68 @@
 ------------------------------------------------------------
 TAG
+Tag name: pointlike-05-04-04, operation: add
+Package: pointlike
+User: glastrm  Tue Apr  1 06:45:47 2008
+Files:
+  pointlike/.cvsignore  1.1.1.1
+  pointlike/ChangeLog  1.1.1.419
+  pointlike/pointlikeLib.py  1.4
+  pointlike/SConscript  1.4
+  pointlike/cmt/alias.bat  1.1
+  pointlike/cmt/.cvsignore  1.1.1.1
+  pointlike/cmt/requirements  1.61
+  pointlike/doc/release.notes  1.52
+  pointlike/pointlike/SourceFinder.h  1.23
+  pointlike/pointlike/Draw.h  1.3
+  pointlike/pointlike/Data.h  1.20
+  pointlike/pointlike/PsfFunction.h  1.2
+  pointlike/pointlike/RotationInfo.h  1.5
+  pointlike/pointlike/SimpleTSmap.h  1.3
+  pointlike/pointlike/PointSourceLikelihood.h  1.23
+  pointlike/pointlike/AlignProc.h  1.5
+  pointlike/pointlike/PowerLawFilter.h  1.2
+  pointlike/pointlike/ParamOptimization.h  1.5
+  pointlike/pointlike/SimpleLikelihood.h  1.18
+  pointlike/python/pointfit_setup.py  1.9
+  pointlike/python/fitter.py  1.2
+  pointlike/python/pointlike_defaults.py  1.6
+  pointlike/python/diffuse.py  1.3
+  pointlike/python/test_pointlike_setup.py  1.1
+  pointlike/python/pointfind_setup.py  1.11
+  pointlike/python/.cvsignore  1.2
+  pointlike/python/image.py  1.7
+  pointlike/python/pointfit.py  1.4
+  pointlike/python/__init__.py  1.1
+  pointlike/python/swig_setup.in  1.9
+  pointlike/python/alignment_setup.py  1.3
+  pointlike/python/finder_setup.py  1.2
+  pointlike/src/Data.cxx  1.33
+  pointlike/src/PowerLawFilter.cxx  1.3
+  pointlike/src/ParamOptimization.cxx  1.5
+  pointlike/src/SimpleLikelihood.cxx  1.25
+  pointlike/src/PointSourceLikelihood.cxx  1.27
+  pointlike/src/mainpage.h  1.5
+  pointlike/src/SimpleTSmap.cxx  1.4
+  pointlike/src/Draw.cxx  1.6
+  pointlike/src/PowerLawFilter.h  1.1
+  pointlike/src/SourceFinder.cxx  1.31
+  pointlike/src/RotationInfo.cxx  1.7
+  pointlike/src/AlignProc.cxx  1.10
+  pointlike/src/alignment/alignment.txt  1.1
+  pointlike/src/alignment/alignment_main.cxx  1.3
+  pointlike/src/alignment/vela.txt  1.1
+  pointlike/src/finder/finder_main.cxx  1.2
+  pointlike/src/pointfind/finder_main.cxx  1.13
+  pointlike/src/pointfit/pointfit_main.cxx  1.16
+  pointlike/src/test/PhotonList.h  1.1.1.1
+  pointlike/src/test/test_main.cxx  1.11
+  pointlike/src/test/pointlike_test.fits  1.1
+  pointlike/src/test/PhotonList.cxx  1.1.1.1
+  pointlike/src/test/test_events.root  1.1.1.1
+
+    *
+------------------------------------------------------------
+TAG
 Tag name: v5r4p4, operation: add
 Package: pointlike
 User: burnett  Tue Apr  1 06:45:17 2008
