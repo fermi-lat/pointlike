@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Apr  1 06:28:07 PDT 2008
+pointlike/doc
+
+Modified Files:
+	release.notes 
+Log Message:
+back off SwigModule
+    *
+------------------------------------------------------------
+User: burnett  Tue Apr  1 06:28:07 PDT 2008
 pointlike/cmt
 
 Modified Files:
