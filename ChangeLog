@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Apr  1 06:28:08 PDT 2008
+pointlike/src/swig
+
+Removed Files:
+	swig_wrap.cxx 
+Log Message:
+back off SwigModule
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr  1 06:28:07 PDT 2008
 pointlike/python
 
