@@ -1,5 +1,16 @@
 ------------------------------------------------------------
 User: burnett  Tue Apr  1 06:28:07 PDT 2008
+pointlike/python
+
+Modified Files:
+	pointfind_setup.py pointfit_setup.py 
+Removed Files:
+	pointlike.py 
+Log Message:
+back off SwigModule
+    *
+------------------------------------------------------------
+User: burnett  Tue Apr  1 06:28:07 PDT 2008
 pointlike/doc
 
 Modified Files:
