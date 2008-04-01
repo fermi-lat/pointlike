@@ -2,6 +2,14 @@
 TAG
 Tag name: pointlike-05-04-04, operation: add
 Package: pointlike
+User: glastrm  Tue Apr  1 07:00:44 2008
+Files:
+
+    *
+------------------------------------------------------------
+TAG
+Tag name: pointlike-05-04-04, operation: add
+Package: pointlike
 User: glastrm  Tue Apr  1 06:45:47 2008
 Files:
   pointlike/.cvsignore  1.1.1.1
