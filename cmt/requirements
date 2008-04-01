@@ -1,8 +1,8 @@
 package pointlike
 
-version v5r4p3
+version v5r4p4
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.59 2008/03/31 15:16:13 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.60 2008/03/31 15:27:48 burnett Exp $
 
 use astro *
 use healpix *
@@ -16,17 +16,11 @@ apply_pattern shared_library
 # this should cause the IExternal/python setup to avoid modifying PYTHONPATH or PATH
 apply_tag have_python
 
-# apply_pattern use_swig
+# make python modules accessible, assuming SWIG interface
 path_remove PYTHONPATH "$(POINTLIKEROOT)" 
 path_prepend PYTHONPATH "$(POINTLIKEROOT)/python" 
 
 private
-
-use SwigModule *
-#apply_pattern python_module
-# sets the path to local python folder
-
-
 
 macro source "*.cxx" WIN32 "*.cxx *.h *.py"
 
@@ -34,11 +28,9 @@ library pointlike \
  -s=../pointlike $(source) \
  -s=../src $(source) \
  -s=../python $(source)\
- -s=swig $(swig_source)
 
 # fitting application, 
 application pointfit -s=pointfit $(source) -s=../python pointfit_setup.py
-
 
 #souce-finding application
 application pointfind -s=pointfind $(source) -s=../python pointfind_setup.py
