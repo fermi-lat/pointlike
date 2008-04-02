@@ -1,8 +1,8 @@
 package pointlike
 
-version v5r4p4
+version v5r4p5
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.60 2008/03/31 15:27:48 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.61 2008/04/01 13:28:07 burnett Exp $
 
 use astro *
 use healpix *
@@ -27,7 +27,7 @@ macro source "*.cxx" WIN32 "*.cxx *.h *.py"
 library pointlike \
  -s=../pointlike $(source) \
  -s=../src $(source) \
- -s=../python $(source)\
+ -s=../python $(source)
 
 # fitting application, 
 application pointfit -s=pointfit $(source) -s=../python pointfit_setup.py
