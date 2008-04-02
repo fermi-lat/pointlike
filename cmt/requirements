@@ -2,7 +2,7 @@ package pointlike
 
 version v5r4p5
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.61 2008/04/01 13:28:07 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.62 2008/04/02 06:11:26 burnett Exp $
 
 use astro *
 use healpix *
@@ -16,9 +16,15 @@ apply_pattern shared_library
 # this should cause the IExternal/python setup to avoid modifying PYTHONPATH or PATH
 apply_tag have_python
 
-# make python modules accessible, assuming SWIG interface
-path_remove PYTHONPATH "$(POINTLIKEROOT)" 
+# make python modules accessible
+path_remove  PYTHONPATH "$(POINTLIKEROOT)" 
 path_prepend PYTHONPATH "$(POINTLIKEROOT)/python" 
+
+# undo and redo these to make sure pointlike is first in path
+path_remove  LD_LIBRARY_PATH  "pointlike" WIN32 ""
+path_prepend LD_LIBRARY_PATH  ${pointlike_cmtpath}/lib/ WIN32  ""
+path_remove  PATH  ""  WIN32 \pointlike\ 
+path_prepend PATH  ""  WIN32 ${POINTLIKEROOT}\${BINDIR}
 
 private
 
