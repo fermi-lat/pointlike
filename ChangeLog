@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Apr  2 02:41:56 PDT 2008
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+fix GlastPolicy and prepend, not append
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-05-04-05, operation: add
 Package: pointlike
