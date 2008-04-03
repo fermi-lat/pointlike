@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Thu Apr  3 02:14:29 PDT 2008
+pointlike/doc
+
+Modified Files:
+	release.notes 
+Log Message:
+tagging after fixing order of LD_LIBRARY_PATH
+    *
+------------------------------------------------------------
+User: burnett  Thu Apr  3 02:14:29 PDT 2008
 pointlike/cmt
 
 Modified Files:
