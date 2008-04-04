@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Apr  4 02:53:55 PDT 2008
+pointlike/src
+
+Modified Files:
+	Data.cxx 
+Log Message:
+forgot ampserand, apparently matters for gcc?
+    *
+------------------------------------------------------------
 User: burnett  Fri Apr  4 02:53:54 PDT 2008
 pointlike/pointlike
 
