@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Apr  4 02:53:54 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Data.h 
+Log Message:
+forgot ampserand, apparently matters for gcc?
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-05-04-06, operation: add
 Package: pointlike
