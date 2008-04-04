@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.19 2008/03/06 07:22:28 mar0 Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.20 2008/03/06 08:42:37 mar0 Exp $
 */
 
 
@@ -95,7 +95,7 @@ public:
     static CLHEP::HepRotation set_rot(double arcsecx, double arcsecy, double arcsecz);
     static void set_rot(std::vector<double> align);
     static const CLHEP::HepRotation& get_rot();
-    static const std::string historyfile();
+    static const std::string& historyfile();
     static const astro::PointingInfo& get_pointing(double time);
     static bool inTimeRange(double time);
 

@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.32 2008/03/06 08:41:42 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.33 2008/03/09 21:27:52 burnett Exp $
 
 */
 
@@ -583,7 +583,7 @@ void Data::setHistoryFile(const std::string& history)
     s_history = new astro::PointingHistory(history);
 }
 
-const std::string Data::historyfile() {
+const std::string& Data::historyfile() {
     return s_ft2file;
 }
 
