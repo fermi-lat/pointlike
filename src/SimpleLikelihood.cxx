@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
     @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.24 2008/02/19 21:03:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.25 2008/03/31 09:01:37 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -69,7 +69,7 @@ namespace {
             m_first = m_vec4.size()==0;
             if(debug){
                 //psf_data = new std::ofstream("d:/users/burnett/temp/psf.txt");
-                (*psf_data) << "u        f(u)      count    q" << std:: endl;
+                (*psf_data) << "u        f(u)   q   count    bkg" << std:: endl;
             }
         }
         ~Convert(){
@@ -112,15 +112,19 @@ namespace {
             if(debug){
                 (*psf_data) << std::left<< std::setw(12) 
                     << u << std::setw(12) 
+                    << q << std::setw(12) 
                     << signal << std::setw(5)
-                    <<  x.second 
+                    << x.second 
                     << std::setw(10)<<  bkg << std::endl;
             }
     
             // todo: combine elements with vanishing t
-            m_vec2.push_back(std::make_pair(q, x.second) );
+            m_vec2.push_back( std::make_pair(q, x.second) );
+
             m_vec3.push_back(u);
+#ifndef  UMAXCUT // old
             if(m_first) m_vec4.push_back(x.first.index());
+#endif
         }
         double average_f()const {return m_count>0? m_sum/m_count : -1.;}
         double average_u()const {return m_count>0? m_sumu/m_count : -1;}
