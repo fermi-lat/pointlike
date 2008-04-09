@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Wed Apr  9 06:02:19 PDT 2008
+pointlike/src
+
+Modified Files:
+	SimpleLikelihood.cxx 
+Log Message:
+update the pointfit module
+    *
+------------------------------------------------------------
+User: burnett  Wed Apr  9 06:02:19 PDT 2008
 pointlike/python
 
 Modified Files:
