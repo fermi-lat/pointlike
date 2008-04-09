@@ -1,6 +1,6 @@
 """
  Utility classes or functions to implement pointlike 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitter.py,v 1.1 2008/03/22 17:44:31 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitter.py,v 1.2 2008/03/31 09:05:05 burnett Exp $
 """
 try: import uw.pointlike
 except: pass
@@ -24,18 +24,26 @@ class Source(object):
 
 class Fitter(object):
     
-    def __init__(self, source, data,  background=None, skip=3, verbose=0):
+    def __init__(self, source, data,  background=None, skip=2, verbose=0, localize=True):
         psl = PointSourceLikelihood(data.map(), source.name, source.sdir)
         if background is not None: psl.set_diffuse(background)
         else: print 'fitting with default constant background'
         psl.set_verbose(verbose)
-        psl.maximize()
-        self.sigma =psl.localize(skip)
-        if verbose>0: psl.printSpectrum()
-        self.TS = psl.TS()
+        self.TS = psl.maximize()
+        self.name = source.name 
+        if localize:
+            self.sigma = psl.localize(skip) 
+            self.delta = math.degrees(psl.dir().difference(source.sdir))
+        else:
+            self.sigma = self.delta=-1
         self.ra = psl.dir().ra()
         self.dec= psl.dir().dec()
-        self.delta = math.degrees(psl.dir().difference(source.sdir))
+        self.sdir = psl.dir()
+        if self.sigma< 1. : #test for convergence of localization, or not done
+            if verbose>0: psl.printSpectrum()
+            self.photons = [psl[i].photons() for i in range(psl.minlevel(), psl.maxlevel()+1)]
+            self.alpha   = [psl[i].alpha() for i in range(psl.minlevel(), psl.maxlevel()+1)]
+
 #----------------------------------------------------------------------------------------
 
 def photonmap(filename, eventtype=-1, pixeloutput=None, tstart=0, tstop=0):

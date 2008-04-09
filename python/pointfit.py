@@ -13,7 +13,9 @@ where:
         values allowing a ranking of significance or flux. pointfit will use this
         to sort nearby pairs. If not found, default behavior is to not sort.
     <outputfile>: Optional parameter specifying file name to write results, in
-        format: name, ra, dec, TS, sigma, [name of background source(s)]
+        format: name, input_ra, input_dec, fit_ra, fit_dec TS, sigma, diff, [name of background source(s)]
+        where sigma is the fit error circle radius: >90 indicates a convergence error
+              diff is the difference between fit and initial position
 
 Optional parameters:
     --exposure=: Either the name of a gtexpmap-generated file, or a value, in cm^2 s,
@@ -23,52 +25,28 @@ Optional parameters:
         Note that this is only actually needed for overlapped sources in the Galactic
         plane, if spectral information is not required.
     --galdiffuse: Flag to use the galprop-generated galactic diffuse file
-    --radius= [1.0 deg] Threshold for overlap
     --minlevel= [8] Minimum healpix level for fit [question: skip or not?]
     --eventtype= [-1] Event selection if datafile is event data. -1 means front and back,
         0/1 for front/back specifically.
     --write=<output>: if set, and the datafile is event data, write a pixelfile for
         subsequent input
-    --radius= [8.6] outer selection radius
-        
     -v or --verbose [0] set verbosity
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.3 2008/03/22 17:44:31 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.4 2008/03/31 09:05:05 burnett Exp $
 """
+# setup to import pointlike
 try: import uw.pointlike
 except: pass
 
-import os, sys
+import os, sys, types
 
 from fitter import Fitter,  photonmap, sourcelist
+#from pointlike import DiffuseFunction, CompositeSkySpectrum
+from background import Background
 
-#--------------------------------------------------------
-from pointlike import DiffuseFunction, CompositeSkySpectrum
-import types
-class Background(object):
-    """ manage the background
-    """
-    def __init__(self, diffusefilename, exposure=3e10):
-        self.background=None
-        if diffusefilename is None: return
-        self.exposure = exposure
-        
-        print 'setting up background from file %s' % diffusefilename
-        if 'GLAST_EXT' in os.environ and diffusefilename=='galdiffuse':
-            diffusefilename = os.path.join(os.environ['GLAST_EXT'],'extFiles','v0r7','galdiffuse', 'GP_gamma.fits')
 
-        self._df = DiffuseFunction(diffusefilename) # need to keep this reference open!
 
-        if type(exposure)==types.FloatType:
-            print 'applying constant exposure: %.2g' % exposure
-            self.background = CompositeSkySpectrum(self._df, exposure)
-        else:
-            print 'exposure file" %s' %exposure
-            raise Exception('Use of exposure file not yet implemented')
-            
-    def __call__(self):
-        return self.background
 #--------------------------------------------------------
 
 def main():
@@ -84,7 +62,7 @@ def main():
 
     options = 'b:w:v'
     long_options= [ 'diffuse=','write=', 'verbose', 'galdiffuse', 'minlevel=',
-                    'eventtype=', 'exposure=', 'radius=']
+                    'eventtype=', 'exposure=']
 
     try:    
         (opts, args) = getopt(sys.argv[1:], options, long_options )
@@ -100,15 +78,14 @@ def main():
                                     
     for (opt,val) in opts:
         if   opt=='-b' or opt=='--diffuse'  : diffusefilename = val
-        if   opt=='-w' or opt=='--write'    : outputpixelfile = val
-        if   opt=='-v' or opt=='--verbose'  : verbose =1
-        if   opt=='--galdiffuse'            : diffusefilename='galdiffuse' #flag
-        if   opt=='--minlevel'              : minlevel = int(val)
-        if   opt=='--eventtype'             : eventtype= int(val)
-        if   opt=='--exposure'              :
+        elif opt=='-w' or opt=='--write'    : outputpixelfile = val
+        elif opt=='-v' or opt=='--verbose'  : verbose =1
+        elif opt=='--galdiffuse'            : diffusefilename='galdiffuse' #flag
+        elif opt=='--minlevel'              : minlevel = int(val)
+        elif opt=='--eventtype'             : eventtype= int(val)
+        elif opt=='--exposure'              :
             try: exposure= float(val)
             except: exposure = val
-        if   opt=='--radius'                : radius = float(val)
 
     if len(args)>0: eventfilename=args[0]
     else: help('No event file name specified')
@@ -127,6 +104,8 @@ def main():
         fit = Fitter(source, data , background=background(), verbose=verbose)
         print >>out, ('%-20s'+'%10.4f'*4+                             '%10.2f'+'%10.4f'*2)\
               %( source.name, source.ra, source.dec, fit.ra, fit.dec, fit.TS, fit.sigma, fit.delta)
+
+#--------------------------------------------------------
     
 if __name__=='__main__':
     main()

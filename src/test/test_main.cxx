@@ -10,7 +10,7 @@
 #include "skymaps/Exposure.h"
 
 #include "pointlike/SimpleTSmap.h"
-
+#include "pointlike/ParamOptimization.h"
 #include "PhotonList.h"
 
 #include <iostream>
@@ -84,6 +84,8 @@ int main(int argc , char** argv )
             <<"  pixels created: " << x.pixelCount() <<std::endl;
 
         x.write("pointlike_test.fits");
+        std::vector<astro::SkyDir> directions;
+
 
 
         for( int n=0; !points[n].name.empty(); ++n){
@@ -103,7 +105,13 @@ int main(int argc , char** argv )
             }
             // check function value at peak
             double value = like(dir);
+            directions.push_back(like.dir());
+
         };
+
+        int minlevel(6), maxlevel(13);
+        ParamOptimization so(x,directions,&std::cout,minlevel,maxlevel);
+        so.compute();
 
     }catch(const std::exception& e){
         std::cerr << "Caught exception " << typeid(e).name() 
