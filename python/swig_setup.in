@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.8 2008/03/17 01:37:33 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.9 2008/03/31 14:04:49 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -12,7 +12,8 @@
 #include "astro/PointingHistory.h"
 #include "astro/PointingInfo.h"
 #include "astro/EarthCoordinate.h"
-//#include "astro/GPS.h"
+#include "astro/GPS.h"
+#include "astro/SolarSystem.h"
 
 #include "healpix/Healpix.h"
 #include "healpix/HealPixel.h"
@@ -133,10 +134,12 @@ public:
 %include $(ASTROROOT)/astro/PointingTransform.h
 %include $(ASTROROOT)/astro/PointingHistory.h
 %include $(ASTROROOT)/astro/PointingInfo.h
-// need to fix earthRadius()
 %include $(ASTROROOT)/astro/EarthCoordinate.h
-// need to fix throw
-//%include $(ASTROROOT)/astro/GPS.h
+%include $(ASTROROOT)/astro/GPS.h
+%include $(ASTROROOT)/astro/Quaternion.h
+%include $(ASTROROOT)/astro/JulianDate.h
+%include $(ASTROROOT)/astro/SolarSystem.h
+
 
 %include $(HEALPIXROOT)/healpix/Healpix.h
 %include $(HEALPIXROOT)/healpix/HealpixMap.h
