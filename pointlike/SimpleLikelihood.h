@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.18 2008/02/14 01:27:45 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.19 2008/04/14 05:54:11 mar0 Exp $
 
 */
 
@@ -46,6 +46,7 @@ public:
         double umax, 
         double emin, double emax);
 
+    ~SimpleLikelihood();
 
     //! @return log likelihood for the signal fraction
     //! @param a value for signal fraction (default: use last fit)
@@ -105,16 +106,13 @@ public:
     double average_b()const{ return m_avb;}
 
     double feval(double k);
-    double kcurvature(double k);
-
     double geval(double k);
-    double gcurvature(double k);
 
     void changepsf(){}; // note not implemented
     void setgamma(double gamma) {m_psf=skymaps::PsfFunction(gamma);}
 
     /// @brief implement the SkyFunction interface
-    /// @return the events/pixel corresponding to the solution
+    /// @return the events/sr corresponding to the solution
     double operator()(const astro::SkyDir& dir)const;
 
     /// @brief access to the effective sigma (radians)  used for the fits
@@ -134,12 +132,16 @@ public:
     static double defaultUmax();
     static void setDefaultUmax(double umax);
 
+    static void setDisplayMode(int newmode);
+
 private:
 
 
     static double s_defaultUmax;
     static skymaps::SkySpectrum* s_diffuse;
     static double s_tolerance; // for integral
+
+    static int s_display_mode; // control display mode
 
 
     //! @brief a quick estimate of the signal fraction
@@ -159,6 +161,7 @@ private:
 
     //! vector of healpixels and the number of photons in each
     const std::vector<std::pair<healpix::HealPixel,int> >& m_vec;
+    
     //! simplified set with function or distances from m_dir 
     std::vector<std::pair<double, int> > m_vec2;  //stores <log-like,nphotons>
     std::vector<int> m_vec4; //stores subset healpix indices
@@ -171,6 +174,8 @@ private:
     double m_umax; ///< maximum value of u, for selection of data, fits
     double m_avu, m_avb;
     double m_emin, m_emax; ///< energy range for this object
+    class NormalizedBackground; // forward declaration of helper class
+    NormalizedBackground* m_back; ///< instance of private helper class set when direction is
     
 };
 }

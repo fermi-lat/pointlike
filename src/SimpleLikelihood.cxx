@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.27 2008/04/14 05:54:11 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.28 2008/04/14 06:17:43 mar0 Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -23,10 +23,13 @@ using namespace pointlike;
 
 //#define DEBUG_PRINT
 double SimpleLikelihood::s_defaultUmax =50;
-#define UMAXCUT
 
 skymaps::SkySpectrum* SimpleLikelihood::s_diffuse(0);
 double  SimpleLikelihood::s_tolerance(0.05); // default:
+
+int SimpleLikelihood::s_display_mode(0); 
+void SimpleLikelihood::setDisplayMode(int newmode){
+    s_display_mode=newmode;}
 
 namespace {
 
@@ -39,10 +42,11 @@ namespace {
     class Convert  {
     public:
         Convert( const SkyDir& dir, PsfFunction& f, 
+            const astro::SkyFunction& background,
             double sigma, double umax,
             std::vector< std::pair<double, int> >& vec2,
             std::vector<int>& vec4,
-            double emin, double emax, bool subset
+             bool subset
             )
             : m_dir(dir), m_f(f), m_sigma(sigma)
             , m_vec2(vec2)
@@ -52,18 +56,9 @@ namespace {
             , m_sum(0), m_count(0)
             , m_sumu(0) // average u, useful for calibration
             , m_pixels(0)
-            , m_back_norm(1)
             , m_subset(subset)
+            , m_back(background )
         {
-            if( SimpleLikelihood::diffuse()!=0){
-                SimpleLikelihood::diffuse()->setEnergyRange(emin, emax);
-                double angle(sqrt(2.*umax)*sigma);
-                m_back_norm = SimpleLikelihood::diffuse()->average(dir, angle, SimpleLikelihood::tolerance());
-                if( m_back_norm==0){
-                    std::cerr << "Warning: normalization zero" << std::endl;
-                    m_back_norm=0.1; // kluge, like below
-                }
-            }
             m_first = m_vec4.size()==0;
             if(debug){
                 //psf_data = new std::ofstream("d:/users/burnett/temp/psf.txt");
@@ -71,37 +66,23 @@ namespace {
             }
         }
         ~Convert(){
-            //if(debug){ psf_data->close();}
-        }
-        //! the normalized (in 0<u<umax)  background in the direction dir
-        double b(const SkyDir& dir){
-            double val(1.);
-            if( SimpleLikelihood::diffuse()!=0){
-                val=(*SimpleLikelihood::diffuse())(dir)/m_back_norm;
-            }
-            // a return value in the given direction
-            if( val==0){ val=0.1;} // prevent zero, which is bad
-            return val;
+             //if(debug){ psf_data->close();}
         }
 
         void operator()(const std::pair<HealPixel, int>& x){
             double diff =x.first().difference(m_dir); 
             double  u = sqr(diff/m_sigma)/2.;
-#ifndef  UMAXCUT // old
-            if( u>m_umax ) return;
-#else // new
             std::vector<int>::iterator it = find(m_vec4.begin(),m_vec4.end(),x.first.index());
             //return if 
             //1)normal mode and outside of cone 
             //2)first time in selection mode and the pixel is outside of cone
             //3)subsequent time in selection mode and the pixel is not in the original data set
             if((!m_subset&&u>m_umax)||(m_subset&&m_first&&u>m_umax)||(!m_first&&it==m_vec4.end()&&m_subset)) return;
-#endif
             // just to see what is there
             // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
             double signal(m_f(u)/m_F)
-                , bkg(b(x.first()))
-                , q( bkg/(signal*m_umax-bkg)); 
+                 , bkg(m_back(x.first()))
+                 , q( bkg/(signal*m_umax-bkg)); 
             m_sum   += x.second*signal;
             m_count += x.second;
             m_sumu  += x.second*u;
@@ -117,9 +98,9 @@ namespace {
 
             // todo: combine elements with vanishing t
             m_vec2.push_back(std::make_pair(q, x.second) );
-#ifdef    UMAXCUT
+
+            // save list of healpix id's
             if(m_first) m_vec4.push_back(x.first.index());
-#endif
         }
         double average_f()const {return m_count>0? m_sum/m_count : -1.;}
         double average_u()const {return m_count>0? m_sumu/m_count : -1;}
@@ -129,6 +110,7 @@ namespace {
     private:
         SkyDir m_dir;
         PsfFunction& m_f;
+        const astro::SkyFunction& m_back;
         double m_sigma;
         std::vector<std::pair<double, int> >& m_vec2;
         std::vector<int>& m_vec4;
@@ -159,7 +141,6 @@ namespace {
     public:
 
         Derivatives(double x): m_x(x){}
-
         std::pair<double, double> operator()(std::pair<double, double> prev, const std::pair<float, int>& v)
         {
             double t(m_x+v.first)
@@ -171,19 +152,51 @@ namespace {
         double m_x;
     };
 } // anon namespace
+    
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// private nested class to manage normalized background
+class SimpleLikelihood::NormalizedBackground : public astro::SkyFunction {
+public:
+    NormalizedBackground(const SkyDir& dir, double angle, double emin, double emax){
+        if( SimpleLikelihood::diffuse()!=0){
+            SimpleLikelihood::diffuse()->setEnergyRange(emin, emax);
+            m_back_norm = SimpleLikelihood::diffuse()->average(dir, angle, SimpleLikelihood::tolerance());
+            if( m_back_norm==0){
+                std::cerr << "Warning: normalization zero" << std::endl;
+                m_back_norm=0.1; // kluge, like below
+            }
+        }
+    }
+    //! the normalized (in 0<u<umax)  background in the direction dir
+    double operator()(const SkyDir& dir)const{
+        double val(1.);
+        if( SimpleLikelihood::diffuse()!=0){
+            val=(*SimpleLikelihood::diffuse())(dir)/m_back_norm;
+        }
+        // a return value in the given direction
+        if( val==0){ val=0.1;} // prevent zero, which is bad
+        return val;
+    }
+
+private:
+    double m_back_norm;
+};
+
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SimpleLikelihood::SimpleLikelihood(const std::vector<std::pair<healpix::HealPixel, int> >& vec,
-                                   const astro::SkyDir& dir, 
-                                   double gamma, double sigma, double background, double umax, double emin,double emax)
-                                   : m_vec(vec)
-                                   , m_averageF(0)
-                                   , m_psf(gamma)
-                                   , m_sigma(sigma)
-                                   , m_alpha(-1)
-                                   , m_curv(-1)
-                                   , m_background(background)  // default: no estimate
-                                   , m_umax(umax)
-                                   , m_emin(emin), m_emax(emax)
+        const astro::SkyDir& dir, 
+        double gamma, double sigma, double background, double umax, double emin,double emax)
+        : m_vec(vec)
+        , m_averageF(0)
+        , m_psf(gamma)
+        , m_sigma(sigma)
+        , m_alpha(-1)
+        , m_curv(-1)
+        , m_background(background)  // default: no estimate
+        , m_umax(umax)
+        , m_emin(emin), m_emax(emax)
+        , m_back(0)
 { 
 
     m_fint = m_psf.integral(m_umax);// integral out to umax
@@ -194,13 +207,19 @@ SimpleLikelihood::SimpleLikelihood(const std::vector<std::pair<healpix::HealPixe
     setDir(dir);
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+SimpleLikelihood::~SimpleLikelihood()
+{
+    delete m_back;
+}
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void SimpleLikelihood::setDir(const astro::SkyDir& dir, bool subset)
 {
     m_dir = dir;
     // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
     m_vec2.clear();
-
-    Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2, m_vec4, m_emin, m_emax, subset);
+    delete m_back;
+    m_back = new NormalizedBackground(dir, sqrt(2.*m_umax)*m_sigma, m_emin, m_emax);
+    Convert conv(m_dir, m_psf, *m_back, m_sigma, m_umax, m_vec2, m_vec4,  subset);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
 
     m_photon_count = static_cast<int>(result.count());
@@ -317,11 +336,8 @@ Hep3Vector SimpleLikelihood::gradient() const
         int nphoton( h.second);
         Hep3Vector delta( m_dir() - d() ); 
         double u( 0.5*delta.mag2()/sig2);
-#ifndef UMAXCUT // original version
         if(u>m_umax) continue;
-#else // Marshal mod
         if((u>m_umax&&m_vec4.size()==0)||(find(m_vec4.begin(),m_vec4.end(),h.first.index())==m_vec4.end()&&m_vec4.size()!=0)) continue;
-#endif
         double y = perp*delta; // pick an arbitrary direction for the curvature
 
         double fhat( m_psf(u)*m_umax/m_fint)
@@ -356,6 +372,7 @@ double SimpleLikelihood::solidAngle()const{
 }
 
 double SimpleLikelihood::feval(double k) {
+
     if(!m_vec.size()) return -1.0;
     double F = m_psf.integral(k*m_umax);
     double acc = 0;
@@ -372,10 +389,10 @@ double SimpleLikelihood::feval(double k) {
 }
 
 double SimpleLikelihood::geval(double k) {
-    if(!m_vec.size()) return -1.0;
+   if(!m_vec.size()) return -1.0;
     m_vec2.clear();
     PsfFunction ps(k*m_psf.gamma());
-    Convert conv(m_dir, ps, m_sigma, m_umax, m_vec2, m_vec4, m_emin, m_emax,true);
+    Convert conv(m_dir, ps, *m_back, m_sigma, m_umax, m_vec2, m_vec4, true);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
     m_vec2.clear();
     return -TS(m_alpha);
@@ -383,13 +400,39 @@ double SimpleLikelihood::geval(double k) {
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
 {
-    double diff =dir.difference(m_dir); 
-    double  u = sqr(diff/m_sigma)/2.;
+    double diff( dir.difference(m_dir) ); 
+    double u   ( sqr(diff/m_sigma)/2.  );
+
+    if( s_display_mode>0 ){
+        // residual
+        if( u> m_umax ) return 0;
+        // get the pixel
+        int level = m_vec[0].first.level();
+        healpix::HealPixel pixel(m_dir, level);
+        std::vector<std::pair<healpix::HealPixel,int> >::const_iterator it;
+#if 0 // fails to compile?
+        it=  std::find(m_vec.begin(), m_vec.end(), pixel);
+#else
+        for( it=m_vec.begin(); it!=m_vec.end(); ++it ) {
+            if( it->first == pixel) break;
+        }
+#endif
+        if( it==m_vec.end() ) return 0;
+
+        int counts (it->second);
+        if( s_display_mode==1 ) return counts;   // observed in the pixel
+        double back( (*m_back)(dir) );           // normalized background prediction at the pixel
+        if( s_display_mode==2 ) return back; 
+        
+
+    }
+    // density version
     // just to see what is there
     // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
 
     return signal()*m_psf(u)/ m_fint/(2*M_PI*sqr(m_sigma));
 }
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 skymaps::SkySpectrum* SimpleLikelihood::diffuse()
@@ -425,7 +468,7 @@ void SimpleLikelihood::recalc(bool subset)
 {
     // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
     m_vec2.clear();
-    Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2, m_vec4, m_emin, m_emax, subset);
+    Convert conv(m_dir, m_psf, *m_back, m_sigma, m_umax, m_vec2,  m_vec4, subset);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
 
     if(m_photon_count!= static_cast<int>(result.count())) {

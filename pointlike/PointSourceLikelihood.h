@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.22 2008/02/19 21:00:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.23 2008/03/31 08:59:22 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -115,7 +115,9 @@ public:
     static double set_sigma_level(int level, double v);
 
     ///! Set diffuse background function, return current value 
-    static  skymaps::SkySpectrum* set_diffuse( skymaps::SkySpectrum* diffuse);
+    /// @param diffuse any sky spectrum, presumably a DiffuseFunction
+    /// @param exposure [1.0] multiplicative factor, presumably the exposure 
+    static  skymaps::SkySpectrum* set_diffuse( skymaps::SkySpectrum* diffuse, double exposure=1.0);
 
     ///! add a point source fit to the background for subsequent fits
     static void addBackgroundPointSource(const PointSourceLikelihood* fit);

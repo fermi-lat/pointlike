@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.26 2008/02/24 19:06:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.27 2008/03/31 08:59:22 burnett Exp $
 
 */
 
@@ -84,7 +84,8 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getList(prefix+"gamma_list", s_gamma_level);
     par.getList(prefix+"sigma_list", s_sigma_level);
     // require that all  levels were set
-    if( s_gamma_level.size() !=14 || s_sigma_level.size() !=14){
+    int sigsize(s_sigma_level.size());
+    if( s_gamma_level.size() !=14 || sigsize !=14){
         throw std::invalid_argument("PointSourceLikelihood::setParameters: gamma or sigma parameter not set properly");
     }
 
@@ -95,6 +96,7 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     int interpolate(0);
     par.getValue("interpolate", interpolate, interpolate);
     if( ! diffusefile.empty() ) {
+
         SimpleLikelihood::setDiffuse(new CompositeSkySpectrum(
             new DiffuseFunction(diffusefile, interpolate!=0), exposure) );
 
@@ -102,7 +104,6 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
             << " with exposure factor " << exposure << std::endl; 
     }
 }
-
 
 
 PointSourceLikelihood::PointSourceLikelihood(
@@ -468,10 +469,19 @@ double PointSourceLikelihood::sigma(int level)const
     return it->second->sigma();
 }
 
-skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(skymaps::SkySpectrum* diffuse)
-{  skymaps::SkySpectrum* ret =   SimpleLikelihood::diffuse();
-SimpleLikelihood::setDiffuse( diffuse);
-return ret;
+skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(skymaps::SkySpectrum* diffuse, double exposure)
+{  
+    // save current to return
+    skymaps::SkySpectrum* ret =   SimpleLikelihood::diffuse();
+    // check if it is already a Composite
+    CompositeSkySpectrum* backgnd = dynamic_cast<CompositeSkySpectrum*>(diffuse);
+    if( backgnd==0){
+        // no, create one and add it, using exposure
+        backgnd = new CompositeSkySpectrum(diffuse, exposure);
+    }
+
+    SimpleLikelihood::setDiffuse( backgnd);
+    return ret;
 }
 
 
