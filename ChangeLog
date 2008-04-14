@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Sun Apr 13 22:54:11 PDT 2008
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+slim down of simplelikelihood
+    *
+------------------------------------------------------------
 User: burnett  Thu Apr 10 15:39:13 PDT 2008
 pointlike/python
 
