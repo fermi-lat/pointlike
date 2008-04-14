@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Apr 14 11:23:32 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h SimpleLikelihood.h 
+Log Message:
+new factored background class
+    *
+------------------------------------------------------------
 User: mar0  Sun Apr 13 23:17:43 PDT 2008
 pointlike/src
 
