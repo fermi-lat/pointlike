@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.27 2008/03/31 08:59:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.28 2008/04/14 18:23:32 burnett Exp $
 
 */
 
@@ -146,8 +146,8 @@ void PointSourceLikelihood::setup(const skymaps::PhotonMap& data, int minlevel, 
         double roi_radius( sigma*sqrt(2.*SimpleLikelihood::defaultUmax()) * 180/M_PI);
 
         // create and fill the vector of data for this level (slight fudge) 
-        data.extract(  m_dir, 1.5* roi_radius, m_data_vec[level], -1, level);
-
+        data.extract_level(  m_dir, 1.1* roi_radius, 
+            m_data_vec[level], level,  false);
         double emin( m_energies[level-m_minlevel]), emax( m_energies[level-m_minlevel+1]);
 
         // and create the simple likelihood object
