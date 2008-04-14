@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.53 2008/04/02 06:11:26 burnett Exp $
+$Id: release.notes,v 1.54 2008/04/03 09:14:29 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 13-apr-08 v5r4p7  MR  slim down SimpleLhood for all sky fits
  03-apr-08 v5r4p6  THB give up on python module in favor of separate py_pointlike
  31-mar-08 v5r4p3  THB pointfit python module update; make selection radius depend on umax
  22-mar-08 v5r4p1  THB Start on pointfit python module; fix refit issue with pointfind 

@@ -1,5 +1,5 @@
 /** @file SimpleLikelihood.cxx
-    @brief Implementation of class SimpleLikelihood
+@brief Implementation of class SimpleLikelihood
 
 $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.25 2008/03/31 09:01:37 burnett Exp $
 */
@@ -41,13 +41,11 @@ namespace {
         Convert( const SkyDir& dir, PsfFunction& f, 
             double sigma, double umax,
             std::vector< std::pair<double, int> >& vec2,
-            std::vector<double>& vec3,
             std::vector<int>& vec4,
             double emin, double emax, bool subset
             )
             : m_dir(dir), m_f(f), m_sigma(sigma)
             , m_vec2(vec2)
-            , m_vec3(vec3)
             , m_vec4(vec4)
             , m_umax(umax)
             , m_F( f.integral(umax) ) // for normalization of the PSF
@@ -58,18 +56,18 @@ namespace {
             , m_subset(subset)
         {
             if( SimpleLikelihood::diffuse()!=0){
-               SimpleLikelihood::diffuse()->setEnergyRange(emin, emax);
-               double angle(sqrt(2.*umax)*sigma);
-               m_back_norm = SimpleLikelihood::diffuse()->average(dir, angle, SimpleLikelihood::tolerance());
-               if( m_back_norm==0){
-                   std::cerr << "Warning: normalization zero" << std::endl;
-                   m_back_norm=0.1; // kluge, like below
-               }
+                SimpleLikelihood::diffuse()->setEnergyRange(emin, emax);
+                double angle(sqrt(2.*umax)*sigma);
+                m_back_norm = SimpleLikelihood::diffuse()->average(dir, angle, SimpleLikelihood::tolerance());
+                if( m_back_norm==0){
+                    std::cerr << "Warning: normalization zero" << std::endl;
+                    m_back_norm=0.1; // kluge, like below
+                }
             }
             m_first = m_vec4.size()==0;
             if(debug){
                 //psf_data = new std::ofstream("d:/users/burnett/temp/psf.txt");
-                (*psf_data) << "u        f(u)   q   count    bkg" << std:: endl;
+                (*psf_data) << "u        f(u)      count    q" << std:: endl;
             }
         }
         ~Convert(){
@@ -102,8 +100,8 @@ namespace {
             // just to see what is there
             // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
             double signal(m_f(u)/m_F)
-                 , bkg(b(x.first()))
-                 , q( bkg/(signal*m_umax-bkg)); 
+                , bkg(b(x.first()))
+                , q( bkg/(signal*m_umax-bkg)); 
             m_sum   += x.second*signal;
             m_count += x.second;
             m_sumu  += x.second*u;
@@ -112,19 +110,14 @@ namespace {
             if(debug){
                 (*psf_data) << std::left<< std::setw(12) 
                     << u << std::setw(12) 
-                    << q << std::setw(12) 
                     << signal << std::setw(5)
-                    << x.second 
+                    <<  x.second 
                     << std::setw(10)<<  bkg << std::endl;
             }
-    
-            // todo: combine elements with vanishing t
-            m_vec2.push_back( std::make_pair(q, x.second) );
 
-            m_vec3.push_back(u);
-#ifndef  UMAXCUT // old
+            // todo: combine elements with vanishing t
+            m_vec2.push_back(std::make_pair(q, x.second) );
             if(m_first) m_vec4.push_back(x.first.index());
-#endif
         }
         double average_f()const {return m_count>0? m_sum/m_count : -1.;}
         double average_u()const {return m_count>0? m_sumu/m_count : -1;}
@@ -136,7 +129,6 @@ namespace {
         PsfFunction& m_f;
         double m_sigma;
         std::vector<std::pair<double, int> >& m_vec2;
-        std::vector<double>& m_vec3;
         std::vector<int>& m_vec4;
         double m_umax, m_F;
         double m_sum, m_count, m_sumu, m_sumb, m_pixels;
@@ -145,7 +137,7 @@ namespace {
         bool m_subset;
     };
 
-     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // The log likelihood function
     class LogLike  {
     public:
@@ -153,7 +145,7 @@ namespace {
 
         double operator()(double prev, const std::pair<float, int>& x)
         {
-           // std::cout <<  x.first  << " "<< x.second << std::endl;
+            // std::cout <<  x.first  << " "<< x.second << std::endl;
             return prev - x.second * log(m_a/x.first+1.);
         }
         double m_a;
@@ -179,17 +171,17 @@ namespace {
 } // anon namespace
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SimpleLikelihood::SimpleLikelihood(const std::vector<std::pair<healpix::HealPixel, int> >& vec,
-        const astro::SkyDir& dir, 
-        double gamma, double sigma, double background, double umax, double emin,double emax)
-        : m_vec(vec)
-        , m_averageF(0)
-        , m_psf(gamma)
-        , m_sigma(sigma)
-        , m_alpha(-1)
-        , m_curv(-1)
-        , m_background(background)  // default: no estimate
-        , m_umax(umax)
-        , m_emin(emin), m_emax(emax)
+                                   const astro::SkyDir& dir, 
+                                   double gamma, double sigma, double background, double umax, double emin,double emax)
+                                   : m_vec(vec)
+                                   , m_averageF(0)
+                                   , m_psf(gamma)
+                                   , m_sigma(sigma)
+                                   , m_alpha(-1)
+                                   , m_curv(-1)
+                                   , m_background(background)  // default: no estimate
+                                   , m_umax(umax)
+                                   , m_emin(emin), m_emax(emax)
 { 
 
     m_fint = m_psf.integral(m_umax);// integral out to umax
@@ -205,8 +197,8 @@ void SimpleLikelihood::setDir(const astro::SkyDir& dir, bool subset)
     m_dir = dir;
     // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
     m_vec2.clear();
-    m_vec3.clear();
-    Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2, m_vec3, m_vec4, m_emin, m_emax, subset);
+
+    Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2, m_vec4, m_emin, m_emax, subset);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
 
     m_photon_count = static_cast<int>(result.count());
@@ -250,7 +242,7 @@ std::pair<double,double> SimpleLikelihood::maximize()
     std::pair<double, double> dw(100,100);
 
     for(double delta(0); fabs(dw.first) > tol && iteration<itermax; ++iteration, x-= delta) {
-        
+
         // accumulate first and second derivatives
         dw = accumulate(m_vec2.begin(), m_vec2.end(), poissonDerivatives(x), Derivatives(x));
         if( debug) std::cout 
@@ -258,7 +250,7 @@ std::pair<double,double> SimpleLikelihood::maximize()
             << std::setw(10) << std::setprecision(3) << x 
             << std::setw(15) << dw.first 
             << std::setw(15) << dw.second << std::endl;
-     
+
 
         if( fabs(dw.second) < 1e-6 ) {
             dw.second = 1.0;
@@ -362,92 +354,29 @@ double SimpleLikelihood::solidAngle()const{
 }
 
 double SimpleLikelihood::feval(double k) {
-    std::vector<std::pair<double,int> > temp;
-    std::vector<std::pair<double,int> >::iterator it2 = m_vec2.begin();
-    for(std::vector<double>::iterator ite = m_vec3.begin();ite!= m_vec3.end();++ite,++it2) {
-        double f = m_psf(k*(*ite));
-        double fbar = m_psf.integral(k*m_umax);
-        double q = m_alpha*k*f/fbar+(1-m_alpha)/m_umax;
-        temp.push_back(std::make_pair(q,it2->second));
-    }
-    m_vec2 = temp;
-    double current = 0;
-    for(std::vector<std::pair<double,int> >::iterator it = m_vec2.begin();it!=m_vec2.end();++it) {
-        double q = it->first;
-        int count = it->second;
-        double w_i = count*log(q);
-        current-=w_i;
-    }
-    return current;
-}
-
-double SimpleLikelihood::kcurvature(double k) {
-    double gamma = m_psf.gamma();
+    if(!m_vec.size()) return -1.0;
     double F = m_psf.integral(k*m_umax);
-    double Fp = (F-1)*(1-gamma)*m_umax/(gamma*(1+k*m_umax/gamma));
-    double Fdp = Fp*Fp*gamma/(F-1);
-    double d2Ldk2 = 0;
-    std::vector<std::pair<double,int> >::iterator it2 = m_vec2.begin();
-    for(std::vector<double>::iterator it = m_vec3.begin();it!=m_vec3.end()&&it2!=m_vec2.end();++it,++it2) {
-        double weight = it2->second;
-        double u = (*it);
+    double acc = 0;
+    for(std::vector<std::pair<HealPixel,int> >::const_iterator ite=m_vec.begin();ite!=m_vec.end();++ite) {
+        double diff =ite->first().difference(m_dir); 
+        double u = sqr(diff/m_sigma)/2.;
+        if(u>m_umax) continue;
+        // just to see what is there
+        // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
         double f = m_psf(k*u);
-        double fp = -f*u/(1+k*u/gamma);
-        double fdp = fp*fp/f*(1+1/gamma);
-        double first = -weight*m_alpha*(2*fp/F-2*f*Fp/(F*F)+k*fdp/F-2*k*fp*Fp/(F*F)+2*k*f*Fp*Fp/(F*F*F)-k*f*Fdp/(F*F))/((1-m_alpha)/m_umax+m_alpha*k*f/F);
-        double second = weight*m_alpha*(f/F+k*fp/F-k*f*Fp/(F*F))*(f/F+k*fp/F-k*f*Fp/(F*F))/(((1-m_alpha)/m_umax+m_alpha*k*f/F)*((1-m_alpha)/m_umax+m_alpha*k*f/F));
-        double total = first+second;
-        d2Ldk2+=total;
+        acc-=ite->second*log(m_alpha*f*k/F+(1-m_alpha)/(m_umax));
     }
-    if(d2Ldk2<0) return -1;
-    return pow(d2Ldk2,-0.5);
+    return acc;
 }
 
 double SimpleLikelihood::geval(double k) {
-    std::vector<std::pair<double,int> > temp;
-    std::vector<std::pair<double,int> >::iterator it2 = m_vec2.begin();
+    if(!m_vec.size()) return -1.0;
+    m_vec2.clear();
     PsfFunction ps(k*m_psf.gamma());
-    for(std::vector<double>::iterator ite = m_vec3.begin();ite!= m_vec3.end();++ite,++it2) {
-        double f = ps((*ite));
-        double fbar = ps.integral(m_umax);
-        double q = m_alpha*f/fbar+(1-m_alpha)/m_umax;
-        temp.push_back(std::make_pair(q,it2->second));
-    }
-    m_vec2 = temp;
-    double current = 0;
-    for(std::vector<std::pair<double,int> >::iterator it = m_vec2.begin();it!=m_vec2.end();++it) {
-        double q = it->first;
-        int count = it->second;
-        double w_i = count*log(q);
-        current-=w_i;
-    }
-    return current;
-}
-
-double SimpleLikelihood::gcurvature(double k) {
-    PsfFunction ps(k*m_psf.gamma());
-    double gamma = ps.gamma();
-    double F = ps.integral(m_umax);
-    double arg = 1+m_umax/(k*gamma);
-    double Fp = (F-1)*(-gamma*log(arg)+(k*gamma-1)*m_umax/(k*k*gamma*arg));
-    double Fdp = Fp*Fp/(F-1)+(F-1)*(2*m_umax/(k*k*arg)-2*(k*gamma-1)*m_umax/(k*k*k*gamma*arg)+(k*gamma-1)*m_umax*m_umax/(k*k*k*k*gamma*gamma*arg*arg));
-    double d2Ldk2 = 0;
-    std::vector<std::pair<double,int> >::iterator it2 = m_vec2.begin();
-    for(std::vector<double>::iterator it = m_vec3.begin();it!=m_vec3.end()&&it2!=m_vec2.end();++it,++it2) {
-        //unused double weight = it2->second;
-        double u = (*it);
-        double f = ps(u);
-        arg = 1+u/(k*gamma);
-        double logl = m_alpha*f/F+(1-m_alpha)/m_umax;
-        double fp = f*(1/(k*k*gamma*(1-1/(k*gamma)))-gamma*log(arg)+u/(k*arg));
-        double fdp = -2*f/(k*k*gamma*(1-1/(k*gamma)))*(1/k+gamma*log(arg)-u/(k*arg))+f*(-gamma*log(arg)+u/(k*arg))*(-gamma*log(arg)+u/(k*arg))+f*u*u/(k*k*k*arg*arg*gamma);
-        double first = m_alpha*((fdp/F)-2*fp*Fp/(F*F)+2*f*Fp*Fp/(F*F*F)-f*Fdp/(F*F))/logl;
-        double second = m_alpha*m_alpha*(fp/F-f*Fp/(F*F))*(fp/F-f*Fp/(F*F))/logl/logl;
-        double total = first+second;
-        d2Ldk2+=total;
-    }
-    if(d2Ldk2<0) return -1;
-    return pow(d2Ldk2,-0.5);
+    Convert conv(m_dir, ps, m_sigma, m_umax, m_vec2, m_vec4, m_emin, m_emax,true);
+    Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
+    m_vec2.clear();
+    return -TS(m_alpha);
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
@@ -456,7 +385,7 @@ double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
     double  u = sqr(diff/m_sigma)/2.;
     // just to see what is there
     // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
-   
+
     return signal()*m_psf(u)/ m_fint/(2*M_PI*sqr(m_sigma));
 }
 
@@ -494,8 +423,7 @@ void SimpleLikelihood::recalc(bool subset)
 {
     // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
     m_vec2.clear();
-    m_vec3.clear();
-    Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2, m_vec3, m_vec4, m_emin, m_emax, subset);
+    Convert conv(m_dir, m_psf, m_sigma, m_umax, m_vec2, m_vec4, m_emin, m_emax, subset);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
 
     if(m_photon_count!= static_cast<int>(result.count())) {
