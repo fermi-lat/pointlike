@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.28 2008/04/14 06:17:43 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.29 2008/04/14 18:23:32 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -9,6 +9,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.28 
 #include "astro/SkyDir.h"
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <numeric>
 #include <iomanip>
 #include <fstream>
@@ -22,6 +23,7 @@ using skymaps::PsfFunction;
 using namespace pointlike;
 
 //#define DEBUG_PRINT
+#define QBIN
 double SimpleLikelihood::s_defaultUmax =50;
 
 skymaps::SkySpectrum* SimpleLikelihood::s_diffuse(0);
@@ -95,13 +97,36 @@ namespace {
                     <<  x.second 
                     << std::setw(10)<<  bkg << std::endl;
             }
-
+#ifndef QBIN
             // todo: combine elements with vanishing t
             m_vec2.push_back(std::make_pair(q, x.second) );
+#else
+            if(q>0) {
+                m_vec2.push_back(std::make_pair(q, x.second) );
+            }
+            else {
+                int bin = (int)(-10./q);
+                std::map<int,int>::iterator it = m_qbin.find(bin);
+                if(it==m_qbin.end()) {
+                    m_qbin.insert(std::map<int,int>::value_type(bin,x.second));
+                } else {
+                    ++(it->second);
+                }
+            }
+#endif
 
             // save list of healpix id's
             if(m_first) m_vec4.push_back(x.first.index());
         }
+        
+        void consolidate() {
+            for(std::map<int,int>::iterator it = m_qbin.begin();it!=m_qbin.end();++it) {
+                double invq = 0.1*(it->first)+0.05;
+                m_vec2.push_back(std::make_pair(-1/invq,it->second));
+            }
+            m_qbin.clear();
+        }
+
         double average_f()const {return m_count>0? m_sum/m_count : -1.;}
         double average_u()const {return m_count>0? m_sumu/m_count : -1;}
         double average_b()const {return m_count>0? m_sumb/m_pixels: -1;}
@@ -114,6 +139,7 @@ namespace {
         double m_sigma;
         std::vector<std::pair<double, int> >& m_vec2;
         std::vector<int>& m_vec4;
+        std::map<int,int> m_qbin;
         double m_umax, m_F;
         double m_sum, m_count, m_sumu, m_sumb, m_pixels;
         double m_back_norm;
@@ -221,6 +247,7 @@ void SimpleLikelihood::setDir(const astro::SkyDir& dir, bool subset)
     m_back = new NormalizedBackground(dir, sqrt(2.*m_umax)*m_sigma, m_emin, m_emax);
     Convert conv(m_dir, m_psf, *m_back, m_sigma, m_umax, m_vec2, m_vec4,  subset);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
+    result.consolidate();
 
     m_photon_count = static_cast<int>(result.count());
 
@@ -394,8 +421,10 @@ double SimpleLikelihood::geval(double k) {
     PsfFunction ps(k*m_psf.gamma());
     Convert conv(m_dir, ps, *m_back, m_sigma, m_umax, m_vec2, m_vec4, true);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
+    result.consolidate();
+    double ts = -TS(m_alpha);
     m_vec2.clear();
-    return -TS(m_alpha);
+    return ts;
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
@@ -470,6 +499,7 @@ void SimpleLikelihood::recalc(bool subset)
     m_vec2.clear();
     Convert conv(m_dir, m_psf, *m_back, m_sigma, m_umax, m_vec2,  m_vec4, subset);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
+    result.consolidate();
 
     if(m_photon_count!= static_cast<int>(result.count())) {
         m_photon_count=m_photon_count;
