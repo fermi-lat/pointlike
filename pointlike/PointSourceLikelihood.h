@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.23 2008/03/31 08:59:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.24 2008/04/14 18:23:32 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -138,6 +138,8 @@ public:
 
     static double gamma_level(int i);
     static double sigma_level(int i);
+
+    static void setDisplayMode(int newmode);
 
 
 private:

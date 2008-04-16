@@ -1,6 +1,6 @@
 """ image processing
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/image.py,v 1.6 2007/12/03 00:38:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/image.py,v 1.7 2008/03/09 21:27:51 burnett Exp $
 
 """
 
@@ -74,7 +74,8 @@ class Square(object):
         pylab.axhline(0, color='white')
         pylab.colorbar()
         pylab.title('level %d (%d-%d)' %(self.level, self.emin, self.emax), size=10)
-        pylab.gca().format_coord = lambda dx, dy: '%s: f(%6.3f,%6.3f)=%8.3g'%(self.fun.name(),dx,dy, self(dx,dy))
+        pylab.gca().format_coord = lambda dx, dy: '%s: f(%6.3f,%6.3f)=%8.3g'\
+                                   %(self.fun.name(),dx,dy, self(dx,dy))
 
         
         
@@ -98,15 +99,17 @@ def make_image( fun, sdir, level=9, scale = 0.5, step = 0.02):
     return image
 
 #---------------------------------------------------------------------------
-def show_image( fun,sdir, level=9, scale=0.5, step=0.01):
+def show_image( fun,sdir, level=9, scale=0.5, step=None):
     import pylab
-    pylab.imshow(make_image(fun, sdir, level, scale, step), extent=[-scale, scale, -scale, scale])
+    if step is None: step = scale/100.
+    img = make_image(fun, sdir, level, scale, step)
+    pylab.imshow(img, extent=[-scale, scale, -scale, scale])
     pylab.axvline(0, color='white')
     pylab.axhline(0, color='white')
     pylab.colorbar()
     emin, emax = energy_range(level)
     pylab.title('level %d (%d-%d)' %(level, emin, emax), size=10)
-    pylab.gca().format_coord = lambda x, y: 'f(%6.3f,%6.3f)='%(x,y)
+    #pylab.gca().format_coord = lambda x, y: 'f(%6.3f,%6.3f)=%8.3g'%(x,y, fun(x,y))
 
 
 #---------------------------------------------------------------------------

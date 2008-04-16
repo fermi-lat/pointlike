@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.19 2008/04/14 05:54:11 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.20 2008/04/14 18:23:32 burnett Exp $
 
 */
 
@@ -174,6 +174,7 @@ private:
     double m_umax; ///< maximum value of u, for selection of data, fits
     double m_avu, m_avb;
     double m_emin, m_emax; ///< energy range for this object
+    double m_F;       ///< integral of PSF over u
     class NormalizedBackground; // forward declaration of helper class
     NormalizedBackground* m_back; ///< instance of private helper class set when direction is
     

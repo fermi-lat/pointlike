@@ -2,10 +2,11 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.55 2008/04/14 05:54:11 mar0 Exp $
+$Id: release.notes,v 1.56 2008/04/16 17:04:06 mar0 Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
- 13-apr-08 v5r4p7  MR  slim down SimpleLhood for all sky fits plus binning in 1/q
+ 15-apr-08 v5r5    THB add displaymodes to show fits, residuals
+ 13-apr-08         MR  slim down SimpleLiklihood for all sky fits plus binning in 1/q
  03-apr-08 v5r4p6  THB give up on python module in favor of separate py_pointlike
  31-mar-08 v5r4p3  THB pointfit python module update; make selection radius depend on umax
  22-mar-08 v5r4p1  THB Start on pointfit python module; fix refit issue with pointfind 

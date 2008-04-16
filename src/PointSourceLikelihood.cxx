@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.28 2008/04/14 18:23:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.29 2008/04/14 19:04:39 burnett Exp $
 
 */
 
@@ -41,6 +41,7 @@ namespace {
 //  ----- static (class) variables -----
 std::vector<double> PointSourceLikelihood::s_gamma_level(gamma_list,gamma_list+14);
 std::vector<double> PointSourceLikelihood::s_sigma_level(sigma_list,sigma_list+14);
+void PointSourceLikelihood::setDisplayMode(int newmode){ SimpleLikelihood::setDisplayMode(newmode); }
 
 
 int    PointSourceLikelihood::s_minlevel(6);
