@@ -103,9 +103,12 @@ int main(int argc , char** argv )
             if( like.TS()>10) {
                like.localize();
             }
+            directions.push_back(like.dir());  // for PSF fits
+            
             // check function value at peak
+            SimpleLikelihood::setDisplayMode(1); // to counts
             double value = like(dir);
-            directions.push_back(like.dir());
+            std::cout << "counts in pixel at peak: " << value << std::endl;
 
         };
 
@@ -184,5 +187,146 @@ Gradient   delta     ra        dec       error     Ts
                                                  130.3594 --back off
                                                  130.4144 --back off
     *** good fit ***
+
+runing d:\Users\burnett\pointlike-dev\pointlike\v5r4\VC8debug\test_pointlike.exe
+Loading data from file ../src/test/test_events.root
+photons found: 14396  pixels created: 3226
+
+Spectrum of source one at ra, dec=0, 0
+level events   signal_fract  TS
+    6  5306  0.74 +/- 0.01  8248
+    7  3294  0.70 +/- 0.01  4340
+    8  1601  0.83 +/- 0.01  3217
+    9   712  0.80 +/- 0.02  1317
+   10   248  0.85 +/- 0.03   591
+   11   136  0.97 +/- 0.04   388
+   12    52  1.00 +/- 0.11   162
+   13    31  0.89 +/- 0.10    62
+        TS sum  (alpha>0)  18326
+
+Spectrum of source one at ra, dec=0.000000, 0.000000
+level events   signal_fract  TS
+    6  5306  0.74 +/- 0.01  8248
+    7  3294  0.70 +/- 0.01  4340
+    8  1601  0.83 +/- 0.01  3217
+    9   712  0.80 +/- 0.02  1317
+   10   248  0.85 +/- 0.03   591
+   11   136  0.97 +/- 0.04   388
+   12    52  1.00 +/- 0.11   162
+   13    31  0.89 +/- 0.10    62
+        TS sum  (alpha>0)  18326
+      Searching for best position, start at level 7
+Gradient   delta     ra        dec       error     Ts
+   11852  0.0020    0.0000    0.0000    0.0031    10078.7
+     398  0.0001    0.0020    -0.0001   0.0031    10083.7
+    *** good fit ***
+
+Spectrum of source one at ra, dec=0.002003, -0.000120
+level events   signal_fract  TS
+    6  5306  0.74 +/- 0.01  8248
+    7  3292  0.70 +/- 0.01  4345
+    8  1601  0.83 +/- 0.01  3217
+    9   712  0.80 +/- 0.02  1317
+   10   248  0.85 +/- 0.03   591
+   11   136  0.97 +/- 0.04   389
+   12    52  1.00 +/- 0.11   162
+   13    31  0.89 +/- 0.11    63
+        TS sum  (alpha>0)  18331
+
+Spectrum of source two at ra, dec=20.000000, 0.000000
+level events   signal_fract  TS
+    6   564  0.74 +/- 0.03   900
+    7   304  0.66 +/- 0.04   370
+    8   162  0.92 +/- 0.04   411
+    9    66  0.86 +/- 0.07   148
+   10    34  0.87 +/- 0.10    73
+   11    18  0.98 +/- 0.35    33
+   12     4  1.00 +/- 0.60    16
+   13     2  1.00 +/- 0.81     9
+        TS sum  (alpha>0)  1957
+
+Spectrum of source two at ra, dec=20.000000, 0.000000
+level events   signal_fract  TS
+    6   564  0.74 +/- 0.03   900
+    7   304  0.66 +/- 0.04   370
+    8   162  0.92 +/- 0.04   411
+    9    66  0.86 +/- 0.07   148
+   10    34  0.87 +/- 0.10    73
+   11    18  0.99 +/- 0.35    33
+   12     4  1.00 +/- 0.60    16
+   13     2  1.00 +/- 0.81     9
+        TS sum  (alpha>0)  1957
+      Searching for best position, start at level 7
+Gradient   delta     ra        dec       error     Ts
+   18973  0.0319    20.0000   0.0000    0.0098    1057.6
+    3478  0.0054    20.0183   -0.0261   0.0095    1061.4
+     526  0.0008    20.0150   -0.0218   0.0093    1061.7
+    *** good fit ***
+
+Spectrum of source two at ra, dec=20.015227, -0.022581
+level events   signal_fract  TS
+    6   564  0.74 +/- 0.03   901
+    7   305  0.65 +/- 0.04   366
+    8   162  0.92 +/- 0.04   411
+    9    66  0.85 +/- 0.07   145
+   10    35  0.82 +/- 0.10    70
+   11    18  1.00 +/- 0.34    39
+   12     4  1.00 +/- 0.55    21
+   13     2  1.00 +/- 0.78    10
+        TS sum  (alpha>0)  1963
+
+Spectrum of source three at ra, dec=40.000000, 0.000000
+level events   signal_fract  TS
+    6    65  0.67 +/- 0.08    99
+    7    33  0.52 +/- 0.13    24
+    8    14  0.66 +/- 0.16    27
+    9     7  0.74 +/- 0.19    17
+   10     1  0.98 +/- 1.34     3
+   11     3  1.00 +/- 0.48     8
+   12     0
+   13     0
+        TS sum  (alpha>0)  178
+
+Spectrum of source three at ra, dec=40.000000, 0.000000
+level events   signal_fract  TS
+    6    65  0.67 +/- 0.08    99
+    7    33  0.52 +/- 0.13    24
+    8    14  0.66 +/- 0.16    27
+    9     7  0.74 +/- 0.21    17
+   10     1  0.99 +/- 1.37     3
+   11     3  1.00 +/- 0.48     8
+   12     0
+   13     0
+        TS sum  (alpha>0)  178
+      Searching for best position, start at level 7
+Gradient   delta     ra        dec       error     Ts
+    1602  0.0385    40.0000   0.0000    0.0371    79.0
+     388  0.0069    40.0248   0.0294    0.0319    80.3
+      68  0.0011    40.0315   0.0279    0.0310    80.3
+    *** good fit ***
+
+Spectrum of source three at ra, dec=40.031499, 0.029067
+level events   signal_fract  TS
+    6    65  0.67 +/- 0.08   100
+    7    33  0.52 +/- 0.13    24
+    8    14  0.66 +/- 0.16    26
+    9     7  0.75 +/- 0.21    17
+   10     1  1.00 +/- 1.19     4
+   11     3  0.82 +/- 0.36    10
+   12     0
+   13     0
+        TS sum  (alpha>0)  180
+Computing optimum sigma values
+Level     sigma          error          k (~1)    alpha         photons
+***************************************************************************
+6         0              0              1         1              5935
+7         0              0              1         1              3630
+8         1              0              1         1              1777
+9         1              0              1         1              785
+10        1              0              1         1              284
+11        1              0              1         1              157
+12        1              0              1         1              56
+13        1              0              1         1              33
+Press any key to continue
 @endverbatim
 */

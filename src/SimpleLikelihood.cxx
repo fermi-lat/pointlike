@@ -1,12 +1,13 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.29 2008/04/14 18:23:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.30 2008/04/16 17:04:06 mar0 Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
 #include "skymaps/DiffuseFunction.h"
 #include "astro/SkyDir.h"
+#include "healpix/Healpix.h"
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -16,6 +17,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.29 
 
 using astro::SkyDir;
 using healpix::HealPixel;
+
 using skymaps::SkySpectrum;
 using skymaps::DiffuseFunction;
 using skymaps::PsfFunction;
@@ -23,7 +25,6 @@ using skymaps::PsfFunction;
 using namespace pointlike;
 
 //#define DEBUG_PRINT
-#define QBIN
 double SimpleLikelihood::s_defaultUmax =50;
 
 skymaps::SkySpectrum* SimpleLikelihood::s_diffuse(0);
@@ -39,6 +40,11 @@ namespace {
     double tolerance(0.05); // integral tolerance
     inline double sqr(double x){return x*x;}
     std::ostream * psf_data = &std::cout;
+
+    // for the binning in 1/q when q is negative, pixels far from source
+    double binsize(0.025); // bin size for 1/q. set zero to disable
+    std::map<double,int> qmap; // used for binning 1/q
+
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     class Convert  {
@@ -97,34 +103,27 @@ namespace {
                     <<  x.second 
                     << std::setw(10)<<  bkg << std::endl;
             }
-#ifndef QBIN
-            // todo: combine elements with vanishing t
-            m_vec2.push_back(std::make_pair(q, x.second) );
-#else
-            if(q>0) {
+            if( binsize==0. || q>0){
+                // not binning: save all in the array
                 m_vec2.push_back(std::make_pair(q, x.second) );
+            }else{
+                // bin (in 1/q) the pixels with large u, on periphery
+                // discretize these values of q in bins of 1/q
+                double qbin = 1./binsize/floor(1./binsize/q+0.5);
+                qmap[qbin]+=x.second;
             }
-            else {
-                int bin = (int)(-10./q);
-                std::map<int,int>::iterator it = m_qbin.find(bin);
-                if(it==m_qbin.end()) {
-                    m_qbin.insert(std::map<int,int>::value_type(bin,x.second));
-                } else {
-                    ++(it->second);
-                }
-            }
-#endif
 
             // save list of healpix id's
             if(m_first) m_vec4.push_back(x.first.index());
         }
         
         void consolidate() {
-            for(std::map<int,int>::iterator it = m_qbin.begin();it!=m_qbin.end();++it) {
-                double invq = 0.1*(it->first)+0.05;
-                m_vec2.push_back(std::make_pair(-1/invq,it->second));
+            if( binsize==0) return;
+            // recombine the qmap with m_vec2.
+            for(std::map<double,int>::iterator it = qmap.begin();it!=qmap.end();++it) {
+                m_vec2.push_back(std::make_pair(it->first,it->second));
             }
-            m_qbin.clear();
+            qmap.clear();
         }
 
         double average_f()const {return m_count>0? m_sum/m_count : -1.;}
@@ -139,7 +138,6 @@ namespace {
         double m_sigma;
         std::vector<std::pair<double, int> >& m_vec2;
         std::vector<int>& m_vec4;
-        std::map<int,int> m_qbin;
         double m_umax, m_F;
         double m_sum, m_count, m_sumu, m_sumb, m_pixels;
         double m_back_norm;
@@ -224,8 +222,7 @@ SimpleLikelihood::SimpleLikelihood(const std::vector<std::pair<healpix::HealPixe
         , m_emin(emin), m_emax(emax)
         , m_back(0)
 { 
-
-    m_fint = m_psf.integral(m_umax);// integral out to umax
+    m_fint =  m_psf.integral(umax) ; // for normalization of the PSF
 
     // the integral of square, used by the quick estimator
     m_fint2 = m_psf.integralSquare(m_umax);
@@ -431,35 +428,39 @@ double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
 {
     double diff( dir.difference(m_dir) ); 
     double u   ( sqr(diff/m_sigma)/2.  );
-
-    if( s_display_mode>0 ){
-        // residual
-        if( u> m_umax ) return 0;
-        // get the pixel
-        int level = m_vec[0].first.level();
-        healpix::HealPixel pixel(m_dir, level);
-        std::vector<std::pair<healpix::HealPixel,int> >::const_iterator it;
-#if 0 // fails to compile?
-        it=  std::find(m_vec.begin(), m_vec.end(), pixel);
-#else
-        for( it=m_vec.begin(); it!=m_vec.end(); ++it ) {
-            if( it->first == pixel) break;
-        }
-#endif
-        if( it==m_vec.end() ) return 0;
-
-        int counts (it->second);
-        if( s_display_mode==1 ) return counts;   // observed in the pixel
-        double back( (*m_back)(dir) );           // normalized background prediction at the pixel
-        if( s_display_mode==2 ) return back; 
-        
-
+    double jacobian( 2.*M_PI* sqr(m_sigma) );
+    if( s_display_mode ==0){
+        // default is density
+        return signal()*m_psf(u)/ m_fint/jacobian;
     }
-    // density version
-    // just to see what is there
-    // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
 
-    return signal()*m_psf(u)/ m_fint/(2*M_PI*sqr(m_sigma));
+    int level = m_vec[0].first.level();
+    healpix::HealPixel pixel( dir, level);
+    SkyDir pdir ( pixel() );  // direction of center of pixel
+    u = sqr( pdir.difference(m_dir)/m_sigma/2.); // recalculate u for pixel
+    if( u> m_umax ) return 0;
+
+    // now look for it in the data
+    std::vector<std::pair<healpix::HealPixel,int> >::const_iterator it;
+#if 0 // fails to compile?
+    it=  std::find(m_vec.begin(), m_vec.end(), pixel);
+#else
+    for( it=m_vec.begin(); it!=m_vec.end(); ++it ) {
+        if( it->first == pixel) break;
+    }
+#endif
+    // get the counts in the pixel, if present
+    int counts (it==m_vec.end()? 0:  it->second);
+
+    if( s_display_mode==1 ) return counts;   // observed in the pixel
+    double back( (*m_back)(dir) );           // normalized background prediction at the pixel
+    if( s_display_mode==2 ) return back; 
+    double area( healpix::Healpix(1<<level).pixelArea() ); // solid angle per pixel
+
+    double prediction ( area/jacobian * photons() * ( m_alpha*m_psf(u)/m_fint + (1.-m_alpha)*back ) );
+    if( s_display_mode==3 ) return prediction; // prediction of fit
+    if( s_display_mode==4 ) return counts-prediction;
+    return 0; 
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

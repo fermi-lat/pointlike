@@ -1,7 +1,7 @@
 /** @file ParamOptimization.cxx 
 @brief ParamOptimization member functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.6 2008/04/14 05:54:11 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.7 2008/04/16 17:04:06 mar0 Exp $
 
 */
 
@@ -86,7 +86,7 @@ void ParamOptimization::compute(ParamOptimization::Param p) {
                 t_alpha += ite->second->alpha()/(t_sa*t_sa);
             }
         }
-        *m_out << std::left << std::setw(10) << 
+        *m_out << std::left << std::setw(10) << std::setprecision(3)<<
             iter << std::setw(15) << (maxfactor>0?osigma*maxfactor:-1) << 
             std::setw(15) << (t_photons>0?curvature(sigma,iter,osigma*maxfactor):-1) << std::setw(10) << maxfactor << std::setw(15) << (t_photons>0?t_alpha/t_curvature:-1) <<
             std::setw(10) << t_photons << std::endl;
