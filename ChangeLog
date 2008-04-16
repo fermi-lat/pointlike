@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Apr 16 10:04:06 PDT 2008
+pointlike/doc
+
+Modified Files:
+	release.notes 
+Log Message:
+added binnin in 1/q to simplelikelihood
+    *
+------------------------------------------------------------
 User: burnett  Mon Apr 14 12:04:39 PDT 2008
 pointlike/src
 
