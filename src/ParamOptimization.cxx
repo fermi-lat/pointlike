@@ -1,7 +1,7 @@
 /** @file ParamOptimization.cxx 
 @brief ParamOptimization member functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.5 2008/02/14 01:27:45 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.6 2008/04/14 05:54:11 mar0 Exp $
 
 */
 
@@ -212,5 +212,5 @@ double ParamOptimization::curvature(bool sigma,int level,double val)
     TMatrixD Cf(3,1);
     Cf = Cv*At*b;
     double curv = Cf[0][0];
-    return 1/sqrt(curv);
+    return(curv>0?1/sqrt(curv):-1.0);
 }
