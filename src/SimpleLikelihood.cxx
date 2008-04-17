@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.30 2008/04/16 17:04:06 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.31 2008/04/16 22:41:55 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -66,6 +66,7 @@ namespace {
             , m_pixels(0)
             , m_subset(subset)
             , m_back(background )
+            , m_maxu_found(0)
         {
             m_first = m_vec4.size()==0;
             if(debug){
@@ -80,6 +81,7 @@ namespace {
         void operator()(const std::pair<HealPixel, int>& x){
             double diff =x.first().difference(m_dir); 
             double  u = sqr(diff/m_sigma)/2.;
+            if(u>m_maxu_found) m_maxu_found = u;
             std::vector<int>::iterator it = find(m_vec4.begin(),m_vec4.end(),x.first.index());
             //return if 
             //1)normal mode and outside of cone 
@@ -143,6 +145,7 @@ namespace {
         double m_back_norm;
         bool m_first;   //first call?
         bool m_subset;
+        double m_maxu_found;
     };
 
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -181,7 +184,10 @@ namespace {
 // private nested class to manage normalized background
 class SimpleLikelihood::NormalizedBackground : public astro::SkyFunction {
 public:
-    NormalizedBackground(const SkyDir& dir, double angle, double emin, double emax){
+    NormalizedBackground(const SkyDir& dir, double angle, double emin, double emax)
+    : m_emin(emin)
+    , m_emax(emax)
+    {
         if( SimpleLikelihood::diffuse()!=0){
             SimpleLikelihood::diffuse()->setEnergyRange(emin, emax);
             m_back_norm = SimpleLikelihood::diffuse()->average(dir, angle, SimpleLikelihood::tolerance());
@@ -195,6 +201,7 @@ public:
     double operator()(const SkyDir& dir)const{
         double val(1.);
         if( SimpleLikelihood::diffuse()!=0){
+            SimpleLikelihood::diffuse()->setEnergyRange(m_emin, m_emax);
             val=(*SimpleLikelihood::diffuse())(dir)/m_back_norm;
         }
         // a return value in the given direction
@@ -204,6 +211,7 @@ public:
 
 private:
     double m_back_norm;
+    double m_emin, m_emax;
 };
 
 
@@ -453,11 +461,11 @@ double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
     int counts (it==m_vec.end()? 0:  it->second);
 
     if( s_display_mode==1 ) return counts;   // observed in the pixel
-    double back( (*m_back)(dir) );           // normalized background prediction at the pixel
+    double back( (*m_back)(pdir) );           // normalized background at the pixel: average should be 1.0
     if( s_display_mode==2 ) return back; 
     double area( healpix::Healpix(1<<level).pixelArea() ); // solid angle per pixel
 
-    double prediction ( area/jacobian * photons() * ( m_alpha*m_psf(u)/m_fint + (1.-m_alpha)*back ) );
+    double prediction ( area/jacobian * photons() * ( m_alpha*m_psf(u)/m_fint + (1.-m_alpha)*back/m_umax ) );
     if( s_display_mode==3 ) return prediction; // prediction of fit
     if( s_display_mode==4 ) return counts-prediction;
     return 0; 

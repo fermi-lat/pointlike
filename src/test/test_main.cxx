@@ -8,6 +8,7 @@
 #include "skymaps/PhotonMap.h"
 #include "skymaps/DiffuseFunction.h"
 #include "skymaps/Exposure.h"
+#include "skymaps/IsotropicPowerLaw.h"
 
 #include "pointlike/SimpleTSmap.h"
 #include "pointlike/ParamOptimization.h"
@@ -86,7 +87,8 @@ int main(int argc , char** argv )
         x.write("pointlike_test.fits");
         std::vector<astro::SkyDir> directions;
 
-
+        // test fitting with a diffuse component
+        PointSourceLikelihood::set_diffuse(new skymaps::IsotropicPowerLaw());
 
         for( int n=0; !points[n].name.empty(); ++n){
                         
@@ -107,8 +109,11 @@ int main(int argc , char** argv )
             
             // check function value at peak
             SimpleLikelihood::setDisplayMode(1); // to counts
-            double value = like(dir);
-            std::cout << "counts in pixel at peak: " << value << std::endl;
+            double counts = like.value(dir,120.);
+            std::cout << "counts in pixel at peak: " << std::setprecision(1)<< counts << std::endl;
+            SimpleLikelihood::setDisplayMode(4); // to residual
+            double residual = like.value(dir,120.);
+            std::cout << "residual in pixel at peak: " << residual << std::endl;
 
         };
 
