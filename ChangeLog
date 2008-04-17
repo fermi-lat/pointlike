@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Thu Apr 17 09:22:45 PDT 2008
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx SimpleLikelihood.cxx 
+	SourceFinder.cxx 
+Log Message:
+updates: correct residual
+    *
+------------------------------------------------------------
 User: burnett  Wed Apr 16 15:41:55 PDT 2008
 pointlike/src/test
 
