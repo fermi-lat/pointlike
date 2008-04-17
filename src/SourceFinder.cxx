@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.30 2008/01/27 15:23:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.31 2008/03/22 17:43:55 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -783,7 +783,6 @@ void SourceFinder::createFitsFile(const std::string & outputFile,
     // now add a table to the file
     tip::IFileSvc::instance().appendTable(outputFile, tablename);
     tip::Table & table = *tip::IFileSvc::instance().editTable( outputFile, tablename);
-
     table.appendField("NAME", "24A");
     table.appendField("TYPE", "30A");
     table.appendField("RA", "1E");
