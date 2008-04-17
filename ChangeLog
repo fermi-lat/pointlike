@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Thu Apr 17 09:22:45 PDT 2008
+pointlike/src/test
+
+Modified Files:
+	test_main.cxx 
+Log Message:
+updates: correct residual
+    *
+------------------------------------------------------------
+User: burnett  Thu Apr 17 09:22:45 PDT 2008
 pointlike/src/pointfit
 
 Modified Files:
