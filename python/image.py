@@ -117,13 +117,15 @@ class AIT(object):
     """ Manage a full-sky image of a SkyProjection or SkyFunction, wrapping SkyImage
      """
     
-    def __init__(self, skyfun, pixelsize=0.5, galactic=True, fitsfile='', proj='AIT'):
+    def __init__(self, skyfun, pixelsize=0.5, center=None, galactic=True, fitsfile='', proj='AIT', size=180):
         """
         skyfun SkyProjection or SkyFunction object
         pixelsize [0.5] size, in degrees, of pixels
         galactic [True] galactic or equatorial coordinates
         fitsfile [''] if set, write the projection to a FITS file
-        proj ['AIT'] could be 'CAR' for carree: used by wcslib
+        proj ['AIT'] could be 'CAR' for carree or 'ZEA': used by wcslib
+        center [None] if default center at (0,0) in coord system
+        size [180] make less for restricted size
 
         """
         from pointlike import SkyImage, SkyDir
@@ -133,9 +135,11 @@ class AIT(object):
         self.skyfun = skyfun
         self.galactic = galactic
         self.pixelsize = pixelsize
+        self.size = size
         # set up, then create a SkyImage object to perform the projection to a grid
-        center = SkyDir(0,0, SkyDir.GALACTIC if galactic else SkyDir.EQUATORIAL)
-        self.skyimage = SkyImage(center, fitsfile, pixelsize, 180, 1, proj, galactic)
+        if center is None:
+            center = SkyDir(0,0, SkyDir.GALACTIC if galactic else SkyDir.EQUATORIAL)
+        self.skyimage = SkyImage(center, fitsfile, pixelsize, size, 1, proj, galactic)
         self.skyimage.fill(skyfun)
         
         # now extract stuff for the pylab image, creating a masked array to deal with the NaN values
@@ -143,7 +147,7 @@ class AIT(object):
         self.image = array(self.skyimage.image()).reshape((self.ny, self.nx))
         self.mask = isnan(self.image)
         self.masked_image = ma.array( self.image, mask=self.mask)
-        self.extent = (180,-180, -90, 90)
+        self.extent = (180,-180, -90, 90) if size==180 else (size, -size, -size, size)
         self.vmin ,self.vmax = self.skyimage.minimum(), self.skyimage.maximum()
 
         # we want access to the projection object, to allow interactive display via pix2sph function
