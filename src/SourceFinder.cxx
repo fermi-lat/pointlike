@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.31 2008/03/22 17:43:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.32 2008/04/17 16:22:45 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -254,7 +254,6 @@ void SourceFinder::reExamine(void)
     int i(0), nbr_to_examine(m_can.size()), nbr_purged(0);
 
     // Re-examine likelihood fit for each candidate that has a strong neighbor.
-    // Add the strong neighbor to the background first
     for (Candidates::iterator it = m_can.begin(); it != m_can.end(); ) 
     {
         // 2nd iterator makes it possible to delete and still iterate with the other one
@@ -267,18 +266,16 @@ void SourceFinder::reExamine(void)
         CanInfo& cand = it2->second;
         double oldts(cand.value());
 
-        //not used? const astro::SkyDir& currentpos = it2->second.dir();
-        PointSourceLikelihood::clearBackgroundPointSource();
-
         // Recalculate likelihood for strong neighbor
         PointSourceLikelihood strong(m_pmap, "test", m_can[it2->second.strongNeighbor()].dir());
         double strong_ts = strong.maximize(skip_TS_levels); // not used
 
-        // Add strong neighbor to this candidate's background
-        PointSourceLikelihood::addBackgroundPointSource(& strong);
-
         // Recalculate likelihood for this candidate
         PointSourceLikelihood ps(m_pmap, "test", it2->second.dir());
+
+        // Add strong neighbor to this candidate's background
+        ps.addBackgroundPointSource(& strong);
+
         double ts = ps.maximize(skip_TS_levels);
 
         // perform likelihood analysis at the current candidate position 

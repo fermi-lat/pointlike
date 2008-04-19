@@ -1,12 +1,14 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.30 2008/04/16 22:41:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.31 2008/04/17 16:22:45 burnett Exp $
 
 */
 
 #include "pointlike/PointSourceLikelihood.h"
+
 #include "skymaps/DiffuseFunction.h"
 #include "skymaps/CompositeSkySpectrum.h"
+#include "skymaps/PhotonMap.h"
 
 #include "embed_python/Module.h"
 
@@ -22,7 +24,6 @@ using namespace pointlike;
 using skymaps::CompositeSkySpectrum;
 using skymaps::DiffuseFunction;
 namespace {
-
     // the scale_factor used: 2.5 degree at level 6, approximately the 68% containment
     int base_level(6);
     double scale_factor(int level){return 2.5*pow(2.0, base_level-level)*M_PI/180.;}
@@ -39,9 +40,9 @@ namespace {
 }
 
 //  ----- static (class) variables -----
+skymaps::SkySpectrum* PointSourceLikelihood::s_diffuse(0);
 std::vector<double> PointSourceLikelihood::s_gamma_level(gamma_list,gamma_list+14);
 std::vector<double> PointSourceLikelihood::s_sigma_level(sigma_list,sigma_list+14);
-void PointSourceLikelihood::setDisplayMode(int newmode){ SimpleLikelihood::setDisplayMode(newmode); }
 
 
 int    PointSourceLikelihood::s_minlevel(6);
@@ -98,7 +99,7 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getValue("interpolate", interpolate, interpolate);
     if( ! diffusefile.empty() ) {
 
-        SimpleLikelihood::setDiffuse(new CompositeSkySpectrum(
+        set_diffuse(new CompositeSkySpectrum(
             new DiffuseFunction(diffusefile, interpolate!=0), exposure) );
 
         std::cout << "Using diffuse definition "<< diffusefile 
@@ -117,6 +118,7 @@ PointSourceLikelihood::PointSourceLikelihood(
     , m_name(name)
     , m_dir(dir)
     , m_out(&std::cout)
+    , m_background(0)
 {
     if( s_gamma_level.size()==0){
         s_gamma_level.resize(14,2.2);
@@ -129,12 +131,24 @@ PointSourceLikelihood::PointSourceLikelihood(
         throw std::invalid_argument("PointSourceLikelihood: invalid levels for data");
     }
     m_energies.push_back(2e5); // put guard at 200GeV
+
+    
+    if( s_diffuse !=0){
+        m_background = new skymaps::CompositeSkySpectrum(s_diffuse);
+    }else {
+        // may not be valid?
+        m_background = 0; //new skymaps::CompositeSkySpectrum();
+    }
+
     setup( data, s_minlevel, s_maxlevel);
+
 }
 
 
 void PointSourceLikelihood::setup(const skymaps::PhotonMap& data, int minlevel, int maxlevel)
 {
+    bool debug_print(false);
+    out() << "level   gamma   sigma   roi  pixels" << std::endl;
     for( int level=minlevel; level<maxlevel+1; ++level){
 
 
@@ -147,7 +161,7 @@ void PointSourceLikelihood::setup(const skymaps::PhotonMap& data, int minlevel, 
         double roi_radius( sigma*sqrt(2.*SimpleLikelihood::defaultUmax()) * 180/M_PI);
 
         // create and fill the vector of data for this level (note fudge) 
-        data.extract_level(  m_dir, 2.0* roi_radius, 
+        data.extract_level(  m_dir, 1.2* roi_radius, 
             m_data_vec[level], level,  false);
         double emin( m_energies[level-m_minlevel]), emax( m_energies[level-m_minlevel+1]);
 
@@ -157,14 +171,16 @@ void PointSourceLikelihood::setup(const skymaps::PhotonMap& data, int minlevel, 
             -1, // background (not used now)
             SimpleLikelihood::defaultUmax(), 
             emin, emax
+            ,m_background
             );
         (*this)[level] = sl;
 
-        bool debug_print(false);
         if( debug_print ) { // make table of parameters
             out() << std::setw(6) << level 
                 << " " << std::setw(10) << std::left << gamma 
                 << std::setw(10)<< std::setprecision(5) << sigma  
+                << std::setw(10)<< std::setprecision(5) << roi_radius  
+                << std::setw(10)<< std::setprecision(5) << m_data_vec[level].size()  
                 << std::right << std::endl;
         }
 
@@ -176,6 +192,7 @@ PointSourceLikelihood::~PointSourceLikelihood()
     for( iterator it = begin(); it!=end(); ++it){
         delete it->second;
     }
+    delete m_background;
 }
 
 double PointSourceLikelihood::maximize(int skip)
@@ -445,6 +462,20 @@ double PointSourceLikelihood::value(const astro::SkyDir& dir, double energy) con
     return it->second->operator()(dir);
 
 }
+
+double PointSourceLikelihood::display(const astro::SkyDir& dir, double energy, int mode) const
+{
+    int level(m_minlevel);
+    for(; energy> m_energies[level-m_minlevel] && level<= s_maxlevel; ++level);
+    std::map<int, SimpleLikelihood*>::const_iterator it = find(level-1);
+    if( it==end() ){
+        throw std::invalid_argument("PointSourceLikelihood::display--no fit for the requested energy");
+    }
+    return it->second->display(dir, mode);
+
+}
+
+
 ///@brief integral for the energy limits, in the given direction
 double PointSourceLikelihood::integral(const astro::SkyDir& dir, double emin, double emax)const
 {
@@ -473,42 +504,46 @@ double PointSourceLikelihood::sigma(int level)const
 skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(skymaps::SkySpectrum* diffuse, double exposure)
 {  
     // save current to return
-    skymaps::SkySpectrum* ret =   SimpleLikelihood::diffuse();
-    // check if it is already a Composite
-    CompositeSkySpectrum* backgnd = dynamic_cast<CompositeSkySpectrum*>(diffuse);
-    if( backgnd==0){
-        // no, create one and add it, using exposure
-        backgnd = new CompositeSkySpectrum(diffuse, exposure);
-    }
+    skymaps::SkySpectrum* ret =   s_diffuse;
 
-    SimpleLikelihood::setDiffuse( backgnd);
+    s_diffuse = diffuse;
+    
     return ret;
 }
 
 
 void PointSourceLikelihood::addBackgroundPointSource(const PointSourceLikelihood* fit)
 {
-    CompositeSkySpectrum* backgnd = dynamic_cast<CompositeSkySpectrum*>(SimpleLikelihood::diffuse());
-    if( backgnd==0){
-        throw std::invalid_argument("PointSourceLikelihood::setBackgroundFit: no diffuse to add to");
+    if( fit==this){
+        throw std::invalid_argument("PointSourceLikelihood::setBackgroundFit: cannot add self as background");
     }
+    if( m_background==0){
+        throw std::invalid_argument("PointSourceLikelihood::setBackgroundFit: no diffuse background");
+    }
+
     if( s_verbose>0 ) {
         std::cout << "Adding source " << fit->name() << " to background" << std::endl;
     }
-    backgnd->add(fit);
+    m_background->add(fit);
+    setDir(dir()); // recomputes background for each SimpleLikelihood object
 }
 
 void PointSourceLikelihood::clearBackgroundPointSource()
 {
-    CompositeSkySpectrum* backgnd = dynamic_cast<CompositeSkySpectrum*>(SimpleLikelihood::diffuse());
-
-    if( backgnd==0){
+    if( m_background==0){
         throw std::invalid_argument("PointSourceLikelihood::setBackgroundFit: no diffuse to add to");
     }
-    while( backgnd->size()>1) {
-        backgnd->pop_back();
+    while( m_background->size()>1) {
+        m_background->pop_back();
     }
+    setDir(dir()); // recomputes background for each SimpleLikelihood object
 }
+
+const skymaps::SkySpectrum * PointSourceLikelihood::background()const
+{
+    return m_background;
+}
+
 
 /// @brief set radius for individual fits
 void PointSourceLikelihood::setDefaultUmax(double umax)
@@ -555,3 +590,21 @@ double PointSourceLikelihood::sigma_level(int i)
 {
     return s_sigma_level.at(i);
 }
+#if 1
+//=======================================================================
+//         PSldisplay implementation
+PSLdisplay::PSLdisplay(const PointSourceLikelihood & psl, int mode)
+: m_psl(psl)
+, m_mode(mode)
+{}
+
+double PSLdisplay::value(const astro::SkyDir& dir, double e)const{
+        return m_psl.display(dir, e, m_mode);
+    }
+
+    ///@brief integral for the energy limits, in the given direction -- not impleme
+double PSLdisplay::integral(const astro::SkyDir& dir, double a, double b)const{
+        return value(dir, sqrt(a*b));
+    }
+
+#endif

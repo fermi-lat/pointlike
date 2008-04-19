@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.31 2008/04/16 22:41:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.32 2008/04/17 16:22:45 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -27,12 +27,9 @@ using namespace pointlike;
 //#define DEBUG_PRINT
 double SimpleLikelihood::s_defaultUmax =50;
 
-skymaps::SkySpectrum* SimpleLikelihood::s_diffuse(0);
 double  SimpleLikelihood::s_tolerance(0.05); // default:
 
-int SimpleLikelihood::s_display_mode(0); 
-void SimpleLikelihood::setDisplayMode(int newmode){
-    s_display_mode=newmode;}
+
 
 namespace {
 
@@ -184,13 +181,14 @@ namespace {
 // private nested class to manage normalized background
 class SimpleLikelihood::NormalizedBackground : public astro::SkyFunction {
 public:
-    NormalizedBackground(const SkyDir& dir, double angle, double emin, double emax)
-    : m_emin(emin)
+    NormalizedBackground(const skymaps::SkySpectrum* diffuse, const SkyDir& dir, double angle, double emin, double emax)
+    : m_diffuse(diffuse)
+    , m_emin(emin)
     , m_emax(emax)
     {
-        if( SimpleLikelihood::diffuse()!=0){
-            SimpleLikelihood::diffuse()->setEnergyRange(emin, emax);
-            m_back_norm = SimpleLikelihood::diffuse()->average(dir, angle, SimpleLikelihood::tolerance());
+        if( m_diffuse!=0){
+            m_diffuse->setEnergyRange(emin, emax);
+            m_back_norm = m_diffuse->average(dir, angle, SimpleLikelihood::tolerance());
             if( m_back_norm==0){
                 std::cerr << "Warning: normalization zero" << std::endl;
                 m_back_norm=0.1; // kluge, like below
@@ -200,9 +198,9 @@ public:
     //! the normalized (in 0<u<umax)  background in the direction dir
     double operator()(const SkyDir& dir)const{
         double val(1.);
-        if( SimpleLikelihood::diffuse()!=0){
-            SimpleLikelihood::diffuse()->setEnergyRange(m_emin, m_emax);
-            val=(*SimpleLikelihood::diffuse())(dir)/m_back_norm;
+        if( m_diffuse!=0){
+            m_diffuse->setEnergyRange(m_emin, m_emax);
+            val=(*m_diffuse)(dir)/m_back_norm;
         }
         // a return value in the given direction
         if( val==0){ val=0.1;} // prevent zero, which is bad
@@ -210,6 +208,7 @@ public:
     }
 
 private:
+    const skymaps::SkySpectrum* m_diffuse;
     double m_back_norm;
     double m_emin, m_emax;
 };
@@ -218,7 +217,8 @@ private:
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SimpleLikelihood::SimpleLikelihood(const std::vector<std::pair<healpix::HealPixel, int> >& vec,
         const astro::SkyDir& dir, 
-        double gamma, double sigma, double background, double umax, double emin,double emax)
+        double gamma, double sigma, double background, double umax, double emin,double emax, 
+        const skymaps::SkySpectrum* diffuse)
         : m_vec(vec)
         , m_averageF(0)
         , m_psf(gamma)
@@ -229,6 +229,7 @@ SimpleLikelihood::SimpleLikelihood(const std::vector<std::pair<healpix::HealPixe
         , m_umax(umax)
         , m_emin(emin), m_emax(emax)
         , m_back(0)
+        , m_diffuse(diffuse)
 { 
     m_fint =  m_psf.integral(umax) ; // for normalization of the PSF
 
@@ -249,7 +250,7 @@ void SimpleLikelihood::setDir(const astro::SkyDir& dir, bool subset)
     // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
     m_vec2.clear();
     delete m_back;
-    m_back = new NormalizedBackground(dir, sqrt(2.*m_umax)*m_sigma, m_emin, m_emax);
+    m_back = new NormalizedBackground(m_diffuse, dir, sqrt(2.*m_umax)*m_sigma, m_emin, m_emax);
     Convert conv(m_dir, m_psf, *m_back, m_sigma, m_umax, m_vec2, m_vec4,  subset);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
     result.consolidate();
@@ -437,15 +438,23 @@ double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
     double diff( dir.difference(m_dir) ); 
     double u   ( sqr(diff/m_sigma)/2.  );
     double jacobian( 2.*M_PI* sqr(m_sigma) );
-    if( s_display_mode ==0){
-        // default is density
+    return signal()*m_psf(u)/ m_fint/jacobian;
+}
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+double SimpleLikelihood::display(const astro::SkyDir& dir, int mode) const
+{
+    double diff( dir.difference(m_dir) ); 
+    double u   ( sqr(diff/m_sigma)/2.  );
+    double jacobian( 2.*M_PI* sqr(m_sigma) );
+    if( mode ==0){
+        // default is density, as above
         return signal()*m_psf(u)/ m_fint/jacobian;
     }
 
     int level = m_vec[0].first.level();
     healpix::HealPixel pixel( dir, level);
     SkyDir pdir ( pixel() );  // direction of center of pixel
-    u = sqr( pdir.difference(m_dir)/m_sigma/2.); // recalculate u for pixel
+    u = sqr( pdir.difference(m_dir)/m_sigma)/2.; // recalculate u for pixel
     if( u> m_umax ) return 0;
 
     // now look for it in the data
@@ -460,27 +469,28 @@ double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
     // get the counts in the pixel, if present
     int counts (it==m_vec.end()? 0:  it->second);
 
-    if( s_display_mode==1 ) return counts;   // observed in the pixel
+    if( mode==1 ) return counts;   // observed in the pixel
     double back( (*m_back)(pdir) );           // normalized background at the pixel: average should be 1.0
-    if( s_display_mode==2 ) return back; 
+    if( mode==2 ) return back; 
     double area( healpix::Healpix(1<<level).pixelArea() ); // solid angle per pixel
 
     double prediction ( area/jacobian * photons() * ( m_alpha*m_psf(u)/m_fint + (1.-m_alpha)*back/m_umax ) );
-    if( s_display_mode==3 ) return prediction; // prediction of fit
-    if( s_display_mode==4 ) return counts-prediction;
+    if( mode==3 ) return prediction; // prediction of fit
+    if( mode==4 ) return counts-prediction;
     return 0; 
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-skymaps::SkySpectrum* SimpleLikelihood::diffuse()
+const skymaps::SkySpectrum* SimpleLikelihood::diffuse() const
 {
-    return s_diffuse;
+    return m_diffuse;
 }
 
 void SimpleLikelihood::setDiffuse(skymaps::SkySpectrum* diff)
 {
-    s_diffuse = diff;
+    m_diffuse = diff;
+    setDir(m_dir); // reset data
 }
 
 double SimpleLikelihood::tolerance()

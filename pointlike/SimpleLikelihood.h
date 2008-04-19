@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.20 2008/04/14 18:23:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.21 2008/04/16 22:41:55 burnett Exp $
 
 */
 
@@ -38,13 +38,17 @@ public:
     @param sigma  scale factor to define u
     @param background [-1] background density, events/solid angle (negative to not use)
     @param umax   [25] maximum value for the u variable
+    @param emin,emax
+    @param diffuse
+
     */
     SimpleLikelihood(const std::vector<std::pair<healpix::HealPixel,int> >& data,
         const astro::SkyDir& dir, 
         double gamma, double sigma, 
         double background, 
         double umax, 
-        double emin, double emax);
+        double emin, double emax
+        ,const skymaps::SkySpectrum* diffuse);
 
     ~SimpleLikelihood();
 
@@ -115,34 +119,35 @@ public:
     /// @return the events/sr corresponding to the solution
     double operator()(const astro::SkyDir& dir)const;
 
+    /// @brief special display function
+    /// @param dir direciton
+    /// @mode 0: same as the operator; 1: data; 2: background; 3:fit; 4:residual
+    ///     
+    double display(const astro::SkyDir& dir, int mode)const;
+
     /// @brief access to the effective sigma (radians)  used for the fits
     double sigma()const{ return m_sigma;}
     void setsigma(double sigma) {m_sigma=sigma;}
 
     void recalc(bool subset=true);
 
-    /// @brief access to the diffuse component
-    static skymaps::SkySpectrum* diffuse();
+    /// @brief access to the diffuse background component 
+    const skymaps::SkySpectrum* diffuse() const;
 
     /// @brief set the diffuse component
-    static void setDiffuse(skymaps::SkySpectrum* diff);
+    void setDiffuse(skymaps::SkySpectrum* diff);
 
     static double tolerance();
     static void setTolerance(double tol);
     static double defaultUmax();
     static void setDefaultUmax(double umax);
 
-    static void setDisplayMode(int newmode);
 
 private:
 
 
     static double s_defaultUmax;
-    static skymaps::SkySpectrum* s_diffuse;
     static double s_tolerance; // for integral
-
-    static int s_display_mode; // control display mode
-
 
     //! @brief a quick estimate of the signal fraction
     //! @return the value of of the signal fraction
@@ -175,6 +180,9 @@ private:
     double m_avu, m_avb;
     double m_emin, m_emax; ///< energy range for this object
     double m_F;       ///< integral of PSF over u
+
+    const skymaps::SkySpectrum * m_diffuse; ///< background distribution to use
+
     class NormalizedBackground; // forward declaration of helper class
     NormalizedBackground* m_back; ///< instance of private helper class set when direction is
     
