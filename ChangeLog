@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Apr 19 16:52:04 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h SimpleLikelihood.h 
+Log Message:
+revise use of diffuse background to avoid statics--each PSL has its own background, but shares a diffuse object.
+    *
+------------------------------------------------------------
 User: burnett  Thu Apr 17 09:22:45 PDT 2008
 pointlike/src/test
 
