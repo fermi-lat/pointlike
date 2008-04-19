@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.24 2008/04/14 18:23:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.25 2008/04/16 22:41:55 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -9,7 +9,6 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.
 #include "pointlike/SimpleLikelihood.h"
 
 #include "skymaps/SkySpectrum.h"
-#include "skymaps/PhotonMap.h"
 
 #include "astro/SkyDir.h"
 #include "healpix/HealPixel.h"
@@ -18,12 +17,13 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.
 #include <map>
 
 namespace embed_python { class Module; }
+namespace skymaps { class PhotonMap; class CompositeSkySpectrum;}
 
 namespace pointlike {
 
 
 /** @class PointSourceLikelihood
-@brief manage a set of SimpleLikelihood objects, one for each energy band
+@brief manage a set of SimpleLikelihood objects, one for each energy band / event type
 
 Note that it is a map of the SimpleLikelihood objects, with the key the Healpix level,
 usually starting at 6, for 0.9 degree bins.
@@ -64,7 +64,7 @@ public:
 
     /// @brief perform localization fit, maximizing joint likelihood
     /// @param skip [0] number of levels to skip
-    /// @return error circle radius (deg) or negative if bad or no fit.
+    /// @return error circle radius (deg) or large number corresponding to error condition
     double localize(int skip);
 
     /// @brief invoke localize with skip values from skip1 to skip 2 or until good fit
@@ -114,16 +114,19 @@ public:
 
     static double set_sigma_level(int level, double v);
 
-    ///! Set diffuse background function, return current value 
+    ///! Set the global diffuse background function, return current value 
     /// @param diffuse any sky spectrum, presumably a DiffuseFunction
     /// @param exposure [1.0] multiplicative factor, presumably the exposure 
     static  skymaps::SkySpectrum* set_diffuse( skymaps::SkySpectrum* diffuse, double exposure=1.0);
 
     ///! add a point source fit to the background for subsequent fits
-    static void addBackgroundPointSource(const PointSourceLikelihood* fit);
+    void addBackgroundPointSource(const PointSourceLikelihood* fit);
 
     ///! remove all such
-    static void clearBackgroundPointSource();
+    void clearBackgroundPointSource();
+
+    ///! access to background model 
+    const skymaps::SkySpectrum * background()const;
 
     ///! @brief recalculate likelihoods using any static changes made to parameters
     void recalc(int level);
@@ -139,7 +142,12 @@ public:
     static double gamma_level(int i);
     static double sigma_level(int i);
 
-    static void setDisplayMode(int newmode);
+    /// @brief special display function
+    /// @param dir direction
+    /// @param energy selects energy band
+    /// @mode 0: same as the operator; 1: data; 2: background; 3:fit; 4:residual
+    ///     
+    double display(const astro::SkyDir& dir, double energy, int mode)const;
 
 
 private:
@@ -159,7 +167,11 @@ private:
     std::map<int, std::vector<std::pair<healpix::HealPixel,int> > >m_data_vec;
     mutable CLHEP::Hep3Vector m_gradient; ///< current gradient
 
-    //static SkySpectrum * s_diffuse;
+    static skymaps::SkySpectrum* s_diffuse; ///< global diffuse used by all PSL objects
+    
+
+    skymaps::CompositeSkySpectrum * m_background;  ///< background spectrum to use
+    
     static double s_radius, s_minalpha, s_TSmin, s_tolerance, 
         s_maxstep; //
     static int s_minlevel, s_maxlevel, s_skip1, s_skip2, s_itermax, s_verbose;
@@ -168,6 +180,22 @@ private:
     static std::vector<double> s_sigma_level;
 
  
+};
+
+/** @class PSLdisplay
+
+*/
+class PSLdisplay :  public skymaps::SkySpectrum {
+public:
+    PSLdisplay(const PointSourceLikelihood & psl, int mode);
+    virtual double value(const astro::SkyDir& dir, double e)const;
+
+    ///@brief integral for the energy limits, in the given direction
+    virtual double integral(const astro::SkyDir& dir, double a, double b)const;
+private:
+    const PointSourceLikelihood& m_psl;
+    int m_mode;
+
 };
 
 }
