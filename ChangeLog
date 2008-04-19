@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Apr 19 16:52:05 PDT 2008
+pointlike/src/test
+
+Modified Files:
+	test_main.cxx 
+Log Message:
+revise use of diffuse background to avoid statics--each PSL has its own background, but shares a diffuse object.
+    *
+------------------------------------------------------------
 User: burnett  Sat Apr 19 16:52:04 PDT 2008
 pointlike/src/pointfit
 
