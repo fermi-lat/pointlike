@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.25 2008/04/16 22:41:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.26 2008/04/19 23:52:04 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -192,6 +192,8 @@ public:
 
     ///@brief integral for the energy limits, in the given direction
     virtual double integral(const astro::SkyDir& dir, double a, double b)const;
+
+    std::string name()const;
 private:
     const PointSourceLikelihood& m_psl;
     int m_mode;
