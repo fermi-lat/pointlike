@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.31 2008/04/17 16:22:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.32 2008/04/19 23:52:04 burnett Exp $
 
 */
 
@@ -590,9 +590,9 @@ double PointSourceLikelihood::sigma_level(int i)
 {
     return s_sigma_level.at(i);
 }
-#if 1
+
 //=======================================================================
-//         PSldisplay implementation
+//         PSLdisplay implementation
 PSLdisplay::PSLdisplay(const PointSourceLikelihood & psl, int mode)
 : m_psl(psl)
 , m_mode(mode)
@@ -607,4 +607,12 @@ double PSLdisplay::integral(const astro::SkyDir& dir, double a, double b)const{
         return value(dir, sqrt(a*b));
     }
 
-#endif
+std::string PSLdisplay::name()const
+{
+    static std::string type[]={"density", "data", "background", "fit", "residual"};
+    if( m_mode<0 || m_mode>4) return "illegal";
+    return m_psl.name()+"--"+type[m_mode];
+
+}
+
+

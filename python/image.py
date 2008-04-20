@@ -99,7 +99,7 @@ def make_image( fun, sdir, level=9, scale = 0.5, step = 0.02):
     return image
 
 #---------------------------------------------------------------------------
-def show_image( fun,sdir, level=9, scale=0.5, step=None):
+def show_image( fun,sdir, level=9, scale=0.5, step=None, title=None):
     import pylab
     if step is None: step = scale/100.
     img = make_image(fun, sdir, level, scale, step)
@@ -108,7 +108,10 @@ def show_image( fun,sdir, level=9, scale=0.5, step=None):
     pylab.axhline(0, color='white')
     pylab.colorbar()
     emin, emax = energy_range(level)
-    pylab.title('level %d (%d-%d)' %(level, emin, emax), size=10)
+    if title is None:
+        pylab.title('level %d (%d-%d)' %(level, emin, emax), size=10)
+    else:
+        pylab.title(title)
     #pylab.gca().format_coord = lambda x, y: 'f(%6.3f,%6.3f)=%8.3g'%(x,y, fun(x,y))
 
 
