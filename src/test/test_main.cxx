@@ -108,13 +108,6 @@ int main(int argc , char** argv )
             }
             directions.push_back(like.dir());  // for PSF fits
             
-            // check function value at peak
-            SimpleLikelihood::setDisplayMode(1); // to counts
-            double counts = like.value(dir,120.);
-            std::cout << "counts in pixel at peak: " << std::setprecision(1)<< counts << std::endl;
-            SimpleLikelihood::setDisplayMode(4); // to residual
-            double residual = like.value(dir,120.);
-            std::cout << "residual in pixel at peak: " << residual << std::endl;
 
         };
 
