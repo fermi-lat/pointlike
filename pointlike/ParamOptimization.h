@@ -1,7 +1,7 @@
 /** @file ParamOptimization.h 
     @brief declaration of the ParamOptimization class for optimizing point spread parameters
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ParamOptimization.h,v 1.4 2008/01/27 02:31:33 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ParamOptimization.h,v 1.5 2008/02/14 01:27:45 mar0 Exp $
 */
 #ifndef POINTLIKE_PARAMOPTIMIZATION_H
 #define POINTLIKE_PARAMOPTIMIZATION_H
@@ -9,6 +9,8 @@
 #include "skymaps/PhotonMap.h"
 #include <iostream>
 #include <iomanip>
+
+namespace skymaps{class EnergyBinner;}
 
 namespace pointlike {
 /**
@@ -45,6 +47,7 @@ private:
     const skymaps::PhotonMap m_data;            //points to skymap
     int m_minlevel;                               //minimum healpix level
     int m_maxlevel;                               //maximum healpix level
+    skymaps::EnergyBinner* m_eb;
 };
 
 }
