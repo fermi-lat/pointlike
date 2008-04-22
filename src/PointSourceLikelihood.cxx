@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.32 2008/04/19 23:52:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.33 2008/04/20 00:31:36 burnett Exp $
 
 */
 
@@ -9,6 +9,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 
 #include "skymaps/DiffuseFunction.h"
 #include "skymaps/CompositeSkySpectrum.h"
 #include "skymaps/PhotonMap.h"
+#include "skymaps/EnergyBinner.h"
 
 #include "embed_python/Module.h"
 
@@ -18,6 +19,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 
 #include <iomanip>
 #include <stdexcept>
 
+#define LEVELS
 
 using namespace astro;
 using namespace pointlike;
@@ -120,6 +122,7 @@ PointSourceLikelihood::PointSourceLikelihood(
     , m_out(&std::cout)
     , m_background(0)
 {
+    m_eb = skymaps::EnergyBinner::Instance(true);
     if( s_gamma_level.size()==0){
         s_gamma_level.resize(14,2.2);
         s_sigma_level.resize(14,0.4); 
@@ -149,7 +152,9 @@ void PointSourceLikelihood::setup(const skymaps::PhotonMap& data, int minlevel, 
 {
     bool debug_print(false);
     out() << "level   gamma   sigma   roi  pixels" << std::endl;
+#ifdef LEVELS
     for( int level=minlevel; level<maxlevel+1; ++level){
+
 
 
         // get PSF parameters from fits
@@ -160,11 +165,23 @@ void PointSourceLikelihood::setup(const skymaps::PhotonMap& data, int minlevel, 
 
         double roi_radius( sigma*sqrt(2.*SimpleLikelihood::defaultUmax()) * 180/M_PI);
 
-        // create and fill the vector of data for this level (note fudge) 
-        data.extract_level(  m_dir, 1.2* roi_radius, 
+        // create and fill the vector of data for this level (slight fudge) 
+        data.extract_level(  m_dir, 1.1* roi_radius, 
             m_data_vec[level], level,  false);
         double emin( m_energies[level-m_minlevel]), emax( m_energies[level-m_minlevel+1]);
+#else
+    for( int level=0; level<m_eb->bands()*2; ++level){
+        int curlevel = m_eb->level(level/2,level%2);
+        double gamma(m_eb->gamma(curlevel)),sigma(m_eb->sigma(curlevel));
+        double emin( m_energies[(level>>1)]), emax( m_energies[(level>>1)+1]);
+        // and then the radius of the roi for extraction
 
+        double roi_radius( sigma*sqrt(2.*SimpleLikelihood::defaultUmax()) * 180/M_PI);
+
+        // create and fill the vector of data for this level (slight fudge) 
+        data.extract_band(  m_dir, 1.1* roi_radius, 
+            m_data_vec[level], level, false);
+#endif
         // and create the simple likelihood object
         SimpleLikelihood* sl = new SimpleLikelihood(m_data_vec[level], m_dir, 
             gamma, sigma,

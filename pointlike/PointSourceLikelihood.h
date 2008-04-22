@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.26 2008/04/19 23:52:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.27 2008/04/20 00:31:36 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -17,7 +17,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.
 #include <map>
 
 namespace embed_python { class Module; }
-namespace skymaps { class PhotonMap; class CompositeSkySpectrum;}
+namespace skymaps { class PhotonMap; class CompositeSkySpectrum; class EnergyBinner;}
 
 namespace pointlike {
 
@@ -158,6 +158,8 @@ private:
     astro::SkyDir m_dir; ///< common direction
     double m_dir_sigma;  ///< error circle from fit (radians)
     double m_TS;         ///< total TS value
+
+    skymaps::EnergyBinner* m_eb;
 
     bool m_verbose;
     std::ostream * m_out;
