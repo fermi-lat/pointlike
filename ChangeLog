@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: mar0  Mon Apr 21 17:28:38 PDT 2008
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx 
+Log Message:
+added functionality to pointsourcelikelihood for new binning scheme (plus backwards compatibility)
+    *
+------------------------------------------------------------
+User: mar0  Mon Apr 21 17:28:38 PDT 2008
 pointlike/pointlike
 
 Modified Files:
