@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Tue Apr 22 10:57:26 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	ParamOptimization.h 
+Log Message:
+Fixed parameter optimization methods to work with new scheme
+    *
+------------------------------------------------------------
 User: mar0  Mon Apr 21 17:28:38 PDT 2008
 pointlike/src
 
