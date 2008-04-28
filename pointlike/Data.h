@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.20 2008/03/06 08:42:37 mar0 Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.21 2008/04/04 09:53:54 burnett Exp $
 */
 
 
@@ -15,7 +15,7 @@ class PointingInfo;
 }
 
 namespace skymaps {
-class PhotonMap;
+class BinnedPhotonData;
 }
 
 #include "embed_python/Module.h"
@@ -25,23 +25,23 @@ class PhotonMap;
 
 namespace pointlike {
 /***
-wrapper for PhotonMap-- maybe move there
+wrapper for BinnedPhotonData-- maybe move there
 */
 class Data {
 public:
 
-    //! constructor loads data from a fits FT1 or root file (MeritTuple) to make a PhotonMap
+    //! constructor loads data from a fits FT1 or root file (MeritTuple) to make a BinnedPhotonData
     //! @param event_type 0 for class A front, etc, -1 for all
     //! @param source_id select given source
     Data(const std::string& file, int event_type, double tstart, double tstop, int source_id=-1)
         ;
-    //! constructor loads data from a list of fits or root files to make a PhotonMap
+    //! constructor loads data from a list of fits or root files to make a BinnedPhotonData
     //! @param event_type 0 for class A front, etc, -1 for all
     //! @param source_id select given source
     Data(std::vector<std::string> files, int event_type, double tstart, double tstop,int source_id=-1, 
         std::string ft2file=""
         );
-    //! constructor loads a PhotonMap that was saved in a fits file
+    //! constructor loads a BinnedPhotonData that was saved in a fits file
     //! @param inputFile the fits file name
     //! @param tablename ["PHOTONMAP"] the fits table name
     Data(const std::string & inputFile, const std::string & tablename="PHOTONMAP");
@@ -73,11 +73,11 @@ public:
     //! @param file Either FT1 or  MeritTuple ROOT file
     void addgti(const std::string& file);
 
-    //! behave like a PhotonMap object
-    operator const skymaps::PhotonMap&() const {return *m_data;}
+    //! behave like a BinnedPhotonData object
+    operator const skymaps::BinnedPhotonData&() const {return *m_data;}
 
     //! same as above, for python use
-    const skymaps::PhotonMap& map()const{return *m_data;}
+    const skymaps::BinnedPhotonData& map()const{return *m_data;}
 
     //! @brief define FT2 file to use for rotation
     //! Needed for FT1 file.
@@ -87,6 +87,10 @@ public:
 
     double minTime()const { return m_start;}
     double maxTime()const { return m_stop; }
+
+    /// @brief summary printout of the BinnedPhotonData object
+    void info(std::ostream& out = std::cout);
+
     static double scale(int i);
     static double set_scale(int i, double s);
     static double class_level();
@@ -104,7 +108,7 @@ private:
     static double s_scale[4]; // scale factors
     static int s_class_level; // set to 1,2,3 for transient, source, diffuse
 
-    skymaps::PhotonMap * m_data;
+    skymaps::BinnedPhotonData * m_data;
     static CLHEP::HepRotation s_rot;
     static std::string s_ft2file;
     double m_start, m_stop;  ///< overall time

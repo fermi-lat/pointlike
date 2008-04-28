@@ -5,7 +5,12 @@
 #include "pointlike/PointSourceLikelihood.h"
 #include "embed_python/Module.h"
 
+#if 0
 #include "skymaps/PhotonMap.h"
+#else
+#include "skymaps/BinnedPhotonData.h"
+#include "skymaps/PhotonBinner.h"
+#endif
 #include "skymaps/DiffuseFunction.h"
 #include "skymaps/Exposure.h"
 #include "skymaps/IsotropicPowerLaw.h"
@@ -31,6 +36,7 @@ class Points{public:
     using namespace astro;
     using namespace pointlike;
     using skymaps::PhotonMap;
+    using skymaps::PhotonBinner;
 
 // test data file, generated using obsSim with 3 sources
 std::string inputFile(  "../src/test/test_events.root" );
@@ -38,9 +44,10 @@ std::string inputFile(  "../src/test/test_events.root" );
 /** @class AddPhoton
 
 */
+template<class M>
 class AddPhoton: public std::unary_function<astro::Photon, void> {
 public:
-    AddPhoton (skymaps::PhotonMap& map)
+    AddPhoton (M& map)
         : m_map(map)
     {}
     void operator()(const astro::Photon& gamma)
@@ -49,7 +56,7 @@ public:
 
         m_map.addPhoton(gamma);
     }
-    skymaps::PhotonMap& m_map;
+    M& m_map;
 };
 
 
@@ -75,22 +82,31 @@ int main(int argc , char** argv )
 
         double  radius(10);
 
- 
+#if 0 
         skymaps::PhotonMap x;
         std::cout << "Loading data from file " << inputFile  <<std::endl;
         PhotonList photons(inputFile);
 
-        std::for_each(photons.begin(), photons.end(), AddPhoton(x));
+        std::for_each(photons.begin(), photons.end(), AddPhoton<skymaps::PhotonMap>(x));
         std::cout << "photons found: "<< x.photonCount() 
             <<"  pixels created: " << x.pixelCount() <<std::endl;
 
         x.write("pointlike_test.fits");
+#else
+        std::cout << "Loading data from file " << inputFile  <<std::endl;
+        PhotonList photons(inputFile);
+
+        skymaps::BinnedPhotonData& x= *new skymaps::BinnedPhotonData(skymaps::PhotonBinner());
+        std::for_each(photons.begin(), photons.end(), AddPhoton<skymaps::BinnedPhotonData>(x));
+
+        x.info();
+#endif
         std::vector<astro::SkyDir> directions;
 
         // test fitting with a diffuse component
         skymaps::SkySpectrum* diffuse(new skymaps::IsotropicPowerLaw());
         PointSourceLikelihood::set_diffuse(diffuse);
-
+#if 1
         for( int n=0; !points[n].name.empty(); ++n){
                         
             astro::SkyDir dir(points[n].ra,points[n].dec);
@@ -110,10 +126,12 @@ int main(int argc , char** argv )
             
 
         };
-
+#if 0
         int minlevel(6), maxlevel(13);
         ParamOptimization so(x,directions,&std::cout,minlevel,maxlevel);
         so.compute();
+#endif
+#endif
 
     }catch(const std::exception& e){
         std::cerr << "Caught exception " << typeid(e).name() 
