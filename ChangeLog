@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sun Apr 27 20:47:16 PDT 2008
+pointlike/src
+
+Modified Files:
+	SimpleLikelihood.cxx 
+Log Message:
+clean out old code.
+    *
+------------------------------------------------------------
+User: burnett  Sun Apr 27 20:47:16 PDT 2008
 pointlike/pointlike
 
 Modified Files:
