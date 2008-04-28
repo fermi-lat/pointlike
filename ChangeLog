@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Apr 27 20:42:10 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Data.h PointSourceLikelihood.h SimpleLikelihood.h 
+Log Message:
+Provisional change to use skymaps::BinnedPhotonData.
+    *
+------------------------------------------------------------
 User: mar0  Tue Apr 22 10:57:26 PDT 2008
 pointlike/src
 
