@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Apr 27 20:42:11 PDT 2008
+pointlike/python
+
+Modified Files:
+	pointfit_setup.py 
+Log Message:
+Provisional change to use skymaps::BinnedPhotonData.
+    *
+------------------------------------------------------------
 User: burnett  Sun Apr 27 20:42:10 PDT 2008
 pointlike/pointlike
 
