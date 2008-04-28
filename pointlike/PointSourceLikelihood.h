@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.27 2008/04/20 00:31:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.28 2008/04/22 00:28:38 mar0 Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -11,13 +11,20 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.
 #include "skymaps/SkySpectrum.h"
 
 #include "astro/SkyDir.h"
+#ifdef OLD
 #include "healpix/HealPixel.h"
-
+#endif
 #include <iostream>
 #include <map>
 
 namespace embed_python { class Module; }
-namespace skymaps { class PhotonMap; class CompositeSkySpectrum; class EnergyBinner;}
+namespace skymaps { 
+#ifdef OLD
+    class PhotonMap; 
+#else
+    class BinnedPhotonData;
+#endif
+    class CompositeSkySpectrum;}
 
 namespace pointlike {
 
@@ -27,6 +34,9 @@ namespace pointlike {
 
 Note that it is a map of the SimpleLikelihood objects, with the key the Healpix level,
 usually starting at 6, for 0.9 degree bins.
+
+New version without HealPixel: 
+the key is the Band identifier.
 
 
 */
@@ -39,7 +49,8 @@ public:
     @param name   source name for printout
     @param dir    initial direction
     */
-    PointSourceLikelihood(const skymaps::PhotonMap& data,
+    PointSourceLikelihood(
+        const skymaps::BinnedPhotonData& data,
         std::string name,
         const astro::SkyDir& dir);;
 
@@ -110,14 +121,14 @@ public:
     /// @brief access to the sigma (radians) used for the individual SimpleLikelihood objects
     double sigma(int level)const;
 
-    static double set_gamma_level(int level, double v);
-
-    static double set_sigma_level(int level, double v);
-
     ///! Set the global diffuse background function, return current value 
     /// @param diffuse any sky spectrum, presumably a DiffuseFunction
     /// @param exposure [1.0] multiplicative factor, presumably the exposure 
     static  skymaps::SkySpectrum* set_diffuse( skymaps::SkySpectrum* diffuse, double exposure=1.0);
+
+    ///! set the photon data object to use
+//    static skymaps::PhotonMap* set_data( skymaps::PhotonMap* data);
+
 
     ///! add a point source fit to the background for subsequent fits
     void addBackgroundPointSource(const PointSourceLikelihood* fit);
@@ -127,10 +138,6 @@ public:
 
     ///! access to background model 
     const skymaps::SkySpectrum * background()const;
-
-    ///! @brief recalculate likelihoods using any static changes made to parameters
-    void recalc(int level);
-
     /// @brief get the starting, ending levels used
     static int minlevel();
     static int maxlevel();
@@ -138,10 +145,6 @@ public:
 
     /// @brief set the integration tolerance for the background, return present value
     static double set_tolerance(double tol);
-
-    static double gamma_level(int i);
-    static double sigma_level(int i);
-
     /// @brief special display function
     /// @param dir direction
     /// @param energy selects energy band
@@ -151,22 +154,16 @@ public:
 
 
 private:
-    void setup(const skymaps::PhotonMap& data, int minlevel, int maxlevel);
+    void setup(const skymaps::BinnedPhotonData& data, int minlevel, int maxlevel);
     std::vector<double> m_energies; ///< array of left edge energies, indexed by level-m_minlevel
     int m_minlevel, m_nlevels;      ///< from the data.
     std::string m_name;
     astro::SkyDir m_dir; ///< common direction
     double m_dir_sigma;  ///< error circle from fit (radians)
     double m_TS;         ///< total TS value
-
-    skymaps::EnergyBinner* m_eb;
-
     bool m_verbose;
     std::ostream * m_out;
     std::ostream& out()const{return *m_out;}
-
-    // the data to feed each guy, extracted from the database
-    std::map<int, std::vector<std::pair<healpix::HealPixel,int> > >m_data_vec;
     mutable CLHEP::Hep3Vector m_gradient; ///< current gradient
 
     static skymaps::SkySpectrum* s_diffuse; ///< global diffuse used by all PSL objects
@@ -177,9 +174,6 @@ private:
     static double s_radius, s_minalpha, s_TSmin, s_tolerance, 
         s_maxstep; //
     static int s_minlevel, s_maxlevel, s_skip1, s_skip2, s_itermax, s_verbose;
-
-    static std::vector<double> s_gamma_level;
-    static std::vector<double> s_sigma_level;
 
  
 };

@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.18 2008/04/17 16:22:45 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.19 2008/04/19 23:52:04 burnett Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
@@ -63,6 +63,9 @@ int main(int argc, char** argv)
         // use the  Data class to create the PhotonData object
         Data healpixdata(setup);
 
+        // print out summary of the the data used?
+        healpixdata.info(); 
+
         // define all parameters used by PointSourceLikelihood
         PointSourceLikelihood::setParameters(setup);
 
@@ -104,13 +107,18 @@ int main(int argc, char** argv)
         }
         if( check_sigma){
             int minlevel(6), maxlevel(13);
+#ifdef OLD
             ParamOptimization so(healpixdata,directions,out,minlevel,maxlevel);
+
 #if 0
             so.compute(ParamOptimization::SIGMA);
             so.compute(ParamOptimization::GAMMA);
 #else
             so.compute();
 #endif
+            
+#endif
+
         }
         if( !outfile.empty()){
             delete out;

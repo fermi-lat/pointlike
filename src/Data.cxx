@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.33 2008/03/09 21:27:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.34 2008/04/04 09:53:55 burnett Exp $
 
 */
 
@@ -14,7 +14,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.33 2008/03/09 2
 #include "astro/PointingHistory.h"
 
 #include "skymaps/SkyImage.h"
-#include "skymaps/PhotonMap.h"
+#include "skymaps/BinnedPhotonData.h"
 
 #include "tip/IFileSvc.h"
 #include "tip/Table.h"
@@ -38,7 +38,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.33 2008/03/09 2
 
 
 using astro::SkyDir;
-using skymaps::PhotonMap;
+using skymaps::BinnedPhotonData;
 using skymaps::Gti;
 
 using namespace pointlike;
@@ -128,7 +128,7 @@ namespace {
 
     class AddPhoton: public std::unary_function<astro::Photon, void> {
     public:
-        AddPhoton (PhotonMap& map, int select, double start, double stop, int source )
+        AddPhoton (BinnedPhotonData& map, int select, double start, double stop, int source )
             : m_map(map), m_select(select), m_start(start), m_stop(stop), m_source(source)
         {}
         double rescale(double energy, int eventclass)
@@ -153,7 +153,7 @@ namespace {
             astro::Photon gcopy(gamma.dir(), rescale(energy, event_class), gamma.time(), event_class, sourceid); 
             m_map.addPhoton(gcopy);
         }
-        PhotonMap& m_map;
+        BinnedPhotonData& m_map;
         int m_select;
         double m_start, m_stop;
         int m_source;
@@ -349,11 +349,11 @@ Data::Data(const embed_python::Module& setup)
     setup.getValue(prefix+"pixelfile", pixelfile, "");
 
     if(!pixelfile.empty()){
-        m_data = new PhotonMap(pixelfile, tablename);
+        m_data = new BinnedPhotonData(pixelfile, tablename);
         return;
     }
 
-    m_data = new PhotonMap();
+    m_data = new BinnedPhotonData();
     int  event_class, source_id;
     std::vector<std::string> filelist;
     std::string history_filename;
@@ -464,7 +464,7 @@ void Data::addgti(const std::string& inputFile)
     }
 }
 Data::Data(const std::string& inputFile, int event_type, double tstart, double tstop, int source_id)
-: m_data(new PhotonMap())
+: m_data(new BinnedPhotonData())
 , m_start(tstart), m_stop(tstop)
 {
     add(inputFile, event_type, source_id);
@@ -472,7 +472,7 @@ Data::Data(const std::string& inputFile, int event_type, double tstart, double t
 }
 
 Data::Data(std::vector<std::string> inputFiles, int event_type, double tstart, double tstop, int source_id, std::string ft2file)
-: m_data(new PhotonMap())
+: m_data(new BinnedPhotonData())
 , m_start(tstart), m_stop(tstop)
 {
 
@@ -486,7 +486,7 @@ Data::Data(std::vector<std::string> inputFiles, int event_type, double tstart, d
 }
 
 Data::Data(const std::string & inputFile, const std::string & tablename)
-: m_data(new PhotonMap(inputFile, tablename))
+: m_data(new BinnedPhotonData(inputFile, tablename))
 {
     addgti(inputFile);
 }
@@ -589,4 +589,9 @@ const std::string& Data::historyfile() {
 
 bool Data::inTimeRange(double time) {
     return time>(*s_history).startTime()&&time<(*s_history).endTime();
+}
+
+void Data::info(std::ostream& out)
+{
+    m_data->info(out);
 }

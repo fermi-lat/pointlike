@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.34 2008/04/22 00:28:38 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.35 2008/04/22 17:57:26 mar0 Exp $
 
 */
 
@@ -8,8 +8,11 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 
 
 #include "skymaps/DiffuseFunction.h"
 #include "skymaps/CompositeSkySpectrum.h"
+#ifdef OLD
 #include "skymaps/PhotonMap.h"
-#include "skymaps/EnergyBinner.h"
+#else
+#include "skymaps/BinnedPhotonData.h"
+#endif
 
 #include "embed_python/Module.h"
 
@@ -25,27 +28,16 @@ using namespace astro;
 using namespace pointlike;
 using skymaps::CompositeSkySpectrum;
 using skymaps::DiffuseFunction;
+
+
 namespace {
     // the scale_factor used: 2.5 degree at level 6, approximately the 68% containment
-    int base_level(6);
-    double scale_factor(int level){return 2.5*pow(2.0, base_level-level)*M_PI/180.;}
-
     double s_TScut(2.);  // only combine energy bands
-    // default PSF
-    double gamma_list[] ={0,0,0,0,0,
-        2.25,  2.27,  2.22,  2.31,  2.30,  2.31,  2.16,  2.19,  2.07};
-    double sigma_list[] ={0,0,0,0,0,
-        0.343, 0.4199,0.4249 ,0.4202 ,0.4028 ,0.4223 ,0.4438 ,0.5113 ,0.5596 };
-
-
 
 }
 
 //  ----- static (class) variables -----
 skymaps::SkySpectrum* PointSourceLikelihood::s_diffuse(0);
-std::vector<double> PointSourceLikelihood::s_gamma_level(gamma_list,gamma_list+14);
-std::vector<double> PointSourceLikelihood::s_sigma_level(sigma_list,sigma_list+14);
-
 
 int    PointSourceLikelihood::s_minlevel(6);
 int    PointSourceLikelihood::s_maxlevel(13);
@@ -82,17 +74,6 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     double tolerance(SimpleLikelihood::tolerance());
     par.getValue("Diffuse.tolerance",  tolerance, tolerance);
     SimpleLikelihood::setTolerance(tolerance);
-
-    // load parameters from the setup 
-    s_gamma_level.clear(); s_sigma_level.clear();
-    par.getList(prefix+"gamma_list", s_gamma_level);
-    par.getList(prefix+"sigma_list", s_sigma_level);
-    // require that all  levels were set
-    int sigsize(s_sigma_level.size());
-    if( s_gamma_level.size() !=14 || sigsize !=14){
-        throw std::invalid_argument("PointSourceLikelihood::setParameters: gamma or sigma parameter not set properly");
-    }
-
     std::string diffusefile;
     par.getValue("Diffuse.file", diffusefile);
     double exposure(1.0);
@@ -111,30 +92,14 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
 
 
 PointSourceLikelihood::PointSourceLikelihood(
-    const skymaps::PhotonMap& data,    
+    const skymaps::BinnedPhotonData& data,
     std::string name,
     const astro::SkyDir& dir)
-    : m_energies( data.energyBins() ) // load energies from the data object
-    , m_minlevel (data.minLevel() )   // and the minimum level
-    , m_nlevels( data.levels() )      // and the number of levels
-    , m_name(name)
+    : m_name(name)
     , m_dir(dir)
     , m_out(&std::cout)
     , m_background(0)
 {
-    m_eb = skymaps::EnergyBinner::Instance(true);
-    if( s_gamma_level.size()==0){
-        s_gamma_level.resize(14,2.2);
-        s_sigma_level.resize(14,0.4); 
-        std::cerr << "Warning, PointSourceLikelihood: PSF not set up, setting default gamma, sigma to 2.2, 0.4" 
-            << std::endl;
-    }
-    m_verbose = s_verbose!=0;
-    if( s_minlevel< m_minlevel || s_maxlevel>m_minlevel+m_nlevels ){
-        throw std::invalid_argument("PointSourceLikelihood: invalid levels for data");
-    }
-    m_energies.push_back(2e5); // put guard at 200GeV
-
     
     if( s_diffuse !=0){
         m_background = new skymaps::CompositeSkySpectrum(s_diffuse);
@@ -142,66 +107,34 @@ PointSourceLikelihood::PointSourceLikelihood(
         // may not be valid?
         m_background = 0; //new skymaps::CompositeSkySpectrum();
     }
-
     setup( data, s_minlevel, s_maxlevel);
 
 }
 
 
-void PointSourceLikelihood::setup(const skymaps::PhotonMap& data, int minlevel, int maxlevel)
+void PointSourceLikelihood::setup(
+                                  const skymaps::BinnedPhotonData& data, int minlevel, int maxlevel
+                                  )
 {
-    bool debug_print(false);
-    out() << "level   gamma   sigma   roi  pixels" << std::endl;
-#ifdef LEVELS
-    for( int level=minlevel; level<maxlevel+1; ++level){
 
+    using skymaps::Band;
+    for( skymaps::BinnedPhotonData::const_iterator bit = data.begin(); bit!=data.end(); ++bit){
+        const Band& b = *bit;
+        // get previous level from nside
+        int nside(b.nside()), level(1);
+        for( ; level<14;++level){ 
+            nside/=2; if( (nside&1)!=0) break;
+        }
+        if( level<minlevel || level>maxlevel) continue;
 
-
-        // get PSF parameters from fits
-        double gamma( gamma_level(level) ),
-            sigma ( scale_factor(level)* sigma_level(level));
-
-        // and then the radius of the roi for extraction
-
-        double roi_radius( sigma*sqrt(2.*SimpleLikelihood::defaultUmax()) * 180/M_PI);
-
-        // create and fill the vector of data for this level (slight fudge) 
-        data.extract_level(  m_dir, 1.1* roi_radius, 
-            m_data_vec[level], level,  false);
-        double emin( m_energies[level-m_minlevel]), emax( m_energies[level-m_minlevel+1]);
-#else
-    for( int level=0; level<m_eb->bands()*2; ++level){
-        int curlevel = m_eb->level(level/2,level%2);
-        double gamma(m_eb->gamma(curlevel)),sigma(m_eb->sigma(curlevel));
-        double emin( m_energies[(level>>1)]), emax( m_energies[(level>>1)+1]);
-        // and then the radius of the roi for extraction
-
-        double roi_radius( sigma*sqrt(2.*SimpleLikelihood::defaultUmax()) * 180/M_PI);
-
-        // create and fill the vector of data for this level (slight fudge) 
-        data.extract_band(  m_dir, 1.1* roi_radius, 
-            m_data_vec[level], level, false);
-#endif
-        // and create the simple likelihood object
-        SimpleLikelihood* sl = new SimpleLikelihood(m_data_vec[level], m_dir, 
-            gamma, sigma,
-            -1, // background (not used now)
-            SimpleLikelihood::defaultUmax(), 
-            emin, emax
+        SimpleLikelihood* sl = new SimpleLikelihood(b, m_dir, 
+            SimpleLikelihood::defaultUmax() 
             ,m_background
             );
         (*this)[level] = sl;
 
-        if( debug_print ) { // make table of parameters
-            out() << std::setw(6) << level 
-                << " " << std::setw(10) << std::left << gamma 
-                << std::setw(10)<< std::setprecision(5) << sigma  
-                << std::setw(10)<< std::setprecision(5) << roi_radius  
-                << std::setw(10)<< std::setprecision(5) << m_data_vec[level].size()  
-                << std::right << std::endl;
-        }
-
     }
+
 }
 
 PointSourceLikelihood::~PointSourceLikelihood()
@@ -280,7 +213,7 @@ void PointSourceLikelihood::printSpectrum()
         out() << "\nSpectrum of source " << m_name << " at ra, dec=" 
             << setprecision(6) << m_dir.ra() << ", "<< m_dir.dec() << std::endl;
 
-        out() << "level events   signal_fract  TS " << std::endl;
+        out() << "level events   signal_fract  TS " << std::right << std::endl;
         //  level events  sig fraction    TS
         //    6  592  0.56 +/-  0.036     193.9
     }
@@ -499,25 +432,6 @@ double PointSourceLikelihood::integral(const astro::SkyDir& dir, double emin, do
     // implement by just finding the right bin
     return value(dir, sqrt(emin*emax) );
 }
-
-void PointSourceLikelihood::recalc(int level) {
-    // get PSF parameters from fits
-    double gamma( gamma_level(m_eb->level(level/2,level%2)) ),
-        sigma ( scale_factor(m_eb->level(level/2,level%2))* sigma_level(m_eb->level(level/2,level%2)));
-    find(level)->second->setgamma(gamma);
-    find(level)->second->setsigma(sigma);
-    find(level)->second->recalc();
-}
-
-double PointSourceLikelihood::sigma(int level)const
-{
-    std::map<int, SimpleLikelihood*>::const_iterator it = find(level);
-    if( it==end() ){
-        throw std::invalid_argument("PointSourceLikelihood::sigma--no fit for the requested level");
-    }
-    return it->second->sigma();
-}
-
 skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(skymaps::SkySpectrum* diffuse, double exposure)
 {  
     // save current to return
@@ -567,47 +481,12 @@ void PointSourceLikelihood::setDefaultUmax(double umax)
 { 
     SimpleLikelihood::setDefaultUmax(umax); 
 }
-
-
-double PointSourceLikelihood::set_gamma_level(int level, double v)
-{
-    double t = s_gamma_level[level]; s_gamma_level[level]=v; 
-    return t;
-}
-
-double PointSourceLikelihood::set_sigma_level(int level, double v)
-{
-    double t = s_sigma_level[level]; s_sigma_level[level]=v; 
-    return t;
-}
-
-
-
-/// @brief get the starting, ending levels used
-int PointSourceLikelihood::minlevel(){return s_minlevel;}
-
-int PointSourceLikelihood::maxlevel(){return s_maxlevel;}
-
-void PointSourceLikelihood::set_levels(int minlevel, int maxlevel)
-{ s_minlevel= minlevel; s_maxlevel = maxlevel;
-}
-
 double PointSourceLikelihood::set_tolerance(double tol)
 {
     double old(SimpleLikelihood::tolerance());
     SimpleLikelihood::setTolerance(tol);
     return old;
 }
-
-double PointSourceLikelihood::gamma_level(int i)
-{
-    return s_gamma_level.at(i);
-}
-double PointSourceLikelihood::sigma_level(int i)
-{
-    return s_sigma_level.at(i);
-}
-
 //=======================================================================
 //         PSLdisplay implementation
 PSLdisplay::PSLdisplay(const PointSourceLikelihood & psl, int mode)

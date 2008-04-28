@@ -1,13 +1,15 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.32 2008/04/17 16:22:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.33 2008/04/19 23:52:04 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
 #include "skymaps/DiffuseFunction.h"
 #include "astro/SkyDir.h"
+#ifdef OLD
 #include "healpix/Healpix.h"
+#endif
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -16,8 +18,9 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.32 
 #include <fstream>
 
 using astro::SkyDir;
+#ifdef OLD
 using healpix::HealPixel;
-
+#endif
 using skymaps::SkySpectrum;
 using skymaps::DiffuseFunction;
 using skymaps::PsfFunction;
@@ -74,11 +77,16 @@ namespace {
         ~Convert(){
              //if(debug){ psf_data->close();}
         }
-
+#ifdef OLD
         void operator()(const std::pair<HealPixel, int>& x){
             double diff =x.first().difference(m_dir); 
+#else
+        void operator()(const std::pair<SkyDir, int> x){
+            double diff = x.first.difference(m_dir);
             double  u = sqr(diff/m_sigma)/2.;
             if(u>m_maxu_found) m_maxu_found = u;
+#endif
+#ifdef OLD
             std::vector<int>::iterator it = find(m_vec4.begin(),m_vec4.end(),x.first.index());
             //return if 
             //1)normal mode and outside of cone 
@@ -87,6 +95,7 @@ namespace {
             if((!m_subset&&u>m_umax)||(m_subset&&m_first&&u>m_umax)||(!m_first&&it==m_vec4.end()&&m_subset)) return;
             // just to see what is there
             // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
+#endif
             double signal(m_f(u)/m_F)
                  , bkg(m_back(x.first()))
                  , q( bkg/(signal*m_umax-bkg)); 
@@ -111,9 +120,10 @@ namespace {
                 double qbin = 1./binsize/floor(1./binsize/q+0.5);
                 qmap[qbin]+=x.second;
             }
-
+#ifdef OLD
             // save list of healpix id's
             if(m_first) m_vec4.push_back(x.first.index());
+#endif
         }
         
         void consolidate() {
@@ -215,6 +225,7 @@ private:
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#ifdef OLD
 SimpleLikelihood::SimpleLikelihood(const std::vector<std::pair<healpix::HealPixel, int> >& vec,
         const astro::SkyDir& dir, 
         double gamma, double sigma, double background, double umax, double emin,double emax, 
@@ -230,6 +241,23 @@ SimpleLikelihood::SimpleLikelihood(const std::vector<std::pair<healpix::HealPixe
         , m_emin(emin), m_emax(emax)
         , m_back(0)
         , m_diffuse(diffuse)
+#else
+SimpleLikelihood::SimpleLikelihood(const skymaps::Band& band,
+        const astro::SkyDir& dir, 
+        double umax, 
+        const skymaps::SkySpectrum* diffuse)
+        : m_band(band)
+        , m_averageF(0)
+        , m_psf(band.gamma())
+        , m_sigma(band.sigma())
+        , m_alpha(-1)
+        , m_curv(-1)
+        , m_background(-1)  // default: no estimate
+        , m_umax(umax)
+        , m_emin(band.emin()), m_emax(band.emax())
+        , m_back(0)
+        , m_diffuse(diffuse)
+#endif
 { 
     m_fint =  m_psf.integral(umax) ; // for normalization of the PSF
 
@@ -248,9 +276,11 @@ void SimpleLikelihood::setDir(const astro::SkyDir& dir, bool subset)
 {
     m_dir = dir;
     // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
+    m_vec.clear();
     m_vec2.clear();
     delete m_back;
     m_back = new NormalizedBackground(m_diffuse, dir, sqrt(2.*m_umax)*m_sigma, m_emin, m_emax);
+    m_band.query_disk(m_dir, m_sigma*sqrt(2.*m_umax), m_vec);
     Convert conv(m_dir, m_psf, *m_back, m_sigma, m_umax, m_vec2, m_vec4,  subset);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
     result.consolidate();
@@ -359,18 +389,27 @@ Hep3Vector SimpleLikelihood::gradient() const
     int count(0);
 
     Hep3Vector perp(m_dir().orthogonal());
-
+#ifdef OLD
     std::vector<std::pair<healpix::HealPixel,int> >::const_iterator it = m_vec.begin();
+#else
+    PixelList::const_iterator it = m_vec.begin();
+#endif
 
     for( ; it< m_vec.end(); ++it){
+#ifdef OLD 
         const std::pair<healpix::HealPixel,int>& h = *it;
+#else
+        const std::pair<SkyDir,int>& h = *it;
+#endif
 
         SkyDir d( h.first );
         int nphoton( h.second);
         Hep3Vector delta( m_dir() - d() ); 
         double u( 0.5*delta.mag2()/sig2);
+#ifdef OLD
         if(u>m_umax) continue;
         if((u>m_umax&&m_vec4.size()==0)||(find(m_vec4.begin(),m_vec4.end(),h.first.index())==m_vec4.end()&&m_vec4.size()!=0)) continue;
+#endif
         double y = perp*delta; // pick an arbitrary direction for the curvature
 
         double fhat( m_psf(u)*m_umax/m_fint)
@@ -405,7 +444,7 @@ double SimpleLikelihood::solidAngle()const{
 }
 
 double SimpleLikelihood::feval(double k) {
-
+#ifdef OLD
     if(!m_vec.size()) return -1.0;
     double F = m_psf.integral(k*m_umax);
     double acc = 0;
@@ -419,9 +458,13 @@ double SimpleLikelihood::feval(double k) {
         acc-=ite->second*log(m_alpha*f*k/F+(1-m_alpha)/(m_umax));
     }
     return acc;
+#else
+    return 0;
+#endif
 }
 
 double SimpleLikelihood::geval(double k) {
+#ifdef OLD
    if(!m_vec.size()) return -1.0;
     m_vec2.clear();
     PsfFunction ps(k*m_psf.gamma());
@@ -431,6 +474,9 @@ double SimpleLikelihood::geval(double k) {
     double ts = -TS(m_alpha);
     m_vec2.clear();
     return ts;
+#else
+    return 0;
+#endif
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
@@ -450,29 +496,47 @@ double SimpleLikelihood::display(const astro::SkyDir& dir, int mode) const
         // default is density, as above
         return signal()*m_psf(u)/ m_fint/jacobian;
     }
-
+#ifdef OLD
     int level = m_vec[0].first.level();
     healpix::HealPixel pixel( dir, level);
     SkyDir pdir ( pixel() );  // direction of center of pixel
+#else
+
+    SkyDir pdir(m_band.dir(m_band.index(dir)));
+#endif
     u = sqr( pdir.difference(m_dir)/m_sigma)/2.; // recalculate u for pixel
     if( u> m_umax ) return 0;
 
     // now look for it in the data
+#ifdef OLD
     std::vector<std::pair<healpix::HealPixel,int> >::const_iterator it;
-#if 0 // fails to compile?
+
+
+#if 0 // fails to compile, returns iterator, not const iterator?
     it=  std::find(m_vec.begin(), m_vec.end(), pixel);
 #else
     for( it=m_vec.begin(); it!=m_vec.end(); ++it ) {
         if( it->first == pixel) break;
     }
 #endif
-    // get the counts in the pixel, if present
+#else
+    PixelList::const_iterator it;
+    int index( m_band.index(pdir));
+    for( it=m_vec.begin(); it!=m_vec.end(); ++it ) {
+        if( m_band.index(it->first) == index) break;
+    }
+
+#endif    // get the counts in the pixel, if present
     int counts (it==m_vec.end()? 0:  it->second);
 
     if( mode==1 ) return counts;   // observed in the pixel
     double back( (*m_back)(pdir) );           // normalized background at the pixel: average should be 1.0
     if( mode==2 ) return back; 
+#ifdef OLD
     double area( healpix::Healpix(1<<level).pixelArea() ); // solid angle per pixel
+#else
+    double area( m_band.pixelArea() );
+#endif
 
     double prediction ( area/jacobian * photons() * ( m_alpha*m_psf(u)/m_fint + (1.-m_alpha)*back/m_umax ) );
     if( mode==3 ) return prediction; // prediction of fit
