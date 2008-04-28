@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 User: burnett  Sun Apr 27 20:42:11 PDT 2008
+pointlike/src
+
+Modified Files:
+	Data.cxx PointSourceLikelihood.cxx RotationInfo.cxx 
+	SimpleLikelihood.cxx 
+Log Message:
+Provisional change to use skymaps::BinnedPhotonData.
+    *
+------------------------------------------------------------
+User: burnett  Sun Apr 27 20:42:11 PDT 2008
 pointlike/python
 
 Modified Files:
