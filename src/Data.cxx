@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.34 2008/04/04 09:53:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.35 2008/04/28 03:42:11 burnett Exp $
 
 */
 
@@ -131,14 +131,6 @@ namespace {
         AddPhoton (BinnedPhotonData& map, int select, double start, double stop, int source )
             : m_map(map), m_select(select), m_start(start), m_stop(stop), m_source(source)
         {}
-        double rescale(double energy, int eventclass)
-        {
-            if( eventclass==0)     return energy;   // front events: pass through
-            //    back events
-            if( energy< 6500) return energy/1.85; // below 6.5 GeV: rescale
-            if( energy<21000) return 5000;        // below 21 GeV: 5 GeV is level 11
-            return 10000;                         // above 21 Gev: 10 GeV 1s level 12
-        }
         void operator()(const Photon& gamma)
         {
             int event_class = gamma.eventClass();
@@ -149,8 +141,8 @@ namespace {
             if( m_source>-1 && sourceid != m_source)return;
 
             double energy(gamma.energy());
-            // rescale according to event class
-            astro::Photon gcopy(gamma.dir(), rescale(energy, event_class), gamma.time(), event_class, sourceid); 
+            
+            astro::Photon gcopy(gamma.dir(), energy, gamma.time(), event_class, sourceid); 
             m_map.addPhoton(gcopy);
         }
         BinnedPhotonData& m_map;

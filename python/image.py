@@ -80,7 +80,7 @@ class Square(object):
         
         
 
-def make_image( fun, sdir, level=9, scale = 0.5, step = 0.02):
+def make_image( fun, sdir, level=9, scale = 0.5, step = None):
     """ Return an image array ready to be plotted by imshow
         fun: a SkySpectrum object
         sdir: a SkyDir to be the center
@@ -89,7 +89,12 @@ def make_image( fun, sdir, level=9, scale = 0.5, step = 0.02):
         step:  pixel size, degrees
     """
     import math
-    grid=arange(-scale, scale+step/2, step)
+    if step is None: step = scale/100.
+    try:
+        grid=arange(-scale, scale+step/2., step)
+    except:
+        print 'problem? scale= %s, step=%s' % (scale, step)
+        raise
     emin, emax = energy_range(level)
     ra, dec = sdir.ra(), sdir.dec()
     cosdec = math.cos(math.radians(dec))

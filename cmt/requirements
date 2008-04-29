@@ -2,7 +2,7 @@ package pointlike
 
 version v5r4p7
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.64 2008/04/03 09:14:29 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.65 2008/04/14 05:54:10 mar0 Exp $
 
 use astro *
 use healpix *
@@ -17,16 +17,18 @@ apply_pattern shared_library
 apply_tag have_python
 
 # make python modules accessible
-path_remove  PYTHONPATH "$(POINTLIKEROOT)" 
-path_prepend PYTHONPATH "$(POINTLIKEROOT)/python" 
+#path_remove  PYTHONPATH "$(POINTLIKEROOT)" 
+#path_prepend PYTHONPATH "$(POINTLIKEROOT)/python" 
 
 # undo and redo these to make sure pointlike is first in path
-path_remove  LD_LIBRARY_PATH  "pointlike" WIN32 ""
-path_prepend LD_LIBRARY_PATH  ${pointlike_cmtpath}/lib/ WIN32  ""
-path_remove  PATH  ""  WIN32 \pointlike\ 
-path_prepend PATH  ""  WIN32 ${POINTLIKEROOT}\${BINDIR}
+#path_remove  LD_LIBRARY_PATH  "pointlike" WIN32 ""
+#path_prepend LD_LIBRARY_PATH  ${pointlike_cmtpath}/lib/ WIN32  ""
+#path_remove  PATH  ""  WIN32 \pointlike\ 
+#path_prepend PATH  ""  WIN32 ${POINTLIKEROOT}\${BINDIR}
 
 private
+use SwigModule *
+apply_pattern python_module
 
 macro source "*.cxx" WIN32 "*.cxx *.h *.py"
 

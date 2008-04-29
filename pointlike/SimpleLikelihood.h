@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.23 2008/04/28 03:42:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.24 2008/04/28 03:47:16 burnett Exp $
 
 */
 
@@ -37,11 +37,7 @@ public:
     /** ctor
     @param data   vector of directions, weights
     @param dir    initial direction
-    @param gamma  power-law value for PsfFunction
-    @param sigma  scale factor to define u
-    @param background [-1] background density, events/solid angle (negative to not use)
     @param umax   [25] maximum value for the u variable
-    @param emin,emax
     @param diffuse
 
     */
@@ -51,6 +47,8 @@ public:
         ,const skymaps::SkySpectrum* diffuse);
 
     ~SimpleLikelihood();
+
+    const skymaps::Band& band()const {return m_band;}
 
     //! @return log likelihood for the signal fraction
     //! @param a value for signal fraction (default: use last fit)
