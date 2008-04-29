@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.28 2008/04/22 00:28:38 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.29 2008/04/28 03:42:10 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -15,15 +15,11 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.
 #include "healpix/HealPixel.h"
 #endif
 #include <iostream>
-#include <map>
+#include <vector>
 
 namespace embed_python { class Module; }
 namespace skymaps { 
-#ifdef OLD
-    class PhotonMap; 
-#else
     class BinnedPhotonData;
-#endif
     class CompositeSkySpectrum;}
 
 namespace pointlike {
@@ -32,15 +28,12 @@ namespace pointlike {
 /** @class PointSourceLikelihood
 @brief manage a set of SimpleLikelihood objects, one for each energy band / event type
 
-Note that it is a map of the SimpleLikelihood objects, with the key the Healpix level,
-usually starting at 6, for 0.9 degree bins.
-
-New version without HealPixel: 
-the key is the Band identifier.
+Note that it is a map of the SimpleLikelihood objects, with the key an index to a corresponding Band 
+object, as maintained by the corresponding BinnedPhotonData.
 
 
 */
-class PointSourceLikelihood : public  std::map<int, SimpleLikelihood*>, public skymaps::SkySpectrum{
+class PointSourceLikelihood : public  std::vector<SimpleLikelihood*>, public skymaps::SkySpectrum{
 public:
 
 
@@ -56,25 +49,24 @@ public:
 
     ~PointSourceLikelihood();
 
-    //! fit to signal fraction for each level
+    //! fit to signal fractions 
     /// @return total TS
-    /// @param skip levels to skip
-    double  maximize(int skip=0);
+    double  maximize();
 
     //! change the current direction -- resets data and refits
     void setDir(const astro::SkyDir& dir,bool subset=false);
 
-    /// @return the gradient, summed over all levels, skiping skip
-    const CLHEP::Hep3Vector& gradient(int skip=0) const;
+    /// @return the gradient, summed over all bands
+    const CLHEP::Hep3Vector& gradient() const;
 
-    ///@return the curvature, summed over all levels
-    double curvature(int skip=0) const;
+    ///@return the curvature, summed over all bamds
+    double curvature() const;
 
     /// @brief 
     void printSpectrum();
 
     /// @brief perform localization fit, maximizing joint likelihood
-    /// @param skip [0] number of levels to skip
+    /// @param skip [0] number of bands to skip
     /// @return error circle radius (deg) or large number corresponding to error condition
     double localize(int skip);
 
@@ -96,7 +88,7 @@ public:
 
     double logL(int level){ return (*this)[level]->operator()();}
 
-    double errorCircle(int skip=0)const{return  sqrt(1./curvature(skip))*180/M_PI;}
+    double errorCircle()const{return  sqrt(1./curvature())*180/M_PI;}
 
     void set_ostream(std::ostream& out){m_out=&out;}
 
@@ -126,10 +118,6 @@ public:
     /// @param exposure [1.0] multiplicative factor, presumably the exposure 
     static  skymaps::SkySpectrum* set_diffuse( skymaps::SkySpectrum* diffuse, double exposure=1.0);
 
-    ///! set the photon data object to use
-//    static skymaps::PhotonMap* set_data( skymaps::PhotonMap* data);
-
-
     ///! add a point source fit to the background for subsequent fits
     void addBackgroundPointSource(const PointSourceLikelihood* fit);
 
@@ -138,10 +126,6 @@ public:
 
     ///! access to background model 
     const skymaps::SkySpectrum * background()const;
-    /// @brief get the starting, ending levels used
-    static int minlevel();
-    static int maxlevel();
-    static void set_levels(int minlevel, int maxlevel=13);
 
     /// @brief set the integration tolerance for the background, return present value
     static double set_tolerance(double tol);
@@ -154,9 +138,7 @@ public:
 
 
 private:
-    void setup(const skymaps::BinnedPhotonData& data, int minlevel, int maxlevel);
-    std::vector<double> m_energies; ///< array of left edge energies, indexed by level-m_minlevel
-    int m_minlevel, m_nlevels;      ///< from the data.
+    void setup(const skymaps::BinnedPhotonData& data);
     std::string m_name;
     astro::SkyDir m_dir; ///< common direction
     double m_dir_sigma;  ///< error circle from fit (radians)
@@ -171,9 +153,9 @@ private:
 
     skymaps::CompositeSkySpectrum * m_background;  ///< background spectrum to use
     
-    static double s_radius, s_minalpha, s_TSmin, s_tolerance, 
+    static double s_emin, s_minalpha, s_TSmin, s_tolerance, 
         s_maxstep; //
-    static int s_minlevel, s_maxlevel, s_skip1, s_skip2, s_itermax, s_verbose;
+    static int s_skip1, s_skip2, s_itermax, s_verbose;
 
  
 };

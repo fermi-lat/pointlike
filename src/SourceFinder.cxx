@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.32 2008/04/17 16:22:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.33 2008/04/19 23:52:04 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -61,7 +61,6 @@ namespace {
 
     double  ts_min;
     int  pix_level;
-    int  skip_TS_levels;
     double pixel_fraction;
     astro::SkyDir examine_dir;
     std::string outfile;
@@ -74,7 +73,6 @@ namespace {
     void getParameters(const embed_python::Module & module)
     {
         module.getValue(prefix+"TSmin", ts_min, 10);
-        module.getValue(prefix+"skipTSlevels", skip_TS_levels, 0);
         module.getValue(prefix+"pixLevel", pix_level, 8);
         module.getValue(prefix+"pixel_fraction", pixel_fraction, 0.5);
 
@@ -102,7 +100,6 @@ namespace {
             << "  Likelihood minimum: " << ts_min<< "\n" 
             << "  skip when localizing: " << skip1<< " to " << skip2  <<"\n"
             << "  sigma_max: " << sigma_max << "\n"
-            << "  skip TS levels: " << skip_TS_levels << "\n"
             << std::endl;
 
 
@@ -112,7 +109,9 @@ namespace {
 
 using namespace pointlike;
 using namespace embed_python;
+#ifdef OLD
 using healpix::HealPixel;
+#endif
 using astro::SkyDir;
 
 SourceFinder::SourceFinder(const pointlike::Data& map, const Module & py_module)
@@ -142,22 +141,31 @@ void SourceFinder::examineRegion(void)
             << std::setprecision(5) << examine_dir.ra()<<", " << examine_dir.dec() << std::endl;
     }
 
-
-    std::vector<std::pair<healpix::HealPixel, int> > v;
+#ifdef OLD
+    typedef   std::vector<std::pair<healpix::HealPixel, int> > Pixels;
+    Pixels v;
 
     // Extract the pixels to be examined
     m_pmap.extract_level(examine_dir, radius, v, pix_level, true);
+#else
+    typedef  std::vector< std::pair<int, int> > Pixels;
+    Pixels v;
+#endif
     Prelim can;
     can.clear();
     size_t num(0);
 
 
     // examine all non-zero pixels
-    for(std::vector<std::pair<healpix::HealPixel, int> >::const_iterator it = v.begin();
+    for(Pixels::const_iterator it = v.begin();
         it != v.end(); ++it)
     {
         astro::SkyDir sd;
+#ifdef OLD
         int count = static_cast<int>(m_pmap.photonCount(it->first, sd));
+#else
+        int count(0); //TODO
+#endif
 
         if (count > 0)
         {
@@ -187,7 +195,7 @@ void SourceFinder::examineRegion(void)
         // perform likelihood analysis at the current candidate position  
         PointSourceLikelihood ps(m_pmap, "test", currentpos );
 
-        double ts = ps.maximize(skip_TS_levels);
+        double ts = ps.maximize();
         if (ts < ts_min)
         {
             ++ nbr_skipped;
@@ -201,7 +209,7 @@ void SourceFinder::examineRegion(void)
             ++ nbr_skipped;
             continue;  // apply initial threshold
         }
-        ts = ps.maximize(skip_TS_levels); // readjust likelihood at current position
+        ts = ps.maximize(); // readjust likelihood at current position
         if (ts <ts_min)
         {
             ++ nbr_skipped;
@@ -210,7 +218,11 @@ void SourceFinder::examineRegion(void)
 
         // found candidate
         // add to the final list, indexed according to level 13 location
+#ifdef OLD
         HealPixel px(ps.dir(), 13); 
+#else
+        int px(0);
+#endif
         //std::cout << "Found candidate: pixel, ts:" << px.index() <<", " << ts << std::endl;
         Candidates::iterator newit = m_can.find(px);
         if( newit != m_can.end() ) {
@@ -218,6 +230,7 @@ void SourceFinder::examineRegion(void)
             continue;
         }
         m_can[px] = CanInfo(ts, error, ps.dir());
+#ifdef OLD
         for(int id =ps.minlevel() ;id<=ps.maxlevel();++id)
         {
             double levTS = ps.levelTS(id);
@@ -228,10 +241,12 @@ void SourceFinder::examineRegion(void)
             m_can[px].setPhotons(id,(ps[id]->photons()) * (ps[id]->alpha()));
             m_can[px].setSigalph(id,ps[id]->sigma_alpha());
         }
+#endif
 
         // Calculate and store power law fit values.  New as of 6/5/07
         std::vector<std::pair<double, double> > values;
         values.clear();
+#ifdef OLD
         std::vector<double> energyBins = m_pmap.energyBins();
         // ignore first two levels
         for( int i = 2, lvl = m_pmap.minLevel() + 2; lvl < m_pmap.minLevel() + m_pmap.levels(); ++i, ++lvl)
@@ -239,6 +254,7 @@ void SourceFinder::examineRegion(void)
             double count = m_can[px].photons(lvl);
             values.push_back(std::make_pair(energyBins[i], count));
         }
+#endif
         pointlike::PowerLawFilter pl(values);
         m_can[px].set_pl_slope(pl.slope());
         m_can[px].set_pl_constant(pl.constant());
@@ -268,7 +284,7 @@ void SourceFinder::reExamine(void)
 
         // Recalculate likelihood for strong neighbor
         PointSourceLikelihood strong(m_pmap, "test", m_can[it2->second.strongNeighbor()].dir());
-        double strong_ts = strong.maximize(skip_TS_levels); // not used
+        double strong_ts = strong.maximize(); // not used
 
         // Recalculate likelihood for this candidate
         PointSourceLikelihood ps(m_pmap, "test", it2->second.dir());
@@ -276,10 +292,10 @@ void SourceFinder::reExamine(void)
         // Add strong neighbor to this candidate's background
         ps.addBackgroundPointSource(& strong);
 
-        double ts = ps.maximize(skip_TS_levels);
+        double ts = ps.maximize();
 
         // perform likelihood analysis at the current candidate position 
-        //already done ts = ps.maximize(skip_TS_levels);
+        //already done ts = ps.maximize();
 
         // eliminate candidate if now below threshold
         if (ts < ts_min)
@@ -298,7 +314,7 @@ void SourceFinder::reExamine(void)
             continue;  
         }
 
-        ts = ps.maximize(skip_TS_levels); // readjust likelihood at current position
+        ts = ps.maximize(); // readjust likelihood at current position
         if (ts < ts_min)
         {
             ++ nbr_purged;
@@ -310,6 +326,7 @@ void SourceFinder::reExamine(void)
         it2->second.set_total_value(ts);
         it2->second.set_sigma(error);
         it2->second.set_dir(ps.dir());
+#ifdef OLD
         for(int id =ps.minlevel(); id <= ps.maxlevel(); ++id)
         {
             it2->second.setValue(id,ps.levelTS(id));
@@ -331,6 +348,8 @@ void SourceFinder::reExamine(void)
         it2->second.set_pl_slope(pl.slope());
         it2->second.set_pl_constant(pl.constant());
         it2->second.set_pl_confidence(pl.metric());
+#endif
+
     }
     std::cout << nbr_purged << " candidates purged,  " << m_can.size() << " candidates left.\n";
     timer();
@@ -340,17 +359,14 @@ void SourceFinder::checkDir(astro::SkyDir & sd,
                             double mid_TS_min,
                             double polar_TS_min,
                             int    pix_level, 
-                            int count_threshold,
-                            bool   /*background_filter*/,
-                            int	skip_TS_levels,
-                            double equator_boundary,
-                            double polar_boundary) 
+                            int count_threshold) 
 {
     int skip1(2), skip2(3),
         photon_count_check(2);
     double sigma_max(0.25); // maximum allowable sigma
-
+#ifdef OLD
     healpix::HealPixel hp(sd, pix_level);
+
     astro::SkyDir new_dir;
     double count = m_pmap.photonCount(hp, new_dir);
     std::cout << "\nChecking for a source at (ra, dec) = ("
@@ -375,10 +391,14 @@ void SourceFinder::checkDir(astro::SkyDir & sd,
         ts_min = polar_TS_min;
     else
         ts_min = mid_TS_min;
+#else
+    astro::SkyDir new_dir;
+
+#endif
     PointSourceLikelihood ps(m_pmap, "test", new_dir);
     ps.set_verbose(true);
 
-    double ts = ps.maximize(skip_TS_levels);
+    double ts = ps.maximize();
     ps.printSpectrum();
     std::cout << "Initial ts: " << ts << std::endl;
     if (ts < ts_min)
@@ -390,7 +410,7 @@ void SourceFinder::checkDir(astro::SkyDir & sd,
         std::cout << "  ** No max found. " << error << " returned from localize.\n";
         return;
     }
-    ts = ps.maximize(skip_TS_levels); // readjust likelihood at current position
+    ts = ps.maximize(); // readjust likelihood at current position
     ps.printSpectrum();
     std::cout << "Final ts: " << ts << std::endl;
     if (ts < ts_min)
@@ -398,7 +418,7 @@ void SourceFinder::checkDir(astro::SkyDir & sd,
     std::cout << "Maximized direction = ("
         << ps.dir().ra() << ", " << ps.dir().dec() <<
         ") (" << ps.dir().l() << ", " << ps.dir().b() << ")\n";
-
+#ifdef OLD
     HealPixel px_check(ps.dir(), 8);
     count = m_pmap.photonCount(px_check, true, false);
     if (count < photon_count_check)
@@ -411,6 +431,7 @@ void SourceFinder::checkDir(astro::SkyDir & sd,
         ") (" << px_final().l() << ", " << px_final().b() << ")\n";
     double distance = sd.difference(px_final()) * (180 / M_PI);
     std::cout << "Distance from starting direction: " << distance << " degrees.  distance/sigma = " << distance/ps.errorCircle() << std::endl;
+#endif
 }
 
 
@@ -420,6 +441,7 @@ void SourceFinder::checkDir(astro::SkyDir & sd,
 // List selected pixels
 void SourceFinder::list_pixels()
 {
+#ifdef OLD
     std::cout << "\nl \t b \t ra \t dec \t level \t index \t count \n";
     for (Candidates::const_iterator it = m_can.begin(); it != m_can.end(); ++it)
     {
@@ -431,6 +453,7 @@ void SourceFinder::list_pixels()
             << it->first.index() << "\t"
             << it->second.value() << "\n";
     }
+#endif
 }
 // Eliminate candidates that don't meet power law criteria
 void SourceFinder::prune_power_law(void)
@@ -456,9 +479,8 @@ void SourceFinder::prune_power_law(void)
 
     double  polarBoundary;
     m_module.getValue(prefix+"polarBoundary", polarBoundary, 6.0);
-
+#ifdef OLD
     int minlevel = m_pmap.minLevel() + 2;  // Ignore lowest 2 TS levels
-
     std::cout << "Eliminating candidates by power law test:\n" 
         << "  Slope cutoff: " << plSlopeCutoff << std::endl
         << "  Confidence cutoff: " << plFitCutoff << std::endl
@@ -467,16 +489,16 @@ void SourceFinder::prune_power_law(void)
         << "    >= " << plMidTSmin << " in middle region" << std::endl
         << "    >= " << plPolarTSmin << " in polar region" << std::endl;
 
+#endif
     for (Candidates::iterator it1 = m_can.begin(); it1 != m_can.end();) 
     {
         // 2nd iterator makes it possible to delete and still iterate with the other one
         Candidates::iterator it2 = it1;  
         ++ it1;
-
         double totalTS = 0;
+#ifdef OLD
         for (int i = minlevel; i < m_pmap.minLevel() + m_pmap.levels(); ++i)
             totalTS += it2->second.values(i);
-
         double abs_b = fabs(it2->first().b());
 
 
@@ -494,6 +516,7 @@ void SourceFinder::prune_power_law(void)
         if (it2->second.pl_slope() > plSlopeCutoff 
             || it2->second.pl_confidence() < plFitCutoff)
             m_can.erase(it2);
+#endif
     }
 
     std::cout << m_can.size() << " source Candidates remain.\n";
@@ -520,7 +543,7 @@ void SourceFinder::prune_neighbors(void)
             if (it1 == it2)   continue;  // Don't compare to yourself.  
             //            if( it2->second.is2bdeleted() ) continue; // already gone
             double sigma2(it2->second.sigma());
-
+#ifdef OLD
             double diff = (it1->first)().difference((it2->first)())*180/M_PI;
             if (diff <= radius || diff < 3*(sigma1+sigma2) )
             {
@@ -531,6 +554,7 @@ void SourceFinder::prune_neighbors(void)
                 if (sigma2 < sigma1 )it1->second.setDelete();
                 else                 it2->second.setDelete();
             }
+#endif
         }
     }
 
@@ -557,6 +581,7 @@ void SourceFinder::prune_adjacent_neighbors()
     // Mark weaker neighbors.
     for (Candidates::iterator it = m_can.begin(); it != m_can.end(); ++it) 
     {
+#ifdef OLD
         std::vector<healpix::HealPixel> hv = it->first.neighbors();
         for (std::vector<healpix::HealPixel>::const_iterator n = hv.begin();
             n != hv.end(); ++n)
@@ -568,6 +593,7 @@ void SourceFinder::prune_adjacent_neighbors()
                 break;
             }
         }
+#endif
     }
 
     // Delete marked entries
@@ -602,6 +628,7 @@ void SourceFinder::group_neighbors(void)
         {
             if (it1 == it2)   continue;  // Don't compare to yourself.  
 
+#ifdef OLD
             double diff = (it1->first)().difference((it2->first)())*180/M_PI;
             if (diff <= radius && it2->second.value() > it1->second.value())
             {
@@ -612,6 +639,7 @@ void SourceFinder::group_neighbors(void)
                     it1->second.setStrongNeighbor(it2->first);
                 }
             }
+#endif
         }
         if (max_value > 0.0)
             ++ nbr_found;
@@ -621,13 +649,14 @@ void SourceFinder::group_neighbors(void)
     for (Candidates::iterator it1 = m_can.begin(); it1 != m_can.end(); ++it1)
     {
         if (! (it1->second.hasStrongNeighbor())) continue; // Only look at ones with stronger neighbor.
-
+#ifdef OLD
         healpix::HealPixel px = it1->second.strongNeighbor();
         while (m_can[px].hasStrongNeighbor())
         {
             px = m_can[px].strongNeighbor();
             it1->second.setStrongNeighbor(px);
         }
+#endif
     }
 
     std::cout << nbr_found << " candidates have stronger neighbors.\n";
@@ -645,6 +674,7 @@ void SourceFinder::createReg(const std::string& fileName, double radius, const s
         << " font=\"helvetica 10 normal\" select=1 edit=1 move=1 delete=1 include=1 fixed=0 width=2;";
     for (Candidates::const_iterator it = m_can.begin(); it != m_can.end(); ++it)
     {
+#ifdef OLD
         int value = static_cast<int>(it->second.value() + 0.5);
         if (radius < -1.0) // Use a cross instead of a circle
         {
@@ -663,6 +693,7 @@ void SourceFinder::createReg(const std::string& fileName, double radius, const s
                 reg << it->second.sigma() * 100.0;
         }
         reg << ") " << "# text = {" << value << "};";
+#endif
     }
     reg.close();
 }
@@ -715,6 +746,7 @@ void SourceFinder::createTable(const std::string& fileName,
         // check power law fit
         std::vector<std::pair<double, double> > values;
         values.clear();
+#ifdef OLD
         std::vector<double> energyBins = m_pmap.energyBins();
         for( int i=8; i<14; ++i)
         {
@@ -745,7 +777,7 @@ void SourceFinder::createTable(const std::string& fileName,
         table << it->second.weighted_count() << delim;
         table << it->second.skipped() << delim;
         table << std::endl;
-
+#endif
     }
     table.close();
     timer();
@@ -817,8 +849,10 @@ void SourceFinder::createFitsFile(const std::string & outputFile,
         (*itor)["L"].set(it->second.dir().l());
         (*itor)["B"].set(it->second.dir().b());
         (*itor)["F100"].set(0.0);
+#ifdef OLD
         (*itor)["EMIN"].set(m_pmap.energyBins().front());
         (*itor)["EMAX"].set(m_pmap.energyBins().back());
+#endif
         (*itor)["G1"].set(0.0);
         (*itor)["G2"].set(0.0);
         (*itor)["EB"].set(0.0);

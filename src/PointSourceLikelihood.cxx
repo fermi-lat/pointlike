@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.35 2008/04/22 17:57:26 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.36 2008/04/28 03:42:11 burnett Exp $
 
 */
 
@@ -24,10 +24,13 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 
 
 //#define LEVELS
 
-using namespace astro;
 using namespace pointlike;
+using astro::SkyDir;
 using skymaps::CompositeSkySpectrum;
+using skymaps::BinnedPhotonData;
 using skymaps::DiffuseFunction;
+using skymaps::Band;
+
 
 
 namespace {
@@ -39,8 +42,8 @@ namespace {
 //  ----- static (class) variables -----
 skymaps::SkySpectrum* PointSourceLikelihood::s_diffuse(0);
 
-int    PointSourceLikelihood::s_minlevel(6);
-int    PointSourceLikelihood::s_maxlevel(13);
+double PointSourceLikelihood::s_emin(100.);
+
 double PointSourceLikelihood::s_minalpha(0.05);
 int    PointSourceLikelihood::s_skip1(1);
 int    PointSourceLikelihood::s_skip2(3);
@@ -53,15 +56,13 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
 {
     static std::string prefix("PointSourceLikelihood.");
 
-    par.getValue(prefix+"minlevel", s_minlevel, s_minlevel);
-    par.getValue(prefix+"maxlevel", s_maxlevel, s_maxlevel);
+    par.getValue(prefix+"emin",     s_emin, s_emin);
     par.getValue(prefix+"minalpha", s_minalpha, s_minalpha);
 
     par.getValue(prefix+"skip1",    s_skip1, s_skip1);
     par.getValue(prefix+"skip2",    s_skip2, s_skip2);
     par.getValue(prefix+"itermax",  s_itermax, s_itermax);
     par.getValue(prefix+"TSmin",    s_TSmin, s_TSmin);
-    par.getValue(prefix+"minlevel", s_minlevel, s_minlevel);
     par.getValue(prefix+"verbose",  s_verbose, s_verbose);
     par.getValue(prefix+"maxstep",  s_maxstep, s_maxstep); // override with global
     par.getValue("verbose",  s_verbose, s_verbose); // override with global
@@ -92,9 +93,9 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
 
 
 PointSourceLikelihood::PointSourceLikelihood(
-    const skymaps::BinnedPhotonData& data,
+    const BinnedPhotonData& data,
     std::string name,
-    const astro::SkyDir& dir)
+    const SkyDir& dir)
     : m_name(name)
     , m_dir(dir)
     , m_out(&std::cout)
@@ -107,52 +108,41 @@ PointSourceLikelihood::PointSourceLikelihood(
         // may not be valid?
         m_background = 0; //new skymaps::CompositeSkySpectrum();
     }
-    setup( data, s_minlevel, s_maxlevel);
+    setup( data);
 
 }
 
 
-void PointSourceLikelihood::setup(
-                                  const skymaps::BinnedPhotonData& data, int minlevel, int maxlevel
-                                  )
+void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
 {
 
-    using skymaps::Band;
     for( skymaps::BinnedPhotonData::const_iterator bit = data.begin(); bit!=data.end(); ++bit){
         const Band& b = *bit;
-        // get previous level from nside
-        int nside(b.nside()), level(1);
-        for( ; level<14;++level){ 
-            nside/=2; if( (nside&1)!=0) break;
-        }
-        if( level<minlevel || level>maxlevel) continue;
+
+        if( floor(b.emin()+0.5) < s_emin ) continue;
 
         SimpleLikelihood* sl = new SimpleLikelihood(b, m_dir, 
             SimpleLikelihood::defaultUmax() 
             ,m_background
             );
-        (*this)[level] = sl;
-
+        this->push_back( sl );
     }
-
 }
 
 PointSourceLikelihood::~PointSourceLikelihood()
 {
     for( iterator it = begin(); it!=end(); ++it){
-        delete it->second;
+        delete *it;
     }
     delete m_background;
 }
 
-double PointSourceLikelihood::maximize(int skip)
+double PointSourceLikelihood::maximize()
 {
     m_TS = 0;
     iterator it = begin();
-    for( int i = 0; i< skip; ++it, ++i);
-
     for( ; it!=end(); ++it){
-        SimpleLikelihood& like = *(it->second);
+        SimpleLikelihood& like = **it;
         std::pair<double,double> a(like.maximize());
         if( a.first > s_minalpha ) {
             m_TS+= like.TS();
@@ -172,34 +162,32 @@ void PointSourceLikelihood::setBackgroundDensity(const std::vector<double>& dens
 #endif
 void PointSourceLikelihood::setDir(const astro::SkyDir& dir, bool subset){
     for( iterator it = begin(); it!=end(); ++it){
-        it->second->setDir(dir,subset);
+        (*it)->setDir(dir,subset);
     }
     m_dir = dir;
 }
 
-const Hep3Vector& PointSourceLikelihood::gradient(int skip) const{
+const Hep3Vector& PointSourceLikelihood::gradient() const{
     m_gradient=Hep3Vector(0);  
     const_iterator it = begin();
-    for( int i = 0; i< skip; ++it, ++i);
     for( ; it!=end(); ++it){
-        if( it->second->TS()< s_TScut) continue;
-        Hep3Vector grad(it->second->gradient());
-        double curv(it->second->curvature());
+        if( (*it)->TS()< s_TScut) continue;
+        Hep3Vector grad((*it)->gradient());
+        double curv((*it)->curvature());
         if( curv > 0 ) m_gradient+= grad;
     }
     return m_gradient;
 }
 
-double PointSourceLikelihood::curvature(int skip) const{
+double PointSourceLikelihood::curvature() const{
     double t(0);
     const_iterator it = begin();
-    for( int i = 0; i< skip; ++it, ++i);
     for( ; it!=end(); ++it){
-        if( it->second->TS()< s_TScut) continue;
+        if( (*it)->TS()< s_TScut) continue;
 #if 0 // Marshall?
         it->second->gradient();
 #endif
-        double curv(it->second->curvature());
+        double curv((*it)->curvature());
         if( curv>0 )  t+= curv;
     }
     return t;
@@ -209,32 +197,29 @@ void PointSourceLikelihood::printSpectrum()
 {
 
     using std::setw; using std::left; using std::setprecision; 
-    if( verbose() ){
-        out() << "\nSpectrum of source " << m_name << " at ra, dec=" 
-            << setprecision(6) << m_dir.ra() << ", "<< m_dir.dec() << std::endl;
+    out() << "\nSpectrum of source " << m_name << " at ra, dec=" 
+        << setprecision(6) << m_dir.ra() << ", "<< m_dir.dec() << std::endl;
 
-        out() << "level events   signal_fract  TS " << std::right << std::endl;
-        //  level events  sig fraction    TS
-        //    6  592  0.56 +/-  0.036     193.9
-    }
+    out() << "  emin eclass events   signal_fract    TS " << std::right << std::endl;
+
     m_TS =0;
     for( const_iterator it = begin(); it!=end(); ++it){
 
-        SimpleLikelihood& levellike = *it->second;
-        int level = it->first;
-
-        if( verbose() ){
-            double bkg(levellike.background());
-            out()  << std::setw(5) << std::fixed << level 
-                << setw(6) << levellike.photons()
-                << setw(10);
-            if(bkg>=0) {
-                out() << setprecision(1) << levellike.background();
-            }else{
-                //out() << "     -    ";
-            }
-            if( levellike.photons()==0)  out() << std::endl; 
+        SimpleLikelihood& levellike = **it;
+        const skymaps::Band& band ( levellike.band() );
+ 
+        double bkg(levellike.background());
+        out()  << std::fixed << std::right 
+            << setw(7) << static_cast<int>( band.emin()+0.5 )
+            << setw(5) << band.event_class()
+            << setw(8) << levellike.photons()
+            << setw(10);
+        if(bkg>=0) {
+            out() << setprecision(1) << levellike.background();
+        }else{
+            //out() << "     -    ";
         }
+        if( levellike.photons()==0)  out() << std::endl; 
 
         if( levellike.photons()==0) {
             continue;
@@ -245,25 +230,21 @@ void PointSourceLikelihood::printSpectrum()
             m_TS+=ts;
         }
 
-        if( verbose() ){
-            double avb(levellike.average_b());
-            out() << setprecision(2) << setw(6)<< a.first<<" +/- "
-                << std::setw(4)<< a.second 
-                << setw(6)<< setprecision(0)<< ts;
+        double avb(levellike.average_b());
+        out() << setprecision(2) << setw(6)<< a.first<<" +/- "
+            << setw(4)<< a.second 
+            << setw(6)<< setprecision(0)<< ts;
 #if 0 // debug output for average background check
-            out() << setprecision(2) << std::scientific << " " <<levellike.average_b()<< std::fixed ;
+        out() << setprecision(2) << std::scientific << " " <<levellike.average_b()<< std::fixed ;
 #endif
-            out() << std::endl;
-        }
+        out() << std::endl;
     }
-    if( verbose() ){
-        if( s_minalpha>0){
-            out() << "\tTS sum  (alpha>"<<s_minalpha<<")  ";
-        }else{
-            out() << "\tTS sum                            ";
-        }
-        out() <<  m_TS << std::endl;
+    if( s_minalpha>0.1){
+        out() << "\tTS sum  (alpha>"<<s_minalpha<<")  ";
+    }else{
+        out() << setw(30) << "sum  ";
     }
+    out() << setw(14) << m_TS << std::endl;
 }
 double PointSourceLikelihood::localize(int skip1, int skip2)
 {
@@ -281,13 +262,13 @@ double PointSourceLikelihood::localize(int skip)
     using std::fixed;
     int wd(10), iter(0), maxiter(20);
     double steplimit(10.0), // in units of sigma
-        stepmin(0.1);     // quit if step this small
+        stepmin(0.25);     // quit if step this small, in units of sigma
     double backoff_ratio(0.5); // scale step back if TS does not increase
     int backoff_count(2);
 
     if( verbose()){
         out() 
-            << "      Searching for best position, start at level "<< skip+s_minlevel<<"\n"
+            << "      Searching for best position, start at band "<< skip <<"\n"
             << setw(wd) << left<< "Gradient   " 
             << setw(wd) << left<< "delta  "   
             << setw(wd) << left<< "ra"
@@ -298,13 +279,13 @@ double PointSourceLikelihood::localize(int skip)
     }
     SkyDir last_dir(dir()); // save current direction
     setDir(dir(), true);    // initialize
-    double oldTs( maximize(skip)); // initial (partial) TS
+    double oldTs( maximize()); // initial (partial) TS
     bool backingoff;  // keep track of backing
 
 
     for( ; iter<maxiter; ++iter){
-        Hep3Vector grad( gradient(skip) );
-        double     curv( curvature(skip) );
+        Hep3Vector grad( gradient() );
+        double     curv( curvature() );
 
         // check that resolution is ok: if curvature gets small or negative we are lost
         if( curv < 1.e4){
@@ -353,7 +334,7 @@ double PointSourceLikelihood::localize(int skip)
         while( count-->0){
             m_dir = olddir -delta;
             setDir(m_dir,true);
-            double newTs(maximize(skip));
+            double newTs(maximize());
             if( newTs > oldTs-0.01 ){ // allow a little slop
                 oldTs=newTs;
                 backingoff=false;
@@ -373,7 +354,7 @@ double PointSourceLikelihood::localize(int skip)
         return 99.;
     }
     if(verbose() ) out() << "    *** good fit *** " << std::endl;
-    return errorCircle(skip);
+    return errorCircle();
 
 }
 
@@ -403,26 +384,29 @@ double PointSourceLikelihood::localize()
 
 double PointSourceLikelihood::value(const astro::SkyDir& dir, double energy) const
 {
-    int level(m_minlevel);
-    for(; energy> m_energies[level-m_minlevel] && level<= s_maxlevel; ++level);
-    std::map<int, SimpleLikelihood*>::const_iterator it = find(level-1);
-    if( it==end() ){
-        throw std::invalid_argument("PointSourceLikelihood::value--no fit for the requested energy");
+    double result(0);
+    const_iterator it = begin();
+    for( ; it!=end(); ++it){
+        const Band& band ( (*it)->band() );
+        if( energy >= band.emin() && energy < band.emax() ){
+            result += (**it)(dir);
+        }
     }
-    return it->second->operator()(dir);
+    return result;
 
 }
 
 double PointSourceLikelihood::display(const astro::SkyDir& dir, double energy, int mode) const
 {
-    int level(m_minlevel);
-    for(; energy> m_energies[level-m_minlevel] && level<= s_maxlevel; ++level);
-    std::map<int, SimpleLikelihood*>::const_iterator it = find(level-1);
+    const_iterator it = begin();
+    for( ; it!=end(); ++it){
+        const Band& band ((*it)->band());
+        if( energy >= band.emin() && energy < band.emax() )break;
+    }
     if( it==end() ){
         throw std::invalid_argument("PointSourceLikelihood::display--no fit for the requested energy");
     }
-    return it->second->display(dir, mode);
-
+    return (*it)->display(dir, mode);
 }
 
 

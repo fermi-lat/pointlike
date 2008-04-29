@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.22 2008/01/27 18:07:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.23 2008/03/22 17:43:55 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -9,11 +9,13 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.22 
 
 //#include "tools/PowerLawFilter.h"
 #include "pointlike/Data.h"
-#include "skymaps/PhotonMap.h"
+#include "skymaps/BinnedPhotonData.h"
 #include "pointlike/PointSourceLikelihood.h"
 
 #include "astro/SkyDir.h"
+#ifdef OLD
 #include "healpix/HealPixel.h"
+#endif
 #include "embed_python/Module.h"
 
 #include <vector>
@@ -39,7 +41,7 @@ namespace pointlike {
             m_isSource(false),
             m_weighted_count(0),
             m_hasStrongNeighbor(false),
-            m_strongNeighbor(healpix::HealPixel(0,0))
+            m_strongNeighbor( 0) //healpix::HealPixel(0,0))
         {
             m_values.clear();
             m_photons.clear();
@@ -62,7 +64,7 @@ namespace pointlike {
         int weighted_count () const {return m_weighted_count;}
         int skipped () const {return m_skipped;}
         bool hasStrongNeighbor() const {return m_hasStrongNeighbor;}
-        healpix::HealPixel strongNeighbor() const {return m_strongNeighbor;}
+        int strongNeighbor() const {return m_strongNeighbor;}
 
         void setDelete () {m_2bdeleted = true;}
         void setSource (bool value = true) {m_isSource = value;}
@@ -78,7 +80,7 @@ namespace pointlike {
         void set_weighted_count (int value = 0) {m_weighted_count = value;}
         void set_skipped (int value = 0) {m_skipped = value;}
         void setHasStrongNeighbor (bool value = true) {m_hasStrongNeighbor = value;}
-        void setStrongNeighbor (healpix::HealPixel value) {m_strongNeighbor = value;}
+        void setStrongNeighbor (int value) {m_strongNeighbor = value;}
 
     private:
         double m_value; ///< TS value.
@@ -95,7 +97,7 @@ namespace pointlike {
         int m_weighted_count; // weighted count of photons in enclosing pixel.  level of enclosing pixel is determined by pointfind_setup.py
         int m_skipped; // number of candidates rejected before this one was accepted.  Count is reset each time a candidate is accepted.
         bool m_hasStrongNeighbor;  // Is there a stronger nearby candidate?
-        healpix::HealPixel m_strongNeighbor;  // Location of strongest nearby candidate.
+        int m_strongNeighbor;  // Location of strongest nearby candidate.
 
     }; 
 
@@ -110,8 +112,8 @@ namespace pointlike {
     public:
 
         SourceFinder(const pointlike::Data& data,  const embed_python::Module & Mod);
-        typedef std::map<healpix::HealPixel, CanInfo> Candidates;
-        typedef std::map<healpix::HealPixel, pointlike::PointSourceLikelihood > LikelihoodMap;
+        typedef std::map<int, CanInfo> Candidates;
+        typedef std::map<int, pointlike::PointSourceLikelihood > LikelihoodMap;
         typedef std::multimap<int, CanInfo> Prelim; // Preliminary candidates
 
 
@@ -127,7 +129,7 @@ namespace pointlike {
 #if 0 // not currently implemented
 
         /** @brief ctor sets up search
-        @param datafile the root file containing the data, to be ingested to a PhotonMap
+        @param datafile the root file containing the data, to be ingested to a BinnedPhotonData
         */
         SourceFinder(const std::string& datafile, DiffuseCounts* dc, const Module & Mod);
 
@@ -135,7 +137,7 @@ namespace pointlike {
             const Module & Mod );
 
         /** @brief ctor sets up search
-        @param inputFile fits file containing stored PhotonMap structure
+        @param inputFile fits file containing stored BinnedPhotonData structure
         @param tablename fits table name
         */
         SourceFinder(const std::string & inputFile, const std::string & tablename,
@@ -171,11 +173,7 @@ namespace pointlike {
             double mid_TS_min = 19.0, // Mid-latitude TS cutoff
             double polar_TS_min = 18.0, // Polar TS cutoff
             int    pix_level = 8, 
-            int count_threshold = 16,
-            bool   background_filter = false,
-            int	skip_TS_levels = 2,
-            double equator_boundary = 10.0,
-            double polar_boundary = 40.0);
+            int count_threshold = 16);
 
         // List selected pixels
         void list_pixels();
@@ -200,7 +198,7 @@ namespace pointlike {
         void createTable(const std::string& filename, bool get_background = false, int skip_TS = 0);
 
         //! allow access to map
-        const skymaps::PhotonMap& getMap() {return(m_pmap);}
+        const skymaps::BinnedPhotonData& getMap() {return(m_pmap);}
 
         //! return vector of candidates, copy of current list
 
@@ -218,7 +216,7 @@ namespace pointlike {
         void run();
 
     private:
-        const skymaps::PhotonMap& m_pmap;
+        const skymaps::BinnedPhotonData& m_pmap;
         Candidates m_can;
         DiffuseCounts* m_counts;
         const embed_python::Module & m_module;
