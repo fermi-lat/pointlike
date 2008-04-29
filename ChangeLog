@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Apr 29 09:06:44 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h SimpleLikelihood.h SourceFinder.h 
+Log Message:
+changes for new design
+    *
+------------------------------------------------------------
+User: burnett  Tue Apr 29 09:06:44 PDT 2008
 pointlike/cmt
 
 Modified Files:
