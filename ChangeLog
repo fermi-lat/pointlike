@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 User: burnett  Tue Apr 29 09:06:44 PDT 2008
+pointlike/src
+
+Modified Files:
+	Data.cxx PointSourceLikelihood.cxx SimpleLikelihood.cxx 
+	SourceFinder.cxx 
+Log Message:
+changes for new design
+    *
+------------------------------------------------------------
+User: burnett  Tue Apr 29 09:06:44 PDT 2008
 pointlike/python
 
 Modified Files:
