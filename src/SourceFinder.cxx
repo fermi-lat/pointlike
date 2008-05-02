@@ -1,12 +1,16 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.33 2008/04/19 23:52:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.34 2008/04/29 16:06:44 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
 #include "pointlike/PointSourceLikelihood.h"
+#ifdef OLD
 #include "pointlike/PowerLawFilter.h"
+#endif
+#include "healpix/HealPixel.h"
+
 #include "tip/IFileSvc.h"
 #include "tip/Table.h"
 
@@ -60,7 +64,11 @@ namespace {
     double examine_radius, group_radius, prune_radius;
 
     double  ts_min;
+#if 0
     int  pix_level;
+#else
+    double emin(500);
+#endif
     double pixel_fraction;
     astro::SkyDir examine_dir;
     std::string outfile;
@@ -73,7 +81,11 @@ namespace {
     void getParameters(const embed_python::Module & module)
     {
         module.getValue(prefix+"TSmin", ts_min, 10);
+#if 0
         module.getValue(prefix+"pixLevel", pix_level, 8);
+#else 
+        module.getValue(prefix+"emin", emin, 500);
+#endif
         module.getValue(prefix+"pixel_fraction", pixel_fraction, 0.5);
 
         module.getValue(prefix+"examine_radius", examine_radius);
@@ -98,7 +110,6 @@ namespace {
 
         std::cout << "\nSourceFinder parameters:\n"
             << "  Likelihood minimum: " << ts_min<< "\n" 
-            << "  skip when localizing: " << skip1<< " to " << skip2  <<"\n"
             << "  sigma_max: " << sigma_max << "\n"
             << std::endl;
 
@@ -109,9 +120,7 @@ namespace {
 
 using namespace pointlike;
 using namespace embed_python;
-#ifdef OLD
 using healpix::HealPixel;
-#endif
 using astro::SkyDir;
 
 SourceFinder::SourceFinder(const pointlike::Data& map, const Module & py_module)
@@ -148,35 +157,50 @@ void SourceFinder::examineRegion(void)
     // Extract the pixels to be examined
     m_pmap.extract_level(examine_dir, radius, v, pix_level, true);
 #else
-    typedef  std::vector< std::pair<int, int> > Pixels;
+
+    typedef  std::vector< std::pair<SkyDir, int> > Pixels;
     Pixels v;
+    skymaps::BinnedPhotonData::const_iterator bpit = m_pmap.begin();
+    for(;bpit!=m_pmap.end(); ++bpit){
+        if( emin > (*bpit).emin()) break;
+    }
+    if(bpit==m_pmap.end()){
+        throw std::invalid_argument("SourceFinder: did not find a Band with requested energy");
+    }
+    bpit->query_disk( examine_dir, radius, v);
 #endif
     Prelim can;
     can.clear();
-    size_t num(0);
+    size_t num(v.size());
 
 
     // examine all non-zero pixels
     for(Pixels::const_iterator it = v.begin();
         it != v.end(); ++it)
     {
-        astro::SkyDir sd;
 #ifdef OLD
+        astro::SkyDir sd;
         int count = static_cast<int>(m_pmap.photonCount(it->first, sd));
 #else
-        int count(0); //TODO
+        int count(it->second);
+        astro::SkyDir sd(it->first);
 #endif
 
         if (count > 0)
         {
-            can.insert(std::pair<int, CanInfo>(count, CanInfo(count, 0, sd)) );
+            can.insert(std::pair<int, CanInfo>(count, CanInfo(count, 0., sd)) );
             ++num;
         }
     }
 
     size_t fract = static_cast<size_t>(num*pixel_fraction); 
 
-    std::cout <<  "Found " << num << " non-empty pixels at level " << pix_level 
+    std::cout <<  "Found " << num 
+#if 0
+        << " non-empty pixels at level " << pix_level
+#else
+        << " non-empty pixels with energy > " << emin
+#endif
         << "; will examine " << fract<< std::endl;
 
     m_can.clear();
@@ -218,11 +242,7 @@ void SourceFinder::examineRegion(void)
 
         // found candidate
         // add to the final list, indexed according to level 13 location
-#ifdef OLD
-        HealPixel px(ps.dir(), 13); 
-#else
-        int px(0);
-#endif
+        int px (HealPixel(ps.dir(), 13).index() ); 
         //std::cout << "Found candidate: pixel, ts:" << px.index() <<", " << ts << std::endl;
         Candidates::iterator newit = m_can.find(px);
         if( newit != m_can.end() ) {
@@ -241,12 +261,10 @@ void SourceFinder::examineRegion(void)
             m_can[px].setPhotons(id,(ps[id]->photons()) * (ps[id]->alpha()));
             m_can[px].setSigalph(id,ps[id]->sigma_alpha());
         }
-#endif
 
         // Calculate and store power law fit values.  New as of 6/5/07
         std::vector<std::pair<double, double> > values;
         values.clear();
-#ifdef OLD
         std::vector<double> energyBins = m_pmap.energyBins();
         // ignore first two levels
         for( int i = 2, lvl = m_pmap.minLevel() + 2; lvl < m_pmap.minLevel() + m_pmap.levels(); ++i, ++lvl)
@@ -254,12 +272,12 @@ void SourceFinder::examineRegion(void)
             double count = m_can[px].photons(lvl);
             values.push_back(std::make_pair(energyBins[i], count));
         }
-#endif
         pointlike::PowerLawFilter pl(values);
         m_can[px].set_pl_slope(pl.slope());
         m_can[px].set_pl_constant(pl.constant());
         m_can[px].set_pl_confidence(pl.metric());
         m_can[px].set_weighted_count(check);
+#endif
     }
     std::cout << m_can.size() << " sources found before pruning neighbors.\n";
     timer();
