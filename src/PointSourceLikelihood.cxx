@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.36 2008/04/28 03:42:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.37 2008/04/29 16:06:44 burnett Exp $
 
 */
 
@@ -245,6 +245,24 @@ void PointSourceLikelihood::printSpectrum()
         out() << setw(30) << "sum  ";
     }
     out() << setw(14) << m_TS << std::endl;
+}
+
+std::vector<double> PointSourceLikelihood::energyList()const
+{
+    
+    std::vector<double> energies;
+    if( size()>0) {
+        const_iterator it (begin());
+        for( ; it!= end(); ++it){
+            double emin((*it)->band().emin());
+            if( energies.size()==0 || energies.back()!= emin){
+                energies.push_back(emin);
+            }
+        }
+        energies.push_back( back()->band().emax() );
+    }
+    return energies;
+
 }
 double PointSourceLikelihood::localize(int skip1, int skip2)
 {

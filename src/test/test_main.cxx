@@ -35,8 +35,12 @@ class Points{public:
 
     using namespace astro;
     using namespace pointlike;
+#if 0
     using skymaps::PhotonMap;
     using skymaps::PhotonBinner;
+#else
+
+#endif
 
 // test data file, generated using obsSim with 3 sources
 std::string inputFile(  "../src/test/test_events.root" );
@@ -118,6 +122,7 @@ int main(int argc , char** argv )
 #endif
             like.set_verbose(true);
             like.printSpectrum(); 
+            std::vector<double> energies=like.energyList();
 
             if( like.TS()>10) {
                like.localize();

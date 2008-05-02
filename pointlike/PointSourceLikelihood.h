@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.29 2008/04/28 03:42:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.30 2008/04/29 16:06:44 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -62,8 +62,12 @@ public:
     ///@return the curvature, summed over all bamds
     double curvature() const;
 
-    /// @brief 
+    /// @brief Make a table of the fit spectrum, to the ostream
+    /// See set_ostream to direct to a file.
     void printSpectrum();
+
+    /// @brief access to a list of energies for the bands
+    std::vector<double> energyList()const;
 
     /// @brief perform localization fit, maximizing joint likelihood
     /// @param skip [0] number of bands to skip
@@ -81,12 +85,6 @@ public:
     const astro::SkyDir& dir()const{return m_dir;}
 
     double TS()const { return m_TS; } 
-
-    /// @param level
-    /// @return the invidual TS for the level
-    double levelTS(int level)  { return (*this)[level]->TS();}
-
-    double logL(int level){ return (*this)[level]->operator()();}
 
     double errorCircle()const{return  sqrt(1./curvature())*180/M_PI;}
 
@@ -109,9 +107,6 @@ public:
 
     /// @brief set radius for individual fits
     static void setDefaultUmax(double umax);
-
-    /// @brief access to the sigma (radians) used for the individual SimpleLikelihood objects
-    double sigma(int level)const;
 
     ///! Set the global diffuse background function, return current value 
     /// @param diffuse any sky spectrum, presumably a DiffuseFunction

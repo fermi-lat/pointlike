@@ -1,6 +1,6 @@
 """
  Utility classes or functions to implement pointlike 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitter.py,v 1.2 2008/03/31 09:05:05 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitter.py,v 1.3 2008/04/09 13:02:18 burnett Exp $
 """
 try: import uw.pointlike
 except: pass
@@ -27,7 +27,6 @@ class Fitter(object):
     def __init__(self, source, data,  background=None, skip=2, verbose=0, localize=True):
         psl = PointSourceLikelihood(data.map(), source.name, source.sdir)
         if background is not None: psl.set_diffuse(background)
-        else: print 'fitting with default constant background'
         psl.set_verbose(verbose)
         self.TS = psl.maximize()
         self.name = source.name 
@@ -39,10 +38,11 @@ class Fitter(object):
         self.ra = psl.dir().ra()
         self.dec= psl.dir().dec()
         self.sdir = psl.dir()
+        self.like = psl # access to the likelihood functions
         if self.sigma< 1. : #test for convergence of localization, or not done
             if verbose>0: psl.printSpectrum()
-            self.photons = [psl[i].photons() for i in range(psl.minlevel(), psl.maxlevel()+1)]
-            self.alpha   = [psl[i].alpha() for i in range(psl.minlevel(), psl.maxlevel()+1)]
+            self.photons = [psl[i].photons() for i in range(len(psl))]
+            self.alpha   = [psl[i].alpha() for i in range(len(psl))]
 
 #----------------------------------------------------------------------------------------
 
