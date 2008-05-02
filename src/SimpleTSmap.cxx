@@ -1,11 +1,11 @@
 /** @file SimpleTSmap.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleTSmap.cxx,v 1.3 2007/12/13 14:42:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleTSmap.cxx,v 1.4 2008/01/27 02:31:33 burnett Exp $
 */
 
 #include "pointlike/SimpleTSmap.h"
 #include "pointlike/PointSourceLikelihood.h"
-#include "skymaps/PhotonMap.h"
+#include "skymaps/BinnedPhotonData.h"
 
 #include "healpix/HealPixel.h"
 
@@ -35,7 +35,7 @@ using namespace pointlike;
 using astro::SkyDir;
 using healpix::HealPixel;
 
-SimpleTSmap::SimpleTSmap(const skymaps::PhotonMap& pmap, 
+SimpleTSmap::SimpleTSmap(const skymaps::BinnedPhotonData& pmap, 
                          const skymaps::SkySpectrum& background)
 : m_pmap(pmap)
 , m_background(background)
@@ -49,11 +49,14 @@ void SimpleTSmap::run( astro::SkyDir& center, double radius, int level, bool ver
     m_level= level;
 
     std::vector<std::pair<healpix::HealPixel, int> > v;
+#ifdef OLD
     PointSourceLikelihood::set_levels(m_level, m_level);
-
+#endif
     int num(0);
     // Extract the pixels to be examined
+#ifdef OLD ///@TODO: replace with appropriate query_disk? Or just iterate over a Band.
     m_pmap.extract_level(center, radius, v, m_level, true);
+#endif
     std::cout << "Examining " << v.size() << " pixels at level " << m_level << std::endl;
     for(std::vector<std::pair<healpix::HealPixel, int> >::const_iterator it = v.begin();
         it != v.end(); ++it, ++num)
@@ -62,7 +65,9 @@ void SimpleTSmap::run( astro::SkyDir& center, double radius, int level, bool ver
         HealPixel hpix(it->first);
         size_t index = hpix.index();
         SkyDir sd;
+#ifdef OLD
         int count = static_cast<int>(m_pmap.photonCount(hpix, sd));
+#endif
 
         PointSourceLikelihood ps(m_pmap, "test", sd);
         //ps.set_verbose(true);

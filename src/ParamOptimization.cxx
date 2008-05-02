@@ -1,7 +1,7 @@
 /** @file ParamOptimization.cxx 
 @brief ParamOptimization member functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.8 2008/04/16 22:41:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.9 2008/04/22 17:57:26 mar0 Exp $
 
 */
 
@@ -17,9 +17,10 @@ using namespace pointlike;
 std::ofstream goldout("bracket_output.xls");
 #endif
 
-ParamOptimization::ParamOptimization(const skymaps::PhotonMap &data, const std::vector<astro::SkyDir>& directions, std::ostream *out,int minlevel,int maxlevel) : 
+ParamOptimization::ParamOptimization(const skymaps::BinnedPhotonData &data, const std::vector<astro::SkyDir>& directions, std::ostream *out,int minlevel,int maxlevel) : 
 m_data(data)
 , m_out(out){
+
     m_eb = skymaps::EnergyBinner::Instance(true);
     for(std::vector<astro::SkyDir>::const_iterator it = directions.begin();it!=directions.end();++it) {
         PointSourceLikelihood *pl = new pointlike::PointSourceLikelihood(data,"",*it);
@@ -29,6 +30,7 @@ m_data(data)
 }
 
 void ParamOptimization::compute(ParamOptimization::Param p) {
+#if 0 // need to remove 
     bool sigma = (p==ParamOptimization::SIGMA);
     if(!sigma) {
         *m_out << "Computing optimum gamma values" << std::endl;
@@ -49,7 +51,9 @@ void ParamOptimization::compute(ParamOptimization::Param p) {
         double osigma=0;
         std::vector<double> alphas;
         for(std::vector<PointSourceLikelihood*>::iterator it = m_likes.begin();it!=m_likes.end();++it) {
+#if 0
             alphas.push_back((*it)->find(iter)->second->alpha());
+#endif
         }
         //iterative method for finding best fit (k->1)
         while(maxfactor>=0&&fabs(maxfactor-1.)>tol&&whileit<timeout){
@@ -88,14 +92,16 @@ void ParamOptimization::compute(ParamOptimization::Param p) {
             iter << std::setw(15) << (maxfactor>0?osigma*maxfactor:-1) << 
             std::setw(15) << (t_photons>0?curvature(sigma,iter,osigma*maxfactor):-1) << std::setw(10) << maxfactor << std::setw(15) << (t_photons>0?t_alpha/t_curvature:-1) <<
             std::setw(10) << t_photons << std::endl;
+#endif
 #if 0
 
         std::cout << std::endl;
-#endif
     }
+#endif
 }
 
 double ParamOptimization::goldensearch(int num2look, int level, bool sigma) {
+#if 1
     // Numerical Recipes section 10.1 - finding a minimum in one dimension with Golden Search
     double tol = 1e-2;
     double C = (3-sqrt(5.))/2;
@@ -118,6 +124,7 @@ double ParamOptimization::goldensearch(int num2look, int level, bool sigma) {
     double f1 = 0;
     double f2 = 0;
     for(std::vector<PointSourceLikelihood*>::iterator it=m_likes.begin(); (it!=m_likes.end())&& (iter2<num2look);++it,++iter2) {
+#if 0
         pointlike::PointSourceLikelihood::iterator ite = (*it)->find(level);
         if(ite->second->photons()==0) continue;
         if(sigma) {
@@ -128,6 +135,8 @@ double ParamOptimization::goldensearch(int num2look, int level, bool sigma) {
             f1+=ite->second->geval(x1);
             f2+=ite->second->geval(x2);
         }
+#endif
+
     }
     if(f1==0||f2==0) return -1.0;
     int k = 1;
@@ -135,6 +144,7 @@ double ParamOptimization::goldensearch(int num2look, int level, bool sigma) {
         iter2=0;
         double a1=0.;
         double a2=0.;
+#if 0
         for(std::vector<PointSourceLikelihood*>::iterator it=m_likes.begin(); (it!=m_likes.end())&& (iter2<num2look);++it,++iter2) {
 
             pointlike::PointSourceLikelihood::iterator ite = (*it)->find(level);
@@ -148,6 +158,7 @@ double ParamOptimization::goldensearch(int num2look, int level, bool sigma) {
                 a2+=ite->second->geval(R*x2+C*x3);
             }
         }
+#endif
 #ifdef PRINT_DEBUG
         goldout << R*x1+C*x0 << "\t" << a1 << std::endl;
         goldout << R*x2+C*x3 << "\t" << a2 << std::endl;
@@ -176,6 +187,9 @@ double ParamOptimization::goldensearch(int num2look, int level, bool sigma) {
         fmin = f2;
     }
     return xmin;
+#else
+    return 0;
+#endif
 }
 
 double ParamOptimization::curvature(bool sigma,int level,double val)
@@ -192,12 +206,14 @@ double ParamOptimization::curvature(bool sigma,int level,double val)
         A[j][1]= k*val;
         A[j][2]= 1;
         for(std::vector<PointSourceLikelihood*>::iterator it = m_likes.begin();it!=m_likes.end();++it) {
+#ifdef OLD
             if(sigma) {
                 like+=(*it)->find(level)->second->feval(k);
             }
             else {
                 like+=(*it)->find(level)->second->geval(k);
             }
+#endif
         }
         b[j][0]=like;
     }

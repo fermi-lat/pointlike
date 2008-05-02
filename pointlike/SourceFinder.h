@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.23 2008/03/22 17:43:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.24 2008/04/29 16:06:44 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -13,9 +13,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.23 
 #include "pointlike/PointSourceLikelihood.h"
 
 #include "astro/SkyDir.h"
-#ifdef OLD
-#include "healpix/HealPixel.h"
-#endif
+
 #include "embed_python/Module.h"
 
 #include <vector>
