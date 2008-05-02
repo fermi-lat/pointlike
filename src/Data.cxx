@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.35 2008/04/28 03:42:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.36 2008/04/29 16:06:44 burnett Exp $
 
 */
 
@@ -42,10 +42,13 @@ using skymaps::BinnedPhotonData;
 using skymaps::Gti;
 
 using namespace pointlike;
-double Data::s_scale[4]={1.0, 1.86, 1.0, 1.0}; // wired in for front, back !!
+
 std::string Data::s_ft2file = std::string("");
 astro::PointingHistory* Data::s_history;
+
 int Data::s_class_level=2; 
+int Data::class_level(){return s_class_level;}
+
 CLHEP::HepRotation Data::s_rot = CLHEP::HepRotationX(0)*CLHEP::HepRotationY(0)*CLHEP::HepRotationZ(0);
 
 #ifdef WIN32
@@ -108,17 +111,14 @@ namespace {
                 local( m_rot.inverse()*dir()),
                 transformed( m_rot * corr * local );
 
-            // account for worse energy resolution of back events by simply scaling up the energy.
             int evtclass(eventClass());
             if( evtclass<0 || evtclass>1){ // just a check: should be 0 or 1 for front/back
                 //std::stringstream err;
                 std::cerr << "Data::Photon::transform--invalid eventclass value, expect 0 or 1, got: "<< evtclass<< std::endl;
                 //throw std::runtime_error(err.str());
             }
-            double 
-                emeas(energy()),                    // measured energy
-                eff_energy( emeas/Data::scale(evtclass) ); // "effective" energy
-            return astro::Photon(SkyDir(transformed), eff_energy,time(),evtclass, source());
+            double   emeas(energy());                    // measured energy
+            return astro::Photon(SkyDir(transformed), emeas,time(),evtclass, source());
         }
 
     private:
@@ -316,6 +316,7 @@ namespace {
             energy = row[2];
             class_level = static_cast<int>(row[9]);
             source_id = static_cast<int>(row[10]);
+            // NB. Selecting wired-in class definition (transient, source, diffuse
             if( class_level < Data::class_level()) event_class=99;
             else{
                 ra = row[0];
@@ -324,13 +325,15 @@ namespace {
                 decz = row[6];
                 rax = row[7];
                 decx = row[8];
-                energy/=Data::scale(event_class);
             }
         }
         Photon p(astro::SkyDir(ra, dec), energy, time, event_class , source_id, astro::SkyDir(raz,decz),astro::SkyDir(rax,decx));
         astro::Photon ap = p.transform(Data::get_rot().inverse());
         return Photon(ap.dir(),ap.energy(),ap.time(),ap.eventClass(),source_id,astro::SkyDir(raz,decz),astro::SkyDir(rax,decx));
     }
+
+    // default binner to use
+    skymaps::PhotonBinner* binner( new skymaps::PhotonBinner() );
 } // anon namespace
 
 Data::Data(const embed_python::Module& setup)
@@ -345,7 +348,6 @@ Data::Data(const embed_python::Module& setup)
         return;
     }
 
-    m_data = new BinnedPhotonData();
     int  event_class, source_id;
     std::vector<std::string> filelist;
     std::string history_filename;
@@ -365,6 +367,17 @@ Data::Data(const embed_python::Module& setup)
     setup.getList(prefix+"LATalignment", alignment);
     if( alignment.size()>0) Data::set_rot(alignment);
 
+    double bins_per_decade(0); 
+    setup.getValue(prefix+"bins_per_decade", bins_per_decade, bins_per_decade);
+
+    std::vector<double>energy_bins;
+    setup.getList(prefix+"energy_bins", energy_bins);
+
+    if( energy_bins.size()> 0 ){
+        m_data = new BinnedPhotonData(skymaps::PhotonBinner(energy_bins));
+    }else{
+        m_data = new BinnedPhotonData(bins_per_decade);
+    }
 
     if( filelist.empty()){
         throw std::invalid_argument("Data: no data specified: expected either a pixel file or a list of data files");
@@ -456,7 +469,7 @@ void Data::addgti(const std::string& inputFile)
     }
 }
 Data::Data(const std::string& inputFile, int event_type, double tstart, double tstop, int source_id)
-: m_data(new BinnedPhotonData())
+: m_data(new BinnedPhotonData(*binner))
 , m_start(tstart), m_stop(tstop)
 {
     add(inputFile, event_type, source_id);
@@ -464,7 +477,7 @@ Data::Data(const std::string& inputFile, int event_type, double tstart, double t
 }
 
 Data::Data(std::vector<std::string> inputFiles, int event_type, double tstart, double tstop, int source_id, std::string ft2file)
-: m_data(new BinnedPhotonData())
+: m_data(new BinnedPhotonData(*binner))
 , m_start(tstart), m_stop(tstop)
 {
 
@@ -489,20 +502,6 @@ Data::~Data()
 }
 
 
-double Data::set_scale(int i, double s)
-{
-    double t(s_scale[i]);  s_scale[i]=s; return t;
-}
-
-double Data::scale(int i)
-{
-    return s_scale[i];
-}
-
-double Data::class_level()
-{
-    return s_class_level;
-}
 
 void Data::lroot(const std::string& inputFile) {
     TFile *tf = new TFile(inputFile.c_str(),"READ");
@@ -586,4 +585,12 @@ bool Data::inTimeRange(double time) {
 void Data::info(std::ostream& out)
 {
     m_data->info(out);
+}
+
+    
+///@brief change default binning: must be done before loading data files
+void Data::setEnergyBins(const std::vector<double>& bins)
+{
+    delete binner;
+    binner = new skymaps::PhotonBinner(bins);
 }

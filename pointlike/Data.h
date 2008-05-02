@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.21 2008/04/04 09:53:54 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.22 2008/04/28 03:42:10 burnett Exp $
 */
 
 
@@ -32,7 +32,7 @@ public:
 
     //! constructor loads data from a fits FT1 or root file (MeritTuple) to make a BinnedPhotonData
     //! @param event_type 0 for class A front, etc, -1 for all
-    //! @param source_id select given source
+    //! @param source_id select given source (MC only, of course)
     Data(const std::string& file, int event_type, double tstart, double tstop, int source_id=-1)
         ;
     //! constructor loads data from a list of fits or root files to make a BinnedPhotonData
@@ -91,9 +91,8 @@ public:
     /// @brief summary printout of the BinnedPhotonData object
     void info(std::ostream& out = std::cout);
 
-    static double scale(int i);
-    static double set_scale(int i, double s);
-    static double class_level();
+    ///@brief access to static that defines class level cut for ROOT
+    static int class_level();
 
     //! set corrections to fixed rotation in GLAST frame, default is (0,0,0)
     static CLHEP::HepRotation set_rot(double arcsecx, double arcsecy, double arcsecz);
@@ -102,6 +101,9 @@ public:
     static const std::string& historyfile();
     static const astro::PointingInfo& get_pointing(double time);
     static bool inTimeRange(double time);
+
+    ///@brief change default binning: must be done before loading data files
+    static void setEnergyBins(const std::vector<double>& bins);
 
 private:
     void lroot(const std::string& infile);
