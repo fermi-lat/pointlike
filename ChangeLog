@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri May  2 16:31:04 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	ParamOptimization.h SimpleTSmap.h SourceFinder.h 
+Log Message:
+code commented out to compile; code needs to be changed
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr 29 09:06:44 PDT 2008
 pointlike/src/pointfit
 
