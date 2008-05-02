@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 User: burnett  Fri May  2 16:31:04 PDT 2008
+pointlike/src
+
+Modified Files:
+	AlignProc.cxx ParamOptimization.cxx SimpleTSmap.cxx 
+	SourceFinder.cxx 
+Log Message:
+code commented out to compile; code needs to be changed
+    *
+------------------------------------------------------------
+User: burnett  Fri May  2 16:31:04 PDT 2008
 pointlike/pointlike
 
 Modified Files:
