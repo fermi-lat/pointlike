@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Fri May  2 16:31:38 PDT 2008
+pointlike/python
+
+Modified Files:
+	fitter.py swig_setup.in 
+Log Message:
+update for spectral fits
+    *
+------------------------------------------------------------
+User: burnett  Fri May  2 16:31:38 PDT 2008
 pointlike/pointlike
 
 Modified Files:
