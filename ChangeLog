@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed May  7 22:42:17 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	ParamOptimization.h SimpleLikelihood.h 
+Log Message:
+fixed paramter optimization (header)
+    *
+------------------------------------------------------------
 User: mar0  Wed May  7 22:41:35 PDT 2008
 pointlike/src
 
