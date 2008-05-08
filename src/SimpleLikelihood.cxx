@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.35 2008/04/28 03:47:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.36 2008/04/29 16:06:44 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -388,12 +388,11 @@ double SimpleLikelihood::solidAngle()const{
 }
 
 double SimpleLikelihood::feval(double k) {
-#ifdef OLD
     if(!m_vec.size()) return -1.0;
     double F = m_psf.integral(k*m_umax);
     double acc = 0;
-    for(std::vector<std::pair<HealPixel,int> >::const_iterator ite=m_vec.begin();ite!=m_vec.end();++ite) {
-        double diff =ite->first().difference(m_dir); 
+    for(PixelList::const_iterator ite=m_vec.begin();ite!=m_vec.end();++ite) {
+        double diff =ite->first.difference(m_dir); 
         double u = sqr(diff/m_sigma)/2.;
         if(u>m_umax) continue;
         // just to see what is there
@@ -402,13 +401,10 @@ double SimpleLikelihood::feval(double k) {
         acc-=ite->second*log(m_alpha*f*k/F+(1-m_alpha)/(m_umax));
     }
     return acc;
-#else
-    return 0;
-#endif
 }
 
 double SimpleLikelihood::geval(double k) {
-#ifdef OLD
+
    if(!m_vec.size()) return -1.0;
     m_vec2.clear();
     PsfFunction ps(k*m_psf.gamma());
@@ -418,9 +414,6 @@ double SimpleLikelihood::geval(double k) {
     double ts = -TS(m_alpha);
     m_vec2.clear();
     return ts;
-#else
-    return 0;
-#endif
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
