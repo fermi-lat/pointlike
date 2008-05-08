@@ -1,7 +1,7 @@
 /** @file ParamOptimization.h 
     @brief declaration of the ParamOptimization class for optimizing point spread parameters
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ParamOptimization.h,v 1.6 2008/04/22 17:57:26 mar0 Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ParamOptimization.h,v 1.7 2008/05/02 23:31:04 burnett Exp $
 */
 #ifndef POINTLIKE_PARAMOPTIMIZATION_H
 #define POINTLIKE_PARAMOPTIMIZATION_H
@@ -45,8 +45,8 @@ public:
 
 private:
     // Numerical Recipes algorithm for finding the minimum
-    double goldensearch(int num2look, int level, bool sigma);
-    double curvature(bool sigma, int level, double val);
+    double goldensearch(int num2look, int band, bool sigma);
+    double curvature(bool sigma, int band, double val);
     std::vector<pointlike::PointSourceLikelihood*> m_likes; 
     std::ostream * m_out;                         //where to send output
 #ifdef OLD

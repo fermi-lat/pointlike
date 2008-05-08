@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.24 2008/04/28 03:47:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.25 2008/04/29 16:06:44 burnett Exp $
 
 */
 
@@ -126,6 +126,7 @@ public:
     /// @brief access to the effective sigma (radians)  used for the fits
     double sigma()const{ return m_sigma;}
     void setsigma(double sigma) {m_sigma=sigma;}
+    double gamma()const{ return m_psf.gamma();}
 
     void recalc(bool subset=true);
 
