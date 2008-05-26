@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.35 2008/05/02 23:31:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.36 2008/05/26 17:08:35 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -155,10 +155,10 @@ void SourceFinder::examineRegion(void)
     {
         throw std::invalid_argument("SourceFinder: did not find a Band with requested nside");
     }
-    bpit->query_disk(examine_dir, radius, v, true);
+    bpit->query_disk(examine_dir, radius, v);
     std::cout <<  "First pass will examine " << v.size() 
               << " pixels with nside = " << bpit->nside() << std::endl;
-    Prelim can;
+    Prelim can; // for list of candidates indexed by TS
     can.clear();
     size_t num(0);
 
@@ -172,7 +172,7 @@ void SourceFinder::examineRegion(void)
 
         if (ts > ts_min)
         {
-            can.insert(std::pair<double, SkyDir>(ts, sd) );
+            can.insert(std::make_pair(ts, CanInfo(ts, 0, sd) ) );
             ++num;
         }
     }
@@ -193,10 +193,10 @@ void SourceFinder::examineRegion(void)
     {
         ShowPercent(i, fract, m_can.size());
 
-        const SkyDir& currentpos = it->second;
+        const SkyDir& currentpos = it->second.dir();
         
         // See if we have already found a candidate near this location
-        HealPixel neighbor(0, 0);
+        int neighbor_index;;
         double max_value = 0.0;
         bool neighbor_found(false);
         if (group_radius > 0.0)
@@ -210,7 +210,7 @@ void SourceFinder::examineRegion(void)
                     {
                         max_value = it2->second.value();
                         neighbor_found = true;
-                        neighbor = it2->first;
+                        neighbor_index = it2->first;
                     }
                 }
             }
@@ -218,18 +218,17 @@ void SourceFinder::examineRegion(void)
         
         // calculate initial likelihood at current position
         PointSourceLikelihood ps(m_pmap, "test", currentpos);
-            
         // If we found a previous candidate near this location, add it to background
         if (neighbor_found)
         {
             // Recalculate likelihood for strong neighbor
-            PointSourceLikelihood strong(m_pmap, "test", m_can[neighbor].dir());
+            SkyDir neighbor_dir ( m_can[neighbor_index].dir() );
+            PointSourceLikelihood strong(m_pmap, "test", neighbor_dir);
             double strong_ts = strong.maximize(); // not used
 
             // Add strong neighbor to this candidate's background
             ps.addBackgroundPointSource(& strong);
         }
-
         double ts = ps.maximize();
         if (ts < ts_min)
         {
@@ -251,17 +250,19 @@ void SourceFinder::examineRegion(void)
             continue;  // apply initial threshold
         }
 
+
         // found candidate
         // add to the final list, indexed according to level 13 healpixel
         SkyDir sd = ps.dir();
-        healpix::HealPixel px(ps.dir(), 13);
-        Candidates::iterator newit = m_can.find(px);
+        int healpix_index (healpix::HealPixel(ps.dir(), 13).index() );
+        Candidates::iterator newit = m_can.find(healpix_index);
         if( newit != m_can.end() ) 
         {
             //std::cout << "--duplicate!" << std::endl;
             continue;
         }
-        m_can[px] = CanInfo(ts, error, sd);
+
+        m_can[healpix_index] = CanInfo(ts, error, sd);
 
 #ifdef OLD
         for(int id = ps.minlevel(); id <= ps.maxlevel(); ++id)
@@ -275,6 +276,7 @@ void SourceFinder::examineRegion(void)
             m_can[px].setPhotons(id,(ps[id]->photons()) * (ps[id]->alpha()));
             m_can[px].setSigalph(id,ps[id]->sigma_alpha());
         }
+#else  // need equivalent? 
 #endif
 
     }
@@ -612,6 +614,7 @@ void SourceFinder::prune_adjacent_neighbors()
 // Any candidate that is within "group_radius" of another is matched with its strongest neighbor
 void SourceFinder::group_neighbors(void)
 {
+#ifdef OLD
     double radius(group_radius); // use radius from file-scope variable
 
     int nbr_found = 0;
@@ -656,6 +659,7 @@ void SourceFinder::group_neighbors(void)
 
     std::cout << nbr_found << " candidates have stronger neighbors.\n";
     timer();
+#endif
 }
 
 void SourceFinder::createReg(const std::string& fileName, double radius, const std::string& color)
