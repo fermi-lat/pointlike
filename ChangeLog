@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 User: burnett  Tue May 27 09:46:41 PDT 2008
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx SimpleLikelihood.cxx SimpleTSmap.cxx 
+	SourceFinder.cxx 
+Log Message:
+more updates for new scheme
+    *
+------------------------------------------------------------
+User: burnett  Tue May 27 09:46:41 PDT 2008
 pointlike/python
 
 Modified Files:
