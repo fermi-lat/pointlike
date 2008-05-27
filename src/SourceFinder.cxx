@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.36 2008/05/26 17:08:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.37 2008/05/26 18:05:26 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -74,54 +74,54 @@ namespace {
     int refit(0);
 
     static std::string prefix("SourceFinder.");
-
-    void getParameters(const embed_python::Module & module)
-    {
-        module.getValue(prefix+"TSmin", ts_min, 10);
-        module.getValue(prefix+"emin", emin, 500);
-        module.getValue(prefix+"pass1_nside", nside, 256);
-        module.getValue(prefix+"pixel_fraction", pixel_fraction, 0.5);
-
-        module.getValue(prefix+"examine_radius", examine_radius);
-        module.getValue(prefix+"group_radius", group_radius, 1.0);
-        module.getValue(prefix+"prune_radius", prune_radius, 0.25);
-        module.getValue(prefix+"refit", refit, 1);
-
-        module.getValue(prefix+"outfile", outfile, "");
-        module.getValue(prefix+"regfile", regfile, "");
-        module.getValue(prefix+"fitsfile", fitsfile, "");
-
-        double l,b,ra,dec;
-        module.getValue(prefix+"l", l, 999.);
-        module.getValue(prefix+"b", b, 999.);
-        module.getValue(prefix+"ra", ra, 999.);
-        module.getValue(prefix+"dec", dec, 999.);
-        if( l <999 && b < 999) {
-            examine_dir = astro::SkyDir(l,b, astro::SkyDir::GALACTIC);
-        }else if( ra<999 && dec<999) {
-            examine_dir = astro::SkyDir(ra,dec);
-        }
-
-        std::cout << "\nSourceFinder parameters:\n"
-            << "  Likelihood minimum: " << ts_min<< "\n" 
-            << "  sigma_max: " << sigma_max << "\n"
-            << std::endl;
-
-    }
-
 } // anon namespace
 
 using namespace pointlike;
-using namespace embed_python;
 using healpix::HealPixel;
 using astro::SkyDir;
 
-SourceFinder::SourceFinder(const pointlike::Data& map, const Module & py_module)
+void SourceFinder::setParameters(const embed_python::Module & module)
+{
+    module.getValue(prefix+"TSmin", ts_min, 10);
+    module.getValue(prefix+"emin", emin, 500);
+    module.getValue(prefix+"pass1_nside", nside, 256);
+    module.getValue(prefix+"pixel_fraction", pixel_fraction, 0.5);
+
+    module.getValue(prefix+"examine_radius", examine_radius);
+    module.getValue(prefix+"group_radius", group_radius, 1.0);
+    module.getValue(prefix+"prune_radius", prune_radius, 0.25);
+    module.getValue(prefix+"refit", refit, 1);
+
+    module.getValue(prefix+"outfile", outfile, "");
+    module.getValue(prefix+"regfile", regfile, "");
+    module.getValue(prefix+"fitsfile", fitsfile, "");
+
+    double l,b,ra,dec;
+    module.getValue(prefix+"l", l, 999.);
+    module.getValue(prefix+"b", b, 999.);
+    module.getValue(prefix+"ra", ra, 999.);
+    module.getValue(prefix+"dec", dec, 999.);
+    if( l <999 && b < 999) {
+        examine_dir = astro::SkyDir(l,b, astro::SkyDir::GALACTIC);
+    }else if( ra<999 && dec<999) {
+        examine_dir = astro::SkyDir(ra,dec);
+    }
+
+    std::cout << "\nSourceFinder parameters:\n"
+        << "  Likelihood minimum: " << ts_min<< "\n" 
+        << "  sigma_max: " << sigma_max << "\n"
+        << std::endl;
+
+}
+
+
+
+SourceFinder::SourceFinder(const pointlike::Data& map)
 : m_pmap(map)
 , m_counts(0)
-, m_module(py_module)
+//, m_module(py_module)
 {
-    getParameters(py_module);
+  //  getParameters(py_module);
 }
 
 
@@ -131,7 +131,7 @@ Analyze range of likelihood significance values for all pixels at a particular l
 void SourceFinder::examineRegion(void) 
 {  
     timer("---------------SourceFinder::examineRegion----------------");  
-    getParameters(m_module); // load all parameters
+   // getParameters(m_module); // load all parameters
 
     double  radius(examine_radius);
     if( radius>=180){
@@ -155,7 +155,7 @@ void SourceFinder::examineRegion(void)
     {
         throw std::invalid_argument("SourceFinder: did not find a Band with requested nside");
     }
-    bpit->query_disk(examine_dir, radius, v);
+    bpit->query_disk(examine_dir, radius*M_PI/180, v);
     std::cout <<  "First pass will examine " << v.size() 
               << " pixels with nside = " << bpit->nside() << std::endl;
     Prelim can; // for list of candidates indexed by TS
@@ -222,12 +222,17 @@ void SourceFinder::examineRegion(void)
         if (neighbor_found)
         {
             // Recalculate likelihood for strong neighbor
-            SkyDir neighbor_dir ( m_can[neighbor_index].dir() );
-            PointSourceLikelihood strong(m_pmap, "test", neighbor_dir);
-            double strong_ts = strong.maximize(); // not used
+            CanInfo& strong ( m_can[neighbor_index] );
+            SkyDir neighbor_dir ( strong.dir() );
+            if( strong.fit()==0){
+                strong.set_fit(new PointSourceLikelihood(m_pmap, "Strong", neighbor_dir));
+                strong.fit()->maximize();
+            }
+
+          //  double strong_ts = strong.fit().maximize(); // not used
 
             // Add strong neighbor to this candidate's background
-            ps.addBackgroundPointSource(& strong);
+            ps.addBackgroundPointSource(strong.fit());
         }
         double ts = ps.maximize();
         if (ts < ts_min)
@@ -459,6 +464,8 @@ void SourceFinder::list_pixels()
     }
 #endif
 }
+#ifdef OLD
+
 // Eliminate candidates that don't meet power law criteria
 void SourceFinder::prune_power_law(void)
 {
@@ -483,7 +490,6 @@ void SourceFinder::prune_power_law(void)
 
     double  polarBoundary;
     m_module.getValue(prefix+"polarBoundary", polarBoundary, 6.0);
-#ifdef OLD
     int minlevel = m_pmap.minLevel() + 2;  // Ignore lowest 2 TS levels
     std::cout << "Eliminating candidates by power law test:\n" 
         << "  Slope cutoff: " << plSlopeCutoff << std::endl
@@ -493,14 +499,12 @@ void SourceFinder::prune_power_law(void)
         << "    >= " << plMidTSmin << " in middle region" << std::endl
         << "    >= " << plPolarTSmin << " in polar region" << std::endl;
 
-#endif
     for (Candidates::iterator it1 = m_can.begin(); it1 != m_can.end();) 
     {
         // 2nd iterator makes it possible to delete and still iterate with the other one
         Candidates::iterator it2 = it1;  
         ++ it1;
         double totalTS = 0;
-#ifdef OLD
         for (int i = minlevel; i < m_pmap.minLevel() + m_pmap.levels(); ++i)
             totalTS += it2->second.values(i);
         double abs_b = fabs(it2->first().b());
@@ -520,12 +524,13 @@ void SourceFinder::prune_power_law(void)
         if (it2->second.pl_slope() > plSlopeCutoff 
             || it2->second.pl_confidence() < plFitCutoff)
             m_can.erase(it2);
-#endif
+
     }
 
     std::cout << m_can.size() << " source Candidates remain.\n";
     timer();
 }
+#endif
 
 // Eliminate weaker neighbors
 // criterion is closer than tolerance, or 3-sigma circles overlap
@@ -610,57 +615,7 @@ void SourceFinder::prune_adjacent_neighbors()
     timer();
 }
 
-// Group nearby candidates to facilitate further examination
-// Any candidate that is within "group_radius" of another is matched with its strongest neighbor
-void SourceFinder::group_neighbors(void)
-{
-#ifdef OLD
-    double radius(group_radius); // use radius from file-scope variable
 
-    int nbr_found = 0;
-    if(radius==0) return;
-
-    std::cout << "Grouping neighbors using radius of " << radius << " degrees...";
-
-    // Mark candidates with stronger neighbors: loop over all pairs
-    for (Candidates::iterator it1 = m_can.begin(); it1 != m_can.end(); ++it1) 
-    {
-        double max_value = 0.0;
-        for (Candidates::iterator it2 = m_can.begin();  it2 != m_can.end(); ++it2)
-        {
-            if (it1 == it2)   continue;  // Don't compare to yourself.  
-
-            double diff = it1->second.dir().difference(it2->second.dir())*180/M_PI;
-            if (diff <= radius && it2->second.value() > it1->second.value())
-            {
-                if (it2->second.value() > max_value)
-                {
-                    max_value = it2->second.value();
-                    it1->second.setHasStrongNeighbor(true);
-                    it1->second.setStrongNeighbor(it2->first);
-                }
-            }
-        }
-        if (max_value > 0.0)
-            ++ nbr_found;
-    }
-
-    // Follow chains.  If A points to B and B points to C, have A point to C.
-    for (Candidates::iterator it1 = m_can.begin(); it1 != m_can.end(); ++it1)
-    {
-        if (! (it1->second.hasStrongNeighbor())) continue; // Only look at ones with stronger neighbor.
-        healpix::HealPixel px = it1->second.strongNeighbor();
-        while (m_can[px].hasStrongNeighbor())
-        {
-            px = m_can[px].strongNeighbor();
-            it1->second.setStrongNeighbor(px);
-        }
-    }
-
-    std::cout << nbr_found << " candidates have stronger neighbors.\n";
-    timer();
-#endif
-}
 
 void SourceFinder::createReg(const std::string& fileName, double radius, const std::string& color)
 {
@@ -739,11 +694,11 @@ void SourceFinder::createTable(const std::string& fileName,
         for( int i=6; i<14; ++i){
             table << precision(it->second.photons(i),0.1) << delim;
         }
+#ifdef OLD
 
         // check power law fit
         std::vector<std::pair<double, double> > values;
         values.clear();
-#ifdef OLD
         std::vector<double> energyBins = m_pmap.energyBins();
         for( int i=8; i<14; ++i)
         {
@@ -896,7 +851,6 @@ void SourceFinder::run()
     prune_neighbors();   
 
     if( refit) {    // group nearby candidates with strongest neighbor   
-        group_neighbors();   
         // reexamine the groups of candidates   
         reExamine();   
         // prune the result   

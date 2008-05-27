@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.37 2008/04/29 16:06:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.38 2008/05/02 23:31:39 burnett Exp $
 
 */
 
@@ -42,7 +42,12 @@ namespace {
 //  ----- static (class) variables -----
 skymaps::SkySpectrum* PointSourceLikelihood::s_diffuse(0);
 
-double PointSourceLikelihood::s_emin(100.);
+// manage energy range for selection of bands to fit 
+double PointSourceLikelihood::s_emin(100.); 
+double PointSourceLikelihood::s_emax(1e6);
+void PointSourceLikelihood::set_energy_range(double emin, double emax){
+    s_emin = emin; s_emax=emax;
+}
 
 double PointSourceLikelihood::s_minalpha(0.05);
 int    PointSourceLikelihood::s_skip1(1);
@@ -57,6 +62,7 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     static std::string prefix("PointSourceLikelihood.");
 
     par.getValue(prefix+"emin",     s_emin, s_emin);
+    par.getValue(prefix+"emax",     s_emax, s_emax);
     par.getValue(prefix+"minalpha", s_minalpha, s_minalpha);
 
     par.getValue(prefix+"skip1",    s_skip1, s_skip1);
@@ -119,7 +125,9 @@ void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
     for( skymaps::BinnedPhotonData::const_iterator bit = data.begin(); bit!=data.end(); ++bit){
         const Band& b = *bit;
 
-        if( floor(b.emin()+0.5) < s_emin ) continue;
+        double emin(floor(b.emin()+0.5) ), emax(floor(b.emax()+0.5));
+        if( emin < s_emin ) continue;
+        if( emax > s_emax ) break;
 
         SimpleLikelihood* sl = new SimpleLikelihood(b, m_dir, 
             SimpleLikelihood::defaultUmax() 

@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.25 2008/05/02 23:31:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.26 2008/05/26 18:07:31 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -39,6 +39,7 @@ namespace pointlike {
             m_isSource(false),
             m_weighted_count(0),
             m_hasStrongNeighbor(false),
+            m_fit(0),
             m_strongNeighbor( 0) //healpix::HealPixel(0,0))
         {
             m_values.clear();
@@ -56,9 +57,13 @@ namespace pointlike {
         double dec() const {return m_dir.dec();}
         bool is2bdeleted () const {return m_2bdeleted;}
         bool isSource () const {return m_isSource;}
+#ifdef OLD
         double pl_slope () const {return m_pl_slope;}
         double pl_constant () const {return m_pl_constant;}
         double pl_confidence () const {return m_pl_confidence;}
+#else
+        PointSourceLikelihood* fit(){return m_fit;}
+#endif
         int weighted_count () const {return m_weighted_count;}
         int skipped () const {return m_skipped;}
         bool hasStrongNeighbor() const {return m_hasStrongNeighbor;}
@@ -72,10 +77,14 @@ namespace pointlike {
         void setValue(int level, double val) {m_values[level] = val;}
         void setPhotons(int level, double photons) {m_photons[level] = photons;}
         void setSigalph(int level, double sigalph) {m_sigalph[level] = sigalph;}
+#ifdef OLD
         void set_pl_slope (double value = 0.0) {m_pl_slope = value;}
         void set_pl_constant (double value = 0.0) {m_pl_constant = value;}
         void set_pl_confidence (double value = 0.0) {m_pl_confidence = value;}
         void set_weighted_count (int value = 0) {m_weighted_count = value;}
+#else
+        void set_fit(PointSourceLikelihood* fit){m_fit=fit;}
+#endif
         void set_skipped (int value = 0) {m_skipped = value;}
         void setHasStrongNeighbor (bool value = true) {m_hasStrongNeighbor = value;}
         void setStrongNeighbor (int value) {m_strongNeighbor = value;}
@@ -89,9 +98,13 @@ namespace pointlike {
         astro::SkyDir m_dir;
         bool   m_2bdeleted; // True means this is flagged to be deleted later.
         bool   m_isSource;  // True if this corresponds to a confirmed source
+#ifdef OLD
         double m_pl_slope; // Slope of power law fit.
         double m_pl_constant; // b from (y = mx + b) for power law fit.
         double m_pl_confidence; // Confidence of the power law fit. 1 == perfect fit.
+#else
+        PointSourceLikelihood* m_fit;
+#endif
         int m_weighted_count; // weighted count of photons in enclosing pixel.  level of enclosing pixel is determined by pointfind_setup.py
         int m_skipped; // number of candidates rejected before this one was accepted.  Count is reset each time a candidate is accepted.
         bool m_hasStrongNeighbor;  // Is there a stronger nearby candidate?
@@ -109,7 +122,7 @@ namespace pointlike {
     class SourceFinder {
     public:
 
-        SourceFinder(const pointlike::Data& data,  const embed_python::Module & Mod);
+        SourceFinder(const pointlike::Data& data);
         typedef std::map<int, CanInfo> Candidates;
         typedef std::map<int, pointlike::PointSourceLikelihood > LikelihoodMap;
         typedef std::map<double, CanInfo> Prelim; // Preliminary candidates
@@ -122,33 +135,6 @@ namespace pointlike {
             MIDDLE = 2, ///< Select middle region only.
             POLAR = 3, ///< Select polar region only.
         } RegionSelector;
-
-#if 0 // not currently implemented
-
-        /** @brief ctor sets up search
-        @param datafile the root file containing the data, to be ingested to a BinnedPhotonData
-        */
-        SourceFinder(const std::string& datafile, DiffuseCounts* dc, const Module & Mod);
-
-        SourceFinder(const std::string& rootfile, int event_type=-1, int source_id=-1, 
-            const Module & Mod );
-
-        /** @brief ctor sets up search
-        @param inputFile fits file containing stored BinnedPhotonData structure
-        @param tablename fits table name
-        */
-        SourceFinder(const std::string & inputFile, const std::string & tablename,
-            DiffuseCounts* dc, const Module & Mod);
-
-        //! add  data from the file to current set
-        //! @param event_type 0 for class A front, etc
-        //! @param source_id select given source
-        void add(const std::string& file, int event_type=-1, int source_id=-1)
-        {
-            m_data.add(file, event_type, source_id);
-        }
-#endif
-
 
         /** @brief return modifiable reference to candidates map
         */
@@ -174,13 +160,6 @@ namespace pointlike {
 
         // List selected pixels
         void list_pixels();
-
-        //! Eliminate candidates that don't meet power law tests
-        void prune_power_law(void);
-
-        //! Group nearby candidates to facilitate further examination
-        //! Any candidate that is within "prune_radius" of another is matched with its strongest neighbor
-        void group_neighbors(void);
 
         //! Eliminate neighbors within cone
         void prune_neighbors(void);
@@ -212,11 +191,12 @@ namespace pointlike {
         //! run the current set of steps
         void run();
 
+        static void setParameters(const embed_python::Module & module);
     private:
         const skymaps::BinnedPhotonData& m_pmap;
         Candidates m_can;
         DiffuseCounts* m_counts;
-        const embed_python::Module & m_module;
+      //  const embed_python::Module & m_module;
 
     };
 
@@ -225,4 +205,5 @@ namespace pointlike {
 } // namespace tools
 
 #endif
+
 

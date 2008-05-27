@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.36 2008/04/29 16:06:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.37 2008/05/08 05:41:35 mar0 Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -207,11 +207,11 @@ SimpleLikelihood::SimpleLikelihood(const skymaps::Band& band,
         : m_band(band)
         , m_averageF(0)
         , m_psf(band.gamma())
-        , m_sigma(band.sigma())
         , m_alpha(-1)
         , m_curv(-1)
         , m_background(-1)  // default: no estimate
         , m_umax(umax)
+        , m_sigma(band.sigma())
         , m_emin(band.emin()), m_emax(band.emax())
         , m_back(0)
         , m_diffuse(diffuse)
@@ -232,13 +232,18 @@ SimpleLikelihood::~SimpleLikelihood()
 void SimpleLikelihood::setDir(const astro::SkyDir& dir, bool subset)
 {
     m_dir = dir;
+    reload(subset);
+}
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void SimpleLikelihood::reload(bool subset)
+{
     // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
     m_vec.clear();
     m_vec2.clear();
     delete m_back;
-    m_back = new NormalizedBackground(m_diffuse, dir, sqrt(2.*m_umax)*m_sigma, m_emin, m_emax);
-    m_band.query_disk(m_dir, m_sigma*sqrt(2.*m_umax), m_vec);
-    Convert conv(m_dir, m_psf, *m_back, m_sigma, m_umax, m_vec2, m_vec4,  subset);
+    m_back = new NormalizedBackground(m_diffuse, m_dir, sqrt(2.*m_umax)*sigma(), m_emin, m_emax);
+    m_band.query_disk(m_dir, sigma()*sqrt(2.*m_umax), m_vec);
+    Convert conv(m_dir, m_psf, *m_back, sigma(), m_umax, m_vec2, m_vec4,  subset);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
     result.consolidate();
 
@@ -340,7 +345,7 @@ Hep3Vector SimpleLikelihood::gradient() const
     Hep3Vector grad;
     m_curv=m_w=0;
 
-    double sig2( sqr(m_sigma) );
+    double sig2( sqr(sigma()) );
     double gamma( m_psf.gamma() );
     //double w(0); // -log likelihood (check)
     int count(0);
@@ -384,7 +389,7 @@ double SimpleLikelihood::TS(double alpha)const {
     //return -2*(*this)(alpha);
 }
 double SimpleLikelihood::solidAngle()const{
-    return 2*M_PI* sqr(m_sigma)*m_umax;
+    return 2*M_PI* sqr(sigma())*m_umax;
 }
 
 double SimpleLikelihood::feval(double k) {
@@ -408,7 +413,7 @@ double SimpleLikelihood::geval(double k) {
    if(!m_vec.size()) return -1.0;
     m_vec2.clear();
     PsfFunction ps(k*m_psf.gamma());
-    Convert conv(m_dir, ps, *m_back, m_sigma, m_umax, m_vec2, m_vec4, true);
+    Convert conv(m_dir, ps, *m_back, sigma(), m_umax, m_vec2, m_vec4, true);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
     result.consolidate();
     double ts = -TS(m_alpha);
@@ -419,22 +424,22 @@ double SimpleLikelihood::geval(double k) {
 double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
 {
     double diff( dir.difference(m_dir) ); 
-    double u   ( sqr(diff/m_sigma)/2.  );
-    double jacobian( 2.*M_PI* sqr(m_sigma) );
+    double u   ( sqr(diff/sigma())/2.  );
+    double jacobian( 2.*M_PI* sqr(sigma()) );
     return signal()*m_psf(u)/ m_fint/jacobian;
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 double SimpleLikelihood::display(const astro::SkyDir& dir, int mode) const
 {
     double diff( dir.difference(m_dir) ); 
-    double u   ( sqr(diff/m_sigma)/2.  );
-    double jacobian( 2.*M_PI* sqr(m_sigma) );
+    double u   ( sqr(diff/sigma())/2.  );
+    double jacobian( 2.*M_PI* sqr(sigma()) );
     if( mode ==0){
         // default is density, as above
         return signal()*m_psf(u)/ m_fint/jacobian;
     }
     SkyDir pdir(m_band.dir(m_band.index(dir)));
-    u = sqr( pdir.difference(m_dir)/m_sigma)/2.; // recalculate u for pixel
+    u = sqr( pdir.difference(m_dir)/sigma())/2.; // recalculate u for pixel
     if( u> m_umax ) return 0;
 
     // now look for it in the data
@@ -493,7 +498,7 @@ void SimpleLikelihood::recalc(bool subset)
 {
     // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
     m_vec2.clear();
-    Convert conv(m_dir, m_psf, *m_back, m_sigma, m_umax, m_vec2,  m_vec4, subset);
+    Convert conv(m_dir, m_psf, *m_back, sigma(), m_umax, m_vec2,  m_vec4, subset);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
     result.consolidate();
 

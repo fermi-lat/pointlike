@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.11 2008/04/16 22:41:55 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.12 2008/05/02 23:31:38 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -118,6 +118,17 @@ public:
    }
    size_t __len__() {return 9;}
 }
+%extend skymaps::BinnedPhotonData{
+// provide access to the Band objects as an array
+   skymaps::Band * __getitem__(size_t i){ 
+      if( i == (*self).size() ) throw std::range_error("StopIteration");
+      if( i<0 || i > self->size() ) throw std::range_error("IndexError");
+      skymaps::BinnedPhotonData::iterator it= self->begin();
+      for(int j(0); j!=i; ++j, ++it);
+      return &(*it); // note address of
+   }
+   size_t __len__() {      return self->size();       }
+}
 
 %extend pointlike::PointSourceLikelihood{
    pointlike::SimpleLikelihood * __getitem__(size_t i){ 
@@ -158,12 +169,6 @@ public:
 
 %include $(EMBED_PYTHONROOT)/embed_python/Module.h
     
-%include $(POINTLIKEROOT)/pointlike/SimpleLikelihood.h
-%include $(POINTLIKEROOT)/pointlike/PointSourceLikelihood.h
-%include $(POINTLIKEROOT)/pointlike/Data.h
-%include $(POINTLIKEROOT)/pointlike/SourceFinder.h
-%include $(POINTLIKEROOT)/pointlike/Draw.h
-
 %include $(SKYMAPSROOT)/skymaps/DiffuseFunction.h
 %include $(SKYMAPSROOT)/skymaps/CompositeSkySpectrum.h
 %include $(SKYMAPSROOT)/skymaps/PhotonMap.h
@@ -175,6 +180,11 @@ public:
 %include $(SKYMAPSROOT)/skymaps/BinnedPhotonData.h
 %include $(SKYMAPSROOT)/skymaps/Band.h
 
+%include $(POINTLIKEROOT)/pointlike/SimpleLikelihood.h
+%include $(POINTLIKEROOT)/pointlike/PointSourceLikelihood.h
+%include $(POINTLIKEROOT)/pointlike/Data.h
+%include $(POINTLIKEROOT)/pointlike/SourceFinder.h
+%include $(POINTLIKEROOT)/pointlike/Draw.h
 %include $(POINTLIKEROOT)/pointlike/SimpleTSmap.h
 
 %template(CanInfoVector) std::vector<pointlike::CanInfo>;
