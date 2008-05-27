@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Tue May 27 09:46:41 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h SimpleLikelihood.h SimpleTSmap.h 
+	SourceFinder.h 
+Log Message:
+more updates for new scheme
+    *
+------------------------------------------------------------
 User: burnett  Mon May 26 11:07:31 PDT 2008
 pointlike/pointlike
 
