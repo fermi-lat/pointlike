@@ -1,6 +1,6 @@
 /** @file SimpleTSmap.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleTSmap.cxx,v 1.4 2008/01/27 02:31:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleTSmap.cxx,v 1.5 2008/05/02 23:31:04 burnett Exp $
 */
 
 #include "pointlike/SimpleTSmap.h"
@@ -28,6 +28,8 @@ namespace{  // anonymous namespace
     }
     std::string names[]={"TS", "signal", "gradient"};
 
+    double tsmin(10.);
+
 }  // anonymous namespace
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -35,54 +37,51 @@ using namespace pointlike;
 using astro::SkyDir;
 using healpix::HealPixel;
 
-SimpleTSmap::SimpleTSmap(const skymaps::BinnedPhotonData& pmap, 
-                         const skymaps::SkySpectrum& background)
+SimpleTSmap::SimpleTSmap(const skymaps::BinnedPhotonData& pmap)
 : m_pmap(pmap)
-, m_background(background)
-, m_level(8)
 {
 }
 
-void SimpleTSmap::run( astro::SkyDir& center, double radius, int level, bool verbose)
+void SimpleTSmap::run( astro::SkyDir& center, double radius, double emin, bool verbose)
 {
     timer();
-    m_level= level;
 
-    std::vector<std::pair<healpix::HealPixel, int> > v;
-#ifdef OLD
-    PointSourceLikelihood::set_levels(m_level, m_level);
-#endif
+    std::vector<std::pair<int, int> > v;
+    skymaps::BinnedPhotonData::const_iterator bpit(m_pmap.begin() );
+
+    while( (*bpit).emin()< emin) { 
+        ++bpit;
+    }
+    const skymaps::Band& b (* --bpit); 
+    m_nside = b.nside();
+    b.query_disk(center, radius, v);
+
+    std::cout << "Examining " << v.size() << " pixels with nside= " << m_nside << std::endl;
     int num(0);
-    // Extract the pixels to be examined
-#ifdef OLD ///@TODO: replace with appropriate query_disk? Or just iterate over a Band.
-    m_pmap.extract_level(center, radius, v, m_level, true);
-#endif
-    std::cout << "Examining " << v.size() << " pixels at level " << m_level << std::endl;
-    for(std::vector<std::pair<healpix::HealPixel, int> >::const_iterator it = v.begin();
+    for(std::vector<std::pair<int, int> >::const_iterator it = v.begin();
         it != v.end(); ++it, ++num)
     {
-
-        HealPixel hpix(it->first);
-        size_t index = hpix.index();
-        SkyDir sd;
+        int index(it->first);
+        const SkyDir& sd(b.dir(index));
 #ifdef OLD
         int count = static_cast<int>(m_pmap.photonCount(hpix, sd));
+#else
+        int count (it->second);
 #endif
-
         PointSourceLikelihood ps(m_pmap, "test", sd);
         //ps.set_verbose(true);
         // todo: fix this need for a cast
-        ps.set_diffuse(const_cast<skymaps::SkySpectrum*>(&m_background));
         double ts(ps.maximize());
         //ps.printSpectrum();
-        if( ts>5 ){
-            SimpleLikelihood& like(*ps[m_level]);
+        if( ts>tsmin ){
+
             m_tsmap[index].push_back(ts);
+            m_tsmap[index].push_back(count);
+#if 0 //fix this?
+            SimpleLikelihood& like( *ps[m_level] );
             m_tsmap[index].push_back(like.signal());
             m_tsmap[index].push_back(like.gradient().mag());
-            if( verbose ){
-                std::cout << hpix.index() << "\t" << ts << std::endl;
-            }
+#endif
         }
 
     }
@@ -95,9 +94,13 @@ SimpleTSmap::~SimpleTSmap()
 
 double SimpleTSmap::value(const astro::SkyDir& dir, double )const
 {
+#if 0
     HealPixel hp(dir, m_level);
     std::map<int, std::vector<float> >::const_iterator it (m_tsmap.find(hp.index()) );
-    return it != m_tsmap.end() ? it->second[0] : 0;    
+    return it != m_tsmap.end() ? it->second[0] : 0;   
+#else
+    return 0;
+#endif
 }
 
 double SimpleTSmap::integral(const astro::SkyDir& dir, double , double )const
@@ -108,13 +111,13 @@ double SimpleTSmap::integral(const astro::SkyDir& dir, double , double )const
 std::string SimpleTSmap::name()const
 {
     std::stringstream msg;
-    msg <<"TS map, at level" << m_level;
+    msg <<"TS map, with nside=" << m_nside;
     return msg.str();
 }
 void SimpleTSmap::save(std::string filename)
 {
     std::ofstream out(filename.c_str());
-    out << m_level << std::endl;
+    out << m_nside << std::endl;
     for( std::map<int,std::vector<float> >::const_iterator it = m_tsmap.begin(); it!=m_tsmap.end(); ++it){
         out << it->first << "\t";
         std::copy(it->second.begin(), it->second.end() , 
@@ -126,7 +129,7 @@ void SimpleTSmap::save(std::string filename)
 void SimpleTSmap::restore(std::string filename)
 {
     std::ifstream in(filename.c_str());
-    in >> m_level;
+    in >> m_nside;
     while(!in.eof()){
         int index;
         float ts;

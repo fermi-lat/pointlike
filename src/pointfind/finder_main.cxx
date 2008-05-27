@@ -1,7 +1,7 @@
 /** @file finder_main.cxx
     @brief  Finder
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.12 2008/01/08 22:40:15 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.13 2008/01/25 01:07:06 burnett Exp $
 
 */
 #include "pointlike/SourceFinder.h"
@@ -39,12 +39,14 @@ int main(int argc, char** argv)
   
         // create healpix database using parameters in the setup file
         Data healpixdata(setup);
+        healpixdata.info();
 
         // define all parameters used by PointSourceLikelihood
         PointSourceLikelihood::setParameters(setup);
+        SourceFinder::setParameters(setup);
 
         // create and run the SourceFinder
-        pointlike::SourceFinder finder(healpixdata, setup);
+        pointlike::SourceFinder finder(healpixdata);
 
         finder.run();
 

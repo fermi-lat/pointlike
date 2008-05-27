@@ -5,12 +5,8 @@
 #include "pointlike/PointSourceLikelihood.h"
 #include "embed_python/Module.h"
 
-#if 0
-#include "skymaps/PhotonMap.h"
-#else
 #include "skymaps/BinnedPhotonData.h"
 #include "skymaps/PhotonBinner.h"
-#endif
 #include "skymaps/DiffuseFunction.h"
 #include "skymaps/Exposure.h"
 #include "skymaps/IsotropicPowerLaw.h"
@@ -35,12 +31,6 @@ class Points{public:
 
     using namespace astro;
     using namespace pointlike;
-#if 0
-    using skymaps::PhotonMap;
-    using skymaps::PhotonBinner;
-#else
-
-#endif
 
 // test data file, generated using obsSim with 3 sources
 std::string inputFile(  "../src/test/test_events.root" );
@@ -71,14 +61,6 @@ int main(int argc , char** argv )
     int rc(0);
     try{
 
-#if 0 // test code for SimpleTSmap
-        std::string path( ::getenv("EXTFILESSYS"));
-        DiffuseFunction df1( path + "/galdiffuse/GP_gamma.fits");
-        PhotonMap pmap("f:\\glast\\data\\SC2\\obssim\\allsky_noGRBs.fits","PHOTONMAP");
-        SimpleTSmap tsmap(pmap, df1);
-        tsmap.run();
-    
-#endif
         // use the python module to setup
         std::string python_path("../python");
         
@@ -86,25 +68,32 @@ int main(int argc , char** argv )
 
         double  radius(10);
 
-#if 0 
-        skymaps::PhotonMap x;
+
         std::cout << "Loading data from file " << inputFile  <<std::endl;
         PhotonList photons(inputFile);
 
-        std::for_each(photons.begin(), photons.end(), AddPhoton<skymaps::PhotonMap>(x));
-        std::cout << "photons found: "<< x.photonCount() 
-            <<"  pixels created: " << x.pixelCount() <<std::endl;
-
-        x.write("pointlike_test.fits");
-#else
-        std::cout << "Loading data from file " << inputFile  <<std::endl;
-        PhotonList photons(inputFile);
-
-        skymaps::BinnedPhotonData& x= *new skymaps::BinnedPhotonData(skymaps::PhotonBinner());
+        double bins_per_decade(5.0);
+        skymaps::BinnedPhotonData& x= *new skymaps::BinnedPhotonData(skymaps::PhotonBinner(bins_per_decade));
         std::for_each(photons.begin(), photons.end(), AddPhoton<skymaps::BinnedPhotonData>(x));
 
         x.info();
-#endif
+
+
+#if 0 // test code for SimpleTSmap
+        std::cout << "\ntesting SimpleTSmap..." << std::endl;
+        std::string path( ::getenv("EXTFILESSYS"));
+        skymaps::DiffuseFunction df1( path + "/galdiffuse/GP_gamma.fits");
+        PointSourceLikelihood::set_diffuse(&df1);
+        PointSourceLikelihood::set_tolerance(0.1);
+        PointSourceLikelihood::set_energy_range(500,500); // only the bin with these energies
+//        skymaps::BinnedPhotonData pmap("f:\\glast\\data\\SC2\\obssim\\allsky_noGRBs.fits","PHOTONMAP");
+        SimpleTSmap tsmap(x);
+        tsmap.run(SkyDir(), 180.);
+        tsmap.save("tsmap.txt");
+        std::cout << "done" << std::endl;
+#endif   
+
+
         std::vector<astro::SkyDir> directions;
 
         // test fitting with a diffuse component

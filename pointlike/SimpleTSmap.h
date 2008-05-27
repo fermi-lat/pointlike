@@ -1,7 +1,7 @@
 /** @file SimpleTSmap.h
     @brief declare class SimpleTSmap
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleTSmap.h,v 1.3 2008/01/27 02:31:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleTSmap.h,v 1.4 2008/05/02 23:31:04 burnett Exp $
 
 */
 #ifndef pointlike_SimpleTSmap_h
@@ -35,7 +35,7 @@ public:
     (need to connect to a discription of the effective area function or functions)
 
     */
-    SimpleTSmap(const skymaps::BinnedPhotonData& pmap, const skymaps::SkySpectrum& background);
+    SimpleTSmap(const skymaps::BinnedPhotonData& pmap);
     
     ~SimpleTSmap();
 
@@ -51,7 +51,7 @@ public:
     virtual std::string name()const;
 
     /// @brief make a map of TS values for the level only, in the selected region
-    void run(astro::SkyDir& center, double radius, int level=8, bool verbose=false);
+    void run(astro::SkyDir& center, double radius, double emin=500, bool verbose=false);
 
     /// @brief save ascii file of level, followed by (index, TS) values
     void save(std::string filename);
@@ -61,7 +61,7 @@ public:
 
     size_t size()const{return m_tsmap.size();}
 
-    int level() const {return m_level;}
+    int nside() const {return m_nside;}
 
     void clear(){m_tsmap.clear();}
 
@@ -70,9 +70,8 @@ public:
 
 private:
     const skymaps::BinnedPhotonData& m_pmap;
-    const skymaps::SkySpectrum& m_background;
     std::map<int, std::vector<float> > m_tsmap; ///< the data: a sparse map of a vector of floats
-    int m_level;
+    int m_nside;
     
 };
 
