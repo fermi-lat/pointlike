@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Wed May 28 14:39:32 PDT 2008
+pointlike/src
+
+Modified Files:
+	Draw.cxx 
+Log Message:
+make compatible with BinnedPhotonData.
+    *
+------------------------------------------------------------
+User: burnett  Wed May 28 14:39:32 PDT 2008
 pointlike/pointlike
 
 Modified Files:
