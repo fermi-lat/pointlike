@@ -1,7 +1,7 @@
 /** @file Draw.h 
 @brief declaration of the Draw wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.2 2007/11/18 22:56:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.3 2008/01/27 02:31:33 burnett Exp $
 */
 
 
@@ -12,62 +12,41 @@ namespace astro { class SkyDir; }
 #include <string>
 #include <vector>
 #include "embed_python/Module.h"
-#include "skymaps/PhotonMap.h"
+namespace skymaps{ class BinnedPhotonData; }
 
 namespace pointlike {
 
     //! @class Draw
-    //! @brief manage creating images to FITS files from a PhotonMap
+    //! @brief manage creating images to FITS files from a BinnedPhotonData object
     class Draw {
     public:
 
-        //! Type of counts to include with the image
-        typedef enum  
-        {
-            NONE = 0, ///< Don't include photon count layers.
-            SIMPLE = 1,  ///< Simple counts for one level only.
-            CHILDREN = 2, ///< Include counts of children of given pixel.
-            WEIGHTED = 3 ///< Include counts of children of given pixel, weighted by level.
-        } CountType;
 
-
-        Draw(const skymaps::PhotonMap& map);
+        Draw(const skymaps::BinnedPhotonData& map);
 
         //! create FITS image file using the data
         //! @param dir center
-        //! @param dir file to write
+        //! @param outputFile file to write
         //! @param pixelsize in degrees
         //! @param fov  field of view (deg) if 180, use car
-        //! @param proj projection: if not specified, use AIT for full sky, ZEA otherwsie
 
         void region(const astro::SkyDir& dir, std::string outputFile, double pixelsize, double fov);
 
         void sky(std::string outputfile, double pixelsize);
 
-        void setCountType(CountType t){ m_countType =t;}
-        void galactic(){m_galactic = true;}
-        void equatorial(){m_galactic=false;}
+        void galactic(){m_galactic = true;}      ///< set galactic
+        void equatorial(){m_galactic=false;}     ///< set equatorial
         void projection(std::string p){m_proj = p;} ///< set the projection
 
     private:
-        const skymaps::PhotonMap& m_map;
+        const skymaps::BinnedPhotonData& m_map;
         bool m_galactic;    ///< galactic or equatorial
         std::string m_proj; ///< projection (CAR, AIT, etc.)
-        CountType m_countType; 
     };
-
-
-
-
-
-
-
-
-
-
 
 
 }// namespace pointline
 
 
 #endif
+
