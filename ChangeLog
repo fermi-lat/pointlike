@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed May 28 14:40:38 PDT 2008
+pointlike/src
+
+Modified Files:
+	SourceFinder.cxx 
+Log Message:
+clean up, implement draw capability
+    *
+------------------------------------------------------------
 User: burnett  Wed May 28 14:40:37 PDT 2008
 pointlike/pointlike
 
