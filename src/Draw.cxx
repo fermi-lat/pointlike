@@ -1,7 +1,7 @@
 /** @file Draw.cxx
 @brief implementation of Draw
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.5 2008/01/16 20:38:24 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.6 2008/01/27 02:31:33 burnett Exp $
 
 */
 
@@ -11,37 +11,51 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.5 2008/01/16 20
 #include "astro/SkyDir.h"
 
 #include "skymaps/SkyImage.h"
+#include "skymaps/BinnedPhotonData.h"
 
 using namespace pointlike;
 using astro::SkyDir;
-using skymaps::PhotonMap;
+using skymaps::BinnedPhotonData;
 using skymaps::SkyImage;
 
-Draw::Draw(const PhotonMap& map)
+Draw::Draw(const BinnedPhotonData& map)
 : m_map(map)
 , m_galactic(true)
 , m_proj("")
-, m_countType(WEIGHTED)
 {}
 
 void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel, double fov )
 {
-    int layers((m_countType != NONE)? 9:1);
 
     std::string proj (fov>90? "AIT":"ZEA");
     if( !m_proj.empty()){ proj = m_proj;}
                 
+    int layers(1);
     SkyImage image(dir, outputFile, pixel, fov, layers, proj,  m_galactic);
-    std::cout << "Filling image layer 0 with density ..." << std::endl;
-    image.fill(m_map, 0); // PhotonMap is a SkyFunction of the density 
+
+    /// @class SkyDensity
+    /// @brief adapt a BinnedPhotonData to give density
+    class SkyDensity : public astro::SkyFunction {
+    public:
+        SkyDensity(const BinnedPhotonData& data):
+          m_data(data){}
+
+          double operator()(const astro::SkyDir & sd) const {
+              double  value = m_data.density(sd);
+              return value;    
+          }
+    private:
+        const BinnedPhotonData& m_data;
+    };
+
+    image.fill(SkyDensity(m_map), 0); // PhotonMap is a SkyFunction of the density 
     std::cout 
         <<   "\t minimum "<< image.minimum()
         << "\n\t maximum "<< image.maximum()
         << "\n\t average "<< (image.total()/image.count())
         << std::endl;
 
-    if( layers==1) return;
-
+#if 0
     /// @class SkyCount
     /// @brief adapt a PhotonMap to give weighted value
     class SkyCount : public astro::SkyFunction {
@@ -83,6 +97,7 @@ void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel
         }
     }
     std::cout <<  points << " hit display pixels" << std::endl;
+#endif
 
     std::cout << "Writing image to file \""
         << outputFile << "\""<<std::endl;
