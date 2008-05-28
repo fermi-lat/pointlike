@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.37 2008/05/26 18:05:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.38 2008/05/27 16:46:41 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -71,7 +71,7 @@ namespace {
     std::string outfile;
     std::string regfile;
     std::string fitsfile;
-    int refit(0);
+    std::string imagefile;
 
     static std::string prefix("SourceFinder.");
 } // anon namespace
@@ -90,11 +90,11 @@ void SourceFinder::setParameters(const embed_python::Module & module)
     module.getValue(prefix+"examine_radius", examine_radius);
     module.getValue(prefix+"group_radius", group_radius, 1.0);
     module.getValue(prefix+"prune_radius", prune_radius, 0.25);
-    module.getValue(prefix+"refit", refit, 1);
 
     module.getValue(prefix+"outfile", outfile, "");
     module.getValue(prefix+"regfile", regfile, "");
     module.getValue(prefix+"fitsfile", fitsfile, "");
+    module.getValue(prefix+"imagefile", imagefile, "");
 
     double l,b,ra,dec;
     module.getValue(prefix+"l", l, 999.);
@@ -287,7 +287,9 @@ void SourceFinder::examineRegion(void)
     }
     std::cout << m_can.size() << " sources found before pruning neighbors.\n";
     timer();
-}       
+}   
+
+#if 0
 void SourceFinder::reExamine(void) 
 {  
     timer("---------------SourceFinder::reExamine----------------");  
@@ -362,7 +364,8 @@ void SourceFinder::reExamine(void)
     }
     std::cout << nbr_purged << " candidates purged,  " << m_can.size() << " candidates left.\n";
     timer();
-}     
+} 
+#endif
 void SourceFinder::checkDir(SkyDir & sd,
                             double eq_TS_min,
                             double mid_TS_min,
@@ -578,7 +581,7 @@ void SourceFinder::prune_neighbors(void)
     std::cout << m_can.size() << " source Candidates remain.\n";
     timer();
 }
-
+#if 0
 // Eliminate weaker neighbors
 void SourceFinder::prune_adjacent_neighbors()
 {
@@ -615,7 +618,7 @@ void SourceFinder::prune_adjacent_neighbors()
     timer();
 }
 
-
+#endif
 
 void SourceFinder::createReg(const std::string& fileName, double radius, const std::string& color)
 {
@@ -846,16 +849,19 @@ void SourceFinder::createRegFile(std::string filename, std::string color)const
 
 void SourceFinder::run()
 {
+
+    // draw the data region
+    if( !imagefile.empty()) {
+        Draw drawer(m_pmap);
+        double pixelsize(0.025), fov(examine_radius);
+        drawer.region(examine_dir, imagefile, pixelsize, fov);
+    }
+    
     examineRegion();
-    // inital prune
+
+    //  prune
     prune_neighbors();   
 
-    if( refit) {    // group nearby candidates with strongest neighbor   
-        // reexamine the groups of candidates   
-        reExamine();   
-        // prune the result   
-        prune_neighbors();   
-    }
 
     // and write out the ascii table, reg or fits files
     if( ! outfile.empty() )  createTable(outfile);   
