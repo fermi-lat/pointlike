@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+TAG
+Tag name: v5r6p1, operation: add
+Package: pointlike
+User: burnett  Thu May 29 13:30:12 2008
+Files:
+  pointlike/python/background.py  1.1
+
+    *
+------------------------------------------------------------
 User: burnett  Thu May 29 11:13:35 PDT 2008
 pointlike/python
 
