@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.31 2008/05/02 23:31:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.32 2008/05/27 16:46:41 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -90,9 +90,9 @@ public:
 
     void set_ostream(std::ostream& out){m_out=&out;}
 
-    void set_verbose(bool verbosity=true){m_verbose=verbosity;}
+    static void set_verbose(bool verbosity=true); //{s_verbose=verbosity;}
 
-    bool verbose()const{return m_verbose;}
+    static bool verbose(); //{return s_verbose;}
 
     ///! implement the SkyFunction interface
     ///@brief return differential value 
@@ -142,7 +142,6 @@ private:
     astro::SkyDir m_dir; ///< common direction
     double m_dir_sigma;  ///< error circle from fit (radians)
     double m_TS;         ///< total TS value
-    bool m_verbose;
     std::ostream * m_out;
     std::ostream& out()const{return *m_out;}
     mutable CLHEP::Hep3Vector m_gradient; ///< current gradient
