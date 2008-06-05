@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jun  5 04:48:42 PDT 2008
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx 
+Log Message:
+fix vebose,
+    *
+------------------------------------------------------------
 User: burnett  Thu Jun  5 04:47:18 PDT 2008
 pointlike/pointlike
 
