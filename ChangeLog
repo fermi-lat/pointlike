@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jun  5 04:47:18 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h 
+Log Message:
+fix use of global vebosity flag
+    *
+------------------------------------------------------------
 TAG
 Tag name: v5r6p1, operation: add
 Package: pointlike
