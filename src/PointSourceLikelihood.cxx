@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.38 2008/05/02 23:31:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.39 2008/05/27 16:46:41 burnett Exp $
 
 */
 
@@ -8,11 +8,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 
 
 #include "skymaps/DiffuseFunction.h"
 #include "skymaps/CompositeSkySpectrum.h"
-#ifdef OLD
-#include "skymaps/PhotonMap.h"
-#else
 #include "skymaps/BinnedPhotonData.h"
-#endif
 
 #include "embed_python/Module.h"
 
@@ -22,7 +18,6 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 
 #include <iomanip>
 #include <stdexcept>
 
-//#define LEVELS
 
 using namespace pointlike;
 using astro::SkyDir;
@@ -54,7 +49,11 @@ int    PointSourceLikelihood::s_skip1(1);
 int    PointSourceLikelihood::s_skip2(3);
 int    PointSourceLikelihood::s_itermax(1);
 double PointSourceLikelihood::s_TSmin(5.0);
+
 int    PointSourceLikelihood::s_verbose(0);
+void PointSourceLikelihood::set_verbose(bool verbosity){s_verbose=verbosity;}
+bool PointSourceLikelihood::verbose(){return s_verbose;}
+
 double PointSourceLikelihood::s_maxstep(0.25);  // if calculated step is larger then this (deg), abort localization
 
 void PointSourceLikelihood::setParameters(const embed_python::Module& par)
@@ -126,7 +125,7 @@ void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
         const Band& b = *bit;
 
         double emin(floor(b.emin()+0.5) ), emax(floor(b.emax()+0.5));
-        if( emin < s_emin ) continue;
+        if( emin < s_emin && emax < s_emin ) continue;
         if( emax > s_emax ) break;
 
         SimpleLikelihood* sl = new SimpleLikelihood(b, m_dir, 
@@ -134,6 +133,9 @@ void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
             ,m_background
             );
         this->push_back( sl );
+    }
+    if( this->empty()){
+        throw std::invalid_argument("PointSourceLikelihood::setup: no bands to fit1");
     }
 }
 
@@ -399,7 +401,6 @@ double PointSourceLikelihood::localize()
             sig = localize(skip1, skip2); // may skip low levels
             if( sig<1) { // good location?
                 maximize();
-                printSpectrum();
             }
         }
         if( TS() < currentTS+0.1 ) break; // done if didn't improve
