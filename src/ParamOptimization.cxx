@@ -1,12 +1,11 @@
 /** @file ParamOptimization.cxx 
 @brief ParamOptimization member functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.10 2008/05/02 23:31:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.11 2008/05/08 05:41:35 mar0 Exp $
 
 */
 
 #include "pointlike/ParamOptimization.h"
-#include "skymaps/EnergyBinner.h"
 #include "TMatrixD.h"
 #include <fstream>
 //#define PRINT_DEBUG
