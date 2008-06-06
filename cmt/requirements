@@ -1,8 +1,8 @@
 package pointlike
 
-version v5r4p7
+version v6r0
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.65 2008/04/14 05:54:10 mar0 Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.66 2008/04/29 16:06:44 burnett Exp $
 
 use astro *
 use healpix *
@@ -27,6 +27,7 @@ apply_tag have_python
 #path_prepend PATH  ""  WIN32 ${POINTLIKEROOT}\${BINDIR}
 
 private
+# enable these for UW builds only
 use SwigModule *
 apply_pattern python_module
 
@@ -40,10 +41,11 @@ library pointlike \
 # fitting application, 
 application pointfit -s=pointfit $(source) -s=../python pointfit_setup.py
 
-#souce-finding application
+#source-finding application
 application pointfind -s=pointfind $(source) -s=../python pointfind_setup.py
 
-application alignment -s=alignment $(source) -s=../python alignment_setup.py
+# alignment -- not currently working
+#application alignment -s=alignment $(source) -s=../python alignment_setup.py
 
 application test_pointlike -s=test $(source)
 
