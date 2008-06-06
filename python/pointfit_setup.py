@@ -1,5 +1,5 @@
 #  setup for point fit test
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.9 2008/04/01 13:28:07 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.10 2008/04/28 03:42:11 burnett Exp $
 from  pointlike_defaults import *
 
 #  specify files with FT1 data and points to fit. pixelfile for PhotonMap, files for FT1 or merit
@@ -25,13 +25,15 @@ name = ['DC2_3EGJ1635m1751', 'HLCloud_SC1_05', 'Giommi_blazar_1237', 'bogus1', '
 ra   = [248.788,    248.4804, 248.34, 248.51, 248.27]
 dec  = [-17.861,   -18.294,  -18.71  ,-17.88, -18.12]
  
-PointSourceLikelihood.verbose=1
 name= ['vela']
 ra = [128.8359]; dec=[-45.1763]
 #Data.pixelfile = r'F:\glast\data\SC2\obssim\allsky_noGRBs.fits'
 import glob
 Data.files = glob.glob(r'F:\glast\data\SC2\obssim\LAT_allsky_*_V01.fits')[:3]
-Data.event_class=1
+Data.event_class=-1
+Data.bins_per_decade=4
+from numpy import arange
+Data.energy_bins=10.**arange(1.5,5,0.25);
 
 
 dir =(128.836673, -45.188701)
@@ -39,6 +41,4 @@ ra=[dir[0]]; dec=[dir[1]]
 name = ['crab']; ra=[83.57]; dec=[22.01]
 #name= ['DC2_3EGJ1048m5840']; dir = (137.496,	58.8367)
 
-ra=[dir[0]]; dec=[dir[1]]
 PointSourceLikelihood.skip1=1 # add to minlevel for fitting position
-PointSourceLikelihood.minlevel=6
