@@ -1,10 +1,10 @@
 # default parameters for the various parameter files
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.6 2008/02/19 21:00:33 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.7 2008/05/28 21:41:52 burnett Exp $
 #
 # Include this to set defaults, then override 
 import sys
-print 'runing %s' % sys.argv[0]
+print 'running %s' % sys.argv[0]
 
 # data selection parameters
 class Data:
@@ -17,6 +17,7 @@ class Data:
     stop_time=0.    # "
     history = ''    # optional history or FT2 file, needed to correct for misalignment if reading FT1
     LATalignment=[] # alignment correction angles about x,y,z axes, in arcseconds
+    energy_bins=[]  #
 
 
 class Diffuse:
@@ -43,11 +44,6 @@ class PointSourceLikelihood: #parameters for the likelihood calculation
     verbose = 0  # set non-zero to get lots of output
     maxstep = 0.2 # max step allowed during localization: abort if larger
     
-    # values for the gamma and sigma PSF parameters, indexed by level
-    gamma_list =[0,0,0,0,0,
-           2.25,  2.27,  2.22,  2.31,  2.30,  2.31,  2.16,  2.19,  2.07]
-    sigma_list =[0,0,0,0,0,
-           0.343, 0.335, 0.319, 0.431, 0.449, 0.499, 0.566, 0.698, 0.818]
 
 class SourceFinder:  # parameters for the SourceFinder.
 
