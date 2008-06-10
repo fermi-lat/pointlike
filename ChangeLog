@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jun 10 10:57:01 PDT 2008
+pointlike/python
+
+Modified Files:
+	fitter.py 
+Log Message:
+remove Background, moved to background.py
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-00-00, operation: add
 Package: pointlike
