@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Jun 14 11:52:49 PDT 2008
+pointlike/src
+
+Modified Files:
+	Data.cxx 
+Log Message:
+allow for either pixel format
+    *
+------------------------------------------------------------
 User: burnett  Tue Jun 10 10:57:01 PDT 2008
 pointlike/python
 
