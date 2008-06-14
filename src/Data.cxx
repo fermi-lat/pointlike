@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.36 2008/04/29 16:06:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.37 2008/05/02 23:31:39 burnett Exp $
 
 */
 
@@ -338,13 +338,18 @@ namespace {
 
 Data::Data(const embed_python::Module& setup)
 {
-    std::string pixelfile(""), tablename("PHOTONMAP"), output_pixelfile("");
+    std::string pixelfile("")
+        , output_pixelfile("");
 
     static std::string prefix("Data.");
     setup.getValue(prefix+"pixelfile", pixelfile, "");
 
     if(!pixelfile.empty()){
-        m_data = new BinnedPhotonData(pixelfile, tablename);
+        try {
+            m_data = new BinnedPhotonData(pixelfile, "PHOTONMAP" );
+        } catch( const std::exception& ){
+            m_data = new BinnedPhotonData(pixelfile, "BANDS" );
+        }
         return;
     }
 
