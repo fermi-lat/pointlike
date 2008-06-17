@@ -1,7 +1,7 @@
 /** @file RotationInfo.h 
 @brief declaration of the rotation likelihood class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/RotationInfo.h,v 1.4 2008/01/25 23:09:43 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/RotationInfo.h,v 1.5 2008/02/14 01:27:45 mar0 Exp $
 */
 #ifndef pointlike__Rotation_h
 #define pointlike__Rotation_h
@@ -42,7 +42,7 @@ namespace pointlike {
         //! @param tru source direction
         //! @param meas measured direction
         //! @param sigmasq sigma-squared (angular resolution)
-        void acc(const Hep3Vector& tru, const Hep3Vector& meas, double sigmasq, double alpha, int level);
+        void acc(const Hep3Vector& tru, const Hep3Vector& meas, double sigmasq, double alpha);
 
         static int points() {return s_points;}
     private:

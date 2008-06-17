@@ -1,16 +1,23 @@
 #  setup for point fit test
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/alignment_setup.py,v 1.2 2008/02/14 01:27:45 mar0 Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/alignment_setup.py,v 1.3 2008/03/06 07:22:28 mar0 Exp $
 
 from  pointlike_defaults import *
+import glob
 
 # setup the data file, including setting alignment
 Data.files = [r'F:\glast\data\55-day\alignment_cuts.root'] # file to test for alignment     252460800
-Data.files = [r'F:\glast\data\SC2\OneYrAllSky_startingApril\allSky_Month_01_events.fits'] # starts at 260238030
-Data.history = r'F:\glast\data\SC2\OneYrAllSky_startingApril\Gleam_survey_orbit8_long.fits'
+#Data.files = [r'F:\glast\data\SC2\OneYrAllSky_startingApril\allSky_Month_01_events.fits'] # starts at 260238030
+#Data.history = r'F:\glast\data\SC2\OneYrAllSky_startingApril\Gleam_survey_orbit8_long.fits'
 #Data.files = [r'F:\glast\data\SC2\interleave\Interleave_pruned.root']
+#Data.files = glob.glob(r'F:\glast\data\obssim3\combined_day09*.fits')
+#Data.history = r'F:\glast\data\obssim3\FT2_obssim3.fits'
 
+verbose = 0
+
+Data.energy_bins=[]
+Data.bins_per_decade=3
 Data.LATalignment=[72,0,-36]    # LAT alignment in arcsec
-Data.LATalignment=[0,0,0]
+#Data.LATalignment=[0,0,0]
 print 'LAT alignment angles: %s' % Data.LATalignment
 
 day=1+2*14 # weeks 5,6
@@ -29,14 +36,14 @@ day, ndays=1, 7 # week 1
 
 def set_days(day, nday=1):
 	seconds=86400
-	tzero=260238030
+	tzero=252460800
 	Data.start_time = tzero+(day-1)*seconds # start time in GLAST time format (252460800 for test file)
 	Data.stop_time =  Data.start_time+ nday*seconds #  stop time in GLAST time format
 	print 'set days %d-%d' % (day, day+nday-1)
 
 set_days(day, ndays)
 usefitdirection = False
-separation = 0		# minimum separation distance of sources
+separation = 3		# minimum separation distance of sources
 maxerr = 0.0167			# choose maximum localization error in degrees or return code, 
 						# error codes: 97 - step error, 98 - lost, 99 - convergence
 print 'fit direction: %s' %usefitdirection

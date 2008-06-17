@@ -1,7 +1,7 @@
 /** 
 Data Processing file, operates on a given Photon
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.10 2008/03/06 07:22:28 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.11 2008/05/02 23:31:04 burnett Exp $
 
 */
 
@@ -9,13 +9,15 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.10 2008/03
 #include "skymaps/PhotonMap.h"
 #include "pointlike/Draw.h"
 #include "astro/PointingHistory.h"
+#include "skymaps/IParams.h"
+
 
 //tip stuff
 #include "tip/IFileSvc.h"
 #include "tip/Table.h"
 
 //ROOT stuff
-#include "TMatrixD.h"
+
 #include "TFile.h"
 #include "TTree.h"
 #include "TLeaf.h"
@@ -36,7 +38,7 @@ std::ofstream surfacexyz("surfacexyz.txt");
 namespace{
 
     //extra factor (kluge for now) for correcting scaled deviation
-    double E6 =100;
+    double E6 =1000;
     int minlevel = 8;
     int maxlevel = 13;
     void ShowPercent(int sofar, int total, int found)
@@ -89,6 +91,8 @@ namespace{
     };
 
     double scale[] = {1.,1.86,1.,1.};
+
+    double sigma_k;
 }
 
 //setup initally with no rotation
@@ -96,14 +100,16 @@ HepRotation AlignProc::s_hr(0,0,0);
 int AlignProc::s_classlevel = 2;
 int AlignProc::s_umax = 50;
 
-AlignProc::AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::vector<double> >& alphas, std::vector<std::string>& files,double arcsecs, double start, double stop): 
-m_photons(6,0),
+AlignProc::AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::map<std::pair<int,int>,double> >& alphas, std::vector<std::string>& files, 
+                     const skymaps::PhotonBinner& pb, double arcsecs, double start, double stop): 
+m_photons(0),
 m_start(start),
 m_stop(stop),
 m_skydir(sources),
 m_alphas(alphas),
 m_arcsec(arcsecs),
-m_roti(arcsecs*M_PI/648000)//offx*M_PI/648000,offy*M_PI/648000,offz*M_PI/648000)
+m_roti(arcsecs*M_PI/648000),//offx*M_PI/648000,offy*M_PI/648000,offz*M_PI/648000)
+m_binner(pb)
 {
     for(std::vector<std::string>::const_iterator it = files.begin();it!=files.end();++it) {
         //either load through ROOT or cfitsio
@@ -111,14 +117,16 @@ m_roti(arcsecs*M_PI/648000)//offx*M_PI/648000,offy*M_PI/648000,offz*M_PI/648000)
     }
 };
 
-AlignProc::AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::vector<double> >& alphas, std::vector<std::string>& files,const std::string& ft2file,double arcsecs, double start, double stop): 
-m_photons(6,0),
+AlignProc::AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::map<std::pair<int,int>,double> >& alphas, std::vector<std::string>& files,const std::string& ft2file, 
+                     const skymaps::PhotonBinner& pb,double arcsecs, double start, double stop): 
+m_photons(0),
 m_start(start),
 m_stop(stop),
 m_skydir(sources),
 m_alphas(alphas),
 m_arcsec(arcsecs),
-m_roti(arcsecs*M_PI/648000)//offx*M_PI/648000,offy*M_PI/648000,offz*M_PI/648000)
+m_roti(arcsecs*M_PI/648000),//offx*M_PI/648000,offy*M_PI/648000,offz*M_PI/648000)
+m_binner(pb)
 {
     if(ft2file.empty()) {
         std::cout << "No pointing file - exiting alignment procedure" << std::endl;
@@ -216,6 +224,7 @@ pointlike::AlignProc::Photona AlignProc::events(std::vector<float>& row) {
     for(unsigned int i = 0;i<row.size();++i) {
         if(row[i]<-1e7) flag=0;
     }
+
     if(flag) {
         time = row[3];
         event_class = static_cast<int>(row[4]);
@@ -231,58 +240,48 @@ pointlike::AlignProc::Photona AlignProc::events(std::vector<float>& row) {
             decz = row[6];
             rax = row[7];
             decx = row[8];
-            energy/=scale[event_class];
         }
     }
     pointlike::AlignProc::Photona p(astro::SkyDir(ra, dec), energy, time, event_class ,
         astro::SkyDir(raz,decz),astro::SkyDir(rax,decx));
-    astro::Photon ap = p.transform(AlignProc::s_hr.inverse());
-    return pointlike::AlignProc::Photona(ap.dir(),ap.energy(),ap.time(),ap.eventClass(),astro::SkyDir(raz,decz),astro::SkyDir(rax,decx));
+    if(event_class<99) {
+        astro::Photon ap = p.transform(AlignProc::s_hr.inverse());
+        p = pointlike::AlignProc::Photona(ap.dir(),ap.energy(),ap.time(),ap.eventClass(),astro::SkyDir(raz,decz),astro::SkyDir(rax,decx));
+    }
+    return p;
 }
 
 int AlignProc::add(pointlike::AlignProc::Photona& p){
     int added(0);
     //unused int cl = p.eventClass();
     //above healpix level 8 (mostly signal photons)
-    if(p.eventClass()<2){
-        double prefact = p.eventClass()?1.86:1.;
-        int i( static_cast<int>(log(p.energy()/E6/prefact)/log(2.35)) );
-        int level = i+6;
-        if( level>maxlevel) level= maxlevel;
-        if( p.eventClass()==1 && level>11) level =11;
-        if( level<minlevel) return 0;
-
+    if(p.eventClass()<2&&p.energy()>E6){
+        
+        skymaps::Band pband = m_binner(p);
         double diff = 1e9;
         astro::SkyDir sd(0,0);
 
-        double alpha(0.);
+        int source=-1;
         //figure out the associated source
         for(int it(0);it<m_skydir.size();++it) {
             double dot = p.difference(m_skydir[it]);
             if(dot<diff) {
                 diff=dot;
                 sd = m_skydir[it];
-                alpha = m_alphas[it][level-minlevel];
+                source = it;
             }
         }
+        double alpha(0);
+
+        std::map<std::pair<int,int>,double>::const_iterator search = 
+            m_alphas[source].find(std::make_pair(pband.nside(),pband.event_class()));
+
+        alpha = search==m_alphas[source].end()?0:search->second;
         if(alpha<0) alpha=0;
-        /*double p0,p1;
         //From IRF parameters of 68% containment
 
+        double sigmasq = skymaps::IParams::sigma(p.energy(),p.eventClass());
 
-        if(p.eventClass()==0) {
-            p0 = 0.058;
-            p1 = 0.000377;
-        } else {
-            p0 = 0.096;
-            p1 = 0.0013;
-        }  
-        double sigmasq = (p0*p0*pow(p.energy()/100,-1.6))+p1*p1;*/
-#ifdef OLD /// @TODO: need to extract sigma from the data object?
-        double sigmasq = 2.5*pow(2.0,6-level)*M_PI/180.*pointlike::PointSourceLikelihood::sigma_level(level);
-#else
-        double sigmasq(1.0);
-#endif
         sigmasq *= sigmasq;
         double utest = diff*diff/sigmasq/2;
         //if scaled deviation is within the cone and enough signal photons
@@ -293,8 +292,8 @@ int AlignProc::add(pointlike::AlignProc::Photona& p){
             Hep3Vector meas = glast.inverse()*p.dir();
             Hep3Vector tru = glast.inverse()*sd();
             //accumulate likelihood statistics
-            m_roti.acc(tru,meas,sigmasq,alpha,level);
-            ++m_photons[level-minlevel];
+            m_roti.acc(tru,meas,sigmasq,alpha);
+            ++m_photons;
         }
     }
     return added;
