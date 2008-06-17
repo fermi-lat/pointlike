@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Mon Jun 16 22:26:03 PDT 2008
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+fixed alignment routines to utilize psf parametization
+    *
+------------------------------------------------------------
 User: burnett  Sat Jun 14 11:52:49 PDT 2008
 pointlike/src
 
