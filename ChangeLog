@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Mon Jun 16 22:26:04 PDT 2008
+pointlike/python
+
+Modified Files:
+	alignment_setup.py 
+Log Message:
+fixed alignment routines to utilize psf parametization
+    *
+------------------------------------------------------------
 User: mar0  Mon Jun 16 22:26:03 PDT 2008
 pointlike/pointlike
 
