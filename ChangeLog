@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: mar0  Mon Jun 16 22:26:03 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	AlignProc.h RotationInfo.h 
+Log Message:
+fixed alignment routines to utilize psf parametization
+    *
+------------------------------------------------------------
+User: mar0  Mon Jun 16 22:26:03 PDT 2008
 pointlike/cmt
 
 Modified Files:
