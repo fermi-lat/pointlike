@@ -1,13 +1,14 @@
 /** @file alignment_main.cxx
 @brief  LAT alignment main program
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/alignment/alignment_main.cxx,v 1.2 2008/02/14 01:27:45 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/alignment/alignment_main.cxx,v 1.3 2008/03/06 07:22:28 mar0 Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
 #include "pointlike/Data.h"
 #include "pointlike/AlignProc.h"
 #include "pointlike/ParamOptimization.h"
+#include "skymaps/PhotonBinner.h"
 #include "skymaps/PhotonMap.h"
 #include "embed_python/Module.h"
 
@@ -70,8 +71,8 @@ public:
         // run likelihood on all of them, select strong ones
 
         PointSourceLikelihood::setParameters(setup);
-        int minlevel = PointSourceLikelihood::minlevel();
-        int maxlevel = PointSourceLikelihood::maxlevel();
+        int minlevel = 8;//PointSourceLikelihood::minlevel();
+        int maxlevel = 13;//PointSourceLikelihood::maxlevel();
         std::cout << std::left << std::setw(20) <<"name" << "     TS   error    ra     dec\n";
         int added = 0;
         for(int i(0);i<sources.size();++i) {
@@ -81,9 +82,9 @@ public:
             if(ps.TS()>25 && err<maxerr) { //must be 5-sigma and 1 arcmin resolution 
                 ++added;
                 used_sources.push_back( usefitdirection!=0? ps.dir() : sources[i] );
-                std::vector<double> alphat;
-                for(int j(minlevel);j<=maxlevel;++j) {
-                    alphat.push_back(ps.find(j)->second->alpha());
+                std::map<std::pair<int,int>,double> alphat;
+                for(int j(0);j<ps.size();++j) {
+                    alphat.insert(std::map<std::pair<int,int>,double>::value_type(std::make_pair(ps[j]->band().nside(),ps[j]->band().event_class()),ps[j]->alpha()));
                 }
                 used_alphas.push_back(alphat);
                 used_names.push_back(names[i]);
@@ -100,16 +101,17 @@ public:
         std::cout << "Used " << added << " of " << sources.size() << " sources" << std::endl;
     }
     const std::vector<astro::SkyDir>& usedSourceList()const{return used_sources;}
-    const std::vector<std::vector<double> >& usedAlphas() const{return used_alphas;}
+    const std::vector<std::map<std::pair<int,int>,double> >& usedAlphas() const{return used_alphas;}
     const std::vector<std::string>& usedNames() const{return used_names;}
     double tstart()const{return healpixdata.minTime();}
     double tstop()const {return healpixdata.maxTime();}
     const std::vector<std::string>& filelist() { return m_filelist;}
+    const skymaps::PhotonBinner& binner() {return healpixdata.map().binner();}
 private:
     Data healpixdata;
     std::vector<std::string> m_filelist;
     std::vector<astro::SkyDir> used_sources;
-    std::vector<std::vector<double> > used_alphas;
+    std::vector<std::map<std::pair<int,int>,double> > used_alphas;
     std::vector<std::string> used_names;
 
 };
@@ -136,7 +138,7 @@ int main(int argc, char** argv)
         double start(sources.tstart()), stop(sources.tstop());
 
         std::vector<astro::SkyDir> used_sources = sources.usedSourceList();
-        std::vector<std::vector<double> > used_alphas = sources.usedAlphas();
+        std::vector<std::map<std::pair<int,int>,double> > used_alphas = sources.usedAlphas();
         std::vector<std::string> used_names = sources.usedNames();
         std::vector<std::string> filelist = sources.filelist();
 
@@ -157,10 +159,10 @@ int main(int argc, char** argv)
 
         AlignProc * ap;
         if(ft2file.empty()) {
-            ap = new AlignProc(used_sources,used_alphas,filelist, resolution, start, stop);
+            ap = new AlignProc(used_sources,used_alphas,filelist, sources.binner(), resolution, start, stop);
         }
         else {
-            ap = new AlignProc(used_sources,used_alphas,filelist, ft2file, resolution, start, stop);
+            ap = new AlignProc(used_sources,used_alphas,filelist, ft2file, sources.binner(),resolution, start, stop);
         }
 
 
@@ -179,21 +181,21 @@ int main(int argc, char** argv)
         //output sigma values
         AlignProc::LikeSurface l = ap->fitsurface();
         for(int ir(0);ir<=2;++ir) {
-            std::cout << std::setprecision(1) << std::setw(10) << pow(-2*l.curvature()[ir],-0.5);
-            (*out) << std::setprecision(1) << std::setw(10) << pow(-2*l.curvature()[ir],-0.5);
+            std::cout << std::setprecision(1) << std::setw(10) << l.curvature()[ir];
+            (*out) << std::setprecision(1) << std::setw(10) << l.curvature()[ir];
         }
         (*out) << std::endl;
         std::cout << std::endl;
 
-    if( !outfile.empty()){
-        delete out;
-    }
+        if( !outfile.empty()){
+            delete out;
+        }
 
-}catch(const std::exception& e){
-    std::cerr << "Caught exception " << typeid(e).name() 
-        << " \"" << e.what() << "\"" << std::endl;
-    help();
-    rc=1;
-}
-return rc;
+    }catch(const std::exception& e){
+        std::cerr << "Caught exception " << typeid(e).name() 
+            << " \"" << e.what() << "\"" << std::endl;
+        help();
+        rc=1;
+    }
+    return rc;
 }

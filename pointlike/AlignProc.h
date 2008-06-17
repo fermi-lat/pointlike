@@ -9,6 +9,8 @@
 #include "astro/Photon.h"
 #include "pointlike/RotationInfo.h"
 #include "pointlike/PointSourceLikelihood.h"
+#include "skymaps/PhotonBinner.h"
+#include "TMatrixD.h"
 #include <vector>
 
 namespace astro {
@@ -42,10 +44,24 @@ namespace pointlike{
             //returns the curvature of the likelihood surface to determine the deviation
             //sigma = (-2*curv)**-0.5
             std::vector<double> curvature() {
+                TMatrixD fij(3,3);
+                Double_t *det=0;
                 std::vector<double> curv;
-                for(int i(0);i<3;++i){
-                    curv.push_back(m_params[2*i]);
-                } 
+                fij[0][0]=m_params[0];
+                fij[1][1]=m_params[2];
+                fij[2][2]=m_params[4];
+                fij[0][1]=m_params[7];
+                fij[0][2]=m_params[8];
+                fij[1][2]=m_params[9];
+                fij[1][0]=fij[0][1];
+                fij[2][0]=fij[0][2];
+                fij[2][1]=fij[1][2];
+                fij=fij.Invert(det);
+                for(int i(0);i<3;++i) {
+                    double temp = fij[i][i];
+                    curv.push_back(sqrt(fabs(temp)));
+                }
+
                 return curv;
             }
 
@@ -97,9 +113,11 @@ namespace pointlike{
         //! @param sources an array of source positions
         //! @param files an array of either root merit file
         //! @param arcmins determines the resolution of the grid about the identity rotation (0,0,0)
-        AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::vector<double> >& alphas ,std::vector<std::string>& rootfiles, double arcsecs, double start=-1.0, double stop=-1.0); 
+        AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::map<std::pair<int,int>,double> >& alphas ,std::vector<std::string>& rootfiles, 
+            const skymaps::PhotonBinner& pb, double arcsecs, double start=-1.0, double stop=-1.0); 
 
-        AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::vector<double> >& alphas ,std::vector<std::string>& fitsfiles, const std::string& ft2file, double arcsecs, double start=-1.0, double stop=-1.0);
+        AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::map<std::pair<int,int>,double> >& alphas ,std::vector<std::string>& fitsfiles, const std::string& ft2file, 
+            const skymaps::PhotonBinner& pb, double arcsecs, double start=-1.0, double stop=-1.0);
         //! takes event information and returns a photon with pointing information
         pointlike::AlignProc::Photona events(std::vector<float>& row);
 
@@ -140,14 +158,15 @@ namespace pointlike{
         static int s_classlevel;
         void loadroot(const std::string& file);
         void loadfits(const std::string& file);
-        std::vector<int> m_photons; //number of photons
+        int m_photons; //number of photons
         astro::PointingHistory* m_ph;
         double m_start; //start time 0... (-1 for all)
         double m_stop; //end time ...stop
         double m_arcsec; //resolution of the grid
         RotationInfo m_roti; //contains likelihood data for each rotation grid point
         const std::vector<astro::SkyDir> m_skydir; //source positions
-        const std::vector<std::vector<double> > m_alphas; // source signal fraction
+        const std::vector<std::map<std::pair<int,int>,double> > m_alphas; // source signal fraction
+        const skymaps::PhotonBinner m_binner;
     };
 }
 #endif

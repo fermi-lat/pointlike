@@ -2,7 +2,7 @@ package pointlike
 
 version v6r0p0
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.67 2008/06/06 17:01:59 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.68 2008/06/06 17:09:24 burnett Exp $
 
 use astro *
 use healpix *
@@ -45,7 +45,7 @@ application pointfit -s=pointfit $(source) -s=../python pointfit_setup.py
 application pointfind -s=pointfind $(source) -s=../python pointfind_setup.py
 
 # alignment -- not currently working
-#application alignment -s=alignment $(source) -s=../python alignment_setup.py
+application alignment -s=alignment $(source) -s=../python alignment_setup.py
 
 application test_pointlike -s=test $(source)
 
