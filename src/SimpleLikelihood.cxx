@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.37 2008/05/08 05:41:35 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.38 2008/05/27 16:46:41 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -204,8 +204,7 @@ SimpleLikelihood::SimpleLikelihood(const skymaps::Band& band,
         const astro::SkyDir& dir, 
         double umax, 
         const skymaps::SkySpectrum* diffuse)
-        : m_band(band)
-        , m_averageF(0)
+        : m_averageF(0)
         , m_psf(band.gamma())
         , m_alpha(-1)
         , m_curv(-1)
@@ -216,13 +215,23 @@ SimpleLikelihood::SimpleLikelihood(const skymaps::Band& band,
         , m_back(0)
         , m_diffuse(diffuse)
 { 
+    m_bands.push_back(&band);
+
     m_fint =  m_psf.integral(umax) ; // for normalization of the PSF
 
     // the integral of square, used by the quick estimator
     m_fint2 = m_psf.integralSquare(m_umax);
 
-    setDir(dir);
+    m_dir = dir;
+   //setDir(dir);
 }
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void SimpleLikelihood::addBand(const skymaps::Band& moredata)
+{
+    m_bands.push_back(&moredata);
+    //reload();
+}
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SimpleLikelihood::~SimpleLikelihood()
 {
@@ -237,12 +246,19 @@ void SimpleLikelihood::setDir(const astro::SkyDir& dir, bool subset)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void SimpleLikelihood::reload(bool subset)
 {
+    using skymaps::Band;
+
     // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
     m_vec.clear();
     m_vec2.clear();
     delete m_back;
     m_back = new NormalizedBackground(m_diffuse, m_dir, sqrt(2.*m_umax)*sigma(), m_emin, m_emax);
-    m_band.query_disk(m_dir, sigma()*sqrt(2.*m_umax), m_vec);
+    
+    // select pixels within u_max, sum bands
+    for( std::vector<const Band*>::const_iterator bandit(m_bands.begin()); bandit!=m_bands.end();++bandit){ 
+       (*bandit)->query_disk(m_dir, sigma()*sqrt(2.*m_umax), m_vec);
+    }
+
     Convert conv(m_dir, m_psf, *m_back, sigma(), m_umax, m_vec2, m_vec4,  subset);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
     result.consolidate();
@@ -282,6 +298,7 @@ std::pair<double,double> SimpleLikelihood::maximize()
 {
     static double tol(1e-3), tolchange(0.05);
     static int itermax(5);
+    if( m_vec.size() ==0 ) reload(); // first time maybe
     if( m_photon_count==0) return std::make_pair(0.,0.);
     double x(m_alpha); // starting point
     int iteration(0);
@@ -438,15 +455,15 @@ double SimpleLikelihood::display(const astro::SkyDir& dir, int mode) const
         // default is density, as above
         return signal()*m_psf(u)/ m_fint/jacobian;
     }
-    SkyDir pdir(m_band.dir(m_band.index(dir)));
+    SkyDir pdir(band().dir(band().index(dir)));
     u = sqr( pdir.difference(m_dir)/sigma())/2.; // recalculate u for pixel
     if( u> m_umax ) return 0;
 
     // now look for it in the data
     PixelList::const_iterator it;
-    int index( m_band.index(pdir));
+    int index( band().index(pdir));
     for( it=m_vec.begin(); it!=m_vec.end(); ++it ) {
-        if( m_band.index(it->first) == index) break;
+        if( band().index(it->first) == index) break;
     }
 
     int counts (it==m_vec.end()? 0:  it->second);
@@ -454,7 +471,7 @@ double SimpleLikelihood::display(const astro::SkyDir& dir, int mode) const
     if( mode==1 ) return counts;   // observed in the pixel
     double back( (*m_back)(pdir) );           // normalized background at the pixel: average should be 1.0
     if( mode==2 ) return back; 
-    double area( m_band.pixelArea() );
+    double area( band().pixelArea() );
 
     double prediction ( area/jacobian * photons() * ( m_alpha*m_psf(u)/m_fint + (1.-m_alpha)*back/m_umax ) );
     if( mode==3 ) return prediction; // prediction of fit
@@ -512,3 +529,4 @@ void SimpleLikelihood::recalc(bool subset)
     m_avu = result.average_u();
     m_avb = result.average_b();
 }
+
