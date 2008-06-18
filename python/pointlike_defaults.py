@@ -1,6 +1,6 @@
 # default parameters for the various parameter files
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.7 2008/05/28 21:41:52 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.8 2008/06/06 16:18:15 burnett Exp $
 #
 # Include this to set defaults, then override 
 import sys
@@ -44,6 +44,31 @@ class PointSourceLikelihood: #parameters for the likelihood calculation
     verbose = 0  # set non-zero to get lots of output
     maxstep = 0.2 # max step allowed during localization: abort if larger
     
+class SourceLikelihood: #parameters for the likelihood calculation
+    # HEALpix level range for energy band  fits
+
+    minlevel=8   # minimum level to use for fits (>-6)  
+    maxlevel=13  # maximum level for fits  (<=13)
+    minalpha=0.01 # minimum value for signal fraction to use in TS total
+
+    # parameters governing iteration cycle of bands/position
+
+    TSmin= 0.01    # minimum TS value to allow during iteration
+    skip1=0      # inital number of layers to skip in localization fit
+    skip2=4      # don't skip beyond this
+    itermax=1    # maximum number of iterations
+
+    verbose = 0  # set non-zero to get lots of output
+    maxstep = 0.2 # max step allowed during localization: abort if larger
+    umax=50.
+
+    bgROI=0.5
+    # values for the gamma and sigma PSF parameters, indexed by level
+#    gamma_list =[0,0,0,0,0,
+#           2.25,  2.27,  2.22,  2.31,  2.30,  2.31,  2.16,  2.19,  2.07]
+#    sigma_list =[0,0,0,0,0,
+#          0.343, 0.335, 0.319, 0.431, 0.449, 0.499, 0.566, 0.698, 0.818]
+
 
 class SourceFinder:  # parameters for the SourceFinder.
 

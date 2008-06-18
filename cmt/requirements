@@ -2,14 +2,21 @@ package pointlike
 
 version v6r0p0
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.68 2008/06/06 17:09:24 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.69 2008/06/17 05:26:03 mar0 Exp $
 
 use astro *
 use healpix *
 use skymaps *
 use embed_python *
+use st_facilities *
+use tip *
+use ROOT v* IExternal
 
 use python * IExternal
+
+macro_append ROOT_libs "" Linux " -lMinuit2 -lMinuit -lHist -lGraf " \
+                          WIN32 " libMinuit.lib libMinuit2.lib libHist.lib libGraf.lib " \
+                          Darwin " -lMinuit -lMinuit2 -lHist -lGraf "
 
 apply_pattern shared_library
 
@@ -39,6 +46,10 @@ library pointlike \
  -s=../python $(source)
 
 # fitting application, 
+# application tsmap -s=tsmap $(source) 
+
+application sourcefit -s=sourcefit $(source) -s=../python sourcefit_setup.py
+
 application pointfit -s=pointfit $(source) -s=../python pointfit_setup.py
 
 #source-finding application
