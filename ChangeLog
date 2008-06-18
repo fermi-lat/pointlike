@@ -1,5 +1,16 @@
 ------------------------------------------------------------
 User: funk  Tue Jun 17 18:19:23 PDT 2008
+pointlike/python
+
+Modified Files:
+	pointlike_defaults.py 
+Added Files:
+	sourcefit_setup.py 
+Log Message:
+Added Sourcelikelihood for extended sources - Stefan + Markus
+    *
+------------------------------------------------------------
+User: funk  Tue Jun 17 18:19:23 PDT 2008
 pointlike/pointlike
 
 Added Files:
