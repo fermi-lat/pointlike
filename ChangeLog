@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: funk  Tue Jun 17 18:19:24 PDT 2008
+pointlike/src
+
+Added Files:
+	DrawTS.cxx ExtendedLikelihood.cxx ExtendedSourcePDF.cxx 
+	ResultsFile.cxx SourceLikelihood.cxx 
+Log Message:
+Added Sourcelikelihood for extended sources - Stefan + Markus
+    *
+------------------------------------------------------------
 User: funk  Tue Jun 17 18:19:23 PDT 2008
 pointlike/python
 
