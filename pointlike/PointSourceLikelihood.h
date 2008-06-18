@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.32 2008/05/27 16:46:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.33 2008/06/05 11:47:18 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -136,6 +136,9 @@ public:
     double display(const astro::SkyDir& dir, double energy, int mode)const;
 
 
+    static void set_merge(bool merge);
+    static bool merge();
+
 private:
     void setup(const skymaps::BinnedPhotonData& data);
     std::string m_name;
@@ -154,6 +157,7 @@ private:
     static double s_emin, s_emax, s_minalpha, s_TSmin, s_tolerance, 
         s_maxstep; //
     static int s_skip1, s_skip2, s_itermax, s_verbose;
+    static int s_merge;
 
  
 };

@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.39 2008/05/27 16:46:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.40 2008/06/05 11:48:41 burnett Exp $
 
 */
 
@@ -56,6 +56,11 @@ bool PointSourceLikelihood::verbose(){return s_verbose;}
 
 double PointSourceLikelihood::s_maxstep(0.25);  // if calculated step is larger then this (deg), abort localization
 
+int  PointSourceLikelihood::s_merge(1); 
+void PointSourceLikelihood::set_merge(bool merge){s_merge=merge;}
+bool PointSourceLikelihood::merge(){return s_merge!=0;}
+
+
 void PointSourceLikelihood::setParameters(const embed_python::Module& par)
 {
     static std::string prefix("PointSourceLikelihood.");
@@ -71,6 +76,9 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getValue(prefix+"verbose",  s_verbose, s_verbose);
     par.getValue(prefix+"maxstep",  s_maxstep, s_maxstep); // override with global
     par.getValue("verbose",  s_verbose, s_verbose); // override with global
+
+    par.getValue(prefix+"merge",    s_merge, s_merge); // merge Bands with same nside, sigma
+
 
     // needed by SimpleLikelihood
     double umax(SimpleLikelihood::defaultUmax());
@@ -121,21 +129,42 @@ PointSourceLikelihood::PointSourceLikelihood(
 void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
 {
 
+
+    // select list for inclusion
+    std::list<std::pair<const Band*,bool> > bands;
     for( skymaps::BinnedPhotonData::const_iterator bit = data.begin(); bit!=data.end(); ++bit){
         const Band& b = *bit;
 
         double emin(floor(b.emin()+0.5) ), emax(floor(b.emax()+0.5));
         if( emin < s_emin && emax < s_emin ) continue;
         if( emax > s_emax ) break;
+        bands.push_back(std::make_pair(&b,true));
+    }
+    for( std::list<std::pair<const Band*,bool> >::iterator bit1 = bands.begin(); bit1 !=bands.end(); ++bit1){
+        if( ! bit1->second) continue; // already used
 
-        SimpleLikelihood* sl = new SimpleLikelihood(b, m_dir, 
+        // create new SimpleLikelihood object
+        const Band& b1( *(*bit1).first );
+        SimpleLikelihood* sl = new SimpleLikelihood(b1, m_dir, 
             SimpleLikelihood::defaultUmax() 
             ,m_background
             );
+        if( merge() ){
+            // add other bands with identical properties if requested
+            for( std::list<std::pair<const Band*,bool> >::iterator bit2(bit1); bit2 !=bands.end(); ++bit2){
+                if( bit1==bit2) continue;
+                const Band& b2( *(*bit2).first );
+                if( b1.nside() == b2.nside() && b2.sigma() == b1.sigma() ){
+                    sl->addBand(b2);
+                    (*bit2).second=false; // mark as used
+                }
+            }
+        }
         this->push_back( sl );
     }
+
     if( this->empty()){
-        throw std::invalid_argument("PointSourceLikelihood::setup: no bands to fit1");
+        throw std::invalid_argument("PointSourceLikelihood::setup: no bands to fit!");
     }
 }
 

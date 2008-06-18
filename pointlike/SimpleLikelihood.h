@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.26 2008/05/08 05:42:17 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.27 2008/05/27 16:46:41 burnett Exp $
 
 */
 
@@ -48,7 +48,11 @@ public:
 
     ~SimpleLikelihood();
 
-    const skymaps::Band& band()const {return m_band;}
+    const skymaps::Band& band()const {return *m_bands[0];}
+
+
+    //! @brief add a band to the existing set.  Do it following constructor
+    void addBand(const skymaps::Band& moredata);//{m_bands->push_back(&moredata);}
 
     //! @return log likelihood for the signal fraction
     //! @param a value for signal fraction (default: use last fit)
@@ -164,7 +168,9 @@ private:
 
 
     mutable double m_w;      // likelihood from gradient
-    const skymaps::Band& m_band;
+
+    std::vector<const skymaps::Band*> m_bands;
+    
     typedef std::vector<std::pair<astro::SkyDir, int> > PixelList;
     PixelList m_vec;
     
