@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Wed Jun 18 15:12:52 PDT 2008
+pointlike/src
+
+Modified Files:
+	ExtendedLikelihood.cxx SourceLikelihood.cxx 
+Log Message:
+windows compile mods
+    *
+------------------------------------------------------------
+User: burnett  Wed Jun 18 15:12:52 PDT 2008
 pointlike/pointlike
 
 Modified Files:
