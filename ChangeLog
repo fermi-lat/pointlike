@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 User: funk  Tue Jun 17 18:19:23 PDT 2008
+pointlike/pointlike
+
+Added Files:
+	DrawTS.h ExtendedLikelihood.h ExtendedSourcePDF.h 
+	HypergeometricFunction.h ResultsFile.h SourceLikelihood.h 
+Log Message:
+Added Sourcelikelihood for extended sources - Stefan + Markus
+    *
+------------------------------------------------------------
+User: funk  Tue Jun 17 18:19:23 PDT 2008
 pointlike/cmt
 
 Modified Files:
