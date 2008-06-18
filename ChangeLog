@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jun 18 07:41:10 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h SimpleLikelihood.h 
+Log Message:
+Implement scheme to combine bands before fitting  with same nside and sigma
+    *
+------------------------------------------------------------
 User: funk  Tue Jun 17 18:19:24 PDT 2008
 pointlike/src/tsmap
 
