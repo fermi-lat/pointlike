@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jun 18 15:12:52 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	HypergeometricFunction.h 
+Log Message:
+windows compile mods
+    *
+------------------------------------------------------------
 User: burnett  Wed Jun 18 07:41:10 PDT 2008
 pointlike/src
 
