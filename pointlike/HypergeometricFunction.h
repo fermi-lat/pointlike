@@ -7,6 +7,13 @@
 #include <vector>
 #include <stdexcept>
 
+#if defined(WIN32) && !defined(NAN)
+static const unsigned int nan[2]={0xffffffff, 0x7fffffff};
+#define NAN (*(const double *) nan)
+#endif
+
+
+
 // lazy man's evaluation of the hypergeometric function
 // only valid between 0<= x < 1 :
 // for x<0.7 evaluate series, for x >=0.7 use the reflection formula 15.3.7 from Abramowitz and Stegun before
@@ -60,7 +67,11 @@ namespace {
        if(w>0 && z<0) return exp(lngamma(w)+lngamma(1-z))*sz/M_PI;
        if(w<0 && z>0) return exp(lngamma(z)-lngamma(1-w))*M_PI/sw;
        if(w<0 && z<0) return exp(lngamma(1-z)-lngamma(1-w))*sz/sw;
+#ifndef WIN32
        return NAN;
+#else
+       return 1e30; // can't figure out how to set it, should not matter
+#endif
     };
 };
 
