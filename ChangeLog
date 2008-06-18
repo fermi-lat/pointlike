@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Wed Jun 18 07:41:10 PDT 2008
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx SimpleLikelihood.cxx 
+Log Message:
+Implement scheme to combine bands before fitting  with same nside and sigma
+    *
+------------------------------------------------------------
+User: burnett  Wed Jun 18 07:41:10 PDT 2008
 pointlike/pointlike
 
 Modified Files:
