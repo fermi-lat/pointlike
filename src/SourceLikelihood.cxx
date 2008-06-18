@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.26 2008/02/24 19:06:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.1 2008/06/18 01:19:24 funk Exp $
 
 */
 #define USE_GRADIENT
@@ -662,13 +662,16 @@ double pointlike::SourceLikelihood::localizeMinuit(int skip)
   // Set the pointer for access in the minuit function
   gSourcePointer = this;
   gMinuit.SetFCN(minuit_likelihood_wrapper);
-  
+#ifndef WIN32
   double par[npar];
   double stepSize[npar];
   double minVal[npar];
   double maxVal[npar];
   std::string parName[npar];
-  
+#else
+  std::vector<double> par(npar), stepSize(npar),minVal(npar),maxVal(npar);
+  std::vector<std::string> parName(npar);
+#endif  
   par[0] = 0.;            par[1] = 0.;
   stepSize[0] = 0.01;     stepSize[1] = 0.01;
   minVal[0] = -0.5;       minVal[1] = -0.5;

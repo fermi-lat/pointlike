@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.cxx
     @brief Implementation of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.24 2008/02/19 21:03:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.1 2008/06/18 01:19:24 funk Exp $
 */
 
 #include "pointlike/ExtendedLikelihood.h"
@@ -107,9 +107,10 @@ namespace {
             double signal(m_f(u)/m_F)
                  , bkg(m_back(x.first()))
                  , q( bkg/(signal*m_umax-bkg)); 
-
+#ifndef WIN32 // todo: set up equivalents
             if(isnan(signal) || isinf(signal))
 	       std::cerr<<"WARNING: nan/inf encountered in signal ."<<std::endl;
+#endif
 
             m_sum   += x.second*signal;
             m_count += x.second;
@@ -390,11 +391,17 @@ std::pair<double,double> ExtendedLikelihood::maximizeMinuit()
   gExtendedPointer = this;
   gMinuit->SetFCN(extended_likelihood_wrapper);
 
+#ifndef WIN32
   double par[npar];
   double stepSize[npar];
   double minVal[npar];
   double maxVal[npar];
   std::string parName[npar];
+#else
+  std::vector<double> par(npar), stepSize(npar),minVal(npar),maxVal(npar);
+  std::vector<std::string> parName(npar);
+#endif  
+
   par[0] = x;
   stepSize[0] = 0.001;
   minVal[0] = 0.;
