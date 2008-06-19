@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: glastrm  Thu Jun 19 16:39:27 PDT 2008
+ScienceTools-scons/pointlike
+
+Modified Files:
+	SConscript 
+Log Message:
+Added Author and Version fields
+    *
+------------------------------------------------------------
 User: burnett  Thu Jun 19 16:23:50 PDT 2008
 pointlike
 
