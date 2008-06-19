@@ -1,22 +1,4 @@
 ------------------------------------------------------------
-User: burnett  Fri Jun  6 10:09:24 PDT 2008
-pointlike/doc
-
-Modified Files:
-	release.notes 
-Log Message:
-oops.
-    *
-------------------------------------------------------------
-User: burnett  Fri Jun  6 10:09:24 PDT 2008
-pointlike/cmt
-
-Modified Files:
-	requirements 
-Log Message:
-oops.
-    *
-------------------------------------------------------------
 TAG
 Tag name: v6r0, operation: add
 Package: pointlike
