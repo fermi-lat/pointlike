@@ -1,7 +1,7 @@
 /** @file finder_main.cxx
     @brief  Finder
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.13 2008/01/25 01:07:06 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.14 2008/05/27 16:46:41 burnett Exp $
 
 */
 #include "pointlike/SourceFinder.h"
@@ -29,13 +29,12 @@ int main(int argc, char** argv)
     int rc(0);
     try{
 
-        std::string python_path("../python");
+        std::string python_path("../python"), setup_file("pointfind_setup");
 
-        if( argc>1){
-            python_path = argv[1];
-        }
+        if( argc>1) python_path = argv[1];
+        if( argc>2) setup_file = argv[2];
 
-        Module setup(python_path , "pointfind_setup",  argc, argv);
+        Module setup(python_path , setup_file,  argc, argv);
   
         // create healpix database using parameters in the setup file
         Data healpixdata(setup);
@@ -49,7 +48,6 @@ int main(int argc, char** argv)
         pointlike::SourceFinder finder(healpixdata);
 
         finder.run();
-
 
 
     }catch(const std::exception& e){
