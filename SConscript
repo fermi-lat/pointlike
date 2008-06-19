@@ -1,7 +1,10 @@
+# -*- python -*-
 # @file SConscript
 # @brief scons build specifications
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/SConscript,v 1.3 2008/02/22 15:07:08 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/SConscript,v 1.5 2008/06/19 23:23:50 burnett Exp $
+# Authors: Toby Burnett <tburnett@u.washington.edu>
+# Version: pointlike-06-00-00
 
 #specify package name, applications
 package= 'pointlike'
