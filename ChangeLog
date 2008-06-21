@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jun 20 17:40:30 PDT 2008
+pointlike/src/sourcefit
+
+Modified Files:
+	sourcefit_main.cxx 
+Log Message:
+fix for windows
+    *
+------------------------------------------------------------
 User: burnett  Fri Jun 20 17:39:08 PDT 2008
 pointlike/src
 
