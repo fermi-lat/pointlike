@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jun 20 17:38:08 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	SourceFinder.h 
+Log Message:
+clean up, merge bands with same nside
+    *
+------------------------------------------------------------
 TAG
 Tag name: v6r0p0, operation: mov
 Package: pointlike
