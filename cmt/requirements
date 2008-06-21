@@ -1,8 +1,8 @@
 package pointlike
 
-version v6r0p0
+version v6r1
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.69 2008/06/17 05:26:03 mar0 Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.70 2008/06/18 01:19:23 funk Exp $
 
 use astro *
 use healpix *
@@ -14,24 +14,11 @@ use ROOT v* IExternal
 
 use python * IExternal
 
-macro_append ROOT_libs "" Linux " -lMinuit2 -lMinuit -lHist -lGraf " \
-                          WIN32 " libMinuit.lib libMinuit2.lib libHist.lib libGraf.lib " \
-                          Darwin " -lMinuit -lMinuit2 -lHist -lGraf "
-
 apply_pattern shared_library
 
 # this should cause the IExternal/python setup to avoid modifying PYTHONPATH or PATH
 apply_tag have_python
 
-# make python modules accessible
-#path_remove  PYTHONPATH "$(POINTLIKEROOT)" 
-#path_prepend PYTHONPATH "$(POINTLIKEROOT)/python" 
-
-# undo and redo these to make sure pointlike is first in path
-#path_remove  LD_LIBRARY_PATH  "pointlike" WIN32 ""
-#path_prepend LD_LIBRARY_PATH  ${pointlike_cmtpath}/lib/ WIN32  ""
-#path_remove  PATH  ""  WIN32 \pointlike\ 
-#path_prepend PATH  ""  WIN32 ${POINTLIKEROOT}\${BINDIR}
 
 private
 # enable these for UW builds only
@@ -48,15 +35,22 @@ library pointlike \
 # fitting application, 
 # application tsmap -s=tsmap $(source) 
 
+macro_append ROOT_libs "" Linux " -lMinuit2 -lMinuit -lHist -lGraf " \
+                          WIN32 " libMinuit.lib libMinuit2.lib libHist.lib libGraf.lib " \
+                          Darwin " -lMinuit -lMinuit2 -lHist -lGraf "
+#macro sourcefit_linkopts  " -lMinuit -lMinuit2 -lHist -lGraf "\
+#                    WIN32 " libMinuit.lib libMinuit2.lib libHist.lib libGraf.lib " 
+
 application sourcefit -s=sourcefit $(source) -s=../python sourcefit_setup.py
 
+# fit a list of given directions
 application pointfit -s=pointfit $(source) -s=../python pointfit_setup.py
 
 #source-finding application
 application pointfind -s=pointfind $(source) -s=../python pointfind_setup.py
 
 # alignment -- not currently working
-application alignment -s=alignment $(source) -s=../python alignment_setup.py
+#application alignment -s=alignment $(source) -s=../python alignment_setup.py
 
 application test_pointlike -s=test $(source)
 
