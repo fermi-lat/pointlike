@@ -1,6 +1,6 @@
 # default parameters for the various parameter files
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.8 2008/06/06 16:18:15 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.9 2008/06/18 01:19:23 funk Exp $
 #
 # Include this to set defaults, then override 
 import sys
@@ -45,19 +45,9 @@ class PointSourceLikelihood: #parameters for the likelihood calculation
     maxstep = 0.2 # max step allowed during localization: abort if larger
     
 class SourceLikelihood: #parameters for the likelihood calculation
-    # HEALpix level range for energy band  fits
-
-    minlevel=8   # minimum level to use for fits (>-6)  
-    maxlevel=13  # maximum level for fits  (<=13)
-    minalpha=0.01 # minimum value for signal fraction to use in TS total
-
-    # parameters governing iteration cycle of bands/position
 
     TSmin= 0.01    # minimum TS value to allow during iteration
-    skip1=0      # inital number of layers to skip in localization fit
-    skip2=4      # don't skip beyond this
-    itermax=1    # maximum number of iterations
-
+    emin = 500   # minimim energy for bands
     verbose = 0  # set non-zero to get lots of output
     maxstep = 0.2 # max step allowed during localization: abort if larger
     umax=50.
@@ -72,11 +62,11 @@ class SourceLikelihood: #parameters for the likelihood calculation
 
 class SourceFinder:  # parameters for the SourceFinder.
 
+    pass1_nside=256      # HEALpix binning for initial points.
     TSmin = 8.0          # overall minimum TS
-    pixel_fraction = 1.0 # fraction of pixels to sample, sorted according to weighted photon count
+    pixel_fraction = 1.0 # fraction of pixels to sample, sorted according to TS
     prune_radius =0.25   # pruning radius in degrees (also needs to be tuned)
     group_radius = 4.0   # maximum radius for nearby sources.
     examine_radius=180   # default is to examine full sky
-    pass1_nside=256      #
             
 

@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.27 2008/05/27 16:46:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.28 2008/05/28 21:40:37 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -58,13 +58,7 @@ namespace pointlike {
         double dec() const {return m_dir.dec();}
         bool is2bdeleted () const {return m_2bdeleted;}
         bool isSource () const {return m_isSource;}
-#ifdef OLD
-        double pl_slope () const {return m_pl_slope;}
-        double pl_constant () const {return m_pl_constant;}
-        double pl_confidence () const {return m_pl_confidence;}
-#else
         PointSourceLikelihood* fit(){return m_fit;}
-#endif
         int weighted_count () const {return m_weighted_count;}
         int skipped () const {return m_skipped;}
         bool hasStrongNeighbor() const {return m_hasStrongNeighbor;}
@@ -78,14 +72,7 @@ namespace pointlike {
         void setValue(int level, double val) {m_values[level] = val;}
         void setPhotons(int level, double photons) {m_photons[level] = photons;}
         void setSigalph(int level, double sigalph) {m_sigalph[level] = sigalph;}
-#ifdef OLD
-        void set_pl_slope (double value = 0.0) {m_pl_slope = value;}
-        void set_pl_constant (double value = 0.0) {m_pl_constant = value;}
-        void set_pl_confidence (double value = 0.0) {m_pl_confidence = value;}
-        void set_weighted_count (int value = 0) {m_weighted_count = value;}
-#else
         void set_fit(PointSourceLikelihood* fit){m_fit=fit;}
-#endif
         void set_skipped (int value = 0) {m_skipped = value;}
         void setHasStrongNeighbor (bool value = true) {m_hasStrongNeighbor = value;}
         void setStrongNeighbor (int value) {m_strongNeighbor = value;}
@@ -99,13 +86,7 @@ namespace pointlike {
         astro::SkyDir m_dir;
         bool   m_2bdeleted; // True means this is flagged to be deleted later.
         bool   m_isSource;  // True if this corresponds to a confirmed source
-#ifdef OLD
-        double m_pl_slope; // Slope of power law fit.
-        double m_pl_constant; // b from (y = mx + b) for power law fit.
-        double m_pl_confidence; // Confidence of the power law fit. 1 == perfect fit.
-#else
         PointSourceLikelihood* m_fit;
-#endif
         int m_weighted_count; // weighted count of photons in enclosing pixel.  level of enclosing pixel is determined by pointfind_setup.py
         int m_skipped; // number of candidates rejected before this one was accepted.  Count is reset each time a candidate is accepted.
         bool m_hasStrongNeighbor;  // Is there a stronger nearby candidate?
@@ -129,13 +110,6 @@ namespace pointlike {
         typedef std::map<double, CanInfo> Prelim; // Preliminary candidates
 
         //! Region selection
-        typedef enum  
-        {
-            ALL = 0, ///< Select all regions.
-            EQUATORIAL = 1,  ///< Select equatorial region only.
-            MIDDLE = 2, ///< Select middle region only.
-            POLAR = 3, ///< Select polar region only.
-        } RegionSelector;
 
         /** @brief return modifiable reference to candidates map
         */
@@ -144,31 +118,10 @@ namespace pointlike {
         /** @brief Analyze range of likelihood significance values for all pixels at a particular level  
         */
         void examineRegion(void) ;
-#if 0
-        /** @brief Analyze likelihood again for candidates that had a strong neighbor.  Strong neighbor is added to background.  
-        */
-        void reExamine(void) ;
-#endif
-        /** @brief Analyze likelihood significance for a particular direction  
-        */
 
-        void checkDir(astro::SkyDir & sd,
-            double eq_TS_min = 25.0, // Equatorial TS cutoff,
-            double mid_TS_min = 19.0, // Mid-latitude TS cutoff
-            double polar_TS_min = 18.0, // Polar TS cutoff
-            int    pix_level = 8, 
-            int count_threshold = 16);
-
-        // List selected pixels
-        void list_pixels();
 
         //! Eliminate neighbors within cone
         void prune_neighbors(void);
-#if 0
-
-        //! Eliminate weaker adjacent neighbors
-        void prune_adjacent_neighbors();
-#endif
 
         //! summarize results in a ds9 region file
         void createReg(const std::string& filename, double radius = -1.,
@@ -188,7 +141,7 @@ namespace pointlike {
             const std::string & tablename="PNTFIND", bool clobber= true) const;
 
         //! write a reg file
-        void createRegFile(std::string filename, std::string color="white")const;
+        void createRegFile(std::string filename, std::string color="white", double tsmin=0)const;
 
 
         //! run the current set of steps
