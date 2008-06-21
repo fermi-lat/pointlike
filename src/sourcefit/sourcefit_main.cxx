@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.16 2008/01/27 02:31:33 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/sourcefit/sourcefit_main.cxx,v 1.1 2008/06/18 01:19:24 funk Exp $
 
 */
 #include "pointlike/SourceLikelihood.h"
@@ -95,8 +95,8 @@ int main(int argc, char** argv)
     // 	}
     
     (*out) << std::left << std::setw(20) <<"name" << "     TS   error    ra     dec\n";
-    
-    for( size_t n=0; n< names.size(); ++n){
+    size_t n=0;
+    for( ; n< names.size(); ++n){
       astro::SkyDir dir(ras[n], decs[n]);
       std::string name(names[n]);
       std::string type(types[n]);
