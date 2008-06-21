@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.22 2008/04/28 03:42:10 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.23 2008/05/02 23:31:38 burnett Exp $
 */
 
 
@@ -90,6 +90,9 @@ public:
 
     /// @brief summary printout of the BinnedPhotonData object
     void info(std::ostream& out = std::cout);
+
+    /// @brief combine similar bands after read in
+    void combine_bands(); 
 
     ///@brief access to static that defines class level cut for ROOT
     static int class_level();
