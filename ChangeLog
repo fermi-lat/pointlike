@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Fri Jun 20 17:39:08 PDT 2008
+pointlike/src
+
+Modified Files:
+	Data.cxx 
+Log Message:
+provide for merging similar bands
+    *
+------------------------------------------------------------
+User: burnett  Fri Jun 20 17:39:08 PDT 2008
 pointlike/pointlike
 
 Modified Files:
