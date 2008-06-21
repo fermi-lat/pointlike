@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Fri Jun 20 17:38:09 PDT 2008
+pointlike/src
+
+Modified Files:
+	SourceFinder.cxx 
+Log Message:
+clean up, merge bands with same nside
+    *
+------------------------------------------------------------
+User: burnett  Fri Jun 20 17:38:09 PDT 2008
 pointlike/python
 
 Modified Files:
