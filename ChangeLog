@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jun 20 17:38:09 PDT 2008
+pointlike/python
+
+Modified Files:
+	pointlike_defaults.py 
+Log Message:
+clean up, merge bands with same nside
+    *
+------------------------------------------------------------
 User: burnett  Fri Jun 20 17:38:08 PDT 2008
 pointlike/pointlike
 
