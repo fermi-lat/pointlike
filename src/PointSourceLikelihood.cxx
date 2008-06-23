@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.40 2008/06/05 11:48:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.41 2008/06/18 14:41:10 burnett Exp $
 
 */
 
@@ -43,6 +43,10 @@ double PointSourceLikelihood::s_emax(1e6);
 void PointSourceLikelihood::set_energy_range(double emin, double emax){
     s_emin = emin; s_emax=emax;
 }
+void PointSourceLikelihood::get_energy_range(double& emin, double& emax){
+    emin = s_emin; emax=s_emax;
+}
+
 
 double PointSourceLikelihood::s_minalpha(0.05);
 int    PointSourceLikelihood::s_skip1(1);
