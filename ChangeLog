@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jun 23 07:32:28 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	SourceFinder.h 
+Log Message:
+clean up; implement log file
+    *
+------------------------------------------------------------
 User: burnett  Mon Jun 23 07:31:20 PDT 2008
 pointlike/src
 
