@@ -1,7 +1,7 @@
 /** @file finder_main.cxx
     @brief  Finder
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.14 2008/05/27 16:46:41 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.15 2008/06/19 15:19:08 burnett Exp $
 
 */
 #include "pointlike/SourceFinder.h"
@@ -13,9 +13,12 @@
 #include <iostream>
 
 void help(){
-    std::cout << "This program expects a single command-line parameter which is the path to a folder containing a file\n"
-        "\tpointfind_setup.py" 
-        << std::endl;
+    std::cout <<
+        "Usage:  pointfind [path] [setup_file]\n"
+        "\n"
+        "\tpath        [../python] path to folder containing a python setup file\n"
+        "\tsetup_file  [pointfind_setup] name of a python module file (without the .py)\n"
+         << std::endl;
         
 }
 
@@ -38,7 +41,6 @@ int main(int argc, char** argv)
   
         // create healpix database using parameters in the setup file
         Data healpixdata(setup);
-        healpixdata.info();
 
         // define all parameters used by PointSourceLikelihood
         PointSourceLikelihood::setParameters(setup);
