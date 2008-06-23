@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jun 23 07:33:44 PDT 2008
+pointlike/src/pointfind
+
+Modified Files:
+	finder_main.cxx 
+Log Message:
+clean up: better help message
+    *
+------------------------------------------------------------
 User: burnett  Mon Jun 23 07:32:29 PDT 2008
 pointlike/src
 
