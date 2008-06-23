@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.39 2008/05/28 21:40:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.40 2008/06/21 00:38:09 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -13,6 +13,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.39 2008
 
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <iomanip>
 #include <time.h>
 #include <cmath>
@@ -77,6 +78,7 @@ namespace {
     std::string regcolor("white");
     std::string fitsfile;
     std::string imagefile;
+    std::string logfile;
     double imageresolution(0.1);
 
     static std::string prefix("SourceFinder.");
@@ -105,6 +107,7 @@ void SourceFinder::setParameters(const embed_python::Module & module)
     module.getValue(prefix+"imagefile", imagefile, "");
     module.getValue(prefix+"imageresolution", imageresolution, imageresolution);
 
+    module.getValue(prefix+"logfile", logfile, "");
     double l,b,ra,dec;
     module.getValue(prefix+"l", l, 999.);
     module.getValue(prefix+"b", b, 999.);
@@ -122,28 +125,47 @@ void SourceFinder::setParameters(const embed_python::Module & module)
 
 SourceFinder::SourceFinder(const pointlike::Data& map)
 : m_pmap(map)
-, m_counts(0)
 {
-}
+    if( ! logfile.empty() ){
+        m_log = new std::ofstream(logfile.c_str());
+    }else{
+        m_log = & std::cout;
+    }
+    timer("---------------SourceFinder----------------", out());  
 
+    map.map().info(out());
+}
+SourceFinder::~SourceFinder()
+{
+    if( m_log != &std::cout){
+        dynamic_cast<std::ofstream*>(m_log)->close();
+    }
+}
 
 /** @brief
 Analyze range of likelihood significance values for all pixels at a particular level  
 */
 void SourceFinder::examineRegion(void) 
 {  
-    timer("---------------SourceFinder::examineRegion----------------");  
-   // getParameters(m_module); // load all parameters
-
+    //
+    // ---------------- phase 1: make list of seed positions ---------------------
+    //
     double  radius(examine_radius);
     if( radius>=180){
         radius = 179.99999; // bug in gcc version of healpix code
-        std::cout << "Examining full sky"<< std::endl;
+        out() << "Examining full sky"<< std::endl;
     }else{
-        std::cout << "Examining cone of radius "<< radius<<
+        out() << "Examining cone of radius "<< radius<<
             " about (ra,dec)=" 
-            << std::setprecision(5) << examine_dir.ra()<<", " << examine_dir.dec() << std::endl;
+            << std::fixed << std::setprecision(2) 
+            << examine_dir.ra()<<", " << examine_dir.dec() 
+            << "; (l,b)= "<< examine_dir.l()<<", " << examine_dir.b() 
+            << std::resetiosflags(std::ios::fixed)<< std::setprecision(6) 
+            << std::endl;
     }
+    double emin,emax;
+    PointSourceLikelihood::get_energy_range(emin, emax);
+    out() << "minimum energy used by PointSourceLikelihood: " << emin << std::endl;
 
 
     typedef  std::vector< std::pair<int, int> > PixelVector;
@@ -169,16 +191,22 @@ void SourceFinder::examineRegion(void)
     {
         throw std::invalid_argument("SourceFinder: did not find a Band with requested nside");
     }
-    std::cout <<  "First pass will examine " << m.size() 
+
+    // ------------------- phase 2: examine all pixels with data ---------------------------
+    //
+    skymaps::SkySpectrum* saved_diffuse = PointSourceLikelihood::set_diffuse(0); // clear the diffuse for this
+
+    out() <<  "First pass will examine " << m.size() 
               << " pixels with nside = " << bpit->nside() << std::endl;
     Prelim can; // for list of candidates indexed by TS
     can.clear();
-    size_t num(0);
+    size_t found(0), total(m.size()), count(0);
 
 
     // examine un-localized likelihood for each returned pixel
-    for(PixelMap::const_iterator it = m.begin(); it != m.end(); ++it)
+    for(PixelMap::const_iterator it = m.begin(); it != m.end(); ++it, ++count)
     {
+        ShowPercent(count, total, found);
         SkyDir sd(bpit->dir(it->first));
         PointSourceLikelihood ps(m_pmap, "test", sd );
         double ts = ps.maximize();
@@ -186,15 +214,21 @@ void SourceFinder::examineRegion(void)
         if (ts > ts_min)
         {
             can.insert(std::make_pair(ts, CanInfo(ts, 0, sd) ) );
-            ++num;
+            ++found;
         }
     }
+    //
+    // --------------------- phase 3: refit the found guys ----------------------------------
+    //
+    PointSourceLikelihood::set_diffuse(saved_diffuse);  // need full diffuse for this
 
-    size_t fract = static_cast<size_t>(num * pixel_fraction); 
+    size_t fract = static_cast<size_t>(found * pixel_fraction); 
 
-    std::cout <<  "Found " << num 
+    out() <<  "Found " << found 
         << " pixels with TS >= " << ts_min
         << "; will examine " << fract<< std::endl;
+
+    timer("start refit", out());
 
     m_can.clear();
     size_t i(0);
@@ -204,24 +238,26 @@ void SourceFinder::examineRegion(void)
     // Examine full likelihood fit for most significant preliminary candidates
     for (Prelim::reverse_iterator it = can.rbegin(); it != can.rend() && i < fract; ++ it, ++i)
     {
+        CanInfo& candidate(it->second);
         ShowPercent(i, fract, m_can.size());
 
-        const SkyDir& currentpos = it->second.dir();
+        const SkyDir& currentpos = candidate.dir();
         
         // See if we have already found a candidate near this location
-        int neighbor_index;;
+        int neighbor_index(-1);
         double max_value = 0.0;
         bool neighbor_found(false);
         if (group_radius > 0.0)
         {
             for (Candidates::iterator it2 = m_can.begin();  it2 != m_can.end(); ++it2)
             {
-                double diff = currentpos.difference(it2->second.dir())*180/M_PI;
-                if (diff <= group_radius && it2->second.value() > it->first)
+                CanInfo& other( it2->second);
+                double diff = currentpos.difference(other.dir())*180/M_PI;
+                if (diff <= group_radius && other.value() > it->first)
                 {
                     if (it2->second.value() > max_value)
                     {
-                        max_value = it2->second.value();
+                        max_value = other.value();
                         neighbor_found = true;
                         neighbor_index = it2->first;
                     }
@@ -246,6 +282,7 @@ void SourceFinder::examineRegion(void)
 
             // Add strong neighbor to this candidate's background
             ps.addBackgroundPointSource(strong.fit());
+            candidate.setStrongNeighbor(neighbor_index);
         }
         double ts = ps.maximize();
         if (ts < ts_min)
@@ -280,16 +317,13 @@ void SourceFinder::examineRegion(void)
             continue;
         }
 
-        m_can[healpix_index] = CanInfo(ts, error, sd);
+        m_can[healpix_index] = CanInfo(ts, error, sd, neighbor_index);
 
 
     }
-    std::cout << m_can.size() << " sources found before pruning neighbors.\n";
-    timer();
+    out() << m_can.size() << " sources found before pruning neighbors.\n";
+    timer("", out());
 }   
-
-
-
 
 
 // Eliminate weaker neighbors
@@ -300,12 +334,14 @@ void SourceFinder::prune_neighbors(void)
     if(radius==0) return;
     int pruned_by_distance(0), pruned_by_sigma(0);
 
-    std::cout << "Eliminating weaker neighbors using radius of " << radius << " degrees...\n";
+    out() << "Eliminating weaker neighbors using radius of " << radius << " degrees...\n";
 
     // Mark weaker neighbors: loop over all pairs
     for (Candidates::iterator it1 = m_can.begin(); it1 != m_can.end(); ++it1) 
     {
-        double sigma1 ( it1->second.sigma());
+        CanInfo & cand1 ( it1->second);
+
+        double sigma1 ( cand1.sigma());
         for (Candidates::iterator it2 =it1;  it2 != m_can.end(); ++it2)
         {
             if (it1 == it2)   continue;  // Don't compare to yourself.  
@@ -333,10 +369,10 @@ void SourceFinder::prune_neighbors(void)
             m_can.erase(it2);
     }
 
-    std::cout << pruned_by_distance << " pruned by distance.\n";
-    std::cout << pruned_by_sigma << " pruned by sigma.\n";
-    std::cout << m_can.size() << " source Candidates remain.\n";
-    timer();
+    out() << pruned_by_distance << " pruned by distance, " << radius << "degrees\n";
+    out() << pruned_by_sigma << " pruned by sigma\n. ";
+    out() << m_can.size() << " source Candidates remain.\n";
+    timer("", out());
 }
 
 void SourceFinder::createReg(const std::string& fileName, double radius, const std::string& color)
@@ -376,50 +412,36 @@ static float precision(double x, double s) // s is power of 10, like 0.01
 {
     return float(int(x/s+0.5))*s;
 }
-void SourceFinder::createTable(const std::string& fileName, 
-                               bool/* get_background*/,   // not used?
-                               int /*skip_TS*/)
+void SourceFinder::createTable(const std::string& fileName)
 {
     std::cout << "Writing results to the table " << fileName << std::endl;
 
     std::ofstream table;
     table.open(fileName.c_str());
-    std::string delim=(" ");
-    table << "Name  source_flag ra  dec  sigma  circle  l b ";
-    table << "TS6 TS7 TS8 TS9 TS10 TS11 TS12 TS13 ";
-    table << "n6 n7 n8 n9 n10 n11 n12 n13 ";
-    table << "pl_m pl_b pl_sigma pl_chi_sq ";
-    table << "weighted_count skipped";
+    std::string delim("\t");
+    table << "id\tra\tdec\tTS\tsigma\tneighbor ";
 
     table << std::endl;
 
 
     for (Candidates::iterator it = m_can.begin(); it != m_can.end(); ++it) {
-        // refit to get energy spectrum
-        SkyDir dir = it->second.dir();
+        CanInfo & cand ( it->second);
+        SkyDir dir = cand.dir();
 
         table
-            << "UW_J"<< int(dir.ra()*10+0.5) 
-            << ( dir.dec()>0? "p":"m") << int(fabs(dir.dec())*10+0.5) <<delim// create a name
-            << it->second.isSource() << delim
+            << it->first << delim
+            << std::fixed << std::setprecision(4) 
             << dir.ra()  << delim
             << dir.dec() << delim
-            << sqrt(it->second.value())  << delim  // sigma
-            << 3.*it->second.sigma() << delim // error circle
-            << dir.l() << delim
-            << dir.b() << delim
+            << cand.value() << delim  // TS
+            << cand.sigma() << delim // error
+            << std::resetiosflags(std::ios::fixed)<< std::setprecision(6) 
+            << cand.strongNeighbor() 
+            << std::endl;
             ;
-        for( int i=6; i<14; ++i){
-            table << precision(it->second.values(i),0.1) << delim;
-        }
-        // measured number of signal photons per band
-        for( int i=6; i<14; ++i){
-            table << precision(it->second.photons(i),0.1) << delim;
-        }
     }
     table.close();
-    timer();
-
+    timer("",out());
 }
 
 std::vector<CanInfo> SourceFinder::candidateList()const
@@ -535,16 +557,17 @@ void SourceFinder::createRegFile(std::string filename, std::string color, double
 void SourceFinder::run()
 {
 
-    // draw the data region
+    // draw the data region if requested
     if( !imagefile.empty()) {
         Draw drawer(m_pmap);
         double fov(examine_radius);
         drawer.region(examine_dir, imagefile, imageresolution, fov);
     }
     
+    // do the work
     examineRegion();
 
-    //  prune
+    //  prune 
     prune_neighbors();   
 
 

@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.28 2008/05/28 21:40:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.29 2008/06/21 00:38:08 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -19,6 +19,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.28 
 
 #include <vector>
 #include <map>
+#include <iostream>
 
 
 namespace pointlike {
@@ -32,7 +33,7 @@ namespace pointlike {
     {
     public:
         CanInfo(double value = 0, double sigma = 0, 
-            astro::SkyDir dir = astro::SkyDir(0,0)):
+            astro::SkyDir dir = astro::SkyDir(0,0), int neighbor=-1):
         m_value(value),
             m_sigma(sigma), 
             m_dir(dir), 
@@ -41,17 +42,11 @@ namespace pointlike {
             m_weighted_count(0),
             m_hasStrongNeighbor(false),
             m_fit(0),
-            m_strongNeighbor( 0) //healpix::HealPixel(0,0))
+            m_strongNeighbor( neighbor) 
         {
-            m_values.clear();
-            m_photons.clear();
-            m_sigalph.clear();
         }
 
         double value () const {return m_value;}
-        double values (int level) {return m_values[level];}
-        double photons (int level) {return m_photons[level];}
-        double sigalph (int level)  {return m_sigalph[level];}
         double sigma () const {return m_sigma;}
         astro::SkyDir dir () const {return m_dir;}
         double ra() const {return m_dir.ra();}
@@ -69,9 +64,6 @@ namespace pointlike {
         void set_total_value (double value = 0.0) {m_value = value;}
         void set_sigma (double value = 0.0) {m_sigma = value;}
         void set_dir (astro::SkyDir value = astro::SkyDir(0,0)) {m_dir = value;}
-        void setValue(int level, double val) {m_values[level] = val;}
-        void setPhotons(int level, double photons) {m_photons[level] = photons;}
-        void setSigalph(int level, double sigalph) {m_sigalph[level] = sigalph;}
         void set_fit(PointSourceLikelihood* fit){m_fit=fit;}
         void set_skipped (int value = 0) {m_skipped = value;}
         void setHasStrongNeighbor (bool value = true) {m_hasStrongNeighbor = value;}
@@ -79,9 +71,6 @@ namespace pointlike {
 
     private:
         double m_value; ///< TS value.
-        std::map<int,double> m_values;
-        std::map<int,double> m_photons;
-        std::map<int,double> m_sigalph;
         double m_sigma; ///< localization sigma
         astro::SkyDir m_dir;
         bool   m_2bdeleted; // True means this is flagged to be deleted later.
@@ -94,8 +83,6 @@ namespace pointlike {
 
     }; 
 
-    class DiffuseCounts; // forward declaration: disabled for now
-
     /**
     @class SourceFinder
     @brief Find point source Candidates in a data field
@@ -105,6 +92,8 @@ namespace pointlike {
     public:
 
         SourceFinder(const pointlike::Data& data);
+        ~SourceFinder();
+
         typedef std::map<int, CanInfo> Candidates;
         typedef std::map<int, pointlike::PointSourceLikelihood > LikelihoodMap;
         typedef std::map<double, CanInfo> Prelim; // Preliminary candidates
@@ -127,7 +116,7 @@ namespace pointlike {
         void createReg(const std::string& filename, double radius = -1.,
             const std::string& color = "white");
 
-        void createTable(const std::string& filename, bool get_background = false, int skip_TS = 0);
+        void createTable(const std::string& filename);
 
         //! allow access to map
         const skymaps::BinnedPhotonData& getMap() {return(m_pmap);}
@@ -151,9 +140,8 @@ namespace pointlike {
     private:
         const skymaps::BinnedPhotonData& m_pmap;
         Candidates m_can;
-        DiffuseCounts* m_counts;
-      //  const embed_python::Module & m_module;
-
+        std::ostream * m_log;
+        std::ostream& out(){return * m_log;}
     };
 
 
