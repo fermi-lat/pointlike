@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jun 23 07:31:20 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h 
+Log Message:
+access to energy range
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-01-00, operation: add
 Package: pointlike
