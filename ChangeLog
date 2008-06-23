@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Jun 23 07:31:20 PDT 2008
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx 
+Log Message:
+access to energy range
+    *
+------------------------------------------------------------
+User: burnett  Mon Jun 23 07:31:20 PDT 2008
 pointlike/pointlike
 
 Modified Files:
