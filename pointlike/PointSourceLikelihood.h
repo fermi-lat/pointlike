@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.33 2008/06/05 11:47:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.34 2008/06/18 14:41:10 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -11,9 +11,6 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.
 #include "skymaps/SkySpectrum.h"
 
 #include "astro/SkyDir.h"
-#ifdef OLD
-#include "healpix/HealPixel.h"
-#endif
 #include <iostream>
 #include <vector>
 
@@ -127,6 +124,7 @@ public:
 
     /// @brief set the range of energy to fit
     static void set_energy_range(double emin, double emax=1e6);
+    static void get_energy_range(double& emin, double& emax);
 
     /// @brief special display function
     /// @param dir direction
