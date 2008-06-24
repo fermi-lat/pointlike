@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Jun 24 12:06:02 PDT 2008
+pointlike/doc
+
+Modified Files:
+	release.notes 
+Log Message:
+update, mainly fix for swig
+    *
+------------------------------------------------------------
+User: burnett  Tue Jun 24 12:06:02 PDT 2008
 pointlike/cmt
 
 Modified Files:
