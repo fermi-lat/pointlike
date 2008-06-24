@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Jun 24 11:21:38 PDT 2008
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx SimpleLikelihood.cxx 
+Log Message:
+initial support for new background
+    *
+------------------------------------------------------------
+User: burnett  Tue Jun 24 11:21:38 PDT 2008
 pointlike/pointlike
 
 Modified Files:
