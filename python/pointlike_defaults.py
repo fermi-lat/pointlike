@@ -1,6 +1,6 @@
 # default parameters for the various parameter files
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.9 2008/06/18 01:19:23 funk Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.10 2008/06/21 00:38:08 burnett Exp $
 #
 # Include this to set defaults, then override 
 import sys
@@ -63,7 +63,7 @@ class SourceLikelihood: #parameters for the likelihood calculation
 class SourceFinder:  # parameters for the SourceFinder.
 
     pass1_nside=256      # HEALpix binning for initial points.
-    TSmin = 8.0          # overall minimum TS
+    TSmin = 5.0          # overall minimum TS
     pixel_fraction = 1.0 # fraction of pixels to sample, sorted according to TS
     prune_radius =0.25   # pruning radius in degrees (also needs to be tuned)
     group_radius = 4.0   # maximum radius for nearby sources.

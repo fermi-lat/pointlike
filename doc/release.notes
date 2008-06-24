@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.59 2008/06/06 17:09:24 burnett Exp $
+$Id: release.notes,v 1.60 2008/06/21 00:41:08 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 24-jun-08 v6r2p0  THB fix linux swig: still beta
  20-jun-08 v6r1    THB beta version; better finding, flexible PSF parameters
  06-jun-08 v6r0p0  THB First tentative tag with new Band organization
  15-apr-08 v5r5    THB add displaymodes to show fits, residuals
