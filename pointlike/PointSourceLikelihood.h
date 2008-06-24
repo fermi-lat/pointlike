@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.34 2008/06/18 14:41:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.35 2008/06/23 14:31:20 burnett Exp $
 */
 
 #ifndef tools_PointSourceLikelihood_h
@@ -9,6 +9,8 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.
 #include "pointlike/SimpleLikelihood.h"
 
 #include "skymaps/SkySpectrum.h"
+#include "skymaps/Background.h"
+
 
 #include "astro/SkyDir.h"
 #include <iostream>
@@ -108,9 +110,15 @@ public:
     ///! Set the global diffuse background function, return current value 
     /// @param diffuse any sky spectrum, presumably a DiffuseFunction
     /// @param exposure [1.0] multiplicative factor, presumably the exposure 
-    static  skymaps::SkySpectrum* set_diffuse( skymaps::SkySpectrum* diffuse, double exposure=1.0);
+    static  skymaps::SkySpectrum* set_diffuse(const skymaps::SkySpectrum* diffuse, double exposure=1.0);
 
-    ///! add a point source fit to the background for subsequent fits
+    ///! Set the global diffuse background function, return current value 
+    /// @param diffuse any sky spectrum, presumably a DiffuseFunction
+    /// @param exposures vector of exposure opjects, one for each event type 
+    static  skymaps::SkySpectrum* set_diffuse(const skymaps::SkySpectrum* diffuse, 
+        std::vector<const skymaps::SkySpectrum*> exposures);
+
+    ///! add a point source fit to the background, for this object only, for subsequent fits
     void addBackgroundPointSource(const PointSourceLikelihood* fit);
 
     ///! remove all such
@@ -147,7 +155,7 @@ private:
     std::ostream& out()const{return *m_out;}
     mutable CLHEP::Hep3Vector m_gradient; ///< current gradient
 
-    static skymaps::SkySpectrum* s_diffuse; ///< global diffuse used by all PSL objects
+    static skymaps::Background* s_diffuse; ///< global diffuse used by all PSL objects
     
 
     skymaps::CompositeSkySpectrum * m_background;  ///< background spectrum to use

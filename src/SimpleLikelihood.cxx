@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.38 2008/05/27 16:46:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.39 2008/06/18 14:41:10 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -223,7 +223,7 @@ SimpleLikelihood::SimpleLikelihood(const skymaps::Band& band,
     m_fint2 = m_psf.integralSquare(m_umax);
 
     m_dir = dir;
-   //setDir(dir);
+    setDir(dir);
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void SimpleLikelihood::addBand(const skymaps::Band& moredata)
