@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Jun 24 12:06:02 PDT 2008
+pointlike/python
+
+Modified Files:
+	pointfind_setup.py pointlike_defaults.py swig_setup.in 
+Log Message:
+update, mainly fix for swig
+    *
+------------------------------------------------------------
+User: burnett  Tue Jun 24 12:06:02 PDT 2008
 pointlike/doc
 
 Modified Files:
