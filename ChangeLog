@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jun 24 11:21:38 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h 
+Log Message:
+initial support for new background
+    *
+------------------------------------------------------------
 User: burnett  Mon Jun 23 07:33:44 PDT 2008
 pointlike/src/pointfind
 
