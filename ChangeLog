@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jun 24 12:06:02 PDT 2008
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+update, mainly fix for swig
+    *
+------------------------------------------------------------
 User: burnett  Tue Jun 24 11:21:38 PDT 2008
 pointlike/src
 
