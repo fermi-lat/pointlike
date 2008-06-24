@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.41 2008/06/18 14:41:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.42 2008/06/23 14:31:20 burnett Exp $
 
 */
 
@@ -25,6 +25,7 @@ using skymaps::CompositeSkySpectrum;
 using skymaps::BinnedPhotonData;
 using skymaps::DiffuseFunction;
 using skymaps::Band;
+using skymaps::Background;
 
 
 
@@ -35,7 +36,7 @@ namespace {
 }
 
 //  ----- static (class) variables -----
-skymaps::SkySpectrum* PointSourceLikelihood::s_diffuse(0);
+skymaps::Background* PointSourceLikelihood::s_diffuse(0);
 
 // manage energy range for selection of bands to fit 
 double PointSourceLikelihood::s_emin(100.); 
@@ -126,7 +127,6 @@ PointSourceLikelihood::PointSourceLikelihood(
         m_background = 0; //new skymaps::CompositeSkySpectrum();
     }
     setup( data);
-
 }
 
 
@@ -476,16 +476,26 @@ double PointSourceLikelihood::integral(const astro::SkyDir& dir, double emin, do
     // implement by just finding the right bin
     return value(dir, sqrt(emin*emax) );
 }
-skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(skymaps::SkySpectrum* diffuse, double exposure)
+skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(const skymaps::SkySpectrum* diffuse, double exposure)
 {  
     // save current to return
     skymaps::SkySpectrum* ret =   s_diffuse;
 
-    s_diffuse = diffuse;
+    s_diffuse = new Background(*diffuse, exposure);
     
     return ret;
 }
 
+skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(const skymaps::SkySpectrum* diffuse, 
+                                 std::vector<const skymaps::SkySpectrum*> exposures)
+{  
+    // save current to return
+    skymaps::SkySpectrum* ret =   s_diffuse;
+
+    s_diffuse = new Background(*diffuse, exposures);
+    
+    return ret;
+}
 
 void PointSourceLikelihood::addBackgroundPointSource(const PointSourceLikelihood* fit)
 {
