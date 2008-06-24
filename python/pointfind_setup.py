@@ -1,32 +1,26 @@
 #  setup for pointlike source finder
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfind_setup.py,v 1.11 2008/04/01 13:28:07 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfind_setup.py,v 1.12 2008/05/28 21:41:52 burnett Exp $
 
 from pointlike_defaults import *
 
-# exposure appropriate for one month
+# modify exposure if not a year
 #Diffuse.exposure*=1/12. #2.5e+009
 
-#specify data
+#specify data: pixels or a list of FT1 files
 Data.pixelfile = r'F:\glast\data\SC2\obssim\allsky_noGRBs.fits'
 
-
 # choose region to search
-SourceFinder.ra, SourceFinder.dec = 248.79, -17.86 # 3EGJ1635m1751 
-#SourceFinder.ra, SourceFinder.dec = 137.5, 59.8 # DC2_3EGJ1048m5840 
-SourceFinder.examine_radius   =  5# 180 for all sky
+SourceFinder.l,SourceFinder.b= 0,0
+SourceFinder.examine_radius = 180 # 180 for all sky
 
-#Data.files=[r'F:\glast\data\SC2\obssim\month_test2a\merged_files_v1.fits']
-#Data.output_pixelfile = 'test2a_photonmap.fits'
 
-#Data.pixelfile='test2a_photonmap.fits'
+# files to write a table of results to
+path = '../output/obssim2/'
+SourceFinder.outfile=  path+'pointfind_f.txt'
+SourceFinder.regfile = path+'pointfind_f.reg'
+SourceFinder.logfile = path+'pointfindlog_f.txt' # the log file
 
-# file to write a table of results to
-SourceFinder.outfile='../output/J1048m5840b.txt'
-SourceFinder.outfile='../output/3EGJ1635m1751.txt'
 print 'will write to file %s '% SourceFinder.outfile
+SourceFinder.group_radius = 2.0
 
-
-SourceFinder.refit = 1  # turn on refit
-SourceFinder.regfile = '../output/3EGJ1635m1751.reg'
-#SourceFinder.fitsfile = '../output/refit.fits'
-#PointSourceLikelihood.minlevel=6
+print 'SourceFinder.TSmin: %s, emin: %s ' %(SourceFinder.TSmin, PointSourceLikelihood.emin)

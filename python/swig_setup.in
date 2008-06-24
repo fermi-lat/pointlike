@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.12 2008/05/02 23:31:38 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.13 2008/05/27 16:46:41 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -86,8 +86,8 @@ public:
       case 0: return self->x();
       case 1: return self->y();
       case 2: return self->z();
-      case 3: throw std::exception("StopIteration"); //must be exactly this string
-      default: throw std::exception("IndexError");
+      case 3: throw std::range_error("StopIteration"); //must be exactly this string
+      default: throw std::range_error("IndexError");
       }
    }
    size_t __len__() {      return 3;       }
