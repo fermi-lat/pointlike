@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jun 25 06:57:48 PDT 2008
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx 
+Log Message:
+fix no-diffuse bug
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-02-00, operation: add
 Package: pointlike
