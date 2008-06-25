@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.42 2008/06/23 14:31:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.43 2008/06/24 18:21:38 burnett Exp $
 
 */
 
@@ -481,7 +481,7 @@ skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(const skymaps::SkySpect
     // save current to return
     skymaps::SkySpectrum* ret =   s_diffuse;
 
-    s_diffuse = new Background(*diffuse, exposure);
+    s_diffuse = diffuse==0? 0 : new Background(*diffuse, exposure);
     
     return ret;
 }
