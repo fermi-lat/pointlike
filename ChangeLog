@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: markusa  Thu Jun 26 22:59:25 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	ExtendedSourcePDF.h SourceLikelihood.h 
+Log Message:
+several bugfixes for extended source fitting
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-02-01, operation: add
 Package: pointlike
