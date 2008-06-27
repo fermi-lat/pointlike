@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.cxx
     @brief Implementation of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.1 2008/06/18 01:19:24 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.2 2008/06/18 22:12:52 burnett Exp $
 */
 
 #include "pointlike/ExtendedLikelihood.h"
@@ -47,7 +47,7 @@ namespace {
     std::ostream * psf_data = &std::cout;
 
     // for the binning in 1/q when q is negative, pixels far from source
-    double binsize(0.025); // bin size for 1/q. set zero to disable
+    double binsize(0); // bin size for 1/q. set zero to disable
     std::map<double,int> qmap; // used for binning 1/q
 
 
@@ -76,7 +76,7 @@ namespace {
             , m_maxu_found(0)
         {
 	  // SF: NO MORE NEEDED
-//             double angle(sqrt(2.*umax)*sigma);
+//            double angle(sqrt(2.*umax)*sigma);
 //             if(angle<0.1) { 
 // 	        m_umax= 0.01/(2*sigma*sigma);
 // //                std::cout<<"umax adjusted to "<<m_umax<<std::endl;
@@ -132,6 +132,7 @@ namespace {
                 // discretize these values of q in bins of 1/q
                 double qbin = 1./binsize/floor(1./binsize/q+0.5);
                 qmap[qbin]+=x.second;
+		throw std::runtime_error("I never ever should be here");
             }
         }
         
@@ -318,8 +319,9 @@ void ExtendedLikelihood::reload(bool subset)
     delete m_back;
     double angle(sqrt(2.*m_umax)*sigma());
     if(angle<0.1) { 
-      m_umax= 0.01/(2*sigma()*sigma());
-      //                std::cout<<"umax adjusted to "<<m_umax<<std::endl;
+      m_umax= 0.010001/(2*sigma()*sigma());
+//                    std::cout<<"umax adjusted to "<<m_umax<<" emin="<<band().emin()<<" sigma="<<sigma()<<std::endl;
+      angle=sqrt(2.*m_umax)*sigma();
     };	
 
     m_back = new NormalizedBackground(m_diffuse, m_dir, angle, m_emin, m_emax);
@@ -551,7 +553,7 @@ const std::vector<double>& ExtendedLikelihood::gradient(const Hep3Vector& ex,
         double u = 0.5*delta.mag2()/sig2 ;
 	double x = delta.dot(ex);
 	double y = delta.dot(ey);
-//	std::cout<<std::setprecision(4)<<"delta="<<delta<<" x="<<x<<" y="<<y<<" frac="<<(sqrt(x*x+y*y)/delta.mag())<<std::endl; 
+//	std::cout<<std::setprecision(4)<<"delta="<<delta<<" x="<<x<<" y="<<y<<" frac="<<(sqrt(x*x+y*y)/delta.mag())<<" u="<<u<<std::endl; 
 	
 	
 // #if 0 // original version

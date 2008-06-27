@@ -1,4 +1,5 @@
 #include "pointlike/ResultsFile.h"
+#include "skymaps/Band.h"
 
 #include <iostream>
 #include <sstream>
@@ -8,17 +9,17 @@ namespace pointlike{
 
 ResultsFile::ResultsFile (const std::string& filename,const Data& datafile,int nsources):srcTab(0),fileSvc(tip::IFileSvc::instance()) {
       
-//       emin = datafile.map().energyBins();
-//       emax.resize(emin.size());
-//       if (emin.size()<2) throw std::runtime_error("Cannot fit spectrum with only 1 energy bin.");
-//       levels=datafile.map().levels();
+       std::list<skymaps::Band>::const_iterator SpecIt = datafile.map().begin();
+       for(;SpecIt!= datafile.map().end(); SpecIt++){      
+         emin.push_back((*SpecIt).emin());
+         emax.push_back((*SpecIt).emax());
+	}; 
+
+       if (emin.size()<2) throw std::runtime_error("Cannot fit spectrum with only 1 energy bin.");
+       levels=datafile.map().size();
 
       std::stringstream efmtstream;	efmtstream<<levels<<"E";  std::string efmt=efmtstream.str();
       std::stringstream jfmtstream;	jfmtstream<<levels<<"J";  std::string jfmt=jfmtstream.str();
-
-//       eratio=emin[1]/emin[0]; 
-//       std::copy(++emin.begin(),emin.end(),emax.begin());
-//       emax[emin.size()-1]=eratio*emin[emin.size()-1];	
 
       fileSvc.createFile(filename);
       fileSvc.appendTable(filename,"SOURCES");
@@ -47,10 +48,9 @@ ResultsFile::ResultsFile (const std::string& filename,const Data& datafile,int n
       srcTab->appendField("TS", efmt);
       srcTab->appendField("BG", efmt);
       srcTab->setNumRecords(nsources);
-//       srcHeader["EMIN"].set(emin[0]); 
+      srcHeader["EMIN"].set(emin[0]); 
       srcHeader["ERATIO"].set(eratio); 
       srcHeader["LEVELS"].set(levels); 
-//       srcHeader["MINLEVEL"].set(datafile.map().minLevel()); 
       srcHeader["NSOURCES"].set(nsources); 
 
 
@@ -71,41 +71,42 @@ void ResultsFile::fill(SourceLikelihood& like){
       (*srcTabItor)["B"].set(like.dir().b());
       (*srcTabItor)["SIGMAX"].set(like.errorX());
       (*srcTabItor)["SIGMAY"].set(like.errorY());
-//       (*srcTabItor)["EMIN"].set(emin);
-//       (*srcTabItor)["EMAX"].set(emax);
+       (*srcTabItor)["EMIN"].set(emin);
+       (*srcTabItor)["EMAX"].set(emax);
       (*srcTabItor)["SRCPAR"].set(like.sourceParameters());
       (*srcTabItor)["ERR_SRCP"].set(like.sourceParErrors());
 
-//       std::vector<double> alpha(levels);
-//       std::vector<double> erra(levels);
-//       std::vector<int> nphoton(levels);
-//       std::vector<double> nsig(levels);
-//       std::vector<double> errns(levels);
-//       std::vector<double> ts(levels);
-//       std::vector<double> bg(levels);
+       std::vector<double> alpha(levels,0);
+       std::vector<double> erra(levels,0);
+       std::vector<int> nphoton(levels,0);
+       std::vector<double> nsig(levels,0);
+       std::vector<double> errns(levels,0);
+       std::vector<double> ts(levels,0);
+       std::vector<double> bg(levels,0);
 
-//       int i=0;
-//       for( SourceLikelihood::const_iterator it = like.begin(); it!=like.end(), i<levels; ++it,++i){
-//            ExtendedLikelihood& levellike = *it->second;
+       int i=0;
+       for( SourceLikelihood::const_iterator it = like.begin(); it!=like.end() && i<levels; ++it,++i){
+            ExtendedLikelihood& levellike = **it;
+	    while (emin[i]<levellike.band().emin()) i++;
 
-// 	   std::pair<double,double> a= levellike.maximize();
-// 	   alpha[i]=a.first;
-// 	   erra[i]=a.second;
-// 	   nphoton[i] = levellike.photons();
-// 	   nsig[i] = levellike.photons()*a.first/levellike.psfIntegral();
-// 	   errns[i] = levellike.photons()*a.second/levellike.psfIntegral();
-// 	   ts[i] = levellike.TS();
-// 	   bg[i] = levellike.average_b();
-//       };
+ 	   std::pair<double,double> a= levellike.maximize();
+ 	   alpha[i]=a.first;
+ 	   erra[i]=a.second;
+ 	   nphoton[i] = levellike.photons();
+ 	   nsig[i] = levellike.photons()*a.first/levellike.psfIntegral();
+ 	   errns[i] = levellike.photons()*a.second/levellike.psfIntegral();
+ 	   ts[i] = levellike.TS();
+ 	   bg[i] = levellike.average_b();
+       };
 
-//      (*srcTabItor)["ALPHA"].set(alpha);
-//      (*srcTabItor)["ERR_ALPHA"].set(erra);
-//      (*srcTabItor)["NPHOTON"].set(nphoton);
-//      (*srcTabItor)["NSIGNAL"].set(nsig);
-//      (*srcTabItor)["ERR_NSIG"].set(errns);
-//      (*srcTabItor)["TS"].set(ts);
-//      (*srcTabItor)["BG"].set(bg);
-//       srcTabItor++;
+      (*srcTabItor)["ALPHA"].set(alpha);
+      (*srcTabItor)["ERR_ALPHA"].set(erra);
+      (*srcTabItor)["NPHOTON"].set(nphoton);
+      (*srcTabItor)["NSIGNAL"].set(nsig);
+      (*srcTabItor)["ERR_NSIG"].set(errns);
+      (*srcTabItor)["TS"].set(ts);
+      (*srcTabItor)["BG"].set(bg);
+       srcTabItor++;
  };
 
  void ResultsFile::writeAndClose(){
