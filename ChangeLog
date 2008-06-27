@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: markusa  Thu Jun 26 22:59:26 PDT 2008
+pointlike/src/sourcefit
+
+Modified Files:
+	sourcefit_main.cxx 
+Log Message:
+several bugfixes for extended source fitting
+    *
+------------------------------------------------------------
+User: markusa  Thu Jun 26 22:59:26 PDT 2008
 pointlike/src
 
 Modified Files:
