@@ -37,9 +37,9 @@ namespace pointlike{
              virtual void set(const std::vector<double>& param)=0;
              virtual double operator() (double v) const  =0;
              virtual double grad(double v,int icomp) const =0;
-	     virtual double get(int iparam) const {return NAN;};
-	     virtual bool parameterShiftsMax(int iparam) const {return false;};
-	     virtual bool parameterShiftsMin(int iparam) const {return false;};
+	     virtual double get(int iparam) const {  return NAN; iparam=0;};
+	     virtual bool parameterShiftsMax(int iparam) const { return false; iparam=0; };
+	     virtual bool parameterShiftsMin(int iparam) const { return false; iparam=0; };
              double min() const {return m_vmin;};
              double max() const {return m_vmax;};
              double sigma() const {return m_sigma;};
@@ -85,6 +85,7 @@ namespace pointlike{
 
 	    double operator()(double v) const { 
 		return 1./(2*M_PI*(max()-min()));
+		v=0;
 	    };
 
 	    double grad(double v,int icomp) const { 
@@ -92,6 +93,7 @@ namespace pointlike{
 		if (icomp==0)  return  -1./(2*M_PI*dm*dm)*m_rmax/sigma2();
 		if (icomp==1) return   1./(2*M_PI*dm*dm)*m_rmin/sigma2();
 		return NAN;
+		v=0;
 	    };
 
 	};     
@@ -119,7 +121,7 @@ namespace pointlike{
 		max(m_intLimit*m_scaledRadius); 
 	     };
 	     
-	     double get(int ipar) const {return m_radius;};
+	     double get(int ipar) const {return m_radius; ipar=0;};
 	     
 	     double operator() (double v) const { return exp(-v/m_scaledRadius)/(2*M_PI*m_scaledRadius*m_intLimitNorm);};
 	     
@@ -145,13 +147,13 @@ namespace pointlike{
              return *(new diskSource(sigma,1.e-5));	 
 	 };	 
 
-
+/*
 	static iSource& generator(const std::string & name, double sigma, const std::vector<double> params){
              iSource& src=generator(name,sigma);
 	     src.set(params);
 	     return src;
 	 };	 
-
+*/
     };
 
     //--------------------------------------------------------------------------------------------------

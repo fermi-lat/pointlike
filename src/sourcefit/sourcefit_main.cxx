@@ -1,13 +1,13 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/sourcefit/sourcefit_main.cxx,v 1.1 2008/06/18 01:19:24 funk Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/sourcefit/sourcefit_main.cxx,v 1.2 2008/06/21 00:40:30 burnett Exp $
 
 */
 #include "pointlike/SourceLikelihood.h"
 #include "pointlike/Data.h"
 #include "pointlike/ParamOptimization.h"
-// #include "pointlike/ResultsFile.h"
+#include "pointlike/ResultsFile.h"
 
 #include "embed_python/Module.h"
 #include "tip/IFileSvc.h"
@@ -89,10 +89,10 @@ int main(int argc, char** argv)
     SourceLikelihood::setParameters(setup);
     
     std::ostream* out = &std::cout; 
-    // 	ResultsFile* results = 0;
-    // 	if( !outfile.empty() ) {
-    // 	    results=new ResultsFile(outfile,healpixdata,names.size());
-    // 	}
+     	ResultsFile* results = 0;
+    	if( !outfile.empty() ) {
+     	    results=new ResultsFile(outfile,healpixdata,names.size());
+     	}
     
     (*out) << std::left << std::setw(20) <<"name" << "     TS   error    ra     dec\n";
     size_t n=0;
@@ -132,6 +132,7 @@ int main(int argc, char** argv)
       // initial fit to all levels at current point
       like.maximize(); 
       // now localize it, return error circle radius
+
       double sigma =like.localize();
       
       // add entry to table with name, total TS, localizatino sigma, fit direction
@@ -148,8 +149,8 @@ int main(int argc, char** argv)
       if( n>0 && first_is_center!=0){
 	like.addBackgroundPointSource(likelihoods[0]);
       }
-      
-// 	    if(results) results->fill(like);
+     
+ 	    if(results) results->fill(like);
       
       directions.push_back(like.dir());
     }
@@ -170,10 +171,10 @@ int main(int argc, char** argv)
 
     }
 	
-// 	if(results) results->writeAndClose();
-//        if( !outfile.empty()){
-//            delete out;
-//        }
+   if(results) results->writeAndClose();
+   if( !outfile.empty()){
+         delete out;
+   }
 
   } catch(const std::exception& e){
     std::cerr << "Caught exception " << typeid(e).name() 

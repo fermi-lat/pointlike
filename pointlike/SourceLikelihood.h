@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.22 2008/02/19 21:00:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.1 2008/06/18 01:19:23 funk Exp $
 */
 
 #ifndef tools_SourceLikelihood_h
@@ -79,7 +79,6 @@ namespace pointlike {
     /// @brief perform localization fit, maximizing joint likelihood
     /// @param skip [0] number of bands to skip
     /// @return error circle radius (deg) or large number corresponding to error condition
-    double localize(int skip);
     double localizeMinuit(int skip);
     double localizeMinpack(int skip);
 

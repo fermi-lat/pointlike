@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.1 2008/06/18 01:19:24 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.2 2008/06/18 22:12:52 burnett Exp $
 
 */
 #define USE_GRADIENT
@@ -84,8 +84,10 @@ namespace {
     
 #ifdef USE_GRADIENT
     //       const std::vector<double>& gradient = gSourcePointer->gradient(skip);
-    const std::vector<double>& gradient = gSourcePointer->gradient();
-    for (int i=0;i<npar;i++) derivative[i]=gradient[i];
+    if (iflag==2) { 
+      const std::vector<double>& gradient = gSourcePointer->gradient();
+      for (int i=0;i<npar;i++) derivative[i]=gradient[i];
+    };
 #endif
     
     std::cout << "**** Iteration "<<gFitCounter<<" **** Testing parameters:"
@@ -94,7 +96,7 @@ namespace {
 	      <<" deg\tdelta(Y)="<<(par[1]*180./M_PI)<<" deg"<< std::scientific;
     for (int i=2;i<npar;i++)  std::cout <<"\tp"<<i<<"="<<par[i];
     //       std::cout << "\tTS: " << TS <<" "<<skip<<std::endl;
-    std::cout << "\tTS: " << TS <<" "<<std::endl;
+    std::cout << "\tTS: " << TS <<" iflag: "<<iflag<<std::endl;
     ++gFitCounter;
     
   }
@@ -291,6 +293,8 @@ SourceLikelihood::SourceLikelihood(const skymaps::BinnedPhotonData& data,
   //     m_energies.push_back(1e5); // put guard at 100GeV
   //   setup( data, s_radius, s_minlevel, s_maxlevel);
   setup( data);
+
+  setDir(m_dir, m_sourceParameters,false);
 }
 
 // void SourceLikelihood::setup(const skymaps::PhotonMap& data,double radius, int minlevel, int maxlevel)
@@ -313,7 +317,6 @@ void SourceLikelihood::setup(const skymaps::BinnedPhotonData& data){
     //         double emin( m_energies[level-m_minlevel]), emax( m_energies[level-m_minlevel+1]);
     
     //	std::cout << "   Creating ExtendedLikelihood object for level: "
-    //		  << level << " " << m_minlevel 
     //		  << " at Energy " << emin << "GeV to " << emax << "GeV" << std::endl;
     // and create the simple likelihood object
     //         ExtendedLikelihood* sl = new ExtendedLikelihood(m_data_vec[level], m_dir, m_type,m_sourceParameters,
@@ -373,8 +376,7 @@ double pointlike::SourceLikelihood::maximize()
     pointlike::ExtendedLikelihood& like = **it;
     std::pair<double,double> a(like.maximize());
 #if 0	
-    std::cout << "  --  Summary ------- Level: " << it->first  
-	      << " (" << like.GetEmin() << ", " << like.GetEmax() << ") " 
+    std::cout << "  --  Summary -------  Energy band: " << like.band().emin() <<"MeV - "<< like.band().emax()<<"MeV"  
 	      << " alpha: " << a.first << " +- " << a.second << std::endl;
 #endif        
     if( a.first > s_minalpha ) {
@@ -389,8 +391,7 @@ double pointlike::SourceLikelihood::maximize()
 	    << "**** Position: " 
 	    << std::setw(10)<< std::setprecision(5)
 	    << m_dir.ra() << " " << m_dir.dec() 
-	    << " - TS: " << m_TS <<" photons:" << photons <<" b="<<avb<<" u="
-	    <<avu<<" F="<<avf<<std::endl;
+	    << " - TS: " << m_TS <<" photons:" << photons<<std::endl;
 #endif
   
   return m_TS;
@@ -550,7 +551,7 @@ double pointlike::SourceLikelihood::localize(int skip1, int skip2){
     t = localizeMinuit(skip);
 #endif
     else 
-      t = localize(skip);
+      throw std::runtime_error("useMinuit=0 not supported yet.");
     if (t<1) break;
   }
   return t;
@@ -643,7 +644,7 @@ double pointlike::SourceLikelihood::localizeMinuit(int skip)
   
   gFitStartDir = dir()();
   
-  std::cout<<"Fit start direction: "<<gFitStartDir<<" "<<gFitStartDir.mag()<<std::endl;
+  std::cout<<std::setprecision(4)<<"Fit start direction: "<<gFitStartDir<<" "<<gFitStartDir.mag()<<" "<<dir()()<<std::endl;
   
   gFitDeltaX = CLHEP::Hep3Vector(gFitStartDir.y(),-gFitStartDir.x(),0.);
   if( gFitDeltaX.mag2()<1e-10) 
@@ -662,16 +663,10 @@ double pointlike::SourceLikelihood::localizeMinuit(int skip)
   // Set the pointer for access in the minuit function
   gSourcePointer = this;
   gMinuit.SetFCN(minuit_likelihood_wrapper);
-#ifndef WIN32
-  double par[npar];
-  double stepSize[npar];
-  double minVal[npar];
-  double maxVal[npar];
-  std::string parName[npar];
-#else
+
   std::vector<double> par(npar), stepSize(npar),minVal(npar),maxVal(npar);
   std::vector<std::string> parName(npar);
-#endif  
+
   par[0] = 0.;            par[1] = 0.;
   stepSize[0] = 0.01;     stepSize[1] = 0.01;
   minVal[0] = -0.5;       minVal[1] = -0.5;
@@ -731,7 +726,7 @@ double pointlike::SourceLikelihood::localizeMinuit(int skip)
   arglist[0] = 500; 
   // approximate maximum number of function calls
   // even if the minimisation hanot converged
-  arglist[1] = 1.; 
+  arglist[1] = 0.1; 
   // tolerance (in units of 0.001*UP)
   // minimisation will stop if estimated vertical
   // distance to minimum is less than 0.001*tolerance*UP
@@ -765,109 +760,6 @@ double pointlike::SourceLikelihood::localizeMinuit(int skip)
 }  
 
 
-double pointlike::SourceLikelihood::localize(int skip)
-{
-  using std::setw; using std::left; using std::setprecision; using std::right;
-  using std::fixed;
-  int wd(10), iter(0), maxiter(20);
-  double steplimit(10.0), // in units of sigma
-    stepmin(0.1);     // quit if step this small
-  double backoff_ratio(0.5); // scale step back if TS does not increase
-  int backoff_count(2);
-  
-  if( verbose()){
-    out() 
-      << "      Searching for best position, start at band "<< skip <<"\n"
-      << setw(wd) << left<< "Gradient   " 
-      << setw(wd) << left<< "delta  "   
-      << setw(wd) << left<< "ra"
-      << setw(wd) << left<< "dec "
-      << setw(wd) << left<< "error "
-      << setw(wd) << left<< "Ts "
-      <<std::endl;
-  }
-  
-  astro::SkyDir last_dir(dir()); // save current direction
-  setDir(dir(), true);    // initialize
-  double oldTs( maximize()); // initial (partial) TS
-  bool backingoff;  // keep track of backing
-  
-  
-  for( ; iter<maxiter; ++iter){
-    Hep3Vector grad( ps_gradient() );
-    double     curv( ps_curvature() );
-    
-    // check that resolution is ok: if curvature gets small or negative we are lost
-    if( curv < 1.e4){
-      if( verbose()) out() << "  >>>aborting, lost" << std::endl;
-      return 98.;
-      break;
-    }
-    double     sig( 1/sqrt(curv))
-      ,      gradmag( grad.mag() )
-      ;
-    //,      oldTs( TS() );
-    Hep3Vector delta = grad/curv;
-    double step(delta.mag());
-    
-    if( verbose() ){
-      out() << fixed << setprecision(0)
-	    <<  setw(wd-2)  << right<< gradmag << "  "
-	    <<  setprecision(4)
-	    <<  setw(wd) << left<< step*180/M_PI
-	    <<  setw(wd) << left<< m_dir.ra()
-	    <<  setw(wd) << left<< m_dir.dec() 
-	    <<  setw(wd) << left<< sig*180/M_PI
-	    <<  setw(wd) << left <<setprecision(1)<< oldTs
-	    <<  right <<setprecision(3) <<std::endl;
-    }
-#if 0
-    if( step*180/M_PI > s_maxstep) {
-      if( verbose() ){ out() << " >>> aborting, attempted step " 
-			     << (step*180/M_PI) << " deg  greater than limit " 
-			     << s_maxstep << std::endl;
-      }
-      return 97.;
-      break;
-    }
-#endif
-    // check for too large step, limit to steplimt* sigma
-    if( step > steplimit* sig ) {
-      delta = steplimit*sig* delta.unit();
-      if( verbose() ) out() << setw(52) << "reduced step to "
-			    <<setprecision(5)<< delta.mag() << std::endl;
-    }
-    
-    // here decide to back off if likelihood does not increase
-    Hep3Vector olddir(m_dir()); int count(backoff_count); 
-    backingoff =true;
-    while( count-->0){
-      m_dir = olddir -delta;
-      setDir(m_dir,true);
-      double newTs(maximize());
-      if( newTs > oldTs-0.01 ){ // allow a little slop
-	oldTs=newTs;
-	backingoff=false;
-	break;
-      }
-      delta*=backoff_ratio; 
-      if( verbose() ){ out()<< setw(56) <<setprecision(1) << newTs << " --back off "
-			    <<setprecision(5)<< delta.mag() << std::endl; }
-      
-    }
-    
-    if( gradmag < 0.1 || delta.mag()< stepmin*sig) break;
-  }// iter loop
-  if( iter==maxiter && ! backingoff ){
-    if( verbose() ) out() << "   >>>did not converge" << std::endl;
-    setDir(last_dir()); // restore position
-    return 99.;
-  }
-  if(verbose() ) out() << "    *** good fit *** " << std::endl;
-  return errorCircle();
-  
-}
-
 double pointlike::SourceLikelihood::localize()
 {
   int skip1(s_skip1), skip2(s_skip2), itermax(s_itermax);
@@ -881,14 +773,12 @@ double pointlike::SourceLikelihood::localize()
   for( int iter(0); iter<itermax; ++iter){
     if( TS()>TSmin) {
       sig = localize(skip1, skip2); // may skip low levels
-      if( sig<1) { // good location?
-	//	      int style = useMinuit();
-	// Final maximisation with Toby's code ...
-	//	      useMinuit() = 0;
+      if( sig<1) { 
 	maximize();
 	printSpectrum();
-	///	      useMinuit() = style;
       }
+    } else {
+      std::cout<<"TS:"<<TS()<<" "<<TSmin<<std::endl;
     }
     if( TS() < currentTS+0.1 ) break; // done if didn't improve
     currentTS = TS();
