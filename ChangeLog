@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: mar0  Fri Jun 27 23:17:25 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	ParamOptimization.h 
+Added Files:
+	CalData.h 
+Log Message:
+fixed DrawTS class, method to determine sigma parameterization, added calibration data class
+    *
+------------------------------------------------------------
 User: markusa  Thu Jun 26 22:59:26 PDT 2008
 pointlike/src/sourcefit
 
