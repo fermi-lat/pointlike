@@ -1,7 +1,7 @@
 /** @file ParamOptimization.h 
     @brief declaration of the ParamOptimization class for optimizing point spread parameters
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ParamOptimization.h,v 1.7 2008/05/02 23:31:04 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ParamOptimization.h,v 1.8 2008/05/08 05:42:17 mar0 Exp $
 */
 #ifndef POINTLIKE_PARAMOPTIMIZATION_H
 #define POINTLIKE_PARAMOPTIMIZATION_H
@@ -41,12 +41,16 @@ public:
     /** @brief computes and stores parameter value which maximizes overall likelihood
         @param p parameter to optimize; SIGMA or GAMMA from the point spread function
     */
-    void compute(Param p=SIGMA);
+    std::vector<double> compute(Param p=SIGMA);
+
+    std::vector<double> fit_sigma();
 
 private:
     // Numerical Recipes algorithm for finding the minimum
     double goldensearch(int num2look, int band, bool sigma);
     double curvature(bool sigma, int band, double val);
+
+
     std::vector<pointlike::PointSourceLikelihood*> m_likes; 
     std::ostream * m_out;                         //where to send output
 #ifdef OLD
@@ -57,6 +61,7 @@ private:
     int m_minlevel;                               //minimum healpix level
     int m_maxlevel;                               //maximum healpix level
     skymaps::EnergyBinner* m_eb;
+
 };
 
 }
