@@ -1,7 +1,7 @@
 /** @file Draw.cxx
     @brief implementation of Draw
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.6 2008/01/27 02:31:33 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DrawTS.cxx,v 1.1 2008/06/18 01:19:23 funk Exp $
 
 */
 
@@ -56,7 +56,7 @@ void DrawTS::region(const astro::SkyDir& dir, std::string outputFile,
     const BinnedPhotonData& m_data;
   };
 
-  image.fill(SkyDensity(m_map), 0); // PhotonMap is a SkyFunction of the density 
+  //image.fill(SkyDensity(m_map), 0); // PhotonMap is a SkyFunction of the density 
   std::cout 
     <<   "\t minimum "<< image.minimum()
     << "\n\t maximum "<< image.maximum()
@@ -65,26 +65,27 @@ void DrawTS::region(const astro::SkyDir& dir, std::string outputFile,
 
   class SkyTS: public astro::SkyFunction {
   public:
-    SkyTS(const skymaps::PhotonMap& data, int level, 
+    SkyTS(const skymaps::BinnedPhotonData& data, int level, 
 	  const skymaps::SkySpectrum& background):
       m_data(data), m_level(level), m_background(background){}
 
     double operator()(const astro::SkyDir& sd) const {
-      std::cout << "Fix the () operator " << std::endl;
-//       pointlike::SourceLikelihood ps(m_data, "test", sd);
+      //std::cout << "Fix the () operator " << std::endl;
+       pointlike::SourceLikelihood ps(m_data, "test", sd,"point");
 //       if (m_level > 0) ps.set_levels(m_level, m_level);
 //       else ps.set_levels(m_data.minLevel(), 
 // 			 m_data.minLevel() + m_data.levels()-1);
 //       ps.set_verbose(true);
-//       ps.set_diffuse(const_cast<skymaps::SkySpectrum*>(&m_background));
-//       double ts = ps.maximize();
+       ps.set_diffuse(const_cast<skymaps::SkySpectrum*>(&m_background));
+       ps.maximize();
+       double ts = ps.TS();
       // 	std::cout << "-------- Returning : " << ts << " for position: " << 
       // 	  sd.ra() << " " << sd.dec() << std::endl;
-//       return ts;
-      return -1;
+       return ts;
+      //return -1;
     }
   private:
-    const skymaps::PhotonMap& m_data;
+    const skymaps::BinnedPhotonData& m_data;
     int m_level;
     const skymaps::SkySpectrum& m_background;
   };
@@ -96,7 +97,7 @@ void DrawTS::region(const astro::SkyDir& dir, std::string outputFile,
 //        ++level, ++ layer){
 //     std::cout << "Filling image layer "<<layer<< " with TS on level "
 // 	      <<level << std::endl;
-//     image.fill(SkyTS(m_map, level, m_background), layer);  
+     image.fill(SkyTS(m_map, 0, m_background), 0);  
 //   }
   
   
