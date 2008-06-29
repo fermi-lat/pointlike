@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.38 2008/06/14 18:52:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.39 2008/06/21 00:39:08 burnett Exp $
 
 */
 
@@ -48,6 +48,11 @@ astro::PointingHistory* Data::s_history;
 
 int Data::s_class_level=2; 
 int Data::class_level(){return s_class_level;}
+
+double Data::s_zenith_angle_cut(100.);
+double Data::zenith_angle_cut(){
+    return s_zenith_angle_cut;
+}
 
 CLHEP::HepRotation Data::s_rot = CLHEP::HepRotationX(0)*CLHEP::HepRotationY(0)*CLHEP::HepRotationZ(0);
 
@@ -97,8 +102,10 @@ namespace {
         Photon(const astro::SkyDir& dir, double energy, 
             double time, int event_class, int source
             , const astro::SkyDir&scz, const astro::SkyDir& scx
+            , double zenith_angle
             )
             : astro::Photon(dir, energy, time, event_class, source)
+            , m_zenith_angle(zenith_angle)
         {
             Hep3Vector scy (scz().cross(scx()));
             m_rot = HepRotation(scx(), scy, scz());
@@ -121,8 +128,10 @@ namespace {
             return astro::Photon(SkyDir(transformed), emeas,time(),evtclass, source());
         }
 
+        double zenith_angle()const{return m_zenith_angle;}
     private:
         HepRotation m_rot;
+        double m_zenith_angle;
 
     };
 
@@ -140,10 +149,15 @@ namespace {
             if( m_start>0   && gamma.time()<m_start ||  m_stop>m_start && gamma.time()>m_stop) return;
             if( m_source>-1 && sourceid != m_source)return;
 
-            double energy(gamma.energy());
-            
-            astro::Photon gcopy(gamma.dir(), energy, gamma.time(), event_class, sourceid); 
-            m_map.addPhoton(gcopy);
+            // zenith angle cut
+            if( ! isFinite(gamma.zenith_angle()) ) return; // catch NaN?
+            if( gamma.zenith_angle()< Data::zenith_angle_cut()){ 
+
+                double energy(gamma.energy());
+
+                astro::Photon gcopy(gamma.dir(), energy, gamma.time(), event_class, sourceid); 
+                m_map.addPhoton(gcopy);
+            }
         }
         BinnedPhotonData& m_map;
         int m_select;
@@ -173,7 +187,11 @@ namespace {
         // make it a container by implementing a forward iterator
         class Iterator {
         public:
-            Iterator(tip::Table::ConstIterator it, bool fits, bool selectid=false):m_it(it), m_fits(fits), m_selectid(selectid){}
+            Iterator(tip::Table::ConstIterator it, bool fits, bool selectid=false)
+                : m_it(it)
+                , m_fits(fits)
+                , m_selectid(selectid)
+            {}
             Photon operator*()const;             ///< dereference
             tip::Table::ConstIterator operator++(){return ++m_it;} ///< increment operator
             bool operator!=(const Iterator& other)const{return other.m_it!=m_it;}
@@ -224,16 +242,17 @@ namespace {
         float ra, dec, energy; // photon info
         float raz(0), decz(0), rax(90), decx(0); // sc orientation: default orthogonal
         double time;
+        double zenith_angle;
         int event_class;
         int source(-1);
 
         // FT1 names
         static std::string fits_names[]={"RA", "DEC", 
-            "ENERGY", "TIME", "EVENT_CLASS","MC_SRC_ID"};
+            "ENERGY", "TIME", "EVENT_CLASS", "ZENITH_ANGLE", "MC_SRC_ID"};
         // corresponging names in the ROOT MeritTuple
         static std::string root_names[]={"FT1Ra", "FT1Dec", 
             "CTBBestEnergy", "EvtElapsedTime"
-            , "FT1ConvLayer", "McSourceId"};
+            , "FT1ConvLayer", "FT1ZenithAngle", "McSourceId"};
 
         std::string *names = m_fits?  fits_names : root_names;
 
@@ -242,6 +261,11 @@ namespace {
         (*m_it)[*names++].get(energy);
         (*m_it)[*names++].get(time);
         (*m_it)[*names++].get(event_class);
+        (*m_it)[*names++].get(zenith_angle);
+        if( ! isFinite(zenith_angle) || zenith_angle<1e-10 ){ // latter seems to be what fits gives?
+            zenith_angle=180.; // will be cut
+        }
+
         if( m_selectid) { // check for source id only if requested
             (*m_it)[*names++].get(source);
         }
@@ -280,7 +304,7 @@ namespace {
         }
 
         return Photon(astro::SkyDir(ra, dec), energy, time, event_class , source, 
-            SkyDir(raz,decz),SkyDir(rax,decx));
+            SkyDir(raz,decz),SkyDir(rax,decx), zenith_angle);
     }
 
 
@@ -299,6 +323,7 @@ namespace {
         float ra(0), dec(0), energy(0); // photon info
         float raz(0), decz(0), rax(90), decx(0); // sc orientation: default orthogonal
         double time(0);
+        double zenith_angle(0); //TODO: set this?
         int event_class(99);
         int source_id(0);
         int class_level(0);
@@ -327,9 +352,9 @@ namespace {
                 decx = row[8];
             }
         }
-        Photon p(astro::SkyDir(ra, dec), energy, time, event_class , source_id, astro::SkyDir(raz,decz),astro::SkyDir(rax,decx));
+        Photon p(astro::SkyDir(ra, dec), energy, time, event_class , source_id, astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),zenith_angle);
         astro::Photon ap = p.transform(Data::get_rot().inverse());
-        return Photon(ap.dir(),ap.energy(),ap.time(),ap.eventClass(),source_id,astro::SkyDir(raz,decz),astro::SkyDir(rax,decx));
+        return Photon(ap.dir(),ap.energy(),ap.time(),ap.eventClass(),source_id,astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),zenith_angle);
     }
 
     // default binner to use
