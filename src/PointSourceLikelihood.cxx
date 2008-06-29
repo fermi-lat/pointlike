@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.43 2008/06/24 18:21:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.44 2008/06/25 13:57:48 burnett Exp $
 
 */
 
@@ -39,7 +39,7 @@ namespace {
 skymaps::Background* PointSourceLikelihood::s_diffuse(0);
 
 // manage energy range for selection of bands to fit 
-double PointSourceLikelihood::s_emin(100.); 
+double PointSourceLikelihood::s_emin(500.); 
 double PointSourceLikelihood::s_emax(1e6);
 void PointSourceLikelihood::set_energy_range(double emin, double emax){
     s_emin = emin; s_emax=emax;
