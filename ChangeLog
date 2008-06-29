@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Jun 28 18:50:37 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h 
+Log Message:
+fix defaults
+    *
+------------------------------------------------------------
 User: burnett  Sat Jun 28 18:49:34 PDT 2008
 pointlike/src
 
