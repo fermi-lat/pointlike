@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sun Jun 29 14:07:17 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	SourceList.h 
+Log Message:
+pointfit modifcations to use new SourceList
+    *
+------------------------------------------------------------
+User: burnett  Sun Jun 29 14:07:17 PDT 2008
 pointlike/doc
 
 Modified Files:
