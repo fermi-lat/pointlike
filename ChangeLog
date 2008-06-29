@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sat Jun 28 18:53:19 PDT 2008
+pointlike/src/pointfit
+
+Modified Files:
+	pointfit_main.cxx 
+Log Message:
+fixes to the pointfit stuff
+    *
+------------------------------------------------------------
+User: burnett  Sat Jun 28 18:53:19 PDT 2008
 pointlike/python
 
 Modified Files:
