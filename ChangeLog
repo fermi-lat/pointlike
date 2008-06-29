@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sat Jun 28 18:52:21 PDT 2008
+pointlike/src
+
+Added Files:
+	SourceList.cxx 
+Log Message:
+new class to manage multiple fits
+    *
+------------------------------------------------------------
+User: burnett  Sat Jun 28 18:52:21 PDT 2008
 pointlike/pointlike
 
 Added Files:
