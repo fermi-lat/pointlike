@@ -1,10 +1,10 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.35 2008/06/23 14:31:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.36 2008/06/24 18:21:38 burnett Exp $
 */
 
-#ifndef tools_PointSourceLikelihood_h
-#define tools_PointSourceLikelihood_h
+#ifndef pointlike_PointSourceLikelihood_h
+#define pointlike_PointSourceLikelihood_h
 
 #include "pointlike/SimpleLikelihood.h"
 
