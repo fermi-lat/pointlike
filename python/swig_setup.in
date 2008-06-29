@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.13 2008/05/27 16:46:41 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.14 2008/06/24 19:06:02 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -38,6 +38,7 @@
 #include "pointlike/SourceFinder.h"
 #include "pointlike/Data.h"
 #include "pointlike/Draw.h"
+#include "pointlike/SourceList.h"
 
 
 #include "pointlike/SimpleTSmap.h"
@@ -175,6 +176,15 @@ public:
 %include $(SKYMAPSROOT)/skymaps/SkyImage.h
 %include $(SKYMAPSROOT)/skymaps/Exposure.h
 %include $(SKYMAPSROOT)/skymaps/Gti.h
+%extend skymaps::Gti{
+ //  skymaps::Gti * __getitem__(size_t i){ 
+ //     if( i == self->getNumIntervals() ) throw std::range_error("StopIteration");
+ //     if( i<0 || i > self->getNumIntervals() ) throw std::range_error("IndexError");
+ //     return (*self)[i]; 
+ //  }
+   double computeOntime(){return (*self).GtiBase::computeOntime(); } 
+    
+}
 %include $(SKYMAPSROOT)/skymaps/IsotropicPowerLaw.h
 %include $(SKYMAPSROOT)/skymaps/Background.h
 %include $(SKYMAPSROOT)/skymaps/BinnedPhotonData.h
@@ -186,6 +196,7 @@ public:
 %include $(POINTLIKEROOT)/pointlike/SourceFinder.h
 %include $(POINTLIKEROOT)/pointlike/Draw.h
 %include $(POINTLIKEROOT)/pointlike/SimpleTSmap.h
+%include $(POINTLIKEROOT)/pointlike/SourceList.h
 
 %template(CanInfoVector) std::vector<pointlike::CanInfo>;
 
