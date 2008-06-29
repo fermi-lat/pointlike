@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Jun 28 18:51:52 PDT 2008
+pointlike/src
+
+Modified Files:
+	SourceFinder.cxx 
+Log Message:
+fix defaults for python access
+    *
+------------------------------------------------------------
 User: burnett  Sat Jun 28 18:50:37 PDT 2008
 pointlike/src
 
