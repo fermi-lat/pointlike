@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Jun 28 18:49:34 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Data.h 
+Log Message:
+add zenith angle cut, attempt to deal with NaN data
+    *
+------------------------------------------------------------
 User: mar0  Fri Jun 27 23:17:25 PDT 2008
 pointlike/src
 
