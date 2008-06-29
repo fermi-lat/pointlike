@@ -33,7 +33,7 @@ Optional parameters:
     -v or --verbose [0] set verbosity
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.4 2008/03/31 09:05:05 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.5 2008/04/09 13:02:18 burnett Exp $
 """
 # setup to import pointlike
 try: import uw.pointlike
@@ -108,5 +108,6 @@ def main():
 #--------------------------------------------------------
     
 if __name__=='__main__':
+    print 'running pointfit'
     main()
     
