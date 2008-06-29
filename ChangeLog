@@ -1,5 +1,16 @@
 ------------------------------------------------------------
 User: burnett  Sun Jun 29 14:07:17 PDT 2008
+pointlike/python
+
+Modified Files:
+	pointfit.py pointfit_setup.py 
+Removed Files:
+	background.py fitter.py 
+Log Message:
+pointfit modifcations to use new SourceList
+    *
+------------------------------------------------------------
+User: burnett  Sun Jun 29 14:07:17 PDT 2008
 pointlike/pointlike
 
 Modified Files:
