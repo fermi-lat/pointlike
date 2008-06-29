@@ -2,9 +2,9 @@
 # @file SConscript
 # @brief scons build specifications
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/SConscript,v 1.8 2008/06/24 19:15:40 glastrm Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/SConscript,v 1.9 2008/06/25 14:00:38 glastrm Exp $
 # Authors: Toby Burnett <tburnett@u.washington.edu>
-# Version: pointlike-06-02-01
+# Version: pointlike-06-03-00
 
 #specify package name, applications
 package= 'pointlike'
