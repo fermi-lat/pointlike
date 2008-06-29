@@ -1,7 +1,7 @@
 /** @file PointSourceLikelihood.h
 @brief declaration of classes Source and SourceList
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.1 2008/06/29 01:52:21 burnett Exp $
 */
 
 
@@ -12,6 +12,7 @@ $Header$
 #include <iomanip>
 #include <fstream>
 #include <sstream>
+#include <cmath>
 
 using namespace pointlike;
 using astro::SkyDir;
@@ -26,9 +27,10 @@ const skymaps::BinnedPhotonData * SourceList::s_data(0);
 const skymaps::BinnedPhotonData * SourceList::data(){return s_data;}
 void SourceList::set_data(const skymaps::BinnedPhotonData * data){s_data=data;}
 
-Source::Source(const std::string& name, const astro::SkyDir& sdir, double TS)
+Source::Source(const std::string& name, const astro::SkyDir& seed_dir, double TS)
 : m_name(name)
-, m_dir(sdir)
+, m_seed_dir(seed_dir)
+, m_dir(seed_dir)
 , m_fit(0)
 , m_TS(TS)
 , m_sigma(0)
@@ -50,6 +52,35 @@ double Source::localize(){
     m_dir = m_fit->dir();
     m_TS = m_fit->TS();
     return m_sigma;
+}
+
+double Source::moved()const{
+    if(m_sigma>1 || m_sigma==0) return 0; // failed, or not localized
+    return dir().difference(seed_dir())*180/M_PI;
+}
+
+void Source::header(std::ostream& out){
+    out << std::left << std::setw(20) 
+        <<"# name           ra        dec          TS    localization moved  [neighbor]\n";
+//         vela             128.8465  -45.1863    248.20    0.0287    0.0000
+}
+
+void Source::info(std::ostream& out)const{
+        out << std::left << std::fixed 
+            << std::setw(15) << name() 
+            << std::setprecision(4) << std::right
+            << std::setw(10) << dir().ra() 
+            << std::setw(10) << dir().dec() 
+            << std::setprecision(2) 
+            << std::setw(10) << TS() 
+            << std::setprecision(4) 
+            << std::setw(10) << sigma()
+            << std::setw(10) << moved()
+                ;
+        if( neighbor()!=0){
+            out << std::setw(20)<< std::left << (neighbor()->name());
+        }
+        out << std::endl;
 }
 
 Source::~Source()
@@ -80,7 +111,7 @@ SourceList::SourceList(const std::string& filename)
     }
     while (!input_file.eof()){
         std::string line; std::getline(input_file, line);
-        if( line[0]=='#' ) continue;
+        if( line.size()<5 || line[0]=='#' ) continue; // comment or empty
         double start; 
         std::stringstream buf(line); 
         std::string name; buf >> name;
@@ -91,7 +122,7 @@ SourceList::SourceList(const std::string& filename)
     }
 }
 
-class GreaterTS{
+class GreaterTS{ // simple functor to sort the list by TS
 public:
     GreaterTS(){}
     bool operator()(const Source& a, const Source& b){
@@ -108,29 +139,13 @@ void SourceList::sort_TS()
 
 void SourceList::dump(std::ostream& out)const
 {
-    using std::setw;
-    using std::setprecision;
-    out << std::left << std::setw(20) <<"name" << "     TS     error    ra     dec\n";
-
-
-    for( const_iterator it= begin(); it!= end(); ++it){
-        const Source& s(*it);
-        out << std::left << std::setw(20) << s.name() 
-                << std::setprecision(2) << std::setw(8) << std::fixed << std::right
-                << s.TS() 
-                << std::setprecision(4) 
-                << std::setw(10) << s.sigma()
-                << std::setw(10) << s.dir().ra() 
-                << std::setw(10) << s.dir().dec() 
-                ;
-        if( s.neighbor()!=0){
-            
-            out << std::setw(20) << (s.neighbor()->name());
-        }
-        out << std::endl;
-    }
+    Source::header(out);
+    for( const_iterator it= begin(); it!= end(); ++it){it->info(out); }
 }
-
+void SourceList::dump(const std::string& outfilename)const
+{
+    dump( std::ofstream(outfilename.c_str()) );
+}
 void SourceList::refit()
 {
     for( iterator it= begin(); it!= end(); ++it){

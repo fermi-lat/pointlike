@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.39 2008/06/21 00:39:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.40 2008/06/29 01:49:34 burnett Exp $
 
 */
 
@@ -486,7 +486,9 @@ void Data::addgti(const std::string& inputFile)
                                   m_stop<stop&&m_stop>0? m_stop:stop);
             m_data->addgti(tnew);
             std::cout << " found interval " 
-                << int(tnew.minValue())<<"-"<< int(tnew.maxValue())<<  std::endl;
+                << int(tnew.minValue())<<"-"<< int(tnew.maxValue())
+                << ", total: " << m_data->gti().computeOntime()<< " s." 
+                <<  std::endl;
         }
 
  

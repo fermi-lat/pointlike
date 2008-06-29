@@ -1,7 +1,7 @@
 /** @file PointSourceLikelihood.h
 @brief declaration of classes Source and SourceList
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.1 2008/06/29 01:52:21 burnett Exp $
 */
 
 #ifndef pointlike_SourceList_h
@@ -30,7 +30,7 @@ namespace pointlike{
 
         /** @brief ctor
         */
-        Source(const std::string& name, const astro::SkyDir& sdir, double TS=0);
+        Source(const std::string& name, const astro::SkyDir& seed_dir, double TS=0);
 
         ~Source();
 
@@ -38,6 +38,15 @@ namespace pointlike{
 
         const std::string& name()const { return m_name;}
         const astro::SkyDir& dir()const{return m_dir;}
+        const astro::SkyDir& seed_dir()const{return m_seed_dir;}
+
+        /// @brief if localized, the distance moved (in degrees)
+        double moved()const;
+
+        /// @brief dump a line of info
+        void info(std::ostream& out=std::cout)const;
+        static void header(std::ostream& out=std::cout); ///< header line for info
+
         double TS()const{return m_TS;}
         double sigma()const{return m_sigma;}
         PointSourceLikelihood* fit(){return m_fit;}
@@ -48,7 +57,8 @@ namespace pointlike{
         
     private:
         std::string m_name;
-        astro::SkyDir m_dir;
+        astro::SkyDir m_dir; ///< current dir
+        astro::SkyDir m_seed_dir; ///< initial seed direction
         double m_TS;
         PointSourceLikelihood * m_fit; ///< pointer to the fitter
         double m_sigma;  ///< localization rms error
@@ -61,10 +71,18 @@ namespace pointlike{
     class SourceList: public std::vector<pointlike::Source> {
     public:
         /** @brief ctor, initialized with map
+
+        values in the vector are (ra, dec, [ts])
         */
         SourceList(std::map<std::string, std::vector<double> > input_list);
 
         /** @brief ctor, from text file
+
+        Format of the text file is:
+          name ra dec [ts]
+
+        lines starting with '#' are ignored.
+        The optional TS field is for initial sorting.
         */
         SourceList(const std::string& filename);
 
@@ -73,8 +91,12 @@ namespace pointlike{
         /// @brief refit all sources, in TS order, taking nearby sources into account
         void refit(); 
 
-        /// @brief formatted dump
+        /// @brief formatted dump to an open stream
+        /// Format is consistent with text file ctor
         void dump(std::ostream& out=std::cout)const;
+
+        ///@brief formatted dump to nameed file
+        void dump(const std::string& outfilename)const;
 
         void createRegFile(std::string filename, std::string color, double tsmin)const;
 

@@ -25,12 +25,12 @@ Optional parameters:
         Note that this is only actually needed for overlapped sources in the Galactic
         plane, if spectral information is not required.
     --galdiffuse: Flag to use the galprop-generated galactic diffuse file
-    --minlevel= [8] Minimum healpix level for fit [question: skip or not?]
     --eventtype= [-1] Event selection if datafile is event data. -1 means front and back,
         0/1 for front/back specifically.
     --write=<output>: if set, and the datafile is event data, write a pixelfile for
         subsequent input
     -v or --verbose [0] set verbosity
+    --binsperdecade [0] default is 2.35 ratio. otherwise energy binning is set.
 
 
  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.5 2008/04/09 13:02:18 burnett Exp $
@@ -40,12 +40,49 @@ try: import uw.pointlike
 except: pass
 
 import os, sys, types
+from numpy import arange
 
-from fitter import Fitter,  photonmap, sourcelist
-#from pointlike import DiffuseFunction, CompositeSkySpectrum
-from background import Background
+from pointlike import DiffuseFunction
 
+from pointlike import SourceList, Source, PointSourceLikelihood, Background, Data
+#----------------------------------------------------------------------------------------
 
+def photonmap(filename, eventtype=-1, pixeloutput=None, tstart=0, tstop=0):
+    """ return a Data object, determined one of 3 ways:
+        * the name of a file containing a list of photon files, preceded by an @
+        * the name of a photon file, that will be expanded by glob
+        * the name of a photon map file.
+        if pixeloutput is set, write the photonmap to the file
+        eventtype is -1 for all events, 0/1 for front back
+    """
+    data = None
+    if filename[0]=='@':
+        # it is a list of data files
+        filelist = [line.strip() for line in file(filename[1:]) if len(line)>0 and line[0]!='#']
+        #print filelist
+        data =  Data(filelist, eventtype, tstart, tstop)
+    elif filename[-5:]=='.fits' or filename[-4:]=='.fit' :
+        # a fits file: either data to read, or a photonmap
+        import pyfits, glob
+        files = glob.glob(filename)
+        if len(files)==0:
+            raise Exception('no such file(s): %s' %filename)
+        hd = pyfits.open(files[0])
+        if len(hd)==1:
+            raise Exception('Invalid data file, apparent image file with primary only')
+        if hd[1].name=='PHOTONMAP' or hd[1].name=='BANDS':
+            hd.close()
+            if len(files)>1: print 'Warning: more than one photonmap file not supported'
+            data = Data(files[0], hd[1].name)
+        else:
+            hd.close()
+            data = Data(files, eventtype, tstart , tstop)
+    else:
+        raise Exception('filename %s not a valid list of files or fits file' % filename)
+    if pixeloutput is not None:
+        data.map().write(pixeloutput)
+        print 'created a photonmap file: %s' % pixeloutput
+    return data
 
 #--------------------------------------------------------
 
@@ -61,53 +98,64 @@ def main():
 
 
     options = 'b:w:v'
-    long_options= [ 'diffuse=','write=', 'verbose', 'galdiffuse', 'minlevel=',
-                    'eventtype=', 'exposure=']
+    long_options= [ 'diffuse=','write=', 'verbose', 'galdiffuse', 
+                    'eventtype=', 'exposure=', 'binsperdecade=']
 
     try:    
         (opts, args) = getopt(sys.argv[1:], options, long_options )
     except GetoptError, msg:
         help(msg)
 
-    outputpixelfile= diffusefilename=background=None
+    outputpixelfile= background=None
+    diffusefilename='galdiffuse' # wire in for now
     verbose=0
     exposure=3e10 # this is appropriate for 1 year. 
-    minlevel=8
     eventtype=-1  # all events
-    radius = 8.7  
+    binsperdecade=0 # default binning
                                     
     for (opt,val) in opts:
         if   opt=='-b' or opt=='--diffuse'  : diffusefilename = val
         elif opt=='-w' or opt=='--write'    : outputpixelfile = val
         elif opt=='-v' or opt=='--verbose'  : verbose =1
         elif opt=='--galdiffuse'            : diffusefilename='galdiffuse' #flag
-        elif opt=='--minlevel'              : minlevel = int(val)
         elif opt=='--eventtype'             : eventtype= int(val)
+        elif opt=='--binsperdecade'         : binsperdecade=float(val)
         elif opt=='--exposure'              :
             try: exposure= float(val)
             except: exposure = val
 
     if len(args)>0: eventfilename=args[0]
     else: help('No event file name specified')
+    if binsperdecade>0:
+        bins = 10**arange(2,5,1./binsperdecade)
+        Data.setEnergyBins(bins)
     
     data = photonmap(eventfilename, pixeloutput=outputpixelfile, eventtype=eventtype)
+    data.info()
 
     if len(args)>1: sourcefilename= args[1]
     else: help('No source file list')
 
-    background = Background(diffusefilename, exposure)
+    if diffusefilename is not None:
+        print 'setting up background from file %s' % diffusefilename
+        if 'GLAST_EXT' in os.environ and diffusefilename=='galdiffuse':
+            diffusefilename = os.path.join(os.environ['GLAST_EXT'],'extFiles','v0r7','galdiffuse', 'GP_gamma.fits')
 
-    sources = sourcelist(sourcefilename)
+        diffuse = DiffuseFunction(diffusefilename)
+        background = Background(diffuse, exposure)
+        PointSourceLikelihood.set_diffuse(background)
 
-    out = None if len(args)==2 else file(args[2], 'w')
-    for source in sources:
-        fit = Fitter(source, data , background=background(), verbose=verbose)
-        print >>out, ('%-20s'+'%10.4f'*4+                             '%10.2f'+'%10.4f'*2)\
-              %( source.name, source.ra, source.dec, fit.ra, fit.dec, fit.TS, fit.sigma, fit.delta)
+    SourceList.set_data(data.map())
+    sourcelist = SourceList(sourcefilename)
+    sourcelist.sort_TS()
+    sourcelist.refit()
+    sourcelist.dump()
+    if len(args)>2:
+        sourcelist.dump(args[2])
+
 
 #--------------------------------------------------------
     
 if __name__=='__main__':
-    print 'running pointfit'
     main()
     
