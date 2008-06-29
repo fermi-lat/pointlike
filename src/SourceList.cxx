@@ -1,7 +1,7 @@
 /** @file PointSourceLikelihood.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.1 2008/06/29 01:52:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.2 2008/06/29 21:07:17 burnett Exp $
 */
 
 
@@ -13,6 +13,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.1 2008/06
 #include <fstream>
 #include <sstream>
 #include <cmath>
+#include <stdexcept>
 
 using namespace pointlike;
 using astro::SkyDir;
@@ -29,8 +30,8 @@ void SourceList::set_data(const skymaps::BinnedPhotonData * data){s_data=data;}
 
 Source::Source(const std::string& name, const astro::SkyDir& seed_dir, double TS)
 : m_name(name)
-, m_seed_dir(seed_dir)
 , m_dir(seed_dir)
+, m_seed_dir(seed_dir)
 , m_fit(0)
 , m_TS(TS)
 , m_sigma(0)
@@ -144,7 +145,8 @@ void SourceList::dump(std::ostream& out)const
 }
 void SourceList::dump(const std::string& outfilename)const
 {
-    dump( std::ofstream(outfilename.c_str()) );
+    std::ofstream out(outfilename.c_str());
+    dump( out );
 }
 void SourceList::refit()
 {
