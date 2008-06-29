@@ -1,9 +1,10 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.20 2008/04/28 03:42:11 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.21 2008/04/29 16:06:44 burnett Exp $
 
 */
+#include "pointlike/SourceList.h"
 #include "pointlike/PointSourceLikelihood.h"
 #include "pointlike/Data.h"
 #include "pointlike/ParamOptimization.h"
@@ -41,25 +42,6 @@ int main(int argc, char** argv)
         std::string outfile;
         setup.getValue("outfile",  outfile, "");
 
-
-        // separate lists of names, ra's, and dec's
-        std::vector<std::string> names;
-        std::vector<double> ras, decs;
-        std::vector<astro::SkyDir> directions;
-        std::vector< PointSourceLikelihood*> likelihoods;
-        setup.getList("name", names);
-        setup.getList("ra", ras);
-        setup.getList("dec", decs);
-
-        // flag, to designate first candidate as a central value
-        int first_is_center(0);
-        setup.getValue("first_is_center", first_is_center, 0);
-
-        // flag, if present, to run sigma/gamma fitter
-        int check_sigma(0);
-        setup.getValue("check_sigma", check_sigma, check_sigma);
-        setup.getValue("fitPSF", check_sigma, check_sigma);
-
         // use the  Data class to create the PhotonData object
         Data healpixdata(setup);
 
@@ -73,53 +55,17 @@ int main(int argc, char** argv)
         if( !outfile.empty() ) {
             out = new std::ofstream(outfile.c_str());
         }
-        (*out) << std::left << std::setw(20) <<"name" << "     TS   error    ra     dec\n";
+
+        SourceList::set_data(& healpixdata.map());
+        std::map<std::string, std::vector<double> > sources;
+        setup.getDict("sources", sources);
+        SourceList sl(sources);
+        sl.sort_TS();
+        sl.dump(*out);
+        sl.refit(); 
+        sl.dump(*out); 
 
 
-        for( size_t n=0; n< names.size(); ++n){
-            astro::SkyDir dir(ras[n], decs[n]);
-            std::string name(names[n]);
-
-            // fit the point: create the fitting object
-            likelihoods.push_back(new PointSourceLikelihood(healpixdata, name, dir));
-            PointSourceLikelihood& like =* likelihoods.back() ;
-
-
-            // initial fit to all levels at current point
-            like.maximize(); 
-            // now localize it, return error circle radius
-            double sigma =like.localize();
-
-            // add entry to table with name, total TS, localizatino sigma, fit direction
-            (*out) << std::left << std::setw(20) << name 
-                << std::setprecision(2) << std::setw(8) << std::fixed << std::right
-                << like.TS() 
-                << std::setprecision(4) 
-                << std::setw(10) << sigma
-                << std::setw(10) << like.dir().ra() 
-                << std::setw(10) << like.dir().dec() 
-                << std::endl;
-
-            directions.push_back(like.dir());
-            if( n>0 && first_is_center!=0){
-                like.addBackgroundPointSource(likelihoods[0]);
-            }
-        }
-        if( check_sigma){
-#ifdef OLD
-            int minlevel(6), maxlevel(13);
-            ParamOptimization so(healpixdata,directions,out,minlevel,maxlevel);
-
-#if 0
-            so.compute(ParamOptimization::SIGMA);
-            so.compute(ParamOptimization::GAMMA);
-#else
-            so.compute();
-#endif
-            
-#endif
-
-        }
         if( !outfile.empty()){
             delete out;
         }

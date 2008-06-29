@@ -1,6 +1,6 @@
 """
  Utility classes or functions to implement pointlike 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitter.py,v 1.4 2008/05/02 23:31:38 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitter.py,v 1.5 2008/06/10 17:57:01 burnett Exp $
 """
 try: import uw.pointlike
 except: pass
@@ -14,7 +14,11 @@ class Source(object):
         if len(args)==1:
             tokens = args[0].split()
             self.name = tokens[0]
-            self.ra, self.dec = [float(tok) for tok in tokens[1:3]]
+            try:
+                self.ra, self.dec = [float(tok) for tok in tokens[1:3]]
+            except:
+                print 'invalid source line: "%s"' %args[0]
+                raise
         else:
             self.name = args[0]
             self.ra, self.dec = [float(a) for a in args[1:3]]
@@ -57,9 +61,10 @@ def photonmap(filename, eventtype=-1, pixeloutput=None, tstart=0, tstop=0):
     data = None
     if filename[0]=='@':
         # it is a list of data files
-        filelist = [line for line in file(filename[1:]) if len(line)>0]
+        filelist = [line.strip() for line in file(filename[1:]) if len(line)>0 and line[0]!='#']
+        print filelist
         data =  Data(filelist, eventtype, tstart, tstop)
-    elif filename[-5:]=='.fits':
+    elif filename[-5:]=='.fits' or filename[-4:]=='.fit' :
         # a fits file: either data to read, or a photonmap
         import pyfits, glob
         files = glob.glob(filename)
@@ -93,7 +98,7 @@ def sourcelist(filename):
         return [Source(names[i], ras[i], decs[i]) for i in range(len(names))]
            
     f = open(filename)
-    return [Source(line) for line in f]
+    return [Source(line) for line in f if line[0]!='#']
 
 #----------------------------------------------------------------------------------------
 

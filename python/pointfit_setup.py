@@ -1,44 +1,35 @@
-#  setup for point fit test
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.10 2008/04/28 03:42:11 burnett Exp $
+#  setup for point fit 
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.11 2008/06/06 17:01:59 burnett Exp $
 from  pointlike_defaults import *
 
-#  specify files with FT1 data and points to fit. pixelfile for PhotonMap, files for FT1 or merit
-def test():
-  " define the pixelfile for a quick test, running the pixel file created by the test program"
-  import os
-  path = os.environ['POINTLIKEROOT']
-  return os.path.join(path, 'src', 'test', 'pointlike_test.fits')
 
-# data selection: either "pixelfile", or "files", the latter a list of FT1 files
-#pixelfile = test()
-#pixelfile = r'F:\glast\data\SC2\obssim\allsky_noGRBs.fits'
-
-# if this is non-zero, lots of output
-PointSourceLikelihood.verbose=1
-
-# if this is non-zero, use the first of the list as a background for the remainder
-first_is_center=0
-
-
-# the troublesome triplet: the 3EG blazar is very strong, affects the HLCloud
-name = ['DC2_3EGJ1635m1751', 'HLCloud_SC1_05', 'Giommi_blazar_1237', 'bogus1', 'bogus2']
-ra   = [248.788,    248.4804, 248.34, 248.51, 248.27]
-dec  = [-17.861,   -18.294,  -18.71  ,-17.88, -18.12]
- 
-name= ['vela']
-ra = [128.8359]; dec=[-45.1763]
 #Data.pixelfile = r'F:\glast\data\SC2\obssim\allsky_noGRBs.fits'
 import glob
+
+"""
 Data.files = glob.glob(r'F:\glast\data\SC2\obssim\LAT_allsky_*_V01.fits')[:3]
 Data.event_class=-1
 Data.bins_per_decade=4
 from numpy import arange
 Data.energy_bins=10.**arange(1.5,5,0.25);
+"""
 
-
-dir =(128.836673, -45.188701)
-ra=[dir[0]]; dec=[dir[1]]
-name = ['crab']; ra=[83.57]; dec=[22.01]
-#name= ['DC2_3EGJ1048m5840']; dir = (137.496,	58.8367)
+# specify sources as dictionary
+sources = { #  ra        dec         TS (optional: used to sort)
+'vela'    :  (128.8359, -45.1763,   349.1),
+'Geminga' :  ( 98.476,   17.770,    287.6), 
+'psr1706-44':(257.428,  -44.486,     44.0), 
+'crab'  :    ( 83.633,   22.014,    140.7),
+'3C454.3':   (343.491,   16.148,     99.4),
+}
 
 PointSourceLikelihood.skip1=1 # add to minlevel for fitting position
+PointSourceLikelihood.verbose=0
+
+# a chunk of the FT1 data
+# Data.files=glob.glob('f:\glast\downloads\gll_ph_r02363*.fit')
+#Data.files=glob.glob('f:\glast\downloads\gll_ph*.fit')
+filelist = r'f:\glast\data\first_light\filelist.txt'
+Data.files = [line.strip() for line in open(filelist)]
+print Data.files
+Data.output_pixelfile = r'F:\glast\data\first_light\binned_ph.fits'
