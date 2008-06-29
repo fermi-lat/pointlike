@@ -1,8 +1,8 @@
 package pointlike
 
-version v6r3
+version v6r3p1
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.73 2008/06/29 01:53:47 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.74 2008/06/29 21:07:17 burnett Exp $
 
 use astro *
 use healpix *
