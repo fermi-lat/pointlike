@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.21 2008/04/29 16:06:44 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.22 2008/06/29 01:53:19 burnett Exp $
 
 */
 #include "pointlike/SourceList.h"
@@ -61,7 +61,6 @@ int main(int argc, char** argv)
         setup.getDict("sources", sources);
         SourceList sl(sources);
         sl.sort_TS();
-        sl.dump(*out);
         sl.refit(); 
         sl.dump(*out); 
 
