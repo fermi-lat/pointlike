@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.40 2008/06/21 00:38:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.41 2008/06/23 14:32:28 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -65,12 +65,12 @@ namespace {
     double sigma_max(0.25); // maximum allowable sigma
 
 
-    double examine_radius, group_radius, prune_radius;
+    double examine_radius(180.), group_radius(2.0), prune_radius(0.25);
 
-    double  ts_min;
+    double  ts_min(5.0);
     double emin(500);
     int nside(256);
-    double pixel_fraction;
+    double pixel_fraction(1.0);
     astro::SkyDir examine_dir;
     std::string outfile;
     std::string regfile;
@@ -90,14 +90,14 @@ using astro::SkyDir;
 
 void SourceFinder::setParameters(const embed_python::Module & module)
 {
-    module.getValue(prefix+"TSmin", ts_min, 10);
-    module.getValue(prefix+"emin", emin, 500);
-    module.getValue(prefix+"pass1_nside", nside, 256);
-    module.getValue(prefix+"pixel_fraction", pixel_fraction, 0.5);
+    module.getValue(prefix+"TSmin", ts_min, ts_min);
+    module.getValue(prefix+"emin", emin, emin);
+    module.getValue(prefix+"pass1_nside", nside, nside);
+    module.getValue(prefix+"pixel_fraction", pixel_fraction, pixel_fraction);
 
     module.getValue(prefix+"examine_radius", examine_radius);
-    module.getValue(prefix+"group_radius", group_radius, 1.0);
-    module.getValue(prefix+"prune_radius", prune_radius, 0.25);
+    module.getValue(prefix+"group_radius", group_radius, group_radius);
+    module.getValue(prefix+"prune_radius", prune_radius, prune_radius);
 
     module.getValue(prefix+"outfile", outfile, "");
     module.getValue(prefix+"regfile", regfile, "");
@@ -175,6 +175,7 @@ void SourceFinder::examineRegion(void)
     skymaps::BinnedPhotonData::const_iterator bpit;
     for(; bpit1 != m_pmap.end(); ++bpit1)
     {
+        int tmp(bpit1->nside());
         if(nside != bpit1->nside()) continue;
         bpit = bpit1;
         // load pixels
