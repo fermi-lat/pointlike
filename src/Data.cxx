@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.40 2008/06/29 01:49:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.41 2008/06/29 21:07:17 burnett Exp $
 
 */
 
@@ -103,9 +103,11 @@ namespace {
             double time, int event_class, int source
             , const astro::SkyDir&scz, const astro::SkyDir& scx
             , double zenith_angle
+            , int ctbclasslevel
             )
             : astro::Photon(dir, energy, time, event_class, source)
             , m_zenith_angle(zenith_angle)
+            , m_ctbclasslevel(ctbclasslevel)
         {
             Hep3Vector scy (scz().cross(scx()));
             m_rot = HepRotation(scx(), scy, scz());
@@ -129,9 +131,11 @@ namespace {
         }
 
         double zenith_angle()const{return m_zenith_angle;}
+        int class_level()const{return m_ctbclasslevel;}
     private:
         HepRotation m_rot;
         double m_zenith_angle;
+        int m_ctbclasslevel;
 
     };
 
@@ -151,7 +155,10 @@ namespace {
 
             // zenith angle cut
             if( ! isFinite(gamma.zenith_angle()) ) return; // catch NaN?
-            if( gamma.zenith_angle()< Data::zenith_angle_cut()){ 
+            if( gamma.zenith_angle()> Data::zenith_angle_cut()) return;
+            int class_level( gamma.class_level() );
+            if( class_level<2 ) return; // force source for now
+            { 
 
                 double energy(gamma.energy());
 
@@ -243,12 +250,12 @@ namespace {
         float raz(0), decz(0), rax(90), decx(0); // sc orientation: default orthogonal
         double time;
         double zenith_angle;
-        int event_class;
+        int event_class, ctbclasslevel;
         int source(-1);
 
         // FT1 names
         static std::string fits_names[]={"RA", "DEC", 
-            "ENERGY", "TIME", "EVENT_CLASS", "ZENITH_ANGLE", "MC_SRC_ID"};
+            "ENERGY", "TIME", "EVENT_CLASS", "ZENITH_ANGLE", "CTBCLASSLEVEL", "MC_SRC_ID"};
         // corresponging names in the ROOT MeritTuple
         static std::string root_names[]={"FT1Ra", "FT1Dec", 
             "CTBBestEnergy", "EvtElapsedTime"
@@ -265,6 +272,7 @@ namespace {
         if( ! isFinite(zenith_angle) || zenith_angle<1e-10 ){ // latter seems to be what fits gives?
             zenith_angle=180.; // will be cut
         }
+        (*m_it)[*names++].get(ctbclasslevel);
 
         if( m_selectid) { // check for source id only if requested
             (*m_it)[*names++].get(source);
@@ -304,7 +312,7 @@ namespace {
         }
 
         return Photon(astro::SkyDir(ra, dec), energy, time, event_class , source, 
-            SkyDir(raz,decz),SkyDir(rax,decx), zenith_angle);
+            SkyDir(raz,decz),SkyDir(rax,decx), zenith_angle, ctbclasslevel);
     }
 
 
@@ -352,9 +360,9 @@ namespace {
                 decx = row[8];
             }
         }
-        Photon p(astro::SkyDir(ra, dec), energy, time, event_class , source_id, astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),zenith_angle);
+        Photon p(astro::SkyDir(ra, dec), energy, time, event_class , source_id, astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),zenith_angle,class_level);
         astro::Photon ap = p.transform(Data::get_rot().inverse());
-        return Photon(ap.dir(),ap.energy(),ap.time(),ap.eventClass(),source_id,astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),zenith_angle);
+        return Photon(ap.dir(),ap.energy(),ap.time(),ap.eventClass(),source_id,astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),zenith_angle, class_level);
     }
 
     // default binner to use
