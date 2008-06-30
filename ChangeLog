@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Mon Jun 30 16:38:21 PDT 2008
+pointlike/python
+
+Modified Files:
+	pointfind_setup.py pointfit_setup.py 
+Added Files:
+	runfiles.py 
+Log Message:
+wire in (for now) source class requirement
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-03-02, operation: add
 Package: pointlike
