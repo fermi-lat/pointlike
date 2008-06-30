@@ -2,10 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.62 2008/06/29 01:53:48 burnett Exp $
+$Id: release.notes,v 1.64 2008/06/29 23:22:35 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
- 29-jun-08 v6r3p1  THB Fix pointfit application, module to use new SourceList class
+ 29-jun-08 v6r3p2  THB Fix pointfit application, module to use new SourceList class
  24-jun-08 v6r2p0  THB fix linux swig: still beta
  20-jun-08 v6r1    THB beta version; better finding, flexible PSF parameters
  06-jun-08 v6r0p0  THB First tentative tag with new Band organization

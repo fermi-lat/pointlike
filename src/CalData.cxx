@@ -1,7 +1,7 @@
 /** @file CalData.cxx
 @brief implementation of CalData
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CalData.cxx,v 1.37 2008/05/02 23:31:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CalData.cxx,v 1.4 2008/06/28 06:17:25 mar0 Exp $
 
 */
 
@@ -108,7 +108,7 @@ namespace {
             event_class = static_cast<int>(row[1]);
             event_class = event_class>4? 0 : 1;  // front/back map to event class 0/1
             energy = row[0];
-            double mcenergy = row[4];
+            //unused double mcenergy = row[4];
             class_level = static_cast<int>(row[2]);
             // NB. Selecting wired-in class definition (transient, source, diffuse
             if( (class_level < CalData::class_level())||(energy<emin)||(energy>emax)||(event_class!=event_type)) event_class=99;
@@ -131,7 +131,7 @@ namespace {
     }
 } // anon namespace
 
-CalData::CalData(const std::string& inputFile, int event_type, double emin, double emax, int source_id)
+CalData::CalData(const std::string& inputFile, int event_type, double emin, double emax, int /*source_id*/)
 : m_data(new BinnedPhotonData(*binner(emin,emax)))
 {
     lroot(inputFile,event_type,emin,emax);
@@ -155,7 +155,7 @@ void CalData::lroot(const std::string& inputFile,int event_type,double emin,doub
     std::vector<float> row;
     tt->GetEvent(0);
     //int starttime = static_cast<int>(tt->GetLeaf("EvtElapsedTime")->GetValue());
-    bool flag(true);
+    //unused bool flag(true);
     //for each entry  
     for(int i(0);i<entries;++i) {
         tt->GetEvent(i);
@@ -173,7 +173,11 @@ void CalData::lroot(const std::string& inputFile,int event_type,double emin,doub
             row.push_back(isFinite(v)?v:-1e8);
         }
         astro::Photon p = events(row,event_type,emin,emax);
+#if 0 // does not compile with gcc
         p.eventClass()<99?m_data->addPhoton(p):0;
+#else
+        if( p.eventClass()<99 ) m_data->addPhoton(p);
+#endif
         row.clear();
         //if(m_data->size()>0) {
             ShowPercent(i,entries,i);
