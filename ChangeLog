@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jun 30 16:38:22 PDT 2008
+pointlike/src
+
+Modified Files:
+	Data.cxx 
+Log Message:
+wire in (for now) source class requirement
+    *
+------------------------------------------------------------
 User: burnett  Mon Jun 30 16:38:21 PDT 2008
 pointlike/python
 
