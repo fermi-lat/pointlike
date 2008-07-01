@@ -3,7 +3,7 @@
 
 @author: Matthew Kerr <kerm@u.washington.edu>
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/runfiles.py,v 1.1 2008/06/30 23:38:21 burnett Exp $
 
 """
 
@@ -36,6 +36,7 @@ class RunFiles:
          cands=glob.glob('%s*%s*%s*'%(self.inpath,filetype,self.runs[i]))
          if len(cands)==0:
             print 'warning: no files found with filetype %s '% filetype
+            print 'run %s not found' % self.runs[i] 
             continue
          cands.sort()
          files[i]=cands[-1]

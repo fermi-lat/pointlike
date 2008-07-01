@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.41 2008/06/29 21:07:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.42 2008/06/30 23:38:22 burnett Exp $
 
 */
 
@@ -103,7 +103,7 @@ namespace {
             double time, int event_class, int source
             , const astro::SkyDir&scz, const astro::SkyDir& scx
             , double zenith_angle
-            , int ctbclasslevel
+            , int ctbclasslevel=1  // note default 
             )
             : astro::Photon(dir, energy, time, event_class, source)
             , m_zenith_angle(zenith_angle)
@@ -250,7 +250,7 @@ namespace {
         float raz(0), decz(0), rax(90), decx(0); // sc orientation: default orthogonal
         double time;
         double zenith_angle;
-        int event_class, ctbclasslevel;
+        int event_class, ctbclasslevel(1);
         int source(-1);
 
         // FT1 names
@@ -272,7 +272,9 @@ namespace {
         if( ! isFinite(zenith_angle) || zenith_angle<1e-10 ){ // latter seems to be what fits gives?
             zenith_angle=180.; // will be cut
         }
+        try{
         (*m_it)[*names++].get(ctbclasslevel);
+        }catch(const std::exception&){}
 
         if( m_selectid) { // check for source id only if requested
             (*m_it)[*names++].get(source);
