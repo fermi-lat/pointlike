@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jul  1 16:40:57 PDT 2008
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+minor fixes, extend python lookup
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-02-03, operation: add
 Package: pointlike
