@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Jul  1 16:40:58 PDT 2008
+pointlike/python
+
+Modified Files:
+	pointfind_setup.py pointfit_setup.py runfiles.py swig_setup.in 
+Log Message:
+minor fixes, extend python lookup
+    *
+------------------------------------------------------------
+User: burnett  Tue Jul  1 16:40:58 PDT 2008
 pointlike/doc
 
 Modified Files:
