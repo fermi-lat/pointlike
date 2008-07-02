@@ -1,7 +1,7 @@
 /** @file PointSourceLikelihood.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.2 2008/06/29 21:07:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.3 2008/06/29 23:22:35 burnett Exp $
 */
 
 
@@ -44,7 +44,7 @@ Source::Source(const std::string& name, const astro::SkyDir& seed_dir, double TS
         m_fit = new PointSourceLikelihood(*SourceList::data(), name, m_dir);
     }
     // inital maximize unless TS already set.
-    if( TS=0 )  m_TS = m_fit->maximize();
+    if( TS==0 )  m_TS = m_fit->maximize();
 }
 
 double Source::localize(){

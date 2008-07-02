@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.15 2008/06/29 01:53:48 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.16 2008/07/01 23:40:58 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -40,8 +40,7 @@
 #include "pointlike/Data.h"
 #include "pointlike/Draw.h"
 #include "pointlike/SourceList.h"
-
-
+#include "pointlike/ParamOptimization.h"
 #include "pointlike/SimpleTSmap.h"
 
 
@@ -202,8 +201,12 @@ public:
 %include $(POINTLIKEROOT)/pointlike/Draw.h
 %include $(POINTLIKEROOT)/pointlike/SimpleTSmap.h
 %include $(POINTLIKEROOT)/pointlike/SourceList.h
+%include $(POINTLIKEROOT)/pointlike/ParamOptimization.h
 
 %template(CanInfoVector) std::vector<pointlike::CanInfo>;
+%template(SourceVector)  std::vector<pointlike::Source>;
+%template(StringDoubleMap) std::map<std::string,std::vector<double> >;
+
 
 
 //%include $(ASTROROOT)/astro/HealpixArray.h
