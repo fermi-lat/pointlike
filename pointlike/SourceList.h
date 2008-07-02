@@ -1,7 +1,7 @@
 /** @file PointSourceLikelihood.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.1 2008/06/29 01:52:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.2 2008/06/29 21:07:17 burnett Exp $
 */
 
 #ifndef pointlike_SourceList_h
@@ -32,6 +32,7 @@ namespace pointlike{
         */
         Source(const std::string& name, const astro::SkyDir& seed_dir, double TS=0);
 
+        Source():m_name("default"){}; ///< default ctor
         ~Source();
 
         double localize();
@@ -85,6 +86,8 @@ namespace pointlike{
         The optional TS field is for initial sorting.
         */
         SourceList(const std::string& filename);
+
+        SourceList(){}; ///< default ctor
 
         void sort_TS();
 
