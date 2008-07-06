@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.22 2008/06/29 01:53:19 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.23 2008/06/29 21:07:17 burnett Exp $
 
 */
 #include "pointlike/SourceList.h"
@@ -55,15 +55,21 @@ int main(int argc, char** argv)
         if( !outfile.empty() ) {
             out = new std::ofstream(outfile.c_str());
         }
-
         SourceList::set_data(& healpixdata.map());
-        std::map<std::string, std::vector<double> > sources;
-        setup.getDict("sources", sources);
-        SourceList sl(sources);
-        sl.sort_TS();
-        sl.refit(); 
-        sl.dump(*out); 
 
+        SourceList* sl(0);
+        std::map<std::string, std::vector<double> > sourcedict;
+        try{
+            setup.getDict("sources", sourcedict);
+            sl = new SourceList(sourcedict);
+        }catch( const std::exception&) {
+            std::string sourcelistfile;
+            setup.getValue("sourcelistfile", sourcelistfile);
+            sl = new SourceList(sourcelistfile);
+        }        
+
+        sl->refit(); 
+        sl->dump(*out); 
 
         if( !outfile.empty()){
             delete out;
