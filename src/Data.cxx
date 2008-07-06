@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.42 2008/06/30 23:38:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.43 2008/07/01 23:40:58 burnett Exp $
 
 */
 
@@ -103,7 +103,7 @@ namespace {
             double time, int event_class, int source
             , const astro::SkyDir&scz, const astro::SkyDir& scx
             , double zenith_angle
-            , int ctbclasslevel=1  // note default 
+            , int ctbclasslevel=2  // note default 
             )
             : astro::Photon(dir, energy, time, event_class, source)
             , m_zenith_angle(zenith_angle)
@@ -158,13 +158,13 @@ namespace {
             if( gamma.zenith_angle()> Data::zenith_angle_cut()) return;
             int class_level( gamma.class_level() );
             if( class_level<2 ) return; // force source for now
-            { 
 
-                double energy(gamma.energy());
+            double energy(gamma.energy());
+            astro::Photon ap = gamma.transform(Data::get_rot().inverse());
 
-                astro::Photon gcopy(gamma.dir(), energy, gamma.time(), event_class, sourceid); 
-                m_map.addPhoton(gcopy);
-            }
+
+            astro::Photon gcopy(ap.dir(), energy, gamma.time(), event_class, sourceid); 
+            m_map.addPhoton(gcopy);
         }
         BinnedPhotonData& m_map;
         int m_select;
@@ -250,7 +250,7 @@ namespace {
         float raz(0), decz(0), rax(90), decx(0); // sc orientation: default orthogonal
         double time;
         double zenith_angle;
-        int event_class, ctbclasslevel(1);
+        int event_class, ctbclasslevel(2); // default to source
         int source(-1);
 
         // FT1 names
