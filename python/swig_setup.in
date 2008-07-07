@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.17 2008/07/02 20:00:20 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.18 2008/07/06 06:41:33 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -201,6 +201,14 @@ public:
 %include $(POINTLIKEROOT)/pointlike/Draw.h
 %include $(POINTLIKEROOT)/pointlike/SimpleTSmap.h
 %include $(POINTLIKEROOT)/pointlike/SourceList.h
+%extend pointlike::SourceList{
+   pointlike::Source & __getitem__(size_t i){ 
+      if( i == (*self).size() ) throw std::range_error("StopIteration");
+      if( i<0 || i > self->size() ) throw std::range_error("IndexError");
+      return (*self)[i]; 
+   }
+   size_t __len__() {      return self->size();       }
+}
 //fails %include $(POINTLIKEROOT)/pointlike/ParamOptimization.h
 
 %template(CanInfoVector) std::vector<pointlike::CanInfo>;

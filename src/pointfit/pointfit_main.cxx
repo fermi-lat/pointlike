@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.23 2008/06/29 21:07:17 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.24 2008/07/06 06:41:34 burnett Exp $
 
 */
 #include "pointlike/SourceList.h"
@@ -74,7 +74,10 @@ int main(int argc, char** argv)
         if( !outfile.empty()){
             delete out;
         }
-
+        // try to call the finish function, if defined
+        PyObject* finish(setup.attribute("finish", false) );
+        if(finish!=0) setup.call(finish);
+        
     }catch(const std::exception& e){
         std::cerr << "Caught exception " << typeid(e).name() 
             << " \"" << e.what() << "\"" << std::endl;
