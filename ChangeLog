@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Mon Jul  7 14:57:52 PDT 2008
+pointlike/python
+
+Modified Files:
+	pointfind_setup.py pointfit_setup.py swig_setup.in 
+Added Files:
+	confluence.py 
+Log Message:
+formatting mostly
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-02-05, operation: add
 Package: pointlike
