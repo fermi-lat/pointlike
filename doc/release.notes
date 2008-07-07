@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.67 2008/07/01 23:40:58 burnett Exp $
+$Id: release.notes,v 1.68 2008/07/06 06:41:33 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 07-jul-08 v6r3p6  THB Example of calling embedded python for finishing pointfit run; 
  05-jul-08 v6r3p5  THB Remove problematic ParamOptimization from SWIG. Some cleanup
  30-jun-08 v6r3p4  THB Fix pointfit application, module to use new SourceList class
  24-jun-08 v6r2p0  THB fix linux swig: still beta
