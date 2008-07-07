@@ -1,7 +1,7 @@
 /** @file PointSourceLikelihood.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.4 2008/07/02 20:00:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.5 2008/07/06 06:41:34 burnett Exp $
 */
 
 
@@ -193,7 +193,7 @@ void SourceList::createRegFile(std::string filename, std::string color, double t
     for( const_iterator it = begin(); it != end();  ++it)  {
         const Source& cand( * it);
         if(cand.TS()< tsmin) continue;
-        out << "cross point("<< cand.dir().ra()<< ","<<cand.dir().dec() <<") "
+        out << "point("<< cand.dir().ra()<< ","<<cand.dir().dec() <<") point=cross "
             << size << " # text={TS=" 
             << int(cand.TS()+0.5) << "};\n";
         ++n;

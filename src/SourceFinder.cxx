@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.42 2008/06/29 01:51:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.43 2008/07/06 06:41:33 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -541,13 +541,13 @@ void SourceFinder::createRegFile(std::string filename, std::string color, double
 {
     std::ofstream out(filename.c_str());
     out << "global color="<< color 
-        << " font=\"helvetica 10 normal\" select=1 edit=1 move=0 delete=1 include=1 fixed=0 width=2;fk5;"
+        << " font=\"helvetica 10 normal\" select=1 edit=1 move=0 delete=1 include=1 fixed=0 width=1;fk5;"
         << std::fixed << std::setprecision(4) << std::endl;
     int n(0);
     for( Candidates::const_iterator it = m_can.begin(); it != m_can.end();  ++it)  {
         const CanInfo& cand = it->second;
         if(cand.value()< tsmin) continue;
-        out << "cross point("<< cand.ra()<< ","<<cand.dec() <<") # text={TS=" 
+        out << "point("<< cand.ra()<< ","<<cand.dec() <<") # point=cross 20 text={TS=" 
             << int(cand.value()+0.5) << "};\n";
         ++n;
     }

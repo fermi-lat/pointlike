@@ -1,9 +1,9 @@
 #  setup for pointlike source finder
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfind_setup.py,v 1.16 2008/07/01 23:40:58 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfind_setup.py,v 1.17 2008/07/06 06:41:33 burnett Exp $
 
 from pointlike_defaults import *
 
-suffix='05'
+suffix='06'
 
 Data.LATalignment=[-186,-164, -540]  # from Marshall
 
@@ -47,8 +47,12 @@ SourceFinder.logfile = path+'pointfindlog_'+suffix+'.txt' # the log file
 print 'will write to file %s '% SourceFinder.outfile
 SourceFinder.group_radius = 2.0
 SourceFinder.TSmin = 15
-SourceFinder.imagefile= path+'image_'+suffix+'.fits'
-SourceFinder.imageresolution=0.1
+
+imagefile= path+'image_'+suffix+'.fits'
+if not os.path.exists(imagefile):
+  print 'Creating FITS image file at %s' % imagefile
+  SourceFinder.imagefile=imagefile
+  SourceFinder.imageresolution=0.1
 
 
 print 'SourceFinder.TSmin: %s, emin: %s ' %(SourceFinder.TSmin, PointSourceLikelihood.emin)
