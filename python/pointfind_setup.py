@@ -1,9 +1,9 @@
 #  setup for pointlike source finder
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfind_setup.py,v 1.17 2008/07/06 06:41:33 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfind_setup.py,v 1.18 2008/07/07 21:57:52 burnett Exp $
 
 from pointlike_defaults import *
 
-suffix='06'
+suffix='v2' # digel 
 
 Data.LATalignment=[-186,-164, -540]  # from Marshall
 
@@ -14,13 +14,18 @@ Diffuse.exposure*=4/365. #2.5e+009
 #specify data: pixels or a list of FT1 files
 
 
-
 # specify pixelfile (BinnedPhotonData) if exists, use it: otherwise generate
 pixelfile = r'D:\common\first_light\binned_source_'+suffix+'.fits'
 
 import os
 if os.path.exists(pixelfile):
   Data.pixelfile = pixelfile
+elif suffix[0]=='v':
+  datapath = r'F:\glast\data\first_light\digel\\'
+  Data.files= [datapath+'ft1_first_src_'+suffix+'.fits']
+  Data.history=datapath+'ft2_first_'+suffix+'.fits'
+  print 'Using alignment: %s' % Data.LATalignment
+  Data.output_pixelfile = pixelfile
 else:
   from runfiles import RunFiles
   datapath=r'f:/glast/downloads/'
@@ -30,7 +35,6 @@ else:
   Data.files= RunFiles(datapath, runlist)('ph')
   Data.output_pixelfile = pixelfile
 
-Data.pixelfile = pixelfile
 
 # choose region to search
 SourceFinder.l,SourceFinder.b= 0,0
@@ -56,3 +60,7 @@ if not os.path.exists(imagefile):
 
 
 print 'SourceFinder.TSmin: %s, emin: %s ' %(SourceFinder.TSmin, PointSourceLikelihood.emin)
+
+# this function, if it exists, will be called at the end of the job
+def finish():
+  pass  
