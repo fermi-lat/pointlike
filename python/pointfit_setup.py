@@ -1,11 +1,11 @@
 #  setup for point fit 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.16 2008/07/06 06:41:33 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.17 2008/07/07 21:57:52 burnett Exp $
 from  pointlike_defaults import *
 
 # specific for this analysis
 analysis_path =r'D:/common/first_light/'
 datapath=r'f:/glast/downloads/'
-suffix='06'
+suffix='v2'
 
 Data.LATalignment=[-1.9*60,-2.6*60, -8.6*60]  # from Marshall
 Data.history=r'd:\common\first_light\ft2\merged_'+suffix+'.fits'
