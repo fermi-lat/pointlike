@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Jul 14 22:29:45 PDT 2008
+pointlike/src/pointfind
+
+Modified Files:
+	finder_main.cxx 
+Log Message:
+SWIG
+    *
+------------------------------------------------------------
+User: burnett  Mon Jul 14 22:29:45 PDT 2008
 pointlike/python
 
 Modified Files:
