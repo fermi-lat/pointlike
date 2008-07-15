@@ -12,6 +12,9 @@ class Table(object):
         
         return 'http://simbad.u-strasbg.fr/simbad/sim-coo?CooDefinedFrames=none&CooEpoch=2000&Coord=%s&submit=submit%%20query&Radius.unit=deg&CooEqui=2000&CooFrame=FK5&Radius=0.2'%coord
         #1.6362%20%2b73.0255%20
+    def link_ref(self, ra):
+        return '^RA%03d.png' % int(ra)
+    
     def __init__(self, path, version, verbose=False, link_sed=True):
         self.version=version
         self.verbose=verbose
@@ -44,8 +47,7 @@ class Table(object):
         for i,t in enumerate(toks):
             if i==0 :
                 if self.link_sed:
-                  link = t.replace('+','_') # confluence attached file cannot have +
-                  q+= '[%s|^%s_SED_%s.png] [S|%s] | ' % (t,link,self.version, self.sinbad_ref(ra,dec))
+                  q+= '[%s| %s] [S|%s] | ' % (t, self.link_ref(ra), self.sinbad_ref(ra,dec))
                 else:
                   q+= '%s [S|%s] | ' % (t, self.sinbad_ref(ra,dec))
             else: q+= t + ' | '
@@ -57,8 +59,8 @@ class Table(object):
 if __name__=='__main__':
     analysis_path =r'D:/common/first_light/'
 
-    suffix='v2'
-    Table(analysis_path, suffix, link_sed=False, verbose=True)
+    suffix='v2d'
+    Table(analysis_path, suffix, link_sed=True, verbose=True)
         
         
             

@@ -1,8 +1,8 @@
 package pointlike
 
-version v6r3p7
+version v6r3p8
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.80 2008/07/07 21:59:28 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.81 2008/07/09 04:23:26 burnett Exp $
 
 use astro *
 use healpix *
@@ -14,14 +14,13 @@ use ROOT v* IExternal
 
 use python * IExternal
 
-apply_pattern shared_library
-
 # this should cause the IExternal/python setup to avoid modifying PYTHONPATH or PATH
 apply_tag have_python
 
+apply_pattern package_include 
 
 private
-# enable these for UW builds only
+
 use SwigModule *
 apply_pattern python_module
 
@@ -35,11 +34,9 @@ library pointlike \
 # fitting application, 
 # application tsmap -s=tsmap $(source) 
 
-macro_append ROOT_libs "" Linux " -lMinuit2 -lMinuit -lHist -lGraf " \
-                          WIN32 " libMinuit.lib libMinuit2.lib libHist.lib libGraf.lib " \
-                          Darwin " -lMinuit -lMinuit2 -lHist -lGraf "
-#macro sourcefit_linkopts  " -lMinuit -lMinuit2 -lHist -lGraf "\
-#                    WIN32 " libMinuit.lib libMinuit2.lib libHist.lib libGraf.lib " 
+
+macro_append ROOT_libs  " -lMinuit -lMinuit2 -lHist -lGraf "\
+                    WIN32 " libMinuit.lib libMinuit2.lib  " 
 
 application sourcefit -s=sourcefit $(source) -s=../python sourcefit_setup.py
 
