@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Jul 14 22:29:45 PDT 2008
+pointlike/python
+
+Modified Files:
+	confluence.py pointfind_setup.py pointfit_setup.py 
+Log Message:
+SWIG
+    *
+------------------------------------------------------------
+User: burnett  Mon Jul 14 22:29:45 PDT 2008
 pointlike/doc
 
 Modified Files:
