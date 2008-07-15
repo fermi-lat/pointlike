@@ -1,32 +1,26 @@
 #  setup for point fit 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.17 2008/07/07 21:57:52 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.18 2008/07/09 04:01:46 burnett Exp $
 from  pointlike_defaults import *
+import os
 
 # specific for this analysis
 analysis_path =r'D:/common/first_light/'
 datapath=r'f:/glast/downloads/'
-suffix='v2'
-
-Data.LATalignment=[-1.9*60,-2.6*60, -8.6*60]  # from Marshall
-Data.history=r'd:\common\first_light\ft2\merged_'+suffix+'.fits'
-print 'Using alignment: %s' % Data.LATalignment
+suffix='v2d'
 
 sourcelistfile = analysis_path+'sourcelist.txt'
+sourcelistfile = analysis_path+'associated_sources.txt'
 
 PointSourceLikelihood.merge=1
 verbose=0
 
 # specify pixelfile (BinnedPhotonData) if exists, use it: otherwise generate
-pixelfile = analysis_path+'binned_source_'+suffix+'.fits'
+Data.pixelfile = analysis_path+'binned_source_'+suffix+'.fits'
 
-import os
-if os.path.exists(pixelfile):
-  Data.pixelfile = pixelfile
-else:
-  from runfiles import RunFiles
-  runlist = analysis_path+'leo_runs.txt'
-  Data.files= RunFiles(datapath, runlist)('ph')
-  Data.output_pixelfile = pixelfile
+if not os.path.exists(Data.pixelfile):
+  print 'Pixel file not found: run pointfind first'
+  raise Exception
+  
   
 outfile = analysis_path+'pointfit_'+suffix+'.txt'
 
@@ -37,5 +31,5 @@ def finish():
     print 'job failed? no output'
     return
   from confluence import Table # module in the path
-  t=Table(analysis_path, suffix) 
+  t=Table(analysis_path, suffix, link_sed=False) 
   print 'wrote confluence-style table to %s' % t.outfilename

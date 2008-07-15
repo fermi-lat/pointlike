@@ -1,7 +1,7 @@
 /** @file finder_main.cxx
     @brief  Finder
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.15 2008/06/19 15:19:08 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.16 2008/06/23 14:33:44 burnett Exp $
 
 */
 #include "pointlike/SourceFinder.h"
@@ -50,6 +50,10 @@ int main(int argc, char** argv)
         pointlike::SourceFinder finder(healpixdata);
 
         finder.run();
+
+        // try to call the finish function, if defined
+        PyObject* finish(setup.attribute("finish", false) );
+        if(finish!=0) setup.call(finish);
 
 
     }catch(const std::exception& e){

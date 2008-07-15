@@ -1,9 +1,11 @@
 #  setup for pointlike source finder
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfind_setup.py,v 1.18 2008/07/07 21:57:52 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfind_setup.py,v 1.19 2008/07/09 04:01:46 burnett Exp $
 
 from pointlike_defaults import *
 
-suffix='v2' # digel 
+suffix='v2d' # my identifier
+ft1_version = 'diff_v2' # select data file to use
+ft2_version = 'v2'
 
 Data.LATalignment=[-186,-164, -540]  # from Marshall
 
@@ -22,8 +24,8 @@ if os.path.exists(pixelfile):
   Data.pixelfile = pixelfile
 elif suffix[0]=='v':
   datapath = r'F:\glast\data\first_light\digel\\'
-  Data.files= [datapath+'ft1_first_src_'+suffix+'.fits']
-  Data.history=datapath+'ft2_first_'+suffix+'.fits'
+  Data.files= [ (datapath+'ft1_first_%s.fits') % ft1_version]
+  Data.history= (datapath+'ft2_first_%s.fits') % ft2_version
   print 'Using alignment: %s' % Data.LATalignment
   Data.output_pixelfile = pixelfile
 else:
@@ -39,6 +41,7 @@ else:
 # choose region to search
 SourceFinder.l,SourceFinder.b= 0,0
 SourceFinder.examine_radius = 180 # 180 for all sky
+PointSourceLikelihood.minenergy=200
 
 
 # files to write a table of results to
@@ -63,4 +66,10 @@ print 'SourceFinder.TSmin: %s, emin: %s ' %(SourceFinder.TSmin, PointSourceLikel
 
 # this function, if it exists, will be called at the end of the job
 def finish():
+  if not os.path.exists(SourceFinder.outfile):
+    print 'Output file %s not found: application failed?'
+    return
+  print 'generating FITS format file with results.'
+  from utilities import PointFind
+  PointFind(SourceFinder.outfile).writeFITS() 
   pass  
