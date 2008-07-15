@@ -1,8 +1,8 @@
 package pointlike
 
-version v6r3p8
+version v6r3p9
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.81 2008/07/09 04:23:26 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.82 2008/07/15 05:29:45 burnett Exp $
 
 use astro *
 use healpix *
@@ -17,13 +17,11 @@ use python * IExternal
 # this should cause the IExternal/python setup to avoid modifying PYTHONPATH or PATH
 apply_tag have_python
 
-apply_pattern package_include 
-
-private
 
 use SwigModule *
 apply_pattern python_module
 
+# note private now
 macro source "*.cxx" WIN32 "*.cxx *.h *.py"
 
 library pointlike \
