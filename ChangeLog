@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Jul 16 15:00:34 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Data.h 
+Log Message:
+Allow front/back selection and zenith angle cut in root
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-03-10, operation: add
 Package: pointlike
