@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.24 2008/06/21 00:39:08 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.25 2008/06/29 01:49:33 burnett Exp $
 */
 
 
@@ -112,7 +112,7 @@ public:
     static double zenith_angle_cut();
 
 private:
-    void lroot(const std::string& infile);
+    void lroot(const std::string& infile,int event_class);
     static double s_scale[4]; // scale factors
     static int s_class_level; // set to 1,2,3 for transient, source, diffuse
 
