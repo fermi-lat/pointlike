@@ -1,8 +1,8 @@
 package pointlike
 
-version v6r3p9
+version v6r3p10
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.83 2008/07/15 22:27:50 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.84 2008/07/16 19:21:00 burnett Exp $
 
 use astro *
 use healpix *
@@ -29,7 +29,7 @@ library pointlike \
  -s=../src $(source) \
  -s=../python $(source)
 
-# this is a kluge to add skydirs to the shareable
+# this is a kluge to add skymaps to the shareable for python
 macro_append pointlike_shlibflags " $(skymaps_app_linkopts)" Win32 ""
 # fitting application, 
 # application tsmap -s=tsmap $(source) 
