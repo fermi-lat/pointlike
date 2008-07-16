@@ -2,7 +2,7 @@ package pointlike
 
 version v6r3p9
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.82 2008/07/15 05:29:45 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.83 2008/07/15 22:27:50 burnett Exp $
 
 use astro *
 use healpix *
@@ -29,6 +29,8 @@ library pointlike \
  -s=../src $(source) \
  -s=../python $(source)
 
+# this is a kluge to add skydirs to the shareable
+macro_append pointlike_shlibflags " $(skymaps_app_linkopts)" Win32 ""
 # fitting application, 
 # application tsmap -s=tsmap $(source) 
 
@@ -36,17 +38,22 @@ library pointlike \
 macro_append ROOT_libs  " -lMinuit -lMinuit2 -lHist -lGraf "\
                     WIN32 " libMinuit.lib libMinuit2.lib  " 
 
+macro sourcefitlinkopts $(pointlikelinkopts)
 application sourcefit -s=sourcefit $(source) -s=../python sourcefit_setup.py
 
 # fit a list of given directions
+macro pointfitlinkopts $(pointlikelinkopts)
 application pointfit -s=pointfit $(source) -s=../python pointfit_setup.py
 
 #source-finding application
+macro pointfindlinkopts $(pointlikelinkopts)
 application pointfind -s=pointfind $(source) -s=../python pointfind_setup.py
 
 # alignment -- not currently working
+macro alignmentlinkopts $(pointlikelinkopts)
 #application alignment -s=alignment $(source) -s=../python alignment_setup.py
 
+macro test_pointlikelinkopts $(pointlikelinkopts)
 application test_pointlike -s=test $(source)
 
 # convenient setup alias using DOSKEY for Windows version
