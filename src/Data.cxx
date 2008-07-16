@@ -46,7 +46,7 @@ using namespace pointlike;
 std::string Data::s_ft2file = std::string("");
 astro::PointingHistory* Data::s_history;
 
-int Data::s_class_level=2; 
+int Data::s_class_level=3; 
 int Data::class_level(){return s_class_level;}
 
 double Data::s_zenith_angle_cut(100.);
@@ -68,7 +68,7 @@ namespace {
         "CTBBestEnergy", "EvtElapsedTime",
         "FT1ConvLayer","PtRaz", 
         "PtDecz","PtRax",
-        "PtDecx", "CTBClassLevel"//THB, "McSourceId"//,"FT1ZenithTheta","CTBBestEnergyRatio","CTBCORE","CTBGAM"
+        "PtDecx", "CTBClassLevel","FT1ZenithTheta"//THB, "McSourceId"//,"FT1ZenithTheta","CTBBestEnergyRatio","CTBCORE","CTBGAM"
     };
 
     bool isFinite(double val) {
@@ -158,13 +158,13 @@ namespace {
             if( gamma.zenith_angle()> Data::zenith_angle_cut()) return;
             int class_level( gamma.class_level() );
             if( class_level<2 ) return; // force source for now
+            { 
 
-            double energy(gamma.energy());
-            astro::Photon ap = gamma.transform(Data::get_rot().inverse());
+                double energy(gamma.energy());
 
-
-            astro::Photon gcopy(ap.dir(), energy, gamma.time(), event_class, sourceid); 
-            m_map.addPhoton(gcopy);
+                astro::Photon gcopy(gamma.dir(), energy, gamma.time(), event_class, sourceid); 
+                m_map.addPhoton(gcopy);
+            }
         }
         BinnedPhotonData& m_map;
         int m_select;
@@ -250,7 +250,7 @@ namespace {
         float raz(0), decz(0), rax(90), decx(0); // sc orientation: default orthogonal
         double time;
         double zenith_angle;
-        int event_class, ctbclasslevel(2); // default to source
+        int event_class, ctbclasslevel(1);
         int source(-1);
 
         // FT1 names
@@ -273,7 +273,7 @@ namespace {
             zenith_angle=180.; // will be cut
         }
         try{
-        (*m_it)[*names++].get(ctbclasslevel);
+            (*m_it)[*names++].get(ctbclasslevel);
         }catch(const std::exception&){}
 
         if( m_selectid) { // check for source id only if requested
@@ -341,7 +341,7 @@ namespace {
         for(unsigned int i = 0;i<row.size();++i) {
             if(row[i]<-1e7) {
                 flag=0;
-                std::cerr << "Bad data: time="<< std::fixed<< row[3]<< ", index, value: " << i << ", " << row[i]<< std::endl;
+                //std::cerr << "Bad data: time="<< std::fixed<< row[3]<< ", index, value: " << i << ", " << row[i]<< std::endl;
             }
         }
         if(flag) {
@@ -350,9 +350,10 @@ namespace {
             event_class = event_class>4? 0 : 1;  // front/back map to event class 0/1
             energy = row[2];
             class_level = static_cast<int>(row[9]);
-            source_id = static_cast<int>(row[10]);
+            //source_id = static_cast<int>(row[10]);
             // NB. Selecting wired-in class definition (transient, source, diffuse
             if( class_level < Data::class_level()) event_class=99;
+            if(row[10]>Data::zenith_angle_cut()) event_class=99;
             else{
                 ra = row[0];
                 dec = row[1];
@@ -363,7 +364,10 @@ namespace {
             }
         }
         Photon p(astro::SkyDir(ra, dec), energy, time, event_class , source_id, astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),zenith_angle,class_level);
-        astro::Photon ap = p.transform(Data::get_rot().inverse());
+        astro::Photon ap = p;
+        if(event_class<99) {
+            ap = p.transform(Data::get_rot().inverse());
+        }
         return Photon(ap.dir(),ap.energy(),ap.time(),ap.eventClass(),source_id,astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),zenith_angle, class_level);
     }
 
@@ -449,7 +453,7 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
 
     int photoncount(m_data->photonCount()), pixelcount(m_data->pixelCount());
     if( inputFile.find(".root") != std::string::npos) {
-        lroot(inputFile);
+        lroot(inputFile, event_type);
     }else {
         EventList photons(inputFile, source_id>-1);
         AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id);
@@ -493,7 +497,7 @@ void Data::addgti(const std::string& inputFile)
 
             skymaps::Gti tnew;
             tnew.insertInterval( m_start>start? m_start:start, 
-                                  m_stop<stop&&m_stop>0? m_stop:stop);
+                m_stop<stop&&m_stop>0? m_stop:stop);
             m_data->addgti(tnew);
             std::cout << " found interval " 
                 << int(tnew.minValue())<<"-"<< int(tnew.maxValue())
@@ -501,7 +505,7 @@ void Data::addgti(const std::string& inputFile)
                 <<  std::endl;
         }
 
- 
+
     }
     catch(const std::exception& e)
     {
@@ -545,9 +549,10 @@ Data::~Data()
 
 
 
-void Data::lroot(const std::string& inputFile) {
+void Data::lroot(const std::string& inputFile, int event_class) {
     TFile *tf = new TFile(inputFile.c_str(),"READ");
     TTree *tt = static_cast<TTree*>(tf->Get("MeritTuple"));
+    double time(0);
     tt->SetBranchStatus("*", 0); // turn off all branches
     //turn on appropriate branches
     for(unsigned int j(0); j< sizeof(root_names)/sizeof(std::string); j++){
@@ -574,10 +579,14 @@ void Data::lroot(const std::string& inputFile) {
             float v = tl->GetValue();
             row.push_back(isFinite(v)?v:-1e8);
         }
-        double time(row[3]), energy(row[2]), convlayer(row[4]);
+        time=row[3];
+        double energy(row[2]), convlayer(row[4]);
         if( m_start<=0 || time >= m_start){
-            if( m_stop<=0 || time < m_stop){
-                m_data->addPhoton( events(row) );
+            if( (m_stop<=0 || time < m_stop)){
+                Photon p = events(row);
+                if(p.eventClass()==event_class || event_class == -1) {
+                    m_data->addPhoton( events(row) );
+                }
             }else{
                 flag=false; // here if off the end
             }
@@ -629,7 +638,7 @@ void Data::info(std::ostream& out)
     m_data->info(out);
 }
 
-    
+
 ///@brief change default binning: must be done before loading data files
 void Data::setEnergyBins(const std::vector<double>& bins)
 {
