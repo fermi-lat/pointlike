@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Fri Jul 18 15:23:31 PDT 2008
+pointlike/python
+
+Modified Files:
+	Fitters.py SourceLib.py 
+Log Message:
+Fixed some problem with masks.
+    *
+------------------------------------------------------------
 User: kerrm  Fri Jul 18 15:03:56 PDT 2008
 pointlike/python
 
