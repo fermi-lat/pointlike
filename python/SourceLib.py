@@ -198,7 +198,7 @@ class Source:
    def spectrum(self,energy_weight=1,model=lambda e: 1.):
       """General purpose routine for calculating a spectrum or counts map."""
       exposure_flag=model(100)==1. #Are we doing spectrum or counts?  Crude test.
-      mask = N.logical_and(self.global_data.mask(),self.photons>0)
+      mask = N.logical_and(self.global_data.mask(self.response.bands(infinity=True)),self.photons>0)
       e_weights = self.response.bands.centers()
       self.response.update(dir=self().dir())
       exposure = self.response(model=model) #This is either exposure OR counts
