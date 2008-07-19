@@ -1,7 +1,7 @@
 /** @file PointSourceLikelihood.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.5 2008/07/06 06:41:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.6 2008/07/07 21:57:53 burnett Exp $
 */
 
 
@@ -37,15 +37,31 @@ Source::Source(const std::string& name, const astro::SkyDir& seed_dir, double TS
 , m_sigma(0)
 , m_neighbor(0)
 {
+    setup();
+}
+void Source::setup()
+{
     if( SourceList::data()==0){
         throw std::invalid_argument("Source::Source: no data set");
     }
     if(m_fit==0){
-        m_fit = new PointSourceLikelihood(*SourceList::data(), name, m_dir);
+        m_fit = new PointSourceLikelihood(*SourceList::data(), m_name, m_dir);
     }
     // inital maximize unless TS already set.
     if( TS==0 )  m_TS = m_fit->maximize();
 }
+Source::Source(const std::string& name, double ra, double dec, double TS)
+: m_name(name)
+, m_dir(SkyDir(ra,dec))
+, m_seed_dir(m_dir)
+, m_fit(0)
+, m_TS(TS)
+, m_sigma(0)
+, m_neighbor(0)
+{
+    setup();
+}
+
 
 double Source::localize(){
     m_fit->maximize();   // may not be needed

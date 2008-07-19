@@ -35,18 +35,34 @@ Optional parameters:
     --emin [500]  minimum energy, used to select bands
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.7 2008/06/29 21:07:17 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.8 2008/07/09 04:01:46 burnett Exp $
 """
-# setup to import pointlike
-try: import uw.pointlike
-except: pass
-
 import os, sys, types
 from numpy import arange
 
 from pointlike import DiffuseFunction
-
 from pointlike import SourceList, Source, PointSourceLikelihood, Background, Data
+
+#----------------------------------------------------------------------------------------
+class Fitter(object):
+    """ this is an attempt to be consistent with an older interface that is used by ASP
+    """
+    def __init__(self, source, data,  background=None, skip=2, verbose=0, localize=True):
+        psl = PointSourceLikelihood(data.map(), source.name(), source.dir())
+        if background is not None: PointSourceLikelihood.set_diffuse(background)
+        psl.set_verbose(verbose)
+        self.TS = psl.TS()
+        self.name = source.name() 
+        if localize:
+            self.sigma = psl.localize(skip) 
+            self.delta = math.degrees(psl.dir().difference(source.dir()))
+        else:
+            self.sigma = self.delta=-1
+        self.ra = psl.dir().ra()
+        self.dec= psl.dir().dec()
+        self.sdir = psl.dir()
+        self.like = psl # access to the likelihood functions
+
 #----------------------------------------------------------------------------------------
 
 def photonmap(filename, eventtype=-1, pixeloutput=None, tstart=0, tstop=0):
@@ -85,7 +101,16 @@ def photonmap(filename, eventtype=-1, pixeloutput=None, tstart=0, tstop=0):
         data.map().write(pixeloutput)
         print 'created a photonmap file: %s' % pixeloutput
     return data
-
+#--------------------------------------------------------
+    
+def set_diffuse(diffusefilename='galdiffuse', exposure=1e10):
+    if 'GLAST_EXT' in os.environ and diffusefilename=='galdiffuse':
+        diffusefilename = os.path.join(os.environ['GLAST_EXT'],'extFiles','v0r7','galdiffuse', 'GP_gamma.fits')
+    diffuse = DiffuseFunction(diffusefilename)
+    background = Background(diffuse, exposure)
+    PointSourceLikelihood.set_diffuse(background)
+    return (diffuse, background) # return to keep references
+    
 #--------------------------------------------------------
 
 def main():
@@ -142,12 +167,7 @@ def main():
 
     if diffusefilename is not None:
         print 'setting up background from file %s' % diffusefilename
-        if 'GLAST_EXT' in os.environ and diffusefilename=='galdiffuse':
-            diffusefilename = os.path.join(os.environ['GLAST_EXT'],'extFiles','v0r7','galdiffuse', 'GP_gamma.fits')
-
-        diffuse = DiffuseFunction(diffusefilename)
-        background = Background(diffuse, exposure)
-        PointSourceLikelihood.set_diffuse(background)
+        (t1,t2)=set_diffuse(diffusefilename, exposure)
     PointSourceLikelihood.set_energy_range(emin)
     SourceList.set_data(data.map())
     sourcelist = SourceList(sourcefilename)

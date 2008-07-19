@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.18 2008/07/06 06:41:33 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.19 2008/07/07 21:57:52 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -208,10 +208,13 @@ public:
       return (*self)[i]; 
    }
    size_t __len__() {      return self->size();       }
+   
+   void append( pointlike::Source& s){
+       self->push_back(s); // note makes a copy
+   }
 }
 //fails %include $(POINTLIKEROOT)/pointlike/ParamOptimization.h
 
-%template(CanInfoVector) std::vector<pointlike::CanInfo>;
 %template(SourceVector)  std::vector<pointlike::Source>;
 %template(StringDoubleMap) std::map<std::string,std::vector<double> >;
 
