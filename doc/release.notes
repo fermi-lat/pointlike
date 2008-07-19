@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.72 2008/07/15 22:27:50 burnett Exp $
+$Id: release.notes,v 1.73 2008/07/16 19:22:44 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 19-jul-08 v6r4    THB new python code for spectral fits
  15-jul-08 v6r3p10 THB SWIG for linux
  08-jul-08 v6r3p7  THB More python elaboration
  07-jul-08 v6r3p6  THB Example of calling embedded python for finishing pointfit run; 

@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.43 2008/07/01 23:40:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.45 2008/07/16 22:00:50 mar0 Exp $
 
 */
 
@@ -45,6 +45,13 @@ using namespace pointlike;
 
 std::string Data::s_ft2file = std::string("");
 astro::PointingHistory* Data::s_history;
+
+//! @brief define FT2 file to use for rotation
+void Data::setHistoryFile(const std::string& history)
+{
+    s_ft2file = history;
+    s_history = new astro::PointingHistory(history);
+}
 
 int Data::s_class_level=3; 
 int Data::class_level(){return s_class_level;}
@@ -455,6 +462,9 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
     if( inputFile.find(".root") != std::string::npos) {
         lroot(inputFile, event_type);
     }else {
+        if( s_rot.xx()!=1.0 && s_ft2file.empty()) {
+            throw std::invalid_argument("Data:: attempt to apply alignment correction without history support");
+        }
         EventList photons(inputFile, source_id>-1);
         AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id);
 
@@ -462,7 +472,7 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
     }
     std::cout 
         << "photons found: "  << (m_data->photonCount() -photoncount) << " (total: " << m_data->photonCount() <<") "
-        << "  pixels created: " << (m_data->pixelCount() -pixelcount) << " (total: " << m_data->pixelCount() << ") "
+        //?<< "  pixels created: " << (m_data->pixelCount() -pixelcount) << " (total: " << m_data->pixelCount() << ") "
         << std::endl;
 
 }
@@ -526,6 +536,7 @@ Data::Data(std::vector<std::string> inputFiles, int event_type, double tstart, d
 : m_data(new BinnedPhotonData(*binner))
 , m_start(tstart), m_stop(tstop)
 {
+    if( !ft2file.empty() ) setHistoryFile(ft2file); // this is actually a global
 
     for( std::vector<std::string>::const_iterator it = inputFiles.begin(); 
         it !=inputFiles.end(); ++it)
@@ -618,12 +629,6 @@ const astro::PointingInfo& Data::get_pointing(double time) {
     return (*s_history)(time);
 }
 
-//! @brief define FT2 file to use for rotation
-void Data::setHistoryFile(const std::string& history)
-{
-    s_ft2file = history;
-    s_history = new astro::PointingHistory(history);
-}
 
 const std::string& Data::historyfile() {
     return s_ft2file;
