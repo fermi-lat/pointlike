@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Jul 19 07:46:09 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Draw.h 
+Log Message:
+smoothing implementation
+    *
+------------------------------------------------------------
 User: kerrm  Fri Jul 18 15:23:31 PDT 2008
 pointlike/python
 
