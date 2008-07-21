@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.45 2008/07/16 22:00:50 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.46 2008/07/19 15:06:48 burnett Exp $
 
 */
 
@@ -53,10 +53,10 @@ void Data::setHistoryFile(const std::string& history)
     s_history = new astro::PointingHistory(history);
 }
 
-int Data::s_class_level=3; 
+int Data::s_class_level=3; // diffuse selection
 int Data::class_level(){return s_class_level;}
 
-double Data::s_zenith_angle_cut(100.);
+double Data::s_zenith_angle_cut(105.); // standard cut
 double Data::zenith_angle_cut(){
     return s_zenith_angle_cut;
 }
@@ -110,7 +110,7 @@ namespace {
             double time, int event_class, int source
             , const astro::SkyDir&scz, const astro::SkyDir& scx
             , double zenith_angle
-            , int ctbclasslevel=2  // note default 
+            , int ctbclasslevel=Data::class_level()  // note default 
             )
             : astro::Photon(dir, energy, time, event_class, source)
             , m_zenith_angle(zenith_angle)
@@ -164,7 +164,7 @@ namespace {
             if( ! isFinite(gamma.zenith_angle()) ) return; // catch NaN?
             if( gamma.zenith_angle()> Data::zenith_angle_cut()) return;
             int class_level( gamma.class_level() );
-            if( class_level<2 ) return; // force source for now
+            if( class_level< Data::class_level() ) return; // select class level
             { 
 
                 double energy(gamma.energy());
@@ -335,47 +335,30 @@ namespace {
         return Iterator(m_itend, m_fits);
     }
 
-    //ROOT event extraction
-    Photon events(std::vector<float>& row) {
-        float ra(0), dec(0), energy(0); // photon info
-        float raz(0), decz(0), rax(90), decx(0); // sc orientation: default orthogonal
-        double time(0);
-        double zenith_angle(0); //TODO: set this?
-        int event_class(99);
-        int source_id(0);
-        int class_level(0);
-        int flag =1;
-        for(unsigned int i = 0;i<row.size();++i) {
-            if(row[i]<-1e7) {
-                flag=0;
-                //std::cerr << "Bad data: time="<< std::fixed<< row[3]<< ", index, value: " << i << ", " << row[i]<< std::endl;
-            }
-        }
-        if(flag) {
-            time = row[3];
-            event_class = static_cast<int>(row[4]);
-            event_class = event_class>4? 0 : 1;  // front/back map to event class 0/1
-            energy = row[2];
-            class_level = static_cast<int>(row[9]);
-            //source_id = static_cast<int>(row[10]);
-            // NB. Selecting wired-in class definition (transient, source, diffuse
-            if( class_level < Data::class_level()) event_class=99;
-            if(row[10]>Data::zenith_angle_cut()) event_class=99;
-            else{
-                ra = row[0];
-                dec = row[1];
-                raz = row[5];
-                decz = row[6];
-                rax = row[7];
-                decx = row[8];
-            }
-        }
-        Photon p(astro::SkyDir(ra, dec), energy, time, event_class , source_id, astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),zenith_angle,class_level);
-        astro::Photon ap = p;
-        if(event_class<99) {
-            ap = p.transform(Data::get_rot().inverse());
-        }
-        return Photon(ap.dir(),ap.energy(),ap.time(),ap.eventClass(),source_id,astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),zenith_angle, class_level);
+    //ROOT event extraction, only used by Data::lroot
+    astro::Photon events(std::vector<double>& row) {
+
+        // extract stuff from row, assuming order in root_names
+        float ra(row[0]), dec(row[1]); 
+        double energy(row[2])
+            ,  time( row[3]) ;
+
+        int event_class( row[4]>4? 0 : 1 );
+
+        // for transformation
+        float raz(row[5]), decz(row[6])
+            , rax(row[7]), decx(row[8]); 
+
+        // these not actually relevant here
+        int class_level( static_cast<int>(row[9]) );
+        double zenith_angle(row[10]); 
+        int source_id(-1); // not set now?
+
+        // create the local Photon object from these data, have it return a transformed astro::Photon
+        Photon p(astro::SkyDir(ra, dec), energy, time, event_class , 
+            source_id, astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),
+            zenith_angle,class_level);
+        return p.transform(Data::get_rot().inverse());
     }
 
     // default binner to use
@@ -392,9 +375,9 @@ Data::Data(const embed_python::Module& setup)
 
     if(!pixelfile.empty()){
         try {
-            m_data = new BinnedPhotonData(pixelfile, "PHOTONMAP" );
+            m_data = new BinnedPhotonData(pixelfile, "BANDS");
         } catch( const std::exception& ){
-            m_data = new BinnedPhotonData(pixelfile, "BANDS" );
+            m_data = new BinnedPhotonData(pixelfile, "PHOTONMAP");
         }
         return;
     }
@@ -570,7 +553,7 @@ void Data::lroot(const std::string& inputFile, int event_class) {
         tt->SetBranchStatus(root_names[j].c_str(), 1);
     }
     int entries = static_cast<int>(tt->GetEntries());
-    std::vector<float> row;
+    std::vector<double> row;
     tt->GetEvent(0);
     //int starttime = static_cast<int>(tt->GetLeaf("EvtElapsedTime")->GetValue());
     bool flag(true);
@@ -587,20 +570,19 @@ void Data::lroot(const std::string& inputFile, int event_class) {
                     throw std::invalid_argument(std::string("Tuple: could not find leaf ")+root_names[j]);
                 }
             }
-            float v = tl->GetValue();
+            double v = tl->GetValue();
             row.push_back(isFinite(v)?v:-1e8);
         }
-        time=row[3];
-        double energy(row[2]), convlayer(row[4]);
-        if( m_start<=0 || time >= m_start){
-            if( (m_stop<=0 || time < m_stop)){
-                Photon p = events(row);
-                if(p.eventClass()==event_class || event_class == -1) {
-                    m_data->addPhoton( events(row) );
-                }
-            }else{
-                flag=false; // here if off the end
-            }
+        double time(row[3])
+            ,thetazenith(row[10]), ctbclasslevel(row[9]) ;
+
+        // perform event selection -- note uses local function events to transform
+        if( thetazenith < Data::zenith_angle_cut() 
+            && ctbclasslevel>= Data::class_level() 
+            && (Data::minTime()==0 || time>Data::minTime() )
+            && (Data::maxTime()==0 || time<Data::maxTime() ) ) 
+        {
+              m_data->addPhoton( events(row) );
         }
         row.clear();
     }

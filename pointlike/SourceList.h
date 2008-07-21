@@ -1,7 +1,7 @@
 /** @file PointSourceLikelihood.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.3 2008/07/02 20:00:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.4 2008/07/19 15:06:48 burnett Exp $
 */
 
 #ifndef pointlike_SourceList_h
@@ -61,9 +61,9 @@ namespace pointlike{
         std::string m_name;
         astro::SkyDir m_dir; ///< current dir
         astro::SkyDir m_seed_dir; ///< initial seed direction
-        double m_TS;
         PointSourceLikelihood * m_fit; ///< pointer to the fitter
-        double m_sigma;  ///< localization rms error
+        double m_TS;
+            double m_sigma;  ///< localization rms error
         const Source * m_neighbor; ///< pointer to strong neighbor (zero if none)
         void setup();  ///< called by ctors
     };
