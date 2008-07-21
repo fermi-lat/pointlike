@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jul 21 10:44:11 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Data.h SourceList.h 
+Log Message:
+Fix ROOT data acquisition; some Linux warnings
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-04-00, operation: add
 Package: pointlike
