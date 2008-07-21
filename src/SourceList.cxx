@@ -1,7 +1,7 @@
 /** @file PointSourceLikelihood.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.6 2008/07/07 21:57:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.7 2008/07/19 15:06:48 burnett Exp $
 */
 
 
@@ -129,7 +129,6 @@ SourceList::SourceList(const std::string& filename)
     while (!input_file.eof()){
         std::string line; std::getline(input_file, line);
         if( line.size()<5 || line[0]=='#' ) continue; // comment or empty
-        double start; 
         std::stringstream buf(line); 
         std::string name; buf >> name;
         double ra, dec, TS(0);

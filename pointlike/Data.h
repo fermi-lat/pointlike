@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.26 2008/07/16 22:00:34 mar0 Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.27 2008/07/19 15:06:48 burnett Exp $
 */
 
 
@@ -43,8 +43,8 @@ public:
         );
     //! constructor loads a BinnedPhotonData that was saved in a fits file
     //! @param inputFile the fits file name
-    //! @param tablename ["PHOTONMAP"] the fits table name
-    Data(const std::string & inputFile, const std::string & tablename="PHOTONMAP");
+    //! @param tablename ["BANDS"] the fits table name
+    Data(const std::string & inputFile, const std::string & tablename="BANDS");
 
 
     //! constructor configure from a python "data" file
