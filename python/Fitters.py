@@ -158,7 +158,7 @@ class LSFitter( SpectralFitter ):
    def remask(self):
       """This is a klugey way to use the same fitter for multiple fits, allowing the mask
          or event class to change."""
-      mask = self.source.global_data.mask(self.source.response.bands(infinity=True))
+      mask = self.source.global_data.mask()
       self.mask=N.logical_and( N.logical_and(self.source.alphas[:,0]>3e-5, self.source.photons>2), mask)
 
    def fit(self,model):
@@ -225,7 +225,7 @@ class MarginalPoissonLikelihood(PoissonLikelihood):
       """Pre-calculate much of the integral to save processor time during fitting."""
 
       photons=source.photons
-      mask=source.global_data.mask(source.response.bands(infinity=True))
+      mask=source.global_data.mask()
       zero_mask=N.logical_and(mask,photons==0)
       mask=N.logical_and(mask,photons>0)
       nbins=len(mask)
@@ -287,7 +287,7 @@ class ConditionalPoissonLikelihood(PoissonLikelihood):
 
    def __init__(self,source):
       """Set up variables and cut on poorly-fit bins."""
-      mask=source.global_data.mask(source.response.bands(infinity=True))
+      mask=source.global_data.mask()
       alphas,sigmas = source.alphas.transpose()
       self.mask=N.logical_and(N.logical_and(alphas>3e-5,sigmas<0.5),mask)
       self.zero_mask=alphas<0
