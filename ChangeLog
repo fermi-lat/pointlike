@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: kerrm  Tue Jul 22 15:14:11 PDT 2008
+pointlike/python
+
+Modified Files:
+	Fitters.py SourceLib.py 
+Added Files:
+	dataman.py 
+Log Message:
+Fixed some mask typos in Fitters/SourceLib.  Added dataman.
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-04-03, operation: add
 Package: pointlike
