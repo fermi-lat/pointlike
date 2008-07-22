@@ -1,7 +1,7 @@
 /** @file PointSourceLikelihood.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.7 2008/07/19 15:06:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.8 2008/07/21 17:44:12 burnett Exp $
 */
 
 
@@ -48,7 +48,7 @@ void Source::setup()
         m_fit = new PointSourceLikelihood(*SourceList::data(), m_name, m_dir);
     }
     // inital maximize unless TS already set.
-    if( TS==0 )  m_TS = m_fit->maximize();
+    if( m_TS==0 )  m_TS = m_fit->maximize();
 }
 Source::Source(const std::string& name, double ra, double dec, double TS)
 : m_name(name)
