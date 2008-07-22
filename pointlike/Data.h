@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.27 2008/07/19 15:06:48 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.28 2008/07/21 17:44:11 burnett Exp $
 */
 
 
@@ -38,9 +38,12 @@ public:
     //! constructor loads data from a list of fits or root files to make a BinnedPhotonData
     //! @param event_type 0 for class A front, etc, -1 for all
     //! @param source_id select given source
-    Data(std::vector<std::string> files, int event_type, double tstart, double tstop,int source_id=-1, 
+    Data(std::vector<std::string> files, int event_type=-1, double tstart=0, double tstop=0,int source_id=-1, 
         std::string ft2file=""
         );
+
+
+
     //! constructor loads a BinnedPhotonData that was saved in a fits file
     //! @param inputFile the fits file name
     //! @param tablename ["BANDS"] the fits table name
