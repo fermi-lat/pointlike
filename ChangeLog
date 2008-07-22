@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jul 22 08:36:33 PDT 2008
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+allow multiple FT2 files; tag
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-04-02, operation: add
 Package: pointlike
