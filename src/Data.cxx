@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.48 2008/07/22 01:12:44 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.49 2008/07/22 03:58:10 burnett Exp $
 
 */
 
@@ -44,13 +44,17 @@ using skymaps::Gti;
 using namespace pointlike;
 
 std::string Data::s_ft2file = std::string("");
-astro::PointingHistory* Data::s_history;
+astro::PointingHistory* Data::s_history(0);
 
 //! @brief define FT2 file to use for rotation
 void Data::setHistoryFile(const std::string& history)
 {
     s_ft2file = history;
-    s_history = new astro::PointingHistory(history);
+    if( s_history==0 ){
+        s_history = new astro::PointingHistory(history);
+    }else{
+        s_history->readFitsData(history);
+    }
 }
 
 int Data::s_class_level=3; // diffuse selection
@@ -165,13 +169,9 @@ namespace {
             if( gamma.zenith_angle()> Data::zenith_angle_cut()) return;
             int class_level( gamma.class_level() );
             if( class_level< Data::class_level() ) return; // select class level
-            { 
-
-                double energy(gamma.energy());
-
-                astro::Photon gcopy(gamma.dir(), energy, gamma.time(), event_class, sourceid); 
-                m_map.addPhoton(gcopy);
-            }
+            // now make the transformation, which returns a regular photon object
+            astro::Photon ap( gamma.transform(Data::get_rot().inverse()) );
+            m_map.addPhoton(ap);
         }
         BinnedPhotonData& m_map;
         int m_select;
@@ -434,10 +434,12 @@ Data::Data(const embed_python::Module& setup)
 
 void Data::add(const std::string& inputFile, int event_type, int source_id)
 {
-    std::cout << "Loading data from file " << inputFile 
-        << ", selecting event type " << event_type ;
+    std::cout << "Loading data from file " << inputFile ;
+    if( event_type>=0){
+        std::cout << ", selecting event type " << event_type ;
+    }
     if( source_id>-1) {
-        std::cout << " and source id " << source_id;
+        std::cout << " selecting source id " << source_id;
     }
     if( m_start>0 || m_stop>0 ) std::cout << " time range: (" << int(m_start) << " to " << int(m_stop) << ")";
     std::cout  << std::endl;
