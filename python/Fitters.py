@@ -1,6 +1,5 @@
 import numpy as N
 import math as M
-#import uw.pointlike
 import pointlike as pl
 from Models import *
 from types import *
