@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Fri Jul 25 11:27:43 PDT 2008
+pointlike/python
+
+Modified Files:
+	Fitters.py Response.py SourceLib.py specfit.py 
+Log Message:
+Enclosed UW environment setup in try/except blocks to avoid errors in SLAC space.
+    *
+------------------------------------------------------------
 User: kerrm  Tue Jul 22 15:14:11 PDT 2008
 pointlike/python
 
