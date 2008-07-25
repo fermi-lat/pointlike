@@ -1,8 +1,12 @@
 ###SEE MAIN METHOD BELOW FOR A DOCUMENTED EXAMPLE OF BASIC INTERACTIVE SPECTRAL ANALYSIS
 
-import sys
-sys.path.insert(0,'d:/users/kerrm/python/spectrum_dev4')
-import uw.pointlike
+try: #This try block only for glast-ts at University of Washington
+   import sys
+   sys.path.insert(0,'d:/users/kerrm/python/spectrum_dev4')
+   import uw.pointlike
+except:
+   pass
+
 import pointlike as pl
 
 #Additional modules
