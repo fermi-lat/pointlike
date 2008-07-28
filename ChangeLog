@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jul 28 14:47:24 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Data.h 
+Log Message:
+changed to use new Alignment for corrections.
+    *
+------------------------------------------------------------
 User: burnett  Mon Jul 28 14:46:38 PDT 2008
 pointlike/src
 
