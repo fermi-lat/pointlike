@@ -1,7 +1,7 @@
 /** @file Draw.cxx
 @brief implementation of Draw
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.7 2008/05/28 21:39:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.8 2008/07/19 14:46:09 burnett Exp $
 
 */
 
@@ -114,7 +114,7 @@ void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel
         << outputFile << "\""<<std::endl;
 
 }
-void Draw::sky(std::string outputfile, double pixel)
+void Draw::sky(std::string outputfile, double pixel, bool smooth, int mincount)
 {
-    region(SkyDir(0,0, SkyDir::GALACTIC), outputfile, pixel, 180.);
+    region(SkyDir(0,0, SkyDir::GALACTIC), outputfile, pixel, 180., smooth, mincount);
 }

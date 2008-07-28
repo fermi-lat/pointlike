@@ -1,7 +1,7 @@
 /** @file Draw.h 
 @brief declaration of the Draw wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.4 2008/05/28 21:39:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.5 2008/07/19 14:46:09 burnett Exp $
 */
 
 
@@ -33,7 +33,7 @@ namespace pointlike {
         void region(const astro::SkyDir& dir, std::string outputFile, double pixelsize,
                     double fov, bool smooth = false, int mincount = 0);
 
-        void sky(std::string outputfile, double pixelsize);
+        void sky(std::string outputfile, double pixelsize, bool smooth = false, int mincount = 0);
 
         void galactic(){m_galactic = true;}      ///< set galactic
         void equatorial(){m_galactic=false;}     ///< set equatorial
