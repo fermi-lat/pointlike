@@ -1,7 +1,7 @@
 /** @file PointSourceLikelihood.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.8 2008/07/21 17:44:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.9 2008/07/22 03:58:10 burnett Exp $
 */
 
 
@@ -78,13 +78,13 @@ double Source::moved()const{
 
 void Source::header(std::ostream& out){
     out << std::left << std::setw(20) 
-        <<"# name           ra        dec          TS    localization moved  [neighbor]\n";
-//         vela             128.8465  -45.1863    248.20    0.0287    0.0000
+        <<"#name                  ra        dec          TS    localization moved  neighbor\n";
+//         B0833-45              128.8339  -45.1629   5698.49    0.0069    0.0136
 }
 
 void Source::info(std::ostream& out)const{
         out << std::left << std::fixed 
-            << std::setw(15) << name() 
+            << std::setw(20) << name() 
             << std::setprecision(4) << std::right
             << std::setw(10) << dir().ra() 
             << std::setw(10) << dir().dec() 
