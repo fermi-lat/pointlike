@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Jul 28 14:46:38 PDT 2008
+pointlike/src
+
+Added Files:
+	Alignment.cxx 
+Log Message:
+new class to manage alignment
+    *
+------------------------------------------------------------
+User: burnett  Mon Jul 28 14:46:38 PDT 2008
 pointlike/pointlike
 
 Added Files:
