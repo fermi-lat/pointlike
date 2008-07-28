@@ -1,12 +1,13 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.49 2008/07/22 03:58:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.50 2008/07/22 15:36:33 burnett Exp $
 
 */
 
 
 #include "pointlike/Data.h"
+#include "pointlike/Alignment.h"
 
 #include "astro/SkyDir.h"
 #include "astro/Photon.h"
@@ -65,8 +66,18 @@ double Data::zenith_angle_cut(){
     return s_zenith_angle_cut;
 }
 
-CLHEP::HepRotation Data::s_rot = CLHEP::HepRotationX(0)*CLHEP::HepRotationY(0)*CLHEP::HepRotationZ(0);
+// default alignment object
+pointlike::Alignment* Data::s_alignment=new Alignment();
 
+void Data::set_alignment(const std::string & filename)
+{
+    delete s_alignment;
+    s_alignment = new Alignment(filename);
+}
+
+#if 0
+CLHEP::HepRotation Data::s_rot = CLHEP::HepRotationX(0)*CLHEP::HepRotationY(0)*CLHEP::HepRotationZ(0);
+#endif
 #ifdef WIN32
 #include <float.h> // used to check for NaN
 #else
@@ -170,7 +181,11 @@ namespace {
             int class_level( gamma.class_level() );
             if( class_level< Data::class_level() ) return; // select class level
             // now make the transformation, which returns a regular photon object
+#if 0
             astro::Photon ap( gamma.transform(Data::get_rot().inverse()) );
+#else
+            astro::Photon ap( gamma.transform( Data::get_rot(gamma.time())) );
+#endif
             m_map.addPhoton(ap);
         }
         BinnedPhotonData& m_map;
@@ -359,7 +374,11 @@ namespace {
         Photon p(astro::SkyDir(ra, dec), energy, time, event_class , 
             source_id, astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),
             zenith_angle,class_level);
+#if 0
         return p.transform(Data::get_rot().inverse());
+#else
+        return p.transform(Data::get_rot(time));
+#endif
     }
 
     // default binner to use
@@ -400,7 +419,15 @@ Data::Data(const embed_python::Module& setup)
         Data::setHistoryFile(history_filename);
     }
     setup.getList(prefix+"LATalignment", alignment);
-    if( alignment.size()>0) Data::set_rot(alignment);
+    if( alignment.size()>0) {
+        Data::set_rot(alignment);
+    }
+    std::string alignment_data;
+    setup.getValue(prefix+"alignment_data", alignment_data, "");
+    if( !alignment_data.empty() ){
+        delete s_alignment;
+        s_alignment = new Alignment(alignment_data);
+    }
 
     double bins_per_decade(0); 
     setup.getValue(prefix+"bins_per_decade", bins_per_decade, bins_per_decade);
@@ -448,7 +475,7 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
     if( inputFile.find(".root") != std::string::npos) {
         lroot(inputFile, event_type);
     }else {
-        if( s_rot.xx()!=1.0 && s_ft2file.empty()) {
+        if( s_alignment->active() && s_ft2file.empty()) {
             // need a FT2 file. Try replacing 'ft1' with 'ft2' in file name, assume in same folder
             std::string ft2(inputFile);
             size_t i = ft2.find("_ft1.fit");
@@ -606,22 +633,17 @@ void Data::lroot(const std::string& inputFile, int event_class) {
     delete tf;
 }
 
-CLHEP::HepRotation Data::set_rot(double arcsecx,double arcsecy,double arcsecz) {
-    CLHEP::HepRotation current = s_rot;
-    s_rot = CLHEP::HepRotationX(arcsecx*M_PI/648000)*CLHEP::HepRotationY(arcsecy*M_PI/648000)*CLHEP::HepRotationZ(arcsecz*M_PI/648000);
-    return current;
+void Data::set_rot(double arcsecx,double arcsecy,double arcsecz) {
+    delete s_alignment;
+    s_alignment = new Alignment(arcsecx, arcsecy, arcsecz);
 }
 void Data::set_rot(std::vector<double> align) {
-    using CLHEP::HepRotation;
     assert( align.size()==3); // otherwise bad interface setup
-    static double torad(M_PI/(180*60*60));
-    s_rot = HepRotationX(align[0]*torad) 
-        * HepRotationY(align[1]*torad) 
-        * HepRotationZ(align[2]*torad);
+    set_rot(align[0], align[1], align[2]);
 }
 
-const CLHEP::HepRotation& Data::get_rot() {
-    return s_rot;
+const CLHEP::HepRotation& Data::get_rot(double time) {
+    return s_alignment->rotation(time);
 }
 
 const astro::PointingInfo& Data::get_pointing(double time) {
