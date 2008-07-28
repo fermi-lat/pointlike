@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 TAG
+Tag name: v6r4p2, operation: add
+Package: pointlike
+User: burnett  Mon Jul 28 14:52:00 2008
+Files:
+  pointlike/pointlike/Alignment.h  1.1
+  pointlike/src/Alignment.cxx  1.1
+
+    *
+------------------------------------------------------------
+TAG
 Tag name: v6r5, operation: add
 Package: pointlike
 User: burnett  Mon Jul 28 14:50:18 2008
