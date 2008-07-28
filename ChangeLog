@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jul 28 14:46:38 PDT 2008
+pointlike/pointlike
+
+Added Files:
+	Alignment.h 
+Log Message:
+new class to manage alignment
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-07-00, operation: add
 Package: pointlike
