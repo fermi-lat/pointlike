@@ -44,12 +44,10 @@ Optional parameters:
     --fitter - which spectral fitter to use -- default Marginal Poisson
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/specfit.py,v 1.1 2008/07/18 22:03:56 kerrm Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/specfit.py,v 1.2 2008/07/25 18:27:43 kerrm Exp $
 """
 # setup to import pointlike
 try: #Try block only for UW environment
-   from sys import path
-   path.insert(0,'d:/users/kerrm/python/spectrum_dev4')
    import uw.pointlike
 except: pass
 

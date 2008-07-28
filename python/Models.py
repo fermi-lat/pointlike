@@ -46,6 +46,8 @@ class Model(object):
       param_string=','.join( ( str(p) for p in self.p ) )
       return eval(self.name+'(parameters=('+param_string+'))')
 
+
+
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
@@ -68,7 +70,7 @@ class PowerLawScaled(Model):
    def __init__(self,parameters=(1.,2),e0=100.):
       self.p=parameters
       self.e0=e0
-      self.name='PowerLaw'
+      self.name='PowerLawScaled'
       self.param_names=['Norm','Index']
    def __call__(self,e):
       n0,gamma=self.p

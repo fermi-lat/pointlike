@@ -1,11 +1,13 @@
 ###SEE MAIN METHOD BELOW FOR A DOCUMENTED EXAMPLE OF BASIC INTERACTIVE SPECTRAL ANALYSIS
 
 try: #This try block only for glast-ts at University of Washington
-   import sys
-   sys.path.insert(0,'d:/users/kerrm/python/spectrum_dev4')
    import uw.pointlike
-except:
-   pass
+   #import sys
+   #sys.path.insert(0,'d:/users/kerrm/python/spectrum_dev4')
+   #import uw.pointlike
+   #import pointlike as pl
+
+except: pass
 
 import pointlike as pl
 
@@ -234,7 +236,7 @@ class Source:
       if printfit: print 'Fitting %s with method %s'%(self().name(),method)
       self.response.update(dir=self().dir())
       
-      if x0: exec('model = %s(parameters=%s)'%(model,x0))
+      if x0 is not None: exec('model = %s(parameters=%s)'%(model,x0))
       else: exec('model = %s()'%model)
 
       if not method in self.fitters:

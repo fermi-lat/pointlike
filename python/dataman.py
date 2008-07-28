@@ -1,21 +1,23 @@
-from uw.sane import setup
-setup()
+
+
+try: #For UW terminal server only
+   #from uw.insane import setup
+   from uw.sane import setup
+   setup()
+except: pass
 from GtApp import GtApp
 
-from sys import path
-path.insert(0,'d:/users/kerrm/python/spectrum_dev4')
-path.insert(0,'d:/users/kerrm/python/spectrum_dev4/uw')
-import pointlike
-path.pop(0)
-reload(pointlike)
+try: #For UW terminal server only
+   import uw.pointlike
+except: pass 
+from pointlike import Data
 
 import glob, os
-from pointlike import Data
 import numpy as N
 from numpy import array
 
 """
-Alignment constants
+Alignment constants -- get these from Marshall's Confluence page
 
 """
 
@@ -100,27 +102,33 @@ class DataManager(object):
 
     
     def livetime_cubes(self):
+
+        print 'Generating livetime cubes for any new data...'
         
-        ltfiles = glob('%s/r*ltcube.fits'%self.datapath)
+        ltfiles = glob.glob('%s/r*ltcube.fit'%self.datapath)
         done_runs = [self.run_number(f) for f in ltfiles]
-        to_do_ft1_files = [f for f in self.ft1files and self.run_number(f) not in done_runs]
+        to_do_ft1_files = [f for f in self.ft1files if self.run_number(f) not in done_runs]
          
         gt=GtApp('gtltcube', 'General')
+        gt.pars['dcostheta']=0.25
+        gt.pars['clobber']='yes'
+        #gt.pars['zmax']=105
         
         for r in to_do_ft1_files:
 
-            gt.pars['evfile']=r
+            gt.pars['evfile']=r.replace('ft1','ft1')
             gt.pars['scfile']=r.replace('ft1','ft2')
             gt.pars['outfile']=r.replace('ft1','ltcube')
-            gt.pars['dcostheta']=0.25
-            gt.pars['clobber']='yes'
+
             gt.run()
 
-        f = open(self.datapath+'ltcube_list.txt','w')
-        g = open(self.datapath+'ft1_list.txt','w')
-        for r in to_do_ft1_files:
-            f.write(r.replace('ft1','ltcube')+'\n')
+        ltfiles = glob.glob('%s/r*ltcube.fit'%self.datapath)
+        f = open(self.datapath+'/ltcube_list.txt','w')
+        g = open(self.datapath+'/ft1_list.txt','w')
+        for r in ltfiles:
             g.write(r+'\n')
+            f.write(r.replace('ft1','ltcube')+'\n')
+            
         f.close()
         g.close()
 
@@ -128,6 +136,7 @@ class DataManager(object):
     
         gt=GtApp('gtltsum','General')
         gt.pars['infile1']='@%s/ltcube_list.txt'%self.datapath
+        gt.pars['infile2']=""
         gt.pars['outfile']='%s/summed_ltcube.fits'%self.datapath
         gt.pars['clobber']='yes'
         gt.run()
@@ -211,5 +220,5 @@ if __name__=='__main__':
     d = DataManager(analysispath=r'd:\common\first_light\aligned_qual')
 
     #Test
-    d.write_binned(sum_alignment = True)
-    d.write_binned(sum_alignment = False)
+    #d.write_binned(sum_alignment = True)
+    #d.write_binned(sum_alignment = False)
