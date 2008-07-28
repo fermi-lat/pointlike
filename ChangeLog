@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jul 28 14:58:22 PDT 2008
+pointlike/python
+
+Modified Files:
+	.cvsignore Models.py SourceLib.py SourcePlot.py dataman.py 
+	specfit.py 
+Added Files:
+	phasetools.py 
+Log Message:
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: v6r4p2, operation: add
 Package: pointlike
