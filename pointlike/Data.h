@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.28 2008/07/21 17:44:11 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.29 2008/07/22 03:58:10 burnett Exp $
 */
 
 
@@ -18,13 +18,17 @@ namespace skymaps {
 class BinnedPhotonData;
 }
 
+
 #include "embed_python/Module.h"
 #include "CLHEP/Vector/Rotation.h"
 #include <string>
 #include <vector>
+#include <iostream>
 
 namespace pointlike {
-/***
+class Alignment; //  forward declaration
+    
+    /***
 wrapper for BinnedPhotonData-- maybe move there
 */
 class Data {
@@ -62,6 +66,7 @@ public:
     stop_time=0.    # "
     history = ''    # optional history or FT2 file, needed to correct for misalignment if readign FT1
     Latalignment=[] # alignment correction angles about x,y,z axes, in arcseconds
+    alignment_data  # name of an ascii file, with columns  (MET, x, y, z); MET is start of applicability, rotation numbers in arcsec. 
     @endverbatum
     */
     Data(const embed_python::Module& setup);
@@ -102,9 +107,15 @@ public:
     static int class_level();
 
     //! set corrections to fixed rotation in GLAST frame, default is (0,0,0)
-    static CLHEP::HepRotation set_rot(double arcsecx, double arcsecy, double arcsecz);
+    static void set_rot(double arcsecx, double arcsecy, double arcsecz);
     static void set_rot(std::vector<double> align);
-    static const CLHEP::HepRotation& get_rot();
+    
+    ///@brief set the time-dependent alignment constants from a file
+    ///@param filename name of a file of constants, or "default"
+    static void set_alignment(const std::string& filename);
+
+    static const CLHEP::HepRotation& get_rot(double time);
+
     static const std::string& historyfile();
     static const astro::PointingInfo& get_pointing(double time);
     static bool inTimeRange(double time);
@@ -121,7 +132,7 @@ private:
     static int s_class_level; // set to 1,2,3 for transient, source, diffuse
 
     skymaps::BinnedPhotonData * m_data;
-    static CLHEP::HepRotation s_rot;
+    static pointlike::Alignment* s_alignment; ///< LAT alignment manager
     static std::string s_ft2file;
     double m_start, m_stop;  ///< overall time
     static astro::PointingHistory* s_history; ///< pointer to optional FT2 info.
