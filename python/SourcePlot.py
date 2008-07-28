@@ -1,12 +1,74 @@
 #import uw.pointlike
 import pointlike as pl
+from SourceLib import *
 import numpy as N
 import pylab as P
 import math as M
 #from Response import *
-import image as I
+#import image as I
 from types import *
 from matplotlib.font_manager import FontProperties
+
+#---------------------------------------------------------------------------
+class Image(object):
+    def __init__(self, fun, s, emin=100, emax=200, scale = 0.5, resolution = 100, anchor = 0):
+        """fun is a SkySpectrum object, s either has a dir() or ra(),dec() method"""
+
+        import math
+        grid=N.linspace(-scale, scale, resolution)
+        #emin, emax = energy_range(level)
+        if 'ra' in dir(s): ra, dec = s.ra(), s.dec()
+        else: ra,dec = s.dir().ra(), s.dir().dec()
+        cosdec = math.cos(math.radians(dec))
+        self.image = N.array([fun.integral(pl.SkyDir(ra-dx/cosdec, dec-dy), emin, emax)\
+                   for dy in grid for dx in grid]).reshape((len(grid),len(grid)))
+        delta = self.image.max() - self.image.min()
+        self.offset=(anchor-delta/2)
+        self.scale, self.ra, self.dec, self.emin, self.emax, self.resolution =\
+            scale, ra, dec, emin, emax, resolution
+    
+    def show(self, **kwargs):
+        #import pylab
+        scale=self.scale
+        if 'radial' in kwargs and kwargs['radial']==True:
+            d = pl.SkyDir(self.ra,self.dec)
+            grid = N.linspace(-scale, scale, self.resolution)
+            import math
+            ra,dec = self.ra,self.dec
+            cosdec = math.cos(math.radians(dec))
+            grid = 180/N.pi*N.array([d.difference(pl.SkyDir(ra-dx/cosdec, dec-dy))\
+                   for dy in grid for dx in grid]).reshape((len(grid),len(grid)))
+            temp_xs = grid.ravel()
+            sorting = N.argsort(temp_xs)
+            temp_xs = temp_xs[sorting]
+            xs = N.linspace(temp_xs.min(),temp_xs.max(),8)
+            temp_ys = self.image.flatten()
+            temp_ys = temp_ys[sorting]
+            from collections import deque
+            ys = [deque() for x in xrange(len(xs)-1)]
+            marker=0
+            for i in xrange(len(xs)-1):
+               while temp_xs[marker]>=xs[i] and temp_xs[marker]<xs[i+1]:
+                  ys[i].append(temp_ys[marker])
+                  marker+=1
+               ys[i] = N.mean(ys[i])    
+               
+            xs = (xs[1:]+xs[:-1])/2.
+            P.subplot(122)
+            #P.scatter(grid.ravel(),self.image.ravel())
+            P.scatter(xs,ys)
+            P.subplot(121)
+            kwargs.pop('radial')
+
+        P.imshow(self.image, extent=[-scale, scale, -scale, scale],interpolation='nearest', **kwargs)
+        P.axvline(0, color='white')
+        P.axhline(0, color='white')
+        P.colorbar()
+        P.xlabel('RA Offset (deg)')
+        P.ylabel('DEC Offset (deg)')
+        #emin, emax = energy_range(self.level)
+        P.title('Energy Range %d-%d'%(self.emin, self.emax))#, size=10)
+
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
@@ -32,80 +94,110 @@ class NormedPSF():
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 
+class PySkyFun(object):
 
-class PValue():
+   def __init__(self,psl,sls):
+      self.psl = psl
+      self.sls = sls if (type(sls) is ListType or type(sls) is N.ndarray) else [sls]
+      self.__myinit__()
+   
+   def __call__(self):
+      return self.psl
+
+   def dir(self):
+      return self.psl.dir()
+
+   def __myinit__(self):
+      pass
+   
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+
+
+class PValue(PySkyFun):
    """Calculate a "p-value" map for "testing source hypothesis"."""
-   def __init__(self,psl,level):
+ 
+   def __myinit__(self):
       
-      self.sl=psl[level]
-      self.psl=psl
-      self.level=level
       from scipy.stats import poisson
-      self.poisson=poisson
+      self.poisson_cdf = poisson.cdf
       self.previous_val=[-2,-2]
-      self.current_val=[-1,-1]
       self.p_val=0
 
    def integral(self,in_dir,e1,e2):
-      cv=self.current_val
-      sl=self.sl
-      cv[0]=sl.display(in_dir,3) #predicted mean counts
-      if cv[0]==0.: #Outside of u_max
-         return 0.
-      cv[1]=sl.display(in_dir,1) #actual counts
+      cv = [0,0] #Current value
+
+      for sl in self.sls:
+         cv[0] += sl.display(in_dir,3) #predicted mean counts
+         cv[1] += sl.display(in_dir,1) #actual counts
+      if cv[0] == 0.: return 0. #Outside of u_max
       if cv!=self.previous_val:
          self.previous_val[:]=cv[:]
          self.p_val=1-poisson.cdf(cv[1],cv[0])
+      #if self.p_val<0.01: print cv
       return self.p_val
 
-   def __call__(self):
-      return self.psl
-
-   def dir(self):
-      return self.psl.dir()
-
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 
 
-class Residuals():
+class Residuals(PySkyFun):
    """Calculate a difference weighted by root(N)."""
-   def __init__(self,psl,level):
-      self.psl=psl
-      self.level=level
+
+   def integral(self,in_dir,e1=100,e2=200):
+      counts,obs_counts=[0,0]
+      for sl in self.sls:
+         counts += sl.display(in_dir,3) #predicted mean counts
+         obs_counts += sl.display(in_dir,1) #actual counts
+      if counts == 0: return 0.
+      std_diff = (obs_counts-counts)/counts**0.5
+      return std_diff if abs(std_diff)<5 else 5
+
+
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+
+def resid_root(source,mode='PValue',emin=1000,emax=10000,event_class=0):
    
-   def integral(self,in_dir,e1,e2):
-      sl=self.psl[self.level]
-      sl.setDisplayMode(1)
-      counts=sl(in_dir)
-      if counts==0: return 0 #Not sure what to do about this
-      sl.setDisplayMode(4)
-      return sl(in_dir)/counts**0.5
+   bands = source.response.bands(infinity=True)
+   args = []
+   for i in xrange(len(bands)-1):
+      if (  (bands[i]>=emin and bands[i+1]<emax) or 
+            (bands[i]<emin and bands[i+1]>emin)  or
+            (bands[i]<emax and bands[i+1]>emax)   ) :  args += [i]
+   args=N.array(args)
+   #Test whether both events are present
+   n = len(source.photons)
+   if n > len(bands)-1:
+      print 'True'
+      index = args if event_class == 0 else n/2+args
+   else: index = args
+   slikes = source.slikes[index]
+   if args.max()<len(bands): args = N.append(args, args[-1]+1)
+   energies = bands[args]
+   print 'Energy range: %d-%d'%(energies.min(),energies.max())
+   umax = pl.SimpleLikelihood.defaultUmax()
+   scale = 0.5*(2*umax)**0.5*pl.IParams.sigma(energies.min(),event_class)*180/N.pi
+   print 'Scale: %.2f'%scale
 
-   def __call__(self):
-      return self.psl
-
-   def dir(self):
-      return self.psl.dir()
+   exec('p=%s(source.psl,slikes)'%mode)
+   r=Image(p, p, scale=scale, resolution=200, emin=energies.min(), emax=energies.max())
+   cmap = 'gist_heat' if mode=='PValue' else 'hot'
+   r.show(cmap=P.get_cmap(cmap), radial = True)
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 
-def pvalue(source,level): 
-   p=PValue(source(),level)
-   r=I.Image(p,p,level=level,scale=2**(9-level),step=2**(9-level)/50.)
-   r.show()
+#Convenience functions
+def pvalue(source,emin=1000,emax=10000,event_class=0):
+   resid_root(source,mode='PValue',emin=emin,emax=emax,event_class=event_class)
 
-#-----------------------------------------------------------------------------------------------#
-#-----------------------------------------------------------------------------------------------#
-#-----------------------------------------------------------------------------------------------#
-
-def residuals(source,level): 
-   p=Residuals(source(),level)
-   r=I.Image(p,p,level=level,scale=2**(9-level),step=2**(9-level)/50.)
-   r.show()
+def residuals(source,emin=1000,emax=10000,event_class=0):
+   resid_root(source,mode='Residuals',emin=emin,emax=emax,event_class=event_class)
 
 
 #-----------------------------------------------------------------------------------------------#
@@ -216,7 +308,7 @@ def spectrum(s,models=[],flag='sed',fignum=30):
       b.errorbar(domain,residuals,yerr=(codomain_err/codomain_res),\
                   xerr=domain_err,linestyle=' ',marker='d',markersize=4, capsize=0, label='Model Residuals')         
    P.axes(a)
-   low_eng=domain[0]*(domain[0]/domain[1])**0.5 #Assumes logarithmic bin spacing -- fix sometime
+   low_eng=round(domain[0]*(domain[0]/domain[1])**0.5) #Assumes logarithmic bin spacing -- fix sometime
    P.title('%s [$\mathrm{\sigma=%.2f,\, f9>%i=%.2f (1 \pm %.2f)}$]'\
                %(s().name(),(s().TS())**0.5,low_eng,f9[0],f9[1]/f9[0]))
    #P.title('%s'%s().name())
