@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Jul 28 14:48:13 PDT 2008
+pointlike/src
+
+Modified Files:
+	Draw.cxx 
+Log Message:
+support smoothed plots
+    *
+------------------------------------------------------------
+User: burnett  Mon Jul 28 14:48:13 PDT 2008
 pointlike/pointlike
 
 Modified Files:
