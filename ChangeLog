@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jul 28 14:48:13 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Draw.h 
+Log Message:
+support smoothed plots
+    *
+------------------------------------------------------------
 User: burnett  Mon Jul 28 14:47:24 PDT 2008
 pointlike/src
 
