@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+TAG
+Tag name: v6r4p1, operation: add
+Package: pointlike
+User: burnett  Tue Jul 29 12:19:10 2008
+Files:
+  pointlike/doc/Doxyfile  1.1
+  pointlike/pointlike/Alignment.h  1.2
+  pointlike/python/dataman.py  1.2
+  pointlike/python/phasetools.py  1.1
+  pointlike/src/Alignment.cxx  1.2
+
+    *
+------------------------------------------------------------
 User: burnett  Tue Jul 29 12:18:43 PDT 2008
 pointlike/src
 
