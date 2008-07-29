@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.3 2008/06/27 05:59:26 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.4 2008/07/29 00:01:12 markusa Exp $
 
 */
 #define USE_GRADIENT
@@ -738,7 +738,7 @@ double pointlike::SourceLikelihood::localizeMinuit(int skip)
     gMinuit.mnexcm("SIMPLEX", arglist, nargs, ierflag);
   else
     gMinuit.mnexcm("MIGRAD", arglist, nargs, ierflag);  
-  if (ierflag == 4 or s_simplex==1) {
+  if (ierflag == 4 || s_simplex==1) {
     gMinuit.mnexcm("HESSE", arglist, nargs, ierflag);
   };
   
