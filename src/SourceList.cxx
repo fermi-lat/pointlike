@@ -1,7 +1,7 @@
-/** @file PointSourceLikelihood.h
+/** @file SourceList.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.9 2008/07/22 03:58:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.10 2008/07/28 21:49:40 burnett Exp $
 */
 
 
@@ -23,6 +23,12 @@ namespace{
     double group_radius(2.0);
 
 
+}
+double SourceList::set_group_radius(double value)
+{
+    double old(group_radius);
+    group_radius= value;
+    return old;
 }
 const skymaps::BinnedPhotonData * SourceList::s_data(0);
 const skymaps::BinnedPhotonData * SourceList::data(){return s_data;}
