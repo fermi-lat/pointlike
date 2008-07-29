@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.2 2008/06/18 22:12:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.3 2008/06/27 05:59:26 markusa Exp $
 
 */
 #define USE_GRADIENT
@@ -198,6 +198,7 @@ int    SourceLikelihood::s_useMinuit(0);
 int    SourceLikelihood::s_minuitLevelSkip(0);
 int    SourceLikelihood::s_verbose(0);
 double SourceLikelihood::s_maxstep(0.25);  
+int SourceLikelihood::s_simplex(0);
 // if calculated step is larger then this (deg), abort localization
 
 void SourceLikelihood::set_verbose(bool verbosity){s_verbose=verbosity;}
@@ -220,6 +221,7 @@ void SourceLikelihood::setParameters(const embed_python::Module& par){
   par.getValue(prefix+"UseMinuit",s_useMinuit, s_useMinuit);
   par.getValue(prefix+"verbose",  s_verbose, s_verbose);
   par.getValue(prefix+"maxstep",  s_maxstep, s_maxstep); // override with global
+  par.getValue(prefix+"Simplex",  s_simplex,s_simplex);
   
   // needed by ExtendedLikelihood
   double umax(pointlike::ExtendedLikelihood::defaultUmax());
@@ -723,16 +725,20 @@ double pointlike::SourceLikelihood::localizeMinuit(int skip)
   
   // SF: eventually read itermax from the config-file
   //     arglist[0] = itermax; 
-  arglist[0] = 500; 
+  arglist[0] = 2000; 
   // approximate maximum number of function calls
   // even if the minimisation hanot converged
   arglist[1] = 0.1; 
+  if (s_simplex==1) arglist[1]*=0.001;
   // tolerance (in units of 0.001*UP)
   // minimisation will stop if estimated vertical
   // distance to minimum is less than 0.001*tolerance*UP
   nargs = 2;
-  gMinuit.mnexcm("MIGRAD", arglist, nargs, ierflag);
-  if (ierflag == 4) {
+  if (s_simplex==1)
+    gMinuit.mnexcm("SIMPLEX", arglist, nargs, ierflag);
+  else
+    gMinuit.mnexcm("MIGRAD", arglist, nargs, ierflag);  
+  if (ierflag == 4 or s_simplex==1) {
     gMinuit.mnexcm("HESSE", arglist, nargs, ierflag);
   };
   
