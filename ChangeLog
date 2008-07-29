@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: markusa  Mon Jul 28 17:01:12 PDT 2008
+pointlike/src
+
+Modified Files:
+	SourceLikelihood.cxx 
+Log Message:
+added simplex option
+
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-05-00, operation: add
 Package: pointlike
