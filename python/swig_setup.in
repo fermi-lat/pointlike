@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.19 2008/07/07 21:57:52 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.20 2008/07/19 15:06:48 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -39,6 +39,7 @@
 #include "pointlike/SourceFinder.h"
 #include "pointlike/Data.h"
 #include "pointlike/Draw.h"
+#include "pointlike/DrawTS.h"
 #include "pointlike/SourceList.h"
 //fails #include "pointlike/ParamOptimization.h"
 #include "pointlike/SimpleTSmap.h"
