@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.76 2008/07/22 15:36:33 burnett Exp $
+$Id: release.notes,v 1.77 2008/07/28 21:49:40 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 29-jul-08 v6r5p1  THB expose SourceList group_radius
  28-jul-08 v6r5    THB Incorporate alignment constant management
  19-jul-08 v6r4p3  THB new python code for spectral fits
  15-jul-08 v6r3p10 THB SWIG for linux
