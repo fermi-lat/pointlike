@@ -35,7 +35,7 @@ Optional parameters:
         subsequent input
     -v or --verbose [0] set verbosity
     --emin - left edge of minimum energy bin (default 100 MeV)
-    --emax - right edge of maximum energy bin (default 2.51e5 MeV)
+    --binsperdecade - just what it says :)
     --enumbins - (default 17)
     --plotpath - if set, generate plots with the spectral energy density and power law
         spectral fit, of form plotpath+name+_sed.png.
@@ -44,7 +44,7 @@ Optional parameters:
     --fitter - which spectral fitter to use -- default Marginal Poisson
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/specfit.py,v 1.2 2008/07/25 18:27:43 kerrm Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/specfit.py,v 1.3 2008/07/28 21:58:22 kerrm Exp $
 """
 # setup to import pointlike
 try: #Try block only for UW environment
@@ -117,7 +117,7 @@ def main():
 
     options = 'b:w:v'
     long_options= [ 'diffuse=','write=', 'verbose', 'galdiffuse', 
-                    'eventtype=', 'exposure=', 'binsperdecade=','emin='
+                    'eventtype=', 'exposure=', 'binsperdecade=','emin=',
                     'enumbins=','plotpath=','fitter=','printspec=','model=']
 
     try:    
