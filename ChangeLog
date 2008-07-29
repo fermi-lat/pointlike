@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Jul 29 12:13:59 PDT 2008
+pointlike/src
+
+Modified Files:
+	Alignment.cxx SourceList.cxx mainpage.h 
+Log Message:
+minor documentation tweak; expose SourceList group_radius
+    *
+------------------------------------------------------------
+User: burnett  Tue Jul 29 12:13:59 PDT 2008
 pointlike/pointlike
 
 Modified Files:
