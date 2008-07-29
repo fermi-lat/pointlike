@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jul 29 12:13:59 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Alignment.h SourceList.h 
+Log Message:
+minor documentation tweak; expose SourceList group_radius
+    *
+------------------------------------------------------------
 User: kerrm  Tue Jul 29 10:56:37 PDT 2008
 pointlike/python
 
