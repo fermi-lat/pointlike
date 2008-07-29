@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.1 2008/06/18 01:19:23 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.2 2008/06/27 05:59:25 markusa Exp $
 */
 
 #ifndef tools_SourceLikelihood_h
@@ -199,6 +199,7 @@ namespace pointlike {
     static double s_emin, s_emax, s_minalpha, s_TSmin, s_tolerance, 
       s_maxstep; //
     static int s_useMinuit;
+    static int s_simplex;
     static int s_minuitLevelSkip;
     static int s_skip1, s_skip2, s_itermax, s_verbose;
     

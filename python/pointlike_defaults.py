@@ -1,6 +1,6 @@
 # default parameters for the various parameter files
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.10 2008/06/21 00:38:08 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.11 2008/06/24 19:06:02 burnett Exp $
 #
 # Include this to set defaults, then override 
 import sys
@@ -46,7 +46,7 @@ class PointSourceLikelihood: #parameters for the likelihood calculation
     
 class SourceLikelihood: #parameters for the likelihood calculation
 
-    TSmin= 0.01    # minimum TS value to allow during iteration
+    TSmin= -100.   # minimum TS value to allow during iteration
     emin = 500   # minimim energy for bands
     verbose = 0  # set non-zero to get lots of output
     maxstep = 0.2 # max step allowed during localization: abort if larger
