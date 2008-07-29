@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jul 29 12:14:00 PDT 2008
+pointlike/doc
+
+Added Files:
+	Doxyfile 
+Log Message:
+minor documentation tweak; expose SourceList group_radius
+    *
+------------------------------------------------------------
 User: burnett  Tue Jul 29 12:13:59 PDT 2008
 pointlike/src
 
