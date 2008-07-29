@@ -1,7 +1,7 @@
 /** @file Alignment.h 
-    @brief declaration of the Alignment wrapper class
+    @brief declaration of the Alignment calibration management class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Alignment.h,v 1.29 2008/07/22 03:58:10 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Alignment.h,v 1.1 2008/07/28 21:46:38 burnett Exp $
 */
 
 
@@ -10,21 +10,31 @@
 
 #include "CLHEP/Vector/Rotation.h"
 
-#include <map>
-#include <vector>
 
 namespace pointlike{
 
+    /** @class Alignment
+        @brief manage LAT/SC alignment constants
+
+
+    */
     class Alignment {
 
     public:
-        /// @brief default ctor does nothing
+        /// @brief default ctor does nothing, defines default identity transform
         Alignment();
 
-        /// @brief ctor loads the data. default uses wired-in
+        /// @brief ctor loads the data. set name to "default" to uses wired-in set
+        /// 
+        /// The format of the file containing the data is four columns: MET,x,y,z,
+        /// @param MET start time for valididty. end time is the next entry.
+        /// @param x,y,z Misalignment values in arcsec.
+
         Alignment(const std::string& calibration);
 
         /// @brief ctor with fixed values, to be always valid
+        /// @param x,y,z Values in arcsec for successive rotations about x,y,z axes. 
+        ///  These are the observed misalignment
         Alignment(double x, double y, double z);
         
         /// @brief the appropriate rotation matrix for the given time
@@ -40,7 +50,6 @@ namespace pointlike{
         bool m_active;
         mutable double m_start, m_end; ///< current start, end times
         mutable CLHEP::HepRotation m_rot; ///< current rotation
-        std::map<double, std::vector<double> > m_calibdata;
 
         void set_rot(double arcsecx,double arcsecy,double arcsecz)const ;
         bool in_range(double t, double a, double b)const {return t>=a && t<b;}

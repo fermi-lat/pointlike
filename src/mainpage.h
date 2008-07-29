@@ -1,4 +1,4 @@
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/mainpage.h,v 1.4 2007/11/21 07:00:39 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/mainpage.h,v 1.5 2007/12/03 00:39:40 burnett Exp $
 // Mainpage for doxygen
 
 /*! \mainpage package pointlike
@@ -12,13 +12,15 @@
   The model it implements is a PSF (see pointlike::PsfFunction for the definition of the GLAST standard power-law function)
   plus a background. The background may be uniform, or will be taken from an instance of the class pointlike::DiffuseFunction.
 
-  The data is encapsulated by the Data class, a healpix map of photon data, defined in pointlike::PhotonMap, 
+  The data is encapsulated by the Data class, a healpix map of photon data, defined in skymaps::BinnedPhotonData, 
   created from a fits file or list of fits files, see the class pointlike::Data.
 
   The following applications are defined. Each uses embed_python::Module to parse a python file containing parameters
   
   - pointfit - fit to a specified list of sources
   - pointfind - search a specified region of the sky, finding all sources
+
+  Additionally, a lot of code is in the python folder.
 
     <hr>
 \section intro Discussion
@@ -45,19 +47,21 @@ includes dispersion
 Find sources, down to TS=10 in all sky (3 hours to detect 3200 in 1 year @ 10% spurious)
 
 - LAT Alignment
-Measure the rotation angles to 15-20 arcsec in a day. 
+Measure the rotation angles to a few arcmin in a day. 
 
-Class hierarchy:
+- Measure PSF parameters
+
+Class hierarchy: (see the astro and skymaps packages)
 
 - astro::SkyFunction - abstract base class defining a real function on the sphere (a function of a astro::SkyDir)
-- pointlike::SkyImage - implement SkyFunction with FITS image; also create from a SkyFunction
-- pointlike::SkySpectrum - abstract, allow specification of energy spectrum at any point
-- pointlike::DiffuseFunction - interpolate a FITS cube. Used for the background for point source fits.
-- pointlike::PhotonMap - pixelized photon data (wraps map_tools::PhotonMap for now)
+- skymaps::SkyImage - implement SkyFunction with FITS image; also create from a SkyFunction
+- skymaps::SkySpectrum - abstract, allow specification of energy spectrum at any point
+- skymaps::DiffuseFunction - interpolate a FITS cube. Used for the background for point source fits.
+- skymaps::PhotonMap - pixelized photon data (wraps map_tools::PhotonMap for now)
 - pointlike::PointSourceLikelihood - represent a fit
-- pointlike::Convolution - convolution of a SkySpectrum object with another SkySpectrum, perhaps a PSF.
-- pointlike::CompositeSkySpectrum - linear combination of SkySpectrum objects. Used to combine the galactic diffuse with nearby (< 1deg) strong sources
-- pointlike::Exposure - Integrate an expouse cube over the acceptance to define the exposure at any point.
+- skymaps::Convolution - convolution of a SkySpectrum object with another SkySpectrum, perhaps a PSF.
+- skymaps::CompositeSkySpectrum - linear combination of SkySpectrum objects. Used to combine the galactic diffuse with nearby (< 1deg) strong sources
+- skymaps::Exposure - Integrate an exposure cube over the acceptance to define the exposure at any point.
 
 
 \section notes release notes
