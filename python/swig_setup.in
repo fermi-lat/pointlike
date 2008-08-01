@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.20 2008/07/19 15:06:48 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.21 2008/07/29 03:52:52 kerrm Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -218,6 +218,8 @@ public:
 
 %template(SourceVector)  std::vector<pointlike::Source>;
 %template(StringDoubleMap) std::map<std::string,std::vector<double> >;
+%template(SkyDirIntPairVector) std::vector<std::pair<astro::SkyDir,int> >;
+%template(IntIntPairVector) std::vector<std::pair<int,int> >;
 
 
 
