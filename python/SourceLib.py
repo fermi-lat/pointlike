@@ -1,21 +1,21 @@
 ###SEE MAIN METHOD BELOW FOR A DOCUMENTED EXAMPLE OF BASIC INTERACTIVE SPECTRAL ANALYSIS
 
-try: #This try block only for glast-ts at University of Washington
+try:
+   from sys import path
+   path.insert(1,r'd:/common/spectrum/pointspec-dev/python')
    import uw.pointlike
-   #import sys
-   #sys.path.insert(0,'d:/users/kerrm/python/spectrum_dev4')
-   #import uw.pointlike
-   #import pointlike as pl
+   import pointlike as pl
+   path.insert(1,r'd:/common/spectrum/pointspec-dev/python')
 
-except: pass
+   from Response import *
+   from Fitters import *
 
-import pointlike as pl
+except:
+   import pointlike as pl
 
 #Additional modules
 import numpy as N
 import math as M
-from Fitters import *
-from Response import *
 from types import *
 
 #-----------------------------------------------------------------------------------------------#
@@ -100,6 +100,10 @@ class SourceLibrary:
       else:          
          return self.sources[self.index-1]
 
+   def ra_sort(self):
+      ras = [s().dir().ra() for s in self.sources]
+      self.sources = list( N.array(self.sources)[N.argsort(ras)] )
+
    def add_global_data(self,data_objects):
       try: list(data_objects)
       except: data_objects=[data_objects]
@@ -108,16 +112,16 @@ class SourceLibrary:
    def add_sourcelist(self,sourcelist,global_data_index=0):
       self.sources+=[Source(sourcelist[x].fit(),self.global_data[global_data_index]) for x in xrange(len(sourcelist))]
 
-   def fit(self,source,model,plot=False,savepath=None,printfit=False):
+   def fit(self,source,model,x0=None,plot=False,savepath=None,printfit=False,lsfirst=True):
       s=self[source]
-      s.fit(model=model,printfit=printfit)
+      s.fit(model=model,printfit=printfit,lsfirst=lsfirst,x0=x0)
       if plot or savepath:
          import pylab as P
          from SourcePlot import sed
          P.clf()
          exec('sed(s,models=[s.'+s.global_data.method+'.models[-1]])')
          if savepath is not None:
-            P.savefig(savepath+source+'_sed.png',dpi=75)
+            P.savefig(savepath+'/'+source+'_sed.png',dpi=75)
 
 
 #-----------------------------------------------------------------------------------------------#
@@ -204,33 +208,45 @@ class Source:
    def spectrum(self,energy_weight=1,model=lambda e: 1.):
       """General purpose routine for calculating a spectrum or counts map."""
       exposure_flag=model(100)==1. #Are we doing spectrum or counts?  Crude test.
-      mask = N.logical_and(self.global_data.mask(),self.photons>0)
+      mask = N.logical_and(self.global_data.mask(),self.photons>0) #Need to fix for upper limits
       e_weights = self.response.bands.centers()
       self.response.update(dir=self().dir())
       exposure = self.response(model=model) #This is either exposure OR counts
       n = len(e_weights)
       signals = N.where(mask,self.signals[:,0],0)
       exposures = N.where(mask,exposure,1e-300)
-      errors = N.where(mask,self.signals[:,1],0)
+      ph = self.photons.astype(float)
+      alphas,sig_alphas = self.alphas.transpose()
+      up_errs = N.where(mask,(N.minimum(1-alphas,sig_alphas)**2*ph**2 + alphas**2*ph)**0.5,0)
+      down_errs = N.where(mask,(N.minimum(alphas,sig_alphas)**2*ph**2 + alphas**2*ph)**0.5,0)
+   
+      #errors = N.where(mask,self.signals[:,1],0)
+      #errors = N.array([[up_errs[i],down_errs[i]] for i in xrange(len(up_errs))])
       if self.global_data.event_class == -1:
          signals = signals[:n]+signals[n:]
          exposures = exposures[:n]+exposures[n:]
-         errors = (errors[:n]**2+errors[n:]**2)**0.5
+         #errors = (errors[:n]**2+errors[n:]**2)**0.5
+         up_errs = (up_errs[:n]**2+up_errs[n:]**2)**0.5
+         down_errs = (down_errs[:n]**2+down_errs[n:]**2)**0.5
       if exposure_flag:
          return (e_weights,self.response.bands.diffs(from_center=True),\
                   signals*e_weights**energy_weight/exposures,\
-                  errors*e_weights**energy_weight/exposures) #Domain, domain err, spectrum, spectrum err
+                  #errors*e_weights**energy_weight/exposures
+                  up_errs*e_weights**energy_weight/exposures,\
+                  down_errs*e_weights**energy_weight/exposures)
+                  #Domain, domain err, spectrum, upper error bars, lower error bars
       else:
          #exposures=N.round(exposures).astype(int)
-         return (e_weights,self.response.bands.diffs(from_center=True),signals,errors,exposures)
+         return (e_weights,self.response.bands.diffs(from_center=True),signals,up_errs,down_errs,exposures)
 
    def f9(self):
-      sig,errs=self.spectrum(energy_weight=0)[2:]
+      sig,up_errs,down_errs=self.spectrum(energy_weight=0)[2:]
+      errs = N.maximum(up_errs,down_errs)
       del_e=self.response.bands.diffs()
       return ( (sig*del_e)[sig>0].sum()*1e9,((errs*del_e)**2)[sig>0].sum()**0.5*1e9 )
 
 
-   def fit(self,model='PowerLaw',x0=None,method=None,printfit=True,lsfirst=True):
+   def fit(self,model='PowerLaw',x0=None,method=None,printfit=True,lsfirst=False):
 
       method = method or self.global_data.method #Default here set to GlobalData default
       if printfit: print 'Fitting %s with method %s'%(self().name(),method)
