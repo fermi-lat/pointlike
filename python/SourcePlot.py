@@ -28,7 +28,7 @@ class Image(object):
             scale, ra, dec, emin, emax, resolution
     
     def show(self, **kwargs):
-        #import pylab
+
         scale=self.scale
         if 'radial' in kwargs and kwargs['radial']==True:
             d = pl.SkyDir(self.ra,self.dec)
@@ -55,10 +55,20 @@ class Image(object):
                
             xs = (xs[1:]+xs[:-1])/2.
             P.subplot(122)
-            #P.scatter(grid.ravel(),self.image.ravel())
             P.scatter(xs,ys)
             P.subplot(121)
-            kwargs.pop('radial')
+
+        if 'radial' in kwargs: kwargs.pop('radial')
+        
+        if 'cmap' not in kwargs:
+           #Build a sweet, ad hoc color map.
+           if 'anchor' in kwargs:
+               anchor = kwargs['anchor']
+           else: anchor=0
+           vmin,vmax = self.image.min(),self.image.max()
+           if vmin<=anchor and anchor<=vmax:
+               breakpoint=(anchor-vmin)/(vmax-vmin)
+               kwargs['cmap'] = self.properColormap(breakpoint)
 
         P.imshow(self.image, extent=[-scale, scale, -scale, scale],interpolation='nearest', **kwargs)
         P.axvline(0, color='white')
@@ -66,9 +76,21 @@ class Image(object):
         P.colorbar()
         P.xlabel('RA Offset (deg)')
         P.ylabel('DEC Offset (deg)')
-        #emin, emax = energy_range(self.level)
         P.title('Energy Range %d-%d'%(self.emin, self.emax))#, size=10)
-
+    
+    def properColormap(self,breakpoint=0.5):
+        brp = breakpoint #make the formatting pretty
+        cdict = {'red':   ((0.0, 0.0, 0.0),
+                         (brp, 1.0, 1.0),
+                         (1.0, 1.0, 1.0)),
+               'green': ((0.0, 0.0, 0.0),
+                         (brp, 1.0, 1.0),
+                         (1.0, 0.0, 0.0)),
+               'blue':  ((0.0, 1.0, 1.0),
+                         (brp, 1.0, 1.0),
+                         (1.0, 0.0, 0.0))
+              }
+        return P.matplotlib.colors.LinearSegmentedColormap('my_colormap',cdict,256)
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
@@ -184,9 +206,11 @@ def resid_root(source,mode='PValue',emin=1000,emax=10000,event_class=0):
    print 'Scale: %.2f'%scale
 
    exec('p=%s(source.psl,slikes)'%mode)
-   r=Image(p, p, scale=scale, resolution=200, emin=energies.min(), emax=energies.max())
-   cmap = 'gist_heat' if mode=='PValue' else 'hot'
-   r.show(cmap=P.get_cmap(cmap), radial = True)
+   r=Image(p, p, scale=scale, resolution=100, emin=energies.min(), emax=energies.max())
+   if mode!='Residuals':
+      r.show(cmap=P.get_cmap('PuOr'))
+   else: r.show()
+
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
@@ -268,15 +292,18 @@ def visi(source,level,nmodel):
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 
-def spectrum(s,models=[],flag='sed',fignum=30):
+def spectrum(s,models=[],flag='sed',fignum=30,sedweight=2):
    """Plot estimated spectral density, along with any model fits."""
 
+   colors = ['green','red','orange','purple']
+
    model = (lambda e: 1) if flag=='sed' else (lambda e: 1e-9*(100/e)**2)
-   domain,domain_err,codomain,codomain_err=s.spectrum(energy_weight=1,model=model)[:4]
+   domain,domain_err,codomain,up_codomain_err,down_codomain_err =\
+      s.spectrum(energy_weight=sedweight,model=model)[:5]
    #Adjust codomains for plotting, two lines below
    if flag=='sed': codomain[codomain==0]=uplim=1e-20
    else: codomain[codomain<1e-5]=uplim=1e-5
-   codomain_err=N.array([N.where((codomain-codomain_err)>0,codomain_err,codomain*0.99),codomain_err])
+   down_codomain_err=N.where((codomain-down_codomain_err)>0,down_codomain_err,codomain*0.99)
    f9=s.f9()
    fit_flag=N.any([m.good_fit for m in models])
    
@@ -284,8 +311,10 @@ def spectrum(s,models=[],flag='sed',fignum=30):
    a=P.axes([.14,.40,.8,.55]) if fit_flag else P.gca()
    a.set_xscale('log')
    a.set_yscale('log')
+   #codomain_err = N.asarray([[up_codomain_err[i],down_codomain_err[i]] for i in xrange(len(up_codomain_err))])
+   codomain_err = N.array([down_codomain_err,up_codomain_err])
    a.errorbar(domain,codomain,yerr=codomain_err,xerr=domain_err,\
-               linestyle=' ',marker='d',markersize=4,capsize=0) 
+               linestyle=' ',marker='d',markersize=4,capsize=0,color='blue') 
    if fit_flag:
       b=P.axes([0.14,0.1,0.8,0.30])
       b.set_xscale('log')
@@ -294,25 +323,29 @@ def spectrum(s,models=[],flag='sed',fignum=30):
    
    for i,model in enumerate([x for x in models if x.good_fit]):
       if flag=='sed':
-         codomain_fit=domain_fit*model(domain_fit)
-         codomain_res=domain*model(domain)
+         codomain_fit=domain_fit**sedweight*model(domain_fit)
+         codomain_res=domain**sedweight*model(domain)
          ls,ms='-',0
       else:
          codomain_fit=codomain_res=s.spectrum(energy_weight=1,model=model)[-1]
          ls,ms=' ',4
       residuals=N.nan_to_num((codomain-codomain_res)/codomain_res)
       residuals=N.where(N.abs(residuals)>10,10,residuals)
-      a.plot(domain_fit,codomain_fit,label=model.name,linestyle=ls,marker='s',markersize=ms)
+      a.plot(domain_fit,codomain_fit,label=model.name,linestyle=ls,marker='s',markersize=ms,color=colors[i])
       bbox={'lw':1.0,'pad':10,'ec':'black','fc':'white'}
       a.text(0.025,0.025+0.15*i,model.error_string(),size='small',transform=a.transAxes,bbox=bbox,family='monospace')
       b.errorbar(domain,residuals,yerr=(codomain_err/codomain_res),\
-                  xerr=domain_err,linestyle=' ',marker='d',markersize=4, capsize=0, label='Model Residuals')         
+                  xerr=domain_err,linestyle=' ',marker='d',markersize=4, \
+                  capsize=0, label='Model Residuals', color=colors[i])         
    P.axes(a)
    low_eng=round(domain[0]*(domain[0]/domain[1])**0.5) #Assumes logarithmic bin spacing -- fix sometime
    P.title('%s [$\mathrm{\sigma=%.2f,\, f9>%i=%.2f (1 \pm %.2f)}$]'\
                %(s().name(),(s().TS())**0.5,low_eng,f9[0],f9[1]/f9[0]))
    #P.title('%s'%s().name())
-   if flag=='sed': P.ylabel(r'$\rm{E\ dN/dE\ (ph\ cm^{-2}\ s^{-1})}$')
+   if flag=='sed':
+      if sedweight==1: P.ylabel(r'$\rm{E\ dN/dE\ (ph\ cm^{-2}\ s^{-1})}$')
+      elif sedweight==2: P.ylabel(r'$\rm{E^2\ dN/dE\ (MeV ph\ cm^{-2}\ s^{-1})}$')
+      else: P.ylabel(r'$\rm{E^%d\ dN/dE\ (MeV^%d ph\ cm^{-2}\ s^{-1})}$'%(sedweight,sedweight-1))
    else: P.ylabel(r'Signal and Model Counts')
    if fit_flag:
 	ticks,locs=P.xticks()
@@ -329,7 +362,7 @@ def spectrum(s,models=[],flag='sed',fignum=30):
    if fit_flag:
       P.axes(b)
       low,high=P.axis()[2:]
-      P.plot(N.linspace(ax[0],ax[1],50),[0]*50)
+      P.plot(N.linspace(ax[0],ax[1],50),[0]*50,color='black')
       P.ylabel('$\mathrm{(obs-model)/model}$')
       P.axis([ax[0],ax[1],max(low,-.55),min(high,0.55)])
       P.grid()

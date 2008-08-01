@@ -53,7 +53,7 @@ class Model(object):
 #-----------------------------------------------------------------------------------------------#
 
 class PowerLaw(Model):
-   def __init__(self,parameters=(1e-9,2.1),e0=100.):
+   def __init__(self,parameters=(1e-9,1.6),e0=100.):
       self.p=parameters
       self.e0=e0
       self.name='PowerLaw'
@@ -82,7 +82,7 @@ class PowerLawScaled(Model):
 
 class PowerLawFlux(Model):
    """Use flux (ph cm^-2 s^-1) integrated above e0 to normalize."""
-   def __init__(self,parameters=(1e-9,2),e0=100.):
+   def __init__(self,parameters=(1e-7,1.5),e0=100.):
       self.p=parameters
       self.e0=e0
       self.name='PowerLawFlux'
@@ -99,14 +99,27 @@ class BrokenPowerLaw(Model):
    def __init__(self,parameters=(1e-9,1.5,2.5,1000)):
       self.p=parameters
       self.name='BrokenPowerLaw'
-      self.param_names=['Norm','Index 1','Index 2' 'E_break']
+      self.param_names=['Norm','Index 1','Index 2', 'E_break']
    def __call__(self,e):
+      e = N.array([e]).ravel()
       n0,gamma1,gamma2,e_break=self.p
       return n0*N.append( (e_break/e[e<e_break])**gamma1 , (e_break/e[e>=e_break])**gamma2 )
-      #if e < e_break:
-      #   return n0*(e_break/e)**gamma1
-      #else:
-      #   return n0*(e_break/e)**gamma2
+
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+
+class BrokenPowerLawF(Model):
+   def __init__(self,parameters=(3.9e-11,1.7,3.2),e_break=1620.):
+      self.p=parameters
+      self.name='BrokenPowerLawF'
+      self.param_names=['Norm','Index 1','Index 2']
+      self.e_break = e_break
+   def __call__(self,e):
+      e = N.array([e]).ravel()
+      n0,gamma1,gamma2=self.p
+      e_break = self.e_break
+      return n0*N.append( (e_break/e[e<e_break])**gamma1 , (e_break/e[e>=e_break])**gamma2 )
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#

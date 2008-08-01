@@ -53,18 +53,18 @@ class ExposureMap:
 
 class ModelResponse(object):
    """Quickly integrate a model over exposure."""
-   def __init__(self,bands,emap,simps=16):
+   def __init__(self,bands,emap,event_class=-1,simps=16,ltfrac=1.):
       """Bands -- an EnergyBands instance.
          Emap  -- an exposure map."""
 
       self.d=False #Boolean for dispersion use
-      self.__simpson_setup__(bands,emap,simps)
-      self.dir=pl.SkyDir(0.,0.)
-      self.event_class=-1
+      self.__simpson_setup__(bands,emap,simps)      
+      self.event_class,self.ltfrac = event_class,ltfrac
       
    def __simpson_setup__(self,bands,emap,simps):
       """Generate the model-independent portions of the integral."""
 
+      self.dir=pl.SkyDir(0.,0.) #dummy for initialization
       self.emap,self.bands=emap,bands
       self.s,s=[simps]*2
       self.s_factors=N.append(N.array([1.]+[4.,2.]*(s/2))[:-1],1.)
@@ -93,7 +93,7 @@ class ModelResponse(object):
       if self.event_class==-1:
 
          model_points=N.append(model_points,model_points)*self.exposure
-         return N.append(\
+         return self.ltfrac*N.append(\
             self.int_factors*N.fromiter((N.dot(self.s_factors,model_points[:n][k:k+self.s+1])\
                for k in xrange(0,n-1,self.s)),float),\
             self.int_factors*N.fromiter((N.dot(self.s_factors,model_points[n:][k:k+self.s+1])\
@@ -101,7 +101,7 @@ class ModelResponse(object):
 
       else:
          model_points*=exposure
-         return self.int_factors*N.fromiter((N.dot(self.s_factors,model_points[k:k+self.s+1])\
+         return self.ltfrac*self.int_factors*N.fromiter((N.dot(self.s_factors,model_points[k:k+self.s+1])\
             for k in xrange(0,n-1,self.s)),float)
 
 #-----------------------------------------------------------------------------------------------#
@@ -113,7 +113,7 @@ class ModelResponseDispersion(ModelResponse):
 
    def __init__(self,bands,emap,dispersion,simps=16):
       self.d=True
-      self.simpson_setup(bands,emap,simps)
+      self.__simpson_setup__(bands,emap,simps)
       self.dispersion=N.fromiter((x*dispersion(x,y) for y in self.sampling_points for x in self.sampling_points),float)\
          .reshape([len(self.sampling_points),len(self.sampling_points)])
       #self.dispersion=N.array([ [x*dispersion(x,y) for y in self.sampling_points] for x in self.sampling_points])

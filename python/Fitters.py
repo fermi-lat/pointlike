@@ -223,19 +223,27 @@ class MarginalPoissonLikelihood(PoissonLikelihood):
    def __init__(self,source,maxll=1e8):
       """Pre-calculate much of the integral to save processor time during fitting."""
 
-      photons=source.photons
-      mask=source.global_data.mask()
-      zero_mask=N.logical_and(mask,photons==0)
-      mask=N.logical_and(mask,photons>0)
-      nbins=len(mask)
-      self.photons,self.poiss,self.mask,self.source,self.maxll,self.zero_mask=\
-         photons,poisson.pmf,mask,source,maxll,zero_mask
+      photons = source.photons
+      mask = source.global_data.mask()
+      zero_mask = N.logical_and(mask,photons==0)
+      low_num_mask = N.logical_and(mask,N.logical_and(photons>0,photons<=4))
+      alphas,sigmas = source.alphas[mask].transpose()
 
-      slikes=source.slikes[mask]
-      alphas,sigmas=source.alphas[mask].transpose()
+      mask = N.logical_or(N.logical_and(mask,photons>4),N.logical_and(low_num_mask,alphas<0.99))
+      low_num_mask = N.logical_and(low_num_mask,alphas>=0.99)
+
+      print zero_mask
+      print low_num_mask
+      print mask
+
+      alphas,sigmas = source.alphas[mask].transpose()
+      slikes = source.slikes[mask]
+
+      nbins = len(mask)
       
-      self.alphas=alphas
-
+      self.photons,self.poiss,self.mask,self.source,self.maxll,self.zero_mask,self.low_num_mask=\
+         photons,poisson.pmf,mask,source,maxll,zero_mask,low_num_mask
+     
       if self.photons.shape[0]==0: return
 
       photons=photons[mask]
@@ -254,6 +262,7 @@ class MarginalPoissonLikelihood(PoissonLikelihood):
       self.norm=1./(self.weighted_like_sample.sum(axis=1)) #Normalize integral over alpha
       self.weighted_like_sample=self.weighted_like_sample.transpose()
       self.points=self.points.transpose()
+      self.alphas = alphas
 
 
 
@@ -261,19 +270,23 @@ class MarginalPoissonLikelihood(PoissonLikelihood):
       """Return the (negative, modified -- see below) log likelihood.  Includes normalization so
          can be used for LRT and such."""
       
-      wls,photons,zero_photons,points,poiss,model,maxll,norm=\
+      wls,photons,zero_photons,points,poiss,model,maxll,norm,lown_photons=\
          self.weighted_like_sample,self.photons[self.mask],self.photons[self.zero_mask],self.points,\
-         self.poiss,args[0],self.maxll,self.norm
+         self.poiss,args[0],self.maxll,self.norm,self.photons[self.low_num_mask]
       model.p=parameters #Update the model
       if parameters[0]<0: return maxll*len(photons)
       expected=self.source.response(model=model) #Expected number for source under the model
       z_expected=expected[self.zero_mask].sum() #Poisson prob for 0 photons
-      alpha_expected=expected[self.mask]/points #Divide by alpha to get total expected number
-      integral=norm*(wls*N.nan_to_num(poiss(photons,alpha_expected))).sum(axis=0) #Integrate prob over alpha
-      mask=integral<=0.0
+      lown_expected = expected[self.low_num_mask]
+      alpha_expected = expected[self.mask]/points #Divide by alpha to get total expected number
+      integral = norm*(wls*N.nan_to_num(poiss(photons,alpha_expected))).sum(axis=0) #Integrate prob over alpha
+      integral_mask = integral<=0.0
 
       #First term is a "penalty" to mimic to log(very small number)
-      return maxll*mask.sum() - (N.log(integral[N.logical_not(mask)])).sum() #+ z_expected
+      return maxll*integral_mask.sum() \
+         - (N.log(integral[N.logical_not(integral_mask)])).sum() \
+         + (lown_expected - lown_photons*N.log(lown_expected)).sum()
+         #+ z_expected #Term for no observed photons
       
                
 
@@ -378,7 +391,7 @@ class PoissonFitter(SpectralFitter):
  
          try:
             fit=fmin(self.l,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=1000)
-            warnflag=(fit[4]==1 or fit[4]==2) or fit[1]>=self.maxll
+            warnflag=(fit[4]==1 or fit[4]==2) or fit[1]>self.maxll/10.
             if warnflag: raise Exception
 
          except:
@@ -390,7 +403,7 @@ class PoissonFitter(SpectralFitter):
             try:
 
                fit=fmin(self.l,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=1000)
-               warnflag=(fit[4]==1 or fit[4]==2) or fit[1]>=self.maxll
+               warnflag=(fit[4]==1 or fit[4]==2) or fit[1]>self.maxll/10.
 
             except: warnflag=True
             
