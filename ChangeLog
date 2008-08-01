@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Fri Aug  1 12:21:52 PDT 2008
+pointlike/python
+
+Modified Files:
+	swig_setup.in 
+Log Message:
+Added templates for exposing query_disk routine in skymaps::Band.
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-05-01, operation: add
 Package: pointlike
