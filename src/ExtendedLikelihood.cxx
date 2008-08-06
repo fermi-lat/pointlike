@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.cxx
     @brief Implementation of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.3 2008/06/27 05:59:26 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.4 2008/08/06 06:41:30 markusa Exp $
 */
 
 #include "pointlike/ExtendedLikelihood.h"
@@ -264,12 +264,10 @@ ExtendedLikelihood::ExtendedLikelihood(const skymaps::Band& band,
 { 
 
     m_psf.source().set(m_src_param);
+    m_fint = m_psf.integral(m_umax);// integral out to umax
+    m_fint2 = m_psf.integralSquare(m_umax);     // the integral of square, used by the quick estimator
     setDir(dir);
 
-    m_fint = m_psf.integral(m_umax);// integral out to umax
-
-    // the integral of square, used by the quick estimator
-    m_fint2 = m_psf.integralSquare(m_umax);
 }
 
 // legacy constructor
@@ -294,10 +292,10 @@ ExtendedLikelihood::ExtendedLikelihood(const skymaps::Band& band,
         , m_back(0)
 { 
 
-    setDir(dir);
     m_fint = m_psf.integral(m_umax);// integral out to umax
-    // the integral of square, used by the quick estimator
-    m_fint2 = m_psf.integralSquare(m_umax);
+    m_fint2 = m_psf.integralSquare(m_umax);    // the integral of square, used by the quick estimator
+    setDir(dir);
+
 }
 
 ExtendedLikelihood::~ExtendedLikelihood()
