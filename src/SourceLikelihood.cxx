@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.4 2008/07/29 00:01:12 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.5 2008/07/29 19:18:43 burnett Exp $
 
 */
 #define USE_GRADIENT
@@ -199,6 +199,7 @@ int    SourceLikelihood::s_minuitLevelSkip(0);
 int    SourceLikelihood::s_verbose(0);
 double SourceLikelihood::s_maxstep(0.25);  
 int SourceLikelihood::s_simplex(0);
+
 // if calculated step is larger then this (deg), abort localization
 
 void SourceLikelihood::set_verbose(bool verbosity){s_verbose=verbosity;}
@@ -231,6 +232,10 @@ void SourceLikelihood::setParameters(const embed_python::Module& par){
   double tolerance(pointlike::ExtendedLikelihood::tolerance());
   par.getValue("Diffuse.tolerance",  tolerance, tolerance);
   pointlike::ExtendedLikelihood::setTolerance(tolerance);
+
+  double roi(pointlike::ExtendedLikelihood::defaultRoI());
+  par.getValue(prefix+"regionOfInterest",roi,roi);
+  pointlike::ExtendedLikelihood::setDefaultRoI(roi);
   
   // SF: no more needed
   //     // load parameters from the setup .3
@@ -714,7 +719,7 @@ double pointlike::SourceLikelihood::localizeMinuit(int skip)
   gMinuit.mnexcm("SET ERR", arglist, nargs, ierflag);
   
 #ifdef USE_GRADIENT
-  nargs=1; arglist[0] = 1; 
+  nargs=1; arglist[0] = 0; 
   gMinuit.mnexcm("SET GRA", arglist, nargs, ierflag);
   gMinuit.SetPrintLevel(0);
 #endif

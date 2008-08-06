@@ -37,9 +37,9 @@ namespace pointlike{
              virtual void set(const std::vector<double>& param)=0;
              virtual double operator() (double v) const  =0;
              virtual double grad(double v,int icomp) const =0;
-	     virtual double get(int iparam) const {  return NAN; iparam=0;};
-	     virtual bool parameterShiftsMax(int iparam) const { return false; iparam=0; };
-	     virtual bool parameterShiftsMin(int iparam) const { return false; iparam=0; };
+	     virtual double get(int) const {  return NAN;};
+	     virtual bool parameterShiftsMax(int) const { return false;  };
+	     virtual bool parameterShiftsMin(int) const { return false;  };
              double min() const {return m_vmin;};
              double max() const {return m_vmax;};
              double sigma() const {return m_sigma;};
@@ -110,7 +110,7 @@ namespace pointlike{
 	   double m_intLimitNorm;
            mutable double m_scaledRadius;
 	   public:  
-	     gaussSource(double sigma, double rad): iSource(sigma),m_radius(rad),m_intLimit(4.6052) {  //int limit 4.6052 equals to 99% boundary..,.
+	     gaussSource(double sigma, double rad): iSource(sigma),m_radius(rad),m_intLimit(15.) {  //int limit 4.6052 equals to 99% boundary..,.
 		m_scaledRadius=0.5*m_radius*m_radius/(sigma2());
 		max(m_intLimit*m_scaledRadius);
 		m_intLimitNorm=1.-exp(-m_intLimit); 
@@ -121,7 +121,7 @@ namespace pointlike{
 		max(m_intLimit*m_scaledRadius); 
 	     };
 	     
-	     double get(int ipar) const {return m_radius; ipar=0;};
+	     double get(int) const {return m_radius;};
 	     
 	     double operator() (double v) const { return exp(-v/m_scaledRadius)/(2*M_PI*m_scaledRadius*m_intLimitNorm);};
 	     
