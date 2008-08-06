@@ -100,6 +100,7 @@ namespace pointlike{
 	      m_source.set(oldp);
 	      double ngrad=(test2-test1)/(2*h);
 	      std::cout<<"GRADIENT TEST: parameter="<<(i-1)<<" analytic="<<result[i]<<" numeric="<<ngrad<<" ratio="<<(result[i]/ngrad)<<std::endl;
+
 #endif	      
 	  };   
 	

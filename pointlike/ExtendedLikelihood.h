@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.h
     @brief declaration of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.18 2008/02/14 01:27:45 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.1 2008/06/18 01:19:23 funk Exp $
 
 */
 
@@ -163,11 +163,14 @@ namespace pointlike {
     static void setTolerance(double tol);
     static double defaultUmax();
     static void setDefaultUmax(double umax);
+    static double defaultRoI();
+    static void setDefaultRoI(double roi);
 
 
   private: 
     
     static double s_defaultUmax;
+    static double s_defaultRoI;
     static double s_tolerance; // for integral
         
     //! @brief a quick estimate of the signal fraction

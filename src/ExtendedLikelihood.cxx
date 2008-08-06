@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.cxx
     @brief Implementation of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.2 2008/06/18 22:12:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.3 2008/06/27 05:59:26 markusa Exp $
 */
 
 #include "pointlike/ExtendedLikelihood.h"
@@ -27,6 +27,7 @@ using namespace pointlike;
 
 //#define DEBUG_PRINT
 double ExtendedLikelihood::s_defaultUmax =200;
+double ExtendedLikelihood::s_defaultRoI = 0.1;
 double  ExtendedLikelihood::s_tolerance(0.05); // default:
 
 namespace {
@@ -318,8 +319,9 @@ void ExtendedLikelihood::reload(bool subset)
     m_vec2.clear();
     delete m_back;
     double angle(sqrt(2.*m_umax)*sigma());
-    if(angle<0.1) { 
-      m_umax= 0.010001/(2*sigma()*sigma());
+    double roi(s_defaultRoI);
+    if(angle<roi) { 
+      m_umax= (roi*roi+1e-5)/(2*sigma()*sigma());
 //                    std::cout<<"umax adjusted to "<<m_umax<<" emin="<<band().emin()<<" sigma="<<sigma()<<std::endl;
       angle=sqrt(2.*m_umax)*sigma();
     };	
@@ -736,6 +738,16 @@ double ExtendedLikelihood::defaultUmax()
 void ExtendedLikelihood::setDefaultUmax(double umax)
 {
     s_defaultUmax = umax;
+}
+
+double ExtendedLikelihood::defaultRoI()
+{
+    return s_defaultRoI;
+}
+
+void ExtendedLikelihood::setDefaultRoI(double roi)
+{
+    s_defaultRoI = roi;
 }
 
 void ExtendedLikelihood::setTolerance(double tol)
