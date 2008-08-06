@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: markusa  Tue Aug  5 23:41:42 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	ExtendedLikelihood.h ExtendedSourcePDF.h 
+Log Message:
+fixed gradient calculation bug
+added ROI as parameter
+
+
+    *
+------------------------------------------------------------
 User: markusa  Tue Aug  5 23:41:30 PDT 2008
 pointlike/src
 
