@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: markusa  Wed Aug  6 12:39:40 PDT 2008
+pointlike/src
+
+Modified Files:
+	ExtendedLikelihood.cxx 
+Log Message:
+fixed initialization sequence
+
+
+    *
+------------------------------------------------------------
 User: mar0  Wed Aug  6 12:37:11 PDT 2008
 pointlike/src
 
