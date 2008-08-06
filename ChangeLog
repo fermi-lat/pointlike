@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: markusa  Tue Aug  5 23:41:30 PDT 2008
+pointlike/src
+
+Modified Files:
+	ExtendedLikelihood.cxx SourceLikelihood.cxx 
+	ExtendedSourcePDF.cxx 
+Log Message:
+fixed gradient calculation bug
+added ROI as parameter
+
+
+    *
+------------------------------------------------------------
 User: kerrm  Fri Aug  1 12:22:29 PDT 2008
 pointlike/python
 
