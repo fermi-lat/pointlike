@@ -1,7 +1,7 @@
 /** @file CalData.cxx
 @brief implementation of CalData
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CalData.cxx,v 1.4 2008/06/28 06:17:25 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CalData.cxx,v 1.5 2008/06/30 01:43:11 burnett Exp $
 
 */
 
@@ -27,6 +27,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CalData.cxx,v 1.4 2008/06/28
 #include <cassert>
 #include <sstream>
 #include <stdexcept>
+#include <ctime>
 
 
 using astro::SkyDir;
@@ -35,7 +36,7 @@ using skymaps::BinnedPhotonData;
 using namespace pointlike;
 
 
-int CalData::s_class_level=2; 
+int CalData::s_class_level=3; 
 int CalData::class_level(){return s_class_level;}
 
 #ifdef WIN32
@@ -87,7 +88,17 @@ namespace {
             std::cout << std::endl;
     }
 
-    TRandom *rand = new TRandom(3557);
+    time_t t = time(NULL);
+    int tseed = t%65536;
+
+    TRandom *rand = new TRandom(tseed);
+
+        // default binner to use
+    skymaps::PhotonBinner* binner(double emin,double emax) {
+        return new skymaps::PhotonBinner(3);
+    }
+
+    skymaps::PhotonBinner pb = *binner(0,0);
 
     //ROOT event extraction
     astro::Photon events(std::vector<float>& row,int event_type, double emin, double emax) {
@@ -117,18 +128,17 @@ namespace {
                 double diff = 180/M_PI*row[3];
                 dec = diff*sin(r);
                 ra = diff*cos(r)/cos(dec*M_PI/180);
+                skymaps::Band bb = pb(astro::Photon(astro::SkyDir(0,0),energy,0));
+                double ratio = (bb.emin()/energy);
+                double rseed = rand->Uniform();
+                if(ratio<rseed) event_class=99;
             }
+
         }
         return astro::Photon(astro::SkyDir(ra,dec),energy,time,event_class, source_id);
     }
 
-    // default binner to use
-    skymaps::PhotonBinner* binner(double emin,double emax) { 
-        std::vector<double> bins;
-        bins.push_back(emin);
-        bins.push_back(emax);
-        return new skymaps::PhotonBinner(7);
-    }
+
 } // anon namespace
 
 CalData::CalData(const std::string& inputFile, int event_type, double emin, double emax, int /*source_id*/)
@@ -180,8 +190,8 @@ void CalData::lroot(const std::string& inputFile,int event_type,double emin,doub
 #endif
         row.clear();
         //if(m_data->size()>0) {
-            ShowPercent(i,entries,i);
-            //if(m_data->photonCount()>10000) break;
+        ShowPercent(i,entries,i);
+        //if(m_data->photonCount()>10000) break;
         //}
     }
     delete tf; 
