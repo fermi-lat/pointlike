@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.39 2008/06/18 14:41:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.40 2008/06/24 18:21:38 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -433,9 +433,21 @@ double SimpleLikelihood::geval(double k) {
     Convert conv(m_dir, ps, *m_back, sigma(), m_umax, m_vec2, m_vec4, true);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
     result.consolidate();
-    double ts = -TS(m_alpha);
+    //maximize();
+    double F = ps.integral(m_umax);
+    double acc = 0;
+    for(PixelList::const_iterator ite=m_vec.begin();ite!=m_vec.end();++ite) {
+        double diff =ite->first.difference(m_dir); 
+        double u = sqr(diff/m_sigma)/2.;
+        if(u>m_umax) continue;
+        // just to see what is there
+        // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
+        double f = ps(u);
+        acc-=ite->second*log(m_alpha*f/F+(1-m_alpha)/(m_umax));
+    }
+    
     m_vec2.clear();
-    return ts;
+    return acc;
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 double SimpleLikelihood::operator()(const astro::SkyDir& dir)const

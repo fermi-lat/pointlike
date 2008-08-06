@@ -1,7 +1,7 @@
 /** @file ParamOptimization.cxx 
 @brief ParamOptimization member functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.12 2008/06/06 17:09:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.13 2008/06/28 06:17:25 mar0 Exp $
 
 */
 
@@ -9,13 +9,13 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.12
 #include "skymaps/IParams.h"
 #include "TMatrixD.h"
 #include <fstream>
-//#define PRINT_DEBUG
-#define FIT_DEBUG
+#define PRINT_DEBUG
+//#define FIT_DEBUG
 
 using namespace pointlike;
 
 #ifdef PRINT_DEBUG
-std::ofstream goldout("bracket_output.xls");
+std::ofstream goldout("bracket_output.txt");
 #endif
 
 #ifdef FIT_DEBUG
@@ -287,13 +287,15 @@ std::vector<double> ParamOptimization::compute(ParamOptimization::Param p) {
     *m_out << "***************************************************************************\n";
 
     int num2look = m_likes.size();
-    int timeout = 30;
-    double tol = 1e-6;
-    //for each level, optimize
+    int timeout = 100;
+    double tol = 1e-4;
+    //for each level, optimiz0
     std::vector<double> params;
     std::vector<double> sigmas;
     std::vector<double> energies;
-    for(int iter=0;iter<m_likes.front()->size();++iter) {
+    skymaps::BinnedPhotonData::const_iterator bit = m_data.begin();
+    for(int iter=0;iter<m_likes.front()->size();++iter,++bit) {
+        //if((*m_likes.front())[iter]->band().event_class()==0) continue;
         int whileit =0;
         double maxfactor = 0;
         double osigma=sigma?(*(m_likes.front()))[iter]->sigma():(*(m_likes.front()))[iter]->gamma();
@@ -313,6 +315,7 @@ std::vector<double> ParamOptimization::compute(ParamOptimization::Param p) {
                 }
                 (*(*it))[iter]->setalpha(alphas[i]);
             }
+            osigma = sigma?osigma/sqrt(maxfactor):osigma*maxfactor;
             whileit++;
         }
         int t_photons(0);
@@ -328,16 +331,32 @@ std::vector<double> ParamOptimization::compute(ParamOptimization::Param p) {
                 t_alpha += ite->alpha()/(t_sa*t_sa);
             }
         }
-        double emin = m_likes.front()->energyList()[iter];
-        double emax = m_likes.front()->energyList()[iter+1];
+        double emin = (*m_likes.front())[iter]->band().emin();
+        double emax = (*m_likes.front())[iter]->band().emax();
         double ebar = sqrt(emin*emax);
-        energies.push_back(ebar);
-        params.push_back(maxfactor>0?(sigma?osigma*maxfactor*180/M_PI:osigma*maxfactor):-1);
-        sigmas.push_back(t_photons>0?curvature(sigma,iter,osigma*maxfactor)*(sigma?180/M_PI:1):-1);
-        *m_out << std::left << std::setw(10) << std::setprecision(3)<<
-            (int)ebar << std::setw(15) << (maxfactor>0?(sigma?osigma*maxfactor*180/M_PI:osigma*maxfactor):-1) << 
-            std::setw(15) << (t_photons>0?curvature(sigma,iter,osigma*maxfactor)*(sigma?180/M_PI:1):-1) << std::setw(10) << maxfactor << std::setw(15) << (t_photons>0?t_alpha/t_curvature:-1) <<
-            std::setw(10) << t_photons << std::endl;
+        if(sigma) {
+            if(maxfactor>0&&curvature(sigma,iter,osigma/sqrt(maxfactor))>0) {
+                params.push_back(osigma/sqrt(maxfactor)*180/M_PI);
+                sigmas.push_back(t_photons>0?curvature(sigma,iter,osigma/sqrt(maxfactor))*180/M_PI:-1);
+                energies.push_back(ebar);
+            }
+            *m_out << std::left << std::setw(10) << std::setprecision(3)<<
+                (int)ebar << std::setw(15) << (maxfactor>0?osigma/sqrt(maxfactor)*180/M_PI:-1) << 
+                std::setw(15) << (t_photons>0?curvature(sigma,iter,osigma/sqrt(maxfactor))*180/M_PI:-1) << std::setw(10) << maxfactor << std::setw(15) << (t_photons>0?t_alpha/t_curvature:-1) <<
+                std::setw(10) << t_photons << std::endl;
+        } else {
+            if(maxfactor>0&&curvature(sigma,iter,osigma*maxfactor)>0) {
+                params.push_back(osigma*maxfactor);
+                sigmas.push_back(t_photons>0?curvature(sigma,iter,osigma*maxfactor):-1);
+                energies.push_back(ebar);
+            }
+
+            *m_out << std::left << std::setw(10) << std::setprecision(3)<<
+                (int)ebar << std::setw(15) << (maxfactor>0?osigma*maxfactor:-1) << 
+                std::setw(15) << (t_photons>0?curvature(sigma,iter,osigma*maxfactor):-1) << std::setw(10) << maxfactor << std::setw(15) << (t_photons>0?t_alpha/t_curvature:-1) <<
+                std::setw(10) << t_photons << std::endl;
+        }
+
     }
     m_energy=energies;
     m_params=params;
@@ -488,5 +507,7 @@ std::vector<double> ParamOptimization::fit_sigma() {
     std::cout << std::setprecision(3) << "Final parameters: " ;
     std::cout << "a= " << d[0] << "\tb= " << d[1] << "\tc= " << d[2] << "\td= " << d[3];
     std::cout << std::endl;
+    std::cout << "chisq= " << chisq(d) << std::endl;
+    std::cout << "dof= " << m_sigmas.size() << std::endl;
     return d;
 }
