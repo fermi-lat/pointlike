@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.44 2008/06/25 13:57:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.45 2008/06/29 01:50:37 burnett Exp $
 
 */
 
@@ -33,6 +33,7 @@ namespace {
     // the scale_factor used: 2.5 degree at level 6, approximately the 68% containment
     double s_TScut(2.);  // only combine energy bands
 
+    double sqr(double x){return x*x;}
 }
 
 //  ----- static (class) variables -----
@@ -48,6 +49,9 @@ void PointSourceLikelihood::get_energy_range(double& emin, double& emax){
     emin = s_emin; emax=s_emax;
 }
 
+double PointSourceLikelihood::s_maxROI(180);
+void   PointSourceLikelihood::set_maxROI(double r){s_maxROI=r;}
+double PointSourceLikelihood::maxROI(){return s_maxROI;}
 
 double PointSourceLikelihood::s_minalpha(0.05);
 int    PointSourceLikelihood::s_skip1(1);
@@ -149,10 +153,15 @@ void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
 
         // create new SimpleLikelihood object
         const Band& b1( *(*bit1).first );
-        SimpleLikelihood* sl = new SimpleLikelihood(b1, m_dir, 
-            SimpleLikelihood::defaultUmax() 
-            ,m_background
-            );
+        // limit umax if requested.
+        double umax(SimpleLikelihood::defaultUmax()),
+            roi(b1.sigma()*sqrt(2.*umax)),
+            maxroi(maxROI()*M_PI/180);
+        if( maxroi>0 && roi>maxroi){
+            umax = 0.5*sqr(maxroi/b1.sigma());
+        }
+        
+        SimpleLikelihood* sl = new SimpleLikelihood(b1, m_dir, umax, m_background );
         if( merge() ){
             // add other bands with identical properties if requested
             for( std::list<std::pair<const Band*,bool> >::iterator bit2(bit1); bit2 !=bands.end(); ++bit2){

@@ -1,6 +1,6 @@
 # default parameters for the various parameter files
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.11 2008/06/24 19:06:02 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.12 2008/07/29 00:02:06 markusa Exp $
 #
 # Include this to set defaults, then override 
 import sys
@@ -43,6 +43,7 @@ class PointSourceLikelihood: #parameters for the likelihood calculation
 
     verbose = 0  # set non-zero to get lots of output
     maxstep = 0.2 # max step allowed during localization: abort if larger
+    merge=1     # set to zero to not attempt to merge bands with identical parameters
     
 class SourceLikelihood: #parameters for the likelihood calculation
 
@@ -51,13 +52,7 @@ class SourceLikelihood: #parameters for the likelihood calculation
     verbose = 0  # set non-zero to get lots of output
     maxstep = 0.2 # max step allowed during localization: abort if larger
     umax=50.
-
     bgROI=0.5
-    # values for the gamma and sigma PSF parameters, indexed by level
-#    gamma_list =[0,0,0,0,0,
-#           2.25,  2.27,  2.22,  2.31,  2.30,  2.31,  2.16,  2.19,  2.07]
-#    sigma_list =[0,0,0,0,0,
-#          0.343, 0.335, 0.319, 0.431, 0.449, 0.499, 0.566, 0.698, 0.818]
 
 
 class SourceFinder:  # parameters for the SourceFinder.

@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.21 2008/07/29 03:52:52 kerrm Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.22 2008/08/01 19:21:52 kerrm Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -43,6 +43,7 @@
 #include "pointlike/SourceList.h"
 //fails #include "pointlike/ParamOptimization.h"
 #include "pointlike/SimpleTSmap.h"
+#include "pointlike/Alignment.h"
 
 
 #include "CLHEP/Vector/Rotation.h"
@@ -119,6 +120,10 @@ public:
       }
    }
    size_t __len__() {return 9;}
+   // need this, cannot parse the many includes
+   CLHEP::HepRotation inverse(){
+      return self->inverse();
+      }
 }
 %extend skymaps::BinnedPhotonData{
 // provide access to the Band objects as an array
@@ -131,6 +136,10 @@ public:
    }
    size_t __len__() {      return self->size();       }
 }
+
+//%template(IntPair) std::pair<int,int>;
+//%template(IntPairVector) std::vector<std::pair<int,int> >;
+%template(WeightedSkyDirVector) std::vector<skymaps::WeightedSkyDir>;
 
 %extend pointlike::PointSourceLikelihood{
    pointlike::SimpleLikelihood * __getitem__(size_t i){ 
@@ -215,11 +224,12 @@ public:
    }
 }
 //fails %include $(POINTLIKEROOT)/pointlike/ParamOptimization.h
+%include $(POINTLIKEROOT)/pointlike/Alignment.h
 
 %template(SourceVector)  std::vector<pointlike::Source>;
 %template(StringDoubleMap) std::map<std::string,std::vector<double> >;
-%template(SkyDirIntPairVector) std::vector<std::pair<astro::SkyDir,int> >;
-%template(IntIntPairVector) std::vector<std::pair<int,int> >;
+// these attempts fail
+//%template(SkyDirIntPairVector) std::vector<std::pair<astro::SkyDir,int> >;
 
 
 

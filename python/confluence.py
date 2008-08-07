@@ -2,6 +2,28 @@
 Create a table of source fits as a confluence table
 
 """
+class RegFile(object):
+##    class Source(object):
+##        def __init__(self, source):
+##            tokens = line.split()
+##            self.name = tokens[0]
+##            self.sigma, self.ra, self.dec = [float(t) for t in tokens[2:5] ]
+    def __init__(self, data):
+        self.sourcelist = data
+        print 'found %d sources' % len(self.sourcelist)
+    def __getitem__(self, i): return self.sourcelist[i]
+    def __len__(self): return len(self.sourcelist)
+
+    def write_regfile(self, filename='test.reg', color='red'):
+        header='global color=%s font="helvetica 10 normal" select=1 edit=1 move=0 delete=0 include=1 fixed=0 width=2;fk5;'%color
+        out = file(filename, 'w')
+        print >> out, header
+        for s in self.sourcelist:
+            print >> out,\
+                  'point(%5.3f, %5.3f) # point=cross 20  text={TS=%5.0f};'\
+                      % ( s.ra, s.dec, s.TS)
+        out.close()
+
 
 
 class Table(object):
@@ -19,9 +41,9 @@ class Table(object):
         self.version=version
         self.verbose=verbose
         self.link_sed = link_sed
-        filename=r'%spointfit_%s.txt' %(path, version)
+        self.infilename=r'%spointfit_%s.txt' %(path, version)
         self.outfilename='%sconfluence_%s.txt' %(path, version)
-        infile =file(filename)
+        infile =file(self.infilename)
         self.outfile = file(self.outfilename, 'w')
         titles = infile.readline()[2:] # split off initial #?
         self.cols = len(titles.split())
@@ -29,6 +51,7 @@ class Table(object):
         for line in infile:
             self.entry(line)
         self.outfile.close()
+        self.histogram()
 
     def title(self, line):
         q='|| '
@@ -56,11 +79,33 @@ class Table(object):
         if self.verbose: print q
         self.outfile.write(q+'\n')
 
+    def histogram(self):
+        import matplotlib
+        from pylab import figure, hist, grid, plot, axvline, title, xlabel,ylabel, text, savefig
+        from numpy import arange,array,exp
+        t =matplotlib.mlab.csv2rec(self.infilename, delimiter=' ')
+        figure(figsize=(4,4))
+        ratio=[s[5] for s in t if s[4]<0.25] # ratio if localization < 0.25
+        binsize=0.25
+        xmax=5.0
+        hist(ratio  , arange(0,xmax,binsize))
+        grid()
+        x = arange(0,xmax,0.1)
+        y = len(ratio)*x*exp(-x**2/2)*binsize
+        plot(x,y, 'r-', lw=2)
+        ylabel('sources/%3.2f'%binsize)
+        title('resolution check')
+        xlabel('difference/sigma')
+        axvline(2.45); text(2.5, 4.5, '95% error circle')
+        outfile = self.infilename.replace('.txt', '.png')
+        savefig(outfile)
+        print 'wrote png histogram to %s' % outfile
+
+
 if __name__=='__main__':
     analysis_path =r'D:/common/first_light/'
-
     suffix='v2d'
-    Table(analysis_path, suffix, link_sed=True, verbose=True)
+    Table(analysis_path, suffix, link_sed=True, verbose=False)
         
         
             

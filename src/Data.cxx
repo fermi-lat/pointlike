@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.50 2008/07/22 15:36:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.51 2008/07/28 21:47:24 burnett Exp $
 
 */
 
@@ -11,6 +11,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.50 2008/07/22 1
 
 #include "astro/SkyDir.h"
 #include "astro/Photon.h"
+#include "astro/GPS.h"
 #include "astro/PointingTransform.h"
 #include "astro/PointingHistory.h"
 
@@ -46,6 +47,11 @@ using namespace pointlike;
 
 std::string Data::s_ft2file = std::string("");
 astro::PointingHistory* Data::s_history(0);
+namespace {
+        // file-scope pointer to gps instance
+    astro::GPS* gps (astro::GPS::instance()); 
+
+}
 
 //! @brief define FT2 file to use for rotation
 void Data::setHistoryFile(const std::string& history)
@@ -56,15 +62,17 @@ void Data::setHistoryFile(const std::string& history)
     }else{
         s_history->readFitsData(history);
     }
+    // temporary put same file into GPS
+    gps->setPointingHistoryFile(history);
 }
 
 int Data::s_class_level=3; // diffuse selection
 int Data::class_level(){return s_class_level;}
+void Data::set_class_level(int level){s_class_level=level;}
 
 double Data::s_zenith_angle_cut(105.); // standard cut
-double Data::zenith_angle_cut(){
-    return s_zenith_angle_cut;
-}
+double Data::zenith_angle_cut(){ return s_zenith_angle_cut;}
+void   Data::set_zenith_angle_cut(double cut){s_zenith_angle_cut=cut;}
 
 // default alignment object
 pointlike::Alignment* Data::s_alignment=new Alignment();
@@ -75,9 +83,6 @@ void Data::set_alignment(const std::string & filename)
     s_alignment = new Alignment(filename);
 }
 
-#if 0
-CLHEP::HepRotation Data::s_rot = CLHEP::HepRotationX(0)*CLHEP::HepRotationY(0)*CLHEP::HepRotationZ(0);
-#endif
 #ifdef WIN32
 #include <float.h> // used to check for NaN
 #else
@@ -85,6 +90,8 @@ CLHEP::HepRotation Data::s_rot = CLHEP::HepRotationX(0)*CLHEP::HepRotationY(0)*C
 #endif
 
 namespace {
+
+
 
     std::string root_names[] = {"FT1Ra", "FT1Dec", 
         "CTBBestEnergy", "EvtElapsedTime",
@@ -111,7 +118,7 @@ namespace {
         }
     }
 
-
+#if 1 // don't have a much of a need.
 
     /** @class Photon
     @brief derive from astro::Photon to allow transformation
@@ -151,7 +158,6 @@ namespace {
             double   emeas(energy());                    // measured energy
             return astro::Photon(SkyDir(transformed), emeas,time(),evtclass, source());
         }
-
         double zenith_angle()const{return m_zenith_angle;}
         int class_level()const{return m_ctbclasslevel;}
     private:
@@ -160,14 +166,17 @@ namespace {
         int m_ctbclasslevel;
 
     };
-
+#endif
     class AddPhoton: public std::unary_function<astro::Photon, void> {
     public:
         AddPhoton (BinnedPhotonData& map, int select, double start, double stop, int source )
-            : m_map(map), m_select(select), m_start(start), m_stop(stop), m_source(source)
+            : m_map(map), m_select(select)
+            , m_start(start), m_stop(stop), m_source(source)
+            , m_found(0), m_kept(0)
         {}
-        void operator()(const Photon& gamma)
+        void operator()(Photon& gamma)
         {
+            m_found++;
             int event_class = gamma.eventClass();
             int sourceid = gamma.source();
 
@@ -180,18 +189,26 @@ namespace {
             if( gamma.zenith_angle()> Data::zenith_angle_cut()) return;
             int class_level( gamma.class_level() );
             if( class_level< Data::class_level() ) return; // select class level
-            // now make the transformation, which returns a regular photon object
+            m_kept++;
 #if 0
-            astro::Photon ap( gamma.transform(Data::get_rot().inverse()) );
-#else
+            // now make the transformation, which returns a regular photon object
             astro::Photon ap( gamma.transform( Data::get_rot(gamma.time())) );
-#endif
             m_map.addPhoton(ap);
+#else
+            // using GPS to make the correction, including aberration
+            gps->enableAberration();
+            gps->setAlignmentRotation(Data::get_rot(gamma.time()).inverse());
+            SkyDir fixed(gps->correct(gamma.dir(), gamma.time()));
+            m_map.addPhoton(astro::Photon(fixed, gamma.energy(),gamma.time(),gamma.eventClass()));
+#endif
         }
+        int found()const{return m_found;}
+        int kept()const{return m_kept;}
         BinnedPhotonData& m_map;
         int m_select;
         double m_start, m_stop;
         int m_source;
+        int m_found, m_kept;
     };
     /**
     @class EventList
@@ -474,6 +491,11 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
     int photoncount(m_data->photonCount()), pixelcount(m_data->pixelCount());
     if( inputFile.find(".root") != std::string::npos) {
         lroot(inputFile, event_type);
+        std::cout 
+          << "photons kept: "  << (m_data->photonCount() -photoncount) << " (total: " << m_data->photonCount() <<") "
+          << std::endl;
+
+
     }else {
         if( s_alignment->active() && s_ft2file.empty()) {
             // need a FT2 file. Try replacing 'ft1' with 'ft2' in file name, assume in same folder
@@ -495,12 +517,11 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
         EventList photons(inputFile, source_id>-1);
         AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id);
 
-        std::for_each(photons.begin(), photons.end(), adder );
+        AddPhoton added =std::for_each(photons.begin(), photons.end(), adder );
+        std::cout 
+          << "photons found: " << added.found() <<", kept: "  << (m_data->photonCount() -photoncount) << " (total: " << m_data->photonCount() <<") "
+          << std::endl;
     }
-    std::cout 
-        << "photons found: "  << (m_data->photonCount() -photoncount) << " (total: " << m_data->photonCount() <<") "
-        //?<< "  pixels created: " << (m_data->pixelCount() -pixelcount) << " (total: " << m_data->pixelCount() << ") "
-        << std::endl;
 
 }
 

@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/sourcefit/sourcefit_main.cxx,v 1.2 2008/06/21 00:40:30 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/sourcefit/sourcefit_main.cxx,v 1.3 2008/06/27 05:59:26 markusa Exp $
 
 */
 #include "pointlike/SourceLikelihood.h"
@@ -172,9 +172,7 @@ int main(int argc, char** argv)
     }
 	
    if(results) results->writeAndClose();
-   if( !outfile.empty()){
-         delete out;
-   }
+
 
   } catch(const std::exception& e){
     std::cerr << "Caught exception " << typeid(e).name() 
