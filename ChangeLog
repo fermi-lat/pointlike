@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Thu Aug  7 13:47:32 PDT 2008
+pointlike/src
+
+Modified Files:
+	Data.cxx SimpleLikelihood.cxx 
+Log Message:
+fix Linux; tag
+    *
+------------------------------------------------------------
+User: burnett  Thu Aug  7 13:47:32 PDT 2008
 pointlike/python
 
 Modified Files:
