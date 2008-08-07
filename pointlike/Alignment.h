@@ -1,7 +1,7 @@
 /** @file Alignment.h 
     @brief declaration of the Alignment calibration management class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Alignment.h,v 1.1 2008/07/28 21:46:38 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Alignment.h,v 1.2 2008/07/29 19:13:59 burnett Exp $
 */
 
 
@@ -41,6 +41,8 @@ namespace pointlike{
         const CLHEP::HepRotation& rotation(double time)const;
 
         /// @brief apply the saved rotation
+        /// @param in  direction unit vector in instrument coords
+        /// @param out MET time
         CLHEP::Hep3Vector rotate(const CLHEP::Hep3Vector& in, double time)const;
 
         /// @brief if the alignment has been set

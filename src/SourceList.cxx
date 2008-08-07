@@ -1,7 +1,7 @@
-/** @file SourceList.h
-@brief declaration of classes Source and SourceList
+/** @file SourceList.cxx
+@brief implementation of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.10 2008/07/28 21:49:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.11 2008/07/29 19:13:59 burnett Exp $
 */
 
 
@@ -53,13 +53,14 @@ void Source::setup()
     if(m_fit==0){
         m_fit = new PointSourceLikelihood(*SourceList::data(), m_name, m_dir);
     }
-    // inital maximize unless TS already set.
-    if( m_TS==0 )  m_TS = m_fit->maximize();
+    // inital maximize at seed position
+    m_seedTS = m_TS = m_fit->maximize();
 }
 Source::Source(const std::string& name, double ra, double dec, double TS)
 : m_name(name)
 , m_dir(SkyDir(ra,dec))
 , m_seed_dir(m_dir)
+, m_seedTS(TS)
 , m_fit(0)
 , m_TS(TS)
 , m_sigma(0)
@@ -84,7 +85,7 @@ double Source::moved()const{
 
 void Source::header(std::ostream& out){
     out << std::left << std::setw(20) 
-        <<"#name                  ra        dec          TS    localization moved  neighbor\n";
+        <<"#name                  ra        dec        TS    localization moved  neighbor\n";
 //         B0833-45              128.8339  -45.1629   5698.49    0.0069    0.0136
 }
 
@@ -98,7 +99,8 @@ void Source::info(std::ostream& out)const{
             << std::setw(10) << TS() 
             << std::setprecision(4) 
             << std::setw(10) << sigma()
-            << std::setw(10) << moved()
+            << std::setprecision(1)
+            << std::setw(10) << moved()/sigma()
                 ;
         if( neighbor()!=0){
             out << "  " << std::setw(20)<< std::left << (neighbor()->name());
