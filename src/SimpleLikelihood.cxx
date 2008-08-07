@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.40 2008/06/24 18:21:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.41 2008/08/06 19:37:11 mar0 Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -58,8 +58,8 @@ namespace {
             , m_sum(0), m_count(0)
             , m_sumu(0) // average u, useful for calibration
             , m_pixels(0)
-            , m_subset(subset)
             , m_back(background )
+            , m_subset(subset)
             , m_maxu_found(0)
         {
             m_first = m_vec4.size()==0;

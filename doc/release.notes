@@ -2,10 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.80 2008/07/29 19:20:47 burnett Exp $
+$Id: release.notes,v 1.81 2008/08/07 05:12:49 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
- 06-aug-08 v6r6    THB Alignment update; SourceList expose list of pixels,etc.
+ 07-aug-08 v6r6p1  THB Alignment update; SourceList expose list of pixels,etc.
  29-jul-08 v6r5p2  THB expose SourceList group_radius
  28-jul-08 v6r5    THB Incorporate alignment constant management
  19-jul-08 v6r4p3  THB new python code for spectral fits

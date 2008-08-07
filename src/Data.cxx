@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.51 2008/07/28 21:47:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.52 2008/08/07 05:12:50 burnett Exp $
 
 */
 
@@ -174,7 +174,7 @@ namespace {
             , m_start(start), m_stop(stop), m_source(source)
             , m_found(0), m_kept(0)
         {}
-        void operator()(Photon& gamma)
+        void operator()(const Photon& gamma)
         {
             m_found++;
             int event_class = gamma.eventClass();
