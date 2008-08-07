@@ -38,10 +38,18 @@ class Table(object):
         return '^RA%03d.png' % int(ra)
     
     def __init__(self, path, version, verbose=False, link_sed=True):
+        import matplotlib
         self.version=version
         self.verbose=verbose
         self.link_sed = link_sed
         self.infilename=r'%spointfit_%s.txt' %(path, version)
+        self.table=matplotlib.mlab.csv2rec(self.infilename, delimiter=' ')
+
+
+        #self.write_table
+        #self.histogram()
+
+    def write_table(self):        
         self.outfilename='%sconfluence_%s.txt' %(path, version)
         infile =file(self.infilename)
         self.outfile = file(self.outfilename, 'w')
@@ -51,7 +59,6 @@ class Table(object):
         for line in infile:
             self.entry(line)
         self.outfile.close()
-        self.histogram()
 
     def title(self, line):
         q='|| '
@@ -81,7 +88,7 @@ class Table(object):
 
     def histogram(self):
         import matplotlib
-        from pylab import figure, hist, grid, plot, axvline, title, xlabel,ylabel, text, savefig
+        from pylab import figure, hist, grid, axis, plot, axvline, title, xlabel,ylabel, text, savefig
         from numpy import arange,array,exp
         t =matplotlib.mlab.csv2rec(self.infilename, delimiter=' ')
         figure(figsize=(4,4))
@@ -96,7 +103,7 @@ class Table(object):
         ylabel('sources/%3.2f'%binsize)
         title('resolution check')
         xlabel('difference/sigma')
-        axvline(2.45); text(2.5, 4.5, '95% error circle')
+        axvline(2.45); text(2.5, 0.5*axis()[3], '95% error circle')
         outfile = self.infilename.replace('.txt', '.png')
         savefig(outfile)
         print 'wrote png histogram to %s' % outfile
