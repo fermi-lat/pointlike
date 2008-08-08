@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.5 2008/07/29 19:18:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.6 2008/08/06 06:41:30 markusa Exp $
 
 */
 #define USE_GRADIENT
@@ -719,7 +719,7 @@ double pointlike::SourceLikelihood::localizeMinuit(int skip)
   gMinuit.mnexcm("SET ERR", arglist, nargs, ierflag);
   
 #ifdef USE_GRADIENT
-  nargs=1; arglist[0] = 0; 
+  nargs=1; arglist[0] = 1; 
   gMinuit.mnexcm("SET GRA", arglist, nargs, ierflag);
   gMinuit.SetPrintLevel(0);
 #endif
