@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: markusa  Thu Aug  7 18:03:45 PDT 2008
+pointlike/src
+
+Modified Files:
+	SourceLikelihood.cxx 
+Log Message:
+analytic gradient now mandatory 
+
+
+    *
+------------------------------------------------------------
 User: markusa  Thu Aug  7 18:03:41 PDT 2008
 pointlike/pointlike
 
