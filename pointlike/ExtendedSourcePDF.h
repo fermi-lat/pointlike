@@ -110,7 +110,7 @@ namespace pointlike{
 	   double m_intLimitNorm;
            mutable double m_scaledRadius;
 	   public:  
-	     gaussSource(double sigma, double rad): iSource(sigma),m_radius(rad),m_intLimit(15.) {  //int limit 4.6052 equals to 99% boundary..,.
+	     gaussSource(double sigma, double rad): iSource(sigma),m_radius(rad),m_intLimit(30.) {  //int limit 4.6052 equals to 99% boundary..,.
 		m_scaledRadius=0.5*m_radius*m_radius/(sigma2());
 		max(m_intLimit*m_scaledRadius);
 		m_intLimitNorm=1.-exp(-m_intLimit); 
