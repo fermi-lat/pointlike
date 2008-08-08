@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: markusa  Thu Aug  7 18:03:41 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	ExtendedSourcePDF.h 
+Log Message:
+analytic gradient now mandatory 
+
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-06-01, operation: add
 Package: pointlike
