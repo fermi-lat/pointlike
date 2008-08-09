@@ -2,29 +2,51 @@
 Create a table of source fits as a confluence table
 
 """
-class RegFile(object):
-##    class Source(object):
-##        def __init__(self, source):
-##            tokens = line.split()
-##            self.name = tokens[0]
-##            self.sigma, self.ra, self.dec = [float(t) for t in tokens[2:5] ]
-    def __init__(self, data):
-        self.sourcelist = data
-        print 'found %d sources' % len(self.sourcelist)
-    def __getitem__(self, i): return self.sourcelist[i]
-    def __len__(self): return len(self.sourcelist)
+class RegFile(list):
+    """ manage reg file showing initial and final positions, the latter with an error circle"""
 
+    def __init__(self, data):
+        for s in data: self.append(s) # must be better way
+        print 'found %d sources' % len(self)
+        
     def write_regfile(self, filename='test.reg', color='red'):
-        header='global color=%s font="helvetica 10 normal" select=1 edit=1 move=0 delete=0 include=1 fixed=0 width=2;fk5;'%color
+        header='global color=%s font="helvetica 10 normal" select=1 edit=1 move=0 delete=1 include=1 fixed=0 width=2;fk5;'%color
         out = file(filename, 'w')
         print >> out, header
-        for s in self.sourcelist:
+        for s in self:
             print >> out,\
-                  'point(%5.3f, %5.3f) # point=cross 20  text={TS=%5.0f};'\
-                      % ( s.ra, s.dec, s.TS)
+                  'point(%5.3f, %5.3f) # point=cross 20 text={%s}; circle(%5.3f,%5.3f,%5.3f) #  text={TS=%5.0f};'\
+                      % ( s.ra, s.dec, s.name, s.ra_fit,s.dec_fit, (2.5*s.sigma), s.TS)
         out.close()
 
+class FitSources(list):
+    
+    class Source(object):
+        def __init__(self, name, ra, dec,  TS, ra_fit, dec_fit, sigma):
+            self.name, self.ra, self.dec, self.TS, self.ra_fit, self.dec_fit, self.sigma=\
+            ( name,    ra,      dec,      TS,      ra_fit,      dec_fit,     sigma)
+            #print name,    ra,      dec,      TS,      ra_fit,      dec_fit,     sigma
+            
+    def __init__(self, t, select):
+        """ table was created by Table; select is a selection array, like (moved<4) """
+        from numpy import sum
+        name =   t.table.field(0)
+        ra_fit = t.table.field(1)
+        dec_fit= t.table.field(2)
+        TS =     t.table.field(3)
+        sigma =  t.table.field(4)
+        inname=t.intable.field(0)
+        ra =   t.intable.field(1)
+        dec =  t.intable.field(2)
+        check = sum(name!=inname)
+        if  check>0:
+            print name; print inname
+            raise Exception('the lists are not consistent, differ in %d places' %check)
+        for i,s in enumerate(select):
+            if s:
+               self.append(FitSources.Source(name[i], ra[i], dec[i], TS[i], ra_fit[i], dec_fit[i], sigma[i]))
 
+    
 
 class Table(object):
     def sinbad_ref(self, ra, dec):
@@ -37,13 +59,16 @@ class Table(object):
     def link_ref(self, ra):
         return '^RA%03d.png' % int(ra)
     
-    def __init__(self, path, version, verbose=False, link_sed=True):
+    def __init__(self, sourcefile, resultfile, verbose=False, link_sed=True):
         import matplotlib
-        self.version=version
         self.verbose=verbose
         self.link_sed = link_sed
-        self.infilename=r'%spointfit_%s.txt' %(path, version)
-        self.table=matplotlib.mlab.csv2rec(self.infilename, delimiter=' ')
+        self.table  =matplotlib.mlab.csv2rec(resultfile, delimiter=' ')
+        self.intable=matplotlib.mlab.csv2rec(sourcefile, delimiter=' ')
+
+        self.TS = self.table.field(3)
+        self.moved = self.table.field(4)
+        self.good = (self.TS>10)* (self.moved<4)
 
 
         #self.write_table
@@ -87,12 +112,10 @@ class Table(object):
         self.outfile.write(q+'\n')
 
     def histogram(self):
-        import matplotlib
         from pylab import figure, hist, grid, axis, plot, axvline, title, xlabel,ylabel, text, savefig
         from numpy import arange,array,exp
-        t =matplotlib.mlab.csv2rec(self.infilename, delimiter=' ')
         figure(figsize=(4,4))
-        ratio=[s[5] for s in t if s[4]<0.25] # ratio if localization < 0.25
+        ratio=[s[5] for s in self.table if s[4]<0.25] # ratio if localization < 0.25
         binsize=0.25
         xmax=5.0
         hist(ratio  , arange(0,xmax,binsize))
@@ -103,17 +126,17 @@ class Table(object):
         ylabel('sources/%3.2f'%binsize)
         title('resolution check')
         xlabel('difference/sigma')
-        axvline(2.45); text(2.5, 0.5*axis()[3], '95% error circle')
+        axvline(2.45); text(2.5, 0.75*axis()[3], '95% error circle')
         outfile = self.infilename.replace('.txt', '.png')
         savefig(outfile)
         print 'wrote png histogram to %s' % outfile
 
 
 if __name__=='__main__':
-    analysis_path =r'D:/common/first_light/'
-    suffix='v2d'
-    Table(analysis_path, suffix, link_sed=True, verbose=False)
-        
+#    analysis_path =r'D:/common/first_light/'
+#    suffix='v2d'
+#    Table(analysis_path, suffix, link_sed=True, verbose=False)
+    t = Table('cgrabs_sorted.txt', 'pointfit_02.txt')     
         
             
         
