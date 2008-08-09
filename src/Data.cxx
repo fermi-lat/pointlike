@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.52 2008/08/07 05:12:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.53 2008/08/07 20:47:32 burnett Exp $
 
 */
 
@@ -51,6 +51,7 @@ namespace {
         // file-scope pointer to gps instance
     astro::GPS* gps (astro::GPS::instance()); 
 
+    int use_earth(0);  // flag to convert to Earth coordinates
 }
 
 //! @brief define FT2 file to use for rotation
@@ -184,9 +185,9 @@ namespace {
             if( m_start>0   && gamma.time()<m_start ||  m_stop>m_start && gamma.time()>m_stop) return;
             if( m_source>-1 && sourceid != m_source)return;
 
-            // zenith angle cut
+            // zenith angle cut, unless in Earth coordinates
             if( ! isFinite(gamma.zenith_angle()) ) return; // catch NaN?
-            if( gamma.zenith_angle()> Data::zenith_angle_cut()) return;
+            if( use_earth==0 && gamma.zenith_angle()> Data::zenith_angle_cut()) return;
             int class_level( gamma.class_level() );
             if( class_level< Data::class_level() ) return; // select class level
             m_kept++;
@@ -299,11 +300,20 @@ namespace {
         static std::string root_names[]={"FT1Ra", "FT1Dec", 
             "CTBBestEnergy", "EvtElapsedTime"
             , "FT1ConvLayer", "FT1ZenithAngle", "McSourceId"};
-
+ 
         std::string *names = m_fits?  fits_names : root_names;
 
         (*m_it)[*names++].get(ra);
         (*m_it)[*names++].get(dec);
+
+        if( use_earth>0) {
+            // convert to Earth coordinate system
+            (*m_it)["EARTH_AZIMUTH_ANGLE"].get(ra);
+            (*m_it)["ZENITH_ANGLE"].get(dec);
+            dec = 90-dec;
+            ra+=90; if(ra>360)ra-=360; // since zero is north
+        }
+     
         (*m_it)[*names++].get(energy);
         (*m_it)[*names++].get(time);
         (*m_it)[*names++].get(event_class);
@@ -423,6 +433,9 @@ Data::Data(const embed_python::Module& setup)
     std::vector<std::string> filelist;
     std::string history_filename;
     std::vector<double>alignment;
+
+    // special flag to convert to Earth coordinates
+    setup.getValue(prefix+"use_earth", use_earth, false);
 
     setup.getList(prefix+"files", filelist);
     setup.getValue(prefix+"event_class", event_class);
