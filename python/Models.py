@@ -39,9 +39,11 @@ class Model(object):
          #l+=[t_n+(12-len(t_n))*' '+': '+t_p+' +/- '+t_e]
          #l+=[t_n+(12-len(t_n))*' '
       return '\n'.join(l)
-   def i_flux(self,emin=100,emax=Inf):
+   def i_flux(self,emin=100,emax=Inf,e_weight=0,cgs=False):
       """Return integrated flux."""
-      return quad(self,emin,emax)[0]
+      func = self if e_weight == 0 else lambda e: self(e)*e**e_weight
+      units = 1 if not cgs else (e_weight*1.60218e-6)
+      return units*quad(func,emin,emax)[0]
    def copy(self):
       param_string=','.join( ( str(p) for p in self.p ) )
       return eval(self.name+'(parameters=('+param_string+'))')
@@ -96,10 +98,11 @@ class PowerLawFlux(Model):
 #-----------------------------------------------------------------------------------------------#
 
 class BrokenPowerLaw(Model):
-   def __init__(self,parameters=(1e-9,1.5,2.5,1000)):
+   def __init__(self,parameters=(1e-9,1.5,2.5,1000),e0=1):
       self.p=parameters
       self.name='BrokenPowerLaw'
       self.param_names=['Norm','Index 1','Index 2', 'E_break']
+      self.e0=e0
    def __call__(self,e):
       e = N.array([e]).ravel()
       n0,gamma1,gamma2,e_break=self.p
@@ -169,7 +172,7 @@ class FixedPLSuperExpCutoff(Model):
       self.p=parameters
       self.e0=e0
       self.name='FixedPLSuperExpCutoff'
-      self.param_names=['Norm','Sp. Ind. 1','E_cutoff']
+      self.param_names=['Norm','Index 1','E_cutoff']
    def __call__(self,e):
       n0,gamma1,e_cutoff=self.p
       return n0*(self.e0/e)**gamma1*N.exp(-(e/e_cutoff))

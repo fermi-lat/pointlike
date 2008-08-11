@@ -27,6 +27,7 @@ class EnergyBands(object):
       self.r_bands=r_bands
       self.l_bands=l_bands
       self.joint=l_bands+s_bands+r_bands
+      self.set_psf_c()
 
    def __getitem__(self,slice_or_int):
       return N.array(self.joint[slice_or_int])
@@ -35,6 +36,15 @@ class EnergyBands(object):
       """Return the left band edges and (optionally) rightmost edge of last band."""
       if infinity: return N.append(self.s_bands,self.r_bands[0])
       else: return N.array(self.s_bands)
+
+   def set_psf_c(self,umax=50):
+      gamma = 2.25
+      pl.PointSourceLikelihood.setDefaultUmax(umax)
+      self.psf_corrections = N.array([ 1-(1+umax/gamma)**(1-gamma) ]*len(self.s_bands))
+   
+   def psf_c(self,event_class=-1):
+      if event_class < 0: return N.append(self.psf_corrections,self.psf_corrections)
+      else: return self.psf_corrections
 
    def centers(self):
       """Return the geometric bin centers."""
@@ -232,9 +242,12 @@ class MarginalPoissonLikelihood(PoissonLikelihood):
       mask = N.logical_or(N.logical_and(mask,photons>4),N.logical_and(low_num_mask,alphas<0.99))
       low_num_mask = N.logical_and(low_num_mask,alphas>=0.99)
 
-      print zero_mask
-      print low_num_mask
-      print mask
+      mask = N.logical_or(mask,low_num_mask)
+      low_num_mask = N.array([False]*len(low_num_mask))
+
+      #print zero_mask
+      #print low_num_mask
+      #print mask
 
       alphas,sigmas = source.alphas[mask].transpose()
       slikes = source.slikes[mask]
@@ -285,8 +298,7 @@ class MarginalPoissonLikelihood(PoissonLikelihood):
       #First term is a "penalty" to mimic to log(very small number)
       return maxll*integral_mask.sum() \
          - (N.log(integral[N.logical_not(integral_mask)])).sum() \
-         + (lown_expected - lown_photons*N.log(lown_expected)).sum()
-         #+ z_expected #Term for no observed photons
+         + (lown_expected - lown_photons*N.log(lown_expected)).sum() + z_expected
       
                
 
@@ -373,7 +385,7 @@ class PoissonFitter(SpectralFitter):
    def __ls__(self,model):
 
       p = [x for x in model.p]
-      self.source.fit(model = model.name, x0 = p, method = 'LS', printfit = False)
+      self.source.fit(model = model.name, x0 = p, e0 = model.e0, method = 'LS', printfit = False)
       if self.source.LS.models[-1].good_fit:
          model.p=[x for x in self.source.LS.models[-1].p]
          

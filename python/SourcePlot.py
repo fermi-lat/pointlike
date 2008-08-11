@@ -292,6 +292,56 @@ def visi(source,level,nmodel):
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 
+def rad_resid(source,energy=1000,event_class=0,resids_only=False):
+   """The coolest resid in town."""
+
+   bands = source.response.bands(infinity=True)
+   for i in xrange(len(bands)-1):
+      if bands[i] <= energy and bands[i+1] > energy: break
+   emin,emax = bands[i],bands[i+1]
+   sl = source.slikes[i+len(source.slikes)/2*event_class]
+   sigma,gamma,alpha = sl.band().sigma(),sl.band().gamma(),sl.alpha()
+   max_ROI = sigma*(2*sl.umax())**0.5 #max_ROI in radians
+   wsdl = pl.WeightedSkyDirList(sl.band(), source().dir(), max_ROI)
+   diff = source().dir().difference
+   dists = N.concatenate([ [diff(x)]*int(x.weight()) for x in wsdl ])
+   y,x = N.histogram(dists,bins=N.linspace(0,max_ROI,10),new=True)#int(max(10,len(dists)/14.)))
+   print x
+   us = (0.5/sigma**2)*( x**2 )
+   integ_psf = (1+us[:-1]/gamma)**(1-gamma) - (1+us[1:]/gamma)**(1-gamma)
+   fmax = 1- (1+us[-1]/gamma)**(1-gamma)
+   prediction = alpha/fmax*integ_psf + (1-alpha)/us[-1]*(us[1:]-us[:-1])
+   centers = ((us[1:]+us[:-1])/2)**0.5
+   if not resids_only:
+      a=P.axes([.14,.40,.8,.55])
+      P.cla()
+      a.errorbar(centers,y,yerr = (y**0.5),linestyle=' ')
+      print x
+      print y
+      #a.bar(us[:-1]**0.5,y,yerr = y**0.5,width=centers[1]-centers[0],facecolor='white')
+      a.plot(centers,prediction*len(dists), linestyle=' ',marker='x')
+      locs=a.get_xticks()
+      a.set_xticklabels(['']*len(locs))
+      a.set_ylabel('Counts')
+
+   b=P.axes([0.14,0.1,0.8,0.30]) if not resids_only else P.gca()
+   #P.cla()
+   resids = -(prediction*len(dists)-y)/(prediction*len(dists))
+   b.errorbar(centers,resids,yerr=y**0.5/(prediction*len(dists)),linestyle=' ')
+   b.plot(N.linspace(0,us[-1]**0.5,100),[0]*100,color='black')
+   b.set_xlabel('root(u)')
+   b.set_ylabel('Relative Residuals')
+   lims = b.axis() if resids_only else a.axis()
+   b.axis([lims[0],lims[1],-0.5,+0.5])
+   the_ax = b if resids_only else a
+   P.axes(the_ax)
+   P.title('%d-%d MeV'%(emin,emax))
+   
+
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+
 def spectrum(s,models=[],flag='sed',fignum=30,sedweight=2):
    """Plot estimated spectral density, along with any model fits."""
 
@@ -331,7 +381,7 @@ def spectrum(s,models=[],flag='sed',fignum=30,sedweight=2):
          ls,ms=' ',4
       residuals=N.nan_to_num((codomain-codomain_res)/codomain_res)
       residuals=N.where(N.abs(residuals)>10,10,residuals)
-      a.plot(domain_fit,codomain_fit,label=model.name,linestyle=ls,marker='s',markersize=ms,color=colors[i])
+      a.plot(domain_fit,codomain_fit,label=model.name,linestyle=ls,marker='s',markersize=ms,color=colors[i],lw=2)
       bbox={'lw':1.0,'pad':10,'ec':'black','fc':'white'}
       a.text(0.025,0.025+0.15*i,model.error_string(),size='small',transform=a.transAxes,bbox=bbox,family='monospace')
       b.errorbar(domain,residuals,yerr=(codomain_err/codomain_res),\
