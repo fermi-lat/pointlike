@@ -59,7 +59,7 @@ class ModelResponse(object):
 
       self.d=False #Boolean for dispersion use
       self.__simpson_setup__(bands,emap,simps)      
-      self.event_class,self.ltfrac = event_class,ltfrac
+      self.event_class,self.ltfrac,self.psl_c = event_class,ltfrac,1.
       
    def __simpson_setup__(self,bands,emap,simps):
       """Generate the model-independent portions of the integral."""
@@ -91,9 +91,8 @@ class ModelResponse(object):
       n = len(model_points)
             
       if self.event_class==-1:
-
          model_points=N.append(model_points,model_points)*self.exposure
-         return self.ltfrac*N.append(\
+         return self.ltfrac*self.psl_c*N.append(\
             self.int_factors*N.fromiter((N.dot(self.s_factors,model_points[:n][k:k+self.s+1])\
                for k in xrange(0,n-1,self.s)),float),\
             self.int_factors*N.fromiter((N.dot(self.s_factors,model_points[n:][k:k+self.s+1])\
@@ -101,8 +100,9 @@ class ModelResponse(object):
 
       else:
          model_points*=exposure
-         return self.ltfrac*self.int_factors*N.fromiter((N.dot(self.s_factors,model_points[k:k+self.s+1])\
-            for k in xrange(0,n-1,self.s)),float)
+         return self.ltfrac*self.event_class*self.int_factors*\
+            N.fromiter((N.dot(self.s_factors,model_points[k:k+self.s+1])\
+               for k in xrange(0,n-1,self.s)),float)
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#

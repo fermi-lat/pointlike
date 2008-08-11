@@ -22,6 +22,28 @@ from types import *
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 
+class PSFManager(object):
+   def __init__(self):
+      self.elist = 100*10**N.arange(0,2.71,1./10) #10 per decade in this analysis
+      self.b_gamma = ['2.46', '2.43', '2.32', '2.31', '2.18', '2.24', '2.15', '2.11',
+                      '2.15', '2.17', '2.17', '2.21', '2.25', '2.22', '2.22', '2.13',
+                      '2.19', '2.21', '2.27', '2.35', '2.26', '2.18', '2.32'] + ['2.25']*4
+      self.f_gamma = ['2.28', '2.11', '1.94', '2.03', '1.86', '2.01', '1.96', '2.1', '2.13', '2.24', '2.2',
+                      '2.41', '2.28', '2.42', '2.57', '2.49', '2.44', '2.49', '2.53', '2.53', '2.44',
+                      '2.4', '2.29', '2.31', '2.19', '2.14', '1.95']
+   def gamma(self,e,event_class=0):
+      ens = self.elist
+      for i in xrange(len(ens)-1):
+         if ens[i]<=e and ens[i+1]>e: break
+      if i == len(ens) -1 : return 2.25
+      else:
+         ret = self.f_gamma[i] if event_class==0 else self.b_gamma[i]
+         return float(ret)
+      
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+
 class GlobalData:
    """A simple wrapper to allow association of a Source with an exposure map and response functions."""
    def __init__(self,emap,response,**options):
@@ -181,8 +203,18 @@ class Source:
       slikes=N.array(slikes)
       total_mask=N.append(front_mask,back_mask)
 
+      #Correct gammas -- kluge for the nonce !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      psfm = PSFManager()
+      for s in slikes:
+         s.setgamma(psfm.gamma(s.band().emin()))
+         s.recalc()
+      self.psl.maximize()
+
       photons=N.fromiter((x.photons() for x in slikes),int)
       alphas=N.array([ [x.alpha(),x.sigma_alpha()] for x in slikes ])
+      umaxes = N.array( [ x.umax() for x in slikes ] )
+      gammas = N.array( [ x.band().gamma() for x in slikes ] )
+      psl_c = 1 - (1+umaxes/gammas)**(1-gammas)
 
       photons[total_mask]=0
       alphas[:,0][total_mask]=0
@@ -195,7 +227,7 @@ class Source:
       elif ec == 1 : my_slice = slice(n,2*n+1)
       else : my_slice = slice(0,2*n+1)
            
-      products=['photons','alphas','signals','slikes']
+      products=['photons','alphas','signals','slikes','psl_c']
       for p in products: exec('self.%s = %s[my_slice]'%(p,p))
    
    def __getitem__(self,index):
@@ -210,13 +242,14 @@ class Source:
       exposure_flag=model(100)==1. #Are we doing spectrum or counts?  Crude test.
       mask = N.logical_and(self.global_data.mask(),self.photons>0) #Need to fix for upper limits
       e_weights = self.response.bands.centers()
-      self.response.update(dir=self().dir())
+      self.response.update(dir=self().dir(),psl_c=self.psl_c)
       exposure = self.response(model=model) #This is either exposure OR counts
       n = len(e_weights)
-      signals = N.where(mask,self.signals[:,0],0)
+      #signals = N.where(mask,self.signals[:,0],0)
       exposures = N.where(mask,exposure,1e-300)
       ph = self.photons.astype(float)
       alphas,sig_alphas = self.alphas.transpose()
+      signals = N.where(mask,alphas*ph,0)
       up_errs = N.where(mask,(N.minimum(1-alphas,sig_alphas)**2*ph**2 + alphas**2*ph)**0.5,0)
       down_errs = N.where(mask,(N.minimum(alphas,sig_alphas)**2*ph**2 + alphas**2*ph)**0.5,0)
    
@@ -239,21 +272,27 @@ class Source:
          #exposures=N.round(exposures).astype(int)
          return (e_weights,self.response.bands.diffs(from_center=True),signals,up_errs,down_errs,exposures)
 
-   def f9(self):
-      sig,up_errs,down_errs=self.spectrum(energy_weight=0)[2:]
+   def f9(self,e_weight = 0, cgs = False):
+      sig,up_errs,down_errs=self.spectrum(energy_weight=e_weight)[2:]
       errs = N.maximum(up_errs,down_errs)
       del_e=self.response.bands.diffs()
+      if cgs:
+         sig*=(e_weight*1.60218e-6)/1e9
+         errs*=(e_weight*1.60218e-6)/1e9
       return ( (sig*del_e)[sig>0].sum()*1e9,((errs*del_e)**2)[sig>0].sum()**0.5*1e9 )
 
 
-   def fit(self,model='PowerLaw',x0=None,method=None,printfit=True,lsfirst=False):
+   def fit(self,model='PowerLaw',x0=None,e0=100,method=None,printfit=True,lsfirst=True):
 
       method = method or self.global_data.method #Default here set to GlobalData default
       if printfit: print 'Fitting %s with method %s'%(self().name(),method)
-      self.response.update(dir=self().dir())
+      self.response.update(dir=self().dir(),psl_c=self.psl_c)
+
+      if x0 is not None: exec('model = %s(parameters=%s,e0=%d)'%(model,x0,e0))
       
-      if x0 is not None: exec('model = %s(parameters=%s)'%(model,x0))
-      else: exec('model = %s()'%model)
+      else: 
+         print 'model = %s(e0=%d)'%(model,e0)
+         exec('model = %s(e0=%d)'%(model,e0))
 
       if not method in self.fitters:
          self.fitters+=[method]
