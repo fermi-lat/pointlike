@@ -1,17 +1,13 @@
 ###SEE MAIN METHOD BELOW FOR A DOCUMENTED EXAMPLE OF BASIC INTERACTIVE SPECTRAL ANALYSIS
 
+import pointlike as pl
 try:
    from sys import path
    path.insert(1,r'd:/common/spectrum/pointspec-dev/python')
-   import uw.pointlike
-   import pointlike as pl
-   path.insert(1,r'd:/common/spectrum/pointspec-dev/python')
 
-   from Response import *
-   from Fitters import *
-
-except:
-   import pointlike as pl
+from Response import *
+from Fitters import *
+from Models import *
 
 #Additional modules
 import numpy as N
@@ -76,7 +72,7 @@ class GlobalData:
 
    def mask(self):
       """Return an array mask corresponding to the Mask object."""
-      if self.fitmask: return self.fitmask(self.response.bands(infinity=True),self.event_class)      
+      if self.fitmask is not None: return self.fitmask(self.response.bands(infinity=True),self.event_class)      
       else:
          multi = 2 if self.event_class < 0 else 1
          return N.array([True]*(len(self.response.bands(infinity=False))*multi))
@@ -203,13 +199,6 @@ class Source:
       slikes=N.array(slikes)
       total_mask=N.append(front_mask,back_mask)
 
-      #Correct gammas -- kluge for the nonce !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      psfm = PSFManager()
-      for s in slikes:
-         s.setgamma(psfm.gamma(s.band().emin()))
-         s.recalc()
-      self.psl.maximize()
-
       photons=N.fromiter((x.photons() for x in slikes),int)
       alphas=N.array([ [x.alpha(),x.sigma_alpha()] for x in slikes ])
       umaxes = N.array( [ x.umax() for x in slikes ] )
@@ -291,7 +280,7 @@ class Source:
       if x0 is not None: exec('model = %s(parameters=%s,e0=%d)'%(model,x0,e0))
       
       else: 
-         print 'model = %s(e0=%d)'%(model,e0)
+         #print 'model = %s(e0=%d)'%(model,e0)
          exec('model = %s(e0=%d)'%(model,e0))
 
       if not method in self.fitters:

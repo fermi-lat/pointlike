@@ -44,7 +44,7 @@ Optional parameters:
     --fitter - which spectral fitter to use -- default Marginal Poisson
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/specfit.py,v 1.4 2008/07/29 17:56:37 kerrm Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/specfit.py,v 1.5 2008/08/01 19:22:29 kerrm Exp $
 """
 # setup to import pointlike
 try: #Try block only for UW environment
@@ -165,10 +165,9 @@ def main():
     else: help('No event file name specified')
     if binsperdecade>0: #Custom binning
        bins = emin*10**(N.arange(enumbins+1)/binsperdecade)
-       pl.Data.setEnergyBins(bins)
     else:
       bins=100*2.35**N.arange(11)
-      pl.Data.setEnergyBins(bins) #Need to adjust this to use Toby's new default scheme
+    pl.Data.setEnergyBins(bins) #Need to adjust this to use Toby's new default scheme
     bands=EnergyBands(bins[:-1],[bins[-1]])
     
     data = photonmap(eventfilename, pixeloutput=outputpixelfile, eventtype=eventtype)

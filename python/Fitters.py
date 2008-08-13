@@ -237,8 +237,8 @@ class MarginalPoissonLikelihood(PoissonLikelihood):
       mask = source.global_data.mask()
       zero_mask = N.logical_and(mask,photons==0)
       low_num_mask = N.logical_and(mask,N.logical_and(photons>0,photons<=4))
-      alphas,sigmas = source.alphas[mask].transpose()
-
+      alphas,sigmas = source.alphas.transpose()
+      #print mask,len(mask)
       mask = N.logical_or(N.logical_and(mask,photons>4),N.logical_and(low_num_mask,alphas<0.99))
       low_num_mask = N.logical_and(low_num_mask,alphas>=0.99)
 
