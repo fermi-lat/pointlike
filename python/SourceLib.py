@@ -4,6 +4,7 @@ import pointlike as pl
 try:
    from sys import path
    path.insert(1,r'd:/common/spectrum/pointspec-dev/python')
+except: pass
 
 from Response import *
 from Fitters import *
