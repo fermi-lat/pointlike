@@ -12,18 +12,21 @@ from Fitters import *
 class ExposureMap:
    """Create object wrapping an all-sky exposure map."""
    
-   def __init__(self,emap_file=None,emap_file2=None,const_val=3e10):
+   def __init__(self,emap_file=None,emap_file2=None,const_val=3e10, ltfrac= 1.):
       """Manage front/back exposure."""
       
-      self.const_fe,self.const_be,self.fe,self.be,self.const_val=True,True,None,None,const_val
+      self.const_fe,self.const_be,self.fe,self.be,self.const_val,self.ltfrac=True,True,None,None,const_val,ltfrac
       if emap_file is not None:
          try:
-            self.fe=pl.DiffuseFunction(emap_file)
+            self.fedf = pl.DiffuseFunction(emap_file)
+            self.fe = pl.CompositeSkySpectrum(self.fedf,ltfrac)
+            #self.fe=pl.DiffuseFunction(emap_file)
             self.const_fe=False
          except: print 'Could not read file %s'%(emap_file)
       if emap_file2 is not None:
          try:
-            self.be=pl.DiffuseFunction(emap_file2)
+            self.bedf = pl.DiffuseFunction(emap_file2)
+            self.be = pl.CompositeSkySpectrum(self.bedf,ltfrac)
             self.const_be=False
          except: print 'Could not read file %s'%(emap_file2)         
 
@@ -31,19 +34,20 @@ class ExposureMap:
       """Return exposure for primary (all) events or for front/back independently, at given direction."""
       f=self.const_ex if self.const_fe else self.fe.value
       b=self.const_ex if self.const_be else self.be.value
+      ltfrac = self.ltfrac
       if event_class==-1: #Return exposure for both front and back
          return N.append(\
             N.fromiter((f(dir,e) for e in energies),float),\
-            N.fromiter((b(dir,e) for e in energies),float))
+            N.fromiter((b(dir,e) for e in energies),float))*ltfrac
       elif event_class==0: #Return front exposure only
-         return N.fromiter((f(dir,e) for e in energies),float)
+         return N.fromiter((f(dir,e) for e in energies),float)*ltfrac
       else: #Return back exposure
-         return N.fromiter((b(dir,e) for e in energies),float)
+         return N.fromiter((b(dir,e) for e in energies),float)*ltfrac
 
    def const_ex(self,dir,e):
       """This could be expanded in the future to allow for constant exposure in space
          but provided energy dependence."""
-      return self.const_val/2
+      return self.const_val/2*self.ltfrac
          
 
 
