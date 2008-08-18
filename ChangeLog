@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Mon Aug 18 15:55:10 PDT 2008
+pointlike/src
+
+Modified Files:
+	SimpleLikelihood.cxx 
+Log Message:
+Fixed gamma optimization routine
+    *
+------------------------------------------------------------
 User: kerrm  Wed Aug 13 11:00:30 PDT 2008
 pointlike/python
 
