@@ -23,8 +23,68 @@ class Dispersion(object):
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
+
+class DefaultModelValues(object):
+
+   names = ['PowerLaw', 'PowerLawFlux', 'BrokenPowerLaw', 'BrokenPowerLawF','ExpCutoff',
+            'PLSuperExpCutoff']
+
+   @staticmethod
+   def setup(the_model,**kwargs):
+      the_model.e0 = 100
+      the_model.flux_scale = 1e7
+      classname = the_model.name = the_model.__class__.__name__
+      if classname == 'PowerLaw':
+         the_model.p = [0.1,2]
+         the_model.param_names = ['Norm','Index']
+      elif classname == 'PowerLawFlux':
+         the_model.p = [1.,2]
+         the_model.param_names = ['Int. Flux','Index']      
+      elif classname == 'BrokenPowerLaw':
+         the_model.p = [0.1,1.5,2.5,1000]
+         the_model.param_names = ['Norm','Index 1','Index 2', 'E_break']
+      elif classname == 'BrokenPowerLawF':
+         the_model.p = [0.1,1.5,2.5,1000]
+         the_model.param_names = ['Norm','Index 1','Index 2']
+         the_model.e_break = 10000
+      elif classname == 'ExpCutoff':
+         the_model.p = [0.1,2,5e3]
+         the_model.param_names = ['Norm','Index','Cutoff']
+      elif classname == 'PLSuperExpCutoff':
+         the_model.p = [0.1,2,2e3,2]
+         the_model.param_names = ['Norm','Index','Cutoff', 'b']
+      elif classname == 'MixedModel':
+         #model names are in kwargs
+         if 'models' in kwargs:
+            models = kwargs['models']
+            kwargs.pop('models')
+         else:
+            the_model.p = None
+            the_model.param_names = ['Undefined Model']
+         the_model.param_names,the_model.p,the_model.spec_models=[],[],[]
+         for model in models:
+            exec('this_model = %s(**kwargs)'%model)
+            DefaultModelValues.setup(this_model)
+            the_model.spec_models += [this_model]
+            the_model.param_names += this_model.param_names
+            the_model.p += this_model.p
+         the_model.n = [len(x.p) for x in the_model.spec_models]
+         the_model.name = '+'.join(models)
+    
+      else:
+         the_model.p = None
+         the_model.param_names = ['Undefined Model']
+      
+
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+
 class Model(object):
-   def error_string(self):
+   def __init__(self,**kwargs):
+      DefaultModelValues.setup(self,**kwargs)
+      self.__dict__.update(**kwargs)
+   def __str__(self):
       p=N.array(self.p)
       errors=N.diag(self.cov_matrix)**0.5
       ratios=errors/p
@@ -34,10 +94,6 @@ class Model(object):
          n=self.param_names[i][:m]
          t_n=n+(m-len(n))*' '
          l+=[t_n+': (1 +/- %.3f) %.3g'%(ratios[i],p[i])]
-         #t_p='%.3g'%p[i]
-         #t_e='%.3g'%errors[i]
-         #l+=[t_n+(12-len(t_n))*' '+': '+t_p+' +/- '+t_e]
-         #l+=[t_n+(12-len(t_n))*' '
       return '\n'.join(l)
    def i_flux(self,emin=100,emax=Inf,e_weight=0,cgs=False):
       """Return integrated flux."""
@@ -49,34 +105,14 @@ class Model(object):
       return eval(self.name+'(parameters=('+param_string+'))')
 
 
-
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 
 class PowerLaw(Model):
-   def __init__(self,parameters=(1e-9,1.6),e0=100.):
-      self.p=parameters
-      self.e0=e0
-      self.name='PowerLaw'
-      self.param_names=['Norm','Index']
    def __call__(self,e):
       n0,gamma=self.p
-      return n0*(self.e0/e)**gamma
-
-#-----------------------------------------------------------------------------------------------#
-#-----------------------------------------------------------------------------------------------#
-#-----------------------------------------------------------------------------------------------#
-
-class PowerLawScaled(Model):
-   def __init__(self,parameters=(1.,2),e0=100.):
-      self.p=parameters
-      self.e0=e0
-      self.name='PowerLawScaled'
-      self.param_names=['Norm','Index']
-   def __call__(self,e):
-      n0,gamma=self.p
-      return n0/1e9*(self.e0/e)**gamma
+      return (n0/self.flux_scale)*(self.e0/e)**gamma
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
@@ -84,98 +120,63 @@ class PowerLawScaled(Model):
 
 class PowerLawFlux(Model):
    """Use flux (ph cm^-2 s^-1) integrated above e0 to normalize."""
-   def __init__(self,parameters=(1e-7,1.5),e0=100.):
-      self.p=parameters
-      self.e0=e0
-      self.name='PowerLawFlux'
-      self.param_names=['Int. Flux','Index']
    def __call__(self,e):
       flux,gamma=self.p
-      return flux*(gamma-1)*(self.e0/e)**(gamma-1)/e
+      return (flux/self.flux_scale)*(gamma-1)*(self.e0/e)**(gamma-1)/e
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 
 class BrokenPowerLaw(Model):
-   def __init__(self,parameters=(1e-9,1.5,2.5,1000),e0=1):
-      self.p=parameters
-      self.name='BrokenPowerLaw'
-      self.param_names=['Norm','Index 1','Index 2', 'E_break']
-      self.e0=e0
    def __call__(self,e):
       e = N.array([e]).ravel()
       n0,gamma1,gamma2,e_break=self.p
-      return n0*N.append( (e_break/e[e<e_break])**gamma1 , (e_break/e[e>=e_break])**gamma2 )
+      return (n0/self.flux_scale)*N.append( (e_break/e[e<e_break])**gamma1 , (e_break/e[e>=e_break])**gamma2 )
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 
 class BrokenPowerLawF(Model):
-   def __init__(self,parameters=(3.9e-11,1.7,3.2),e_break=1620.):
-      self.p=parameters
-      self.name='BrokenPowerLawF'
-      self.param_names=['Norm','Index 1','Index 2']
-      self.e_break = e_break
    def __call__(self,e):
       e = N.array([e]).ravel()
       n0,gamma1,gamma2=self.p
       e_break = self.e_break
-      return n0*N.append( (e_break/e[e<e_break])**gamma1 , (e_break/e[e>=e_break])**gamma2 )
+      return (n0/self.flux_scale)*N.append( (e_break/e[e<e_break])**gamma1 , (e_break/e[e>=e_break])**gamma2 )
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 
 class ExpCutoff(Model):
-   """Is this the right form?"""
-   def __init__(self,parameters=(10**-8,2,150000),e_break=1,e0=100.):
-      self.p=parameters
-      self.e0=e0
-      self.e_break=e_break
-      self.name='ExpCutoff'
-      self.param_names=['Norm','Index','p1']
    def __call__(self,e):
-      n0,gamma,p1=self.p
-      e_break=self.e_break
-      #if e_break<=0 or -e/e_break>700: return 0
-      if p1<0: return 0
-      return n0*(self.e0/e)**gamma*N.where(e>e_break,N.exp(-(e-e_break)/p1),1.)
-      
-      #if e > e_break:
-      #   return n0*(self.e0/e)**gamma*M.exp(-(e-e_break)/p1)
-      #else:
-      #   return n0*(self.e0/e)**gamma
-      #return n0*(self.e0/e)**gamma*M.exp(-e/e_break)
+      n0,gamma,cutoff=self.p
+      if cutoff < 0: return 0
+      return (n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-e/cutoff)
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 
 class PLSuperExpCutoff(Model):
-   def __init__(self,parameters=(10**-8,2,2000,.5),e0=100):
-      self.p=parameters
-      self.e0=e0
-      self.name='PLSuperExpCutoff'
-      self.param_names=['Norm','Index 1','E_cutoff', 'Index 2']
    def __call__(self,e):
-      n0,gamma1,e_cutoff,gamma2=self.p
-      return n0*(self.e0/e)**gamma1*N.exp(-(e/e_cutoff)**gamma2)
+      n0,gamma,cutoff,b=self.p
+      if cutoff < 0: return 0
+      return (n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-(e/cutoff)**b)
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 
-class FixedPLSuperExpCutoff(Model):
-   def __init__(self,parameters=(10**-8,2,2000),e0=100):
-      self.p=parameters
-      self.e0=e0
-      self.name='FixedPLSuperExpCutoff'
-      self.param_names=['Norm','Index 1','E_cutoff']
+class MixedModel(Model):
    def __call__(self,e):
-      n0,gamma1,e_cutoff=self.p
-      return n0*(self.e0/e)**gamma1*N.exp(-(e/e_cutoff))
+      counter = 0
+      for i in xrange(len(self.n)):
+         self.spec_models[i].p = self.p[counter:counter+self.n[i]]
+         counter += self.n[i]
+      return N.array([model(e) for model in self.spec_models]).sum(axis=0)
+
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
