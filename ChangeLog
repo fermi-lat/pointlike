@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Aug 21 11:59:30 PDT 2008
+pointlike/doc
+
+Modified Files:
+	release.notes 
+Log Message:
+tagging after trivial linux fix
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-07-00, operation: add
 Package: pointlike
