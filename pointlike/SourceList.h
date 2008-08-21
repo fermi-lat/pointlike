@@ -1,7 +1,7 @@
 /** @file SourceList.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.6 2008/07/29 19:13:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.7 2008/08/07 05:12:50 burnett Exp $
 */
 
 #ifndef pointlike_SourceList_h
@@ -93,7 +93,8 @@ namespace pointlike{
 
         SourceList(){}; ///< default ctor
 
-        void sort_TS();
+        void sort_TS(); ///< sort the list in decreasing TS order
+        void sort_ra(); ///< sort the list in increasing ra order
 
         /// @brief refit all sources, in TS order, taking nearby sources into account
         void refit(); 

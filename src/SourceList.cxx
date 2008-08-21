@@ -1,7 +1,7 @@
 /** @file SourceList.cxx
 @brief implementation of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.11 2008/07/29 19:13:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.12 2008/08/07 05:12:50 burnett Exp $
 */
 
 
@@ -14,6 +14,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.11 2008/0
 #include <sstream>
 #include <cmath>
 #include <stdexcept>
+#include <time.h>
 
 using namespace pointlike;
 using astro::SkyDir;
@@ -22,6 +23,29 @@ namespace{
     // refit parameters: TODO, provide access
     double group_radius(2.0);
 
+    double examine_radius(180.), prune_radius(0.25);
+
+    double ts_min(5.0);
+    double emin(500);
+    int    nside(256);
+    double pixel_fraction(1.0);
+    astro::SkyDir examine_dir;
+
+
+
+    void timer(std::string label="",std::ostream& out = std::cout)
+    {
+        static bool first=true;
+        static time_t start;
+        if(first){ first=false; ::time(&start);}
+        time_t aclock;
+        ::time( &aclock );   
+        char tbuf[25]; ::strncpy(tbuf, asctime( localtime( &aclock ) ),24);
+        tbuf[24]=0;
+        if( !label.empty()) out << label<<std::endl;;
+        out<<  "Current time: " << tbuf
+            << " ( "<< ::difftime( aclock, start) <<" s elapsed)" << std::endl;
+    }
 
 }
 double SourceList::set_group_radius(double value)
@@ -85,7 +109,7 @@ double Source::moved()const{
 
 void Source::header(std::ostream& out){
     out << std::left << std::setw(20) 
-        <<"#name                  ra        dec        TS    localization moved  neighbor\n";
+        <<"name                  ra        dec        TS    localization moved  neighbor\n";
 //         B0833-45              128.8339  -45.1629   5698.49    0.0069    0.0136
 }
 
@@ -136,6 +160,7 @@ SourceList::SourceList(const std::string& filename)
     }
     while (!input_file.eof()){
         std::string line; std::getline(input_file, line);
+        if( line.substr(0,5)=="name ") continue; // skip header line
         if( line.size()<5 || line[0]=='#' ) continue; // comment or empty
         std::stringstream buf(line); 
         std::string name; buf >> name;
@@ -146,19 +171,28 @@ SourceList::SourceList(const std::string& filename)
     }
 }
 
-class GreaterTS{ // simple functor to sort the list by TS
+class GreaterTS{ // simple functor to sort the list by decreasing TS
 public:
     GreaterTS(){}
     bool operator()(const Source& a, const Source& b){
         return a.TS() > b.TS();
     }
-private:
-
+};
+class Less_ra{ // functor to sort by increasing ra
+public:
+    Less_ra(){}
+    bool operator()(const Source& a, const Source&b){
+        return a.dir().ra() < b.dir().ra();
+    }
 };
 
 void SourceList::sort_TS()
 {
     std::sort( begin(), end(), GreaterTS() );
+}
+void SourceList::sort_ra()
+{
+    std::sort( begin(), end(), Less_ra() );
 }
 
 void SourceList::dump(std::ostream& out)const
@@ -224,3 +258,50 @@ void SourceList::createRegFile(std::string filename, std::string color, double t
     out.close();
     std::cout << "Wrote "<< n << " entries to  reg file "<< filename << ", with TS >= " <<tsmin << std::endl;
 }
+
+#if 0 // under development
+void SourceList::examineRegion(void) 
+{  
+    //
+    // ---------------- phase 1: make list of seed positions ---------------------
+    //
+    double  radius(examine_radius);
+    if( radius>=180){
+        radius = 179.99999; // bug in gcc version of healpix code
+        out() << "Examining full sky"<< std::endl;
+    }else{
+        out() << "Examining cone of radius "<< radius<<
+            " about (ra,dec)=" 
+            << std::fixed << std::setprecision(2) 
+            << examine_dir.ra()<<", " << examine_dir.dec() 
+            << "; (l,b)= "<< examine_dir.l()<<", " << examine_dir.b() 
+            << std::resetiosflags(std::ios::fixed)<< std::setprecision(6) 
+            << std::endl;
+    }
+    double emin,emax;
+    PointSourceLikelihood::get_energy_range(emin, emax);
+    out() << "minimum energy used by PointSourceLikelihood: " 
+           << emin << std::endl;
+
+
+    typedef  std::vector< std::pair<int, int> > PixelVector;
+    typedef std::map<int, int> PixelMap;
+    PixelMap m;
+    skymaps::BinnedPhotonData::const_iterator bpit1 = m_data.begin();
+    skymaps::BinnedPhotonData::const_iterator bpit;
+    for(; bpit1 != m_data.end(); ++bpit1)
+    {
+        int tmp(bpit1->nside());
+        if(nside != bpit1->nside()) continue;
+        bpit = bpit1;
+        // load pixels
+        PixelVector v;
+        bpit->query_disk(examine_dir, radius*M_PI/180, v);
+        // add to the map
+        for( PixelVector::const_iterator it(v.begin()); it!=v.end(); ++it){
+            m[it->first] += it->second;
+        }
+
+    }
+}
+#endif
