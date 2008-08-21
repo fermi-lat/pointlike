@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.42 2008/08/07 20:47:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.41 2008/08/06 19:37:11 mar0 Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -430,6 +430,9 @@ double SimpleLikelihood::geval(double k) {
    if(!m_vec.size()) return -1.0;
     m_vec2.clear();
     PsfFunction ps(k*m_psf.gamma());
+    Convert conv(m_dir, ps, *m_back, sigma(), m_umax, m_vec2, m_vec4, true);
+    Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
+    result.consolidate();
     //maximize();
     double F = ps.integral(m_umax);
     double acc = 0;
