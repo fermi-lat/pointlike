@@ -2,10 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.82 2008/08/07 20:47:32 burnett Exp $
+$Id: release.notes,v 1.83 2008/08/21 03:29:00 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
- 20-aug-08 v6r7    THB implement --verbose option for pointfit.py
+ 20-aug-08 v6r7p1  THB implement --verbose option for pointfit.py
  07-aug-08 v6r6p1  THB Alignment update; SourceList expose list of pixels,etc.
  29-jul-08 v6r5p2  THB expose SourceList group_radius
  28-jul-08 v6r5    THB Incorporate alignment constant management
