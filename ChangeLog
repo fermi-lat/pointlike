@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Aug 20 20:22:01 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Draw.h 
+Log Message:
+Inital changes to support multiple layers
+    *
+------------------------------------------------------------
 User: kerrm  Tue Aug 19 22:41:46 PDT 2008
 pointlike/python
 
