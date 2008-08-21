@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Aug 20 20:22:02 PDT 2008
+pointlike/src
+
+Modified Files:
+	Data.cxx 
+Log Message:
+Inital changes to support multiple layers
+    *
+------------------------------------------------------------
 User: burnett  Wed Aug 20 20:22:01 PDT 2008
 pointlike/pointlike
 
