@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.24 2008/07/06 06:41:34 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.25 2008/07/07 21:57:53 burnett Exp $
 
 */
 #include "pointlike/SourceList.h"
@@ -59,15 +59,19 @@ int main(int argc, char** argv)
 
         SourceList* sl(0);
         std::map<std::string, std::vector<double> > sourcedict;
-        try{
+        if( setup.attribute("sources", false)!=0 ){
             setup.getDict("sources", sourcedict);
             sl = new SourceList(sourcedict);
-        }catch( const std::exception&) {
+        }else if( setup.attribute("sourcelistfile", false)!=0 ) {
             std::string sourcelistfile;
             setup.getValue("sourcelistfile", sourcelistfile);
             sl = new SourceList(sourcelistfile);
-        }        
+        }else {
+            throw std::invalid_argument(
+                "expected either 'sources' or 'sourcelistfile' to define seeds");
+        }
 
+        sl->sort_TS(); // initial sort by decreasing TS
         sl->refit(); 
         sl->dump(*out); 
 
