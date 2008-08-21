@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Aug 20 20:25:30 PDT 2008
+pointlike/python
+
+Modified Files:
+	pointfit.py 
+Log Message:
+fix non-existent implementation of --verbose option
+    *
+------------------------------------------------------------
 User: burnett  Wed Aug 20 20:24:38 PDT 2008
 pointlike/src/pointfit
 
