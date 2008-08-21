@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Aug 20 20:24:38 PDT 2008
+pointlike/src/pointfit
+
+Modified Files:
+	pointfit_main.cxx 
+Log Message:
+better info to user about source list setup
+    *
+------------------------------------------------------------
 User: burnett  Wed Aug 20 20:23:31 PDT 2008
 pointlike/src
 
