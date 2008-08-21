@@ -13,12 +13,12 @@ where:
         values allowing a ranking of significance or flux. pointfit will use this
         to sort nearby pairs. If not found, default behavior is to not sort.
     <outputfile>: Optional parameter specifying file name to write results, in
-        format: name, input_ra, input_dec, fit_ra, fit_dec TS, sigma, diff, [name of background source(s)]
-        where sigma is the fit error circle radius: >90 indicates a convergence error
-              diff is the difference between fit and initial position
+        format: name, input_ra, input_dec, fit_ra, fit_dec TS, sigma, pull, [name of background source(s)]
+        where sigma is the fit error circle radius in degrees: >90 indicates a convergence error
+              pull is the difference between fit and seed position in units of sigma
 
 Optional parameters:
-    --exposure=: Either the name of a gtexpmap-generated file, or a value, in cm^2 s,
+    --exposure=: Either the name of a gtexpcube-generated file, or a value, in cm^2 s,
         to apply to all energies and directions. (3e10 is appropriate for a year.)
         If not specified, use the GTI information from the datafile.
         [This is TODO: Is there a function member to sum the GTI intervals?]
@@ -35,7 +35,7 @@ Optional parameters:
     --emin [500]  minimum energy, used to select bands
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.8 2008/07/09 04:01:46 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.9 2008/07/19 15:06:48 burnett Exp $
 """
 import os, sys, types
 from numpy import arange
@@ -169,6 +169,7 @@ def main():
         print 'setting up background from file %s' % diffusefilename
         (t1,t2)=set_diffuse(diffusefilename, exposure)
     PointSourceLikelihood.set_energy_range(emin)
+    PointSourceLikelihood.set_verbose(verbose)
     SourceList.set_data(data.map())
     sourcelist = SourceList(sourcefilename)
     sourcelist.sort_TS()
