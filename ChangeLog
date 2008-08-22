@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Thu Aug 21 22:33:03 PDT 2008
+pointlike/python
+
+Modified Files:
+	phasetools.py 
+Log Message:
+Added constant count histogram tool, ability to make ROI-dependent light curves.
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-07-01, operation: add
 Package: pointlike
