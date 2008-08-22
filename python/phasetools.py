@@ -10,7 +10,7 @@ import pointlike as pl
 from pointlike import SkyDir
 
 
-def phase_circ(eventfiles,ra=128.83646,dec=-45.17658,radius=6,phaseranges=[[0,1]]):
+def phase_circ(eventfiles,center=None,radius=6,phaseranges=[[0,1]],erange=None,event_class=-1):
     """Construct a histogram of events interior to a circular region."""
 
     if not type(radius) is FunctionType:
@@ -19,13 +19,14 @@ def phase_circ(eventfiles,ra=128.83646,dec=-45.17658,radius=6,phaseranges=[[0,1]
 
     if not type(eventfiles) is ListType: eventfiles=[eventfiles]
 
-    center=SkyDir(ra,dec)
+    center=center or SkyDir(128.83646,-45.17658)
 
     ef = [PF.open(e) for e in eventfiles]
     ra = [N.asarray(e['EVENTS'].data.field('RA')).astype(float) for e in ef]
     dec = [N.asarray(e['EVENTS'].data.field('DEC')).astype(float) for e in ef]
     ph = [N.asarray(e['EVENTS'].data.field('PULSE_PHASE')).astype(float) for e in ef]
     en = [N.asarray(e['EVENTS'].data.field('ENERGY')).astype(float) for e in ef]
+    ec = [N.asarray(e['EVENTS'].data.field('EVENT_CLASS')).astype(int) for e in ef]
     for e in ef: e.close()
 
     radii = [radius(e) for e in en]
@@ -35,7 +36,8 @@ def phase_circ(eventfiles,ra=128.83646,dec=-45.17658,radius=6,phaseranges=[[0,1]
     ra = [ra[i][mask[i]] for i in xrange(len(ra))]
     dec = [dec[i][mask[i]] for i in xrange(len(dec))]
     ph = [ph[i][mask[i]] for i in xrange(len(ph))]
-
+    en = [en[i][mask[i]] for i in xrange(len(en))]
+    ec = [ec[i][mask[i]] for i in xrange(len(ec))]
 
     #Slow, accurate cut
     scale=180/N.pi
@@ -43,11 +45,17 @@ def phase_circ(eventfiles,ra=128.83646,dec=-45.17658,radius=6,phaseranges=[[0,1]
                 for j in xrange(len(ra[i])) ]) for i in xrange(len(ra)) ]
     ra = [ra[i][mask[i]] for i in xrange(len(ra))]
     dec = [dec[i][mask[i]] for i in xrange(len(dec))]
-    ph = N.squeeze([ph[i][mask[i]] for i in xrange(len(ph))])
+    ph = N.concatenate([ph[i][mask[i]] for i in xrange(len(ph))])
+    en = N.concatenate([en[i][mask[i]] for i in xrange(len(en))])
+    ec = N.concatenate([ec[i][mask[i]] for i in xrange(len(ec))])
     mask=N.array([False]*len(ph))
     for r in phaseranges:
         for i in xrange(len(ph)):
-            if r[0]<= ph[i] and ph[i] < r[1]: mask[i]=True                    
+            if r[0]<= ph[i] and ph[i] < r[1]: mask[i]=True
+    if erange is not None:
+        mask = N.logical_and( N.logical_and(en>=erange[0],en<erange[1]), mask)
+    if event_class >= 0:
+        mask = N.logical_and(ec==event_class,mask)
     return ph[mask]
 
 def phase_cut(eventfile,outputfile=None,phaseranges=[[0,1]]):
@@ -72,6 +80,28 @@ def phase_cut(eventfile,outputfile=None,phaseranges=[[0,1]]):
     else:
         ef.writeto(eventfile.replace('.fits','_PHASECUT.fits'),clobber=True)
     ef.close()
+
+def constant_count_histogram(phases,photons_per_bin=100):
+   """Return a set of bins and rates for a 'constant count' lightcurve.
+      phases -- a list of photon phases"""
+   from collections import deque
+   counter = 0
+   ev = N.asarray(phases)
+   ev.sort()
+
+   edges = deque()
+   edges.append(0)
+   for i,j in enumerate(ev):
+      if counter == photons_per_bin-1:
+         edges.append(j)
+         counter = 0
+      else: counter += 1
+   edges.append(1)
+   edges = N.asarray(edges)
+   delta_phi = edges[1:]-edges[:-1]
+   rates = photons_per_bin/delta_phi
+   rates[-1] = counter/delta_phi[-1]
+   return [edges[:-1],rates,delta_phi] #Edges, rates, and widths, appropriate for a bar chart
 
 
 #--------------------------------------------------------
