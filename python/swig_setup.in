@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.22 2008/08/01 19:21:52 kerrm Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.23 2008/08/07 05:12:50 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -139,7 +139,7 @@ public:
 
 //%template(IntPair) std::pair<int,int>;
 //%template(IntPairVector) std::vector<std::pair<int,int> >;
-%template(WeightedSkyDirVector) std::vector<skymaps::WeightedSkyDir>;
+//%template(WeightedSkyDirVector) std::vector<skymaps::WeightedSkyDir>;
 
 %extend pointlike::PointSourceLikelihood{
    pointlike::SimpleLikelihood * __getitem__(size_t i){ 
