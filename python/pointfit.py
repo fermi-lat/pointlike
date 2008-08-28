@@ -36,7 +36,7 @@ Optional parameters:
     --emin [500]  minimum energy, used to select bands
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.10 2008/08/21 03:25:30 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.11 2008/08/21 18:59:30 burnett Exp $
 """
 import os, sys, types
 from numpy import arange
@@ -141,6 +141,7 @@ def main():
     eventtype=-1  # all events
     binsperdecade=0 # default binning
     emin = 500
+    TSmin= 10  # minimum TS for final list
                                     
     for (opt,val) in opts:
         if   opt=='-b' or opt=='--diffuse'  : diffusefilename = val
@@ -175,6 +176,8 @@ def main():
     sourcelist = SourceList(sourcefilename)
     sourcelist.sort_TS()
     sourcelist.refit()
+    sourcelist.filter_TS(TSmin)
+    sourcelist.sort_ra()
     sourcelist.dump()
     if len(args)>2:
         sourcelist.dump(args[2])

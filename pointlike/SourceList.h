@@ -1,7 +1,7 @@
 /** @file SourceList.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.7 2008/08/07 05:12:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.8 2008/08/21 03:22:41 burnett Exp $
 */
 
 #ifndef pointlike_SourceList_h
@@ -50,6 +50,7 @@ namespace pointlike{
         static void header(std::ostream& out=std::cout); ///< header line for info
 
         double TS()const{return m_TS;}
+        double& TS(){return m_TS;} 
         double seedTS()const{return m_seedTS;}
         double sigma()const{return m_sigma;}
         PointSourceLikelihood* fit(){return m_fit;}
@@ -98,6 +99,8 @@ namespace pointlike{
 
         /// @brief refit all sources, in TS order, taking nearby sources into account
         void refit(); 
+
+        void filter_TS(double threshold=0); ///< remove entries with TS < this level
 
         /// @brief formatted dump to an open stream
         /// Format is consistent with text file ctor
