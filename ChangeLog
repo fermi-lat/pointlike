@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Aug 28 15:39:45 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Draw.h 
+Log Message:
+add function to make equatorial CAR image for Google sky
+    *
+------------------------------------------------------------
 User: kerrm  Thu Aug 21 22:33:03 PDT 2008
 pointlike/python
 
