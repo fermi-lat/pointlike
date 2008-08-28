@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Thu Aug 28 15:42:15 PDT 2008
+pointlike/src/pointfit
+
+Modified Files:
+	pointfit_main.cxx 
+Log Message:
+add filter on TS
+    *
+------------------------------------------------------------
+User: burnett  Thu Aug 28 15:42:15 PDT 2008
 pointlike/src
 
 Modified Files:
