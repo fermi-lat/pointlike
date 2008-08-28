@@ -1,7 +1,7 @@
 /** @file SourceList.cxx
 @brief implementation of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.12 2008/08/07 05:12:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.13 2008/08/21 03:22:41 burnett Exp $
 */
 
 
@@ -21,7 +21,8 @@ using astro::SkyDir;
 
 namespace{
     // refit parameters: TODO, provide access
-    double group_radius(2.0);
+    double group_radius(2.0); // how far to consider for correlated fit
+    double too_close(0.25); // too close for an independent source
 
     double examine_radius(180.), prune_radius(0.25);
 
@@ -63,6 +64,7 @@ Source::Source(const std::string& name, const astro::SkyDir& seed_dir, double TS
 , m_dir(seed_dir)
 , m_seed_dir(seed_dir)
 , m_fit(0)
+, m_seedTS(TS)
 , m_TS(TS)
 , m_sigma(0)
 , m_neighbor(0)
@@ -77,8 +79,11 @@ void Source::setup()
     if(m_fit==0){
         m_fit = new PointSourceLikelihood(*SourceList::data(), m_name, m_dir);
     }
-    // inital maximize at seed position
-    m_seedTS = m_TS = m_fit->maximize();
+    // inital maximize at seed position, if TS < 10 to start (0 to start)
+    // otherwise will sort on the input
+    if( m_TS<10.) {
+        m_seedTS = m_TS = m_fit->maximize();
+    }
 }
 Source::Source(const std::string& name, double ra, double dec, double TS)
 : m_name(name)
@@ -122,9 +127,9 @@ void Source::info(std::ostream& out)const{
             << std::setprecision(2) 
             << std::setw(10) << TS() 
             << std::setprecision(4) 
-            << std::setw(10) << sigma()
+            << std::setw(10) << (TS()<=0? 99: sigma() )
             << std::setprecision(1)
-            << std::setw(10) << moved()/sigma()
+            << std::setw(10) << (TS()<=0? 0. : moved()/sigma() )
                 ;
         if( neighbor()!=0){
             out << "  " << std::setw(20)<< std::left << (neighbor()->name());
@@ -213,29 +218,34 @@ void SourceList::refit()
 
         // See if we have already found a candidate near this location
         iterator neighbor;
-        double max_value(0.);
+        double max_value(0.), min_dist(99);
         cand.fit()->clearBackgroundPointSource(); // clear any existing
         cand.set_neighbor(0);
 
-        if (group_radius > 0.0) {
-            for( iterator it2 = begin();  it2 != end(); ++it2) {
-                Source& other( *it2);
-                double diff = currentpos.difference(other.dir())*180/M_PI;
-                if( diff <= group_radius &&  other.TS() > cand.TS() ) {
-                    if( other.TS() > max_value) {
-                        max_value = other.TS();
-                        neighbor = it2;
-                    }
+        for( iterator it2 = begin();  it2 != end(); ++it2) {
+            Source& other( *it2);
+            double diff = currentpos.difference(other.dir())*180/M_PI;
+            if( diff <= group_radius &&  other.TS() > cand.TS() ) {
+                if( other.TS() > max_value) {
+                    max_value = other.TS();
+                    neighbor = it2;
+                    min_dist=diff;
                 }
             }
         }
+
         if (max_value>0.) {
             // Add strong neighbor to this candidate's background
             cand.fit()->addBackgroundPointSource(neighbor->fit());
             cand.set_neighbor( &*neighbor );
         }
-        // adjust position to maximize likelhood
-        cand.localize();
+        if( min_dist > too_close){
+            // adjust position to maximize likelhood
+            cand.localize();
+        }else{
+            // no, too close to another source, just flag as such
+            cand.TS()=-1; 
+        }
     }
 }
 
@@ -257,6 +267,21 @@ void SourceList::createRegFile(std::string filename, std::string color, double t
     }
     out.close();
     std::cout << "Wrote "<< n << " entries to  reg file "<< filename << ", with TS >= " <<tsmin << std::endl;
+}
+
+void SourceList::filter_TS(double threshold)
+{
+
+    sort_TS(); // may reorder, but makes it easy.
+    iterator it(begin());
+    for(; it!= end(); ++it){
+        double TS((*it).TS());
+        if( TS <= threshold) break;
+    }
+    int oldsize(size());
+    resize(it-begin());
+    int newsize(size());
+    std::cout << "reduced from: " << oldsize << " to " << newsize << std::endl;
 }
 
 #if 0 // under development
