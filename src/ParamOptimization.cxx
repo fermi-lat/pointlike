@@ -1,7 +1,7 @@
 /** @file ParamOptimization.cxx 
 @brief ParamOptimization member functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.13 2008/06/28 06:17:25 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.14 2008/08/06 19:37:11 mar0 Exp $
 
 */
 
@@ -9,7 +9,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.13
 #include "skymaps/IParams.h"
 #include "TMatrixD.h"
 #include <fstream>
-#define PRINT_DEBUG
+//#define PRINT_DEBUG
 //#define FIT_DEBUG
 
 using namespace pointlike;
