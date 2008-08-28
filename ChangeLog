@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Aug 28 15:44:01 PDT 2008
+pointlike/python
+
+Modified Files:
+	swig_setup.in 
+Log Message:
+this was not needed, linux cannot handle it anyway
+    *
+------------------------------------------------------------
 User: burnett  Thu Aug 28 15:43:13 PDT 2008
 pointlike/src
 
