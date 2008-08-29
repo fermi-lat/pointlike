@@ -1,5 +1,97 @@
 ------------------------------------------------------------
 TAG
+Tag name: pointlike-06-07-03, operation: add
+Package: pointlike
+User: glastrm  Fri Aug 29 07:30:54 2008
+Files:
+  pointlike/.cvsignore  1.1.1.1
+  pointlike/ChangeLog  1.1.1.828
+  pointlike/pointlikeLib.py  1.4
+  pointlike/SConscript  1.32
+  pointlike/cmt/alias.bat  1.1
+  pointlike/cmt/.cvsignore  1.1.1.1
+  pointlike/cmt/requirements  1.97
+  pointlike/doc/release.notes  1.86
+  pointlike/doc/Doxyfile  1.1
+  pointlike/pointlike/Alignment.h  1.3
+  pointlike/pointlike/ExtendedSourcePDF.h  1.4
+  pointlike/pointlike/CalData.h  1.3
+  pointlike/pointlike/HypergeometricFunction.h  1.2
+  pointlike/pointlike/PsfFunction.h  1.2
+  pointlike/pointlike/SourceLikelihood.h  1.3
+  pointlike/pointlike/RotationInfo.h  1.6
+  pointlike/pointlike/PowerLawFilter.h  1.2
+  pointlike/pointlike/AlignProc.h  1.6
+  pointlike/pointlike/ParamOptimization.h  1.9
+  pointlike/pointlike/ResultsFile.h  1.1
+  pointlike/pointlike/SourceFinder.h  1.30
+  pointlike/pointlike/Draw.h  1.8
+  pointlike/pointlike/SourceList.h  1.9
+  pointlike/pointlike/Data.h  1.31
+  pointlike/pointlike/DrawTS.h  1.1
+  pointlike/pointlike/SimpleTSmap.h  1.5
+  pointlike/pointlike/PointSourceLikelihood.h  1.38
+  pointlike/pointlike/ExtendedLikelihood.h  1.2
+  pointlike/pointlike/SimpleLikelihood.h  1.28
+  pointlike/python/pointfit_setup.py  1.19
+  pointlike/python/test_pointlike_setup.py  1.1
+  pointlike/python/pointfind_setup.py  1.20
+  pointlike/python/phasetools.py  1.1
+  pointlike/python/image.py  1.11
+  pointlike/python/Response.py  1.5
+  pointlike/python/__init__.py  1.1
+  pointlike/python/Models.py  1.4
+  pointlike/python/swig_setup.in  1.24
+  pointlike/python/confluence.py  1.6
+  pointlike/python/dataman.py  1.2
+  pointlike/python/SourcePlot.py  1.4
+  pointlike/python/pointlike_defaults.py  1.13
+  pointlike/python/diffuse.py  1.3
+  pointlike/python/specfit.py  1.6
+  pointlike/python/Fitters.py  1.7
+  pointlike/python/sourcefit_setup.py  1.1
+  pointlike/python/.cvsignore  1.3
+  pointlike/python/pointfit.py  1.12
+  pointlike/python/runfiles.py  1.2
+  pointlike/python/alignment_setup.py  1.4
+  pointlike/python/SourceLib.py  1.9
+  pointlike/python/finder_setup.py  1.2
+  pointlike/src/DrawTS.cxx  1.2
+  pointlike/src/ExtendedLikelihood.cxx  1.5
+  pointlike/src/Alignment.cxx  1.2
+  pointlike/src/ParamOptimization.cxx  1.15
+  pointlike/src/SourceLikelihood.cxx  1.7
+  pointlike/src/mainpage.h  1.6
+  pointlike/src/SimpleTSmap.cxx  1.6
+  pointlike/src/Draw.cxx  1.12
+  pointlike/src/PowerLawFilter.h  1.1
+  pointlike/src/SourceFinder.cxx  1.45
+  pointlike/src/RotationInfo.cxx  1.9
+  pointlike/src/Data.cxx  1.55
+  pointlike/src/CalData.cxx  1.6
+  pointlike/src/ResultsFile.cxx  1.2
+  pointlike/src/ExtendedSourcePDF.cxx  1.2
+  pointlike/src/PowerLawFilter.cxx  1.3
+  pointlike/src/PointSourceLikelihood.cxx  1.46
+  pointlike/src/SimpleLikelihood.cxx  1.42
+  pointlike/src/SourceList.cxx  1.14
+  pointlike/src/AlignProc.cxx  1.12
+  pointlike/src/alignment/alignment.txt  1.1
+  pointlike/src/alignment/alignment_main.cxx  1.4
+  pointlike/src/alignment/vela.txt  1.1
+  pointlike/src/pointfind/finder_main.cxx  1.17
+  pointlike/src/pointfit/pointfit_main.cxx  1.28
+  pointlike/src/sourcefit/sourcefit_main.cxx  1.4
+  pointlike/src/test/PhotonList.h  1.1.1.1
+  pointlike/src/test/test_main.cxx  1.19
+  pointlike/src/test/pointlike_test.fits  1.1
+  pointlike/src/test/PhotonList.cxx  1.1.1.1
+  pointlike/src/test/test_events.root  1.1.1.1
+  pointlike/src/tsmap/tsmap.cxx  1.1
+
+    *
+------------------------------------------------------------
+TAG
 Tag name: v6r7p3, operation: mov
 Package: pointlike
 User: glastrm  Fri Aug 29 07:30:44 2008
