@@ -1,7 +1,7 @@
 /** @file Draw.cxx
 @brief implementation of Draw
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.10 2008/08/21 03:23:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.11 2008/08/28 22:39:45 burnett Exp $
 
 */
 
@@ -126,7 +126,7 @@ void Draw::googleSky(std::string outfile, double pixelsize, bool smooth, int min
 {
     std::string proj = m_proj;    m_proj = "CAR";
     bool gal = m_galactic; m_galactic = false;
-    region(SkyDir(180,0), outfile, pixelsize, 180);
+    region(SkyDir(180,0), outfile, pixelsize, 180, smooth, mincount);
     m_proj = proj;
-    m_galactic = galactic;
+    m_galactic = gal;
 }
