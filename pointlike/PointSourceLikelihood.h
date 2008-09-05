@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.37 2008/06/29 01:50:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.38 2008/08/07 05:12:50 burnett Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -84,6 +84,7 @@ public:
     const astro::SkyDir& dir()const{return m_dir;}
 
     double TS()const { return m_TS; } 
+  double TS(int band) const;
 
     double errorCircle()const{return  sqrt(1./curvature())*180/M_PI;}
 
@@ -149,8 +150,10 @@ public:
     static void set_maxROI(double roi); ///< set the maximum ROI
     static double maxROI();   ///< return the maximum ROI (degrees)
 
-private:
     void setup(const skymaps::BinnedPhotonData& data);
+
+private:
+
     std::string m_name;
     astro::SkyDir m_dir; ///< common direction
     double m_dir_sigma;  ///< error circle from fit (radians)

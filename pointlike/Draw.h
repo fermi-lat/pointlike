@@ -1,7 +1,7 @@
 /** @file Draw.h 
 @brief declaration of the Draw wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.7 2008/08/21 03:22:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.8 2008/08/28 22:39:45 burnett Exp $
 */
 
 
@@ -21,9 +21,11 @@ namespace pointlike {
     class Draw {
     public:
 
-
-        Draw(const skymaps::BinnedPhotonData& map);
-
+      
+      Draw(const skymaps::BinnedPhotonData& map, 
+	   const skymaps::SkySpectrum* background = 0,
+	   bool ts = false);
+      
         //! create FITS image file using the data
         //! @param dir center
         //! @param outputFile file to write
@@ -50,10 +52,12 @@ namespace pointlike {
 
     private:
         const skymaps::BinnedPhotonData& m_map;
+      const skymaps::SkySpectrum* m_background;
         bool m_galactic;    ///< galactic or equatorial
         std::string m_proj; ///< projection (CAR, AIT, etc.)
         const skymaps::SkySpectrum * m_exposure; ///< exposure to use for normalization, if present. (energy?)
-        bool m_layers;
+      int m_layers;
+      bool m_ts;
     };
 
 
