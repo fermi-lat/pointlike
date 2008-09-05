@@ -1,12 +1,13 @@
 /** @file Draw.cxx
 @brief implementation of Draw
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.11 2008/08/28 22:39:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.12 2008/08/29 14:24:52 burnett Exp $
 
 */
 
 
 #include "pointlike/Draw.h"
+#include "pointlike/PointSourceLikelihood.h"
 
 #include "astro/SkyDir.h"
 
@@ -19,12 +20,27 @@ using astro::SkyDir;
 using skymaps::BinnedPhotonData;
 using skymaps::SkyImage;
 
-Draw::Draw(const BinnedPhotonData& map)
+namespace pointlike {
+  struct lt{
+    bool operator()(astro::SkyDir d1, astro::SkyDir d2) const {
+      if (fabs(d1.b() - d2.b()) > 1e-5) return (d1.b() < d2.b());
+      else return (d1.l() < d2.l());
+    }
+  };
+
+  typedef std::map<astro::SkyDir, std::vector<double>, pointlike::lt > TSCache;
+
+}
+
+
+Draw::Draw(const BinnedPhotonData& map, const skymaps::SkySpectrum* background, bool ts)
 : m_map(map)
+, m_background(background)
 , m_galactic(true)
 , m_proj("")
 , m_exposure(0) // default: do not apply
 , m_layers(1)
+  , m_ts(ts)
 {}
 
 void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel, 
@@ -78,6 +94,83 @@ void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel
         << "\n\t average "<< (image.total()/image.count())
         << std::endl;
 
+
+    /// @class SkyTS
+    /// @brief adapt a Binned Photon Data to give TS for bins with given energy
+    class SkyTS : public astro::SkyFunction {
+    public: 
+      SkyTS(const BinnedPhotonData& data, const skymaps::SkySpectrum& background,
+	    TSCache& cache, int energyBin):
+	m_data(data),
+	m_background(background),
+	m_nenergybins(0),
+	m_bin(energyBin),
+	m_tsvalues(cache){
+
+	for( skymaps::BinnedPhotonData::const_iterator bit = m_data.begin(); 
+	     bit!=m_data.end(); ++bit){
+	  m_nenergybins++;
+	}
+      }
+
+      double operator() (const astro::SkyDir& sd) const {
+
+	if (m_tsvalues.find(sd) == m_tsvalues.end()){
+	  
+	  pointlike::PointSourceLikelihood* ps 
+	    = new pointlike::PointSourceLikelihood(m_data, "test", sd);
+	  ps->set_diffuse(const_cast<skymaps::SkySpectrum*>(&m_background));
+	// 	ps->setDir(sd);
+	// 	ps->setup(m_data);
+	  ps->maximize();
+	
+	  double t = ps->TS();
+	  std::vector<double> ts;
+	  ts.push_back(t);
+	  for (unsigned int i = 0; i < m_nenergybins; ++i){
+	    ts.push_back(ps->TS(i));
+	  }
+	  m_tsvalues[sd] = ts;
+	  ps->printSpectrum();
+// 	  for (unsigned int k = 0; k < ts.size(); ++k)
+// 	    std::cout << ts[k] << std::endl;
+	  delete ps;
+	  return ts[m_bin];
+	} else {
+// 	  std::cout << "Layer: " << m_bin << " already have this point " 
+// 		    << sd.ra() << " " << sd.dec() << std::endl;
+	  return (*m_tsvalues.find(sd)).second[m_bin];
+	}
+      }
+      
+    private: 
+      const skymaps::BinnedPhotonData& m_data;
+      const skymaps::SkySpectrum& m_background;
+      unsigned int m_nenergybins;
+      unsigned int m_bin;
+      TSCache& m_tsvalues; 
+    };
+
+    if (m_ts && m_background){
+      std::string outputTS = outputFile;
+      if (outputTS.find(".fits") != std::string::npos)
+	outputTS.replace(outputTS.find(".fits"), 0, "_TS");
+      else 
+	outputTS = std::string("tsvalues.fits");
+
+      int nBins = 0;
+      for( skymaps::BinnedPhotonData::const_iterator bit = m_map.begin(); 
+	   bit!=m_map.end(); ++bit)
+	++nBins;
+      
+      SkyImage image2(dir, outputTS, pixel, fov, nBins+1, 
+		      proj,  m_galactic); 
+      TSCache cache;
+      for (int i = 0; i <=nBins; ++i){
+	std::cout << "XXXXX Filling layer: " << i+1 << std::endl;
+	image2.fill(SkyTS(m_map, *m_background, cache, i), i);
+      }
+    }
 
     /// @class SkyCount
     /// @brief adapt a BinnedPhotonData to give counts for bins with given energy

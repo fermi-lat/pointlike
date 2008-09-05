@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.45 2008/06/29 01:50:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.46 2008/08/07 05:12:50 burnett Exp $
 
 */
 
@@ -146,6 +146,7 @@ void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
         double emin(floor(b.emin()+0.5) ), emax(floor(b.emax()+0.5));
         if( emin < s_emin && emax < s_emin ) continue;
         if( emax > s_emax ) break;
+// 	std::cout << "XXX Pushing back energy band: " << emin << " " << emax << std::endl;
         bands.push_back(std::make_pair(&b,true));
     }
     for( std::list<std::pair<const Band*,bool> >::iterator bit1 = bands.begin(); bit1 !=bands.end(); ++bit1){
@@ -187,6 +188,23 @@ PointSourceLikelihood::~PointSourceLikelihood()
         delete *it;
     }
     delete m_background;
+}
+
+double PointSourceLikelihood::TS(int band) const
+{
+  double TS_band = 0;
+  bool found = 0;
+  int bandCounter = 0;
+  for(iterator it = begin() ; it!=end(); ++it, ++bandCounter){
+    SimpleLikelihood& like = **it;
+    if (bandCounter == band){
+      found = true;
+      TS_band = like.TS();
+    }
+  }
+  
+  if (!found) return -1;
+  else return TS_band;
 }
 
 double PointSourceLikelihood::maximize()
