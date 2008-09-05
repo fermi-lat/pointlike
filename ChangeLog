@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: funk  Fri Sep  5 16:40:11 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h Draw.h 
+Log Message:
+Added ts value calculation to Draw - Stefan
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-07-03, operation: add
 Package: pointlike
