@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: funk  Fri Sep  5 16:40:11 PDT 2008
+pointlike/src
+
+Modified Files:
+	Draw.cxx PointSourceLikelihood.cxx 
+Log Message:
+Added ts value calculation to Draw - Stefan
+    *
+------------------------------------------------------------
+User: funk  Fri Sep  5 16:40:11 PDT 2008
 pointlike/pointlike
 
 Modified Files:
