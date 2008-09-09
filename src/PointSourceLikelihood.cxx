@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.46 2008/08/07 05:12:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.47 2008/09/05 23:40:11 funk Exp $
 
 */
 
@@ -195,7 +195,7 @@ double PointSourceLikelihood::TS(int band) const
   double TS_band = 0;
   bool found = 0;
   int bandCounter = 0;
-  for(iterator it = begin() ; it!=end(); ++it, ++bandCounter){
+  for(const_iterator it = begin() ; it!=end(); ++it, ++bandCounter){
     SimpleLikelihood& like = **it;
     if (bandCounter == band){
       found = true;
@@ -568,6 +568,24 @@ double PointSourceLikelihood::set_tolerance(double tol)
     SimpleLikelihood::setTolerance(tol);
     return old;
 }
+
+double PointSourceLikelihood::TSmap(const astro::SkyDir&sdir, int band)const
+{
+    if( band>-1) {
+        return this->at(band)->TSmap(sdir);
+    }
+    double ret(0);
+    const_iterator it = begin();
+    for( ; it!=end(); ++it){
+        ret += (*it)->TSmap(sdir);
+        // maybe set limits?
+//        const Band& band ((*it)->band());
+//        if( energy >= band.emin() && energy < band.emax() )break;
+    }
+
+    return ret;
+}
+
 //=======================================================================
 //         PSLdisplay implementation
 PSLdisplay::PSLdisplay(const PointSourceLikelihood & psl, int mode)
@@ -586,10 +604,36 @@ double PSLdisplay::integral(const astro::SkyDir& dir, double a, double b)const{
 
 std::string PSLdisplay::name()const
 {
-    static std::string type[]={"density", "data", "background", "fit", "residual"};
-    if( m_mode<0 || m_mode>4) return "illegal";
+    static std::string type[]={"density", "data", "background", "fit", "residual", "TS"};
+    if( m_mode<0 || m_mode>5) return "illegal";
     return m_psl.name()+"--"+type[m_mode];
 
+}
+//=======================================================================
+//        TSdisplay implementation
+
+TSmap::TSmap(const PointSourceLikelihood& psl, int band)
+: m_data(0)
+, m_psl(&psl)
+, m_band(band)
+{}
+
+TSmap::TSmap(const skymaps::BinnedPhotonData& data, int band)
+: m_data(&data)
+, m_psl(0)
+, m_band(band)
+{}
+
+double TSmap::operator()(const astro::SkyDir& sdir)const
+{
+    if( m_psl==0 ){
+        PointSourceLikelihood psl(*m_data, "temp", sdir);
+        psl.maximize();
+        if( m_band>-1) return psl.at(m_band)->TS();
+        return psl.TS();
+
+    }
+    return m_psl->TSmap(sdir, m_band);
 }
 
 

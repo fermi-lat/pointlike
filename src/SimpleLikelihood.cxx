@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.42 2008/08/07 20:47:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.43 2008/08/18 22:55:10 mar0 Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -43,26 +43,22 @@ namespace {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     class Convert  {
     public:
-        Convert( const SkyDir& dir, PsfFunction& f, 
+        Convert( const SkyDir& dir, const PsfFunction& f, 
             const astro::SkyFunction& background,
             double sigma, double umax,
-            std::vector< std::pair<double, int> >& vec2,
-            std::vector<int>& vec4,
-             bool subset
+            std::vector< std::pair<double, int> >& vec2 
             )
             : m_dir(dir), m_f(f), m_sigma(sigma)
             , m_vec2(vec2)
-            , m_vec4(vec4)
+            //, m_vec4(vec4)
             , m_umax(umax)
             , m_F( f.integral(umax) ) // for normalization of the PSF
             , m_sum(0), m_count(0)
             , m_sumu(0) // average u, useful for calibration
             , m_pixels(0)
             , m_back(background )
-            , m_subset(subset)
             , m_maxu_found(0)
         {
-            m_first = m_vec4.size()==0;
             if(debug){
                 //psf_data = new std::ofstream("d:/users/burnett/temp/psf.txt");
                 (*psf_data) << "u        f(u)      count    q" << std:: endl;
@@ -117,16 +113,16 @@ namespace {
 
     private:
         SkyDir m_dir;
-        PsfFunction& m_f;
+        const PsfFunction& m_f;
         const astro::SkyFunction& m_back;
         double m_sigma;
         std::vector<std::pair<double, int> >& m_vec2;
-        std::vector<int>& m_vec4;
+        //std::vector<int>& m_vec4;
         double m_umax, m_F;
         double m_sum, m_count, m_sumu, m_sumb, m_pixels;
         double m_back_norm;
         bool m_first;   //first call?
-        bool m_subset;
+        //bool m_subset;
         double m_maxu_found;
     };
 
@@ -248,18 +244,21 @@ void SimpleLikelihood::reload(bool subset)
 {
     using skymaps::Band;
 
-    // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
-    m_vec.clear();
-    m_vec2.clear();
-    delete m_back;
-    m_back = new NormalizedBackground(m_diffuse, m_dir, sqrt(2.*m_umax)*sigma(), m_emin, m_emax);
-    
-    // select pixels within u_max, sum bands
-    for( std::vector<const Band*>::const_iterator bandit(m_bands.begin()); bandit!=m_bands.end();++bandit){ 
-       (*bandit)->query_disk(m_dir, sigma()*sqrt(2.*m_umax), m_vec);
-    }
+    if( ! subset) {
+        // filll m_vec with weighted pixels unless operating on the current set
+        m_vec.clear();
+        delete m_back;
+        m_back = new NormalizedBackground(m_diffuse, m_dir, sqrt(2.*m_umax)*sigma(), m_emin, m_emax);
+        // select pixels within u_max, sum bands
+        for( std::vector<const Band*>::const_iterator bandit(m_bands.begin()); bandit!=m_bands.end();++bandit){ 
+            (*bandit)->query_disk(m_dir, sigma()*sqrt(2.*m_umax), m_vec);
+        }
+    }    
 
-    Convert conv(m_dir, m_psf, *m_back, sigma(), m_umax, m_vec2, m_vec4,  subset);
+    // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
+    m_vec2.clear();
+
+    Convert conv(m_dir, m_psf, *m_back, sigma(), m_umax, m_vec2); 
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
     result.consolidate();
 
@@ -457,6 +456,9 @@ double SimpleLikelihood::operator()(const astro::SkyDir& dir)const
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 double SimpleLikelihood::display(const astro::SkyDir& dir, int mode) const
 {
+    SimpleLikelihood* self = const_cast<SimpleLikelihood*>(this);
+    if( mode==5 ) return self->TSmap(dir);
+
     double diff( dir.difference(m_dir) ); 
     double u   ( sqr(diff/sigma())/2.  );
     double jacobian( 2.*M_PI* sqr(sigma()) );
@@ -524,7 +526,7 @@ void SimpleLikelihood::recalc(bool subset)
 {
     // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
     m_vec2.clear();
-    Convert conv(m_dir, m_psf, *m_back, sigma(), m_umax, m_vec2,  m_vec4, subset);
+    Convert conv(m_dir, m_psf, *m_back, sigma(), m_umax, m_vec2); //,  m_vec4, subset);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
     result.consolidate();
 
@@ -537,5 +539,39 @@ void SimpleLikelihood::recalc(bool subset)
     m_averageF = result.average_f();
     m_avu = result.average_u();
     m_avb = result.average_b();
+}
+
+double SimpleLikelihood::TSmap(astro::SkyDir sdir)const
+{
+    SimpleLikelihood* self = const_cast<SimpleLikelihood*>(this);
+#if 0
+    SkyDir old_dir(m_dir);
+    m_dir = sdir;
+    self->reload( true); // recalculate
+    double ts( TS() ); 
+    m_dir=old_dir;
+    self->reload( true); // should restore
+    return ts;
+
+#else
+    std::vector<std::pair<double, int> > vec2;  //stores <log-like,nphotons>
+    //std::vector<int> vec4; //stores subset healpix indices (unused)
+
+    double oldbinsize(binsize);
+    binsize =0; // disable the binning, makes jumps
+    // load vec2 from current list of pixels and this direction
+    Convert conv(sdir, m_psf, *m_back, sigma(), m_umax, vec2 );
+    Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
+    result.consolidate();
+
+    // now compute TS, using current alpha, but with vec2
+    double ret =2.*(
+        std::accumulate(vec2.begin(), vec2.end(),  poissonLikelihood(0), LogLike(0))
+        -std::accumulate(vec2.begin(), vec2.end(),  poissonLikelihood(m_alpha), LogLike(m_alpha))
+        );
+    binsize = oldbinsize; // restore binning for 
+    return ret;
+
+#endif
 }
 

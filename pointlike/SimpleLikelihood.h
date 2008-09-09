@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.27 2008/05/27 16:46:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.28 2008/06/18 14:41:10 burnett Exp $
 
 */
 
@@ -138,6 +138,9 @@ public:
     /// @brief access to the diffuse background component 
     const skymaps::SkySpectrum* diffuse() const;
 
+    /// @brief calculate TS for given fit at various positions
+    double TSmap(astro::SkyDir sdir) const;
+
     /// @brief set the diffuse component
     void setDiffuse(skymaps::SkySpectrum* diff);
 
@@ -162,7 +165,7 @@ private:
     /// If background not specified, return (0,0)
     std::pair<double,double>poissonDerivatives(double x);
 
-    astro::SkyDir m_dir;
+    mutable astro::SkyDir m_dir;
     mutable int    m_photon_count; // total number of photons
     double m_fint, m_fint2; //integral of f, f^2
 
@@ -176,7 +179,6 @@ private:
     
     //! simplified set with function or distances from m_dir 
     std::vector<std::pair<double, int> > m_vec2;  //stores <log-like,nphotons>
-    std::vector<int> m_vec4; //stores subset healpix indices
     double m_averageF;
     skymaps::PsfFunction m_psf;
     double m_sigma;
