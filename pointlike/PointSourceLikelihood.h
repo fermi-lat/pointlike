@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.38 2008/08/07 05:12:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.39 2008/09/05 23:40:10 funk Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -143,6 +143,11 @@ public:
     double display(const astro::SkyDir& dir, double energy, int mode)const;
 
 
+    /// @brief evaluate the TS, using current data set, for any direction
+    /// @param sdir the direction
+    /// @band [-1] return TS for given band index, or all for -1
+    double TSmap(const astro::SkyDir& sdir, int band=-1)const;
+
     static void set_merge(bool merge);
     static bool merge();
 
@@ -193,6 +198,32 @@ private:
     int m_mode;
 
 };
+
+/** class TSmap
+  Create a SkyFunction with the TS defined by the data set for 
+
+*/
+class TSmap : public astro::SkyFunction {
+public:
+    ///! @brief ctor to create function based on given fit
+    ///! @param psl 
+    ///! @param band [-1] index of band to use, -1 for sum
+    TSmap(const PointSourceLikelihood& psl, int band=-1);
+
+    /// @brief ctor to compure TS independently at the given position
+    /// @param data data to use
+    /// @param band [-1] index of band to use, -1 for sum
+    TSmap(const skymaps::BinnedPhotonData& data, int band=-1);
+
+    virtual ~TSmap(){};
+    virtual double operator()(const astro::SkyDir& sdir)const;
+private:
+    const skymaps::BinnedPhotonData * m_data;
+    const PointSourceLikelihood* m_psl;
+    int m_band;
+};
+
+
 
 }
 #endif
