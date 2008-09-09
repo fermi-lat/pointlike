@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Sep  9 16:26:32 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Draw.h 
+Log Message:
+clean up a little: add ctor that accepts a Data object
+    *
+------------------------------------------------------------
 User: funk  Fri Sep  5 16:40:11 PDT 2008
 pointlike/src
 
