@@ -1,12 +1,14 @@
 /** @file Draw.cxx
 @brief implementation of Draw
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.12 2008/08/29 14:24:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.13 2008/09/05 23:40:11 funk Exp $
 
 */
 
 
 #include "pointlike/Draw.h"
+#include "pointlike/Data.h"
+
 #include "pointlike/PointSourceLikelihood.h"
 
 #include "astro/SkyDir.h"
@@ -41,6 +43,16 @@ Draw::Draw(const BinnedPhotonData& map, const skymaps::SkySpectrum* background, 
 , m_exposure(0) // default: do not apply
 , m_layers(1)
   , m_ts(ts)
+{}
+
+Draw::Draw(const Data& data)
+: m_map(data.map())
+, m_background(0)
+, m_galactic(true)
+, m_proj("")
+, m_exposure(0) // default: do not apply
+, m_layers(1)
+  , m_ts(false)
 {}
 
 void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel, 
