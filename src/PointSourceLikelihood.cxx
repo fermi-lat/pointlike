@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.47 2008/09/05 23:40:11 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.48 2008/09/09 23:28:14 burnett Exp $
 
 */
 
@@ -54,7 +54,7 @@ void   PointSourceLikelihood::set_maxROI(double r){s_maxROI=r;}
 double PointSourceLikelihood::maxROI(){return s_maxROI;}
 
 double PointSourceLikelihood::s_minalpha(0.05);
-int    PointSourceLikelihood::s_skip1(1);
+int    PointSourceLikelihood::s_skip1(0);
 int    PointSourceLikelihood::s_skip2(3);
 int    PointSourceLikelihood::s_itermax(1);
 double PointSourceLikelihood::s_TSmin(5.0);
@@ -421,8 +421,14 @@ double PointSourceLikelihood::localize(int skip)
         backingoff =true;
         while( count-->0){
             m_dir = olddir -delta;
+#if 0
             setDir(m_dir,true);
             double newTs(maximize());
+#else // make comparison without speedup
+            oldTs=TSmap(m_dir); 
+            double newTs(TSmap(m_dir));
+            setDir(m_dir, true);
+#endif
             if( newTs > oldTs-0.01 ){ // allow a little slop
                 oldTs=newTs;
                 backingoff=false;

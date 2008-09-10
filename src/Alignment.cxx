@@ -1,7 +1,7 @@
 /** @file Alignment.cxx
 @brief implementation of Alignment
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Alignment.cxx,v 1.1 2008/07/28 21:46:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Alignment.cxx,v 1.2 2008/07/29 19:13:59 burnett Exp $
 
 */
 
@@ -20,7 +20,8 @@ namespace{
         {236511638,  -161,  -170,  -475}, // first light stuff 
         {237154733,  -303,  -218,  -740}, // the strange Vela pointing
         {237343796,  -170,  -173,  -491}, // afterward
-        {999999999,     0,     0,     0}
+        {242053458,     0,     0,     0}, // correction now made in data
+        {999999999,     0,     0,     0}  // end of time
     };
 
 }
