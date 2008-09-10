@@ -99,7 +99,7 @@ int main(int argc , char** argv )
         // test fitting with a diffuse component
         skymaps::SkySpectrum* diffuse(new skymaps::IsotropicPowerLaw());
         PointSourceLikelihood::set_diffuse(diffuse);
-#if 1
+
         for( int n=0; !points[n].name.empty(); ++n){
                         
             astro::SkyDir dir(points[n].ra,points[n].dec);
@@ -118,14 +118,27 @@ int main(int argc , char** argv )
             }
             directions.push_back(like.dir());  // for PSF fits
             
+            // check the ts evaluations
+            double ts(like.TS()), ts1(like.TSmap(dir)), 
+                ts2(like.TSmap(like.dir())); 
+            std::cout << "full TS at maximum, starting point: " << ts << ", " 
+                << ts1 << ", " << ts2 << std::endl;
 
         };
-#if 0
-        int minlevel(6), maxlevel(13);
-        ParamOptimization so(x,directions,&std::cout,minlevel,maxlevel);
-        so.compute();
+
+#if 1 // now refit the second one with the first as background
+    PointSourceLikelihood like1(x, points[0].name, directions[0]);
+    like1.maximize();
+    PointSourceLikelihood like2(x, points[1].name, directions[1]);
+    double ts_before(like2.maximize());
+    like2.addBackgroundPointSource(&like1);
+    double ts_after(like2.maximize());
+    std::cout << "TS before, after background:"<<
+        ts_before << ", " << ts_after << std::endl;
 #endif
-#endif
+
+
+
 
     }catch(const std::exception& e){
         std::cerr << "Caught exception " << typeid(e).name() 

@@ -1,6 +1,6 @@
 """ image processing
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/image.py,v 1.7 2008/03/09 21:27:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/image.py,v 1.11 2008/04/29 16:06:44 burnett Exp $
 
 """
 
@@ -162,7 +162,7 @@ class AIT(object):
         self.proj = self.skyimage.projector()
         self.x = self.y = 100 # initial def
                   
-    def show(self,  title=None, scale='linear',  **kwargs):
+    def imshow(self,  title=None, scale='linear',  **kwargs):
         'run imshow'
         from numpy import ma
         import pylab
@@ -185,6 +185,26 @@ class AIT(object):
         # for interactive formatting of the coordinates when hovering
         ##pylab.gca().format_coord = self.format_coord # replace the function on the fly!
 
+    def pcolor(self,  title=None, scale='linear',  **kwargs):
+        'run pcolor'
+        from numpy import ma, array
+        import pylab
+        if self.galactic:
+            xvalues=array([self.skydir(i,0).l() for i in range(self.nx+1)])
+            yvalues=array([self.skydir(0,i).b() for i in range(self.ny+1)])
+            pylab.xlabel('glon'); pylab.ylabel('glat')
+        else:
+             xvalues=array([self.skydir(i,0).ra() for i in range(self.nx+1)])
+             yvalues=array([self.skydir(0,i).dec() for i in range(self.ny+1)])
+             pylab.xlabel('ra'); pylab.ylabel('dec')
+
+        if   scale=='linear':  pylab.pcolor(self.masked_image,   **kwargs)
+        elif scale=='log':     pylab.pcolor(ma.log10(self.masked_image), **kwargs)
+        else: raise Exception('bad scale: %s'%scale)
+                                        
+        pylab.colorbar()
+
+        self.title(title)
 
     def axes(self, color='black',  **kwargs):
         ' overplot axis lines'
@@ -201,17 +221,20 @@ class AIT(object):
         except AttributeError: #no name?
             pass
 
-    def format_coord(self, x, y):
-        " replacement for Axes.format_coord"
+    def skydir(self, x, y):
+        " from pixel coordinates to sky "
         from pointlike import SkyDir
         xpixel = (180-x)*float(self.nx)/360.
         ypixel = (y+90)*float(self.ny)/180.
-        if self.proj.testpix2sph(xpixel,ypixel) !=0: return '' #outside valid region
-        l, b = self.proj.pix2sph(xpixel,ypixel)
-        sdir = SkyDir(l, b, SkyDir.GALACTIC if self.galactic else SkyDir.EQUATORIAL)
+        if self.proj.testpix2sph(xpixel,ypixel) !=0: return None #outside valid region
+        sdir = SkyDir(x, y, self.proj)
+        return sdir
+
+    def format_coord(self, x, y):
+        " replacement for Axes.format_coord"
+        sdir = self.skydir(x,y)
         val  = self.skyfun(sdir)
 
         return 'ra,dec: (%7.2f,%6.2f); l,b: (%7.2f,%6.2f), value:%6.3g' %\
             ( sdir.ra(), sdir.dec(), sdir.l(), sdir.b(), val)
                 
-           

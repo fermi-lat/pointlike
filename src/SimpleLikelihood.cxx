@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.43 2008/08/18 22:55:10 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.44 2008/09/09 23:28:14 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -36,7 +36,7 @@ namespace {
     std::ostream * psf_data = &std::cout;
 
     // for the binning in 1/q when q is negative, pixels far from source
-    double binsize(0.025); // bin size for 1/q. set zero to disable
+    double binsize( 0.025); // bin size for 1/q. set zero to disable
     std::map<double,int> qmap; // used for binning 1/q
 
 
@@ -555,8 +555,6 @@ double SimpleLikelihood::TSmap(astro::SkyDir sdir)const
 
 #else
     std::vector<std::pair<double, int> > vec2;  //stores <log-like,nphotons>
-    //std::vector<int> vec4; //stores subset healpix indices (unused)
-
     double oldbinsize(binsize);
     binsize =0; // disable the binning, makes jumps
     // load vec2 from current list of pixels and this direction
@@ -569,7 +567,7 @@ double SimpleLikelihood::TSmap(astro::SkyDir sdir)const
         std::accumulate(vec2.begin(), vec2.end(),  poissonLikelihood(0), LogLike(0))
         -std::accumulate(vec2.begin(), vec2.end(),  poissonLikelihood(m_alpha), LogLike(m_alpha))
         );
-    binsize = oldbinsize; // restore binning for 
+    binsize = oldbinsize; // restore binning 
     return ret;
 
 #endif
