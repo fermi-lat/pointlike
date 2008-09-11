@@ -140,6 +140,7 @@ namespace pointlike{
 
 	static iSource& generator(const std::string & name, double sigma){
 	     if (name=="point") return *(new diskSource(sigma,-1.));
+	     if (name=="calib") return *(new diskSource(sigma,-1.));
 	     if (name=="pseudopoint") return *(new diskSource(sigma,1.e-4));
 	     if (name=="disk") return *(new diskSource(sigma,1.e-2));
 	     if (name=="gauss") return *(new gaussSource(sigma,1.e-2));

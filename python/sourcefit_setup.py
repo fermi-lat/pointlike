@@ -1,9 +1,10 @@
 #  setup for point fit test
 # $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.8 2008/01/25 22:36:11 burnett Exp $
 from  pointlike_defaults import *
+from math import sin,asin,cos,atan2,pi
 
 def source_description_lists(source):
-    name, ra, dec, srctype, npar, init = [],[],[],[],[],[]
+    name, ra, dec, srctype, npar, init, dofit = [],[],[],[],[],[],[]
     allkeys=source.keys()
     for key in allkeys:
 	name.append(key)
@@ -14,80 +15,89 @@ def source_description_lists(source):
 	else: npar.append(source[key][3])
         if(len(source[key])<5): init.append('')
 	else: init.append(source[key][4])
+        if(len(source[key])<6): dofit.append(1.0)
+	else: dofit.append(source[key][5])
 
-    return name,ra,dec,srctype,npar,init    
+    return name,ra,dec,srctype,npar,init, dofit    
 
-
-#  specify files with FT1 data and points to fit. pixelfile for PhotonMap, files for FT1 or merit
-def test():
-  " define the pixelfile for a quick test, running the pixel file created by the test program"
-  import os
-  path = os.environ['POINTLIKEROOT']
-  return os.path.join(path, 'src', 'test', 'pointlike_test.fits')
-
-# data selection: either "pixelfile", or "files", the latter a list of FT1 files
-#pixelfile = test()
-#pixelfile = r'F:\glast\data\SC2\obssim\allsky_noGRBs.fits'
-
-# if this is non-zero, lots of output
+def gal2equ(ll,bb):
+      bb=bb*pi/180.
+      ll=ll*pi/180.
+      ra_gp = 192.85948  *pi/180.
+      de_gp =  27.12825  *pi/180.
+      lcp   = 122.932    *pi/180.
+      
+      sin_d = sin(de_gp)*sin(bb)+cos(de_gp)*cos(bb)*cos(lcp-ll)
+      ramragp = atan2(cos(bb)*sin(lcp-ll),cos(de_gp)*sin(bb)-sin(de_gp)*cos(bb)*cos(lcp-ll))
+      
+      dec=asin(sin_d)
+      ra=(ramragp+ra_gp+2*pi)%(2*pi)
+      return  ra*180./pi,dec*180./pi
 
 source={}
-
-# if this is non-zero, use the first of the list as a background for the remainder
-
-# the troublesome triplet: the 3EG blazar is very strong, affects the HLCloud
-#name = ['DC2_3EGJ1635m1751', 'HLCloud_SC1_05', 'Giommi_blazar_1237', 'bogus1', 'bogus2']
-#ra   = [248.788,    248.4804, 248.34, 248.51, 248.27]
-#dec  = [-17.861,   -18.294,  -18.71  ,-17.88, -18.12]
  
-
-#ra = [128.8359]; dec=[-45.1763]
-#pixelfile = r'F:\glast\data\SC2\obssim\allsky_noGRBs.fits'
-#files = [r'F:\glast\data\SC2\interleave\Interleave_pruned.root']
-#files = glob.glob(r'F:\glast\data\octobertest\merit\cutfile*.root')
-#files = [r'F:\glast\data\octobertest\merit\cutfile8.root']
-#files = glob.glob(r'F:\glast\data\octobertest\FT\*ft1.fits')
-
-#Data.files=[r'F:\glast\data\55-day\Skimmer_pruned.root']
-#Data.output_pixelfile = '55-day_pmap.fits'
-#Data.pixelfile = '55-day_pmap.fits'
-#PointSourceLikelihood.skip1=3 # try skipping first
-
-# setup for selecting a range.
-#tzero = 252460800
-#week = 7*86400
-#Data.start_time = tzero+7*week
-#Data.stop_time = Data.start_time+week
-#Data.output_pixelfile = 'week8_pmap.fits'
-#Data.pixelfile='week1_pmap.fits'
-#Data.source_id = 22000
-
 first_is_center=0
 
 SourceLikelihood.verbose=1
 
-source['vela'] = (128.836673, -45.188701,'point',0)
-#source['w28'] = (270.426, -23.4,'point',0)
-#source['vela'] = (128.836673, -45.188701,'gauss',1,'0.01')
-#source['vela'] = (128.836673, -45.188701,'pseudopoint')
-#source['vela'] = (128.836673, -45.188701,'point')
-#source['geminga'] = (98.476, 17.770,'point')
-#source['crab'] = (83.633, 22.014,'point')
+def ext(deg):
+   return str(deg*pi/180.);
 
-Data.files = [r'/u/gl/funk/ScienceData/sc2/week1_data.fits']
-#Data.files = [r'/home/markusa/data/sc2/LAT_allsky_252460800.000_V01.fits']
-name,ra,dec,srctype,npar,init = source_description_lists(source)
+print "SRC: ",gal2equ(0.0,0.0) 
+ra,dec = 30.0, 30.0 ; source['small_00'] =(ra-0.5,dec+0.5,'gauss',1,ext(0.01),1.)
+#ra,dec = 30.0, 30.0 ; source['ppoint_00'] =(ra+0.5,dec+0.5,'pseudopoint',0,ext(0.0001),1.)
+#ra,dec = 30.0, 30.0 ; source['point_00'] =(ra-0.5,dec-0.5,'point',0,ext(0.0001),1.)
 
-print name,ra,dec,srctype,npar,init[0]
-Diffuse.exposure = 3.e10/52.
-#Diffuse.file='/u/gl/markusa/ki-disk/data/pointlike/uniform_background.fits.gz'
+#ra,dec = 60.0, 30.0 ; source['small_01'] =(ra-0.5,dec+0.5,'gauss',1,ext(0.01),1.)
+#ra,dec = 60.0, 30.0 ; source['ppoint_01'] =(ra+0.5,dec+0.5,'pseudopoint',0,ext(0.0001),1.)
+#ra,dec = 60.0, 30.0 ; source['point_01'] =(ra-0.5,dec-0.5,'point',0,ext(0.0001),1.)
 
-SourceLikelihood.minlevel=8
-SourceLikelihood.skip1=0 # add to minlevel for fitting position
-#SourceLikelihood.NewStyle=1
-#PointSourceLikelihood.maxlevel=13
+#ra,dec = 90.0, 30.0 ; source['small_02'] =(ra-0.5,dec+0.5,'gauss',1,ext(0.01),1.)
+#ra,dec = 90.0, 30.0 ; source['ppoint_02'] =(ra+0.5,dec+0.5,'pseudopoint',0,ext(0.0001),1.)
+#ra,dec = 90.0, 30.0 ; source['point_02'] =(ra-0.5,dec-0.5,'point',0,ext(0.0001),1.)
+
+#ra,dec = 120.0, 30.0 ; source['small_03'] =(ra-0.5,dec+0.5,'gauss',1,ext(0.01),1.)
+#ra,dec = 120.0, 30.0 ; source['ppoint_03'] =(ra+0.5,dec+0.5,'pseudopoint',0,ext(0.0001),1.)
+#ra,dec = 120.0, 30.0 ; source['point_03'] =(ra-0.5,dec-0.5,'point',0,ext(0.0001),1.)
+
+#ra,dec = 150.0, 30.0 ; source['small_04'] =(ra-0.5,dec+0.5,'gauss',1,ext(0.01),1.)
+#ra,dec = 150.0, 30.0 ; source['ppoint_04'] =(ra+0.5,dec+0.5,'pseudopoint',0,ext(0.0001),1.)
+#ra,dec = 150.0, 30.0 ; source['point_04'] =(ra-0.5,dec-0.5,'point',0,ext(0.0001),1.)
+
+#ra,dec = 180.0, 30.0 ; source['small_05'] =(ra-0.5,dec+0.5,'gauss',1,ext(0.01),1.)
+#ra,dec = 180.0, 30.0 ; source['ppoint_05'] =(ra+0.5,dec+0.5,'pseudopoint',0,ext(0.0001),1.)
+#ra,dec = 180.0, 30.0 ; source['point_05'] =(ra-0.5,dec-0.5,'point',0,ext(0.0001),1.)
+
+name,ra,dec,srctype,npar,init,fit = source_description_lists(source)
+
+Data.files = [
+r'/u/gl/markusa/ki-disk/data/pointlike/adam_gaussian_src_events_0000.fits']
+#r'/u/gl/markusa/ki-disk/data/pointlike/extragalactic/egal_LAT_allsky_1year.000_V01.fits'
+#]
+
+Diffuse.exposure = 1.
+Diffuse.file='/u/gl/markusa/ki-disk/data/pointlike/uniform_background.fits.gz'
+
+
 SourceLikelihood.UseMinuit=1
-outfile="sources.fits"
+SourceLikelihood.UseSimplex=1
+SourceLikelihood.UseMinos=0
+SourceLikelihood.UseGradient=1
+
+SourceLikelihood.umax=100.
+SourceLikelihood.minalpha=0.
+
+SourceLikelihood.emin=500
+SourceLikelihood.gammaFront=[ 1.785, 1.874, 1.981, 2.003, 2.225, 2.619, 2.527, 2.134, 1.827 ]
+SourceLikelihood.sigmaFront=[ 1.77e+00, 1.06e+00, 5.69e-01, 2.85e-01, 1.54e-01, 9.16e-02, 5.15e-02, 2.52e-02, 1.55e-04]
+SourceLikelihood.sigmaFront=[x*pi/180. for x in SourceLikelihood.sigmaFront]
+SourceLikelihood.gammaBack =[2., 1.737, 1.742, 1.911, 2.008, 2.009, 2.207, 1.939]
+SourceLikelihood.sigmaBack =[4., 2.18e+00, 1.17e+00, 6.00e-01, 3.09e-01, 1.61e-01, 8.43e-02, 3.90e-02 ]
+SourceLikelihood.sigmaBack=[x*pi/180. for x in SourceLikelihood.sigmaBack]
+
+
+outfile="gaussian_fit_results_bins_per_decade.fits"
+bgROI  = 0.001 # rad
 
 Data.output_pixelfile="test.fits"
 

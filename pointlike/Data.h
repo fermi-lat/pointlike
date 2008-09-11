@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.30 2008/07/28 21:47:24 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.31 2008/08/07 05:12:50 burnett Exp $
 */
 
 
@@ -86,6 +86,7 @@ public:
 
     //! same as above, for python use
     const skymaps::BinnedPhotonData& map()const{return *m_data;}
+    skymaps::BinnedPhotonData& map() {return *m_data;}
 
 
     ~Data();
