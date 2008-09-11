@@ -1,7 +1,7 @@
 /** @file DrawTS.h 
 @brief declaration of the DrawTS wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DrawTS.h,v 1.4 2008/05/28 21:39:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/DrawTS.h,v 1.1 2008/06/18 01:19:23 funk Exp $
 */
 
 
@@ -23,7 +23,7 @@ namespace pointlike {
   public:
     
     
-    DrawTS(const skymaps::BinnedPhotonData& map, 	   
+    DrawTS(skymaps::BinnedPhotonData& map, 	   
 	   const skymaps::SkySpectrum& background);
   
     //! create FITS image file using the data
@@ -42,7 +42,7 @@ namespace pointlike {
     void projection(std::string p){m_proj = p;} ///< set the projection
     
   private:
-    const skymaps::BinnedPhotonData& m_map;
+    skymaps::BinnedPhotonData& m_map;
     const skymaps::SkySpectrum& m_background;
     bool m_galactic;    ///< galactic or equatorial
     std::string m_proj; ///< projection (CAR, AIT, etc.)

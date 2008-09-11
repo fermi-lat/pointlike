@@ -14,9 +14,9 @@ ResultsFile::ResultsFile (const std::string& filename,const Data& datafile,int n
          emin.push_back((*SpecIt).emin());
          emax.push_back((*SpecIt).emax());
 	}; 
-
        if (emin.size()<2) throw std::runtime_error("Cannot fit spectrum with only 1 energy bin.");
        levels=datafile.map().size();
+       eratio=emax[0]/emin[0];      
 
       std::stringstream efmtstream;	efmtstream<<levels<<"E";  std::string efmt=efmtstream.str();
       std::stringstream jfmtstream;	jfmtstream<<levels<<"J";  std::string jfmt=jfmtstream.str();
@@ -36,6 +36,9 @@ ResultsFile::ResultsFile (const std::string& filename,const Data& datafile,int n
       srcTab->appendField("B", "1E");
       srcTab->appendField("SIGMAX", "1E");
       srcTab->appendField("SIGMAY", "1E");
+      srcTab->appendField("R0", "1E");
+      srcTab->appendField("ERR_R0", "1E");
+      srcTab->appendField("SUMTS", "1E");
       srcTab->appendField("SRCPAR", "5E");
       srcTab->appendField("ERR_SRCP", "5E");
       srcTab->appendField("EMIN", efmt);
@@ -47,6 +50,8 @@ ResultsFile::ResultsFile (const std::string& filename,const Data& datafile,int n
       srcTab->appendField("ERR_NSIG", efmt);
       srcTab->appendField("TS", efmt);
       srcTab->appendField("BG", efmt);
+      srcTab->appendField("GAMMA", efmt);
+      srcTab->appendField("SIGMA", efmt);
       srcTab->setNumRecords(nsources);
       srcHeader["EMIN"].set(emin[0]); 
       srcHeader["ERATIO"].set(eratio); 
@@ -71,10 +76,12 @@ void ResultsFile::fill(SourceLikelihood& like){
       (*srcTabItor)["B"].set(like.dir().b());
       (*srcTabItor)["SIGMAX"].set(like.errorX());
       (*srcTabItor)["SIGMAY"].set(like.errorY());
-       (*srcTabItor)["EMIN"].set(emin);
-       (*srcTabItor)["EMAX"].set(emax);
+      (*srcTabItor)["EMIN"].set(emin);
+      (*srcTabItor)["EMAX"].set(emax);
       (*srcTabItor)["SRCPAR"].set(like.sourceParameters());
       (*srcTabItor)["ERR_SRCP"].set(like.sourceParErrors());
+      (*srcTabItor)["R0"].set(like.sourceParameters()[0]);
+      (*srcTabItor)["ERR_R0"].set(like.sourceParErrors()[0]);
 
        std::vector<double> alpha(levels,0);
        std::vector<double> erra(levels,0);
@@ -83,8 +90,11 @@ void ResultsFile::fill(SourceLikelihood& like){
        std::vector<double> errns(levels,0);
        std::vector<double> ts(levels,0);
        std::vector<double> bg(levels,0);
+       std::vector<double> sigma(levels,0);
+       std::vector<double> gamma(levels,0);
 
        int i=0;
+       double sumTS=0.;
        for( SourceLikelihood::const_iterator it = like.begin(); it!=like.end() && i<levels; ++it,++i){
             ExtendedLikelihood& levellike = **it;
 	    while (emin[i]<levellike.band().emin()) i++;
@@ -97,8 +107,12 @@ void ResultsFile::fill(SourceLikelihood& like){
  	   errns[i] = levellike.photons()*a.second/levellike.psfIntegral();
  	   ts[i] = levellike.TS();
  	   bg[i] = levellike.average_b();
+ 	   gamma[i] = levellike.gamma();
+ 	   sigma[i] = levellike.sigma();
+	   sumTS+=ts[i];
        };
 
+      (*srcTabItor)["SUMTS"].set(sumTS);
       (*srcTabItor)["ALPHA"].set(alpha);
       (*srcTabItor)["ERR_ALPHA"].set(erra);
       (*srcTabItor)["NPHOTON"].set(nphoton);
@@ -106,6 +120,8 @@ void ResultsFile::fill(SourceLikelihood& like){
       (*srcTabItor)["ERR_NSIG"].set(errns);
       (*srcTabItor)["TS"].set(ts);
       (*srcTabItor)["BG"].set(bg);
+      (*srcTabItor)["GAMMA"].set(gamma);
+      (*srcTabItor)["SIGMA"].set(sigma);
        srcTabItor++;
  };
 

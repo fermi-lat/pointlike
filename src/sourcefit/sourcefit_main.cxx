@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/sourcefit/sourcefit_main.cxx,v 1.3 2008/06/27 05:59:26 markusa Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/sourcefit/sourcefit_main.cxx,v 1.4 2008/08/07 05:12:50 burnett Exp $
 
 */
 #include "pointlike/SourceLikelihood.h"
@@ -43,6 +43,8 @@ int main(int argc, char** argv)
     if( argc>1) python_path = argv[1];
     if( argc>2) setup_file = argv[2];
     
+    std::cout<<"Parsing configuration script."<<std::endl;
+
     Module setup(python_path , setup_file,  argc, argv);
     std::string outfile;
     setup.getValue("outfile",  outfile, "");
@@ -69,16 +71,13 @@ int main(int argc, char** argv)
     setup.getList("init", initvals);
     setup.getList("fit", dofits);
     setup.getValue("bgROI", bgROI);
-    
+
     // flag, to designate first candidate as a central value
     int first_is_center(0);
     setup.getValue("first_is_center", first_is_center, 0);
     
-    // flag, if present, to run sigma/gamma fitter
-    int check_sigma(0);
-    setup.getValue("check_sigma", check_sigma, check_sigma);
-    setup.getValue("fitPSF", check_sigma, check_sigma);
-    
+    std::cout<<"Read configuration script."<<std::endl;
+       
     // use the  Data class to create the PhotonData object
     Data healpixdata(setup);
     
@@ -111,7 +110,7 @@ int main(int argc, char** argv)
       //	    for(int i=0;i<npar;i++) std::cout<<srcpar[i]<<std::endl;
       
       // fit the point: create the fitting object
-      SourceLikelihood* plike =new SourceLikelihood(healpixdata, name, dir, type, srcpar);
+      SourceLikelihood* plike =new SourceLikelihood(healpixdata.map(), name, dir, type, srcpar);
       bg_likelihoods.push_back(plike);
       if (dofit>0) likelihoods.push_back(plike);
     }
@@ -133,7 +132,7 @@ int main(int argc, char** argv)
       like.maximize(); 
       // now localize it, return error circle radius
 
-      double sigma =like.localize();
+      double sigma =like.fit();
       
       // add entry to table with name, total TS, localizatino sigma, fit direction
       (*out) << std::left << std::setw(20) << like.name() 
@@ -155,22 +154,6 @@ int main(int argc, char** argv)
       directions.push_back(like.dir());
     }
 
-    if( check_sigma){
-#ifdef OLD
-      int minlevel(6), maxlevel(13);
-      ParamOptimization so(healpixdata,directions,out,minlevel,maxlevel);
-      
-#if 0
-      so.compute(ParamOptimization::SIGMA);
-      so.compute(ParamOptimization::GAMMA);
-#else
-      so.compute();
-#endif
-      
-#endif
-
-    }
-	
    if(results) results->writeAndClose();
 
 

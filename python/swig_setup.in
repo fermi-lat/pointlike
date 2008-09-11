@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.23 2008/08/07 05:12:50 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.24 2008/08/28 22:44:01 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -30,7 +30,7 @@
 #include "skymaps/BinnedPhotonData.h"
 #include "skymaps/PhotonBinner.h"
 #include "skymaps/Band.h"
-#include "skymaps/IParams.h"
+//#include "skymaps/IParams.h"
 
 #include "embed_python/Module.h"
 
@@ -200,7 +200,7 @@ public:
 %include $(SKYMAPSROOT)/skymaps/BinnedPhotonData.h
 %include $(SKYMAPSROOT)/skymaps/Band.h
 %template(SkySpectrumVector) std::vector<skymaps::SkySpectrum*>; 
-%include $(SKYMAPSROOT)/skymaps/IParams.h
+//%include $(SKYMAPSROOT)/skymaps/IParams.h
 
 
 

@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.2 2008/06/27 05:59:25 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.3 2008/07/29 00:01:40 markusa Exp $
 */
 
 #ifndef tools_SourceLikelihood_h
@@ -11,12 +11,9 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1
 #include "skymaps/SkySpectrum.h"
 
 #include "astro/SkyDir.h"
-#ifdef OLD
-#include "healpix/HealPixel.h"
-#else
 #include "skymaps/Band.h"
 #include "skymaps/BinnedPhotonData.h"
-#endif
+
 #include <iostream>
 #include <map>
 #include <vector>
@@ -48,7 +45,7 @@ namespace pointlike {
 	@param name   source name for printout
 	@param dir    initial direction
     */
-    SourceLikelihood(const skymaps::BinnedPhotonData& data,
+    SourceLikelihood(skymaps::BinnedPhotonData& data,
 		     std::string name,
 		     const astro::SkyDir& dir,
 		     const std::string type="point",
@@ -79,14 +76,13 @@ namespace pointlike {
     /// @brief perform localization fit, maximizing joint likelihood
     /// @param skip [0] number of bands to skip
     /// @return error circle radius (deg) or large number corresponding to error condition
-    double localizeMinuit(int skip);
-    double localizeMinpack(int skip);
+    double localizeMinuit();
 
-    /// @brief invoke localize with skip values from skip1 to skip 2 or until good fit
-    double localize(int skip1, int skip2);
+    /// @brief invoke localize until good fit
+    double localize();
 
     /// @brief localate with iteration to refit the levels, using parameters set in ctor
-    double localize();
+    double fit();
 
     std::string name()const{return m_name;}
 
@@ -128,10 +124,6 @@ namespace pointlike {
     double errorX() const {return m_errorX;};
     double errorY() const {return m_errorY;};
     
-    //     static double set_gamma_level(int level, double v);
-    
-    //     static double set_sigma_level(int level, double v);
-    
     ///! Set the global diffuse background function, return current value 
     static  skymaps::SkySpectrum* set_diffuse( skymaps::SkySpectrum* diffuse, 
 					       double exposure = 1.0);
@@ -141,9 +133,6 @@ namespace pointlike {
     
     ///! remove all such
     void clearBackgroundPointSource();
-    
-//     ///! @brief recalculate likelihoods using any static changes made to parameters
-//     void recalc(int level);
 
     int& useMinuit(){ return s_useMinuit;};
     int  useMinuit() const { return s_useMinuit;};
@@ -151,14 +140,6 @@ namespace pointlike {
     ///! access to background model 
     const skymaps::SkySpectrum * background()const;
 
-//     /// @brief get the starting, ending levels used
-//     static int minlevel();
-//     static int maxlevel();
-//     static void set_levels(int minlevel, int maxlevel=13);
-
-    void setMinuitLevelSkip(int skip){s_minuitLevelSkip=skip;};
-    int  minuitLevelsToSkip() const {return s_minuitLevelSkip;};
-    
     /// @brief set the integration tolerance for the background, return present value
     static double set_tolerance(double tol);
     
@@ -174,7 +155,7 @@ namespace pointlike {
     std::vector<double> energyList() const;
 
   private:
-    void setup(const skymaps::BinnedPhotonData& data);
+    void setup(skymaps::BinnedPhotonData& data);
     std::string m_name;
     astro::SkyDir m_dir; ///< common direction
     double m_dir_sigma;  ///< error circle from fit (radians)
@@ -197,12 +178,16 @@ namespace pointlike {
     skymaps::CompositeSkySpectrum * m_background;  ///< background spectrum to use
     
     static double s_emin, s_emax, s_minalpha, s_TSmin, s_tolerance, 
-      s_maxstep; //
+      s_maxstep,s_accuracy; //
     static int s_useMinuit;
-    static int s_simplex;
-    static int s_minuitLevelSkip;
-    static int s_skip1, s_skip2, s_itermax, s_verbose;
-    
+    static int s_useSimplex;
+    static int s_itermax, s_verbose;
+    static int s_useMinos;
+    static int s_useGradient;
+    static std::vector<double> s_gamma_front; 
+    static std::vector<double> s_sigma_front; 
+    static std::vector<double> s_gamma_back; 
+    static std::vector<double> s_sigma_back; 
   };
   
     /** @class SLdisplay

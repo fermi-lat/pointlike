@@ -1,7 +1,7 @@
 /** @file Draw.cxx
     @brief implementation of Draw
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DrawTS.cxx,v 1.1 2008/06/18 01:19:23 funk Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/DrawTS.cxx,v 1.2 2008/06/28 06:17:25 mar0 Exp $
 
 */
 
@@ -20,7 +20,7 @@ using astro::SkyDir;
 using skymaps::BinnedPhotonData;
 using skymaps::SkyImage;
 
-DrawTS::DrawTS(const BinnedPhotonData& map,
+DrawTS::DrawTS(BinnedPhotonData& map,
 	       const skymaps::SkySpectrum& background): 
   m_map(map),
   m_background(background),
@@ -65,7 +65,7 @@ void DrawTS::region(const astro::SkyDir& dir, std::string outputFile,
 
   class SkyTS: public astro::SkyFunction {
   public:
-    SkyTS(const skymaps::BinnedPhotonData& data, int level, 
+    SkyTS(skymaps::BinnedPhotonData& data, int level, 
 	  const skymaps::SkySpectrum& background):
       m_data(data), m_level(level), m_background(background){}
 
@@ -85,7 +85,7 @@ void DrawTS::region(const astro::SkyDir& dir, std::string outputFile,
       //return -1;
     }
   private:
-    const skymaps::BinnedPhotonData& m_data;
+    skymaps::BinnedPhotonData& m_data;
     int m_level;
     const skymaps::SkySpectrum& m_background;
   };
