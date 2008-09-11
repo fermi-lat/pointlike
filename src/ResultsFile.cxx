@@ -50,6 +50,9 @@ ResultsFile::ResultsFile (const std::string& filename,const Data& datafile,int n
       srcTab->appendField("ERR_NSIG", efmt);
       srcTab->appendField("TS", efmt);
       srcTab->appendField("BG", efmt);
+      srcTab->appendField("MINOS_PARABOLIC","7E");
+      srcTab->appendField("MINOS_PLUS","7E");
+      srcTab->appendField("MINOS_MINUS","7E");
       srcTab->appendField("GAMMA", efmt);
       srcTab->appendField("SIGMA", efmt);
       srcTab->setNumRecords(nsources);
@@ -82,6 +85,11 @@ void ResultsFile::fill(SourceLikelihood& like){
       (*srcTabItor)["ERR_SRCP"].set(like.sourceParErrors());
       (*srcTabItor)["R0"].set(like.sourceParameters()[0]);
       (*srcTabItor)["ERR_R0"].set(like.sourceParErrors()[0]);
+ 
+       std::map< std::string, std::vector<double> > minosErrors=like.errorsMINOS();
+      (*srcTabItor)["MINOS_PARABOLIC"].set(minosErrors["parabolic"]);
+      (*srcTabItor)["MINOS_PLUS"].set(minosErrors["plus"]);
+      (*srcTabItor)["MINOS_MINUS"].set(minosErrors["minus"]);
 
        std::vector<double> alpha(levels,0);
        std::vector<double> erra(levels,0);

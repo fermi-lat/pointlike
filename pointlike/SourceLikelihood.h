@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.3 2008/07/29 00:01:40 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.4 2008/09/11 06:40:13 markusa Exp $
 */
 
 #ifndef tools_SourceLikelihood_h
@@ -62,12 +62,6 @@ namespace pointlike {
     void setDir(const astro::SkyDir& dir, const std::vector<double>& srcparam, 
 		bool subset=false);
 
-    /// @return the gradient, summed over all bands
-    const CLHEP::Hep3Vector& ps_gradient() const;
-
-    ///@return the curvature, summed over all bands
-    double ps_curvature() const;
-
     const std::vector<double> gradient() const;
 
     /// @brief 
@@ -92,13 +86,13 @@ namespace pointlike {
     
     double logL(){ return m_loglike;}
 
-    double errorCircle()const{return  sqrt(1./ps_curvature())*180/M_PI;}
-
     void set_ostream(std::ostream& out){m_out=&out;}
 
-    static void set_verbose(bool verbosity=true); //{s_verbose=verbosity;}
+   ///@static get/set functions for SourceLikelihood parameters to be used in the python interface 
+    ///@param e energy in MeV
 
-    static bool verbose(); //{return s_verbose;}
+    static void setVerbose(bool verbosity=true) {s_verbose=verbosity;};
+    static bool verbose() {return s_verbose;};
 
     ///! implement the SkyFunction interface
     ///@brief return differential value 
@@ -112,10 +106,51 @@ namespace pointlike {
     static void SourceLikelihood::setParameters(const embed_python::Module& par);
     
     /// @brief set radius for individual fits
-    static void setDefaultUmax(double umax);
+    static void setDefaultUmax(double umax){pointlike::ExtendedLikelihood::setDefaultUmax(umax); };
+    static double defaultUmax(double umax) { return pointlike::ExtendedLikelihood::defaultUmax(); };
+
+    /// @brief set the integration tolerance for the background, return present value
+    static void setTolerance(double tol){  pointlike::ExtendedLikelihood::setTolerance(tol);};
+    static double tolerance()   { return pointlike::ExtendedLikelihood::tolerance();};
+
+    static void setDefaultRoI(double roi){  pointlike::ExtendedLikelihood::setDefaultRoI(roi);};
+    static double defaultRoI()  { return pointlike::ExtendedLikelihood::defaultRoI();};
     
-    //     /// @brief access to the sigma (radians) used for the individual ExtendedLikelihood objects
-    //     double sigma(int level)const;
+    /// @brief set the range of energy to fit
+    static void setEnergyRange(double emin,double emax=1e6){ s_emin=emin; s_emax=emax;};
+    static void set_energy_range(double emin, double emax=1e6) {s_emin=emin; s_emax=emax;};///compatibility function
+    static double emin() { return s_emin;};
+    static double emax() { return s_emax;};
+
+    /// @brief set minimum alpha
+    static void setMinAlpha(double alpha){ s_minalpha=alpha; };
+    static double minAlpha() { return s_minalpha; };
+
+    /// @brief set minimum TS
+    static void setMinTS(double ts){ s_TSmin=ts; };
+    static double minTS() { return s_TSmin; };
+
+    /// @brief set fit accuracy
+    static void setFitAccuracy(double acc){ s_accuracy=acc; };
+    static double fitAccuracy() { return s_accuracy; };
+
+    /// @brief set minuit mode to be used by vector of strings: 
+    /// @param modes can be (MIGRAD|SIMPLEX),(MINOS|HESSE),(GRAD,NOGRAD)
+    static void setMinuitMode(const std::vector<std::string> modeVec);
+    static std::vector<std::string> minuitMode() ;
+
+    /// @brief set gamma parameter of psf for energy bins
+    /// @param selection: 'front' or 'back'
+    /// @param gamma: vector with gamma constants 
+    static void setGamma(const std::string selection,const std::vector<double> gamma);
+    static std::vector<double> gamma(const std::string selection) ;
+
+    /// @brief set sigma parameter of psf for energy bins
+    /// @param selection: 'front' or 'back'
+    /// @param sigma vector with gamma constants 
+    static void setSigma(const std::string selection,const std::vector<double> gamma);
+    static std::vector<double> sigma(const std::string selection) ;
+
 
     std::string type()const {return m_type;};
     
@@ -123,6 +158,9 @@ namespace pointlike {
     std::vector<double> sourceParErrors() const   { return m_sourceParErrors; };
     double errorX() const {return m_errorX;};
     double errorY() const {return m_errorY;};
+    std::map< std::string,std::vector<double> > errorsMINOS() const ;
+
+
     
     ///! Set the global diffuse background function, return current value 
     static  skymaps::SkySpectrum* set_diffuse( skymaps::SkySpectrum* diffuse, 
@@ -134,18 +172,9 @@ namespace pointlike {
     ///! remove all such
     void clearBackgroundPointSource();
 
-    int& useMinuit(){ return s_useMinuit;};
-    int  useMinuit() const { return s_useMinuit;};
-
     ///! access to background model 
     const skymaps::SkySpectrum * background()const;
 
-    /// @brief set the integration tolerance for the background, return present value
-    static double set_tolerance(double tol);
-    
-    /// @brief set the range of energy to fit
-    static void set_energy_range(double emin, double emax=1e6);
-    
     /// @brief special display function
     /// @param dir direction
     /// @param energy selects energy band
@@ -158,7 +187,6 @@ namespace pointlike {
     void setup(skymaps::BinnedPhotonData& data);
     std::string m_name;
     astro::SkyDir m_dir; ///< common direction
-    double m_dir_sigma;  ///< error circle from fit (radians)
     double m_loglike;    ///< total loglike
     double m_TS;         ///< total TS value
 
@@ -166,6 +194,11 @@ namespace pointlike {
     unsigned int m_npar;
     std::vector<double> m_sourceParameters;
     std::vector<double> m_sourceParErrors;
+    std::vector<double> m_errMINOSParabolic;
+    std::vector<double> m_errMINOSPlus;
+    std::vector<double> m_errMINOSMinus;
+    std::vector<double> m_errMINOSGlobalCorr;
+    
     double m_errorX;
     double m_errorY;
     

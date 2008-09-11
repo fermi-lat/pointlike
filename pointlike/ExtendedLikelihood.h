@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.h
     @brief declaration of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.1 2008/06/18 01:19:23 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.2 2008/08/06 06:41:42 markusa Exp $
 
 */
 
@@ -69,7 +69,6 @@ namespace pointlike {
     //! @return (signal_fraction, error)
     std::pair<double,double> maximize();
     std::pair<double,double> maximizeMinuit();
-    std::pair<double,double> maximize(bool newStyle);
     
     int photons()const { return m_photon_count; } ///< number of photons used
     

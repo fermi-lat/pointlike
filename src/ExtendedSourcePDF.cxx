@@ -30,7 +30,7 @@ namespace pointlike{
           m_dHF(m_a+1.,m_b+1.,2.)
          {};   
 
-    inline double extendedSourcePDF::value(double u) const { 
+    double extendedSourcePDF::value(double u) const { 
           double error=0, result=0.;
 	  int    ierr=-1;
 	  m_u = u;
@@ -44,7 +44,7 @@ namespace pointlike{
 	  return result;
        };
        
-     inline std::vector<double> extendedSourcePDF::gradient(double u, int npar) const {
+     std::vector<double> extendedSourcePDF::gradient(double u, int npar) const {
           std::vector<double> result(npar+1);
           double error=0.; int    ierr=-1;
 	  m_u = u;
@@ -108,21 +108,21 @@ namespace pointlike{
      };
      
  
-    inline double extendedSourcePDF::operator() (double v) const {
+    double extendedSourcePDF::operator() (double v) const {
           return m_source(v)*gpdf(v);
     };
 
-    inline double extendedSourcePDF::gpdf(double v) const {
+    double extendedSourcePDF::gpdf(double v) const {
 	  double uvg=m_gamma+m_u+v;
           return m_prefactor*pow(uvg/m_gamma,-m_gamma)*m_hF(4*m_u*v/(uvg*uvg));
        };
 
-//    inline double extendedSourcePDF::uvgpdf(double x) const {
+//     double extendedSourcePDF::uvgpdf(double x) const {
 //	  return m_prefactor*m_gamma_pow_gamma*pow(x,m_gamma-2.)*hypergeometric2F1(m_a,m_b,1.,4*m_u*x*(1.-x*(m_u+m_gamma)));
 //       };
 
 
-    inline double extendedSourcePDF::du_gpdf(double v) const {
+    double extendedSourcePDF::du_gpdf(double v) const {
 	  double uvg = m_gamma+m_u+v;
 	  double x   = 4*m_u*v/(uvg*uvg) ; 
 	  double p0  = pow(uvg/m_gamma,-m_gamma) / (uvg*uvg*uvg) ;

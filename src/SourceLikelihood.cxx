@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.7 2008/08/08 01:03:45 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.8 2008/09/11 06:40:22 markusa Exp $
 
 */
 
@@ -121,15 +121,6 @@ double                SourceLikelihood::s_accuracy(0.0001);
 //////// Static methods of SourceLikelihood //////////
 //////////////////////////////////////////////////////
 
-// manage energy range for selection of bands to fit 
-
-void SourceLikelihood::set_energy_range(double emin, double emax){
-  s_emin = emin; s_emax=emax;
-}
-
-// verbosity level
-void SourceLikelihood::set_verbose(bool verbosity){s_verbose=verbosity;}
-bool SourceLikelihood::verbose(){return s_verbose;}
 
 // set parameters for source likelihood
 
@@ -203,6 +194,10 @@ SourceLikelihood::SourceLikelihood(skymaps::BinnedPhotonData& data,
   , m_npar(src_param.size())
   , m_sourceParameters(src_param)
   , m_sourceParErrors(src_param.size(),0)
+  , m_errMINOSParabolic(src_param.size()+2,0)
+  , m_errMINOSPlus(src_param.size()+2,0)
+  , m_errMINOSMinus(src_param.size()+2,0)
+  , m_errMINOSGlobalCorr(src_param.size()+2,0)  
   , m_out(&std::cout)
   , m_background(0){
   
@@ -576,7 +571,11 @@ double pointlike::SourceLikelihood::localizeMinuit()
   if(s_useMinos){
     nargs = 0;
     gMinuit.mnexcm("MINOS", arglist, nargs, ierflag);
-  }  
+    for (int i=0;i<npar;i++){
+       gMinuit.mnerrs(i,m_errMINOSPlus[i],m_errMINOSMinus[i],m_errMINOSParabolic[i], m_errMINOSGlobalCorr[i]);
+    };
+  }
+    
   
   double x = 0;
   double y = 0;
@@ -630,6 +629,20 @@ double pointlike::SourceLikelihood::fit()
   }
   return sig;
 }
+
+/////////////////////////////////////////////////////////////
+/////  likelihood: return minos errors as a map
+//////////////////////////////////////////////////////////
+
+
+std::map< std::string,std::vector<double> > pointlike::SourceLikelihood::errorsMINOS() const {
+    std::map< std::string,std::vector<double> > result;
+    result["parabolic"] =m_errMINOSParabolic;
+    result["plus"]      =m_errMINOSPlus;
+    result["minus"]     =m_errMINOSMinus;
+    result["globalCorr"]=m_errMINOSGlobalCorr;
+    return result;
+};
 
 
 /////////////////////////////////////////////////////////////
@@ -714,19 +727,56 @@ const skymaps::SkySpectrum * pointlike::SourceLikelihood::background()const
     return m_background;
 }
 
-/// @brief set radius for individual fits
-void pointlike::SourceLikelihood::setDefaultUmax(double umax)
-{ 
-  pointlike::ExtendedLikelihood::setDefaultUmax(umax); 
+
+void pointlike::SourceLikelihood::setMinuitMode(const std::vector<std::string> modeVec){
+   std::vector<std::string>::const_iterator it=modeVec.begin();
+   for(;it!=modeVec.end();it++){
+      const std::string& mode=(*it);
+      if(mode=="migrad")       s_useSimplex=0; 
+      else if(mode=="simplex") s_useSimplex=1; 
+      else if(mode=="grad")  s_useGradient=1; 
+      else if(mode=="nograd") s_useGradient=0; 
+      else if(mode=="minos") s_useMinos=1; 
+      else if(mode=="hesse") s_useMinos=0; 
+      else throw std::runtime_error("Unknown keyword in setMinuitMode.");   
+   }; 
 }
 
+std::vector<std::string> pointlike::SourceLikelihood::minuitMode(){
+   std::vector<std::string> modeVec;
+   if(s_useSimplex) modeVec.push_back("simplex");
+   else modeVec.push_back("migrad");
+   if(s_useGradient) modeVec.push_back("grad");
+   else modeVec.push_back("nograd");
+   if(s_useMinos) modeVec.push_back("minos");
+   else modeVec.push_back("hesse");
+   return modeVec;
+};
 
-double pointlike::SourceLikelihood::set_tolerance(double tol)
-{
-  double old(pointlike::ExtendedLikelihood::tolerance());
-  pointlike::ExtendedLikelihood::setTolerance(tol);
-  return old;
-}
+void  pointlike::SourceLikelihood::setGamma(const std::string selection,const std::vector<double> gamma){
+  if(selection=="front") s_gamma_front=gamma;
+  else if(selection=="back") s_gamma_back=gamma;
+  else throw std::runtime_error("Unknown selection keyword in setGamma.");   
+};
+
+std::vector<double>  pointlike::SourceLikelihood::gamma(const std::string selection) {
+  if(selection=="front") return s_gamma_front;
+  if(selection=="back") return s_gamma_back;
+  throw std::runtime_error("Unknown selection keyword in setGamma.");   
+};
+
+void pointlike::SourceLikelihood::setSigma(const std::string selection,const std::vector<double> sigma){
+  if(selection=="front") s_sigma_front=sigma;
+  else if(selection=="back") s_sigma_back=sigma;
+  else throw std::runtime_error("Unknown selection keyword in setSigma.");   
+};
+
+std::vector<double> pointlike::SourceLikelihood::sigma(const std::string selection){
+  if(selection=="front") return s_sigma_front;
+  if(selection=="back") return s_sigma_back;
+  throw std::runtime_error("Unknown selection keyword in setSigma.");   
+};
+
 
 
 //=======================================================================
