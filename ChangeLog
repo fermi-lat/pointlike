@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: markusa  Thu Sep 11 16:58:18 PDT 2008
+pointlike/python
+
+Modified Files:
+	sourcefit_setup.py swig_setup.in 
+Log Message:
+SourceLikelihood made python callable
+
+
+
+    *
+------------------------------------------------------------
 User: markusa  Thu Sep 11 16:58:10 PDT 2008
 pointlike/pointlike
 
