@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.26 2008/09/11 06:45:30 markusa Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.27 2008/09/11 06:50:54 markusa Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -36,8 +36,12 @@
 
 #include "pointlike/PointSourceLikelihood.h"
 #include "pointlike/SimpleLikelihood.h"
+#include "pointlike/SourceLikelihood.h"
+#include "pointlike/ExtendedLikelihood.h"
+#include "pointlike/ExtendedSourcePDF.h"
 #include "pointlike/SourceFinder.h"
 #include "pointlike/Data.h"
+#include "pointlike/ResultsFile.h"
 #include "pointlike/Draw.h"
 #include "pointlike/DrawTS.h"
 #include "pointlike/SourceList.h"
@@ -206,7 +210,11 @@ public:
 
 %include $(POINTLIKEROOT)/pointlike/SimpleLikelihood.h
 %include $(POINTLIKEROOT)/pointlike/PointSourceLikelihood.h
+%include $(POINTLIKEROOT)/pointlike/ExtendedLikelihood.h
+%include $(POINTLIKEROOT)/pointlike/SourceLikelihood.h
+%include $(POINTLIKEROOT)/pointlike/ExtendedSourcePDF.h
 %include $(POINTLIKEROOT)/pointlike/Data.h
+%include $(POINTLIKEROOT)/pointlike/ResultsFile.h
 %include $(POINTLIKEROOT)/pointlike/SourceFinder.h
 %include $(POINTLIKEROOT)/pointlike/Draw.h
 %include $(POINTLIKEROOT)/pointlike/SimpleTSmap.h

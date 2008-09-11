@@ -1,5 +1,5 @@
 #  setup for point fit test
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit_setup.py,v 1.8 2008/01/25 22:36:11 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/sourcefit_setup.py,v 1.2 2008/09/11 06:40:21 markusa Exp $
 from  pointlike_defaults import *
 from math import sin,asin,cos,atan2,pi
 
@@ -80,8 +80,8 @@ Diffuse.file='/u/gl/markusa/ki-disk/data/pointlike/uniform_background.fits.gz'
 
 
 SourceLikelihood.UseMinuit=1
-SourceLikelihood.UseSimplex=1
-SourceLikelihood.UseMinos=0
+SourceLikelihood.UseSimplex=0
+SourceLikelihood.UseMinos=1
 SourceLikelihood.UseGradient=1
 
 SourceLikelihood.umax=100.
