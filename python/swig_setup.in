@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.25 2008/09/11 06:40:22 markusa Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.26 2008/09/11 06:45:30 markusa Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -30,7 +30,7 @@
 #include "skymaps/BinnedPhotonData.h"
 #include "skymaps/PhotonBinner.h"
 #include "skymaps/Band.h"
-//#include "skymaps/IParams.h"
+#include "skymaps/IParams.h"
 
 #include "embed_python/Module.h"
 
@@ -139,7 +139,7 @@ public:
 
 //%template(IntPair) std::pair<int,int>;
 //%template(IntPairVector) std::vector<std::pair<int,int> >;
-%template(WeightedSkyDirVector) std::vector<skymaps::WeightedSkyDir>;
+//%template(WeightedSkyDirVector) std::vector<skymaps::WeightedSkyDir>;
 
 %extend pointlike::PointSourceLikelihood{
    pointlike::SimpleLikelihood * __getitem__(size_t i){ 
@@ -200,7 +200,7 @@ public:
 %include $(SKYMAPSROOT)/skymaps/BinnedPhotonData.h
 %include $(SKYMAPSROOT)/skymaps/Band.h
 %template(SkySpectrumVector) std::vector<skymaps::SkySpectrum*>; 
-//%include $(SKYMAPSROOT)/skymaps/IParams.h
+%include $(SKYMAPSROOT)/skymaps/IParams.h
 
 
 
