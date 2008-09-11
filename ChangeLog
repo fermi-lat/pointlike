@@ -1,4 +1,19 @@
 ------------------------------------------------------------
+User: markusa  Wed Sep 10 23:40:14 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Data.h DrawTS.h ExtendedSourcePDF.h SourceLikelihood.h 
+Log Message:
+cleaned up SourceLikelihood.
+Extended results file.
+Added some switches for minuit.
+Added facility to set gamma,sigma in source likelihood. 
+
+
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-08-00, operation: add
 Package: pointlike
