@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Fri Sep 12 17:11:03 PDT 2008
+pointlike/python
+
+Modified Files:
+	Fitters.py Models.py Response.py SourceLib.py SourcePlot.py 
+	phasetools.py 
+Log Message:
+Haven't updated in a while -- this includes all sorts of changes, but most importantly a fix to the differential spectrum plotting.
+    *
+------------------------------------------------------------
 User: markusa  Thu Sep 11 16:58:20 PDT 2008
 pointlike/src
 
