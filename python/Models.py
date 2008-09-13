@@ -90,19 +90,31 @@ class Model(object):
       ratios=errors/p
       m=max([len(n) for n in self.param_names])
       l=[]
+      try:
+         s = self.systematics
+         sys_flag = True
+         up_sys_errs = self.systematics[:,1]
+         low_sys_errs = self.systematics[:,0]
+         up_sys_errs = (up_sys_errs**2 - errors**2)**0.5
+         low_sys_errs = (low_sys_errs*2 - errors**2)**0.5
+      except:
+         sys_flag = False         
       for i in xrange(len(self.param_names)):
          n=self.param_names[i][:m]
          t_n=n+(m-len(n))*' '
-         l+=[t_n+': (1 +/- %.3f) %.3g'%(ratios[i],p[i])]
+         if not sys_flag:
+            l+=[t_n+': (1 +/- %.3f) %.3g'%(ratios[i],p[i])]
+         else:
+            l+=[t_n+': (1 + %.3f - %.3f)(1 +/- %.3f) %.3g'%(up_sys_errs[i],low_sys_errs[i],ratios[i],p[i])]
       return '\n'.join(l)
    def i_flux(self,emin=100,emax=Inf,e_weight=0,cgs=False):
       """Return integrated flux."""
       func = self if e_weight == 0 else lambda e: self(e)*e**e_weight
-      units = 1 if not cgs else (e_weight*1.60218e-6)
+      units = 1.60218e-6**(e_weight-1) if cgs else 1.
       return units*quad(func,emin,emax)[0]
    def copy(self):
       param_string=','.join( ( str(p) for p in self.p ) )
-      return eval(self.name+'(parameters=('+param_string+'))')
+      return eval(self.name+'(**self.__dict__)')
 
 
 #-----------------------------------------------------------------------------------------------#

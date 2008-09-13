@@ -3,6 +3,7 @@ import math as M
 import pointlike as pl
 from Models import *
 from Fitters import *
+from scipy.stats import norm
 
 
 #-----------------------------------------------------------------------------------------------#
@@ -12,44 +13,98 @@ from Fitters import *
 class ExposureMap:
    """Create object wrapping an all-sky exposure map."""
    
-   def __init__(self,emap_file=None,emap_file2=None,const_val=3e10, ltfrac= 1.):
+   def __init__(self,front_emap_file=None,back_emap_file=None,**kwargs):
       """Manage front/back exposure."""
       
-      self.const_fe,self.const_be,self.fe,self.be,self.const_val,self.ltfrac=True,True,None,None,const_val,ltfrac
-      if emap_file is not None:
-         try:
-            self.fedf = pl.DiffuseFunction(emap_file)
-            self.fe = pl.CompositeSkySpectrum(self.fedf,ltfrac)
-            #self.fe=pl.DiffuseFunction(emap_file)
-            self.const_fe=False
-         except: print 'Could not read file %s'%(emap_file)
-      if emap_file2 is not None:
-         try:
-            self.bedf = pl.DiffuseFunction(emap_file2)
-            self.be = pl.CompositeSkySpectrum(self.bedf,ltfrac)
-            self.const_be=False
-         except: print 'Could not read file %s'%(emap_file2)         
+      self.__defaults__()
+      self.__dict__.update(**kwargs)
+
+      try:
+         self.fe = pl.DiffuseFunction(front_emap_file)
+         self.front_func = self.fe.value
+      except: print 'Could not read file %s, using constant exposure!'%(front_emap_file)
+
+      try:
+         self.be = pl.DiffuseFunction(back_emap_file)
+         self.back_func = self.be.value
+      except: print 'Could not read file %s, using constant exposure!'%(back_emap_file)
+
+   def __defaults__(self):
+      self.front_const_val = self.back_const_val = 1.5e10
+      self.ltfrac = 1.
+      self.front_func,self.back_func = self.const_front_ex,self.const_back_ex
 
    def __call__(self, dir, energies, event_class=-1):
       """Return exposure for primary (all) events or for front/back independently, at given direction."""
-      f=self.const_ex if self.const_fe else self.fe.value
-      b=self.const_ex if self.const_be else self.be.value
-      ltfrac = self.ltfrac
       if event_class==-1: #Return exposure for both front and back
          return N.append(\
-            N.fromiter((f(dir,e) for e in energies),float),\
-            N.fromiter((b(dir,e) for e in energies),float))*ltfrac
+            N.fromiter((self.front_func(dir,e) for e in energies),float),\
+            N.fromiter((self.back_func(dir,e) for e in energies),float))*self.ltfrac
       elif event_class==0: #Return front exposure only
-         return N.fromiter((f(dir,e) for e in energies),float)*ltfrac
+         return N.fromiter((self.front_func(dir,e) for e in energies),float)*self.ltfrac
       else: #Return back exposure
-         return N.fromiter((b(dir,e) for e in energies),float)*ltfrac
+         return N.fromiter((self.back_func(dir,e) for e in energies),float)*self.ltfrac
 
-   def const_ex(self,dir,e):
-      """This could be expanded in the future to allow for constant exposure in space
-         but provided energy dependence."""
-      return self.const_val/2*self.ltfrac
-         
+   def const_front_ex(self,dir,e): return self.front_const_val
+   def const_back_ex(self,dir,e): return self.back_const_val
 
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+
+class ExposureCorrection(object):
+   """Apply an exposure correction to the exposure, and manage systematic errors.  Note
+      that this can handle *any* effect that comes in linearly to the calculation of the
+      expected counts -- effective area, exposure, so on and so forth."""
+
+   def __init__(self,edges,corrections,uncertainties = None):
+      """Edges         -- the left edges of the bands used for the exposure corrections.
+         Corrections   -- the factor by which to scale the previous exposure.
+         Uncertainties -- relative uncertainty in the correction factor/exposure.  This
+                          is equivalent to uncertainty in the exposure if the base is
+                          totally correct, which makes sense to assume.
+                          
+         Note that we're treating bins for both front and back, since that seems to be the
+         scheme for the Aeff validation.  Thank goodness everything is linear.  We'll just
+         apply the same correction to front & back as necessary."""
+
+      self.edges = N.asarray(edges).astype(float)
+      self.corrections = N.asarray(corrections).astype(float)
+      if uncertainties is not None:
+         self.uncertainties = N.asarray(uncertainties).astype(float)
+      else: self.uncertainties = uncertainties
+     
+
+   def __call__(self,energies,random=False,event_class = -1):
+      """Return interpolated correction factors.  If random is set to True, return a
+         random realization of the correction factors determined by self.uncertainties."""
+      
+      edges,corrections,uncertainties = self.edges,self.corrections,self.uncertainties
+      if random and uncertainties is not None:
+         multi = 1 + N.array([norm.rvs(0,x)[0] for x in uncertainties]) #why doesn't rvs work properly?
+         print multi
+         multi[multi<0.2]=0.2
+         multi[multi>1.8]=1.8
+
+      else: multi = 1.
+      altered_corrections = multi*corrections
+      vals = N.empty_like(energies).astype(float)
+      counter = 0
+      n = len(edges)
+      for i,e in enumerate(energies):
+         if e < edges[0]:
+            vals[i] = altered_corrections[0]
+            continue
+         if e > edges[-1]:
+            vals[i] = altered_corrections[-1]
+            continue
+         for j in xrange(n-1):
+            if edges[j]<= e and e <= edges[j+1]:
+               e1,e2 = edges[j],edges[j+1]
+               f1,f2 = altered_corrections[j],altered_corrections[j+1]
+               vals[i] = f1*(e1/e)**(M.log(f1/f2)/M.log(e2/e1))
+      if event_class >= 0: return vals
+      else: return N.append(vals,vals)
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
@@ -57,22 +112,32 @@ class ExposureMap:
 
 class ModelResponse(object):
    """Quickly integrate a model over exposure."""
-   def __init__(self,bands,emap,event_class=-1,simps=16,ltfrac=1.):
+   def __init__(self,bands,emap,**options):
       """Bands -- an EnergyBands instance.
-         Emap  -- an exposure map."""
-
-      self.d=False #Boolean for dispersion use
-      self.__simpson_setup__(bands,emap,simps)      
-      self.event_class,self.ltfrac,self.psl_c = event_class,ltfrac,1.
+         Emap  -- an exposure map."""   
       
-   def __simpson_setup__(self,bands,emap,simps):
+      self.d=False #Boolean for dispersion use
+      self.emap,self.bands = emap, bands
+      self.init()
+      self.__dict__.update(options)
+      self.__simpson_setup__()
+      self.update()
+
+   def init(self):
+
+      self.event_class = -1
+      self.simps = 8 #Good for about 0.02% accuracy
+      self.dir = pl.SkyDir(0,0)
+      self.exposure_correction = None
+      self.random = False
+      self.ltfrac = 1.
+      self.psl_c = 1.
+            
+   def __simpson_setup__(self):
       """Generate the model-independent portions of the integral."""
 
-      self.dir=pl.SkyDir(0.,0.) #dummy for initialization
-      self.emap,self.bands=emap,bands
-      self.s,s=[simps]*2
+      self.s,s=[self.simps]*2
       self.s_factors=N.append(N.array([1.]+[4.,2.]*(s/2))[:-1],1.)
-      
       bands = self.bands.all() if self.d else self.bands(infinity=True) 
       e_factors=bands[1:]/bands[0:-1] #Bin ratios - allows for uneven bins - check this!
       exp_factors=N.fromiter((x*(1./s) for x in xrange(s)),float)
@@ -87,9 +152,16 @@ class ModelResponse(object):
 
       self.__dict__.update(options)
       self.exposure=self.emap(self.dir,self.sampling_points,self.event_class)
+      #If there is an exposure correction, apply it.
+      #If the self.random is True, perform random experiment with the effective area
+      if self.exposure_correction is not None:
+         self.exposure*=self.exposure_correction(self.sampling_points,random=self.random)
    
    def __call__(self,model=lambda e: e**-2):
-      """Use Simpson's Rule to integrate the model points over the exposure; logarithmic measure"""
+      """Use Simpson's Rule to integrate the model points over the exposure; logarithmic measure.
+         Dear Self: please remember in the future that this implies that passing the identity as 
+         a model gives a logarithmic average of the exposure TIMES THE MEASURE, i.e., the result has
+         dimension cm^2 s MeV."""
 
       model_points = self.sampling_points*(model(self.sampling_points))
       n = len(model_points)
@@ -115,7 +187,7 @@ class ModelResponse(object):
 class ModelResponseDispersion(ModelResponse):
    """Quickly integrate a model over exposure -- use dispersion."""
 
-   def __init__(self,bands,emap,dispersion,simps=16):
+   def __init__(self,bands,emap,dispersion,simps=12):
       self.d=True
       self.__simpson_setup__(bands,emap,simps)
       self.dispersion=N.fromiter((x*dispersion(x,y) for y in self.sampling_points for x in self.sampling_points),float)\
@@ -198,6 +270,9 @@ class ModelResponseDispersion(ModelResponse):
 
 
 if __name__=='__main__':
+   main()
+
+def main():
 
    #Test routine for my integration routines
 
@@ -206,13 +281,14 @@ if __name__=='__main__':
    #Easy, analytic check with constant exposure
    e=ExposureMap() #Constant value
    b=[100*10**(0.2*x) for x in xrange(11)]
+   ec = ExposureCorrection(b,[1.0]*len(b))
    bands=EnergyBands(b[:-1],[b[-1]])
-   m=ModelResponse(bands,e)
-   m.update(event_class=-1)
+   m=ModelResponse(bands,e,exposure_correction = ec)
+   #m.update(event_class=-1)
    b=N.array(b)
    expected=(b[1:]**-1-b[:-1]**-1)/(100**-2)*1.5e10/(-1.)*1e-9
    expected=N.append(expected,expected)
-   calculated=m(PowerLaw(parameters=(1e-9,2)))
+   calculated=m(PowerLaw(p=(0.01,2)))
 
    print 'Expected:'
    print expected
@@ -220,7 +296,7 @@ if __name__=='__main__':
    print 'Calculated:'
    print calculated
 
-   print 'Percent Differences:'
+   print 'Percent Differences (should be small):'
    print 100*(calculated-expected)/calculated
 
    #Now, a numerical check with real exposure
@@ -244,7 +320,7 @@ if __name__=='__main__':
    print 'Calculated:'
    print calculated
 
-   print 'Percent Differences:'
+   print 'Percent Differences (should be small):'
    print 100*(calculated-expected)/calculated
 
-   ###NEED TO IMPLEMENT TESTS FOR DISPESRSION QUADRATURE###
+   ###NEED TO IMPLEMENT TESTS FOR DISPERSION QUADRATURE###
