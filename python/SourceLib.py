@@ -21,21 +21,28 @@ from types import *
 
 class PSFManager(object):
    def __init__(self):
-      self.elist = 100*10**N.arange(0,2.71,1./10) #10 per decade in this analysis
+      self.elist = 100*10**N.arange(0,2.01,1./10) #10 per decade in this analysis
       self.b_gamma = ['2.46', '2.43', '2.32', '2.31', '2.18', '2.24', '2.15', '2.11',
                       '2.15', '2.17', '2.17', '2.21', '2.25', '2.22', '2.22', '2.13',
                       '2.19', '2.21', '2.27', '2.35', '2.26', '2.18', '2.32'] + ['2.25']*4
       self.f_gamma = ['2.28', '2.11', '1.94', '2.03', '1.86', '2.01', '1.96', '2.1', '2.13', '2.24', '2.2',
                       '2.41', '2.28', '2.42', '2.57', '2.49', '2.44', '2.49', '2.53', '2.53', '2.44',
                       '2.4', '2.29', '2.31', '2.19', '2.14', '1.95']
+      self.f_gamma = [2.42,2.47,2.84,2.07,2.08,2.06,2.03,1.84,1.90,1.81,
+                      1.85,1.88,1.82,1.97,1.94,1.86,1.89,1.90,1.89,1.95,1.84]
+      self.b_gamma = [3.46,2.24,2.77,2.38,1.86,1.86,1.93,1.82,1.81,1.79,
+                      2.16,1.73,1.83,1.79,1.94,1.76,1.73,1.74,1.68] + [1.68]*2 #Just replicate last value
    def gamma(self,e,event_class=0):
       ens = self.elist
+      the_list = self.f_gamma if event_class==0 else self.b_gamma
+      if e < self.elist[0]:
+         return the_list[0]
+      if e > self.elist[-1]:
+         return the_list[-1]
       for i in xrange(len(ens)-1):
          if ens[i]<=e and ens[i+1]>e: break
-      if i == len(ens) -1 : return 2.25
-      else:
-         ret = self.f_gamma[i] if event_class==0 else self.b_gamma[i]
-         return float(ret)
+      return float(the_list[i])
+
       
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
@@ -131,9 +138,9 @@ class SourceLibrary:
    def add_sourcelist(self,sourcelist,global_data_index=0):
       self.sources+=[Source(sourcelist[x].fit(),self.global_data[global_data_index]) for x in xrange(len(sourcelist))]
 
-   def fit(self,source,model,x0=None,plot=False,savepath=None,printfit=False,lsfirst=True):
+   def fit(self,source,model,plot=False,savepath=None,printfit=False,lsfirst=True,**kwargs):
       s=self[source]
-      s.fit(model=model,printfit=printfit,lsfirst=lsfirst,x0=x0)
+      s.fit(model=model,printfit=printfit,lsfirst=lsfirst,**kwargs)
       if plot or savepath:
          import pylab as P
          from SourcePlot import sed
@@ -227,7 +234,7 @@ class Source:
    def __call__(self):
       return self.psl
 
-   def spectrum(self,energy_weight=1,model=lambda e: 1.):
+   def spectrum(self,energy_weight=1,model=lambda e: 1., cgs = False):
       """General purpose routine for calculating a spectrum or counts map."""
       exposure_flag=model(100)==1. #Are we doing spectrum or counts?  Crude test.
       mask = N.logical_and(self.global_data.mask(),self.photons>0) #Need to fix for upper limits
@@ -252,37 +259,35 @@ class Source:
          up_errs = (up_errs[:n]**2+up_errs[n:]**2)**0.5
          down_errs = (down_errs[:n]**2+down_errs[n:]**2)**0.5
       if exposure_flag:
+         cgs_scale = 1.60218e-6**(energy_weight-1) if cgs else 1.
          return (e_weights,self.response.bands.diffs(from_center=True),\
-                  signals*e_weights**energy_weight/exposures,\
+                  signals*cgs_scale*e_weights**energy_weight/exposures,\
                   #errors*e_weights**energy_weight/exposures
-                  up_errs*e_weights**energy_weight/exposures,\
-                  down_errs*e_weights**energy_weight/exposures)
+                  up_errs*cgs_scale*e_weights**energy_weight/exposures,\
+                  down_errs*cgs_scale*e_weights**energy_weight/exposures)
                   #Domain, domain err, spectrum, upper error bars, lower error bars
       else:
          #exposures=N.round(exposures).astype(int)
          return (e_weights,self.response.bands.diffs(from_center=True),signals,up_errs,down_errs,exposures)
 
-   def f9(self,e_weight = 0, cgs = False):
+   def i_flux(self,e_weight = 0, cgs = False, scale = 1e7):
       sig,up_errs,down_errs=self.spectrum(energy_weight=e_weight)[2:]
       errs = N.maximum(up_errs,down_errs)
-      del_e=self.response.bands.diffs()
+      del_e = self.response.bands.diffs(from_center=False)
       if cgs:
-         sig*=(e_weight*1.60218e-6)/1e9
-         errs*=(e_weight*1.60218e-6)/1e9
-      return ( (sig*del_e)[sig>0].sum()*1e9,((errs*del_e)**2)[sig>0].sum()**0.5*1e9 )
+         sig*=1.60218e-6**(e_weight-1)/scale
+         errs*=1.60218e-6**(e_weight-1)/scale
+      return ( (sig*del_e)[sig>0].sum()*scale,((errs*del_e)**2)[sig>0].sum()**0.5*scale )
 
 
-   def fit(self,model='PowerLaw',x0=None,e0=100,method=None,printfit=True,lsfirst=True):
+   def fit(self,model='PowerLaw',method=None,printfit=True,lsfirst=True,systematics=False,**kwargs):
+      """Drive spectral fitting.  **kwargs are for the Model object."""
 
       method = method or self.global_data.method #Default here set to GlobalData default
       if printfit: print 'Fitting %s with method %s'%(self().name(),method)
-      self.response.update(dir=self().dir(),psl_c=self.psl_c)
+      self.response.update(dir=self().dir(),psl_c=self.psl_c,random=False)
 
-      if x0 is not None: exec('model = %s(parameters=%s,e0=%d)'%(model,x0,e0))
-      
-      else: 
-         #print 'model = %s(e0=%d)'%(model,e0)
-         exec('model = %s(e0=%d)'%(model,e0))
+      exec('model = %s(**kwargs)'%model)
 
       if not method in self.fitters:
          self.fitters+=[method]
@@ -296,7 +301,7 @@ class Source:
       exec('fitter=self.%s'%method)
       fitter.lsfirst=lsfirst
       fitter.printfit=printfit
-      fitter.fit(model)
+      fitter.fit(model,systematics = systematics)
    
    def unfold(self):
       if type(self.response) is not ModelResponseDispersion:
@@ -421,8 +426,8 @@ if __name__=='__main__':
    printfit=True #True for verbose fitting
    methods = ['MP', 'CP', 'LS']
    for m in methods:
-      s1.fit(model='PowerLaw', x0 = (1e-6,3.0) ,method = m , printfit=printfit)
-      s2.fit(model='PowerLaw', x0 = (1e-6,3.0) ,method = m , printfit=printfit)
+      s1.fit(model='PowerLaw', p = (1e-6,3.0) ,method = m , printfit=printfit)
+      s2.fit(model='PowerLaw', p = (1e-6,3.0) ,method = m , printfit=printfit)
 
 
    ###This is a demonstration of accessing the fitted parameters.   

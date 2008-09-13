@@ -272,9 +272,9 @@ def visi(source,level,nmodel):
    """Plot the integrand for the marginalization over alpha."""
    n=500
    domain=N.linspace(1e-3,1,n+1)
-   photons=source.get('photons')[level]
-   alpha=source.get('alphas')[level][0]
-   slike=source.get('slikes')[level]
+   photons=source.photons[level]
+   alpha=source.alphas[level,0]
+   slike=source.slikes[level]
    codomain1=N.asarray([M.exp(-slike(x)+slike()) for x in domain])
    norm=(N.append( ([1.]+[4.,2.]*(n/2))[:-1],1.)*codomain1).sum()/(3*n)
    codomain1/=norm
@@ -342,19 +342,19 @@ def rad_resid(source,energy=1000,event_class=0,resids_only=False):
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 
-def spectrum(s,models=[],flag='sed',fignum=30,sedweight=2):
+def spectrum(s,models=[],flag='sed',fignum=30,sedweight=1,cgs=False):
    """Plot estimated spectral density, along with any model fits."""
 
-   colors = ['green','red','orange','purple']
+   colors = ['green','red','orange','purple'] #Go Tigers!
 
    model = (lambda e: 1) if flag=='sed' else (lambda e: 1e-9*(100/e)**2)
    domain,domain_err,codomain,up_codomain_err,down_codomain_err =\
-      s.spectrum(energy_weight=sedweight,model=model)[:5]
+      s.spectrum(energy_weight=sedweight,model=model,cgs=cgs)[:5]
    #Adjust codomains for plotting, two lines below
    if flag=='sed': codomain[codomain==0]=uplim=1e-20
    else: codomain[codomain<1e-5]=uplim=1e-5
    down_codomain_err=N.where((codomain-down_codomain_err)>0,down_codomain_err,codomain*0.99)
-   f9=s.f9()
+   f7=s.i_flux()
    fit_flag=N.any([m.good_fit for m in models])
    
    P.figure(fignum,(6,8))
@@ -363,7 +363,7 @@ def spectrum(s,models=[],flag='sed',fignum=30,sedweight=2):
    a.set_yscale('log')
    #codomain_err = N.asarray([[up_codomain_err[i],down_codomain_err[i]] for i in xrange(len(up_codomain_err))])
    codomain_err = N.array([down_codomain_err,up_codomain_err])
-   a.errorbar(domain,codomain,yerr=codomain_err,xerr=domain_err,\
+   a.errorbar(domain/1000.,codomain,yerr=codomain_err,xerr=domain_err,\
                linestyle=' ',marker='d',markersize=4,capsize=0,color='blue') 
    if fit_flag:
       b=P.axes([0.14,0.1,0.8,0.30])
@@ -373,29 +373,31 @@ def spectrum(s,models=[],flag='sed',fignum=30,sedweight=2):
    
    for i,model in enumerate([x for x in models if x.good_fit]):
       if flag=='sed':
-         codomain_fit=domain_fit**sedweight*model(domain_fit)
-         codomain_res=domain**sedweight*model(domain)
+         cgs_scale = sedweight*1.60218e-6 if cgs else 1
+         codomain_fit=domain_fit**sedweight*model(domain_fit)*cgs_scale
+         codomain_res=domain**sedweight*model(domain)*cgs_scale
          ls,ms='-',0
       else:
          codomain_fit=codomain_res=s.spectrum(energy_weight=1,model=model)[-1]
          ls,ms=' ',4
       residuals=N.nan_to_num((codomain-codomain_res)/codomain_res)
       residuals=N.where(N.abs(residuals)>10,10,residuals)
-      a.plot(domain_fit,codomain_fit,label=model.name,linestyle=ls,marker='s',markersize=ms,color=colors[i],lw=2)
+      a.plot(domain_fit/1000.,codomain_fit,label=model.name,linestyle=ls,marker='s',markersize=ms,color=colors[i],lw=2)
       bbox={'lw':1.0,'pad':10,'ec':'black','fc':'white'}
-      a.text(0.025,0.025+0.15*i,model.error_string(),size='small',transform=a.transAxes,bbox=bbox,family='monospace')
-      b.errorbar(domain,residuals,yerr=(codomain_err/codomain_res),\
+      a.text(0.025,0.025+0.15*i,str(model),size='small',transform=a.transAxes,bbox=bbox,family='monospace')
+      b.errorbar(domain/1000.,residuals,yerr=(codomain_err/codomain_res),\
                   xerr=domain_err,linestyle=' ',marker='d',markersize=4, \
                   capsize=0, label='Model Residuals', color=colors[i])         
    P.axes(a)
    low_eng=round(domain[0]*(domain[0]/domain[1])**0.5) #Assumes logarithmic bin spacing -- fix sometime
-   P.title('%s [$\mathrm{\sigma=%.2f,\, f9>%i=%.2f (1 \pm %.2f)}$]'\
-               %(s().name(),(s().TS())**0.5,low_eng,f9[0],f9[1]/f9[0]))
+   P.title(r'%s [$\mathrm{\sigma=%.2f,\, f7>%i=%.2f (1 \pm %.2f)}$]'\
+               %(s().name(),(s().TS())**0.5,low_eng,f7[0],f7[1]/f7[0]))
    #P.title('%s'%s().name())
    if flag=='sed':
+      en_tag = 'ergs' if cgs else 'MeV'
       if sedweight==1: P.ylabel(r'$\rm{E\ dN/dE\ (ph\ cm^{-2}\ s^{-1})}$')
-      elif sedweight==2: P.ylabel(r'$\rm{E^2\ dN/dE\ (MeV ph\ cm^{-2}\ s^{-1})}$')
-      else: P.ylabel(r'$\rm{E^%d\ dN/dE\ (MeV^%d ph\ cm^{-2}\ s^{-1})}$'%(sedweight,sedweight-1))
+      elif sedweight==2: P.ylabel(r'$\rm{E^2\ dN/dE\ (%s\ ph\ cm^{-2}\ s^{-1})}$'%en_tag)
+      else: P.ylabel(r'$\rm{E^%d\ dN/dE\ (%s^%d ph\ cm^{-2}\ s^{-1})}$'%(sedweight,en_tag,sedweight-1))
    else: P.ylabel(r'Signal and Model Counts')
    if fit_flag:
 	ticks,locs=P.xticks()
@@ -404,7 +406,7 @@ def spectrum(s,models=[],flag='sed',fignum=30,sedweight=2):
    mi=max(codomain[codomain>uplim].min()*0.3,ma/(1.8)/1e4)
    #dma,dmi=0.64*domain[N.argmin(N.abs(codomain-ma))],1.32*domain[N.argmin(N.abs(codomain-mi))]
    #dma,dmi=0.64*domain[0],1.32*domain[N.argmin(N.abs(codomain-mi))]
-   dma,dmi=domain[0]*0.6,domain[-1]*1.6
+   dma,dmi=domain[0]*0.6/1000,domain[-1]*1.6/1000
    P.axis([dma,dmi,mi,ma])
    P.grid()
    P.legend()
@@ -416,7 +418,7 @@ def spectrum(s,models=[],flag='sed',fignum=30,sedweight=2):
       P.ylabel('$\mathrm{(obs-model)/model}$')
       P.axis([ax[0],ax[1],max(low,-.55),min(high,0.55)])
       P.grid()
-   P.xlabel('$\mathrm{E\ (MeV)}$')   
+   P.xlabel('$\mathrm{E\ (GeV)}$')   
    
    
 
@@ -465,8 +467,8 @@ def logn_logs(sl,cut_ts=10,nbins=30):
 
 
 #Convenience functions
-def sed(s,models=[],fignum=30):
-   spectrum(s,models=models,flag='sed',fignum=fignum)
+def sed(s,models=[],fignum=30,cgs=False):
+   spectrum(s,models=models,flag='sed',fignum=fignum,cgs=cgs,sedweight=2)
 
-def counts(s,models=[],fignum=30):
-   spectrum(s,models=models,flag='counts',fignum=fignum)
+def counts(s,models=[],fignum=30,cgs=False):
+   spectrum(s,models=models,flag='counts',fignum=fignum,cgs=cgs)

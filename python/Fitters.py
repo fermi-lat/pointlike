@@ -71,7 +71,7 @@ class EnergyBands(object):
 class Mask(object):
    """Implement a mask based on user-specified energies to exclude."""
    
-   def __init__(self,front_ranges=[[300,30000]],back_ranges=[[300,30000]]):
+   def __init__(self,front_ranges=[[30,300000]],back_ranges=[[30,300000]]):
       """Pass a list of ranges that will be allowed."""
       self.front_ranges=N.asarray(front_ranges)
       self.back_ranges=N.asarray(back_ranges)
@@ -91,6 +91,17 @@ class Mask(object):
          if N.any(N.logical_and(edges[i]>=ranges[:,0],edges[i]<ranges[:,1])):
             init_mask[i]=True
       return N.logical_or(init_mask[:-1],init_mask[1:])
+
+class FrontOnly(Mask):   
+   def __init__(self,front_ranges=[[30,300000]]):
+      self.front_ranges = N.asarray(front_ranges)
+      self.back_ranges = N.asarray([[0,0]])
+
+class BackOnly(Mask):   
+   def __init__(self,back_ranges=[[30,300000]]):
+      self.front_ranges = N.asarray([[0,0]])
+      self.back_ranges = N.asarray(back_ranges)
+      
 
 
 #-----------------------------------------------------------------------------------------------#
@@ -170,7 +181,7 @@ class LSFitter( SpectralFitter ):
       mask = self.source.global_data.mask()
       self.mask=N.logical_and( N.logical_and(self.source.alphas[:,0]>3e-5, self.source.photons>2), mask)
 
-   def fit(self,model):
+   def fit(self,model,**kwargs):
       """Perform the least squares fit.  Not intended to be called externally."""
       
       source,mask=self.source,self.mask
@@ -198,7 +209,7 @@ class LSFitter( SpectralFitter ):
          model.dof=sum((1 for x in mask if x))
          if self.printfit:
             print '\nFit converged!  Function value at minimum: %.4f'%model.chi_sq
-            print model.error_string()+'\n'
+            print str(model)+'\n'
 
       else:
          model.good_fit=False
@@ -236,14 +247,15 @@ class MarginalPoissonLikelihood(PoissonLikelihood):
       photons = source.photons
       mask = source.global_data.mask()
       zero_mask = N.logical_and(mask,photons==0)
-      low_num_mask = N.logical_and(mask,N.logical_and(photons>0,photons<=4))
-      alphas,sigmas = source.alphas.transpose()
+      mask = N.logical_and(mask,photons>0)
+      #low_num_mask = N.logical_and(mask,N.logical_and(photons>0,photons<2))
+      #alphas,sigmas = source.alphas.transpose()
       #print mask,len(mask)
-      mask = N.logical_or(N.logical_and(mask,photons>4),N.logical_and(low_num_mask,alphas<0.99))
-      low_num_mask = N.logical_and(low_num_mask,alphas>=0.99)
+      #mask = N.logical_or(N.logical_and(mask,photons>4),N.logical_and(low_num_mask,alphas<0.99))
+      #low_num_mask = N.logical_and(low_num_mask,alphas>=0.99)
 
-      mask = N.logical_or(mask,low_num_mask)
-      low_num_mask = N.array([False]*len(low_num_mask))
+      #mask = N.logical_or(mask,low_num_mask)
+      #low_num_mask = N.array([False]*len(low_num_mask))
 
       #print zero_mask
       #print low_num_mask
@@ -251,11 +263,9 @@ class MarginalPoissonLikelihood(PoissonLikelihood):
 
       alphas,sigmas = source.alphas[mask].transpose()
       slikes = source.slikes[mask]
-
-      nbins = len(mask)
       
-      self.photons,self.poiss,self.mask,self.source,self.maxll,self.zero_mask,self.low_num_mask=\
-         photons,poisson.pmf,mask,source,maxll,zero_mask,low_num_mask
+      self.photons,self.mask,self.source,self.maxll,self.zero_mask = \
+         photons,mask,source,maxll,zero_mask
      
       if self.photons.shape[0]==0: return
 
@@ -264,7 +274,7 @@ class MarginalPoissonLikelihood(PoissonLikelihood):
       alpha_min=1e-2 #avoid singularities at alpha=0
 
       #Sample from likelihood and construct Simpson's rule factors for doing quick integration
-      sampling_points=200
+      sampling_points=1000
       max_alpha_ll=N.array([x() for x in slikes]) #Max value of likelihood
       simps_weights=N.append( ([1.]+[4.,2.]*(sampling_points/2))[:-1],1.)*(1./(3.*sampling_points))
       self.points=N.array([N.linspace(alpha_min,1,sampling_points+1) for i in xrange(len(photons))])
@@ -283,22 +293,23 @@ class MarginalPoissonLikelihood(PoissonLikelihood):
       """Return the (negative, modified -- see below) log likelihood.  Includes normalization so
          can be used for LRT and such."""
       
-      wls,photons,zero_photons,points,poiss,model,maxll,norm,lown_photons=\
+      wls,photons,zero_photons,points,model,maxll,norm = \
          self.weighted_like_sample,self.photons[self.mask],self.photons[self.zero_mask],self.points,\
-         self.poiss,args[0],self.maxll,self.norm,self.photons[self.low_num_mask]
+         args[0],self.maxll,self.norm
       model.p=parameters #Update the model
       if parameters[0]<0: return maxll*len(photons)
       expected=self.source.response(model=model) #Expected number for source under the model
       z_expected=expected[self.zero_mask].sum() #Poisson prob for 0 photons
-      lown_expected = expected[self.low_num_mask]
+      #lown_expected = expected[self.low_num_mask]
       alpha_expected = expected[self.mask]/points #Divide by alpha to get total expected number
-      integral = norm*(wls*N.nan_to_num(poiss(photons,alpha_expected))).sum(axis=0) #Integrate prob over alpha
+      integral = norm*(wls*N.nan_to_num(poisson.pmf(photons,alpha_expected))).sum(axis=0) #Integrate prob over alpha
       integral_mask = integral<=0.0
+      #if N.any(integral_mask): print photons[integral_mask]
 
       #First term is a "penalty" to mimic to log(very small number)
       return maxll*integral_mask.sum() \
-         - (N.log(integral[N.logical_not(integral_mask)])).sum() \
-         + (lown_expected - lown_photons*N.log(lown_expected)).sum() + z_expected
+         - (N.log(integral[N.logical_not(integral_mask)])).sum() + z_expected\
+         #+ (lown_expected - lown_photons*N.log(lown_expected)).sum() + z_expected
       
                
 
@@ -350,6 +361,7 @@ class PoissonFitter(SpectralFitter):
       self.printfit,self.lsfirst,self.source = printfit,lsfirst,source
       self.models=[]
       self.maxll=1e8
+      self.systematics =self.one_off = False
       exec(''.join(['self.l=',method,'PoissonLikelihood(source)']))
 
    def remask(self):
@@ -385,66 +397,126 @@ class PoissonFitter(SpectralFitter):
    def __ls__(self,model):
 
       p = [x for x in model.p]
-      self.source.fit(model = model.name, x0 = p, e0 = model.e0, method = 'LS', printfit = False)
+      self.source.fit(model = model.name, p = p, e0 = model.e0, method = 'LS', printfit = False)
       if self.source.LS.models[-1].good_fit:
          model.p=[x for x in self.source.LS.models[-1].p]
          
-   def fit(self,model,one_off=False,**kwargs):
+   def fit(self,model,**kwargs):
       
       self.__dict__.update(kwargs)
       x0 = [x for x in model.p] #Make a copy of x0
+      param_vals = []
+      
+      repetitions = 10 if self.systematics else 1
 
-      #Do a simplex search for maximum likelihood, possibly using least squares estimate as seed
-      if self.l.photons.shape[0]>1:
-   
-         if self.lsfirst:
-            if self.printfit: print 'Using least squares to find seed position.'
-            self.__ls__(model)
- 
-         try:
-            fit=fmin(self.l,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=1000)
-            warnflag=(fit[4]==1 or fit[4]==2) or fit[1]>self.maxll/10.
-            if warnflag: raise Exception
+      for i in xrange(repetitions):
 
-         except:
-         
-            if self.printfit: print 'Did not converge from seed, trying least squares to seed.'
-            model.p=x0
-            self.__ls__(model)
+         if i > 0:
+            self.lsfirst = False #Use previous value for seed, for speed
+            self.source.response.update(random = True)
+            printfit = self.printfit
+            self.printfit = False
 
+         #Do a simplex search for maximum likelihood, possibly using least squares estimate as seed
+         if self.l.photons.shape[0]>1:
+      
+            if self.lsfirst:
+               if self.printfit: print 'Using least squares to find seed position.'
+               self.__ls__(model)
+    
             try:
-
                fit=fmin(self.l,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=1000)
                warnflag=(fit[4]==1 or fit[4]==2) or fit[1]>self.maxll/10.
+               if warnflag: raise Exception
 
-            except: warnflag=True
+            except:
             
-      else: warnflag=True
+               if self.printfit: print 'Did not converge from seed, trying least squares to seed.'
+               model.p=x0
+               self.__ls__(model)
+
+               try:
+
+                  fit=fmin(self.l,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=1000)
+                  warnflag=(fit[4]==1 or fit[4]==2) or fit[1]>self.maxll/10.
+
+               except: warnflag=True
+               
+         else: warnflag=True
 
 
-      if not warnflag: #Good fit (claimed, anyway!)
-         
-         try: model.cov_matrix=inv(self.hessian(fit[0],self.l,model))
-         except: warnflag=True
+         if not warnflag: #Good fit (claimed, anyway!)
+            
+            try: model.cov_matrix=inv(self.hessian(fit[0],self.l,model))
+            except: warnflag=True
 
-      if not warnflag: #Good fit and successful inversion of Hessian
+         if not warnflag: #Good fit and successful inversion of Hessian
 
-         model.good_fit=True
-         model.p=fit[0]
-         model.logl=-fit[1] #Store the log likelihood at best fit
-         model.chi_sq,model.dof=self.l.chi_sq(model)
-         if self.printfit:
-            print '\nFit converged!  Function value at minimum: %.4f'%fit[1]
-            print model.error_string()+'\n'
+            model.good_fit=True
+            model.p=fit[0]
+            model.logl=-fit[1] #Store the log likelihood at best fit
+            model.chi_sq,model.dof=self.l.chi_sq(model)
+            if self.printfit:
+               print '\nFit converged!  Function value at minimum: %.4f'%fit[1]
+               print str(model)+'\n'
 
-      else:
-         if self.printfit: print 'Fit did not converge :('
-         model.good_fit=False
+         else:
+            if self.printfit: print 'Fit did not converge :('
+            model.good_fit=False
 
-      self.models+=[model]
-      if one_off: del(self.l) #Release memory for likelihood object; calling fit again will error!
+         if i == 0:
+            self.models += [model]
+            if self.systematics:
+               x0 = [x for x in model.p] #Use future value for seeding
+               logl = model.logl
+               chi_sq = model.chi_sq
+               cov_matrix = model.cov_matrix.copy()
+            
+         else:
+            param_vals += [[x for x in model.p]]
 
+      if self.systematics:
+         #Put values back in -- what a kluge
+         self.models[-1].p = x0
+         self.models[-1].logl = logl
+         self.models[-1].cov_matrix = cov_matrix
+
+         #Now, calculate systematics
+         param_vals = N.array(param_vals)
+         print param_vals
+         systematics=N.empty([len(x0),3])
+         contain_68 = 0.68*repetitions
+         bite = int(round((repetitions-contain_68)/2.))
+         for i in xrange(len(x0)):
+            the_vals = N.sort(param_vals[:,i])
+            systematics[i,0] = 1 - the_vals[bite]/x0[i]
+            systematics[i,1] = the_vals[-bite]/x0[i] - 1
+            systematics[i,2] = the_vals.std()/x0[i]
+         self.models[-1].systematics = systematics
+         #self.models[-1].systematics = param_vals.std(0)
+         self.printfit = printfit
+
+      if self.one_off: del(self.l) #Release memory for likelihood object; calling fit again will error!
 
 if __name__=='__main__':
    pass
    #Write some test routines!
+
+def cubic_roots(a,b,c):
+   """Find (real) roots for x^3 + ax^2 + bx +c = 0 for real co-efficients."""
+
+   q = (a**2 - 3*b)/9.
+   r = (2*a**3 - 9*a*b + 27*c)/54.
+
+   three_rr = r**2 < q**3
+   if three_rr:
+      theta = N.arccos(r/q**(3./2))
+      prelims = N.array([theta/3.,(theta+N.pi*2)/3.,(theta-N.pi*2)/3])
+      return -2*q**0.5*N.cos(prelimes) - a/3.
+   
+   multi = 1 if r < 0 else -1 #-sgn(R)
+   A = multi * ( N.abs(r) + (r**2-q**3)**0.5 )**(1./3)
+   B = q/A if a != 0 else 0
+   return A+B-a/3.
+
+   #for reference, the complex roots are -0.5*(A+B)-a/3 +/- i*3**0.5/2*(A-B)

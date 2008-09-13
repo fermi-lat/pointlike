@@ -9,8 +9,8 @@ except: pass
 import pointlike as pl
 from pointlike import SkyDir
 
-
-def phase_circ(eventfiles,center=None,radius=6,phaseranges=[[0,1]],erange=None,event_class=-1):
+def phase_circ(eventfiles,center=None,radius=6,phaseranges=[[0,1]],\
+   erange=None,event_class=-1,ctbclasslevel=None,drift_check=False):
     """Construct a histogram of events interior to a circular region."""
 
     if not type(radius) is FunctionType:
@@ -27,6 +27,10 @@ def phase_circ(eventfiles,center=None,radius=6,phaseranges=[[0,1]],erange=None,e
     ph = [N.asarray(e['EVENTS'].data.field('PULSE_PHASE')).astype(float) for e in ef]
     en = [N.asarray(e['EVENTS'].data.field('ENERGY')).astype(float) for e in ef]
     ec = [N.asarray(e['EVENTS'].data.field('EVENT_CLASS')).astype(int) for e in ef]
+    if ctbclasslevel is not None:
+      ctb = [N.asarray(e['EVENTS'].data.field('CTBCLASSLEVEL')).astype(int) for e in ef]
+    if drift_check:
+      dc = [N.asarray(e['EVENTS'].data.field('TIME')).astype(float) for e in ef]
     for e in ef: e.close()
 
     radii = [radius(e) for e in en]
@@ -38,6 +42,11 @@ def phase_circ(eventfiles,center=None,radius=6,phaseranges=[[0,1]],erange=None,e
     ph = [ph[i][mask[i]] for i in xrange(len(ph))]
     en = [en[i][mask[i]] for i in xrange(len(en))]
     ec = [ec[i][mask[i]] for i in xrange(len(ec))]
+    if ctbclasslevel is not None:
+      ctb = [ctb[i][mask[i]] for i in xrange(len(ctb))]
+    if drift_check:
+      dc = [dc[i][mask[i]] for i in xrange(len(dc))]
+    radii = [radii[i][mask[i]] for i in xrange(len(radii))]
 
     #Slow, accurate cut
     scale=180/N.pi
@@ -48,6 +57,10 @@ def phase_circ(eventfiles,center=None,radius=6,phaseranges=[[0,1]],erange=None,e
     ph = N.concatenate([ph[i][mask[i]] for i in xrange(len(ph))])
     en = N.concatenate([en[i][mask[i]] for i in xrange(len(en))])
     ec = N.concatenate([ec[i][mask[i]] for i in xrange(len(ec))])
+    if ctbclasslevel is not None:
+      ctb = N.concatenate([ctb[i][mask[i]] for i in xrange(len(ctb))])
+    if drift_check:
+      dc = N.concatenate([dc[i][mask[i]] for i in xrange(len(dc))])
     mask=N.array([False]*len(ph))
     for r in phaseranges:
         for i in xrange(len(ph)):
@@ -56,7 +69,12 @@ def phase_circ(eventfiles,center=None,radius=6,phaseranges=[[0,1]],erange=None,e
         mask = N.logical_and( N.logical_and(en>=erange[0],en<erange[1]), mask)
     if event_class >= 0:
         mask = N.logical_and(ec==event_class,mask)
-    return ph[mask]
+    if ctbclasslevel is not None:
+        mask = N.logical_and(ctb>=ctbclasslevel,mask)
+    
+    if drift_check:
+        return [ph[mask],dc[mask]] #Return phase and time
+    return ph[mask] #Just return phase
 
 def phase_cut(eventfile,outputfile=None,phaseranges=[[0,1]]):
     """Select phases within a set of intervals.
