@@ -21,7 +21,7 @@ def phase_circ(eventfiles,center=None,radius=6,phaseranges=[[0,1]],\
 
     center=center or SkyDir(128.83646,-45.17658)
 
-    ef = [PF.open(e) for e in eventfiles]
+    ef = [PF.open(e,memmap=1) for e in eventfiles]
     ra = [N.asarray(e['EVENTS'].data.field('RA')).astype(float) for e in ef]
     dec = [N.asarray(e['EVENTS'].data.field('DEC')).astype(float) for e in ef]
     ph = [N.asarray(e['EVENTS'].data.field('PULSE_PHASE')).astype(float) for e in ef]

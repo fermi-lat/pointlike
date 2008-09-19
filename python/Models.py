@@ -95,9 +95,13 @@ class Model(object):
          sys_flag = True
          up_sys_errs = self.systematics[:,1]
          low_sys_errs = self.systematics[:,0]
-         up_sys_errs = (up_sys_errs**2 - errors**2)**0.5
-         low_sys_errs = (low_sys_errs*2 - errors**2)**0.5
-      except:
+         print up_sys_errs
+         print low_sys_errs
+         up_sys_errs = N.nan_to_num((up_sys_errs**2 - ratios**2)**0.5)
+         print up_sys_errs
+         low_sys_errs = N.nan_to_num((low_sys_errs**2 - ratios**2)**0.5)
+         print low_sys_errs
+      except AttributeError:
          sys_flag = False         
       for i in xrange(len(self.param_names)):
          n=self.param_names[i][:m]

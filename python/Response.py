@@ -82,7 +82,7 @@ class ExposureCorrection(object):
       edges,corrections,uncertainties = self.edges,self.corrections,self.uncertainties
       if random and uncertainties is not None:
          multi = 1 + N.array([norm.rvs(0,x)[0] for x in uncertainties]) #why doesn't rvs work properly?
-         print multi
+         #print multi
          multi[multi<0.2]=0.2
          multi[multi>1.8]=1.8
 

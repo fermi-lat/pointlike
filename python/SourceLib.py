@@ -271,12 +271,14 @@ class Source:
          return (e_weights,self.response.bands.diffs(from_center=True),signals,up_errs,down_errs,exposures)
 
    def i_flux(self,e_weight = 0, cgs = False, scale = 1e7):
-      sig,up_errs,down_errs=self.spectrum(energy_weight=e_weight)[2:]
+      sig,up_errs,down_errs=self.spectrum(energy_weight=e_weight,cgs=False)[2:]
       errs = N.maximum(up_errs,down_errs)
       del_e = self.response.bands.diffs(from_center=False)
       if cgs:
-         sig*=1.60218e-6**(e_weight-1)/scale
-         errs*=1.60218e-6**(e_weight-1)/scale
+         #sig*=1.60218e-6**(e_weight-1)/scale
+         #errs*=1.60218e-6**(e_weight-1)/scale
+         sig*=1.60218e-6**(e_weight)/scale
+         errs*=1.60218e-6**(e_weight)/scale
       return ( (sig*del_e)[sig>0].sum()*scale,((errs*del_e)**2)[sig>0].sum()**0.5*scale )
 
 
