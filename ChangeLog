@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Thu Sep 18 17:08:09 PDT 2008
+pointlike/python
+
+Modified Files:
+	Fitters.py Models.py Response.py SourceLib.py phasetools.py 
+Log Message:
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-06-00, operation: del
 Package: pointlike
