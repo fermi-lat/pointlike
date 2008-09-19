@@ -247,25 +247,15 @@ class MarginalPoissonLikelihood(PoissonLikelihood):
       photons = source.photons
       mask = source.global_data.mask()
       zero_mask = N.logical_and(mask,photons==0)
+      ones_mask = N.logical_and(mask,photons==1)
+      #mask = N.logical_and(mask,photons>1)
       mask = N.logical_and(mask,photons>0)
-      #low_num_mask = N.logical_and(mask,N.logical_and(photons>0,photons<2))
-      #alphas,sigmas = source.alphas.transpose()
-      #print mask,len(mask)
-      #mask = N.logical_or(N.logical_and(mask,photons>4),N.logical_and(low_num_mask,alphas<0.99))
-      #low_num_mask = N.logical_and(low_num_mask,alphas>=0.99)
-
-      #mask = N.logical_or(mask,low_num_mask)
-      #low_num_mask = N.array([False]*len(low_num_mask))
-
-      #print zero_mask
-      #print low_num_mask
-      #print mask
 
       alphas,sigmas = source.alphas[mask].transpose()
       slikes = source.slikes[mask]
       
-      self.photons,self.mask,self.source,self.maxll,self.zero_mask = \
-         photons,mask,source,maxll,zero_mask
+      self.photons,self.mask,self.source,self.maxll,self.zero_mask,self.ones_mask = \
+         photons,mask,source,maxll,zero_mask,ones_mask
      
       if self.photons.shape[0]==0: return
 
@@ -300,7 +290,7 @@ class MarginalPoissonLikelihood(PoissonLikelihood):
       if parameters[0]<0: return maxll*len(photons)
       expected=self.source.response(model=model) #Expected number for source under the model
       z_expected=expected[self.zero_mask].sum() #Poisson prob for 0 photons
-      #lown_expected = expected[self.low_num_mask]
+      o_expected=expected[self.ones_mask]
       alpha_expected = expected[self.mask]/points #Divide by alpha to get total expected number
       integral = norm*(wls*N.nan_to_num(poisson.pmf(photons,alpha_expected))).sum(axis=0) #Integrate prob over alpha
       integral_mask = integral<=0.0
@@ -309,7 +299,8 @@ class MarginalPoissonLikelihood(PoissonLikelihood):
       #First term is a "penalty" to mimic to log(very small number)
       return maxll*integral_mask.sum() \
          - (N.log(integral[N.logical_not(integral_mask)])).sum() + z_expected\
-         #+ (lown_expected - lown_photons*N.log(lown_expected)).sum() + z_expected
+         - (N.log(o_expected) - o_expected).sum()
+
       
                
 
@@ -407,7 +398,9 @@ class PoissonFitter(SpectralFitter):
       x0 = [x for x in model.p] #Make a copy of x0
       param_vals = []
       
-      repetitions = 10 if self.systematics else 1
+      repetitions = 200 if self.systematics else 1
+      if self.systematics and self.printfit:
+         print 'Calculating systematics with %d Monte Carlo trials.  Go fix a drink, for this will take a while.'%repetitions
 
       for i in xrange(repetitions):
 
@@ -483,7 +476,7 @@ class PoissonFitter(SpectralFitter):
 
          #Now, calculate systematics
          param_vals = N.array(param_vals)
-         print param_vals
+         #print param_vals
          systematics=N.empty([len(x0),3])
          contain_68 = 0.68*repetitions
          bite = int(round((repetitions-contain_68)/2.))
