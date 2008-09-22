@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.48 2008/09/09 23:28:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.49 2008/09/10 21:49:49 burnett Exp $
 
 */
 
@@ -11,13 +11,14 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 
 #include "skymaps/BinnedPhotonData.h"
 
 #include "embed_python/Module.h"
+#include "TMatrixD.h"
 
 #include <iostream>
 #include <fstream>
 #include <algorithm>
 #include <iomanip>
 #include <stdexcept>
-
+#define MIN_DEBUG
 
 using namespace pointlike;
 using astro::SkyDir;
@@ -34,6 +35,10 @@ namespace {
     double s_TScut(2.);  // only combine energy bands
 
     double sqr(double x){return x*x;}
+
+#ifdef MIN_DEBUG
+    std::ofstream minf("lsurface.txt");
+#endif
 }
 
 //  ----- static (class) variables -----
@@ -448,8 +453,9 @@ double PointSourceLikelihood::localize(int skip)
         return 99.;
     }
     if(verbose() ) out() << "    *** good fit *** " << std::endl;
-    return errorCircle();
-
+    double errcirc=errorCircle();
+    errcirc=fit_localization(errcirc);
+    return errcirc;
 }
 
 double PointSourceLikelihood::localize()
@@ -473,6 +479,61 @@ double PointSourceLikelihood::localize()
         currentTS = TS();
     }
     return sig;
+}
+
+double PointSourceLikelihood::fit_localization(double err) {
+    SkyDir oldDir = m_dir;
+    setDir(m_dir,false);
+    Hep3Vector rand_x = m_dir().orthogonal();
+    rand_x=rand_x.unit();
+    Hep3Vector rand_y = (m_dir().cross(rand_x)).unit();
+    int npts=2;
+    int rows=2*npts+1;
+    TMatrixD A(rows*rows,6);
+    TMatrixD likes(rows*rows,1);
+    for(int i(-npts);i<npts+1;++i) {
+        for(int j(-npts);j<npts+1;++j) {
+            SkyDir newDir(M_PI/180*err*(i*rand_x+j*rand_y)+oldDir());
+            //std::cout << newDir.ra() << "\t" << newDir.dec() << std::endl;
+            setDir(newDir,true);
+            A[rows*(i+npts)+j+npts][0]=err*err*i*i;
+            A[rows*(i+npts)+j+npts][1]=err*i;
+            A[rows*(i+npts)+j+npts][2]=err*err*j*j;
+            A[rows*(i+npts)+j+npts][3]=err*j;
+            A[rows*(i+npts)+j+npts][4]=err*err*i*j;
+            A[rows*(i+npts)+j+npts][5]=1;
+            likes[rows*(i+npts)+j+npts][0]=maximize();
+#ifdef MIN_DEBUG
+            minf << likes[rows*(i+npts)+j+npts][0] << "\t";
+#endif
+        }
+#ifdef MIN_DEBUG
+        minf << std::endl;
+#endif
+    }
+    Double_t* merr(0);
+    TMatrixD At(6,rows*rows);
+    TMatrixD AtA(6,6);
+    TMatrixD Atb(6,1);
+    At.Transpose(A);
+    //A.Print();
+    AtA = At*A;
+    Atb = At*likes;
+    AtA.Invert(merr);
+    //likes.Print();
+    Atb = AtA*Atb;
+    TMatrixD Cov(2,2);
+    Cov[0][0]=2*Atb[0][0];
+    Cov[0][1]=Atb[4][0];
+    Cov[1][1]=2*Atb[2][0];
+    Cov[1][0]=Cov[0][1];
+    Cov.Invert(merr);
+    TMatrixD b(2,1);
+    b[0][0]=-Atb[1][0];
+    b[1][0]=-Atb[3][0];
+    b = Cov*b;
+    setDir(SkyDir((b[0][0]*rand_x+b[1][0]*rand_y)*M_PI/180+oldDir()),false);
+    return sqrt(sqrt(fabs(Cov[0][0]))*sqrt(fabs(Cov[1][1])));
 }
 
 double PointSourceLikelihood::value(const astro::SkyDir& dir, double energy) const

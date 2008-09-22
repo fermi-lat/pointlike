@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.39 2008/09/05 23:40:10 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.40 2008/09/09 23:28:13 burnett Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -78,6 +78,8 @@ public:
 
     /// @brief localate with iteration to refit the levels, using parameters set in ctor
     double localize();
+
+    double fit_localization(double err);
 
     std::string name()const{return m_name;}
 
