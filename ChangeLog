@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Mon Sep 22 15:40:42 PDT 2008
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx 
+Log Message:
+added fit for likelihood surface at localized position
+    *
+------------------------------------------------------------
 User: mar0  Mon Sep 22 15:40:41 PDT 2008
 pointlike/pointlike
 
