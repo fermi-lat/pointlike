@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.50 2008/09/22 22:40:42 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.51 2008/09/23 19:47:31 mar0 Exp $
 
 */
 
@@ -498,7 +498,7 @@ double PointSourceLikelihood::fit_localization(double err) {
     rand_x=rand_x.unit();
     Hep3Vector rand_y = (m_dir().cross(rand_x)).unit();
 
-    int npts=5;
+    int npts=2;
     int rows=2*npts+1; //number of grid points = rows*rows
     TMatrixD A(rows*rows,6);
     TMatrixD likes(rows*rows,1);
@@ -509,14 +509,13 @@ double PointSourceLikelihood::fit_localization(double err) {
     for(int i(-npts);i<npts+1;++i) {
         for(int j(-npts);j<npts+1;++j) {
             SkyDir newDir(M_PI/180*err*(i*rand_x+j*rand_y)+oldDir());
-            setDir(newDir,true);
             A[rows*(i+npts)+j+npts][0]=err*err*i*i;
             A[rows*(i+npts)+j+npts][1]=err*i;
             A[rows*(i+npts)+j+npts][2]=err*err*j*j;
             A[rows*(i+npts)+j+npts][3]=err*j;
             A[rows*(i+npts)+j+npts][4]=err*err*i*j;
             A[rows*(i+npts)+j+npts][5]=1;
-            likes[rows*(i+npts)+j+npts][0]=maximize();
+            likes[rows*(i+npts)+j+npts][0]=TSmap(newDir);
         }
     }
     Double_t* merr(0);
@@ -541,11 +540,13 @@ double PointSourceLikelihood::fit_localization(double err) {
     double vy = pvx/(pvx*pvy-pcxy*pcxy);
     double xc = -vx*Atb[1][0]-cxy*Atb[3][0];
     double yc = -cxy*Atb[1][0]-vy*Atb[3][0];
+    double nerr = sqrt(sqrt(fabs(vx)*fabs(vy)));
+    nerr*=sqrt(2.);
 
     //set the position to the minimum and grab new set of pixels
     oldDir=SkyDir((xc*rand_x+yc*rand_y)*M_PI/180+oldDir());
     setDir(oldDir,false);
-    return sqrt(sqrt(fabs(vx))*sqrt(fabs(vy)));
+    return nerr;
 }
 
 double PointSourceLikelihood::value(const astro::SkyDir& dir, double energy) const
