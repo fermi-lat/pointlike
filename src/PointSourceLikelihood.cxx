@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.49 2008/09/10 21:49:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.50 2008/09/22 22:40:42 mar0 Exp $
 
 */
 
@@ -18,7 +18,6 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 
 #include <algorithm>
 #include <iomanip>
 #include <stdexcept>
-#define MIN_DEBUG
 
 using namespace pointlike;
 using astro::SkyDir;
@@ -74,6 +73,9 @@ int  PointSourceLikelihood::s_merge(1);
 void PointSourceLikelihood::set_merge(bool merge){s_merge=merge;}
 bool PointSourceLikelihood::merge(){return s_merge!=0;}
 
+int  PointSourceLikelihood::s_fitlsq(1);
+void PointSourceLikelihood::set_fitlsq(bool fit){s_fitlsq=fit;}
+bool PointSourceLikelihood::fitlsq(){return s_fitlsq!=0;}
 
 void PointSourceLikelihood::setParameters(const embed_python::Module& par)
 {
@@ -128,7 +130,7 @@ PointSourceLikelihood::PointSourceLikelihood(
     , m_out(&std::cout)
     , m_background(0)
 {
-    
+
     if( s_diffuse !=0){
         m_background = new skymaps::CompositeSkySpectrum(s_diffuse);
     }else {
@@ -151,7 +153,7 @@ void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
         double emin(floor(b.emin()+0.5) ), emax(floor(b.emax()+0.5));
         if( emin < s_emin && emax < s_emin ) continue;
         if( emax > s_emax ) break;
-// 	std::cout << "XXX Pushing back energy band: " << emin << " " << emax << std::endl;
+        // 	std::cout << "XXX Pushing back energy band: " << emin << " " << emax << std::endl;
         bands.push_back(std::make_pair(&b,true));
     }
     for( std::list<std::pair<const Band*,bool> >::iterator bit1 = bands.begin(); bit1 !=bands.end(); ++bit1){
@@ -166,7 +168,7 @@ void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
         if( maxroi>0 && roi>maxroi){
             umax = 0.5*sqr(maxroi/b1.sigma());
         }
-        
+
         SimpleLikelihood* sl = new SimpleLikelihood(b1, m_dir, umax, m_background );
         if( merge() ){
             // add other bands with identical properties if requested
@@ -197,19 +199,19 @@ PointSourceLikelihood::~PointSourceLikelihood()
 
 double PointSourceLikelihood::TS(int band) const
 {
-  double TS_band = 0;
-  bool found = 0;
-  int bandCounter = 0;
-  for(const_iterator it = begin() ; it!=end(); ++it, ++bandCounter){
-    SimpleLikelihood& like = **it;
-    if (bandCounter == band){
-      found = true;
-      TS_band = like.TS();
+    double TS_band = 0;
+    bool found = 0;
+    int bandCounter = 0;
+    for(const_iterator it = begin() ; it!=end(); ++it, ++bandCounter){
+        SimpleLikelihood& like = **it;
+        if (bandCounter == band){
+            found = true;
+            TS_band = like.TS();
+        }
     }
-  }
-  
-  if (!found) return -1;
-  else return TS_band;
+
+    if (!found) return -1;
+    else return TS_band;
 }
 
 double PointSourceLikelihood::maximize()
@@ -282,7 +284,7 @@ void PointSourceLikelihood::printSpectrum()
 
         SimpleLikelihood& levellike = **it;
         const skymaps::Band& band ( levellike.band() );
- 
+
         double bkg(levellike.background());
         out()  << std::fixed << std::right 
             << setw(7) << static_cast<int>( band.emin()+0.5 )
@@ -324,7 +326,7 @@ void PointSourceLikelihood::printSpectrum()
 
 std::vector<double> PointSourceLikelihood::energyList()const
 {
-    
+
     std::vector<double> energies;
     if( size()>0) {
         const_iterator it (begin());
@@ -454,7 +456,10 @@ double PointSourceLikelihood::localize(int skip)
     }
     if(verbose() ) out() << "    *** good fit *** " << std::endl;
     double errcirc=errorCircle();
-    errcirc=fit_localization(errcirc);
+    //least squares fit to surface
+    if(fitlsq()) {
+        errcirc=fit_localization(errcirc);
+    }
     return errcirc;
 }
 
@@ -482,19 +487,28 @@ double PointSourceLikelihood::localize()
 }
 
 double PointSourceLikelihood::fit_localization(double err) {
+    //keep fit position around
     SkyDir oldDir = m_dir;
+
+    //select new subset of pixels
     setDir(m_dir,false);
+
+    //pick 2D coordinate system
     Hep3Vector rand_x = m_dir().orthogonal();
     rand_x=rand_x.unit();
     Hep3Vector rand_y = (m_dir().cross(rand_x)).unit();
-    int npts=2;
-    int rows=2*npts+1;
+
+    int npts=5;
+    int rows=2*npts+1; //number of grid points = rows*rows
     TMatrixD A(rows*rows,6);
     TMatrixD likes(rows*rows,1);
+
+    //create grid of likelihood values and setup 'A' matrix
+    //the equation is of the form:
+    //loglike(x,y)=a0*x**2+a1*x+a2*y**2+a3*y+a4*x*y+a5
     for(int i(-npts);i<npts+1;++i) {
         for(int j(-npts);j<npts+1;++j) {
             SkyDir newDir(M_PI/180*err*(i*rand_x+j*rand_y)+oldDir());
-            //std::cout << newDir.ra() << "\t" << newDir.dec() << std::endl;
             setDir(newDir,true);
             A[rows*(i+npts)+j+npts][0]=err*err*i*i;
             A[rows*(i+npts)+j+npts][1]=err*i;
@@ -503,37 +517,35 @@ double PointSourceLikelihood::fit_localization(double err) {
             A[rows*(i+npts)+j+npts][4]=err*err*i*j;
             A[rows*(i+npts)+j+npts][5]=1;
             likes[rows*(i+npts)+j+npts][0]=maximize();
-#ifdef MIN_DEBUG
-            minf << likes[rows*(i+npts)+j+npts][0] << "\t";
-#endif
         }
-#ifdef MIN_DEBUG
-        minf << std::endl;
-#endif
     }
     Double_t* merr(0);
+
+    // Solve system of equations for least squares
+    // x = (At*A)**-1*(At*b) 
     TMatrixD At(6,rows*rows);
     TMatrixD AtA(6,6);
     TMatrixD Atb(6,1);
     At.Transpose(A);
-    //A.Print();
     AtA = At*A;
     Atb = At*likes;
     AtA.Invert(merr);
-    //likes.Print();
     Atb = AtA*Atb;
-    TMatrixD Cov(2,2);
-    Cov[0][0]=2*Atb[0][0];
-    Cov[0][1]=Atb[4][0];
-    Cov[1][1]=2*Atb[2][0];
-    Cov[1][0]=Cov[0][1];
-    Cov.Invert(merr);
-    TMatrixD b(2,1);
-    b[0][0]=-Atb[1][0];
-    b[1][0]=-Atb[3][0];
-    b = Cov*b;
-    setDir(SkyDir((b[0][0]*rand_x+b[1][0]*rand_y)*M_PI/180+oldDir()),false);
-    return sqrt(sqrt(fabs(Cov[0][0]))*sqrt(fabs(Cov[1][1])));
+
+    //solution to minimum from second order equation
+    double pvx = 2*Atb[0][0];
+    double pcxy = Atb[4][0];
+    double pvy = 2*Atb[2][0];
+    double vx = pvy/(pvx*pvy-pcxy*pcxy);
+    double cxy = -pcxy/(pvx*pvy-pcxy*pcxy);
+    double vy = pvx/(pvx*pvy-pcxy*pcxy);
+    double xc = -vx*Atb[1][0]-cxy*Atb[3][0];
+    double yc = -cxy*Atb[1][0]-vy*Atb[3][0];
+
+    //set the position to the minimum and grab new set of pixels
+    oldDir=SkyDir((xc*rand_x+yc*rand_y)*M_PI/180+oldDir());
+    setDir(oldDir,false);
+    return sqrt(sqrt(fabs(vx))*sqrt(fabs(vy)));
 }
 
 double PointSourceLikelihood::value(const astro::SkyDir& dir, double energy) const
@@ -576,18 +588,18 @@ skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(const skymaps::SkySpect
     skymaps::SkySpectrum* ret =   s_diffuse;
 
     s_diffuse = diffuse==0? 0 : new Background(*diffuse, exposure);
-    
+
     return ret;
 }
 
 skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(const skymaps::SkySpectrum* diffuse, 
-                                 std::vector<const skymaps::SkySpectrum*> exposures)
+                                                         std::vector<const skymaps::SkySpectrum*> exposures)
 {  
     // save current to return
     skymaps::SkySpectrum* ret =   s_diffuse;
 
     s_diffuse = new Background(*diffuse, exposures);
-    
+
     return ret;
 }
 
@@ -646,8 +658,8 @@ double PointSourceLikelihood::TSmap(const astro::SkyDir&sdir, int band)const
     for( ; it!=end(); ++it){
         ret += (*it)->TSmap(sdir);
         // maybe set limits?
-//        const Band& band ((*it)->band());
-//        if( energy >= band.emin() && energy < band.emax() )break;
+        //        const Band& band ((*it)->band());
+        //        if( energy >= band.emin() && energy < band.emax() )break;
     }
 
     return ret;
@@ -661,13 +673,13 @@ PSLdisplay::PSLdisplay(const PointSourceLikelihood & psl, int mode)
 {}
 
 double PSLdisplay::value(const astro::SkyDir& dir, double e)const{
-        return m_psl.display(dir, e, m_mode);
-    }
+    return m_psl.display(dir, e, m_mode);
+}
 
-    ///@brief integral for the energy limits, in the given direction -- not impleme
+///@brief integral for the energy limits, in the given direction -- not impleme
 double PSLdisplay::integral(const astro::SkyDir& dir, double a, double b)const{
-        return value(dir, sqrt(a*b));
-    }
+    return value(dir, sqrt(a*b));
+}
 
 std::string PSLdisplay::name()const
 {
