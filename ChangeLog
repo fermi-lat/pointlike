@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Tue Sep 23 16:51:38 PDT 2008
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx 
+Log Message:
+scaled error in localization to the appropriate value for lsqfit
+    *
+------------------------------------------------------------
 User: mar0  Tue Sep 23 12:47:31 PDT 2008
 pointlike/src
 
