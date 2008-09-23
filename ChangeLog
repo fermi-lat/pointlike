@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Tue Sep 23 12:42:43 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h 
+Log Message:
+added least squares fit selection + documentation
+    *
+------------------------------------------------------------
 User: kerrm  Tue Sep 23 12:09:44 PDT 2008
 pointlike/python
 
