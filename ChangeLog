@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Mon Sep 22 17:09:05 PDT 2008
+pointlike/src
+
+Modified Files:
+	SourceLikelihood.cxx 
+Log Message:
+fixed static variable initialization issue with sourcelikelihood
+    *
+------------------------------------------------------------
 User: mar0  Mon Sep 22 15:40:42 PDT 2008
 pointlike/src
 
