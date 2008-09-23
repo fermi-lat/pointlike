@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.40 2008/09/09 23:28:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.41 2008/09/22 22:40:41 mar0 Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -79,6 +79,7 @@ public:
     /// @brief localate with iteration to refit the levels, using parameters set in ctor
     double localize();
 
+    /// @brief locate minimum through least squares fit
     double fit_localization(double err);
 
     std::string name()const{return m_name;}
@@ -152,6 +153,8 @@ public:
 
     static void set_merge(bool merge);
     static bool merge();
+    static void set_fitlsq(bool fit);
+    static bool fitlsq();
 
     
     static void set_maxROI(double roi); ///< set the maximum ROI
@@ -177,7 +180,7 @@ private:
     static double s_emin, s_emax, s_minalpha, s_TSmin, s_tolerance, 
         s_maxstep; //
     static int s_skip1, s_skip2, s_itermax, s_verbose;
-    static int s_merge;
+    static int s_merge, s_fitlsq;
     static double s_maxROI; ///< the maximum ROI, in degrees: if set, a limit on umax
 
  
