@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.8 2008/09/11 06:40:22 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.9 2008/09/11 23:58:19 markusa Exp $
 
 */
 
@@ -102,8 +102,8 @@ double                SourceLikelihood::s_emin(100.);
 double                SourceLikelihood::s_emax(1e6);
 std::vector<double>   SourceLikelihood::s_gamma_front(gamma_front,gamma_front+14);
 std::vector<double>   SourceLikelihood::s_sigma_front(sigma_front,sigma_front+14);
-std::vector<double>   SourceLikelihood::s_gamma_back(gamma_back,gamma_front+14);
-std::vector<double>   SourceLikelihood::s_sigma_back(sigma_back,sigma_front+14);
+std::vector<double>   SourceLikelihood::s_gamma_back(gamma_back,gamma_back+14);
+std::vector<double>   SourceLikelihood::s_sigma_back(sigma_back,sigma_back+14);
 double                SourceLikelihood::s_minalpha(0.00);     
 int                   SourceLikelihood::s_itermax(1);	      
 double                SourceLikelihood::s_TSmin(0.0);	      
