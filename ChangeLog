@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 User: burnett  Wed Sep 24 11:01:42 PDT 2008
+pointlike/src
+
+Modified Files:
+	Data.cxx Draw.cxx PointSourceLikelihood.cxx 
+	SimpleLikelihood.cxx 
+Log Message:
+new optimizer; limit on theta; minor fixes
+    *
+------------------------------------------------------------
+User: burnett  Wed Sep 24 11:01:42 PDT 2008
 pointlike/python
 
 Modified Files:
