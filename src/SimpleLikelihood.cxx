@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.44 2008/09/09 23:28:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.45 2008/09/10 21:49:49 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -36,7 +36,7 @@ namespace {
     std::ostream * psf_data = &std::cout;
 
     // for the binning in 1/q when q is negative, pixels far from source
-    double binsize( 0.025); // bin size for 1/q. set zero to disable
+    double binsize(0.005); // 0.025); // bin size for 1/q. set zero to disable
     std::map<double,int> qmap; // used for binning 1/q
 
 
@@ -291,7 +291,12 @@ double SimpleLikelihood::estimate() const
     if (est>1 ) est = 1-1e-4;
     return est;
 }
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+std::pair<double, double> SimpleLikelihood::derivatives(double x)
+{
+    return accumulate(m_vec2.begin(), m_vec2.end(), poissonDerivatives(x), Derivatives(x));
 
+}
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 std::pair<double,double> SimpleLikelihood::maximize()
 {
@@ -306,7 +311,11 @@ std::pair<double,double> SimpleLikelihood::maximize()
     for(double delta(0); fabs(dw.first) > tol && iteration<itermax; ++iteration, x-= delta) {
 
         // accumulate first and second derivatives
+#if 0
         dw = accumulate(m_vec2.begin(), m_vec2.end(), poissonDerivatives(x), Derivatives(x));
+#else
+        dw = derivatives(x);
+#endif
         if( debug) std::cout 
             << std::setw(5)  << iteration 
             << std::setw(10) << std::setprecision(3) << x 

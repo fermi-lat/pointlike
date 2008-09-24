@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.41 2008/09/22 22:40:41 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.42 2008/09/23 19:42:43 mar0 Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -138,6 +138,9 @@ public:
     static void set_energy_range(double emin, double emax=1e6);
     static void get_energy_range(double& emin, double& emax);
 
+    /// @brief set/get the minimum alpha for TS definition
+    static double set_min_alpha(double a);
+
     /// @brief special display function
     /// @param dir direction
     /// @param energy selects energy band
@@ -219,6 +222,10 @@ public:
     /// @param data data to use
     /// @param band [-1] index of band to use, -1 for sum
     TSmap(const skymaps::BinnedPhotonData& data, int band=-1);
+
+    /// @brief set the point source to be used as background for a data scan
+    /// Note that it requires that a diffuse background be defined
+    void setPointSource(const PointSourceLikelihood& psl);
 
     virtual ~TSmap(){};
     virtual double operator()(const astro::SkyDir& sdir)const;

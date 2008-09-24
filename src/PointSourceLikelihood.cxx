@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.51 2008/09/23 19:47:31 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.52 2008/09/23 23:51:38 mar0 Exp $
 
 */
 
@@ -57,7 +57,13 @@ double PointSourceLikelihood::s_maxROI(180);
 void   PointSourceLikelihood::set_maxROI(double r){s_maxROI=r;}
 double PointSourceLikelihood::maxROI(){return s_maxROI;}
 
-double PointSourceLikelihood::s_minalpha(0.05);
+double PointSourceLikelihood::set_min_alpha(double a){
+    double r(s_minalpha); s_minalpha= a; return r;
+}
+
+double PointSourceLikelihood::s_minalpha(0);
+
+
 int    PointSourceLikelihood::s_skip1(0);
 int    PointSourceLikelihood::s_skip2(3);
 int    PointSourceLikelihood::s_itermax(1);
@@ -73,7 +79,8 @@ int  PointSourceLikelihood::s_merge(1);
 void PointSourceLikelihood::set_merge(bool merge){s_merge=merge;}
 bool PointSourceLikelihood::merge(){return s_merge!=0;}
 
-int  PointSourceLikelihood::s_fitlsq(1);
+// option to perform least squares fit to log likelihood surface after localization
+int  PointSourceLikelihood::s_fitlsq(0);  // default off
 void PointSourceLikelihood::set_fitlsq(bool fit){s_fitlsq=fit;}
 bool PointSourceLikelihood::fitlsq(){return s_fitlsq!=0;}
 
@@ -94,7 +101,7 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getValue("verbose",  s_verbose, s_verbose); // override with global
 
     par.getValue(prefix+"merge",    s_merge, s_merge); // merge Bands with same nside, sigma
-
+    par.getValue(prefix+"fitlsq",    s_fitlsq, s_fitlsq); // modify auto least squares
 
     // needed by SimpleLikelihood
     double umax(SimpleLikelihood::defaultUmax());
@@ -316,7 +323,7 @@ void PointSourceLikelihood::printSpectrum()
 #endif
         out() << std::endl;
     }
-    if( s_minalpha>0.1){
+    if( s_minalpha>0.){
         out() << "\tTS sum  (alpha>"<<s_minalpha<<")  ";
     }else{
         out() << setw(30) << "sum  ";
@@ -704,15 +711,24 @@ TSmap::TSmap(const skymaps::BinnedPhotonData& data, int band)
 , m_band(band)
 {}
 
+void TSmap::setPointSource(const PointSourceLikelihood& psl){
+        m_psl = &psl;
+    }
+
+
 double TSmap::operator()(const astro::SkyDir& sdir)const
 {
-    if( m_psl==0 ){
+    if( m_data!=0 ){
         PointSourceLikelihood psl(*m_data, "temp", sdir);
+        if( m_psl!=0){
+            psl.addBackgroundPointSource(m_psl);
+        }
         psl.maximize();
         if( m_band>-1) return psl.at(m_band)->TS();
         return psl.TS();
 
     }
+        // using current fit.
     return m_psl->TSmap(sdir, m_band);
 }
 

@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.31 2008/08/07 05:12:50 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.32 2008/09/11 06:40:13 markusa Exp $
 */
 
 
@@ -122,12 +122,19 @@ public:
     static const astro::PointingInfo& get_pointing(double time);
     static bool inTimeRange(double time);
 
-    ///@brief change default binning: must be done before loading data files
+    /// @brief change default binning: must be done before loading data files
     static void setEnergyBins(const std::vector<double>& bins);
 
-    ///@ brief return  value of the cut
+    /// @brief return  value of the cut
     static double zenith_angle_cut();
     static void set_zenith_angle_cut(double cut);
+
+    /// @brief return  value of FOV cut
+    static double theta_cut();
+    static void set_theta_cut(double cut);
+
+    /// @brief set Earth coordinate system
+    static void useEarthCoordinates();
     
 
 private:
@@ -141,6 +148,7 @@ private:
     double m_start, m_stop;  ///< overall time
     static astro::PointingHistory* s_history; ///< pointer to optional FT2 info.
     static double s_zenith_angle_cut;     ///< static value for cut on earth photons
+    static double s_theta_cut;        ///< static value for theta, or FOV cut
     std::vector<std::pair<double,double> > m_gti; ///< time intervals (Good Time Interval)
 };
 

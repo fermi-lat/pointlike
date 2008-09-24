@@ -1,6 +1,6 @@
 """ image processing
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/image.py,v 1.11 2008/04/29 16:06:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/image.py,v 1.12 2008/09/10 21:49:49 burnett Exp $
 
 """
 
@@ -175,7 +175,7 @@ class AIT(object):
         elif scale=='log':     pylab.imshow(ma.log10(self.masked_image), **kwargs)
         else: raise Exception('bad scale: %s'%scale)
                                         
-        pylab.colorbar()
+        pylab.colorbar(orientation='horizontal', shrink=1.0 if self.size==180 else 0.6)
         if self.galactic:
             pylab.xlabel('glon'); pylab.ylabel('glat')
         else:
@@ -202,7 +202,7 @@ class AIT(object):
         elif scale=='log':     pylab.pcolor(ma.log10(self.masked_image), **kwargs)
         else: raise Exception('bad scale: %s'%scale)
                                         
-        pylab.colorbar()
+        pylab.colorbar(orientation='horizontal', shrink=1.0 if self.size==180 else 0.6)
 
         self.title(title)
 

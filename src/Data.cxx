@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.54 2008/08/09 20:27:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.55 2008/08/21 03:22:02 burnett Exp $
 
 */
 
@@ -53,6 +53,10 @@ namespace {
 
     int use_earth(0);  // flag to convert to Earth coordinates
 }
+void Data::useEarthCoordinates()
+{
+    use_earth=1;
+}
 
 //! @brief define FT2 file to use for rotation
 void Data::setHistoryFile(const std::string& history)
@@ -74,6 +78,10 @@ void Data::set_class_level(int level){s_class_level=level;}
 double Data::s_zenith_angle_cut(105.); // standard cut
 double Data::zenith_angle_cut(){ return s_zenith_angle_cut;}
 void   Data::set_zenith_angle_cut(double cut){s_zenith_angle_cut=cut;}
+
+double Data::s_theta_cut( 66.0 ); // standard cut (acos(0.4))
+double Data::theta_cut(){ return s_theta_cut;}
+void   Data::set_theta_cut(double cut){s_theta_cut=cut;}
 
 // default alignment object
 pointlike::Alignment* Data::s_alignment=new Alignment();
@@ -132,11 +140,12 @@ namespace {
         Photon(const astro::SkyDir& dir, double energy, 
             double time, int event_class, int source
             , const astro::SkyDir&scz, const astro::SkyDir& scx
-            , double zenith_angle
+            , double zenith_angle, double theta
             , int ctbclasslevel=Data::class_level()  // note default 
             )
             : astro::Photon(dir, energy, time, event_class, source)
             , m_zenith_angle(zenith_angle)
+            , m_theta(theta)
             , m_ctbclasslevel(ctbclasslevel)
         {
             Hep3Vector scy (scz().cross(scx()));
@@ -160,10 +169,12 @@ namespace {
             return astro::Photon(SkyDir(transformed), emeas,time(),evtclass, source());
         }
         double zenith_angle()const{return m_zenith_angle;}
+        double theta()const{return m_theta;}
         int class_level()const{return m_ctbclasslevel;}
     private:
         HepRotation m_rot;
         double m_zenith_angle;
+        double m_theta;
         int m_ctbclasslevel;
 
     };
@@ -184,6 +195,9 @@ namespace {
             if( m_select>-1 && event_class!= m_select) return;
             if( m_start>0   && gamma.time()<m_start ||  m_stop>m_start && gamma.time()>m_stop) return;
             if( m_source>-1 && sourceid != m_source)return;
+
+            // theta cut: define FOV
+            if( gamma.theta()>Data::theta_cut() ) return;
 
             // zenith angle cut, unless in Earth coordinates
             if( ! isFinite(gamma.zenith_angle()) ) return; // catch NaN?
@@ -291,16 +305,17 @@ namespace {
         float raz(0), decz(0), rax(90), decx(0); // sc orientation: default orthogonal
         double time;
         double zenith_angle;
+        double theta;
         int event_class, ctbclasslevel(1);
         int source(-1);
 
         // FT1 names
         static std::string fits_names[]={"RA", "DEC", 
-            "ENERGY", "TIME", "EVENT_CLASS", "ZENITH_ANGLE", "CTBCLASSLEVEL", "MC_SRC_ID"};
+            "ENERGY", "TIME", "EVENT_CLASS", "ZENITH_ANGLE","THETA", "CTBCLASSLEVEL", "MC_SRC_ID"};
         // corresponging names in the ROOT MeritTuple
         static std::string root_names[]={"FT1Ra", "FT1Dec", 
             "CTBBestEnergy", "EvtElapsedTime"
-            , "FT1ConvLayer", "FT1ZenithAngle", "McSourceId"};
+            , "FT1ConvLayer", "FT1ZenithAngle", "FT1Theta", "McSourceId"};
  
         std::string *names = m_fits?  fits_names : root_names;
 
@@ -322,6 +337,7 @@ namespace {
         if( ! isFinite(zenith_angle) || zenith_angle<1e-10 ){ // latter seems to be what fits gives?
             zenith_angle=180.; // will be cut
         }
+        (*m_it)[*names++].get(theta);
         try{
             (*m_it)[*names++].get(ctbclasslevel);
         }catch(const std::exception&){
@@ -365,7 +381,7 @@ namespace {
         }
 
         return Photon(astro::SkyDir(ra, dec), energy, time, event_class , source, 
-            SkyDir(raz,decz),SkyDir(rax,decx), zenith_angle, ctbclasslevel);
+            SkyDir(raz,decz),SkyDir(rax,decx), zenith_angle, theta, ctbclasslevel);
     }
 
 

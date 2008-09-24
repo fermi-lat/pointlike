@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.28 2008/06/18 14:41:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.29 2008/09/09 23:28:13 burnett Exp $
 
 */
 
@@ -33,6 +33,7 @@ energy band such that the PSF is constant.
 */
 
 class SimpleLikelihood  : public astro::SkyFunction{
+
 public:
     /** ctor
     @param data   vector of directions, weights
@@ -143,6 +144,9 @@ public:
 
     /// @brief set the diffuse component
     void setDiffuse(skymaps::SkySpectrum* diff);
+
+    /// @ brief return first and second derivative
+    std::pair<double, double> derivatives(double x);
 
     static double tolerance();
     static void setTolerance(double tol);
