@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.h
     @brief declaration of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.2 2008/08/06 06:41:42 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.3 2008/09/11 23:58:10 markusa Exp $
 
 */
 
@@ -57,7 +57,7 @@ namespace pointlike {
 		       const astro::SkyDir& dir, 
 		       double umax, const skymaps::SkySpectrum* diffuse);
     
-    ~ExtendedLikelihood();
+    virtual ~ExtendedLikelihood();
     
     const skymaps::Band& band()const {return m_band;}
     

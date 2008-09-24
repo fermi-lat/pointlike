@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.86 2008/08/29 14:24:52 burnett Exp $
+$Id: release.notes,v 1.87 2008/09/10 21:49:49 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 24-sep-08 v6r9    THB New optimizer for localization; 66 degree theta cut for Data
  10-sep-08 v6r8    THB TSmap support, partly from Stephan
  29-aug-08 v6r7p3  THB small fixes, filter TS option, create Google map
  20-aug-08 v6r7p1  THB implement --verbose option for pointfit.py
