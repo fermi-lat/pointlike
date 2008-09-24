@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Sep 24 11:01:42 PDT 2008
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+new optimizer; limit on theta; minor fixes
+    *
+------------------------------------------------------------
 User: mar0  Tue Sep 23 16:51:38 PDT 2008
 pointlike/src
 
