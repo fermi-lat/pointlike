@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 User: burnett  Wed Sep 24 11:01:42 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Data.h Draw.h ExtendedLikelihood.h PointSourceLikelihood.h 
+	SimpleLikelihood.h 
+Log Message:
+new optimizer; limit on theta; minor fixes
+    *
+------------------------------------------------------------
+User: burnett  Wed Sep 24 11:01:42 PDT 2008
 pointlike/doc
 
 Modified Files:
