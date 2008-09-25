@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+TAG
+Tag name: pointlike-06-09-00, operation: mov
+Package: pointlike
+User: glastrm  Wed Sep 24 19:59:34 2008
+Files:
+  pointlike/pointlikeLib.py  1.5
+
+    *
+------------------------------------------------------------
 User: glastrm  Wed Sep 24 19:59:10 PDT 2008
 ScienceTools-scons/pointlike
 
