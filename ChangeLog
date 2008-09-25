@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: glastrm  Wed Sep 24 19:59:10 PDT 2008
+ScienceTools-scons/pointlike
+
+Modified Files:
+	pointlikeLib.py 
+Log Message:
+added minuit as a dependency
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-09-00, operation: add
 Package: pointlike
