@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.9 2008/09/11 23:58:19 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.10 2008/09/23 00:09:05 mar0 Exp $
 
 */
 
@@ -46,7 +46,7 @@ namespace {
     // set source parameters     
 
     std::vector<double> src_par(npar-2,0);
-    for (int i=0;i<npar-2;i++) src_par[i]=par[i+2];
+    for (int i=0;i<npar-2;i++) src_par[i]=sqrt(fabs(par[i+2]))*M_PI/720.;
     
     // calculate new direction vector from fit parameters (delta(theta),delta(phi))
 
@@ -69,16 +69,17 @@ namespace {
       const std::vector<double>& gradient = gSourcePointer->gradient();
       for (int i=0;i<npar;i++) derivative[i]=gradient[i];
     };
-    
-    std::cout << "**** Iteration "<<gFitCounter<<" **** Testing parameters:"
-	      << std::fixed<< std::setprecision(4) 
-	      << " delta(X)=" << (par[0]*180./M_PI)
-	      <<" deg\tdelta(Y)="<<(par[1]*180./M_PI)<<" deg"<< std::scientific;
-    for (int i=2;i<npar;i++)  std::cout <<"\tp"<<i<<"="<<par[i];
 
-    //       std::cout << "\tTS: " << TS <<" "<<skip<<std::endl;
+    if(gSourcePointer->verbose()>0) {     
+	std::cout << "**** Iteration "<<gFitCounter<<" **** Testing parameters:"
+		  << std::fixed<< std::setprecision(4) 
+		  << " delta(X)=" << (par[0]*180./M_PI)
+		  <<" deg\tdelta(Y)="<<(par[1]*180./M_PI)<<" deg"<< std::scientific;
+	for (int i=2;i<npar;i++)  
+             std::cout <<"\tp"<<i<<"="<<par[i]<<" ("<<std::fixed<<std::setprecision(1)<<(src_par[i-2]*180.*60./M_PI)<<" arcmin)";
 
-    std::cout << "\tTS: " << TS <<" iflag: "<<iflag<<std::endl;
+        std::cout << "\tTS: " << TS <<" iflag: "<<iflag<<std::endl;
+    };
     ++gFitCounter;
     
   }
@@ -227,21 +228,33 @@ void SourceLikelihood::setup(skymaps::BinnedPhotonData& data){
     if(b.event_class()==0){
       if(s_gamma_front.size()>i) { 
          b.setGamma(s_gamma_front[i]);
-	 std::cout<<"Setting gamma_front for bin with emin="<<b.emin()<<" MeV to gamma="<<s_gamma_front[i]<<std::endl;
+	 if(s_verbose>0) {
+           std::cout<<std::fixed<<std::setprecision(2);
+	   std::cout<<"Setting gamma_front for bin with emin="<<b.emin()<<" MeV to gamma="<<s_gamma_front[i]<<std::endl;
+         };
       };	 
       if(s_sigma_front.size()>i) {
          b.setSigma(s_sigma_front[i]);
-	 std::cout<<"Setting sigma_front for bin with emin="<<b.emin()<<" MeV to sigma="<<s_sigma_front[i]<<std::endl;
+	 if(s_verbose>0) {
+           std::cout<<std::fixed<<std::setprecision(5);
+	   std::cout<<"Setting sigma_front for bin with emin="<<b.emin()<<" MeV to sigma="<<s_sigma_front[i]<<std::endl;
+         };
       };	 
       i++;
     } else {
       if(s_gamma_back.size()>k) {
          b.setGamma(s_gamma_back[k]);
-	 std::cout<<"Setting gamma_back for bin with emin="<<b.emin()<<" MeV to gamma="<<s_gamma_back[k]<<std::endl;
+	 if(s_verbose>0) {
+           std::cout<<std::fixed<<std::setprecision(2);
+	   std::cout<<"Setting gamma_back for bin with emin="<<b.emin()<<" MeV to gamma="<<s_gamma_back[k]<<std::endl;
+         };
       };	 
       if(s_sigma_back.size()>k) {
          b.setSigma(s_sigma_back[k]);
-	 std::cout<<"Setting sigma_back for bin with emin="<<b.emin()<<" MeV tosigma="<<s_sigma_back[k]<<std::endl;
+	 if(s_verbose>0) {
+           std::cout<<std::fixed<<std::setprecision(5);
+	   std::cout<<"Setting sigma_back for bin with emin="<<b.emin()<<" MeV tosigma="<<s_sigma_back[k]<<std::endl;
+         };
       };	 
       k++;
     };    
@@ -467,24 +480,15 @@ double pointlike::SourceLikelihood::localizeMinuit()
   using std::fixed;
   int wd(10);
   
-  if( verbose()){
-    out() 
-      << "      Searching for best position \n"
-      << setw(wd) << left<< "Gradient   " 
-      << setw(wd) << left<< "delta  "   
-      << setw(wd) << left<< "ra"
-      << setw(wd) << left<< "dec "
-      << setw(wd) << left<< "error "
-      << setw(wd) << left<< "Ts "
-      <<std::endl;
-  }
+  std::cout<<std::endl<<"Starting MINUIT localization for source "<<name()<<" ..."<<std::endl;
   
   astro::SkyDir last_dir(dir()); // save current direction
   setDir(dir(), m_sourceParameters, false);    // initialize
   
   gFitStartDir = dir()();
-  
-  std::cout<<std::setprecision(4)<<"Fit start direction: "<<gFitStartDir<<" "<<gFitStartDir.mag()<<" "<<dir()()<<std::endl;
+   
+  if(verbose())  
+     std::cout<<std::setprecision(4)<<"Fit start direction: "<<gFitStartDir<<" "<<gFitStartDir.mag()<<" "<<dir()()<<std::endl;
   
   gFitDeltaX = CLHEP::Hep3Vector(gFitStartDir.y(),-gFitStartDir.x(),0.);
   if( gFitDeltaX.mag2()<1e-10) 
@@ -493,13 +497,16 @@ double pointlike::SourceLikelihood::localizeMinuit()
   gFitDeltaY = gFitStartDir.cross(gFitDeltaX);
   gFitDeltaY.setMag(1.);
   
-  std::cout<<"Fit coordinate system: x="<<gFitDeltaX<<" y="<<gFitDeltaY<<std::endl;
+  if(verbose())  
+     std::cout<<"Fit coordinate system: x="<<gFitDeltaX<<" y="<<gFitDeltaY<<std::endl;
   
   int npar = 2 + m_sourceParameters.size();
 
   TMinuit gMinuit(npar);
+  gMinuit.SetPrintLevel(verbose()-1);
 
-  std::cout << "Setting likelihood for "<<npar<<" parameters : " << this << std::endl;
+
+  if(verbose()) std::cout << "Setting likelihood for "<<npar<<" parameters. " <<std::endl;
   
   // Set the pointer for access in the minuit function
   gSourcePointer = this;
@@ -517,10 +524,10 @@ double pointlike::SourceLikelihood::localizeMinuit()
   parName[1] = std::string("Delta(phi)"); 
   
   for(int i=2; i<npar; i++){ 
-    par[i]      = m_sourceParameters[i-2];
+    par[i]      = m_sourceParameters[i-2]*m_sourceParameters[i-2]*(720./M_PI)*(720./M_PI);
     stepSize[i] = 0.01;
-    minVal[i]   = 0;
-    maxVal[i]   = 0.5;
+    minVal[i]   = -16.;
+    maxVal[i]   = 16.;
     std::stringstream nameStream(parName[i]);
     nameStream<<"srcparam("<<i-2<<")"; 
     parName[i]=nameStream.str();
@@ -542,12 +549,10 @@ double pointlike::SourceLikelihood::localizeMinuit()
   if (s_useGradient) { 
       nargs=1; arglist[0] = 1; 
       gMinuit.mnexcm("SET GRA", arglist, nargs, ierflag);
-      gMinuit.SetPrintLevel(0);
   };
     
   nargs=1; arglist[0] = 1; 
   gMinuit.mnexcm("SET STR", arglist, nargs, ierflag);
-  gMinuit.SetPrintLevel(0);
   
   // SF: eventually read itermax from the config-file
   //     arglist[0] = itermax; 
@@ -571,8 +576,13 @@ double pointlike::SourceLikelihood::localizeMinuit()
   if(s_useMinos){
     nargs = 0;
     gMinuit.mnexcm("MINOS", arglist, nargs, ierflag);
-    for (int i=0;i<npar;i++){
-       gMinuit.mnerrs(i,m_errMINOSPlus[i],m_errMINOSMinus[i],m_errMINOSParabolic[i], m_errMINOSGlobalCorr[i]);
+    gMinuit.mnerrs(0,m_errMINOSPlus[0],m_errMINOSMinus[0],m_errMINOSParabolic[0], m_errMINOSGlobalCorr[0]);
+    gMinuit.mnerrs(1,m_errMINOSPlus[1],m_errMINOSMinus[1],m_errMINOSParabolic[1], m_errMINOSGlobalCorr[1]);
+    for (int i=2;i<npar;i++){
+        gMinuit.GetParameter(i, m_sourceParameters[i-2],m_sourceParErrors[i-2]);
+	m_errMINOSPlus[i]=0.5/sqrt(fabs(m_sourceParameters[i-2]))* m_errMINOSPlus[i]*M_PI/720.;
+	m_errMINOSMinus[i]=0.5/sqrt(fabs(m_sourceParameters[i-2]))* m_errMINOSMinus[i]*M_PI/720.;
+	m_errMINOSParabolic[i]=0.5/sqrt(fabs(m_sourceParameters[i-2]))* m_errMINOSParabolic[i]*M_PI/720.;
     };
   }
     
@@ -582,6 +592,10 @@ double pointlike::SourceLikelihood::localizeMinuit()
   gMinuit.GetParameter(0, x, m_errorX);
   gMinuit.GetParameter(1, y, m_errorY);
   for (int i=2; i<npar; i++) gMinuit.GetParameter(i, m_sourceParameters[i-2],m_sourceParErrors[i-2]);
+  for (int i=2; i<npar; i++) {
+      m_sourceParErrors[i-2]=0.5/sqrt(fabs(m_sourceParameters[i-2]))*m_sourceParErrors[i-2]*M_PI/720.;
+      m_sourceParameters[i-2]=sqrt(fabs(m_sourceParameters[i-2]))*M_PI/720.;
+  };
   
   CLHEP::Hep3Vector newDir = gFitStartDir+ x* gFitDeltaX + y* gFitDeltaY;
   newDir.setMag(1.);
@@ -596,6 +610,13 @@ double pointlike::SourceLikelihood::localizeMinuit()
     return -1;    
   }
   
+    std::cout<<std::fixed<<std::setprecision(3)
+             <<"Localization result for source "<<name()<<": ra="<<dirNew.ra()<<" dec="<<dirNew.dec()<<" pos.err="
+             <<(1.08e4/M_PI*sqrt(m_errorX*m_errorX + m_errorY*m_errorY))<<" arcmin --- ";
+    for (int i=2; i<npar; i++) std::cout<<" r"<<(i-2)<<"="<<(1.08e4/M_PI*m_sourceParameters[i-2])
+                                        <<"+/-"<<(1.08e4/M_PI*m_sourceParErrors[i-2])<<" arcmin";
+    std::cout<<std::endl;
+    //      setDir(last_dir()); // restore position  
   return sqrt(m_errorX*m_errorX + m_errorY*m_errorY);
 }  
 
