@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: markusa  Fri Sep 26 14:35:46 PDT 2008
+pointlike/src
+
+Modified Files:
+	SourceLikelihood.cxx 
+Log Message:
+changed r fitting to r^2 fitting
+
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-09-00, operation: mov
 Package: pointlike
