@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.10 2008/09/23 00:09:05 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.11 2008/09/26 21:35:46 markusa Exp $
 
 */
 
@@ -70,7 +70,7 @@ namespace {
       for (int i=0;i<npar;i++) derivative[i]=gradient[i];
     };
 
-    if(gSourcePointer->verbose()>0) {     
+    if(gSourcePointer->verbose()) {     
 	std::cout << "**** Iteration "<<gFitCounter<<" **** Testing parameters:"
 		  << std::fixed<< std::setprecision(4) 
 		  << " delta(X)=" << (par[0]*180./M_PI)
