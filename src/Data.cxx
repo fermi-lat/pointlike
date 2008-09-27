@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.56 2008/09/24 18:01:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.57 2008/09/27 21:38:16 burnett Exp $
 
 */
 
@@ -645,8 +645,10 @@ Data::Data(std::vector<std::string> inputfiles, int event_type, double tstart, d
 
 Data::Data(const std::string & inputFile, const std::string & tablename)
 : m_data(new BinnedPhotonData(inputFile, tablename))
+, m_start(0), m_stop(0)
+, m_log(0)
 {
-    addgti(inputFile);
+    //not needed? addgti(inputFile);
 }
 
 Data::~Data()
