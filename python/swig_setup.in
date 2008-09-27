@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.27 2008/09/11 06:50:54 markusa Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.28 2008/09/11 23:58:17 markusa Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -197,6 +197,8 @@ public:
  //     return (*self)[i]; 
  //  }
    double computeOntime(){return (*self).GtiBase::computeOntime(); } 
+   void insertInterval(double tstart, double tstop){ (*self).GtiBase::insertInterval(tstart, tstop); }
+
     
 }
 %include $(SKYMAPSROOT)/skymaps/IsotropicPowerLaw.h

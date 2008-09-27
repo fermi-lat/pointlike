@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.87 2008/09/10 21:49:49 burnett Exp $
+$Id: release.notes,v 1.88 2008/09/24 18:01:42 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 27-sep-08 v6r9p1  THB Improve output from Data: set GTI in output if time range selected
  24-sep-08 v6r9    THB New optimizer for localization; 66 degree theta cut for Data
  10-sep-08 v6r8    THB TSmap support, partly from Stephan
  29-aug-08 v6r7p3  THB small fixes, filter TS option, create Google map

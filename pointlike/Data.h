@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.32 2008/09/11 06:40:13 markusa Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.33 2008/09/24 18:01:42 burnett Exp $
 */
 
 
@@ -79,7 +79,8 @@ public:
 
     //! add  gti info from the file to current set
     //! @param file Either FT1 or  MeritTuple ROOT file
-    void addgti(const std::string& file);
+    //! @return true if ok, false if GTI not included in range
+    bool addgti(const std::string& file);
 
     //! behave like a BinnedPhotonData object
     operator const skymaps::BinnedPhotonData&() const {return *m_data;}
@@ -138,18 +139,23 @@ public:
     
 
 private:
+    skymaps::BinnedPhotonData * m_data; ///< manage this object
+    double m_start, m_stop;  ///< overall time interval (default 0 for no cut)
+    std::ostream* m_log;
+
+    std::ostream& log(){return m_log!=0? *m_log: std::cout; }
+
+    void load_filelist(const std::vector<std::string>& filelist, int event_class=-1, int source_id=-1);
+
     void lroot(const std::string& infile,int event_class);
     static double s_scale[4]; // scale factors
     static int s_class_level; // set to 1,2,3 for transient, source, diffuse
 
-    skymaps::BinnedPhotonData * m_data;
     static pointlike::Alignment* s_alignment; ///< LAT alignment manager
     static std::string s_ft2file;
-    double m_start, m_stop;  ///< overall time
     static astro::PointingHistory* s_history; ///< pointer to optional FT2 info.
     static double s_zenith_angle_cut;     ///< static value for cut on earth photons
     static double s_theta_cut;        ///< static value for theta, or FOV cut
-    std::vector<std::pair<double,double> > m_gti; ///< time intervals (Good Time Interval)
 };
 
 }

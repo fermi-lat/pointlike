@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.55 2008/08/21 03:22:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.56 2008/09/24 18:01:42 burnett Exp $
 
 */
 
@@ -430,6 +430,7 @@ namespace {
 } // anon namespace
 
 Data::Data(const embed_python::Module& setup)
+: m_log(0)
 {
     std::string pixelfile("")
         , output_pixelfile("");
@@ -462,7 +463,7 @@ Data::Data(const embed_python::Module& setup)
     setup.getValue(prefix+"output_pixelfile", output_pixelfile, "");
     setup.getValue(prefix+"history",   history_filename, "");
     if( !history_filename.empty()){
-        std::cout << "loading history file: " << history_filename << std::endl;
+        log() << "loading history file: " << history_filename << std::endl;
         Data::setHistoryFile(history_filename);
     }
     setup.getList(prefix+"LATalignment", alignment);
@@ -491,34 +492,43 @@ Data::Data(const embed_python::Module& setup)
     if( filelist.empty()){
         throw std::invalid_argument("Data: no data specified: expected either a pixel file or a list of data files");
     }
-    for( std::vector<std::string>::const_iterator it = filelist.begin(); 
-        it !=filelist.end(); ++it)
-    {
-        const std::string& inputFile(*it);
-        add(inputFile, event_class, source_id);
-        addgti(inputFile);
-    }
+    load_filelist(filelist, event_class, source_id);
+
     if( !output_pixelfile.empty() ) {
-        std::cout << "writing output pixel file :" << output_pixelfile ;
+        log() << "writing output pixel file :" << output_pixelfile ;
         m_data->write(output_pixelfile);
-        std::cout << " with GTI range " << int(m_data->gti().minValue())<<"-"<<int(m_data->gti().maxValue())
+        log() << " with GTI range " << int(m_data->gti().minValue())<<"-"<<int(m_data->gti().maxValue())
             << std::endl;
     }
 }
 
+void Data::load_filelist(const std::vector<std::string>& filelist, int event_class, int source_id)
+{
+    log() << "Reading from FT1 file list. " << std::endl;
+    if( m_start>0 ) {
+        log() << "\tselecting time range: " << static_cast<int>(m_start) << " to " << 
+            static_cast<int>(m_stop) << std::endl;
+    }
+    log() << "\tCuts:  zenith theta and instrument theta: " << s_zenith_angle_cut << ", " 
+        << s_theta_cut<< std::endl;
+    for( std::vector<std::string>::const_iterator it = filelist.begin(); 
+        it !=filelist.end(); ++it)
+    {
+        const std::string& inputFile(*it);
+        log() << "\t" << inputFile <<": " ;
+        if (addgti(inputFile)){
+            add(inputFile, event_class, source_id);
+        }
+    }
+
+}
+
+
 void Data::add(const std::string& inputFile, int event_type, int source_id)
 {
-    std::cout << "Loading data from file " << inputFile ;
-    if( event_type>=0){
-        std::cout << ", selecting event type " << event_type ;
-    }
-    if( source_id>-1) {
-        std::cout << " selecting source id " << source_id;
-    }
-    if( m_start>0 || m_stop>0 ) std::cout << " time range: (" << int(m_start) << " to " << int(m_stop) << ")";
-    std::cout  << std::endl;
 
     int photoncount(m_data->photonCount()), pixelcount(m_data->pixelCount());
+
     if( inputFile.find(".root") != std::string::npos) {
         lroot(inputFile, event_type);
         std::cout 
@@ -544,29 +554,39 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
                 throw;
             }
         }
-        EventList photons(inputFile, source_id>-1);
         AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id);
+        EventList photons(inputFile, source_id>-1);
 
         AddPhoton added =std::for_each(photons.begin(), photons.end(), adder );
-        std::cout 
-          << "photons found: " << added.found() <<", kept: "  << (m_data->photonCount() -photoncount) << " (total: " << m_data->photonCount() <<") "
+        log() 
+          << "\t\t photons found: " << added.found() <<", kept: "  << (m_data->photonCount() -photoncount) 
+          << " (total: " << m_data->photonCount() <<") "
           << std::endl;
     }
 
 }
 
-void Data::addgti(const std::string& inputFile)
+bool Data::addgti(const std::string& inputFile)
 {
+    bool ok = true;
     try
     {
 
-        std::cout << "Loading gti info from file " << inputFile << "...";
         if(inputFile.find(".root") == std::string::npos) {
+            // a FITS file: check for overlap
+            skymaps::Gti tnew(inputFile);
+            double tmin(tnew.minValue()), tmax(tnew.maxValue());
+            ok = (m_start==0 || tmax > m_start)
+               && (m_stop==0 || tmax < m_stop);
+            if( ok ) {
+                skymaps::Gti timerange(tnew.applyTimeRangeCut(m_start, std::max(m_stop, tmax)));
+                m_data->addgti(timerange); 
+                log() << " found interval " 
+                    << int(tmin)<<"-"<< int(tmax)<<  std::endl;
+            }else{
+                log() <<  " not in selected range" << std::endl;
+            }
 
-            skymaps::Gti tnew(inputFile); 
-            m_data->addgti(tnew); 
-            std::cout << " found interval " 
-                << int(tnew.minValue())<<"-"<< int(tnew.maxValue())<<  std::endl;
         }else {
 
             // extract begin and end times from the ROOT file
@@ -600,29 +620,27 @@ void Data::addgti(const std::string& inputFile)
         std::cerr << "\nCaught exception " << typeid(e).name() 
             << " \"" << e.what() << "\"" << std::endl;
         std::cerr << "Unable to access gti info from file " << inputFile << std::endl;
+        ok = false;
     }
+    return ok;
 }
 Data::Data(const std::string& inputFile, int event_type, double tstart, double tstop, int source_id)
 : m_data(new BinnedPhotonData(*binner))
 , m_start(tstart), m_stop(tstop)
+, m_log(0)
 {
     add(inputFile, event_type, source_id);
     addgti(inputFile);
 }
 
-Data::Data(std::vector<std::string> inputFiles, int event_type, double tstart, double tstop, int source_id, std::string ft2file)
+Data::Data(std::vector<std::string> inputfiles, int event_type, double tstart, double tstop, int source_id, std::string ft2file)
 : m_data(new BinnedPhotonData(*binner))
 , m_start(tstart), m_stop(tstop)
+, m_log(0)
 {
     if( !ft2file.empty() ) setHistoryFile(ft2file); // this is actually a global
 
-    for( std::vector<std::string>::const_iterator it = inputFiles.begin(); 
-        it !=inputFiles.end(); ++it)
-    {
-        const std::string& inputFile(*it);
-        add(inputFile, event_type, source_id);
-        addgti(inputFile);
-    }
+    load_filelist(inputfiles);
 }
 
 Data::Data(const std::string & inputFile, const std::string & tablename)
