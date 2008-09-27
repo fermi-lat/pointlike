@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sat Sep 27 14:38:16 PDT 2008
+pointlike/src
+
+Modified Files:
+	Data.cxx SourceLikelihood.cxx 
+Log Message:
+tagging, after Data improvement
+    *
+------------------------------------------------------------
+User: burnett  Sat Sep 27 14:38:16 PDT 2008
 pointlike/python
 
 Modified Files:
