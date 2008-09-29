@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: markusa  Mon Sep 29 15:07:51 PDT 2008
+pointlike/src
+
+Modified Files:
+	SourceLikelihood.cxx 
+Log Message:
+fixed optimization limit bug
+
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-09-02, operation: add
 Package: pointlike
