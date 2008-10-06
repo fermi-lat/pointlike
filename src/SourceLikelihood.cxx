@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.12 2008/09/27 21:38:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.13 2008/09/29 22:07:51 markusa Exp $
 
 */
 
@@ -46,7 +46,7 @@ namespace {
     // set source parameters     
 
     std::vector<double> src_par(npar-2,0);
-    for (int i=0;i<npar-2;i++) src_par[i]=sqrt(fabs(par[i+2]))*M_PI/720.;
+    for (int i=0;i<npar-2;i++) src_par[i]=sqrt(fabs(par[i+2]))/gSourcePointer->extscale();
     
     // calculate new direction vector from fit parameters (delta(theta),delta(phi))
 
@@ -114,7 +114,9 @@ int                   SourceLikelihood::s_useMinuit(1);
 int                   SourceLikelihood::s_useSimplex(0);	
 int                   SourceLikelihood::s_useGradient(1);	      
 int                   SourceLikelihood::s_useMinos(0);	      
-double                SourceLikelihood::s_accuracy(0.0001);	
+double                SourceLikelihood::s_accuracy(0.0001);
+double 	              SourceLikelihood::s_extscale(720./M_PI);
+double 	              SourceLikelihood::s_maxsize(0.1);
 
 
 
@@ -141,6 +143,8 @@ void SourceLikelihood::setParameters(const embed_python::Module& par){
   par.getValue(prefix+"UseMinos",  s_useMinos,s_useMinos);
   par.getValue(prefix+"UseGradient",s_useGradient,s_useGradient);
   par.getValue(prefix+"accuracy",  s_accuracy,s_accuracy);
+  par.getValue(prefix+"extscale",  s_extscale,s_extscale);
+  par.getValue(prefix+"maxsize",  s_maxsize,s_maxsize);
   
   // needed by ExtendedLikelihood
   double umax(pointlike::ExtendedLikelihood::defaultUmax());
@@ -524,10 +528,10 @@ double pointlike::SourceLikelihood::localizeMinuit()
   parName[1] = std::string("Delta(phi)"); 
   
   for(int i=2; i<npar; i++){ 
-    par[i]      = m_sourceParameters[i-2]*m_sourceParameters[i-2]*(720./M_PI)*(720./M_PI);
-    stepSize[i] = 0.01;
-    minVal[i]   = -400.;
-    maxVal[i]   = 400.; //maximum size 300 arcmin == 400
+    par[i]      = m_sourceParameters[i-2]*m_sourceParameters[i-2]*s_extscale*s_extscale;
+    maxVal[i]   = s_maxsize*s_maxsize*s_extscale*s_extscale; //maximum size 300 arcmin == 400
+    minVal[i]   = -maxVal[i];
+    stepSize[i] = 0.2*maxVal[i];
     std::stringstream nameStream(parName[i]);
     nameStream<<"srcparam("<<i-2<<")"; 
     parName[i]=nameStream.str();
@@ -580,9 +584,9 @@ double pointlike::SourceLikelihood::localizeMinuit()
     gMinuit.mnerrs(1,m_errMINOSPlus[1],m_errMINOSMinus[1],m_errMINOSParabolic[1], m_errMINOSGlobalCorr[1]);
     for (int i=2;i<npar;i++){
         gMinuit.GetParameter(i, m_sourceParameters[i-2],m_sourceParErrors[i-2]);
-	m_errMINOSPlus[i]=0.5/sqrt(fabs(m_sourceParameters[i-2]))* m_errMINOSPlus[i]*M_PI/720.;
-	m_errMINOSMinus[i]=0.5/sqrt(fabs(m_sourceParameters[i-2]))* m_errMINOSMinus[i]*M_PI/720.;
-	m_errMINOSParabolic[i]=0.5/sqrt(fabs(m_sourceParameters[i-2]))* m_errMINOSParabolic[i]*M_PI/720.;
+	m_errMINOSPlus[i]=0.5/sqrt(fabs(m_sourceParameters[i-2]))* m_errMINOSPlus[i]/s_extscale;
+	m_errMINOSMinus[i]=0.5/sqrt(fabs(m_sourceParameters[i-2]))* m_errMINOSMinus[i]/s_extscale;
+	m_errMINOSParabolic[i]=0.5/sqrt(fabs(m_sourceParameters[i-2]))* m_errMINOSParabolic[i]/s_extscale;
     };
   }
     
@@ -593,8 +597,8 @@ double pointlike::SourceLikelihood::localizeMinuit()
   gMinuit.GetParameter(1, y, m_errorY);
   for (int i=2; i<npar; i++) gMinuit.GetParameter(i, m_sourceParameters[i-2],m_sourceParErrors[i-2]);
   for (int i=2; i<npar; i++) {
-      m_sourceParErrors[i-2]=0.5/sqrt(fabs(m_sourceParameters[i-2]))*m_sourceParErrors[i-2]*M_PI/720.;
-      m_sourceParameters[i-2]=sqrt(fabs(m_sourceParameters[i-2]))*M_PI/720.;
+      m_sourceParErrors[i-2]=0.5/sqrt(fabs(m_sourceParameters[i-2]))*m_sourceParErrors[i-2]/s_extscale;
+      m_sourceParameters[i-2]=sqrt(fabs(m_sourceParameters[i-2]))/s_extscale;
   };
   
   CLHEP::Hep3Vector newDir = gFitStartDir+ x* gFitDeltaX + y* gFitDeltaY;
