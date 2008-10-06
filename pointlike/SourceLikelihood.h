@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.4 2008/09/11 06:40:13 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.5 2008/09/11 23:58:10 markusa Exp $
 */
 
 #ifndef tools_SourceLikelihood_h
@@ -151,6 +151,13 @@ namespace pointlike {
     static void setSigma(const std::string selection,const std::vector<double> gamma);
     static std::vector<double> sigma(const std::string selection) ;
 
+    /// @brief set scale factor for extension used in minimization (debug use only)
+    static void setExtscale(double es){ s_extscale=es; };
+    static double extscale() { return s_extscale; };
+
+    /// @brief set maximum size of source allowed in fit (in rad):
+    static void setMaxSize(double ms){ s_maxsize=ms; };
+    static double maxSize() { return s_maxsize; };
 
     std::string type()const {return m_type;};
     
@@ -211,7 +218,7 @@ namespace pointlike {
     skymaps::CompositeSkySpectrum * m_background;  ///< background spectrum to use
     
     static double s_emin, s_emax, s_minalpha, s_TSmin, s_tolerance, 
-      s_maxstep,s_accuracy; //
+      s_maxstep,s_accuracy,s_maxsize,s_extscale; //
     static int s_useMinuit;
     static int s_useSimplex;
     static int s_itermax, s_verbose;
