@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: markusa  Mon Oct  6 13:40:30 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	SourceLikelihood.h 
+Log Message:
+fixed stepsize bug
+
+
+    *
+------------------------------------------------------------
 User: burnett  Sat Oct  4 07:49:53 PDT 2008
 pointlike/python
 
