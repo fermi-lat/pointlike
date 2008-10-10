@@ -1,5 +1,21 @@
 ------------------------------------------------------------
 User: markusa  Thu Oct  9 18:58:55 PDT 2008
+pointlike/src
+
+Modified Files:
+	Data.cxx ExtendedSourcePDF.cxx SourceLikelihood.cxx 
+Added Files:
+	FlexibleBinner.cxx 
+Log Message:
+new binner 
+new obssim compatible source
+log(r) fitting
+and much more....
+
+
+    *
+------------------------------------------------------------
+User: markusa  Thu Oct  9 18:58:55 PDT 2008
 pointlike/python
 
 Modified Files:
