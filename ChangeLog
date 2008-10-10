@@ -1,4 +1,18 @@
 ------------------------------------------------------------
+User: markusa  Thu Oct  9 18:58:56 PDT 2008
+pointlike/src/sourcefit
+
+Modified Files:
+	sourcefit_main.cxx 
+Log Message:
+new binner 
+new obssim compatible source
+log(r) fitting
+and much more....
+
+
+    *
+------------------------------------------------------------
 User: markusa  Thu Oct  9 18:58:55 PDT 2008
 pointlike/src
 
