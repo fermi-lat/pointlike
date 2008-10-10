@@ -54,7 +54,7 @@ namespace pointlike{
 	  try{
  	     result[0]= st_facilities::GaussianQuadrature::dgaus8<const extendedSourcePDF::gradUFunctor>(gu,m_source.min(),m_source.max(),error,ierr);
 	  } catch (st_facilities::GaussianQuadrature::dgaus8Exception ex) { 
-	     std::cerr<<"gu catch counter:" <<(++catch_counter)<<std::endl;
+//	     std::cerr<<"gu catch counter:" <<(++catch_counter)<<std::endl;
 	     error=1e-5;
 	     result[0]= st_facilities::GaussianQuadrature::dgaus8<const extendedSourcePDF::gradUFunctor>(gu,m_source.min(),m_source.max(),error,ierr);
 	  };  
@@ -79,7 +79,7 @@ namespace pointlike{
 	      try{
  		 result[i]= st_facilities::GaussianQuadrature::dgaus8<const extendedSourcePDF::gradSFunctor>(gs,m_source.min(),m_source.max(),error,ierr);
 	      } catch (st_facilities::GaussianQuadrature::dgaus8Exception ex) { 
-	         std::cerr<<"gs catch counter:" <<(++catch_counter)<<std::endl;
+//	         std::cerr<<"gs catch counter:" <<(++catch_counter)<<std::endl;
 		 error=1e-5;
 		 result[i]= st_facilities::GaussianQuadrature::dgaus8<const extendedSourcePDF::gradSFunctor>(gs,m_source.min(),m_source.max(),error,ierr);
 	      };  

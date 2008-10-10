@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.13 2008/09/29 22:07:51 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.14 2008/10/06 20:40:38 markusa Exp $
 
 */
 
@@ -35,18 +35,22 @@ namespace {
 //// minuit likelihood wrapper function to calculate maximum TS
 
   
-  void minuit_likelihood_wrapper(Int_t &npar, Double_t* derivative, 
+  void minuit_likelihood_wrapper(Int_t &, Double_t* derivative, 
 				 Double_t & loglike, Double_t par[], Int_t iflag){
     if(!gSourcePointer) 
       throw std::invalid_argument("SourceLikelihood::gSourcePointer not set");
     
+    int npar(gSourcePointer->nParameter());
+
     double x = par[0];
     double y = par[1];
 
     // set source parameters     
 
     std::vector<double> src_par(npar-2,0);
-    for (int i=0;i<npar-2;i++) src_par[i]=sqrt(fabs(par[i+2]))/gSourcePointer->extscale();
+    double extscale(gSourcePointer->extscale());
+
+    for (int i=0;i<npar-2;i++) src_par[i]=exp(par[i+2])/extscale;
     
     // calculate new direction vector from fit parameters (delta(theta),delta(phi))
 
@@ -67,11 +71,13 @@ namespace {
     
     if (iflag==2) { 
       const std::vector<double>& gradient = gSourcePointer->gradient();
-      for (int i=0;i<npar;i++) derivative[i]=gradient[i];
+      derivative[0]=gradient[0];
+      derivative[1]=gradient[1];
+      for (int i=2;i<npar;i++) derivative[i]=gradient[i]*src_par[i-2]; 
     };
 
     if(gSourcePointer->verbose()) {     
-	std::cout << "**** Iteration "<<gFitCounter<<" **** Testing parameters:"
+	std::cout << "**** Iteration "<<gFitCounter<<" **** Testing "<<npar<<" parameters:"
 		  << std::fixed<< std::setprecision(4) 
 		  << " delta(X)=" << (par[0]*180./M_PI)
 		  <<" deg\tdelta(Y)="<<(par[1]*180./M_PI)<<" deg"<< std::scientific;
@@ -89,10 +95,14 @@ namespace {
 
 namespace {
   double s_TScut(2.);  // only combine energy bands
-  double gamma_front[] ={0,0,0,0,0, 2.25,  2.27,  2.22,  2.31,  2.30,  2.31,  2.16,  2.19,  2.07};
-  double sigma_front[] ={0,0,0,0,0,0.343, 0.4199,0.4249 ,0.4202 ,0.4028 ,0.4223 ,0.4438 ,0.5113 ,0.5596 };
-  double gamma_back[] ={0,0,0,0,0, 2.25,  2.27,  2.22,  2.31,  2.30,  2.31,  2.16,  2.19,  2.07};
-  double sigma_back[] ={0,0,0,0,0,0.343, 0.4199,0.4249 ,0.4202 ,0.4028 ,0.4223 ,0.4438 ,0.5113 ,0.5596 };
+//  double gamma_front[] ={0,0,0,0,0, 2.25,  2.27,  2.22,  2.31,  2.30,  2.31,  2.16,  2.19,  2.07};
+//  double sigma_front[] ={0,0,0,0,0,0.343, 0.4199,0.4249 ,0.4202 ,0.4028 ,0.4223 ,0.4438 ,0.5113 ,0.5596 };
+//  double gamma_back[] ={0,0,0,0,0, 2.25,  2.27,  2.22,  2.31,  2.30,  2.31,  2.16,  2.19,  2.07};
+//  double sigma_back[] ={0,0,0,0,0,0.343, 0.4199,0.4249 ,0.4202 ,0.4028 ,0.4223 ,0.4438 ,0.5113 ,0.5596 };
+// double gamma_front[] ={2., 1.785, 1.874, 1.981, 2.003, 2.225, 2.619, 2.527, 2.134, 1.923};
+// double sigma_front[] ={4., 1.77e+00, 1.06e+00, 5.69e-01, 2.85e-01, 1.54e-01, 9.16e-02, 5.15e-02, 2.52e-02, 1.60e-02};
+// double gamma_back[]  ={2., 1.737, 1.742, 1.911, 2.008, 2.009, 2.207, 1.939};
+// double sigma_back[]  ={4., 2.18e+00, 1.17e+00, 6.00e-01, 3.09e-01, 1.61e-01, 8.43e-02, 3.90e-02 };
 };
 
 
@@ -101,10 +111,10 @@ namespace {
 skymaps::SkySpectrum* SourceLikelihood::s_diffuse(0);
 double                SourceLikelihood::s_emin(100.); 
 double                SourceLikelihood::s_emax(1e6);
-std::vector<double>   SourceLikelihood::s_gamma_front(gamma_front,gamma_front+14);
-std::vector<double>   SourceLikelihood::s_sigma_front(sigma_front,sigma_front+14);
-std::vector<double>   SourceLikelihood::s_gamma_back(gamma_back,gamma_back+14);
-std::vector<double>   SourceLikelihood::s_sigma_back(sigma_back,sigma_back+14);
+std::vector<double>   SourceLikelihood::s_gamma_front(0);
+std::vector<double>   SourceLikelihood::s_sigma_front(0);
+std::vector<double>   SourceLikelihood::s_gamma_back(0);
+std::vector<double>   SourceLikelihood::s_sigma_back(0);
 double                SourceLikelihood::s_minalpha(0.00);     
 int                   SourceLikelihood::s_itermax(1);	      
 double                SourceLikelihood::s_TSmin(0.0);	      
@@ -117,6 +127,7 @@ int                   SourceLikelihood::s_useMinos(0);
 double                SourceLikelihood::s_accuracy(0.0001);
 double 	              SourceLikelihood::s_extscale(720./M_PI);
 double 	              SourceLikelihood::s_maxsize(0.1);
+int  	              SourceLikelihood::s_npar(0);
 
 
 
@@ -257,7 +268,7 @@ void SourceLikelihood::setup(skymaps::BinnedPhotonData& data){
          b.setSigma(s_sigma_back[k]);
 	 if(s_verbose>0) {
            std::cout<<std::fixed<<std::setprecision(5);
-	   std::cout<<"Setting sigma_back for bin with emin="<<b.emin()<<" MeV tosigma="<<s_sigma_back[k]<<std::endl;
+	   std::cout<<"Setting sigma_back for bin with emin="<<b.emin()<<" MeV to sigma="<<s_sigma_back[k]<<std::endl;
          };
       };	 
       k++;
@@ -505,6 +516,7 @@ double pointlike::SourceLikelihood::localizeMinuit()
      std::cout<<"Fit coordinate system: x="<<gFitDeltaX<<" y="<<gFitDeltaY<<std::endl;
   
   int npar = 2 + m_sourceParameters.size();
+  s_npar = npar;
 
   TMinuit gMinuit(npar);
   gMinuit.SetPrintLevel(verbose()-1);
@@ -519,19 +531,20 @@ double pointlike::SourceLikelihood::localizeMinuit()
   std::vector<double> par(npar), stepSize(npar),minVal(npar),maxVal(npar);
   std::vector<std::string> parName(npar);
 
+  double roi = pointlike::ExtendedLikelihood::defaultRoI();
   par[0] = 0.;            par[1] = 0.;
-  stepSize[0] = 0.01;     stepSize[1] = 0.01;
-  minVal[0] = -0.5;       minVal[1] = -0.5;
-  maxVal[0] = 0.5;        maxVal[1] = 0.5;
+  stepSize[0] = 0.05*roi;  stepSize[1] = 0.05*roi;
+  minVal[0] = -0.5*roi;       minVal[1] = -0.5*roi;
+  maxVal[0] = 0.5*roi;        maxVal[1] = 0.5*roi;
   
   parName[0] = std::string("Delta(theta)"); 
   parName[1] = std::string("Delta(phi)"); 
   
   for(int i=2; i<npar; i++){ 
-    par[i]      = m_sourceParameters[i-2]*m_sourceParameters[i-2]*s_extscale*s_extscale;
-    maxVal[i]   = s_maxsize*s_maxsize*s_extscale*s_extscale; //maximum size 300 arcmin == 400
-    minVal[i]   = -maxVal[i];
-    stepSize[i] = 0.2*maxVal[i];
+    par[i]      = log(m_sourceParameters[i-2]*s_extscale);
+    maxVal[i]   = log(s_maxsize*s_extscale); 
+    minVal[i]   = log(1e-6*s_extscale);//~ 0.2 arcsec
+    stepSize[i] = 0.1*(maxVal[i]-minVal[i]);
     std::stringstream nameStream(parName[i]);
     nameStream<<"srcparam("<<i-2<<")"; 
     parName[i]=nameStream.str();
@@ -545,7 +558,7 @@ double pointlike::SourceLikelihood::localizeMinuit()
   Int_t ierflag = 0; // the minuit output flag. Can be queried after each command
   
 //// Errors for likelihood fitting
-  Double_t arglist[2];
+  Double_t arglist[20];
   arglist[0] = 0.5; 
   int nargs = 1;
   gMinuit.mnexcm("SET ERR", arglist, nargs, ierflag);
@@ -578,15 +591,17 @@ double pointlike::SourceLikelihood::localizeMinuit()
     gMinuit.mnexcm("HESSE", arglist, nargs, ierflag);
   };
   if(s_useMinos){
-    nargs = 0;
+    nargs = 1;
+    arglist[0]=100;
     gMinuit.mnexcm("MINOS", arglist, nargs, ierflag);
     gMinuit.mnerrs(0,m_errMINOSPlus[0],m_errMINOSMinus[0],m_errMINOSParabolic[0], m_errMINOSGlobalCorr[0]);
     gMinuit.mnerrs(1,m_errMINOSPlus[1],m_errMINOSMinus[1],m_errMINOSParabolic[1], m_errMINOSGlobalCorr[1]);
     for (int i=2;i<npar;i++){
         gMinuit.GetParameter(i, m_sourceParameters[i-2],m_sourceParErrors[i-2]);
-	m_errMINOSPlus[i]=0.5/sqrt(fabs(m_sourceParameters[i-2]))* m_errMINOSPlus[i]/s_extscale;
-	m_errMINOSMinus[i]=0.5/sqrt(fabs(m_sourceParameters[i-2]))* m_errMINOSMinus[i]/s_extscale;
-	m_errMINOSParabolic[i]=0.5/sqrt(fabs(m_sourceParameters[i-2]))* m_errMINOSParabolic[i]/s_extscale;
+	double msrcpar=exp(m_sourceParameters[i-2])/s_extscale;
+	m_errMINOSPlus[i]=msrcpar* m_errMINOSPlus[i];
+	m_errMINOSMinus[i]=msrcpar* m_errMINOSMinus[i];
+	m_errMINOSParabolic[i]=msrcpar* m_errMINOSParabolic[i];
     };
   }
     
@@ -597,8 +612,8 @@ double pointlike::SourceLikelihood::localizeMinuit()
   gMinuit.GetParameter(1, y, m_errorY);
   for (int i=2; i<npar; i++) gMinuit.GetParameter(i, m_sourceParameters[i-2],m_sourceParErrors[i-2]);
   for (int i=2; i<npar; i++) {
-      m_sourceParErrors[i-2]=0.5/sqrt(fabs(m_sourceParameters[i-2]))*m_sourceParErrors[i-2]/s_extscale;
-      m_sourceParameters[i-2]=sqrt(fabs(m_sourceParameters[i-2]))/s_extscale;
+      m_sourceParameters[i-2]=exp(m_sourceParameters[i-2])/s_extscale;
+      m_sourceParErrors[i-2]=m_sourceParameters[i-2]*m_sourceParErrors[i-2];
   };
   
   CLHEP::Hep3Vector newDir = gFitStartDir+ x* gFitDeltaX + y* gFitDeltaY;
@@ -949,7 +964,7 @@ double pointlike::SourceLikelihood::localizeMinpack(int skip){
   minpack::Minpack& mini(minpack::Minpack::Minimizer());
   mini.init(20000,npar,1e-7);
   
-  std::cout << "Setting likelihood for "<<npar<<" parameters : " << this << std::endl;
+  std::cout << "Setting likelihood for "<<s_npar<<" parameters. "<< std::endl;
   
   // Set the pointer for access in the minuit function
   gSourcePointer = this;
