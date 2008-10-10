@@ -1,4 +1,18 @@
 ------------------------------------------------------------
+User: markusa  Thu Oct  9 18:58:55 PDT 2008
+pointlike/python
+
+Modified Files:
+	swig_setup.in 
+Log Message:
+new binner 
+new obssim compatible source
+log(r) fitting
+and much more....
+
+
+    *
+------------------------------------------------------------
 User: markusa  Thu Oct  9 18:58:51 PDT 2008
 pointlike/pointlike
 
