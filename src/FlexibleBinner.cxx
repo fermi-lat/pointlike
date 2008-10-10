@@ -1,7 +1,7 @@
 /** @file PhotonBinner.cxx
 @brief implement class BinnedPhotonData 
 
-$Header: /nfs/slac/g/glast/ground/cvs/skymaps/src/PhotonBinner.cxx,v 1.12 2008/08/06 19:42:24 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/FlexibleBinner.cxx,v 1.1 2008/10/10 01:58:55 markusa Exp $
 */
 
 #include "pointlike/FlexibleBinner.h"
@@ -118,7 +118,7 @@ skymaps::Band FlexibleBinner::operator()(const astro::Photon& p)const
        viIter li=m_level.begin();     
        for (;si!=m_sigmaFront.end();si++,li++){
           double nside = 2*180./(3*(*si));
-	  *li = int(log(nside)/log(2))+1+density; 
+	  *li = int(log(nside)/log(2.0))+1+density; 
           *li=std::min(13,*li);
 	  *li=std::max(1,*li);
        };	  	   

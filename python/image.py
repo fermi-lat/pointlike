@@ -1,6 +1,6 @@
 """ image processing
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/image.py,v 1.12 2008/09/10 21:49:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/image.py,v 1.13 2008/09/24 18:01:42 burnett Exp $
 
 """
 
@@ -125,7 +125,7 @@ class AIT(object):
     """ Manage a full-sky image of a SkyProjection or SkyFunction, wrapping SkyImage
      """
     
-    def __init__(self, skyfun, pixelsize=0.5, center=None, galactic=True, fitsfile='', proj='AIT', size=180):
+    def __init__(self, skyfun, pixelsize=0.5, center=None, galactic=True, fitsfile='', proj='AIT', size=180, earth=False):
         """
         skyfun SkyProjection or SkyFunction object
         pixelsize [0.5] size, in degrees, of pixels
@@ -134,6 +134,7 @@ class AIT(object):
         proj ['AIT'] could be 'CAR' for carree or 'ZEA': used by wcslib
         center [None] if default center at (0,0) in coord system
         size [180] make less for restricted size
+        earth [False]  looking down at Earth
 
         """
         from pointlike import SkyImage, SkyDir
@@ -147,7 +148,7 @@ class AIT(object):
         # set up, then create a SkyImage object to perform the projection to a grid
         if center is None:
             center = SkyDir(0,0, SkyDir.GALACTIC if galactic else SkyDir.EQUATORIAL)
-        self.skyimage = SkyImage(center, fitsfile, pixelsize, size, 1, proj, galactic)
+        self.skyimage = SkyImage(center, fitsfile, pixelsize, size, 1, proj, galactic, earth)
         self.skyimage.fill(skyfun)
         
         # now extract stuff for the pylab image, creating a masked array to deal with the NaN values
@@ -155,7 +156,11 @@ class AIT(object):
         self.image = array(self.skyimage.image()).reshape((self.ny, self.nx))
         self.mask = isnan(self.image)
         self.masked_image = ma.array( self.image, mask=self.mask)
-        self.extent = (180,-180, -90, 90) if size==180 else (size, -size, -size, size)
+        if not earth:
+            self.extent = (180,-180, -90, 90) if size==180 else (size, -size, -size, size)
+        else:
+            self.extent = (-180,180, -90, 90) if size==180 else (-size, size, -size, size)
+       
         self.vmin ,self.vmax = self.skyimage.minimum(), self.skyimage.maximum()
 
         # we want access to the projection object, to allow interactive display via pix2sph function
@@ -176,6 +181,7 @@ class AIT(object):
         else: raise Exception('bad scale: %s'%scale)
                                         
         pylab.colorbar(orientation='horizontal', shrink=1.0 if self.size==180 else 0.6)
+        pylab.axes().set_axis_off()
         if self.galactic:
             pylab.xlabel('glon'); pylab.ylabel('glat')
         else:

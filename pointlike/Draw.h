@@ -1,7 +1,7 @@
 /** @file Draw.h 
 @brief declaration of the Draw wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.10 2008/09/09 23:26:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.11 2008/09/24 18:01:42 burnett Exp $
 */
 
 
@@ -50,8 +50,9 @@ namespace pointlike {
         void galactic(){m_galactic = true;}      ///< set galactic
         void equatorial(){m_galactic=false;}     ///< set equatorial
         void projection(std::string p){m_proj = p;} ///< set the projection
+        void zenith(){m_zenith = true;}
 
-        void use_exposure(const skymaps::SkySpectrum* exp){m_exposure=exp;}
+        void use_exposure(const astro::SkyFunction* exp){m_exposure=exp;}
 
         ///! will add layers with count map values
         int set_layers(int n){int t = m_layers; m_layers=n; return t;}
@@ -60,8 +61,9 @@ namespace pointlike {
         const skymaps::BinnedPhotonData& m_map;
         const skymaps::SkySpectrum* m_background;
         bool m_galactic;    ///< galactic or equatorial
+        bool m_zenith;      ///< set for zenith coords
         std::string m_proj; ///< projection (CAR, AIT, etc.)
-        const skymaps::SkySpectrum * m_exposure; ///< exposure to use for normalization, if present. (energy?)
+        const astro::SkyFunction* m_exposure; ///< exposure to use for normalization, if present. (energy?)
         int m_layers;
         bool m_ts;
     };
@@ -75,7 +77,7 @@ namespace pointlike {
     {
     public:
         SkyDensity(const skymaps::BinnedPhotonData& data, bool smooth=false, int mincount=0
-            ,const skymaps::SkySpectrum* exposure=0);
+            ,const astro::SkyFunction* exposure=0);
 
         //! @brief ctor to display the given band only
         SkyDensity(const skymaps::Band& band);
@@ -89,7 +91,7 @@ namespace pointlike {
         const skymaps::Band* m_band;
         bool m_smooth;
         int m_mincount;
-        const skymaps::SkySpectrum* m_exposure;
+        const astro::SkyFunction* m_exposure;
     };
 
 }// namespace pointline
