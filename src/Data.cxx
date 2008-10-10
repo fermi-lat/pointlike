@@ -1,13 +1,14 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.58 2008/09/27 21:56:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.59 2008/10/10 01:58:55 markusa Exp $
 
 */
 
 
 #include "pointlike/Data.h"
 #include "pointlike/Alignment.h"
+#include "EventList.h"
 
 #include "astro/SkyDir.h"
 #include "astro/Photon.h"
@@ -127,58 +128,9 @@ namespace {
         }
     }
 
-#if 1 // don't have a much of a need.
+#if 0 // don't have a much of a need.
 
-    /** @class Photon
-    @brief derive from astro::Photon to allow transformation
 
-    */
-
-    class Photon : public astro::Photon {
-    public:
-        /// ctor sets photon, also rotation info.
-        Photon(const astro::SkyDir& dir, double energy, 
-            double time, int event_class, int source
-            , const astro::SkyDir&scz, const astro::SkyDir& scx
-            , double zenith_angle, double theta
-            , int ctbclasslevel=Data::class_level()  // note default 
-            )
-            : astro::Photon(dir, energy, time, event_class, source)
-            , m_zenith_angle(zenith_angle)
-            , m_theta(theta)
-            , m_ctbclasslevel(ctbclasslevel)
-        {
-            Hep3Vector scy (scz().cross(scx()));
-            m_rot = HepRotation(scx(), scy, scz());
-        }
-        /// make transformation in GLAST frame
-        /// @param corr matrix that corrects direction in the GLAST frame
-        astro::Photon transform(const HepRotation& corr)const
-        {
-            Hep3Vector 
-                local( m_rot.inverse()*dir()),
-                transformed( m_rot * corr * local );
-
-            int evtclass(eventClass());
-            if( evtclass<0 || evtclass>1){ // just a check: should be 0 or 1 for front/back
-                //std::stringstream err;
-                std::cerr << "Data::Photon::transform--invalid eventclass value, expect 0 or 1, got: "<< evtclass<< std::endl;
-                //throw std::runtime_error(err.str());
-            }
-            double   emeas(energy());                    // measured energy
-            return astro::Photon(SkyDir(transformed), emeas,time(),evtclass, source());
-        }
-        double zenith_angle()const{return m_zenith_angle;}
-        double theta()const{return m_theta;}
-        int class_level()const{return m_ctbclasslevel;}
-    private:
-        HepRotation m_rot;
-        double m_zenith_angle;
-        double m_theta;
-        int m_ctbclasslevel;
-
-    };
-#endif
     class AddPhoton: public std::unary_function<astro::Photon, void> {
     public:
         AddPhoton (BinnedPhotonData& map, int select, double start, double stop, int source )
@@ -266,6 +218,7 @@ namespace {
         Iterator begin();
         Iterator end();
 
+        void close();
         static std::string root_names[];
 
 
@@ -296,7 +249,7 @@ namespace {
     EventList::~EventList()
     {
         // seems to create crash
-        // delete m_table;
+        //delete m_table;
     }
 
     Photon EventList::Iterator::operator*()const
@@ -323,11 +276,12 @@ namespace {
         (*m_it)[*names++].get(dec);
 
         if( use_earth>0) {
-            // convert to Earth coordinate system
-            (*m_it)["EARTH_AZIMUTH_ANGLE"].get(ra);
-            (*m_it)["ZENITH_ANGLE"].get(dec);
-            dec = 90-dec;
-            ra+=90; if(ra>360)ra-=360; // since zero is north
+            double az, zen;
+            // convert to zenith-centered coordinate system: z axis to zenith, x to East
+            (*m_it)["EARTH_AZIMUTH_ANGLE"].get(az);
+            (*m_it)["ZENITH_ANGLE"].get(zen);
+            dec = 90-zen; // latitude
+            ra  = az; // 0 is North, 90 East, etc. (not Petry's convention)
         }
      
         (*m_it)[*names++].get(energy);
@@ -424,6 +378,8 @@ namespace {
         return p.transform(Data::get_rot(time));
 #endif
     }
+#endif
+
 
     // default binner to use
     
@@ -515,6 +471,9 @@ void Data::load_filelist(const std::vector<std::string>& filelist, int event_cla
     }
     log() << "\tCuts:  zenith theta and instrument theta: " << s_zenith_angle_cut << ", " 
         << s_theta_cut<< std::endl;
+    if( use_earth) { 
+        log() << "\tConverting to zenith coordinates, not applying zenith cut" << std::endl;
+    }
     for( std::vector<std::string>::const_iterator it = filelist.begin(); 
         it !=filelist.end(); ++it)
     {
@@ -541,6 +500,7 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
 
 
     }else {
+        // Process FITS format data
         if( s_alignment->active() && s_ft2file.empty()) {
             // need a FT2 file. Try replacing 'ft1' with 'ft2' in file name, assume in same folder
             std::string ft2(inputFile);
@@ -581,7 +541,7 @@ bool Data::addgti(const std::string& inputFile)
             skymaps::Gti tnew(inputFile);
             double tmin(tnew.minValue()), tmax(tnew.maxValue());
             ok = (m_start==0 || tmax > m_start)
-               && (m_stop==0 || tmax < m_stop);
+               && (m_stop==0 || tmin < m_stop ) ;
             if( ok ) {
                 skymaps::Gti timerange(tnew.applyTimeRangeCut(m_start, std::max(m_stop, tmax)));
                 m_data->addgti(timerange); 
@@ -660,7 +620,35 @@ Data::~Data()
     delete m_data;
 }
 
+//ROOT event extraction, only used by Data::lroot
+astro::Photon events(std::vector<double>& row) {
 
+    // extract stuff from row, assuming order in root_names
+    float ra(row[0]), dec(row[1]); 
+    double energy(row[2])
+        ,  time( row[3]) ;
+
+    int event_class( row[4]>4? 0 : 1 );
+
+    // for transformation
+    float raz(row[5]), decz(row[6])
+        , rax(row[7]), decx(row[8]); 
+
+    // these not actually relevant here
+    int class_level( static_cast<int>(row[9]) );
+    double zenith_angle(row[10]); 
+    int source_id(-1); // not set now?
+
+    // create the local Photon object from these data, have it return a transformed astro::Photon
+    Photon p(astro::SkyDir(ra, dec), energy, time, event_class , 
+        source_id, astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),
+        zenith_angle,class_level);
+#if 0
+    return p.transform(Data::get_rot().inverse());
+#else
+    return p.transform(Data::get_rot(time));
+#endif
+}
 
 void Data::lroot(const std::string& inputFile, int event_class) {
     TFile *tf = new TFile(inputFile.c_str(),"READ");

@@ -1,7 +1,7 @@
 /** @file Draw.cxx
 @brief implementation of Draw
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.14 2008/09/09 23:26:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.15 2008/09/24 18:01:42 burnett Exp $
 
 */
 
@@ -40,6 +40,7 @@ Draw::Draw(const BinnedPhotonData& map, const skymaps::SkySpectrum* background, 
 : m_map(map)
 , m_background(background)
 , m_galactic(true)
+, m_zenith(false)
 , m_proj("")
 , m_exposure(0) // default: do not apply
 , m_layers(1)
@@ -50,6 +51,7 @@ Draw::Draw(const Data& data)
 : m_map(data.map())
 , m_background(0)
 , m_galactic(true)
+, m_zenith(false)
 , m_proj("")
 , m_exposure(0) // default: do not apply
 , m_layers(1)
@@ -63,7 +65,7 @@ void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel
     std::string proj (fov>90? "AIT":"ZEA");
     if( !m_proj.empty()){ proj = m_proj;}
                 
-    SkyImage image(dir, outputFile, pixel, fov, m_layers, proj,  m_galactic);
+    SkyImage image(dir, outputFile, pixel, fov, m_layers, proj,  m_galactic, m_zenith);
 
 
     image.fill(SkyDensity(m_map, smooth, mincount, m_exposure), 0); // PhotonMap is a SkyFunction of the density 
@@ -143,7 +145,7 @@ void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel
 	++nBins;
       
       SkyImage image2(dir, outputTS, pixel, fov, nBins+1, 
-		      proj,  m_galactic); 
+		      proj,  m_galactic, m_zenith); 
       TSCache cache;
       for (int i = 0; i <=nBins; ++i){
 	std::cout << "XXXXX Filling layer: " << i+1 << std::endl;
@@ -208,7 +210,7 @@ void Draw::googleSky(std::string outfile, double pixelsize, bool smooth, int min
 //             SkyDensity methods
 //-------------------------------------------------------------------
 SkyDensity::SkyDensity(const skymaps::BinnedPhotonData& data, bool smooth, int mincount
-                       ,const skymaps::SkySpectrum* exposure)
+                       ,const astro::SkyFunction* exposure)
 : m_data(&data)
 , m_band(0)
 , m_smooth(smooth)

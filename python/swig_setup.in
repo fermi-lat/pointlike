@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.29 2008/09/27 21:38:16 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.30 2008/10/10 01:58:54 markusa Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -112,6 +112,10 @@ public:
       }
    }
    size_t __len__() {      return 3;       }
+   // ctor to initialize from python vector?
+   SkyDir(std::vector<double>& vec){
+     return new astro::SkyDir( Hep3Vector(vec[0],vec[1],vec[2]));
+     }
 }
 
 %extend CLHEP::HepRotation{

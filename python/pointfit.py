@@ -34,9 +34,10 @@ Optional parameters:
     -v or --verbose [0] set verbosity
     --binsperdecade [0] default is 2.35 ratio. otherwise energy binning is set.
     --emin [500]  minimum energy, used to select bands
+    --region=: define a region file
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.11 2008/08/21 18:59:30 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.12 2008/08/28 22:42:15 burnett Exp $
 """
 import os, sys, types
 from numpy import arange
@@ -127,14 +128,14 @@ def main():
 
     options = 'b:w:v'
     long_options= [ 'diffuse=','write=', 'verbose', 'galdiffuse', 
-                    'eventtype=', 'exposure=', 'binsperdecade=', 'emin=']
+                    'eventtype=', 'exposure=', 'binsperdecade=', 'emin=', 'region=']
 
     try:    
         (opts, args) = getopt(sys.argv[1:], options, long_options )
     except GetoptError, msg:
         help(msg)
 
-    outputpixelfile= background=None
+    outputpixelfile= background=regfile=None
     diffusefilename='galdiffuse' # wire in for now
     verbose=0
     exposure=3e10 # this is appropriate for 1 year. 
@@ -151,6 +152,7 @@ def main():
         elif opt=='--eventtype'             : eventtype= int(val)
         elif opt=='--emin'                  : emin = float(val)
         elif opt=='--binsperdecade'         : binsperdecade=float(val)
+        elif opt=='--region'                : region = val
         elif opt=='--exposure'              :
             try: exposure= float(val)
             except: exposure = val
@@ -181,6 +183,8 @@ def main():
     sourcelist.dump()
     if len(args)>2:
         sourcelist.dump(args[2])
+    if region is not None:
+       sourcelist.createRegFile(region, 'red', TSmin) # todo: color?
 
 
 #--------------------------------------------------------

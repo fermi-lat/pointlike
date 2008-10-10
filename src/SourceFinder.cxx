@@ -1,12 +1,13 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.44 2008/07/07 21:57:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.45 2008/07/28 21:49:15 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
 #include "pointlike/PointSourceLikelihood.h"
 #include "healpix/HealPixel.h"
+#include "healpix/Healpix.h"
 
 #include "tip/IFileSvc.h"
 #include "tip/Table.h"
@@ -173,6 +174,7 @@ void SourceFinder::examineRegion(void)
     typedef  std::vector< std::pair<int, int> > PixelVector;
     typedef std::map<int, int> PixelMap;
     PixelMap m;
+#if 0
     skymaps::BinnedPhotonData::const_iterator bpit1 = m_pmap.begin();
     skymaps::BinnedPhotonData::const_iterator bpit;
     for(; bpit1 != m_pmap.end(); ++bpit1)
@@ -189,7 +191,15 @@ void SourceFinder::examineRegion(void)
         }
 
     }
+#else // just do all the pixels 
+    healpix::Healpix hpx(nside, healpix::Healpix::RING, SkyDir::GALACTIC);
+    std::vector<int> v;
+    hpx.query_disc(examine_dir, radius*M_PI/180, v);
+    for( std::vector<int>::const_iterator it(v.begin()); it!=v.end(); ++it){
+        m[*it] = 0; // just set
+    }
 
+#endif
     if( m.empty() )
     {
         throw std::invalid_argument("SourceFinder: did not find a Band with requested nside");
@@ -200,7 +210,7 @@ void SourceFinder::examineRegion(void)
     skymaps::SkySpectrum* saved_diffuse = PointSourceLikelihood::set_diffuse(0); // clear the diffuse for this
 
     out() <<  "First pass will examine " << m.size() 
-              << " pixels with nside = " << bpit->nside() << std::endl;
+              << " pixels with nside = " << nside << std::endl;
     Prelim can; // for list of candidates indexed by TS
     can.clear();
     size_t found(0), total(m.size()), count(0);
@@ -210,7 +220,13 @@ void SourceFinder::examineRegion(void)
     for(PixelMap::const_iterator it = m.begin(); it != m.end(); ++it, ++count)
     {
         ShowPercent(count, total, found);
+#if 0
         SkyDir sd(bpit->dir(it->first));
+#else
+        healpix::Healpix::Pixel pix(it->first, hpx);
+
+        SkyDir sd( pix() );
+#endif
         PointSourceLikelihood ps(m_pmap, "test", sd );
         double ts = ps.maximize();
 
