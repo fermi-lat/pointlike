@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Fri Oct 10 12:37:03 PDT 2008
+pointlike/python
+
+Modified Files:
+	image.py pointfit.py swig_setup.in 
+Log Message:
+add EventList, minor mods
+    *
+------------------------------------------------------------
+User: burnett  Fri Oct 10 12:37:03 PDT 2008
 pointlike/pointlike
 
 Modified Files:
