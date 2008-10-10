@@ -1,4 +1,20 @@
 ------------------------------------------------------------
+User: markusa  Thu Oct  9 18:58:51 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Data.h ExtendedSourcePDF.h SourceLikelihood.h 
+Added Files:
+	FlexibleBinner.h 
+Log Message:
+new binner 
+new obssim compatible source
+log(r) fitting
+and much more....
+
+
+    *
+------------------------------------------------------------
 User: markusa  Mon Oct  6 13:40:38 PDT 2008
 pointlike/src
 
