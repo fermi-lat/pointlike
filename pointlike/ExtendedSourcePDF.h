@@ -127,7 +127,7 @@ namespace pointlike{
 	     
 	     double grad(double v,int icomp) const { 
 	         if (icomp==0) return (v/m_scaledRadius - 1) * exp(-v/m_scaledRadius)  /
-		                              (2*M_PI*m_scaledRadius*m_scaledRadius*m_intLimitNorm) *0.5*m_radius/sigma2();
+		                              (2*M_PI*m_scaledRadius*m_scaledRadius*m_intLimitNorm) *2.*m_radius/sigma2();
                  return NAN;
 	     };
 	};     
@@ -162,9 +162,9 @@ namespace pointlike{
 	        { return exp(-v/m_scaledRadius)/(2*M_PI*sqrt(M_PI*v*m_scaledRadius)*m_intLimitNorm);};
 	     
 	     double grad(double v,int icomp) const { 
-	         if (icomp==0) return (-2 * v - m_scaledRadius ) * exp(-v/m_scaledRadius)  /
-		                      (4*m_intLimitNorm*pow(M_PI*m_scaledRadius*v,1.5)) *
-			              0.5*m_radius/sigma2();
+	         if (icomp==0) return (2. * v/ m_scaledRadius -1. ) * exp(-v/m_scaledRadius)  /
+		                      (4.*m_intLimitNorm*M_PI*m_scaledRadius*sqrt(M_PI*m_scaledRadius*v)) *
+			              2.*m_radius/sigma2();
                  return NAN;
 	     };
 	};     
