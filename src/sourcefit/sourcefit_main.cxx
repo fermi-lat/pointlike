@@ -1,13 +1,14 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/sourcefit/sourcefit_main.cxx,v 1.4 2008/08/07 05:12:50 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/sourcefit/sourcefit_main.cxx,v 1.5 2008/09/11 06:40:22 markusa Exp $
 
 */
 #include "pointlike/SourceLikelihood.h"
 #include "pointlike/Data.h"
 #include "pointlike/ParamOptimization.h"
 #include "pointlike/ResultsFile.h"
+#include "pointlike/FlexibleBinner.h"
 
 #include "embed_python/Module.h"
 #include "tip/IFileSvc.h"
@@ -62,6 +63,8 @@ int main(int argc, char** argv)
     std::vector<double> dofits;
     std::vector<std::string> initvals;
     double bgROI=0.5;
+    std::string binType;
+    int binDensity;
     
     setup.getList("name", names);
     setup.getList("ra", ras);
@@ -71,6 +74,8 @@ int main(int argc, char** argv)
     setup.getList("init", initvals);
     setup.getList("fit", dofits);
     setup.getValue("bgROI", bgROI);
+    setup.getValue("binningType", binType,"p6_v1/classic");
+    setup.getValue("binningDensity", binDensity,0);
 
     // flag, to designate first candidate as a central value
     int first_is_center(0);
@@ -79,6 +84,8 @@ int main(int argc, char** argv)
     std::cout<<"Read configuration script."<<std::endl;
        
     // use the  Data class to create the PhotonData object
+    Data::setPhotonBinner(new FlexibleBinner(binType,binDensity));
+    
     Data healpixdata(setup);
     
     // print out summary of the the data used?

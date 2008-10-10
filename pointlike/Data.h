@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.33 2008/09/24 18:01:42 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.34 2008/09/27 21:38:16 burnett Exp $
 */
 
 
@@ -16,6 +16,7 @@ class PointingInfo;
 
 namespace skymaps {
 class BinnedPhotonData;
+class PhotonBinner;
 }
 
 
@@ -125,6 +126,8 @@ public:
 
     /// @brief change default binning: must be done before loading data files
     static void setEnergyBins(const std::vector<double>& bins);
+    /// @brief change energy binning class: must be done before loading data files
+    static void setPhotonBinner(skymaps::PhotonBinner* binner);
 
     /// @brief return  value of the cut
     static double zenith_angle_cut();

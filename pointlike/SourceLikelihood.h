@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.5 2008/09/11 23:58:10 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.6 2008/10/06 20:40:30 markusa Exp $
 */
 
 #ifndef tools_SourceLikelihood_h
@@ -122,6 +122,8 @@ namespace pointlike {
     static double emin() { return s_emin;};
     static double emax() { return s_emax;};
 
+    static int nParameter() { return s_npar;};
+
     /// @brief set minimum alpha
     static void setMinAlpha(double alpha){ s_minalpha=alpha; };
     static double minAlpha() { return s_minalpha; };
@@ -224,6 +226,7 @@ namespace pointlike {
     static int s_itermax, s_verbose;
     static int s_useMinos;
     static int s_useGradient;
+    static int s_npar;
     static std::vector<double> s_gamma_front; 
     static std::vector<double> s_sigma_front; 
     static std::vector<double> s_gamma_back; 

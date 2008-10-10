@@ -73,7 +73,7 @@ int main(int argc , char** argv )
         PhotonList photons(inputFile);
 
         double bins_per_decade(5.0);
-        skymaps::BinnedPhotonData& x= *new skymaps::BinnedPhotonData(skymaps::PhotonBinner(bins_per_decade));
+        skymaps::BinnedPhotonData& x= *new skymaps::BinnedPhotonData(*new skymaps::PhotonBinner(bins_per_decade));
         std::for_each(photons.begin(), photons.end(), AddPhoton<skymaps::BinnedPhotonData>(x));
 
         x.info();

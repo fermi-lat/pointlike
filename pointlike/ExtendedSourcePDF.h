@@ -110,14 +110,14 @@ namespace pointlike{
 	   double m_intLimitNorm;
            mutable double m_scaledRadius;
 	   public:  
-	     gaussSource(double sigma, double rad): iSource(sigma),m_radius(rad),m_intLimit(30.) {  //int limit 4.6052 equals to 99% boundary..,.
-		m_scaledRadius=0.5*m_radius*m_radius/(sigma2());
+	     gaussSource(double sigma, double rad):iSource(sigma),m_radius(rad),m_intLimit(30.) {  //int limit 4.6052 equals to 99% boundary..,.
+		m_scaledRadius=m_radius*m_radius/(sigma2());
 		max(m_intLimit*m_scaledRadius);
 		m_intLimitNorm=1.-exp(-m_intLimit); 
 	     };
 	     void set(const std::vector<double>& param){ 
 		if (param.size()>0) m_radius=param[0]; 
-		m_scaledRadius=0.5*m_radius*m_radius/sigma2();
+		m_scaledRadius=m_radius*m_radius/sigma2();
 		max(m_intLimit*m_scaledRadius); 
 	     };
 	     
@@ -127,10 +127,48 @@ namespace pointlike{
 	     
 	     double grad(double v,int icomp) const { 
 	         if (icomp==0) return (v/m_scaledRadius - 1) * exp(-v/m_scaledRadius)  /
-		                              (2*M_PI*m_scaledRadius*m_scaledRadius*m_intLimitNorm) *m_radius/sigma2();
+		                              (2*M_PI*m_scaledRadius*m_scaledRadius*m_intLimitNorm) *0.5*m_radius/sigma2();
                  return NAN;
 	     };
 	};     
+
+    //--------------------------------------------------------------------------------------------------
+    //  radiusGaussSource
+    //   
+    //  an extended source with a radial profile that has 68% of events within 1 sigma 
+    //  introduced to fit the GaussianSource produced by gtobssim, which has no true gaussian shape
+    //--------------------------------------------------------------------------------------------------
+
+	class radiusGaussSource: public iSource {
+	   mutable double m_radius;
+	   double m_intLimit;
+	   double m_intLimitNorm;
+           mutable double m_scaledRadius;
+	   public:  
+	     radiusGaussSource(double sigma, double rad):iSource(sigma),m_radius(rad),m_intLimit(30.) {  //int limit 4.6052 equals to 99% boundary..,.
+		m_scaledRadius=m_radius*m_radius/(sigma2());
+		max(m_intLimit*m_scaledRadius);
+		m_intLimitNorm=1.-exp(-m_intLimit); 
+	     };
+	     void set(const std::vector<double>& param){ 
+		if (param.size()>0) m_radius=param[0]; 
+		m_scaledRadius=m_radius*m_radius/sigma2();
+		max(m_intLimit*m_scaledRadius); 
+	     };
+	     
+	     double get(int) const {return m_radius;};
+	     
+	     double operator() (double v) const 
+	        { return exp(-v/m_scaledRadius)/(2*M_PI*sqrt(M_PI*v*m_scaledRadius)*m_intLimitNorm);};
+	     
+	     double grad(double v,int icomp) const { 
+	         if (icomp==0) return (-2 * v - m_scaledRadius ) * exp(-v/m_scaledRadius)  /
+		                      (4*m_intLimitNorm*pow(M_PI*m_scaledRadius*v,1.5)) *
+			              0.5*m_radius/sigma2();
+                 return NAN;
+	     };
+	};     
+
 
     //--------------------------------------------------------------------------------------------------
     //  generator
@@ -144,6 +182,7 @@ namespace pointlike{
 	     if (name=="pseudopoint") return *(new diskSource(sigma,1.e-4));
 	     if (name=="disk") return *(new diskSource(sigma,1.e-2));
 	     if (name=="gauss") return *(new gaussSource(sigma,1.e-2));
+	     if (name=="radius_gauss") return *(new radiusGaussSource(sigma,1.e-2));
 	     std::cerr<<"WARNING in extendedSources::generator : Source name "<<name<<" invalid. Returning point source."<<std::endl;
              return *(new diskSource(sigma,1.e-5));	 
 	 };	 

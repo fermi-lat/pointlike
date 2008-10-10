@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.57 2008/09/27 21:38:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.58 2008/09/27 21:56:33 burnett Exp $
 
 */
 
@@ -426,7 +426,9 @@ namespace {
     }
 
     // default binner to use
+    
     skymaps::PhotonBinner* binner( new skymaps::PhotonBinner() );
+
 } // anon namespace
 
 Data::Data(const embed_python::Module& setup)
@@ -484,10 +486,12 @@ Data::Data(const embed_python::Module& setup)
     setup.getList(prefix+"energy_bins", energy_bins);
 
     if( energy_bins.size()> 0 ){
-        m_data = new BinnedPhotonData(skymaps::PhotonBinner(energy_bins));
-    }else{
+        m_data = new BinnedPhotonData(*(new skymaps::PhotonBinner(energy_bins)));
+    }else if (bins_per_decade>0) {
         m_data = new BinnedPhotonData(bins_per_decade);
-    }
+    } else { 
+        m_data = new BinnedPhotonData(*binner);
+    };
 
     if( filelist.empty()){
         throw std::invalid_argument("Data: no data specified: expected either a pixel file or a list of data files");
@@ -742,6 +746,15 @@ void Data::setEnergyBins(const std::vector<double>& bins)
     delete binner;
     binner = new skymaps::PhotonBinner(bins);
 }
+
+///@brief change default binner: must be done before loading data files
+void Data::setPhotonBinner(skymaps::PhotonBinner* b)
+{
+    delete binner;
+    std::cout<<"Deleted."<<std::endl;
+    binner = b;
+}
+
 
 void Data::combine_bands()
 {
