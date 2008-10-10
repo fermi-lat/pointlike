@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Fri Oct 10 12:37:04 PDT 2008
+pointlike/src
+
+Modified Files:
+	Data.cxx Draw.cxx FlexibleBinner.cxx SourceFinder.cxx 
+Added Files:
+	EventList.cxx EventList.h 
+Log Message:
+add EventList, minor mods
+    *
+------------------------------------------------------------
 User: burnett  Fri Oct 10 12:37:03 PDT 2008
 pointlike/python
 
