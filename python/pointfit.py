@@ -37,13 +37,13 @@ Optional parameters:
     --region=: define a region file
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.12 2008/08/28 22:42:15 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.13 2008/10/10 19:37:03 burnett Exp $
 """
 import os, sys, types
 from numpy import arange
 
-from pointlike import DiffuseFunction
-from pointlike import SourceList, Source, PointSourceLikelihood, Background, Data
+from skymaps import DiffuseFunction, Background
+from pointlike import SourceList, Source, PointSourceLikelihood, Data
 
 #----------------------------------------------------------------------------------------
 class Fitter(object):
@@ -135,7 +135,7 @@ def main():
     except GetoptError, msg:
         help(msg)
 
-    outputpixelfile= background=regfile=None
+    outputpixelfile= background=regfile=region=None
     diffusefilename='galdiffuse' # wire in for now
     verbose=0
     exposure=3e10 # this is appropriate for 1 year. 

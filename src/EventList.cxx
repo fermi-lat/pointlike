@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/EventList.h,v 1.34 2008/09/27 21:38:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.1 2008/10/10 19:37:03 burnett Exp $
 */
 
 #include "EventList.h"
@@ -100,8 +100,8 @@ EventList::EventList(const std::string infile, bool selectid,
 EventList::~EventList()
 {
     // seems to create crash
-    std::cout << "deleting table" << std::endl;
-    delete m_table;
+    //std::cout << "deleting table" << std::endl;
+    //delete m_table;
 }
 
 Photon EventList::Iterator::operator*()const

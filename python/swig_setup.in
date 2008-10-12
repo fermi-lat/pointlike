@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.30 2008/10/10 01:58:54 markusa Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.31 2008/10/10 19:37:03 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -18,19 +18,6 @@
 #include "healpix/Healpix.h"
 #include "healpix/HealPixel.h"
 #include "healpix/HealpixMap.h"
-
-#include "skymaps/DiffuseFunction.h"
-#include "skymaps/CompositeSkySpectrum.h"
-#include "skymaps/PhotonMap.h"
-#include "skymaps/Exposure.h"
-#include "skymaps/SkyImage.h"
-#include "skymaps/Gti.h"
-#include "skymaps/IsotropicPowerLaw.h"
-#include "skymaps/Background.h"
-#include "skymaps/BinnedPhotonData.h"
-#include "skymaps/PhotonBinner.h"
-#include "skymaps/Band.h"
-#include "skymaps/IParams.h"
 
 #include "embed_python/Module.h"
 
@@ -189,31 +176,6 @@ public:
 
 %include $(EMBED_PYTHONROOT)/embed_python/Module.h
     
-%include $(SKYMAPSROOT)/skymaps/DiffuseFunction.h
-%include $(SKYMAPSROOT)/skymaps/CompositeSkySpectrum.h
-%include $(SKYMAPSROOT)/skymaps/PhotonMap.h
-%include $(SKYMAPSROOT)/skymaps/SkyImage.h
-%include $(SKYMAPSROOT)/skymaps/Exposure.h
-%include $(SKYMAPSROOT)/skymaps/Gti.h
-%extend skymaps::Gti{
- //  skymaps::Gti * __getitem__(size_t i){ 
- //     if( i == self->getNumIntervals() ) throw std::range_error("StopIteration");
- //     if( i<0 || i > self->getNumIntervals() ) throw std::range_error("IndexError");
- //     return (*self)[i]; 
- //  }
-   double computeOntime(){return (*self).GtiBase::computeOntime(); } 
-   void insertInterval(double tstart, double tstop){ (*self).GtiBase::insertInterval(tstart, tstop); }
-
-    
-}
-%include $(SKYMAPSROOT)/skymaps/IsotropicPowerLaw.h
-%include $(SKYMAPSROOT)/skymaps/Background.h
-%include $(SKYMAPSROOT)/skymaps/BinnedPhotonData.h
-%include $(SKYMAPSROOT)/skymaps/Band.h
-%template(SkySpectrumVector) std::vector<skymaps::SkySpectrum*>; 
-%include $(SKYMAPSROOT)/skymaps/IParams.h
-
-
 
 %include $(POINTLIKEROOT)/pointlike/SimpleLikelihood.h
 %include $(POINTLIKEROOT)/pointlike/PointSourceLikelihood.h

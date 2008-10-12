@@ -1,7 +1,7 @@
 /** @file SourceList.cxx
 @brief implementation of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.13 2008/08/21 03:22:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.14 2008/08/28 22:42:15 burnett Exp $
 */
 
 
@@ -260,8 +260,8 @@ void SourceList::createRegFile(std::string filename, std::string color, double t
     for( const_iterator it = begin(); it != end();  ++it)  {
         const Source& cand( * it);
         if(cand.TS()< tsmin) continue;
-        out << "point("<< cand.dir().ra()<< ","<<cand.dir().dec() <<") point=cross "
-            << size << " # text={TS=" 
+        out << "point("<< cand.dir().ra()<< ","<<cand.dir().dec() <<") # point=cross "
+            << size << " text={TS=" 
             << int(cand.TS()+0.5) << "};\n";
         ++n;
     }
