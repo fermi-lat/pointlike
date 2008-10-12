@@ -1,12 +1,12 @@
 """ image processing
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/image.py,v 1.13 2008/09/24 18:01:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/image.py,v 1.14 2008/10/10 19:37:03 burnett Exp $
 
 """
 
 import matplotlib
 from numpy import arange, array
-from pointlike import SkyDir
+from skymaps import SkyDir
 
 def date_tag():
     import datetime, pylab
@@ -137,7 +137,7 @@ class AIT(object):
         earth [False]  looking down at Earth
 
         """
-        from pointlike import SkyImage, SkyDir
+        from skymaps import SkyImage, SkyDir
         from numpy import array, isnan, ma
         from pylab import normalize
         
@@ -181,7 +181,7 @@ class AIT(object):
         else: raise Exception('bad scale: %s'%scale)
                                         
         pylab.colorbar(orientation='horizontal', shrink=1.0 if self.size==180 else 0.6)
-        pylab.axes().set_axis_off()
+        #pylab.axes().set_axis_off()
         if self.galactic:
             pylab.xlabel('glon'); pylab.ylabel('glat')
         else:
