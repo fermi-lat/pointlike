@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Oct 12 12:20:19 PDT 2008
+pointlike/python
+
+Modified Files:
+	image.py pointfit.py swig_setup.in 
+Log Message:
+minor fixes
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-10-00, operation: add
 Package: pointlike
