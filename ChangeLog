@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: funk  Tue Oct 14 16:06:03 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Draw.h PointSourceLikelihood.h SourceFinder.h 
+	SourceLikelihood.h 
+Log Message:
+Added TS map to Draw - Stefan
+    *
+------------------------------------------------------------
 User: burnett  Mon Oct 13 19:23:23 PDT 2008
 pointlike/python
 
