@@ -159,15 +159,13 @@ class Livetime(object):
             livetimes[i]*=(lt_frac_so_far)/(stop-start)              
          """
          #This is a very clean & concise approach, manifestly correct, not quite as fast
-         overlaps = N.empty_like(livetimes)
+
+         overlaps = N.zeros_like(livetimes)
          for i,gti_interval in enumerate(self.gti):
             maxi = N.maximum(gti_interval[0],ft2_starts)
             mini = N.minimum(gti_interval[1],ft2_stops)
             overlaps += N.maximum(0,mini - maxi)
-         #print '\n'
-         #print ft2_stops - ft2_starts
-         #print livetimes
-         #print overlaps
+
          livetimes = overlaps/(ft2_stops-ft2_starts)*livetimes
       
          return livetimes,mask
