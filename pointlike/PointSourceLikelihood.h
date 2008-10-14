@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.42 2008/09/23 19:42:43 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.43 2008/09/24 18:01:42 burnett Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -88,6 +88,7 @@ public:
 
     double TS()const { return m_TS; } 
   double TS(int band) const;
+  double alpha(int band) const;
 
     double errorCircle()const{return  sqrt(1./curvature())*180/M_PI;}
 

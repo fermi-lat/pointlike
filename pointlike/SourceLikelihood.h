@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.6 2008/10/06 20:40:30 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.7 2008/10/10 01:58:51 markusa Exp $
 */
 
 #ifndef tools_SourceLikelihood_h
@@ -83,7 +83,9 @@ namespace pointlike {
     const astro::SkyDir& dir()const{return m_dir;}
     
     double TS()const { return m_TS; } 
-    
+    double TS(int band) const;
+    double alpha(int band) const;
+
     double logL(){ return m_loglike;}
 
     void set_ostream(std::ostream& out){m_out=&out;}
@@ -183,6 +185,11 @@ namespace pointlike {
 
     ///! access to background model 
     const skymaps::SkySpectrum * background()const;
+
+//     /// @brief set the integration tolerance for the background, return present value
+//     static double set_tolerance(double tol);
+    
+    static double set_min_alpha(double minalpha);
 
     /// @brief special display function
     /// @param dir direction

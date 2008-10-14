@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.45 2008/07/28 21:49:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.46 2008/10/10 19:37:03 burnett Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -126,8 +126,8 @@ void SourceFinder::setParameters(const embed_python::Module & module)
 
 
 
-SourceFinder::SourceFinder(const pointlike::Data& map)
-: m_pmap(map)
+SourceFinder::SourceFinder(pointlike::Data& map)
+: m_pmap(map.map())
 {
     if( ! logfile.empty() ){
         m_log = new std::ofstream(logfile.c_str());
