@@ -1,7 +1,7 @@
 /** @file SourceFinder.h
 @brief declare class SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.29 2008/06/21 00:38:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceFinder.h,v 1.30 2008/06/23 14:32:28 burnett Exp $
 */
 
 #ifndef pointlike_SourceFinder_h
@@ -91,7 +91,7 @@ namespace pointlike {
     class SourceFinder {
     public:
 
-        SourceFinder(const pointlike::Data& data);
+        SourceFinder(pointlike::Data& data);
         ~SourceFinder();
 
         typedef std::map<int, CanInfo> Candidates;
@@ -119,7 +119,7 @@ namespace pointlike {
         void createTable(const std::string& filename);
 
         //! allow access to map
-        const skymaps::BinnedPhotonData& getMap() {return(m_pmap);}
+        skymaps::BinnedPhotonData& getMap() {return(m_pmap);}
 
         //! return vector of candidates, copy of current list
 
@@ -138,7 +138,7 @@ namespace pointlike {
 
         static void setParameters(const embed_python::Module & module);
     private:
-        const skymaps::BinnedPhotonData& m_pmap;
+        skymaps::BinnedPhotonData& m_pmap;
         Candidates m_can;
         std::ostream * m_log;
         std::ostream& out(){return * m_log;}

@@ -1,7 +1,7 @@
 /** @file Draw.h 
 @brief declaration of the Draw wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.11 2008/09/24 18:01:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.12 2008/10/10 19:37:03 burnett Exp $
 */
 
 
@@ -26,11 +26,12 @@ namespace pointlike {
 
         //! @brief ctor sets data
       
-        Draw(const skymaps::BinnedPhotonData& map, 
-            const skymaps::SkySpectrum* background = 0,
-            bool ts = false);
-
-        Draw(const Data& data);
+      Draw(skymaps::BinnedPhotonData& map, 
+	   const skymaps::SkySpectrum* background = 0,
+	   bool ts = false, double emin = 100, double minalpha = 0.05,
+	   bool sourcelike = false);
+      
+      Draw(Data& data);
 
         //! create FITS image file using the data
         //! @param dir center
@@ -58,14 +59,17 @@ namespace pointlike {
         int set_layers(int n){int t = m_layers; m_layers=n; return t;}
 
     private:
-        const skymaps::BinnedPhotonData& m_map;
-        const skymaps::SkySpectrum* m_background;
-        bool m_galactic;    ///< galactic or equatorial
-        bool m_zenith;      ///< set for zenith coords
-        std::string m_proj; ///< projection (CAR, AIT, etc.)
-        const astro::SkyFunction* m_exposure; ///< exposure to use for normalization, if present. (energy?)
-        int m_layers;
-        bool m_ts;
+      skymaps::BinnedPhotonData& m_map;
+      const skymaps::SkySpectrum* m_background;
+      bool m_galactic;    ///< galactic or equatorial
+      bool m_zenith;      ///< set for zenith coords
+      std::string m_proj; ///< projection (CAR, AIT, etc.)
+      const astro::SkyFunction* m_exposure; ///< exposure to use for normalization, if present. (energy?)
+      int m_layers;
+      double m_emin;
+      double m_minalpha;
+      bool m_ts;
+      bool m_sourcelike;
     };
 
     /** @class SkyDensity

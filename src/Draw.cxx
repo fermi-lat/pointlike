@@ -1,15 +1,17 @@
 /** @file Draw.cxx
 @brief implementation of Draw
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.15 2008/09/24 18:01:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.16 2008/10/10 19:37:03 burnett Exp $
 
 */
 
 
+#include <iomanip>
 #include "pointlike/Draw.h"
 #include "pointlike/Data.h"
 
 #include "pointlike/PointSourceLikelihood.h"
+#include "pointlike/SourceLikelihood.h"
 
 #include "astro/SkyDir.h"
 
@@ -36,18 +38,22 @@ namespace pointlike {
 }
 
 
-Draw::Draw(const BinnedPhotonData& map, const skymaps::SkySpectrum* background, bool ts)
+Draw::Draw(BinnedPhotonData& map, const skymaps::SkySpectrum* background, 
+	   bool ts, double eMin, double minalpha, bool sourcelike)
 : m_map(map)
 , m_background(background)
 , m_galactic(true)
 , m_zenith(false)
 , m_proj("")
 , m_exposure(0) // default: do not apply
-, m_layers(1)
+  , m_layers(1)
+  , m_emin(eMin)
+  , m_minalpha(minalpha)
   , m_ts(ts)
-{}
+  , m_sourcelike(sourcelike)
+{ pointlike::PointSourceLikelihood::set_energy_range(m_emin, 1e6); }
 
-Draw::Draw(const Data& data)
+Draw::Draw(Data& data)
 : m_map(data.map())
 , m_background(0)
 , m_galactic(true)
@@ -80,55 +86,153 @@ void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel
     /// @brief adapt a Binned Photon Data to give TS for bins with given energy
     class SkyTS : public astro::SkyFunction {
     public: 
-      SkyTS(const BinnedPhotonData& data, const skymaps::SkySpectrum& background,
-	    TSCache& cache, int energyBin):
+      SkyTS(BinnedPhotonData& data, const skymaps::SkySpectrum& background,
+	    TSCache& cache, int energyBin, double minEnergy, double min_alpha,
+	    bool sourceLike = false):
 	m_data(data),
 	m_background(background),
 	m_nenergybins(0),
 	m_bin(energyBin),
+	m_emin(minEnergy),
+	m_minalpha(min_alpha),
+	m_sourcelike(sourceLike),
 	m_tsvalues(cache){
 
 	for( skymaps::BinnedPhotonData::const_iterator bit = m_data.begin(); 
 	     bit!=m_data.end(); ++bit){
+	  if (bit->emax() < m_emin) continue;
 	  m_nenergybins++;
+	  std::cout << "SkyTS> Added energyBin: " << m_nenergybins << " " 
+		    << bit->emin() << " " << bit->emax() << std::endl;
 	}
       }
 
       double operator() (const astro::SkyDir& sd) const {
-
-	if (m_tsvalues.find(sd) == m_tsvalues.end()){
-	  
-	  pointlike::PointSourceLikelihood* ps 
-	    = new pointlike::PointSourceLikelihood(m_data, "test", sd);
-	  ps->set_diffuse(const_cast<skymaps::SkySpectrum*>(&m_background));
-	// 	ps->setDir(sd);
-	// 	ps->setup(m_data);
-	  ps->maximize();
 	
-	  double t = ps->TS();
-	  std::vector<double> ts;
-	  ts.push_back(t);
-	  for (unsigned int i = 0; i < m_nenergybins; ++i){
-	    ts.push_back(ps->TS(i));
+	if (!m_sourcelike){
+	  
+	  if (m_tsvalues.find(sd) == m_tsvalues.end()){
+	    
+	    pointlike::PointSourceLikelihood::set_min_alpha(m_minalpha);
+	    pointlike::PointSourceLikelihood::set_energy_range(m_emin, 1e6);
+	    
+	    pointlike::PointSourceLikelihood* ps 
+	      = new pointlike::PointSourceLikelihood(m_data, "test", sd);
+	    ps->set_diffuse(const_cast<skymaps::SkySpectrum*>(&m_background));
+	    // 	ps->setDir(sd);
+	    // 	ps->setup(m_data);
+	    ps->maximize();
+	    
+	    double t = ps->TS();
+	    std::vector<double> ts;
+	    ts.push_back(t);
+	    for (unsigned int i = 0; i < m_nenergybins; ++i){
+	      double e_ts = ps->TS(i);
+	      double e_ts2 = ps[i].TS();
+	      double e_alpha = ps->alpha(i);
+	      if (e_alpha < m_minalpha)
+		e_ts = 0;
+	      
+	      ts.push_back(e_ts);
+// 	      if (e_ts > 0)
+// 		std::cout << "Using: " << std::setprecision(2) << e_alpha 
+// 			  << " "  << e_ts << " " << e_ts2 << std::setprecision(0);
+	    }
+	    m_tsvalues[sd] = ts;
+
+	    ps->printSpectrum();
+// 	    std::cout << "TS: " << t << std::endl;
+// 	    std::cout << "-----" << std::endl;
+	    delete ps;
+	    return ts[m_bin];
+	  } else {
+	    return (*m_tsvalues.find(sd)).second[m_bin];
 	  }
-	  m_tsvalues[sd] = ts;
-	  ps->printSpectrum();
-// 	  for (unsigned int k = 0; k < ts.size(); ++k)
-// 	    std::cout << ts[k] << std::endl;
-	  delete ps;
-	  return ts[m_bin];
 	} else {
-// 	  std::cout << "Layer: " << m_bin << " already have this point " 
-// 		    << sd.ra() << " " << sd.dec() << std::endl;
-	  return (*m_tsvalues.find(sd)).second[m_bin];
+	  
+	  if (m_tsvalues.find(sd) == m_tsvalues.end()){
+	    
+	    pointlike::SourceLikelihood::set_min_alpha(m_minalpha);
+	    pointlike::SourceLikelihood::set_energy_range(m_emin, 1e6);
+
+	    double gf[] = {2., 1.785, 1.874, 1.981, 2.003, 
+			  2.225, 2.619, 2.527, 2.134, 1.827 };
+	    double sf[] = {4., 1.77e+00, 1.06e+00, 5.69e-01, 
+			  2.85e-01, 1.54e-01, 9.16e-02, 5.15e-02, 
+			  2.52e-02, 1.55e-04};
+	    
+	    std::vector<double> gammasFront(10);
+	    std::vector<double> sigmasFront(10);
+	    for (unsigned int i = 0; i < sigmasFront.size(); ++i){
+	      gammasFront[i] = gf[i];
+	      sigmasFront[i] = sf[i] * TMath::Pi()/180;
+	    }
+	    
+	    pointlike::SourceLikelihood::setGamma("front", gammasFront); 
+	    pointlike::SourceLikelihood::setSigma("front", sigmasFront); 
+	    
+	    double gb[] = { 2., 1.737, 1.742, 1.911, 2.008, 
+			    2.009, 2.207, 1.939};
+	    double sb[] = { 4., 2.18e+00, 1.17e+00, 6.00e-01, 
+			    3.09e-01, 1.61e-01, 8.43e-02, 3.90e-02};
+	    
+	    std::vector<double> gammasBack(8);
+	    std::vector<double> sigmasBack(8);
+	    for (unsigned int i = 0; i < sigmasBack.size(); ++i){
+	      gammasBack[i] = gb[i];
+	      sigmasBack[i] = sb[i] * TMath::Pi()/180;
+	    }
+
+	    pointlike::SourceLikelihood::setGamma("back", gammasBack); 
+	    pointlike::SourceLikelihood::setSigma("back", sigmasBack); 
+
+	    std::cout << "Draw> Set gammas" << std::endl;
+	  
+	    pointlike::SourceLikelihood* ps 
+	      = new pointlike::SourceLikelihood(m_data, "test", sd);
+
+	    std::cout << "Constructed ps " << ps << std::endl;
+
+	    ps->set_diffuse(const_cast<skymaps::SkySpectrum*>(&m_background));
+	    ps->maximize();
+	    
+	    double t = ps->TS();
+	    std::vector<double> ts;
+	    ts.push_back(t);
+	    for (unsigned int i = 0; i < m_nenergybins; ++i){
+	      double e_ts = ps->TS(i);
+	      double e_ts2 = ps[i].TS();
+	      double e_alpha = ps->alpha(i);
+	      if (e_alpha < m_minalpha)
+		e_ts = 0;
+	      
+	      ts.push_back(e_ts);
+	      // 	      if (e_ts > 0)
+	      // 		std::cout << "Using: " << std::setprecision(2) << e_alpha 
+	      // 			  << " "  << e_ts << " " << e_ts2 << std::setprecision(0);
+	    }
+	    m_tsvalues[sd] = ts;
+	    
+	    ps->printSpectrum();
+	    // 	    std::cout << "TS: " << t << std::endl;
+	    // 	    std::cout << "-----" << std::endl;
+	    delete ps;
+	    return ts[m_bin];
+	  } else {
+	    return (*m_tsvalues.find(sd)).second[m_bin];
+	  }
+	  
 	}
       }
-      
+
     private: 
-      const skymaps::BinnedPhotonData& m_data;
+      skymaps::BinnedPhotonData& m_data;
       const skymaps::SkySpectrum& m_background;
       unsigned int m_nenergybins;
       unsigned int m_bin;
+      double m_emin;
+      double m_minalpha;
+      bool m_sourcelike;
       TSCache& m_tsvalues; 
     };
 
@@ -141,15 +245,21 @@ void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel
 
       int nBins = 0;
       for( skymaps::BinnedPhotonData::const_iterator bit = m_map.begin(); 
-	   bit!=m_map.end(); ++bit)
+	   bit!=m_map.end(); ++bit){
+	if (bit->emax() < m_emin) continue;
+	std::cout << "SKYTS>  energy: " << bit->emin() << " " << bit->emax() 
+		  << std::endl;
 	++nBins;
+      }
       
+      std::cout << "SkyTS> Constructing SkyImage with: " << nBins+1 << " layers" 
+		<< std::endl;
       SkyImage image2(dir, outputTS, pixel, fov, nBins+1, 
 		      proj,  m_galactic, m_zenith); 
       TSCache cache;
       for (int i = 0; i <=nBins; ++i){
-	std::cout << "XXXXX Filling layer: " << i+1 << std::endl;
-	image2.fill(SkyTS(m_map, *m_background, cache, i), i);
+	std::cout << " SkyTS> Filling layer: " << i+1 << " emin: " << m_emin << std::endl;
+	image2.fill(SkyTS(m_map, *m_background, cache, i, m_emin, m_minalpha, m_sourcelike), i);
       }
     }
 

@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.14 2008/10/06 20:40:38 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.15 2008/10/10 01:58:55 markusa Exp $
 
 */
 
@@ -135,6 +135,17 @@ int  	              SourceLikelihood::s_npar(0);
 //////// Static methods of SourceLikelihood //////////
 //////////////////////////////////////////////////////
 
+double SourceLikelihood::set_min_alpha(double a){
+    double r(s_minalpha); s_minalpha= a; return r;
+}
+
+// manage energy range for selection of bands to fit 
+
+// void SourceLikelihood::set_energy_range(double emin, double emax){
+//   s_emin = emin; s_emax=emax;
+// }
+
+// void SourceLikelihood::set_minalpha(double minalpha){ s_minalpha = minalpha;};
 
 // set parameters for source likelihood
 
@@ -239,7 +250,7 @@ void SourceLikelihood::setup(skymaps::BinnedPhotonData& data){
   for( skymaps::BinnedPhotonData::iterator bit = 
 	 data.begin(); bit!=data.end(); ++bit){
          skymaps::Band& b = *bit;
-    
+ 
     if(b.event_class()==0){
       if(s_gamma_front.size()>i) { 
          b.setGamma(s_gamma_front[i]);
@@ -283,9 +294,16 @@ void SourceLikelihood::setup(skymaps::BinnedPhotonData& data){
 					  m_type,m_sourceParameters,
 					  pointlike::ExtendedLikelihood::defaultUmax(), 
 					  m_background);
+
+//     std::cout << "Constructed extended likelihood " << sl << std::endl;
+
     this->push_back(sl);
     
   }
+
+  std::cout << "SourceLikelihood> Set all parameters" << std::endl;
+
+
   if( this->empty()){
     throw std::invalid_argument("SourceLikelihood::setup: no bands to fit.");
   }
@@ -303,6 +321,41 @@ pointlike::SourceLikelihood::~SourceLikelihood()
   }
   delete m_background;
 }
+
+double pointlike::SourceLikelihood::TS(int band) const
+{
+  double TS_band = 0;
+  bool found = 0;
+  int bandCounter = 0;
+  for(iterator it = begin() ; it!=end(); ++it, ++bandCounter){
+    ExtendedLikelihood& like = **it;
+    if (bandCounter == band){
+      found = true;
+      TS_band = like.TS();
+    }
+  }
+  
+  if (!found) return -1;
+  else return TS_band;
+}
+
+double pointlike::SourceLikelihood::alpha(int band) const
+{
+  double alpha_band = 0;
+  bool found = 0;
+  int bandCounter = 0;
+  for(iterator it = begin() ; it!=end(); ++it, ++bandCounter){
+    ExtendedLikelihood& like = **it;
+    if (bandCounter == band){
+      found = true;
+      alpha_band = like.alpha();
+    }
+  }
+  
+  if (!found) return -1;
+  else return alpha_band;
+}
+
 
 /////////////////////////////////////
 ////////// maximize: find best alphas for 
