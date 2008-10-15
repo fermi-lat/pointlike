@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Tue Oct 14 19:16:35 PDT 2008
+pointlike/src/test
+
+Modified Files:
+	test_main.cxx 
+Added Files:
+	r0236198321_ft1.fit 
+Log Message:
+addition of test to read in a ft1 file
+    *
+------------------------------------------------------------
 User: funk  Tue Oct 14 16:06:03 PDT 2008
 pointlike/src
 
