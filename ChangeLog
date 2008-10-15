@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Oct 14 19:17:48 PDT 2008
+pointlike/src
+
+Modified Files:
+	Data.cxx 
+Log Message:
+zap code moved to EventList
+    *
+------------------------------------------------------------
 User: burnett  Tue Oct 14 19:16:35 PDT 2008
 pointlike/src/test
 
