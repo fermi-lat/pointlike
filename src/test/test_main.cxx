@@ -3,6 +3,7 @@
 
 */
 #include "pointlike/PointSourceLikelihood.h"
+#include "pointlike/Data.h"
 #include "embed_python/Module.h"
 
 #include "skymaps/BinnedPhotonData.h"
@@ -78,6 +79,12 @@ int main(int argc , char** argv )
 
         x.info();
 
+        { 
+            std::vector<std::string>ft1_list;
+            ft1_list.push_back("../src/test/r0236198321_ft1.fit");
+            Data test(ft1_list); 
+            test.info();
+        }
 
 #if 0 // test code for SimpleTSmap
         std::cout << "\ntesting SimpleTSmap..." << std::endl;
