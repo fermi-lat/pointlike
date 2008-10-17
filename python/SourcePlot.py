@@ -1,3 +1,7 @@
+"""A variety of routines for plotting pointlike fits.
+
+"""
+
 #import uw.pointlike
 import pointlike as pl
 from SourceLib import *
@@ -174,8 +178,9 @@ class Residuals(PySkyFun):
          counts += sl.display(in_dir,3) #predicted mean counts
          obs_counts += sl.display(in_dir,1) #actual counts
       if counts == 0: return 0.
-      std_diff = (obs_counts-counts)/counts**0.5
-      return std_diff if abs(std_diff)<5 else 5
+      #std_diff = (obs_counts-counts)/counts**0.5
+      #return std_diff if abs(std_diff)<5 else 5
+      return 1 - counts/obs_counts
 
 
 #-----------------------------------------------------------------------------------------------#
@@ -195,7 +200,12 @@ def resid_root(source,mode='PValue',emin=1000,emax=10000,event_class=0):
    n = len(source.photons)
    if n > len(bands)-1:
       print 'True'
-      index = args if event_class == 0 else n/2+args
+      if event_class == 0:
+         index = args
+      elif event_class == 1:
+         index = n/2+args
+      else:
+         index = N.concatenate(args,args+n/2)
    else: index = args
    slikes = source.slikes[index]
    if args.max()<len(bands): args = N.append(args, args[-1]+1)
@@ -268,7 +278,7 @@ def log_like(source,level,exp=False):
 #-----------------------------------------------------------------------------------------------#
  
 
-def visi(source,level,nmodel):
+def visi(source,level,nmodel,log = False):
    """Plot the integrand for the marginalization over alpha."""
    n=500
    domain=N.linspace(1e-3,1,n+1)
@@ -342,14 +352,17 @@ def rad_resid(source,energy=1000,event_class=0,resids_only=False):
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 
-def spectrum(s,models=[],flag='sed',fignum=30,sedweight=1,cgs=False):
+def spectrum(s,models=None,flag='sed',fignum=30,sedweight=1,cgs=False):
    """Plot estimated spectral density, along with any model fits."""
 
    colors = ['green','red','orange','purple'] #Go Tigers!
-
+   if models is None: models = []
+   from types import ListType
+   if type(models) is not ListType: models = [models]
    model = (lambda e: 1) if flag=='sed' else (lambda e: 1e-9*(100/e)**2)
    domain,domain_err,codomain,up_codomain_err,down_codomain_err =\
       s.spectrum(energy_weight=sedweight,model=model,cgs=cgs)[:5]
+   low_eng = N.round(domain-domain_err[0])[codomain>0][0]
    #Adjust codomains for plotting, two lines below
    if flag=='sed': codomain[codomain==0]=uplim=1e-20
    else: codomain[codomain<1e-5]=uplim=1e-5
@@ -382,14 +395,15 @@ def spectrum(s,models=[],flag='sed',fignum=30,sedweight=1,cgs=False):
          ls,ms=' ',4
       residuals=N.nan_to_num((codomain-codomain_res)/codomain_res)
       residuals=N.where(N.abs(residuals)>10,10,residuals)
-      a.plot(domain_fit/1000.,codomain_fit,label=model.name,linestyle=ls,marker='s',markersize=ms,color=colors[i],lw=2)
+      a.plot(domain_fit/1000.,codomain_fit,label=model.pretty_name,linestyle=ls,marker='s',markersize=ms,color=colors[i%len(colors)],lw=2)
       bbox={'lw':1.0,'pad':10,'ec':'black','fc':'white'}
       a.text(0.025,0.025+0.15*i,str(model),size='small',transform=a.transAxes,bbox=bbox,family='monospace')
       b.errorbar(domain/1000.,residuals,yerr=(codomain_err/codomain_res),\
                   xerr=domain_err,linestyle=' ',marker='d',markersize=4, \
-                  capsize=0, label='Model Residuals', color=colors[i])         
+                  capsize=0, label='Model Residuals', color=colors[i%len(colors)])         
    P.axes(a)
-   low_eng=round(domain[0]*(domain[0]/domain[1])**0.5) #Assumes logarithmic bin spacing -- fix sometime
+   
+   #low_eng=round(domain[0]*(domain[0]/domain[1])**0.5) #Assumes logarithmic bin spacing -- fix sometime
    P.title(r'%s [$\mathrm{\sigma=%.2f,\, f7>%i=%.2f (1 \pm %.2f)}$]'\
                %(s().name(),(s().TS())**0.5,low_eng,f7[0],f7[1]/f7[0]))
    #P.title('%s'%s().name())

@@ -3,16 +3,23 @@ from math import log
 
 class PSF:
 
-   def __init__(self,sigma_parameters=None, gamma_parameters=None):
+   def __init__(self,**kwargs):
 
-      if sigma_parameters is None:
-         self.fp=N.array([0.0166,-1.55,1.69,1.34])#allgammav15r21
-         self.bp=N.array([0.0373,-1.72,6.13,4.91])#allgammav15r21
-         #self.fp=N.array([0.060,-1.422,1.532,0.966])
-         #self.bp=N.array([0.142,-1.65,3.881,21.671])#MET=243873727 (80 days)
+      self.init()
+      self.__dict__.update(kwargs)       
 
-      #ignore user-supplied gammas for now
-      self.gm = GammaManager()
+      if self.use_mc:
+         self.fp=N.array([0.014,-1.400,1.056,1.434])#allgammav15r0
+         self.bp=N.array([0.033,-1.734,6.270,0.599])
+      else:
+         self.fp = N.array([0.063,-1.673,1.850,-0.039]) #p6cuts
+         self.bp = N.array([-0.112,-1.561,3.586,12.753])
+         
+      self.gm = GammaManager(use_mc=self.use_mc)
+
+   def init(self):
+      self.use_mc = False
+      self.umax = 50
 
    def sigma(self,e,event_class=0):
       a,b,c,d = self.fp if event_class == 0 else self.bp
@@ -36,18 +43,34 @@ class PSF:
       pl.IParams.set_fp(self.fp)
       pl.IParams.set_bp(self.bp)
 
+   def set_gammas(self,psl):
+      for s in psl:
+         e = (s.band().emin()*s.band().emax())**0.5
+         s.setgamma(self.gamma(e,s.band().event_class()))
+         s.recalc()
+
    def fmax(self,e,u,event_class=0):
       g = self.gamma(e,event_class)
       return 1-(1+u/g)**(1-g)
+
+   def __call__(self,e,delta,event_class=0):
+      delta = delta * 180 / N.pi
+      u = (delta / self.sigma(e,event_class))**2/2
+      gam = self.gamma(e,event_class)
+      fmax = 1-(1+u/gam)**(1-gam)
+      return 1./fmax*(1-1/gam)*(1+u/gam)**-gam
       
 
 class GammaManager(object):
-   def __init__(self):
+   def __init__(self,use_mc=False):
 
       try:
          #f = open('boogie woogie')#just get an exception!
-         path = 'd:/common/sourcelikefilter/first_light/psf/day1-80'
-         files = [path+'/front.txt',path+'/back.txt']
+         path = 'd:/common/sourcelikefilter/first_light/psf/pass6'
+         if use_mc:
+            files = [path+'/m_front.txt',path+'/m_back.txt']
+         else:
+            files = [path+'/front.txt',path+'/back.txt']
          for i in xrange(len(files)): self.__parse_file__(files[i],i)
 
       except:         

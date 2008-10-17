@@ -1,3 +1,7 @@
+"""A set of classes to implement spectral models.
+
+"""
+
 import numpy as N
 import math as M
 from scipy.integrate import quad,Inf
@@ -31,36 +35,41 @@ class DefaultModelValues(object):
 
    @staticmethod
    def setup(the_model,**kwargs):
-      the_model.e0 = 100
+      the_model.e0 = 1000.
       the_model.flux_scale = 1e7
-      classname = the_model.name = the_model.__class__.__name__
+      the_model.good_fit = False
+      classname = the_model.name = the_model.pretty_name = the_model.__class__.__name__
       if classname == 'PowerLaw':
-         the_model.p = [0.1,2]
+         the_model.p = [1e-4,2]
          the_model.param_names = ['Norm','Index']
       elif classname == 'PowerLawFlux':
-         the_model.p = [1.,2]
-         the_model.param_names = ['Int. Flux','Index']      
+         the_model.p = [1e-3,2]
+         the_model.param_names = ['Int. Flux','Index']
+         the_model.emin = 100.
+         the_model.emax = 1e6
       elif classname == 'BrokenPowerLaw':
-         the_model.p = [0.1,1.5,2.5,1000]
+         the_model.p = [1e-4,1.5,2.5,1000]
          the_model.param_names = ['Norm','Index 1','Index 2', 'E_break']
       elif classname == 'BrokenPowerLawF':
-         the_model.p = [0.1,1.5,2.5,1000]
+         the_model.p = [1e-4,1.5,2.5,1000]
          the_model.param_names = ['Norm','Index 1','Index 2']
          the_model.e_break = 10000
       elif classname == 'ExpCutoff':
-         the_model.p = [0.1,2,5e3]
+         the_model.p = [1e-4,2,5e3]
          the_model.param_names = ['Norm','Index','Cutoff']
       elif classname == 'PLSuperExpCutoff':
-         the_model.p = [0.1,2,2e3,2]
+         the_model.p = [1e-4,2,2e3,2]
          the_model.param_names = ['Norm','Index','Cutoff', 'b']
       elif classname == 'MixedModel':
          #model names are in kwargs
          if 'models' in kwargs:
             models = kwargs['models']
             kwargs.pop('models')
+            the_model.models = models
          else:
             the_model.p = None
             the_model.param_names = ['Undefined Model']
+            models = []
          the_model.param_names,the_model.p,the_model.spec_models=[],[],[]
          for model in models:
             exec('this_model = %s(**kwargs)'%model)
@@ -69,7 +78,7 @@ class DefaultModelValues(object):
             the_model.param_names += this_model.param_names
             the_model.p += this_model.p
          the_model.n = [len(x.p) for x in the_model.spec_models]
-         the_model.name = '+'.join(models)
+         the_model.pretty_name = '+'.join(models)
     
       else:
          the_model.p = None
@@ -86,39 +95,69 @@ class Model(object):
       self.__dict__.update(**kwargs)
    def __str__(self):
       p=N.array(self.p)
-      errors=N.diag(self.cov_matrix)**0.5
-      ratios=errors/p
       m=max([len(n) for n in self.param_names])
       l=[]
       try:
-         s = self.systematics
-         sys_flag = True
-         up_sys_errs = self.systematics[:,1]
-         low_sys_errs = self.systematics[:,0]
-         print up_sys_errs
-         print low_sys_errs
-         up_sys_errs = N.nan_to_num((up_sys_errs**2 - ratios**2)**0.5)
-         print up_sys_errs
-         low_sys_errs = N.nan_to_num((low_sys_errs**2 - ratios**2)**0.5)
-         print low_sys_errs
-      except AttributeError:
-         sys_flag = False         
-      for i in xrange(len(self.param_names)):
-         n=self.param_names[i][:m]
-         t_n=n+(m-len(n))*' '
-         if not sys_flag:
-            l+=[t_n+': (1 +/- %.3f) %.3g'%(ratios[i],p[i])]
-         else:
-            l+=[t_n+': (1 + %.3f - %.3f)(1 +/- %.3f) %.3g'%(up_sys_errs[i],low_sys_errs[i],ratios[i],p[i])]
-      return '\n'.join(l)
+         errors=N.diag(self.cov_matrix)**0.5
+         ratios=errors/p         
+         try:
+            s = self.systematics
+            sys_flag = True
+            up_sys_errs = self.systematics[:,1]
+            low_sys_errs = self.systematics[:,0]
+            print up_sys_errs
+            print low_sys_errs
+            up_sys_errs = N.nan_to_num((up_sys_errs**2 - ratios**2)**0.5)
+            print up_sys_errs
+            low_sys_errs = N.nan_to_num((low_sys_errs**2 - ratios**2)**0.5)
+            print low_sys_errs
+         except AttributeError:
+            sys_flag = False         
+         for i in xrange(len(self.param_names)):
+            n=self.param_names[i][:m]
+            t_n=n+(m-len(n))*' '
+            if not sys_flag:
+               l+=[t_n+': (1 +/- %.3f) %.3g'%(ratios[i],p[i])]
+            else:
+               l+=[t_n+': (1 + %.3f - %.3f)(1 +/- %.3f) %.3g'%(up_sys_errs[i],low_sys_errs[i],ratios[i],p[i])]
+         return '\n'.join(l)
+      except:
+         for i in xrange(len(self.param_names)):
+            n=self.param_names[i][:m]
+            t_n=n+(m-len(n))*' '
+            l+=[t_n+': %.3g'%(p[i])]
+         return '\n'.join(l)
    def i_flux(self,emin=100,emax=Inf,e_weight=0,cgs=False):
       """Return integrated flux."""
       func = self if e_weight == 0 else lambda e: self(e)*e**e_weight
       units = 1.60218e-6**(e_weight-1) if cgs else 1.
-      return units*quad(func,emin,emax)[0]
+      flux =  units*quad(func,emin,emax)[0]
+      if not cgs: flux*=self.flux_scale
+      if e_weight == 0 and self.good_fit:
+         print 'Integrated Flux > %d MeV (*%.2g) for %s model: %.2g ph/cm^2/s'%(emin,self.flux_scale,self.pretty_name,flux)
+      return flux
    def copy(self):
       param_string=','.join( ( str(p) for p in self.p ) )
-      return eval(self.name+'(**self.__dict__)')
+      a = eval(self.name+'(**self.__dict__)')
+      a.p = [x for x in self.p]
+      try:
+         a.cov_matrix = self.cov_matrix.__copy__()
+      except:
+         pass
+      return a
+
+   def __flux_derivs__(self,delta = .02,*args):
+      high = self.copy()
+      low = self.copy()
+      derivs = []
+      for i in xrange(len(high.p)):
+         high.p[i]*=(1+delta/2.)
+         low.p[i]*=(1-delta/2.)
+         derivs += [(high.i_flux(*args) - low.i_flux(*args))/(delta*self.p[i])]
+         high.p[i]/=(1+delta/2.)
+         low.p[i]/=(1-delta/2.)
+
+      return derivs
 
 
 #-----------------------------------------------------------------------------------------------#
@@ -135,10 +174,11 @@ class PowerLaw(Model):
 #-----------------------------------------------------------------------------------------------#
 
 class PowerLawFlux(Model):
-   """Use flux (ph cm^-2 s^-1) integrated above e0 to normalize."""
+   """Use flux (ph cm^-2 s^-1) integrated from emin to emax."""
    def __call__(self,e):
       flux,gamma=self.p
-      return (flux/self.flux_scale)*(gamma-1)*(self.e0/e)**(gamma-1)/e
+      #return (flux/self.flux_scale)*(gamma-1)*(self.e0/e)**(gamma-1)/e
+      return (flux/self.flux_scale)*(1-gamma)*e**(-gamma)/(self.emax**(1-gamma)-self.emin**(1-gamma))
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#

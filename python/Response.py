@@ -132,6 +132,7 @@ class ModelResponse(object):
       self.random = False
       self.ltfrac = 1.
       self.psl_c = 1.
+      self.override = False
             
    def __simpson_setup__(self):
       """Generate the model-independent portions of the integral."""
@@ -150,8 +151,11 @@ class ModelResponse(object):
    def update(self,**options):
       """Update direction and/or event class."""
 
+      prev_event_class,prev_ra,prev_dec = self.event_class,self.dir.ra(),self.dir.dec()
       self.__dict__.update(options)
-      self.exposure=self.emap(self.dir,self.sampling_points,self.event_class)
+      event_class,ra,dec = self.event_class,self.dir.ra(),self.dir.dec()
+      if ra != prev_ra or dec != prev_dec or prev_event_class != event_class or self.override:
+         self.exposure = self.emap(self.dir,self.sampling_points,event_class=self.event_class)
       #If there is an exposure correction, apply it.
       #If the self.random is True, perform random experiment with the effective area
       if self.exposure_correction is not None:

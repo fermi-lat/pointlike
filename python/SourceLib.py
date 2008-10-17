@@ -1,49 +1,20 @@
-###SEE MAIN METHOD BELOW FOR A DOCUMENTED EXAMPLE OF BASIC INTERACTIVE SPECTRAL ANALYSIS
+"""Modules for the interface to the spectral fitting code.
 
+"""
 import pointlike as pl
-try:
-   from sys import path
-   path.insert(1,r'd:/common/spectrum/pointspec-dev/python')
-except: pass
-
 from Response import *
 from Fitters import *
 from Models import *
+from SourcePlot import *
+from fitstools import *
+from psf import PSF
 
 #Additional modules
 import numpy as N
 import math as M
+import pylab as P
 from types import *
 
-#-----------------------------------------------------------------------------------------------#
-#-----------------------------------------------------------------------------------------------#
-#-----------------------------------------------------------------------------------------------#
-
-class PSFManager(object):
-   def __init__(self):
-      self.elist = 100*10**N.arange(0,2.01,1./10) #10 per decade in this analysis
-      self.b_gamma = ['2.46', '2.43', '2.32', '2.31', '2.18', '2.24', '2.15', '2.11',
-                      '2.15', '2.17', '2.17', '2.21', '2.25', '2.22', '2.22', '2.13',
-                      '2.19', '2.21', '2.27', '2.35', '2.26', '2.18', '2.32'] + ['2.25']*4
-      self.f_gamma = ['2.28', '2.11', '1.94', '2.03', '1.86', '2.01', '1.96', '2.1', '2.13', '2.24', '2.2',
-                      '2.41', '2.28', '2.42', '2.57', '2.49', '2.44', '2.49', '2.53', '2.53', '2.44',
-                      '2.4', '2.29', '2.31', '2.19', '2.14', '1.95']
-      self.f_gamma = [2.42,2.47,2.84,2.07,2.08,2.06,2.03,1.84,1.90,1.81,
-                      1.85,1.88,1.82,1.97,1.94,1.86,1.89,1.90,1.89,1.95,1.84]
-      self.b_gamma = [3.46,2.24,2.77,2.38,1.86,1.86,1.93,1.82,1.81,1.79,
-                      2.16,1.73,1.83,1.79,1.94,1.76,1.73,1.74,1.68] + [1.68]*2 #Just replicate last value
-   def gamma(self,e,event_class=0):
-      ens = self.elist
-      the_list = self.f_gamma if event_class==0 else self.b_gamma
-      if e < self.elist[0]:
-         return the_list[0]
-      if e > self.elist[-1]:
-         return the_list[-1]
-      for i in xrange(len(ens)-1):
-         if ens[i]<=e and ens[i+1]>e: break
-      return float(the_list[i])
-
-      
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
@@ -65,6 +36,7 @@ class GlobalData:
       self.event_class=-1
       self.fitmask=None
       self.method='MP'
+      self.sources = []
 
    def update(self,**kwargs):
       """Update parameters.  CALL THIS RATHER THAN CHANGING MEMBER VARIABLES"""
@@ -74,9 +46,10 @@ class GlobalData:
          for s in self.sources:
             s.__make_data__()
             for f in s.fitters.values(): f.remask()
-      elif 'mask' in kwargs:
-         for f in s.fitters.values(): f.remask()
-      
+      elif 'fitmask' in kwargs:
+         for s in self.sources:
+	         for f in s.fitters.values(): f.remask()
+         
 
    def mask(self):
       """Return an array mask corresponding to the Mask object."""
@@ -162,6 +135,7 @@ class Source:
       self.psl,self.global_data,self.response=psl,global_data,global_data.response
       self.__make_data__()   
       self.unfolded,self.fitters=None,[]
+      global_data.sources+=self
       
    def __make_data__(self):
       """Get information for both front and back from PSL, masking out an event class at the
@@ -207,14 +181,16 @@ class Source:
       slikes=N.array(slikes)
       total_mask=N.append(front_mask,back_mask)
 
-      photons=N.fromiter((x.photons() for x in slikes),int)
-      alphas=N.array([ [x.alpha(),x.sigma_alpha()] for x in slikes ])
+      photons = N.fromiter((x.photons() for x in slikes),int)
+      alphas = N.array([ [x.alpha(),x.sigma_alpha()] for x in slikes ])
       umaxes = N.array( [ x.umax() for x in slikes ] )
       gammas = N.array( [ x.band().gamma() for x in slikes ] )
+      ts = N.array( [x.TS() for x in slikes] )
       psl_c = 1 - (1+umaxes/gammas)**(1-gammas)
 
-      photons[total_mask]=0
-      alphas[:,0][total_mask]=0
+      photons[total_mask] = 0
+      alphas[:,0][total_mask] = 0
+      ts[total_mask] = 0
 
       #The 'astype(float)' is necessary; numpy doesn't protect against int overflow
       errors=(alphas[:,0]**2*photons+alphas[:,1]**2*photons.astype(float)**2)**0.5
@@ -224,7 +200,7 @@ class Source:
       elif ec == 1 : my_slice = slice(n,2*n+1)
       else : my_slice = slice(0,2*n+1)
            
-      products=['photons','alphas','signals','slikes','psl_c']
+      products=['photons','alphas','signals','slikes','psl_c','ts']
       for p in products: exec('self.%s = %s[my_slice]'%(p,p))
    
    def __getitem__(self,index):
@@ -281,13 +257,30 @@ class Source:
          errs*=1.60218e-6**(e_weight)/scale
       return ( (sig*del_e)[sig>0].sum()*scale,((errs*del_e)**2)[sig>0].sum()**0.5*scale )
 
+   def get_ts(self,accumulate=False):
+      #mask = N.logical_and(self.global_data.mask(),self.photons>0)
+      bands = self.response.bands.centers()
+      if not accumulate:
+         return bands,self.ts
+      return self.ts.sum()
 
-   def fit(self,model='PowerLaw',method=None,printfit=True,lsfirst=True,systematics=False,**kwargs):
+   def to_fits(self,filename=None):
+      try:
+         import pyfits as pf
+      except:
+         print 'Cannot find pyfits module, ergo I cannot write out a FITS file!'
+
+      if filename is None: filename = self.name+'_spectrum.fits'
+      ebins,fluxes,up_errs,down_errs = self.spectrum()
+      
+
+
+   def fit(self,model='PowerLaw',method=None,printfit=True,lsfirst=True,systematics=False,override=False,**kwargs):
       """Drive spectral fitting.  **kwargs are for the Model object."""
 
       method = method or self.global_data.method #Default here set to GlobalData default
       if printfit: print 'Fitting %s with method %s'%(self().name(),method)
-      self.response.update(dir=self().dir(),psl_c=self.psl_c,random=False)
+      self.response.update(dir=self().dir(),psl_c=self.psl_c,random=False,override=override)
 
       exec('model = %s(**kwargs)'%model)
 
@@ -311,6 +304,200 @@ class Source:
          return
       self.response.update(dir=self().dir())
       self.unfolded=Unfolder(self)
+
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+
+class SingleSourceFit(object):
+
+   def __init__(self,datafiles,historyfile,**kwargs):
+
+      self.init()
+      self.__dict__.update(kwargs)
+      self.datafiles = datafiles
+      self.historyfile = historyfile
+
+      self.psl_setup()
+      self.response_setup()
+      self.open_data()
+   
+   def init(self):
+      self.maxROI = 15.
+      self.umax = 50
+      self.bins = 10**N.arange(2,4.51,1./10)
+      self.classlevel = 3
+      self.localize = False
+      self.background = None
+      self.fitmask = Mask(front_ranges=[[100,1e6]],back_ranges=[[201,1e6]])
+      self.tstart = 0
+      self.tstop = 0
+      self.pixeloutput = True
+      self.ignorepix = False
+      self.alignment = True
+      self.theta_cut = 66.
+      self.zenith_angle_cut = 105
+      self.use_mc_psf = False #Use MC for PSF; if False, use estimation from data
+      self.f_ecube_file = None
+      self.verbose = True
+
+   def open_data(self):
+      from pointfit import photonmap
+      pl.Data.setEnergyBins(pl.DoubleVector(self.bins))
+      pl.Data.set_class_level(self.classlevel)
+      pl.Data.set_theta_cut(self.theta_cut)
+      pl.Data.set_zenith_angle_cut(self.zenith_angle_cut)
+      if self.alignment:
+         pl.Data.setHistoryFile(self.historyfile)
+         pl.Data.set_alignment('default')
+      self.data = photonmap(self.datafiles,pixeloutput=self.pixeloutput,\
+                  tstart=self.tstart,tstop=self.tstop,ignorepix=self.ignorepix)
+      self.bpd = self.data.map()
+
+   def psl_setup(self):
+      self.psf = PSF(use_mc=self.use_mc_psf)
+      self.psf.set_sigmas()
+      pl.PointSourceLikelihood.setDefaultUmax(self.umax)
+      pl.PointSourceLikelihood.set_maxROI(self.maxROI)
+      pl.PointSourceLikelihood.set_energy_range(1.01*self.bins[0])
+      if self.background is None: return
+      else:
+         self.diffuse = pl.DiffuseFunction(self.background)
+         pl.PointSourceLikelihood.set_diffuse(self.diffuse)
+
+   def response_setup(self):
+      self.bands = EnergyBands(self.bins[:-1],[self.bins[-1]])
+      if self.f_ecube_file is None:
+         self.emap = Exposure(self.historyfile,ft1files=self.datafiles,fovcut=self.theta_cut,zenithcut=self.zenith_angle_cut)
+      else:
+         fe = self.f_ecube_file
+         self.emap = ExposureMap(front_emap_file = fe, back_emap_file = fe.replace('front','back'))
+      self.response = ModelResponse(self.bands,self.emap)
+      self.global_data = GlobalData(self.emap,self.response,fitmask = self.fitmask)
+
+   def set_source(self,name,ra,dec):
+      src_dir = pl.SkyDir(ra,dec)
+      psl = pl.PointSourceLikelihood(self.bpd,name,src_dir)
+      self.psf.set_gammas(psl)
+      psl.maximize()
+      if self.localize:
+         self.err_radius = psl.localize()
+         print 'Position difference:  %.3f +/- %.3f'%(psl.dir().difference(src_dir)*180/N.pi,self.err_radius*1.51)
+      if self.verbose: psl.printSpectrum()
+      self.psl = psl
+      self.src = Source(psl,self.global_data)
+
+   def fit_spectrum(self,models=['PowerLaw']):
+      for model in models:
+         self.src.fit(model=model)
+
+   def sed(self,filename=None,show=True):
+      P.clf()
+      sed(self.src,models=self.src.MP.models)
+      if filename is not None: P.savefig(filename)
+      if show: P.show()
+
+   def i_flux(self):
+      print 'Measured integrated flux (*1e7): %.2g +/- %.2g ph/cm^s/s'%self.src.i_flux()
+      for model in self.src.MP.models:
+         model.i_flux()
+
+   def density_map(self,radius=10.,pix=400,smooth=True,outputname=None,equatorial=True):
+      if outputname is None:
+         outputname = self.src.psl.name()+'%dpix.fits'%pix
+         outputname = ''.join(outputname.split())
+         outputname = outputname.replace('(','_')
+         outputname = outputname.replace(')','_')
+      d = pl.Draw(self.bpd)
+      if equatorial: d.equatorial()
+      d.region(self.psl.dir(),outputname,2.*float(radius)/pix,2*radius,smooth)
+      
+   def residual_image(self,scale=10,resolution=100, emin=100, emax=10000):
+      try:
+         self.src.MP.models[0]
+      except:
+         print 'No fit to calculate residuals for!'
+
+      grid=N.linspace(-scale, scale, resolution)
+      d = self.psl.dir()
+      ra,dec = d.ra(),d.dec()
+      cosdec = N.cos(dec*N.pi/180.)
+      self.resid_image = N.array([self.__residual__(pl.SkyDir(ra-dx/cosdec, dec-dy), emin, emax)\
+                     for dy in grid for dx in grid]).reshape((len(grid),len(grid)))
+      self.image = N.array([self.__residual__(pl.SkyDir(ra-dx/cosdec, dec-dy), emin, emax,counts=True)\
+                     for dy in grid for dx in grid]).reshape((len(grid),len(grid)))
+      self.scale = scale
+      #exec(';'.join( ('self.%s = %s'%x for x in ['scale','resolution'] ) )) in locals
+      #self.scale, self.ra, self.dec, self.emin, self.emax, self.resolution =\
+      #      scale, ra, dec, emin, emax, resolution
+
+   def __residual__(self,sep,emin,emax,counts=False):
+
+      delta = self.psl.dir().difference(sep)*180/N.pi #in degrees
+
+      binc = (self.bins[:-1]*self.bins[1:])**0.5
+      mask = N.array([True]*len(self.src.photons))
+      n = len(mask) / 2
+      for i in xrange(len(binc)):
+         if binc[i] > emax or binc[i] < emin:
+            mask[i] = False
+            mask[i+n] = False
+      binc = binc[mask[:n]]
+
+      #psf_vals = N.array( [self.psf(e,delta,event_class=0) for e in binc] + [self.psf(e,delta,event_class=1) for e in binc] )
+      #sigmas = N.array( [self.psf.sigma(e,event_class=0) for e in binc] + [self.psf.sigma(e,event_class=1) for e in binc] )
+      #sigmas = sigmas*N.pi/180.
+      #signals = (self.src.response(self.src.MP.models[0])*self.src.psl_c)[mask]
+      #backs = self.src.photons[mask] - signals
+      #densities = N.array([x.display(sep,0) for x in self.src.slikes[mask]])
+      #density = self.bpd.density(sep)
+      #But this is just source density!  Maybe need to use BPD.
+      #back_densities = N.array([x.display(sep,2) for x in self.src.slikes[mask]])
+      if not counts:
+         #pre = N.array([x.display(sep,3) for x in self.src.slikes[mask]])
+         resids = N.array([x.display(sep,4) for x in self.src.slikes[mask]])
+         #p = pre.sum()
+         #p = p if p > 0 else 1.
+         return resids.sum()#/p
+      else:
+         return N.array([x.display(sep,1) for x in self.src.slikes[mask]]).sum()
+      #back_densities = 0
+      #if N.all(back_densities == 0.): back_densities = 1/self.umax #not right
+
+      #print psf_vals
+      #print signals
+      #print backs
+      #print densities
+      #print back_densities
+      #print signals*psf_vals/(N.pi*2*sigmas**2)
+      #print densities
+
+      #return (signals*psf_vals/(N.pi*2*sigmas**2) + backs*back_densities).sum() - density
+      #return (signals*psf_vals/(N.pi*2*sigmas**2) + backs*back_densities - densities).sum()
+      
+      
+
+   def show(self, **kwargs):
+      import pylab
+      scale=self.scale
+      P.subplot(121)
+      pylab.imshow(self.resid_image, extent=[-scale, scale, -scale, scale],interpolation='nearest', **kwargs)
+      pylab.axvline(0, color='white')
+      pylab.axhline(0, color='white')
+      pylab.colorbar()
+      P.subplot(122)
+      pylab.imshow(self.image, extent=[-scale, scale, -scale, scale],interpolation='nearest', **kwargs)
+      pylab.axvline(0, color='white')
+      pylab.axhline(0, color='white')
+      pylab.colorbar()
+      #emin, emax = energy_range(self.level)
+      #pylab.title('level %d (%d-%d)' %(self.level, emin, emax), size=10)
+
+
+   def __call__(self):
+      return self.src
+      
+""" A bit outdated.            
 
 
 if __name__=='__main__':
@@ -471,3 +658,4 @@ if __name__=='__main__':
    counts(s1,models=s1.MP.models,fignum=32)
    counts(s2,models=s2.MP.models,fignum=33)
  
+ """
