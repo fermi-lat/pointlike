@@ -1,12 +1,18 @@
+"""A module containing classes to do spectral fitting with pointlike.
+
+"""
+
 import numpy as N
 import math as M
 import pointlike as pl
 from Models import *
 from types import *
-from scipy.optimize import leastsq,fmin,brute,fmin_powell
+from scipy.optimize import leastsq,fmin,brute,fmin_powell,fsolve,brentq,fminbound,newton,brent
 from scipy.integrate import quad
 from scipy.stats import poisson
 from numpy.linalg import inv
+
+from math import exp
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
@@ -27,7 +33,6 @@ class EnergyBands(object):
       self.r_bands=r_bands
       self.l_bands=l_bands
       self.joint=l_bands+s_bands+r_bands
-      self.set_psf_c()
 
    def __getitem__(self,slice_or_int):
       return N.array(self.joint[slice_or_int])
@@ -37,11 +42,6 @@ class EnergyBands(object):
       if infinity: return N.append(self.s_bands,self.r_bands[0])
       else: return N.array(self.s_bands)
 
-   def set_psf_c(self,umax=50):
-      gamma = 2.25
-      pl.PointSourceLikelihood.setDefaultUmax(umax)
-      self.psf_corrections = N.array([ 1-(1+umax/gamma)**(1-gamma) ]*len(self.s_bands))
-   
    def psf_c(self,event_class=-1):
       if event_class < 0: return N.append(self.psf_corrections,self.psf_corrections)
       else: return self.psf_corrections
@@ -229,7 +229,7 @@ class PoissonLikelihood(object):
 
    def chi_sq(self,model):
       #Calculate a "chi_sq" statistic - return a tuple with chi_sq, dof
-      mask=self.mask
+      mask=N.logical_and(self.source.global_data.mask(),self.source.photons>5)
       signal=self.source.signals
       expected=self.source.response(model=model)
       return ( (((signal[:,0][mask]-expected[mask])/signal[:,1][mask])**2).sum(),sum((1 for x in mask if x)) )
@@ -241,65 +241,222 @@ class PoissonLikelihood(object):
 class MarginalPoissonLikelihood(PoissonLikelihood):
    """Calculate the likelihood by marginalizing over the signal fraction provided by Pointlike."""
 
-   def __init__(self,source,maxll=1e8):
+   def __init__(self,source,**kwargs):
       """Pre-calculate much of the integral to save processor time during fitting."""
+
+      self.init()
+      self.__dict__.update(kwargs)
 
       photons = source.photons
       mask = source.global_data.mask()
-      zero_mask = N.logical_and(mask,photons==0)
-      ones_mask = N.logical_and(mask,photons==1)
-      #mask = N.logical_and(mask,photons>1)
-      mask = N.logical_and(mask,photons>0)
+      if self.emulate_unbinned: mask = N.logical_and(mask,photons>0)
+      alphas,sigmas = source.alphas.transpose()
 
-      alphas,sigmas = source.alphas[mask].transpose()
-      slikes = source.slikes[mask]
+      lm = N.logical_and(mask,photons<2)
+      mm = N.logical_and(N.logical_and(mask,photons>1),photons<=self.photoncut)
+      hm = N.logical_and(mask,photons>self.photoncut)
+
+      lp = N.where(alphas[lm]>=0.5,photons[lm],0)
+      mp = photons[mm]
+      hp = photons[hm]
+
+      save_vars = ['source','photons','lp','mp','hp','lm','mm','hm']
+      for v in save_vars: exec 'self.%s = %s'%(v,v) in locals()
       
-      self.photons,self.mask,self.source,self.maxll,self.zero_mask,self.ones_mask = \
-         photons,mask,source,maxll,zero_mask,ones_mask
-     
-      if self.photons.shape[0]==0: return
 
-      photons=photons[mask]
-      if photons.shape[0]==0: return
-      alpha_min=1e-2 #avoid singularities at alpha=0
+      #Process the mid-range photons
+      alphas = alphas[mm]
+      sigmas = sigmas[mm]
+      slikes = source.slikes[mm]
+      photons = photons[mm]
 
+      if photons.shape[0]==0: return #This is a kluge that should be properly handled
+      
       #Sample from likelihood and construct Simpson's rule factors for doing quick integration
-      sampling_points=1000
+      sp=self.sampling_points
+      alpha_min=self.alpha_min #avoid singularities at alpha=0
       max_alpha_ll=N.array([x() for x in slikes]) #Max value of likelihood
-      simps_weights=N.append( ([1.]+[4.,2.]*(sampling_points/2))[:-1],1.)*(1./(3.*sampling_points))
-      self.points=N.array([N.linspace(alpha_min,1,sampling_points+1) for i in xrange(len(photons))])
-      self.weighted_like_sample=simps_weights*N.array([\
+      simps_weights=N.append( ([1.]+[4.,2.]*(sp/2))[:-1],1.)*(1./(3.*sp))
+      self.points=N.array([N.linspace(alpha_min,1,sp+1) for i in xrange(len(photons))])
+      self.wls=simps_weights*N.array([\
          N.exp( N.nan_to_num(N.fromiter( (-j(a)+max_alpha_ll[i] for a in self.points[i]) , float)) )\
          for i,j in enumerate(slikes)])
-      self.weighted_like_sample=N.transpose((self.points[:,1]-self.points[:,0])*N.transpose(self.weighted_like_sample))
-      self.norm=1./(self.weighted_like_sample.sum(axis=1)) #Normalize integral over alpha
-      self.weighted_like_sample=self.weighted_like_sample.transpose()
+      self.wls=N.transpose((self.points[:,1]-self.points[:,0])*N.transpose(self.wls))
+      #self.norm=1./(self.weighted_like_sample.sum(axis=1)) #Normalize integral over alpha
+      self.wls=self.wls.transpose()
       self.points=self.points.transpose()
-      self.alphas = alphas
 
+      self.backup_points = N.linspace(self.alpha_min,1.,100)
+      self.delta = (1.-self.alpha_min)/100.
 
+   def init(self):
+      self.photoncut = 20000
+      self.sampling_points = 300
+      self.alpha_min = 1e-3
+      self.maxll = 1e8
+      self.min_sec_deriv = 1e-12
+      self.emulate_unbinned = True
+
+   
+   def integ(self,alphas,*args):
+      """Return the (log) integrand."""
+      lambdas,photons,slikes = args
+      return -N.asarray([slikes[i](alphas[i]) for i in xrange(len(alphas))]) + photons*N.log(lambdas/alphas) - lambdas/alphas
+
+   def integ_single_e(self,alphas,*args):
+      """Return the integrand."""
+      return N.exp((-args[2](alphas) + args[1]*N.log(args[0]/alphas) - args[0]/alphas))
+
+   def integ_single(self,alphas,*args):
+      """Return the -(log) integrand."""
+      return -(-args[2](alphas) + args[1]*N.log(args[0]/alphas) - args[0]/alphas)
+      
+   def i_prime(self,alphas,*args):
+      """Return the first derivative of the (log) integrand for marginalization over alpha."""
+      lambdas,photons,slikes = args
+      first_derivs = -N.array([slikes[i].derivatives(alphas[i])[0] for i in xrange(len(alphas))])
+      return first_derivs - photons/alphas + lambdas/alphas**2
+
+   #def i_prime_single(self,alphas,*args):
+   #   """Return the first derivative of the (log) integrand for marginalization over alpha."""
+   #   
+   #   return -args[2].derivatives(alphas)[0] - args[1]/alphas + args[0]/alphas**2
+
+   def i_dprime(self,alphas,*args):
+      """Return the second derivative of the (log) integrand for marginalization over alpha."""
+      lambdas,photons,slikes = args
+      second_derivs = -N.array([slikes[i].derivatives(alphas[i])[1] for i in xrange(len(alphas))])
+      return second_derivs + photons/alphas**2 - 2*lambdas/alphas**3
+
+   def i_dprime_jac(self,alphas,*args):
+      """Return the second derivative of the (log) integrand for marginalization over alpha."""
+      lambdas,photons,slikes = args
+      second_derivs = -N.array([slikes[i].derivatives(alphas[i])[1] for i in xrange(len(alphas))])
+      return N.eye(len(alphas))*(second_derivs + photons/alphas**2 - 2*lambdas/alphas**3)
+
+   #def i_dprime_single(self,alphas,*args):
+   #   """Return the second derivative of the (log) integrand for marginalization over alpha."""
+   #   return -args[2].derivatives(alphas)[1] + args[1]/alphas**2 - 2*args[0]/alphas**3
+
+   def pt_dprime(self,alphas,*args):
+      """Return the second derivative of the (log) integrand for marginalization over alpha."""
+      lambdas,photons,slikes = args
+      second_derivs = -N.array([slikes[i].derivatives(alphas[i])[1] for i in xrange(len(alphas))])
+      return second_derivs
 
    def __call__(self,parameters,*args):
       """Return the (negative, modified -- see below) log likelihood.  Includes normalization so
-         can be used for LRT and such."""
+         can be used for LRT and such.""" 
       
-      wls,photons,zero_photons,points,model,maxll,norm = \
-         self.weighted_like_sample,self.photons[self.mask],self.photons[self.zero_mask],self.points,\
-         args[0],self.maxll,self.norm
-      model.p=parameters #Update the model
-      if parameters[0]<0: return maxll*len(photons)
-      expected=self.source.response(model=model) #Expected number for source under the model
-      z_expected=expected[self.zero_mask].sum() #Poisson prob for 0 photons
-      o_expected=expected[self.ones_mask]
-      alpha_expected = expected[self.mask]/points #Divide by alpha to get total expected number
-      integral = norm*(wls*N.nan_to_num(poisson.pmf(photons,alpha_expected))).sum(axis=0) #Integrate prob over alpha
+      model = args[0]
+      local_vars = ['wls','points','maxll','lp','mp','hp','lm','mm','hm']
+      for v in local_vars: exec '%s = self.%s'%(v,v) in locals()
+      
+
+      model.p = parameters #Update the model
+      if parameters[0]<0: return maxll*len(self.photons) #No negative fluxes!
+
+      expected = self.source.response(model=model) #Expected number for source under the model
+      le,he = expected[lm],expected[hm]
+
+      #Do integral over low photon counts (that are not too low!)
+      integral = (wls*N.nan_to_num(poisson.pmf(mp,expected[mm]/points))).sum(axis=0) #Integrate prob over alpha
       integral_mask = integral<=0.0
-      #if N.any(integral_mask): print photons[integral_mask]
+
+      #Find extremum for high-photon terms
+      slikes = self.source.slikes[hm]
+      #seeds = N.maximum(N.minimum(he/hp,0.95),0.05)
+      seeds = N.maximum(N.minimum((((self.source.alphas).transpose()[0])[hm] + he/hp)/2.,0.95),0.5)
+      #alphas_0 = fsolve(self.i_prime,seeds,fprime=self.i_dprime_jac,args=(he,hp,slikes),warning=True,factor=0.01)
+      #alphas_0 = fsolve(self.i_prime,seeds,args=(he,hp,slikes),warning=False)
+      #alphas_0 = N.minimum(N.maximum(alphas_0,self.alpha_min),1.)
+      #print alphas_0[N.logical_or(alphas_0 < 0, alphas_0 > 1)]
+      #alpha_mask = N.logical_or(alphas_0 < 0, alphas_0 > 1)
+      #alphas_0 = 
+
+      #alphas_0 = N.asarray([brentq(self.i_prime_single,1e-3,1,args=(he[i],hp[i],slikes[i])) for i in xrange(len(he))])
+      #alphas_0 = N.asarray([fminbound(self.integ_single,1e-3,1,args=(he[i],hp[i],slikes[i])) for i in xrange(len(he))])
+      #alphas_0 = N.asarray([newton(self.i_prime_single,he[i]/hp[i],fprime=self.i_dprime_single,args=(he[i],hp[i],slikes[i])) for i in xrange(len(he))])
+      #alphas_0 = N.asarray([brent(self.integ_single,args=(he[i],hp[i],slikes[i]),brack=[1e-3,seeds[i],1.]) for i in xrange(len(he))])
+      n = len(he)
+      alphas_0 = [0]*n
+      #high_int = [0]*n
+      for i in xrange(n):
+         try:
+            #high_int[i] = quad(self.integ_single_e,self.alpha_min,1.,args=(he[i],hp[i],slikes[i]),full_output=1)[0]
+            alphas_0[i] = brent(self.integ_single,args=(he[i],hp[i],slikes[i]),brack=[self.alpha_min,seeds[i],1.])
+                          
+         except:
+            #print 'Being a little crafty about evaluating this integral.  Also, slow.'
+            #Check for maximum at the endpoints
+            high_vals = -self.integ_single(.99,he[i],hp[i],slikes[i]),-self.integ_single(1.,he[i],hp[i],slikes[i])
+            low_vals = -self.integ_single(1e-5,he[i],hp[i],slikes[i]),-self.integ_single(2e-5,he[i],hp[i],slikes[i])
+            if high_vals[1] > high_vals[0]:
+               #print high_vals,'hey hi'
+               alphas_0[i] = 1.
+            
+            
+            elif low_vals[0] > low_vals[1]:
+               #print low_vals,'hey low'
+               alphas_0[i] = self.alpha_min
+            else:
+               #print he[i],hp[i]
+               #print -self.integ_single(1e-20,he[i],hp[i],slikes[i]),-self.integ_single(seeds[i],he[i],hp[i],slikes[i]),high_vals[1]
+               #punt -- brute force find maximum
+               al = self.backup_points[N.argmax([-self.integ_single(a,he[i],hp[i],slikes[i]) for a in self.backup_points])]
+               if al < 1 and al > self.alpha_min:
+                  try:
+                     alphas_0[i] = brent(self.integ_single,args=(he[i],hp[i],slikes[i]),brack=[al-self.delta,al,al+self.delta])
+                     #print 're-seeding worked'
+                  except:
+                     alphas_0[i] = al
+                     #print 'going with brute force'
+               else:
+                  #print al,'well, that was surprising'
+                  alphas_0[i] = al
+               """
+               s = self.source
+               for j,photon in enumerate(s.photons):
+                  if photon == hp[i]:
+                     print photon,j
+                     break
+                  
+               from SourcePlot import visi
+               import pylab as P
+               P.clf()
+               visi(s,j,he[i])
+               from time import sleep
+               sleep(5)
+               """
+      """
+      alphas_0 = N.asarray(alphas_0)
+      
+      #print alphas_0
+      d2 = N.abs(self.i_dprime(alphas_0,he,hp,slikes))
+      m = d2<self.min_sec_deriv
+      if N.any(m):
+         print 'Warning: possible loss of numerical precision in calculating second derivative of integrand!'
+         print 'Setting to a (hopefully) safe value; but, beware estimated errors.'
+         print 'If you see this message, you may want to adjust photoncut higher.'
+         pt = self.pt_dprime(alphas_0,he,hp,slikes)[m]
+         f = self.integ
+         a0 = alphas_0
+         h = 0.001
+         fd = ( (f(a0+h,he,hp,slikes) - 2*f(a0,he,hp,slikes) + f(a0-h,he,hp,slikes))/h**2 )[m]
+         d2[m] = N.abs(fd)
+         print hp[m],he[m],alphas_0[m],pt,fd
+      htmult = 1#N.where(N.logical_or(alphas_0 == 1,alphas_0 == self.alpha_min),0.5,1.0)
+      high_terms = (htmult*(self.integ(alphas_0,he,hp,slikes)  - 0.5*N.log(d2))).sum()
+      """
+      high_terms = 0
 
       #First term is a "penalty" to mimic to log(very small number)
-      return maxll*integral_mask.sum() \
-         - (N.log(integral[N.logical_not(integral_mask)])).sum() + z_expected\
-         - (N.log(o_expected) - o_expected).sum()
+      logl =  maxll*(integral_mask.sum())\
+         - (N.log(integral[N.logical_not(integral_mask)])).sum() \
+         - (lp*N.log(le) - le).sum() \
+         - high_terms
+      #print parameters,high_terms,logl
+      return logl
 
       
                
@@ -364,31 +521,38 @@ class PoissonFitter(SpectralFitter):
       delt=0.01
       hessian=N.empty([len(p),len(p)])
       for i in xrange(len(p)):
-         for j in xrange(len(p)): #Second partials by finite difference
+         for j in xrange(i,len(p)): #Second partials by finite difference
             
             xhyh=p.copy()
             xhyh[i]*=(1+delt)
             xhyh[j]*=(1+delt)
+            #print p
 
             xhyl=p.copy()
             xhyl[i]*=(1+delt)
             xhyl[j]*=(1-delt)
+            #print p
 
             xlyh=p.copy()
             xlyh[i]*=(1-delt)
             xlyh[j]*=(1+delt)
+            #print p
 
             xlyl=p.copy()
             xlyl[i]*=(1-delt)
             xlyl[j]*=(1-delt)
-
-            hessian[i][j]=(mf(xhyh,m)-mf(xhyl,m)-mf(xlyh,m)+mf(xlyl,m))/(p[i]*p[j]*4*delt*delt)
+            #print p
+            #print mf(xhyh,m),mf(xhyl,m),mf(xlyh,m),mf(xlyl,m)
+            hessian[i][j]=hessian[j][i]=(mf(xhyh,m)-mf(xhyl,m)-mf(xlyh,m)+mf(xlyl,m))/(p[i]*p[j]*4*delt**2)
+      #print 1./N.diag(hessian)**0.5/p
+      #print hessian
       return hessian
 
    def __ls__(self,model):
 
       p = [x for x in model.p]
-      self.source.fit(model = model.name, p = p, e0 = model.e0, method = 'LS', printfit = False)
+      #self.source.fit(model = model.name, p = p, e0 = model.e0, method = 'LS', printfit = False)
+      self.source.fit(model = model.name, method = 'LS', printfit = False, **model.__dict__)
       if self.source.LS.models[-1].good_fit:
          model.p=[x for x in self.source.LS.models[-1].p]
          
@@ -416,7 +580,10 @@ class PoissonFitter(SpectralFitter):
             if self.lsfirst:
                if self.printfit: print 'Using least squares to find seed position.'
                self.__ls__(model)
-    
+            
+            #Uncomment this statement for easier debugging
+            fit=fmin(self.l,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=1000)
+
             try:
                fit=fmin(self.l,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=1000)
                warnflag=(fit[4]==1 or fit[4]==2) or fit[1]>self.maxll/10.
@@ -424,38 +591,38 @@ class PoissonFitter(SpectralFitter):
 
             except:
             
-               if self.printfit: print 'Did not converge from seed, trying least squares to seed.'
-               model.p=x0
-               self.__ls__(model)
+               if not self.lsfirst:
+                  if self.printfit: print 'Did not converge from seed, trying least squares to seed.'
+                  model.p=x0
+                  self.__ls__(model)
 
-               try:
+                  try:
 
-                  fit=fmin(self.l,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=1000)
-                  warnflag=(fit[4]==1 or fit[4]==2) or fit[1]>self.maxll/10.
+                     fit=fmin(self.l,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=1000)
+                     warnflag=(fit[4]==1 or fit[4]==2) or fit[1]>self.maxll/10.
 
-               except: warnflag=True
+                  except: warnflag=True
+               else: warnflag = True
                
          else: warnflag=True
 
 
          if not warnflag: #Good fit (claimed, anyway!)
             
-            try: model.cov_matrix=inv(self.hessian(fit[0],self.l,model))
-            except: warnflag=True
-
-         if not warnflag: #Good fit and successful inversion of Hessian
-
-            model.good_fit=True
-            model.p=fit[0]
-            model.logl=-fit[1] #Store the log likelihood at best fit
-            model.chi_sq,model.dof=self.l.chi_sq(model)
-            if self.printfit:
-               print '\nFit converged!  Function value at minimum: %.4f'%fit[1]
-               print str(model)+'\n'
+            try:
+               model.cov_matrix=inv(self.hessian(fit[0],self.l,model))
+               model.good_fit=True
+               model.p=fit[0]
+               model.logl=-fit[1] #Store the log likelihood at best fit
+               model.chi_sq,model.dof=self.l.chi_sq(model)
+               if self.printfit:
+                  print '\nFit converged!  Function value at minimum: %.4f'%fit[1]
+                  print str(model)+'\n'
+            except:
+                  print 'Hessian inversion failed!'
 
          else:
             if self.printfit: print 'Fit did not converge :('
-            model.good_fit=False
 
          if i == 0:
             self.models += [model]

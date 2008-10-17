@@ -37,7 +37,7 @@ Optional parameters:
     --region=: define a region file
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.13 2008/10/10 19:37:03 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.14 2008/10/12 19:20:19 burnett Exp $
 """
 import os, sys, types
 from numpy import arange
@@ -67,7 +67,7 @@ class Fitter(object):
 
 #----------------------------------------------------------------------------------------
 
-def photonmap(filename, eventtype=-1, pixeloutput=None, tstart=0, tstop=0):
+def photonmap(filename, eventtype=-1, pixeloutput=False, tstart=0, tstop=0, ignorepix=False):
     """ return a Data object, determined one of 3 ways:
         * the name of a file containing a list of photon files, preceded by an @
         * the name of a photon file, that will be expanded by glob
@@ -81,12 +81,21 @@ def photonmap(filename, eventtype=-1, pixeloutput=None, tstart=0, tstop=0):
         filelist = [line.strip() for line in file(filename[1:]) if len(line)>0 and line[0]!='#']
         #print filelist
         data =  Data(filelist, eventtype, tstart, tstop)
+    elif type(filename) is types.ListType:
+        # it is a (Python) list of data files
+        data = Data(filename, eventtype, tstart, tstop)
     elif filename[-5:]=='.fits' or filename[-4:]=='.fit' :
         # a fits file: either data to read, or a photonmap
         import pyfits, glob
         files = glob.glob(filename)
         if len(files)==0:
             raise Exception('no such file(s): %s' %filename)
+        #Check to see if there is a pixel file
+        # compact way to get the first file name
+        pixelfilename = os.path.splitext(os.path.split(files[0])[1])[0]+'_bands.fits'
+        
+        if os.path.exists(pixelfilename) and not ignorepix:
+            files[0] = pixelfilename
         hd = pyfits.open(files[0])
         if len(hd)==1:
             raise Exception('Invalid data file, apparent image file with primary only')
@@ -95,13 +104,15 @@ def photonmap(filename, eventtype=-1, pixeloutput=None, tstart=0, tstop=0):
             if len(files)>1: print 'Warning: more than one photonmap file not supported'
             data = Data(files[0], hd[1].name)
         else:
+            from types import ListType
+            if type(files) is not ListType: files = [files]
             hd.close()
             data = Data(files, eventtype, tstart , tstop)
     else:
         raise Exception('filename %s not a valid list of files or fits file' % filename)
-    if pixeloutput is not None:
-        data.map().write(pixeloutput)
-        print 'created a photonmap file: %s' % pixeloutput
+    if pixeloutput:
+        data.map().write(pixelfilename)
+        print 'created a BinnedPhotonData file: %s' % pixelfilename
     return data
 #--------------------------------------------------------
     
