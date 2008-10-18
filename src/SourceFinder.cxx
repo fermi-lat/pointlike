@@ -1,7 +1,7 @@
 /** @file SourceFinder.cxx
 @brief implementation of SourceFinder
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.46 2008/10/10 19:37:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceFinder.cxx,v 1.47 2008/10/14 23:06:03 funk Exp $
 */
 
 #include "pointlike/SourceFinder.h"
@@ -69,7 +69,6 @@ namespace {
     double examine_radius(180.), group_radius(2.0), prune_radius(0.25);
 
     double  ts_min(5.0);
-    double emin(500);
     int nside(256);
     double pixel_fraction(1.0);
     astro::SkyDir examine_dir;
@@ -93,7 +92,6 @@ using astro::SkyDir;
 void SourceFinder::setParameters(const embed_python::Module & module)
 {
     module.getValue(prefix+"TSmin", ts_min, ts_min);
-    module.getValue(prefix+"emin", emin, emin);
     module.getValue(prefix+"pass1_nside", nside, nside);
     module.getValue(prefix+"pixel_fraction", pixel_fraction, pixel_fraction);
 

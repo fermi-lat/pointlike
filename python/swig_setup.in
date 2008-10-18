@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.31 2008/10/10 19:37:03 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.32 2008/10/12 19:20:19 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -120,17 +120,6 @@ public:
    CLHEP::HepRotation inverse(){
       return self->inverse();
       }
-}
-%extend skymaps::BinnedPhotonData{
-// provide access to the Band objects as an array
-   skymaps::Band * __getitem__(size_t i){ 
-      if( i == (*self).size() ) throw std::range_error("StopIteration");
-      if( i<0 || i > self->size() ) throw std::range_error("IndexError");
-      skymaps::BinnedPhotonData::iterator it= self->begin();
-      for(int j(0); j!=i; ++j, ++it);
-      return &(*it); // note address of
-   }
-   size_t __len__() {      return self->size();       }
 }
 
 //%template(IntPair) std::pair<int,int>;
