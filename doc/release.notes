@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.91 2008/10/10 19:42:32 burnett Exp $
+$Id: release.notes,v 1.92 2008/10/12 19:22:18 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 18-oct-08 v6r11   THB Implement trial version of extended likelihood
  12-oct-08 v6r10p1 THB Minor fixes, python now gets skymaps from that shareable
  10-oct-08 v6r10   THB Mods from Markus; split off EventList class
  27-sep-08 v6r9p2  THB Improve output from Data: set GTI in output if time range selected
