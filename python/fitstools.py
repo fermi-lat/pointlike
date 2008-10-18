@@ -135,9 +135,9 @@ class Livetime(object):
          #roll through the gti times to align gti properly
          gti_counter = 0
          while ft2_starts[0] > self.gti[gti_counter][1]: gti_counter +=1
-         print ft2_starts[0],self.gti[0][0]
+         #print ft2_starts[0],self.gti[0][0]
 
-         print gti_counter
+         #print gti_counter
          ngti = len(self.gti)
 
          #Loop over FT2 and GTI simultaneously, I think I have all the cases covered -- this really needs testing.
@@ -179,19 +179,20 @@ class Livetime(object):
          return self.prev_val
       local_vars = ['zenithcut','fovcut','livetimes','ra_scz','dec_scz','ra_zenith','dec_zenith','bins']
       for var in local_vars: exec('%s=self.%s'%(var,var))
-      print zenithcut,fovcut
+      #print zenithcut,fovcut
 
       #Cut on FOV
       cosines = N.cos(dec_scz)*cos(dec)*N.cos(ra-ra_scz) + N.sin(dec_scz)*sin(dec)
       mask = cosines >= cos(fovcut*pi/180.)
-      print float(mask.sum())/len(mask)
+      if len(mask) == 0: return None
+      #print float(mask.sum())/len(mask)
 
       #Cut on zenith
       zenith_cosines = N.cos(dec_zenith)*cos(dec)*N.cos(ra-ra_zenith) + N.sin(dec_zenith)*sin(dec)
       mask = N.logical_and(mask,zenith_cosines >= cos(zenithcut*pi/180.))
-      print float(mask.sum())/len(mask)
+      #print float(mask.sum())/len(mask)
 
-      print 'Total cut rate: %f'%(float(mask.sum())/len(mask))
+      #print 'Total cut rate: %f'%(float(mask.sum())/len(mask))
 
       #And apply the cuts...
       livetimes,cosines = livetimes[mask],cosines[mask]
@@ -335,10 +336,11 @@ class Exposure:
    def __call__(self,skydir,energies,event_class=-1):
 
       lt = self.lt(skydir)
+      if lt is None: return N.zeros(len(energies))
 
       #Do some caching -- effective area is the same for same energy bins!
       if N.all(energies == self.energies) and event_class == self.event_class:
-         print 'using cached values'
+         #print 'using cached values'
          vals = self.vals
       
       else:
@@ -399,13 +401,13 @@ class BinnedPicture(object):
       from math import cos,sin,pi
       in_ras,in_decs = (N.asarray(in_pairs)*N.pi/180.).transpose()
       
-      print len(ras)
+      #print len(ras)
       #Throw away photons too far away to contribute
       max_dec,min_dec = min(in_decs.max()+3*sigma,N.pi/2.),max(in_decs.min()-3*sigma,-N.pi/2.)
       mask = N.logical_and ( decs <= max_dec, decs >= min_dec )
       ras,decs = ras[mask],decs[mask]
 
-      print len(ras)
+      #print len(ras)
 
       if True:#len(in_ras) < len(ras):
          diffs = N.empty_like(in_ras)
@@ -530,7 +532,7 @@ def __arbitrary_cuts__(events,cuts,columns):
       exec('%s = events.data.field(\'%s\')'%(entry,entry))
    for cut in cuts: #build mask cumulatively
       exec('mask = N.logical_and(mask,%s)'%cut)
-   print int(sum(mask))
+   #print int(sum(mask))
    new_table = pf.new_table(events.columns,nrows=int(sum(mask)))
    mask = narray(mask)
    for i in xrange(len(columns)):

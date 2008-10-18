@@ -1,10 +1,11 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.53 2008/09/24 18:01:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.54 2008/10/14 23:06:03 funk Exp $
 
 */
 
 #include "pointlike/PointSourceLikelihood.h"
+#include "BandBackground.h"
 
 #include "skymaps/DiffuseFunction.h"
 #include "skymaps/CompositeSkySpectrum.h"
@@ -18,7 +19,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 
 #include <algorithm>
 #include <iomanip>
 #include <stdexcept>
-
+#include <map>
 using namespace pointlike;
 using astro::SkyDir;
 using skymaps::CompositeSkySpectrum;
@@ -56,6 +57,9 @@ void PointSourceLikelihood::get_energy_range(double& emin, double& emax){
 double PointSourceLikelihood::s_maxROI(180);
 void   PointSourceLikelihood::set_maxROI(double r){s_maxROI=r;}
 double PointSourceLikelihood::maxROI(){return s_maxROI;}
+double PointSourceLikelihood::s_minROI(0);
+void   PointSourceLikelihood::set_minROI(double r){s_minROI=r;}
+double PointSourceLikelihood::minROI(){return s_minROI;}
 
 double PointSourceLikelihood::set_min_alpha(double a){
     double r(s_minalpha); s_minalpha= a; return r;
@@ -83,6 +87,7 @@ bool PointSourceLikelihood::merge(){return s_merge!=0;}
 int  PointSourceLikelihood::s_fitlsq(0);  // default off
 void PointSourceLikelihood::set_fitlsq(bool fit){s_fitlsq=fit;}
 bool PointSourceLikelihood::fitlsq(){return s_fitlsq!=0;}
+
 
 void PointSourceLikelihood::setParameters(const embed_python::Module& par)
 {
@@ -148,10 +153,9 @@ PointSourceLikelihood::PointSourceLikelihood(
 }
 
 
+
 void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
 {
-
-
     // select list for inclusion
     std::list<std::pair<const Band*,bool> > bands;
     for( skymaps::BinnedPhotonData::const_iterator bit = data.begin(); bit!=data.end(); ++bit){
@@ -171,12 +175,19 @@ void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
         // limit umax if requested.
         double umax(SimpleLikelihood::defaultUmax()),
             roi(b1.sigma()*sqrt(2.*umax)),
-            maxroi(maxROI()*M_PI/180);
+            maxroi(maxROI()*M_PI/180), 
+            minroi(minROI()*M_PI/180);
         if( maxroi>0 && roi>maxroi){
             umax = 0.5*sqr(maxroi/b1.sigma());
+        }else if( minroi>0 && roi<minroi){
+            umax = 0.5*sqr(minroi/b1.sigma());
         }
-
-        SimpleLikelihood* sl = new SimpleLikelihood(b1, m_dir, umax, m_background );
+        BandBackground * back(0);
+        if( m_background !=0){
+            back= new BandBackground(*m_background, b1);
+            m_backlist.push_back(back); // save to delete in dtor
+        }
+        SimpleLikelihood* sl = new SimpleLikelihood(b1, m_dir, umax, back);
         if( merge() ){
             // add other bands with identical properties if requested
             for( std::list<std::pair<const Band*,bool> >::iterator bit2(bit1); bit2 !=bands.end(); ++bit2){
@@ -202,7 +213,11 @@ PointSourceLikelihood::~PointSourceLikelihood()
         delete *it;
     }
     delete m_background;
+    for( std::vector<BandBackground*>::iterator i(m_backlist.begin()); i!=m_backlist.end(); ++i){
+        delete *i;
+    }
 }
+
 
 double PointSourceLikelihood::TS(int band) const
 {
@@ -226,7 +241,7 @@ double PointSourceLikelihood::alpha(int band) const
   double alpha_band = 0;
   bool found = 0;
   int bandCounter = 0;
-  for(iterator it = begin() ; it!=end(); ++it, ++bandCounter){
+  for(const_iterator it = begin() ; it!=end(); ++it, ++bandCounter){
     SimpleLikelihood& like = **it;
     if (bandCounter == band){
       found = true;
@@ -251,16 +266,7 @@ double PointSourceLikelihood::maximize()
     }
     return m_TS;
 }
-#if 0 // obsolete?
-void PointSourceLikelihood::setBackgroundDensity(const std::vector<double>& density)
-{
-    std::vector<double>::const_iterator id = density.begin();
-    for( iterator it = begin(); it!=end(); ++it, ++id){
-        double bk(*id);
-        it->second->setBackgroundDensity(bk);
-    }
-}
-#endif
+
 void PointSourceLikelihood::setDir(const astro::SkyDir& dir, bool subset){
     for( iterator it = begin(); it!=end(); ++it){
         (*it)->setDir(dir,subset);
@@ -301,7 +307,7 @@ void PointSourceLikelihood::printSpectrum()
     out() << "\nSpectrum of source " << m_name << " at ra, dec=" 
         << setprecision(6) << m_dir.ra() << ", "<< m_dir.dec() << std::endl;
 
-    out() << "  emin eclass events   signal_fract    TS " << std::right << std::endl;
+    out() << "  emin eclass events background  signal_fract    TS " << std::right << std::endl;
 
     m_TS =0;
     for( const_iterator it = begin(); it!=end(); ++it){
@@ -315,10 +321,10 @@ void PointSourceLikelihood::printSpectrum()
             << setw(5) << band.event_class()
             << setw(8) << levellike.photons()
             << setw(10);
-        if(bkg>=0) {
-            out() << setprecision(1) << levellike.background();
+        if(bkg>0) {
+            out() << setprecision(1) << bkg;
         }else{
-            //out() << "     -    ";
+            out() << "     -    ";
         }
         if( levellike.photons()==0)  out() << std::endl; 
 
@@ -338,7 +344,7 @@ void PointSourceLikelihood::printSpectrum()
 #if 0 // debug output for average background check
         out() << setprecision(2) << std::scientific << " " <<levellike.average_b()<< std::fixed ;
 #endif
-        out() << std::endl;
+        out() << setprecision(6) << std::endl;
     }
     if( s_minalpha>0.){
         out() << "\tTS sum  (alpha>"<<s_minalpha<<")  ";
@@ -607,6 +613,10 @@ double PointSourceLikelihood::integral(const astro::SkyDir& dir, double emin, do
     // implement by just finding the right bin
     return value(dir, sqrt(emin*emax) );
 }
+
+//-------------------------------------------------------------------------------------------
+//            Background management
+//-------------------------------------------------------------------------------------------
 skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(const skymaps::SkySpectrum* diffuse, double exposure)
 {  
     // save current to return
@@ -659,6 +669,7 @@ const skymaps::SkySpectrum * PointSourceLikelihood::background()const
 {
     return m_background;
 }
+//-------------------------------------------------------------------------------------------
 
 
 /// @brief set radius for individual fits

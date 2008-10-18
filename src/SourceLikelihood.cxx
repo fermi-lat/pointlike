@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.15 2008/10/10 01:58:55 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.16 2008/10/14 23:06:03 funk Exp $
 
 */
 
@@ -327,7 +327,7 @@ double pointlike::SourceLikelihood::TS(int band) const
   double TS_band = 0;
   bool found = 0;
   int bandCounter = 0;
-  for(iterator it = begin() ; it!=end(); ++it, ++bandCounter){
+  for(const_iterator it = begin() ; it!=end(); ++it, ++bandCounter){
     ExtendedLikelihood& like = **it;
     if (bandCounter == band){
       found = true;
@@ -344,7 +344,7 @@ double pointlike::SourceLikelihood::alpha(int band) const
   double alpha_band = 0;
   bool found = 0;
   int bandCounter = 0;
-  for(iterator it = begin() ; it!=end(); ++it, ++bandCounter){
+  for(const_iterator it = begin() ; it!=end(); ++it, ++bandCounter){
     ExtendedLikelihood& like = **it;
     if (bandCounter == band){
       found = true;

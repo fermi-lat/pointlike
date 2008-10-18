@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.29 2008/09/09 23:28:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.30 2008/09/24 18:01:42 burnett Exp $
 
 */
 
@@ -36,21 +36,20 @@ class SimpleLikelihood  : public astro::SkyFunction{
 
 public:
     /** ctor
-    @param data   vector of directions, weights
+    @param data   Band object containing vector of directions, weights
     @param dir    initial direction
-    @param umax   [25] maximum value for the u variable
-    @param diffuse
+    @param umax   maximum value for the u variable
+    @param background pointer to function that has diffuse background integrated over energies.
 
     */
     SimpleLikelihood(const skymaps::Band& data,
         const astro::SkyDir& dir, 
         double umax 
-        ,const skymaps::SkySpectrum* diffuse);
+        ,const astro::SkyFunction* background);
 
     ~SimpleLikelihood();
 
     const skymaps::Band& band()const {return *m_bands[0];}
-
 
     //! @brief add a band to the existing set.  Do it following constructor
     void addBand(const skymaps::Band& moredata);//{m_bands->push_back(&moredata);}
@@ -87,9 +86,6 @@ public:
     /// @brief return the test statistic
     double TS(double alpha = -1)const;
 
-    /// @brief set a known background density, which enables use of Poisson. Negative for not used
-    void setBackgroundDensity(double b){m_background=b;}
-
     /// @return the  negative log likelihood for the poisson, or zero if 
     /// no background estimate
     double poissonLikelihood(double a)const;
@@ -97,8 +93,8 @@ public:
     /// @return signal
     double signal(double a=-1)const{return (a<0?m_alpha:a)*m_photon_count;}
 
-    /// @return background estimte
-    double background()const{return m_background*solidAngle();}
+    /// @return background estimte: integral of background function
+    double background()const; 
 
     /// @return the solid angle in sr for the circular aperature used for analysis
     double solidAngle()const;
@@ -137,13 +133,13 @@ public:
     void reload(bool subset=true);
 
     /// @brief access to the diffuse background component 
-    const skymaps::SkySpectrum* diffuse() const;
+    const astro::SkyFunction* diffuse() const;
 
     /// @brief calculate TS for given fit at various positions
     double TSmap(astro::SkyDir sdir) const;
 
     /// @brief set the diffuse component
-    void setDiffuse(skymaps::SkySpectrum* diff);
+    void setDiffuse(astro::SkyFunction* diff);
 
     /// @ brief return first and second derivative
     std::pair<double, double> derivatives(double x);
@@ -153,6 +149,9 @@ public:
     static double defaultUmax();
     static void setDefaultUmax(double umax);
 
+    /// @brief enable extended likelihood fits
+    static void enable_extended_likelihood(bool q=true);
+    static bool extended_likelihood();
 
 private:
 
@@ -188,16 +187,16 @@ private:
     double m_sigma;
     double m_alpha, m_sigma_alpha; ///< current fit value, error
     mutable double m_curv;  // saved curvature from gradient calculation
-    double m_background;  ///< expected background (negative: no estimate)
     double m_umax; ///< maximum value of u, for selection of data, fits
     double m_avu, m_avb;
-    double m_emin, m_emax; ///< energy range for this object
     double m_F;       ///< integral of PSF over u
 
-    const skymaps::SkySpectrum * m_diffuse; ///< background distribution to use
+    const astro::SkyFunction * m_diffuse; ///< background distribution to use
 
     class NormalizedBackground; // forward declaration of helper class
     NormalizedBackground* m_back; ///< instance of private helper class set when direction is
+    static bool s_enable_extended; ///< set to enable extended likelihood, using background
+
     
 };
 }
