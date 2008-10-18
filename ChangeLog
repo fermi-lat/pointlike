@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sat Oct 18 11:01:24 PDT 2008
+pointlike/python
+
+Modified Files:
+	fitstools.py image.py swig_setup.in 
+Log Message:
+factor out background handling from PointSourceLikelihood, add new class
+    *
+------------------------------------------------------------
+User: burnett  Sat Oct 18 11:01:24 PDT 2008
 pointlike/pointlike
 
 Modified Files:
