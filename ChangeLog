@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Oct 18 11:01:24 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h SimpleLikelihood.h 
+Log Message:
+factor out background handling from PointSourceLikelihood, add new class
+    *
+------------------------------------------------------------
 User: kerrm  Fri Oct 17 09:57:34 PDT 2008
 pointlike/python
 
