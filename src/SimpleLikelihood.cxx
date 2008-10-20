@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.48 2008/10/20 02:58:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.49 2008/10/20 18:34:56 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -311,7 +311,7 @@ double SimpleLikelihood::estimate() const
 std::pair<double, double> SimpleLikelihood::derivatives(double x)
 {
     std::pair<double,double> v( std::make_pair(0.,0.) );
-    if( extended_likelihood() ){
+    if( extended_likelihood()  ){
         v = poissonDerivatives(x);
     }
     return accumulate(m_vec2.begin(), m_vec2.end(), v,   Derivatives(x));
@@ -358,12 +358,14 @@ std::pair<double,double> SimpleLikelihood::maximize()
 
 }
 
-double SimpleLikelihood::background()const{return m_back!=0? m_back->total()*solidAngle(): 0;}
+double SimpleLikelihood::background()const{return m_diffuse!=0? m_back->total()*solidAngle(): 0;}
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 double SimpleLikelihood::poissonLikelihood(double a)const
 {
-    double expect(signal(a)+background());
+    double back(background());
+    if( back==0) return 0;
+    double expect(signal(a)+back);
     if( expect<=0) return 0; //?
     return expect - m_photon_count*log(expect);
 
@@ -373,9 +375,12 @@ std::pair<double,double> SimpleLikelihood::poissonDerivatives(double a)
 {
     double d1(0), d2(0);
 
-    double t(a + background()/m_photon_count);
-    d1 = m_photon_count*(1-1/t);  // first log likelihood derivative
-    d2 = m_photon_count/t/t;      // second
+    double back(background());
+    if( back>0) {
+        double t(a + background()/m_photon_count);
+        d1 = m_photon_count*(1-1/t);  // first log likelihood derivative
+        d2 = m_photon_count/t/t;      // second
+    }
     return std::make_pair(d1, d2);
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

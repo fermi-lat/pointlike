@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.57 2008/10/20 03:35:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.58 2008/10/20 18:34:56 burnett Exp $
 
 */
 
@@ -304,15 +304,16 @@ void PointSourceLikelihood::printSpectrum()
 {
 
     using std::setw; using std::left; using std::setprecision; 
+    bool extended(s_diffuse!=0 && SimpleLikelihood::extended_likelihood());
     out() << "\nSpectrum of source " << m_name << " at ra, dec=" 
         << setprecision(6) << m_dir.ra() << ", "<< m_dir.dec() 
-        << "  extended likelihood " << (SimpleLikelihood::extended_likelihood()?"on":"off") << std::endl;
+        << std::endl;
 
     out() 
         << "                               ---shape analysis---- "
-        << (s_diffuse!=0? " ----------poisson----------    ------combined-----\n" : "\n")
+        << (extended? " ----------poisson----------    ------combined-----\n" : "\n")
         << "  emin eclass roi(deg) events  signal_fract(%)    TS "
-        << (s_diffuse!=0? "backgnd signal_fract(%)   TS   signal_fract(%)   TS  " : "")
+        << (extended? "backgnd signal_fract(%)   TS   signal_fract(%)   TS  " : "")
         << std::right << std::endl;
 
     double simpleTS(0), extendedTS(0), poissonTS(0);
@@ -349,7 +350,7 @@ void PointSourceLikelihood::printSpectrum()
             << setw(7)<< setprecision(0)<< ts ;
 
         // output from background analysis if present
-        if(bkg>0) {
+        if(extended) {
             // estimate from count analysis
             double apois(1- std::min(1.,bkg/levellike.photons()))
                 , sigpois(1./sqrt(levellike.poissonDerivatives(apois).second));
@@ -379,7 +380,7 @@ void PointSourceLikelihood::printSpectrum()
     SimpleLikelihood::enable_extended_likelihood(save_extended);
     out()   << setw(47) << "TS sum  "
             <<  setprecision(0) << simpleTS;
-    if(s_diffuse!=0 ){
+    if( extended ){
         out() << setw(29) << poissonTS << setw(23) << extendedTS;
     }
      out()<<setprecision(6)<<  std::endl;
@@ -675,6 +676,10 @@ const skymaps::Background* PointSourceLikelihood::set_background(const skymaps::
      s_diffuse = background;
      return back;
 }
+const skymaps::Background* PointSourceLikelihood::clear_background(){
+    return PointSourceLikelihood::set_background(0);
+}; 
+
 
 void PointSourceLikelihood::addBackgroundPointSource(const PointSourceLikelihood* fit)
 {
