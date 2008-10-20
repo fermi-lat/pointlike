@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Oct 19 19:58:32 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h 
+Log Message:
+updates to use background and extended likelihood
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-11-00, operation: add
 Package: pointlike
