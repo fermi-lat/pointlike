@@ -38,6 +38,7 @@ namespace pointlike{
              virtual double operator() (double v) const  =0;
              virtual double grad(double v,int icomp) const =0;
 	     virtual double get(int) const {  return NAN;};
+	     virtual double split(int) const {  return -1;};
 	     virtual bool parameterShiftsMax(int) const { return false;  };
 	     virtual bool parameterShiftsMin(int) const { return false;  };
              double min() const {return m_vmin;};
@@ -129,7 +130,9 @@ namespace pointlike{
 	         if (icomp==0) return (v/m_scaledRadius - 1) * exp(-v/m_scaledRadius)  /
 		                              (2*M_PI*m_scaledRadius*m_scaledRadius*m_intLimitNorm) *2.*m_radius/sigma2();
                  return NAN;
+
 	     };
+      	     // double split(int) const {return m_scaledRadius; };
 	};     
 
     //--------------------------------------------------------------------------------------------------
@@ -167,6 +170,9 @@ namespace pointlike{
 			              2.*m_radius/sigma2();
                  return NAN;
 	     };
+
+     	     double split(int) const {return 0.5*m_scaledRadius; };
+
 	};     
 
 

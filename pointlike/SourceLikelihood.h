@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.7 2008/10/10 01:58:51 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.8 2008/10/14 23:06:03 funk Exp $
 */
 
 #ifndef tools_SourceLikelihood_h
@@ -128,6 +128,7 @@ namespace pointlike {
 
     /// @brief set minimum alpha
     static void setMinAlpha(double alpha){ s_minalpha=alpha; };
+    static void set_min_alpha(double alpha){ s_minalpha=alpha; };
     static double minAlpha() { return s_minalpha; };
 
     /// @brief set minimum TS
@@ -176,6 +177,10 @@ namespace pointlike {
     ///! Set the global diffuse background function, return current value 
     static  skymaps::SkySpectrum* set_diffuse( skymaps::SkySpectrum* diffuse, 
 					       double exposure = 1.0);
+
+    ///! Set exposure maps (for each event class, return current value 
+    static  skymaps::SkySpectrum* set_exposure( skymaps::SkySpectrum* exposure, 
+					       int event_class);
     
     ///! add a point source fit to the background for subsequent fits
     void addBackgroundPointSource(const SourceLikelihood* fit);
@@ -189,8 +194,6 @@ namespace pointlike {
 //     /// @brief set the integration tolerance for the background, return present value
 //     static double set_tolerance(double tol);
     
-    static double set_min_alpha(double minalpha);
-
     /// @brief special display function
     /// @param dir direction
     /// @param energy selects energy band
@@ -222,7 +225,8 @@ namespace pointlike {
     std::ostream& out()const{return *m_out;}
     mutable CLHEP::Hep3Vector m_gradient; ///< current gradient
     
-    static skymaps::SkySpectrum* s_diffuse; ///< global diffuse used by all PSL objects
+    static skymaps::SkySpectrum* s_diffuse; ///< global diffuse used by all SL objects
+    static std::vector<skymaps::SkySpectrum*> s_exposure; ///< global exposure maps used by all SL objects
     
     skymaps::CompositeSkySpectrum * m_background;  ///< background spectrum to use
     

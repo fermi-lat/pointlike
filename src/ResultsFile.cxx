@@ -45,6 +45,9 @@ ResultsFile::ResultsFile (const std::string& filename,const Data& datafile,int n
       srcTab->appendField("EMAX", efmt);
       srcTab->appendField("ALPHA", efmt);
       srcTab->appendField("ERR_ALPHA", efmt);
+      srcTab->appendField("FLUX", efmt);
+      srcTab->appendField("ERR_FLUX", efmt);
+      srcTab->appendField("EXPOSURE", efmt);
       srcTab->appendField("NPHOTON", jfmt);
       srcTab->appendField("NSIGNAL", efmt);
       srcTab->appendField("ERR_NSIG", efmt);
@@ -93,6 +96,9 @@ void ResultsFile::fill(SourceLikelihood& like){
 
        std::vector<double> alpha(levels,0);
        std::vector<double> erra(levels,0);
+       std::vector<double> flux(levels,0);
+       std::vector<double> errflux(levels,0);
+       std::vector<double> exposure(levels,0);
        std::vector<int> nphoton(levels,0);
        std::vector<double> nsig(levels,0);
        std::vector<double> errns(levels,0);
@@ -108,8 +114,12 @@ void ResultsFile::fill(SourceLikelihood& like){
 	    while (emin[i]<levellike.band().emin()) i++;
 
  	   std::pair<double,double> a= levellike.maximize();
+ 	   std::pair<double,double> f= levellike.flux();
  	   alpha[i]=a.first;
  	   erra[i]=a.second;
+ 	   flux[i]=f.first;
+ 	   errflux[i]=f.second;
+ 	   exposure[i]=levellike.exposure();
  	   nphoton[i] = levellike.photons();
  	   nsig[i] = levellike.photons()*a.first/levellike.psfIntegral();
  	   errns[i] = levellike.photons()*a.second/levellike.psfIntegral();
@@ -123,6 +133,9 @@ void ResultsFile::fill(SourceLikelihood& like){
       (*srcTabItor)["SUMTS"].set(sumTS);
       (*srcTabItor)["ALPHA"].set(alpha);
       (*srcTabItor)["ERR_ALPHA"].set(erra);
+      (*srcTabItor)["FLUX"].set(flux);
+      (*srcTabItor)["ERR_FLUX"].set(errflux);
+      (*srcTabItor)["EXPOSURE"].set(exposure);
       (*srcTabItor)["NPHOTON"].set(nphoton);
       (*srcTabItor)["NSIGNAL"].set(nsig);
       (*srcTabItor)["ERR_NSIG"].set(errns);

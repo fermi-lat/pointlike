@@ -77,11 +77,21 @@ namespace pointlike{
 	      gradSFunctor gs(m_source,*this,i-1);
 
 	      try{
- 		 result[i]= st_facilities::GaussianQuadrature::dgaus8<const extendedSourcePDF::gradSFunctor>(gs,m_source.min(),m_source.max(),error,ierr);
+	         if (m_source.split(i-1)>m_source.min()){
+ 		   result[i]= st_facilities::GaussianQuadrature::dgaus8<const extendedSourcePDF::gradSFunctor>(gs,m_source.min(),m_source.split(i-1),error,ierr);
+ 		   result[i]+=st_facilities::GaussianQuadrature::dgaus8<const extendedSourcePDF::gradSFunctor>(gs,m_source.split(i-1),m_source.max(),error,ierr);
+ 		 } else {
+		   result[i]= st_facilities::GaussianQuadrature::dgaus8<const extendedSourcePDF::gradSFunctor>(gs,m_source.min(),m_source.max(),error,ierr);
+	         };
 	      } catch (st_facilities::GaussianQuadrature::dgaus8Exception ex) { 
 //	         std::cerr<<"gs catch counter:" <<(++catch_counter)<<std::endl;
 		 error=1e-5;
-		 result[i]= st_facilities::GaussianQuadrature::dgaus8<const extendedSourcePDF::gradSFunctor>(gs,m_source.min(),m_source.max(),error,ierr);
+	         if (m_source.split(i-1)>m_source.min()){
+ 		   result[i]= st_facilities::GaussianQuadrature::dgaus8<const extendedSourcePDF::gradSFunctor>(gs,m_source.min(),m_source.split(i-1),error,ierr);
+ 		   result[i]+=st_facilities::GaussianQuadrature::dgaus8<const extendedSourcePDF::gradSFunctor>(gs,m_source.split(i-1),m_source.max(),error,ierr);
+ 		 } else {
+		   result[i]= st_facilities::GaussianQuadrature::dgaus8<const extendedSourcePDF::gradSFunctor>(gs,m_source.min(),m_source.max(),error,ierr);
+	         };
 	      };  
        	      if(m_source.parameterShiftsMax(i-1)) result[i]+= operator()(m_source.max())*m_source.get(i-1)/m_source.sigma2();
 	      if(m_source.parameterShiftsMin(i-1)) result[i]-= operator()(m_source.min())*m_source.get(i-1)/m_source.sigma2();
