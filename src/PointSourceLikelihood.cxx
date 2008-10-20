@@ -1,11 +1,11 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.55 2008/10/18 18:01:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.56 2008/10/20 02:58:32 burnett Exp $
 
 */
 
 #include "pointlike/PointSourceLikelihood.h"
-#include "BandBackground.h"
+#include "pointlike/BandBackground.h"
 
 #include "skymaps/DiffuseFunction.h"
 #include "skymaps/CompositeSkySpectrum.h"
