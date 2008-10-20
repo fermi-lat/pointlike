@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.47 2008/10/18 18:01:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.48 2008/10/20 02:58:32 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -288,6 +288,14 @@ double SimpleLikelihood::operator()( double a) const
         v = poissonLikelihood(a); 
 
     return std::accumulate(m_vec2.begin(), m_vec2.end(),  v, LogLike(a));
+}
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+double SimpleLikelihood::logLikelihood( double count) const
+{
+    double denom( photons() );
+    if( background()>0 ) denom=count+background();
+    return operator()(count/denom);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

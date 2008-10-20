@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.30 2008/09/24 18:01:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.31 2008/10/18 18:01:24 burnett Exp $
 
 */
 
@@ -54,9 +54,15 @@ public:
     //! @brief add a band to the existing set.  Do it following constructor
     void addBand(const skymaps::Band& moredata);//{m_bands->push_back(&moredata);}
 
-    //! @return log likelihood for the signal fraction
+    //! @brief return log likelihood for the signal fraction
     //! @param a value for signal fraction (default: use last fit)
     double operator()( double a=-1)const;
+    
+
+    //! @brief return log likelihood
+    //! @param counts Number of counts.
+    //! if extended likelihood, use background estimate. otherwise
+    double logLikelihood(double counts)const;
 
     //! @brief maximize the likelihood (minimize -log L)
     //! @return (signal_fraction, error)
@@ -89,6 +95,10 @@ public:
     /// @return the  negative log likelihood for the poisson, or zero if 
     /// no background estimate
     double poissonLikelihood(double a)const;
+
+    /// @brief derivatives of log poisson with respect to alpha for case with known background
+    /// If background not specified, return (0,0)
+    std::pair<double,double>poissonDerivatives(double a);
 
     /// @return signal
     double signal(double a=-1)const{return (a<0?m_alpha:a)*m_photon_count;}
@@ -163,10 +173,6 @@ private:
     //! @brief a quick estimate of the signal fraction
     //! @return the value of of the signal fraction
     double estimate() const;
-
-    /// @brief derivatives of log poisson with respect to alpha for case with known background
-    /// If background not specified, return (0,0)
-    std::pair<double,double>poissonDerivatives(double x);
 
     mutable astro::SkyDir m_dir;
     mutable int    m_photon_count; // total number of photons

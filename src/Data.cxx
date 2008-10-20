@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.60 2008/10/10 19:37:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.61 2008/10/15 02:17:48 burnett Exp $
 
 */
 
@@ -486,8 +486,7 @@ void Data::setEnergyBins(const std::vector<double>& bins)
 ///@brief change default binner: must be done before loading data files
 void Data::setPhotonBinner(skymaps::PhotonBinner* b)
 {
-    delete binner;
-    std::cout<<"Deleted."<<std::endl;
+ //THB confused by SWIG?   delete binner;
     binner = b;
 }
 
@@ -513,4 +512,9 @@ void Data::combine_bands()
         }
     }
 
+}
+
+void Data::write(const std::string & outputFile, bool clobber ) const
+{
+    m_data->write(outputFile, clobber);
 }

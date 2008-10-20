@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.93 2008/10/18 18:02:44 burnett Exp $
+$Id: release.notes,v 1.94 2008/10/20 03:35:35 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 20-oct-08 v6r12   THB extended likelihood enabled; various interface, output improvements
  18-oct-08 v6r11p1 THB Implement trial version of extended likelihood
  12-oct-08 v6r10p1 THB Minor fixes, python now gets skymaps from that shareable
  10-oct-08 v6r10   THB Mods from Markus; split off EventList class
