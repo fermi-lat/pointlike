@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Oct 20 14:24:08 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h 
+Log Message:
+fixes for background cases
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-12-00, operation: add
 Package: pointlike
