@@ -1,4 +1,22 @@
 ------------------------------------------------------------
+User: markusa  Mon Oct 20 16:40:13 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	Draw.h ExtendedLikelihood.h ExtendedSourcePDF.h 
+	SourceLikelihood.h 
+Added Files:
+	HealpixDiffuseFunc.h 
+Log Message:
+SourceFit update:
+  * HealpixDiffuseFunc can directly read GALPROP skymaps
+  * SourceFit can handle exposure maps and output fluxes 
+  * some cleanup in TS map draw function
+ 
+
+
+    *
+------------------------------------------------------------
 User: burnett  Mon Oct 20 14:24:09 PDT 2008
 pointlike/src
 
