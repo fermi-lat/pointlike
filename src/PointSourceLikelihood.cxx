@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.56 2008/10/20 02:58:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.57 2008/10/20 03:35:35 burnett Exp $
 
 */
 
@@ -308,9 +308,16 @@ void PointSourceLikelihood::printSpectrum()
         << setprecision(6) << m_dir.ra() << ", "<< m_dir.dec() 
         << "  extended likelihood " << (SimpleLikelihood::extended_likelihood()?"on":"off") << std::endl;
 
-    out() << "  emin eclass events signal_fract(%)  TS  roi(deg) background signal_fract(%)" << std::right << std::endl;
+    out() 
+        << "                               ---shape analysis---- "
+        << (s_diffuse!=0? " ----------poisson----------    ------combined-----\n" : "\n")
+        << "  emin eclass roi(deg) events  signal_fract(%)    TS "
+        << (s_diffuse!=0? "backgnd signal_fract(%)   TS   signal_fract(%)   TS  " : "")
+        << std::right << std::endl;
 
-    m_TS =0;
+    double simpleTS(0), extendedTS(0), poissonTS(0);
+    bool save_extended( SimpleLikelihood::extended_likelihood());
+
     for( const_iterator it = begin(); it!=end(); ++it){
 
         SimpleLikelihood& levellike = **it;
@@ -320,39 +327,62 @@ void PointSourceLikelihood::printSpectrum()
         out()  << std::fixed << std::right 
             << setw(7) << static_cast<int>( band.emin()+0.5 )
             << setw(5) << band.event_class()
+            << setw(9) << setprecision(2)<< levellike.band().sigma()*sqrt(2.*levellike.umax())*180/M_PI 
             << setw(8) << levellike.photons()
-            << setw(10);
-      if( levellike.photons()==0)  out() << std::endl; 
-
+            ;
+ 
         if( levellike.photons()==0) {
+            out() << std::endl; 
             continue;
         }
+        SimpleLikelihood::enable_extended_likelihood(false);
         std::pair<double,double> a(levellike.maximize());
         double ts(levellike.TS()); 
         if( a.first > s_minalpha ) {
-            m_TS+=ts;
+            simpleTS+=ts;
         }
 
-        double avb(levellike.average_b());
-        out() << setprecision(0) 
-            << setw(6)<< int(100*a.first+0.5)<<" +/-"
-            << setw(3)<< int(100*a.second+0.5) 
+        //double avb(levellike.average_b());
+        out() << setprecision(1) 
+            << setw(7)<< 100*a.first<<" +/- "
+            << setw(4)<< 100*(std::min(0.999,a.second)) 
             << setw(7)<< setprecision(0)<< ts ;
 
         // output from background analysis if present
         if(bkg>0) {
-            out() << setw(10) << setprecision(2)<< levellike.band().sigma()*sqrt(2.*levellike.umax())*180/M_PI 
-                << setw(10) << setprecision(1) << bkg
-                << setw(9)  << static_cast<int>(100*(1- std::min(1.,bkg/levellike.photons()))+0.5);
+            // estimate from count analysis
+            double apois(1- std::min(1.,bkg/levellike.photons()))
+                , sigpois(1./sqrt(levellike.poissonDerivatives(apois).second));
+            double ts(-2* (levellike.poissonLikelihood(apois)-levellike.poissonLikelihood(0)));
+            out()  
+                << setw(7) << setprecision(1) << bkg
+                << setw(6)  << 100*(apois)<< " +/- "
+                << setw(4)  << 100.*sigpois
+                << setw(7)  << setprecision(0)<< ts 
+                ;
+            poissonTS +=ts;
+
+            // combinded estimate
+            SimpleLikelihood::enable_extended_likelihood();
+            std::pair<double,double> a(levellike.maximize());
+            ts =(levellike.TS());
+            extendedTS+=ts;
+
+            out() << setprecision(1) 
+                << setw(7)<< 100*a.first<<" +/- "
+                << setw(4)<< 100*a.second 
+                << setw(7)<< setprecision(0)<< ts ;
+
         }
         out() << std::endl;
     }
-    if( s_minalpha>0.){
-        out() << "\tTS sum  (alpha>"<<s_minalpha<<")  ";
-    }else{
-        out() << setw(35) << "TS sum  ";
+    SimpleLikelihood::enable_extended_likelihood(save_extended);
+    out()   << setw(47) << "TS sum  "
+            <<  setprecision(0) << simpleTS;
+    if(s_diffuse!=0 ){
+        out() << setw(29) << poissonTS << setw(23) << extendedTS;
     }
-    out() <<  setprecision(0) << m_TS <<setprecision(6)<<  std::endl;
+     out()<<setprecision(6)<<  std::endl;
 }
 
 std::vector<double> PointSourceLikelihood::energyList()const
