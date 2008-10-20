@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.45 2008/10/18 18:01:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.46 2008/10/20 02:58:32 burnett Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -128,6 +128,8 @@ namespace pointlike {
         /// @param background a Background object, with diffuse and effective areas
         static  const skymaps::Background* set_background(const skymaps::Background* background); 
 
+        ///! clear global diffuse background.
+        static const skymaps::Background* clear_background(); 
             
             ///! add a point source fit to the background, for this object only, for subsequent fits
         void addBackgroundPointSource(const PointSourceLikelihood* fit);
