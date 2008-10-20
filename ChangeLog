@@ -1,4 +1,19 @@
 ------------------------------------------------------------
+User: markusa  Mon Oct 20 16:40:25 PDT 2008
+pointlike/python
+
+Modified Files:
+	swig_setup.in 
+Log Message:
+SourceFit update:
+  * HealpixDiffuseFunc can directly read GALPROP skymaps
+  * SourceFit can handle exposure maps and output fluxes 
+  * some cleanup in TS map draw function
+ 
+
+
+    *
+------------------------------------------------------------
 User: markusa  Mon Oct 20 16:40:13 PDT 2008
 pointlike/pointlike
 
