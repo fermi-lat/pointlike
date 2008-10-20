@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.h
     @brief declaration of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.3 2008/09/11 23:58:10 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.4 2008/09/24 18:01:42 burnett Exp $
 
 */
 
@@ -68,8 +68,9 @@ namespace pointlike {
     //! @brief maximize the likelihood (minimize -log L)
     //! @return (signal_fraction, error)
     std::pair<double,double> maximize();
+#if 0    
     std::pair<double,double> maximizeMinuit();
-    
+#endif    
     int photons()const { return m_photon_count; } ///< number of photons used
     
     /// @brief First derivitive: gradient of function just evaluated  
@@ -89,8 +90,11 @@ namespace pointlike {
 		bool subset=false);
     
     double alpha()const { return m_alpha; }
-    
-    void setalpha(double alpha) {m_alpha=alpha;}
+    void setAlpha(double alpha) {m_alpha=alpha;}
+
+    std::pair<double,double> flux() const ;
+    double exposure() const ;
+    void setFlux(double flux);
     
     double sigma_alpha() const { return m_sigma_alpha;}
     
@@ -145,7 +149,7 @@ namespace pointlike {
 
     double psfIntegral()const{ return m_fint;}
 
-    void recalc(bool subset=true);
+    void recalc();
     void reload(bool subset=true);
 
     const std::vector<double>& residual() const{ return m_vloglike; };
@@ -157,6 +161,8 @@ namespace pointlike {
 
     /// @brief set the diffuse component
     void setDiffuse(skymaps::SkySpectrum* diff);
+    /// @brief set the exposure
+    void setExposure(skymaps::SkySpectrum* exposure,int event_class=0);
 
     static double tolerance();
     static void setTolerance(double tol);
@@ -208,6 +214,7 @@ namespace pointlike {
     double m_F;       ///< integral of PSF over u
     
     const skymaps::SkySpectrum * m_diffuse; ///< background distribution to use
+    std::vector<skymaps::SkySpectrum *> m_exposure; ///< exposure maps to use, one per event class
     mutable std::vector<double> m_gradient;
     
     mutable std::vector<double> m_vloglike;

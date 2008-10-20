@@ -1,7 +1,7 @@
 /** @file Draw.h 
 @brief declaration of the Draw wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.12 2008/10/10 19:37:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.13 2008/10/14 23:06:03 funk Exp $
 */
 
 
@@ -40,6 +40,10 @@ namespace pointlike {
         //! @param fov  field of view (deg) if 180, use car
 
         void region(const astro::SkyDir& dir, std::string outputFile, double pixelsize,
+                    double fov, bool smooth = false, int mincount = 0);
+        void TS(const astro::SkyDir& dir, std::string outputFile, double pixelsize,
+                    double fov, bool smooth = false, int mincount = 0);
+        void density(const astro::SkyDir& dir, std::string outputFile, double pixelsize,
                     double fov, bool smooth = false, int mincount = 0);
 
         //! @brief all sky image, default AIT, galactic

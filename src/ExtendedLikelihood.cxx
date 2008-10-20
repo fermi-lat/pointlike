@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.cxx
     @brief Implementation of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.4 2008/08/06 06:41:30 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.5 2008/08/06 19:39:39 markusa Exp $
 */
 
 #include "pointlike/ExtendedLikelihood.h"
@@ -25,8 +25,7 @@ using skymaps::DiffuseFunction;
 
 using namespace pointlike;
 
-//#define DEBUG_PRINT
-double ExtendedLikelihood::s_defaultUmax =200;
+double ExtendedLikelihood::s_defaultUmax = 50;
 double ExtendedLikelihood::s_defaultRoI = 0.1;
 double  ExtendedLikelihood::s_tolerance(0.05); // default:
 
@@ -58,49 +57,24 @@ namespace {
     public:           // 
         Convert( const SkyDir& dir, ExtendedSourcePseudoPSF& f,
 		 const astro::SkyFunction& background,
-            double sigma, double umax,
-            std::vector< std::pair<double, int> >& vec2,
-            std::vector<int>& vec4,
-             bool subset
-            )
+                 double sigma, double umax,
+                 std::vector< std::pair<double, int> >& vec2 )
             : m_dir(dir), m_f(f), m_sigma(sigma)
             , m_back(background )
             , m_vec2(vec2)
-            , m_vec4(vec4)
             , m_umax(umax)
             , m_F( f.integral(umax) ) // for normalization of the PSF
             , m_sum(0), m_count(0)
             , m_sumu(0) // average u, useful for calibration
             , m_sumb(0) // average b, useful for calibration
             , m_pixels(0)
-            , m_subset(subset)
             , m_maxu_found(0)
         {
-	  // SF: NO MORE NEEDED
-//            double angle(sqrt(2.*umax)*sigma);
-//             if(angle<0.1) { 
-// 	        m_umax= 0.01/(2*sigma*sigma);
-// //                std::cout<<"umax adjusted to "<<m_umax<<std::endl;
-// 	    };	
+        }
 
-//             if( ExtendedLikelihood::diffuse()!=0){
-//                ExtendedLikelihood::diffuse()->setEnergyRange(emin, emax);
-//                m_back_norm = ExtendedLikelihood::diffuse()->average(dir, angle, ExtendedLikelihood::tolerance());
-//                if( m_back_norm==0){
-//                    std::cerr << "Warning: normalization zero" << std::endl;
-//                    m_back_norm=0.1; // kluge, like below
-//                }
-//             }
-            m_first = m_vec4.size()==0;
-	    
-            if(debug){
-                //psf_data = new std::ofstream("d:/users/burnett/temp/psf.txt");
-                (*psf_data) << "u        f(u)      count    q" << std:: endl;
-            }
-        }
         ~Convert(){
-             //if(debug){ psf_data->close();}
         }
+
         void operator()(const std::pair<SkyDir, int> x){
             double diff = x.first.difference(m_dir);
             double  u = sqr(diff/m_sigma)/2.;
@@ -108,6 +82,7 @@ namespace {
             double signal(m_f(u)/m_F)
                  , bkg(m_back(x.first()))
                  , q( bkg/(signal*m_umax-bkg)); 
+
 #ifndef WIN32 // todo: set up equivalents
             if(isnan(signal) || isinf(signal))
 	       std::cerr<<"WARNING: nan/inf encountered in signal ."<<std::endl;
@@ -118,6 +93,9 @@ namespace {
             m_sumu  += x.second*u;
             m_sumb  += bkg;
             m_pixels+= 1;
+
+            m_vec2.push_back(std::make_pair(q, x.second) );
+
             if(debug){
                 (*psf_data) << std::left<< std::setw(12) 
                     << u << std::setw(12) 
@@ -125,26 +103,9 @@ namespace {
                     <<  x.second 
                     << std::setw(10)<<  bkg << std::endl;
             }
-            if( binsize==0. || q>0){
-                // not binning: save all in the array
-                m_vec2.push_back(std::make_pair(q, x.second) );
-            }else{
-                // bin (in 1/q) the pixels with large u, on periphery
-                // discretize these values of q in bins of 1/q
-                double qbin = 1./binsize/floor(1./binsize/q+0.5);
-                qmap[qbin]+=x.second;
-		throw std::runtime_error("I never ever should be here");
-            }
+
         }
         
-        void consolidate() {
-            if( binsize==0) return;
-            // recombine the qmap with m_vec2.
-            for(std::map<double,int>::iterator it = qmap.begin();it!=qmap.end();++it) {
-                m_vec2.push_back(std::make_pair(it->first,it->second));
-            }
-            qmap.clear();
-        }
         double average_f()const {return m_count>0? m_sum/m_count : -1.;}
         double average_u()const {return m_count>0? m_sumu/m_count : -1;}
         double average_b()const {return m_count>0? m_sumb/m_pixels: -1;}
@@ -157,15 +118,10 @@ namespace {
         const astro::SkyFunction& m_back;
         double m_sigma;
         std::vector<std::pair<double, int> >& m_vec2;
-        std::vector<int>& m_vec4;
         
-	std::vector<double> sourceTemplate;
-       
         double m_umax, m_F;
         double m_sum, m_count, m_sumu, m_sumb, m_pixels;
         double m_back_norm;
-        bool m_first;   //first call?
-        bool m_subset;
         double m_maxu_found;
     };
 
@@ -312,23 +268,27 @@ void ExtendedLikelihood::setDir(const astro::SkyDir& dir, bool subset)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void ExtendedLikelihood::reload(bool subset)
 {
-    // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
-    m_vec.clear();
-    m_vec2.clear();
-    delete m_back;
-    double angle(sqrt(2.*m_umax)*sigma());
-    double roi(s_defaultRoI);
-    if(angle<roi) { 
-      m_umax= (roi*roi+1e-5)/(2*sigma()*sigma());
-//                    std::cout<<"umax adjusted to "<<m_umax<<" emin="<<band().emin()<<" sigma="<<sigma()<<std::endl;
-      angle=sqrt(2.*m_umax)*sigma();
-    };	
+    if(!subset || m_vec.size()==0) {
+     //   std::cout<<"Resetting ROI and re-calculating background."<<std::endl;
+	double angle(sqrt(2.*m_umax)*sigma());
+	double roi(s_defaultRoI);
+	if(angle<roi) { 
+	  m_umax= (roi*roi+1e-5)/(2*sigma()*sigma());
+    //                    std::cout<<"umax adjusted to "<<m_umax<<" emin="<<band().emin()<<" sigma="<<sigma()<<std::endl;
+	  angle=sqrt(2.*m_umax)*sigma();
+	};	
+        // filll m_vec with weighted pixels unless operating on the current set
+        m_vec.clear();
+        delete m_back;
 
-    m_back = new NormalizedBackground(m_diffuse, m_dir, angle, m_emin, m_emax);
-    m_band.query_disk(m_dir, angle, m_vec);
-    Convert conv(m_dir, m_psf, *m_back, sigma(), m_umax, m_vec2, m_vec4, subset);
+        m_back = new NormalizedBackground(m_diffuse, m_dir, angle, m_emin, m_emax);
+        m_band.query_disk(m_dir, angle, m_vec);
+    }    
+/*
+    // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
+    m_vec2.clear();
+    Convert conv(m_dir, m_psf, *m_back, sigma(), m_umax, m_vec2);
     Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
-    result.consolidate();
 
     m_photon_count = static_cast<int>(result.count());
 
@@ -337,8 +297,11 @@ void ExtendedLikelihood::reload(bool subset)
     m_averageF = result.average_f();
     m_avu = result.average_u();
     m_avb = result.average_b();
+*/
+    recalc();
 
     // initialize to estimate.
+  
     if( m_alpha<0) m_alpha = estimate();
 
 }
@@ -347,6 +310,25 @@ void ExtendedLikelihood::setDir(const astro::SkyDir& dir, const std::vector<doub
     m_psf.source().set(src_param);
     setDir(dir,subset);								
 };				
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void ExtendedLikelihood::recalc() 
+{
+    // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
+    m_vec2.clear();
+    Convert conv(m_dir, m_psf, *m_back, sigma(), m_umax, m_vec2);
+    Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
+
+    m_photon_count= static_cast<int>(result.count());
+
+    if( m_photon_count==0) return; //throw std::invalid_argument("ExtendedLikelihood: no data after transform");
+
+    m_averageF = result.average_f();
+    m_avu = result.average_u();
+    m_avb = result.average_b();
+}
+
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -364,71 +346,6 @@ double ExtendedLikelihood::estimate() const
     if (est<0 ) est = 1e-4;
     if (est>1 ) est = 1-1e-4;
     return est;
-}
-
-/*
-std::pair<double,double> ExtendedLikelihood::maximize(bool newStyle){
-
-  if (newStyle){
-     std::cout << "Using the new style" << std::endl;
-    return maximizeMinuit();
-  } else{ 
-     std::cout << "Using the old style" << std::endl;
-    return maximize();
-  }
-}
-*/
-
-std::pair<double,double> ExtendedLikelihood::maximizeMinuit()
-{
-  static int itermax(5000);
-  if( m_photon_count==0) return std::make_pair(0.,0.);
-  double x(m_alpha); // starting point
-
-  int npar = 1;
-  TMinuit* gMinuit = new TMinuit(npar);
-//   std::cout << "Setting likelihood for : " << this << std::endl;
-  
-    // Set the pointer for access in the minuit function
-  gExtendedPointer = this;
-  gMinuit->SetFCN(extended_likelihood_wrapper);
-
-#ifndef WIN32
-  double par[npar];
-  double stepSize[npar];
-  double minVal[npar];
-  double maxVal[npar];
-  std::string parName[npar];
-#else
-  std::vector<double> par(npar), stepSize(npar),minVal(npar),maxVal(npar);
-  std::vector<std::string> parName(npar);
-#endif  
-
-  par[0] = x;
-  stepSize[0] = 0.001;
-  minVal[0] = 0.;
-  maxVal[0] = 1.0;
-  parName[0] = std::string("alpha");
-
-  for (int i = 0; i < npar; ++i)
-    gMinuit->DefineParameter(i, parName[i].c_str(), par[i], stepSize[i], minVal[i], maxVal[i]);
-
-  Int_t ierflag = 0;
-  Double_t arglist[10];
-  arglist[0] = 0.5; 
-  int nargs = 1;
-  gMinuit->mnexcm("SET ERR", arglist, nargs, ierflag);
-  arglist[0] = itermax; 
-  arglist[1] = 0.01; 
-  nargs = 2;
-  gMinuit->mnexcm("MIGRAD", arglist, nargs, ierflag);
-
-  m_alpha = x;
-  double errX;
-  gMinuit->GetParameter(0, x, errX);
-  delete gMinuit;
-  return std::make_pair(x, errX);
-
 }
 
 
@@ -493,6 +410,7 @@ double ExtendedLikelihood::poissonLikelihood(double a)const
     return expect - m_photon_count*log(expect);
 
 }
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 std::pair<double,double> ExtendedLikelihood::poissonDerivatives(double a)
 {
@@ -556,13 +474,6 @@ const std::vector<double>& ExtendedLikelihood::gradient(const Hep3Vector& ex,
 //	std::cout<<std::setprecision(4)<<"delta="<<delta<<" x="<<x<<" y="<<y<<" frac="<<(sqrt(x*x+y*y)/delta.mag())<<" u="<<u<<std::endl; 
 	
 	
-// #if 0 // original version
-//         if(u>m_umax) continue;
-// #else // Marshal mod
-//         if((u>m_umax&&m_vec4.size()==0)||(find(m_vec4.begin(),m_vec4.end(),h.first.index())==m_vec4.end()&&m_vec4.size()!=0)) continue;
-// #endif
-
-//         if(fabs(u-(*it3))>1e-8 || nphoton!=(*it2).second) {
         if(nphoton!=(*it2).second) {
             ++it; continue;
             if (it==m_vec.end()) { 
@@ -571,26 +482,9 @@ const std::vector<double>& ExtendedLikelihood::gradient(const Hep3Vector& ex,
             };
         };
 
- //       double fhat = m_psf(u)*m_umax/m_fint;
- //       double qq    = 1./(fhat-1) ;
- //       double Aold    = (1+qq)/(m_alpha+qq) ;
-  
         double psf=m_psf(u);
         double A= psf>0 ? -m_alpha * (1+q)/(m_alpha+q) / psf : 0;
         std::vector<double> grad = m_psf.gradient(u,m_src_param.size());
-
-#ifdef USE_MINPACK 
-        double sa= 2.*M_PI*sqr(m_sigma);
-        double likelihood= psf/(sa* m_fint) * (m_alpha+q) /(1+q) ; // how else can one reconstruct the likelihood from q ?
-        std::cout<<q<<" "<<m_alpha<<" "<<sa<<" "<<likelihood<<std::endl;
-        double sqrtlike = (likelihood >0) ? sqrt( - nphoton * log(likelihood) ) : 0 ;
-        std::cout<<q<<" "<<m_alpha<<" "<<sa<<" "<<likelihood<<" "<<sqrtlike<<std::endl;
-        m_vloglike.push_back(sqrtlike); 
-        if (sqrtlike==0) sqrtlike = 1.e305;
-        m_vjacobian[0].push_back(0.5/sqrtlike*nphoton*A*grad[0]*x/sig2);
-        m_vjacobian[1].push_back(0.5/sqrtlike*nphoton*A*grad[0]*y/sig2);
-	for(unsigned int k=2;k<m_gradient.size();k++) m_vjacobian[k].push_back(0.5/sqrtlike*nphoton*A*grad[k-1]);
-#endif
 
 	m_gradient[0]+= nphoton*A*grad[0]*x/sig2;
 	m_gradient[1]+= nphoton*A*grad[0]*y/sig2;
@@ -652,6 +546,41 @@ Hep3Vector ExtendedLikelihood::ps_gradient() const
     return grad*m_alpha/sig2;
 
 }
+
+std::pair<double,double> ExtendedLikelihood::flux() const {
+   double deltaE = (m_band.emax()-m_band.emin());
+   std::pair<double,double> photon_flux(m_alpha*m_photon_count/deltaE,0.) ;
+   if(m_exposure.size()>m_band.event_class()){
+     double exposure= 
+        m_exposure[m_band.event_class()]->integral(m_dir,m_band.emin(),m_band.emax())/deltaE;
+     photon_flux.first/=exposure;
+   };   
+   double rel_error=sqrt(m_sigma_alpha*m_sigma_alpha/m_alpha*m_alpha+1./m_photon_count);
+   photon_flux.second=rel_error*photon_flux.first;
+   return photon_flux;
+};
+
+double ExtendedLikelihood::exposure() const {
+   double exposure=-1;
+   if(m_exposure.size()>m_band.event_class()){
+     double deltaE = (m_band.emax()-m_band.emin());
+     exposure= 
+        m_exposure[m_band.event_class()]->integral(m_dir,m_band.emin(),m_band.emax())/deltaE;
+   };   
+   return exposure;
+};
+
+void ExtendedLikelihood::setFlux(double flux) {
+   double deltaE = (m_band.emax()-m_band.emin());
+   double exposure;
+   if(m_exposure.size()>m_band.event_class()) exposure= 
+        m_exposure[m_band.event_class()]->integral(m_dir,m_band.emin(),m_band.emax())/deltaE;
+   else exposure=1.;
+   m_alpha=std::min(flux*exposure*deltaE/m_photon_count,1.);
+   m_alpha=std::max(m_alpha,0.);
+};
+
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 double ExtendedLikelihood::ps_curvature() const
 {
@@ -724,6 +653,12 @@ void ExtendedLikelihood::setDiffuse(skymaps::SkySpectrum* diff)
     setDir(m_dir); // reset data
 }
 
+void ExtendedLikelihood::setExposure(skymaps::SkySpectrum* exposure,int event_class)
+{
+    if(m_exposure.size()<=event_class) m_exposure.resize(event_class+1,0);
+    m_exposure[event_class] = exposure;
+}
+
 double ExtendedLikelihood::tolerance()
 {
     return s_tolerance;
@@ -753,21 +688,58 @@ void ExtendedLikelihood::setTolerance(double tol)
     s_tolerance = tol;
 }
 
-void ExtendedLikelihood::recalc(bool subset) 
+
+
+#if 0
+std::pair<double,double> ExtendedLikelihood::maximizeMinuit()
 {
-    // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
-    m_vec2.clear();
-    Convert conv(m_dir, m_psf, *m_back, sigma(), m_umax, m_vec2, m_vec4, subset);
-    Convert result=std::for_each(m_vec.begin(), m_vec.end(), conv);
-    result.consolidate();
+  static int itermax(5000);
+  if( m_photon_count==0) return std::make_pair(0.,0.);
+  double x(m_alpha); // starting point
 
-    if(m_photon_count!= static_cast<int>(result.count())) {
-        m_photon_count=m_photon_count;
-    } 
+  int npar = 1;
+  TMinuit* gMinuit = new TMinuit(npar);
+//   std::cout << "Setting likelihood for : " << this << std::endl;
+  
+    // Set the pointer for access in the minuit function
+  gExtendedPointer = this;
+  gMinuit->SetFCN(extended_likelihood_wrapper);
 
-    if( m_photon_count==0) return; //throw std::invalid_argument("ExtendedLikelihood: no data after transform");
+#ifndef WIN32
+  double par[npar];
+  double stepSize[npar];
+  double minVal[npar];
+  double maxVal[npar];
+  std::string parName[npar];
+#else
+  std::vector<double> par(npar), stepSize(npar),minVal(npar),maxVal(npar);
+  std::vector<std::string> parName(npar);
+#endif  
 
-    m_averageF = result.average_f();
-    m_avu = result.average_u();
-    m_avb = result.average_b();
+  par[0] = x;
+  stepSize[0] = 0.001;
+  minVal[0] = 0.;
+  maxVal[0] = 1.0;
+  parName[0] = std::string("alpha");
+
+  for (int i = 0; i < npar; ++i)
+    gMinuit->DefineParameter(i, parName[i].c_str(), par[i], stepSize[i], minVal[i], maxVal[i]);
+
+  Int_t ierflag = 0;
+  Double_t arglist[10];
+  arglist[0] = 0.5; 
+  int nargs = 1;
+  gMinuit->mnexcm("SET ERR", arglist, nargs, ierflag);
+  arglist[0] = itermax; 
+  arglist[1] = 0.01; 
+  nargs = 2;
+  gMinuit->mnexcm("MIGRAD", arglist, nargs, ierflag);
+
+  m_alpha = x;
+  double errX;
+  gMinuit->GetParameter(0, x, errX);
+  delete gMinuit;
+  return std::make_pair(x, errX);
+
 }
+#endif

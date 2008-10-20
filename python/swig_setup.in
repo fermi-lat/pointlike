@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.33 2008/10/18 18:01:24 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.34 2008/10/20 02:58:32 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -36,6 +36,7 @@
 #include "pointlike/SimpleTSmap.h"
 #include "pointlike/Alignment.h"
 #include "pointlike/FlexibleBinner.h"
+#include "pointlike/HealpixDiffuseFunc.h"
 #include "pointlike/BandBackground.h"
 
 
@@ -179,7 +180,8 @@ public:
 %include $(POINTLIKEROOT)/pointlike/SimpleTSmap.h
 %include $(POINTLIKEROOT)/pointlike/SourceList.h
 %include $(POINTLIKEROOT)/pointlike/FlexibleBinner.h
-%include ../pointlike/BandBackground.h
+%include $(POINTLIKEROOT)/pointlike/HealpixDiffuseFunc.h
+%include $(POINTLIKEROOT)/pointlike/BandBackground.h
 
 %extend pointlike::SourceList{
    pointlike::Source & __getitem__(size_t i){ 

@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.16 2008/10/14 23:06:03 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.17 2008/10/18 18:01:25 burnett Exp $
 
 */
 
@@ -64,7 +64,7 @@ namespace {
     //      std::cout<<"new dir: dec="<<dirNew.dec()<<" ra="<<dirNew.ra()<<std::endl;
     //      astro::SkyDir dirNew = astro::SkyDir(x, y, astro::SkyDir::EQUATORIAL);
     
-    gSourcePointer->setDir(dirNew,src_par,false);
+    gSourcePointer->setDir(dirNew,src_par,true);
 
     double  TS   = gSourcePointer->maximize();
     loglike = -0.5*TS; //m_loglike;
@@ -108,7 +108,9 @@ namespace {
 
 // //  ----- static (class) variables -----
 
-skymaps::SkySpectrum* SourceLikelihood::s_diffuse(0);
+skymaps::SkySpectrum*               SourceLikelihood::s_diffuse(0);
+std::vector<skymaps::SkySpectrum *> SourceLikelihood::s_exposure(0);
+
 double                SourceLikelihood::s_emin(100.); 
 double                SourceLikelihood::s_emax(1e6);
 std::vector<double>   SourceLikelihood::s_gamma_front(0);
@@ -130,24 +132,10 @@ double 	              SourceLikelihood::s_maxsize(0.1);
 int  	              SourceLikelihood::s_npar(0);
 
 
-
 ///////////////////////////////////////////////////////
 //////// Static methods of SourceLikelihood //////////
 //////////////////////////////////////////////////////
 
-double SourceLikelihood::set_min_alpha(double a){
-    double r(s_minalpha); s_minalpha= a; return r;
-}
-
-// manage energy range for selection of bands to fit 
-
-// void SourceLikelihood::set_energy_range(double emin, double emax){
-//   s_emin = emin; s_emax=emax;
-// }
-
-// void SourceLikelihood::set_minalpha(double minalpha){ s_minalpha = minalpha;};
-
-// set parameters for source likelihood
 
 void SourceLikelihood::setParameters(const embed_python::Module& par){
   static std::string prefix("SourceLikelihood.");
@@ -294,15 +282,13 @@ void SourceLikelihood::setup(skymaps::BinnedPhotonData& data){
 					  m_type,m_sourceParameters,
 					  pointlike::ExtendedLikelihood::defaultUmax(), 
 					  m_background);
-
+					  
+    for(int i=0; i<s_exposure.size();i++) sl->setExposure(s_exposure[i],i);
 //     std::cout << "Constructed extended likelihood " << sl << std::endl;
 
     this->push_back(sl);
     
   }
-
-  std::cout << "SourceLikelihood> Set all parameters" << std::endl;
-
 
   if( this->empty()){
     throw std::invalid_argument("SourceLikelihood::setup: no bands to fit.");
@@ -787,6 +773,14 @@ skymaps::SkySpectrum* SourceLikelihood::set_diffuse(skymaps::SkySpectrum* diffus
   return ret;
 }
 
+skymaps::SkySpectrum* SourceLikelihood::set_exposure(skymaps::SkySpectrum* exposure,int event_class)
+{  
+  if(s_exposure.size()<=event_class) s_exposure.resize(event_class+1,0);
+  skymaps::SkySpectrum* ret = s_exposure[event_class] ;
+  s_exposure[event_class]  = exposure;
+  return ret;
+}
+
 
 void pointlike::SourceLikelihood::addBackgroundPointSource(const pointlike::SourceLikelihood* fit)
 {
@@ -924,7 +918,7 @@ std::string SLdisplay::name()const
     CLHEP::Hep3Vector newDir = gFitStartDir+ x* gFitDeltaX + y* gFitDeltaY;
     newDir.setMag(1.);
     astro::SkyDir dirNew(newDir);
-    gSourcePointer->setDir(dirNew,src_par,false);
+    gSourcePointer->setDir(dirNew,src_par,true);
     
     //       double TS = gSourcePointer->maximize(skip);
     double TS = gSourcePointer->maximize();
