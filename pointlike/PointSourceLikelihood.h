@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.44 2008/10/14 23:06:03 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.45 2008/10/18 18:01:24 burnett Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -116,15 +116,20 @@ namespace pointlike {
         ///! Set the global diffuse background function, return current value 
         /// @param diffuse any sky spectrum, presumably a DiffuseFunction
         /// @param exposure [1.0] multiplicative factor, presumably the exposure 
-        static  skymaps::SkySpectrum* set_diffuse(const skymaps::SkySpectrum* diffuse, double exposure=1.0);
+        static  const skymaps::SkySpectrum* set_diffuse(const skymaps::SkySpectrum* diffuse, double exposure=1.0);
 
         ///! Set the global diffuse background function, return current value 
         /// @param diffuse any sky spectrum, presumably a DiffuseFunction
         /// @param exposures vector of exposure opjects, one for each event type 
-        static  skymaps::SkySpectrum* set_diffuse(const skymaps::SkySpectrum* diffuse, 
+        static  const skymaps::SkySpectrum* set_diffuse(const skymaps::SkySpectrum* diffuse, 
             std::vector<const skymaps::SkySpectrum*> exposures);
 
-        ///! add a point source fit to the background, for this object only, for subsequent fits
+        ///! Set the global diffuse background function
+        /// @param background a Background object, with diffuse and effective areas
+        static  const skymaps::Background* set_background(const skymaps::Background* background); 
+
+            
+            ///! add a point source fit to the background, for this object only, for subsequent fits
         void addBackgroundPointSource(const PointSourceLikelihood* fit);
 
         ///! remove all such
@@ -184,7 +189,7 @@ namespace pointlike {
         skymaps::CompositeSkySpectrum * m_background;  ///< background spectrum to use
         std::vector<BandBackground*> m_backlist; ///< list of wrapped background objects to delete
 
-        static skymaps::Background* s_diffuse; ///< global diffuse used by all PSL objects
+        static const skymaps::Background* s_diffuse; ///< global diffuse used by all PSL objects
 
         static double s_emin, s_emax, s_minalpha, s_TSmin, s_tolerance, 
             s_maxstep; //

@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.46 2008/09/24 18:01:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.47 2008/10/18 18:01:25 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -236,7 +236,7 @@ void SimpleLikelihood::addBand(const skymaps::Band& moredata)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SimpleLikelihood::~SimpleLikelihood()
 {
-//    delete m_back;
+    delete m_back;
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void SimpleLikelihood::setDir(const astro::SkyDir& dir, bool subset)

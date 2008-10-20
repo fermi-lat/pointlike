@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.54 2008/10/14 23:06:03 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.55 2008/10/18 18:01:25 burnett Exp $
 
 */
 
@@ -42,7 +42,7 @@ namespace {
 }
 
 //  ----- static (class) variables -----
-skymaps::Background* PointSourceLikelihood::s_diffuse(0);
+const skymaps::Background* PointSourceLikelihood::s_diffuse(0);
 
 // manage energy range for selection of bands to fit 
 double PointSourceLikelihood::s_emin(500.); 
@@ -305,9 +305,10 @@ void PointSourceLikelihood::printSpectrum()
 
     using std::setw; using std::left; using std::setprecision; 
     out() << "\nSpectrum of source " << m_name << " at ra, dec=" 
-        << setprecision(6) << m_dir.ra() << ", "<< m_dir.dec() << std::endl;
+        << setprecision(6) << m_dir.ra() << ", "<< m_dir.dec() 
+        << "  extended likelihood " << (SimpleLikelihood::extended_likelihood()?"on":"off") << std::endl;
 
-    out() << "  emin eclass events background  signal_fract    TS " << std::right << std::endl;
+    out() << "  emin eclass events signal_fract(%)  TS  roi(deg) background signal_fract(%)" << std::right << std::endl;
 
     m_TS =0;
     for( const_iterator it = begin(); it!=end(); ++it){
@@ -321,12 +322,7 @@ void PointSourceLikelihood::printSpectrum()
             << setw(5) << band.event_class()
             << setw(8) << levellike.photons()
             << setw(10);
-        if(bkg>0) {
-            out() << setprecision(1) << bkg;
-        }else{
-            out() << "     -    ";
-        }
-        if( levellike.photons()==0)  out() << std::endl; 
+      if( levellike.photons()==0)  out() << std::endl; 
 
         if( levellike.photons()==0) {
             continue;
@@ -338,20 +334,25 @@ void PointSourceLikelihood::printSpectrum()
         }
 
         double avb(levellike.average_b());
-        out() << setprecision(2) << setw(6)<< a.first<<" +/- "
-            << setw(4)<< a.second 
-	      << setw(6)<< setprecision(2)<< ts << setprecision(0);
-#if 0 // debug output for average background check
-        out() << setprecision(2) << std::scientific << " " <<levellike.average_b()<< std::fixed ;
-#endif
-        out() << setprecision(6) << std::endl;
+        out() << setprecision(0) 
+            << setw(6)<< int(100*a.first+0.5)<<" +/-"
+            << setw(3)<< int(100*a.second+0.5) 
+            << setw(7)<< setprecision(0)<< ts ;
+
+        // output from background analysis if present
+        if(bkg>0) {
+            out() << setw(10) << setprecision(2)<< levellike.band().sigma()*sqrt(2.*levellike.umax())*180/M_PI 
+                << setw(10) << setprecision(1) << bkg
+                << setw(9)  << static_cast<int>(100*(1- std::min(1.,bkg/levellike.photons()))+0.5);
+        }
+        out() << std::endl;
     }
     if( s_minalpha>0.){
         out() << "\tTS sum  (alpha>"<<s_minalpha<<")  ";
     }else{
-        out() << setw(30) << "sum  ";
+        out() << setw(35) << "TS sum  ";
     }
-    out() << setw(14) << m_TS << std::endl;
+    out() <<  setprecision(0) << m_TS <<setprecision(6)<<  std::endl;
 }
 
 std::vector<double> PointSourceLikelihood::energyList()const
@@ -617,25 +618,32 @@ double PointSourceLikelihood::integral(const astro::SkyDir& dir, double emin, do
 //-------------------------------------------------------------------------------------------
 //            Background management
 //-------------------------------------------------------------------------------------------
-skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(const skymaps::SkySpectrum* diffuse, double exposure)
+const skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(const skymaps::SkySpectrum* diffuse, double exposure)
 {  
     // save current to return
-    skymaps::SkySpectrum* ret =   s_diffuse;
+    const skymaps::SkySpectrum* ret =   s_diffuse;
 
     s_diffuse = diffuse==0? 0 : new Background(*diffuse, exposure);
 
     return ret;
 }
 
-skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(const skymaps::SkySpectrum* diffuse, 
+const skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(const skymaps::SkySpectrum* diffuse, 
                                                          std::vector<const skymaps::SkySpectrum*> exposures)
 {  
     // save current to return
-    skymaps::SkySpectrum* ret =   s_diffuse;
+    const skymaps::SkySpectrum* ret =   s_diffuse;
 
     s_diffuse = new Background(*diffuse, exposures);
 
     return ret;
+}
+
+const skymaps::Background* PointSourceLikelihood::set_background(const skymaps::Background* background)
+{
+    const skymaps::Background* back = s_diffuse;
+     s_diffuse = background;
+     return back;
 }
 
 void PointSourceLikelihood::addBackgroundPointSource(const PointSourceLikelihood* fit)
