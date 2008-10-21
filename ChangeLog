@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Oct 21 13:20:26 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	SimpleLikelihood.h 
+Log Message:
+fixing standard binning, some interface changes
+    *
+------------------------------------------------------------
+User: burnett  Tue Oct 21 13:20:26 PDT 2008
 pointlike/doc
 
 Modified Files:
