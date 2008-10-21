@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.45 2008/10/18 18:01:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.47 2008/10/20 21:24:08 burnett Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -104,6 +104,12 @@ namespace pointlike {
         ///@param e energy in MeV
         virtual double value(const astro::SkyDir& dir, double e)const;
 
+        ///@brief use a band to select interval. 
+        ///@param dir direction
+        ///@param band use band to select energy range, and event class
+        virtual double band_value(const astro::SkyDir& dir, const skymaps::Band& band)const;
+
+
         ///@brief integral for the energy limits, in the given direction
         virtual double integral(const astro::SkyDir& dir, double a, double b)const;
 
@@ -128,6 +134,8 @@ namespace pointlike {
         /// @param background a Background object, with diffuse and effective areas
         static  const skymaps::Background* set_background(const skymaps::Background* background); 
 
+        ///! clear global diffuse background.
+        static const skymaps::Background* clear_background(); 
             
             ///! add a point source fit to the background, for this object only, for subsequent fits
         void addBackgroundPointSource(const PointSourceLikelihood* fit);
