@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Oct 20 19:50:45 PDT 2008
+pointlike/pointlike
+
+Modified Files:
+	BandBackground.h PointSourceLikelihood.h 
+Log Message:
+implement use of Band object to select enegy range
+    *
+------------------------------------------------------------
+User: burnett  Mon Oct 20 19:50:45 PDT 2008
 pointlike/doc
 
 Modified Files:
