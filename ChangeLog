@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Oct 21 13:20:26 PDT 2008
+pointlike/doc
+
+Modified Files:
+	release.notes 
+Log Message:
+fixing standard binning, some interface changes
+    *
+------------------------------------------------------------
+User: burnett  Tue Oct 21 13:20:26 PDT 2008
 pointlike/cmt
 
 Modified Files:
