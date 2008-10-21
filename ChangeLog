@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Oct 20 19:50:45 PDT 2008
+pointlike/doc
+
+Modified Files:
+	release.notes 
+Log Message:
+implement use of Band object to select enegy range
+    *
+------------------------------------------------------------
+User: burnett  Mon Oct 20 19:50:45 PDT 2008
 pointlike/cmt
 
 Modified Files:
