@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Oct 21 13:20:26 PDT 2008
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+fixing standard binning, some interface changes
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-12-01, operation: add
 Package: pointlike
