@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.49 2008/10/20 18:34:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.50 2008/10/20 21:24:09 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -57,7 +57,6 @@ namespace {
             )
             : m_dir(dir), m_f(f), m_sigma(sigma)
             , m_vec2(vec2)
-            //, m_vec4(vec4)
             , m_umax(umax)
             , m_F( f.integral(umax) ) // for normalization of the PSF
             , m_sum(0), m_count(0)
@@ -167,33 +166,27 @@ namespace {
     
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// private nested class to  normalized background
+// private nested class to normalize background
 class SimpleLikelihood::NormalizedBackground : public astro::SkyFunction {
 public:
     NormalizedBackground(const astro::SkyFunction* diffuse, const SkyDir& dir, double angle)
     : m_diffuse(diffuse)
     {
-        if( m_diffuse!=0){
-            m_back_norm = m_diffuse->average(dir, angle, SimpleLikelihood::tolerance());
-            if( m_back_norm==0){
-                std::cerr << "Warning: normalization zero" << std::endl;
-                m_back_norm=0.1; // kluge, like below
-            }
+        m_back_norm = m_diffuse->average(dir, angle, SimpleLikelihood::tolerance());
+        if( m_back_norm==0){
+            //std::cerr << "Warning: normalization zero" << std::endl;
         }
     }
 
     //! the normalized (in 0<u<umax)  background in the direction dir
     double operator()(const SkyDir& dir)const{
-        double val(1.);
-        if( m_diffuse!=0){
-            val=(*m_diffuse)(dir)/m_back_norm;
-        }
-        // a return value in the given direction
-        if( val==0){ val=0.1;} // prevent zero, which is bad
+        if( m_back_norm==0) return 1.0; // no background
+        double val((*m_diffuse)(dir)/m_back_norm );
         return val;
     }
 
     //! The expected background, or total normalization (integral of the background function)
+    //! zero means not set.
     double total()const{return m_back_norm;}
 
 private:
@@ -214,7 +207,7 @@ SimpleLikelihood::SimpleLikelihood(const skymaps::Band& band,
         , m_umax(umax)
         , m_sigma(band.sigma())
         , m_back(0)
-        , m_diffuse(background)
+        , m_background(background)
 { 
     m_bands.push_back(&band);
 
@@ -227,10 +220,11 @@ SimpleLikelihood::SimpleLikelihood(const skymaps::Band& band,
     setDir(dir);
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-void SimpleLikelihood::addBand(const skymaps::Band& moredata)
+void SimpleLikelihood::addBand(const skymaps::Band& moredata, const astro::SkyFunction* newback)
 {
     m_bands.push_back(&moredata);
-    //reload();
+    m_background.add( newback);
+    reload(false);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -253,7 +247,7 @@ void SimpleLikelihood::reload(bool subset)
         // filll m_vec with weighted pixels unless operating on the current set
         m_vec.clear();
         delete m_back;
-        m_back = new NormalizedBackground(m_diffuse, m_dir, sqrt(2.*m_umax)*sigma());
+        m_back = new NormalizedBackground(&m_background, m_dir, sqrt(2.*m_umax)*sigma());
         // select pixels within u_max, sum bands
         for( std::vector<const Band*>::const_iterator bandit(m_bands.begin()); bandit!=m_bands.end();++bandit){ 
             (*bandit)->query_disk(m_dir, sigma()*sqrt(2.*m_umax), m_vec);
@@ -358,7 +352,13 @@ std::pair<double,double> SimpleLikelihood::maximize()
 
 }
 
-double SimpleLikelihood::background()const{return m_diffuse!=0? m_back->total()*solidAngle(): 0;}
+double SimpleLikelihood::background()const{
+#if 0
+    return m_diffuse!=0? m_back->total()*solidAngle(): 0;
+#else
+    return m_back->total()*solidAngle();
+#endif
+}
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 double SimpleLikelihood::poissonLikelihood(double a)const
@@ -519,7 +519,7 @@ double SimpleLikelihood::display(const astro::SkyDir& dir, int mode) const
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
+#if 0
 const astro::SkyFunction* SimpleLikelihood::diffuse() const
 {
     return m_diffuse;
@@ -530,6 +530,7 @@ void SimpleLikelihood::setDiffuse(astro::SkyFunction* diff)
     m_diffuse = diff;
     setDir(m_dir); // reset data
 }
+#endif
 
 double SimpleLikelihood::tolerance()
 {
