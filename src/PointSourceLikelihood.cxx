@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.59 2008/10/20 21:24:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.60 2008/10/21 02:50:45 burnett Exp $
 
 */
 
@@ -194,7 +194,9 @@ void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
                 if( bit1==bit2) continue;
                 const Band& b2( *(*bit2).first );
                 if( b1.nside() == b2.nside() && b2.sigma() == b1.sigma() ){
-                    sl->addBand(b2);
+                    back= new BandBackground(*m_background, b2); // note second background
+                    sl->addBand(b2, back); 
+                    m_backlist.push_back(back); // save to delete in dtor
                     (*bit2).second=false; // mark as used
                 }
             }
@@ -311,7 +313,7 @@ void PointSourceLikelihood::printSpectrum()
 
     out() 
         << "                               ---shape analysis---- "
-        << (extended? " ----------poisson----------    ------combined-----\n" : "\n")
+        << (extended? " ----------poisson----------   -------combined-----\n" : "\n")
         << "  emin eclass roi(deg) events  signal_fract(%)    TS "
         << (extended? "backgnd signal_fract(%)   TS   signal_fract(%)   TS  " : "")
         << std::right << std::endl;
@@ -327,7 +329,7 @@ void PointSourceLikelihood::printSpectrum()
         double bkg(levellike.background());
         out()  << std::fixed << std::right 
             << setw(7) << static_cast<int>( band.emin()+0.5 )
-            << setw(5) << band.event_class()
+            << setw(5) << (levellike.bands().size()>1? -1 : band.event_class())
             << setw(9) << setprecision(2)<< levellike.band().sigma()*sqrt(2.*levellike.umax())*180/M_PI 
             << setw(8) << levellike.photons()
             ;
@@ -343,7 +345,6 @@ void PointSourceLikelihood::printSpectrum()
             simpleTS+=ts;
         }
 
-        //double avb(levellike.average_b());
         out() << setprecision(1) 
             << setw(7)<< 100*a.first<<" +/- "
             << setw(4)<< 100*(std::min(0.999,a.second)) 
@@ -358,7 +359,7 @@ void PointSourceLikelihood::printSpectrum()
             out()  
                 << setw(7) << setprecision(1) << bkg
                 << setw(6)  << 100*(apois)<< " +/- "
-                << setw(4)  << 100.*sigpois
+                << setw(4)  << 100.*std::min(0.999,sigpois)
                 << setw(7)  << setprecision(0)<< ts 
                 ;
             poissonTS +=ts;
@@ -371,19 +372,19 @@ void PointSourceLikelihood::printSpectrum()
 
             out() << setprecision(1) 
                 << setw(7)<< 100*a.first<<" +/- "
-                << setw(4)<< 100*a.second 
+                << setw(4)<< 100*std::min(0.999,a.second )
                 << setw(7)<< setprecision(0)<< ts ;
 
         }
         out() << std::endl;
     }
     SimpleLikelihood::enable_extended_likelihood(save_extended);
-    out()   << setw(47) << "TS sum  "
-            <<  setprecision(0) << simpleTS;
+    out()   << setw(40) << "TS sum  " << std::right
+            <<  setprecision(0) << setw(12) << simpleTS;
     if( extended ){
         out() << setw(29) << poissonTS << setw(23) << extendedTS;
     }
-     out()<<setprecision(6)<<  std::endl;
+    out()<<setprecision(6)<< std::left<< std::endl;
 }
 
 std::vector<double> PointSourceLikelihood::energyList()const
