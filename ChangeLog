@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Oct 21 13:20:27 PDT 2008
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx SimpleLikelihood.cxx 
+Log Message:
+fixing standard binning, some interface changes
+    *
+------------------------------------------------------------
 User: burnett  Tue Oct 21 13:20:26 PDT 2008
 pointlike/pointlike
 
