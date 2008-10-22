@@ -1,7 +1,7 @@
 /** @file BandBackground.h
     @brief declare BandBackground class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/BandBackground.h,v 1.1 2008/10/18 18:01:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/BandBackground.h,v 1.1 2008/10/20 03:04:27 burnett Exp $
 */
 
 #ifndef pointlike_BandBackground_h
@@ -48,6 +48,7 @@ private:
     const skymaps::CompositeSkySpectrum & m_background;
     const skymaps::Background* m_diffuse; ///< extract pointer to the diffuse cmponent
     
+    const skymaps::Band& m_band;
     double m_emin, m_emax;
     int m_event_class;
 
