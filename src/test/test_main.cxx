@@ -19,7 +19,7 @@
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
-
+#include <typeinfo>
 // list of starting points, corresponding to data
 class Points{public:
     std::string name; double ra, dec;

@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.27 2008/08/21 18:59:30 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/pointfit/pointfit_main.cxx,v 1.28 2008/08/28 22:42:15 burnett Exp $
 
 */
 #include "pointlike/SourceList.h"
@@ -15,6 +15,7 @@
 #include <iomanip>
 #include <fstream>
 #include <stdexcept>
+#include <typeinfo>
 
 void help(){
     std::cout << "This program expects a single command-line parameter which is the path to a folder containing a file\n"

@@ -1,7 +1,7 @@
 /** @file SourceList.cxx
 @brief implementation of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.14 2008/08/28 22:42:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/SourceList.cxx,v 1.15 2008/10/12 19:20:19 burnett Exp $
 */
 
 
@@ -15,6 +15,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.14 2008/0
 #include <cmath>
 #include <stdexcept>
 #include <time.h>
+#include <cstring>
 
 using namespace pointlike;
 using astro::SkyDir;

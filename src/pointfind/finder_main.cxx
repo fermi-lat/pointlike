@@ -1,7 +1,7 @@
 /** @file finder_main.cxx
     @brief  Finder
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfind/finder_main.cxx,v 1.16 2008/06/23 14:33:44 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/pointfind/finder_main.cxx,v 1.17 2008/07/15 05:29:45 burnett Exp $
 
 */
 #include "pointlike/SourceFinder.h"
@@ -11,6 +11,7 @@
 #include "embed_python/Module.h"
 
 #include <iostream>
+#include <typeinfo>
 
 void help(){
     std::cout <<
