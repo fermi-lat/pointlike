@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Wed Oct 22 00:02:35 PDT 2008
+ScienceTools-scons/pointlike
+
+Modified Files:
+	SConscript 
+Log Message:
+Modified SConscripts to invoke SWIG.  Added #includes to a few files to make
+gcc 4.3 happy.
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-13-00, operation: add
 Package: pointlike
