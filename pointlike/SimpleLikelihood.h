@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.31 2008/10/18 18:01:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.32 2008/10/20 18:34:56 burnett Exp $
 
 */
 
@@ -17,6 +17,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1
 
 #include "skymaps/PsfFunction.h"
 #include "skymaps/SkySpectrum.h"
+#include "skymaps/CompositeSkyFunction.h"
 
 #include <vector>
 #include <utility>
@@ -49,10 +50,13 @@ public:
 
     ~SimpleLikelihood();
 
-    const skymaps::Band& band()const {return *m_bands[0];}
+    const skymaps::Band& band(int i=0)const {return *m_bands[i];}
+    std::vector<const skymaps::Band*>bands()const {return m_bands;}
 
     //! @brief add a band to the existing set.  Do it following constructor
-    void addBand(const skymaps::Band& moredata);//{m_bands->push_back(&moredata);}
+    //! @param moredata a second band
+    //! @param background [0] associated background
+    void addBand(const skymaps::Band& moredata, const astro::SkyFunction* background=0);
 
     //! @brief return log likelihood for the signal fraction
     //! @param a value for signal fraction (default: use last fit)
@@ -142,15 +146,15 @@ public:
     void recalc(bool subset=true);
     void reload(bool subset=true);
 
+    /// @brief calculate TS for given fit at various positions
+    double TSmap(astro::SkyDir sdir) const;
+#if 0
     /// @brief access to the diffuse background component 
     const astro::SkyFunction* diffuse() const;
 
-    /// @brief calculate TS for given fit at various positions
-    double TSmap(astro::SkyDir sdir) const;
-
     /// @brief set the diffuse component
     void setDiffuse(astro::SkyFunction* diff);
-
+#endif
     /// @ brief return first and second derivative
     std::pair<double, double> derivatives(double x);
 
@@ -197,7 +201,8 @@ private:
     double m_avu, m_avb;
     double m_F;       ///< integral of PSF over u
 
-    const astro::SkyFunction * m_diffuse; ///< background distribution to use
+    skymaps::CompositeSkyFunction m_background; ///< background distribution
+    //const astro::SkyFunction * m_diffuse; ///< background distribution to use
 
     class NormalizedBackground; // forward declaration of helper class
     NormalizedBackground* m_back; ///< instance of private helper class set when direction is

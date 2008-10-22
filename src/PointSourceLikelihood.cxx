@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.57 2008/10/20 03:35:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.61 2008/10/21 20:20:27 burnett Exp $
 
 */
 
@@ -108,6 +108,10 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getValue(prefix+"merge",    s_merge, s_merge); // merge Bands with same nside, sigma
     par.getValue(prefix+"fitlsq",    s_fitlsq, s_fitlsq); // modify auto least squares
 
+    int extended(false);
+    par.getValue("extended_likelihood", extended, extended);
+    SimpleLikelihood::enable_extended_likelihood(extended!=0);
+
     // needed by SimpleLikelihood
     double umax(SimpleLikelihood::defaultUmax());
     par.getValue(prefix+"umax", umax, umax);
@@ -124,8 +128,8 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getValue("interpolate", interpolate, interpolate);
     if( ! diffusefile.empty() ) {
 
-        set_diffuse(new CompositeSkySpectrum(
-            new DiffuseFunction(diffusefile, interpolate!=0), exposure) );
+        set_background(new Background(
+            *new DiffuseFunction(diffusefile, interpolate!=0), exposure) );
 
         std::cout << "Using diffuse definition "<< diffusefile 
             << " with exposure factor " << exposure << std::endl; 
@@ -194,7 +198,11 @@ void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
                 if( bit1==bit2) continue;
                 const Band& b2( *(*bit2).first );
                 if( b1.nside() == b2.nside() && b2.sigma() == b1.sigma() ){
-                    sl->addBand(b2);
+                    if( m_background !=0) {
+                        back= new BandBackground(*m_background, b2); // note second background
+                        sl->addBand(b2, back); 
+                        m_backlist.push_back(back); // save to delete in dtor
+                    }
                     (*bit2).second=false; // mark as used
                 }
             }
@@ -304,15 +312,16 @@ void PointSourceLikelihood::printSpectrum()
 {
 
     using std::setw; using std::left; using std::setprecision; 
+    bool extended(s_diffuse!=0 && SimpleLikelihood::extended_likelihood());
     out() << "\nSpectrum of source " << m_name << " at ra, dec=" 
         << setprecision(6) << m_dir.ra() << ", "<< m_dir.dec() 
-        << "  extended likelihood " << (SimpleLikelihood::extended_likelihood()?"on":"off") << std::endl;
+        << std::endl;
 
     out() 
         << "                               ---shape analysis---- "
-        << (s_diffuse!=0? " ----------poisson----------    ------combined-----\n" : "\n")
+        << (extended? " ----------poisson----------   -------combined-----\n" : "\n")
         << "  emin eclass roi(deg) events  signal_fract(%)    TS "
-        << (s_diffuse!=0? "backgnd signal_fract(%)   TS   signal_fract(%)   TS  " : "")
+        << (extended? "backgnd signal_fract(%)   TS   signal_fract(%)   TS  " : "")
         << std::right << std::endl;
 
     double simpleTS(0), extendedTS(0), poissonTS(0);
@@ -326,7 +335,7 @@ void PointSourceLikelihood::printSpectrum()
         double bkg(levellike.background());
         out()  << std::fixed << std::right 
             << setw(7) << static_cast<int>( band.emin()+0.5 )
-            << setw(5) << band.event_class()
+            << setw(5) << (levellike.bands().size()>1? -1 : band.event_class())
             << setw(9) << setprecision(2)<< levellike.band().sigma()*sqrt(2.*levellike.umax())*180/M_PI 
             << setw(8) << levellike.photons()
             ;
@@ -342,14 +351,13 @@ void PointSourceLikelihood::printSpectrum()
             simpleTS+=ts;
         }
 
-        //double avb(levellike.average_b());
         out() << setprecision(1) 
             << setw(7)<< 100*a.first<<" +/- "
             << setw(4)<< 100*(std::min(0.999,a.second)) 
             << setw(7)<< setprecision(0)<< ts ;
 
         // output from background analysis if present
-        if(bkg>0) {
+        if(extended) {
             // estimate from count analysis
             double apois(1- std::min(1.,bkg/levellike.photons()))
                 , sigpois(1./sqrt(levellike.poissonDerivatives(apois).second));
@@ -357,7 +365,7 @@ void PointSourceLikelihood::printSpectrum()
             out()  
                 << setw(7) << setprecision(1) << bkg
                 << setw(6)  << 100*(apois)<< " +/- "
-                << setw(4)  << 100.*sigpois
+                << setw(4)  << 100.*std::min(0.999,sigpois)
                 << setw(7)  << setprecision(0)<< ts 
                 ;
             poissonTS +=ts;
@@ -370,19 +378,19 @@ void PointSourceLikelihood::printSpectrum()
 
             out() << setprecision(1) 
                 << setw(7)<< 100*a.first<<" +/- "
-                << setw(4)<< 100*a.second 
+                << setw(4)<< 100*std::min(0.999,a.second )
                 << setw(7)<< setprecision(0)<< ts ;
 
         }
         out() << std::endl;
     }
     SimpleLikelihood::enable_extended_likelihood(save_extended);
-    out()   << setw(47) << "TS sum  "
-            <<  setprecision(0) << simpleTS;
-    if(s_diffuse!=0 ){
+    out()   << setw(40) << "TS sum  " << std::right
+            <<  setprecision(0) << setw(12) << simpleTS;
+    if( extended ){
         out() << setw(29) << poissonTS << setw(23) << extendedTS;
     }
-     out()<<setprecision(6)<<  std::endl;
+    out()<<setprecision(6)<< std::left<< std::endl;
 }
 
 std::vector<double> PointSourceLikelihood::energyList()const
@@ -624,6 +632,21 @@ double PointSourceLikelihood::value(const astro::SkyDir& dir, double energy) con
 
 }
 
+double PointSourceLikelihood::band_value(const astro::SkyDir& dir, const skymaps::Band& band)const
+{
+    double result(0);
+    const_iterator it = begin();
+    for( ; it!=end(); ++it){
+        const Band& lband ( (*it)->band() );
+        if( lband.event_class()==band.event_class() && lband.emin()==band.emin() ){
+            return (**it)(dir);
+        }
+    }
+    throw std::runtime_error("PointSourceLikelihood::band_value: band not found");
+    return result;
+}
+
+
 double PointSourceLikelihood::display(const astro::SkyDir& dir, double energy, int mode) const
 {
     const_iterator it = begin();
@@ -675,6 +698,10 @@ const skymaps::Background* PointSourceLikelihood::set_background(const skymaps::
      s_diffuse = background;
      return back;
 }
+const skymaps::Background* PointSourceLikelihood::clear_background(){
+    return PointSourceLikelihood::set_background(0);
+}; 
+
 
 void PointSourceLikelihood::addBackgroundPointSource(const PointSourceLikelihood* fit)
 {
