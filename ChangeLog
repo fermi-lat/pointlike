@@ -1,5 +1,16 @@
 ------------------------------------------------------------
 User: wallacee  Wed Oct 22 00:02:36 PDT 2008
+ScienceTools-scons/pointlike/src/pointfind
+
+Modified Files:
+	finder_main.cxx 
+Log Message:
+Modified SConscripts to invoke SWIG.  Added #includes to a few files to make
+gcc 4.3 happy.
+
+    *
+------------------------------------------------------------
+User: wallacee  Wed Oct 22 00:02:36 PDT 2008
 ScienceTools-scons/pointlike/src
 
 Modified Files:
