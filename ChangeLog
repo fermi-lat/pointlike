@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Oct 22 14:54:06 PDT 2008
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+tagging after fix to Poisson.
+    *
+------------------------------------------------------------
 User: wallacee  Wed Oct 22 00:02:37 PDT 2008
 ScienceTools-scons/pointlike/src/test
 
