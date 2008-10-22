@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.60 2008/10/21 02:50:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.61 2008/10/21 20:20:27 burnett Exp $
 
 */
 
@@ -108,6 +108,10 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getValue(prefix+"merge",    s_merge, s_merge); // merge Bands with same nside, sigma
     par.getValue(prefix+"fitlsq",    s_fitlsq, s_fitlsq); // modify auto least squares
 
+    int extended(false);
+    par.getValue("extended_likelihood", extended, extended);
+    SimpleLikelihood::enable_extended_likelihood(extended!=0);
+
     // needed by SimpleLikelihood
     double umax(SimpleLikelihood::defaultUmax());
     par.getValue(prefix+"umax", umax, umax);
@@ -124,8 +128,8 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getValue("interpolate", interpolate, interpolate);
     if( ! diffusefile.empty() ) {
 
-        set_diffuse(new CompositeSkySpectrum(
-            new DiffuseFunction(diffusefile, interpolate!=0), exposure) );
+        set_background(new Background(
+            *new DiffuseFunction(diffusefile, interpolate!=0), exposure) );
 
         std::cout << "Using diffuse definition "<< diffusefile 
             << " with exposure factor " << exposure << std::endl; 
@@ -194,9 +198,11 @@ void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
                 if( bit1==bit2) continue;
                 const Band& b2( *(*bit2).first );
                 if( b1.nside() == b2.nside() && b2.sigma() == b1.sigma() ){
-                    back= new BandBackground(*m_background, b2); // note second background
-                    sl->addBand(b2, back); 
-                    m_backlist.push_back(back); // save to delete in dtor
+                    if( m_background !=0) {
+                        back= new BandBackground(*m_background, b2); // note second background
+                        sl->addBand(b2, back); 
+                        m_backlist.push_back(back); // save to delete in dtor
+                    }
                     (*bit2).second=false; // mark as used
                 }
             }
