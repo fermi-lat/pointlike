@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.96 2008/10/21 02:50:45 burnett Exp $
+$Id: release.notes,v 1.97 2008/10/21 20:20:26 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 22-oct-08 v6r13p1 THB Had wrong Poisson definition: fixed in SimpleLikelihood
  21-oct-08 v6r13   THB Fix standard binning functionality; need new skymaps
  20-oct-08 v6r12p1 THB extended likelihood enabled; various interface, output improvements
  20-oct-08 v6r12   THB extended likelihood enabled; various interface, output improvements

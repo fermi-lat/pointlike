@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.50 2008/10/20 21:24:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.51 2008/10/21 20:20:27 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -182,6 +182,7 @@ public:
     double operator()(const SkyDir& dir)const{
         if( m_back_norm==0) return 1.0; // no background
         double val((*m_diffuse)(dir)/m_back_norm );
+        if( val==0 ) throw std::runtime_error("SimpleLikelihood::NormalizedBackground: background cannot be exactly zero");
         return val;
     }
 
@@ -353,21 +354,17 @@ std::pair<double,double> SimpleLikelihood::maximize()
 }
 
 double SimpleLikelihood::background()const{
-#if 0
-    return m_diffuse!=0? m_back->total()*solidAngle(): 0;
-#else
     return m_back->total()*solidAngle();
-#endif
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 double SimpleLikelihood::poissonLikelihood(double a)const
 {
-    double back(background());
-    if( back==0) return 0;
-    double expect(signal(a)+back);
-    if( expect<=0) return 0; //?
-    return expect - m_photon_count*log(expect);
+    double b(background()), N(m_photon_count);
+    if( b==0 || a>1) return 0;
+    if( a==1.0) a=0.999;
+    double expect( b/(1-a));
+    return expect - N*log(expect);
 
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -375,12 +372,10 @@ std::pair<double,double> SimpleLikelihood::poissonDerivatives(double a)
 {
     double d1(0), d2(0);
 
-    double back(background());
-    if( back>0) {
-        double t(a + background()/m_photon_count);
-        d1 = m_photon_count*(1-1/t);  // first log likelihood derivative
-        d2 = m_photon_count/t/t;      // second
-    }
+    double b(background()), N(m_photon_count);
+        double t(1-a), tsq(t*t);
+        d1 = b/tsq -N/t;
+        d2 = (2.*b/t -N)/tsq;
     return std::make_pair(d1, d2);
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
