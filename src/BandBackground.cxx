@@ -1,6 +1,6 @@
 /** @file BandBackground.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/BandBackground.cxx,v 1.1 2008/10/18 18:01:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/BandBackground.cxx,v 1.2 2008/10/20 02:58:32 burnett Exp $
 
 */
 
@@ -18,6 +18,7 @@ void BandBackground::set_verbose(bool q){verbose=q;}
 
 BandBackground::BandBackground(const skymaps::CompositeSkySpectrum& background, const skymaps::Band& band)
 : m_background(background)
+, m_band(band)
 , m_emin(band.emin())
 , m_emax(band.emax())
 , m_event_class(band.event_class())
@@ -40,9 +41,13 @@ BandBackground::BandBackground(const skymaps::CompositeSkySpectrum& background, 
 
 
 double BandBackground::operator()(const astro::SkyDir& dir)const{
+#if 1
+    return m_background.band_value(dir, m_band);
+#else
     m_diffuse->set_event_class(m_event_class);
 
     return m_background.integral(dir, m_emin, m_emax);
+#endif
 }
 
 
