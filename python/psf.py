@@ -38,15 +38,16 @@ class PSF:
    def u2deg(self,e,u,event_class=0):
       return self.sigma(e,event_class)*(2*u)**0.5
       
-   def set_sigmas(self):
-      import pointlike as pl
-      pl.IParams.set_fp(self.fp)
-      pl.IParams.set_bp(self.bp)
+   #def set_sigmas(self):
+   #   from skymaps import IParams
+   #   IParams.set_fp(self.fp)
+   #   IParams.set_bp(self.bp)
 
-   def set_gammas(self,psl):
+   def set_psf_params(self,psl):
       for s in psl:
          e = (s.band().emin()*s.band().emax())**0.5
          s.setgamma(self.gamma(e,s.band().event_class()))
+         s.setsigma(self.sigma(e,s.band().event_class())/180*N.pi)
          s.recalc()
 
    def fmax(self,e,u,event_class=0):

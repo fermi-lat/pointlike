@@ -1,6 +1,6 @@
 import numpy as N
 import math as M
-import pointlike as pl
+from skymaps import DiffuseFunction,SkyDir,LivetimeCube,EffectiveArea,Exposure,Gti
 from Models import *
 from Fitters import *
 from scipy.stats import norm
@@ -20,14 +20,18 @@ class ExposureMap:
       self.__dict__.update(**kwargs)
 
       try:
-         self.fe = pl.DiffuseFunction(front_emap_file)
+         self.fe = DiffuseFunction(front_emap_file)
          self.front_func = self.fe.value
       except: print 'Could not read file %s, using constant exposure!'%(front_emap_file)
 
       try:
-         self.be = pl.DiffuseFunction(back_emap_file)
+         self.be = DiffuseFunction(back_emap_file)
          self.back_func = self.be.value
       except: print 'Could not read file %s, using constant exposure!'%(back_emap_file)
+      try:
+         self.exposure = [self.fe,self.be]
+      except:
+         pass
 
    def __defaults__(self):
       self.front_const_val = self.back_const_val = 1.5e10
@@ -47,6 +51,44 @@ class ExposureMap:
 
    def const_front_ex(self,dir,e): return self.front_const_val
    def const_back_ex(self,dir,e): return self.back_const_val
+
+
+class ExposureMap2(object):
+
+   def __init__(self,src_dir,history_files,ev_files,irf='P6_v1_diff',cone_angle=10.,pixelsize=1.,zcut=105):
+      
+      EffectiveArea.set_CALDB('f:\\glast\\packages\\ScienceTools-v9r7p1\\irfs\\caldb\\v0r7p1\\CALDB\\data\\glast\\lat')
+      inst = ['front', 'back']
+      self.ea  = [EffectiveArea(irf+'_'+x) for x in inst]
+      try:
+         self.lt = LivetimeCube(history_files)
+      except:
+         from types import ListType
+         if type(ev_files) is not ListType: ev_files = [ev_files]
+         if type(history_files) is not ListType: history_files = [history_files]
+         self.lt = LivetimeCube(cone_angle=cone_angle,dir=src_dir,pixelsize=pixelsize,zcut=N.cos(zcut*N.pi/180))
+         self.lt.load(history_files[0],  Gti(ev_files[0])) #This needs to be fixed
+
+      #print ev_files[0]
+      #print history_files[0]
+      
+      self.exposure = [Exposure(self.lt,ea) for ea in self.ea]
+
+   def __call__(self, dir, energies, event_class=-1):
+      """Return exposure for primary (all) events or for front/back independently, at given direction."""
+      if event_class==-1: #Return exposure for both front and back
+         return N.append(\
+            N.fromiter((self.exposure[0].value(dir,e) for e in energies),float),\
+            N.fromiter((self.exposure[1].value(dir,e) for e in energies),float))
+      elif event_class==0: #Return front exposure only
+         return N.fromiter((self.exposure[0].value(dir,e) for e in energies),float)
+      else: #Return back exposure
+         return N.fromiter((self.exposure[1].value(dir,e) for e in energies),float)
+
+   def change_IRF(self,filename):
+      fnames = [filename,filename.replace('front','back')]
+      self.ea = [EffectiveArea(filename=fname) for fname in fnames]
+      self.exposure = [Exposure(self.lt,ea) for ea in self.ea]
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
@@ -127,7 +169,7 @@ class ModelResponse(object):
 
       self.event_class = -1
       self.simps = 8 #Good for about 0.02% accuracy
-      self.dir = pl.SkyDir(0,0)
+      self.dir = SkyDir(0,0)
       self.exposure_correction = None
       self.random = False
       self.ltfrac = 1.
@@ -309,7 +351,7 @@ def main():
    emap=ExposureMap(TPpath+'HANDOFF_front_100b_30_700000_TestPattern.fits',\
       TPpath+'HANDOFF_back_100b_30_700000_TestPattern.fits')
    m=ModelResponse(bands,emap)
-   d=pl.SkyDir(200,45)
+   d=SkyDir(200,45)
    m.update(event_class=-1,dir=d)
 
    expected = [quad(lambda e: emap(d,[e])[0]/e**2,b[i],b[i+1],full_output=1)[0] for i in xrange(len(b)-1)]
