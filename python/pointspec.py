@@ -1,6 +1,6 @@
 """  spectral fit interface class SpectralAnalysis
     
-    $Header$
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.1 2008/10/29 14:00:13 burnett Exp $
 
 """
 import os
@@ -9,17 +9,54 @@ from numpy import *
 class SpectralAnalysis(object):
     """ 
     Interface to Matthew's spectral analysis code
+
+
     """
     
     
     def __init__(self,  event_files, history_files,  **kwargs):
+        """
+        call signature::
 
-        self.event_files, self.history_files = event_files, history_files
+  sa = SpectralAnalysis(event_files, history_files,  **kwargs)
+
+
+Create a new spectral analysis wrapper instance.  
+
+    event_files: a list of event files (FT1) to process (or a single file)
+    history_files: a list of spacecraft history files (FT2) to process (or a single file).
+
+Optional keyword arguments:
+
+  =========   =======================================================
+  Keyword     Description
+  =========   =======================================================
+  roi_dir     [None] direction to use if exposure calculation will be limited; otherwise use all sky                                                                                  
+  roi_radius  [ 25]                                                                                  
+  livetimefile [None] Exposure file: if specified and not found, create from FT2/FT1 info                                                                                 
+  datafile    [None]  HEALpix data file: if specified and not found, create from FT1 info                                                                               
+  diffusefile Full path to diffuse file, like  GP_gamma_conventional.fits                                   
+  emin        [100] Minimum energy                                                                                 
+  emax        [None] Maximum energy: if not specified no limit                                                                                
+  binsperdecade [4] When generating Bands from the FT1 data.                                                                                   
+  method      ['MP'] Fit method                                                                                
+  extended_likelihood [False] Use extended likelihood                                                                         
+  event_class  [-1] Select event class (-1: all, 0: front, 1:back)                                                                                  
+  CALDB =     [None] If not specified, will use environment variable
+  irf         ='P6_v1_diff'                                                                         
+  quiet       [False] Set True to suppress (some) output                                                                               
+  class_level [ 3]  select class level (set 0 for gtobssim                                                             
+  maxROI      [25] maximum ROI for PointSourceLikelihood to use
+  =========   =======================================================
+  """
+
+        self.event_files = event_files if type(event_files)==type([]) else [event_files] 
+        self.history_files=history_files if type(history_files)==type([]) else [history_files]
         self.roi_dir     =None
         self.roi_radius  = 25
         self.livetimefile=None
         self.datafile    =None 
-        self.diffusefilename=r'f:\glast\data\galprop\GP_gamma_conventional.fits'
+        self.diffusefile=r'f:\glast\data\galprop\GP_gamma_conventional.fits'
         self.emin        = 100
         self.emax        = None
         self.binsperdecade=4
@@ -33,6 +70,10 @@ class SpectralAnalysis(object):
         self.maxROI      =25 # for PointSourceLikelihood
         self.__dict__.update(kwargs) 
 
+        # check explicit files
+        for filename in  [self.diffusefile, self.CALDB] :
+            if filename is not None and not os.path.exists(filename):
+                raise Exception('file name or path "%s" not found'%filename)
         self.setup()
 
     class WrapExposure(object):
@@ -82,8 +123,12 @@ class SpectralAnalysis(object):
 
         
     def get_livetime(self,  zenithcut=105,  pixelsize=1.0):
-        from skymaps import LivetimeCube, Gti
+        from skymaps import LivetimeCube, Gti, SkyDir
         if self.livetimefile is None or not os.path.exists(self.livetimefile):
+            if self.roi_dir is None:
+                # no roi specified: use full sky
+                self.roi_dir = SkyDir(0,0)
+                self.roi_radius = 180
             lt = LivetimeCube(
                 cone_angle=self.roi_radius,\
                 dir=self.roi_dir,\
@@ -127,7 +172,7 @@ class SpectralAnalysis(object):
         print ' -->effective areas at 1 GeV: ', ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
         self.exposure = [Exposure(self.lt,ea) for ea in self.ea]
 
-        self.diffuse = DiffuseFunction(self.diffusefilename)
+        self.diffuse = DiffuseFunction(self.diffusefile)
         self.background = Background(self.diffuse, self.exposure[0], self.exposure[1]) # array interface does not work
         PointSourceLikelihood.set_background(self.background)
    
