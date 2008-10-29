@@ -1,6 +1,6 @@
 """  spectral fit interface class SpectralAnalysis
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.1 2008/10/29 14:00:13 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.2 2008/10/29 18:45:43 burnett Exp $
 
 """
 import os
@@ -14,7 +14,7 @@ class SpectralAnalysis(object):
     """
     
     
-    def __init__(self,  event_files, history_files,  **kwargs):
+    def __init__(self,  event_files, history_files, diffuse_file, **kwargs):
         """
         call signature::
 
@@ -25,6 +25,7 @@ Create a new spectral analysis wrapper instance.
 
     event_files: a list of event files (FT1) to process (or a single file)
     history_files: a list of spacecraft history files (FT2) to process (or a single file).
+    diffusefile:  Full path to diffuse file, like  GP_gamma_conventional.fits                                   
 
 Optional keyword arguments:
 
@@ -35,14 +36,13 @@ Optional keyword arguments:
   roi_radius  [ 25]                                                                                  
   livetimefile [None] Exposure file: if specified and not found, create from FT2/FT1 info                                                                                 
   datafile    [None]  HEALpix data file: if specified and not found, create from FT1 info                                                                               
-  diffusefile Full path to diffuse file, like  GP_gamma_conventional.fits                                   
   emin        [100] Minimum energy                                                                                 
   emax        [None] Maximum energy: if not specified no limit                                                                                
   binsperdecade [4] When generating Bands from the FT1 data.                                                                                   
   method      ['MP'] Fit method                                                                                
   extended_likelihood [False] Use extended likelihood                                                                         
   event_class  [-1] Select event class (-1: all, 0: front, 1:back)                                                                                  
-  CALDB =     [None] If not specified, will use environment variable
+  CALDB       [None] If not specified, will use environment variable
   irf         ='P6_v1_diff'                                                                         
   quiet       [False] Set True to suppress (some) output                                                                               
   class_level [ 3]  select class level (set 0 for gtobssim                                                             
@@ -52,28 +52,28 @@ Optional keyword arguments:
 
         self.event_files = event_files if type(event_files)==type([]) else [event_files] 
         self.history_files=history_files if type(history_files)==type([]) else [history_files]
-        self.roi_dir     =None
+        self.roi_dir     = None
         self.roi_radius  = 25
-        self.livetimefile=None
-        self.datafile    =None 
-        self.diffusefile=r'f:\glast\data\galprop\GP_gamma_conventional.fits'
+        self.livetimefile= None
+        self.datafile    = None 
+        self.diffusefile = diffuse_file
         self.emin        = 100
         self.emax        = None
         self.binsperdecade=4
         self.method      = 'MP'
         self.extended_likelihood=False
-        self.event_class  =-1 
-        self.CALDB = 'f:\\glast\\packages\\ScienceTools-v9r7p1\\irfs\\caldb\\v0r7p1\\CALDB\\data\\glast\\lat'
+        self.event_class  = -1 
+        self.CALDB       = None #'f:\\glast\\packages\\ScienceTools-v9r7p1\\irfs\\caldb\\v0r7p1\\CALDB\\data\\glast\\lat'
         self.irf         ='P6_v1_diff'
         self.quiet       = False
         self.class_level = 3  # select class level
-        self.maxROI      =25 # for PointSourceLikelihood
+        self.maxROI      = 25 # for PointSourceLikelihood
         self.__dict__.update(kwargs) 
 
         # check explicit files
-        for filename in  [self.diffusefile, self.CALDB] :
+        for filename in  [self.event_files[0], self.history_files[0], self.diffusefile, self.CALDB] :
             if filename is not None and not os.path.exists(filename):
-                raise Exception('file name or path "%s" not found'%filename)
+                raise Exception('SpectralAnalysis setup: file name or path "%s" not found'%filename)
         self.setup()
 
     class WrapExposure(object):
