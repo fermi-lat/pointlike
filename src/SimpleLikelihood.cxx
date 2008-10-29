@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.51 2008/10/21 20:20:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.52 2008/10/22 21:54:06 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -13,6 +13,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.51 
 #include <numeric>
 #include <iomanip>
 #include <fstream>
+#include <stdexcept>
 
 using astro::SkyDir;
 using skymaps::SkySpectrum;
@@ -61,8 +62,8 @@ namespace {
             , m_F( f.integral(umax) ) // for normalization of the PSF
             , m_sum(0), m_count(0)
             , m_sumu(0) // average u, useful for calibration
-            , m_pixels(0)
             , m_back(background )
+            , m_pixels(0)
             , m_maxu_found(0)
         {
             if(debug){
@@ -546,7 +547,7 @@ void SimpleLikelihood::setTolerance(double tol)
     s_tolerance = tol;
 }
 
-void SimpleLikelihood::recalc(bool subset) 
+void SimpleLikelihood::recalc(bool /*subset*/) 
 {
     // create set of ( 1/(f(u)/Fbar-1), weight) pairs in  m_vec2
     m_vec2.clear();
@@ -567,8 +568,8 @@ void SimpleLikelihood::recalc(bool subset)
 
 double SimpleLikelihood::TSmap(astro::SkyDir sdir)const
 {
+#if 0 // old version, keep for reference
     SimpleLikelihood* self = const_cast<SimpleLikelihood*>(this);
-#if 0
     SkyDir old_dir(m_dir);
     m_dir = sdir;
     self->reload( true); // recalculate
