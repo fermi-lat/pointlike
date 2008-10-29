@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Wed Oct 29 07:00:13 PDT 2008
+pointlike/python
+
+Modified Files:
+	Fitters.py Models.py Response.py SourceLib.py psf.py 
+Added Files:
+	pointspec.py 
+Log Message:
+changes by Matthew; new module pointspec
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-13-01, operation: add
 Package: pointlike
