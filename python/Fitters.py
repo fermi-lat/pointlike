@@ -4,7 +4,6 @@
 
 import numpy as N
 import math as M
-import pointlike as pl
 from Models import *
 from types import *
 from scipy.optimize import leastsq,fmin,brute,fmin_powell,fsolve,brentq,fminbound,newton,brent
@@ -148,7 +147,10 @@ class SpectralFitter(object):
                return x
          print key+' not found in SourceList.'
       else:
-         print 'Invalid key for SourceList.  Must provide integer, slice, or valid source name.' 
+         print 'Invalid key for SourceList.  Must provide integer, slice, or valid source name.'
+
+
+
 
 
 #-----------------------------------------------------------------------------------------------#
@@ -488,11 +490,43 @@ class ConditionalPoissonLikelihood(PoissonLikelihood):
       expected=self.source.response(model=model)[self.mask]
       return self.norm_terms + expected[self.zero_mask].sum() +\
          (expected/self.alphas-self.photons*N.log(expected/self.alphas)).sum()
-      
-      #Experimental GLM terms
-      #return ((expected-self.photons*self.alphas*N.log(expected))/(1+10*self.sigmas**2)).sum()
-      #return ((expected-self.photons*self.alphas*N.log(expected))/ \
-      #   (self.alphas+self.photons*self.sigmas**2/self.alphas)).sum()
+
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+
+class ExtendedPoissonLikelihood(PoissonLikelihood):
+   """Use the exended likelihood functionality of pointlike to fit a source spectrum."""
+
+   def __init__(self,source,**kwargs):
+      """Set up variables and cut on poorly-fit bins."""
+      self.init()
+      self.__dict__.update(kwargs)
+
+      mask=source.global_data.mask()
+      self.zero_mask = N.logical_and(mask,source.photons == 0)
+      self.mask = N.logical_and(mask,source.photons > 0)
+      self.slikes = source.slikes[self.mask]      
+      self.photons = source.photons[self.mask]
+      self.bg = N.array([x.background() for x in self.slikes])
+      self.source = source
+
+   def init(self):
+      self.emulate_unbinned = True
+ 
+   def __call__(self,parameters,*args):
+      """Return the (negative) log likelihood."""
+      model=args[0]
+      model.p=parameters
+      expected=self.source.response(model=model) #already accounts for PSF correction factor
+      mask = self.mask
+      alphas = expected[mask] / (self.bg + expected[mask])
+      spatial_likes = sum( (self.slikes[i](alphas[i]) for i in xrange(len(alphas))) )
+      poiss_likes = (expected[mask] + self.bg - self.photons*N.log(expected[mask] + self.bg)).sum()
+      #likes = sum( (self.slikes[i].logLikelihood(expected[self.mask][i]) for i in xrange(len(self.slikes))) )
+      zterms = 0 if self.emulate_unbinned else expected[self.zero_mask].sum()
+      #print spatial_likes,poiss_likes,zterms
+      return spatial_likes + poiss_likes + zterms
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#

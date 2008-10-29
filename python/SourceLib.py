@@ -1,12 +1,14 @@
 """Modules for the interface to the spectral fitting code.
 
 """
+from pointlike import Data,PointSourceLikelihood,SimpleLikelihood,Draw
+from skymaps import Background,DiffuseFunction,SkyDir,EffectiveArea,LivetimeCube
 import pointlike as pl
 from Response import *
 from Fitters import *
 from Models import *
 from SourcePlot import *
-from fitstools import *
+#from fitstools import *
 from psf import PSF
 
 #Additional modules
@@ -286,11 +288,10 @@ class Source:
 
       if not method in self.fitters:
          self.fitters+=[method]
-         if method=='MP':
-            self.MP=PoissonFitter(source=self,method='Marginal',printfit=printfit,lsfirst=lsfirst)
-         elif method=='CP':
-            self.CP=PoissonFitter(source=self,method='Conditional',printfit=printfit,lsfirst=lsfirst)
-         else:
+         d = {'MP':'Marginal','CP':'Conditional','EP':'Extended'} #Group Poisson fitters
+         if method in d:
+            exec('self.%s=PoissonFitter(source=self,method=d[method],printfit=printfit,lsfirst=lsfirst)'%(method))
+         else: #Least squares fitter
             self.LS=LSFitter(source=self, printfit=printfit)
       
       exec('fitter=self.%s'%method)
@@ -319,7 +320,7 @@ class SingleSourceFit(object):
       self.historyfile = historyfile
 
       self.psl_setup()
-      self.response_setup()
+      #self.response_setup()
       self.open_data()
    
    def init(self):
@@ -340,33 +341,43 @@ class SingleSourceFit(object):
       self.use_mc_psf = False #Use MC for PSF; if False, use estimation from data
       self.f_ecube_file = None
       self.verbose = True
+      self.pixelsize = 1.
+      self.irf = 'P6_v1_diff'
+      self.extended = False #only for localization and signal estimation
+      self.neighbours = None
+      self.custom_background = None # a Background object if set
+      self.use_pointlike_exposure = True
 
    def open_data(self):
       from pointfit import photonmap
-      pl.Data.setEnergyBins(pl.DoubleVector(self.bins))
-      pl.Data.set_class_level(self.classlevel)
-      pl.Data.set_theta_cut(self.theta_cut)
-      pl.Data.set_zenith_angle_cut(self.zenith_angle_cut)
+      from skymaps import PhotonBinner
+      self.pb = PhotonBinner(self.bins)
+      Data.setPhotonBinner(self.pb)
+      #Data.setEnergyBins(pl.DoubleVector(self.bins))
+      Data.set_class_level(self.classlevel)
+      Data.set_theta_cut(self.theta_cut)
+      Data.set_zenith_angle_cut(self.zenith_angle_cut)
       if self.alignment:
-         pl.Data.setHistoryFile(self.historyfile)
-         pl.Data.set_alignment('default')
+         Data.setHistoryFile(self.historyfile)
+         Data.set_alignment('default')
       self.data = photonmap(self.datafiles,pixeloutput=self.pixeloutput,\
                   tstart=self.tstart,tstop=self.tstop,ignorepix=self.ignorepix)
       self.bpd = self.data.map()
 
    def psl_setup(self):
       self.psf = PSF(use_mc=self.use_mc_psf)
-      self.psf.set_sigmas()
-      pl.PointSourceLikelihood.setDefaultUmax(self.umax)
-      pl.PointSourceLikelihood.set_maxROI(self.maxROI)
-      pl.PointSourceLikelihood.set_energy_range(1.01*self.bins[0])
-      if self.background is None: return
-      else:
-         self.diffuse = pl.DiffuseFunction(self.background)
-         pl.PointSourceLikelihood.set_diffuse(self.diffuse)
-
+      #self.psf.set_sigmas()
+      PointSourceLikelihood.setDefaultUmax(self.umax)
+      PointSourceLikelihood.set_maxROI(self.maxROI)
+      PointSourceLikelihood.set_energy_range(1.01*self.bins[0])
+      #if self.background is None: return
+      #else:
+      #   self.diffuse = DiffuseFunction(self.background)
+      #   PointSourceLikelihood.set_background(self.diffuse)
+   """
    def response_setup(self):
       self.bands = EnergyBands(self.bins[:-1],[self.bins[-1]])
+
       if self.f_ecube_file is None:
          self.emap = Exposure(self.historyfile,ft1files=self.datafiles,fovcut=self.theta_cut,zenithcut=self.zenith_angle_cut)
       else:
@@ -374,18 +385,60 @@ class SingleSourceFit(object):
          self.emap = ExposureMap(front_emap_file = fe, back_emap_file = fe.replace('front','back'))
       self.response = ModelResponse(self.bands,self.emap)
       self.global_data = GlobalData(self.emap,self.response,fitmask = self.fitmask)
-
+   """
    def set_source(self,name,ra,dec):
-      src_dir = pl.SkyDir(ra,dec)
-      psl = pl.PointSourceLikelihood(self.bpd,name,src_dir)
-      self.psf.set_gammas(psl)
+
+      self.src_dir = src_dir = SkyDir(ra,dec)
+      self.bands = EnergyBands(self.bins[:-1],[self.bins[-1]])
+      if self.f_ecube_file is None:
+         if not self.use_pointlike_exposure:
+            from fitstools import Exposure as my_Exposure
+            self.emap = my_Exposure(self.historyfile,ft1files=self.datafiles,fovcut=self.theta_cut,zenithcut=self.zenith_angle_cut)
+         else:
+            self.emap = ExposureMap2(src_dir,self.historyfile,self.datafiles,self.irf,self.maxROI,self.pixelsize,self.zenith_angle_cut)
+      else:
+         fe = self.f_ecube_file
+         self.emap = ExposureMap(front_emap_file = fe, back_emap_file = fe.replace('front','back'))
+      #self.emap = ExposureMap2(src_dir,self.historyfile,self.datafiles,self.irf,self.maxROI,self.pixelsize,self.zenith_angle_cut)
+      self.response = ModelResponse(self.bands,self.emap)
+      self.global_data = GlobalData(self.emap,self.response,fitmask = self.fitmask)
+      if self.background is not None and self.custom_background is None:
+         self.diffuse = DiffuseFunction(self.background)
+         self.background_obj = Background(self.diffuse, self.emap.exposure[0], self.emap.exposure[1]) # array interface does not work
+         SimpleLikelihood.enable_extended_likelihood(self.extended)
+         PointSourceLikelihood.set_background(self.background_obj)
+      if self.custom_background is not None:
+         PointSourceLikelihood.set_background(self.custom_background)
+     
+      
+      psl = PointSourceLikelihood(self.bpd,name,src_dir)
+      self.psf.set_psf_params(psl)
+      """
+      n_psls = []
+      if self.neighbours is not None:         
+         for data in self.neighbours:
+            n_psl = PointSourceLikelihood(self.bpd,data[0],data[1])
+            self.psf.set_psf_params(n_psl)
+            n_psls += [n_psl]
+            n_psl.maximize()
+            psl.addBackgroundPointSource(n_psl)            
       psl.maximize()
+      for n_psl in n_psls:
+         n_psl.addBackgroundPointSource(psl)
+         n_psl.maximize()
+      psl.clearBackgroundPointSource()
+      for n_psl in n_psls:
+         psl.addBackgroundPointSource(n_psl)
+      psl.maximize()
+      self.n_psls = n_psls
+      """
       if self.localize:
          self.err_radius = psl.localize()
          print 'Position difference:  %.3f +/- %.3f'%(psl.dir().difference(src_dir)*180/N.pi,self.err_radius*1.51)
       if self.verbose: psl.printSpectrum()
       self.psl = psl
       self.src = Source(psl,self.global_data)
+      SimpleLikelihood.enable_extended_likelihood(False)
 
    def fit_spectrum(self,models=['PowerLaw']):
       for model in models:
@@ -408,7 +461,7 @@ class SingleSourceFit(object):
          outputname = ''.join(outputname.split())
          outputname = outputname.replace('(','_')
          outputname = outputname.replace(')','_')
-      d = pl.Draw(self.bpd)
+      d = Draw(self.bpd)
       if equatorial: d.equatorial()
       d.region(self.psl.dir(),outputname,2.*float(radius)/pix,2*radius,smooth)
       
@@ -422,9 +475,9 @@ class SingleSourceFit(object):
       d = self.psl.dir()
       ra,dec = d.ra(),d.dec()
       cosdec = N.cos(dec*N.pi/180.)
-      self.resid_image = N.array([self.__residual__(pl.SkyDir(ra-dx/cosdec, dec-dy), emin, emax)\
+      self.resid_image = N.array([self.__residual__(SkyDir(ra-dx/cosdec, dec-dy), emin, emax)\
                      for dy in grid for dx in grid]).reshape((len(grid),len(grid)))
-      self.image = N.array([self.__residual__(pl.SkyDir(ra-dx/cosdec, dec-dy), emin, emax,counts=True)\
+      self.image = N.array([self.__residual__(SkyDir(ra-dx/cosdec, dec-dy), emin, emax,counts=True)\
                      for dy in grid for dx in grid]).reshape((len(grid),len(grid)))
       self.scale = scale
       #exec(';'.join( ('self.%s = %s'%x for x in ['scale','resolution'] ) )) in locals
@@ -586,8 +639,8 @@ if __name__=='__main__':
    #pl.PointSourceLikelihood.set_diffuse(diffuse)
    
    ###Instantiate PointSourceLikelihood objects for each source   
-   psl1=pl.PointSourceLikelihood(bpd1,'Source_21_Fine',pl.SkyDir(249.28,-30))
-   psl2=pl.PointSourceLikelihood(bpd2,'Source_21_Coarse',pl.SkyDir(249.28,-30))
+   psl1=pl.PointSourceLikelihood(bpd1,'Source_21_Fine',sm.SkyDir(249.28,-30))
+   psl2=pl.PointSourceLikelihood(bpd2,'Source_21_Coarse',sm.SkyDir(249.28,-30))
    for p in [psl1,psl2]:
       p.maximize()
       p.localize()
