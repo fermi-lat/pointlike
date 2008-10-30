@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Oct 30 08:45:10 PDT 2008
+pointlike/python
+
+Modified Files:
+	pointspec.py 
+Log Message:
+fix import
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-13-02, operation: add
 Package: pointlike
