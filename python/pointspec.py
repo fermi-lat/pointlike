@@ -1,8 +1,9 @@
 """  spectral fit interface class SpectralAnalysis
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.2 2008/10/29 18:45:43 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.3 2008/10/29 21:10:24 burnett Exp $
 
 """
+version='$Revision$'
 import os
 from numpy import *
 
@@ -25,7 +26,7 @@ Create a new spectral analysis wrapper instance.
 
     event_files: a list of event files (FT1) to process (or a single file)
     history_files: a list of spacecraft history files (FT2) to process (or a single file).
-    diffusefile:  Full path to diffuse file, like  GP_gamma_conventional.fits                                   
+    diffusefile:  Full path to a diffuse file, like  GP_gamma_conventional.fits                                   
 
 Optional keyword arguments:
 
@@ -33,19 +34,21 @@ Optional keyword arguments:
   Keyword     Description
   =========   =======================================================
   roi_dir     [None] direction to use if exposure calculation will be limited; otherwise use all sky                                                                                  
-  roi_radius  [ 25]                                                                                  
+  roi_radius  [ 25]  radius (deg) to use if calculate exposure or a ROI. (180 for full sky)                                                                                
   livetimefile [None] Exposure file: if specified and not found, create from FT2/FT1 info                                                                                 
+  
   datafile    [None]  HEALpix data file: if specified and not found, create from FT1 info                                                                               
+  event_class  [-1] Select event class (-1: all, 0: front, 1:back)                                                                                  
+  class_level [ 3]  select class level (set 0 for gtobssim                                                             
   emin        [100] Minimum energy                                                                                 
   emax        [None] Maximum energy: if not specified no limit                                                                                
-  binsperdecade [4] When generating Bands from the FT1 data.                                                                                   
+  binsperdecade [4] When generating Bands from the FT1 data.
+  
   method      ['MP'] Fit method                                                                                
   extended_likelihood [False] Use extended likelihood                                                                         
-  event_class  [-1] Select event class (-1: all, 0: front, 1:back)                                                                                  
   CALDB       [None] If not specified, will use environment variable
-  irf         ='P6_v1_diff'                                                                         
+  irf         ['P6_v1_diff'] Used for effective area                                                                         
   quiet       [False] Set True to suppress (some) output                                                                               
-  class_level [ 3]  select class level (set 0 for gtobssim                                                             
   maxROI      [25] maximum ROI for PointSourceLikelihood to use
   =========   =======================================================
   """
@@ -200,7 +203,7 @@ Optional keyword arguments:
         def fit(self, **kwargs):
             """ model: one of ['PowerLaw', 'BrokenPowerLaw', ...]
             """
-            from spectrum import Source
+            from SourceLib import Source
             self.fitter = Source(self.psl, self.globaldata)
             self.fitter.fit(**kwargs)
 
