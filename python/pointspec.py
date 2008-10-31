@@ -1,9 +1,9 @@
 """  spectral fit interface class SpectralAnalysis
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.3 2008/10/29 21:10:24 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.4 2008/10/30 15:45:10 burnett Exp $
 
 """
-version='$Revision$'
+version='$Revision: 1.4 $'.split()[1]
 import os
 from numpy import *
 
@@ -11,20 +11,18 @@ class SpectralAnalysis(object):
     """ 
     Interface to Matthew's spectral analysis code
 
-
     """
-    
     
     def __init__(self,  event_files, history_files, diffuse_file, **kwargs):
         """
         call signature::
 
-  sa = SpectralAnalysis(event_files, history_files,  **kwargs)
+  sa = SpectralAnalysis(event_files, history_files, diffuse_file, **kwargs)
 
 
 Create a new spectral analysis wrapper instance.  
 
-    event_files: a list of event files (FT1) to process (or a single file)
+    event_files: a list of event files (FT1) to process (or a single file). 
     history_files: a list of spacecraft history files (FT2) to process (or a single file).
     diffusefile:  Full path to a diffuse file, like  GP_gamma_conventional.fits                                   
 
@@ -43,6 +41,7 @@ Optional keyword arguments:
   emin        [100] Minimum energy                                                                                 
   emax        [None] Maximum energy: if not specified no limit                                                                                
   binsperdecade [4] When generating Bands from the FT1 data.
+  use_mc_psf  [False] Use PSF determined by MC analysis of true; otherwise as defined by data
   
   method      ['MP'] Fit method                                                                                
   extended_likelihood [False] Use extended likelihood                                                                         
@@ -66,11 +65,12 @@ Optional keyword arguments:
         self.method      = 'MP'
         self.extended_likelihood=False
         self.event_class  = -1 
-        self.CALDB       = None #'f:\\glast\\packages\\ScienceTools-v9r7p1\\irfs\\caldb\\v0r7p1\\CALDB\\data\\glast\\lat'
+        self.CALDB       = None 
         self.irf         ='P6_v1_diff'
         self.quiet       = False
         self.class_level = 3  # select class level
         self.maxROI      = 25 # for PointSourceLikelihood
+        self.use_mc_psf  = False
         self.__dict__.update(kwargs) 
 
         # check explicit files
@@ -149,6 +149,7 @@ Optional keyword arguments:
     def get_data(self):
         from skymaps import PhotonBinner
         from pointlike import Data
+
         Data.set_class_level(self.class_level)
 
         if self.datafile is None or not os.path.exists(self.datafile):
@@ -161,6 +162,22 @@ Optional keyword arguments:
         else:
             data = Data(self.datafile)
             print 'loaded datafile %s ' % self.datafile
+
+        # modify the psf parameters in the band objects, which SimpleLikelihood will then use
+        from psf import PSF
+        import math
+        self.psf = PSF(use_mc=self.use_mc_psf)
+        if not self.quiet: print 'setting PSF parameters (use_mc=%d):\n  energy class  gamma sigma(deg)'%self.use_mc_psf
+        for band in data.map():
+             e = (band.emin()*band.emax())**0.5
+             cl = band.event_class()
+             gamma = self.psf.gamma(e,cl)
+             sigma = self.psf.sigma(e,cl)
+             if not self.quiet: print '%6.0f%5d%10.1f%10.2f' % (e, cl, gamma, sigma)
+             band.setGamma(gamma)
+             band.setSigma(math.radians(sigma))
+
+        
         return data
         #self.data.info()
         
@@ -181,15 +198,33 @@ Optional keyword arguments:
    
 
     class Fitter(object):
-        """ generate spectrum"""
+        """ manage spectral fitting"""
 
         def __init__(self, globaldata, name, src_dir):
+            """
+
+            """
             from pointlike import PointSourceLikelihood
+            import math
 
             # create PointSourceLikelihood object and do fits
             PointSourceLikelihood.set_energy_range(globaldata.emin) #kluge
             self.src_dir = src_dir
             self.psl = PointSourceLikelihood(globaldata.dmap, name, self.src_dir)
+            # modify the psf parameters in the Simplelikelihood objects. (todo: modify the Band instead.)
+            print 'found PSF parameters \n  energy class  gamma sigma(deg)'
+            for s in self.psl:
+                 e = (s.band().emin()*s.band().emax())**0.5
+                 cl = s.band().event_class()
+                 gamma = s.gamma() #globaldata.psf.gamma(e,cl)
+                 sigma = math.degrees(s.sigma()) #globaldata.psf.sigma(e,cl)
+                 print '%6.0f%5d%10.1f%10.2f' % (e, cl, gamma, sigma)
+                 #s.setgamma(gamma)
+                 #s.setsigma(math.radians(sigma))
+                 #s.recalc()
+
+            #globaldata.psf.set_psf_params(self.psl)
+
             print 'TS= %6.1f' % self.psl.maximize()
             self.globaldata = globaldata
             
@@ -221,4 +256,12 @@ Optional keyword arguments:
             if date_tag: fermitime.date_tag()
 
     def fitter(self, name, source_dir):
+        """
+        return a SpecralAnalysis.Fitter object
+
+        name        name to use for output
+        source_dir  SkyDir object specifying where to start
+
+
+        """
         return SpectralAnalysis.Fitter(self, name, source_dir)
