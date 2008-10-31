@@ -1,9 +1,9 @@
 """  spectral fit interface class SpectralAnalysis
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.4 2008/10/30 15:45:10 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.5 2008/10/31 03:45:29 burnett Exp $
 
 """
-version='$Revision: 1.4 $'.split()[1]
+version='$Revision: 1.5 $'.split()[1]
 import os
 from numpy import *
 
@@ -24,7 +24,7 @@ Create a new spectral analysis wrapper instance.
 
     event_files: a list of event files (FT1) to process (or a single file). 
     history_files: a list of spacecraft history files (FT2) to process (or a single file).
-    diffusefile:  Full path to a diffuse file, like  GP_gamma_conventional.fits                                   
+    diffusefile:  Full path to a galactic diffuse file, like  GP_gamma_conventional.fits  (note isotropic)                                 
 
 Optional keyword arguments:
 
@@ -42,6 +42,8 @@ Optional keyword arguments:
   emax        [None] Maximum energy: if not specified no limit                                                                                
   binsperdecade [4] When generating Bands from the FT1 data.
   use_mc_psf  [False] Use PSF determined by MC analysis of true; otherwise as defined by data
+
+  isotropic   [(1.5e-5,2.1)] tuple of flux>100 MeV, spectral index for isotropic diffuse to add to diffuse
   
   method      ['MP'] Fit method                                                                                
   extended_likelihood [False] Use extended likelihood                                                                         
@@ -59,6 +61,7 @@ Optional keyword arguments:
         self.livetimefile= None
         self.datafile    = None 
         self.diffusefile = diffuse_file
+        self.isotropic   = (1.5e-5,2.1)  
         self.emin        = 100
         self.emax        = None
         self.binsperdecade=4
@@ -180,19 +183,22 @@ Optional keyword arguments:
         
         return data
         #self.data.info()
-        
+      
 
     def set_background(self):
-        from skymaps import Exposure, EffectiveArea, Background, DiffuseFunction
+        from skymaps import Exposure, EffectiveArea, Background, DiffuseFunction, CompositeSkySpectrum, IsotropicPowerLaw
         from pointlike import PointSourceLikelihood
         PointSourceLikelihood.set_maxROI(self.maxROI)
         if self.CALDB is not None: EffectiveArea.set_CALDB(self.CALDB)
         inst = ['front', 'back']
         self.ea  = [EffectiveArea(self.irf+'_'+x) for x in inst]
-        print ' -->effective areas at 1 GeV: ', ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
+        if not self.quiet: print ' -->effective areas at 1 GeV: ', ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
         self.exposure = [Exposure(self.lt,ea) for ea in self.ea]
 
-        self.diffuse = DiffuseFunction(self.diffusefile)
+        self.galactic_diffuse = DiffuseFunction(self.diffusefile)
+        self.isotropic_diffuse = IsotropicPowerLaw(self.isotropic[0],self.isotropic[1])
+        self.diffuse = CompositeSkySpectrum(self.galactic_diffuse);
+        self.diffuse.add(self.isotropic_diffuse)
         self.background = Background(self.diffuse, self.exposure[0], self.exposure[1]) # array interface does not work
         PointSourceLikelihood.set_background(self.background)
    
@@ -211,20 +217,6 @@ Optional keyword arguments:
             PointSourceLikelihood.set_energy_range(globaldata.emin) #kluge
             self.src_dir = src_dir
             self.psl = PointSourceLikelihood(globaldata.dmap, name, self.src_dir)
-            # modify the psf parameters in the Simplelikelihood objects. (todo: modify the Band instead.)
-            print 'found PSF parameters \n  energy class  gamma sigma(deg)'
-            for s in self.psl:
-                 e = (s.band().emin()*s.band().emax())**0.5
-                 cl = s.band().event_class()
-                 gamma = s.gamma() #globaldata.psf.gamma(e,cl)
-                 sigma = math.degrees(s.sigma()) #globaldata.psf.sigma(e,cl)
-                 print '%6.0f%5d%10.1f%10.2f' % (e, cl, gamma, sigma)
-                 #s.setgamma(gamma)
-                 #s.setsigma(math.radians(sigma))
-                 #s.recalc()
-
-            #globaldata.psf.set_psf_params(self.psl)
-
             print 'TS= %6.1f' % self.psl.maximize()
             self.globaldata = globaldata
             
