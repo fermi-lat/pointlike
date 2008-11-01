@@ -1,9 +1,9 @@
 """  spectral fit interface class SpectralAnalysis
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.6 2008/10/31 13:56:50 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.7 2008/11/01 22:25:37 burnett Exp $
 
 """
-version='$Revision: 1.6 $'.split()[1]
+version='$Revision: 1.7 $'.split()[1]
 import os
 from numpy import *
 
@@ -224,14 +224,15 @@ Optional keyword arguments:
 
             """
             from pointlike import PointSourceLikelihood
-            import math
+            from wrappers  import PointSourceLikelihoodWrapper
 
             # create PointSourceLikelihood object and do fits
             PointSourceLikelihood.set_energy_range(globaldata.emin) #kluge
             self.src_dir = src_dir
             self.psl = PointSourceLikelihood(globaldata.dmap, name, self.src_dir)
             print 'TS= %6.1f' % self.psl.maximize()
-            self.globaldata = globaldata
+            self.pslw = PointSourceLikelihoodWrapper(self.psl,globaldata.WrapExposure(globaldata.exposure))
+            self.models = []
             
         def printSpectrum(self):
             self.psl.printSpectrum()
@@ -240,25 +241,25 @@ Optional keyword arguments:
             """ add another source to the background for this one """
             self.psl.addBackgroundPointSource(other.psl)
 
-        def fit(self, **kwargs):
+        def fit(self, model='PowerLaw',**kwargs):
             """ model: one of ['PowerLaw', 'BrokenPowerLaw', ...]
             """
-            from SourceLib import Source
-            self.fitter = Source(self.psl, self.globaldata)
-            self.fitter.fit(**kwargs)
+            exec('from Models import %s'%model)
+            exec('self.models += [self.pslw.poisson(%s(**kwargs))]'%model)
 
-        def plot(self, fignum=30, date_tag=True,
-                flag='sed', cgs=False, sedweight=2  # relevant if sed only.
-                ):
-            """ spectral plot
-            
-            """
-            import SourcePlot
-            import fermitime
-            #sed(self.fitter, models = self.fitter.MP.models)
-            models = self.fitter.MP.models
-            SourcePlot.spectrum(self.fitter,models=models,flag=flag,fignum=fignum,cgs=cgs,sedweight=sedweight)
-            if date_tag: fermitime.date_tag()
+        def plot(self, fignum=1, date_tag=True, sed=True,e_weight=2,cgs=False):
+            from wrappers import PointspecPlotter
+            if sed:
+               p = PointspecPlotter(self.pslw,e_weight=e_weight,cgs=cgs,models=self.models)            
+               from pylab import figure,axes
+               figure(fignum)
+               axes(p.sed_ax)
+               if date_tag:
+                  import fermitime
+                  fermitime.date_tag()
+            else:
+               return #Counts plot TODO
+
 
     def fitter(self, name, source_dir):
         """
