@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.98 2008/10/22 21:54:06 burnett Exp $
+$Id: release.notes,v 1.99 2008/10/29 18:45:43 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 01-nov-08 v6r13p3 THB Data fix for pointspec use
  29-oct-08 v6r13p2 THB Fix linux compilation error
  22-oct-08 v6r13p1 THB Had wrong Poisson definition: fixed in SimpleLikelihood
  21-oct-08 v6r13   THB Fix standard binning functionality; need new skymaps

@@ -1,9 +1,9 @@
 """  spectral fit interface class SpectralAnalysis
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.5 2008/10/31 03:45:29 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.6 2008/10/31 13:56:50 burnett Exp $
 
 """
-version='$Revision: 1.5 $'.split()[1]
+version='$Revision: 1.6 $'.split()[1]
 import os
 from numpy import *
 
@@ -64,6 +64,7 @@ Optional keyword arguments:
         self.isotropic   = (1.5e-5,2.1)  
         self.emin        = 100
         self.emax        = None
+        self.align       = True
         self.binsperdecade=4
         self.method      = 'MP'
         self.extended_likelihood=False
@@ -158,6 +159,12 @@ Optional keyword arguments:
         if self.datafile is None or not os.path.exists(self.datafile):
             self.binner = PhotonBinner(self.binsperdecade) # per decade
             Data.setPhotonBinner(self.binner)
+            if self.align: 
+                # boresight alignment, only needed for August
+                Data.set_alignment('default')
+                for h in self.history_files:
+                    Data.setHistoryFile(h)
+
             data = Data(self.event_files)
             if self.datafile is not None:
                 print 'saving datafile %s for subsequent use' % self.datafile
@@ -186,7 +193,8 @@ Optional keyword arguments:
       
 
     def set_background(self):
-        from skymaps import Exposure, EffectiveArea, Background, DiffuseFunction, CompositeSkySpectrum, IsotropicPowerLaw
+        from skymaps import Exposure, EffectiveArea, Background,\
+            DiffuseFunction, CompositeSkySpectrum, IsotropicPowerLaw, HealpixDiffuseFunc
         from pointlike import PointSourceLikelihood
         PointSourceLikelihood.set_maxROI(self.maxROI)
         if self.CALDB is not None: EffectiveArea.set_CALDB(self.CALDB)
@@ -195,7 +203,12 @@ Optional keyword arguments:
         if not self.quiet: print ' -->effective areas at 1 GeV: ', ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
         self.exposure = [Exposure(self.lt,ea) for ea in self.ea]
 
-        self.galactic_diffuse = DiffuseFunction(self.diffusefile)
+        import pyfits
+        q = pyfits.open(self.diffusefile, memmap=1)
+        if q[1].name == 'SKYMAP': # first extension name: is it healpix?
+            self.galactic_diffuse = HealpixDiffuseFunc(self.diffusefile)
+        else:
+            self.galactic_diffuse = DiffuseFunction(self.diffusefile)
         self.isotropic_diffuse = IsotropicPowerLaw(self.isotropic[0],self.isotropic[1])
         self.diffuse = CompositeSkySpectrum(self.galactic_diffuse);
         self.diffuse.add(self.isotropic_diffuse)

@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.61 2008/10/15 02:17:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.62 2008/10/20 18:34:56 burnett Exp $
 
 */
 
@@ -69,7 +69,9 @@ void Data::setHistoryFile(const std::string& history)
         s_history->readFitsData(history);
     }
     // temporary put same file into GPS
+#if 0 // this screws up multiple files: do we need it?
     gps->setPointingHistoryFile(history);
+#endif 
 }
 
 int Data::s_class_level=3; // diffuse selection
