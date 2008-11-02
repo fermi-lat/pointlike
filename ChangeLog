@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Sat Nov  1 22:46:34 PDT 2008
+pointlike/python
+
+Modified Files:
+	pointspec.py 
+Log Message:
+Removed some obsolete code to do with Response.py and globaldata.
+    *
+------------------------------------------------------------
 User: burnett  Sat Nov  1 15:59:31 PDT 2008
 pointlike/python
 
