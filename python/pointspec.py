@@ -1,9 +1,9 @@
 """  spectral fit interface class SpectralAnalysis
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.7 2008/11/01 22:25:37 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.8 2008/11/01 22:53:47 kerrm Exp $
 
 """
-version='$Revision: 1.7 $'.split()[1]
+version='$Revision: 1.8 $'.split()[1]
 import os
 from numpy import *
 
@@ -84,23 +84,18 @@ Optional keyword arguments:
         self.setup()
 
     class WrapExposure(object):
-        """ create exposure required by GlobalData usage"""
+        """ Wrap up the C++ Exposure class to support an front/back distinction."""
         def __init__(self, exposure):
-            self.exposure = exposure;
+           self.exposure = exposure;
 
         def value(self, sdir, energy, event_class):
-            return self.exposure[event_class].value(sdir, energy)
+           return self.exposure[event_class].value(sdir, energy)
 
-        def __call__(self, sdir, energies, event_class):
-            if event_class==-1:
-                return append(fromiter((self.value(sdir,e,0) for e in energies),float),\
-                              fromiter((self.value(sdir,e,1) for e in energies),float))
-            return fromiter((self.value(sdir,e,event_class) for e in energies),float)
         
     def setup(self):
         from pointlike import  SimpleLikelihood
-        from Response import ModelResponse
-        from Fitters import EnergyBands
+        #from Response import ModelResponse
+        #from Fitters import EnergyBands
 
         # process livetime files
         self.lt = self.get_livetime()
@@ -115,19 +110,11 @@ Optional keyword arguments:
         # for fitting
         SimpleLikelihood.enable_extended_likelihood(self.extended_likelihood) 
 
-        # required to implement GlobalData use by Source
         #select bands to fit
         self.energies = fromiter((band.emin() for band in self.dmap if band.event_class()==0\
                   and band.emin()>=self.emin
                   and (self.emax is None or band.emax()<self.emax) ),float)
         print "selected energies: " , floor(self.energies+0.5)
-
-        self.sources=[] # needed for unknown reasons
-        self.ebands=EnergyBands( self.energies )
-        self.response = ModelResponse(self.ebands, SpectralAnalysis.WrapExposure(self.exposure))
-        self.mask = lambda : [True]*(len(self.energies))*2 # for front and back
-        self.bands= lambda : len(self.energies)
-
         
     def get_livetime(self,  zenithcut=105,  pixelsize=1.0):
         from skymaps import LivetimeCube, Gti, SkyDir
@@ -245,6 +232,7 @@ Optional keyword arguments:
             """ model: one of ['PowerLaw', 'BrokenPowerLaw', ...]
             """
             exec('from Models import %s'%model)
+            #exec('self.models += [self.pslw.least_squares(%s(**kwargs))]'%model)
             exec('self.models += [self.pslw.poisson(%s(**kwargs))]'%model)
 
         def plot(self, fignum=1, date_tag=True, sed=True,e_weight=2,cgs=False):
