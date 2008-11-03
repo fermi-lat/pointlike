@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Mon Nov  3 15:34:35 PST 2008
+pointlike/python
+
+Modified Files:
+	pointspec.py 
+Log Message:
+Slight changes to default settings (removed 'method'.)
+    *
+------------------------------------------------------------
 User: kerrm  Mon Nov  3 11:24:42 PST 2008
 pointlike/python
 
