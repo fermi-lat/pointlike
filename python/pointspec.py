@@ -1,9 +1,9 @@
 """  spectral fit interface class SpectralAnalysis
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.9 2008/11/02 05:46:34 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.10 2008/11/03 07:30:58 kerrm Exp $
 
 """
-version='$Revision: 1.9 $'.split()[1]
+version='$Revision: 1.10 $'.split()[1]
 import os
 from numpy import *
 
@@ -44,8 +44,7 @@ Optional keyword arguments:
   use_mc_psf  [False] Use PSF determined by MC analysis of true; otherwise as defined by data
 
   isotropic   [(1.5e-5,2.1)] tuple of flux>100 MeV, spectral index for isotropic diffuse to add to diffuse
-  
-  method      ['MP'] Fit method                                                                                
+                                                                           
   extended_likelihood [False] Use extended likelihood                                                                         
   CALDB       [None] If not specified, will use environment variable
   irf         ['P6_v1_diff'] Used for effective area                                                                         
@@ -66,7 +65,6 @@ Optional keyword arguments:
         self.emax        = None
         self.align       = True
         self.binsperdecade=4
-        self.method      = 'MP'
         self.extended_likelihood=False
         self.event_class  = -1 
         self.CALDB       = None 
@@ -233,7 +231,6 @@ Optional keyword arguments:
             """ model: one of ['PowerLaw', 'BrokenPowerLaw', ...]
             """
             exec('from Models import %s'%model)
-            #exec('self.models += [self.pslw.least_squares(%s(**kwargs))]'%model)
             exec('self.models += [self.pslw.poisson(%s(**kwargs))]'%model)
 
         def plot(self, fignum=1, date_tag=True, sed=True,e_weight=2,cgs=False):
