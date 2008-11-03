@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Sun Nov  2 23:29:43 PST 2008
+pointlike/python
+
+Modified Files:
+	wrappers.py 
+Log Message:
+Fixed an error with the PSF correction factor -- plots look better now.  (Counts plots available for residual study, although residual panel is still TODO.)
+    *
+------------------------------------------------------------
 User: kerrm  Sat Nov  1 22:46:34 PDT 2008
 pointlike/python
 
