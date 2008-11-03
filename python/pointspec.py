@@ -1,9 +1,9 @@
 """  spectral fit interface class SpectralAnalysis
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.8 2008/11/01 22:53:47 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.9 2008/11/02 05:46:34 kerrm Exp $
 
 """
-version='$Revision: 1.8 $'.split()[1]
+version='$Revision: 1.9 $'.split()[1]
 import os
 from numpy import *
 
@@ -218,7 +218,8 @@ Optional keyword arguments:
             self.src_dir = src_dir
             self.psl = PointSourceLikelihood(globaldata.dmap, name, self.src_dir)
             print 'TS= %6.1f' % self.psl.maximize()
-            self.pslw = PointSourceLikelihoodWrapper(self.psl,globaldata.WrapExposure(globaldata.exposure))
+            self.pslw = PointSourceLikelihoodWrapper(self.psl,globaldata.WrapExposure(globaldata.exposure),\
+                        emin=globaldata.emin,quiet=globaldata.quiet)
             self.models = []
             
         def printSpectrum(self):
@@ -237,16 +238,14 @@ Optional keyword arguments:
 
         def plot(self, fignum=1, date_tag=True, sed=True,e_weight=2,cgs=False):
             from wrappers import PointspecPlotter
-            if sed:
-               p = PointspecPlotter(self.pslw,e_weight=e_weight,cgs=cgs,models=self.models)            
-               from pylab import figure,axes
-               figure(fignum)
-               axes(p.sed_ax)
-               if date_tag:
-                  import fermitime
-                  fermitime.date_tag()
-            else:
-               return #Counts plot TODO
+            from pylab import figure,axes
+            figure(fignum)
+            mode = 'sed' if sed else 'counts'
+            p = PointspecPlotter(self.pslw,e_weight=e_weight,cgs=cgs,models=self.models,mode=mode)
+            axes(p.ax)
+            if date_tag:
+               import fermitime
+               fermitime.date_tag()
 
 
     def fitter(self, name, source_dir):
