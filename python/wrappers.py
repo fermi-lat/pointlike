@@ -22,22 +22,27 @@ class SimpleLikelihoodWrapper(object):
       self.exposure_points  = N.fromiter( (exposure.value(sky_dir,e,ec) for e in self.sampling_points) , float)
       self.simpsons_weights = N.log(self.sampling_points[-1] / self.sampling_points[0]) * \
                               N.asarray([1.] + ([4.,2.]*(self.n_simps/2))[:-1] + [1.])/(3.*self.n_simps)
-      self.psf_correction   = 1./(1 - (1+sl.umax()/sl.gamma())**(1-sl.gamma()))
+      self.psf_correction   = 1 - (1+sl.umax()/sl.gamma())**(1-sl.gamma()) #fraction of signal in ROI
 
       #Pieces for calculating marginalization integral; needed for speed!
       if not self.sl.extended_likelihood():
-         n_points = 200         
+         n_points = max((int(100*(self.sl.photons()/10.)**0.5) >> 1) << 1,100) #force n_points to be even
+         print n_points
          self.points = N.linspace(0.001,1,n_points+1)
          self.weights = N.asarray([1.] + ([4.,2.]*(n_points/2))[:-1] + [1.])/(3.*n_points)
          self.point_likes = N.exp( N.nan_to_num(N.fromiter( (-self.sl(a)+self.sl() for a in self.points) , float)) )
 
    def expected(self,model):
-      """Return expected counts for a source model.
+      """Return expected counts in the ROI for a source model.
       
          Integration is by Simpson's rule in log space."""
 
       return self.psf_correction*\
-         (self.simpsons_weights*self.sampling_points*model(self.sampling_points)*self.exposure_points).sum()
+            (self.simpsons_weights*self.sampling_points*model(self.sampling_points)*self.exposure_points).sum()
+
+   def avg_exposure(self):
+      """Return the logarithmic average of the exposure."""
+      return self.expected(model=lambda e: 1./e)/N.log(self.emax/self.emin)/self.psf_correction
 
    def logLikelihood(self,model):
       """Return the (negative) log likelihood.  If extended likelihood is enabled, use that.
@@ -62,9 +67,7 @@ class SimpleLikelihoodWrapper(object):
          first-order integral vanishes if e0 is the arithmetic mean.  Thus, the flux is to be
          evaluated at the arithmetic mean, properly."""
       units = (1.60218e-6)**(e_weight-1) if cgs else 1 #convert MeV to ergs
-      emin,emax = self.sampling_points[-1],self.sampling_points[0]
-      exposure = self.expected(model=lambda e: 1./e)/N.log(emax/emin)/(self.psf_correction**2) #logarithmic average
-      multi = units*self.energy()**e_weight/exposure/(emax-emin)
+      multi = units*self.energy()**e_weight/self.avg_exposure()/(self.emax-self.emin)/self.psf_correction
       a,sa,signal,photons = self.sl.alpha(),self.sl.sigma_alpha(),self.sl.signal(),self.sl.photons()
       error = (a**2*photons + (sa*photons)**2)**0.5
       return (multi*signal,multi*error)
@@ -91,6 +94,7 @@ class PointSourceLikelihoodWrapper(object):
       self.psl = psl
       self.sl_wrappers = [SimpleLikelihoodWrapper(sl,exposure,psl.dir()) for sl in psl \
                           if sl.band().emin() >= self.emin and sl.band().emax() < self.emax]
+      self.bin_centers = N.sort(list(set([x.energy() for x in self.sl_wrappers])))
       ens = N.asarray([ [x.emin,x.emax] for x in self.sl_wrappers]).flatten()
       self.emin,self.emax = ens.min(),ens.max() #replace defaults with observed
       
@@ -128,6 +132,7 @@ class PointSourceLikelihoodWrapper(object):
          if not self.quiet and not quiet:
             print '\nFit converged!  Chi-squared at best fit: %.4f'%model.chi_sq
             print str(model)+'\n'
+      return model
 
    
    def poisson(self,model,prefit=True):
@@ -189,48 +194,29 @@ class PointSourceLikelihoodWrapper(object):
          return model
 
    def spectrum(self,e_weight=0,cgs=True):
-      pairs = [ [x.energy(),x.flux(e_weight=e_weight,cgs=cgs) ] for x in self.sl_wrappers ]
-      unique_energies = list(set([x[0] for x in pairs]))
-      unique_energies.sort()
-      flux = N.zeros([2,len(unique_energies)])
-      for i in xrange(len(unique_energies)):
-         fluxes = []
-         errors = []
-         for j in xrange(len(pairs)):
-            if pairs[j][0] == unique_energies[i]:
-               fluxes += [pairs[j][1][0]]
-               errors += [pairs[j][1][1]]
-         f = sum(fluxes)/len(fluxes)
-         e = (N.asarray(errors)**2).sum()**0.5
-         flux[:,i]=f,e
-      flux = N.asarray(flux)
-      return (unique_energies,flux[0,:],flux[1,:])
+      keys,d = [str(e) for e in self.bin_centers.astype(int)],dict()
+      for key in keys: d[key] = N.zeros(3).astype(float) #flux, error, num
+      for x in self.sl_wrappers:
+         t = d[str(int(x.energy()))]
+         f,e = x.flux(e_weight=e_weight,cgs=cgs)
+         t += N.asarray([f,e**2,1.])
+      results = N.asarray([ [d[key][0]/d[key][2],d[key][1]**0.5/d[key][2]] for key in keys])
+      return (self.bin_centers,results[:,0],results[:,1])
+      #TODO -- guard against 0
 
-   def counts(self,model,background=False):
-      if background:
-         quads = [ [x.energy(),x.expected(model)+x.sl.background(),x.sl.photons(),(x.expected(model)+x.sl.background())**0.5] for x in self.sl_wrappers ]
-      else:
-         quads = [ [x.energy(),x.expected(model),x.sl.signal(),x.sl.photons()*x.sl.alpha()] for x in self.sl_wrappers ]
-      unique_energies = sort(list(set([x[0] for x in quads])))
-      expected = [0]*len(unique_energies)
-      observed = [0]*len(unique_energies)
-      errors   = [0]*len(unique_energies)
-      for i in xrange(len(unique_energies)):
-         for j in xrange(len(quads)):
-            if quads[j][0] == unique_energies[i]:
-               expected[i] += quads[j][1]
-               observed[i] += quads[j][2]
-               errors[i]   += quads[j][3] 
-      return (unique_energies,expected,observed,errors)
-
-
-class WrapExposure(object):
-   """ Wrap up the C++ Exposure class to support an front/back distinction."""
-   def __init__(self, exposure):
-      self.exposure = exposure;
-
-   def value(self, sdir, energy, event_class):
-      return self.exposure[event_class].value(sdir, energy)
+   def counts(self,model,background=True):
+      keys,d = [str(e) for e in self.bin_centers.astype(int)],dict()
+      for key in keys: d[key] = N.zeros(4).astype(float)
+      for x in self.sl_wrappers:
+         t = d[str(int(x.energy()))]
+         model_source,model_background,counts,signal_frac,signal_frac_err = \
+            x.expected(model),x.sl.background(),x.sl.photons(),x.sl.alpha(),x.sl.sigma_alpha()
+         if background:
+            t += N.asarray([model_source+model_background,counts,(model_source+model_background),1.])
+         else:
+            t += N.asarray([model_source,signal_frac*counts,signal_frac_err*signal_frac*counts,1.]) #Not right error
+      results = N.asarray([ [d[key][0]/d[key][3],d[key][1]/d[key][3],d[key][2]**0.5/d[key][3] ] for key in keys])
+      return (self.bin_centers,results[:,0],results[:,1],results[:,2])
 
 class PointspecPlotter(object):
 
@@ -240,8 +226,10 @@ class PointspecPlotter(object):
       self.models = []
       self.grid = True
       self.legend = True
+      self.mode = 'sed' #alternative is 'counts'
       self.cgs = False
       self.e_weight = 2
+      self.background_counts = False #use background model to calculate counts
    
    def __init__(self,pslw,**kwargs):
       self.init()
@@ -251,21 +239,27 @@ class PointspecPlotter(object):
       self.replot()
 
    def replot(self):
-      self.sed()
-      #self.counts()
+      exec('self.%s()'%self.mode)
 
    def addModel(self,model):
-      if model not in self.models: self.models += [model]
-      ax = self.sed_ax
-      for line in self.sed_ax.lines:
-         if line.model == model: return
-      domain = N.logspace(N.log10(self.pslw.emin),N.log10(self.pslw.emax),200)
-      units = (1.60218e-6)**(self.e_weight-1) if self.cgs else 1.
+      if model not in self.models:self.models += [model]
+      ax = self.ax
+      if N.any([line.model == model for line in ax.lines]): return
       t_axis = ax.axis()
-      lines = ax.plot(domain,domain**self.e_weight*units*model(domain),label=model.name)
-      lines[0].model = model
+      if self.mode == 'sed':
+         domain = N.logspace(N.log10(self.pslw.emin),N.log10(self.pslw.emax),200)
+         units = (1.60218e-6)**(self.e_weight-1) if self.cgs else 1.
+         lines = ax.plot(domain,domain**self.e_weight*units*model(domain),label=model.name)
+         lines[0].model = model
+
+      else:
+         x,y,obs,yerr = self.pslw.counts(model,background=self.background_counts)
+         low_yerr = N.where(y-yerr <=0,0.99*y,yerr)
+         lines = ax.errorbar(x=x,y=y,yerr=[low_yerr,yerr],linestyle=' ',label=model.name)
+         lines[0].model,lines[1][0].model,lines[1][1].model = model,model,model
       if self.legend: ax.legend(loc='lower left')
       ax.axis(t_axis)
+
 
    def delModel(self,model):
       for i in xrange(len(self.models)):
@@ -277,22 +271,27 @@ class PointspecPlotter(object):
             self.sed_ax.lines.pop(i)
             break
 
-   def sed(self):
+   def common(self):
       from pylab import axes
-      ax = self.sed_ax = axes()
+      self.ax = axes()
+      self.ax.clear()
+      self.ax.set_xscale('log')
+      self.ax.set_yscale('log')
+
+   def sed(self):
+      self.common()
+      ax = self.ax
       e_weight,cgs = self.e_weight,self.cgs
       x,y,yerr = self.pslw.spectrum(e_weight=self.e_weight,cgs=self.cgs)
       low_yerr = N.where(y-yerr <= 0,0.99*y,yerr)
-      ax.set_xscale('log')
-      ax.set_yscale('log')
+
       lines = ax.errorbar(x=x,y=y,yerr=[low_yerr,yerr],linestyle=' ',marker='o',capsize=0,label='Observed')
-      lines[0].model = None
+      lines[0].model = None,None,None
       for m in self.models:
          self.addModel(m)
       ax.grid(b=self.grid)
       if self.legend: ax.legend(loc='lower left')
-      
-      ax.axis([0.7*min(x),1.3*max(x),min(y)*0.7,max(y)*1.3])
+      ax.axis([0.7*min(x),1.3*max(x),min(y[y>0])*0.7,max(y)*1.3])
       ax.set_xlabel('$\mathrm{E\ (MeV)}$')
       en_tag = 'ergs' if cgs else 'MeV'
       if e_weight==1: ax.set_ylabel(r'$\rm{E\ dN/dE\ (ph\ cm^{-2}\ s^{-1})}$')
@@ -301,23 +300,24 @@ class PointspecPlotter(object):
       ax.set_title(self.pslw.psl.name())
       ax.e_weight,ax.cgs,ax.counts = e_weight,cgs,False
       return ax
-   """
+
    def counts(self):
-      from pylab import axes
-      ax = self.counts_ax = axes()
-      ax.set_xscale('log')
-      ax.set_yscale('log')
-      markers=['o','s','d','h','x','^','+','>']
+      self.common()
+      ax = self.ax
+      x,y,obs,yerr = self.pslw.counts(lambda e: 1,background=self.background_counts)
+      lines = ax.plot(x,obs,linestyle=' ',marker='o',label='Observed')
+      lines[0].model = None
+      markers=['s','d','h','x','^','+','>']
       for i,m in enumerate(self.models):
-         x,y,yerr = self.pslw.counts(m)
-         low_yerr = N.where(y-yerr <=0,0.99*y,yerr)
-         ax.errorbar(x=x,y=y,yerr=[low_yerr,yerr],linestyle=' ',marker=markers[i],label=m.name)
+         self.addModel(m)
+         ax.lines[-1].set_marker(markers[i])
+
       ax.grid(b=self.grid)
       if self.legend: ax.legend(loc='lower left')
 
-      ax.axis([0.7*min(x),1.3*max(x),min(y)*0.7,max(y)*1.3])
+      ax.axis([0.7*min(x),1.3*max(x),min(obs)*0.7,max(obs)*1.3])
       ax.set_xlabel('$\mathrm{E\ (MeV)}$')
       ax.set_ylabel('Counts')
       ax.set_title(self.pslw.psl.name())
       return ax
-   """
+
