@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Nov  4 16:41:13 PST 2008
+pointlike/python
+
+Modified Files:
+	Fitters.py Models.py Response.py SourceLib.py SourcePlot.py 
+	fitstools.py pointspec.py wrappers.py 
+Log Message:
+Revisions to fitstools.py to fix a bug.  Models.py now supports error estimation for the integrated flux.  Small revisions elsewhere.
+    *
+------------------------------------------------------------
 User: kerrm  Mon Nov  3 15:34:35 PST 2008
 pointlike/python
 
