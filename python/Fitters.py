@@ -68,7 +68,7 @@ class EnergyBands(object):
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
 class Mask(object):
-   """Implement a mask based on user-specified energies to exclude."""
+   """Implement a mask based on user-specified energies to include."""
    
    def __init__(self,front_ranges=[[30,300000]],back_ranges=[[30,300000]]):
       """Pass a list of ranges that will be allowed."""
@@ -231,10 +231,10 @@ class PoissonLikelihood(object):
 
    def chi_sq(self,model):
       #Calculate a "chi_sq" statistic - return a tuple with chi_sq, dof
-      mask=N.logical_and(self.source.global_data.mask(),self.source.photons>5)
-      signal=self.source.signals
       expected=self.source.response(model=model)
-      return ( (((signal[:,0][mask]-expected[mask])/signal[:,1][mask])**2).sum(),sum((1 for x in mask if x)) )
+      mask=N.logical_and(self.source.global_data.mask(),expected>5)
+      signal=self.source.signals
+      return ( ((signal[:,0][mask]-expected[mask])**2/expected[mask]).sum(),sum((1 for x in mask if x)) )
       
 
 #-----------------------------------------------------------------------------------------------#
@@ -293,7 +293,7 @@ class MarginalPoissonLikelihood(PoissonLikelihood):
 
    def init(self):
       self.photoncut = 20000
-      self.sampling_points = 300
+      self.sampling_points = 800
       self.alpha_min = 1e-3
       self.maxll = 1e8
       self.min_sec_deriv = 1e-12
@@ -518,15 +518,16 @@ class ExtendedPoissonLikelihood(PoissonLikelihood):
       """Return the (negative) log likelihood."""
       model=args[0]
       model.p=parameters
-      expected=self.source.response(model=model) #already accounts for PSF correction factor
-      mask = self.mask
+      expected=self.source.response(model=model) #already accounts for PSF correction factor      
+      point_likes = sum( (self.slikes[i].logLikelihood(expected[self.mask][i]) for i in xrange(len(self.slikes))) )
+      zterms = 0 if self.emulate_unbinned else expected[self.zero_mask].sum()
+      return point_likes + zterms
+
+      """#To calculate the Poisson likelihood here...
       alphas = expected[mask] / (self.bg + expected[mask])
       spatial_likes = sum( (self.slikes[i](alphas[i]) for i in xrange(len(alphas))) )
       poiss_likes = (expected[mask] + self.bg - self.photons*N.log(expected[mask] + self.bg)).sum()
-      #likes = sum( (self.slikes[i].logLikelihood(expected[self.mask][i]) for i in xrange(len(self.slikes))) )
-      zterms = 0 if self.emulate_unbinned else expected[self.zero_mask].sum()
-      #print spatial_likes,poiss_likes,zterms
-      return spatial_likes + poiss_likes + zterms
+      """
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
@@ -616,10 +617,10 @@ class PoissonFitter(SpectralFitter):
                self.__ls__(model)
             
             #Uncomment this statement for easier debugging
-            fit=fmin(self.l,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=1000)
+            fit=fmin(self.l,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=2000)
 
             try:
-               fit=fmin(self.l,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=1000)
+               fit=fmin(self.l,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=2000)
                warnflag=(fit[4]==1 or fit[4]==2) or fit[1]>self.maxll/10.
                if warnflag: raise Exception
 

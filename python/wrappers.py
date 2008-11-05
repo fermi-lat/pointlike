@@ -90,13 +90,15 @@ class PointSourceLikelihoodWrapper(object):
 
       self.init()
       self.__dict__.update(kwargs)
-      self.psl = psl
-      self.sl_wrappers = [SimpleLikelihoodWrapper(sl,exposure,psl.dir()) for sl in psl \
-                          if sl.band().emin() >= self.emin and sl.band().emax() < self.emax]
+      self.psl,self.exposure = psl,exposure
+      self.update()
       self.bin_centers = N.sort(list(set([x.energy() for x in self.sl_wrappers])))
       ens = N.asarray([ [x.emin,x.emax] for x in self.sl_wrappers]).flatten()
       self.emin,self.emax = ens.min(),ens.max() #replace defaults with observed
       
+   def update(self):
+      self.sl_wrappers = [SimpleLikelihoodWrapper(sl,self.exposure,self.psl.dir()) for sl in self.psl \
+                          if sl.band().emin() >= self.emin and sl.band().emax() < self.emax]
 
    def least_squares(self,model,quiet=False):
       from scipy.optimize import leastsq

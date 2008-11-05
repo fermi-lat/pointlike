@@ -127,14 +127,23 @@ class Model(object):
             t_n=n+(m-len(n))*' '
             l+=[t_n+': %.3g'%(p[i])]
          return '\n'.join(l)
-   def i_flux(self,emin=100,emax=Inf,e_weight=0,cgs=False):
+   def i_flux(self,emin=100,emax=Inf,e_weight=0,cgs=False,error=False):
       """Return integrated flux."""
+      if not self.good_fit:
+         print 'Model fit is not good, cannot calculate integrated flux.'
+         return
       func = self if e_weight == 0 else lambda e: self(e)*e**e_weight
-      units = 1.60218e-6**(e_weight-1) if cgs else 1.
+      units = 1.60218e-6**(e_weight) if cgs else 1. #extra factor from integral!
       flux =  units*quad(func,emin,emax)[0]
+      if error:
+         variances = N.diag(self.cov_matrix)
+         args = (emin,emax,e_weight,cgs,False)
+         err = (variances*self.__flux_derivs__(*args)**2).sum()**0.5
       if not cgs: flux*=self.flux_scale
-      if e_weight == 0 and self.good_fit:
-         print 'Integrated Flux > %d MeV (*%.2g) for %s model: %.2g ph/cm^2/s'%(emin,self.flux_scale,self.pretty_name,flux)
+               
+      #print 'Integral of E^%d from %d to %d MeV (*%.2g) for %s model: %.2g ph/cm^2/s'\
+      #      %(e_weight,emin,emax,self.flux_scale,self.pretty_name,flux)
+      if error: return (flux,err)
       return flux
    def copy(self):
       param_string=','.join( ( str(p) for p in self.p ) )
@@ -146,18 +155,18 @@ class Model(object):
          pass
       return a
 
-   def __flux_derivs__(self,delta = .02,*args):
-      high = self.copy()
-      low = self.copy()
+   def __flux_derivs__(self,*args):
+      delta = .02
+      hi,lo = self.copy(),self.copy()
       derivs = []
-      for i in xrange(len(high.p)):
-         high.p[i]*=(1+delta/2.)
-         low.p[i]*=(1-delta/2.)
-         derivs += [(high.i_flux(*args) - low.i_flux(*args))/(delta*self.p[i])]
-         high.p[i]/=(1+delta/2.)
-         low.p[i]/=(1-delta/2.)
+      for i in xrange(len(self.p)):
+         hi.p[i]*=(1+delta/2.)
+         lo.p[i]*=(1-delta/2.)
+         derivs += [(hi.i_flux(*args) - lo.i_flux(*args))/(delta*self.p[i])]
+         hi.p[i]/=(1+delta/2.)
+         lo.p[i]/=(1-delta/2.)
 
-      return derivs
+      return N.asarray(derivs)
 
 
 #-----------------------------------------------------------------------------------------------#

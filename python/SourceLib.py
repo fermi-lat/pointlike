@@ -399,16 +399,16 @@ class SingleSourceFit(object):
       else:
          fe = self.f_ecube_file
          self.emap = ExposureMap(front_emap_file = fe, back_emap_file = fe.replace('front','back'))
-      #self.emap = ExposureMap2(src_dir,self.historyfile,self.datafiles,self.irf,self.maxROI,self.pixelsize,self.zenith_angle_cut)
       self.response = ModelResponse(self.bands,self.emap)
-      self.global_data = GlobalData(self.emap,self.response,fitmask = self.fitmask)
+      method = 'EP' if self.extended else 'MP'
+      self.global_data = GlobalData(self.emap,self.response,fitmask = self.fitmask,method=method)
       if self.background is not None and self.custom_background is None:
          self.diffuse = DiffuseFunction(self.background)
          self.background_obj = Background(self.diffuse, self.emap.exposure[0], self.emap.exposure[1]) # array interface does not work
-         SimpleLikelihood.enable_extended_likelihood(self.extended)
          PointSourceLikelihood.set_background(self.background_obj)
       if self.custom_background is not None:
          PointSourceLikelihood.set_background(self.custom_background)
+      SimpleLikelihood.enable_extended_likelihood(self.extended)
      
       
       psl = PointSourceLikelihood(self.bpd,name,src_dir)
@@ -438,7 +438,6 @@ class SingleSourceFit(object):
       if self.verbose: psl.printSpectrum()
       self.psl = psl
       self.src = Source(psl,self.global_data)
-      SimpleLikelihood.enable_extended_likelihood(False)
 
    def fit_spectrum(self,models=['PowerLaw']):
       for model in models:
@@ -549,166 +548,3 @@ class SingleSourceFit(object):
 
    def __call__(self):
       return self.src
-      
-""" A bit outdated.            
-
-
-if __name__=='__main__':
-
-   ###------------------DEMONSTRATION AND BASIC GUIDE TO SPECTRAL FITTING------------------###
-   ###The following section demonstrates fitting an individual source using two binning schemes.
-
-   ###There is method to the commend madness -- conversation comments have 3 pound signs, while
-   ###optional bits of code are commented out with just one.
-      
-   ###Create an ExposureMap object with the output of gtexpcube (files for front, back events)
-   ###Note that the minimum, maximum energies must be outside of the extremes used for fitting
-
-   TPpath=r'f:/glast/data/SourceDetection/' #Path to TestPattern files
-   emap=ExposureMap(TPpath+'HANDOFF_front_100b_30_700000_TestPattern.fits',\
-      TPpath+'HANDOFF_back_100b_30_700000_TestPattern.fits')     
-
-
-   ###Make two different sets of energy bands.
-   ###Note that the badnds must be consistent with those used for PointSourceLikelihood.
-   ###This is most easily done by specifying the bands for both simultaneously, as done here.
-
-   b1=(10**N.arange(2,5.61,0.2)).tolist() #5 per decade
-   b2=(100*2.35**N.arange(0,10)).tolist() #2.35 multiplier
-   bands=[EnergyBands(b[:-1],[b[-1]]) for b in [b1,b2]]
-   
-   
-   ###Make a ModelResponse object (calculates counts under spectral models -- needs exposure)
-   ###This version does not do energy dispersion
-
-   response1,response2=[ModelResponse(b,emap) for b in bands]
-   
-   ###The below version does do energy dispersion (slower, marginal difference - uncomment to use)
-   ###Note that the default behaviour is to account for scattering into and out of the ROI by adding
-   ###a bin to either side of the user-specified bins.  This can be overridden by setting the bins
-   ###manually -- see the EnergyBins class.  Default Dispersion -- see Models.py
-
-   #response1,response2=[ModelResponseDispersion(b,emap,Dispersion()) for b in bands]
-
-   
-   ###One can optionally set up a Mask object to specify allowed energy ranges
-   
-   #mask1=mask2=Mask(front_ranges=[[30,300000]],back_ranges=[[30,300000]])
-   mask1=mask2=None
-   
-
-   ###The GlobalData object wraps up everything about the exposure and fitting environment
-   
-   global_data1=GlobalData(emap,response1,event_class=-1,fitmask=mask1)
-   global_data2=GlobalData(emap,response2,event_class=-1,fitmask=mask2)
-   
-   
-   ###Now, need photon events -- TWO WAYs TO ACCESS DATA
-   
-   ###1) STARTING FROM FT1 FILES
-   
-   #from glob import glob
-   #files=glob('f:/glast/data/SourceDetection/pl*v2.fits') #events from TestPattern
-   #files_bg=glob('f:/glast/data/SourceDetection/bg_low*v2.fits') #background from TestPattern
-   #pl.Data.setEnergyBins(bands1(infinity=True)) #Set the energy bands in Pointlike
-   #data1=pl.Data(files,0,0,0,20000) #Get all events, select on Source ID
-   #data1_bg=pl.Data(files_bg,-1,0,0,-1)
-   #pl.Data.setEnergyBins(bands2(infinity=True)) #Set different energy bands for the next set of data
-   #data2=pl.Data(files,0,0,0,20000)
-   #data2_bg=pl.Data(files_bg,-1,0,0,-1)
-   #bpd1=data1.map()
-   #bpd1.add(data1_bg.map())
-   #bpd2=data2.map()
-   #bpd2.add(data2_bg.map())
-   
-   ###2) STARTING FROM BINNED DATA - bins must be consistent with those specified above!!!
-
-   bpd1=pl.BinnedPhotonData('fine.fits') #Load the finely-binned data
-   #bpd1=pl.BinnedPhotonData('fine_bg.fits') #with background
-   bpd2=pl.BinnedPhotonData('coarse.fits')
-   #bpd2=pl.BinnedPhotonData('coarse_bg.fits')
-   
-   
-   ###Configure PointSourceLikelihood   
-   pl.PointSourceLikelihood.set_energy_range(b1[0]*1.01) #Set minimum energy in PSL
-
-   ###Optional: set up the background -- isotropic diffuse for the TestPattern
-   
-   #diffuse_model=pl.IsotropicPowerLaw(2e-5,2.1)
-   #diffuse=pl.Background(diffuse_model,emap.fe,emap.be)
-   #pl.PointSourceLikelihood.set_diffuse(diffuse)
-   
-   ###Instantiate PointSourceLikelihood objects for each source   
-   psl1=pl.PointSourceLikelihood(bpd1,'Source_21_Fine',sm.SkyDir(249.28,-30))
-   psl2=pl.PointSourceLikelihood(bpd2,'Source_21_Coarse',sm.SkyDir(249.28,-30))
-   for p in [psl1,psl2]:
-      p.maximize()
-      p.localize()
-      p.maximize()
-
-   ###Combine pointlike and speclike by creating Source objects
-   s1=Source(psl1,global_data1)
-   s2=Source(psl2,global_data2)
-
-   ###Now, we can do some fits -- we test out and compare the three different methods of spectral fitting
-   ###1) Marginal Poisson is the "best" and slowest; it uses Poisson statistics, good for low counts,
-   ###     and also includes the uncertainty in the background/source separation by Pointlike.
-   ###2) Conditional Poisson -- quick, uses Poisson statistics, but does *not* factor in the uncerainty
-   ###     from Pointlike.
-   ###3) Least Squares -- fastest, uses Gaussian approximation so only accurate for ~10 or more photons in
-   ###     a bin.  Uses "propagation of errors" estimation to combine Poisson and Pointlike uncertainty.
-
-   ###To change event class or energy masks, call "update" in the appropriate GlobalData class.
-   ###We can also specify the starting position in parameter space.
-   ###Note these initial positions are far from the nominal values (2e-9, 1.6) to test convergence.
-   
-   
-   ###Test out the fit with all three methods
-
-   printfit=True #True for verbose fitting
-   methods = ['MP', 'CP', 'LS']
-   for m in methods:
-      s1.fit(model='PowerLaw', p = (1e-6,3.0) ,method = m , printfit=printfit)
-      s2.fit(model='PowerLaw', p = (1e-6,3.0) ,method = m , printfit=printfit)
-
-
-   ###This is a demonstration of accessing the fitted parameters.   
-   
-   method_names=['Marginal Poisson', 'Conditional Poisson', 'Least Squares']
-   for i in xrange(len(methods)):
-      exec('fit1=s1.%s.models[0]'%methods[i])
-      exec('fit2=s2.%s.models[0]'%methods[i])
-   
-      print '\n\nResults for the %s fitter:'%method_names[i]
-      print 'Fine binning  : Norm: %.2e +/- %.2e, Index: %.2f +/- %.2e'\
-         %(fit1.p[0],fit1.cov_matrix[0,0]**0.5,fit1.p[1],fit1.cov_matrix[1,1]**0.5)
-      print 'Coarse binning: Norm: %.2e +/- %.2e, Index: %.2f +/- %.2e'\
-         %(fit2.p[0],fit2.cov_matrix[0,0]**0.5,fit2.p[1],fit2.cov_matrix[1,1]**0.5)
-
-
-
-   ###-------------------------PRIMITIVE UNFOLDING TO ESTIMATE SED-----------------------###
-   ###An inversion of the IRF matrix allows one to estimate the spectral energy distribution.
-   ###One must use ModelResponseDispersion rather than ModelResponse.  If one unfolds a source,
-   ###the unfold spectrum can be viewed by calling sed -- see section below on Plotting.
-   
-   s1.unfold()
-   s2.unfold()
-
-   
-   
-   ###---------------------PLOTTING -- REQUIRED Pylab (Matplotlib)--------------------###
-   
-   from SourcePlot import *
-
-   ###Plot the spectral energy density of the Marginal Poisson fits
-   
-   sed(s1,models=s1.MP.models,fignum=30)
-   sed(s2,models=s2.MP.models,fignum=31)
-
-   ###We can also plot signal counts vs. model counts
-   
-   counts(s1,models=s1.MP.models,fignum=32)
-   counts(s2,models=s2.MP.models,fignum=33)
- 
- """

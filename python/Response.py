@@ -67,7 +67,8 @@ class ExposureMap2(object):
          if type(ev_files) is not ListType: ev_files = [ev_files]
          if type(history_files) is not ListType: history_files = [history_files]
          self.lt = LivetimeCube(cone_angle=cone_angle,dir=src_dir,pixelsize=pixelsize,zcut=N.cos(zcut*N.pi/180))
-         self.lt.load(history_files[0],  Gti(ev_files[0])) #This needs to be fixed
+         from fitstools import FT1_to_GTI
+         self.lt.load(history_files[0],  FT1_to_GTI(ev_files)) #This needs to be fixed
 
       #print ev_files[0]
       #print history_files[0]
@@ -89,6 +90,7 @@ class ExposureMap2(object):
       fnames = [filename,filename.replace('front','back')]
       self.ea = [EffectiveArea(filename=fname) for fname in fnames]
       self.exposure = [Exposure(self.lt,ea) for ea in self.ea]
+
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
