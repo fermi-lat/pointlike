@@ -4,6 +4,7 @@
 
 #import uw.pointlike
 import pointlike as pl
+import skymaps as sm
 from SourceLib import *
 import numpy as N
 import pylab as P
@@ -24,7 +25,7 @@ class Image(object):
         if 'ra' in dir(s): ra, dec = s.ra(), s.dec()
         else: ra,dec = s.dir().ra(), s.dir().dec()
         cosdec = math.cos(math.radians(dec))
-        self.image = N.array([fun.integral(pl.SkyDir(ra-dx/cosdec, dec-dy), emin, emax)\
+        self.image = N.array([fun.integral(sm.SkyDir(ra-dx/cosdec, dec-dy), emin, emax)\
                    for dy in grid for dx in grid]).reshape((len(grid),len(grid)))
         delta = self.image.max() - self.image.min()
         self.offset=(anchor-delta/2)
@@ -35,12 +36,12 @@ class Image(object):
 
         scale=self.scale
         if 'radial' in kwargs and kwargs['radial']==True:
-            d = pl.SkyDir(self.ra,self.dec)
+            d = sm.SkyDir(self.ra,self.dec)
             grid = N.linspace(-scale, scale, self.resolution)
             import math
             ra,dec = self.ra,self.dec
             cosdec = math.cos(math.radians(dec))
-            grid = 180/N.pi*N.array([d.difference(pl.SkyDir(ra-dx/cosdec, dec-dy))\
+            grid = 180/N.pi*N.array([d.difference(sm.SkyDir(ra-dx/cosdec, dec-dy))\
                    for dy in grid for dx in grid]).reshape((len(grid),len(grid)))
             temp_xs = grid.ravel()
             sorting = N.argsort(temp_xs)
@@ -386,7 +387,7 @@ def spectrum(s,models=None,flag='sed',fignum=30,sedweight=1,cgs=False):
    
    for i,model in enumerate([x for x in models if x.good_fit]):
       if flag=='sed':
-         cgs_scale = sedweight*1.60218e-6 if cgs else 1
+         cgs_scale = (1.60218e-6)**(sedweight-1) if cgs else 1
          codomain_fit=domain_fit**sedweight*model(domain_fit)*cgs_scale
          codomain_res=domain**sedweight*model(domain)*cgs_scale
          ls,ms='-',0
@@ -417,7 +418,7 @@ def spectrum(s,models=None,flag='sed',fignum=30,sedweight=1,cgs=False):
 	ticks,locs=P.xticks()
 	P.xticks(ticks,tuple(['' for x in locs]))
    ma=codomain.max()*1.8
-   mi=max(codomain[codomain>uplim].min()*0.3,ma/(1.8)/1e4)
+   mi=max(codomain[codomain>uplim].min()*0.3,ma/(1.8)/1e2)
    #dma,dmi=0.64*domain[N.argmin(N.abs(codomain-ma))],1.32*domain[N.argmin(N.abs(codomain-mi))]
    #dma,dmi=0.64*domain[0],1.32*domain[N.argmin(N.abs(codomain-mi))]
    dma,dmi=domain[0]*0.6/1000,domain[-1]*1.6/1000

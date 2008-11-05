@@ -7,7 +7,6 @@ import pyfits as pf
 import numpy as N
 from types import ListType
 from math import cos,sin,pi
-from scipy.interpolate.interpolate import interp2d
 
 def sum_ltcubes(files,outputfile = 'summed_ltcube.fits'):
    """Pass either a name of an ASCII file with other FITS file names or a list of filenames."""
@@ -36,13 +35,15 @@ def merge_flight_data(files, outputfile = 'merged_data.fits', cuts = None, colum
 
    event_table = __merge_events__(handles, table_name = table_name)      
 
-   if cuts is not None and columns is not none:
+   if cuts is not None and columns is not None:
       __arbitrary_cuts__(event_table,cuts,columns)
+      interval = [event_table.data.field('TIME').min(),event_table.data.field('TIME').max()]
+   else: interval = None
 
    #Overwrite data in dummy table and write it to file
    handles[0][table_name].data = event_table.data
    if table_name == 'EVENTS':
-      handles[0]['GTI'].data = __merge_gti__(handles).data
+      handles[0]['GTI'].data = __merge_gti__(handles,interval=interval).data
    handles[0].writeto(outputfile,clobber=True)
    
    for x in handles: x.close()
@@ -68,6 +69,16 @@ def merge_ft1files(files,outputfile = 'merged_ft1.fits',cuts = None, columns = N
    
    for x in handles: x.close()
 
+def FT1_to_GTI(files):
+   if type(files) is not ListType: files = [files]
+   handles = __get_handles__(files)
+   from skymaps import Gti
+   g = Gti(files[0])
+   starts,stops = __merge_gti__(handles[1:],no_table = True)
+   if len(starts) == 0: return g
+   for i in xrange(len(starts)):
+      g.insertInterval(starts[i],stops[i])
+   return g
 
 class Livetime(object):
 
@@ -361,6 +372,7 @@ class Exposure:
    def change_IRF(self,frontfile = None):
       self.ea = EffectiveArea(frontfile = frontfile)
       self.energies = self.event_class = None
+
       
 class BinnedPicture(object):
    
@@ -449,7 +461,6 @@ def __FITS_parse__(files):
    """Parse input and return a list of (FITS) filenames.
 
       files -- a glob-style wildcard, an ASCII file containing a list of filenames, a list of filenames, or a single FITS file."""
-   from types import ListType
    if type(files) is ListType: return files
    try: #See if it's a FITS file
       f = pf.open(files)
@@ -499,8 +510,10 @@ def __merge_events__(handles,table_name = 'EVENTS'):
       previous_loc += num_events[i]
    return event_table
 
-def __merge_gti__(handles,no_table=False):
+def __merge_gti__(handles,no_table=False,interval=None):
    """Return a FITS table of merged GTI."""
+
+   if len(handles) == 0: return ([],[])
 
    #Merge the gti and sort the results
    starts = N.concatenate([x['GTI'].data.field('START') for x in handles])
@@ -508,6 +521,11 @@ def __merge_gti__(handles,no_table=False):
    sorting = N.argsort(starts)
    starts = starts[sorting]
    stops = stops[sorting]
+
+   if interval is not None:
+      mask   = N.logical_and(starts > interval[0], stops < interval[1])
+      starts = N.append(interval[0],starts[mask])
+      stops  = N.append(stops[mask],interval[1])
 
    if no_table: return (starts,stops)
 
@@ -518,6 +536,9 @@ def __merge_gti__(handles,no_table=False):
 
    return gti_table
 
+
+
+
 def __arbitrary_cuts__(events,cuts,columns):
    """Perform the cuts provided as arguments.
 
@@ -526,16 +547,14 @@ def __arbitrary_cuts__(events,cuts,columns):
               ['ENERGY>100','MET > 5000','MET < 10000']
       columns -- a list of the columns involved in the cuts to save me some parsing effort"""
 
-   from numarray import array as narray
-   mask = N.asarray([True]*events.data.shape[0])
-   for entry in columns: #put columns in namespace with approprate data
+   from numarray import array,logical_and
+   mask = array([True]*events.data.shape[0])
+   for entry in columns: #put columns in namespace with appropriate data
       exec('%s = events.data.field(\'%s\')'%(entry,entry))
    for cut in cuts: #build mask cumulatively
-      exec('mask = N.logical_and(mask,%s)'%cut)
-   #print int(sum(mask))
-   new_table = pf.new_table(events.columns,nrows=int(sum(mask)))
-   mask = narray(mask)
-   for i in xrange(len(columns)):
+      exec('mask = logical_and(mask,%s)'%cut)
+   new_table = pf.new_table(events.columns,nrows=len(mask[mask]))
+   for i in xrange(len(events.columns)):
       new_table.data.field(i)[:] = events.data.field(i)[mask]
    events.data = new_table.data
    

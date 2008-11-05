@@ -1,9 +1,9 @@
 """  spectral fit interface class SpectralAnalysis
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.10 2008/11/03 07:30:58 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.11 2008/11/03 23:34:35 kerrm Exp $
 
 """
-version='$Revision: 1.10 $'.split()[1]
+version='$Revision: 1.11 $'.split()[1]
 import os
 from numpy import *
 
@@ -226,6 +226,7 @@ Optional keyword arguments:
         def add_source(self, other):
             """ add another source to the background for this one """
             self.psl.addBackgroundPointSource(other.psl)
+            self.pslw.update()
 
         def fit(self, model='PowerLaw',**kwargs):
             """ model: one of ['PowerLaw', 'BrokenPowerLaw', ...]
