@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Nov  8 13:24:10 PST 2008
+pointlike/python
+
+Added Files:
+	pixeldata.py 
+Log Message:
+factor handling of data to independent module
+    *
+------------------------------------------------------------
 User: kerrm  Tue Nov  4 16:41:13 PST 2008
 pointlike/python
 
