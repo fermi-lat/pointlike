@@ -1,6 +1,6 @@
 /** @file BandBackground.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/BandBackground.cxx,v 1.2 2008/10/20 02:58:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/BandBackground.cxx,v 1.3 2008/10/21 02:50:45 burnett Exp $
 
 */
 
@@ -16,38 +16,18 @@ namespace {
 }
 void BandBackground::set_verbose(bool q){verbose=q;} 
 
-BandBackground::BandBackground(const skymaps::CompositeSkySpectrum& background, const skymaps::Band& band)
+BandBackground::BandBackground(const skymaps::SkySpectrum& background, const skymaps::Band& band)
 : m_background(background)
 , m_band(band)
 , m_emin(band.emin())
 , m_emax(band.emax())
 , m_event_class(band.event_class())
-{
-    const skymaps::SkySpectrum* t = background.front().second;
-    m_diffuse = dynamic_cast<const skymaps::Background*>(t);
-    if( verbose) {
-        SkyDir dir(128.836064,-45.176432);
-        std::cout << "emin, emax, event_class:" 
-            <<  m_emin << ", " << m_emax << ", " << m_event_class 
-            << " value at Vela: " 
-            << operator()(dir)
-            << " average over 10 deg: " << average(dir,10.0*M_PI/180 ,0.1)
-            << " average over 1 deg: " << average(dir,  1.0*M_PI/180 ,0.1)
-            << std::endl;
-    }
-
-}
+{}
 
 
 
 double BandBackground::operator()(const astro::SkyDir& dir)const{
-#if 1
     return m_background.band_value(dir, m_band);
-#else
-    m_diffuse->set_event_class(m_event_class);
-
-    return m_background.integral(dir, m_emin, m_emax);
-#endif
 }
 
 
