@@ -1,7 +1,7 @@
 /** @file SourceList.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.8 2008/08/21 03:22:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.9 2008/08/28 22:42:15 burnett Exp $
 */
 
 #ifndef pointlike_SourceList_h
@@ -11,6 +11,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.8 200
 
 #include <string>
 #include <vector>
+#include <list>
 #include <map>
 
 namespace skymaps{
@@ -74,7 +75,7 @@ namespace pointlike{
     /** @class SourceList
     @brief manage a list of Source objects
     */
-    class SourceList: public std::vector<pointlike::Source> {
+    class SourceList: public std::list<pointlike::Source> {
     public:
         /** @brief ctor, initialized with map
 
