@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.61 2008/10/21 20:20:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.62 2008/10/22 21:54:06 burnett Exp $
 
 */
 
@@ -199,7 +199,9 @@ void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
                 const Band& b2( *(*bit2).first );
                 if( b1.nside() == b2.nside() && b2.sigma() == b1.sigma() ){
                     if( m_background !=0) {
-                        back= new BandBackground(*m_background, b2); // note second background
+                        // add second background for the back events -- but do not include potential other point sources
+                        const skymaps::SkySpectrum& diffuse (*(*m_background)[0].second);
+                        back= new BandBackground( diffuse, b2); 
                         sl->addBand(b2, back); 
                         m_backlist.push_back(back); // save to delete in dtor
                     }
