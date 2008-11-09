@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov  9 15:47:29 PST 2008
+pointlike/pointlike
+
+Modified Files:
+	SimpleLikelihood.h 
+Log Message:
+supply accessor to background function.
+    *
+------------------------------------------------------------
 User: burnett  Sat Nov  8 13:24:10 PST 2008
 pointlike/python
 
