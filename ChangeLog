@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov  9 15:51:37 PST 2008
+pointlike/pointlike
+
+Modified Files:
+	SourceList.h 
+Log Message:
+convert to a list, needed to maintain pointers to elements
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov  9 15:50:32 PST 2008
 pointlike/python
 
