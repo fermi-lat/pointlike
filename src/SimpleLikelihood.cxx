@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.52 2008/10/22 21:54:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.53 2008/10/29 18:45:43 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -515,18 +515,7 @@ double SimpleLikelihood::display(const astro::SkyDir& dir, int mode) const
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#if 0
-const astro::SkyFunction* SimpleLikelihood::diffuse() const
-{
-    return m_diffuse;
-}
 
-void SimpleLikelihood::setDiffuse(astro::SkyFunction* diff)
-{
-    m_diffuse = diff;
-    setDir(m_dir); // reset data
-}
-#endif
 
 double SimpleLikelihood::tolerance()
 {

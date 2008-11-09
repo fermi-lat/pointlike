@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.32 2008/10/20 18:34:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.33 2008/10/21 20:20:26 burnett Exp $
 
 */
 
@@ -155,8 +155,11 @@ public:
     /// @brief set the diffuse component
     void setDiffuse(astro::SkyFunction* diff);
 #endif
-    /// @ brief return first and second derivative
+    /// @brief return first and second derivative
     std::pair<double, double> derivatives(double x);
+
+    /// @brief access to background function
+    const skymaps::CompositeSkyFunction& background_function()const{return m_background;}
 
     static double tolerance();
     static void setTolerance(double tol);
