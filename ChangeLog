@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sun Nov  9 15:53:33 PST 2008
+pointlike/src
+
+Modified Files:
+	BandBackground.cxx 
+Log Message:
+changes needed to support merged mode
+    *
+------------------------------------------------------------
+User: burnett  Sun Nov  9 15:53:33 PST 2008
 pointlike/pointlike
 
 Modified Files:
