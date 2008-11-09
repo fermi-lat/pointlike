@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.34 2008/10/20 02:58:32 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.35 2008/10/20 23:40:25 markusa Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -184,11 +184,13 @@ public:
 %include $(POINTLIKEROOT)/pointlike/BandBackground.h
 
 %extend pointlike::SourceList{
+/* does not work for a list
    pointlike::Source & __getitem__(size_t i){ 
       if( i == (*self).size() ) throw std::range_error("StopIteration");
       if( i<0 || i > self->size() ) throw std::range_error("IndexError");
       return (*self)[i]; 
    }
+   */
    size_t __len__() {      return self->size();       }
    
    void append( pointlike::Source& s){
