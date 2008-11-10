@@ -1,9 +1,9 @@
 """  spectral fit interface class SpectralAnalysis
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.11 2008/11/03 23:34:35 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.12 2008/11/05 00:41:13 kerrm Exp $
 
 """
-version='$Revision: 1.11 $'.split()[1]
+version='$Revision: 1.12 $'.split()[1]
 import os
 from numpy import *
 
@@ -58,21 +58,26 @@ Optional keyword arguments:
         self.roi_dir     = None
         self.roi_radius  = 25
         self.livetimefile= None
-        self.datafile    = None 
-        self.diffusefile = diffuse_file
-        self.isotropic   = (1.5e-5,2.1)  
-        self.emin        = 100
-        self.emax        = None
+        self.datafile    = None
         self.align       = True
         self.binsperdecade=4
+        self.use_mc_psf  = False
+         
+        self.diffusefile = diffuse_file
+        self.isotropic   = (1.5e-5,2.1) 
+         
+        self.emin        = 100
+        self.emax        = None
         self.extended_likelihood=False
         self.event_class  = -1 
         self.CALDB       = None 
         self.irf         ='P6_v1_diff'
         self.quiet       = False
+        self.verbose     = False
+
         self.class_level = 3  # select class level
         self.maxROI      = 25 # for PointSourceLikelihood
-        self.use_mc_psf  = False
+        
         self.__dict__.update(kwargs) 
 
         # check explicit files
