@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.62 2008/10/22 21:54:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.63 2008/11/09 23:54:29 burnett Exp $
 
 */
 
@@ -166,7 +166,7 @@ void PointSourceLikelihood::setup( const skymaps::BinnedPhotonData& data )
         const Band& b = *bit;
 
         double emin(floor(b.emin()+0.5) ), emax(floor(b.emax()+0.5));
-        if( emin < s_emin && emax < s_emin ) continue;
+        if( emin < s_emin ) continue;
         if( emax > s_emax ) break;
         // 	std::cout << "XXX Pushing back energy band: " << emin << " " << emax << std::endl;
         bands.push_back(std::make_pair(&b,true));
