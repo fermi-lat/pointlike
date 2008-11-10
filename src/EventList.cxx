@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.1 2008/10/10 19:37:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.2 2008/10/12 19:20:19 burnett Exp $
 */
 
 #include "EventList.h"
@@ -22,7 +22,7 @@ using astro::SkyDir;
 
 namespace{
 
-           // file-scope pointer to gps instance
+    // file-scope pointer to gps instance
     astro::GPS* gps (astro::GPS::instance()); 
 
     int use_earth(0);  // flag to convert to Earth coordinates FIXME!
@@ -35,7 +35,7 @@ namespace{
 
 
 
-        bool isFinite(double val) {
+    bool isFinite(double val) {
         using namespace std; // should allow either std::isfinite or ::isfinite
 #ifdef WIN32 
         return (_finite(val)!=0);  // Win32 call available in float.h
@@ -43,6 +43,8 @@ namespace{
         return (isfinite(val)!=0); // gcc call available in math.h 
 #endif
     }
+    bool apply_correction(false); // set true to apply correction. disabled now
+
 
 }// anon namespace
 
@@ -66,17 +68,32 @@ void AddPhoton::operator()(const Photon& gamma)
         if( class_level< pointlike::Data::class_level() ) return; // select class level
         m_kept++;
 
-        // using GPS to make the correction, including aberration
-        gps->enableAberration();
-        gps->setAlignmentRotation(Data::get_rot(gamma.time()).inverse());
-        SkyDir fixed(gps->correct(gamma.dir(), gamma.time()));
-#if 0 // to look at a few values with the debugger
-        double ra(gamma.ra()), dec(gamma.dec());
-        double raf(fixed.ra()), decf(fixed.dec());
+
+        if( apply_correction ){
+            // using GPS to make the correction, including aberration
+            // 10Nov08: this does not seem to work, but now moot. leave code for testing with debugger
+            gps->enableAberration();
+            gps->setAlignmentRotation(Data::get_rot(gamma.time()));
+            SkyDir fixed(gps->correct(gamma.dir(), gamma.time()));
+
+
+#if 1 // to look at a few values with the debugger
+            double ra(gamma.ra()), dec(gamma.dec());
+            double raf(fixed.ra()), decf(fixed.dec());
+#endif
+#if 1 // alternate code, from old version
+            SkyDir oldfix( gamma.transform(Data::get_rot(gamma.time())) );
+            double raf2(oldfix.ra()), decf2(oldfix.dec());
+            fixed=oldfix; // replace!!!
 
 #endif
 
-        m_map.addPhoton(astro::Photon(fixed, gamma.energy(),gamma.time(),gamma.eventClass()));
+
+            m_map.addPhoton(astro::Photon(fixed, gamma.energy(),gamma.time(),gamma.eventClass()));
+        }else{
+            // no correction: just add the photon
+            m_map.addPhoton(gamma);
+        }
     }
 
 
