@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Nov 10 12:10:26 PST 2008
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx 
+Log Message:
+make emin absolute, not contained in a bin.
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov  9 15:54:29 PST 2008
 pointlike/src
 
