@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Nov 10 12:11:58 PST 2008
+pointlike/src
+
+Modified Files:
+	EventList.cxx 
+Log Message:
+disable alignment code
+    *
+------------------------------------------------------------
 User: burnett  Mon Nov 10 12:11:18 PST 2008
 pointlike/python
 
