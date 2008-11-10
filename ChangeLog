@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Nov 10 12:11:18 PST 2008
+pointlike/python
+
+Modified Files:
+	swig_setup.in 
+Log Message:
+fix sourceList enumeration
+    *
+------------------------------------------------------------
 User: burnett  Mon Nov 10 12:10:26 PST 2008
 pointlike/src
 
