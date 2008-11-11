@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: funk  Tue Nov 11 15:05:57 PST 2008
+pointlike/src
+
+Modified Files:
+	Draw.cxx ExtendedLikelihood.cxx SimpleLikelihood.cxx 
+	SourceLikelihood.cxx 
+Log Message:
+Added FixExtension and FixPosition to SourceLikelihood - few additions to Draw function - Stefan
+    *
+------------------------------------------------------------
 User: mar0  Mon Nov 10 18:29:12 PST 2008
 pointlike/src/alignment
 
