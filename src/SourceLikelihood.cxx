@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.17 2008/10/18 18:01:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.18 2008/10/20 23:40:26 markusa Exp $
 
 */
 
@@ -89,8 +89,6 @@ namespace {
     ++gFitCounter;
     
   }
-
-  
 }
 
 namespace {
@@ -208,6 +206,7 @@ SourceLikelihood::SourceLikelihood(skymaps::BinnedPhotonData& data,
   , m_type(type)
   , m_npar(src_param.size())
   , m_sourceParameters(src_param)
+  , m_sourceParametersFixMask(2+src_param.size(), false)
   , m_sourceParErrors(src_param.size(),0)
   , m_errMINOSParabolic(src_param.size()+2,0)
   , m_errMINOSPlus(src_param.size()+2,0)
@@ -216,6 +215,11 @@ SourceLikelihood::SourceLikelihood(skymaps::BinnedPhotonData& data,
   , m_out(&std::cout)
   , m_background(0){
   
+  std::cout << "Name: " << name << " Type: " << type << " npar: " << m_npar << std::endl;
+  for (int i = 0; i < m_npar; ++i){
+    std::cout << "     Parameter " << i << ": " << m_sourceParameters[i] << std::endl;
+  }
+
   if( s_diffuse !=0){
     m_background = new skymaps::CompositeSkySpectrum(s_diffuse);
   }else {
@@ -523,6 +527,59 @@ double pointlike::SourceLikelihood::localize(){
   return t;
 }
 
+void pointlike::SourceLikelihood::fixPosition(){
+
+  for (unsigned int i = 0; i < 2; ++i){
+    std::cout << "Fixing parameter " << i << std::endl;
+    m_sourceParametersFixMask[i] = true;
+  }
+  setDir(m_dir, m_sourceParameters, false);
+}
+
+void pointlike::SourceLikelihood::freePosition(){
+
+  for (unsigned int i = 0; i < 2; ++i){
+    std::cout << "Freeing parameter " << i << std::endl;
+    m_sourceParametersFixMask[i] = false;
+  }
+}
+
+void pointlike::SourceLikelihood::fixPosition(const astro::SkyDir& dir){
+
+  m_dir = dir;
+  fixPosition();
+
+}
+
+void pointlike::SourceLikelihood::fixExtension(){
+  
+  std::cout << "Fixing extension to " << m_sourceParameters[0] << std::endl;
+  std::cout << "Parameters: " << m_sourceParameters.size() << std::endl;
+  for (unsigned int i = 0; i < m_sourceParameters.size(); ++i){
+    std::cout << "Fixing source parameter " << i << std::endl;
+    m_sourceParametersFixMask[i+2] = true;
+  }
+  setDir(m_dir, m_sourceParameters,false);
+}
+
+
+void pointlike::SourceLikelihood::fixExtension(std::vector<double> radii){
+
+  for (unsigned int i = 0; i < m_sourceParameters.size(); ++i){
+    std::cout << "Fixing source parameter " << i << " to " << std::fixed<<std::setprecision(5) <<  radii[i] << std::endl;
+    m_sourceParameters[i] = radii[i];
+    m_sourceParametersFixMask[i+2] = true;
+  }
+  setDir(m_dir, m_sourceParameters,false);
+}
+
+void pointlike::SourceLikelihood::freeExtension(){
+
+  for (unsigned int i = 0; i < m_sourceParameters.size(); ++i){
+    std::cout << "Freeing parameter " << i << std::endl;
+    m_sourceParametersFixMask[i+2] = false;
+  }
+}
 
 //////////////////////////////////////////////////////
 /////// localizeMinuit: fit spectrum, localization and source extension with Minuit
@@ -592,7 +649,12 @@ double pointlike::SourceLikelihood::localizeMinuit()
   for (int i = 0; i < npar; ++i) {
     gMinuit.DefineParameter(i, parName[i].c_str(), par[i], 
 			    stepSize[i], minVal[i], maxVal[i]);
-    if (minVal[i]==maxVal[i] && maxVal[i]==0.) gMinuit.FixParameter(i);
+//     std::cout << "Defining parameter: " << i << " " << parName[i] << " " << par[i] << std::endl;
+    if (m_sourceParametersFixMask[i]) {
+      std::cout << "Fixing Parameter " << i << " " << parName[i] 
+		<< " to value: " << par[i] << std::endl;
+      gMinuit.FixParameter(i);
+    }
   }; 
   Int_t ierflag = 0; // the minuit output flag. Can be queried after each command
   

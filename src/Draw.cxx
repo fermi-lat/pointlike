@@ -1,7 +1,7 @@
 /** @file Draw.cxx
 @brief implementation of Draw
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.17 2008/10/14 23:06:03 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.18 2008/10/20 23:40:25 markusa Exp $
 
 */
 
@@ -48,19 +48,27 @@ namespace pointlike {
     unsigned int m_bin;
     double m_emin;
     double m_minalpha;
-    TSCache& m_tsvalues; 
+    std::vector<TSCache>& m_Cache;  // vector of TSCaches
+    // [0] TS-values
+    // [1] alphas
+    // [2] nCounts
+    // [3] exposure
+    // [4] model
+    int m_returnValue;
+    // see cache Index
     Likelihood * m_ps;
 
   public: 
     SkyTS(BinnedPhotonData& data, const skymaps::SkySpectrum& background,
-	  TSCache& cache, int energyBin, double minEnergy, double min_alpha):
+	  std::vector<TSCache>& cacheVec, int energyBin, double minEnergy, double min_alpha, int returnValue):
       m_data(data),
       m_background(background),
       m_nenergybins(0),
       m_bin(energyBin),
       m_emin(minEnergy),
       m_minalpha(min_alpha),
-      m_tsvalues(cache){
+      m_Cache(cacheVec),
+      m_returnValue(returnValue){
 
       for( skymaps::BinnedPhotonData::const_iterator bit = m_data.begin(); 
 	   bit!=m_data.end(); ++bit){
@@ -81,33 +89,68 @@ namespace pointlike {
 
     double operator() (const astro::SkyDir& sd) const {
 
-	if (m_tsvalues.find(sd) == m_tsvalues.end()){
-
+	if (m_Cache[0].find(sd) == m_Cache[0].end()){
 
 	  m_ps->setDir(sd,false);
 	  // 	ps->setup(m_data);
 	  m_ps->maximize();
 
-	  double t = m_ps->TS();
 	  std::vector<double> ts;
+	  std::vector<double> alphas;
+	  std::vector<double> alphaErrors;
+	  std::vector<double> counts;
+	  std::vector<double> exposure;
+	  double t = m_ps->TS();
 	  ts.push_back(t);
+	  alphas.push_back(0);
+	  alphaErrors.push_back(0);
+	  counts.push_back(0);
+	  exposure.push_back(0);
+
+	  double totalCounts   = 0;
 	  for (unsigned int i = 0; i < m_nenergybins; ++i){
-	    double e_ts = m_ps->TS(i);
-	    double e_alpha = m_ps->alpha(i);
-	    if (e_alpha < m_minalpha) e_ts = 0;
+	    double e_ts = m_ps->at(i)->TS();
+	    double e_alpha = m_ps->at(i)->alpha();
+	    double e_alphaerror = m_ps->at(i)->sigma_alpha();
+	    double e_counts = m_ps->at(i)->photons();
+	    double e_exposure =m_ps->at(i)->exposure();
+
+	    if (e_alpha < m_minalpha) {
+	      e_ts = 0;
+	      e_alpha = 0;
+	      e_alphaerror = 0;
+	    }
 	    ts.push_back(e_ts);
+	    alphas.push_back(e_alpha);
+	    alphaErrors.push_back(e_alphaerror);
+	    counts.push_back(e_counts);
+	    exposure.push_back(e_exposure);
+	    totalCounts += e_counts;
 // 	      if (e_ts > 0)
-// 		std::cout << "Using: " << std::setprecision(2) << e_alpha 
-// 			  << " "  << e_ts << " " <<  std::setprecision(0);
+// 	    std::cout << "Using: " << std::setprecision(2) << e_alpha 
+// 		      << " "  << e_ts << " " <<  std::setprecision(0);
+
+	    std::cout << "    Bin: " << i << " ts: " << e_ts << " alpha: " << e_alpha
+		      << " +- " << e_alphaerror << " cnts: " << e_counts << " exposure: "
+		      << e_exposure << " " << totalCounts << std::endl;
 	  }
-	  m_tsvalues[sd] = ts;
+
+	  counts[0] = totalCounts;
+	  m_Cache[0][sd] = ts;
+	  m_Cache[1][sd] = alphas;
+	  m_Cache[2][sd] = alphaErrors;
+	  m_Cache[3][sd] = counts;
+	  m_Cache[4][sd] = exposure;
 
 //	    m_ps->printSpectrum();
- 	    std::cout << "l="<<sd.l()<<" b="<<sd.b()<<" TS=" << t << std::endl;
+	  std::cout << "l="<<sd.l()<<" b="<<sd.b()<<" TS=" << t << " Counts=" 
+		    << totalCounts <<" exposure=" << exposure[m_nenergybins-1] << std::endl;
 // 	    std::cout << "-----" << std::endl;
-	  return ts[m_bin];
+	  return m_Cache[m_returnValue][sd][m_bin];
+	    //	  return ts[m_bin];
 	} else {
-	  return (*m_tsvalues.find(sd)).second[m_bin];
+	  return (*m_Cache[m_returnValue].find(sd)).second[m_bin];
+	  //	  return (*m_cache[0].find(sd)).second[m_bin];
 	};
       };
    };
@@ -115,9 +158,6 @@ namespace pointlike {
 
 
 }
-
-
-
 
 Draw::Draw(BinnedPhotonData& map, const skymaps::SkySpectrum* background, 
 	   bool ts, double eMin, double minalpha, bool sourcelike)
@@ -180,15 +220,38 @@ void Draw::TS(const astro::SkyDir& dir, std::string outputFile, double pixel,
 
     std::cout << "SkyTS> Constructing SkyImage with: " << nBins+1 << " layers" 
 	      << std::endl;
-    SkyImage image2(dir, outputFile, pixel, fov, nBins+1, 
-		    proj,  m_galactic, m_zenith); 
-    TSCache cache;
-    for (int i = 0; i <=nBins; ++i){
+
+    TSCache tsCache;
+    TSCache alphaCache;
+    TSCache countsCache;
+    TSCache exposureCache;
+    TSCache modelCache;
+    
+    std::vector<TSCache> caches;
+    caches.push_back(tsCache);
+    caches.push_back(alphaCache);
+    caches.push_back(countsCache);
+    caches.push_back(exposureCache);
+    caches.push_back(modelCache);
+    for (int returnValue = 0; returnValue < caches.size(); ++returnValue){
+      std::string outname = outputFile;
+      std::string replacestring("TS.fits");
+      if (outname.find("TS.fits") == std::string::npos) replacestring = std::string(".fits");
+	
+      if (returnValue == 1) outname.replace(outname.rfind(replacestring), replacestring.size(), "alphas.fits");
+      if (returnValue == 2) outname.replace(outname.rfind(replacestring), replacestring.size(), "alphasErrors.fits");
+      else if (returnValue == 3) outname.replace(outname.rfind(replacestring), replacestring.size(), "counts.fits");
+      else if (returnValue == 4) outname.replace(outname.rfind(replacestring), replacestring.size(), "exposure.fits");
+
+      std::cout << "Generating outfile: " << outname << std::endl;
+      SkyImage image2(dir, outname, pixel, fov, nBins+1, proj,  m_galactic, m_zenith); 
+
+      for (int i = 0; i <=nBins; ++i){
 //      std::cout << " SkyTS> Filling layer: " << i+1 << " emin: " << m_emin << std::endl;
-      if(m_sourcelike) image2.fill(SkyTS<SourceLikelihood>(m_map, *m_background, cache, i, m_emin, m_minalpha), i);
-      else image2.fill(SkyTS<PointSourceLikelihood>(m_map, *m_background, cache, i, m_emin, m_minalpha), i);
-    }
-		 
+	if(m_sourcelike) image2.fill(SkyTS<SourceLikelihood>(m_map, *m_background, caches, i, m_emin, m_minalpha, returnValue), i);
+	else image2.fill(SkyTS<PointSourceLikelihood>(m_map, *m_background, caches, i, m_emin, m_minalpha, returnValue), i);
+      }
+    }	 
 };		 
 
 void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel, 

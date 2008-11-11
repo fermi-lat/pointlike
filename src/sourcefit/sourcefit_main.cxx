@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/sourcefit/sourcefit_main.cxx,v 1.5 2008/09/11 06:40:22 markusa Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/sourcefit/sourcefit_main.cxx,v 1.6 2008/10/10 01:58:55 markusa Exp $
 
 */
 #include "pointlike/SourceLikelihood.h"
@@ -76,6 +76,9 @@ int main(int argc, char** argv)
     setup.getValue("bgROI", bgROI);
     setup.getValue("binningType", binType,"p6_v1/classic");
     setup.getValue("binningDensity", binDensity,0);
+
+    for (int i = 0; i < names.size(); ++i)
+      std::cout << "Name " << i << ": " << names[i] << std::endl;
 
     // flag, to designate first candidate as a central value
     int first_is_center(0);
