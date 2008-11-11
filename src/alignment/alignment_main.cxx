@@ -1,26 +1,16 @@
 /** @file alignment_main.cxx
 @brief  LAT alignment main program
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/alignment/alignment_main.cxx,v 1.4 2008/06/17 05:26:04 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/alignment/alignment_main.cxx,v 1.5 2008/11/11 01:31:16 mar0 Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
 #include "pointlike/Data.h"
 #include "pointlike/AlignProc.h"
 #include "pointlike/ParamOptimization.h"
-//#include "pointlike/Draw.h"
-//#include "pointlike/DrawTS.h"
-#include "skymaps/SkyImage.h"
-//#include "skymaps/BinnedPhotonData.h"
-//#include "astro/SkyFunction.h"
-//#include "skymaps/PhotonBinner.h"
-#include "skymaps/Exposure.h"
-#include "skymaps/DiffuseFunction.h"
-#include "skymaps/CompositeSkySpectrum.h"
 #include "embed_python/Module.h"
-//#include "healpix/Map.h"
-#include "skymaps/Convolution.h"
-
+#include "skymaps/BinnedPhotonData.h"
+#include "skymaps/IParams.h"
 
 #include <iostream>
 #include <iomanip>
@@ -46,87 +36,11 @@ void help(){
 
 }
 
-/// @class SkyDensity
-/// @brief adapt a BinnedPhotonData to give density
-class SkyDensity : public astro::SkyFunction
-{
-public:
-    SkyDensity(const skymaps::BinnedPhotonData& data, bool smooth, int mincount):
-      m_data(data),
-          m_smooth(smooth),
-          m_mincount(mincount) {}
-
-      double operator()(const astro::SkyDir & sd) const 
-      {
-          double  value;
-          if (m_smooth)
-              value = m_data.smoothDensity(sd, m_mincount);
-          else
-              value = m_data.density(sd);
-          return value;    
-      }
-private:
-    const skymaps::BinnedPhotonData& m_data;
-    bool m_smooth;
-    int m_mincount;
-};
-
-
 class AlignmentSources {
 public:
     AlignmentSources(const embed_python::Module& setup )
         :healpixdata(setup)
     {
-        
-        healpixdata.map().info();
-        
-        /*std::string dif;
-        setup.getValue("Diffuse.file",dif);
-        skymaps::DiffuseFunction df(dif);
-        int i=0;//pow(10,0.25);
-        int layers =16;
-        skymaps::Convolution cv(df,10,9);
-        skymaps::SkyImage * si  = new skymaps::SkyImage(astro::SkyDir(0,0,astro::SkyDir::GALACTIC),"allskyconv.fits",0.05,180,layers,"AIT",true,false);
-        for(;i<layers;++i)
-        {
-            cv.createConv(df,pow(2.,i*1.)*10);
-            cv.setEnergy(pow(2.,i*1.00001)*10);
-            si->fill(cv,i);
-        }
-        delete si;
-        //healpixdata.map().write("diffuse.fits");
-        Draw d(healpixdata);
-
-        d.galactic();
-        d.region(astro::SkyDir(0,0,astro::SkyDir::GALACTIC),"google117.fits",0.05,180);
-        
-        //<GOOGLE MAP STUFF>
-        /*for(int i(0);i<4;++i) {
-            for(int j(0);j<9;++j) {
-                std::stringstream s;
-                s << i << j;
-                std::string num(s.str());
-                skymaps::SkyImage * si  = new skymaps::SkyImage(astro::SkyDir(j*40+20,60-40*i),"googletest"+num+".fits",0.1,40,1,"",false,false);
-                si->fill(SkyDensity(healpixdata,false,0));
-                delete si;
-            }
-        }
-        
-        skymaps::SkyImage * si = new skymaps::SkyImage(astro::SkyDir(180,0),"google117.fits",0.05,180,1,"CAR",false,false);
-        SkyDensity skd(healpixdata,false,0);
-        si->fill(skd);
-        delete si;
-
-        //</GOOLE MAP STUFF>
-
-        // set these in calling program from the Data class
-        /*skymaps::BinnedPhotonData::const_iterator it = healpixdata.map().begin();
-        for(int i(0);i<4;++i) ++it;
-        healpix::Map<double> mp(*it,8);
-        std::vector<double> pws = mp.powspec(1<<11);
-        for(int i(0);i<pws.size();++i) {
-        fp << i+1 << "\t" << pws[i] << "\t" << pws[i]*i*(i+1) << std::endl;
-        }*/
         setup.getList("Data.files",m_filelist);  // get same list of (root for now) files as used in the Data instance
 
         // get list of candidate sources from the setup module
@@ -141,9 +55,6 @@ public:
         setup.getValue("maxerr",maxerr,97);
         separation*=M_PI/180;
 
-        if(dopsf) {
-            regfile << "global color=green font=\"helvetica 10 normal\" select=1 edit=1 move=1 delete=1 include=1 fixed=0 width=2;fk5;" << std::endl;
-        }
         std::vector<double>::iterator id = decs.begin();
         int current(0);
         for(std::vector<double>::iterator ir = ras.begin();ir!=ras.end()&&id!=decs.end();++id,++ir) {
@@ -164,17 +75,9 @@ public:
             }
         }
         names = unames;
-#if 0
-        sources.clear();
-        sources.push_back(astro::SkyDir(120,-56.4333));
-
-#endif
 
         int usefitdirection(1),lsqfit(0);
         setup.getValue("usefitdirection", usefitdirection, 1);
-        setup.getValue("lsqfit",lsqfit,0);
-        // run likelihood on all of them, select strong ones
-        PointSourceLikelihood::set_fitlsq(lsqfit);
 
         PointSourceLikelihood::setParameters(setup);
 
@@ -184,13 +87,6 @@ public:
             PointSourceLikelihood ps(healpixdata,names[i],sources[i]);
             ps.maximize();
             double err = ps.localize();
-#if 0
-            double terr=ps.localize();
-            while((err-terr)/err>0.01) {
-                err=terr;
-                terr=ps.localize();
-            }
-#endif
             double pull = 180/M_PI*sources[i].difference(ps.dir())/err;
             if(ps.TS()>25 && err<maxerr  && pull<10) { //must be 5-sigma and 1 arcmin resolution 
                 ++added;
@@ -244,6 +140,8 @@ private:
 int main(int argc, char** argv)
 {
 
+    skymaps::IParams::sigma(1,0);
+
     int rc(0);
     try{
 
@@ -256,9 +154,9 @@ int main(int argc, char** argv)
         embed_python::Module setup(python_path , "alignment_setup",  argc, argv);
 
         double total_diff=100;
-        double xrot=-10;
-        double yrot=7;
-        double zrot=-13;
+        double xrot=0;
+        double yrot=0;
+        double zrot=0;
 
         Data::set_rot(xrot,yrot,zrot);
         // report results
@@ -273,19 +171,6 @@ int main(int argc, char** argv)
             out = new std::ofstream(outfile.c_str());
         }
 
-        /*std::vector<Data*> hist;
-        int day = 20;
-        int days = 20;
-        skymaps::SkyImage * si = new skymaps::SkyImage(astro::SkyDir(119.9,-56.6),"movie86.fits",0.0125,10,days,"CAR",true);
-        for(int i(0);i<days;++i) {
-            std::cout << "******************************************************************" << std::endl;
-            std::cout << "                     " << i+1 << " of " << 102 << std::endl;
-            std::cout << "******************************************************************" << std::endl;
-            Data d(files,-1,243216766,243216766+i*i);
-            //hist.push_back(d);
-            si->fill(SkyDensity(d.map(),false,0),i);
-        }
-        delete si;*/
         // set up a list of sources for alignment, by fitting them.
         // get the parameters for rerunning the data from the Data object (list of files, time limits)
         while(total_diff>10) { 
@@ -303,8 +188,6 @@ int main(int argc, char** argv)
             // analyze the data
             double resolution;
             setup.getValue("Alignment.resolution",resolution,1);
-
-
 
             AlignProc * ap;
             if(ft2file.empty()) {
