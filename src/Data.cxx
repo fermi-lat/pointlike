@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.62 2008/10/20 18:34:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.55 2008/08/21 03:22:02 burnett Exp $
 
 */
 
@@ -109,7 +109,7 @@ namespace {
         "CTBBestEnergy", "EvtElapsedTime",
         "FT1ConvLayer","PtRaz", 
         "PtDecz","PtRax",
-        "PtDecx", "CTBClassLevel","FT1ZenithTheta"//THB, "McSourceId"//,"FT1ZenithTheta","CTBBestEnergyRatio","CTBCORE","CTBGAM"
+        "PtDecx", "CTBClassLevel","FT1ZenithTheta","FT1Theta","CTBCORE","CTBBestEnergyProb","CTBBestEnergyRatio"//THB, "McSourceId"//,"FT1ZenithTheta","CTBBestEnergyRatio","CTBCORE","CTBGAM"
     };
 
     bool isFinite(double val) {
@@ -410,12 +410,33 @@ void Data::lroot(const std::string& inputFile, int event_class) {
         tt->SetBranchStatus(root_names[j].c_str(), 1);
     }
     int entries = static_cast<int>(tt->GetEntries());
+    int bpt=entries/2;
+    int step=entries/4;
+    int bstart=0;
+    int bstop=entries;
+    if(m_start>0) {
+        for(;step>2;step/=2) {
+            tt->GetEvent(bpt);
+            double ctime = tt->GetLeaf(root_names[3].c_str())->GetValue();
+            bpt+=(m_start>ctime?step:-step);
+        }
+        bstart = bpt;
+        bpt=entries/2;
+        step=entries/4;
+        for(;step>2;step/=2) {
+            tt->GetEvent(bpt);
+            double ctime = tt->GetLeaf(root_names[3].c_str())->GetValue();
+            bpt+=(m_stop>ctime?step:-step);
+        }
+        bstop=bpt;
+    }
+    tt->GetEvent(entries-1);
+    int endtime = static_cast<int>(tt->GetLeaf("EvtElapsedTime")->GetValue());
+    if(endtime<m_start&&m_start>0) return;
     std::vector<double> row;
-    tt->GetEvent(0);
-    //int starttime = static_cast<int>(tt->GetLeaf("EvtElapsedTime")->GetValue());
     bool flag(true);
-    //for each entry  
-    for(int i(0);i<entries&&(flag||m_start==-1);++i) {
+    //for each entry
+    for(int i(bstart);i<bstop&&(flag||m_start<0);++i) {
         tt->GetEvent(i);
         //for each
         for( size_t j(0); j< sizeof(root_names)/sizeof(std::string); j++){
@@ -431,16 +452,18 @@ void Data::lroot(const std::string& inputFile, int event_class) {
             row.push_back(isFinite(v)?v:-1e8);
         }
         double time(row[3])
-            ,thetazenith(row[10]), ctbclasslevel(row[9]) ;
+            ,thetazenith(row[10]), ctbclasslevel(row[9]),theta(row[11]),core(row[12]),eprob(row[13]),ratio(row[14]) ;
 
         // perform event selection -- note uses local function events to transform
-        if( thetazenith < Data::zenith_angle_cut() 
+        if( ratio<5 && eprob>0.1 && core>0.2  && thetazenith < Data::zenith_angle_cut() && theta < Data::theta_cut()
             && ctbclasslevel>= Data::class_level() 
             && (Data::minTime()==0 || time>Data::minTime() )
             && (Data::maxTime()==0 || time<Data::maxTime() ) ) 
         {
-              m_data->addPhoton( events(row) );
+            astro::Photon p =  events(row); 
+            if (p.eventClass()==event_class||event_class==-1) m_data->addPhoton(  p);
         }
+        if(endtime<Data::minTime()||time>Data::maxTime())  flag = false;
         row.clear();
     }
     delete tf;

@@ -47,9 +47,9 @@ namespace pointlike{
                 TMatrixD fij(3,3);
                 Double_t *det=0;
                 std::vector<double> curv;
-                fij[0][0]=m_params[0];
-                fij[1][1]=m_params[2];
-                fij[2][2]=m_params[4];
+                fij[0][0]=2*m_params[0];
+                fij[1][1]=2*m_params[2];
+                fij[2][2]=2*m_params[4];
                 fij[0][1]=m_params[7];
                 fij[0][2]=m_params[8];
                 fij[1][2]=m_params[9];
@@ -76,8 +76,9 @@ namespace pointlike{
             Photona(const astro::SkyDir& dir, double energy, 
                 double time, int event_class, 
                 const astro::SkyDir& scz, 
-                const astro::SkyDir& scx)
-                : astro::Photon(dir, energy, time, event_class, 0)
+                const astro::SkyDir& scx,
+                int id=0)
+                : astro::Photon(dir, energy, time, event_class, id)
             {
                 CLHEP::Hep3Vector scy (scz().cross(scx()));
                 CLHEP::Hep3Vector sz = scz();

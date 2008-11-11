@@ -1,7 +1,7 @@
 /** 
 Data Processing file, operates on a given Photon
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.11 2008/05/02 23:31:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.12 2008/06/17 05:26:04 mar0 Exp $
 
 */
 
@@ -30,13 +30,18 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.11 2008/05
 using namespace pointlike;
 using namespace CLHEP;
 //#define PRINT
+//#define ID
 #ifdef PRINT
 std::ofstream outfile("covar.txt");
 std::ofstream surfacexyz("surfacexyz.txt");
 #endif
+#ifdef ID
+std::ofstream outfile("id.txt");
+#endif
 
 namespace{
 
+    int run=-1;
     //extra factor (kluge for now) for correcting scaled deviation
     double E6 =1000;
     int minlevel = 8;
@@ -79,15 +84,17 @@ namespace{
 #endif
     }
 
-    std::string root_names[] = {"FT1Ra", "FT1Dec", 
-        "CTBBestEnergy", "EvtElapsedTime",
-        "FT1ConvLayer","PtRaz", 
-        "PtDecz","PtRax",
-        "PtDecx", "CTBClassLevel"
+    std::string root_names[] = {"FT1Ra"/*0*/, "FT1Dec"/*1*/, 
+        "CTBBestEnergy"/*2*/, "EvtElapsedTime"/*3*/,
+        "FT1ConvLayer"/*4*/,"PtRaz"/*5*/, 
+        "PtDecz"/*6*/,"PtRax"/*7*/,
+        "PtDecx"/*8*/, "CTBClassLevel"/*9*/
+        , "EvtEventId"/*10*/
+        ,"EvtRun"/*11*/,"FT1Theta"/*12*/,"CTBCORE"/*13*/,"CTBBestEnergyProb"/*14*/,"CTBBestEnergyRatio"/*15*/
     };
 
     std::string fits_names[] = {"RA", "DEC", 
-     "ENERGY", "TIME", "EVENT_CLASS"
+        "ENERGY", "TIME", "EVENT_CLASS"
     };
 
     double scale[] = {1.,1.86,1.,1.};
@@ -113,7 +120,7 @@ m_binner(pb)
 {
     for(std::vector<std::string>::const_iterator it = files.begin();it!=files.end();++it) {
         //either load through ROOT or cfitsio
-            loadroot(*it);
+        loadroot(*it);
     }
 };
 
@@ -133,7 +140,7 @@ m_binner(pb)
     } else {
         m_ph = new astro::PointingHistory(ft2file);
         for(std::vector<std::string>::const_iterator it = files.begin();it!=files.end();++it) {
-                        loadfits(*it);
+            loadfits(*it);
         }
     }
 };
@@ -148,10 +155,33 @@ void AlignProc::loadroot(const std::string& file) {
         tt->SetBranchStatus(root_names[j].c_str(), 1);
     }
     int entries = static_cast<int>(tt->GetEntries());
+    int bpt=entries/2;
+    int step=entries/4;
+    int bstart=0;
+    int bstop=entries;
+    if(m_start>0) {
+        for(;step>2;step/=2) {
+            tt->GetEvent(bpt);
+            double ctime = tt->GetLeaf(root_names[3].c_str())->GetValue();
+            bpt+=(m_start>ctime?step:-step);
+        }
+        bstart = bpt;
+        bpt=entries/2;
+        step=entries/4;
+        for(;step>2;step/=2) {
+            tt->GetEvent(bpt);
+            double ctime = tt->GetLeaf(root_names[3].c_str())->GetValue();
+            bpt+=(m_stop>ctime?step:-step);
+        }
+        bstop=bpt;
+    }
+    tt->GetEvent(entries-1);
+    int endtime = static_cast<int>(tt->GetLeaf("EvtElapsedTime")->GetValue());
+    if(endtime<m_start&&m_start>0) return;
     std::vector<float> row;
     bool flag(true);
     //for each entry
-    for(int i(0);i<entries&&(flag||m_start<0);++i) {
+    for(int i(bstart);i<bstop&&(flag||m_start<0);++i) {
 
         tt->GetEvent(i);
         //for each
@@ -167,10 +197,17 @@ void AlignProc::loadroot(const std::string& file) {
             float v = tl->GetValue();
             row.push_back(isFinite(v)?v:-1e8);
         }
+#ifdef ID
+        if(row[11]!=run) {
+            outfile << "Run: " << static_cast<int>(row[11]) << std::endl;
+            run = row[11];
+        }
+#endif
         pointlike::AlignProc::Photona p = events(row);
-        if(row[3]>=m_start) {
+        double theta(row[12]);
+        if(row[3]>=m_start&&theta<66&&p.eventClass()<2) {
             add(p); 
-            ShowPercent(i,entries,i);
+            ShowPercent(i,entries,m_photons);
         }
         if(row[3]>m_stop) {
             flag=false;
@@ -201,6 +238,7 @@ void AlignProc::loadfits(const std::string& file ) {
         row.push_back((*m_ph)(row[3]).xAxis().dec());
         row.push_back(AlignProc::class_level());
         row.push_back(0);
+        row.push_back(0);
         pointlike::AlignProc::Photona p = events(row);
         if(row[3]>=m_start) {
             add(p); 
@@ -216,7 +254,7 @@ void AlignProc::loadfits(const std::string& file ) {
 pointlike::AlignProc::Photona AlignProc::events(std::vector<float>& row) {
     float ra(0), dec(0), energy(0); // photon info
     float raz(0), decz(0), rax(90), decx(0); // sc orientation: default orthogonal
-    double time(0);
+    double time(0),core(0),ratio(0),prob(0);
     int event_class(99);
     int flag =1;
     int source_id(0);
@@ -228,10 +266,9 @@ pointlike::AlignProc::Photona AlignProc::events(std::vector<float>& row) {
     if(flag) {
         time = row[3];
         event_class = static_cast<int>(row[4]);
-        event_class = event_class>4? 0 : 1;  // front/back map to event class 0/1
+        event_class = event_class>5? 0 : 1;  // front/back map to event class 0/1
         energy = row[2];
         class_level = static_cast<int>(row[9]);
-        source_id = static_cast<int>(row[10]);
         if( class_level < AlignProc::class_level()) event_class=99;
         else{
             ra = row[0];
@@ -240,13 +277,18 @@ pointlike::AlignProc::Photona AlignProc::events(std::vector<float>& row) {
             decz = row[6];
             rax = row[7];
             decx = row[8];
+            source_id = static_cast<int>(row[10]);
+            core=row[13];
+            prob=row[14];
+            ratio=row[15];
+            if(core<=0.2||prob<=0.1||ratio>=5) event_class = 99;
         }
     }
     pointlike::AlignProc::Photona p(astro::SkyDir(ra, dec), energy, time, event_class ,
-        astro::SkyDir(raz,decz),astro::SkyDir(rax,decx));
+        astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),source_id);
     if(event_class<99) {
-        astro::Photon ap = p.transform(AlignProc::s_hr.inverse());
-        p = pointlike::AlignProc::Photona(ap.dir(),ap.energy(),ap.time(),ap.eventClass(),astro::SkyDir(raz,decz),astro::SkyDir(rax,decx));
+        astro::Photon ap = p.transform(AlignProc::s_hr);
+        p = pointlike::AlignProc::Photona(ap.dir(),ap.energy(),ap.time(),ap.eventClass(),astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),source_id);
     }
     return p;
 }
@@ -256,7 +298,7 @@ int AlignProc::add(pointlike::AlignProc::Photona& p){
     //unused int cl = p.eventClass();
     //above healpix level 8 (mostly signal photons)
     if(p.eventClass()<2&&p.energy()>E6){
-        
+
         skymaps::Band pband = m_binner(p);
         double diff = 1e9;
         astro::SkyDir sd(0,0);
@@ -286,6 +328,9 @@ int AlignProc::add(pointlike::AlignProc::Photona& p){
         double utest = diff*diff/sigmasq/2;
         //if scaled deviation is within the cone and enough signal photons
         if(utest<s_umax&&alpha>0.15) {
+#ifdef ID
+            outfile << p.source() << std::endl;
+#endif
             added=1;
             HepRotation glast = p.Rot();
             //rotate skydirs into glast centric coordinates

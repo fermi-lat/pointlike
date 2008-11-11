@@ -1,26 +1,43 @@
 /** @file alignment_main.cxx
 @brief  LAT alignment main program
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/alignment/alignment_main.cxx,v 1.3 2008/03/06 07:22:28 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/alignment/alignment_main.cxx,v 1.4 2008/06/17 05:26:04 mar0 Exp $
 
 */
 #include "pointlike/PointSourceLikelihood.h"
 #include "pointlike/Data.h"
 #include "pointlike/AlignProc.h"
 #include "pointlike/ParamOptimization.h"
-#include "skymaps/PhotonBinner.h"
-#include "skymaps/PhotonMap.h"
+//#include "pointlike/Draw.h"
+//#include "pointlike/DrawTS.h"
+#include "skymaps/SkyImage.h"
+//#include "skymaps/BinnedPhotonData.h"
+//#include "astro/SkyFunction.h"
+//#include "skymaps/PhotonBinner.h"
+#include "skymaps/Exposure.h"
+#include "skymaps/DiffuseFunction.h"
+#include "skymaps/CompositeSkySpectrum.h"
 #include "embed_python/Module.h"
+//#include "healpix/Map.h"
+#include "skymaps/Convolution.h"
 
 
 #include <iostream>
 #include <iomanip>
 #include <fstream>
 #include <string>
+#include <sstream>
 
 //#define SELECT
 
 using namespace pointlike;
+
+namespace {
+    double dopsf=0;
+    std::ostream* out = &std::cout;
+    std::ofstream fp("sourceinfo.txt");
+    std::ofstream regfile("used.reg");
+}
 
 void help(){
     std::cout << "This program expects a single command-line parameter which is the path to a folder containing a file\n"
@@ -29,19 +46,93 @@ void help(){
 
 }
 
+/// @class SkyDensity
+/// @brief adapt a BinnedPhotonData to give density
+class SkyDensity : public astro::SkyFunction
+{
+public:
+    SkyDensity(const skymaps::BinnedPhotonData& data, bool smooth, int mincount):
+      m_data(data),
+          m_smooth(smooth),
+          m_mincount(mincount) {}
+
+      double operator()(const astro::SkyDir & sd) const 
+      {
+          double  value;
+          if (m_smooth)
+              value = m_data.smoothDensity(sd, m_mincount);
+          else
+              value = m_data.density(sd);
+          return value;    
+      }
+private:
+    const skymaps::BinnedPhotonData& m_data;
+    bool m_smooth;
+    int m_mincount;
+};
+
 
 class AlignmentSources {
 public:
     AlignmentSources(const embed_python::Module& setup )
         :healpixdata(setup)
     {
+        
+        healpixdata.map().info();
+        
+        /*std::string dif;
+        setup.getValue("Diffuse.file",dif);
+        skymaps::DiffuseFunction df(dif);
+        int i=0;//pow(10,0.25);
+        int layers =16;
+        skymaps::Convolution cv(df,10,9);
+        skymaps::SkyImage * si  = new skymaps::SkyImage(astro::SkyDir(0,0,astro::SkyDir::GALACTIC),"allskyconv.fits",0.05,180,layers,"AIT",true,false);
+        for(;i<layers;++i)
+        {
+            cv.createConv(df,pow(2.,i*1.)*10);
+            cv.setEnergy(pow(2.,i*1.00001)*10);
+            si->fill(cv,i);
+        }
+        delete si;
+        //healpixdata.map().write("diffuse.fits");
+        Draw d(healpixdata);
+
+        d.galactic();
+        d.region(astro::SkyDir(0,0,astro::SkyDir::GALACTIC),"google117.fits",0.05,180);
+        
+        //<GOOGLE MAP STUFF>
+        /*for(int i(0);i<4;++i) {
+            for(int j(0);j<9;++j) {
+                std::stringstream s;
+                s << i << j;
+                std::string num(s.str());
+                skymaps::SkyImage * si  = new skymaps::SkyImage(astro::SkyDir(j*40+20,60-40*i),"googletest"+num+".fits",0.1,40,1,"",false,false);
+                si->fill(SkyDensity(healpixdata,false,0));
+                delete si;
+            }
+        }
+        
+        skymaps::SkyImage * si = new skymaps::SkyImage(astro::SkyDir(180,0),"google117.fits",0.05,180,1,"CAR",false,false);
+        SkyDensity skd(healpixdata,false,0);
+        si->fill(skd);
+        delete si;
+
+        //</GOOLE MAP STUFF>
+
         // set these in calling program from the Data class
+        /*skymaps::BinnedPhotonData::const_iterator it = healpixdata.map().begin();
+        for(int i(0);i<4;++i) ++it;
+        healpix::Map<double> mp(*it,8);
+        std::vector<double> pws = mp.powspec(1<<11);
+        for(int i(0);i<pws.size();++i) {
+        fp << i+1 << "\t" << pws[i] << "\t" << pws[i]*i*(i+1) << std::endl;
+        }*/
         setup.getList("Data.files",m_filelist);  // get same list of (root for now) files as used in the Data instance
 
-        // get list of candidate sources from the setup module 
+        // get list of candidate sources from the setup module
         double separation,maxerr;
         std::vector<double> ras,decs;
-        std::vector<std::string> names;
+        std::vector<std::string> names,unames;
         std::vector<astro::SkyDir> sources,temp;
         setup.getList("ra_list", ras);
         setup.getList("dec_list", decs);
@@ -50,12 +141,16 @@ public:
         setup.getValue("maxerr",maxerr,97);
         separation*=M_PI/180;
 
+        if(dopsf) {
+            regfile << "global color=green font=\"helvetica 10 normal\" select=1 edit=1 move=1 delete=1 include=1 fixed=0 width=2;fk5;" << std::endl;
+        }
         std::vector<double>::iterator id = decs.begin();
         int current(0);
         for(std::vector<double>::iterator ir = ras.begin();ir!=ras.end()&&id!=decs.end();++id,++ir) {
             temp.push_back(astro::SkyDir(*ir,*id));
         }
-        for(std::vector<astro::SkyDir>::iterator it1=temp.begin();it1!=temp.end();++it1) {
+        int j(0);
+        for(std::vector<astro::SkyDir>::iterator it1=temp.begin();it1!=temp.end();++it1,++j) {
             double min = 1e9;
             for(std::vector<astro::SkyDir>::iterator it2=temp.begin();it2!=temp.end();++it2) {
                 double diff = it1->difference(*it2);
@@ -63,23 +158,41 @@ public:
                     min = diff;
                 }
             }
-            if(min>separation) sources.push_back(*it1);
+            if(min>separation) {
+                sources.push_back(*it1);
+                unames.push_back(names[j]);
+            }
         }
+        names = unames;
+#if 0
+        sources.clear();
+        sources.push_back(astro::SkyDir(120,-56.4333));
 
-        int usefitdirection(1);
+#endif
+
+        int usefitdirection(1),lsqfit(0);
         setup.getValue("usefitdirection", usefitdirection, 1);
+        setup.getValue("lsqfit",lsqfit,0);
         // run likelihood on all of them, select strong ones
+        PointSourceLikelihood::set_fitlsq(lsqfit);
 
         PointSourceLikelihood::setParameters(setup);
-        int minlevel = 8;//PointSourceLikelihood::minlevel();
-        int maxlevel = 13;//PointSourceLikelihood::maxlevel();
-        std::cout << std::left << std::setw(20) <<"name" << "     TS   error    ra     dec\n";
+
+        (*out) << std::left << std::setw(20) <<"name" << "     TS      error      ra      dec     pull\n";
         int added = 0;
         for(int i(0);i<sources.size();++i) {
             PointSourceLikelihood ps(healpixdata,names[i],sources[i]);
             ps.maximize();
             double err = ps.localize();
-            if(ps.TS()>25 && err<maxerr) { //must be 5-sigma and 1 arcmin resolution 
+#if 0
+            double terr=ps.localize();
+            while((err-terr)/err>0.01) {
+                err=terr;
+                terr=ps.localize();
+            }
+#endif
+            double pull = 180/M_PI*sources[i].difference(ps.dir())/err;
+            if(ps.TS()>25 && err<maxerr  && pull<10) { //must be 5-sigma and 1 arcmin resolution 
                 ++added;
                 used_sources.push_back( usefitdirection!=0? ps.dir() : sources[i] );
                 std::map<std::pair<int,int>,double> alphat;
@@ -88,6 +201,7 @@ public:
                 }
                 used_alphas.push_back(alphat);
                 used_names.push_back(names[i]);
+                double size = (ps[0])->sigma()*180/M_PI;
                 std::cout << std::left << std::setw(20) << names[i] 
                 << std::setprecision(2) << std::setw(8) << std::fixed << std::right
                     << ps.TS() 
@@ -95,10 +209,20 @@ public:
                     << std::setw(10) << err
                     << std::setw(10) << ps.dir().ra() 
                     << std::setw(10) << ps.dir().dec() 
+                    << std::setw(10) << pull
                     << std::endl;
-            }
+                fp << names[i] << "\t" << ps.dir().ra() << "\t" << ps.dir().dec() << "\t" << ps.TS() << "\t" << err << "\t" << pull << std::endl;
+                if(dopsf) {
+                    regfile << "circle(" << ps.dir().ra() << "," << ps.dir().dec() << "," << sqrt(ps.TS()/100) << ") # text={"<< names[i] << "};" <<std::endl;
+                }
+            }     
         }
         std::cout << "Used " << added << " of " << sources.size() << " sources" << std::endl;
+        if(dopsf) {
+            ParamOptimization po(healpixdata,used_sources);
+            po.compute();
+            po.fit_sigma();
+        }
     }
     const std::vector<astro::SkyDir>& usedSourceList()const{return used_sources;}
     const std::vector<std::map<std::pair<int,int>,double> >& usedAlphas() const{return used_alphas;}
@@ -131,61 +255,101 @@ int main(int argc, char** argv)
 
         embed_python::Module setup(python_path , "alignment_setup",  argc, argv);
 
+        double total_diff=100;
+        double xrot=-10;
+        double yrot=7;
+        double zrot=-13;
 
-        // set up a list of sources for alignment, by fitting them.
-        // get the parameters for rerunning the data from the Data object (list of files, time limits)
-        AlignmentSources sources(setup);
-        double start(sources.tstart()), stop(sources.tstop());
-
-        std::vector<astro::SkyDir> used_sources = sources.usedSourceList();
-        std::vector<std::map<std::pair<int,int>,double> > used_alphas = sources.usedAlphas();
-        std::vector<std::string> used_names = sources.usedNames();
-        std::vector<std::string> filelist = sources.filelist();
-
-
-        // copy the alignment matrix from the Data class
-
-        // analyze the data
-        double resolution;
-        setup.getValue("Alignment.resolution",resolution,1);
+        Data::set_rot(xrot,yrot,zrot);
         // report results
-        std::ostream* out = &std::cout;
+
         std::string outfile,ft2file;
+        std::vector<std::string> files;
+        setup.getList("Data.files",files);
         setup.getValue("Alignment.outfile",outfile,"");
         setup.getValue("Data.history",ft2file,"");
+        setup.getValue("dopsf",dopsf,0);
         if( !outfile.empty() ) {
             out = new std::ofstream(outfile.c_str());
         }
 
-        AlignProc * ap;
-        if(ft2file.empty()) {
-            ap = new AlignProc(used_sources,used_alphas,filelist, sources.binner(), resolution, start, stop);
+        /*std::vector<Data*> hist;
+        int day = 20;
+        int days = 20;
+        skymaps::SkyImage * si = new skymaps::SkyImage(astro::SkyDir(119.9,-56.6),"movie86.fits",0.0125,10,days,"CAR",true);
+        for(int i(0);i<days;++i) {
+            std::cout << "******************************************************************" << std::endl;
+            std::cout << "                     " << i+1 << " of " << 102 << std::endl;
+            std::cout << "******************************************************************" << std::endl;
+            Data d(files,-1,243216766,243216766+i*i);
+            //hist.push_back(d);
+            si->fill(SkyDensity(d.map(),false,0),i);
         }
-        else {
-            ap = new AlignProc(used_sources,used_alphas,filelist, ft2file, sources.binner(),resolution, start, stop);
+        delete si;*/
+        // set up a list of sources for alignment, by fitting them.
+        // get the parameters for rerunning the data from the Data object (list of files, time limits)
+        while(total_diff>10) { 
+            AlignmentSources sources(setup);
+            double start(sources.tstart()), stop(sources.tstop());
+            AlignProc::set_rot(Data::get_rot(start));
+            std::vector<astro::SkyDir> used_sources = sources.usedSourceList();
+            std::vector<std::map<std::pair<int,int>,double> > used_alphas = sources.usedAlphas();
+            std::vector<std::string> used_names = sources.usedNames();
+            std::vector<std::string> filelist = sources.filelist();
+
+
+            // copy the alignment matrix from the Data class
+
+            // analyze the data
+            double resolution;
+            setup.getValue("Alignment.resolution",resolution,1);
+
+
+
+            AlignProc * ap;
+            if(ft2file.empty()) {
+                ap = new AlignProc(used_sources,used_alphas,filelist, sources.binner(), resolution, start, stop);
+            }
+            else {
+                ap = new AlignProc(used_sources,used_alphas,filelist, ft2file, sources.binner(),resolution, start, stop);
+            }
+
+            std::vector<double> b = ap->alignment();
+
+            //output most likely rotation
+            std::cout << "Alignment corrections (arcsec):\n"
+                << std::setw(10) << "x" << std::setw(10)<< "y"<< std::setw(10)<<"z" << "\n   ";
+
+            for(int ir(0);ir<=2;++ir) {
+                std::cout << std::setprecision(1) << std::setw(10) << (b[ir]);
+                //(*out) << std::setprecision(1) << std::setw(10) << (b[ir]);
+            }
+
+            std::cout << std::endl << "+/-";
+            //output sigma values
+            AlignProc::LikeSurface l = ap->fitsurface();
+            for(int ir(0);ir<=2;++ir) {
+                std::cout << std::setprecision(1) << std::setw(10) << l.curvature()[ir];
+                //(*out) << std::setprecision(10) << l.curvature()[ir] << std::endl;
+            }
+            for(int ir=0;ir<10;++ir) {
+                (*out) << std::setprecision(7) << l(ir) << std::endl;
+            }
+            std::cout << std::endl;
+            xrot+=b[0];
+            yrot+=b[1];
+            zrot+=b[2];
+            Data::set_rot(xrot,yrot,zrot);
+            total_diff=fabs(b[0])+fabs(b[1])+fabs(b[2]);
+            delete ap;
+            if(dopsf) break;
         }
 
-
-        std::vector<double> b = ap->alignment();
-
-        //output most likely rotation
         std::cout << "Alignment corrections (arcsec):\n"
             << std::setw(10) << "x" << std::setw(10)<< "y"<< std::setw(10)<<"z" << "\n   ";
+        std::cout << std::setprecision(1) << std::setw(10) << xrot <<"\t" << yrot << "\t" << zrot;
+        //(*out) << std::setprecision(1) << std::setw(10) << (b[ir]);
 
-        for(int ir(0);ir<=2;++ir) {
-            std::cout << std::setprecision(1) << std::setw(10) << (b[ir]);
-            (*out) << std::setprecision(1) << std::setw(10) << (b[ir]);
-        }
-
-        std::cout << std::endl << "+/-";
-        //output sigma values
-        AlignProc::LikeSurface l = ap->fitsurface();
-        for(int ir(0);ir<=2;++ir) {
-            std::cout << std::setprecision(1) << std::setw(10) << l.curvature()[ir];
-            (*out) << std::setprecision(1) << std::setw(10) << l.curvature()[ir];
-        }
-        (*out) << std::endl;
-        std::cout << std::endl;
 
         if( !outfile.empty()){
             delete out;

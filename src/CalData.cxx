@@ -1,7 +1,7 @@
 /** @file CalData.cxx
 @brief implementation of CalData
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CalData.cxx,v 1.5 2008/06/30 01:43:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/CalData.cxx,v 1.6 2008/08/06 19:37:11 mar0 Exp $
 
 */
 
@@ -48,7 +48,8 @@ int CalData::class_level(){return s_class_level;}
 namespace {
 
     std::string root_names[] = {"CTBBestEnergy",
-        "FT1ConvLayer", "CTBClassLevel" ,"McDirErr","McEnergy"};
+        "Tkr1FirstLayer"/*"FT1ConvLayer"*/, "CTBClassLevel" ,"McDirErr","McEnergy","CTBCORE","CTBBestEnergyProb","CTBBestEnergyRatio"//,"FT1Theta"
+    };
 
     bool isFinite(double val) {
         using namespace std; // should allow either std::isfinite or ::isfinite
@@ -95,7 +96,7 @@ namespace {
 
         // default binner to use
     skymaps::PhotonBinner* binner(double emin,double emax) {
-        return new skymaps::PhotonBinner(3);
+        return new skymaps::PhotonBinner(4);
     }
 
     skymaps::PhotonBinner pb = *binner(0,0);
@@ -117,11 +118,12 @@ namespace {
         }
         if(flag) {
             event_class = static_cast<int>(row[1]);
-            event_class = event_class>4? 0 : 1;  // front/back map to event class 0/1
+            event_class = event_class>5? 0 : 1;  // front/back map to event class 0/1
             energy = row[0];
             //unused double mcenergy = row[4];
             class_level = static_cast<int>(row[2]);
             // NB. Selecting wired-in class definition (transient, source, diffuse
+            
             if( (class_level < CalData::class_level())||(energy<emin)||(energy>emax)||(event_class!=event_type)) event_class=99;
             else{
                 double r = 2*rand->Uniform()*M_PI;
@@ -132,6 +134,9 @@ namespace {
                 double ratio = (bb.emin()/energy);
                 double rseed = rand->Uniform();
                 if(ratio<rseed) event_class=99;
+                if(row[5]<=0.35) event_class=99;
+                if(row[6]<=0.1) event_class=99;
+                if(row[7]>=5) event_class=99;
             }
 
         }
