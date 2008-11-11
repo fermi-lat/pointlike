@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: funk  Tue Nov 11 15:05:58 PST 2008
+pointlike/src/sourcefit
+
+Modified Files:
+	sourcefit_main.cxx 
+Log Message:
+Added FixExtension and FixPosition to SourceLikelihood - few additions to Draw function - Stefan
+    *
+------------------------------------------------------------
 User: funk  Tue Nov 11 15:05:57 PST 2008
 pointlike/src
 
