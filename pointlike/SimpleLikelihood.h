@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.33 2008/10/21 20:20:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.29 2008/09/09 23:28:13 burnett Exp $
 
 */
 
@@ -124,6 +124,7 @@ public:
 
     double feval(double k);
     double geval(double k);
+    double eval(double ks,double gamma);
 
     void changepsf(){}; // note not implemented
     void setgamma(double gamma) {m_psf=skymaps::PsfFunction(gamma);}
@@ -155,7 +156,7 @@ public:
     /// @brief set the diffuse component
     void setDiffuse(astro::SkyFunction* diff);
 #endif
-    /// @brief return first and second derivative
+       /// @brief return first and second derivative
     std::pair<double, double> derivatives(double x);
 
     /// @brief access to background function

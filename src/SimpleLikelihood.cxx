@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.53 2008/10/29 18:45:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.45 2008/09/10 21:49:49 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -13,7 +13,6 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.53 
 #include <numeric>
 #include <iomanip>
 #include <fstream>
-#include <stdexcept>
 
 using astro::SkyDir;
 using skymaps::SkySpectrum;
@@ -23,6 +22,7 @@ using skymaps::PsfFunction;
 using namespace pointlike;
 
 //#define DEBUG_PRINT
+//#define DEBUG_U
 double SimpleLikelihood::s_defaultUmax =50;
 
 double  SimpleLikelihood::s_tolerance(0.05); // default:
@@ -434,7 +434,7 @@ double SimpleLikelihood::solidAngle()const{
 
 double SimpleLikelihood::feval(double k) {
     if(!m_vec.size()) return -1.0;
-    double F = m_psf.integral(k*m_umax);
+    double F = m_psf.integral(m_umax);
     double acc = 0;
     for(PixelList::const_iterator ite=m_vec.begin();ite!=m_vec.end();++ite) {
         double diff =ite->first.difference(m_dir); 
@@ -465,7 +465,31 @@ double SimpleLikelihood::geval(double k) {
         double f = ps(u);
         acc-=ite->second*log(m_alpha*f/F+(1-m_alpha)/(m_umax));
     }
-    
+
+    m_vec2.clear();
+    return acc;
+}
+
+double SimpleLikelihood::eval(double ks,double gamma) {
+    if(!m_vec.size()) return -1.0;
+    if(ks<0||gamma<0) return 1e40;
+    m_vec2.clear();
+    PsfFunction ps(gamma);
+    //maximize();
+    double F = ps.integral(ks*m_umax);
+    double acc = 0;
+    for(PixelList::const_iterator ite=m_vec.begin();ite!=m_vec.end();++ite) {
+        double diff =ite->first.difference(m_dir);
+        double u = sqr(diff/m_sigma)/2.;
+        if(u>m_umax) continue;
+#ifdef DEBUG_U
+        for(int i(0);i<ite->second;++i) u_data << u << std::endl;
+#endif
+        // just to see what is there
+        // astro::SkyDir r(x.first()); double ra(r.ra()), dec(r.dec());
+        double f = ps(ks*u);
+        acc-=ite->second*log(m_alpha*f*ks/F+(1-m_alpha)/(m_umax));
+    }
     m_vec2.clear();
     return acc;
 }
@@ -515,8 +539,6 @@ double SimpleLikelihood::display(const astro::SkyDir& dir, int mode) const
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-
-
 double SimpleLikelihood::tolerance()
 {
     return s_tolerance;
@@ -557,7 +579,7 @@ void SimpleLikelihood::recalc(bool /*subset*/)
 
 double SimpleLikelihood::TSmap(astro::SkyDir sdir)const
 {
-#if 0 // old version, keep for reference
+#if 0
     SimpleLikelihood* self = const_cast<SimpleLikelihood*>(this);
     SkyDir old_dir(m_dir);
     m_dir = sdir;
