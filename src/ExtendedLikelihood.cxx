@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.cxx
     @brief Implementation of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.5 2008/08/06 19:39:39 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.6 2008/10/20 23:40:25 markusa Exp $
 */
 
 #include "pointlike/ExtendedLikelihood.h"
@@ -395,6 +395,8 @@ std::pair<double,double> ExtendedLikelihood::maximize()
 	       <<x<<" delta="<<delta<<std::endl;
       x=m_alpha;
     }
+
+//     std::cout << "     extended likelihood: " << m_alpha << std::endl;
     m_alpha = x;
     m_sigma_alpha = 1./sqrt(dw.second);
     return std::make_pair(x, m_sigma_alpha);

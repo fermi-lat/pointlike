@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.29 2008/09/09 23:28:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.35 2008/11/11 01:31:16 mar0 Exp $
 
 */
 
@@ -125,6 +125,10 @@ public:
     double feval(double k);
     double geval(double k);
     double eval(double ks,double gamma);
+
+  // Needed for templating between ExtendedLikelihood and SimpleLikelihood
+  // Not implemented for SimpleLikelihood at the moment
+  double exposure() {return 0;};
 
     void changepsf(){}; // note not implemented
     void setgamma(double gamma) {m_psf=skymaps::PsfFunction(gamma);}

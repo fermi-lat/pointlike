@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.8 2008/10/14 23:06:03 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.9 2008/10/20 23:40:12 markusa Exp $
 */
 
 #ifndef tools_SourceLikelihood_h
@@ -139,6 +139,14 @@ namespace pointlike {
     static void setFitAccuracy(double acc){ s_accuracy=acc; };
     static double fitAccuracy() { return s_accuracy; };
 
+    void fixPosition();
+    void fixPosition(const astro::SkyDir& dir);
+    void freePosition();
+
+    void fixExtension();
+    void fixExtension(std::vector<double> radii);
+    void freeExtension();
+
     /// @brief set minuit mode to be used by vector of strings: 
     /// @param modes can be (MIGRAD|SIMPLEX),(MINOS|HESSE),(GRAD,NOGRAD)
     static void setMinuitMode(const std::vector<std::string> modeVec);
@@ -213,6 +221,7 @@ namespace pointlike {
     unsigned int m_npar;
     std::vector<double> m_sourceParameters;
     std::vector<double> m_sourceParErrors;
+    std::vector<bool>   m_sourceParametersFixMask;
     std::vector<double> m_errMINOSParabolic;
     std::vector<double> m_errMINOSPlus;
     std::vector<double> m_errMINOSMinus;
