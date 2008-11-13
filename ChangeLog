@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: markusa  Thu Nov 13 15:36:56 PST 2008
+pointlike/src
+
+Modified Files:
+	ExtendedLikelihood.cxx ExtendedSourcePDF.cxx 
+	FlexibleBinner.cxx 
+Log Message:
+added combined front/back binning functionality
+
+
+    *
+------------------------------------------------------------
 User: markusa  Thu Nov 13 15:36:49 PST 2008
 pointlike/pointlike
 
