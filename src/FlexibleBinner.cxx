@@ -1,7 +1,7 @@
 /** @file PhotonBinner.cxx
 @brief implement class BinnedPhotonData 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/FlexibleBinner.cxx,v 1.1 2008/10/10 01:58:55 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/FlexibleBinner.cxx,v 1.2 2008/10/10 19:37:03 burnett Exp $
 */
 
 #include "pointlike/FlexibleBinner.h"
@@ -43,11 +43,70 @@ namespace {
   const double gb_pass6_old[8]  ={2., 1.737, 1.742, 1.911, 2.008, 2.009, 2.207, 1.939};
   const double sb_pass6_old[8]  ={4., 2.18e+00, 1.17e+00, 6.00e-01, 3.09e-01, 1.61e-01, 8.43e-02, 3.90e-02 };
   const int    level_pass6_old[10]  ={4,5,6,7,8,9,10,11,12,13};
+
+// for data
+
+  const double bins_flight_s0[13]={1.,50.,100.,200.,400.,800.,1600.,3200.,6400.,12800.,25600.,51200.,1e6};
+  const double bins_flight_sm[9]={1.,25.,100.,400.,1600.,6400.,25600.,102400.,1e6};
+
+  const int    gamma_list_size = 10;
+  const double gamma_list_flight_e[gamma_list_size]     =  {133,237,421,749,1333,2371,4216,7498,13335,23713 };
+  const double gamma_list_flight_front[gamma_list_size] =  {2.107, 1.906, 1.780, 1.763, 1.762, 1.965, 2.307, 2.129, 2.731, 2.092};
+  const double gamma_list_flight_back[gamma_list_size]  =  { 2.848, 2.297, 1.831, 1.966, 1.729,  1.685, 1.892, 1.901, 2.482, 2.085}; 
+
+// toby's hard coded list   
+//  const double gamma_list_flight_front[gamma_list_size] = {2.42,2.47,2.84,2.07,2.08,2.06,2.03,1.84,1.90,1.81,
+//                                          1.85,1.88,1.82,1.97,1.94,1.86,1.89,1.90,1.89,1.95,1.84};
+//    const double gamma_list_flight_back[gamma_list_size]  = {3.46,2.24,2.77,2.38,1.86,1.86,1.93,1.82,1.81,1.79,
+//                                          2.16,1.73,1.83,1.79,1.94,1.76,1.73,1.74,1.68,1.68,1.68};
+  
+};
+
+namespace{
+  std::vector<double> sigma(double a,double b, double c, double d,const std::vector<double>& ebins,double index=2.){
+     std::vector<double> sigmas(ebins.size()-1,0); 
+
+     std::vector<double>::const_iterator eIt=ebins.begin();
+     std::vector<double>::iterator       sIt=sigmas.begin();
+     for(; eIt!=(ebins.end()-1) && sIt!=sigmas.end();eIt++,sIt++){
+	double ecenter, emax=*(eIt+1),emin=*eIt;
+	if(index!=1.) ecenter = pow( 0.5* ( pow(emin,1.-index) + pow(emax,1.-index) ) ,1./(1.-index));
+	else ecenter=sqrt(emin*emax);
+	*sIt = sqrt( a*a + c*pow((ecenter/100.),b) + d*pow((ecenter/100.),2*b) );	
+     };     
+     return sigmas;
+  };
+  
+  std::vector<double> gamma(const std::map<double,double>& gamma_table, const std::vector<double>& ebins,double index=2.){
+     std::vector<double> gammas(ebins.size()-1,0); 
+
+     std::vector<double>::const_iterator eIt=ebins.begin();
+     std::vector<double>::iterator       gIt=gammas.begin();
+
+     for(; eIt!=(ebins.end()-1) && gIt!=gammas.end();eIt++,gIt++){
+	double ecenter, emax=*(eIt+1),emin=*eIt;
+	if(index!=1.) ecenter = pow( 0.5* ( pow(emin,1.-index) + pow(emax,1.-index) ) ,1./(1.-index));
+	else ecenter=sqrt(emin*emax);
+	std::map<double,double>::const_iterator itGTab0 = gamma_table.lower_bound(ecenter);
+	std::map<double,double>::const_iterator itGTab1 = itGTab0--;
+	if(itGTab1==gamma_table.end()) *gIt = (*(itGTab0)).second;
+	else if( itGTab1 ==gamma_table.begin() ) *gIt=(*gamma_table.begin()).second;
+	else *gIt = (*itGTab0).second + ( (*itGTab1).second - (*itGTab0).second )/ (*(eIt+1)-*eIt ) * (ecenter-*eIt);
+//        std::cout<<"ecenter="<<ecenter<<" gammma="<<(*gIt)<<" ebin="<<((*itGTab0).first)<<" gbin="<<((*itGTab0).second)<<std::endl;
+     };
+     return gammas;
+  };
+  
 };
 
 namespace pointlike {
 
 FlexibleBinner::FlexibleBinner(const std::string& id, const int pixel_density):classic_mode(false){
+
+   for(int i=0;i<gamma_list_size;i++){
+      m_gammaMapFront[gamma_list_flight_e[i]]=gamma_list_flight_front[i];
+      m_gammaMapBack[gamma_list_flight_e[i]]=gamma_list_flight_back[i];
+   };
 
    if(id=="p6_v1/classic"){
       m_bins              =std::vector<double>(bins_pass6_old_front,bins_pass6_old_front+11);
@@ -70,13 +129,33 @@ FlexibleBinner::FlexibleBinner(const std::string& id, const int pixel_density):c
       return;
    };
    if(id=="p6_v1/spectrum:-"){
-      m_bins      =std::vector<double>(bins_pass6_sm,bins_pass6_sm+9);
+      m_bins      =std::vector<double>(bins_flight_sm,bins_flight_sm+9);
       m_gammaFront=std::vector<double>(gf_pass6_sm,gf_pass6_sm+8);
       m_sigmaFront=std::vector<double>(sf_pass6_sm,sf_pass6_sm+8);
       m_gammaBack =std::vector<double>(gb_pass6_sm,gb_pass6_sm+8);
       m_sigmaBack =std::vector<double>(sb_pass6_sm,sb_pass6_sm+8);
       calc_healpix_level(pixel_density);
       return;
+   };
+   
+   if(id.find("flight/")!=std::string::npos)  {
+	if(id=="flight/diffuse/spectrum:0") m_bins = std::vector<double>(bins_flight_s0,bins_flight_s0+13);
+	else if(id=="flight/diffuse/spectrum:-") m_bins = std::vector<double>(bins_pass6_sm,bins_pass6_sm+9);
+	else if(id=="flight/diffuse/spectrum:+") {
+	    m_bins.push_back(1);
+	    for(double idx=1;idx<=6;idx+=0.2) m_bins.push_back(pow(10.,idx)); 
+	}
+	else throw std::runtime_error("Did not find a binning with the id specified.");
+	
+	m_gammaFront=gamma(m_gammaMapFront,m_bins);
+	m_gammaBack =gamma(m_gammaMapBack ,m_bins);
+	m_sigmaFront=sigma(0.063,-1.673,1.850,-0.039,m_bins);
+	m_sigmaBack =sigma(-0.112,-1.561,3.586,12.753,m_bins);
+	calc_healpix_level(pixel_density);
+	
+	for (int i=0;i<m_bins.size()-1;i++)
+	   std::cout<<i<<" "<<m_gammaFront[i]<<" "<<m_sigmaFront[i]<<" "<<m_gammaBack[i]<<" "<<m_sigmaBack[i]<<std::endl;
+        return;
    };
    throw std::runtime_error("Did not find a binning with the id specified.");
 };

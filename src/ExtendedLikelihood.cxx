@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.cxx
     @brief Implementation of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.6 2008/10/20 23:40:25 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.7 2008/11/11 23:05:57 funk Exp $
 */
 
 #include "pointlike/ExtendedLikelihood.h"
@@ -269,7 +269,7 @@ void ExtendedLikelihood::setDir(const astro::SkyDir& dir, bool subset)
 void ExtendedLikelihood::reload(bool subset)
 {
     if(!subset || m_vec.size()==0) {
-     //   std::cout<<"Resetting ROI and re-calculating background."<<std::endl;
+//        std::cout<<"Resetting ROI and re-calculating background."<<std::endl;
 	double angle(sqrt(2.*m_umax)*sigma());
 	double roi(s_defaultRoI);
 	if(angle<roi) { 

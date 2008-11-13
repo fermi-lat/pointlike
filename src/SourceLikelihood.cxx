@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.18 2008/10/20 23:40:26 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.19 2008/11/11 23:05:57 funk Exp $
 
 */
 
@@ -806,8 +806,10 @@ double pointlike::SourceLikelihood::value(const astro::SkyDir& dir, double energ
 
 
 
-double pointlike::SourceLikelihood::display(const astro::SkyDir& dir, double energy, int mode) const
+double pointlike::SourceLikelihood::display(const astro::SkyDir& dir, double energy, int mode,int index) const
 {
+    if(index>0) return at(index)->display(dir, mode);
+    
     const_iterator it = begin();
     for( ; it!=end(); ++it){
         const skymaps::Band& band ((*it)->band());
@@ -930,13 +932,15 @@ std::vector<double> pointlike::SourceLikelihood::sigma(const std::string selecti
 
 //=======================================================================
 //         SLdisplay implementation
-pointlike::SLdisplay::SLdisplay(const pointlike::SourceLikelihood & psl, int mode)
+pointlike::SLdisplay::SLdisplay(const pointlike::SourceLikelihood & psl, int mode,double energy,int bandidx)
   : m_psl(psl)
-    , m_mode(mode)
+  , m_mode(mode)
+  , SkySpectrum(energy)
+  , m_index(bandidx) 
 {}
 
 double SLdisplay::value(const astro::SkyDir& dir, double e)const{
-  return m_psl.display(dir, e, m_mode);
+  return m_psl.display(dir, e, m_mode,m_index);
 }
 
 ///@brief integral for the energy limits, in the given direction -- not impleme

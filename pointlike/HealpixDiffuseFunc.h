@@ -1,7 +1,7 @@
 /** @file HealpixDiffuseFunc.h
     @brief declare class HealpixDiffuseFunc
 
-$Header: /nfs/slac/g/glast/ground/cvs/skymaps/skymaps/HealpixDiffuseFunc.h,v 1.1.1.1 2008/01/26 22:53:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/HealpixDiffuseFunc.h,v 1.1 2008/10/20 23:40:12 markusa Exp $
 
 */
 #ifndef skymaps_HealpixDiffuseFunc_h
@@ -37,7 +37,9 @@ public:
          @param interpolate[true] interpolate the input map
 
     */
-    HealpixDiffuseFunc(std::string diffuse_healpix_file, double energy=1000., bool interpolate=true);
+    enum unitType {COUNTS,DIFFCOUNTS,DENSITY,DIFFDENSITY,FLUX};
+    
+    HealpixDiffuseFunc(const std::string& diffuse_healpix_file, unitType u=COUNTS, double exposure=1., double energy=1000., bool interpolate=true);
  
     virtual ~HealpixDiffuseFunc();
 
@@ -90,10 +92,13 @@ private:
     FitsIO m_fitio;
     healpix::HealpixArray<std::vector<double> >& m_skymap; ///< skymap
     std::vector<double>& m_energies; ///< list of energies
+    unitType m_unit;
+    double m_exposure;
+    
     size_t layer(double e)const;
 
     double m_emin, m_emax;
-
+    double m_solidAngle;
 };
 } // namespace skymaps
 #endif
