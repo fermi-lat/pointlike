@@ -1,5 +1,5 @@
 #  setup for pointlike source finder
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfind_setup.py,v 1.19 2008/07/09 04:01:46 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfind_setup.py,v 1.20 2008/07/15 05:29:45 burnett Exp $
 
 from pointlike_defaults import *
 

@@ -1,7 +1,7 @@
 /** @file FlexibleBinner.h
 @brief declare class FlexibleBinner
 
-$Header: /nfs/slac/g/glast/ground/cvs/skymaps/skymaps/FlexibleBinner.h,v 1.6 2008/05/02 23:29:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/FlexibleBinner.h,v 1.1 2008/10/10 01:58:50 markusa Exp $
 
 */
 #ifndef pointlike_FlexibleBinner_h
@@ -14,6 +14,7 @@ namespace astro {class Photon;}
 
 #include <string>
 #include <vector>
+#include <map>
 
 
 #include "skymaps/Band.h"
@@ -69,6 +70,9 @@ namespace pointlike {
         std::vector<double> m_gammaBack;          //the PSF gamma for back bins
         std::vector<double> m_sigmaBack;          //the PSF sigma for back bins
         std::vector<int>    m_level;              //the mapping between energy bins and healpix levels
+        std::map<double,double>    m_gammaMapFront; //gamma map from PSF fits
+        std::map<double,double>    m_gammaMapBack;  //gamma map from PSF fits
+	 
     };
 }
 

@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.9 2008/10/20 23:40:12 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.10 2008/11/11 23:05:58 funk Exp $
 */
 
 #ifndef tools_SourceLikelihood_h
@@ -207,7 +207,7 @@ namespace pointlike {
     /// @param energy selects energy band
     /// @mode 0: same as the operator; 1: data; 2: background; 3:fit; 4:residual
     ///     
-    double display(const astro::SkyDir& dir, double energy, int mode)const;
+    double display(const astro::SkyDir& dir, double energy, int mode, int bandindex=-1)const;
     std::vector<double> energyList() const;
 
   private:
@@ -258,7 +258,7 @@ namespace pointlike {
 */
   class SLdisplay :  public skymaps::SkySpectrum {
   public:
-    SLdisplay(const SourceLikelihood & psl, int mode);
+    SLdisplay(const SourceLikelihood & psl, int mode, double energy=1000.,int bandindex=-1);
     virtual double value(const astro::SkyDir& dir, double e)const;
     
     ///@brief integral for the energy limits, in the given direction
@@ -268,7 +268,7 @@ namespace pointlike {
   private:
     const SourceLikelihood& m_psl;
     int m_mode;
-    
+    int m_index;
     
   };
     

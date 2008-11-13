@@ -1,6 +1,6 @@
 /** @file HealpixDiffuseFunc.cxx
     @brief implement HealpixDiffuseFunc
-$Header: /nfs/slac/g/glast/ground/cvs/skymaps/src/HealpixDiffuseFunc.cxx,v 1.2 2008/03/10 16:38:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/HealpixDiffuseFunc.cxx,v 1.1 2008/10/20 23:40:25 markusa Exp $
 */
 
 #include "pointlike/HealpixDiffuseFunc.h"
@@ -17,24 +17,27 @@ $Header: /nfs/slac/g/glast/ground/cvs/skymaps/src/HealpixDiffuseFunc.cxx,v 1.2 2
 using namespace skymaps;
 
 
-HealpixDiffuseFunc::HealpixDiffuseFunc(std::string diffuse_healpix_file, double energy, bool interpolate)
+HealpixDiffuseFunc::HealpixDiffuseFunc(const std::string& diffuse_healpix_file, unitType u, double exposure, double energy, bool interpolate)
   : SkySpectrum(energy)
   , m_name(diffuse_healpix_file)
   , m_fitio(diffuse_healpix_file)
   , m_skymap(m_fitio.skymap())
-  , m_energies(m_fitio.energies()) {
+  , m_energies(m_fitio.energies())
+  , m_unit(u)
+  , m_exposure(exposure) {
 
     m_emin = m_energies.front();
     m_emax = m_energies.back();
     std::cout << "HealpixDiffuseFunc: read file "<< diffuse_healpix_file <<", with " 
         << layers() << " energies from " << m_emin << " to " << m_emax << std::endl;
     setEnergy(energy);
-    
+    m_solidAngle=M_PI/(3.*m_skymap.healpix().nside()*m_skymap.healpix().nside());
 }
 
 HealpixDiffuseFunc::~HealpixDiffuseFunc()
 {
 }
+
 
 double HealpixDiffuseFunc::isotropicFlux(double energy)const
 {
@@ -68,17 +71,31 @@ double HealpixDiffuseFunc::value(const astro::SkyDir& dir, double e)const
 
     size_t idx = m_skymap.healpix().pixel(dir).index();
     size_t l(layer(e)); 
-    if( l==m_energies.size()) return (m_skymap.at(idx))[l-1];
-
-    double e1(m_energies[l]), e2(m_energies[l+1]);
-    double f1( (m_skymap.at(idx))[l] ), f2( (m_skymap.at(idx))[l+1] );
-    double alpha ( log(f1/f2)/log(e2/e1) );
+    double result,e1,e2;
+    if( l==m_energies.size()) {
+       result=(m_skymap.at(idx))[l-1];
+       e1=m_energies[l-2]; e2=m_energies[l-1];
+    } else {
+       e1= m_energies[l]; e2 = m_energies[l+1];
+       double f1( (m_skymap.at(idx))[l] ), f2( (m_skymap.at(idx))[l+1] );
+       double alpha ( log(f1/f2)/log(e2/e1) );
 
 //    std::cout<<"HealpixDiffuseFunc::value: l="<<dir.l()<<" b="<<dir.b()<<" layer="<<l<<" idx="<<idx<<" f1="<<f1<<" f2="<<f2
 //             <<" e="<<e<<" e1="<<e1<<" e2="<<e2<<" alpha="<<alpha<<" result="<<(f1*pow( e1/e, alpha))
 //	     <<std::endl;
+
+       result = f1*pow( e1/e, alpha);
+    };
+/// always return photon densities: ph/sr    
     
-    return f1*pow( e1/e, alpha);
+    switch(m_unit){
+       case COUNTS:      return result/m_solidAngle/(e2-e1);
+       case DIFFCOUNTS:  return result/m_solidAngle;
+       case DENSITY:     return result/(e2-e1);
+       case DIFFDENSITY: return result;
+       case FLUX:        return result*m_exposure;
+    };
+    return 0;
 };
 
 double HealpixDiffuseFunc::integral(const astro::SkyDir& dir, double a, double b)const
@@ -102,6 +119,8 @@ std::vector<double> HealpixDiffuseFunc::integral(const astro::SkyDir& dir, const
         double b = next!=energies.end()? *next : infinity;
         result.push_back(integral(dir,a,b));
     }
+
+
     return result;
 }
 
