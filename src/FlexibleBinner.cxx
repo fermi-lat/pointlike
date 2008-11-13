@@ -1,7 +1,7 @@
 /** @file PhotonBinner.cxx
 @brief implement class BinnedPhotonData 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/FlexibleBinner.cxx,v 1.2 2008/10/10 19:37:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/FlexibleBinner.cxx,v 1.3 2008/11/13 01:16:07 markusa Exp $
 */
 
 #include "pointlike/FlexibleBinner.h"
@@ -53,6 +53,10 @@ namespace {
   const double gamma_list_flight_e[gamma_list_size]     =  {133,237,421,749,1333,2371,4216,7498,13335,23713 };
   const double gamma_list_flight_front[gamma_list_size] =  {2.107, 1.906, 1.780, 1.763, 1.762, 1.965, 2.307, 2.129, 2.731, 2.092};
   const double gamma_list_flight_back[gamma_list_size]  =  { 2.848, 2.297, 1.831, 1.966, 1.729,  1.685, 1.892, 1.901, 2.482, 2.085}; 
+  const double front_fraction_flight[gamma_list_size]  =  {  0.46, 0.51,  0.51, 0.50, 0.50,0.50, 0.50,  0.53, 0.54, 0.52 };
+			      
+    			      
+
 
 // toby's hard coded list   
 //  const double gamma_list_flight_front[gamma_list_size] = {2.42,2.47,2.84,2.07,2.08,2.06,2.03,1.84,1.90,1.81,
@@ -101,11 +105,14 @@ namespace{
 
 namespace pointlike {
 
-FlexibleBinner::FlexibleBinner(const std::string& id, const int pixel_density):classic_mode(false){
-
+FlexibleBinner::FlexibleBinner(const std::string& id, const int pixel_density)
+   : classic_mode(false)
+   , m_combineFrontBack(false){
+   
    for(int i=0;i<gamma_list_size;i++){
       m_gammaMapFront[gamma_list_flight_e[i]]=gamma_list_flight_front[i];
       m_gammaMapBack[gamma_list_flight_e[i]]=gamma_list_flight_back[i];
+      m_frontFractionMap[gamma_list_flight_e[i]]=front_fraction_flight[i];
    };
 
    if(id=="p6_v1/classic"){
@@ -138,10 +145,10 @@ FlexibleBinner::FlexibleBinner(const std::string& id, const int pixel_density):c
       return;
    };
    
-   if(id.find("flight/")!=std::string::npos)  {
-	if(id=="flight/diffuse/spectrum:0") m_bins = std::vector<double>(bins_flight_s0,bins_flight_s0+13);
-	else if(id=="flight/diffuse/spectrum:-") m_bins = std::vector<double>(bins_pass6_sm,bins_pass6_sm+9);
-	else if(id=="flight/diffuse/spectrum:+") {
+   if(id.find("flight/")!=std::string::npos )  {
+	if(id.find("diffuse/spectrum:0")!=std::string::npos) m_bins = std::vector<double>(bins_flight_s0,bins_flight_s0+13);
+	else if(id.find("diffuse/spectrum:-")!=std::string::npos) m_bins = std::vector<double>(bins_pass6_sm,bins_pass6_sm+9);
+	else if(id.find("diffuse/spectrum:+")!=std::string::npos) {
 	    m_bins.push_back(1);
 	    for(double idx=1;idx<=6;idx+=0.2) m_bins.push_back(pow(10.,idx)); 
 	}
@@ -149,13 +156,18 @@ FlexibleBinner::FlexibleBinner(const std::string& id, const int pixel_density):c
 	
 	m_gammaFront=gamma(m_gammaMapFront,m_bins);
 	m_gammaBack =gamma(m_gammaMapBack ,m_bins);
+	m_frontFraction=gamma(m_frontFractionMap, m_bins);  // gamma just interpolates a list
 	m_sigmaFront=sigma(0.063,-1.673,1.850,-0.039,m_bins);
 	m_sigmaBack =sigma(-0.112,-1.561,3.586,12.753,m_bins);
 	calc_healpix_level(pixel_density);
 	
 	for (int i=0;i<m_bins.size()-1;i++)
 	   std::cout<<i<<" "<<m_gammaFront[i]<<" "<<m_sigmaFront[i]<<" "<<m_gammaBack[i]<<" "<<m_sigmaBack[i]<<std::endl;
+	
+	if(id.find("/combined")!=std::string::npos) m_combineFrontBack=true;
+
         return;
+
    };
    throw std::runtime_error("Did not find a binning with the id specified.");
 };
@@ -170,6 +182,7 @@ skymaps::Band FlexibleBinner::operator()(const astro::Photon& p)const
 
     int event_class (  p.eventClass() );
     if( event_class<0 || event_class>15) event_class=0; // should not happen?
+    if(m_combineFrontBack) event_class=1;
 
     const std::vector<double>& m_gamma ( event_class<=0? m_gammaFront : m_gammaBack );
     const std::vector<double>& m_sigma ( event_class<=0? m_sigmaFront : m_sigmaBack );
@@ -181,14 +194,21 @@ skymaps::Band FlexibleBinner::operator()(const astro::Photon& p)const
     int i =  bin_it-m_binsf.begin()-1;
     double sigma = m_sigma[i]*M_PI/180.;
     double gamma = m_gamma[i];
+    double sigma2 = m_sigmaFront[i]*M_PI/180.;
+    double gamma2 = m_gammaFront[i];
+    double frac2  = m_frontFraction[i];
     unsigned int nside = 1<<m_level[i];
 
     double elow  = m_binsf[i];
     double ehigh = m_binsf[i+1];
 
 //    std::cout<<"Flexible binner: e="<<energy<<" eclass="<<event_class<<" elow="<<elow<<" ehigh="<<ehigh
-//             <<" sigma="<<sigma<<" gamma="<<gamma<<" nside="<<nside<<" level="<<m_level[i]<<std::endl;
-    return skymaps::Band(nside, event_class, elow, ehigh, sigma, gamma);
+//             <<" sigma="<<sigma<<" gamma="<<gamma<<" nside="<<nside<<" level="<<m_level[i]
+//             <<" sigma2="<<sigma2<<" gamma2="<<gamma2<<" frac2="<<frac2<<std::endl;
+   if(m_combineFrontBack) return skymaps::Band(nside, event_class, elow, ehigh, sigma, gamma,sigma2, gamma2,frac2);
+//   std::cout<<"What am I doing here?"<<std::endl;
+
+   return skymaps::Band(nside, event_class, elow, ehigh, sigma, gamma);
 }
 
     void FlexibleBinner::calc_healpix_level(const int density){

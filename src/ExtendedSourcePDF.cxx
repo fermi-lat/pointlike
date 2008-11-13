@@ -18,6 +18,9 @@
 
 namespace pointlike{
 
+      static extendedSources::diskSource ExtendedSourcePseudoPSF2::defaultSource;
+
+ 
      extendedSourcePDF::extendedSourcePDF(extendedSources::iSource& source, double g):
           m_source(source),
           m_gamma(g),
@@ -169,5 +172,44 @@ namespace pointlike{
         return grad;
     };   
 
+    double ExtendedSourcePseudoPSF2::operator () (const astro::SkyDir & r, const astro::SkyDir & r_prime, double sigma) 
+    {
+	double u( 0.5*(r_prime() - r()).mag2()/sigma/sigma);
+	return operator()(u);
+    };
+
+    double ExtendedSourcePseudoPSF2::operator()(double u) const {   
+        double r1,r2=0;
+        if (m_isPointSource) {
+	  r1= m_pointSourcePDF(u); 
+	  if (m_gamma2>0) r2= m_s2ratio*m_pointSourcePDF2(m_s2ratio*u); 
+	} else {  
+	  r1= pdf().value(u); 
+	  if (m_gamma2>0) r2= m_s2ratio*pdf2().value(m_s2ratio*u); 
+	};  
+//	std::cout<<r1<<" "<<r2<<" "<<m_frac2<<" "<<u<<" "<<(m_s2ratio*u)<<std::endl;
+        return (1-m_frac2)*r1+m_frac2*r2;
+	  
+	  
+    };   
+
+    std::vector<double> ExtendedSourcePseudoPSF2::gradient(double u,int ncomp) const {   
+        std::vector<double> grad(ncomp+1);
+
+        if (m_isPointSource) {
+           double grad1,grad2=0;
+	   grad1= - m_pointSourcePDF(u)/(1+u/m_gamma);
+	   if (m_gamma2>0) grad2= - m_s2ratio*m_pointSourcePDF(m_s2ratio*u)/(1+m_s2ratio*u/m_gamma);
+	   grad[0] = (1-m_frac2)*grad1+m_frac2*grad2;
+	} else {
+	   std::vector<double> grad2(ncomp+1);
+           grad = m_psf.pdf().gradient(u,ncomp);
+	   if (m_gamma2>0) {
+	      grad2= m_psf2.pdf().gradient(m_s2ratio*u,ncomp);
+	      for(int i=0; i<ncomp;i++) grad[i]=(1-m_frac2)*grad[i]+m_s2ratio*m_frac2*grad2[i];
+	   };
+	};    
+        return grad;
+    };   
 
 };

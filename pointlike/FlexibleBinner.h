@@ -1,7 +1,7 @@
 /** @file FlexibleBinner.h
 @brief declare class FlexibleBinner
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/FlexibleBinner.h,v 1.1 2008/10/10 01:58:50 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/FlexibleBinner.h,v 1.2 2008/11/13 01:16:00 markusa Exp $
 
 */
 #ifndef pointlike_FlexibleBinner_h
@@ -62,6 +62,7 @@ namespace pointlike {
         void calc_healpix_level(const int density);
 	
 	bool classic_mode;
+	bool m_combineFrontBack;
 	
         std::vector<double> m_bins;               //the energy of each left bin edge
         std::vector<double> m_bins_classic_back;  //the energy of each left bin edge (classic front/back)
@@ -69,9 +70,11 @@ namespace pointlike {
         std::vector<double> m_sigmaFront;         //the PSF sigma for front bins
         std::vector<double> m_gammaBack;          //the PSF gamma for back bins
         std::vector<double> m_sigmaBack;          //the PSF sigma for back bins
+        std::vector<double> m_frontFraction;          //the PSF sigma for back bins
         std::vector<int>    m_level;              //the mapping between energy bins and healpix levels
         std::map<double,double>    m_gammaMapFront; //gamma map from PSF fits
         std::map<double,double>    m_gammaMapBack;  //gamma map from PSF fits
+        std::map<double,double>    m_frontFractionMap;  //map of fraction of events being front
 	 
     };
 }
