@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.h
     @brief declaration of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.4 2008/09/24 18:01:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.5 2008/10/20 23:40:12 markusa Exp $
 
 */
 
@@ -201,7 +201,7 @@ namespace pointlike {
     std::vector<int> m_vec4; //stores subset healpix indices
     double m_averageF;
     
-    ExtendedSourcePseudoPSF m_psf;
+    ExtendedSourcePseudoPSF2 m_psf;
     std::vector<double> m_src_param;
     
     double m_sigma;

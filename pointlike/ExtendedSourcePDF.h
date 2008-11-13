@@ -38,6 +38,7 @@ namespace pointlike{
              virtual double operator() (double v) const  =0;
              virtual double grad(double v,int icomp) const =0;
 	     virtual double get(int) const {  return NAN;};
+	     virtual std::vector<double> get() const {  return std::vector<double>(0);};
 	     virtual double split(int) const {  return -1;};
 	     virtual bool parameterShiftsMax(int) const { return false;  };
 	     virtual bool parameterShiftsMin(int) const { return false;  };
@@ -61,11 +62,13 @@ namespace pointlike{
 	   double m_rmin;
 
 	   public:  
+	     diskSource():iSource(-1.),m_rmax(-1.),m_rmin(-1.){max(-1);min(-1);};
+
 	     diskSource(double sigma, double rmax, double rmin=0.):iSource(sigma),m_rmax(rmax),m_rmin(rmin){
 	        if(rmax>=0 && rmin>=0){
 	  	   max(0.5*rmax*rmax/sigma2());
 	           min(0.5*rmin*rmin/sigma2());
-	          std::cout<<sigma<<" "<<min()<<" "<<max()<<std::endl;
+//	          std::cout<<sigma<<" "<<min()<<" "<<max()<<std::endl;
 	        } else max(rmax);
 		   
 	     };
@@ -82,6 +85,13 @@ namespace pointlike{
 		if (ipar==0) return m_rmax;
 		if (ipar==1) return m_rmin;
 		return NAN;
+	     };
+
+	    std::vector<double> get() const { 
+		std::vector <double> result(2);
+		result[0]=m_rmax;
+		result[1]=m_rmin;
+		return result;
 	     };
 
 	    double operator()(double v) const { 
@@ -124,6 +134,12 @@ namespace pointlike{
 	     
 	     double get(int) const {return m_radius;};
 	     
+	     std::vector<double> get() const { 
+		std::vector <double> result(1);
+		result[0]=m_radius;
+		return result;
+	     };
+
 	     double operator() (double v) const { return exp(-v/m_scaledRadius)/(2*M_PI*m_scaledRadius*m_intLimitNorm);};
 	     
 	     double grad(double v,int icomp) const { 
@@ -161,6 +177,12 @@ namespace pointlike{
 	     
 	     double get(int) const {return m_radius;};
 	     
+	     std::vector<double> get() const { 
+		std::vector <double> result(1);
+		result[0]=m_radius;
+		return result;
+	     };
+
 	     double operator() (double v) const 
 	        { return exp(-v/m_scaledRadius)/(2*M_PI*sqrt(M_PI*v*m_scaledRadius)*m_intLimitNorm);};
 	     
@@ -280,6 +302,8 @@ namespace pointlike{
     class ExtendedSourcePseudoPSF {
 	public:
             /// @param gamma the power-law factor
+
+
             ExtendedSourcePseudoPSF(extendedSources::iSource& src, double g=2.0)
         	: m_source(src)
 		, m_gamma(g)
@@ -291,10 +315,20 @@ namespace pointlike{
 		
 	    };
 
+            void operator = (const ExtendedSourcePseudoPSF& s){
+	       m_source=s.m_source;
+               m_gamma=s.m_gamma;
+	       m_umax=s.m_umax;
+               m_norm=s.m_norm;
+	       m_pdf=s.m_pdf;
+               m_pointSourcePDF=skymaps::PsfFunction(m_gamma);
+               m_isPointSource=s.m_isPointSource;
+	    };
+
             extendedSources::iSource& source(){return m_source;};
 
-            extendedSourcePDF& pdf()            {return m_pdf;};
-            skymaps::PsfFunction&       pointSourcePdf() {return m_pointSourcePDF;};
+            const extendedSourcePDF& pdf() const {return m_pdf;};
+            const skymaps::PsfFunction& pointSourcePdf() const {return m_pointSourcePDF;};
             
             double gamma() const {return m_gamma;};
 	    extendedSources::iSource& source() const { return m_source;};
@@ -329,6 +363,104 @@ namespace pointlike{
             bool m_isPointSource;
 
     };
+
+
+    class ExtendedSourcePseudoPSF2 {
+        static extendedSources::diskSource defaultSource;
+    
+	public:
+            /// @param gamma the power-law factor
+            ExtendedSourcePseudoPSF2(extendedSources::iSource& src,  double g1=2.0, double s1=-1,
+	                             extendedSources::iSource& src2=defaultSource, 
+				     double g2=-1., double s2=-1.,double f2=0.)
+        	: m_source(src)
+		, m_source2(src2)
+		, m_gamma(g1)
+		, m_gamma2(g2)
+		, m_sigma(s1)
+		, m_sigma2(s2)
+		, m_frac2(f2)
+		, m_psf(src,g1)
+		, m_psf2(src2,g2)
+		, m_pointSourcePDF(g1)
+		, m_pointSourcePDF2(g2)
+		, m_isPointSource(false)
+	    {
+		if (m_source.max()<0) m_isPointSource=true;
+		if(m_sigma<0) m_sigma=m_source.sigma();
+		m_s2ratio=(s1*s1/(s2*s2));
+//		std::cout<<"PSF s2ratio="<<m_s2ratio<<" gamma="<<m_gamma<<" sigma="<<m_sigma<<" gamma2="<<m_gamma2<<" sigma2="<<m_sigma2<<std::endl;
+
+	    };
+
+            extendedSources::iSource& source(){return m_source;};
+
+            const extendedSourcePDF& pdf() const {return m_psf.pdf();};
+            const extendedSourcePDF& pdf2() const {return m_psf2.pdf();};
+	    
+            skymaps::PsfFunction&       pointSourcePdf() {return m_pointSourcePDF;};
+            skymaps::PsfFunction&       pointSourcePdf2() {return m_pointSourcePDF2;};
+            
+            double gamma() const {return m_gamma;};
+            double gamma2() const {return m_gamma2;};
+            double sigma() const {return m_sigma;};
+            double sigma2() const {return m_sigma2;};
+	    
+	    extendedSources::iSource& source() const { return m_source;};
+	    extendedSources::iSource& source2() const { return m_source2;};
+	    
+            void setGamma(double gamma,double gamma2=-1){ 
+	        m_gamma=gamma; 
+	        m_gamma2=gamma2; 
+		m_psf = ExtendedSourcePseudoPSF(m_source,m_gamma);
+		m_psf2= ExtendedSourcePseudoPSF(m_source2,m_gamma2);
+		m_pointSourcePDF=skymaps::PsfFunction(m_gamma);
+		m_pointSourcePDF2=skymaps::PsfFunction(m_gamma2);
+	    };
+            
+            void setSource(extendedSources::iSource& src,extendedSources::iSource& src2=defaultSource){ 
+	        m_source=src; 
+	        m_source2=src2;
+		m_psf=ExtendedSourcePseudoPSF(m_source,m_gamma);
+		m_psf2=ExtendedSourcePseudoPSF(m_source2,m_gamma2);
+	    };
+	    
+            double operator () (const astro::SkyDir & r, const astro::SkyDir & r_prime, double sigma) ;
+            
+	    std::vector<double> gradient(double u,int ncomp=0) const ;
+
+            ///@return the value as a function of the scaled deviation squared
+            double operator()(double u) const;  
+
+	    double integral(double umax) const { 
+	        if(m_gamma2>0) return  (1-m_frac2)*m_pointSourcePDF.integral(umax)
+		                      +  m_frac2  *m_pointSourcePDF2.integral(m_s2ratio*umax);
+		else return m_pointSourcePDF.integral(umax);
+	     };
+	    double integralSquare(double umax) const {
+	        if(m_gamma2>0) return  (1-m_frac2)*m_pointSourcePDF.integralSquare(umax)
+		                      +  m_frac2  *m_pointSourcePDF2.integralSquare(m_s2ratio*umax);
+		else return m_pointSourcePDF.integral(umax);
+	     };
+
+	private:
+	    extendedSources::iSource& m_source;
+	    extendedSources::iSource& m_source2;
+	    ExtendedSourcePseudoPSF m_psf;
+	    ExtendedSourcePseudoPSF m_psf2;
+            double m_gamma,m_gamma2;
+	    double m_sigma,m_sigma2;
+	    double m_s2ratio;
+	    double m_frac2;
+	    double m_umax;
+            double m_norm;
+            skymaps::PsfFunction m_pointSourcePDF;
+            skymaps::PsfFunction m_pointSourcePDF2;
+            bool m_isPointSource;
+
+    };
+
+
 
 };
 

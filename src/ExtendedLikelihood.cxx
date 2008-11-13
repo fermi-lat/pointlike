@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.cxx
     @brief Implementation of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.7 2008/11/11 23:05:57 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.8 2008/11/13 01:16:07 markusa Exp $
 */
 
 #include "pointlike/ExtendedLikelihood.h"
@@ -55,7 +55,7 @@ namespace {
     class Convert  {  // Object to run over all pairs of HealPixel and photon number pairs 
 
     public:           // 
-        Convert( const SkyDir& dir, ExtendedSourcePseudoPSF& f,
+        Convert( const SkyDir& dir, ExtendedSourcePseudoPSF2& f,
 		 const astro::SkyFunction& background,
                  double sigma, double umax,
                  std::vector< std::pair<double, int> >& vec2 )
@@ -114,7 +114,7 @@ namespace {
     private:
         SkyDir m_dir;
 
-        ExtendedSourcePseudoPSF& m_f;
+        ExtendedSourcePseudoPSF2& m_f;
         const astro::SkyFunction& m_back;
         double m_sigma;
         std::vector<std::pair<double, int> >& m_vec2;
@@ -204,7 +204,8 @@ ExtendedLikelihood::ExtendedLikelihood(const skymaps::Band& band,
 				       const skymaps::SkySpectrum* diffuse)
         : m_band(band)
         , m_averageF(0)
-  	, m_psf(extendedSources::generator(name,band.sigma()),band.gamma())
+  	, m_psf(extendedSources::generator(name,band.sigma()),band.gamma(),band.sigma(),
+	        extendedSources::generator(name,band.sigma2()),band.gamma2(),band.sigma2(),band.frac2())
 	, m_src_param(src_param)
         , m_sigma(band.sigma())
         , m_alpha(-1)
@@ -220,6 +221,7 @@ ExtendedLikelihood::ExtendedLikelihood(const skymaps::Band& band,
 { 
 
     m_psf.source().set(m_src_param);
+    m_psf.source2().set(m_src_param);
     m_fint = m_psf.integral(m_umax);// integral out to umax
     m_fint2 = m_psf.integralSquare(m_umax);     // the integral of square, used by the quick estimator
     setDir(dir);
@@ -234,7 +236,8 @@ ExtendedLikelihood::ExtendedLikelihood(const skymaps::Band& band,
 				       const skymaps::SkySpectrum* diffuse)
         : m_band(band)
         , m_averageF(0)
-  	, m_psf(extendedSources::generator("point",band.sigma()),band.gamma())
+  	, m_psf(extendedSources::generator("point",band.sigma()),band.gamma(),band.sigma(),
+	        extendedSources::generator("point",band.sigma2()),band.gamma2(),band.sigma2(),band.frac2())
         , m_sigma(band.sigma())
         , m_alpha(-1)
         , m_curv(-1)
@@ -308,6 +311,7 @@ void ExtendedLikelihood::reload(bool subset)
 
 void ExtendedLikelihood::setDir(const astro::SkyDir& dir, const std::vector<double>& src_param, bool subset){
     m_psf.source().set(src_param);
+    m_psf.source2().set(src_param);
     setDir(dir,subset);								
 };				
 
