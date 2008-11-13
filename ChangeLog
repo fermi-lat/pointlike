@@ -1,5 +1,18 @@
 ------------------------------------------------------------
 User: markusa  Wed Nov 12 17:16:07 PST 2008
+pointlike/src
+
+Modified Files:
+	ExtendedLikelihood.cxx FlexibleBinner.cxx 
+	HealpixDiffuseFunc.cxx SourceLikelihood.cxx 
+Log Message:
+several updates ...
+
+
+
+    *
+------------------------------------------------------------
+User: markusa  Wed Nov 12 17:16:07 PST 2008
 pointlike/python
 
 Modified Files:
