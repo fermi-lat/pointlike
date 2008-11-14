@@ -1,7 +1,7 @@
 /** @file PhotonBinner.cxx
 @brief implement class BinnedPhotonData 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/FlexibleBinner.cxx,v 1.3 2008/11/13 01:16:07 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/FlexibleBinner.cxx,v 1.4 2008/11/13 23:36:56 markusa Exp $
 */
 
 #include "pointlike/FlexibleBinner.h"
@@ -115,7 +115,9 @@ FlexibleBinner::FlexibleBinner(const std::string& id, const int pixel_density)
       m_frontFractionMap[gamma_list_flight_e[i]]=front_fraction_flight[i];
    };
 
-   if(id=="p6_v1/classic"){
+   if(id.find("/combined")!=std::string::npos) m_combineFrontBack=true;
+
+   if(id.find("p6_v1/classic")!=std::string::npos){
       m_bins              =std::vector<double>(bins_pass6_old_front,bins_pass6_old_front+11);
       m_bins_classic_back =std::vector<double>(bins_pass6_old_back,bins_pass6_old_back+9);
       classic_mode=true;
@@ -124,24 +126,27 @@ FlexibleBinner::FlexibleBinner(const std::string& id, const int pixel_density)
       m_gammaBack = std::vector<double>(gb_pass6_old,gb_pass6_old+8);
       m_sigmaBack = std::vector<double>(sb_pass6_old,sb_pass6_old+8);
       m_level     = std::vector<int>(level_pass6_old,level_pass6_old+10);
+      m_frontFraction=gamma(m_frontFractionMap, m_bins);  // gamma just interpolates a list
       return;
    };
-   if(id=="p6_v1/spectrum:0"){
+   if(id.find("p6_v1/spectrum:0")!=std::string::npos){
       m_bins	  =std::vector<double>(bins_pass6_s0,bins_pass6_s0+13);
       m_gammaFront=std::vector<double>(gf_pass6_s0,gf_pass6_s0+12);
       m_sigmaFront=std::vector<double>(sf_pass6_s0,sf_pass6_s0+12);
       m_gammaBack =std::vector<double>(gb_pass6_s0,gb_pass6_s0+12);
       m_sigmaBack =std::vector<double>(sb_pass6_s0,sb_pass6_s0+12);
       calc_healpix_level(pixel_density);
+      m_frontFraction=gamma(m_frontFractionMap, m_bins);  // gamma just interpolates a list
       return;
    };
-   if(id=="p6_v1/spectrum:-"){
+   if(id.find("p6_v1/spectrum:-")!=std::string::npos){
       m_bins      =std::vector<double>(bins_flight_sm,bins_flight_sm+9);
       m_gammaFront=std::vector<double>(gf_pass6_sm,gf_pass6_sm+8);
       m_sigmaFront=std::vector<double>(sf_pass6_sm,sf_pass6_sm+8);
       m_gammaBack =std::vector<double>(gb_pass6_sm,gb_pass6_sm+8);
       m_sigmaBack =std::vector<double>(sb_pass6_sm,sb_pass6_sm+8);
       calc_healpix_level(pixel_density);
+      m_frontFraction=gamma(m_frontFractionMap, m_bins);  // gamma just interpolates a list
       return;
    };
    
@@ -156,16 +161,13 @@ FlexibleBinner::FlexibleBinner(const std::string& id, const int pixel_density)
 	
 	m_gammaFront=gamma(m_gammaMapFront,m_bins);
 	m_gammaBack =gamma(m_gammaMapBack ,m_bins);
-	m_frontFraction=gamma(m_frontFractionMap, m_bins);  // gamma just interpolates a list
 	m_sigmaFront=sigma(0.063,-1.673,1.850,-0.039,m_bins);
 	m_sigmaBack =sigma(-0.112,-1.561,3.586,12.753,m_bins);
 	calc_healpix_level(pixel_density);
+	m_frontFraction=gamma(m_frontFractionMap, m_bins);  // gamma just interpolates a list
 	
-	for (int i=0;i<m_bins.size()-1;i++)
-	   std::cout<<i<<" "<<m_gammaFront[i]<<" "<<m_sigmaFront[i]<<" "<<m_gammaBack[i]<<" "<<m_sigmaBack[i]<<std::endl;
-	
-	if(id.find("/combined")!=std::string::npos) m_combineFrontBack=true;
-
+//	for (int i=0;i<m_bins.size()-1;i++)
+//	   std::cout<<i<<" "<<m_gammaFront[i]<<" "<<m_sigmaFront[i]<<" "<<m_gammaBack[i]<<" "<<m_sigmaBack[i]<<std::endl;
         return;
 
    };
