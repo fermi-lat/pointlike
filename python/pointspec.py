@@ -1,9 +1,9 @@
 """  spectral fit interface class SpectralAnalysis
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.12 2008/11/05 00:41:13 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.13 2008/11/10 22:54:42 burnett Exp $
 
 """
-version='$Revision: 1.12 $'.split()[1]
+version='$Revision: 1.13 $'.split()[1]
 import os
 from numpy import *
 
@@ -77,7 +77,9 @@ Optional keyword arguments:
 
         self.class_level = 3  # select class level
         self.maxROI      = 25 # for PointSourceLikelihood
-        
+        self.use_mc_psf  = False
+        self.background_scale = 1.
+
         self.__dict__.update(kwargs) 
 
         # check explicit files
@@ -97,8 +99,6 @@ Optional keyword arguments:
         
     def setup(self):
         from pointlike import  SimpleLikelihood
-        #from Response import ModelResponse
-        #from Fitters import EnergyBands
 
         # process livetime files
         self.lt = self.get_livetime()
@@ -200,8 +200,8 @@ Optional keyword arguments:
         else:
             self.galactic_diffuse = DiffuseFunction(self.diffusefile)
         self.isotropic_diffuse = IsotropicPowerLaw(self.isotropic[0],self.isotropic[1])
-        self.diffuse = CompositeSkySpectrum(self.galactic_diffuse);
-        self.diffuse.add(self.isotropic_diffuse)
+        self.diffuse = CompositeSkySpectrum(self.galactic_diffuse,self.background_scale);
+        self.diffuse.add(self.isotropic_diffuse,self.background_scale)
         self.background = Background(self.diffuse, self.exposure[0], self.exposure[1]) # array interface does not work
         PointSourceLikelihood.set_background(self.background)
    
@@ -220,9 +220,10 @@ Optional keyword arguments:
             PointSourceLikelihood.set_energy_range(globaldata.emin) #kluge
             self.src_dir = src_dir
             self.psl = PointSourceLikelihood(globaldata.dmap, name, self.src_dir)
-            print 'TS= %6.1f' % self.psl.maximize()
+            self.psl.maximize()
             self.pslw = PointSourceLikelihoodWrapper(self.psl,globaldata.WrapExposure(globaldata.exposure),\
-                        emin=globaldata.emin,quiet=globaldata.quiet)
+                        emin=globaldata.emin,emax=globaldata.emax,quiet=globaldata.quiet)
+            print 'TS= %6.1f' % self.pslw.TS() #TS consistent with energy selection for spectral analysis
             self.models = []
             
         def printSpectrum(self):
@@ -233,19 +234,45 @@ Optional keyword arguments:
             self.psl.addBackgroundPointSource(other.psl)
             self.pslw.update()
 
-        def fit(self, model='PowerLaw',**kwargs):
+        def add_models(self,models,**kwargs):
+            """models: a list of spectral models, e.g. ['PowerLaw,'BrokenPowerLaw',...]
+               see Fitter.available_models for a list of all models"""
+            for model in models:
+                if model in self.available_models(printout=False):
+                    if model not in [m.name for m in self.models]:
+                        exec('from Models import %s'%model)
+                        exec('self.models += [%s(**kwargs)]'%model)
+                else:
+                    print 'Warning! %s not a valid spectral model.'%model
+                    self.available_models()
+
+        def available_models(self,printout=True):
+            """List available spectral models.
+               print - if False, return a list of the names"""
+            
+            from Models import DefaultModelValues
+            if printout:
+               print 'Available spectral models:'
+               for name in DefaultModelvalues.names: print name
+            else: return DefaultModelValues.names
+           
+
+        def fit(self, models=['PowerLaw'],**kwargs):
             """ model: one of ['PowerLaw', 'BrokenPowerLaw', ...]
             """
-            exec('from Models import %s'%model)
-            exec('self.models += [self.pslw.poisson(%s(**kwargs))]'%model)
+            from wrappers import SpectralModelFitter
+            self.add_models(models,**kwargs)
+            for model in self.models:
+               if not model.good_fit: SpectralModelFitter.poisson(self.pslw,model)
 
         def plot(self, fignum=1, date_tag=True, sed=True,e_weight=2,cgs=False):
-            from wrappers import PointspecPlotter
+
+            from plotters import PointspecPlotter
             from pylab import figure,axes
             figure(fignum)
             mode = 'sed' if sed else 'counts'
             p = PointspecPlotter(self.pslw,e_weight=e_weight,cgs=cgs,models=self.models,mode=mode)
-            axes(p.ax)
+            p.show()
             if date_tag:
                import fermitime
                fermitime.date_tag()
