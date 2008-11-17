@@ -223,8 +223,8 @@ class ModelResponse(object):
                for k in xrange(0,n-1,self.s)),float))
 
       else:
-         model_points*=exposure
-         return self.ltfrac*self.event_class*self.int_factors*\
+         model_points*=self.exposure
+         return self.ltfrac*self.int_factors*\
             N.fromiter((N.dot(self.s_factors,model_points[k:k+self.s+1])\
                for k in xrange(0,n-1,self.s)),float)
 

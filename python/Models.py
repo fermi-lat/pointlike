@@ -127,6 +127,7 @@ class Model(object):
             t_n=n+(m-len(n))*' '
             l+=[t_n+': %.3g'%(p[i])]
          return '\n'.join(l)
+
    def i_flux(self,emin=100,emax=Inf,e_weight=0,cgs=False,error=False):
       """Return integrated flux."""
       if not self.good_fit:
@@ -140,11 +141,9 @@ class Model(object):
          args = (emin,emax,e_weight,cgs,False)
          err = (variances*self.__flux_derivs__(*args)**2).sum()**0.5
       if not cgs: flux*=self.flux_scale
-               
-      #print 'Integral of E^%d from %d to %d MeV (*%.2g) for %s model: %.2g ph/cm^2/s'\
-      #      %(e_weight,emin,emax,self.flux_scale,self.pretty_name,flux)
       if error: return (flux,err)
       return flux
+
    def copy(self):
       param_string=','.join( ( str(p) for p in self.p ) )
       a = eval(self.name+'(**self.__dict__)')
@@ -168,6 +167,13 @@ class Model(object):
 
       return N.asarray(derivs)
 
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------------------------#
+
+class ModelManager(object):
+
+   pass
 
 #-----------------------------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------------------------#
