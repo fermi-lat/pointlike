@@ -12,8 +12,10 @@ class PSF:
          self.fp=N.array([0.014,-1.400,1.056,1.434])#allgammav15r0
          self.bp=N.array([0.033,-1.734,6.270,0.599])
       else:
-         self.fp = N.array([0.063,-1.673,1.850,-0.039]) #p6cuts
-         self.bp = N.array([-0.112,-1.561,3.586,12.753])
+         self.fp = N.array([0.045,-1.303,.767,2.360]) #day-126
+         self.bp = N.array([-0.123,-1.302,1.094,15.109])
+         #self.fp = N.array([0.063,-1.673,1.850,-0.039]) #p6cuts
+         #self.bp = N.array([-0.112,-1.561,3.586,12.753])
          
       self.gm = GammaManager(use_mc=self.use_mc)
 
@@ -67,7 +69,7 @@ class GammaManager(object):
 
       try:
          #f = open('boogie woogie')#just get an exception!
-         path = 'd:/common/sourcelikefilter/first_light/psf/pass6'
+         path = 'd:/common/sourcelikefilter/first_light/psf/126_day'
          if use_mc:
             files = [path+'/m_front.txt',path+'/m_back.txt']
          else:

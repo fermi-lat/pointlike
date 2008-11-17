@@ -80,17 +80,20 @@ def phase_circ(eventfiles,center=None,radius=6,phaseranges=[[0,1]],\
 def phase_cut(eventfile,outputfile=None,phaseranges=[[0,1]]):
     """Select phases within a set of intervals.
     
-        outputfile - set to change the default output (eventfile_PHASECUT.fits)
-        phaseranges - a set of ranges"""
-    from numarray import array as narray
+        outputfile  - set to change the default output (eventfile_PHASECUT.fits)
+        phaseranges - a set of ranges on which to make inclusive cuts"""
+
+
+    from numarray import array as narray #important -- on SLAC, this should be changed to numpy.array
+    from numpy import array
+    import pyfits as PF
     ef=PF.open(eventfile)
-    ph=N.asarray(ef['EVENTS'].data.field('PULSE_PHASE')).astype(float)
-    mask=N.array([False]*len(ph))
+    ph=array(ef['EVENTS'].data.field('PULSE_PHASE')).astype(float)
+    mask=narray([False]*len(ph))
     for r in phaseranges:
         for i in xrange(len(ph)):
-            if r[0]<= ph[i] and ph[i] < r[1]: mask[i]=True                    
-    hdu=PF.new_table(ef['EVENTS'].columns,nrows=int(mask.sum()))
-    mask=narray(mask)
+            if r[0]<= ph[i] and ph[i] <= r[1]: mask[i]=True                    
+    hdu=PF.new_table(ef['EVENTS'].columns,nrows=len(mask[mask]))
     for i in xrange(len(ef['EVENTS'].columns)):
         hdu.data.field(i)[:]=ef['EVENTS'].data.field(i)[mask]
     ef['EVENTS'].data=hdu.data
