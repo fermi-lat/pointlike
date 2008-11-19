@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: glastrm  Wed Nov 19 11:38:56 PST 2008
+ScienceTools-scons/pointlike/python
+
+Added Files:
+	swig_setup.i 
+Log Message:
+Added swig_setup.i for SCons to use
+    *
+------------------------------------------------------------
 User: kerrm  Mon Nov 17 13:39:20 PST 2008
 pointlike/python
 
