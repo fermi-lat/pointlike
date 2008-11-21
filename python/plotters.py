@@ -4,7 +4,9 @@ instance of PointSourceLikelihoodWrapper from which information on the photon di
 spectral fits is obtained.  Spectral models can be furnished separately to provide an independent
 estimate of the source counts and for display purposes.
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/plotters.py,v 1.1 2008/11/17 21:35:03 kerrm Exp $
+
+author: Matthew Kerr
 """
 
 import numpy as N
@@ -102,7 +104,7 @@ Optional keyword arguments:
 
    def histogram(self, mode = 4, bins=20):
       """Distribution of image pixels in given mode."""
-      pixels = N.ravel(self.image)
+      pixels = N.ravel(self._images[mode])
       self.pylab.hist(pixels,bins=bins)
       self.pylab.axvline(0, color='white')
       self.pylab.axvline(pixels.mean(), color='red',label='Mean')
@@ -168,7 +170,7 @@ Optional keyword arguments:
          
          integ_psf = (1+u[:-1]/gamma)**(1-gamma) - (1+u[1:]/gamma)**(1-gamma)
          fmax = 1- (1+u[-1]/gamma)**(1-gamma)
-         norm = slw.expected(model) if self.model is not None else slw.signal()[0]
+         norm = slw.expected(self.model) if self.model is not None else slw.signal()[0]
          self.src_predicted += norm/fmax*integ_psf
 
    def __set_axis__(self,mi,ma):
@@ -291,7 +293,7 @@ Optional keyword arguments:
   models      [] list of spectral models to display                                                                           
   grid        [True] if True, display grid                                                              
   legend      [True] if True, display legend                                                               
-  mode        ['sed'] 'sed' --> spectral energy density; 'counts' --> counts                                                                    
+  sed         [True] if True, plot the flux density; else, plot the counts spectrum                                                               
   cgs         [True] if True, use ergs for abscissa rather than MeV         
   e_weight    [2] energy weighting for spectral energy density plot
   normalized [True] if True, use background normalization; if false, use observed counts (not yet implemented)
@@ -299,8 +301,8 @@ Optional keyword arguments:
   """
 
    def init(self):
-      key = ['residuals','models','grid','legend','mode','cgs','e_weight','normalized']
-      val = [True,[],True,True,'sed',False,2,True]
+      key = ['residuals','models','grid','legend','sed','cgs','e_weight','normalized']
+      val = [True,[],True,True,True,False,2,True]
       for i in xrange(len(key)): self.__dict__[key[i]] = val[i]
       self._bounds = None
 
@@ -312,7 +314,7 @@ Optional keyword arguments:
       self.ax.set_yscale('log')
 
    def __drawData__(self):
-      if self.mode == 'sed':
+      if self.sed:
          x,y,yerr = self.pslw.spectrum(e_weight=self.e_weight,cgs=self.cgs)
          low_yerr = N.where(y-yerr <= 0,0.99*y,yerr)
          self.ax.errorbar(x=x,y=y,yerr=[low_yerr,yerr],linestyle=' ',marker='o',mfc = 'white', mec = 'black',\
@@ -328,7 +330,7 @@ Optional keyword arguments:
          self._bounds = [0.7*min(x),1.3*max(x),min(obs)*0.7,max(obs)*1.3]
 
    def __drawModel__(self,model):
-      if self.mode == 'sed':
+      if self.sed:
          domain = N.logspace(N.log10(self.pslw.emin),N.log10(self.pslw.emax),200)
          units = (1.60218e-6)**(self.e_weight-1) if self.cgs else 1.
          return self.ax.plot(domain,domain**self.e_weight*units*model(domain),label=model.name)
@@ -341,7 +343,7 @@ Optional keyword arguments:
       if self.legend: ax.legend(loc='lower left')
       ax.grid(b=self.grid)
       ax.set_title(self.pslw.psl.name())
-      if self.mode == 'sed':
+      if self.sed:
          ax.set_xlabel('$\mathrm{E\ (MeV)}$')
          en_tag = 'ergs' if self.cgs else 'MeV'
          if self.e_weight==1: ax.set_ylabel(r'$\rm{E\ dN/dE\ (ph\ cm^{-2}\ s^{-1})}$')
@@ -358,7 +360,7 @@ Optional keyword arguments:
       self.__drawData__()
       for i,m in enumerate(self.models):
          self.__drawModel__(m)
-         if self.mode == 'counts': self.ax.lines[-1].set_linestyle(['-','--','-.',':'][i%4])
+         if not self.sed: self.ax.lines[-1].set_linestyle(['-','--','-.',':'][i%4])
       self.__label__()
       from pylab import show; show()
 

@@ -1,5 +1,9 @@
 """A suite of tools for processing FITS files.
 
+   $Header$
+
+   author: Matthew Kerr
+
 """
 
 import pyfits as pf
