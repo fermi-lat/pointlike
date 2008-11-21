@@ -1,6 +1,8 @@
 """A module for classes that perform spectral fitting.
 
-    $Header$
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/specfitter.py,v 1.1 2008/11/20 03:56:09 burnett Exp $
+
+    author: Matthew Kerr
 """
 import numpy as N
 
@@ -54,20 +56,22 @@ class SpectralModelFitter(object):
       def logLikelihood(parameters,*args):
          """Routine for use in minimum Poisson likelihood."""
          model = args[0]
-         model.p = parameters
+         #model.p = parameters
+         model.set_parameters(parameters)
          return sum( (sl.logLikelihood(sl.expected(model)) for sl in pslw.sl_wrappers) ) #for speed
       
       from scipy.optimize import fmin
-      fit = fmin(logLikelihood,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=2000)
+      #fit = fmin(logLikelihood,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=2000)
+      fit = fmin(logLikelihood,model.get_parameters(),args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=2000)
       warnflag = (fit[4]==1 or fit[4]==2)
       
       if not warnflag: #Good fit (claimed, anyway!)      
          try:
             from numpy.linalg import inv
-            model.cov_matrix = inv(SpectralModelFitter.hessian(model,logLikelihood))
             model.good_fit   = True
-            model.p          = fit[0]
             model.logl       = -fit[1] #Store the log likelihood at best fit
+            model.set_parameters(fit[0])
+            model.set_cov_matrix(inv(SpectralModelFitter.hessian(model,logLikelihood)))
             if not pslw.quiet:
                print '\nFit converged!  Function value at minimum: %.4f'%fit[1]
                print str(model)+'\n'
@@ -79,7 +83,8 @@ class SpectralModelFitter(object):
    def hessian(m,mf,*args):
       """Calculate the Hessian; f is the minimizing function, m is the model,args additional arguments for mf."""
       delt=0.01
-      p = m.p.copy()
+      #p = m.p.copy()
+      p = m.get_parameters().copy()
       hessian=N.zeros([len(p),len(p)])
       for i in xrange(len(p)):
          for j in xrange(i,len(p)): #Second partials by finite difference
@@ -101,5 +106,6 @@ class SpectralModelFitter(object):
             hessian[i][j]=hessian[j][i]=(mf(xhyh,m,*args)-mf(xhyl,m,*args)-mf(xlyh,m,*args)+mf(xlyl,m,*args))/\
                                           (p[i]*p[j]*4*delt**2)
 
-      m.p = p #Restore parameters
+      #m.p = p #Restore parameters
+      m.set_parameters(p)
       return hessian

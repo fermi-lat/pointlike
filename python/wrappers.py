@@ -5,23 +5,124 @@
    signal, flux, expected counts, background, etc.  PointSourceLikelihoodWrapper makes the
    transition from the band level to energy space.
    
-   $Header$
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/wrappers.py,v 1.5 2008/11/17 21:39:20 kerrm Exp $
+
+   author: Matthew Kerr
    """
 
 import numpy as N
 
-class SimpleLikelihoodWrapper(object):
-   """Wrap up SimpleLikelihood as the basic object for spectral fitting."""
+class Wrapper(object):
+    """Parent class for a wrapper.  Inherited classes are supposed to get a list of kwargs that may override
+       the defaults established by init.  Class-specified initialization may be done with the setup method.
+    """
+
+    def init(self): pass
+    def setup(self): pass
+
+    def __init__(self,*args,**kwargs):
+        self.init()
+        for key,value in kwargs.items():
+            if key in self.__dict__: self.__dict__[key] = value
+        self.args = args
+        self.setup()
+
+class ExposureWrapper(Wrapper):
+    """A wrapper class to create and wrap an Exposure object.         
+
+Optional keyword arguments:
+
+  =========   =======================================================
+  Keyword     Description
+  =========   =======================================================
+  CALDB       [None] If not specified, will use environment variable
+  irf         ['P6_v1_diff'] Used for effective area
+  =========   =======================================================
+    """
+
+    def init(self):
+        self.CALDB = None
+        self.quiet = False
+        self.irf   ='P6_v1_diff'
+
+    def setup(self):
+        
+        from skymaps import Exposure, EffectiveArea
+        if self.CALDB is not None: EffectiveArea.set_CALDB(self.CALDB)
+        lt = self.args[0].lt
+        inst = ['front', 'back']
+        self.ea  = [EffectiveArea(self.irf+'_'+x) for x in inst]
+        if not self.quiet: print ' -->effective areas at 1 GeV: ', ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
+        self.exposure = [Exposure(lt,ea) for ea in self.ea]
+
+    def value(self, sdir, energy, event_class):
+        return self.exposure[event_class].value(sdir, energy)
+
+    def __call__(self, event_class): return self.exposure[event_class]
+
+class BackgroundWrapper(Wrapper):
+    """A wrapper class to create and wrap a Background object.         
+
+Optional keyword arguments:
+
+  =========   =======================================================
+  Keyword     Description
+  =========   =======================================================
+  isotropic   [1.5e-5,2.1] Sreekumar EGRET values for an isotropic power law diffuse
+  galactic_scale [1.] Scale factor for galprop model
+  =========   =======================================================
+    """
+
+    def init(self):
+        self.isotropic      = [1.5e-5,2.1]
+        self.galactic_scale = 1.
+
+    def setup(self):
+        from skymaps import Background, DiffuseFunction, CompositeSkySpectrum, IsotropicPowerLaw, HealpixDiffuseFunc
+        diffusefile,exposure = self.args
+        import pyfits
+        q = pyfits.open(diffusefile, memmap=1)
+        if q[1].name == 'SKYMAP': # first extension name: is it healpix?
+            self.galactic_diffuse = HealpixDiffuseFunc(self.diffusefile)
+        else:
+            self.galactic_diffuse = DiffuseFunction(diffusefile)
+        self.isotropic_diffuse = IsotropicPowerLaw(self.isotropic[0],self.isotropic[1])
+        self.diffuse = CompositeSkySpectrum(self.galactic_diffuse,self.galactic_scale);
+        self.diffuse.add(self.isotropic_diffuse,1.)
+        self.background = Background(self.diffuse, exposure(0), exposure(1)) # array interface does not work
+
+    def __call__(self): return self.background
+
+class SimpleLikelihoodWrapper(Wrapper):
+   """
+        call signature::
+
+  slw = SimpleLikelihoodWrapper(sl,sky_dir,exposure, **kwargs)
+
+Create a wrapper for SimpleLikelihood and spectral fitting.  
+
+    sl: an instance of SimpleLikelihood
+    exposure: an instance of ExposureWrapper
+    sky_dir: an instance of SkyDir giving the position of the source.
+
+Optional keyword arguments:
+
+  =========   =======================================================
+  Keyword     Description
+  =========   =======================================================
+  n_simps     [8] sampling points in log space for Simpson's rule                                                                 
+  emulate_unbinned [True] if True, ignore bins with zero counts                                                                           
+  extended_likelihood  [False] if True, use the *Python* version of extended likelihood                                                                                                       
+  =========   =======================================================
+   """
 
    def init(self):
-      """Establish defaults as class members."""
-      self.n_simps = 8 #sampling points in log space for Simpson's rule
-      self.emulate_unbinned = True
+      self.n_simps = 8
+      self.emulate_unbinned = False
       self.extended_likelihood = False
 
-   def __init__(self,sl,exposure,sky_dir,**kwargs):
-      self.init()
-      self.__dict__.update(kwargs)
+   def setup(self):
+      sl,exposure,sky_dir = self.args
       self.sl,self.sky_dir,self.exposure = sl,sky_dir,exposure
       self.emin,self.emax = sl.band().emin(),sl.band().emax()
       
@@ -43,11 +144,9 @@ class SimpleLikelihoodWrapper(object):
 
    def __call__(self,sky_dir,model=None):
       """Emulate PSF SkyFunction behavior, but with ability to use spectral model."""
-      if model is None: return self.sl(sky_dir)
-      expected = self.expected(model)
-      s,g = self.sl.sigma(),self.sl.gamma()
-      u = 0.5*(sky_dir.difference(self.sky_dir)/self.sl.sigma())**2
-      return expected * (1-1./g)*(1+u/g)**-g / (2*3.1416*s**2)/self.psf_correction
+      if self.sl.photons()==0: return 0 #kluge
+      expected = (self.expected(model)/self.sl.signal()/self.psf_correction if model is not None else 1.)/self.psf_correction
+      return expected * self.sl(sky_dir)
 
    def expected(self,model):
       """Return expected counts in the ROI for a source model.      
@@ -87,18 +186,32 @@ class SimpleLikelihoodWrapper(object):
          from scipy.optimize import fmin
          delta,l = 0.01,self.logLikelihood
          signal  = fmin(l,max(1,self.sl.signal()),disp=0)[0]
-         if signal < 0: raise Exception
-         signal_err = ((l( signal*(1+delta) ) + l( signal*(1-delta) ) - 2*l(signal))/(delta*signal)**2)**-0.5
+         if signal < 0:
+            #use Feldman-Cousins upper limit?
+            signal,signal_err = 0,3
+         else:
+            signal_err = ((l( signal*(1+delta) ) + l( signal*(1-delta) ) - 2*l(signal))/(delta*signal)**2)**-0.5
       except: #revert to cruder estimate
-         print 'Warning: signal estimation failed at energy %d MeV'%(int(self.energy()))
+         print 'Warning: signal estimation failed at energy %d MeV, event class %d'%(int(self.energy()),self.sl.band().event_class())
          signal = self.sl.signal()
          signal_err = signal*(1./self.sl.photons() + (self.sl.sigma_alpha()/self.sl.alpha())**2)**0.5
       return (signal,signal_err)
 
-   def flux(self,e_weight=0,cgs=True):
-      """Return the differential flux, multiplied by energy**e_weight."""
+   def flux(self,e_weight=0,cgs=True,mev=True):
+      """Return the differential flux estimate for this band.         
+
+Optional keyword arguments:
+
+  =========   =======================================================
+  Keyword     Description
+  =========   =======================================================
+  e_weight    [2] factor of energy by which to multiply dN/dE
+  cgs         [True] boolean; True to use ergs for abscissa energy; False uses ordinate units
+  mev         [True] boolean; True to use MeV for ordinate units; False to use GeV
+  =========   =======================================================
+      """
       
-      units = (1.60218e-6)**(e_weight-1) if cgs else 1 #convert MeV to ergs
+      units = (1.60218e-6 if mev else 1.60218e-9)**(e_weight-1) if cgs else (1. if mev else 10**(-3*(e_weight-1)))
       multi = units*self.energy()**e_weight/self.avg_exposure()/(self.emax-self.emin)/self.psf_correction
       signal,error = self.signal()
       return (multi*signal,multi*error)
@@ -108,33 +221,51 @@ class SimpleLikelihoodWrapper(object):
       #return (self.sl.band().emax() + self.sl.band().emin())/2.
       return (self.emin*self.emax)**0.5
 
-class PointSourceLikelihoodWrapper(object):
+class PointSourceLikelihoodWrapper(Wrapper):
+   """
+        call signature::
+
+  pslw = PointSourceLikelihoodWrapper(psl,exposure,**kwargs)
+
+Create a wrapper for PointSourceLikelihood and spectral fitting.  
+
+    psl: an instance of PointSourceLikelihood to wrap
+    exposure: an instance of ExposureWrapper
+
+Optional keyword arguments:
+
+  =========   =======================================================
+  Keyword     Description
+  =========   =======================================================
+  emin       [200] minimum energy bin to consider for spectral fitting                                                                 
+  emax       [None] maximum energy for fitting; if None, no limit                                                                         
+  quiet      [False] if True, suppress printed output                                                                                                       
+  =========   =======================================================
+   """
 
    def init(self):
-      self.emin = 100
+      self.emin = 200
       self.emax = None
       self.quiet = False
-      self.count = 0 #for iter interface
 
-   def __init__(self,psl,exposure,**kwargs):
-      self.init()
-      self.__dict__.update(kwargs)
-      self.psl,self.exposure = psl,exposure
+   def setup(self):
+      self.count = 0 #for iter interface
+      self.psl,self.exposure = self.args
       self.update()
       self.bin_centers = N.sort(list(set([x.energy() for x in self])))
       ens = N.asarray([ [x.emin,x.emax] for x in self]).flatten()
       self.emin,self.emax = ens.min(),ens.max() #replace defaults with observed
+
+   def update(self):
+      self.psl.maximize()
+      check = self.BandCheck(self.emin,self.emax)
+      self.sl_wrappers = [SimpleLikelihoodWrapper(sl,self.exposure,self.psl.dir()) for sl in self.psl if check(sl)]
 
    def __iter__(self): return self
 
    def next(self):
       if self.count >= len(self.sl_wrappers): self.count = 0; raise StopIteration
       else: self.count+=1; return self.sl_wrappers[self.count-1]
-
-   def update(self):
-      self.psl.maximize()
-      check = BandCheck(self.emin,self.emax)
-      self.sl_wrappers = [SimpleLikelihoodWrapper(sl,self.exposure,self.psl.dir()) for sl in self.psl if check(sl)]
    
    def display(self,sky_dir,mode=4,model=None):
       """Return various spatial values at sky_dir(s).  All are photon densities.
@@ -142,7 +273,11 @@ class PointSourceLikelihoodWrapper(object):
          mode == 1: observed values
          mode == 2: background prediction
          mode == 3: total prediction
-         mode == 4: residuals"""
+         mode == 4: residuals
+         
+         If a model is provided, this model is used to calculate the normalization for
+         the point source; otherwise, the spatial likelihood and observed counts are used."""
+
       options = ['sum( (slw(sky_dir,model) for slw in self) )',
                  'sum( (slw.sl.band()(sky_dir)/slw.sl.band().pixelArea() for slw in self) )',
                  'sum( (slw.sl.background_function()(sky_dir) for slw in self) )',
@@ -151,27 +286,45 @@ class PointSourceLikelihoodWrapper(object):
       exec 'result = %s'%options[mode] in locals()
       return result
 
-   def spectrum(self,e_weight=0,cgs=True):
-      """Return the differential flux as estimated from the band likelihoods; error estimated from curvature.
-         The spectrum is averaged over front and back estimates, errors added in quadrature.
+   def spectrum(self,e_weight=0,cgs=True,mev=True):
+      """Return the differential flux as estimated from the band likelihoods.
+The signal and error are estimated from the maximum value and curvature of the band likelihood.
+The spectrum is averaged over front and back estimates, and the errors added in quadrature.
          
-         Keyword arguments:
-         e_weight    factor of energy by which to multiply dN/dE
-         cgs         boolean; True to use ergs for energy, False for MeV"""
+
+Optional keyword arguments:
+
+  =========   =======================================================
+  Keyword     Description
+  =========   =======================================================
+  e_weight    [2] factor of energy by which to multiply dN/dE
+  cgs         [True] boolean; True to use ergs for abscissa energy; False uses ordinate units
+  mev         [True] boolean; True to use MeV for ordinate units; False to use GeV
+  =========   =======================================================
+      """
+
       keys,d = [str(e) for e in self.bin_centers.astype(int)],dict()
       for key in keys: d[key] = N.zeros(3).astype(float) #flux, error, num
       for slw in self:
          key = str(int(slw.energy()))
-         f,e = slw.flux(e_weight=e_weight,cgs=cgs)
+         f,e = slw.flux(e_weight=e_weight,cgs=cgs,mev=mev)
          d[key] += N.asarray([f,e**2,1.])
       results = N.asarray([ N.asarray([d[key][0],d[key][1]**0.5])/d[key][2] for key in keys])
-      return (self.bin_centers,results[:,0],results[:,1])
+      return (self.bin_centers if mev else self.bin_centers/1000.,results[:,0],results[:,1])
 
    def counts(self,model=None,background=False):
+      """Return the counts predicted by a spectral model for this band.      
+
+Optional keyword arguments:
+
+  =========   =======================================================
+  Keyword     Description
+  =========   =======================================================
+  model       [None] return observed counts if None; else, return model integrated over exposure
+  background  [True] if True, return the background counts for this band
+  =========   =======================================================
       """
-         background == True                   -> return background counts
-         model == None && background == False -> return observed counts
-         model != None && background == False -> return expected counts under model."""
+
       keys,d = [str(e) for e in self.bin_centers.astype(int)],dict()
       for key in keys: d[key] = 0.
       for slw in self:
@@ -184,106 +337,15 @@ class PointSourceLikelihoodWrapper(object):
       """Return TS summed over bands."""
       return sum( (slw.sl.TS() for slw in self) )
 
-class BandCheck(object):
+   def enable_extended_likelihood(self,val=True):
+      for slw in self: slw.extended_likelihood = val
 
-   def __init__(self,emin,emax):
-      self.femin,self.bemin,self.emax = emin,300,emax #temporary
-   def __call__(self,sl):
-      emin = self.femin if sl.band().event_class() == 0 else self.bemin
-      return sl.band().emin() >= emin and (self.emax is None or sl.band().emax() <= self.emax)
+   class BandCheck(object):
+      """One-off class to determine whether a band should be included based on energy cuts."""
 
-class SpectralModelFitter(object):
+      def __init__(self,emin,emax):
+         self.femin,self.bemin,self.emax = emin,emin,emax #temporary
+      def __call__(self,sl):
+         emin = self.femin if sl.band().event_class() == 0 else self.bemin
+         return sl.band().emin() >= emin and (self.emax is None or sl.band().emax() <= self.emax)
 
-   @staticmethod
-   def least_squares(pslw,model,quiet=False):
-      
-      #Products for fit
-      photons = N.fromiter( (sl.sl.photons() for sl in pslw ), int )
-      alphas  = N.array([ [sl.sl.alpha(),sl.sl.sigma_alpha()] for sl in pslw ]).transpose()
-      errors  = (alphas[0,:]**2*photons+alphas[1,:]**2*photons.astype(float)**2)**0.5
-      signals = N.column_stack([alphas[0,:]*photons,errors]).transpose()
-
-      def chi(parameters,*args):
-         """Routine for use in least squares routine."""
-         model,photons,signals,sl_wrappers = args
-         model.p = parameters
-         expected = N.fromiter( (sl.expected(model) for sl in sl_wrappers ), float)
-         return ((expected - signals[0,:])/signals[1,:])[photons > 0]
-
-      from scipy.optimize import leastsq
-      try:
-         fit = leastsq(chi,model.p,args=(model,photons,signals,pslw.sl_wrappers),full_output=1)
-      except:
-         fit = [0]*5
-
-      if fit[4] == 1:
-
-         model.good_fit=True #Save parameters to model
-         model.cov_matrix=fit[1] #Save covariance matrix
-         model.p=fit[0]
-         vals = chi(fit[0],model,photons,signals,pslw.sl_wrappers)
-         model.dof=len(vals)
-         model.chi_sq=(vals**2).sum() #Save chi-sq information
-
-         if not pslw.quiet and not quiet:
-            print '\nFit converged!  Chi-squared at best fit: %.4f'%model.chi_sq
-            print str(model)+'\n'
-      return model
-
-   @staticmethod
-   def poisson(pslw,model,prefit=True):
-      
-      if prefit: SpectralModelFitter.least_squares(pslw,model,quiet=True)
-
-      def logLikelihood(parameters,*args):
-         """Routine for use in minimum Poisson likelihood."""
-         model = args[0]
-         model.p = parameters
-         return sum( (sl.logLikelihood(sl.expected(model)) for sl in pslw.sl_wrappers) ) #for speed
-      
-      from scipy.optimize import fmin
-      fit = fmin(logLikelihood,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=2000)
-      warnflag = (fit[4]==1 or fit[4]==2)
-      
-      if not warnflag: #Good fit (claimed, anyway!)      
-         try:
-            from numpy.linalg import inv
-            model.cov_matrix = inv(SpectralModelFitter.hessian(model,logLikelihood))
-            model.good_fit   = True
-            model.p          = fit[0]
-            model.logl       = -fit[1] #Store the log likelihood at best fit
-            if not pslw.quiet:
-               print '\nFit converged!  Function value at minimum: %.4f'%fit[1]
-               print str(model)+'\n'
-         except:
-            print 'Hessian inversion failed!'
-      return model
-
-   @staticmethod
-   def hessian(m,mf,*args):
-      """Calculate the Hessian; f is the minimizing function, m is the model,args additional arguments for mf."""
-      delt=0.01
-      p = m.p.copy()
-      hessian=N.zeros([len(p),len(p)])
-      for i in xrange(len(p)):
-         for j in xrange(i,len(p)): #Second partials by finite difference
-            
-            xhyh,xhyl,xlyh,xlyl=p.copy(),p.copy(),p.copy(),p.copy()
-
-            xhyh[i]*=(1+delt)
-            xhyh[j]*=(1+delt)
-
-            xhyl[i]*=(1+delt)
-            xhyl[j]*=(1-delt)
-
-            xlyh[i]*=(1-delt)
-            xlyh[j]*=(1+delt)
-
-            xlyl[i]*=(1-delt)
-            xlyl[j]*=(1-delt)
-
-            hessian[i][j]=hessian[j][i]=(mf(xhyh,m,*args)-mf(xhyl,m,*args)-mf(xlyh,m,*args)+mf(xlyl,m,*args))/\
-                                          (p[i]*p[j]*4*delt**2)
-
-      m.p = p #Restore parameters
-      return hessian
