@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.37 2008/11/10 20:11:18 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.38 2008/11/13 01:16:06 markusa Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -23,21 +23,21 @@
 
 #include "pointlike/PointSourceLikelihood.h"
 #include "pointlike/SimpleLikelihood.h"
-#include "pointlike/SourceLikelihood.h"
-#include "pointlike/ExtendedLikelihood.h"
-#include "pointlike/ExtendedSourcePDF.h"
 #include "pointlike/SourceFinder.h"
 #include "pointlike/Data.h"
-#include "pointlike/ResultsFile.h"
 #include "pointlike/Draw.h"
-#include "pointlike/DrawTS.h"
 #include "pointlike/SourceList.h"
 //fails #include "pointlike/ParamOptimization.h"
 #include "pointlike/SimpleTSmap.h"
 #include "pointlike/Alignment.h"
 #include "pointlike/FlexibleBinner.h"
-#include "pointlike/HealpixDiffuseFunc.h"
 #include "pointlike/BandBackground.h"
+// --------- extended source likelihood ----
+//#include "pointlike/SourceLikelihood.h"
+//#include "pointlike/ExtendedLikelihood.h"
+//#include "pointlike/ExtendedSourcePDF.h"
+//#include "pointlike/ResultsFile.h"
+//#include "pointlike/DrawTS.h"
 
 
 #include "CLHEP/Vector/Rotation.h"
@@ -137,17 +137,18 @@ public:
    size_t __len__() {      return self->size();       }
 }
 
-%extend pointlike::SourceLikelihood{
-   pointlike::ExtendedLikelihood * __getitem__(size_t i){ 
-      return self->at(i); 
-   }
-   size_t __len__() {      return self->size();       }
-}
+//%extend pointlike::SourceLikelihood{
+//   pointlike::ExtendedLikelihood * __getitem__(size_t i){ 
+//      return self->at(i); 
+//   }
+//   size_t __len__() {      return self->size();       }
+//}
 
-%extend pointlike::SimpleTSmap{
-   float __getitem__(size_t i)            {return (*self)[i];}
-   double __call__(const astro::SkyDir& d){return (*self)(d);}
-}
+
+//%extend pointlike::SimpleTSmap{
+//   float __getitem__(size_t i)            {return (*self)[i];}
+//   double __call__(const astro::SkyDir& d){return (*self)(d);}
+//}
 %extend healpix::HealpixMap{
    float __getitem__(size_t i)            {return (*self)[i];}
    double __call__(const astro::SkyDir& d){return (*self)(d);}
@@ -175,21 +176,21 @@ public:
 %include $(EMBED_PYTHONROOT)/embed_python/Module.h
     
 
+//  extended PSF stuff
+//%include $(POINTLIKEROOT)/pointlike/ExtendedLikelihood.h
+//%include $(POINTLIKEROOT)/pointlike/SourceLikelihood.h
+//%include $(POINTLIKEROOT)/pointlike/ExtendedSourcePDF.h
+//%include $(POINTLIKEROOT)/pointlike/ResultsFile.h
+
 %include $(POINTLIKEROOT)/pointlike/SimpleLikelihood.h
 
-
 %include $(POINTLIKEROOT)/pointlike/PointSourceLikelihood.h
-%include $(POINTLIKEROOT)/pointlike/ExtendedLikelihood.h
-%include $(POINTLIKEROOT)/pointlike/SourceLikelihood.h
-%include $(POINTLIKEROOT)/pointlike/ExtendedSourcePDF.h
 %include $(POINTLIKEROOT)/pointlike/Data.h
-%include $(POINTLIKEROOT)/pointlike/ResultsFile.h
 %include $(POINTLIKEROOT)/pointlike/SourceFinder.h
 %include $(POINTLIKEROOT)/pointlike/Draw.h
-%include $(POINTLIKEROOT)/pointlike/SimpleTSmap.h
+//%include $(POINTLIKEROOT)/pointlike/SimpleTSmap.h
 %include $(POINTLIKEROOT)/pointlike/SourceList.h
 %include $(POINTLIKEROOT)/pointlike/FlexibleBinner.h
-%include $(POINTLIKEROOT)/pointlike/HealpixDiffuseFunc.h
 %include $(POINTLIKEROOT)/pointlike/BandBackground.h
 
 %extend pointlike::SourceList{
