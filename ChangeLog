@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov 23 18:26:57 PST 2008
+pointlike/pointlike
+
+Modified Files:
+	HypergeometricFunction.h 
+Log Message:
+disable extended source stuff for windows for now
+    *
+------------------------------------------------------------
 User: kerrm  Fri Nov 21 09:58:05 PST 2008
 pointlike/python
 
