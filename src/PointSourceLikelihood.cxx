@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.63 2008/11/09 23:54:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.64 2008/11/10 20:10:26 burnett Exp $
 
 */
 
@@ -263,10 +263,23 @@ double PointSourceLikelihood::alpha(int band) const
   else return alpha_band;
 }
 
-double PointSourceLikelihood::maximize()
+PointSourceLikelihood::const_iterator PointSourceLikelihood::begin_skip(int skip)const{
+    const_iterator it(begin());
+    while(skip-- >=0)it++;
+    return it;
+}
+
+
+PointSourceLikelihood::iterator PointSourceLikelihood::begin_skip(int skip){
+    iterator it(begin());
+    while(skip-- >=0)it++;
+    return it;
+}
+
+double PointSourceLikelihood::maximize(int skip)
 {
     m_TS = 0;
-    iterator it = begin();
+    iterator it = begin_skip(skip); //begin();
     for( ; it!=end(); ++it){
         SimpleLikelihood& like = **it;
         std::pair<double,double> a(like.maximize());
@@ -284,7 +297,7 @@ void PointSourceLikelihood::setDir(const astro::SkyDir& dir, bool subset){
     m_dir = dir;
 }
 
-const Hep3Vector& PointSourceLikelihood::gradient() const{
+const Hep3Vector& PointSourceLikelihood::gradient(int skip) const{
     m_gradient=Hep3Vector(0);  
     const_iterator it = begin();
     for( ; it!=end(); ++it){
@@ -296,9 +309,9 @@ const Hep3Vector& PointSourceLikelihood::gradient() const{
     return m_gradient;
 }
 
-double PointSourceLikelihood::curvature() const{
+double PointSourceLikelihood::curvature(int skip) const{
     double t(0);
-    const_iterator it = begin();
+    const_iterator it = begin_skip(skip);
     for( ; it!=end(); ++it){
         if( (*it)->TS()< s_TScut) continue;
 #if 0 // Marshall?
@@ -445,13 +458,13 @@ double PointSourceLikelihood::localize(int skip)
     }
     SkyDir last_dir(dir()); // save current direction
     setDir(dir(), true);    // initialize
-    double oldTs( maximize()); // initial (partial) TS
+    double oldTs( maximize(skip)); // initial (partial) TS
     bool backingoff;  // keep track of backing
 
 
     for( ; iter<maxiter; ++iter){
-        Hep3Vector grad( gradient() );
-        double     curv( curvature() );
+        Hep3Vector grad( gradient(skip) );
+        double     curv( curvature(skip) );
 
         // check that resolution is ok: if curvature gets small or negative we are lost
         if( curv < 1.e4){
@@ -501,7 +514,7 @@ double PointSourceLikelihood::localize(int skip)
             m_dir = olddir -delta;
 #if 0
             setDir(m_dir,true);
-            double newTs(maximize());
+            double newTs(maximize(skip));
 #else // make comparison without speedup
             oldTs=TSmap(m_dir); 
             double newTs(TSmap(m_dir));
