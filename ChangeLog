@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Nov 23 18:27:57 PST 2008
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+restore use of skip in localization
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov 23 18:26:57 PST 2008
 pointlike/src
 
