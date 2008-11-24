@@ -18,10 +18,15 @@ static const unsigned int nan[2]={0xffffffff, 0x7fffffff};
 // only valid between 0<= x < 1 :
 // for x<0.7 evaluate series, for x >=0.7 use the reflection formula 15.3.7 from Abramowitz and Stegun before
 // evaluating the series to accelerate convergence.
-
+ 
 
 namespace {
 
+#ifdef WIN32 // quiet this for Seattle folk
+    int isinf(double){return 0;}
+    double gamma(double){return 0;}
+ #include <float.h>
+#endif
 //  --------------- helper functions to evaluate the hypergeometric function
 
    static const double GSL_DBL_EPSILON   =  2.2204460492503131e-16;

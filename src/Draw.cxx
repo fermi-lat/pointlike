@@ -1,7 +1,7 @@
 /** @file Draw.cxx
 @brief implementation of Draw
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.18 2008/10/20 23:40:25 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.19 2008/11/11 23:05:57 funk Exp $
 
 */
 
@@ -11,7 +11,9 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.18 2008/10/20 2
 #include "pointlike/Data.h"
 
 #include "pointlike/PointSourceLikelihood.h"
+#ifndef WIN32
 #include "pointlike/SourceLikelihood.h"
+#endif
 
 #include "astro/SkyDir.h"
 
@@ -203,9 +205,9 @@ void Draw::density(const astro::SkyDir& dir, std::string outputFile, double pixe
 		   
 };		   
 		   
-
 void Draw::TS(const astro::SkyDir& dir, std::string outputFile, double pixel, 
                  double fov, bool smooth, int mincount) {
+#ifndef WIN32
     std::string proj (fov>90? "AIT":"ZEA");
     if( !m_proj.empty()){ proj = m_proj;}
 
@@ -252,6 +254,7 @@ void Draw::TS(const astro::SkyDir& dir, std::string outputFile, double pixel,
 	else image2.fill(SkyTS<PointSourceLikelihood>(m_map, *m_background, caches, i, m_emin, m_minalpha, returnValue), i);
       }
     }	 
+#endif
 };		 
 
 void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel, 
