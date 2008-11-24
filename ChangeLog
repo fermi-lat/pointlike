@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Sun Nov 23 18:27:57 PST 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h 
+Log Message:
+restore use of skip in localization
+    *
+------------------------------------------------------------
+User: burnett  Sun Nov 23 18:27:57 PST 2008
 pointlike/cmt
 
 Modified Files:
