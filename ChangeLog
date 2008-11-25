@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+TAG
+Tag name: v6r14, operation: add
+Package: pointlike
+User: glastrm  Tue Nov 25 12:02:03 2008
+Files:
+  pointlike/python/swig_setup.i  1.2
+
+    *
+------------------------------------------------------------
 User: glastrm  Tue Nov 25 12:01:37 PST 2008
 pointlike/python
 
