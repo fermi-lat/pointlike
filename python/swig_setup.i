@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/swig_setup.in,v 1.38 2008/11/13 01:16:06 markusa Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.37 2008/11/10 20:11:18 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -133,13 +133,6 @@ public:
       if( i == (*self).size() ) throw std::range_error("StopIteration");
       if( i<0 || i > self->size() ) throw std::range_error("IndexError");
       return (*self)[i]; 
-   }
-   size_t __len__() {      return self->size();       }
-}
-
-%extend pointlike::SourceLikelihood{
-   pointlike::ExtendedLikelihood * __getitem__(size_t i){ 
-      return self->at(i); 
    }
    size_t __len__() {      return self->size();       }
 }
