@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: glastrm  Tue Nov 25 12:01:37 PST 2008
+pointlike/python
+
+Modified Files:
+	swig_setup.i 
+Log Message:
+revert to v6r14 version
+    *
+------------------------------------------------------------
 User: burnett  Sun Nov 23 18:27:57 PST 2008
 pointlike/src
 
