@@ -33,11 +33,13 @@ Optional parameters:
         subsequent input
     -v or --verbose [0] set verbosity
     --binsperdecade [0] default is 2.35 ratio. otherwise energy binning is set.
-    --emin [500]  minimum energy, used to select bands
+    --emin= [200]  minimum energy, used to select bands
+    --TSmin= [10]
+    --[no]lsq  use (or not) "lsq" mode to find maximum
     --region=: define a region file
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.14 2008/10/12 19:20:19 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.15 2008/10/17 16:57:34 kerrm Exp $
 """
 import os, sys, types
 from numpy import arange
@@ -139,7 +141,7 @@ def main():
 
     options = 'b:w:v'
     long_options= [ 'diffuse=','write=', 'verbose', 'galdiffuse', 
-                    'eventtype=', 'exposure=', 'binsperdecade=', 'emin=', 'region=']
+                    'eventtype=', 'exposure=', 'binsperdecade=', 'emin=', 'region=', 'TSmin=', 'lsq', 'nossq']
 
     try:    
         (opts, args) = getopt(sys.argv[1:], options, long_options )
@@ -154,6 +156,7 @@ def main():
     binsperdecade=0 # default binning
     emin = 500
     TSmin= 10  # minimum TS for final list
+    lsq = True
                                     
     for (opt,val) in opts:
         if   opt=='-b' or opt=='--diffuse'  : diffusefilename = val
@@ -164,6 +167,9 @@ def main():
         elif opt=='--emin'                  : emin = float(val)
         elif opt=='--binsperdecade'         : binsperdecade=float(val)
         elif opt=='--region'                : region = val
+        elif opt=='--TSmin'                 : TSmin = float(val)
+        elif opt=='--lsq'                   : lsq = True 
+        elif opt=='--nolsq'                 : lsq = False
         elif opt=='--exposure'              :
             try: exposure= float(val)
             except: exposure = val
@@ -185,11 +191,12 @@ def main():
         (t1,t2)=set_diffuse(diffusefilename, exposure)
     PointSourceLikelihood.set_energy_range(emin)
     PointSourceLikelihood.set_verbose(verbose)
+    PointSourceLikelihood.set_fitlsq(lsq)
     SourceList.set_data(data.map())
     sourcelist = SourceList(sourcefilename)
     sourcelist.sort_TS()
     sourcelist.refit()
-    sourcelist.filter_TS(TSmin)
+    if TSmin>0:  sourcelist.filter_TS(TSmin)
     sourcelist.sort_ra()
     sourcelist.dump()
     if len(args)>2:

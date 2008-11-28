@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header$
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.1 2008/11/08 21:24:10 burnett Exp $
 
 """
-version='$Revision: 0.0 $'.split()[1]
+version='$Revision: 1.1 $'.split()[1]
 import os
 
 class PixelData(object):
@@ -49,7 +49,6 @@ Optional keyword arguments:
         self.roi_radius  = 25
         self.livetimefile= None
         self.datafile    = None 
-        self.align       = True
         self.zenithcut   = 105
         self.binsperdecade=4
         self.quiet       = False
@@ -80,15 +79,11 @@ Optional keyword arguments:
         if self.datafile is None or not os.path.exists(self.datafile):
             self.binner = PhotonBinner(self.binsperdecade) # per decade
             Data.setPhotonBinner(self.binner)
-            if self.align: 
-                # boresight alignment, only needed for August
-                Data.set_alignment('default')
-                for h in self.history_files:
-                    Data.setHistoryFile(h)
-
+            if self.verbose: print 'loading file(s) %s' % self.event_files
             data = Data(self.event_files)
+            if self.verbose: print 'done'
             if self.datafile is not None:
-                print 'saving datafile %s for subsequent use' % self.datafile
+                if not self.quiet: print 'saving datafile %s for subsequent use' % self.datafile
                 data.write(self.datafile)
         else:
             data = Data(self.datafile)
@@ -140,7 +135,7 @@ Optional keyword arguments:
 # test for this application
 #--------------------------------------------------------------------
 
-def setup():
+def setup(bins=8):
     import os
     data_path = r'f:\glast\data\flight'
     months = ['aug', 'sep', 'oct']
@@ -148,6 +143,7 @@ def setup():
     history_files= [os.path.join(data_path, '%s2008-ft2.fits'%m) for m in months ]
     return PixelData( event_files, history_files,  
         livetimefile='../data/aug-oct_livetime.fits', 
-        datafile='../data/aug-oct2008_8.fits', 
-        binsperdecade=8)
-
+        datafile='../data/aug-oct2008_%d.fits'%bins, 
+        binsperdecade=bins)
+if __name__=='__main__':
+    pass
