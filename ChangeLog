@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: funk  Fri Dec  5 12:20:41 PST 2008
+pointlike/src
+
+Modified Files:
+	Draw.cxx ExtendedLikelihood.cxx SourceLikelihood.cxx 
+Log Message:
+Added energy bands to Draw, added realResiduals ... - Stefan
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-09-00, operation: add
 Package: pointlike
