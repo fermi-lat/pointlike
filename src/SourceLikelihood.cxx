@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.19 2008/11/11 23:05:57 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.20 2008/11/13 01:16:07 markusa Exp $
 
 */
 
@@ -950,8 +950,8 @@ double SLdisplay::integral(const astro::SkyDir& dir, double a, double b)const{
 
 std::string SLdisplay::name()const
 {
-  static std::string type[]={"density", "data", "background", "fit", "residual"};
-    if( m_mode<0 || m_mode>4) return "illegal";
+  static std::string type[]={"density", "data", "background", "fit", "residual", "realResidual"};
+    if( m_mode<0 || m_mode>5) return "illegal";
     return m_psl.name()+"--"+type[m_mode];
     
 }

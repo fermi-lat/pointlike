@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.cxx
     @brief Implementation of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.8 2008/11/13 01:16:07 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.9 2008/11/13 23:36:56 markusa Exp $
 */
 
 #include "pointlike/ExtendedLikelihood.h"
@@ -643,6 +643,9 @@ double ExtendedLikelihood::display(const astro::SkyDir& dir, int mode) const
     double prediction ( area/jacobian * photons() * ( m_alpha*m_psf(u)/m_fint + (1.-m_alpha)*back/m_umax ) );
     if( mode==3 ) return prediction; // prediction of fit
     if( mode==4 ) return counts-prediction;
+    double sign = (counts-prediction >= 0)? 1: -1;
+    if (mode==5) 
+      return -sign*sqrt(-2*(counts - prediction + counts*log(prediction/counts)));
     return 0; 
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
