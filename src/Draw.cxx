@@ -1,7 +1,7 @@
 /** @file Draw.cxx
 @brief implementation of Draw
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.19 2008/11/11 23:05:57 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.20 2008/11/24 02:26:57 burnett Exp $
 
 */
 
@@ -102,6 +102,7 @@ namespace pointlike {
 	  std::vector<double> alphaErrors;
 	  std::vector<double> counts;
 	  std::vector<double> exposure;
+
 	  double t = m_ps->TS();
 	  ts.push_back(t);
 	  alphas.push_back(0);
@@ -116,7 +117,7 @@ namespace pointlike {
 	    double e_alphaerror = m_ps->at(i)->sigma_alpha();
 	    double e_counts = m_ps->at(i)->photons();
 	    double e_exposure =m_ps->at(i)->exposure();
-
+	    
 	    if (e_alpha < m_minalpha) {
 	      e_ts = 0;
 	      e_alpha = 0;
@@ -194,7 +195,6 @@ void Draw::density(const astro::SkyDir& dir, std::string outputFile, double pixe
     if( !m_proj.empty()){ proj = m_proj;}
                 
     SkyImage image(dir, outputFile, pixel, fov, m_layers, proj,  m_galactic, m_zenith);
-
     image.fill(SkyDensity(m_map, smooth, mincount, m_exposure), 0); // PhotonMap is a SkyFunction of the density 
 
     std::cout 
@@ -211,16 +211,17 @@ void Draw::TS(const astro::SkyDir& dir, std::string outputFile, double pixel,
     std::string proj (fov>90? "AIT":"ZEA");
     if( !m_proj.empty()){ proj = m_proj;}
 
-    int nBins = 0;
+    std::vector<double> eMin;
+    eMin.push_back(1.); // sum of all energies 
     for( skymaps::BinnedPhotonData::const_iterator bit = m_map.begin(); 
 	 bit!=m_map.end(); ++bit){
       if (bit->emax() < m_emin) continue;
 //      std::cout << "SKYTS>  energy: " << bit->emin() << " " << bit->emax() 
 //		<< std::endl;
-      ++nBins;
+      eMin.push_back(bit->emin());
     }
 
-    std::cout << "SkyTS> Constructing SkyImage with: " << nBins+1 << " layers" 
+    std::cout << "SkyTS> Constructing SkyImage with: " << eMin.size() << " layers" 
 	      << std::endl;
 
     TSCache tsCache;
@@ -246,9 +247,11 @@ void Draw::TS(const astro::SkyDir& dir, std::string outputFile, double pixel,
       else if (returnValue == 4) outname.replace(outname.rfind(replacestring), replacestring.size(), "exposure.fits");
 
       std::cout << "Generating outfile: " << outname << std::endl;
-      SkyImage image2(dir, outname, pixel, fov, nBins+1, proj,  m_galactic, m_zenith); 
+      SkyImage image2(dir, outname, pixel, fov, eMin.size(), proj,  m_galactic, m_zenith); 
+      
+      image2.setEnergies(eMin);
 
-      for (int i = 0; i <=nBins; ++i){
+      for (unsigned int i = 0; i <eMin.size(); ++i){
 //      std::cout << " SkyTS> Filling layer: " << i+1 << " emin: " << m_emin << std::endl;
 	if(m_sourcelike) image2.fill(SkyTS<SourceLikelihood>(m_map, *m_background, caches, i, m_emin, m_minalpha, returnValue), i);
 	else image2.fill(SkyTS<PointSourceLikelihood>(m_map, *m_background, caches, i, m_emin, m_minalpha, returnValue), i);
