@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.1 2008/11/08 21:24:10 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.2 2008/11/28 20:43:34 burnett Exp $
 
 """
-version='$Revision: 1.1 $'.split()[1]
+version='$Revision: 1.2 $'.split()[1]
 import os
 
 class PixelData(object):
@@ -32,6 +32,7 @@ Optional keyword arguments:
   roi_radius  [ 25]  radius (deg) to use if calculate exposure or a ROI. (180 for full sky)                                                                                
   livetimefile [None] Exposure file: if specified and not found, create from FT2/FT1 info  
   zenithcut   [105]  Maximum spacecraft pointing angle with respect to zenith to allow
+  align       [False] if True, perform boresigh alignment correction on pre-September flight data
   
   datafile    [None]  HEALpix data file: if specified and not found, create from FT1 info                                                                               
   class_level [ 3]  select class level (set 0 for gtobssim                                                             
@@ -56,7 +57,7 @@ Optional keyword arguments:
         self.class_level = 3  # select class level
         self.use_mc_psf  = False
         
-	for key,value in kwargs.items():
+        for key,value in kwargs.items():
             if key in self.__dict__:
                 self.__dict__[key] = value
 	    
@@ -75,6 +76,7 @@ Optional keyword arguments:
         from pointlike import Data
 
         Data.set_class_level(self.class_level)
+        Data.set_zenith_angle_cut(self.zenithcut)
 
         if self.datafile is None or not os.path.exists(self.datafile):
             self.binner = PhotonBinner(self.binsperdecade) # per decade
@@ -110,7 +112,7 @@ Optional keyword arguments:
 
     def get_livetime(self,   pixelsize=1.0):
         from skymaps import LivetimeCube, Gti, SkyDir
-	from math import cos,radians
+        from math import cos,radians
         if self.livetimefile is None or not os.path.exists(self.livetimefile):
             if self.roi_dir is None:
                 # no roi specified: use full sky
@@ -122,6 +124,12 @@ Optional keyword arguments:
                 pixelsize=pixelsize,\
                 zcut=cos(radians(self.zenithcut)),\
                 quiet=self.quiet )
+            #Not right?  Needs fixin'.
+            #g = Gti(self.event_files[0])
+            #for n in xrange(1,len(self.event_files)):
+            #   g = g.intersect(Gti(self.event_files[n]))
+            #for hist in self.history_files:
+            #   lt.load(hist,g)
             for n, hist in enumerate(self.history_files):
                 lt.load(hist,  Gti(self.event_files[n]))
             if self.livetimefile is not None: lt.write(self.livetimefile)

@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header$
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitstools.py,v 1.7 2008/11/21 17:58:05 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -13,7 +13,7 @@ from math import cos,sin,pi
 
 #TODO: GTI
 #e.g. counts_plot(file_list,coordsys='galactic',cuts=['L  > 50','L < 100','B > -60'])
-def counts_plot(ft1files,scale='log',pixels=256,coordsys='equatorial',cuts = None):
+def counts_plot(ft1files,scale='log',pixels=256,coordsys='equatorial',cuts = None, print_locs = False):
    ft1 = merge_flight_data(ft1files,cuts=cuts)
    events = ft1[1]
    if coordsys == 'equatorial':
@@ -22,11 +22,21 @@ def counts_plot(ft1files,scale='log',pixels=256,coordsys='equatorial',cuts = Non
       lon,lat = events.data.field('L'),events.data.field('B')
    img,x,y = N.histogram2d(lon,lat,bins=pixels)
    if scale == 'log':
-      img = N.where(img > 0,N.log10(img),0)
+      img = N.where(img > 0,N.log10(img),-1)
    from pylab import pcolor,xlabel,ylabel
-   pcolor(x,y,img.transpose())
+   pcolor(x,y,img.transpose()) #TODO -- make RA go the right way!
    xlabel( ('RA'  if coordsys=='equatorial' else 'L') + ' (deg)')
    ylabel( ('DEC' if coordsys=='equatorial' else 'B') + ' (deg)')
+   if print_locs:
+      if coordsys == 'equatorial': print 'RA     DEC      ENERGY      TIME     EVENT_CLASS'
+      else: print 'L     B      ENERGY       TIME      EVENT_CLASS'
+      en = events.data.field('ENERGY')
+      time = events.data.field('TIME')
+      ec = events.data.field('EVENT_CLASS')
+      for i in xrange(len(lon)):
+         
+         print '%.2f  %.2f  %.2g  %.10g  %d'%(lon[i],lat[i],en[i],time[i],ec[i])
+   return img
 
 def merge_flight_data(files, outputfile = None, cuts = None, fields = None):
    """Merge FT1 or FT2 files and make cuts on the columns."""

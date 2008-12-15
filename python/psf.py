@@ -39,6 +39,9 @@ class PSF:
 
    def u2deg(self,e,u,event_class=0):
       return self.sigma(e,event_class)*(2*u)**0.5
+
+   def deg2u(self,e,deg,event_class=0):
+      return 0.5*(deg/self.sigma(e,event_class))**2
       
    #def set_sigmas(self):
    #   from skymaps import IParams
