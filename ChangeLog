@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Mon Dec 15 14:12:27 PST 2008
+pointlike/python
+
+Modified Files:
+	Models.py fitstools.py pixeldata.py plotters.py pointspec.py 
+	psf.py specfitter.py wrappers.py 
+Log Message:
+
+    *
+------------------------------------------------------------
 User: funk  Fri Dec  5 12:20:41 PST 2008
 pointlike/src
 
