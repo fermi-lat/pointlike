@@ -5,7 +5,7 @@
    signal, flux, expected counts, background, etc.  PointSourceLikelihoodWrapper makes the
    transition from the band level to energy space.
    
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/wrappers.py,v 1.5 2008/11/17 21:39:20 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/wrappers.py,v 1.6 2008/11/21 17:58:05 kerrm Exp $
 
    author: Matthew Kerr
    """
@@ -113,6 +113,8 @@ Optional keyword arguments:
   n_simps     [8] sampling points in log space for Simpson's rule                                                                 
   emulate_unbinned [True] if True, ignore bins with zero counts                                                                           
   extended_likelihood  [False] if True, use the *Python* version of extended likelihood                                                                                                       
+  prior_cut   [1] estimated value of signal fraction beyond which to use a power law
+              Bayesian prior on the signal fraction
   =========   =======================================================
    """
 
@@ -120,6 +122,7 @@ Optional keyword arguments:
       self.n_simps = 8
       self.emulate_unbinned = False
       self.extended_likelihood = False
+      self.prior_cut = 1.00 
 
    def setup(self):
       sl,exposure,sky_dir = self.args
@@ -141,6 +144,12 @@ Optional keyword arguments:
       self.points = N.linspace(0.001,1,n_points+1)
       self.weights = N.asarray([1.] + ([4.,2.]*(n_points/2))[:-1] + [1.])/(3.*n_points)
       self.point_likes = N.exp( N.nan_to_num(N.fromiter( (-self.sl(a)+self.sl() for a in self.points) , float)) )
+      self.prior = 1.
+      if self.sl.photons() > 0: #assign Bayesian prior
+         ahat = 1. - self.sl.background()/self.sl.photons()
+         if ahat > self.prior_cut:
+            m = max((2*ahat - .1)/(1.-ahat),15)
+            self.prior = (m + 1)*self.points**m
 
    def __call__(self,sky_dir,model=None):
       """Emulate PSF SkyFunction behavior, but with ability to use spectral model."""
@@ -175,7 +184,7 @@ Optional keyword arguments:
       
       from scipy.stats import poisson
       poiss_likes = N.nan_to_num(poisson.pmf(self.sl.photons(),expected/self.points))
-      integral = (self.weights*self.point_likes*poiss_likes).sum()
+      integral = (self.weights*self.point_likes*poiss_likes*self.prior).sum()
       if integral <= 0.: return 1e6
       return -N.log(integral)
 
@@ -259,6 +268,9 @@ Optional keyword arguments:
    def update(self):
       self.psl.maximize()
       check = self.BandCheck(self.emin,self.emax)
+      #for sl in self.psl:
+      #   print 'Energy: %d Event_class: %d Accepted: %s'%(sl.band().emin(),sl.band().event_class(),'True' if check(sl) else 'False')
+
       self.sl_wrappers = [SimpleLikelihoodWrapper(sl,self.exposure,self.psl.dir()) for sl in self.psl if check(sl)]
 
    def __iter__(self): return self
@@ -266,6 +278,8 @@ Optional keyword arguments:
    def next(self):
       if self.count >= len(self.sl_wrappers): self.count = 0; raise StopIteration
       else: self.count+=1; return self.sl_wrappers[self.count-1]
+
+   def __len__(self): return len(self.sl_wrappers)
    
    def display(self,sky_dir,mode=4,model=None):
       """Return various spatial values at sky_dir(s).  All are photon densities.
@@ -340,12 +354,16 @@ Optional keyword arguments:
    def enable_extended_likelihood(self,val=True):
       for slw in self: slw.extended_likelihood = val
 
+   def set_prior_cut(self,cut=0.75):
+      """Enable the Bayesian prior by overriding the default cut of 1."""
+      for slw in self: slw.prior_cut = cut; slw.marg_setup()
+
    class BandCheck(object):
       """One-off class to determine whether a band should be included based on energy cuts."""
 
       def __init__(self,emin,emax):
-         self.femin,self.bemin,self.emax = emin,emin,emax #temporary
+         self.femin,self.bemin,self.emax = emin,max(300,emin),emax #temporary
       def __call__(self,sl):
          emin = self.femin if sl.band().event_class() == 0 else self.bemin
-         return sl.band().emin() >= emin and (self.emax is None or sl.band().emax() <= self.emax)
+         return round(sl.band().emin()) >= round(emin) and (self.emax is None or round(sl.band().emax()) <= round(self.emax))
 

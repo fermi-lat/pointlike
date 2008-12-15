@@ -4,12 +4,14 @@ instance of PointSourceLikelihoodWrapper from which information on the photon di
 spectral fits is obtained.  Spectral models can be furnished separately to provide an independent
 estimate of the source counts and for display purposes.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/plotters.py,v 1.1 2008/11/17 21:35:03 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/plotters.py,v 1.2 2008/11/21 17:58:05 kerrm Exp $
 
 author: Matthew Kerr
 """
 
 import numpy as N
+
+#===============================================================================================#
 
 class GraphicAnalysis(object):
    """Parent class for studies of the angular distribution of photons."""
@@ -25,6 +27,8 @@ class GraphicAnalysis(object):
 
       import pylab
       self.pylab = pylab
+
+#===============================================================================================#
 
 class TwoDAnalysis(GraphicAnalysis):
    """Analyze the photon distribution in two dimensions: (RA,DEC) or (L,B).
@@ -109,6 +113,8 @@ Optional keyword arguments:
       self.pylab.axvline(0, color='white')
       self.pylab.axvline(pixels.mean(), color='red',label='Mean')
       self.pylab.legend()
+
+#===============================================================================================#
 
 class OneDAnalysis(GraphicAnalysis):
    """Analyze the photon distribution integrated over azimuth.
@@ -204,6 +210,8 @@ Optional keyword arguments:
       self.__set_axis__(min(obs/sa)*0.7,max(obs/sa)*1.3)
       self.__label__()
 
+#===============================================================================================#
+
 class ScatterAnalysis(GraphicAnalysis):
    """Look at invidual photon locations.  Only useful for a small energy slice or plot is too confused.
 
@@ -281,6 +289,8 @@ Optional keyword arguments:
       self.__label__(s,c)
       return s
       
+#===============================================================================================#
+
 class EnergyAnalysis(GraphicAnalysis):
    """Analyze data in energy space, either in flux or in counts.
 
@@ -307,8 +317,8 @@ Optional keyword arguments:
       self._bounds = None
 
    def __setup_axes__(self):
-      from pylab import axes
-      self.ax = axes()
+      from pylab import axes,gca
+      self.ax = gca()#axes()
       self.ax.clear()
       self.ax.set_xscale('log')
       self.ax.set_yscale('log')
@@ -316,17 +326,20 @@ Optional keyword arguments:
    def __drawData__(self):
       if self.sed:
          x,y,yerr = self.pslw.spectrum(e_weight=self.e_weight,cgs=self.cgs)
+         uplims = y==0
          low_yerr = N.where(y-yerr <= 0,0.99*y,yerr)
          self.ax.errorbar(x=x,y=y,yerr=[low_yerr,yerr],linestyle=' ',marker='o',mfc = 'white', mec = 'black',\
-                          color='black',ms=8,capsize=0,label='Observed')
+                          color='black',ms=10,label='Observed',uplims=uplims)
+         #self.ax.errorbar(x=x[uplim],y=y[uplim],yerr=[low_yerr[uplim],yerr[uplim]],linestyle=' ',marker='o',mfc = 'white', mec = 'black',\
+         #                 color='black',ms=8,lolims=True)
          self._bounds = [0.7*min(x),1.3*max(x[y>0]),max(min(y[y>0])*0.7,max(y)/1e3),max(y)*1.3]
       else:
          x,obs = self.pslw.counts()
          yerr = N.asarray([ [y-ppf(.16,y) for y in obs], [ppf(1-.16,y)-y for y in obs] ])
-         self.ax.errorbar(x=x,y=obs,yerr=yerr,linestyle=' ',marker='o',mfc = 'white', mec = 'black',\
+         self.ax.errorbar(x=x,y=obs,yerr=yerr,linestyle=' ',marker='o',mfc = 'blue', mec = 'blue',\
                           color='black',ms=8,capsize=0,label='Observed')
          x,self.bg  = self.pslw.counts(background=True)
-         self.ax.plot(x,self.bg,color='black',label='Background',ls=':')  
+         self.ax.plot(x,self.bg,color='black',label='Background',ls='--',lw=2)  
          self._bounds = [0.7*min(x),1.3*max(x),min(obs)*0.7,max(obs)*1.3]
 
    def __drawModel__(self,model):
@@ -336,7 +349,7 @@ Optional keyword arguments:
          return self.ax.plot(domain,domain**self.e_weight*units*model(domain),label=model.name)
       else:
          x,y = self.pslw.counts(model=model)
-         return self.ax.plot(x,y+self.bg,label=model.name,color='black')
+         return self.ax.plot(x,y+self.bg,label=model.name,color='black',lw=2)
 
    def __label__(self):
       ax = self.ax
@@ -363,6 +376,8 @@ Optional keyword arguments:
          if not self.sed: self.ax.lines[-1].set_linestyle(['-','--','-.',':'][i%4])
       self.__label__()
       from pylab import show; show()
+
+#===============================================================================================#
 
 def ppf(prob,mean):
    """Return the (approximate) Poisson percentage point function for given distribution.  Klugey."""

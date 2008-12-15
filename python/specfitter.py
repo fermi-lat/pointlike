@@ -1,6 +1,6 @@
 """A module for classes that perform spectral fitting.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/specfitter.py,v 1.1 2008/11/20 03:56:09 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/specfitter.py,v 1.2 2008/11/21 17:58:05 kerrm Exp $
 
     author: Matthew Kerr
 """
@@ -82,30 +82,33 @@ class SpectralModelFitter(object):
    @staticmethod
    def hessian(m,mf,*args):
       """Calculate the Hessian; f is the minimizing function, m is the model,args additional arguments for mf."""
-      delt=0.01
       #p = m.p.copy()
       p = m.get_parameters().copy()
+      delt = 0.01
       hessian=N.zeros([len(p),len(p)])
       for i in xrange(len(p)):
          for j in xrange(i,len(p)): #Second partials by finite difference
             
             xhyh,xhyl,xlyh,xlyl=p.copy(),p.copy(),p.copy(),p.copy()
+            xdelt = delt if p[i] >= 0 else -delt
+            ydelt = delt if p[j] >= 0 else -delt
 
-            xhyh[i]*=(1+delt)
-            xhyh[j]*=(1+delt)
+            xhyh[i]*=(1+xdelt)
+            xhyh[j]*=(1+ydelt)
 
-            xhyl[i]*=(1+delt)
-            xhyl[j]*=(1-delt)
+            xhyl[i]*=(1+xdelt)
+            xhyl[j]*=(1-ydelt)
 
-            xlyh[i]*=(1-delt)
-            xlyh[j]*=(1+delt)
+            xlyh[i]*=(1-xdelt)
+            xlyh[j]*=(1+ydelt)
 
-            xlyl[i]*=(1-delt)
-            xlyl[j]*=(1-delt)
+            xlyl[i]*=(1-xdelt)
+            xlyl[j]*=(1-ydelt)
 
             hessian[i][j]=hessian[j][i]=(mf(xhyh,m,*args)-mf(xhyl,m,*args)-mf(xlyh,m,*args)+mf(xlyl,m,*args))/\
                                           (p[i]*p[j]*4*delt**2)
 
       #m.p = p #Restore parameters
       m.set_parameters(p)
+      print hessian
       return hessian

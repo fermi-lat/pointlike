@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header$
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.12 2008/11/21 17:58:05 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -30,49 +30,64 @@ class DefaultModelValues(object):
    """Static methods and class members to assign default values to the spectral models."""
 
    simple_models = {
-      'PowerLaw'        : {'p':[1e-4,2],'param_names':['Norm','Index']},
-      'PowerLawFlux'    : {'p':[1.,2],'param_names':['Int. Flux','Index'],'emin':100,'emax':1e6},
-      'BrokenPowerLaw'  : {'p':[1e-4,1.5,2.5,1000],'param_names':['Norm','Index 1','Index 2', 'E_break']},
-      'BrokenPowerLawF' : {'p':[1e-4,1.5,2.5,1000],'param_names':['Norm','Index 1','Index 2'],'e_break':1000},
-      'ExpCutoff'       : {'p':[1e-4,2,5e3],'param_names':['Norm','Index','Cutoff']},
-      'PLSuperExpCutoff': {'p':[1e-4,2,2e3,2.],'param_names':['Norm','Index','Cutoff', 'b']} }
+      'PowerLaw'        : {'p':[-11.,2],'param_names':['Norm','Index']},
+      'PowerLawFlux'    : {'p':[-7.,2],'param_names':['Int. Flux','Index'],'emin':100,'emax':1e6},
+      'BrokenPowerLaw'  : {'p':[-11.,1.5,2.5,1000],'param_names':['Norm','Index 1','Index 2', 'E_break']},
+      'BrokenPowerLawF' : {'p':[-11.,1.5,2.5,1000],'param_names':['Norm','Index 1','Index 2'],'e_break':1000},
+      'ExpCutoff'       : {'p':[-11.,2,5e3],'param_names':['Norm','Index','Cutoff']},
+      'PLSuperExpCutoff': {'p':[-11.,2,2e3,2.],'param_names':['Norm','Index','Cutoff', 'b']},
+      'Constant'        : {'p':[0.],'param_names':['Scale']}
+      }
 
    names = simple_models.keys()+['MixedModel']
 
    @staticmethod
    def setup(the_model,**kwargs):
       """Pass a model instance to give it default values.  The keyword arguments are used
-         only for MixedModel, in which case they contain the 'models' keyword argument to
+         only for MixedModel, in which case they contain the 'simple_models' keyword argument to
          describe which simple models the MixedModel comprises."""
       
-      DefaultModelValues.common_values(the_model)
+      DefaultModelValues.start(the_model)
       classname = the_model.name = the_model.pretty_name = the_model.__class__.__name__
       
       if classname in DefaultModelValues.simple_models:
          for key,val in DefaultModelValues.simple_models[classname].items():
             exec('the_model.%s = val'%key)
       
-      if classname == 'MixedModel':         
-         the_model.models = kwargs['models'] if 'models' in kwargs else ['PowerLaw'] #defult
+      if classname == 'MixedModel':
+         val = kwargs['simple_models'] if 'simple_models' in kwargs else ['PowerLaw']
+         if type(val) == type(dict()): #a dictionary with kwargs for each simple model has been passed
+            the_model.models = val.keys()
+            default_dicts = [val[model] for model in the_model.models]
+         else: #a list has been passed; use default values
+            the_model.models = val
+            default_dicts = [DefaultModelValues.simple_models[model] for model in the_model.models]
          the_model.param_names,the_model.p,the_model.spec_models=[],[],[]
-         for model in the_model.models:
-            exec('this_model = %s(**kwargs)'%model) #instantiate simple model
-            the_model.spec_models += [this_model]
-            the_model.param_names += this_model.param_names
-            the_model.p += this_model.p
+         for i,model in enumerate(the_model.models):
+               exec('this_model = %s(**default_dicts[i])'%model)
+               the_model.spec_models += [this_model]
+               the_model.param_names += this_model.param_names
+               the_model.p += list(this_model.p)
          the_model.n = [len(x.p) for x in the_model.spec_models]
          the_model.pretty_name = '+'.join(the_model.models)
-      the_model.cov_matrix = N.zeros([len(the_model.p),len(the_model.p)]) #default covariance matrix
-      the_model.free = N.asarray([True] * len(the_model.p))
-      the_model.p = N.asarray(the_model.p)
+
+      DefaultModelValues.finish(the_model)
 
    @staticmethod
-   def common_values(the_model):
+   def start(the_model):
+      """Common values independent of the model type."""
       the_model.e0 = 1000.
-      the_model.flux_scale = 1e7
+      the_model.flux_scale = 1.
       the_model.good_fit = False
       the_model.p = None
       the_model.param_names = ['Undefined Model']
+
+   @staticmethod
+   def finish(the_model):
+      """Common values that can be written once the model type has been sussed out."""
+      the_model.cov_matrix = N.zeros([len(the_model.p),len(the_model.p)]) #default covariance matrix
+      the_model.free = N.asarray([True] * len(the_model.p))
+      the_model.p = N.asarray(the_model.p)
       
 
 #===============================================================================================#
@@ -94,6 +109,7 @@ Optional keyword arguments:
   =========   =======================================================
      """
       DefaultModelValues.setup(self,**kwargs)
+      if 'p' in kwargs: kwargs['p'][0] = N.log10(kwargs['p'][0]) #convert norm to log
       self.__dict__.update(**kwargs)
 
    def get_parameters(self):
@@ -121,12 +137,14 @@ Optional keyword arguments:
 
    def __str__(self):
       """Return a pretty print version of parameter values and errors."""
-      p=N.array(self.p)
+      p=N.array(self.p).copy()
+      p[0] = 10**p[0] #convert from log measurement
       m=max([len(n) for n in self.param_names])
       l=[]
       try:
          errors=N.diag(self.cov_matrix)**0.5
-         ratios=errors/p         
+         ratios=errors/p
+         ratios[0] = (10**errors[0]-10**-errors[0])/2 #kludge to take care of logarithm
          try:
             s = self.systematics
             sys_flag = True
@@ -183,12 +201,16 @@ Optional keyword arguments:
          print 'Encountered a numerical error when attempting to calculate integral flux.'
 
    def copy(self):
-      param_string=','.join( ( str(p) for p in self.p ) )
+      self.p[0] = 10**self.p[0] #account for logarithm -- will be restored by next line
       a = eval(self.name+'(**self.__dict__)')
       a.p = [x for x in self.p]
       try: a.cov_matrix = self.cov_matrix.__copy__()
       except: pass
       return a
+
+   def fast_iflux(self,emin=100,emax=1e6):
+      """Return a quick calculation for photon flux for models where it is analytically available."""
+      return self.i_flux(emin=emin,emax=emax)
 
    def __flux_derivs__(self,*args):
       """Use finite differences to estimate the gradient of the integral flux wrt the spectral parameters."""
@@ -196,11 +218,12 @@ Optional keyword arguments:
       hi,lo = self.copy(),self.copy()
       derivs = []
       for i in xrange(len(self.p)):
-         hi.p[i]*=(1+delta/2.)
-         lo.p[i]*=(1-delta/2.)
+         my_delta = delta if self.p[i] >= 0 else -delta
+         hi.p[i]*=(1+my_delta/2.)
+         lo.p[i]*=(1-my_delta/2.)
          derivs += [(hi.i_flux(*args) - lo.i_flux(*args))/(delta*self.p[i])]
-         hi.p[i]/=(1+delta/2.)
-         lo.p[i]/=(1-delta/2.)
+         hi.p[i]/=(1+my_delta/2.)
+         lo.p[i]/=(1-my_delta/2.)
 
       return N.asarray(derivs)
 
@@ -216,7 +239,11 @@ Spectral parameters:
       """
    def __call__(self,e):
       n0,gamma=self.p
-      return (n0/self.flux_scale)*(self.e0/e)**gamma
+      return (10**n0/self.flux_scale)*(self.e0/e)**gamma
+
+   def fast_iflux(self,emin=100,emax=1e6):
+      n0,gamma = self.p
+      return 10**n0/(1-gamma)*self.e0**gamma*(emax**(1-gamma)-emin**(1-gamma))
 
 #===============================================================================================#
 
@@ -231,7 +258,11 @@ Spectral parameters:
    def __call__(self,e):
       flux,gamma=self.p
       #return (flux/self.flux_scale)*(gamma-1)*(self.e0/e)**(gamma-1)/e
-      return (flux/self.flux_scale)*(1-gamma)*e**(-gamma)/(self.emax**(1-gamma)-self.emin**(1-gamma))
+      return (10**flux/self.flux_scale)*(1-gamma)*e**(-gamma)/(self.emax**(1-gamma)-self.emin**(1-gamma))
+
+   def fast_iflux(self,emin=100,emax=1e6):
+      n0,gamma = self.p
+      return 10**n0*(emax**(1-gamma) - emin**(1-gamma)) / (self.emax**(1-gamma) - self.emin**(1-gamma))
 
 #===============================================================================================#
 
@@ -248,7 +279,7 @@ Spectral parameters:
    def __call__(self,e):
       e = N.array([e]).ravel()
       n0,gamma1,gamma2,e_break=self.p
-      return (n0/self.flux_scale)*N.append( (e_break/e[e<e_break])**gamma1 , (e_break/e[e>=e_break])**gamma2 )
+      return (10**n0/self.flux_scale)*N.append( (e_break/e[e<e_break])**gamma1 , (e_break/e[e>=e_break])**gamma2 )
 
 #===============================================================================================#
 
@@ -266,7 +297,7 @@ Spectral parameters:
       e = N.array([e]).ravel()
       n0,gamma1,gamma2=self.p
       e_break = self.e_break
-      return (n0/self.flux_scale)*N.append( (e_break/e[e<e_break])**gamma1 , (e_break/e[e>=e_break])**gamma2 )
+      return (10**n0/self.flux_scale)*N.append( (e_break/e[e<e_break])**gamma1 , (e_break/e[e>=e_break])**gamma2 )
 
 #===============================================================================================#
 
@@ -282,7 +313,7 @@ Spectral parameters:
    def __call__(self,e):
       n0,gamma,cutoff=self.p
       if cutoff < 0: return 0
-      return (n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-e/cutoff)
+      return (10**n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-e/cutoff)
 
 #===============================================================================================#
 
@@ -299,7 +330,7 @@ Spectral parameters:
    def __call__(self,e):
       n0,gamma,cutoff,b=self.p
       if cutoff < 0: return 0
-      return (n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-(e/cutoff)**b)
+      return (10**n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-(e/cutoff)**b)
 
 #===============================================================================================#
 
@@ -318,9 +349,12 @@ class MixedModel(Model):
 
 #===============================================================================================#
 
-class Zero(Model):
+class Constant(Model):
    def __call__(self,e):
-      return N.asarray(0*e)
+      return N.ones_like(e)*10**self.p[0]
+   
+   def fast_iflux(self,emin=100,emax=1e6):
+      return (emax-emin)*10**self.p[0]
 
 #===============================================================================================#
 if __name__=='__main__':
