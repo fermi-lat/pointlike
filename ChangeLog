@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: bechtol  Tue Dec 16 15:03:31 PST 2008
+pointlike/python
+
+Modified Files:
+	swig_setup.in 
+Added Files:
+	specplot.py 
+Log Message:
+Initial submission of the SpectralFitter
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Tue Dec 16 15:03:11 PST 2008
 pointlike/pointlike
 
