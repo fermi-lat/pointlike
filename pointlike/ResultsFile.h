@@ -3,6 +3,7 @@
 
 #include "pointlike/SourceLikelihood.h"
 #include "pointlike/Data.h"
+#include "pointlike/SpectralFitter.h"
 #include "tip/IFileSvc.h"
 #include "tip/Table.h"
 
@@ -21,7 +22,8 @@ namespace pointlike {
 
        ResultsFile (const std::string& filename,const Data& datafile, int nsources);
 
-       void fill(SourceLikelihood& like);
+       void fill(SourceLikelihood& like,
+		 const SpectralModelCollection spectra=SpectralModelCollection());
        void writeAndClose();
     };
 };

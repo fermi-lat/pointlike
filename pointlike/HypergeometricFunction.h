@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <vector>
 #include <stdexcept>
+#include <cmath>
 
 #if defined(WIN32) && !defined(NAN)
 static const unsigned int nan[2]={0xffffffff, 0x7fffffff};
@@ -257,9 +258,11 @@ class GammaFunction {
 		  mm1=m_series1F1_a0(x);
 	          m0=m_series1F1_a0p1(x);
                };
+#ifndef WIN32
 	       if(isinf(m0)||isnan(m0)) std::cout<<"NAN/INF in m0 of 1F1 series "<<m_a<<" "<<m_lf<<" "<<x<<" "<<m_a0<<std::endl;
 	       if(isinf(mm1)||isnan(mm1)) std::cout<<"NAN/INF in mm1 of 1F1 series "<<m_a<<" "<<m_lf<<" "<<x<<" "<<m_a0<<std::endl;
-               
+#endif
+
 	       for(double a=m_a0+1;a<m_a-GSL_DBL_EPSILON;a+=1.){
 	          mp1=((m_b-a)*mm1+(2*a-m_b+x)*m0)/a;
 		  mm1=m0;
@@ -268,8 +271,9 @@ class GammaFunction {
 	       }; 
                result = exp(logf+nrescales*GSL_LOGSQRT_DBL_MAX)*m0;
 	   }; 
-
+#ifndef WIN32 
            if(isinf(result)||isnan(result)) std::cout<<"NAN/INF in 1F1 series "<<m_a<<" "<<m_lf<<" "<<x<<" "<<m_a0<<" "<<nrescales<<std::endl;
+#endif
 	   return result;
        };
 
@@ -293,7 +297,9 @@ class GammaFunction {
 	 double exp_factor = exp(m_lf+GammaFunction::lngamma(m_b)-GammaFunction::lngamma(m_a)+log(x)*(m_a-m_b)+x) ;
 	 double series     = m_series2F0(1/x);
 	 double result     = exp_factor*series;
-         if(isinf(result)) std::cout<<"NAN in 1F1 asymp "<<m_a<<" "<<m_b<<" "<<x<<std::endl;
+#ifndef WIN32
+	 if(isinf(result)) std::cout<<"NAN in 1F1 asymp "<<m_a<<" "<<m_b<<" "<<x<<std::endl;
+#endif
 	 return result;
        };
     };

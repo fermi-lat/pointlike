@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.38 2008/11/13 01:16:06 markusa Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.39 2008/11/24 02:26:57 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -28,16 +28,18 @@
 #include "pointlike/Draw.h"
 #include "pointlike/SourceList.h"
 //fails #include "pointlike/ParamOptimization.h"
-#include "pointlike/SimpleTSmap.h"
+//#include "pointlike/SimpleTSmap.h"
 #include "pointlike/Alignment.h"
 #include "pointlike/FlexibleBinner.h"
 #include "pointlike/BandBackground.h"
+#include "pointlike/SpectralFitter.h"
+#include "pointlike/HealpixDiffuseFunc.h"
 // --------- extended source likelihood ----
-//#include "pointlike/SourceLikelihood.h"
-//#include "pointlike/ExtendedLikelihood.h"
-//#include "pointlike/ExtendedSourcePDF.h"
-//#include "pointlike/ResultsFile.h"
-//#include "pointlike/DrawTS.h"
+#include "pointlike/SourceLikelihood.h"
+#include "pointlike/ExtendedLikelihood.h"
+#include "pointlike/ExtendedSourcePDF.h"
+#include "pointlike/ResultsFile.h"
+#include "pointlike/DrawTS.h"
 
 
 #include "CLHEP/Vector/Rotation.h"
@@ -137,12 +139,12 @@ public:
    size_t __len__() {      return self->size();       }
 }
 
-//%extend pointlike::SourceLikelihood{
-//   pointlike::ExtendedLikelihood * __getitem__(size_t i){ 
-//      return self->at(i); 
-//   }
-//   size_t __len__() {      return self->size();       }
-//}
+%extend pointlike::SourceLikelihood{
+   pointlike::ExtendedLikelihood * __getitem__(size_t i){ 
+      	return self->at(i); 
+   }
+   size_t __len__() {      return self->size();       }
+}
 
 
 //%extend pointlike::SimpleTSmap{
@@ -174,13 +176,6 @@ public:
 //%include $(HEALPIXROOT)/healpix/HealPixel.h
 
 %include $(EMBED_PYTHONROOT)/embed_python/Module.h
-    
-
-//  extended PSF stuff
-//%include $(POINTLIKEROOT)/pointlike/ExtendedLikelihood.h
-//%include $(POINTLIKEROOT)/pointlike/SourceLikelihood.h
-//%include $(POINTLIKEROOT)/pointlike/ExtendedSourcePDF.h
-//%include $(POINTLIKEROOT)/pointlike/ResultsFile.h
 
 %include $(POINTLIKEROOT)/pointlike/SimpleLikelihood.h
 
@@ -192,6 +187,14 @@ public:
 %include $(POINTLIKEROOT)/pointlike/SourceList.h
 %include $(POINTLIKEROOT)/pointlike/FlexibleBinner.h
 %include $(POINTLIKEROOT)/pointlike/BandBackground.h
+%include $(POINTLIKEROOT)/pointlike/HealpixDiffuseFunc.h
+
+//  extended PSF stuff
+%include $(POINTLIKEROOT)/pointlike/ExtendedLikelihood.h
+%include $(POINTLIKEROOT)/pointlike/SourceLikelihood.h
+%include $(POINTLIKEROOT)/pointlike/ExtendedSourcePDF.h
+%include $(POINTLIKEROOT)/pointlike/SpectralFitter.h
+%include $(POINTLIKEROOT)/pointlike/ResultsFile.h
 
 %extend pointlike::SourceList{
    pointlike::Source & __getitem__(size_t i){ 
