@@ -1,4 +1,18 @@
 ------------------------------------------------------------
+User: bechtol  Tue Dec 16 15:03:40 PST 2008
+pointlike/src
+
+Modified Files:
+	ResultsFile.cxx 
+Added Files:
+	SpectralFitter.cxx 
+Log Message:
+Initial submission of the SpectralFitter
+
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Tue Dec 16 15:03:31 PST 2008
 pointlike/python
 
