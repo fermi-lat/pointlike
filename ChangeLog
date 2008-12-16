@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: bechtol  Tue Dec 16 15:03:11 PST 2008
+pointlike/pointlike
+
+Modified Files:
+	HypergeometricFunction.h ResultsFile.h 
+Added Files:
+	SpectralFitter.h 
+Log Message:
+Initial submission of the SpectralFitter
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-09-00, operation: add
 Package: pointlike
