@@ -1,5 +1,6 @@
 #include "pointlike/ResultsFile.h"
 #include "skymaps/Band.h"
+#include "pointlike/SpectralFitter.h"
 
 #include <iostream>
 #include <sstream>
@@ -70,7 +71,8 @@ ResultsFile::ResultsFile (const std::string& filename,const Data& datafile,int n
 }; 
 
 
-void ResultsFile::fill(SourceLikelihood& like){
+void ResultsFile::fill(SourceLikelihood& like,
+		       const SpectralModelCollection spectra){
       if(srcTab==0) throw std::runtime_error("Error in Fill: file already closed.");
       
       std::cout<<"setting values"<<std::endl;
@@ -130,21 +132,43 @@ void ResultsFile::fill(SourceLikelihood& like){
 	   sumTS+=ts[i];
        };
 
-      (*srcTabItor)["SUMTS"].set(sumTS);
-      (*srcTabItor)["ALPHA"].set(alpha);
-      (*srcTabItor)["ERR_ALPHA"].set(erra);
-      (*srcTabItor)["FLUX"].set(flux);
-      (*srcTabItor)["ERR_FLUX"].set(errflux);
-      (*srcTabItor)["EXPOSURE"].set(exposure);
-      (*srcTabItor)["NPHOTON"].set(nphoton);
-      (*srcTabItor)["NSIGNAL"].set(nsig);
-      (*srcTabItor)["ERR_NSIG"].set(errns);
-      (*srcTabItor)["TS"].set(ts);
-      (*srcTabItor)["BG"].set(bg);
-      (*srcTabItor)["GAMMA"].set(gamma);
-      (*srcTabItor)["SIGMA"].set(sigma);
+       (*srcTabItor)["SUMTS"].set(sumTS);
+       (*srcTabItor)["ALPHA"].set(alpha);
+       (*srcTabItor)["ERR_ALPHA"].set(erra);
+       (*srcTabItor)["FLUX"].set(flux);
+       (*srcTabItor)["ERR_FLUX"].set(errflux);
+       (*srcTabItor)["EXPOSURE"].set(exposure);
+       (*srcTabItor)["NPHOTON"].set(nphoton);
+       (*srcTabItor)["NSIGNAL"].set(nsig);
+       (*srcTabItor)["ERR_NSIG"].set(errns);
+       (*srcTabItor)["TS"].set(ts);
+       (*srcTabItor)["BG"].set(bg);
+       (*srcTabItor)["GAMMA"].set(gamma);
+       (*srcTabItor)["SIGMA"].set(sigma);
+
+       if(spectra.size()>0){
+	 for(int i=0; i<spectra.size(); i++){
+	   std::string logLikeSum_string=spectra.get(i)->get_spec_type().append("_LOGLIKESUM");
+	   std::string par_string=spectra.get(i)->get_spec_type().append("_PAR");
+	   std::string par_err_string=spectra.get(i)->get_spec_type().append("_PAR_ERR");
+
+	   std::stringstream nparstream;
+	   nparstream<<spectra.get(i)->get_npar()<<"E";
+	   std::string npar=nparstream.str();
+
+	   srcTab->appendField(logLikeSum_string,"1E");
+	   (*srcTabItor)[logLikeSum_string].set(spectra.get(i)->get_logLikeSum());
+
+	   srcTab->appendField(par_string,npar);
+	   (*srcTabItor)[par_string].set(spectra.get(i)->get_params());
+
+	   srcTab->appendField(par_err_string,npar);
+	   (*srcTabItor)[par_err_string].set(spectra.get(i)->get_param_errors());
+	 }
+       }
+
        srcTabItor++;
- };
+};
 
  void ResultsFile::writeAndClose(){
       delete srcTab;
