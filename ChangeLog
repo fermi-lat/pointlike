@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: bechtol  Fri Dec 19 15:23:47 PST 2008
+pointlike/pointlike
+
+Modified Files:
+	SpectralFitter.h 
+Log Message:
+Record model integrated photon flux in results file
+
+    *
+------------------------------------------------------------
 User: bechtol  Thu Dec 18 18:44:46 PST 2008
 pointlike/src
 
