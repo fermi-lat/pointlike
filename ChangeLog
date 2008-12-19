@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: bechtol  Thu Dec 18 18:44:46 PST 2008
+pointlike/src
+
+Modified Files:
+	ExtendedLikelihood.cxx ResultsFile.cxx SpectralFitter.cxx 
+Log Message:
+Model-dependent exposure and flux point calculation for spectral fitting
+
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Thu Dec 18 18:44:37 PST 2008
 pointlike/python
 
