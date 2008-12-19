@@ -121,7 +121,7 @@ void ResultsFile::fill(SourceLikelihood& like,
  	   erra[i]=a.second;
  	   flux[i]=f.first;
  	   errflux[i]=f.second;
- 	   exposure[i]=levellike.exposure();
+	   exposure[i]=levellike.exposure();
  	   nphoton[i] = levellike.photons();
  	   nsig[i] = levellike.photons()*a.first/levellike.psfIntegral();
  	   errns[i] = levellike.photons()*a.second/levellike.psfIntegral();
@@ -151,10 +151,16 @@ void ResultsFile::fill(SourceLikelihood& like,
 	   std::string logLikeSum_string=spectra.get(i)->get_spec_type().append("_LOGLIKESUM");
 	   std::string par_string=spectra.get(i)->get_spec_type().append("_PAR");
 	   std::string par_err_string=spectra.get(i)->get_spec_type().append("_PAR_ERR");
+	   std::string model_E_string=spectra.get(i)->get_spec_type().append("_ENERGY");
+	   std::string exposure_string=spectra.get(i)->get_spec_type().append("_EXPOSURE");
 
 	   std::stringstream nparstream;
 	   nparstream<<spectra.get(i)->get_npar()<<"E";
 	   std::string npar=nparstream.str();
+
+	   std::stringstream nbinstream;
+	   nbinstream<<spectra.get(i)->get_model_energies().size()<<"E";
+	   std::string nbin=nbinstream.str();
 
 	   srcTab->appendField(logLikeSum_string,"1E");
 	   (*srcTabItor)[logLikeSum_string].set(spectra.get(i)->get_logLikeSum());
@@ -164,6 +170,12 @@ void ResultsFile::fill(SourceLikelihood& like,
 
 	   srcTab->appendField(par_err_string,npar);
 	   (*srcTabItor)[par_err_string].set(spectra.get(i)->get_param_errors());
+
+	   srcTab->appendField(model_E_string,nbin);
+	   (*srcTabItor)[model_E_string].set(spectra.get(i)->get_model_energies());
+
+	   srcTab->appendField(exposure_string,nbin);
+	   (*srcTabItor)[exposure_string].set(spectra.get(i)->get_exposures());
 	 }
        }
 
