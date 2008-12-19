@@ -151,6 +151,7 @@ void ResultsFile::fill(SourceLikelihood& like,
 	   std::string logLikeSum_string=spectra.get(i)->get_spec_type().append("_LOGLIKESUM");
 	   std::string par_string=spectra.get(i)->get_spec_type().append("_PAR");
 	   std::string par_err_string=spectra.get(i)->get_spec_type().append("_PAR_ERR");
+	   std::string flux_string=spectra.get(i)->get_spec_type().append("_FLUX");
 	   std::string model_E_string=spectra.get(i)->get_spec_type().append("_ENERGY");
 	   std::string exposure_string=spectra.get(i)->get_spec_type().append("_EXPOSURE");
 
@@ -170,6 +171,10 @@ void ResultsFile::fill(SourceLikelihood& like,
 
 	   srcTab->appendField(par_err_string,npar);
 	   (*srcTabItor)[par_err_string].set(spectra.get(i)->get_param_errors());
+
+	   // Record model integrated flux 300 GeV > E > 100 MeV [ ph/cm^2/s ]
+	   srcTab->appendField(flux_string,"1E");
+	   (*srcTabItor)[flux_string].set(spectra.get(i)->get_flux(100,3.e5));
 
 	   srcTab->appendField(model_E_string,nbin);
 	   (*srcTabItor)[model_E_string].set(spectra.get(i)->get_model_energies());

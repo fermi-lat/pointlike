@@ -33,6 +33,7 @@ namespace pointlike{
     double m_logLikeSum;
     std::vector<double> m_model_energies;
     std::vector<double> m_exposures;
+    
   public:
     SpectralModel(std::string spec_type=""){
       m_spec_type=spec_type;
