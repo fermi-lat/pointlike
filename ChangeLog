@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: bechtol  Fri Dec 19 15:23:57 PST 2008
+pointlike/src
+
+Modified Files:
+	ResultsFile.cxx 
+Log Message:
+Record model integrated photon flux in results file
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Fri Dec 19 15:23:47 PST 2008
 pointlike/pointlike
 
