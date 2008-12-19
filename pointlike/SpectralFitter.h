@@ -3,6 +3,7 @@
 
 #include "pointlike/HypergeometricFunction.h"
 #include "st_facilities/GaussianQuadrature.h"
+#include "pointlike/SourceLikelihood.h"
 
 #include <iostream>
 #include <iomanip>
@@ -30,6 +31,8 @@ namespace pointlike{
   protected:
     std::string m_spec_type;
     double m_logLikeSum;
+    std::vector<double> m_model_energies;
+    std::vector<double> m_exposures;
   public:
     SpectralModel(std::string spec_type=""){
       m_spec_type=spec_type;
@@ -57,6 +60,56 @@ namespace pointlike{
     
     virtual double get_flux(double E_min,double E_max)=0;
   
+    virtual double get_dNdE(double E)=0;
+
+    double get_model_exposure(pointlike::SourceLikelihood* SourcePointer,int bin){
+      double E_min=SourcePointer->at(bin)->band().emin();
+      double E_max=SourcePointer->at(bin)->band().emax();
+      
+      double weighted_exposure_sum=0;
+      double normalization=0;
+      
+      double frac,E,dNdE,exposure;
+      
+      double max=100.;
+      for(double i=0.;i<max;i+=1.){
+	frac=i/max;
+	E=frac*E_max+(1-frac)*E_min;
+	dNdE=this->get_dNdE(E);
+	exposure=SourcePointer->at(bin)->exposure(E);
+	weighted_exposure_sum+=dNdE*exposure;
+	normalization+=dNdE;
+      }
+      
+      return weighted_exposure_sum/normalization;
+    }
+
+    double get_model_E(double E_min,double E_max){
+      double weighted_E_sum=0;
+      double normalization=0;
+
+      double frac,E,dNdE;
+
+      double max=100.;
+      for(double i=0.;i<max;i+=1.){
+	frac=i/max;
+	E=frac*E_max+(1.-frac)*E_min;
+	dNdE=this->get_dNdE(E);
+	weighted_E_sum+=dNdE*E;
+	normalization+=dNdE;
+      }
+      
+      return weighted_E_sum/normalization;
+    }
+
+    double get_exposure_uncertainty(double E_min,double E_max){
+      // Until we get a better estimate from the C&A group
+      double E_log_center=exp((log(E_max)+log(E_min))/2.);
+      if(E_log_center<1.e2) return 0.2;
+      if(E_log_center<1.e4) return 0.1;
+      else return 0.3;
+    }
+
     virtual void get_E2dNdE(TF1& func,std::vector<double> params)=0;
 
     virtual int get_npar()=0;
@@ -70,6 +123,12 @@ namespace pointlike{
     virtual std::vector<double> get_stepSize(double increment)=0;
     virtual std::vector<double> get_minVal()=0;
     virtual std::vector<double> get_maxVal()=0;
+
+    void set_model_energies(std::vector<double> model_energies){ m_model_energies=model_energies; }
+    std::vector<double> get_model_energies(){ return m_model_energies; }
+
+    void set_exposures(std::vector<double> exposures){ m_exposures=exposures; }
+    std::vector<double> get_exposures(){ return m_exposures; }
   };
 
   //---------------------------------------------------------------------------
@@ -130,6 +189,11 @@ namespace pointlike{
     double get_flux(double E_min,double E_max){
       double flux=function(E_max)-function(E_min);
       return flux;
+    }
+
+    virtual double get_dNdE(double E){
+      double scale=100.;
+      return m_prefactor*pow(E/scale,-1*m_index);
     }
 
     virtual void get_E2dNdE(TF1& func,std::vector<double> params){
@@ -287,6 +351,13 @@ namespace pointlike{
 	flux=(function(m_E_break-epsilon)-function(E_min))+(function(E_max)-function(m_E_break+epsilon));
       }
       return flux;
+    }
+
+    virtual double get_dNdE(double E){
+      if(E<m_E_break) 
+	return m_prefactor*pow(E/m_E_break,-1*m_index_1);
+      else 
+	return m_prefactor*pow(E/m_E_break,-1*m_index_2);
     }
 
     virtual void get_E2dNdE(TF1& func,std::vector<double> params){
@@ -451,6 +522,11 @@ namespace pointlike{
       flux=st_facilities::GaussianQuadrature::dgaus8<const ExpCutoff::functor>(arg,E_min,E_max,error,ierr);
       if(ierr!=1) throw std::runtime_error("WARNING. Error in dgaus8 integration.");
       return flux;
+    }
+
+    virtual double get_dNdE(double E){
+      double scale=100.;
+      return m_prefactor*exp(-1.*E/m_cutoff)*pow(E/scale,-1*m_index);
     }
 
     virtual void get_E2dNdE(TF1& func,std::vector<double> params){
@@ -699,7 +775,7 @@ namespace pointlike{
 	}
 	catch(std::runtime_error message){
 	  error=error*10.; // Decrease the numeric accuracy and try again
-	  if(error>0.1) throw std::runtime_error("WARNING. Lower bound on numeric integration accuracy exceeded.");
+	  if(error>100.) throw std::runtime_error("WARNING. Lower bound on numeric integration accuracy exceeded.");
 	  continue;
 	}
 	exit_loop=1;
@@ -748,6 +824,9 @@ namespace pointlike{
     std::vector<double> m_maxVal;
 
     TMinuit* m_Minuit;
+
+    std::vector<double> m_model_energies;
+    std::vector<double> m_exposures;
     
   public:
     SpectralFitter(SourceLikelihood& source, SpectralModel& model);

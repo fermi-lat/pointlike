@@ -23,10 +23,12 @@ namespace pointlike{
   // Global pointers
   pointlike::SourceLikelihood* gSourcePointer = NULL;
   pointlike::SpectralModel* gModelPointer = NULL;
+  double* gFitEminPointer = NULL;
+  double* gFitEmaxPointer = NULL; 
 
   // Initialize static variables
   double SpectralFitter::s_emin(200.);
-  double SpectralFitter::s_emax(3.e5);
+  double SpectralFitter::s_emax(3.e4);
 
   int    SpectralFitter::s_useDefaultParams(0);
   int    SpectralFitter::s_useSimplex(1);
@@ -58,6 +60,8 @@ namespace pointlike{
     int n;
     double mu_alpha,sigma_alpha,mu_exp,sigma_exp;
 
+    double mu_exp_weighted;
+
     int npar=gModelPointer->get_npar();
     std::vector<double> specParams(npar);
     
@@ -70,25 +74,32 @@ namespace pointlike{
     
     PDF pdf(gModelPointer);
 
+    double exposure_error_frac;
+
     double logLikeSum=0.;
     
     for(int bin=0;bin<numBins;bin++){
       	
       n=gSourcePointer->at(bin)->photons();
-      
+
       if(n==0) continue; // Skip empty energy bins
 
       E_min=gSourcePointer->at(bin)->band().emin();
       E_max=gSourcePointer->at(bin)->band().emax();
+      
+      if(E_min < *gFitEminPointer || 
+	 E_max > *gFitEmaxPointer) continue; // Enforce energy range for fitting
 
       mu_alpha=gSourcePointer->at(bin)->alpha();
       sigma_alpha=gSourcePointer->at(bin)->sigma_alpha();
-      
-      mu_exp=gSourcePointer->at(bin)->exposure();
-      sigma_exp=0.01*mu_exp; // Until we get a better estimate from C&A group
+
+      // Model dependent exposure calculation
+      mu_exp=gModelPointer->get_model_exposure(gSourcePointer,bin);
+      exposure_error_frac=gModelPointer->get_exposure_uncertainty(E_min,E_max);
+      sigma_exp=exposure_error_frac*mu_exp; 
       
       pdf.set_bin(n,E_min,E_max,mu_exp,sigma_exp,mu_alpha,sigma_alpha);
-      
+
       logLikeSum-=pdf.get_loglikelihood(); // Negative sign -> Minuit minimizes
     }
 
@@ -112,13 +123,10 @@ namespace pointlike{
     // Set the global pointers for access by the Minuit wrapper function
     gSourcePointer = &source;
     gModelPointer = &model;
+    gFitEminPointer = &s_emin;
+    gFitEmaxPointer = &s_emax;
 
     m_npar=model.get_npar();
-    
-    // Set the energy range for spectral fitting
-    // Do we want a user specified energy range for spectral fitting?
-    s_emin=source.emin();
-    s_emax=source.emax();
 
     m_Minuit=new TMinuit(m_npar);
     //m_Minuit.SetPrintLevel(verbose()-1);
@@ -229,6 +237,19 @@ namespace pointlike{
     // Record the optimized model parameters and errors
     gModelPointer->set_params(m_specParams);
     gModelPointer->set_param_errors(m_specParamErrors);
+
+    // Set the model dependent energies and exposures
+    int numBins=gSourcePointer->size();
+
+    double E_min,E_max;
+    for(int bin=0; bin<numBins; bin++){
+      E_min=gSourcePointer->at(bin)->band().emin();
+      E_max=gSourcePointer->at(bin)->band().emax();
+      m_model_energies.push_back(gModelPointer->get_model_E(E_min,E_max));
+      m_exposures.push_back(gModelPointer->get_model_exposure(gSourcePointer,bin));
+    }
+    gModelPointer->set_model_energies(m_model_energies);
+    gModelPointer->set_exposures(m_exposures);
 
     double fmin,fedm,errdef;
     int npari,nparx,istat;

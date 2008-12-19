@@ -10,12 +10,12 @@ def plot(filename,source,model):
     print type(model)
 
     global g1
-    g1=R.TGraphErrors()
+    g1=R.TGraphAsymmErrors()
     g1.SetMarkerStyle(7)
     g1.SetMarkerColor(2)
 
     global g2
-    g2=R.TGraphErrors()
+    g2=R.TGraphAsymmErrors()
     g2.SetMarkerStyle(7)
     g2.SetMarkerColor(2)
 
@@ -31,7 +31,9 @@ def plot(filename,source,model):
             emax=file["SOURCES"].data.field('EMAX')[src]
             alpha=file["SOURCES"].data.field('ALPHA')[src]
             err_alpha=file["SOURCES"].data.field('ERR_ALPHA')[src]
-            exposure=file["SOURCES"].data.field('EXPOSURE')[src]
+            energy=file["SOURCES"].data.field(model.get_spec_type()+"_ENERGY")[src]
+            model_exposure=file["SOURCES"].data.field(model.get_spec_type()+"_EXPOSURE")[src]
+            exposure=file["SOURCES"].data.field("EXPOSURE")[src]
             nphoton=file["SOURCES"].data.field('NPHOTON')[src]
             params=file["SOURCES"].data.field(model.get_spec_type()+"_PAR")[src]
 
@@ -42,6 +44,8 @@ def plot(filename,source,model):
     global func
     func=set_function(model,params)
 
+    exposure_error_fraction=0.01
+    livebin=0
     for bin in range(0,int(len(emin)/2)):
 
         front=2*bin
@@ -49,29 +53,43 @@ def plot(filename,source,model):
 
         E_min=emin[front]
         E_max=emax[front]
-        E_ave=exp((log(E_max)+log(E_min))/2.)
+        E_model=energy[livebin]
+        exposure_error_fraction=model.get_exposure_uncertainty(R.Double(E_min),R.Double(E_max))
         delta_E=E_max-E_min
 
-        if(exposure[front]==0. or exposure[back]==0.):
-            continue
+        if nphoton[front]>0:
+            flux_front=pow(E_model,2)*nphoton[front]*alpha[front]/(model_exposure[livebin]*delta_E)
+            err_flux_front=flux_front*sqrt(pow(err_alpha[front]/alpha[front],2)+pow(exposure_error_fraction,2))
+        else:
+            flux_front=0
+            err_flux_front=0
+        
+        E_model=energy[livebin]
 
-        flux_front=pow(E_ave,2)*nphoton[front]*alpha[front]/(exposure[front]*delta_E)
-        flux_back=pow(E_ave,2)*nphoton[back]*alpha[back]/(exposure[back]*delta_E)
-	
+        if nphoton[back]>0:
+            flux_back=pow(E_model,2)*nphoton[back]*alpha[back]/(model_exposure[livebin]*delta_E)
+            err_flux_back=flux_back*sqrt(pow(err_alpha[back]/alpha[back],2)+pow(exposure_error_fraction,2))
+        else:
+            flux_back=0
+            err_flux_back=0
+                
         flux=(flux_front+flux_back)/2
-
-        err_flux_front=pow(E_ave,2)*nphoton[front]*err_alpha[front]/(exposure[front]*delta_E)
-        err_flux_back=pow(E_ave,2)*nphoton[back]*err_alpha[back]/(exposure[back]*delta_E)
-
         err_flux=sqrt(pow(err_flux_front,2)+pow(err_flux_back,2))
 
-        g1.SetPoint(bin,E_ave,flux)
-        g1.SetPointError(bin,0,err_flux)
+        # Make sure the energy range was actually fitted
+        if exposure[front]!=0 and exposure[back]!=0:
+            livebin=livebin+2
 
-        model_flux=func.Eval(E_ave)
+        if flux==0:
+            continue
 
-        g2.SetPoint(bin,E_ave,(flux-model_flux)/flux)
-        g2.SetPointError(bin,0,err_flux/flux)
+        g1.SetPoint(bin,E_model,flux)
+        g1.SetPointError(bin,E_model-E_min,E_max-E_model,err_flux,err_flux)
+
+        model_flux=func.Eval(E_model)
+
+        g2.SetPoint(bin,E_model,(flux-model_flux)/flux)
+        g2.SetPointError(bin,E_model-E_min,E_max-E_model,err_flux/flux,err_flux/flux)
 
     g1.Print()
     g2.Print()
@@ -116,7 +134,7 @@ def set_canvas(name):
     c1 = R.TCanvas("SED","SED: "+name,200,10,500,700)
     c1.Draw()
 
-    p1 = R.TPad("SpecPad","SpecPad",0.0,0.5,1.0,1.0);
+    p1 = R.TPad("SpecPad","SpecPad",0.0,0.3,1.0,1.0);
 
     p1.SetLogx()
     p1.SetLogy()
@@ -129,7 +147,7 @@ def set_canvas(name):
     p1.Draw();
 
     c1.cd()
-    p2 = R.TPad("ResPad2","ResPad",0.0,0.0,1.0,0.5)
+    p2 = R.TPad("ResPad2","ResPad",0.0,0.0,1.0,0.3)
     p2.Draw()
     p2.cd()
 
@@ -160,9 +178,11 @@ def set_box(graph):
     h = R.TH2F("Spectral","Spectrum",10,e_min,e_max,10,flux_min,flux_max)
     h.SetTitle("Spectral Energy Distribution")
     h.GetXaxis().SetTitle("Energy [MeV]")
+    h.GetXaxis().SetTitleFont(42)
     h.GetXaxis().CenterTitle()
     h.GetXaxis().SetTitleOffset(1.1)
     h.GetYaxis().SetTitle("E^{2} dN/dE [MeV cm^{-2} s^{-1}]")
+    h.GetYaxis().SetTitleFont(42)
     h.GetYaxis().CenterTitle()
     h.GetYaxis().SetTitleOffset(1.5)
 
@@ -183,9 +203,11 @@ def set_res_box(graph):
     h = R.TH2F("RESIDUAL","RESIDUAL",10,e_min,e_max,10,res_min,res_max)
     h.SetTitle("Spectral Energy Distribution Residual")
     h.GetXaxis().SetTitle("Energy [MeV]")
+    h.GetXaxis().SetTitleFont(42)
     h.GetXaxis().CenterTitle()
     h.GetXaxis().SetTitleOffset(1.1)
     h.GetYaxis().SetTitle("Fit Residuals - \DeltaF/F")
+    h.GetYaxis().SetTitleFont(42)
     h.GetYaxis().CenterTitle()
     h.GetYaxis().SetTitleOffset(1.5)
 
