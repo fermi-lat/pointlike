@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: bechtol  Thu Dec 18 18:44:37 PST 2008
+pointlike/python
+
+Modified Files:
+	specplot.py 
+Log Message:
+Model-dependent exposure and flux point calculation for spectral fitting
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Thu Dec 18 18:44:23 PST 2008
 pointlike/pointlike
 
