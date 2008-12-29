@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Dec 28 20:16:32 PST 2008
+pointlike/python
+
+Modified Files:
+	pixeldata.py 
+Log Message:
+clean up a bit: follow BDFL style for includes
+    *
+------------------------------------------------------------
 User: burnett  Sun Dec 28 20:12:14 PST 2008
 pointlike/src/pointfit
 
