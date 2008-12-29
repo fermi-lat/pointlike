@@ -25,6 +25,7 @@ Optional parameters:
         [This is TODO: Is there a function member to sum the GTI intervals?]
         Note that this is only actually needed for overlapped sources in the Galactic
         plane, if spectral information is not required.
+    --ltcube=: [None] If specified, use for exposure
     --diffuse=:  Define a diffuse file (see the flag --galdiffuse to define it in the context of the science tools)
     --galdiffuse: Flag to use the galprop-generated galactic diffuse file which is distributed with the science tools)
     --eventtype= [-1] Event selection if datafile is event data. -1 means front and back,
@@ -32,21 +33,30 @@ Optional parameters:
     --write=<output>: if set, and the datafile is event data, write a pixelfile for
         subsequent input
     -v or --verbose [0] set verbosity
+    --quiet [False] Disable some output
     --binsperdecade [0] default is 2.35 ratio. otherwise energy binning is set.
     --emin= [200]  minimum energy, used to select bands
     --TSmin= [10]
     --[no]lsq  use (or not) "lsq" mode to find maximum
     --region=: define a region file
+    --lsqfit  Enable the "lsqfit" option for fitting
+    --TSmin [10]  minimum TS 
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.15 2008/10/17 16:57:34 kerrm Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.16 2008/11/28 20:43:34 burnett Exp $
 """
 import os, sys, types
 from numpy import arange
 
 from skymaps import DiffuseFunction, Background
 from pointlike import SourceList, Source, PointSourceLikelihood, Data
+from pointlike import pixeldata
 
+class PointFit(object):
+
+    def __init__(self):
+        pass
+        
 #----------------------------------------------------------------------------------------
 class Fitter(object):
     """ this is an attempt to be consistent with an older interface that is used by ASP
@@ -141,7 +151,8 @@ def main():
 
     options = 'b:w:v'
     long_options= [ 'diffuse=','write=', 'verbose', 'galdiffuse', 
-                    'eventtype=', 'exposure=', 'binsperdecade=', 'emin=', 'region=', 'TSmin=', 'lsq', 'nossq']
+                    'eventtype=', 'exposure=', 'binsperdecade=', 'emin=', 'region=', 
+                    'TSmin=', 'lsq', 'nolsq', 'quiet', 'history=']
 
     try:    
         (opts, args) = getopt(sys.argv[1:], options, long_options )
@@ -157,6 +168,8 @@ def main():
     emin = 500
     TSmin= 10  # minimum TS for final list
     lsq = True
+    quiet = False
+    history = None
                                     
     for (opt,val) in opts:
         if   opt=='-b' or opt=='--diffuse'  : diffusefilename = val
@@ -170,9 +183,11 @@ def main():
         elif opt=='--TSmin'                 : TSmin = float(val)
         elif opt=='--lsq'                   : lsq = True 
         elif opt=='--nolsq'                 : lsq = False
+        elif otp=='--quiet'                 : quiet = True
         elif opt=='--exposure'              :
             try: exposure= float(val)
             except: exposure = val
+        elif opt=='--history'               : history = val
 
     if len(args)>0: eventfilename=args[0]
     else: help('No event file name specified')
@@ -180,8 +195,12 @@ def main():
         bins = 10**arange(2,5,1./binsperdecade)
         Data.setEnergyBins(bins)
     
-    data = photonmap(eventfilename, pixeloutput=outputpixelfile, eventtype=eventtype)
-    data.info()
+    if history is None:
+        data = photonmap(eventfilename, pixeloutput=outputpixelfile, eventtype=eventtype)
+        if not quiet: data.info()
+    else:
+        pdata = pixeldata.PixelData(
+        
 
     if len(args)>1: sourcefilename= args[1]
     else: help('No source file list')
