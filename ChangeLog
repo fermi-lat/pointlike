@@ -1,5 +1,16 @@
 ------------------------------------------------------------
 User: burnett  Sun Dec 28 20:12:14 PST 2008
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx SimpleLikelihood.cxx 
+Added Files:
+	SpectralFunction.cxx 
+Log Message:
+implement new code to manage a spectral model, and compute corresponding likelihood
+    *
+------------------------------------------------------------
+User: burnett  Sun Dec 28 20:12:14 PST 2008
 pointlike/pointlike
 
 Modified Files:
