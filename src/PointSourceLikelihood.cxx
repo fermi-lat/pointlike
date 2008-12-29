@@ -1,11 +1,12 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.64 2008/11/10 20:10:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.65 2008/11/24 02:27:57 burnett Exp $
 
 */
 
 #include "pointlike/PointSourceLikelihood.h"
 #include "pointlike/BandBackground.h"
+#include "pointlike/SpectralFunction.h"
 
 #include "skymaps/DiffuseFunction.h"
 #include "skymaps/CompositeSkySpectrum.h"
@@ -265,14 +266,18 @@ double PointSourceLikelihood::alpha(int band) const
 
 PointSourceLikelihood::const_iterator PointSourceLikelihood::begin_skip(int skip)const{
     const_iterator it(begin());
-    while(skip-- >=0)it++;
+    while(--skip>0){
+        it++;
+    }
     return it;
 }
 
 
 PointSourceLikelihood::iterator PointSourceLikelihood::begin_skip(int skip){
     iterator it(begin());
-    while(skip-- >=0)it++;
+    while(--skip>0){
+        it++;
+    }
     return it;
 }
 
@@ -299,7 +304,7 @@ void PointSourceLikelihood::setDir(const astro::SkyDir& dir, bool subset){
 
 const Hep3Vector& PointSourceLikelihood::gradient(int skip) const{
     m_gradient=Hep3Vector(0);  
-    const_iterator it = begin();
+    const_iterator it = begin_skip(skip);
     for( ; it!=end(); ++it){
         if( (*it)->TS()< s_TScut) continue;
         Hep3Vector grad((*it)->gradient());
@@ -512,7 +517,7 @@ double PointSourceLikelihood::localize(int skip)
         backingoff =true;
         while( count-->0){
             m_dir = olddir -delta;
-#if 0
+#if 1
             setDir(m_dir,true);
             double newTs(maximize(skip));
 #else // make comparison without speedup
@@ -629,8 +634,28 @@ double PointSourceLikelihood::fit_localization(double err) {
 
     //set the position to the minimum and grab new set of pixels
     oldDir=SkyDir((xc*rand_x+yc*rand_y)*M_PI/180+oldDir());
+    if( verbose() ) {
+        std::cout << "lsqfit ra, dec, error " 
+            << oldDir.ra()<< ", " << oldDir.dec()
+            << ", " << nerr
+            <<std::endl;
+    }
     setDir(oldDir,false);
     return nerr;
+}
+
+double PointSourceLikelihood::logLikelihood(const pointlike::SpectralFunction& model, bool extended)const
+{
+    double result(0);
+    const_iterator it = begin();
+    for( ; it!=end(); ++it){
+        const SimpleLikelihood& sl( **it);
+        // expected it the product of total from model times fraction in aperature
+        double expected( model.expected(dir(), sl.band())  * sl.aperature_correction() );
+        result += extended? sl.extendedLikelihood(expected) 
+                          : sl.logLikelihood(expected);
+    }
+    return result;
 }
 
 double PointSourceLikelihood::value(const astro::SkyDir& dir, double energy) const

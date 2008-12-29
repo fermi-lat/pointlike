@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.55 2008/11/11 01:31:16 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.56 2008/11/11 23:05:57 funk Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -293,6 +293,17 @@ double SimpleLikelihood::logLikelihood( double count) const
     double denom( photons() );
     if( background()>0 ) denom=count+background();
     return operator()(count/denom);
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+double SimpleLikelihood::extendedLikelihood( double expected) const
+{
+    if( photons() ==0 ) return 0; // no contribution if no data.
+    double back(background()), alpha ( expected / (expected + back) );
+    double pointlike( (*this)(alpha));
+    double poisson( expected + back - photons()*log(expected + back));
+    return pointlike + poisson;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

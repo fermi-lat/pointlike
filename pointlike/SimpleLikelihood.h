@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.35 2008/11/11 01:31:16 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.36 2008/11/11 23:05:58 funk Exp $
 
 */
 
@@ -68,6 +68,10 @@ public:
     //! if extended likelihood, use background estimate. otherwise
     double logLikelihood(double counts)const;
 
+
+
+    double extendedLikelihood( double expected) const;
+
     //! @brief maximize the likelihood (minimize -log L)
     //! @return (signal_fraction, error)
     std::pair<double,double> maximize();
@@ -126,9 +130,9 @@ public:
     double geval(double k);
     double eval(double ks,double gamma);
 
-  // Needed for templating between ExtendedLikelihood and SimpleLikelihood
-  // Not implemented for SimpleLikelihood at the moment
-  double exposure() {return 0;};
+    // Needed for templating between ExtendedLikelihood and SimpleLikelihood
+    // Not implemented for SimpleLikelihood at the moment
+    double exposure() {return 0;};
 
     void changepsf(){}; // note not implemented
     void setgamma(double gamma) {m_psf=skymaps::PsfFunction(gamma);}
@@ -153,18 +157,15 @@ public:
 
     /// @brief calculate TS for given fit at various positions
     double TSmap(astro::SkyDir sdir) const;
-#if 0
-    /// @brief access to the diffuse background component 
-    const astro::SkyFunction* diffuse() const;
 
-    /// @brief set the diffuse component
-    void setDiffuse(astro::SkyFunction* diff);
-#endif
-       /// @brief return first and second derivative
+    /// @brief return first and second derivative
     std::pair<double, double> derivatives(double x);
 
     /// @brief access to background function
     const skymaps::CompositeSkyFunction& background_function()const{return m_background;}
+
+    /// @brief fraction of PSF within the ROI
+    double aperature_correction()const{ return m_fint;}
 
     static double tolerance();
     static void setTolerance(double tol);
