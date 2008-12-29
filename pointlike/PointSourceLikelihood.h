@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.48 2008/10/21 02:50:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.49 2008/11/24 02:27:57 burnett Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -19,11 +19,13 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.
 namespace embed_python { class Module; }
 namespace skymaps { 
     class BinnedPhotonData;
-    class CompositeSkySpectrum;}
+    class CompositeSkySpectrum;
+}
 
 namespace pointlike {
 
     class BandBackground;
+    class SpectralFunction;
 
     /** @class PointSourceLikelihood
     @brief manage a set of SimpleLikelihood objects, one for each energy band / event type
@@ -83,6 +85,11 @@ namespace pointlike {
 
         /// @brief locate minimum through least squares fit
         double fit_localization(double err);
+
+        /// @brief calculate -log likelihood
+         /// @param model a spectrum to compare with data
+        /// @param extended [true] use extended likelihood, assuming a good model for background flux level
+        double logLikelihood(const pointlike::SpectralFunction& model, bool extended=true)const;
 
         std::string name()const{return m_name;}
 

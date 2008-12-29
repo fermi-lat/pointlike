@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.29 2008/10/22 07:02:37 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.30 2008/11/28 20:43:34 burnett Exp $
 
 */
 #include "pointlike/SourceList.h"
@@ -76,7 +76,6 @@ int main(int argc, char** argv)
         double tsmin(10);
         setup.getValue("tsmin", tsmin, tsmin);
 
-        sl->sort_TS(); // initial sort by decreasing TS
         sl->refit(); 
         if(tsmin>0) sl->filter_TS(tsmin); // filter
         sl->sort_ra(); // now by ra
