@@ -2,12 +2,14 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.15 2008/11/21 17:23:38 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.16 2008/12/15 22:12:26 burnett Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.15 $'.split()[1]
+version='$Revision: 1.16 $'.split()[1]
 import os
+import sys
+
 from numpy import array, arange
 from pixeldata import PixelData
 
@@ -47,7 +49,7 @@ Optional keyword arguments:
   +binsperdecade [4] When generating Bands from the FT1 data.
   +use_mc_psf  [False] Use PSF determined by MC analysis if true; otherwise as defined by data
 
-  =========    KEYWORDS CONTROLLING EXPOSURE CALCULTION
+  =========    KEYWORDS CONTROLLING EXPOSURE CALCULATION
   +CALDB       [None] If not specified, will use environment variable
   +irf         ['P6_v1_diff'] Used for effective area
   
@@ -208,17 +210,17 @@ Optional keyword arguments:
 
 #--------------------------------------------------------
 
-def main():
+def help(msg=None):
+    if msg: print '\nError: %s' % msg
+    print __doc__
+    print SpectralAnalysis.__init__.__doc__
+    sys.exit(0)
 
-    def help(msg=None):
-        if msg: print '\nError: %s' % msg
-        print __doc__
-        sys.exit(0)
+def main():
     
     from getopt import getopt, GetoptError
     from skymaps import SkyDir
     from glob import glob
-    import sys
 
     options = ''#'b:w:v'
     
@@ -260,5 +262,8 @@ def main():
 #--------------------------------------------------------
     
 if __name__=='__main__':
-    main()
+    try:
+        main()
+    except:
+        help()
 
