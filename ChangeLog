@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Dec 28 20:39:47 PST 2008
+pointlike/python
+
+Modified Files:
+	swig_setup.in 
+Log Message:
+add new class SpectrallFunction; comment out stuff that fails on Windows
+    *
+------------------------------------------------------------
 User: burnett  Sun Dec 28 20:31:50 PST 2008
 pointlike/cmt
 
