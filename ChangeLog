@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Dec 28 20:19:19 PST 2008
+pointlike/python
+
+Modified Files:
+	pointfit.py 
+Log Message:
+add new features, including using history for exposure
+    *
+------------------------------------------------------------
 User: burnett  Sun Dec 28 20:16:32 PST 2008
 pointlike/python
 
