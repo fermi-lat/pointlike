@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Sun Dec 28 20:12:14 PST 2008
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h SimpleLikelihood.h 
+Added Files:
+	SpectralFunction.h 
+Log Message:
+implement new code to manage a spectral model, and compute corresponding likelihood
+    *
+------------------------------------------------------------
 User: bechtol  Fri Dec 19 15:23:57 PST 2008
 pointlike/src
 
