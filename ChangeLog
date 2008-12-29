@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Dec 28 20:31:50 PST 2008
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+add new SpectralFunction class
+    *
+------------------------------------------------------------
 User: burnett  Sun Dec 28 20:29:33 PST 2008
 pointlike/python
 
