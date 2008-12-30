@@ -2,10 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.101 2008/11/10 22:54:42 burnett Exp $
+$Id: release.notes,v 1.102 2008/12/29 04:42:19 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
- 28-dec-08 v6r15   THB support for SpectralFunction (preliminary version) with full extended likelihood in C++
+ 30-dec-08 v6r15p1 THB support for SpectralFunction (preliminary version) with full extended likelihood in C++
  10-nov-08 v6r14   THB bug fixes to support merged mode; pointspec improvements
  01-nov-08 v6r13p3 THB Data fix for pointspec use
  29-oct-08 v6r13p2 THB Fix linux compilation error
