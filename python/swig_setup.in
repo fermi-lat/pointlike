@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.40 2008/12/16 23:03:31 bechtol Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.41 2008/12/29 04:39:47 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -29,11 +29,11 @@
 #include "pointlike/SourceList.h"
 //#include "pointlike/SimpleTSmap.h"
 #include "pointlike/Alignment.h"
-#include "pointlike/FlexibleBinner.h"
 #include "pointlike/BandBackground.h"
 #include "pointlike/SpectralFunction.h"
 // --------- extended source likelihood ----
 #ifndef WIN32 // may not compile on Windows 
+#include "pointlike/FlexibleBinner.h"
 #include "pointlike/SpectralFitter.h"
 #include "pointlike/HealpixDiffuseFunc.h"
 #include "pointlike/SourceLikelihood.h"
@@ -186,7 +186,6 @@ public:
 %include $(POINTLIKEROOT)/pointlike/Draw.h
 //%include $(POINTLIKEROOT)/pointlike/SimpleTSmap.h
 %include $(POINTLIKEROOT)/pointlike/SourceList.h
-%include $(POINTLIKEROOT)/pointlike/FlexibleBinner.h
 %include $(POINTLIKEROOT)/pointlike/BandBackground.h
 %include ../pointlike/SpectralFunction.h
 
@@ -194,6 +193,7 @@ public:
 
 //  extended PSF stuff
 // may not compile in Windows
+//%include $(POINTLIKEROOT)/pointlike/FlexibleBinner.h
 //%include $(POINTLIKEROOT)/pointlike/ExtendedLikelihood.h
 //%include $(POINTLIKEROOT)/pointlike/SourceLikelihood.h
 //%include $(POINTLIKEROOT)/pointlike/ExtendedSourcePDF.h
