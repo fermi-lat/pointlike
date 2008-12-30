@@ -14,6 +14,9 @@
 #include <cstring>
 #include <stdlib.h>
 
+#include <cstdlib>
+#include <time.h>
+
 #include <TMinuit.h>
 #include <TF1.h>
 
@@ -22,6 +25,38 @@ namespace embed_python{ class Module; }
 namespace pointlike{
 
   class SourceLikelihood;
+
+  //---------------------------------------------------------------------------
+  //  Gaussian random number generation centered on zero with a standard
+  //  deviation of one (Box-Muller transformation).
+  //---------------------------------------------------------------------------
+
+  class random{
+  public:
+    random(){
+      srand(time(NULL));
+    }
+
+    double rand_unif(){
+      return (rand()%10000)/10000.;
+    }
+
+    double rand_gauss(){
+      double x1, x2, w, y1, y2;
+
+      do {
+	x1 = 2.0 * this->rand_unif() - 1.0;
+	x2 = 2.0 * this->rand_unif() - 1.0;
+	w = x1 * x1 + x2 * x2;
+      } while ( w >= 1.0 );
+
+      w = sqrt( (-2.0 * log( w ) ) / w );
+      y1 = x1 * w;
+      y2 = x2 * w;
+
+      return y1;
+    }
+  };
 
   //---------------------------------------------------------------------------
   //  Base class for spectral models
@@ -33,7 +68,8 @@ namespace pointlike{
     double m_logLikeSum;
     std::vector<double> m_model_energies;
     std::vector<double> m_exposures;
-    
+    double m_E_min,m_E_max;
+
   public:
     SpectralModel(std::string spec_type=""){
       m_spec_type=spec_type;
@@ -60,7 +96,41 @@ namespace pointlike{
     virtual std::vector<double> get_param_errors()=0;
     
     virtual double get_flux(double E_min,double E_max)=0;
-  
+
+    std::vector<double> get_flux_errors(double E_min,double E_max){
+      std::vector<double> best_fit_params=this->get_params();
+      std::vector<double> param_errors=this->get_param_errors();
+      double best_fit_flux=this->get_flux(E_min,E_max);
+
+      int npar=this->get_npar();
+      std::vector<double> new_params(npar);
+            
+      random generator;
+
+      std::vector<double> new_fluxes;
+      
+      int maxit=400;
+      for(int i=0;i<maxit;i++){
+	for(int j=0;j<npar;j++){
+	  new_params[j]=best_fit_params[j]+generator.rand_gauss()*param_errors[j];
+	}
+	this->set_params(new_params);
+	new_fluxes.push_back(this->get_flux(100.,3.e5));
+      }      
+      
+      std::sort(new_fluxes.begin(),new_fluxes.end());
+
+      // Reset original parameter values
+      this->set_params(best_fit_params);
+
+      std::vector<double> flux_errors(2);
+      flux_errors[0]=new_fluxes[ceil(0.84*new_fluxes.size())]-best_fit_flux;
+      flux_errors[1]=best_fit_flux-new_fluxes[floor(0.16*new_fluxes.size())];	
+
+      return flux_errors;
+    }
+
+
     virtual double get_dNdE(double E)=0;
 
     double get_model_exposure(pointlike::SourceLikelihood* SourcePointer,int bin){
@@ -73,6 +143,7 @@ namespace pointlike{
       double frac,E,dNdE,exposure;
       
       double max=100.;
+
       for(double i=0.;i<max;i+=1.){
 	frac=i/max;
 	E=frac*E_max+(1-frac)*E_min;
@@ -86,6 +157,11 @@ namespace pointlike{
     }
 
     double get_model_E(double E_min,double E_max){
+      if(E_min<this->get_lower_bound() || E_max>this->get_upper_bound()){
+	std::cout << "WARNING. Exposure calculation out of range." << std::endl;
+	return -1.;
+      }
+
       double weighted_E_sum=0;
       double normalization=0;
 
@@ -130,6 +206,13 @@ namespace pointlike{
 
     void set_exposures(std::vector<double> exposures){ m_exposures=exposures; }
     std::vector<double> get_exposures(){ return m_exposures; }
+
+    void set_energy_range(double E_min,double E_max){
+      m_E_min=E_min;
+      m_E_max=E_max;
+    }
+    double get_lower_bound(){ return m_E_min; }
+    double get_upper_bound(){ return m_E_max; }
   };
 
   //---------------------------------------------------------------------------

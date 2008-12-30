@@ -91,7 +91,7 @@ void ResultsFile::fill(SourceLikelihood& like,
       (*srcTabItor)["R0"].set(like.sourceParameters()[0]);
       (*srcTabItor)["ERR_R0"].set(like.sourceParErrors()[0]);
  
-       std::map< std::string, std::vector<double> > minosErrors=like.errorsMINOS();
+      std::map< std::string, std::vector<double> > minosErrors=like.errorsMINOS();
       (*srcTabItor)["MINOS_PARABOLIC"].set(minosErrors["parabolic"]);
       (*srcTabItor)["MINOS_PLUS"].set(minosErrors["plus"]);
       (*srcTabItor)["MINOS_MINUS"].set(minosErrors["minus"]);
@@ -116,12 +116,13 @@ void ResultsFile::fill(SourceLikelihood& like,
 	    while (emin[i]<levellike.band().emin()) i++;
 
  	   std::pair<double,double> a= levellike.maximize();
- 	   std::pair<double,double> f= levellike.flux();
+ 	   // Fix problem with exposure energy range
+	   //std::pair<double,double> f= levellike.flux();
  	   alpha[i]=a.first;
  	   erra[i]=a.second;
- 	   flux[i]=f.first;
- 	   errflux[i]=f.second;
-	   exposure[i]=levellike.exposure();
+ 	   //flux[i]=f.first;
+ 	   //errflux[i]=f.second;
+	   //exposure[i]=levellike.exposure();
  	   nphoton[i] = levellike.photons();
  	   nsig[i] = levellike.photons()*a.first/levellike.psfIntegral();
  	   errns[i] = levellike.photons()*a.second/levellike.psfIntegral();
@@ -152,6 +153,7 @@ void ResultsFile::fill(SourceLikelihood& like,
 	   std::string par_string=spectra.get(i)->get_spec_type().append("_PAR");
 	   std::string par_err_string=spectra.get(i)->get_spec_type().append("_PAR_ERR");
 	   std::string flux_string=spectra.get(i)->get_spec_type().append("_FLUX");
+	   std::string flux_err_string=spectra.get(i)->get_spec_type().append("_FLUX_ERR");
 	   std::string model_E_string=spectra.get(i)->get_spec_type().append("_ENERGY");
 	   std::string exposure_string=spectra.get(i)->get_spec_type().append("_EXPOSURE");
 
@@ -175,6 +177,10 @@ void ResultsFile::fill(SourceLikelihood& like,
 	   // Record model integrated flux 300 GeV > E > 100 MeV [ ph/cm^2/s ]
 	   srcTab->appendField(flux_string,"1E");
 	   (*srcTabItor)[flux_string].set(spectra.get(i)->get_flux(100,3.e5));
+
+	   // Record flux errors (high/low)
+	   srcTab->appendField(flux_err_string,"2E");
+	   (*srcTabItor)[flux_err_string].set(spectra.get(i)->get_flux_errors(100,3.e5));
 
 	   srcTab->appendField(model_E_string,nbin);
 	   (*srcTabItor)[model_E_string].set(spectra.get(i)->get_model_energies());
