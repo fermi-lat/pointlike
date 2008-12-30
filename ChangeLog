@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: bechtol  Tue Dec 30 01:19:18 PST 2008
+pointlike/pointlike
+
+Modified Files:
+	SpectralFitter.h 
+Log Message:
+Flux errors calculation added
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-15-00, operation: add
 Package: pointlike
