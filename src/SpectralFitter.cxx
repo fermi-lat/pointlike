@@ -126,6 +126,9 @@ namespace pointlike{
     gFitEminPointer = &s_emin;
     gFitEmaxPointer = &s_emax;
 
+    // Set the energy range for spectral fitting
+    model.set_energy_range(s_emin,s_emax);
+
     m_npar=model.get_npar();
 
     m_Minuit=new TMinuit(m_npar);
@@ -237,7 +240,7 @@ namespace pointlike{
     // Record the optimized model parameters and errors
     gModelPointer->set_params(m_specParams);
     gModelPointer->set_param_errors(m_specParamErrors);
-
+    
     // Set the model dependent energies and exposures
     int numBins=gSourcePointer->size();
 
@@ -245,9 +248,16 @@ namespace pointlike{
     for(int bin=0; bin<numBins; bin++){
       E_min=gSourcePointer->at(bin)->band().emin();
       E_max=gSourcePointer->at(bin)->band().emax();
-      m_model_energies.push_back(gModelPointer->get_model_E(E_min,E_max));
-      m_exposures.push_back(gModelPointer->get_model_exposure(gSourcePointer,bin));
+      
+      // Enforce energy range for spectral fitting
+      if(E_min < *gFitEminPointer || E_max > *gFitEmaxPointer) continue;
+      
+      else{
+	m_model_energies.push_back(gModelPointer->get_model_E(E_min,E_max));
+	m_exposures.push_back(gModelPointer->get_model_exposure(gSourcePointer,bin));
+      }
     }
+    
     gModelPointer->set_model_energies(m_model_energies);
     gModelPointer->set_exposures(m_exposures);
 
@@ -256,9 +266,15 @@ namespace pointlike{
     m_Minuit->mnstat(fmin,fedm,errdef,npari,nparx,istat);
     gModelPointer->set_logLikeSum(fmin);
 
+    std::vector<double> flux_errors=gModelPointer->get_flux_errors(100.,3.e5);
+
     std::cout << std::endl 
-	      << "Integrated photon flux (300 GeV > E > 100 MeV) = " 
-	      << gModelPointer->get_flux(100.,3.e5) 
+	      << "Average integrated photon flux (300 GeV > E > 100 MeV) = " 
+	      << gModelPointer->get_flux(100.,3.e5)
+	      << " +/- "
+	      << flux_errors[0]
+      	      << "/"
+	      << flux_errors[1]
 	      << " ph/cm^2/s"
 	      << std::endl;
 

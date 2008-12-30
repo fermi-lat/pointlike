@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.cxx
     @brief Implementation of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.10 2008/12/05 20:20:40 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.11 2008/12/19 02:44:46 bechtol Exp $
 */
 
 #include "pointlike/ExtendedLikelihood.h"
@@ -575,7 +575,11 @@ double ExtendedLikelihood::exposure(double E) const {
 	 m_exposure[m_band.event_class()]->integral(m_dir,m_band.emin(),m_band.emax())/deltaE;
      };
    }
-   else{ exposure=m_exposure[m_band.event_class()]->value(m_dir,E); }
+   else{ 
+     if(m_exposure.size()>m_band.event_class()){
+	exposure=m_exposure[m_band.event_class()]->value(m_dir,E);
+     } 
+   }
    return exposure;
 };
 
