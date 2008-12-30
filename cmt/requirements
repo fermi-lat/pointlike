@@ -1,8 +1,8 @@
 package pointlike
 
-version v6r14
+version v6r15
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.113 2008/11/24 02:27:57 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.115 2008/12/29 04:42:18 burnett Exp $
 
 use astro *
 use healpix *
@@ -26,9 +26,9 @@ macro source "*.cxx" WIN32 "*.cxx *.h *.py"
 
 macro pointlike_source  "*.cxx" WIN32 \
 "Alignment.cxx  AlignProc.cxx  BandBackground.cxx  CalData.cxx  Data.cxx Draw.cxx EventList.cxx \
-FlexibleBinner.cxx  ParamOptimization.cxx   PointSourceLikelihood.cxx \
+ ParamOptimization.cxx   PointSourceLikelihood.cxx \
  RotationInfo.cxx  SimpleLikelihood.cxx SourceFinder.cxx \
-SourceList.cxx SpectralFunction.cxx"
+ SourceList.cxx SpectralFunction.cxx"
 
 library pointlike \
  -s=../pointlike $(source) \
