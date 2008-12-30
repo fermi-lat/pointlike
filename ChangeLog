@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: bechtol  Tue Dec 30 01:19:27 PST 2008
+pointlike/src
+
+Modified Files:
+	ExtendedLikelihood.cxx ResultsFile.cxx SpectralFitter.cxx 
+Log Message:
+Flux errors calculation added
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Tue Dec 30 01:19:18 PST 2008
 pointlike/pointlike
 
