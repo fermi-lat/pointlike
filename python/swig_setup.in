@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.41 2008/12/29 04:39:47 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.42 2008/12/30 19:41:19 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -71,6 +71,7 @@
 %template(DoubleVector) std::vector<double>;
 %template(FloatVector) std::vector<float>;
 %template(LongVector) std::vector<long>;
+%template(IntVector) std::vector<int>;
 
 %include $(CLHEPBASE)/include/CLHEP/Vector/ThreeVector.h
 //%include $(CLHEPROOT)/include/CLHEP/Vector/Rotation.h
