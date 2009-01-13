@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan 13 15:03:48 PST 2009
+pointlike/python
+
+Modified Files:
+	psf.py 
+Log Message:
+updated (with Marshall's code) to use CALDB PSF
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-15-02, operation: add
 Package: pointlike
