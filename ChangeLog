@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: bechtol  Tue Jan 13 16:28:02 PST 2009
+pointlike/python
+
+Modified Files:
+	specplot.py swig_setup.in 
+Log Message:
+Flux error calculation added
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Tue Jan 13 16:27:26 PST 2009
 pointlike/pointlike
 
