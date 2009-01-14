@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.42 2008/12/30 19:41:19 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.43 2009/01/13 23:55:45 kerrm Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -190,16 +190,26 @@ public:
 %include $(POINTLIKEROOT)/pointlike/BandBackground.h
 %include ../pointlike/SpectralFunction.h
 
-//%include $(POINTLIKEROOT)/pointlike/HealpixDiffuseFunc.h
-
 //  extended PSF stuff
 // may not compile in Windows
+
+#ifndef WIN32
+%include $(POINTLIKEROOT)/pointlike/FlexibleBinner.h
+%include $(POINTLIKEROOT)/pointlike/HealpixDiffuseFunc.h
+%include $(POINTLIKEROOT)/pointlike/ExtendedLikelihood.h
+%include $(POINTLIKEROOT)/pointlike/SourceLikelihood.h
+%include $(POINTLIKEROOT)/pointlike/ExtendedSourcePDF.h
+%include $(POINTLIKEROOT)/pointlike/SpectralFitter.h
+%include $(POINTLIKEROOT)/pointlike/ResultsFile.h
+#endif
+
 //%include $(POINTLIKEROOT)/pointlike/FlexibleBinner.h
 //%include $(POINTLIKEROOT)/pointlike/ExtendedLikelihood.h
 //%include $(POINTLIKEROOT)/pointlike/SourceLikelihood.h
 //%include $(POINTLIKEROOT)/pointlike/ExtendedSourcePDF.h
 //%include $(POINTLIKEROOT)/pointlike/SpectralFitter.h
 //%include $(POINTLIKEROOT)/pointlike/ResultsFile.h
+
 
 %extend pointlike::SourceList{
    pointlike::Source & __getitem__(size_t i){ 

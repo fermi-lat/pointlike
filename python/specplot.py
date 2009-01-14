@@ -33,9 +33,10 @@ def plot(filename,source,model):
             err_alpha=file["SOURCES"].data.field('ERR_ALPHA')[src]
             energy=file["SOURCES"].data.field(model.get_spec_type()+"_ENERGY")[src]
             model_exposure=file["SOURCES"].data.field(model.get_spec_type()+"_EXPOSURE")[src]
-            exposure=file["SOURCES"].data.field("EXPOSURE")[src]
+            #exposure=file["SOURCES"].data.field("EXPOSURE")[src]
             nphoton=file["SOURCES"].data.field('NPHOTON')[src]
             params=file["SOURCES"].data.field(model.get_spec_type()+"_PAR")[src]
+            param_errors=file["SOURCES"].data.field(model.get_spec_type()+"_PAR_ERR")[src]
 
     file.close()
 
@@ -44,9 +45,16 @@ def plot(filename,source,model):
     global func
     func=set_function(model,params)
 
+    global butterfly
+    butterfly=set_butterfly(model,params,param_errors)
+
     exposure_error_fraction=0.01
     livebin=0
     for bin in range(0,int(len(emin)/2)):
+
+        # Do not exceed spectral fitting range
+        if livebin >= len(energy):
+            break
 
         front=2*bin
         back=2*bin+1
@@ -54,6 +62,7 @@ def plot(filename,source,model):
         E_min=emin[front]
         E_max=emax[front]
         E_model=energy[livebin]
+        
         exposure_error_fraction=model.get_exposure_uncertainty(R.Double(E_min),R.Double(E_max))
         delta_E=E_max-E_min
 
@@ -76,12 +85,16 @@ def plot(filename,source,model):
         flux=(flux_front+flux_back)/2
         err_flux=sqrt(pow(err_flux_front,2)+pow(err_flux_back,2))
 
-        # Make sure the energy range was actually fitted
-        if exposure[front]!=0 and exposure[back]!=0:
-            livebin=livebin+2
+        g1.SetPoint(bin,0,0)
+        g1.SetPointError(bin,0,0,0,0)
+        g2.SetPoint(bin,0,0)
+        g2.SetPointError(bin,0,0,0,0)
 
         if flux==0:
             continue
+
+        # Ensure energy bin was fitted
+        livebin=livebin+2
 
         g1.SetPoint(bin,E_model,flux)
         g1.SetPointError(bin,E_model-E_min,E_max-E_model,err_flux,err_flux)
@@ -110,6 +123,7 @@ def plot(filename,source,model):
 
     canvas.Draw()
     box.Draw()
+    butterfly.Draw("F")
     g1.Draw("P")
     func.Draw("SAME")
     legend.Draw()
@@ -237,6 +251,119 @@ def set_function(model,params):
     f1.SetLineColor(4)
 
     return f1
+
+def set_butterfly(model,params,param_errors):
+    print type(model)
+
+    def CRD(obj):
+        for i in range(0,len(obj)):
+            obj[i]=R.Double(obj[i])
+        return obj
+
+    scale = R.Double(100.) # [MeV]
+    emin  = R.Double(100.) # [MeV]
+    emax  = R.Double(3.e4) # [MeV]
+
+    b1=R.TPolyLine()
+    
+    if model.get_spec_type()=="POWER_LAW":
+    
+        model.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1]]))
+        b1.SetPoint(0,emin,R.Double(pow(emin,2)*model.get_dNdE(emin)))
+
+        b1.SetPoint(1,scale,R.Double(pow(scale,2)*model.get_dNdE(scale)))
+
+        model.set_params(CRD([params[0]+param_errors[0],params[1]-param_errors[1]]))
+        b1.SetPoint(2,emax,R.Double(pow(emax,2)*model.get_dNdE(emax)))
+
+        model.set_params(CRD([params[0]-param_errors[0],params[1]+param_errors[1]]))
+        b1.SetPoint(3,emax,R.Double(pow(emax,2)*model.get_dNdE(emax)))
+
+        b1.SetPoint(4,scale,R.Double(pow(scale,2)*model.get_dNdE(scale)))
+
+        model.set_params(CRD([params[0]-param_errors[0],params[1]-param_errors[1]]))
+        b1.SetPoint(5,emin,R.Double(pow(emin,2)*model.get_dNdE(emin)))
+
+        model.set_params([float(params[0]),float(params[1])])
+
+    if model.get_spec_type()=="BROKEN_POWER_LAW":
+
+        ebreak=R.Double(params[3])
+
+        model.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2],params[3]]))
+        b1.SetPoint(0,emin,R.Double(pow(emin,2)*model.get_dNdE(emin)))
+
+        b1.SetPoint(1,ebreak,R.Double(pow(ebreak,2)*model.get_dNdE(ebreak)))
+
+        model.set_params(CRD([params[0]+param_errors[0],params[1],params[2]-param_errors[2],params[3]]))
+        b1.SetPoint(2,emax,R.Double(pow(emax,2)*model.get_dNdE(emax)))
+
+        model.set_params(CRD([params[0]-param_errors[0],params[1],params[2]+param_errors[2],params[3]]))
+        b1.SetPoint(3,emax,R.Double(pow(emax,2)*model.get_dNdE(emax)))
+
+        b1.SetPoint(4,ebreak,R.Double(pow(ebreak,2)*model.get_dNdE(ebreak)))
+
+        model.set_params(CRD([params[0]-param_errors[0],params[1]-param_errors[1],params[2],params[3]]))
+        b1.SetPoint(5,emin,R.Double(pow(emin,2)*model.get_dNdE(emin)))
+
+        model.set_params([float(params[0]),float(params[1]),float(params[2]),float(params[3])])
+
+    if model.get_spec_type()=="EXP_CUTOFF":
+
+        m_lo_lo=pl.ExpCutoff()
+        m_lo_hi=pl.ExpCutoff()
+        m_hi_lo=pl.ExpCutoff()
+        m_hi_hi=pl.ExpCutoff()
+
+        m_lo_lo.set_params(CRD([params[0]+param_errors[0],params[1]-param_errors[1],params[2]-param_errors[2]]))
+        m_lo_hi.set_params(CRD([params[0]+param_errors[0],params[1]-param_errors[1],params[2]+param_errors[2]]))
+        m_hi_lo.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2]-param_errors[2]]))
+        m_hi_hi.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2]+param_errors[2]]))
+
+
+        #m_lo.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2]-param_errors[2]]))
+        #m_hi.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2]+param_errors[2]]))
+
+        model.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2]]))
+
+        itr=100
+
+        for i in range(0,itr+1):
+            frac=float(i)/float(itr)
+            E=exp((1-frac)*log(emin)+frac*log(emax))
+            E2dNdE=R.Double(max(pow(E,2)*m_lo_lo.get_dNdE(E),
+                                pow(E,2)*m_lo_hi.get_dNdE(E),
+                                pow(E,2)*m_hi_lo.get_dNdE(E),
+                                pow(E,2)*m_hi_hi.get_dNdE(E)))
+            b1.SetPoint(i,E,E2dNdE)
+
+        m_lo_lo.set_params(CRD([params[0]-param_errors[0],params[1]-param_errors[1],params[2]-param_errors[2]]))
+        m_lo_hi.set_params(CRD([params[0]-param_errors[0],params[1]-param_errors[1],params[2]+param_errors[2]]))
+        m_hi_lo.set_params(CRD([params[0]-param_errors[0],params[1]+param_errors[1],params[2]-param_errors[2]]))
+        m_hi_hi.set_params(CRD([params[0]-param_errors[0],params[1]+param_errors[1],params[2]+param_errors[2]]))
+
+        #m_lo.set_params(CRD([params[0]-param_errors[0],params[1]-param_errors[1],params[2]-param_errors[2]]))
+        #m_hi.set_params(CRD([params[0]-param_errors[0],params[1]-param_errors[1],params[2]+param_errors[2]]))
+
+        model.set_params(CRD([params[0]-param_errors[0],params[1]-param_errors[1],params[2]]))
+
+        for i in range(itr+1,2*itr+2):
+            frac=float(i-itr-1)/float(itr)
+            E=exp(frac*log(emin)+(1-frac)*log(emax))
+            E2dNdE=R.Double(min(pow(E,2)*m_lo_lo.get_dNdE(E),
+                                pow(E,2)*m_lo_hi.get_dNdE(E),
+                                pow(E,2)*m_hi_lo.get_dNdE(E),
+                                pow(E,2)*m_hi_hi.get_dNdE(E)))
+            b1.SetPoint(i,E,E2dNdE)
+
+        model.set_params([float(params[0]),float(params[1]),float(params[2])])   
+
+    b1.SetLineWidth(1)
+    b1.SetLineStyle(7)
+    b1.SetLineColor(4)
+    b1.SetFillColor(R.kBlue-10)
+    
+    return b1
 
 def set_legend(name,model,graph,func):
     legend = R.TLegend(0.7,0.8,0.85,0.9)

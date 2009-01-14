@@ -31,9 +31,9 @@ namespace pointlike{
   //  deviation of one (Box-Muller transformation).
   //---------------------------------------------------------------------------
 
-  class random{
+  class Random{
   public:
-    random(){
+    Random(){
       srand(time(NULL));
     }
 
@@ -105,16 +105,21 @@ namespace pointlike{
       int npar=this->get_npar();
       std::vector<double> new_params(npar);
             
-      random generator;
+      Random generator;
 
       std::vector<double> new_fluxes;
       
+      double new_flux=1;
+
       int maxit=400;
       for(int i=0;i<maxit;i++){
-	for(int j=0;j<npar;j++){
-	  new_params[j]=best_fit_params[j]+generator.rand_gauss()*param_errors[j];
-	}
-	this->set_params(new_params);
+	do{
+	  for(int j=0;j<npar;j++){
+	    new_params[j]=best_fit_params[j]+generator.rand_gauss()*param_errors[j];
+	  }
+	  this->set_params(new_params);
+	  new_flux=this->get_flux(100.,3.e5);
+	} while( new_flux <= 0.0 );
 	new_fluxes.push_back(this->get_flux(100.,3.e5));
       }      
       
