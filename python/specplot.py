@@ -12,12 +12,12 @@ def plot(filename,source,model):
     global g1
     g1=R.TGraphAsymmErrors()
     g1.SetMarkerStyle(7)
-    g1.SetMarkerColor(2)
+    g1.SetMarkerColor(1)#2
 
     global g2
     g2=R.TGraphAsymmErrors()
     g2.SetMarkerStyle(7)
-    g2.SetMarkerColor(2)
+    g2.SetMarkerColor(1)#2
 
     file=pyfits.open(filename)
 
@@ -37,6 +37,16 @@ def plot(filename,source,model):
             nphoton=file["SOURCES"].data.field('NPHOTON')[src]
             params=file["SOURCES"].data.field(model.get_spec_type()+"_PAR")[src]
             param_errors=file["SOURCES"].data.field(model.get_spec_type()+"_PAR_ERR")[src]
+
+            # Spectral fitting energy range
+            boundary=file["SOURCES"].data.field('BOUNDARY')[src]
+            model.set_energy_range(R.Double(boundary[0]),R.Double(boundary[1]))
+
+            if model.get_spec_type()=="POWER_LAW":
+                scale=R.Double(file["SOURCES"].data.field('DECORRELATION_ENERGY')[src])
+                print scale
+                print type(scale)
+                model.set_scale(scale)
 
     file.close()
 
@@ -231,17 +241,21 @@ def set_res_box(graph):
 # Check consistency of models with SpectralModel.h
 def set_function(model,params):
     print type(model)
-        
-    scale=100. # [MeV]
+
+    lower_bound=model.get_lower_bound()
+    upper_bound=model.get_upper_bound()
+    lower_bound=R.Double(10.)
+    upper_bound=R.Double(5.e5)
 
     if model.get_spec_type()=="POWER_LAW":
-        f1 = R.TF1("f1","pow(x,2)*[0]*pow(x/[2],-1*[1])",10,5e5)
-        f1.SetParameters(params[0],params[1],scale)
+        f1 = R.TF1("f1","pow(x,2)*[0]*pow(x/[2],-1*[1])",lower_bound,upper_bound)
+        f1.SetParameters(params[0],params[1],model.get_scale())
     elif model.get_spec_type()=="BROKEN_POWER_LAW":
-        f1 = R.TF1("f1","(x<[3])*pow(x,2)*[0]*pow(x/[3],-1*[1])+(x>[3])*pow(x,2)*[0]*pow(x/[3],-1*[2])",10,5e5);
+        f1 = R.TF1("f1","(x<[3])*pow(x,2)*[0]*pow(x/[3],-1*[1])+(x>[3])*pow(x,2)*[0]*pow(x/[3],-1*[2])",lower_bound,upper_bound);
         f1.SetParameters(params[0],params[1],params[2],params[3]);
     elif model.get_spec_type()=="EXP_CUTOFF":
-        f1 = R.TF1("f1","pow(x,2)*[0]*exp(-1.*x/[2])*pow(x/[3],-1*[1])",10,5e5);
+        scale=100. # [ MeV ]
+        f1 = R.TF1("f1","pow(x,2)*[0]*exp(-1.*x/[2])*pow(x/[3],-1*[1])",lower_bound,upper_bound);
         f1.SetParameters(params[0],params[1],params[2],scale)
     else:
         print "Invalid spectral model type"
@@ -260,29 +274,29 @@ def set_butterfly(model,params,param_errors):
             obj[i]=R.Double(obj[i])
         return obj
 
-    scale = R.Double(100.) # [MeV]
-    emin  = R.Double(100.) # [MeV]
-    emax  = R.Double(3.e4) # [MeV]
+    scale = R.Double(model.get_scale())
+    lower_bound  = R.Double(max(model.get_lower_bound(),100))
+    upper_bound  = R.Double(min(model.get_upper_bound(),3e5))
 
     b1=R.TPolyLine()
     
     if model.get_spec_type()=="POWER_LAW":
     
         model.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1]]))
-        b1.SetPoint(0,emin,R.Double(pow(emin,2)*model.get_dNdE(emin)))
+        b1.SetPoint(0,lower_bound,R.Double(pow(lower_bound,2)*model.get_dNdE(lower_bound)))
 
         b1.SetPoint(1,scale,R.Double(pow(scale,2)*model.get_dNdE(scale)))
 
         model.set_params(CRD([params[0]+param_errors[0],params[1]-param_errors[1]]))
-        b1.SetPoint(2,emax,R.Double(pow(emax,2)*model.get_dNdE(emax)))
+        b1.SetPoint(2,upper_bound,R.Double(pow(upper_bound,2)*model.get_dNdE(upper_bound)))
 
         model.set_params(CRD([params[0]-param_errors[0],params[1]+param_errors[1]]))
-        b1.SetPoint(3,emax,R.Double(pow(emax,2)*model.get_dNdE(emax)))
+        b1.SetPoint(3,upper_bound,R.Double(pow(upper_bound,2)*model.get_dNdE(upper_bound)))
 
         b1.SetPoint(4,scale,R.Double(pow(scale,2)*model.get_dNdE(scale)))
 
         model.set_params(CRD([params[0]-param_errors[0],params[1]-param_errors[1]]))
-        b1.SetPoint(5,emin,R.Double(pow(emin,2)*model.get_dNdE(emin)))
+        b1.SetPoint(5,lower_bound,R.Double(pow(lower_bound,2)*model.get_dNdE(lower_bound)))
 
         model.set_params([float(params[0]),float(params[1])])
 
@@ -291,20 +305,20 @@ def set_butterfly(model,params,param_errors):
         ebreak=R.Double(params[3])
 
         model.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2],params[3]]))
-        b1.SetPoint(0,emin,R.Double(pow(emin,2)*model.get_dNdE(emin)))
+        b1.SetPoint(0,lower_bound,R.Double(pow(lower_bound,2)*model.get_dNdE(lower_bound)))
 
         b1.SetPoint(1,ebreak,R.Double(pow(ebreak,2)*model.get_dNdE(ebreak)))
 
         model.set_params(CRD([params[0]+param_errors[0],params[1],params[2]-param_errors[2],params[3]]))
-        b1.SetPoint(2,emax,R.Double(pow(emax,2)*model.get_dNdE(emax)))
+        b1.SetPoint(2,upper_bound,R.Double(pow(upper_bound,2)*model.get_dNdE(upper_bound)))
 
         model.set_params(CRD([params[0]-param_errors[0],params[1],params[2]+param_errors[2],params[3]]))
-        b1.SetPoint(3,emax,R.Double(pow(emax,2)*model.get_dNdE(emax)))
+        b1.SetPoint(3,upper_bound,R.Double(pow(upper_bound,2)*model.get_dNdE(upper_bound)))
 
         b1.SetPoint(4,ebreak,R.Double(pow(ebreak,2)*model.get_dNdE(ebreak)))
 
         model.set_params(CRD([params[0]-param_errors[0],params[1]-param_errors[1],params[2],params[3]]))
-        b1.SetPoint(5,emin,R.Double(pow(emin,2)*model.get_dNdE(emin)))
+        b1.SetPoint(5,lower_bound,R.Double(pow(lower_bound,2)*model.get_dNdE(lower_bound)))
 
         model.set_params([float(params[0]),float(params[1]),float(params[2]),float(params[3])])
 
@@ -320,7 +334,6 @@ def set_butterfly(model,params,param_errors):
         m_hi_lo.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2]-param_errors[2]]))
         m_hi_hi.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2]+param_errors[2]]))
 
-
         #m_lo.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2]-param_errors[2]]))
         #m_hi.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2]+param_errors[2]]))
 
@@ -330,7 +343,7 @@ def set_butterfly(model,params,param_errors):
 
         for i in range(0,itr+1):
             frac=float(i)/float(itr)
-            E=exp((1-frac)*log(emin)+frac*log(emax))
+            E=exp((1-frac)*log(lower_bound)+frac*log(upper_bound))
             E2dNdE=R.Double(max(pow(E,2)*m_lo_lo.get_dNdE(E),
                                 pow(E,2)*m_lo_hi.get_dNdE(E),
                                 pow(E,2)*m_hi_lo.get_dNdE(E),
@@ -349,7 +362,7 @@ def set_butterfly(model,params,param_errors):
 
         for i in range(itr+1,2*itr+2):
             frac=float(i-itr-1)/float(itr)
-            E=exp(frac*log(emin)+(1-frac)*log(emax))
+            E=exp(frac*log(lower_bound)+(1-frac)*log(upper_bound))
             E2dNdE=R.Double(min(pow(E,2)*m_lo_lo.get_dNdE(E),
                                 pow(E,2)*m_lo_hi.get_dNdE(E),
                                 pow(E,2)*m_hi_lo.get_dNdE(E),
@@ -359,8 +372,8 @@ def set_butterfly(model,params,param_errors):
         model.set_params([float(params[0]),float(params[1]),float(params[2])])   
 
     b1.SetLineWidth(1)
-    b1.SetLineStyle(7)
-    b1.SetLineColor(4)
+    b1.SetLineStyle(1)#7
+    b1.SetLineColor(2)#4
     b1.SetFillColor(R.kBlue-10)
     
     return b1

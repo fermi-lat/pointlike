@@ -68,7 +68,10 @@ namespace pointlike{
     double m_logLikeSum;
     std::vector<double> m_model_energies;
     std::vector<double> m_exposures;
-    double m_E_min,m_E_max;
+    
+    double m_scale;
+
+    double m_lower_bound,m_upper_bound;
 
   public:
     SpectralModel(std::string spec_type=""){
@@ -134,7 +137,6 @@ namespace pointlike{
 
       return flux_errors;
     }
-
 
     virtual double get_dNdE(double E)=0;
 
@@ -212,12 +214,16 @@ namespace pointlike{
     void set_exposures(std::vector<double> exposures){ m_exposures=exposures; }
     std::vector<double> get_exposures(){ return m_exposures; }
 
-    void set_energy_range(double E_min,double E_max){
-      m_E_min=E_min;
-      m_E_max=E_max;
+    void set_energy_range(double lower_bound,double upper_bound){
+      m_lower_bound=lower_bound;
+      m_upper_bound=upper_bound;
     }
-    double get_lower_bound(){ return m_E_min; }
-    double get_upper_bound(){ return m_E_max; }
+    double get_lower_bound(){ return m_lower_bound; }
+    double get_upper_bound(){ return m_upper_bound; }
+
+    double set_scale(double scale){ m_scale=scale; }
+    double get_scale(){ return m_scale; }
+
   };
 
   //---------------------------------------------------------------------------
@@ -235,8 +241,7 @@ namespace pointlike{
     double m_prefactor_error,m_index_error;
 
     double function(double E){
-      double scale=100.;
-      double result=m_prefactor*E*pow(E/scale,-1.*m_index)/(1.-m_index);
+      double result=m_prefactor*E*pow(E/m_scale,-1.*m_index)/(1.-m_index);
       return result; 
     }
   public:
@@ -244,11 +249,13 @@ namespace pointlike{
       SpectralModel("POWER_LAW"),
       m_prefactor(params[0]),
       m_index(params[1]){
+      this->set_scale(100.);
     }
 
     PowerLaw():
       SpectralModel("POWER_LAW"){
       this->set_params(this->get_default_par());
+      this->set_scale(100.);
     }
 
     void set_params(const std::vector<double> params){
@@ -281,14 +288,12 @@ namespace pointlike{
     }
 
     virtual double get_dNdE(double E){
-      double scale=100.;
-      return m_prefactor*pow(E/scale,-1*m_index);
+      return m_prefactor*pow(E/m_scale,-1*m_index);
     }
 
     virtual void get_E2dNdE(TF1& func,std::vector<double> params){
-      double scale=100.;
       func=TF1("f1","pow(x,2)*[0]*pow(x/[2],-1*[1])",10,5e5);
-      func.SetParameters(params[0],params[1],scale);
+      func.SetParameters(params[0],params[1],m_scale);
     }
 
     int get_npar(){
@@ -311,8 +316,12 @@ namespace pointlike{
 		<< std::endl
 		<< "  dN/dE = N_0*(E/E_0)^(-gamma)" << std::endl
 		<< std::endl
-		<< "  N_0   = prefactor        [ ph/cm^2/s/MeV ]" << std::endl
-		<< "  E_0   = energy scale     [ default = 100 MeV ]" << std::endl
+		<< "  N_0   = prefactor             [ ph/cm^2/s/MeV ]" << std::endl
+		<< "  E_0   = decorrelation energy  [ "
+		<< std::fixed
+		<< std::setprecision(1)
+		<< this->get_scale() 
+		<< " MeV ]" << std::endl
 		<< "  gamma = spectral index" << std::endl
 		<< std::endl;
     }
@@ -890,7 +899,7 @@ namespace pointlike{
   class SpectralFitter{
   private:
 
-    static double s_emin,s_emax;
+    static double s_lower_bound,s_upper_bound;
 
     static int s_useDefaultParams;
     static int s_useSimplex;
@@ -922,7 +931,11 @@ namespace pointlike{
 
     ~SpectralFitter();
 
-    void specfitMinuit();
+    void initialize();
+
+    void specfitMinuit(double scale=-1.);
+
+    void setFitRange(double lower_bound,double upper_bound);
 
   };
 
