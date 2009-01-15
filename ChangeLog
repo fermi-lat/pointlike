@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: bechtol  Wed Jan 14 21:01:32 PST 2009
+pointlike/src
+
+Modified Files:
+	ResultsFile.cxx SpectralFitter.cxx 
+Log Message:
+Set energy range for spectral fitting
+
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Wed Jan 14 21:01:25 PST 2009
 pointlike/python
 
