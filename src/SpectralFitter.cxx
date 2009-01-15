@@ -23,12 +23,10 @@ namespace pointlike{
   // Global pointers
   pointlike::SourceLikelihood* gSourcePointer = NULL;
   pointlike::SpectralModel* gModelPointer = NULL;
-  double* gFitEminPointer = NULL;
-  double* gFitEmaxPointer = NULL; 
-
+  
   // Initialize static variables
-  double SpectralFitter::s_emin(200.);
-  double SpectralFitter::s_emax(3.e4);
+  double SpectralFitter::s_lower_bound(200.);
+  double SpectralFitter::s_upper_bound(3.e4);
 
   int    SpectralFitter::s_useDefaultParams(0);
   int    SpectralFitter::s_useSimplex(1);
@@ -87,8 +85,10 @@ namespace pointlike{
       E_min=gSourcePointer->at(bin)->band().emin();
       E_max=gSourcePointer->at(bin)->band().emax();
       
-      if(E_min < *gFitEminPointer || 
-	 E_max > *gFitEmaxPointer) continue; // Enforce energy range for fitting
+      // Enforce energy range for fitting - bin must fully contained
+      if(E_min < gModelPointer->get_lower_bound() || 
+	 E_max > gModelPointer->get_upper_bound()) continue;
+      
 
       mu_alpha=gSourcePointer->at(bin)->alpha();
       sigma_alpha=gSourcePointer->at(bin)->sigma_alpha();
@@ -123,25 +123,26 @@ namespace pointlike{
     // Set the global pointers for access by the Minuit wrapper function
     gSourcePointer = &source;
     gModelPointer = &model;
-    gFitEminPointer = &s_emin;
-    gFitEmaxPointer = &s_emax;
-
+    
     // Set the energy range for spectral fitting
-    model.set_energy_range(s_emin,s_emax);
+    this->setFitRange(s_lower_bound,s_upper_bound);
 
     m_npar=model.get_npar();
+
+    /*
 
     m_Minuit=new TMinuit(m_npar);
     //m_Minuit.SetPrintLevel(verbose()-1);
     
     m_Minuit->SetFCN(minuit_spectral_wrapper);
-  
+
     // The parameters will be optimized in log space
     m_parName  = model.get_parName();
     m_stepSize = model.get_stepSize(s_stepIncrement);
     m_minVal   = model.get_minVal();
     m_maxVal   = model.get_maxVal();
     
+    /*
     // Use the default starting values or those provided by the model
     if(s_useDefaultParams){
       m_par = model.get_default_par();
@@ -151,6 +152,50 @@ namespace pointlike{
     }
     else{
       m_par = model.get_params();
+      for(int i=0;i<m_npar;i++){
+	m_par[i]=log(m_par[i]);
+      }
+    }
+
+    for(int i=0;i<m_npar;i++){
+      m_Minuit->DefineParameter(i,m_parName[i].c_str(),m_par[i],
+			      m_stepSize[i],m_minVal[i],m_maxVal[i]);
+      m_specParams.push_back(m_par[i]);
+      m_specParamErrors.push_back(0.);
+    }
+    */
+    this->initialize();
+
+  }
+
+  //--------------------------------------------------------------------------
+  //  Initialize Minuit parameters
+  //--------------------------------------------------------------------------
+
+  void pointlike::SpectralFitter::initialize(){
+
+    gFitCounter=0;
+
+    m_Minuit=new TMinuit(m_npar);
+    //m_Minuit.SetPrintLevel(verbose()-1);
+    
+    m_Minuit->SetFCN(minuit_spectral_wrapper);
+
+    // The parameters will be optimized in log space
+    m_parName  = gModelPointer->get_parName();
+    m_stepSize = gModelPointer->get_stepSize(s_stepIncrement);
+    m_minVal   = gModelPointer->get_minVal();
+    m_maxVal   = gModelPointer->get_maxVal();
+
+    // Use the default starting values or those provided by the model?
+    if(s_useDefaultParams){
+      m_par = gModelPointer->get_default_par();
+      for(int i=0;i<m_npar;i++){
+	m_par[i]=log(m_par[i]);
+      }
+    }
+    else{
+      m_par = gModelPointer->get_params();
       for(int i=0;i<m_npar;i++){
 	m_par[i]=log(m_par[i]);
       }
@@ -177,7 +222,12 @@ namespace pointlike{
   //  Spectral fitting method
   //--------------------------------------------------------------------------
 
-  void pointlike::SpectralFitter::specfitMinuit(){
+  void pointlike::SpectralFitter::specfitMinuit(double scale){
+
+    // Check if using decorrelation energy
+    if(gModelPointer->get_spec_type()=="POWER_LAW" && scale!=-1.){
+      gModelPointer->set_scale(scale);
+    }
 
     // The Minuit output flag - query after each command
     Int_t ierflag=0;
@@ -224,6 +274,15 @@ namespace pointlike{
     std::cout << std::endl << "===== SPECTRAL FITTING RESULTS ====="
 	      << std::endl;
 
+    std::cout << std::endl << "Spectral fitting in range "
+	      << std::fixed
+	      << std::setprecision(0)
+	      << gModelPointer->get_lower_bound()
+	      << " MeV < E < "
+	      << gModelPointer->get_upper_bound()
+	      << " MeV"
+	      << std::endl;
+
     gModelPointer->show_legend();
 
     for(int i=0;i<m_npar;i++){
@@ -231,6 +290,7 @@ namespace pointlike{
       m_specParamErrors[i]=m_specParams[i]*(exp(m_specParamErrors[i])-1);
       std::cout << "PARAMETER: " 
 		<< std::scientific
+		<< std::setprecision(4)
 		<< std::setw(15) << m_parName[i] << " = "
 		<< m_specParams[i]
 		<< " +/- " << m_specParamErrors[i]
@@ -250,8 +310,9 @@ namespace pointlike{
       E_max=gSourcePointer->at(bin)->band().emax();
       
       // Enforce energy range for spectral fitting
-      if(E_min < *gFitEminPointer || E_max > *gFitEmaxPointer) continue;
-      
+      if(E_min < gModelPointer->get_lower_bound() || 
+	 E_max > gModelPointer->get_upper_bound()) continue;
+
       else{
 	m_model_energies.push_back(gModelPointer->get_model_E(E_min,E_max));
 	m_exposures.push_back(gModelPointer->get_model_exposure(gSourcePointer,bin));
@@ -269,7 +330,7 @@ namespace pointlike{
     std::vector<double> flux_errors=gModelPointer->get_flux_errors(100.,3.e5);
 
     std::cout << std::endl 
-	      << "Average integrated photon flux (300 GeV > E > 100 MeV) = " 
+	      << "Average integrated photon flux (100 MeV < E < 300 GeV) = " 
 	      << gModelPointer->get_flux(100.,3.e5)
 	      << " +/- "
 	      << flux_errors[0]
@@ -282,10 +343,39 @@ namespace pointlike{
 	      << "Minimized -logLikeSum = " << fmin << std::endl
 	      << std::endl;
 
+    // Calculate decorrelation energy and repeat the fit
+    if(gModelPointer->get_spec_type()=="POWER_LAW" && scale==-1.){
+      double log_covar[2][2];
+      m_Minuit->mnemat(&log_covar[0][0],2);
+      double log_covar01=log_covar[0][1];
+      double covar01=m_specParams[0]*m_specParams[1]*(exp(log_covar01)-1);
+      double log_covar11=log_covar[1][1];
+      double covar11=pow(m_specParams[1],2)*(exp(log_covar11)-1);
+      double E_decorrelation=100.*exp(covar01/(m_specParams[0]*covar11));
+      std::cout << "Calculate decorrelation energy using covariance matrix"
+		<< std::endl << std::endl
+		<< "Decorrelation energy = " 
+		<< std::fixed << std::setprecision(1)
+		<< E_decorrelation << " MeV"
+		<< std::endl << std::endl
+		<< "Repeat spectral fitting" 
+		<< std::endl << std::endl;
+      this->initialize();
+      this->specfitMinuit(E_decorrelation);
+    }
+
     if(ierflag==4){
       std::cerr<<"WARNING: Minuit returned ierflag=4: Fit did not converge."<<std::endl;
     }
 
+  }
+
+  //--------------------------------------------------------------------------
+  //  Functions to set spectral fitting parameters
+  //--------------------------------------------------------------------------
+
+  void pointlike::SpectralFitter::setFitRange(double lower_bound,double upper_bound){
+        gModelPointer->set_energy_range(lower_bound,upper_bound);
   }
 
 }

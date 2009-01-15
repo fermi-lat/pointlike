@@ -148,6 +148,13 @@ void ResultsFile::fill(SourceLikelihood& like,
        (*srcTabItor)["SIGMA"].set(sigma);
 
        if(spectra.size()>0){
+
+	 std::vector<double> boundary(2);
+	 boundary[0]=spectra.get(0)->get_lower_bound();
+	 boundary[1]=spectra.get(0)->get_upper_bound();
+	 srcTab->appendField("BOUNDARY","2E");
+	 (*srcTabItor)["BOUNDARY"].set(boundary);
+
 	 for(int i=0; i<spectra.size(); i++){
 	   std::string logLikeSum_string=spectra.get(i)->get_spec_type().append("_LOGLIKESUM");
 	   std::string par_string=spectra.get(i)->get_spec_type().append("_PAR");
@@ -173,6 +180,11 @@ void ResultsFile::fill(SourceLikelihood& like,
 
 	   srcTab->appendField(par_err_string,npar);
 	   (*srcTabItor)[par_err_string].set(spectra.get(i)->get_param_errors());
+
+	   if(spectra.get(i)->get_spec_type()=="POWER_LAW"){
+	     srcTab->appendField("DECORRELATION_ENERGY","1E");
+	     (*srcTabItor)["DECORRELATION_ENERGY"].set(spectra.get(i)->get_scale());
+	   }
 
 	   // Record model integrated flux 300 GeV > E > 100 MeV [ ph/cm^2/s ]
 	   srcTab->appendField(flux_string,"1E");
