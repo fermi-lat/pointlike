@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.16 2008/12/15 22:12:26 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.17 2008/12/29 04:29:33 burnett Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.16 $'.split()[1]
+version='$Revision: 1.17 $'.split()[1]
 import os
 import sys
 
@@ -48,6 +48,7 @@ Optional keyword arguments:
   +class_level [ 3]  select class level (set 0 for gtobssim                                                             
   +binsperdecade [4] When generating Bands from the FT1 data.
   +use_mc_psf  [False] Use PSF determined by MC analysis if true; otherwise as defined by data
+  +use_psf_init[False] Initialize PSF parameters from CALDB
 
   =========    KEYWORDS CONTROLLING EXPOSURE CALCULATION
   +CALDB       [None] If not specified, will use environment variable
@@ -64,6 +65,7 @@ Optional keyword arguments:
   +extended_likelihood [False] Use extended likelihood
   +maxROI      [25] maximum ROI for PointSourceLikelihood to use
   +minROI      [0] minimum ROI
+  +back_multi  [1.] Minimum back energy = back_multi*emin
 
   =========    KEYWORDS OF MISCELLANY
   +quiet       [False] Set True to suppress (some) output
@@ -75,9 +77,10 @@ Optional keyword arguments:
         self.emin        = 100
         self.emax        = None
         self.extended_likelihood=False
-        self.event_class  = -1        
+        self.event_class = -1        
         self.maxROI      = 25 # for PointSourceLikelihood
-        self.minROI     = 0
+        self.minROI      = 0
+        self.back_multi  = 1.
         self.__dict__.update(kwargs)
 
         self.pixeldata =  PixelData(event_files,history_files,**kwargs)
@@ -127,8 +130,9 @@ Optional keyword arguments:
 
         def localize(self):
             """Localize the point source and recalculate the likelihood."""
-            self.psl.localize()
+            err = self.psl.localize()
             self.pslw.update()
+            return err
 
         def add_source(self, other):
             """Add another source to the background of the one in question."""
@@ -169,7 +173,7 @@ Optional keyword arguments:
             for model in self.models:
                if not model.good_fit: SpectralModelFitter.poisson(self.pslw,model)
 
-        def plot(self, fignum=1, date_tag=True, filename=None,**kwargs):
+        def plot(self, fignum=None, date_tag=True, filename=None,**kwargs):
             """Plot the flux or counts spectrum for the point source.      
 
 Optional keyword arguments:
@@ -188,7 +192,7 @@ Optional keyword arguments:
 
             from plotters import EnergyAnalysis
             from pylab import figure,axes,savefig
-            #figure(fignum)
+            if type(fignum) is type(2): figure(fignum)
             p = EnergyAnalysis(self.pslw,models=self.models,**kwargs)
             p.show()
             if date_tag:

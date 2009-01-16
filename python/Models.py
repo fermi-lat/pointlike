@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.12 2008/11/21 17:58:05 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.13 2008/12/15 22:12:26 burnett Exp $
 
    author: Matthew Kerr
 
@@ -33,9 +33,11 @@ class DefaultModelValues(object):
       'PowerLaw'        : {'p':[-11.,2],'param_names':['Norm','Index']},
       'PowerLawFlux'    : {'p':[-7.,2],'param_names':['Int. Flux','Index'],'emin':100,'emax':1e6},
       'BrokenPowerLaw'  : {'p':[-11.,1.5,2.5,1000],'param_names':['Norm','Index 1','Index 2', 'E_break']},
-      'BrokenPowerLawF' : {'p':[-11.,1.5,2.5,1000],'param_names':['Norm','Index 1','Index 2'],'e_break':1000},
+      'BrokenPowerLawF' : {'p':[-11.,1.5,2.5],'param_names':['Norm','Index 1','Index 2'],'e_break':1000},
+      'LogParabola'     : {'p':[-11,2.,0.,1000.],'param_names':['Norm','Index','beta','E_break']},
       'ExpCutoff'       : {'p':[-11.,2,5e3],'param_names':['Norm','Index','Cutoff']},
       'PLSuperExpCutoff': {'p':[-11.,2,2e3,2.],'param_names':['Norm','Index','Cutoff', 'b']},
+      'PLSuperExpCutoffF': {'p':[-11.,2,2e3],'param_names':['Norm','Index','Cutoff'],'b':2},
       'Constant'        : {'p':[0.],'param_names':['Scale']}
       }
 
@@ -135,35 +137,47 @@ Optional keyword arguments:
       #if len(new_cov_matrix) == 1: new_cov_matrix = new_cov_matrix.flatten()
       self.cov_matrix[N.outer(self.free,self.free)] = N.ravel(new_cov_matrix)
 
-   def __str__(self):
-      """Return a pretty print version of parameter values and errors."""
+   def statistical(self):
+      """Return the parameter values and fractional statistical errors.
+         If no error estimates are present, return 0 for the fractional error."""
       p=N.array(self.p).copy()
       p[0] = 10**p[0] #convert from log measurement
-      m=max([len(n) for n in self.param_names])
-      l=[]
-      try:
+      try: #see if error estimates are present
          errors=N.diag(self.cov_matrix)**0.5
          ratios=errors/p
          ratios[0] = (10**errors[0]-10**-errors[0])/2 #kludge to take care of logarithm
-         try:
-            s = self.systematics
-            sys_flag = True
-            up_sys_errs = self.systematics[:,1]
-            low_sys_errs = self.systematics[:,0]
-            up_sys_errs = N.nan_to_num((up_sys_errs**2 - ratios**2)**0.5)
-            low_sys_errs = N.nan_to_num((low_sys_errs**2 - ratios**2)**0.5)
-         except AttributeError:
-            sys_flag = False         
+         return p,ratios
+      except:
+         return p,N.zeros_like(p)
+
+   def systematic(self,ratios):
+      try: #see if systematic errors are present
+         s = self.systematics
+         up_sys_errs = self.systematics[:,1]
+         low_sys_errs = self.systematics[:,0]
+         up_sys_errs = N.nan_to_num((up_sys_errs**2 - ratios**2)**0.5)
+         low_sys_errs = N.nan_to_num((low_sys_errs**2 - ratios**2)**0.5)
+         return up_sys_errs,low_sys_errs
+      except AttributeError:
+         return N.zeros_like(ratios),N.zeros_like(ratios)
+
+   def __str__(self):
+      """Return a pretty print version of parameter values and errors."""
+      p,ratios = self.statistical()
+      m=max([len(n) for n in self.param_names])
+      l=[]
+      if ratios.sum() > 0: #if statistical errors are present
+         up_sys_errs,low_sys_errs = self.systematic(ratios)    
          for i in xrange(len(self.param_names)):
             n=self.param_names[i][:m]
             t_n=n+(m-len(n))*' '
             frozen = '' if self.free[i] else '(FROZEN)'
-            if not sys_flag:
+            if up_sys_errs.sum()==0: #if no systematic errors present
                l+=[t_n+': (1 +/- %.3f) %.3g %s'%(ratios[i],p[i],frozen)]
             else:
                l+=[t_n+': (1 + %.3f - %.3f)(1 +/- %.3f) %.3g %s'%(up_sys_errs[i],low_sys_errs[i],ratios[i],p[i],frozen)]
          return '\n'.join(l)
-      except:
+      else: #if no errors are present
          for i in xrange(len(self.param_names)):
             n=self.param_names[i][:m]
             t_n=n+(m-len(n))*' '
@@ -301,6 +315,24 @@ Spectral parameters:
 
 #===============================================================================================#
 
+class LogParabola(Model):
+   """Implement a log parabola (for blazars.)  See constructor docstring for further keyword arguments.
+
+Spectral parameters:
+
+  n0         differential flux at e0 MeV
+  alpha      (absolute value of) constant spectral index
+  beta       co-efficient for energy-dependent spectral index
+  e_break    break energy
+      """
+   def __call__(self,e):
+      n0,alpha,beta,e_break=self.p
+      return (10**n0/self.flux_scale)*(e_break/e)**(alpha - beta*N.log(e_break/e))
+
+#===============================================================================================#
+
+#===============================================================================================#
+
 class ExpCutoff(Model):
    """Implement a power law with exponential cutoff.  See constructor docstring for further keyword arguments.
 
@@ -331,6 +363,23 @@ Spectral parameters:
       n0,gamma,cutoff,b=self.p
       if cutoff < 0: return 0
       return (10**n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-(e/cutoff)**b)
+
+#===============================================================================================#
+
+class PLSuperExpCutoffF(Model):
+   """Implement a power law with fixed hyper-exponential cutoff.  See constructor docstring for further keyword arguments.
+
+Spectral parameters:
+
+  n0         differential flux at e0 MeV
+  gamma      (absolute value of) spectral index
+  cutoff     e-folding cutoff energy (MeV)
+  b          additional power in the exponent
+      """
+   def __call__(self,e):
+      n0,gamma,cutoff=self.p
+      if cutoff < 0: return 0
+      return (10**n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-(e/cutoff)**self.b)
 
 #===============================================================================================#
 

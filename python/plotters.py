@@ -4,7 +4,7 @@ instance of PointSourceLikelihoodWrapper from which information on the photon di
 spectral fits is obtained.  Spectral models can be furnished separately to provide an independent
 estimate of the source counts and for display purposes.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/plotters.py,v 1.2 2008/11/21 17:58:05 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/plotters.py,v 1.3 2008/12/15 22:12:26 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -306,13 +306,14 @@ Optional keyword arguments:
   sed         [True] if True, plot the flux density; else, plot the counts spectrum                                                               
   cgs         [True] if True, use ergs for abscissa rather than MeV         
   e_weight    [2] energy weighting for spectral energy density plot
-  normalized [True] if True, use background normalization; if false, use observed counts (not yet implemented)
+  normalized  [True] if True, use background normalization; if false, use observed counts (not yet implemented)
+  to_screen   [True] display plot on screen if True
   =========   =======================================================
   """
 
    def init(self):
-      key = ['residuals','models','grid','legend','sed','cgs','e_weight','normalized']
-      val = [True,[],True,True,True,False,2,True]
+      key = ['residuals','models','grid','legend','sed','cgs','e_weight','normalized','to_screen']
+      val = [True,[],True,True,True,False,2,True,True]
       for i in xrange(len(key)): self.__dict__[key[i]] = val[i]
       self._bounds = None
 
@@ -375,7 +376,7 @@ Optional keyword arguments:
          self.__drawModel__(m)
          if not self.sed: self.ax.lines[-1].set_linestyle(['-','--','-.',':'][i%4])
       self.__label__()
-      from pylab import show; show()
+      if self.to_screen: from pylab import show; show()
 
 #===============================================================================================#
 

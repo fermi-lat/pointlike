@@ -5,7 +5,7 @@
    signal, flux, expected counts, background, etc.  PointSourceLikelihoodWrapper makes the
    transition from the band level to energy space.
    
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/wrappers.py,v 1.6 2008/11/21 17:58:05 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/wrappers.py,v 1.7 2008/12/15 22:12:26 burnett Exp $
 
    author: Matthew Kerr
    """
@@ -141,8 +141,7 @@ Optional keyword arguments:
    def marg_setup(self):
       #Pieces for calculating marginalization integral; needed for speed!
       n_points = min(max((int(100*(self.sl.photons()/20.)**0.5) >> 1) << 1,100),1000) #force n_points to be even
-      self.points = N.linspace(0.001,1,n_points+1)
-      self.weights = N.asarray([1.] + ([4.,2.]*(n_points/2))[:-1] + [1.])/(3.*n_points)
+      self.points = N.logspace(-3,0,n_points+1) if self.sl.alpha() < 0.1 else N.linspace(1e-3,1,n_points+1)
       self.point_likes = N.exp( N.nan_to_num(N.fromiter( (-self.sl(a)+self.sl() for a in self.points) , float)) )
       self.prior = 1.
       if self.sl.photons() > 0: #assign Bayesian prior
@@ -157,10 +156,11 @@ Optional keyword arguments:
       expected = (self.expected(model)/self.sl.signal()/self.psf_correction if model is not None else 1.)/self.psf_correction
       return expected * self.sl(sky_dir)
 
-   def expected(self,model):
+   def expected(self,model,normalize=True):
       """Return expected counts in the ROI for a source model.      
          Integration is by Simpson's rule in log space."""
-      return self.psf_correction*\
+      normalization = self.psf_correction if normalize else 1.
+      return normalization*\
             (self.simpsons_weights*self.sampling_points*model(self.sampling_points)*self.exposure_points).sum()
 
    def avg_exposure(self):
@@ -183,29 +183,40 @@ Optional keyword arguments:
          return self.sl.logLikelihood(float(expected))
       
       from scipy.stats import poisson
+      from scipy.integrate import simps
       poiss_likes = N.nan_to_num(poisson.pmf(self.sl.photons(),expected/self.points))
-      integral = (self.weights*self.point_likes*poiss_likes*self.prior).sum()
-      if integral <= 0.: return 1e6
-      return -N.log(integral)
+      integral = simps(self.point_likes*poiss_likes*self.prior,x=self.points)
+      return -N.log(integral) if integral > 0 else 1e6
+
+   def signal_ll(self,log_expected): return self.logLikelihood(N.exp(log_expected))
+
+   def __signal_error__(self,signal,delta=0.01):
+      """Signal is the maximum likelihood estimator."""
+      logsignal,l = N.log(signal),self.signal_ll
+      hessian = (l( logsignal*(1+delta) ) + l( logsignal*(1-delta) ) - 2*l(logsignal))/(delta*logsignal)**2
+      if hessian >= 0:
+         return signal*(N.exp(hessian**-0.5)-N.exp(-hessian**-0.5))/2.
+      else: return signal*0.99
 
    def signal(self):
-      """Model-independent estimation of the signal and error in this band."""
+      
       if self.sl.photons()==0: return (0,3) #Feldman-Cousins upper limit (put in actual value!)
-      try:
+
+      try: #maximize likelihood for expected source counts; use log transformation
          from scipy.optimize import fmin
-         delta,l = 0.01,self.logLikelihood
-         signal  = fmin(l,max(1,self.sl.signal()),disp=0)[0]
-         if signal < 0:
-            #use Feldman-Cousins upper limit?
-            signal,signal_err = 0,3
-         else:
-            signal_err = ((l( signal*(1+delta) ) + l( signal*(1-delta) ) - 2*l(signal))/(delta*signal)**2)**-0.5
-      except: #revert to cruder estimate
+         delta,l = 0.01,self.signal_ll
+         seed = N.log(self.sl.signal()) if self.sl.signal() > 0 else 0.
+         signal  = N.exp(fmin(l,seed,disp=0)[0])         
+         if (signal < 1e-2 ): return 0,3 #Feldman-Cousins for signal consistent with 0
+         signal_err = self.__signal_error__(signal)
+
+      except: #revert to estimate from shape analysis
          print 'Warning: signal estimation failed at energy %d MeV, event class %d'%(int(self.energy()),self.sl.band().event_class())
          signal = self.sl.signal()
-         signal_err = signal*(1./self.sl.photons() + (self.sl.sigma_alpha()/self.sl.alpha())**2)**0.5
+         signal_err = ( (self.sl.photons()*self.sl.sigma_alpha())**2 + self.sl.alpha()**2*self.sl.photons() )**0.5
+      
       return (signal,signal_err)
-
+   
    def flux(self,e_weight=0,cgs=True,mev=True):
       """Return the differential flux estimate for this band.         
 
@@ -256,6 +267,7 @@ Optional keyword arguments:
       self.emin = 200
       self.emax = None
       self.quiet = False
+      self.back_multi = 1.
 
    def setup(self):
       self.count = 0 #for iter interface
@@ -267,7 +279,7 @@ Optional keyword arguments:
 
    def update(self):
       self.psl.maximize()
-      check = self.BandCheck(self.emin,self.emax)
+      check = self.BandCheck(self.emin,self.emax,self.back_multi)
       #for sl in self.psl:
       #   print 'Energy: %d Event_class: %d Accepted: %s'%(sl.band().emin(),sl.band().event_class(),'True' if check(sl) else 'False')
 
@@ -361,8 +373,8 @@ Optional keyword arguments:
    class BandCheck(object):
       """One-off class to determine whether a band should be included based on energy cuts."""
 
-      def __init__(self,emin,emax):
-         self.femin,self.bemin,self.emax = emin,max(300,emin),emax #temporary
+      def __init__(self,emin,emax,back_multi=1.):
+         self.femin,self.bemin,self.emax = emin,emin*back_multi,emax #temporary
       def __call__(self,sl):
          emin = self.femin if sl.band().event_class() == 0 else self.bemin
          return round(sl.band().emin()) >= round(emin) and (self.emax is None or round(sl.band().emax()) <= round(self.emax))
