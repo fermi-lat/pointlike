@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Fri Jan 16 14:58:10 PST 2009
+pointlike/python
+
+Modified Files:
+	Models.py fitstools.py phasetools.py pixeldata.py plotters.py 
+	pointspec.py specfitter.py wrappers.py 
+Log Message:
+A variety of fixes and upgrades that should not break backward compatibilty.
+    *
+------------------------------------------------------------
 User: bechtol  Wed Jan 14 21:01:32 PST 2009
 pointlike/src
 
