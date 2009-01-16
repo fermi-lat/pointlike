@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.3 2008/12/15 22:12:26 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.4 2008/12/29 04:16:32 burnett Exp $
 
 """
-version='$Revision: 1.3 $'.split()[1]
+version='$Revision: 1.4 $'.split()[1]
 import os
 import psf
 import math
@@ -60,6 +60,7 @@ Optional keyword arguments:
         self.verbose     = False
         self.class_level = 3  # select class level
         self.use_mc_psf  = False
+        self.use_psf_init= False
         
         for key,value in kwargs.items():
             if key in self.__dict__:
@@ -94,8 +95,9 @@ Optional keyword arguments:
             print 'loaded datafile %s ' % self.datafile
 
         # modify the psf parameters in the band objects, which SimpleLikelihood will then use
-        self.psf = psf.PSF(use_mc=self.use_mc_psf)
-        
+         
+        self.psf = psf.PSF(use_mc=self.use_mc_psf,use_psf_init=self.use_psf_init)
+
         if not self.quiet: print 'setting PSF parameters (use_mc=%d)'%self.use_mc_psf
         if self.verbose: print '  energy class  gamma sigma(deg)'
         for band in data.map():

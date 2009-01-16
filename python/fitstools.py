@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitstools.py,v 1.7 2008/11/21 17:58:05 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitstools.py,v 1.8 2008/12/15 22:12:26 burnett Exp $
 
    author: Matthew Kerr
 
@@ -39,15 +39,21 @@ def counts_plot(ft1files,scale='log',pixels=256,coordsys='equatorial',cuts = Non
    return img
 
 def merge_flight_data(files, outputfile = None, cuts = None, fields = None):
-   """Merge FT1 or FT2 files and make cuts on the columns."""
+   """Merge FT1 or FT2 files and make cuts on the columns.
+   
+      If a cut is made on MET, the GTI are pruned and updated so that the exposure
+      calculation will accurately reflect the MET cuts.
+
+      outputfile -- [None] string argument giving output file name; if None, return the
+                        pyfits Table instance
+      cuts       -- [None] a list of logical cuts to apply to FITS columns, e.g. 'ENERGY > 100'
+      fields     -- not implemented
+
+      NOTA BENE: the headers will not be treated correctly!!!
+   """
 
    handles = __get_handles__(files)
-
-   try:
-      handles[0]['EVENTS']
-      table_name = 'EVENTS'
-   except:
-      table_name = 'SC_DATA'
+   table_name = handles[0][1].name #set to 'EVENTS' for FT1 or 'SC_DATA' for FT2
 
    event_table = __merge_events__(handles, table_name = table_name)
 
@@ -57,10 +63,13 @@ def merge_flight_data(files, outputfile = None, cuts = None, fields = None):
    else: interval = None
 
    #Overwrite data in dummy table and write it to file
-   handles[0][table_name].data = event_table.data
+   #handles[0][table_name].data = event_table.data
+   #handles[0][table_name].columns = event_table.columns
+   handles[0][table_name] = event_table
+
    if table_name == 'EVENTS':
       handles[0]['GTI'].data = __merge_gti__(handles,interval=interval).data
-   
+
    if outputfile is not None: handles[0].writeto(outputfile,clobber=True)
    for x in handles: x.close()
 
@@ -113,7 +122,7 @@ def __FITS_parse__(files):
 
 def __get_handles__(files):
    files = __FITS_parse__(files)
-   handles = [pf.open(x,memmap=1) for x in files]
+   handles = [pf.open(x,memmap=1) for x in files] #some versions may need to disable memmap (=0)
    return handles
 
 def __merge_exposures__(handles):
@@ -137,14 +146,36 @@ def __merge_events__(handles,table_name = 'EVENTS'):
    """Return a FITS table of merged FT1 events.  Now works for FT2 too!"""
    
    num_events = [x[table_name].data.shape[0] for x in handles]
-   columns = handles[0][table_name].columns
-   event_table = pf.new_table(columns,nrows=sum(num_events))
+   columns,header = __common_columns__(handles,table_name)
+   event_table = pf.new_table(columns,header=header,nrows=sum(num_events))
    previous_loc = 0
    for i,handle in enumerate(handles):
       for j in xrange(len(columns)):
-         event_table.data.field(j)[previous_loc:previous_loc+num_events[i]] = handle[table_name].data.field(j)[:]
+         name = columns[j].name
+         event_table.data.field(name)[previous_loc:previous_loc+num_events[i]] = handle[table_name].data.field(name)[:]
       previous_loc += num_events[i]
    return event_table
+
+def __common_columns__(handles,table_name = 'EVENTS'):
+   """Find the columns common to all files."""
+   #Quick kluge - return the shortest one...
+   all_cols = [handle[table_name].columns for handle in handles]
+   arg = N.argmin([len(col) for col in all_cols])
+   return all_cols[arg],handles[arg][table_name].header
+   
+   """   
+   selector = {}
+   for col in all_cols:
+      for n in col: selector[n.name] = n
+   for col in all_cols:
+      names = [n.name for n in col]
+      for key in selector.keys():
+         if not (key in names): selector.pop(key)
+   print selector
+   """
+         
+   
+
 
 def __merge_gti__(handles,no_table=False,interval=None):
    """Return a FITS table of merged GTI."""
@@ -178,9 +209,9 @@ def __arbitrary_cuts__(events,cuts):
       events -- a major table in FITS format such as might be returned by __merge_events__
       cuts -- a list of cuts; the final result is the intersection of all cuts.  e.g,
               ['ENERGY>100','MET > 5000','MET < 10000']
-      columns -- a list of the columns involved in the cuts to save me some parsing effort"""
+   """
    
-   from numarray import array,logical_and
+   from numarray import array,logical_and #some installations may need the numpy version of these calls
 
    for cut in cuts: #put cut columns in namespace
       for name in events.columns.names:
