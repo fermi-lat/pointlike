@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: bechtol  Mon Jan 19 15:38:15 PST 2009
+pointlike/pointlike
+
+Modified Files:
+	ExtendedLikelihood.h SpectralFitter.h 
+Log Message:
+Added integral flux upper limit calculation
+
+    *
+------------------------------------------------------------
 User: kerrm  Fri Jan 16 14:58:10 PST 2009
 pointlike/python
 
