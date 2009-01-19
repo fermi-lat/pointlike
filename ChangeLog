@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: bechtol  Mon Jan 19 15:38:21 PST 2009
+pointlike/src
+
+Modified Files:
+	ExtendedLikelihood.cxx SpectralFitter.cxx 
+Log Message:
+Added integral flux upper limit calculation
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Mon Jan 19 15:38:15 PST 2009
 pointlike/pointlike
 
