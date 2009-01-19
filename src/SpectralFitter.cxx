@@ -58,8 +58,6 @@ namespace pointlike{
     int n;
     double mu_alpha,sigma_alpha,mu_exp,sigma_exp;
 
-    double mu_exp_weighted;
-
     int npar=gModelPointer->get_npar();
     std::vector<double> specParams(npar);
     
@@ -129,41 +127,6 @@ namespace pointlike{
 
     m_npar=model.get_npar();
 
-    /*
-
-    m_Minuit=new TMinuit(m_npar);
-    //m_Minuit.SetPrintLevel(verbose()-1);
-    
-    m_Minuit->SetFCN(minuit_spectral_wrapper);
-
-    // The parameters will be optimized in log space
-    m_parName  = model.get_parName();
-    m_stepSize = model.get_stepSize(s_stepIncrement);
-    m_minVal   = model.get_minVal();
-    m_maxVal   = model.get_maxVal();
-    
-    /*
-    // Use the default starting values or those provided by the model
-    if(s_useDefaultParams){
-      m_par = model.get_default_par();
-      for(int i=0;i<m_npar;i++){
-	m_par[i]=log(m_par[i]);
-      }
-    }
-    else{
-      m_par = model.get_params();
-      for(int i=0;i<m_npar;i++){
-	m_par[i]=log(m_par[i]);
-      }
-    }
-
-    for(int i=0;i<m_npar;i++){
-      m_Minuit->DefineParameter(i,m_parName[i].c_str(),m_par[i],
-			      m_stepSize[i],m_minVal[i],m_maxVal[i]);
-      m_specParams.push_back(m_par[i]);
-      m_specParamErrors.push_back(0.);
-    }
-    */
     this->initialize();
 
   }
@@ -336,14 +299,14 @@ namespace pointlike{
 	      << flux_errors[0]
       	      << "/"
 	      << flux_errors[1]
-	      << " ph/cm^2/s"
+	      << " ph cm^-2 s^-1"
 	      << std::endl;
 
     std::cout << std::endl
 	      << "Minimized -logLikeSum = " << fmin << std::endl
 	      << std::endl;
 
-    // Calculate decorrelation energy and repeat the fit
+    // Calculate pivot energy and repeat the fit
     if(gModelPointer->get_spec_type()=="POWER_LAW" && scale==-1.){
       double log_covar[2][2];
       m_Minuit->mnemat(&log_covar[0][0],2);
@@ -352,9 +315,9 @@ namespace pointlike{
       double log_covar11=log_covar[1][1];
       double covar11=pow(m_specParams[1],2)*(exp(log_covar11)-1);
       double E_decorrelation=100.*exp(covar01/(m_specParams[0]*covar11));
-      std::cout << "Calculate decorrelation energy using covariance matrix"
+      std::cout << "Calculate pivot energy using covariance matrix"
 		<< std::endl << std::endl
-		<< "Decorrelation energy = " 
+		<< "Pivot energy = " 
 		<< std::fixed << std::setprecision(1)
 		<< E_decorrelation << " MeV"
 		<< std::endl << std::endl
@@ -366,6 +329,117 @@ namespace pointlike{
 
     if(ierflag==4){
       std::cerr<<"WARNING: Minuit returned ierflag=4: Fit did not converge."<<std::endl;
+    }
+
+  }
+
+  //--------------------------------------------------------------------------
+  //  Integral flux upper limit calculation 
+  //--------------------------------------------------------------------------
+
+  void pointlike::SpectralFitter::getFluxUpperLimit(std::vector<double> confidence_limit){
+    
+    if(!gSourcePointer)
+      throw std::invalid_argument("SpectralFitter::gSourcePointer not set");
+
+    if(confidence_limit.size()==0)
+      confidence_limit.push_back(0.9);
+
+    double index=2.;
+
+    std::vector<double> pl_params(2);
+    pl_params[0]=1.e-9;
+    pl_params[1]=index;
+    m_pl_model=new PowerLaw(pl_params);
+
+    // Number of energy bins
+    int numBins=gSourcePointer->size();
+
+    double E_min,E_max;
+
+    // Get the lowest energy used for fitting
+    double fit_lower_bound=gSourcePointer->at(0)->band().emin();
+    double flux_ratio=m_pl_model->get_flux(100.,3.e5)/m_pl_model->get_flux(fit_lower_bound,3.e5);
+
+    // Fraction of photons contained
+    double containment_fraction=0.68;
+
+    int n;
+    double alpha,exposure;
+
+    double N_total=0;
+    double N_signal=0;
+    double N_background=0;
+
+    double integrated_exposure=0;
+
+    for(int bin=0;bin<numBins;bin++){
+      
+      // Photons counts 
+      n=gSourcePointer->at(bin)->photons();
+      alpha=gSourcePointer->at(bin)->alpha();
+
+      N_total=N_total+n;
+      N_signal=N_signal+floor(alpha*n);
+
+      E_min=gSourcePointer->at(bin)->band().emin();
+      E_max=gSourcePointer->at(bin)->band().emax();
+      
+      // Model dependent exposure calculation
+      exposure=m_pl_model->get_model_exposure(gSourcePointer,bin);
+      integrated_exposure=integrated_exposure+exposure;  
+
+    }
+
+    integrated_exposure=m_pl_model->get_integrated_exposure(gSourcePointer,100.,3.e5);
+
+    std::cout << std::endl
+	      << "===== INTEGRAL PHOTON FLUX UPPER LIMITS ====="
+	      << std::endl;
+
+    std::cout << std::endl
+	      << "Assume a power law spectral model with spectral index "
+	      << std::fixed << std::setprecision(2)
+	      << index
+	      << std::endl;
+
+    N_background=N_total-N_signal;
+
+    std::cout << std::endl
+	      << std::fixed << std::setprecision(0)
+	      << "Total photons  = "
+	      << N_total
+	      << std::endl
+	      << "Signal photons = "
+	      << N_signal
+	      << std::endl << std::endl
+	      << std::scientific << std::setprecision(4)
+	      << "Integrated exposure = "
+	      << integrated_exposure
+	      << " cm^2 s"
+	      << std::endl << std::endl
+	      << "Confidence limit       Flux upper limit ( 100 MeV < E < 300 GeV ) [ ph cm^-2 s^-1 ]"
+	      << std::endl;
+
+    m_FeldmanCousins=new FeldmanCousins(N_signal,N_background);
+    
+    double FC_upper_limit,flux_upper_limit;
+
+    for(int i=0;i<confidence_limit.size();i++){
+
+      FC_upper_limit=m_FeldmanCousins->get_upper_limit(confidence_limit[i]);
+
+      flux_upper_limit=(flux_ratio*FC_upper_limit)/(integrated_exposure*containment_fraction);
+
+      std::cout << std::endl
+		<< std::setw(23) << std::left
+		<< std::fixed
+		<< std::setprecision(2)
+		<< confidence_limit[i]
+		<< std::setw(15) << std::left
+		<< std::scientific
+		<< flux_upper_limit
+		<< std::endl;
     }
 
   }

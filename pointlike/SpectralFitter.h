@@ -18,7 +18,6 @@
 #include <time.h>
 
 #include <TMinuit.h>
-#include <TF1.h>
 
 namespace embed_python{ class Module; }
 
@@ -163,6 +162,42 @@ namespace pointlike{
       return weighted_exposure_sum/normalization;
     }
 
+    double get_integrated_exposure(pointlike::SourceLikelihood* SourcePointer,double E_min,double E_max){
+
+      double weighted_exposure_sum=0;
+      double normalization=0;
+      
+      double frac,mid_frac,next_frac;
+      double E,mid_E,next_E;
+      double dNdE,dE;
+      double exposure;
+      
+      double max=1000.;
+
+      for(double i=0.;i<max;i+=1.){
+	
+	frac=i/max;
+	mid_frac=(i+0.5)/max;
+	next_frac=(i+1.)/max;
+	
+	E=exp((1.-frac)*log(E_min)+frac*log(E_max));
+	mid_E=exp((1.-mid_frac)*log(E_min)+mid_frac*log(E_max));
+	next_E=exp((1.-next_frac)*log(E_min)+next_frac*log(E_max));
+	
+	dE=next_E-E;
+
+	dNdE=this->get_dNdE(mid_E);
+ 
+	exposure=SourcePointer->at(0)->full_exposure(mid_E);
+	
+	weighted_exposure_sum+=dNdE*exposure*dE;
+	normalization+=dNdE*dE;
+      }
+      
+      return weighted_exposure_sum/normalization;
+
+    }
+
     double get_model_E(double E_min,double E_max){
       if(E_min<this->get_lower_bound() || E_max>this->get_upper_bound()){
 	std::cout << "WARNING. Exposure calculation out of range." << std::endl;
@@ -193,8 +228,6 @@ namespace pointlike{
       if(E_log_center<1.e4) return 0.1;
       else return 0.3;
     }
-
-    virtual void get_E2dNdE(TF1& func,std::vector<double> params)=0;
 
     virtual int get_npar()=0;
 
@@ -291,11 +324,6 @@ namespace pointlike{
       return m_prefactor*pow(E/m_scale,-1*m_index);
     }
 
-    virtual void get_E2dNdE(TF1& func,std::vector<double> params){
-      func=TF1("f1","pow(x,2)*[0]*pow(x/[2],-1*[1])",10,5e5);
-      func.SetParameters(params[0],params[1],m_scale);
-    }
-
     int get_npar(){
       return 2;
     }
@@ -316,8 +344,8 @@ namespace pointlike{
 		<< std::endl
 		<< "  dN/dE = N_0*(E/E_0)^(-gamma)" << std::endl
 		<< std::endl
-		<< "  N_0   = prefactor             [ ph/cm^2/s/MeV ]" << std::endl
-		<< "  E_0   = decorrelation energy  [ "
+		<< "  N_0   = prefactor      [ ph/cm^2/s/MeV ]" << std::endl
+		<< "  E_0   = pivot energy   [ "
 		<< std::fixed
 		<< std::setprecision(1)
 		<< this->get_scale() 
@@ -456,11 +484,6 @@ namespace pointlike{
 	return m_prefactor*pow(E/m_E_break,-1*m_index_1);
       else 
 	return m_prefactor*pow(E/m_E_break,-1*m_index_2);
-    }
-
-    virtual void get_E2dNdE(TF1& func,std::vector<double> params){
-      func=TF1("f1","(x<[3])*pow(x,2)*[0]*pow(x/[3],-1*[1])+(x>[3])*pow(x,2)*[0]*pow(x/[3],-1*[2])",10,5e5);
-      func.SetParameters(params[0],params[1],params[2],params[3]);
     }
 
     int get_npar(){
@@ -625,12 +648,6 @@ namespace pointlike{
     virtual double get_dNdE(double E){
       double scale=100.;
       return m_prefactor*exp(-1.*E/m_cutoff)*pow(E/scale,-1*m_index);
-    }
-
-    virtual void get_E2dNdE(TF1& func,std::vector<double> params){
-      double scale=100.;
-      func=TF1("f1","pow(x,2)*[0]*exp(-1.*x/[2])*pow(x/[3],-1*[1])",10,5e5);
-      func.SetParameters(params[0],params[1],params[2],scale);
     }
 
     int get_npar(){
@@ -893,6 +910,69 @@ namespace pointlike{
   };
 
   //--------------------------------------------------------------------------
+  //  Feldman-Cousins object 
+  //--------------------------------------------------------------------------
+
+  class FeldmanCousins{
+  private:
+    double m_n_signal,m_n_background,m_n_total;
+    double m_lngamma;
+    double m_step;
+    double m_pedestal;
+
+  public:
+    FeldmanCousins(double n_signal,double n_background):
+      m_n_signal(n_signal),
+      m_n_background(n_background),
+      m_n_total(n_signal+n_background),
+      m_lngamma(GammaFunction::lngamma(m_n_total+1.)),
+      m_step(0.1),
+      m_pedestal(0.){
+    }
+
+    double get_upper_limit(double confidence_limit){
+      
+      // Correct numeric calculation
+      this->set_pedestal(10*m_n_signal);
+      
+      double upper_limit=0;
+
+      double sum_pdf=0.;
+
+      while(sum_pdf<confidence_limit){
+	sum_pdf=sum_pdf+m_step*this->pdf(upper_limit)+m_step*m_pedestal;
+	upper_limit+=m_step;
+	if(upper_limit>10*m_n_signal) return -1.;
+
+      }
+
+      return upper_limit;
+    }
+
+    double pdf(double mu){
+      double log_pdf=m_n_total*log(mu+m_n_background)-(mu+m_n_background)-m_lngamma;
+      return exp(log_pdf);
+    }
+
+    void set_pedestal(int max){
+      
+      double pdf;
+      double sum_pdf=0.;
+
+      double i=0.;
+
+      while(i<max && (i<m_n_signal || pdf > 1.e-6)){
+	pdf=this->pdf(i);
+	sum_pdf=sum_pdf+m_step*this->pdf(i);
+	i+=m_step;
+      }
+
+      m_pedestal=(1.-sum_pdf)/i;
+    }
+
+  };
+
+  //--------------------------------------------------------------------------
   //  Class definition
   //--------------------------------------------------------------------------
 
@@ -926,6 +1006,10 @@ namespace pointlike{
     std::vector<double> m_model_energies;
     std::vector<double> m_exposures;
     
+    FeldmanCousins* m_FeldmanCousins;
+
+    PowerLaw* m_pl_model;
+
   public:
     SpectralFitter(SourceLikelihood& source, SpectralModel& model);
 
@@ -934,6 +1018,8 @@ namespace pointlike{
     void initialize();
 
     void specfitMinuit(double scale=-1.);
+
+    void getFluxUpperLimit(std::vector<double> confidence_limits=NULL);
 
     void setFitRange(double lower_bound,double upper_bound);
 
