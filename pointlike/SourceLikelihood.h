@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.10 2008/11/11 23:05:58 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.11 2008/11/13 01:16:00 markusa Exp $
 */
 
 #ifndef tools_SourceLikelihood_h
@@ -209,7 +209,7 @@ namespace pointlike {
     ///     
     double display(const astro::SkyDir& dir, double energy, int mode, int bandindex=-1)const;
     std::vector<double> energyList() const;
-
+ 
   private:
     void setup(skymaps::BinnedPhotonData& data);
     std::string m_name;
@@ -229,7 +229,7 @@ namespace pointlike {
     
     double m_errorX;
     double m_errorY;
-    
+
     std::ostream * m_out;
     std::ostream& out()const{return *m_out;}
     mutable CLHEP::Hep3Vector m_gradient; ///< current gradient

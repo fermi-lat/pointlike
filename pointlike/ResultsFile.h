@@ -8,24 +8,25 @@
 #include "tip/Table.h"
 
 namespace pointlike {
-    class ResultsFile {
-       private:
-	  tip::Table* srcTab;
-	  tip::IFileSvc& fileSvc;
-	  tip::Table::Iterator srcTabItor;  
-	  std::vector<double> emin;
-	  std::vector<double> emax;
-	  int levels;
-	  double eratio;
+  class ResultsFile {
+  private:
+    tip::Table* srcTab;
+    tip::IFileSvc& fileSvc;
+    tip::Table::Iterator srcTabItor;  
+    std::vector<double> emin;
+    std::vector<double> emax;
+    int levels;
+    double eratio;
 
-       public:
+  public:
 
-       ResultsFile (const std::string& filename,const Data& datafile, int nsources);
-
-       void fill(SourceLikelihood& like,
-		 const SpectralModelCollection spectra=SpectralModelCollection());
-       void writeAndClose();
-    };
+    ResultsFile (const std::string& filename,const Data& datafile, int nsources);
+    
+    void fill(SourceLikelihood& like);
+    void fill(SourceLikelihood& like,SpectralFitter& fitter);
+    
+    void writeAndClose();
+  };
 };
 
 #endif

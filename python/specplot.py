@@ -2,13 +2,13 @@ import numpy as N
 import ROOT as R
 import pointlike as pl 
 import pyfits
+import sys
 from math import floor,exp,log,sqrt,pow
 
-def plot(filename,source,model):
+def plot(filename,source=""):
 
     print filename
-    print type(model)
-
+    
     global g1
     g1=R.TGraphAsymmErrors()
     g1.SetMarkerStyle(7)
@@ -22,30 +22,42 @@ def plot(filename,source,model):
     file=pyfits.open(filename)
 
     name=""
-
+    
     for src in range(0,len(file["SOURCES"].data.field('NAME'))):
         name=file["SOURCES"].data.field('NAME')[src]
-        if name==source:
+        if name==source or len(file["SOURCES"].data.field('NAME'))==1:
             print "Found "+name 
+
+            type=str(file["SOURCES"].data.field('MODEL')[src])
+            print type
+            if type=="POWER_LAW":
+                model=pl.PowerLaw()
+            elif type=="BROKEN_POWER_LAW":
+                model=pl.BrokenPowerLaw()
+            elif type=="EXP_CUTOFF":
+                model=pl.ExpCutoff()
+            else:
+                sys.exit("%s spectral model not recognized."%(type))
+            
             emin=file["SOURCES"].data.field('EMIN')[src]
             emax=file["SOURCES"].data.field('EMAX')[src]
             alpha=file["SOURCES"].data.field('ALPHA')[src]
             err_alpha=file["SOURCES"].data.field('ERR_ALPHA')[src]
-            energy=file["SOURCES"].data.field(model.get_spec_type()+"_ENERGY")[src]
-            model_exposure=file["SOURCES"].data.field(model.get_spec_type()+"_EXPOSURE")[src]
-            #exposure=file["SOURCES"].data.field("EXPOSURE")[src]
+            energy=file["SOURCES"].data.field('MODEL_ENERGY')[src]
+            model_exposure=file["SOURCES"].data.field('MODEL_EXPOSURE')[src]
             nphoton=file["SOURCES"].data.field('NPHOTON')[src]
-            params=file["SOURCES"].data.field(model.get_spec_type()+"_PAR")[src]
-            param_errors=file["SOURCES"].data.field(model.get_spec_type()+"_PAR_ERR")[src]
+            params=file["SOURCES"].data.field('PAR')[src]
+            param_errors=file["SOURCES"].data.field('PAR_ERR')[src]
 
             # Spectral fitting energy range
-            boundary=file["SOURCES"].data.field('BOUNDARY')[src]
-            model.set_energy_range(R.Double(boundary[0]),R.Double(boundary[1]))
+            fit_range=file["SOURCES"].data.field('FIT_RANGE')[src]
+            model.set_energy_range(R.Double(fit_range[0]),R.Double(fit_range[1]))
+            lower_range=R.Double(fit_range[0])
+            upper_range=R.Double(fit_range[1])
 
             if model.get_spec_type()=="POWER_LAW":
                 scale=R.Double(file["SOURCES"].data.field('DECORRELATION_ENERGY')[src])
-                print scale
-                print type(scale)
+                print "Pivot energy = %.1f MeV"%(scale)
                 model.set_scale(scale)
 
     file.close()
@@ -58,7 +70,6 @@ def plot(filename,source,model):
     global butterfly
     butterfly=set_butterfly(model,params,param_errors)
 
-    exposure_error_fraction=0.01
     livebin=0
     for bin in range(0,int(len(emin)/2)):
 
