@@ -37,6 +37,12 @@ namespace pointlike{
 
   double SpectralFitter::s_accuracy(0.0001);
 
+  double SpectralFitter::s_TS_threshold(25.);
+  double SpectralFitter::s_index(2.0);
+  double SpectralFitter::s_upper_limit_lower_bound(100.);
+  double SpectralFitter::s_upper_limit_upper_bound(3.e5);
+  double SpectralFitter::s_band_confidence_limit(0.9);
+
   //-------------------------------------------------------------------------
   //  Define the wrapper function input to Minuit
   //-------------------------------------------------------------------------
@@ -121,11 +127,14 @@ namespace pointlike{
     // Set the global pointers for access by the Minuit wrapper function
     gSourcePointer = &source;
     gModelPointer = &model;
-    
+    m_model_pointer = &model;
+
     // Set the energy range for spectral fitting
     this->setFitRange(s_lower_bound,s_upper_bound);
 
     m_npar=model.get_npar();
+
+    //m_confidence_limits.clear();
 
     this->initialize();
 
@@ -179,6 +188,8 @@ namespace pointlike{
 
   SpectralFitter::~SpectralFitter(){
     if(m_Minuit) delete m_Minuit;
+    if(m_FeldmanCousins) delete m_FeldmanCousins;
+    if(m_model_pointer) delete m_model_pointer;
   }
 
   //--------------------------------------------------------------------------
@@ -306,6 +317,10 @@ namespace pointlike{
 	      << "Minimized -logLikeSum = " << fmin << std::endl
 	      << std::endl;
 
+    if(ierflag==4){
+      std::cerr<<"WARNING: Minuit returned ierflag=4: Fit did not converge."<<std::endl;
+    }
+
     // Calculate pivot energy and repeat the fit
     if(gModelPointer->get_spec_type()=="POWER_LAW" && scale==-1.){
       double log_covar[2][2];
@@ -326,10 +341,7 @@ namespace pointlike{
       this->initialize();
       this->specfitMinuit(E_decorrelation);
     }
-
-    if(ierflag==4){
-      std::cerr<<"WARNING: Minuit returned ierflag=4: Fit did not converge."<<std::endl;
-    }
+    else this->setFluxUpperLimits();
 
   }
 
@@ -337,71 +349,115 @@ namespace pointlike{
   //  Integral flux upper limit calculation 
   //--------------------------------------------------------------------------
 
-  void pointlike::SpectralFitter::getFluxUpperLimit(std::vector<double> confidence_limit){
+  void pointlike::SpectralFitter::setFluxUpperLimits(std::vector<double> confidence_limits){
     
     if(!gSourcePointer)
       throw std::invalid_argument("SpectralFitter::gSourcePointer not set");
 
-    if(confidence_limit.size()==0)
-      confidence_limit.push_back(0.9);
+    if(!confidence_limits.empty()) m_confidence_limits=confidence_limits;
+    else if(m_confidence_limits.empty()) this->setConfidenceLimits();
 
-    double index=2.;
+    std::cout << std::endl
+	      << "===== INTEGRAL PHOTON FLUX UPPER LIMITS ====="
+	      << std::endl;
 
-    std::vector<double> pl_params(2);
-    pl_params[0]=1.e-9;
-    pl_params[1]=index;
-    m_pl_model=new PowerLaw(pl_params);
-
+    // Choose fitted spectral model or default power law model
+    if(gSourcePointer->TS()>s_TS_threshold && gModelPointer){
+      m_model_pointer=gModelPointer;
+      std::cout << std::endl 
+		<< "Using fitted spectral model to compute upper limits"
+		<< std::endl;
+    }
+    else{
+      std::vector<double> pl_params(2);
+      pl_params[0]=1.e-9;
+      pl_params[1]=s_index;
+      m_model_pointer=new PowerLaw(pl_params);
+      std::cout << std::endl
+		<< "Assume a power law spectral model with spectral index "
+		<< std::fixed << std::setprecision(2)
+		<< s_index
+		<< std::endl;
+    }
+    
     // Number of energy bins
     int numBins=gSourcePointer->size();
 
     double E_min,E_max;
 
-    // Get the lowest energy used for fitting
-    double fit_lower_bound=gSourcePointer->at(0)->band().emin();
-    double flux_ratio=m_pl_model->get_flux(100.,3.e5)/m_pl_model->get_flux(fit_lower_bound,3.e5);
-
-    // Fraction of photons contained
-    double containment_fraction=0.68;
-
     int n;
-    double alpha,exposure;
+    double alpha, band_exposure;
+
+    double psf_correction;
+    double exposure_sum=0;
+    double weighted_exposure_sum=0;
+
+    double fit_lower_bound=s_upper_limit_upper_bound;
+    double fit_upper_bound=s_upper_limit_lower_bound;
 
     double N_total=0;
     double N_signal=0;
     double N_background=0;
 
-    double integrated_exposure=0;
+    m_FeldmanCousins=new FeldmanCousins(N_signal,N_background);
 
+    double FC_upper_limit;
+
+    m_band_upper_limits.clear();
+
+    // Total photon counts
     for(int bin=0;bin<numBins;bin++){
       
-      // Photons counts 
+      E_min=gSourcePointer->at(bin)->band().emin();
+      E_max=gSourcePointer->at(bin)->band().emax();
+
+      if(E_min < s_upper_limit_lower_bound || 
+	 E_max > s_upper_limit_upper_bound) continue;
+
+      if(E_min < fit_lower_bound) fit_lower_bound=E_min;
+      if(E_max > fit_upper_bound) fit_upper_bound=E_max;
+
       n=gSourcePointer->at(bin)->photons();
       alpha=gSourcePointer->at(bin)->alpha();
 
       N_total=N_total+n;
       N_signal=N_signal+floor(alpha*n);
 
-      E_min=gSourcePointer->at(bin)->band().emin();
-      E_max=gSourcePointer->at(bin)->band().emax();
-      
-      // Model dependent exposure calculation
-      exposure=m_pl_model->get_model_exposure(gSourcePointer,bin);
-      integrated_exposure=integrated_exposure+exposure;  
+      psf_correction=gSourcePointer->at(bin)->psfIntegral();
 
+      // Model dependent exposure calculation
+      band_exposure=m_model_pointer->get_model_exposure(gSourcePointer,bin);
+
+      exposure_sum+=band_exposure;
+      weighted_exposure_sum+=psf_correction*band_exposure;
+
+      /*
+      std::cout << std::scientific << std::setprecision(4) 
+		<< E_min << " to " << E_max 
+		<< "    PSF_containment = " << psf_correction
+		<< "    band_exposure = " << band_exposure
+		<< std::endl;
+      */
+
+      // Set flux upper limits for individual bands
+      m_FeldmanCousins->set_counts(floor(alpha*n),n-floor(alpha*n));
+      FC_upper_limit=m_FeldmanCousins->get_upper_limit(s_band_confidence_limit);
+      
+      m_band_upper_limits.push_back(FC_upper_limit/psf_correction);
+      m_energy_upper_limits.push_back(m_model_pointer->get_model_E(E_min,E_max));
+      m_exposure_upper_limits.push_back(band_exposure);
     }
 
-    integrated_exposure=m_pl_model->get_integrated_exposure(gSourcePointer,100.,3.e5);
+    // Get the range of energy used for fitting and use it for calculating the flux ratio
+    double flux_ratio=m_model_pointer->get_flux(s_upper_limit_lower_bound,s_upper_limit_upper_bound)/m_model_pointer->get_flux(fit_lower_bound,fit_upper_bound);
 
-    std::cout << std::endl
-	      << "===== INTEGRAL PHOTON FLUX UPPER LIMITS ====="
-	      << std::endl;
+    // Integrated exposure for front and back
+    double integrated_exposure=m_model_pointer->get_integrated_exposure(gSourcePointer,s_upper_limit_lower_bound,s_upper_limit_upper_bound);
 
-    std::cout << std::endl
-	      << "Assume a power law spectral model with spectral index "
-	      << std::fixed << std::setprecision(2)
-	      << index
-	      << std::endl;
+    // Fraction of photons contained within region of interest
+    double containment_fraction=weighted_exposure_sum/exposure_sum;
+
+    //std::cout << "Containment fraction = " << containment_fraction << std::endl;
 
     N_background=N_total-N_signal;
 
@@ -417,30 +473,33 @@ namespace pointlike{
 	      << "Integrated exposure = "
 	      << integrated_exposure
 	      << " cm^2 s"
-	      << std::endl << std::endl
-	      << "Confidence limit       Flux upper limit ( 100 MeV < E < 300 GeV ) [ ph cm^-2 s^-1 ]"
+	      << std::endl << std::endl << std::fixed << std::setprecision(0)
+	      << "Confidence limit       Flux upper limit ( " << s_upper_limit_lower_bound << " MeV < E < " << s_upper_limit_upper_bound << " MeV ) [ ph cm^-2 s^-1 ]"
 	      << std::endl;
 
-    m_FeldmanCousins=new FeldmanCousins(N_signal,N_background);
-    
-    double FC_upper_limit,flux_upper_limit;
+    m_FeldmanCousins->set_counts(N_signal,N_background);
 
-    for(int i=0;i<confidence_limit.size();i++){
+    m_flux_upper_limits.clear();
 
-      FC_upper_limit=m_FeldmanCousins->get_upper_limit(confidence_limit[i]);
+    for(int i=0;i<m_confidence_limits.size();i++){
 
-      flux_upper_limit=(flux_ratio*FC_upper_limit)/(integrated_exposure*containment_fraction);
+      FC_upper_limit=m_FeldmanCousins->get_upper_limit(m_confidence_limits[i]);
+
+      m_flux_upper_limits.push_back((flux_ratio*FC_upper_limit)/(integrated_exposure*containment_fraction));
 
       std::cout << std::endl
 		<< std::setw(23) << std::left
 		<< std::fixed
 		<< std::setprecision(2)
-		<< confidence_limit[i]
+		<< m_confidence_limits[i]
 		<< std::setw(15) << std::left
 		<< std::scientific
-		<< flux_upper_limit
+		<< m_flux_upper_limits[i]
 		<< std::endl;
     }
+
+    // Restore the original spectral model
+    m_model_pointer=gModelPointer;
 
   }
 
@@ -450,6 +509,23 @@ namespace pointlike{
 
   void pointlike::SpectralFitter::setFitRange(double lower_bound,double upper_bound){
         gModelPointer->set_energy_range(lower_bound,upper_bound);
+  }
+
+  void pointlike::SpectralFitter::setFluxUpperLimitRange(double lower_bound,double upper_bound){
+    s_upper_limit_lower_bound=lower_bound;
+    s_upper_limit_upper_bound=upper_bound;
+  }
+
+  void pointlike::SpectralFitter::setConfidenceLimits(std::vector<double> confidence_limits){
+    if(confidence_limits.size()==0){
+      std::vector<double> cl(4);
+      cl[0]=0.99;
+      cl[1]=0.95;
+      cl[2]=0.90;
+      cl[3]=0.68;
+      m_confidence_limits=cl;
+    }
+    else m_confidence_limits=confidence_limits;
   }
 
 }

@@ -930,10 +930,17 @@ namespace pointlike{
       m_pedestal(0.){
     }
 
+    void set_counts(double n_signal,double n_background){
+      m_n_signal=n_signal;
+      m_n_background=n_background;
+      m_n_total=n_signal+n_background;
+      m_lngamma=GammaFunction::lngamma(m_n_total+1.);
+    }
+
     double get_upper_limit(double confidence_limit){
       
       // Correct numeric calculation
-      this->set_pedestal(10*m_n_signal);
+      this->set_pedestal(10*(m_n_signal+1));
       
       double upper_limit=0;
 
@@ -942,7 +949,7 @@ namespace pointlike{
       while(sum_pdf<confidence_limit){
 	sum_pdf=sum_pdf+m_step*this->pdf(upper_limit)+m_step*m_pedestal;
 	upper_limit+=m_step;
-	if(upper_limit>10*m_n_signal) return -1.;
+	if(upper_limit>10*(m_n_signal+1)) return -1.;
 
       }
 
@@ -990,6 +997,12 @@ namespace pointlike{
 
     static double s_accuracy;
 
+    static double s_TS_threshold;
+    static double s_index;
+    static double s_upper_limit_lower_bound;
+    static double s_upper_limit_upper_bound;
+    static double s_band_confidence_limit;
+
     int m_npar;
 
     std::vector<double> m_specParams;
@@ -1008,7 +1021,14 @@ namespace pointlike{
     
     FeldmanCousins* m_FeldmanCousins;
 
-    PowerLaw* m_pl_model;
+    SpectralModel* m_model_pointer;
+
+    std::vector<double> m_confidence_limits;
+    std::vector<double> m_flux_upper_limits;
+
+    std::vector<double> m_band_upper_limits;
+    std::vector<double> m_energy_upper_limits;
+    std::vector<double> m_exposure_upper_limits;
 
   public:
     SpectralFitter(SourceLikelihood& source, SpectralModel& model);
@@ -1016,12 +1036,27 @@ namespace pointlike{
     ~SpectralFitter();
 
     void initialize();
-
     void specfitMinuit(double scale=-1.);
+    void setFluxUpperLimits(std::vector<double> confidence_limits=NULL);
 
-    void getFluxUpperLimit(std::vector<double> confidence_limits=NULL);
-
+    // Functions for setting and obtaining spectral fitting parameters
+    
     void setFitRange(double lower_bound,double upper_bound);
+    void setFluxUpperLimitRange(double lower_bound,double upper_bound);
+    void setConfidenceLimits(std::vector<double> confidence_limits=NULL);
+
+    // Functions for exporting upper limit results
+
+    std::vector<double> getConfidenceLimits() { return m_confidence_limits; };
+    std::vector<double> getFluxUpperLimits() { return m_flux_upper_limits; };
+
+    std::vector<double> getBandUpperLimits() { return m_band_upper_limits; };
+    std::vector<double> getEnergyUpperLimits() { return m_energy_upper_limits; };
+    std::vector<double> getExposureUpperLimits() { return m_exposure_upper_limits; }
+
+    // Get the model pointer from the spectral fitter
+
+    SpectralModel* getModel() { return m_model_pointer; };
 
   };
 
