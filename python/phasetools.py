@@ -72,12 +72,13 @@ def phase_cut(eventfile,outputfile=None,phaseranges=[[0,1]],phase_col_name='PULS
         phaseranges - a set of ranges on which to make inclusive cuts"""
 
 
-    from numarray import array as narray #important -- on SLAC, this should be changed to numpy.array
+    from numarray import array as narray
     from numpy import array
     import pyfits as PF
     ef=PF.open(eventfile)
     ph=array(ef['EVENTS'].data.field(phase_col_name)).astype(float)
     mask=narray([False]*len(ph))
+    #mask = array([False]*len(ph)) #NOTA BENE! uncomment on SLAC
     for r in phaseranges:
         for i in xrange(len(ph)):
             if r[0]<= ph[i] and ph[i] <= r[1]: mask[i]=True                    
@@ -121,6 +122,7 @@ class PulsarLightCurve(object):
       self.phase_col_name       = 'PULSE_PHASE'
       self.use_mc_psf           = True
       self.max_radius           = 20.
+      self.use_psf_init         = False
 
    def __init__(self,**kwargs):
       self.init()
@@ -133,7 +135,7 @@ class PulsarLightCurve(object):
                                   phase_col_name=self.phase_col_name, drift_check = True, radius = self.cookie_cutter_radius)
       else:
          from psf import PSF         
-         psf_obj = PSF(use_mc=self.use_mc_psf)
+         psf_obj = PSF(use_mc=self.use_mc_psf,use_psf_init=self.use_psf_init)
 
          b = N.logspace(N.log10(self.energy_range[0]),N.log10(self.energy_range[1]))
          bin_cents = (b[:-1]*b[1:])**0.5
@@ -154,21 +156,22 @@ class PulsarLightCurve(object):
          self.phases,self.times = phase_circ(event_files,center=skydir,erange=self.energy_range,\
                                   phase_col_name=self.phase_col_name, drift_check = True, radius = r)
 
-   def plot(self,fignum=1,show_drift=True,show_errorbars=False,outfile=None,show=True):
+   def plot(self,fignum=1,show_drift=True,show_errorbars=False,outfile=None,show=True,\
+               num_per_bin=None,linecolor='black',errorcolor='pink'):
       import pylab as P
       if show_drift: P.figure(fignum,(6,10))
       else: P.figure(fignum)
 
-      npb = max(int(round(len(self.phases)/100.)),20)
+      npb = max(int(round(len(self.phases)/100.)),20) if num_per_bin is None else num_per_bin
 
       ev_cop = self.phases.copy()
       times = (self.times-self.times.min())/(24*3600.)
-      phases,rates,delta_phi = constant_count_histogram(self.phases,npb)
+      phases,rates,delta_phi = constant_count_histogram(ev_cop,npb)
       rates_pre = rates.copy()
       rates = rates/rates[rates>0].min()
 
       ax1 = P.axes([0.15,0.1,0.75,0.4]) if show_drift else P.axes()
-      ax1.step(N.append(phases,1),N.append(rates[0],rates),where='pre',color='black',label='%d cts/bin'%npb)
+      ax1.step(N.append(phases,1),N.append(rates[0],rates),where='pre',color=linecolor,label='%d cts/bin'%npb)
       ax1.set_ylabel('Relative Count Rate')
       ax1.grid(b=True)
       if show_errorbars:
@@ -176,12 +179,12 @@ class PulsarLightCurve(object):
          delta_phi = tph[1:]-tph[:-1]
          errs = ((rates_pre*delta_phi)**0.5/rates_pre[rates_pre>0].min())/delta_phi
          tph = (tph[:-1]+tph[1:])/2.
-         P.errorbar(tph,rates,yerr=errs,ls=' ',capsize=0)
+         P.errorbar(tph,rates,yerr=errs,ls=' ',capsize=0,color=errorcolor)
 
       if show_drift:
          ax2 = P.axes([0.15,0.55,0.75,0.4])
          stride = max(1,int(len(ev_cop)/500.))
-         ax2.scatter(ev_cop[::stride],times[::stride],marker='+',color='red')
+         ax2.scatter(self.phases[::stride],times[::stride],marker='+',color='red')
          a = ax2.axis()
          ax2.axis([0,1,0,a[3]])
          ax2.grid(b=True)
