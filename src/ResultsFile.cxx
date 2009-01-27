@@ -202,6 +202,9 @@ namespace pointlike{
 
     
     if(!fitter.getFluxUpperLimits().empty()){
+      srcTab->appendField("UPPER_LIMIT_RANGE","2E");
+      (*srcTabItor)["UPPER_LIMIT_RANGE"].set(fitter.getUpperLimitRange());
+
       std::stringstream nclstream;
       nclstream<<fitter.getConfidenceLimits().size()<<"E";
       std::string ncl=nclstream.str();

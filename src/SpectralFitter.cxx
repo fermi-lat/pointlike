@@ -374,7 +374,7 @@ namespace pointlike{
       pl_params[1]=s_index;
       m_model_pointer=new PowerLaw(pl_params);
       std::cout << std::endl
-		<< "Assume a power law spectral model with spectral index "
+		<< "Assume a power law spectral model with photon index "
 		<< std::fixed << std::setprecision(2)
 		<< s_index
 		<< std::endl;
@@ -410,7 +410,8 @@ namespace pointlike{
       
       E_min=gSourcePointer->at(bin)->band().emin();
       E_max=gSourcePointer->at(bin)->band().emax();
-
+      
+      // Enforce range of upper limit calculation
       if(E_min < s_upper_limit_lower_bound || 
 	 E_max > s_upper_limit_upper_bound) continue;
 
@@ -430,14 +431,6 @@ namespace pointlike{
 
       exposure_sum+=band_exposure;
       weighted_exposure_sum+=psf_correction*band_exposure;
-
-      /*
-      std::cout << std::scientific << std::setprecision(4) 
-		<< E_min << " to " << E_max 
-		<< "    PSF_containment = " << psf_correction
-		<< "    band_exposure = " << band_exposure
-		<< std::endl;
-      */
 
       // Set flux upper limits for individual bands
       m_FeldmanCousins->set_counts(floor(alpha*n),n-floor(alpha*n));
