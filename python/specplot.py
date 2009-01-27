@@ -12,12 +12,18 @@ def plot(filename,source=""):
     global g1
     g1=R.TGraphAsymmErrors()
     g1.SetMarkerStyle(7)
-    g1.SetMarkerColor(1)#2
+    g1.SetMarkerColor(1)
 
     global g2
     g2=R.TGraphAsymmErrors()
     g2.SetMarkerStyle(7)
-    g2.SetMarkerColor(1)#2
+    g2.SetMarkerColor(1)
+
+    global g3
+    g3=R.TGraphAsymmErrors()
+    g3.SetMarkerStyle(1)
+    g3.SetMarkerColor(2)#2
+    g3.SetLineColor(2)
 
     file=pyfits.open(filename)
 
@@ -54,6 +60,11 @@ def plot(filename,source=""):
             model.set_energy_range(R.Double(fit_range[0]),R.Double(fit_range[1]))
             lower_range=R.Double(fit_range[0])
             upper_range=R.Double(fit_range[1])
+
+            # Band upper limits
+            band_upper_limits=file["SOURCES"].data.field('BAND_UPPER_LIMIT')[src]
+            energy_upper_limits=file["SOURCES"].data.field('ENERGY_UPPER_LIMIT')[src]
+            exposure_upper_limits=file["SOURCES"].data.field('EXPOSURE_UPPER_LIMIT')[src]
 
             if model.get_spec_type()=="POWER_LAW":
                 scale=R.Double(file["SOURCES"].data.field('DECORRELATION_ENERGY')[src])
@@ -125,8 +136,24 @@ def plot(filename,source=""):
         g2.SetPoint(bin,E_model,(flux-model_flux)/flux)
         g2.SetPointError(bin,E_model-E_min,E_max-E_model,err_flux/flux,err_flux/flux)
 
+    for band in range(0,len(band_upper_limits)/2):
+        front=2*band
+        back=2*band+1
+        
+        E=energy_upper_limits[front]
+        E_min=get_edge(emin,E,0)
+        E_max=get_edge(emax,E,1)
+        delta_E=E_max-E_min
+        
+        flux_front=pow(E,2)*band_upper_limits[front]/(exposure_upper_limits[front]*delta_E)
+        flux_back=pow(E,2)*band_upper_limits[back]/(exposure_upper_limits[back]*delta_E)
+
+        g3.SetPoint(band,E,flux_front+flux_back)
+        g3.SetPointError(band,E-E_min,E_max-E,0,0)
+
     g1.Print()
     g2.Print()
+    g3.Print()
 
     global canvas
     global pad1
@@ -140,12 +167,13 @@ def plot(filename,source=""):
     res_box=set_res_box(g2)
 
     global legend
-    legend=set_legend(name,model,g1,func)
+    legend=set_legend(name,model,g1,func,g3)
 
     canvas.Draw()
     box.Draw()
     butterfly.Draw("F")
     g1.Draw("P")
+    g3.Draw("P")
     func.Draw("SAME")
     legend.Draw()
 
@@ -389,12 +417,20 @@ def set_butterfly(model,params,param_errors):
     
     return b1
 
-def set_legend(name,model,graph,func):
+def set_legend(name,model,graph,func,upper_limit):
     legend = R.TLegend(0.7,0.8,0.85,0.9)
     legend.SetHeader(name)
     legend.AddEntry(g1,"Data","P")
     legend.AddEntry(func,model.get_spec_type().replace('_',' '),"L")
+    legend.AddEntry(g3,"Upper Limit","L")
     legend.SetFillColor(0)
     legend.SetShadowColor(0)
     legend.SetLineColor(0)
     return legend
+
+def get_edge(array,E,num):
+    edge=-1
+    for i in range(0,len(array)-1):
+        if E>array[i] and E<array[i+1]:
+                edge=array[i+num]
+    return edge

@@ -195,15 +195,9 @@ namespace pointlike{
       }
       
       return weighted_exposure_sum/normalization;
-
     }
 
     double get_model_E(double E_min,double E_max){
-      if(E_min<this->get_lower_bound() || E_max>this->get_upper_bound()){
-	std::cout << "WARNING. Exposure calculation out of range." << std::endl;
-	return -1.;
-      }
-
       double weighted_E_sum=0;
       double normalization=0;
 
@@ -223,6 +217,7 @@ namespace pointlike{
 
     double get_exposure_uncertainty(double E_min,double E_max){
       // Until we get a better estimate from the C&A group
+      // See Vela I paper
       double E_log_center=exp((log(E_max)+log(E_min))/2.);
       if(E_log_center<1.e2) return 0.2;
       if(E_log_center<1.e4) return 0.1;
@@ -266,7 +261,7 @@ namespace pointlike{
   //
   //  N_0   = prefactor        [ ph/cm^2/s/MeV ]
   //  E_0   = energy scale     [ default = 100 MeV ]
-  //  gamma = spectral index
+  //  gamma = photon index
   //---------------------------------------------------------------------------
 
   class PowerLaw: public SpectralModel{
@@ -350,7 +345,7 @@ namespace pointlike{
 		<< std::setprecision(1)
 		<< this->get_scale() 
 		<< " MeV ]" << std::endl
-		<< "  gamma = spectral index" << std::endl
+		<< "  gamma = photon index" << std::endl
 		<< std::endl;
     }
 
@@ -399,8 +394,8 @@ namespace pointlike{
   //        = N_0*(E/E_b)^(-gamma_2) , E > E_b
   //
   //  N_0     = prefactor                              [ ph/cm^2/s/MeV ]
-  //  gamma_1 = spectral index in lower energy regime
-  //  gamma_2 = spectral index in higher energy regime
+  //  gamma_1 = photon index in lower energy regime
+  //  gamma_2 = photon index in higher energy regime
   //  E_b     = break energy                           [ MeV ]
   //---------------------------------------------------------------------------
 
@@ -510,8 +505,8 @@ namespace pointlike{
 		<< "        = N_0*(E/E_b)^(-gamma_2) , E > E_b" << std::endl
 		<< std::endl
 		<< "  N_0     = prefactor                              [ ph/cm^2/s/MeV ]" << std::endl
-		<< "  gamma_1 = spectral index in lower energy regime" << std::endl
-		<< "  gamma_2 = spectral index in higher energy regime" << std::endl
+		<< "  gamma_1 = photon index in lower energy regime" << std::endl
+		<< "  gamma_2 = photon index in higher energy regime" << std::endl
 		<< "  E_b     = break energy                           [ MeV ]" << std::endl
 		<< std::endl;
     }
@@ -570,7 +565,7 @@ namespace pointlike{
   //  dN/dE = N_0*exp(-E/E_c)*(E/E_0)^(-gamma)
   //
   //  N_0   = prefactor        [ ph/cm^2/s/MeV ]
-  //  gamma = spectral index
+  //  gamma = photon index
   //  E_c   = cutoff energy    [ MeV ]
   //  E_0   = energy scale     [ default = 100 MeV ]
   //---------------------------------------------------------------------------
@@ -672,7 +667,7 @@ namespace pointlike{
 		<< "  dN/dE = N_0*exp(-E/E_c)*(E/E_0)^(-gamma)" << std::endl
 		<< std::endl
 		<< "  N_0   = prefactor        [ ph/cm^2/s/MeV ]" << std::endl
-		<< "  gamma = spectral index" << std::endl
+		<< "  gamma = photon index" << std::endl
 		<< "  E_c   = cutoff energy    [ MeV ]" << std::endl
 		<< "  E_0   = energy scale     [ default = 100 MeV ]" << std::endl
 		<< std::endl;
@@ -1046,6 +1041,13 @@ namespace pointlike{
     void setConfidenceLimits(std::vector<double> confidence_limits=NULL);
 
     // Functions for exporting upper limit results
+
+    std::vector<double> getUpperLimitRange(){
+      std::vector<double> range(2);
+      range[0]=s_upper_limit_lower_bound;
+      range[1]=s_upper_limit_upper_bound;
+      return range;
+    }
 
     std::vector<double> getConfidenceLimits() { return m_confidence_limits; };
     std::vector<double> getFluxUpperLimits() { return m_flux_upper_limits; };
