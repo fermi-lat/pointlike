@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: bechtol  Wed Jan 28 18:16:27 PST 2009
+pointlike/pointlike
+
+Modified Files:
+	ExtendedLikelihood.h SpectralFitter.h 
+Log Message:
+Combined front and back energy bins
+
+    *
+------------------------------------------------------------
 User: bechtol  Tue Jan 27 14:24:24 PST 2009
 pointlike/src
 
