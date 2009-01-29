@@ -162,7 +162,7 @@ namespace pointlike{
       return weighted_exposure_sum/normalization;
     }
 
-    double get_integrated_exposure(pointlike::SourceLikelihood* SourcePointer,double E_min,double E_max){
+    double get_integrated_exposure(pointlike::SourceLikelihood* SourcePointer,double E_min,double E_max,int combined){
 
       double weighted_exposure_sum=0;
       double normalization=0;
@@ -187,8 +187,9 @@ namespace pointlike{
 	dE=next_E-E;
 
 	dNdE=this->get_dNdE(mid_E);
- 
-	exposure=SourcePointer->at(0)->full_exposure(mid_E);
+
+	// We can select any band for the purpose of calculation
+	exposure=SourcePointer->at(0)->full_exposure(mid_E,combined);
 	
 	weighted_exposure_sum+=dNdE*exposure*dE;
 	normalization+=dNdE*dE;
@@ -998,6 +999,8 @@ namespace pointlike{
     static double s_upper_limit_upper_bound;
     static double s_band_confidence_limit;
 
+    int m_combined;
+
     int m_npar;
 
     std::vector<double> m_specParams;
@@ -1034,11 +1037,15 @@ namespace pointlike{
     void specfitMinuit(double scale=-1.);
     void setFluxUpperLimits(std::vector<double> confidence_limits=NULL);
 
-    // Functions for setting and obtaining spectral fitting parameters
+    // Functions for setting spectral fitting parameters
     
     void setFitRange(double lower_bound,double upper_bound);
     void setFluxUpperLimitRange(double lower_bound,double upper_bound);
     void setConfidenceLimits(std::vector<double> confidence_limits=NULL);
+
+    // Function for using combined front and back energy binning
+
+    void setCombined();
 
     // Functions for exporting upper limit results
 
