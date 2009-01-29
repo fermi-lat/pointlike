@@ -22,7 +22,7 @@ def plot(filename,source=""):
     global g3
     g3=R.TGraphAsymmErrors()
     g3.SetMarkerStyle(1)
-    g3.SetMarkerColor(2)#2
+    g3.SetMarkerColor(2)
     g3.SetLineColor(2)
 
     file=pyfits.open(filename)
@@ -81,79 +81,151 @@ def plot(filename,source=""):
     global butterfly
     butterfly=set_butterfly(model,params,param_errors)
 
-    livebin=0
-    for bin in range(0,int(len(emin)/2)):
+    # Check of using combined energy bins
+    combined=unique(emin)
 
-        # Do not exceed spectral fitting range
-        if livebin >= len(energy):
-            break
+    # Front and back separate case
+    if combined==0:
+        print "Separate front and back energy bins"
+        livebin=0
+        for bin in range(0,int(len(emin)/2)):
 
-        front=2*bin
-        back=2*bin+1
+            # Do not exceed spectral fitting range
+            if livebin >= len(energy):
+                break
 
-        E_min=emin[front]
-        E_max=emax[front]
-        E_model=energy[livebin]
+            front=2*bin
+            back=2*bin+1
+
+            E_min=emin[front]
+            E_max=emax[front]
+            E_model=energy[livebin]
+
+            if E_model<lower_range or E_model>upper_range:
+                continue
         
-        exposure_error_fraction=model.get_exposure_uncertainty(R.Double(E_min),R.Double(E_max))
-        delta_E=E_max-E_min
+            exposure_error_fraction=model.get_exposure_uncertainty(R.Double(E_min),R.Double(E_max))
+            delta_E=E_max-E_min
 
-        if nphoton[front]>0:
-            flux_front=pow(E_model,2)*nphoton[front]*alpha[front]/(model_exposure[livebin]*delta_E)
-            err_flux_front=flux_front*sqrt(pow(err_alpha[front]/alpha[front],2)+pow(exposure_error_fraction,2))
-        else:
-            flux_front=0
-            err_flux_front=0
+            if nphoton[front]>0:
+                flux_front=pow(E_model,2)*nphoton[front]*alpha[front]/(model_exposure[livebin]*delta_E)
+                err_flux_front=flux_front*sqrt(pow(err_alpha[front]/alpha[front],2)+pow(exposure_error_fraction,2))
+            else:
+                flux_front=0
+                err_flux_front=0
         
-        E_model=energy[livebin]
+            E_model=energy[livebin]
 
-        if nphoton[back]>0:
-            flux_back=pow(E_model,2)*nphoton[back]*alpha[back]/(model_exposure[livebin]*delta_E)
-            err_flux_back=flux_back*sqrt(pow(err_alpha[back]/alpha[back],2)+pow(exposure_error_fraction,2))
-        else:
-            flux_back=0
-            err_flux_back=0
+            if nphoton[back]>0:
+                flux_back=pow(E_model,2)*nphoton[back]*alpha[back]/(model_exposure[livebin]*delta_E)
+                err_flux_back=flux_back*sqrt(pow(err_alpha[back]/alpha[back],2)+pow(exposure_error_fraction,2))
+            else:
+                flux_back=0
+                err_flux_back=0
                 
-        flux=(flux_front+flux_back)/2
-        err_flux=sqrt(pow(err_flux_front,2)+pow(err_flux_back,2))
+            flux=(flux_front+flux_back)/2
+            err_flux=sqrt(pow(err_flux_front,2)+pow(err_flux_back,2))
 
-        g1.SetPoint(bin,0,0)
-        g1.SetPointError(bin,0,0,0,0)
-        g2.SetPoint(bin,0,0)
-        g2.SetPointError(bin,0,0,0,0)
+            g1.SetPoint(bin,0,0)
+            g1.SetPointError(bin,0,0,0,0)
+            g2.SetPoint(bin,0,0)
+            g2.SetPointError(bin,0,0,0,0)
 
-        if flux==0:
-            continue
+            if flux==0:
+                continue
 
-        # Ensure energy bin was fitted
-        livebin=livebin+2
+            # Ensure energy bin was fitted
+            livebin=livebin+2
 
-        g1.SetPoint(bin,E_model,flux)
-        g1.SetPointError(bin,E_model-E_min,E_max-E_model,err_flux,err_flux)
+            g1.SetPoint(bin,E_model,flux)
+            g1.SetPointError(bin,E_model-E_min,E_max-E_model,err_flux,err_flux)
 
-        model_flux=func.Eval(E_model)
+            model_flux=func.Eval(E_model)
+            
+            g2.SetPoint(bin,E_model,(flux-model_flux)/flux)
+            g2.SetPointError(bin,E_model-E_min,E_max-E_model,err_flux/flux,err_flux/flux)
 
-        g2.SetPoint(bin,E_model,(flux-model_flux)/flux)
-        g2.SetPointError(bin,E_model-E_min,E_max-E_model,err_flux/flux,err_flux/flux)
+    # Front and back combined
+    if combined==1:
+        print "Combined front and back energy bins"
+        livebin=0
+        for bin in range(0,len(emin)):
 
-    for band in range(0,len(band_upper_limits)/2):
-        front=2*band
-        back=2*band+1
+            # Do not exceed spectral fitting range
+            if livebin >= len(energy):
+                break
+
+            E_min=emin[bin]
+            E_max=emax[bin]
+            E_model=energy[livebin]
+
+            if E_model<lower_range or E_model>upper_range:
+                continue
         
-        E=energy_upper_limits[front]
-        E_min=get_edge(emin,E,0)
-        E_max=get_edge(emax,E,1)
-        delta_E=E_max-E_min
-        
-        flux_front=pow(E,2)*band_upper_limits[front]/(exposure_upper_limits[front]*delta_E)
-        flux_back=pow(E,2)*band_upper_limits[back]/(exposure_upper_limits[back]*delta_E)
+            exposure_error_fraction=model.get_exposure_uncertainty(R.Double(E_min),R.Double(E_max))
+            delta_E=E_max-E_min
 
-        g3.SetPoint(band,E,flux_front+flux_back)
-        g3.SetPointError(band,E-E_min,E_max-E,0,0)
+            if nphoton[bin]>0:
+                flux=pow(E_model,2)*nphoton[bin]*alpha[bin]/(model_exposure[livebin]*delta_E)
+                err_flux=flux*sqrt(pow(err_alpha[bin]/alpha[bin],2)+pow(exposure_error_fraction,2))
+            else:
+                flux=0
+                err_flux=0
+        
+            E_model=energy[livebin]
+
+            g1.SetPoint(bin,0,0)
+            g1.SetPointError(bin,0,0,0,0)
+            g2.SetPoint(bin,0,0)
+            g2.SetPointError(bin,0,0,0,0)
+
+            if flux==0:
+                continue
+
+            # Ensure energy bin was fitted
+            livebin=livebin+1
+
+            g1.SetPoint(bin,E_model,flux)
+            g1.SetPointError(bin,E_model-E_min,E_max-E_model,err_flux,err_flux)
+
+            model_flux=func.Eval(E_model)
+            
+            g2.SetPoint(bin,E_model,(flux-model_flux)/flux)
+            g2.SetPointError(bin,E_model-E_min,E_max-E_model,err_flux/flux,err_flux/flux)
+
+    """
+    if combined==0:
+        for band in range(0,len(band_upper_limits)/2):
+            front=2*band
+            back=2*band+1
+            
+            E=energy_upper_limits[front]
+            E_min=get_edge(emin,E,0)
+            E_max=get_edge(emax,E,1)
+            delta_E=E_max-E_min
+        
+            flux_front=pow(E,2)*band_upper_limits[front]/(exposure_upper_limits[front]*delta_E)
+            flux_back=pow(E,2)*band_upper_limits[back]/(exposure_upper_limits[back]*delta_E)
+
+            g3.SetPoint(band,E,flux_front+flux_back)
+            g3.SetPointError(band,E-E_min,E_max-E,0,0)
+
+    if combined==1:
+        for band in range(0,len(band_upper_limits)):
+            E=energy_upper_limits[band]
+            E_min=get_edge(emin,E,0)
+            E_max=get_edge(emax,E,1)
+            delta_E=E_max-E_min
+        
+            flux=pow(E,2)*band_upper_limits[band]/(exposure_upper_limits[band]*delta_E)
+            
+            g3.SetPoint(band,E,flux)
+            g3.SetPointError(band,E-E_min,E_max-E,0,0)
+    """
 
     g1.Print()
     g2.Print()
-    g3.Print()
+    #g3.Print()
 
     global canvas
     global pad1
@@ -173,7 +245,7 @@ def plot(filename,source=""):
     box.Draw()
     butterfly.Draw("F")
     g1.Draw("P")
-    g3.Draw("P")
+    #g3.Draw("P")
     func.Draw("SAME")
     legend.Draw()
 
@@ -188,6 +260,8 @@ def plot(filename,source=""):
     ref.Draw("SAME")
     
     canvas.Update()
+
+    upper_limit(filename,source)
 
 def set_canvas(name):
 
@@ -373,9 +447,6 @@ def set_butterfly(model,params,param_errors):
         m_hi_lo.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2]-param_errors[2]]))
         m_hi_hi.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2]+param_errors[2]]))
 
-        #m_lo.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2]-param_errors[2]]))
-        #m_hi.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2]+param_errors[2]]))
-
         model.set_params(CRD([params[0]+param_errors[0],params[1]+param_errors[1],params[2]]))
 
         itr=100
@@ -393,9 +464,6 @@ def set_butterfly(model,params,param_errors):
         m_lo_hi.set_params(CRD([params[0]-param_errors[0],params[1]-param_errors[1],params[2]+param_errors[2]]))
         m_hi_lo.set_params(CRD([params[0]-param_errors[0],params[1]+param_errors[1],params[2]-param_errors[2]]))
         m_hi_hi.set_params(CRD([params[0]-param_errors[0],params[1]+param_errors[1],params[2]+param_errors[2]]))
-
-        #m_lo.set_params(CRD([params[0]-param_errors[0],params[1]-param_errors[1],params[2]-param_errors[2]]))
-        #m_hi.set_params(CRD([params[0]-param_errors[0],params[1]-param_errors[1],params[2]+param_errors[2]]))
 
         model.set_params(CRD([params[0]-param_errors[0],params[1]-param_errors[1],params[2]]))
 
@@ -418,11 +486,11 @@ def set_butterfly(model,params,param_errors):
     return b1
 
 def set_legend(name,model,graph,func,upper_limit):
-    legend = R.TLegend(0.7,0.8,0.85,0.9)
+    legend = R.TLegend(0.6,0.75,0.9,0.9)
     legend.SetHeader(name)
     legend.AddEntry(g1,"Data","P")
     legend.AddEntry(func,model.get_spec_type().replace('_',' '),"L")
-    legend.AddEntry(g3,"Upper Limit","L")
+    #legend.AddEntry(g3,"Upper Limit","L")
     legend.SetFillColor(0)
     legend.SetShadowColor(0)
     legend.SetLineColor(0)
@@ -434,3 +502,158 @@ def get_edge(array,E,num):
         if E>array[i] and E<array[i+1]:
                 edge=array[i+num]
     return edge
+
+def unique(array):
+    unique=1
+    for i in range(0,len(array)):
+        for j in range(0,i):
+            if array[i]==array[j]:
+                unique=0
+    return unique
+
+def upper_limit(filename,source=""):
+
+    print filename
+
+    global g_ul
+    g_ul=R.TGraphAsymmErrors()
+    g_ul.SetMarkerStyle(1)
+    g_ul.SetMarkerColor(1)
+
+    file=pyfits.open(filename)
+
+    name=""
+    
+    for src in range(0,len(file["SOURCES"].data.field('NAME'))):
+        name=file["SOURCES"].data.field('NAME')[src]
+        if name==source or len(file["SOURCES"].data.field('NAME'))==1:
+            print "Found "+name 
+            
+            emin=file["SOURCES"].data.field('EMIN')[src]
+            emax=file["SOURCES"].data.field('EMAX')[src]
+            
+            # Spectral fitting energy range
+            fit_range=file["SOURCES"].data.field('FIT_RANGE')[src]
+            lower_range=R.Double(fit_range[0])
+            upper_range=R.Double(fit_range[1])
+
+            # Band upper limits
+            band_upper_limits=file["SOURCES"].data.field('BAND_UPPER_LIMIT')[src]
+            energy_upper_limits=file["SOURCES"].data.field('ENERGY_UPPER_LIMIT')[src]
+            exposure_upper_limits=file["SOURCES"].data.field('EXPOSURE_UPPER_LIMIT')[src]
+
+    file.close()
+
+    # Check of using combined energy bins
+    combined=unique(emin)
+
+    if combined==0:
+        print "Separate front and back energy bins"
+        for band in range(0,len(band_upper_limits)/2):
+            front=2*band
+            back=2*band+1
+            
+            E=energy_upper_limits[front]
+            E_min=get_edge(emin,E,0)
+            E_max=get_edge(emax,E,1)
+            delta_E=E_max-E_min
+        
+            flux_front=pow(E,2)*band_upper_limits[front]/(exposure_upper_limits[front]*delta_E)
+            flux_back=pow(E,2)*band_upper_limits[back]/(exposure_upper_limits[back]*delta_E)
+
+            g_ul.SetPoint(band,E,flux_front+flux_back)
+            g_ul.SetPointError(band,E-E_min,E_max-E,0,0)
+
+    if combined==1:
+        print "Combined front and back energy bins"
+        for band in range(0,len(band_upper_limits)):
+            E=energy_upper_limits[band]
+            E_min=get_edge(emin,E,0)
+            E_max=get_edge(emax,E,1)
+            delta_E=E_max-E_min
+        
+            flux=pow(E,2)*band_upper_limits[band]/(exposure_upper_limits[band]*delta_E)
+            
+            g_ul.SetPoint(band,E,flux)
+            g_ul.SetPointError(band,E-E_min,E_max-E,0,0)
+
+    g_ul.Print()
+
+    R.gStyle.SetOptStat(0)
+    R.gStyle.SetOptTitle(0)
+
+    global c_ul
+    c_ul = R.TCanvas("UPPER LIMIT SED","UPPER LIMIT SED: "+name,200,10,500,500)
+    c_ul.Draw()
+
+    global p_ul
+    p_ul = R.TPad("UL Pad","UL Pad",0.0,0.0,1.0,1.0);
+    p_ul.SetLogx()
+    p_ul.SetLogy()
+    p_ul.SetLeftMargin(0.14)
+    p_ul.SetBottomMargin(0.1)
+    p_ul.SetTopMargin(0.04)
+    p_ul.SetRightMargin(0.04)
+    p_ul.SetFillColor(10)
+    p_ul.Draw();
+    p_ul.cd();
+    
+    xmin=R.Double()
+    xmax=R.Double()
+    ymin=R.Double()
+    ymax=R.Double()
+    g_ul.ComputeRange(xmin,ymin,xmax,ymax)
+   
+    e_min=100
+    e_max=3e5
+    flux_min=max(1e-8,ymin*R.Double(0.1))
+    flux_max=ymax*R.Double(10.)
+
+    global box_ul
+    box_ul = R.TH2F("UL","UL",10,e_min,e_max,10,flux_min,flux_max)
+    box_ul.SetTitle("Upper Limit Spectral Energy Distribution")
+    box_ul.GetXaxis().SetTitle("Energy [MeV]")
+    box_ul.GetXaxis().SetTitleFont(42)
+    box_ul.GetXaxis().CenterTitle()
+    box_ul.GetXaxis().SetTitleOffset(1.1)
+    box_ul.GetYaxis().SetTitle("E^{2} dN/dE [MeV cm^{-2} s^{-1}]")
+    box_ul.GetYaxis().SetTitleFont(42)
+    box_ul.GetYaxis().CenterTitle()
+    box_ul.GetYaxis().SetTitleOffset(1.5)
+
+    global legend_ul
+    legend_ul = R.TLegend(0.6,0.7,0.85,0.9)
+    legend_ul.SetHeader(name)
+    legend_ul.AddEntry(g_ul,"Upper Limit","L")
+    legend_ul.SetFillColor(0)
+    legend_ul.SetShadowColor(0)
+    legend_ul.SetLineColor(0)
+
+    c_ul.Draw()
+    box_ul.Draw()
+    g_ul.Draw("P")
+
+    global arrows
+    arrows=[]
+    for i in range(0,g_ul.GetN()):
+        x=R.Double(0)
+        y=R.Double(0)
+        g_ul.GetPoint(i,x,y)
+        E_min=get_edge(emin,x,0)
+        E_max=get_edge(emax,x,1)
+        x=R.Double(exp((log(E_min)+log(E_max))/2.))
+        print x,y
+        x1=x
+        x2=x
+        y1=y
+        y2=R.Double(0.5*y1)
+        arrows.append(R.TArrow(x1,y1,x2,y2,0.02,">"))
+        arrows[i].SetAngle(60)
+        arrows[i].SetOption(">")
+
+    for i in range(0,len(arrows)):
+        arrows[i].Draw()
+
+    legend_ul.Draw()
+
+    c_ul.Update()

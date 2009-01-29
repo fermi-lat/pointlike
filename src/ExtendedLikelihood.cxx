@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.cxx
     @brief Implementation of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.12 2008/12/30 09:19:27 bechtol Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.13 2009/01/19 23:38:21 bechtol Exp $
 */
 
 #include "pointlike/ExtendedLikelihood.h"
@@ -583,10 +583,13 @@ double ExtendedLikelihood::exposure(double E) const {
    return exposure;
 };
 
-double ExtendedLikelihood::full_exposure(double E) const {
-  double exposure_0=m_exposure[0]->value(m_dir,E);
-  double exposure_1=m_exposure[1]->value(m_dir,E);
-  return exposure_0+exposure_1;
+double ExtendedLikelihood::full_exposure(double E,int combined) const {
+  double full_exposure=-1.;
+  if(!combined)
+    full_exposure=m_exposure[0]->value(m_dir,E)+m_exposure[1]->value(m_dir,E);
+  else
+    full_exposure=m_exposure[m_band.event_class()]->value(m_dir,E);
+  return full_exposure;
 }
 
 void ExtendedLikelihood::setFlux(double flux) {

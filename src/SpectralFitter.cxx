@@ -134,7 +134,7 @@ namespace pointlike{
 
     m_npar=model.get_npar();
 
-    //m_confidence_limits.clear();
+    this->setCombined();
 
     this->initialize();
 
@@ -444,8 +444,8 @@ namespace pointlike{
     // Get the range of energy used for fitting and use it for calculating the flux ratio
     double flux_ratio=m_model_pointer->get_flux(s_upper_limit_lower_bound,s_upper_limit_upper_bound)/m_model_pointer->get_flux(fit_lower_bound,fit_upper_bound);
 
-    // Integrated exposure for front and back
-    double integrated_exposure=m_model_pointer->get_integrated_exposure(gSourcePointer,s_upper_limit_lower_bound,s_upper_limit_upper_bound);
+    // Integrated exposure for combined front and back
+    double integrated_exposure=m_model_pointer->get_integrated_exposure(gSourcePointer,s_upper_limit_lower_bound,s_upper_limit_upper_bound,m_combined);
 
     // Fraction of photons contained within region of interest
     double containment_fraction=weighted_exposure_sum/exposure_sum;
@@ -519,6 +519,33 @@ namespace pointlike{
       m_confidence_limits=cl;
     }
     else m_confidence_limits=confidence_limits;
+  }
+
+  //--------------------------------------------------------------------------
+  //  Function for using combined front and back energy binning
+  //--------------------------------------------------------------------------
+
+  void pointlike::SpectralFitter::setCombined(){
+    if(!gSourcePointer)
+      throw std::invalid_argument("SpectralFitter::gSourcePointer not set");
+    
+    m_combined=1;
+
+    int numBins=gSourcePointer->size();
+
+    for(int bin=0;bin<numBins;bin++){
+      if(gSourcePointer->at(bin)->band().event_class()==0)
+	m_combined=0;
+    }
+      
+    if(!m_combined)
+      std::cout << std::endl 
+		<< "Treating front and back conversion events separately" 
+		<< std::endl << std::endl;
+    else
+      std::cout << std::endl 
+		<< "Using combined front and back energy bins" 
+		<< std::endl << std::endl;
   }
 
 }
