@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: bechtol  Wed Jan 28 18:16:33 PST 2009
+pointlike/src
+
+Modified Files:
+	ExtendedLikelihood.cxx SpectralFitter.cxx 
+Log Message:
+Combined front and back energy bins
+
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Wed Jan 28 18:16:30 PST 2009
 pointlike/python
 
