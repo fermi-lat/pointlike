@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.20 2008/11/13 01:16:07 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.21 2008/12/05 20:20:40 funk Exp $
 
 */
 
@@ -106,7 +106,7 @@ namespace {
 
 // //  ----- static (class) variables -----
 
-skymaps::SkySpectrum*               SourceLikelihood::s_diffuse(0);
+std::vector<skymaps::SkySpectrum *> SourceLikelihood::s_diffuse(0);
 std::vector<skymaps::SkySpectrum *> SourceLikelihood::s_exposure(0);
 
 double                SourceLikelihood::s_emin(100.); 
@@ -220,13 +220,16 @@ SourceLikelihood::SourceLikelihood(skymaps::BinnedPhotonData& data,
     std::cout << "     Parameter " << i << ": " << m_sourceParameters[i] << std::endl;
   }
 
-  if( s_diffuse !=0){
-    m_background = new skymaps::CompositeSkySpectrum(s_diffuse);
-  }else {
-    // may not be valid?
-    m_background = 0; //new skymaps::CompositeSkySpectrum();
-  }
-  
+  m_background.resize(s_diffuse.size());
+  for(size_t i=0; i<s_diffuse.size();i++){
+     if( s_diffuse[i] !=0){
+       m_background[i] = new skymaps::CompositeSkySpectrum(s_diffuse[i]);
+     }else {
+       // may not be valid?
+       m_background[i] = 0; //new skymaps::CompositeSkySpectrum();
+     }
+  };
+   
   setup( data);
 
   setDir(m_dir, m_sourceParameters,false);
@@ -285,7 +288,7 @@ void SourceLikelihood::setup(skymaps::BinnedPhotonData& data){
       = new pointlike::ExtendedLikelihood(b, m_dir, 
 					  m_type,m_sourceParameters,
 					  pointlike::ExtendedLikelihood::defaultUmax(), 
-					  m_background);
+					  m_background[b.event_class()]);
 					  
     for(int i=0; i<s_exposure.size();i++) sl->setExposure(s_exposure[i],i);
 //     std::cout << "Constructed extended likelihood " << sl << std::endl;
@@ -309,8 +312,9 @@ pointlike::SourceLikelihood::~SourceLikelihood()
   for( iterator it = begin(); it!=end(); ++it){
     delete *it;
   }
-  delete m_background;
+  for (size_t i=0;i<m_background.size();i++) if(m_background[i]) delete m_background[i];
 }
+
 
 double pointlike::SourceLikelihood::TS(int band) const
 {
@@ -804,8 +808,43 @@ double pointlike::SourceLikelihood::value(const astro::SkyDir& dir, double energ
   return result;
 }
 
+void pointlike::SourceLikelihood::display(std::map <std::string,skymaps::SkyImage*>& image_map, int subs_factor,int index) const
+{
+    if(index>0) at(index)->display(image_map,subs_factor,index);
+    else {
+      const_iterator it = begin();
+      for(int i=0 ; it!=end(); ++it ,++i) (*it)->display(image_map,i,subs_factor);
+    };  	   
+};
 
+void pointlike::SourceLikelihood::createImages(const std::vector<std::string>& modes,const std::string& file_prefix
+                                              ,const std::string& projection,const std::string& coorsys
+					      ,double pixsize, double fov, int subs_factor) const {
+   int nlayers=size();
+   bool galactic=false,earth=false;
+   if(coorsys=="GAL") galactic=true;
+   else if (coorsys=="EARTH") earth=true;
+   else if (coorsys!="EQU") throw std::runtime_error("Coordinate system in createImages must be either GAL,EQU or EARTH.");
+   
+   std::map <std::string,skymaps::SkyImage*> image_map;
+   
+   std::vector<std::string>::const_iterator strIt=modes.begin();
+   for(;strIt!=modes.end();strIt++){
+      std::string filename=file_prefix+"_"+(*strIt)+".fits";
+      image_map[*strIt]=new skymaps::SkyImage(m_dir,filename,pixsize,fov,nlayers,projection,galactic,earth);
+   };   
+     
+   display(image_map,subs_factor);
+   
+   strIt=modes.begin();
+   for(;strIt!=modes.end();strIt++) delete image_map[*strIt];
+   
+};   
+   
+              					    	   
+					       
 
+/*  deprecated
 double pointlike::SourceLikelihood::display(const astro::SkyDir& dir, double energy, int mode,int index) const
 {
     if(index>0) return at(index)->display(dir, mode);
@@ -820,6 +859,7 @@ double pointlike::SourceLikelihood::display(const astro::SkyDir& dir, double ene
     }
     return (*it)->display(dir, mode);
 }
+*/
 
 ///@brief integral for the energy limits, in the given direction
 double pointlike::SourceLikelihood::integral(const astro::SkyDir& dir, double emin, double emax)const
@@ -829,17 +869,18 @@ double pointlike::SourceLikelihood::integral(const astro::SkyDir& dir, double em
 }
 
 
-skymaps::SkySpectrum* SourceLikelihood::set_diffuse(skymaps::SkySpectrum* diffuse, 
+skymaps::SkySpectrum* SourceLikelihood::set_diffuse(skymaps::SkySpectrum* diffuse, int event_class,
 						    double /*exposure*/)
 {  
-  skymaps::SkySpectrum* ret = s_diffuse;
-  s_diffuse = diffuse;
+  if(s_diffuse.size()<=(size_t)event_class) s_diffuse.resize(event_class+1,0);
+  skymaps::SkySpectrum* ret = s_diffuse[event_class];
+  s_diffuse[event_class]  = diffuse;
   return ret;
 }
 
 skymaps::SkySpectrum* SourceLikelihood::set_exposure(skymaps::SkySpectrum* exposure,int event_class)
 {  
-  if(s_exposure.size()<=event_class) s_exposure.resize(event_class+1,0);
+  if(s_exposure.size()<=(size_t)event_class) s_exposure.resize(event_class+1,0);
   skymaps::SkySpectrum* ret = s_exposure[event_class] ;
   s_exposure[event_class]  = exposure;
   return ret;
@@ -851,31 +892,26 @@ void pointlike::SourceLikelihood::addBackgroundPointSource(const pointlike::Sour
   if( fit==this){
     throw std::invalid_argument("SourceLikelihood::setBackgroundFit: cannot add self as background");
   }
-  if( m_background==0){
-    throw std::invalid_argument("SourceLikelihood::setBackgroundFit: no diffuse background");
-  }
-  
   if( s_verbose>0 ) {
     std::cout << "Adding source " << fit->name() << " to background" << std::endl;
   }
-  m_background->add(fit);
+  for(size_t i=0;i<m_background.size();i++) if(m_background[i]) m_background[i]->add(fit);
   setDir(dir()); // recomputes background for each SimpleLikelihood object
 }
 
 void pointlike::SourceLikelihood::clearBackgroundPointSource()
 {
-  if( m_background==0){
-    throw std::invalid_argument("SourceLikelihood::setBackgroundFit: no diffuse to add to");
-  }
-  while( m_background->size()>1) {
-    m_background->pop_back();
-  }
+  for(size_t i=0;i<m_background.size();i++) {
+     while( m_background[i] && m_background[i]->size()>1) {
+        m_background[i]->pop_back();
+     }
+  };   
   setDir(dir()); // recomputes background for each SimpleLikelihood object
 }
 
-const skymaps::SkySpectrum * pointlike::SourceLikelihood::background()const
+const skymaps::SkySpectrum * pointlike::SourceLikelihood::background(int event_class)const
 {
-    return m_background;
+    return m_background[event_class];
 }
 
 
@@ -929,7 +965,7 @@ std::vector<double> pointlike::SourceLikelihood::sigma(const std::string selecti
 };
 
 
-
+/*
 //=======================================================================
 //         SLdisplay implementation
 pointlike::SLdisplay::SLdisplay(const pointlike::SourceLikelihood & psl, int mode,double energy,int bandidx)
@@ -956,7 +992,7 @@ std::string SLdisplay::name()const
     
 }
 
-
+*/
 
 /////////////////////////////
 //// Deprecated code  ///////

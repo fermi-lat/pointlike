@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.11 2008/11/13 01:16:00 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.12 2009/01/23 21:14:12 bechtol Exp $
 */
 
 #ifndef tools_SourceLikelihood_h
@@ -13,6 +13,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1
 #include "astro/SkyDir.h"
 #include "skymaps/Band.h"
 #include "skymaps/BinnedPhotonData.h"
+#include "skymaps/SkyImage.h"
 
 #include <iostream>
 #include <map>
@@ -183,12 +184,12 @@ namespace pointlike {
 
     
     ///! Set the global diffuse background function, return current value 
-    static  skymaps::SkySpectrum* set_diffuse( skymaps::SkySpectrum* diffuse, 
+    static  skymaps::SkySpectrum* set_diffuse( skymaps::SkySpectrum* diffuse, int event_class=1, 
 					       double exposure = 1.0);
 
     ///! Set exposure maps (for each event class, return current value 
     static  skymaps::SkySpectrum* set_exposure( skymaps::SkySpectrum* exposure, 
-					       int event_class);
+					       int event_class=1);
     
     ///! add a point source fit to the background for subsequent fits
     void addBackgroundPointSource(const SourceLikelihood* fit);
@@ -197,7 +198,7 @@ namespace pointlike {
     void clearBackgroundPointSource();
 
     ///! access to background model 
-    const skymaps::SkySpectrum * background()const;
+    const skymaps::SkySpectrum * background(int event_class=1)const;
 
 //     /// @brief set the integration tolerance for the background, return present value
 //     static double set_tolerance(double tol);
@@ -207,7 +208,13 @@ namespace pointlike {
     /// @param energy selects energy band
     /// @mode 0: same as the operator; 1: data; 2: background; 3:fit; 4:residual
     ///     
-    double display(const astro::SkyDir& dir, double energy, int mode, int bandindex=-1)const;
+/*    double display(const astro::SkyDir& dir, double energy, int mode, int bandindex=-1)const;*/
+    void display(std::map<std::string,skymaps::SkyImage*>& image_map, int subs_factor=1,int index=0) const;
+
+    void createImages(const std::vector<std::string>& modes,const std::string& file_prefix
+                     ,const std::string& projection="ZEA",const std::string& coorsys="GAL"
+		     ,double pixsize=0.1, double fov=5., int subs_factor=1) const ;
+
     std::vector<double> energyList() const;
  
   private:
@@ -234,10 +241,10 @@ namespace pointlike {
     std::ostream& out()const{return *m_out;}
     mutable CLHEP::Hep3Vector m_gradient; ///< current gradient
     
-    static skymaps::SkySpectrum* s_diffuse; ///< global diffuse used by all SL objects
+    static std::vector<skymaps::SkySpectrum*> s_diffuse; ///< global diffuse used by all SL objects
     static std::vector<skymaps::SkySpectrum*> s_exposure; ///< global exposure maps used by all SL objects
     
-    skymaps::CompositeSkySpectrum * m_background;  ///< background spectrum to use
+    std::vector<skymaps::CompositeSkySpectrum *> m_background;  ///< background spectrum to use
     
     static double s_emin, s_emax, s_minalpha, s_TSmin, s_tolerance, 
       s_maxstep,s_accuracy,s_maxsize,s_extscale; //
@@ -256,6 +263,8 @@ namespace pointlike {
     /** @class SLdisplay
 
 */
+
+/*
   class SLdisplay :  public skymaps::SkySpectrum {
   public:
     SLdisplay(const SourceLikelihood & psl, int mode, double energy=1000.,int bandindex=-1);
@@ -271,6 +280,7 @@ namespace pointlike {
     int m_index;
     
   };
+*/  
     
 };
 #endif

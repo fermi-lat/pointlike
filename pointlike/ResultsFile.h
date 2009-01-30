@@ -18,6 +18,8 @@ namespace pointlike {
     int levels;
     double eratio;
 
+    bool fields_created;
+    
   public:
 
     ResultsFile (const std::string& filename,const Data& datafile, int nsources);

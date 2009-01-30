@@ -84,6 +84,7 @@ def plot(filename,source=""):
     # Check of using combined energy bins
     combined=unique(emin)
 
+    npoints=0
     # Front and back separate case
     if combined==0:
         print "Separate front and back energy bins"
@@ -101,7 +102,7 @@ def plot(filename,source=""):
             E_max=emax[front]
             E_model=energy[livebin]
 
-            if E_model<lower_range or E_model>upper_range:
+            if E_model<E_min or E_model>E_max:
                 continue
         
             exposure_error_fraction=model.get_exposure_uncertainty(R.Double(E_min),R.Double(E_max))
@@ -126,26 +127,27 @@ def plot(filename,source=""):
             flux=(flux_front+flux_back)/2
             err_flux=sqrt(pow(err_flux_front,2)+pow(err_flux_back,2))
 
-            g1.SetPoint(bin,0,0)
-            g1.SetPointError(bin,0,0,0,0)
-            g2.SetPoint(bin,0,0)
-            g2.SetPointError(bin,0,0,0,0)
+#            g1.SetPoint(livebin/2,0,0)
+#            g1.SetPointError(livebin/2,0,0,0,0)
+#            g2.SetPoint(livebin/2,0,0)
+#            g2.SetPointError(livebin/2,0,0,0,0)
 
             if flux==0:
                 continue
 
-            # Ensure energy bin was fitted
-            livebin=livebin+2
 
-            g1.SetPoint(bin,E_model,flux)
-            g1.SetPointError(bin,E_model-E_min,E_max-E_model,err_flux,err_flux)
+            g1.SetPoint(npoints,E_model,flux)
+            g1.SetPointError(npoints,E_model-E_min,E_max-E_model,err_flux,err_flux)
 
             model_flux=func.Eval(E_model)
             
-            g2.SetPoint(bin,E_model,(flux-model_flux)/flux)
-            g2.SetPointError(bin,E_model-E_min,E_max-E_model,err_flux/flux,err_flux/flux)
+            g2.SetPoint(npoints,E_model,(flux-model_flux)/flux)
+            g2.SetPointError(npoints,E_model-E_min,E_max-E_model,err_flux/flux,err_flux/flux)
+            npoints+=1
+            # Ensure energy bin was fitted
+            livebin=livebin+2
 
-    # Front and back combined
+   # Front and back combined
     if combined==1:
         print "Combined front and back energy bins"
         livebin=0
@@ -159,7 +161,7 @@ def plot(filename,source=""):
             E_max=emax[bin]
             E_model=energy[livebin]
 
-            if E_model<lower_range or E_model>upper_range:
+            if E_model<E_min or E_model>E_max:
                 continue
         
             exposure_error_fraction=model.get_exposure_uncertainty(R.Double(E_min),R.Double(E_max))
@@ -174,24 +176,25 @@ def plot(filename,source=""):
         
             E_model=energy[livebin]
 
-            g1.SetPoint(bin,0,0)
-            g1.SetPointError(bin,0,0,0,0)
-            g2.SetPoint(bin,0,0)
-            g2.SetPointError(bin,0,0,0,0)
+#            g1.SetPoint(livebin,0,0)
+#            g1.SetPointError(livebin,0,0,0,0)
+#            g2.SetPoint(livebin,0,0)
+#            g2.SetPointError(livebin,0,0,0,0)
 
             if flux==0:
                 continue
 
-            # Ensure energy bin was fitted
-            livebin=livebin+1
-
-            g1.SetPoint(bin,E_model,flux)
-            g1.SetPointError(bin,E_model-E_min,E_max-E_model,err_flux,err_flux)
+            g1.SetPoint(npoints,E_model,flux)
+            g1.SetPointError(npoints,E_model-E_min,E_max-E_model,err_flux,err_flux)
 
             model_flux=func.Eval(E_model)
             
-            g2.SetPoint(bin,E_model,(flux-model_flux)/flux)
-            g2.SetPointError(bin,E_model-E_min,E_max-E_model,err_flux/flux,err_flux/flux)
+            g2.SetPoint(npoints,E_model,(flux-model_flux)/flux)
+            g2.SetPointError(npoints,E_model-E_min,E_max-E_model,err_flux/flux,err_flux/flux)
+
+            # Ensure energy bin was fitted
+	    npoints+=1
+            livebin=livebin+1
 
     """
     if combined==0:
@@ -547,8 +550,9 @@ def upper_limit(filename,source=""):
     # Check of using combined energy bins
     combined=unique(emin)
 
+    npoints=0
     if combined==0:
-        print "Separate front and back energy bins"
+        print "Separate front and back energy bins"	
         for band in range(0,len(band_upper_limits)/2):
             front=2*band
             back=2*band+1
@@ -557,12 +561,15 @@ def upper_limit(filename,source=""):
             E_min=get_edge(emin,E,0)
             E_max=get_edge(emax,E,1)
             delta_E=E_max-E_min
-        
+            
             flux_front=pow(E,2)*band_upper_limits[front]/(exposure_upper_limits[front]*delta_E)
             flux_back=pow(E,2)*band_upper_limits[back]/(exposure_upper_limits[back]*delta_E)
 
-            g_ul.SetPoint(band,E,flux_front+flux_back)
-            g_ul.SetPointError(band,E-E_min,E_max-E,0,0)
+            if(E<=0): continue  
+	      
+            g_ul.SetPoint(npoints,E,flux_front+flux_back)
+            g_ul.SetPointError(npoints,E-E_min,E_max-E,0,0)
+	    npoints+=1
 
     if combined==1:
         print "Combined front and back energy bins"
@@ -574,8 +581,11 @@ def upper_limit(filename,source=""):
         
             flux=pow(E,2)*band_upper_limits[band]/(exposure_upper_limits[band]*delta_E)
             
-            g_ul.SetPoint(band,E,flux)
-            g_ul.SetPointError(band,E-E_min,E_max-E,0,0)
+            if(E<=0): continue  
+
+            g_ul.SetPoint(npoints,E,flux)
+            g_ul.SetPointError(npoints,E-E_min,E_max-E,0,0)
+	    npoints+=1
 
     g_ul.Print()
 
@@ -657,3 +667,17 @@ def upper_limit(filename,source=""):
     legend_ul.Draw()
 
     c_ul.Update()
+    
+    
+if __name__ == "__main__":
+    
+    import sys
+    
+    if(len(sys.argv)==2): plot(sys.argv[1])
+    elif(len(sys.argv)==3): plot(sys.argv[1],sys.argv[2])
+    else:
+       print "Usage: %s result-file <sourcename>"%(sys.argv[0])
+       sys.exit(1)
+       
+    raw_input()
+    

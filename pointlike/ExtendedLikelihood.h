@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.h
     @brief declaration of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.8 2009/01/19 23:38:15 bechtol Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.9 2009/01/29 02:16:27 bechtol Exp $
 
 */
 
@@ -17,10 +17,12 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v
 
 #include "skymaps/PsfFunction.h"
 #include "skymaps/SkySpectrum.h"
+#include "skymaps/SkyImage.h"
 #include <TMath.h>
 #include "pointlike/ExtendedSourcePDF.h"
 
 #include <vector>
+#include <map>
 #include <utility>
 
 namespace pointlike {
@@ -142,7 +144,8 @@ namespace pointlike {
     /// @param dir direciton
     /// @mode 0: same as the operator; 1: data; 2: background; 3:fit; 4:residual
     ///     
-    double display(const astro::SkyDir& dir, int mode)const;
+    void display(std::map<std::string,skymaps::SkyImage*>& image_map, int level, int subs_factor=1) const;
+    /*double display(const astro::SkyDir& dir, int mode)const;*/
 
     /// @brief access to the effective sigma (radians)  used for the fits
     double sigma()const{ return m_sigma;}

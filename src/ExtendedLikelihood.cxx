@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.cxx
     @brief Implementation of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.13 2009/01/19 23:38:21 bechtol Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.14 2009/01/29 02:16:33 bechtol Exp $
 */
 
 #include "pointlike/ExtendedLikelihood.h"
@@ -629,11 +629,114 @@ double ExtendedLikelihood::operator()(const astro::SkyDir& dir)const
     return signal()*m_psf(u)/ m_fint/jacobian;
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+void ExtendedLikelihood::display(std::map<std::string,skymaps::SkyImage*>& image_map, int layer, int subs_factor) const {
+    double jacobian( 2.*M_PI* sqr(sigma()) );
+    double area( m_band.pixelArea() );
+
+    std::map<std::string,skymaps::SkyImage*>::iterator imIterator=image_map.begin();
+    for(;imIterator!=image_map.end();imIterator++){
+       skymaps::SkyImage& image= *(imIterator->second);
+       std::string  mode       = imIterator->first;
+       if(layer>=image.layers()) continue;
+       image.setLayer(layer);
+       std::cout<<"Creating image mode: "<<mode<<" layer: "<<layer<<std::endl;
+       if(mode=="counts"){
+          PixelList::const_iterator it;
+	  for( it=m_vec.begin(); it!=m_vec.end(); ++it ) {
+             image.addPoint(it->first,(double)it->second,layer);
+	  }
+       
+       } else if(mode=="background" || mode=="model" || mode=="smoothed_counts") {
+
+          int na1=image.naxis1(), na2=image.naxis2();    
+	  for( size_t k = 0; k< (unsigned int)(na1)*(na2); ++k){
+             double x = static_cast<int>(k%na1)+1.0;
+             double y = static_cast<int>(k/na1)+1.0;
+	     
+	     double dsub=1./(double)subs_factor;
+	     double value=0., count=0.;
+
+// calculate area of each pixel	     
+	     std::pair<double,double> p1=image.projector()->pix2sph(x-0.5,y-0.5);
+	     std::pair<double,double> p2=image.projector()->pix2sph(x+0.5,y-0.5);
+	     std::pair<double,double> p3=image.projector()->pix2sph(x-0.5,y+0.5);
+	     std::pair<double,double> p4=image.projector()->pix2sph(x+0.5,y+0.5);
+	     double dtheta=0.5*fabs(p4.second-p2.second+p3.second-p1.second)*M_PI/180.;
+	     double mtheta=0.25*fabs(p4.second+p2.second+p3.second+p1.second)*M_PI/180.;
+	     double dphi=0.5*fabs(p4.first-p3.first+p2.first-p1.first)*M_PI/180.;
+	     double area=dtheta*dphi/cos(mtheta);
+//	     std::cout<<"display: "<<x<<" "<<y<<" dtheta="<<dtheta<<" mtheta="<<mtheta<<" dphi+"<<dphi<<" area="<<area<<std::endl;
+
+// subsample pixels 	     
+	     for( double dx=-0.5+0.5*dsub; dx<0.5 ; dx+=dsub ){ 
+	        for( double dy=-0.5+0.5*dsub; dy<0.5 ; dy+=dsub ){ 
+                  if( image.projector()->testpix2sph(x+dx,y+dy)==0) {
+                     astro::SkyDir dir(x+dx,y+dy, *image.projector());
+   		     if(mode=="model"){
+   	        	double diff( dir.difference(m_dir) ); 
+                	double u   ( sqr(diff/sigma())/2.  );
+                	value+=  m_alpha*m_psf(u)/m_fint + (1.-m_alpha)*(m_back->operator()(dir))/m_umax ;
+                     } else if (mode=="background"){
+                        value+= (1.-m_alpha)*(m_back->operator()(dir))/m_umax ;
+ 		     } else if (mode=="smoothed_counts"){
+        		PixelList::const_iterator it;
+			for( it=m_vec.begin(); it!=m_vec.end(); ++it ) {
+   	        	   double diff( dir.difference(it->first) ); 
+                	   double u   ( sqr(diff/sigma())/2.  );
+        		   value+=it->second*m_psf(u)/photons();
+			}
+		     };
+                     count+=1.0;
+		  };
+		};
+	     };	     
+             astro::SkyDir dir(x,y, *image.projector());
+	     image[dir] =area/jacobian  * photons() * value/count;
+ 	  };  
+       };
+    };   
+       
+    imIterator=image_map.begin();
+    std::map<std::string,skymaps::SkyImage*>::iterator cmap=image_map.find("counts");
+    std::map<std::string,skymaps::SkyImage*>::iterator mmap=image_map.find("model");
+
+    for(;imIterator!=image_map.end();imIterator++){
+       skymaps::SkyImage& image = *(imIterator->second);
+       std::string mode         = imIterator->first;
+       if (cmap==image_map.end() || mmap==image_map.end())
+           throw std::runtime_error("Residual maps can only be computed together with count and model maps.");
+       
+       if (mode=="ts_residual" || mode=="count_residual") {
+           int na1=image.naxis1(), na2=image.naxis2();    
+	   for( size_t k = 0; k< (unsigned int)(na1)*(na2); ++k){
+              double x = static_cast<int>(k%na1)+1.0;
+              double y = static_cast<int>(k/na1)+1.0;
+              if( image.projector()->testpix2sph(x,y)==0) {
+                 astro::SkyDir dir(x,y, *image.projector());
+    	         if(mode=="count_residual"){
+                     image[dir]=(*cmap->second)[dir]-(*mmap->second)[dir];
+	         };
+	         if(mode=="ts_residual"){
+		     double counts = (*cmap->second)[dir];
+		     double prediction = (*mmap->second)[dir];
+		     double sign = (counts-prediction >= 0)? 1: -1;
+		     image[dir]= -sign*sqrt(-2*(counts - prediction + counts*log(prediction/counts)));
+		 
+                 };
+	     };
+	  };    	 
+       };
+    };
+      
+};
+
+/*deprecated
 double ExtendedLikelihood::display(const astro::SkyDir& dir, int mode) const
 {
     double diff( dir.difference(m_dir) ); 
     double u   ( sqr(diff/sigma())/2.  );
-    double jacobian( 2.*M_PI* sqr(sigma()) );
+    double jacobian();
     if( mode ==0){
         // default is density, as above
         return signal()*m_psf(u)/ m_fint/jacobian;
@@ -650,7 +753,8 @@ double ExtendedLikelihood::display(const astro::SkyDir& dir, int mode) const
     }
 
     int counts (it==m_vec.end()? 0:  it->second);
-
+    std::cout<<"display: "<<m_band.emin()<<" "<<m_vec.size()<<" "<<counts<<std::endl; 
+     
     if( mode==1 ) return counts;   // observed in the pixel
     double back( (*m_back)(pdir) );           // normalized background at the pixel: average should be 1.0
     if( mode==2 ) return back; 
@@ -665,7 +769,7 @@ double ExtendedLikelihood::display(const astro::SkyDir& dir, int mode) const
     return 0; 
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+*/
 
 const skymaps::SkySpectrum* ExtendedLikelihood::diffuse() const
 {
