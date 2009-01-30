@@ -8,7 +8,10 @@
 
 namespace pointlike{
 
-  ResultsFile::ResultsFile (const std::string& filename,const Data& datafile,int nsources):srcTab(0),fileSvc(tip::IFileSvc::instance()) {
+  ResultsFile::ResultsFile (const std::string& filename,const Data& datafile,int nsources)
+     :srcTab(0)
+     ,fileSvc(tip::IFileSvc::instance())
+     ,fields_created(false) {
       
     std::list<skymaps::Band>::const_iterator SpecIt = datafile.map().begin();
     for(;SpecIt!= datafile.map().end(); SpecIt++){      
@@ -29,7 +32,7 @@ namespace pointlike{
     if(srcTab==0) throw std::runtime_error("Could not create SOURCES table.");;
     
     tip::Header& srcHeader = srcTab->getHeader();
-    srcTab->appendField("NAME", "20A");
+    srcTab->appendField("NAME", "30A");
     srcTab->appendField("TYPE", "10A");
     srcTab->appendField("RA", "1E");
     srcTab->appendField("DEC", "1E");
@@ -155,13 +158,13 @@ namespace pointlike{
     this->fill(like);
     srcTabItor--;
     
-    srcTab->appendField("MODEL", "20A");
+    if(!fields_created) srcTab->appendField("MODEL", "20A");
     (*srcTabItor)["MODEL"].set(fitter.getModel()->get_spec_type());
     
     std::vector<double> range(2);
     range[0]=fitter.getModel()->get_lower_bound();
     range[1]=fitter.getModel()->get_upper_bound();
-    srcTab->appendField("FIT_RANGE","2E");
+    if(!fields_created) srcTab->appendField("FIT_RANGE","2E");
     (*srcTabItor)["FIT_RANGE"].set(range);
 
     std::stringstream nparstream;
@@ -172,32 +175,32 @@ namespace pointlike{
     nbinstream<<fitter.getModel()->get_model_energies().size()<<"E";
     std::string nbin=nbinstream.str();
     
-    srcTab->appendField("LOGLIKESUM","1E");
+    if(!fields_created) srcTab->appendField("LOGLIKESUM","1E");
     (*srcTabItor)["LOGLIKESUM"].set(fitter.getModel()->get_logLikeSum());
   
-    srcTab->appendField("PAR",npar);
+    if(!fields_created) srcTab->appendField("PAR",npar);
     (*srcTabItor)["PAR"].set(fitter.getModel()->get_params());
   
-    srcTab->appendField("PAR_ERR",npar);
+    if(!fields_created) srcTab->appendField("PAR_ERR",npar);
     (*srcTabItor)["PAR_ERR"].set(fitter.getModel()->get_param_errors());
     
     if(fitter.getModel()->get_spec_type()=="POWER_LAW"){
-      srcTab->appendField("DECORRELATION_ENERGY","1E");
+      if(!fields_created) srcTab->appendField("DECORRELATION_ENERGY","1E");
       (*srcTabItor)["DECORRELATION_ENERGY"].set(fitter.getModel()->get_scale());
     }
     
     // Record model integrated flux 100 MeV < E < 300 GeV [ ph/cm^2/s ]
-    srcTab->appendField("INTEGRAL_FLUX","1E");
+    if(!fields_created) srcTab->appendField("INTEGRAL_FLUX","1E");
     (*srcTabItor)["INTEGRAL_FLUX"].set(fitter.getModel()->get_flux(100,3.e5));
     
     // Record flux errors (high/low)
-    srcTab->appendField("INTEGRAL_FLUX_ERR","2E");
+    if(!fields_created) srcTab->appendField("INTEGRAL_FLUX_ERR","2E");
     (*srcTabItor)["INTEGRAL_FLUX_ERR"].set(fitter.getModel()->get_flux_errors(100,3.e5));
     
-    srcTab->appendField("MODEL_ENERGY",nbin);
+    if(!fields_created) srcTab->appendField("MODEL_ENERGY",nbin);
     (*srcTabItor)["MODEL_ENERGY"].set(fitter.getModel()->get_model_energies());
 
-    srcTab->appendField("MODEL_EXPOSURE",nbin);
+    if(!fields_created) srcTab->appendField("MODEL_EXPOSURE",nbin);
     (*srcTabItor)["MODEL_EXPOSURE"].set(fitter.getModel()->get_exposures());
 
     
@@ -208,21 +211,23 @@ namespace pointlike{
       std::stringstream nclstream;
       nclstream<<fitter.getConfidenceLimits().size()<<"E";
       std::string ncl=nclstream.str();
-      srcTab->appendField("CONFIDENCE_LIMIT",ncl);
-      srcTab->appendField("FLUX_UPPER_LIMIT",ncl);
+      if(!fields_created) srcTab->appendField("CONFIDENCE_LIMIT",ncl);
+      if(!fields_created) srcTab->appendField("FLUX_UPPER_LIMIT",ncl);
       (*srcTabItor)["CONFIDENCE_LIMIT"].set(fitter.getConfidenceLimits());
       (*srcTabItor)["FLUX_UPPER_LIMIT"].set(fitter.getFluxUpperLimits());
 
       std::stringstream nbinstream;
       nbinstream<<fitter.getBandUpperLimits().size()<<"E";
       std::string nbin=nbinstream.str();
-      srcTab->appendField("BAND_UPPER_LIMIT",nbin);
-      srcTab->appendField("ENERGY_UPPER_LIMIT",nbin);
-      srcTab->appendField("EXPOSURE_UPPER_LIMIT",nbin);
+      if(!fields_created) srcTab->appendField("BAND_UPPER_LIMIT",nbin);
+      if(!fields_created) srcTab->appendField("ENERGY_UPPER_LIMIT",nbin);
+      if(!fields_created) srcTab->appendField("EXPOSURE_UPPER_LIMIT",nbin);
       (*srcTabItor)["BAND_UPPER_LIMIT"].set(fitter.getBandUpperLimits());
       (*srcTabItor)["ENERGY_UPPER_LIMIT"].set(fitter.getEnergyUpperLimits());
       (*srcTabItor)["EXPOSURE_UPPER_LIMIT"].set(fitter.getExposureUpperLimits());
     }
+    fields_created=true;
+    srcTabItor++;
   
   };
 
