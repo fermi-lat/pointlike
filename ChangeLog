@@ -1,4 +1,19 @@
 ------------------------------------------------------------
+User: markusa  Thu Jan 29 17:26:55 PST 2009
+pointlike/pointlike
+
+Modified Files:
+	ExtendedLikelihood.h HypergeometricFunction.h ResultsFile.h 
+	SourceLikelihood.h 
+Log Message:
+* split hypergeometric function into .h .cxx
+* reimplemented images
+* support for separate front/back diffuse maps
+
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Wed Jan 28 18:16:33 PST 2009
 pointlike/src
 
