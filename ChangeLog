@@ -1,4 +1,18 @@
 ------------------------------------------------------------
+User: markusa  Thu Jan 29 17:27:50 PST 2009
+pointlike/src
+
+Modified Files:
+	ExtendedLikelihood.cxx ResultsFile.cxx SourceLikelihood.cxx 
+Log Message:
+* split hypergeometric function into .h .cxx
+* reimplemented images
+* support for separate front/back diffuse maps
+
+
+
+    *
+------------------------------------------------------------
 User: markusa  Thu Jan 29 17:27:49 PST 2009
 pointlike/python
 
