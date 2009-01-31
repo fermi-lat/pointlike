@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: bechtol  Sat Jan 31 15:04:59 PST 2009
+pointlike/src
+
+Modified Files:
+	ExtendedLikelihood.cxx ResultsFile.cxx SpectralFitter.cxx 
+Log Message:
+Use full exposure PDF option, choose exposure event class
+
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Sat Jan 31 15:04:54 PST 2009
 pointlike/python
 
