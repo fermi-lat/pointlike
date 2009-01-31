@@ -23,7 +23,8 @@ namespace pointlike {
   public:
 
     ResultsFile (const std::string& filename,const Data& datafile, int nsources);
-    
+    ~ResultsFile(){writeAndClose();};
+       
     void fill(SourceLikelihood& like);
     void fill(SourceLikelihood& like,SpectralFitter& fitter);
     

@@ -49,13 +49,11 @@ namespace pointlike{
     srcTab->appendField("EMAX", efmt);
     srcTab->appendField("ALPHA", efmt);
     srcTab->appendField("ERR_ALPHA", efmt);
-    srcTab->appendField("FLUX", efmt);
-    srcTab->appendField("ERR_FLUX", efmt);
-    srcTab->appendField("EXPOSURE", efmt);
     srcTab->appendField("NPHOTON", jfmt);
     srcTab->appendField("NSIGNAL", efmt);
     srcTab->appendField("ERR_NSIG", efmt);
     srcTab->appendField("TS", efmt);
+    srcTab->appendField("EVENT_CLASS", jfmt);
     srcTab->appendField("BG", efmt);
     srcTab->appendField("MINOS_PARABOLIC","7E");
     srcTab->appendField("MINOS_PLUS","7E");
@@ -107,6 +105,7 @@ namespace pointlike{
     std::vector<double> nsig(levels,0);
     std::vector<double> errns(levels,0);
     std::vector<double> ts(levels,0);
+    std::vector<double> evclass(levels,0);
     std::vector<double> bg(levels,0);
     std::vector<double> sigma(levels,0);
     std::vector<double> gamma(levels,0);
@@ -115,20 +114,18 @@ namespace pointlike{
     double sumTS=0.;
     for( SourceLikelihood::const_iterator it = like.begin(); it!=like.end() && i<levels; ++it,++i){
       ExtendedLikelihood& levellike = **it;
-      while (emin[i]<levellike.band().emin()) i++;
+      while ((emin[i]+1e-5)<levellike.band().emin()) i++;
       
       std::pair<double,double> a= levellike.maximize();
       // Fix problem with exposure energy range
       //std::pair<double,double> f= levellike.flux();
       alpha[i]=a.first;
       erra[i]=a.second;
-      //flux[i]=f.first;
-      //errflux[i]=f.second;
-      //exposure[i]=levellike.exposure();
       nphoton[i] = levellike.photons();
       nsig[i] = levellike.photons()*a.first/levellike.psfIntegral();
       errns[i] = levellike.photons()*a.second/levellike.psfIntegral();
       ts[i] = levellike.TS();
+      evclass[i] = levellike.band().event_class();
       bg[i] = levellike.average_b();
       gamma[i] = levellike.gamma();
       sigma[i] = levellike.sigma();
@@ -138,13 +135,11 @@ namespace pointlike{
     (*srcTabItor)["SUMTS"].set(sumTS);
     (*srcTabItor)["ALPHA"].set(alpha);
     (*srcTabItor)["ERR_ALPHA"].set(erra);
-    //(*srcTabItor)["FLUX"].set(flux);
-    //(*srcTabItor)["ERR_FLUX"].set(errflux);
-    //(*srcTabItor)["EXPOSURE"].set(exposure);
     (*srcTabItor)["NPHOTON"].set(nphoton);
     (*srcTabItor)["NSIGNAL"].set(nsig);
     (*srcTabItor)["ERR_NSIG"].set(errns);
     (*srcTabItor)["TS"].set(ts);
+    (*srcTabItor)["EVENT_CLASS"].set(evclass);
     (*srcTabItor)["BG"].set(bg);
     (*srcTabItor)["GAMMA"].set(gamma);
     (*srcTabItor)["SIGMA"].set(sigma);

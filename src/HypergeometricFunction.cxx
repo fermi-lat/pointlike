@@ -413,7 +413,7 @@ double GammaFunction::gammaRatio(double w, double z){
 	 if(fabs(del - 1.0) < 10.0*GSL_DBL_EPSILON) break;
        }
 
-       if(n == maxiter) {
+       if(n == maxiter && fabs(del - 1.0)>1.e-10) {
 	  std::cerr<<"WARNING: continued fraction accuracy problem. max iterations reached: del="<<fabs(del - 1.0)<<std::endl;
           //throw std::runtime_error("HypergeometricU evaluation with continued fraction failed.");
        } ;

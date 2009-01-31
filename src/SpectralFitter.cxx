@@ -445,7 +445,7 @@ namespace pointlike{
     double flux_ratio=m_model_pointer->get_flux(s_upper_limit_lower_bound,s_upper_limit_upper_bound)/m_model_pointer->get_flux(fit_lower_bound,fit_upper_bound);
 
     // Integrated exposure for combined front and back
-    double integrated_exposure=m_model_pointer->get_integrated_exposure(gSourcePointer,s_upper_limit_lower_bound,s_upper_limit_upper_bound,m_combined);
+    double integrated_exposure=m_model_pointer->get_integrated_exposure(gSourcePointer,s_upper_limit_lower_bound,s_upper_limit_upper_bound);
 
     // Fraction of photons contained within region of interest
     double containment_fraction=weighted_exposure_sum/exposure_sum;
