@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: bechtol  Sat Jan 31 15:04:54 PST 2009
+pointlike/python
+
+Modified Files:
+	specplot.py 
+Log Message:
+Use full exposure PDF option, choose exposure event class
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Sat Jan 31 15:04:30 PST 2009
 pointlike/pointlike
 
