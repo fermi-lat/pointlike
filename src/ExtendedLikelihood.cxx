@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.cxx
     @brief Implementation of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.15 2009/01/30 01:27:50 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.16 2009/01/31 00:32:43 markusa Exp $
 */
 
 #include "pointlike/ExtendedLikelihood.h"
@@ -566,7 +566,7 @@ std::pair<double,double> ExtendedLikelihood::flux() const {
    return photon_flux;
 };
 
-double ExtendedLikelihood::exposure(double E) const {
+double ExtendedLikelihood::exposure(double E,int evclass) const {
    double exposure=-1;
    if(m_exposure.size()>m_band.event_class()){
      if(E<0){
@@ -575,18 +575,11 @@ double ExtendedLikelihood::exposure(double E) const {
 	 m_exposure[m_band.event_class()]->integral(m_dir,m_band.emin(),m_band.emax())/deltaE;
      } 
      else exposure=m_exposure[m_band.event_class()]->value(m_dir,E);
+     if(evclass==0 || evclass==1)
+       exposure=m_exposure[evclass]->value(m_dir,E);
    }
    return exposure;
 };
-
-//double ExtendedLikelihood::full_exposure(double E,int combined) const {
-//  double full_exposure=-1.;
-//  if(!combined)
-//    full_exposure=m_exposure[0]->value(m_dir,E)+m_exposure[1]->value(m_dir,E);
-//  else
-//    full_exposure=m_exposure[m_band.event_class()]->value(m_dir,E);
-//  return full_exposure;
-//}
 
 void ExtendedLikelihood::setFlux(double flux) {
    double deltaE = (m_band.emax()-m_band.emin());

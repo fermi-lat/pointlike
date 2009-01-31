@@ -146,23 +146,40 @@ namespace pointlike{
       double weighted_exposure_sum=0;
       double normalization=0;
       
-      double frac,E,dNdE,exposure;
+      double frac,mid_frac,next_frac;
+      double E,mid_E,next_E;
+      double dNdE,dE;
+      double exposure;
       
       double max=100.;
 
       for(double i=0.;i<max;i+=1.){
 	frac=i/max;
-	E=frac*E_max+(1-frac)*E_min;
-	dNdE=this->get_dNdE(E);
-	exposure=SourcePointer->at(bin)->exposure(E);
-	weighted_exposure_sum+=dNdE*exposure;
-	normalization+=dNdE;
+	mid_frac=(i+0.5)/max;
+	next_frac=(i+1.)/max;
+
+	E=exp((1.-frac)*log(E_min)+frac*log(E_max));
+	mid_E=exp((1.-mid_frac)*log(E_min)+mid_frac*log(E_max));
+	next_E=exp((1.-next_frac)*log(E_min)+next_frac*log(E_max));
+
+	/*
+	E=frac*E_max+(1.-frac)*E_min;
+	mid_E=mid_frac*E_max+(1.-mid_frac)*E_min;
+	next_E=next_frac*E_max+(1.-next_frac);
+	*/
+
+	dE=next_E-E;
+
+	dNdE=this->get_dNdE(mid_E);
+	exposure=SourcePointer->at(bin)->exposure(mid_E);
+	weighted_exposure_sum+=dNdE*exposure*dE;
+	normalization+=dNdE*dE;
       }
       
       return weighted_exposure_sum/normalization;
     }
 
-    double get_integrated_exposure(pointlike::SourceLikelihood* SourcePointer,double E_min,double E_max){
+    double get_integrated_exposure(pointlike::SourceLikelihood* SourcePointer,double E_min,double E_max,int evclass=-1){
 
       double weighted_exposure_sum=0;
       double normalization=0;
@@ -188,8 +205,11 @@ namespace pointlike{
 
 	dNdE=this->get_dNdE(mid_E);
 
-	// We can select any band for the purpose of calculation
-	exposure=SourcePointer->at(0)->exposure(mid_E);
+	// We may select any band for the purpose of calculation
+	if(evclass==0 || evclass==1)
+	  exposure=SourcePointer->at(0)->exposure(mid_E,evclass);
+	else
+	  exposure=SourcePointer->at(0)->exposure(mid_E);
 	
 	weighted_exposure_sum+=dNdE*exposure*dE;
 	normalization+=dNdE*dE;
@@ -202,15 +222,26 @@ namespace pointlike{
       double weighted_E_sum=0;
       double normalization=0;
 
-      double frac,E,dNdE;
+      double frac,mid_frac,next_frac;
+      double E,mid_E,next_E;
+      double dNdE,dE;
 
       double max=100.;
       for(double i=0.;i<max;i+=1.){
 	frac=i/max;
-	E=frac*E_max+(1.-frac)*E_min;
-	dNdE=this->get_dNdE(E);
-	weighted_E_sum+=dNdE*E;
-	normalization+=dNdE;
+	mid_frac=(i+0.5)/max;
+	next_frac=(i+1.)/max;
+
+	E=exp((1.-frac)*log(E_min)+frac*log(E_max));
+	mid_E=exp((1.-mid_frac)*log(E_min)+mid_frac*log(E_max));
+	next_E=exp((1.-next_frac)*log(E_min)+next_frac*log(E_max));
+
+	dE=next_E-E;
+
+	dNdE=this->get_dNdE(mid_E);
+
+	weighted_E_sum+=dNdE*mid_E*dE;
+	normalization+=dNdE*dE;
       }
       
       return weighted_E_sum/normalization;
@@ -795,6 +826,16 @@ namespace pointlike{
       };
       return l_pdf;
     }
+
+    double get_log_simple_pdf(){
+      double n_model=m_A*m_mu;
+      double l_pdf=-n_model+m_n*log(n_model)-GammaFunction::lngamma(1+m_n);
+      return l_pdf;
+    }
+
+    double get_simple_pdf(){
+      return exp(get_log_simple_pdf());
+    }
   
     double get_pdf_exp(){
       return exp(get_log_pdf_exp());
@@ -808,6 +849,7 @@ namespace pointlike{
   class PDF{
   private:
     int m_n;
+    int m_useExposurePDF;
     double m_E_min,m_E_max,m_mu_exp,m_sigma_exp,m_mu_alpha,m_sigma_alpha;
     
     SpectralModel* m_model_pointer;
@@ -821,11 +863,12 @@ namespace pointlike{
     class functor{
     private:
       int m_n;
+      int m_useExposurePDF;
       double m_E_min,m_E_max,m_mu_exp,m_sigma_exp,m_mu_alpha,m_sigma_alpha;
       double m_flux;
       
     public:
-      functor(int n,double E_min,double E_max,double mu_exp,double sigma_exp,double mu_alpha,double sigma_alpha,double flux=0):
+      functor(int n,double E_min,double E_max,double mu_exp,double sigma_exp,double mu_alpha,double sigma_alpha,double flux=0,int useExposurePDF=0):
 	m_n(n),
 	m_E_min(E_min),
 	m_E_max(E_max),
@@ -833,7 +876,8 @@ namespace pointlike{
 	m_sigma_exp(sigma_exp),
 	m_mu_alpha(mu_alpha),
 	m_sigma_alpha(sigma_alpha),
-	m_flux(flux){
+	m_flux(flux),
+	m_useExposurePDF(useExposurePDF){
       }
 
       double operator()(double alpha) const {
@@ -848,15 +892,19 @@ namespace pointlike{
 	
 	double g_alpha_den=m_sigma_alpha*(-erf((-1.+m_mu_alpha)/(sqrt(2.)*m_sigma_alpha))+erf(m_mu_alpha/(sqrt(2.)*m_sigma_alpha)));
 
-	result=g_alpha_num*arg_exp.get_pdf_exp()/g_alpha_den;
+	if(m_useExposurePDF)
+	  result=g_alpha_num*arg_exp.get_pdf_exp()/g_alpha_den;
+	else
+	  result=g_alpha_num*arg_exp.get_simple_pdf()/g_alpha_den;
 
 	return result;
       }
     };
 
   public:
-    PDF(SpectralModel* ModelPointer):
-      m_model_pointer(ModelPointer){
+    PDF(SpectralModel* ModelPointer,int useExposurePDF=0):
+      m_model_pointer(ModelPointer),
+      m_useExposurePDF(useExposurePDF){
     }
 
     void set_bin(int n,double E_min,double E_max,double mu_exp,double sigma_exp,double mu_alpha,double sigma_alpha){
@@ -875,7 +923,7 @@ namespace pointlike{
       
       m_flux=m_model_pointer->get_flux(m_E_min,m_E_max);
       
-      functor arg(m_n,m_E_min,m_E_max,m_mu_exp,m_sigma_exp,m_mu_alpha,m_sigma_alpha,m_flux);
+      functor arg(m_n,m_E_min,m_E_max,m_mu_exp,m_sigma_exp,m_mu_alpha,m_sigma_alpha,m_flux,m_useExposurePDF);
     
       int exit_loop=0;
       while(exit_loop!=1){
@@ -957,18 +1005,18 @@ namespace pointlike{
       return exp(log_pdf);
     }
 
-    void set_pedestal(int max){
+    void set_pedestal(double max){
       
       double pdf;
       double sum_pdf=0.;
 
       double i=0.;
 
-      while(i<max && (i<m_n_signal || pdf > 1.e-6)){
+      do{
 	pdf=this->pdf(i);
 	sum_pdf=sum_pdf+m_step*this->pdf(i);
 	i+=m_step;
-      }
+      }while(i<max && (i<m_n_signal || pdf > 1.e-6));
 
       m_pedestal=(1.-sum_pdf)/i;
     }
@@ -989,6 +1037,8 @@ namespace pointlike{
     static int s_useGradient;
     static int s_useMinos;
 
+    static int s_useExposurePDF;
+
     static double s_stepIncrement;
 
     static double s_accuracy;
@@ -1005,6 +1055,8 @@ namespace pointlike{
 
     std::vector<double> m_specParams;
     std::vector<double> m_specParamErrors;
+    
+    std::vector<double> m_covar_entries;
 
     std::vector<std::string> m_parName;
     std::vector<double> m_par;
@@ -1037,15 +1089,19 @@ namespace pointlike{
     void specfitMinuit(double scale=-1.);
     void setFluxUpperLimits(std::vector<double> confidence_limits=NULL);
 
-    // Functions for setting spectral fitting parameters
+    // Functions for setting and checking spectral fitting parameters
     
     void setFitRange(double lower_bound,double upper_bound);
     void setFluxUpperLimitRange(double lower_bound,double upper_bound);
     void setConfidenceLimits(std::vector<double> confidence_limits=NULL);
+    void useExposurePDF(int useExposurePDF=1) { s_useExposurePDF=useExposurePDF; }; 
 
     // Function for using combined front and back energy binning
 
     void setCombined();
+
+    // Function to get covariance matrix entries
+    std::vector<double> get_covar_entries() { return m_covar_entries; };
 
     // Functions for exporting upper limit results
 

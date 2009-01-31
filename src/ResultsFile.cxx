@@ -178,7 +178,15 @@ namespace pointlike{
   
     if(!fields_created) srcTab->appendField("PAR_ERR",npar);
     (*srcTabItor)["PAR_ERR"].set(fitter.getModel()->get_param_errors());
-    
+
+    if(!fitter.get_covar_entries().empty()){
+      std::stringstream ncovarstream;
+      ncovarstream<<fitter.get_covar_entries().size()<<"E";
+      std::string ncovar=ncovarstream.str();
+      if(!fields_created) srcTab->appendField("COVAR_ENTRIES",ncovar);
+      (*srcTabItor)["COVAR_ENTRIES"].set(fitter.get_covar_entries());
+    }
+
     if(fitter.getModel()->get_spec_type()=="POWER_LAW"){
       if(!fields_created) srcTab->appendField("DECORRELATION_ENERGY","1E");
       (*srcTabItor)["DECORRELATION_ENERGY"].set(fitter.getModel()->get_scale());
@@ -198,7 +206,6 @@ namespace pointlike{
     if(!fields_created) srcTab->appendField("MODEL_EXPOSURE",nbin);
     (*srcTabItor)["MODEL_EXPOSURE"].set(fitter.getModel()->get_exposures());
 
-    
     if(!fitter.getFluxUpperLimits().empty()){
       if(!fields_created) srcTab->appendField("UPPER_LIMIT_RANGE","2E");
       (*srcTabItor)["UPPER_LIMIT_RANGE"].set(fitter.getUpperLimitRange());
@@ -211,19 +218,19 @@ namespace pointlike{
       (*srcTabItor)["CONFIDENCE_LIMIT"].set(fitter.getConfidenceLimits());
       (*srcTabItor)["FLUX_UPPER_LIMIT"].set(fitter.getFluxUpperLimits());
 
-      std::stringstream nbinstream;
-      nbinstream<<fitter.getBandUpperLimits().size()<<"E";
-      std::string nbin=nbinstream.str();
-      if(!fields_created) srcTab->appendField("BAND_UPPER_LIMIT",nbin);
-      if(!fields_created) srcTab->appendField("ENERGY_UPPER_LIMIT",nbin);
-      if(!fields_created) srcTab->appendField("EXPOSURE_UPPER_LIMIT",nbin);
+      std::stringstream nbandstream;
+      nbandstream<<fitter.getBandUpperLimits().size()<<"E";
+      std::string nband=nbandstream.str();
+      if(!fields_created) srcTab->appendField("BAND_UPPER_LIMIT",nband);
+      if(!fields_created) srcTab->appendField("ENERGY_UPPER_LIMIT",nband);
+      if(!fields_created) srcTab->appendField("EXPOSURE_UPPER_LIMIT",nband);
       (*srcTabItor)["BAND_UPPER_LIMIT"].set(fitter.getBandUpperLimits());
       (*srcTabItor)["ENERGY_UPPER_LIMIT"].set(fitter.getEnergyUpperLimits());
       (*srcTabItor)["EXPOSURE_UPPER_LIMIT"].set(fitter.getExposureUpperLimits());
     }
     fields_created=true;
     srcTabItor++;
-  
+
   };
 
   void ResultsFile::writeAndClose(){
