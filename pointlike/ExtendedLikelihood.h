@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.h
     @brief declaration of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.10 2009/01/30 01:26:54 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.11 2009/01/31 00:32:29 markusa Exp $
 
 */
 
@@ -95,7 +95,7 @@ namespace pointlike {
     void setAlpha(double alpha) {m_alpha=alpha;}
 
     std::pair<double,double> flux() const ;
-    double exposure(double E = -1) const ;
+    double exposure(double E = -1,int evclass = -1) const ;
     void setFlux(double flux);
     
     double sigma_alpha() const { return m_sigma_alpha;}

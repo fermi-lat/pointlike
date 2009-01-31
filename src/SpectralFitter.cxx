@@ -19,6 +19,7 @@
 namespace pointlike{
 
   int gFitCounter=0;
+  int gUseExposurePDF=1;
 
   // Global pointers
   pointlike::SourceLikelihood* gSourcePointer = NULL;
@@ -33,6 +34,8 @@ namespace pointlike{
   int    SpectralFitter::s_useGradient(0);
   int    SpectralFitter::s_useMinos(0);
   
+  int SpectralFitter::s_useExposurePDF(1);
+
   double SpectralFitter::s_stepIncrement(0.01);
 
   double SpectralFitter::s_accuracy(0.0001);
@@ -74,7 +77,7 @@ namespace pointlike{
       
     gModelPointer->set_params(specParams);
     
-    PDF pdf(gModelPointer);
+    PDF pdf(gModelPointer,gUseExposurePDF);
 
     double exposure_error_frac;
 
@@ -92,7 +95,6 @@ namespace pointlike{
       // Enforce energy range for fitting - bin must fully contained
       if(E_min < gModelPointer->get_lower_bound() || 
 	 E_max > gModelPointer->get_upper_bound()) continue;
-      
 
       mu_alpha=gSourcePointer->at(bin)->alpha();
       sigma_alpha=gSourcePointer->at(bin)->sigma_alpha();
@@ -203,6 +205,9 @@ namespace pointlike{
       gModelPointer->set_scale(scale);
     }
 
+    // Check if using the full exposure PDF convolution
+    gUseExposurePDF = s_useExposurePDF;
+
     // The Minuit output flag - query after each command
     Int_t ierflag=0;
 
@@ -300,6 +305,15 @@ namespace pointlike{
     int npari,nparx,istat;
     m_Minuit->mnstat(fmin,fedm,errdef,npari,nparx,istat);
     gModelPointer->set_logLikeSum(fmin);
+
+    // Pick up the covariance matrix entries
+    double C[m_npar][m_npar];
+    m_Minuit->mnemat(&C[0][0],m_npar);
+    for(int i=0;i<m_npar;i++){
+      for(int j=0;j<m_npar;j++){
+	m_covar_entries.push_back(C[i][j]);
+      }
+    }
 
     std::vector<double> flux_errors=gModelPointer->get_flux_errors(100.,3.e5);
 
@@ -422,7 +436,7 @@ namespace pointlike{
       alpha=gSourcePointer->at(bin)->alpha();
 
       N_total=N_total+n;
-      N_signal=N_signal+floor(alpha*n);
+      N_signal=N_signal+alpha*n;
 
       psf_correction=gSourcePointer->at(bin)->psfIntegral();
 
@@ -433,7 +447,7 @@ namespace pointlike{
       weighted_exposure_sum+=psf_correction*band_exposure;
 
       // Set flux upper limits for individual bands
-      m_FeldmanCousins->set_counts(floor(alpha*n),n-floor(alpha*n));
+      m_FeldmanCousins->set_counts(alpha*n,(1-alpha)*n);
       FC_upper_limit=m_FeldmanCousins->get_upper_limit(s_band_confidence_limit);
       
       m_band_upper_limits.push_back(FC_upper_limit/psf_correction);
@@ -445,8 +459,13 @@ namespace pointlike{
     double flux_ratio=m_model_pointer->get_flux(s_upper_limit_lower_bound,s_upper_limit_upper_bound)/m_model_pointer->get_flux(fit_lower_bound,fit_upper_bound);
 
     // Integrated exposure for combined front and back
-    double integrated_exposure=m_model_pointer->get_integrated_exposure(gSourcePointer,s_upper_limit_lower_bound,s_upper_limit_upper_bound);
-
+    double integrated_exposure;
+    if(m_combined)
+      integrated_exposure=m_model_pointer->get_integrated_exposure(gSourcePointer,s_upper_limit_lower_bound,s_upper_limit_upper_bound);
+    else
+      integrated_exposure=m_model_pointer->get_integrated_exposure(gSourcePointer,s_upper_limit_lower_bound,s_upper_limit_upper_bound,0)+
+	m_model_pointer->get_integrated_exposure(gSourcePointer,s_upper_limit_lower_bound,s_upper_limit_upper_bound,1);
+      
     // Fraction of photons contained within region of interest
     double containment_fraction=weighted_exposure_sum/exposure_sum;
 

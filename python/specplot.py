@@ -3,9 +3,11 @@ import ROOT as R
 import pointlike as pl 
 import pyfits
 import sys
-from math import floor,exp,log,sqrt,pow
+from math import floor,exp,log,sqrt,pow,fabs
 
 def plot(filename,source="",addfunc=""):
+
+    upper_limit(filename,source)
 
     print filename
     
@@ -18,12 +20,6 @@ def plot(filename,source="",addfunc=""):
     g2=R.TGraphAsymmErrors()
     g2.SetMarkerStyle(7)
     g2.SetMarkerColor(1)
-
-    global g3
-    g3=R.TGraphAsymmErrors()
-    g3.SetMarkerStyle(1)
-    g3.SetMarkerColor(2)
-    g3.SetLineColor(2)
 
     file=pyfits.open(filename)
 
@@ -125,7 +121,7 @@ def plot(filename,source="",addfunc=""):
                 
             flux=(flux_front+flux_back)/2
             err_flux=sqrt(pow(err_flux_front,2)+pow(err_flux_back,2))
-            
+
 #	    print model_exposure[livebin]+model_exposure[livebin+1]
 
             g1.SetPoint(npoints,E_model,flux)
@@ -189,35 +185,7 @@ def plot(filename,source="",addfunc=""):
 	    npoints+=1
             livebin=livebin+1
 
-    """
-    if combined==0:
-        for band in range(0,len(band_upper_limits)/2):
-            front=2*band
-            back=2*band+1
-            
-            E=energy_upper_limits[front]
-            E_min=get_edge(emin,E,0)
-            E_max=get_edge(emax,E,1)
-            delta_E=E_max-E_min
-        
-            flux_front=pow(E,2)*band_upper_limits[front]/(exposure_upper_limits[front]*delta_E)
-            flux_back=pow(E,2)*band_upper_limits[back]/(exposure_upper_limits[back]*delta_E)
-
-            g3.SetPoint(band,E,flux_front+flux_back)
-            g3.SetPointError(band,E-E_min,E_max-E,0,0)
-
-    if combined==1:
-        for band in range(0,len(band_upper_limits)):
-            E=energy_upper_limits[band]
-            E_min=get_edge(emin,E,0)
-            E_max=get_edge(emax,E,1)
-            delta_E=E_max-E_min
-        
-            flux=pow(E,2)*band_upper_limits[band]/(exposure_upper_limits[band]*delta_E)
-            
-            g3.SetPoint(band,E,flux)
-            g3.SetPointError(band,E-E_min,E_max-E,0,0)
-    """
+    # Add upper limits option
 
     #g1.Print()
     #g2.Print()
@@ -234,26 +202,43 @@ def plot(filename,source="",addfunc=""):
     global res_box
     res_box=set_res_box(g2)
 
-    global legend
-    legend=set_legend(name,model,g1,func,g3)
-
     canvas.Draw()
     box.Draw()
     
     butterfly.Draw("F")
     g1.Draw("P")
-    #g3.Draw("P")
     func.Draw("SAME")
     if addfunc != "":
         func1 = R.TF1("func1",addfunc,func.GetXmin(),func.GetXmax())
 	func1.SetLineStyle(3)
 	func1.SetLineColor(2)
 	func1.SetLineWidth(2)
-	func1.Draw("SAME") 
-    
-    
-    legend.Draw()
+	func1.Draw("SAME")
 
+    global g_selected_ul
+    g_selected_ul=R.TGraphAsymmErrors()
+    g_selected_ul.SetMarkerStyle(1)
+    g_selected_ul.SetMarkerColor(2)
+    g_selected_ul.SetLineColor(2)
+
+    global selected_arrows
+    selected_arrows=[]
+
+    set_selected_UL(emin,emax,nphoton,combined)
+
+    g_selected_ul.Draw("P")
+
+    for i in range(0,len(selected_arrows)):
+        selected_arrows[i].Draw()
+
+    # Overlay all upper limits
+    #g_ul.Draw("P")
+    #for i in range(0,len(arrows)):
+    #    arrows[i].Draw()
+
+    global legend
+    legend=set_legend(name,model,g1,func)
+    legend.Draw()
 
     pad2.cd()
     res_box.Draw()
@@ -266,8 +251,6 @@ def plot(filename,source="",addfunc=""):
     ref.Draw("SAME")
     
     canvas.Update()
-
-    upper_limit(filename,source)
 
 def set_canvas(name):
 
@@ -491,12 +474,13 @@ def set_butterfly(model,params,param_errors):
     
     return b1
 
-def set_legend(name,model,graph,func,upper_limit):
-    legend = R.TLegend(0.6,0.75,0.9,0.9)
+def set_legend(name,model,graph,func):
+    legend = R.TLegend(0.7,0.75,0.9,0.9)
     legend.SetHeader(name)
     legend.AddEntry(g1,"Data","P")
     legend.AddEntry(func,model.get_spec_type().replace('_',' '),"L")
-    #legend.AddEntry(g3,"Upper Limit","L")
+    if g_selected_ul.GetN()>0:
+        legend.AddEntry(g_selected_ul,"Upper Limit","L")
     legend.SetFillColor(0)
     legend.SetShadowColor(0)
     legend.SetLineColor(0)
@@ -517,6 +501,81 @@ def unique(array):
                 unique=0
     return unique
 
+def set_selected_UL(emin,emax,nphoton,combined):
+
+    points_kept=0
+
+    x=R.Double(0)
+    y=R.Double(0)
+
+    SED_E=R.Double(0)
+    SED_flux=R.Double(0)
+
+    #seprate front/back case
+    if combined==0:
+        for i in range(0,g_ul.GetN()):
+            keep_point=1
+            g_ul.GetPoint(i,x,y)
+
+            for j in range(0,len(emin)-1):
+                if nphoton[j]==0 or emin[j]!=emin[j+1]: continue
+                E_min=emin[j]
+                E_max=emax[j]
+                if x<E_min or x>E_max: continue
+
+                for k in range(0,g1.GetN()):
+                    g1.GetPoint(k,SED_E,SED_flux)
+                    if SED_E<E_min or SED_E>E_max: continue
+                    
+                    if SED_flux>1.e-9:
+                        keep_point=0
+
+            if keep_point==1:
+                g_selected_ul.SetPoint(points_kept,x,y)
+                g_selected_ul.SetPointError(points_kept,g_ul.GetErrorXlow(i),g_ul.GetErrorXhigh(i),0,0)
+                points_kept+=keep_point
+
+    #combined front/back binning case
+    else:
+        for i in range(0,g_ul.GetN()):
+            keep_point=1
+            g_ul.GetPoint(i,x,y)
+
+            for j in range(0,len(emin)):
+                if nphoton[j]==0: continue
+                E_min=emin[j]
+                E_max=emax[j]
+                if x<E_min or x>E_max: continue
+
+                for k in range(0,g1.GetN()):
+                    g1.GetPoint(k,SED_E,SED_flux)
+                    if SED_E<E_min or SED_E>E_max: continue
+
+                    if SED_flux>1.e-9:
+                        keep_point=0
+
+            if keep_point==1:
+                g_selected_ul.SetPoint(points_kept,x,y)
+                g_selected_ul.SetPointError(points_kept,g_ul.GetErrorXlow(i),g_ul.GetErrorXhigh(i),0,0)
+                points_kept+=keep_point
+
+    for i in range(0,g_selected_ul.GetN()):
+        x=R.Double(0)
+        y=R.Double(0)
+        g_selected_ul.GetPoint(i,x,y)
+        E_min=get_edge(emin,x,0)
+        E_max=get_edge(emax,x,1)
+        x=R.Double(exp((log(E_min)+log(E_max))/2.))
+        x1=x
+        x2=x
+        y1=y
+        y2=R.Double(0.5*y1)
+        selected_arrows.append(R.TArrow(x1,y1,x2,y2,0.02,">"))
+        selected_arrows[i].SetAngle(60)
+        selected_arrows[i].SetOption(">")
+        selected_arrows[i].SetLineColor(2)
+    
+
 def upper_limit(filename,source=""):
 
     print filename
@@ -524,7 +583,8 @@ def upper_limit(filename,source=""):
     global g_ul
     g_ul=R.TGraphAsymmErrors()
     g_ul.SetMarkerStyle(1)
-    g_ul.SetMarkerColor(1)
+    g_ul.SetMarkerColor(2)
+    g_ul.SetLineColor(2)
 
     file=pyfits.open(filename)
 
@@ -635,7 +695,7 @@ def upper_limit(filename,source=""):
     box_ul.GetYaxis().SetTitleOffset(1.5)
 
     global legend_ul
-    legend_ul = R.TLegend(0.6,0.7,0.85,0.9)
+    legend_ul = R.TLegend(0.7,0.75,0.9,0.9)
     legend_ul.SetHeader(name)
     legend_ul.AddEntry(g_ul,"Upper Limit","L")
     legend_ul.SetFillColor(0)
@@ -663,6 +723,7 @@ def upper_limit(filename,source=""):
         arrows.append(R.TArrow(x1,y1,x2,y2,0.02,">"))
         arrows[i].SetAngle(60)
         arrows[i].SetOption(">")
+        arrows[i].SetLineColor(2)
 
     for i in range(0,len(arrows)):
         arrows[i].Draw()
