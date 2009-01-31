@@ -1,5 +1,18 @@
 ------------------------------------------------------------
 User: markusa  Fri Jan 30 16:32:43 PST 2009
+pointlike/src
+
+Modified Files:
+	ExtendedLikelihood.cxx FlexibleBinner.cxx 
+	HypergeometricFunction.cxx ResultsFile.cxx SpectralFitter.cxx 
+Log Message:
+fixes for spectral fitting
+
+
+
+    *
+------------------------------------------------------------
+User: markusa  Fri Jan 30 16:32:43 PST 2009
 pointlike/python
 
 Modified Files:
