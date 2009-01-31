@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: bechtol  Sat Jan 31 15:04:30 PST 2009
+pointlike/pointlike
+
+Modified Files:
+	ExtendedLikelihood.h SpectralFitter.h 
+Log Message:
+Use full exposure PDF option, choose exposure event class
+
+    *
+------------------------------------------------------------
 User: markusa  Fri Jan 30 16:32:43 PST 2009
 pointlike/src
 
