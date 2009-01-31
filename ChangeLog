@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: markusa  Fri Jan 30 16:32:29 PST 2009
+pointlike/pointlike
+
+Modified Files:
+	ExtendedLikelihood.h ResultsFile.h SpectralFitter.h 
+Log Message:
+fixes for spectral fitting
+
+
+
+    *
+------------------------------------------------------------
 User: markusa  Thu Jan 29 18:17:06 PST 2009
 pointlike/src
 
