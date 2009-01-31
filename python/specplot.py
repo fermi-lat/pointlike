@@ -5,7 +5,7 @@ import pyfits
 import sys
 from math import floor,exp,log,sqrt,pow
 
-def plot(filename,source=""):
+def plot(filename,source="",addfunc=""):
 
     print filename
     
@@ -28,10 +28,11 @@ def plot(filename,source=""):
     file=pyfits.open(filename)
 
     name=""
+    if source=="" : source=file["SOURCES"].data.field('NAME')[0]
     
     for src in range(0,len(file["SOURCES"].data.field('NAME'))):
         name=file["SOURCES"].data.field('NAME')[src]
-        if name==source or len(file["SOURCES"].data.field('NAME'))==1:
+        if name==source:
             print "Found "+name 
 
             type=str(file["SOURCES"].data.field('MODEL')[src])
@@ -73,7 +74,7 @@ def plot(filename,source=""):
 
     file.close()
 
-    print params
+#    print params
 
     global func
     func=set_function(model,params)
@@ -89,21 +90,21 @@ def plot(filename,source=""):
     if combined==0:
         print "Separate front and back energy bins"
         livebin=0
-        for bin in range(0,int(len(emin)/2)):
+        for bin in range(0,len(emin)-1):
 
-            # Do not exceed spectral fitting range
-            if livebin >= len(energy):
-                break
+	    if(emin[bin+1]!=emin[bin] or energy[-1]<emin[bin] or energy[0]>emax[bin]):continue
+            
+	    front,back =bin,bin+1
 
-            front=2*bin
-            back=2*bin+1
+	    while (livebin < len(energy)-2 and energy[livebin]<emin[bin]): livebin+=1
+
+	    if(abs(energy[livebin+1]-energy[livebin])>1e-5): raise RuntimeError,"Corrupt front/back structure in file." 
 
             E_min=emin[front]
             E_max=emax[front]
             E_model=energy[livebin]
 
-            if E_model<E_min or E_model>E_max:
-                continue
+            if E_model<E_min or E_model>E_max: raise RuntimeError,"Corrupt binning in file." 
         
             exposure_error_fraction=model.get_exposure_uncertainty(R.Double(E_min),R.Double(E_max))
             delta_E=E_max-E_min
@@ -114,11 +115,9 @@ def plot(filename,source=""):
             else:
                 flux_front=0
                 err_flux_front=0
-        
-            E_model=energy[livebin]
 
             if nphoton[back]>0:
-                flux_back=pow(E_model,2)*nphoton[back]*alpha[back]/(model_exposure[livebin]*delta_E)
+                flux_back=pow(E_model,2)*nphoton[back]*alpha[back]/(model_exposure[livebin+1]*delta_E)
                 err_flux_back=flux_back*sqrt(pow(err_alpha[back]/alpha[back],2)+pow(exposure_error_fraction,2))
             else:
                 flux_back=0
@@ -126,26 +125,22 @@ def plot(filename,source=""):
                 
             flux=(flux_front+flux_back)/2
             err_flux=sqrt(pow(err_flux_front,2)+pow(err_flux_back,2))
-
-#            g1.SetPoint(livebin/2,0,0)
-#            g1.SetPointError(livebin/2,0,0,0,0)
-#            g2.SetPoint(livebin/2,0,0)
-#            g2.SetPointError(livebin/2,0,0,0,0)
-
-            if flux==0:
-                continue
-
+            
+#	    print model_exposure[livebin]+model_exposure[livebin+1]
 
             g1.SetPoint(npoints,E_model,flux)
             g1.SetPointError(npoints,E_model-E_min,E_max-E_model,err_flux,err_flux)
 
             model_flux=func.Eval(E_model)
             
-            g2.SetPoint(npoints,E_model,(flux-model_flux)/flux)
-            g2.SetPointError(npoints,E_model-E_min,E_max-E_model,err_flux/flux,err_flux/flux)
+            if flux!=0:
+               g2.SetPoint(npoints,E_model,(flux-model_flux)/flux)
+               g2.SetPointError(npoints,E_model-E_min,E_max-E_model,err_flux/flux,err_flux/flux)
+	    else:   
+	      g2.SetPoint(npoints,E_model,0)
+              g2.SetPointError(npoints,0,0,0,0)
+
             npoints+=1
-            # Ensure energy bin was fitted
-            livebin=livebin+2
 
    # Front and back combined
     if combined==1:
@@ -176,21 +171,19 @@ def plot(filename,source=""):
         
             E_model=energy[livebin]
 
-#            g1.SetPoint(livebin,0,0)
-#            g1.SetPointError(livebin,0,0,0,0)
-#            g2.SetPoint(livebin,0,0)
-#            g2.SetPointError(livebin,0,0,0,0)
-
-            if flux==0:
-                continue
-
             g1.SetPoint(npoints,E_model,flux)
             g1.SetPointError(npoints,E_model-E_min,E_max-E_model,err_flux,err_flux)
 
             model_flux=func.Eval(E_model)
             
-            g2.SetPoint(npoints,E_model,(flux-model_flux)/flux)
-            g2.SetPointError(npoints,E_model-E_min,E_max-E_model,err_flux/flux,err_flux/flux)
+            if flux!=0: 
+	      g2.SetPoint(npoints,E_model,(flux-model_flux)/flux)
+              g2.SetPointError(npoints,E_model-E_min,E_max-E_model,err_flux/flux,err_flux/flux)
+            else:
+	      g2.SetPoint(npoints,E_model,0)
+              g2.SetPointError(npoints,0,0,0,0)
+
+#	    print model_exposure[livebin]
 
             # Ensure energy bin was fitted
 	    npoints+=1
@@ -226,8 +219,8 @@ def plot(filename,source=""):
             g3.SetPointError(band,E-E_min,E_max-E,0,0)
     """
 
-    g1.Print()
-    g2.Print()
+    #g1.Print()
+    #g2.Print()
     #g3.Print()
 
     global canvas
@@ -246,11 +239,21 @@ def plot(filename,source=""):
 
     canvas.Draw()
     box.Draw()
+    
     butterfly.Draw("F")
     g1.Draw("P")
     #g3.Draw("P")
     func.Draw("SAME")
+    if addfunc != "":
+        func1 = R.TF1("func1",addfunc,func.GetXmin(),func.GetXmax())
+	func1.SetLineStyle(3)
+	func1.SetLineColor(2)
+	func1.SetLineWidth(2)
+	func1.Draw("SAME") 
+    
+    
     legend.Draw()
+
 
     pad2.cd()
     res_box.Draw()
@@ -587,7 +590,7 @@ def upper_limit(filename,source=""):
             g_ul.SetPointError(npoints,E-E_min,E_max-E,0,0)
 	    npoints+=1
 
-    g_ul.Print()
+#    g_ul.Print()
 
     R.gStyle.SetOptStat(0)
     R.gStyle.SetOptTitle(0)
@@ -652,7 +655,7 @@ def upper_limit(filename,source=""):
         E_min=get_edge(emin,x,0)
         E_max=get_edge(emax,x,1)
         x=R.Double(exp((log(E_min)+log(E_max))/2.))
-        print x,y
+#        print x,y
         x1=x
         x2=x
         y1=y
@@ -675,6 +678,7 @@ if __name__ == "__main__":
     
     if(len(sys.argv)==2): plot(sys.argv[1])
     elif(len(sys.argv)==3): plot(sys.argv[1],sys.argv[2])
+    elif(len(sys.argv)==4): plot(sys.argv[1],sys.argv[2],sys.argv[3])
     else:
        print "Usage: %s result-file <sourcename>"%(sys.argv[0])
        sys.exit(1)

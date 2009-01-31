@@ -162,7 +162,7 @@ namespace pointlike{
       return weighted_exposure_sum/normalization;
     }
 
-    double get_integrated_exposure(pointlike::SourceLikelihood* SourcePointer,double E_min,double E_max,int combined){
+    double get_integrated_exposure(pointlike::SourceLikelihood* SourcePointer,double E_min,double E_max){
 
       double weighted_exposure_sum=0;
       double normalization=0;
@@ -189,7 +189,7 @@ namespace pointlike{
 	dNdE=this->get_dNdE(mid_E);
 
 	// We can select any band for the purpose of calculation
-	exposure=SourcePointer->at(0)->full_exposure(mid_E,combined);
+	exposure=SourcePointer->at(0)->exposure(mid_E);
 	
 	weighted_exposure_sum+=dNdE*exposure*dE;
 	normalization+=dNdE*dE;

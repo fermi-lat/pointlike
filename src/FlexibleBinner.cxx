@@ -1,7 +1,7 @@
 /** @file PhotonBinner.cxx
 @brief implement class BinnedPhotonData 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/FlexibleBinner.cxx,v 1.4 2008/11/13 23:36:56 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/FlexibleBinner.cxx,v 1.5 2008/11/14 01:36:38 markusa Exp $
 */
 
 #include "pointlike/FlexibleBinner.h"
@@ -46,7 +46,7 @@ namespace {
 
 // for data
 
-  const double bins_flight_s0[13]={1.,50.,100.,200.,400.,800.,1600.,3200.,6400.,12800.,25600.,51200.,1e6};
+  const double bins_flight_s0[14]={1.,50.,100.,200.,400.,800.,1600.,3200.,6400.,12800.,25600.,51200.,102400.,1e6};
   const double bins_flight_sm[9]={1.,25.,100.,400.,1600.,6400.,25600.,102400.,1e6};
 
   const int    gamma_list_size = 10;
@@ -151,7 +151,7 @@ FlexibleBinner::FlexibleBinner(const std::string& id, const int pixel_density)
    };
    
    if(id.find("flight/")!=std::string::npos )  {
-	if(id.find("diffuse/spectrum:0")!=std::string::npos) m_bins = std::vector<double>(bins_flight_s0,bins_flight_s0+13);
+	if(id.find("diffuse/spectrum:0")!=std::string::npos) m_bins = std::vector<double>(bins_flight_s0,bins_flight_s0+14);
 	else if(id.find("diffuse/spectrum:-")!=std::string::npos) m_bins = std::vector<double>(bins_pass6_sm,bins_pass6_sm+9);
 	else if(id.find("diffuse/spectrum:+")!=std::string::npos) {
 	    m_bins.push_back(1);
