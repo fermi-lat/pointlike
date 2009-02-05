@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: bechtol  Thu Feb  5 12:05:04 PST 2009
+pointlike/src
+
+Modified Files:
+	ResultsFile.cxx SpectralFitter.cxx 
+Log Message:
+Plotting and upper limit fixes
+
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Thu Feb  5 12:05:01 PST 2009
 pointlike/python
 
