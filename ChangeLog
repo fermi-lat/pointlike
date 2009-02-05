@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: bechtol  Thu Feb  5 12:04:55 PST 2009
+pointlike/pointlike
+
+Modified Files:
+	SpectralFitter.h 
+Log Message:
+Plotting and upper limit fixes
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-10-00, operation: add
 Package: pointlike
