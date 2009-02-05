@@ -231,10 +231,10 @@ def plot(filename,source="",addfunc=""):
     for i in range(0,len(selected_arrows)):
         selected_arrows[i].Draw()
 
-    # Overlay all upper limits
-    #g_ul.Draw("P")
-    #for i in range(0,len(arrows)):
-    #    arrows[i].Draw()
+#    Overlay all upper limits
+#    g_ul.Draw("P")
+#    for i in range(0,len(arrows)):
+#        arrows[i].Draw()
 
     global legend
     legend=set_legend(name,model,g1,func)
@@ -589,6 +589,7 @@ def upper_limit(filename,source=""):
     file=pyfits.open(filename)
 
     name=""
+    if source=="" : source=file["SOURCES"].data.field('NAME')[0]
     
     for src in range(0,len(file["SOURCES"].data.field('NAME'))):
         name=file["SOURCES"].data.field('NAME')[src]
@@ -712,10 +713,11 @@ def upper_limit(filename,source=""):
         x=R.Double(0)
         y=R.Double(0)
         g_ul.GetPoint(i,x,y)
+#        print '%.3e   %.3e'%(x,y)
         E_min=get_edge(emin,x,0)
         E_max=get_edge(emax,x,1)
         x=R.Double(exp((log(E_min)+log(E_max))/2.))
-#        print x,y
+#        print '%5i  %5i   %.3e'%(E_min,E_max,y)
         x1=x
         x2=x
         y1=y

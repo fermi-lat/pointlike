@@ -72,6 +72,8 @@ namespace pointlike{
 
     double m_lower_bound,m_upper_bound;
 
+    std::vector<double> m_covar_entries;
+
   public:
     SpectralModel(std::string spec_type=""){
       m_spec_type=spec_type;
@@ -119,9 +121,11 @@ namespace pointlike{
 	  for(int j=0;j<npar;j++){
 	    new_params[j]=best_fit_params[j]+generator.rand_gauss()*param_errors[j];
 	  }
+	  
 	  this->set_params(new_params);
 	  new_flux=this->get_flux(100.,3.e5);
 	} while( new_flux <= 0.0 );
+	
 	new_fluxes.push_back(this->get_flux(100.,3.e5));
       }      
       
@@ -161,12 +165,6 @@ namespace pointlike{
 	E=exp((1.-frac)*log(E_min)+frac*log(E_max));
 	mid_E=exp((1.-mid_frac)*log(E_min)+mid_frac*log(E_max));
 	next_E=exp((1.-next_frac)*log(E_min)+next_frac*log(E_max));
-
-	/*
-	E=frac*E_max+(1.-frac)*E_min;
-	mid_E=mid_frac*E_max+(1.-mid_frac)*E_min;
-	next_E=next_frac*E_max+(1.-next_frac);
-	*/
 
 	dE=next_E-E;
 
@@ -270,10 +268,10 @@ namespace pointlike{
 
     void set_model_energies(std::vector<double> model_energies){ m_model_energies=model_energies; }
     std::vector<double> get_model_energies(){ return m_model_energies; }
-
+    
     void set_exposures(std::vector<double> exposures){ m_exposures=exposures; }
-    std::vector<double> get_exposures(){ return m_exposures; }
-
+    std::vector<double> get_exposures(){ return m_exposures; } 
+    
     void set_energy_range(double lower_bound,double upper_bound){
       m_lower_bound=lower_bound;
       m_upper_bound=upper_bound;
@@ -283,6 +281,9 @@ namespace pointlike{
 
     double set_scale(double scale){ m_scale=scale; }
     double get_scale(){ return m_scale; }
+
+    void set_covar_entries(std::vector<double> covar_entries){ m_covar_entries=covar_entries; }
+    std::vector<double> get_covar_entries(){ return m_covar_entries; }
 
   };
 
@@ -407,7 +408,7 @@ namespace pointlike{
     virtual std::vector<double> get_minVal(){
       std::vector<double> minVal(2);
       minVal[0]=log(1.e-20);
-      minVal[1]=log(1.);
+      minVal[1]=log(0.1);
       return minVal;
     }
   
@@ -575,8 +576,8 @@ namespace pointlike{
     virtual std::vector<double> get_minVal(){
       std::vector<double> minVal(4);
       minVal[0]=log(1.e-20);
-      minVal[1]=log(1.);
-      minVal[2]=log(1.);
+      minVal[1]=log(0.1);
+      minVal[2]=log(0.1);
       minVal[3]=log(50.);
       return minVal;
     }
@@ -707,7 +708,7 @@ namespace pointlike{
 
     virtual std::vector<std::string> get_parName(){
       std::vector<std::string> parName(3);
-      parName[0]="N";
+      parName[0]="N_0";
       parName[1]="gamma";
       parName[2]="E_c";
       return parName;
@@ -959,42 +960,43 @@ namespace pointlike{
 
   class FeldmanCousins{
   private:
-    double m_n_signal,m_n_background,m_n_total;
+    double m_n_total;
+    double m_n_signal,m_n_background;
     double m_lngamma;
     double m_step;
-    double m_pedestal;
+    double m_normalization;
 
   public:
-    FeldmanCousins(double n_signal,double n_background):
-      m_n_signal(n_signal),
+    FeldmanCousins(double n_total,double n_background):
+      m_n_signal(n_total-n_background),
       m_n_background(n_background),
-      m_n_total(n_signal+n_background),
+      m_n_total(n_total),
       m_lngamma(GammaFunction::lngamma(m_n_total+1.)),
-      m_step(0.1),
-      m_pedestal(0.){
+      m_step(0.01),
+      m_normalization(0.){
     }
 
-    void set_counts(double n_signal,double n_background){
-      m_n_signal=n_signal;
+    void set_counts(double n_total,double n_background){
+      m_n_signal=n_total-n_background;
       m_n_background=n_background;
-      m_n_total=n_signal+n_background;
+      m_n_total=n_total;
       m_lngamma=GammaFunction::lngamma(m_n_total+1.);
     }
 
     double get_upper_limit(double confidence_limit){
-      
-      // Correct numeric calculation
-      this->set_pedestal(10*(m_n_signal+1));
+			         
+      // Correct numeric calculation 
+      // Feldman Cousins PDF becomes un-normalized at low counts
+      this->set_normalization();
       
       double upper_limit=0;
 
       double sum_pdf=0.;
 
       while(sum_pdf<confidence_limit){
-	sum_pdf=sum_pdf+m_step*this->pdf(upper_limit)+m_step*m_pedestal;
+	sum_pdf=sum_pdf+m_step*this->pdf(upper_limit)*m_normalization;
 	upper_limit+=m_step;
-	if(upper_limit>10*(m_n_signal+1)) return -1.;
-
+	if(upper_limit>10.*(m_n_total+1)) return -1.;
       }
 
       return upper_limit;
@@ -1005,20 +1007,48 @@ namespace pointlike{
       return exp(log_pdf);
     }
 
-    void set_pedestal(double max){
+    void set_normalization(){
       
       double pdf;
       double sum_pdf=0.;
 
       double i=0.;
 
+      double max_pdf=0.;
+
+      double max_iterations;
+      if(m_n_signal/m_n_total<0.1 && m_n_signal>0.)
+	max_iterations=10.*m_n_signal;
+      else if(m_n_signal<0.)
+	max_iterations=10*m_n_background;
+      else
+	max_iterations=2*m_n_total;
+
       do{
 	pdf=this->pdf(i);
 	sum_pdf=sum_pdf+m_step*this->pdf(i);
 	i+=m_step;
-      }while(i<max && (i<m_n_signal || pdf > 1.e-6));
+      }while(i<max_iterations && sum_pdf<1.);
 
-      m_pedestal=(1.-sum_pdf)/i;
+      m_normalization=1/sum_pdf;
+    }
+
+    double get_upper_limit_convolution(double n_total,double alpha,double alpha_error,double confidence_limit){
+
+      double new_alpha;
+      int iterations=100;
+      double sum=0.;
+      Random generator;
+
+      for(int i=0;i<iterations;i++){
+	new_alpha=-1.;
+	do{
+	  new_alpha=alpha+generator.rand_gauss()*alpha_error;
+	}while(new_alpha<0.);
+	this->set_counts(n_total,(1-new_alpha)*n_total);
+	sum+=this->get_upper_limit(confidence_limit);
+      }
+      return sum/iterations;
     }
 
   };
@@ -1101,6 +1131,7 @@ namespace pointlike{
     void setCombined();
 
     // Function to get covariance matrix entries
+    
     std::vector<double> get_covar_entries() { return m_covar_entries; };
 
     // Functions for exporting upper limit results

@@ -106,6 +106,8 @@ namespace pointlike{
       
       pdf.set_bin(n,E_min,E_max,mu_exp,sigma_exp,mu_alpha,sigma_alpha);
 
+      //std::cout << -1.*pdf.get_loglikelihood() << std::endl;
+
       logLikeSum-=pdf.get_loglikelihood(); // Negative sign -> Minuit minimizes
     }
 
@@ -311,9 +313,14 @@ namespace pointlike{
     m_Minuit->mnemat(&C[0][0],m_npar);
     for(int i=0;i<m_npar;i++){
       for(int j=0;j<m_npar;j++){
+
+	// Return from log space
+	//m_covar_entries.push_back(m_specParams[i]*m_specParams[j]*(exp(C[i][j])-1));
+
 	m_covar_entries.push_back(C[i][j]);
       }
     }
+    gModelPointer->set_covar_entries(m_covar_entries);
 
     std::vector<double> flux_errors=gModelPointer->get_flux_errors(100.,3.e5);
 
@@ -376,7 +383,7 @@ namespace pointlike{
 	      << std::endl;
 
     // Choose fitted spectral model or default power law model
-    if(gSourcePointer->TS()>s_TS_threshold && gModelPointer){
+    if(gSourcePointer->TS()>s_TS_threshold && gModelPointer && gFitCounter>0){
       m_model_pointer=gModelPointer;
       std::cout << std::endl 
 		<< "Using fitted spectral model to compute upper limits"
@@ -400,7 +407,8 @@ namespace pointlike{
     double E_min,E_max;
 
     int n;
-    double alpha, band_exposure;
+    double alpha, alpha_error; 
+    double band_exposure;
 
     double psf_correction;
     double exposure_sum=0;
@@ -413,7 +421,7 @@ namespace pointlike{
     double N_signal=0;
     double N_background=0;
 
-    m_FeldmanCousins=new FeldmanCousins(N_signal,N_background);
+    m_FeldmanCousins=new FeldmanCousins(N_total,N_background);
 
     double FC_upper_limit;
 
@@ -434,6 +442,7 @@ namespace pointlike{
 
       n=gSourcePointer->at(bin)->photons();
       alpha=gSourcePointer->at(bin)->alpha();
+      alpha_error=gSourcePointer->at(bin)->sigma_alpha();
 
       N_total=N_total+n;
       N_signal=N_signal+alpha*n;
@@ -446,10 +455,9 @@ namespace pointlike{
       exposure_sum+=band_exposure;
       weighted_exposure_sum+=psf_correction*band_exposure;
 
-      // Set flux upper limits for individual bands
-      m_FeldmanCousins->set_counts(alpha*n,(1-alpha)*n);
-      FC_upper_limit=m_FeldmanCousins->get_upper_limit(s_band_confidence_limit);
-      
+      // Set flux upper limits for individual bands including signal fraction error
+      FC_upper_limit=m_FeldmanCousins->get_upper_limit_convolution(n,alpha,alpha_error,s_band_confidence_limit);
+
       m_band_upper_limits.push_back(FC_upper_limit/psf_correction);
       m_energy_upper_limits.push_back(m_model_pointer->get_model_E(E_min,E_max));
       m_exposure_upper_limits.push_back(band_exposure);
@@ -469,8 +477,6 @@ namespace pointlike{
     // Fraction of photons contained within region of interest
     double containment_fraction=weighted_exposure_sum/exposure_sum;
 
-    //std::cout << "Containment fraction = " << containment_fraction << std::endl;
-
     N_background=N_total-N_signal;
 
     std::cout << std::endl
@@ -489,7 +495,7 @@ namespace pointlike{
 	      << "Confidence limit       Flux upper limit ( " << s_upper_limit_lower_bound << " MeV < E < " << s_upper_limit_upper_bound << " MeV ) [ ph cm^-2 s^-1 ]"
 	      << std::endl;
 
-    m_FeldmanCousins->set_counts(N_signal,N_background);
+    m_FeldmanCousins->set_counts(N_total,N_background);
 
     m_flux_upper_limits.clear();
 
