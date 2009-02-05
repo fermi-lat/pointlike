@@ -150,11 +150,9 @@ namespace pointlike{
   void ResultsFile::fill(SourceLikelihood& like,
 			 SpectralFitter& fitter){
 
+    // Sourcelikelihood columns
     this->fill(like);
     srcTabItor--;
-    
-    if(!fields_created) srcTab->appendField("MODEL", "20A");
-    (*srcTabItor)["MODEL"].set(fitter.getModel()->get_spec_type());
     
     std::vector<double> range(2);
     range[0]=fitter.getModel()->get_lower_bound();
@@ -162,50 +160,57 @@ namespace pointlike{
     if(!fields_created) srcTab->appendField("FIT_RANGE","2E");
     (*srcTabItor)["FIT_RANGE"].set(range);
 
-    std::stringstream nparstream;
-    nparstream<<fitter.getModel()->get_npar()<<"E";
-    std::string npar=nparstream.str();
-    
-    std::stringstream nbinstream;
-    nbinstream<<fitter.getModel()->get_model_energies().size()<<"E";
-    std::string nbin=nbinstream.str();
-    
-    if(!fields_created) srcTab->appendField("LOGLIKESUM","1E");
-    (*srcTabItor)["LOGLIKESUM"].set(fitter.getModel()->get_logLikeSum());
-  
-    if(!fields_created) srcTab->appendField("PAR",npar);
-    (*srcTabItor)["PAR"].set(fitter.getModel()->get_params());
-  
-    if(!fields_created) srcTab->appendField("PAR_ERR",npar);
-    (*srcTabItor)["PAR_ERR"].set(fitter.getModel()->get_param_errors());
+    // Spectral fitting columns
+    if(!fitter.getModel()->get_model_energies().empty()){
+      if(!fields_created) srcTab->appendField("MODEL", "20A");
+      (*srcTabItor)["MODEL"].set(fitter.getModel()->get_spec_type());
 
-    if(!fitter.get_covar_entries().empty()){
-      std::stringstream ncovarstream;
-      ncovarstream<<fitter.get_covar_entries().size()<<"E";
-      std::string ncovar=ncovarstream.str();
-      if(!fields_created) srcTab->appendField("COVAR_ENTRIES",ncovar);
-      (*srcTabItor)["COVAR_ENTRIES"].set(fitter.get_covar_entries());
+      std::stringstream nparstream;
+      nparstream<<fitter.getModel()->get_npar()<<"E";
+      std::string npar=nparstream.str();
+    
+      std::stringstream nbinstream;
+      nbinstream<<fitter.getModel()->get_model_energies().size()<<"E";
+      std::string nbin=nbinstream.str();
+    
+      if(!fields_created) srcTab->appendField("LOGLIKESUM","1E");
+      (*srcTabItor)["LOGLIKESUM"].set(fitter.getModel()->get_logLikeSum());
+  
+      if(!fields_created) srcTab->appendField("PAR",npar);
+      (*srcTabItor)["PAR"].set(fitter.getModel()->get_params());
+  
+      if(!fields_created) srcTab->appendField("PAR_ERR",npar);
+      (*srcTabItor)["PAR_ERR"].set(fitter.getModel()->get_param_errors());
+
+      if(!fitter.get_covar_entries().empty()){
+	std::stringstream ncovarstream;
+	ncovarstream<<fitter.get_covar_entries().size()<<"E";
+	std::string ncovar=ncovarstream.str();
+	if(!fields_created) srcTab->appendField("COVAR_ENTRIES",ncovar);
+	(*srcTabItor)["COVAR_ENTRIES"].set(fitter.get_covar_entries());
+      }
+
+      if(fitter.getModel()->get_spec_type()=="POWER_LAW"){
+	if(!fields_created) srcTab->appendField("DECORRELATION_ENERGY","1E");
+	(*srcTabItor)["DECORRELATION_ENERGY"].set(fitter.getModel()->get_scale());
+      }
+    
+      // Record model integrated flux 100 MeV < E < 300 GeV [ ph/cm^2/s ]
+      if(!fields_created) srcTab->appendField("INTEGRAL_FLUX","1E");
+      (*srcTabItor)["INTEGRAL_FLUX"].set(fitter.getModel()->get_flux(100,3.e5));
+    
+      // Record flux errors (high/low)
+      if(!fields_created) srcTab->appendField("INTEGRAL_FLUX_ERR","2E");
+      (*srcTabItor)["INTEGRAL_FLUX_ERR"].set(fitter.getModel()->get_flux_errors(100,3.e5));
+    
+      if(!fields_created) srcTab->appendField("MODEL_ENERGY",nbin);
+      (*srcTabItor)["MODEL_ENERGY"].set(fitter.getModel()->get_model_energies());
+
+      if(!fields_created) srcTab->appendField("MODEL_EXPOSURE",nbin);
+      (*srcTabItor)["MODEL_EXPOSURE"].set(fitter.getModel()->get_exposures());
     }
 
-    if(fitter.getModel()->get_spec_type()=="POWER_LAW"){
-      if(!fields_created) srcTab->appendField("DECORRELATION_ENERGY","1E");
-      (*srcTabItor)["DECORRELATION_ENERGY"].set(fitter.getModel()->get_scale());
-    }
-    
-    // Record model integrated flux 100 MeV < E < 300 GeV [ ph/cm^2/s ]
-    if(!fields_created) srcTab->appendField("INTEGRAL_FLUX","1E");
-    (*srcTabItor)["INTEGRAL_FLUX"].set(fitter.getModel()->get_flux(100,3.e5));
-    
-    // Record flux errors (high/low)
-    if(!fields_created) srcTab->appendField("INTEGRAL_FLUX_ERR","2E");
-    (*srcTabItor)["INTEGRAL_FLUX_ERR"].set(fitter.getModel()->get_flux_errors(100,3.e5));
-    
-    if(!fields_created) srcTab->appendField("MODEL_ENERGY",nbin);
-    (*srcTabItor)["MODEL_ENERGY"].set(fitter.getModel()->get_model_energies());
-
-    if(!fields_created) srcTab->appendField("MODEL_EXPOSURE",nbin);
-    (*srcTabItor)["MODEL_EXPOSURE"].set(fitter.getModel()->get_exposures());
-
+    // Upper limits columns
     if(!fitter.getFluxUpperLimits().empty()){
       if(!fields_created) srcTab->appendField("UPPER_LIMIT_RANGE","2E");
       (*srcTabItor)["UPPER_LIMIT_RANGE"].set(fitter.getUpperLimitRange());
@@ -228,6 +233,7 @@ namespace pointlike{
       (*srcTabItor)["ENERGY_UPPER_LIMIT"].set(fitter.getEnergyUpperLimits());
       (*srcTabItor)["EXPOSURE_UPPER_LIMIT"].set(fitter.getExposureUpperLimits());
     }
+    
     fields_created=true;
     srcTabItor++;
 
