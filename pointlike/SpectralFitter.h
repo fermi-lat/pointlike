@@ -1044,7 +1044,7 @@ namespace pointlike{
 	new_alpha=-1.;
 	do{
 	  new_alpha=alpha+generator.rand_gauss()*alpha_error;
-	}while(new_alpha<0.);
+	}while(new_alpha<0. && new_alpha>1.);
 	this->set_counts(n_total,(1-new_alpha)*n_total);
 	sum+=this->get_upper_limit(confidence_limit);
       }
@@ -1073,6 +1073,7 @@ namespace pointlike{
 
     static double s_accuracy;
 
+    static int s_useUpperLimit;
     static double s_TS_threshold;
     static double s_index;
     static double s_upper_limit_lower_bound;
@@ -1129,6 +1130,10 @@ namespace pointlike{
     // Function for using combined front and back energy binning
 
     void setCombined();
+
+    // Function deciding whether to perform the upper limit calculation
+
+    void useUpperLimit(int useUpperLimit=1) { s_useUpperLimit=useUpperLimit; };
 
     // Function to get covariance matrix entries
     
