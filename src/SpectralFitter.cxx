@@ -40,6 +40,7 @@ namespace pointlike{
 
   double SpectralFitter::s_accuracy(0.0001);
 
+  int    SpectralFitter::s_useUpperLimit(1);
   double SpectralFitter::s_TS_threshold(25.);
   double SpectralFitter::s_index(2.0);
   double SpectralFitter::s_upper_limit_lower_bound(100.);
@@ -362,7 +363,10 @@ namespace pointlike{
       this->initialize();
       this->specfitMinuit(E_decorrelation);
     }
-    else this->setFluxUpperLimits();
+    else{
+      if(s_useUpperLimit)
+	this->setFluxUpperLimits();
+    }
 
   }
 
@@ -382,9 +386,11 @@ namespace pointlike{
 	      << "===== INTEGRAL PHOTON FLUX UPPER LIMITS ====="
 	      << std::endl;
 
+    bool use_fitted_model;
     // Choose fitted spectral model or default power law model
     if(gSourcePointer->TS()>s_TS_threshold && gModelPointer && gFitCounter>0){
       m_model_pointer=gModelPointer;
+      use_fitted_model=true;
       std::cout << std::endl 
 		<< "Using fitted spectral model to compute upper limits"
 		<< std::endl;
@@ -394,6 +400,7 @@ namespace pointlike{
       pl_params[0]=1.e-9;
       pl_params[1]=s_index;
       m_model_pointer=new PowerLaw(pl_params);
+      use_fitted_model=false;
       std::cout << std::endl
 		<< "Assume a power law spectral model with photon index "
 		<< std::fixed << std::setprecision(2)
@@ -427,6 +434,13 @@ namespace pointlike{
 
     m_band_upper_limits.clear();
 
+    std::cout << std::endl
+	      << std::fixed << std::setprecision(2)
+	      << "Integral photon fluxes within energy bands [ ph cm^-2 s^-1 ] ( Energies in MeV ; Confidence Limit = " << s_band_confidence_limit << ")"
+	      << std::endl << std::endl
+	      << std::setw(10) << "emin" << std::setw(10) << "emax" << std::setw(10) << "evclass" << std::setw(12) << "flux"
+	      << std::endl;
+
     // Total photon counts
     for(int bin=0;bin<numBins;bin++){
       
@@ -456,11 +470,24 @@ namespace pointlike{
       weighted_exposure_sum+=psf_correction*band_exposure;
 
       // Set flux upper limits for individual bands including signal fraction error
-      FC_upper_limit=m_FeldmanCousins->get_upper_limit_convolution(n,alpha,alpha_error,s_band_confidence_limit);
+      if(alpha_error>alpha)
+	FC_upper_limit=m_FeldmanCousins->get_upper_limit_convolution(n,alpha,alpha_error,s_band_confidence_limit);
+      else{
+	m_FeldmanCousins->set_counts(n,(1.-alpha)*n);
+	FC_upper_limit=m_FeldmanCousins->get_upper_limit(s_band_confidence_limit);
+      }
 
       m_band_upper_limits.push_back(FC_upper_limit/psf_correction);
       m_energy_upper_limits.push_back(m_model_pointer->get_model_E(E_min,E_max));
       m_exposure_upper_limits.push_back(band_exposure);
+
+      std::cout << std::fixed << std::setprecision(0)
+		<< std::setw(10) << E_min
+		<< std::setw(10) << E_max
+		<< std::setw(10) << gSourcePointer->at(bin)->band().event_class()
+		<< std::scientific << std::setprecision(2) 
+		<< std::setw(12) << FC_upper_limit/(psf_correction*band_exposure)
+		<< std::endl;
     }
 
     // Get the range of energy used for fitting and use it for calculating the flux ratio
@@ -473,7 +500,7 @@ namespace pointlike{
     else
       integrated_exposure=m_model_pointer->get_integrated_exposure(gSourcePointer,s_upper_limit_lower_bound,s_upper_limit_upper_bound,0)+
 	m_model_pointer->get_integrated_exposure(gSourcePointer,s_upper_limit_lower_bound,s_upper_limit_upper_bound,1);
-      
+    
     // Fraction of photons contained within region of interest
     double containment_fraction=weighted_exposure_sum/exposure_sum;
 
@@ -517,6 +544,8 @@ namespace pointlike{
     }
 
     // Restore the original spectral model
+    if(!use_fitted_model)
+      delete m_model_pointer;
     m_model_pointer=gModelPointer;
 
   }
