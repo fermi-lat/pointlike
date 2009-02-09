@@ -194,7 +194,10 @@ namespace pointlike{
   SpectralFitter::~SpectralFitter(){
     if(m_Minuit) delete m_Minuit;
     if(m_FeldmanCousins) delete m_FeldmanCousins;
-    if(m_model_pointer) delete m_model_pointer;
+    if(m_model_pointer){
+      m_model_pointer=NULL;
+      delete m_model_pointer;
+    }
   }
 
   //--------------------------------------------------------------------------
@@ -386,11 +389,9 @@ namespace pointlike{
 	      << "===== INTEGRAL PHOTON FLUX UPPER LIMITS ====="
 	      << std::endl;
 
-    bool use_fitted_model;
     // Choose fitted spectral model or default power law model
     if(gSourcePointer->TS()>s_TS_threshold && gModelPointer && gFitCounter>0){
       m_model_pointer=gModelPointer;
-      use_fitted_model=true;
       std::cout << std::endl 
 		<< "Using fitted spectral model to compute upper limits"
 		<< std::endl;
@@ -400,7 +401,6 @@ namespace pointlike{
       pl_params[0]=1.e-9;
       pl_params[1]=s_index;
       m_model_pointer=new PowerLaw(pl_params);
-      use_fitted_model=false;
       std::cout << std::endl
 		<< "Assume a power law spectral model with photon index "
 		<< std::fixed << std::setprecision(2)
@@ -544,8 +544,6 @@ namespace pointlike{
     }
 
     // Restore the original spectral model
-    if(!use_fitted_model)
-      delete m_model_pointer;
     m_model_pointer=gModelPointer;
 
   }
