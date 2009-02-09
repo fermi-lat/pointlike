@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: bechtol  Mon Feb  9 11:55:15 PST 2009
+pointlike/src
+
+Modified Files:
+	SpectralFitter.cxx 
+Log Message:
+Fixed segmentation fault at end of execution
+
+    *
+------------------------------------------------------------
 User: bechtol  Fri Feb  6 18:15:46 PST 2009
 pointlike/src
 
