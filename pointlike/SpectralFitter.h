@@ -7,6 +7,8 @@
 
 #include <iostream>
 #include <iomanip>
+#include <fstream>
+#include <sstream>
 #include <stdexcept>
 #include <cmath>
 #include <vector>
@@ -891,7 +893,11 @@ namespace pointlike{
 
 	double g_alpha_num=sqrt(2./M_PI)*exp(-1.*(alpha-m_mu_alpha)*(alpha-m_mu_alpha)/(2.*m_sigma_alpha*m_sigma_alpha));
 	
-	double g_alpha_den=m_sigma_alpha*(-erf((-1.+m_mu_alpha)/(sqrt(2.)*m_sigma_alpha))+erf(m_mu_alpha/(sqrt(2.)*m_sigma_alpha)));
+	// Signal fraction bounded from above (alpha < 1)
+	//double g_alpha_den=m_sigma_alpha*(-erf((-1.+m_mu_alpha)/(sqrt(2.)*m_sigma_alpha))+erf(m_mu_alpha/(sqrt(2.)*m_sigma_alpha)));
+
+	// Signal fraction unbounded from above
+	double g_alpha_den=0.5*(1+erf(m_mu_alpha/(sqrt(2.)*m_sigma_alpha)));
 
 	if(m_useExposurePDF)
 	  result=g_alpha_num*arg_exp.get_pdf_exp()/g_alpha_den;
@@ -929,13 +935,20 @@ namespace pointlike{
       int exit_loop=0;
       while(exit_loop!=1){
 	try{
-	  result=st_facilities::GaussianQuadrature::dgaus8<const PDF::functor>(arg,1e-15,1.,error,ierr);
+
+	  // Integration limits
+	  double alpha_min=m_mu_alpha-5.*m_sigma_alpha;
+	  if(alpha_min < 1.e-10) alpha_min=1.e-10;
+	  double alpha_max=m_mu_alpha+5.*m_sigma_alpha;
+	  //if(alpha_max > 1.) alpha_max=1.;
+
+	  result=st_facilities::GaussianQuadrature::dgaus8<const PDF::functor>(arg,alpha_min,alpha_max,error,ierr);
       
 	  if(ierr!=1) throw std::runtime_error("WARNING. Error in dgaus8 integration.");
 	}
 	catch(std::runtime_error message){
 	  error=error*10.; // Decrease the numeric accuracy and try again
-	  if(error>100.) throw std::runtime_error("WARNING. Lower bound on numeric integration accuracy exceeded.");
+	  if(error>1.e-4) throw std::runtime_error("WARNING. Upper bound on numeric integration accuracy exceeded.");
 	  continue;
 	}
 	exit_loop=1;
@@ -952,6 +965,51 @@ namespace pointlike{
 	return log(likelihood);
     }
     
+  };
+
+  //--------------------------------------------------------------------------
+  //  Multiwavelength probability distribution function 
+  //--------------------------------------------------------------------------
+
+  class PDFMultiwavelength{
+  private:
+    double m_E;
+    double m_dNdE;
+    double m_dNdE_err_lo;
+    double m_dNdE_err_hi;
+
+    SpectralModel* m_model_pointer;
+
+    double m_model_dNdE;
+
+  public:
+    PDFMultiwavelength(SpectralModel* ModelPointer):
+      m_model_pointer(ModelPointer){
+    }
+
+    void set_bin(double E,double dNdE,double dNdE_err_lo,double dNdE_err_hi){
+      m_E           = E;
+      m_dNdE        = dNdE;
+      m_dNdE_err_lo = dNdE_err_lo;
+      m_dNdE_err_hi = dNdE_err_hi;
+      m_model_dNdE  = m_model_pointer->get_dNdE(m_E);
+    }
+
+    /*
+    double get_likelihood(){
+      double norm = 1./(sqrt(2*M_PI)*m_dNdE_err);
+      double arg  = -1.*pow(m_model_dNdE-m_dNdE,2)/(2.*m_dNdE_err);
+      return norm*exp(arg);
+    }
+    */
+
+    double get_loglikelihood(){
+      //double likelihood=this->get_likelihood();
+      double arg=-1.*pow(m_model_dNdE-m_dNdE,2)/(2.*m_dNdE_err_hi);
+      double loglikelihood=-0.5*log(2.*M_PI)-log(m_dNdE_err_hi)+arg;
+      return loglikelihood;
+    }
+
   };
 
   //--------------------------------------------------------------------------
@@ -1054,6 +1112,92 @@ namespace pointlike{
   };
 
   //--------------------------------------------------------------------------
+  //  Read a textfile of multiwavelength data
+  //--------------------------------------------------------------------------
+
+  class MWData{
+  private:
+    std::vector<double> m_E;
+    std::vector<double> m_dNdE;
+    std::vector<double> m_dNdE_err_lo;
+    std::vector<double> m_dNdE_err_hi;
+
+  public:
+    MWData(char filename[100],double scale=1.){
+      this->read(filename,scale);
+    }
+
+    void read(char filename[100],double scale=1.){
+      
+      std::cout << "Opening " << filename << "..." << std::endl;
+
+      char line[100];
+      std::ifstream inFile;
+      inFile.open(filename);
+
+      if (!inFile) {
+        std::cout << "WARNING: Unable to open multiwavelength data file." << std::endl;
+        exit(1);
+      }
+
+      std::stringstream linestream;
+      std::string linestring;
+
+      std::vector<double> numbers;
+
+      while(!inFile.eof()){
+	inFile.getline(line,100);
+	linestring.assign(line,strlen(line));
+	std::cout << linestring << std::endl;
+	if(linestring.find("#")==std::string::npos && !linestring.empty()){
+	   numbers=numberize(line);
+	   m_E.push_back(numbers[0]*scale);
+	   m_dNdE.push_back(numbers[1]/scale);
+	   m_dNdE_err_lo.push_back(numbers[2]/scale);
+	   if(numbers.size()<4)
+	     m_dNdE_err_hi.push_back(numbers[2]/scale);
+	   else
+	     m_dNdE_err_hi.push_back(numbers[3]/scale);
+	}
+      }
+
+      inFile.close();
+    }
+
+    std::vector<double> numberize(std::string line){
+      
+      std::string whitespaces(" \t\f\v\n\r");
+      size_t found;
+      found=line.find_last_not_of(whitespaces);
+      if (found!=std::string::npos)
+	line.erase(found+1);
+      else
+	line.clear(); 
+
+      std::vector<double> numbers;
+
+      size_t begin=0;
+      size_t end=0;
+      std::string number_str;
+
+      while(end<line.length() && begin<line.length()){
+	begin=line.find_first_not_of(" ",end);
+	end=line.find_first_of(" ",begin+1);
+	number_str=line.substr(begin,end-begin);
+	numbers.push_back(atof(number_str.c_str()));
+      }
+
+      return numbers;
+    }
+
+    std::vector<double> get_E(){ return m_E; }
+    std::vector<double> get_dNdE(){ return m_dNdE; }
+    std::vector<double> get_dNdE_err_lo(){ return m_dNdE_err_lo; }
+    std::vector<double> get_dNdE_err_hi(){ return m_dNdE_err_hi; }
+
+  };
+
+  //--------------------------------------------------------------------------
   //  Class definition
   //--------------------------------------------------------------------------
 
@@ -1068,6 +1212,8 @@ namespace pointlike{
     static int s_useMinos;
 
     static int s_useExposurePDF;
+
+    static int s_useMultiwavelengthData;
 
     static double s_stepIncrement;
 
@@ -1103,6 +1249,8 @@ namespace pointlike{
     FeldmanCousins* m_FeldmanCousins;
 
     SpectralModel* m_model_pointer;
+
+    MWData* m_MWData;
 
     std::vector<double> m_confidence_limits;
     std::vector<double> m_flux_upper_limits;
@@ -1153,11 +1301,19 @@ namespace pointlike{
 
     std::vector<double> getBandUpperLimits() { return m_band_upper_limits; };
     std::vector<double> getEnergyUpperLimits() { return m_energy_upper_limits; };
-    std::vector<double> getExposureUpperLimits() { return m_exposure_upper_limits; }
+    std::vector<double> getExposureUpperLimits() { return m_exposure_upper_limits; };
 
     // Get the model pointer from the spectral fitter
 
     SpectralModel* getModel() { return m_model_pointer; };
+
+    // Functions to add multiwavelength data to the spectral fitting
+
+    void setMWData(char filename[100],double scale=1.) { 
+      m_MWData = new MWData(filename,scale); 
+      s_useMultiwavelengthData=1;
+    };
+    MWData* getMWData() { return m_MWData; };
 
   };
 

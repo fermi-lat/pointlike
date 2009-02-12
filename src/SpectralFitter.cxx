@@ -20,11 +20,13 @@ namespace pointlike{
 
   int gFitCounter=0;
   int gUseExposurePDF=1;
+  int gUseMultiwavelengthData=0;
 
   // Global pointers
   pointlike::SourceLikelihood* gSourcePointer = NULL;
   pointlike::SpectralModel* gModelPointer = NULL;
-  
+  pointlike::MWData* gMWDataPointer = NULL;
+
   // Initialize static variables
   double SpectralFitter::s_lower_bound(200.);
   double SpectralFitter::s_upper_bound(3.e4);
@@ -35,6 +37,8 @@ namespace pointlike{
   int    SpectralFitter::s_useMinos(0);
   
   int SpectralFitter::s_useExposurePDF(1);
+
+  int SpectralFitter::s_useMultiwavelengthData(0);
 
   double SpectralFitter::s_stepIncrement(0.01);
 
@@ -107,9 +111,33 @@ namespace pointlike{
       
       pdf.set_bin(n,E_min,E_max,mu_exp,sigma_exp,mu_alpha,sigma_alpha);
 
-      //std::cout << -1.*pdf.get_loglikelihood() << std::endl;
+      logLikeSum-=pdf.get_loglikelihood(); // Minuit minimizes -> negative sign
+    }
 
-      logLikeSum-=pdf.get_loglikelihood(); // Negative sign -> Minuit minimizes
+    // Incorporate multiwavelength data
+    if(gUseMultiwavelengthData){
+      
+      if(!gMWDataPointer)
+	 throw std::invalid_argument("SpectralFitter::gMWDataPointer not set");
+      
+      PDFMultiwavelength MWpdf(gModelPointer);
+
+      double E,dNdE,dNdE_err_lo,dNdE_err_hi;
+
+      int MWbins=gMWDataPointer->get_E().size();
+      
+      for(int MWbin=0;MWbin<MWbins;MWbin++){
+	E           = gMWDataPointer->get_E()[MWbin];
+	dNdE        = gMWDataPointer->get_dNdE()[MWbin];
+	dNdE_err_lo = gMWDataPointer->get_dNdE_err_lo()[MWbin];
+	dNdE_err_hi = gMWDataPointer->get_dNdE_err_hi()[MWbin];
+	
+	MWpdf.set_bin(E,dNdE,dNdE_err_lo,dNdE_err_hi);
+	
+	std::cout << -1.*MWpdf.get_loglikelihood() << std::endl;
+
+	logLikeSum-=MWpdf.get_loglikelihood(); // Minuit minimizes -> negative sign
+      }
     }
 
     Loglike=logLikeSum;
@@ -198,6 +226,7 @@ namespace pointlike{
       m_model_pointer=NULL;
       delete m_model_pointer;
     }
+    if(m_MWData) delete m_MWData;
   }
 
   //--------------------------------------------------------------------------
@@ -213,6 +242,9 @@ namespace pointlike{
 
     // Check if using the full exposure PDF convolution
     gUseExposurePDF = s_useExposurePDF;
+
+    // Check if incorporating multiwavelength data
+    gUseMultiwavelengthData = s_useMultiwavelengthData;
 
     // The Minuit output flag - query after each command
     Int_t ierflag=0;
