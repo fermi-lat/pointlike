@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: bechtol  Thu Feb 12 10:53:39 PST 2009
+pointlike/src
+
+Modified Files:
+	SpectralFitter.cxx 
+Log Message:
+New integration limits on PDF signal fraction integration
+
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Thu Feb 12 10:53:33 PST 2009
 pointlike/python
 
