@@ -189,8 +189,7 @@ def plot(filename,source="",addfunc=""):
 
     #g1.Print()
     #g2.Print()
-    #g3.Print()
-
+    
     global canvas
     global pad1
     global pad2
