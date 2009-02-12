@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: bechtol  Thu Feb 12 10:53:29 PST 2009
+pointlike/pointlike
+
+Modified Files:
+	SpectralFitter.h 
+Log Message:
+New integration limits on PDF signal fraction integration
+
+    *
+------------------------------------------------------------
 User: bechtol  Mon Feb  9 11:55:15 PST 2009
 pointlike/src
 
