@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: bechtol  Mon Feb 16 13:52:37 PST 2009
+pointlike/src
+
+Modified Files:
+	SpectralFitter.cxx 
+Log Message:
+Timers and integral flux output
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Mon Feb 16 13:52:34 PST 2009
 pointlike/pointlike
 
