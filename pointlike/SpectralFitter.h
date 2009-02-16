@@ -362,7 +362,8 @@ namespace pointlike{
     virtual void show(){
       std::cout << std::setprecision(4)
 		<< std::scientific 
-		<< "N_0 = " << m_prefactor
+	//<< "N_0 = " << m_prefactor
+		<< "flux_100 = " << this->get_flux(100.,3.e5) 
 		<< std::fixed 
 		<< "   gamma =  " << m_index;
     }
@@ -524,7 +525,8 @@ namespace pointlike{
     virtual void show(){
       std::cout << std::setprecision(4)
 		<< std::scientific 
-		<< "N_0 = " << m_prefactor
+	//<< "N_0 = " << m_prefactor
+		<< "flux_100 = " << this->get_flux(100.,3.e5)
 		<< std::fixed
 		<< "   gamma_1 = " << m_index_1
 		<< "   gamma_2 = " << m_index_2
@@ -688,7 +690,8 @@ namespace pointlike{
     virtual void show(){
       std::cout << std::setprecision(4)
 		<< std::scientific 
-		<< "N_0 = " << m_prefactor
+	//<< "N_0 = " << m_prefactor
+		<< "flux_100 = " << this->get_flux(100.,3.e5)
 		<< std::fixed
 		<< "   gamma = " << m_index
 	        << "   E_c = " << m_cutoff;

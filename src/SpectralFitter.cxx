@@ -13,6 +13,7 @@
 #include <string>
 #include <cstring>
 #include <stdlib.h>
+#include <time.h>
 
 #include <TMinuit.h>
 
@@ -218,6 +219,9 @@ namespace pointlike{
   //--------------------------------------------------------------------------
 
   void pointlike::SpectralFitter::specfitMinuit(double scale){
+    // Initialize timer
+    time_t start,end;
+    time(&start);
 
     // Check if using decorrelation energy
     if(gModelPointer->get_spec_type()=="POWER_LAW" && scale!=-1.){
@@ -275,6 +279,9 @@ namespace pointlike{
     }
     
     std::cout << std::endl << "===== SPECTRAL FITTING RESULTS ====="
+	      << std::endl;
+
+    std::cout << std::endl << "Source: " << gSourcePointer->name()
 	      << std::endl;
 
     std::cout << std::endl << "Spectral fitting in range "
@@ -364,6 +371,14 @@ namespace pointlike{
       std::cerr<<"WARNING: Minuit returned ierflag=4: Fit did not converge."<<std::endl;
     }
 
+    time(&end);
+    double SFtime=difftime(end,start);
+    std::cout << std::fixed << std::setprecision(0)
+	      << "Spectral fitting computation time = " 
+	      << SFtime 
+	      << " seconds" 
+	      << std::endl;
+
     // Calculate pivot energy and repeat the fit
     if(gModelPointer->get_spec_type()=="POWER_LAW" && scale==-1.){
       double log_covar[2][2];
@@ -396,7 +411,10 @@ namespace pointlike{
   //--------------------------------------------------------------------------
 
   void pointlike::SpectralFitter::setFluxUpperLimits(std::vector<double> confidence_limits){
-    
+    // Initialize timer
+    time_t start,end;
+    time(&start);
+
     if(!gSourcePointer)
       throw std::invalid_argument("SpectralFitter::gSourcePointer not set");
 
@@ -558,6 +576,14 @@ namespace pointlike{
 
     // Restore the original spectral model
     m_model_pointer=gModelPointer;
+
+    time(&end);
+    double ULtime=difftime(end,start);
+    std::cout << std::fixed << std::setprecision(0)
+	      << "Upper limit computation time = " 
+	      << ULtime 
+	      << " seconds" 
+	      << std::endl;
 
   }
 
