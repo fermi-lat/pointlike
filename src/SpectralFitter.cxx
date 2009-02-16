@@ -29,7 +29,7 @@ namespace pointlike{
 
   // Initialize static variables
   double SpectralFitter::s_lower_bound(200.);
-  double SpectralFitter::s_upper_bound(3.e4);
+  double SpectralFitter::s_upper_bound(1.e6);
 
   int    SpectralFitter::s_useDefaultParams(0);
   int    SpectralFitter::s_useSimplex(1);
@@ -82,18 +82,11 @@ namespace pointlike{
       
     gModelPointer->set_params(specParams);
     
-    PDF pdf(gModelPointer,gUseExposurePDF);
-
-    double exposure_error_frac;
+    PDF pdf(gSourcePointer,gModelPointer,gUseExposurePDF);
 
     double logLikeSum=0.;
     
     for(int bin=0;bin<numBins;bin++){
-      	
-      n=gSourcePointer->at(bin)->photons();
-
-      if(n==0) continue; // Skip empty energy bins
-
       E_min=gSourcePointer->at(bin)->band().emin();
       E_max=gSourcePointer->at(bin)->band().emax();
       
@@ -101,16 +94,7 @@ namespace pointlike{
       if(E_min < gModelPointer->get_lower_bound() || 
 	 E_max > gModelPointer->get_upper_bound()) continue;
 
-      mu_alpha=gSourcePointer->at(bin)->alpha();
-      sigma_alpha=gSourcePointer->at(bin)->sigma_alpha();
-
-      // Model dependent exposure calculation
-      mu_exp=gModelPointer->get_model_exposure(gSourcePointer,bin);
-      exposure_error_frac=gModelPointer->get_exposure_uncertainty(E_min,E_max);
-      sigma_exp=exposure_error_frac*mu_exp; 
-      
-      pdf.set_bin(n,E_min,E_max,mu_exp,sigma_exp,mu_alpha,sigma_alpha);
-
+      pdf.set_bin(bin);
       logLikeSum-=pdf.get_loglikelihood(); // Minuit minimizes -> negative sign
     }
 
@@ -245,6 +229,8 @@ namespace pointlike{
 
     // Check if incorporating multiwavelength data
     gUseMultiwavelengthData = s_useMultiwavelengthData;
+    if(s_useMultiwavelengthData)
+      gMWDataPointer=m_MWData;
 
     // The Minuit output flag - query after each command
     Int_t ierflag=0;

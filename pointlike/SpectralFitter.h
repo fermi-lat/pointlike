@@ -148,7 +148,7 @@ namespace pointlike{
     double get_model_exposure(pointlike::SourceLikelihood* SourcePointer,int bin){
       double E_min=SourcePointer->at(bin)->band().emin();
       double E_max=SourcePointer->at(bin)->band().emax();
-      
+
       double weighted_exposure_sum=0;
       double normalization=0;
       
@@ -180,7 +180,6 @@ namespace pointlike{
     }
 
     double get_integrated_exposure(pointlike::SourceLikelihood* SourcePointer,double E_min,double E_max,int evclass=-1){
-
       double weighted_exposure_sum=0;
       double normalization=0;
       
@@ -851,13 +850,16 @@ namespace pointlike{
 
   class PDF{
   private:
+    
+    int m_bin;
+
     int m_n;
     int m_useExposurePDF;
     double m_E_min,m_E_max,m_mu_exp,m_sigma_exp,m_mu_alpha,m_sigma_alpha;
     
     SpectralModel* m_model_pointer;
 
-    double m_flux;
+    SourceLikelihood* m_source_pointer;
 
     //-------------------------------------------------------------------------
     //  Helper function to calculate the argument going to numeric integrator
@@ -865,84 +867,133 @@ namespace pointlike{
 
     class functor{
     private:
+      int m_bin;
+
       int m_n;
-      int m_useExposurePDF;
       double m_E_min,m_E_max,m_mu_exp,m_sigma_exp,m_mu_alpha,m_sigma_alpha;
       double m_flux;
       
+      SpectralModel* m_model_pointer;
+
+      SourceLikelihood* m_source_pointer;
+
+      int m_useExposurePDF;
+
+      int m_normalize;
+
     public:
-      functor(int n,double E_min,double E_max,double mu_exp,double sigma_exp,double mu_alpha,double sigma_alpha,double flux=0,int useExposurePDF=0):
-	m_n(n),
-	m_E_min(E_min),
-	m_E_max(E_max),
-	m_mu_exp(mu_exp),
-	m_sigma_exp(sigma_exp),
-	m_mu_alpha(mu_alpha),
-	m_sigma_alpha(sigma_alpha),
-	m_flux(flux),
-	m_useExposurePDF(useExposurePDF){
+      functor(SourceLikelihood* SourcePointer,SpectralModel* ModelPointer,int bin,int useExposurePDF=0){
+	m_source_pointer=SourcePointer;
+	m_model_pointer=ModelPointer;
+
+	m_bin=bin;
+
+	m_n=m_source_pointer->at(m_bin)->photons();
+
+	m_E_min=m_source_pointer->at(m_bin)->band().emin();
+	m_E_max=m_source_pointer->at(m_bin)->band().emax();
+
+	m_mu_alpha=m_source_pointer->at(m_bin)->alpha();
+	m_sigma_alpha=m_source_pointer->at(m_bin)->sigma_alpha();
+
+	// Model dependent exposure calculation
+	m_mu_exp=m_model_pointer->get_model_exposure(m_source_pointer,m_bin);
+	double exposure_error_frac=m_model_pointer->get_exposure_uncertainty(m_E_min,m_E_max);
+	m_sigma_exp=exposure_error_frac*m_mu_exp;
+
+	m_flux=m_model_pointer->get_flux(m_E_min,m_E_max);
+
+	m_useExposurePDF=useExposurePDF;
       }
 
+      void normalize(int normalize){ m_normalize=normalize; }
+
       double operator()(double alpha) const {
-	
-	double result=0;
+	double loglike_best = m_source_pointer->at(m_bin)->operator()(m_mu_alpha);
+	double loglike      = m_source_pointer->at(m_bin)->operator()(alpha);
+
+	// Normalization condition
+	if(m_normalize) 
+	  return exp(loglike_best-loglike);
 
 	double A=m_flux/alpha;
 
 	PDFExposure arg_exp(m_n,m_mu_exp,m_sigma_exp,A);
 
-	double g_alpha_num=sqrt(2./M_PI)*exp(-1.*(alpha-m_mu_alpha)*(alpha-m_mu_alpha)/(2.*m_sigma_alpha*m_sigma_alpha));
-	
-	// Signal fraction bounded from above (alpha < 1)
-	//double g_alpha_den=m_sigma_alpha*(-erf((-1.+m_mu_alpha)/(sqrt(2.)*m_sigma_alpha))+erf(m_mu_alpha/(sqrt(2.)*m_sigma_alpha)));
+	// Case 1: No photon counts in bin
+	if(m_n<1.){
+	  if(m_useExposurePDF)
+	    return arg_exp.get_pdf_exp();
+	  else
+	    return arg_exp.get_simple_pdf();
+	}
 
-	// Signal fraction unbounded from above
-	double g_alpha_den=0.5*(1+erf(m_mu_alpha/(sqrt(2.)*m_sigma_alpha)));
-
+	// Case 2: Photon counts in bin
 	if(m_useExposurePDF)
-	  result=g_alpha_num*arg_exp.get_pdf_exp()/g_alpha_den;
+	  return exp(loglike_best-loglike)*arg_exp.get_pdf_exp();
 	else
-	  result=g_alpha_num*arg_exp.get_simple_pdf()/g_alpha_den;
-
-	return result;
+	  return exp(loglike_best-loglike)*arg_exp.get_simple_pdf();
       }
     };
 
   public:
-    PDF(SpectralModel* ModelPointer,int useExposurePDF=0):
+    PDF(SourceLikelihood* SourcePointer,SpectralModel* ModelPointer,int useExposurePDF=0):
+      m_source_pointer(SourcePointer),
       m_model_pointer(ModelPointer),
       m_useExposurePDF(useExposurePDF){
     }
 
-    void set_bin(int n,double E_min,double E_max,double mu_exp,double sigma_exp,double mu_alpha,double sigma_alpha){
-      m_n=n;
-      m_E_min=E_min;
-      m_E_max=E_max;
-      m_mu_exp=mu_exp;
-      m_sigma_exp=sigma_exp;
-      m_mu_alpha=mu_alpha;
-      m_sigma_alpha=sigma_alpha;
+    void set_bin(int bin){
+      m_bin=bin;
+
+      m_n=m_source_pointer->at(m_bin)->photons();
+
+      m_E_min=m_source_pointer->at(m_bin)->band().emin();
+      m_E_max=m_source_pointer->at(m_bin)->band().emax();
+
+      m_mu_alpha=m_source_pointer->at(m_bin)->alpha();
+      m_sigma_alpha=m_source_pointer->at(m_bin)->sigma_alpha();
+
+      // Model dependent exposure calculation
+      m_mu_exp=m_model_pointer->get_model_exposure(m_source_pointer,m_bin);
+      double exposure_error_frac=m_model_pointer->get_exposure_uncertainty(m_E_min,m_E_max);
+      m_sigma_exp=exposure_error_frac*m_mu_exp;
     }
 
     double get_likelihood(){
-      double error=1.e-8, result=0;
+      double error=1.e-8;
       int ierr = -1;
-      
-      m_flux=m_model_pointer->get_flux(m_E_min,m_E_max);
-      
-      functor arg(m_n,m_E_min,m_E_max,m_mu_exp,m_sigma_exp,m_mu_alpha,m_sigma_alpha,m_flux,m_useExposurePDF);
-    
+      double norm= 1.;
+      double result=0;
+
+      functor arg(m_source_pointer,m_model_pointer,m_bin,m_useExposurePDF);
+
+      // If there are photon counts convolve internal PDF with gaussian distribution of the range alpha values 
       int exit_loop=0;
       while(exit_loop!=1){
 	try{
 
 	  // Integration limits
-	  double alpha_min=m_mu_alpha-5.*m_sigma_alpha;
-	  if(alpha_min < 1.e-10) alpha_min=1.e-10;
-	  double alpha_max=m_mu_alpha+5.*m_sigma_alpha;
-	  //if(alpha_max > 1.) alpha_max=1.;
+	  double alpha_min,alpha_max;
+	  if(m_n>0){
+	    alpha_min=m_mu_alpha-5.*m_sigma_alpha;
+	    if(alpha_min < 1.e-5) alpha_min=1.e-5;
+	    alpha_max=m_mu_alpha+5.*m_sigma_alpha;
+	    if(alpha_max > 1.) alpha_max=1.;
+	  }
+	  else{
+	    return arg(1.);
+	    //alpha_min=1.e-5;
+	    //alpha_max=1.;
+	  }
 
-	  result=st_facilities::GaussianQuadrature::dgaus8<const PDF::functor>(arg,alpha_min,alpha_max,error,ierr);
+	  // Compute the normalization factor
+	  arg.normalize(1);
+	  norm=1./st_facilities::GaussianQuadrature::dgaus8<const PDF::functor>(arg,alpha_min,alpha_max,error,ierr);
+
+	  // Compute PDF
+	  arg.normalize(0);
+	  result=norm*st_facilities::GaussianQuadrature::dgaus8<const PDF::functor>(arg,alpha_min,alpha_max,error,ierr);
       
 	  if(ierr!=1) throw std::runtime_error("WARNING. Error in dgaus8 integration.");
 	}
@@ -964,7 +1015,7 @@ namespace pointlike{
       else
 	return log(likelihood);
     }
-    
+
   };
 
   //--------------------------------------------------------------------------
@@ -995,19 +1046,16 @@ namespace pointlike{
       m_model_dNdE  = m_model_pointer->get_dNdE(m_E);
     }
 
-    /*
     double get_likelihood(){
-      double norm = 1./(sqrt(2*M_PI)*m_dNdE_err);
-      double arg  = -1.*pow(m_model_dNdE-m_dNdE,2)/(2.*m_dNdE_err);
-      return norm*exp(arg);
+      double err_ratio=fabs(m_model_dNdE-m_dNdE)/m_dNdE_err_hi;
+      if(err_ratio<5.)
+	return 1.-erf(err_ratio/sqrt(2.));
+      else
+	return 5.733e-7;
     }
-    */
 
     double get_loglikelihood(){
-      //double likelihood=this->get_likelihood();
-      double arg=-1.*pow(m_model_dNdE-m_dNdE,2)/(2.*m_dNdE_err_hi);
-      double loglikelihood=-0.5*log(2.*M_PI)-log(m_dNdE_err_hi)+arg;
-      return loglikelihood;
+      return log(this->get_likelihood());
     }
 
   };
@@ -1311,7 +1359,7 @@ namespace pointlike{
 
     void setMWData(char filename[100],double scale=1.) { 
       m_MWData = new MWData(filename,scale); 
-      s_useMultiwavelengthData=1;
+      s_useMultiwavelengthData = 1;
     };
     MWData* getMWData() { return m_MWData; };
 

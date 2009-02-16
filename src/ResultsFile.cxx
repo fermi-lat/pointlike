@@ -234,6 +234,21 @@ namespace pointlike{
       (*srcTabItor)["EXPOSURE_UPPER_LIMIT"].set(fitter.getExposureUpperLimits());
     }
     
+    // Multiwavelength data columns
+    if(0==1){
+      std::stringstream nmwstream;
+      nmwstream<<fitter.getMWData()->get_E().size()<<"E";
+      std::string nmw=nmwstream.str();
+      if(!fields_created) srcTab->appendField("MW_E",nmw);
+      if(!fields_created) srcTab->appendField("MW_DNDE",nmw);
+      if(!fields_created) srcTab->appendField("MW_DNDE_ERR_HI",nmw);
+      if(!fields_created) srcTab->appendField("MW_DNDE_ERR_LO",nmw);
+      (*srcTabItor)["MW_E"].set(fitter.getMWData()->get_E());
+      (*srcTabItor)["MW_DNDE"].set(fitter.getMWData()->get_dNdE());
+      (*srcTabItor)["MW_DNDE_ERR_HI"].set(fitter.getMWData()->get_dNdE_err_hi());
+      (*srcTabItor)["MW_DNDE_ERR_LO"].set(fitter.getMWData()->get_dNdE_err_lo());
+    }
+
     fields_created=true;
     srcTabItor++;
 
