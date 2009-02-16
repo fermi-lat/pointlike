@@ -29,7 +29,7 @@ namespace pointlike{
 
   // Initialize static variables
   double SpectralFitter::s_lower_bound(200.);
-  double SpectralFitter::s_upper_bound(1.e6);
+  double SpectralFitter::s_upper_bound(6.e4);
 
   int    SpectralFitter::s_useDefaultParams(0);
   int    SpectralFitter::s_useSimplex(1);
@@ -446,7 +446,7 @@ namespace pointlike{
     double N_signal=0;
     double N_background=0;
 
-    m_FeldmanCousins=new FeldmanCousins(N_total,N_background);
+    m_FeldmanCousins=new FeldmanCousins();
 
     double FC_upper_limit;
 
@@ -486,14 +486,9 @@ namespace pointlike{
 
       exposure_sum+=band_exposure;
       weighted_exposure_sum+=psf_correction*band_exposure;
-
+      
       // Set flux upper limits for individual bands including signal fraction error
-      if(alpha_error>alpha)
-	FC_upper_limit=m_FeldmanCousins->get_upper_limit_convolution(n,alpha,alpha_error,s_band_confidence_limit);
-      else{
-	m_FeldmanCousins->set_counts(n,(1.-alpha)*n);
-	FC_upper_limit=m_FeldmanCousins->get_upper_limit(s_band_confidence_limit);
-      }
+      FC_upper_limit=m_FeldmanCousins->get_upper_limit(gSourcePointer,bin,s_band_confidence_limit);
 
       m_band_upper_limits.push_back(FC_upper_limit/psf_correction);
       m_energy_upper_limits.push_back(m_model_pointer->get_model_E(E_min,E_max));
