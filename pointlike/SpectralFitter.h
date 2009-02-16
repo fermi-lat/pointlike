@@ -1073,7 +1073,7 @@ namespace pointlike{
     double m_normalization;
 
   public:
-    FeldmanCousins(double n_total,double n_background):
+    FeldmanCousins(double n_total=0.,double n_background=0.):
       m_n_signal(n_total-n_background),
       m_n_background(n_background),
       m_n_total(n_total),
@@ -1089,14 +1089,12 @@ namespace pointlike{
       m_lngamma=GammaFunction::lngamma(m_n_total+1.);
     }
 
-    double get_upper_limit(double confidence_limit){
-			         
+    double get_upper_limit(double confidence_limit){		         
       // Correct numeric calculation 
       // Feldman Cousins PDF becomes un-normalized at low counts
       this->set_normalization();
       
       double upper_limit=0;
-
       double sum_pdf=0.;
 
       while(sum_pdf<confidence_limit){
@@ -1104,7 +1102,6 @@ namespace pointlike{
 	upper_limit+=m_step;
 	if(upper_limit>10.*(m_n_total+1)) return -1.;
       }
-
       return upper_limit;
     }
 
@@ -1114,12 +1111,9 @@ namespace pointlike{
     }
 
     void set_normalization(){
-      
       double pdf;
       double sum_pdf=0.;
-
       double i=0.;
-
       double max_pdf=0.;
 
       double max_iterations;
@@ -1139,22 +1133,46 @@ namespace pointlike{
       m_normalization=1/sum_pdf;
     }
 
-    double get_upper_limit_convolution(double n_total,double alpha,double alpha_error,double confidence_limit){
+    double get_upper_limit(SourceLikelihood* source_pointer,int bin,double confidence_limit){
+      double alpha_min=1.e-5;
+      double alpha_max=1.;
 
-      double new_alpha;
-      int iterations=100;
-      double sum=0.;
-      Random generator;
+      double weighted_alpha_sum=0;
+      double normalization=0;
+      
+      double frac,mid_frac,next_frac;
+      double alpha,mid_alpha,next_alpha;
+      double weight,dalpha;
+      double exposure;
+      
+      double loglike_best = source_pointer->at(bin)->operator()();
+      double loglike;    
 
-      for(int i=0;i<iterations;i++){
-	new_alpha=-1.;
-	do{
-	  new_alpha=alpha+generator.rand_gauss()*alpha_error;
-	}while(new_alpha<0. && new_alpha>1.);
-	this->set_counts(n_total,(1-new_alpha)*n_total);
-	sum+=this->get_upper_limit(confidence_limit);
-      }
-      return sum/iterations;
+      double max=100.;
+
+      for(double i=0.;i<max;i+=1.){
+	frac=i/max;
+	mid_frac=(i+0.5)/max;
+	next_frac=(i+1.)/max;
+
+	alpha=exp((1.-frac)*log(alpha_min)+frac*log(alpha_max));
+	mid_alpha=exp((1.-mid_frac)*log(alpha_min)+mid_frac*log(alpha_max));
+	next_alpha=exp((1.-next_frac)*log(alpha_min)+next_frac*log(alpha_max));
+
+	dalpha=next_alpha-alpha;
+
+	loglike=source_pointer->at(bin)->operator()(mid_alpha);
+	weight=exp(loglike_best-loglike);
+
+	weighted_alpha_sum+=weight*mid_alpha*dalpha;
+	normalization+=weight*dalpha;
+      }      
+      double best_alpha=weighted_alpha_sum/normalization;
+
+      double n_total=source_pointer->at(bin)->photons();
+
+      this->set_counts(n_total,(1.-best_alpha)*n_total);
+      return this->get_upper_limit(confidence_limit);
     }
 
   };
