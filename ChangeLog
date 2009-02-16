@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: bechtol  Mon Feb 16 12:10:07 PST 2009
+pointlike/src
+
+Modified Files:
+	SpectralFitter.cxx 
+Log Message:
+Faster upper limit calculation
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Mon Feb 16 12:10:04 PST 2009
 pointlike/pointlike
 
