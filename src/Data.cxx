@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.55 2008/08/21 03:22:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.64 2008/11/11 01:31:16 mar0 Exp $
 
 */
 
@@ -82,7 +82,7 @@ double Data::s_zenith_angle_cut(105.); // standard cut
 double Data::zenith_angle_cut(){ return s_zenith_angle_cut;}
 void   Data::set_zenith_angle_cut(double cut){s_zenith_angle_cut=cut;}
 
-double Data::s_theta_cut( 66.0 ); // standard cut (acos(0.4))
+double Data::s_theta_cut( 66.4 ); // standard cut (acos(0.4))
 double Data::theta_cut(){ return s_theta_cut;}
 void   Data::set_theta_cut(double cut){s_theta_cut=cut;}
 
