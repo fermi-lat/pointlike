@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Feb 17 10:04:59 PST 2009
+pointlike/src
+
+Modified Files:
+	SourceList.cxx 
+Log Message:
+add output, check for blank in name
+    *
+------------------------------------------------------------
 User: burnett  Tue Feb 17 10:04:58 PST 2009
 pointlike/pointlike
 
