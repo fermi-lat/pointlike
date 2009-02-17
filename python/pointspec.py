@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.17 2008/12/29 04:29:33 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.18 2009/01/16 22:58:10 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.17 $'.split()[1]
+version='$Revision: 1.18 $'.split()[1]
 import os
 import sys
 
@@ -208,6 +208,16 @@ Optional keyword arguments:
         name        name to use for output
         source_dir  SkyDir object specifying where to start
 
+
+        """
+        return SpectralAnalysis.Fitter(self, name, source_dir)
+        
+    def __call__(self, name, source_dir):
+        """
+        return a SpecralAnalysis.Fitter object, by simple call
+
+        name        name to use for output
+        source_dir  SkyDir object specifying where to start
 
         """
         return SpectralAnalysis.Fitter(self, name, source_dir)
