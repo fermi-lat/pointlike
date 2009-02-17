@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Feb 17 10:05:51 PST 2009
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx 
+Log Message:
+add possibility to specify background with livetime
+    *
+------------------------------------------------------------
 User: burnett  Tue Feb 17 10:04:59 PST 2009
 pointlike/src
 
