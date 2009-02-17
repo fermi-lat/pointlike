@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: bechtol  Mon Feb 16 18:13:47 PST 2009
+pointlike/src
+
+Modified Files:
+	ResultsFile.cxx SpectralFitter.cxx 
+Log Message:
+Spectral fitting can now incorporate multiwavelength data
+
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Mon Feb 16 18:13:44 PST 2009
 pointlike/python
 
