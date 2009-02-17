@@ -118,9 +118,6 @@ namespace pointlike{
 	dNdE_err_hi = gMWDataPointer->get_dNdE_err_hi()[MWbin];
 	
 	MWpdf.set_bin(E,dNdE,dNdE_err_lo,dNdE_err_hi);
-	
-	std::cout << -1.*MWpdf.get_loglikelihood() << std::endl;
-
 	logLikeSum-=MWpdf.get_loglikelihood(); // Minuit minimizes -> negative sign
       }
     }

@@ -235,14 +235,16 @@ namespace pointlike{
     }
     
     // Multiwavelength data columns
-    if(0==1){
+    if(fitter.get_useMultiwavelengthData()==1){
       std::stringstream nmwstream;
       nmwstream<<fitter.getMWData()->get_E().size()<<"E";
       std::string nmw=nmwstream.str();
+      if(!fields_created) srcTab->appendField("MWFILE","30A");
       if(!fields_created) srcTab->appendField("MW_E",nmw);
       if(!fields_created) srcTab->appendField("MW_DNDE",nmw);
       if(!fields_created) srcTab->appendField("MW_DNDE_ERR_HI",nmw);
       if(!fields_created) srcTab->appendField("MW_DNDE_ERR_LO",nmw);
+      (*srcTabItor)["MWFILE"].set(fitter.getMWData()->get_filename());
       (*srcTabItor)["MW_E"].set(fitter.getMWData()->get_E());
       (*srcTabItor)["MW_DNDE"].set(fitter.getMWData()->get_dNdE());
       (*srcTabItor)["MW_DNDE_ERR_HI"].set(fitter.getMWData()->get_dNdE_err_hi());

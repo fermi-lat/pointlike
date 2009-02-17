@@ -1186,6 +1186,7 @@ namespace pointlike{
 
   class MWData{
   private:
+    std::string m_filename;
     std::vector<double> m_E;
     std::vector<double> m_dNdE;
     std::vector<double> m_dNdE_err_lo;
@@ -1193,6 +1194,9 @@ namespace pointlike{
 
   public:
     MWData(char filename[100],double scale=1.){
+      m_filename=filename;
+      size_t dot_pos=m_filename.find_last_of(".");
+      m_filename.erase(dot_pos);
       this->read(filename,scale);
     }
 
@@ -1259,11 +1263,11 @@ namespace pointlike{
       return numbers;
     }
 
+    std::string get_filename(){ return m_filename; }
     std::vector<double> get_E(){ return m_E; }
     std::vector<double> get_dNdE(){ return m_dNdE; }
     std::vector<double> get_dNdE_err_lo(){ return m_dNdE_err_lo; }
     std::vector<double> get_dNdE_err_hi(){ return m_dNdE_err_hi; }
-
   };
 
   //--------------------------------------------------------------------------
@@ -1382,6 +1386,7 @@ namespace pointlike{
       m_MWData = new MWData(filename,scale); 
       s_useMultiwavelengthData = 1;
     };
+    int get_useMultiwavelengthData(){ return s_useMultiwavelengthData; };
     MWData* getMWData() { return m_MWData; };
 
   };

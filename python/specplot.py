@@ -5,21 +5,50 @@ import pyfits
 import sys
 from math import floor,exp,log,sqrt,pow,fabs
 
-def plot(filename,source="",addfunc=""):
+def plot(filename,source="",addfunc="",mwfilename="",scale=1.):
 
-    upper_limit(filename,source)
+    try:
+        upper_limit(filename,source)
+    except:
+        print "Did not find any upper limit data"
 
     print filename
+
+    # Check if specifying a multiwavelength data file
+    if mwfilename!="":
+        mwfile=mwfilename
+        useMWdata=1
+        MWData = pl.MWData(mwfile,scale)
+        mw_E           = MWData.get_E()
+        mw_dNdE        = MWData.get_dNdE()
+        mw_dNdE_err_lo = MWData.get_dNdE_err_lo()
+        mw_dNdE_err_hi = MWData.get_dNdE_err_hi()
     
+    # LAT data points
     global g1
     g1=R.TGraphAsymmErrors()
     g1.SetMarkerStyle(7)
     g1.SetMarkerColor(1)
 
+    # LAT data residuals
     global g2
     g2=R.TGraphAsymmErrors()
     g2.SetMarkerStyle(7)
     g2.SetMarkerColor(1)
+
+    # Multiwavelength data points
+    global g3
+    g3=R.TGraphAsymmErrors()
+    g3.SetMarkerStyle(25)
+    g3.SetMarkerColor(1)
+    g3.SetMarkerSize(0.5)
+
+    # Multiwavelength residuals
+    global g4
+    g4=R.TGraphAsymmErrors()
+    g4.SetMarkerStyle(25)
+    g4.SetMarkerColor(1)
+    g4.SetMarkerSize(0.5)
 
     file=pyfits.open(filename)
 
@@ -59,9 +88,23 @@ def plot(filename,source="",addfunc=""):
             upper_range=R.Double(fit_range[1])
 
             # Band upper limits
-            band_upper_limits=file["SOURCES"].data.field('BAND_UPPER_LIMIT')[src]
-            energy_upper_limits=file["SOURCES"].data.field('ENERGY_UPPER_LIMIT')[src]
-            exposure_upper_limits=file["SOURCES"].data.field('EXPOSURE_UPPER_LIMIT')[src]
+            try:
+                band_upper_limits=file["SOURCES"].data.field('BAND_UPPER_LIMIT')[src]
+                energy_upper_limits=file["SOURCES"].data.field('ENERGY_UPPER_LIMIT')[src]
+                exposure_upper_limits=file["SOURCES"].data.field('EXPOSURE_UPPER_LIMIT')[src]
+            except:
+                print "Did not find any upper limit data"
+
+            # Multiwavelength data
+            try:
+                mwfile=file["SOURCES"].data.field('MWFILE')[src]
+                mw_E=file["SOURCES"].data.field('MW_E')[src]
+                mw_dNdE=file["SOURCES"].data.field('MW_DNDE')[src]
+                mw_dNdE_err_lo=file["SOURCES"].data.field('MW_DNDE_ERR_LO')[src]
+                mw_dNdE_err_hi=file["SOURCES"].data.field('MW_DNDE_ERR_HI')[src]
+            except:
+                print "Did not find any multiwavelength data"
+                
 
             if model.get_spec_type()=="POWER_LAW":
                 scale=R.Double(file["SOURCES"].data.field('DECORRELATION_ENERGY')[src])
@@ -185,21 +228,49 @@ def plot(filename,source="",addfunc=""):
 	    npoints+=1
             livebin=livebin+1
 
+    if mwfile!="":
+        # Adjust energy range for plotting
+        if(0.8*min(mw_E)>100): lower_range=0.8*min(mw_E)
+        if(1.2*max(mw_E)>3e5): upper_range=1.2*max(mw_E)
+            
+        for i in range(0,len(mw_E)):
+            E=mw_E[i]
+            dNdE=mw_dNdE[i]
+            dNdE_lo=mw_dNdE[i]-mw_dNdE_err_lo[i]
+            dNdE_hi=mw_dNdE[i]+mw_dNdE_err_hi[i]
+
+            flux=pow(E,2)*dNdE
+            flux_hi=pow(E,2)*dNdE_hi
+            flux_lo=pow(E,2)*dNdE_lo
+            
+            g3.SetPoint(i,E,flux)
+            g3.SetPointError(i,0,0,flux-flux_lo,flux_hi-flux)
+
+            model_flux=func.Eval(E)
+
+            g4.SetPoint(i,E,(flux-model_flux)/flux)
+            g4.SetPointError(i,0,0,(flux-flux_lo)/flux,(flux_hi-flux)/flux)
+                             
     # Add upper limits option
 
-    #g1.Print()
-    #g2.Print()
+#    g1.Print()
+#    g2.Print()
+#    g3.Print()
+#    g4.Print()
     
     global canvas
     global pad1
     global pad2
     canvas,pad1,pad2=set_canvas(name)
+
+    if(lower_range>50.): lower_range=50.
+    if(upper_range<3.e5): upper_range=3.e5
     
     global box
-    box=set_box(g1)
+    box=set_box(g1,lower_range,upper_range)
 
     global res_box
-    res_box=set_res_box(g2)
+    res_box=set_res_box(g2,lower_range,upper_range)
 
     canvas.Draw()
     box.Draw()
@@ -230,20 +301,25 @@ def plot(filename,source="",addfunc=""):
     for i in range(0,len(selected_arrows)):
         selected_arrows[i].Draw()
 
+    if g3.GetN()>0:
+        g3.Draw("P")
+
 #    Overlay all upper limits
 #    g_ul.Draw("P")
 #    for i in range(0,len(arrows)):
 #        arrows[i].Draw()
 
     global legend
-    legend=set_legend(name,model,g1,func)
+    legend=set_legend(name,model,g1,func,mwfile)
     legend.Draw()
 
     pad2.cd()
     res_box.Draw()
     g2.Draw("P")
+    if g4.GetN()>0:
+        g4.Draw("P")
     global ref
-    ref = R.TF1("ref","0",10,5e5)
+    ref = R.TF1("ref","0",10,1e8)
     ref.SetLineWidth(1)
     ref.SetLineStyle(7)
     ref.SetLineColor(4)
@@ -288,15 +364,13 @@ def set_canvas(name):
 
     return c1,p1,p2
 
-def set_box(graph):
+def set_box(graph,e_min=100,e_max=3e5):
     xmin=R.Double()
     xmax=R.Double()
     ymin=R.Double()
     ymax=R.Double()
     graph.ComputeRange(xmin,ymin,xmax,ymax)
    
-    e_min=100
-    e_max=3e5
     flux_min=max(1e-8,ymin*R.Double(0.1))
     flux_max=ymax*R.Double(10.)
 
@@ -313,15 +387,13 @@ def set_box(graph):
 
     return h
 
-def set_res_box(graph):
+def set_res_box(graph,e_min=100,e_max=3e5):
     xmin=R.Double()
     xmax=R.Double()
     ymin=R.Double()
     ymax=R.Double()
     graph.ComputeRange(xmin,ymin,xmax,ymax)
    
-    e_min=100
-    e_max=3e5
     res_min=max(min(0,ymin*R.Double(1.2)),-6)
     res_max=min(max(0,ymax*R.Double(1.2)),6)
 
@@ -346,7 +418,7 @@ def set_function(model,params):
     lower_bound=model.get_lower_bound()
     upper_bound=model.get_upper_bound()
     lower_bound=R.Double(10.)
-    upper_bound=R.Double(5.e5)
+    upper_bound=R.Double(1.e8)
 
     if model.get_spec_type()=="POWER_LAW":
         f1 = R.TF1("f1","pow(x,2)*[0]*pow(x/[2],-1*[1])",lower_bound,upper_bound)
@@ -473,13 +545,17 @@ def set_butterfly(model,params,param_errors):
     
     return b1
 
-def set_legend(name,model,graph,func):
+def set_legend(name,model,graph,func,mwfile):
     legend = R.TLegend(0.7,0.75,0.9,0.9)
     legend.SetHeader(name)
-    legend.AddEntry(g1,"Data","P")
+    legend.AddEntry(g1,"LAT Data","P")
     legend.AddEntry(func,model.get_spec_type().replace('_',' '),"L")
     if g_selected_ul.GetN()>0:
         legend.AddEntry(g_selected_ul,"Upper Limit","L")
+    if g3.GetN()>0:
+        mwfilename="MW Data"
+        if mwfile!="": mwfilename=mwfile
+        legend.AddEntry(g3,mwfilename,"P")
     legend.SetFillColor(0)
     legend.SetShadowColor(0)
     legend.SetLineColor(0)
