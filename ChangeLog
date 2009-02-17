@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: bechtol  Mon Feb 16 18:13:44 PST 2009
+pointlike/python
+
+Modified Files:
+	specplot.py 
+Log Message:
+Spectral fitting can now incorporate multiwavelength data
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Mon Feb 16 18:13:38 PST 2009
 pointlike/pointlike
 
