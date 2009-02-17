@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.65 2008/11/24 02:27:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.66 2008/12/29 04:12:14 burnett Exp $
 
 */
 
@@ -8,10 +8,9 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 
 #include "pointlike/BandBackground.h"
 #include "pointlike/SpectralFunction.h"
 
-#include "skymaps/DiffuseFunction.h"
-#include "skymaps/CompositeSkySpectrum.h"
-#include "skymaps/BinnedPhotonData.h"
 
+#include "skymaps/DiffuseFunction.h"
+#include "skymaps/BinnedPhotonData.h"
 #include "embed_python/Module.h"
 #include "TMatrixD.h"
 
@@ -21,13 +20,14 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 
 #include <iomanip>
 #include <stdexcept>
 #include <map>
+#include <list>
 using namespace pointlike;
 using astro::SkyDir;
 using skymaps::CompositeSkySpectrum;
 using skymaps::BinnedPhotonData;
+using skymaps::Background;
 using skymaps::DiffuseFunction;
 using skymaps::Band;
-using skymaps::Background;
 
 
 
@@ -127,14 +127,33 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getValue("Diffuse.exposure", exposure);
     int interpolate(0);
     par.getValue("interpolate", interpolate, interpolate);
-    if( ! diffusefile.empty() ) {
 
-        set_background(new Background(
-            *new DiffuseFunction(diffusefile, interpolate!=0), exposure) );
+    double flux(1.5e-5), index(2.1);
+    par.getValue("Isotropic.flux", flux, flux);
+    par.getValue("Isotropic.index", index, index);
 
-        std::cout << "Using diffuse definition "<< diffusefile 
-            << " with exposure factor " << exposure << std::endl; 
+    std::string ltfile;
+    par.getValue("Exposure.livetimefile", ltfile);
+    std::string irf_name("P6_v1_diff");
+    par.getValue("Exposure.IRF", irf_name, irf_name);
+
+    if( ! diffusefile.empty()) {
+        if( ltfile.empty() ) {
+
+            set_background(new Background(
+                *new DiffuseFunction(diffusefile, interpolate!=0), exposure) );
+
+            std::cout << "Using diffuse definition "<< diffusefile 
+                << " with exposure factor " << exposure << std::endl;
+        }else{
+            // combine all components in better Background ctor
+            const Background* bg = new Background(irf_name, ltfile, diffusefile, std::make_pair(flux,index));
+           set_background(bg);
+
+        }
     }
+
+
 }
 
 
