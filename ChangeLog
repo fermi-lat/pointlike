@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Feb 17 10:04:58 PST 2009
+pointlike/pointlike
+
+Modified Files:
+	SourceList.h 
+Log Message:
+add output, check for blank in name
+    *
+------------------------------------------------------------
 User: bechtol  Mon Feb 16 18:13:47 PST 2009
 pointlike/src
 
