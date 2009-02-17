@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Feb 17 10:07:22 PST 2009
+pointlike/src
+
+Modified Files:
+	Data.cxx 
+Log Message:
+fix theta cut to be acos(0.4)
+    *
+------------------------------------------------------------
 User: burnett  Tue Feb 17 10:06:33 PST 2009
 pointlike/python
 
