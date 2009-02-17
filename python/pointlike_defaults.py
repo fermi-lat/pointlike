@@ -1,6 +1,6 @@
 # default parameters for the various parameter files
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.13 2008/08/07 05:12:50 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.14 2008/11/28 20:43:34 burnett Exp $
 #
 # Include this to set defaults, then override 
 import sys
@@ -25,8 +25,16 @@ class Diffuse:
     exposure=3e10  # this seems appropriate for 1 year.
     import os
     if 'GLAST_EXT' in os.environ and file=='':
-		file = os.path.join(os.environ['GLAST_EXT'],'extFiles','v0r7','galdiffuse', 'GP_gamma.fits')
+		file = os.path.join(os.environ['GLAST_EXT'],'extFiles','v0r7','galdiffuse', 'gll_iem_v01.fit')
 
+class Isotropic:   # isotropic flux description
+    flux = 1.5e-5
+    index = 2.2
+    
+class Exposure:
+    livetimefile=r'D:\common\pointfind\data\aug2008-jan2009_livetime.fits'
+    IRF = 'P6_v1_diff'
+    
 
 class PointSourceLikelihood: #parameters for the likelihood calculation
     # HEALpix level range for energy band  fits
