@@ -1,7 +1,7 @@
 /** @file SourceList.cxx
 @brief implementation of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.16 2008/10/22 07:02:36 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.17 2008/11/09 23:51:37 burnett Exp $
 */
 
 
@@ -147,6 +147,7 @@ Source::~Source()
 }
 
 SourceList::SourceList(std::map<std::string, std::vector<double> > input_list)
+: m_verbose(false)
 {
     std::map<std::string, std::vector<double> >::const_iterator it(input_list.begin());
     for( ; it!= input_list.end(); ++it ){
@@ -158,7 +159,8 @@ SourceList::SourceList(std::map<std::string, std::vector<double> > input_list)
     }
 
 }
-SourceList::SourceList(const std::string& filename)
+SourceList::SourceList(const std::string& filename, bool verbose)
+: m_verbose(verbose)
 {
     std::ifstream input_file;
     input_file.open(filename.c_str());
@@ -171,6 +173,12 @@ SourceList::SourceList(const std::string& filename)
         std::string line; std::getline(input_file, line);
         if( line.substr(0,5)=="name ") continue; // skip header line
         if( line.size()<5 || line[0]=='#' ) continue; // comment or empty
+        // check for a blank in the name
+        size_t i(line.find_first_of(" "));
+        if( i<5 && line[i+1]!=' '){
+            std::cout << "replacing blank in name: " << line << std::endl;
+            line[i]='_';
+        }
         std::stringstream buf(line); 
         std::string name; buf >> name;
         double ra, dec, TS(0);
@@ -218,7 +226,11 @@ void SourceList::refit()
 {
     for( iterator it= begin(); it!= end(); ++it){
         Source& cand(*it);
+        if( verbose() ){
+            std::cout << ".." << cand.name() << std::endl;
+        }
         SkyDir currentpos( cand.dir() );
+        double ra(currentpos.ra()), dec(currentpos.dec()); // debug only
 
         // See if we have already found a candidate near this location
         iterator neighbor;

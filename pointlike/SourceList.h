@@ -1,7 +1,7 @@
 /** @file SourceList.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.9 2008/08/28 22:42:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.10 2008/11/09 23:51:37 burnett Exp $
 */
 
 #ifndef pointlike_SourceList_h
@@ -91,7 +91,7 @@ namespace pointlike{
         lines starting with '#' are ignored.
         The optional TS field is for initial sorting.
         */
-        SourceList(const std::string& filename);
+        SourceList(const std::string& filename, bool verbose=true);
 
         SourceList(){}; ///< default ctor
 
@@ -112,6 +112,7 @@ namespace pointlike{
 
         void createRegFile(std::string filename, std::string color, double tsmin)const;
 
+        bool verbose()const{return m_verbose;}
         static void set_data(const skymaps::BinnedPhotonData* data);
         static const skymaps::BinnedPhotonData* data();
 
@@ -119,6 +120,7 @@ namespace pointlike{
         static double set_group_radius(double value);
 
     private:
+        bool m_verbose;
         static const skymaps::BinnedPhotonData* s_data;
     };
 
