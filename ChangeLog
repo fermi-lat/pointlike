@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: bechtol  Mon Feb 16 18:13:38 PST 2009
+pointlike/pointlike
+
+Modified Files:
+	SpectralFitter.h 
+Log Message:
+Spectral fitting can now incorporate multiwavelength data
+
+    *
+------------------------------------------------------------
 User: bechtol  Mon Feb 16 13:52:37 PST 2009
 pointlike/src
 
