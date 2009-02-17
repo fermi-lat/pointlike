@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.4 2008/12/29 04:16:32 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.5 2009/01/16 22:58:10 kerrm Exp $
 
 """
-version='$Revision: 1.4 $'.split()[1]
+version='$Revision: 1.5 $'.split()[1]
 import os
 import psf
 import math
@@ -69,7 +69,7 @@ Optional keyword arguments:
         # check explicit files
         for filelist in  [self.event_files, self.history_files] :
             if filelist is not None and len(filelist)>0 and not os.path.exists(filelist[0]):
-                raise Exception('PixelData setup: file name or path "%s" not found'%filename)
+                raise Exception('PixelData setup: file name or path "%s" not found'%filelist[0])
 
         self.lt =  self.get_livetime()
         self.data= self.get_data()
@@ -92,7 +92,8 @@ Optional keyword arguments:
                 data.write(self.datafile)
         else:
             data = pointlike.Data(self.datafile)
-            print 'loaded datafile %s ' % self.datafile
+            if not self.quiet: print 'loaded datafile %s ' % self.datafile
+        if self.verbose: data.map().info()
 
         # modify the psf parameters in the band objects, which SimpleLikelihood will then use
          
@@ -109,7 +110,7 @@ Optional keyword arguments:
              band.setGamma(gamma)
              band.setSigma(math.radians(sigma))
 
-        
+        if self.verbose: print '---------------------'
         return data
 
     def get_livetime(self,   pixelsize=1.0):
