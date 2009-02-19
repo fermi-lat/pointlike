@@ -1,7 +1,7 @@
 /** @file Draw.cxx
 @brief implementation of Draw
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.20 2008/11/24 02:26:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.21 2008/12/05 20:20:40 funk Exp $
 
 */
 
@@ -61,16 +61,16 @@ namespace pointlike {
     Likelihood * m_ps;
 
   public: 
-    SkyTS(BinnedPhotonData& data, const skymaps::SkySpectrum& background,
-	  std::vector<TSCache>& cacheVec, int energyBin, double minEnergy, double min_alpha, int returnValue):
+    SkyTS(BinnedPhotonData& data, Likelihood* pslike,
+	  std::vector<TSCache>& cacheVec, int energyBin, int retVal, double emin=100., double minalpha=0.):
       m_data(data),
-      m_background(background),
       m_nenergybins(0),
       m_bin(energyBin),
-      m_emin(minEnergy),
-      m_minalpha(min_alpha),
+      m_ps(pslike),
+      m_emin(emin),
+      m_minalpha(minalpha),
       m_Cache(cacheVec),
-      m_returnValue(returnValue){
+      m_returnValue(retVal){
 
       for( skymaps::BinnedPhotonData::const_iterator bit = m_data.begin(); 
 	   bit!=m_data.end(); ++bit){
@@ -79,36 +79,28 @@ namespace pointlike {
 //	std::cout << "SkyTS> Added energyBin: " << m_nenergybins << " " 
 //		  << bit->emin() << " " << bit->emax() << std::endl;
       }
-       Likelihood::set_min_alpha(m_minalpha);
-       Likelihood::set_energy_range(m_emin, 1e6);
-       Likelihood::set_diffuse(const_cast<skymaps::SkySpectrum*>(&m_background));
-       m_ps = new Likelihood(m_data, "test",astro::SkyDir(0,0));
+       m_ps = pslike;
     }
 
-    ~SkyTS() {
-       delete m_ps;
-    };  
+
+    ~SkyTS() {};  
 
     double operator() (const astro::SkyDir& sd) const {
 
 	if (m_Cache[0].find(sd) == m_Cache[0].end()){
 
-	  m_ps->setDir(sd,false);
+	  m_ps->setDir(sd,true);
 	  // 	ps->setup(m_data);
 	  m_ps->maximize();
 
-	  std::vector<double> ts;
-	  std::vector<double> alphas;
-	  std::vector<double> alphaErrors;
-	  std::vector<double> counts;
-	  std::vector<double> exposure;
+	  std::vector<double> ts(m_nenergybins+1,0);
+	  std::vector<double> alphas(m_nenergybins+1,0);
+	  std::vector<double> alphaErrors(m_nenergybins+1,0);
+	  std::vector<double> counts(m_nenergybins+1,0);
+	  std::vector<double> exposure(m_nenergybins+1,0);
 
 	  double t = m_ps->TS();
-	  ts.push_back(t);
-	  alphas.push_back(0);
-	  alphaErrors.push_back(0);
-	  counts.push_back(0);
-	  exposure.push_back(0);
+	  ts[0] = t;
 
 	  double totalCounts   = 0;
 	  for (unsigned int i = 0; i < m_nenergybins; ++i){
@@ -123,19 +115,19 @@ namespace pointlike {
 	      e_alpha = 0;
 	      e_alphaerror = 0;
 	    }
-	    ts.push_back(e_ts);
-	    alphas.push_back(e_alpha);
-	    alphaErrors.push_back(e_alphaerror);
-	    counts.push_back(e_counts);
-	    exposure.push_back(e_exposure);
+	    ts[i+1]=e_ts;
+	    alphas[i+1]=e_alpha;
+	    alphaErrors[i+1]=e_alphaerror;
+	    counts[i+1]=e_counts;
+	    exposure[i+1]=e_exposure;
 	    totalCounts += e_counts;
 // 	      if (e_ts > 0)
 // 	    std::cout << "Using: " << std::setprecision(2) << e_alpha 
 // 		      << " "  << e_ts << " " <<  std::setprecision(0);
 
-	    std::cout << "    Bin: " << i << " ts: " << e_ts << " alpha: " << e_alpha
-		      << " +- " << e_alphaerror << " cnts: " << e_counts << " exposure: "
-		      << e_exposure << " " << totalCounts << std::endl;
+//	    std::cout << "    Bin: " << i << " ts: " << e_ts << " alpha: " << e_alpha
+//		      << " +- " << e_alphaerror << " cnts: " << e_counts << " exposure: "
+//		      << e_exposure << " " << totalCounts << std::endl;
 	  }
 
 	  counts[0] = totalCounts;
@@ -145,9 +137,11 @@ namespace pointlike {
 	  m_Cache[3][sd] = counts;
 	  m_Cache[4][sd] = exposure;
 
+   	  std::cout<<".";std::cout.flush();
+	  
 //	    m_ps->printSpectrum();
-	  std::cout << "l="<<sd.l()<<" b="<<sd.b()<<" TS=" << t << " Counts=" 
-		    << totalCounts <<" exposure=" << exposure[m_nenergybins-1] << std::endl;
+//	  std::cout << "l="<<sd.l()<<" b="<<sd.b()<<" TS=" << t << " Counts=" 
+//		    << totalCounts <<" exposure=" << exposure[m_nenergybins-1] << std::endl;
 // 	    std::cout << "-----" << std::endl;
 	  return m_Cache[m_returnValue][sd][m_bin];
 	    //	  return ts[m_bin];
@@ -205,7 +199,8 @@ void Draw::density(const astro::SkyDir& dir, std::string outputFile, double pixe
 		   
 };		   
 		   
-void Draw::TS(const astro::SkyDir& dir, std::string outputFile, double pixel, 
+template <class Likelihood>		   
+void Draw::mapTS(Likelihood* like, std::string outputFile, double pixel, 
                  double fov, bool smooth, int mincount) {
 #ifndef WIN32
     std::string proj (fov>90? "AIT":"ZEA");
@@ -236,6 +231,9 @@ void Draw::TS(const astro::SkyDir& dir, std::string outputFile, double pixel,
     caches.push_back(countsCache);
     caches.push_back(exposureCache);
     caches.push_back(modelCache);
+    
+    astro::SkyDir image_center=like->dir();
+    
     for (int returnValue = 0; returnValue < caches.size(); ++returnValue){
       std::string outname = outputFile;
       std::string replacestring("TS.fits");
@@ -246,25 +244,36 @@ void Draw::TS(const astro::SkyDir& dir, std::string outputFile, double pixel,
       else if (returnValue == 3) outname.replace(outname.rfind(replacestring), replacestring.size(), "counts.fits");
       else if (returnValue == 4) outname.replace(outname.rfind(replacestring), replacestring.size(), "exposure.fits");
 
-      std::cout << "Generating outfile: " << outname << std::endl;
-      SkyImage image2(dir, outname, pixel, fov, eMin.size(), proj,  m_galactic, m_zenith); 
-      
+      std::cout << "Generating map " << outname << " centered at l="<<image_center.l()<<" b="<<image_center.b()<<std::endl;
+      SkyImage image2(image_center, outname, pixel, fov, eMin.size(), proj,  m_galactic, m_zenith); 
       image2.setEnergies(eMin);
 
       for (unsigned int i = 0; i <eMin.size(); ++i){
-//      std::cout << " SkyTS> Filling layer: " << i+1 << " emin: " << m_emin << std::endl;
-	if(m_sourcelike) image2.fill(SkyTS<SourceLikelihood>(m_map, *m_background, caches, i, m_emin, m_minalpha, returnValue), i);
-	else image2.fill(SkyTS<PointSourceLikelihood>(m_map, *m_background, caches, i, m_emin, m_minalpha, returnValue), i);
+        std::cout << " SkyTS> Filling layer: " << i+1 << " emin: " << m_emin;
+	image2.fill(SkyTS<Likelihood>(m_map, like, caches, i, returnValue, m_emin,m_minalpha), i);
+	std::cout<<"o"<<std::endl;  
       }
+      like->setDir(image_center,false);
     }	 
 #endif
 };		 
+
+void Draw::TS(SourceLikelihood* like, std::string outputFile, double pixel, 
+                 double fov, bool smooth, int mincount){
+    mapTS<SourceLikelihood>(like,outputFile,pixel,fov,smooth,mincount);		 
+};		 
+
+//void Draw::TS(PointSourceLikelihood* like, std::string outputFile, double pixel, 
+//                 double fov, bool smooth, int mincount){
+//    mapTS<PointSourceLikelihood>(like,outputFile,pixel,fov,smooth,mincount);		 
+//};
 
 void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel, 
                   double fov, bool smooth, int mincount)
 {
     density(dir,outputFile,pixel,fov,smooth,mincount);
     
+/*
     if (m_ts && m_background){
       std::string outputTS = outputFile;
       if (outputTS.find(".fits") != std::string::npos)
@@ -273,6 +282,7 @@ void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel
 	outputTS = std::string("tsvalues.fits");
       TS(dir,outputTS,pixel,fov,smooth,mincount); 
     }
+*/
 
 //--------------------------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.h
     @brief declaration of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.11 2009/01/31 00:32:29 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.12 2009/01/31 23:04:30 bechtol Exp $
 
 */
 
@@ -157,7 +157,8 @@ namespace pointlike {
 
     const std::vector<double>& residual() const{ return m_vloglike; };
     const std::vector< std::vector<double> >& jacobian() const{ return m_vjacobian; };
-
+    
+    void usePSFCaching(bool c) {m_psf.useCache(c);};
 
     /// @brief access to the diffuse component
     const skymaps::SkySpectrum* diffuse() const;

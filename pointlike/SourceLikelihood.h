@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.12 2009/01/23 21:14:12 bechtol Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceLikelihood.h,v 1.13 2009/01/30 01:26:54 markusa Exp $
 */
 
 #ifndef tools_SourceLikelihood_h
@@ -140,6 +140,8 @@ namespace pointlike {
     static void setFitAccuracy(double acc){ s_accuracy=acc; };
     static double fitAccuracy() { return s_accuracy; };
 
+    void usePSFCaching(bool c);
+    
     void fixPosition();
     void fixPosition(const astro::SkyDir& dir);
     void freePosition();
@@ -192,7 +194,7 @@ namespace pointlike {
 					       int event_class=1);
     
     ///! add a point source fit to the background for subsequent fits
-    void addBackgroundPointSource(const SourceLikelihood* fit);
+    void addBackgroundPointSource(const SourceLikelihood* fit, bool recompute=true);
     
     ///! remove all such
     void clearBackgroundPointSource();
