@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.43 2009/01/13 23:55:45 kerrm Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.44 2009/01/14 00:28:02 bechtol Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -41,6 +41,7 @@
 #include "pointlike/ExtendedSourcePDF.h"
 #include "pointlike/ResultsFile.h"
 #include "pointlike/DrawTS.h"
+#include "pointlike/ComplexSkySpectrum.h"
 #endif
 
 #include "CLHEP/Vector/Rotation.h"
@@ -201,6 +202,7 @@ public:
 %include $(POINTLIKEROOT)/pointlike/ExtendedSourcePDF.h
 %include $(POINTLIKEROOT)/pointlike/SpectralFitter.h
 %include $(POINTLIKEROOT)/pointlike/ResultsFile.h
+%include $(POINTLIKEROOT)/pointlike/ComplexSkySpectrum.h
 #endif
 
 //%include $(POINTLIKEROOT)/pointlike/FlexibleBinner.h

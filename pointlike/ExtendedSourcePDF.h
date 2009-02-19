@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <cmath>
 #include <vector>
+#include <map>
 
 #include "pointlike/HypergeometricFunction.h"
 
@@ -244,7 +245,14 @@ namespace pointlike{
 
        HypergeometricFunction2F1 m_hF;
        HypergeometricFunction2F1 m_dHF;
-
+     
+       mutable std::map <double,double> psfCache;
+       mutable std::vector<double> cached_srcParam;
+   
+       double m_cacheIpolTolerance;
+       bool m_useCaching;
+       int cacheID;
+       
      public:
 
        extendedSourcePDF& operator=(const extendedSourcePDF& other){
@@ -259,9 +267,13 @@ namespace pointlike{
 	  return *this;
        };
        
-       extendedSourcePDF(extendedSources::iSource& source,double g=2.0);
+       extendedSourcePDF(extendedSources::iSource& source,double g=2.0,bool usecache=true);
 
-       double value(double u) const ;
+       double value(double u) const { 
+          if(m_useCaching) return valueFromCache(u);
+	  return valueFromIntegral(u);
+       };	  
+	  
        std::vector<double> gradient(double u, int npar) const;
        
        double operator() (double v) const ;
@@ -269,7 +281,13 @@ namespace pointlike{
        double gpdf(double v) const ;
        double du_gpdf(double v) const ;
 
+       void useCache(bool c) { m_useCaching=c; if(!m_useCaching) psfCache.clear(); };
      private:
+        bool cacheValidityCheck() const;
+        double valueFromCache(double u) const;
+        double valueFromIntegral(double u) const;
+
+
        class gradUFunctor {
              const extendedSources::iSource& m_source;
 	     const extendedSourcePDF& m_pdf;
@@ -304,12 +322,13 @@ namespace pointlike{
             /// @param gamma the power-law factor
 
 
-            ExtendedSourcePseudoPSF(extendedSources::iSource& src, double g=2.0)
+            ExtendedSourcePseudoPSF(extendedSources::iSource& src, double g=2.0,bool usecache=true)
         	: m_source(src)
 		, m_gamma(g)
 		, m_pdf(src,g)
 		, m_pointSourcePDF(g)
 		, m_isPointSource(false)
+		, m_useCaching(usecache)
 	    {
 		if (m_source.max()<0) m_isPointSource=true;
 		
@@ -352,8 +371,11 @@ namespace pointlike{
 
 	    double integral(double umax) const { return m_pointSourcePDF.integral(umax);};
 	    double integralSquare(double umax) const {return m_pointSourcePDF.integralSquare(umax);};
+  
+            void useCache(bool c) { m_useCaching=c; m_pdf.useCache(c);}; 
 
 	private:
+ 
 	    extendedSources::iSource& m_source;
             double m_gamma;
 	    double m_umax;
@@ -362,6 +384,8 @@ namespace pointlike{
             skymaps::PsfFunction m_pointSourcePDF;
             bool m_isPointSource;
 
+	    bool m_useCaching;
+ 
     };
 
 
@@ -372,7 +396,7 @@ namespace pointlike{
             /// @param gamma the power-law factor
             ExtendedSourcePseudoPSF2(extendedSources::iSource& src,  double g1=2.0, double s1=-1,
 	                             extendedSources::iSource& src2=defaultSource, 
-				     double g2=-1., double s2=-1.,double f2=0.)
+				     double g2=-1., double s2=-1.,double f2=0.,bool usecache=true)
         	: m_source(src)
 		, m_source2(src2)
 		, m_gamma(g1)
@@ -385,6 +409,7 @@ namespace pointlike{
 		, m_pointSourcePDF(g1)
 		, m_pointSourcePDF2(g2)
 		, m_isPointSource(false)
+		, m_useCaching(usecache)
 	    {
 		if (m_source.max()<0) m_isPointSource=true;
 		if(m_sigma<0) m_sigma=m_source.sigma();
@@ -412,8 +437,8 @@ namespace pointlike{
             void setGamma(double gamma,double gamma2=-1){ 
 	        m_gamma=gamma; 
 	        m_gamma2=gamma2; 
-		m_psf = ExtendedSourcePseudoPSF(m_source,m_gamma);
-		m_psf2= ExtendedSourcePseudoPSF(m_source2,m_gamma2);
+		m_psf = ExtendedSourcePseudoPSF(m_source,m_gamma, m_useCaching);
+		m_psf2= ExtendedSourcePseudoPSF(m_source2,m_gamma2, m_useCaching);
 		m_pointSourcePDF=skymaps::PsfFunction(m_gamma);
 		m_pointSourcePDF2=skymaps::PsfFunction(m_gamma2);
 	    };
@@ -421,8 +446,8 @@ namespace pointlike{
             void setSource(extendedSources::iSource& src,extendedSources::iSource& src2=defaultSource){ 
 	        m_source=src; 
 	        m_source2=src2;
-		m_psf=ExtendedSourcePseudoPSF(m_source,m_gamma);
-		m_psf2=ExtendedSourcePseudoPSF(m_source2,m_gamma2);
+		m_psf=ExtendedSourcePseudoPSF(m_source,m_gamma, m_useCaching);
+		m_psf2=ExtendedSourcePseudoPSF(m_source2,m_gamma2, m_useCaching);
 	    };
 	    
             double operator () (const astro::SkyDir & r, const astro::SkyDir & r_prime, double sigma) ;
@@ -443,6 +468,8 @@ namespace pointlike{
 		else return m_pointSourcePDF.integral(umax);
 	     };
 
+            void useCache(bool c) { m_useCaching=c; m_psf.useCache(c); m_psf2.useCache(c);};
+	    
 	private:
 	    extendedSources::iSource& m_source;
 	    extendedSources::iSource& m_source2;
@@ -457,7 +484,9 @@ namespace pointlike{
             skymaps::PsfFunction m_pointSourcePDF;
             skymaps::PsfFunction m_pointSourcePDF2;
             bool m_isPointSource;
-
+	    
+	    bool m_useCaching;
+	    
     };
 
 

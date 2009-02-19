@@ -3,6 +3,7 @@
 #include "st_facilities/GaussianQuadrature.h"
 
 #include <stdexcept>
+#include <map>
 
     //--------------------------------------------------------------------------------------------------
     //  ExtendedSourcePDF
@@ -20,8 +21,9 @@ namespace pointlike{
 
       static extendedSources::diskSource ExtendedSourcePseudoPSF2::defaultSource;
 
- 
-     extendedSourcePDF::extendedSourcePDF(extendedSources::iSource& source, double g):
+     static int extSource_instance_id;
+     
+     extendedSourcePDF::extendedSourcePDF(extendedSources::iSource& source, double g, bool usecache):
           m_source(source),
           m_gamma(g),
 	  m_prefactor(2*M_PI*(g-1.)/g),
@@ -30,10 +32,20 @@ namespace pointlike{
 	  m_u(-1.),
           m_gamma_pow_gamma(pow(g,g)),
           m_hF(m_a,m_b,1.),
-          m_dHF(m_a+1.,m_b+1.,2.)
-         {};   
+          m_dHF(m_a+1.,m_b+1.,2.),
+	  m_useCaching(usecache),
+	  m_cacheIpolTolerance(2.e-2),
+	  cached_srcParam(0),
+	  cacheID(extSource_instance_id++)
+         {
+             if(m_useCaching) {
+		   cached_srcParam=m_source.get();
+             };   
 
-    double extendedSourcePDF::value(double u) const { 
+	 };   
+
+
+    double extendedSourcePDF::valueFromIntegral(double u) const { 
           double error=0, result=0.;
 	  int    ierr=-1;
 	  m_u = u;
@@ -144,6 +156,46 @@ namespace pointlike{
 	  return m_prefactor*p0*(s1+s2);
        };
 
+    double extendedSourcePDF::valueFromCache(double u) const {
+        static int cache_miss;
+	static int cache_hit;
+    
+        cacheValidityCheck();
+	std::map<double,double>::iterator psfit1 = psfCache.lower_bound(u);
+	if (psfit1==psfCache.begin() || psfit1==psfCache.end()){
+	   double psf=valueFromIntegral(u);
+	   psfCache[u]=psf;
+	   cache_miss++;
+	   return psf;
+	};
+	std::map<double,double>::iterator psfit0 = psfit1; psfit0--;
+	double val0=(*psfit0).second,val1=(*psfit1).second;
+	if(fabs(val1-val0)>m_cacheIpolTolerance*val0){
+	   double psf=valueFromIntegral(u);
+	   psfCache[u]=psf;
+	   cache_miss++;
+	   return psf;
+	};
+	double u0=(*psfit0).first,u1=(*psfit1).first;
+	double psf=val0+(val1-val0)/(u1-u0)*(u-u0);    
+        cache_hit++;
+/*	if(cache_hit%100000==0)
+	   std::cout<<"id="<<cacheID<<" u="<<u<<" u0="<<u0<<" u1="<<u1<<" v1="<<val1<<" v0="<<val0
+	            <<" psf="<<psf<<" true="<<valueFromIntegral(u)
+	            <<" hit="<<cache_hit<<" miss="<<cache_miss<<" size="<<psfCache.size()
+		    <<std::endl;
+*/	return psf;
+    };
+
+    bool extendedSourcePDF::cacheValidityCheck() const{
+       if(cached_srcParam!=m_source.get()){
+//          std::cout<<"Source parameters changed. Cache "<<cacheID<<" invalid"<<std::endl;
+          psfCache.clear();
+	  cached_srcParam=m_source.get();
+	  return false;
+       };	
+       return true;    
+    };
 
 
     //--------------------------------------------------------------------------------------------------
@@ -192,6 +244,7 @@ namespace pointlike{
 	  
 	  
     };   
+    
 
     std::vector<double> ExtendedSourcePseudoPSF2::gradient(double u,int ncomp) const {   
         std::vector<double> grad(ncomp+1);

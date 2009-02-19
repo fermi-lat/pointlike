@@ -1,7 +1,7 @@
 /** @file PhotonBinner.cxx
 @brief implement class BinnedPhotonData 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/FlexibleBinner.cxx,v 1.5 2008/11/14 01:36:38 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/FlexibleBinner.cxx,v 1.6 2009/01/31 00:32:43 markusa Exp $
 */
 
 #include "pointlike/FlexibleBinner.h"
@@ -156,6 +156,10 @@ FlexibleBinner::FlexibleBinner(const std::string& id, const int pixel_density)
 	else if(id.find("diffuse/spectrum:+")!=std::string::npos) {
 	    m_bins.push_back(1);
 	    for(double idx=1;idx<=6;idx+=0.2) m_bins.push_back(pow(10.,idx)); 
+	}
+	else if(id.find("diffuse/spectrum:++")!=std::string::npos) {
+	    m_bins.push_back(1);
+	    for(double idx=1;idx<=6;idx+=0.125) m_bins.push_back(pow(10.,idx)); 
 	}
 	else throw std::runtime_error("Did not find a binning with the id specified.");
 	

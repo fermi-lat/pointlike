@@ -1,6 +1,6 @@
 /** @file SourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.21 2008/12/05 20:20:40 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceLikelihood.cxx,v 1.22 2009/01/30 01:27:50 markusa Exp $
 
 */
 
@@ -373,8 +373,16 @@ double pointlike::SourceLikelihood::maximize()
   m_loglike = 0;
   int photons=0;
   iterator it = begin();
+
+//  std::cout<<"maximize called. using emin="<<s_emin<<" emax="<<s_emax<<std::endl;
   for( ; it!=end(); ++it){
     pointlike::ExtendedLikelihood& like = **it;
+    
+    double emin(floor(like.band().emin()+0.5) );
+    double emax(floor(like.band().emax()+0.5));
+    if( emin < s_emin && emax < s_emin ) continue;
+    if( emax > s_emax ) break;
+
     std::pair<double,double> a(like.maximize());
 
 #ifdef DEBUG	
@@ -455,6 +463,10 @@ void pointlike::SourceLikelihood::printSpectrum()
     
     pointlike::ExtendedLikelihood& levellike = **it;
     const skymaps::Band& band ( levellike.band() );
+
+    double emin(floor(band.emin()+0.5) ), emax(floor(band.emax()+0.5));
+    if( emin < s_emin && emax < s_emin ) continue;
+    if( emax > s_emax ) break;
     
     double bkg(levellike.background());
     out()  << std::fixed << std::right 
@@ -524,12 +536,22 @@ std::vector<double> pointlike::SourceLikelihood::energyList() const {
 double pointlike::SourceLikelihood::localize(){
   double t(100);
   gFitCounter = 0;
+  usePSFCaching(false);
   if (s_useMinuit) 
     t = localizeMinuit();
   else 
     throw std::runtime_error("useMinuit=0 not supported yet.");
+  usePSFCaching(true);
   return t;
 }
+
+
+void pointlike::SourceLikelihood::usePSFCaching(bool c){
+  const_iterator it (begin());
+  for( ; it!= end(); ++it)(*it)->usePSFCaching(c);
+};
+
+
 
 void pointlike::SourceLikelihood::fixPosition(){
 
@@ -887,16 +909,16 @@ skymaps::SkySpectrum* SourceLikelihood::set_exposure(skymaps::SkySpectrum* expos
 }
 
 
-void pointlike::SourceLikelihood::addBackgroundPointSource(const pointlike::SourceLikelihood* fit)
+void pointlike::SourceLikelihood::addBackgroundPointSource(const pointlike::SourceLikelihood* fit, bool recompute)
 {
   if( fit==this){
     throw std::invalid_argument("SourceLikelihood::setBackgroundFit: cannot add self as background");
   }
   if( s_verbose>0 ) {
-    std::cout << "Adding source " << fit->name() << " to background" << std::endl;
+    //std::cout << "Adding source " << fit->name() << " to background" << std::endl;
   }
   for(size_t i=0;i<m_background.size();i++) if(m_background[i]) m_background[i]->add(fit);
-  setDir(dir()); // recomputes background for each SimpleLikelihood object
+  if (recompute) setDir(dir()); // recomputes background for each SimpleLikelihood object
 }
 
 void pointlike::SourceLikelihood::clearBackgroundPointSource()
