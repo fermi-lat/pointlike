@@ -1,4 +1,19 @@
 ------------------------------------------------------------
+User: markusa  Wed Feb 18 17:51:18 PST 2009
+pointlike/pointlike
+
+Modified Files:
+	Draw.h ExtendedLikelihood.h ExtendedSourcePDF.h 
+	SourceLikelihood.h 
+Log Message:
+PDF caching implemented
+ComplexSkySpectrum implemented
+bugs fixed
+
+
+
+    *
+------------------------------------------------------------
 User: burnett  Tue Feb 17 10:15:24 PST 2009
 pointlike/python
 
