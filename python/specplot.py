@@ -14,6 +14,7 @@ def plot(filename,source="",addfunc="",mwfilename="",scale=1.):
 
     print filename
 
+    mwfile=""
     # Check if specifying a multiwavelength data file
     if mwfilename!="":
         mwfile=mwfilename
@@ -551,7 +552,7 @@ def set_legend(name,model,graph,func,mwfile):
     legend.AddEntry(g1,"LAT Data","P")
     legend.AddEntry(func,model.get_spec_type().replace('_',' '),"L")
     if g_selected_ul.GetN()>0:
-        legend.AddEntry(g_selected_ul,"Upper Limit","L")
+        legend.AddEntry(g_selected_ul,"1\sigma Upper Limit","L")
     if g3.GetN()>0:
         mwfilename="MW Data"
         if mwfile!="": mwfilename=mwfile
@@ -626,7 +627,7 @@ def set_selected_UL(emin,emax,nphoton,combined):
                     g1.GetPoint(k,SED_E,SED_flux)
                     if SED_E<E_min or SED_E>E_max: continue
 
-                    if SED_flux>1.e-9:
+                    if SED_flux>2.e-8:
                         keep_point=0
 
             if keep_point==1:
@@ -773,7 +774,7 @@ def upper_limit(filename,source=""):
     global legend_ul
     legend_ul = R.TLegend(0.7,0.75,0.9,0.9)
     legend_ul.SetHeader(name)
-    legend_ul.AddEntry(g_ul,"Upper Limit","L")
+    legend_ul.AddEntry(g_ul,"1\sigma Upper Limit","L")
     legend_ul.SetFillColor(0)
     legend_ul.SetShadowColor(0)
     legend_ul.SetLineColor(0)

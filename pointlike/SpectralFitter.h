@@ -274,8 +274,10 @@ namespace pointlike{
     std::vector<double> get_exposures(){ return m_exposures; } 
     
     void set_energy_range(double lower_bound,double upper_bound){
-      m_lower_bound=lower_bound;
-      m_upper_bound=upper_bound;
+      if(lower_bound>0.)
+	m_lower_bound=lower_bound;
+      if(upper_bound>0.)
+	m_upper_bound=upper_bound;
     }
     double get_lower_bound(){ return m_lower_bound; }
     double get_upper_bound(){ return m_upper_bound; }
@@ -294,7 +296,7 @@ namespace pointlike{
   //  dN/dE = N_0*(E/E_0)^(-gamma)
   //
   //  N_0   = prefactor        [ ph/cm^2/s/MeV ]
-  //  E_0   = energy scale     [ default = 100 MeV ]
+  //  E_0   = energy scale     [ default = 1 GeV ]
   //  gamma = photon index
   //---------------------------------------------------------------------------
 
@@ -410,14 +412,14 @@ namespace pointlike{
     virtual std::vector<double> get_minVal(){
       std::vector<double> minVal(2);
       minVal[0]=log(1.e-20);
-      minVal[1]=log(0.1);
+      minVal[1]=log(1.0);
       return minVal;
     }
   
     virtual std::vector<double> get_maxVal(){
       std::vector<double> maxVal(2);
       maxVal[0]=log(1.e2);
-      maxVal[1]=log(5.);
+      maxVal[1]=log(4.0);
       return maxVal;
     }
   };
@@ -579,8 +581,8 @@ namespace pointlike{
     virtual std::vector<double> get_minVal(){
       std::vector<double> minVal(4);
       minVal[0]=log(1.e-20);
-      minVal[1]=log(0.1);
-      minVal[2]=log(0.1);
+      minVal[1]=log(1.);
+      minVal[2]=log(1.);
       minVal[3]=log(50.);
       return minVal;
     }
@@ -588,8 +590,8 @@ namespace pointlike{
     virtual std::vector<double> get_maxVal(){
       std::vector<double> maxVal(4);
       maxVal[0]=log(1.e2);
-      maxVal[1]=log(5.);
-      maxVal[2]=log(5.);
+      maxVal[1]=log(4.);
+      maxVal[2]=log(4.);
       maxVal[3]=log(3.e5);
       return maxVal;
     }
@@ -747,7 +749,7 @@ namespace pointlike{
     virtual std::vector<double> get_maxVal(){
       std::vector<double> maxVal(3);
       maxVal[0]=log(1.2);
-      maxVal[1]=log(5.);
+      maxVal[1]=log(4.);
       maxVal[2]=log(5.12e5);
       return maxVal;
     }
@@ -1050,7 +1052,13 @@ namespace pointlike{
     }
 
     double get_likelihood(){
-      double err_ratio=fabs(m_model_dNdE-m_dNdE)/m_dNdE_err_hi;
+      //double err_ratio=fabs(m_model_dNdE-m_dNdE)/m_dNdE_err_hi;
+      double err_ratio;
+      if(m_dNdE>m_model_dNdE)
+	err_ratio=(m_dNdE-m_model_dNdE)/m_dNdE_err_hi;
+      else
+	err_ratio=(m_model_dNdE-m_dNdE)/m_dNdE_err_lo;
+
       if(err_ratio<5.)
 	return 1.-erf(err_ratio/sqrt(2.));
       else
@@ -1097,7 +1105,7 @@ namespace pointlike{
       // Feldman Cousins PDF becomes un-normalized at low counts
       this->set_normalization();
       
-      double upper_limit=0;
+      double upper_limit=1.e-5;
       double sum_pdf=0.;
 
       while(sum_pdf<confidence_limit){
@@ -1116,11 +1124,13 @@ namespace pointlike{
     void set_normalization(){
       double pdf;
       double sum_pdf=0.;
-      double i=0.;
+      double i=1.e-5;
       double max_pdf=0.;
 
       double max_iterations;
-      if(m_n_signal/m_n_total<0.1 && m_n_signal>0.)
+      if(m_n_total<0.1)
+	max_iterations=10.;
+      else if(m_n_signal/m_n_total<0.1 && m_n_signal>0.)
 	max_iterations=10.*m_n_signal;
       else if(m_n_signal<0.)
 	max_iterations=10*m_n_background;
@@ -1346,6 +1356,7 @@ namespace pointlike{
     void setFitRange(double lower_bound,double upper_bound);
     void setFluxUpperLimitRange(double lower_bound,double upper_bound);
     void setConfidenceLimits(std::vector<double> confidence_limits=NULL);
+    void setAccuracy(double accuracy) { s_accuracy=accuracy; };
     void useExposurePDF(int useExposurePDF=1) { s_useExposurePDF=useExposurePDF; }; 
 
     // Function for using combined front and back energy binning
