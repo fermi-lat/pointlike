@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: bechtol  Sat Feb 21 10:40:19 PST 2009
+pointlike/src
+
+Modified Files:
+	SpectralFitter.cxx 
+Log Message:
+Auto-adjusted prefactor, fill all flux points, tune fit accuracy 
+
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Sat Feb 21 10:39:49 PST 2009
 pointlike/python
 
