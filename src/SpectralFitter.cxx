@@ -30,7 +30,7 @@ namespace pointlike{
 
   // Initialize static variables
   double SpectralFitter::s_lower_bound(200.);
-  double SpectralFitter::s_upper_bound(6.e4);
+  double SpectralFitter::s_upper_bound(3.e5);
 
   int    SpectralFitter::s_useDefaultParams(0);
   int    SpectralFitter::s_useSimplex(1);
@@ -50,7 +50,7 @@ namespace pointlike{
   double SpectralFitter::s_index(2.0);
   double SpectralFitter::s_upper_limit_lower_bound(100.);
   double SpectralFitter::s_upper_limit_upper_bound(3.e5);
-  double SpectralFitter::s_band_confidence_limit(0.9);
+  double SpectralFitter::s_band_confidence_limit(0.68);
 
   //-------------------------------------------------------------------------
   //  Define the wrapper function input to Minuit
@@ -88,6 +88,11 @@ namespace pointlike{
     double logLikeSum=0.;
     
     for(int bin=0;bin<numBins;bin++){
+      
+      n=gSourcePointer->at(bin)->photons();
+
+      if(n==0) continue; // Skip empty energy bins
+
       E_min=gSourcePointer->at(bin)->band().emin();
       E_max=gSourcePointer->at(bin)->band().emax();
       
@@ -174,7 +179,7 @@ namespace pointlike{
     m_minVal   = gModelPointer->get_minVal();
     m_maxVal   = gModelPointer->get_maxVal();
 
-    // Use the default starting values or those provided by the model?
+    // Use the default starting values or those provided by the model
     if(s_useDefaultParams){
       m_par = gModelPointer->get_default_par();
       for(int i=0;i<m_npar;i++){
@@ -274,7 +279,28 @@ namespace pointlike{
     for(int i=0;i<m_npar;i++){
       m_Minuit->GetParameter(i,m_specParams[i],m_specParamErrors[i]);
     }
-    
+   
+    // Set the model dependent energies and exposures if not done previously
+    if(scale<-0.){
+      int numBins=gSourcePointer->size();
+      double E_min,E_max;
+      double lower_bound=gModelPointer->get_lower_bound();
+      double upper_bound=gModelPointer->get_upper_bound();
+      for(int bin=0; bin<numBins; bin++){
+	E_min=gSourcePointer->at(bin)->band().emin();
+	E_max=gSourcePointer->at(bin)->band().emax();
+	m_model_energies.push_back(gModelPointer->get_model_E(E_min,E_max));
+	m_exposures.push_back(gModelPointer->get_model_exposure(gSourcePointer,bin));
+	// Adjust fit range to match bin intervals
+	if(E_min < lower_bound && E_max >= lower_bound)
+	  gModelPointer->set_energy_range(E_max,-1.);
+	if(E_min <= upper_bound && E_max > upper_bound)
+	  gModelPointer->set_energy_range(-1.,E_min);
+      }
+      gModelPointer->set_model_energies(m_model_energies);
+      gModelPointer->set_exposures(m_exposures);
+    }
+
     std::cout << std::endl << "===== SPECTRAL FITTING RESULTS ====="
 	      << std::endl;
 
@@ -307,12 +333,16 @@ namespace pointlike{
     // Record the optimized model parameters and errors
     gModelPointer->set_params(m_specParams);
     gModelPointer->set_param_errors(m_specParamErrors);
-    
+
+    /*
     // Set the model dependent energies and exposures
     int numBins=gSourcePointer->size();
 
-    double E_min,E_max;
+    //double E_min,E_max;
     for(int bin=0; bin<numBins; bin++){
+      m_model_energies.push_back(gModelPointer->get_model_E(E_min,E_max));
+      m_exposures.push_back(gModelPointer->get_model_exposure(gSourcePointer,bin));
+
       E_min=gSourcePointer->at(bin)->band().emin();
       E_max=gSourcePointer->at(bin)->band().emax();
       
@@ -328,6 +358,7 @@ namespace pointlike{
     
     gModelPointer->set_model_energies(m_model_energies);
     gModelPointer->set_exposures(m_exposures);
+    */
 
     double fmin,fedm,errdef;
     int npari,nparx,istat;
@@ -339,10 +370,8 @@ namespace pointlike{
     m_Minuit->mnemat(&C[0][0],m_npar);
     for(int i=0;i<m_npar;i++){
       for(int j=0;j<m_npar;j++){
-
 	// Return from log space
 	//m_covar_entries.push_back(m_specParams[i]*m_specParams[j]*(exp(C[i][j])-1));
-
 	m_covar_entries.push_back(C[i][j]);
       }
     }
@@ -393,6 +422,14 @@ namespace pointlike{
 		<< std::endl << std::endl
 		<< "Repeat spectral fitting" 
 		<< std::endl << std::endl;
+
+      // Adjust prefactor for new pivot energy
+      double new_prefactor=m_specParams[0]*pow(gModelPointer->get_scale()/E_decorrelation,m_specParams[1]);
+      std::vector<double> adjusted_params(2);
+      adjusted_params[0]=new_prefactor;
+      adjusted_params[1]=m_specParams[1];
+      gModelPointer->set_params(adjusted_params);
+
       this->initialize();
       this->specfitMinuit(E_decorrelation);
     }
@@ -593,8 +630,10 @@ namespace pointlike{
   }
 
   void pointlike::SpectralFitter::setFluxUpperLimitRange(double lower_bound,double upper_bound){
-    s_upper_limit_lower_bound=lower_bound;
-    s_upper_limit_upper_bound=upper_bound;
+    if(lower_bound > 0.)
+      s_upper_limit_lower_bound=lower_bound;
+    if(upper_bound > 0.)
+      s_upper_limit_upper_bound=upper_bound;
   }
 
   void pointlike::SpectralFitter::setConfidenceLimits(std::vector<double> confidence_limits){
