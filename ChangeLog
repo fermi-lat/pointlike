@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: bechtol  Sat Feb 21 10:39:07 PST 2009
+pointlike/pointlike
+
+Modified Files:
+	SpectralFitter.h 
+Log Message:
+Auto-adjusted prefactor, fill all flux points, tune fit accuracy 
+
+    *
+------------------------------------------------------------
 User: markusa  Wed Feb 18 21:16:53 PST 2009
 pointlike/src
 
