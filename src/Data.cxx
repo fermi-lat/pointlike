@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.64 2008/11/11 01:31:16 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.65 2009/02/17 18:07:22 burnett Exp $
 
 */
 
@@ -354,7 +354,7 @@ Data::Data(std::vector<std::string> inputfiles, int event_type, double tstart, d
 {
     if( !ft2file.empty() ) setHistoryFile(ft2file); // this is actually a global
 
-    load_filelist(inputfiles);
+    load_filelist(inputfiles,event_type,source_id);
 }
 
 Data::Data(const std::string & inputFile, const std::string & tablename)
