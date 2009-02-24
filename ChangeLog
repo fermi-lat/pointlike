@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: kerrm  Tue Feb 24 15:07:10 PST 2009
+pointlike/src
+
+Modified Files:
+	Data.cxx EventList.cxx EventList.h 
+Log Message:
+Added capability to select MC_ENERGY instead of ENERGY by static class member in Data.
+    *
+------------------------------------------------------------
+User: kerrm  Tue Feb 24 15:07:10 PST 2009
 pointlike/pointlike
 
 Modified Files:
