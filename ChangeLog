@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Feb 24 12:50:52 PST 2009
+pointlike/python
+
+Modified Files:
+	pointlike_defaults.py swig_setup.in 
+Log Message:
+add LeastSquaresFitter
+    *
+------------------------------------------------------------
+User: burnett  Tue Feb 24 12:50:52 PST 2009
 pointlike/pointlike
 
 Modified Files:
