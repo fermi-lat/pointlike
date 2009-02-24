@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Mon Feb 23 19:15:32 PST 2009
+pointlike/src
+
+Modified Files:
+	Data.cxx 
+Log Message:
+Fixed -- I hope -- Data ctor to correctly apply event class and MC_SRC_ID cuts.  They weren't being passed to Data::load_filelist.
+    *
+------------------------------------------------------------
 User: bechtol  Sat Feb 21 10:40:19 PST 2009
 pointlike/src
 
