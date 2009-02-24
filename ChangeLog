@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Feb 24 12:50:52 PST 2009
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+add LeastSquaresFitter
+    *
+------------------------------------------------------------
 User: kerrm  Mon Feb 23 19:15:32 PST 2009
 pointlike/src
 
