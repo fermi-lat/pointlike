@@ -1,6 +1,6 @@
 # default parameters for the various parameter files
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.14 2008/11/28 20:43:34 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointlike_defaults.py,v 1.15 2009/02/17 18:06:33 burnett Exp $
 #
 # Include this to set defaults, then override 
 import sys
@@ -46,7 +46,7 @@ class PointSourceLikelihood: #parameters for the likelihood calculation
 
     TSmin= 5     # minimum TS value to allow during iteration
     skip1=1      # inital number of layers to skip in localization fit
-    skip2=4      # don't skip beyond this
+    skip2=9      # don't skip beyond this
     itermax=1    # maximum number of iterations
 
     verbose = 0  # set non-zero to get lots of output

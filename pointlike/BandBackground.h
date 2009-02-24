@@ -1,7 +1,7 @@
 /** @file BandBackground.h
     @brief declare BandBackground class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/BandBackground.h,v 1.2 2008/10/21 02:50:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/BandBackground.h,v 1.3 2008/11/09 23:53:33 burnett Exp $
 */
 
 #ifndef pointlike_BandBackground_h
@@ -40,10 +40,12 @@ public:
 
     double average(const astro::SkyDir& dir, double angle, double tolerance)const;
     static void set_verbose(bool q=true);
-            
-private:
+
     // Calculate average for a given level
     double level_ave(const astro::SkyDir& dir, double angle, int level) const;
+
+
+private:
 #if 0
     const skymaps::CompositeSkySpectrum & m_background;
     const skymaps::Background* m_diffuse; ///< extract pointer to the diffuse cmponent

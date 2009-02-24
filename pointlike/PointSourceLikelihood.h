@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.49 2008/11/24 02:27:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.50 2008/12/29 04:12:14 burnett Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -54,16 +54,20 @@ namespace pointlike {
         //! fit to signal fractions
         /// @param skip [0] bands to skip
         /// @return total TS
-        double  maximize(int skip=0);
+        double  maximize(int skip=0, int count=100);
 
         //! change the current direction -- resets data and refits
         void setDir(const astro::SkyDir& dir,bool subset=false);
 
         /// @return the gradient, summed over all bands
-        const CLHEP::Hep3Vector& gradient(int skip) const;
+        /// @param skip starting band (or number to skip)
+        /// @param count [0] number to add: 0 means all
+        const CLHEP::Hep3Vector& gradient(int skip, int count=100) const;
 
         ///@return the curvature, summed over all bamds
-        double curvature(int skip=0) const;
+        /// @param skip starting band (or number to skip)
+        /// @param count [0] number to add: 0 means all
+        double curvature(int skip=0, int count=100) const;
 
         /// @brief Make a table of the fit spectrum, to the ostream
         /// See set_ostream to direct to a file.
@@ -246,6 +250,7 @@ namespace pointlike {
         ///! @brief ctor to create function based on given fit
         ///! @param psl 
         ///! @param band [-1] index of band to use, -1 for sum
+        ///! if doing sum, subtract value at dir()
         TSmap(const PointSourceLikelihood& psl, int band=-1);
 
         /// @brief ctor to compure TS independently at the given position
@@ -263,6 +268,7 @@ namespace pointlike {
         const skymaps::BinnedPhotonData * m_data;
         const PointSourceLikelihood* m_psl;
         int m_band;
+        double m_offset;
     };
 
 

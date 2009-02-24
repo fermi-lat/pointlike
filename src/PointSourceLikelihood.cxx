@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.66 2008/12/29 04:12:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.67 2009/02/17 18:05:51 burnett Exp $
 
 */
 
@@ -70,7 +70,7 @@ double PointSourceLikelihood::s_minalpha(0);
 
 
 int    PointSourceLikelihood::s_skip1(0);
-int    PointSourceLikelihood::s_skip2(3);
+int    PointSourceLikelihood::s_skip2(8);
 int    PointSourceLikelihood::s_itermax(1);
 double PointSourceLikelihood::s_TSmin(5.0);
 
@@ -300,11 +300,11 @@ PointSourceLikelihood::iterator PointSourceLikelihood::begin_skip(int skip){
     return it;
 }
 
-double PointSourceLikelihood::maximize(int skip)
+double PointSourceLikelihood::maximize(int skip, int count)
 {
     m_TS = 0;
     iterator it = begin_skip(skip); //begin();
-    for( ; it!=end(); ++it){
+    for( ; it!=end() && count-- >0 ; ++it){
         SimpleLikelihood& like = **it;
         std::pair<double,double> a(like.maximize());
         if( a.first > s_minalpha ) {
@@ -321,11 +321,13 @@ void PointSourceLikelihood::setDir(const astro::SkyDir& dir, bool subset){
     m_dir = dir;
 }
 
-const Hep3Vector& PointSourceLikelihood::gradient(int skip) const{
+const Hep3Vector& PointSourceLikelihood::gradient(int skip, int count) const{
     m_gradient=Hep3Vector(0);  
     const_iterator it = begin_skip(skip);
-    for( ; it!=end(); ++it){
-        if( (*it)->TS()< s_TScut) continue;
+    for( ; it!=end() && count-- >0; ++it){
+        double ts_i((*it)->TS());
+        //if( verbose() ) std::cout << "TS: " << (*it)->TS() << std::endl;
+        if( ts_i< s_TScut) continue; // do not count if TS small
         Hep3Vector grad((*it)->gradient());
         double curv((*it)->curvature());
         if( curv > 0 ) m_gradient+= grad;
@@ -333,10 +335,10 @@ const Hep3Vector& PointSourceLikelihood::gradient(int skip) const{
     return m_gradient;
 }
 
-double PointSourceLikelihood::curvature(int skip) const{
+double PointSourceLikelihood::curvature(int skip, int count) const{
     double t(0);
     const_iterator it = begin_skip(skip);
-    for( ; it!=end(); ++it){
+    for( ; it!=end()&& count-- >0; ++it){
         if( (*it)->TS()< s_TScut) continue;
 #if 0 // Marshall?
         it->second->gradient();
@@ -463,7 +465,7 @@ double PointSourceLikelihood::localize(int skip)
 {
     using std::setw; using std::left; using std::setprecision; using std::right;
     using std::fixed;
-    int wd(10), iter(0), maxiter(20);
+    int wd(10), iter(0), maxiter(5);
     double steplimit(10.0), // in units of sigma
         stepmin(0.25);     // quit if step this small, in units of sigma
     double backoff_ratio(0.5); // scale step back if TS does not increase
@@ -557,12 +559,14 @@ double PointSourceLikelihood::localize(int skip)
 
         if( gradmag < 0.1 || delta.mag()< stepmin*sig) break;
     }// iter loop
-    if( iter==maxiter && ! backingoff ){
+    if( iter==maxiter ){ //&& ! backingoff ){
         if( verbose() ) out() << "   >>>did not converge" << std::endl;
         setDir(last_dir()); // restore position
         return 99.;
     }
-    if(verbose() ) out() << "    *** good fit *** " << std::endl;
+    if(verbose() ){
+        out() << "    *** good fit *** " <<dir().ra()<< "  " << dir().dec()<< std::endl;
+    }
     double errcirc=errorCircle();
     //least squares fit to surface
     if(fitlsq()) {
@@ -573,6 +577,7 @@ double PointSourceLikelihood::localize(int skip)
 
 double PointSourceLikelihood::localize()
 {
+#if 0 // not sure what this is about
     int skip1(s_skip1), skip2(s_skip2), itermax(s_itermax);
     double TSmin(s_TSmin);
 
@@ -592,6 +597,9 @@ double PointSourceLikelihood::localize()
         currentTS = TS();
     }
     return sig;
+#else// just do the default
+    return localize(s_skip1, s_skip2);
+#endif
 }
 
 double PointSourceLikelihood::fit_localization(double err) {
@@ -855,12 +863,14 @@ TSmap::TSmap(const PointSourceLikelihood& psl, int band)
 : m_data(0)
 , m_psl(&psl)
 , m_band(band)
+, m_offset(psl.TSmap(psl.dir()))
 {}
 
 TSmap::TSmap(const skymaps::BinnedPhotonData& data, int band)
 : m_data(&data)
 , m_psl(0)
 , m_band(band)
+, m_offset(0)
 {}
 
 void TSmap::setPointSource(const PointSourceLikelihood& psl){
@@ -881,7 +891,7 @@ double TSmap::operator()(const astro::SkyDir& sdir)const
 
     }
         // using current fit.
-    return m_psl->TSmap(sdir, m_band);
+    return m_psl->TSmap(sdir, m_band)- (m_band==-1?m_offset:0);
 }
 
 

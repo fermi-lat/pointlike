@@ -2,7 +2,7 @@ package pointlike
 
 version v6r15p2
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.116 2008/12/30 19:28:49 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.117 2008/12/30 19:41:18 burnett Exp $
 
 use astro *
 use healpix *
@@ -28,7 +28,7 @@ macro pointlike_source  "*.cxx" WIN32 \
 "Alignment.cxx  AlignProc.cxx  BandBackground.cxx  CalData.cxx  Data.cxx Draw.cxx EventList.cxx \
  ParamOptimization.cxx   PointSourceLikelihood.cxx \
  RotationInfo.cxx  SimpleLikelihood.cxx SourceFinder.cxx \
- SourceList.cxx SpectralFunction.cxx"
+ SourceList.cxx SpectralFunction.cxx LeastSquaresFitter.cxx"
 
 library pointlike \
  -s=../pointlike $(source) \
