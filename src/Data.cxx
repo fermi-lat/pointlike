@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.65 2009/02/17 18:07:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.66 2009/02/24 03:15:32 kerrm Exp $
 
 */
 
@@ -85,6 +85,10 @@ void   Data::set_zenith_angle_cut(double cut){s_zenith_angle_cut=cut;}
 double Data::s_theta_cut( 66.4 ); // standard cut (acos(0.4))
 double Data::theta_cut(){ return s_theta_cut;}
 void   Data::set_theta_cut(double cut){s_theta_cut=cut;}
+
+bool Data::s_use_mc_energy=false; //use measured energy by default
+bool Data::use_mc_energy(){return s_use_mc_energy;}
+void Data::set_use_mc_energy(bool use_it){s_use_mc_energy = use_it;}
 
 // default alignment object
 pointlike::Alignment* Data::s_alignment=new Alignment();
@@ -269,7 +273,7 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
             }
         }
         AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id);
-        EventList photons(inputFile, source_id>-1);
+        EventList photons(inputFile, source_id>-1, s_use_mc_energy);
 
         AddPhoton added =std::for_each(photons.begin(), photons.end(), adder );
         log() 

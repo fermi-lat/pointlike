@@ -1,7 +1,7 @@
 /** @file EventList.h 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/EventList.h,v 1.34 2008/09/27 21:38:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.1 2008/10/10 19:37:03 burnett Exp $
 */
 
 
@@ -98,9 +98,10 @@ public:
     /** @brief ctor sets up container
     @param infile name of the input FT1 or ROOT file
     @param selectid True if will be selecting on eventid
+	@param use_mc_energy True if will be using MC_ENERGY
     @param table_name must be "EVENTS" for FT1, or "MeritTuple"
     */
-    EventList( std::string infile, bool selectid=false,
+    EventList( std::string infile, bool selectid=false, bool use_mc_energy=false,
         std::string table_name="EVENTS");
 
     ~EventList();

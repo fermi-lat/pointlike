@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.2 2008/10/12 19:20:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.3 2008/11/10 20:11:58 burnett Exp $
 */
 
 #include "EventList.h"
@@ -97,10 +97,11 @@ void AddPhoton::operator()(const Photon& gamma)
     }
 
 
-EventList::EventList(const std::string infile, bool selectid,
+EventList::EventList(const std::string infile, bool selectid, bool use_mc_energy,
                      std::string table_name)
                      : m_fits(true)
                      , m_selectid(selectid)
+					 , m_use_mc_energy(use_mc_energy)
 {
     if( infile.find(".root") != std::string::npos) {
         table_name = "MeritTuple"; 
@@ -123,7 +124,7 @@ EventList::~EventList()
 
 Photon EventList::Iterator::operator*()const
 {
-    float ra, dec, energy; // photon info
+    float ra, dec, energy, mc_energy; // photon info
     float raz(0), decz(0), rax(90), decx(0); // sc orientation: default orthogonal
     double time;
     double zenith_angle;
@@ -169,6 +170,10 @@ Photon EventList::Iterator::operator*()const
     if( m_selectid) { // check for source id only if requested
         (*m_it)[*names++].get(source);
     }
+	if( m_use_mc_energy ) { //get MC_ENERGY and replace ENERGY, if using it
+		(*m_it)[*names++].get(mc_energy);
+		energy = mc_energy;
+	}
 
     if( !isFinite(energy) || !isFinite(dec) || !isFinite(ra) ){
         std::stringstream s;

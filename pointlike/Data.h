@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.32 2008/09/11 06:40:13 markusa Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.37 2008/11/11 01:31:16 mar0 Exp $
 */
 
 
@@ -115,6 +115,10 @@ public:
     ///@brief access to static that defines minimum class level cut
     static int class_level();
     static void set_class_level(int cut);
+
+	///@brief access to boolean switch to use MC_ENERGY instead of ENERGY
+	static bool use_mc_energy();
+	static void set_use_mc_energy(bool use_it);
 
     //! set corrections to fixed rotation in GLAST frame, default is (0,0,0)
     static void set_rot(double arcsecx, double arcsecy, double arcsecz);
