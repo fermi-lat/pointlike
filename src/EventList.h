@@ -1,7 +1,7 @@
 /** @file EventList.h 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.2 2009/02/24 23:07:10 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.3 2009/02/25 16:05:08 kerrm Exp $
 */
 
 
@@ -135,6 +135,7 @@ private:
     const tip::Table * m_table;
     bool m_fits;
     bool m_selectid;
+    bool m_use_mc_energy;
 };
 
 #endif
