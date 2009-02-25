@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Wed Feb 25 09:13:58 PST 2009
+pointlike/src
+
+Modified Files:
+	EventList.cxx EventList.h 
+Log Message:
+update use_mc_energy option
+    *
+------------------------------------------------------------
+User: burnett  Wed Feb 25 09:13:58 PST 2009
 pointlike/pointlike
 
 Modified Files:
