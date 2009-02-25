@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.37 2008/11/11 01:31:16 mar0 Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.38 2009/02/24 23:07:10 kerrm Exp $
 */
 
 
@@ -116,9 +116,9 @@ public:
     static int class_level();
     static void set_class_level(int cut);
 
-	///@brief access to boolean switch to use MC_ENERGY instead of ENERGY
-	static bool use_mc_energy();
-	static void set_use_mc_energy(bool use_it);
+    ///@brief access to boolean switch to use MC_ENERGY instead of ENERGY
+    static bool use_mc_energy();
+    static void set_use_mc_energy(bool use_it);
 
     //! set corrections to fixed rotation in GLAST frame, default is (0,0,0)
     static void set_rot(double arcsecx, double arcsecy, double arcsecz);
@@ -151,6 +151,7 @@ public:
     static void useEarthCoordinates();
     
 
+
 private:
     skymaps::BinnedPhotonData * m_data; ///< manage this object
     double m_start, m_stop;  ///< overall time interval (default 0 for no cut)
@@ -169,6 +170,7 @@ private:
     static astro::PointingHistory* s_history; ///< pointer to optional FT2 info.
     static double s_zenith_angle_cut;     ///< static value for cut on earth photons
     static double s_theta_cut;        ///< static value for theta, or FOV cut
+    static bool s_use_mc_energy;     ///< static value for mc energy flag
 };
 
 }

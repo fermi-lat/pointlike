@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.3 2008/11/10 20:11:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.4 2009/02/24 23:07:10 kerrm Exp $
 */
 
 #include "EventList.h"
@@ -101,7 +101,7 @@ EventList::EventList(const std::string infile, bool selectid, bool use_mc_energy
                      std::string table_name)
                      : m_fits(true)
                      , m_selectid(selectid)
-					 , m_use_mc_energy(use_mc_energy)
+                     , m_use_mc_energy(use_mc_energy)
 {
     if( infile.find(".root") != std::string::npos) {
         table_name = "MeritTuple"; 
