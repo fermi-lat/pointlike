@@ -1,7 +1,7 @@
 /** @file EventList.h 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.1 2008/10/10 19:37:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.2 2009/02/24 23:07:10 kerrm Exp $
 */
 
 
@@ -119,7 +119,7 @@ public:
         bool operator!=(const Iterator& other)const{return other.m_it!=m_it;}
     private:
         tip::Table::ConstIterator m_it;
-        bool m_fits, m_selectid;
+        bool m_fits, m_selectid, m_use_mc_energy;
     };
 
     /// return iterator to access 
