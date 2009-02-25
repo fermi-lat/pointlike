@@ -1,7 +1,7 @@
 /** @file LeastSquaresFitter.h 
 @brief declaration of the least squares fitter class
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/LeastSquaresFitter.h,v 1.1 2009/02/24 21:07:12 burnett Exp $
 */
 #ifndef pointlike__LeastSquaresFitter_h
 #define pointlike__LeastSquaresFitter_h
@@ -39,7 +39,7 @@ namespace pointlike {
 
         std::vector<double> m_fitparams; //parameterization of TS surface
         PointSourceLikelihood* m_psl; // Pointer to PSL object, can be modified
-        const static int s_points = 10; //grid points: will crash matrix multiplication if larger than 3
+
         double m_err; //statistical error value
 
     };

@@ -1,7 +1,7 @@
 /** @file LeastSquaresFitter.cxx 
 @brief Methods for rotation information
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/LeastSquaresFitter.cxx,v 1.1 2009/02/24 21:07:12 burnett Exp $
 */
 
 //#define MIN_DEBUG
@@ -21,7 +21,7 @@ using namespace astro;
 namespace {
 
     double sqr(double d) {return d*d;}
-
+    int s_points = 10; //grid points
     double file_num(0.);
     int itermax(3);
 }
