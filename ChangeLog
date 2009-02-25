@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Feb 25 14:29:27 PST 2009
+pointlike/src
+
+Modified Files:
+	LeastSquaresFitter.cxx 
+Log Message:
+removed static const member variable, not necessary
+    *
+------------------------------------------------------------
 User: mar0  Wed Feb 25 14:29:26 PST 2009
 pointlike/pointlike
 
