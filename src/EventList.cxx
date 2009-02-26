@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.4 2009/02/24 23:07:10 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.5 2009/02/25 17:13:58 burnett Exp $
 */
 
 #include "EventList.h"
@@ -115,6 +115,10 @@ EventList::EventList(const std::string infile, bool selectid, bool use_mc_energy
     m_itend = m_table->end();
 
 }
+EventList::EventList()
+{
+    std::cout << "Default ctor!" << std::endl;
+}
 EventList::~EventList()
 {
     // seems to create crash
@@ -171,7 +175,7 @@ Photon EventList::Iterator::operator*()const
         (*m_it)[*names++].get(source);
     }
 	if( m_use_mc_energy ) { //get MC_ENERGY and replace ENERGY, if using it
-		(*m_it)[*names++].get(mc_energy);
+		(*m_it)["MC_ENERGY"].get(mc_energy);
 		energy = mc_energy;
 	}
 
@@ -215,7 +219,7 @@ Photon EventList::Iterator::operator*()const
 
 EventList::Iterator EventList::begin()
 { 
-    return Iterator(m_itbegin, m_fits, m_selectid);
+    return Iterator(m_itbegin, m_fits, m_selectid, m_use_mc_energy);
 }
 
 EventList::Iterator EventList::end()

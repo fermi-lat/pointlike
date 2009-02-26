@@ -1,7 +1,7 @@
 /** @file EventList.h 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.3 2009/02/25 16:05:08 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.4 2009/02/25 17:13:58 burnett Exp $
 */
 
 
@@ -104,15 +104,17 @@ public:
     EventList( std::string infile, bool selectid=false, bool use_mc_energy=false,
         std::string table_name="EVENTS");
 
+    EventList(); 
     ~EventList();
 
     // make it a container by implementing a forward iterator
     class Iterator {
     public:
-        Iterator(tip::Table::ConstIterator it, bool fits, bool selectid=false)
+        Iterator(tip::Table::ConstIterator it, bool fits, bool selectid=false, bool use_mc_energy=false)
             : m_it(it)
             , m_fits(fits)
             , m_selectid(selectid)
+            , m_use_mc_energy(use_mc_energy)
         {}
         Photon operator*()const;             ///< dereference
         tip::Table::ConstIterator operator++(){return ++m_it;} ///< increment operator
