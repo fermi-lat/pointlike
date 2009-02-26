@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Feb 25 20:27:26 PST 2009
+pointlike/python
+
+Modified Files:
+	swig_setup.in 
+Log Message:
+move BandBackground to skymaps
+    *
+------------------------------------------------------------
 User: burnett  Wed Feb 25 20:26:50 PST 2009
 pointlike/src
 
