@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Wed Feb 25 20:26:49 PST 2009
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h 
+Log Message:
+move BandBackgrouind to skymaps
+    *
+------------------------------------------------------------
+User: burnett  Wed Feb 25 20:26:49 PST 2009
 pointlike/cmt
 
 Modified Files:
