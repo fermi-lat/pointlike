@@ -1052,7 +1052,6 @@ namespace pointlike{
     }
 
     double get_likelihood(){
-      //double err_ratio=fabs(m_model_dNdE-m_dNdE)/m_dNdE_err_hi;
       double err_ratio;
       if(m_dNdE>m_model_dNdE)
 	err_ratio=(m_dNdE-m_model_dNdE)/m_dNdE_err_hi;
@@ -1137,6 +1136,8 @@ namespace pointlike{
       else
 	max_iterations=2*m_n_total;
 
+      if(max_iterations<100.) max_iterations=100.;
+
       do{
 	pdf=this->pdf(i);
 	sum_pdf=sum_pdf+m_step*this->pdf(i);
@@ -1144,48 +1145,6 @@ namespace pointlike{
       }while(i<max_iterations && sum_pdf<1.);
 
       m_normalization=1/sum_pdf;
-    }
-
-    double get_upper_limit(SourceLikelihood* source_pointer,int bin,double confidence_limit){
-      double alpha_min=1.e-5;
-      double alpha_max=1.;
-
-      double weighted_alpha_sum=0;
-      double normalization=0;
-      
-      double frac,mid_frac,next_frac;
-      double alpha,mid_alpha,next_alpha;
-      double weight,dalpha;
-      double exposure;
-      
-      double loglike_best = source_pointer->at(bin)->operator()();
-      double loglike;    
-
-      double max=100.;
-
-      for(double i=0.;i<max;i+=1.){
-	frac=i/max;
-	mid_frac=(i+0.5)/max;
-	next_frac=(i+1.)/max;
-
-	alpha=exp((1.-frac)*log(alpha_min)+frac*log(alpha_max));
-	mid_alpha=exp((1.-mid_frac)*log(alpha_min)+mid_frac*log(alpha_max));
-	next_alpha=exp((1.-next_frac)*log(alpha_min)+next_frac*log(alpha_max));
-
-	dalpha=next_alpha-alpha;
-
-	loglike=source_pointer->at(bin)->operator()(mid_alpha);
-	weight=exp(loglike_best-loglike);
-
-	weighted_alpha_sum+=weight*mid_alpha*dalpha;
-	normalization+=weight*dalpha;
-      }      
-      double best_alpha=weighted_alpha_sum/normalization;
-
-      double n_total=source_pointer->at(bin)->photons();
-
-      this->set_counts(n_total,(1.-best_alpha)*n_total);
-      return this->get_upper_limit(confidence_limit);
     }
 
   };
@@ -1303,6 +1262,7 @@ namespace pointlike{
     static double s_accuracy;
 
     static int s_useUpperLimit;
+    static double s_u_band;
     static double s_TS_threshold;
     static double s_index;
     static double s_upper_limit_lower_bound;
@@ -1399,6 +1359,10 @@ namespace pointlike{
     };
     int get_useMultiwavelengthData(){ return s_useMultiwavelengthData; };
     MWData* getMWData() { return m_MWData; };
+
+    // Find the best weighted signal fraction value directly from the fit
+    
+    double get_best_alpha(SourceLikelihood* source_pointer,int bin);
 
   };
 

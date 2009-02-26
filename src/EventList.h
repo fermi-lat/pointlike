@@ -1,7 +1,7 @@
 /** @file EventList.h 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.4 2009/02/25 17:13:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.5 2009/02/26 04:28:05 burnett Exp $
 */
 
 
@@ -131,7 +131,7 @@ public:
     void close();
     static std::string root_names[];
 
-
+    
 private:
     tip::Table::ConstIterator m_itbegin, m_itend;
     const tip::Table * m_table;
