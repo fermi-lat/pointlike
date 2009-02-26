@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.5 2009/02/25 17:13:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.6 2009/02/26 04:28:05 burnett Exp $
 */
 
 #include "EventList.h"
@@ -175,7 +175,7 @@ Photon EventList::Iterator::operator*()const
         (*m_it)[*names++].get(source);
     }
 	if( m_use_mc_energy ) { //get MC_ENERGY and replace ENERGY, if using it
-		(*m_it)["MC_ENERGY"].get(mc_energy);
+		(*m_it)["MCENERGY"].get(mc_energy);
 		energy = mc_energy;
 	}
 
