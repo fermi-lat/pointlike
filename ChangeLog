@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: bechtol  Thu Feb 26 15:44:45 PST 2009
+pointlike/src
+
+Modified Files:
+	ExtendedLikelihood.cxx SpectralFitter.cxx 
+Log Message:
+upper limit fix
+
+
+    *
+------------------------------------------------------------
 User: bechtol  Thu Feb 26 15:44:44 PST 2009
 pointlike/python
 
