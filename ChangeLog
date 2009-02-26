@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Feb 25 20:26:50 PST 2009
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx 
+Log Message:
+move BandBackgrouind to skymaps
+    *
+------------------------------------------------------------
 User: burnett  Wed Feb 25 20:26:49 PST 2009
 pointlike/pointlike
 
