@@ -521,7 +521,7 @@ namespace pointlike{
       FC_upper_limit=m_FeldmanCousins->get_upper_limit(s_band_confidence_limit);
 
       // Correct for signal photons not contained within the ROI
-      psf_correction=gSourcePointer->at(bin)->psfIntegral();
+      psf_correction=gSourcePointer->at(bin)->psfFraction(s_u_band);
 
       // Model dependent exposure calculation
       band_exposure=m_model_pointer->get_model_exposure(gSourcePointer,bin);

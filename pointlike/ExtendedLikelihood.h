@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.h
     @brief declaration of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.13 2009/02/19 01:51:18 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.14 2009/02/26 22:42:50 bechtol Exp $
 
 */
 
@@ -121,6 +121,9 @@ namespace pointlike {
 
     // number of photons contained within angle
     int photonsContained(double u);
+
+    // fraction of psf contained within angle
+    double psfFraction(double u);
 
     /// @return the solid angle in sr for the circular aperature used for analysis
     double solidAngle()const;
