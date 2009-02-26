@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: bechtol  Thu Feb 26 14:42:51 PST 2009
+pointlike/pointlike
+
+Modified Files:
+	ExtendedLikelihood.h SpectralFitter.h 
+Log Message:
+Upper limit fixes, plotting updates
+
+    *
+------------------------------------------------------------
 User: markusa  Thu Feb 26 12:15:56 PST 2009
 pointlike/python
 
