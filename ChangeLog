@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Thu Feb 26 15:54:18 PST 2009
+pointlike/src
+
+Modified Files:
+	EventList.cxx 
+Log Message:
+Fixed field name for MC_ENERGY -> MCENERGY.
+    *
+------------------------------------------------------------
 User: bechtol  Thu Feb 26 15:44:45 PST 2009
 pointlike/src
 
