@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.cxx
     @brief Implementation of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.18 2009/02/19 01:51:29 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.19 2009/02/26 22:43:04 bechtol Exp $
 */
 
 #include "pointlike/ExtendedLikelihood.h"
@@ -632,6 +632,11 @@ int ExtendedLikelihood::photonsContained(double u){
   double angle=sqrt(2.*u)*sigma();
   int photonsContained=m_band.query_disk(m_dir,angle,m_vec);
   return photonsContained;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+double ExtendedLikelihood::psfFraction(double u){
+  return m_psf.integral(u);
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

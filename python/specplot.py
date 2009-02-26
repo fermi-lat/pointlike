@@ -81,7 +81,7 @@ class SpectralPlotter:
         if self.gMW.GetN()>0:
             self.gMW.Draw("P")
 
-#        Overlay all upper limits
+        # Overlay all upper limits
 #        self.gUL.Draw("P")
 #        for i in range(0,len(self.arrows)):
 #            self.arrows[i].Draw()
@@ -136,7 +136,7 @@ class SpectralPlotter:
 
                     if self.model.get_spec_type()=="POWER_LAW":
                         self.scale=R.Double(file["SOURCES"].data.field('DECORRELATION_ENERGY')[src])
-                        print "Pivot energy = %.1f MeV"%(self.scale)
+                        #print "Pivot energy = %.1f MeV"%(self.scale)
                         self.model.set_scale(self.scale)
 
                     self.energy=file["SOURCES"].data.field('MODEL_ENERGY')[src]
@@ -743,6 +743,7 @@ class SpectralPlotter:
         self.stats.SetFillColor(0)
         self.stats.SetShadowColor(0)
         self.stats.SetLineColor(0)
+        self.stats.SetTextAlign(12)
 
         par_dict={"gamma":"#Gamma",
                   "gamma_1":"#Gamma_{1}",
