@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Feb 25 20:26:09 PST 2009
+pointlike/pointlike
+
+Removed Files:
+	BandBackground.h 
+Log Message:
+move BandBackground to skymaps
+    *
+------------------------------------------------------------
 User: mar0  Wed Feb 25 14:29:27 PST 2009
 pointlike/src
 
