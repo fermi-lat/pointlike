@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Wed Feb 25 20:26:09 PST 2009
+pointlike/src
+
+Removed Files:
+	BandBackground.cxx 
+Log Message:
+move BandBackground to skymaps
+    *
+------------------------------------------------------------
+User: burnett  Wed Feb 25 20:26:09 PST 2009
 pointlike/pointlike
 
 Removed Files:
