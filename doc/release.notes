@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.103 2008/12/30 19:28:49 burnett Exp $
+$Id: release.notes,v 1.104 2008/12/30 19:41:18 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 26-feb-09 v6r16   THB Move BandBackground to skymaps; Data mods to extract MC energy on request
  30-dec-08 v6r15p2 THB support for SpectralFunction (preliminary version) with full extended likelihood in C++
  10-nov-08 v6r14   THB bug fixes to support merged mode; pointspec improvements
  01-nov-08 v6r13p3 THB Data fix for pointspec use
