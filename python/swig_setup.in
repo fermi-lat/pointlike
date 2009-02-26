@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.45 2009/02/19 01:51:28 markusa Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.46 2009/02/24 20:50:52 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -29,7 +29,6 @@
 #include "pointlike/SourceList.h"
 //#include "pointlike/SimpleTSmap.h"
 #include "pointlike/Alignment.h"
-#include "pointlike/BandBackground.h"
 #include "pointlike/SpectralFunction.h"
 #include "pointlike/LeastSquaresFitter.h"
 
@@ -190,7 +189,7 @@ public:
 %include $(POINTLIKEROOT)/pointlike/Draw.h
 //%include $(POINTLIKEROOT)/pointlike/SimpleTSmap.h
 %include $(POINTLIKEROOT)/pointlike/SourceList.h
-%include $(POINTLIKEROOT)/pointlike/BandBackground.h
+
 %include ../pointlike/SpectralFunction.h
 %include ../pointlike/LeastSquaresFitter.h
 
