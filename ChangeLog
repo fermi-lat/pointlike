@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Feb 25 20:28:05 PST 2009
+pointlike/src
+
+Modified Files:
+	EventList.cxx EventList.h 
+Log Message:
+fixup option to use mc energy
+    *
+------------------------------------------------------------
 User: burnett  Wed Feb 25 20:27:26 PST 2009
 pointlike/python
 
