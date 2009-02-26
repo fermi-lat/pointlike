@@ -46,6 +46,7 @@ namespace pointlike{
   double SpectralFitter::s_accuracy(0.0001);
 
   int    SpectralFitter::s_useUpperLimit(1);
+  double SpectralFitter::s_u_band(1.);
   double SpectralFitter::s_TS_threshold(25.);
   double SpectralFitter::s_index(2.0);
   double SpectralFitter::s_upper_limit_lower_bound(100.);
@@ -307,6 +308,12 @@ namespace pointlike{
     std::cout << std::endl << "Source: " << gSourcePointer->name()
 	      << std::endl;
 
+    std::cout << std::fixed
+	      << std::setprecision(1)
+	      << std::endl << "Galactic coordinates (L,B) = (" << gSourcePointer->dir().l() << "," << gSourcePointer->dir().b() << ")" << std::endl
+	      << std::endl << "TS = " << gSourcePointer->TS()
+	      << std::endl;
+
     std::cout << std::endl << "Spectral fitting in range "
 	      << std::fixed
 	      << std::setprecision(0)
@@ -333,32 +340,6 @@ namespace pointlike{
     // Record the optimized model parameters and errors
     gModelPointer->set_params(m_specParams);
     gModelPointer->set_param_errors(m_specParamErrors);
-
-    /*
-    // Set the model dependent energies and exposures
-    int numBins=gSourcePointer->size();
-
-    //double E_min,E_max;
-    for(int bin=0; bin<numBins; bin++){
-      m_model_energies.push_back(gModelPointer->get_model_E(E_min,E_max));
-      m_exposures.push_back(gModelPointer->get_model_exposure(gSourcePointer,bin));
-
-      E_min=gSourcePointer->at(bin)->band().emin();
-      E_max=gSourcePointer->at(bin)->band().emax();
-      
-      // Enforce energy range for spectral fitting
-      if(E_min < gModelPointer->get_lower_bound() || 
-	 E_max > gModelPointer->get_upper_bound()) continue;
-
-      else{
-	m_model_energies.push_back(gModelPointer->get_model_E(E_min,E_max));
-	m_exposures.push_back(gModelPointer->get_model_exposure(gSourcePointer,bin));
-      }
-    }
-    
-    gModelPointer->set_model_energies(m_model_energies);
-    gModelPointer->set_exposures(m_exposures);
-    */
 
     double fmin,fedm,errdef;
     int npari,nparx,istat;
@@ -390,7 +371,7 @@ namespace pointlike{
 	      << std::endl;
 
     std::cout << std::endl
-	      << "Minimized -logLikeSum = " << fmin << std::endl
+	      << "Minimized spectral fit -logLikeSum = " << fmin << std::endl
 	      << std::endl;
 
     if(ierflag==4){
@@ -483,8 +464,8 @@ namespace pointlike{
 
     double E_min,E_max;
 
-    int n;
-    double alpha, alpha_error; 
+    int n,n_signal,n_background,n_total;
+    double alpha;
     double band_exposure;
 
     double psf_correction;
@@ -495,7 +476,6 @@ namespace pointlike{
     double fit_upper_bound=s_upper_limit_lower_bound;
 
     double N_total=0;
-    double N_signal=0;
     double N_background=0;
 
     m_FeldmanCousins=new FeldmanCousins();
@@ -511,7 +491,7 @@ namespace pointlike{
 	      << std::setw(10) << "emin" << std::setw(10) << "emax" << std::setw(10) << "evclass" << std::setw(12) << "flux"
 	      << std::endl;
 
-    // Total photon counts
+    // Count photons
     for(int bin=0;bin<numBins;bin++){
       
       E_min=gSourcePointer->at(bin)->band().emin();
@@ -524,23 +504,29 @@ namespace pointlike{
       if(E_min < fit_lower_bound) fit_lower_bound=E_min;
       if(E_max > fit_upper_bound) fit_upper_bound=E_max;
 
+      // In band
       n=gSourcePointer->at(bin)->photons();
       alpha=gSourcePointer->at(bin)->alpha();
-      alpha_error=gSourcePointer->at(bin)->sigma_alpha();
+      //alpha=get_best_alpha(gSourcePointer,bin);
+      
+      n_background=n*(1.-alpha)*gSourcePointer->at(bin)->backgroundFraction(s_u_band);
+      n_total=gSourcePointer->at(bin)->photonsContained(s_u_band);
+      
+      // Total counts
+      N_background+=n_background;
+      N_total+=n_total;
 
-      N_total=N_total+n;
-      N_signal=N_signal+alpha*n;
+      // Set flux upper limits for individual bands including signal fraction error
+      m_FeldmanCousins->set_counts(n_total,n_background);
+      FC_upper_limit=m_FeldmanCousins->get_upper_limit(s_band_confidence_limit);
 
+      // Correct for signal photons not contained within the ROI
       psf_correction=gSourcePointer->at(bin)->psfIntegral();
 
       // Model dependent exposure calculation
       band_exposure=m_model_pointer->get_model_exposure(gSourcePointer,bin);
-
       exposure_sum+=band_exposure;
       weighted_exposure_sum+=psf_correction*band_exposure;
-      
-      // Set flux upper limits for individual bands including signal fraction error
-      FC_upper_limit=m_FeldmanCousins->get_upper_limit(gSourcePointer,bin,s_band_confidence_limit);
 
       m_band_upper_limits.push_back(FC_upper_limit/psf_correction);
       m_energy_upper_limits.push_back(m_model_pointer->get_model_E(E_min,E_max));
@@ -569,15 +555,13 @@ namespace pointlike{
     // Fraction of photons contained within region of interest
     double containment_fraction=weighted_exposure_sum/exposure_sum;
 
-    N_background=N_total-N_signal;
-
     std::cout << std::endl
 	      << std::fixed << std::setprecision(0)
 	      << "Total photons  = "
 	      << N_total
 	      << std::endl
-	      << "Signal photons = "
-	      << N_signal
+	      << "Background photons = "
+	      << N_background
 	      << std::endl << std::endl
 	      << std::scientific << std::setprecision(4)
 	      << "Integrated exposure = "
@@ -673,6 +657,48 @@ namespace pointlike{
       std::cout << std::endl 
 		<< "Using combined front and back energy bins" 
 		<< std::endl << std::endl;
+  }
+
+  //--------------------------------------------------------------------------
+  //  Find the best weighted signal fraction value directly from the fit
+  //--------------------------------------------------------------------------
+
+  double pointlike::SpectralFitter::get_best_alpha(SourceLikelihood* source_pointer,int bin){
+    double alpha_min=1.e-5;
+    double alpha_max=1.;
+
+    double weighted_alpha_sum=0;
+    double normalization=0;
+      
+    double frac,mid_frac,next_frac;
+    double alpha,mid_alpha,next_alpha;
+    double weight,dalpha;
+    double exposure;
+      
+    double loglike_best = source_pointer->at(bin)->operator()();
+    double loglike;    
+
+    double max=100.;
+
+    for(double i=0.;i<max;i+=1.){
+      frac=i/max;
+      mid_frac=(i+0.5)/max;
+      next_frac=(i+1.)/max;
+      
+      alpha=exp((1.-frac)*log(alpha_min)+frac*log(alpha_max));
+      mid_alpha=exp((1.-mid_frac)*log(alpha_min)+mid_frac*log(alpha_max));
+      next_alpha=exp((1.-next_frac)*log(alpha_min)+next_frac*log(alpha_max));
+      
+      dalpha=next_alpha-alpha;
+      
+      loglike=source_pointer->at(bin)->operator()(mid_alpha);
+      weight=exp(loglike_best-loglike);
+      
+      weighted_alpha_sum+=weight*mid_alpha*dalpha;
+      normalization+=weight*dalpha;
+    }      
+    double best_alpha=weighted_alpha_sum/normalization;
+    return best_alpha;
   }
 
 }

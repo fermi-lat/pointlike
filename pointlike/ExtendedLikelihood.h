@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.h
     @brief declaration of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.12 2009/01/31 23:04:30 bechtol Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/ExtendedLikelihood.h,v 1.13 2009/02/19 01:51:18 markusa Exp $
 
 */
 
@@ -116,6 +116,12 @@ namespace pointlike {
     /// @return background estimte
     double background()const{return m_background*solidAngle();}
     
+    // calculate fraction of background contained within angle
+    double backgroundFraction(double u);
+
+    // number of photons contained within angle
+    int photonsContained(double u);
+
     /// @return the solid angle in sr for the circular aperature used for analysis
     double solidAngle()const;
     

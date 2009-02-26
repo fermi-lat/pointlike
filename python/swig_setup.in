@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.46 2009/02/24 20:50:52 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.47 2009/02/26 04:27:26 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -197,13 +197,13 @@ public:
 // may not compile in Windows
 
 #ifndef WIN32
-//%include $(POINTLIKEROOT)/pointlike/FlexibleBinner.h
-//%include $(POINTLIKEROOT)/pointlike/HealpixDiffuseFunc.h
-//%include $(POINTLIKEROOT)/pointlike/ExtendedLikelihood.h
-//%include $(POINTLIKEROOT)/pointlike/SourceLikelihood.h
-//%include $(POINTLIKEROOT)/pointlike/ExtendedSourcePDF.h
-//%include $(POINTLIKEROOT)/pointlike/SpectralFitter.h
-//%include $(POINTLIKEROOT)/pointlike/ResultsFile.h
+%include $(POINTLIKEROOT)/pointlike/FlexibleBinner.h
+%include $(POINTLIKEROOT)/pointlike/HealpixDiffuseFunc.h
+%include $(POINTLIKEROOT)/pointlike/ExtendedLikelihood.h
+%include $(POINTLIKEROOT)/pointlike/SourceLikelihood.h
+%include $(POINTLIKEROOT)/pointlike/ExtendedSourcePDF.h
+%include $(POINTLIKEROOT)/pointlike/SpectralFitter.h
+%include $(POINTLIKEROOT)/pointlike/ResultsFile.h
 #endif
 
 //%include $(POINTLIKEROOT)/pointlike/FlexibleBinner.h

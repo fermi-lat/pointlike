@@ -1,7 +1,7 @@
 /** @file ExtendedLikelihood.cxx
     @brief Implementation of class ExtendedLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.17 2009/01/31 23:04:59 bechtol Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ExtendedLikelihood.cxx,v 1.18 2009/02/19 01:51:29 markusa Exp $
 */
 
 #include "pointlike/ExtendedLikelihood.h"
@@ -187,6 +187,8 @@ public:
     return val;
   }
   
+  double back_norm(){ return m_back_norm; }; 
+
 private:
   const skymaps::SkySpectrum* m_diffuse;
     double m_back_norm;
@@ -604,8 +606,32 @@ double ExtendedLikelihood::TS(double alpha)const {
     return 2.*((*this)(0) - (*this)(alpha));
     //return -2*(*this)(alpha);
 }
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 double ExtendedLikelihood::solidAngle()const{
     return 2*M_PI* sqr(sigma())*m_umax;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+double ExtendedLikelihood::backgroundFraction(double u){
+  if(u>=m_umax) return 1.;
+
+  double angle=sqrt(2.*u)*sigma();
+  double solidAngle_subset=2*M_PI*sqr(sigma())*u;
+  double solidAngle_ratio=solidAngle_subset/solidAngle();
+
+  NormalizedBackground back_subset(m_diffuse,m_dir,angle,m_emin,m_emax);
+  double normalization_ratio = back_subset.back_norm()/m_back->back_norm();
+
+  return solidAngle_ratio*normalization_ratio;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+int ExtendedLikelihood::photonsContained(double u){
+  if(u>=m_umax) return m_photon_count;
+  
+  double angle=sqrt(2.*u)*sigma();
+  int photonsContained=m_band.query_disk(m_dir,angle,m_vec);
+  return photonsContained;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
