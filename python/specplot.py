@@ -27,10 +27,14 @@ class SpectralPlotter:
         self.source=source
         self.func_form=""
         self.mwfile=""
+	self.mw_in_fit=False
         self.sed_lower_range=100.
         self.sed_upper_range=3.e5
         self.read_fits()
         self.set_graphs()
+	self.chi2=0.
+	self.npoints=0
+	self.nparams=0
         
     def set_mwfile(self,mwfile,mwscale=1.):
         self.mwfile=mwfile
@@ -138,7 +142,15 @@ class SpectralPlotter:
                         self.scale=R.Double(file["SOURCES"].data.field('DECORRELATION_ENERGY')[src])
                         #print "Pivot energy = %.1f MeV"%(self.scale)
                         self.model.set_scale(self.scale)
-
+		    else:
+		        self.cov_matrix=file["SOURCES"].data.field('COVAR_ENTRIES')[src]
+			nrows=int(sqrt(len(self.cov_matrix)+1e-5))
+			self.cov_matrix=self.cov_matrix.reshape(nrows,nrows)
+			self.hesse_matrix=N.linalg.inv(self.cov_matrix)
+			self.evalues,self.esystem=N.linalg.eigh(self.cov_matrix)
+			self.esystemt=self.esystem.transpose()
+			self.diagerrors=N.sqrt(self.evalues)
+			
                     self.energy=file["SOURCES"].data.field('MODEL_ENERGY')[src]
                     self.model_exposure=file["SOURCES"].data.field('MODEL_EXPOSURE')[src]
                     self.params=file["SOURCES"].data.field('PAR')[src]
@@ -147,7 +159,7 @@ class SpectralPlotter:
                     self.flux=file["SOURCES"].data.field('INTEGRAL_FLUX')[src]
                     self.flux_err_hi=file["SOURCES"].data.field('INTEGRAL_FLUX_ERR')[src][0]
                     self.flux_err_lo=file["SOURCES"].data.field('INTEGRAL_FLUX_ERR')[src][1]
-                except:
+                except KeyError:
                     print "Did not find spectral fit information in results file"
 
                 # Spectral fitting energy range
@@ -171,6 +183,7 @@ class SpectralPlotter:
                     self.mw_dNdE=file["SOURCES"].data.field('MW_DNDE')[src]
                     self.mw_dNdE_err_lo=file["SOURCES"].data.field('MW_DNDE_ERR_LO')[src]
                     self.mw_dNdE_err_hi=file["SOURCES"].data.field('MW_DNDE_ERR_HI')[src]
+		    self.mw_in_fit=True
                 except:
                     print "Did not find any multiwavelength data in results file"
                 
@@ -221,13 +234,16 @@ class SpectralPlotter:
         if self.model.get_spec_type()=="POWER_LAW":
             self.func = R.TF1("func","pow(x,2)*[0]*pow(x/[2],-1*[1])",lower_bound,upper_bound)
             self.func.SetParameters(self.params[0],self.params[1],self.model.get_scale())
+	    self.nparams=2
         elif self.model.get_spec_type()=="BROKEN_POWER_LAW":
             self.func = R.TF1("func","(x<[3])*pow(x,2)*[0]*pow(x/[3],-1*[1])+(x>[3])*pow(x,2)*[0]*pow(x/[3],-1*[2])",lower_bound,upper_bound);
             self.func.SetParameters(self.params[0],self.params[1],self.params[2],self.params[3]);
+	    self.nparams=4
         elif self.model.get_spec_type()=="EXP_CUTOFF":
             scale=100. # [ MeV ]
-            self.func = R.TF1("func","pow(x,2)*[0]*exp(-1.*x/[2])*pow(x/[3],-1*[1])",lower_bound,upper_bound);
-            self.func.SetParameters(self.params[0],self.params[1],self.params[2],scale)
+            self.func = R.TF1("func","pow(x,2)*[0]*exp(-1.*x/[2])*pow(x/100.,-1*[1])",lower_bound,upper_bound);
+            self.func.SetParameters(self.params[0],self.params[1],self.params[2])
+	    self.nparams=3
         else:
             print "Invalid spectral model type"
 
@@ -285,9 +301,13 @@ class SpectralPlotter:
                 if flux!=0:
                     self.gLATres.SetPoint(npoints,E_model,(flux-model_flux)/flux)
                     self.gLATres.SetPointError(npoints,E_model-E_min,E_max-E_model,err_flux/flux,err_flux/flux)
+                    if(E_model>fit.lower_range and E_model<fit.upper_range): 
+		       self.chi2+=((flux-model_flux)/err_flux)**2
+		       self.npoints+=1
                 else:   
                     self.gLATres.SetPoint(npoints,E_model,0)
                     self.gLATres.SetPointError(npoints,0,0,0,0)
+
 
                 npoints+=1
 
@@ -327,6 +347,9 @@ class SpectralPlotter:
                 if flux!=0: 
                     self.gLATres.SetPoint(npoints,E_model,(flux-model_flux)/flux)
                     self.gLATres.SetPointError(npoints,E_model-E_min,E_max-E_model,err_flux/flux,err_flux/flux)
+                    if(E_model>self.lower_range and E_model<self.upper_range): 
+		       self.chi2+=((flux-model_flux)/err_flux)**2
+		       self.npoints+=1
                 else:
                     self.gLATres.SetPoint(npoints,E_model,0)
                     self.gLATres.SetPointError(npoints,0,0,0,0)
@@ -358,12 +381,19 @@ class SpectralPlotter:
 
                 self.gMWres.SetPoint(i,E,(flux-model_flux)/flux)
                 self.gMWres.SetPointError(i,0,0,(flux-flux_lo)/flux,(flux_hi-flux)/flux)
+                print self.mw_in_fit,E,self.lower_range,self.upper_range
+		if(self.mw_in_fit and E>self.lower_range and E<self.upper_range): 
+		   if(flux>model_flux): self.chi2+=((flux-model_flux)/(flux_hi-flux))**2
+		   if(flux<=model_flux): self.chi2+=((flux-model_flux)/(flux_lo-flux))**2
+		   self.npoints+=1
 
     def set_canvas(self):
 
         R.gStyle.SetOptStat(0)
         R.gStyle.SetOptTitle(0)
-    
+        R.gStyle.SetLabelFont(42,"xyz")
+        R.gStyle.SetTextFont(42)
+
         self.sed_canvas = R.TCanvas("SED","SED: "+self.name,200,10,500,700)
         self.sed_canvas.Draw()
 
@@ -387,7 +417,7 @@ class SpectralPlotter:
         self.res_pad.SetLogx()
         
         self.res_pad.SetLeftMargin(0.14)
-        self.res_pad.SetBottomMargin(0.14)
+        self.res_pad.SetBottomMargin(0.22)
         self.res_pad.SetTopMargin(0.04)
         self.res_pad.SetRightMargin(0.04)
         self.res_pad.SetFillColor(10)
@@ -401,10 +431,10 @@ class SpectralPlotter:
         ymax=R.Double()
         self.gLAT.ComputeRange(xmin,ymin,xmax,ymax)
         
-        flux_min=max(1e-8,ymin*R.Double(0.1))
-        flux_max=ymax*R.Double(10.)
+        self.flux_min=max(1e-8,ymin*R.Double(0.1))
+        self.flux_max=ymax*R.Double(10.)
         
-        self.sed_box = R.TH2F("Spectral","Spectrum",10,self.sed_lower_range,self.sed_upper_range,10,flux_min,flux_max)
+        self.sed_box = R.TH2F("Spectral","Spectrum",10,self.sed_lower_range,self.sed_upper_range,10,self.flux_min,self.flux_max)
         self.sed_box.SetTitle("Spectral Energy Distribution")
         self.sed_box.GetXaxis().SetTitle("Energy [MeV]")
         self.sed_box.GetXaxis().SetTitleFont(42)
@@ -431,13 +461,19 @@ class SpectralPlotter:
         self.res_box.GetXaxis().SetTitleFont(42)
         self.res_box.GetXaxis().CenterTitle()
         self.res_box.GetXaxis().SetTitleOffset(1.1)
+        self.res_box.GetXaxis().SetTitleSize(0.08)
+        self.res_box.GetXaxis().SetLabelSize(0.08)
         self.res_box.GetYaxis().SetTitle("Fit Residuals - \DeltaF/F")
         self.res_box.GetYaxis().SetTitleFont(42)
         self.res_box.GetYaxis().CenterTitle()
-        self.res_box.GetYaxis().SetTitleOffset(1.5)
+        self.res_box.GetYaxis().SetTitleOffset(0.7)
+        self.res_box.GetYaxis().SetLabelOffset(0.015)
+        self.res_box.GetYaxis().SetTitleSize(0.08)
+        self.res_box.GetYaxis().SetLabelSize(0.08)
+	
         
     def set_legend(self):
-        self.legend = R.TLegend(0.7,0.75,0.9,0.9)
+        self.legend = R.TLegend(0.55,0.80,0.95,0.95)
         self.legend.SetHeader(self.name)
         self.legend.AddEntry(self.gLAT,"LAT Data","P")
         self.legend.AddEntry(self.func,self.model.get_spec_type().replace('_',' '),"L")
@@ -647,7 +683,12 @@ class SpectralPlotter:
         upper_bound  = R.Double(min(self.model.get_upper_bound(),self.sed_upper_range))
 
         self.butterfly=R.TPolyLine()
-    
+	bfly_func=R.TF1(self.func)
+	xvals=N.exp(N.arange(log(lower_bound),log(upper_bound),0.02))
+	yvals=N.array([bfly_func(x) for x in xvals])
+        mingraph=R.TGraph(len(xvals),xvals,yvals)
+        maxgraph=R.TGraph(len(xvals),xvals,yvals)
+	
         if self.model.get_spec_type()=="POWER_LAW":
     
             self.model.set_params(CRD([self.params[0]+self.param_errors[0],self.params[1]+self.param_errors[1]]))
@@ -667,7 +708,52 @@ class SpectralPlotter:
             self.butterfly.SetPoint(5,lower_bound,R.Double(pow(lower_bound,2)*self.model.get_dNdE(lower_bound)))
 
             self.model.set_params([float(self.params[0]),float(self.params[1])])
-
+        
+	else:
+	   
+	   xx,yy,minv,maxv =R.Double(0.),R.Double(0.),R.Double(0.),R.Double(0.)
+	   for i in range(2**self.nparams):
+	      errvec=N.ones(self.nparams)
+	      params=N.array(self.params)
+	      for j in range(self.nparams):
+	         if i & (2**j) == 0: errvec[j]*=-1
+	      errvec*=self.diagerrors
+	      oparams=N.dot(self.esystemt,N.log(self.params))
+	      eoparams=oparams+errvec
+	      eparams=N.dot(self.esystem,eoparams)
+	      eparams=N.exp(eparams)
+#	      print self.params,eparams
+	      bfly_func.SetParameters(N.array(eparams,'Float64'))
+  	      yvals=N.array([bfly_func(x) for x in xvals])
+	      for k,yval in enumerate(yvals):
+	          mingraph.GetPoint(k,xx,minv)
+	          maxgraph.GetPoint(k,xx,maxv)
+#		  print i,k,xx,yval,minv,maxv
+		  if(yval>maxv):maxgraph.SetPoint(k,xx,yval)
+		  if(yval<minv):mingraph.SetPoint(k,xx,yval)
+	   
+#	   mingraph.Print()
+#	   maxgraph.Print()
+	   npointsx,cntr=len(xvals),0
+           for k in range(npointsx):
+	      maxgraph.GetPoint(k,xx,yy)
+	      if(yy>=self.flux_min): 
+	          self.butterfly.SetPoint(cntr,xx,yy)
+		  cntr+=1
+           for k in range(npointsx):
+	      mingraph.GetPoint(npointsx-k-1,xx,yy)
+	      if(yy>=self.flux_min): 
+	          self.butterfly.SetPoint(cntr,xx,yy)
+		  cntr+=1
+	   maxgraph.GetPoint(0,xx,yy)
+	   self.butterfly.SetPoint(cntr,xx,yy)
+       
+        self.butterfly.SetLineWidth(1)
+        self.butterfly.SetLineStyle(1)
+        self.butterfly.SetLineColor(2)
+        self.butterfly.SetFillColor(R.kBlue-10)
+	      	 
+        """	
         if self.model.get_spec_type()=="BROKEN_POWER_LAW":
 
             ebreak=R.Double(self.params[3])
@@ -732,54 +818,67 @@ class SpectralPlotter:
                 self.butterfly.SetPoint(i,E,E2dNdE)
 
             self.model.set_params([float(self.params[0]),float(self.params[1]),float(self.params[2])])   
-
-        self.butterfly.SetLineWidth(1)
-        self.butterfly.SetLineStyle(1)
-        self.butterfly.SetLineColor(2)
-        self.butterfly.SetFillColor(R.kBlue-10)
+    """
 
     def set_stats(self):
-        self.stats=R.TPaveText(2.e2,1.e-7,1.e4,1.e-6)
+#        self.stats=R.TPaveText(2.e2,1.e-7,1.e4,1.e-6)
+        self.stats=R.TPaveText(0.15,0.15,0.70,0.20+0.05*self.nparams,"NDC")
         self.stats.SetFillColor(0)
         self.stats.SetShadowColor(0)
         self.stats.SetLineColor(0)
         self.stats.SetTextAlign(12)
+	self.stats.SetTextFont(42)
 
-        par_dict={"gamma":"#Gamma",
-                  "gamma_1":"#Gamma_{1}",
-                  "gamma_2":"#Gamma_{2}",
-                  "E_b":"E_{b}",
-                  "E_c":"E_{c}"}
+        par_dict={"gamma":"#Gamma    ",
+                  "gamma_1":"#Gamma_{1}  ",
+                  "gamma_2":"#Gamma_{2}  ",
+                  "E_b":"E_{b}   ",
+                  "E_c":"E_{c}   "}
         unit_dict={"gamma":"",
                   "gamma_1":"",
                   "gamma_2":"",
                   "E_b":"MeV",
                   "E_c":"MeV"}
 
+        flxexp=int(N.log10(self.flux))-1
+	flxbs,fluxehibs,fluxelbs= self.flux/10.**flxexp,self.flux_err_hi/10.**flxexp,self.flux_err_lo/10.**flxexp
+	self.stats.AddText("F_{100} = %.2f #pm ^{%.2f}_{%.2f} 10^{%d} ph cm^{-2} s^{-1}"%(flxbs,fluxehibs,fluxelbs,flxexp))
+
         for i in range(1,len(self.params)):
             par_name=self.model.get_parName()[i]
-            par_str="%s = %.2e +/- %.2e %s"%(par_dict[par_name],self.params[i],self.param_errors[i],unit_dict[par_name])
+            par_str="%s = %.2f +/- %.2f %s"%(par_dict[par_name],self.params[i],self.param_errors[i],unit_dict[par_name])
             self.stats.AddText(par_str)
 
         if self.model.get_spec_type()=="POWER_LAW":
-            self.stats.AddText("Pivot Energy = %.2e MeV"%(self.scale))
+            self.stats.AddText("Pivot Energy  =  %.2e MeV"%(self.scale))
         
-        self.stats.AddText("F_{100} = %.2e +/- %.2e/%.2e ph cm^{-2} s^{-1}"%(self.flux,self.flux_err_hi,self.flux_err_lo))
+        self.stats.AddText("#chi^{2}/ndof  =  %.2f/%2d"%(self.chi2,self.npoints-self.nparams))
 
 if __name__ == "__main__":
     
-    import sys
-    
-    if(len(sys.argv)==2):
-        sp=SpectralPlotter(sys.argv[1])
-    elif(len(sys.argv)==3):
-        sp=SpectralPlotter(sys.argv[1],sys.argv[2])
-    elif(len(sys.argv)==4):
-        sp=SpectralPlotter(sys.argv[1],sys.argv[2])
-        sp.add_func(argv[3])
+    import sys,optparse
+    parser = optparse.OptionParser(usage="usage: %prog [options] result-file")
+
+    parser.add_option("-s", "--source", dest="source", default='',
+                      help="Source to plot. Default: first in file")
+    parser.add_option("-m", "--mwlspectrum",dest="mwl",default='',
+                      help="Add multiwavelength data")
+    parser.add_option("-c", "--mwlscale",dest="mwlscale",default=1.,type='float',
+                      help="Add multiwavelength data")
+    parser.add_option("-f", "--function", action='append',dest="func",
+                      help="Add function")
+
+    (options, args) = parser.parse_args()
+
+    if(options.source==''): 
+       sp=SpectralPlotter(args[0])
     else:
-       print "Usage: %s result-file <sourcename>"%(sys.argv[0])
-       sys.exit(1)
+       sp=SpectralPlotter(args[0],options.source)
+    if (options.mwl!=''):
+       sp.set_mwfile(options.mwl,options.mwlscale)
+       print 'x'
+    if (options.func):
+       for func in options.func: sp.add_func(func)
 
     sp.SED()
     
