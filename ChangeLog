@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: markusa  Fri Mar  6 13:41:49 PST 2009
+pointlike/python
+
+Modified Files:
+	swig_setup.in 
+Removed Files:
+	datafiles.py sourcelike.py sourcelike_batch.py specplot.py 
+Log Message:
+separating sourcelike and pointlike
+
+
+    *
+------------------------------------------------------------
 User: markusa  Fri Mar  6 13:41:48 PST 2009
 pointlike/pointlike
 
