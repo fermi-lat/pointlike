@@ -2,7 +2,7 @@ package pointlike
 
 version v6r16
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.119 2009/02/26 04:26:49 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.120 2009/02/26 16:52:15 burnett Exp $
 
 use astro *
 use healpix *
@@ -43,8 +43,6 @@ macro_append pointlike_shlibflags " $(skymaps_app_linkopts)" Win32 ""
 
 macro_append ROOT_libs  " -lMinuit -lMinuit2 -lHist -lGraf "\
                     WIN32 " libMinuit.lib libMinuit2.lib  " 
-
-#application sourcefit -s=sourcefit $(source) -s=../python sourcefit_setup.py
 
 # fit a list of given directions
 application pointfit -s=pointfit $(source) -s=../python pointfit_setup.py
