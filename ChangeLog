@@ -1,4 +1,20 @@
 ------------------------------------------------------------
+User: markusa  Fri Mar  6 13:41:50 PST 2009
+pointlike/src
+
+Modified Files:
+	Draw.cxx 
+Removed Files:
+	ComplexSkySpectrum.cxx DrawTS.cxx ExtendedLikelihood.cxx 
+	ExtendedSourcePDF.cxx FlexibleBinner.cxx 
+	HealpixDiffuseFunc.cxx HypergeometricFunction.cxx 
+	ResultsFile.cxx SourceLikelihood.cxx SpectralFitter.cxx 
+Log Message:
+separating sourcelike and pointlike
+
+
+    *
+------------------------------------------------------------
 User: markusa  Fri Mar  6 13:41:49 PST 2009
 pointlike/python
 
