@@ -1,4 +1,19 @@
 ------------------------------------------------------------
+User: markusa  Fri Mar  6 13:41:48 PST 2009
+pointlike/pointlike
+
+Modified Files:
+	Draw.h 
+Removed Files:
+	ComplexSkySpectrum.h DrawTS.h ExtendedLikelihood.h 
+	ExtendedSourcePDF.h FlexibleBinner.h HypergeometricFunction.h 
+	ResultsFile.h SourceLikelihood.h SpectralFitter.h 
+Log Message:
+separating sourcelike and pointlike
+
+
+    *
+------------------------------------------------------------
 User: markusa  Fri Mar  6 13:41:28 PST 2009
 pointlike/cmt
 
