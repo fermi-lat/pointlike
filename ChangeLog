@@ -1,5 +1,16 @@
 ------------------------------------------------------------
 User: markusa  Fri Mar  6 13:41:50 PST 2009
+pointlike/src/sourcefit
+
+Removed Files:
+	sourcefit_main.cxx 
+Log Message:
+separating sourcelike and pointlike
+
+
+    *
+------------------------------------------------------------
+User: markusa  Fri Mar  6 13:41:50 PST 2009
 pointlike/src
 
 Modified Files:
