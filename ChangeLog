@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Mar  8 10:42:51 PDT 2009
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+swig fix
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-16-01, operation: add
 Package: pointlike
