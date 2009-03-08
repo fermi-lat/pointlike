@@ -43,14 +43,14 @@ Optional parameters:
     --TSmin [10]  minimum TS 
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.16 2008/11/28 20:43:34 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.17 2008/12/29 04:19:19 burnett Exp $
 """
 import os, sys, types
 from numpy import arange
 
 from skymaps import DiffuseFunction, Background
 from pointlike import SourceList, Source, PointSourceLikelihood, Data
-from pointlike import pixeldata
+#TODO from pointlike import pixeldata
 
 class PointFit(object):
 
@@ -199,7 +199,7 @@ def main():
         data = photonmap(eventfilename, pixeloutput=outputpixelfile, eventtype=eventtype)
         if not quiet: data.info()
     else:
-        pdata = pixeldata.PixelData(
+        pass #TODO pdata = pixeldata.PixelData()
         
 
     if len(args)>1: sourcefilename= args[1]
