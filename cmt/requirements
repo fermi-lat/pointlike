@@ -1,8 +1,8 @@
 package pointlike
 
-version v6r16
+version v6r17
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.120 2009/02/26 16:52:15 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.121 2009/03/06 21:41:28 markusa Exp $
 
 use astro *
 use healpix *
@@ -24,25 +24,13 @@ apply_pattern python_module
 # note private now
 macro source "*.cxx" WIN32 "*.cxx *.h *.py"
 
-macro pointlike_source  "*.cxx" WIN32 \
-"Alignment.cxx  AlignProc.cxx  CalData.cxx  Data.cxx Draw.cxx EventList.cxx \
- ParamOptimization.cxx   PointSourceLikelihood.cxx \
- RotationInfo.cxx  SimpleLikelihood.cxx SourceFinder.cxx \
- SourceList.cxx SpectralFunction.cxx LeastSquaresFitter.cxx"
-
 library pointlike \
  -s=../pointlike $(source) \
- -s=../src $(pointlike_source) \
+ -s=../src $(source) \
  -s=../python $(source)
 
 # this is a kluge to add skymaps to the shareable for python
 macro_append pointlike_shlibflags " $(skymaps_app_linkopts)" Win32 ""
-# fitting application, 
-# application tsmap -s=tsmap $(source) 
-
-
-macro_append ROOT_libs  " -lMinuit -lMinuit2 -lHist -lGraf "\
-                    WIN32 " libMinuit.lib libMinuit2.lib  " 
 
 # fit a list of given directions
 application pointfit -s=pointfit $(source) -s=../python pointfit_setup.py
