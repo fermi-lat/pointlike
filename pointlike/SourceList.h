@@ -1,7 +1,7 @@
 /** @file SourceList.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.11 2009/02/17 18:04:58 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.12 2009/02/24 20:50:52 burnett Exp $
 */
 
 #ifndef pointlike_SourceList_h
@@ -111,6 +111,8 @@ namespace pointlike{
 
         ///@brief formatted dump to nameed file
         void dump(const std::string& outfilename)const;
+        ///@brief write a VOtable
+        void dump_xml(std::ostream& out, std::string name="pointfit")const;
 
         void createRegFile(std::string filename, std::string color, double tsmin)const;
 
@@ -124,6 +126,7 @@ namespace pointlike{
     private:
         bool m_verbose;
         static const skymaps::BinnedPhotonData* s_data;
+
     };
 
 }

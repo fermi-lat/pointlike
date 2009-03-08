@@ -1,7 +1,7 @@
 /** @file SourceList.cxx
 @brief implementation of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.17 2008/11/09 23:51:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.18 2009/02/17 18:04:59 burnett Exp $
 */
 
 
@@ -115,7 +115,7 @@ double Source::moved()const{
 
 void Source::header(std::ostream& out){
     out << std::left << std::setw(20) 
-        <<"name                  ra        dec        TS    localization moved  neighbor\n";
+        <<"#name                  ra        dec        TS    localization moved  neighbor\n";
 //         B0833-45              128.8339  -45.1629   5698.49    0.0069    0.0136
 }
 
@@ -220,7 +220,11 @@ void SourceList::dump(std::ostream& out)const
 void SourceList::dump(const std::string& outfilename)const
 {
     std::ofstream out(outfilename.c_str());
-    dump( out );
+    if( outfilename.find(".xml") != std::string.npos ) {
+        dump( out );
+    }else{
+        dump_xml(out, outfilename);
+    }
 }
 void SourceList::refit()
 {
@@ -300,6 +304,40 @@ void SourceList::filter_TS(double threshold)
     }
     int newsize(size());
     std::cout << "applied TS>"<< threshold<<": reduced from: " << oldsize << " to " << newsize << std::endl;
+}
+
+void SourceList::dump_xml(std::ostream& out, std::string name)const
+{
+    out <<"<?xml version='1.0'?> \n"
+"<VOTABLE version=\"1.1\"\n"
+" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n"
+" xsi:schemaLocation=\"http://www.ivoa.net/xml/VOTable/v1.1\n" 
+" http://www.ivoa.net/xml/VOTable/v1.1\" \n"
+" xmlns=\"http://www.ivoa.net/xml/VOTable/v1.1\"> \n"
+" <RESOURCE>\n"
+" <TABLE name=\"" << name << "\" nrows=\"" << size() << "\">\n"
+" <FIELD arraysize=\"15\" datatype=\"char\" name=\"name\"/> \n"
+" <FIELD datatype=\"float\" name=\"ra\" ucd=\"pos.eq.ra;meta.main\"/>\n"
+" <FIELD datatype=\"float\" name=\"dec\" ucd=\"pos.eq.dec;meta.main\"/>\n"
+" <FIELD datatype=\"float\" name=\"TS\"/>\n"
+" <FIELD datatype=\"float\" name=\"localization\"/>\n"
+" <FIELD datatype=\"float\" name=\"moved\"/>\n"
+" <FIELD arraysize=\"15\" datatype=\"char\" name=\"neighbor\"/>\n"
+" <DATA>\n"
+"<TABLEDATA>\n";
+    for( const_iterator it = begin(); it != end();  ++it)  {
+        const Source& cand( * it);
+        out <<"<TR>\n <TD>" << cand.name() << "</TD>\n"
+            << " <TD>" << cand.dir().ra() << "</TD>\n"
+            << " <TD>" << cand.dir().dec() << "</TD>\n"
+            << " <TD>" << cand.TS() << "</TD>\n"
+            << " <TD>" << cand.sigma() << "</TD>\n"
+            << " <TD>" << (cand.TS()<0? 0 : cand.moved()/cand.sigma()) << "</TD>\n"
+            << " <TD>" << (cand.neighbor()!=0?cand.neighbor()->name(): "-") << "</TD>\n"
+            << "</TR>\n";
+    }
+    out << "</TABLEDATA>\n</DATA>\n</TABLE>\n</RESOURCE>\n</VOTABLE>" << std::endl;
+
 }
 
 #if 0 // under development
