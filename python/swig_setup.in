@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.48 2009/02/26 22:43:04 bechtol Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.49 2009/03/06 21:41:49 markusa Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -27,7 +27,6 @@
 #include "pointlike/Data.h"
 #include "pointlike/Draw.h"
 #include "pointlike/SourceList.h"
-//#include "pointlike/SimpleTSmap.h"
 #include "pointlike/Alignment.h"
 #include "pointlike/SpectralFunction.h"
 #include "pointlike/LeastSquaresFitter.h"
@@ -130,10 +129,15 @@ public:
    size_t __len__() {      return self->size();       }
 }
 
-//%extend pointlike::SimpleTSmap{
-//   float __getitem__(size_t i)            {return (*self)[i];}
-//   double __call__(const astro::SkyDir& d){return (*self)(d);}
-//}
+<<<<<<< swig_setup.in
+%extend pointlike::SourceLikelihood{
+   pointlike::ExtendedLikelihood * __getitem__(size_t i){ 
+      	return self->at(i); 
+   }
+   size_t __len__() {      return self->size();       }
+}
+
+
 %extend healpix::HealpixMap{
    float __getitem__(size_t i)            {return (*self)[i];}
    double __call__(const astro::SkyDir& d){return (*self)(d);}
@@ -195,11 +199,6 @@ public:
 %template(StringDoubleMap) std::map<std::string,std::vector<double> >;
 // these attempts fail
 //%template(SkyDirIntPairVector) std::vector<std::pair<astro::SkyDir,int> >;
-
-
-
-//%include $(ASTROROOT)/astro/HealpixArray.h
-//%template(HealpixData) astro::HealpixArray<float>;
 
 
 

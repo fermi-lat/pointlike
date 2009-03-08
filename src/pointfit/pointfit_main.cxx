@@ -1,7 +1,7 @@
 /** @file pointfit_main.cxx
     @brief  Main program for pointlike localization fits
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.30 2008/11/28 20:43:34 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/pointfit/pointfit_main.cxx,v 1.31 2008/12/29 04:12:14 burnett Exp $
 
 */
 #include "pointlike/SourceList.h"
@@ -79,7 +79,11 @@ int main(int argc, char** argv)
         sl->refit(); 
         if(tsmin>0) sl->filter_TS(tsmin); // filter
         sl->sort_ra(); // now by ra
-        sl->dump(*out); 
+        if( !outfile.empty() && outfile.find(".xml") != std::string::npos){
+            sl->dump_xml(*out);
+        }else{
+            sl->dump(*out); 
+        }
 
         if( !outfile.empty()){
             delete out;
