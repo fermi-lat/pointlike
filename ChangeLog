@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Mar  7 21:15:29 PST 2009
+pointlike/src
+
+Modified Files:
+	SourceList.cxx 
+Log Message:
+gcc bug
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-17-00, operation: add
 Package: pointlike
