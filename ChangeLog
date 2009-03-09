@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Mar  8 21:33:13 PDT 2009
+pointlike/src
+
+Added Files:
+	ConfidenceLevel.cxx 
+Log Message:
+add new class to calculate confidence level for SimpleLikelihood fit
+    *
+------------------------------------------------------------
 User: burnett  Sun Mar  8 21:33:12 PDT 2009
 pointlike/src/test
 
