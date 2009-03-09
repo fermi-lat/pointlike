@@ -14,6 +14,7 @@
 
 #include "pointlike/SimpleTSmap.h"
 #include "pointlike/ParamOptimization.h"
+#include "pointlike/ConfidenceLevel.h"
 #include "PhotonList.h"
 
 #include <iostream>
@@ -130,6 +131,10 @@ int main(int argc , char** argv )
                 ts2(like.TSmap(like.dir())); 
             std::cout << "full TS at maximum, starting point: " << ts << ", " 
                 << ts1 << ", " << ts2 << std::endl;
+
+            // check confidence level(s)
+            double cl = ConfidenceLevel(*like[0], like.dir())();
+            std::cout << "Confidence level: " << cl << std::endl;
 
         };
 

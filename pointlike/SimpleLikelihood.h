@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.36 2008/11/11 23:05:58 funk Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.37 2008/12/29 04:12:14 burnett Exp $
 
 */
 
@@ -64,8 +64,8 @@ public:
     
 
     //! @brief return log likelihood
-    //! @param counts Number of counts.
-    //! if extended likelihood, use background estimate. otherwise
+    //! @param counts Number of signal counts.
+    //! if extended likelihood, use background estimate.
     double logLikelihood(double counts)const;
 
 
