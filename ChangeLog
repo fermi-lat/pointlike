@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Sun Mar  8 21:33:11 PDT 2009
+pointlike/pointlike
+
+Modified Files:
+	SimpleLikelihood.h 
+Added Files:
+	ConfidenceLevel.h 
+Log Message:
+add new class to calculate confidence level for SimpleLikelihood fit
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-17-02, operation: add
 Package: pointlike
