@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.5 2009/01/16 22:58:10 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.6 2009/02/17 18:11:53 burnett Exp $
 
 """
-version='$Revision: 1.5 $'.split()[1]
+version='$Revision: 1.6 $'.split()[1]
 import os
 import psf
 import math
@@ -39,11 +39,19 @@ Optional keyword arguments:
   align       [False] if True, perform boresigh alignment correction on pre-September flight data
   
   datafile    [None]  HEALpix data file: if specified and not found, create from FT1 info                                                                               
-  class_level [ 3]  select class level (set 0 for gtobssim )                                                            
+  class_level [ 3]  select class level (set 0 for gtobssim )
+  mc_src_id   [-1] if set to != -1, select on MC_SRC_ID column in FT1 file
+  use_mc_energy [False] set True to use MC_ENERGY
   binsperdecade [4] When generating Bands from the FT1 data. 
   use_mc_psf  [False] Use PSF determined by MC analysis of true; otherwise as defined by data
   quiet       [False] Set True to suppress (some) output 
   verbose     [False] More output
+
+  tstart      [0] Default no cut on time; otherwise, cut on MET > tstart
+  tstop       [0] Default no cut on time; otherwise, cut on MET < tstop
+
+  emin        [100] Left edge of minimum energy bin in MeV
+  emax        [5e5] Some ill-defined notion of max energy; maximum bin center will be less than this
   =========   =======================================================
 """
 
@@ -56,9 +64,15 @@ Optional keyword arguments:
         self.datafile    = None 
         self.zenithcut   = 105
         self.binsperdecade=4
+        self.tstart      = 0
+        self.tstop       = 0
+        self.emin        = 100.
+        self.emax        = 5e5
         self.quiet       = False
         self.verbose     = False
         self.class_level = 3  # select class level
+        self.mc_src_id   = -1
+        self.use_mc_energy = False
         self.use_mc_psf  = False
         self.use_psf_init= False
         
@@ -70,22 +84,39 @@ Optional keyword arguments:
         for filelist in  [self.event_files, self.history_files] :
             if filelist is not None and len(filelist)>0 and not os.path.exists(filelist[0]):
                 raise Exception('PixelData setup: file name or path "%s" not found'%filelist[0])
-
-        self.lt =  self.get_livetime()
+            if filelist is None or len(filelist)==0:
+	            raise Exception('PixelData setup: received empty list of event or history files')
         self.data= self.get_data()
+        self.lt =  self.get_livetime()
         self.dmap= self.data.map()
 
     
     def get_data(self):
-
+        
+        from numpy import arccos,pi,arange,log10
         pointlike.Data.set_class_level(self.class_level)
         pointlike.Data.set_zenith_angle_cut(self.zenithcut)
+        pointlike.Data.set_theta_cut(arccos(0.4)*180./pi)
+        pointlike.Data.set_use_mc_energy(self.use_mc_energy)
+        if not self.quiet: print 'Set Data theta cut at %.2f'%(arccos(0.4)*180./pi)
 
         if self.datafile is None or not os.path.exists(self.datafile):
-            self.binner = skymaps.PhotonBinner(self.binsperdecade) # per decade
+            bins = 10**arange(log10(self.emin),log10(self.emax),1./self.binsperdecade)
+            self.binner = skymaps.PhotonBinner(bins) # per decade
             pointlike.Data.setPhotonBinner(self.binner)
             if self.verbose: print 'loading file(s) %s' % self.event_files
-            data = pointlike.Data(self.event_files)
+            data = pointlike.Data(self.event_files,-1,self.tstart,self.tstop,self.mc_src_id,'')
+            # fill any empty bins
+            
+            from pointlike import Photon
+            from skymaps import SkyDir
+            dummy = SkyDir(0,0)
+            for bin_center in (bins[:-1]*bins[1:])**0.5:
+               ph_f = Photon(dummy,bin_center,2.5e8,0)
+               ph_b = Photon(dummy,bin_center,2.5e8,1)
+               data.map().addPhoton(ph_f,0)
+               data.map().addPhoton(ph_b,0)                  
+
             if self.verbose: print 'done'
             if self.datafile is not None:
                 if not self.quiet: print 'saving datafile %s for subsequent use' % self.datafile
@@ -94,6 +125,9 @@ Optional keyword arguments:
             data = pointlike.Data(self.datafile)
             if not self.quiet: print 'loaded datafile %s ' % self.datafile
         if self.verbose: data.map().info()
+
+
+
 
         # modify the psf parameters in the band objects, which SimpleLikelihood will then use
          
@@ -119,16 +153,18 @@ Optional keyword arguments:
                 # no roi specified: use full sky
                 self.roi_dir = skymaps.SkyDir(0,0)
                 self.roi_radius = 180
+
             lt = skymaps.LivetimeCube(
                 cone_angle=self.roi_radius,\
                 dir=self.roi_dir,\
-                pixelsize=pixelsize,\
                 zcut=math.cos(math.radians(self.zenithcut)),\
+                pixelsize=pixelsize,\
                 quiet=self.quiet )
-            #Not right?  Needs fixin'.
-            #g = Gti(self.event_files[0])
+
+            #I think this code should handle cases with abritrary numbers of FT1/FT2 files
+            #g = skymaps.Gti(self.event_files[0])
             #for n in xrange(1,len(self.event_files)):
-            #   g = g.intersect(skymaps.Gti(self.event_files[n]))
+            #need a union here, not intersection!g.intersection(skymaps.Gti(self.event_files[n]))
             #for hist in self.history_files:
             #   lt.load(hist,g)
             
