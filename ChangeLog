@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Tue Mar 17 16:31:45 PDT 2009
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx 
+Removed Files:
+	SpectralFunction.cxx 
+Log Message:
+finish moving SpectralFunction to skymaps
+    *
+------------------------------------------------------------
 User: burnett  Tue Mar 17 16:31:44 PDT 2009
 pointlike/python
 
