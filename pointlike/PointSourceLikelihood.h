@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.51 2009/02/24 20:50:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.52 2009/02/26 04:26:49 burnett Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -21,11 +21,11 @@ namespace skymaps {
     class BinnedPhotonData;
     class CompositeSkySpectrum;
     class BandBackground;
+    class SpectralFunction;
 }
 
 namespace pointlike {
 
-    class SpectralFunction;
 
     /** @class PointSourceLikelihood
     @brief manage a set of SimpleLikelihood objects, one for each energy band / event type
@@ -93,7 +93,7 @@ namespace pointlike {
         /// @brief calculate -log likelihood
          /// @param model a spectrum to compare with data
         /// @param extended [true] use extended likelihood, assuming a good model for background flux level
-        double logLikelihood(const pointlike::SpectralFunction& model, bool extended=true)const;
+        double logLikelihood(const skymaps::SpectralFunction& model, bool extended=true)const;
 
         std::string name()const{return m_name;}
 
