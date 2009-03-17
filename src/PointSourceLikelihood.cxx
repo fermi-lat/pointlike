@@ -1,11 +1,11 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.68 2009/02/24 20:50:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.69 2009/02/26 04:26:50 burnett Exp $
 
 */
 
 #include "pointlike/PointSourceLikelihood.h"
-#include "pointlike/SpectralFunction.h"
+#include "skymaps/SpectralFunction.h"
 
 
 #include "skymaps/BandBackground.h"
@@ -663,7 +663,7 @@ double PointSourceLikelihood::fit_localization(double err) {
     //set the position to the minimum and grab new set of pixels
     oldDir=SkyDir((xc*rand_x+yc*rand_y)*M_PI/180+oldDir());
     if( verbose() ) {
-        std::cout << "lsqfit ra, dec, error " 
+        out() << "lsqfit ra, dec, error " 
             << oldDir.ra()<< ", " << oldDir.dec()
             << ", " << nerr
             <<std::endl;
@@ -672,7 +672,7 @@ double PointSourceLikelihood::fit_localization(double err) {
     return nerr;
 }
 
-double PointSourceLikelihood::logLikelihood(const pointlike::SpectralFunction& model, bool extended)const
+double PointSourceLikelihood::logLikelihood(const skymaps::SpectralFunction& model, bool extended)const
 {
     double result(0);
     const_iterator it = begin();
@@ -781,7 +781,7 @@ void PointSourceLikelihood::addBackgroundPointSource(const PointSourceLikelihood
     }
 
     if( s_verbose>0 ) {
-        std::cout << "Adding source " << fit->name() << " to background" << std::endl;
+        out() << "Adding source " << fit->name() << " to background" << std::endl;
     }
     m_background->add(fit);
     setDir(dir()); // recomputes background for each SimpleLikelihood object
