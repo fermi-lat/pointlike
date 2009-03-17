@@ -1,7 +1,7 @@
 /** @file SourceList.cxx
 @brief implementation of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.19 2009/03/08 01:31:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.20 2009/03/08 05:15:29 burnett Exp $
 */
 
 
@@ -33,9 +33,10 @@ namespace{
     double pixel_fraction(1.0);
     astro::SkyDir examine_dir;
 
+    std::ostream* log_stream(&std::cout); // log steam to write to
+    std::ostream& logger(){return *log_stream;} 
 
-
-    void timer(std::string label="",std::ostream& out = std::cout)
+    void timer(std::string label="")
     {
         static bool first=true;
         static time_t start;
@@ -44,12 +45,13 @@ namespace{
         ::time( &aclock );   
         char tbuf[25]; ::strncpy(tbuf, asctime( localtime( &aclock ) ),24);
         tbuf[24]=0;
-        if( !label.empty()) out << label<<std::endl;;
-        out<<  "Current time: " << tbuf
+        if( !label.empty()) logger() << label<<std::endl;;
+        logger()<<  "Current time: " << tbuf
             << " ( "<< ::difftime( aclock, start) <<" s elapsed)" << std::endl;
     }
 
 }
+void SourceList::set_log(std::ostream* logstream){log_stream=logstream;}
 double SourceList::set_group_radius(double value)
 {
     double old(group_radius);
@@ -85,6 +87,7 @@ void Source::setup()
     if( m_TS<10.) {
         m_seedTS = m_TS = m_fit->maximize();
     }
+    m_fit->set_ostream(logger());
 }
 Source::Source(const std::string& name, double ra, double dec, double TS)
 : m_name(name)
@@ -159,13 +162,15 @@ SourceList::SourceList(std::map<std::string, std::vector<double> > input_list)
     }
 
 }
-SourceList::SourceList(const std::string& filename, bool verbose)
+SourceList::SourceList(const std::string& filename, bool verbose,std::ostream* log)
 : m_verbose(verbose)
 {
+    timer("SourceList start:");
     std::ifstream input_file;
     input_file.open(filename.c_str());
 
     if(!input_file.is_open()) {
+        logger() << "ERROR:  Unable to open:  " << filename << std::endl;
         std::cerr << "ERROR:  Unable to open:  " << filename << std::endl;
         throw std::invalid_argument("SourceList: could not open file");
     }
@@ -176,7 +181,7 @@ SourceList::SourceList(const std::string& filename, bool verbose)
         // check for a blank in the name
         size_t i(line.find_first_of(" "));
         if( i<5 && line[i+1]!=' '){
-            std::cout << "replacing blank in name: " << line << std::endl;
+            logger() << "replacing blank in name: " << line << std::endl;
             line[i]='_';
         }
         std::stringstream buf(line); 
@@ -185,6 +190,7 @@ SourceList::SourceList(const std::string& filename, bool verbose)
         buf >> ra >> dec;
         if( !buf.eof()) buf >> TS;
         push_back( Source(name, SkyDir(ra, dec), TS));
+        logger() << "---- " << name << ", initial TS: " << back().TS() << std::endl;
     }
 }
 
@@ -228,10 +234,11 @@ void SourceList::dump(const std::string& outfilename)const
 }
 void SourceList::refit()
 {
+    timer("SourceList::refit begin");
     for( iterator it= begin(); it!= end(); ++it){
         Source& cand(*it);
         if( verbose() ){
-            std::cout << ".." << cand.name() << std::endl;
+            logger() << "---------" << cand.name() << std::endl;
         }
         SkyDir currentpos( cand.dir() );
         //double ra(currentpos.ra()), dec(currentpos.dec()); // debug only
@@ -267,6 +274,7 @@ void SourceList::refit()
             cand.TS()=-1; 
         }
     }
+    timer("SourceList::refit end");;
 }
 
 void SourceList::createRegFile(std::string filename, std::string color, double tsmin)const
@@ -286,7 +294,7 @@ void SourceList::createRegFile(std::string filename, std::string color, double t
         ++n;
     }
     out.close();
-    std::cout << "Wrote "<< n << " entries to  reg file "<< filename << ", with TS >= " <<tsmin << std::endl;
+    logger()<< "Wrote "<< n << " entries to  reg file "<< filename << ", with TS >= " <<tsmin << std::endl;
 }
 
 void SourceList::filter_TS(double threshold)
@@ -303,7 +311,7 @@ void SourceList::filter_TS(double threshold)
         it = next;
     }
     int newsize(size());
-    std::cout << "applied TS>"<< threshold<<": reduced from: " << oldsize << " to " << newsize << std::endl;
+    logger() << "applied TS>"<< threshold<<": reduced from: " << oldsize << " to " << newsize << std::endl;
 }
 
 void SourceList::dump_xml(std::ostream& out, std::string name)const
