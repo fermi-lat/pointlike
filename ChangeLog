@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Tue Mar 17 16:33:12 PDT 2009
+pointlike/src
+
+Modified Files:
+	SourceList.cxx 
+Log Message:
+implement log file
+    *
+------------------------------------------------------------
+User: burnett  Tue Mar 17 16:33:12 PDT 2009
 pointlike/pointlike
 
 Modified Files:
