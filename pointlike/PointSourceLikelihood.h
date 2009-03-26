@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.52 2009/02/26 04:26:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.53 2009/03/17 23:31:44 burnett Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -195,6 +195,8 @@ namespace pointlike {
 
         void setup(const skymaps::BinnedPhotonData& data);
 
+        std::ostream& out()const{return *m_out;}
+
 
     private:
         iterator begin_skip(int skip);
@@ -205,7 +207,6 @@ namespace pointlike {
         double m_dir_sigma;  ///< error circle from fit (radians)
         double m_TS;         ///< total TS value
         std::ostream * m_out;
-        std::ostream& out()const{return *m_out;}
         mutable CLHEP::Hep3Vector m_gradient; ///< current gradient
 
         skymaps::CompositeSkySpectrum * m_background;  ///< background spectrum to use
