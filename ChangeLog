@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: glastrm  Mon Apr  6 08:50:34 PDT 2009
+ScienceTools-scons/pointlike
+
+Modified Files:
+	SConscript 
+Log Message:
+Clone program environment for swig engironment
+    *
+------------------------------------------------------------
 User: burnett  Thu Mar 26 07:52:16 PDT 2009
 pointlike/pointlike
 
