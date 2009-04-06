@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.39 2008/11/24 02:26:57 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/swig_setup.in,v 1.51 2009/03/08 17:42:51 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -27,18 +27,9 @@
 #include "pointlike/Data.h"
 #include "pointlike/Draw.h"
 #include "pointlike/SourceList.h"
-//fails #include "pointlike/ParamOptimization.h"
-#include "pointlike/SimpleTSmap.h"
 #include "pointlike/Alignment.h"
-#include "pointlike/FlexibleBinner.h"
-#include "pointlike/BandBackground.h"
-// --------- extended source likelihood ----
-//#include "pointlike/SourceLikelihood.h"
-//#include "pointlike/ExtendedLikelihood.h"
-//#include "pointlike/ExtendedSourcePDF.h"
-//#include "pointlike/ResultsFile.h"
-//#include "pointlike/DrawTS.h"
-
+#include "pointlike/SpectralFunction.h"
+#include "pointlike/LeastSquaresFitter.h"
 
 #include "CLHEP/Vector/Rotation.h"
 #include "CLHEP/Vector/EulerAngles.h"
@@ -68,6 +59,7 @@
 %template(DoubleVector) std::vector<double>;
 %template(FloatVector) std::vector<float>;
 %template(LongVector) std::vector<long>;
+%template(IntVector) std::vector<int>;
 
 %include CLHEP/Vector/ThreeVector.h
 //%include $(CLHEPROOT)/include/CLHEP/Vector/Rotation.h
@@ -137,18 +129,7 @@ public:
    size_t __len__() {      return self->size();       }
 }
 
-//%extend pointlike::SourceLikelihood{
-//   pointlike::ExtendedLikelihood * __getitem__(size_t i){ 
-//      return self->at(i); 
-//   }
-//   size_t __len__() {      return self->size();       }
-//}
 
-
-//%extend pointlike::SimpleTSmap{
-//   float __getitem__(size_t i)            {return (*self)[i];}
-//   double __call__(const astro::SkyDir& d){return (*self)(d);}
-//}
 %extend healpix::HealpixMap{
    float __getitem__(size_t i)            {return (*self)[i];}
    double __call__(const astro::SkyDir& d){return (*self)(d);}
@@ -174,13 +155,6 @@ public:
 //%include $(HEALPIXROOT)/healpix/HealPixel.h
 
 %include embed_python/Module.h
-    
-
-//  extended PSF stuff
-//%include $(POINTLIKEROOT)/pointlike/ExtendedLikelihood.h
-//%include $(POINTLIKEROOT)/pointlike/SourceLikelihood.h
-//%include $(POINTLIKEROOT)/pointlike/ExtendedSourcePDF.h
-//%include $(POINTLIKEROOT)/pointlike/ResultsFile.h
 
 %include pointlike/SimpleLikelihood.h
 
@@ -190,8 +164,10 @@ public:
 %include pointlike/Draw.h
 //%include $(POINTLIKEROOT)/pointlike/SimpleTSmap.h
 %include pointlike/SourceList.h
-%include pointlike/FlexibleBinner.h
-%include pointlike/BandBackground.h
+
+%include pointlike/SpectralFunction.h
+%include pointlike/LeastSquaresFitter.h
+
 
 %extend pointlike::SourceList{
    pointlike::Source & __getitem__(size_t i){ 
@@ -215,11 +191,6 @@ public:
 %template(StringDoubleMap) std::map<std::string,std::vector<double> >;
 // these attempts fail
 //%template(SkyDirIntPairVector) std::vector<std::pair<astro::SkyDir,int> >;
-
-
-
-//%include $(ASTROROOT)/astro/HealpixArray.h
-//%template(HealpixData) astro::HealpixArray<float>;
 
 
 
