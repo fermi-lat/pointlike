@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 TAG
+Tag name: pointlike-06-17-02, operation: mov
+Package: pointlike
+User: glastrm  Mon Apr  6 08:52:59 2009
+Files:
+  pointlike/python/swig_setup.i  1.4
+
+    *
+------------------------------------------------------------
+TAG
 Tag name: v6r17p2, operation: mov
 Package: pointlike
 User: glastrm  Mon Apr  6 08:52:40 2009
