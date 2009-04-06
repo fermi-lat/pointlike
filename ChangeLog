@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: glastrm  Mon Apr  6 08:52:24 PDT 2009
+ScienceTools-scons/pointlike/python
+
+Modified Files:
+	swig_setup.i 
+Log Message:
+update swig setup file for SCons
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-17-02, operation: mov
 Package: pointlike
