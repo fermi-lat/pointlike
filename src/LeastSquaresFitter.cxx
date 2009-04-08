@@ -1,7 +1,7 @@
 /** @file LeastSquaresFitter.cxx 
 @brief Methods for rotation information
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/LeastSquaresFitter.cxx,v 1.2 2009/02/25 22:29:26 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/LeastSquaresFitter.cxx,v 1.3 2009/04/08 16:55:39 mar0 Exp $
 */
 
 //#define MIN_DEBUG
@@ -14,6 +14,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/LeastSquaresFitter.cxx,v 1.2
 #ifdef SHAPE_DEBUG
 #include <fstream>
 std::ofstream shape("shape.txt");
+std::ofstream bad("badquadratics.txt");
 #endif
 #include <iomanip>
 
@@ -31,7 +32,7 @@ namespace {
     int npts=1;
 
 #ifdef SHAPE_DEBUG
-    bool output_flag = true;
+    bool bad_flag = true;
 #endif
 }
 
@@ -97,6 +98,7 @@ m_err(sigma)
             shape << "\t" << m_ellipse[i];
         shape << std::endl; 
     }
+    bad_flag = true;
 #endif 
 }
 
@@ -149,6 +151,7 @@ double LeastSquaresFitter::fit(std::vector<double> values, double err)
     // [ [2*a0 a4] [a4 2*a2] ] [[x][y]] = [[-a1][-a3]]
 
     std::vector<double> p_sur;
+    m_fitparams.clear();
     for(int i(0);i<6;++i)
         m_fitparams.push_back(Atb[i][0]);
 
@@ -218,7 +221,7 @@ double LeastSquaresFitter::fit(std::vector<double> values, double err)
     m_ellipse.push_back(xc);            //relative ra center
     m_ellipse.push_back(yc);            //relative dec center
     m_ellipse.push_back(nerr);          //curvature (geometric mean of axes)
-    
+
     k=0;
 
     //check goodness of fit
@@ -241,6 +244,22 @@ double LeastSquaresFitter::fit(std::vector<double> values, double err)
     double r_sq = 1-chisq/(ts_sq-ts_ave*ts_ave/9);
 
     if(r_sq<0) {
+        if(bad_flag) {
+            bad << m_psl->name() << "\t" << m_psl->dir().ra() << "\t" << m_psl->dir().dec() << "\t\t";
+            for(int i(0); i<m_fitparams.size();++i)
+                bad << m_fitparams[i] << "\t";
+            bad << "\t";
+            for(int i(0); i<m_ellipse.size(); ++i)
+                bad << m_ellipse[i] << "\t";
+            bad << "\t";
+            for(int i(0); i<chi_vec.size(); ++i)
+                bad << chi_vec[i]+likes[i][0] << "\t";
+            bad << "\t";
+            for(int i(0); i<chi_vec.size(); ++i)
+                bad << likes[i][0] << "\t";
+            bad << std::endl;
+            bad_flag = false;
+        }
         return 99;
     }
 
