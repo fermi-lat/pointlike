@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Apr  8 13:06:42 PDT 2009
+pointlike/src
+
+Modified Files:
+	LeastSquaresFitter.cxx 
+Log Message:
+removed debugging mode from lsq fit
+    *
+------------------------------------------------------------
 User: mar0  Wed Apr  8 12:25:16 PDT 2009
 pointlike/src
 
