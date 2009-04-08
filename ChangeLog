@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Apr  8 12:25:16 PDT 2009
+pointlike/src
+
+Modified Files:
+	LeastSquaresFitter.cxx 
+Log Message:
+fixed small bug with fit parameters in lsq routine
+    *
+------------------------------------------------------------
 User: mar0  Wed Apr  8 09:55:39 PDT 2009
 pointlike/src
 
