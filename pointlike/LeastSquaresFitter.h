@@ -1,7 +1,7 @@
 /** @file LeastSquaresFitter.h 
 @brief declaration of the least squares fitter class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/LeastSquaresFitter.h,v 1.1 2009/02/24 21:07:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/LeastSquaresFitter.h,v 1.2 2009/02/25 22:29:26 mar0 Exp $
 */
 #ifndef pointlike__LeastSquaresFitter_h
 #define pointlike__LeastSquaresFitter_h
@@ -29,16 +29,30 @@ namespace pointlike {
         ///@brief return fit parameters, a[i]
         std::vector<double> params() {return m_fitparams;}        
 
+        //@brief returns quadratic function evaluated at x and y coordinates
+        double func(std::vector<double> params,double x, double y);
+
+        
 
     private:
 
         ///! fitting routine
         ///@brief returns the statistical error in degrees from curvature matrix
-        ///@param err error in degrees of initial fit
-        double fit(double err);
+        ///@param values  likelihood values evaluated on ring
+        ///@param err   error in degrees of initial fit
+        double fit(std::vector<double> values, double err);
+
+        ///! TS evaluation routine
+        ///@brief returns values around a ring about the SkyDir sd
+        std::vector<double> ring(astro::SkyDir& sd, double err);
+
+        ///! determines the new position from parameters in m_ellipse
+        astro::SkyDir maxDir(astro::SkyDir& iDir);
 
         std::vector<double> m_fitparams; //parameterization of TS surface
         PointSourceLikelihood* m_psl; // Pointer to PSL object, can be modified
+
+        std::vector<double> m_ellipse; //0-7 [a,b,ecc,phi,x0,y0,err,chisq,R**2]
 
         double m_err; //statistical error value
 
