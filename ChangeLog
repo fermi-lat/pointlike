@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Apr  8 09:55:39 PDT 2009
+pointlike/src
+
+Modified Files:
+	LeastSquaresFitter.cxx 
+Log Message:
+added lsq features to check goodness of fits and step errors
+    *
+------------------------------------------------------------
 User: mar0  Wed Apr  8 09:55:38 PDT 2009
 pointlike/pointlike
 
