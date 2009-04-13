@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Apr 13 15:53:13 PDT 2009
+pointlike/src
+
+Modified Files:
+	SourceList.cxx 
+Log Message:
+add TS circle generator; update to use LeastSquaresFit
+    *
+------------------------------------------------------------
+User: burnett  Mon Apr 13 15:53:13 PDT 2009
 pointlike/pointlike
 
 Modified Files:
