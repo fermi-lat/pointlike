@@ -1,7 +1,7 @@
 /** @file LeastSquaresFitter.cxx 
 @brief Methods for rotation information
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/LeastSquaresFitter.cxx,v 1.4 2009/04/08 19:25:15 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/LeastSquaresFitter.cxx,v 1.5 2009/04/08 20:06:42 mar0 Exp $
 */
 
 //#define MIN_DEBUG
@@ -35,6 +35,10 @@ namespace {
     bool bad_flag = true;
 #endif
 }
+std::string LeastSquaresFitter::header()
+{
+    return "      sigma_a           sigma_b          sigma_phi       x0          y0         chisq ";
+}
 
 LeastSquaresFitter::LeastSquaresFitter(PointSourceLikelihood& psl, double sigma):
 m_psl(&psl),
@@ -62,8 +66,14 @@ m_err(sigma)
 
         if(m_err>96) {
             m_psl->setDir(iDir);
-            if(m_psl->verbose()) m_psl->out() << (m_err<98?">>>>>>>>step error, aborting":">>>>>>>>poor quadratic surface")
+            if(m_psl->verbose()) {
+                m_psl->out() << ( m_err<98 ? 
+                    ">>>>>>>>step error, aborting":
+                    ">>>>>>>>poor quadratic surface")
                 << std::endl;
+            }
+            m_ellipse.push_back(m_err);
+            for( int i(0); i<5; ++i) m_ellipse.push_back(0.);
             break;
         }
 
@@ -216,11 +226,11 @@ double LeastSquaresFitter::fit(std::vector<double> values, double err)
     m_ellipse.clear();
     m_ellipse.push_back(a);             //semi-major axis
     m_ellipse.push_back(b);             //semi-minor axis
-    m_ellipse.push_back(ecc);           //eccentricity
+    //m_ellipse.push_back(ecc);           //eccentricity
     m_ellipse.push_back(angle*180/M_PI);//rotation angle
     m_ellipse.push_back(xc);            //relative ra center
     m_ellipse.push_back(yc);            //relative dec center
-    m_ellipse.push_back(nerr);          //curvature (geometric mean of axes)
+    //m_ellipse.push_back(nerr);          //curvature (geometric mean of axes)
 
     k=0;
 
@@ -241,6 +251,7 @@ double LeastSquaresFitter::fit(std::vector<double> values, double err)
             ++k;
         }
     }
+    m_ellipse.push_back(chisq); //chi-squared fit to surface
     double r_sq = 1-chisq/(ts_sq-ts_ave*ts_ave/9);
 
     if(r_sq<0) {
@@ -265,8 +276,7 @@ double LeastSquaresFitter::fit(std::vector<double> values, double err)
         return 99;
     }
 
-    m_ellipse.push_back(chisq); //chi-squared fit to surface
-    m_ellipse.push_back(r_sq);  //R-squared value
+    //m_ellipse.push_back(r_sq);  //R-squared value
 
     return nerr;
 }
