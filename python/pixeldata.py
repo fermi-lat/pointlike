@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.6 2009/02/17 18:11:53 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.7 2009/03/13 17:16:39 kerrm Exp $
 
 """
-version='$Revision: 1.6 $'.split()[1]
+version='$Revision: 1.7 $'.split()[1]
 import os
 import psf
 import math
@@ -56,8 +56,9 @@ Optional keyword arguments:
 """
 
 
-        self.event_files = event_files if type(event_files)==type([]) else [event_files] 
-        self.history_files=history_files if type(history_files)==type([]) else [history_files]
+
+        self.event_files = event_files if type(event_files)==type([]) or event_files is None else [event_files] 
+        self.history_files=history_files if type(history_files)==type([]) or history_files is None else [history_files]
         self.roi_dir     = None
         self.roi_radius  = 25
         self.livetimefile= None
@@ -84,8 +85,8 @@ Optional keyword arguments:
         for filelist in  [self.event_files, self.history_files] :
             if filelist is not None and len(filelist)>0 and not os.path.exists(filelist[0]):
                 raise Exception('PixelData setup: file name or path "%s" not found'%filelist[0])
-            if filelist is None or len(filelist)==0:
-	            raise Exception('PixelData setup: received empty list of event or history files')
+            #if filelist is None or len(filelist)==0:
+            #	            raise Exception('PixelData setup: received empty list of event or history files')
         self.data= self.get_data()
         self.lt =  self.get_livetime()
         self.dmap= self.data.map()
