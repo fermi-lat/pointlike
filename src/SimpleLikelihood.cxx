@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.57 2008/12/29 04:12:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.58 2009/02/24 20:50:52 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -438,8 +438,8 @@ double SimpleLikelihood::curvature() const
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 double SimpleLikelihood::TS(double alpha)const { 
-    return 2.*((*this)(0) - (*this)(alpha));
-    //return -2*(*this)(alpha);
+    double ret( 2.*((*this)(0) - (*this)(alpha)) );
+    return ret>0? ret: 0;
 }
 double SimpleLikelihood::solidAngle()const{
     return 2*M_PI* sqr(sigma())*m_umax;
@@ -592,7 +592,7 @@ void SimpleLikelihood::recalc(bool /*subset*/)
 
 double SimpleLikelihood::TSmap(astro::SkyDir sdir)const
 {
-#if 1
+#if 0
     SimpleLikelihood* self = const_cast<SimpleLikelihood*>(this);
     SkyDir old_dir(m_dir);
     m_dir = sdir;
@@ -603,6 +603,7 @@ double SimpleLikelihood::TSmap(astro::SkyDir sdir)const
     return ts;
 
 #else
+    if( m_alpha<0.01 ) return 0; // possible numerical error
     std::vector<std::pair<double, int> > vec2;  //stores <log-like,nphotons>
     double oldbinsize(binsize);
     //binsize =0; // disable the binning, makes jumps
@@ -612,12 +613,18 @@ double SimpleLikelihood::TSmap(astro::SkyDir sdir)const
     result.consolidate();
 
     // now compute TS, using current alpha, but with vec2
+    double v0(0), va(0); 
+    if( extended_likelihood() ){
+        va = poissonLikelihood(m_alpha);
+        v0 = poissonLikelihood(0);
+    }
+
     double ret =2.*(
-        std::accumulate(vec2.begin(), vec2.end(),  poissonLikelihood(0), LogLike(0))
-        -std::accumulate(vec2.begin(), vec2.end(),  poissonLikelihood(m_alpha), LogLike(m_alpha))
+        std::accumulate(vec2.begin(), vec2.end(),  v0, LogLike(0))
+        -std::accumulate(vec2.begin(), vec2.end(),  va, LogLike(m_alpha))
         );
     //binsize = oldbinsize; // restore binning 
-    return ret;
+    return ret>0? ret: 0;
 
 #endif
 }
