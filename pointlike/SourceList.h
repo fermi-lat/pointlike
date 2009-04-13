@@ -1,7 +1,7 @@
 /** @file SourceList.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.13 2009/03/08 01:31:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.14 2009/03/17 23:33:12 burnett Exp $
 */
 
 #ifndef pointlike_SourceList_h
@@ -60,6 +60,9 @@ namespace pointlike{
 
         void set_neighbor(const Source* other){m_neighbor = other;}
         const std::vector<double>& fit_params()const{return m_fitparams;}
+
+        /// @brief return an array of delta TS values, nominally a circle at 3 sigma
+        std::vector<double> TScircle(double radius=3.)const;
         
     private:
         std::string m_name;

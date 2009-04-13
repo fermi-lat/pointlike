@@ -1,12 +1,13 @@
 /** @file SourceList.cxx
 @brief implementation of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.20 2009/03/08 05:15:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.21 2009/03/17 23:33:12 burnett Exp $
 */
 
 
 #include "pointlike/SourceList.h"
 #include "pointlike/PointSourceLikelihood.h"
+#include "pointlike/LeastSquaresFitter.h"
 #include "skymaps/BinnedPhotonData.h"
 #include <algorithm>
 #include <iomanip>
@@ -105,10 +106,52 @@ Source::Source(const std::string& name, double ra, double dec, double TS)
 
 double Source::localize(){
     m_fit->maximize();   // may not be needed
-    m_sigma = m_fit->localize() ;
-    m_dir = m_fit->dir();
-    m_TS = m_fit->TS();
+    m_sigma = m_fit->errorCircle(); // estimate of the sigma
+    SkyDir idir( m_fit->dir() );
+    double ra(idir.ra()), dec(idir.dec());
+    // standard
+    double sigma = m_fit->localize() ; // standard gradient fit
+    if( sigma<1){ 
+        m_sigma=sigma; // keep if OK.
+        m_TS = m_fit->TS();
+        m_dir = m_fit->dir();
+
+    }else{
+        // failed: restore dir in case localize did not
+        m_fit->setDir(idir);
+    }
+#if 1 // use lsq here
+    double iTS = m_fit->TSmap(idir);
+    // try this
+    LeastSquaresFitter lsq(*m_fit, m_sigma);
+    sigma = lsq.err();
+    m_fitparams = lsq.ellipse();
+#else
+    //std::cout << "Note: using radius of 1 sigma" << std::endl;
+    m_fitparams = TScircle(3.0); // just dump the values after gradient fit
+#endif
+    m_fit->printSpectrum();
     return m_sigma;
+}
+
+std::vector<double> Source::TScircle(double radius)const
+{
+    static double d(1/sqrt(2.) );
+    static double x[]= { 1,  d,  0, -d, -1, -d,  0,  d};
+    static double y[]= { 0,  d,  1,  d,  0, -d, -1, -d};
+    double ra( m_fit->dir().ra()), dec(m_fit->dir().dec());
+    double decsig( radius*m_sigma ); // how far to go in sigma units
+    double rasig( decsig/cos(dec*M_PI/180) ); // scale ra accordingly (fails if very near a pole.)
+
+    std::vector<double> ret;
+    double zTS = m_fit->TSmap(SkyDir(ra,dec)); // value at center
+    for(int i(0); i< 8; ++i){
+        double dx(x[i]*rasig), dy(y[i]*decsig);
+        double ts(m_fit->TSmap( SkyDir( ra+dx, dec+dy) ));
+        //std::cout << (ra+dx) << ", " << (dec+dy) << ", " << ts << ", " << (zTS-ts) << std::endl;
+        ret.push_back(zTS- ts);
+    }
+    return ret;
 }
 
 double Source::moved()const{
@@ -118,8 +161,16 @@ double Source::moved()const{
 
 void Source::header(std::ostream& out){
     out << std::left << std::setw(20) 
-        <<"#name                  ra        dec        TS    localization moved  neighbor\n";
+        <<"#name                  ra        dec        TS    localization   moved  neighbor"; 
+        
 //         B0833-45              128.8339  -45.1629   5698.49    0.0069    0.0136
+#if 1 // stuff from lsqfit
+    //out << "     ra2        dec2       TS2          sigma_a   sigma_b   sigma_phi ";
+    //for(int i(0); i<8; ++i) out << "       dTS"<< i;
+    //out << "  quality  ";
+    out << LeastSquaresFitter::header();
+#endif
+    out << "\n";
 }
 
 void Source::info(std::ostream& out)const{
@@ -133,12 +184,20 @@ void Source::info(std::ostream& out)const{
             << std::setprecision(4) 
             << std::setw(10) << (TS()<=0? 99: sigma() )
             << std::setprecision(1)
-            << std::setw(10) << (TS()<=0? 0. : moved()/sigma() )
+            << std::setw(10) << (TS()<=0? 0. : moved()/sigma() 
+            )
                 ;
         if( neighbor()!=0){
             out << "  " << std::setw(20)<< std::left << (neighbor()->name());
         }else{
             out << std::setw(10) << " -"; 
+        }
+
+        if(! m_fitparams.empty()){
+            out << std::setprecision(4);
+            for(std::vector<double>::const_iterator it = m_fitparams.begin(); it!= m_fitparams.end(); ++it){
+                out << std::setw(12) << (*it);
+            }
         }
 
         out << std::endl;
@@ -268,7 +327,10 @@ void SourceList::refit()
         }
         if( min_dist > too_close){
             // adjust position to maximize likelhood
-            cand.localize();
+            double sig = cand.localize();
+            if( sig>1){
+                logger() << "---Failed localization" << std::endl;
+            }
         }else{
             // no, too close to another source, just flag as such
             cand.TS()=-1; 
