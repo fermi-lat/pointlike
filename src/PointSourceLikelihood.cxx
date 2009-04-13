@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.69 2009/02/26 04:26:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.70 2009/03/17 23:31:44 burnett Exp $
 
 */
 
@@ -46,7 +46,7 @@ namespace {
 const skymaps::Background* PointSourceLikelihood::s_diffuse(0);
 
 // manage energy range for selection of bands to fit 
-double PointSourceLikelihood::s_emin(500.); 
+double PointSourceLikelihood::s_emin(200.); 
 double PointSourceLikelihood::s_emax(1e6);
 void PointSourceLikelihood::set_energy_range(double emin, double emax){
     s_emin = emin; s_emax=emax;
@@ -58,7 +58,8 @@ void PointSourceLikelihood::get_energy_range(double& emin, double& emax){
 double PointSourceLikelihood::s_maxROI(180);
 void   PointSourceLikelihood::set_maxROI(double r){s_maxROI=r;}
 double PointSourceLikelihood::maxROI(){return s_maxROI;}
-double PointSourceLikelihood::s_minROI(0);
+
+double PointSourceLikelihood::s_minROI(0.);
 void   PointSourceLikelihood::set_minROI(double r){s_minROI=r;}
 double PointSourceLikelihood::minROI(){return s_minROI;}
 
@@ -66,7 +67,7 @@ double PointSourceLikelihood::set_min_alpha(double a){
     double r(s_minalpha); s_minalpha= a; return r;
 }
 
-double PointSourceLikelihood::s_minalpha(0);
+double PointSourceLikelihood::s_minalpha(0.01);
 
 
 int    PointSourceLikelihood::s_skip1(0);
@@ -97,6 +98,8 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getValue(prefix+"emin",     s_emin, s_emin);
     par.getValue(prefix+"emax",     s_emax, s_emax);
     par.getValue(prefix+"minalpha", s_minalpha, s_minalpha);
+    par.getValue(prefix+"minROI",   s_minROI, s_minROI);
+    par.getValue(prefix+"maxROI",   s_maxROI, s_maxROI);
 
     par.getValue(prefix+"skip1",    s_skip1, s_skip1);
     par.getValue(prefix+"skip2",    s_skip2, s_skip2);
@@ -678,7 +681,7 @@ double PointSourceLikelihood::logLikelihood(const skymaps::SpectralFunction& mod
     const_iterator it = begin();
     for( ; it!=end(); ++it){
         const SimpleLikelihood& sl( **it);
-        // expected it the product of total from model times fraction in aperature
+        // expected is the product of total from model times fraction in aperature
         double expected( model.expected(dir(), sl.band())  * sl.aperature_correction() );
         result += extended? sl.extendedLikelihood(expected) 
                           : sl.logLikelihood(expected);
