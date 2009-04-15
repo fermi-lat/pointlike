@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Apr 15 12:13:00 PDT 2009
+pointlike/pointlike
+
+Modified Files:
+	LeastSquaresFitter.h 
+Log Message:
+Added test function and skyfunction implementation to leastsquaresfitter
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-18-00, operation: add
 Package: pointlike
