@@ -1,7 +1,7 @@
 /** @file LeastSquaresFitter.cxx 
 @brief Methods for rotation information
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/LeastSquaresFitter.cxx,v 1.5 2009/04/08 20:06:42 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/LeastSquaresFitter.cxx,v 1.6 2009/04/13 22:54:21 burnett Exp $
 */
 
 //#define MIN_DEBUG
@@ -281,7 +281,7 @@ double LeastSquaresFitter::fit(std::vector<double> values, double err)
     return nerr;
 }
 
-double LeastSquaresFitter::func(std::vector<double> p, double x, double y) {
+double LeastSquaresFitter::func(std::vector<double> p, double x, double y) const{
     //return quadradtic function
     if(p.size()<6) return -1e40;
     return p[0]*x*x+p[1]*x+p[2]*y*y+p[3]*y+p[4]*x*y+p[5];
@@ -320,4 +320,45 @@ astro::SkyDir LeastSquaresFitter::maxDir(astro::SkyDir& sd) {
 
     //set the position to the maximum likelihood
     return SkyDir((m_ellipse[4]*rand_x+m_ellipse[5]*rand_y)*M_PI/180+sd());
+}
+
+double LeastSquaresFitter::operator() (const astro::SkyDir& dir) const {
+    astro::SkyDir curDir = m_psl->dir();
+    Hep3Vector rv = (curDir()-dir()).unit();
+    double r = dir.difference(curDir);
+    Hep3Vector rand_x = curDir().orthogonal();
+    rand_x=rand_x.unit();
+    Hep3Vector rand_y = (curDir().cross(rand_x)).unit();
+    double x = rand_x.dot(rv)*r;
+    double y = rand_y.dot(rv)*r;
+    return func(m_fitparams,x,y);
+}
+
+int LeastSquaresFitter::test() {
+    std::vector<double> test_vec;
+    for(int i(-npts);i<npts+1;++i) {
+        for(int j(-npts);j<npts+1;++j) {
+            double norm = 1.;
+            if (abs(i)+abs(j)>=npts)
+                norm = sqrt(1.*i*i+1.*j*j);
+            double acc(0);
+            acc+=i*i/norm/norm;
+            acc+=i*j/norm/norm;
+            acc+=j*j/norm/norm;
+            acc+=i/norm;
+            acc+=j/norm;
+            test_vec.push_back(acc);
+        }
+    }
+    fit(test_vec,1/3.);
+    double tol(1e-5);
+    double ac(0.);
+    for(int i(0);i<m_fitparams.size()-1;++i) {
+        ac+=fabs(1.-m_fitparams[i]);
+    }
+    if(ac<tol) {
+        return 0;
+    }else {
+        return 1;
+    }
 }
