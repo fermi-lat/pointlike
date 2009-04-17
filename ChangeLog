@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Apr 17 07:28:36 PDT 2009
+pointlike/src
+
+Modified Files:
+	LeastSquaresFitter.cxx 
+Log Message:
+remove temporary option for axis determination (linux compiler didn't like it)
+    *
+------------------------------------------------------------
 User: mar0  Wed Apr 15 12:13:00 PDT 2009
 pointlike/src
 
