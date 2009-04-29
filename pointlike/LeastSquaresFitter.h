@@ -1,7 +1,7 @@
 /** @file LeastSquaresFitter.h 
 @brief declaration of the least squares fitter class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/LeastSquaresFitter.h,v 1.4 2009/04/13 22:54:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/LeastSquaresFitter.h,v 1.5 2009/04/15 19:12:59 mar0 Exp $
 */
 #ifndef pointlike__LeastSquaresFitter_h
 #define pointlike__LeastSquaresFitter_h
@@ -72,7 +72,7 @@ namespace pointlike {
         std::vector<double> m_fitparams; //parameterization of TS surface
         PointSourceLikelihood* m_psl; // Pointer to PSL object, can be modified
 
-        std::vector<double> m_ellipse; //0-7 [a,b,ecc,phi,x0,y0,err,chisq,R**2]
+        std::vector<double> m_ellipse; //0-7 [a,b,phi,x0,y0,chisq,R**2]
 
         double m_err; //statistical error value
 
