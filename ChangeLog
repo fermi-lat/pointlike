@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Apr 29 12:29:49 PDT 2009
+pointlike/pointlike
+
+Modified Files:
+	LeastSquaresFitter.h 
+Log Message:
+fixed crash in tip table deletion and fixed LSQ function evaluation
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-18-01, operation: add
 Package: pointlike
