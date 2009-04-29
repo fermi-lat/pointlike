@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: mar0  Wed Apr 29 12:29:49 PDT 2009
+pointlike/src
+
+Modified Files:
+	EventList.cxx LeastSquaresFitter.cxx 
+Log Message:
+fixed crash in tip table deletion and fixed LSQ function evaluation
+    *
+------------------------------------------------------------
+User: mar0  Wed Apr 29 12:29:49 PDT 2009
 pointlike/pointlike
 
 Modified Files:
