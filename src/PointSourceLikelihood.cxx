@@ -1,18 +1,19 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.70 2009/03/17 23:31:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.71 2009/04/13 22:53:32 burnett Exp $
 
 */
 
 #include "pointlike/PointSourceLikelihood.h"
 #include "skymaps/SpectralFunction.h"
-
+#include "pointlike/LeastSquaresFitter.h"
 
 #include "skymaps/BandBackground.h"
 #include "skymaps/DiffuseFunction.h"
 #include "skymaps/BinnedPhotonData.h"
 #include "embed_python/Module.h"
 #include "TMatrixD.h"
+#include "pointlike/ConfidenceLevel.h"
 
 #include <iostream>
 #include <fstream>
@@ -63,6 +64,10 @@ double PointSourceLikelihood::s_minROI(0.);
 void   PointSourceLikelihood::set_minROI(double r){s_minROI=r;}
 double PointSourceLikelihood::minROI(){return s_minROI;}
 
+double PointSourceLikelihood::s_maxSig(0.25);
+void   PointSourceLikelihood::set_maxSig(double r) {s_maxSig=r;}
+double PointSourceLikelihood::maxSig(){return s_maxSig;}
+
 double PointSourceLikelihood::set_min_alpha(double a){
     double r(s_minalpha); s_minalpha= a; return r;
 }
@@ -90,6 +95,9 @@ int  PointSourceLikelihood::s_fitlsq(0);  // default off
 void PointSourceLikelihood::set_fitlsq(bool fit){s_fitlsq=fit;}
 bool PointSourceLikelihood::fitlsq(){return s_fitlsq!=0;}
 
+int  PointSourceLikelihood::s_conf(0);  // default off
+void PointSourceLikelihood::set_conf(bool fit){s_conf=fit;}
+bool PointSourceLikelihood::conf(){return s_conf!=0;}
 
 void PointSourceLikelihood::setParameters(const embed_python::Module& par)
 {
@@ -100,6 +108,7 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getValue(prefix+"minalpha", s_minalpha, s_minalpha);
     par.getValue(prefix+"minROI",   s_minROI, s_minROI);
     par.getValue(prefix+"maxROI",   s_maxROI, s_maxROI);
+    par.getValue(prefix+"maxSig",   s_maxSig, s_maxSig);
 
     par.getValue(prefix+"skip1",    s_skip1, s_skip1);
     par.getValue(prefix+"skip2",    s_skip2, s_skip2);
@@ -111,6 +120,7 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
 
     par.getValue(prefix+"merge",    s_merge, s_merge); // merge Bands with same nside, sigma
     par.getValue(prefix+"fitlsq",    s_fitlsq, s_fitlsq); // modify auto least squares
+    par.getValue(prefix+"conf", s_conf, s_conf);
 
     int extended(false);
     par.getValue("extended_likelihood", extended, extended);
@@ -151,7 +161,7 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
         }else{
             // combine all components in better Background ctor
             const Background* bg = new Background(irf_name, ltfile, diffusefile, std::make_pair(flux,index));
-           set_background(bg);
+            set_background(bg);
 
         }
     }
@@ -272,19 +282,19 @@ double PointSourceLikelihood::TS(int band) const
 
 double PointSourceLikelihood::alpha(int band) const
 {
-  double alpha_band = 0;
-  bool found = 0;
-  int bandCounter = 0;
-  for(const_iterator it = begin() ; it!=end(); ++it, ++bandCounter){
-    SimpleLikelihood& like = **it;
-    if (bandCounter == band){
-      found = true;
-      alpha_band = like.alpha();
+    double alpha_band = 0;
+    bool found = 0;
+    int bandCounter = 0;
+    for(const_iterator it = begin() ; it!=end(); ++it, ++bandCounter){
+        SimpleLikelihood& like = **it;
+        if (bandCounter == band){
+            found = true;
+            alpha_band = like.alpha();
+        }
     }
-  }
-  
-  if (!found) return -1;
-  else return alpha_band;
+
+    if (!found) return -1;
+    else return alpha_band;
 }
 
 PointSourceLikelihood::const_iterator PointSourceLikelihood::begin_skip(int skip)const{
@@ -307,7 +317,8 @@ PointSourceLikelihood::iterator PointSourceLikelihood::begin_skip(int skip){
 double PointSourceLikelihood::maximize(int skip, int count)
 {
     m_TS = 0;
-    iterator it = begin_skip(skip); //begin();
+    //iterator it = begin_skip(skip); //begin();
+    Iterator it(begin(),end());
     for( ; it!=end() && count-- >0 ; ++it){
         SimpleLikelihood& like = **it;
         std::pair<double,double> a(like.maximize());
@@ -327,7 +338,7 @@ void PointSourceLikelihood::setDir(const astro::SkyDir& dir, bool subset){
 
 const Hep3Vector& PointSourceLikelihood::gradient(int skip, int count) const{
     m_gradient=Hep3Vector(0);  
-    const_iterator it = begin_skip(skip);
+    Iterator it(begin(),end());
     for( ; it!=end() && count-- >0; ++it){
         double ts_i((*it)->TS());
         //if( verbose() ) std::cout << "TS: " << (*it)->TS() << std::endl;
@@ -341,7 +352,7 @@ const Hep3Vector& PointSourceLikelihood::gradient(int skip, int count) const{
 
 double PointSourceLikelihood::curvature(int skip, int count) const{
     double t(0);
-    const_iterator it = begin_skip(skip);
+    Iterator it(begin(),end());
     for( ; it!=end()&& count-- >0; ++it){
         if( (*it)->TS()< s_TScut) continue;
 #if 0 // Marshall?
@@ -384,7 +395,7 @@ void PointSourceLikelihood::printSpectrum()
             << setw(9) << setprecision(2)<< levellike.band().sigma()*sqrt(2.*levellike.umax())*180/M_PI 
             << setw(8) << levellike.photons()
             ;
- 
+
         if( levellike.photons()==0) {
             out() << std::endl; 
             continue;
@@ -400,6 +411,11 @@ void PointSourceLikelihood::printSpectrum()
             << setw(7)<< 100*a.first<<" +/- "
             << setw(4)<< 100*(std::min(0.999,a.second)) 
             << setw(7)<< setprecision(0)<< ts ;
+
+        if(conf()) {
+            ConfidenceLevel cl(**it,m_dir);
+            out() << setprecision(2) << setw(4) << cl();
+        }
 
         // output from background analysis if present
         if(extended) {
@@ -431,12 +447,107 @@ void PointSourceLikelihood::printSpectrum()
     }
     SimpleLikelihood::enable_extended_likelihood(save_extended);
     out()   << setw(40) << "TS sum  " << std::right
-            <<  setprecision(0) << setw(12) << simpleTS;
+        <<  setprecision(0) << setw(12) << simpleTS;
     if( extended ){
         out() << setw(29) << poissonTS << setw(23) << extendedTS;
     }
     out()<<setprecision(6)<< std::left<< std::endl;
 }
+
+
+void PointSourceLikelihood::printUsedSpectrum()
+{
+
+    using std::setw; using std::left; using std::setprecision; 
+    bool extended(s_diffuse!=0 && SimpleLikelihood::extended_likelihood());
+    out() << "\nSpectrum of source " << m_name << " at ra, dec=" 
+        << setprecision(6) << m_dir.ra() << ", "<< m_dir.dec() 
+        << std::endl;
+
+    out() 
+        << "                               ---shape analysis---- "
+        << (extended? " ----------poisson----------   -------combined-----\n" : "\n")
+        << "  emin eclass roi(deg) events  signal_fract(%)    TS "
+        << (extended? "backgnd signal_fract(%)   TS   signal_fract(%)   TS  " : "")
+        << std::right << std::endl;
+
+    double simpleTS(0), extendedTS(0), poissonTS(0);
+    bool save_extended( SimpleLikelihood::extended_likelihood());
+
+    Iterator it(begin(),end());
+
+    for( ; it!=end(); ++it){
+
+        SimpleLikelihood& levellike = **it;
+        const skymaps::Band& band ( levellike.band() );
+
+        double bkg(levellike.background());
+        out()  << std::fixed << std::right 
+            << setw(7) << static_cast<int>( band.emin()+0.5 )
+            << setw(5) << (levellike.bands().size()>1? -1 : band.event_class())
+            << setw(9) << setprecision(2)<< levellike.band().sigma()*sqrt(2.*levellike.umax())*180/M_PI 
+            << setw(8) << levellike.photons()
+            ;
+
+        if( levellike.photons()==0) {
+            out() << std::endl; 
+            continue;
+        }
+        SimpleLikelihood::enable_extended_likelihood(false);
+        std::pair<double,double> a(levellike.maximize());
+        double ts(levellike.TS()); 
+        if( a.first > s_minalpha ) {
+            simpleTS+=ts;
+        }
+
+        out() << setprecision(1) 
+            << setw(7)<< 100*a.first<<" +/- "
+            << setw(4)<< 100*(std::min(0.999,a.second)) 
+            << setw(7)<< setprecision(0)<< ts ;
+
+        if(conf()) {
+            ConfidenceLevel cl(**it,m_dir);
+            out() << setprecision(2) << setw(4) << cl();
+        }
+
+        // output from background analysis if present
+        if(extended) {
+            // estimate from count analysis
+            double apois(1- std::min(1.,bkg/levellike.photons()))
+                , sigpois(1./sqrt(levellike.poissonDerivatives(apois).second));
+            double ts(-2* (levellike.poissonLikelihood(apois)-levellike.poissonLikelihood(0)));
+            out()  
+                << setw(7) << setprecision(1) << bkg
+                << setw(6)  << 100*(apois)<< " +/- "
+                << setw(4)  << 100.*std::min(0.999,sigpois)
+                << setw(7)  << setprecision(0)<< ts 
+                ;
+            poissonTS +=ts;
+
+            // combinded estimate
+            SimpleLikelihood::enable_extended_likelihood();
+            std::pair<double,double> a(levellike.maximize());
+            ts =(levellike.TS());
+            extendedTS+=ts;
+
+            out() << setprecision(1) 
+                << setw(7)<< 100*a.first<<" +/- "
+                << setw(4)<< 100*std::min(0.999,a.second )
+                << setw(7)<< setprecision(0)<< ts ;
+
+        }
+        out() << std::endl;
+    }
+    SimpleLikelihood::enable_extended_likelihood(save_extended);
+    out()   << setw(40) << "TS sum  " << std::right
+        <<  setprecision(0) << setw(12) << simpleTS;
+    if( extended ){
+        out() << setw(29) << poissonTS << setw(23) << extendedTS;
+    }
+    out()<<setprecision(6)<< std::left<< std::endl;
+}
+
+
 
 std::vector<double> PointSourceLikelihood::energyList()const
 {
@@ -459,7 +570,10 @@ double PointSourceLikelihood::localize(int skip1, int skip2)
 {
     double t(100);
     for( int skip=skip1; skip<=skip2; ++skip){
+        double sigmax(maxSig());
+        set_maxSig(sigmax/(sqrt(1.*(1<<skip))));
         t = localize(skip);
+        set_maxSig(sigmax);
         if (t<1) break;
     }
     return t;
@@ -574,7 +688,8 @@ double PointSourceLikelihood::localize(int skip)
     double errcirc=errorCircle();
     //least squares fit to surface
     if(fitlsq()) {
-        errcirc=fit_localization(errcirc);
+        LeastSquaresFitter lsq(*(this));
+        errcirc=lsq.err();
     }
     return errcirc;
 }
@@ -606,75 +721,6 @@ double PointSourceLikelihood::localize()
 #endif
 }
 
-double PointSourceLikelihood::fit_localization(double err) {
-    //keep fit position around
-    SkyDir oldDir = m_dir;
-
-    //select new subset of pixels
-    setDir(m_dir,false);
-
-    //pick 2D coordinate system
-    Hep3Vector rand_x = m_dir().orthogonal();
-    rand_x=rand_x.unit();
-    Hep3Vector rand_y = (m_dir().cross(rand_x)).unit();
-
-    int npts=2;
-    int rows=2*npts+1; //number of grid points = rows*rows
-    TMatrixD A(rows*rows,6);
-    TMatrixD likes(rows*rows,1);
-
-    //create grid of likelihood values and setup 'A' matrix
-    //the equation is of the form:
-    //loglike(x,y)=a0*x**2+a1*x+a2*y**2+a3*y+a4*x*y+a5
-    for(int i(-npts);i<npts+1;++i) {
-        for(int j(-npts);j<npts+1;++j) {
-            SkyDir newDir(M_PI/180*err*(i*rand_x+j*rand_y)+oldDir());
-            A[rows*(i+npts)+j+npts][0]=err*err*i*i;
-            A[rows*(i+npts)+j+npts][1]=err*i;
-            A[rows*(i+npts)+j+npts][2]=err*err*j*j;
-            A[rows*(i+npts)+j+npts][3]=err*j;
-            A[rows*(i+npts)+j+npts][4]=err*err*i*j;
-            A[rows*(i+npts)+j+npts][5]=1;
-            likes[rows*(i+npts)+j+npts][0]=TSmap(newDir);
-        }
-    }
-    Double_t* merr(0);
-
-    // Solve system of equations for least squares
-    // x = (At*A)**-1*(At*b) 
-    TMatrixD At(6,rows*rows);
-    TMatrixD AtA(6,6);
-    TMatrixD Atb(6,1);
-    At.Transpose(A);
-    AtA = At*A;
-    Atb = At*likes;
-    AtA.Invert(merr);
-    Atb = AtA*Atb;
-
-    //solution to minimum from second order equation
-    double pvx = 2*Atb[0][0];
-    double pcxy = Atb[4][0];
-    double pvy = 2*Atb[2][0];
-    double vx = pvy/(pvx*pvy-pcxy*pcxy);
-    double cxy = -pcxy/(pvx*pvy-pcxy*pcxy);
-    double vy = pvx/(pvx*pvy-pcxy*pcxy);
-    double xc = -vx*Atb[1][0]-cxy*Atb[3][0];
-    double yc = -cxy*Atb[1][0]-vy*Atb[3][0];
-    double nerr = sqrt(sqrt(fabs(vx)*fabs(vy)));
-    nerr*=sqrt(2.);
-
-    //set the position to the minimum and grab new set of pixels
-    oldDir=SkyDir((xc*rand_x+yc*rand_y)*M_PI/180+oldDir());
-    if( verbose() ) {
-        out() << "lsqfit ra, dec, error " 
-            << oldDir.ra()<< ", " << oldDir.dec()
-            << ", " << nerr
-            <<std::endl;
-    }
-    setDir(oldDir,false);
-    return nerr;
-}
-
 double PointSourceLikelihood::logLikelihood(const skymaps::SpectralFunction& model, bool extended)const
 {
     double result(0);
@@ -684,7 +730,7 @@ double PointSourceLikelihood::logLikelihood(const skymaps::SpectralFunction& mod
         // expected is the product of total from model times fraction in aperature
         double expected( model.expected(dir(), sl.band())  * sl.aperature_correction() );
         result += extended? sl.extendedLikelihood(expected) 
-                          : sl.logLikelihood(expected);
+            : sl.logLikelihood(expected);
     }
     return result;
 }
@@ -753,7 +799,7 @@ const skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(const skymaps::Sk
 }
 
 const skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(const skymaps::SkySpectrum* diffuse, 
-                                                         std::vector<const skymaps::SkySpectrum*> exposures)
+                                                               std::vector<const skymaps::SkySpectrum*> exposures)
 {  
     // save current to return
     const skymaps::SkySpectrum* ret =   s_diffuse;
@@ -766,8 +812,8 @@ const skymaps::SkySpectrum* PointSourceLikelihood::set_diffuse(const skymaps::Sk
 const skymaps::Background* PointSourceLikelihood::set_background(const skymaps::Background* background)
 {
     const skymaps::Background* back = s_diffuse;
-     s_diffuse = background;
-     return back;
+    s_diffuse = background;
+    return back;
 }
 const skymaps::Background* PointSourceLikelihood::clear_background(){
     return PointSourceLikelihood::set_background(0);
@@ -878,8 +924,8 @@ TSmap::TSmap(const skymaps::BinnedPhotonData& data, int band)
 {}
 
 void TSmap::setPointSource(const PointSourceLikelihood& psl){
-        m_psl = &psl;
-    }
+    m_psl = &psl;
+}
 
 
 double TSmap::operator()(const astro::SkyDir& sdir)const
@@ -894,8 +940,24 @@ double TSmap::operator()(const astro::SkyDir& sdir)const
         return psl.TS();
 
     }
-        // using current fit.
+    // using current fit.
     return m_psl->TSmap(sdir, m_band)- (m_band==-1?m_offset:0);
 }
 
+Iterator::Iterator(PointSourceLikelihood::const_iterator it, PointSourceLikelihood::const_iterator end)            
+:m_it(it),
+m_end(end)
+{
+    if((*m_it)->sigma()>=PointSourceLikelihood::maxSig()*M_PI/180.)
+        ++(*this);
+}
 
+PointSourceLikelihood::const_iterator Iterator::operator++() {
+    ++m_it;
+    while(m_it!=m_end) {
+        if((*m_it)->sigma()<PointSourceLikelihood::maxSig()*M_PI/180.)
+            break;
+        ++m_it;
+    }
+    return m_it;
+}
