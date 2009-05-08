@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.53 2009/03/17 23:31:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.54 2009/03/26 14:52:15 burnett Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -73,6 +73,8 @@ namespace pointlike {
         /// See set_ostream to direct to a file.
         void printSpectrum();
 
+        void printUsedSpectrum();
+
         /// @brief access to a list of energies for the bands
         std::vector<double> energyList()const;
 
@@ -87,11 +89,8 @@ namespace pointlike {
         /// @brief localate with iteration to refit the levels, using parameters set in ctor
         double localize();
 
-        /// @brief locate minimum through least squares fit
-        double fit_localization(double err);
-
         /// @brief calculate -log likelihood
-         /// @param model a spectrum to compare with data
+        /// @param model a spectrum to compare with data
         /// @param extended [true] use extended likelihood, assuming a good model for background flux level
         double logLikelihood(const skymaps::SpectralFunction& model, bool extended=true)const;
 
@@ -148,8 +147,8 @@ namespace pointlike {
 
         ///! clear global diffuse background.
         static const skymaps::Background* clear_background(); 
-            
-            ///! add a point source fit to the background, for this object only, for subsequent fits
+
+        ///! add a point source fit to the background, for this object only, for subsequent fits
         void addBackgroundPointSource(const PointSourceLikelihood* fit);
 
         ///! remove all such
@@ -193,9 +192,17 @@ namespace pointlike {
         static void set_minROI(double roi); ///< set the minimum ROI (degrees, default 0)
         static double minROI();   ///< return the minimum ROI (degrees)
 
+        static void set_maxSig(double r);
+        static double maxSig();
+
+        static void set_conf(bool conf);
+        static bool conf();
+
         void setup(const skymaps::BinnedPhotonData& data);
 
         std::ostream& out()const{return *m_out;}
+
+
 
 
     private:
@@ -217,10 +224,10 @@ namespace pointlike {
         static double s_emin, s_emax, s_minalpha, s_TSmin, s_tolerance, 
             s_maxstep; //
         static int s_skip1, s_skip2, s_itermax, s_verbose;
-        static int s_merge, s_fitlsq; ///<least squares localization flag
+        static int s_merge, s_fitlsq, s_conf; ///<least squares localization flag
         static double s_maxROI; ///< the maximum ROI, in degrees: if set, a limit on umax
         static double s_minROI; ///< the minimum ROI, in degrees: if set, a limit on umax
-
+        static double s_maxSig;
 
     };
 
@@ -272,8 +279,22 @@ namespace pointlike {
         double m_offset;
     };
 
+    class Iterator {
 
+    public:
+        Iterator(PointSourceLikelihood::const_iterator it, PointSourceLikelihood::const_iterator end);
+
+        SimpleLikelihood* operator*() const {return *m_it;}
+
+        PointSourceLikelihood::const_iterator operator++();
+
+        bool operator!=(const PointSourceLikelihood::const_iterator& other) {return other!=m_it;}
+
+    private:
+        PointSourceLikelihood::const_iterator m_it;
+        PointSourceLikelihood::const_iterator m_end;
+    };
 
 }
-#endif
 
+#endif
