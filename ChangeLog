@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: mar0  Fri May  8 13:04:52 PDT 2009
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx 
+Log Message:
+Added special iterator for TS and localization to PointSourceLikelihood selecting on a maximum sigma value
+    *
+------------------------------------------------------------
+User: mar0  Fri May  8 13:04:52 PDT 2009
 pointlike/pointlike
 
 Modified Files:
