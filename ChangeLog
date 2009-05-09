@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat May  9 11:39:32 PDT 2009
+pointlike/python
+
+Modified Files:
+	pixeldata.py 
+Log Message:
+allow for small or zero lower edge.
+    *
+------------------------------------------------------------
 User: mar0  Fri May  8 13:04:52 PDT 2009
 pointlike/src
 
