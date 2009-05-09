@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.7 2009/03/13 17:16:39 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.8 2009/04/13 22:51:20 burnett Exp $
 
 """
-version='$Revision: 1.7 $'.split()[1]
+version='$Revision: 1.8 $'.split()[1]
 import os
 import psf
 import math
@@ -137,6 +137,7 @@ Optional keyword arguments:
         if not self.quiet: print 'setting PSF parameters (use_mc=%d)'%self.use_mc_psf
         if self.verbose: print '  energy class  gamma sigma(deg)'
         for band in data.map():
+             if band.emax()<= 10: continue  # apparently necessary?
              e = (band.emin()*band.emax())**0.5
              cl = band.event_class()
              gamma = self.psf.gamma(e,cl)
