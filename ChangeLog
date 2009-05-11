@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Mon May 11 15:46:47 PDT 2009
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h 
+Log Message:
+Added comments for PSL::Iterator and removed depricated functions
+    *
+------------------------------------------------------------
 User: burnett  Sat May  9 11:39:32 PDT 2009
 pointlike/python
 
