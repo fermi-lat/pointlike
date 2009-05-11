@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.71 2009/04/13 22:53:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.72 2009/05/08 20:04:52 mar0 Exp $
 
 */
 
@@ -297,23 +297,6 @@ double PointSourceLikelihood::alpha(int band) const
     else return alpha_band;
 }
 
-PointSourceLikelihood::const_iterator PointSourceLikelihood::begin_skip(int skip)const{
-    const_iterator it(begin());
-    while(--skip>0){
-        it++;
-    }
-    return it;
-}
-
-
-PointSourceLikelihood::iterator PointSourceLikelihood::begin_skip(int skip){
-    iterator it(begin());
-    while(--skip>0){
-        it++;
-    }
-    return it;
-}
-
 double PointSourceLikelihood::maximize(int skip, int count)
 {
     m_TS = 0;
@@ -454,101 +437,6 @@ void PointSourceLikelihood::printSpectrum()
     out()<<setprecision(6)<< std::left<< std::endl;
 }
 
-
-void PointSourceLikelihood::printUsedSpectrum()
-{
-
-    using std::setw; using std::left; using std::setprecision; 
-    bool extended(s_diffuse!=0 && SimpleLikelihood::extended_likelihood());
-    out() << "\nSpectrum of source " << m_name << " at ra, dec=" 
-        << setprecision(6) << m_dir.ra() << ", "<< m_dir.dec() 
-        << std::endl;
-
-    out() 
-        << "                               ---shape analysis---- "
-        << (extended? " ----------poisson----------   -------combined-----\n" : "\n")
-        << "  emin eclass roi(deg) events  signal_fract(%)    TS "
-        << (extended? "backgnd signal_fract(%)   TS   signal_fract(%)   TS  " : "")
-        << std::right << std::endl;
-
-    double simpleTS(0), extendedTS(0), poissonTS(0);
-    bool save_extended( SimpleLikelihood::extended_likelihood());
-
-    Iterator it(begin(),end());
-
-    for( ; it!=end(); ++it){
-
-        SimpleLikelihood& levellike = **it;
-        const skymaps::Band& band ( levellike.band() );
-
-        double bkg(levellike.background());
-        out()  << std::fixed << std::right 
-            << setw(7) << static_cast<int>( band.emin()+0.5 )
-            << setw(5) << (levellike.bands().size()>1? -1 : band.event_class())
-            << setw(9) << setprecision(2)<< levellike.band().sigma()*sqrt(2.*levellike.umax())*180/M_PI 
-            << setw(8) << levellike.photons()
-            ;
-
-        if( levellike.photons()==0) {
-            out() << std::endl; 
-            continue;
-        }
-        SimpleLikelihood::enable_extended_likelihood(false);
-        std::pair<double,double> a(levellike.maximize());
-        double ts(levellike.TS()); 
-        if( a.first > s_minalpha ) {
-            simpleTS+=ts;
-        }
-
-        out() << setprecision(1) 
-            << setw(7)<< 100*a.first<<" +/- "
-            << setw(4)<< 100*(std::min(0.999,a.second)) 
-            << setw(7)<< setprecision(0)<< ts ;
-
-        if(conf()) {
-            ConfidenceLevel cl(**it,m_dir);
-            out() << setprecision(2) << setw(4) << cl();
-        }
-
-        // output from background analysis if present
-        if(extended) {
-            // estimate from count analysis
-            double apois(1- std::min(1.,bkg/levellike.photons()))
-                , sigpois(1./sqrt(levellike.poissonDerivatives(apois).second));
-            double ts(-2* (levellike.poissonLikelihood(apois)-levellike.poissonLikelihood(0)));
-            out()  
-                << setw(7) << setprecision(1) << bkg
-                << setw(6)  << 100*(apois)<< " +/- "
-                << setw(4)  << 100.*std::min(0.999,sigpois)
-                << setw(7)  << setprecision(0)<< ts 
-                ;
-            poissonTS +=ts;
-
-            // combinded estimate
-            SimpleLikelihood::enable_extended_likelihood();
-            std::pair<double,double> a(levellike.maximize());
-            ts =(levellike.TS());
-            extendedTS+=ts;
-
-            out() << setprecision(1) 
-                << setw(7)<< 100*a.first<<" +/- "
-                << setw(4)<< 100*std::min(0.999,a.second )
-                << setw(7)<< setprecision(0)<< ts ;
-
-        }
-        out() << std::endl;
-    }
-    SimpleLikelihood::enable_extended_likelihood(save_extended);
-    out()   << setw(40) << "TS sum  " << std::right
-        <<  setprecision(0) << setw(12) << simpleTS;
-    if( extended ){
-        out() << setw(29) << poissonTS << setw(23) << extendedTS;
-    }
-    out()<<setprecision(6)<< std::left<< std::endl;
-}
-
-
-
 std::vector<double> PointSourceLikelihood::energyList()const
 {
 
@@ -571,8 +459,10 @@ double PointSourceLikelihood::localize(int skip1, int skip2)
     double t(100);
     for( int skip=skip1; skip<=skip2; ++skip){
         double sigmax(maxSig());
+        //instead of skipping bands, try to decrease PSF width requirement
         set_maxSig(sigmax/(sqrt(1.*(1<<skip))));
         t = localize(skip);
+        //reset the value to default in case of catastrophy
         set_maxSig(sigmax);
         if (t<1) break;
     }

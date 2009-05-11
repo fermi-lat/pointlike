@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.54 2009/03/26 14:52:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.55 2009/05/08 20:04:52 mar0 Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -72,8 +72,6 @@ namespace pointlike {
         /// @brief Make a table of the fit spectrum, to the ostream
         /// See set_ostream to direct to a file.
         void printSpectrum();
-
-        void printUsedSpectrum();
 
         /// @brief access to a list of energies for the bands
         std::vector<double> energyList()const;
@@ -192,8 +190,8 @@ namespace pointlike {
         static void set_minROI(double roi); ///< set the minimum ROI (degrees, default 0)
         static double minROI();   ///< return the minimum ROI (degrees)
 
-        static void set_maxSig(double r);
-        static double maxSig();
+        static void set_maxSig(double r); ///< set the maximum value of the psf width to be used in localization/TS (degrees, default 0.25)
+        static double maxSig(); ///< return the maximum sigma
 
         static void set_conf(bool conf);
         static bool conf();
@@ -279,15 +277,27 @@ namespace pointlike {
         double m_offset;
     };
 
+    /* class Iterator
+    Special iterator which skips pass Bands with a psf width which is too large
+    this should assist in localizing and calculating TS maps
+    The function set_maxSig determines the maximum width in degrees
+    */
     class Iterator {
 
     public:
+
+        ///! @brief ctor to make new special iterator
+        ///! @param it first band in PSL (use begin())
+        ///! @param end past last band in PSL (use end())
         Iterator(PointSourceLikelihood::const_iterator it, PointSourceLikelihood::const_iterator end);
 
+        ///! @brief operator dereference
         SimpleLikelihood* operator*() const {return *m_it;}
 
+        ///! @brief operator default increment
         PointSourceLikelihood::const_iterator operator++();
 
+        ///! @brief operator comparison for end of PSL list
         bool operator!=(const PointSourceLikelihood::const_iterator& other) {return other!=m_it;}
 
     private:
