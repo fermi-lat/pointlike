@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Thu May 14 12:28:46 PDT 2009
+pointlike/python
+
+Modified Files:
+	pixeldata.py 
+Log Message:
+Uses IParams for PSF now.
+    *
+------------------------------------------------------------
 User: burnett  Thu May 14 07:08:46 PDT 2009
 pointlike/src
 
