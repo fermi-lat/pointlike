@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.72 2009/05/08 20:04:52 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.73 2009/05/11 22:46:47 mar0 Exp $
 
 */
 
@@ -586,29 +586,8 @@ double PointSourceLikelihood::localize(int skip)
 
 double PointSourceLikelihood::localize()
 {
-#if 0 // not sure what this is about
-    int skip1(s_skip1), skip2(s_skip2), itermax(s_itermax);
-    double TSmin(s_TSmin);
 
-    double sig(99);
-
-    double currentTS(TS());
-    if(verbose()) printSpectrum();
-
-    for( int iter(0); iter<itermax; ++iter){
-        if( TS()>TSmin) {
-            sig = localize(skip1, skip2); // may skip low levels
-            if( sig<1) { // good location?
-                maximize();
-            }
-        }
-        if( TS() < currentTS+0.1 ) break; // done if didn't improve
-        currentTS = TS();
-    }
-    return sig;
-#else// just do the default
     return localize(s_skip1, s_skip2);
-#endif
 }
 
 double PointSourceLikelihood::logLikelihood(const skymaps::SpectralFunction& model, bool extended)const
