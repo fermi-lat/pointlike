@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri May 15 07:30:42 PDT 2009
+pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h 
+Log Message:
+preliminary mod to PSL to select bands with at least a given value for localization, definition of TS
+    *
+------------------------------------------------------------
 User: burnett  Fri May 15 07:30:41 PDT 2009
 pointlike/doc
 
