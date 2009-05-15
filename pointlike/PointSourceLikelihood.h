@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.55 2009/05/08 20:04:52 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.56 2009/05/11 22:46:47 mar0 Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -52,9 +52,8 @@ namespace pointlike {
         ~PointSourceLikelihood();
 
         //! fit to signal fractions
-        /// @param skip [0] bands to skip
-        /// @return total TS
-        double  maximize(int skip=0, int count=100);
+        /// @return total TS (selected bands )
+        double  maximize();
 
         //! change the current direction -- resets data and refits
         void setDir(const astro::SkyDir& dir,bool subset=false);
@@ -62,12 +61,10 @@ namespace pointlike {
         /// @return the gradient, summed over all bands
         /// @param skip starting band (or number to skip)
         /// @param count [0] number to add: 0 means all
-        const CLHEP::Hep3Vector& gradient(int skip, int count=100) const;
+        const CLHEP::Hep3Vector& gradient() const;
 
         ///@return the curvature, summed over all bamds
-        /// @param skip starting band (or number to skip)
-        /// @param count [0] number to add: 0 means all
-        double curvature(int skip=0, int count=100) const;
+        double curvature() const;
 
         /// @brief Make a table of the fit spectrum, to the ostream
         /// See set_ostream to direct to a file.
@@ -79,13 +76,10 @@ namespace pointlike {
         /// @brief perform localization fit, maximizing joint likelihood
         /// @param skip [0] number of bands to skip
         /// @return error circle radius (deg) or large number corresponding to error condition
-        double localize(int skip);
+        double localize();
 
         /// @brief invoke localize with skip values from skip1 to skip 2 or until good fit
         double localize(int skip1, int skip2);
-
-        /// @brief localate with iteration to refit the levels, using parameters set in ctor
-        double localize();
 
         /// @brief calculate -log likelihood
         /// @param model a spectrum to compare with data

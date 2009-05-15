@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.73 2009/05/11 22:46:47 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.74 2009/05/14 14:08:45 burnett Exp $
 
 */
 
@@ -297,12 +297,11 @@ double PointSourceLikelihood::alpha(int band) const
     else return alpha_band;
 }
 
-double PointSourceLikelihood::maximize(int skip, int count)
+double PointSourceLikelihood::maximize()
 {
     m_TS = 0;
-    //iterator it = begin_skip(skip); //begin();
     Iterator it(begin(),end());
-    for( ; it!=end() && count-- >0 ; ++it){
+    for( ; it!=end() ; ++it){
         SimpleLikelihood& like = **it;
         std::pair<double,double> a(like.maximize());
         if( a.first > s_minalpha ) {
@@ -319,10 +318,10 @@ void PointSourceLikelihood::setDir(const astro::SkyDir& dir, bool subset){
     m_dir = dir;
 }
 
-const Hep3Vector& PointSourceLikelihood::gradient(int skip, int count) const{
+const Hep3Vector& PointSourceLikelihood::gradient() const{
     m_gradient=Hep3Vector(0);  
     Iterator it(begin(),end());
-    for( ; it!=end() && count-- >0; ++it){
+    for( ; it!=end() ; ++it){
         double ts_i((*it)->TS());
         //if( verbose() ) std::cout << "TS: " << (*it)->TS() << std::endl;
         if( ts_i< s_TScut) continue; // do not count if TS small
@@ -333,10 +332,10 @@ const Hep3Vector& PointSourceLikelihood::gradient(int skip, int count) const{
     return m_gradient;
 }
 
-double PointSourceLikelihood::curvature(int skip, int count) const{
+double PointSourceLikelihood::curvature() const{
     double t(0);
     Iterator it(begin(),end());
-    for( ; it!=end()&& count-- >0; ++it){
+    for( ; it!=end(); ++it){
         if( (*it)->TS()< s_TScut) continue;
 #if 0 // Marshall?
         it->second->gradient();
@@ -461,7 +460,7 @@ double PointSourceLikelihood::localize(int skip1, int skip2)
         double sigmax(maxSig());
         //instead of skipping bands, try to decrease PSF width requirement
         set_maxSig(sigmax/(sqrt(1.*(1<<skip))));
-        t = localize(skip);
+        t = localize();
         //reset the value to default in case of catastrophy
         set_maxSig(sigmax);
         if (t<1) break;
@@ -469,7 +468,7 @@ double PointSourceLikelihood::localize(int skip1, int skip2)
     return t;
 }
 
-double PointSourceLikelihood::localize(int skip)
+double PointSourceLikelihood::localize()
 {
     using std::setw; using std::left; using std::setprecision; using std::right;
     using std::fixed;
@@ -481,7 +480,7 @@ double PointSourceLikelihood::localize(int skip)
 
     if( verbose()){
         out() 
-            << "      Searching for best position, start at band "<< skip <<"\n"
+            << "      Searching for best position, maximum sigma allowed"<< maxSig() <<"\n"
             << setw(wd) << left<< "Gradient   " 
             << setw(wd) << left<< "delta  "   
             << setw(wd) << left<< "ra"
@@ -492,13 +491,13 @@ double PointSourceLikelihood::localize(int skip)
     }
     SkyDir last_dir(dir()); // save current direction
     setDir(dir(), true);    // initialize
-    double oldTs( maximize(skip)); // initial (partial) TS
+    double oldTs( maximize()); // initial (partial) TS
     bool backingoff;  // keep track of backing
 
 
     for( ; iter<maxiter; ++iter){
-        Hep3Vector grad( gradient(skip) );
-        double     curv( curvature(skip) );
+        Hep3Vector grad( gradient() );
+        double     curv( curvature() );
 
         // check that resolution is ok: if curvature gets small or negative we are lost
         if( curv < 1.e4){
@@ -548,7 +547,7 @@ double PointSourceLikelihood::localize(int skip)
             m_dir = olddir -delta;
 #if 1
             setDir(m_dir,true);
-            double newTs(maximize(skip));
+            double newTs(maximize());
 #else // make comparison without speedup
             oldTs=TSmap(m_dir); 
             double newTs(TSmap(m_dir));
@@ -584,11 +583,7 @@ double PointSourceLikelihood::localize(int skip)
     return errcirc;
 }
 
-double PointSourceLikelihood::localize()
-{
 
-    return localize(s_skip1, s_skip2);
-}
 
 double PointSourceLikelihood::logLikelihood(const skymaps::SpectralFunction& model, bool extended)const
 {
