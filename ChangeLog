@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Sat May 23 13:53:34 PDT 2009
+pointlike/python
+
+Added Files:
+	roi_analysis.py roi_modules.py roi_plotting.py roi_tools.py 
+Log Message:
+Added code for full binned likelihood implementation.  Substrate undergoing major revision to remove all dependence on PointSourceLikelihood, so this is a "backup" commit.
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-19-00, operation: add
 Package: pointlike
