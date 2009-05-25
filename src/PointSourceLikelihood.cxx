@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.74 2009/05/14 14:08:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.75 2009/05/15 14:30:42 burnett Exp $
 
 */
 
@@ -168,7 +168,51 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
 
 
 }
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/* @class Iterator
+Special iterator which skips pass Bands with a psf width which is too large
+this should assist in localizing and calculating TS maps
+The function set_maxSig determines the maximum width in degrees
+*/
+class Iterator {
 
+public:
+
+    ///! @brief ctor to make new special iterator
+    ///! @param it first band in PSL (use begin())
+    ///! @param end past last band in PSL (use end())
+    Iterator(PointSourceLikelihood::const_iterator it, PointSourceLikelihood::const_iterator end)
+        :m_it(it),
+        m_end(end)
+    {
+        if((*m_it)->sigma()>=PointSourceLikelihood::maxSig()*M_PI/180.)
+            ++(*this);
+    }
+
+    ///! @brief operator dereference
+    SimpleLikelihood* operator*() const {return *m_it;}
+
+    ///! @brief operator default increment
+    PointSourceLikelihood::const_iterator operator++()
+    {
+        ++m_it;
+        while(m_it!=m_end) {
+            if((*m_it)->sigma()<PointSourceLikelihood::maxSig()*M_PI/180.)
+                break;
+            ++m_it;
+        }
+        return m_it;
+    }
+
+    ///! @brief operator comparison for end of PSL list
+    bool operator!=(const PointSourceLikelihood::const_iterator& other) {return other!=m_it;}
+
+private:
+    PointSourceLikelihood::const_iterator m_it;
+    PointSourceLikelihood::const_iterator m_end;
+};
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 PointSourceLikelihood::PointSourceLikelihood(
     const BinnedPhotonData& data,
@@ -262,40 +306,15 @@ PointSourceLikelihood::~PointSourceLikelihood()
     }
 }
 
-
-double PointSourceLikelihood::TS(int band) const
-{
-    double TS_band = 0;
-    bool found = 0;
-    int bandCounter = 0;
-    for(const_iterator it = begin() ; it!=end(); ++it, ++bandCounter){
-        SimpleLikelihood& like = **it;
-        if (bandCounter == band){
-            found = true;
-            TS_band = like.TS();
-        }
-    }
-
-    if (!found) return -1;
-    else return TS_band;
+double PointSourceLikelihood::TS()const
+{ 
+   double ret(0);
+   for (Iterator it(begin(),end()); it!=end(); ++it){
+       ret += (*it)->TS();
+   }
+   return ret;
 }
 
-double PointSourceLikelihood::alpha(int band) const
-{
-    double alpha_band = 0;
-    bool found = 0;
-    int bandCounter = 0;
-    for(const_iterator it = begin() ; it!=end(); ++it, ++bandCounter){
-        SimpleLikelihood& like = **it;
-        if (bandCounter == band){
-            found = true;
-            alpha_band = like.alpha();
-        }
-    }
-
-    if (!found) return -1;
-    else return alpha_band;
-}
 
 double PointSourceLikelihood::maximize()
 {
@@ -480,7 +499,7 @@ double PointSourceLikelihood::localize()
 
     if( verbose()){
         out() 
-            << "      Searching for best position, maximum sigma allowed"<< maxSig() <<"\n"
+            << "      Searching for best position, maximum sigma allowed: "<< maxSig() <<" deg.\n"
             << setw(wd) << left<< "Gradient   " 
             << setw(wd) << left<< "delta  "   
             << setw(wd) << left<< "ra"
@@ -736,14 +755,14 @@ double PointSourceLikelihood::TSmap(const astro::SkyDir&sdir, int band)const
         return this->at(band)->TSmap(sdir);
     }
     double ret(0);
+#if 1
+    Iterator it(begin(),end()); // define by skipping bands with sigma> sigMax
+#else
     const_iterator it = begin();
+#endif
     for( ; it!=end(); ++it){
         ret += (*it)->TSmap(sdir);
-        // maybe set limits?
-        //        const Band& band ((*it)->band());
-        //        if( energy >= band.emin() && energy < band.emax() )break;
     }
-
     return ret;
 }
 
@@ -771,7 +790,7 @@ std::string PSLdisplay::name()const
 
 }
 //=======================================================================
-//        TSdisplay implementation
+//        TSmap implementation
 
 TSmap::TSmap(const PointSourceLikelihood& psl, int band)
 : m_data(0)
@@ -806,22 +825,4 @@ double TSmap::operator()(const astro::SkyDir& sdir)const
     }
     // using current fit.
     return m_psl->TSmap(sdir, m_band)- (m_band==-1?m_offset:0);
-}
-
-Iterator::Iterator(PointSourceLikelihood::const_iterator it, PointSourceLikelihood::const_iterator end)            
-:m_it(it),
-m_end(end)
-{
-    if((*m_it)->sigma()>=PointSourceLikelihood::maxSig()*M_PI/180.)
-        ++(*this);
-}
-
-PointSourceLikelihood::const_iterator Iterator::operator++() {
-    ++m_it;
-    while(m_it!=m_end) {
-        if((*m_it)->sigma()<PointSourceLikelihood::maxSig()*M_PI/180.)
-            break;
-        ++m_it;
-    }
-    return m_it;
 }

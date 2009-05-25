@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.56 2009/05/11 22:46:47 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.57 2009/05/15 14:30:42 burnett Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
@@ -30,8 +30,7 @@ namespace pointlike {
     /** @class PointSourceLikelihood
     @brief manage a set of SimpleLikelihood objects, one for each energy band / event type
 
-    Note that it is a map of the SimpleLikelihood objects, with the key an index to a corresponding Band 
-    object, as maintained by the corresponding BinnedPhotonData.
+    Note that it is a vector of  SimpleLikelihood objects, as well as a SkySpectrum.
 
 
     */
@@ -90,9 +89,9 @@ namespace pointlike {
 
         const astro::SkyDir& dir()const{return m_dir;}
 
-        double TS()const { return m_TS; } 
-        double TS(int band) const;
-        double alpha(int band) const;
+        double TS()const;
+        double TS(int band) const{return (*this).at(band)->TS();}
+        double alpha(int band) const{return (*this).at(band)->alpha();}
 
         double errorCircle()const{return  sqrt(1./curvature())*180/M_PI;}
 
@@ -270,35 +269,6 @@ namespace pointlike {
         int m_band;
         double m_offset;
     };
-
-    /* class Iterator
-    Special iterator which skips pass Bands with a psf width which is too large
-    this should assist in localizing and calculating TS maps
-    The function set_maxSig determines the maximum width in degrees
-    */
-    class Iterator {
-
-    public:
-
-        ///! @brief ctor to make new special iterator
-        ///! @param it first band in PSL (use begin())
-        ///! @param end past last band in PSL (use end())
-        Iterator(PointSourceLikelihood::const_iterator it, PointSourceLikelihood::const_iterator end);
-
-        ///! @brief operator dereference
-        SimpleLikelihood* operator*() const {return *m_it;}
-
-        ///! @brief operator default increment
-        PointSourceLikelihood::const_iterator operator++();
-
-        ///! @brief operator comparison for end of PSL list
-        bool operator!=(const PointSourceLikelihood::const_iterator& other) {return other!=m_it;}
-
-    private:
-        PointSourceLikelihood::const_iterator m_it;
-        PointSourceLikelihood::const_iterator m_end;
-    };
-
 }
 
 #endif
