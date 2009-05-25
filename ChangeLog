@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Mon May 25 12:24:42 PDT 2009
+pointlike/python
+
+Modified Files:
+	quadform.py 
+Log Message:
+A few formatting things and removed one of the "fit" calls in Localize.
+    *
+------------------------------------------------------------
 User: kerrm  Mon May 25 12:20:03 PDT 2009
 pointlike/python
 
