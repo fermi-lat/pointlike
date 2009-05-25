@@ -1,76 +1,14 @@
 import numpy as N
 import pyfits as PF
-from types import ListType,FunctionType,MethodType
-
-try:
-   import uw.pointlike
-except: pass
-
-
-import pointlike as pl
-from pointlike import SkyDir
-
-def phase_circ(eventfiles,center=None,radius=6,phaseranges=[[0,1]],\
-   erange=None,event_class=-1,ctbclasslevel=None,drift_check=False,phase_col_name='PULSE_PHASE'):
-    """Construct a histogram of events interior to a circular region."""
-
-    if not (type(radius) is FunctionType or type(radius) is MethodType):
-        rval=radius
-        def radius(e,event_class=0): return e/e*rval
-
-    if not type(eventfiles) is ListType: eventfiles=[eventfiles]
-
-    center=center or SkyDir(128.83646,-45.17658) #Vela
-
-    ef = [PF.open(e,memmap=1) for e in eventfiles]
-    columns = {}
-    columns['ra']  = N.concatenate([N.asarray(e['EVENTS'].data.field('RA')).astype(float) for e in ef])
-    columns['dec'] = N.concatenate([N.asarray(e['EVENTS'].data.field('DEC')).astype(float) for e in ef])
-    columns['ph']  = N.concatenate([N.asarray(e['EVENTS'].data.field(phase_col_name)).astype(float) for e in ef])
-    columns['en']  = N.concatenate([N.asarray(e['EVENTS'].data.field('ENERGY')).astype(float) for e in ef])
-    columns['ec']  = N.concatenate([N.asarray(e['EVENTS'].data.field('EVENT_CLASS')).astype(int) for e in ef])
-    if ctbclasslevel is not None:
-      columns['ctb'] = N.concatenate([N.asarray(e['EVENTS'].data.field('CTBCLASSLEVEL')).astype(int) for e in ef])
-    if drift_check:
-      columns['dc'] = N.concatenate([N.asarray(e['EVENTS'].data.field('TIME')).astype(float) for e in ef])
-    for e in ef: e.close()
-
-    columns['radii'] = radius(columns['en'],event_class=columns['ec'])
-    #Fast, quick and dirty cut
-    mask = N.abs(columns['dec']-center.dec())<=columns['radii']
-    for x in ['ra','dec','ph','en','ec','radii','ctb','dc']:
-      if x in columns: columns[x] = columns[x][mask]
-
-
-    #Slow, accurate cut
-    scale=180/N.pi
-    ra,dec,radii = columns['ra'],columns['dec'],columns['radii']
-    mask = N.array([center.difference(SkyDir(ra[i],dec[i]))*scale<radii[i] for i in xrange(len(ra))])
-    for x in ['ra','dec','ph','en','ec','radii','ctb','dc']:
-      if x in columns: columns[x] = columns[x][mask]
-
-    ph = columns['ph']
-    mask=N.array([False]*len(ph))
-    for r in phaseranges:
-        for i in xrange(len(ph)):
-            if r[0]<= ph[i] and ph[i] < r[1]: mask[i]=True
-    if erange is not None:
-        mask = N.logical_and( N.logical_and(columns['en']>=erange[0],columns['en']<erange[1]), mask)
-    if event_class >= 0:
-        mask = N.logical_and(columns['ec']==event_class,mask)
-    if ctbclasslevel is not None:
-        mask = N.logical_and(columns['ctb']>=ctbclasslevel,mask)
-    
-    if drift_check:
-        return [ph[mask],columns['dc'][mask]] #Return phase and time
-    return ph[mask] #Just return phase
+from types import FunctionType,MethodType
+from skymaps import SkyDir
+from fitstools import rad_extract
 
 def phase_cut(eventfile,outputfile=None,phaseranges=[[0,1]],phase_col_name='PULSE_PHASE'):
     """Select phases within a set of intervals.
     
         outputfile  - set to change the default output (eventfile_PHASECUT.fits)
         phaseranges - a set of ranges on which to make inclusive cuts"""
-
 
     from numarray import array as narray
     from numpy import array
@@ -112,27 +50,38 @@ def constant_count_histogram(phases,photons_per_bin=100):
    delta_phi = edges[1:]-edges[:-1]
    rates = photons_per_bin/delta_phi
    rates[-1] = counter/delta_phi[-1]
-   return [edges[:-1],rates,delta_phi] #Edges, rates, and widths, appropriate for a bar chart
+   return [edges[:-1],rates,delta_phi] #Left edges, rates, and widths, appropriate for a bar chart
 
 class PulsarLightCurve(object):
 
    def init(self):
       self.cookie_cutter_radius = None
-      self.energy_range         = [100,2e4]
+      self.energy_range         = [100,2e5]
       self.phase_col_name       = 'PULSE_PHASE'
       self.use_mc_psf           = True
-      self.max_radius           = 20.
-      self.use_psf_init         = False
+      self.max_radius           = [5.,5.] #front, back
+      self.use_psf_init         = True
+      self.percentage           = 68.
+      self.tyrel                = False
+      self.damien               = False
 
    def __init__(self,**kwargs):
       self.init()
       self.__dict__.update(kwargs)
+      self.set_radius_function()
 
-   def get_phases(self,event_files,skydir):
+   def set_radius_function(self):
 
-      if self.cookie_cutter_radius is not None:
-         self.phases,self.times = phase_circ(event_files,center=skydir,erange=self.energy_range,\
-                                  phase_col_name=self.phase_col_name, drift_check = True, radius = self.cookie_cutter_radius)
+      if self.damien:
+         def r(e,event_class=0):
+            return N.minimum((e/1000.)**-0.85,2.2)
+      if self.tyrel:
+         def r(e,event_class=0):
+            return N.where(event_class,4.9,2.8)*(e/100)**-0.75
+      elif self.cookie_cutter_radius is not None:
+         def r(e,event_class=0):
+            return N.where(event_class,self.cookie_cutter_radius[1],self.cookie_cutter_radius[0])
+
       else:
          from psf import PSF         
          psf_obj = PSF(use_mc=self.use_mc_psf,use_psf_init=self.use_psf_init)
@@ -140,7 +89,7 @@ class PulsarLightCurve(object):
          b = N.logspace(N.log10(self.energy_range[0]),N.log10(self.energy_range[1]))
          bin_cents = (b[:-1]*b[1:])**0.5
       
-         radii = N.append([psf_obj.conf_region(e,event_class=0) for e in bin_cents],\
+         radii = N.append([psf_obj.conf_region(e,event_class=0,percentage=self.percentage) for e in bin_cents],\
                  [psf_obj.conf_region(e,event_class=1) for e in bin_cents])
 
          def r(e,event_class=0):
@@ -150,67 +99,254 @@ class PulsarLightCurve(object):
                   if b[j]<= e[i] and e[i] < b[j+1]:
                      rads[i] = radii[j*(1+event_class[i])]
                      break
-            rads = N.minimum(self.max_radius,rads)
+                     
+            rads = N.minimum(N.where(event_class,self.max_radius[1],self.max_radius[0]),rads)
             return rads
-         
-         self.phases,self.times = phase_circ(event_files,center=skydir,erange=self.energy_range,\
-                                  phase_col_name=self.phase_col_name, drift_check = True, radius = r)
+      self.radius_function = r
 
-   def plot(self,fignum=1,show_drift=True,show_errorbars=False,outfile=None,show=True,\
-               num_per_bin=None,linecolor='black',errorcolor='pink'):
+   def get_phases(self,event_files,skydir):
+
+      self.event_files = event_files #what is this used for?   
+      results = rad_extract(event_files,skydir,self.radius_function,return_cols=['PULSE_PHASE','TIME','ENERGY'])
+      ens = results['ENERGY']
+      mask = N.logical_and(ens >= self.energy_range[0], ens < self.energy_range[1])
+      self.phases = results['PULSE_PHASE'][mask]
+      self.times  = results['TIME'][mask]
+
+
+   def plot(self,fignum=2,show_trend=True,show_errorbars=False,outfile=None,num_per_bin=None,two_cycles=False,point_source=None,**kwargs):
+      if 'linecolor' not in kwargs: kwargs['linecolor'] = 'black'
+      if 'errorcolor' not in kwargs: kwargs['errorcolor']='green'
+      if 'fill' not in kwargs: kwargs['fill'] = False
+      
       import pylab as P
-      if show_drift: P.figure(fignum,(6,10))
+      #if show_trend: P.figure(fignum,(6,10))
+      if show_trend: P.figure(fignum, (10,6))
       else: P.figure(fignum)
 
-      npb = max(int(round(len(self.phases)/100.)),20) if num_per_bin is None else num_per_bin
+      npb = num_per_bin or max(int(round(len(self.phases)/30.)),20)
 
       ev_cop = self.phases.copy()
-      times = (self.times-self.times.min())/(24*3600.)
+      times = (self.times-self.times.min())/(24*3600.) #in days
       phases,rates,delta_phi = constant_count_histogram(ev_cop,npb)
       rates_pre = rates.copy()
       rates = rates/rates[rates>0].min()
 
-      ax1 = P.axes([0.15,0.1,0.75,0.4]) if show_drift else P.axes()
-      ax1.step(N.append(phases,1),N.append(rates[0],rates),where='pre',color=linecolor,label='%d cts/bin'%npb)
+      #ax1 = P.axes([0.15,0.1,0.75,0.4]) if show_trend else P.axes()
+      ax1 = P.subplot(121) if show_trend else P.axes()
+      label = '%d cts/bin'%(npb)
+      if kwargs['fill']:
+         ax1.bar(phases,rates,N.append(phases[1:],1)-phases,alpha=1.0,ec='k',fc='red',ec='red')
+      ax1.step(N.append(phases,1),N.append(rates[0],rates),where='pre',color=kwargs['linecolor'],label=label)
+      
+      if two_cycles:
+         ax1.step(N.append(phases,1)+1,N.append(rates[0],rates),where='pre',color=kwargs['linecolor'])
       ax1.set_ylabel('Relative Count Rate')
+      ax1.set_xlabel('Phase')
       ax1.grid(b=True)
+      ax1.legend(loc=0)
+
       if show_errorbars:
          tph = N.append(phases,1)
          delta_phi = tph[1:]-tph[:-1]
          errs = ((rates_pre*delta_phi)**0.5/rates_pre[rates_pre>0].min())/delta_phi
          tph = (tph[:-1]+tph[1:])/2.
-         P.errorbar(tph,rates,yerr=errs,ls=' ',capsize=0,color=errorcolor)
+         P.errorbar(tph,rates,yerr=errs,ls=' ',capsize=0,color=kwargs['errorcolor'])
+         if two_cycles:
+            P.errorbar(tph+1,rates,yerr=errs,ls=' ',capsize=0,color=kwargs['errorcolor'])
 
-      if show_drift:
-         ax2 = P.axes([0.15,0.55,0.75,0.4])
+      if show_trend:
+         ax2 = P.subplot(122)
          stride = max(1,int(len(ev_cop)/500.))
-         ax2.scatter(self.phases[::stride],times[::stride],marker='+',color='red')
-         a = ax2.axis()
-         ax2.axis([0,1,0,a[3]])
+         stride = 1
+         ax2.scatter(times[::stride],self.phases[::stride],marker='+',color='red',s=10)
+         ax2.axis([0,times[::stride].max(),0,1])
          ax2.grid(b=True)
-         ax2.set_ylabel('Days')
+         ax2.set_xlabel('Days')
+         ax2.set_ylabel('Phase',color='red')
+         for tl in ax2.get_yticklabels():
+            tl.set_color('red')
 
-      P.xlabel('Phase')
+         #Do H-statistic trend
+         ax3 = ax2.twinx()
+         t0 = self.times.min()
+         delta_t = (self.times.max() - t0)/10
+         ts = N.asarray([t0 + i*delta_t for i in xrange(10+1)])
+         hs = []
+         for t in ts[1:]:
+            hs += [h_statistic(self.phases[self.times <= t]) ]
+         ts = (ts - ts[0])/(24.*3600.)
+         #ax3.plot(hs,ts[1:],marker='o',color='k',label='$\mathrm{Observed}$',ls=' ',ms=5)
+         ax3.plot(ts[1:],hs,marker='o',color='blue',ls='-',ms=6)
+         #fit a trend line
+         from scipy import polyval,polyfit
+         pfit = polyfit(ts[1:],hs,1)
+         #ax3.plot(polyval(pfit,ts[1:]),ts[1:],linestyle='--',color='blue',label='$\mathrm{Linear\ Trend}$',lw=2)
+         ax3.plot(ts[1:],polyval(pfit,ts[1:]),linestyle='--',color='blue',lw=3)
+         #ax3.set_ylabel('Integration Time (Days)')
+         sig = r'>5\sigma' if hs[-1] > 50 else '%.1f\sigma'%(sig2sigma(h_sig(hs[-1])))
+         if point_source is not None:
+            wh,wsig = self.weighted_h(point_source)
+            tit = '$\mathrm{Aperture\ H:\ %s,\ Weighted\ H:\ %.1f\sigma}$'%(sig,wsig) 
+         else:
+            tit = '$\mathrm{Aperture\ H:\ %s}$'%(sig) 
+         ax3.axhline(hs[-1],linestyle='-',color='blue',label='$\mathrm{Aperture\ H=%.1f\ (%s)}$'%(hs[-1],sig),lw=2)
+         ax3.set_ylabel('H Test Statistic',color='blue')
+         ax = ax3.axis()
+         ax3.axis([0,times.max(),ax[2],ax[3]])
+         for tl in ax3.get_yticklabels():
+            tl.set_color('blue')
+         #ax3.legend(loc=0)
+         ax3.set_title(tit)
+
+      #P.xlabel('Phase')
       if outfile is not None: P.savefig(outfile)
-      if show: P.show()
+
+   def h_trend(self,intervals=10,fignum=1,outfile=None,show=True,point_source=None):
+      import pylab as P
+      t0 = self.times.min()
+      delta_t = (self.times.max() - t0)/intervals
+      ts = N.asarray([t0 + i*delta_t for i in xrange(intervals+1)])
+      hs = []
+      for t in ts[1:]:
+         hs += [h_statistic(self.phases[self.times <= t]) ]
+      P.figure(fignum)
+      ts = (ts - ts[0])/(24.*3600.)
+      
+      #fit a trend line
+      from scipy import polyval,polyfit
+      pfit = polyfit(ts[1:],hs,1)
+
+      if point_source is not None:
+         wh,wsig = self.weighted_h(point_source)
+      
+      P.plot(ts[1:],hs,marker='o',color='k',label='$\mathrm{Observed}$',ls=' ',ms=9)
+      P.xlabel('Integration Time (Days)')
+      P.ylabel('H Test Statistic')
+      sig = r'>5\sigma' if hs[-1] > 50 else '%.1f\sigma'%(sig2sigma(h_sig(hs[-1])))
+      P.axhline(hs[-1],linestyle='-',color='red',label='$\mathrm{Aperture\ H=%.1f\ (%s)}$'%(hs[-1],sig),lw=2)
+      if point_source is not None:
+         P.axhline(hs[-1],linestyle='',color='green',label='$\mathrm{Weighted\ Test:\ %.1f\sigma}$'%(wsig),lw=2)
+      P.plot(ts[1:],polyval(pfit,ts[1:]),linestyle='--',color='blue',label='$\mathrm{Linear\ Trend}$',lw=2)
+      P.legend(loc=0)
+      P.grid(b=True)
+      if outfile is not None: P.savefig(outfile)
+      #if show: P.show()
+
+   def weighted_h(self,point_source,mc_iterations=1000):
+      pp = PhotonProbability(max_radius=2)
+      v,diffs,phs,ens = pp.get_probs(self.event_files,point_source,return_cols=['PULSE_PHASE','ENERGY'])
+      lam = 1./N.mean( [h_statistic(N.random.rand(len(v)),v) for x in xrange(mc_iterations)] )
+      weighted_h = h_statistic(phs,v)
+      sig = N.exp(-lam*weighted_h)
+      h_equiv = sig2h(sig)
+      sigma   = sig2sigma(sig)
+      return h_equiv,sigma
+
+def h_statistic(phases,weights=None):
+
+   phases = N.asarray(phases)*(2*N.pi)
+
+   n = len(phases) if weights is None else weights.sum()
+   weights = 1. if weights is None else weights
+
+   if n < 1e5:  #faster but requires ~20x memory of alternative
+
+      s = (weights*N.cos(N.outer(N.arange(1,21),phases))).sum(axis=1)**2 +\
+          (weights*N.sin(N.outer(N.arange(1,21),phases))).sum(axis=1)**2
+
+   else:
+
+      s = (N.asarray([(weights*N.cos(k*phases)).sum() for k in xrange(1,21)])/n)**2 +\
+          (N.asarray([(weights*N.sin(k*phases)).sum() for k in xrange(1,21)])/n)**2
+
+   return (2./n*N.cumsum(s) - 4*N.arange(0,20)).max()
+
+def h_sig(h):
+   if h <= 23:
+      return 0.9999755*N.exp(-0.39802*h)
+   return max(1.210597*N.exp(-0.45901*h + 0.0022900*h**2),4e-8)
+
+def sig2h(sig):
+   if sig <= 4e-8: return 50.
+   if sig >= h_sig(23):
+      return N.log(sig/0.9999755)/(-0.39802)
+   def invhsig(x,*args):
+      return h_sig(x) - args[0]
+   from scipy.optimize import fsolve
+   return fsolve(invhsig,[30],args=(sig,))
+
+def sig2sigma(sig):
+   from scipy.special import erfc,erfcinv
+   if sig > 1e-15: return erfcinv(sig)*2**0.5
+   def inverfc(x,*args):
+      return erfc(x/2**0.5)-args[0]
+   from scipy.optimize import fsolve
+   return fsolve(inverfc,[8],(sig,))
+
+class PhotonProbability(object):
+
+   def init(self):
+      self.diffuse_file = r'f:\glast\data\galprop\gll_iem_v01.fit'
+      #self.diffuse_file = r'f:\glast\data\galprop\GP_gamma_healpix_o8_54_59Xvarh8S.fits'
+      self.iso_file     = r'f:\glast\data\galprop\iso_mapcube2.fits'
+      self.catalog_file = r'd:/users/kerrm/python/analyses/spec_tests/gll_psc3monthiG5_v2.fit'
+      self.e_range = [100,2e5]
+      self.max_radius  = 3
+   
+   def __init__(self,**kwargs):
+
+      self.init()
+      self.__dict__.update(kwargs)
+
+      from skymaps import HealpixDiffuseFunc,DiffuseFunction,CompositeSkySpectrum
+      try:
+         self.galdiffuse = DiffuseFunction(self.diffuse_file)
+      except:
+         self.galdiffuse = HealpixDiffuseFunc(self.diffuse_file)
+
+      self.isodiffuse = DiffuseFunction(self.iso_file)
+
+      self.diffuse = CompositeSkySpectrum(self.galdiffuse,1.0)
+      self.diffuse.add(self.isodiffuse,1.0)
+
+      from psf import PSF
+      self.psf = PSF(use_psf_init=True)
+
+      from psmanager import CatalogManager
+      self.cm = CatalogManager(self.catalog_file)
+
+   def get_probs(self,event_files,point_source, return_cols =['ENERGY']):
+
+      d = point_source.skydir
+      keys = list(set(['RA','DEC','ENERGY','EVENT_CLASS']+return_cols))
+      cols = rad_extract(event_files,d,self.max_radius,return_cols = keys)
+      mask = cols['ENERGY'] > 200
+      for key in cols.keys():
+         cols[key] = cols[key][mask]
+      ps = self.cm.generate_source_list(d,cat_loc_override=True)
+      ens,ecs,diffs = cols['ENERGY'],cols['EVENT_CLASS'],cols['DIFFERENCES']
+
+      from skymaps import SkyDir
+      skydirs = map(SkyDir,cols['RA'],cols['DEC'])
+
+      units    = N.pi/180.
+      jac      = 2*N.pi*N.asarray([self.psf.sigma(en,ec) for en,ec in zip(ens,ecs)])**2 * units**2
+      f_values = N.asarray([self.psf(en,diff,ec) for en,diff,ec in zip(ens,diffs,ecs)])/jac
+
+      neighbour_values = N.zeros_like(ens)
+      
+      if len(ps) > 1:
+         for neighbour in ps[1:]:
+            model_vals = neighbour.model(ens)
+            my_diffs = N.asarray([neighbour.skydir.difference(skydir) for skydir in skydirs])
+            psf_vals = N.asarray([self.psf(en,diff,ec) for en,diff,ec in zip(ens,my_diffs,ecs)])/jac
+            neighbour_values += model_vals*psf_vals
+      
+      diff_values = N.asarray([self.diffuse.value(di,en) for di,en in zip(skydirs,ens)])
+      e_scale = point_source.model(ens)
+      v = e_scale*f_values/(diff_values+neighbour_values+e_scale*f_values)
+
+      return [v,diffs*180/N.pi]+[cols[key] for key in return_cols]
 
 
-#--------------------------------------------------------
-    
-if __name__=='__main__':
-   a=Phase('ft1_first_diff_v2.fits')
-   a.write()
-   from pylab import hist
-   hist(a.phaseHist(), bins = 20)
-    
-
-        
-"""Same, but with periods.  This is harder, don't know why I bothered.
-if pd==0:
-    phases = [t/p for t in self.times] #Exact to 0th
-elif pdd==0:
-    phases = [1/pd*N.log(1.+pd/p*t) for t in self.times] #Exact to 1st
-else:
-    d=(4*pdd*p-pd**2)**0.5 #Discriminant
-    phases = [2/d*(N.arctan( (pd+2*pdd*t)/d ) - N.arctan( pd/d )) for t in self.times] #Exact to 2nd
-"""

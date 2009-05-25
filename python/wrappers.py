@@ -5,7 +5,7 @@
    signal, flux, expected counts, background, etc.  PointSourceLikelihoodWrapper makes the
    transition from the band level to energy space.
    
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/wrappers.py,v 1.8 2009/01/16 22:58:10 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/wrappers.py,v 1.9 2009/05/25 17:18:46 kerrm Exp $
 
    author: Matthew Kerr
    """
@@ -162,7 +162,6 @@ Optional keyword arguments:
       self.emulate_unbinned = False
       self.extended_likelihood = False
       self.prior_cut = 1.00
-      self.roi_mode = False
 
    def setup(self):
       sl,exposure,sky_dir = self.args
@@ -179,7 +178,7 @@ Optional keyword arguments:
       self.pre_product    = sampling_points*exposure_points*simpsons_weights
       self.psf_correction = 1 - (1+sl.umax()/sl.gamma())**(1-sl.gamma()) #fraction of signal in ROI
 
-      if not (self.sl.extended_likelihood() or self.extended_likelihood or self.roi_mode): self.__marg_setup__()
+      if not (self.sl.extended_likelihood() or self.extended_likelihood): self.__marg_setup__()
 
    def __marg_setup__(self):
       #Pieces for calculating marginalization integral; needed for speed!
@@ -313,7 +312,6 @@ Optional keyword arguments:
       self.emax = 5e5
       self.quiet = False
       self.back_multi = 1.
-      self.roi_mode = False
 
    def setup(self):
       self.count = 0 #for iter interface

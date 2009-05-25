@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.8 2009/01/16 22:58:10 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.2 2009/05/25 17:01:06 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -115,7 +115,8 @@ class ROIModelManager(object):
 class ROIPointSourceManager(ROIModelManager):
    """Manage all point sources."""
    
-   def __init__(self,point_sources):
+   def __init__(self,point_sources,roi_dir):
+      self.roi_dir = roi_dir
       self.point_sources = point_sources
       self.models = N.asarray([point_source.model for point_source in point_sources])
       self.mask   = N.asarray([True]*len(self.models))
@@ -126,7 +127,7 @@ class ROIPointSourceManager(ROIModelManager):
       return '\n\n'.join(['%s fitted with %s\n'%(ps.name,ps.model.pretty_name)+ps.model.__str__()\
                           for ps in self.point_sources])
 
-   def ROI_dir(self): return self.point_sources[0].skydir
+   def ROI_dir(self): return self.roi_dir
 
    def name(self): return self.point_sources[0].name
 
@@ -134,7 +135,7 @@ class ROIPointSourceManager(ROIModelManager):
 
       print 'Setting up point sources...'
 
-      roi_dir = self.ROI_dir()
+      roi_dir = self.roi_dir
       overlap = ROIOverlap()
       from skymaps import PsfSkyFunction
 
@@ -332,7 +333,7 @@ class ROILocalizer(object):
 
    def __init__(self,roi):
       self.roi = roi
-      self.rd  = roi.psm.ROI_dir()
+      self.rd  = roi.psm.point_sources[0].skydir #note -- not necessarily ROI center!
             
    def TSmap(self,skydir):
       return (-2)*self.roi.spatialLikelihood(skydir)
