@@ -5,12 +5,27 @@
    signal, flux, expected counts, background, etc.  PointSourceLikelihoodWrapper makes the
    transition from the band level to energy space.
    
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/wrappers.py,v 1.7 2008/12/15 22:12:26 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/wrappers.py,v 1.8 2009/01/16 22:58:10 kerrm Exp $
 
    author: Matthew Kerr
    """
 
 import numpy as N
+
+class Singleton(object):
+
+   __instances = {}
+
+   def __init__(self,constructor,*args,**kwargs):
+      inst = Singleton._Singleton__instances
+      key  = str(constructor)
+      if key not in inst.keys():
+         inst[key] = constructor(*args,**kwargs)
+
+   def __call__(self,constructor):
+      inst = Singleton._Singleton__instances
+      key  = str(constructor)
+      if key in inst: return inst[key]
 
 class Wrapper(object):
     """Parent class for a wrapper.  Inherited classes are supposed to get a list of kwargs that may override
@@ -36,29 +51,32 @@ Optional keyword arguments:
   Keyword     Description
   =========   =======================================================
   CALDB       [None] If not specified, will use environment variable
-  irf         ['P6_v1_diff'] Used for effective area
+  irf         ['P6_v3_diff'] Used for effective area
   =========   =======================================================
     """
 
     def init(self):
         self.CALDB = None
         self.quiet = False
-        self.irf   ='P6_v1_diff'
+        self.exp_irf   ='P6_v3_diff'
 
     def setup(self):
         
         from skymaps import Exposure, EffectiveArea
         if self.CALDB is not None: EffectiveArea.set_CALDB(self.CALDB)
+        else:
+            from os import environ
+            EffectiveArea.set_CALDB(environ['CALDB'])
         lt = self.args[0].lt
         inst = ['front', 'back']
-        self.ea  = [EffectiveArea(self.irf+'_'+x) for x in inst]
+        self.ea  = [EffectiveArea(self.exp_irf+'_'+x) for x in inst]
         if not self.quiet: print ' -->effective areas at 1 GeV: ', ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
         self.exposure = [Exposure(lt,ea) for ea in self.ea]
 
     def value(self, sdir, energy, event_class):
         return self.exposure[event_class].value(sdir, energy)
 
-    def __call__(self, event_class): return self.exposure[event_class]
+    def __call__(self, event_class = 0): return self.exposure[event_class]
 
 class BackgroundWrapper(Wrapper):
     """A wrapper class to create and wrap a Background object.         
@@ -70,28 +88,49 @@ Optional keyword arguments:
   =========   =======================================================
   isotropic   [1.5e-5,2.1] Sreekumar EGRET values for an isotropic power law diffuse
   galactic_scale [1.] Scale factor for galprop model
+  iso_file    [None] an optional MapCube representing the isotropic diffuse
+  iso_scale   [1.] scale for the optional MapCube; useful for phase selection
   =========   =======================================================
     """
 
     def init(self):
         self.isotropic      = [1.5e-5,2.1]
         self.galactic_scale = 1.
+        self.iso_file       = None
+        self.iso_scale      = 1.
 
     def setup(self):
+        print 'Opening backgrounds...'
         from skymaps import Background, DiffuseFunction, CompositeSkySpectrum, IsotropicPowerLaw, HealpixDiffuseFunc
         diffusefile,exposure = self.args
         import pyfits
         q = pyfits.open(diffusefile, memmap=1)
         if q[1].name == 'SKYMAP': # first extension name: is it healpix?
-            self.galactic_diffuse = HealpixDiffuseFunc(self.diffusefile)
+            self.unscaled_galactic_diffuse_singl = Singleton(HealpixDiffuseFunc,diffusefile,HealpixDiffuseFunc.DIFFDENSITY)
+            self.unscaled_galactic_diffuse = self.unscaled_galactic_diffuse_singl(HealpixDiffuseFunc)
         else:
-            self.galactic_diffuse = DiffuseFunction(diffusefile)
-        self.isotropic_diffuse = IsotropicPowerLaw(self.isotropic[0],self.isotropic[1])
-        self.diffuse = CompositeSkySpectrum(self.galactic_diffuse,self.galactic_scale);
+            self.unscaled_galactic_diffuse_singl = Singleton(DiffuseFunction,diffusefile)
+            self.unscaled_galactic_diffuse = self.unscaled_galactic_diffuse_singl(DiffuseFunction)
+        q.close()
+        if self.galactic_scale == 1.:
+            self.galactic_diffuse = self.unscaled_galactic_diffuse
+        else:
+            self.galactic_diffuse  = CompositeSkySpectrum(self.unscaled_galactic_diffuse,self.galactic_scale)
+        if self.iso_file is None:
+           self.isotropic_diffuse = IsotropicPowerLaw(self.isotropic[0],self.isotropic[1])
+        else:
+            self.unscaled_isotropic_diffuse = DiffuseFunction(self.iso_file)
+            if self.iso_scale == 1.:
+                self.isotropic_diffuse = self.unscaled_isotropic_diffuse
+            else:
+                self.isotropic_diffuse = CompositeSkySpectrum(self.unscaled_isotropic_diffuse,self.iso_scale)
+        self.diffuse = CompositeSkySpectrum(self.galactic_diffuse,1.);
         self.diffuse.add(self.isotropic_diffuse,1.)
         self.background = Background(self.diffuse, exposure(0), exposure(1)) # array interface does not work
+        print 'Finished with the backgrounds...'
 
     def __call__(self): return self.background
+
 
 class SimpleLikelihoodWrapper(Wrapper):
    """
@@ -122,23 +161,27 @@ Optional keyword arguments:
       self.n_simps = 8
       self.emulate_unbinned = False
       self.extended_likelihood = False
-      self.prior_cut = 1.00 
+      self.prior_cut = 1.00
+      self.roi_mode = False
 
    def setup(self):
       sl,exposure,sky_dir = self.args
       self.sl,self.sky_dir,self.exposure = sl,sky_dir,exposure
       self.emin,self.emax = sl.band().emin(),sl.band().emax()
+      self.empty = False
       
       #Pieces for calculating the expected counts under a given model
-      self.sampling_points  = N.logspace(N.log10(self.emin),N.log10(self.emax),self.n_simps+1)
-      self.exposure_points  = N.fromiter( (exposure.value(sky_dir,e,sl.band().event_class()) for e in self.sampling_points) , float)
-      self.simpsons_weights = N.log(self.sampling_points[-1] / self.sampling_points[0]) * \
-                              N.asarray([1.] + ([4.,2.]*(self.n_simps/2))[:-1] + [1.])/(3.*self.n_simps)
-      self.psf_correction   = 1 - (1+sl.umax()/sl.gamma())**(1-sl.gamma()) #fraction of signal in ROI
+      self.sampling_points = sampling_points = N.logspace(N.log10(self.emin),N.log10(self.emax),self.n_simps+1)
+      exposure_points      = N.fromiter( (exposure.value(sky_dir,e,sl.band().event_class()) for e in sampling_points) , float)
+      simpsons_weights     = N.log(sampling_points[-1] / sampling_points[0]) * \
+                             N.asarray([1.] + ([4.,2.]*(self.n_simps/2))[:-1] + [1.])/(3.*self.n_simps)
+      
+      self.pre_product    = sampling_points*exposure_points*simpsons_weights
+      self.psf_correction = 1 - (1+sl.umax()/sl.gamma())**(1-sl.gamma()) #fraction of signal in ROI
 
-      if not (self.sl.extended_likelihood() or self.extended_likelihood): self.marg_setup()
+      if not (self.sl.extended_likelihood() or self.extended_likelihood or self.roi_mode): self.__marg_setup__()
 
-   def marg_setup(self):
+   def __marg_setup__(self):
       #Pieces for calculating marginalization integral; needed for speed!
       n_points = min(max((int(100*(self.sl.photons()/20.)**0.5) >> 1) << 1,100),1000) #force n_points to be even
       self.points = N.logspace(-3,0,n_points+1) if self.sl.alpha() < 0.1 else N.linspace(1e-3,1,n_points+1)
@@ -159,13 +202,12 @@ Optional keyword arguments:
    def expected(self,model,normalize=True):
       """Return expected counts in the ROI for a source model.      
          Integration is by Simpson's rule in log space."""
-      normalization = self.psf_correction if normalize else 1.
-      return normalization*\
-            (self.simpsons_weights*self.sampling_points*model(self.sampling_points)*self.exposure_points).sum()
+      return (self.psf_correction if normalize else 1.)*\
+             (self.pre_product*model(self.sampling_points)).sum()
 
    def avg_exposure(self):
       """Return the logarithmic average of the exposure."""
-      return self.expected(model=lambda e: 1./e)/N.log(self.emax/self.emin)/self.psf_correction
+      return self.expected(model=lambda e: 1./e,normalize=False)/N.log(self.emax/self.emin)
 
    def logLikelihood(self,expected):
       """Return the (negative) log likelihood.  If extended likelihood is enabled, use that.
@@ -198,6 +240,8 @@ Optional keyword arguments:
          return signal*(N.exp(hessian**-0.5)-N.exp(-hessian**-0.5))/2.
       else: return signal*0.99
 
+   def TS(self): return self.sl.TS()
+
    def signal(self):
       
       if self.sl.photons()==0: return (0,3) #Feldman-Cousins upper limit (put in actual value!)
@@ -215,7 +259,7 @@ Optional keyword arguments:
          signal = self.sl.signal()
          signal_err = ( (self.sl.photons()*self.sl.sigma_alpha())**2 + self.sl.alpha()**2*self.sl.photons() )**0.5
       
-      return (signal,signal_err)
+      return (signal/self.psf_correction,signal_err/self.psf_correction)
    
    def flux(self,e_weight=0,cgs=True,mev=True):
       """Return the differential flux estimate for this band.         
@@ -232,7 +276,7 @@ Optional keyword arguments:
       """
       
       units = (1.60218e-6 if mev else 1.60218e-9)**(e_weight-1) if cgs else (1. if mev else 10**(-3*(e_weight-1)))
-      multi = units*self.energy()**e_weight/self.avg_exposure()/(self.emax-self.emin)/self.psf_correction
+      multi = units*self.energy()**e_weight/self.avg_exposure()/(self.emax-self.emin)
       signal,error = self.signal()
       return (multi*signal,multi*error)
 
@@ -240,6 +284,7 @@ Optional keyword arguments:
       """Return energy 'associated' with this band, taken to mean where the flux should optimally be evaluated."""
       #return (self.sl.band().emax() + self.sl.band().emin())/2.
       return (self.emin*self.emax)**0.5
+
 
 class PointSourceLikelihoodWrapper(Wrapper):
    """
@@ -265,25 +310,24 @@ Optional keyword arguments:
 
    def init(self):
       self.emin = 200
-      self.emax = None
+      self.emax = 5e5
       self.quiet = False
       self.back_multi = 1.
+      self.roi_mode = False
 
    def setup(self):
       self.count = 0 #for iter interface
       self.psl,self.exposure = self.args
       self.update()
-      self.bin_centers = N.sort(list(set([x.energy() for x in self])))
-      ens = N.asarray([ [x.emin,x.emax] for x in self]).flatten()
-      self.emin,self.emax = ens.min(),ens.max() #replace defaults with observed
+            
 
    def update(self):
       self.psl.maximize()
       check = self.BandCheck(self.emin,self.emax,self.back_multi)
-      #for sl in self.psl:
-      #   print 'Energy: %d Event_class: %d Accepted: %s'%(sl.band().emin(),sl.band().event_class(),'True' if check(sl) else 'False')
-
-      self.sl_wrappers = [SimpleLikelihoodWrapper(sl,self.exposure,self.psl.dir()) for sl in self.psl if check(sl)]
+      self.sl_wrappers = [SimpleLikelihoodWrapper(sl,self.exposure,self.psl.dir(),**self.__dict__) for sl in self.psl if check(sl)]
+      
+      self.bin_centers = N.sort(list(set([x.energy() for x in self])))
+      self.bin_edges = N.sort(list(set([x.emin for x in self] + [x.emax for x in self])))
 
    def __iter__(self): return self
 
@@ -361,14 +405,14 @@ Optional keyword arguments:
 
    def TS(self):
       """Return TS summed over bands."""
-      return sum( (slw.sl.TS() for slw in self) )
+      return sum( (slw.TS() for slw in self) )
 
    def enable_extended_likelihood(self,val=True):
       for slw in self: slw.extended_likelihood = val
 
    def set_prior_cut(self,cut=0.75):
       """Enable the Bayesian prior by overriding the default cut of 1."""
-      for slw in self: slw.prior_cut = cut; slw.marg_setup()
+      for slw in self: slw.prior_cut = cut; slw.__marg_setup__()
 
    class BandCheck(object):
       """One-off class to determine whether a band should be included based on energy cuts."""
@@ -377,5 +421,5 @@ Optional keyword arguments:
          self.femin,self.bemin,self.emax = emin,emin*back_multi,emax #temporary
       def __call__(self,sl):
          emin = self.femin if sl.band().event_class() == 0 else self.bemin
-         return round(sl.band().emin()) >= round(emin) and (self.emax is None or round(sl.band().emax()) <= round(self.emax))
+         return round(sl.band().emin()) >= round(emin) and round(sl.band().emax()) <= round(self.emax)
 
