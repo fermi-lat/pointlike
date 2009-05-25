@@ -1,12 +1,11 @@
-#TODO
-#     - spatial residuals
-#     - (hard) energy dispersion
-#     - PSF convolution of background
+"""
+Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
+   on the PSF.
 
-"""Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
-   on the PSF.  The heavy lifting is done in pointlike, where the spatial distributions are calculated
-   initially.  Fitting of spectral models is accomplished to reasonably accuracy by scaling these
-   initial estimates band-by-band, based on the revised spectral models, with each iteration."""
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.8 2009/01/16 22:58:10 kerrm Exp $
+
+author: Matthew Kerr
+"""
 
 import numpy as N
 from roi_modules import *
@@ -19,204 +18,131 @@ from psmanager import *
 class ROIAnalysis(object):
 
    def init(self):
-      self.fit_emin=0
-      self.fit_emax=1e6
-      self.small_scale = None
 
-      self.localization_dir = None
-      self.localization_err = None
-
-      self.spatial = False
-      self.logl = None
+      self.fit_emin = 100
+      self.fit_emax = 5e5
   
    def __init__(self,ps_manager,bg_manager,spectral_analysis,**kwargs):
       self.init()
-      self.__dict__.update(kwargs)
-      self.ps_manager,self.bg_manager,self.spectral_analysis = ps_manager,bg_manager,spectral_analysis
-      self.setup_fitter()
+      self.__dict__.update(**kwargs)
+      self.psm  = ps_manager
+      self.bgm  = bg_manager
+      self.sa   = spectral_analysis
+      self.logl = None
+      self.setup_bands()
 
-   def setup_fitter(self):
-      print 'Making and maximizing primary PointSourceLikelihood...'
-      sa,ps_manager = self.spectral_analysis,self.ps_manager
-      f = sa.fitter(ps_manager.name(),ps_manager.ROI_dir())
-      self.fitter = f
+      self.bin_centers = N.sort(list(set([b.e for b in self.bands])))
+      self.bin_edges   = N.sort(list(set([b.emin for b in self.bands] + [b.emax for b in self.bands])))
 
-      from skymaps import WeightedSkyDirList
-      print 'Getting pixels...'
-      for slw in f.pslw:
-         
-         slw.radius_in_rad  = (2*slw.sl.umax())**0.5*slw.sl.sigma()
-         slw.use_empty      = False #slw.npix < 500
-         slw.wsdl           = WeightedSkyDirList(slw.sl.band(),ps_manager.ROI_dir(),slw.radius_in_rad,slw.use_empty) # get empties
-         slw.pix_counts     = N.asarray([x.weight() for x in slw.wsdl]) #observed counts
-         slw.npix           = slw.wsdl.total_pix() #slw.sl.band().total_pix(ps_manager.ROI_dir(),slw.radius_in_rad)
-         slw.solid_angle    = slw.npix*slw.sl.band().pixelArea() #ragged edge
-         slw.solid_angle_p  = 2*N.pi*(1-N.cos(slw.radius_in_rad)) #solid angle for a pure circle
-         
-         #Simpson's rule factors for quadrature of background
-         #note Jacobean!
-         slw.simps_pts      = N.logspace(N.log10(slw.emin),N.log10(slw.emax),5)
-         slw.simps_vec      = (slw.simps_pts*N.asarray([1,4,2,4,1]))/(3.*4.)*N.log(slw.emax/slw.emin)
+      self.param_state = N.concatenate([m.free for m in self.psm.models] + [m.free for m in self.bgm.models])
+      self.psm.cache(self.bands)
+      self.psm.update_counts(self.bands)
 
-      self.bg_manager.setup_initial_counts(f.pslw)
-      self.ps_manager.setup_initial_counts(f.pslw)
+   def setup_bands(self):
+      
+      from collections import deque
+      self.bands = deque()
+      for band in self.sa.pixeldata.dmap:
+         if band.emin() >= self.fit_emin and band.emax() < self.fit_emax:
+            self.bands.append(ROIBand(band,self.sa))
+      self.bands = N.asarray(self.bands)
 
-      """
-      #Make total counts for spatial likelihood (background frozen)
-      for slw in f.pslw:
+      self.psm.setup_initial_counts(self.bands)
+      self.bgm.setup_initial_counts(self.bands)
 
-         #sum up totals
-         slw.total_bg = slw.gal_counts + slw.iso_counts
-         if len(self.ps_manager.point_sources) > 1:
-            total_ps = (slw.ps_counts[1:]*slw.overlaps[1:]).sum()
-         else:
-            total_ps = 0
-         slw.total_bg += total_ps
-
-         #sum up pixels
-         slw.total_bg_pix = slw.gal_pix_counts + slw.iso_pix_counts
-         if len(self.ps_manager.point_sources) > 1 and slw.has_pixels:
-            total_ps_pix = (slw.ps_pix_counts[:,1:]*slw.ps_counts[1:]).sum(axis=1)
-         else:
-            total_ps_pix = 0
-         slw.total_bg_pix += total_ps_pix
-         
-         if slw.has_pixels:
-            slw.qs = (slw.ps_pix_counts[:,0]/slw.total_bg_pix)*(slw.total_bg/slw.overlaps[0])
-         else:
-            slw.qs = 0
-      """
-   """
-   def logLikelihood(self,parameters,*args):
-
-      f = self.fitter
-
-      self.set_parameters(parameters)
-      self.bg_manager.update_counts(f.pslw)
-      self.ps_manager.update_counts(f.pslw)
-
-      m = self.ps_manager.mask
-
-      tot_term  =  sum( (
-                   slw.gal_counts + slw.iso_counts + \
-                   (slw.ps_counts[m]*slw.overlaps[m]).sum() + slw.frozen_total_counts\
-                   for slw in f.pslw if
-                   (slw.energy() > self.fit_emin and slw.energy() < self.fit_emax) ) )
-
-      pix_term   =  sum( ( (slw.pix_counts * N.log(
-                    slw.gal_pix_counts + slw.iso_pix_counts +\
-                    (slw.ps_pix_counts.transpose()[m].transpose()*slw.ps_counts[m]).sum(axis=1) +\
-                    slw.frozen_pix_counts)).sum()
-                    for slw in f.pslw if (slw.has_pixels
-                    and slw.energy() > self.fit_emin and slw.energy() < self.fit_emax) ) )     
-
-      r = tot_term - pix_term
-      return 1e6 if N.isnan(r) else r
-   """
 
    def logLikelihood(self,parameters,*args):
 
-      f = self.fitter
-      m = self.ps_manager.mask
+
+      bands = self.bands
 
       self.set_parameters(parameters)
-      self.bg_manager.update_counts(f.pslw)
-      self.ps_manager.update_counts(f.pslw)
 
-      r = 0
+      self.bgm.update_counts(bands)
+      self.psm.update_counts(bands)
 
-      for s in f.pslw:
-         if s.energy() < self.fit_emin or s.energy() > self.fit_emax: continue
+      ll = 0
 
-         r +=  ( 
-                #integral terms for ROI (go in positive)
-                s.gal_counts + 
-                s.iso_counts + 
-                (s.ps_counts[m]*s.overlaps[m]).sum() + 
-                s.frozen_total_counts -
+      for b in bands:
 
-                #pixelized terms (go in negative)
-                (s.pix_counts * N.log(
-                    s.gal_pix_counts + 
-                    s.iso_pix_counts +
-                    (s.unfrozen_pix_counts*s.ps_counts[m]).sum(axis=1) +
-                    s.frozen_pix_counts)
-                ).sum() if s.has_pixels else 0.
-               )
+         ll +=  ( 
+                   #integral terms for ROI (go in positive)
+                   b.bg_all_counts + b.ps_all_counts
 
-      """
-      r = sum( (
-                #integral terms for ROI (go in positive)
-                s.gal_counts + 
-                s.iso_counts + 
-                (s.ps_counts[m]*s.overlaps[m]).sum() + 
-                s.frozen_total_counts -
+                   -
 
-                #pixelized terms (go in negative)
-                (s.pix_counts * N.log(
-                    s.gal_pix_counts + 
-                    s.iso_pix_counts +
-                    (s.unfrozen_pix_counts*s.ps_counts[m]).sum(axis=1) +
-                    s.frozen_pix_counts)
-                ).sum() if s.has pixels else 0
-
-                for s in f.pslw if
-                  s.energy() >= self.fit_emin and
-                  s.energy() <= self.fit_emax
-               )
-             )
-      """
-      return 1e6 if N.isnan(r) else r
-
-   def spatialLikelihood(self,parameters,*args):
-
-      f = self.fitter
-
-      self.set_parameters(parameters)
-      self.ps_manager.update_counts(f.pslw)
-      self.bg_manager.update_counts(f.pslw)
-
-      logl = sum( (
-                    (slw.pix_counts * N.log(1 + (slw.ps_counts[0]/(slw.ps_counts[0]+slw.total_bg))*(slw.qs - 1.)  ) ).sum()
-                  for slw in f.pslw if (slw.has_pixels and slw.energy() > self.fit_emin and slw.energy() < self.fit_emax) )
+                   #pixelized terms (go in negative)
+                   (b.pix_counts *
+                       N.log(  b.bg_all_pix_counts + b.ps_all_pix_counts )
+                   ).sum() if b.has_pixels else 0.
                 )
-      
-      
-      #logl = sum( (
-      #              (slw.pix_counts * N.log( (slw.ps_counts[0]/(slw.ps_counts[0]+slw.total_bg))*slw.qs + slw.total_bg_pix/slw.total_bg ) ).sum()
-      #            for slw in f.pslw if (slw.has_pixels and slw.energy() > self.fit_emin and slw.energy() < self.fit_emax) )
-      #          )
 
-      return 1e6 if N.isnan(logl) else -logl
+      return 1e6 if N.isnan(ll) else ll
+
       
    def bandLikelihood(self,parameters,*args):
 
+      #it would probably be better to parameterize this with an actual flux...
+      # (or, at least, a log scale! haha...)
       scale = parameters[0]
       if scale < 0: return 1e6
-      slw   = args[0]
+      band  = args[0]
       which = args[1]
 
-      old_counts = slw.ps_counts[which]
+      psc = band.ps_counts[which]
 
-      slw.ps_counts[which] *= scale
+      tot_term = band.bg_all_counts + band.ps_all_counts + (psc*band.overlaps[which])*(scale-1)
 
-      pix_term   =  (slw.pix_counts * N.log(
-                    slw.gal_pix_counts + slw.iso_pix_counts +\
-                    (slw.ps_pix_counts*slw.ps_counts).sum(axis=1))).sum()\
-                    if slw.has_pixels else 0.
-                    
+      pix_term = (band.pix_counts * N.log(
+                  band.bg_all_pix_counts + band.ps_all_pix_counts + (psc*band.ps_pix_counts[:,which]*(scale-1))
+                 )).sum() if band.has_pixels else 0.
 
-      total_term = slw.gal_counts + slw.iso_counts + \
-                   (slw.ps_counts*slw.overlaps).sum()
+      return tot_term - pix_term
+   
+   def spatialLikelihood(self,skydir):
+      """Calculate log likelihood as a function of position of central point source."""
+      
+      ro = ROIOverlap()
+      rd = self.psm.ROI_dir()
+      ll = 0
 
-      slw.ps_counts[which] = old_counts
+      from skymaps import PsfSkyFunction
 
-      return total_term - pix_term
-     
+      for i,band in enumerate(self.bands):
+   
+         sigma,gamma,en,exp,pa = band.s,band.g,band.e,band.exp,band.b.pixelArea()
+         exposure_ratio        = exp.value(skydir,en)/exp.value(rd,en)
+         psf                   = PsfSkyFunction(skydir,gamma,sigma)
+         
+         overlap               = ro(band,rd,skydir) * exposure_ratio * band.solid_angle / band.solid_angle_p
+         ool                   = band.overlaps[0]
+         psc                   = band.ps_counts[0]
+
+         tot_term              = band.bg_all_counts + band.ps_all_counts + psc * (overlap - ool)
+
+         if band.has_pixels:
+
+            ps_pix_counts = N.asarray(psf.wsdl_vector_value(band.wsdl))*((pa/(2*N.pi*sigma**2))*exposure_ratio)
+
+            pix_term = (band.pix_counts * N.log
+                           (
+                           band.bg_all_pix_counts + 
+                           band.ps_all_pix_counts + 
+                           psc*(ps_pix_counts - band.ps_pix_counts[:,0])
+                           )
+                       ).sum()
+
+         else:
+            pix_term = 0
+
+         ll += tot_term - pix_term
+
+      return ll
+
 
    def parameters(self):
       """Merge parameters from background and point sources."""
-      return N.asarray(self.bg_manager.parameters()+self.ps_manager.parameters())
+      return N.asarray(self.bgm.parameters()+self.psm.parameters())
 
    def get_parameters(self):
       """Support for hessian calculation in specfitter module."""
@@ -224,23 +150,26 @@ class ROIAnalysis(object):
 
    def set_parameters(self,parameters):
       """Support for hessian calculation in specfitter module."""
-      self.bg_manager.set_parameters(parameters,current_position=0)
-      self.ps_manager.set_parameters(parameters,current_position=len(self.bg_manager.parameters()))
+      self.bgm.set_parameters(parameters,current_position=0)
+      self.psm.set_parameters(parameters,current_position=len(self.bgm.parameters()))
       self.fit_parameters = parameters
    
-   def fit(self,method='simplex', tolerance = 1e-8, save_values = True, do_background=True, spatial=False):
+   def fit(self,method='simplex', tolerance = 1e-8, save_values = True, do_background=True):
       """Maximize likelihood and estimate errors.
 
          method -- ['powell'] fitter; 'powell' or 'simplex'
       """
       #cache frozen values
-      self.ps_manager.cache(self.fitter.pslw)
+      param_state = N.concatenate([m.free for m in self.psm.models] + [m.free for m in self.bgm.models])
+      if not N.all(param_state == self.param_state):
+         self.psm.cache(self.bands)
+         self.param_state = param_state
 
       print 'Performing likelihood maximization...'
       from scipy.optimize import fmin,fmin_powell
       minimizer  = fmin_powell if method == 'powell' else fmin
-      likelihood = self.spatialLikelihood if spatial else self.logLikelihood 
-      f = minimizer(likelihood,self.parameters(),full_output=1,maxiter=10000,maxfun=20000,ftol=tolerance,xtol=tolerance)
+      f = minimizer(self.logLikelihood,self.parameters(),full_output=1,\
+                    maxiter=10000,maxfun=20000,ftol=tolerance,xtol=tolerance)
       print 'Function value at minimum: %.8g'%f[1]
       if save_values:
          self.set_parameters(f[0])
@@ -248,55 +177,65 @@ class ROIAnalysis(object):
          self.logl = -f[1]
       return -f[1] 
 
-   def __set_error__(self,do_background=True, spatial=False):
+   def __set_error__(self,do_background=True):
       from specfitter import SpectralModelFitter
       from numpy.linalg import inv
-      n = len(self.bg_manager.parameters())
-      hessian = SpectralModelFitter.hessian(self,self.logLikelihood if not spatial else self.spatialLikelihood) #does Hessian for free parameters
+      n = len(self.bgm.parameters())
+      hessian = SpectralModelFitter.hessian(self,self.logLikelihood) #does Hessian for free parameters
 
       try:
          if not do_background: raise Exception
          print 'Attempting to invert full hessian...'
          cov_matrix = inv(hessian)
-         self.bg_manager.set_covariance_matrix(cov_matrix,current_position=0)
-         self.ps_manager.set_covariance_matrix(cov_matrix,current_position=n)
+         self.bgm.set_covariance_matrix(cov_matrix,current_position=0)
+         self.psm.set_covariance_matrix(cov_matrix,current_position=n)
       except:
          print 'Skipping full Hessian inversion, trying point source parameter subset...'
          try:
             cov_matrix = inv(hessian[n:,n:])
-            self.ps_manager.set_covariance_matrix(cov_matrix,current_position=0)
+            self.psm.set_covariance_matrix(cov_matrix,current_position=0)
          except:
             print 'Error in calculating and inverting hessian.'
 
    def __str__(self):
       bg_header  = '======== BACKGROUND FITS =============='
       ps_header  = '======== POINT SOURCE FITS ============'
-      return '\n\n'.join([ps_header,self.ps_manager.__str__(),bg_header,self.bg_manager.__str__()])
+      return '\n\n'.join([ps_header,self.psm.__str__(),bg_header,self.bgm.__str__()])
          
    def TS(self):
       """Calculate the significance of the central point source."""
 
       save_params = self.parameters().copy() #save parameters
-      m = self.ps_manager.models[0]
+      m = self.psm.models[0]
       m.p[0] = -200 #effectively 0 flux
       save_free = N.asarray(m.free).copy()
       self.logLikelihood(self.parameters()) #update counts before freezing
       for i in xrange(len(m.free)): m.free[i] = False #freeze all parameters
       alt_ll = self.fit(save_values = False)
       for i in xrange(len(m.free)): m.free[i] = save_free[i] #unfreeze appropriate
-      self.ps_manager.cache(self.fitter.pslw)
+      self.psm.cache(self.bands)
       ll = -self.logLikelihood(save_params) #reset predicted counts
       return -2*(alt_ll - ll)
 
-   def localize(self):
-      self.localization_err = self.spectral_analysis.fitter.psl.localize()
-      self.localization_dir = self.spectral_analysis.fitter.psl.dir()
+   def localize(self,tolerance=1e-4):
+      import quadform
+      rl = ROILocalizer(self)
+      l  = quadform.Localize(rl,verbose = False)
+      ld = SkyDir(l.dir.ra(),l.dir.dec())
+      for i in xrange(5):
+         l.fit(update=True)
+         diff = l.dir.difference(ld)*180/N.pi
+         print 'Difference from previous fit: %.5f deg'%(diff)
+         if diff < tolerance:
+            print 'Converged!'
+            break
+         ld = SkyDir(l.dir.ra(),l.dir.dec())
+
+      self.qform   = l
+      self.ldir    = l.dir
+      self.lsigma  = l.sigma      
 
 
    def __call__(self,v):
-      """Implement SkyFunction."""
-
-      #PS manager part
-
-      #BG manager part
-      pass
+      
+      pass #make this a TS map? negative -- spatialLikelihood does it, essentially
