@@ -1,7 +1,7 @@
 /** @file Draw.h 
 @brief declaration of the Draw wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.15 2009/02/19 01:51:18 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Draw.h,v 1.16 2009/03/06 21:41:47 markusa Exp $
 */
 
 
@@ -43,10 +43,10 @@ namespace pointlike {
         //! @param fov  field of view (deg) if 180, use car
 
         void region(const astro::SkyDir& dir, std::string outputFile, double pixelsize,
-                     double fov, bool smooth = false, int mincount = 0);
+                     double fov, bool smooth = false, int mincount = 0, int kernel = 0, double smooth_radius = 3);
         
 	void density(const astro::SkyDir& dir, std::string outputFile, double pixelsize,
-                    double fov, bool smooth = false, int mincount = 0);
+                    double fov, bool smooth = false, int mincount = 0, int kernel = 0, double smooth_radius = 3);
 
         //! @brief all sky image, default AIT, galactic
         void sky(std::string outputfile, double pixelsize=0.1, bool smooth = false, int mincount = 0);
@@ -60,6 +60,9 @@ namespace pointlike {
         void zenith(){m_zenith = true;}
 
         void use_exposure(const astro::SkyFunction* exp){m_exposure=exp;}
+        void use_exposure2(const astro::SkyFunction* exp){m_exposure2=exp;}
+        void use_exposure(const skymaps::SkySpectrum* exp){m_exposure=(const astro::SkyFunction*)(exp);}
+        void use_exposure2(const skymaps::SkySpectrum* exp){m_exposure2=(const astro::SkyFunction*)(exp);}
 
         ///! will add layers with count map values
         int set_layers(int n){int t = m_layers; m_layers=n; return t;}
@@ -71,6 +74,7 @@ namespace pointlike {
       bool m_zenith;      ///< set for zenith coords
       std::string m_proj; ///< projection (CAR, AIT, etc.)
       const astro::SkyFunction* m_exposure; ///< exposure to use for normalization, if present. (energy?)
+      const astro::SkyFunction* m_exposure2; // possible entry for back exposure
       int m_layers;
       double m_emin;
       double m_minalpha;
@@ -85,8 +89,10 @@ namespace pointlike {
     class SkyDensity : public astro::SkyFunction
     {
     public:
+        //SkyDensity(const skymaps::BinnedPhotonData& data, bool smooth=false, int mincount=0
+        //    ,const astro::SkyFunction* exposure=0);
         SkyDensity(const skymaps::BinnedPhotonData& data, bool smooth=false, int mincount=0
-            ,const astro::SkyFunction* exposure=0);
+            ,const astro::SkyFunction* exposure=0,const astro::SkyFunction* exposure2=0,int kernel=0,double smooth_radius=3);
 
         //! @brief ctor to display the given band only
         SkyDensity(const skymaps::Band& band);
@@ -99,8 +105,10 @@ namespace pointlike {
         const skymaps::BinnedPhotonData* m_data;
         const skymaps::Band* m_band;
         bool m_smooth;
-        int m_mincount;
+        int m_mincount, m_kernel;
+        double m_radius;
         const astro::SkyFunction* m_exposure;
+        const astro::SkyFunction* m_exposure2;
     };
 
 }// namespace pointline
