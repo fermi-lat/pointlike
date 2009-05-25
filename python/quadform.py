@@ -174,9 +174,9 @@ class Localize(object):
         self.sigma = psl.errorCircle()
         if verbose: print ('initial: ra,dec, sigma:' +3*'%10.4f') % (self.ra,self.dec,self.sigma)
 
-        self.fit(update=True)
+        #self.fit(update=True)
         try:
-            self.fit() # needed?
+            self.fit(update=True) # needed?
         except:
             print 'update failed: center on highest TS and try again'
             ts = array(self.ts)
@@ -196,11 +196,11 @@ class Localize(object):
         verbose = self.verbose
         self.rcirc = self.circle()
         self.ts = [self.TS(r) for r in self.rcirc]
-        if verbose: print  ('ts:  '+9*'%9.2f') % tuple(self.ts)
+        if verbose: print  ('ts:  ' + ' '.join(9*['%9.2f'])) % tuple(self.ts)
         self.ellipse = Ellipse(self.ts)
         self.chisq = self.ellipse.chisq
         if verbose: print ('fit:  ' +len(self.ellipse.q)*'%9.2f') % tuple(self.ellipse.q)
-        if verbose: print ('resid:' +9*'%9.2f')% tuple(self.ts-self.ellipse.qf.v)
+        if verbose: print ('resid:' + ' '.join(9*['%9.2f']))% tuple(self.ts-self.ellipse.qf.v)
         if verbose: print 'chisq: %9.2f' % self.ellipse.chisq
         radius = Localize.fit_radius
         if update:
