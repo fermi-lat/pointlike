@@ -1,3 +1,11 @@
+"""
+Plotting routines to display results of an ROI analysis.
+
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.8 2009/01/16 22:58:10 kerrm Exp $
+
+author: Matthew Kerr
+"""
+
 import numpy as N
 from skymaps import PySkyFunction
 from image import ZEA
@@ -6,28 +14,29 @@ def band_spectra(r,source=0):
 
    from scipy.optimize import fmin,fsolve
    from collections import deque
-   pslw = r.fitter.pslw
-   en = N.asarray([slw.energy() for slw in pslw])
+   
+   en = N.asarray([band.e for band in r.bands])
 
-   groupings = [deque() for x in xrange(len(pslw.bin_centers))]
+   groupings = [deque() for x in xrange(len(r.bin_centers))]
 
    #group slw by energy
-   for i,ei in enumerate(pslw.bin_centers):
-      for slw in pslw:
-         if slw.energy() == ei:
-            groupings[i].append(slw)
+   for i,ei in enumerate(r.bin_centers):
+      for band in r.bands:
+         if band.e == ei:
+            groupings[i].append(band)
       groupings[i] = list(groupings[i])
 
    scales    = N.zeros(len(groupings))
    scales_hi = N.zeros(len(groupings))
    scales_lo = N.zeros(len(groupings))
 
-   ps     = N.asarray([sum([slw.ps_counts[source] for slw in g]) for g in groupings])
-   exp    = N.asarray([sum([slw.avg_exposure() for slw in g]) for g in groupings])
+   m      = r.psm.point_sources[source].model
+   ps     = N.asarray([sum([band.ps_counts[source] for band in g]) for g in groupings])
+   exp    = N.asarray([sum([band.expected(m)/m.i_flux(band.emin,band.emax) for band in g]) for g in groupings])
 
    for i,gi in enumerate(groupings):
       #print pslw.bin_centers[i]
-      obs = sum([slw.sl.photons() for slw in gi])
+      obs = sum([band.photons for band in gi])
       """ #way to handle 0 count bins
       
       if obs == 0:
@@ -37,7 +46,7 @@ def band_spectra(r,source=0):
          print 'multi = %.2f'%(eta)
       """
       #define a joint likelihood for the energy band
-      f = lambda scale: sum( [r.bandLikelihood(scale,slw,source) for slw in gi] )
+      f = lambda scale: sum( [r.bandLikelihood(scale,band,source) for band in gi] )
       result = fmin(f,[1.],disp=0,full_output=1)
       if result[4] != 1 and result[4] != 2:
          scales[i] = result[0]
@@ -53,15 +62,12 @@ def band_spectra(r,source=0):
             scales_lo[i] = fsolve(f68,[0])
             scales_hi[i] = fsolve(f68,[scales[i]*1.1])
 
-   ps     = N.asarray([sum([slw.ps_counts[source] for slw in g]) for g in groupings])
-   exp    = N.asarray([sum([slw.avg_exposure() for slw in g]) for g in groupings])
-
    cts    = scales*ps
    cts_hi = scales_hi*ps
    cts_lo = scales_lo*ps
    
 
-   return pslw.bin_edges,cts,cts_lo,cts_hi,exp,r.ps_manager.point_sources[source]
+   return r.bin_edges,cts,cts_lo,cts_hi,exp,r.psm.point_sources[source]
 
 
 #-----------------------------------------------------------------------------#
@@ -70,24 +76,24 @@ def band_spectra(r,source=0):
 
    
 
-def counts(r,integral=False,small_scale=None):
-
-   pslw = r.fitter.pslw
+def counts(r,integral=False):
 
    from collections import deque
-   groupings = [deque() for x in xrange(len(pslw.bin_centers))]
+   groupings = [deque() for x in xrange(len(r.bin_centers))]
 
    #group slw by energy
-   for i,ei in enumerate(pslw.bin_centers):
-      for slw in pslw:
-         if slw.energy() == ei:
-            groupings[i].append(slw)
+   for i,ei in enumerate(r.bin_centers):
+      for band in r.bands:
+         if band.e == ei:
+            groupings[i].append(band)
       groupings[i] = list(groupings[i])
 
-   iso = N.asarray([ sum((slw.iso_counts for slw in g)) for g in groupings])
-   gal = N.asarray([ sum((slw.gal_counts for slw in g)) for g in groupings])
-   obs = N.asarray([ sum((slw.sl.photons() for slw in g)) for g in groupings])
-   src = N.asarray([ N.asarray([slw.ps_counts*slw.overlaps for slw in g]).sum(axis=0) for g in groupings])
+   #kluge for now, assumes standard ordering of backgrounds...
+
+   iso = N.asarray([ sum((band.bg_counts[1] for band in g)) for g in groupings])
+   gal = N.asarray([ sum((band.bg_counts[0] for band in g)) for g in groupings])
+   obs = N.asarray([ sum((band.photons for band in g)) for g in groupings])
+   src = N.asarray([ N.asarray([band.ps_counts*band.overlaps for band in g]).sum(axis=0) for g in groupings])
    
    if integral:
       for i in xrange(len(iso)):
@@ -95,7 +101,7 @@ def counts(r,integral=False,small_scale=None):
          gal[i] = gal[i:].sum()
          obs[i] = obs[i:].sum()
          src[i] = src[i:].sum(axis=0)
-   return pslw.bin_edges,iso,gal,src,obs,[p.name for p in r.ps_manager.point_sources]
+   return r.bin_edges,iso,gal,src,obs,[p.name for p in r.psm.point_sources]
 
 
 #-----------------------------------------------------------------------------#
@@ -103,11 +109,11 @@ def counts(r,integral=False,small_scale=None):
 #-----------------------------------------------------------------------------#
 
 
-def plot_counts(r,fignum=1,outfile=None,integral=False,small_scale=None):
+def plot_counts(r,fignum=1,outfile=None,integral=False,):
 
    colors = ['blue','green','red','orange']
 
-   en,iso,gal,src,obs,ps_names = counts(r,integral=integral,small_scale=small_scale)
+   en,iso,gal,src,obs,ps_names = counts(r,integral=integral)
    en = (en[1:]*en[:-1])**0.5
 
    import pylab as P
@@ -246,7 +252,7 @@ class ROIModelSkyFunction(object):
    
       from psf import PSF
       self.roi = roi_manager
-      sa = self.roi.spectral_analysis
+      sa = self.roi.sa
       self.psf = PSF(psf_irf = sa.psf_irf, CALDB = sa.CALDB)
 
       self.simpsn = simpsn = (int(round((N.log10(self.emax)-N.log10(self.emin))/0.2)) >> 1) << 1 #5 per decade
@@ -257,7 +263,7 @@ class ROIModelSkyFunction(object):
       self.psf.set_cache(N.append(self.points,self.points),N.append([0]*len(self.points),[1]*len(self.points)))
 
       self.exp = exp = sa.exposure.exposure
-      ps  = self.roi.ps_manager.point_sources
+      ps  = self.roi.psm.point_sources
       self.exp_f  = N.asarray([[exp[0].value(p.skydir,point) for point in self.points] for p in ps])
       self.exp_b  = N.asarray([[exp[1].value(p.skydir,point) for point in self.points] for p in ps])
       self.model  = N.asarray([p.model(self.points) for p in ps])
@@ -269,17 +275,11 @@ class ROIModelSkyFunction(object):
          [self.exp_b,self.exp_f][self.event_class] = N.zeros_like([self.exp_f])
          self.event_classes = [self.event_class]
 
-      bg = self.roi.bg_manager
+      bg = self.roi.bgm
       from skymaps import Background
 
-      self.e_models = []
-      self.b_models = []
-      if bg.use_galactic:
-         self.e_models += [bg.gal_model(self.points)]
-         self.b_models += [Background(sa.background.galactic_diffuse,exp[0],exp[1])]
-      if bg.use_isotropic:
-         self.e_models += [bg.iso_model(self.points)]
-         self.b_models += [Background(sa.background.isotropic_diffuse,exp[0],exp[1])]
+      self.e_models = [m.smodel(self.points) for m in bg.bgmodels]
+      self.b_models = [Background(m.dmodel,exp[0],exp[1]) for m in bg.bgmodels]
 
       self.cache_pix = dict()
       from skymaps import Band
@@ -308,7 +308,7 @@ class ROIModelSkyFunction(object):
          return hval
 
       simpsn,points,simpsf = self.simpsn,self.points,self.simpsf
-      ps = self.roi.ps_manager.point_sources
+      ps = self.roi.psm.point_sources
 
       integrand = N.zeros_like(points)
 
@@ -553,11 +553,11 @@ class ROIDisplay(object):
       #rcb.set_label('')
 
       self.mm = ROIModelSkyFunction(roi_manager,mode=1,**self.__dict__) if self.mm is None else self.mm
-      self.cm = DataSkyFunction(roi_manager.spectral_analysis,mode=1,**self.__dict__) if self.cm is None else self.cm
+      self.cm = DataSkyFunction(roi_manager.sa,mode=1,**self.__dict__) if self.cm is None else self.cm
 
    def model_plot(self):
 
-      self.mm_zea = ZEA(self.rm.ps_manager.ROI_dir(),self.size,self.pixelsize,galactic=self.galactic,axes=self.axes1)
+      self.mm_zea = ZEA(self.rm.psm.ROI_dir(),self.size,self.pixelsize,galactic=self.galactic,axes=self.axes1)
       self.mm_zea.fill(PySkyFunction(self.mm))
       self.axes1.imshow(N.log10(self.mm_zea.image),origin='lower',interpolation='nearest',cmap=self.cmap_b,norm=self.norm2)
       self.mm_zea.grid()
@@ -566,7 +566,7 @@ class ROIDisplay(object):
       
    def counts_plot(self):
 
-      self.cm_zea = ZEA(self.rm.ps_manager.ROI_dir(),self.size,self.pixelsize,galactic=self.galactic,axes=self.axes2)
+      self.cm_zea = ZEA(self.rm.psm.ROI_dir(),self.size,self.pixelsize,galactic=self.galactic,axes=self.axes2)
       self.cm_zea.fill(PySkyFunction(self.cm))
       self.axes2.imshow(N.log10(self.cm_zea.image),origin='lower',interpolation='nearest',cmap=self.cmap_b,norm=self.norm2)
       self.cm_zea.grid()
@@ -577,7 +577,7 @@ class ROIDisplay(object):
 
       from scipy.stats import poisson
 
-      self.resids_zea = ZEA(self.rm.ps_manager.ROI_dir(),self.size,self.pixelsize,galactic=self.galactic,axes=self.axes3)
+      self.resids_zea = ZEA(self.rm.psm.ROI_dir(),self.size,self.pixelsize,galactic=self.galactic,axes=self.axes3)
       self.resids_zea.image = (self.mm_zea.image - self.cm_zea.image)/self.mm_zea.image**0.5
       self.axes3.imshow(self.resids_zea.image,origin='lower',interpolation='nearest',norm=self.norm3)
       self.resids_zea.grid()
@@ -587,7 +587,7 @@ class ROIDisplay(object):
       pvals = N.abs(N.where(pvals < 0.5, N.log10(pvals), N.log10(1-pvals)))
       #pvals = N.abs( N.tan ( pvals*N.pi - N.pi/2 ) )
 
-      self.pvals_zea = ZEA(self.rm.ps_manager.ROI_dir(),self.size,self.pixelsize,galactic=self.galactic,axes=self.axes4)
+      self.pvals_zea = ZEA(self.rm.psm.ROI_dir(),self.size,self.pixelsize,galactic=self.galactic,axes=self.axes4)
       self.pvals_zea.image = pvals
       self.axes4.imshow(self.pvals_zea.image,origin='lower',interpolation='nearest',cmap=self.cmap_b,norm=self.norm1)
       self.pvals_zea.grid()
@@ -632,7 +632,7 @@ class ROIDisplay(object):
    def plot_sources(self, image, symbol='+',  fontsize=12, markersize=10, fontcolor='k', mc= 'green',**kwargs):
       nx = image.nx
       ny = image.ny
-      ps = self.rm.ps_manager.point_sources
+      ps = self.rm.psm.point_sources
 
       def allow(nx, ny, px, py, padx = 0.15, pady = 0.15):
          padx = padx * nx
@@ -676,7 +676,7 @@ class PSFChecker(object):
       self.init()
       self.__dict__.update(**kwargs)
       self.roi = roi
-      self.sa  = roi.spectral_analysis
+      self.sa  = roi.sa
 
       self.CALDB = self.CALDB or self.sa.CALDB
 
@@ -736,7 +736,7 @@ class PSFChecker(object):
    
    def ps_models(self):
       
-      psm = self.roi.ps_manager
+      psm = self.roi.psm
       exp = self.sa.exposure.exposure
       #need to calculate the overlap for all bin radii and all sources
 
@@ -770,23 +770,18 @@ class PSFChecker(object):
   
    def bg_models(self):
 
-      bg = self.roi.bg_manager
-      sa = self.sa
-      rd = self.roi.ps_manager.ROI_dir()
+      bg  = self.roi.bgm
+      sa  = self.sa
+      rd  = self.sa.roi_dir
+      exp = sa.exposure.exposure
       from skymaps import Background,SkyIntegrator
 
       simps_vec = (N.asarray([1,4,2,4,2,4,2,4,1]))/(3.*8.)
 
-      e_models = []
-      b_models = []
+      e_models = [m.smodel for m in bg.bgmodels]
+      b_models = [Background(m.dmodel,exp[0],exp[1]) for m in bg.bgmodels]
 
-      if bg.use_galactic:
-         e_models += [bg.gal_model]
-         b_models += [Background(sa.background.galactic_diffuse,sa.exposure.exposure[0],sa.exposure.exposure[1])]
-      if bg.use_isotropic:
-         e_models += [bg.iso_model]
-         b_models += [Background(sa.background.isotropic_diffuse,sa.exposure.exposure[0],sa.exposure.exposure[1])]
-
+      
       for i,key in enumerate(self.keys):
 
          emin, emax  = self.bands[i:i+2]
@@ -896,7 +891,7 @@ def int2bin(n, count=24):
    """returns the binary of integer n, using count number of digits"""
    return "".join([str((n >> y) & 1) for y in range(count-1, -1, -1)])
 
-       
+"""       
                   
 def loglikelihood(v,psfc):
 
@@ -1013,3 +1008,5 @@ def plot(image, locs, labels=None, symbol='+',  fontsize=12, markersize=10, font
       image.axes.plot([x], [y], symbol, markersize=markersize, **kwargs)
       if labels is not None:
          image.axes.text( x+nx/100., y+nx/100., labels[i], fontsize=fontsize, color=fontcolor)
+
+"""

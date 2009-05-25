@@ -1,12 +1,10 @@
-#TODO
-#     - (less easy) plotting - residuals sortof implemented
-#     - spatial residuals
-#     - (hard) energy dispersion
+"""
+Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-"""Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
-   on the PSF.  The heavy lifting is done in pointlike, where the spatial distributions are calculated
-   initially.  Fitting of spectral models is accomplished to reasonably accuracy by scaling these
-   initial estimates band-by-band, based on the revised spectral models, with each iteration."""
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.8 2009/01/16 22:58:10 kerrm Exp $
+
+author: Matthew Kerr
+"""
 
 import numpy as N
 from pointspec import SpectralAnalysis
@@ -25,7 +23,7 @@ class ROIOverlap(object):
       self.__dict__.update(kwargs)
 
 
-   def __call__(self,slw,roi_dir,ps_dir,max_radius = None,fixed_radius=None):
+   def __call__(self,band,roi_dir,ps_dir,max_radius = None,fixed_radius=None):
       """Return an array of fractional overlap for a point source at location skydir.
          Note radius arguments are in radians."""
 
@@ -33,7 +31,7 @@ class ROIOverlap(object):
       from scipy.integrate import quad
       from math import cos,sin
       
-      sigma,gamma,roi_u = slw.sl.sigma(),slw.sl.gamma(),slw.sl.umax()
+      sigma,gamma,roi_u = band.s,band.g,band.umax
       roi_rad           = sigma*(roi_u*2)**0.5
       
       if max_radius is not None:
@@ -93,7 +91,7 @@ class ROIOverlap(object):
 
 class ROIModelManager(object):
    """Parent class for point source manager and background manager.  Provides universal
-      methods to manager parameters and error matricies."""
+      methods to manager parameters and error matrices."""
 
    def parameters(self):
       #if len(self.models[self.free])==0: return []
@@ -114,7 +112,7 @@ class ROIModelManager(object):
 
 ###====================================================================================================###
 
-class ROISourceManager(ROIModelManager):
+class ROIPointSourceManager(ROIModelManager):
    """Manage all point sources."""
    
    def __init__(self,point_sources):
@@ -132,184 +130,201 @@ class ROISourceManager(ROIModelManager):
 
    def name(self): return self.point_sources[0].name
 
-   def setup_initial_counts(self,pslw):
+   def setup_initial_counts(self,bands):
 
       print 'Setting up point sources...'
 
-      #update the exposure to do event class properly (if gonna go, go all the way...)
-
-      exp     = pslw.exposure().value
       roi_dir = self.ROI_dir()
       overlap = ROIOverlap()
-      from skymaps import PsfFunction,PsfSkyFunction
+      from skymaps import PsfSkyFunction
 
-      for i,slw in enumerate(pslw):
+      for i,band in enumerate(bands):
 
-         sigma,gamma,band,en  = slw.sl.sigma(),slw.sl.gamma(),slw.sl.band(),slw.energy()
-         exposure_ratios      = N.asarray([exp(ps.skydir,en)/exp(roi_dir,en) for ps in self.point_sources]) #make a first-order correction for exposure variation
-         #psf                  = PsfFunction(gamma)
+         sigma,gamma,en,exp,pa = band.s,band.g,band.e,band.exp.value,band.b.pixelArea()
 
-         slw.has_pixels       = slw.sl.photons() >0
-         #slw.ps_pix_counts    = N.asarray([[psf(ps.skydir,d,sigma)*exposure_ratios[nps] for nps,ps in enumerate(self.point_sources) ] for d in slw.wsdl])\
-         #                       * (band.pixelArea()/(2*N.pi*sigma**2))
-         slw.ps_pix_counts    = N.empty([len(slw.wsdl),len(self.point_sources)])
+         #make a first-order correction for exposure variation
+         exposure_ratios       = N.asarray([exp(ps.skydir,en)/exp(roi_dir,en) for ps in self.point_sources])
+
+         #unnormalized PSF evaluated at each pixel, for each point source
+         band.ps_pix_counts    = N.empty([len(band.wsdl),len(self.point_sources)])
          for nps,ps in enumerate(self.point_sources):
             psf = PsfSkyFunction(ps.skydir,gamma,sigma)
-            slw.ps_pix_counts[:,nps] = psf.wsdl_vector_value(slw.wsdl)
-         slw.ps_pix_counts   *= (band.pixelArea()/(2*N.pi*sigma**2)*exposure_ratios)
-         #slw.ps_pix_counts    = slw.ps_pix_counts.transpose()
+            band.ps_pix_counts[:,nps] = psf.wsdl_vector_value(band.wsdl)
+         band.ps_pix_counts   *= ( (pa/(2*N.pi*sigma**2)) *exposure_ratios)
 
-         if slw.use_empty:
-            slw.overlaps      = slw.ps_pix_counts.sum(axis=0)
-         else:
-            slw.overlaps      = N.asarray([overlap(slw,roi_dir,ps.skydir) for ps in self.point_sources])
-            slw.overlaps     *= (slw.solid_angle/slw.solid_angle_p) #small correction for ragged edge
-         slw.overlaps        *= exposure_ratios
-         slw.ps_counts        = N.asarray([slw.expected(model,normalize=False) for model in self.models])
-         slw.src_scale        = 1.
+         #fraction of PSF contained within the ROI
+         band.overlaps      = N.asarray([overlap(band,roi_dir,ps.skydir) for ps in self.point_sources])
+         band.overlaps     *= (band.solid_angle/band.solid_angle_p) #small correction for ragged edge
+         band.overlaps     *= exposure_ratios
+         
+         #initial model prediction
+         band.ps_counts        = N.asarray([band.expected(model) for model in self.models])
 
-         slw.frozen_pix_counts = 0
-         slw.frozen_total_counts = 0
-         slw.unfrozen_pix_counts = 0
 
-      
-   def update_counts(self,pslw):
-      #updated to save computation for frozen models - is the cost prohibitive for full varying?
-      for i,model in enumerate(self.models):
-         if self.mask[i]:
-            for slw in pslw: slw.ps_counts[i] = slw.expected(model,normalize=False)
+   def update_counts(self,bands):
+      #handle caching here, in the beautiful future
+      ma = self.mask
+      for band in bands:
+         band.ps_counts[ma] = [band.expected(m) for m in self.models[ma]]
+         band.ps_all_counts = (band.overlaps[ma]*band.ps_counts[ma]).sum() + band.frozen_total_counts
+         if band.has_pixels:
+            band.ps_all_pix_counts = \
+                  (band.unfrozen_pix_counts * band.ps_counts[ma]).sum(axis=1) + band.frozen_pix_counts
 
-   def cache(self,pslw):
+      #for i,model in enumerate(self.models):
+      #   if self.mask[i]:
+      #      for band in bands: band.ps_counts[i] = band.expected(model)
+
+
+   def cache(self,bands):
       """Cache values for models with no degrees of freedom.  Helps a lot near galactic plane."""
       self.mask = m = N.asarray([N.any(model.free) for model in self.models])
       nm = N.logical_not(self.mask)
       s = nm.sum()
-      for slw in pslw.sl_wrappers:
 
-         if slw.has_pixels:
-            slw.unfrozen_pix_counts = slw.ps_pix_counts.transpose()[m].transpose()
+      for band in bands:
+
+         if band.has_pixels:
+            band.unfrozen_pix_counts = band.ps_pix_counts.transpose()[m].transpose()
          else:
-            slw.unfrozen_pix_counts = 0
+            band.unfrozen_pix_counts = 0
 
          if s > 0:
-            slw.frozen_total_counts = (slw.ps_counts[nm]*slw.overlaps[nm]).sum()
-            if not slw.has_pixels:
-               slw.frozen_pix_counts = 0
+            band.frozen_total_counts = (band.ps_counts[nm]*band.overlaps[nm]).sum()
+            if not band.has_pixels:
+               band.frozen_pix_counts = 0
                continue
             if s > 1:
-               slw.frozen_pix_counts   = (slw.ps_pix_counts.transpose()[nm].transpose()*slw.ps_counts[nm]).sum(axis=1)
+               band.frozen_pix_counts   = (band.ps_pix_counts.transpose()[nm].transpose()*band.ps_counts[nm]).sum(axis=1)
             else:
-               slw.frozen_pix_counts   =  slw.ps_pix_counts.transpose()[nm].transpose()*slw.ps_counts[nm]
+               band.frozen_pix_counts   =  band.ps_pix_counts.transpose()[nm].transpose()*band.ps_counts[nm]
          else:
-            slw.frozen_total_counts = 0
-            slw.frozen_pix_counts   = 0
+            band.frozen_total_counts = 0
+            band.frozen_pix_counts   = 0
          
 
-   def update_localization(self,pslw,newdir):
-      
-      ro  = ROIOverlap()
-      rd  = self.ROI_dir()
-      
-      exp            = pslw.exposure().value
 
-      from skymaps import PsfFunction,PsfSkyFunction
+###====================================================================================================###
 
-      for i,slw in enumerate(pslw):
-   
-         sigma,gamma,pa,en  = slw.sl.sigma(),slw.sl.gamma(),slw.sl.band().pixelArea(),slw.energy()
-         exposure_ratio     = exp(newdir,en)/exp(rd,en)
-         #psf                = PsfFunction(gamma)
-         psf                = PsfSkyFunction(newdir,gamma,sigma)
-         
-         slw.overlaps[0]    = ro(slw,rd,newdir) * exposure_ratio
-         if slw.has_pixels:
-            #slw.ps_pix_counts[:,0] = N.asarray([psf(newdir,d,sigma) for d in slw.wsdl])*\
-            #                         (pa/(2*N.pi*sigma**2)*exposure_ratio)
-            slw.ps_pix_counts[:,0] = N.asarray(psf.wsdl_vector_value(slw.wsdl))*(pa/(2*N.pi*sigma**2)*exposure_ratio)
-            slw.unfrozen_pix_counts[:,0] = slw.ps_pix_counts[:,0]
+class ROIBackgroundModel(object):
+   """A wrapper to neatly associate scaling models with their SkySpectrum instances."""
+
+   def __init__(self,diffuse_model,scaling_model,name):
+
+      self.dmodel = diffuse_model
+      self.smodel = scaling_model
+      self.name   = name
+
+   def __str__(self):
+      return '%s scaled with %s\n'%(self.name,self.smodel.pretty_name)+self.smodel.__str__()
 
          
 ###====================================================================================================###
 
 class ROIBackgroundManager(ROIModelManager):
-   """Manager background models.  Two spatial dependences are supported via pointlike -- a cube-based
-      image for the galactic diffuse, and an isotropic model for extragalactic+residual.
-
-      The isotropic model can be any spectral model, and the galactic model can be scaled by any
-      spectral model."""
+   """Manage.  The input is a set of diffuse models (SkySpectrum instances) and a matching set
+      of position-independent energy spectral models with which to scale the diffuse models, e.g.,
+      an overall scale or a power law."""
 
    def init(self):
-      self.use_isotropic = True
-      self.use_galactic  = True
+      self.nsimps = 4
+      
+      from Models import PowerLaw
+      self.gal_model = PowerLaw(p=[1,1],free=[True,False],index_offset=1)
+      self.iso_model = PowerLaw(p=[1,1],free=[True,False],index_offset=1)
 
-   def __init__(self,models,spectral_analysis,roi_dir,**kwargs):
-      """Take two spectral models for the galactic and isotropic backgrounds, and use the
-         exposure and default parameters provided in an instance of SpectralAnalysis."""
+   def __init__(self,spectral_analysis,models=None,**kwargs):
+      """."""
       self.init()
       self.__dict__.update(**kwargs)
-      self.models,self.spectral_analysis,self.roi_dir = N.asarray(models),spectral_analysis,roi_dir
-      self.gal_model = models[0]
-      self.iso_model = models[1] if (self.use_galactic and self.use_isotropic) else models[0]
+      self.sa       = sa = spectral_analysis
 
-   def __str__(self): return '\n\n'.join([model.__str__() for model in self.models])
+      if models is None: #default background model; note indices are fixed
+         from Models import PowerLaw
+         gal_model  = ROIBackgroundModel(sa.background.galactic_diffuse,
+                                         self.gal_model, 'Galactic Diffuse')
 
-   def setup_initial_counts(self,pslw):
-      """Take a PointSourceLikelihoodWrapper object which has already had initial setup done by
-         ROIAnalysis and calculate the initial background counts in the ROI and each pixel."""
+         iso_model  = ROIBackgroundModel(sa.background.isotropic_diffuse,
+                                         self.iso_model, 'Isotropic Diffuse')
+         models     = [gal_model,iso_model]
+
+      self.bgmodels = models
+      self.models   = [bgm.smodel for bgm in self.bgmodels]
+
+      self.roi_dir  = sa.roi_dir
       
-      for slw in pslw: #initialize to values appropriate for zero background
-         slw.gal_pix_counts = slw.gal_counts = 0
-         slw.iso_pix_counts = slw.iso_counts = 0
-      
-      if self.use_galactic:  self.__setup__(pslw,bg_type='galactic')
-      if self.use_isotropic: self.__setup__(pslw,bg_type='isotropic')
+   def __str__(self): return '\n\n'.join([model.__str__() for model in self.bgmodels])
 
-   def __setup__(self,pslw,bg_type):
-      """A joint internal method to setup the background type specified by bg_type ('galactic' or 'isotropic')."""
+   def setup_initial_counts(self,bands):
+      """Evaluate initial values of background models; these will be scaled in likelihood maximization."""
+
+      print 'Calculating initial background counts...'
 
       from skymaps import Background,SkyIntegrator
-      from Models import PowerLawFlux,Constant
-
-      sh = bg_type[:3] #'gal' or 'iso'
-      sa = self.spectral_analysis
-      bg = Background(sa.background.__dict__[bg_type+'_diffuse'],sa.exposure.exposure[0],sa.exposure.exposure[1])
+      from Models  import PowerLawFlux,Constant
 
       SkyIntegrator.set_tolerance(0.02)
-      
-      print 'Calculating %s background counts...'%(bg_type)
+      exp = self.sa.exposure.exposure
+      bgs = [Background(model.dmodel,exp[0],exp[1]) for model in self.bgmodels]
+      ns  = self.nsimps
+      nm  = len(self.models)
+      rd  = self.roi_dir
 
-      for slw in pslw:
-         band                            = slw.sl.band()
-         model                           = self.__dict__[sh+'_model']
-         slw.__dict__[sh+'_ang_e_vals']  = N.empty(5)
-         slw.__dict__[sh+'_pix_e_vals']  = N.empty([len(slw.wsdl),5])
-         
-         for n,e in enumerate(slw.simps_pts):
-            bg.setEnergy(e)
-            bg.set_event_class(band.event_class())
-            slw.__dict__[sh+'_ang_e_vals'][n]   = SkyIntegrator.ss_average(bg,self.roi_dir,slw.radius_in_rad)
-            #slw.__dict__[sh+'_pix_e_vals'][:,n] = [bg.value(d,e) for d in slw.wsdl]
-            slw.__dict__[sh+'_pix_e_vals'][:,n] = N.asarray(bg.wsdl_vector_value(slw.wsdl))
-         
-         slw.__dict__[sh+'_ang_e_vals'] *= slw.solid_angle
-         slw.__dict__[sh+'_pix_e_vals'] *= band.pixelArea()
+      for band in bands:
 
-         v = model(slw.simps_pts) * slw.simps_vec
-         slw.__dict__[sh+'_counts']     = (slw.__dict__[sh+'_ang_e_vals'] * v).sum()
-         slw.__dict__[sh+'_pix_counts'] = (slw.__dict__[sh+'_pix_e_vals'] * v).sum(axis=1)
+         for bg in bgs: bg.set_event_class(band.ec)
+         
+         band.bg_points = sp = N.logspace(N.log10(band.emin),N.log10(band.emax),ns+1)
+         band.bg_vector = sp * (N.log(sp[-1]/sp[0])/(3.*ns)) * \
+                          N.asarray([1.] + ([4.,2.]*(ns/2))[:-1] + [1.])
+
+         #figure out best way to handle no pixel cases...
+         band.ap_evals  = N.empty([nm,ns + 1])
+         band.pi_evals  = N.empty([len(band.wsdl),nm,ns + 1]) if band.has_pixels else 0
+
+         for ne,e in enumerate(band.bg_points):
+            for nbg,bg in enumerate(bgs):
+               bg.setEnergy(e)
+               band.ap_evals[nbg,ne]      = SkyIntegrator.ss_average(bg,rd,band.radius_in_rad)
+               if band.has_pixels:
+                  band.pi_evals[:,nbg,ne] = N.asarray(bg.wsdl_vector_value(band.wsdl))
+
+         band.ap_evals *= (band.solid_angle   * band.bg_vector)
+         band.pi_evals *= (band.b.pixelArea() * band.bg_vector)
+
+
+         band.mo_evals = N.empty([nm,ns + 1])
+         for n,m in enumerate(self.models):
+            band.mo_evals[n,:] = m(band.bg_points)
+
+         #discrepancy between initial calculation and updated -- can they be made consistent/better?   
+         band.bg_counts     = (band.ap_evals * band.mo_evals).sum(axis = 1)
+         band.bg_all_counts = band.bg_counts.sum()
+         if band.has_pixels:
+            band.bg_pix_counts = (band.pi_evals * band.mo_evals).sum(axis = 2) if band.has_pixels else 0
+            band.bg_all_pix_counts = band.bg_pix_counts.sum(axis=1)
+
+
+   def update_masks(self):
+      self.free_mask   = N.asarray([N.any(m.free) for m in self.models])
+      self.escale_mask = N.asarray([N.any(m.free[1:]) for m in self.models])
           
    
-   def update_counts(self,pslw):
-      if self.use_galactic and N.any(self.gal_model.free):
-            for slw in pslw:
-               v = self.gal_model(slw.simps_pts) * slw.simps_vec
-               slw.gal_counts     = (slw.gal_ang_e_vals * v).sum()
-               slw.gal_pix_counts = (slw.gal_pix_e_vals * v).sum(axis=1)
-      if self.use_isotropic and N.any(self.iso_model.free):
-            for slw in pslw:
-               v = self.iso_model(slw.simps_pts) * slw.simps_vec
-               slw.iso_counts     = (slw.iso_ang_e_vals * v).sum()
-               slw.iso_pix_counts = (slw.iso_pix_e_vals * v).sum(axis=1)
+   def update_counts(self,bands):
+      
+      #cache the check for free? also, could be done more elegantly with a mask
+      #also, want to implement a check for models that can be done with scaling only!
+      
+      for nm,m in enumerate(self.models):
+         if N.any(m.free):
+            for band in bands:
+               pts = m(band.bg_points)
+               band.bg_counts[nm]       = (band.ap_evals[nm,:]   * pts).sum()
+               band.bg_all_counts = band.bg_counts.sum()
+               if band.has_pixels:
+                  band.bg_pix_counts[:,nm] = (band.pi_evals[:,nm,:] * pts).sum(axis=1)               
+                  band.bg_all_pix_counts = band.bg_pix_counts.sum(axis=1)
+
 
 ###====================================================================================================###
 
@@ -317,13 +332,10 @@ class ROILocalizer(object):
 
    def __init__(self,roi):
       self.roi = roi
-      self.rd  = roi.ps_manager.ROI_dir()
+      self.rd  = roi.psm.ROI_dir()
             
    def TSmap(self,skydir):
-
-      self.roi.ps_manager.update_localization(self.roi.fitter.pslw,skydir)
-      return (-2)*self.roi.logLikelihood(self.roi.get_parameters())
-      #self.roi.ps_manager.update_localization(self.roi.fitter.pslw,self.roi.ps_manager.ROI_dir())
+      return (-2)*self.roi.spatialLikelihood(skydir)
 
    def dir(self):
       return self.rd
@@ -332,6 +344,69 @@ class ROILocalizer(object):
       return 0.05 #initial guess
 
    def __call__(self,v):
-
       from skymaps import SkyDir,Hep3Vector
       return self.TSmap(SkyDir(Hep3Vector(v[0],v[1],v[2])))
+
+###====================================================================================================###
+
+class ROIBand(object):
+   """Wrap a Band object, and provide additional functionality for likelihood."""
+
+   
+   def init(self):
+
+      self.umax      = 50
+
+      self.nsp_simps = 8
+      self.nbg_simps = 4
+
+
+   def __init__(self,band,spectral_analysis,**kwargs):
+
+      self.init()
+      self.__dict__.update(**kwargs)
+      self.b   = band
+      self.s   = band.sigma()
+      self.g   = band.gamma()
+      self.emin, self.emax = band.emin(),band.emax()
+      self.e   = (self.emin*self.emax)**0.5
+      self.sa  = spectral_analysis
+      self.sd  = self.sa.roi_dir
+      self.ec  = band.event_class()
+      self.exp = self.sa.exposure.exposure[self.ec]
+
+      self.__setup_data__()
+      self.__setup_sp_simps__()
+
+
+   def __setup_data__(self):
+      """Get all pixels within the ROI in this band."""
+
+      from skymaps import WeightedSkyDirList
+      mi,ma              = N.asarray([self.sa.minROI,self.sa.maxROI])*(N.pi/180.)
+      self.radius_in_rad = max(min((2*self.umax)**0.5*self.s,ma),mi)
+      self.wsdl          = WeightedSkyDirList(self.b,self.sd,self.radius_in_rad,False)
+      self.pix_counts    = N.asarray([x.weight() for x in self.wsdl]) if len(self.wsdl) else 0.
+      self.photons       = self.wsdl.counts()
+      self.has_pixels    = self.photons > 0
+      self.npix          = self.wsdl.total_pix()
+      self.solid_angle   = self.npix*self.b.pixelArea() #ragged edge
+      self.solid_angle_p = 2*N.pi*(1-N.cos(self.radius_in_rad)) #solid angle for a pure circle
+
+             
+
+   def __setup_sp_simps__(self):
+      """Cache factors for quickly evaluating the counts under a given spectral model."""
+
+      from pointlike import DoubleVector
+      self.sp_points = sp = N.logspace(N.log10(self.emin),N.log10(self.emax),self.nsp_simps+1)
+      exp_points     = N.asarray(self.exp.vector_value(self.sd,DoubleVector(sp)))
+      simps_weights  = (N.log(sp[-1]/sp[0])/(3.*self.nsp_simps)) * \
+                       N.asarray([1.] + ([4.,2.]*(self.nsp_simps/2))[:-1] + [1.])
+      self.sp_vector = sp * exp_points * simps_weights
+
+
+   def expected(self,model):
+      """Integrated the passed spectral model over the exposure and return expected counts."""
+      
+      return (model(self.sp_points)*self.sp_vector).sum()
