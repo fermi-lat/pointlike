@@ -2,20 +2,38 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.18 2009/01/16 22:58:10 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.19 2009/02/17 18:13:05 burnett Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.18 $'.split()[1]
+version='$Revision: 1.19 $'.split()[1]
 import os
 import sys
 
 from numpy import array, arange
 from pixeldata import PixelData
 
+class AnalysisEnvironment(object):
+
+   def init(self,glast_ts):
+
+      from os.path import join
+
+      if glast_ts:
+
+         self.galactic  = r'f:\glast\data\galprop\GP_gamma_psf_healpix_o8_54_59Xvarh8S.fits'
+         self.isotropic = None #replace with new tabular file
+
+         self.CALDB   = 'f:\\glast\\caldb\\v0r7p1\\CALDB\\data\\glast\\lat'
+         self.catalog = r'f:/glast/data/kerr/gll_psc6month_v2.fit'
+
+   def __init__(self,glast_ts=True,**kwargs):
+      self.init(glast_ts)
+      self.__dict__.update(**kwargs)
+
 class SpectralAnalysis(object):
     """ 
-    Interface to the spectral analysis code
+    Interface to the spectral analysis code.
 
     """
     
@@ -43,25 +61,30 @@ Optional keyword arguments:
   +roi_radius  [ 25]  radius (deg) to use if calculate exposure or a ROI. (180 for full sky)                                                                                
   +livetimefile [None] Exposure file: if specified and not found, create from FT2/FT1 info  
   +zenithcut   [105]  Maximum spacecraft pointing angle with respect to zenith to allow
-  +align       [False] if True, perform boresigh alignment correction on pre-September flight data  
+  +align       [False] if True, perform boresight alignment correction on pre-September flight data  
   +datafile    [None]  HEALpix data file: if specified and not found, create from FT1 info                                                                               
-  +class_level [ 3]  select class level (set 0 for gtobssim                                                             
+  +class_level [ 3]  select class level (set 0 for gtobssim)
+  +mc_src_id   [-1] set to select on MC_SRC_ID column in FT1
+  +use_mc_energy [False] set True to use MC_ENERGY instead of ENERGY
   +binsperdecade [4] When generating Bands from the FT1 data.
-  +use_mc_psf  [False] Use PSF determined by MC analysis if true; otherwise as defined by data
-  +use_psf_init[False] Initialize PSF parameters from CALDB
+  +tstart      [0] Default no cut on time; otherwise, cut on MET > tstart
+  +tstop       [0] Default no cut on time; otherwise, cut on MET < tstop
 
-  =========    KEYWORDS CONTROLLING EXPOSURE CALCULATION
+  =========    KEYWORDS CONTROLLING INSTRUMENT RESPONSE
   +CALDB       [None] If not specified, will use environment variable
-  +irf         ['P6_v1_diff'] Used for effective area
+  +exp_irf     ['P6_v3_diff'] Which IRF to use for effective area
+  +psf_irf     ['P6_v3_diff'] Which IRF to use for the point spread function
   
   =========    KEYWORDS CONTROLLING BACKGROUND
   +isotropic   [(1.5e-5,2.1)] tuple of flux>100 MeV, spectral index for isotropic diffuse to add to diffuse
+  +iso_file    [None] if provided, a MapCube representing the isotropic diffuse; if not, use default power law
+  +iso_scale   [1.] scale for the optional MapCube
   +galactic_scale [1.] scale factor for galactic diffuse
   
   =========    KEYWORDS CONTROLLING SPECTRAL ANALYSIS
-  +event_class  [-1] Select event class (-1: all, 0: front, 1:back)                                                       
+  +event_class [-1] Select event class (-1: all, 0: front, 1:back)                                                       
   +emin        [100] Minimum energy                                                                                 
-  +emax        [None] Maximum energy: if not specified no limit
+  +emax        [5e5] Maximum energy -- note, hardwired, so can only be _less_ than default!
   +extended_likelihood [False] Use extended likelihood
   +maxROI      [25] maximum ROI for PointSourceLikelihood to use
   +minROI      [0] minimum ROI
@@ -69,24 +92,33 @@ Optional keyword arguments:
 
   =========    KEYWORDS OF MISCELLANY
   +quiet       [False] Set True to suppress (some) output
-  +verbose     [FALSE] More output
+  +verbose     [False] More output
   =========   =======================================================
   """
         self.quiet       = False
         self.verbose     = False
         self.emin        = 100
-        self.emax        = None
+        self.emax        = 5e5
         self.extended_likelihood=False
         self.event_class = -1        
         self.maxROI      = 25 # for PointSourceLikelihood
         self.minROI      = 0
         self.back_multi  = 1.
+        self.exp_irf     = 'P6_v3_diff'
+        self.psf_irf     = 'P6_v3_diff'
+        self.CALDB       = None
         self.__dict__.update(kwargs)
 
+        if self.CALDB is None and 'CALDB' not in os.environ.keys():
+            print 'No CALDB setting or environment variable found!  Please rectify this.  Aborting.'
+            raise Exception
+
+         #TODO -- sanity check that BinnedPhotonData agrees with analysis parameters
         self.pixeldata =  PixelData(event_files,history_files,**kwargs)
-        from wrappers import ExposureWrapper,BackgroundWrapper
-        self.exposure  =  ExposureWrapper(self.pixeldata,**kwargs)
-        self.background = BackgroundWrapper(diffuse_file,self.exposure,**kwargs)        
+
+        from wrappers import ExposureWrapper,BackgroundWrapper,Singleton
+        self.exposure   =  ExposureWrapper(self.pixeldata,**kwargs)
+        self.background = BackgroundWrapper(diffuse_file,self.exposure,**kwargs)
         self.setup()
 
         
@@ -96,12 +128,10 @@ Optional keyword arguments:
         PointSourceLikelihood.set_minROI(self.minROI)
         SimpleLikelihood.enable_extended_likelihood(self.extended_likelihood) 
         PointSourceLikelihood.set_background(self.background())
-        
-        #select bands to fit
-        #self.energies = fromiter((band.emin() for band in self.dmap if band.event_class()==0\
-        #          and band.emin()>=self.emin
-        #          and (self.emax is None or band.emax()<self.emax) ),float)
-        #print "selected energies: " , floor(self.energies+0.5)
+
+    #is passing a function name really what is wanted here??
+    #def new_data(self,event_files,history_files):
+    #    self.pixeldata = PixelData(event_files,history_files,self.__dict__.update)
 
     class Fitter(object):
         """ manage spectral fitting"""
@@ -167,11 +197,16 @@ Optional keyword arguments:
             """ Fit all models that have been added, including via the optional keyword argument here.
                 models: a list of spectral models, e.g. ['PowerLaw,'BrokenPowerLaw',...]
             """
+            if 'prefit' in kwargs:
+               prefit = kwargs['prefit']
+               kwargs.pop('prefit')
+            else:
+               prefit = True
             from specfitter import SpectralModelFitter
             if type(models) != type([]): models = [models]
             self.add_models(models,**kwargs)
             for model in self.models:
-               if not model.good_fit: SpectralModelFitter.poisson(self.pslw,model)
+               if not model.good_fit: SpectralModelFitter.poisson(self.pslw,model,prefit=prefit)
 
         def plot(self, fignum=None, date_tag=True, filename=None,**kwargs):
             """Plot the flux or counts spectrum for the point source.      
@@ -221,6 +256,18 @@ Optional keyword arguments:
 
         """
         return SpectralAnalysis.Fitter(self, name, source_dir)
+
+    def roi(self, point_sources = None, backgrounds = None):
+        """
+        return an ROIAnalysis object with default settings.
+
+        point_sources    a list of PointSource objects to merge with a Catalog list
+                         (if None, the nearest catalog source will be fit)
+
+        backgrounds      a list of ROIBackgroundModels with which to replace the default
+                         isotropic and Galactic backgrounds (optional)
+        """
+        pass
 
 #--------------------------------------------------------
 

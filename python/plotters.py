@@ -4,7 +4,7 @@ instance of PointSourceLikelihoodWrapper from which information on the photon di
 spectral fits is obtained.  Spectral models can be furnished separately to provide an independent
 estimate of the source counts and for display purposes.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/plotters.py,v 1.3 2008/12/15 22:12:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/plotters.py,v 1.4 2009/01/16 22:58:10 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -14,7 +14,7 @@ import numpy as N
 #===============================================================================================#
 
 class GraphicAnalysis(object):
-   """Parent class for studies of the angular distribution of photons."""
+   """Parent class for studies of the distribution of photons."""
 
    def init(self):
       pass
@@ -308,18 +308,20 @@ Optional keyword arguments:
   e_weight    [2] energy weighting for spectral energy density plot
   normalized  [True] if True, use background normalization; if false, use observed counts (not yet implemented)
   to_screen   [True] display plot on screen if True
+  set_bounds  [True] scale axes to data values if True; otherwise, default or managed by user
+  axis        [None] a matplotlib Axis object optionally passed by user; otherwise, current axis
   =========   =======================================================
   """
 
    def init(self):
-      key = ['residuals','models','grid','legend','sed','cgs','e_weight','normalized','to_screen']
-      val = [True,[],True,True,True,False,2,True,True]
+      key = ['residuals','models','grid','legend','sed','cgs','e_weight','normalized','to_screen','set_bounds','axis']
+      val = [True,[],True,True,True,False,2,True,True,True,None]
       for i in xrange(len(key)): self.__dict__[key[i]] = val[i]
       self._bounds = None
 
    def __setup_axes__(self):
       from pylab import axes,gca
-      self.ax = gca()#axes()
+      self.ax = self.axis if self.axis is not None else gca()
       self.ax.clear()
       self.ax.set_xscale('log')
       self.ax.set_yscale('log')
@@ -346,7 +348,7 @@ Optional keyword arguments:
    def __drawModel__(self,model):
       if self.sed:
          domain = N.logspace(N.log10(self.pslw.emin),N.log10(self.pslw.emax),200)
-         units = (1.60218e-6)**(self.e_weight-1) if self.cgs else 1.
+         units = (1.60217646e-6)**(self.e_weight-1) if self.cgs else 1.
          return self.ax.plot(domain,domain**self.e_weight*units*model(domain),label=model.name)
       else:
          x,y = self.pslw.counts(model=model)
@@ -366,7 +368,7 @@ Optional keyword arguments:
       else:
          ax.set_xlabel('$\mathrm{E\ (MeV)}$')
          ax.set_ylabel('$\mathrm{Counts}$')
-      if self._bounds is not None: ax.axis(self._bounds)
+      if self._bounds is not None and self.set_bounds: ax.axis(self._bounds)
 
    def show(self,**kwargs):
       """Display the spectrum in counts or flux."""

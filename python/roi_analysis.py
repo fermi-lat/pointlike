@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.8 2009/01/16 22:58:10 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.2 2009/05/25 17:01:06 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -103,7 +103,7 @@ class ROIAnalysis(object):
       """Calculate log likelihood as a function of position of central point source."""
       
       ro = ROIOverlap()
-      rd = self.psm.ROI_dir()
+      rd = self.sa.roi_dir
       ll = 0
 
       from skymaps import PsfSkyFunction

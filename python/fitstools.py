@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitstools.py,v 1.8 2008/12/15 22:12:26 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitstools.py,v 1.9 2009/01/16 22:58:10 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -8,23 +8,123 @@
 
 import pyfits as pf
 import numpy as N
-from types import ListType
+from types import ListType,FunctionType,MethodType
 from math import cos,sin,pi
+
+def rect_mask(lons,lats,cut_lon,cut_lat,lon_hwidth,lat_hwidth):
+   mask = N.abs( lons - cut_lon)/N.cos(lats * N.pi / 180.) < lon_hwidth
+   return N.logical_and(mask, N.abs( lats - cut_lat) < lat_hwidth)
+
+def trap_mask(ras,decs,cut_dir,radius):
+   """Make a conservative, trapezoid cut as a precursor to a radius cut."""
+
+   c1 = N.cos( (cut_dir.dec() - radius)*N.pi/180. )
+   c2 = N.cos( (cut_dir.dec() + radius)*N.pi/180. )
+   ra_radius =  radius/N.minimum(c1,c2) #conservative
+
+   mask = N.abs(ras - cut_dir.ra()) <= ra_radius
+   mask = N.logical_and(mask,N.abs(decs - cut_dir.dec()) <= radius)
+   return mask
+
+def rad_mask(ras,decs,cut_dir,radius):
+   """Make a slower, exact cut on radius."""
+   from skymaps import SkyDir
+   diffs   = N.asarray([cut_dir.difference(SkyDir(ra,dec)) for ra,dec in zip(ras,decs)])   
+   mask    = diffs*(180/N.pi) < radius
+   return mask,diffs[mask]
+
+def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cuts=None):
+   """Extract events with a radial cut.  Return specified columns and perform additional boolean cuts.
+
+      Return is in form of a dictionary whose keys are column names (and 'DIFFERENCES') and values are
+      numpy arrays with the column values.  These will have been concatenated.
+
+Arguments:
+
+  =========   =======================================================
+  Argument    Description
+  =========   =======================================================
+  eventfiles  -- a list of FT1 filenames
+  center      -- a SkyDir giving the center of the radial cut
+  radius_function -- can be either a float specifying a cookier cutter radial cut, or
+              a function taking as arguments the energy and event_class and speciying
+              the radius in degrees, e.g.
+
+                  def radius(energy,event_class):
+                     return numpy.where(event_class,2,1)*(energy/1000)**-0.75
+  =========   =======================================================
+
+Optional keyword arguments:
+
+  =========   =======================================================
+  Keyword     Description
+  =========   =======================================================
+  return_cols ['RA','DEC','ENERGY','EVENT_CLASS','PULSE_PHASE'] - a list of FT1 column names to return
+  cuts        None - an optional list of boolean cuts to apply, e.g., ['ENERGY > 100']
+              NB -- cuts not yet implemented!!
+  =========   =======================================================
+   """
+   if not (type(radius_function) is FunctionType or type(radius_function) is MethodType):
+      simple_scalar = True
+      rval = radius_function
+      radius_function = lambda e,event_class: rval
+   else:
+      simple_scalar = False
+
+   eventfiles = __FITS_parse__(eventfiles)
+
+   from collections import defaultdict,deque
+   coldict = defaultdict(deque)
+   cols = {}
+   keys = list(set(['RA','DEC','ENERGY','EVENT_CLASS','ZENITH_ANGLE']+return_cols))
+
+   for eventfile in eventfiles:
+      from pyfits import open
+      e = open(eventfile,memmap=1)
+
+      for key in keys: cols[key] = N.asarray(e['EVENTS'].data.field(key)).astype(float)
+
+      rad   = radius_function(cols['ENERGY'],cols['EVENT_CLASS'])
+      tmask = N.logical_and(trap_mask(cols['RA'],cols['DEC'],center,rad),cols['ZENITH_ANGLE'] < 105.)
+      if simple_scalar:
+         rmask,diffs = rad_mask(cols['RA'][tmask],cols['DEC'][tmask],center,rad)
+      else:
+         rmask,diffs = rad_mask(cols['RA'][tmask],cols['DEC'][tmask],center,rad[tmask])
+
+      for key in keys: coldict[key].append(cols[key][tmask][rmask])
+      coldict['DIFFERENCES'].append(diffs)
+      e.close()
+   
+   for key in coldict.keys():
+      if key == 'ZENITH_ANGLE' and 'ZENITH_ANGLE' not in return_cols: continue
+      cols[key] = N.concatenate([x for x in coldict[key]])
+   return cols
 
 #TODO: GTI
 #e.g. counts_plot(file_list,coordsys='galactic',cuts=['L  > 50','L < 100','B > -60'])
-def counts_plot(ft1files,scale='log',pixels=256,coordsys='equatorial',cuts = None, print_locs = False):
+def counts_plot(ft1files,center,fov=10,scale='log',pixels=256,coordsys='equatorial',
+                cuts = None, print_locs = False):
+   
    ft1 = merge_flight_data(ft1files,cuts=cuts)
    events = ft1[1]
    if coordsys == 'equatorial':
-      lon,lat = events.data.field('RA'),events.data.field('DEC')
+      lon,lat = N.asarray(events.data.field('RA')),N.asarray(events.data.field('DEC'))
+      clon,clat = center.ra(),center.dec()
    else:
-      lon,lat = events.data.field('L'),events.data.field('B')
+      lon,lat = N.asarray(events.data.field('L')),N.asarray(events.data.field('B'))
+      clon,clat = center.l(),center.b()
+   mask = rect_mask(lon,lat,clon,clat,fov/2.,fov/2.)
+
+   lon = lon[mask]
+   lat = lat[mask]   
+   
    img,x,y = N.histogram2d(lon,lat,bins=pixels)
    if scale == 'log':
       img = N.where(img > 0,N.log10(img),-1)
-   from pylab import pcolor,xlabel,ylabel
-   pcolor(x,y,img.transpose()) #TODO -- make RA go the right way!
+   from pylab import pcolor,xlabel,ylabel,imshow
+ 
+   #pcolor(x,y,img.transpose()) #TODO -- make RA go the right way!
+   imshow(img.transpose())
    xlabel( ('RA'  if coordsys=='equatorial' else 'L') + ' (deg)')
    ylabel( ('DEC' if coordsys=='equatorial' else 'B') + ' (deg)')
    if print_locs:
@@ -74,6 +174,53 @@ def merge_flight_data(files, outputfile = None, cuts = None, fields = None):
    for x in handles: x.close()
 
    return handles[0]
+
+def get_fields(files, fields, cuts = None):
+   """A lightweight version to get only certain fields of flight data."""
+
+   from collections import defaultdict
+   data = defaultdict(list)
+   files = __FITS_parse__(files)
+
+   #Process the cuts
+   f = pf.open(files[0],memmap=1)
+   if cuts is not None:
+      cut_fields = set()
+      for i,cut in enumerate(cuts): #put cut columns in namespace
+         tokens = [tok.strip() for tok in cut.split()]
+         for name in f['EVENTS'].columns.names:
+            if name in tokens:
+               cut_fields.add(name)
+               cuts[i] = cuts[i].replace(name,'data[\'%s\']'%name)
+      cut_fields = list(cut_fields)
+   else: cut_fields = []
+   f.close()
+   
+   #Get fields
+   for fi in files:
+      f = pf.open(fi,memmap=1)
+      for field in fields + cut_fields:
+         data[field] += [N.array(f['EVENTS'].data.field(field))]
+      f.close()
+
+   #Concatenate results
+   for field in fields + cut_fields:
+      data[field] = N.concatenate(data[field]).astype(float) #note hard case
+
+   #Apply cuts
+   if cuts is not None:
+      mask = N.asarray([True]*len(data[data.keys()[0]]))
+      for cut in cuts:
+         mask = N.logical_and(mask,eval(cut))
+      for field in fields:
+         data[field] = data[field][mask]
+
+   #Remove "helper" data for cuts
+   for cut in cut_fields:
+      if cut_fields not in fields: data.pop(cut)
+
+   return data
+
 
 def FT1_to_GTI(files):
    """Convert FT1 files to a single GTI object."""
@@ -210,6 +357,8 @@ def __arbitrary_cuts__(events,cuts):
       cuts -- a list of cuts; the final result is the intersection of all cuts.  e.g,
               ['ENERGY>100','MET > 5000','MET < 10000']
    """
+
+   if cuts is None: return
    
    from numarray import array,logical_and #some installations may need the numpy version of these calls
 
