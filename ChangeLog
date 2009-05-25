@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon May 25 12:17:51 PDT 2009
+pointlike/python
+
+Modified Files:
+	fitstools.py phasetools.py pixeldata.py plotters.py 
+	pointspec.py roi_analysis.py roi_modules.py wrappers.py 
+Log Message:
+A minor update to fix a few things (including the clarifying the definition of ROI versus the location of the central point source) and to check in the few new features.
+    *
+------------------------------------------------------------
 User: burnett  Mon May 25 11:53:14 PDT 2009
 pointlike/src
 
