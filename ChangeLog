@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon May 25 11:53:14 PDT 2009
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx 
+Log Message:
+clean up, moving helper class to implementation
+    *
+------------------------------------------------------------
 User: burnett  Mon May 25 11:53:13 PDT 2009
 pointlike/pointlike
 
