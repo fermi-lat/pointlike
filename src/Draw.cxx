@@ -1,7 +1,7 @@
 /** @file Draw.cxx
 @brief implementation of Draw
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.22 2009/02/19 01:51:29 markusa Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Draw.cxx,v 1.23 2009/03/06 21:41:49 markusa Exp $
 
 */
 
@@ -31,7 +31,8 @@ Draw::Draw(BinnedPhotonData& map, const skymaps::SkySpectrum* background,
 , m_galactic(true)
 , m_zenith(false)
 , m_proj("")
-, m_exposure(0) // default: do not apply
+, m_exposure(0)
+, m_exposure2(0)// default: do not apply
   , m_layers(1)
   , m_emin(eMin)
   , m_minalpha(minalpha)
@@ -44,19 +45,20 @@ Draw::Draw(Data& data)
 , m_galactic(true)
 , m_zenith(false)
 , m_proj("")
-, m_exposure(0) // default: do not apply
+, m_exposure(0)
+, m_exposure2(0) // default: do not apply
 , m_layers(1)
   , m_ts(false)
 {}
 
 void Draw::density(const astro::SkyDir& dir, std::string outputFile, double pixel, 
-                      double fov, bool smooth, int mincount) {
+                      double fov, bool smooth, int mincount, int kernel, double smooth_radius) {
 
     std::string proj (fov>90? "AIT":"ZEA");
     if( !m_proj.empty()){ proj = m_proj;}
                 
     SkyImage image(dir, outputFile, pixel, fov, m_layers, proj,  m_galactic, m_zenith);
-    image.fill(SkyDensity(m_map, smooth, mincount, m_exposure), 0); // PhotonMap is a SkyFunction of the density 
+    image.fill(SkyDensity(m_map, smooth, mincount, m_exposure,m_exposure2,kernel,smooth_radius), 0); // PhotonMap is a SkyFunction of the density 
 
     std::cout 
         <<   "\t minimum "<< image.minimum()
@@ -67,9 +69,9 @@ void Draw::density(const astro::SkyDir& dir, std::string outputFile, double pixe
 };		   
 		   
 void Draw::region(const astro::SkyDir& dir, std::string outputFile, double pixel, 
-                  double fov, bool smooth, int mincount)
+                  double fov, bool smooth, int mincount, int kernel, double smooth_radius)
 {
-    density(dir,outputFile,pixel,fov,smooth,mincount);
+    density(dir,outputFile,pixel,fov,smooth,mincount,kernel,smooth_radius);
     
 //--------------------------------------------------------------------------------------
 
@@ -129,13 +131,17 @@ void Draw::googleSky(std::string outfile, double pixelsize, bool smooth, int min
 //-------------------------------------------------------------------
 //             SkyDensity methods
 //-------------------------------------------------------------------
+
 SkyDensity::SkyDensity(const skymaps::BinnedPhotonData& data, bool smooth, int mincount
-                       ,const astro::SkyFunction* exposure)
+                       ,const astro::SkyFunction* exposure, const astro::SkyFunction* exposure2, int kernel, double smooth_radius)
 : m_data(&data)
 , m_band(0)
 , m_smooth(smooth)
 , m_mincount(mincount)
 , m_exposure(exposure)
+, m_exposure2(exposure2)
+, m_kernel(kernel)
+, m_radius(smooth_radius)
 {}
 
 SkyDensity::SkyDensity(const skymaps::Band& band)
@@ -144,6 +150,9 @@ SkyDensity::SkyDensity(const skymaps::Band& band)
 , m_smooth(false)
 , m_mincount(0)
 , m_exposure(0)
+, m_exposure2(0)
+, m_kernel(0)
+, m_radius(3)
 {}
 
 double SkyDensity::operator()(const astro::SkyDir & sd) const 
@@ -155,6 +164,22 @@ double SkyDensity::operator()(const astro::SkyDir & sd) const
         return (*m_band)(sd);
     }
 
+    if (m_exposure != 0 && m_exposure2 != 0) {
+        value = 0;
+        const skymaps::SkySpectrum* e1 = static_cast<const skymaps::SkySpectrum*>(m_exposure);
+        const skymaps::SkySpectrum* e2 = static_cast<const skymaps::SkySpectrum*>(m_exposure2);
+        //Use energy dependent exposure
+        for (skymaps::BinnedPhotonData::const_iterator it = m_data->begin(); it!=m_data->end(); ++it) {
+            const skymaps::Band& band ( *it);
+            double e = pow(band.emin()* band.emax(),0.5);
+            if (e < 100 || e > 10000) continue;
+            double b_value(band.density(sd,m_smooth,m_mincount,m_kernel,m_radius) * e * 1.60217646e-6); // convert to ergs / sr
+            double exp = band.event_class() ? e2->value(sd,e) : e1->value(sd,e);
+            value += exp > 0 ? b_value / exp : 0;
+        }
+        return value;
+    }
+    
     if (m_smooth)
         value = m_data->smoothDensity(sd, m_mincount);
     else
