@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.2 2009/05/25 17:01:06 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.3 2009/05/25 19:17:51 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -99,8 +99,12 @@ class ROIAnalysis(object):
 
       return tot_term - pix_term
    
-   def spatialLikelihood(self,skydir):
-      """Calculate log likelihood as a function of position of central point source."""
+   def spatialLikelihood(self,skydir,which=0):
+      """Calculate log likelihood as a function of position a point source.
+      
+         which   -- index of point source; default to central
+                    ***if localizing non-central, ensure ROI is large enough!***
+      """
       
       ro = ROIOverlap()
       rd = self.sa.roi_dir
@@ -115,8 +119,8 @@ class ROIAnalysis(object):
          psf                   = PsfSkyFunction(skydir,gamma,sigma)
          
          overlap               = ro(band,rd,skydir) * exposure_ratio * band.solid_angle / band.solid_angle_p
-         ool                   = band.overlaps[0]
-         psc                   = band.ps_counts[0]
+         ool                   = band.overlaps[which]
+         psc                   = band.ps_counts[which]
 
          tot_term              = band.bg_all_counts + band.ps_all_counts + psc * (overlap - ool)
 
@@ -128,7 +132,7 @@ class ROIAnalysis(object):
                            (
                            band.bg_all_pix_counts + 
                            band.ps_all_pix_counts + 
-                           psc*(ps_pix_counts - band.ps_pix_counts[:,0])
+                           psc*(ps_pix_counts - band.ps_pix_counts[:,which])
                            )
                        ).sum()
 
@@ -217,7 +221,15 @@ class ROIAnalysis(object):
       ll = -self.logLikelihood(save_params) #reset predicted counts
       return -2*(alt_ll - ll)
 
-   def localize(self,tolerance=1e-4):
+   def localize(self,tolerance=1e-4,update=False,which=0):
+      """Localize a source using an elliptic approximation to the likelihood surface.
+
+         tolerance -- maximum difference in degrees between two successive best fit positions
+         update    -- if True, update localization internally, i.e., recalculate point source contribution
+                      [NOT IMPLEMENTED]
+         which     -- index of point source; default to central [NOT IMPLEMENTED]
+                      ***if localizing non-central, ensure ROI is large enough!***
+      """
       import quadform
       rl = ROILocalizer(self)
       l  = quadform.Localize(rl,verbose = False)
@@ -233,7 +245,8 @@ class ROIAnalysis(object):
 
       self.qform   = l
       self.ldir    = l.dir
-      self.lsigma  = l.sigma      
+      self.lsigma  = l.sigma
+      self.rl      = rl
 
 
    def __call__(self,v):

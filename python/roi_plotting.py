@@ -1,7 +1,7 @@
 """
 Plotting routines to display results of an ROI analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.8 2009/01/16 22:58:10 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.2 2009/05/25 17:01:06 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -918,95 +918,114 @@ def fit_scale(psfc):
    f = fmin(self.loglikelihood,scale,args=(psfc,))
    return f
 
-from matplotlib import mpl, pyplot, ticker
-import pylab as P
-# right subplot
-fig = P.figure(2)
-#axes2 = fig.add_axes([imx[1], imy[1], imw[1],imh[1]])
-axes2 = P.gca()
-axes2.set_aspect(1)
-axes2.set_title('TS map', fontsize=10)
-axes2.set_xlabel('$\mathrm{RA}$')
-axes2.set_ylabel('$\mathrm{Dec}$')
-
-norm2 = mpl.colors.Normalize(vmin=0, vmax=5)
-cmap2 = mpl.cm.hot_r
-#cb2=mpl.colorbar.ColorbarBase(cb2_axes,
-#   cmap=cmap2, norm=norm2, orientation='vertical',
-#   ticks=ticker.MaxNLocator(6), ) #np.linspace(0,5,1))
-#cb2.set_label('$\mathrm{sqrt(TS difference)}$')
-
-import numpy as np
-
-def ts_plot(axes,I):
-   nx,ny=I.nx, I.ny
-   #axes=self.axes2
-   I.axes.set_axes(axes)
-   axes.set_xlim((0,nx)); axes.set_ylim((0,ny))
-   axes.set_autoscale_on(False)
-
-   ts_image = I.image.copy()
-   ts_image = np.sqrt(np.abs(ts_image.max()-ts_image))
-   print ts_image
-   # convert to significance?
-
-
-   t = axes.imshow(ts_image, origin='lower', 
-      extent=(0,nx,0,ny),
-      cmap=cmap2, norm=norm2,
-      interpolation='bilinear')
-
-   # np.sqrt(-2* np.log(1-np.array([0.68,0.95, 0.99]))
-   axes.contour(  np.arange(0.5, nx,1), np.arange(0.5,ny, 1), ts_image,
-      np.array([1.51, 2.45, 3.03]), 
-      colors='k', linestyles='-' )
-   if axes.get_xlim()[0] !=0:
-      print 'Warning: coutour modified: limits', axes.get_xlim(), axes.get_ylim()
-   #axes.set_xlim((0,nx)); axes.set_ylim((0,ny))
-   #print 'after reset', axes.get_xlim(), axes.get_ylim()
-   I.grid(color='gray')
-   I.scale_bar(0.5/60, "30''", color='w')
-
-   #self.Iden.box(I, lw=2) #overplot box in density plot
-   #self.Its = I
-
-import quadform
-from skymaps import SkyDir
-
-def ts_overplot(axes, Its, quadfit, sigma):
-   # elliptical countour at given radius
-   #axes = self.axes2
-   x,y = quadfit.ellipse.contour( quadform.Localize.fit_radius)
-   #sigma = quadfit.sigma #effective sigma from quad fit
-   ra,dec = quadfit.ra, quadfit.dec
-   pixelsize=Its.pixelsize #scale foqr plot
-   x0,y0 = Its.pixel(SkyDir(ra,dec))
-   f=sigma/pixelsize #scale factor
-   xa = f*np.array(x)
-   ya = f*np.array(y)
-   axes.plot([x0],[y0], '+b')
-   for r in [1.51, 2.45, 3.03]:
-      axes.plot(r*xa+x0,r*ya+y0, '-.b');
-   axes.text(0.5, 0.93,'chisq=%5.2f'%quadfit.ellipse.chisq, color='w', fontsize=10,
-      transform = axes.transAxes)
-
-def ts_cross(axes, Its, sdir, size):
-  
-     image=Its
-     x,y = image.pixel(sdir)
-     pixelsize = image.pixelsize
-     delta = size/pixelsize
-     #axes = self.axes2
-     axes.plot([x-delta, x+delta], [y,y], '-k')
-     axes.plot([x,x], [y-delta, y+delta], '-k')
-
-def plot(image, locs, labels=None, symbol='+',  fontsize=12, markersize=10, fontcolor='k', **kwargs):
-   #image = self.Its if onts else self.Iden
-   nx = image.nx 
-   for i,loc in enumerate(locs):
-      x,y = image.pixel(loc)
-      image.axes.plot([x], [y], symbol, markersize=markersize, **kwargs)
-      if labels is not None:
-         image.axes.text( x+nx/100., y+nx/100., labels[i], fontsize=fontsize, color=fontcolor)
-
 """
+
+class TSplot(object):
+
+    def __init__(self, roi, center, size, pixelsize=None, axes=None):
+
+        from skymaps import PySkyFunction
+        import image
+        import numpy as np
+        self.roi = roi
+        if 'ldir' not in self.roi.__dict__:
+            self.roi.localize()
+        self.tsmap = PySkyFunction(self.roi.rl)
+        if pixelsize is None: pixelsize=size/10. 
+        self.zea= image.ZEA(center, size, pixelsize, axes=axes)
+        print 'filling %d pixels...'% (size/pixelsize)**2
+        self.zea.fill(self.tsmap)
+        print 'comverting...'
+        Imax= self.zea.image.max()
+        self.image =np.sqrt(np.abs(Imax-self.zea.image))
+        self.cb=None
+        # np.sqrt(-2* np.log(1-np.array([0.68,0.95, 0.99]))
+
+
+    def show(self):
+        import numpy as np
+        from matplotlib import mpl, pyplot, ticker
+        norm2 = mpl.colors.Normalize(vmin=0, vmax=5)
+        cmap2 = mpl.cm.hot_r
+
+        self.nx,self.ny = self.image.shape
+        axes = self.zea.axes
+        t = axes.imshow(self.image, origin='lower', 
+            extent=(0,self.nx,0,self.ny),
+            cmap=cmap2, norm=norm2,
+            interpolation='bilinear')
+        if self.cb is None:
+            self.cb = pyplot.colorbar(t, ax=axes, 
+                cmap=cmap2, norm=norm2,
+                ticks=ticker.MultipleLocator(),
+                orientation='vertical',
+                #shrink=1.0,
+                )
+        self.cb.set_label('$\mathrm{sqrt(TS\ difference)}$')
+
+        c = axes.contour(  np.arange(0.5, self.nx,1), np.arange(0.5, self.ny, 1), self.image,
+            np.array([1.51, 2.45, 3.03]), 
+            colors='k', linestyles='-' )
+        d = dict()
+        for val,label in zip(np.array([1.51, 2.45, 3.03]),["68%","95%","99%"]):
+            d[val] = label
+        axes.clabel(c,fmt=d)
+        if axes.get_xlim()[0] !=0:
+            print 'Warning: coutour modified: limits', axes.get_xlim(), axes.get_ylim()
+        #axes.set_xlim((0,nx)); axes.set_ylim((0,ny))
+        #print 'after reset', axes.get_xlim(), axes.get_ylim()
+        if self.zea.size < 0.02:
+            self.zea.scale_bar(0.5/60, "30''", color='w')
+        else:
+            self.zea.scale_bar(1./60, "1'", color='w')
+        self.zea.grid(color='gray')
+
+    def overplot(self):
+        import quadform
+        from skymaps import SkyDir
+        if 'qform' not in self.roi.__dict__:
+            self.roi.localize()
+        quadfit = self.roi.qform
+        sigma   = self.roi.lsigma
+        # elliptical countour at given radius
+        axes = self.zea.axes
+        x,y = quadfit.ellipse.contour( quadform.Localize.fit_radius)
+        #sigma = quadfit.sigma #effective sigma from quad fit
+        ra,dec = quadfit.ra, quadfit.dec
+        pixelsize=self.zea.pixelsize #scale for plot
+        x0,y0 = self.zea.pixel(SkyDir(ra,dec))
+        f=sigma/pixelsize #scale factor
+        xa = f*np.array(x)
+        ya = f*np.array(y)
+        axes.plot([x0],[y0], '+b')
+        for r in [1.51, 2.45, 3.03]:
+            axes.plot(r*xa+x0,r*ya+y0, '-.b');
+        axes.text(0.5, 0.93,'chisq=%5.2f'%quadfit.ellipse.chisq, color='w', fontsize=10,
+            transform = axes.transAxes)
+
+    def cross(self, sdir, size, label=None,  fontsize=12, markersize=10, fontcolor='k', **kwargs):
+        """ make a cross at the position, size defined in celestial coordinats
+        """
+      
+        image=self.zea
+        x,y = image.pixel(sdir)
+        pixelsize = image.pixelsize
+        delta = size/pixelsize
+        axes = self.zea.axes
+        axes.plot([x-delta, x+delta], [y,y], '-k', **kwargs)
+        axes.plot([x,x], [y-delta, y+delta], '-k', **kwargs)
+        if label is not None:
+            nx = image.nx 
+            image.axes.text( x+nx/100., y+nx/100., label, fontsize=fontsize, color=fontcolor)
+
+    def plot(self, loc, label=None, symbol='+',  fontsize=12, markersize=10, fontcolor='k',  **kwargs):
+        """ plot a single point at the celestial location
+            return the tsmap value there
+        """
+        image = self.zea
+        nx = image.nx 
+        x,y = image.pixel(loc)
+        image.axes.plot([x], [y], symbol, markersize=markersize, **kwargs)
+        if label is not None:
+            image.axes.text( x+nx/100., y+nx/100., label, fontsize=fontsize, color=fontcolor)
+        return self.tsmap(loc)
