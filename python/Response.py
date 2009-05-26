@@ -57,7 +57,7 @@ class ExposureMap2(object):
 
    def __init__(self,src_dir,history_files,ev_files,irf='P6_v1_diff',cone_angle=10.,pixelsize=1.,zcut=105):
       
-      EffectiveArea.set_CALDB('f:\\glast\\packages\\ScienceTools-v9r7p1\\irfs\\caldb\\v0r7p1\\CALDB\\data\\glast\\lat')
+      EffectiveArea.set_CALDB('f:\\glast\\caldb\\v0r7p1\\CALDB\\data\\glast\\lat')
       inst = ['front', 'back']
       self.ea  = [EffectiveArea(irf+'_'+x) for x in inst]
       try:
