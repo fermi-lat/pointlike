@@ -2,9 +2,10 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.110 2009/04/17 14:29:54 burnett Exp $
+$Id: release.notes,v 1.111 2009/05/15 14:30:41 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
+ 27-may-09 v6r20   THB Many python updates to implement generalized roi analysis (mostly MK)
  15-may-09 v6r19p0 THB preliminary version that uses psf threshold to choose bands for fits
  17-apr-09 v6r18p1 THB gcc fix
  13-apr-09 v6r18   THB Various improvements to poinfit
