@@ -7,7 +7,7 @@ import os
 import skymaps
 import pylab 
 
-import makerec
+#import makerec this dependency needed?
 
 def quadfun(r, p):
     x,y=r
