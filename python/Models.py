@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.14 2009/01/16 22:58:10 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.15 2009/05/25 18:50:57 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -115,7 +115,8 @@ Optional keyword arguments:
 
    def set_parameters(self,new_vals):
       """Set FREE parameters; new_vals should have length equal to number of free parameters."""
-      self.p[self.free] = new_vals
+      assert(len(new_vals)==(self.free).sum())
+      self.p[self.free] = new_vals.astype('f') # downcast to float needed?
 
    def freeze(self,parameter,freeze=True):
       """Freeze one of the spectral parameters from fitting.
