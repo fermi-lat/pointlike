@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed May 27 10:34:11 PDT 2009
+pointlike/python
+
+Modified Files:
+	Models.py 
+Log Message:
+set_parameters fix apparently needed for 64-bit platform.
+    *
+------------------------------------------------------------
 User: kerrm  Wed May 27 09:22:30 PDT 2009
 pointlike/python
 
