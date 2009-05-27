@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+TAG
+Tag name: v6r20, operation: mov
+Package: pointlike
+User: glastrm  Wed May 27 11:31:25 2009
+Files:
+  pointlike/SConscript  1.60
+
+    *
+------------------------------------------------------------
 User: glastrm  Wed May 27 11:31:19 PDT 2009
 pointlike
 
