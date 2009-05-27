@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed May 27 09:22:30 PDT 2009
+pointlike/python
+
+Modified Files:
+	quadform.py 
+Log Message:
+removed dependency on makerec
+    *
+------------------------------------------------------------
 User: kerrm  Tue May 26 10:58:11 PDT 2009
 pointlike/python
 
