@@ -1,7 +1,7 @@
 /** @file SourceList.h
 @brief declaration of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.14 2009/03/17 23:33:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SourceList.h,v 1.15 2009/04/13 22:53:13 burnett Exp $
 */
 
 #ifndef pointlike_SourceList_h
@@ -128,9 +128,14 @@ namespace pointlike{
         /// @brief set the radius used to select nearby sources for inclusion in a fit
         static double set_group_radius(double value);
 
+        /// @brief enable least-squares fit to likelihook surface
+        static bool   set_uselsq(bool q);
+        static bool   uselsq(); 
+
     private:
         bool m_verbose;
         static const skymaps::BinnedPhotonData* s_data;
+        static bool  s_uselsq; ///< set true to apply least-squares fit to likelihood surface
 
     };
 

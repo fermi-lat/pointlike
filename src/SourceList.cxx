@@ -1,7 +1,7 @@
 /** @file SourceList.cxx
 @brief implementation of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.21 2009/03/17 23:33:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.22 2009/04/13 22:53:13 burnett Exp $
 */
 
 
@@ -17,6 +17,8 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.21 2009/0
 #include <stdexcept>
 #include <time.h>
 #include <cstring>
+
+#define USELSQ
 
 using namespace pointlike;
 using astro::SkyDir;
@@ -62,6 +64,11 @@ double SourceList::set_group_radius(double value)
 const skymaps::BinnedPhotonData * SourceList::s_data(0);
 const skymaps::BinnedPhotonData * SourceList::data(){return s_data;}
 void SourceList::set_data(const skymaps::BinnedPhotonData * data){s_data=data;}
+bool SourceList::s_uselsq(false);
+bool SourceList::set_uselsq(bool q){
+    bool t(q); s_uselsq=q; return t;
+}
+bool SourceList::uselsq(){return s_uselsq;}
 
 Source::Source(const std::string& name, const astro::SkyDir& seed_dir, double TS)
 : m_name(name)
@@ -107,6 +114,10 @@ Source::Source(const std::string& name, double ra, double dec, double TS)
 double Source::localize(){
     m_fit->maximize();   // may not be needed
     m_sigma = m_fit->errorCircle(); // estimate of the sigma
+    if( m_sigma>1){
+        m_sigma=100;
+        return m_sigma; // flag no data.
+    }
     SkyDir idir( m_fit->dir() );
     double ra(idir.ra()), dec(idir.dec());
     // standard
@@ -120,16 +131,16 @@ double Source::localize(){
         // failed: restore dir in case localize did not
         m_fit->setDir(idir);
     }
-#if 1 // use lsq here
-    double iTS = m_fit->TSmap(idir);
-    // try this
-    LeastSquaresFitter lsq(*m_fit, m_sigma);
-    sigma = lsq.err();
-    m_fitparams = lsq.ellipse();
-#else
-    //std::cout << "Note: using radius of 1 sigma" << std::endl;
-    m_fitparams = TScircle(3.0); // just dump the values after gradient fit
-#endif
+    if( SourceList::uselsq()){ // use lsq here
+        double iTS = m_fit->TSmap(idir);
+        // try this
+        LeastSquaresFitter lsq(*m_fit, m_sigma);
+        sigma = lsq.err();
+        m_fitparams = lsq.ellipse();
+    }else{
+        //std::cout << "Note: using radius of 1 sigma" << std::endl;
+        m_fitparams = TScircle(3.0); // just dump the values after gradient fit
+    }
     m_fit->printSpectrum();
     return m_sigma;
 }
@@ -164,13 +175,11 @@ void Source::header(std::ostream& out){
         <<"#name                  ra        dec        TS    localization   moved  neighbor"; 
         
 //         B0833-45              128.8339  -45.1629   5698.49    0.0069    0.0136
-#if 1 // stuff from lsqfit
-    //out << "     ra2        dec2       TS2          sigma_a   sigma_b   sigma_phi ";
-    //for(int i(0); i<8; ++i) out << "       dTS"<< i;
-    //out << "  quality  ";
-    out << LeastSquaresFitter::header();
-#endif
-    out << "\n";
+    if( SourceList::uselsq() ){
+        out << LeastSquaresFitter::header();
+    }else{
+        out << "\n";
+    }
 }
 
 void Source::info(std::ostream& out)const{
@@ -193,13 +202,18 @@ void Source::info(std::ostream& out)const{
             out << std::setw(10) << " -"; 
         }
 
-        if(! m_fitparams.empty()){
-            out << std::setprecision(4);
-            for(std::vector<double>::const_iterator it = m_fitparams.begin(); it!= m_fitparams.end(); ++it){
-                out << std::setw(12) << (*it);
+        if( SourceList::uselsq() ){
+            if(! m_fitparams.empty()){
+                out << std::setprecision(4);
+                for(std::vector<double>::const_iterator it = m_fitparams.begin(); it!= m_fitparams.end(); ++it){
+                    out << std::setw(12) << (*it);
+                }
+            }else{
+                for(int i(0); i<7; ++i){
+                    out << std::setw(12) << "0";
+                }
             }
         }
-
         out << std::endl;
 }
 
@@ -285,7 +299,7 @@ void SourceList::dump(std::ostream& out)const
 void SourceList::dump(const std::string& outfilename)const
 {
     std::ofstream out(outfilename.c_str());
-    if( outfilename.find(".xml") != std::string::npos ) {
+    if( outfilename.find(".xml") == std::string::npos ) {
         dump( out );
     }else{
         dump_xml(out, outfilename);

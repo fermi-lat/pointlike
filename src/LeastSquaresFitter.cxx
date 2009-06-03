@@ -1,7 +1,7 @@
 /** @file LeastSquaresFitter.cxx 
 @brief Methods for rotation information
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/LeastSquaresFitter.cxx,v 1.8 2009/04/17 14:28:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/LeastSquaresFitter.cxx,v 1.9 2009/04/29 19:29:49 mar0 Exp $
 */
 
 //#define MIN_DEBUG
@@ -35,7 +35,7 @@ namespace {
 }
 std::string LeastSquaresFitter::header()
 {
-    return "      sigma_a           sigma_b          sigma_phi       x0          y0         chisq ";
+    return "      a          b       phi       x0          y0         quality";
 }
 
 LeastSquaresFitter::LeastSquaresFitter(PointSourceLikelihood& psl, double sigma):
