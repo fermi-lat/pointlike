@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.75 2009/05/15 14:30:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.76 2009/05/25 18:53:14 burnett Exp $
 
 */
 
@@ -362,6 +362,7 @@ double PointSourceLikelihood::curvature() const{
         double curv((*it)->curvature());
         if( curv>0 )  t+= curv;
     }
+    if( t==0){ t=1e-6;} // protect for no data!
     return t;
 }
 

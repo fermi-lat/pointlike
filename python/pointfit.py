@@ -43,7 +43,7 @@ Optional parameters:
     --TSmin [10]  minimum TS 
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.17 2008/12/29 04:19:19 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.18 2009/03/08 01:36:22 burnett Exp $
 """
 import os, sys, types
 from numpy import arange
@@ -210,7 +210,8 @@ def main():
         (t1,t2)=set_diffuse(diffusefilename, exposure)
     PointSourceLikelihood.set_energy_range(emin)
     PointSourceLikelihood.set_verbose(verbose)
-    PointSourceLikelihood.set_fitlsq(lsq)
+    #PointSourceLikelihood.set_fitlsq(lsq)
+    SourceList.set_uselsq(lsq)
     SourceList.set_data(data.map())
     sourcelist = SourceList(sourcefilename)
     sourcelist.sort_TS()
