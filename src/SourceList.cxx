@@ -1,7 +1,7 @@
 /** @file SourceList.cxx
 @brief implementation of classes Source and SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.22 2009/04/13 22:53:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SourceList.cxx,v 1.23 2009/06/03 22:18:09 burnett Exp $
 */
 
 
@@ -209,9 +209,10 @@ void Source::info(std::ostream& out)const{
                     out << std::setw(12) << (*it);
                 }
             }else{
-                for(int i(0); i<7; ++i){
+                for(int i(0); i<5; ++i){ // length wired in :-(
                     out << std::setw(12) << "0";
                 }
+                out << std::setw(12) << "100"; //last is quality 
             }
         }
         out << std::endl;
