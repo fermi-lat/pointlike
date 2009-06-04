@@ -1,8 +1,0 @@
-*.pyc
-*.pyd
-pointlike.py
-fine.fits
-fine_bg.fits
-coarse.fits
-coarse_bg.fits
-uw
