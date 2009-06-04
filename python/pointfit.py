@@ -25,7 +25,6 @@ Optional parameters:
         [This is TODO: Is there a function member to sum the GTI intervals?]
         Note that this is only actually needed for overlapped sources in the Galactic
         plane, if spectral information is not required.
-    --ltcube=: [None] If specified, use for exposure
     --diffuse=:  Define a diffuse file (see the flag --galdiffuse to define it in the context of the science tools)
     --galdiffuse: Flag to use the galprop-generated galactic diffuse file which is distributed with the science tools)
     --eventtype= [-1] Event selection if datafile is event data. -1 means front and back,
@@ -39,12 +38,13 @@ Optional parameters:
     --TSmin= [10]
     --[no]lsq  use (or not) "lsq" mode to find maximum
     --region=: define a region file
-    --lsqfit  Enable the "lsqfit" option for fitting
     --TSmin [10]  minimum TS 
 
 
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.18 2009/03/08 01:36:22 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointfit.py,v 1.19 2009/06/03 22:18:09 burnett Exp $
 """
+#    --ltcube=: [None] If specified, use for exposure [not implemented]
+
 import os, sys, types
 from numpy import arange
 
@@ -167,7 +167,7 @@ def main():
     binsperdecade=0 # default binning
     emin = 500
     TSmin= 10  # minimum TS for final list
-    lsq = True
+    lsq = False
     quiet = False
     history = None
                                     
@@ -183,7 +183,7 @@ def main():
         elif opt=='--TSmin'                 : TSmin = float(val)
         elif opt=='--lsq'                   : lsq = True 
         elif opt=='--nolsq'                 : lsq = False
-        elif otp=='--quiet'                 : quiet = True
+        elif opt=='--quiet'                 : quiet = True
         elif opt=='--exposure'              :
             try: exposure= float(val)
             except: exposure = val
