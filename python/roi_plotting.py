@@ -1,7 +1,7 @@
 """
 Plotting routines to display results of an ROI analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.2 2009/05/25 17:01:06 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.3 2009/05/26 17:58:11 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -278,8 +278,8 @@ class ROIModelSkyFunction(object):
       bg = self.roi.bgm
       from skymaps import Background
 
-      self.e_models = [m.smodel(self.points) for m in bg.bgmodels]
-      self.b_models = [Background(m.dmodel,exp[0],exp[1]) for m in bg.bgmodels]
+      self.e_models  = [m.smodel(self.points) for m in bg.bgmodels]
+      self.b_models  = [ [Background(m.get_dmodel(0),exp[0]),Background(m.get_dmodel(1),exp[1])] for m in bg.bgmodels]
 
       self.cache_pix = dict()
       from skymaps import Band
@@ -322,8 +322,7 @@ class ROIModelSkyFunction(object):
       #diffuse contributions
       for em,bm in zip(self.e_models,self.b_models):
          for ec in self.event_classes:
-            bm.set_event_class(ec)
-            integrand += em * N.asarray([bm.value(skydir,point) for point in self.points])
+            integrand += em * N.asarray([bm[ec].value(skydir,point) for point in self.points])
 
       return (simpsf * integrand).sum()
 
@@ -390,7 +389,7 @@ class DataSkyFunction(object):
       self.band = Band(self.nside)
 
       for i in xrange(len(data['RA'])):
-         self.band.add(SkyDir(data['RA'][i],data['DEC'][i]))
+         self.band.add(SkyDir(float(data['RA'][i]),float(data['DEC'][i])))
 
       #for skydir in map(SkyDir,data['RA'],data['DEC']): self.band.add(skydir)
 
@@ -489,9 +488,13 @@ class ROIDisplay(object):
    
       import pylab as P
       from matplotlib import mpl,pyplot,ticker
-      import colormaps
-      self.cmap_sls = colormaps.sls
-      self.cmap_b   = colormaps.b
+      try:
+         from kerrtools import colormaps
+         self.cmap_sls = colormaps.sls
+         self.cmap_b   = colormaps.b
+      except:
+         self.cmap_sls = self.cmap_b = mpl.cm.jet
+
       P.ioff()
       fig = P.figure(self.fignum,self.figsize)
 
@@ -920,112 +923,87 @@ def fit_scale(psfc):
 
 """
 
-class TSplot(object):
+def uhists(roi,bins=N.arange(0,11),show=True,integral=False,residuals=False):
+   """Assume only source is central."""
 
-    def __init__(self, roi, center, size, pixelsize=None, axes=None):
+   bands = roi.bands
+   rd    = roi.sa.roi_dir
 
-        from skymaps import PySkyFunction
-        import image
-        import numpy as np
-        self.roi = roi
-        if 'ldir' not in self.roi.__dict__:
-            self.roi.localize()
-        self.tsmap = PySkyFunction(self.roi.rl)
-        if pixelsize is None: pixelsize=size/10. 
-        self.zea= image.ZEA(center, size, pixelsize, axes=axes)
-        print 'filling %d pixels...'% (size/pixelsize)**2
-        self.zea.fill(self.tsmap)
-        print 'comverting...'
-        Imax= self.zea.image.max()
-        self.image =np.sqrt(np.abs(Imax-self.zea.image))
-        self.cb=None
-        # np.sqrt(-2* np.log(1-np.array([0.68,0.95, 0.99]))
+   from skymaps import WeightedSkyDirList,PsfSkyFunction
 
+   for band in bands:
+      if not band.has_pixels: continue
 
-    def show(self):
-        import numpy as np
-        from matplotlib import mpl, pyplot, ticker
-        norm2 = mpl.colors.Normalize(vmin=0, vmax=5)
-        cmap2 = mpl.cm.hot_r
-
-        self.nx,self.ny = self.image.shape
-        axes = self.zea.axes
-        t = axes.imshow(self.image, origin='lower', 
-            extent=(0,self.nx,0,self.ny),
-            cmap=cmap2, norm=norm2,
-            interpolation='bilinear')
-        if self.cb is None:
-            self.cb = pyplot.colorbar(t, ax=axes, 
-                cmap=cmap2, norm=norm2,
-                ticks=ticker.MultipleLocator(),
-                orientation='vertical',
-                #shrink=1.0,
-                )
-        self.cb.set_label('$\mathrm{sqrt(TS\ difference)}$')
-
-        c = axes.contour(  np.arange(0.5, self.nx,1), np.arange(0.5, self.ny, 1), self.image,
-            np.array([1.51, 2.45, 3.03]), 
-            colors='k', linestyles='-' )
-        d = dict()
-        for val,label in zip(np.array([1.51, 2.45, 3.03]),["68%","95%","99%"]):
-            d[val] = label
-        axes.clabel(c,fmt=d)
-        if axes.get_xlim()[0] !=0:
-            print 'Warning: coutour modified: limits', axes.get_xlim(), axes.get_ylim()
-        #axes.set_xlim((0,nx)); axes.set_ylim((0,ny))
-        #print 'after reset', axes.get_xlim(), axes.get_ylim()
-        if self.zea.size < 0.02:
-            self.zea.scale_bar(0.5/60, "30''", color='w')
-        else:
-            self.zea.scale_bar(1./60, "1'", color='w')
-        self.zea.grid(color='gray')
-
-    def overplot(self):
-        import quadform
-        from skymaps import SkyDir
-        if 'qform' not in self.roi.__dict__:
-            self.roi.localize()
-        quadfit = self.roi.qform
-        sigma   = self.roi.lsigma
-        # elliptical countour at given radius
-        axes = self.zea.axes
-        x,y = quadfit.ellipse.contour( quadform.Localize.fit_radius)
-        #sigma = quadfit.sigma #effective sigma from quad fit
-        ra,dec = quadfit.ra, quadfit.dec
-        pixelsize=self.zea.pixelsize #scale for plot
-        x0,y0 = self.zea.pixel(SkyDir(ra,dec))
-        f=sigma/pixelsize #scale factor
-        xa = f*np.array(x)
-        ya = f*np.array(y)
-        axes.plot([x0],[y0], '+b')
-        for r in [1.51, 2.45, 3.03]:
-            axes.plot(r*xa+x0,r*ya+y0, '-.b');
-        axes.text(0.5, 0.93,'chisq=%5.2f'%quadfit.ellipse.chisq, color='w', fontsize=10,
-            transform = axes.transAxes)
-
-    def cross(self, sdir, size, label=None,  fontsize=12, markersize=10, fontcolor='k', **kwargs):
-        """ make a cross at the position, size defined in celestial coordinats
-        """
+      if band.ps_pix_counts[:,0].sum() > 0.8:
+         print 'using pixel values for energy %d and event class %d'%(band.e,band.ec)
+         wsdl          = WeightedSkyDirList(band.b,rd,band.radius_in_rad,True)
+         psf           = PsfSkyFunction(rd,band.g,band.s)
+         ps_pix_counts = N.asarray(psf.wsdl_vector_value(wsdl)) * (band.b.pixelArea()/(2*N.pi*band.s**2))
+         diffs         = N.asarray([rd.difference(di) for di in wsdl])
+         counts        = N.asarray([d.weight() for d in wsdl])
+         us            = 0.5 * (diffs/band.s)**2
+         rates         = N.histogram(us,bins=bins,new=True,weights=band.ps_counts[0]*ps_pix_counts)[0]
       
-        image=self.zea
-        x,y = image.pixel(sdir)
-        pixelsize = image.pixelsize
-        delta = size/pixelsize
-        axes = self.zea.axes
-        axes.plot([x-delta, x+delta], [y,y], '-k', **kwargs)
-        axes.plot([x,x], [y-delta, y+delta], '-k', **kwargs)
-        if label is not None:
-            nx = image.nx 
-            image.axes.text( x+nx/100., y+nx/100., label, fontsize=fontsize, color=fontcolor)
+      else:
+         diffs         = N.asarray([rd.difference(di) for di in band.wsdl])
+         us            = 0.5 * (diffs/band.s)**2
+         counts        = band.pix_counts
+         fs            = 1 - (1 + bins/band.g)**(1-band.g)
+         rates         = band.ps_counts[0] * (fs[1:] - fs[:-1])
+      
+      band.urates = rates 
+      band.curates = N.asarray([rates[x:].sum() for x in xrange(len(rates))])
+      band.uhist  = N.histogram(us,bins=bins,new=True,weights=counts)
+      band.cucounts = N.asarray([band.uhist[0][x:].sum() for x in xrange(len(rates))])
 
-    def plot(self, loc, label=None, symbol='+',  fontsize=12, markersize=10, fontcolor='k',  **kwargs):
-        """ plot a single point at the celestial location
-            return the tsmap value there
-        """
-        image = self.zea
-        nx = image.nx 
-        x,y = image.pixel(loc)
-        image.axes.plot([x], [y], symbol, markersize=markersize, **kwargs)
-        if label is not None:
-            image.axes.text( x+nx/100., y+nx/100., label, fontsize=fontsize, color=fontcolor)
-        return self.tsmap(loc)
+   if show:
+
+      import pylab as P
+
+      x = N.empty(2*len(bins))
+      x[::2],x[1::2] = bins,bins
+      xc = (bins[1:] + bins[:-1]).astype(float)/2
+
+      P.ioff()
+
+      for ec in [0,1]:
+         P.figure(10+ec,(14,12))
+         fbands = [band for band in bands if band.ec == ec]
+         n = len(fbands)
+         nside  = min(int ( n**0.5 ) + 1 , 4)
+         for i in xrange(nside):
+            for j in xrange(nside):
+               ind = nside*i + j
+               #print i,j,ind
+               if (ind >= n or ind > nside**2): break
+               b = fbands[ind]
+               if not b.has_pixels: continue
+               P.subplot(nside,nside,ind+1)
+               y = N.zeros(2*len(bins))
+
+               if residuals:
+                  
+                  if not integral:
+                     P.errorbar(xc,(b.uhist[0]-b.urates)/b.urates,yerr=b.urates**-0.5,ls=' ',marker='o',color='red')
+                  else:
+                     P.errorbar(xc,(b.cucounts-b.curates)/b.curates,yerr=b.curates**-0.5,ls=' ',marker='o',color='red')
+                  P.axhline(0,color='k')
+                  ax = P.axis()
+                  P.axis([bins[0],bins[-1],-1,1])
+               else:
+                  if not integral:
+                     y[1:-1:2],y[2::2] = b.urates,b.urates #b.uhist[0],b.uhist[0]
+                  else:
+                     y[1:-1:2],y[2::2] = b.curates,b.curates
+                  P.fill(x,y,closed=False,fill=False,edgecolor='blue')
+                  if not integral:
+                     P.errorbar(xc,b.uhist[0],yerr=b.urates**0.5,ls=' ',marker='o',color='red')
+                  else:
+                     P.errorbar(xc,b.cucounts,yerr=b.curates**0.5,ls=' ',marker='o',color='red')
+               
+                  ax = P.axis()
+                  P.axis([bins[0],bins[-1],0,ax[3]])
+               P.title('%d-%d MeV'%(b.emin,b.emax))
+              
+
+

@@ -1,6 +1,6 @@
 """A module for classes that perform spectral fitting.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/specfitter.py,v 1.4 2009/01/16 22:58:10 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/specfitter.py,v 1.5 2009/03/25 22:26:47 burnett Exp $
 
     author: Matthew Kerr
 """
@@ -23,13 +23,13 @@ class SpectralModelFitter(object):
       def chi(parameters,*args):
          """Routine for use in least squares routine."""
          model,photons,signals,sl_wrappers = args
-         model.p = parameters
+         model.set_parameters(parameters)
          expected = N.fromiter( (sl.expected(model) for sl in sl_wrappers ), float)
          return ((expected - signals[0,:])/signals[1,:])[photons > 0]
 
       from scipy.optimize import leastsq
       try:
-         fit = leastsq(chi,model.p,args=(model,photons,signals,pslw.sl_wrappers),full_output=1)
+         fit = leastsq(chi,model.get_parameters(),args=(model,photons,signals,pslw.sl_wrappers),full_output=1)
       except:
          fit = [0]*5
 
@@ -37,7 +37,7 @@ class SpectralModelFitter(object):
 
          model.good_fit=True #Save parameters to model
          model.cov_matrix=fit[1] #Save covariance matrix
-         model.p=fit[0]
+         model.set_parameters(fit[0])
          vals = chi(fit[0],model,photons,signals,pslw.sl_wrappers)
          model.dof=len(vals)
          model.chi_sq=(vals**2).sum() #Save chi-sq information

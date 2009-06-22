@@ -7,7 +7,7 @@ from Models import PowerLaw
 ###====================================================================================================###
 
 class PointSource(object):
-   def __init__(self,skydir,name,model=None,free_parameters=False):
+   def __init__(self,skydir,name,model=None,free_parameters=True):
       self.name   = name
       self.skydir = skydir
       self.model  = PowerLaw() if model is None else model
@@ -70,7 +70,7 @@ class CatalogManager(object):
       names   = self.names[mask][sorting]
       models  = self.models[mask][sorting]
 
-      point_sources = map(PointSource,dirs,names,models)
+      point_sources = map(PointSource,dirs,names,models,[False]*len(models))
       return point_sources
 
 

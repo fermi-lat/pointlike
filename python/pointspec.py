@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.20 2009/05/25 19:17:51 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.21 2009/05/26 17:58:10 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.20 $'.split()[1]
+version='$Revision: 1.21 $'.split()[1]
 import os
 import sys
 
@@ -22,6 +22,8 @@ class AnalysisEnvironment(object):
       if glast_ts:
 
          self.galactic  = r'f:\glast\data\galprop\GP_gamma_psf_healpix_o8_54_59Xvarh8S.fits'
+         self.galactic_front = r'f:\glast\data\galprop\gll_iem_v01_psf_front.fits'
+         self.galactic_back  = r'f:\glast\data\galprop\gll_iem_v01_psf_back.fits'
          self.isotropic = None #replace with new tabular file
 
          self.CALDB   = 'f:\\glast\\caldb\\v0r7p1\\CALDB\\data\\glast\\lat'
@@ -37,11 +39,11 @@ class SpectralAnalysis(object):
 
     """
     
-    def __init__(self,  event_files, history_files, diffuse_file, **kwargs):
+    def __init__(self,  event_files, history_files, analysis_environment, **kwargs):
         """
         call signature::
 
-  sa = SpectralAnalysis(event_files, history_files, diffuse_file, **kwargs)
+  sa = SpectralAnalysis(event_files, history_files, analysis_environment, **kwargs)
 
 
 Create a new spectral analysis object.  
@@ -71,7 +73,6 @@ Optional keyword arguments:
   +tstop       [0] Default no cut on time; otherwise, cut on MET < tstop
 
   =========    KEYWORDS CONTROLLING INSTRUMENT RESPONSE
-  +CALDB       [None] If not specified, will use environment variable
   +exp_irf     ['P6_v3_diff'] Which IRF to use for effective area
   +psf_irf     ['P6_v3_diff'] Which IRF to use for the point spread function
   
@@ -80,6 +81,7 @@ Optional keyword arguments:
   +iso_file    [None] if provided, a MapCube representing the isotropic diffuse; if not, use default power law
   +iso_scale   [1.] scale for the optional MapCube
   +galactic_scale [1.] scale factor for galactic diffuse
+  +fb_maps     [True] in ROI analysis, if True, use separate maps (specified in AnalysisEnvironment) for front/back
   
   =========    KEYWORDS CONTROLLING SPECTRAL ANALYSIS
   +event_class [-1] Select event class (-1: all, 0: front, 1:back)                                                       
@@ -106,19 +108,23 @@ Optional keyword arguments:
         self.back_multi  = 1.
         self.exp_irf     = 'P6_v3_diff'
         self.psf_irf     = 'P6_v3_diff'
-        self.CALDB       = None
+        self.CALDB       = analysis_environment.CALDB
+        self.catalog     = analysis_environment.catalog
+        self.roi_dir     = None
+        self.ae          = analysis_environment
         self.__dict__.update(kwargs)
 
-        if self.CALDB is None and 'CALDB' not in os.environ.keys():
-            print 'No CALDB setting or environment variable found!  Please rectify this.  Aborting.'
-            raise Exception
+        # I think with AnalysisEnvironment this is no longer necessary...
+        # if self.CALDB is None and 'CALDB' not in os.environ.keys():
+        #    print 'No CALDB setting or environment variable found!  Please rectify this.  Aborting.'
+        #    raise Exception
 
          #TODO -- sanity check that BinnedPhotonData agrees with analysis parameters
-        self.pixeldata =  PixelData(event_files,history_files,**kwargs)
+        self.pixeldata =  PixelData(event_files,history_files,**self.__dict__)
 
         from wrappers import ExposureWrapper,BackgroundWrapper,Singleton
-        self.exposure   =  ExposureWrapper(self.pixeldata,**kwargs)
-        self.background = BackgroundWrapper(diffuse_file,self.exposure,**kwargs)
+        self.exposure   =  ExposureWrapper(self.pixeldata,**self.__dict__)
+        self.background = BackgroundWrapper(analysis_environment.galactic,self.exposure,**self.__dict__)
         self.setup()
 
         
@@ -271,11 +277,11 @@ Optional keyword arguments:
         from roi_modules  import ROIPointSourceManager,ROIBackgroundManager
         from roi_analysis import ROIAnalysis
         
-        cm = CatalogManager(r'f:/glast/data/kerr/gll_psc6month_v2.fit')
+        cm = CatalogManager(self.catalog)
         source_list = cm.merge_lists(self.roi_dir,self.maxROI+5,point_sources)
 
         ps_manager = ROIPointSourceManager(source_list,self.roi_dir)
-        bg_manager = ROIBackgroundManager(self)
+        bg_manager = ROIBackgroundManager(self, models = backgrounds)
 
         if point_sources is None: #make closest catalog source one to fit
             for i in xrange(len(ps_manager.models[0].free)):
