@@ -58,9 +58,8 @@ class PulsarLightCurve(object):
       self.cookie_cutter_radius = None
       self.energy_range         = [100,2e5]
       self.phase_col_name       = 'PULSE_PHASE'
-      self.use_mc_psf           = True
+      self.psf_irf              = 'P6_v3_diff'
       self.max_radius           = [5.,5.] #front, back
-      self.use_psf_init         = True
       self.percentage           = 68.
       self.tyrel                = False
       self.damien               = False
@@ -84,7 +83,7 @@ class PulsarLightCurve(object):
 
       else:
          from psf import PSF         
-         psf_obj = PSF(use_mc=self.use_mc_psf,use_psf_init=self.use_psf_init)
+         psf_obj = PSF(psf_irf = self.psf_irf)
 
          b = N.logspace(N.log10(self.energy_range[0]),N.log10(self.energy_range[1]))
          bin_cents = (b[:-1]*b[1:])**0.5
@@ -114,7 +113,8 @@ class PulsarLightCurve(object):
       self.times  = results['TIME'][mask]
 
 
-   def plot(self,fignum=2,show_trend=True,show_errorbars=False,outfile=None,num_per_bin=None,two_cycles=False,point_source=None,**kwargs):
+   def plot(self,fignum=2,show_trend=True,show_errorbars=False,outfile=None,num_per_bin=None,
+            two_cycles=False,point_source=None,relative=True,**kwargs):
       if 'linecolor' not in kwargs: kwargs['linecolor'] = 'black'
       if 'errorcolor' not in kwargs: kwargs['errorcolor']='green'
       if 'fill' not in kwargs: kwargs['fill'] = False
@@ -130,7 +130,8 @@ class PulsarLightCurve(object):
       times = (self.times-self.times.min())/(24*3600.) #in days
       phases,rates,delta_phi = constant_count_histogram(ev_cop,npb)
       rates_pre = rates.copy()
-      rates = rates/rates[rates>0].min()
+      if relative:
+         rates = rates/rates[rates>0].min()
 
       #ax1 = P.axes([0.15,0.1,0.75,0.4]) if show_trend else P.axes()
       ax1 = P.subplot(121) if show_trend else P.axes()
@@ -149,7 +150,10 @@ class PulsarLightCurve(object):
       if show_errorbars:
          tph = N.append(phases,1)
          delta_phi = tph[1:]-tph[:-1]
-         errs = ((rates_pre*delta_phi)**0.5/rates_pre[rates_pre>0].min())/delta_phi
+         if relative:
+            errs = ((rates_pre*delta_phi)**0.5/rates_pre[rates_pre>0].min())/delta_phi
+         else:
+            errs = ((rates_pre*delta_phi)**0.5)/delta_phi
          tph = (tph[:-1]+tph[1:])/2.
          P.errorbar(tph,rates,yerr=errs,ls=' ',capsize=0,color=kwargs['errorcolor'])
          if two_cycles:
@@ -245,10 +249,12 @@ class PulsarLightCurve(object):
 
 def h_statistic(phases,weights=None):
 
-   phases = N.asarray(phases)*(2*N.pi)
+   phases = N.asarray(phases)*(2*N.pi) #phase in radians
 
-   n = len(phases) if weights is None else weights.sum()
-   weights = 1. if weights is None else weights
+   if weights is None:
+      n = len(phases); weights = 1
+   else:
+      n = weights.sum();
 
    if n < 1e5:  #faster but requires ~20x memory of alternative
 

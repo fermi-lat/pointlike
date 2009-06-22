@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.2 2009/05/25 17:01:06 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.3 2009/05/25 19:17:51 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -11,6 +11,7 @@ from pointspec import SpectralAnalysis
 from skymaps import SkyDir,WeightedSkyDirList,SkyIntegrator
 from Models import *
 from psf import PSF
+from threading import Thread
 
 class ROIOverlap(object):
    """Routines to calculate how much of the emission of a point source falls onto an ROI."""
@@ -23,7 +24,7 @@ class ROIOverlap(object):
       self.__dict__.update(kwargs)
 
 
-   def __call__(self,band,roi_dir,ps_dir,max_radius = None,fixed_radius=None):
+   def __call__(self,band,roi_dir,ps_dir,radius_in_rad=None):
       """Return an array of fractional overlap for a point source at location skydir.
          Note radius arguments are in radians."""
 
@@ -31,20 +32,12 @@ class ROIOverlap(object):
       from scipy.integrate import quad
       from math import cos,sin
       
-      sigma,gamma,roi_u = band.s,band.g,band.umax
-      roi_rad           = sigma*(roi_u*2)**0.5
-      
-      if max_radius is not None:
-         roi_rad = min(max_radius,roi_rad)
-         roi_u   = 0.5*(roi_rad/sigma)**2
+      sigma,gamma,roi_rad = band.s,band.g,radius_in_rad or band.radius_in_rad
 
-      if fixed_radius is not None:
-         roi_rad = fixed_radius
-         roi_u   = 0.5*(roi_rad/sigma)**2
-      
       offset = roi_dir.difference(ps_dir)
 
       if offset < 1e-5:
+         roi_u = 0.5 * (roi_rad / sigma)**2
          return 1-(1+roi_u/gamma)**(1-gamma) #point source in center of ROI, symmetry
 
       #Testing code -- compare numeric to analytic results below      
@@ -123,9 +116,10 @@ class ROIPointSourceManager(ROIModelManager):
 
    def __len__(self): return len(self.point_sources)
 
-   def __str__(self):
+   def __str__(self,verbose=False):
+      mask = [True]*len(self.point_sources) if verbose else [N.any(p.model.free) for p in self.point_sources]
       return '\n\n'.join(['%s fitted with %s\n'%(ps.name,ps.model.pretty_name)+ps.model.__str__()\
-                          for ps in self.point_sources])
+                          for i,ps in enumerate(self.point_sources) if mask[i]])
 
    def ROI_dir(self): return self.roi_dir
 
@@ -160,6 +154,26 @@ class ROIPointSourceManager(ROIModelManager):
          
          #initial model prediction
          band.ps_counts        = N.asarray([band.expected(model) for model in self.models])
+
+   
+   def reload_data(self,bands):
+
+      roi_dir = self.roi_dir
+      from skymaps import PsfSkyFunction
+
+      for i,band in enumerate(bands):
+
+         sigma,gamma,en,exp,pa = band.s,band.g,band.e,band.exp.value,band.b.pixelArea()
+
+         #make a first-order correction for exposure variation
+         exposure_ratios       = N.asarray([exp(ps.skydir,en)/exp(roi_dir,en) for ps in self.point_sources])
+
+         #unnormalized PSF evaluated at each pixel, for each point source
+         band.ps_pix_counts    = N.empty([len(band.wsdl),len(self.point_sources)])
+         for nps,ps in enumerate(self.point_sources):
+            psf = PsfSkyFunction(ps.skydir,gamma,sigma)
+            band.ps_pix_counts[:,nps] = psf.wsdl_vector_value(band.wsdl)
+         band.ps_pix_counts   *= ( (pa/(2*N.pi*sigma**2)) *exposure_ratios)
 
 
    def update_counts(self,bands):
@@ -202,22 +216,37 @@ class ROIPointSourceManager(ROIModelManager):
          else:
             band.frozen_total_counts = 0
             band.frozen_pix_counts   = 0
-         
+
+           
 
 
 ###====================================================================================================###
 
 class ROIBackgroundModel(object):
-   """A wrapper to neatly associate scaling models with their SkySpectrum instances."""
+   """A wrapper to neatly associate spectral scaling models with their SkySpectrum instances."""
 
    def __init__(self,diffuse_model,scaling_model,name):
+      """diffuse_model --- a SkySpectrum object describing a diffuse background; can
+                           be a tuple of there is a separate version for front & back
+
+         scaling_model --- a spectral model from the Models module; only one of these
+
+         name          --- model name for pretty printing
+      """
 
       self.dmodel = diffuse_model
       self.smodel = scaling_model
       self.name   = name
 
+   def get_dmodel(self,event_class=0):
+      if len(N.ravel(self.dmodel)) == 1: return self.dmodel
+      else:
+         return self.dmodel[event_class]
+      
    def __str__(self):
       return '%s scaled with %s\n'%(self.name,self.smodel.pretty_name)+self.smodel.__str__()
+
+
 
          
 ###====================================================================================================###
@@ -229,7 +258,7 @@ class ROIBackgroundManager(ROIModelManager):
 
    def init(self):
       self.nsimps = 4
-      
+
       from Models import PowerLaw
       self.gal_model = PowerLaw(p=[1,1],free=[True,False],index_offset=1)
       self.iso_model = PowerLaw(p=[1,1],free=[True,False],index_offset=1)
@@ -241,16 +270,25 @@ class ROIBackgroundManager(ROIModelManager):
       self.sa       = sa = spectral_analysis
 
       if models is None: #default background model; note indices are fixed
-         from Models import PowerLaw
-         gal_model  = ROIBackgroundModel(sa.background.galactic_diffuse,
-                                         self.gal_model, 'Galactic Diffuse')
+         if sa.fb_maps:
+            from skymaps import DiffuseFunction
+            self.gal_front = DiffuseFunction(sa.ae.galactic_front)
+            self.gal_back  = DiffuseFunction(sa.ae.galactic_back)
+
+            gal_model  = ROIBackgroundModel([self.gal_front,self.gal_back],
+                                            self.gal_model, 'Galactic Diffuse')
+         else:
+            gal_model  = ROIBackgroundModel(sa.background.galactic_diffuse,
+                                            self.gal_model, 'GalacticDiffuse')
 
          iso_model  = ROIBackgroundModel(sa.background.isotropic_diffuse,
                                          self.iso_model, 'Isotropic Diffuse')
          models     = [gal_model,iso_model]
 
       self.bgmodels = models
-      self.models   = [bgm.smodel for bgm in self.bgmodels]
+      self.models   = N.asarray([bgm.smodel for bgm in self.bgmodels])
+      for model in self.models:
+         model.background = True
 
       self.roi_dir  = sa.roi_dir
       
@@ -262,27 +300,30 @@ class ROIBackgroundManager(ROIModelManager):
       print 'Calculating initial background counts...'
 
       from skymaps import Background,SkyIntegrator
-      from Models  import PowerLawFlux,Constant
 
       SkyIntegrator.set_tolerance(0.02)
       exp = self.sa.exposure.exposure
-      bgs = [Background(model.dmodel,exp[0],exp[1]) for model in self.bgmodels]
       ns  = self.nsimps
       nm  = len(self.models)
       rd  = self.roi_dir
+        
+      front_bgs = [Background(model.get_dmodel(0),exp[0]) for model in self.bgmodels]
+      back_bgs  = [Background(model.get_dmodel(1),exp[1]) for model in self.bgmodels]
 
-      for band in bands:
+      for nband,band in enumerate(bands):
 
-         for bg in bgs: bg.set_event_class(band.ec)
+         #for bg in bgs: bg.set_event_class(band.ec)
+         bgs = back_bgs if band.ec else front_bgs
          
          band.bg_points = sp = N.logspace(N.log10(band.emin),N.log10(band.emax),ns+1)
          band.bg_vector = sp * (N.log(sp[-1]/sp[0])/(3.*ns)) * \
                           N.asarray([1.] + ([4.,2.]*(ns/2))[:-1] + [1.])
 
          #figure out best way to handle no pixel cases...
-         band.ap_evals  = N.empty([nm,ns + 1])
+         band.ap_evals  = N.empty([nm,ns + 1])      
          band.pi_evals  = N.empty([len(band.wsdl),nm,ns + 1]) if band.has_pixels else 0
 
+                  
          for ne,e in enumerate(band.bg_points):
             for nbg,bg in enumerate(bgs):
                bg.setEnergy(e)
@@ -292,7 +333,6 @@ class ROIBackgroundManager(ROIModelManager):
 
          band.ap_evals *= (band.solid_angle   * band.bg_vector)
          band.pi_evals *= (band.b.pixelArea() * band.bg_vector)
-
 
          band.mo_evals = N.empty([nm,ns + 1])
          for n,m in enumerate(self.models):
@@ -306,11 +346,53 @@ class ROIBackgroundManager(ROIModelManager):
             band.bg_all_pix_counts = band.bg_pix_counts.sum(axis=1)
 
 
-   def update_masks(self):
-      self.free_mask   = N.asarray([N.any(m.free) for m in self.models])
-      self.escale_mask = N.asarray([N.any(m.free[1:]) for m in self.models])
+   def cache(self):
+
+      self.free_mask  = N.asarray([N.any(m.free) for m in self.models])
+      self.edep_mask  = N.asarray([N.any(m.free[1:]) for m in self.models])
+      self.init_norms = N.asarray([m.p[0] for m in self.models])
           
-   
+   """
+   class updateCountsThread(Thread):
+
+      def __init__(self,bands,psm):
+         Thread.__init__(self)
+         self.bands = bands
+         self.psm   = psm
+
+      def run(self):
+         self.psm.update_counts(self.bands)
+   """
+
+   def update_counts(self,bands):
+
+      em,fm = self.edep_mask,self.free_mask
+
+      if not N.any(fm): return
+            
+      for nm,m in enumerate(self.models):
+         if not fm[nm]: continue
+         if em[nm]:
+            for band in bands:
+               pts = m(band.bg_points)
+               band.bg_counts[nm] = (band.ap_evals[nm,:]   * pts).sum()
+               if band.has_pixels:
+                  band.bg_pix_counts[:,nm] = (band.pi_evals[:,nm,:] * pts).sum(axis=1)               
+                  
+         else:
+            for band in bands:
+               ratio = 10**(m.p[0]-self.init_norms[nm])
+               self.init_norms[nm] = m.p[0]
+               band.bg_counts[nm] *= ratio
+               if band.has_pixels:
+                  band.bg_pix_counts[:,nm] *= ratio               
+
+      for band in bands:
+         band.bg_all_counts = band.bg_counts.sum() #inefficient!
+         if band.has_pixels: band.bg_all_pix_counts   = band.bg_pix_counts.sum(axis=1)
+
+   """
+
    def update_counts(self,bands):
       
       #cache the check for free? also, could be done more elegantly with a mask
@@ -320,11 +402,54 @@ class ROIBackgroundManager(ROIModelManager):
          if N.any(m.free):
             for band in bands:
                pts = m(band.bg_points)
-               band.bg_counts[nm]       = (band.ap_evals[nm,:]   * pts).sum()
-               band.bg_all_counts = band.bg_counts.sum()
+               band.bg_counts[nm] = (band.ap_evals[nm,:]   * pts).sum()
+               band.bg_all_counts = band.bg_counts.sum() #inefficient!
                if band.has_pixels:
                   band.bg_pix_counts[:,nm] = (band.pi_evals[:,nm,:] * pts).sum(axis=1)               
-                  band.bg_all_pix_counts = band.bg_pix_counts.sum(axis=1)
+                  band.bg_all_pix_counts   = band.bg_pix_counts.sum(axis=1)
+
+   """
+
+   def reload_data(self,bands):
+
+      from skymaps import Background
+
+      exp = self.sa.exposure.exposure
+      ns  = self.nsimps
+      nm  = len(self.models)
+      rd  = self.roi_dir
+
+      front_bgs = [Background(model.get_dmodel(0),exp[0]) for model in self.bgmodels]
+      back_bgs  = [Background(model.get_dmodel(1),exp[1]) for model in self.bgmodels]
+
+      for nband,band in enumerate(bands):
+
+         if not band.has_pixels:
+            band.pi_evals = 0
+            band.bg_pix_counts = 0
+            continue
+
+         #for bg in bgs: bg.set_event_class(band.ec)
+         bgs = back_bgs if band.ec else front_bgs
+         
+         band.pi_evals  = N.empty([len(band.wsdl),nm,ns + 1])
+                  
+         for ne,e in enumerate(band.bg_points):
+            for nbg,bg in enumerate(bgs):
+               bg.setEnergy(e)
+               band.pi_evals[:,nbg,ne] = N.asarray(bg.wsdl_vector_value(band.wsdl))
+
+         #there really needs to be a reconciliation between generated and updating
+         band.mo_evals = N.empty([nm,ns + 1])
+         for n,m in enumerate(self.models):
+            band.mo_evals[n,:] = m(band.bg_points)
+                  
+         band.bg_counts     = (band.ap_evals * band.mo_evals).sum(axis = 1)
+         band.bg_all_counts = band.bg_counts.sum()
+         band.pi_evals *= (band.b.pixelArea() * band.bg_vector)
+         band.bg_pix_counts = (band.pi_evals * band.mo_evals).sum(axis = 2)
+         band.bg_all_pix_counts = band.bg_pix_counts.sum(axis=1)
+
 
 
 ###====================================================================================================###
@@ -393,7 +518,6 @@ class ROIBand(object):
       self.npix          = self.wsdl.total_pix()
       self.solid_angle   = self.npix*self.b.pixelArea() #ragged edge
       self.solid_angle_p = 2*N.pi*(1-N.cos(self.radius_in_rad)) #solid angle for a pure circle
-
              
 
    def __setup_sp_simps__(self):
@@ -407,7 +531,29 @@ class ROIBand(object):
       self.sp_vector = sp * exp_points * simps_weights
 
 
+   def reload_data(self,band):
+      """For Monte Carlo, when everything stays same but realization of data."""
+      self.b = band
+      self.__setup_data__()
+
    def expected(self,model):
       """Integrated the passed spectral model over the exposure and return expected counts."""
       
       return (model(self.sp_points)*self.sp_vector).sum()
+
+   def loglikelihood(self,tot_only=False,pix_only=False,tl=False):
+
+      tot = self.bg_all_counts + self.ps_all_counts
+      
+      if (tot_only):# or (not self.has_pixels):
+         return (self.photons*N.log(tot) - tot) if tl else tot #non extended likelihood
+      
+      if self.has_pixels:
+         pix = (self.pix_counts * N.log(self.bg_all_pix_counts + self.ps_all_pix_counts)).sum()
+      else:
+         pix = 0
+
+      if pix_only: return pix #log likelihood for pixels only
+
+      else: return tot - pix #-log likelihood
+

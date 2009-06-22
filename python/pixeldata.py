@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.10 2009/05/14 19:28:46 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.11 2009/05/25 19:17:51 kerrm Exp $
 
 """
-version='$Revision: 1.10 $'.split()[1]
+version='$Revision: 1.11 $'.split()[1]
 import os
 import psf
 import math
@@ -84,7 +84,8 @@ Optional keyword arguments:
             if key in self.__dict__:
                 self.__dict__[key] = value
         from numpy import arange,log10
-        self.my_bins = 10**arange(log10(self.emin),log10(self.emax),1./self.binsperdecade)
+        self.my_bins = 10**arange(log10(self.emin),log10(self.emax*1.01),1./self.binsperdecade)
+        self.binner_set = False
         
         # check explicit files
         for filelist in  [self.event_files, self.history_files] :
@@ -94,11 +95,21 @@ Optional keyword arguments:
             #if filelist is None or len(filelist)==0:
 	         #   raise Exception('PixelData setup: received empty list of event or history files')
 
+        self.lt   = self.get_livetime()
+        self.PSF_setup()
+        self.data = self.get_data()
+        self.dmap = self.data.map()
+        self.dmap.updateIrfs()
 
-        self.data= self.get_data()
-        self.dmap= self.data.map()
-        self.PSF_setup(self.dmap)
-        self.lt =  self.get_livetime()
+
+    def reload_data(self,event_files):
+        self.event_files = event_files if type(event_files)==type([]) or event_files is None else [event_files]
+        for filelist in  [self.event_files, self.history_files] :
+            if filelist is not None and len(filelist)>0 and not os.path.exists(filelist[0]):
+                raise Exception('PixelData setup: file name or path "%s" not found'%filelist[0])
+        self.data = self.get_data()
+        self.dmap = self.data.map()
+        self.dmap.updateIrfs()
 
     def fill_empty_bands(self,bpd):
       
@@ -122,15 +133,20 @@ Optional keyword arguments:
         pointlike.Data.set_use_mc_energy(self.use_mc_energy)
         if not self.quiet: print 'Set Data theta cut at %.2f'%(arccos(0.4)*180./pi)
 
-        self.binner = skymaps.PhotonBinner(self.my_bins) # per decade
-        pointlike.Data.setPhotonBinner(self.binner)
+        if not self.binner_set:
+            from pointlike import DoubleVector
+            self.binner = skymaps.PhotonBinner(DoubleVector(self.my_bins))
+            pointlike.Data.setPhotonBinner(self.binner)
+            self.binner_set = True
 
-    def PSF_setup(self,bpd):
-
+    def PSF_setup(self):
+   
         # modify the psf parameters in the band objects, which SimpleLikelihood will then use
-        skymaps.IParams.set_CALDB(self.CALDB or os.environ['CALDB'])
-        skymaps.IParams.init('_'.join(self.psf_irf.split('_')[:-1]),self.psf_irf.split('_')[-1])
-        bpd.updateIrfs()
+        ip = skymaps.IParams
+        ip.set_livetimefile(self.livetimefile)
+        ip.set_skydir(self.roi_dir)
+        ip.set_CALDB(self.CALDB or os.environ['CALDB'])
+        ip.init('_'.join(self.psf_irf.split('_')[:-1]),self.psf_irf.split('_')[-1])
 
     def get_data(self):
         
@@ -153,10 +169,10 @@ Optional keyword arguments:
             data = pointlike.Data(self.datafile)
             if not self.quiet: print 'loaded datafile %s ' % self.datafile
         
-        if self.verbose: data.map().info()
+        if self.verbose:
+            data.map().info()
+            print '---------------------'
 
-
-        if self.verbose: print '---------------------'
         return data
 
     def get_livetime(self,   pixelsize=1.0):
