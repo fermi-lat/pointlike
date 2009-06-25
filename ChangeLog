@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: bechtol  Thu Jun 25 14:24:10 PDT 2009
+pointlike/src
+
+Modified Files:
+	EventList.cxx 
+Log Message:
+access monte carlo source ids
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jun 22 16:32:51 PDT 2009
 pointlike/python
 
