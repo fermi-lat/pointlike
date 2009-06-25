@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.7 2009/02/26 23:54:18 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.8 2009/04/29 19:29:49 mar0 Exp $
 */
 
 #include "EventList.h"
@@ -171,13 +171,17 @@ Photon EventList::Iterator::operator*()const
     }catch(const std::exception&){
         ctbclasslevel=3;
     }
-    if( m_selectid) { // check for source id only if requested
-        (*m_it)[*names++].get(source);
+    //if( m_selectid) { // check for source id only if requested
+    //    (*m_it)[*names++].get(source);
+    //}
+    try{
+      (*m_it)[*names++].get(source); // source id for monte carlo testing
+    }catch(std::exception){}
+
+    if( m_use_mc_energy ) { //get MC_ENERGY and replace ENERGY, if using it
+      (*m_it)["MCENERGY"].get(mc_energy);
+      energy = mc_energy;
     }
-	if( m_use_mc_energy ) { //get MC_ENERGY and replace ENERGY, if using it
-		(*m_it)["MCENERGY"].get(mc_energy);
-		energy = mc_energy;
-	}
 
     if( !isFinite(energy) || !isFinite(dec) || !isFinite(ra) ){
         std::stringstream s;
