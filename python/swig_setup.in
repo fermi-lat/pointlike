@@ -1,5 +1,5 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.53 2009/03/17 23:31:44 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.in,v 1.54 2009/07/04 15:33:22 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
@@ -30,7 +30,6 @@
 #include "pointlike/Alignment.h"
 #include "pointlike/LeastSquaresFitter.h"
 #include "pointlike/ConfidenceLevel.h"
-#include "pointlike/FeldmanCousins.h"
 
 #include "CLHEP/Vector/Rotation.h"
 #include "CLHEP/Vector/EulerAngles.h"
@@ -193,7 +192,5 @@ public:
 //%template(SkyDirIntPairVector) std::vector<std::pair<astro::SkyDir,int> >;
 
 %include ../pointlike/ConfidenceLevel.h
-%include ../pointlike/FeldmanCousins.h
-
 
 
