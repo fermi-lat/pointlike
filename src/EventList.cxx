@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.8 2009/04/29 19:29:49 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.9 2009/06/25 21:24:09 bechtol Exp $
 */
 
 #include "EventList.h"
@@ -121,8 +121,6 @@ EventList::EventList()
 }
 EventList::~EventList()
 {
-    // seems to create crash
-    std::cout << "deleting table" << std::endl;
     delete m_table;
 }
 
