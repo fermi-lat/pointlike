@@ -1,6 +1,6 @@
 """A module for classes that perform spectral fitting.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/specfitter.py,v 1.5 2009/03/25 22:26:47 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/specfitter.py,v 1.6 2009/06/22 23:32:51 kerrm Exp $
 
     author: Matthew Kerr
 """
@@ -57,7 +57,10 @@ class SpectralModelFitter(object):
          """Routine for use in minimum Poisson likelihood."""
          model = args[0]
          model.set_parameters(parameters)
-         return sum( (sl.logLikelihood(sl.expected(model)) for sl in pslw.sl_wrappers) )
+         ret = sum( (sl.logLikelihood(sl.expected(model)) for sl in pslw.sl_wrappers) )
+         #print 'parameters, value:' , parameters, ret
+         #print 'expected: ', [sl.expected(model) for sl in pslw.sl_wrappers]
+         return ret
       
       from scipy.optimize import fmin
       #fit = fmin(logLikelihood,model.p,args=(model,),full_output=1,disp=0,maxiter=1000,maxfun=2000)
