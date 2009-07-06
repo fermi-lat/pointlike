@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: glastrm  Mon Jul  6 10:46:04 PDT 2009
+ScienceTools-scons/pointlike
+
+Modified Files:
+	SConscript 
+Log Message:
+Use LoadableModule for creating swig modules
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-21-01, operation: add
 Package: pointlike
