@@ -2,7 +2,7 @@
 # @file SConscript
 # @brief scons build specifications
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/SConscript,v 1.62 2009/06/04 20:30:51 glastrm Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/SConscript,v 1.63 2009/07/04 16:31:15 glastrm Exp $
 # Authors: Toby Burnett <tburnett@u.washington.edu>
 # Version: pointlike-06-21-01
 
@@ -23,13 +23,13 @@ lib = libEnv.SharedLibrary(package, listFiles(['src/*.cxx']))
 swigEnv = progEnv.Clone()
 
 swigEnv.Append(RPATH = swigEnv['LIBDIR'])
-pyLib = swigEnv.SharedLibrary('_pointlike','python/swig_setup.i', SHLIBPREFIX = '')
+pyLib = swigEnv.LoadableModule('_pointlike','python/swig_setup.i')
 
 progEnv.Tool('registerObjects', 
-    package  = package, 
-    includes = listFiles([package+'/*.h']),
-    libraries= [lib], 
-    binaries = [progEnv.Program(name, listFiles(['src/%s/*.cxx'%name])) for name in apps], 
-    testApps = [progEnv.Program('test_'+package, listFiles(['src/test/*.cxx']))],
-    python = ['python/%s.py'%package, pyLib],
+    package   = package, 
+    includes  = listFiles([package+'/*.h']),
+    libraries = [lib, pyLib], 
+    binaries  = [progEnv.Program(name, listFiles(['src/%s/*.cxx'%name])) for name in apps], 
+    testApps  = [progEnv.Program('test_'+package, listFiles(['src/test/*.cxx']))],
+    python    = ['python/pointlike.py']
  )
