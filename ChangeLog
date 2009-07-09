@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 TAG
+Tag name: ScienceTools-09-15-02-swigFix, operation: add
+Package: pointlike
+User: glastrm  Thu Jul  9 09:10:39 2009
+Files:
+  pointlike/SConscript  1.62
+
+    *
+------------------------------------------------------------
+TAG
 Tag name: v6r21p1, operation: mov
 Package: pointlike
 User: glastrm  Mon Jul  6 10:52:45 2009
