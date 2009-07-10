@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: jrb  Fri Jul 10 16:24:36 PDT 2009
+ScienceTools-scons/pointlike/pointlike
+
+Modified Files:
+	PointSourceLikelihood.h 
+Log Message:
+Add end-of-line character so compiler will stop complaining
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-15-02, operation: mov
 Package: pointlike
