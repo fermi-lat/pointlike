@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.h
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/PointSourceLikelihood.h,v 1.57 2009/05/15 14:30:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/pointlike/PointSourceLikelihood.h,v 1.58 2009/05/25 18:53:13 burnett Exp $
 */
 
 #ifndef pointlike_PointSourceLikelihood_h
