@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: jrb  Tue Jul 14 09:42:35 PDT 2009
+ScienceTools-scons/pointlike
+
+Modified Files:
+	SConscript 
+Log Message:
+Convert to use registerTargets; add a couple python files needed by
+test program to list to be registered
+
+    *
+------------------------------------------------------------
 User: jrb  Fri Jul 10 16:24:36 PDT 2009
 ScienceTools-scons/pointlike/pointlike
 
