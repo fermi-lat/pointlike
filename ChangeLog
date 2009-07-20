@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: wallacee  Mon Jul 20 15:07:44 PDT 2009
+ScienceTools-scons/pointlike
+
+Modified Files:
+	SConscript 
+Log Message:
+Added printSpectrum method to roi_analysis.py.  Minor mods to SConscript to
+install _pointlike library to python dir, and to SourceFinder.cxx to allow
+compilation with gcc4.
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-21-02, operation: add
 Package: pointlike
