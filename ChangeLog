@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: wallacee  Mon Jul 20 15:27:18 PDT 2009
+pointlike/python
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Added printSpectrum method to ROIAnalysis.
+    *
+------------------------------------------------------------
 User: wallacee  Mon Jul 20 15:07:44 PDT 2009
 ScienceTools-scons/pointlike/src
 
