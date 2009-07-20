@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: glastrm  Mon Jul 20 15:34:30 PDT 2009
+pointlike
+
+Modified Files:
+	SConscript 
+Log Message:
+Revert to have pointlike swig library only registered in the lib directory
+    *
+------------------------------------------------------------
 User: wallacee  Mon Jul 20 15:27:18 PDT 2009
 pointlike/python
 
