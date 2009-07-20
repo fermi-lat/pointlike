@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.4 2009/05/26 17:58:10 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/roi_analysis.py,v 1.5 2009/06/22 23:32:51 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -280,7 +280,61 @@ class ROIAnalysis(object):
       self.ldir    = l.dir
       self.lsigma  = l.sigma
       self.rl      = rl
-
+   
+   def printSpectrum(self,sources=None):
+      """Print total counts and estimated signal in each band for a list of sources.
+      
+      Sources can be specified as PointSource objects, source names, or integers
+      to be interpreted as indices for the list of point sources in the roi. If
+      only one source is desired, it needn't be specified as a list. If no sources
+      are specified, all sources with free fit parameters will be used."""
+      if sources is None:
+         sources = [s for s in self.psm.point_sources if N.any(s.model.free)]
+      elif type(sources) != type([]): 
+         sources = [sources]
+      bad_sources = []
+      for i,s in enumerate(sources):
+         if type(s) == PointSource:
+            if not s in self.psm.point_sources:
+               print 'Source not found in source list:\n%s\n'%s
+               bad_sources += [s]
+         elif type(s) == int:
+            try:
+               sources[i] = self.psm.point_sources[s]
+            except IndexError:
+               print 'No source #%i. Only %i source(s) specified.'\
+                     %(s,len(self.psm.point_sources))
+               bad_sources += [s]
+         elif type(s) == type(''):
+            names = [ps.name for ps in self.psm.point_sources]
+            try:
+               sources[i] = self.psm.point_sources[names.index(s)]
+            except ValueError:
+               print 'No source named %s'%s
+               bad_sources += [s]            
+         else:
+            print 'Unrecognized source specification:', s
+            bad_sources += [s]
+      sources = set([s for s in sources if not s in bad_sources])
+      spectra = dict.fromkeys(sources)
+      for s in sources:
+         spectra[s] = band_spectra(self,source=self.psm.point_sources.index(s))
+      iso,gal,src,obs = counts(self)[1:5]
+      outstring = 'Spectra of sources in ROI about %s at ra = %f, dec = %f\n'\
+                    %(self.psm.point_sources[0].name, self.sa.roi_dir.ra(), self.sa.roi_dir.dec())
+      fields = ['  Emin',' f_ROI',' b_ROI' ,' Events','Galactic','Isotropic']\
+                +[' '*10+'Signal']*len(sources)
+      outstring += ' '*54+'  '.join(['%18s'%s.name for s in sources])+'\n'
+      outstring += '  '.join(fields)+'\n'
+      for i,band in enumerate(zip(self.bands[::2],self.bands[1::2])):
+         values = (band[0].emin, band[0].radius_in_rad*180/N.pi,
+                   band[1].radius_in_rad*180/N.pi,obs[i],gal[i],iso[i])
+         for s in sources:
+            values+=(spectra[s][1][i],.5*(spectra[s][3][i]-spectra[s][2][i]))          
+         string = '  '.join(['%6i','%6.2f','%6.2f','%7i','%8i','%9i']+
+                            ['%8.1f +/-%6.1f']*len(sources))%values
+         outstring += string+'\n'
+      print outstring
 
    def __call__(self,v):
       
