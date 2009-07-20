@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/roi_analysis.py,v 1.5 2009/06/22 23:32:51 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.4 2009/05/26 17:58:10 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -19,15 +19,12 @@ class ROIAnalysis(object):
 
    def init(self):
 
-      self.fit_emin = [100,100] #independent energy ranges for front and back
-      self.fit_emax = [5e5,5e5] #0th position for event class 0
-      self.threading = False
+      self.fit_emin = 100
+      self.fit_emax = 5e5
   
    def __init__(self,ps_manager,bg_manager,spectral_analysis,**kwargs):
       self.init()
       self.__dict__.update(**kwargs)
-      if type(self.fit_emin) != type([]): self.fit_emin = [self.fit_emin]*2
-      if type(self.fit_emax) != type([]): self.fit_emax = [self.fit_emax]*2
       self.psm  = ps_manager
       self.bgm  = bg_manager
       self.sa   = spectral_analysis
@@ -37,60 +34,31 @@ class ROIAnalysis(object):
       self.bin_centers = N.sort(list(set([b.e for b in self.bands])))
       self.bin_edges   = N.sort(list(set([b.emin for b in self.bands] + [b.emax for b in self.bands])))
 
-      self.param_state = N.concatenate([m.free for m in self.psm.models])
+      self.param_state = N.concatenate([m.free for m in self.psm.models] + [m.free for m in self.bgm.models])
       self.psm.cache(self.bands)
       self.psm.update_counts(self.bands)
 
-      self.fbands = N.asarray([b for b in self.bands if b.ec == 0])
-      self.bbands = N.asarray([b for b in self.bands if b.ec == 1])
-
-      import pp
-      self.job_server = pp.Server(2)
-
-
    def setup_bands(self):
       
-      print 'Extracting events...'
       from collections import deque
       self.bands = deque()
       for band in self.sa.pixeldata.dmap:
-         if band.emin() >= self.fit_emin[band.event_class()] and band.emax() < self.fit_emax[band.event_class()]:
+         if band.emin() >= self.fit_emin and band.emax() < self.fit_emax:
             self.bands.append(ROIBand(band,self.sa))
       self.bands = N.asarray(self.bands)
 
       self.psm.setup_initial_counts(self.bands)
       self.bgm.setup_initial_counts(self.bands)
 
-   
-   def reload_data(self):
-      counter = 0
-      for band in self.sa.pixeldata.dmap:
-         if band.emin() >= self.fit_emin[band.event_class()] and band.emax() < self.fit_emax[band.event_class()]:
-            self.bands[counter].reload_data(band)
-            counter += 1
-      self.bgm.reload_data(self.bands)
-      self.psm.reload_data(self.bands)
-      self.psm.cache(self.bands)
 
    def logLikelihood(self,parameters,*args):
+
 
       bands = self.bands
 
       self.set_parameters(parameters)
 
-      if self.threading:
-
-         t1 = self.bgm.updateCountsThread(self.fbands,self.bgm)
-         t2 = self.bgm.updateCountsThread(self.bbands,self.bgm)
-         t1.start();t2.start()
-
-         for t in [t1,t2]:
-            t.join()
-
-      else:
-      
-         self.bgm.update_counts(bands)
-      
+      self.bgm.update_counts(bands)
       self.psm.update_counts(bands)
 
       ll = 0
@@ -104,9 +72,9 @@ class ROIAnalysis(object):
                    -
 
                    #pixelized terms (go in negative)
-                   ((b.pix_counts *
+                   (b.pix_counts *
                        N.log(  b.bg_all_pix_counts + b.ps_all_pix_counts )
-                   ).sum() if b.has_pixels else 0.)
+                   ).sum() if b.has_pixels else 0.
                 )
 
       return 1e6 if N.isnan(ll) else ll
@@ -196,12 +164,11 @@ class ROIAnalysis(object):
          method -- ['powell'] fitter; 'powell' or 'simplex'
       """
       #cache frozen values
-      param_state = N.concatenate([m.free for m in self.psm.models])
+      param_state = N.concatenate([m.free for m in self.psm.models] + [m.free for m in self.bgm.models])
       if not N.all(param_state == self.param_state):
          self.psm.cache(self.bands)
          self.param_state = param_state
-      self.bgm.cache()
-      
+
       print 'Performing likelihood maximization...'
       from scipy.optimize import fmin,fmin_powell
       minimizer  = fmin_powell if method == 'powell' else fmin
@@ -234,10 +201,10 @@ class ROIAnalysis(object):
          except:
             print 'Error in calculating and inverting hessian.'
 
-   def __str__(self,verbose=False):
+   def __str__(self):
       bg_header  = '======== BACKGROUND FITS =============='
       ps_header  = '======== POINT SOURCE FITS ============'
-      return '\n\n'.join([ps_header,self.psm.__str__(verbose),bg_header,self.bgm.__str__()])
+      return '\n\n'.join([ps_header,self.psm.__str__(),bg_header,self.bgm.__str__()])
          
    def TS(self):
       """Calculate the significance of the central point source."""
@@ -280,7 +247,7 @@ class ROIAnalysis(object):
       self.ldir    = l.dir
       self.lsigma  = l.sigma
       self.rl      = rl
-   
+
    def printSpectrum(self,sources=None):
       """Print total counts and estimated signal in each band for a list of sources.
       
@@ -335,6 +302,7 @@ class ROIAnalysis(object):
                             ['%8.1f +/-%6.1f']*len(sources))%values
          outstring += string+'\n'
       print outstring
+
 
    def __call__(self,v):
       
