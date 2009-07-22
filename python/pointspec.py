@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.23 2009/07/22 02:46:56 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.24 2009/07/22 02:56:54 burnett Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.23 $'.split()[1]
+version='$Revision: 1.24 $'.split()[1]
 import os
 import sys
 
@@ -287,6 +287,7 @@ Optional keyword arguments:
            source_list = point_sources
 
         ps_manager = ROIPointSourceManager(source_list,self.roi_dir)
+        bg_manager = ROIBackgroundManager(self, models = backgrounds)
 
         if point_sources is None: #make closest catalog source one to fit
             for i in xrange(len(ps_manager.models[0].free)):

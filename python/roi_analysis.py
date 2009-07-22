@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.8 2009/07/22 02:46:56 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.9 2009/07/22 02:56:54 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -22,6 +22,7 @@ class ROIAnalysis(object):
       self.fit_emin = [100,100] #independent energy ranges for front and back
       self.fit_emax = [5e5,5e5] #0th position for event class 0
       self.threading = False
+      self.quiet = False
 
       self.catalog_aperture = -1
   
