@@ -5,27 +5,39 @@
    signal, flux, expected counts, background, etc.  PointSourceLikelihoodWrapper makes the
    transition from the band level to energy space.
    
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/wrappers.py,v 1.9 2009/05/25 17:18:46 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/wrappers.py,v 1.10 2009/05/25 19:17:51 kerrm Exp $
 
    author: Matthew Kerr
    """
 
 import numpy as N
+from skymaps import Background, DiffuseFunction, CompositeSkySpectrum,\
+                    IsotropicPowerLaw, HealpixDiffuseFunc, IsotropicSpectrum
+
 
 class Singleton(object):
+   """Implement a singleton class."""
 
    __instances = {}
 
-   def __init__(self,constructor,*args,**kwargs):
-      inst = Singleton._Singleton__instances
-      key  = str(constructor)
-      if key not in inst.keys():
-         inst[key] = constructor(*args,**kwargs)
+   def __init__(self,constructor,key=None,*args,**kwargs):
+      """Constructor -- a class name; note -- not a string!
+         Key         -- an optional key; constructor name used otherwise.
+                        **keys are unique, not constructors!**
+         Additional args and kwargs are passed to constructor."""
 
-   def __call__(self,constructor):
+      self.add(constructor,key,*args,**kwargs)
+
+   def add(self,constructor,key=None,*args,**kwargs):
       inst = Singleton._Singleton__instances
-      key  = str(constructor)
+      key  = str(constructor) if key is None else key
+      if key not in inst.keys(): inst[key] = constructor(*args,**kwargs)
+
+   def __call__(self,key):
+      inst = Singleton._Singleton__instances
+      key  = str(key)
       if key in inst: return inst[key]
+
 
 class Wrapper(object):
     """Parent class for a wrapper.  Inherited classes are supposed to get a list of kwargs that may override
@@ -101,15 +113,14 @@ Optional keyword arguments:
 
     def setup(self):
         print 'Opening backgrounds...'
-        from skymaps import Background, DiffuseFunction, CompositeSkySpectrum, IsotropicPowerLaw, HealpixDiffuseFunc
         diffusefile,exposure = self.args
         import pyfits
         q = pyfits.open(diffusefile, memmap=1)
         if q[1].name == 'SKYMAP': # first extension name: is it healpix?
-            self.unscaled_galactic_diffuse_singl = Singleton(HealpixDiffuseFunc,diffusefile,HealpixDiffuseFunc.DIFFDENSITY)
+            self.unscaled_galactic_diffuse_singl = Singleton(HealpixDiffuseFunc,None,diffusefile,HealpixDiffuseFunc.DIFFDENSITY)
             self.unscaled_galactic_diffuse = self.unscaled_galactic_diffuse_singl(HealpixDiffuseFunc)
         else:
-            self.unscaled_galactic_diffuse_singl = Singleton(DiffuseFunction,diffusefile)
+            self.unscaled_galactic_diffuse_singl = Singleton(DiffuseFunction,None,diffusefile)
             self.unscaled_galactic_diffuse = self.unscaled_galactic_diffuse_singl(DiffuseFunction)
         q.close()
         if self.galactic_scale == 1.:
@@ -119,7 +130,7 @@ Optional keyword arguments:
         if self.iso_file is None:
            self.isotropic_diffuse = IsotropicPowerLaw(self.isotropic[0],self.isotropic[1])
         else:
-            self.unscaled_isotropic_diffuse = DiffuseFunction(self.iso_file)
+            self.unscaled_isotropic_diffuse = IsotropicSpectrum(self.iso_file)
             if self.iso_scale == 1.:
                 self.isotropic_diffuse = self.unscaled_isotropic_diffuse
             else:

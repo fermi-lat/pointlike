@@ -1,7 +1,7 @@
 """
 Plotting routines to display results of an ROI analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.3 2009/05/26 17:58:11 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.4 2009/06/22 23:32:51 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -354,6 +354,7 @@ class DataSkyFunction(object):
       self.emin    = 1e2
       self.emax    = 1e5
       self.event_class = -1
+      self.mc_src_id = None
 
    def __init__(self,sa_or_data,**kwargs):
 
@@ -373,7 +374,8 @@ class DataSkyFunction(object):
 
       from fitstools import get_fields
       base_cuts = ['ENERGY > %s'%(self.emin),'ENERGY < %s'%(self.emax),'ZENITH_ANGLE < 105']
-      if self.event_class >= 0: base_cuts += ['EVENT_CLASS == %d'%(self.event_class)]
+      if self.event_class >= 0:      base_cuts += ['EVENT_CLASS == %d'%(self.event_class)]
+      if self.mc_src_id is not None: base_cuts += ['MC_SRC_ID == %d'%(self.mc_src_id)]
       cuts = base_cuts if self.cuts is None else self.cuts + base_cuts
       event_files = self.sa_or_data if type(self.sa_or_data) == type([]) else self.sa_or_data.pixeldata.event_files
       

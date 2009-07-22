@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.11 2009/05/25 19:17:51 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.12 2009/06/22 23:32:51 kerrm Exp $
 
 """
-version='$Revision: 1.11 $'.split()[1]
+version='$Revision: 1.12 $'.split()[1]
 import os
 import psf
 import math
@@ -95,7 +95,7 @@ Optional keyword arguments:
             #if filelist is None or len(filelist)==0:
 	         #   raise Exception('PixelData setup: received empty list of event or history files')
 
-        self.lt   = self.get_livetime()
+        self.lt   =  self.get_livetime()
         self.PSF_setup()
         self.data = self.get_data()
         self.dmap = self.data.map()
@@ -143,8 +143,9 @@ Optional keyword arguments:
    
         # modify the psf parameters in the band objects, which SimpleLikelihood will then use
         ip = skymaps.IParams
-        ip.set_livetimefile(self.livetimefile)
-        ip.set_skydir(self.roi_dir)
+        if self.livetimefile is not None and self.roi_dir is not None:
+           ip.set_livetimefile(self.livetimefile)
+           ip.set_skydir(self.roi_dir)
         ip.set_CALDB(self.CALDB or os.environ['CALDB'])
         ip.init('_'.join(self.psf_irf.split('_')[:-1]),self.psf_irf.split('_')[-1])
 

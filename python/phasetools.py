@@ -63,6 +63,8 @@ class PulsarLightCurve(object):
       self.percentage           = 68.
       self.tyrel                = False
       self.damien               = False
+      self.psr_cat1             = False
+      self.psr_cat2             = False
 
    def __init__(self,**kwargs):
       self.init()
@@ -74,9 +76,15 @@ class PulsarLightCurve(object):
       if self.damien:
          def r(e,event_class=0):
             return N.minimum((e/1000.)**-0.85,2.2)
-      if self.tyrel:
+      elif self.tyrel:
          def r(e,event_class=0):
             return N.where(event_class,4.9,2.8)*(e/100)**-0.75
+      elif self.psr_cat1:
+         def r(e,event_class=0):
+            return N.maximum(N.minimum(1.0,0.8*(1000./e)**0.75),0.35)
+      elif self.psr_cat2:
+         def r(e,event_class=0):
+            return N.maximum(N.minimum(0.5,0.8*(1000./e)**0.75),0.35)
       elif self.cookie_cutter_radius is not None:
          def r(e,event_class=0):
             return N.where(event_class,self.cookie_cutter_radius[1],self.cookie_cutter_radius[0])
@@ -112,11 +120,14 @@ class PulsarLightCurve(object):
       self.phases = results['PULSE_PHASE'][mask]
       self.times  = results['TIME'][mask]
 
+   def get_npb(self):
+      return max(int(round(len(self.phases)/30.)),20)
+
 
    def plot(self,fignum=2,show_trend=True,show_errorbars=False,outfile=None,num_per_bin=None,
             two_cycles=False,point_source=None,relative=True,**kwargs):
       if 'linecolor' not in kwargs: kwargs['linecolor'] = 'black'
-      if 'errorcolor' not in kwargs: kwargs['errorcolor']='green'
+      if 'errorcolor' not in kwargs: kwargs['errorcolor']='red'
       if 'fill' not in kwargs: kwargs['fill'] = False
       
       import pylab as P
@@ -124,7 +135,7 @@ class PulsarLightCurve(object):
       if show_trend: P.figure(fignum, (10,6))
       else: P.figure(fignum)
 
-      npb = num_per_bin or max(int(round(len(self.phases)/30.)),20)
+      npb = num_per_bin or self.get_npb()
 
       ev_cop = self.phases.copy()
       times = (self.times-self.times.min())/(24*3600.) #in days
@@ -139,9 +150,13 @@ class PulsarLightCurve(object):
       if kwargs['fill']:
          ax1.bar(phases,rates,N.append(phases[1:],1)-phases,alpha=1.0,ec='k',fc='red',ec='red')
       ax1.step(N.append(phases,1),N.append(rates[0],rates),where='pre',color=kwargs['linecolor'],label=label)
+
+      ax = ax1.axis()
+      ax1.axis([0,1,0,ax[3]])
       
       if two_cycles:
          ax1.step(N.append(phases,1)+1,N.append(rates[0],rates),where='pre',color=kwargs['linecolor'])
+         ax1.axis([0,2,0,ax[3]])
       ax1.set_ylabel('Relative Count Rate')
       ax1.set_xlabel('Phase')
       ax1.grid(b=True)

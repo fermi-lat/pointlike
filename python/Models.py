@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.16 2009/05/27 17:34:11 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.17 2009/06/22 23:32:51 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -217,9 +217,9 @@ Optional keyword arguments:
          
          if error:
             args = (emin,emax,e_weight,cgs,False)
-            d   = self.__flux_derivs__(*args)
+            d   = self.__flux_derivs__(*args)[self.free]
             dt  = d.reshape( (d.shape[0],1) ) #transpose
-            err = (d * self.cov_matrix * dt).sum()**0.5
+            err = (d * self.cov_matrix[self.free].transpose()[self.free] * dt).sum()**0.5
             if not two_sided:
                return (flux,err)
             else: #use log transform to estimate two-sided errors

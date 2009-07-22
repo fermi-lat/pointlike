@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.21 2009/05/26 17:58:10 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.22 2009/06/22 23:32:51 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.21 $'.split()[1]
+version='$Revision: 1.22 $'.split()[1]
 import os
 import sys
 
@@ -22,12 +22,15 @@ class AnalysisEnvironment(object):
       if glast_ts:
 
          self.galactic  = r'f:\glast\data\galprop\GP_gamma_psf_healpix_o8_54_59Xvarh8S.fits'
-         self.galactic_front = r'f:\glast\data\galprop\gll_iem_v01_psf_front.fits'
-         self.galactic_back  = r'f:\glast\data\galprop\gll_iem_v01_psf_back.fits'
-         self.isotropic = None #replace with new tabular file
+         self.galactic_front = r'f:\glast\data\galprop\gll_iem_v02_P6_v3_diff_front.fits'
+         self.galactic_back  = r'f:\glast\data\galprop\gll_iem_v02_P6_v3_diff_back.fits'
+
+         self.isotropic = r'f:\glast\data\galprop\total_mapcube_54_77varh72_isotropic.txt'
+         self.isotropic_front = r'f:\glast\data\galprop\isotropic_iem_front_v02.txt'
+         self.isotropic_back  = r'f:\glast\data\galprop\isotropic_iem_back_v02.txt'
 
          self.CALDB   = 'f:\\glast\\caldb\\v0r7p1\\CALDB\\data\\glast\\lat'
-         self.catalog = r'f:/glast/data/kerr/gll_psc6month_v2.fit'
+         self.catalog = r'f:/glast/data/kerr/gll_psc11month_v1.fit'
 
    def __init__(self,glast_ts=True,**kwargs):
       self.init(glast_ts)
@@ -123,7 +126,7 @@ Optional keyword arguments:
         self.pixeldata =  PixelData(event_files,history_files,**self.__dict__)
 
         from wrappers import ExposureWrapper,BackgroundWrapper,Singleton
-        self.exposure   =  ExposureWrapper(self.pixeldata,**self.__dict__)
+        self.exposure   = ExposureWrapper(self.pixeldata,**self.__dict__)
         self.background = BackgroundWrapper(analysis_environment.galactic,self.exposure,**self.__dict__)
         self.setup()
 
@@ -277,8 +280,11 @@ Optional keyword arguments:
         from roi_modules  import ROIPointSourceManager,ROIBackgroundManager
         from roi_analysis import ROIAnalysis
         
-        cm = CatalogManager(self.catalog)
-        source_list = cm.merge_lists(self.roi_dir,self.maxROI+5,point_sources)
+        if self.ae.catalog is not None:
+           cm = CatalogManager(self.catalog)
+           source_list = cm.merge_lists(self.roi_dir,self.maxROI+5,point_sources)
+        else:
+           source_list = point_sources
 
         ps_manager = ROIPointSourceManager(source_list,self.roi_dir)
         bg_manager = ROIBackgroundManager(self, models = backgrounds)

@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.4 2009/05/26 17:58:10 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.7 2009/07/20 22:27:17 wallacee Exp $
 
 author: Matthew Kerr
 """
@@ -19,8 +19,11 @@ class ROIAnalysis(object):
 
    def init(self):
 
-      self.fit_emin = 100
-      self.fit_emax = 5e5
+      self.fit_emin = [100,100] #independent energy ranges for front and back
+      self.fit_emax = [5e5,5e5] #0th position for event class 0
+      self.threading = False
+
+      self.catalog_aperture = -1
   
    def __init__(self,ps_manager,bg_manager,spectral_analysis,**kwargs):
       self.init()
@@ -43,8 +46,10 @@ class ROIAnalysis(object):
       from collections import deque
       self.bands = deque()
       for band in self.sa.pixeldata.dmap:
-         if band.emin() >= self.fit_emin and band.emax() < self.fit_emax:
-            self.bands.append(ROIBand(band,self.sa))
+
+         if band.emin() >= self.fit_emin[band.event_class()] and band.emax() < self.fit_emax[band.event_class()]:
+            self.bands.append(ROIBand(band,self.sa,catalog_aperture=self.catalog_aperture))
+
       self.bands = N.asarray(self.bands)
 
       self.psm.setup_initial_counts(self.bands)
