@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.17 2009/06/22 23:32:51 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.18 2009/07/22 02:46:56 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -212,7 +212,8 @@ Optional keyword arguments:
          from scipy.integrate import quad
          func = self if e_weight == 0 else lambda e: self(e)*e**e_weight
          units = 1.60218e-6**(e_weight) if cgs else 1. #extra factor from integral!
-         flux =  units*quad(func,emin,emax)[0]
+         epsabs = func(emin)*1e-4 # needed since epsrel does not seem to work
+         flux =  units*quad(func,emin,emax,epsabs=epsabs)[0]
          if not cgs: flux*=self.flux_scale #remove this?
          
          if error:

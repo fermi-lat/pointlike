@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.7 2009/07/20 22:27:17 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.8 2009/07/22 02:46:56 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -179,7 +179,7 @@ class ROIAnalysis(object):
       minimizer  = fmin_powell if method == 'powell' else fmin
       f = minimizer(self.logLikelihood,self.parameters(),full_output=1,\
                     maxiter=10000,maxfun=20000,ftol=tolerance,xtol=tolerance)
-      print 'Function value at minimum: %.8g'%f[1]
+      if not self.quiet: print 'Function value at minimum: %.8g'%f[1]
       if save_values:
          self.set_parameters(f[0])
          self.__set_error__(do_background)
@@ -194,17 +194,17 @@ class ROIAnalysis(object):
 
       try:
          if not do_background: raise Exception
-         print 'Attempting to invert full hessian...'
+         if not self.quiet: print 'Attempting to invert full hessian...'
          cov_matrix = inv(hessian)
          self.bgm.set_covariance_matrix(cov_matrix,current_position=0)
          self.psm.set_covariance_matrix(cov_matrix,current_position=n)
       except:
-         print 'Skipping full Hessian inversion, trying point source parameter subset...'
+         if not self.quiet: print 'Skipping full Hessian inversion, trying point source parameter subset...'
          try:
             cov_matrix = inv(hessian[n:,n:])
             self.psm.set_covariance_matrix(cov_matrix,current_position=0)
          except:
-            print 'Error in calculating and inverting hessian.'
+            if not self.quiet: print 'Error in calculating and inverting hessian.'
 
    def __str__(self):
       bg_header  = '======== BACKGROUND FITS =============='
@@ -242,9 +242,9 @@ class ROIAnalysis(object):
       for i in xrange(5):
          l.fit(update=True)
          diff = l.dir.difference(ld)*180/N.pi
-         print 'Difference from previous fit: %.5f deg'%(diff)
+         if not self.quiet: print 'Difference from previous fit: %.5f deg'%(diff)
          if diff < tolerance:
-            print 'Converged!'
+            if not self.quiet: print 'Converged!'
             break
          ld = SkyDir(l.dir.ra(),l.dir.dec())
 
