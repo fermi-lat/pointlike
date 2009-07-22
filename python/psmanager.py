@@ -32,6 +32,7 @@ class CatalogManager(object):
       self.prune_radius  = 0.25 #deg; in a merge, consider sources closer than this duplicates
       self.min_flux      = 1e-8 #ph/cm2/s; minimum flux for sources beyond a certain proximity
       self.max_distance  = 5 #deg; distance inside which sources are returned regardless of flux
+      self.min_ts        = 25
 
    def __init__(self,catalog_file,*args,**kwargs):
       self.init()
@@ -46,20 +47,22 @@ class CatalogManager(object):
       pens = f[1].data.field('PIVOT_ENERGY')
       n0s  = f[1].data.field('FLUX_DENSITY')
       inds = f[1].data.field('SPECTRAL_INDEX')
+      ts   = f[1].data.field('TEST_STATISTIC')
       inds = N.where(inds > 0, inds, -inds)
 
       self.dirs   = map(SkyDir,N.asarray(ras).astype(float),N.asarray(decs).astype(float))
       self.models = N.asarray([PowerLaw(p=[n0,ind],e0=pen) for n0,ind,pen in zip(n0s,inds,pens)])
       self.fluxes = N.asarray(f[1].data.field('FLUX100'))
       self.names  = N.asarray(f[1].data.field('NickName'))
+      self.ts     = N.asarray(ts)
 
       f.close()
 
    def get_sources(self,skydir,radius=15.):
     
       diffs   = N.asarray([skydir.difference(d) for d in self.dirs])*180/N.pi
-      mask    = N.logical_and(diffs < radius,\
-                  N.logical_or(self.fluxes > self.min_flux,diffs < self.max_distance))
+      mask    = ((diffs < radius)&(self.ts > self.min_ts)) & \
+                ((self.fluxes > self.min_flux)|(diffs < self.max_distance))         
       diffs   = diffs[mask]
       sorting = N.argsort(diffs)
 

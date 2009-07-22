@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.3 2009/05/25 19:17:51 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.4 2009/06/22 23:32:51 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -271,18 +271,29 @@ class ROIBackgroundManager(ROIModelManager):
 
       if models is None: #default background model; note indices are fixed
          if sa.fb_maps:
-            from skymaps import DiffuseFunction
-            self.gal_front = DiffuseFunction(sa.ae.galactic_front)
-            self.gal_back  = DiffuseFunction(sa.ae.galactic_back)
+            from skymaps import DiffuseFunction,IsotropicSpectrum
+            from wrappers import Singleton
+            self.gfsingl   = Singleton(DiffuseFunction,'front_diffuse',sa.ae.galactic_front)
+            self.gbsingl   = Singleton(DiffuseFunction,'back_diffuse', sa.ae.galactic_back)
+            self.gal_front = self.gfsingl('front_diffuse')
+            self.gal_back  = self.gbsingl('back_diffuse')
 
             gal_model  = ROIBackgroundModel([self.gal_front,self.gal_back],
                                             self.gal_model, 'Galactic Diffuse')
+
+            self.iso_front = IsotropicSpectrum(sa.ae.isotropic_front)
+            self.iso_back  = IsotropicSpectrum(sa.ae.isotropic_back)
+
+            iso_model  = ROIBackgroundModel([self.iso_front,self.iso_back],
+                                            self.iso_model, 'Isotropic Diffuse')
+
          else:
             gal_model  = ROIBackgroundModel(sa.background.galactic_diffuse,
                                             self.gal_model, 'GalacticDiffuse')
 
-         iso_model  = ROIBackgroundModel(sa.background.isotropic_diffuse,
-                                         self.iso_model, 'Isotropic Diffuse')
+            iso_model  = ROIBackgroundModel(sa.background.isotropic_diffuse,
+                                            self.iso_model, 'Isotropic Diffuse')
+
          models     = [gal_model,iso_model]
 
       self.bgmodels = models
@@ -345,6 +356,8 @@ class ROIBackgroundManager(ROIModelManager):
             band.bg_pix_counts = (band.pi_evals * band.mo_evals).sum(axis = 2) if band.has_pixels else 0
             band.bg_all_pix_counts = band.bg_pix_counts.sum(axis=1)
 
+      self.cache() # check that this doesn't cause problems -- it shouldn't
+
 
    def cache(self):
 
@@ -380,9 +393,9 @@ class ROIBackgroundManager(ROIModelManager):
                   band.bg_pix_counts[:,nm] = (band.pi_evals[:,nm,:] * pts).sum(axis=1)               
                   
          else:
-            for band in bands:
-               ratio = 10**(m.p[0]-self.init_norms[nm])
-               self.init_norms[nm] = m.p[0]
+            ratio = 10**(m.p[0]-self.init_norms[nm])
+            self.init_norms[nm] = m.p[0]
+            for band in bands: 
                band.bg_counts[nm] *= ratio
                if band.has_pixels:
                   band.bg_pix_counts[:,nm] *= ratio               
@@ -486,6 +499,8 @@ class ROIBand(object):
       self.nsp_simps = 8
       self.nbg_simps = 4
 
+      self.catalog_aperture = -1
+
 
    def __init__(self,band,spectral_analysis,**kwargs):
 
@@ -511,6 +526,13 @@ class ROIBand(object):
       from skymaps import WeightedSkyDirList
       mi,ma              = N.asarray([self.sa.minROI,self.sa.maxROI])*(N.pi/180.)
       self.radius_in_rad = max(min((2*self.umax)**0.5*self.s,ma),mi)
+      ###### begin PSR cat code
+      if self.catalog_aperture > 0:
+         th = 0.8*(self.e/1000.)**-0.75
+         if th > self.catalog_aperture: th = self.catalog_aperture
+         if th < 0.35: th = 0.35
+         self.radius_in_rad = th * N.pi / 180
+      ###### end PSR cat code
       self.wsdl          = WeightedSkyDirList(self.b,self.sd,self.radius_in_rad,False)
       self.pix_counts    = N.asarray([x.weight() for x in self.wsdl]) if len(self.wsdl) else 0.
       self.photons       = self.wsdl.counts()
