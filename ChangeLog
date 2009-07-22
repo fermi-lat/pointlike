@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Tue Jul 21 19:46:56 PDT 2009
+pointlike/python
+
+Modified Files:
+	Models.py phasetools.py pixeldata.py pointspec.py psmanager.py 
+	roi_analysis.py roi_modules.py roi_plotting.py wrappers.py 
+Log Message:
+    *
+------------------------------------------------------------
 User: glastrm  Mon Jul 20 15:34:30 PDT 2009
 pointlike
 
