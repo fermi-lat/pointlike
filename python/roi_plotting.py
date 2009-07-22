@@ -1,13 +1,14 @@
 """
 Plotting routines to display results of an ROI analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.4 2009/06/22 23:32:51 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.5 2009/07/22 02:46:56 kerrm Exp $
 
 author: Matthew Kerr
 """
 
 import numpy as N
 from skymaps import PySkyFunction
+import colormaps
 from image import ZEA
 
 def band_spectra(r,source=0):
@@ -491,7 +492,6 @@ class ROIDisplay(object):
       import pylab as P
       from matplotlib import mpl,pyplot,ticker
       try:
-         from kerrtools import colormaps
          self.cmap_sls = colormaps.sls
          self.cmap_b   = colormaps.b
       except:
