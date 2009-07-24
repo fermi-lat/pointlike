@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitstools.py,v 1.10 2009/05/25 19:17:51 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitstools.py,v 1.11 2009/06/22 23:32:51 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -201,7 +201,7 @@ def get_fields(files, fields, cuts = None):
 
    for nfi,fi in enumerate(files):
       f = pf.open(fi,memmap=1)
-      counts[nfi] = f['EVENTS'].data.getshape()[0]
+      counts[nfi] = len(f['EVENTS'].data) #f['EVENTS'].data.getshape()[0]
       f.close()
 
    for field in fields + cut_fields:

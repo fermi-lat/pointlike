@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.9 2009/07/22 02:56:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.10 2009/07/22 03:17:22 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -25,12 +25,15 @@ class ROIAnalysis(object):
       self.quiet = False
 
       self.catalog_aperture = -1
+
+      self.phase_factor = 1.
   
    def __init__(self,ps_manager,bg_manager,spectral_analysis,**kwargs):
       self.init()
       self.__dict__.update(**kwargs)
       self.psm  = ps_manager
       self.bgm  = bg_manager
+
       self.sa   = spectral_analysis
       self.logl = None
       self.setup_bands()
@@ -73,13 +76,13 @@ class ROIAnalysis(object):
 
          ll +=  ( 
                    #integral terms for ROI (go in positive)
-                   b.bg_all_counts + b.ps_all_counts
+                   (b.bg_all_counts + b.ps_all_counts)*self.phase_factor
 
                    -
 
                    #pixelized terms (go in negative)
                    (b.pix_counts *
-                       N.log(  b.bg_all_pix_counts + b.ps_all_pix_counts )
+                       N.log(  (b.bg_all_pix_counts + b.ps_all_pix_counts)*self.phase_factor )
                    ).sum() if b.has_pixels else 0.
                 )
 
@@ -105,6 +108,7 @@ class ROIAnalysis(object):
 
       return tot_term - pix_term
    
+   # note -- not adapted for phase factor yet!
    def spatialLikelihood(self,skydir,which=0):
       """Calculate log likelihood as a function of position a point source.
       
@@ -173,6 +177,7 @@ class ROIAnalysis(object):
       param_state = N.concatenate([m.free for m in self.psm.models] + [m.free for m in self.bgm.models])
       if not N.all(param_state == self.param_state):
          self.psm.cache(self.bands)
+         self.bgm.cache()
          self.param_state = param_state
 
       print 'Performing likelihood maximization...'
