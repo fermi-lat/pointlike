@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.24 2009/07/22 02:56:54 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.25 2009/07/22 03:17:22 burnett Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.24 $'.split()[1]
+version='$Revision: 1.25 $'.split()[1]
 import os
 import sys
 
@@ -21,20 +21,101 @@ class AnalysisEnvironment(object):
 
       if glast_ts:
 
-         self.galactic  = r'f:\glast\data\galprop\GP_gamma_psf_healpix_o8_54_59Xvarh8S.fits'
-         self.galactic_front = r'f:\glast\data\galprop\gll_iem_v02_P6_v3_diff_front.fits'
-         self.galactic_back  = r'f:\glast\data\galprop\gll_iem_v02_P6_v3_diff_back.fits'
-
-         self.isotropic = r'f:\glast\data\galprop\total_mapcube_54_77varh72_isotropic.txt'
-         self.isotropic_front = r'f:\glast\data\galprop\isotropic_iem_front_v02.txt'
-         self.isotropic_back  = r'f:\glast\data\galprop\isotropic_iem_back_v02.txt'
-
+         self.diffdir = r'f:/glast/data/galprop'
+         self.catdir  = r'f:/glast/data/kerr'
          self.CALDB   = 'f:\\glast\\caldb\\v0r7p1\\CALDB\\data\\glast\\lat'
-         self.catalog = r'f:/glast/data/kerr/gll_psc11month_v1.fit'
 
    def __init__(self,glast_ts=True,**kwargs):
       self.init(glast_ts)
-      self.__dict__.update(**kwargs)
+
+class ConsistentBackground(object):
+
+   def __init__(self,analysis_environment,background='ems_ring'):
+
+      from wrappers import Singleton
+      from skymaps import DiffuseFunction,IsotropicSpectrum
+      from psmanager import CatalogManager
+
+      diffdir = analysis_environment.diffdir
+      catdir  = analysis_environment.catdir
+
+      self.background = background
+
+      if background == 'nms_galprop':
+
+         cat = os.path.join(catdir,r'gll_psc9month_v2r2.fit')
+
+         singl = Singleton(DiffuseFunction,'gf',os.path.join(diffdir,'gas_mapcube_54_77Xvarh7S_P6_v3_diff_front.fits'))
+         singl.add(        DiffuseFunction,'gb',os.path.join(diffdir,'gas_mapcube_54_77Xvarh7S_P6_v3_diff_back.fits'))
+         singl.add(        DiffuseFunction,'if',os.path.join(diffdir,'ics_isotropic_mapcube_54_77Xvarh7S_P6_v3_diff_front.fits'))
+         singl.add(        DiffuseFunction,'ib',os.path.join(diffdir,'ics_isotropic_mapcube_54_77Xvarh7S_P6_v3_diff_back.fits'))
+         singl.add(        IsotropicSpectrum,'iso',os.path.join(diffdir,'Total_b30_EGBfree.txt'))
+
+         gas_f  = singl('gf')
+         gas_b  = singl('gb')
+         ic_f   = singl('if')
+         ic_b   = singl('ib')
+         iso    = singl('iso')
+
+         self.dmodels = [ [gas_f,gas_b] , iso , [ic_f,ic_b] ]
+
+      if background == 'ems_ring':
+
+         cat = os.path.join(catdir,r'gll_psc11month_v1b.fit')
+
+         singl = Singleton(DiffuseFunction,'gf',os.path.join(diffdir,'gll_iem_v02_P6_v3_diff_front.fits'))
+         singl.add(        DiffuseFunction,'gb',os.path.join(diffdir,'gll_iem_v02_P6_v3_diff_back.fits'))
+         singl.add(        IsotropicSpectrum,'if',os.path.join(diffdir,'isotropic_iem_front_v02.txt'))
+         singl.add(        IsotropicSpectrum,'ib',os.path.join(diffdir,'isotropic_iem_back_v02.txt'))
+
+         gal_f  = singl('gf')
+         gal_b  = singl('gb')
+         iso_f  = singl('if')
+         iso_b  = singl('ib')
+
+         self.dmodels = [ [gal_f,gal_b], [iso_f,iso_b] ]
+      
+      singl.add(CatalogManager,'cat',cat)
+      self.cm = singl('cat')
+
+   def get_bgmodels(self, models = None, lat = None):
+
+      from roi_modules import ROIBackgroundModel
+      from Models import Constant,PowerLaw
+
+      gal_index = True if (lat is not None and abs(lat) < 20) else False
+
+      if self.background == 'nms_galprop':
+
+         iso_m = Constant(free=[True])
+         ic_m  = Constant(free=[False])
+         gas_m = PowerLaw(p=[1,1],free=[True,gal_index],index_offset=1)
+
+         gas_model  = ROIBackgroundModel(self.dmodels[0],
+                                          gas_m, 'Gas Galactic Diffuse')
+
+         iso_model  = ROIBackgroundModel(self.dmodels[1],
+                                          iso_m, 'Isotropic Diffuse')
+
+         ic_model   = ROIBackgroundModel(self.dmodels[2],
+                                          ic_m, 'IC Galactic Diffuse')
+
+         models = [gas_model,iso_model,ic_model]
+
+      if self.background == 'ems_ring':
+
+         iso_m = Constant(free=[True])
+         gal_m = PowerLaw(p=[1,1],free=[True,gal_index],index_offset=1)
+
+         gal_model  = ROIBackgroundModel(self.dmodels[0],
+                                          gal_m, 'Galactic Diffuse')
+
+         iso_model  = ROIBackgroundModel(self.dmodels[1],
+                                          iso_m, 'Isotropic Diffuse')
+
+         models = [gal_model,iso_model]
+
+      return models
 
 class SpectralAnalysis(object):
     """ 
@@ -80,11 +161,13 @@ Optional keyword arguments:
   +psf_irf     ['P6_v3_diff'] Which IRF to use for the point spread function
   
   =========    KEYWORDS CONTROLLING BACKGROUND
+  +background  ['ems_ring'] - a choice of global model specifying a diffuse background (Galactic, isotropic, etc.) and a catalog
+  
+  ### below is obsolete for ROI code -- only old pointliek spectral analysis
   +isotropic   [(1.5e-5,2.1)] tuple of flux>100 MeV, spectral index for isotropic diffuse to add to diffuse
   +iso_file    [None] if provided, a MapCube representing the isotropic diffuse; if not, use default power law
   +iso_scale   [1.] scale for the optional MapCube
   +galactic_scale [1.] scale factor for galactic diffuse
-  +fb_maps     [True] in ROI analysis, if True, use separate maps (specified in AnalysisEnvironment) for front/back
   
   =========    KEYWORDS CONTROLLING SPECTRAL ANALYSIS
   +event_class [-1] Select event class (-1: all, 0: front, 1:back)                                                       
@@ -94,6 +177,7 @@ Optional keyword arguments:
   +maxROI      [25] maximum ROI for PointSourceLikelihood to use
   +minROI      [0] minimum ROI
   +back_multi  [1.] Minimum back energy = back_multi*emin
+  +use_pointlike [False] if set to true, skips some steps for older analysis setup
 
   =========    KEYWORDS OF MISCELLANY
   +quiet       [False] Set True to suppress (some) output
@@ -111,10 +195,11 @@ Optional keyword arguments:
         self.back_multi  = 1.
         self.exp_irf     = 'P6_v3_diff'
         self.psf_irf     = 'P6_v3_diff'
+        self.background  = 'ems_ring'
         self.CALDB       = analysis_environment.CALDB
-        self.catalog     = analysis_environment.catalog
         self.roi_dir     = None
         self.ae          = analysis_environment
+        self.use_pointlike = False
         self.__dict__.update(kwargs)
 
         # I think with AnalysisEnvironment this is no longer necessary...
@@ -123,12 +208,14 @@ Optional keyword arguments:
         #    raise Exception
 
          #TODO -- sanity check that BinnedPhotonData agrees with analysis parameters
-        self.pixeldata =  PixelData(event_files,history_files,**self.__dict__)
+        self.pixeldata = PixelData(event_files,history_files,**self.__dict__)
 
         from wrappers import ExposureWrapper,BackgroundWrapper,Singleton
-        self.exposure   = ExposureWrapper(self.pixeldata,**self.__dict__)
-        self.background = BackgroundWrapper(analysis_environment.galactic,self.exposure,**self.__dict__)
-        self.setup()
+        self.exposure = ExposureWrapper(self.pixeldata,**self.__dict__)
+
+        if self.use_pointlike:
+            self.background = BackgroundWrapper(analysis_environment.galactic,self.exposure,**self.__dict__)
+            self.setup()
 
         
     def setup(self):
@@ -276,15 +363,24 @@ Optional keyword arguments:
         backgrounds      a list of ROIBackgroundModels with which to replace the default
                          isotropic and Galactic backgrounds (optional)
         """
-        from psmanager    import CatalogManager
+        
         from roi_modules  import ROIPointSourceManager,ROIBackgroundManager
         from roi_analysis import ROIAnalysis
         
-        if self.ae.catalog is not None:
-           cm = CatalogManager(self.catalog)
-           source_list = cm.merge_lists(self.roi_dir,self.maxROI+5,point_sources)
+        lat,models,noneigh = None,None,False
+        if 'lat'in kwargs.keys(): lat = kwargs.pop('lat')
+        if 'models' in kwargs.keys(): models = kwargs.pop('models')
+        if 'noneigh' in kwargs.keys(): models = kwargs.pop('noneigh')
+
+        cb = ConsistentBackground(self.ae,self.background)
+
+        if backgrounds is None:
+            backgrounds = cb.get_bgmodels(models=models,lat=lat)
+
+        if noneigh:
+            source_list = point_sources
         else:
-           source_list = point_sources
+            source_list = cb.cm.merge_lists(self.roi_dir,self.maxROI+5,point_sources)
 
         ps_manager = ROIPointSourceManager(source_list,self.roi_dir)
         bg_manager = ROIBackgroundManager(self, models = backgrounds)
@@ -292,9 +388,9 @@ Optional keyword arguments:
         if point_sources is None: #make closest catalog source one to fit
             for i in xrange(len(ps_manager.models[0].free)):
                ps_manager.models[0].free[i] = True
-        roi = ROIAnalysis(ps_manager,bg_manager,self,**kwargs)
 
-        return roi
+        return ROIAnalysis(ps_manager,bg_manager,self,**kwargs)
+
 
 #--------------------------------------------------------
 

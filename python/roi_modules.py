@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.5 2009/07/22 02:46:56 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.6 2009/07/22 02:56:54 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -11,7 +11,7 @@ from pointspec import SpectralAnalysis
 from skymaps import SkyDir,WeightedSkyDirList,SkyIntegrator
 from Models import *
 from psf import PSF
-from threading import Thread
+#from threading import Thread
 
 class ROIOverlap(object):
    """Routines to calculate how much of the emission of a point source falls onto an ROI."""
