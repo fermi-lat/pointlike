@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Fri Jul 24 14:01:17 PDT 2009
+pointlike/python
+
+Modified Files:
+	fitstools.py pointspec.py roi_analysis.py roi_modules.py 
+Log Message:
+Added better background management for ROI code.
+    *
+------------------------------------------------------------
 User: burnett  Tue Jul 21 20:17:22 PDT 2009
 pointlike/python
 
