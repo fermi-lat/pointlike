@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.25 2009/07/22 03:17:22 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.26 2009/07/24 21:01:16 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.25 $'.split()[1]
+version='$Revision: 1.26 $'.split()[1]
 import os
 import sys
 
@@ -87,35 +87,34 @@ class ConsistentBackground(object):
 
       if self.background == 'nms_galprop':
 
-         iso_m = Constant(free=[True])
-         ic_m  = Constant(free=[False])
-         gas_m = PowerLaw(p=[1,1],free=[True,gal_index],index_offset=1)
+         if models is not None:
+            gas_m,iso_m,ic_m = models
+         else:
+            gas_m = PowerLaw(p=[1,1],free=[True,gal_index],index_offset=1)
+            iso_m = Constant(free=[True])
+            ic_m  = Constant(free=[False])            
 
          gas_model  = ROIBackgroundModel(self.dmodels[0],
                                           gas_m, 'Gas Galactic Diffuse')
-
          iso_model  = ROIBackgroundModel(self.dmodels[1],
                                           iso_m, 'Isotropic Diffuse')
-
          ic_model   = ROIBackgroundModel(self.dmodels[2],
                                           ic_m, 'IC Galactic Diffuse')
-
-         models = [gas_model,iso_model,ic_model]
+         return [gas_model,iso_model,ic_model]
 
       if self.background == 'ems_ring':
 
-         iso_m = Constant(free=[True])
-         gal_m = PowerLaw(p=[1,1],free=[True,gal_index],index_offset=1)
+         if models is not None:
+            gal_m,iso_m = models
+         else:
+            gal_m = PowerLaw(p=[1,1],free=[True,gal_index],index_offset=1)
+            iso_m = Constant(free=[True])
 
          gal_model  = ROIBackgroundModel(self.dmodels[0],
                                           gal_m, 'Galactic Diffuse')
-
          iso_model  = ROIBackgroundModel(self.dmodels[1],
                                           iso_m, 'Isotropic Diffuse')
-
-         models = [gal_model,iso_model]
-
-      return models
+         return [gal_model,iso_model]
 
 class SpectralAnalysis(object):
     """ 
@@ -176,7 +175,6 @@ Optional keyword arguments:
   +extended_likelihood [False] Use extended likelihood
   +maxROI      [25] maximum ROI for PointSourceLikelihood to use
   +minROI      [0] minimum ROI
-  +back_multi  [1.] Minimum back energy = back_multi*emin
   +use_pointlike [False] if set to true, skips some steps for older analysis setup
 
   =========    KEYWORDS OF MISCELLANY
@@ -192,7 +190,6 @@ Optional keyword arguments:
         self.event_class = -1        
         self.maxROI      = 25 # for PointSourceLikelihood
         self.minROI      = 0
-        self.back_multi  = 1.
         self.exp_irf     = 'P6_v3_diff'
         self.psf_irf     = 'P6_v3_diff'
         self.background  = 'ems_ring'
@@ -232,7 +229,7 @@ Optional keyword arguments:
     class Fitter(object):
         """ manage spectral fitting"""
 
-        def __init__(self, spectralanalysis, name, src_dir):
+        def __init__(self, spectralanalysis, name, src_dir, **kwargs):
             """
             spectral analysis: an instance of SpectralAnalysis
             name: an appellation for the source
@@ -246,7 +243,7 @@ Optional keyword arguments:
             PointSourceLikelihood.set_energy_range(spectralanalysis.emin) #kluge
             self.src_dir = src_dir
             self.psl = PointSourceLikelihood(spectralanalysis.pixeldata.dmap, name, self.src_dir)
-            self.pslw = PointSourceLikelihoodWrapper(self.psl,spectralanalysis.exposure,**spectralanalysis.__dict__)
+            self.pslw = PointSourceLikelihoodWrapper(self.psl,spectralanalysis.exposure,**kwargs.update(spectralanalysis.__dict__))
             print 'TS= %6.1f' % self.pslw.TS() #TS consistent with energy selection for spectral analysis
             self.models = []
             
@@ -332,7 +329,7 @@ Optional keyword arguments:
             if filename: savefig(filename)
 
 
-    def fitter(self, name, source_dir):
+    def fitter(self, name, source_dir, **kwargs):
         """
         return a SpecralAnalysis.Fitter object
 
@@ -341,7 +338,7 @@ Optional keyword arguments:
 
 
         """
-        return SpectralAnalysis.Fitter(self, name, source_dir)
+        return SpectralAnalysis.Fitter(self, name, source_dir, **kwargs)
         
     def __call__(self, name, source_dir):
         """
@@ -368,9 +365,9 @@ Optional keyword arguments:
         from roi_analysis import ROIAnalysis
         
         lat,models,noneigh = None,None,False
-        if 'lat'in kwargs.keys(): lat = kwargs.pop('lat')
-        if 'models' in kwargs.keys(): models = kwargs.pop('models')
-        if 'noneigh' in kwargs.keys(): models = kwargs.pop('noneigh')
+        if 'lat'     in kwargs.keys(): lat = kwargs.pop('lat')
+        if 'models'  in kwargs.keys(): models = kwargs.pop('models')
+        if 'noneigh' in kwargs.keys(): noneigh = kwargs.pop('noneigh')
 
         cb = ConsistentBackground(self.ae,self.background)
 
