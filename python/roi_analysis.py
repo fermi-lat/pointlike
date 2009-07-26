@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.10 2009/07/22 03:17:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.11 2009/07/24 21:01:16 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -21,7 +21,6 @@ class ROIAnalysis(object):
 
       self.fit_emin = [100,100] #independent energy ranges for front and back
       self.fit_emax = [5e5,5e5] #0th position for event class 0
-      self.threading = False
       self.quiet = False
 
       self.catalog_aperture = -1
@@ -36,6 +35,7 @@ class ROIAnalysis(object):
 
       self.sa   = spectral_analysis
       self.logl = None
+      self.prev_logl = None
       self.setup_bands()
 
       self.bin_centers = N.sort(list(set([b.e for b in self.bands])))
@@ -109,7 +109,7 @@ class ROIAnalysis(object):
       return tot_term - pix_term
    
    # note -- not adapted for phase factor yet!
-   def spatialLikelihood(self,skydir,which=0):
+   def spatialLikelihood(self,skydir,update=False,which=0):
       """Calculate log likelihood as a function of position a point source.
       
          which   -- index of point source; default to central
@@ -151,6 +151,11 @@ class ROIAnalysis(object):
 
          ll += tot_term - pix_term
 
+         if update:
+            band.overlaps[which] = overlap
+            if band.has_pixels:
+               band.ps_pix_counts[:,which] = ps_pix_counts
+
       return ll
 
 
@@ -189,6 +194,7 @@ class ROIAnalysis(object):
       if save_values:
          self.set_parameters(f[0])
          self.__set_error__(do_background)
+         self.prev_logl = self.logl if self.logl is not None else -f[1]
          self.logl = -f[1]
       return -f[1] 
 
@@ -215,7 +221,11 @@ class ROIAnalysis(object):
    def __str__(self):
       bg_header  = '======== BACKGROUND FITS =============='
       ps_header  = '======== POINT SOURCE FITS ============'
-      return '\n\n'.join([ps_header,self.psm.__str__(),bg_header,self.bgm.__str__()])
+      if (self.logl is not None) and (self.prev_logl is not None):
+         ll_string  = 'Log likelihood change: %.2f'%(self.logl - self.prev_logl)
+      else:
+         ll_string  = ''
+      return '\n\n'.join([ps_header,self.psm.__str__(),bg_header,self.bgm.__str__(),ll_string])
          
    def TS(self):
       """Calculate the significance of the central point source."""
@@ -237,14 +247,15 @@ class ROIAnalysis(object):
 
          tolerance -- maximum difference in degrees between two successive best fit positions
          update    -- if True, update localization internally, i.e., recalculate point source contribution
-                      [NOT IMPLEMENTED]
-         which     -- index of point source; default to central [NOT IMPLEMENTED]
+         which     -- index of point source; default to central (0)
                       ***if localizing non-central, ensure ROI is large enough!***
       """
       import quadform
-      rl = ROILocalizer(self)
+      rl = ROILocalizer(self,which=which)
       l  = quadform.Localize(rl,verbose = False)
       ld = SkyDir(l.dir.ra(),l.dir.dec())
+      ll_0 = self.spatialLikelihood(ld,update=False,which=which)
+      print ll_0
       for i in xrange(5):
          l.fit(update=True)
          diff = l.dir.difference(ld)*180/N.pi
@@ -254,10 +265,22 @@ class ROIAnalysis(object):
             break
          ld = SkyDir(l.dir.ra(),l.dir.dec())
 
+      ll_1 = self.spatialLikelihood(l.dir,update=False,which=which)
+      print ll_1
+      print 'Log likelihood change: %.2f'%(ll_0 - ll_1)
+
+      if update:
+         self.psm.point_sources[which].skydir = l.dir
+         self.spatialLikelihood(l.dir,which=which,update=True)
+
+
+
+
       self.qform   = l
       self.ldir    = l.dir
       self.lsigma  = l.sigma
       self.rl      = rl
+      self.delta_loc_logl = (ll_0 - ll_1)
 
    def printSpectrum(self,sources=None):
       """Print total counts and estimated signal in each band for a list of sources.

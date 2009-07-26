@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.6 2009/07/22 02:56:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.7 2009/07/24 21:01:16 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -473,12 +473,13 @@ class ROIBackgroundManager(ROIModelManager):
 
 class ROILocalizer(object):
 
-   def __init__(self,roi):
+   def __init__(self,roi,which=0):
       self.roi = roi
-      self.rd  = roi.psm.point_sources[0].skydir #note -- not necessarily ROI center!
+      self.rd  = roi.psm.point_sources[which].skydir #note -- not necessarily ROI center!
+      self.which = which
             
    def TSmap(self,skydir):
-      return (-2)*self.roi.spatialLikelihood(skydir)
+      return (-2)*self.roi.spatialLikelihood(skydir,which=self.which)
 
    def dir(self):
       return self.rd
