@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.11 2009/07/24 21:01:16 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.12 2009/07/26 19:59:13 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -150,12 +150,15 @@ class ROIAnalysis(object):
             pix_term = 0
 
          ll += tot_term - pix_term
+         if N.isnan(ll):
+            raise Exception('ROIAnalysis.spatialLikelihood failure at %.3f,%.3f, band %d' %(skydir.ra(),skydir.dec(),i))
 
          if update:
             band.overlaps[which] = overlap
             if band.has_pixels:
                band.ps_pix_counts[:,which] = ps_pix_counts
-
+      if N.isnan(ll):
+         raise Exception('ROIAnalysis.spatialLikelihood failure at %.3f,%.3f' %(skydir.ra(),skydir.dec()))
       return ll
 
 
@@ -185,7 +188,7 @@ class ROIAnalysis(object):
          self.bgm.cache()
          self.param_state = param_state
 
-      print 'Performing likelihood maximization...'
+      if not self.quiet: print 'Performing likelihood maximization...'
       from scipy.optimize import fmin,fmin_powell
       minimizer  = fmin_powell if method == 'powell' else fmin
       f = minimizer(self.logLikelihood,self.parameters(),full_output=1,\
@@ -242,45 +245,47 @@ class ROIAnalysis(object):
       ll = -self.logLikelihood(save_params) #reset predicted counts
       return -2*(alt_ll - ll)
 
-   def localize(self,tolerance=1e-4,update=False,which=0):
+   def localize(self,which=0, tolerance=1e-3,update=False):
       """Localize a source using an elliptic approximation to the likelihood surface.
 
+         which     -- index of point source; default to central 
+                      ***if localizing non-central, ensure ROI is large enough!***
          tolerance -- maximum difference in degrees between two successive best fit positions
          update    -- if True, update localization internally, i.e., recalculate point source contribution
-         which     -- index of point source; default to central (0)
-                      ***if localizing non-central, ensure ROI is large enough!***
+
+         return fit position
       """
       import quadform
       rl = ROILocalizer(self,which=which)
       l  = quadform.Localize(rl,verbose = False)
       ld = SkyDir(l.dir.ra(),l.dir.dec())
+      if not self.quiet:
+         fmt ='Localizing source %s, tolerance=%.1e...\n\t'+6*'%10s'
+         tup = (self.psm.point_sources[which].name, tolerance,)+tuple('moved ra    dec   a    b  qual'.split())
+         print fmt % tup
+            
       ll_0 = self.spatialLikelihood(ld,update=False,which=which)
-      print ll_0
       for i in xrange(5):
          l.fit(update=True)
          diff = l.dir.difference(ld)*180/N.pi
-         if not self.quiet: print 'Difference from previous fit: %.5f deg'%(diff)
+         if not self.quiet: print ('\t'+6*'%10.4f')% (diff, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
          if diff < tolerance:
-            if not self.quiet: print 'Converged!'
             break
          ld = SkyDir(l.dir.ra(),l.dir.dec())
 
       ll_1 = self.spatialLikelihood(l.dir,update=False,which=which)
-      print ll_1
-      print 'Log likelihood change: %.2f'%(ll_0 - ll_1)
+      if not self.quiet: print 'Log likelihood change: %.2f'%(ll_0 - ll_1)
 
       if update:
          self.psm.point_sources[which].skydir = l.dir
          self.spatialLikelihood(l.dir,which=which,update=True)
-
-
-
 
       self.qform   = l
       self.ldir    = l.dir
       self.lsigma  = l.sigma
       self.rl      = rl
       self.delta_loc_logl = (ll_0 - ll_1)
+      return l.dir
 
    def printSpectrum(self,sources=None):
       """Print total counts and estimated signal in each band for a list of sources.
@@ -322,8 +327,7 @@ class ROIAnalysis(object):
          spectra[s] = band_spectra(self,source=self.psm.point_sources.index(s))
       iso,gal,src,obs = counts(self)[1:5]
       outstring = 'Spectra of sources in ROI about %s at ra = %f, dec = %f\n'\
-                    %(self.psm.point_sources[0].name, self.sa.roi_dir.ra(), self.sa.roi_dir.dec())
-      fields = ['  Emin',' f_ROI',' b_ROI' ,' Events','Galactic','Isotropic']\
+                    %(self.psm.point_sources[0].name, self.sa.roi_dir.ra(), self.sa.roi_dir.dec())\
                 +[' '*10+'Signal']*len(sources)
       outstring += ' '*54+'  '.join(['%18s'%s.name for s in sources])+'\n'
       outstring += '  '.join(fields)+'\n'

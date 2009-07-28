@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.7 2009/07/24 21:01:16 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.8 2009/07/26 19:59:13 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -266,6 +266,7 @@ class ROIBackgroundManager(ROIModelManager):
       from Models import PowerLaw
       self.gal_model = PowerLaw(p=[1,1],free=[True,False],index_offset=1)
       self.iso_model = PowerLaw(p=[1,1],free=[True,False],index_offset=1)
+      self.quiet     = False
 
    def __init__(self,spectral_analysis,models=None,**kwargs):
       """."""
@@ -312,7 +313,7 @@ class ROIBackgroundManager(ROIModelManager):
    def setup_initial_counts(self,bands):
       """Evaluate initial values of background models; these will be scaled in likelihood maximization."""
 
-      print 'Calculating initial background counts...'
+      if not self.quiet: print 'Calculating initial background counts...'
 
       from skymaps import Background,SkyIntegrator
 
@@ -474,12 +475,13 @@ class ROIBackgroundManager(ROIModelManager):
 class ROILocalizer(object):
 
    def __init__(self,roi,which=0):
-      self.roi = roi
+      self.roi,self.which = roi, which
       self.rd  = roi.psm.point_sources[which].skydir #note -- not necessarily ROI center!
-      self.which = which
+      self.tsref=0
+      self.tsref = self.TSmap(self.rd)
             
    def TSmap(self,skydir):
-      return (-2)*self.roi.spatialLikelihood(skydir,which=self.which)
+      return (-2)*self.roi.spatialLikelihood(skydir,which=self.which)-self.tsref
 
    def dir(self):
       return self.rd

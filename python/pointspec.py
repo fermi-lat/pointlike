@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.26 2009/07/24 21:01:16 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.27 2009/07/26 19:59:13 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.26 $'.split()[1]
+version='$Revision: 1.27 $'.split()[1]
 import os
 import sys
 
@@ -184,12 +184,6 @@ Optional keyword arguments:
   """
         self.quiet       = False
         self.verbose     = False
-        self.emin        = 100
-        self.emax        = 5e5
-        self.extended_likelihood=False
-        self.event_class = -1        
-        self.maxROI      = 25 # for PointSourceLikelihood
-        self.minROI      = 0
         self.exp_irf     = 'P6_v3_diff'
         self.psf_irf     = 'P6_v3_diff'
         self.background  = 'ems_ring'
@@ -197,12 +191,19 @@ Optional keyword arguments:
         self.roi_dir     = None
         self.ae          = analysis_environment
         self.use_pointlike = False
+        if self.use_pointlike:
+            # deprecated: if use this interface must set these
+            self.event_class = -1        
+            self.maxROI      = 25 # for PointSourceLikelihood
+            self.minROI      = 0
+            self.extended_likelihood=False
+            self.emin        = 100
+            self.emax        = 5e5
+
+
+
         self.__dict__.update(kwargs)
 
-        # I think with AnalysisEnvironment this is no longer necessary...
-        # if self.CALDB is None and 'CALDB' not in os.environ.keys():
-        #    print 'No CALDB setting or environment variable found!  Please rectify this.  Aborting.'
-        #    raise Exception
 
          #TODO -- sanity check that BinnedPhotonData agrees with analysis parameters
         self.pixeldata = PixelData(event_files,history_files,**self.__dict__)
