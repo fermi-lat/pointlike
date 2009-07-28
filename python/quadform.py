@@ -1,7 +1,7 @@
 """ 
 code to develop fitting for a quadratic form
 """
-from numpy import asarray, array, arange, zeros, matrix, sign, rec, linspace
+from numpy import asarray, array, arange, zeros, matrix, sign, rec, linspace, isnan
 from math import sqrt, atan2, sin, cos, atan, pi, degrees, radians
 import os
 import skymaps
@@ -175,18 +175,23 @@ class Localize(object):
         if verbose: print ('initial: ra,dec, sigma:' +3*'%10.4f') % (self.ra,self.dec,self.sigma)
 
         #self.fit(update=True)
+        
         try:
             self.fit(update=True) # needed?
         except:
             print 'update failed: center on highest TS and try again'
             ts = array(self.ts)
             tsmax = ts.max()
+            if isnan(tsmax):
+                print 'really lost'
+                raise
             idir = arange(9)[tsmax==ts][0]
             mdir = self.rcirc[idir]
             print 'try ra,dec,ts =', mdir.ra(), mdir.dec(), tsmax 
             self.ra= mdir.ra()
             self.dec = mdir.dec()
             self.fit(update=True)
+            
 
         
     def TS(self,sdir):

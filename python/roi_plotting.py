@@ -1,7 +1,12 @@
 """
 Plotting routines to display results of an ROI analysis.
+Given an ROIAnalysis object roi:
+    plot_spectra(roi)
+    ROIDisplay(roi).show()
+    plot_counts(roi)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.5 2009/07/22 02:46:56 kerrm Exp $
+
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.6 2009/07/22 02:56:54 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -165,11 +170,12 @@ def plot_counts(r,fignum=1,outfile=None,integral=False,):
 #-----------------------------------------------------------------------------#
 
 
-def plot_spectra(r,eweight=2,fignum=1,outfile=None,merge_bins=False,return_vals=False,axis=None,use_legend=True):
+def plot_spectra(r, which=0, eweight=2,fignum=1,outfile=None,merge_bins=False,
+            return_vals=False,axis=None,use_legend=True):
 
    colors = ['blue','green','red','orange']
 
-   en,cts,ctslo,ctshi,exp,ps = band_spectra(r)
+   en,cts,ctslo,ctshi,exp,ps = band_spectra(r,which)
 
    
    if merge_bins:
@@ -499,11 +505,13 @@ class ROIDisplay(object):
 
       P.ioff()
       fig = P.figure(self.fignum,self.figsize)
+      P.clf()
 
-      imw = ( 0.55, 0.55, 0.55,  0.55,     0.38, 0.38)
+      voff = -0.05
+      imw = ( 0.55, 0.55, 0.55,  0.55,     0.25, 0.25) #0.38, 0.38)
       imh = ( 0.35, 0.35, 0.35,  0.35,     0.17, 0.17) # picture sizes
-      imx = (-0.09, 0.23, 0.55, -0.09,     0.55, 0.55)
-      imy = ( 0.60, 0.60, 0.60,  0.15,     0.32, 0.08)
+      imx = (-0.09, 0.23, 0.55, -0.09,     0.40, 0.40) #0.55, 0.55)
+      imy = ( 0.60+voff, 0.60+voff, 0.60+voff,  0.15+voff,     0.32, 0.08)
 
 
       titles  = ['Modeled Counts', 'Observed Counts', 'Weighted Residuals', 'P-values','', '']
@@ -625,16 +633,19 @@ class ROIDisplay(object):
 
    def show(self,to_screen=True,out_file=None):
 
+      t =self.label_sources
       self.model_plot()
+      self.label_sources=False #only label the model plot
       self.counts_plot()
       self.resids_plot()
       self.hist_plot()
+      self.label_sources = t
 
       import pylab as P
       if out_file is not None: P.savefig(out_file)
       if to_screen: P.show()
 
-   def plot_sources(self, image, symbol='+',  fontsize=12, markersize=10, fontcolor='k', mc= 'green',**kwargs):
+   def plot_sources(self, image, symbol='+',  fontsize=8, markersize=10, fontcolor='w', mc= 'green',**kwargs):
       nx = image.nx
       ny = image.ny
       ps = self.rm.psm.point_sources
