@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 User: burnett  Tue Jul 28 06:01:20 PDT 2009
+pointlike/python
+
+Modified Files:
+	pointspec.py quadform.py roi_analysis.py roi_modules.py 
+	roi_plotting.py 
+Log Message:
+localization formatting  improvements
+    *
+------------------------------------------------------------
+User: burnett  Tue Jul 28 06:01:20 PDT 2009
 pointlike/doc
 
 Modified Files:
