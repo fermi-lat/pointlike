@@ -2,6 +2,14 @@
 TAG
 Tag name: ScienceTools-09-15-04, operation: add
 Package: pointlike
+User: glastrm  Thu Jul 30 16:22:32 2009
+Files:
+
+    *
+------------------------------------------------------------
+TAG
+Tag name: ScienceTools-09-15-04, operation: add
+Package: pointlike
 User: glastrm  Thu Jul 30 15:52:23 2009
 Files:
   pointlike/.cvsignore  1.1.1.1
