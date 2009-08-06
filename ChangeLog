@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Thu Aug  6 16:07:26 PDT 2009
+ScienceTools-scons/pointlike/python
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Quick fix to ROIAnalysis.printSpectrum
+
+    *
+------------------------------------------------------------
 User: jrb  Thu Aug  6 14:04:04 PDT 2009
 ScienceTools-scons/pointlike
 
