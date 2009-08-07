@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/roi_analysis.py,v 1.13 2009/07/28 13:01:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.13 2009/07/28 13:01:20 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -245,7 +245,7 @@ class ROIAnalysis(object):
       ll = -self.logLikelihood(save_params) #reset predicted counts
       return -2*(alt_ll - ll)
 
-   def localize(self,which=0, tolerance=1e-3,update=False):
+   def localize(self,which=0, tolerance=1e-3,update=False, verbose=False):
       """Localize a source using an elliptic approximation to the likelihood surface.
 
          which     -- index of point source; default to central 
@@ -257,16 +257,23 @@ class ROIAnalysis(object):
       """
       import quadform
       rl = ROILocalizer(self,which=which)
-      l  = quadform.Localize(rl,verbose = False)
+      l  = quadform.Localize(rl,verbose = verbose)
       ld = SkyDir(l.dir.ra(),l.dir.dec())
       if not self.quiet:
          fmt ='Localizing source %s, tolerance=%.1e...\n\t'+6*'%10s'
          tup = (self.psm.point_sources[which].name, tolerance,)+tuple('moved ra    dec   a    b  qual'.split())
          print fmt % tup
+         print ('\t'+3*'%10.4f')% (0, self.sa.roi_dir.ra(), self.sa.roi_dir.dec())
+         print ('\t'+6*'%10.4f')% (l.dir.difference(self.sa.roi_dir)*180/N.pi, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
             
       ll_0 = self.spatialLikelihood(ld,update=False,which=which)
       for i in xrange(5):
-         l.fit(update=True)
+         try:
+            l.fit(update=True)
+         except:
+            l.recenter()
+            if not self.quiet: print 'trying a recenter...'
+            continue
          diff = l.dir.difference(ld)*180/N.pi
          if not self.quiet: print ('\t'+6*'%10.4f')% (diff, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
          if diff < tolerance:
@@ -328,7 +335,7 @@ class ROIAnalysis(object):
       iso,gal,src,obs = counts(self)[1:5]
       outstring = 'Spectra of sources in ROI about %s at ra = %f, dec = %f\n'\
                     %(self.psm.point_sources[0].name, self.sa.roi_dir.ra(), self.sa.roi_dir.dec())\
-                +''.join([' '*10+'Signal']*len(sources))
+                +[' '*10+'Signal']*len(sources)
       outstring += ' '*54+'  '.join(['%18s'%s.name for s in sources])+'\n'
       outstring += '  '.join(fields)+'\n'
       for i,band in enumerate(zip(self.bands[::2],self.bands[1::2])):
