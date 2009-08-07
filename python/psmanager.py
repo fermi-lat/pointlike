@@ -29,7 +29,7 @@ class CatalogManager(object):
    """Read a Jean Ballet catalogue and use it to set up a source list for a ROI."""
 
    def init(self):
-      self.prune_radius  = 0.25 #deg; in a merge, consider sources closer than this duplicates
+      self.prune_radius  = 0.10 #deg; in a merge, consider sources closer than this duplicates
       self.min_flux      = 1e-8 #ph/cm2/s; minimum flux for sources beyond a certain proximity
       self.max_distance  = 5 #deg; distance inside which sources are returned regardless of flux
       self.min_ts        = 25
