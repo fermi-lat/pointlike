@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Aug  7 07:56:49 PDT 2009
+pointlike/python
+
+Modified Files:
+	psmanager.py quadform.py 
+Log Message:
+improved strategy if localization does not converge
+    *
+------------------------------------------------------------
 User: wallacee  Thu Aug  6 16:07:26 PDT 2009
 ScienceTools-scons/pointlike/python
 
