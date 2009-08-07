@@ -179,19 +179,21 @@ class Localize(object):
         try:
             self.fit(update=True) # needed?
         except:
-            print 'update failed: center on highest TS and try again'
-            ts = array(self.ts)
-            tsmax = ts.max()
-            if isnan(tsmax):
-                print 'really lost'
-                raise
-            idir = arange(9)[tsmax==ts][0]
-            mdir = self.rcirc[idir]
-            print 'try ra,dec,ts =', mdir.ra(), mdir.dec(), tsmax 
-            self.ra= mdir.ra()
-            self.dec = mdir.dec()
+            if self.verbose: print 'update failed: center on highest TS and try again'
+            self.recenter()
             self.fit(update=True)
             
+    def recenter(self):
+        ts = array(self.ts)
+        tsmax = ts.max()
+        if isnan(tsmax):
+            print 'really lost'
+            raise Exception('Localize: reallylost')
+        idir = arange(9)[tsmax==ts][0]
+        mdir = self.rcirc[idir]
+        if self.verbose: print 'try ra,dec,ts =', mdir.ra(), mdir.dec(), tsmax 
+        self.ra= mdir.ra()
+        self.dec = mdir.dec()
 
         
     def TS(self,sdir):
