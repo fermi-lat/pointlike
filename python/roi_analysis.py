@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.13 2009/07/28 13:01:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/roi_analysis.py,v 1.15 2009/08/07 14:57:25 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -333,9 +333,11 @@ class ROIAnalysis(object):
       for s in sources:
          spectra[s] = band_spectra(self,source=self.psm.point_sources.index(s))
       iso,gal,src,obs = counts(self)[1:5]
+      fields = ['  Emin',' f_ROI',' b_ROI' ,' Events','Galactic','Isotropic']\
+                +[' '*10+'Signal']*len(sources)
       outstring = 'Spectra of sources in ROI about %s at ra = %f, dec = %f\n'\
                     %(self.psm.point_sources[0].name, self.sa.roi_dir.ra(), self.sa.roi_dir.dec())\
-                +[' '*10+'Signal']*len(sources)
+      
       outstring += ' '*54+'  '.join(['%18s'%s.name for s in sources])+'\n'
       outstring += '  '.join(fields)+'\n'
       for i,band in enumerate(zip(self.bands[::2],self.bands[1::2])):
@@ -347,7 +349,6 @@ class ROIAnalysis(object):
                             ['%8.1f +/-%6.1f']*len(sources))%values
          outstring += string+'\n'
       print outstring
-
 
    def __call__(self,v):
       
