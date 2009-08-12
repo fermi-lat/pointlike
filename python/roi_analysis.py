@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/roi_analysis.py,v 1.15 2009/08/07 14:57:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.16 2009/08/07 23:38:17 wallacee Exp $
 
 author: Matthew Kerr
 """
@@ -15,12 +15,27 @@ from psmanager import *
  
 ###====================================================================================================###
 
+def read_fit(outfile):
+   from cPickle import load
+   from psmanager import PointSource
+   from skymaps import SkyDir
+   ps = []
+   d = load(file(outfile))
+   for m in d['point_sources']:
+      sd = SkyDir(m.ra,m.dec)
+      p  = PointSource(sd,m.source_name,m)
+      ps.append(p)
+   return ps,d['backgrounds']
+
+
+###====================================================================================================###
+
 class ROIAnalysis(object):
 
    def init(self):
 
       self.fit_emin = [100,100] #independent energy ranges for front and back
-      self.fit_emax = [5e5,5e5] #0th position for event class 0
+      self.fit_emax = [1e5 + 100,1e5 + 100] #0th position for event class 0
       self.quiet = False
 
       self.catalog_aperture = -1
@@ -100,11 +115,16 @@ class ROIAnalysis(object):
 
       psc = band.ps_counts[which]
 
-      tot_term = band.bg_all_counts + band.ps_all_counts + (psc*band.overlaps[which])*(scale-1)
+      tot_term = (band.bg_all_counts + band.ps_all_counts + (psc*band.overlaps[which])*(scale-1))*self.phase_factor
 
-      pix_term = (band.pix_counts * N.log(
-                  band.bg_all_pix_counts + band.ps_all_pix_counts + (psc*band.ps_pix_counts[:,which]*(scale-1))
-                 )).sum() if band.has_pixels else 0.
+      pix_term = (
+                  band.pix_counts * 
+                     N.log(
+                        self.phase_factor*(
+                           band.bg_all_pix_counts + band.ps_all_pix_counts + (psc*band.ps_pix_counts[:,which]*(scale-1))
+                        )
+                     )
+                 ).sum() if band.has_pixels else 0.
 
       return tot_term - pix_term
    
@@ -125,24 +145,26 @@ class ROIAnalysis(object):
       for i,band in enumerate(self.bands):
    
          sigma,gamma,en,exp,pa = band.s,band.g,band.e,band.exp,band.b.pixelArea()
-         exposure_ratio        = exp.value(skydir,en)/exp.value(rd,en)
+         exposure_ratio        = exp.value(skydir,en)/exp.value(rd,en) #needs fix? -- does not obey which?
          psf                   = PsfSkyFunction(skydir,gamma,sigma)
          
          overlap               = ro(band,rd,skydir) * exposure_ratio * band.solid_angle / band.solid_angle_p
          ool                   = band.overlaps[which]
          psc                   = band.ps_counts[which]
 
-         tot_term              = band.bg_all_counts + band.ps_all_counts + psc * (overlap - ool)
+         tot_term              = (band.bg_all_counts + band.ps_all_counts + psc * (overlap - ool)) * self.phase_factor
 
          if band.has_pixels:
 
             ps_pix_counts = N.asarray(psf.wsdl_vector_value(band.wsdl))*((pa/(2*N.pi*sigma**2))*exposure_ratio)
 
             pix_term = (band.pix_counts * N.log
-                           (
-                           band.bg_all_pix_counts + 
-                           band.ps_all_pix_counts + 
-                           psc*(ps_pix_counts - band.ps_pix_counts[:,which])
+                           ( self.phase_factor * 
+                              (
+                              band.bg_all_pix_counts + 
+                              band.ps_all_pix_counts + 
+                              psc*(ps_pix_counts - band.ps_pix_counts[:,which])
+                              )
                            )
                        ).sum()
 
@@ -175,24 +197,42 @@ class ROIAnalysis(object):
       self.bgm.set_parameters(parameters,current_position=0)
       self.psm.set_parameters(parameters,current_position=len(self.bgm.parameters()))
       self.fit_parameters = parameters
-   
-   def fit(self,method='simplex', tolerance = 1e-8, save_values = True, do_background=True):
-      """Maximize likelihood and estimate errors.
 
-         method -- ['powell'] fitter; 'powell' or 'simplex'
-      """
+   def fit_background(self):
+      old_psm_frees = []
+      for m in self.psm.models:
+         old_psm_frees.append(m.free.copy())
+         m.free = N.asarray([False]*len(m.free))
+      self.fit(fit_bg_first = False)
+      for n,nm in enumerate(self.psm.models):
+         nm.free = old_psm_frees[n]
+
+   def __pre_fit__(self):
+      
       #cache frozen values
       param_state = N.concatenate([m.free for m in self.psm.models] + [m.free for m in self.bgm.models])
       if not N.all(param_state == self.param_state):
          self.psm.cache(self.bands)
          self.bgm.cache()
          self.param_state = param_state
+   
+   def fit(self,method='simplex', tolerance = 1e-8, save_values = True, do_background=True, fit_bg_first = False):
+      """Maximize likelihood and estimate errors.
+
+         method -- ['powell'] fitter; 'powell' or 'simplex'
+      """
+
+      if fit_bg_first:
+         self.fit_background()
+
+      self.__pre_fit__()
 
       if not self.quiet: print 'Performing likelihood maximization...'
       from scipy.optimize import fmin,fmin_powell
       minimizer  = fmin_powell if method == 'powell' else fmin
+      ll_0 = self.logLikelihood(self.parameters())
       f = minimizer(self.logLikelihood,self.parameters(),full_output=1,\
-                    maxiter=10000,maxfun=20000,ftol=tolerance,xtol=tolerance)
+                    maxiter=10000,maxfun=20000,ftol=0.01/abs(ll_0) )
       if not self.quiet: print 'Function value at minimum: %.8g'%f[1]
       if save_values:
          self.set_parameters(f[0])
@@ -259,6 +299,8 @@ class ROIAnalysis(object):
       rl = ROILocalizer(self,which=which)
       l  = quadform.Localize(rl,verbose = verbose)
       ld = SkyDir(l.dir.ra(),l.dir.dec())
+      ll_0 = self.spatialLikelihood(self.psm.point_sources[which].skydir,update=False,which=which)
+
       if not self.quiet:
          fmt ='Localizing source %s, tolerance=%.1e...\n\t'+6*'%10s'
          tup = (self.psm.point_sources[which].name, tolerance,)+tuple('moved ra    dec   a    b  qual'.split())
@@ -266,7 +308,7 @@ class ROIAnalysis(object):
          print ('\t'+3*'%10.4f')% (0, self.sa.roi_dir.ra(), self.sa.roi_dir.dec())
          print ('\t'+6*'%10.4f')% (l.dir.difference(self.sa.roi_dir)*180/N.pi, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
             
-      ll_0 = self.spatialLikelihood(ld,update=False,which=which)
+
       for i in xrange(5):
          try:
             l.fit(update=True)
@@ -350,6 +392,178 @@ class ROIAnalysis(object):
          outstring += string+'\n'
       print outstring
 
+
+   def save_fit(self,outfile):
+      """Save the spectral models (and locations) for all point sources and diffuse models.
+      
+         This saves the need to refit.  A future iteration should actually save all of the
+         pixel predictions to avoid lengthy recalculation, too."""
+
+      from cPickle import dump
+      from collections import defaultdict
+      d = defaultdict(list)
+      for ps in self.psm.point_sources:
+         m = ps.model
+         m.ra  = ps.skydir.ra()
+         m.dec = ps.skydir.dec()
+         m.source_name = ps.name
+         d['point_sources'].append(m)
+      for bg in self.bgm.models:
+         d['backgrounds'].append(bg)
+      f = open(outfile,'w')
+      dump(d,f)
+      f.close()
+
    def __call__(self,v):
       
       pass #make this a TS map? negative -- spatialLikelihood does it, essentially
+
+class PulsarFitter(object):
+   """Provide a master class to manage two ROIAnalysis object to roughly divide
+      a light curve into "pulsed" and "unpulsed" emission and do a joint fit.
+      
+      The first ROI object should contain *two* models for the pulsar, one for
+      the pulsed emission and one for the (full-period) DC background.  The
+      second ROI object should contain only the DC background."""
+
+   def __init__(self,roi1,roi2):
+      self.roi1,self.roi2 = roi1,roi2
+      self.offset1,self.offset2 = 0,0
+
+      self.ll1 = self.roi1.logLikelihood
+      self.ll2 = self.roi2.logLikelihood
+
+      from roi_plotting import counts
+      self.on  = counts(self.roi1)[-2]
+      self.off = counts(self.roi2)[-2]
+      self.phi = self.roi1.phase_factor
+
+      self.on_mask  = self.on  > 0
+      self.off_mask = self.off > 0
+
+   def logLikelihood(self,p,*args):
+      
+      p1 = p
+      p2 = N.append(p[:self.offset1],p[self.offset1 + self.offset2:])
+      
+      ll1 = self.ll1(p1)
+      ll2 = self.ll2(p2)
+
+      return ll1 + ll2
+
+   def fit(self,*args,**kwargs):
+
+      # make sure each ROI has the same parameter set
+      bm1,bm2 = self.roi1.bgm.models,self.roi2.bgm.models
+      for i in xrange(len(bm1)):
+         bm2[i].free[:] = bm1[i].free[:]
+         bm2[i].p[:]    = bm1[i].p[:]
+
+      pm1,pm2 = self.roi1.psm.models,self.roi2.psm.models
+      for n in xrange(len(pm2)):
+         pm2[n].free[:] = pm1[n+1].free[:]
+         pm2[n].p[:]    = pm1[n+1].p[:]
+
+      self.roi2.__pre_fit__()
+
+      self.offset1 = int(sum([m.free.sum() for m in bm1]))
+      self.offset2 = int(pm1[0].free.sum())
+      self.roi1.logLikelihood = self.logLikelihood
+      self.roi1.fit(*args,**kwargs)
+      self.roi1.logLikelihood = self.ll1
+
+   def proflogl(self,p,*args):
+      """Calculate the profile likelihood by maximizing the likelihood with
+         respect to the background.  A nonparametric fit."""
+
+      r   = self.roi1
+      bands = r.bands
+      r.psm.models[0].set_parameters(p)
+      r.psm.update_counts(bands)
+      
+      o1  = self.on_mask
+      o2  = self.off_mask
+
+      from collections import defaultdict
+      d = defaultdict(float)
+      for b in bands:
+         d[b.e] += b.ps_counts[0] * b.overlaps[0]
+      s    = N.asarray([d[e] for e in r.bin_centers])# /self.phi # not needed because using full livetime
+      b    = s - self.on - self.off
+      b    = 0.5 * ((b**2 + 4*self.off*s)**0.5 - b) #positive root
+
+      return (b + s).sum() - \
+             (self.on[o1]*N.log(self.phi*b[o1] + s[o1])).sum() - \
+             (self.off[o2]*N.log((1-self.phi)*b[o2])).sum()
+
+   def proffit(self):
+
+      from scipy.optimize import fmin
+      fit = fmin(self.proflogl,self.roi1.psm.models[0].p,disp=0,full_output=1)
+
+      from specfitter import SpectralModelFitter as sfm
+      h = sfm.hessian(self.roi1.psm.models[0],self.proflogl)
+      from numpy.linalg import inv
+      self.roi1.psm.models[0].cov_matrix = inv(h)
+
+   def profplot(self,axes = None, models = [], erange = [1e2,1e4]):
+
+      self.proffit()
+
+      from collections import defaultdict
+      from pointlike import DoubleVector
+
+      d = defaultdict(float)
+      for b in self.roi1.bands:
+         d[b.e] += b.ps_counts[0] * b.overlaps[0]
+      modeled = N.asarray([d[e] for e in self.roi1.bin_centers])
+
+      d = defaultdict(float)
+      m = self.roi1.psm.models[0]
+      for b in self.roi1.bands:
+         exp = b.expected(m)/m.i_flux(b.emin,b.emax)*b.overlaps[0]
+         d[b.e] += exp
+      
+      exp = N.asarray([d[e] for e in self.roi1.bin_centers])
+
+      #exp    = N.asarray([sum([band.expected(m)/m.i_flux(band.emin,band.emax) for band in g]) for g in groupings])
+
+      w       = self.phi/(1 - self.phi)
+      s       = self.on - w * self.off
+      b       = self.off/(1-self.phi)
+      sigma_s = (self.on + w**2 * self.off)**0.5
+      sigma_b = (self.off/(1 - self.phi)**2)**0.5
+      
+      mask    = s > 0
+      dom     = self.roi1.bin_centers[mask]
+      delta_e = (self.roi1.bin_edges[1:] - self.roi1.bin_edges[:-1])[mask]
+      s       = s[mask]
+      sigma_s = sigma_s[mask]
+      exp     = exp[mask]
+
+      dom2    = N.logspace(N.log10(erange[0]),N.log10(erange[1]),100)
+      
+      if axes is None:
+         import pylab as P
+         axes = P.gca()
+
+      axes.set_xscale('log')
+      axes.set_yscale('log')
+
+      y    = dom**2*s/exp/delta_e
+      yerr = dom**2*sigma_s/exp/delta_e
+      xel  = (self.roi1.bin_centers - self.roi1.bin_edges[:-1])[mask]
+      xeh  = (self.roi1.bin_edges[1:] - self.roi1.bin_centers)[mask]
+      axes.errorbar(x=dom,xerr=[xel,xeh],y=y,yerr=[N.minimum(0.99*y,yerr),yerr],ls=' ',marker='o',label='Band Fits')
+      axes.plot(dom2,dom2**2*m(dom2),label='ON-OFF prof. like. fit')
+      
+      for n,model in enumerate(models):
+         if 'label' not in model.__dict__.keys():
+            model.label = 'Additional model %d'%(n+1)
+         axes.plot(dom2,dom2**2*model(dom2),label=model.label)
+
+      axes.legend(numpoints=1,loc=0)
+      axes.axis([erange[0],erange[1],1e-7,1e-4])
+      axes.grid()
+      axes.set_xlabel('$\mathrm{Energy\ (MeV)}$')
+      axes.set_ylabel('$\mathrm{E^2\ dN/dE\ (MeV\/cm^{-2}\/s^{-1}}$')

@@ -1,6 +1,7 @@
 
 import numpy as N
 
+
 def profile(roi,param,points):
    """Find likelihood profile for given profile.  Assume we are talking about the source at the center of the ROI."""
    

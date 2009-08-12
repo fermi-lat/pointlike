@@ -4,7 +4,7 @@ instance of PointSourceLikelihoodWrapper from which information on the photon di
 spectral fits is obtained.  Spectral models can be furnished separately to provide an independent
 estimate of the source counts and for display purposes.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/plotters.py,v 1.4 2009/01/16 22:58:10 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/plotters.py,v 1.5 2009/05/25 19:17:51 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -387,13 +387,25 @@ def ppf(prob,mean):
    if mean > 100: #normal approximation
       from scipy.stats import norm
       n = norm(mean,mean**0.5)
-      return n.ppf(prob)      
+      return float(n.ppf(prob))
    
    from scipy.stats import poisson
    d = poisson(mean)
-   prev = 0
-   for i in xrange(1,200):      
-      new = d.cdf(i)
-      if new >= prob: break
-      prev = new
-   return (i-1)+(prob-prev)/(new-prev) #linear interpolation
+   #prev = 0
+   c = 0.
+   for i in xrange(0,200):      
+      #new = d.cdf(i)
+      p = d.pmf(i)
+      c += p
+      #if new >= prob: break
+      if c >= prob: break
+      #prev = new
+   #return (i-1)+(prob-prev)/(new-prev) #linear interpolation
+   return (i-1)+(prob-(c-p))/p #linear interpolation
+
+def poisson_errors(rates,conf=68):
+   rates = N.asarray(rates)
+   conf /= 100.
+   lo_e = rates - N.asarray([ppf(0.5 - conf/2.,x) for x in rates])
+   hi_e = N.asarray([ppf(0.5 + conf/2.,x) for x in rates]) - rates
+   return [lo_e,hi_e]
