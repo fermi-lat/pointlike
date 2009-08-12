@@ -6,7 +6,7 @@ Given an ROIAnalysis object roi:
     plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.6 2009/07/22 02:56:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.7 2009/07/28 13:01:20 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -86,6 +86,7 @@ def counts(r,integral=False):
 
    from collections import deque
    groupings = [deque() for x in xrange(len(r.bin_centers))]
+   p = r.phase_factor
 
    #group slw by energy
    for i,ei in enumerate(r.bin_centers):
@@ -96,10 +97,10 @@ def counts(r,integral=False):
 
    #kluge for now, assumes standard ordering of backgrounds...
 
-   iso = N.asarray([ sum((band.bg_counts[1] for band in g)) for g in groupings])
-   gal = N.asarray([ sum((band.bg_counts[0] for band in g)) for g in groupings])
+   iso = N.asarray([ sum((band.bg_counts[1] for band in g)) for g in groupings]) * p
+   gal = N.asarray([ sum((band.bg_counts[0] for band in g)) for g in groupings]) * p
    obs = N.asarray([ sum((band.photons for band in g)) for g in groupings])
-   src = N.asarray([ N.asarray([band.ps_counts*band.overlaps for band in g]).sum(axis=0) for g in groupings])
+   src = N.asarray([ N.asarray([band.ps_counts*band.overlaps for band in g]).sum(axis=0) for g in groupings])*p
    
    if integral:
       for i in xrange(len(iso)):
@@ -115,7 +116,7 @@ def counts(r,integral=False):
 #-----------------------------------------------------------------------------#
 
 
-def plot_counts(r,fignum=1,outfile=None,integral=False,):
+def plot_counts(r,fignum=1,outfile=None,integral=False,max_label=10):
 
    colors = ['blue','green','red','orange']
 
@@ -129,8 +130,10 @@ def plot_counts(r,fignum=1,outfile=None,integral=False,):
    P.gca().set_xscale('log')
    P.gca().set_yscale('log')
    for i,name in enumerate(ps_names):
-      P.loglog(en,src[:,i],linestyle='-',marker='',label=name)
-
+      if i < max_label:
+         P.loglog(en,src[:,i],linestyle='-',marker='',label=name)
+      else:
+         P.loglog(en,src[:,i],linestyle='-',marker='')
    if not N.any(gal==0.):
       P.loglog(en,gal,linestyle='-',marker='',label='Galactic')
 
@@ -170,8 +173,9 @@ def plot_counts(r,fignum=1,outfile=None,integral=False,):
 #-----------------------------------------------------------------------------#
 
 
+
 def plot_spectra(r, which=0, eweight=2,fignum=1,outfile=None,merge_bins=False,
-            return_vals=False,axis=None,use_legend=True):
+                 return_vals=False,axis=None,use_legend=True,axes=None):
 
    colors = ['blue','green','red','orange']
 
@@ -203,8 +207,10 @@ def plot_spectra(r, which=0, eweight=2,fignum=1,outfile=None,merge_bins=False,
 
    import pylab as P
    
-   P.figure(fignum)
-   P.clf()
+   if axes is None:
+      P.figure(fignum)
+      P.clf()
+      axes = P.gca()
 
    fluxes    = bc**eweight*cts/exp/(en[1:]-en[:-1])
    fluxes_lo = bc**eweight*ctslo/exp/(en[1:]-en[:-1])
@@ -212,24 +218,24 @@ def plot_spectra(r, which=0, eweight=2,fignum=1,outfile=None,merge_bins=False,
    P.gca().set_xscale('log')
    P.gca().set_yscale('log')
    if N.all(fluxes==0):
-      P.plot(bc[fluxes==0],fluxes_hi[fluxes==0],marker='v',ls=' ',mfc='black',mec='black')
+      axes.plot(bc[fluxes==0],fluxes_hi[fluxes==0],marker='v',ls=' ',mfc='black',mec='black')
    else:
       f   = fluxes[fluxes>0]
       flo = fluxes_lo[fluxes>0]
       flo[flo==0] = 1e-20#0.999*f
       fhi = fluxes_hi[fluxes>0]
-      P.errorbar(x=bc[fluxes>0],y=f,yerr=[f-flo,fhi-f],linestyle=' ',marker='o',mfc = 'white', mec = 'black',\
+      axes.errorbar(x=bc[fluxes>0],y=f,yerr=[f-flo,fhi-f],linestyle=' ',marker='o',mfc = 'white', mec = 'black',\
                        color='black',label='Band Fits',ms=10)
-      P.plot(bc[fluxes==0],fluxes_hi[fluxes==0],marker='v',ls=' ',mfc='black',mec='black')
+      axes.plot(bc[fluxes==0],fluxes_hi[fluxes==0],marker='v',ls=' ',mfc='black',mec='black')
       domain = N.logspace(N.log10(en[0]),N.log10(en[-1]),50)
-      P.plot(domain,domain**eweight*ps.model(domain),color='red',lw=2,label='Model')
+      axes.plot(domain,domain**eweight*ps.model(domain),color='red',lw=2,label='Model')
       if use_legend: P.legend(loc=0,numpoints=1)
-      P.grid(b=True)
-      P.xlabel('Energy (MeV)')
+      axes.grid(b=True)
+      axes.set_xlabel('Energy (MeV)')
       if axis is None:
-         P.axis([0.7*min(bc),1.3*max(bc),max(min(fluxes_lo[fluxes>0])*0.7,max(fluxes)/100.),max(fluxes_hi)*1.3])
+         axes.axis([0.7*min(bc),1.3*max(bc),max(min(fluxes_lo[fluxes>0])*0.7,max(fluxes)/100.),max(fluxes_hi)*1.3])
       else:
-         P.axis(axis)
+         axes.axis(axis)
 
    if outfile is not None: P.savefig(outfile)
    if return_vals: return en,fluxes,fluxes_lo,fluxes_hi

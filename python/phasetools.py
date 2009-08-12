@@ -63,8 +63,7 @@ class PulsarLightCurve(object):
       self.percentage           = 68.
       self.tyrel                = False
       self.damien               = False
-      self.psr_cat1             = False
-      self.psr_cat2             = False
+      self.psr_cat_ap           = -1
 
    def __init__(self,**kwargs):
       self.init()
@@ -79,12 +78,9 @@ class PulsarLightCurve(object):
       elif self.tyrel:
          def r(e,event_class=0):
             return N.where(event_class,4.9,2.8)*(e/100)**-0.75
-      elif self.psr_cat1:
+      elif self.psr_cat_ap > 0:
          def r(e,event_class=0):
-            return N.maximum(N.minimum(1.0,0.8*(1000./e)**0.75),0.35)
-      elif self.psr_cat2:
-         def r(e,event_class=0):
-            return N.maximum(N.minimum(0.5,0.8*(1000./e)**0.75),0.35)
+            return N.maximum(N.minimum(self.psr_cat_ap,0.8*(1000./e)**0.75),0.35)
       elif self.cookie_cutter_radius is not None:
          def r(e,event_class=0):
             return N.where(event_class,self.cookie_cutter_radius[1],self.cookie_cutter_radius[0])
@@ -119,6 +115,7 @@ class PulsarLightCurve(object):
       mask = N.logical_and(ens >= self.energy_range[0], ens < self.energy_range[1])
       self.phases = results['PULSE_PHASE'][mask]
       self.times  = results['TIME'][mask]
+      self.differences = results['DIFFERENCES'][mask]
 
    def get_npb(self):
       return max(int(round(len(self.phases)/30.)),20)
@@ -284,9 +281,12 @@ def h_statistic(phases,weights=None):
    return (2./n*N.cumsum(s) - 4*N.arange(0,20)).max()
 
 def h_sig(h):
+   """Convert the H-test statistic to a chance probability."""
    if h <= 23:
       return 0.9999755*N.exp(-0.39802*h)
-   return max(1.210597*N.exp(-0.45901*h + 0.0022900*h**2),4e-8)
+   if h > 50:
+      return 4e-8
+   return 1.210597*N.exp(-0.45901*h + 0.0022900*h**2)
 
 def sig2h(sig):
    if sig <= 4e-8: return 50.

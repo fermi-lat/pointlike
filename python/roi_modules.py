@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.8 2009/07/26 19:59:13 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.9 2009/07/28 13:01:20 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -222,7 +222,21 @@ class ROIPointSourceManager(ROIModelManager):
             band.frozen_pix_counts   = 0
 
            
+   def add_cutoff(self,which):
+      """Replace a power law point source with one with a cutoff.  Useful for catalog pulsars."""
 
+      from Models import ExpCutoff
+      e = ExpCutoff()
+      m = self.models[which]
+
+      e.p[0]      = N.log10(m(1000.))
+      e.p[1]      = m.p[1]
+      e.p[2]      = N.log10(5e5)
+      e.free[:2]  = m.free[:2]
+      e.free[2]   = False
+
+      self.models[which] = e
+      self.point_sources[which].model = e
 
 ###====================================================================================================###
 
@@ -263,6 +277,7 @@ class ROIBackgroundManager(ROIModelManager):
    def init(self):
       self.nsimps = 4
 
+      # remove this?
       from Models import PowerLaw
       self.gal_model = PowerLaw(p=[1,1],free=[True,False],index_offset=1)
       self.iso_model = PowerLaw(p=[1,1],free=[True,False],index_offset=1)
