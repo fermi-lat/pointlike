@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.9 2009/07/28 13:01:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.10 2009/08/12 01:20:14 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -17,7 +17,7 @@ class ROIOverlap(object):
    """Routines to calculate how much of the emission of a point source falls onto an ROI."""
 
    def init(self):
-      self.quadrature_tol = 1e-5
+      self.quadrature_tol = 1e-4
 
    def __init__(self,**kwargs):
       self.init()
@@ -57,7 +57,7 @@ class ROIOverlap(object):
 
             return 1.- (1. + u/gamma )**(1-gamma)
 
-         overlap = quad(interior,0,N.pi,epsabs=self.quadrature_tol,epsrel=self.quadrature_tol)[0]/N.pi
+         overlap = quad(interior,0,N.pi,epsabs=self.quadrature_tol)[0]/N.pi
 
       else:
 
@@ -75,7 +75,7 @@ class ROIOverlap(object):
             return (1. + u1/gamma )**(1-gamma) - (1. + u2/gamma )**(1-gamma)
 
          limit = N.arcsin(roi_rad / offset)
-         overlap = quad(exterior,0,limit,epsabs=self.quadrature_tol,epsrel=self.quadrature_tol)[0]/N.pi
+         overlap = quad(exterior,0,limit,epsabs=self.quadrature_tol)[0]/N.pi
 
       return overlap
 
@@ -181,7 +181,7 @@ class ROIPointSourceManager(ROIModelManager):
 
 
    def update_counts(self,bands):
-      #handle caching here, in the beautiful future
+      """Update models with free parameters."""
       ma = self.mask
       for band in bands:
          band.ps_counts[ma] = [band.expected(m) for m in self.models[ma]]
@@ -200,6 +200,9 @@ class ROIPointSourceManager(ROIModelManager):
       self.mask = m = N.asarray([N.any(model.free) for model in self.models])
       nm = N.logical_not(self.mask)
       s = nm.sum()
+
+      for band in bands:
+         band.ps_counts = N.asarray([band.expected(model) for model in self.models])
 
       for band in bands:
 
@@ -237,6 +240,40 @@ class ROIPointSourceManager(ROIModelManager):
 
       self.models[which] = e
       self.point_sources[which].model = e
+
+   def add_ps(self, ps, bands):
+      """Add a new PointSource object to the model and re-calculate the point source
+         contribution."""
+
+      self.point_sources = N.append(self.point_sources,ps)
+      self.models        = N.append(self.models,ps.model)
+      self.setup_initial_counts(bands) # not most efficient, but fewest loc!
+
+   def del_ps(self, which, bands):
+      ops = self.point_sources[which]
+      self.point_sources = N.delete(self.point_sources,which)
+      self.models        = N.delete(self.models,which)
+      self.setup_initial_counts(bands) # ditto
+      return ops
+
+   def zero_ps(self, which, bands):
+      m = self.models[which]
+      m.old_flux = m.p[0]
+      m.p[0] = -100
+      m.old_free = m.free.copy()
+      m.free[:] = False
+      self.cache(bands)
+
+   def unzero_ps(self, which, bands):
+      m = self.models[which]
+      try:
+         m.p[0] = m.old_flux
+         m.free = m.old_free.copy()
+         self.cache(bands)     
+      except:
+         print 'Source indicated was not zeroed in the first place!'
+
+
 
 ###====================================================================================================###
 
@@ -487,29 +524,6 @@ class ROIBackgroundManager(ROIModelManager):
 
 ###====================================================================================================###
 
-class ROILocalizer(object):
-
-   def __init__(self,roi,which=0):
-      self.roi,self.which = roi, which
-      self.rd  = roi.psm.point_sources[which].skydir #note -- not necessarily ROI center!
-      self.tsref=0
-      self.tsref = self.TSmap(self.rd)
-            
-   def TSmap(self,skydir):
-      return (-2)*self.roi.spatialLikelihood(skydir,which=self.which)-self.tsref
-
-   def dir(self):
-      return self.rd
-
-   def errorCircle(self):
-      return 0.05 #initial guess
-
-   def __call__(self,v):
-      from skymaps import SkyDir,Hep3Vector
-      return self.TSmap(SkyDir(Hep3Vector(v[0],v[1],v[2])))
-
-###====================================================================================================###
-
 class ROIBand(object):
    """Wrap a Band object, and provide additional functionality for likelihood."""
 
@@ -585,6 +599,30 @@ class ROIBand(object):
       
       return (model(self.sp_points)*self.sp_vector).sum()
 
+   def bandLikelihood(self, parameters, *args):
+      """Implement a model independent likelihood for the number of counts of a particular source.
+         Other sources (diffuse, neighboring point sources) are treated as fixed."""
+
+      new_counts = parameters[0]
+      which = args[0] if len(args) > 0 else 0
+      band = self
+
+      old_counts = band.ps_counts[which]
+
+      tot_term = (self.bg_all_counts + self.ps_all_counts + self.overlaps[which]*(new_counts - old_counts))*self.phase_factor
+
+      pix_term = (
+                  self.pix_counts * 
+                     N.log(
+                        self.phase_factor*(
+                           self.bg_all_pix_counts + self.ps_all_pix_counts + self.ps_pix_counts[:,which]*(new_counts - old_counts)
+                        )
+                     )
+                 ).sum() if self.has_pixels else 0.
+
+      return tot_term - pix_term
+
+   # note no phase factor!
    def loglikelihood(self,tot_only=False,pix_only=False,tl=False):
 
       tot = self.bg_all_counts + self.ps_all_counts
@@ -601,3 +639,150 @@ class ROIBand(object):
 
       else: return tot - pix #-log likelihood
 
+###====================================================================================================###
+
+class ROIEnergyBand(object):
+   """Wrap 1 or 2 ROIBand objects corresponding to the same energy level 
+      but different conversion classes.  Implement a likelihood as a
+      function of energy."""
+
+   def __init__(self,bands,emin=None,emax=None):
+
+      self.bands = bands
+      self.emin = self.bands[0].emin if emin is None else emin
+      self.emax = self.bands[0].emax if emax is None else emax
+
+   def bandLikelihood(self,parameters,*args):
+      m = args[0]
+      m.set_parameters(parameters)
+      return sum( (b.bandLikelihood([b.expected(m)],*args[1:]) for b in self.bands) )
+
+   def bandFit(self,which=0):
+      """Fit a model-independent flux to a point source."""
+
+      self.m = PowerLaw(free=[True,False],e0=(self.emin*self.emax)**0.5) # fix index to 2
+      from scipy.optimize import fmin,fsolve
+      f = self.bandLikelihood
+
+      self.fit = fmin(f,self.m.get_parameters(),disp=0,full_output=1,args=(self.m,which))
+
+      def upper_limit():
+
+         flux_copy = self.m.p[0]
+         zp        = self.bandLikelihood(N.asarray([-20]),self.m,which)
+         def f95(parameters):
+            return abs(self.bandLikelihood(parameters,self.m,which) - zp - 1.92)
+         
+         # for some reason, can't get fsolve to work here.  good ol' fmin to the rescue
+         self.uflux = 10**fmin(f95,N.asarray([-11.75]),disp=0)[0]
+         self.lflux = None
+         self.flux  = None
+
+         self.m.p[0] = flux_copy
+
+      # if flux below a certain level, set an upper limit
+      if self.m.p[0] < -20:
+         upper_limit()
+
+      else:
+         from specfitter import SpectralModelFitter
+         from numpy.linalg import inv      
+         hessian = SpectralModelFitter.hessian(self.m,self.bandLikelihood,which) #does Hessian for free parameters
+         self.m.set_cov_matrix(inv(hessian))
+
+         e = self.m.statistical(absolute=True,two_sided=True)
+         self.flux  = e[0][0]
+         self.uflux = self.flux + e[1][0]
+         self.lflux = self.flux - e[2][0]
+
+         if self.uflux / self.lflux > 1e3:
+            upper_limit()
+
+###====================================================================================================###
+
+class NSMap(object):
+   """Attempt to add and fit a new source to an existing model and display the
+      results as a TS map."""
+
+   def __init__(self,roi):
+      self.roi = roi
+      self.phase_factor = roi.phase_factor
+      self.ro = ROIOverlap()
+      self.mo = PowerLaw(free=[True,False])
+      self.ll = roi.logLikelihood(roi.parameters())
+
+   def __call__(self,v):
+      from skymaps import SkyDir,Hep3Vector,PsfSkyFunction
+      skydir = SkyDir(Hep3Vector(v[0],v[1],v[2]))
+      #skydir = v
+      ro = self.ro
+      rd = self.roi.sa.roi_dir
+
+      self.mo.p[0] = -11.5
+
+      # calculate new spatial structure for source
+      for i,band in enumerate(self.roi.bands):
+
+         sigma,gamma,en,exp,pa = band.s,band.g,band.e,band.exp,band.b.pixelArea()
+         exposure_ratio        = exp.value(skydir,en)/exp.value(rd,en) #needs fix? -- does not obey which?
+         psf                   = PsfSkyFunction(skydir,gamma,sigma)
+         
+         band.ns_overlap       = ro(band,rd,skydir) * exposure_ratio * band.solid_angle / band.solid_angle_p
+
+         if band.has_pixels:
+            band.ns_ps_pix_counts = N.asarray(psf.wsdl_vector_value(band.wsdl))*((pa/(2*N.pi*sigma**2))*exposure_ratio)
+
+         band.base_counts = band.expected(self.mo)
+      from scipy.optimize import fmin
+      f = fmin(self.logLikelihood,N.asarray([-11.5]),full_output=1,disp=0)
+      return 2*(self.ll - f[1])
+
+   def logLikelihood(self,parameters,*args):
+
+      bands = self.roi.bands
+      ll    = 0
+      mo    = self.mo
+      mo.set_parameters(parameters)
+
+      for b in bands:
+
+         new_ps_counts = b.base_counts * 10**(mo.p[0] + 11.5)
+
+
+         ll +=  ( 
+                   #integral terms for ROI (go in positive)
+                   (b.bg_all_counts + b.ps_all_counts + new_ps_counts*b.ns_overlap)*self.phase_factor
+
+                   -
+
+                   #pixelized terms (go in negative)
+                   (b.pix_counts *
+                       N.log(  (b.bg_all_pix_counts + b.ps_all_pix_counts + new_ps_counts*b.ns_ps_pix_counts)*self.phase_factor )
+                   ).sum() if b.has_pixels else 0.
+                )
+
+      return 1e6 if N.isnan(ll) else ll
+
+
+###====================================================================================================###
+
+class ROILocalizer(object):
+
+   def __init__(self,roi,which=0):
+      self.roi,self.which = roi, which
+      self.rd  = roi.psm.point_sources[which].skydir #note -- not necessarily ROI center!
+      self.tsref=0
+      self.tsref = self.TSmap(self.rd)
+            
+   def TSmap(self,skydir):
+      return (-2)*self.roi.spatialLikelihood(skydir,which=self.which)-self.tsref
+
+   def dir(self):
+      return self.rd
+
+   def errorCircle(self):
+      return 0.05 #initial guess
+
+   def __call__(self,v):
+      from skymaps import SkyDir,Hep3Vector
+      return self.TSmap(SkyDir(Hep3Vector(v[0],v[1],v[2])))
