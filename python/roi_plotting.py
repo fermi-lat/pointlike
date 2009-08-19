@@ -6,7 +6,7 @@ Given an ROIAnalysis object roi:
     plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.7 2009/07/28 13:01:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.8 2009/08/12 01:20:14 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -75,6 +75,70 @@ def band_spectra(r,source=0):
 
    return r.bin_edges,cts,cts_lo,cts_hi,exp,r.psm.point_sources[source]
 
+#-----------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------#
+#-----------------------------------------------------------------------------#
+
+def band_fluxes(r,which=0,axes=None,axis=None,outfile=None):
+
+   import pylab as P
+   from matplotlib.patches import FancyArrow
+
+   if axes is None:
+      import pylab as P
+      ax = P.gca()
+   else: ax = axes
+
+   ax.set_xscale('log')
+   ax.set_yscale('log')
+   ax.grid()
+
+   r.setup_energy_bands()
+
+   for eb in r.energy_bands:
+      eb.bandFit()
+      eb.merged = False
+
+   # count in from end to find how many high energy bins have only upper limits
+   for n,neb in enumerate(r.energy_bands[::-1]):
+      if neb.flux is not None: break
+   reg_slice    = slice(0,len(r.bin_centers) - n,1)
+   merged_slice = slice(len(r.bin_centers)-n, len(r.bin_centers), 1)
+
+   if n > 0:
+      
+      from roi_modules import ROIEnergyBand
+      bands = []
+      for eb in r.energy_bands[merged_slice]:
+         for band in eb.bands:
+            bands.append(band)
+      eb = ROIEnergyBand(bands,r.energy_bands[merged_slice][0].emin,r.energy_bands[merged_slice][-1].emax)
+      eb.bandFit()
+      eb.merged = True
+      r.energy_bands = r.energy_bands[reg_slice] + [eb]
+
+   for eb in r.energy_bands:
+
+      xlo,xhi = eb.emin,eb.emax
+      bc  = (xlo*xhi)**0.5
+      fac = xlo*xhi 
+      hw  = (xhi-xlo)/2.
+      if eb.merged: hw /= n
+      
+      if eb.flux is not None: 
+         ax.plot([xlo,xhi],[fac*eb.flux,fac*eb.flux],color='red',lw=1)
+         ax.plot([bc,bc]  ,[fac*eb.lflux,fac*eb.uflux],color='red',lw=1)
+      else:
+         ax.plot([xlo,xhi],[fac*eb.uflux,fac*eb.uflux],color='k')
+         dy = -(fac*eb.uflux - 10**(N.log10(fac*eb.uflux) - 0.6))
+         hl = 10**(N.log10(fac*eb.uflux) - 0.4) - 10**(N.log10(fac*eb.uflux) - 0.6)
+         a = FancyArrow(bc,fac*eb.uflux,0,dy,width=(xhi-xlo)/100.,head_width=hw,
+                                         head_length=hl, length_includes_head=True,
+                                         facecolor='k',edgecolor='k',fill=False)
+         ax.add_patch(a)
+
+   if axis is not None: ax.axis(axis)
+   if outfile is not None: P.savefig(outfile)
 
 #-----------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------#
@@ -677,218 +741,6 @@ class ROIDisplay(object):
 
 
 
-#-----------------------------------------------------------------------------#
-#-----------------------------------------------------------------------------#
-#-----------------------------------------------------------------------------#
-
-class PSFChecker(object):
-
-   def init(self):
-
-      self.emin = 100
-      self.emax = 1e5
-      self.bins_per_decade = 3
-      self.umax = 100
-      self.psf_irf = 'P6_v3_diff'
-      self.CALDB   = None
-      self.nsimps = 16
-   
-   def __init__(self,roi,**kwargs):
-
-      self.init()
-      self.__dict__.update(**kwargs)
-      self.roi = roi
-      self.sa  = roi.sa
-
-      self.CALDB = self.CALDB or self.sa.CALDB
-
-      lmin,lmax    = N.log10([self.emin,self.emax])
-      self.bands   = N.logspace(lmin,lmax,round( (lmax-lmin)*self.bins_per_decade ) + 1)
-      self.bands_c = (self.bands[:-1]*self.bands[1:])**0.5
-      
-      from collections import defaultdict
-      self.keys     = self.bands_c.astype(int)
-      self.bin_dict = defaultdict(dict)
-
-      from psf import PSF
-      self.psf = PSF(psf_irf = self.psf_irf, CALDB = self.CALDB)
-
-      n = len(self.bands_c)
-      self.sigmas = self.psf.sigma(N.append(self.bands_c,self.bands_c), N.append([0] * n, [1] * n) ) * (N.pi/180.)
-      self.gammas = self.psf.gamma(N.append(self.bands_c,self.bands_c), N.append([0] * n, [1] * n) )
-
-      for i,key in enumerate(self.keys):
-         
-         #front events, key with positive energy
-         self.bin_dict[key]['sigma'] = self.sigmas[i]
-         self.bin_dict[key]['gamma'] = self.gammas[i]
-
-         #back events, key with negative energy
-         self.bin_dict[-key]['sigma'] = self.sigmas[i+n]
-         self.bin_dict[-key]['gamma'] = self.gammas[i+n]
-
-      self.u_bins = N.logspace(-1.5,2,15)
-
-      self.bindata()
-      self.ps_models()
-      self.bg_models()
-        
-   
-   def bindata(self):
-
-      from fitstools import rad_extract
-      max_rad   = self.psf.sigma(self.bands_c[0],1)*(2*self.umax)**0.5 #rad_extract expects degrees
-      data_dict = rad_extract(self.sa.pixeldata.event_files, self.sa.roi_dir,
-                              max_rad, return_cols=['ENERGY','EVENT_CLASS'])
-      
-      diffs = data_dict['DIFFERENCES']
-      ens   = data_dict['ENERGY']
-      ecs   = data_dict['EVENT_CLASS']
-
-      for i,key in enumerate(self.keys):
-
-         emin,emax = self.bands[i],self.bands[i+1]
-         mask      = N.logical_and(ens >= emin, ens < emax)
-         
-         for k,ec in zip([key,-key],[0,1]):
-
-            us    = 0.5 * (diffs[N.logical_and(mask,ecs==ec)] / self.bin_dict[k]['sigma']) ** 2
-            self.bin_dict[k]['data'] = N.histogram(us,bins=self.u_bins,new=True)[0]        
-
-   
-   def ps_models(self):
-      
-      psm = self.roi.psm
-      exp = self.sa.exposure.exposure
-      #need to calculate the overlap for all bin radii and all sources
-
-      from roi_modules import ROIOverlap
-
-      f  = self.psf.overlap
-      dirs = [ps.skydir for ps in psm.point_sources]
-      d1   = dirs[0]
-
-      for i,key in enumerate(self.keys):
-
-         emin,emax = self.bands[i:i+2]
-
-         for k,ec in zip([key,-key],[0,1]):
-
-            radii = ((2*self.u_bins)**0.5 * self.bin_dict[k]['sigma'])
-            self.bin_dict[k]['ne_counts'] = N.zeros_like(radii)
-
-            for n,ps in enumerate(psm.point_sources):
-               fracs = [float(f(d1,ps.skydir,self.bands_c[i],ec,r)) for r in radii]
-               expec = ps.model.expected(emin,emax,exp,ps.skydir,event_class=ec)
-               if n == 0:
-                  self.bin_dict[k]['ps_counts'] = N.asarray(fracs) * expec
-               else:
-                  self.bin_dict[k]['ne_counts'] += N.asarray(fracs) * expec
-
-            #adjust to annular counts
-            self.bin_dict[k]['ps_counts'] = self.bin_dict[k]['ps_counts'][1:] - self.bin_dict[k]['ps_counts'][:-1]
-            self.bin_dict[k]['ne_counts'] = self.bin_dict[k]['ne_counts'][1:] - self.bin_dict[k]['ne_counts'][:-1]
-
-  
-   def bg_models(self):
-
-      bg  = self.roi.bgm
-      sa  = self.sa
-      rd  = self.sa.roi_dir
-      exp = sa.exposure.exposure
-      from skymaps import Background,SkyIntegrator
-
-      simps_vec = (N.asarray([1,4,2,4,2,4,2,4,1]))/(3.*8.)
-
-      e_models = [m.smodel for m in bg.bgmodels]
-      b_models = [Background(m.dmodel,exp[0],exp[1]) for m in bg.bgmodels]
-
-      
-      for i,key in enumerate(self.keys):
-
-         emin, emax  = self.bands[i:i+2]
-         lemin,lemax = N.log10([emin,emax])
-         simps_pts   = N.logspace(lemin,lemax,9)
-
-         for k,ec in zip([key,-key],[0,1]):
-
-            radii = ((2*self.u_bins)**0.5 * self.bin_dict[k]['sigma'])
-            self.bin_dict[k]['bg_counts'] = N.zeros_like(radii)
-
-            for nrad,rad in enumerate(radii):
-
-               solid = N.pi * rad**2
-
-               for n in xrange(len(e_models)):
-                  
-                  em = e_models[n]
-                  bm = b_models[n]
-
-                  bm.set_event_class(ec)
-
-                  bm_pts = N.empty_like(simps_pts)
-                  for ne,e in enumerate(simps_pts):
-                     bm.setEnergy(e)
-                     bm_pts[ne] = SkyIntegrator.ss_average(bm,rd,rad)
-
-                  self.bin_dict[k]['bg_counts'][nrad] += \
-                     (bm_pts * em(simps_pts) *simps_pts * simps_vec).sum() * (N.log(emax/emin) * solid )
-                     
-            self.bin_dict[k]['bg_counts'] = self.bin_dict[k]['bg_counts'][1:] - self.bin_dict[k]['bg_counts'][:-1]
-
-
-         
-   def show(self):
-
-      for i,key in enumerate(self.keys):
-         import pylab as P
-         from math import floor
-
-         emin,emax = self.bands[i:i+2]
-
-         for k,fignum in zip([key,-key],[5,6]):
-            if i > 5: continue
-            P.figure(fignum,figsize=(12,10))
-            ax = P.subplot( 2, 3, i + 1)
-            ax.set_xscale('log')
-            ax.set_yscale('log')
-            x = N.zeros(len(self.u_bins) * 2 )
-            
-            #data
-            y = N.ones(len(self.u_bins) * 2 ) * 1e-10
-            x[0::2],x[1::2] = self.u_bins,self.u_bins
-            y[1:-1:2],y[2::2] = self.bin_dict[k]['data'],self.bin_dict[k]['data']
-            #ax.fill(x,y,closed=False,fill=False,edgecolor='k',label='%d-%d MeV'%(int(emin),int(emax)))
-            ax.errorbar(x = (self.u_bins[1:]*self.u_bins[:-1])**0.5, y = self.bin_dict[k]['data'],
-                        yerr = (self.bin_dict[k]['data'])**0.5, ls= ' ', capsize=4,
-                        label='%d-%d MeV'%(int(emin),int(emax)),color='k')
-            
-            #models
-            ps_diffs = self.bin_dict[k]['ps_counts']
-            ne_diffs = self.bin_dict[k]['ne_counts']
-            bg_diffs = self.bin_dict[k]['bg_counts']
-            to_diffs = ne_diffs + bg_diffs + ps_diffs
-            
-            y = N.zeros(len(self.u_bins) * 2 )
-            y[1:-1:2],y[2::2] = ps_diffs,ps_diffs
-            ax.fill(x,y,closed=False,fill=False,edgecolor='blue')
-
-            y = N.zeros(len(self.u_bins) * 2 )
-            y[1:-1:2],y[2::2] = to_diffs,to_diffs
-            ax.fill(x,y,closed=False,fill=False,edgecolor='red')
-
-            a = ax.axis()
-            ymin = 10**(floor(N.log10(to_diffs.min())))
-            ax.axis([self.u_bins[0],self.u_bins[-1],ymin,a[3]])
-            ax.legend(loc='upper left')
-            ax.set_xlabel('u (bot), deg (top)')
-            P.suptitle('Radial Counts for Event Class: %d, Black: Data, Red: Total Model, Blue: Point Source'%(0 if k > 0 else 1),size='large')
-
-            ax2 = ax.twiny()
-            rad = self.bin_dict[k]['sigma']*(2*self.u_bins)**0.5*180/N.pi
-            ax2.axis([rad[0],rad[-1],ymin,a[3]])
-
-
 #===============================================================================================#
 
 def ppf(prob,mean):
@@ -913,116 +765,5 @@ def int2bin(n, count=24):
    """returns the binary of integer n, using count number of digits"""
    return "".join([str((n >> y) & 1) for y in range(count-1, -1, -1)])
 
-"""       
-                  
-def loglikelihood(v,psfc):
-
-   self = psfc
-
-   ll = 0;
-   nk = len(self.keys)
-   bd = self.bin_dict
-
-   for i,key in enumerate(self.keys):
-      for k,n in zip([key,-key],[0,nk]):
-         scale = v[i+n]
-         rate = (scale *bd[k]['ps_counts']) + bd[k]['bg_counts'] + bd[k]['ne_counts']
-         ll += (rate - bd[k]['data']*N.log(rate)).sum()
-   return ll
-
-def fit_scale(psfc):
-
-   self = psfc
-   psfc.loglikelihood = loglikelihood
-
-   scale = N.asarray([1]*(2*len(self.keys)))
-   from scipy.optimize import fmin
-   f = fmin(self.loglikelihood,scale,args=(psfc,))
-   return f
-
-"""
-
-def uhists(roi,bins=N.arange(0,11),show=True,integral=False,residuals=False):
-   """Assume only source is central."""
-
-   bands = roi.bands
-   rd    = roi.sa.roi_dir
-
-   from skymaps import WeightedSkyDirList,PsfSkyFunction
-
-   for band in bands:
-      if not band.has_pixels: continue
-
-      if band.ps_pix_counts[:,0].sum() > 0.8:
-         print 'using pixel values for energy %d and event class %d'%(band.e,band.ec)
-         wsdl          = WeightedSkyDirList(band.b,rd,band.radius_in_rad,True)
-         psf           = PsfSkyFunction(rd,band.g,band.s)
-         ps_pix_counts = N.asarray(psf.wsdl_vector_value(wsdl)) * (band.b.pixelArea()/(2*N.pi*band.s**2))
-         diffs         = N.asarray([rd.difference(di) for di in wsdl])
-         counts        = N.asarray([d.weight() for d in wsdl])
-         us            = 0.5 * (diffs/band.s)**2
-         rates         = N.histogram(us,bins=bins,new=True,weights=band.ps_counts[0]*ps_pix_counts)[0]
-      
-      else:
-         diffs         = N.asarray([rd.difference(di) for di in band.wsdl])
-         us            = 0.5 * (diffs/band.s)**2
-         counts        = band.pix_counts
-         fs            = 1 - (1 + bins/band.g)**(1-band.g)
-         rates         = band.ps_counts[0] * (fs[1:] - fs[:-1])
-      
-      band.urates = rates 
-      band.curates = N.asarray([rates[x:].sum() for x in xrange(len(rates))])
-      band.uhist  = N.histogram(us,bins=bins,new=True,weights=counts)
-      band.cucounts = N.asarray([band.uhist[0][x:].sum() for x in xrange(len(rates))])
-
-   if show:
-
-      import pylab as P
-
-      x = N.empty(2*len(bins))
-      x[::2],x[1::2] = bins,bins
-      xc = (bins[1:] + bins[:-1]).astype(float)/2
-
-      P.ioff()
-
-      for ec in [0,1]:
-         P.figure(10+ec,(14,12))
-         fbands = [band for band in bands if band.ec == ec]
-         n = len(fbands)
-         nside  = min(int ( n**0.5 ) + 1 , 4)
-         for i in xrange(nside):
-            for j in xrange(nside):
-               ind = nside*i + j
-               #print i,j,ind
-               if (ind >= n or ind > nside**2): break
-               b = fbands[ind]
-               if not b.has_pixels: continue
-               P.subplot(nside,nside,ind+1)
-               y = N.zeros(2*len(bins))
-
-               if residuals:
-                  
-                  if not integral:
-                     P.errorbar(xc,(b.uhist[0]-b.urates)/b.urates,yerr=b.urates**-0.5,ls=' ',marker='o',color='red')
-                  else:
-                     P.errorbar(xc,(b.cucounts-b.curates)/b.curates,yerr=b.curates**-0.5,ls=' ',marker='o',color='red')
-                  P.axhline(0,color='k')
-                  ax = P.axis()
-                  P.axis([bins[0],bins[-1],-1,1])
-               else:
-                  if not integral:
-                     y[1:-1:2],y[2::2] = b.urates,b.urates #b.uhist[0],b.uhist[0]
-                  else:
-                     y[1:-1:2],y[2::2] = b.curates,b.curates
-                  P.fill(x,y,closed=False,fill=False,edgecolor='blue')
-                  if not integral:
-                     P.errorbar(xc,b.uhist[0],yerr=b.urates**0.5,ls=' ',marker='o',color='red')
-                  else:
-                     P.errorbar(xc,b.cucounts,yerr=b.curates**0.5,ls=' ',marker='o',color='red')
-               
-                  ax = P.axis()
-                  P.axis([bins[0],bins[-1],0,ax[3]])
-               P.title('%d-%d MeV'%(b.emin,b.emax))
-              
 
 
