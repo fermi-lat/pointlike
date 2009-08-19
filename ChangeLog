@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Aug 19 14:36:50 PDT 2009
+pointlike/python
+
+Modified Files:
+	roi_analysis.py roi_modules.py roi_plotting.py roi_tools.py 
+Log Message:
+Moved PSFChecker and uhists to roi_tools.  PulsarFitter now in roi_tools.  Added band-by-band fitting (see ROIEnergyBands).  New sed plotting (see band_fluxes).  Localization now fixed to allow updating positions.  Helper methods in ROIAnalysis for adding/removing point sources.  The Test Statistic evaluation should work properly for all sources within the ROI and has a "quick" method for a fast approximation of the TS.
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-15-01-02, operation: del
 Package: pointlike
