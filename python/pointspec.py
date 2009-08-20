@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.28 2009/07/28 13:01:20 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/pointspec.py,v 1.29 2009/08/12 01:20:14 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.28 $'.split()[1]
+version='$Revision: 1.29 $'.split()[1]
 import os
 import sys
 
@@ -244,7 +244,8 @@ Optional keyword arguments:
             PointSourceLikelihood.set_energy_range(spectralanalysis.emin) #kluge
             self.src_dir = src_dir
             self.psl =  PointSourceLikelihood(spectralanalysis.pixeldata.dmap, name, self.src_dir)
-            self.pslw = PointSourceLikelihoodWrapper(self.psl,spectralanalysis.exposure,**kwargs.update(spectralanalysis.__dict__))
+            spectralanalysis.__dict__.update(**kwargs)
+            self.pslw = PointSourceLikelihoodWrapper(self.psl,spectralanalysis.exposure,**spectralanalysis.__dict__)
             print 'TS= %6.1f' % self.pslw.TS() #TS consistent with energy selection for spectral analysis
             self.models = []
             
