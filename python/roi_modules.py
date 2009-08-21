@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.10 2009/08/12 01:20:14 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.11 2009/08/19 21:36:50 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -652,6 +652,37 @@ class ROIEnergyBand(object):
       self.emin = self.bands[0].emin if emin is None else emin
       self.emax = self.bands[0].emax if emax is None else emax
 
+   def __rois__(self):
+      R2D = 180./(2*N.pi)
+      froi = self.bands[0].radius_in_rad * R2D
+      broi = self.bands[1].radius_in_rad * R2D
+      return ( min(froi,broi), max(froi,broi) )
+
+   def spectralString(self,which=None):
+      """Return a string suitable for printSpectrum.
+
+         which -- if not None, an array of indices for point sources to fit
+      """
+      which = which or [0]
+      r     = []
+      for w in which:
+         self.bandFit(which=w)
+         self.m.p[0] = N.log10(self.uflux)
+         ul = sum( (b.expected(self.m) for b in self.bands) )
+         if self.flux is None:
+            r += [0,ul,0]
+         else:
+            n = ul*self.flux/self.uflux
+            r += [n,ul - n, n - ul*self.lflux/self.uflux]
+
+      rois = self.__rois__()
+      ph   = int(sum( (b.photons for b in self.bands) ))
+      gal  = int(round(sum( (b.bg_counts[0] for b in self.bands) )))
+      iso  = int(round(sum( (b.bg_counts[1] for b in self.bands) )))
+      values = tuple([int(round(self.emin)),rois[0],rois[1],ph,gal,iso] + r)
+      format = '  '.join(['%6i','%6.2f','%6.2f','%7i','%8i','%9i']+['%7.1f +%5.1f -%5.1f']*len(which))
+      return format%values
+   
    def bandLikelihood(self,parameters,*args):
       m = args[0]
       m.set_parameters(parameters)
@@ -786,3 +817,4 @@ class ROILocalizer(object):
    def __call__(self,v):
       from skymaps import SkyDir,Hep3Vector
       return self.TSmap(SkyDir(Hep3Vector(v[0],v[1],v[2])))
+
