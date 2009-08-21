@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.18 2009/08/19 21:36:50 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.19 2009/08/20 22:37:15 wallacee Exp $
 
 author: Matthew Kerr
 """
@@ -61,6 +61,8 @@ class ROIAnalysis(object):
       self.psm.setup_initial_counts(self.bands)
       self.bgm.setup_initial_counts(self.bands)
 
+      for band in self.bands: band.phase_factor = self.phase_factor
+
    def setup_energy_bands(self):
 
       from collections import defaultdict
@@ -68,7 +70,6 @@ class ROIAnalysis(object):
       groupings = defaultdict(list)
       for bc in self.bin_centers:
          for band in self.bands:
-            band.phase_factor = self.phase_factor #kluge
             if band.e == bc:
                groupings[bc].append(band)
 
@@ -365,24 +366,18 @@ class ROIAnalysis(object):
             print 'Unrecognized source specification:', s
             bad_sources += [s]
       sources = set([s for s in sources if not s in bad_sources])
-      spectra = dict.fromkeys(sources)
-      for s in sources:
-         spectra[s] = band_spectra(self,source=self.psm.point_sources.index(s))
-      iso,gal,src,obs = counts(self)[1:5]
+      indices = [self.psm.point_sources.index(s) for s in sources]
+      self.setup_energy_bands()
+
       fields = ['  Emin',' f_ROI',' b_ROI' ,' Events','Galactic','Isotropic']\
-                +[s.name for s in sources]
+                +[' '*15+'Signal']*len(sources)
       outstring = 'Spectra of sources in ROI about %s at ra = %f, dec = %f\n'\
-                    %(self.psm.point_sources[0].name, self.sa.roi_dir.ra(), self.sa.roi_dir.dec())    
+                    %(self.psm.point_sources[0].name, self.sa.roi_dir.ra(), self.sa.roi_dir.dec())
+      outstring += ' '*54+'  '.join(['%21s'%s.name for s in sources])+'\n'
       outstring += '  '.join(fields)+'\n'
-      for i,band in enumerate(zip(self.bands[::2],self.bands[1::2])):
-         values = (band[0].emin, band[0].radius_in_rad*180/N.pi,
-                   band[1].radius_in_rad*180/N.pi,obs[i],gal[i],iso[i])
-         for s in sources:
-            values+=(spectra[s][1][i],.5*(spectra[s][3][i]-spectra[s][2][i]))          
-         string = '  '.join(['%6i','%6.2f','%6.2f','%7i','%8.2f','%9.2f']+
-                            ['%6.1f +/-%5.1f']*len(sources))%values
-         outstring += string+'\n'
       print outstring
+      for eb in self.energy_bands:
+         print eb.spectralString(which=indices)
 
 
    def save_fit(self,outfile):
