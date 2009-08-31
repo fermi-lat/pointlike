@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.20 2009/08/21 03:01:35 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.21 2009/08/25 20:45:26 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -216,7 +216,7 @@ class ROIAnalysis(object):
       minimizer  = fmin_powell if method == 'powell' else fmin
       ll_0 = self.logLikelihood(self.parameters())
       f = minimizer(self.logLikelihood,self.parameters(),full_output=1,\
-                    maxiter=10000,maxfun=20000,ftol=0.01/abs(ll_0) )
+                    maxiter=10000,maxfun=20000,ftol=0.01/abs(ll_0), disp=0 if self.quiet else 1)
       if not self.quiet: print 'Function value at minimum: %.8g'%f[1]
       if save_values:
          self.set_parameters(f[0])
