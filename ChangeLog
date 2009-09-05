@@ -1,4 +1,22 @@
 ------------------------------------------------------------
+User: burnett  Sat Sep  5 15:46:15 PDT 2009
+pointlike/doc
+
+Modified Files:
+	release.notes 
+Log Message:
+GoGui_auto-tag
+    *
+------------------------------------------------------------
+User: burnett  Sat Sep  5 15:46:15 PDT 2009
+pointlike
+
+Modified Files:
+	SConscript 
+Log Message:
+GoGui_auto-tag
+    *
+------------------------------------------------------------
 User: burnett  Mon Aug 31 11:03:01 PDT 2009
 pointlike/python
 
