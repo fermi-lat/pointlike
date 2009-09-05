@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.120 2009/08/19 22:59:15 burnett Exp $
+$Id: release.notes,v 1.121 2009/08/25 20:40:09 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-06-23-02 05-Sep-2009 burnett tag for reference in catalog fit
  pointlike-06-23-01 25-Aug-2009 burnett formatting fixes to printSpectrum
  pointlike-06-23-00 19-Aug-2009 burnett major capability improvements in roi python code
  28-Jul-09 v6r22   THB Big pointspec interface changes
