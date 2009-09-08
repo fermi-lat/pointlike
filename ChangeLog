@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Sep  7 22:24:55 PDT 2009
+pointlike/src
+
+Modified Files:
+	EventList.cxx 
+Log Message:
+Allowing for new naming convention of class level and event class.
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-23-02, operation: add
 Package: pointlike
