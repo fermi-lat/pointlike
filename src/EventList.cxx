@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.10 2009/07/04 15:33:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.11 2009/09/08 05:24:55 lande Exp $
 */
 
 #include "EventList.h"
@@ -168,10 +168,15 @@ Photon EventList::Iterator::operator*()const
         (*m_it)[*names++].get(ctbclasslevel);
     }catch(const std::exception&){
       try {
-        (*m_it)["EVENT_CLASS"].get(ctbclasslevel);
-        (*m_it)["CONVERSION_TYPE"].get(event_class);
-      }catch(const std::exception&){
+        (*m_it)["MCENERGY"].get(mc_energy);
         ctbclasslevel=3;
+      } catch(const std::exception&){
+        try {
+          (*m_it)["EVENT_CLASS"].get(ctbclasslevel);
+          (*m_it)["CONVERSION_TYPE"].get(event_class);
+        }catch(const std::exception&){
+          ctbclasslevel=3;
+        }
       }
     }
     //if( m_selectid) { // check for source id only if requested
