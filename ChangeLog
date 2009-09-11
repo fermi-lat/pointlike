@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Sep 11 12:26:10 PDT 2009
+pointlike/src
+
+Modified Files:
+	EventList.cxx 
+Log Message:
+Fixing code that allows for new naming convention. My original fix broke compatability with MC data which also didn't have the CTBEVENTCLASS column. Now, if the CTBCLASSLEVEL column dosn't exist, it first checks if the MCENERGY column exists and uses that distinction for deciding if it is old data, new data, or MC data. This is a bit of a kludge and there should probably be a better way to do this.
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-23-03, operation: add
 Package: pointlike
