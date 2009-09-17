@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Thu Sep 17 14:16:11 PDT 2009
+pointlike/python
+
+Modified Files:
+	pixeldata.py 
+Log Message:
+Extensive changes to support new PSF and refactoring of functionality.
+    *
+------------------------------------------------------------
 User: kerrm  Thu Sep 17 14:15:44 PDT 2009
 pointlike/python
 
