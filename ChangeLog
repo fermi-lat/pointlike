@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Thu Sep 17 14:22:42 PDT 2009
+pointlike/python
+
+Modified Files:
+	specfitter.py 
+Log Message:
+Preliminary work on making error estimation more robust -- but needs to be revisited.
+    *
+------------------------------------------------------------
 User: kerrm  Thu Sep 17 14:16:11 PDT 2009
 pointlike/python
 
