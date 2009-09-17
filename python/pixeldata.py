@@ -2,12 +2,11 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.12 2009/06/22 23:32:51 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.13 2009/07/22 02:46:56 kerrm Exp $
 
 """
-version='$Revision: 1.12 $'.split()[1]
+version='$Revision: 1.13 $'.split()[1]
 import os
-import psf
 import math
 import skymaps
 import pointlike
@@ -15,85 +14,29 @@ import pointlike
 
 class PixelData(object):
 
-    def __init__(self, event_files, history_files, **kwargs):
+    def __init__(self, spectral_analysis ):
         """
-        call signature::
-
-  data = PixelData(event_files, history_files,  **kwargs)
-
-
 Create a new PixelData instance, managing data and livetime.  
 
-    event_files: a list of event files (FT1) to process (or a single file). 
-    history_files: a list of spacecraft history files (FT2) to process (or a single file).
+    analysis_environment: an instance of AnalysisEnvironment correctly configured with
+                          the location of files needed for spectral analysis (see its
+                          docstring for more information.)
 
 Optional keyword arguments:
 
-  =========   =======================================================
-  Keyword     Description
-  =========   =======================================================
-  roi_dir     [None] direction to use if exposure calculation will be limited; otherwise use all sky                                                                                  
-  roi_radius  [ 25]  radius (deg) to use if calculate exposure or a ROI. (180 for full sky)                                                                                
-  livetimefile [None] Exposure file: if specified and not found, create from FT2/FT1 info  
-  zenithcut   [105]  Maximum spacecraft pointing angle with respect to zenith to allow
-  align       [False] if True, perform boresigh alignment correction on pre-September flight data
-  
-  datafile    [None]  HEALpix data file: if specified and not found, create from FT1 info                                                                               
-  class_level [ 3]  select class level (set 0 for gtobssim )
-  mc_src_id   [-1] if set to != -1, select on MC_SRC_ID column in FT1 file
-  use_mc_energy [False] set True to use MC_ENERGY
-  binsperdecade [4] When generating Bands from the FT1 data. 
-  CALDB       [None] If not specified, will use environment variable
-  quiet       [False] Set True to suppress (some) output 
-  verbose     [False] More output
-
-  =========    KEYWORDS CONTROLLING INSTRUMENT RESPONSE
-  CALDB       [None] If not specified, will use environment variable
-  psf_irf     ['P6_v3_diff'] Which IRF to use for the point spread function
-
-  tstart      [0] Default no cut on time; otherwise, cut on MET > tstart
-  tstop       [0] Default no cut on time; otherwise, cut on MET < tstop
-
-  emin        [100] Left edge of minimum energy bin in MeV
-  emax        [5e5] Some ill-defined notion of max energy; maximum bin center will be less than this
-  =========   =======================================================
+   see docstring for SpectralAnalysis
 """
 
-        self.event_files = event_files if type(event_files)==type([]) or event_files is None else [event_files]
-        self.history_files=history_files if type(history_files)==type([]) or history_files is None else [history_files]
+        self.__dict__.update(spectral_analysis.__dict__)
 
-        self.roi_dir     = None
-        self.roi_radius  = 25
-        self.livetimefile= None
-        self.datafile    = None 
-        self.zenithcut   = 105
-        self.binsperdecade=4
-        self.tstart      = 0
-        self.tstop       = 0
-        self.emin        = 100.
-        self.emax        = 5e5
-        self.quiet       = False
-        self.verbose     = False
-        self.class_level = 3  # select class level
-        self.mc_src_id   = -1
-        self.use_mc_energy = False
-        self.CALDB       = None
-        self.psf_irf     = 'P6_v3_diff'
-                  
-        for key,value in kwargs.items():
-            if key in self.__dict__:
-                self.__dict__[key] = value
         from numpy import arange,log10
         self.my_bins = 10**arange(log10(self.emin),log10(self.emax*1.01),1./self.binsperdecade)
         self.binner_set = False
         
         # check explicit files
-        for filelist in  [self.event_files, self.history_files] :
+        for filelist in [self.ft1files, self.ft2files] :
             if filelist is not None and len(filelist)>0 and not os.path.exists(filelist[0]):
                 raise Exception('PixelData setup: file name or path "%s" not found'%filelist[0])
-
-            #if filelist is None or len(filelist)==0:
-	         #   raise Exception('PixelData setup: received empty list of event or history files')
 
         self.lt   =  self.get_livetime()
         self.PSF_setup()
@@ -102,9 +45,9 @@ Optional keyword arguments:
         self.dmap.updateIrfs()
 
 
-    def reload_data(self,event_files):
-        self.event_files = event_files if type(event_files)==type([]) or event_files is None else [event_files]
-        for filelist in  [self.event_files, self.history_files] :
+    def reload_data(self,ft1files):
+        self.ft1files = ft1files if type(ft1files)==type([]) or ft1files is None else [ft1files]
+        for filelist in  [self.ft1files, self.ft2files] :
             if filelist is not None and len(filelist)>0 and not os.path.exists(filelist[0]):
                 raise Exception('PixelData setup: file name or path "%s" not found'%filelist[0])
         self.data = self.get_data()
@@ -127,11 +70,11 @@ Optional keyword arguments:
     def Data_setup(self):
 
         from numpy import arccos,pi
-        pointlike.Data.set_class_level(self.class_level)
+        pointlike.Data.set_class_level(self.event_class)
         pointlike.Data.set_zenith_angle_cut(self.zenithcut)
-        pointlike.Data.set_theta_cut(arccos(0.4)*180./pi)
-        pointlike.Data.set_use_mc_energy(self.use_mc_energy)
-        if not self.quiet: print 'Set Data theta cut at %.2f'%(arccos(0.4)*180./pi)
+        pointlike.Data.set_theta_cut(self.thetacut)
+        pointlike.Data.set_use_mc_energy(self.mc_energy)
+        if not self.quiet: print '.....set Data theta cut at %.1f deg'%(self.thetacut)
 
         if not self.binner_set:
             from pointlike import DoubleVector
@@ -141,34 +84,36 @@ Optional keyword arguments:
 
     def PSF_setup(self):
    
-        # modify the psf parameters in the band objects, which SimpleLikelihood will then use
+        # modify the psf parameters in the band objects
+        # note there is a small discrepancy since the PSF average does not
+        # currently know about the theta cut
         ip = skymaps.IParams
-        if self.livetimefile is not None and self.roi_dir is not None:
-           ip.set_livetimefile(self.livetimefile)
+        if self.ltcube is not None and self.roi_dir is not None:
+           ip.set_livetimefile(self.ltcube)
            ip.set_skydir(self.roi_dir)
-        ip.set_CALDB(self.CALDB or os.environ['CALDB'])
-        ip.init('_'.join(self.psf_irf.split('_')[:-1]),self.psf_irf.split('_')[-1])
+        ip.set_CALDB(self.CALDB)
+        ip.init('_'.join(self.irf.split('_')[:-1]),self.irf.split('_')[-1])
 
     def get_data(self):
         
         #if no binned object present, create; apply cuts
-        if self.datafile is None or not os.path.exists(self.datafile):
+        if self.binfile is None or not os.path.exists(self.binfile):
 
             self.Data_setup()
 
-            if self.verbose: print 'loading file(s) %s' % self.event_files
-            data = pointlike.Data(self.event_files,-1,self.tstart,self.tstop,self.mc_src_id,'')
+            if self.verbose: print 'loading file(s) %s' % self.ft1files
+            data = pointlike.Data(self.ft1files,self.conv_type,self.tstart,self.tstop,self.mc_src_id,'')
 
             self.fill_empty_bands(data.map())     # fill any empty bins           
 
             if self.verbose: print 'done'
-            if self.datafile is not None:
-                if not self.quiet: print 'saving datafile %s for subsequent use' % self.datafile
-                data.write(self.datafile)
+            if self.binfile is not None:
+                if not self.quiet: print '.....saving binfile %s for subsequent use' % self.binfile
+                data.write(self.binfile)
         
         else:
-            data = pointlike.Data(self.datafile)
-            if not self.quiet: print 'loaded datafile %s ' % self.datafile
+            data = pointlike.Data(self.binfile)
+            if not self.quiet: print '.....loaded binfile %s ' % self.binfile
         
         if self.verbose:
             data.map().info()
@@ -177,38 +122,34 @@ Optional keyword arguments:
         return data
 
     def get_livetime(self,   pixelsize=1.0):
-        if self.livetimefile is None or not os.path.exists(self.livetimefile):
+        if self.ltcube is None or not os.path.exists(self.ltcube):
             if self.roi_dir is None:
                 # no roi specified: use full sky
                 self.roi_dir = skymaps.SkyDir(0,0)
-                self.roi_radius = 180
+                self.exp_radius = 180
 
             lt = skymaps.LivetimeCube(
-                cone_angle=self.roi_radius,\
-                dir=self.roi_dir,\
-                zcut=math.cos(math.radians(self.zenithcut)),\
-                pixelsize=pixelsize,\
-                quiet=self.quiet )
+                cone_angle =self.exp_radius,\
+                dir        =self.roi_dir,\
+                zcut       =math.cos(math.radians(self.zenithcut)),\
+                pixelsize  =pixelsize,\
+                quiet      =self.quiet )
 
-            #I think this code should handle cases with abritrary numbers of FT1/FT2 files
-            #g = skymaps.Gti(self.event_files[0])
-            #for n in xrange(1,len(self.event_files)):
-            #need a union here, not intersection!g.intersection(skymaps.Gti(self.event_files[n]))
-            #for hist in self.history_files:
-            #   lt.load(hist,g)
-            
-            # if multiple history files, assume that there is one per event file, 
-            # and apply the Gti (unsafe!)
-            
-            for n, hist in enumerate(self.history_files):
-                lt.load(hist,  skymaps.Gti(self.event_files[n]))
-                
+            gti = skymaps.Gti(self.ft1files[0])
+            for ef in self.ft1files[1:]:
+                gti.combine(skymaps.Gti(ef))
+            gti = gti.applyTimeRangeCut(self.tstart,max(gti.maxValue(),self.tstop))
+            for hf in self.ft2files:
+                lt_gti = skymaps.Gti(hf,'SC_data')
+                if not ((lt_gti.maxValue() < gti.minValue()) or (lt_gti.minValue() > gti.maxValue())):
+                   lt.load(hf,gti)
+               
             # write out ltcube if requested
-            if self.livetimefile is not None: lt.write(self.livetimefile)
-        else: 
+            if self.ltcube is not None: lt.write(self.ltcube)
+        else:
             # ltcube exists: just use it! (need to bullet-proof this)
-            lt = skymaps.LivetimeCube(self.livetimefile)
-            print 'loaded LivetimeCube %s ' % self.livetimefile
+            lt = skymaps.LivetimeCube(self.ltcube)
+            print 'loaded LivetimeCube %s ' % self.ltcube
         return lt
 
 
