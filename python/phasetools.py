@@ -275,8 +275,8 @@ def h_statistic(phases,weights=None):
 
    else:
 
-      s = (N.asarray([(weights*N.cos(k*phases)).sum() for k in xrange(1,21)])/n)**2 +\
-          (N.asarray([(weights*N.sin(k*phases)).sum() for k in xrange(1,21)])/n)**2
+      s = (N.asarray([(weights*N.cos(k*phases)).sum() for k in xrange(1,21)]))**2 +\
+          (N.asarray([(weights*N.sin(k*phases)).sum() for k in xrange(1,21)]))**2
 
    return (2./n*N.cumsum(s) - 4*N.arange(0,20)).max()
 
@@ -370,4 +370,47 @@ class PhotonProbability(object):
 
       return [v,diffs*180/N.pi]+[cols[key] for key in return_cols]
 
+
+def simple_h_statistic(phases):
+
+   phases = N.asarray(phases)*(2*N.pi) #phase in radians
+
+   n = len(phases)
+
+   s = (N.asarray([(N.cos(k*phases)).sum() for k in xrange(1,21)]))**2 +\
+       (N.asarray([(N.sin(k*phases)).sum() for k in xrange(1,21)]))**2
+
+   return (2./n*N.cumsum(s) - 4*N.arange(0,20)).max()
+
+def z2m(phases,m=2):
+   """ Return the Z_m^2 test for each harmonic up to the specified m."""
+
+   phases = N.asarray(phases)*(2*N.pi) #phase in radians
+
+   n = len(phases)
+
+   s = (N.asarray([(N.cos(k*phases)).sum() for k in xrange(1,m+1)]))**2 +\
+       (N.asarray([(N.sin(k*phases)).sum() for k in xrange(1,m+1)]))**2
+
+   return 2./n*N.cumsum(s)
+
+def em_four(phases,m=2,weights=None):
+   """ Return the empirical Fourier coefficients up to the mth harmonic."""
+   
+   phases = N.asarray(phases)*(2*N.pi) #phase in radians
+
+   n = len(phases) if weights is None else weights.sum()
+   weights = 1. if weights is None else weights
+
+   aks = (1./n)*N.asarray([(weights*N.cos(k*phases)).sum() for k in xrange(1,m+1)])
+   bks = (1./n)*N.asarray([(weights*N.sin(k*phases)).sum() for k in xrange(1,m+1)])
+
+   return aks,bks
+
+def em_lc(coeffs,dom):
+   aks,bks = coeffs
+   rval = N.ones_like(dom)
+   for i in xrange(1,len(aks)+1):
+      rval += 2*(aks[i-1]*N.cos(i*dom) + bks[i-1]*N.sin(i*dom))
+   return rval
 

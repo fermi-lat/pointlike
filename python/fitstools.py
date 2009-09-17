@@ -1,10 +1,15 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitstools.py,v 1.12 2009/07/24 21:01:16 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitstools.py,v 1.13 2009/08/12 01:20:14 kerrm Exp $
 
    author: Matthew Kerr
 
 """
+
+ZENITH_CUT = 105
+THETA_CUT  = 66.4
+INT_TYPES  = ['EVENT_CLASS','CONVERSION_TYPE']
+
 
 import pyfits as pf
 import numpy as N
@@ -17,6 +22,11 @@ def rect_mask(lons,lats,cut_lon,cut_lat,lon_hwidth,lat_hwidth):
 
 def trap_mask(ras,decs,cut_dir,radius):
    """Make a conservative, trapezoid cut as a precursor to a radius cut."""
+   try:
+      rad_test = radius[0]
+   except:
+      rad_test = radius
+   if rad_test > 30: return N.asarray([True] * len(ras)) # cut no good for large radii
 
    c1 = N.cos( (cut_dir.dec() - radius)*N.pi/180. )
    c2 = N.cos( (cut_dir.dec() + radius)*N.pi/180. )
@@ -24,6 +34,8 @@ def trap_mask(ras,decs,cut_dir,radius):
 
    mask = N.abs(ras - cut_dir.ra()) <= ra_radius
    mask = N.logical_and(mask,N.abs(decs - cut_dir.dec()) <= radius)
+
+   mask[radius > 20] = True # cut doesn't work for large radii?
    return mask
 
 def rad_mask(ras,decs,cut_dir,radius):
@@ -76,7 +88,7 @@ Optional keyword arguments:
    from collections import defaultdict,deque
    coldict = defaultdict(deque)
    cols = {}
-   keys = list(set(['RA','DEC','ENERGY','EVENT_CLASS','ZENITH_ANGLE']+return_cols))
+   keys = list(set(['RA','DEC','ENERGY','CONVERSION_TYPE','ZENITH_ANGLE','THETA']+return_cols))
 
    for eventfile in eventfiles:
       from pyfits import open
@@ -84,8 +96,9 @@ Optional keyword arguments:
 
       for key in keys: cols[key] = N.asarray(e['EVENTS'].data.field(key)).astype(float)
 
-      rad   = radius_function(cols['ENERGY'],cols['EVENT_CLASS'])
-      tmask = N.logical_and(trap_mask(cols['RA'],cols['DEC'],center,rad),cols['ZENITH_ANGLE'] < 105.)
+      rad   = radius_function(cols['ENERGY'],cols['CONVERSION_TYPE'])
+      tmask = N.logical_and(trap_mask(cols['RA'],cols['DEC'],center,rad),cols['ZENITH_ANGLE'] < ZENITH_CUT)
+      tmask = N.logical_and(tmask,cols['THETA'] < THETA_CUT )
       if simple_scalar:
          rmask,diffs = rad_mask(cols['RA'][tmask],cols['DEC'][tmask],center,rad)
       else:
@@ -98,6 +111,8 @@ Optional keyword arguments:
    for key in coldict.keys():
       if key == 'ZENITH_ANGLE' and 'ZENITH_ANGLE' not in return_cols: continue
       cols[key] = N.concatenate([x for x in coldict[key]])
+      if key == INT_TYPES: cols[key] = cols[k].astype(int)
+
    return cols
 
 #TODO: GTI
