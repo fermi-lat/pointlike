@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.18 2009/07/22 02:46:56 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.19 2009/07/22 02:56:54 burnett Exp $
 
    author: Matthew Kerr
 
@@ -139,6 +139,11 @@ Optional keyword arguments:
       pt=p.reshape((p.shape[0],1)) #transpose
       return p*self.cov_matrix*pt/jac**2
 
+   def corr_coef(self):
+      """Return the linear correlation coefficients for the estimated covariance matrix."""
+      sigmas = N.diag(self.cov_matrix)**0.5
+      return self.cov_matrix / N.outer(sigmas,sigmas)
+
    def statistical(self,absolute=False,two_sided=False):
       """Return the parameter values and fractional statistical errors.
          If no error estimates are present, return 0 for the fractional error."""
@@ -244,7 +249,10 @@ Optional keyword arguments:
       return self.i_flux(emin=emin,emax=emax)
 
 
-   def expected(self,emin,emax,exposure,skydir,event_class=-1):
+   def expected(self,emin,emax,exposure,skydir,event_class=-1,weighting_function=None):
+      """Calculate the expected counts under a particular model.
+         Include an optional weighting_function to calculate, e.g., the average PSF
+         parameters under this spectral model."""
       
       from pointlike import DoubleVector
       lemin,lemax = N.log10([emin,emax])
@@ -258,7 +266,10 @@ Optional keyword arguments:
       else:
          exp    = N.asarray(exposure[event_class].vector_value(skydir,DoubleVector(points)))
       
-      return (self(points)*exp*simpsf).sum()
+      expec = (self(points)*exp*simpsf).sum()
+      if weighting_function is not None:
+         return (weighting_function(points)*self(points)*exp*simpsf).sum()/expec
+      return expec
       
    def __flux_derivs__(self,*args):
       """Use finite differences to estimate the gradient of the integral flux wrt the spectral parameters."""
