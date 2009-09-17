@@ -2,17 +2,29 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.21 2009/08/25 20:45:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.22 2009/08/31 18:03:01 burnett Exp $
 
 author: Matthew Kerr
 """
 
 import numpy as N
-from roi_modules import *
+from roi_managers import *
+from roi_bands import *
 from roi_plotting import *
-from psmanager import *
+from pypsf import PsfOverlap
 
- 
+
+from skymaps import SkyDir,Hep3Vector
+
+from specfitter import SpectralModelFitter
+import quadform
+
+from collections import deque,defaultdict
+from cPickle import dump
+
+from scipy.optimize import fmin,fmin_powell
+from numpy.linalg import inv
+
 
 ###====================================================================================================###
 
@@ -22,10 +34,10 @@ class ROIAnalysis(object):
 
       self.fit_emin = [99,99] #independent energy ranges for front and back
       self.fit_emax = [1e5 + 100,1e5 + 100] #0th position for event class 0
-      self.quiet = False
+      self.quiet   = False
+      self.verbose = False
 
-      self.catalog_aperture = -1
-
+      self.catalog_aperture = -1 # pulsar catalog analysis only -- deprecate
       self.phase_factor = 1.
   
    def __init__(self,ps_manager,bg_manager,spectral_analysis,**kwargs):
@@ -49,7 +61,6 @@ class ROIAnalysis(object):
 
    def __setup_bands__(self):
       
-      from collections import deque
       self.bands = deque()
       for band in self.sa.pixeldata.dmap:
 
@@ -65,22 +76,17 @@ class ROIAnalysis(object):
 
    def setup_energy_bands(self):
 
-      from collections import defaultdict
-
-      groupings = defaultdict(list)
+      groupings = dict()
       for bc in self.bin_centers:
-         for band in self.bands:
-            if band.e == bc:
-               groupings[bc].append(band)
+         groupings[bc] = [band for band in self.bands if band.e==bc]
 
       self.energy_bands = [ROIEnergyBand(groupings[bc]) for bc in self.bin_centers]
 
-   def add_ps(self,ps):
-      self.psm.add_ps(ps,self.bands)
 
    def logLikelihood(self,parameters,*args):
 
       bands = self.bands
+      pf    = self.phase_factor
 
       self.set_parameters(parameters)
       self.bgm.update_counts(bands)
@@ -92,13 +98,13 @@ class ROIAnalysis(object):
 
          ll +=  ( 
                    #integral terms for ROI (go in positive)
-                   (b.bg_all_counts + b.ps_all_counts)*self.phase_factor
+                   (b.bg_all_counts + b.ps_all_counts)*pf
 
                    -
 
-                   #pixelized terms (go in negative)
+                   #pixelized terms (go in negative) -- note, no need for phase factor here
                    (b.pix_counts *
-                       N.log(  (b.bg_all_pix_counts + b.ps_all_pix_counts)*self.phase_factor )
+                       N.log(  b.bg_all_pix_counts + b.ps_all_pix_counts )
                    ).sum() if b.has_pixels else 0.
                 )
 
@@ -114,32 +120,31 @@ class ROIAnalysis(object):
       ro = ROIOverlap()
       rd = self.sa.roi_dir
       ll = 0
-
-      from skymaps import PsfSkyFunction
+      pf = self.phase_factor
 
       for i,band in enumerate(self.bands):
    
-         sigma,gamma,en,exp,pa = band.s,band.g,band.e,band.exp,band.b.pixelArea()
+         #sigma,gamma,en,exp,pa = band.s,band.g,band.e,band.exp,band.b.pixelArea()
+         en,exp,pa             = band.e,band.exp,band.b.pixelArea()
          exposure_ratio        = exp.value(skydir,en)/exp.value(rd,en) #needs fix? -- does not obey which?
-         psf                   = PsfSkyFunction(skydir,gamma,sigma)
+         #psf                   = PsfSkyFunction(skydir,gamma,sigma)
          
          overlap               = ro(band,rd,skydir) * exposure_ratio * band.solid_angle / band.solid_angle_p
          ool                   = band.overlaps[which]
          psc                   = band.ps_counts[which]
 
-         tot_term              = (band.bg_all_counts + band.ps_all_counts + psc * (overlap - ool)) * self.phase_factor
+         tot_term              = (band.bg_all_counts + band.ps_all_counts + psc * (overlap - ool)) * pf
 
          if band.has_pixels:
 
-            ps_pix_counts = N.asarray(psf.wsdl_vector_value(band.wsdl))*((pa/(2*N.pi*sigma**2))*exposure_ratio)
+            ps_pix_counts = band.psf(N.asarray([skydir.difference(x) for x in wsdl]),density=True)*pa*exposure_ratio
+            #ps_pix_counts = N.asarray(psf.wsdl_vector_value(band.wsdl))*((pa/(2*N.pi*sigma**2))*exposure_ratio)
 
             pix_term = (band.pix_counts * N.log
-                           ( self.phase_factor * 
-                              (
+                           (
                               band.bg_all_pix_counts + 
                               band.ps_all_pix_counts + 
                               psc*(ps_pix_counts - band.ps_pix_counts[:,which])
-                              )
                            )
                        ).sum()
 
@@ -200,10 +205,12 @@ class ROIAnalysis(object):
          self.param_state = param_state
          self.param_vals  = param_vals
    
-   def fit(self,method='simplex', tolerance = 1e-8, save_values = True, do_background=True, fit_bg_first = False):
+   def fit(self,method='simplex', tolerance = 0.01, save_values = True, do_background=True, 
+                fit_bg_first = False, estimate_errors=True):
       """Maximize likelihood and estimate errors.
 
-         method -- ['powell'] fitter; 'powell' or 'simplex'
+         method    -- ['powell'] fitter; 'powell' or 'simplex'
+         tolerance -- (approximate) absolute tolerance of log likelihood value
       """
 
       if fit_bg_first:
@@ -211,8 +218,7 @@ class ROIAnalysis(object):
 
       self.__pre_fit__()
 
-      if not self.quiet: print 'Performing likelihood maximization...'
-      from scipy.optimize import fmin,fmin_powell
+      if not self.quiet: print '.....performing likelihood maximization...',
       minimizer  = fmin_powell if method == 'powell' else fmin
       ll_0 = self.logLikelihood(self.parameters())
       f = minimizer(self.logLikelihood,self.parameters(),full_output=1,\
@@ -220,16 +226,19 @@ class ROIAnalysis(object):
       if not self.quiet: print 'Function value at minimum: %.8g'%f[1]
       if save_values:
          self.set_parameters(f[0])
-         self.__set_error__(do_background)
+         if estimate_errors: self.__set_error__(do_background)
          self.prev_logl = self.logl if self.logl is not None else -f[1]
          self.logl = -f[1]
+      
+      # check for error conditions here
+      if not self.quiet: print 'good fit!'
       return -f[1] 
 
    def __set_error__(self,do_background=True):
-      from specfitter import SpectralModelFitter
-      from numpy.linalg import inv
+
       n = len(self.bgm.parameters())
-      hessian = SpectralModelFitter.hessian(self,self.logLikelihood) #does Hessian for free parameters
+      hessian = SpectralModelFitter.hessian(self,self.logLikelihood)[0] #does Hessian for free parameters
+      # TODO -- check the return code
 
       try:
          if not do_background: raise Exception
@@ -289,7 +298,6 @@ class ROIAnalysis(object):
 
          return fit position
       """
-      import quadform
       rl = ROILocalizer(self,which=which)
       l  = quadform.Localize(rl,verbose = verbose)
       ld = SkyDir(l.dir.ra(),l.dir.dec())
@@ -366,7 +374,7 @@ class ROIAnalysis(object):
             print 'Unrecognized source specification:', s
             bad_sources += [s]
       sources = set([s for s in sources if not s in bad_sources])
-      indices = [self.psm.point_sources.index(s) for s in sources]
+      indices = [list(self.psm.point_sources).index(s) for s in sources]
       self.setup_energy_bands()
 
       fields = ['  Emin',' f_ROI',' b_ROI' ,' Events','Galactic','Isotropic']\
@@ -386,8 +394,6 @@ class ROIAnalysis(object):
          This saves the need to refit.  A future iteration should actually save all of the
          pixel predictions to avoid lengthy recalculation, too."""
 
-      from cPickle import dump
-      from collections import defaultdict
       d = defaultdict(list)
       for ps in self.psm.point_sources:
          m = ps.model
@@ -424,3 +430,25 @@ class ROIAnalysis(object):
    def modify_loc(self,skydir,which):
       """Move point source given by which to new location given by skydir."""
       self.spatialLikelihood(skydir,update=True,which=which)
+
+###====================================================================================================###
+
+class ROILocalizer(object):
+
+   def __init__(self,roi,which=0):
+      self.roi,self.which = roi, which
+      self.rd  = roi.psm.point_sources[which].skydir #note -- not necessarily ROI center!
+      self.tsref=0
+      self.tsref = self.TSmap(self.rd)
+            
+   def TSmap(self,skydir):
+      return (-2)*self.roi.spatialLikelihood(skydir,which=self.which)-self.tsref
+
+   def dir(self):
+      return self.rd
+
+   def errorCircle(self):
+      return 0.05 #initial guess
+
+   def __call__(self,v):
+      return self.TSmap(SkyDir(Hep3Vector(v[0],v[1],v[2])))
