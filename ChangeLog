@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: kerrm  Thu Sep 17 15:35:10 PDT 2009
+pointlike/python
+
+Modified Files:
+	roi_tools.py 
+Added Files:
+	pointspec_helpers.py pypsf.py roi_bands.py roi_managers.py 
+Removed Files:
+	Response.py roi_modules.py runfiles.py 
+Log Message:
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Sep 17 15:34:20 PDT 2009
 pointlike/python
 
