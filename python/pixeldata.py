@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.13 2009/07/22 02:46:56 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.14 2009/09/17 21:16:11 kerrm Exp $
 
 """
-version='$Revision: 1.13 $'.split()[1]
+version='$Revision: 1.14 $'.split()[1]
 import os
 import math
 import skymaps
@@ -88,9 +88,9 @@ Optional keyword arguments:
         # note there is a small discrepancy since the PSF average does not
         # currently know about the theta cut
         ip = skymaps.IParams
-        if self.ltcube is not None and self.roi_dir is not None:
-           ip.set_livetimefile(self.ltcube)
-           ip.set_skydir(self.roi_dir)
+        #if self.ltcube is not None and self.roi_dir is not None:
+           #ip.set_livetimefile(self.ltcube)
+           #ip.set_skydir(self.roi_dir)
         ip.set_CALDB(self.CALDB)
         ip.init('_'.join(self.irf.split('_')[:-1]),self.irf.split('_')[-1])
 
