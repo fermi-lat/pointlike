@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Fri Sep 18 17:39:15 PDT 2009
+pointlike/python
+
+Modified Files:
+	pixeldata.py pointspec.py psf.py roi_analysis.py roi_bands.py 
+	roi_plotting.py 
+Log Message:
+Small bug fixes to reworked python code.-
+
+    *
+------------------------------------------------------------
 User: wallacee  Fri Sep 18 17:39:14 PDT 2009
 ScienceTools-scons/pointlike
 
