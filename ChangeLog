@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Fri Sep 18 17:39:14 PDT 2009
+ScienceTools-scons/pointlike
+
+Modified Files:
+	SConscript pointlikeLib.py 
+Log Message:
+Small bug fixes to reworked python code.-
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Sep 17 15:35:10 PDT 2009
 pointlike/python
 
