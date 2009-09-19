@@ -30,10 +30,10 @@ class PSF:
    
    
    def sigma(self,e,event_class):
-      return (180./N.pi)*N.asarray([IParams.sigma(ie,iec) for ie,iec in zip(N.asarray(e).flatten(),N.asarray(event_class).flatten())])
+      return (180./N.pi)*N.asarray([IParams.sigma(ie,int(iec)) for ie,iec in zip(N.asarray(e).flatten(),N.asarray(event_class).flatten())])
 
    def gamma(self,e,event_class):
-      return N.asarray([IParams.gamma(ie,iec) for ie,iec in zip(N.asarray(e).flatten(),N.asarray(event_class).flatten())])
+      return N.asarray([IParams.gamma(ie,int(iec)) for ie,iec in zip(N.asarray(e).flatten(),N.asarray(event_class).flatten())])
 
    def conf_region(self,e,event_class, percentage=68,use_u = False):
       "Return the _percentage_ confidence region radius for the provided energy.  Unit is degrees."""

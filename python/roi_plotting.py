@@ -6,7 +6,7 @@ Given an ROIAnalysis object roi:
     plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.8 2009/08/12 01:20:14 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.9 2009/08/19 21:36:50 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -52,7 +52,7 @@ def band_spectra(r,source=0):
          print 'multi = %.2f'%(eta)
       """
       #define a joint likelihood for the energy band
-      f = lambda scale: sum( [r.bandLikelihood(scale,band,source) for band in gi] )
+      f = lambda scale: sum( [band.bandLikelihood(scale,source) for band in gi] )
       result = fmin(f,[1.],disp=0,full_output=1)
       if result[4] != 1 and result[4] != 2:
          scales[i] = result[0]
