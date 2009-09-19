@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.12 2009/08/21 03:01:35 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_bands.py,v 1.1 2009/09/17 22:35:10 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -201,7 +201,7 @@ class ROIEnergyBand(object):
 
       else:
    
-         hessian = SpectralModelFitter.hessian(self.m,self.bandLikelihood,which) #does Hessian for free parameters
+         hessian = SpectralModelFitter.hessian(self.m,self.bandLikelihood,which)[0] #does Hessian for free parameters
          self.m.set_cov_matrix(inv(hessian))
 
          e = self.m.statistical(absolute=True,two_sided=True)

@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.30 2009/08/20 21:38:14 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.31 2009/09/17 22:34:09 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.30 $'.split()[1]
+version='$Revision: 1.31 $'.split()[1]
 import os
 import sys
 
@@ -35,7 +35,7 @@ class AnalysisEnvironment(object):
           same format as ft1files, but N.B. that the current 
           implementation expects a one-to-one correspondence of FT1 
           and FT2 files!
-      livetimefile : string, optional
+      ltcube : string, optional
           points to a livetime cube; if not given, the livetime will 
           be generated on-the-fly.  If a file is provided but does 
           not exist, the livetime cube will be generated and written 
@@ -79,7 +79,7 @@ class AnalysisEnvironment(object):
       try:
          f = open(self.ltcube)
          ltfile_exists = True
-      except:
+      except IOError:
          ltfile_exists = False
 
       if self.ft2files is None and (self.ltcube is None or ltfile_exists == False):
@@ -210,13 +210,15 @@ Optional keyword arguments:
             bg_smodels   [None]  a list of spectral models to replace the default ones in ConsistentBackground
                                  i.e., a custom set of spectral scaling models
             glat         [None]  the Galactic latitude of the source; sets default free parameters in diffuse
+            fit_emin     [100,100] minimum energies (separate for front and back) to use in spectral fitting.
+            fit_emax     [1e5,1e5] maximum energies (separate for front and back) to use in spectral fitting.
         """
         
         from roi_managers import ROIPointSourceManager,ROIBackgroundManager
         from roi_analysis import ROIAnalysis
         
         # process kwargs
-        glat,bg_smodels,nocat = None,None,False,False
+        glat,bg_smodels,nocat = None,None,False
         if 'glat'        in kwargs.keys(): glat   = kwargs.pop('glat')
         if 'bg_smodels'  in kwargs.keys(): models = kwargs.pop('bg_smodels')
         if 'nocat'       in kwargs.keys(): nocat  = kwargs.pop('nocat')
