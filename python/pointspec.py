@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.33 2009/09/20 20:43:19 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.34 2009/09/20 21:05:03 burnett Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.33 $'.split()[1]
+version='$Revision: 1.34 $'.split()[1]
 import os
 import sys
 
@@ -144,8 +144,6 @@ Optional keyword arguments:
  
     """
 
-    """
-    
     def __init__(self, analysis_environment, **kwargs):
         """
 
@@ -268,6 +266,7 @@ Optional keyword arguments:
             glat         [None]  the Galactic latitude of the source; sets default free parameters in diffuse
             fit_emin     [100,100] minimum energies (separate for front and back) to use in spectral fitting.
             fit_emax     [1e5,1e5] maximum energies (separate for front and back) to use in spectral fitting.
+            no_roi       [False] If set, return a ps_manager, roi_manager instead (for separate generation of an ROIAnalysis)
             ==========   =============
       """
         
