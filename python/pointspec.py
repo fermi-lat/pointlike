@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.32 2009/09/19 00:39:15 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.33 2009/09/20 20:43:19 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.32 $'.split()[1]
+version='$Revision: 1.33 $'.split()[1]
 import os
 import sys
 
@@ -25,8 +25,8 @@ class AnalysisEnvironment(object):
       it is probably best to update the default values in 
       AnalysisEnvironment.init.
 
-      Parameters
-      ----------
+      **Parameters**
+      
       ft1files : string or list of strings
           if a single string: points to a single FT1 file, or if 
           contains wild cards is expanded by glob into a list of files
@@ -95,6 +95,54 @@ class AnalysisEnvironment(object):
 class SpectralAnalysis(object):
     """ 
     Interface to the spectral analysis code.
+Create a new spectral analysis object.  
+
+    analysis_environment: an instance of AnalysisEnvironment correctly configured with
+                          the location of files needed for spectral analysis (see its
+                          docstring for more information.)
+
+Optional keyword arguments:
+
+  ===========    =======================================================
+  parameter      comments
+  ===========    =======================================================
+  **binning and livetime calculation**
+  ---------------------------------------------------------------------- 
+  roi_dir        [ None] aperture center; if None, assume all-sky analysis                                                                                  
+  exp_radius     [ 20]  radius (deg) to use if calculate exposure or a ROI. (180 for full sky)                                                                                
+  zenithcut      [ 105]  Maximum spacecraft pointing angle with respect to zenith to allow
+  thetacut       [ 66.4] Cut on photon incidence angle
+  event_class    [ 3]  select class level (3 - diffuse; 2 - source; 1 - transient; 0 - Monte Carlo)
+  conv_type      [ -1] select conversion type (0 - front; 1 - back; -1 = front + back)
+  tstart         [0] Default no cut on time; otherwise, cut on MET > tstart
+  tstop          [0] Default no cut on time; otherwise, cut on MET < tstop
+  binsperdec     [4] energy binning granularity when binning FT1
+  emin           [100] Minimum energy                                                                                 
+  emax           [3e5] Maximum energy
+  **Monte carlo selection**
+  ---------------------------------------------------------------------- 
+  mc_src_id      [ -1] set to select on MC_SRC_ID column in FT1
+  mc_energy      [False] set True to use MC_ENERGY instead of ENERGY
+  **Instrument response**
+  ---------------------------------------------------------------------- 
+  irf            ['P6_v3_diff'] Which IRF to use
+  new_psf        [None] if not None, must point to a piclkle of a fit to allGamma data
+  **spectral analysis**
+  ---------------------------------------------------------------------- 
+  background     ['ems_ring'] - a choice of global model specifying a diffuse background; see ConsistentBackground for options
+  maxROI         [25] maximum ROI for analysis; note ROI aperture is energy-dependent = max(maxROI,r95(e,conversion_type))
+  minROI         [0] minimum ROI analysis
+                 
+                 **Note** The ROI radius is energy-dependent: minROI < r95(e,conversion_type) < maxROI
+                  That is, the radius is given by the 95% PSF containment for the band, subject
+                  to the constraint that it be >= minROI and <= maxROI
+  **Miscellaneous**               
+  ---------------------------------------------------------------------- 
+  quiet          [False] Set True to suppress (some) output
+  verbose        [False] More output
+  ===========    =======================================================
+ 
+    """
 
     """
     
@@ -210,13 +258,18 @@ Optional keyword arguments:
                          object later
 
         Optional Keyword Arguments:
+            ==========   =============
+            keyword      description
+            ==========   =============
+
             nocat        [False] if True, do not add additional sources from a catalog 
             bg_smodels   [None]  a list of spectral models to replace the default ones in ConsistentBackground
                                  i.e., a custom set of spectral scaling models
             glat         [None]  the Galactic latitude of the source; sets default free parameters in diffuse
             fit_emin     [100,100] minimum energies (separate for front and back) to use in spectral fitting.
             fit_emax     [1e5,1e5] maximum energies (separate for front and back) to use in spectral fitting.
-        """
+            ==========   =============
+      """
         
         from roi_managers import ROIPointSourceManager,ROIBackgroundManager
         from roi_analysis import ROIAnalysis
