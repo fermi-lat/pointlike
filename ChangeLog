@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Sep 20 14:05:03 PDT 2009
+pointlike/python
+
+Modified Files:
+	pixeldata.py pointspec.py pointspec_helpers.py 
+Log Message:
+modify a few docstrings to avoid sphinx errors
+    *
+------------------------------------------------------------
 User: kerrm  Sun Sep 20 13:43:19 PDT 2009
 pointlike/python
 
