@@ -1,6 +1,6 @@
 """Contains miscellaneous classes for background and exposure management.
    
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec_helpers.py,v 1.11 2009/07/22 02:46:56 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec_helpers.py,v 1.1 2009/09/17 22:35:10 kerrm Exp $
 
    author: Matthew Kerr
    """
@@ -111,7 +111,7 @@ class ConsistentBackground(object):
       self.smodels = [ PowerLaw(p=[1,1],free=[True,True],index_offset=1),
                        Constant(free=[True]) ]
       self.names   = ['gll_iem_v02', 'Isotropic Diffuse']
-      self.cat     = join(self.catdir,r'gll_psc11month_v1b.fit')
+      self.cat     = join(self.catdir,r'gll_psc11month_v2.fit')
 
 
    def get_bgmodels(self, models = None, lat = None):
