@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.15 2009/09/17 22:34:20 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.16 2009/09/19 00:39:15 wallacee Exp $
 
 """
-version='$Revision: 1.15 $'.split()[1]
+version='$Revision: 1.16 $'.split()[1]
 import os
 import math
 import skymaps
@@ -13,6 +13,17 @@ import pointlike
 
 
 class PixelData(object):
+        """
+Create a new PixelData instance, managing data and livetime.  
+
+    analysis_environment: an instance of AnalysisEnvironment correctly configured with
+                          the location of files needed for spectral analysis (see its
+                          docstring for more information.)
+
+Optional keyword arguments:
+
+   see docstring for SpectralAnalysis
+"""
 
     def __init__(self, spectral_analysis ):
         """

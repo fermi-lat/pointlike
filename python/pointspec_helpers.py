@@ -1,6 +1,6 @@
 """Contains miscellaneous classes for background and exposure management.
    
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec_helpers.py,v 1.1 2009/09/17 22:35:10 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec_helpers.py,v 1.2 2009/09/20 20:43:19 kerrm Exp $
 
    author: Matthew Kerr
    """
@@ -61,8 +61,8 @@ class ExposureManager(object):
 class ConsistentBackground(object):
    """Manage the construction of a consistent background model.
 
-      Notes
-      -----
+      *Notes*
+      
       A background model comprises diffuse and point sources.  While
       some parameters may be refit in a spectral analysis, the default
       background model should give a good representation.
