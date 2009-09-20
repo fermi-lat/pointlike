@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_modules.py,v 1.12 2009/08/21 03:01:35 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_managers.py,v 1.1 2009/09/17 22:35:10 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -52,7 +52,7 @@ class ROIPointSourceManager(ROIModelManager):
 
    def __str__(self,verbose=False):
       mask = [True]*len(self.point_sources) if verbose else [N.any(p.model.free) for p in self.point_sources]
-      return '\n\n'.join(['%s fitted with %s\n'%(ps.name,ps.model.pretty_name)+ps.model.__str__()\
+      return '\n\n'.join(['%d -- %s fitted with %s\n'%(i,ps.name,ps.model.pretty_name)+ps.model.__str__()\
                           for i,ps in enumerate(self.point_sources) if mask[i]])
 
    def ROI_dir(self): return self.roi_dir
