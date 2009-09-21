@@ -6,20 +6,29 @@ Given an ROIAnalysis object roi:
     plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.9 2009/08/19 21:36:50 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.10 2009/09/19 00:39:15 wallacee Exp $
 
 author: Matthew Kerr
 """
 
 import numpy as N
-from skymaps import PySkyFunction
+from skymaps import PySkyFunction,Background,Band,SkyDir,Hep3VectorSkyIntegrator
+from roi_bands import ROIEnergyBand
+from pypsf import OldPsf
+from fitstools import get_fields
+
+from collections import deque
+
+from scipy.stats import poisson,norm
+from scipy.optimize import fmin,fsolve
+
+import pylab as P
 import colormaps
 from image import ZEA
+from matplotlib import rcParams,mpl,pyplot,ticker
+from matplotlib.patches import FancyArrow
 
 def band_spectra(r,source=0):
-
-   from scipy.optimize import fmin,fsolve
-   from collections import deque
    
    en = N.asarray([band.e for band in r.bands])
 
@@ -81,11 +90,7 @@ def band_spectra(r,source=0):
 
 def band_fluxes(r,which=0,axes=None,axis=None,outfile=None):
 
-   import pylab as P
-   from matplotlib.patches import FancyArrow
-
    if axes is None:
-      import pylab as P
       ax = P.gca()
    else: ax = axes
 
@@ -106,8 +111,6 @@ def band_fluxes(r,which=0,axes=None,axis=None,outfile=None):
    merged_slice = slice(len(r.bin_centers)-n, len(r.bin_centers), 1)
 
    if n > 0:
-      
-      from roi_modules import ROIEnergyBand
       bands = []
       for eb in r.energy_bands[merged_slice]:
          for band in eb.bands:
@@ -148,7 +151,6 @@ def band_fluxes(r,which=0,axes=None,axis=None,outfile=None):
 
 def counts(r,integral=False):
 
-   from collections import deque
    groupings = [deque() for x in xrange(len(r.bin_centers))]
    p = r.phase_factor
 
@@ -187,7 +189,6 @@ def plot_counts(r,fignum=1,outfile=None,integral=False,max_label=10):
    en,iso,gal,src,obs,ps_names = counts(r,integral=integral)
    en = (en[1:]*en[:-1])**0.5
 
-   import pylab as P
    P.clf()
    P.figure(fignum,(14,8))
    P.subplot(121)
@@ -268,9 +269,6 @@ def plot_spectra(r, which=0, eweight=2,fignum=1,outfile=None,merge_bins=False,
    
    bc = (en[1:]*en[:-1])**0.5
 
-
-   import pylab as P
-   
    if axes is None:
       P.figure(fignum)
       P.clf()
@@ -327,10 +325,9 @@ class ROIModelSkyFunction(object):
       for k,v in kwargs.iteritems():
          if k in self.__dict__: self.__dict__[k] = v
    
-      from psf import PSF
       self.roi = roi_manager
       sa = self.roi.sa
-      self.psf = PSF(psf_irf = sa.psf_irf, CALDB = sa.CALDB)
+      self.psf = OldPsf(CALDB = sa.CALDB,irf = sa.irf, )
 
       self.simpsn = simpsn = (int(round((N.log10(self.emax)-N.log10(self.emin))/0.2)) >> 1) << 1 #5 per decade
       self.points = N.logspace(N.log10(self.emin),N.log10(self.emax),simpsn+1)
@@ -353,21 +350,16 @@ class ROIModelSkyFunction(object):
          self.event_classes = [self.event_class]
 
       bg = self.roi.bgm
-      from skymaps import Background
 
       self.e_models  = [m.smodel(self.points) for m in bg.bgmodels]
       self.b_models  = [ [Background(m.get_dmodel(0),exp[0]),Background(m.get_dmodel(1),exp[1])] for m in bg.bgmodels]
 
       self.cache_pix = dict()
-      from skymaps import Band
       self.band      = Band(self.nside)
-      from skymaps import PySkyFunction
       self.pskyf     = PySkyFunction(self)
 
    def __call__(self,v,v_is_skydir=False):
    
-      from skymaps import SkyDir,Hep3Vector,Band,SkyIntegrator
-      
       skydir = v if v_is_skydir else SkyDir(Hep3Vector(v[0],v[1],v[2]))
 
       if self.mode == 1:
@@ -392,7 +384,7 @@ class ROIModelSkyFunction(object):
       #point source contributions
       for i,p in enumerate(ps):
          delta  = skydir.difference(p.skydir)
-         psf_vals = self.psf(1,delta,1,radians=True,density=True) #gets cached vals
+         psf_vals = self.psf.get_cache(delta,density=True) #gets cached vals
          np = len(points)
          integrand += self.model[i,:] * (self.exp_f[i,:] * psf_vals[:np] + self.exp_b[i,:] * psf_vals[np:])
       
@@ -415,7 +407,7 @@ class DataSkyFunction(object):
       
    Keyword Arguments:
       nside       --- [2^7] Healpix resolution parameter; resolution ~ 60deg / nside
-      mode        --- [1] ==1 for a pixelized representation, ==2 for a density estimator (slow!)
+      mode        --- [1] == 1 for pixelized representation -- mode 2 currently broken!
       cuts        --- [None] a list of cuts to apply to the data, e.g., ['ENERGY > 1000','CTBCLASSLEVEL == 3']
       emin        --- [1e2] minimum energy
       emax        --- [1e5] maximum energy
@@ -442,14 +434,14 @@ class DataSkyFunction(object):
       self.sa_or_data = sa_or_data
       self.mode1setup = self.mode2setup = False
 
-      if self.mode == 1: self.mode_1_setup()
-      else: self.mode_2_setup()
+      #if self.mode == 1: self.mode_1_setup()
+      #else: self.mode_2_setup()
+      self.mode_1_setup()
 
       self.cache_pix = dict()
 
    def process_filedata(self,fields):
 
-      from fitstools import get_fields
       base_cuts = ['ENERGY > %s'%(self.emin),'ENERGY < %s'%(self.emax),'ZENITH_ANGLE < 105']
       if self.event_class >= 0:      base_cuts += ['EVENT_CLASS == %d'%(self.event_class)]
       if self.mc_src_id is not None: base_cuts += ['MC_SRC_ID == %d'%(self.mc_src_id)]
@@ -463,8 +455,7 @@ class DataSkyFunction(object):
    def mode_1_setup(self):
 
       data = self.process_filedata(['RA','DEC'])
-      
-      from skymaps import Band,SkyDir
+
       self.band = Band(self.nside)
 
       for i in xrange(len(data['RA'])):
@@ -474,6 +465,7 @@ class DataSkyFunction(object):
 
       self.mode1setup = True
 
+   """
    def mode_2_setup(self):
 
       data = self.process_filedata(['RA','DEC','ENERGY','EVENT_CLASS'])
@@ -491,30 +483,30 @@ class DataSkyFunction(object):
       self.gammas = psf.gamma(data['ENERGY'],data['EVENT_CLASS'])
 
       self.mode2setup = True
-
+   """
+   
    def __call__(self,v,v_is_skydir=False):
-      
-      from skymaps import Hep3Vector,SkyDir
+
       v = v if v_is_skydir else SkyDir(Hep3Vector(v[0],v[1],v[2]))
       
-      if self.mode == 1:
-         if not self.mode1setup: self.mode_1_setup()
-         ind = self.band.index(v)
-         
-         #need to store these values, so this check is necessary
-         if not ind in self.cache_pix:
-            val = self.band(v)
-            self.cache_pix[ind] = val
-            return val
-         
-         else: return self.cache_pix[ind] #but need to check whether the O(1) hash quicker than the Band call -- suspect it is!
+      #if self.mode == 1:
+      if not self.mode1setup: self.mode_1_setup()
+      ind = self.band.index(v)
+      
+      #need to store these values, so this check is necessary
+      if not ind in self.cache_pix:
+         val = self.band(v)
+         self.cache_pix[ind] = val
+         return val
+      
+      else: return self.cache_pix[ind] #but need to check whether the O(1) hash quicker than the Band call -- suspect it is!
 
-      else:
-         if not selt.mode2setup: self.mode_2_setup()
-         diffs = N.asarray([v.difference(sd) for sd in self.skydirs])
-         us    = 0.5 * (diffs/self.sigmas)**2
-         jac   = (2*N.pi)*(self.sigmas)**2
-         return ( (1.-1./self.gammas)*(1+u/self.gammas)**-self.gammas )/jac
+      #else:
+      #   if not selt.mode2setup: self.mode_2_setup()
+      #   diffs = N.asarray([v.difference(sd) for sd in self.skydirs])
+      #   us    = 0.5 * (diffs/self.sigmas)**2
+      #   jac   = (2*N.pi)*(self.sigmas)**2
+      #   return ( (1.-1./self.gammas)*(1+u/self.gammas)**-self.gammas )/jac
 
 
 class ROIDisplay(object):
@@ -555,7 +547,6 @@ class ROIDisplay(object):
       self.__dict__.update(kwargs)
       self.rm = roi_manager
 
-      from matplotlib import rcParams
       rcParams['xtick.major.size']=10 #size in points
       rcParams['xtick.minor.size']=6
       rcParams['ytick.major.size']=10 #size in points
@@ -564,9 +555,7 @@ class ROIDisplay(object):
       rcParams['ytick.labelsize']=12
       rcParams['font.family']='serif'
       #rcParams['text.usetex']=True
-   
-      import pylab as P
-      from matplotlib import mpl,pyplot,ticker
+
       try:
          self.cmap_sls = colormaps.sls
          self.cmap_b   = colormaps.b
@@ -658,8 +647,6 @@ class ROIDisplay(object):
 
    def resids_plot(self):
 
-      from scipy.stats import poisson
-
       self.resids_zea = ZEA(self.rm.psm.ROI_dir(),self.size,self.pixelsize,galactic=self.galactic,axes=self.axes3)
       self.resids_zea.image = (self.mm_zea.image - self.cm_zea.image)/self.mm_zea.image**0.5
       self.axes3.imshow(self.resids_zea.image,origin='lower',interpolation='nearest',norm=self.norm3)
@@ -678,9 +665,6 @@ class ROIDisplay(object):
       self.plot_sources(self.pvals_zea,mc='k')
 
    def hist_plot(self):
-
-      import pylab as P
-      from scipy.stats import poisson
 
       mc = N.asarray(self.mm.cache_pix.values())
       cc = N.asarray(self.cm.cache_pix.values())
@@ -711,7 +695,6 @@ class ROIDisplay(object):
       self.hist_plot()
       self.label_sources = t
 
-      import pylab as P
       if out_file is not None: P.savefig(out_file)
       if to_screen: P.show()
 
@@ -746,11 +729,8 @@ class ROIDisplay(object):
 def ppf(prob,mean):
    """Return the (approximate) Poisson percentage point function for given distribution.  Klugey."""
    if mean > 100: #normal approximation
-      from scipy.stats import norm
       n = norm(mean,mean**0.5)
       return n.ppf(prob)      
-   
-   from scipy.stats import poisson
    d = poisson(mean)
    prev = 0
    for i in xrange(1,200):      
