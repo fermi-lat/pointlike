@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_managers.py,v 1.1 2009/09/17 22:35:10 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_managers.py,v 1.2 2009/09/20 20:43:19 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -264,7 +264,7 @@ class ROIBackgroundManager(ROIModelManager):
       #self.iso_model = PowerLaw(p=[1,1],free=[True,False],index_offset=1)
       self.quiet     = False
 
-   def __init__(self,spectral_analysis,models,**kwargs):
+   def __init__(self,spectral_analysis,models,skydir,**kwargs):
       """."""
       self.init()
       self.__dict__.update(**kwargs)
@@ -276,7 +276,7 @@ class ROIBackgroundManager(ROIModelManager):
       for model in self.models:
          model.background = True
 
-      self.roi_dir  = sa.roi_dir
+      self.roi_dir  = skydir
       
    def __str__(self): return '\n\n'.join([model.__str__() for model in self.bgmodels])
 
