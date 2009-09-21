@@ -161,6 +161,20 @@ class OldPsf(Psf):
       y   = (1-1./gc)*(1+us/gc)**(-gc)
       return (w*(y / (TWOPI*si**2 if density else 1.))).sum(axis=1)
 
+   def set_cache(self,e,ct):
+      np = len(self.get_p(e[0],ct[0])[0])
+      self.cache = N.empty([3,len(e),np])
+      ca = self.cache; gp = self.get_p; sf = self.scale_func
+      for i,(mye,myct) in enumerate(zip(e,ct)):
+         ca[:,i,:]  = gp(mye,myct)
+         ca[1,i,:] *= sf[myct](mye)
+
+   def get_cache(self,delta,density = False):
+      g,s,w = self.cache
+      us    = 0.5 * (delta / s)**2
+      y     = y  = (1-1./g)*(1+us/g)**(-g)
+      return (w*(y / (TWOPI*s**2 if density else 1.))).sum(axis=1)
+      
    def integral(self,e,ct,dmax,dmin=0):
       """ Note -- does *not* take a vector argument right now."""
       gc,si,w = self.get_p(e,ct)
