@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Sun Sep 20 17:47:16 PDT 2009
+pointlike/python
+
+Modified Files:
+	pypsf.py roi_plotting.py 
+Log Message:
+Added caching to OldPsf for quick evaluation in ROIModelSkyFunction.  Updated routines in roi_plotting to work with new PSF module.  Moved import statements to top of file a la Guido.
+    *
+------------------------------------------------------------
 User: burnett  Sun Sep 20 14:41:48 PDT 2009
 pointlike/python
 
