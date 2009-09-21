@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.24 2009/09/19 00:39:15 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.25 2009/09/20 20:43:19 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -66,7 +66,7 @@ class ROIAnalysis(object):
       for band in self.sa.pixeldata.dmap:
 
          if band.emin() >= self.fit_emin[band.event_class()] and band.emax() < self.fit_emax[band.event_class()]:
-            self.bands.append(ROIBand(band,self.sa,catalog_aperture=self.catalog_aperture))
+            self.bands.append(ROIBand(band,self.sa,self.psm.roi_dir,catalog_aperture=self.catalog_aperture))
 
       self.bands = N.asarray(self.bands)
 
@@ -119,7 +119,7 @@ class ROIAnalysis(object):
       """
       
       ro = PsfOverlap()
-      rd = self.sa.roi_dir
+      rd = self.psm.roi_dir
       ll = 0
       pf = self.phase_factor
 
@@ -381,7 +381,7 @@ class ROIAnalysis(object):
       fields = ['  Emin',' f_ROI',' b_ROI' ,' Events','Galactic','Isotropic']\
                 +[' '*15+'Signal']*len(sources)
       outstring = 'Spectra of sources in ROI about %s at ra = %.2f, dec = %.2f\n'\
-                    %(self.psm.point_sources[0].name, self.sa.roi_dir.ra(), self.sa.roi_dir.dec())
+                    %(self.psm.point_sources[0].name, self.psm.roi_dir.ra(), self.psm.roi_dir.dec())
       outstring += ' '*54+'  '.join(['%21s'%s.name for s in sources])+'\n'
       outstring += '  '.join(fields)+'\n'
       print outstring

@@ -6,13 +6,13 @@ Given an ROIAnalysis object roi:
     plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.10 2009/09/19 00:39:15 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.11 2009/09/21 00:47:16 kerrm Exp $
 
 author: Matthew Kerr
 """
 
 import numpy as N
-from skymaps import PySkyFunction,Background,Band,SkyDir,Hep3VectorSkyIntegrator
+from skymaps import PySkyFunction,Background,Band,SkyDir,Hep3Vector,SkyIntegrator
 from roi_bands import ROIEnergyBand
 from pypsf import OldPsf
 from fitstools import get_fields

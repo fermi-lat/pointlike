@@ -2,17 +2,19 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.34 2009/09/20 21:05:03 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.35 2009/09/20 21:41:48 burnett Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.34 $'.split()[1]
+version='$Revision: 1.35 $'.split()[1]
 import os
 import sys
 
 from pixeldata import PixelData
 from pypsf     import Psf,OldPsf,NewPsf
 from pointspec_helpers import ExposureManager,ConsistentBackground
+from roi_managers import ROIPointSourceManager,ROIBackgroundManager
+from roi_analysis import ROIAnalysis
 
 class AnalysisEnvironment(object):
    """A class to collect locations of files needed for analysis.
@@ -268,10 +270,11 @@ Optional keyword arguments:
             fit_emax     [1e5,1e5] maximum energies (separate for front and back) to use in spectral fitting.
             no_roi       [False] If set, return a ps_manager, roi_manager instead (for separate generation of an ROIAnalysis)
             ==========   =============
-      """
-        
-        from roi_managers import ROIPointSourceManager,ROIBackgroundManager
-        from roi_analysis import ROIAnalysis
+        """
+
+        if point_sources is None and self.roi_dir is None:
+            print 'No direction specified!  Provide a point source or set roi_dir member of this object!'
+            return
         
         # process kwargs
         glat,bg_smodels,nocat = None,None,False
@@ -291,15 +294,15 @@ Optional keyword arguments:
             for i in xrange(len(bg)):
                 backgrounds[i].smodel = bg[i]
 
-        ps_manager = ROIPointSourceManager(point_sources,self.roi_dir)
-        bg_manager = ROIBackgroundManager(self, bgmodels)
+        ps_manager = ROIPointSourceManager(point_sources,point_sources[0].skydir,quiet=self.quiet)
+        bg_manager = ROIBackgroundManager(self, bgmodels, ps_manager.roi_dir)
 
         # if didn't specify a source, pick closest one and make it free -- maybe remove this?
         if point_sources is None and (not N.any([N.any(m.free) for m in ps_manager.models])):
             ps_manager.models[0].free[:] = True
             
         # n.b. weighting PSF for the central point source
-        self.psf.set_weights(self.ltcube,point_sources[0].skydir)
+        self.psf.set_weights(self.ltcube,ps_manager.roi_dir)
 
         if no_roi: return ps_manager,bg_manager
 
