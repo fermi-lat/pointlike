@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Tue Sep 22 21:45:25 PDT 2009
+pointlike/python
+
+Added Files:
+	roi_localize.py 
+Log Message:
+New module for localization of sources with binned likelihood analysis.
+    *
+------------------------------------------------------------
 User: kerrm  Mon Sep 21 16:17:42 PDT 2009
 pointlike/python
 
