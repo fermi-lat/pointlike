@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.25 2009/09/20 20:43:19 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.26 2009/09/21 22:07:02 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -11,14 +11,10 @@ import numpy as N
 from roi_managers import *
 from roi_bands import *
 from roi_plotting import *
+from roi_localize import *
 from pointspec_helpers import PointSource
-from pypsf import PsfOverlap
-
-
-from skymaps import SkyDir,Hep3Vector
 
 from specfitter import SpectralModelFitter
-import quadform
 
 from collections import deque,defaultdict
 from cPickle import dump
@@ -110,62 +106,6 @@ class ROIAnalysis(object):
                 )
 
       return 1e6 if N.isnan(ll) else ll
-
-   def spatialLikelihood(self,skydir,update=False,which=0):
-      """Calculate log likelihood as a function of position a point source.
-      
-         which   -- index of point source; default to central
-                    ***if localizing non-central, ensure ROI is large enough!***
-      """
-      
-      ro = PsfOverlap()
-      rd = self.psm.roi_dir
-      ll = 0
-      pf = self.phase_factor
-
-      for i,band in enumerate(self.bands):
-   
-         #sigma,gamma,en,exp,pa = band.s,band.g,band.e,band.exp,band.b.pixelArea()
-         en,exp,pa             = band.e,band.exp,band.b.pixelArea()
-         exposure_ratio        = exp.value(skydir,en)/exp.value(rd,en) #needs fix? -- does not obey which?
-         #psf                   = PsfSkyFunction(skydir,gamma,sigma)
-         
-         overlap               = ro(band,rd,skydir) * exposure_ratio * band.solid_angle / band.solid_angle_p
-         ool                   = band.overlaps[which]
-         psc                   = band.ps_counts[which]
-
-         tot_term              = (band.bg_all_counts + band.ps_all_counts + psc * (overlap - ool)) * pf
-
-         if band.has_pixels:
-
-            ps_pix_counts = band.psf(N.asarray([skydir.difference(x) for x in band.wsdl]),density=True)*pa*exposure_ratio
-            #ps_pix_counts = N.asarray(psf.wsdl_vector_value(band.wsdl))*((pa/(2*N.pi*sigma**2))*exposure_ratio)
-
-            pix_term = (band.pix_counts * N.log
-                           (
-                              band.bg_all_pix_counts + 
-                              band.ps_all_pix_counts + 
-                              psc*(ps_pix_counts - band.ps_pix_counts[:,which])
-                           )
-                       ).sum()
-
-         else:
-            pix_term = 0
-
-         ll += tot_term - pix_term
-         if N.isnan(ll):
-            raise Exception('ROIAnalysis.spatialLikelihood failure at %.3f,%.3f, band %d' %(skydir.ra(),skydir.dec(),i))
-
-         if update:
-            band.overlaps[which] = overlap 
-            band.ps_all_counts  += psc * (overlap - ool)
-            if band.has_pixels:
-               band.ps_all_pix_counts      += psc * (ps_pix_counts - band.ps_pix_counts[:,which])
-               band.ps_pix_counts[:,which]  = ps_pix_counts
-
-      if N.isnan(ll):
-         raise Exception('ROIAnalysis.spatialLikelihood failure at %.3f,%.3f' %(skydir.ra(),skydir.dec()))
-      return ll
 
 
    def parameters(self):
@@ -289,56 +229,20 @@ class ROIAnalysis(object):
       ll = -self.logLikelihood(save_params)
       return -2*(ll_0 - ll)
 
-   def localize(self,which=0, tolerance=1e-3,update=False, verbose=False):
+   def localize(self,which=0, tolerance=1e-3,update=False, verbose=False, bandfits=False):
       """Localize a source using an elliptic approximation to the likelihood surface.
 
          which     -- index of point source; default to central 
                       ***if localizing non-central, ensure ROI is large enough!***
          tolerance -- maximum difference in degrees between two successive best fit positions
          update    -- if True, update localization internally, i.e., recalculate point source contribution
+         bandfits  -- if True, use a band-by-band (model independent) spectral fit; otherwise, use broabband fit
 
          return fit position
       """
-      rl = ROILocalizer(self,which=which)
-      l  = quadform.Localize(rl,verbose = verbose)
-      ld = SkyDir(l.dir.ra(),l.dir.dec())
-      ps = self.psm.point_sources[which]
-      ll_0 = self.spatialLikelihood(self.psm.point_sources[which].skydir,update=False,which=which)
+      rl = ROILocalizer(self,which=which,bandfits=bandfits,tolerance=tolerance,update=update,verbose=verbose)
+      return rl.localize()
 
-      if not self.quiet:
-         fmt ='Localizing source %s, tolerance=%.1e...\n\t'+7*'%10s'
-         tup = (ps.name, tolerance,)+tuple('moved delta ra    dec   a    b  qual'.split())
-         print fmt % tup
-         print ('\t'+4*'%10.4f')% (0,0,ps.skydir.ra(), ps.skydir.dec())
-         diff = l.dir.difference(ps.skydir)*180/N.pi
-         print ('\t'+7*'%10.4f')% (diff,diff, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
-            
-      for i in xrange(5):
-         try:
-            l.fit(update=True)
-         except:
-            l.recenter()
-            if not self.quiet: print 'trying a recenter...'
-            continue
-         diff = l.dir.difference(ld)*180/N.pi
-         delt = l.dir.difference(ps.skydir)*180/N.pi
-         if not self.quiet: print ('\t'+7*'%10.4f')% (diff, delt, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
-         if diff < tolerance:
-            break
-         ld = SkyDir(l.dir.ra(),l.dir.dec())
-
-      if update:
-         self.psm.point_sources[which].skydir = l.dir
-         
-      ll_1 = self.spatialLikelihood(l.dir,update=update,which=which)
-      if not self.quiet: print 'TS change: %.2f'%(2*(ll_0 - ll_1))
-
-      self.qform   = l
-      self.ldir    = l.dir
-      self.lsigma  = l.sigma
-      self.rl      = rl
-      self.delta_loc_logl = (ll_0 - ll_1)
-      return l.dir
 
    def printSpectrum(self,sources=None):
       """Print total counts and estimated signal in each band for a list of sources.
@@ -430,27 +334,7 @@ class ROIAnalysis(object):
 
    def modify_loc(self,skydir,which):
       """Move point source given by which to new location given by skydir."""
-      self.spatialLikelihood(skydir,update=True,which=which)
+      rl = ROILocalizer(self,which=which,update=True)
+      rl.spatialLikelihood()
       self.psm.point_sources[which].skydir = skydir
 
-###====================================================================================================###
-
-class ROILocalizer(object):
-
-   def __init__(self,roi,which=0):
-      self.roi,self.which = roi, which
-      self.rd  = roi.psm.point_sources[which].skydir #note -- not necessarily ROI center!
-      self.tsref=0
-      self.tsref = self.TSmap(self.rd)
-            
-   def TSmap(self,skydir):
-      return (-2)*self.roi.spatialLikelihood(skydir,which=self.which)-self.tsref
-
-   def dir(self):
-      return self.rd
-
-   def errorCircle(self):
-      return 0.05 #initial guess
-
-   def __call__(self,v):
-      return self.TSmap(SkyDir(Hep3Vector(v[0],v[1],v[2])))
