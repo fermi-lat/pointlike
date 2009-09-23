@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.36 2009/09/21 22:07:02 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.37 2009/09/21 23:17:42 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.36 $'.split()[1]
+version='$Revision: 1.37 $'.split()[1]
 import os
 import sys
 
@@ -257,12 +257,17 @@ Optional keyword arguments:
                          of BGManager; can be used to instantiate an ROIAnalysis (or child)
                          object later
 
+
         Optional Keyword Arguments:
             ==========   =============
             keyword      description
             ==========   =============
 
-            nocat        [False] if True, do not add additional sources from a catalog 
+            nocat        [False] if True, do not add additional sources from a catalog
+            free_radius  [2] background point sources within this radius (deg) are allowed
+                             to vary in the fit; others are fixed at the catalog values
+            prune_radius [0.1] removes catalog sources within this distance of a user-
+                               defined source; degrees
             bg_smodels   [None]  a list of spectral models to replace the default ones in ConsistentBackground
                                  i.e., a custom set of spectral scaling models
             glat         [None]  the Galactic latitude of the source; sets default free parameters in diffuse
@@ -277,14 +282,17 @@ Optional keyword arguments:
             return
         
         # process kwargs
-        glat,bg_smodels,nocat = None,None,False
+        glat,bg_smodels,nocat,free_radius,prune_radius = None,None,False,2,0.1
         if 'glat'        in kwargs.keys(): glat   = kwargs.pop('glat')
         if 'bg_smodels'  in kwargs.keys(): models = kwargs.pop('bg_smodels')
         if 'nocat'       in kwargs.keys(): nocat  = kwargs.pop('nocat')
+        if 'free_radius' in kwargs.keys(): free_radius = kwargs.pop('free_radius')
+        if 'prune_radius'in kwargs.keys(): prune_radius= kwargs.pop('prune_radius')
 
         # setup backgrounds and point sources
         skydir        = self.roi_dir if point_sources is None else point_sources[0].skydir
         cb            = ConsistentBackground(self.ae,self.background)
+        cb.cm.free_radius = free_radius; cb.cm.prune_radius = prune_radius
         bgmodels      = cb.get_bgmodels(models=bg_smodels,lat=glat) if bgmodels is None else bgmodels
         point_sources = point_sources if nocat else cb.cm.merge_lists(skydir,self.maxROI+5,point_sources)
 

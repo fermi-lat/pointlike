@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.26 2009/09/21 22:07:02 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_localize.py,v 1.1 2009/09/23 04:45:25 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -31,6 +31,9 @@ class ROILocalizer(object):
       if bandfits:
          if 'energy_bands' not in roi.__dict__.keys(): roi.setup_energy_bands()
          for eb in roi.energy_bands: eb.bandFit(which=which,saveto='bandfits')
+         if N.all(N.asarray([b.bandfits for b in roi.bands]) < 0):
+            if not self.quiet: print 'Warning! No good band fits.  Reverting to broadband fit...'
+            self.bandfits = False
       self.tsref=0
       self.tsref = self.TSmap(self.rd)
 
@@ -127,6 +130,7 @@ class ROILocalizer(object):
          psnc                  = band.bandfits if bf else band.ps_counts[wh]
          psoc                  = band.ps_counts[wh]
 
+         if psnc < 0: continue # skip potentially bad band fits, or bands without appreciable flux
 
          tot_term              = (band.bg_all_counts + band.ps_all_counts + psnc * nover - psoc * oover ) * pf
 
