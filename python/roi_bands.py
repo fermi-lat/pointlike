@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_bands.py,v 1.3 2009/09/21 22:07:02 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_bands.py,v 1.4 2009/09/23 04:46:51 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -176,13 +176,11 @@ class ROIEnergyBand(object):
    def bandFit(self,which=0,saveto=None):
       """Fit a model-independent flux to a point source."""
 
+      bad_fit = False
       self.m = PowerLaw(free=[True,False],e0=(self.emin*self.emax)**0.5) # fix index to 2
       f = self.bandLikelihood
 
       self.fit = fmin(f,self.m.get_parameters(),disp=0,full_output=1,args=(self.m,which))
-
-      if saveto is not None:
-         for b in self.bands: b.__dict__[saveto] = b.expected(self.m)
 
       def upper_limit():
 
@@ -200,12 +198,16 @@ class ROIEnergyBand(object):
 
       # if flux below a certain level, set an upper limit
       if self.m.p[0] < -20:
+         bad_fit = True
          upper_limit()
 
       else:
    
-         hessian = SpectralModelFitter.hessian(self.m,self.bandLikelihood,which)[0] #does Hessian for free parameters
-         self.m.set_cov_matrix(inv(hessian))
+         try:
+            hessian = SpectralModelFitter.hessian(self.m,self.bandLikelihood,which)[0] #does Hessian for free parameters
+            self.m.set_cov_matrix(inv(hessian))
+         except:
+            bad_fit = True
 
          e = self.m.statistical(absolute=True,two_sided=True)
          self.flux  = e[0][0]
@@ -215,3 +217,5 @@ class ROIEnergyBand(object):
          if self.uflux / self.lflux > 1e3:
             upper_limit()
 
+      if saveto is not None:
+         for b in self.bands: b.__dict__[saveto] = (b.expected(self.m) if not bad_fit else -1)

@@ -1,6 +1,6 @@
 """Contains miscellaneous classes for background and exposure management.
    
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec_helpers.py,v 1.2 2009/09/20 20:43:19 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec_helpers.py,v 1.3 2009/09/20 21:05:03 burnett Exp $
 
    author: Matthew Kerr
    """
@@ -149,6 +149,7 @@ class CatalogManager(object):
 
    def init(self):
       self.prune_radius  = 0.10 #deg; in a merge, consider sources closer than this duplicates
+      self.free_radius   = 2 #deg; sources within this distance have free spectral parameters
       self.min_flux      = 1e-8 #ph/cm2/s; minimum flux for sources beyond a certain proximity
       self.max_distance  = 5 #deg; distance inside which sources are returned regardless of flux
       self.min_ts        = 25
@@ -177,7 +178,7 @@ class CatalogManager(object):
 
       f.close()
 
-   def get_sources(self,skydir,radius=15.,free_radius=2.):
+   def get_sources(self,skydir,radius=15):
     
       diffs   = N.degrees(N.asarray([skydir.difference(d) for d in self.dirs]))
       mask    = ((diffs < radius)&(self.ts > self.min_ts)) & \
@@ -192,7 +193,7 @@ class CatalogManager(object):
       names   = self.names[mask][sorting]
       models  = self.models[mask][sorting]
 
-      fm = diffs[sorting] < free_radius
+      fm = diffs[sorting] < self.free_radius
       point_sources = map(PointSource,dirs,names,models,fm)
       return point_sources
 
