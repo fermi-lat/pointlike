@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Tue Sep 22 21:46:51 PDT 2009
+pointlike/python
+
+Modified Files:
+	roi_analysis.py roi_bands.py 
+Log Message:
+Changes in consequence of factoring out localization code.  ROIAnalysis loses ~100 lines and retains convenience functions for localization.  EnergyBands modified to save the results of the band fits for use in localization.
+    *
+------------------------------------------------------------
 User: kerrm  Tue Sep 22 21:45:25 PDT 2009
 pointlike/python
 
