@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: kerrm  Wed Sep 23 16:09:20 PDT 2009
+pointlike/python
+
+Modified Files:
+	pointspec.py pointspec_helpers.py roi_bands.py roi_localize.py 
+Log Message:
+Added new kwarg functionality to SpectralAnalysis.roi -- now can specify the free_radius (for which source in background are included in the fit) and the prune_radius (for removing background sources that are spatially consistent with user-provided sources).
+
+Added some error checking for band-by-band fitting and excluded potential bad fits from localization.  Checked for case of all band fits bad, in which case revert to the broadband spectral fit.
+    *
+------------------------------------------------------------
 User: kerrm  Tue Sep 22 21:46:51 PDT 2009
 pointlike/python
 
