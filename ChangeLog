@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Thu Sep 24 14:44:37 PDT 2009
+pointlike/python
+
+Modified Files:
+	pixeldata.py 
+Log Message:
+Edited pixeldata.get_livetime to properly account for the default values of
+the tstart and tstop kwargs (i.e. 0 indicates no time cut).
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Sep 23 23:08:46 PDT 2009
 pointlike/python
 
