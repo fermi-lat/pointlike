@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.17 2009/09/20 21:05:03 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.18 2009/09/20 21:41:47 burnett Exp $
 
 """
-version='$Revision: 1.17 $'.split()[1]
+version='$Revision: 1.18 $'.split()[1]
 import os
 import math
 import skymaps
@@ -149,6 +149,8 @@ Optional keyword arguments:
             gti = skymaps.Gti(self.ft1files[0])
             for ef in self.ft1files[1:]:
                 gti.combine(skymaps.Gti(ef))
+            if self.tstart == 0: self.tstart = gti.minValue()
+            if self.tstop == 0: self.tstop = gti.maxValue()
             gti = gti.applyTimeRangeCut(self.tstart,max(gti.maxValue(),self.tstop))
             for hf in self.ft2files:
                 lt_gti = skymaps.Gti(hf,'SC_data')
