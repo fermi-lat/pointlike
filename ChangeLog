@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Sep 23 23:08:46 PDT 2009
+pointlike/python
+
+Modified Files:
+	roi_bands.py 
+Log Message:
+Added blurb to ROIEnergyBand to calculate its (quick) TS and save it as a member.
+    *
+------------------------------------------------------------
 User: kerrm  Wed Sep 23 16:09:20 PDT 2009
 pointlike/python
 
