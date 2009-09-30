@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: glastrm  Wed Sep 30 10:45:56 PDT 2009
+pointlike/cmt
+
+Modified Files:
+	requirements 
+Log Message:
+Fix CALDB in CMT and Swig module in SCons. Tag as pointlike-06-23-05
+    *
+------------------------------------------------------------
+User: glastrm  Wed Sep 30 10:45:56 PDT 2009
 pointlike
 
 Modified Files:
