@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Wed Sep 30 11:00:57 PDT 2009
+pointlike/python
+
+Modified Files:
+	pixeldata.py 
+Log Message:
+Modified get_livetime to save the gti used to fill the livetime cube for later use.
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-23-05, operation: mov
 Package: pointlike
