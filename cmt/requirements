@@ -1,8 +1,8 @@
 package pointlike
 
-version v6r22
+version v6r23p5
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.133 2009/07/15 17:44:53 jrb Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.134 2009/07/28 13:01:20 burnett Exp $
 
 use astro *
 use healpix *
@@ -47,4 +47,4 @@ application test_pointlike -s=test $(source)
 setup_script alias
 
 # specific to glast-ts
-set CALDB 'F:\glast\CALDB\v1r1\CALDB\data\glast\lat
+# set CALDB 'F:\glast\CALDB\v1r1\CALDB\data\glast\lat
