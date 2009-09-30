@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: glastrm  Wed Sep 30 10:49:01 PDT 2009
+pointlike
+
+Modified Files:
+	SConscript 
+Log Message:
+Typo in creating Swig Library
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-23-05, operation: add
 Package: pointlike
