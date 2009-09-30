@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.18 2009/09/20 21:41:47 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.19 2009/09/24 21:44:36 wallacee Exp $
 
 """
-version='$Revision: 1.18 $'.split()[1]
+version='$Revision: 1.19 $'.split()[1]
 import os
 import math
 import skymaps
@@ -133,6 +133,13 @@ Optional keyword arguments:
         return data
 
     def get_livetime(self,   pixelsize=1.0):
+    
+        gti = skymaps.Gti(self.ft1files[0])
+        for ef in self.ft1files[1:]:
+            gti.combine(skymaps.Gti(ef))
+        tmax = self.tstop if self.tstop > 0 else gti.maxValue()
+        self.gti = gti.applyTimeRangeCut(self.tstart,tmax) #save gti for later use
+        
         if self.ltcube is None or not os.path.exists(self.ltcube):
             if self.roi_dir is None:
                 # no roi specified: use full sky
@@ -146,15 +153,10 @@ Optional keyword arguments:
                 pixelsize  =pixelsize,
                 quiet      =self.quiet )
 
-            gti = skymaps.Gti(self.ft1files[0])
-            for ef in self.ft1files[1:]:
-                gti.combine(skymaps.Gti(ef))
-            if self.tstart == 0: self.tstart = gti.minValue()
-            if self.tstop == 0: self.tstop = gti.maxValue()
-            gti = gti.applyTimeRangeCut(self.tstart,max(gti.maxValue(),self.tstop))
             for hf in self.ft2files:
                 lt_gti = skymaps.Gti(hf,'SC_data')
-                if not ((lt_gti.maxValue() < gti.minValue()) or (lt_gti.minValue() > gti.maxValue())):
+                if not ((lt_gti.maxValue() < self.gti.minValue()) or 
+                            (lt_gti.minValue() > self.gti.maxValue())):
                    lt.load(hf,gti)
 
             # write out ltcube if requested
