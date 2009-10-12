@@ -82,7 +82,7 @@ class Psf(object):
       self.__calc_weights__(livetimefile,skydir)
 
    def get_p(self,e,ct,cthetabin=None):
-      ind   = N.searchsorted(self.e_his,e)
+      ind   = min(N.searchsorted(self.e_his,e),len(self.e_his) - 1)
       p     = self.tables[ct,:,ind,:]
       w     = self.weights[ct,ind,:]
       if cthetabin is None:
