@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Mon Oct 12 14:40:28 PDT 2009
+pointlike/python
+
+Modified Files:
+	roi_managers.py 
+Log Message:
+Fixed ROIPointSourceManager.cache() to properly deal with models with only one point source.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Oct 12 09:57:02 PDT 2009
 pointlike/python
 
