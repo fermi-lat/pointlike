@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Oct 16 08:54:31 PDT 2009
+pointlike/python
+
+Modified Files:
+	tsmap.py 
+Log Message:
+replace obsolete specialized stuff from sourcelike with function to generate source-based tsmaps
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-23-06, operation: add
 Package: pointlike
