@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.27 2009/09/23 04:46:51 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.28 2009/11/11 20:47:37 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -339,6 +339,6 @@ class ROIAnalysis(object):
    def modify_loc(self,skydir,which):
       """Move point source given by which to new location given by skydir."""
       rl = ROILocalizer(self,which=which,update=True)
-      rl.spatialLikelihood()
+      rl.spatialLikelihood(skydir)
       self.psm.point_sources[which].skydir = skydir
 
