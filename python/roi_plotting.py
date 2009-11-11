@@ -6,7 +6,7 @@ Given an ROIAnalysis object roi:
     plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.11 2009/09/21 00:47:16 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.12 2009/09/21 22:07:02 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -96,7 +96,7 @@ def band_fluxes(r,which=0,axes=None,axis=None,outfile=None):
 
    ax.set_xscale('log')
    ax.set_yscale('log')
-   ax.grid()
+   ax.grid(True)
 
    r.setup_energy_bands()
 
@@ -104,21 +104,42 @@ def band_fluxes(r,which=0,axes=None,axis=None,outfile=None):
       eb.bandFit()
       eb.merged = False
 
-   # count in from end to find how many high energy bins have only upper limits
+   # count in from high end to find how many high energy bins have only upper limits
    for n,neb in enumerate(r.energy_bands[::-1]):
       if neb.flux is not None: break
-   reg_slice    = slice(0,len(r.bin_centers) - n,1)
+   # count in from low end to find how many low energy bins have only upper limits
+   for nlo,neb in enumerate(r.energy_bands):
+      if neb.flux is not None: break
+   #reg_slice    = slice(0,len(r.bin_centers) - n,1)
+   reg_slice    = slice(nlo,len(r.bin_centers) - n,1)
    merged_slice = slice(len(r.bin_centers)-n, len(r.bin_centers), 1)
+   lo_merged_slice = slice(0,nlo,1)
 
    if n > 0:
       bands = []
       for eb in r.energy_bands[merged_slice]:
          for band in eb.bands:
             bands.append(band)
-      eb = ROIEnergyBand(bands,r.energy_bands[merged_slice][0].emin,r.energy_bands[merged_slice][-1].emax)
-      eb.bandFit()
-      eb.merged = True
-      r.energy_bands = r.energy_bands[reg_slice] + [eb]
+      ebhi = ROIEnergyBand(bands,r.energy_bands[merged_slice][0].emin,r.energy_bands[merged_slice][-1].emax)
+      ebhi.bandFit()
+      ebhi.merged = True
+      ebhi = [ebhi]
+   else:
+      ebhi = []
+
+   if nlo > 0:
+      bands = []
+      for eb in r.energy_bands[lo_merged_slice]:
+         for band in eb.bands:
+            bands.append(band)
+      eblo = ROIEnergyBand(bands,r.energy_bands[lo_merged_slice][0].emin,r.energy_bands[lo_merged_slice][-1].emax)
+      eblo.bandFit()
+      eblo.merged = True
+      eblo = [eblo]
+   else:
+      eblo = []
+
+   r.energy_bands = eblo + r.energy_bands[reg_slice] + ebhi
 
    for eb in r.energy_bands:
 

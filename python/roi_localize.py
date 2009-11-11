@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_localize.py,v 1.1 2009/09/23 04:45:25 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_localize.py,v 1.2 2009/09/23 23:09:20 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -156,10 +156,13 @@ class ROILocalizer(object):
             raise Exception('ROIAnalysis.spatialLikelihood failure at %.3f,%.3f, band %d' %(skydir.ra(),skydir.dec(),i))
 
          if up:
-            band.overlaps[which] = overlap 
-            band.ps_all_counts  += psc * (overlap - ool)
+            # update the cached counts with new location -- note that this used the _broadband_ spectral
+            # model rather than the band-by-band fit; otherwise, subsequent fits for broadband parameters
+            # would fail
+            band.overlaps[which] = nover
+            band.ps_all_counts  += psoc * (nover - oover)
             if band.has_pixels:
-               band.ps_all_pix_counts      += psc * (ps_pix_counts - band.ps_pix_counts[:,wh])
+               band.ps_all_pix_counts   += psoc * (ps_pix_counts - band.ps_pix_counts[:,wh])                              
                band.ps_pix_counts[:,wh]  = ps_pix_counts
 
       if N.isnan(ll):
