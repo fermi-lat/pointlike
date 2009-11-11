@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitstools.py,v 1.13 2009/08/12 01:20:14 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitstools.py,v 1.14 2009/09/17 21:15:20 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -15,6 +15,7 @@ import pyfits as pf
 import numpy as N
 from types import ListType,FunctionType,MethodType
 from math import cos,sin,pi
+from skymaps import SkyDir,Gti
 
 def rect_mask(lons,lats,cut_lon,cut_lat,lon_hwidth,lat_hwidth):
    mask = N.abs( lons - cut_lon)/N.cos(lats * N.pi / 180.) < lon_hwidth
@@ -40,12 +41,11 @@ def trap_mask(ras,decs,cut_dir,radius):
 
 def rad_mask(ras,decs,cut_dir,radius):
    """Make a slower, exact cut on radius."""
-   from skymaps import SkyDir
    diffs   = N.asarray([cut_dir.difference(SkyDir(ra,dec)) for ra,dec in zip(ras,decs)])   
    mask    = diffs*(180/N.pi) < radius
    return mask,diffs[mask]
 
-def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cuts=None):
+def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cuts=None,apply_GTI=True):
    """Extract events with a radial cut.  Return specified columns and perform additional boolean cuts.
 
       Return is in form of a dictionary whose keys are column names (and 'DIFFERENCES') and values are
@@ -74,6 +74,7 @@ Optional keyword arguments:
   return_cols ['RA','DEC','ENERGY','EVENT_CLASS','PULSE_PHASE'] - a list of FT1 column names to return
   cuts        None - an optional list of boolean cuts to apply, e.g., ['ENERGY > 100']
               NB -- cuts not yet implemented!!
+  apply_GTI   [True] accept or reject an event based on Gti if True; else ignore Gti
   =========   =======================================================
    """
    if not (type(radius_function) is FunctionType or type(radius_function) is MethodType):
@@ -88,17 +89,20 @@ Optional keyword arguments:
    from collections import defaultdict,deque
    coldict = defaultdict(deque)
    cols = {}
-   keys = list(set(['RA','DEC','ENERGY','CONVERSION_TYPE','ZENITH_ANGLE','THETA']+return_cols))
+   cut_cols = ['ZENITH_ANGLE','THETA','TIME']
+   keys = list(set(['RA','DEC','ENERGY','CONVERSION_TYPE']+cut_cols+return_cols))
 
    for eventfile in eventfiles:
-      from pyfits import open
-      e = open(eventfile,memmap=1)
+      e = pf.open(eventfile,memmap=1)
 
       for key in keys: cols[key] = N.asarray(e['EVENTS'].data.field(key)).astype(float)
 
       rad   = radius_function(cols['ENERGY'],cols['CONVERSION_TYPE'])
       tmask = N.logical_and(trap_mask(cols['RA'],cols['DEC'],center,rad),cols['ZENITH_ANGLE'] < ZENITH_CUT)
       tmask = N.logical_and(tmask,cols['THETA'] < THETA_CUT )
+      if apply_GTI:
+         gti = Gti(eventfile)
+         tmask = N.logical_and(tmask, N.asarray([gti.accept(t) for t in cols['TIME']]))
       if simple_scalar:
          rmask,diffs = rad_mask(cols['RA'][tmask],cols['DEC'][tmask],center,rad)
       else:
@@ -109,9 +113,11 @@ Optional keyword arguments:
       e.close()
    
    for key in coldict.keys():
-      if key == 'ZENITH_ANGLE' and 'ZENITH_ANGLE' not in return_cols: continue
+      if (key in cut_cols) and not (key in return_cols):
+         cols.pop(key)
+         continue
       cols[key] = N.concatenate([x for x in coldict[key]])
-      if key == INT_TYPES: cols[key] = cols[k].astype(int)
+      if key in INT_TYPES: cols[key] = cols[key].astype(int)
 
    return cols
 

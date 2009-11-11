@@ -414,3 +414,25 @@ def em_lc(coeffs,dom):
       rval += 2*(aks[i-1]*N.cos(i*dom) + bks[i-1]*N.sin(i*dom))
    return rval
 
+def weighted_z1(phases,weights):
+   """ Return the Z_1^2 test with weights."""
+
+   phases = N.asarray(phases)*(2*N.pi) #phase in radians
+
+   a = ((N.cos(phases)*weights).sum())**2
+   b = ((N.sin(phases)*weights).sum())**2
+
+   return 2/weights.sum()*(a + b)
+
+def z2mw(phases,weights,m=2):
+   """ Return the Z_m^2 test for each harmonic up to the specified m."""
+
+   phases = N.asarray(phases)*(2*N.pi) #phase in radians
+
+   n = len(phases)
+   #w = weights.sum()
+   s = (N.asarray([(N.cos(k*phases)*weights).sum() for k in xrange(1,m+1)]))**2 +\
+       (N.asarray([(N.sin(k*phases)*weights).sum() for k in xrange(1,m+1)]))**2
+
+   return 2./weights.sum()*N.cumsum(s)
+

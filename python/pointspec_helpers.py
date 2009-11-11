@@ -1,6 +1,6 @@
 """Contains miscellaneous classes for background and exposure management.
    
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec_helpers.py,v 1.3 2009/09/20 21:05:03 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec_helpers.py,v 1.4 2009/09/23 23:09:20 kerrm Exp $
 
    author: Matthew Kerr
    """
@@ -118,8 +118,8 @@ class ConsistentBackground(object):
 
       gal_index = True if (lat is not None and abs(lat) < 20) else False
       self.smodels[0].free[1] = gal_index # need to be careful about this
-
-      return map(ROIBackgroundModel,self.dmodels,self.smodels,self.names)
+      smodels = self.smodels if models is None else models
+      return map(ROIBackgroundModel,self.dmodels,smodels,self.names)
 
 
 ###====================================================================================================###

@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_bands.py,v 1.5 2009/09/23 23:09:20 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_bands.py,v 1.6 2009/09/24 06:08:46 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -53,11 +53,12 @@ class ROIBand(object):
       # note use of band sigma for consistency in photon selection!
       self.radius_in_rad = max(min((2*self.umax)**0.5*self.b.sigma(),ma),mi)
       ###### begin PSR cat code
-      #if self.catalog_aperture > 0:
-      #   th = 0.8*(self.e/1000.)**-0.75
-      #   if th > self.catalog_aperture: th = self.catalog_aperture
-      #   if th < 0.35: th = 0.35
-      #   self.radius_in_rad = th * N.pi / 180
+      if self.catalog_aperture > 0:
+         #th = 0.8*(self.e/1000.)**-0.75
+         th = 3.4*(self.e/100.)**-0.75
+         if th > self.catalog_aperture: th = self.catalog_aperture
+         if th < 0.35: th = 0.35
+         self.radius_in_rad = th * N.pi / 180
       ###### end PSR cat code
       self.wsdl          = WeightedSkyDirList(self.b,self.sd,self.radius_in_rad,False)
       self.pix_counts    = N.asarray([x.weight() for x in self.wsdl]) if len(self.wsdl) else 0.
@@ -173,6 +174,16 @@ class ROIEnergyBand(object):
       m.set_parameters(parameters)
       return sum( (b.bandLikelihood([b.expected(m)],*args[1:]) for b in self.bands) )
 
+   def normUncertainty(self,which=0):
+      tot = 0
+      for b in self.bands:
+         if not b.has_pixels: continue
+         my_pix_counts = b.ps_pix_counts[:,which]*b.expected(self.m)
+         all_pix_counts= b.bg_all_pix_counts + b.ps_all_pix_counts - b.ps_pix_counts[:,which]*b.ps_counts[which] + my_pix_counts
+         tot += (b.pix_counts * (my_pix_counts/all_pix_counts)**2).sum()
+      return tot**-0.5
+         
+         
    def bandFit(self,which=0,saveto=None):
       """Fit a model-independent flux to a point source."""
 
@@ -202,20 +213,26 @@ class ROIEnergyBand(object):
          upper_limit()
 
       else:
-   
          try:
-            hessian = SpectralModelFitter.hessian(self.m,self.bandLikelihood,which)[0] #does Hessian for free parameters
-            self.m.set_cov_matrix(inv(hessian))
+            #self.m.set_cov_matrix([[self.normUncertainty,0],[0,0]])
+            err = self.normUncertainty()
+         #try:
+         #   hessian = SpectralModelFitter.hessian(self.m,self.bandLikelihood,which)[0] #does Hessian for free parameters
+         #   self.m.set_cov_matrix(inv(hessian))
          except:
             bad_fit = True
 
-         e = self.m.statistical(absolute=True,two_sided=True)
-         self.flux  = e[0][0]
-         self.uflux = self.flux + e[1][0]
-         self.lflux = self.flux - e[2][0]
+         #e = self.m.statistical(absolute=True,two_sided=True)
+         #self.flux  = e[0][0]
+         #self.uflux = self.flux + e[1][0]
+         #self.lflux = self.flux - e[2][0]
+         self.flux  = 10**self.m.p[0] 
+         self.uflux = self.flux*(1 + err)
+         self.lflux = max(self.flux*(1 - err),1e-30)
 
-         if self.uflux / self.lflux > 1e3:
-            upper_limit()
+
+         #if self.uflux / self.lflux > 1e3:
+         #   upper_limit()
 
       if saveto is not None:
          for b in self.bands: b.__dict__[saveto] = (b.expected(self.m) if not bad_fit else -1)

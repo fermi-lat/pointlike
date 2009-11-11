@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.19 2009/07/22 02:56:54 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.20 2009/09/17 21:15:20 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -220,7 +220,6 @@ Optional keyword arguments:
          epsabs = func(emin)*1e-4 # needed since epsrel does not seem to work
          flux =  units*quad(func,emin,emax,epsabs=epsabs)[0]
          if not cgs: flux*=self.flux_scale #remove this?
-         
          if error:
             args = (emin,emax,e_weight,cgs,False)
             d   = self.__flux_derivs__(*args)[self.free]
@@ -273,16 +272,19 @@ Optional keyword arguments:
       
    def __flux_derivs__(self,*args):
       """Use finite differences to estimate the gradient of the integral flux wrt the spectral parameters."""
-      delta = .02
+
+      # note -- since spectral parameters are log transformed, just add/subtract a small amount in log space
+      delta = 1e-5
+      errs = N.asarray([delta] * len(self.p) )
+
       hi,lo = self.copy(),self.copy()
       derivs = []
       for i in xrange(len(self.p)):
-         my_delta = delta if self.p[i] >= 0 else -delta
-         hi.p[i]*=(1+my_delta/2.)
-         lo.p[i]*=(1-my_delta/2.)
-         derivs += [(hi.i_flux(*args) - lo.i_flux(*args))/(delta*self.p[i])]
-         hi.p[i]/=(1+my_delta/2.)
-         lo.p[i]/=(1-my_delta/2.)
+         hi.p[i] += errs[i]
+         lo.p[i] -= errs[i]
+         derivs  += [(hi.i_flux(*args) - lo.i_flux(*args))/(2*errs[i])]
+         hi.p[i] -= errs[i]
+         lo.p[i] += errs[i]
 
       return N.asarray(derivs)
 

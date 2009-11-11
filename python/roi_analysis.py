@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.26 2009/09/21 22:07:02 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.27 2009/09/23 04:46:51 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -184,13 +184,13 @@ class ROIAnalysis(object):
       try:
          if not do_background: raise Exception
          if not self.quiet: print 'Attempting to invert full hessian...'
-         cov_matrix = inv(hessian)
+         self.cov_matrix = cov_matrix = inv(hessian)
          self.bgm.set_covariance_matrix(cov_matrix,current_position=0)
          self.psm.set_covariance_matrix(cov_matrix,current_position=n)
       except:
          if not self.quiet: print 'Skipping full Hessian inversion, trying point source parameter subset...'
          try:
-            cov_matrix = inv(hessian[n:,n:])
+            self.cov_matrix = cov_matrix = inv(hessian[n:,n:])
             self.psm.set_covariance_matrix(cov_matrix,current_position=0)
          except:
             if not self.quiet: print 'Error in calculating and inverting hessian.'
@@ -308,6 +308,10 @@ class ROIAnalysis(object):
          d['point_sources'].append(m)
       for bg in self.bgm.models:
          d['backgrounds'].append(bg)
+      try:
+         d['localization'] = [self.ldir.ra(),self.ldir.dec(),self.lsigma]
+      except:
+         print 'No localization to save.'
       f = open(outfile,'w')
       dump(d,f)
       f.close()
