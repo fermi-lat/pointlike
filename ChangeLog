@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: kerrm  Wed Nov 11 12:47:38 PST 2009
+pointlike/python
+
+Modified Files:
+	Models.py fitstools.py phasetools.py pointspec.py 
+	pointspec_helpers.py roi_analysis.py roi_bands.py 
+	roi_localize.py roi_managers.py roi_plotting.py 
+Log Message:
+A variety of fixed and modifications that have developed over about 1 month, so unfortunately I can't remember all of the changes.  Most recent was a bug fix to the localization code.
+    *
+------------------------------------------------------------
 User: burnett  Fri Oct 16 08:54:31 PDT 2009
 pointlike/python
 
