@@ -1,13 +1,18 @@
 """ 
-code to develop fitting for a quadratic form
+Manage quadratic fitting, elliptical representation of the TS surface
+
+see Localize
+
+$Header$
+
 """
 from numpy import asarray, array, arange, zeros, matrix, sign, rec, linspace, isnan
 from math import sqrt, atan2, sin, cos, atan, pi, degrees, radians
 import os
-import skymaps
+from skymaps import SkyDir
+import numpy as np
 import pylab 
 
-#import makerec this dependency needed?
 
 def quadfun(r, p):
     x,y=r
@@ -79,22 +84,23 @@ class Ellipse(object):
         D = sqrt(X*X+Y*Y)
         if X<0: D=-D
         phi = pi/4 if X==0 else atan(Y/X)/2.
-        if flip:
-            phi = pi/2-phi
+        phi = phi-pi/2
         alpha, beta = abs(Z-D)/2, abs(Z+D)/2
         a = 1/sqrt(alpha)
         b = 1/sqrt(beta)
+        # convert to major axis, map to range (-90 to 90 deg)
         if  b>a:
             a,b = b,a
             phi += pi/2
+        if phi>= pi/2: phi-=pi
+        if phi< -pi/2: phi+=pi
 
         det = 4*p[0]*p[2] - p[4]**2
         x0 = (p[4]*p[3]-2*p[2]*p[1])/det
         y0 = (p[4]*p[1]-2*p[0]*p[3])/det
         # constant term is messy
-        s=sin(phi); c = cos(phi)
-        if flip:
-            s,c = c,s
+        s=-sin(phi); c = cos(phi)
+        s,c = c,s
         K = x0**2*((c/a)**2+(s/b)**2)\
            +y0**2*((c/b)**2+(s/a)**2)\
            -2*c*s*x0*y0*(1/a**2-1/b**2)
@@ -108,9 +114,8 @@ class Ellipse(object):
         """
         x,y = r
         phi = self.q[2]
-        s,c = sin(self.q[2]), cos(self.q[2])
-        if flip:
-            s,c = c,s
+        s,c = sin(-self.q[2]), cos(self.q[2])
+        s,c = c,s
         dx,dy = x-self.q[3], y-self.q[4]
         return ((c*dx-s*dy)/self.q[0])**2\
              + ((c*dy+s*dx)/self.q[1])**2\
@@ -118,11 +123,10 @@ class Ellipse(object):
 
     def contour(self, r=1, count=50):
         """ return set of points in around closed figure, offset from x0,yo"""
-        s,c = sin(self.q[2]), cos(self.q[2])
+        s,c = sin(-self.q[2]), cos(self.q[2])
         a,b = self.q[0],self.q[1]
         x0,y0 = self.q[3],self.q[4]
-        if flip:
-            s,c = c,s
+        s,c = c,s
         x = []
         y = []
         for t in linspace(0, 2*pi, count):
@@ -165,13 +169,14 @@ def testit(p=[ 1, 0, 2., 0, 0, 0 ]):
             print (4*'%10.3f'+'%10.1g') % ( x,y , u1[i], u2[i], u1[i]-u2[i] )
 
 class Localize(object):
-    fit_radius=2
+    fit_radius=2.5 #### modified from 2, works better for many weak sources
     def __init__(self, psl, verbose=True):
         self.verbose = verbose
         self.psl = psl
         self.dir = psl.dir()
         self.ra,self.dec = self.dir.ra(),self.dir.dec()
         self.sigma = psl.errorCircle()
+        self.qual_cache=-1
         if verbose: print ('initial: ra,dec, sigma:' +3*'%10.4f') % (self.ra,self.dec,self.sigma)
 
         #self.fit(update=True)
@@ -202,24 +207,28 @@ class Localize(object):
     def fit(self, update=True):
         verbose = self.verbose
         self.rcirc = self.circle()
+        self.qual_cache = -1
         self.ts = [self.TS(r) for r in self.rcirc]
-        if verbose: print  ('ts:  ' + ' '.join(9*['%9.2f'])) % tuple(self.ts)
+        if verbose: print ('ts:   ' + ' '.join(9*['%9.2f'])) % tuple(self.ts)
         self.ellipse = Ellipse(self.ts)
         self.chisq = self.ellipse.chisq
-        if verbose: print ('fit:  ' +len(self.ellipse.q)*'%9.2f') % tuple(self.ellipse.q)
         if verbose: print ('resid:' + ' '.join(9*['%9.2f']))% tuple(self.ts-self.ellipse.qf.v)
+        if verbose: print ('fit:  ' +len(self.ellipse.q)*'%9.2f') % tuple(self.ellipse.q)
         if verbose: print 'chisq: %9.2f' % self.ellipse.chisq
         radius = Localize.fit_radius
         if update:
             self.ra += self.ellipse.q[3]*self.sigma*radius
             self.dec+= self.ellipse.q[4]*self.sigma*radius
 
-            self.dir = skymaps.SkyDir(self.ra,self.dec)
+            self.dir = SkyDir(self.ra,self.dec)
             self.sigma= sqrt(self.ellipse.q[0]*self.ellipse.q[1])*self.sigma*radius
             if verbose: print ('update:  ra,dec, sigma:' +3*'%10.4f') % (self.ra,self.dec,self.sigma)
 
         self.par=[self.ra, self.dec, self.ts[0], radius*self.sigma*self.ellipse.q[0],
-                radius*self.sigma*self.ellipse.q[1], degrees(self.ellipse.q[2]),self.ellipse.chisq ]
+                radius*self.sigma*self.ellipse.q[1], degrees(self.ellipse.q[2]),
+                self.quality(),  # insert quality, but leave after
+                self.ellipse.chisq, # this was interpreted as a quality
+                ]
 
     def circle(self):
         """ make a circle at the radius (in sigma units) """
@@ -227,7 +236,24 @@ class Localize(object):
         points = [(0,0), (1,0), (d,d), (0,1), (-d,d), (-1,0), (-d,-d),  (0,-1),   (d,-d)]
         ddec = Localize.fit_radius*self.sigma
         dra  = ddec/cos(radians(self.dec))
-        return [skymaps.SkyDir(self.ra+x*dra,  self.dec+y*ddec) for x,y in points]
+        return [SkyDir(self.ra+x*dra,  self.dec+y*ddec) for x,y in points]
+
+    def quality(self, radius=2.5):
+        """ return a quality factor for the fit,
+            the sqrt of the sum of squares of the residuals at the given radius
+        """
+        if self.qual_cache>0: return self.qual_cache
+        qf = self
+        xp,yp = qf.ellipse.contour(qf.fit_radius, 8)  # get points at standard radius
+        ddec = radius*qf.sigma
+        dra  = ddec/np.cos(np.radians(qf.dec))
+        points = [SkyDir(qf.ra-x*dra,  qf.dec+y*ddec) for x,y in zip(xp,yp)]
+
+        tszero = qf.TS(SkyDir(qf.ra,qf.dec))-radius**2;
+        ts = np.asarray([qf.TS(p) for p in points]) #evaluate TS at the points
+        qual = np.sqrt( ((ts-tszero)**2).sum())
+        self.qual_cache=qual
+        return qual
 
 
 
