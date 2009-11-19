@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Nov 19 10:10:36 PST 2009
+pointlike/python
+
+Modified Files:
+	quadform.py 
+Log Message:
+updates to fix sign of angle, compute better quality, change defaullt radius for sampling the TS surface
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-24-00, operation: add
 Package: pointlike
