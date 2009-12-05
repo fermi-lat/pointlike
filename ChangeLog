@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec  5 10:21:42 PST 2009
+pointlike/python
+
+Modified Files:
+	roi_localize.py 
+Log Message:
+improve elliptical finding convergence
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-06-25-00, operation: add
 Package: pointlike
