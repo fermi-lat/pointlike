@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_localize.py,v 1.2 2009/09/23 23:09:20 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_localize.py,v 1.3 2009/11/11 20:47:37 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -19,16 +19,17 @@ class ROILocalizer(object):
       self.tolerance = 1e-3
       self.verbose   = False
       self.update    = False
+      self.max_iteration=10
+      self.bandfits  = True  #default use bandfits
 
-   def __init__(self,roi,which=0,bandfits=False,**kwargs):
+   def __init__(self,roi,which=0,**kwargs):
       self.init()
       self.__dict__.update(kwargs)
       self.roi,self.which = roi, which
       self.rd  = roi.psm.roi_dir
-      self.bandfits = bandfits
       self.quiet = roi.quiet
       
-      if bandfits:
+      if self.bandfits:
          if 'energy_bands' not in roi.__dict__.keys(): roi.setup_energy_bands()
          for eb in roi.energy_bands: eb.bandFit(which=which,saveto='bandfits')
          if N.all(N.asarray([b.bandfits for b in roi.bands]) < 0):
@@ -75,20 +76,25 @@ class ROILocalizer(object):
          print ('\t'+4*'%10.4f')% (0,0,ps.skydir.ra(), ps.skydir.dec())
          diff = l.dir.difference(ps.skydir)*180/N.pi
          print ('\t'+7*'%10.4f')% (diff,diff, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
-            
-      for i in xrange(5):
+      
+      old_sigma=1.0
+      for i in xrange(self.max_iteration):
          try:
+
             l.fit(update=True)
          except:
+            #raise
             l.recenter()
             if not self.quiet: print 'trying a recenter...'
             continue
          diff = l.dir.difference(ld)*180/N.pi
          delt = l.dir.difference(ps.skydir)*180/N.pi
+         sigma = l.par[3]
          if not self.quiet: print ('\t'+7*'%10.4f')% (diff, delt, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
-         if diff < tolerance:
+         if (diff < tolerance) and (abs(sigma-old_sigma) < tolerance):
             break
          ld = SkyDir(l.dir.ra(),l.dir.dec())
+         old_sigma=sigma
 
       if update:
          roi.psm.point_sources[which].skydir = l.dir
