@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: mar0  Tue Dec  8 14:19:44 PST 2009
+pointlike/src
+
+Modified Files:
+	AlignProc.cxx Data.cxx EventList.cxx EventList.h 
+Log Message:
+Fixed efficiency issue with FITS in Data, AlignProc, and EventList
+    *
+------------------------------------------------------------
+User: mar0  Tue Dec  8 14:19:44 PST 2009
 pointlike/pointlike
 
 Modified Files:
