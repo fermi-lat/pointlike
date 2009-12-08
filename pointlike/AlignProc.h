@@ -115,10 +115,10 @@ namespace pointlike{
         //! @param files an array of either root merit file
         //! @param arcmins determines the resolution of the grid about the identity rotation (0,0,0)
         AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::map<std::pair<int,int>,double> >& alphas ,std::vector<std::string>& rootfiles, 
-            const skymaps::PhotonBinner& pb, double arcsecs, double start=-1.0, double stop=-1.0); 
+            const skymaps::PhotonBinner& pb, double arcsecs, double start=-1.0, double stop=-1.0,int event_class=-1); 
 
         AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::map<std::pair<int,int>,double> >& alphas ,std::vector<std::string>& fitsfiles, const std::string& ft2file, 
-            const skymaps::PhotonBinner& pb, double arcsecs, double start=-1.0, double stop=-1.0);
+            const skymaps::PhotonBinner& pb, double arcsecs, double start=-1.0, double stop=-1.0,int event_class=-1);
         //! takes event information and returns a photon with pointing information
         pointlike::AlignProc::Photona events(std::vector<float>& row);
 
@@ -154,9 +154,12 @@ namespace pointlike{
         static int set_class_level(int level){int t = s_classlevel; s_classlevel = level; return t;}
 
     private:
+
+        bool addgti(const std::string& s);
         static int s_umax;
         static HepRotation s_hr;
         static int s_classlevel;
+        int m_event_class;
         void loadroot(const std::string& file);
         void loadfits(const std::string& file);
         int m_photons; //number of photons

@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.38 2009/02/24 23:07:10 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.39 2009/02/25 17:13:58 burnett Exp $
 */
 
 
@@ -38,14 +38,13 @@ public:
     //! constructor loads data from a fits FT1 or root file (MeritTuple) to make a BinnedPhotonData
     //! @param event_type 0 for class A front, etc, -1 for all
     //! @param source_id select given source (MC only, of course)
-    Data(const std::string& file, int event_type, double tstart, double tstop, int source_id=-1)
+    Data(const std::string& file, int event_type, double tstart, double tstop, int source_id=-1, std::string irf="")
         ;
     //! constructor loads data from a list of fits or root files to make a BinnedPhotonData
     //! @param event_type 0 for class A front, etc, -1 for all
     //! @param source_id select given source
     Data(std::vector<std::string> files, int event_type=-1, double tstart=0, double tstop=0,int source_id=-1, 
-        std::string ft2file=""
-        );
+        std::string ft2file="", std::string irf="");
 
 
 
@@ -146,6 +145,8 @@ public:
     /// @brief return  value of FOV cut
     static double theta_cut();
     static void set_theta_cut(double cut);
+    static double theta_min_cut();
+    static void set_theta_min_cut(double cut);
 
     /// @brief set Earth coordinate system
     static void useEarthCoordinates();
@@ -170,6 +171,7 @@ private:
     static astro::PointingHistory* s_history; ///< pointer to optional FT2 info.
     static double s_zenith_angle_cut;     ///< static value for cut on earth photons
     static double s_theta_cut;        ///< static value for theta, or FOV cut
+    static double s_theta_min_cut;
     static bool s_use_mc_energy;     ///< static value for mc energy flag
 };
 

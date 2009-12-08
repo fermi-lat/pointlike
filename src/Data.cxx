@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.66 2009/02/24 03:15:32 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.67 2009/02/24 23:07:10 kerrm Exp $
 
 */
 
@@ -15,9 +15,11 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.66 2009/02/24 0
 #include "astro/GPS.h"
 #include "astro/PointingTransform.h"
 #include "astro/PointingHistory.h"
+#include "astro/SolarSystem.h"
 
 #include "skymaps/SkyImage.h"
 #include "skymaps/BinnedPhotonData.h"
+#include "skymaps/IParams.h"
 
 #include "tip/IFileSvc.h"
 #include "tip/Table.h"
@@ -31,6 +33,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.66 2009/02/24 0
 #include "TLeaf.h"
 #include "TSystem.h"
 
+
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
@@ -38,6 +41,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.66 2009/02/24 0
 #include <cassert>
 #include <sstream>
 #include <stdexcept>
+#include <ctime>
 
 
 using astro::SkyDir;
@@ -49,10 +53,11 @@ using namespace pointlike;
 std::string Data::s_ft2file = std::string("");
 astro::PointingHistory* Data::s_history(0);
 namespace {
-        // file-scope pointer to gps instance
+    // file-scope pointer to gps instance
     astro::GPS* gps (astro::GPS::instance()); 
 
     int use_earth(0);  // flag to convert to Earth coordinates
+
 }
 void Data::useEarthCoordinates()
 {
@@ -82,6 +87,10 @@ double Data::s_zenith_angle_cut(105.); // standard cut
 double Data::zenith_angle_cut(){ return s_zenith_angle_cut;}
 void   Data::set_zenith_angle_cut(double cut){s_zenith_angle_cut=cut;}
 
+double Data::s_theta_min_cut(0.);
+double Data::theta_min_cut() {return s_theta_min_cut;}
+void   Data::set_theta_min_cut(double cut){s_theta_min_cut=cut;}
+
 double Data::s_theta_cut( 66.4 ); // standard cut (acos(0.4))
 double Data::theta_cut(){ return s_theta_cut;}
 void   Data::set_theta_cut(double cut){s_theta_cut=cut;}
@@ -107,13 +116,20 @@ void Data::set_alignment(const std::string & filename)
 
 namespace {
 
-
-
     std::string root_names[] = {"FT1Ra", "FT1Dec", 
         "CTBBestEnergy", "EvtElapsedTime",
         "FT1ConvLayer","PtRaz", 
         "PtDecz","PtRax",
-        "PtDecx", "CTBClassLevel","FT1ZenithTheta","FT1Theta","CTBCORE","CTBBestEnergyProb","CTBBestEnergyRatio"//THB, "McSourceId"//,"FT1ZenithTheta","CTBBestEnergyRatio","CTBCORE","CTBGAM"
+        "PtDecx", "CTBClassLevel","FT1ZenithTheta","FT1Theta","CTBCORE",
+        "CTBBestEnergyProb","CTBBestEnergyRatio","FT1Phi","GltTower","PtSCzenith","PtPos[3]"//THB, "McSourceId"//,"FT1ZenithTheta","CTBBestEnergyRatio","CTBCORE","CTBGAM"
+    };
+
+    std::string root_names2[] = {"FT1Ra", "FT1Dec", 
+        "CTBBestEnergy", "EvtElapsedTime",
+        "FT1ConvLayer","PtRaz", 
+        "PtDecz","PtRax",
+        "PtDecx", "CTBClassLevel","FT1ZenithTheta","FT1Theta","CTBCORE",
+        "CTBBestEnergyProb","CTBBestEnergyRatio","FT1Phi","GltTower","PtSCzenith","PtPos"
     };
 
     bool isFinite(double val) {
@@ -134,10 +150,32 @@ namespace {
         }
     }
 
+    void ShowPercent(int sofar, int total, int found, double speed)
+    {
+        static int toskip(50), skipped(0);
+        if(++skipped<toskip) return; skipped=0;
+        static int lastpercent(-1);
+        int percent( static_cast<int>(100 * sofar / total +0.5) );
+        if( percent==lastpercent) return;
+        lastpercent=percent;
+        char   s[70];
+        if ((total-sofar)/speed<60) {
+            sprintf(s, "%d%%, %d found. %d events/sec about %d sec left", percent, found, (int)(speed), (int)((total-sofar)/speed));
+        } else {
+            sprintf(s, "%d%%, %d found. %d events/sec about %d:%d min left", percent, found, (int)(speed), (int)((total-sofar)/(speed*60)), (int)((total-sofar)/(speed))%60);
+        }
+        std::cout << s;
+        if (sofar < total)
+        {
+            for (unsigned int j = 0; j < strlen(s); ++j)
+                std::cout << "\b";
+        }
+        else
+            std::cout << std::endl;
+    }
 
     // default binner to use
-    
-    skymaps::PhotonBinner* binner( new skymaps::PhotonBinner() );
+    skymaps::PhotonBinner* binner( new skymaps::PhotonBinner(4) );
 
 } // anon namespace
 
@@ -159,7 +197,7 @@ Data::Data(const embed_python::Module& setup)
         return;
     }
 
-    int  event_class, source_id;
+    int  event_class, source_id, class_level;
     std::vector<std::string> filelist;
     std::string history_filename;
     std::vector<double>alignment;
@@ -174,6 +212,8 @@ Data::Data(const embed_python::Module& setup)
     setup.getValue(prefix+"stop_time" , m_stop, -1);
     setup.getValue(prefix+"output_pixelfile", output_pixelfile, "");
     setup.getValue(prefix+"history",   history_filename, "");
+    setup.getValue(prefix+"class_level", class_level,3);
+    set_class_level(class_level);
     if( !history_filename.empty()){
         log() << "loading history file: " << history_filename << std::endl;
         Data::setHistoryFile(history_filename);
@@ -223,8 +263,8 @@ void Data::load_filelist(const std::vector<std::string>& filelist, int event_cla
         log() << "\tselecting time range: " << static_cast<int>(m_start) << " to " << 
             static_cast<int>(m_stop) << std::endl;
     }
-    log() << "\tCuts:  zenith theta and instrument theta: " << s_zenith_angle_cut << ", " 
-        << s_theta_cut<< std::endl;
+    log() << "\tCuts:  zenith theta and instrument theta (min,max): " << s_zenith_angle_cut << ", " 
+        << s_theta_min_cut << ", " << s_theta_cut<< std::endl;
     if( use_earth) { 
         log() << "\tConverting to zenith coordinates, not applying zenith cut" << std::endl;
     }
@@ -249,37 +289,20 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
     if( inputFile.find(".root") != std::string::npos) {
         lroot(inputFile, event_type);
         std::cout 
-          << "photons kept: "  << (m_data->photonCount() -photoncount) << " (total: " << m_data->photonCount() <<") "
-          << std::endl;
+            << "photons kept: "  << (m_data->photonCount() -photoncount) << " (total: " << m_data->photonCount() <<") "
+            << std::endl;
 
 
     }else {
-        // Process FITS format data
-        if( s_alignment->active() && s_ft2file.empty()) {
-            // need a FT2 file. Try replacing 'ft1' with 'ft2' in file name, assume in same folder
-            std::string ft2(inputFile);
-            size_t i = ft2.find("_ft1.fit");
-            //std::cout << "look for ft2 file needed by " << ft2 << std::endl;
-            if( i==std::string::npos ){
-                 throw std::invalid_argument("Data::add attempt to apply alignment correction without history support");
-            }
-            ft2.replace(i,10, "_ft2.fit");
-            try{
-                Data::setHistoryFile(ft2);
-            }catch( const std::exception & ){
-                std::cerr << "Could not load automatic ft2 file " 
-                    << std::endl;
-                throw;
-            }
-        }
+
         AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id);
         EventList photons(inputFile, source_id>-1, s_use_mc_energy);
 
         AddPhoton added =std::for_each(photons.begin(), photons.end(), adder );
         log() 
-          << "\t\t photons found: " << added.found() <<", kept: "  << (m_data->photonCount() -photoncount) 
-          << " (total: " << m_data->photonCount() <<") "
-          << std::endl;
+            << "\t\t photons found: " << added.found() <<", kept: "  << (m_data->photonCount() -photoncount) 
+            << " (total: " << m_data->photonCount() <<") "
+            << std::endl;
     }
 
 }
@@ -295,7 +318,7 @@ bool Data::addgti(const std::string& inputFile)
             skymaps::Gti tnew(inputFile);
             double tmin(tnew.minValue()), tmax(tnew.maxValue());
             ok = (m_start==0 || tmax > m_start)
-               && (m_stop==0 || tmin < m_stop ) ;
+                && (m_stop==0 || tmin < m_stop ) ;
             if( ok ) {
                 skymaps::Gti timerange(tnew.applyTimeRangeCut(m_start, std::max(m_stop, tmax)));
                 m_data->addgti(timerange); 
@@ -327,7 +350,7 @@ bool Data::addgti(const std::string& inputFile)
             m_data->addgti(tnew);
             std::cout << " found interval " 
                 << int(tnew.minValue())<<"-"<< int(tnew.maxValue())
-                << ", total: " << m_data->gti().computeOntime()<< " s." 
+                << ", total: " << (m_data->gti().computeOntime()<0?0:m_data->gti().computeOntime()) << " s." 
                 <<  std::endl;
         }
 
@@ -342,21 +365,23 @@ bool Data::addgti(const std::string& inputFile)
     }
     return ok;
 }
-Data::Data(const std::string& inputFile, int event_type, double tstart, double tstop, int source_id)
+Data::Data(const std::string& inputFile, int event_type, double tstart, double tstop, int source_id, std::string irf)
 : m_data(new BinnedPhotonData(*binner))
 , m_start(tstart), m_stop(tstop)
 , m_log(0)
 {
+    if(!irf.empty()) skymaps::IParams::init(irf);
     add(inputFile, event_type, source_id);
     addgti(inputFile);
 }
 
-Data::Data(std::vector<std::string> inputfiles, int event_type, double tstart, double tstop, int source_id, std::string ft2file)
+Data::Data(std::vector<std::string> inputfiles, int event_type, double tstart, double tstop, int source_id, std::string ft2file, std::string irf)
 : m_data(new BinnedPhotonData(*binner))
 , m_start(tstart), m_stop(tstop)
 , m_log(0)
 {
     if( !ft2file.empty() ) setHistoryFile(ft2file); // this is actually a global
+    if( !irf.empty() ) skymaps::IParams::init(irf);
 
     load_filelist(inputfiles,event_type,source_id);
 }
@@ -366,6 +391,7 @@ Data::Data(const std::string & inputFile, const std::string & tablename)
 , m_start(0), m_stop(0)
 , m_log(0)
 {
+    m_data->updateIrfs();
     //not needed? addgti(inputFile);
 }
 
@@ -440,32 +466,46 @@ void Data::lroot(const std::string& inputFile, int event_class) {
     std::vector<double> row;
     bool flag(true);
     //for each entry
+    double stime(clock()/CLOCKS_PER_SEC);
     for(int i(bstart);i<bstop&&(flag||m_start<0);++i) {
         tt->GetEvent(i);
         //for each
         for( size_t j(0); j< sizeof(root_names)/sizeof(std::string); j++){
+            const std::string name = root_names[j].c_str();
             TLeaf * tl = tt->GetLeaf(root_names[j].c_str());
             if(0==tl) {
                 tl = tt->GetLeaf(("_" + root_names[j]).c_str());
                 if(0==tl) {
-                    tt->Print();
+                    //tt->Print();
                     throw std::invalid_argument(std::string("Tuple: could not find leaf ")+root_names[j]);
                 }
             }
-            double v = tl->GetValue();
-            row.push_back(isFinite(v)?v:-1e8);
+            float v(0);
+                v = tl->GetValue();
+                row.push_back(isFinite(v)?v:-1e8);
         }
         double time(row[3])
             ,thetazenith(row[10]), ctbclasslevel(row[9]),theta(row[11]),core(row[12]),eprob(row[13]),ratio(row[14]) ;
-
         // perform event selection -- note uses local function events to transform
-        if( ratio<5 && eprob>0.1 && core>0.2  && thetazenith < Data::zenith_angle_cut() && theta < Data::theta_cut()
+        double curtime(clock()/CLOCKS_PER_SEC);
+        double speed((i-bstart)/(curtime-stime));
+        if( 
+            thetazenith < Data::zenith_angle_cut() &&
+            theta < Data::theta_cut() && theta>= Data::theta_min_cut()
+
             && ctbclasslevel>= Data::class_level() 
             && (Data::minTime()==0 || time>Data::minTime() )
             && (Data::maxTime()==0 || time<Data::maxTime() ) ) 
         {
+
+            //set_rot(rx[tower],ry[tower],rz[tower]);
+            if(i-bstart) ShowPercent(i-bstart+1,bstop-bstart+1,i-bstart+1,speed);
             astro::Photon p =  events(row); 
-            if (p.eventClass()==event_class||event_class==-1) m_data->addPhoton(  p);
+            if ((p.eventClass()==event_class||event_class==-1) 
+                ) {
+                    m_data->addPhoton(p);
+
+            }
         }
         if(endtime<Data::minTime()||time>Data::maxTime())  flag = false;
         row.clear();
@@ -515,7 +555,7 @@ void Data::setEnergyBins(const std::vector<double>& bins)
 ///@brief change default binner: must be done before loading data files
 void Data::setPhotonBinner(skymaps::PhotonBinner* b)
 {
- //THB confused by SWIG?   delete binner;
+    //THB confused by SWIG?   delete binner;
     binner = b;
 }
 

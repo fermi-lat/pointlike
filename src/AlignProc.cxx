@@ -1,15 +1,15 @@
 /** 
 Data Processing file, operates on a given Photon
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.12 2008/06/17 05:26:04 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.13 2008/11/11 01:31:16 mar0 Exp $
 
 */
 
 #include "pointlike/AlignProc.h"
-#include "skymaps/PhotonMap.h"
-#include "pointlike/Draw.h"
 #include "astro/PointingHistory.h"
 #include "skymaps/IParams.h"
+#include "astro/SolarSystem.h"
+#include "pointlike/PointSourceLikelihood.h"
 
 
 //tip stuff
@@ -26,11 +26,16 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/AlignProc.cxx,v 1.12 2008/06
 #include <float.h>
 #include <stdexcept>
 #include <fstream>
+#include <ctime>
 
 using namespace pointlike;
 using namespace CLHEP;
 //#define PRINT
 //#define ID
+//#define PHICUT
+//#define TOWERCUT
+//#define SOLARCUT
+
 #ifdef PRINT
 std::ofstream outfile("covar.txt");
 std::ofstream surfacexyz("surfacexyz.txt");
@@ -41,12 +46,14 @@ std::ofstream outfile("id.txt");
 
 namespace{
 
+    int tower_select = 0;
     int run=-1;
     //extra factor (kluge for now) for correcting scaled deviation
-    double E6 =1000;
+    double E6 =500;
     int minlevel = 8;
     int maxlevel = 13;
-    void ShowPercent(int sofar, int total, int found)
+
+    void ShowPercent(int sofar, int total, int found, double speed)
     {
         static int toskip(50), skipped(0);
         if(++skipped<toskip) return; skipped=0;
@@ -54,8 +61,12 @@ namespace{
         int percent( static_cast<int>(100 * sofar / total +0.5) );
         if( percent==lastpercent) return;
         lastpercent=percent;
-        char   s[50];
-        sprintf(s, "%d%%, %d found.", percent, found);
+        char   s[70];
+        if ((total-sofar)/speed<60) {
+            sprintf(s, "%d%%, %d found. %d events/sec about %d sec left", percent, found, (int)(speed), (int)((total-sofar)/speed));
+        } else {
+            sprintf(s, "%d%%, %d found. %d events/sec about %d:%d min left", percent, found, (int)(speed), (int)((total-sofar)/(speed*60)), (int)((total-sofar)/(speed))%60);
+        }
         std::cout << s;
         if (sofar < total)
         {
@@ -90,7 +101,16 @@ namespace{
         "PtDecz"/*6*/,"PtRax"/*7*/,
         "PtDecx"/*8*/, "CTBClassLevel"/*9*/
         , "EvtEventId"/*10*/
-        ,"EvtRun"/*11*/,"FT1Theta"/*12*/,"CTBCORE"/*13*/,"CTBBestEnergyProb"/*14*/,"CTBBestEnergyRatio"/*15*/
+        ,"EvtRun"/*11*/,"FT1Theta"/*12*/,"CTBCORE"/*13*/,"CTBBestEnergyProb"/*14*/,"CTBBestEnergyRatio"/*15*/,
+        "FT1Phi"/*16*/, "GltTower" /*17*/,"PtSCzenith"/*18*/, "PtPos[3]"/*19-21*/
+    };
+
+    std::string root_names2[] = {"FT1Ra", "FT1Dec", 
+        "CTBBestEnergy", "EvtElapsedTime",
+        "FT1ConvLayer","PtRaz", 
+        "PtDecz","PtRax",
+        "PtDecx", "CTBClassLevel","EvtEventId","FT1ZenithTheta","FT1Theta","CTBCORE",
+        "CTBBestEnergyProb","CTBBestEnergyRatio","FT1Phi","GltTower","PtSCzenith","PtPos"
     };
 
     std::string fits_names[] = {"RA", "DEC", 
@@ -100,6 +120,7 @@ namespace{
     double scale[] = {1.,1.86,1.,1.};
 
     double sigma_k;
+
 }
 
 //setup initally with no rotation
@@ -108,7 +129,7 @@ int AlignProc::s_classlevel = 2;
 int AlignProc::s_umax = 50;
 
 AlignProc::AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::map<std::pair<int,int>,double> >& alphas, std::vector<std::string>& files, 
-                     const skymaps::PhotonBinner& pb, double arcsecs, double start, double stop): 
+                     const skymaps::PhotonBinner& pb, double arcsecs, double start, double stop, int event_class): 
 m_photons(0),
 m_start(start),
 m_stop(stop),
@@ -116,7 +137,8 @@ m_skydir(sources),
 m_alphas(alphas),
 m_arcsec(arcsecs),
 m_roti(arcsecs*M_PI/648000),//offx*M_PI/648000,offy*M_PI/648000,offz*M_PI/648000)
-m_binner(pb)
+m_binner(pb),
+m_event_class(event_class)
 {
     for(std::vector<std::string>::const_iterator it = files.begin();it!=files.end();++it) {
         //either load through ROOT or cfitsio
@@ -125,7 +147,7 @@ m_binner(pb)
 };
 
 AlignProc::AlignProc(std::vector<astro::SkyDir>& sources, std::vector<std::map<std::pair<int,int>,double> >& alphas, std::vector<std::string>& files,const std::string& ft2file, 
-                     const skymaps::PhotonBinner& pb,double arcsecs, double start, double stop): 
+                     const skymaps::PhotonBinner& pb,double arcsecs, double start, double stop,int event_class): 
 m_photons(0),
 m_start(start),
 m_stop(stop),
@@ -133,14 +155,17 @@ m_skydir(sources),
 m_alphas(alphas),
 m_arcsec(arcsecs),
 m_roti(arcsecs*M_PI/648000),//offx*M_PI/648000,offy*M_PI/648000,offz*M_PI/648000)
-m_binner(pb)
+m_binner(pb),
+m_event_class(event_class)
 {
     if(ft2file.empty()) {
         std::cout << "No pointing file - exiting alignment procedure" << std::endl;
     } else {
         m_ph = new astro::PointingHistory(ft2file);
         for(std::vector<std::string>::const_iterator it = files.begin();it!=files.end();++it) {
-            loadfits(*it);
+            if (addgti(*it)) {
+                loadfits(*it);
+            }
         }
     }
 };
@@ -180,22 +205,36 @@ void AlignProc::loadroot(const std::string& file) {
     if(endtime<m_start&&m_start>0) return;
     std::vector<float> row;
     bool flag(true);
+    double stime(clock()/CLOCKS_PER_SEC);
     //for each entry
+    astro::SolarSystem ss(astro::SolarSystem::SUN);
     for(int i(bstart);i<bstop&&(flag||m_start<0);++i) {
 
         tt->GetEvent(i);
         //for each
-        for( int j(0); j< sizeof(root_names)/sizeof(std::string); j++){
-            TLeaf * tl = tt->GetLeaf(root_names[j].c_str());
+        for( int j(0); j< sizeof(root_names2)/sizeof(std::string); j++){
+            TLeaf * tl = tt->GetLeaf(root_names2[j].c_str());
             if(0==tl) {
-                tl = tt->GetLeaf(("_" + root_names[j]).c_str());
+                tl = tt->GetLeaf(("_" + root_names2[j]).c_str());
                 if(0==tl) {
                     tt->Print();
                     throw std::invalid_argument(std::string("Tuple: could not find leaf ")+root_names[j]);
                 }
             }
-            float v = tl->GetValue();
-            row.push_back(isFinite(v)?v:-1e8);
+#ifdef SOLARCUT
+            double v(0);
+            if(j<sizeof(root_names2)/sizeof(std::string)-1) {
+#endif
+                float v = tl->GetValue();
+                row.push_back(isFinite(v)?v:-1e8);
+#ifdef SOLARCUT
+            } else {
+                for(int it(0);it<3;++it) {
+                    v = tl->GetValue(it);
+                    row.push_back(isFinite(v)?v:-1e8);
+                }
+            }
+#endif
         }
 #ifdef ID
         if(row[11]!=run) {
@@ -204,10 +243,31 @@ void AlignProc::loadroot(const std::string& file) {
         }
 #endif
         pointlike::AlignProc::Photona p = events(row);
-        double theta(row[12]);
-        if(row[3]>=m_start&&theta<66&&p.eventClass()<2) {
-            add(p); 
-            ShowPercent(i,entries,m_photons);
+        double theta(row[12]),phi(row[16]);
+        int tower(row[17]);
+        double curtime(clock()/CLOCKS_PER_SEC);
+        double speed((i-bstart)/(curtime-stime));
+        if(row[3]>=m_start && 
+#ifdef PHICUT
+            theta>=45&&theta<=55&&phi<=280&&phi>=260
+#else
+            theta < 66
+#endif
+#ifdef TOWERCUT
+            && tower == tower_select
+#endif
+            &&(p.eventClass()==m_event_class||(m_event_class=-1&&p.eventClass()<2))) {
+#ifdef SOLARCUT
+                CLHEP::Hep3Vector sol = ss.getSolarVector(astro::JulianDate::missionStart()+row[3]/astro::JulianDate::secondsPerDay).unit();
+                CLHEP::Hep3Vector sc(row[19],row[20],row[21]);
+                sc = sc.unit();
+                if(sc.dot(sol)<0) {
+#endif
+                    add(p); 
+                    if(i-bstart) ShowPercent(i-bstart,bstop-bstart,i-bstart,speed);
+#ifdef SOLARCUT
+                }
+#endif
         }
         if(row[3]>m_stop) {
             flag=false;
@@ -220,8 +280,14 @@ void AlignProc::loadfits(const std::string& file ) {
     //todo : process fits file in same manner as ROOT
     const tip::Table * m_table = tip::IFileSvc::instance().readTable(file, "EVENTS", "");
     bool flag(true);
+    bool pass7(false);
     std::vector<float> row;
     tip::Table::ConstIterator m_it = m_table->begin();
+    try{
+        double dif;
+        (*m_it)["DIFRSP1"].get(dif);
+        pass7=true;
+    }catch (const std::exception& e) {}
     int entries = m_table->getNumRecords();
     int i(0);
     for(;m_it!=m_table->end()&&(flag||m_start<0);++m_it,++i){
@@ -231,18 +297,28 @@ void AlignProc::loadfits(const std::string& file ) {
             (*m_it)[*names++].get(data);
             row.push_back(data);
         }
-        row[4] = row[4]<1? 5 : 0;
+        //row[4] = row[4]<1? 5 : 0;
         row.push_back((*m_ph)(row[3]).zAxis().ra());
         row.push_back((*m_ph)(row[3]).zAxis().dec());
         row.push_back((*m_ph)(row[3]).xAxis().ra());
         row.push_back((*m_ph)(row[3]).xAxis().dec());
-        row.push_back(AlignProc::class_level());
+        if(pass7) {
+            (*m_it)["EVENT_CLASS"].get(data);
+        }
+        else {
+            (*m_it)["CTBCLASSLEVEL"].get(data);
+        }
+        row.push_back(data);
         row.push_back(0);
         row.push_back(0);
+        row.push_back(0);
+        row.push_back(0.5);
+        row.push_back(0.5);
+        row.push_back(1.);
         pointlike::AlignProc::Photona p = events(row);
         if(row[3]>=m_start) {
             add(p); 
-            ShowPercent(i,entries,i);
+            ShowPercent(i,entries,i,1);
         }
         if(row[3]>m_stop) {
             flag=false;
@@ -281,14 +357,17 @@ pointlike::AlignProc::Photona AlignProc::events(std::vector<float>& row) {
             core=row[13];
             prob=row[14];
             ratio=row[15];
-            if(core<=0.2||prob<=0.1||ratio>=5) event_class = 99;
+#if 0 //pass6 cuts
+            if(core<=0.1||prob<=0.1||ratio>=5) event_class = 99;
+#endif
         }
     }
     pointlike::AlignProc::Photona p(astro::SkyDir(ra, dec), energy, time, event_class ,
         astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),source_id);
-    if(event_class<99) {
-        astro::Photon ap = p.transform(AlignProc::s_hr);
+    if(event_class<99) {       
+        astro::Photon ap = p.transform(s_hr);
         p = pointlike::AlignProc::Photona(ap.dir(),ap.energy(),ap.time(),ap.eventClass(),astro::SkyDir(raz,decz),astro::SkyDir(rax,decx),source_id);
+
     }
     return p;
 }
@@ -297,7 +376,9 @@ int AlignProc::add(pointlike::AlignProc::Photona& p){
     int added(0);
     //unused int cl = p.eventClass();
     //above healpix level 8 (mostly signal photons)
-    if(p.eventClass()<2&&p.energy()>E6){
+    double emin,emax;
+    PointSourceLikelihood::get_energy_range(emin,emax);
+    if(p.eventClass()<2&&p.energy()>emin&&p.energy()<emax){
 
         skymaps::Band pband = m_binner(p);
         double diff = 1e9;
@@ -445,4 +526,21 @@ std::vector<double> AlignProc::alignment() {
 void  AlignProc::set_rot(const CLHEP::HepRotation& R)
 {
     s_hr=R;
+}
+
+bool AlignProc::addgti(const std::string& inputFile) {
+    bool ok = true;
+    // a FITS file: check for overlap
+    skymaps::Gti tnew(inputFile);
+    double tmin(tnew.minValue()), tmax(tnew.maxValue());
+    ok = (m_start==0 || tmax > m_start)
+        && (m_stop==0 || tmin < m_stop ) ;
+    if( ok ) {
+        skymaps::Gti timerange(tnew.applyTimeRangeCut(m_start, std::max(m_stop, tmax)));
+        std::cout << " found interval " 
+            << int(tmin)<<"-"<< int(tmax)<<  std::endl;
+    }else{
+        std::cout <<  " not in selected range" << std::endl;
+    }
+    return ok;
 }
