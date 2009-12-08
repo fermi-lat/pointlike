@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.19 2009/09/24 21:44:36 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pixeldata.py,v 1.20 2009/09/30 18:00:57 wallacee Exp $
 
 """
-version='$Revision: 1.19 $'.split()[1]
+version='$Revision: 1.20 $'.split()[1]
 import os
 import math
 import skymaps
@@ -138,7 +138,7 @@ Optional keyword arguments:
         for ef in self.ft1files[1:]:
             gti.combine(skymaps.Gti(ef))
         tmax = self.tstop if self.tstop > 0 else gti.maxValue()
-        self.gti = gti.applyTimeRangeCut(self.tstart,tmax) #save gti for later use
+        gti = self.gti = gti.applyTimeRangeCut(self.tstart,tmax) #save gti for later use
         
         if self.ltcube is None or not os.path.exists(self.ltcube):
             if self.roi_dir is None:
