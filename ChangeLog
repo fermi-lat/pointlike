@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Tue Dec  8 14:19:44 PST 2009
+pointlike/pointlike
+
+Modified Files:
+	AlignProc.h Data.h 
+Log Message:
+Fixed efficiency issue with FITS in Data, AlignProc, and EventList
+    *
+------------------------------------------------------------
 User: wallacee  Mon Dec  7 17:55:19 PST 2009
 pointlike/python
 
