@@ -2,8 +2,10 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-
+$Header$
 author: M. Kerr
+
+
 
 """
 
