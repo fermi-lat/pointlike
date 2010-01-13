@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_managers.py,v 1.4 2009/10/12 21:40:28 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_managers.py,v 1.5 2009/11/11 20:47:37 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -61,7 +61,7 @@ class ROIPointSourceManager(ROIModelManager):
 
    def setup_initial_counts(self,bands):
 
-      if not self.quiet: print '.....setting up point sources...',
+      if not self.quiet: print '.....setting up point sources (%d in ROI)...'%(len(self.point_sources)),
 
       roi_dir = self.roi_dir
       overlap = PsfOverlap()
@@ -284,7 +284,10 @@ class ROIBackgroundManager(ROIModelManager):
    def setup_initial_counts(self,bands):
       """Evaluate initial values of background models; these will be scaled in likelihood maximization."""
 
-      if not self.quiet: print '.....setting up diffuse backgrounds...',
+      if not self.quiet:
+         print '.....setting up diffuse backgrounds...',
+         for bg in self.bgmodels:
+            print '..........using %s'%(bg.name)
 
       SkyIntegrator.set_tolerance(0.02)
       exp = self.sa.exposure.exposure
@@ -298,7 +301,7 @@ class ROIBackgroundManager(ROIModelManager):
       for nband,band in enumerate(bands):
 
          #for bg in bgs: bg.set_event_class(band.ec)
-         bgs = back_bgs if band.ec else front_bgs
+         bgs = back_bgs if band.ct else front_bgs
          
          band.bg_points = sp = N.logspace(N.log10(band.emin),N.log10(band.emax),ns+1)
          band.bg_vector = sp * (N.log(sp[-1]/sp[0])/(3.*ns)) * \
@@ -330,6 +333,12 @@ class ROIBackgroundManager(ROIModelManager):
             band.bg_pix_counts = (band.pi_evals * band.mo_evals).sum(axis = 2) if band.has_pixels else 0
             band.bg_all_pix_counts = band.bg_pix_counts.sum(axis=1)
 
+         # temporary code to try to address NaN problem
+         band.backup_bg_counts     = band.bg_counts.copy()
+         if band.has_pixels:
+            band.backup_bg_pix_counts = band.bg_pix_counts.copy()
+         self.init_norms = N.asarray([m.p[0] for m in self.models])
+
       self.cache() # check that this doesn't cause problems -- it shouldn't
       if not self.quiet: print 'done!'
 
@@ -337,8 +346,7 @@ class ROIBackgroundManager(ROIModelManager):
 
       self.free_mask  = N.asarray([N.any(m.free) for m in self.models])
       self.edep_mask  = N.asarray([N.any(m.free[1:]) for m in self.models]) # first parameter is norm
-      self.init_norms = N.asarray([m.p[0] for m in self.models])
-          
+      #self.init_norms = N.asarray([m.p[0] for m in self.models])
 
    def update_counts(self,bands):
 
@@ -357,11 +365,14 @@ class ROIBackgroundManager(ROIModelManager):
                   
          else:
             ratio = 10**(m.p[0]-self.init_norms[nm])
-            self.init_norms[nm] = m.p[0]
+            if ratio == 0 or N.isnan(ratio): print ratio,m.p[0]
+            #self.init_norms[nm] = m.p[0]
             for band in bands: 
-               band.bg_counts[nm] *= ratio
+               #band.bg_counts[nm] *= ratio
+               band.bg_counts[nm] = ratio * band.backup_bg_counts[nm]
                if band.has_pixels:
-                  band.bg_pix_counts[:,nm] *= ratio               
+                  #band.bg_pix_counts[:,nm] *= ratio
+                  band.bg_pix_counts[:,nm] = ratio * band.backup_bg_pix_counts[:,nm]
 
       for band in bands:
          band.bg_all_counts = band.bg_counts.sum() #inefficient!

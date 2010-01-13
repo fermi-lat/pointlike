@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.28 2009/11/11 20:47:37 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.29 2009/11/11 21:00:36 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -85,6 +85,11 @@ class ROIAnalysis(object):
       bands = self.bands
       pf    = self.phase_factor
 
+      if N.any(N.isnan(parameters)):
+         # pretty ridiculous that this check must be made, but fitter passes NaNs...
+         return 1e6
+         # not sure if should "set parameters" in this case
+
       self.set_parameters(parameters)
       self.bgm.update_counts(bands)
       self.psm.update_counts(bands)
@@ -105,6 +110,7 @@ class ROIAnalysis(object):
                    ).sum() if b.has_pixels else 0.
                 )
 
+      #print ll,parameters
       return 1e6 if N.isnan(ll) else ll
 
 
@@ -126,10 +132,11 @@ class ROIAnalysis(object):
       old_psm_frees = []
       for m in self.psm.models:
          old_psm_frees.append(m.free.copy())
-         m.free = N.asarray([False]*len(m.free))
-      self.fit(fit_bg_first = False)
+         #m.free = N.asarray([False]*len(m.free))
+         m.free[:] = False
+      self.fit(fit_bg_first = False,estimate_errors=False)
       for n,nm in enumerate(self.psm.models):
-         nm.free = old_psm_frees[n]
+         nm.free[:] = old_psm_frees[n]
 
    def __pre_fit__(self):
       
@@ -179,6 +186,7 @@ class ROIAnalysis(object):
 
       n = len(self.bgm.parameters())
       hessian = SpectralModelFitter.hessian(self,self.logLikelihood)[0] #does Hessian for free parameters
+      success = False
       # TODO -- check the return code
 
       try:
@@ -187,13 +195,20 @@ class ROIAnalysis(object):
          self.cov_matrix = cov_matrix = inv(hessian)
          self.bgm.set_covariance_matrix(cov_matrix,current_position=0)
          self.psm.set_covariance_matrix(cov_matrix,current_position=n)
+         success = True
       except:
-         if not self.quiet: print 'Skipping full Hessian inversion, trying point source parameter subset...'
-         try:
-            self.cov_matrix = cov_matrix = inv(hessian[n:,n:])
-            self.psm.set_covariance_matrix(cov_matrix,current_position=0)
-         except:
-            if not self.quiet: print 'Error in calculating and inverting hessian.'
+         if len(self.psm.parameters()) > 0:
+            if not self.quiet: print 'Skipping full Hessian inversion, trying point source parameter subset...'
+            try:
+               self.cov_matrix = cov_matrix = inv(hessian[n:,n:])
+               self.psm.set_covariance_matrix(cov_matrix,current_position=0)
+            except:
+               if not self.quiet: print 'Error in calculating and inverting hessian.'
+         else:
+            np = len(self.get_parameters())
+            self.cov_matrix = N.zeros([np,np])
+
+      #return success
 
    def __str__(self):
       bg_header  = '======== BACKGROUND FITS =============='
@@ -293,11 +308,14 @@ class ROIAnalysis(object):
          print eb.spectralString(which=indices)
 
 
-   def save_fit(self,outfile):
+   def save_fit(self,outfile,additional_data=None):
       """Save the spectral models (and locations) for all point sources and diffuse models.
       
          This saves the need to refit.  A future iteration should actually save all of the
-         pixel predictions to avoid lengthy recalculation, too."""
+         pixel predictions to avoid lengthy recalculation, too.
+         
+         additional_data: an optional dictionary with keys to add to output; note that
+                          all entries should be serializable!"""
 
       d = defaultdict(list)
       for ps in self.psm.point_sources:
@@ -309,9 +327,12 @@ class ROIAnalysis(object):
       for bg in self.bgm.models:
          d['backgrounds'].append(bg)
       try:
-         d['localization'] = [self.ldir.ra(),self.ldir.dec(),self.lsigma]
+         d['localization'] = [self.ldir.ra(),self.ldir.dec(),self.lsigma,self.qform.par]
       except:
          print 'No localization to save.'
+      if additional_data is not None:
+         try:    d.update(additional_data)
+         except: print 'Warning! Could not merge requested keys into output dictionary.'
       f = open(outfile,'w')
       dump(d,f)
       f.close()

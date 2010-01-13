@@ -6,7 +6,7 @@ Given an ROIAnalysis object roi:
     plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.12 2009/09/21 22:07:02 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.13 2009/11/11 20:47:37 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -101,7 +101,7 @@ def band_fluxes(r,which=0,axes=None,axis=None,outfile=None):
    r.setup_energy_bands()
 
    for eb in r.energy_bands:
-      eb.bandFit()
+      eb.bandFit(which=which)
       eb.merged = False
 
    # count in from high end to find how many high energy bins have only upper limits
@@ -121,8 +121,9 @@ def band_fluxes(r,which=0,axes=None,axis=None,outfile=None):
          for band in eb.bands:
             bands.append(band)
       ebhi = ROIEnergyBand(bands,r.energy_bands[merged_slice][0].emin,r.energy_bands[merged_slice][-1].emax)
-      ebhi.bandFit()
+      ebhi.bandFit(which=which)
       ebhi.merged = True
+      ebhi.num = n
       ebhi = [ebhi]
    else:
       ebhi = []
@@ -133,8 +134,9 @@ def band_fluxes(r,which=0,axes=None,axis=None,outfile=None):
          for band in eb.bands:
             bands.append(band)
       eblo = ROIEnergyBand(bands,r.energy_bands[lo_merged_slice][0].emin,r.energy_bands[lo_merged_slice][-1].emax)
-      eblo.bandFit()
+      eblo.bandFit(which=which)
       eblo.merged = True
+      eblo.num = nlo
       eblo = [eblo]
    else:
       eblo = []
@@ -147,7 +149,7 @@ def band_fluxes(r,which=0,axes=None,axis=None,outfile=None):
       bc  = (xlo*xhi)**0.5
       fac = xlo*xhi 
       hw  = (xhi-xlo)/2.
-      if eb.merged: hw /= n
+      if eb.merged: hw /= eb.num
       
       if eb.flux is not None: 
          ax.plot([xlo,xhi],[fac*eb.flux,fac*eb.flux],color='red',lw=1)
@@ -182,20 +184,21 @@ def counts(r,integral=False):
             groupings[i].append(band)
       groupings[i] = list(groupings[i])
 
-   #kluge for now, assumes standard ordering of backgrounds...
-
-   iso = N.asarray([ sum((band.bg_counts[1] for band in g)) for g in groupings]) * p
-   gal = N.asarray([ sum((band.bg_counts[0] for band in g)) for g in groupings]) * p
+   #iso = N.asarray([ sum((band.bg_counts[1] for band in g)) for g in groupings]) * p
+   #gal = N.asarray([ sum((band.bg_counts[0] for band in g)) for g in groupings]) * p
+   dif = N.asarray([ N.asarray([band.bg_counts for band in g]).sum(axis=0) for g in groupings])*p
    obs = N.asarray([ sum((band.photons for band in g)) for g in groupings])
    src = N.asarray([ N.asarray([band.ps_counts*band.overlaps for band in g]).sum(axis=0) for g in groupings])*p
    
    if integral:
       for i in xrange(len(iso)):
-         iso[i] = iso[i:].sum()
-         gal[i] = gal[i:].sum()
+         #iso[i] = iso[i:].sum()
+         #gal[i] = gal[i:].sum()
+         dif[i] = dif[i:].sum(axis=0)
          obs[i] = obs[i:].sum()
          src[i] = src[i:].sum(axis=0)
-   return r.bin_edges,iso,gal,src,obs,[p.name for p in r.psm.point_sources]
+
+   return r.bin_edges,dif,src,obs,[b.name for b in r.bgm.bgmodels],[p.name for p in r.psm.point_sources]
 
 
 #-----------------------------------------------------------------------------#
@@ -203,12 +206,29 @@ def counts(r,integral=False):
 #-----------------------------------------------------------------------------#
 
 
-def plot_counts(r,fignum=1,outfile=None,integral=False,max_label=10):
+def plot_counts(r,fignum=1,outfile=None,integral=False,max_label=10,merge_non_free=True):
 
    colors = ['blue','green','red','orange']
 
-   en,iso,gal,src,obs,ps_names = counts(r,integral=integral)
+   en,dif,src,obs,bg_names,ps_names = counts(r,integral=integral)
    en = (en[1:]*en[:-1])**0.5
+
+   # optionally merge all of the "frozen" sources for a cleaner plot
+   if merge_non_free:
+      free_mask = N.asarray([N.any(m.free) for m in r.psm.models])
+      new_src   = N.zeros([len(en),free_mask.sum()+1])
+      counter = 0
+      for i in xrange(len(free_mask)):
+         if free_mask[i]:
+            new_src[:,counter] = src[:,i]
+            counter += 1
+         else:
+            new_src[:,-1] += src[:,i]
+      #return en,dif,src,obs,bg_names,ps_names,new_src
+      src      = new_src
+      ps_names = [ps_names[i] for i in xrange(len(ps_names)) if free_mask[i]]
+      ps_names += ['Other Point Sources']
+      
 
    P.clf()
    P.figure(fignum,(14,8))
@@ -216,17 +236,21 @@ def plot_counts(r,fignum=1,outfile=None,integral=False,max_label=10):
    P.gca().set_xscale('log')
    P.gca().set_yscale('log')
    for i,name in enumerate(ps_names):
-      if i < max_label:
-         P.loglog(en,src[:,i],linestyle='-',marker='',label=name)
-      else:
-         P.loglog(en,src[:,i],linestyle='-',marker='')
-   if not N.any(gal==0.):
-      P.loglog(en,gal,linestyle='-',marker='',label='Galactic')
+      #if i < max_label:
+      P.loglog(en,src[:,i],linestyle='-',marker='',label=name)
+      #else:
+      #   P.loglog(en,src[:,i],linestyle='-',marker='')
+   for i,name in enumerate(bg_names):
+      if N.any(dif[:,i]==0): continue
+      P.loglog(en,dif[:,i],linestyle='-',marker='',label=name)
+   #if not N.any(gal==0.):
+   #   P.loglog(en,gal,linestyle='-',marker='',label='Galactic')
 
-   if not N.any(iso==0.):
-      P.loglog(en,iso,linestyle='-',marker='',label='Isotropic')
+   #if not N.any(iso==0.):
+   #   P.loglog(en,iso,linestyle='-',marker='',label='Isotropic')
 
-   tot = src.sum(axis=1)+iso+gal
+   #tot = src.sum(axis=1)+iso+gal
+   tot = src.sum(axis=1) + dif.sum(axis=1)
    P.loglog(en,tot,linestyle='steps-mid',label='Total Model',color='black')
    err = obs**0.5
    low_err = N.where(obs-err <= 0, 0.99*obs, err)
