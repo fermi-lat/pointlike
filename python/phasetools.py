@@ -408,6 +408,9 @@ def em_four(phases,m=2,weights=None):
    return aks,bks
 
 def em_lc(coeffs,dom):
+
+   dom = N.asarray(dom)*(2*N.pi)
+
    aks,bks = coeffs
    rval = N.ones_like(dom)
    for i in xrange(1,len(aks)+1):
@@ -436,3 +439,24 @@ def z2mw(phases,weights,m=2):
 
    return 2./weights.sum()*N.cumsum(s)
 
+
+def h_statistic(phases,weights=None,m=20):
+
+   phases = N.asarray(phases)*(2*N.pi) #phase in radians
+
+   if weights is None:
+      n = len(phases); weights = 1
+   else:
+      n = weights.sum();
+
+   if n < 1e5:  #faster but requires ~20x memory of alternative
+
+      s = (weights*N.cos(N.outer(N.arange(1,m+1),phases))).sum(axis=1)**2 +\
+          (weights*N.sin(N.outer(N.arange(1,m+1),phases))).sum(axis=1)**2
+
+   else:
+
+      s = (N.asarray([(weights*N.cos(k*phases)).sum() for k in xrange(1,m+1)]))**2 +\
+          (N.asarray([(weights*N.sin(k*phases)).sum() for k in xrange(1,m+1)]))**2
+
+   return (2./n*N.cumsum(s) - 4*N.arange(0,m)).max()

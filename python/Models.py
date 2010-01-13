@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.20 2009/09/17 21:15:20 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.21 2009/11/11 20:47:37 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -8,6 +8,7 @@
 
 import numpy as N
 import math as M
+from scipy.integrate import quad
 
 
 #===============================================================================================#
@@ -213,12 +214,15 @@ Optional keyword arguments:
   two_tailed  [False] if True, return value is a triple with flux, estimated high and low errors
   =========   =======================================================
       """
+
+      # check for a divergent flux
+      if 100*self(100) <= 1e5*self(1e5): emax = min(5e5,emax)
+
       try:
-         from scipy.integrate import quad
-         func = self if e_weight == 0 else lambda e: self(e)*e**e_weight
-         units = 1.60218e-6**(e_weight) if cgs else 1. #extra factor from integral!
+         func   = self if e_weight == 0 else lambda e: self(e)*e**e_weight
+         units  = 1.60218e-6**(e_weight) if cgs else 1. #extra factor from integral!
          epsabs = func(emin)*1e-4 # needed since epsrel does not seem to work
-         flux =  units*quad(func,emin,emax,epsabs=epsabs)[0]
+         flux   =  units*quad(func,emin,emax,epsabs=epsabs)[0]
          if not cgs: flux*=self.flux_scale #remove this?
          if error:
             args = (emin,emax,e_weight,cgs,False)
@@ -306,6 +310,11 @@ Spectral parameters:
       n0,gamma = 10**self.p
       gamma -= self.index_offset
       return n0/(1-gamma)*self.e0**gamma*(emax**(1-gamma)-emin**(1-gamma))
+
+   def gradient(self,e):
+      n0,gamma = 10**self.p
+      f = (n0/self.flux_scale)*(self.e0/e)**(gamma-self.index_offset)
+      return N.asarray([f,f/n0,-gamma/e*f])
 
 #===============================================================================================#
 

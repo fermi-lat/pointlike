@@ -1,7 +1,6 @@
 
 import numpy as N
 
-
 def profile(roi,param,points):
    """Find likelihood profile for given profile.  Assume we are talking about the source at the center of the ROI."""
    
@@ -22,43 +21,140 @@ def profile(roi,param,points):
 
    return likelihood_vals
 
-def snr(roi,aperture=1):
-   #could ultimately use an arbitrary function of energy to calculate SNR; for now, fixed
+###====================================================================================================###
 
-   aperture *= (N.pi/180.)
 
-   ps_counts = 0
-   bg_counts = 0
+from types import FunctionType,MethodType
+from pypsf import PsfOverlap
+from skymaps import Background,SkyIntegrator
+
+def snr_setup(roi,radius_function):
+   """Calculate the SNR (or TS) as a function of aperture/energy.
    
-   psm = roi.ps_manager
-   sd  = psm.ROI_dir()
-   from roi_modules import ROIOverlap
-   ro = ROIOverlap()
+      radius_func = a function of energy, conversion_type giving the aperture in deg
+      can be a fixed aperture (a scalar)"""
 
-   for slw in roi.fitter.pslw:
-      for i,ps in enumerate(psm.point_sources):
-         contrib = ro(slw,sd,ps.skydir,fixed_radius=aperture) * slw.ps_counts[i]
-         ps_counts += (contrib if i == 0 else 0)
-         bg_counts += (contrib if i >  0 else 0)
+   #for key in ['bands','psm','bgm']:
+   #   locals()[key] = roi.__dict__[key]
+   bands         = roi.bands
+   psm           = roi.psm
+   bgm           = roi.bgm
+   point_sources = psm.point_sources
+   roi_dir = rd  = psm.roi_dir
+   nm            = len(bgm.models)
+   ns            = bgm.nsimps
+   exp           = bgm.sa.exposure.exposure
 
-   from skymaps import Background,BandBackground
+   front_bgs = [Background(model.get_dmodel(0),exp[0]) for model in bgm.bgmodels]
+   back_bgs  = [Background(model.get_dmodel(1),exp[1]) for model in bgm.bgmodels]
 
-   bgm = roi.bg_manager
-   for bgt in ['galactic','isotropic']:
 
-      if bgm.__dict__['use_%s'%bgt]:
+   if not (type(radius_function) is FunctionType or type(radius_function) is MethodType):
+      simple_scalar = True
+      rval = radius_function
+      radius_function = lambda e,event_class: rval
+   else: simple_scalar = False
 
-         sa = bgm.spectral_analysis
-         bg = Background(sa.background.__dict__['%s_diffuse'%bgt],sa.exposure.exposure[0],sa.exposure.exposure[1])
-         sh = bgt[:3]
+   
+   overlap = PsfOverlap()
+   for nband,band in enumerate(bands):
 
-         for slw in roi.fitter.pslw:
-            band            = slw.sl.band()
-            band_background = BandBackground(bg,band)
-            counts          = band_background.average(bgm.roi_dir,aperture,0.01) * N.pi*(aperture)**2
-            bg_counts       += counts/slw.__dict__[sh+'_ic']*slw.__dict__[sh+'_exp']
+      # establish new overlaps for aperture
+      radius_in_rad          = N.radians(radius_function(band.e,band.ct))
+      denom                  = band.exp.value(roi_dir,band.e)
+      exposure_ratios        = N.asarray([band.exp.value(ps.skydir,band.e)/denom for ps in point_sources])
+      band.snr_overlaps      = N.asarray([overlap(band,roi_dir,ps.skydir,radius_in_rad) for ps in point_sources])
+      #band.snr_overlaps     *= (band.solid_angle/band.solid_angle_p) #small correction for ragged edge
+      band.snr_overlaps     *= exposure_ratios
 
-   return ps_counts,bg_counts,ps_counts/(ps_counts + bg_counts)**0.5
+      # make a mask for pixels
+      if band.has_pixels:
+         if 'pixel_diffs' not in band.__dict__.keys():
+            band.pixel_diffs = N.asarray([wsd.difference(roi_dir) for wsd in band.wsdl])
+         band.snr_mask = band.pixel_diffs <= radius_in_rad
+
+      # do diffuse counts
+      bgs       = back_bgs if band.ct else front_bgs
+      ap_evals  = N.empty([nm,ns + 1])      
+               
+      for ne,e in enumerate(band.bg_points):
+         for nbg,bg in enumerate(bgs):
+            bg.setEnergy(e)
+            ap_evals[nbg,ne]      = SkyIntegrator.ss_average(bg,rd,radius_in_rad)
+      ap_evals *= (N.pi*radius_in_rad**2) * band.bg_vector
+      
+      mo_evals = N.empty([nm,ns + 1])
+      for n,m in enumerate(bgm.models):
+         mo_evals[n,:] = m(band.bg_points)
+
+      band.snr_bg_counts     = (ap_evals * mo_evals).sum(axis = 1)
+      band.snr_bg_all_counts = band.snr_bg_counts.sum()
+ 
+###====================================================================================================###
+
+def snr_profile(roi,radii):
+
+   signals = N.zeros([len(radii),len(roi.energy_bands)])
+   backs   = N.zeros_like(signals)
+   altlogs  = N.zeros_like(signals)
+   nulllogs = N.zeros_like(signals)
+
+   if 'energy_bands' not in roi.__dict__.keys(): roi.setup_energy_bands()
+
+   for nrad,rad in enumerate(radii):
+      snr_setup(roi,rad)
+      for neb,eb in enumerate(roi.energy_bands):
+         for nb,b in enumerate(eb.bands):
+            spscounts = b.ps_counts[0] * b.snr_overlaps[0]
+            bpscounts = (b.ps_counts[1:] * b.snr_overlaps[1:]).sum()
+            dcounts   = b.snr_bg_all_counts
+            m         = b.snr_mask
+
+            signals[nrad,neb] += spscounts
+            backs[nrad,neb]   += bpscounts + dcounts
+
+            tot_pix = b.ps_all_pix_counts[m] + b.bg_all_pix_counts[m]
+            null_tot_pix = b.null_ps_all_pix_counts[m] + b.null_bg_all_pix_counts[m]
+            altlogs[nrad,neb]  += (b.pix_counts[m] * N.log(tot_pix)).sum()
+            #nulllogs[nrad,neb] += (b.pix_counts[m] * N.log(tot_pix - b.ps_counts[0]*b.ps_pix_counts[:,0][m])).sum()
+            nulllogs[nrad,neb] += (b.pix_counts[m] * N.log(null_tot_pix)).sum()
+            
+   ts = 2* ( altlogs - nulllogs - signals)
+   return signals,backs,ts,altlogs,nulllogs
+
+###====================================================================================================###
+
+def TS(self,quick=True,which=0,save_null=False):
+   """Calculate the significance of the central point source.
+      
+      quick -- if set True, just calculate likelihood with source flux set to 0
+               if set False, do a full refit of all other free sources
+               
+      which -- the index of source to calculate -- default to central."""
+
+   if quick:
+      self.zero_ps(which)
+      ll_0 = self.logLikelihood(self.get_parameters())
+      self.unzero_ps(which)
+      ll_1 = self.logLikelihood(self.get_parameters())
+      return 2*(ll_0 - ll_1)
+
+   save_params = self.parameters().copy() # save free parameters
+   self.zero_ps(which)
+   ll_0 = self.fit(save_values = False)
+   print self
+   
+   if save_null:
+      base_keys = ['ps_all_counts','bg_all_counts']
+      for band in self.bands:
+         keys = base_keys + (['ps_all_pix_counts','bg_all_pix_counts'] if band.has_pixels else [])
+         for key in keys: band.__dict__['null_'+key] = band.__dict__[key]
+
+   self.unzero_ps(which)
+   self.set_parameters(save_params) # reset free parameters
+   self.__pre_fit__() # restore caching
+   ll = -self.logLikelihood(save_params)
+   return -2*(ll_0 - ll)
 
 ###====================================================================================================###
 

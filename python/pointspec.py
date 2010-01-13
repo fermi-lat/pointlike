@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.38 2009/09/23 23:09:20 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.39 2009/11/11 20:47:37 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.38 $'.split()[1]
+version='$Revision: 1.39 $'.split()[1]
 import os
 import sys
 
@@ -180,7 +180,7 @@ Optional keyword arguments:
 
   =========    KEYWORDS CONTROLLING INSTRUMENT RESPONSE
   irf          ['P6_v3_diff'] Which IRF to use
-  new_psf      [None] if not None, must point to a piclkle of a fit to allGamma data
+  new_psf      [None] if not None, must point to a pickle of a fit to allGamma data
   
   =========    KEYWORDS CONTROLLING SPECTRAL ANALYSIS
   background   ['ems_ring'] - a choice of global model specifying a diffuse background; see ConsistentBackground for options
@@ -264,6 +264,7 @@ Optional keyword arguments:
             ==========   =============
 
             nocat        [False] if True, do not add additional sources from a catalog
+            minflux      [1e-8] Minimum integral flux (ph/cm2/s) for sources more than 5 deg from ROI center to be included
             free_radius  [2] background point sources within this radius (deg) are allowed
                              to vary in the fit; others are fixed at the catalog values
             prune_radius [0.1] removes catalog sources within this distance of a user-
@@ -274,6 +275,7 @@ Optional keyword arguments:
             fit_emin     [100,100] minimum energies (separate for front and back) to use in spectral fitting.
             fit_emax     [1e5,1e5] maximum energies (separate for front and back) to use in spectral fitting.
             no_roi       [False] If set, return a ps_manager, roi_manager instead (for separate generation of an ROIAnalysis)
+            user_skydir  [None] A user-provided SkyDir that will be the center of the ROI
             ==========   =============
         """
 
@@ -282,17 +284,22 @@ Optional keyword arguments:
             return
         
         # process kwargs
-        glat,bg_smodels,nocat,free_radius,prune_radius = None,None,False,2,0.1
-        if 'glat'        in kwargs.keys(): glat   = kwargs.pop('glat')
-        if 'bg_smodels'  in kwargs.keys(): bg_smodels = kwargs.pop('bg_smodels')
-        if 'nocat'       in kwargs.keys(): nocat  = kwargs.pop('nocat')
+        glat,bg_smodels,nocat,minflux,free_radius,prune_radius,user_skydir = None,None,False,1e-8,2,0.1,None
+        #for key in ['glat','bg_smodels','nocat','minflux','free_radius','prune_radius']
+        if 'glat'        in kwargs.keys(): glat        = kwargs.pop('glat')
+        if 'bg_smodels'  in kwargs.keys(): bg_smodels  = kwargs.pop('bg_smodels')
+        if 'nocat'       in kwargs.keys(): nocat       = kwargs.pop('nocat')
+        if 'minflux'     in kwargs.keys(): minflux     = kwargs.pop('minflux')
         if 'free_radius' in kwargs.keys(): free_radius = kwargs.pop('free_radius')
         if 'prune_radius'in kwargs.keys(): prune_radius= kwargs.pop('prune_radius')
+        if 'user_skydir' in kwargs.keys(): user_skydir = kwargs.pop('user_skydir')
 
         # setup backgrounds and point sources
-        skydir        = self.roi_dir if point_sources is None else point_sources[0].skydir
+        skydir        = user_skydir or (self.roi_dir if point_sources is None else point_sources[0].skydir)
         cb            = ConsistentBackground(self.ae,self.background)
-        cb.cm.free_radius = free_radius; cb.cm.prune_radius = prune_radius
+        cb.cm.free_radius  = free_radius;
+        cb.cm.prune_radius = prune_radius;
+        cb.cm.min_flux     = minflux
         bgmodels      = cb.get_bgmodels(models=bg_smodels,lat=glat) if bgmodels is None else bgmodels
         point_sources = point_sources if nocat else cb.cm.merge_lists(skydir,self.maxROI+5,point_sources)
 
@@ -303,15 +310,15 @@ Optional keyword arguments:
             for i in xrange(len(bg)):
                 backgrounds[i].smodel = bg[i]
 
-        ps_manager = ROIPointSourceManager(point_sources,point_sources[0].skydir,quiet=self.quiet)
-        bg_manager = ROIBackgroundManager(self, bgmodels, ps_manager.roi_dir,quiet=self.quiet)
+        ps_manager = ROIPointSourceManager(point_sources,skydir,quiet=self.quiet)
+        bg_manager = ROIBackgroundManager(self, bgmodels,skydir,quiet=self.quiet)
 
         # if didn't specify a source, pick closest one and make it free -- maybe remove this?
         if point_sources is None and (not N.any([N.any(m.free) for m in ps_manager.models])):
             ps_manager.models[0].free[:] = True
             
         # n.b. weighting PSF for the central point source
-        self.psf.set_weights(self.ltcube,ps_manager.roi_dir)
+        self.psf.set_weights(self.ltcube,skydir)
 
         if no_roi: return ps_manager,bg_manager
 
