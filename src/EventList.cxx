@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.12 2009/09/11 19:26:10 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.13 2009/12/08 22:19:44 mar0 Exp $
 */
 
 #include "EventList.h"
@@ -43,7 +43,7 @@ namespace{
         return (isfinite(val)!=0); // gcc call available in math.h 
 #endif
     }
-    bool apply_correction(true); // set true to apply correction. disabled now
+    bool apply_correction(false); // set true to apply correction. disabled now
 
 
 }// anon namespace
@@ -87,7 +87,6 @@ void AddPhoton::operator()(const Photon& gamma)
             //fixed=oldfix; // replace!!!
 
 #endif
-
 
             m_map.addPhoton(astro::Photon(fixed, gamma.energy(),gamma.time(),gamma.eventClass()));
         }else{

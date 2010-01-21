@@ -2,16 +2,16 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
     
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec.py,v 1.40 2010/01/13 20:47:55 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.40 $'.split()[1]
+version='$Revision: 1.1 $'.split()[1]
 import os
 import sys
 
 from pixeldata import PixelData
-from pypsf     import Psf,OldPsf,NewPsf
+from pypsf     import Psf,OldPsf,NewPsf,CALDBPsf
 from pointspec_helpers import ExposureManager,ConsistentBackground
 from roi_managers import ROIPointSourceManager,ROIBackgroundManager
 from roi_analysis import ROIAnalysis
@@ -63,7 +63,8 @@ class AnalysisEnvironment(object):
 
       self.diffdir = r'f:/glast/data/galprop'
       self.catdir  = r'f:/glast/data/kerr'
-      self.CALDB   = r'f:/glast/caldb/v1r1/CALDB/data/glast/lat'
+      #self.CALDB   = r'f:/glast/caldb/v1r1/CALDB/data/glast/lat'
+      self.CALDB   = r'd:/fermi/caldb/v1r1/CALDB/data/glast/lat'
 
       self.ft1files = None
       self.ft2files = None
@@ -128,7 +129,7 @@ Optional keyword arguments:
   **Instrument response**
   ---------------------------------------------------------------------- 
   irf            ['P6_v3_diff'] Which IRF to use
-  new_psf        [None] if not None, must point to a piclkle of a fit to allGamma data
+  psf_irf        [None] specify a different IRF to use for the PSF; must be in same format/location as typical IRF file!
   **spectral analysis**
   ---------------------------------------------------------------------- 
   background     ['ems_ring'] - a choice of global model specifying a diffuse background; see ConsistentBackground for options
@@ -180,10 +181,10 @@ Optional keyword arguments:
 
   =========    KEYWORDS CONTROLLING INSTRUMENT RESPONSE
   irf          ['P6_v3_diff'] Which IRF to use
-  new_psf      [None] if not None, must point to a pickle of a fit to allGamma data
+  psf_irf      [None] specify a different IRF to use for the PSF; must be in same format/location as typical IRF file!
   
   =========    KEYWORDS CONTROLLING SPECTRAL ANALYSIS
-  background   ['ems_ring'] - a choice of global model specifying a diffuse background; see ConsistentBackground for options
+  background   ['1FGL'] - a choice of global model specifying a diffuse background; see ConsistentBackground for options
   maxROI       [25] maximum ROI for analysis; note ROI aperture is energy-dependent = max(maxROI,r95(e,conversion_type))
   minROI       [0] minimum ROI analysis
 
@@ -215,9 +216,9 @@ Optional keyword arguments:
         self.mc_energy   = False
 
         self.irf         = 'P6_v3_diff'
-        self.new_psf     = None
+        self.psf_irf     = None
 
-        self.background  = 'ems_ring'
+        self.background  = '1FGL'
         self.maxROI      = 10    # deg
         self.minROI      = 5     # deg
 
@@ -232,11 +233,7 @@ Optional keyword arguments:
          #TODO -- sanity check that BinnedPhotonData agrees with analysis parameters
         self.pixeldata = PixelData(self)
         self.exposure  = ExposureManager(self)
-        if self.new_psf is None:
-            self.psf = OldPsf(self.ae.CALDB,irf=self.irf)
-        else:
-            self.psf = NewPsf(self.ae.CALDB,self.new_psf,irf=self.irf)
-
+        self.psf = CALDBPsf(self.ae.CALDB,irf=self.irf,psf_irf=self.psf_irf)
 
 
     def roi(self, point_sources = None, bgmodels = None, previous_fit = None, no_roi = False, **kwargs):

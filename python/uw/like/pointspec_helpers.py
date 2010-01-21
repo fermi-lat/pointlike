@@ -1,6 +1,6 @@
 """Contains miscellaneous classes for background and exposure management.
    
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/pointspec_helpers.py,v 1.6 2010/01/13 20:47:55 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
 
    author: Matthew Kerr
    """
@@ -73,7 +73,7 @@ class ConsistentBackground(object):
 
    """
 
-   def __init__(self,analysis_environment,background='ems_ring',**kwargs):
+   def __init__(self,analysis_environment,background='1FGL',**kwargs):
 
       self.diffdir    = analysis_environment.diffdir
       self.catdir     = analysis_environment.catdir
@@ -112,6 +112,19 @@ class ConsistentBackground(object):
                        Constant(free=[True]) ]
       self.names   = ['gll_iem_v02', 'Isotropic Diffuse']
       self.cat     = join(self.catdir,r'gll_psc11month_v2.fit')
+
+   def make_1FGL(self):
+
+      singl = Singleton(DiffuseFunction,'gf',join(self.diffdir,'gll_iem_v02_P6_v3_diff_front.fits'))
+      singl.add(        DiffuseFunction,'gb',join(self.diffdir,'gll_iem_v02_P6_v3_diff_back.fits'))
+      singl.add(        IsotropicSpectrum,'if',join(self.diffdir,'isotropic_iem_front_v02.txt'))
+      singl.add(        IsotropicSpectrum,'ib',join(self.diffdir,'isotropic_iem_back_v02.txt'))
+
+      self.dmodels = [ [singl('gf'),singl('gb')], [singl('if'),singl('ib')] ]
+      self.smodels = [ PowerLaw(p=[1,1],free=[True,True],index_offset=1),
+                       Constant(free=[True]) ]
+      self.names   = ['gll_iem_v02', 'Isotropic Diffuse']
+      self.cat     = join(self.catdir,r'gll_psc_v01.fit')
 
 
    def get_bgmodels(self, models = None, lat = None):
@@ -162,27 +175,30 @@ class CatalogManager(object):
    def __open_catalog__(self,catalog_file):
       from pyfits import open
       f = open(catalog_file)
+      colnames = [x.name for x in f[1].get_coldefs()]
+      sname    = 'NickName' if 'NickName' in colnames else 'Source_Name'
       ras  = f[1].data.field('RA')
       decs = f[1].data.field('DEC')
       pens = f[1].data.field('PIVOT_ENERGY')
       n0s  = f[1].data.field('FLUX_DENSITY')
       inds = f[1].data.field('SPECTRAL_INDEX')
-      ts   = f[1].data.field('TEST_STATISTIC')
+      #ts   = f[1].data.field('TEST_STATISTIC')
       inds = N.where(inds > 0, inds, -inds)
 
       self.dirs   = map(SkyDir,N.asarray(ras).astype(float),N.asarray(decs).astype(float))
       self.models = N.asarray([PowerLaw(p=[n0,ind],e0=pen) for n0,ind,pen in zip(n0s,inds,pens)])
-      self.fluxes = N.asarray(f[1].data.field('FLUX100'))
-      self.names  = N.asarray(f[1].data.field('NickName'))
-      self.ts     = N.asarray(ts)
+      #self.fluxes = N.asarray(f[1].data.field('FLUX100'))
+      self.names  = N.asarray(f[1].data.field(sname))
+      #self.ts     = N.asarray(ts)
 
       f.close()
 
    def get_sources(self,skydir,radius=15):
     
       diffs   = N.degrees(N.asarray([skydir.difference(d) for d in self.dirs]))
-      mask    = ((diffs < radius)&(self.ts > self.min_ts)) & \
-                ((self.fluxes > self.min_flux)|(diffs < self.max_distance))         
+      #mask    = ((diffs < radius)&(self.ts > self.min_ts)) & \
+      #          ((self.fluxes > self.min_flux)|(diffs < self.max_distance))         
+      mask    = diffs < radius
       diffs   = diffs[mask]
       sorting = N.argsort(diffs)
 
