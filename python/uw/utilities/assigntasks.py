@@ -1,7 +1,7 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/users/burnett/python/analysis/assigntasks.py,v 1.1 2010/01/08 15:22:16 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.1 2010/01/13 22:09:52 burnett Exp $
 
 """
 from IPython.kernel import client
@@ -16,13 +16,14 @@ class AssignTasks(object):
         Schedule a set of tasks using a set of IPython's MultiEngineClient "engines"
         """
 
-    def __init__(self, setup_string, tasks, 
+    def __init__(self, setup_string, tasks, post=None,
             mec=None, local=False, 
             quiet=False, log=None, timelimit=60,
             ):
         """
         setup_string: python code to setup the clients for the tasks
         tasks: a list of strings of python code for the individual tasks
+        post: string to execute on each engine when done (e.g., delete an object)
         mec: [None] if specified, a  MultiEngineClient object to use
         local: [False] if True, run a single stream in the local processor
                 very useful for debugging
@@ -33,6 +34,7 @@ class AssignTasks(object):
         self.local = local
         self.timelimit = timelimit
         self.setup_string = setup_string
+        self.post = post
         if not local:
             try:
                 self.mec = mec or get_mec()
@@ -140,7 +142,7 @@ class AssignTasks(object):
             except:
                 self.log("Engine %d raised exception executing task %d" %(id, index))
                 self.lost.append(index)
-                raise #TODO: allow dropping the engine and continue? Probably a serious issue.
+                #raise #TODO: allow dropping the engine and continue? Probably a serious issue.
         else:
             self.result[index]=self.tasks[index]
 
@@ -177,7 +179,10 @@ class AssignTasks(object):
         # all tasks have been assigned: wait for all engines to finish
         # (TODO: do not block, catch stuck processor)
         for id in self.get_ids():
+            self.log('Waiting for engine %d to finish'%id)
             self.check_result(id, block=True)
+        if self.post is not None: 
+            self.execute(self.post, self.get_ids(), True)
 
         self.log( 'Cycled through main loop %d times, slept %d times; elapsed, total times: %.1f, %.1f s'\
                 %( loop_iters, sleepcount, time.clock()-starttime, sum(self.time.values())-self.time[-1]) )
@@ -196,12 +201,28 @@ def setup_mec(engines=None, machines='tev1 tev2 tev3 tev4'.split()):
         engines = engines or 4
         os.system(r'start /MIN /D %s cmd /K python C:\python25\scripts\ipcluster local -xy -n %d'% (os.getcwd(),engines))
     else:
+        # on a tev machine
         engines = engines or 16 #default on a tev machine!
+        
+        #clusterfile_data='send_furl = False'\
+        #    + '\nengines={'\
+        #    + '\n'.join(['\t"%s" : %d,'%(m,engines) for m in machines])\
+        #    + '\n}'
+        #print 'cluster info:\n%s' % clusterfile_data
+        #ofile=open('clusterfile', 'w')
+        #ofile.writelines(clusterfile_data)
+        #ofile.close()
+        #os.system('ipcluster ssh -xy --clusterfile clusterfile &')
+
+        # old, klugy way
         os.system('ipcontroller local -xy&')  
         for m in machines:
             for i in range(engines):
-                time.sleep(1)
-                os.system('ssh %s ipengine &'% m) # this assumes that the environment is setup with non-interactive login
+                time.sleep(0.1) # make sure the controller is started ?
+                os.system('ssh %s ipengine&'% m) # this assumes that the environment is setup with non-interactive login
+
+def kill_mec():
+    get_mec().kill(True)
 
 
 def test(tasks=9, **kwargs):
