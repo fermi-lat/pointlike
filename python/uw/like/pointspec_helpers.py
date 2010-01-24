@@ -1,6 +1,6 @@
 """Contains miscellaneous classes for background and exposure management.
    
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.2 2010/01/21 01:29:42 kerrm Exp $
 
    author: Matthew Kerr
    """
@@ -143,8 +143,8 @@ class PointSource(object):
       self.name   = name
       self.skydir = skydir
       self.model  = PowerLaw() if model is None else model
-      if not free_parameters:
-         for i in xrange(len(self.model.free)): self.model.free[i] = False
+      #if not free_parameters:
+      for i in xrange(len(self.model.free)): self.model.free[i] = free_parameters
       self.duplicate = False
    def __str__(self):
       return '\n'.join(['\n',
