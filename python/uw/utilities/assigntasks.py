@@ -1,7 +1,7 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.1 2010/01/13 22:09:52 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.2 2010/01/21 19:04:12 burnett Exp $
 
 """
 from IPython.kernel import client
@@ -52,7 +52,7 @@ class AssignTasks(object):
         self.result   = {}
         self.time     = {}  #dictionary of time per task (id=-1 is startup)
         self.engine_time={} #dict. of time per engine
-        self.lost     = []
+        self.lost     = set() # list of dead ids
 
         self.log('Start AssignTasks, with %d tasks and  %d engines'\
                %( len(self.tasks), len(self.get_ids())))
@@ -72,7 +72,7 @@ class AssignTasks(object):
             if local mode, the id number is -1
         """
         if self.local: return [-1]
-        ids = self.mec.get_ids()
+        ids = set(self.mec.get_ids())-set(self.lost) # note ignoring "lost" ids
         ntasks = len(self.tasks)
         return ids if ntasks>len(ids) else ids[:ntasks]
 
@@ -134,8 +134,9 @@ class AssignTasks(object):
                     if time.clock()-self.engine_time[id]>self.timelimit:
                         self.log('Engine %d exceeded time limit (%f s) --lost task %d'\
                             %(id, self.timelimit, index))
-                        self.lost.append(index)
+                        self.lost.add(index)
                         self.mec.kill(targets=id, block=False)
+                        # todo: if this does not work, need to remove from list, since get_ids will keep getting it
                     return False
                 #if not self.quiet: print >>self.log, '%4d --> %s' %(index, result)
                 self.result[index]=result
@@ -184,6 +185,8 @@ class AssignTasks(object):
         if self.post is not None: 
             self.execute(self.post, self.get_ids(), True)
 
+        if self.lost:
+            self.log('possibly hung engines: %s' % self.lost)
         self.log( 'Cycled through main loop %d times, slept %d times; elapsed, total times: %.1f, %.1f s'\
                 %( loop_iters, sleepcount, time.clock()-starttime, sum(self.time.values())-self.time[-1]) )
 
