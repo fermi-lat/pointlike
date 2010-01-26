@@ -1,11 +1,12 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.2 2010/01/21 19:04:12 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.3 2010/01/26 22:00:34 burnett Exp $
 
 """
 from IPython.kernel import client
 import time, os, pickle
+version = '$Revision 1.12$'.split()[1]
 
 
 def get_mec():
