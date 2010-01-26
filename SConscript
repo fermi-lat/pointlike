@@ -2,7 +2,7 @@
 # @file SConscript
 # @brief scons build specifications
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/SConscript,v 1.81 2009/11/20 22:09:00 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/SConscript,v 1.82 2010/01/25 23:19:20 wallacee Exp $
 # Authors: Toby Burnett <tburnett@u.washington.edu>
 # Version: pointlike-06-25-00
 
@@ -32,7 +32,7 @@ progEnv.Tool('registerTargets',
              swigLibraryCxts = [[pyLib, swigEnv]],
              binaryCxts  = [[progEnv.Program(name, listFiles(['src/%s/*.cxx'%name])), progEnv] for name in apps], 
              testAppCxts  = [[progEnv.Program('test_'+package, listFiles(['src/test/*.cxx'])), progEnv]],
-             python = ['python/pointlike.py','python/pointlike_defaults.py',
-                       'python/test_pointlike_setup.py','../../python/uw'])
+             python = (['python/pointlike.py','python/pointlike_defaults.py',
+                       'python/test_pointlike_setup.py']+listFiles(['python/uw'],recursive=True)))
 
 
