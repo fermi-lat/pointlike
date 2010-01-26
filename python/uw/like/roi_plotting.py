@@ -6,7 +6,7 @@ Given an ROIAnalysis object roi:
     plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_plotting.py,v 1.14 2010/01/13 20:47:56 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -15,7 +15,7 @@ import numpy as N
 from skymaps import PySkyFunction,Background,Band,SkyDir,Hep3Vector,SkyIntegrator
 from roi_bands import ROIEnergyBand
 from pypsf import OldPsf
-from fitstools import get_fields
+from uw.utilities.fitstools import get_fields
 
 from collections import deque
 
@@ -23,8 +23,8 @@ from scipy.stats import poisson,norm
 from scipy.optimize import fmin,fsolve
 
 import pylab as P
-import colormaps
-from image import ZEA
+import uw.utilities.colormaps
+from uw.utilities.image import ZEA
 from matplotlib import rcParams,mpl,pyplot,ticker
 from matplotlib.patches import FancyArrow
 
