@@ -5,7 +5,7 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/skymaps/python/image.py,v 1.20 2009/11/19 18:14:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.1 2010/01/13 22:09:52 burnett Exp $
 
 """
 version = '$Revision 1.12$'.split()[1]
@@ -393,6 +393,7 @@ class ZEA(object):
         # we want access to the projection object, to allow interactive display via pix2sph function
         self.proj = self.skyimage.projector()
         self.set_axes(axes)
+        self.cid = None #callback id
 
     # note the 1/2 pixel offset: WCS convention is that pixel centers are integers starting from 1.
     # here we use 0 to nx, 0 to ny standard for image.
@@ -519,6 +520,24 @@ class ZEA(object):
             if 'lw' in kwargs: kwargs.pop('lw') # allow lw for the lines. 
             axes.text(x,y, text, **kwargs)
         return True
+        
+    def clicker(self, onclick=None):
+        """ enable click processing: default callback prints the location
+            callback example:
+            def default_onclick(event):
+                print 'button %d, %s' % (event.button, zea.skydir(event.xdata,event.ydata))
+            
+        """
+        def default_onclick(event):
+            print 'button %d, %s' % (event.button, self.skydir(event.xdata,event.ydata))
+        if onclick==None: onclick=default_onclick
+        if self.cid is not None: self.noclicker()
+        self.cid=self.axes.figure.canvas.mpl_connect('button_press_event', onclick)
+    
+    def noclicker(self):
+        self.axes.figure.canvas.mpl_disconnect(self.cid)
+    
+
 
 def ZEA_test(ra=90, dec=85, size=5, nticks=8, galactic=False):
     pyplot.clf()
@@ -657,6 +676,11 @@ class TSplot(object):
             if 'color' in kwargs: textargs['color']=kwargs['color']
             image.axes.text( x+nx/100., y+nx/100., label, fontsize=fontsize, **textargs)
         return self.tsmap(loc)
+        
+    def clicker(self, onclick=None):
+        return self.zea.clicker(onclick)
+    def noclicker(self):
+        self.zea.noclicker()
 
 
 if __name__=='__main__':
