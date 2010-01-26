@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.1 2010/01/13 22:09:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.2 2010/01/26 22:03:59 burnett Exp $
 
 """
-version = '$Revision 1.12$'.split()[1]
+version = '$Revision$'.split()[1]
 
 import pylab
 import math
