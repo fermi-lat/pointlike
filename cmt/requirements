@@ -2,7 +2,7 @@ package pointlike
 
 version v6r23p5
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.134 2009/07/28 13:01:20 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.135 2009/09/30 17:45:56 glastrm Exp $
 
 use astro *
 use healpix *
@@ -28,6 +28,13 @@ library pointlike \
  -s=../pointlike $(source) \
  -s=../src $(source) \
  -s=../python $(source)
+
+macro swig_include "-I${pointlike_root}\
+ -I${astro_root}\
+ -I${skymaps_root}\
+ -I${healpix_root}\
+ -I${embed_python_root}\
+ -I${CLHEPBASE}/include"
 
 # this is a kluge to add skymaps to the shareable for python
 macro_append pointlike_shlibflags " $(skymaps_app_linkopts)" Win32 ""
