@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.126 2009/11/11 21:03:25 burnett Exp $
+$Id: release.notes,v 1.127 2009/11/20 22:09:00 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-00-00 26-Jan-2010 burnett new Swig scheme, using python packages
  pointlike-06-25-00 20-Nov-2009 burnett localization improvement
  pointlike-06-24-00 11-Nov-2009 burnett pointspec mods
  pointlike-06-23-06 13-Oct-2009 burnett critical fix for psf processing
