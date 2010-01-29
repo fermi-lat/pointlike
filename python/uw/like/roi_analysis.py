@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_analysis.py,v 1.30 2010/01/13 20:47:55 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -21,6 +21,7 @@ from cPickle import dump
 
 from scipy.optimize import fmin,fmin_powell
 from numpy.linalg import inv
+from minuit2 import Minuit2
 
 
 ###====================================================================================================###
@@ -36,7 +37,7 @@ class ROIAnalysis(object):
 
       self.catalog_aperture = -1 # pulsar catalog analysis only -- deprecate
       self.phase_factor = 1.
-  
+
    def __init__(self,ps_manager,bg_manager,spectral_analysis,**kwargs):
       self.init()
       self.__dict__.update(**kwargs)
@@ -57,7 +58,7 @@ class ROIAnalysis(object):
       self.psm.update_counts(self.bands)
 
    def __setup_bands__(self):
-      
+
       self.bands = deque()
       for band in self.sa.pixeldata.dmap:
 
@@ -98,7 +99,7 @@ class ROIAnalysis(object):
 
       for b in bands:
 
-         ll +=  ( 
+         ll +=  (
                    #integral terms for ROI (go in positive)
                    (b.bg_all_counts + b.ps_all_counts)*pf
 
@@ -139,21 +140,21 @@ class ROIAnalysis(object):
          nm.free[:] = old_psm_frees[n]
 
    def __pre_fit__(self):
-      
+
       #cache frozen values
       param_state = N.concatenate([m.free for m in self.psm.models] + [m.free for m in self.bgm.models])
       param_vals  = N.concatenate([m.p for m in self.psm.models] + [m.p for m in self.bgm.models])
-      
+
       if len(param_state)  != len(self.param_state) or \
          N.any(param_state != self.param_state) or \
          N.any(param_vals  != self.param_vals):
-         
+
          self.psm.cache(self.bands)
          self.bgm.cache()
          self.param_state = param_state
          self.param_vals  = param_vals
-   
-   def fit(self,method='simplex', tolerance = 0.01, save_values = True, do_background=True, 
+
+   def fit(self,method='simplex', tolerance = 0.01, save_values = True, do_background=True,
                 fit_bg_first = False, estimate_errors=True):
       """Maximize likelihood and estimate errors.
 
@@ -167,20 +168,35 @@ class ROIAnalysis(object):
       self.__pre_fit__()
 
       if not self.quiet: print '.....performing likelihood maximization...',
-      minimizer  = fmin_powell if method == 'powell' else fmin
-      ll_0 = self.logLikelihood(self.parameters())
-      f = minimizer(self.logLikelihood,self.parameters(),full_output=1,\
-                    maxiter=10000,maxfun=20000,ftol=0.01/abs(ll_0), disp=0 if self.quiet else 1)
-      if not self.quiet: print 'Function value at minimum: %.8g'%f[1]
-      if save_values:
-         self.set_parameters(f[0])
-         if estimate_errors: self.__set_error__(do_background)
-         self.prev_logl = self.logl if self.logl is not None else -f[1]
-         self.logl = -f[1]
-      
+      if method == 'minuit':
+         from uw.utilities.minuit import Minuit
+         temp_params = self.parameters()
+         npars = self.parameters().shape[0]
+         param_names = ['p%i'%i for i in xrange(npars)]
+         m = Minuit(self.logLikelihood,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=1-self.quiet,param_names=param_names)
+         m.minimize()
+         if save_values:
+            self.set_parameters(temp_params)
+            if estimate_errors == True:
+                self.__set_error_minuit(m,False)
+            self.prev_logl = self.logl if self.logl is not None else -m.fval
+            self.logl = -m.fval
+         return -m.fval
+      else:
+         minimizer  = fmin_powell if method == 'powell' else fmin
+         ll_0 = self.logLikelihood(self.parameters())
+         f = minimizer(self.logLikelihood,self.parameters(),full_output=1,
+                       maxiter=10000,maxfun=20000,ftol=0.01/abs(ll_0), disp=0 if self.quiet else 1)
+         if not self.quiet: print 'Function value at minimum: %.8g'%f[1]
+         if save_values:
+            self.set_parameters(f[0])
+            if estimate_errors: self.__set_error__(do_background)
+            self.prev_logl = self.logl if self.logl is not None else -f[1]
+            self.logl = -f[1]
+
       # check for error conditions here
-      if not self.quiet: print 'good fit!'
-      return -f[1] 
+         if not self.quiet: print 'good fit!'
+         return -f[1]
 
    def __set_error__(self,do_background=True):
 
@@ -210,6 +226,14 @@ class ROIAnalysis(object):
 
       #return success
 
+   def __set_error_minuit(self,m,two_sided):
+      """Compute errors for minuit fit."""
+
+      #Not sure yet if there will be problems with including the backgrounds.
+      self.cov_matrix = m.errors(two_sided=two_sided)
+      self.bgm.set_covariance_matrix(self.cov_matrix,current_position = 0)
+      self.psm.set_covariance_matrix(self.cov_matrix,current_position = len(self.bgm.parameters()))
+
    def __str__(self):
       bg_header  = '======== BACKGROUND FITS =============='
       ps_header  = '======== POINT SOURCE FITS ============'
@@ -218,13 +242,13 @@ class ROIAnalysis(object):
       else:
          ll_string  = ''
       return '\n\n'.join([ps_header,self.psm.__str__(),bg_header,self.bgm.__str__(),ll_string])
-         
+
    def TS(self,quick=True,which=0):
       """Calculate the significance of the central point source.
-         
+
          quick -- if set True, just calculate likelihood with source flux set to 0
                   if set False, do a full refit of all other free sources
-                  
+
          which -- the index of source to calculate -- default to central."""
 
       if quick:
@@ -247,7 +271,7 @@ class ROIAnalysis(object):
    def localize(self,which=0, tolerance=1e-3,update=False, verbose=False, bandfits=False):
       """Localize a source using an elliptic approximation to the likelihood surface.
 
-         which     -- index of point source; default to central 
+         which     -- index of point source; default to central
                       ***if localizing non-central, ensure ROI is large enough!***
          tolerance -- maximum difference in degrees between two successive best fit positions
          update    -- if True, update localization internally, i.e., recalculate point source contribution
@@ -261,14 +285,14 @@ class ROIAnalysis(object):
 
    def printSpectrum(self,sources=None):
       """Print total counts and estimated signal in each band for a list of sources.
-      
+
       Sources can be specified as PointSource objects, source names, or integers
       to be interpreted as indices for the list of point sources in the roi. If
       only one source is desired, it needn't be specified as a list. If no sources
       are specified, all sources with free fit parameters will be used."""
       if sources is None:
          sources = [s for s in self.psm.point_sources if N.any(s.model.free)]
-      elif type(sources) != type([]): 
+      elif type(sources) != type([]):
          sources = [sources]
       bad_sources = []
       for i,s in enumerate(sources):
@@ -289,7 +313,7 @@ class ROIAnalysis(object):
                sources[i] = self.psm.point_sources[names.index(s)]
             except ValueError:
                print 'No source named %s'%s
-               bad_sources += [s]            
+               bad_sources += [s]
          else:
             print 'Unrecognized source specification:', s
             bad_sources += [s]
@@ -310,10 +334,10 @@ class ROIAnalysis(object):
 
    def save_fit(self,outfile,additional_data=None):
       """Save the spectral models (and locations) for all point sources and diffuse models.
-      
+
          This saves the need to refit.  A future iteration should actually save all of the
          pixel predictions to avoid lengthy recalculation, too.
-         
+
          additional_data: an optional dictionary with keys to add to output; note that
                           all entries should be serializable!"""
 
@@ -338,10 +362,10 @@ class ROIAnalysis(object):
       f.close()
 
    def __call__(self,v):
-      
+
       pass #make this a TS map? negative -- spatialLikelihood does it, essentially
 
-   def add_ps(self,ps): 
+   def add_ps(self,ps):
       """Add a new PointSource object to the model."""
       self.psm.add_ps(ps,self.bands)
 
