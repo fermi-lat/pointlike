@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.2 2010/01/29 00:03:46 wallacee Exp $
 
 author: Matthew Kerr
 """
@@ -21,8 +21,7 @@ from cPickle import dump
 
 from scipy.optimize import fmin,fmin_powell
 from numpy.linalg import inv
-from minuit2 import Minuit2
-
+from uw.utilities.minuit import Minuit
 
 ###====================================================================================================###
 
@@ -169,7 +168,6 @@ class ROIAnalysis(object):
 
       if not self.quiet: print '.....performing likelihood maximization...',
       if method == 'minuit':
-         from uw.utilities.minuit import Minuit
          temp_params = self.parameters()
          npars = self.parameters().shape[0]
          param_names = ['p%i'%i for i in xrange(npars)]
