@@ -1,5 +1,18 @@
-"""Provides a  convenience class to call Minuit, mimicking the interface to scipy.optimizers.fmin."""
+"""
+Provides a  convenience class to call Minuit, mimicking the interface to scipy.optimizers.fmin.
+
+author: Eric Wallace <wallacee@uw.edu>
+$Header$
+
+"""
 import sys
+# normal CMT setup does not put ROOT.py in the python path
+try:
+    import ROOT
+except:
+    sys.path.append(os.path.join(os.environ['ROOTSYS'], 'bin'))
+    import ROOT
+    
 from ROOT import TMinuit,gMinuit,Long,Double,Minuit2
 import numpy as np
 
