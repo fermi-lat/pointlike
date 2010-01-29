@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Thu Jan 28 19:07:58 PST 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Removed an unnecessary import statement related to the minuit addition, and 
+made the required one global.
+
+    *
+------------------------------------------------------------
 User: wallacee  Thu Jan 28 16:58:44 PST 2010
 pointlike/python/uw/utilities
 
