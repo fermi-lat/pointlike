@@ -10,19 +10,29 @@ class FCN(object):
         fcn : A Python callable
         pars : A sequence of starting parameters for fcn
         args : An optional sequence of extra arguments to fcn
+        gradient : An optional function to compute the function gradient.
+                    Should take a list of parameters and return a list
+                    of first derivatives (mostly untested).
     """
-    def __init__(self,fcn,pars,args=()):
+    def __init__(self,fcn,pars,args=(),gradient = None):
         self.fcn = fcn
         self.p = pars
         self.args = args
         self.npars = len(self.p)
         self.iflag = 0
         self.fval = self.fcn(self.p,*self.args)
+        self.grad_fcn = gradient
 
     def __call__(self,nargs,grads,fval,pars,iflag):
         self.p = np.asarray([pars[i] for i in xrange(self.npars)])
         self.iflag = iflag
         self.fval = fval[0] = self.fcn(self.p,*self.args)
+        if self.grad_fcn:
+            g = self.grad_fcn(self.p,*self.args)
+            for i in xrange(len(g)):
+                grads = g[i]
+        else:
+            pass
 
 class Minuit(object):
     """A wrapper class to initialize a minuit object with a numpy array.
@@ -44,6 +54,9 @@ class Minuit(object):
                           the objective function is -log(Likelihood), 1 for chi-squared.
         max_calls [10000] : Maximum number of calls to the objective function.
         param_names ['p0','p1',...] : a list of names for the parameters
+        args [()] : a tuple of extra arguments to pass to myFCN and gradient.
+        gradient [None] : a function that takes a list of parameters and returns a list of 
+                          first derivatives of myFCN.  Assumed to take the same args as myFCN.
     """
 
 
@@ -58,10 +71,12 @@ class Minuit(object):
         self.param_names = ['p%i'%i for i in xrange(len(params))]
         self.erflag = Long()
         self.npars = len(params)
+        self.args = ()
+        self.gradient = None
         self.__dict__.update(kwargs)
 
         #fcn = fcn_factory(myFCN,len(params))
-        self.fcn = FCN(myFCN,params)
+        self.fcn = FCN(myFCN,params,args=self.args,gradient=self.gradient)
         self.fval = self.fcn.fval
         gMinuit = TMinuit(self.npars)
         gMinuit.SetFCN(self.fcn)
