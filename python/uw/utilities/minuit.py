@@ -2,10 +2,10 @@
 Provides a  convenience class to call Minuit, mimicking the interface to scipy.optimizers.fmin.
 
 author: Eric Wallace <wallacee@uw.edu>
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.3 2010/01/29 14:08:54 burnett Exp $
 
 """
-import sys
+import sys, os
 # normal CMT setup does not put ROOT.py in the python path
 try:
     import ROOT
