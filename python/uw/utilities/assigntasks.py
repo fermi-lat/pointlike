@@ -1,12 +1,12 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.4 2010/01/26 22:04:58 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.5 2010/01/26 22:06:38 burnett Exp $
 
 """
 from IPython.kernel import client
 import time, os, pickle
-version = '$Revision$'.split()[1]
+version = '$Revision: 1.5 $'.split()[1]
 
 
 def get_mec():
@@ -143,8 +143,8 @@ class AssignTasks(object):
                 self.result[index]=result
             except:
                 self.log("Engine %d raised exception executing task %d" %(id, index))
-                self.lost.append(index)
-                #raise #TODO: allow dropping the engine and continue? Probably a serious issue.
+                self.lost.add(index)
+                #raise #TODO: option to allow dropping the engine and continue? Probably a serious issue.
         else:
             self.result[index]=self.tasks[index]
 
