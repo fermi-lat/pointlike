@@ -2,22 +2,27 @@
 Provides a  convenience class to call Minuit, mimicking the interface to scipy.optimizers.fmin.
 
 author: Eric Wallace <wallacee@uw.edu>
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.5 2010/01/31 22:28:30 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.6 2010/02/01 23:23:42 wallacee Exp $
 
 """
 import sys, os
 # normal CMT setup does not put ROOT.py in the python path
+if sys.platform == 'win32':
+    import win32api
+    console_title = win32api.GetConsoleTitle()
 try:
     import ROOT
 except:
     sys.path.append(os.path.join(os.environ['ROOTSYS'], 'bin'))
     import ROOT
 
+if sys.platform == 'win32':
+    win32api.SetConsoleTitle(console_title) #restore title bar! 
+    import pyreadline # fix for tab completion
+    pyreadline.parse_and_bind('set show-all-if-ambiguous on')
+
 from ROOT import TMinuit,gMinuit,Long,Double,Minuit2
 
-if sys.platform == 'win32':
-    import pyreadline
-    pyreadline.parse_and_bind('set show-all-if-ambiguous on')
 import numpy as np
 
 class FCN(object):
