@@ -2,7 +2,7 @@
 Provides a  convenience class to call Minuit, mimicking the interface to scipy.optimizers.fmin.
 
 author: Eric Wallace <wallacee@uw.edu>
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.4 2010/01/29 16:20:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.5 2010/01/31 22:28:30 wallacee Exp $
 
 """
 import sys, os
@@ -14,6 +14,10 @@ except:
     import ROOT
 
 from ROOT import TMinuit,gMinuit,Long,Double,Minuit2
+
+if sys.platform == 'win32':
+    import pyreadline
+    pyreadline.parse_and_bind('set show-all-if-ambiguous on')
 import numpy as np
 
 class FCN(object):
