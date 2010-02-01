@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.13 2009/12/08 22:19:44 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.14 2010/01/21 01:29:42 kerrm Exp $
 */
 
 #include "EventList.h"
@@ -55,7 +55,11 @@ void AddPhoton::operator()(const Photon& gamma)
         int sourceid = gamma.source();
 
         if( m_select>-1 && event_class!= m_select) return;
+      
+        // timing: either start/stop interval, or a Gti object
         if( m_start>0   && gamma.time()<m_start ||  m_stop>m_start && gamma.time()>m_stop) return;
+        if( m_use_gti && ! m_gti.accept(gamma.time()) ) return;
+
         if( m_source>-1 && sourceid != m_source)return;
 
         // theta cut: define FOV
