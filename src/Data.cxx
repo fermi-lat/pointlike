@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.67 2009/02/24 23:07:10 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.68 2009/12/08 22:19:44 mar0 Exp $
 
 */
 
@@ -20,11 +20,11 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.67 2009/02/24 2
 #include "skymaps/SkyImage.h"
 #include "skymaps/BinnedPhotonData.h"
 #include "skymaps/IParams.h"
+#include "skymaps/Gti.h"
 
 #include "tip/IFileSvc.h"
 #include "tip/Table.h"
 
-#include "skymaps/Gti.h"
 
 // --ROOT --
 #include "TROOT.h"
@@ -98,6 +98,9 @@ void   Data::set_theta_cut(double cut){s_theta_cut=cut;}
 bool Data::s_use_mc_energy=false; //use measured energy by default
 bool Data::use_mc_energy(){return s_use_mc_energy;}
 void Data::set_use_mc_energy(bool use_it){s_use_mc_energy = use_it;}
+
+skymaps::Gti Data::s_gti_mask;   // default constructor is empty
+void Data::set_Gti_mask(skymaps::Gti gti){ s_gti_mask = gti;}
 
 // default alignment object
 pointlike::Alignment* Data::s_alignment=new Alignment();
@@ -295,7 +298,7 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
 
     }else {
 
-        AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id);
+        AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id, s_gti_mask);
         EventList photons(inputFile, source_id>-1, s_use_mc_energy);
 
         AddPhoton added =std::for_each(photons.begin(), photons.end(), adder );
@@ -316,6 +319,10 @@ bool Data::addgti(const std::string& inputFile)
         if(inputFile.find(".root") == std::string::npos) {
             // a FITS file: check for overlap
             skymaps::Gti tnew(inputFile);
+            // apply gti mask
+            if( s_gti_mask.getNumIntervals()>0){
+                tnew = tnew & s_gti_mask;  // intersection
+            }
             double tmin(tnew.minValue()), tmax(tnew.maxValue());
             ok = (m_start==0 || tmax > m_start)
                 && (m_stop==0 || tmin < m_stop ) ;

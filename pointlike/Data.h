@@ -1,7 +1,7 @@
 /** @file Data.h 
     @brief declaration of the Data wrapper class
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.39 2009/02/25 17:13:58 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/Data.h,v 1.40 2009/12/08 22:19:44 mar0 Exp $
 */
 
 
@@ -17,6 +17,7 @@ class PointingInfo;
 namespace skymaps {
 class BinnedPhotonData;
 class PhotonBinner;
+class Gti;
 }
 
 
@@ -151,6 +152,8 @@ public:
     /// @brief set Earth coordinate system
     static void useEarthCoordinates();
     
+    /// @brief set Gti mask, copy in
+    static void set_Gti_mask(skymaps::Gti);
 
 
 private:
@@ -173,6 +176,7 @@ private:
     static double s_theta_cut;        ///< static value for theta, or FOV cut
     static double s_theta_min_cut;
     static bool s_use_mc_energy;     ///< static value for mc energy flag
+    static skymaps::Gti s_gti_mask;  ///< set to apply mask (exclude bad data or GRB)
 };
 
 }

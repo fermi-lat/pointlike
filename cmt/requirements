@@ -1,8 +1,9 @@
 package pointlike
 
-version v6r23p5
+version v6r0p1
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.135 2009/09/30 17:45:56 glastrm Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.136 2010/01/27 00:54:31 burnett Exp $
+author  T. Burnett <tburnett@u.washington.edu>
 
 use astro *
 use healpix *
@@ -17,6 +18,8 @@ use python * IExternal
 # this should cause the IExternal/python setup to avoid modifying PYTHONPATH or PATH
 apply_tag have_python
 
+# allows python interactive access to ROOT (only to pick up ROOT.py)
+path_prepend PYTHONPATH "$(ROOT_DIR)/bin"
 
 use SwigModule *
 apply_pattern python_module
