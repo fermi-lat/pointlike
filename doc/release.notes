@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.128 2010/01/27 01:05:17 burnett Exp $
+$Id: release.notes,v 1.129 2010/02/01 23:59:11 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-01-01 01-Feb-2010 burnett GTI mask capability - forgot pixeldata.py
  pointlike-07-01-00 01-Feb-2010 burnett GTI mask capability
  pointlike-07-00-00 26-Jan-2010 burnett new Swig scheme, using python packages
  pointlike-06-25-00 20-Nov-2009 burnett localization improvement
