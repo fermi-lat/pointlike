@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.2 2010/01/21 01:29:42 kerrm Exp $
 
 """
-version='$Revision: 1.1 $'.split()[1]
+version='$Revision: 1.2 $'.split()[1]
 import os
 import math
 import skymaps
@@ -55,7 +55,11 @@ Optional keyword arguments:
         self.dmap = self.data.map()
         self.dmap.updateIrfs()
 
-
+    def __str__(self):
+        return 'Pixeldata: %.3f M events, %.3f Ms' % (self.dmap.photonCount()/1e6, self.gti.computeOntime()/1e6)
+    def __repr__(self):
+        return __str__()
+        
     def reload_data(self,ft1files):
         self.ft1files = ft1files if type(ft1files)==type([]) or ft1files is None else [ft1files]
         for filelist in  [self.ft1files, self.ft2files] :
@@ -88,6 +92,8 @@ Optional keyword arguments:
         pointlike.Data.set_theta_cut(self.thetacut)
         pointlike.Data.set_use_mc_energy(self.mc_energy)
         if not self.quiet: print '.....set Data theta cut at %.1f deg'%(self.thetacut)
+        if 'gti_mask' in self.__dict__ and self.gti_mask is not None:
+            pointlike.Data.set_Gti_mask(self.gti_mask)
 
         if not self.binner_set:
             from pointlike import DoubleVector
@@ -142,6 +148,12 @@ Optional keyword arguments:
         tmax = self.tstop if self.tstop > 0 else gti.maxValue()
 
         gti = self.gti = gti.applyTimeRangeCut(self.tstart,tmax) #save gti for later use
+        
+        if 'gti_mask' in self.__dict__ and self.gti_mask is not None:
+            before = gti.computeOntime()
+            gti.intersection(self.gti_mask)
+            if not self.quiet: print 'applied gti mask, before, after times: %.1f, %.1f' % (before, gti.computeOntime())
+            
 
         if self.ltcube is None or not os.path.exists(self.ltcube):
             if self.roi_dir is None:
@@ -157,6 +169,7 @@ Optional keyword arguments:
                 quiet      =self.quiet )
 
             for hf in self.ft2files:
+                if not self.quiet: print 'loading FT2 file %s' %hf ,
                 lt_gti = skymaps.Gti(hf,'SC_data')
                 if not ((lt_gti.maxValue() < self.gti.minValue()) or 
                         (lt_gti.minValue() > self.gti.maxValue())):
@@ -167,7 +180,7 @@ Optional keyword arguments:
         else:
             # ltcube exists: just use it! (need to bullet-proof this)
             lt = skymaps.LivetimeCube(self.ltcube)
-            print 'loaded LivetimeCube %s ' % self.ltcube
+            if not self.quiet: print 'loaded LivetimeCube %s ' % self.ltcube
         return lt
 
 
