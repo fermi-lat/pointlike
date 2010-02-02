@@ -1,2 +1,0 @@
-name                       type         ra       dec      flux9     emin     emax   index1   index2   ebreak     id                       fitsfile     lc     #generated      #in_output
-Giommi_BLLacs_000      BLLac_BPL   0    0      543.183     10   600000     1.06     1.91    2581.62      0        hbl_1_200_brokenPL.fits     36     259366        12138
