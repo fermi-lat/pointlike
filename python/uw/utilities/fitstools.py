@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/fitstools.py,v 1.15 2009/11/11 20:47:37 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.1 2010/01/23 14:53:34 burnett Exp $
 
    author: Matthew Kerr
 
@@ -41,7 +41,7 @@ def trap_mask(ras,decs,cut_dir,radius):
 
 def rad_mask(ras,decs,cut_dir,radius):
    """Make a slower, exact cut on radius."""
-   diffs   = N.asarray([cut_dir.difference(SkyDir(ra,dec)) for ra,dec in zip(ras,decs)])   
+   diffs   = N.asarray([cut_dir.difference(SkyDir(ra,dec)) for ra,dec in zip(ras,decs)])
    mask    = diffs*(180/N.pi) < radius
    return mask,diffs[mask]
 
@@ -111,7 +111,7 @@ Optional keyword arguments:
       for key in keys: coldict[key].append(cols[key][tmask][rmask])
       coldict['DIFFERENCES'].append(diffs)
       e.close()
-   
+
    for key in coldict.keys():
       if (key in cut_cols) and not (key in return_cols):
          cols.pop(key)
@@ -125,7 +125,7 @@ Optional keyword arguments:
 #e.g. counts_plot(file_list,coordsys='galactic',cuts=['L  > 50','L < 100','B > -60'])
 def counts_plot(ft1files,center,fov=10,scale='log',pixels=256,coordsys='equatorial',
                 cuts = None, print_locs = False):
-   
+
    ft1 = merge_flight_data(ft1files,cuts=cuts)
    events = ft1[1]
    if coordsys == 'equatorial':
@@ -137,13 +137,13 @@ def counts_plot(ft1files,center,fov=10,scale='log',pixels=256,coordsys='equatori
    mask = rect_mask(lon,lat,clon,clat,fov/2.,fov/2.)
 
    lon = lon[mask]
-   lat = lat[mask]   
-   
+   lat = lat[mask]
+
    img,x,y = N.histogram2d(lon,lat,bins=pixels)
    if scale == 'log':
       img = N.where(img > 0,N.log10(img),-1)
    from pylab import pcolor,xlabel,ylabel,imshow
- 
+
    #pcolor(x,y,img.transpose()) #TODO -- make RA go the right way!
    imshow(img.transpose())
    xlabel( ('RA'  if coordsys=='equatorial' else 'L') + ' (deg)')
@@ -155,13 +155,13 @@ def counts_plot(ft1files,center,fov=10,scale='log',pixels=256,coordsys='equatori
       time = events.data.field('TIME')
       ec = events.data.field('EVENT_CLASS')
       for i in xrange(len(lon)):
-         
+
          print '%.2f  %.2f  %.2g  %.10g  %d'%(lon[i],lat[i],en[i],time[i],ec[i])
    return img
 
 def merge_flight_data(files, outputfile = None, cuts = None, fields = None):
    """Merge FT1 or FT2 files and make cuts on the columns.
-   
+
       If a cut is made on MET, the GTI are pruned and updated so that the exposure
       calculation will accurately reflect the MET cuts.
 
@@ -227,7 +227,7 @@ def get_fields(files, fields, cuts = None):
 
    for field in fields + cut_fields:
       data[field] = N.empty(counts.sum(),dtype=float)
-   
+
    #Get fields
    counter = 0
    for fi,counts in zip(files,counts):
@@ -287,7 +287,7 @@ def sum_ltcubes(files,outputfile = 'summed_ltcube.fits'):
    handles[0]['EXPOSURE'].data = exp_table.data
    handles[0]['GTI'].data = gti_table.data
    handles[0].writeto(outputfile,clobber=True)
-   
+
    for x in handles: x.close()
 
 #EVERYTHING BELOW IS AN INTERNAL CALL.
@@ -296,7 +296,13 @@ def __FITS_parse__(files):
    """Parse input and return a list of (FITS) filenames.
 
       files -- a glob-style wildcard, an ASCII file containing a list of filenames, a list of filenames, or a single FITS file."""
-   if type(files) is ListType: return files
+   #This doesn't detect ndarrays.
+   #if type(files) is ListType: return files
+
+   #Try testing for non-string iterability instead.
+   if getattr(files,'__iter__',False):
+      return files
+
    try: #See if it's a FITS file
       f = pf.open(files)
       f[0]
@@ -307,7 +313,7 @@ def __FITS_parse__(files):
    if files[0] == '@':
       return [line.strip() for line in file(files[1:]) if len(line)>0 and line[0]!='#']
    from glob import glob
-   return glob(files)        
+   return glob(files)
 
 def __get_handles__(files):
    files = __FITS_parse__(files)
@@ -316,7 +322,7 @@ def __get_handles__(files):
 
 def __merge_exposures__(handles):
    """Return a FITS table of merged exposure cubes."""
-   
+
    exposures = [x['EXPOSURE'].data.field('COSBINS') for x in handles]
 
    for exp in exposures:
@@ -328,12 +334,12 @@ def __merge_exposures__(handles):
    summed_exposure = N.array(exposures).sum(axis=0)
    exp_table = pf.new_table(handles[0]['EXPOSURE'].columns,nrows=exposures[0].shape[0])
    exp_table.data.field('COSBINS')[:] = summed_exposure
-   
+
    return exp_table
 
 def __merge_events__(handles,table_name = 'EVENTS'):
    """Return a FITS table of merged FT1 events.  Now works for FT2 too!"""
-   
+
    num_events = [x[table_name].data.shape[0] for x in handles]
    columns,header = __common_columns__(handles,table_name)
    event_table = pf.new_table(columns,header=header,nrows=sum(num_events))
@@ -351,8 +357,8 @@ def __common_columns__(handles,table_name = 'EVENTS'):
    all_cols = [handle[table_name].columns for handle in handles]
    arg = N.argmin([len(col) for col in all_cols])
    return all_cols[arg],handles[arg][table_name].header
-   
-   """   
+
+   """
    selector = {}
    for col in all_cols:
       for n in col: selector[n.name] = n
@@ -362,8 +368,8 @@ def __common_columns__(handles,table_name = 'EVENTS'):
          if not (key in names): selector.pop(key)
    print selector
    """
-         
-   
+
+
 
 
 def __merge_gti__(handles,no_table=False,interval=None):
@@ -401,19 +407,19 @@ def __arbitrary_cuts__(events,cuts):
    """
 
    if cuts is None: return
-   
+
    from numarray import array,logical_and #some installations may need the numpy version of these calls
 
    for cut in cuts: #put cut columns in namespace
       for name in events.columns.names:
-         if name in cut:          
+         if name in cut:
             exec('%s = events.data.field(\'%s\')'%(name,name))
    mask = array([True]*events.data.shape[0])
    for cut in cuts: #build mask cumulatively
       exec('mask = logical_and(mask,%s)'%cut)
-   
+
    new_table = pf.new_table(events.columns,nrows=len(mask[mask]))
    for i in xrange(len(events.columns)):
       new_table.data.field(i)[:] = events.data.field(i)[mask]
    events.data = new_table.data
-   
+
