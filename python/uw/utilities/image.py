@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.2 2010/01/26 22:03:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.3 2010/01/26 22:05:56 burnett Exp $
 
 """
-version = '$Revision$'.split()[1]
+version = '$Revision: 1.3 $'.split()[1]
 
 import pylab
 import math
@@ -344,7 +344,7 @@ class AIT(object):
         return 'ra,dec: (%7.2f,%6.2f); l,b: (%7.2f,%6.2f), value:%6.3g' %\
             ( sdir.ra(), sdir.dec(), sdir.l(), sdir.b(), val)
                 
-    def scale_bar(self,  delta=1,text='1 deg', color='k'):
+    def scale_bar(self,  delta=1,text='$1^o$', color='k'):
         """ draw a scale bar in lower left """
         xmin, xmax= self.axes.get_xlim()
         ymin, ymax = self.axes.get_ylim()
@@ -421,7 +421,18 @@ class ZEA(object):
           +axes [None] if None, simply use gca()
           (set coordinate scale offset by 0.5 from WCS standard)
         """
-        self.axes=axes if axes is not None else pyplot.gca()
+        if axes is None:
+            figure = pyplot.gcf()
+            if len(figure.get_axes())==0:
+                # no axes in the current figure: add one that has equal aspect ratio
+                h,w = figure.get_figheight(), figure.get_figwidth()
+                if w>h:
+                    figure.add_axes((0.18, 0.15, h/w*0.75, 0.75))
+                else:
+                    figure.add_axes((0.18, 0.15, 0.75, w/h*0.75))
+            
+            self.axes=pyplot.gca()
+        else: self.axes = axes
         self.axes.set_aspect(1)
         self.axes.set_xlim((0.0,self.nx))
         self.axes.set_ylim((0.0,self.ny))
@@ -464,7 +475,7 @@ class ZEA(object):
             x2,y2 = self.pixel(SkyDir(sd.l()-delta/math.cos(math.radians(sd.b())), sd.b(),SkyDir.GALACTIC)) 
         else:
             x2,y2 = self.pixel(SkyDir(sd.ra()-delta/math.cos(math.radians(sd.dec())), sd.dec())) 
-        self.axes.plot([x1,x2],[y1,y1], linestyle='-', color=color, lw=4)
+        self.axes.plot([x1,x2],[y1,y1], linestyle='-', color=color, lw=3)
         self.axes.text( (x1+x2)/2, (y1+y2)/2+self.ny/80., text, ha='center', color=color)
 
     def colorbar(self, label=None, **kwargs):
@@ -521,6 +532,25 @@ class ZEA(object):
             axes.text(x,y, text, **kwargs)
         return True
         
+    def galactic_map(self, pos=(0.77,0.88), width=0.2, color='w', symbol='sr'):
+        """ 
+        insert a little map showing the galactic position
+            pos: location within the map
+            width: width, fraction of map siza
+            color: line color
+            symbol ['sr'] plot symbol+color
+        returns the AIT_grid to allow plotting other points
+        """
+        # create new a Axes object positioned according to axes that we are using
+        self.axes.figure.show() # necessary to update position? ugh.
+        b = self.axes.get_position()
+        xsize, ysize = b.x1-b.x0, b.y1-b.y0
+        axi = self.axes.figure.add_axes((b.x0+pos[0]*xsize, b.y0+pos[1]*ysize, width*xsize, 0.5*width*ysize))
+        ait_insert=AIT_grid(axes=axi, labels=False, color=color)
+        ait_insert.plot([self.center], symbol)
+        self.axes.figure.sca(self.axes) # restore previous axes
+        return ait_insert 
+
     def clicker(self, onclick=None):
         """ enable click processing: default callback prints the location
             callback example:
@@ -560,7 +590,8 @@ class TSplot(object):
     Uses the ZEA class for display
 
     """
-    def __init__(self, tsmap, center, size, pixelsize=None, axes=None, nticks=4, fitsfile='', **kwargs):
+    def __init__(self, tsmap, center, size, pixelsize=None, axes=None, nticks=4, fitsfile='', 
+            galmap=True,**kwargs):
         """
         parameters:
         *tsmap*   a SkyFunction, that takes a SkyDir argument and returns a value
@@ -570,6 +601,7 @@ class TSplot(object):
         *axes* [None] Axes object to use: if None, use current
         *nticks* [4] Suggestion for labeling
         *fitsfile*[''] 
+        *galmap* [True] overplot a little map in galactic coordinates showing the position
         **kwargs  additional args for ZEA, like galactic
         """
 
@@ -577,14 +609,14 @@ class TSplot(object):
         self.size=size
         if pixelsize is None: pixelsize=size/10. 
         self.zea= ZEA(center, size, pixelsize, axes=axes, nticks=nticks,fitsfile=fitsfile, **kwargs)
-        print 'filling %d pixels...'% (size/pixelsize)**2
+        print 'TSplot: filling %d pixels...'% (size/pixelsize)**2
         self.zea.fill(tsmap)
-        print 'converting...'
         Imax= self.zea.image.max()
         self.image =np.sqrt(np.abs(Imax-self.zea.image))
         self.cb=None
         # np.sqrt(-2* np.log(1-np.array([0.68,0.95, 0.99]))
         self.clevels = np.array([1.51, 2.45, 3.03])
+        self.galmap = galmap
 
 
     def show(self, colorbar=True):
@@ -617,16 +649,29 @@ class TSplot(object):
             print 'Warning: coutour modified: limits', axes.get_xlim(), axes.get_ylim()
         cfmt={} 
         for key,t in zip(self.clevels,['68%','95%', '99%']): cfmt[key]=t
-        pl.clabel(ct, fmt=cfmt, fontsize=10)
+        pl.clabel(ct, fmt=cfmt, fontsize=8)
         #axes.set_xlim((0,nx)); axes.set_ylim((0,ny))
         #print 'after reset', axes.get_xlim(), axes.get_ylim()
         if self.size< 0.03:
             self.zea.scale_bar(1/120.,  '30"', color='w')
-        elif self.size<1.0:
-            self.zea.scale_bar(0.1, "0.1 deg", color='w')
+        elif self.size<0.5:
+            self.zea.scale_bar(0.1, "$0.1^o$", color='w')
+        elif self.size<1.1:
+            self.zea.scale_bar(0.5, "$0.5^o$", color='w')
         else:
-            self.zea.scale_bar(1.0, "1 deg", color='w')
+            self.zea.scale_bar(1.0, '$1^o$', color='w')
         self.zea.grid(color='gray')
+        
+        if self.galmap:
+            self.zea.galactic_map();
+            #b = axes.get_position()
+            #size = b.x1-b.x0
+            ##axi = axes.figure.add_axes((0.75, 0.80, 0.20, 0.10))
+            #axi = axes.figure.add_axes((b.x0+0.73*size, b.y0+0.88*size, 0.20*size, 0.10*size))
+            #ait_insert=AIT_grid(axes=axi, labels=False, color='w')
+            #ait_insert.plot([self.zea.center], 'sr')
+            #axes.figure.sca(axes) # restore previous axes
+
 
     def overplot(self, quadfit, sigma):
         """
@@ -644,7 +689,8 @@ class TSplot(object):
         axes.plot([x0],[y0], '+g')
         for r in self.clevels:
             axes.plot(r*xa+x0,r*ya+y0, '--g');
-        axes.text(0.7, 0.07,'fit quality=%.1f'%quadfit.quality(), color='g', fontsize=10,
+        axes.text(0.95, 0.07,'fit quality=%.1f'%quadfit.quality(), color='g',
+            horizontalalignment='right', fontsize=10,
             transform = axes.transAxes)
 
     def cross(self, sdir, size, label=None,  fontsize=12, markersize=10,  **kwargs):
