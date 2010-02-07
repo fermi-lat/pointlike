@@ -6,7 +6,7 @@ Given an ROIAnalysis object roi:
     plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.3 2010/02/03 19:20:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.4 2010/02/07 19:09:00 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -175,7 +175,7 @@ def make_sed(r,which=0,axes=None,axis=None,plot_model=True):
     
     if axes is None: axes = P.gca()
     band_fluxes(r,which=which,axes=axes)
-    axes.set_xlabel('Energy (MeV')
+    axes.set_xlabel('Energy (MeV)')
     axes.set_ylabel('Energy Flux (MeV/cm2/s)')
     dom = N.logspace(2,5,100)
     cod = r.psm.models[which](dom)*dom**2
