@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_managers.py,v 1.6 2010/01/13 20:47:55 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -34,6 +34,9 @@ class ROIModelManager(object):
          cp,np = current_position,current_position+len(m.get_parameters())
          m.set_cov_matrix(cov_matrix[cp:np,cp:np])
          current_position += np-cp
+
+   def get_free_errors(self):
+      return list(N.concatenate([m.get_free_errors() for m in self.models]))
       
 
 ###====================================================================================================###
@@ -181,6 +184,7 @@ class ROIPointSourceManager(ROIModelManager):
       e.p[2]      = N.log10(5e5)
       e.free[:2]  = m.free[:2]
       e.free[2]   = False
+      e.e0        = m.e0
 
       self.models[which] = e
       self.point_sources[which].model = e
