@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.2 2010/01/29 00:03:46 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.3 2010/01/29 03:07:58 wallacee Exp $
 
 author: Matthew Kerr
 """
@@ -122,6 +122,10 @@ class ROIAnalysis(object):
       """Support for hessian calculation in specfitter module."""
       return self.parameters()
 
+   def get_free_errors(self):
+      """Return the diagonal elements of the covariance matrix -- useful for step sizes in minimization, if known."""
+      return N.asarray(self.bgm.get_free_errors() + self.psm.get_free_errors())
+
    def set_parameters(self,parameters):
       """Support for hessian calculation in specfitter module."""
       self.bgm.set_parameters(parameters,current_position=0)
@@ -154,7 +158,7 @@ class ROIAnalysis(object):
          self.param_vals  = param_vals
 
    def fit(self,method='simplex', tolerance = 0.01, save_values = True, do_background=True,
-                fit_bg_first = False, estimate_errors=True):
+                fit_bg_first = False, estimate_errors=True, error_for_steps=False):
       """Maximize likelihood and estimate errors.
 
          method    -- ['powell'] fitter; 'powell' or 'simplex'
@@ -171,7 +175,13 @@ class ROIAnalysis(object):
          temp_params = self.parameters()
          npars = self.parameters().shape[0]
          param_names = ['p%i'%i for i in xrange(npars)]
-         m = Minuit(self.logLikelihood,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=1-self.quiet,param_names=param_names)
+         if error_for_steps:
+            steps = self.get_free_errors()
+            steps[steps<1e-6] = 0.04 # for models without error estimates, put in the defaults
+            steps[steps > 1]  = 1    # probably don't want to step more than 100%...
+            m = Minuit(self.logLikelihood,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=1-self.quiet,param_names=param_names,steps=steps)
+         else:   
+            m = Minuit(self.logLikelihood,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=1-self.quiet,param_names=param_names)
          m.minimize()
          if save_values:
             self.set_parameters(temp_params)
@@ -179,6 +189,7 @@ class ROIAnalysis(object):
                 self.__set_error_minuit(m,False)
             self.prev_logl = self.logl if self.logl is not None else -m.fval
             self.logl = -m.fval
+         self._minuit = m
          return -m.fval
       else:
          minimizer  = fmin_powell if method == 'powell' else fmin
