@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/Models.py,v 1.22 2010/01/13 20:47:55 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -26,6 +26,7 @@ class DefaultModelValues(object):
       'DoublePowerLawCutoff' : {'p':[5e-12,2,2,1e3,1], 'param_names':['Norm','Index_1','Index_2','Cutoff','Ratio']},
       'LogParabola'      : {'p':[1e-11, 2.0, 1e-5,2e3],'param_names':['Norm','Index','beta','E_break']},
       'ExpCutoff'        : {'p':[1e-11, 2.0, 2e3],     'param_names':['Norm','Index','Cutoff']},
+      'ExpCutoffPlusPL'  : {'p':[1e-11,2.0,2e3,1e-12,1.5],'param_names':['Norm1','Index1','Cutoff1','Norm2','Index2']},
       'AllCutoff'        : {'p':[1e-11, 1e3],          'param_names':['Norm','Cutoff']},
       'PLSuperExpCutoff' : {'p':[1e-11, 2.0, 2e3 ,1.], 'param_names':['Norm','Index','Cutoff', 'b']},
       'PLSuperExpCutoffF': {'p':[1e-11, 2.0, 2e3],     'param_names':['Norm','Index','Cutoff'],'b':1.},
@@ -139,6 +140,10 @@ Optional keyword arguments:
       jac = N.log10(N.exp(1)) #log_10(e)
       pt=p.reshape((p.shape[0],1)) #transpose
       return p*self.cov_matrix*pt/jac**2
+
+   def get_free_errors(self,absolute=False):
+      """Return the diagonal elements of the (log space) covariance matrix for free parameters."""
+      return N.diag(self.cov_matrix)[self.free]**0.5
 
    def corr_coef(self):
       """Return the linear correlation coefficients for the estimated covariance matrix."""
@@ -451,6 +456,23 @@ Spectral parameters:
    def __call__(self,e):
       n0,gamma,cutoff=10**self.p
       return (n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-e/cutoff)
+
+#===============================================================================================#
+
+class ExpCutoffPlusPL(Model):
+   """Implement a power law with exponential cutoff + an additional power law.  A la pulsar + PWN.
+
+Spectral parameters:
+
+  n0_1       differential flux at e0 MeV
+  gamma_1    (absolute value of) spectral index
+  cutoff_1   e-folding cutoff energy (MeV)
+  n0_2
+  gamma_2
+      """
+   def __call__(self,e):
+      n0_1,gamma_1,cutoff_1,n0_2,gamma_2 = 10**self.p
+      return (n0_1/self.flux_scale)*(self.e0/e)**gamma_1*N.exp(-e/cutoff_1) + (n0_2/self.flux_scale)*(self.e0/e)**gamma_2
 
 #===============================================================================================#
 
