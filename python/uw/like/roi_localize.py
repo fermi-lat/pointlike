@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.2 2010/02/03 19:18:33 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -26,8 +26,12 @@ class ROILocalizer(object):
       self.init()
       self.__dict__.update(kwargs)
       self.roi,self.which = roi, which
-      self.rd  = roi.psm.roi_dir
       self.quiet = roi.quiet
+
+      # we need a reference both to the center of the ROI, for use in calculating overlap,
+      # and to the original position of the point source, which may or may not be the same
+      self.rd = roi.psm.roi_dir
+      self.sd = roi.psm.point_sources[which].skydir
       
       if self.bandfits:
          if 'energy_bands' not in roi.__dict__.keys(): roi.setup_energy_bands()
@@ -42,7 +46,8 @@ class ROILocalizer(object):
       return (-2)*self.spatialLikelihood(skydir,which=self.which,bandfits=self.bandfits)-self.tsref
 
    def dir(self):
-      return self.rd
+      #return self.rd
+      return self.sd # changed 6 Feb to account for non-central point sources
 
    def errorCircle(self):
       return 0.05 #initial guess
@@ -67,7 +72,7 @@ class ROILocalizer(object):
       ps  = roi.psm.point_sources[which]
 
 
-      ll0 = self.spatialLikelihood(roi.psm.point_sources[which].skydir,update=False,which=which,bandfits=bandfits)
+      ll0 = self.spatialLikelihood(ps.skydir,update=False,which=which,bandfits=bandfits)
 
       if not self.quiet:
          fmt ='Localizing source %s, tolerance=%.1e...\n\t'+7*'%10s'
@@ -100,7 +105,7 @@ class ROILocalizer(object):
          old_sigma=sigma
 
       if update:
-         roi.psm.point_sources[which].skydir = l.dir
+         ps.skydir = l.dir
          
       ll1 = self.spatialLikelihood(l.dir,update=update,which=which,bandfits=bandfits)
       if not self.quiet: print 'TS change: %.2f'%(2*(ll0 - ll1))
@@ -120,7 +125,8 @@ class ROILocalizer(object):
       
       ro  = PsfOverlap()
       roi = self.roi
-      rd  = roi.psm.roi_dir
+      rd  = self.rd
+      sd  = self.sd 
       ll  = 0
       pf  = roi.phase_factor
       bf  = self.bandfits
@@ -131,7 +137,7 @@ class ROILocalizer(object):
 
          #sigma,gamma,en,exp,pa = band.s,band.g,band.e,band.exp,band.b.pixelArea()
          en,exp,pa             = band.e,band.exp,band.b.pixelArea()
-         exposure_ratio        = exp.value(skydir,en)/exp.value(rd,en) #needs fix? -- does not obey which?
+         exposure_ratio        = exp.value(skydir,en)/exp.value(sd,en) # changed to "sd" Feb. 6 2010
          #psf                   = PsfSkyFunction(skydir,gamma,sigma)
          
          nover                 = ro(band,rd,skydir) * exposure_ratio * band.solid_angle / band.solid_angle_p

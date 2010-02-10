@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/roi_bands.py,v 1.7 2009/11/11 20:47:37 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -175,6 +175,9 @@ class ROIEnergyBand(object):
       return sum( (b.bandLikelihood([b.expected(m)],*args[1:]) for b in self.bands) )
 
    def normUncertainty(self,which=0):
+      # this is the uncertainty derived by taking the second derivative of the log likelihood
+      # wrt the normalization parameter; it is fractional (delta_v/v)
+      # this formulation is specifically for the flux density of a power law, which has such nice properties
       tot = 0
       for b in self.bands:
          if not b.has_pixels: continue
@@ -215,7 +218,7 @@ class ROIEnergyBand(object):
       else:
          try:
             #self.m.set_cov_matrix([[self.normUncertainty,0],[0,0]])
-            err = self.normUncertainty()
+            err = self.normUncertainty(which=which)
          #try:
          #   hessian = SpectralModelFitter.hessian(self.m,self.bandLikelihood,which)[0] #does Hessian for free parameters
          #   self.m.set_cov_matrix(inv(hessian))
