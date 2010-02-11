@@ -2,7 +2,7 @@
 Provides a  convenience class to call Minuit, mimicking the interface to scipy.optimizers.fmin.
 
 author: Eric Wallace <wallacee@uw.edu>
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.7 2010/02/01 23:53:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.8 2010/02/11 20:43:05 wallacee Exp $
 
 """
 import sys, os
@@ -94,7 +94,7 @@ class Minuit(object):
     def __init__(self,myFCN,params,**kwargs):
 
         self.limits = np.zeros((len(params),2))
-        self.steps = .1*np.ones(len(params))
+        self.steps = 0.04 * np.ones(len(params)) # this is about 10% in log10-based parameter space
         self.tolerance = .001
         self.maxcalls = 10000
         self.printMode = 0
@@ -131,8 +131,10 @@ class Minuit(object):
         self.fval = self.fcn.fval
         return (self.params,self.fval)
 
+
     def errors(self,two_sided = False):
         mat = np.zeros(self.npars**2)
         self.minuit.mnhess()
         self.minuit.mnemat(mat,self.npars)
+        self.fval = self.fcn.fval
         return mat.reshape((self.npars,self.npars))
