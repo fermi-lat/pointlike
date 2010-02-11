@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.3 2010/01/29 03:07:58 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.4 2010/02/10 00:22:34 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -21,7 +21,6 @@ from cPickle import dump
 
 from scipy.optimize import fmin,fmin_powell
 from numpy.linalg import inv
-from uw.utilities.minuit import Minuit
 
 ###====================================================================================================###
 
@@ -172,6 +171,7 @@ class ROIAnalysis(object):
 
       if not self.quiet: print '.....performing likelihood maximization...',
       if method == 'minuit':
+         from uw.utilities.minuit import Minuit
          temp_params = self.parameters()
          npars = self.parameters().shape[0]
          param_names = ['p%i'%i for i in xrange(npars)]
@@ -180,17 +180,18 @@ class ROIAnalysis(object):
             steps[steps<1e-6] = 0.04 # for models without error estimates, put in the defaults
             steps[steps > 1]  = 1    # probably don't want to step more than 100%...
             m = Minuit(self.logLikelihood,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=1-self.quiet,param_names=param_names,steps=steps)
-         else:   
+         else:
             m = Minuit(self.logLikelihood,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=1-self.quiet,param_names=param_names)
-         m.minimize()
+         params,fval = m.minimize()
+
          if save_values:
-            self.set_parameters(temp_params)
+            self.set_parameters(params)
             if estimate_errors == True:
                 self.__set_error_minuit(m,False)
-            self.prev_logl = self.logl if self.logl is not None else -m.fval
-            self.logl = -m.fval
+            self.prev_logl = self.logl if self.logl is not None else -fval
+            self.logl = -fval
          self._minuit = m
-         return -m.fval
+         return -fval
       else:
          minimizer  = fmin_powell if method == 'powell' else fmin
          ll_0 = self.logLikelihood(self.parameters())
@@ -252,7 +253,7 @@ class ROIAnalysis(object):
          ll_string  = ''
       return '\n\n'.join([ps_header,self.psm.__str__(),bg_header,self.bgm.__str__(),ll_string])
 
-   def TS(self,quick=True,which=0):
+   def TS(self,quick=True,which=0,method='simplex'):
       """Calculate the significance of the central point source.
 
          quick -- if set True, just calculate likelihood with source flux set to 0
@@ -269,7 +270,7 @@ class ROIAnalysis(object):
 
       save_params = self.parameters().copy() # save free parameters
       self.zero_ps(which)
-      ll_0 = self.fit(save_values = False)
+      ll_0 = self.fit(save_values = False,method=method)
       print self
       self.unzero_ps(which)
       self.set_parameters(save_params) # reset free parameters
