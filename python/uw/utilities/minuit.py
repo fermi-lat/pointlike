@@ -2,7 +2,8 @@
 Provides a  convenience class to call Minuit, mimicking the interface to scipy.optimizers.fmin.
 
 author: Eric Wallace <wallacee@uw.edu>
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.10 2010/02/11 20:52:05 kerrm Exp $
+
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.11 2010/02/11 21:05:48 kerrm Exp $
 
 """
 import sys, os
@@ -47,7 +48,7 @@ class FCN(object):
         args : An optional sequence of extra arguments to fcn
         gradient : An optional function to compute the function gradient.
                     Should take a list of parameters and return a list
-                    of first derivatives. Broken!
+                    of first derivatives.
     """
     def __init__(self,fcn,pars,args=(),gradient = None):
         self.fcn = fcn
@@ -64,7 +65,8 @@ class FCN(object):
         self.fval = fval[0] = self.fcn(self.p,*self.args)
         if self.grad_fcn:
             grad = self.grad_fcn(self.p,*self.args)
-            self.grads = grads = grad
+            for i in xrange(len(grad)):
+                grads.__setitem__(i,grad[i])
 
 class Minuit(object):
     """A wrapper class to initialize a minuit object with a numpy array.
@@ -89,7 +91,6 @@ class Minuit(object):
         args [()] : a tuple of extra arguments to pass to myFCN and gradient.
         gradient [None] : a function that takes a list of parameters and returns a list of 
                           first derivatives of myFCN.  Assumed to take the same args as myFCN.
-                          Broken!
         force_gradient [0] : Set to 1 to force Minuit to use the user-provided gradient function.
     """
 
@@ -110,7 +111,7 @@ class Minuit(object):
         self.force_gradient = 0
         self.__dict__.update(kwargs)
 
-        self.params = np.asarray(params)
+        self.params = np.asarray(params,dtype='float')
         self.fcn = FCN(myFCN,self.params,args=self.args,gradient=self.gradient)
         self.fval = self.fcn.fval
         gMinuit = TMinuit(self.npars)
@@ -130,7 +131,9 @@ class Minuit(object):
 
         self.minuit.mncomd('%s %i %f'%(method, self.maxcalls,self.tolerance),self.erflag)
         for i in xrange(self.npars):
-            self.minuit.GetParameter(i,self.params[i],ROOT.Double(0))
+            val,err = Double(),Double()
+            self.minuit.GetParameter(i,val,err)
+            self.params[i] = val
         self.fval = self.fcn.fval
         return (self.params,self.fval)
 
