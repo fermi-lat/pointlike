@@ -2,7 +2,7 @@
 Provides a  convenience class to call Minuit, mimicking the interface to scipy.optimizers.fmin.
 
 author: Eric Wallace <wallacee@uw.edu>
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.6 2010/02/01 23:23:42 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.7 2010/02/01 23:53:41 burnett Exp $
 
 """
 import sys, os
@@ -25,6 +25,16 @@ from ROOT import TMinuit,gMinuit,Long,Double,Minuit2
 
 import numpy as np
 
+def rosenbrock(x):
+    """Rosenbrock function, to use for testing."""
+    return (1-x[0])**2 + 100*(x[1]-x[0]**2)**2
+
+def rosengrad(x):
+    """Gradient of Rosenbrock function, for testing."""
+    drdx = -2*((1-x[0])+200*x[0]*(x[1]-x[0]**2))
+    drdy = 200*(x[1]-x[0]**2)
+    return np.asarray([drdx,drdy])
+
 class FCN(object):
     """Wrap a python callable as an FCN object passable to Minuit.
 
@@ -34,7 +44,7 @@ class FCN(object):
         args : An optional sequence of extra arguments to fcn
         gradient : An optional function to compute the function gradient.
                     Should take a list of parameters and return a list
-                    of first derivatives (mostly untested).
+                    of first derivatives. Broken!
     """
     def __init__(self,fcn,pars,args=(),gradient = None):
         self.fcn = fcn
@@ -50,11 +60,8 @@ class FCN(object):
         self.iflag = iflag
         self.fval = fval[0] = self.fcn(self.p,*self.args)
         if self.grad_fcn:
-            g = self.grad_fcn(self.p,*self.args)
-            for i in xrange(len(g)):
-                grads = g[i]
-        else:
-            pass
+            grad = self.grad_fcn(self.p,*self.args)
+            self.grads = grads = grad
 
 class Minuit(object):
     """A wrapper class to initialize a minuit object with a numpy array.
@@ -79,6 +86,8 @@ class Minuit(object):
         args [()] : a tuple of extra arguments to pass to myFCN and gradient.
         gradient [None] : a function that takes a list of parameters and returns a list of 
                           first derivatives of myFCN.  Assumed to take the same args as myFCN.
+                          Broken!
+        force_gradient [0] : Set to 1 to force Minuit to use the user-provided gradient function.
     """
 
 
@@ -95,16 +104,21 @@ class Minuit(object):
         self.npars = len(params)
         self.args = ()
         self.gradient = None
+        self.force_gradient = 0
         self.__dict__.update(kwargs)
 
-        self.fcn = FCN(myFCN,params,args=self.args,gradient=self.gradient)
+        self.params = np.asarray(params)
+        self.fcn = FCN(myFCN,self.params,args=self.args,gradient=self.gradient)
         self.fval = self.fcn.fval
         gMinuit = TMinuit(self.npars)
         gMinuit.SetFCN(self.fcn)
+        if self.gradient:
+            gMinuit.mncomd('SET GRA %i'%(self.force_gradient),self.erflag)
         gMinuit.SetPrintLevel(self.printMode)
 
+
         for i in xrange(self.npars):
-            gMinuit.DefineParameter(i,self.param_names[i],params[i],self.steps[i],self.limits[i][0],self.limits[i][1])
+            gMinuit.DefineParameter(i,self.param_names[i],self.params[i],self.steps[i],self.limits[i][0],self.limits[i][1])
 
         gMinuit.SetErrorDef(self.up)
         self.minuit = gMinuit
@@ -112,6 +126,10 @@ class Minuit(object):
     def minimize(self,method='MIGRAD'):
 
         self.minuit.mncomd('%s %i %f'%(method, self.maxcalls,self.tolerance),self.erflag)
+        for i in xrange(self.npars):
+            self.minuit.GetParameter(i,self.params[i],ROOT.Double(0))
+        self.fval = self.fcn.fval
+        return (self.params,self.fval)
 
     def errors(self,two_sided = False):
         mat = np.zeros(self.npars**2)
