@@ -2,7 +2,7 @@
 Provides a  convenience class to call Minuit, mimicking the interface to scipy.optimizers.fmin.
 
 author: Eric Wallace <wallacee@uw.edu>
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.9 2010/02/11 20:44:38 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.10 2010/02/11 20:52:05 kerrm Exp $
 
 """
 import sys, os
@@ -31,7 +31,7 @@ def rosenbrock(x):
 
 def rosengrad(x):
     """Gradient of Rosenbrock function, for testing."""
-    drdx = -2*((1-x[0])-400*x[0]*(x[1]-x[0]**2))
+    drdx = -2*((1-x[0])+200*x[0]*(x[1]-x[0]**2))
     drdy = 200*(x[1]-x[0]**2)
     return np.asarray([drdx,drdy])
 
