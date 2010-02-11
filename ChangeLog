@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: wallacee  Thu Feb 11 14:18:04 PST 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	minuit.py 
+Log Message:
+Changed FCN to hopefully make user defined gradient functions work. Fixed
+minimize to correctly return the parameter values (accidentally checked in
+the wrong version previously).
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Feb 11 13:05:49 PST 2010
 pointlike/python/uw/utilities
 
