@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.4 2010/02/06 18:06:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.5 2010/02/11 00:26:51 burnett Exp $
 
 """
-version = '$Revision: 1.4 $'.split()[1]
+version = '$Revision: 1.5 $'.split()[1]
 
 import pylab
 import math
@@ -542,7 +542,6 @@ class ZEA(object):
         returns the AIT_grid to allow plotting other points
         """
         # create new a Axes object positioned according to axes that we are using
-        self.axes.figure.show() # necessary to update position? ugh.
         b = self.axes.get_position()
         xsize, ysize = b.x1-b.x0, b.y1-b.y0
         axi = self.axes.figure.add_axes((b.x0+pos[0]*xsize, b.y0+pos[1]*ysize, width*xsize, 0.5*width*ysize))
