@@ -2,8 +2,7 @@
 Provides a  convenience class to call Minuit, mimicking the interface to scipy.optimizers.fmin.
 
 author: Eric Wallace <wallacee@uw.edu>
-
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.11 2010/02/11 21:05:48 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.7 2010/02/01 23:53:41 burnett Exp $
 
 """
 import sys, os
@@ -22,7 +21,7 @@ if sys.platform == 'win32':
     import pyreadline # fix for tab completion
     pyreadline.parse_and_bind('set show-all-if-ambiguous on')
 
-from ROOT import TMinuit,gMinuit,Long,Double,Minuit2
+from ROOT import TMinuit,Long,Double
 
 import numpy as np
 
@@ -36,9 +35,6 @@ def rosengrad(x):
     drdy = 200*(x[1]-x[0]**2)
     return np.asarray([drdx,drdy])
 
-def gildedterm(x):
-   return
-
 class FCN(object):
     """Wrap a python callable as an FCN object passable to Minuit.
 
@@ -48,7 +44,7 @@ class FCN(object):
         args : An optional sequence of extra arguments to fcn
         gradient : An optional function to compute the function gradient.
                     Should take a list of parameters and return a list
-                    of first derivatives.
+                    of first derivatives. 
     """
     def __init__(self,fcn,pars,args=(),gradient = None):
         self.fcn = fcn
@@ -92,13 +88,14 @@ class Minuit(object):
         gradient [None] : a function that takes a list of parameters and returns a list of 
                           first derivatives of myFCN.  Assumed to take the same args as myFCN.
         force_gradient [0] : Set to 1 to force Minuit to use the user-provided gradient function.
+        strategy[1] : Strategy for minuit to use, from 0 (fast) to 2 (safe) 
     """
 
 
     def __init__(self,myFCN,params,**kwargs):
 
         self.limits = np.zeros((len(params),2))
-        self.steps = 0.04 * np.ones(len(params)) # this is about 10% in log10-based parameter space
+        self.steps = .1*np.ones(len(params))
         self.tolerance = .001
         self.maxcalls = 10000
         self.printMode = 0
@@ -109,23 +106,24 @@ class Minuit(object):
         self.args = ()
         self.gradient = None
         self.force_gradient = 0
+        self.strategy = 1
         self.__dict__.update(kwargs)
 
         self.params = np.asarray(params,dtype='float')
         self.fcn = FCN(myFCN,self.params,args=self.args,gradient=self.gradient)
         self.fval = self.fcn.fval
-        gMinuit = TMinuit(self.npars)
-        gMinuit.SetFCN(self.fcn)
+        self.minuit = TMinuit(self.npars)
+        self.minuit.SetPrintLevel(self.printMode)
+        self.minuit.SetFCN(self.fcn)
         if self.gradient:
-            gMinuit.mncomd('SET GRA %i'%(self.force_gradient),self.erflag)
-        gMinuit.SetPrintLevel(self.printMode)
+            self.minuit.mncomd('SET GRA %i'%(self.force_gradient),self.erflag)
+        self.minuit.mncomd('SET STR %i'%self.strategy,Long())
 
 
         for i in xrange(self.npars):
-            gMinuit.DefineParameter(i,self.param_names[i],self.params[i],self.steps[i],self.limits[i][0],self.limits[i][1])
+            self.minuit.DefineParameter(i,self.param_names[i],self.params[i],self.steps[i],self.limits[i][0],self.limits[i][1])
 
-        gMinuit.SetErrorDef(self.up)
-        self.minuit = gMinuit
+        self.minuit.SetErrorDef(self.up)
 
     def minimize(self,method='MIGRAD'):
 
@@ -134,13 +132,11 @@ class Minuit(object):
             val,err = Double(),Double()
             self.minuit.GetParameter(i,val,err)
             self.params[i] = val
-        self.fval = self.fcn.fval
+        self.fval = self.fcn.fcn(self.params)
         return (self.params,self.fval)
-
 
     def errors(self,two_sided = False):
         mat = np.zeros(self.npars**2)
         self.minuit.mnhess()
         self.minuit.mnemat(mat,self.npars)
-        self.fval = self.fcn.fval
         return mat.reshape((self.npars,self.npars))
