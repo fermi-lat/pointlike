@@ -2,7 +2,7 @@ package pointlike
 
 version v6r0p1
 
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.136 2010/01/27 00:54:31 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/cmt/requirements,v 1.137 2010/02/01 23:57:10 burnett Exp $
 author  T. Burnett <tburnett@u.washington.edu>
 
 use astro *
@@ -21,7 +21,7 @@ apply_tag have_python
 # allows python interactive access to ROOT (only to pick up ROOT.py)
 path_prepend PYTHONPATH "$(ROOT_DIR)/bin"
 
-use SwigModule *
+use SwigModule v1*
 apply_pattern python_module
 
 # note private now
