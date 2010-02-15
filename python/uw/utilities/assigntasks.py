@@ -1,12 +1,12 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.6 2010/01/29 14:11:16 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.7 2010/02/02 23:19:27 burnett Exp $
 
 """
 from IPython.kernel import client
 import time, os, pickle
-version = '$Revision: 1.6 $'.split()[1]
+version = '$Revision: 1.7 $'.split()[1]
 
 
 def get_mec():
@@ -187,7 +187,7 @@ class AssignTasks(object):
             self.execute(self.post, self.get_ids(), True)
 
         if self.lost:
-            self.log('possibly hung engines: %s' % self.lost)
+            self.log('possibly failed tasks: %s' % list(self.lost).sort() )
         self.log( 'Cycled through main loop %d times, slept %d times; elapsed, total times: %.1f, %.1f s'\
                 %( loop_iters, sleepcount, time.clock()-starttime, sum(self.time.values())-self.time[-1]) )
 
