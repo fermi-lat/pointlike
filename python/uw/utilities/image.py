@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.5 2010/02/11 00:26:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.6 2010/02/12 01:06:29 burnett Exp $
 
 """
-version = '$Revision: 1.5 $'.split()[1]
+version = '$Revision: 1.6 $'.split()[1]
 
 import pylab
 import math
@@ -16,6 +16,25 @@ import numpy as np
 import pylab as pl
 from matplotlib import mpl, pyplot, ticker
 from skymaps import SkyImage, SkyDir, double2, SkyProj
+
+class Ellipse(object):
+    def __init__(self, q):
+        """ q: ellipical parameters
+               a, b, phi  
+        """
+        self.q = q 
+
+    def contour(self, r=1, count=50):
+        """ return set of points in around closed figure"""
+        s,c = math.sin(-self.q[2]), math.cos(self.q[2])
+        a,b = self.q[0],self.q[1]
+        x = []
+        y = []
+        for t in np.linspace(0, 2*math.pi, count):
+            ct,st = math.cos(t), math.sin(t)
+            x.append( r*(a*ct*s - b*st*c))
+            y.append( r*(a*ct*c + b*st*s))
+        return x,y      
 
 
 class Rescale(object):
@@ -564,7 +583,8 @@ class ZEA(object):
         self.cid=self.axes.figure.canvas.mpl_connect('button_press_event', onclick)
     
     def noclicker(self):
-        self.axes.figure.canvas.mpl_disconnect(self.cid)
+        if self.cid is not None: self.axes.figure.canvas.mpl_disconnect(self.cid)
+        self.cid=None
     
 
 
@@ -672,25 +692,40 @@ class TSplot(object):
             #axes.figure.sca(axes) # restore previous axes
 
 
-    def overplot(self, quadfit, sigma):
+    def overplot(self, quadfit, sigma=1.0,contours=None, **kwargs):
         """
         OVerplot contours from a fit to surface
+        
+        quadfit: either: a uw.like.quadform.Localize object used for the fit, 
+                        or: an array [ra,dec, a,b, phi, qual] 
+        sigma:  scale factor
+        contours: [None] default is the 68,95,99% assuming the radius is 1 sigma
+                if specified, must be a list, eg [1.0]
         """
         axes = self.zea.axes
-        x,y = quadfit.ellipse.contour(quadfit.fit_radius)
-        #sigma = quadfit.sigma #effective sigma from quad fit
-        ra,dec = quadfit.ra, quadfit.dec
+        if contours is None: contours = self.clevels
+        if getattr(quadfit,'__iter__', False):
+            ra,dec,a,b,phi=quadfit[:5]
+            qual = None if len(quadfit)==5 else quadfit[5]
+            ellipse = Ellipse([a,b,np.radians(phi)])
+            x,y = ellipse.contour(1.0)
+        else:
+            x,y = quadfit.ellipse.contour(quadfit.fit_radius)
+            ra,dec = quadfit.ra, quadfit.dec
+            qual = quadfit.quality()
+            
         pixelsize=self.zea.pixelsize #scale for plot
         x0,y0 = self.zea.pixel(SkyDir(ra,dec))
         f=sigma/pixelsize #scale factor
         xa = f*np.array(x)
         ya = f*np.array(y)
         axes.plot([x0],[y0], '+g')
-        for r in self.clevels:
-            axes.plot(r*xa+x0,r*ya+y0, '--g');
-        axes.text(0.95, 0.07,'fit quality=%.1f'%quadfit.quality(), color='g',
-            horizontalalignment='right', fontsize=10,
-            transform = axes.transAxes)
+        for r in contours:
+            axes.plot(r*xa+x0,r*ya+y0, '--g', **kwargs);
+        if qual is not None:
+            axes.text(0.95, 0.07,'fit quality=%.1f'%qual, color='g',
+                horizontalalignment='right', fontsize=10,
+                transform = axes.transAxes)
 
     def cross(self, sdir, size, label=None,  fontsize=12, markersize=10,  **kwargs):
         """ make a cross at the position, size defined in celestial coordinats
