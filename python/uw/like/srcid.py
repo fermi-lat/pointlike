@@ -1,9 +1,10 @@
 """
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.4 2010/02/18 15:05:51 burnett Exp $
 
 author: Eric Wallace <wallacee@uw.edu>
 
-"""import os
+"""
+import os
 import math
 from glob import glob
 import numpy as np
@@ -238,7 +239,7 @@ class CatalogSource(object):
         self.skydir = skydir
 
     def __str__(self):
-        return '\t'.join([self.catalog.cat_name,self.name,str(self.skydir.ra()),str(self.skydir.dec())])
+        return '\t'.join([self.catalog.cat_name,self.name,str(self.skydir)])
 
 class CatalogError(Exception):
     """Exception class for problems with a catalog."""
@@ -252,10 +253,10 @@ def test(cat_dir=r'd:\fermi\catalog\srcid\cat'):
     assoc = SourceAssociation(cat_dir)
     #3C 454.3
     pos, error = SkyDir(343.495,16.149), .016/2.45
-    print([x[1].name for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)])
+    print('\n'.join([str(x[1]) for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)]))
     #Couldn't find elliptical errors, but want to test input for error.
     error = (error,error,0.0)
-    print([x[1].name for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)])
+    print('\n'.join([str(x[1]) for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)]))
 
 
 if __name__=='__main__':
