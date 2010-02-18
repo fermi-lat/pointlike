@@ -1,4 +1,9 @@
-import os
+"""
+$Header$
+
+author: Eric Wallace <wallacee@uw.edu>
+
+"""import os
 import math
 from glob import glob
 import numpy as np
@@ -242,6 +247,15 @@ class CatalogError(Exception):
         self.message = message
     def __str__(self):
         return 'In catalog %s:\n\t%s'%(self.catalog,self.message)
+
+def test(cat_dir=r'd:\fermi\catalog\srcid\cat'):
+    assoc = SourceAssociation(cat_dir)
+    #3C 454.3
+    pos, error = SkyDir(343.495,16.149), .016/2.45
+    print([x[1].name for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)])
+    #Couldn't find elliptical errors, but want to test input for error.
+    error = (error,error,0.0)
+    print([x[1].name for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)])
 
 
 if __name__=='__main__':
