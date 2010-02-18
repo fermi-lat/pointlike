@@ -6,3 +6,5 @@ rh*
 VC*
 Output
 data
+build
+*.pyc
