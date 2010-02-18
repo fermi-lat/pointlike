@@ -2,7 +2,7 @@
 # @file SConscript
 # @brief scons build specifications
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/SConscript,v 1.90 2010/02/02 05:13:41 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/SConscript,v 1.91 2010/02/10 00:30:38 burnett Exp $
 # Authors: Toby Burnett <tburnett@u.washington.edu>
 # Version: pointlike-07-01-03
 
@@ -19,7 +19,7 @@ progEnv = baseEnv.Clone()
 libEnv = baseEnv.Clone()
 
 progEnv.Tool(package+'Lib')
-libEnv.Tool(package+'Lib', depsOnly = 1)
+
 lib = libEnv.SharedLibrary(package, listFiles(['src/*.cxx']))
 
 swigEnv = progEnv.Clone()
