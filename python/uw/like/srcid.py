@@ -1,9 +1,3 @@
-"""
-$Header$
-
-author: Eric Wallace <wallacee@uw.edu>
-
-"""
 import os
 import math
 from glob import glob
@@ -17,9 +11,7 @@ class SourceAssociation(object):
     """A class to find association probabilities for sources with a given set of counterpart catalogs."""
 
     def __init__(self,catdir):
-        assert(os.path.exists(catdir))
         cat_files = glob(os.path.join(catdir,'*.fits'))
-        assert(len(cat_files)>0)
         self.catalogs = dict(zip([os.path.basename(cat)[:-5] for cat in cat_files],
                                  [Catalog(cat) for cat in cat_files]))
 
@@ -78,11 +70,10 @@ class SourceAssociation(object):
 
             #Calculate posterior probability
             arg = (chance_prob*(1-prior_prob)/(pos_prob*prior_prob))
-            post_prob = 1./(1.+1./arg)
+            post_prob = 1./(1.+arg)
             post_probs += [post_prob]
-#        source_list = [(prob,source) for prob,source in zip(post_probs,sources) if prob > prob_threshold]
-        source_list = [(prob,source) for prob,source in zip(post_probs,sources)]
-        #Add highest probability source to list if above threshold
+        #return sources above threshold, sorted by posterior probability
+        source_list = [(prob,source) for prob,source in zip(post_probs,sources) if prob > prob_threshold]
         source_list.sort()
         return source_list
 
@@ -107,7 +98,7 @@ class Catalog(object):
         lons,lats = self._get_positions()
         if lons is None:
             raise CatalogException(catalog,'Could not find columns with source positions')
-        self.sources = np.array([CatalogSource(name,SkyDir(lon,lat,self.coords))
+        self.sources = np.array([CatalogSource(self,name,SkyDir(lon,lat,self.coords))
                         for name,lon,lat in zip(names,lons,lats)])
 
     def __iter__(self):
@@ -119,11 +110,11 @@ class Catalog(object):
         for hdu in fits_cat:
             cards = hdu.header.ascardlist()
             try:
-                self.cat_name = cards['CAT-NAME']
+                self.cat_name = cards['CAT-NAME'].value
                 return hdu
             except KeyError:
                 try:
-                    self.cat_name = cards['EXTNAME']
+                    self.cat_name = cards['EXTNAME'].value
                     return hdu
                 except KeyError:
                     pass
@@ -236,11 +227,13 @@ class Catalog(object):
 
 class CatalogSource(object):
     """A class representing a catalog source."""
-    def __init__(self,name,skydir):
+    def __init__(self,catalog,name,skydir):
+        self.catalog = catalog
         self.name = name
         self.skydir = skydir
+
     def __str__(self):
-        return '%-20s %s' % (self.name, self.skydir)
+        return '\t'.join([self.catalog.cat_name,self.name,str(self.skydir.ra()),str(self.skydir.dec())])
 
 class CatalogError(Exception):
     """Exception class for problems with a catalog."""
@@ -251,15 +244,14 @@ class CatalogError(Exception):
         return 'In catalog %s:\n\t%s'%(self.catalog,self.message)
 
 
-def test(cat_dir=r'd:\fermi\catalog\srcid\cat'):
-    assoc = SourceAssociation(cat_dir)
+if __name__=='__main__':
+    assoc = SourceAssociation('/home/eric/research/catalog/counterpartCatalogs')
     #3C 454.3
     pos, error = SkyDir(343.495,16.149), .016/2.45
-    print([x[1].name for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)])
+    print('\n'.join([str(x[1]) for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)]))
     #Couldn't find elliptical errors, but want to test input for error.
     error = (error,error,0.0)
-    print([x[1].name for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)])
-
-
-if __name__=='__main__':
-    test('/home/eric/research/catalog/counterpartCatalogs')
+    print('\n'.join([str(x[1]) for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)]))
+    #Test for correct failure for wrong length list
+    #error = [.5]*4
+    #print(assoc.id(pos,error,'obj-agn',.039,.9735))
