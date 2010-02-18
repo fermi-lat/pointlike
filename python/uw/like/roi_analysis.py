@@ -2,12 +2,13 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.4 2010/02/10 00:22:34 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.5 2010/02/11 20:43:06 wallacee Exp $
 
 author: Matthew Kerr
 """
 
 import numpy as N
+import math
 from roi_managers import *
 from roi_bands import *
 from roi_plotting import *
@@ -396,4 +397,33 @@ class ROIAnalysis(object):
       rl = ROILocalizer(self,which=which,update=True)
       rl.spatialLikelihood(skydir)
       self.psm.point_sources[which].skydir = skydir
+      
+   def print_summary(self, sdir=None, galactic=False, maxdist=5, title=''):
+       """ formatted table point sources positions and parameter in the ROI
+       Parameters
+       ----------
+           sdir : SkyDir, optional, default None for center
+               for center: default will be the first source
+           galactic : bool, optional, default False
+              set true for l,b
+           maxdist : float, optional, default 5
+              radius in degrees
+
+       """
+       if sdir is None: sdir = self.psm.point_sources[0].skydir
+       print '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
+       colstring = 'name dist ra dec flux8 index'
+       if galactic: colstring =colstring.replace('ra dec', 'l b')
+       colnames = tuple(colstring.split())
+       n = len(colnames)-1
+       print ('%-20s'+n*'%10s')% colnames
+       for ps in self.psm.point_sources:
+           dist=math.degrees(sdir.difference(ps.skydir))
+           if maxdist and dist>maxdist:  break
+           loc = (ps.skydir.l(),ps.skydir.b()) if galactic else (ps.skydir.ra(),ps.skydir.dec())
+           fmt = '%-20s'+(n-2)*'%10.3f'+' '+2*'%9.2f%1s'
+           freeflag = [ '*' if f else ' ' for f in ps.model.free]
+           values = ((ps.name, dist) +loc
+                   +( ps.model.fast_iflux()/1e-8, freeflag[0], 10**ps.model.p[1], freeflag[1]))
+           print fmt % values
 
