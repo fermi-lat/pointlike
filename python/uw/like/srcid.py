@@ -1,10 +1,5 @@
-"""
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.4 2010/02/18 15:05:51 burnett Exp $
-
-author: Eric Wallace <wallacee@uw.edu>
-
-"""
 import os
+import sys
 import math
 from glob import glob
 import numpy as np
@@ -17,11 +12,49 @@ class SourceAssociation(object):
     """A class to find association probabilities for sources with a given set of counterpart catalogs."""
 
     def __init__(self,catdir):
-        cat_files = glob(os.path.join(catdir,'*.fits'))
-        self.catalogs = dict(zip([os.path.basename(cat)[:-5] for cat in cat_files],
-                                 [Catalog(cat) for cat in cat_files]))
+        self.catdir = catdir
+        cat_files = glob(os.path.join(self.catdir,'*.fits'))
+        #self.catalogs = dict(zip([os.path.basename(cat)[:-5] for cat in cat_files],
+        #                         [Catalog(cat) for cat in cat_files]))
+        self.catalogs = {}
 
-    def id(self,position,error,catalog,prior_prob = .5,prob_threshold=.5):
+    def id(self,position,error,classes,class_dir = None):
+        """Find associations for each class in classes.
+
+        Arguments:
+            position:   A SkyDir corresponding to the source to be associated
+            error:      Either the radius of a 1-sigma error circle, or a list
+                        of major and minor axis and position angle for a 1-sigma
+                        error ellipse
+            classes:    List of source classes to be associated.  Names should correspond
+                        to python modules in class_dir
+            class_dir:  Directory to look in for source class modules. Defaults to 
+                        self.catdir/../classes.
+
+        For now, just gets the prior and threshold for each catalog and calls single_catalog_id.
+        This means that all catalogs are treated in the same way, which will not properly handle
+        catalogs of extended sources, or point sources with error circles comparable to those of
+        LAT sources.
+        """
+        if class_dir is None:
+            class_dir = os.path.join(self.catdir,os.path.pardir,'classes')
+        sys.path.insert(0,class_dir)
+        associations = {}
+        for cls in classes:
+            exec('import %s'%cls)
+            module = eval(cls)
+            cat_file = os.path.join(self.catdir,module.catname)
+            catalog = os.path.basename(cat_file)[:-5]
+            if not self.catalogs.has_key(catalog):
+                self.catalogs[catalog] = Catalog(cat_file)
+            prior = module.prob_prior
+            threshold = module.prob_thres
+            these = self.single_catalog_id(position,error,catalog,prior,threshold)
+            if these:
+                associations[self.catalogs[catalog]] = these
+        return associations
+
+    def single_catalog_id(self,position,error,catalog,prior_prob,prob_threshold):
         """Given a skydir and error ellipse, return associations from catalogs.
 
         Arguments:
@@ -239,7 +272,7 @@ class CatalogSource(object):
         self.skydir = skydir
 
     def __str__(self):
-        return '\t'.join([self.catalog.cat_name,self.name,str(self.skydir)])
+        return '\t'.join([self.catalog.cat_name,self.name,str(self.skydir.ra()),str(self.skydir.dec())])
 
 class CatalogError(Exception):
     """Exception class for problems with a catalog."""
@@ -249,24 +282,20 @@ class CatalogError(Exception):
     def __str__(self):
         return 'In catalog %s:\n\t%s'%(self.catalog,self.message)
 
-def test(cat_dir=r'd:\fermi\catalog\srcid\cat'):
-    assoc = SourceAssociation(cat_dir)
-    #3C 454.3
-    pos, error = SkyDir(343.495,16.149), .016/2.45
-    print('\n'.join([str(x[1]) for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)]))
-    #Couldn't find elliptical errors, but want to test input for error.
-    error = (error,error,0.0)
-    print('\n'.join([str(x[1]) for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)]))
-
 
 if __name__=='__main__':
-    assoc = SourceAssociation('/home/eric/research/catalog/counterpartCatalogs')
+    assoc = SourceAssociation('/home/eric/research/catalog/srcid/cat')
     #3C 454.3
     pos, error = SkyDir(343.495,16.149), .016/2.45
-    print('\n'.join([str(x[1]) for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)]))
+    associations = assoc.id(pos,error,['agn','bzcat','cgrabs','crates'])
+    for cat,ass in associations.items():
+        print 'Associations in %s:'%cat.cat_name
+        for a in ass:
+            print '\t'.join([str(a[1]),'prob:',str(a[0])])
+    #print('\n'.join([str(x[1]) for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)]))
     #Couldn't find elliptical errors, but want to test input for error.
-    error = (error,error,0.0)
-    print('\n'.join([str(x[1]) for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)]))
+    #error = (error,error,0.0)
+    #print('\n'.join([str(x[1]) for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)]))
     #Test for correct failure for wrong length list
     #error = [.5]*4
     #print(assoc.id(pos,error,'obj-agn',.039,.9735))
