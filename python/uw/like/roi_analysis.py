@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.5 2010/02/11 20:43:06 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.6 2010/02/18 03:28:26 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -180,9 +180,9 @@ class ROIAnalysis(object):
             steps = self.get_free_errors()
             steps[steps<1e-6] = 0.04 # for models without error estimates, put in the defaults
             steps[steps > 1]  = 1    # probably don't want to step more than 100%...
-            m = Minuit(self.logLikelihood,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=1-self.quiet,param_names=param_names,steps=steps)
+            m = Minuit(self.logLikelihood,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=-self.quiet,param_names=param_names,steps=steps)
          else:
-            m = Minuit(self.logLikelihood,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=1-self.quiet,param_names=param_names)
+            m = Minuit(self.logLikelihood,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=-self.quiet,param_names=param_names)
          params,fval = m.minimize()
 
          if save_values:
