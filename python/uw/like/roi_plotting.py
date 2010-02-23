@@ -6,7 +6,7 @@ Given an ROIAnalysis object roi:
     plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.4 2010/02/07 19:09:00 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.5 2010/02/07 19:10:20 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -88,8 +88,10 @@ def band_spectra(r,source=0):
 #-----------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------#
 
-def band_fluxes(r,which=0,axes=None,axis=None,outfile=None):
+def band_fluxes(r,which=0,axes=None,axis=None,outfile=None, **kwargs):
 
+   plot_kwargs = {'color':'red', 'linewidth':1,}
+   plot_kwargs.update(kwargs)
    if axes is None:
       ax = P.gca()
    else: ax = axes
@@ -152,8 +154,8 @@ def band_fluxes(r,which=0,axes=None,axis=None,outfile=None):
       if eb.merged: hw /= eb.num
       
       if eb.flux is not None: 
-         ax.plot([xlo,xhi],[fac*eb.flux,fac*eb.flux],color='red',lw=1)
-         ax.plot([bc,bc]  ,[fac*eb.lflux,fac*eb.uflux],color='red',lw=1)
+         ax.plot([xlo,xhi],[fac*eb.flux,fac*eb.flux], **plot_kwargs)
+         ax.plot([bc,bc]  ,[fac*eb.lflux,fac*eb.uflux],**plot_kwargs)
       else:
          ax.plot([xlo,xhi],[fac*eb.uflux,fac*eb.uflux],color='k')
          dy = -(fac*eb.uflux - 10**(N.log10(fac*eb.uflux) - 0.6))
@@ -171,17 +173,20 @@ def band_fluxes(r,which=0,axes=None,axis=None,outfile=None):
 #-----------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------#
 
-def make_sed(r,which=0,axes=None,axis=None,plot_model=True):
-    
+def make_sed(r,which=0,axes=None,axis=None,plot_model=True, 
+    data_kwargs=None, fit_kwargs=None):
+    if data_kwargs is None: data_kwargs={}
+    if fit_kwargs is None: fit_kwargs={'color':'blue', 'linewidth':1}
     if axes is None: axes = P.gca()
-    band_fluxes(r,which=which,axes=axes)
+    band_fluxes(r,which=which,axes=axes, **data_kwargs)
     axes.set_xlabel('Energy (MeV)')
     axes.set_ylabel('Energy Flux (MeV/cm2/s)')
     dom = N.logspace(2,5,100)
     cod = r.psm.models[which](dom)*dom**2
-    axes.plot(dom,cod,color='blue')
+    axes.plot(dom,cod, **fit_kwargs)
     if axis is None:
         axes.axis([1e2,1e5,1e-10,1e-2])
+    else: axes.axis(axis)
     axes.grid(True)
     
 
