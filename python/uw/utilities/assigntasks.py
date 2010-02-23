@@ -1,12 +1,12 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.7 2010/02/02 23:19:27 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.8 2010/02/15 20:18:49 burnett Exp $
 
 """
 from IPython.kernel import client
 import time, os, pickle
-version = '$Revision: 1.7 $'.split()[1]
+version = '$Revision: 1.8 $'.split()[1]
 
 
 def get_mec():
@@ -38,10 +38,10 @@ class AssignTasks(object):
         self.post = post
         if not local:
             try:
-                self.mec = mec or get_mec()
+                self.mec = mec if mec is not None else get_mec()
             except:
                 print 'No connection available: you must run ipcluster'
-                return
+                raise
             assert(len(self.mec.get_ids())>0)
         self.assigned = {}
         self.tasks = tasks
