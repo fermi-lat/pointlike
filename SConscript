@@ -2,7 +2,7 @@
 # @file SConscript
 # @brief scons build specifications
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/SConscript,v 1.93 2010/02/22 20:22:32 jrb Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/SConscript,v 1.94 2010/02/23 04:51:29 burnett Exp $
 # Authors: Toby Burnett <tburnett@u.washington.edu>
 # Version: pointlike-07-01-04
 
@@ -18,8 +18,7 @@ Import('listFiles')
 progEnv = baseEnv.Clone()
 libEnv = baseEnv.Clone()
 
-if baseEnv['PLATFORM'] == "win32":
-    libEnv.Tool(package+'Lib', depsOnly = 1)
+libEnv.Tool('addLinkDeps', package=package, toBuild='shared')
 
 progEnv.Tool(package+'Lib')
 
