@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.6 2010/02/12 01:06:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.7 2010/02/15 20:19:33 burnett Exp $
 
 """
-version = '$Revision: 1.6 $'.split()[1]
+version = '$Revision: 1.7 $'.split()[1]
 
 import pylab
 import math
@@ -16,6 +16,8 @@ import numpy as np
 import pylab as pl
 from matplotlib import mpl, pyplot, ticker
 from skymaps import SkyImage, SkyDir, double2, SkyProj
+from math import exp
+from numpy.fft import fft2,ifft2,fftshift
 
 class Ellipse(object):
     def __init__(self, q):
@@ -763,6 +765,41 @@ class TSplot(object):
         self.zea.noclicker()
 
 
+class GaussKernel(object):
+
+    def __init__(self,center,scale):
+        """Center -- the center of an image to be Gaussian-smoothed
+           scale  -- the standard deviation of the Gaussian in degrees
+        """
+        self.center = center
+        self.scale  = N.radians(scale)
+        self.norm   = 1./(self.scale*(2*N.pi)**0.5)
+
+    def __call__(self,v,skydir = None):
+        sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
+        diff = self.center.difference(sd)/self.scale
+        if diff > 5: return 0
+        return self.norm*exp(-0.5*diff**2)        
+
+    def pyskyfun(self): return PySkyFunction(self)
+
+
+class GaussSmoothZEA(object):
+
+    def __init__(self,zea,scale):
+        gc = GaussKernel(zea.center,scale)
+        im_backup = zea.image.copy()
+        zea.fill(gc.pyskyfun())
+        print zea.image.sum()
+        zea.image /= zea.image.sum()
+        self.fft_kernel = fft2(zea.image)
+        zea.image = im_backup
+
+    def __call__(self,image):
+        """image must have same dimensions as ZEA used to create this object."""
+        fft_image = fft2(image)
+        return N.real(N.fft.fftshift(N.fft.ifft2(self.fft_kernel*fft_image)))
+        
 if __name__=='__main__':
     pass
 
