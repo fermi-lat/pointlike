@@ -1,12 +1,12 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.8 2010/02/15 20:18:49 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/assigntasks.py,v 1.9 2010/02/23 01:12:18 burnett Exp $
 
 """
 from IPython.kernel import client
 import time, os, pickle
-version = '$Revision: 1.8 $'.split()[1]
+version = '$Revision: 1.9 $'.split()[1]
 
 
 def get_mec():
@@ -75,7 +75,7 @@ class AssignTasks(object):
         if self.local: return [-1]
         ids = set(self.mec.get_ids())-set(self.lost) # note ignoring "lost" ids
         ntasks = len(self.tasks)
-        return ids if ntasks>len(ids) else list(ids)[:ntasks]
+        return list(ids) if ntasks>len(ids) else list(ids)[:ntasks]
 
     def execute(self, string, id, block=True):
         """ execute the string on engine id  
