@@ -5,17 +5,17 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.8 2010/02/24 19:54:04 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.9 2010/02/24 20:03:45 kerrm Exp $
 
 """
-version = '$Revision: 1.8 $'.split()[1]
+version = '$Revision: 1.9 $'.split()[1]
 
 import pylab
 import math
 import numpy as np
 import pylab as pl
 from matplotlib import mpl, pyplot, ticker
-from skymaps import SkyImage, SkyDir, double2, SkyProj
+from skymaps import SkyImage, SkyDir, double2, SkyProj,PySkyFunction,Hep3Vector
 from math import exp
 from numpy.fft import fft2,ifft2,fftshift
 
@@ -588,6 +588,26 @@ class ZEA(object):
         if self.cid is not None: self.axes.figure.canvas.mpl_disconnect(self.cid)
         self.cid=None
     
+    def smooth(self,scale=0.1):
+        """ smooth the image using a Gaussian kernel.  Reverse process by calling ZEA.unsmooth.
+
+            NB -- if more than one image with the same dimension is to be smoothed, it is
+            more computationally efficient to create a single GaussSmoothZEA object and use it
+            to make smoothed images.
+
+            scale: the smoothing scale (std. dev.) in deg
+        """
+        if 'image' not in self.__dict__.keys(): return
+        gsz = GaussSmoothZEA(self,scale)
+        self.original = self.image.copy()
+        self.image    = gsz(self.image)
+
+    def unsmooth(self):
+        """ replace smoothed image with original unsmoothed image."""
+        if 'original' not in self.__dict__.keys(): return
+        self.image = self.original
+        self.__dict__.pop('original')
+
 
 
 def ZEA_test(ra=90, dec=85, size=5, nticks=8, galactic=False):
@@ -772,8 +792,8 @@ class GaussKernel(object):
            scale  -- the standard deviation of the Gaussian in degrees
         """
         self.center = center
-        self.scale  = N.radians(scale)
-        self.norm   = 1./(self.scale*(2*N.pi)**0.5)
+        self.scale  = np.radians(scale)
+        self.norm   = 1./(self.scale*(2*np.pi)**0.5)
 
     def __call__(self,v,skydir = None):
         sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
@@ -785,6 +805,12 @@ class GaussKernel(object):
 
 
 class GaussSmoothZEA(object):
+    """ Support Gaussian smoothing for ZEA images.  Create a ZEA object with the desired
+        properties and then use it to instantiate this class.  The instance of this class
+        will store the Fourier transform of the gaussian kernel.  Then, any ZEA image
+        with the same dimension can be quickly smoothed using the same GaussSmoothZEA
+        instance.
+    """
 
     def __init__(self,zea,scale):
         """zea is an instance of ZEA.
@@ -799,7 +825,7 @@ class GaussSmoothZEA(object):
     def __call__(self,image):
         """image is a 2d numpy array which must have same dimensions as ZEA used to create this object."""
         fft_image = fft2(image)
-        return N.real(N.fft.fftshift(N.fft.ifft2(self.fft_kernel*fft_image)))
+        return np.real(fftshift(ifft2(self.fft_kernel*fft_image)))
         
 if __name__=='__main__':
     pass
