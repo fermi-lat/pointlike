@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.3 2010/02/02 00:00:03 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.4 2010/02/25 19:08:25 wallacee Exp $
 
 """
-version='$Revision: 1.3 $'.split()[1]
+version='$Revision: 1.4 $'.split()[1]
 import os
 import math
 import skymaps
@@ -38,7 +38,7 @@ Optional keyword arguments:
    see docstring for SpectralAnalysis
 """
 
-        self.__dict__.update(spectral_analysis.__dict__)
+        self.__dict__.update(spectral_analysis)
 
         from numpy import arange,log10
         self.my_bins = 10**arange(log10(self.emin),log10(self.emax*1.01),1./self.binsperdec)
