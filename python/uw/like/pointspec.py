@@ -1,12 +1,12 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.2 2010/01/21 01:29:42 kerrm Exp $
+
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.3 2010/02/18 03:27:25 burnett Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.2 $'.split()[1]
+version='$Revision: 1.3 $'.split()[1]
 import os
 import sys
 
@@ -24,23 +24,23 @@ class AnalysisEnvironment(object):
       files (FT1, FT2, livetime) to be used in the analysis.
 
       While these parameters can be specified as keyword arguments,
-      it is probably best to update the default values in 
+      it is probably best to update the default values in
       AnalysisEnvironment.init.
 
       **Parameters**
-      
+
       ft1files : string or list of strings
-          if a single string: points to a single FT1 file, or if 
+          if a single string: points to a single FT1 file, or if
           contains wild cards is expanded by glob into a list of files
           if a list of string: each string points to an FT1 file
       ft2files : string or list of string
-          same format as ft1files, but N.B. that the current 
-          implementation expects a one-to-one correspondence of FT1 
+          same format as ft1files, but N.B. that the current
+          implementation expects a one-to-one correspondence of FT1
           and FT2 files!
       ltcube : string, optional
-          points to a livetime cube; if not given, the livetime will 
-          be generated on-the-fly.  If a file is provided but does 
-          not exist, the livetime cube will be generated and written 
+          points to a livetime cube; if not given, the livetime will
+          be generated on-the-fly.  If a file is provided but does
+          not exist, the livetime cube will be generated and written
           to the specified file.
       binfile : string, optional
           points to a binned representation of the data; will be
@@ -49,13 +49,13 @@ class AnalysisEnvironment(object):
           N.B. -- this file should be re-generated if, e.g., the
           energy binning used in the later spectral analysis changes.
       diffdir : string, optional (but default must be correct!)
-          the directory in which to find mapcubes and tables for 
+          the directory in which to find mapcubes and tables for
           the diffuse backgrounds
       catdir : string, optional (but default must be correct!)
-          the directory in which to find a FITS representation of 
+          the directory in which to find a FITS representation of
           a LAT source list
       CALDB : string, optional (but default must be correct!)
-          the directory in which to find the relevant version of CALDB.  
+          the directory in which to find the relevant version of CALDB.
           see the default value for the precise subdirectory required.
    """
 
@@ -96,9 +96,9 @@ class AnalysisEnvironment(object):
 
 
 class SpectralAnalysis(object):
-    """ 
+    """
     Interface to the spectral analysis code.
-Create a new spectral analysis object.  
+Create a new spectral analysis object.
 
     analysis_environment: an instance of AnalysisEnvironment correctly configured with
                           the location of files needed for spectral analysis (see its
@@ -110,9 +110,9 @@ Optional keyword arguments:
   parameter      comments
   ===========    =======================================================
   **binning and livetime calculation**
-  ---------------------------------------------------------------------- 
-  roi_dir        [ None] aperture center; if None, assume all-sky analysis                                                                                  
-  exp_radius     [ 20]  radius (deg) to use if calculate exposure or a ROI. (180 for full sky)                                                                                
+  ----------------------------------------------------------------------
+  roi_dir        [ None] aperture center; if None, assume all-sky analysis
+  exp_radius     [ 20]  radius (deg) to use if calculate exposure or a ROI. (180 for full sky)
   zenithcut      [ 105]  Maximum spacecraft pointing angle with respect to zenith to allow
   thetacut       [ 66.4] Cut on photon incidence angle
   event_class    [ 3]  select class level (3 - diffuse; 2 - source; 1 - transient; 0 - Monte Carlo)
@@ -120,37 +120,37 @@ Optional keyword arguments:
   tstart         [0] Default no cut on time; otherwise, cut on MET > tstart
   tstop          [0] Default no cut on time; otherwise, cut on MET < tstop
   binsperdec     [4] energy binning granularity when binning FT1
-  emin           [100] Minimum energy                                                                                 
+  emin           [100] Minimum energy
   emax           [3e5] Maximum energy
   **Monte carlo selection**
-  ---------------------------------------------------------------------- 
+  ----------------------------------------------------------------------
   mc_src_id      [ -1] set to select on MC_SRC_ID column in FT1
   mc_energy      [False] set True to use MC_ENERGY instead of ENERGY
   **Instrument response**
-  ---------------------------------------------------------------------- 
+  ----------------------------------------------------------------------
   irf            ['P6_v3_diff'] Which IRF to use
   psf_irf        [None] specify a different IRF to use for the PSF; must be in same format/location as typical IRF file!
   **spectral analysis**
-  ---------------------------------------------------------------------- 
+  ----------------------------------------------------------------------
   background     ['ems_ring'] - a choice of global model specifying a diffuse background; see ConsistentBackground for options
   maxROI         [25] maximum ROI for analysis; note ROI aperture is energy-dependent = max(maxROI,r95(e,conversion_type))
   minROI         [0] minimum ROI analysis
-                 
+
                  **Note** The ROI radius is energy-dependent: minROI < r95(e,conversion_type) < maxROI
                   That is, the radius is given by the 95% PSF containment for the band, subject
                   to the constraint that it be >= minROI and <= maxROI
-  **Miscellaneous**               
-  ---------------------------------------------------------------------- 
+  **Miscellaneous**
+  ----------------------------------------------------------------------
   quiet          [False] Set True to suppress (some) output
   verbose        [False] More output
   ===========    =======================================================
- 
+
     """
 
     def __init__(self, analysis_environment, **kwargs):
         """
 
-Create a new spectral analysis object.  
+Create a new spectral analysis object.
 
     analysis_environment: an instance of AnalysisEnvironment correctly configured with
                           the location of files needed for spectral analysis (see its
@@ -163,8 +163,8 @@ Optional keyword arguments:
   =========    =======================================================
 
   =========    KEYWORDS CONTROLLING DATA BINNING AND LIVETIME CALCULATION
-  roi_dir      [ None] aperture center; if None, assume all-sky analysis                                                                                  
-  exp_radius   [ 20]  radius (deg) to use if calculate exposure or a ROI. (180 for full sky)                                                                                
+  roi_dir      [ None] aperture center; if None, assume all-sky analysis
+  exp_radius   [ 20]  radius (deg) to use if calculate exposure or a ROI. (180 for full sky)
   zenithcut    [ 105]  Maximum spacecraft pointing angle with respect to zenith to allow
   thetacut     [ 66.4] Cut on photon incidence angle
   event_class  [ 3]  select class level (3 - diffuse; 2 - source; 1 - transient; 0 - Monte Carlo)
@@ -172,7 +172,7 @@ Optional keyword arguments:
   tstart       [0] Default no cut on time; otherwise, cut on MET > tstart
   tstop        [0] Default no cut on time; otherwise, cut on MET < tstop
   binsperdec   [4] energy binning granularity when binning FT1
-  emin         [100] Minimum energy                                                                                 
+  emin         [100] Minimum energy
   emax         [3e5] Maximum energy
 
   =========    KEYWORDS FOR MONTE CARLO DATA
@@ -182,7 +182,7 @@ Optional keyword arguments:
   =========    KEYWORDS CONTROLLING INSTRUMENT RESPONSE
   irf          ['P6_v3_diff'] Which IRF to use
   psf_irf      [None] specify a different IRF to use for the PSF; must be in same format/location as typical IRF file!
-  
+
   =========    KEYWORDS CONTROLLING SPECTRAL ANALYSIS
   background   ['1FGL'] - a choice of global model specifying a diffuse background; see ConsistentBackground for options
   maxROI       [25] maximum ROI for analysis; note ROI aperture is energy-dependent = max(maxROI,r95(e,conversion_type))
@@ -199,7 +199,7 @@ Optional keyword arguments:
   verbose      [False] More output
   =========   =======================================================
   """
-        
+
         self.roi_dir     = None
         self.exp_radius  = 20     # deg
         self.zenithcut   = 105    # deg
@@ -232,7 +232,7 @@ Optional keyword arguments:
 
 
          #TODO -- sanity check that BinnedPhotonData agrees with analysis parameters
-        self.pixeldata = PixelData(self)
+        self.pixeldata = PixelData(self.__dict__)
         self.exposure  = ExposureManager(self)
         self.psf = CALDBPsf(self.ae.CALDB,irf=self.irf,psf_irf=self.psf_irf)
 
@@ -280,7 +280,7 @@ Optional keyword arguments:
         if point_sources is None and self.roi_dir is None:
             print 'No direction specified!  Provide a point source or set roi_dir member of this object!'
             return
-        
+
         # process kwargs
         glat,bg_smodels,nocat,minflux,free_radius,prune_radius,user_skydir = None,None,False,1e-8,2,0.1,None
         #for key in ['glat','bg_smodels','nocat','minflux','free_radius','prune_radius']
@@ -314,7 +314,7 @@ Optional keyword arguments:
         # if didn't specify a source, pick closest one and make it free -- maybe remove this?
         if point_sources is None and (not N.any([N.any(m.free) for m in ps_manager.models])):
             ps_manager.models[0].free[:] = True
-            
+
         # n.b. weighting PSF for the central point source
         self.psf.set_weights(self.ltcube,skydir)
 
