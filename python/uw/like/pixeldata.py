@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.2 2010/01/21 01:29:42 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.3 2010/02/02 00:00:03 burnett Exp $
 
 """
-version='$Revision: 1.2 $'.split()[1]
+version='$Revision: 1.3 $'.split()[1]
 import os
 import math
 import skymaps
@@ -14,7 +14,7 @@ import pointlike
 
 class PixelData(object):
     """
-Create a new PixelData instance, managing data and livetime.  
+Create a new PixelData instance, managing data and livetime.
 
     analysis_environment: an instance of AnalysisEnvironment correctly configured with
                           the location of files needed for spectral analysis (see its
@@ -27,7 +27,7 @@ Optional keyword arguments:
 
     def __init__(self, spectral_analysis ):
         """
-Create a new PixelData instance, managing data and livetime.  
+Create a new PixelData instance, managing data and livetime.
 
     analysis_environment: an instance of AnalysisEnvironment correctly configured with
                           the location of files needed for spectral analysis (see its
@@ -43,7 +43,7 @@ Optional keyword arguments:
         from numpy import arange,log10
         self.my_bins = 10**arange(log10(self.emin),log10(self.emax*1.01),1./self.binsperdec)
         self.binner_set = False
-        
+
         # check explicit files
         for filelist in [self.ft1files, self.ft2files] :
             if filelist is not None and len(filelist)>0 and not os.path.exists(filelist[0]):
@@ -57,9 +57,10 @@ Optional keyword arguments:
 
     def __str__(self):
         return 'Pixeldata: %.3f M events, %.3f Ms' % (self.dmap.photonCount()/1e6, self.gti.computeOntime()/1e6)
+
     def __repr__(self):
-        return __str__()
-        
+        return str(self)
+
     def reload_data(self,ft1files):
         self.ft1files = ft1files if type(ft1files)==type([]) or ft1files is None else [ft1files]
         for filelist in  [self.ft1files, self.ft2files] :
@@ -70,7 +71,7 @@ Optional keyword arguments:
         self.dmap.updateIrfs()
 
     def fill_empty_bands(self,bpd):
-      
+
         from pointlike import Photon
         from skymaps import SkyDir
         dummy = SkyDir(0,0)
@@ -83,7 +84,7 @@ Optional keyword arguments:
              bpd.addBand(ph_b)
              #bpd.addPhoton(ph_f,0)
              #bpd.addPhoton(ph_b,0)
-             
+
     def Data_setup(self):
 
         from numpy import arccos,pi
@@ -102,7 +103,7 @@ Optional keyword arguments:
             self.binner_set = True
 
     def PSF_setup(self):
-   
+
         # modify the psf parameters in the band objects
         # note there is a small discrepancy since the PSF average does not
         # currently know about the theta cut
@@ -114,7 +115,7 @@ Optional keyword arguments:
         ip.init('_'.join(self.irf.split('_')[:-1]),self.irf.split('_')[-1])
 
     def get_data(self):
-        
+
         #if no binned object present, create; apply cuts
         if self.binfile is None or not os.path.exists(self.binfile):
 
@@ -123,17 +124,17 @@ Optional keyword arguments:
             if self.verbose: print 'loading file(s) %s' % self.ft1files
             data = pointlike.Data(self.ft1files,self.conv_type,self.tstart,self.tstop,self.mc_src_id,'')
 
-            self.fill_empty_bands(data.map())     # fill any empty bins           
+            self.fill_empty_bands(data.map())     # fill any empty bins
 
             if self.verbose: print 'done'
             if self.binfile is not None:
                 if not self.quiet: print '.....saving binfile %s for subsequent use' % self.binfile
                 data.write(self.binfile)
-        
+
         else:
             data = pointlike.Data(self.binfile)
             if not self.quiet: print '.....loaded binfile %s ' % self.binfile
-        
+
         if self.verbose:
             data.map().info()
             print '---------------------'
@@ -141,19 +142,19 @@ Optional keyword arguments:
         return data
 
     def get_livetime(self,   pixelsize=1.0):
-    
+
         gti = skymaps.Gti(self.ft1files[0])
         for ef in self.ft1files[1:]:
             gti.combine(skymaps.Gti(ef))
         tmax = self.tstop if self.tstop > 0 else gti.maxValue()
 
         gti = self.gti = gti.applyTimeRangeCut(self.tstart,tmax) #save gti for later use
-        
+
         if 'gti_mask' in self.__dict__ and self.gti_mask is not None:
             before = gti.computeOntime()
             gti.intersection(self.gti_mask)
             if not self.quiet: print 'applied gti mask, before, after times: %.1f, %.1f' % (before, gti.computeOntime())
-            
+
 
         if self.ltcube is None or not os.path.exists(self.ltcube):
             if self.roi_dir is None:
@@ -170,8 +171,8 @@ Optional keyword arguments:
 
             for hf in self.ft2files:
                 if not self.quiet: print 'loading FT2 file %s' %hf ,
-                lt_gti = skymaps.Gti(hf,'SC_data')
-                if not ((lt_gti.maxValue() < self.gti.minValue()) or 
+                lt_gti = skymaps.Gti(hf,'SC_DATA')
+                if not ((lt_gti.maxValue() < self.gti.minValue()) or
                         (lt_gti.minValue() > self.gti.maxValue())):
                    lt.load(hf,gti)
 
@@ -193,9 +194,9 @@ def setup(bins=8):
     months = ['aug', 'sep', 'oct']
     event_files  = [os.path.join(data_path, '%s2008-ft1.fits'%m) for m in months ]
     history_files= [os.path.join(data_path, '%s2008-ft2.fits'%m) for m in months ]
-    return PixelData( event_files, history_files,  
-        livetimefile='../data/aug-oct_livetime.fits', 
-        datafile='../data/aug-oct2008_%d.fits'%bins, 
+    return PixelData( event_files, history_files,
+        livetimefile='../data/aug-oct_livetime.fits',
+        datafile='../data/aug-oct2008_%d.fits'%bins,
         binsperdec=bins)
 if __name__=='__main__':
     pass
