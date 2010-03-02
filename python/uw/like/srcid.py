@@ -1,6 +1,7 @@
 import os
 import sys
 import math
+from operator import mul
 from glob import glob
 import numpy as np
 import pyfits as pf
@@ -28,7 +29,7 @@ class SourceAssociation(object):
                         error ellipse
             classes:    List of source classes to be associated.  Names should correspond
                         to python modules in class_dir
-            class_dir:  Directory to look in for source class modules. Defaults to 
+            class_dir:  Directory to look in for source class modules. Defaults to
                         self.catdir/../classes.
 
         For now, just gets the prior and threshold for each catalog and calls single_catalog_id.
@@ -40,108 +41,99 @@ class SourceAssociation(object):
             class_dir = os.path.join(self.catdir,os.path.pardir,'classes')
         sys.path.insert(0,class_dir)
         associations = {}
-        for cls in classes:
-            exec('import %s'%cls)
-            module = eval(cls)
-            cat_file = os.path.join(self.catdir,module.catname)
-            catalog = os.path.basename(cat_file)[:-5]
-            if not self.catalogs.has_key(catalog):
-                self.catalogs[catalog] = Catalog(cat_file)
-            prior = module.prob_prior
-            threshold = module.prob_thres
-            these = self.single_catalog_id(position,error,catalog,prior,threshold)
-            if these:
-                associations[self.catalogs[catalog]] = these
+        class_files = [os.path.join(class_dir,cls) for cls in classes]
+        for cls,cf in zip(classes,class_files):
+            if not self.catalogs.has_key(cls):
+                self.catalogs[cls] = Catalog(cf)
+            these = self.single_catalog_id(position,error,self.catalogs[cls])
+            associations[cls] = these
         return associations
 
-    def single_catalog_id(self,position,error,catalog,prior_prob,prob_threshold):
+    def single_catalog_id(self,position,error_ellipse,catalog):
         """Given a skydir and error ellipse, return associations from catalogs.
 
         Arguments:
-            position    : A SkyDir representing the location of the source to be associated.
-            error       : Either the radius of a 1-sigma error circle (r68), or a sequence
-                          of length 3 representing major and minor axes and position angle of an
-                          error ellipse
-            catalog    : A catalog name (name of catalog file, without .fits extension,e.g. 'obj-agn')
-            prob_threshold: Probability threshold for considering a source associated.
+            position      : A SkyDir representing the location of the source to be associated.
+            error_ellipse : Sequence of length 3 representing major and minor axes and position angle of an
+                          error ellipse in degrees
+            catalog       : A Catalog object in which to look for associations
 
         Returns all sources with posterior probability greater than prob_threshold,
         sorted by probability.
+        
+        Maybe make this a method on Catalog?
         """
 
         try:
-            error_maj_axis,error_min_axis,error_angle = [math.radians(x) for x in error]
+            assert(len(error_ellipse==3))
         except TypeError:
-            #error not a sequence, assume that it's a 1-sigma error circle radius 
-            error_maj_axis,error_min_axis,error_angle = [math.radians(error)]*2+[0]
-        except ValueError:
-            #error is a sequence, but not of length 3.  If it's a single value, 
-            #assume it's a circular error; otherwise, complain and return None.
-            if len(error) == 1:
-                error_maj_axis,error_min_axis,error_angle = [math.radians(error[0])]*2+[0]
-            else:
-                print 'Wrong length for argument "error".'
-                return
-        associations = []
-        cat = self.catalogs[catalog]
+            print("Got scalar instead of sequence for error ellipse: Assuming this is r68 in degrees")
+            error_ellipse = [error_ellipse]*2+[0]
+        except AssertionError:
+            "Wrong length for error_ellipse: Needed length 3, got %i"%len(error_ellipse)
+            return
+
         #filter sources by position, ~5-sigma radius
-        sources = cat.select_circle(position,math.degrees(error_maj_axis)*5)
-        post_probs = []
-        for source in sources:
-            #Compute angular separation and position angle
-            angsep = position.difference(source.skydir)
-            ra1,dec1,ra2,dec2 = [math.radians(x) for x in
-                                (position.ra(),position.dec(),
-                                source.skydir.ra(),source.skydir.dec())]
-            denom = math.sin(dec1)*math.cos(ra1-ra2) - math.cos(dec1)*math.tan(dec2)
-            posang = math.atan2(math.sin(ra1-ra2), denom)
-
-            #Compute delta(logl), assuming elliptical parabaloid shape.
-            phi = posang-error_angle
-            delta = .5*angsep**2*((math.cos(phi)/error_maj_axis)**2 +
-                                   (math.sin(phi)/error_min_axis)**2)
-            norm = 2.*math.pi*error_maj_axis*error_min_axis
-            pos_prob = math.exp(-delta)/norm
-
-            #Compute chance association prob (=local catalog density)
-            #Should be consistent with 1FGL method.
-            chance_prob = cat.local_density(position)
-
-            #Calculate posterior probability
-            arg = (chance_prob*(1-prior_prob)/(pos_prob*prior_prob))
-            post_prob = 1./(1.+arg)
-            post_probs += [post_prob]
-        #return sources above threshold, sorted by posterior probability
-        source_list = [(prob,source) for prob,source in zip(post_probs,sources) if prob > prob_threshold]
+        sources = catalog.select_circle(position,error_ellipse[0]*5)
+        post_probs = [source.posterior_probability(position,error_ellipse) for source in sources]
+        #return sources above threshold with posterior probability, sorted by posterior probability
+        source_list = [(prob,source) for prob,source in zip(post_probs,sources) if prob > catalog.prob_threshold]
         source_list.sort()
-        return source_list
+        source_dict = dict((el[1].name,el) for el in source_list[:catalog.max_counterparts])
+        return source_dict
 
 
 class Catalog(object):
     """A class to manage the relevant information from a FITS catalog."""
 
-    def __init__(self,catalog):
-        self.cat_name = os.path.basename(catalog).split('.')[0]
+    def __new__(cls,class_file):
+        gamma_catalogs = ['%s'%g for g in 'agile egr cosb eg3'.split()]
+        extended_catalogs = ['%s'%e for e in 'dwarf snr_ext'.split()]
+        cf = os.path.basename(class_file).split('.')[0]
+        if cf in gamma_catalogs:
+            obj = object.__new__(GammaCatalog)
+        elif cf in extended_catalogs:
+            obj = object.__new__(ExtendedCatalog)
+        else:
+            obj = object.__new__(Catalog)
+        return obj
+
+    def __init__(self,class_file):
+        self.class_module = self._get_class_module(class_file)
+        self.cat_file = os.path.join(os.path.dirname(class_file),os.path.pardir,'cat',self.class_module.catname)
         self.coords = SkyDir.EQUATORIAL
+        self.prior = self.class_module.prob_prior
+        self.prob_threshold = self.class_module.prob_thres
+        self.max_counterparts = self.class_module.max_counterparts
+        self.selection_string = self.class_module.selection
+
         try:
-            fits_cat = pf.open(catalog)
+            fits_cat = pf.open(self.cat_file)
         except IOError:
-            raise CatalogError(catalog,'Error opening catalog file. Not a FITS file?')
+            raise CatalogError(self.cat_file,'Error opening catalog file. Not a FITS file?')
         #Find hdu with catalog information
         self.hdu = self._get_hdu(fits_cat)
         if self.hdu is None:
-            raise CatalogException(catalog,'No catalog information found.')
+            raise CatalogException(self.cat_file,'No catalog information found.')
         names = self._get_ids()
         if names is None:
-            raise CatalogException(catalog,'Could not find column with source names')
+            raise CatalogException(self.cat_file,'Could not find column with source names')
         lons,lats = self._get_positions()
         if lons is None:
-            raise CatalogException(catalog,'Could not find columns with source positions')
+            raise CatalogException(self.cat_file,'Could not find columns with source positions')
         self.sources = np.array([CatalogSource(self,name,SkyDir(lon,lat,self.coords))
                         for name,lon,lat in zip(names,lons,lats)])
 
     def __iter__(self):
         return self.sources
+
+    def _get_class_module(self,class_file):
+        """Import and return module class_file"""
+        if not os.path.dirname(class_file) in sys.path:
+            sys.path.insert(0,os.path.dirname(class_file))
+        cls = os.path.basename(class_file).split('.')[0]
+        exec('import %s'%cls)
+        return eval(cls)
 
     def _get_hdu(self,fits_cat):
         """Find and return HDU with catalog information."""
@@ -156,6 +148,7 @@ class Catalog(object):
                     self.cat_name = cards['EXTNAME'].value
                     return hdu
                 except KeyError:
+                    self.cat_name = self.class_module.catid
                     pass
         #No CAT-NAME or EXTNAME found, just return second HDU
         if len(fits_cat)>=2:
@@ -237,9 +230,27 @@ class Catalog(object):
         else:
             return
 
-    def _get_errors(self,dat):
-        """Find columns with position errrors."""
-        pass
+    def _make_selection(self,selections):
+        """Make selections specified in class module. Not really implemented yet.""" 
+        selections = [x for x in selections if x != '']
+        if not selections: return
+        
+        for sel in selections:
+            if '||' in sel:
+                ors = sel.split('||')
+                for o in ors:
+                    re.sub('DEFNULL\(([@A-Z0-9]*),0\.0\)','\1',o)
+                    re.sub('@%s_(.*)'%self.class_module.catid,'\1',o)
+                sel = '||'.join(ors)
+            if '&&' in sel:
+                ands = sel.split('||')
+                for a in ands:
+                    re.sub('DEFNULL\(([@A-Z0-9]*),0\.0\)','\1',a)
+                    re.sub('@%s_(.*)'%self.class_module.catid,'\1',a)
+                sel = '&&'.join(ands)
+            
+
+
 
     def select_circle(self,position,radius):
         """Return an array of CatalogSources within radius degrees of position.
@@ -260,9 +271,17 @@ class Catalog(object):
         """Return the local density of catalog sources in a radius-degree region about position."""
 
         n_sources = len(self.select_circle(position,radius))
+        #If no sources within radius, set n_sources = 1 to give lower limit on density
+        #Maybe better to expand the radius in this case?
+        if n_sources < 1 : n_sources = 1
         solid_angle = radius**2*math.pi
         return n_sources/solid_angle
 
+class GammaCatalog(Catalog):
+    """A catalog of gamma-ray sources (i.e. sources with error circles comparable to LAT)"""
+
+class ExtendedCatalog(Catalog):
+    """A catalog of extended sources"""
 
 class CatalogSource(object):
     """A class representing a catalog source."""
@@ -274,6 +293,56 @@ class CatalogSource(object):
     def __str__(self):
         return '\t'.join([self.catalog.cat_name,self.name,str(self.skydir.ra()),str(self.skydir.dec())])
 
+    def angular_separation(self,other_skydir):
+        """Calculate angular separation between this source and other_skydir"""
+        return self.skydir.difference(other_skydir)
+
+    def position_angle(self,other_skydir):
+        """Calculate other_skydir angle _from_ other_skydir _to_ this source."""
+        ra1,dec1,ra2,dec2 = [math.radians(x) for x in
+                            (other_skydir.ra(),other_skydir.dec(),
+                            self.skydir.ra(),self.skydir.dec())]
+        denom = math.sin(dec1)*math.cos(ra1-ra2) - math.cos(dec1)*math.tan(dec2)
+        return math.atan2(math.sin(ra1-ra2), denom)
+
+    def delta_logl(self,position,error_ellipse):
+        """Compute Delta(logl) for this association with source at position, with error_ellipse
+
+        Arguments:
+            position : SkyDir representing position of other source
+            error_ellipse : 3-tuple representing error ellipse of other source in degrees"""
+
+        error_ellipse = deg2rad(error_ellipse)
+        phi = self.position_angle(position)-error_ellipse[2]
+        angsep = self.angular_separation(position)
+        return .5*angsep**2*((math.cos(phi)/error_ellipse[0])**2 +
+                               (math.sin(phi)/error_ellipse[1])**2)
+
+    def positional_likelihood(self,position,error_ellipse):
+        """Likelihood for point source at position with error_ellipse to be associated with this source.
+
+        Arguments:
+            position : SkyDir representing position of other source
+            error_ellipse : 3-tuple representing error ellipse of other source in degrees"""
+
+        norm = 2.*math.pi*mul(*deg2rad(error_ellipse)[:2])
+        return math.exp(-self.delta_logl(position,error_ellipse))/norm
+
+    def chance_probability(self,position,radius = 4):
+        """Probability of chance association"""
+        return self.catalog.local_density(position,radius=radius)
+
+    def prior_probability(self):
+        """Prior probability for association"""
+        return self.catalog.prior
+
+    def posterior_probability(self,position,error_ellipse):
+        """Posterior probability for association with given position and error ellipse"""
+
+        arg = (self.chance_probability(position,error_ellipse[0])*(1-self.prior_probability())/
+               (self.positional_likelihood(position,error_ellipse)*self.prior_probability()))
+        return 1./(1.+arg)
+
 class CatalogError(Exception):
     """Exception class for problems with a catalog."""
     def __init__(self,catalog,message):
@@ -282,6 +351,11 @@ class CatalogError(Exception):
     def __str__(self):
         return 'In catalog %s:\n\t%s'%(self.catalog,self.message)
 
+def deg2rad(angles):
+    return [angle*math.pi/180. for angle in angles]
+
+def rad2deg(angles):
+    return [angle*180./math.pi for angle in angles]
 
 if __name__=='__main__':
     assoc = SourceAssociation('/home/eric/research/catalog/srcid/cat')
@@ -289,9 +363,9 @@ if __name__=='__main__':
     pos, error = SkyDir(343.495,16.149), .016/2.45
     associations = assoc.id(pos,error,['agn','bzcat','cgrabs','crates'])
     for cat,ass in associations.items():
-        print 'Associations in %s:'%cat.cat_name
-        for a in ass:
-            print '\t'.join([str(a[1]),'prob:',str(a[0])])
+        print 'Associations in %s:'%cat
+        for name,data in ass.items():
+            print '\t'.join([name,'prob:',str(data[0])])
     #print('\n'.join([str(x[1]) for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)]))
     #Couldn't find elliptical errors, but want to test input for error.
     #error = (error,error,0.0)
