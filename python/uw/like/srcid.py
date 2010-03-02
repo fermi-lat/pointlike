@@ -40,8 +40,10 @@ class SourceAssociation(object):
         if class_dir is None:
             class_dir = os.path.join(self.catdir,os.path.pardir,'classes')
         sys.path.insert(0,class_dir)
-        associations = {}
+        #If classes is not a list, make it one
+        if not hasattr(classes,'__iter__'): classes = [classes]
         class_files = [os.path.join(class_dir,cls) for cls in classes]
+        associations = {}
         for cls,cf in zip(classes,class_files):
             if not self.catalogs.has_key(cls):
                 self.catalogs[cls] = Catalog(cf)
