@@ -1,6 +1,7 @@
 import os
 import sys
 import math
+import re
 from operator import mul
 from glob import glob
 import numpy as np
@@ -15,8 +16,6 @@ class SourceAssociation(object):
     def __init__(self,catdir):
         self.catdir = catdir
         cat_files = glob(os.path.join(self.catdir,'*.fits'))
-        #self.catalogs = dict(zip([os.path.basename(cat)[:-5] for cat in cat_files],
-        #                         [Catalog(cat) for cat in cat_files]))
         self.catalogs = {}
 
     def id(self,position,error,classes,class_dir = None):
@@ -62,12 +61,12 @@ class SourceAssociation(object):
 
         Returns all sources with posterior probability greater than prob_threshold,
         sorted by probability.
-        
+
         Maybe make this a method on Catalog?
         """
 
         try:
-            assert(len(error_ellipse==3))
+            assert(len(error_ellipse)==3)
         except TypeError:
             print("Got scalar instead of sequence for error ellipse: Assuming this is r68 in degrees")
             error_ellipse = [error_ellipse]*2+[0]
@@ -91,7 +90,7 @@ class Catalog(object):
     def __new__(cls,class_file):
         gamma_catalogs = ['%s'%g for g in 'agile egr cosb eg3'.split()]
         extended_catalogs = ['%s'%e for e in 'dwarf snr_ext'.split()]
-        cf = os.path.basename(class_file).split('.')[0]
+        cf = os.path.splitext(os.path.basename(class_file))[0]
         if cf in gamma_catalogs:
             obj = object.__new__(GammaCatalog)
         elif cf in extended_catalogs:
@@ -100,15 +99,14 @@ class Catalog(object):
             obj = object.__new__(Catalog)
         return obj
 
-    def __init__(self,class_file):
+    def init(self,class_file):
         self.class_module = self._get_class_module(class_file)
         self.cat_file = os.path.join(os.path.dirname(class_file),os.path.pardir,'cat',self.class_module.catname)
+        print('Setting up catalog for source class "%s" from file "%s"'%(self.class_module.catid,self.cat_file))
         self.coords = SkyDir.EQUATORIAL
         self.prior = self.class_module.prob_prior
         self.prob_threshold = self.class_module.prob_thres
         self.max_counterparts = self.class_module.max_counterparts
-        self.selection_string = self.class_module.selection
-
         try:
             fits_cat = pf.open(self.cat_file)
         except IOError:
@@ -123,8 +121,13 @@ class Catalog(object):
         lons,lats = self._get_positions()
         if lons is None:
             raise CatalogException(self.cat_file,'Could not find columns with source positions')
+        return names,lons,lats
+
+    def __init__(self,class_file):
+        names,lons,lats = self.init(class_file)
+        self.mask = self._make_selection()
         self.sources = np.array([CatalogSource(self,name,SkyDir(lon,lat,self.coords))
-                        for name,lon,lat in zip(names,lons,lats)])
+                        for name,lon,lat in zip(names,lons,lats)])[self.mask]
 
     def __iter__(self):
         return self.sources
@@ -232,26 +235,33 @@ class Catalog(object):
         else:
             return
 
-    def _make_selection(self,selections):
-        """Make selections specified in class module. Not really implemented yet.""" 
-        selections = [x for x in selections if x != '']
-        if not selections: return
-        
+    def _make_selection(self):
+        """Make selections specified in class module. Not really implemented yet."""
+        selections = [x for x in self.class_module.selection if (x != '' and 'ANGSEP' not in x)]
+        dat = self.hdu.data
+        mask = np.array([True]*len(dat))
+        if not selections: return mask
+        catid_pattern = re.compile('@%s_([A-Za-z0-9]+)'%self.class_module.catid.upper())
+        defnull_pattern = re.compile('DEFNULL\(([A-Z0-9a-z]+),([0-9e\.]+)\)')
         for sel in selections:
+            field_names = catid_pattern.findall(sel)
+            fields = {}
+            for f in field_names:
+                field = dat.field(f)
+                sel = catid_pattern.sub(f,sel,1)
+                defnull_pattern = re.compile('DEFNULL\(%s,([0-9e\.]+)\)'%f)
+                dn_matches = defnull_pattern.findall(sel)
+                for dnm in dn_matches:
+                    field[np.isnan(field)]=dnm
+                fields[f]=field
+                sel = defnull_pattern.sub(f,sel)
+                sel = sel.replace(f,'fields["%s"]'%f)
             if '||' in sel:
-                ors = sel.split('||')
-                for o in ors:
-                    re.sub('DEFNULL\(([@A-Z0-9]*),0\.0\)','\1',o)
-                    re.sub('@%s_(.*)'%self.class_module.catid,'\1',o)
-                sel = '||'.join(ors)
-            if '&&' in sel:
-                ands = sel.split('||')
-                for a in ands:
-                    re.sub('DEFNULL\(([@A-Z0-9]*),0\.0\)','\1',a)
-                    re.sub('@%s_(.*)'%self.class_module.catid,'\1',a)
-                sel = '&&'.join(ands)
-            
-
+                sel = 'np.logical_or(%s)'%(sel.replace('||',',').strip('()'))
+            elif '&&' in sel:
+                sel = 'np.logical_and(%s)'%(sel.replace('&&',',').strip('()'))
+            mask = np.logical_and(mask,eval(sel))
+        return mask
 
 
     def select_circle(self,position,radius):
@@ -276,14 +286,50 @@ class Catalog(object):
         #If no sources within radius, set n_sources = 1 to give lower limit on density
         #Maybe better to expand the radius in this case?
         if n_sources < 1 : n_sources = 1
-        solid_angle = radius**2*math.pi
+        solid_angle = deg2rad(radius)**2*math.pi
         return n_sources/solid_angle
 
 class GammaCatalog(Catalog):
     """A catalog of gamma-ray sources (i.e. sources with error circles comparable to LAT)"""
 
+    def __init__(self,class_file):
+        names,lons,lats = self.init(class_file)
+        errors = self.get_position_errors()
+        self.mask = self._make_selection()
+        self.sources = np.array([GammaRaySource(self,name,SkyDir(lon,lat,self.coords),error)
+                        for name,lon,lat,error in zip(names,lons,lats,errors)])[self.mask]
+
+    def get_position_errors(self):
+        q = [x for x in self.class_module.new_quantity if
+                    (('LAT' not in x) and ('ECOM' not in x))][0]
+        patt = re.compile('@%s_([A-Za-z0-9_]+)'%self.class_module.catid.upper())
+        match = patt.search(q)
+        if match:
+            error_field = match.groups()[0]
+            return self.hdu.data.field(error_field)
+        else:
+            raise CatalogException(self.cat_file,'Could not find position uncertainties.')
+
 class ExtendedCatalog(Catalog):
     """A catalog of extended sources"""
+
+    def __init__(self,class_file):
+        names,lons,lats= self.init(class_file)
+        radii = self.get_radii()
+        self.mask = self._make_selection()
+        self.sources = np.array([ExtendedSource(self,name,SkyDir(lon,lat,self.coords),radius)
+                                 for name,lon,lat,radius in zip(names,lons,lats,radii)])[self.mask]
+
+    def get_radii(self):
+        q = self.class_module.new_quantity[0]
+        lhs,rhs = q.split('=')
+        terms = rhs.split('+')
+        rad_term = [term.strip() for term in terms if '@%s'%self.class_module.catid.upper() in term][0]
+        radius = rad_term.replace('@%s_'%self.class_module.catid.upper(),'')
+        num,denom = radius.split('/')
+        num = 'self.hdu.data.field("%s")'%num
+        radius = '/'.join([num,denom])
+        return eval(radius)
 
 class CatalogSource(object):
     """A class representing a catalog source."""
@@ -301,9 +347,8 @@ class CatalogSource(object):
 
     def position_angle(self,other_skydir):
         """Calculate other_skydir angle _from_ other_skydir _to_ this source."""
-        ra1,dec1,ra2,dec2 = [math.radians(x) for x in
-                            (other_skydir.ra(),other_skydir.dec(),
-                            self.skydir.ra(),self.skydir.dec())]
+        ra1,dec1,ra2,dec2 = deg2rad([other_skydir.ra(),other_skydir.dec(),
+                            self.skydir.ra(),self.skydir.dec()])
         denom = math.sin(dec1)*math.cos(ra1-ra2) - math.cos(dec1)*math.tan(dec2)
         return math.atan2(math.sin(ra1-ra2), denom)
 
@@ -341,9 +386,38 @@ class CatalogSource(object):
     def posterior_probability(self,position,error_ellipse):
         """Posterior probability for association with given position and error ellipse"""
 
-        arg = (self.chance_probability(position,error_ellipse[0])*(1-self.prior_probability())/
+        arg = (self.chance_probability(position)*(1-self.prior_probability())/
                (self.positional_likelihood(position,error_ellipse)*self.prior_probability()))
         return 1./(1.+arg)
+
+class GammaRaySource(CatalogSource):
+    """A source from a gamma-ray catalog."""
+    
+    def __init__(self,catalog,name,skydir,error):
+        super(GammaRaySource,self).__init__(catalog,name,skydir)
+        self.error = error
+
+    def posterior_probability(self,position,error_ellipse):
+        if self.combined_error(error_ellipse) >= self.angular_separation(position):
+            return 1.0
+        else:
+            return 0.0
+
+    def combined_error(self,error_ellipse):
+        return (error_ellipse[0]**2 + self.error**2)**.5
+
+class ExtendedSource(CatalogSource):
+    """An extended catalog source"""
+
+    def __init__(self,catalog,name,skydir,radius):
+        super(ExtendedSource,self).__init__(catalog,name,skydir)
+        self.radius = radius
+
+    def posterior_probability(self,position,error_ellipse):
+        if self.angular_separation(position)<=(error_ellipse[0]+self.radius):
+            return 1.0
+        else:
+            return 0.0
 
 class CatalogError(Exception):
     """Exception class for problems with a catalog."""
@@ -354,15 +428,21 @@ class CatalogError(Exception):
         return 'In catalog %s:\n\t%s'%(self.catalog,self.message)
 
 def deg2rad(angles):
-    return [angle*math.pi/180. for angle in angles]
+    try:
+        return [angle*math.pi/180. for angle in angles]
+    except TypeError:
+        return angles*math.pi/180.
 
 def rad2deg(angles):
-    return [angle*180./math.pi for angle in angles]
+    try:
+        return [angle*180./math.pi for angle in angles]
+    except TypeError:
+        return angles*180./math.pi
 
 if __name__=='__main__':
     assoc = SourceAssociation('/home/eric/research/catalog/srcid/cat')
     #3C 454.3
-    pos, error = SkyDir(343.495,16.149), .016/2.45
+    pos, error = SkyDir(343.495,16.149), .016/2.45*1.51
     associations = assoc.id(pos,error,['agn','bzcat','cgrabs','crates'])
     for cat,ass in associations.items():
         print 'Associations in %s:'%cat
