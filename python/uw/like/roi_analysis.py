@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.6 2010/02/18 03:28:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.7 2010/02/22 19:45:26 wallacee Exp $
 
 author: Matthew Kerr
 """
@@ -191,7 +191,8 @@ class ROIAnalysis(object):
                 self.__set_error_minuit(m,False)
             self.prev_logl = self.logl if self.logl is not None else -fval
             self.logl = -fval
-         self._minuit = m
+         #Saving this reference seems to cause a memory leak.
+         #self._minuit = m
          return -fval
       else:
          minimizer  = fmin_powell if method == 'powell' else fmin
