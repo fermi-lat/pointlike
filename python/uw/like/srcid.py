@@ -46,42 +46,10 @@ class SourceAssociation(object):
         for cls,cf in zip(classes,class_files):
             if not self.catalogs.has_key(cls):
                 self.catalogs[cls] = Catalog(cf)
-            these = self.single_catalog_id(position,error,self.catalogs[cls])
+            these = self.catalogs[cls].associate(position,error)
             associations[cls] = these
         return associations
 
-    def single_catalog_id(self,position,error_ellipse,catalog):
-        """Given a skydir and error ellipse, return associations from catalogs.
-
-        Arguments:
-            position      : A SkyDir representing the location of the source to be associated.
-            error_ellipse : Sequence of length 3 representing major and minor axes and position angle of an
-                          error ellipse in degrees
-            catalog       : A Catalog object in which to look for associations
-
-        Returns all sources with posterior probability greater than prob_threshold,
-        sorted by probability.
-
-        Maybe make this a method on Catalog?
-        """
-
-        try:
-            assert(len(error_ellipse)==3)
-        except TypeError:
-            print("Got scalar instead of sequence for error ellipse: Assuming this is r68 in degrees")
-            error_ellipse = [error_ellipse]*2+[0]
-        except AssertionError:
-            "Wrong length for error_ellipse: Needed length 3, got %i"%len(error_ellipse)
-            return
-
-        #filter sources by position, ~5-sigma radius
-        sources = catalog.select_circle(position,error_ellipse[0]*5)
-        post_probs = [source.posterior_probability(position,error_ellipse) for source in sources]
-        #return sources above threshold with posterior probability, sorted by posterior probability
-        source_list = [(prob,source) for prob,source in zip(post_probs,sources) if prob > catalog.prob_threshold]
-        source_list.sort()
-        source_dict = dict((el[1].name,el) for el in source_list[:catalog.max_counterparts])
-        return source_dict
 
 
 class Catalog(object):
@@ -107,6 +75,7 @@ class Catalog(object):
         self.prior = self.class_module.prob_prior
         self.prob_threshold = self.class_module.prob_thres
         self.max_counterparts = self.class_module.max_counterparts
+        self.source_mask_radius = None #For selection of subset for association
         try:
             fits_cat = pf.open(self.cat_file)
         except IOError:
@@ -289,12 +258,45 @@ class Catalog(object):
         solid_angle = deg2rad(radius)**2*math.pi
         return n_sources/solid_angle
 
+    def associate(self,position,error_ellipse):
+        """Given a skydir and error ellipse, return associations.
+
+        Arguments:
+            position      : A SkyDir representing the location of the source to be associated.
+            error_ellipse : Sequence of length 3 representing major and minor axes and position angle of an
+                          error ellipse in degrees
+
+        Returns all sources with posterior probability greater than prob_threshold,
+        sorted by probability.
+        """
+
+        try:
+            assert(len(error_ellipse)==3)
+        except TypeError:
+            print("Got scalar instead of sequence for error ellipse: Assuming this is r68 in degrees")
+            error_ellipse = [error_ellipse]*2+[0]
+        except AssertionError:
+            "Wrong length for error_ellipse: Needed length 3, got %i"%len(error_ellipse)
+            return
+
+        if self.source_mask_radius is None:
+            self.source_mask_radius = error_ellipse[0]*2.45*5
+        #filter sources by position, ~5-sigma radius
+        sources = self.select_circle(position,self.source_mask_radius)
+        post_probs = [source.posterior_probability(position,error_ellipse) for source in sources]
+        #return sources above threshold with posterior probability, sorted by posterior probability
+        source_list = [(prob,source) for prob,source in zip(post_probs,sources) if prob > self.prob_threshold]
+        source_list.sort()
+        source_dict = dict((el[1].name,el) for el in source_list[:self.max_counterparts])
+        return source_dict
+
 class GammaCatalog(Catalog):
     """A catalog of gamma-ray sources (i.e. sources with error circles comparable to LAT)"""
 
     def __init__(self,class_file):
         names,lons,lats = self.init(class_file)
         errors = self.get_position_errors()
+        self.source_mask_radius = 5*max(errors)
         self.mask = self._make_selection()
         self.sources = np.array([GammaRaySource(self,name,SkyDir(lon,lat,self.coords),error)
                         for name,lon,lat,error in zip(names,lons,lats,errors)])[self.mask]
@@ -310,12 +312,14 @@ class GammaCatalog(Catalog):
         else:
             raise CatalogException(self.cat_file,'Could not find position uncertainties.')
 
+
 class ExtendedCatalog(Catalog):
     """A catalog of extended sources"""
 
     def __init__(self,class_file):
         names,lons,lats= self.init(class_file)
         radii = self.get_radii()
+        self.source_mask_radius = max(radii)*3
         self.mask = self._make_selection()
         self.sources = np.array([ExtendedSource(self,name,SkyDir(lon,lat,self.coords),radius)
                                  for name,lon,lat,radius in zip(names,lons,lats,radii)])[self.mask]
@@ -404,7 +408,8 @@ class GammaRaySource(CatalogSource):
             return 0.0
 
     def combined_error(self,error_ellipse):
-        return (error_ellipse[0]**2 + self.error**2)**.5
+        #note 2.45 factor - conversion from 1-sigma ellipse to 95%
+        return ((error_ellipse[0]*2.45)**2 + self.error**2)**.5
 
 class ExtendedSource(CatalogSource):
     """An extended catalog source"""
@@ -414,7 +419,8 @@ class ExtendedSource(CatalogSource):
         self.radius = radius
 
     def posterior_probability(self,position,error_ellipse):
-        if self.angular_separation(position)<=(error_ellipse[0]+self.radius):
+        #note 2.45 factor - conversion from 1-sigma ellipse to 95%
+        if self.angular_separation(position)<=(error_ellipse[0]*2.45+self.radius):
             return 1.0
         else:
             return 0.0
