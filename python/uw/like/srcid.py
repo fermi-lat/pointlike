@@ -56,8 +56,8 @@ class Catalog(object):
     """A class to manage the relevant information from a FITS catalog."""
 
     def __new__(cls,class_file):
-        gamma_catalogs = ['%s'%g for g in 'agile egr cosb eg3'.split()]
-        extended_catalogs = ['%s'%e for e in 'dwarf snr_ext'.split()]
+        gamma_catalogs = ['%s'%g for g in 'agile egr cosb eg3 fermi_bsl'.split()]
+        extended_catalogs = ['%s'%e for e in 'dwarfs snr_ext'.split()]
         cf = os.path.splitext(os.path.basename(class_file))[0]
         if cf in gamma_catalogs:
             obj = object.__new__(GammaCatalog)
@@ -97,6 +97,7 @@ class Catalog(object):
         self.mask = self._make_selection()
         self.sources = np.array([CatalogSource(self,name,SkyDir(lon,lat,self.coords))
                         for name,lon,lat in zip(names,lons,lats)])[self.mask]
+        self._get_foms()
 
     def __iter__(self):
         return self.sources
@@ -159,7 +160,6 @@ class Catalog(object):
             return self.hdu.data.field(name_key)
         except KeyError:
             return
-        names = self.hdu.data.field(name_key)
 
     def _get_positions(self):
         """Find columns containing position info and return a list of SkyDirs"""
@@ -205,20 +205,19 @@ class Catalog(object):
             return
 
     def _make_selection(self):
-        """Make selections specified in class module. Not really implemented yet."""
+        """Make selections specified in class module."""
         selections = [x for x in self.class_module.selection if (x != '' and 'ANGSEP' not in x)]
         dat = self.hdu.data
         mask = np.array([True]*len(dat))
         if not selections: return mask
         catid_pattern = re.compile('@%s_([A-Za-z0-9]+)'%self.class_module.catid.upper())
-        defnull_pattern = re.compile('DEFNULL\(([A-Z0-9a-z]+),([0-9e\.]+)\)')
+        fields = {}
         for sel in selections:
             field_names = catid_pattern.findall(sel)
-            fields = {}
             for f in field_names:
                 field = dat.field(f)
                 sel = catid_pattern.sub(f,sel,1)
-                defnull_pattern = re.compile('DEFNULL\(%s,([0-9e\.]+)\)'%f)
+                defnull_pattern = re.compile('DEFNULL\(%s,([0-9e\+\.]+)\)'%f)
                 dn_matches = defnull_pattern.findall(sel)
                 for dnm in dn_matches:
                     field[np.isnan(field)]=dnm
@@ -232,6 +231,31 @@ class Catalog(object):
             mask = np.logical_and(mask,eval(sel))
         return mask
 
+
+    def _get_foms(self):
+        """Compute figure of merit for sources, as specified in class module."""
+        fom = self.class_module.figure_of_merit
+        dat = self.hdu.data
+        if not fom:
+            return
+        catid_pattern = re.compile('@%s_([A-Za-z0-9_]+)'%self.class_module.catid.upper())
+        fields = {'Name':self._get_ids()}
+        field_names = catid_pattern.findall(fom)
+        for f in field_names:
+            field = dat.field(f)
+            fom = catid_pattern.sub(f,fom,1)
+            defnull_pattern = re.compile('DEFNULL\(%s,([0-9e\.\+]+)\)'%f)
+            dn_matches = defnull_pattern.findall(fom)
+            for dnm in dn_matches:
+                field[np.isnan(field)] = dnm
+            fields[f] = field
+            fom = defnull_pattern.sub(f,fom)
+            fom = fom.replace(f,'fields["%s"]'%f)
+        fom = fom.replace('exp','np.exp')
+        fom = fom.replace('LOG10','np.log10')
+        fom_dict = dict(zip(fields['Name'],eval(fom)))
+        for source in self.sources:
+            source.fom = fom_dict[source.name]
 
     def select_circle(self,position,radius):
         """Return an array of CatalogSources within radius degrees of position.
@@ -248,10 +272,14 @@ class Catalog(object):
         rmask = rad_mask(ras,decs,position,radius)[0]
         return self.sources[tmask][rmask]
 
-    def local_density(self,position,radius=4):
-        """Return the local density of catalog sources in a radius-degree region about position."""
-
-        n_sources = len(self.select_circle(position,radius))
+    def local_density(self,position,radius=4,fom=0.0):
+        """Return the local density of catalog sources in a radius-degree region about position.
+        
+        Only counts sources with figures of merit >= fom. The default fom for CatalogSources should be 1.,
+        so the default fom=0 should not cut anything out.  However, this method ought to be independent
+        of the implementation of the fom in CatalogSource, so this should get refactored at some point."""
+        n_sources = sum([1. for source in self.select_circle(position,radius) if
+                         source.fom >= fom])
         #If no sources within radius, set n_sources = 1 to give lower limit on density
         #Maybe better to expand the radius in this case?
         if n_sources < 1 : n_sources = 1
@@ -278,9 +306,10 @@ class Catalog(object):
         except AssertionError:
             "Wrong length for error_ellipse: Needed length 3, got %i"%len(error_ellipse)
             return
-
         if self.source_mask_radius is None:
             self.source_mask_radius = error_ellipse[0]*2.45*5
+        if np.isnan(self.source_mask_radius) or self.source_mask_radius == 0.:
+            self.source_mask_radius = 1.
         #filter sources by position, ~5-sigma radius
         sources = self.select_circle(position,self.source_mask_radius)
         post_probs = [source.posterior_probability(position,error_ellipse) for source in sources]
@@ -296,7 +325,7 @@ class GammaCatalog(Catalog):
     def __init__(self,class_file):
         names,lons,lats = self.init(class_file)
         errors = self.get_position_errors()
-        self.source_mask_radius = 5*max(errors)
+        self.source_mask_radius = 3*max(errors)
         self.mask = self._make_selection()
         self.sources = np.array([GammaRaySource(self,name,SkyDir(lon,lat,self.coords),error)
                         for name,lon,lat,error in zip(names,lons,lats,errors)])[self.mask]
@@ -305,10 +334,12 @@ class GammaCatalog(Catalog):
         q = [x for x in self.class_module.new_quantity if
                     (('LAT' not in x) and ('ECOM' not in x))][0]
         patt = re.compile('@%s_([A-Za-z0-9_]+)'%self.class_module.catid.upper())
-        match = patt.search(q)
+        lhs,rhs = q.split('=')
+        match = patt.search(rhs)
         if match:
             error_field = match.groups()[0]
-            return self.hdu.data.field(error_field)
+            rhs = patt.sub('self.hdu.data.field("%s")'%error_field,rhs)
+            return eval(rhs.split('*')[0])
         else:
             raise CatalogException(self.cat_file,'Could not find position uncertainties.')
 
@@ -341,13 +372,14 @@ class CatalogSource(object):
         self.catalog = catalog
         self.name = name
         self.skydir = skydir
+        self.fom = 1.
 
     def __str__(self):
         return '\t'.join([self.catalog.cat_name,self.name,str(self.skydir.ra()),str(self.skydir.dec())])
 
     def angular_separation(self,other_skydir):
         """Calculate angular separation between this source and other_skydir"""
-        return self.skydir.difference(other_skydir)
+        return rad2deg(self.skydir.difference(other_skydir))
 
     def position_angle(self,other_skydir):
         """Calculate other_skydir angle _from_ other_skydir _to_ this source."""
@@ -365,7 +397,7 @@ class CatalogSource(object):
 
         error_ellipse = deg2rad(error_ellipse)
         phi = self.position_angle(position)-error_ellipse[2]
-        angsep = self.angular_separation(position)
+        angsep = deg2rad(self.angular_separation(position))
         return .5*angsep**2*((math.cos(phi)/error_ellipse[0])**2 +
                                (math.sin(phi)/error_ellipse[1])**2)
 
@@ -381,7 +413,7 @@ class CatalogSource(object):
 
     def chance_probability(self,position,radius = 4):
         """Probability of chance association"""
-        return self.catalog.local_density(position,radius=radius)
+        return self.catalog.local_density(position,radius=radius,fom=self.fom)
 
     def prior_probability(self):
         """Prior probability for association"""
@@ -389,21 +421,23 @@ class CatalogSource(object):
 
     def posterior_probability(self,position,error_ellipse):
         """Posterior probability for association with given position and error ellipse"""
-
+        #Kludge to associate lat pulsars, which have no errors in catalog
+        if np.isnan(error_ellipse)[0] and position.difference(self.skydir)<=1e-5:
+            return self.catalog.prob_threshold+1e-5
         arg = (self.chance_probability(position)*(1-self.prior_probability())/
                (self.positional_likelihood(position,error_ellipse)*self.prior_probability()))
-        return 1./(1.+arg)
+        return (self.fom/(1.+arg))
 
 class GammaRaySource(CatalogSource):
     """A source from a gamma-ray catalog."""
-    
+
     def __init__(self,catalog,name,skydir,error):
         super(GammaRaySource,self).__init__(catalog,name,skydir)
         self.error = error
 
     def posterior_probability(self,position,error_ellipse):
         if self.combined_error(error_ellipse) >= self.angular_separation(position):
-            return 1.0
+            return self.catalog.prob_threshold + 1e-5
         else:
             return 0.0
 
@@ -421,7 +455,7 @@ class ExtendedSource(CatalogSource):
     def posterior_probability(self,position,error_ellipse):
         #note 2.45 factor - conversion from 1-sigma ellipse to 95%
         if self.angular_separation(position)<=(error_ellipse[0]*2.45+self.radius):
-            return 1.0
+            return self.catalog.prob_threshold + 1e-5
         else:
             return 0.0
 
@@ -449,7 +483,7 @@ if __name__=='__main__':
     assoc = SourceAssociation('/home/eric/research/catalog/srcid/cat')
     #3C 454.3
     pos, error = SkyDir(343.495,16.149), .016/2.45*1.51
-    associations = assoc.id(pos,error,['agn','bzcat','cgrabs','crates'])
+    associations = assoc.id(pos,error,['agn','bzcat','cgrabs','crates','crates_fom'])
     for cat,ass in associations.items():
         print 'Associations in %s:'%cat
         for name,data in ass.items():
