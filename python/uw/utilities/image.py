@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.9 2010/02/24 20:03:45 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.10 2010/02/24 21:14:50 kerrm Exp $
 
 """
-version = '$Revision: 1.9 $'.split()[1]
+version = '$Revision: 1.10 $'.split()[1]
 
 import pylab
 import math
@@ -396,7 +396,7 @@ class ZEA(object):
         pixelsize [0.1] size, in degrees, of pixels
         galactic [False] galactic or equatorial coordinates
         axes [None] Axes object to use: if None
-        nticks [5] number ot tick marks to attmpt
+        nticks [5] number ot tick marks to attempt
 
         """
        
@@ -461,10 +461,8 @@ class ZEA(object):
         r =Rescale(self,self.nticks)
         r.apply(self.axes)
 
-        if not self.galactic:
-            self.axes.set_xlabel('RA'); self.axes.set_ylabel('Dec')
-        else:
-            self.axes.set_xlabel('l'); self.axes.set_ylabel('b')
+        labels = ['l','b'] if self.galactic else ['RA','Dec'] 
+        self.axes.set_xlabel(labels[0]);self.axes.set_ylabel(labels[1])
         
     def grid(self, nticks=None, **kwargs):
         """ draw a grid
@@ -588,19 +586,24 @@ class ZEA(object):
         if self.cid is not None: self.axes.figure.canvas.mpl_disconnect(self.cid)
         self.cid=None
     
-    def smooth(self,scale=0.1):
+    def smooth(self,scale=0.1,smoother=None):
         """ smooth the image using a Gaussian kernel.  Reverse process by calling ZEA.unsmooth.
 
             NB -- if more than one image with the same dimension is to be smoothed, it is
             more computationally efficient to create a single GaussSmoothZEA object and use it
-            to make smoothed images.
+            to make smoothed images.  This can be done manually, or using the smoother returned
+            by this message and passing it as the argument for future calls to smooth for
+            other ZEA objects.
 
             scale: the smoothing scale (std. dev.) in deg
+
+            returns: the GaussSmoothZEA object for use in smoothing additional images
         """
         if 'image' not in self.__dict__.keys(): return
-        gsz = GaussSmoothZEA(self,scale)
+        gsz = smoother if smoother is not None else GaussSmoothZEA(self,scale)
         self.original = self.image.copy()
         self.image    = gsz(self.image)
+        return gsz
 
     def unsmooth(self):
         """ replace smoothed image with original unsmoothed image."""

@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.2 2010/02/03 19:18:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.3 2010/02/10 00:21:58 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -183,3 +183,4 @@ class ROILocalizer(object):
       if N.isnan(ll):
          raise Exception('ROIAnalysis.spatialLikelihood failure at %.3f,%.3f' %(skydir.ra(),skydir.dec()))
       return ll
+

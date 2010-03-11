@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.7 2010/02/22 19:45:26 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.8 2010/03/08 07:58:54 wallacee Exp $
 
 author: Matthew Kerr
 """
@@ -15,12 +15,12 @@ from roi_plotting import *
 from roi_localize import *
 from pointspec_helpers import PointSource
 
-from specfitter import SpectralModelFitter
+from specfitter import SpectralModelFitter,mycov
 
 from collections import deque,defaultdict
 from cPickle import dump
 
-from scipy.optimize import fmin,fmin_powell
+from scipy.optimize import fmin,fmin_powell,fmin_bfgs
 from numpy.linalg import inv
 
 ###====================================================================================================###
@@ -113,6 +113,66 @@ class ROIAnalysis(object):
       #print ll,parameters
       return 1e6 if N.isnan(ll) else ll
 
+   def gradient(self,parameters,*args):
+
+      #print 'I call teh gradient.'
+
+      bands    = self.bands
+      pf       = self.phase_factor  # NB -- not yet included!
+      models   = self.psm.models
+      bgmodels = self.bgm.models
+
+      # sanity check -- for efficiency, the gradient should be called with the same params as the log likelihood
+      if not N.allclose(parameters,self.parameters(),rtol=0):
+         self.set_parameters(parameters)
+         self.bgm.update_counts(bands)
+         self.psm.update_counts(bands)
+
+      gradient = N.zeros_like(parameters)
+
+      # say byebye to abstraction and hello to disgusting code!
+
+      # the positions in the list of point sources with free parameters
+      indices = N.arange(len(models))[N.asarray([N.any(m.free) for m in models])]
+      nparams = N.asarray([model.free.sum() for model in models])
+
+      for b in bands:
+         cp = 0
+         if b.has_pixels:
+            tot_pix = b.bg_all_pix_counts + b.ps_all_pix_counts
+         else:
+            pixterm = 0
+
+         # do the backgrounds -- essentially, integrate the spectral gradient for each data pixel
+         # and for the aperture
+         for ind,model in zip(N.arange(len(bgmodels)),bgmodels):
+            if not N.any(model.free):
+               continue
+            pts = model.gradient(b.bg_points)
+            if len(pts.shape) == 1: pts = N.asarray([pts])
+            for j in xrange(len(model.p)):
+               if not model.free[j]: continue
+               apterm = (b.ap_evals[ind,:] * pts[j,:]).sum()
+               if b.has_pixels:
+                  pixterm = (b.pix_counts*(b.pi_evals[:,ind,:] * pts[j,:]).sum(axis=1)/tot_pix).sum()
+               gradient[cp] += apterm - pixterm
+               cp += 1
+
+         # do the point sources -- call the band method, which will integrate the gradient
+         # over the exposure -- NB -- inconsistency in that no correction is being made for
+         # the position of the point sources...
+         for ind,model in zip(indices,models[indices]):
+            grad   = b.gradient(model)[model.free]*b.er[ind] # correct for exposure
+            np     = nparams[ind]
+            apterm = b.overlaps[ind]
+            if b.has_pixels:
+               pixterm = (b.pix_counts*b.ps_pix_counts[:,ind]/tot_pix).sum()
+            gradient[cp:cp+np] += grad * (apterm - pixterm)
+            cp += np
+
+      gradient *= 10**parameters * 1./N.log10(N.exp(1.))
+      return gradient
+
 
    def parameters(self):
       """Merge parameters from background and point sources."""
@@ -158,7 +218,8 @@ class ROIAnalysis(object):
          self.param_vals  = param_vals
 
    def fit(self,method='simplex', tolerance = 0.01, save_values = True, do_background=True,
-                fit_bg_first = False, estimate_errors=True, error_for_steps=False):
+                fit_bg_first = False, estimate_errors=True, error_for_steps=False,
+                use_gradient=False):
       """Maximize likelihood and estimate errors.
 
          method    -- ['powell'] fitter; 'powell' or 'simplex'
@@ -176,6 +237,14 @@ class ROIAnalysis(object):
          temp_params = self.parameters()
          npars = self.parameters().shape[0]
          param_names = ['p%i'%i for i in xrange(npars)]
+         
+         if use_gradient:
+            gradient       = self.gradient
+            force_gradient = 1
+         else:
+            gradient       = None
+            force_gradient = 0
+
          if error_for_steps:
             steps = self.get_free_errors()
             steps[steps<1e-6] = 0.04 # for models without error estimates, put in the defaults
@@ -183,26 +252,30 @@ class ROIAnalysis(object):
             m = Minuit(self.logLikelihood,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=-self.quiet,param_names=param_names,steps=steps)
          else:
             m = Minuit(self.logLikelihood,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=-self.quiet,param_names=param_names)
+
          params,fval = m.minimize()
 
          if save_values:
-            self.set_parameters(params)
             if estimate_errors == True:
-                self.__set_error_minuit(m,False)
+                self.__set_error_minuit(m,'HESSE')
+            self.logLikelihood(params) # reset values to the ones found by minimization step
             self.prev_logl = self.logl if self.logl is not None else -fval
             self.logl = -fval
          #Saving this reference seems to cause a memory leak.
          #self._minuit = m
          return -fval
       else:
-         minimizer  = fmin_powell if method == 'powell' else fmin
          ll_0 = self.logLikelihood(self.parameters())
-         f = minimizer(self.logLikelihood,self.parameters(),full_output=1,
-                       maxiter=10000,maxfun=20000,ftol=0.01/abs(ll_0), disp=0 if self.quiet else 1)
+         if use_gradient:
+            f = self._save_bfgs = fmin_bfgs(self.logLikelihood,self.parameters(),self.gradient,full_output=1,maxiter=500,gtol=1e-1,disp=0)
+         else:
+            minimizer  = fmin_powell if method == 'powell' else fmin
+            f = minimizer(self.logLikelihood,self.parameters(),full_output=1,
+                          maxiter=10000,maxfun=20000,ftol=0.01/abs(ll_0), disp=0 if self.quiet else 1)
          if not self.quiet: print 'Function value at minimum: %.8g'%f[1]
          if save_values:
             self.set_parameters(f[0])
-            if estimate_errors: self.__set_error__(do_background)
+            if estimate_errors: self.__set_error__(do_background,use_gradient)
             self.prev_logl = self.logl if self.logl is not None else -f[1]
             self.logl = -f[1]
 
@@ -210,15 +283,18 @@ class ROIAnalysis(object):
          if not self.quiet: print 'good fit!'
          return -f[1]
 
-   def __set_error__(self,do_background=True):
+   def __set_error__(self,do_background=True,use_gradient=False):
 
       n = len(self.bgm.parameters())
-      hessian = SpectralModelFitter.hessian(self,self.logLikelihood)[0] #does Hessian for free parameters
+      if use_gradient:
+         hessian = mycov(self.gradient,self.parameters(),full_output=True)[1]
+      else:
+         hessian = SpectralModelFitter.hessian(self,self.logLikelihood)[0] #does Hessian for free parameters
       success = False
       # TODO -- check the return code
 
       try:
-         if not do_background: raise Exception
+         if not do_background: raise Exception # what is this about?
          if not self.quiet: print 'Attempting to invert full hessian...'
          self.cov_matrix = cov_matrix = inv(hessian)
          self.bgm.set_covariance_matrix(cov_matrix,current_position=0)
@@ -238,11 +314,11 @@ class ROIAnalysis(object):
 
       #return success
 
-   def __set_error_minuit(self,m,two_sided):
+   def __set_error_minuit(self,m,method='HESSE'):
       """Compute errors for minuit fit."""
 
       #Not sure yet if there will be problems with including the backgrounds.
-      self.cov_matrix = m.errors(two_sided=two_sided)
+      self.cov_matrix = m.errors(method=method)
       self.bgm.set_covariance_matrix(self.cov_matrix,current_position = 0)
       self.psm.set_covariance_matrix(self.cov_matrix,current_position = len(self.bgm.parameters()))
 
