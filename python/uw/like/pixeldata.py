@@ -2,14 +2,15 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.4 2010/02/25 19:08:25 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.5 2010/02/25 19:23:25 wallacee Exp $
 
 """
-version='$Revision: 1.4 $'.split()[1]
+version='$Revision: 1.5 $'.split()[1]
 import os
 import math
 import skymaps
 import pointlike
+import pyfits
 
 
 class PixelData(object):
@@ -82,8 +83,6 @@ Optional keyword arguments:
              ph_b = Photon(dummy,bin_center,2.5e8,1)
              bpd.addBand(ph_f)
              bpd.addBand(ph_b)
-             #bpd.addPhoton(ph_f,0)
-             #bpd.addPhoton(ph_b,0)
 
     def Data_setup(self):
 
@@ -130,7 +129,30 @@ Optional keyword arguments:
             if self.binfile is not None:
                 if not self.quiet: print '.....saving binfile %s for subsequent use' % self.binfile
                 data.write(self.binfile)
-
+                
+                """
+                # a start on adding keywords -- not yet finished, but need to merge in CVS
+                # now, add the appropriate entries to the FITS header
+                f = pyfits.open(self.binfile)
+                h = f[1].header
+                pos = len(h.keys)
+                entries = []
+                entries += ['EMIN', self.emin, 'Minimum energy in MeV']
+                entries += ['EMAX', self.emax, 'Maximum energy in MeV']
+                entries += ['BINS_PER_DECADE', self.binsperdec, 'Number of (logarithmic) energy bins per decade']
+                entries += ['TMIN', self.tmin, 'Exclude all data before this MET']
+                entries += ['TMAX', self.tmax, 'Exclude all data after this MET']
+                entries += ['EVENT_CLASS', self.event_class, 'Exclude all data with class level < this value']
+                entries += ['CONVERSION_TYPE', self.event_class, '0 = Front only, 1 = Back only, -1 = Front + Back']
+                
+                for entry in entries:
+                    k,v,c = entry
+                    h.update(k,str(v),c)
+                
+                f.writeto(self.binfile,clobber=True)
+                f.close()
+                """
+        
         else:
             data = pointlike.Data(self.binfile)
             if not self.quiet: print '.....loaded binfile %s ' % self.binfile
@@ -140,6 +162,10 @@ Optional keyword arguments:
             print '---------------------'
 
         return data
+
+    def test_pixelfile_consistency(self):
+        """Check the keywords in a binned photon data header for consistency with the analysis environment."""
+        pass
 
     def get_livetime(self,   pixelsize=1.0):
 

@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.2 2010/02/10 00:22:34 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -71,76 +71,52 @@ class ROIPointSourceManager(ROIModelManager):
 
       for i,band in enumerate(bands):
 
-         #sigma,gamma,en,exp,pa = band.s,band.g,band.e,band.exp.value,band.b.pixelArea()
          en,exp,pa = band.e,band.exp.value,band.b.pixelArea()
 
-         #make a first-order correction for exposure variation
+         # make a first-order correction for exposure variation
          denom = exp(roi_dir,en)
          if denom==0:
             raise Exception('ROIPointSourceManager: exposure is zero for  energy %f'%en)
-         exposure_ratios       = N.asarray([exp(ps.skydir,en)/denom for ps in self.point_sources])
+         band.er = er       = N.asarray([exp(ps.skydir,en)/denom for ps in self.point_sources])
 
          #unnormalized PSF evaluated at each pixel, for each point source
-         band.ps_pix_counts    = N.empty([len(band.wsdl),len(self.point_sources)])
+         band.ps_pix_counts = N.empty([len(band.wsdl),len(self.point_sources)])
          for nps,ps in enumerate(self.point_sources):
-            #if band.psf is not None:
             diffs = N.asarray([ps.skydir.difference(w) for w in band.wsdl])
             band.ps_pix_counts[:,nps] = band.psf(diffs,density=True)
-            #else:
-            #   psf = PsfSkyFunction(ps.skydir,gamma,sigma)
-            #   band.ps_pix_counts[:,nps] = psf.wsdl_vector_value(band.wsdl)
-         #if band.psf is None:
-         #   band.ps_pix_counts   *= ( (pa/(2*N.pi*sigma**2)) *exposure_ratios)
-         #else:
-         band.ps_pix_counts   *= (pa * exposure_ratios)
+         band.ps_pix_counts*= pa
 
          #fraction of PSF contained within the ROI
          band.overlaps      = N.asarray([overlap(band,roi_dir,ps.skydir) for ps in self.point_sources])
          band.overlaps     *= (band.solid_angle/band.solid_angle_p) #small correction for ragged edge
-         band.overlaps     *= exposure_ratios
          
          #initial model prediction
-         band.ps_counts        = N.asarray([band.expected(model) for model in self.models])
+         band.ps_counts     = N.asarray([band.expected(model) for model in self.models])*er
    
       if not self.quiet: print 'done!'
    
    def reload_data(self,bands):
 
-      roi_dir = self.roi_dir
-
       for i,band in enumerate(bands):
 
-         en,exp,pa = band.e,band.exp.value,band.b.pixelArea()
-         #sigma,gamma,en,exp,pa = band.s,band.g,band.e,band.exp.value,band.b.pixelArea()
-
-         #make a first-order correction for exposure variation
-         exposure_ratios = N.asarray([exp(ps.skydir,en)/exp(roi_dir,en) for ps in self.point_sources])
-
-         #unnormalized PSF evaluated at each pixel, for each point source
+         # only need to re-calculate the models for new data pixels
          band.ps_pix_counts    = N.empty([len(band.wsdl),len(self.point_sources)])
          for nps,ps in enumerate(self.point_sources):
             diffs = N.asarray([ps.skydir.difference(w) for w in band.wsdl])
             band.ps_pix_counts[:,nps] = band.psf(diffs,density=True)
-            #psf = PsfSkyFunction(ps.skydir,gamma,sigma)
-            #band.ps_pix_counts[:,nps] = psf.wsdl_vector_value(band.wsdl)
-         #band.ps_pix_counts   *= ( (pa/(2*N.pi*sigma**2)) *exposure_ratios)
-         band.ps_pix_counts   *= (pa * exposure_ratios)
+         band.ps_pix_counts   *= b.pixelArea()
 
 
    def update_counts(self,bands):
       """Update models with free parameters."""
       ma = self.mask
       for band in bands:
-         band.ps_counts[ma] = [band.expected(m) for m in self.models[ma]]
-         band.ps_all_counts = (band.overlaps[ma]*band.ps_counts[ma]).sum() + band.frozen_total_counts
+         new_counts = N.asarray([band.expected(m) for m in self.models[ma]])*band.er[ma]
+         band.ps_counts[ma] = new_counts
+         band.ps_all_counts = (band.overlaps[ma]*new_counts).sum() + band.frozen_total_counts
          if band.has_pixels:
             band.ps_all_pix_counts = \
-                  (band.unfrozen_pix_counts * band.ps_counts[ma]).sum(axis=1) + band.frozen_pix_counts
-
-      #for i,model in enumerate(self.models):
-      #   if self.mask[i]:
-      #      for band in bands: band.ps_counts[i] = band.expected(model)
-
+                  (band.unfrozen_pix_counts * new_counts).sum(axis=1) + band.frozen_pix_counts
 
    def cache(self,bands):
       """Cache values for models with no degrees of freedom.  Helps a lot near galactic plane."""
@@ -149,7 +125,7 @@ class ROIPointSourceManager(ROIModelManager):
       s = nm.sum()
 
       for band in bands:
-         band.ps_counts = N.asarray([band.expected(model) for model in self.models])
+         band.ps_counts = N.asarray([band.expected(model) for model in self.models]) * band.er
 
       for band in bands:
 

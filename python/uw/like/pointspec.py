@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.3 2010/02/18 03:27:25 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.4 2010/02/25 19:23:25 wallacee Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.3 $'.split()[1]
+version='$Revision: 1.4 $'.split()[1]
 import os
 import sys
 
@@ -229,7 +229,6 @@ Optional keyword arguments:
 
         self.__dict__.update(analysis_environment.__dict__)
         self.__dict__.update(**kwargs)
-
 
          #TODO -- sanity check that BinnedPhotonData agrees with analysis parameters
         self.pixeldata = PixelData(self.__dict__)

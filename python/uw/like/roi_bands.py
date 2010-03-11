@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.2 2010/02/10 00:21:58 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -25,8 +25,8 @@ class ROIBand(object):
    def init(self):
 
       self.umax      = 50
-      self.nsp_simps = 8
-      self.nbg_simps = 4
+      self.nsp_simps = 16
+      self.nbg_simps = 8
 
       self.catalog_aperture = -1
 
@@ -85,9 +85,12 @@ class ROIBand(object):
       self.__setup_data__()
 
    def expected(self,model):
-      """Integrated the passed spectral model over the exposure and return expected counts."""
-      
+      """Integrate the passed spectral model over the exposure and return expected counts."""
       return (model(self.sp_points)*self.sp_vector).sum()
+
+   def gradient(self,model):
+      """Calculate the gradient of a spectral model (wrt its parameters) integrated over the exposure."""
+      return (model.gradient(self.sp_points)*self.sp_vector).sum(axis=1)
 
    def bandLikelihood(self, parameters, *args):
       """Implement a model independent likelihood for the number of counts of a particular source.

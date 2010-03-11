@@ -1,10 +1,11 @@
 """A module for classes that perform spectral fitting.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/specfitter.py,v 1.8 2009/09/17 21:22:42 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/specfitter.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
 
     author: Matthew Kerr
 """
 import numpy as N
+import numpy as np
 
 class SpectralModelFitter(object):
    """A host class for the spectral fitting methods.  All called statically."""
@@ -189,3 +190,84 @@ class SpectralModelFitter(object):
 
 def hessian(*args):
    return SpectralModelFitter.hessian(*args)
+
+
+def mycov(grad,par,full_output=False,init_step=0.04,min_step=1e-6,max_step=1,max_iters=5,target=0.5,min_func=1e-4,max_func=4):
+    """Perform finite differences on the _analytic_ gradient provided by user to calculate hessian/covariance matrix.
+
+    Positional args:
+        grad                : a function to return a gradient
+        par                 : vector of parameters (should be function minimum for covariance matrix calculation)
+
+    Keyword args:
+
+        full_output [False] : if True, return information about convergence, else just the covariance matrix
+        init_step   [1e-3]  : initial step size (0.04 ~ 10% in log10 space); can be a scalar or vector
+        min_step    [1e-6]  : the minimum step size to take in parameter space
+        max_step    [1]     : the maximum step size to take in parameter sapce
+        max_iters   [5]     : maximum number of iterations to attempt to converge on a good step size
+        target      [0.5]   : the target change in the function value for step size
+        min_func    [1e-4]  : the minimum allowable change in (abs) function value to accept for convergence
+        max_func    [4]     : the maximum allowable change in (abs) function value to accept for convergence
+    """
+
+    nparams   = len(par)
+    step_size = np.ones(nparams)*init_step
+    step_size = np.maximum(step_size,min_step*1.1)
+    step_size = np.minimum(step_size,max_step*0.9)
+    hess      = np.zeros([nparams,nparams])
+    min_flags = np.asarray([False]*nparams)
+    max_flags = np.asarray([False]*nparams)
+
+    def revised_step(delta_f,current_step,index):
+        if (current_step == max_step):
+            max_flags[i] = True
+            return True,0
+        elif (current_step == min_step):
+            min_flags[i] = True
+            return True,0
+        else:
+            adf = abs(delta_f)
+            if adf < 1e-8:
+                # need to address a step size that results in a likelihood change that's too
+                # small compared to precision
+                pass
+                
+            if (adf < min_func) or (adf > max_func):
+                new_step = current_step/(adf/target)
+                new_step = min(new_step,max_step)
+                new_step = max(new_step,min_step)
+                return False,new_step
+            else:
+                return True,0
+    
+    iters = np.zeros(nparams)
+    for i in xrange(nparams):
+        converged = False
+        for j in xrange(max_iters):
+            iters[i] += 1
+            di = step_size[i]
+            par[i] += di
+            g_up    = grad(par)
+            par[i] -= 2*di
+            g_dn    = grad(par)
+            par[i] += di
+            delta_f = (g_up - g_dn)[i]
+            converged,new_step = revised_step(delta_f,di,i)
+            #print 'Parameter %d -- Iteration %d -- Step size: %.2e -- delta: %.2e'%(i,j,di,delta_f)
+            if converged: break
+            else: step_size[i] = new_step
+        hess[i,:] = (g_up - g_dn) / (2*di)  # central difference
+        if not converged:
+            print 'Warning: step size for parameter %d (%.2g) did not result in convergence.'%(i,di)
+    
+    try:
+        cov = np.linalg.inv(hess)
+    except:
+        print 'Error inverting hessian.'
+        #cov = np.zeros([nparams,nparams])
+        raise Exception
+    if full_output:
+        return cov,hess,step_size,iters,min_flags,max_flags
+    else:
+        return cov
