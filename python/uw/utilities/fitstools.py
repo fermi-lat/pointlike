@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.1 2010/01/23 14:53:34 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.2 2010/02/04 16:23:01 wallacee Exp $
 
    author: Matthew Kerr
 
@@ -41,7 +41,9 @@ def trap_mask(ras,decs,cut_dir,radius):
 
 def rad_mask(ras,decs,cut_dir,radius):
    """Make a slower, exact cut on radius."""
-   diffs   = N.asarray([cut_dir.difference(SkyDir(ra,dec)) for ra,dec in zip(ras,decs)])
+   ra0,dec0 = cut_dir.ra(),cut_dir.dec()
+   ras,decs = N.asarray(ras),N.asarray(decs)
+   diffs = N.arccos(N.sin(decs)*N.sin(dec0)+N.cos(decs)*N.cos(dec0)*N.cos(ras-ra0))
    mask    = diffs*(180/N.pi) < radius
    return mask,diffs[mask]
 
