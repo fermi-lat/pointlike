@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.10 2010/02/24 21:14:50 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.11 2010/03/11 19:23:30 kerrm Exp $
 
 """
-version = '$Revision: 1.10 $'.split()[1]
+version = '$Revision: 1.11 $'.split()[1]
 
 import pylab
 import math
@@ -214,8 +214,6 @@ class AIT(object):
         earth [False]  looking down at Earth
 
         """
-        from numpy import array, isnan, ma
-        
         self.skyfun = skyfun
         self.galactic = galactic
         self.pixelsize = pixelsize
@@ -225,13 +223,28 @@ class AIT(object):
         if center is None:
             center = SkyDir(0,0, SkyDir.GALACTIC if galactic else SkyDir.EQUATORIAL)
         self.skyimage = SkyImage(center, fitsfile, pixelsize, size, 1, proj, galactic, earth)
-        self.skyimage.fill(skyfun)
-        
-        # now extract stuff for the pylab image, creating a masked array to deal with the NaN values
+        # we want access to the projection object, to allow interactive display via pix2sph function
+        self.proj = self.skyimage.projector()
+        self.x = self.y = 100 # initial def
         self.nx, self.ny = self.skyimage.naxis1(), self.skyimage.naxis2()
-        self.image = array(self.skyimage.image()).reshape((self.ny, self.nx))
-        self.mask = isnan(self.image)
-        self.masked_image = ma.array( self.image, mask=self.mask)
+
+        if skyfun is not None: 
+            self.skyimage.fill(skyfun)
+            self.setup_image(earth)
+        else:
+            # special case: want to set pixels by hand
+            pass
+            
+    def fill(self, skyfun):
+        """ fill the image with the skyfunction"""
+        self.skyimage.fill(skyfun)
+            
+    def setup_image(self, earth=False):
+        # now extract stuff for the pylab image, creating a masked array to deal with the NaN values
+        self.image = np.array(self.skyimage.image()).reshape((self.ny, self.nx))
+        self.mask = np.isnan(self.image)
+        self.masked_image = np.ma.array( self.image, mask=self.mask)
+        size = self.size
         if not earth:
             self.extent = (180,-180, -90, 90) if size==180 else (size, -size, -size, size)
         else:
@@ -239,9 +252,6 @@ class AIT(object):
        
         self.vmin ,self.vmax = self.skyimage.minimum(), self.skyimage.maximum()
 
-        # we want access to the projection object, to allow interactive display via pix2sph function
-        self.proj = self.skyimage.projector()
-        self.x = self.y = 100 # initial def
 
     def grid(self, fig=None, labels=True, color='gray'):
 	"""Draws gridlines and labels for map."""
