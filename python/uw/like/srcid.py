@@ -83,20 +83,25 @@ class Catalog(object):
         #Find hdu with catalog information
         self.hdu = self._get_hdu(fits_cat)
         if self.hdu is None:
-            raise CatalogException(self.cat_file,'No catalog information found.')
+            raise CatalogError(self.cat_file,'No catalog information found.')
         names = self._get_ids()
         if names is None:
-            raise CatalogException(self.cat_file,'Could not find column with source names')
+            raise CatalogError(self.cat_file,'Could not find column with source names')
         lons,lats = self._get_positions()
         if lons is None:
-            raise CatalogException(self.cat_file,'Could not find columns with source positions')
+            raise CatalogError(self.cat_file,'Could not find columns with source positions')
         return names,lons,lats
 
     def __init__(self,class_file):
-        names,lons,lats = self.init(class_file)
+        self.names,lons,lats = self.init(class_file)
         self.mask = self._make_selection()
         self.sources = np.array([CatalogSource(self,name,SkyDir(lon,lat,self.coords))
-                        for name,lon,lat in zip(names,lons,lats)])[self.mask]
+                        for name,lon,lat in zip(self.names,lons,lats)])[self.mask]
+        if self.coords == SkyDir.GALACTIC:
+            self.ras = np.array([source.skydir.ra() for source in self.sources])
+            self.decs = np.array([source.skydir.dec() for source in self.sources])
+        else:
+            self.ras,self.decs = lons[self.mask],lats[self.mask]
         self._get_foms()
 
     def __iter__(self):
@@ -156,6 +161,7 @@ class Catalog(object):
                         pass
             if card.key[:5]=='TTYPE' and card.value.upper() in ['NAME','ID']:
                 name_key = card.value
+                break
         try:
             return self.hdu.data.field(name_key)
         except KeyError:
@@ -265,16 +271,16 @@ class Catalog(object):
             radius      : radius of selection region.
         """
 
-        ras = np.array([source.skydir.ra() for source in self.sources])
-        decs = np.array([source.skydir.dec() for source in self.sources])
-        tmask = trap_mask(ras,decs,position,radius)
-        ras,decs = ras[tmask],decs[tmask]
-        rmask = rad_mask(ras,decs,position,radius)[0]
-        return self.sources[tmask][rmask]
+        #ras = np.array([source.skydir.ra() for source in self.sources])
+        #decs = np.array([source.skydir.dec() for source in self.sources])
+        #tmask = trap_mask(self.ras,self.decs,position,radius)
+        #ras,decs = self.ras[tmask],self.decs[tmask]
+        rmask = rad_mask(self.ras,self.decs,position,radius)[0]
+        return self.sources[rmask]
 
-    def local_density(self,position,radius=4,fom=0.0):
+    def local_density(self,position,radius=4,fom=1.0):
         """Return the local density of catalog sources in a radius-degree region about position.
-        
+
         Only counts sources with figures of merit >= fom. The default fom for CatalogSources should be 1.,
         so the default fom=0 should not cut anything out.  However, this method ought to be independent
         of the implementation of the fom in CatalogSource, so this should get refactored at some point."""
@@ -283,7 +289,8 @@ class Catalog(object):
         #If no sources within radius, set n_sources = 1 to give lower limit on density
         #Maybe better to expand the radius in this case?
         if n_sources < 1 : n_sources = 1
-        solid_angle = deg2rad(radius)**2*math.pi
+        solid_angle = (1-math.cos(deg2rad(radius)))*2*math.pi
+        solid_angle = rad2deg(rad2deg(solid_angle))
         return n_sources/solid_angle
 
     def associate(self,position,error_ellipse):
@@ -323,12 +330,18 @@ class GammaCatalog(Catalog):
     """A catalog of gamma-ray sources (i.e. sources with error circles comparable to LAT)"""
 
     def __init__(self,class_file):
-        names,lons,lats = self.init(class_file)
+        self.names,lons,lats = self.init(class_file)
         errors = self.get_position_errors()
         self.source_mask_radius = 3*max(errors)
         self.mask = self._make_selection()
         self.sources = np.array([GammaRaySource(self,name,SkyDir(lon,lat,self.coords),error)
-                        for name,lon,lat,error in zip(names,lons,lats,errors)])[self.mask]
+                        for name,lon,lat,error in zip(self.names,lons,lats,errors)])[self.mask]
+        #Save ras and decs for use in select_circle. MUCH faster than using the SkyDirs.
+        if self.coords == SkyDir.GALACTIC:
+            self.ras = np.array([source.skydir.ra() for source in self.sources])
+            self.decs = np.array([source.skydir.dec() for source in self.sources])
+        else:
+            self.ras,self.decs = lons[self.mask],lats[self.mask]
 
     def get_position_errors(self):
         q = [x for x in self.class_module.new_quantity if
@@ -341,19 +354,24 @@ class GammaCatalog(Catalog):
             rhs = patt.sub('self.hdu.data.field("%s")'%error_field,rhs)
             return eval(rhs.split('*')[0])
         else:
-            raise CatalogException(self.cat_file,'Could not find position uncertainties.')
+            raise CatalogError(self.cat_file,'Could not find position uncertainties.')
 
 
 class ExtendedCatalog(Catalog):
     """A catalog of extended sources"""
 
     def __init__(self,class_file):
-        names,lons,lats= self.init(class_file)
+        self.names,lons,lats= self.init(class_file)
         radii = self.get_radii()
         self.source_mask_radius = max(radii)*3
         self.mask = self._make_selection()
         self.sources = np.array([ExtendedSource(self,name,SkyDir(lon,lat,self.coords),radius)
-                                 for name,lon,lat,radius in zip(names,lons,lats,radii)])[self.mask]
+                                 for name,lon,lat,radius in zip(self.names,lons,lats,radii)])[self.mask]
+        if self.coords == SkyDir.GALACTIC:
+            self.ras = np.array([source.skydir.ra() for source in self.sources])
+            self.decs = np.array([source.skydir.dec() for source in self.sources])
+        else:
+            self.ras,self.decs = lons[self.mask],lats[self.mask]
 
     def get_radii(self):
         q = self.class_module.new_quantity[0]
@@ -386,7 +404,7 @@ class CatalogSource(object):
         ra1,dec1,ra2,dec2 = deg2rad([other_skydir.ra(),other_skydir.dec(),
                             self.skydir.ra(),self.skydir.dec()])
         denom = math.sin(dec1)*math.cos(ra1-ra2) - math.cos(dec1)*math.tan(dec2)
-        return math.atan2(math.sin(ra1-ra2), denom)
+        return rad2deg(math.atan2(math.sin(ra1-ra2), denom))
 
     def delta_logl(self,position,error_ellipse):
         """Compute Delta(logl) for this association with source at position, with error_ellipse
@@ -395,9 +413,9 @@ class CatalogSource(object):
             position : SkyDir representing position of other source
             error_ellipse : 3-tuple representing error ellipse of other source in degrees"""
 
-        error_ellipse = deg2rad(error_ellipse)
-        phi = self.position_angle(position)-error_ellipse[2]
-        angsep = deg2rad(self.angular_separation(position))
+        #error_ellipse = deg2rad(error_ellipse)
+        phi = deg2rad(self.position_angle(position)-error_ellipse[2])
+        angsep = self.angular_separation(position)
         return .5*angsep**2*((math.cos(phi)/error_ellipse[0])**2 +
                                (math.sin(phi)/error_ellipse[1])**2)
 
@@ -408,7 +426,7 @@ class CatalogSource(object):
             position : SkyDir representing position of other source
             error_ellipse : 3-tuple representing error ellipse of other source in degrees"""
 
-        norm = 2.*math.pi*mul(*deg2rad(error_ellipse)[:2])
+        norm = 2.*math.pi*mul(*error_ellipse[:2])
         return math.exp(-self.delta_logl(position,error_ellipse))/norm
 
     def chance_probability(self,position,radius = 4):
