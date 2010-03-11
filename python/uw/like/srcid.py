@@ -274,8 +274,8 @@ class Catalog(object):
         #ras = np.array([source.skydir.ra() for source in self.sources])
         #decs = np.array([source.skydir.dec() for source in self.sources])
         #tmask = trap_mask(self.ras,self.decs,position,radius)
-        #ras,decs = self.ras[tmask],self.decs[tmask]
-        rmask = rad_mask(self.ras,self.decs,position,radius)[0]
+        ras,decs = self.ras,self.decs
+        rmask = rad_mask(self.ras,self.decs,position,radius,mask_only=True)
         return self.sources[rmask]
 
     def local_density(self,position,radius=4,fom=1.0):
@@ -289,8 +289,8 @@ class Catalog(object):
         #If no sources within radius, set n_sources = 1 to give lower limit on density
         #Maybe better to expand the radius in this case?
         if n_sources < 1 : n_sources = 1
-        solid_angle = (1-math.cos(deg2rad(radius)))*2*math.pi
-        solid_angle = rad2deg(rad2deg(solid_angle))
+        solid_angle = (1-math.cos(np.radians(radius)))*2*math.pi
+        solid_angle = np.degrees(np.degrees(solid_angle))
         return n_sources/solid_angle
 
     def associate(self,position,error_ellipse):
@@ -397,14 +397,14 @@ class CatalogSource(object):
 
     def angular_separation(self,other_skydir):
         """Calculate angular separation between this source and other_skydir"""
-        return rad2deg(self.skydir.difference(other_skydir))
+        return np.degrees(self.skydir.difference(other_skydir))
 
     def position_angle(self,other_skydir):
         """Calculate other_skydir angle _from_ other_skydir _to_ this source."""
-        ra1,dec1,ra2,dec2 = deg2rad([other_skydir.ra(),other_skydir.dec(),
+        ra1,dec1,ra2,dec2 = np.radians([other_skydir.ra(),other_skydir.dec(),
                             self.skydir.ra(),self.skydir.dec()])
         denom = math.sin(dec1)*math.cos(ra1-ra2) - math.cos(dec1)*math.tan(dec2)
-        return rad2deg(math.atan2(math.sin(ra1-ra2), denom))
+        return np.degrees(math.atan2(math.sin(ra1-ra2), denom))
 
     def delta_logl(self,position,error_ellipse):
         """Compute Delta(logl) for this association with source at position, with error_ellipse
@@ -413,8 +413,8 @@ class CatalogSource(object):
             position : SkyDir representing position of other source
             error_ellipse : 3-tuple representing error ellipse of other source in degrees"""
 
-        #error_ellipse = deg2rad(error_ellipse)
-        phi = deg2rad(self.position_angle(position)-error_ellipse[2])
+        #error_ellipse = np.radians(error_ellipse)
+        phi = np.radians(self.position_angle(position)-error_ellipse[2])
         angsep = self.angular_separation(position)
         return .5*angsep**2*((math.cos(phi)/error_ellipse[0])**2 +
                                (math.sin(phi)/error_ellipse[1])**2)
@@ -484,18 +484,6 @@ class CatalogError(Exception):
         self.message = message
     def __str__(self):
         return 'In catalog %s:\n\t%s'%(self.catalog,self.message)
-
-def deg2rad(angles):
-    try:
-        return [angle*math.pi/180. for angle in angles]
-    except TypeError:
-        return angles*math.pi/180.
-
-def rad2deg(angles):
-    try:
-        return [angle*180./math.pi for angle in angles]
-    except TypeError:
-        return angles*180./math.pi
 
 if __name__=='__main__':
     assoc = SourceAssociation('/home/eric/research/catalog/srcid/cat')
