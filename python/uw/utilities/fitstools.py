@@ -35,17 +35,22 @@ def trap_mask(ras,decs,cut_dir,radius):
 
    mask = N.abs(ras - cut_dir.ra()) <= ra_radius
    mask = N.logical_and(mask,N.abs(decs - cut_dir.dec()) <= radius)
-
+   #If cut radius overlaps the pole, keep a polar cap above cut_dir.dec()
+   if (cut_dir.dec()+radius > N.pi/2.) or (cut_dir.dec() - radius < -N.pi/2.):
+      mask = N.logical_or(mask,N.abs(decs)>N.abs(cut_dir.dec()))
    mask[radius > 20] = True # cut doesn't work for large radii?
    return mask
 
-def rad_mask(ras,decs,cut_dir,radius):
+def rad_mask(ras,decs,cut_dir,radius,mask_only=False):
    """Make a slower, exact cut on radius."""
-   ra0,dec0 = cut_dir.ra(),cut_dir.dec()
-   ras,decs = N.asarray(ras),N.asarray(decs)
-   diffs = N.arccos(N.sin(decs)*N.sin(dec0)+N.cos(decs)*N.cos(dec0)*N.cos(ras-ra0))
-   mask    = diffs*(180/N.pi) < radius
-   return mask,diffs[mask]
+   ra0,dec0 = N.radians(cut_dir.ra()),N.radians(cut_dir.dec())
+   ras,decs = N.radians(ras),N.radians(decs)
+   cos_diffs = N.sin(decs)*N.sin(dec0)+N.cos(decs)*N.cos(dec0)*N.cos(ras-ra0)
+   mask    = cos_diffs > N.cos(N.radians(radius))
+   if mask_only:
+      return mask
+   else:
+      return mask,N.degrees(N.arccos(diffs))[mask]
 
 def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cuts=None,apply_GTI=True):
    """Extract events with a radial cut.  Return specified columns and perform additional boolean cuts.
