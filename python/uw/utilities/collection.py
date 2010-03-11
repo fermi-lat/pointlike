@@ -1,13 +1,35 @@
 """
 generate collection file for LiveLabs Pivot viewer
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.1 2010/02/23 01:12:50 burnett Exp $
 See <http://getpivot.com>
 Author: Toby Burnett <tburnett@uw.edu>
 """
 
 import os, pickle, pyfits
+import xml.sax
+
 import numpy as np
+
+def get_image_ids( dzc):
+    """ look for the names in the DZC file 
+    
+    """
+    class Handler(xml.sax.ContentHandler):
+        def __init__(self):
+            self.id_dict={}
+        def startElement(self, name, attrs):
+            if name == "I":
+                id = attrs['Id']
+                source =attrs['Source']
+                fname =os.path.split(source)[1]
+                sname =fname.split('_')[0].replace('%20',' ').replace('p','+')
+                self.id_dict[sname]=id
+    parser = xml.sax.make_parser()
+    h=Handler()
+    parser.setContentHandler(h)
+    parser.parse(open(dzc,'r'))
+    return h.id_dict
 
 class Collection(object):
     """ manage a collection object.
@@ -24,28 +46,38 @@ class Collection(object):
     trailer = """\n</Collection> """ 
 
 
-    def __init__(self, name, item_names, dzc, img_list=None, icon=None, href=None):
+    def __init__(self, cname, folder, item_names, dzc, img_list=None, icon=None, href=None):
         """
         parameters description
         ---------- -----------
-        name       name for the collection
+        cname       name for the collection
+        folder     folder where files exist, the result will be put
         item_names list of names for each item
         dzc        filename for the Deep Zoom (DZ) Collection of images, relative to base
         img_list  if specified, a list of integers for the images in the DZ collection corresponding to the names
         href      list of references
        
         """
-        self.name = name
+        self.name = cname
+        self.folder = folder
+        assert(os.path.exists(folder))
         self.facets =[]
         self.item_names = item_names
         self.n = len(item_names)
         assert(self.n>0)
         self.dzc = dzc
+        full_dzc = os.path.join(folder,dzc)
+        assert( os.path.exists(full_dzc))
         if img_list is not None:
             self.img_list = img_list
             assert(len(img_list)==self.n)
         else:
-            self.img_list = range(self.n) 
+            ids = get_image_ids(full_dzc)
+            try:
+                self.img_list = [ids[n.replace('p','+')] for n in item_names]
+            except:
+                print 'Source not found in list of images %s' % img_list
+                raise
         self.icon = icon
         self.href=href
 
@@ -83,14 +115,15 @@ class Collection(object):
         for i,name in enumerate(self.item_names):
             img = self.img_list[i]
             href= ' Href="%s"' % self.href[i] if self.href is not None else ""
-            out.write('\n<Item Id="%d" Img="#%d" Name="%s" %s>' % (i, img, name, href))
+            out.write('\n<Item Id="%d" Img="#%d" Name="%s" %s>' % (i, int(img), name, href))
             out.write('\n <Facets>')
             for facet in self.facets:
                 if facet.type != 'Link':
                     out.write('\n  <Facet Name="%s"> <%s Value="%s"/> </Facet>' % (facet.name, facet.type, facet.data[i]))
                 else:
-                    href = facet.data[i]
-                    out.write('\n  <Facet Name="%s"> <Link Name="%s" Href="%s"/> </Facet>' % (facet.name,  href,href))
+                    t = facet.data[i] # has name, href
+                    if t is not None:
+                        out.write('\n  <Facet Name="%s"> <Link Name="%s" Href="%s"/> </Facet>' % (facet.name, t[0], t[1]))
                 
             out.write('\n </Facets>\n</Item>')    
         out.write('\n</Items>')
