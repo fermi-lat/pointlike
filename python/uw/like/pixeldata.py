@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.5 2010/02/25 19:23:25 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.6 2010/03/11 19:23:29 kerrm Exp $
 
 """
-version='$Revision: 1.5 $'.split()[1]
+version='$Revision: 1.6 $'.split()[1]
 import os
 import math
 import skymaps
@@ -50,8 +50,10 @@ Optional keyword arguments:
             if filelist is not None and len(filelist)>0 and not os.path.exists(filelist[0]):
                 raise Exception('PixelData setup: file name or path "%s" not found'%filelist[0])
 
+        # order of operations: GTI is needed for livetime; livetime is needed for PSF
+        self.gti  =  self._GTI_setup()
         self.lt   =  self.get_livetime()
-        self.PSF_setup()
+        self._PSF_setup()
         self.data = self.get_data()
         self.dmap = self.data.map()
         self.dmap.updateIrfs()
@@ -84,16 +86,15 @@ Optional keyword arguments:
              bpd.addBand(ph_f)
              bpd.addBand(ph_b)
 
-    def Data_setup(self):
+    def _Data_setup(self):
 
         from numpy import arccos,pi
         pointlike.Data.set_class_level(self.event_class)
         pointlike.Data.set_zenith_angle_cut(self.zenithcut)
         pointlike.Data.set_theta_cut(self.thetacut)
         pointlike.Data.set_use_mc_energy(self.mc_energy)
+        pointlike.Data.set_Gti_mask(self.gti)
         if not self.quiet: print '.....set Data theta cut at %.1f deg'%(self.thetacut)
-        if 'gti_mask' in self.__dict__ and self.gti_mask is not None:
-            pointlike.Data.set_Gti_mask(self.gti_mask)
 
         if not self.binner_set:
             from pointlike import DoubleVector
@@ -101,7 +102,7 @@ Optional keyword arguments:
             pointlike.Data.setPhotonBinner(self.binner)
             self.binner_set = True
 
-    def PSF_setup(self):
+    def _PSF_setup(self):
 
         # modify the psf parameters in the band objects
         # note there is a small discrepancy since the PSF average does not
@@ -113,12 +114,41 @@ Optional keyword arguments:
         ip.set_CALDB(self.CALDB)
         ip.init('_'.join(self.irf.split('_')[:-1]),self.irf.split('_')[-1])
 
+    def _GTI_setup(self):
+        """Create the GTI object that will be used to filter photon events and
+           to calculate the livetime.
+
+           Generally, one will have run gtmktime on the FT1 file(s) provided
+           to filter out large excursions in rocking angle, and/or make a
+           a cut for when a (small) ROI is too close to the horizon.
+
+           gti_mask is an optional kwarg to provide an additional GTI object that
+           can, e.g., be used to filter out GRBs.  An intersection with the GTIs
+           from the FT1 files and this gti_mask is made.
+        """
+        print 'applying GTI'
+        gti = skymaps.Gti(self.ft1files[0])
+
+        # take the union of the GTI in each FT1 file
+        for ef in self.ft1files[1:]:
+            gti.combine(skymaps.Gti(ef))
+        tmax = self.tstop if self.tstop > 0 else gti.maxValue()
+
+        gti = gti.applyTimeRangeCut(self.tstart,tmax) #save gti for later use
+
+        if 'gti_mask' in self.__dict__ and self.gti_mask is not None:
+            before = gti.computeOntime()
+            gti.intersection(self.gti_mask)
+            if not self.quiet: print 'applied gti mask, before, after times: %.1f, %.1f' % (before, gti.computeOntime())
+
+        return gti
+
     def get_data(self):
 
         #if no binned object present, create; apply cuts
         if self.binfile is None or not os.path.exists(self.binfile):
 
-            self.Data_setup()
+            self._Data_setup()
 
             if self.verbose: print 'loading file(s) %s' % self.ft1files
             data = pointlike.Data(self.ft1files,self.conv_type,self.tstart,self.tstop,self.mc_src_id,'')
@@ -169,18 +199,7 @@ Optional keyword arguments:
 
     def get_livetime(self,   pixelsize=1.0):
 
-        gti = skymaps.Gti(self.ft1files[0])
-        for ef in self.ft1files[1:]:
-            gti.combine(skymaps.Gti(ef))
-        tmax = self.tstop if self.tstop > 0 else gti.maxValue()
-
-        gti = self.gti = gti.applyTimeRangeCut(self.tstart,tmax) #save gti for later use
-
-        if 'gti_mask' in self.__dict__ and self.gti_mask is not None:
-            before = gti.computeOntime()
-            gti.intersection(self.gti_mask)
-            if not self.quiet: print 'applied gti mask, before, after times: %.1f, %.1f' % (before, gti.computeOntime())
-
+        gti = self.gti
 
         if self.ltcube is None or not os.path.exists(self.ltcube):
             if self.roi_dir is None:
