@@ -1,5 +1,15 @@
 ------------------------------------------------------------
 User: burnett  Thu Mar 18 13:36:18 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	associate.py catalog.py data.py myroi.py pipeline.py 
+	roidisplay.py 
+Log Message:
+slight cleanup
+    *
+------------------------------------------------------------
+User: burnett  Thu Mar 18 13:36:18 PDT 2010
 pointlike/python/uw
 
 Modified Files:
