@@ -3,7 +3,7 @@ basic pipeline setup
 
 Implement processing of a set of sources in a way that is flexible and easy to use with assigntasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/users/burnett/python/analysis/myroi.py,v 1.2 2009/11/20 22:03:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.1 2010/03/18 04:52:16 burnett Exp $
 
 """
 import sys, os, pyfits, glob, pickle, math
@@ -12,13 +12,10 @@ import pylab as plt
 
 from uw.utilities import makerec, fermitime, image, assigntasks
 from uw.like import Models
+from uw import factory
 from skymaps import SkyDir
 import myroi, data, catalog, associate # for default configuration (local stuff)
 
-def factory(**kwargs):
-    """ define the default factory to use
-    """
-    return myroi.factory(**kwargs)
 
 class Pipeline(object):
     """ base class for pipeline analysis using assigntasks 
@@ -227,7 +224,7 @@ class RefitCatalog(Pipeline):
         """ subset: bool array to select sources to refit
         
         """
-        factory = factory or myroi.factory(self.default_data(), irf=self.default_irf(), gti_mask=data.gti_noGRB())
+        factory = factory or uw.factory(self.default_data(), irf=self.default_irf(), gti_mask=data.gti_noGRB())
         super(RefitCatalog,self).__init__(factory=factory, 
                 associate=associate.Association(),
                 **kwargs)

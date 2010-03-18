@@ -1,46 +1,13 @@
 
 """
  Manage the catalog association tables
+ $Header$
+ author: T. Burnett <tburnett@uw.edu>
 """
 import catalog, makerec # local
 import numpy as np
 from skymaps import SkyDir
 import pyfits, os, pickle, glob
-
-# this is the list of actual names
-cat_names="""\
-1st AGILE catalogue (v3)
-AGN from Quasars and Active Galactic Nuclei (12th 
-BLLacs from Quasars and Active Galactic Nuclei (12 
-BZCAT Blazar Catalogue
-CGRaBS catalogue
-2nd COS-B source catalogue
-CRATES Flat-Spectrum Radio Sources
-Local Group Dwarf Galaxies catalogue
-3rd EGRET catalogue
-CEA EGRET catalogue
-Nearby Galaxies catalogue
-Globular cluster catalogue
-HMXB catalogue
-4th IBIS catalogue
-Galactic LBV stars
-LMXB catalogue
-MSPs from ATNF Pulsar catalogue
-Optically visible open clusters and Candidates
-Galactic O star catalogue     
-High EdotD2 pulsars from ATNF Pulsar catalogue
-LAT detected pulsars     
-Low EdotD2 pulsars from ATNF Pulsar catalogue  
-Pulsar wind nebulae catalogue
-Quasars from Quasars and Active Galactic Nuclei (1 
-Seyferts from Quasars and Active Galactic Nuclei ( 
-Radio loud narrow line Seyferts
-Green SNR catalogue
-Catalogue of starburst galaxies (Thompson et al. 2
-TeV source catalogue
-VLBA Calibrator Survey Catalogue
-7th catalog of Galactic Wolf-Rayet stars
-""".split('\n')
 
 def delta(ra1,dec1,ra2,dec2):
     """ return r and theta (assume close)
@@ -202,3 +169,4 @@ class UnPickle():
                     )
                 break
         return rec()
+
