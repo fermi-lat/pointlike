@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.134 2010/02/24 23:52:14 jrb Exp $
+$Id: release.notes,v 1.135 2010/03/12 14:32:44 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-02-00 17-Mar-2010 burnett added new factory interface code
  pointlike-07-01-06 12-Mar-2010 burnett important updates to the python source analysis code
  pointlike-07-01-05 24-Feb-2010    jrb Fix for linking on mac
  pointlike-07-01-04 22-Feb-2010 burnett a few tweaks in python code, but more importantly, a vital change in SConscript
