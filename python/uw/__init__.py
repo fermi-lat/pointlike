@@ -3,7 +3,7 @@ THe UW system for performing spectral analysis
 
 at this top level define a simple "factory" function giving a simple user access to the system
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/__init__.py,v 1.2 2010/03/18 04:52:16 burnett Exp $
 Authors:  T. Burnett, M. Kerr, Eric Wallace, Marshall Roth
 """
 
@@ -26,7 +26,7 @@ def factory(**kwargs):
         ==========   =============
     see uw.like.pointspec.SpectralAnalysis docstring for more keywords
     """
-    from thb_roi import myroi, data
+    from thb_roi import myroi
 
     defaults = {
         'dataset'     : None,
@@ -38,9 +38,5 @@ def factory(**kwargs):
         'use_gradient': True,
     }
     defaults.update(kwargs)
-    dataset = defaults.pop('dataset')    
-    if dataset is None:
-        dataset = data.all_data()
-    sa  = data.MyAnalysisEnvironment(dataset, **defaults)
-    return myroi.ROIfactory(sa, **defaults)
+    return myroi.ROIfactory( **defaults )
     

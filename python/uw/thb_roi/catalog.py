@@ -1,6 +1,6 @@
 """
  catalog stuff
- $Header: /nfs/slac/g/glast/ground/cvs/users/burnett/python/analysis/catalog.py,v 1.3 2009/11/20 22:03:54 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/catalog.py,v 1.1 2010/03/18 04:52:16 burnett Exp $
  """
 
 import sys, os, math
@@ -8,8 +8,6 @@ from skymaps import SkyDir, SpectralFunction
 import numpy as np
 import data
 from uw.utilities import makerec
-
-
 
 catalog_root = os.path.join(data.fermi_root,'catalog')
 default_assoc =  'gll_psc11month_v4r4_flags_v4r3p8.fit' #'gll_psc11month_v1r2.fit'
@@ -115,8 +113,6 @@ class Density(object):
         count = (dist<self.maxdist).sum()
         return count/self.area
 
-
-
 def correlate(cat1, cat2):
     """ return an array with shape (len(cat1),2) 
         with the first entry the minimum distance from each entry in cat1 to cat2
@@ -169,8 +165,6 @@ class Blazars(object):
         for r,s in d:
             if r<tol: return s,r
         return None
-
-
 
 class Catalog(object):
     def __init__(self, cat_file=default_catalog, assoc=default_assoc, quiet=True):
@@ -277,10 +271,6 @@ def file_selection(cat, filename):
     names = [line.split()[0] for line in open(filename)]
     return name_selection(cat, names)
 
-
-
-
-
 def search(cat, coords):
     ra,dec = parse_coords(coords)
     print 'looking for (%f,%f)' % (ra, dec)
@@ -356,7 +346,6 @@ def find_source(spec):
         return name, s.ra, s.dec
     else:
         raise Exception('unrecognized :%s, expect a name, or "name ra dec"' %spec)
-
 
 if __name__=='__main__':
     pass #doit(catalog)

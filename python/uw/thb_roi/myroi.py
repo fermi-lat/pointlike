@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/users/burnett/python/analysis/myroi.py,v 1.2 2009/11/20 22:03:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.1 2010/03/18 04:52:16 burnett Exp $
 
 """
 
@@ -16,7 +16,6 @@ from uw.utilities import makerec, fermitime, image
 from skymaps import SkyDir,  PySkyFunction
 
 import data, catalog, roi_setup # for default configuration (local stuff)
-
 
 
 class PtInfo(list):
@@ -575,13 +574,19 @@ class ROIfactory(pointspec.SpectralAnalysis):
     """ subclass of SpectralAnalysis, coded as a ROI "factory"
     """
 
-    def __init__(self, analysis_environment,  **kwargs):
+    def __init__(self,  **kwargs):
         
-        if 'fit_bg_first' not in kwargs: kwargs['fit_bg_radius']=True
-        if 'use_gradient' not in kwargs: kwargs['use_gradient']=True
+        defaults = {
+            'fit_bg_first': False,
+            'use_gradient': True,
+            }
         self.log = None
-
-        super(ROIfactory,self).__init__(  analysis_environment, **kwargs)
+        defaults.update(kwargs)
+        dataset = defaults.pop('dataset')    
+        if dataset is None:
+            dataset = data.all_data()
+        analysis_environment= data.MyAnalysisEnvironment(dataset, **defaults)
+        super(ROIfactory,self).__init__(  analysis_environment, **defaults)
 
         self.cb = roi_setup.ConsistentBackground(self.ae, self.background, quiet=self.quiet)
         aux = self.__dict__.pop('aux_cat', None)
@@ -670,9 +675,9 @@ class ROIfactory(pointspec.SpectralAnalysis):
                     print 'expected string with name ra dec'
                     raise
                 modelname = kwargs.pop('model', 'powerlaw')
-                models = {'powerlaw': Models.PowerLaw(), 
-                        'expcutoff': Models.ExpCutoff(), 
-                        'logparabola': Models.LogParabola(),
+                models ={'powerlaw':    Models.PowerLaw(), 
+                         'expcutoff':   Models.ExpCutoff(), 
+                         'logparabola': Models.LogParabola(),
                         }
                 if modelname not in models:
                     raise Exception('model "%s" not recognized: %s expected'% (modelname, models.keys()))
@@ -688,11 +693,9 @@ class ROIfactory(pointspec.SpectralAnalysis):
         if min_roi: self.minROI=min_roi  
         if max_roi: self.maxROI=max_roi 
         # pass on default values for optional args
-        if 'free_radius' not in kwargs: kwargs['free_radius']=self.free_radius
-        if 'prune_radius' not in kwargs: kwargs['prune_radius']=self.prune_radius
-        if 'fit_bg_first' not in kwargs: kwargs['fit_bg_first']=self.fit_bg_first
-        if 'use_gradient' not in kwargs: kwargs['use_gradient']=self.fit_bg_first
-
+        passon_list = ('free_radius', 'prune_radius', 'fit_bg_first', 'use_gradient')
+        for x in passon_list:
+                if x not in kwargs: kwargs[x] = self.__dict__[x]
 
         emin,emax = self.emin, self.emax
         r = self.roi(point_sources = ps, fit_emin=[emin,emin],fit_emax=[emax,emax], **kwargs)
@@ -709,44 +712,5 @@ class ROIfactory(pointspec.SpectralAnalysis):
         """
         return self.cb.cm.source_recarray()
  
-def factory(mydata=data.all_data(), **kwargs):
-    """
-    return a ROIfactory object
-
-    data [data.all_data() data set to use
-    Optional keyword arguments
-            ==========   =============
-            keyword      description
-            ==========   =============
-            emin         [100]     Default emin for fits
-            psf_irf      [None]    Set to use new psf
-            free_radius  [0]       fit all sources within this radius
-            prune_radius [0.1]     Do not include catalog sources within this radius of specified direction
-            fit_bg_first [False]    When doing a spectral fit, first optimize the background
-            use_gradient [True]    When doing a spectral fit, set the "use_gradient" option
-            ==========   =============
-
-    """
-    defaults = {
-        'emin'        : 100,
-        'psf_irf'     : None,
-        'free_radius' : 1.0,
-        'prune_radius': 0.1,
-        'fit_bg_first': False,
-        'irf'         : 'P6_v8_diff',
-        'use_gradient': True,
-    }
-    defaults.update(kwargs)
-    new_psf = defaults.pop('new_psf', None)
-    sa = data.MyAnalysisEnvironment(mydata=mydata, **defaults)
-    ret = ROIfactory(sa, **defaults)
-    
-    return ret
-
-
 if __name__=='__main__':
     pass
-    f = factory(emin=1000)
-    r = f('vela', free_radius=1)
-    r.dump()
-

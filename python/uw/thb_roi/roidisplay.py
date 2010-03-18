@@ -1,6 +1,6 @@
 """
 
-
+$Header$
 """
 
 import numpy as np
@@ -18,7 +18,6 @@ class ROIDisplay(object):
     """Manage the plotting of ROI info."""
 
     def init(self): 
-        
         self.figsize = (12,8)
         self.fignum  = 3
         
