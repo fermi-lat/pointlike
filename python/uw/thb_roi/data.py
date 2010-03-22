@@ -1,7 +1,7 @@
 """  manage Fermi data, set up for spectral analysis
 
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/data.py,v 1.1 2010/03/18 04:52:16 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/data.py,v 1.2 2010/03/18 20:36:18 burnett Exp $
 """
 
 import os, sys
@@ -182,7 +182,7 @@ class MyAnalysisEnvironment():
     but can be used to initialize a PixelData instance (in uw.like.pixeldata)
  
     """
-    def __init__(self, mydata=None,  **kwargs):
+    def __init__(self,   **kwargs):
         """
     Optional keyword arguments:
 
@@ -217,6 +217,7 @@ class MyAnalysisEnvironment():
         self.__dict__.update({
             # these allow this to initilaize a PixelData instance, 
             # perhaps generate pixel and exposure cube files
+            'dataset'   : 'all_data',
             'roi_dir'   : None,
             'exp_radius': 180,
             'binsperdec':  4,
@@ -246,10 +247,16 @@ class MyAnalysisEnvironment():
             'verbose'   :  False,
             })
         self.__dict__.update(kwargs)
-
-        if mydata is None:
-            mydata=all_data()
-        args = mydata()
+        mydata = self.__dict__.pop('dataset')
+        if mydata is None: mydata = 'all_data'
+       
+        if type(mydata)==type(''):
+            if mydata=='all_data': 
+                args = all_data()()
+            else:
+                raise Exception('data set id %s not recognized' % mydata)
+        else:
+            args = mydata()
         event_files, history_files, datafile, livetimefile = args[:4]
         if len(args)==5: self.gti_mask= args[4]
         
