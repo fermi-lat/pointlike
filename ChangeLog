@@ -1,5 +1,16 @@
 ------------------------------------------------------------
 User: burnett  Mon Mar 22 10:28:13 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	data.py myroi.py 
+Added Files:
+	roi_factory.py 
+Log Message:
+some refactoring, better docstrings
+    *
+------------------------------------------------------------
+User: burnett  Mon Mar 22 10:28:13 PDT 2010
 pointlike/python/uw
 
 Modified Files:
