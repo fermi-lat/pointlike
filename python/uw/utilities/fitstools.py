@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.2 2010/02/04 16:23:01 wallacee Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.4 2010/03/11 22:36:52 wallacee Exp $
 
    author: Matthew Kerr
 
@@ -50,7 +50,7 @@ def rad_mask(ras,decs,cut_dir,radius,mask_only=False):
    if mask_only:
       return mask
    else:
-      return mask,N.degrees(N.arccos(diffs))[mask]
+      return mask,N.degrees(N.arccos(cos_diffs))[mask]
 
 def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cuts=None,apply_GTI=True):
    """Extract events with a radial cut.  Return specified columns and perform additional boolean cuts.
