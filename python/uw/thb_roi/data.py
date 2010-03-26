@@ -1,7 +1,7 @@
 """  manage Fermi data, set up for spectral analysis
 
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/data.py,v 1.2 2010/03/18 20:36:18 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/data.py,v 1.3 2010/03/22 17:28:13 burnett Exp $
 """
 
 import os, sys
@@ -253,8 +253,10 @@ class MyAnalysisEnvironment():
         if type(mydata)==type(''):
             if mydata=='all_data': 
                 args = all_data()()
+            elif mydata=='1FGL':
+                args = Catalog_noGRB()()
             else:
-                raise Exception('data set id %s not recognized' % mydata)
+                raise Exception('data set id "%s" not recognized' % mydata)
         else:
             args = mydata()
         event_files, history_files, datafile, livetimefile = args[:4]

@@ -1,7 +1,9 @@
 """
 supplemental setup of ROI
 ----------------------------------
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_setup.py,v 1.1 2010/03/18 04:52:16 burnett Exp $
+
+These are near-duplicates of the classes with the same name in uw.like, but modifed for the interactive access
 
 """
 import numpy as np
