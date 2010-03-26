@@ -1,12 +1,12 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/assigntasks.py,v 1.9 2010/02/23 01:12:18 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.10 2010/02/24 21:20:01 wallacee Exp $
 
 """
 from IPython.kernel import client
 import time, os, pickle
-version = '$Revision: 1.9 $'.split()[1]
+version = '$Revision: 1.10 $'.split()[1]
 
 
 def get_mec():
@@ -179,10 +179,16 @@ class AssignTasks(object):
             loop_iters += 1
 
         # all tasks have been assigned: wait for all engines to finish
-        # (TODO: do not block, catch stuck processor)
-        for id in self.get_ids():
-            self.log('Waiting for engine %d to finish'%id)
-            self.check_result(id, block=True)
+        still = self.get_ids()
+        curtime = time.clock()
+        while True:
+            if time.clock()-curtime>self.timelimit:
+                self.log('quitting, exceeded time limit: %f' %self.timelimit)
+                break
+            time.sleep(sleep_interval)
+            still = [id for id in still if not self.check_result(id)]
+            if len(still)==0: break
+            self.log('Still running: %d engines %d ... %d'% (len(still), still[0], still[-1]))
         if self.post is not None: 
             self.execute(self.post, self.get_ids(), True)
 
