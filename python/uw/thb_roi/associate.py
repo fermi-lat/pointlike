@@ -1,10 +1,11 @@
 
 """
  Manage the catalog association tables
- $Header$
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/associate.py,v 1.2 2010/03/18 20:36:18 burnett Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
-import catalog, makerec # local
+import catalog #local
+from uw.utilities import makerec
 import numpy as np
 from skymaps import SkyDir
 import pyfits, os, pickle, glob

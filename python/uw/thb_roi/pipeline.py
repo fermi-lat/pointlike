@@ -3,7 +3,7 @@ basic pipeline setup
 
 Implement processing of a set of sources in a way that is flexible and easy to use with assigntasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.1 2010/03/18 04:52:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.2 2010/03/18 20:36:18 burnett Exp $
 
 """
 import sys, os, pyfits, glob, pickle, math
@@ -12,7 +12,8 @@ import pylab as plt
 
 from uw.utilities import makerec, fermitime, image, assigntasks
 from uw.like import Models
-from uw import factory
+import uw
+#from uw import factory
 from skymaps import SkyDir
 import myroi, data, catalog, associate # for default configuration (local stuff)
 
@@ -21,13 +22,11 @@ class Pipeline(object):
     """ base class for pipeline analysis using assigntasks 
     
     """
-    def default_data(self):
-        return data.all_data() 
-    def default_irf(self):
-        return 'P6_v8_diff'
-
     def __init__(self,  **kwargs):
-        self.factory = kwargs.pop('factory', None ) or factory(dataset=self.default_data(), irf=self.default_irf())
+        dataset = kwargs.pop('dataset', None)
+        print 'using dataset: ', dataset
+        irf = kwargs.pop('irf', 'P6_v8_diff')
+        self.factory = kwargs.pop('factory', None ) or uw.factory(irf=irf, dataset=dataset)
         self.__dict__.update({'size':0, 
                     'associate': None, 
                     'bgfree':  np.asarray([True,False,True]),
@@ -224,7 +223,7 @@ class RefitCatalog(Pipeline):
         """ subset: bool array to select sources to refit
         
         """
-        factory = factory or uw.factory(self.default_data(), irf=self.default_irf(), gti_mask=data.gti_noGRB())
+        factory = factory or uw.factory(dataset=self.default_data(), irf=self.default_irf(), gti_mask=data.gti_noGRB())
         super(RefitCatalog,self).__init__(factory=factory, 
                 associate=associate.Association(),
                 **kwargs)
@@ -487,7 +486,7 @@ def setup_stuff(classname, **kwargs):
     """  generate strings appropriate for assigntasks
     """
     args = ','.join(['%s=%s' %(key, kwargs[key]) for key in kwargs.keys()])
-    setup_string = 'from thb_roi import pipeline; reload(pipeline); g = pipeline.%s(%s)' % (classname, args)
+    setup_string = 'from uw.thb_roi import pipeline; reload(pipeline); g = pipeline.%s(%s)' % (classname, args)
     exec(setup_string)
     n = g.n
     tasklist = ['g(%d)'%i for i in range(n)]
