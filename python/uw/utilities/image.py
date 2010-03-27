@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.11 2010/03/11 19:23:30 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.12 2010/03/11 23:28:14 burnett Exp $
 
 """
-version = '$Revision: 1.11 $'.split()[1]
+version = '$Revision: 1.12 $'.split()[1]
 
 import pylab
 import math
@@ -538,12 +538,13 @@ class ZEA(object):
 
     def plot_source(self, name, source, symbol='+', fontsize=10, **kwargs):
         " plot symbols at points"
-        if self.galactic:   x,y = self.proj.sph2pix(source.l(),source.b())
-        else:  x,y = self.proj.sph2pix(source.ra(),source.dec())
+        x,y = self.pixel(source)
         if x<0 or x> self.nx or y<0 or y>self.ny: return False
         self.axes.plot([x],[y], symbol,  **kwargs)
-        self.axes.text(x,y, name, fontsize=fontsize, **kwargs)
+        #self.axes.text(x,y, name, fontsize=fontsize, **kwargs)
+        self.axes.text( x+self.nx/100., y+self.nx/100., name, fontsize=fontsize, **kwargs)
         return True
+
 
     def cross(self, sdir, size, text=None, **kwargs):
         """ draw a cross  
