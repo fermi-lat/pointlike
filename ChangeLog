@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Mar 30 14:43:29 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	assigntasks.py 
+Log Message:
+add callback  to extract results
+    *
+------------------------------------------------------------
 User: kerrm  Tue Mar 30 11:17:39 PDT 2010
 pointlike/python/uw/like
 
