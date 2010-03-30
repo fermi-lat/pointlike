@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.2 2010/02/10 00:21:58 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.3 2010/03/11 19:23:29 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -203,8 +203,12 @@ class ROIEnergyBand(object):
 
          flux_copy = self.m.p[0]
          zp        = self.bandLikelihood(N.asarray([-20]),self.m,which)
+
+         # NB -- the 95% upper limit is calculated by assuming the likelihood is peaked at
+         # 0 flux and finding the flux at which it has fallen by 1.35; this is a two-sided
+         # 90% limit, or a one-sided 95% limit -- that's how it works, right?
          def f95(parameters):
-            return abs(self.bandLikelihood(parameters,self.m,which) - zp - 1.92)
+            return abs(self.bandLikelihood(parameters,self.m,which) - zp - 1.35)
          
          # for some reason, can't get fsolve to work here.  good ol' fmin to the rescue
          self.uflux = 10**fmin(f95,N.asarray([-11.75]),disp=0)[0]
