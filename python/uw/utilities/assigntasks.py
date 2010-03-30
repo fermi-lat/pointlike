@@ -1,12 +1,12 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.10 2010/02/24 21:20:01 wallacee Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.11 2010/03/26 14:08:34 burnett Exp $
 
 """
 from IPython.kernel import client
 import time, os, pickle
-version = '$Revision: 1.10 $'.split()[1]
+version = '$Revision: 1.11 $'.split()[1]
 
 
 def get_mec():
@@ -20,6 +20,7 @@ class AssignTasks(object):
     def __init__(self, setup_string, tasks, post=None,
             mec=None, local=False, 
             quiet=False, log=None, timelimit=60,
+            callback = None,
             ):
         """
         setup_string: python code to setup the clients for the tasks
@@ -31,11 +32,13 @@ class AssignTasks(object):
         quiet: [False] control output
         log:   [None]  if set, an open output stream for log info
         timelimit: [60] limit (s) for a single task
+        callback: [None] if set, will call as callback(task_index, result) 
         """
         self.local = local
         self.timelimit = timelimit
         self.setup_string = setup_string
         self.post = post
+        self.usercallback = callback
         if not local:
             try:
                 self.mec = mec if mec is not None else get_mec()
@@ -57,16 +60,6 @@ class AssignTasks(object):
 
         self.log('Start AssignTasks, with %d tasks and  %d engines'\
                %( len(self.tasks), len(self.get_ids())))
-
-    def callback(self, result, id):
-        # still experimental--would like to to be notified
-        print 'call back, id=%d, result=%s' % (id,result)
-        index = self.assigned[id]
-        self.log('%4d --> %s' %(index, result))
-        self.result[index]=result
-        self.time[index]=time.clock()-self.time[index]
-        self.assigned[id]=None
-        self.assign(id)
 
     def get_ids(self):
         """ return a list of available engine ids (but no more than the number of tasks) 
@@ -140,9 +133,11 @@ class AssignTasks(object):
                         # todo: if this does not work, need to remove from list, since get_ids will keep getting it
                     return False
                 #if not self.quiet: print >>self.log, '%4d --> %s' %(index, result)
+                if self.usercallback is not None and index>=0: self.usercallback(index, result)
                 self.result[index]=result
             except:
                 self.log("Engine %d raised exception executing task %d" %(id, index))
+                #raise
                 self.lost.add(index)
                 #raise #TODO: option to allow dropping the engine and continue? Probably a serious issue.
         else:
@@ -179,16 +174,16 @@ class AssignTasks(object):
             loop_iters += 1
 
         # all tasks have been assigned: wait for all engines to finish
-        still = self.get_ids()
+        still = [id for id in self.get_ids() if not self.check_result(id)]
         curtime = time.clock()
-        while True:
+        while len(still)>0:
+            self.log('Still running: %d engines %d ... %d'% (len(still), still[0], still[-1]))
             if time.clock()-curtime>self.timelimit:
                 self.log('quitting, exceeded time limit: %f' %self.timelimit)
                 break
             time.sleep(sleep_interval)
             still = [id for id in still if not self.check_result(id)]
-            if len(still)==0: break
-            self.log('Still running: %d engines %d ... %d'% (len(still), still[0], still[-1]))
+            
         if self.post is not None: 
             self.execute(self.post, self.get_ids(), True)
 
@@ -199,8 +194,8 @@ class AssignTasks(object):
 
 
     def dump(self, filename='summary.pickle'):
-        """ save info to a pickle file """
-        pickle.dump({'time':self.time, 'result':self.result}, open(filename, 'w'))
+        """ save times, logs to a pickle file """
+        pickle.dump({'time':self.time, 'result':self.result}, open(filename, 'wr'))
 
 
 def setup_mec(engines=None, machines='tev1 tev2 tev3 tev4'.split()):
@@ -225,19 +220,22 @@ def setup_mec(engines=None, machines='tev1 tev2 tev3 tev4'.split()):
         #os.system('ipcluster ssh -xy --clusterfile clusterfile &')
 
         # old, klugy way
-        os.system('ipcontroller local -xy&')  
+        os.system('ipcontroller local -xy > ipcontroller.log &')  
         for m in machines:
             for i in range(engines):
                 time.sleep(0.1) # make sure the controller is started ?
-                os.system('ssh %s ipengine&'% m) # this assumes that the environment is setup with non-interactive login
+                os.system('ssh %s ipengine > /dev/null &'% m) # this assumes that the environment is setup with non-interactive login
 
 def kill_mec():
     get_mec().kill(True)
 
 
 def test(tasks=9, **kwargs):
+    def callback(id,result): 
+        print 'callback: %d, %s' % (id, result)
     at = AssignTasks('import time,random', 
             ['t=round(10.*random.random()); print %d,t; time.sleep(t)'%i for i in range(tasks)], 
+            #callback = callback,
             **kwargs)
     at()
     return at
