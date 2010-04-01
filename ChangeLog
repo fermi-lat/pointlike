@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Thu Apr  1 11:07:50 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	fitstools.py 
+Log Message:
+Modified the "DIFFERENCES" column to be returned in radians.  The radius function for making cuts in rad_extract is still specified in degrees.
+    *
+------------------------------------------------------------
 User: burnett  Tue Mar 30 14:43:29 PDT 2010
 pointlike/python/uw/utilities
 
