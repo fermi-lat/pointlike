@@ -13,7 +13,8 @@ from uw.utilities.fitstools import trap_mask, rad_mask
 class SourceAssociation(object):
     """A class to find association probabilities for sources with a given set of counterpart catalogs."""
 
-    def __init__(self,catdir):
+    def __init__(self,catdir,quiet=False):
+        self.quiet = quiet
         self.catdir = catdir
         cat_files = glob(os.path.join(self.catdir,'*.fits'))
         self.catalogs = {}
@@ -45,7 +46,7 @@ class SourceAssociation(object):
         associations = {}
         for cls,cf in zip(classes,class_files):
             if not self.catalogs.has_key(cls):
-                self.catalogs[cls] = Catalog(cf)
+                self.catalogs[cls] = Catalog(cf,quiet = self.quiet)
             these = self.catalogs[cls].associate(position,error)
             associations[cls] = these
         return associations
@@ -55,7 +56,7 @@ class SourceAssociation(object):
 class Catalog(object):
     """A class to manage the relevant information from a FITS catalog."""
 
-    def __new__(cls,class_file):
+    def __new__(cls,class_file,quiet=False):
         gamma_catalogs = ['%s'%g for g in 'agile egr cosb eg3 fermi_bsl'.split()]
         extended_catalogs = ['%s'%e for e in 'dwarfs snr_ext'.split()]
         cf = os.path.splitext(os.path.basename(class_file))[0]
@@ -67,10 +68,12 @@ class Catalog(object):
             obj = object.__new__(Catalog)
         return obj
 
-    def init(self,class_file):
+    def init(self,class_file,quiet=False):
+        self.quiet = quiet
         self.class_module = self._get_class_module(class_file)
         self.cat_file = os.path.join(os.path.dirname(class_file),os.path.pardir,'cat',self.class_module.catname)
-        print('Setting up catalog for source class "%s" from file "%s"'%(self.class_module.catid,self.cat_file))
+        if not self.quiet:
+            print('Setting up catalog for source class "%s" from file "%s"'%(self.class_module.catid,self.cat_file))
         self.coords = SkyDir.EQUATORIAL
         self.prior = self.class_module.prob_prior
         self.prob_threshold = self.class_module.prob_thres
@@ -92,8 +95,8 @@ class Catalog(object):
             raise CatalogError(self.cat_file,'Could not find columns with source positions')
         return names,lons,lats
 
-    def __init__(self,class_file):
-        self.names,lons,lats = self.init(class_file)
+    def __init__(self,class_file,quiet = False):
+        self.names,lons,lats = self.init(class_file,quiet=quiet)
         self.mask = self._make_selection()
         self.sources = np.array([CatalogSource(self,name,SkyDir(lon,lat,self.coords))
                         for name,lon,lat in zip(self.names,lons,lats)])[self.mask]
@@ -308,10 +311,11 @@ class Catalog(object):
         try:
             assert(len(error_ellipse)==3)
         except TypeError:
-            print("Got scalar instead of sequence for error ellipse: Assuming this is r68 in degrees")
+            if not self.quiet:
+                print("Got scalar instead of sequence for error ellipse: Assuming this is r68 in degrees")
             error_ellipse = [error_ellipse]*2+[0]
         except AssertionError:
-            "Wrong length for error_ellipse: Needed length 3, got %i"%len(error_ellipse)
+            print("Wrong length for error_ellipse: Needed length 3, got %i"%len(error_ellipse))
             return
         if self.source_mask_radius is None:
             self.source_mask_radius = error_ellipse[0]*2.45*5
@@ -329,8 +333,8 @@ class Catalog(object):
 class GammaCatalog(Catalog):
     """A catalog of gamma-ray sources (i.e. sources with error circles comparable to LAT)"""
 
-    def __init__(self,class_file):
-        self.names,lons,lats = self.init(class_file)
+    def __init__(self,class_file,quiet = False):
+        self.names,lons,lats = self.init(class_file,quiet = quiet)
         errors = self.get_position_errors()
         self.source_mask_radius = 3*max(errors)
         self.mask = self._make_selection()
@@ -360,8 +364,8 @@ class GammaCatalog(Catalog):
 class ExtendedCatalog(Catalog):
     """A catalog of extended sources"""
 
-    def __init__(self,class_file):
-        self.names,lons,lats= self.init(class_file)
+    def __init__(self,class_file,quiet = False):
+        self.names,lons,lats= self.init(class_file,quiet = quiet)
         radii = self.get_radii()
         self.source_mask_radius = max(radii)*3
         self.mask = self._make_selection()
