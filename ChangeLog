@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Wed Apr  7 13:18:35 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	srcid.py 
+Log Message:
+Added a 'quiet' arg to SourceAssociation and Catalog constructors to suppress output.
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-16-01, operation: add
 Package: pointlike
