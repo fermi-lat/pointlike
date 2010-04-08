@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.3 2010/02/10 00:21:58 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.4 2010/03/11 19:23:29 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -130,15 +130,12 @@ class ROILocalizer(object):
       ll  = 0
       pf  = roi.phase_factor
       bf  = self.bandfits
-      up  = self.update
       wh  = self.which
 
       for i,band in enumerate(roi.bands):
 
-         #sigma,gamma,en,exp,pa = band.s,band.g,band.e,band.exp,band.b.pixelArea()
          en,exp,pa             = band.e,band.exp,band.b.pixelArea()
          exposure_ratio        = exp.value(skydir,en)/exp.value(sd,en) # changed to "sd" Feb. 6 2010
-         #psf                   = PsfSkyFunction(skydir,gamma,sigma)
          
          nover                 = ro(band,rd,skydir) * exposure_ratio * band.solid_angle / band.solid_angle_p
          oover                 = band.overlaps[wh]
@@ -152,7 +149,6 @@ class ROILocalizer(object):
          if band.has_pixels:
 
             ps_pix_counts = band.psf(N.asarray([skydir.difference(x) for x in band.wsdl]),density=True)*pa*exposure_ratio
-            #ps_pix_counts = N.asarray(psf.wsdl_vector_value(band.wsdl))*((pa/(2*N.pi*sigma**2))*exposure_ratio)
 
             pix_term = (band.pix_counts * N.log
                            (
@@ -170,7 +166,7 @@ class ROILocalizer(object):
          if N.isnan(ll):
             raise Exception('ROIAnalysis.spatialLikelihood failure at %.3f,%.3f, band %d' %(skydir.ra(),skydir.dec(),i))
 
-         if up:
+         if update:
             # update the cached counts with new location -- note that this used the _broadband_ spectral
             # model rather than the band-by-band fit; otherwise, subsequent fits for broadband parameters
             # would fail
