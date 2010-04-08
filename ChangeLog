@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Thu Apr  8 15:23:00 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_localize.py 
+Log Message:
+Fixed a bug in spatialLikelihood, where the position was being updated *during* the fit rather than after.  This has no consequence on the actual fit position, but in case the algorithm doesn't converge, the model counts in the likelihood object are no longer correct.
+    *
+------------------------------------------------------------
 User: wallacee  Wed Apr  7 13:18:35 PDT 2010
 pointlike/python/uw/like
 
