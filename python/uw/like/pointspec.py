@@ -2,11 +2,11 @@
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.4 2010/02/25 19:23:25 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.5 2010/03/11 19:23:29 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.4 $'.split()[1]
+version='$Revision: 1.5 $'.split()[1]
 import os
 import sys
 
@@ -82,7 +82,7 @@ class AnalysisEnvironment(object):
       try:
          f = open(self.ltcube)
          ltfile_exists = True
-      except IOError:
+      except (IOError, TypeError):
          ltfile_exists = False
 
       if self.ft2files is None and (self.ltcube is None or ltfile_exists == False):
