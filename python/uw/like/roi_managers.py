@@ -1,13 +1,14 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.2 2010/02/10 00:22:34 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.3 2010/03/11 19:23:29 kerrm Exp $
 
 author: Matthew Kerr
 """
 
 import numpy as N
 from skymaps import SkyDir,SkyIntegrator,Background
+from pointlike import DoubleVector
 from Models import *
 from pypsf import *
 from roi_bands import *
@@ -68,6 +69,7 @@ class ROIPointSourceManager(ROIModelManager):
 
       roi_dir = self.roi_dir
       overlap = PsfOverlap()
+      dv      = DoubleVector()
 
       for i,band in enumerate(bands):
 
@@ -82,8 +84,9 @@ class ROIPointSourceManager(ROIModelManager):
          #unnormalized PSF evaluated at each pixel, for each point source
          band.ps_pix_counts = N.empty([len(band.wsdl),len(self.point_sources)])
          for nps,ps in enumerate(self.point_sources):
-            diffs = N.asarray([ps.skydir.difference(w) for w in band.wsdl])
-            band.ps_pix_counts[:,nps] = band.psf(diffs,density=True)
+            #diffs = N.asarray([ps.skydir.difference(w) for w in band.wsdl])
+            band.wsdl.arclength(ps.skydir,dv)
+            band.ps_pix_counts[:,nps] = band.psf(N.fromiter(dv,dtype=float),density=True)
          band.ps_pix_counts*= pa
 
          #fraction of PSF contained within the ROI
@@ -102,8 +105,9 @@ class ROIPointSourceManager(ROIModelManager):
          # only need to re-calculate the models for new data pixels
          band.ps_pix_counts    = N.empty([len(band.wsdl),len(self.point_sources)])
          for nps,ps in enumerate(self.point_sources):
-            diffs = N.asarray([ps.skydir.difference(w) for w in band.wsdl])
-            band.ps_pix_counts[:,nps] = band.psf(diffs,density=True)
+            #diffs = N.asarray([ps.skydir.difference(w) for w in band.wsdl])
+            band.wsdl.arclength(ps.skydir,dv)
+            band.ps_pix_counts[:,nps] = band.psf(N.fromiter(dv,dtype=float),density=True)
          band.ps_pix_counts   *= b.pixelArea()
 
 
@@ -116,13 +120,21 @@ class ROIPointSourceManager(ROIModelManager):
          band.ps_all_counts = (band.overlaps[ma]*new_counts).sum() + band.frozen_total_counts
          if band.has_pixels:
             band.ps_all_pix_counts = \
-                  (band.unfrozen_pix_counts * new_counts).sum(axis=1) + band.frozen_pix_counts
+               (band.unfrozen_pix_counts * new_counts).sum(axis=1) + band.frozen_pix_counts
 
    def cache(self,bands):
       """Cache values for models with no degrees of freedom.  Helps a lot near galactic plane."""
       self.mask = m = N.asarray([N.any(model.free) for model in self.models])
-      nm = N.logical_not(self.mask)
-      s = nm.sum()
+      nm = ~self.mask
+      s  = nm.sum()
+      
+      # note on implementation:
+      # frozen_pix_counts is always a 1-vector with dimension equal to the number of data pixels in a band
+      # unfrozen_pix_counts is always an (npix,n_free_sources) matrix, even in the case where there are
+      # no free sources, where it degenerates to a (npix,0)-dim matrix.
+      # This structure is desired as the total counts that go into the likelihood, as determined in
+      # update_counts, performs a sum over the second (source) axis of unfrozen_pix_counts, giving
+      # an (npix,) vector that can be safely added to frozen_pix_counts.
 
       for band in bands:
          band.ps_counts = N.asarray([band.expected(model) for model in self.models]) * band.er
@@ -139,10 +151,7 @@ class ROIPointSourceManager(ROIModelManager):
             if not band.has_pixels:
                band.frozen_pix_counts = 0
                continue
-            if s > 1:
-               band.frozen_pix_counts = (band.ps_pix_counts.transpose()[nm].transpose()*band.ps_counts[nm]).sum(axis=1)
-            else:
-               band.frozen_pix_counts =  band.ps_pix_counts.transpose()[nm].transpose()*band.ps_counts[nm]
+            band.frozen_pix_counts = (band.ps_pix_counts.transpose()[nm].transpose()*band.ps_counts[nm]).sum(axis=1)
 
          else:
             band.frozen_total_counts = 0
@@ -265,7 +274,7 @@ class ROIBackgroundManager(ROIModelManager):
       """Evaluate initial values of background models; these will be scaled in likelihood maximization."""
 
       if not self.quiet:
-         print '.....setting up diffuse backgrounds...',
+         print '.....setting up diffuse backgrounds...'
          for bg in self.bgmodels:
             print '..........using %s'%(bg.name)
 

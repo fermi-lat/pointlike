@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.4 2010/03/11 19:23:29 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.5 2010/04/08 22:23:00 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -9,6 +9,7 @@ author: Matthew Kerr
 import quadform
 import numpy as N
 from skymaps import SkyDir,Hep3Vector
+from pointlike import DoubleVector
 from pypsf import PsfOverlap
 
 ###====================================================================================================###
@@ -131,6 +132,7 @@ class ROILocalizer(object):
       pf  = roi.phase_factor
       bf  = self.bandfits
       wh  = self.which
+      dv  = DoubleVector()
 
       for i,band in enumerate(roi.bands):
 
@@ -148,7 +150,9 @@ class ROILocalizer(object):
 
          if band.has_pixels:
 
-            ps_pix_counts = band.psf(N.asarray([skydir.difference(x) for x in band.wsdl]),density=True)*pa*exposure_ratio
+            #ps_pix_counts = band.psf(N.asarray([skydir.difference(x) for x in band.wsdl]),density=True)*pa*exposure_ratio
+            band.wsdl.arclength(skydir,dv)
+            ps_pix_counts = band.psf(N.fromiter(dv,dtype=float),density=True)*pa*exposure_ratio
 
             pix_term = (band.pix_counts * N.log
                            (
