@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Apr  9 16:12:07 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py 
+Log Message:
+Catch both type of exceptions.
+    *
+------------------------------------------------------------
 User: kerrm  Fri Apr  9 10:51:49 PDT 2010
 pointlike/python/uw/like
 
