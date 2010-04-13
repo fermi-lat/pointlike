@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.6 2010/04/01 18:07:50 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.7 2010/04/13 00:49:35 wallacee Exp $
 
    author: Matthew Kerr
 
@@ -288,7 +288,7 @@ def sum_ltcubes(files,outputfile = 'summed_ltcube.fits'):
    handles = __get_handles__(files)
 
    exp_table = __merge_exposures__(handles)
-   gti = merge_gti(handles)
+   gti = merge_gti(files)
 
    exp_table.writeto(outputfile,clobber=True)
    gti.writeExtension(outputfile)
