@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.5 2010/03/23 22:11:22 wallacee Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.6 2010/04/01 18:07:50 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -288,14 +288,24 @@ def sum_ltcubes(files,outputfile = 'summed_ltcube.fits'):
    handles = __get_handles__(files)
 
    exp_table = __merge_exposures__(handles)
-   gti_table = __merge_gti__(handles)
+   gti = merge_gti(handles)
 
-   #Overwrite data in dummy table and write it to file
-   handles[0]['EXPOSURE'].data = exp_table.data
-   handles[0]['GTI'].data = gti_table.data
-   handles[0].writeto(outputfile,clobber=True)
+   exp_table.writeto(outputfile,clobber=True)
+   gti.writeExtension(outputfile)
 
    for x in handles: x.close()
+
+def merge_gti(files,table_name = 'GTI',interval = None):
+    """Return the union of Gtis specified in files, with an optional time range cut."""
+    gtis = [Gti(f,table_name) for f in files]
+    new_gti = Gti(gtis[0])
+    for gti in gtis:
+        new_gti.combine(gti)
+
+    if interval is not None:
+        new_gti = new_gti.applyTimeRangeCut(*interval)
+
+    return new_gti
 
 #EVERYTHING BELOW IS AN INTERNAL CALL.
 
@@ -329,9 +339,17 @@ def __get_handles__(files):
 
 def __merge_exposures__(handles):
    """Return a FITS table of merged exposure cubes."""
+   # Check for binning consistency based on header keywords. - eew
+   head = handles[0]['EXPOSURE'].header
+   for h in handles:
+      for key in head.keys():
+         if h['EXPOSURE'].header[key]!=head[key]:
+            print('Inconsistent header values, keyword %s: bailing out!'%key)
+            return
 
    exposures = [x['EXPOSURE'].data.field('COSBINS') for x in handles]
-
+   
+   #This should be redundant, given the header checks. - eew
    for exp in exposures:
       if exp.shape != exposures[0].shape:
          print 'Livetime cube binning inconsistent -- bailing out!'
@@ -339,8 +357,8 @@ def __merge_exposures__(handles):
 
    #Sum the exposures and put in a new table
    summed_exposure = N.array(exposures).sum(axis=0)
-   exp_table = pf.new_table(handles[0]['EXPOSURE'].columns,nrows=exposures[0].shape[0])
-   exp_table.data.field('COSBINS')[:] = summed_exposure
+   coldef = pf.ColDefs([pf.Column(name='COSBINS',format=head['TFORM1'],null=head['TNULL1'],array=summed_exposure)])
+   exp_table = pf.new_table(coldef,header=head,nrows=exposures[0].shape[0])
 
    return exp_table
 
