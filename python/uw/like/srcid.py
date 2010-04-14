@@ -1,3 +1,8 @@
+"""
+Python support for source association, equivalent to the Fermi Science Tool gtsrcid
+$Header$
+author:  Eric Wallace <ewallace@uw.edu>
+"""
 import os
 import sys
 import math
