@@ -3,7 +3,7 @@ basic pipeline setup
 
 Implement processing of a set of sources in a way that is flexible and easy to use with assigntasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.3 2010/03/26 14:07:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.4 2010/04/15 05:21:05 burnett Exp $
 
 """
 import sys, os, pyfits, glob, pickle, math
@@ -39,6 +39,8 @@ class Pipeline(object):
                 'free_radius': 1.0, # cut back from 2.0
             })
         self.associate = kwargs.pop('associate', None)
+        if self.associate is not None:
+            print 'will associate with catalogs %s' % self.associate.classes
         self.__dict__.update(kwargs)
         outdir = self.outdir
         print 'saving files to "%s"' % outdir
@@ -73,7 +75,6 @@ class Pipeline(object):
         name,sdir = s.name, SkyDir(s.ra,s.dec)  
         id_class = 'none' if newsource else s.id_class
         print '\n'+60*'=','\nprocessing source %s at %s' % (name, sdir), '\n'+ 60*'='
-        adict = self.associate(name) if self.associate else None 
         r = self.factory([[name, sdir, Models.PowerLaw()]],  bgfree=self.bgfree)
 
 
@@ -91,10 +92,17 @@ class Pipeline(object):
         move=None
         try:
             r.localize()
+            if r.qform is not None:
+                par = r.qform.par 
+                psig = np.sqrt(par[3]*par[4])
+            else:
+                psig = 1.
 
             tsf = r.tsmap()
             ts_local_max =tsf(r.tsmax) 
             delta_ts=ts_local_max-tsf(sdir) 
+ #           adict = self.associate(name) if self.associate else None 
+            adict = self.associate(sdir, par[3:6]) if self.associate else None 
             if adict is not None:
                 adict['deltats'] = [ts_local_max-tsf(d) for d in adict['dir']]
                 print 'associations:'
@@ -104,11 +112,8 @@ class Pipeline(object):
                     print '%3d %-20s%10.4f%10.4f%10.4f%10.2f' %\
                         (adict['cat'][i], id_name, adict['ra'][i], 
                             adict['dec'][i], adict['ang'][i], adict['deltats'][i])
-            if r.qform is not None:
-                par = r.qform.par 
-                psig = np.sqrt(par[3]*par[4])
             else:
-                psig = 1.
+                print 'No associations found'
         except:
             print 'localize failed'
             raise
@@ -227,7 +232,8 @@ class RefitCatalog(Pipeline):
         """
         factory = factory or uw.factory(dataset=self.default_data(), irf=self.default_irf(), gti_mask=data.gti_noGRB())
         super(RefitCatalog,self).__init__(factory=factory, 
-                associate=associate.Association(),
+# if I need this, put it in call
+#                associate=associate.Association(),
                 **kwargs)
         cat =pyfits.open(os.path.join(data.catalog_path,catalog.default_catalog))
         cdata = cat[1].data
@@ -351,7 +357,6 @@ class FitNewCatalog(RefitCatalog):
         return Source(i, self.sources.name[i], self.sources.ra[i], self.sources.dec[i])
     def process(self, s):
         name,sdir = s.name, SkyDir(s.ra,s.dec)  
-        adict = None
         print '\n'+60*'=','\nprocessing source %s at %s' % (name, sdir), '\n'+ 60*'='
         r = self.factory([[name, sdir, Models.PowerLaw()]],  bgfree=self.bgfree)
 
@@ -363,10 +368,31 @@ class FitNewCatalog(RefitCatalog):
         ret =r.fit(method=self.fit_method)
         r.dump(maxdist=2, title='after fit')
         r.localize()
+        if r.qform is not None:
+            par = r.qform.par 
+            psig = np.sqrt(par[3]*par[4])
+            adict = self.associate(sdir, par[3:6]) if self.associate else None
+        else:
+            psig = 1.
+            adict = None
+
         r.find_tsmax()
         tsf = r.tsmap()
         ts_local_max =tsf(r.tsmax) 
         delta_ts=ts_local_max-tsf(sdir) 
+        if adict is not None:
+            adict['deltats'] = [ts_local_max-tsf(d) for d in adict['dir']]
+            print 'associations:'
+            print '   cat         name                  ra        dec         ang     prob    Delta TS'
+            #       15 Mrk 501               253.4897   39.7527    0.0013      0.41
+            fmt = '   %-10s %-20s%10.4f%10.4f%10.4f%8.2f%8.1f' 
+            for i,id_name in enumerate(adict['name']):
+                tup = (adict['cat'][i], id_name, adict['ra'][i], adict['dec'][i], adict['ang'][i], 
+                        adict['prob'][i],adict['deltats'][i])
+                print fmt % tup
+        else:
+            print 'No associations found'
+
 
         tsize = 0.5 if r.qform is None else 20*r.qform.par[3]
         tname = name

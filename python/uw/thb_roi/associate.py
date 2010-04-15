@@ -1,7 +1,7 @@
 
 """
  Manage the catalog association tables
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/associate.py,v 1.3 2010/03/26 14:07:43 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/associate.py,v 1.4 2010/04/15 05:21:05 burnett Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
 import catalog, data #local
@@ -183,27 +183,56 @@ class SrcId(srcid.SourceAssociation):
         
         """
         self.classes = classes
+        d = os.path.join(data.catalog_path, 'srcid', 'classes')
+        q = glob.glob(os.path.join(d, '*.py'))
+        allclasses =[os.path.split(u)[-1].split('.')[0] for u in q if '__init__' not in u]
         if classes=='all': 
             # special tag to really get everything
             d = os.path.join(data.catalog_path, 'srcid', 'classes')
             q = glob.glob(os.path.join(d, '*.py'))
-            self.classes =[os.path.split(u)[-1].split('.')[0] for u in q if '__init__' not in u]
+            self.classes = allclasses
+        elif self.classes=='all_but_gammas':
+            self.classes = ['agn', 'bllac', 'bzcat', 'cgrabs', 'cosb', 'crates', 'crates_fom', 'dwarfs', 
+            'galaxies', 'globular', 'hmxb', 'ibis', 'lbv', 'lmxb', 'msp', 'ocl', 'ostar', 'pulsar_fom',
+            'pulsar_high', 'pulsar_lat', 'pulsar_low', 'pwn', 'qso', 'seyfert', 'seyfert_rl', 'snr',
+            'snr_ext', 'starbursts', 'tev']
         else:
             self.classes=classes
+        for c in self.classes:
+            if c not in allclasses:
+                txt = 'class %s not in set classes: %s' % (c, allclasses)
+                raise Exception(txt)
             
         super(SrcId, self).__init__(os.path.join(data.catalog_path, 'srcid', 'cat'),quiet=True)
+        
+    def id(self, pos, error):
+        """ the format returned by Srcid:
+            a dictionary with keys classes and values a dict[sourcename]
+        """
+        return super(SrcId,self).id(pos, error, self.classes)
         
     def __call__(self, pos, error):
         """ pos: a SkyDir object
             error: a tuple (a,b,ang)
-            returns a possibly empty list of tuples (name, catalog name, prob)
+            returns None, or a dictionary consistent with Association above
         """
-        source_ass = self.id(pos,error,self.classes)
-        candidates = [value.values()[0] for value in source_ass.values() if value!={}]
+        source_ass = self.id(pos,error)
+        candidates = [value.values()[0]+(key,) for key,value in source_ass.items() if value!={}]
         candidates.sort()
         candidates = candidates[::-1]
-        ass = [(cand[1].name,cand[1].catalog.cat_name, cand[0]) for cand in candidates]
-        return ass
+        ass = [(cand[1].name,cand[1].catalog.cat_name, cand[0], cand[2], cand[1].skydir) for cand in candidates]
+        if len(ass)==0: return None
+        # format as a dict to conform to Association above
+        d = {}
+        d['name'] =[a[0] for a in ass]
+        d['cat']  =[a[3] for a in ass]
+        d['dir']  =[a[4] for a in ass]
+        d['prob'] =[a[2] for a in ass]
+        d['ra']   =[a[4].ra() for a in ass]
+        d['dec']  =[a[4].dec() for a in ass]
+        d['ang']  =[np.degrees(a[4].difference(pos)) for a in ass]
+        
+        return d
 
 
 def run_srcid(r, classes=['agn','bzcat','cgrabs','crates']):
