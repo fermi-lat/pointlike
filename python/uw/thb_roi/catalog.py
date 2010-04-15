@@ -1,6 +1,6 @@
 """
  catalog stuff
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/catalog.py,v 1.1 2010/03/18 04:52:16 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/catalog.py,v 1.2 2010/03/18 20:36:18 burnett Exp $
  """
 
 import sys, os, math
@@ -132,7 +132,22 @@ def correlate(cat1, cat2):
         mindiff[i][1]=bmin
     return mindiff
 
+def prune(cat, mindist=0.1):
+    """ cat: catalog to prune: must have ra, dec columns
+        return a recarray of bools for entries that are unique
+    """
+    dirs = map(SkyDir,cat.ra, cat.dec)
+    rmin = np.radians(mindist)
+    ret = np.ones(len(cat), bool)
+    for i in range(1,len(cat)):
+        s = dirs[i]
+        for j in range(0,i):
+            if s.difference(dirs[j])< rmin: 
+                ret[i]=False #here if found another source within mindist
+                break
+    return ret
             
+       
 class Blazars(object):
     """ identify sources as blazars
         Usage:
@@ -341,11 +356,11 @@ def find_source(spec):
         sources = makerec.fitsrec(os.path.join(catalog_root, default_catalog), quiet=True)
         q = sources.source_name==name
         if q.sum()==0: 
-            raise Exception('%s not found in catalog %s' %(spec, default_catalog))
+            raise Exception('"%s" not found in catalog %s' %(spec, default_catalog))
         s = sources[q][0]
         return name, s.ra, s.dec
     else:
-        raise Exception('unrecognized :%s, expect a name, or "name ra dec"' %spec)
+        raise Exception('unrecognized: "%s", expect a name, or "name ra dec"' %spec)
 
 if __name__=='__main__':
     pass #doit(catalog)

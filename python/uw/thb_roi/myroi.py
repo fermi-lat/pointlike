@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.2 2010/03/18 20:36:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.3 2010/03/22 17:28:13 burnett Exp $
 
 """
 
@@ -93,8 +93,11 @@ class MyROI(roi_analysis.ROIAnalysis):
         if 'fit_bg_first' in kwargs: 
             fit_bg_first = kwargs.pop('fit_bg_first')
         if 'use_gradient' not in kwargs: kwargs['use_gradient']=self.use_gradient
-        ret = super(MyROI, self).fit(fit_bg_first=fit_bg_first, **kwargs)
-        if not self.quiet: print self
+        try:
+            ret = super(MyROI, self).fit(fit_bg_first=fit_bg_first, **kwargs)
+            if not self.quiet: print self
+        except:
+            if not self.quiet: print 'Fit failed!'
 
     def band_ts(self, which=0):
         """ return the sum of the individual band ts values
@@ -133,7 +136,22 @@ class MyROI(roi_analysis.ROIAnalysis):
         if label: print (len(labels)*'%10s') % tuple(labels)
         if not line: return
         p = self.qform.par[0:2]+self.qform.par[3:]
-        print len(p)*'%10.3f' % tuple(p)
+        print len(p)*'%10.4f' % tuple(p)
+        
+    def print_associations(self, srcid, thresh=0.5):
+        ra,dec= self.qform.par[0:2] 
+        error =self.qform.par[3:6]
+        t = srcid( SkyDir(ra,dec), error)
+        if len(t)==0:
+            print 'No associations'
+        else:
+            print 'Associations:   prob  source name      catalog '
+            for i,a in enumerate(t):
+                if a[2]<thresh:
+                    print '\t\t... (skipping %d with prob<%.2f)' % (len(t)-i, thresh)
+                    break #assume sorted on prob.
+                print '\t%12.2f  %-15s  %s' % (a[2],a[0],a[1])
+    
 
     def find_tsmax(self, bandfits=True):
         """ 
