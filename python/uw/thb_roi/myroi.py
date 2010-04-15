@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.3 2010/03/22 17:28:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.4 2010/04/15 05:21:05 burnett Exp $
 
 """
 
@@ -468,7 +468,7 @@ class MyROI(roi_analysis.ROIAnalysis):
             # eventually move this to image.TSplot
             last_loc=SkyDir(0,90)
             for aname, loc, prob, catid in zip(assoc['name'],assoc['dir'],assoc['prob'],assoc['cat']):
-                print 'associate with %s, prob=%.2f' % (aname.strip(),prob)
+                #print 'associate with %s, prob=%.2f' % (aname.strip(),prob)
                 if catid in (1,6,9,10, 11): 
                     print '---skip gamma cat #%d' % catid
                     continue
@@ -479,7 +479,7 @@ class MyROI(roi_analysis.ROIAnalysis):
                 diff = np.degrees(loc.difference(last_loc)); last_loc=loc
                 if diff>1e-3: k+=1 # new marker only if changed place
                 tsp.zea.axes.plot([x], [y], marker=marker[k%12], color='green', linestyle='None',
-                    label='%s[%d] %.2f'%(aname.strip(), catid, prob ), markersize=markersize)
+                    label='%s[%s] %.2f'%(aname.strip(), catid, prob ), markersize=markersize)
                 i+=1
         
         fs = plt.rcParams['font.size']
