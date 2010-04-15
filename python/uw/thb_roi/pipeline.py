@@ -3,14 +3,15 @@ basic pipeline setup
 
 Implement processing of a set of sources in a way that is flexible and easy to use with assigntasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.2 2010/03/18 20:36:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.3 2010/03/26 14:07:43 burnett Exp $
 
 """
 import sys, os, pyfits, glob, pickle, math
 import numpy as np
 import pylab as plt
 
-from uw.utilities import makerec, fermitime, image, assigntasks
+from uw.utilities import makerec, fermitime, image
+from uw.utilities.assigntasks import setup_mec, AssignTasks, get_mec, kill_mec
 from uw.like import Models
 import uw
 #from uw import factory
@@ -27,15 +28,16 @@ class Pipeline(object):
         print 'using dataset: ', dataset
         irf = kwargs.pop('irf', 'P6_v8_diff')
         self.factory = kwargs.pop('factory', None ) or uw.factory(irf=irf, dataset=dataset)
-        self.__dict__.update({'size':0, 
-                    'associate': None, 
-                    'bgfree':  np.asarray([True,False,True]),
-                    'outdir': '.',
-                    'tsfits': True,
-                    'roifig': False,
-                    'sedfig': True,
-                    'free_radius': 1.0, # cut back from 2.0
-                })
+        self.__dict__.update(
+            {   'size':0, 
+                'associate': None, 
+                'bgfree':  np.asarray([True,False,True]),
+                'outdir': '.',
+                'tsfits': True,
+                'roifig': False,
+                'sedfig': True,
+                'free_radius': 1.0, # cut back from 2.0
+            })
         self.associate = kwargs.pop('associate', None)
         self.__dict__.update(kwargs)
         outdir = self.outdir
@@ -378,7 +380,7 @@ class FitNewCatalog(RefitCatalog):
         tsm.zea.axes.set_title('%s'% tname, fontsize=12) 
 
         if self.tsmap_dir is not None: 
-            fout =os.path.join(self.tsmap_dir, ('%s_tsmap.png'%tname).replace('+','p'))
+            fout =os.path.join(self.tsmap_dir, ('%s_tsmap.png'%tname).replace('+','p').replace(' ', '_'))
             plt.savefig(fout)
             print 'saved tsplot to %s' % fout 
         if self.tsfits_dir: 
@@ -394,7 +396,8 @@ class FitNewCatalog(RefitCatalog):
                 )
         if self.sedfig_dir is not None:
             r.plot_sed()
-            fout = os.path.join(self.sedfig_dir, ('%s_sed.png'%tname).replace('+','p'))
+            fout = os.path.join(self.sedfig_dir, ('%s_sed.png'%tname).replace('+','p').replace(' ', '_'))
+            fout = os.path.join(self.sedfig_dir, ('%s_sed.png'%tname).replace('+','p').replace(' ', '_'))
             plt.title(tname)
             plt.savefig(fout)
             print 'saved SED plot to %s' % fout 
@@ -434,23 +437,24 @@ class UWsourceFits(Pipeline):
         tsf = r.tsmap()
         ts_local_max =tsf(r.tsmax) 
         delta_ts=ts_local_max-tsf(sdir) 
+        
+        if self.size>=0:
+            tsize = 0.5 # default
+            if r.qform is not None: tsize = 20*r.qform.par[3]
+            tname=name
+            tsm=r.plot_tsmap( outdir=None, catsig=0, size=tsize, 
+                # todo: fix this
+                assoc=None, #adict if adict is not None else None, # either None or a dictionary
+                notitle=True, #don't do title
+                markersize=10,
+                primary_markersize=12,
+                )
+            tsm.zea.axes.set_title('%s'% name, fontsize=12) 
 
-        tsize = 0.5 # default
-        if r.qform is not None: tsize = 20*r.qform.par[3]
-        tname=name
-        tsm=r.plot_tsmap( outdir=None, catsig=0, size=tsize, 
-            # todo: fix this
-            assoc=None, #adict if adict is not None else None, # either None or a dictionary
-            notitle=True, #don't do title
-            markersize=10,
-            primary_markersize=12,
-            )
-        tsm.zea.axes.set_title('%s'% name, fontsize=12) 
-
-        if self.tsmap_dir is not None: 
-            fout =os.path.join(self.tsmap_dir, ('%s_tsmap.png'%tname).replace('+','p'))
-            plt.savefig(fout)
-            print 'saved tsplot to %s' % fout 
+            if self.tsmap_dir is not None: 
+                fout =os.path.join(self.tsmap_dir, ('%s_tsmap.png'%tname).replace('+','p'))
+                plt.savefig(fout)
+                print 'saved tsplot to %s' % fout 
         if self.sedfig_dir is not None:
             r.plot_sed()
             fout = os.path.join(self.sedfig_dir, ('%s_sed.png'%tname).replace('+','p'))
@@ -582,6 +586,22 @@ class Logs(object):
             out.close()
             
 
+#def main(mec=None, startat=0, local=False,machines='tev1 tev2 tev3 tev4'.split()):
+#    def callback(id, result):
+#        name = r.name[id+startat]
+#        logdir = os.path.join(outdir, 'log')
+#        if not os.path.exists(logdir): os.mkdir(logdir)
+#        out = open(os.path.join(logdir, '%s.txt' % name.strip().replace(' ','_')), 'w')
+#        print >>out, result
+#        out.close()
+#    if not local: setup_mec(machines=machines)
+#    time.sleep(5)
+#    lc= AssignTasks(setup_string, tasks[startat:], mec=mec, timelimit=1000, local=local, callback=callback)
+#    lc()
+#    lc.dump('summary.pickle')
+#    if not local: kill_mec()
+#    return lc
+# 
 
 if __name__=='__main__':
     pass

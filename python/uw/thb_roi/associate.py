@@ -1,11 +1,12 @@
 
 """
  Manage the catalog association tables
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/associate.py,v 1.2 2010/03/18 20:36:18 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/associate.py,v 1.3 2010/03/26 14:07:43 burnett Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
-import catalog #local
+import catalog, data #local
 from uw.utilities import makerec
+from uw.like import srcid  # gtsrcid work-alike from Eric
 import numpy as np
 from skymaps import SkyDir
 import pyfits, os, pickle, glob
@@ -171,3 +172,54 @@ class UnPickle():
                 break
         return rec()
 
+#### add stuff to use Eric's code 
+
+class SrcId(srcid.SourceAssociation):
+    """
+    adapter to simplify source association
+    """
+    def __init__(self, classes=['agn','bzcat','cgrabs','crates']):
+        """ clases: list of classes to apply
+        
+        """
+        self.classes = classes
+        if classes=='all': 
+            # special tag to really get everything
+            d = os.path.join(data.catalog_path, 'srcid', 'classes')
+            q = glob.glob(os.path.join(d, '*.py'))
+            self.classes =[os.path.split(u)[-1].split('.')[0] for u in q if '__init__' not in u]
+        else:
+            self.classes=classes
+            
+        super(SrcId, self).__init__(os.path.join(data.catalog_path, 'srcid', 'cat'),quiet=True)
+        
+    def __call__(self, pos, error):
+        """ pos: a SkyDir object
+            error: a tuple (a,b,ang)
+            returns a possibly empty list of tuples (name, catalog name, prob)
+        """
+        source_ass = self.id(pos,error,self.classes)
+        candidates = [value.values()[0] for value in source_ass.values() if value!={}]
+        candidates.sort()
+        candidates = candidates[::-1]
+        ass = [(cand[1].name,cand[1].catalog.cat_name, cand[0]) for cand in candidates]
+        return ass
+
+
+def run_srcid(r, classes=['agn','bzcat','cgrabs','crates']):
+    """ 
+    Run the srcid tool on a recarrry, return associations from given set catalogs
+        r: recarry with columns name, ra, dec, a, b, ang 
+        classes: list of catalog names
+        return: dict with key=name, value = sorted list of associations
+    
+    """
+    assoc = SrcId(classes)
+    associations = {}
+
+    for s in r:
+        pos = SkyDir(s.ra, s.dec)
+        error = (s.a, s.b, s.ang)
+        associations[s.name]=assoc(pos, error)
+
+    return associations    
