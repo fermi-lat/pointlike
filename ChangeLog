@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Apr 15 14:09:36 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	associate.py data.py myroi.py pipeline.py 
+Log Message:
+adding assocation logic
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-04-01, operation: add
 Package: pointlike
