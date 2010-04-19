@@ -1,4 +1,20 @@
 ------------------------------------------------------------
+User: wallacee  Mon Apr 19 10:27:36 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	srcid.py 
+Log Message:
+Some changes to the internal mechanisms for accessing class modules and setting
+up catalogs.
+Support for reading lists of classes from classes.__init__.
+Added method for doing a set of associations from a recarray.
+Minor modifications to output of SourceAssociation.id
+Allow SourceAssociation to save a list of sources it has run id on, and add a
+__str__ method that provides a summary.
+
+    *
+------------------------------------------------------------
 User: burnett  Thu Apr 15 14:09:36 PDT 2010
 pointlike/python/uw/thb_roi
 
