@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Mon Apr 19 12:23:38 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	srcid.py 
+Log Message:
+Make SourceAssociation.id_list use the class_list arg correctly.
+
+
+    *
+------------------------------------------------------------
 User: wallacee  Mon Apr 19 11:49:55 PDT 2010
 pointlike/python/uw/like
 
