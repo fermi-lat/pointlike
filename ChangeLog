@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Mon Apr 19 14:04:51 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	fermitime.py 
+Log Message:
+Make MET account for leap seconds in 2005, 2008.
+Add utc_to_met function to convert a utc time to MET.
+
+    *
+------------------------------------------------------------
 User: wallacee  Mon Apr 19 12:23:38 PDT 2010
 pointlike/python/uw/like
 
