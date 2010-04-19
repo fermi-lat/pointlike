@@ -1,6 +1,6 @@
 """
 Python support for source association, equivalent to the Fermi Science Tool gtsrcid
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.15 2010/04/14 23:22:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.16 2010/04/19 17:27:36 wallacee Exp $
 author:  Eric Wallace <ewallace@uw.edu>
 """
 import os
@@ -69,6 +69,7 @@ class SourceAssociation(object):
         if class_list is not None:
             if not hasattr(class_list,'__iter__'): 
                 try:
+                    import classes
                     class_list = eval('classes.%s'%class_list)
                 except AttributeError:
                     class_list = [class_list]
