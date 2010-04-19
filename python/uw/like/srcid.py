@@ -1,6 +1,6 @@
 """
 Python support for source association, equivalent to the Fermi Science Tool gtsrcid
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.16 2010/04/19 17:27:36 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.17 2010/04/19 18:49:55 wallacee Exp $
 author:  Eric Wallace <ewallace@uw.edu>
 """
 import os
@@ -96,8 +96,7 @@ class SourceAssociation(object):
 
         associations = {}
         for s in r:
-            associations[s.name] = self.id(SkyDir(s.ra,s.dec),(s.a,s.b,s.ang))
-        self.sources.update(associations)
+            associations[s.name] = self.id(SkyDir(s.ra,s.dec),(s.a,s.b,s.ang),class_list = class_list,name = s.name)
         return associations
 
     def __str__(self):
@@ -556,10 +555,10 @@ class CatalogError(Exception):
         return 'In catalog %s:\n\t%s'%(self.catalog,self.message)
 
 if __name__=='__main__':
-    assoc = SourceAssociation('/home/eric/research/catalog/srcid')
+    assoc = SourceAssociation('/phys/groups/tev/scratch1/users/Fermi/catalog/srcid_catalog')
     #3C 454.3
     pos, error = SkyDir(343.495,16.149), .016/2.45*1.51
-    associations = assoc.id(pos,error,'all_agn')
+    associations = assoc.id(pos,error,'all_agn','3C 454.3')
     for cat,ass in associations.items():
         print 'Associations in %s:'%cat
         print ass
