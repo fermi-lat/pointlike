@@ -1,6 +1,6 @@
 """
 Python support for source association, equivalent to the Fermi Science Tool gtsrcid
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.15 2010/04/14 23:22:49 burnett Exp $
 author:  Eric Wallace <ewallace@uw.edu>
 """
 import os
@@ -18,13 +18,39 @@ from uw.utilities.fitstools import trap_mask, rad_mask
 class SourceAssociation(object):
     """A class to find association probabilities for sources with a given set of counterpart catalogs."""
 
-    def __init__(self,catdir,quiet=False):
+    def __init__(self,srcid_dir,catalog_dir = None,class_dir = None,quiet=False):
+        """srcid_dir : Path to a directory containing a subfolders 'cat', containing counterpart catalogs,
+                    and 'classes', containing python modules describing the catalogs.
+           catalog_dir: Path to counterpart catalogs, overriding 'srcid_dir/cat'
+           class_dir: Path to directory containing class modules, overriding 'srcid_dir/classes'
+           quiet : Suppress some output
+        """
         self.quiet = quiet
-        self.catdir = catdir
-        cat_files = glob(os.path.join(self.catdir,'*.fits'))
-        self.catalogs = {}
+        if catalog_dir:
+            self.catalog_dir = catalog_dir
+        else:
+            self.catalog_dir = os.path.join(srcid_dir,'cat')
+        if class_dir:
+            self.class_dir = class_dir
+            srcid_dir = os.path.join(class_dir,os.path.pardir)
+        else:
+            self.class_dir = os.path.join(srcid_dir,'classes')
+        if not srcid_dir in sys.path:
+            sys.path.insert(0,srcid_dir)
+        self.class_list=None
+        try:
+            import classes
+            self.class_list = classes.__all__
+        except ImportError:
+            print('Cannot find class modules to import.')
 
-    def id(self,position,error,classes,class_dir = None):
+        finally:
+            if not self.quiet:
+                print('Available counterpart classes are:\n%s'%(' '.join(self.class_list)))
+        self.catalogs = {}
+        self.sources = {}
+
+    def id(self,position,error,class_list = None,name=None):
         """Find associations for each class in classes.
 
         Arguments:
@@ -32,53 +58,87 @@ class SourceAssociation(object):
             error:      Either the radius of a 1-sigma error circle, or a list
                         of major and minor axis and position angle for a 1-sigma
                         error ellipse
-            classes:    List of source classes to be associated.  Names should correspond
-                        to python modules in class_dir
-            class_dir:  Directory to look in for source class modules. Defaults to
-                        self.catdir/../classes.
-
-        For now, just gets the prior and threshold for each catalog and calls single_catalog_id.
-        This means that all catalogs are treated in the same way, which will not properly handle
-        catalogs of extended sources, or point sources with error circles comparable to those of
-        LAT sources.
+            classes[None]:    List of source classes to be associated.  If None, use all modules
+                        in self.class_dir.
+            name[None]: A string to use as a key in the saved dictionary of associations.  If None,
+                        don't save.
         """
-        if class_dir is None:
-            class_dir = os.path.join(self.catdir,os.path.pardir,'classes')
-        sys.path.insert(0,class_dir)
+        #if self.class_dir not in sys.path:
+        #    sys.path.insert(0,self.class_dir)
         #If classes is not a list, make it one
-        if not hasattr(classes,'__iter__'): classes = [classes]
-        class_files = [os.path.join(class_dir,cls) for cls in classes]
+        if class_list is not None:
+            if not hasattr(class_list,'__iter__'): 
+                try:
+                    class_list = eval('classes.%s'%class_list)
+                except AttributeError:
+                    class_list = [class_list]
+        else:
+            class_list = self.class_list #All available classes
         associations = {}
-        for cls,cf in zip(classes,class_files):
+        for cls in class_list:
+            exec("from classes import %s"%cls)
+            class_module = eval(cls)
             if not self.catalogs.has_key(cls):
-                self.catalogs[cls] = Catalog(cf,quiet = self.quiet)
+                self.catalogs[cls] = Catalog(class_module,self.catalog_dir,quiet = self.quiet)
             these = self.catalogs[cls].associate(position,error)
-            associations[cls] = these
+            if these:
+                associations[cls] = these
+        if name is not None:
+            self.sources[name] = associations
         return associations
+    
+    def id_list(self,r,class_list = None):
+        """Perform associations on a recarray of sources.
+        r: a recarray with columns name,ra,dec,a,b,ang
+        class_list: list of counterpart classes
+        return: dict with key = name, value = return from id(SkyDir(ra,dec),(a,b,ang))"""
+
+        associations = {}
+        for s in r:
+            associations[s.name] = self.id(SkyDir(s.ra,s.dec),(s.a,s.b,s.ang))
+        self.sources.update(associations)
+        return associations
+
+    def __str__(self):
+        n = 0
+        a = 0
+        for v in self.sources.values():
+            n+=1
+            a += 1 if v else 0
+        return 'SourceAssociation: %i sources, %i associated'%(n,a)
 
 
 
 class Catalog(object):
     """A class to manage the relevant information from a FITS catalog."""
 
-    def __new__(cls,class_file,quiet=False):
-        gamma_catalogs = ['%s'%g for g in 'agile egr cosb eg3 fermi_bsl'.split()]
-        extended_catalogs = ['%s'%e for e in 'dwarfs snr_ext'.split()]
-        cf = os.path.splitext(os.path.basename(class_file))[0]
-        if cf in gamma_catalogs:
+    def __new__(cls,class_module,catalog_dir,quiet=False):
+        gamma_catalogs = 'agile egr cosb eg3 fermi_bsl'.split()
+        extended_catalogs = 'dwarfs snr_ext'.split()
+        #cf = os.path.splitext(os.path.basename(class_file))[0]
+        if class_module.__name__ in gamma_catalogs:
             obj = object.__new__(GammaCatalog)
-        elif cf in extended_catalogs:
+        elif class_module.__name__ in extended_catalogs:
             obj = object.__new__(ExtendedCatalog)
         else:
             obj = object.__new__(Catalog)
         return obj
 
-    def init(self,class_file,quiet=False):
+    def init(self,class_module,catalog_dir,quiet=False):
         self.quiet = quiet
-        self.class_module = self._get_class_module(class_file)
-        self.cat_file = os.path.join(os.path.dirname(class_file),os.path.pardir,'cat',self.class_module.catname)
+        #self.class_module = self._get_class_module(class_file)
+        if type(class_module) == type(''):
+            exec('import %s'%class_module)
+            self.class_module = eval(class_module)
+        else:
+            self.class_module = class_module
+        self.cat_file = os.path.join(catalog_dir,self.class_module.catname)
         if not self.quiet:
             print('Setting up catalog for source class "%s" from file "%s"'%(self.class_module.catid,self.cat_file))
+        if hasattr(self.class_module,'name_prefix'):
+            self.name_prefix = self.class_module.name_prefix
+        else:
+            self.name_prefix = ''
         self.coords = SkyDir.EQUATORIAL
         self.prior = self.class_module.prob_prior
         self.prob_threshold = self.class_module.prob_thres
@@ -92,7 +152,7 @@ class Catalog(object):
         self.hdu = self._get_hdu(fits_cat)
         if self.hdu is None:
             raise CatalogError(self.cat_file,'No catalog information found.')
-        names = self._get_ids()
+        names = [' '.join([self.name_prefix,x]).strip() for x in self._get_ids()]
         if names is None:
             raise CatalogError(self.cat_file,'Could not find column with source names')
         lons,lats = self._get_positions()
@@ -100,8 +160,8 @@ class Catalog(object):
             raise CatalogError(self.cat_file,'Could not find columns with source positions')
         return names,lons,lats
 
-    def __init__(self,class_file,quiet = False):
-        self.names,lons,lats = self.init(class_file,quiet=quiet)
+    def __init__(self,class_module,catalog_dir,quiet = False):
+        self.names,lons,lats = self.init(class_module,catalog_dir,quiet=quiet)
         self.mask = self._make_selection()
         self.sources = np.array([CatalogSource(self,name,SkyDir(lon,lat,self.coords))
                         for name,lon,lat in zip(self.names,lons,lats)])[self.mask]
@@ -115,13 +175,13 @@ class Catalog(object):
     def __iter__(self):
         return self.sources
 
-    def _get_class_module(self,class_file):
+    def _get_class_module(self,class_module):
         """Import and return module class_file"""
-        if not os.path.dirname(class_file) in sys.path:
-            sys.path.insert(0,os.path.dirname(class_file))
-        cls = os.path.basename(class_file).split('.')[0]
-        exec('import %s'%cls)
-        return eval(cls)
+        #if not os.path.dirname(class_file) in sys.path:
+        #    sys.path.insert(0,os.path.dirname(class_file))
+        #cls = os.path.basename(class_file).split('.')[0]
+        exec('import %s'%class_module)
+        return eval(class_module)
 
     def _get_hdu(self,fits_cat):
         """Find and return HDU with catalog information."""
@@ -146,7 +206,6 @@ class Catalog(object):
 
     def _get_ids(self):
         """Find source name information and return as a list."""
-
         name_key = ''
         cards = self.hdu.header.ascardlist()
         #First check for UCD in header
@@ -267,7 +326,7 @@ class Catalog(object):
             fom = fom.replace(f,'fields["%s"]'%f)
         fom = fom.replace('exp','np.exp')
         fom = fom.replace('LOG10','np.log10')
-        fom_dict = dict(zip(fields['Name'],eval(fom)))
+        fom_dict = dict(zip([' '.join([self.name_prefix,x]).strip() for x in fields['Name']],eval(fom)))
         for source in self.sources:
             source.fom = fom_dict[source.name]
 
@@ -317,7 +376,7 @@ class Catalog(object):
             assert(len(error_ellipse)==3)
         except TypeError:
             if not self.quiet:
-                print("Got scalar instead of sequence for error ellipse: Assuming this is r68 in degrees")
+                print("Got scalar instead of sequence for error ellipse: Assuming this is 1-sigma error radius in degrees")
             error_ellipse = [error_ellipse]*2+[0]
         except AssertionError:
             print("Wrong length for error_ellipse: Needed length 3, got %i"%len(error_ellipse))
@@ -330,16 +389,17 @@ class Catalog(object):
         sources = self.select_circle(position,self.source_mask_radius)
         post_probs = [source.posterior_probability(position,error_ellipse) for source in sources]
         #return sources above threshold with posterior probability, sorted by posterior probability
-        source_list = [(prob,source) for prob,source in zip(post_probs,sources) if prob > self.prob_threshold]
+        source_list = [(prob,source.name) for prob,source in zip(post_probs,sources) if prob > self.prob_threshold]
         source_list.sort()
-        source_dict = dict((el[1].name,el) for el in source_list[:self.max_counterparts])
-        return source_dict
+        source_list = [(s[1],s[0]) for s in source_list]
+        #source_dict = dict((el[1].name,el) for el in source_list[:self.max_counterparts])
+        return source_list
 
 class GammaCatalog(Catalog):
     """A catalog of gamma-ray sources (i.e. sources with error circles comparable to LAT)"""
 
-    def __init__(self,class_file,quiet = False):
-        self.names,lons,lats = self.init(class_file,quiet = quiet)
+    def __init__(self,class_module,catalog_dir,quiet = False):
+        self.names,lons,lats = self.init(class_module,catalog_dir,quiet = quiet)
         errors = self.get_position_errors()
         self.source_mask_radius = 3*max(errors)
         self.mask = self._make_selection()
@@ -369,8 +429,8 @@ class GammaCatalog(Catalog):
 class ExtendedCatalog(Catalog):
     """A catalog of extended sources"""
 
-    def __init__(self,class_file,quiet = False):
-        self.names,lons,lats= self.init(class_file,quiet = quiet)
+    def __init__(self,class_module,catalog_dir,quiet = False):
+        self.names,lons,lats= self.init(class_module,catalog_dir,quiet = quiet)
         radii = self.get_radii()
         self.source_mask_radius = max(radii)*3
         self.mask = self._make_selection()
@@ -495,14 +555,13 @@ class CatalogError(Exception):
         return 'In catalog %s:\n\t%s'%(self.catalog,self.message)
 
 if __name__=='__main__':
-    assoc = SourceAssociation('/home/eric/research/catalog/srcid/cat')
+    assoc = SourceAssociation('/home/eric/research/catalog/srcid')
     #3C 454.3
     pos, error = SkyDir(343.495,16.149), .016/2.45*1.51
-    associations = assoc.id(pos,error,['agn','bzcat','cgrabs','crates','crates_fom'])
+    associations = assoc.id(pos,error,'all_agn')
     for cat,ass in associations.items():
         print 'Associations in %s:'%cat
-        for name,data in ass.items():
-            print '\t'.join([name,'prob:',str(data[0])])
+        print ass
     #print('\n'.join([str(x[1]) for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)]))
     #Couldn't find elliptical errors, but want to test input for error.
     #error = (error,error,0.0)
