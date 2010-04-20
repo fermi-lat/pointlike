@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.7 2010/04/13 00:49:35 wallacee Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.8 2010/04/13 00:57:16 wallacee Exp $
 
    author: Matthew Kerr
 
@@ -306,6 +306,20 @@ def merge_gti(files,table_name = 'GTI',interval = None):
         new_gti = new_gti.applyTimeRangeCut(*interval)
 
     return new_gti
+
+def merge_bpd(bpd_files,outfile = None):
+    """Merge a set of BinnedPhotonData files.
+    
+    outfile: File to write the merged BinnedPhotonData to.  If None, don't save it."""
+    bpds = [BinnedPhotonData(bf] for bf in bpd_files]
+    bpds = [bpd for bpd in bpds if bpd.gti().computeOntime()>0] #Ignore entries with empty GTIs
+    new_bpd = bpds[0]
+    for b in bpds[1:]:
+        new_bpd.add(b)
+    if outfile:
+        new_bpd.write(outfile)
+
+    return new_bpd
 
 #EVERYTHING BELOW IS AN INTERNAL CALL.
 
