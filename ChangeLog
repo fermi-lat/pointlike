@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Apr 20 07:24:30 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	srcid.py 
+Log Message:
+extend return info from SourceAssociations.id to include the skydir of the associated sources
+    *
+------------------------------------------------------------
 User: wallacee  Mon Apr 19 14:04:51 PDT 2010
 pointlike/python/uw/utilities
 
