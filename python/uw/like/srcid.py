@@ -1,6 +1,6 @@
 """
 Python support for source association, equivalent to the Fermi Science Tool gtsrcid
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.18 2010/04/19 19:23:38 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.19 2010/04/20 14:24:30 burnett Exp $
 author:  Eric Wallace <ewallace@uw.edu>
 """
 import os
@@ -108,6 +108,23 @@ class SourceAssociation(object):
             a += 1 if v else 0
         return 'SourceAssociation: %i sources, %i associated'%(n,a)
 
+    def get_class(self,source):
+        """Given a dictionary like self.sources, decide what class to ascribe the source to.  Partly guesswork!"""
+        cat_list = source.keys()
+        priority = '''bllac bzcat cgrabs crates crates_fom seyfert seyfert_rl qso agn
+                    vcs galaxies pulsar_lat snr snr_ext pulsar_high pulsar_low pulsar_fom
+                    msp pwn hmxb lmxb globular
+                   '''.split()
+        ass_class = ['bzb','bzcat']+['bzq']*3+['agn']*6+['LAT psr']+['snr']*2 + ['psr']*4 + ['pwn'] + ['hmxb'] + ['lmxb']+ ['glc'] 
+        cls = None
+        for c,a in zip(priority,ass_class):
+            if c in cat_list:
+                cls = a
+                break
+        
+        if cls == 'bzcat':
+            cls = source[cls][0][0][:3].lower()
+        return cls
 
 
 class Catalog(object):
@@ -390,9 +407,8 @@ class Catalog(object):
         sources = self.select_circle(position,self.source_mask_radius)
         post_probs = [source.posterior_probability(position,error_ellipse) for source in sources]
         #return sources above threshold with posterior probability, sorted by posterior probability
-        source_list = [(prob,source) for prob,source in zip(post_probs,sources) if prob > self.prob_threshold]
-        source_list.sort()
-        source_list = [(s[1],s[0]) for s in source_list]
+        source_list = [(source,prob) for prob,source in zip(post_probs,sources) if prob > self.prob_threshold]
+        source_list.sort(key = lambda x:-x[1])
         #source_dict = dict((el[1].name,el) for el in source_list[:self.max_counterparts])
         return source_list
 
