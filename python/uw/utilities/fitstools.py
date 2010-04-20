@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.8 2010/04/13 00:57:16 wallacee Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.9 2010/04/20 18:31:30 wallacee Exp $
 
    author: Matthew Kerr
 
@@ -15,7 +15,7 @@ import pyfits as pf
 import numpy as N
 from types import ListType,FunctionType,MethodType
 from math import cos,sin,pi
-from skymaps import SkyDir,Gti
+from skymaps import SkyDir,Gti,BinnedPhotonData
 
 def rect_mask(lons,lats,cut_lon,cut_lat,lon_hwidth,lat_hwidth):
    mask = N.abs( lons - cut_lon)/N.cos(lats * N.pi / 180.) < lon_hwidth
@@ -311,7 +311,7 @@ def merge_bpd(bpd_files,outfile = None):
     """Merge a set of BinnedPhotonData files.
     
     outfile: File to write the merged BinnedPhotonData to.  If None, don't save it."""
-    bpds = [BinnedPhotonData(bf] for bf in bpd_files]
+    bpds = [BinnedPhotonData(bf) for bf in bpd_files]
     bpds = [bpd for bpd in bpds if bpd.gti().computeOntime()>0] #Ignore entries with empty GTIs
     new_bpd = bpds[0]
     for b in bpds[1:]:
