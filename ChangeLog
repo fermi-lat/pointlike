@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Tue Apr 20 11:31:30 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	fitstools.py 
+Log Message:
+Added a convenience function to merge a set of BinnedPhotonData files: merge_bpd()
+
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr 20 07:24:30 PDT 2010
 pointlike/python/uw/like
 
