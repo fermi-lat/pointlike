@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Apr 21 13:39:19 PDT 2010
+pointlike/src
+
+Modified Files:
+	EventList.cxx 
+Log Message:
+Changed the default behavior of EventList to "new style" FT1 in which the class level of the photon is given by the EVENT_CLASS column, rather than CTBCLASSLEVEL.  If the code finds CTBCLASSLEVEL, it uses this column.  Otherwise, it uses EVENT_CLASS.
+    *
+------------------------------------------------------------
 User: wallacee  Tue Apr 20 16:48:11 PDT 2010
 pointlike/python/uw/like
 
