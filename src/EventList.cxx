@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.14 2010/01/21 01:29:42 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.15 2010/02/01 23:57:10 burnett Exp $
 */
 
 #include "EventList.h"
@@ -105,7 +105,7 @@ EventList::EventList(const std::string infile, bool selectid, bool use_mc_energy
                      : m_fits(true)
                      , m_selectid(selectid)
                      , m_use_mc_energy(use_mc_energy)
-                     , m_pass7(false)
+                     , m_pass7(true)
 {
     if( infile.find(".root") != std::string::npos) {
         table_name = "MeritTuple"; 
@@ -120,8 +120,9 @@ EventList::EventList(const std::string infile, bool selectid, bool use_mc_energy
     if(m_fits) {
         try{
             double dif;
-            (*m_itbegin)["DIFRSP1"].get(dif);
-            m_pass7=true;
+            // (*m_itbegin)["DIFRSP1"].get(dif);
+            (*m_itbegin)["CTBCLASSLEVEL"].get(dif);
+            m_pass7=false;
         } catch (const std::exception& e){}
     }
 
@@ -145,9 +146,12 @@ Photon EventList::Iterator::operator*()const
     int event_class, ctbclasslevel(1);
     int source(-1);
 
+    // NB: the internal variables (event_class, ctbclasslevel) no longer match FT1 names.
+    // event_class == CONVERSION_TYPE, ctbclasslevel = "EVENT_CLASS"
+
     // FT1 names
     static std::string fits_names[]={"RA", "DEC", 
-        "ENERGY", "TIME", "EVENT_CLASS", "ZENITH_ANGLE","THETA", "CTBCLASSLEVEL", "MC_SRC_ID"};
+        "ENERGY", "TIME", "CONVERSION_TYPE", "ZENITH_ANGLE","THETA", "EVENT_CLASS", "MC_SRC_ID"};
     // corresponging names in the ROOT MeritTuple
     static std::string root_names[]={"FT1Ra", "FT1Dec", 
         "CTBBestEnergy", "EvtElapsedTime"
@@ -176,11 +180,10 @@ Photon EventList::Iterator::operator*()const
     }
     (*m_it)[*names++].get(theta);
     if (m_pass7) {
-        (*m_it)["EVENT_CLASS"].get(ctbclasslevel);
-    } else {
         (*m_it)[*names++].get(ctbclasslevel);
+    } else {
+        (*m_it)["CTBCLASSLEVEL"].get(ctbclasslevel);
     }
-    (*m_it)["CONVERSION_TYPE"].get(event_class);
 
     if( m_selectid) { // check for source id only if requested
       (*m_it)[*names++].get(source); // source id for monte carlo testing
