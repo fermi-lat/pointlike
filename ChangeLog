@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Apr 22 21:08:48 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	associate.py 
+Log Message:
+modify to be consistent with new SrcId
+    *
+------------------------------------------------------------
 User: kerrm  Wed Apr 21 13:39:19 PDT 2010
 pointlike/src
 
