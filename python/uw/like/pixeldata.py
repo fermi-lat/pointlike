@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.6 2010/03/11 19:23:29 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.7 2010/03/11 23:50:00 kerrm Exp $
 
 """
-version='$Revision: 1.6 $'.split()[1]
+version='$Revision: 1.7 $'.split()[1]
 import os
 import math
 import skymaps
@@ -118,6 +118,11 @@ Optional keyword arguments:
         """Create the GTI object that will be used to filter photon events and
            to calculate the livetime.
 
+           If the user has provided ltcube or binfile arguments, the saved GTI
+           will be used.  The ltcube GTI takes precedence over the binfile GTI;
+           if both are provided, it is the users responsibility to ensure that
+           the two sets of GTIs are consistent.
+
            Generally, one will have run gtmktime on the FT1 file(s) provided
            to filter out large excursions in rocking angle, and/or make a
            a cut for when a (small) ROI is too close to the horizon.
@@ -126,7 +131,15 @@ Optional keyword arguments:
            can, e.g., be used to filter out GRBs.  An intersection with the GTIs
            from the FT1 files and this gti_mask is made.
         """
-        print 'applying GTI'
+        if not self.quiet: print('applying GTI')
+
+        if self.ltcube is not None and os.path.exists(self.ltcube):
+            if self.verbose: print('Using gti from %s'%(self.ltcube))
+            return skymaps.Gti(self.ltcube)
+        elif self.binfile is not None and os.path.exists(self.binfile):
+            if self.verbose: print('Using gti from %s'%(self.binfile))
+            return skymaps.Gti(self.binfile)
+
         gti = skymaps.Gti(self.ft1files[0])
 
         # take the union of the GTI in each FT1 file
