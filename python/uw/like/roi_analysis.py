@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.8 2010/03/08 07:58:54 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.9 2010/03/11 19:23:29 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -21,6 +21,7 @@ from collections import deque,defaultdict
 from cPickle import dump
 
 from scipy.optimize import fmin,fmin_powell,fmin_bfgs
+from scipy.stats.distributions import chi2
 from numpy.linalg import inv
 
 ###====================================================================================================###
@@ -370,6 +371,33 @@ class ROIAnalysis(object):
       rl = ROILocalizer(self,which=which,bandfits=bandfits,tolerance=tolerance,update=update,verbose=verbose)
       return rl.localize()
 
+   def upper_limit(self,which = 0,confidence = .95,e_weight = 0,cgs = False):
+       """Compute an upper limit on the flux of a source.
+
+          which      -- index of point source; default to central
+          confidence -- confidence level for the upper limit, default to 95%
+
+        The flux returned is an upper limit on the integral flux for the model
+        above 100 MeV.
+
+        N.B.-This still needs some work.  The fmin call will sometimes get lost
+        and return an absurdly low limit (~10^-23 ph/cm^2/s, e.g.)
+       """
+       delta_logl = chi2.ppf(2*confidence-1,1)/2.
+       params = self.parameters().copy()
+       self.psm.models[which].p[0]  = -20
+       zp = self.logLikelihood(self.parameters())
+
+       def f(norm):
+           self.psm.models[which].p[0] = N.log10(norm)
+           ll = self.logLikelihood(self.parameters())
+           return abs(ll - zp - delta_logl)
+
+       limit = fmin(f,N.array([10**-6]),disp=0)[0]
+       self.psm.models[which].p[0] = N.log10(limit)
+       uflux = self.psm.models[which].i_flux(e_weight = e_weight,cgs = cgs)
+       self.set_parameters(params)
+       return uflux
 
    def printSpectrum(self,sources=None):
       """Print total counts and estimated signal in each band for a list of sources.
