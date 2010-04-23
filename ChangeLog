@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Apr 22 21:15:59 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	collection.py 
+Log Message:
+make name/filename distinction more consistent
+    *
+------------------------------------------------------------
 User: burnett  Thu Apr 22 21:14:44 PDT 2010
 pointlike/python/uw/utilities
 
