@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Apr 22 21:14:44 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	assigntasks.py 
+Log Message:
+option to choose whether to ignore an exception raised by an engine
+    *
+------------------------------------------------------------
 User: burnett  Thu Apr 22 21:13:40 PDT 2010
 pointlike/python/uw/thb_roi
 
