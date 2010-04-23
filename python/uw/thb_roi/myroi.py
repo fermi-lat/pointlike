@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.4 2010/04/15 05:21:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.5 2010/04/15 21:09:36 burnett Exp $
 
 """
 
@@ -219,10 +219,11 @@ class MyROI(roi_analysis.ROIAnalysis):
         return roi_plotting.band_fluxes(self, which,axes, axis,outfile, **kwargs)
 
     def pickle(self, name, outdir, **kwargs):
-        """ name: name for source, used as filename
+        """ name: name for source, used as filename (unless fname in kwargs)
             outdir: ouput directory
         """
         name = name.strip()
+        fname = kwargs.pop('fname', name)
         output = dict()
         output['name'] = name
         output['ra']   = self.center.ra()
@@ -235,7 +236,7 @@ class MyROI(roi_analysis.ROIAnalysis):
 
         if not os.path.exists(outdir):
             os.mkdir(outdir)
-        f = file(os.path.join(outdir,name+'.pickle'),'wb')
+        f = file(os.path.join(outdir,fname+'.pickle'),'wb')
         pickle.dump(output,f)
         f.close()
 
