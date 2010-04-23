@@ -1,12 +1,12 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.11 2010/03/26 14:08:34 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.12 2010/03/30 21:43:29 burnett Exp $
 
 """
 from IPython.kernel import client
 import time, os, pickle
-version = '$Revision: 1.11 $'.split()[1]
+version = '$Revision: 1.12 $'.split()[1]
 
 
 def get_mec():
@@ -21,6 +21,7 @@ class AssignTasks(object):
             mec=None, local=False, 
             quiet=False, log=None, timelimit=60,
             callback = None,
+            ignore_exception = True,
             ):
         """
         setup_string: python code to setup the clients for the tasks
@@ -33,6 +34,7 @@ class AssignTasks(object):
         log:   [None]  if set, an open output stream for log info
         timelimit: [60] limit (s) for a single task
         callback: [None] if set, will call as callback(task_index, result) 
+        ignore_exception: [True] Determine what to do if an engine has an exception: continue, or throw it
         """
         self.local = local
         self.timelimit = timelimit
@@ -57,6 +59,7 @@ class AssignTasks(object):
         self.time     = {}  #dictionary of time per task (id=-1 is startup)
         self.engine_time={} #dict. of time per engine
         self.lost     = set() # list of dead ids
+        self.ignore_exception = ignore_exception
 
         self.log('Start AssignTasks, with %d tasks and  %d engines'\
                %( len(self.tasks), len(self.get_ids())))
@@ -137,7 +140,8 @@ class AssignTasks(object):
                 self.result[index]=result
             except:
                 self.log("Engine %d raised exception executing task %d" %(id, index))
-                #raise
+                if not self.ignore_exception:                
+                    raise
                 self.lost.add(index)
                 #raise #TODO: option to allow dropping the engine and continue? Probably a serious issue.
         else:
