@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.138 2010/04/12 18:46:31 burnett Exp $
+$Id: release.notes,v 1.139 2010/04/15 05:21:45 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-04-02 23-Apr-2010 burnett fix to Eventlist; SrcId and pipeline mods
  pointlike-07-04-01 14-Apr-2010 burnett various python mods, including Band change
  pointlike-07-04-00 12-Apr-2010 burnett various python mods, including Band change
  pointlike-07-03-00 24-Mar-2010 burnett added new factory interface code
