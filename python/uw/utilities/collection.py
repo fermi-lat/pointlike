@@ -1,7 +1,7 @@
 """
 generate collection file for LiveLabs Pivot viewer
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.1 2010/02/23 01:12:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.2 2010/03/11 23:29:23 burnett Exp $
 See <http://getpivot.com>
 Author: Toby Burnett <tburnett@uw.edu>
 """
@@ -23,8 +23,7 @@ def get_image_ids( dzc):
                 id = attrs['Id']
                 source =attrs['Source']
                 fname =os.path.split(source)[1]
-                sname =fname.split('_')[0].replace('%20',' ').replace('p','+')
-                self.id_dict[sname]=id
+                self.id_dict[fname]=id
     parser = xml.sax.make_parser()
     h=Handler()
     parser.setContentHandler(h)
@@ -73,8 +72,10 @@ class Collection(object):
             assert(len(img_list)==self.n)
         else:
             ids = get_image_ids(full_dzc)
+            # 
+            names = [n.replace('+', 'p').replace(' ','_')  for n in item_names]
             try:
-                self.img_list = [ids[n.replace('p','+')] for n in item_names]
+                self.img_list = [ids[n+'.xml'] for n in names]
             except:
                 print 'Source not found in list of images %s' % img_list
                 raise
@@ -118,12 +119,15 @@ class Collection(object):
             out.write('\n<Item Id="%d" Img="#%d" Name="%s" %s>' % (i, int(img), name, href))
             out.write('\n <Facets>')
             for facet in self.facets:
-                if facet.type != 'Link':
-                    out.write('\n  <Facet Name="%s"> <%s Value="%s"/> </Facet>' % (facet.name, facet.type, facet.data[i]))
-                else:
+                if facet.type == 'Number':
+                    datum = facet.data[i]
+                    out.write('\n  <Facet Name="%s"> <%s Value="%.4f"/> </Facet>' % (facet.name, facet.type, datum))
+                elif facet.type == 'Link':
                     t = facet.data[i] # has name, href
                     if t is not None:
                         out.write('\n  <Facet Name="%s"> <Link Name="%s" Href="%s"/> </Facet>' % (facet.name, t[0], t[1]))
+                else:
+                    out.write('\n  <Facet Name="%s"> <%s Value="%s"/> </Facet>' % (facet.name, facet.type, facet.data[i]))
                 
             out.write('\n </Facets>\n</Item>')    
         out.write('\n</Items>')
