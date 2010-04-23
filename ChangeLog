@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Apr 22 21:16:44 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	makerec.py 
+Log Message:
+add function to create a FITS file from a recarray
+    *
+------------------------------------------------------------
 User: burnett  Thu Apr 22 21:15:59 PDT 2010
 pointlike/python/uw/utilities
 
