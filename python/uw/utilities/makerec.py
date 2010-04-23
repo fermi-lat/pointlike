@@ -1,6 +1,39 @@
+""" Various useful utilities for creating, dumping numpy recarry objects
+$Header:$
+
+
+
+"""
 import matplotlib
 import numpy as np
 import pyfits
+
+def makefits(r, filename=None):
+    """ convert a recarray to a pyfits object, write to filename if present
+    """
+    def convertformat(dtype):
+        if dtype[:2]=='|S': return dtype[2:]+'A'
+        try:
+            return {'<f8':'D', '<f4':'E', '<i4':'J', '|b1':'L', '|O4':'|O4',}[dtype]
+        except:
+            print 'recarry type %s not recognized' %dtype
+            raise
+    def column(n,f):
+        if f!='|O4': return pyfits.Column(name=n, format=f, array=r[n])
+        # treat an object as a string, expand to match 
+        maxsize = np.array([len(str(e)) for e in r[n]]).max()
+        fmt = '%%-%ds' % maxsize
+        data = [fmt % str(e) for e in r[n]] 
+        return pyfits.Column(name=n, format='%dA'%maxsize, array=data)
+    names = r.dtype.names
+    formats = [convertformat(t[1]) for t in r.dtype.descr]
+    columns = [column(n,f ) for n,f in zip(names, formats)]
+    thdulist = pyfits.HDUList([ pyfits.PrimaryHDU(), 
+                                pyfits.new_table(pyfits.ColDefs(columns))])
+    if filename is not None:
+        thdulist.writeto(filename)
+    return thdulist
+    
 
 def fitsrec(filename, HDU=1, quiet=False):
     " make and return a record array from a FITS file"
