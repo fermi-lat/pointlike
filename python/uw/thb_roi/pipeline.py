@@ -3,10 +3,10 @@ basic pipeline setup
 
 Implement processing of a set of sources in a way that is flexible and easy to use with assigntasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.4 2010/04/15 05:21:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.5 2010/04/15 21:09:36 burnett Exp $
 
 """
-import sys, os, pyfits, glob, pickle, math
+import sys, os, pyfits, glob, pickle, math, time
 import numpy as np
 import pylab as plt
 
@@ -37,9 +37,13 @@ class Pipeline(object):
                 'roifig': False,
                 'sedfig': True,
                 'free_radius': 1.0, # cut back from 2.0
+                'fit_method': 'minuit',
             })
-        self.associate = kwargs.pop('associate', None)
-        if self.associate is not None:
+        assoc = kwargs.pop('associate', None)
+        if assoc is not None:
+            if type(assoc)==type(''):
+                self.associate = associate.SrcId(assoc)
+            else: self.associate = assoc
             print 'will associate with catalogs %s' % self.associate.classes
         self.__dict__.update(kwargs)
         outdir = self.outdir
@@ -69,125 +73,85 @@ class Pipeline(object):
         return self.source(i)
 
     
-    def process(self, s, newsource=True):
-        """ process a source s
-        """
-        name,sdir = s.name, SkyDir(s.ra,s.dec)  
-        id_class = 'none' if newsource else s.id_class
+    def process(self, s):
+        name,sdir = s.name, SkyDir(s.ra,s.dec) 
+        if name[0]=='1':
+            name=s.name.replace('_',' ').replace('p','+') # convert back if using file version
         print '\n'+60*'=','\nprocessing source %s at %s' % (name, sdir), '\n'+ 60*'='
         r = self.factory([[name, sdir, Models.PowerLaw()]],  bgfree=self.bgfree)
 
-
         # if a different direction, we need to disable the original, most likely the nearest
-        if r.psm.point_sources[1].name.strip() == '1FGL %s' % r.name.strip():
+        if r.psm.point_sources[1].name.strip() == '%s' % r.name.strip():
             r.psm.models[1].p[0]=-20
             print '-----> disabled catalog source with same name found in background <-------'
         r.dump(maxdist=2)
-
-        ret =r.fit()
+        ret =r.fit(method=self.fit_method)
         r.dump(maxdist=2, title='after fit')
-        print 'TS PL, band = %.1f, %.1f' % (r.TS(), r.band_ts())
-        #print r
-        #r.printSpectrum()
-        move=None
-        try:
-            r.localize()
-            if r.qform is not None:
-                par = r.qform.par 
-                psig = np.sqrt(par[3]*par[4])
-            else:
-                psig = 1.
-
-            tsf = r.tsmap()
-            ts_local_max =tsf(r.tsmax) 
-            delta_ts=ts_local_max-tsf(sdir) 
- #           adict = self.associate(name) if self.associate else None 
-            adict = self.associate(sdir, par[3:6]) if self.associate else None 
-            if adict is not None:
-                adict['deltats'] = [ts_local_max-tsf(d) for d in adict['dir']]
-                print 'associations:'
-                print 'cat name                  ra        dec         ang        Delta TS'
-                #       15 Mrk 501               253.4897   39.7527    0.0013      0.41
-                for i,id_name in enumerate(adict['name']):
-                    print '%3d %-20s%10.4f%10.4f%10.4f%10.2f' %\
-                        (adict['cat'][i], id_name, adict['ra'][i], 
-                            adict['dec'][i], adict['ang'][i], adict['deltats'][i])
-            else:
-                print 'No associations found'
-        except:
-            print 'localize failed'
-            raise
-            delta_ts=99; psig=1; ts_local_max=0
-            c2=999.
-
-        if self.size >=0:  
-
-            # make a TS map
-            if self.size ==0:
-                tsize = 20* psig
-            else: tsize = self.size
-            if tsize>2: tsize=2 # limit to 2 degrees
-            plt.ioff()
-            tsm=r.plot_tsmap( outdir=None, catsig=0, size=tsize, 
-                # todo: fix this
-                assoc=adict if adict is not None else None, # either None or a dictionary
-                notitle=True, #don't do title
-                )
-            # override title, add id class, note if flagged
-            tname = name.strip()
-            if not newsource:
-                if id_class=='   ': id_class = 'unid'
-                fname = tname if s.flags==0 else tname+'f'
-                tsm.zea.axes.set_title('1FGL %s - %s'% (fname, id_class), fontsize=12) 
-            else:
-                tsm.zea.axes.set_title(tname, fontsize=12) 
-
-
-            if self.tsmap_dir is not None: 
-                fout =os.path.join(self.tsmap_dir,'%s_tsmap.png'%tname)
-                plt.savefig(fout)
-                print 'saved tsplot to %s' % fout 
-
-            # now check the TS map for another more significant feature
-            move = r.rescan(tsm)
-            if move is not None:
-                print "------> candidate to move to new location ------------"
-        else: tsm=None
-
-        if self.tsfits_dir: 
-            if tsm:
-                # already have the image: save it as fits
-                tsm.zea.skyimage.reimage(tsm.zea.center, os.path.join(self.tsfits_dir, 
-                '%s_tsmap.fits'%name), tsize/20., tsize)
-            else:
-                # a bit of magic to save TS maps in FITS format
-                z = image.ZEA(sdir, size=tsize, pixelsize=tsize/20, fitsfile=os.path.join(self.tsfits_dir, '%s_tsmap.fits'%name))
-                z.fill(r.tsmap())
-                del(z)
-
-        if self.roifig_dir:
-            t=r.plot_roi( title='%s ROI'%name, lgclim=[0,2], folder=self.roifig_dir, galactic=True,# nside=2**10, pixelsize=0.01,
-            )
-            
-        if newsource:
-            r.pickle(name, self.pickle_dir,
-                delta_ts=delta_ts,
-                ts=r.TS(),
-                band_ts = r.band_ts(),
-                tsmap_max = None if move is None else [r.tsmap_max - ts_local_max, move.ra(), move.dec()],
-                id = None,
-                )
-        
+        r.localize()
+        if r.qform is not None:
+            par = r.qform.par 
+            psig = np.sqrt(par[3]*par[4])
+            adict = self.associate(sdir, par[3:6]) if self.associate else None
         else:
-            r.pickle( name, self.pickle_dir, ts=s.signif_avg, 
-                cat_fit=[s.pivot_energy, s.spectral_index, s.signif_avg, 0], #avoid old "catsig"
+            psig = 1.
+            adict = None
+
+        r.find_tsmax()
+        tsf = r.tsmap()
+        ts_local_max =tsf(r.tsmax) 
+        delta_ts=ts_local_max-tsf(sdir) 
+        if adict is not None:
+            adict['deltats'] = [ts_local_max-tsf(d) for d in adict['dir']]
+            print 'associations:'
+            print '   cat         name                  ra        dec         ang     prob    Delta TS'
+            #       15 Mrk 501               253.4897   39.7527    0.0013      0.41
+            fmt = '   %-10s %-20s%10.4f%10.4f%10.4f%8.2f%8.1f' 
+            for i,id_name in enumerate(adict['name']):
+                tup = (adict['cat'][i], id_name, adict['ra'][i], adict['dec'][i], adict['ang'][i], 
+                        adict['prob'][i],adict['deltats'][i])
+                print fmt % tup
+        else:
+            print 'No associations found'
+
+
+        tsize = 0.5 if r.qform is None else 20*r.qform.par[3]
+        tname = name
+        fname = tname.replace('+','p').replace(' ', '_') # filename
+        tsm=r.plot_tsmap( outdir=None, catsig=0, size=tsize, 
+            # todo: fix this
+            assoc=adict if adict is not None else None, # either None or a dictionary
+            notitle=True, #don't do title
+            markersize=10,
+            primary_markersize=12,
+            )
+        tsm.zea.axes.set_title('%s'% tname, fontsize=12) 
+
+        if self.tsmap_dir is not None: 
+            fout =os.path.join(self.tsmap_dir, ('%s_tsmap.png'%fname) )
+            plt.savefig(fout)
+            print 'saved tsplot to %s' % fout 
+        if self.tsfits_dir: 
+            tsm.zea.skyimage.reimage(tsm.zea.center, os.path.join(self.tsfits_dir, 
+                '%s_tsmap.fits'%fname), tsize/20., tsize)
+
+        r.pickle( name, self.pickle_dir, fname=fname,
                 delta_ts=delta_ts,
                 ts=r.TS(),
                 band_ts = r.band_ts(),
-                tsmap_max = None if move is None else [r.tsmap_max - ts_local_max, move.ra(), move.dec()],
-                id = adict,
+                tsmap_max = None ,
+                id = None,
+                adict=adict,
                 )
+        if self.sedfig_dir is not None:
+            r.plot_sed()
+            fout = os.path.join(self.sedfig_dir, ('%s_sed.png'%fname) )
+            plt.title(tname)
+            plt.savefig(fout)
+            print 'saved SED plot to %s' % fout 
+ 
         return
+
+        
 
     def make_sed(self, r, tname):
         if self.sedfig_dir is not None:
@@ -396,6 +360,7 @@ class FitNewCatalog(RefitCatalog):
 
         tsize = 0.5 if r.qform is None else 20*r.qform.par[3]
         tname = name
+        fname = tname.replace('+','p').replace(' ', '_') # filename
         tsm=r.plot_tsmap( outdir=None, catsig=0, size=tsize, 
             # todo: fix this
             assoc=adict if adict is not None else None, # either None or a dictionary
@@ -406,24 +371,24 @@ class FitNewCatalog(RefitCatalog):
         tsm.zea.axes.set_title('%s'% tname, fontsize=12) 
 
         if self.tsmap_dir is not None: 
-            fout =os.path.join(self.tsmap_dir, ('%s_tsmap.png'%tname).replace('+','p').replace(' ', '_'))
+            fout =os.path.join(self.tsmap_dir, ('%s_tsmap.png'%fname) )
             plt.savefig(fout)
             print 'saved tsplot to %s' % fout 
         if self.tsfits_dir: 
             tsm.zea.skyimage.reimage(tsm.zea.center, os.path.join(self.tsfits_dir, 
                 '%s_tsmap.fits'%name), tsize/20., tsize)
 
-        r.pickle( name, self.pickle_dir, 
+        r.pickle( fname, self.pickle_dir, 
                 delta_ts=delta_ts,
                 ts=r.TS(),
                 band_ts = r.band_ts(),
                 tsmap_max = None ,
                 id = None,
+                adict=adict,
                 )
         if self.sedfig_dir is not None:
             r.plot_sed()
-            fout = os.path.join(self.sedfig_dir, ('%s_sed.png'%tname).replace('+','p').replace(' ', '_'))
-            fout = os.path.join(self.sedfig_dir, ('%s_sed.png'%tname).replace('+','p').replace(' ', '_'))
+            fout = os.path.join(self.sedfig_dir, ('%s_sed.png'%fname) )
             plt.title(tname)
             plt.savefig(fout)
             print 'saved SED plot to %s' % fout 
@@ -434,7 +399,9 @@ class FitNewCatalog(RefitCatalog):
 
 class UWsourceFits(Pipeline):
     def __init__(self, sourcelist, **kwargs):
-        self.sources=makerec.textrec(sourcelist)
+        if type(sourcelist)==type(''):
+            self.sources=makerec.textrec(sourcelist)
+        else: self.sources=sourcelist    
         self.sources.sort()
         super(UWsourceFits,self).__init__(**kwargs)
        
@@ -446,58 +413,7 @@ class UWsourceFits(Pipeline):
             def __str__(self): return '%s  %.3f %+0.3f' % (self.name, self.ra, self.dec)
         return Source(i, self.sources.name[i], self.sources.ra[i], self.sources.dec[i])
  
-    def process(self, s):
-        name,sdir = s.name, SkyDir(s.ra,s.dec)  
-        print '\n'+60*'=','\nprocessing source %s at %s' % (name, sdir), '\n'+ 60*'='
-        r = self.factory([[name, sdir, Models.PowerLaw()]],  bgfree=self.bgfree)
-
-        # if a different direction, we need to disable the original, most likely the nearest
-        if r.psm.point_sources[1].name.strip() == '%s' % r.name.strip():
-            r.psm.models[1].p[0]=-20
-            print '-----> disabled catalog source with same name found in background <-------'
-        r.dump(maxdist=2)
-        ret =r.fit()
-        r.dump(maxdist=2, title='after fit')
-        r.localize()
-        r.find_tsmax()
-        tsf = r.tsmap()
-        ts_local_max =tsf(r.tsmax) 
-        delta_ts=ts_local_max-tsf(sdir) 
-        
-        if self.size>=0:
-            tsize = 0.5 # default
-            if r.qform is not None: tsize = 20*r.qform.par[3]
-            tname=name
-            tsm=r.plot_tsmap( outdir=None, catsig=0, size=tsize, 
-                # todo: fix this
-                assoc=None, #adict if adict is not None else None, # either None or a dictionary
-                notitle=True, #don't do title
-                markersize=10,
-                primary_markersize=12,
-                )
-            tsm.zea.axes.set_title('%s'% name, fontsize=12) 
-
-            if self.tsmap_dir is not None: 
-                fout =os.path.join(self.tsmap_dir, ('%s_tsmap.png'%tname).replace('+','p'))
-                plt.savefig(fout)
-                print 'saved tsplot to %s' % fout 
-        if self.sedfig_dir is not None:
-            r.plot_sed()
-            fout = os.path.join(self.sedfig_dir, ('%s_sed.png'%tname).replace('+','p'))
-            plt.title(tname)
-            plt.savefig(fout)
-            print 'saved SED plot to %s' % fout 
-
-            
-        r.pickle( name, self.pickle_dir, #ts=s.signif_avg, 
-                delta_ts=delta_ts,
-                ts=r.TS(),
-                band_ts = r.band_ts(),
-                tsmap_max = None ,
-                id = None,
-                )
-        return
-
+ 
 class TrialSourceFits(Pipeline):
     def __init__(self, sources, auxcat=None, **kwargs):
         """
@@ -523,6 +439,30 @@ def setup_stuff(classname, **kwargs):
     
     return setup_string, tasklist
 
+def get_class(adict):
+    """Given association dictionary, decide what class to ascribe the source to.  Partly guesswork!
+        original version by Eric Wallace
+    """
+    if adict is None: return '   '
+    cat_list=adict['cat']
+    priority = '''bllac bzcat cgrabs crates crates_fom seyfert seyfert_rl qso agn
+                vcs galaxies pulsar_lat snr snr_ext pulsar_high pulsar_low pulsar_fom
+                msp pwn hmxb lmxb globular
+               '''.split()
+    ass_class = ['bzb','bzcat']+['bzq']*3+['agn']*6+['LAT psr']+\
+                ['snr']*2 + ['psr']*4 + ['pwn'] + ['hmxb'] + ['lmxb']+ ['glc'] 
+    cls = None
+    for c,a in zip(priority,ass_class):
+        if c in cat_list:
+            cls = a
+            break
+    if cls is None:
+        print 'warning: %s not recognized' % cat_list
+        return '   '
+    if cls == 'bzcat': #special, use first 3 chars of source name
+        cls = adict['name'][cat_list.index(c)][:3].lower()
+    return cls
+
 def load_rec_from_pickles(outdir):
     """
     create recarray from list of pickled 
@@ -536,7 +476,7 @@ def load_rec_from_pickles(outdir):
     rec = makerec.RecArray("""name ra dec csig psig good dcp qual cindex pnorm pindex
                               delta_ts fit_ra fit_dec a b ang ts band_ts galnorm isonorm
                               tsmap_max_diff tsm_ra tsm_dec
-                              id_prob id_dts id_cat""".split())
+                              id_prob aclass""".split())
     for fname in filelist:
         #print 'loading %s...' % fname,
         try:
@@ -576,14 +516,19 @@ def load_rec_from_pickles(outdir):
             galnorm = p['bgm_par'][0]
             isonorm = p['bgm_par'][2]
 
-            id_prob =p.get('id_prob', 0)
+            # association stuff
+            adict = p.get('adict', None)
+            if adict is not None:
+                id_prob = adict['prob'][0]
+            else:  id_prob =p.get('id_prob', 0)
+            aclass = get_class(adict)
             id_dts = p.get('id_dts', 99)
             id_cat = p.get('id_cat', 99) 
             
             rec.append(name, ra,dec, csig, ptsig, \
                 good , dcp,  qual, cindex, pnorm, pindex,\
                 delta_ts, fit_ra, fit_dec, a, b, ang, ts, band_ts, galnorm, isonorm, tsmap_max_diff, tsm_ra, tsm_dec, 
-                id_prob, id_dts, id_cat)
+                id_prob, aclass)
         except Exception:
             #raise
             failed +=1
@@ -612,23 +557,36 @@ class Logs(object):
             out.close()
             
 
-#def main(mec=None, startat=0, local=False,machines='tev1 tev2 tev3 tev4'.split()):
-#    def callback(id, result):
-#        name = r.name[id+startat]
-#        logdir = os.path.join(outdir, 'log')
-#        if not os.path.exists(logdir): os.mkdir(logdir)
-#        out = open(os.path.join(logdir, '%s.txt' % name.strip().replace(' ','_')), 'w')
-#        print >>out, result
-#        out.close()
-#    if not local: setup_mec(machines=machines)
-#    time.sleep(5)
-#    lc= AssignTasks(setup_string, tasks[startat:], mec=mec, timelimit=1000, local=local, callback=callback)
-#    lc()
-#    lc.dump('summary.pickle')
-#    if not local: kill_mec()
-#    return lc
-# 
+def main(g, setup_string, outdir, mec=None, startat=0, local=False,
+        machines='tev1 tev2 tev3 tev4'.split(), 
+        ignore_exception=True):
+    if not os.path.exists(outdir): 
+        raise Exception('outdir folder, "%S", not found' % outdir)
+    names = g.sources.name.copy(); del g
+    tasks = ['g(%d)'% i for i in range(len(names))]
+    
+    def callback(id, result):
+        try:
+            name = names[id+startat]
+            logdir = os.path.join(outdir, 'log')
+            if not os.path.exists(logdir): os.mkdir(logdir)
+            out = open(os.path.join(logdir, '%s.txt' % name.strip().replace(' ','_').replace('+','p')), 'w')
+            print >>out, result
+            out.close()
+        except:
+            print 'got exception writing %s' % name
+            raise
+            
+    if not local: setup_mec(machines=machines)
+    time.sleep(10)
+    lc= AssignTasks(setup_string, tasks[startat:], mec=mec, timelimit=1000, local=local, callback=callback, 
+    ignore_exception=ignore_exception)
 
+    lc(10)
+    lc.dump('summary.pickle')
+    if not local: get_mec().kill(True)
+    return lc
+   
 if __name__=='__main__':
     pass
 #    f = factory(emin=1000)
