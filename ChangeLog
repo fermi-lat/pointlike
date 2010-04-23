@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Apr 22 21:12:40 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	pipeline.py 
+Log Message:
+new SrcId stuff; a main that will run the pipeline; consolidate process code
+    *
+------------------------------------------------------------
 User: burnett  Thu Apr 22 21:10:35 PDT 2010
 pointlike/python/uw/thb_roi
 
