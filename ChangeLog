@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Apr 22 21:18:18 PDT 2010
+pointlike/python/uw/utilities
+
+Added Files:
+	makefig.py 
+Log Message:
+new module that handles creation of figures for pivot/deepzoom
+    *
+------------------------------------------------------------
 User: burnett  Thu Apr 22 21:16:44 PDT 2010
 pointlike/python/uw/utilities
 
