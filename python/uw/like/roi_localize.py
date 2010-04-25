@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.5 2010/04/08 22:23:00 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.6 2010/04/09 17:51:49 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -60,7 +60,7 @@ class ROILocalizer(object):
    def localize(self):
       """Localize a source using an elliptic approximation to the likelihood surface.
 
-         return fit position
+         return fit position, number of iterations, distance moved, delta TS
       """
       roi   = self.roi
       which = self.which
@@ -115,7 +115,7 @@ class ROILocalizer(object):
       roi.ldir    = l.dir
       roi.lsigma  = l.sigma
       roi.delta_loc_logl = (ll0 - ll1)
-      return l.dir
+      return l.dir, i, delt, 2*(ll0-ll1)
 
    def spatialLikelihood(self,skydir,update=False,which=0,bandfits=False):
       """Calculate log likelihood as a function of position a point source.
