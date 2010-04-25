@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Apr 24 18:54:51 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	pivot.py 
+Log Message:
+setup documented  module execution, with OptionParser
+    *
+------------------------------------------------------------
 User: burnett  Sat Apr 24 18:52:12 PDT 2010
 pointlike/python/uw/utilities
 
