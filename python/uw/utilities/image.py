@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.12 2010/03/11 23:28:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.13 2010/03/27 00:25:31 kerrm Exp $
 
 """
-version = '$Revision: 1.12 $'.split()[1]
+version = '$Revision: 1.13 $'.split()[1]
 
 import pylab
 import math
@@ -18,6 +18,7 @@ from matplotlib import mpl, pyplot, ticker
 from skymaps import SkyImage, SkyDir, double2, SkyProj,PySkyFunction,Hep3Vector
 from math import exp
 from numpy.fft import fft2,ifft2,fftshift
+from scipy import optimize
 
 class Ellipse(object):
     def __init__(self, q):
@@ -666,14 +667,38 @@ class TSplot(object):
         self.zea= ZEA(center, size, pixelsize, axes=axes, nticks=nticks,fitsfile=fitsfile, **kwargs)
         print 'TSplot: filling %d pixels...'% (size/pixelsize)**2
         self.zea.fill(tsmap)
-        Imax= self.zea.image.max()
-        self.image =np.sqrt(np.abs(Imax-self.zea.image))
+        # create new image that is the significance in sigma
+        self.tsmaxpos=tsmaxpos = self.find_local_maximum() # get local maximum
+        tsmaxval = tsmap(tsmaxpos)
+        tmap = tsmaxval-self.zea.image
+        tmap[tmap<0] = 0
+        self.image =np.sqrt(tmap)
         self.cb=None
         # np.sqrt(-2* np.log(1-np.array([0.68,0.95, 0.99]))
         self.clevels = np.array([1.51, 2.45, 3.03])
         self.galmap = galmap
 
+    def find_local_maximum(self):
+        """ 
+            looks for local maximum, starting at center
+        """
+        class LocalMax(object):
+            """ helper class """
+            def __init__(self, tsmapfun, center):
+                self.tsf=tsmapfun
+                self.sdir = center
+                self.ra,self.dec = self.sdir.ra(), self.sdir.dec()
+                self.cdec= math.cos(math.degrees(self.dec))
+            def __call__(self,par):
+                ra = self.ra+par[0]/self.cdec
+                dec= self.dec+par[1]
+                return -self.tsf(SkyDir(ra,dec))
+            def find(self):
+                dx,dy = optimize.fmin(self, (0,0),disp=0)
+                return SkyDir(self.ra+dx/self.cdec, self.dec+dy)
 
+        return LocalMax(self.tsmap, self.zea.center).find()
+        
     def show(self, colorbar=True):
         """
         Generate the basic plot, with contours, scale bar, color bar, and grid
