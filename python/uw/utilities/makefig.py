@@ -1,10 +1,13 @@
 """ 
 Make combinded figures for Pivot, perhaps
+$Header$
+
 """ 
 
 from PIL import Image
 import glob, os, sys, exceptions
 import pylab  as plt
+version='$Revision: 1.1 $'.split()[1]
 
 class InvalidParameter(exceptions.Exception):
     pass
@@ -133,9 +136,20 @@ def main(
 
 
 if __name__=='__main__':
-    argv = sys.argv
-    if len(argv)<3: raise InvalidParameter('expect 3 parameters: figpath, outdir')
-    figpath = argv[1]
-    pivotdir= argv[2]
-    collection_name = argv[3]
-    main(figpath, pivotdir)
+    from optparse import OptionParser
+    usage = """\n
+usage: %prog [options] figpath pivot_dir\n
+Generate deep zoom collection for Pivot
+    figpath: where to find the figures, assuming tsmap, sedfig, log are subfolders
+    pivot_dir: folder to save merged figures
+    
+    Will save combined figures in 'combined' folder under figpath """
+    parser = OptionParser(usage, version=version)
+    parser.add_option('-n', '--nmax', help='if set, limit number to process', 
+            action='store', dest='nmax',default=0, type='int')
+    options, args = parser.parse_args()
+    if len(args)!=2: 
+        parser.print_usage()
+        sys.exit(-1)
+    main(args[0],args[1], nmax = options.nmax)
+     
