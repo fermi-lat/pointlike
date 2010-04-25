@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Apr 24 18:52:12 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	image.py 
+Log Message:
+have TSmap define reference value from local maximum rather than global (over the image)
+    *
+------------------------------------------------------------
 User: burnett  Sat Apr 24 18:50:24 PDT 2010
 pointlike/python/uw/like
 
