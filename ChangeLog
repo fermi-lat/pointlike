@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Apr 24 18:56:19 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	pipeline.py 
+Log Message:
+update for changed image.TSmap; setup OptionParse module
+    *
+------------------------------------------------------------
 User: burnett  Sat Apr 24 18:54:52 PDT 2010
 pointlike/python/uw/utilities
 
