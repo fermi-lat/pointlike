@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Apr 24 18:58:38 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	myroi.py 
+Log Message:
+update localize code with more info returned by RoiAnalysis
+    *
+------------------------------------------------------------
 User: burnett  Sat Apr 24 18:56:19 PDT 2010
 pointlike/python/uw/thb_roi
 
