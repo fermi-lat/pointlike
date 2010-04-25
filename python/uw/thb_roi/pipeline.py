@@ -3,9 +3,10 @@ basic pipeline setup
 
 Implement processing of a set of sources in a way that is flexible and easy to use with assigntasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.5 2010/04/15 21:09:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.6 2010/04/23 04:12:40 burnett Exp $
 
 """
+version='$Revision: 1.6 $'.split()[1]
 import sys, os, pyfits, glob, pickle, math, time
 import numpy as np
 import pylab as plt
@@ -87,20 +88,18 @@ class Pipeline(object):
         r.dump(maxdist=2)
         ret =r.fit(method=self.fit_method)
         r.dump(maxdist=2, title='after fit')
-        r.localize()
+        tsmaxpos, delta_ts = r.localize()
         if r.qform is not None:
             par = r.qform.par 
             psig = np.sqrt(par[3]*par[4])
             adict = self.associate(sdir, par[3:6]) if self.associate else None
         else:
-            psig = 1.
+            psig = 0.5
             adict = None
 
-        r.find_tsmax()
-        tsf = r.tsmap()
-        ts_local_max =tsf(r.tsmax) 
-        delta_ts=ts_local_max-tsf(sdir) 
         if adict is not None:
+            tsf = r.tsmap()
+            ts_local_max=tsf(tsmaxpos)
             adict['deltats'] = [ts_local_max-tsf(d) for d in adict['dir']]
             print 'associations:'
             print '   cat         name                  ra        dec         ang     prob    Delta TS'
@@ -114,7 +113,7 @@ class Pipeline(object):
             print 'No associations found'
 
 
-        tsize = 0.5 if r.qform is None else 20*r.qform.par[3]
+        tsize = 0.5 if r.qform is None else 20*psig
         tname = name
         fname = tname.replace('+','p').replace(' ', '_') # filename
         tsm=r.plot_tsmap( outdir=None, catsig=0, size=tsize, 
@@ -555,14 +554,24 @@ class Logs(object):
             out = open('%s/%s.log' % (folder,name), 'w')
             out.writelines(self.logs[key].__str__())
             out.close()
+
+def getg(setup_string):
+    exec(setup_string, globals()) # should set g
+    return g
             
 
-def main(g, setup_string, outdir, mec=None, startat=0, local=False,
+def main( setup_string, outdir, mec=None, startat=0, n=0, local=False,
         machines='tev1 tev2 tev3 tev4'.split(), 
         ignore_exception=True):
+        
     if not os.path.exists(outdir): 
         raise Exception('outdir folder, "%S", not found' % outdir)
+    if setup_string[0]=='@':
+        setup_string = open(setup_string).read()
+    g = getg(setup_string)
     names = g.sources.name.copy(); del g
+    if n==0: endat = len(names)
+    else: endat = min(startat+n, len(names))
     tasks = ['g(%d)'% i for i in range(len(names))]
     
     def callback(id, result):
@@ -579,15 +588,28 @@ def main(g, setup_string, outdir, mec=None, startat=0, local=False,
             
     if not local: setup_mec(machines=machines)
     time.sleep(10)
-    lc= AssignTasks(setup_string, tasks[startat:], mec=mec, timelimit=1000, local=local, callback=callback, 
+    lc= AssignTasks(setup_string, tasks[startat:endat], mec=mec, timelimit=1000, local=local, callback=callback, 
     ignore_exception=ignore_exception)
 
     lc(10)
-    lc.dump('summary.pickle')
     if not local: get_mec().kill(True)
     return lc
    
 if __name__=='__main__':
-    pass
-#    f = factory(emin=1000)
-
+    from optparse import OptionParser
+    usage = """\n
+usage: %prog [options] setup_string outdir \n
+Run the UW pipeline
+    setup_string: python executable string that sets a parameter g; if start with "@", name of file
+    outdir: where save the files, under folders log, tsmap, sed"""
+    parser = OptionParser(usage, version=version)
+    parser.add_option('-l', '--local', help='run locallay', action='store_true', dest='local',default=False)
+    parser.add_option('-x', '--stop_on_exception', help='do not ignore exceptions', 
+                    action='store_false', dest='ignore_exception',default=True)
+    parser.add_option('s', '--start_at', help='initial task to run', dest='startat', default=0, type='int')
+    parser.add_option('n', '--number', help='number of tasks to run', dest='n', default=0, type = 'int')
+    options, args = parser.parse_args()
+    if len(args)!=2: 
+        parser.print_usage()
+        sys.exit(-1)
+    main(args[0],args[1], local=options.local, ignore_exception=options.ignore_exception, startat=option.startat, n=option.n)
