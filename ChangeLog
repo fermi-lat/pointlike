@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Apr 24 18:50:24 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_localize.py 
+Log Message:
+have the localize function return more useful details about the fit
+    *
+------------------------------------------------------------
 User: wallacee  Fri Apr 23 15:22:36 PDT 2010
 pointlike/python/uw/like
 
