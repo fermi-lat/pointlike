@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.5 2010/04/15 21:09:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.6 2010/04/23 04:10:35 burnett Exp $
 
 """
 
@@ -118,17 +118,23 @@ class MyROI(roi_analysis.ROIAnalysis):
           update    -- if True, update localization internally, i.e., recalculate point source contribution
           bandfits  -- if True, use a band-by-band (model independent) spectral fit; otherwise, use broabband fit
 
-         return fit position
+         return fit position, change in TS
         """
         try:
-            loc = super(MyROI,self).localize(which=which,bandfits=bandfits,tolerance=tolerance,update=update,verbose=verbose)
-            if not self.quiet: self.print_ellipse()
+            quiet, self.quiet = self.quiet, not verbose # turn off details of fitting
+            loc, i, delta, deltaTS= super(MyROI,self).localize(which=which,bandfits=bandfits,
+                            tolerance=tolerance,update=update,verbose=verbose)
+            self.quiet = quiet
+            if not self.quiet: 
+                print 'Localization: %d iterations, moved %.3f deg, deltaTS: %.1f' % (i, delta, deltaTS)
+                self.print_ellipse()
         except:
             #raise
+            print 'Localization failed!'
             self.qform=None
-            loc = None 
-        self.find_tsmax()
-        return loc
+            loc, deltaTS = None, 99 
+        #self.find_tsmax()
+        return loc, deltaTS
 
     def print_ellipse(self, label=True, line=True):
         if not self.qform: return
@@ -152,31 +158,6 @@ class MyROI(roi_analysis.ROIAnalysis):
                     break #assume sorted on prob.
                 print '\t%12.2f  %-15s  %s' % (a[2],a[0],a[1])
     
-
-    def find_tsmax(self, bandfits=True):
-        """ 
-            very simple function that looks for maximum position
-        """
-        class TSfun(object):
-            """ helper class """
-            def __init__(self, roi, which=0, bandfits=bandfits):
-                self.tsf=roi.tsmap(which,bandfits=bandfits)
-                self.sdir = roi.center
-                self.ra,self.dec = self.sdir.ra(), self.sdir.dec()
-                self.cdec= math.cos(math.degrees(self.dec))
-            def __call__(self,par):
-                ra = self.ra+par[0]/self.cdec
-                dec= self.dec+par[1]
-                return -self.tsf(SkyDir(ra,dec))
-            def maximize(self):
-                dx,dy = optimize.fmin(self, (0,0),disp=0)
-                return SkyDir(self.ra+dx/self.cdec, self.dec+dy)
-
-        tsf = TSfun(self)
-        
-        self.tsmax= tsf.maximize()
-        return self.tsmax
-        
 
     def dump(self, sdir=None, galactic=False, maxdist=5, title=''):
         """ formatted table point sources positions and parameter in the ROI
@@ -461,17 +442,16 @@ class MyROI(roi_analysis.ROIAnalysis):
             tsp.zea.axes.plot([x],[y], marker[k%12], color='blue', label=ps.name, markersize=markersize)
             k+=1
         
-        if 'tsmax' in self.__dict__ and self.tsmax is not None:
-            tsp.plot(self.tsmax, symbol='x')
+        tsp.plot(tsp.tsmaxpos, symbol='x') # at the maximum
         if not notitle: plt.title( name, fontsize=12)
 
         if assoc is not None:
             # eventually move this to image.TSplot
-            last_loc=SkyDir(0,90)
+            last_loc,i=SkyDir(0,90),0
             for aname, loc, prob, catid in zip(assoc['name'],assoc['dir'],assoc['prob'],assoc['cat']):
                 #print 'associate with %s, prob=%.2f' % (aname.strip(),prob)
-                if catid in (1,6,9,10, 11): 
-                    print '---skip gamma cat #%d' % catid
+                if catid in ('ibis',): 
+                    print '---skip gamma cat %s' % catid
                     continue
                 if i>8:
                     print '---skip because too many for display'
@@ -484,7 +464,7 @@ class MyROI(roi_analysis.ROIAnalysis):
                 i+=1
         
         fs = plt.rcParams['font.size']
-        plt.rcParams.update({'legend.fontsize':8, 'font.size':8})
+        plt.rcParams.update({'legend.fontsize':7, 'font.size':7})
         # put legend on left.
         if not nolegend: tsp.zea.axes.legend(loc=2, numpoints=1, bbox_to_anchor=(-0.15,1.0))
         plt.rcParams['font.size'] = fs
