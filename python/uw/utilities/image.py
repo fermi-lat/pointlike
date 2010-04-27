@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.13 2010/03/27 00:25:31 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.14 2010/04/25 01:52:11 burnett Exp $
 
 """
-version = '$Revision: 1.13 $'.split()[1]
+version = '$Revision: 1.14 $'.split()[1]
 
 import pylab
 import math
@@ -508,18 +508,37 @@ class ZEA(object):
         self.axes.plot([x1,x2],[y1,y1], linestyle='-', color=color, lw=3)
         self.axes.text( (x1+x2)/2, (y1+y2)/2+self.ny/80., text, ha='center', color=color)
 
+    def imshow(self, **kwargs):
+        """ run imshow on the image: set up for colorbar.
+        
+        """
+        if 'image' not in self.__dict__: raise Exception('you must run fill first')
+        if 'cmap' not in kwargs: kwargs['cmap']=None
+        self.cmap = kwargs['cmap']
+        if 'norm' not in kwargs: kwargs['norm']=None
+        self.norm = kwargs['norm']
+        if 'origin' not in kwargs: kwargs['origin']='lower'
+
+        self.cax = self.axes.imshow(self.image, **kwargs)
+        
     def colorbar(self, label=None, **kwargs):
         """ 
         draw a color bar using the pylab colorbar facility
         note that the 'shrink' parameter needs to be adjusted if not a full figure
+        Must have called imshow, which will will be used for default cmap, norm
+        
+        returns the colorbar object
         """
+        if 'cax' not in self.__dict__: raise Exception('You must call imshow first')
         fig = self.axes.figure
         if 'orientation' not in kwargs: kwargs['orientation']= 'vertical'
         if 'pad' not in kwargs: kwargs['pad'] = 0.01
         if 'ticks' not in kwargs: kwargs['ticks'] = ticker.MaxNLocator(4)
         if 'fraction' not in kwargs: kwargs['fraction']=0.10
         if 'shrink' not in kwargs:  kwargs['shrink'] = 1.0 
-        self.cb=fig.colorbar(self.cax, cmap=self.cmap, norm=self.norm, **kwargs)
+        if 'cmap' not in kwargs: kwargs['cmap']=self.cmap
+        if 'norm' not in kwargs: kwargs['norm']=self.norm
+        self.cb=fig.colorbar(self.cax,  **kwargs)
         if label is not None: self.cb.set_label(label)
         return self.cb
        
@@ -625,7 +644,8 @@ class ZEA(object):
 
 
 
-def ZEA_test(ra=90, dec=85, size=5, nticks=8, galactic=False):
+def ZEA_test(ra=90, dec=80, size=5, nticks=8, galactic=False):
+    """ exercise everything """
     pyplot.clf()
     q = ZEA(SkyDir(ra,dec), size=size, nticks=nticks, galactic=galactic)
     q.grid(color='gray')
@@ -637,6 +657,10 @@ def ZEA_test(ra=90, dec=85, size=5, nticks=8, galactic=False):
     q.plot_source('(110,74)', SkyDir(110,74), 'x')
     for dec in np.arange(-90, 91, 2):
         q.plot_source( '(%d,%d)'%(ra,dec), SkyDir(ra,dec), 'x')
+    def myfun(v): return v[0] # x-component of skydir to make a pattern
+    q.fill(PySkyFunction(myfun))
+    q.imshow()
+    q.colorbar()
     pyplot.show()
     return q
 
