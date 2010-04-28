@@ -1,20 +1,24 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.5 2010/03/11 19:23:29 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.6 2010/04/09 23:12:06 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.5 $'.split()[1]
+version='$Revision: 1.6 $'.split()[1]
 import os
 import sys
+from glob import glob
+from datetime import date,timedelta
 
 from pixeldata import PixelData
 from pypsf     import Psf,OldPsf,NewPsf,CALDBPsf
 from pointspec_helpers import ExposureManager,ConsistentBackground
 from roi_managers import ROIPointSourceManager,ROIBackgroundManager
 from roi_analysis import ROIAnalysis
+from uw.utilities.fitstools import merge_bpd,sum_ltcubes
+from uw.utilities.fermitime import MET
+
 
 class AnalysisEnvironment(object):
    """A class to collect locations of files needed for analysis.
@@ -93,6 +97,7 @@ class AnalysisEnvironment(object):
       ft1files = self.ft1files; ft2files = self.ft2files
       self.ft1files = ft1files if type(ft1files)==type([]) or ft1files is None else [ft1files]
       self.ft2files = ft2files if type(ft2files)==type([]) or ft2files is None else [ft2files]
+
 
 
 class SpectralAnalysis(object):
@@ -174,6 +179,15 @@ Optional keyword arguments:
   binsperdec   [4] energy binning granularity when binning FT1
   emin         [100] Minimum energy
   emax         [3e5] Maximum energy
+  use_daily_data [False] For the local cluster, use the pre-binned daily data.
+  daily_data_path ['/phys/groups/tev/scratch1/users/Fermi/data/daily'] 
+                  If use_daily_data, path to look for daily files.
+  ***N.B.***
+  If use_daily_data is True, tstart and tstop will be respected modulo one day: the
+  full days containing tstart and tstop will be used. Also, it is left to the user to 
+  ensure that the irf used is compatible with that used to bin the data (currently only
+  P6_v3_diff on the TeV cluster).
+  **********
 
   =========    KEYWORDS FOR MONTE CARLO DATA
   mc_src_id    [ -1] set to select on MC_SRC_ID column in FT1
@@ -225,16 +239,45 @@ Optional keyword arguments:
         self.quiet       = False
         self.verbose     = False
 
+        self.use_daily_data = False
+
         self.ae          = analysis_environment
 
         self.__dict__.update(analysis_environment.__dict__)
         self.__dict__.update(**kwargs)
+
+        if self.use_daily_data:
+            if not ((self.binfile and self.ltcube) and
+                    (os.path.exists(self.binfile) and os.path.exists(self.ltcube))):
+                self.setup_daily_data(self.daily_data_path)
 
          #TODO -- sanity check that BinnedPhotonData agrees with analysis parameters
         self.pixeldata = PixelData(self.__dict__)
         self.exposure  = ExposureManager(self)
         self.psf = CALDBPsf(self.ae.CALDB,irf=self.irf,psf_irf=self.psf_irf)
 
+    def setup_daily_data(self):
+        """Setup paths to use saved daily data and livetime files on our local cluster."""
+
+        data_dir = '/phys/groups/tev/scratch1/users/Fermi/data/daily'
+        bpds = glob(os.path.join(data_dir,'bpd','*.fits'))
+        lts = glob(os.path.join(data_dir,'lt','*.fits'))
+        bpds.sort()
+        lts.sort()
+        start_date = MET(self.tstart).time if self.tstart else date(2008,8,4)
+        stop_date = MET(self.tstop).time if self.tstop else date.today()-timedelta(1,0,0)
+        start_date = start_date.year*10000+start_date.month*100+start_date.day
+        stop_date = stop_date.year*10000+stop_date.month*100+stop_date.day
+        start_ind = bpds.index(os.path.join(data_dir,'bpd','%i_%ibpd.fits'%(start_date,self.binsperdec)))
+        stop_ind = bpds.index(os.path.join(data_dir,'bpd','%i_%ibpd.fits'%(stop_date,self.binsperdec)))
+        bpds = bpds[start_ind:stop_ind+1]
+        lts = lts[start_ind:stop_ind+1]
+        if not self.binfile:
+            self.binfile = '%i-%i_%ibpd.fits'%(start_date,stop_date,self.binsperdec)
+        if not self.ltcube:
+            self.ltcube = '%i-%i_lt.fits'%(start_date,stop_date)
+        merge_bpd(bpds,self.binfile)
+        sum_ltcubes(lts,self.ltcube)
 
     def roi(self, point_sources = None, bgmodels = None, previous_fit = None, no_roi = False, **kwargs):
         """
