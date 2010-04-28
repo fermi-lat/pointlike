@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.9 2010/04/20 18:31:30 wallacee Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.10 2010/04/20 18:40:42 wallacee Exp $
 
    author: Matthew Kerr
 
@@ -283,17 +283,42 @@ def FT1_to_GTI(files):
    return g
 
 def sum_ltcubes(files,outputfile = 'summed_ltcube.fits'):
-   """Pass either a name of an ASCII file with other FITS file names or a list of filenames."""
+    """Pass either a name of an ASCII file with other FITS file names or a list of filenames."""
 
-   handles = __get_handles__(files)
+    files = __FITS_parse__(files)
 
-   exp_table = __merge_exposures__(handles)
-   gti = merge_gti(files)
+    try:
+        f = pf.open(files[0])
+        header = f['EXPOSURE'].header
+        exposures = [f['EXPOSURE'].data.field('COSBINS')] 
+    except KeyError:
+        print('file %s has no EXPOSURE table: aborting'%files[0])
+        return
+    finally:
+        f.close() 
 
-   exp_table.writeto(outputfile,clobber=True)
-   gti.writeExtension(outputfile)
+    for file in files[1:]:
+        try:
+            f = pf.open(file)
+            h = f['EXPOSURE'].header
+            for key in header.keys():
+                assert(h[key]==header[key])
+            exposures+=[f['EXPOSURE'].data.field('COSBINS')]
+        except AssertionError:
+            print('Inconsistent header values, file %s, keyword %s'%(file,key))
+            return
+        except KeyError:
+            print('File %s has no table "EXPOSURE": aborting'%file)
+            return
+        finally:
+            f.close()
 
-   for x in handles: x.close()
+    summed_exposure = N.array(exposures).sum(axis=0)
+    coldef = pf.ColDefs([pf.Column(name='COSBINS',format=header['TFORM1'],null=header['TNULL1'],array=summed_exposure)])
+    exp_table = pf.new_table(coldef,header=header,nrows=exposures[0].shape[0])
+    gti = merge_gti(files)
+    exp_table.writeto(outputfile,clobber=True)
+    gti.writeExtension(outputfile)
 
 def merge_gti(files,table_name = 'GTI',interval = None):
     """Return the union of Gtis specified in files, with an optional time range cut."""
@@ -350,31 +375,6 @@ def __get_handles__(files):
    files = __FITS_parse__(files)
    handles = [pf.open(x,memmap=1) for x in files] #some versions may need to disable memmap (=0)
    return handles
-
-def __merge_exposures__(handles):
-   """Return a FITS table of merged exposure cubes."""
-   # Check for binning consistency based on header keywords. - eew
-   head = handles[0]['EXPOSURE'].header
-   for h in handles:
-      for key in head.keys():
-         if h['EXPOSURE'].header[key]!=head[key]:
-            print('Inconsistent header values, keyword %s: bailing out!'%key)
-            return
-
-   exposures = [x['EXPOSURE'].data.field('COSBINS') for x in handles]
-   
-   #This should be redundant, given the header checks. - eew
-   for exp in exposures:
-      if exp.shape != exposures[0].shape:
-         print 'Livetime cube binning inconsistent -- bailing out!'
-         return
-
-   #Sum the exposures and put in a new table
-   summed_exposure = N.array(exposures).sum(axis=0)
-   coldef = pf.ColDefs([pf.Column(name='COSBINS',format=head['TFORM1'],null=head['TNULL1'],array=summed_exposure)])
-   exp_table = pf.new_table(coldef,header=head,nrows=exposures[0].shape[0])
-
-   return exp_table
 
 def __merge_events__(handles,table_name = 'EVENTS'):
    """Return a FITS table of merged FT1 events.  Now works for FT2 too!"""
