@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Wed Apr 28 14:38:48 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py 
+Log Message:
+Add functionality to use premade daily BinnedPhotonData and LivetimeCube files.
+
+    *
+------------------------------------------------------------
 User: wallacee  Wed Apr 28 13:52:10 PDT 2010
 pointlike/python/uw/utilities
 
