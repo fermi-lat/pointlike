@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Wed Apr 28 13:52:10 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	fitstools.py 
+Log Message:
+Rewrote sum_ltcubes to avoid problems with OS limits on open files.
+Removed __merge_exposures__, which is no longer used.
+
+    *
+------------------------------------------------------------
 User: burnett  Mon Apr 26 17:55:47 PDT 2010
 pointlike/python/uw/utilities
 
