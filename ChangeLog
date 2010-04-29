@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Apr 29 14:14:15 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	assigntasks.py 
+Log Message:
+protect against infinite loop waiting for engines to finish
+    *
+------------------------------------------------------------
 User: wallacee  Wed Apr 28 14:38:48 PDT 2010
 pointlike/python/uw/like
 
