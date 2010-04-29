@@ -1,13 +1,13 @@
 """ 
 Make combinded figures for Pivot, perhaps
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makefig.py,v 1.2 2010/04/25 01:54:52 burnett Exp $
 
 """ 
 
 from PIL import Image
 import glob, os, sys, exceptions
 import pylab  as plt
-version='$Revision: 1.1 $'.split()[1]
+version='$Revision: 1.2 $'.split()[1]
 
 class InvalidParameter(exceptions.Exception):
     pass
@@ -23,6 +23,13 @@ def convert_log_to_png(outdir):
         t = open(file).read()
         plt.figtext(0.02,0.98,t,fontsize=8,va='top', fontname='monospace')
         plt.savefig(file.replace('.txt', '.png'))
+
+def convert_one_log(filename):
+    plt.figure(figsize=(5,10))
+    plt.clf()
+    t = open(filename).read()
+    plt.figtext(0.02,0.98,t,fontsize=8,va='top', fontname='monospace')
+    plt.savefig(filename.replace('.txt', '.png'))
 
 class Holder(object):
     def __init__(self, size):
@@ -63,6 +70,14 @@ def combine_images(names, hsize=(2304,w),
         outfile =  sname
     c.save(outfile, crop=crop)
 
+def combine_image(name, path):
+    """ special to combine a create a single image
+    """
+    try:
+        names = [glob.glob(os.path.join(path,subpath, '%s*.png'%name))[0] for subpath in ('tsmap', 'sedfig', 'log') ]
+    except IndexError:
+        raise InvalidParameter('Source name %s not found  in one of the folders'%name)
+    combine_images(names, outdir=os.path.join(path, 'combined'))
 
 def make_dzc(infolder, outfolder,
         imagefolder='dzi', #'healpipe1_dzimages', 
@@ -86,6 +101,7 @@ def make_dzc(infolder, outfolder,
     curdir = os.getcwd()
     if not os.path.exists(outfolder): os.mkdir(outfolder)
     os.chdir(outfolder)
+    print 'cd %s' %outfolder
     cmd('DZconvert %s %s' % (os.path.join(curdir,t), imagefolder) ) 
     cmd('DZcollection %s %s' % (imagefolder, collection_name))
     os.chdir(curdir)
