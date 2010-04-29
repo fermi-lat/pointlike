@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Apr 29 14:18:17 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	makefig.py 
+Log Message:
+functions to convert one set of images (for patching big run)
+    *
+------------------------------------------------------------
 User: burnett  Thu Apr 29 14:17:21 PDT 2010
 pointlike/python/uw/utilities
 
