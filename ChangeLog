@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Apr 29 14:16:35 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	image.py 
+Log Message:
+slight bug fix for imshow; doc strings improved
+    *
+------------------------------------------------------------
 User: burnett  Thu Apr 29 14:14:15 PDT 2010
 pointlike/python/uw/utilities
 
