@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.14 2010/04/25 01:52:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.15 2010/04/27 00:55:46 burnett Exp $
 
 """
-version = '$Revision: 1.14 $'.split()[1]
+version = '$Revision: 1.15 $'.split()[1]
 
 import pylab
 import math
@@ -408,6 +408,7 @@ class ZEA(object):
         galactic [False] galactic or equatorial coordinates
         axes [None] Axes object to use: if None
         nticks [5] number ot tick marks to attempt
+        proj ['ZEA'] can change if desired
 
         """
        
@@ -442,7 +443,9 @@ class ZEA(object):
         return  (x-0.5,y-0.5)
 
     def fill(self, skyfun):
-        """ fill the image from a SkyFunction"""
+        """ fill the image from a SkyFunction
+            sets self.image with numpy array appropriate for imshow
+        """
         self.skyimage.fill(skyfun)
         self.image = np.array(self.skyimage.image()).reshape((self.ny, self.nx))
         self.vmin ,self.vmax = self.skyimage.minimum(), self.skyimage.maximum()
@@ -509,7 +512,7 @@ class ZEA(object):
         self.axes.text( (x1+x2)/2, (y1+y2)/2+self.ny/80., text, ha='center', color=color)
 
     def imshow(self, **kwargs):
-        """ run imshow on the image: set up for colorbar.
+        """ run imshow on the image, presumably set by a fill: set up for colorbar.
         
         """
         if 'image' not in self.__dict__: raise Exception('you must run fill first')
@@ -517,8 +520,7 @@ class ZEA(object):
         self.cmap = kwargs['cmap']
         if 'norm' not in kwargs: kwargs['norm']=None
         self.norm = kwargs['norm']
-        if 'origin' not in kwargs: kwargs['origin']='lower'
-
+        if 'interpolation' not in kwargs: kwargs['interpolation']='nearest'
         self.cax = self.axes.imshow(self.image, **kwargs)
         
     def colorbar(self, label=None, **kwargs):
@@ -557,7 +559,10 @@ class ZEA(object):
 
 
     def plot_source(self, name, source, symbol='+', fontsize=10, **kwargs):
-        " plot symbols at points"
+        """ plot symbols at points
+            name: text string 
+            source: a SkyDir
+        """
         x,y = self.pixel(source)
         if x<0 or x> self.nx or y<0 or y>self.ny: return False
         self.axes.plot([x],[y], symbol,  **kwargs)
@@ -567,7 +572,8 @@ class ZEA(object):
 
 
     def cross(self, sdir, size, text=None, **kwargs):
-        """ draw a cross  
+        """ draw a cross at sdir,
+            size: half-length of each arm, in deg.
         
         """    
         x,y = self.pixel(sdir)
