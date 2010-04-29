@@ -1,12 +1,12 @@
 """
 generate collection file for LiveLabs Pivot viewer
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.2 2010/03/11 23:29:23 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.3 2010/04/23 04:15:59 burnett Exp $
 See <http://getpivot.com>
 Author: Toby Burnett <tburnett@uw.edu>
 """
 
-import os, pickle, pyfits
+import os, pickle, pyfits, types
 import xml.sax
 
 import numpy as np
@@ -94,7 +94,7 @@ class Collection(object):
         name       facet name
         type       type, one of String, LongString, Number, DateTime, or Link
         format     format to use for info ('C', 'F', 'D')
-        data       array of values
+        data       array of values. For String, each value can be an array itself
         
         """
         assert( type in 'String Number LongString DateTime Link'.split())
@@ -127,7 +127,13 @@ class Collection(object):
                     if t is not None:
                         out.write('\n  <Facet Name="%s"> <Link Name="%s" Href="%s"/> </Facet>' % (facet.name, t[0], t[1]))
                 else:
-                    out.write('\n  <Facet Name="%s"> <%s Value="%s"/> </Facet>' % (facet.name, facet.type, facet.data[i]))
+                    out.write('\n  <Facet Name="%s"> '% facet.name)
+                    d = facet.data[i]
+                    if type(d)==types.ListType:
+                        for x in d: out.write('<%s Value="%s"/>' %( facet.type, x))
+                    else: 
+                        out.write('<%s Value="%s"/>' %( facet.type, d))
+                    out.write(' </Facet>' ) 
                 
             out.write('\n </Facets>\n</Item>')    
         out.write('\n</Items>')
