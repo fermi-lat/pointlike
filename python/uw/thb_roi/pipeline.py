@@ -3,11 +3,11 @@ basic pipeline setup
 
 Implement processing of a set of sources in a way that is flexible and easy to use with assigntasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.6 2010/04/23 04:12:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.7 2010/04/25 01:56:19 burnett Exp $
 
 """
-version='$Revision: 1.6 $'.split()[1]
-import sys, os, pyfits, glob, pickle, math, time
+version='$Revision: 1.7 $'.split()[1]
+import sys, os, pyfits, glob, pickle, math, time, types
 import numpy as np
 import pylab as plt
 
@@ -20,6 +20,9 @@ from skymaps import SkyDir
 import myroi, data, catalog, associate # for default configuration (local stuff)
 
 
+class InvalidArgument(Exception):
+    pass
+    
 class Pipeline(object):
     """ base class for pipeline analysis using assigntasks 
     
@@ -27,18 +30,22 @@ class Pipeline(object):
     def __init__(self,  **kwargs):
         dataset = kwargs.pop('dataset', None)
         print 'using dataset: ', dataset
-        irf = kwargs.pop('irf', 'P6_v8_diff')
-        self.factory = kwargs.pop('factory', None ) or uw.factory(irf=irf, dataset=dataset)
+        factory_pars = \
+            {'irf': 'P6_v8_diff',
+             'free_radius': 1.0, # cut back from 2.0
+             }
+        for par in ('irf', 'free_radius', 'prune_radius'):
+            if par in kwargs: factory_pars[par]= kwargs.pop(par)
+        self.factory = kwargs.pop('factory', None ) or uw.factory(dataset=dataset, **factory_pars)
         self.__dict__.update(
             {   'size':0, 
                 'associate': None, 
-                'bgfree':  np.asarray([True,False,True]),
                 'outdir': '.',
                 'tsfits': True,
                 'roifig': False,
                 'sedfig': True,
-                'free_radius': 1.0, # cut back from 2.0
-                'fit_method': 'minuit',
+                'bgfree':  np.asarray([True,False,True]),
+               'fit_method': 'minuit',
             })
         assoc = kwargs.pop('associate', None)
         if assoc is not None:
@@ -63,14 +70,16 @@ class Pipeline(object):
         else: self.sedfig_dir=None
         for d in (dirs):
             if not os.path.exists(d): os.mkdir(d)
-            
-    def setup_string(self):
-        """return a string that would generate an instance"""
-        pass
-        
+                    
     def source(self, i):
         raise Exception('base class source invoked: must be overridden in derived class')
+    def __len__(self):
+        return self.n
     def __getitem__(self,i):
+        if type(i)==types.StringType:
+            i = self.names.index(i)  # will raise value error
+        if i==self.n: raise StopIteration
+        if i>self.n: raise  IndexError('list index out of range')
         return self.source(i)
 
     
@@ -86,8 +95,10 @@ class Pipeline(object):
             r.psm.models[1].p[0]=-20
             print '-----> disabled catalog source with same name found in background <-------'
         r.dump(maxdist=2)
-        ret =r.fit(method=self.fit_method)
+        r.fit(method=self.fit_method)
         r.dump(maxdist=2, title='after fit')
+        print '\nTS= %.1f; band tS= %.1f' % (r.TS(), r.band_ts())
+        print '\n========  LOCALIZATION   =============='
         tsmaxpos, delta_ts = r.localize()
         if r.qform is not None:
             par = r.qform.par 
@@ -97,6 +108,7 @@ class Pipeline(object):
             psig = 0.5
             adict = None
 
+        print '\n========   ASSOCIATION  =============='
         if adict is not None:
             tsf = r.tsmap()
             ts_local_max=tsf(tsmaxpos)
@@ -133,7 +145,8 @@ class Pipeline(object):
             tsm.zea.skyimage.reimage(tsm.zea.center, os.path.join(self.tsfits_dir, 
                 '%s_tsmap.fits'%fname), tsize/20., tsize)
 
-        r.pickle( name, self.pickle_dir, fname=fname,
+        self.pickle( r, name ,
+                fname=fname,
                 delta_ts=delta_ts,
                 ts=r.TS(),
                 band_ts = r.band_ts(),
@@ -141,6 +154,7 @@ class Pipeline(object):
                 id = None,
                 adict=adict,
                 )
+        
         if self.sedfig_dir is not None:
             r.plot_sed()
             fout = os.path.join(self.sedfig_dir, ('%s_sed.png'%fname) )
@@ -150,7 +164,10 @@ class Pipeline(object):
  
         return
 
-        
+    def pickle(self, roi, name, **kwargs):
+        """ intercept this to allow subclass to add or subtract stuff """
+        roi.pickle( name, self.pickle_dir, **kwargs)
+    
 
     def make_sed(self, r, tname):
         if self.sedfig_dir is not None:
@@ -297,7 +314,10 @@ class RefitCatalog(Pipeline):
         del r # memory problem???
         return
 
-class FitNewCatalog(RefitCatalog):
+class FitNewCatalog(Pipeline):
+    """
+    pipeline with extended catalog
+    """
     def default_data(self):
         return data.all_data() #needs mask!
     def default_irf(self):
@@ -310,91 +330,30 @@ class FitNewCatalog(RefitCatalog):
             self.factory.cb.cm.append(makerec.textrec(cat)) 
         self.sources = self.factory.source_list() #newcat
         self.fit_method = 'simplex' #'minuit'
-        self.n = len(self.sources)
+        seedfile = kwargs.pop('seeds', None)
+        self.n = len(self.sources) 
+        if seedfile is not None:
+            self.seeds = makerec.textrec(seedfile)
+            self.n += len(self.seeds)
+        
     def source(self, i):
+        """ i is the index, or the name of a source"""
         class Source:
             def __init__(self, i, name, ra,dec):
                 self.name = name#'UW3\2%05d' % (i+1)
                 self.ra,self.dec=ra,dec
             def __str__(self): return '%s  %.3f %+0.3f' % (self.name, self.ra, self.dec)
-        return Source(i, self.sources.name[i], self.sources.ra[i], self.sources.dec[i])
-    def process(self, s):
-        name,sdir = s.name, SkyDir(s.ra,s.dec)  
-        print '\n'+60*'=','\nprocessing source %s at %s' % (name, sdir), '\n'+ 60*'='
-        r = self.factory([[name, sdir, Models.PowerLaw()]],  bgfree=self.bgfree)
-
-        # if a different direction, we need to disable the original, most likely the nearest
-        if r.psm.point_sources[1].name.strip() == '%s' % r.name.strip():
-            r.psm.models[1].p[0]=-20
-            print '-----> disabled catalog source with same name found in background <-------'
-        r.dump(maxdist=2)
-        ret =r.fit(method=self.fit_method)
-        r.dump(maxdist=2, title='after fit')
-        r.localize()
-        if r.qform is not None:
-            par = r.qform.par 
-            psig = np.sqrt(par[3]*par[4])
-            adict = self.associate(sdir, par[3:6]) if self.associate else None
+        if type(i)==types.StringType:
+            try:
+                i = self.names().index(i)
+            except ValueError:
+                raise InvalidArgument('Source "%s" not found in list of names' %i)
+        if i< len(self.sources):
+            return Source(i, self.sources.name[i], self.sources.ra[i], self.sources.dec[i])
         else:
-            psig = 1.
-            adict = None
-
-        r.find_tsmax()
-        tsf = r.tsmap()
-        ts_local_max =tsf(r.tsmax) 
-        delta_ts=ts_local_max-tsf(sdir) 
-        if adict is not None:
-            adict['deltats'] = [ts_local_max-tsf(d) for d in adict['dir']]
-            print 'associations:'
-            print '   cat         name                  ra        dec         ang     prob    Delta TS'
-            #       15 Mrk 501               253.4897   39.7527    0.0013      0.41
-            fmt = '   %-10s %-20s%10.4f%10.4f%10.4f%8.2f%8.1f' 
-            for i,id_name in enumerate(adict['name']):
-                tup = (adict['cat'][i], id_name, adict['ra'][i], adict['dec'][i], adict['ang'][i], 
-                        adict['prob'][i],adict['deltats'][i])
-                print fmt % tup
-        else:
-            print 'No associations found'
-
-
-        tsize = 0.5 if r.qform is None else 20*r.qform.par[3]
-        tname = name
-        fname = tname.replace('+','p').replace(' ', '_') # filename
-        tsm=r.plot_tsmap( outdir=None, catsig=0, size=tsize, 
-            # todo: fix this
-            assoc=adict if adict is not None else None, # either None or a dictionary
-            notitle=True, #don't do title
-            markersize=10,
-            primary_markersize=12,
-            )
-        tsm.zea.axes.set_title('%s'% tname, fontsize=12) 
-
-        if self.tsmap_dir is not None: 
-            fout =os.path.join(self.tsmap_dir, ('%s_tsmap.png'%fname) )
-            plt.savefig(fout)
-            print 'saved tsplot to %s' % fout 
-        if self.tsfits_dir: 
-            tsm.zea.skyimage.reimage(tsm.zea.center, os.path.join(self.tsfits_dir, 
-                '%s_tsmap.fits'%name), tsize/20., tsize)
-
-        r.pickle( fname, self.pickle_dir, 
-                delta_ts=delta_ts,
-                ts=r.TS(),
-                band_ts = r.band_ts(),
-                tsmap_max = None ,
-                id = None,
-                adict=adict,
-                )
-        if self.sedfig_dir is not None:
-            r.plot_sed()
-            fout = os.path.join(self.sedfig_dir, ('%s_sed.png'%fname) )
-            plt.title(tname)
-            plt.savefig(fout)
-            print 'saved SED plot to %s' % fout 
- 
-        return
-
-        
+            return self.seeds[i-len(self.sources)]
+    def names(self):
+        return [self.source(i).name for i in range(self.n)]
 
 class UWsourceFits(Pipeline):
     def __init__(self, sourcelist, **kwargs):
@@ -402,9 +361,18 @@ class UWsourceFits(Pipeline):
             self.sources=makerec.textrec(sourcelist)
         else: self.sources=sourcelist    
         self.sources.sort()
+        self.n = len(self.sources)
         super(UWsourceFits,self).__init__(**kwargs)
        
+    def names(self):
+        return self.sources.name
+        
     def source(self, i):
+        if type(i)==types.StringType:
+            try:
+                i = list(self.sources.name).index(i)
+            except:
+                raise InvalidArgument('source %s not found in list of sources' % i)
         class Source:
             def __init__(self, i, name, ra,dec):
                 self.name = name #'1UW%05d' % (i+1)
@@ -412,12 +380,12 @@ class UWsourceFits(Pipeline):
             def __str__(self): return '%s  %.3f %+0.3f' % (self.name, self.ra, self.dec)
         return Source(i, self.sources.name[i], self.sources.ra[i], self.sources.dec[i])
  
+
  
 class TrialSourceFits(Pipeline):
     def __init__(self, sources, auxcat=None, **kwargs):
         """
         sourcelist: recarray with list of names, ra dec
-        
         
         """
         self.sources=sources
@@ -427,16 +395,6 @@ class TrialSourceFits(Pipeline):
         self.__dict__.update(kwargs)
         self.n = len(self.sources)
 
-def setup_stuff(classname, **kwargs):
-    """  generate strings appropriate for assigntasks
-    """
-    args = ','.join(['%s=%s' %(key, kwargs[key]) for key in kwargs.keys()])
-    setup_string = 'from uw.thb_roi import pipeline; reload(pipeline); g = pipeline.%s(%s)' % (classname, args)
-    exec(setup_string)
-    n = g.n
-    tasklist = ['g(%d)'%i for i in range(n)]
-    
-    return setup_string, tasklist
 
 def get_class(adict):
     """Given association dictionary, decide what class to ascribe the source to.  Partly guesswork!
@@ -569,7 +527,11 @@ def main( setup_string, outdir, mec=None, startat=0, n=0, local=False,
     if setup_string[0]=='@':
         setup_string = open(setup_string).read()
     g = getg(setup_string)
-    names = g.sources.name.copy(); del g
+    names = g.names(); del g
+    if len(names)==0:
+        raise InvalidArgument('no tasks defined by Pipeline object')
+    else:
+        print 'found %d sources to process' % len(names)
     if n==0: endat = len(names)
     else: endat = min(startat+n, len(names))
     tasks = ['g(%d)'% i for i in range(len(names))]
@@ -603,10 +565,10 @@ Run the UW pipeline
     setup_string: python executable string that sets a parameter g; if start with "@", name of file
     outdir: where save the files, under folders log, tsmap, sed"""
     parser = OptionParser(usage, version=version)
-    parser.add_option('-l', '--local', help='run locallay', action='store_true', dest='local',default=False)
+    parser.add_option('-l', '--local', help='run locally', action='store_true', dest='local',default=False)
     parser.add_option('-x', '--stop_on_exception', help='do not ignore exceptions', 
                     action='store_false', dest='ignore_exception',default=True)
-    parser.add_option('s', '--start_at', help='initial task to run', dest='startat', default=0, type='int')
+    parser.add_option('s', '--start_at', help='initial task to run (default %default)', dest='startat', default=0, type='int')
     parser.add_option('n', '--number', help='number of tasks to run', dest='n', default=0, type = 'int')
     options, args = parser.parse_args()
     if len(args)!=2: 

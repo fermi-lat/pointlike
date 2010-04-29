@@ -1,11 +1,11 @@
 """
 do pivot stuff 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pivot.py,v 1.1 2010/04/23 04:13:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pivot.py,v 1.2 2010/04/25 01:54:51 burnett Exp $
 
 """
-version='$Revision: 1.1 $'.split()[1]
+version='$Revision: 1.2 $'.split()[1]
 from uw.utilities import collection
-from uw.thb_roi import pipeline
+from uw.thb_roi import pipeline, catalog
 from skymaps import SkyDir
 import numpy as np
 import os, sys, exceptions
@@ -18,24 +18,29 @@ def near(s, cat, tol=1.0):
     rtol = np.radians(tol)
     return [c for c in cat if sdir.difference(SkyDir(c.ra,c.dec))<rtol and c != s]
 
-def selection(indir, select_all):
-    uw = pipeline.load_rec_from_pickles(indir)
+def selection(indir, select_all=False, mindist=0.25):
+    r0 = pipeline.load_rec_from_pickles(indir)
      #--- 
-    if not select_all:
-        cut = (uw.band_ts>9)* (uw.qual<25) \
-            * (uw.delta_ts<9) * (uw.pnorm>1e-15) * (uw.pindex>0.5) * (uw.pindex<4)
-        uwc = uw[cut]
-        print 'selected %d' %len(uwc)
-        return uwc
-    return uw
+    if select_all: return r0
+    cut = (r0.band_ts>9)* (r0.qual<25) \
+        * (r0.delta_ts<9) * (r0.pnorm>1e-15) * (r0.pindex>0.5) * (r0.pindex<4)
+    r1 = r0[cut]
+    print 'selected %d with standard cuts' %len(r1)
+    if mindist==0: return r1
+    # need to prune
+    prunecut = catalog.prune(r1)
+    print 'selected %d after prune within %.2f deg' % (prunecut.sum(), mindist)    
+    return r1[prunecut]
 
 def makepivot(indir, outdir, name, select_all=False, outfile='pivot.cxml', img_list=None, dzc='dzc.xml',
         href=None, linkname=None,
+        origin = None,
         ):
     """
-     indir: where to find the pickle files describing the sources, u
+     indir: where to find the pickle files describing the sources, 
      outdir: where to setup the pivot files: expect to find a dzc file here with the names
      name:  name for the Pivot Collection
+     select_all: if True, do not filter the sources
     """
     if not os.path.exists(outdir): 
         raise InvalidParameter('folder %s not found')
@@ -72,7 +77,8 @@ def makepivot(indir, outdir, name, select_all=False, outfile='pivot.cxml', img_l
     col.add_facet('delta_ts', 'Number', 'F1', dts)
     col.add_facet('id_prob', 'Number', 'F3', uwc.id_prob)
     col.add_facet('class',  'String', 'C3', ['%3s'% s if s!='' else 'None' for s in uwc.aclass])
-
+    if origin is not None:
+        col.add_facet('origin', 'String', 'C', [ origin[n[:2]]     for n in uwc.name])
     if href is not None:
         hreflist = [href % n for n in uw.name[cut]]
         col.add_facet(linkname, 'Link', 'C', hreflist)
@@ -103,10 +109,12 @@ Generate pivot collection
     outdir: where to setup the pivot files: expect to find a dzc file here with the names
     name:  name for the Pivot Collection (surround by double quotes if more than one token) """
     parser = OptionParser(usage, version=version)
-    parser.add_option('-a', '--all', help='keep all sources', action='store_true', dest='select_all',default=False)
+    parser.add_option('-a', '--all', help='keep all sources (otherwise apply filter)', action='store_true', dest='select_all',default=False)
+    parser.add_option( '--noorigin', help='do not check for standard origin from name', action='store_true', dest='noorigin', default=False)
     options, args = parser.parse_args()
     if len(args)!=3: 
         parser.print_usage()
         sys.exit(-1)
-    makepivot(args[0],args[1],args[2], select_all=options.select_all)
+    origin = None if options.noorigin else {'1F':'1FGL', 'PG':'PGW', 'MR':'MRF', 'UW':'UW'}
+    makepivot(args[0],args[1],args[2], select_all=options.select_all, origin=origin)
  
