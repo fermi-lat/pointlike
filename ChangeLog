@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Thu Apr 29 15:57:01 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py 
+Log Message:
+Fixed a couple mistakes in the code for using the daily data.
+
+    *
+------------------------------------------------------------
 User: burnett  Thu Apr 29 14:19:16 PDT 2010
 pointlike/python/uw/thb_roi
 
