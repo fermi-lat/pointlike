@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.7 2010/04/28 21:38:48 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.8 2010/04/29 22:57:01 wallacee Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.7 $'.split()[1]
+version='$Revision: 1.8 $'.split()[1]
 import os
 import sys
 from glob import glob
@@ -18,6 +18,7 @@ from roi_managers import ROIPointSourceManager,ROIBackgroundManager
 from roi_analysis import ROIAnalysis
 from uw.utilities.fitstools import merge_bpd,sum_ltcubes
 from uw.utilities.fermitime import MET
+import numpy as N
 
 
 class AnalysisEnvironment(object):
@@ -324,6 +325,9 @@ Optional keyword arguments:
             print 'No direction specified!  Provide a point source or set roi_dir member of this object!'
             return
 
+        # Easier to store point_sources as an empty list then as None for later loops
+        if point_sources is None: point_sources=[]
+
         # process kwargs
         glat,bg_smodels,nocat,minflux,free_radius,prune_radius,user_skydir = None,None,False,1e-8,2,0.1,None
         #for key in ['glat','bg_smodels','nocat','minflux','free_radius','prune_radius']
@@ -336,7 +340,7 @@ Optional keyword arguments:
         if 'user_skydir' in kwargs.keys(): user_skydir = kwargs.pop('user_skydir')
 
         # setup backgrounds and point sources
-        skydir        = user_skydir or (self.roi_dir if point_sources is None else point_sources[0].skydir)
+        skydir        = user_skydir or (self.roi_dir if point_sources==[] else point_sources[0].skydir)
         cb            = ConsistentBackground(self.ae,self.background)
         cb.cm.free_radius  = free_radius;
         cb.cm.prune_radius = prune_radius;
@@ -355,8 +359,9 @@ Optional keyword arguments:
         bg_manager = ROIBackgroundManager(self, bgmodels,skydir,quiet=self.quiet)
 
         # if didn't specify a source, pick closest one and make it free -- maybe remove this?
-        if point_sources is None and (not N.any([N.any(m.free) for m in ps_manager.models])):
-            ps_manager.models[0].free[:] = True
+        if point_sources==[] and (not N.any([N.any(m.free) for m in ps_manager.models])):
+            if ps_manager.models.shape[0] != 0:
+                ps_manager.models[0].free[:] = True
 
         # n.b. weighting PSF for the central point source
         self.psf.set_weights(self.ltcube,skydir)
