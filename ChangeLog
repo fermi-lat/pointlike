@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Apr 30 15:31:00 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_managers.py roi_analysis.py pointspec.py 
+Log Message:
+Minor changes to the code to allow correctly fitting the background when there are no point sources present.
+    *
+------------------------------------------------------------
 User: wallacee  Thu Apr 29 15:57:01 PDT 2010
 pointlike/python/uw/like
 
