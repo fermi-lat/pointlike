@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.9 2010/03/11 19:23:29 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.10 2010/04/23 19:13:11 wallacee Exp $
 
 author: Matthew Kerr
 """
@@ -410,6 +410,7 @@ class ROIAnalysis(object):
          sources = [s for s in self.psm.point_sources if N.any(s.model.free)]
       elif type(sources) != type([]):
          sources = [sources]
+      if sources == []: return # No point sources in ROI
       bad_sources = []
       for i,s in enumerate(sources):
          if type(s) == PointSource:

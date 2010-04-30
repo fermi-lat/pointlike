@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.3 2010/03/11 19:23:29 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.4 2010/04/09 17:51:49 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -21,7 +21,7 @@ class ROIModelManager(object):
       methods to manager parameters and error matrices."""
 
    def parameters(self):
-      #if len(self.models[self.free])==0: return []
+      if len(self.models)==0: return []
       return list(N.concatenate([m.get_parameters() for m in self.models]))
 
    def set_parameters(self,parameters,current_position=0):
@@ -49,7 +49,7 @@ class ROIPointSourceManager(ROIModelManager):
       self.roi_dir = roi_dir
       self.point_sources = point_sources
       self.models = N.asarray([point_source.model for point_source in point_sources])
-      self.mask   = N.asarray([True]*len(self.models))
+      self.mask   = N.asarray([True]*len(self.models),bool)
       self.quiet = quiet
 
    def __len__(self): return len(self.point_sources)
@@ -114,17 +114,21 @@ class ROIPointSourceManager(ROIModelManager):
    def update_counts(self,bands):
       """Update models with free parameters."""
       ma = self.mask
+      s = (~ma).sum()
       for band in bands:
          new_counts = N.asarray([band.expected(m) for m in self.models[ma]])*band.er[ma]
          band.ps_counts[ma] = new_counts
          band.ps_all_counts = (band.overlaps[ma]*new_counts).sum() + band.frozen_total_counts
          if band.has_pixels:
-            band.ps_all_pix_counts = \
-               (band.unfrozen_pix_counts * new_counts).sum(axis=1) + band.frozen_pix_counts
+            if s > 0:
+               band.ps_all_pix_counts = \
+                  (band.unfrozen_pix_counts * new_counts).sum(axis=1) + band.frozen_pix_counts
+            else:
+               band.ps_all_pix_counts = 0
 
    def cache(self,bands):
       """Cache values for models with no degrees of freedom.  Helps a lot near galactic plane."""
-      self.mask = m = N.asarray([N.any(model.free) for model in self.models])
+      self.mask = m = N.asarray([N.any(model.free) for model in self.models],bool)
       nm = ~self.mask
       s  = nm.sum()
       
@@ -141,7 +145,7 @@ class ROIPointSourceManager(ROIModelManager):
 
       for band in bands:
 
-         if band.has_pixels:
+         if s > 0 and band.has_pixels:
             band.unfrozen_pix_counts = band.ps_pix_counts.transpose()[m].transpose()
          else:
             band.unfrozen_pix_counts = 0
