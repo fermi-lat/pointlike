@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.15 2010/04/27 00:55:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.16 2010/04/29 21:16:35 burnett Exp $
 
 """
-version = '$Revision: 1.15 $'.split()[1]
+version = '$Revision: 1.16 $'.split()[1]
 
 import pylab
 import math
@@ -697,9 +697,13 @@ class TSplot(object):
         self.zea= ZEA(center, size, pixelsize, axes=axes, nticks=nticks,fitsfile=fitsfile, **kwargs)
         print 'TSplot: filling %d pixels...'% (size/pixelsize)**2
         self.zea.fill(tsmap)
-        # create new image that is the significance in sigma
-        self.tsmaxpos=tsmaxpos = self.find_local_maximum() # get local maximum
-        tsmaxval = tsmap(tsmaxpos)
+        # create new image that is the significance in sigma with respect to local max
+        self.tsmaxpos=tsmaxpos = self.find_local_maximum() # get local maximum, then check that is in the image
+        x,y = self.zea.pixel(tsmaxpos)
+        if x>=0 and x < self.zea.nx and y>=0 and y<self.zea.ny:
+            tsmaxval = tsmap(tsmaxpos)
+        else: # not in image: use maximm actually in the image
+            tsmaxval = self.zea.image.max()
         tmap = tsmaxval-self.zea.image
         tmap[tmap<0] = 0
         self.image =np.sqrt(tmap)
