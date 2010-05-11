@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.6 2010/04/23 04:10:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.7 2010/04/25 01:58:37 burnett Exp $
 
 """
 
@@ -96,8 +96,8 @@ class MyROI(roi_analysis.ROIAnalysis):
         try:
             ret = super(MyROI, self).fit(fit_bg_first=fit_bg_first, **kwargs)
             if not self.quiet: print self
-        except:
-            if not self.quiet: print 'Fit failed!'
+        except Exception:
+            if not self.quiet: print 'Fit failed'
 
     def band_ts(self, which=0):
         """ return the sum of the individual band ts values
@@ -443,7 +443,7 @@ class MyROI(roi_analysis.ROIAnalysis):
             k+=1
         
         tsp.plot(tsp.tsmaxpos, symbol='x') # at the maximum
-        if not notitle: plt.title( name, fontsize=12)
+        if not notitle: plt.title( name, fontsize=14)
 
         if assoc is not None:
             # eventually move this to image.TSplot
@@ -469,11 +469,6 @@ class MyROI(roi_analysis.ROIAnalysis):
         if not nolegend: tsp.zea.axes.legend(loc=2, numpoints=1, bbox_to_anchor=(-0.15,1.0))
         plt.rcParams['font.size'] = fs
 
-        #if galmap: # moved
-        #    axi = plt.gcf().add_axes((0.75, 0.80, 0.20, 0.10))
-        #    ait_insert=image.AIT_grid(axes=axi, labels=False, color='w')
-        #    ait_insert.plot([self.center], 'sr')
-        
         if outdir is not None: plt.savefig(os.path.join(outdir,'%s_tsmap.png'%name.strip()))
         return tsp
 
