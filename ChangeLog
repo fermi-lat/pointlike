@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue May 11 11:57:22 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	makefig.py 
+Log Message:
+slight adjustment of position; flag to force generating logs
+    *
+------------------------------------------------------------
 User: burnett  Tue May 11 11:55:47 PDT 2010
 pointlike/python/uw/utilities
 
