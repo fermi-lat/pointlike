@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue May 11 12:02:45 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	associate.py 
+Log Message:
+make extracting association from catalog file consistent with new system
+    *
+------------------------------------------------------------
 User: burnett  Tue May 11 12:01:03 PDT 2010
 pointlike/python/uw/thb_roi
 
