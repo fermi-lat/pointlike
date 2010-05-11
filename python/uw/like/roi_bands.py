@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.3 2010/03/11 19:23:29 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.4 2010/03/30 18:17:39 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -39,7 +39,7 @@ class ROIBand(object):
       self.e   = (self.emin*self.emax)**0.5
       self.sa  = spectral_analysis
       self.sd  = skydir
-      self.ec  = self.ct = band.event_class()          # note change 
+      self.ec  = self.ct = band.event_class()  & 1        # note change and mask
       self.exp = self.sa.exposure.exposure[self.ct]
       self.psf = self.sa.psf.band_psf(self)
 
