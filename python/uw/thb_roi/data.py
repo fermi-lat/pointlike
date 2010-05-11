@@ -1,10 +1,10 @@
 """  manage Fermi data, set up for spectral analysis
 
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/data.py,v 1.4 2010/03/26 14:07:43 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/data.py,v 1.5 2010/04/15 21:09:36 burnett Exp $
 """
 
-import os, sys
+import os, sys, glob
 import numpy as np
 import skymaps
 
@@ -14,7 +14,7 @@ if os.name=='posix':
 elif os.environ['computername']=='GLAST-TS':
     fermi_root = 'f:\\glast'
 else: # all others
-    fermi_root = 'd:\\fermi'
+    fermi_root = 'T:\\'
 
 # expect to find folders for ft1/ft2 data, galprop, and catalog info
 data_path    = os.path.join(fermi_root, 'data')
@@ -40,8 +40,8 @@ if os.path.split(os.environ['CALDB'])[-1] != 'lat':
 #default_catalog ='gll_psc11month_v4r4_flags.fit' # after 12/14
 #default_catalog ='gll_psc_v01.fit' # after 01/15
 #default_catalog ='gll_psc_v02.fit' # after 01/29
-default_catalog ='gll_psc_v03.fit' # after 02/10
-
+#default_catalog ='gll_psc_v03.fit' # after 02/10
+default_catalog ='gll_psc11month_1FGL_v0.fit' #final
 
 class BasicData(object):
     def __init__(self,**kwargs):
@@ -137,8 +137,6 @@ class OneYear(BasicData):
         return "one_year, 4 bins/decade to 1 TeV"
 
 
-
-
 class Catalog(BasicData):
     def __init__(self):
         """ special selection, Aug 2008 to July 4 2009 (end of run 268411953)
@@ -178,6 +176,29 @@ class FifteenMonths(BasicData):
         return event_files, history_files,datafile, livetimefile
     def __str__(self):
         return "fifteen months, 4 bins/decade to 1 TeV"
+
+class TwentyMonths(BasicData):
+    def __call__(self):
+        event_files= glob.glob(os.path.join(data_path,'bpd','*.fits'))
+        history_files = glob.glob(os.path.join(data_path,'lt','*.fits'))
+
+        datafile     = os.path.join(data_path,'twenty','20month_4bpd.fits')
+        livetimefile = os.path.join(data_path,'twenty','20month_lt.fits')
+        return event_files, history_files,datafile, livetimefile
+    def __str__(self):
+        return "twenty months, 4 bins/decade to 1 TeV"
+
+class EighteenMonths(BasicData):
+    def __call__(self):
+        event_files   = glob.glob(os.path.join(data_path,'kerr2','18M_data','*_ft1.fits'))
+        history_files = glob.glob(os.path.join(data_path,'kerr2','18M_data','*_ft2.fits'))
+
+        datafile     = os.path.join(data_path,'18M', '18months_4.fits')
+        livetimefile = os.path.join(data_path,'18M', '18month_livetime.fits')
+        return event_files, history_files,datafile, livetimefile
+    def __str__(self):
+        return "18 months, 4 bins/decade to 1 TeV"
+
 
 class MyAnalysisEnvironment():
     """
@@ -258,6 +279,10 @@ class MyAnalysisEnvironment():
                 args = all_data()()
             elif mydata=='1FGL':
                 args = Catalog_noGRB()()
+            elif mydata=='20months':
+                args = TwentyMonths()()
+            elif mydata=='18M':
+                args = EighteenMonths()()
             else:
                 raise Exception('data set id "%s" not recognized' % mydata)
         else:

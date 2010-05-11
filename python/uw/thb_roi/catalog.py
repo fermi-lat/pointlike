@@ -1,6 +1,6 @@
 """
  catalog stuff
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/catalog.py,v 1.2 2010/03/18 20:36:18 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/catalog.py,v 1.3 2010/04/15 05:21:05 burnett Exp $
  """
 
 import sys, os, math
@@ -12,6 +12,7 @@ from uw.utilities import makerec
 catalog_root = os.path.join(data.fermi_root,'catalog')
 default_assoc =  'gll_psc11month_v4r4_flags_v4r3p8.fit' #'gll_psc11month_v1r2.fit'
 default_assoc =  'gll_psc11month_v4r4_flags_v4r3p1_v4.fit' # after 14 Jan
+default_assoc =  'gll_psc11month_v4r4_flags_v4r4p1.fit'  # final 1FGL
 
 default_catalog = data.default_catalog # use the same one analyhsis
 
@@ -113,11 +114,12 @@ class Density(object):
         count = (dist<self.maxdist).sum()
         return count/self.area
 
-def correlate(cat1, cat2):
+def correlate(cat1, cat2, min_diff=0):
     """ return an array with shape (len(cat1),2) 
         with the first entry the minimum distance from each entry in cat1 to cat2
-        the second entry the cat2 reference
+        the second entry the cat2 index
         expect that each list has ra,dec property
+        if mindiff is >0, can exclude duplicate
     """
     mindiff=np.zeros((len(cat1),2))
     cat2d = [SkyDir(s.ra,s.dec) for s in cat2]
@@ -127,14 +129,14 @@ def correlate(cat1, cat2):
         bmin = -1
         for j,b in enumerate(cat2d):
             d = math.degrees(adir.difference(b))
-            if d< mind: mind=d; bmin=j
+            if d< mind and d>min_diff: mind=d; bmin=j
         mindiff[i][0]=mind
         mindiff[i][1]=bmin
     return mindiff
 
 def prune(cat, mindist=0.1):
     """ cat: catalog to prune: must have ra, dec columns
-        return a recarray of bools for entries that are unique
+        return a array of bools for entries that are unique
     """
     dirs = map(SkyDir,cat.ra, cat.dec)
     rmin = np.radians(mindist)
