@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue May 11 12:01:03 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	roi_factory.py 
+Log Message:
+flexibility for specifying model
+    *
+------------------------------------------------------------
 User: burnett  Tue May 11 11:59:44 PDT 2010
 pointlike/python/uw/utilities
 
