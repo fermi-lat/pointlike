@@ -1,13 +1,37 @@
 """
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.1 2010/03/22 17:28:13 burnett Exp $
 author: T.Burnett <tburnett@u.washington.edu>
 """
 
 import copy
+import numpy as np
 from uw.like import pointspec, Models, pointspec_helpers
 from skymaps import SkyDir
 # in this package
 import data, roi_setup, catalog, myroi
+
+## this should go to Models 
+def make_model( name='PowerLaw', pars=(1e-12/1.53, 2.3), quiet=True):
+    """ make a fit model:  
+        name: ['PowerLaw']
+        pars: [('1e-12/1.53, 2.3)] If more default parameters, will fill in from defaults
+    """
+    try:
+        description = Models.DefaultModelValues.simple_models[name] # look it up
+        factory = eval('Models.'+name)  # the class 
+        defaults = list(description['p'])
+        if pars is not None:
+            for i in range(len(pars)): defaults[i] = pars[i]
+        if not quiet: print 'Set up model %s, inital parameters %s' % (name, np.asarray(defaults))
+        
+    except KeyError:
+        raise Exception('model "%s" not recognized: %s expect one of: '\
+                        % (name, Models.DefaultModelValues.keys()))
+    except:
+        print 'Failed to make model %s with parameters %s' % (name ,pars) 
+        raise
+    return factory(p=defaults)
+    
 
 class ROIfactory(pointspec.SpectralAnalysis):
     """ subclass of SpectralAnalysis, coded as a ROI "factory"
@@ -98,11 +122,14 @@ class ROIfactory(pointspec.SpectralAnalysis):
             free_radius  [see factory] fit all sources within this radius
             prune_radius [see factory] Do not include catalog sources within this radius of specified direction
             use_gradient [True]    When doing a spectral fit, set the "use_gradient" option
-            model        'powerlaw' One of: 'powerlaw', 'expcuoff', 'logparabola'
+            model        'PowerLaw' One of: 'PowerLaw', 'ExpCuoff', 'LogParabola'
+            model_par    [1e-12, 2.3]    a list of initial model parameters
             ==========   =============
         """
 
         ps = None
+        modelname = kwargs.pop('model', 'PowerLaw')
+        model_par = kwargs.pop('model_par', (1e-12, 2.3))
         if sources is not None:
             if type(sources)==type(' '):
                 try:
@@ -110,21 +137,15 @@ class ROIfactory(pointspec.SpectralAnalysis):
                 except:
                     print 'expected string with name ra dec'
                     raise
-                modelname = kwargs.pop('model', 'powerlaw')
-                models ={'powerlaw':    Models.PowerLaw(), 
-                         'expcutoff':   Models.ExpCutoff(), 
-                         'logparabola': Models.LogParabola(),
-                        }
-                if modelname not in models:
-                    raise Exception('model "%s" not recognized: %s expect one of: '% (modelname, models.keys()))
-                model_object = copy.copy(models[modelname])
-                ps = [pointspec_helpers.PointSource(SkyDir(float(ra), float(dec)), name, model_object)]
+                themodel = make_model(modelname, model_par)
+                ps = [pointspec_helpers.PointSource(SkyDir(float(ra), float(dec)), name, themodel)]
             else:
                 ps = []
                 for s in sources:
                     name,dir = s[:2]
-                    model = s[2] if len(s)==3 else Models.PowerLaw();
-                    ps.append(pointspec_helpers.PointSource(dir,name,model) )
+                    themodel = s[2] if len(s)==3 else make_model(modelname, model_par);
+                    ps.append(pointspec_helpers.PointSource(dir,name, themodel) )
+                
         self.roi_dir = roi_dir or ps[0].skydir
         if min_roi: self.minROI=min_roi  
         if max_roi: self.maxROI=max_roi 
@@ -142,6 +163,7 @@ class ROIfactory(pointspec.SpectralAnalysis):
             r.psm.models[1].p[0]=-20
 
         return r
+    
         
     def source_list(self):
         """ return a recarray of all the sources in the current model
