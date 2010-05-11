@@ -1,13 +1,13 @@
 """ 
 Make combinded figures for Pivot, perhaps
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makefig.py,v 1.2 2010/04/25 01:54:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makefig.py,v 1.3 2010/04/29 21:18:17 burnett Exp $
 
 """ 
 
 from PIL import Image
 import glob, os, sys, exceptions
 import pylab  as plt
-version='$Revision: 1.2 $'.split()[1]
+version='$Revision: 1.3 $'.split()[1]
 
 class InvalidParameter(exceptions.Exception):
     pass
@@ -53,7 +53,7 @@ class Holder(object):
 w= 1536 # default initial width -- numbers below tuned by hand for tsmap, sed, log
 def combine_images(names, hsize=(2304,w), 
                     sizes=     [(w,w) , None, None], 
-                    positions= [(0,0), (w,75), (w,w-1015)],
+                    positions= [(0,0), (w,75), (w-25,w-1015)],
                     crop=(50,50,2050, 1500),
                     outdir=None,
                     ):
@@ -111,6 +111,7 @@ def main(
         figpath ,
         pivot_dir  = None, 
         nmax=0,
+        force_log_gen = False,
     ):
     """
     Args:
@@ -128,7 +129,7 @@ def main(
     n = len(tsmaps)
     logfigs = glob.glob(os.path.join(figpath,'log', '*.png'))
     logfigs.sort()
-    if n>0 and len(logfigs)!=n:
+    if n>0 and len(logfigs)!=n or force_log_gen:
         print 'generating png versions of log files...'
         convert_log_to_png(figpath)
         logfigs = glob.glob(os.path.join(figpath,'log', '*.png'))
