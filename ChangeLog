@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue May 11 12:05:00 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	pivot.py 
+Log Message:
+refactor for specifying data set
+    *
+------------------------------------------------------------
 User: burnett  Tue May 11 12:03:40 PDT 2010
 pointlike/python/uw/thb_roi
 
