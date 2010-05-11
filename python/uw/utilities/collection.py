@@ -1,15 +1,17 @@
 """
 generate collection file for LiveLabs Pivot viewer
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.3 2010/04/23 04:15:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.4 2010/04/29 21:17:20 burnett Exp $
 See <http://getpivot.com>
 Author: Toby Burnett <tburnett@uw.edu>
 """
 
-import os, pickle, pyfits, types
+import os, pickle, pyfits, types, exceptions
 import xml.sax
 
 import numpy as np
+class InvalidParameter(exceptions.Exception):
+    pass
 
 def get_image_ids( dzc):
     """ look for the names in the DZC file 
@@ -30,6 +32,23 @@ def get_image_ids( dzc):
     parser.parse(open(dzc,'r'))
     return h.id_dict
 
+def image_list(item_names, full_dzc):
+    """
+     search the DZC for names that correspond to the names in item_names
+    # the names are source names, so file names have had blanks and + signs replaced
+    """
+    if not os.path.exists(full_dzc):
+        raise InvalidParameter('DZC file %s does not exist' % full_zdc)
+    ids = get_image_ids(full_dzc) # this is a dictionary, key the source name, value the index of the dzi
+    # 
+    names = [n.replace('+', 'p').replace(' ','_')  for n in item_names]
+    try:
+        return [ids[n+'.xml'] for n in names]
+    except:
+        print 'Source %s not found in list of images %s' %  full_dzc
+        raise
+
+
 class Collection(object):
     """ manage a collection object.
     
@@ -45,42 +64,30 @@ class Collection(object):
     trailer = """\n</Collection> """ 
 
 
-    def __init__(self, cname, folder, item_names, dzc, img_list=None, icon=None, href=None):
+    def __init__(self, cname, folder, item_names, dzc,  icon=None, href=None):
         """
         parameters description
         ---------- -----------
         cname       name for the collection
         folder     folder where files exist, the result will be put
         item_names list of names for each item
-        dzc        filename for the Deep Zoom (DZ) Collection of images, relative to base
-        img_list  if specified, a list of integers for the images in the DZ collection corresponding to the names
-        href      list of references
+        dzc        filename for the Deep Zoom (DZ) Collection of images, relative to folder
+        href       list of references, same length as item_names if specified
        
         """
         self.name = cname
         self.folder = folder
-        assert(os.path.exists(folder))
+        if not os.path.exists(folder):
+            raise InvalidParameter('folder %f does not exist' % folder)
         self.facets =[]
         self.item_names = item_names
         self.n = len(item_names)
-        assert(self.n>0)
-        self.dzc = dzc
-        full_dzc = os.path.join(folder,dzc)
-        assert( os.path.exists(full_dzc))
-        if img_list is not None:
-            self.img_list = img_list
-            assert(len(img_list)==self.n)
-        else:
-            ids = get_image_ids(full_dzc)
-            # 
-            names = [n.replace('+', 'p').replace(' ','_')  for n in item_names]
-            try:
-                self.img_list = [ids[n+'.xml'] for n in names]
-            except:
-                print 'Source not found in list of images %s' % img_list
-                raise
+        if self.n==0:
+            raise InvalidParameter('List of Item names is empty')
         self.icon = icon
-        self.href=href
+        self.href =href
+        self.dzc  = dzc
+        
 
     class Facet(object):
         def __init__(self, name, type, format, data, filter):
@@ -101,24 +108,59 @@ class Collection(object):
         assert(len(data)==self.n) # make sure all columns the same length
         self.facets.append(Collection.Facet(name, type, format, data, filter))
         
-    def write(self, outfile):
-        assert(len(self.facets)>0) # fail if no Facets were added
-        out= open(outfile, 'w')
-        out.write(Collection.header %  (self.name, ('' if self.icon is None else ' d1p1:Icon="%s"'%self.icon) ))
+    def write(self, outfile='pivot.cxml', last_id=-1):
+        """ The Facet objects have all been added
+            
+            outfile ['pivot.cxml'], the full file name of the cxml, position relative to base
+            last_id [-1]            used to sequence: add one for first element, etc.
+        """
+        if len(self.facets)==0: # fail if no Facets were added
+            raise InvalidParameter('No Facets were added')
 
+        out= open(outfile, 'w')
+        out.write(Collection.header %  (self.name, ('' if self.icon is None else '\n    d1p1:Icon="%s"'%self.icon) ))
+
+        self.writeFacetCategories(out)
+        
+        # write out one or more Items elements
+        
+        self.writeAllItems(out, last_id)
+        
+        out.write(Collection.trailer)
+        out.close()
+   
+    def writeFacetCategories(self, out):
         out.write('\n<FacetCategories>' )
         for facet in self.facets:
             #IsFilterVisible="%(filter)s"
             out.write('\n  <FacetCategory Name="%(name)s" Type="%(type)s" Format="%(format)s" d1p1:IsFilterVisible="%(filter)s"/>' %(facet.__dict__))
         out.write('\n</FacetCategories>')
-        
-        out.write('\n<Items ImgBase="%s">' %  self.dzc)
-        for i,name in enumerate(self.item_names):
-            img = self.img_list[i]
+    
+    def writeAllItems(self, out,last_id):
+        "write one or more Items elements: only one in this class"
+        self.last_id = last_id
+        img_list = image_list(self.item_names, os.path.join(self.folder,self.dzc))
+        self.writeItems(out, self.dzc, self.item_names, img_list, self.facets)
+ 
+    def writeItems(self,out, imagebase, item_names, img_list, facets, select=None):
+        """ write out an Items element
+            out: open File object
+            imgbase: the DZC file
+            item_names: list of names for each item
+            img_list: list of corresponding dzi indices
+            facets: list of Facet objects with arrays of data (attributes name, data)
+            select: if not None, an array of bools to select the set of Item's for this DZC
+            
+            """
+        out.write('\n<Items ImgBase="%s">' %  imagebase)
+        for i,name in enumerate(item_names):
+            if select is not None and not select[i]: continue
+            img = img_list[i]
             href= ' Href="%s"' % self.href[i] if self.href is not None else ""
-            out.write('\n<Item Id="%d" Img="#%d" Name="%s" %s>' % (i, int(img), name, href))
+            self.last_id+=1
+            out.write('\n<Item Id="%d" Img="#%d" Name="%s" %s>' % (self.last_id, int(img), name, href))
             out.write('\n <Facets>')
-            for facet in self.facets:
+            for facet in facets:
                 if facet.type == 'Number':
                     datum = facet.data[i]
                     out.write('\n  <Facet Name="%s"> <%s Value="%.4f"/> </Facet>' % (facet.name, facet.type, datum))
@@ -129,18 +171,48 @@ class Collection(object):
                 else:
                     out.write('\n  <Facet Name="%s"> '% facet.name)
                     d = facet.data[i]
-                    if type(d)==types.ListType:
+                    if getattr(d,'__iter__',False):
                         for x in d: out.write('<%s Value="%s"/>' %( facet.type, x))
                     else: 
                         out.write('<%s Value="%s"/>' %( facet.type, d))
                     out.write(' </Facet>' ) 
                 
-            out.write('\n </Facets>\n</Item>')    
+            out.write('\n </Facets>\n</Item>') 
         out.write('\n</Items>')
+    
+class MultiCollection(Collection):
+    """ Subclass of Collection to support multiple DZCs
+        difference is that the DZC argument is a list. 
+        For each name in the item_names argument, it searches for the appropriate DZI, and organizes an Items element to 
+        contain each set.
+    
+    """
+
+    def _getid(self,name):
+        fname = name.replace(' ','_').replace('+','p')+'.xml'
+        for i, dict in enumerate(self.imageid_dicts):
+            try:
+                return i, dict[fname]
+            except: pass
+        raise InvalidParameter('name %s not found in DeepZoom collections'%fname)
         
-        out.write(Collection.trailer)
-        out.close()
+    def writeAllItems(self, out,last_id):
+        """ override base class to manage multiple Items, according to where the individual DZI images are found
+        """
+        self.last_id = last_id
+        self.imageid_dicts = [get_image_ids(os.path.join(self.folder,dzc)) for dzc in self.dzc]
         
+        # make a list of pairs of the dzc index, and the dzi index for each name
+        found = np.array([ self._getid(name) for name in self.item_names])
+        #z = np.rec.fromarrays([found[:,0], found[:,1], self.item_names], names='dzc i name'.split())
+        for i, dzc in enumerate(self.dzc):
+            select = np.asarray([int(f)==i for f in found[:,0]])
+            if select.sum()==0:
+                print 'warning: no Items with images in DZC %s' % dzc
+                continue
+            self.writeItems(out, dzc, self.item_names, found[:,1], self.facets, select)
+        
+     
 if __name__=='__main__':
     pass
     
