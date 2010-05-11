@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue May 11 11:58:41 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	makerec.py 
+Log Message:
+convenience load function does either pickle or txt
+    *
+------------------------------------------------------------
 User: burnett  Tue May 11 11:57:22 PDT 2010
 pointlike/python/uw/utilities
 
