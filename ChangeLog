@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue May 11 11:54:51 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py roi_bands.py 
+Log Message:
+protect against high bits being set for event class
+    *
+------------------------------------------------------------
 User: kerrm  Fri May  7 11:39:07 PDT 2010
 pointlike/python/uw/like
 
