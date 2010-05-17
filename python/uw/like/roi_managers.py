@@ -1,7 +1,7 @@
 """
 Provides modules for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.4 2010/04/09 17:51:49 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.5 2010/04/30 22:31:00 lande Exp $
 
 author: Matthew Kerr
 """
@@ -114,15 +114,17 @@ class ROIPointSourceManager(ROIModelManager):
    def update_counts(self,bands):
       """Update models with free parameters."""
       ma = self.mask
-      s = (~ma).sum()
       for band in bands:
          new_counts = N.asarray([band.expected(m) for m in self.models[ma]])*band.er[ma]
          band.ps_counts[ma] = new_counts
          band.ps_all_counts = (band.overlaps[ma]*new_counts).sum() + band.frozen_total_counts
          if band.has_pixels:
-            if s > 0:
-               band.ps_all_pix_counts = \
-                  (band.unfrozen_pix_counts * new_counts).sum(axis=1) + band.frozen_pix_counts
+            if len(self.point_sources) > 0:
+               if ma.sum() > 0:
+                   band.ps_all_pix_counts = \
+                      (band.unfrozen_pix_counts * new_counts).sum(axis=1) + band.frozen_pix_counts
+               else:
+                   band.ps_all_pix_counts = band.frozen_pix_counts
             else:
                band.ps_all_pix_counts = 0
 
@@ -145,7 +147,7 @@ class ROIPointSourceManager(ROIModelManager):
 
       for band in bands:
 
-         if s > 0 and band.has_pixels:
+         if m.sum() > 0 and band.has_pixels:
             band.unfrozen_pix_counts = band.ps_pix_counts.transpose()[m].transpose()
          else:
             band.unfrozen_pix_counts = 0
