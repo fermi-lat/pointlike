@@ -1,4 +1,22 @@
 ------------------------------------------------------------
+User: kerrm  Tue May 18 15:25:36 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py pointspec_helpers.py pypsf.py roi_analysis.py 
+	roi_managers.py 
+Log Message:
+This update brings a modest change in the overall structure of pointlike.  To make the division of sources more physical, ROIBackgroundManager has been replaced by ROIDiffuseManager.
+
+This change is with an eye towards including extended sources in fitting.  Along with the change in nomenclature, ROIDiffuseManager is pared down compared to its predecssor.  Much of the heavy lifting for calculating the contribution of diffuse sources to the ROI has been pushed to a new class/interface, ROIDiffuseModel.  This class manages, e.g., integration of the diffuse source over position and energy, evaluation of the model at data pixels, etc.
+
+By pushing this functionality to ROIDiffuseModel, we get the flexibility to treat many classes of diffuse sources by inheriting from the basic interface.  As an example, the default implementation of the class performs on-the-fly convolution with the PSF, while a child class can use pre-convolved mapcubes.  Child classes supporting  various extended sources are another obvious application.
+
+Finally, the "factory" interface provide by SpectralAnalysis.roi has change to allow more flexibility in the specification of models.  Diffuse sources (including backgrounds) and catalogs of point sources may be specified independently.  Sensible defaults are wired in (up to file locations) to facilitate typical analyses.
+
+Let the bug fixes begin.
+    *
+------------------------------------------------------------
 User: kerrm  Tue May 18 15:19:28 PDT 2010
 pointlike/python/uw/like
 
