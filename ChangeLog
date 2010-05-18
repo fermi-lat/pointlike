@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Tue May 18 15:19:28 PDT 2010
+pointlike/python/uw/like
+
+Added Files:
+	roi_diffuse.py 
+Log Message:
+A new module containing classes to support modeling of diffuse sources.
+    *
+------------------------------------------------------------
 User: lande  Sun May 16 22:16:05 PDT 2010
 pointlike/python/uw/like
 
