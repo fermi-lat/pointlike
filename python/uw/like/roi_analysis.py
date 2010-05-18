@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.12 2010/05/11 18:54:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.13 2010/05/18 22:25:36 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -53,7 +53,6 @@ class ROIAnalysis(object):
           phase_factor -- a correction that can be made if the data has
                           undergone a phase selection -- between 0 and 1
       """
-
       self.init()
       self.__dict__.update(**kwargs)
       self.roi_dir = roi_dir
@@ -64,7 +63,6 @@ class ROIAnalysis(object):
       self.logl = None
       self.prev_logl = None
       self.__setup_bands__()
-
       self.bin_centers = N.sort(list(set([b.e for b in self.bands])))
       self.bin_edges   = N.sort(list(set([b.emin for b in self.bands] + [b.emax for b in self.bands])))
 
@@ -432,7 +430,7 @@ class ROIAnalysis(object):
       ll = -self.logLikelihood(save_params)
       return -2*(ll_0 - ll)
 
-   def localize(self,which=0, tolerance=1e-3,update=False, verbose=False, bandfits=False):
+   def localize(self,which=0, tolerance=1e-3,update=False, verbose=False, bandfits=False, seedpos=None):
       """Localize a source using an elliptic approximation to the likelihood surface.
 
          which     -- index of point source; default to central
@@ -440,10 +438,13 @@ class ROIAnalysis(object):
          tolerance -- maximum difference in degrees between two successive best fit positions
          update    -- if True, update localization internally, i.e., recalculate point source contribution
          bandfits  -- if True, use a band-by-band (model independent) spectral fit; otherwise, use broabband fit
+         seedpos   -- if set, use this position instead of the source position
 
          return fit position
       """
       rl = ROILocalizer(self,which=which,bandfits=bandfits,tolerance=tolerance,update=update,verbose=verbose)
+      if seedpos is not None:
+         rl.sd = seedpos  # override 
       return rl.localize()
 
    def upper_limit(self,which = 0,confidence = .95,e_weight = 0,cgs = False):
