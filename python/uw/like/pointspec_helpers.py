@@ -1,15 +1,38 @@
 """Contains miscellaneous classes for background and exposure management.
    
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.4 2010/02/10 00:22:34 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.5 2010/02/18 03:29:20 burnett Exp $
 
    author: Matthew Kerr
    """
 
 import numpy as N
 from skymaps import *
-from Models import Constant,PowerLaw
+from uw.like.Models import Model,Constant,PowerLaw,DefaultModelValues
 from roi_managers import ROIBackgroundModel
+from roi_diffuse import DiffuseSource
 from os.path import join
+import os
+
+###====================================================================================================###
+
+class PointSource(object):
+   def __init__(self,skydir,name,model=None,free_parameters=True):
+      self.name   = name
+      self.skydir = skydir
+      self.model  = PowerLaw() if model is None else model
+      #if not free_parameters:
+      for i in xrange(len(self.model.free)): self.model.free[i] = free_parameters
+      self.duplicate = False
+   def __str__(self):
+      return '\n'.join(['\n',
+                        '='*60,
+                        'Name:\t\t%s'%(self.name),
+                        'R.A. (J2000):\t\t%.5f'%(self.skydir.ra()),
+                        'Dec. (J2000):\t\t%.5f'%(self.skydir.dec()),
+                        'Model:\t\t%s'%(self.model.name),
+                        '\n',
+                        'Model Parameters:',
+                        '%s'%(str(self.model))])
 
 ###====================================================================================================###
 
@@ -31,11 +54,17 @@ class Singleton(object):
       inst = Singleton._Singleton__instances
       key  = str(constructor) if key is None else key
       if key not in inst.keys(): inst[key] = constructor(*args,**kwargs)
+      return inst[key]
 
    def __call__(self,key):
       inst = Singleton._Singleton__instances
       key  = str(key)
       if key in inst: return inst[key]
+
+class Singleton2(Singleton):
+
+    def __init__(self):
+        pass
 
 ###====================================================================================================###
 
@@ -45,7 +74,7 @@ class ExposureManager(object):
    
     def __init__(self,sa):
 
-        EffectiveArea.set_CALDB(sa.ae.CALDB)
+        EffectiveArea.set_CALDB(sa.CALDB)
         Exposure.set_cutoff(N.cos(N.radians(sa.thetacut)))
         inst = ['front', 'back']
         self.ea  = [EffectiveArea(sa.irf+'_'+x) for x in inst]
@@ -137,28 +166,22 @@ class ConsistentBackground(object):
 
 ###====================================================================================================###
 
+class PointSourceCatalog(object):
+    """ Define an interface for point source catalog that can be used to
+        construct the model for an ROI analysis."""
 
-class PointSource(object):
-   def __init__(self,skydir,name,model=None,free_parameters=True):
-      self.name   = name
-      self.skydir = skydir
-      self.model  = PowerLaw() if model is None else model
-      #if not free_parameters:
-      for i in xrange(len(self.model.free)): self.model.free[i] = free_parameters
-      self.duplicate = False
-   def __str__(self):
-      return '\n'.join(['\n',
-                        ''.join(['=']*60),
-                        'Name:\t\t%s'%(self.name),
-                        'R.A. (J2000):\t\t%.5f'%(self.skydir.ra()),
-                        'Dec. (J2000):\t\t%.5f'%(self.skydir.dec()),
-                        'Model:\t\t%s'%(self.model.name)])
+    def get_sources(self,skydir,radius=15):
+        raise NotImplementedError,'Virtual'
+
+    def merge_lists(self,skydir,radius=15,user_list=None):
+        raise NotImplementedError,'Virtual'
 
 ###====================================================================================================###
 
-
-class CatalogManager(object):
-   """Read a Jean Ballet catalogue and use it to set up a source list for a ROI."""
+class FermiCatalog(PointSourceCatalog):
+   """Read a Jean Ballet catalogue and use it to set up a source list for a ROI.
+   
+      This class works (mostly) for EMS and 1FGL styles."""
 
    def init(self):
       self.prune_radius  = 0.10 #deg; in a merge, consider sources closer than this duplicates
@@ -235,3 +258,126 @@ class CatalogManager(object):
       merged_list.sort(key = lambda ps: ps.skydir.difference(skydir))
 
       return merged_list
+
+class CatalogManager(FermiCatalog):
+    """ For compatibility.  Temporary."""
+    pass
+
+
+def get_diffuse_source(spatialModel='ConstantValue',
+                      spatialModelFile=None,
+                      spectralModel='PowerLaw',
+                      spectralModelFile=None,
+                      name=None):
+
+    """ Return a DiffuseSource instance suitable for
+        instantiating a child of ROIDiffuseModel.
+
+        NB -- don't support front/back distinction atm.
+
+        The list of supported models is currently very short, but covers
+        the usual cases for modeling diffuse backgrounds.  Additional
+        use cases can be developed on an ad hoc basis.
+        
+        Arguments:
+        
+        spatialModel -- an XML-style keyword.  Valid options are
+                        1) ConstantValue (isotropic)
+                        2) MapCubeFunction (from a FITS file)
+                        
+        spatialModelFile -- if a mapcube is specified, its location
+        
+        spectralModel -- This can be either an XML-style keyword or an
+                         instance of Model.
+                         If an XML-style keyword, valid options are
+                         1) FileFunction
+                         2) PowerLaw
+                        
+        spectralModelFile -- if a tabular function is specified,
+                             its location
+
+        name -- a name for the ol' model
+    """
+
+    # check input sanity
+    if not isinstance(spectralModel,Model):
+        if spectralModel == 'FileFunction':
+            if (spectralModelFile is None) or (not os.path.exists(spectralModelFile)):
+                raise Exception,'Could not find the ASCII file specified for FileFunction'
+        elif spectralModel != 'PowerLaw':
+            raise NotImplementedError,'Must provide one of the understood spectral models.'
+        else:
+            pass
+
+    if spatialModel=='MapCubeFunction':
+        if (spatialModelFile is None) or (not os.path.exists(spatialModelFile)):
+            raise Exception,'Could not find the FITS file specified for MapCubeFunction.'
+    elif spatialModel != 'ConstantValue':
+        raise NotImplementedError,'Must provide one of the understood spatial models.'
+    else:
+        pass              
+
+    ston = Singleton2()
+    dmodel = None; smodel = None
+
+    # deal with isotropic models
+    if spatialModel=='ConstantValue':
+        if spectralModel == 'FileFunction':
+            dmodel = IsotropicSpectrum(spectralModelFile)
+            smodel = Constant()
+        elif spectralModel == 'PowerLaw':
+            # use Sreekumar-like defaults
+            dmodel = IsotropicPowerLaw(1.5e-5,2.1)
+            smodel = PowerLaw(p=[1,1],index_offset=1)
+        else:
+            # interpret the Model object as power law
+            flux = spectralModel.i_flux(emin=100)
+            index= 10**spectralModel.p[1]
+            dmodel = IsotropicPowerLaw(flux,index)
+            smodel = PowerLaw(p=[1,1],index_offset=1)
+
+    # deal with mapcubes
+    else:
+        if spectralModel == 'FileFunction':
+            dmodel1 = IsotropicSpectrum(spectralModelFile)
+            dmodel2 = ston.add(DiffuseFunction,spatialModelFile,spatialModelFile)
+            dmodel  = CompositeSkySpectrum(dmodel1,dmodel2)
+            dmodel.saveme1 = dmodel1; dmodel.saveme2 = dmodel2
+            smodel  = Constant()
+        else:
+            dmodel = ston.add(DiffuseFunction,spatialModelFile,spatialModelFile)
+            if spectralModel == 'PowerLaw':
+                smodel = PowerLaw(p=[1,1],index_offset=1)
+            elif spectralModel == 'Constant':
+                smodel = Constant()
+            else:
+                smodel = spectralModel
+
+    if (dmodel is None) or (smodel is None):
+        raise Exception,'Was unable to parse input.'
+
+    return DiffuseSource(dmodel,smodel,name)
+
+
+def get_default_diffuse(diffdir=None,gfile='gll_iem_v02.fit',ifile='isotropic_iem_v02.txt'):
+    """ Try to get defaults for the diffuse background sources.
+        Setting gfile or ifile to None ignores that entry."""
+    if diffdir is None:
+        diffdir = join(os.environ['GLAST_EXT'],'extFiles','galdiffuse')
+    dsources = []
+    if gfile is not None:
+        gfile = join(diffdir,gfile)
+        if not os.path.exists(gfile):
+            raise Exception,'Invalid file specified for Galactic diffuse.'
+        else:
+            dsources += [get_diffuse_source('MapCubeFunction',gfile,'PowerLaw',None,'Galactic Diffuse')]
+    if ifile is not None:
+        ifile = join(diffdir,ifile)
+        if not os.path.exists(ifile):
+            raise Exception,'Invalid file specified for isotropic diffuse.'
+        else:
+            dsources += [get_diffuse_source('ConstantValue',None,'FileFunction',ifile,'Isotropic Diffuse')]
+
+    if len(dsources) == 0:
+        raise Exception,'Unable to find any diffuse sources.'
+    return dsources

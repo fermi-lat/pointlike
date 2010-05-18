@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.3 2010/01/21 01:29:42 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.4 2010/03/11 19:23:29 kerrm Exp $
 author: M. Kerr
 
 """
@@ -10,8 +10,9 @@ author: M. Kerr
 import pyfits as pf
 import numpy as N
 from os.path import join
+import os
 from cPickle import load
-from skymaps import ExposureWeighter,SkyDir
+from skymaps import ExposureWeighter,SkyDir,PySkyFunction,Hep3Vector
 from scipy.integrate import quad,simps
 from math import cos,sin
 
@@ -29,7 +30,7 @@ class Psf(object):
       self.irf     = 'P6_v3_diff'
       self.psf_irf = None # a possible override to use an on-orbit PSF file
 
-   def __init__(self,CALDB,**kwargs):
+   def __init__(self,CALDB=os.environ['CALDB'],**kwargs):
       self.CALDB = join(CALDB,'bcf')
       self.init()
       self.__dict__.update(kwargs)
@@ -47,8 +48,7 @@ class Psf(object):
       try:
          h0,h1 = self.CALDBhandles = [pf.open(x) for x in psf_files]
       except:
-         print 'Could not open CALDB files for PSF!  Aborting!'
-         raise Exception
+         raise Exception,'Could not open CALDB files for PSF!  Aborting!'
 
       # read in stuff that doesn't depend on conversion type
       self.scale_factors = N.asarray(h0[2].data.field('PSFSCALE')).flatten()
@@ -208,6 +208,7 @@ class BandPsf(object):
 
    def __init__(self,psf,band,weightfunc=None,**kwargs):
       self.init()
+      self.newstyle = psf.newstyle
       self.__dict__.update(kwargs)
       self.par     = psf.get_p(band.e,band.ct).copy()
       if weightfunc is not None:
@@ -236,7 +237,11 @@ class BandPsf(object):
          self.par[5] *= self.scale
       else:
          self.par[1] *= self.scale # scale sigma
-
+      if self.newstyle:
+         pass
+      else:
+         g,s,w = self.par
+         self.int_par = w,(2*s**2*g)**-1,1-g
 
    # ACHTUNG WITH NEW PSF -- where is this used?  I don't immediately spot a reference.
    #def sigma(self): return (self.par[1]*self.par[-1]).sum()
@@ -275,10 +280,12 @@ class BandCALDBPsf(BandPsf):
          ut2 = 0.5 * (dmax / st)**2
          return (w*( nc*((1+uc1/gc)**(1-gc) - (1+uc2/gc)**(1-gc)) + nt*((1+ut1/gt)**(1-gt) - (1+ut2/gt)**(1-gt)) )).sum()
       else:
-         gc,si,w = self.par
-         u1 = 0.5 * (dmin / si)**2
-         u2 = 0.5 * (dmax / si)**2
-         return  ( w*( (1+u1/gc)**(1-gc)  - (1+u2/gc)**(1-gc)) ).sum()
+         #gc,si,w = self.par
+         #u1 = 0.5 * (dmin / si)**2
+         #u2 = 0.5 * (dmax / si)**2
+         #return  ( w*( (1+u1/gc)**(1-gc)  - (1+u2/gc)**(1-gc)) ).sum()
+         w,a,b = self.int_par
+         return ( w*( (1+a*(dmin*dmin))**b - (1+a*(dmax*dmax))**b ) ).sum()
 
 ###====================================================================================================###
 ###====================================================================================================###
@@ -309,7 +316,6 @@ class PsfOverlap(object):
          def interior(x):
 
             c       = cos(x)
-            s2      = (c**2 - 1)
             eff_rad = ( roi_rad**2 + offset**2*(c**2 - 1) )**0.5 - offset*c
             return integral(eff_rad)
 
@@ -320,8 +326,7 @@ class PsfOverlap(object):
          def exterior(x):
 
             c    = cos(x)
-            s    = (1-c**2)**0.5
-            r2   = ( roi_rad**2 - (offset*s)**2 )**0.5
+            r2   = ( roi_rad**2 - (1-c**2)*offset**2 )**0.5
             de   = offset*c - r2
             return integral(dmax=de+2*r2,dmin=de)
 
@@ -331,17 +336,34 @@ class PsfOverlap(object):
 
 
 
+###====================================================================================================###
+###====================================================================================================###
+###====================================================================================================###
 
+deg2rad = N.pi / 180.
 
+class PretendBand(object):
 
+    def __init__(self,energy,conversion_type):
+        self.e = energy; self.ct = conversion_type
 
+class ConvolutionPsf(object):
+    """N.B. -- the PSF center is assumed to be at the Galactic north pole."""
 
+    def __init__(self,CALDB,irf='P6_v3_diff',psf_irf=None):
 
+        self.caldb_psf = CALDBPsf(CALDB,irf=irf,psf_irf=psf_irf)
 
+    def set_band(self,energy,conversion_type):
+        band = PretendBand(energy,conversion_type)
+        self.psf = BandCALDBPsf(self.caldb_psf,band)
 
+    def __call__(self,v):
+        sd = SkyDir(Hep3Vector(v[0],v[1],v[2]))
+        return self.psf(deg2rad*(90. - sd.b()))[0]        
 
-
-
+    def get_pyskyfun(self):
+        return PySkyFunction(self)
 
 ###====================================================================================================###
 ###====================================================================================================###
