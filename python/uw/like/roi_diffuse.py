@@ -1,12 +1,12 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.5 2010/04/30 22:31:00 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.1 2010/05/18 22:19:28 kerrm Exp $
 
 author: Matthew Kerr
 """
 import numpy as N
-from kerrtools.convolution import BackgroundConvolution
+from uw.utilities.convolution import BackgroundConvolution
 from skymaps import SkyIntegrator,Background
 
 class SmallBand(object):
