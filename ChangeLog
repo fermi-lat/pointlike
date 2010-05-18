@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue May 18 16:59:39 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+fix location of convolution code
+    *
+------------------------------------------------------------
 User: burnett  Tue May 18 16:58:55 PDT 2010
 pointlike/python/uw/like
 
