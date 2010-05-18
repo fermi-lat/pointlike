@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue May 18 16:58:55 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+allow spec of seed for starting localization
+    *
+------------------------------------------------------------
 User: kerrm  Tue May 18 15:25:36 PDT 2010
 pointlike/python/uw/like
 
