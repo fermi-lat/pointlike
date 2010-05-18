@@ -1,25 +1,80 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.8 2010/04/29 22:57:01 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.9 2010/04/30 22:31:00 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.8 $'.split()[1]
+version='$Revision: 1.9 $'.split()[1]
 import os
+from os.path import join
 import sys
 from glob import glob
 from datetime import date,timedelta
 
 from pixeldata import PixelData
 from pypsf     import Psf,OldPsf,NewPsf,CALDBPsf
-from pointspec_helpers import ExposureManager,ConsistentBackground
-from roi_managers import ROIPointSourceManager,ROIBackgroundManager
+from pointspec_helpers import *
+from roi_managers import ROIPointSourceManager,ROIBackgroundManager,ROIDiffuseManager
 from roi_analysis import ROIAnalysis
+from roi_diffuse import ROIDiffuseModel_OTF
 from uw.utilities.fitstools import merge_bpd,sum_ltcubes
 from uw.utilities.fermitime import MET
 import numpy as N
 
+class DataSpecification(object):
+    """ Specify the data to use for an analysis.
+
+      **Parameters**
+
+      ft1files : string or list of strings
+          if a single string: points to a single FT1 file, or if
+          contains wild cards is expanded by glob into a list of files
+          if a list of string: each string points to an FT1 file
+      ft2files : string or list of string
+          same format as ft1files, but N.B. that the current
+          implementation expects a one-to-one correspondence of FT1
+          and FT2 files!
+      ltcube : string, optional
+          points to a livetime cube; if not given, the livetime will
+          be generated on-the-fly.  If a file is provided but does
+          not exist, the livetime cube will be generated and written
+          to the specified file.
+      binfile : string, optional
+          points to a binned representation of the data; will be
+          generated if not provided; if file specified but does not
+          exist, the binned data will be written to the file
+          N.B. -- this file should be re-generated if, e.g., the
+          energy binning used in the later spectral analysis changes.
+    """
+
+
+    def init(self):
+
+        self.ft1files = None
+        self.ft2files = None
+        self.ltcube   = None
+        self.binfile  = None
+
+    def __init__(self,**kwargs):
+        self.init()
+        self.__dict__.update(kwargs)
+
+        if self.ft1files is None and self.binfile is None:
+            raise Exception,'No event data (FT1 or binfile) provided!  Must pass at least one of these.'
+
+        ltfile_exists = os.path.exists(self.ltcube)
+        if self.ft2files is None and (self.ltcube is None or (not ltfile_exists)):
+            raise Exception,'No FT2 or livetime file provided! Must pass at least one of these.'
+
+        # make sure everything is iterable or None
+        ft1 = self.ft1files; ft2 = self.ft2files
+        self.ft1files = ft1 if (hasattr(ft1,'__iter__') or ft1 is None) else [ft1]
+        self.ft2files = ft2 if (hasattr(ft2,'__iter__') or ft2 is None) else [ft2]
+
+########################################
+########### DEPRECATED #################
+########################################
 
 class AnalysisEnvironment(object):
    """A class to collect locations of files needed for analysis.
@@ -153,14 +208,14 @@ Optional keyword arguments:
 
     """
 
-    def __init__(self, analysis_environment, **kwargs):
+    def __init__(self, data_specification, **kwargs):
         """
 
 Create a new spectral analysis object.
 
-    analysis_environment: an instance of AnalysisEnvironment correctly configured with
-                          the location of files needed for spectral analysis (see its
-                          docstring for more information.)
+    data_specification: an instance of DataSpecification with links to the FT1/FT2,
+                        and/or binned data / livetime cube needed for analysis
+                        (see docstring for that class)
 
 Optional keyword arguments:
 
@@ -197,6 +252,7 @@ Optional keyword arguments:
   =========    KEYWORDS CONTROLLING INSTRUMENT RESPONSE
   irf          ['P6_v3_diff'] Which IRF to use
   psf_irf      [None] specify a different IRF to use for the PSF; must be in same format/location as typical IRF file!
+  CALDB        [environment variable] override the CALDB specified by the env. variable
 
   =========    KEYWORDS CONTROLLING SPECTRAL ANALYSIS
   background   ['1FGL'] - a choice of global model specifying a diffuse background; see ConsistentBackground for options
@@ -224,14 +280,15 @@ Optional keyword arguments:
         self.binsperdec  = 4
         self.tstart      = 0
         self.tstop       = 0
-        self.emin        = 100    # MeV
-        self.emax        = 3e5    # MeV
+        self.emin        = 200    # MeV  -- note changed defaults to better deal with energy dispersion
+        self.emax        = 2e5    # MeV
 
         self.mc_src_id   = -1
         self.mc_energy   = False
 
         self.irf         = 'P6_v3_diff'
         self.psf_irf     = None
+        self.CALDB       = os.environ['CALDB']
 
         self.background  = '1FGL'
         self.maxROI      = 10    # deg
@@ -243,9 +300,9 @@ Optional keyword arguments:
         self.use_daily_data = False
         self.daily_data_path = '/phys/groups/tev/scratch1/users/Fermi/data/daily'
 
-        self.ae          = analysis_environment
+        self.ae = self.dataspec = data_specification
 
-        self.__dict__.update(analysis_environment.__dict__)
+        self.__dict__.update(self.dataspec.__dict__)
         self.__dict__.update(**kwargs)
 
         if self.use_daily_data:
@@ -256,7 +313,7 @@ Optional keyword arguments:
          #TODO -- sanity check that BinnedPhotonData agrees with analysis parameters
         self.pixeldata = PixelData(self.__dict__)
         self.exposure  = ExposureManager(self)
-        self.psf = CALDBPsf(self.ae.CALDB,irf=self.irf,psf_irf=self.psf_irf)
+        self.psf = CALDBPsf(self.CALDB,irf=self.irf,psf_irf=self.psf_irf)
 
     def setup_daily_data(self):
         """Setup paths to use saved daily data and livetime files on our local cluster."""
@@ -281,7 +338,118 @@ Optional keyword arguments:
         merge_bpd(bpds,self.binfile)
         sum_ltcubes(lts,self.ltcube)
 
-    def roi(self, point_sources = None, bgmodels = None, previous_fit = None, no_roi = False, **kwargs):
+    def set_psf_weights(self,skydir):
+        """ Set the PSF to a new position.  Weights by livetime."""
+        
+        self.psf.set_weights(self.ltcube,skydir)
+
+    def roi(self, roi_dir = None,
+                  point_sources = [], catalogs = [], catalog_mapper = None,
+                  diffuse_sources = [], diffuse_mapper = None,
+                  *args,**kwargs):
+        """
+        return an ROIAnalysis object
+
+        Arguments:
+            
+        roi_dir          [None] A SkyDir giving the center of the ROI.  If the user
+                         does not specify one, the system tries to infer it: if the
+                         user has provided a list of point_sources, the position of
+                         the first is chosen.  Otherwise, it defaults to the roi_dir
+                         member of this object; if this element is not set, an
+                         exception is raised.
+
+        point_sources    [[]] a list of PointSource objects to merge with a Catalog list
+
+        catalogs         [[]] a list of PointSourceCatalog objects or strings;
+                         ***IF they are strings, they will be interpreted by the
+                            catalog_mapper.  If this argument is not set, the
+                            strings will be interpreted as Fermi-compatible catalogs.
+                         ***
+                         Catalogs  are processed sequentially; 
+                         if duplicate objects are found (as defined within
+                         the PointSourceCatalog instances), then sources found in the
+                         point_sources kwarg take precendence, followed by sources in the
+                         first element of the list, and so forth
+
+                         *********** NOTA BENE******************
+                         The user must set at least point_sources or catalogs
+                         if he/she wants point sources in the ROI.  There isn't
+                         really isn't a sensible, machine-independent default.
+
+                         
+                         If the user provides no point sources, the user must
+                         provide a center for the ROI via the roi_dir kwarg or
+                         by setting the roi_dir element of this object.
+                         ***************************************
+
+        catalog_mapper   [None] a function or instance of a class (via __call__)
+                         that takes a single argmument, a filename (including
+                         path), and returns an object implementing the
+                         PointSourceCatalog interface.
+
+        diffuse_sources  [[]] a list of DiffuseSources; if None, the
+                         system tries to assemble a sensible default using the GLAST_EXT
+                         environment variable.
+
+        diffuse_mapper   [None] a function or instance of a class (via __call__)
+                         which takes two arguments, a DiffuseSource and the ROI
+                         center, and returns an object implementing the
+                         ROIDiffuseModel interface.  If None, the system uses
+                         the default, an on-the-fly numerical convolution.
+         
+        Optional Keyword Arguments:
+            ==========   =============
+            keyword      description
+            ==========   =============
+            fit_emin     [100,100] minimum energies (separate for front and back) to use in spectral fitting.
+            fit_emax     [1e5,1e5] maximum energies (separate for front and back) to use in spectral fitting.
+            diffdir      [None] a directory to look for the default diffuse models (e.g. gll_iem_v02.fit)
+            ==========   =============
+        """
+
+        # process kwargs
+        diffdir = None
+        if 'diffdir' in kwargs.keys(): diffdir = kwargs.pop('diffdir')
+        
+        # determine ROI center
+        if roi_dir is None:
+            roi_dir = self.roi_dir if len(point_sources)==0 else point_sources[0].skydir             
+        if roi_dir is None:
+            raise Exception,'User must provide an ROI direction!  (See docstring.)'
+
+        # set the PSF for the ROI center (important that this happens first)
+        self.set_psf_weights(roi_dir)
+
+        # process point sources
+        if len(point_sources) == 0: point_sources = None
+        if catalog_mapper is None:
+            catalog_mapper = lambda x: FermiCatalog(x)
+        for cat in catalogs:
+            if not isinstance(cat,PointSourceCatalog):
+                cat = catalog_mapper(cat)
+            point_sources = cat.merge_lists(roi_dir,self.maxROI+5,point_sources)
+        if point_sources is None:
+            print 'WARNING!  No point sources are included in the model.'
+            point_sources = []
+
+        # process diffuse models
+        if len(diffuse_sources) == 0:
+            # try to use default
+            dsources = get_default_diffuse(diffdir=diffdir)
+            if len(diffuse_sources) == 0:
+                print 'WARNING!  No diffuse sources are included in the model.'
+        if diffuse_mapper is None:
+            diffuse_mapper = lambda x: ROIDiffuseModel_OTF(self,x,roi_dir)
+        diffuse_models = [diffuse_mapper(ds) for ds in dsources]
+
+        # instantiate and return ROIAnalysis object
+        psm = ROIPointSourceManager(point_sources,roi_dir,quiet=self.quiet)
+        dsm = ROIDiffuseManager(diffuse_models,roi_dir,quiet=self.quiet)           
+        return ROIAnalysis(roi_dir,psm,dsm,self,**kwargs)
+                
+
+    def roi_old(self, point_sources = None, bgmodels = None, previous_fit = None, no_roi = False, **kwargs):
         """
         return an ROIAnalysis object with default settings.
 
@@ -356,7 +524,7 @@ Optional keyword arguments:
                 backgrounds[i].smodel = bg[i]
 
         ps_manager = ROIPointSourceManager(point_sources,skydir,quiet=self.quiet)
-        bg_manager = ROIBackgroundManager(self, bgmodels,skydir,quiet=self.quiet)
+        bg_manager = ROIBackgroundManager(self,bgmodels,skydir,quiet=self.quiet)
 
         # if didn't specify a source, pick closest one and make it free -- maybe remove this?
         if point_sources==[] and (not N.any([N.any(m.free) for m in ps_manager.models])):
@@ -368,7 +536,7 @@ Optional keyword arguments:
 
         if no_roi: return ps_manager,bg_manager
 
-        return ROIAnalysis(ps_manager,bg_manager,self,**kwargs)
+        return ROIAnalysis(skydir,ps_manager,bg_manager,self,**kwargs)
 
     def __str__(self):
         s = '%s configuration:\n'% self.__class__.__name__
@@ -377,5 +545,6 @@ Optional keyword arguments:
             if key in self.ae.__dict__ or key in ignore: continue # avoid duplication internal functions
             s += '\t%-20s: %s\n' %(key, self.__dict__[key])
         return s
+
 
 

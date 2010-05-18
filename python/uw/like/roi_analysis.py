@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.11 2010/04/30 22:31:00 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.12 2010/05/11 18:54:51 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -24,13 +24,16 @@ from scipy.optimize import fmin,fmin_powell,fmin_bfgs
 from scipy.stats.distributions import chi2
 from numpy.linalg import inv
 
+EULER_CONST  = N.exp(1)
+LOG_JACOBIAN = 1./N.log10(EULER_CONST)
+
 ###====================================================================================================###
 
 class ROIAnalysis(object):
 
    def init(self):
 
-      self.fit_emin = [99,99] #independent energy ranges for front and back
+      self.fit_emin = [125,125] #independent energy ranges for front and back
       self.fit_emax = [1e5 + 100,1e5 + 100] #0th position for event class 0
       self.quiet   = False
       self.verbose = False
@@ -38,11 +41,24 @@ class ROIAnalysis(object):
       self.catalog_aperture = -1 # pulsar catalog analysis only -- deprecate
       self.phase_factor = 1.
 
-   def __init__(self,ps_manager,bg_manager,spectral_analysis,**kwargs):
+   def __init__(self,roi_dir,ps_manager,ds_manager,spectral_analysis,**kwargs):
+      """ roi_dir    -- the center of the ROI
+          ps_manager -- an instance of ROIPointSourceManager
+          ds_manager -- an instance of ROIDiffuseManager
+
+          Optional Keyword Arguments
+          ==========================
+          fit_emin -- a two-element list giving front/back minimum energy
+          fit_emax -- a two-element list giving front/back maximum energy
+          phase_factor -- a correction that can be made if the data has
+                          undergone a phase selection -- between 0 and 1
+      """
+
       self.init()
       self.__dict__.update(**kwargs)
+      self.roi_dir = roi_dir
       self.psm  = ps_manager
-      self.bgm  = bg_manager
+      self.bgm  = self.dsm = ds_manager
 
       self.sa   = spectral_analysis
       self.logl = None
@@ -57,6 +73,13 @@ class ROIAnalysis(object):
       self.psm.cache(self.bands)
       self.psm.update_counts(self.bands)
 
+      #### TEMPORARY ###
+      from roi_managers import ROIDiffuseManager
+      if isinstance(ds_manager,ROIDiffuseManager):
+         self.gradient = self.gradient_new
+      else:
+         self.gradient = self.gradient_old
+
    def __setup_bands__(self):
 
       self.bands = deque()
@@ -64,7 +87,7 @@ class ROIAnalysis(object):
          evcl = band.event_class() & 1 # protect high bits
 
          if band.emin() >= self.fit_emin[evcl] and band.emax() < self.fit_emax[evcl]:
-            self.bands.append(ROIBand(band,self.sa,self.psm.roi_dir,catalog_aperture=self.catalog_aperture))
+            self.bands.append(ROIBand(band,self.sa,self.roi_dir,catalog_aperture=self.catalog_aperture))
 
       self.bands = N.asarray(self.bands)
 
@@ -115,12 +138,11 @@ class ROIAnalysis(object):
       #print ll,parameters
       return 1e6 if N.isnan(ll) else ll
 
-   def gradient(self,parameters,*args):
-
-      #print 'I call teh gradient.'
+   def gradient_old(self,parameters,*args):
+      """ Implement the gradient of the log likelihood wrt the model parameters."""
 
       bands    = self.bands
-      pf       = self.phase_factor  # NB -- not yet included!
+      pf       = self.phase_factor  # can just multiply the aperture term
       models   = self.psm.models
       bgmodels = self.bgm.models
 
@@ -141,22 +163,23 @@ class ROIAnalysis(object):
       for b in bands:
          cp = 0
          if b.has_pixels:
-            tot_pix = b.bg_all_pix_counts + b.ps_all_pix_counts
+            #tot_pix = b.bg_all_pix_counts + b.ps_all_pix_counts
+            pix_weights = b.pix_counts / (b.bg_all_pix_counts + b.ps_all_pix_counts)
          else:
             pixterm = 0
 
          # do the backgrounds -- essentially, integrate the spectral gradient for each data pixel
          # and for the aperture
-         for ind,model in zip(N.arange(len(bgmodels)),bgmodels):
+         for ind,model in enumerate(bgmodels):
             if not N.any(model.free):
                continue
             pts = model.gradient(b.bg_points)
             if len(pts.shape) == 1: pts = N.asarray([pts])
             for j in xrange(len(model.p)):
                if not model.free[j]: continue
-               apterm = (b.ap_evals[ind,:] * pts[j,:]).sum()
+               apterm = pf*(b.ap_evals[ind,:] * pts[j,:]).sum()
                if b.has_pixels:
-                  pixterm = (b.pix_counts*(b.pi_evals[:,ind,:] * pts[j,:]).sum(axis=1)/tot_pix).sum()
+                  pixterm = (pix_weights*(b.pi_evals[:,ind,:] * pts[j,:]).sum(axis=1)).sum()
                gradient[cp] += apterm - pixterm
                cp += 1
 
@@ -166,15 +189,55 @@ class ROIAnalysis(object):
          for ind,model in zip(indices,models[indices]):
             grad   = b.gradient(model)[model.free]*b.er[ind] # correct for exposure
             np     = nparams[ind]
-            apterm = b.overlaps[ind]
+            apterm = pf*b.overlaps[ind]
             if b.has_pixels:
-               pixterm = (b.pix_counts*b.ps_pix_counts[:,ind]/tot_pix).sum()
+               pixterm = (pix_weights*b.ps_pix_counts[:,ind]).sum()
             gradient[cp:cp+np] += grad * (apterm - pixterm)
             cp += np
 
-      gradient *= 10**parameters * 1./N.log10(N.exp(1.))
+      gradient *= 10**parameters * 1./N.log10(N.exp(1.)) # Jacobian
       return gradient
 
+   def gradient_new(self,parameters,*args):
+        """ Implement the gradient of the log likelihood wrt the model parameters."""
+
+        bands    = self.bands
+        pf       = self.phase_factor  # can just multiply the aperture term
+        models   = self.psm.models
+
+        # sanity check -- for efficiency, the gradient should be called with the same params as the log likelihood
+        if not N.allclose(parameters,self.parameters(),rtol=0):
+            self.set_parameters(parameters)
+            self.bgm.update_counts(bands)
+            self.psm.update_counts(bands)
+
+        # do the point sources
+        indices  = N.arange(len(models))[N.asarray([N.any(m.free) for m in models])]
+        nparams  = N.asarray([model.free.sum() for model in models])
+        gradient = N.zeros(nparams.sum())
+
+        for b in bands:
+            cp = 0
+            if b.has_pixels:
+                b.pix_weights = pix_weights = b.pix_counts / (b.bg_all_pix_counts + b.ps_all_pix_counts)
+            else:
+                pixterm = 0
+
+            for ind,model in zip(indices,models[indices]):
+                grad   = b.gradient(model)[model.free]*b.er[ind] # correct for exposure
+                np     = nparams[ind]
+                apterm = pf*b.overlaps[ind]
+                if b.has_pixels:
+                    pixterm = (pix_weights*b.ps_pix_counts[:,ind]).sum()
+                gradient[cp:cp+np] += grad * (apterm - pixterm)
+                cp += np
+
+        # add in diffuse components
+        gradient  = N.append(self.bgm.gradient(bands,pf),gradient)
+        
+        # transform into log space and return
+        return gradient * 10**parameters * LOG_JACOBIAN
+        
 
    def parameters(self):
       """Merge parameters from background and point sources."""
@@ -215,13 +278,17 @@ class ROIAnalysis(object):
          N.any(param_vals  != self.param_vals):
 
          self.psm.cache(self.bands)
-         self.bgm.cache()
+
+         ### NOTA BENE
+         #self.bgm.cache() # remove if don't adopt with new paradigm
+         #############
+
          self.param_state = param_state
          self.param_vals  = param_vals
 
    def fit(self,method='simplex', tolerance = 0.01, save_values = True, do_background=True,
                 fit_bg_first = False, estimate_errors=True, error_for_steps=False,
-                use_gradient=False):
+                use_gradient = False, gtol = 1e-1):
       """Maximize likelihood and estimate errors.
 
          method    -- ['powell'] fitter; 'powell' or 'simplex'
@@ -269,7 +336,7 @@ class ROIAnalysis(object):
       else:
          ll_0 = self.logLikelihood(self.parameters())
          if use_gradient:
-            f = self._save_bfgs = fmin_bfgs(self.logLikelihood,self.parameters(),self.gradient,full_output=1,maxiter=500,gtol=1e-1,disp=0)
+            f = self._save_bfgs = fmin_bfgs(self.logLikelihood,self.parameters(),self.gradient,full_output=1,maxiter=500,gtol=gtol,disp=0)
          else:
             minimizer  = fmin_powell if method == 'powell' else fmin
             f = minimizer(self.logLikelihood,self.parameters(),full_output=1,
@@ -281,9 +348,9 @@ class ROIAnalysis(object):
             self.prev_logl = self.logl if self.logl is not None else -f[1]
             self.logl = -f[1]
 
-      # check for error conditions here
-         if not self.quiet: print 'good fit!'
-         return -f[1]
+      ## check for error conditions here
+      #   if not self.quiet: print 'good fit!'
+      #   return -f[1]
 
    def __set_error__(self,do_background=True,use_gradient=False):
 
@@ -299,6 +366,9 @@ class ROIAnalysis(object):
          if not do_background: raise Exception # what is this about?
          if not self.quiet: print 'Attempting to invert full hessian...'
          self.cov_matrix = cov_matrix = inv(hessian)
+         if N.any(N.isnan(cov_matrix)):
+            if not self.quiet: print 'Found NaN in covariance matrix!'
+            raise Exception
          self.bgm.set_covariance_matrix(cov_matrix,current_position=0)
          self.psm.set_covariance_matrix(cov_matrix,current_position=n)
          success = True
@@ -307,14 +377,18 @@ class ROIAnalysis(object):
             if not self.quiet: print 'Skipping full Hessian inversion, trying point source parameter subset...'
             try:
                self.cov_matrix = cov_matrix = inv(hessian[n:,n:])
+               if N.any(N.isnan(cov_matrix)):
+                  if not self.quiet: print 'Found NaN in covariance matrix!'
+                  raise Exception
                self.psm.set_covariance_matrix(cov_matrix,current_position=0)
+               success = True
             except:
                if not self.quiet: print 'Error in calculating and inverting hessian.'
          else:
             np = len(self.get_parameters())
             self.cov_matrix = N.zeros([np,np])
 
-      #return success
+      return success
 
    def __set_error_minuit(self,m,method='HESSE'):
       """Compute errors for minuit fit."""
@@ -442,7 +516,7 @@ class ROIAnalysis(object):
       fields = ['  Emin',' f_ROI',' b_ROI' ,' Events','Galactic','Isotropic']\
                 +[' '*15+'Signal']*len(sources)
       outstring = 'Spectra of sources in ROI about %s at ra = %.2f, dec = %.2f\n'\
-                    %(self.psm.point_sources[0].name, self.psm.roi_dir.ra(), self.psm.roi_dir.dec())
+                    %(self.psm.point_sources[0].name, self.roi_dir.ra(), self.roi_dir.dec())
       outstring += ' '*54+'  '.join(['%21s'%s.name for s in sources])+'\n'
       outstring += '  '.join(fields)+'\n'
       print outstring
