@@ -3,13 +3,14 @@ basic pipeline setup
 
 Implement processing of a set of sources in a way that is flexible and easy to use with assigntasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.8 2010/04/29 21:19:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.9 2010/05/11 19:05:57 burnett Exp $
 
 """
-version='$Revision: 1.8 $'.split()[1]
+version='$Revision: 1.9 $'.split()[1]
 import sys, os, pyfits, glob, pickle, math, time, types
 import numpy as np
 import pylab as plt
+from scipy import optimize
 
 from uw.utilities import makerec, fermitime, image
 from uw.utilities.assigntasks import setup_mec, AssignTasks, get_mec, kill_mec
@@ -20,7 +21,28 @@ import myroi, data, catalog, associate # for default configuration (local stuff)
 
 class InvalidArgument(Exception):
     pass
-    
+  
+def find_local_maximum( tsmapfun, startpos):
+    """ 
+        looks for local maximum, starting at center
+    """
+    class LocalMax(object):
+        """ helper class """
+        def __init__(self, tsmapfun, center):
+            self.tsf=tsmapfun
+            self.sdir = center
+            self.ra,self.dec = self.sdir.ra(), self.sdir.dec()
+            self.cdec= math.cos(math.degrees(self.dec))
+        def __call__(self,par):
+            ra = self.ra+par[0]/self.cdec
+            dec= self.dec+par[1]
+            return -self.tsf(SkyDir(ra,dec))
+        def find(self):
+            dx,dy = optimize.fmin(self, (0,0),disp=0)
+            return SkyDir(self.ra+dx/self.cdec, self.dec+dy)
+
+    return LocalMax(tsmapfun, startpos).find()
+  
 class Pipeline(object):
     """ base class for pipeline analysis using assigntasks 
     
@@ -43,7 +65,9 @@ class Pipeline(object):
                 'roifig': False,
                 'sedfig': True,
                 'bgfree':  [True,False,True],
-               'fit_method': 'minuit',
+                'fit_method': 'minuit',
+                'seeds_only': False,
+                
             })
         assoc = kwargs.pop('associate', None)
         if assoc is not None:
@@ -82,7 +106,7 @@ class Pipeline(object):
         if i>self.n: raise  IndexError('list index out of range')
         return self.source(i)
 
-    
+        
     def process(self, s):
         name,sdir = str(s.name).strip(), SkyDir(s.ra,s.dec) 
         if name[0]=='1':
@@ -107,8 +131,21 @@ class Pipeline(object):
             psig = np.sqrt(par[3]*par[4])
             ellipse = par[3:6]
         else:
-            psig = 0.5; ellipse = (psig,psig,0) #default 
-            tsmaxpos = r.center # just for deltata below
+            # failed: try again with new position
+            print 'trying local maximum'
+            localmax = find_local_maximum(r.tsmap(), sdir)
+            tsmaxpos, delta_ts = r.localize(seedpos=localmax)
+            localized = r.qform is not None
+            if localized:
+                print 'succeeded'
+                par = r.qform.par 
+                psig = np.sqrt(par[3]*par[4])
+                ellipse = par[3:6]
+            
+            else:
+                print 'failed'
+                psig = 0.5; ellipse = (psig,psig,0) #default 
+                tsmaxpos = r.center # just for deltata below
 
         print '\n========   ASSOCIATION  =============='
         adict = self.associate(name, sdir, ellipse) if self.associate else None
@@ -293,8 +330,9 @@ class FitNewCatalog(Pipeline):
         """
         super(FitNewCatalog,self).__init__(**kwargs)
         for cat in newcats:
-            self.factory.cb.cm.append(makerec.textrec(cat)) 
+            self.factory.catman.append(makerec.textrec(cat)) 
         self.sources = self.factory.source_list() #newcat
+        self.ncat= len(self.sources)
         #self.fit_method = 'simplex' #'minuit'
         seedfile = kwargs.pop('seeds', None)
         self.n = len(self.sources) 
@@ -455,7 +493,7 @@ def load_rec_from_pickles(outdir, other_keys=None):
             adict = p.get('adict', None)
             if adict is not None:
                 id_prob = adict['prob'][0]
-            else:  id_prob =p.get('id_prob', 0)
+            else:  id_prob =p.get('id_prob', 1e-6) # kluge to make it real
             aclass = '%-7s'%get_class(adict)
             id_dts = p.get('id_dts', 99)
             id_cat = p.get('id_cat', 99) 
@@ -502,6 +540,7 @@ def getg(setup_string):
 
 def main( setup_string, outdir, mec=None, startat=0, n=0, local=False,
         machines='tev1 tev2 tev3 tev4'.split(), 
+        seeds_only=False,
         ignore_exception=True):
         
     if not os.path.exists(outdir): 
@@ -509,14 +548,22 @@ def main( setup_string, outdir, mec=None, startat=0, n=0, local=False,
     if setup_string[0]=='@':
         setup_string = open(setup_string).read()
     g = getg(setup_string)
-    names = g.names(); del g
+    names = g.names(); 
+    if seeds_only:
+        startat = g.ncat+n
+        print 'Processing seeds only, will start at source %d' % startat
+    else:
+        print 'Start at source %d' % startat
     if len(names)==0:
         raise InvalidArgument('no tasks defined by Pipeline object')
     else:
         print 'found %d sources to process' % len(names)
+
     if n==0: endat = len(names)
     else: endat = min(startat+n, len(names))
+         
     tasks = ['g(%d)'% i for i in range(len(names))]
+    del g #do not need this instance
     
     def callback(id, result):
         try:
