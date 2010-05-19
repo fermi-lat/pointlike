@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed May 19 12:58:01 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+do not requre CALDB environment variable to be set when importing
+    *
+------------------------------------------------------------
 User: kerrm  Tue May 18 19:18:05 PDT 2010
 pointlike/python/uw/like
 
