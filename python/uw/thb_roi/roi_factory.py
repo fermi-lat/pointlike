@@ -1,11 +1,11 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.1 2010/03/22 17:28:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.2 2010/05/11 19:01:03 burnett Exp $
 author: T.Burnett <tburnett@u.washington.edu>
 """
 
-import copy
+import os, copy, types
 import numpy as np
-from uw.like import pointspec, Models, pointspec_helpers
+from uw.like import pointspec, Models, pointspec_helpers, roi_managers
 from skymaps import SkyDir
 # in this package
 import data, roi_setup, catalog, myroi
@@ -42,62 +42,37 @@ class ROIfactory(pointspec.SpectralAnalysis):
         defaults = {
             'fit_bg_first': False,
             'use_gradient': True,
+            'free_radius':  1.0,
+            'prune_radius': 0.1,
             }
         self.log = None
         defaults.update(kwargs)
-        analysis_environment =  data.MyAnalysisEnvironment( **defaults)
+        ae = analysis_environment =  data.MyAnalysisEnvironment( **defaults)
         super(ROIfactory,self).__init__( analysis_environment, **defaults)
+        self.__dict__.update(defaults)
 
-        self.cb = roi_setup.ConsistentBackground(self.ae, self.background, quiet=self.quiet)
+        # setup background model manager, catalog mangagers
+        self.bgmodels = roi_setup.ConsistentBackground(analysis_environment.diffdir, quiet=self.quiet)
+
+        self.catman= roi_setup.CatalogManager(os.path.join(ae.catdir, ae.catalog), **kwargs)
+
         aux = self.__dict__.pop('aux_cat', None)
         if aux:
-            print 'adding sources from catalog'
+            if not self.quiet: print 'adding sources from catalog'
             self.cb.append(aux)
             
         if not self.quiet: print >>self.log, self
 
+
     def __str__(self):
         s = 'ROIfactory configuration:\n'
-        ignore = ('psf', 'exposure', 'cb', 'mc_energy', 'mc_src_id')
+        ignore = ('psf', 'exposure', 'cb', 'mc_energy', 'mc_src_id', 'daily_data_path', 'use_daily_data')
         for key in sorted(self.__dict__.keys()):
             if key in self.ae.__dict__ or key in ignore: continue # avoid duplication internal functions
             s += '\t%-20s: %s\n' %(key, self.__dict__[key])
         return s
 
-
-    def roi(self, point_sources = None, bgmodels = None, previous_fit = None, **kwargs):
-
-        """
-        return an ROIAnalysis object with default settings.
-
-        point_sources    [None] a list of PointSource objects to merge with a Catalog list
-                         (if None, the nearest catalog source will be fit)
-
-        bgmodels         a list of ROIBackgroundModels with which to override the default
-                         isotropic and Galactic backgrounds (optional)
-
-        previous_fit     [None] a file containing the results of an earlier spectral fit;
-                         if not None, set spectral values to this fit
-                         ***WARNING*** not tested!
-
-        Optional Keyword Arguments:
-            ==========   =============
-            keyword      description
-            ==========   =============
-            nocat        [False] if True, do not add additional sources from a catalog 
-            bg_smodels   [None]  a list of spectral models to replace the default ones in ConsistentBackground
-                                 i.e., a custom set of spectral scaling models
-            glat         [None]  the Galactic latitude of the source; sets default free parameters in diffuse
-            fit_emin     [100,100] minimum energies (separate for front and back) to use in spectral fitting.
-            fit_emax     [1e5,1e5] maximum energies (separate for front and back) to use in spectral fitting.
-            ==========   =============
-        """
-        ps_manager, bg_manager = super(ROIfactory, self).roi(point_sources, bgmodels, previous_fit, no_roi=True, **kwargs)
-        
-        return myroi.MyROI(ps_manager,bg_manager, self, quiet=self.quiet, **kwargs)
-
-
-    def __call__(self, sources=None, max_roi=None, min_roi=None, roi_dir=None, **kwargs):
+    def __call__(self, sources, max_roi=None, min_roi=None, roi_dir=None, **kwargs):
         """ 
         return a MyROI object
 
@@ -122,44 +97,53 @@ class ROIfactory(pointspec.SpectralAnalysis):
             free_radius  [see factory] fit all sources within this radius
             prune_radius [see factory] Do not include catalog sources within this radius of specified direction
             use_gradient [True]    When doing a spectral fit, set the "use_gradient" option
-            model        'PowerLaw' One of: 'PowerLaw', 'ExpCuoff', 'LogParabola'
+            model        'PowerLaw' One of: 'PowerLaw', 'ExpCuoff', 'LogParabola', ... (see uw.like.Models)
             model_par    [1e-12, 2.3]    a list of initial model parameters
             ==========   =============
         """
-
         ps = None
         modelname = kwargs.pop('model', 'PowerLaw')
         model_par = kwargs.pop('model_par', (1e-12, 2.3))
-        if sources is not None:
-            if type(sources)==type(' '):
-                try:
-                    name, ra, dec = catalog.find_source(sources)
-                except:
-                    print 'expected string with name ra dec'
-                    raise
-                themodel = make_model(modelname, model_par)
-                ps = [pointspec_helpers.PointSource(SkyDir(float(ra), float(dec)), name, themodel)]
-            else:
-                ps = []
-                for s in sources:
-                    name,dir = s[:2]
-                    themodel = s[2] if len(s)==3 else make_model(modelname, model_par);
-                    ps.append(pointspec_helpers.PointSource(dir,name, themodel) )
-                
-        self.roi_dir = roi_dir or ps[0].skydir
+        if type(sources)==types.StringType:
+            try:
+                name, ra, dec = catalog.find_source(sources)
+            except:
+                print 'expected string with name ra dec'
+                raise
+            themodel = make_model(modelname, model_par)
+            ps = [pointspec_helpers.PointSource(SkyDir(float(ra), float(dec)), name, themodel)]
+        else:
+            ps = []
+            for s in sources:
+                name,dir = s[:2]
+                themodel = s[2] if len(s)==3 else make_model(modelname, model_par);
+                ps.append(pointspec_helpers.PointSource(dir,name, themodel) )
+         
+        skydir =self.roi_dir = roi_dir or ps[0].skydir
         if min_roi: self.minROI=min_roi  
         if max_roi: self.maxROI=max_roi 
+        
         # pass on default values for optional args
         passon_list = ('free_radius', 'prune_radius', 'fit_bg_first', 'use_gradient')
         for x in passon_list:
                 if x not in kwargs: kwargs[x] = self.__dict__[x]
 
+        # add background point sources from the CatalogManager
+        ps = ps + self.catman(skydir, self.maxROI)
+        excluded = self.catman.exclude
+        if excluded is not None: ps[0].model = excluded.model # if replacing a cat source, use its model
+        
+        ps_manager = roi_managers.ROIPointSourceManager(ps, skydir,quiet=self.quiet)
+        bg_manager = roi_managers.ROIBackgroundManager(self, self.bgmodels(skydir), self.roi_dir,quiet=self.quiet)
+
         emin,emax = self.emin, self.emax
-        r = self.roi(point_sources = ps, fit_emin=[emin,emin],fit_emax=[emax,emax], **kwargs)
+        r = myroi.MyROI(skydir, ps_manager, bg_manager, self, 
+                        point_sources = ps,
+                        fit_emin=[emin,emin], fit_emax=[emax,emax],
+                        quiet=self.quiet, **kwargs)
 
         # if a different direction, we need to disable the original, most likely the nearest
-        # a newer
-        if r.psm.point_sources[1].name.strip() == r.name:
+        if len(r.psm.point_sources)>1 and r.psm.point_sources[1].name.strip() == r.name:
             r.psm.models[1].p[0]=-20
 
         return r
@@ -168,5 +152,5 @@ class ROIfactory(pointspec.SpectralAnalysis):
     def source_list(self):
         """ return a recarray of all the sources in the current model
         """
-        return self.cb.cm.source_recarray()
+        return self.catman.source_recarray()
  
