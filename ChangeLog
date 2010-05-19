@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Tue May 18 19:18:05 PDT 2010
+pointlike/python/uw/like
+
+Added Files:
+	convolution.py 
+Log Message:
+New module to handle PSF convolution.
+    *
+------------------------------------------------------------
 User: burnett  Tue May 18 17:04:41 PDT 2010
 pointlike/python/uw/thb_roi
 
