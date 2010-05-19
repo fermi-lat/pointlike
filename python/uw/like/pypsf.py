@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.4 2010/03/11 19:23:29 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.5 2010/05/18 22:25:36 kerrm Exp $
 author: M. Kerr
 
 """
@@ -30,7 +30,12 @@ class Psf(object):
       self.irf     = 'P6_v3_diff'
       self.psf_irf = None # a possible override to use an on-orbit PSF file
 
-   def __init__(self,CALDB=os.environ['CALDB'],**kwargs):
+   def __init__(self,CALDB=None,**kwargs):
+      if CALDB is None:
+         try: CALDB =os.environ['CALDB']
+         except:
+             print 'Environment variable CALDB was not set'
+             raise
       self.CALDB = join(CALDB,'bcf')
       self.init()
       self.__dict__.update(kwargs)
