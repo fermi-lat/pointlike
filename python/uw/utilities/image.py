@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.16 2010/04/29 21:16:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.17 2010/05/11 18:55:47 burnett Exp $
 
 """
-version = '$Revision: 1.16 $'.split()[1]
+version = '$Revision: 1.17 $'.split()[1]
 
 import pylab
 import math
@@ -442,6 +442,10 @@ class ZEA(object):
             if not self.galactic else self.proj.sph2pix(sdir.l(),sdir.b())
         return  (x-0.5,y-0.5)
 
+    def inside(self, sdir):
+        """ is the direction sdir inside the boundary """
+        x,y =self.pixel(sdir)
+        return x> 0 and y>0 and x<self.nx and  y<self.ny
     def fill(self, skyfun):
         """ fill the image from a SkyFunction
             sets self.image with numpy array appropriate for imshow
@@ -588,6 +592,22 @@ class ZEA(object):
             axes.text(x,y, text, **kwargs)
         return True
         
+    def ellipse(self, sdir, par, symbol='-', **kwargs ):
+        """ sdir: SkyDir
+            ellipse parameters: a, b, ang (all deg)
+        """
+        x0,y0 = self.pixel(sdir)
+        a,b,ang = par
+        if self.galactic:
+            # adjust angle for local coordinate
+            up = SkyDir(sdir.ra()+a, sdir.dec())
+            xup,yup =self.pixel(up)
+            ang += np.degrees(np.arctan2( yup-y0,xup-x0))
+        ellipse = Ellipse([a,b,np.radians(ang)])
+        x,y = ellipse.contour(1.0)
+        pixelsize=self.pixelsize #scale for plot
+        self.axes.plot(x0+np.asarray(x)/pixelsize, y0+np.asarray(y)/pixelsize, symbol, **kwargs)
+        
     def galactic_map(self, pos=(0.77,0.88), width=0.2, color='w', symbol='sr'):
         """ 
         insert a little map showing the galactic position
@@ -651,7 +671,7 @@ class ZEA(object):
 
 
 def ZEA_test(ra=90, dec=80, size=5, nticks=8, galactic=False):
-    """ exercise everything """
+    """ exercise (most) everything """
     pyplot.clf()
     q = ZEA(SkyDir(ra,dec), size=size, nticks=nticks, galactic=galactic)
     q.grid(color='gray')
@@ -661,6 +681,7 @@ def ZEA_test(ra=90, dec=80, size=5, nticks=8, galactic=False):
     if not t: print 'failed to plot the cross'
     q.plot_source('(80,76)', SkyDir(80,76), 'd')
     q.plot_source('(110,74)', SkyDir(110,74), 'x')
+    q.ellipse( SkyDir(ra,dec), (1, 0.25, 0))
     for dec in np.arange(-90, 91, 2):
         q.plot_source( '(%d,%d)'%(ra,dec), SkyDir(ra,dec), 'x')
     def myfun(v): return v[0] # x-component of skydir to make a pattern
