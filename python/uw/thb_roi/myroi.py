@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.7 2010/04/25 01:58:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.8 2010/05/11 19:05:57 burnett Exp $
 
 """
 
@@ -58,7 +58,7 @@ class MyROI(roi_analysis.ROIAnalysis):
 
     """
 
-    def __init__(self,ps_manager,bg_manager,roifactory,**kwargs):
+    def __init__(self,roi_dir, ps_manager,bg_manager,roifactory,**kwargs):
         """
         Parameters
 
@@ -80,11 +80,11 @@ class MyROI(roi_analysis.ROIAnalysis):
             kwargs.pop('bgfree')
         if 'fit_bg_first' in kwargs:
             self.fit_bg_first = kwargs['fit_bg_first']
-        super(MyROI, self).__init__(ps_manager, bg_manager, roifactory, **kwargs)
+        super(MyROI, self).__init__(roi_dir, ps_manager, bg_manager, roifactory, **kwargs)
         self.bgm.models[0].free = np.array(bgfree[:2])
         self.bgm.models[1].free = np.array([bgfree[2]])
         self.name = self.psm.point_sources[0].name # default name
-        self.center= self.sa.roi_dir
+        self.center= roi_dir
 
     def fit(self, **kwargs):
         """ invoke base class fitter, but insert defaults first 
@@ -109,7 +109,7 @@ class MyROI(roi_analysis.ROIAnalysis):
             ts += eb.ts
         return ts
 
-    def localize(self,which=0, tolerance=1e-3,update=False, verbose=False, bandfits=True):
+    def localize(self,which=0, tolerance=1e-3,update=False, verbose=False, bandfits=True, seedpos=None):
         """Localize a source using an elliptic approximation to the likelihood surface.
 
           which     -- index of point source; default to central 
@@ -117,13 +117,14 @@ class MyROI(roi_analysis.ROIAnalysis):
           tolerance -- maximum difference in degrees between two successive best fit positions
           update    -- if True, update localization internally, i.e., recalculate point source contribution
           bandfits  -- if True, use a band-by-band (model independent) spectral fit; otherwise, use broabband fit
+          seedloc   -- use for a modified position (pass to superclass)
 
          return fit position, change in TS
         """
         try:
             quiet, self.quiet = self.quiet, not verbose # turn off details of fitting
             loc, i, delta, deltaTS= super(MyROI,self).localize(which=which,bandfits=bandfits,
-                            tolerance=tolerance,update=update,verbose=verbose)
+                            tolerance=tolerance,update=update,verbose=verbose, seedpos=seedpos)
             self.quiet = quiet
             if not self.quiet: 
                 print 'Localization: %d iterations, moved %.3f deg, deltaTS: %.1f' % (i, delta, deltaTS)
@@ -443,7 +444,7 @@ class MyROI(roi_analysis.ROIAnalysis):
             k+=1
         
         tsp.plot(tsp.tsmaxpos, symbol='x') # at the maximum
-        if not notitle: plt.title( name, fontsize=14)
+        if not notitle: plt.title( name, fontsize=24)
 
         if assoc is not None:
             # eventually move this to image.TSplot
