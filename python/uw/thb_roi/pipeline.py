@@ -3,10 +3,10 @@ basic pipeline setup
 
 Implement processing of a set of sources in a way that is flexible and easy to use with assigntasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.9 2010/05/11 19:05:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.10 2010/05/19 00:04:41 burnett Exp $
 
 """
-version='$Revision: 1.9 $'.split()[1]
+version='$Revision: 1.10 $'.split()[1]
 import sys, os, pyfits, glob, pickle, math, time, types
 import numpy as np
 import pylab as plt
@@ -22,27 +22,7 @@ import myroi, data, catalog, associate # for default configuration (local stuff)
 class InvalidArgument(Exception):
     pass
   
-def find_local_maximum( tsmapfun, startpos):
-    """ 
-        looks for local maximum, starting at center
-    """
-    class LocalMax(object):
-        """ helper class """
-        def __init__(self, tsmapfun, center):
-            self.tsf=tsmapfun
-            self.sdir = center
-            self.ra,self.dec = self.sdir.ra(), self.sdir.dec()
-            self.cdec= math.cos(math.degrees(self.dec))
-        def __call__(self,par):
-            ra = self.ra+par[0]/self.cdec
-            dec= self.dec+par[1]
-            return -self.tsf(SkyDir(ra,dec))
-        def find(self):
-            dx,dy = optimize.fmin(self, (0,0),disp=0)
-            return SkyDir(self.ra+dx/self.cdec, self.dec+dy)
-
-    return LocalMax(tsmapfun, startpos).find()
-  
+ 
 class Pipeline(object):
     """ base class for pipeline analysis using assigntasks 
     
@@ -133,7 +113,7 @@ class Pipeline(object):
         else:
             # failed: try again with new position
             print 'trying local maximum'
-            localmax = find_local_maximum(r.tsmap(), sdir)
+            localmax = image.find_local_maximum(r.tsmap(), sdir)
             tsmaxpos, delta_ts = r.localize(seedpos=localmax)
             localized = r.qform is not None
             if localized:
@@ -179,7 +159,7 @@ class Pipeline(object):
                 markersize=10,
                 primary_markersize=12,
                 )
-            tsm.zea.axes.set_title('%s'% tname, fontsize=12) 
+            tsm.zea.axes.set_title('%s'% tname, fontsize=18)  # big title
             self.tsmap_append(tsm, s)
 
             fout =os.path.join(self.tsmap_dir, ('%s_tsmap.png'%fname) )
@@ -444,7 +424,7 @@ def load_rec_from_pickles(outdir, other_keys=None):
     filelist = glob.glob(os.path.join(outdir, 'pickle', '*.pickle'))
     assert(len(filelist)>0)
     filelist.sort()
-    standard = """name ra dec csig psig good dcp qual cindex pnorm pindex
+    standard = """name ra dec csig psig good dcp qual cindex pnorm pnorm_unc pindex pindex_unc
                               delta_ts fit_ra fit_dec a b ang ts band_ts galnorm isonorm
                               tsmap_max_diff tsm_ra tsm_dec
                               id_prob aclass""".split()
@@ -476,7 +456,12 @@ def load_rec_from_pickles(outdir, other_keys=None):
                 csig = p['cat_fit'][3] 
                 cindex = p['cat_fit'][1]
             else: csig=cindex=-1
+            # powerlaw fits from pointlike
             pnorm,pindex  = p['src_par']
+            if 'src_par_unc' in p:
+                punc = p['src_par_unc'] 
+            else: punc = None
+            pnorm_unc, pindex_unc = punc if punc is not None else (0,0)
             #if pindex>5 or pindex<1: good=False
             if np.isinf(csig): good=False
             if ptsig>1: 
@@ -498,7 +483,7 @@ def load_rec_from_pickles(outdir, other_keys=None):
             id_dts = p.get('id_dts', 99)
             id_cat = p.get('id_cat', 99) 
             pars = (name, ra,dec, csig, ptsig, \
-                good , dcp,  qual, cindex, pnorm, pindex,\
+                good , dcp,  qual, cindex, pnorm, pnorm_unc, pindex, pindex_unc,\
                 delta_ts, fit_ra, fit_dec, a, b, ang, ts, 
                 band_ts, galnorm, isonorm, tsmap_max_diff, tsm_ra, tsm_dec, 
                 id_prob, aclass)
