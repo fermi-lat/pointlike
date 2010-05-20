@@ -1,7 +1,7 @@
 """
 supplemental setup of ROI
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_setup.py,v 1.2 2010/03/26 14:07:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_setup.py,v 1.3 2010/05/19 00:02:43 burnett Exp $
 
 These are near-duplicates of the classes with the same name in uw.like, but modifed for the interactive access
 
@@ -62,10 +62,23 @@ class CatalogManager(object):
         inds = cdata.field('SPECTRAL_INDEX')
         inds = np.where(inds > 0, inds, -inds)
 
+        self.names  = np.asarray(cdata.field('Source_Name'))
+        # the fix
+        try:
+            bad_name, good_name = '1FGL J0801.3-5626 ','1FGL J0802.4-5622 ' 
+            print self.names[433]
+            ibad =list(self.names).index(bad_name)
+            self.names[ibad] = good_name
+            ras[ibad] =  120.616
+            decs[ibad] = -56.369
+            print 'swapped source  %s to %s' % (bae_name, self.names[ibad])
+        except ValueError:
+            print 'did not move source'
         self.dirs   = map(SkyDir,ras,decs)
         self.models = np.asarray([Models.PowerLaw(p=[n0,ind],e0=pen) for n0,ind,pen in zip(n0s,inds,pens)])
-        self.names  = np.asarray(cdata.field('Source_Name'))
-        if not self.quiet: print 'Loaded %d sources from catalog "%s" for roi backgrounds' % (len(cdata), catalog_file)
+
+        if not self.quiet: 
+            print 'Loaded %d sources from catalog "%s" for roi backgrounds' % (len(cdata), catalog_file)
     
     def append(self, acat):
         """ 
