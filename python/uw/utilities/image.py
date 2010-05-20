@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.17 2010/05/11 18:55:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.18 2010/05/19 00:01:04 burnett Exp $
 
 """
-version = '$Revision: 1.17 $'.split()[1]
+version = '$Revision: 1.18 $'.split()[1]
 
 import pylab
 import math
@@ -719,7 +719,7 @@ class TSplot(object):
         print 'TSplot: filling %d pixels...'% (size/pixelsize)**2
         self.zea.fill(tsmap)
         # create new image that is the significance in sigma with respect to local max
-        self.tsmaxpos=tsmaxpos = self.find_local_maximum() # get local maximum, then check that is in the image
+        self.tsmaxpos=tsmaxpos = find_local_maximum(tsmap, center) # get local maximum, then check that is in the image
         x,y = self.zea.pixel(tsmaxpos)
         if x>=0 and x < self.zea.nx and y>=0 and y<self.zea.ny:
             tsmaxval = tsmap(tsmaxpos)
@@ -733,27 +733,7 @@ class TSplot(object):
         self.clevels = np.array([1.51, 2.45, 3.03])
         self.galmap = galmap
 
-    def find_local_maximum(self):
-        """ 
-            looks for local maximum, starting at center
-        """
-        class LocalMax(object):
-            """ helper class """
-            def __init__(self, tsmapfun, center):
-                self.tsf=tsmapfun
-                self.sdir = center
-                self.ra,self.dec = self.sdir.ra(), self.sdir.dec()
-                self.cdec= math.cos(math.degrees(self.dec))
-            def __call__(self,par):
-                ra = self.ra+par[0]/self.cdec
-                dec= self.dec+par[1]
-                return -self.tsf(SkyDir(ra,dec))
-            def find(self):
-                dx,dy = optimize.fmin(self, (0,0),disp=0)
-                return SkyDir(self.ra+dx/self.cdec, self.dec+dy)
-
-        return LocalMax(self.tsmap, self.zea.center).find()
-        
+         
     def show(self, colorbar=True):
         """
         Generate the basic plot, with contours, scale bar, color bar, and grid
@@ -921,6 +901,27 @@ class GaussSmoothZEA(object):
         fft_image = fft2(image)
         return np.real(fftshift(ifft2(self.fft_kernel*fft_image)))
         
+def find_local_maximum( mapfun, startpos):
+    """ 
+        looks for local maximum for a SkyFunction, starting at startpos
+    """
+    class LocalMax(object):
+        """ helper class """
+        def __init__(self, mapfun, center):
+            self.tsf=mapfun
+            self.sdir = center
+            self.ra,self.dec = self.sdir.ra(), self.sdir.dec()
+            self.cdec= math.cos(math.degrees(self.dec))
+        def __call__(self,par):
+            ra = self.ra+par[0]/self.cdec
+            dec= self.dec+par[1]
+            return -self.tsf(SkyDir(ra,dec))
+        def find(self):
+            dx,dy = optimize.fmin(self, (0,0),disp=0)
+            return SkyDir(self.ra+dx/self.cdec, self.dec+dy)
+
+    return LocalMax(mapfun, startpos).find()
+    
 if __name__=='__main__':
     pass
 
