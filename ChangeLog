@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu May 20 10:32:40 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	pipeline.py 
+Log Message:
+use find_local_maximum from image; add powerlaw uncertainties to recarray from pickle
+    *
+------------------------------------------------------------
 User: burnett  Thu May 20 10:31:18 PDT 2010
 pointlike/python/uw/thb_roi
 
