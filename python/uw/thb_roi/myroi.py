@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.8 2010/05/11 19:05:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.9 2010/05/19 00:02:43 burnett Exp $
 
 """
 
@@ -201,8 +201,10 @@ class MyROI(roi_analysis.ROIAnalysis):
         return roi_plotting.band_fluxes(self, which,axes, axis,outfile, **kwargs)
 
     def pickle(self, name, outdir, **kwargs):
-        """ name: name for source, used as filename (unless fname in kwargs)
+        """ Write a dictionary with parameters
+           name: name for source, used as filename (unless fname in kwargs)
             outdir: ouput directory
+            **kwargs: anything else to add to the dictionanry
         """
         name = name.strip()
         fname = kwargs.pop('fname', name)
@@ -210,9 +212,18 @@ class MyROI(roi_analysis.ROIAnalysis):
         output['name'] = name
         output['ra']   = self.center.ra()
         output['dec']  = self.center.dec()
-        output['src_par'] = 10**self.psm.models[0].p
+        
+        # get source fit parameters, relative uncertainty
+        p,p_unc = self.psm.point_sources[0].model.statistical()
+        output['src_par'] = p #10**self.psm.models[0].p
+        output['src_par_unc'] = p*p_unc 
+        
         output['bgm_par'] = np.hstack((10**self.bgm.models[0].p, 10**self.bgm.models[1].p))
-        output['qform_par'] = self.qform.par if self.qform is not None else None
+        output['bgm_par_unc'] = None #### TODO
+        try:
+            output['qform_par'] = self.qform.par if 'qform' in self.__dict__ else None
+        except AttributeError:
+            output['qform_par'] = None
         output['tsmax'] = None if 'tsmax' not in self.__dict__ else [self.tsmax.ra(),self.tsmax.dec()]
         output.update(kwargs) # add additional entries from kwargs
 
