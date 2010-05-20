@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu May 20 10:30:11 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	image.py 
+Log Message:
+implement peak finder(find_local_max) as function in the module
+    *
+------------------------------------------------------------
 User: kerrm  Wed May 19 14:01:12 PDT 2010
 pointlike/python/uw/like
 
