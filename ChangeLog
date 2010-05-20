@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu May 20 10:33:36 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	myroi.py 
+Log Message:
+add powerlaw uncertainties
+    *
+------------------------------------------------------------
 User: burnett  Thu May 20 10:32:40 PDT 2010
 pointlike/python/uw/thb_roi
 
