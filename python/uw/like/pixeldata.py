@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.7 2010/03/11 23:50:00 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.8 2010/04/23 22:22:36 wallacee Exp $
 
 """
-version='$Revision: 1.7 $'.split()[1]
+version='$Revision: 1.8 $'.split()[1]
 import os
 import math
 import skymaps
@@ -53,7 +53,7 @@ Optional keyword arguments:
         # order of operations: GTI is needed for livetime; livetime is needed for PSF
         self.gti  =  self._GTI_setup()
         self.lt   =  self.get_livetime()
-        self._PSF_setup()
+        self.weighted_lt = self.get_livetime(weighted=True) if self.use_weighted_livetime else None
         self.data = self.get_data()
         self.dmap = self.data.map()
         self.dmap.updateIrfs()
@@ -97,6 +97,7 @@ Optional keyword arguments:
         if not self.quiet: print '.....set Data theta cut at %.1f deg'%(self.thetacut)
 
         if not self.binner_set:
+            self._PSF_setup()
             from pointlike import DoubleVector
             self.binner = skymaps.PhotonBinner(DoubleVector(self.my_bins))
             pointlike.Data.setPhotonBinner(self.binner)
@@ -172,7 +173,7 @@ Optional keyword arguments:
             if self.binfile is not None:
                 if not self.quiet: print '.....saving binfile %s for subsequent use' % self.binfile
                 data.write(self.binfile)
-                
+
                 """
                 # a start on adding keywords -- not yet finished, but need to merge in CVS
                 # now, add the appropriate entries to the FITS header
@@ -187,15 +188,14 @@ Optional keyword arguments:
                 entries += ['TMAX', self.tmax, 'Exclude all data after this MET']
                 entries += ['EVENT_CLASS', self.event_class, 'Exclude all data with class level < this value']
                 entries += ['CONVERSION_TYPE', self.event_class, '0 = Front only, 1 = Back only, -1 = Front + Back']
-                
+
                 for entry in entries:
                     k,v,c = entry
                     h.update(k,str(v),c)
-                
+
                 f.writeto(self.binfile,clobber=True)
                 f.close()
                 """
-        
         else:
             data = pointlike.Data(self.binfile)
             if not self.quiet: print '.....loaded binfile %s ' % self.binfile
@@ -210,11 +210,11 @@ Optional keyword arguments:
         """Check the keywords in a binned photon data header for consistency with the analysis environment."""
         pass
 
-    def get_livetime(self,   pixelsize=1.0):
+    def get_livetime(self,   pixelsize=1.0,weighted = False):
 
         gti = self.gti
-
-        if self.ltcube is None or not os.path.exists(self.ltcube):
+        ltcube = self.weighted_ltcube if weighted else self.ltcube
+        if ltcube is None or not os.path.exists(ltcube):
             if self.roi_dir is None:
                 # no roi specified: use full sky
                 self.roi_dir = skymaps.SkyDir(0,0)
@@ -225,7 +225,8 @@ Optional keyword arguments:
                 dir        =self.roi_dir,
                 zcut       =math.cos(math.radians(self.zenithcut)),
                 pixelsize  =pixelsize,
-                quiet      =self.quiet )
+                quiet      =self.quiet,
+                weighted   =weighted)
 
             for hf in self.ft2files:
                 if not self.quiet: print 'loading FT2 file %s' %hf ,
@@ -235,11 +236,11 @@ Optional keyword arguments:
                    lt.load(hf,gti)
 
             # write out ltcube if requested
-            if self.ltcube is not None: lt.write(self.ltcube)
+            if self.ltcube is not None: lt.write(ltcube)
         else:
             # ltcube exists: just use it! (need to bullet-proof this)
-            lt = skymaps.LivetimeCube(self.ltcube)
-            if not self.quiet: print 'loaded LivetimeCube %s ' % self.ltcube
+            lt = skymaps.LivetimeCube(ltcube)
+            if not self.quiet: print 'loaded LivetimeCube %s ' % ltcube
         return lt
 
 

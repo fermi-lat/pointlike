@@ -1,6 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-   
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.5 2010/02/18 03:29:20 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.6 2010/05/18 22:25:36 kerrm Exp $
 
    author: Matthew Kerr
    """
@@ -71,7 +70,7 @@ class Singleton2(Singleton):
 
 class ExposureManager(object):
     """A small class to handle the trivial combination of effective area and livetime."""
-   
+
     def __init__(self,sa):
 
         EffectiveArea.set_CALDB(sa.CALDB)
@@ -79,7 +78,10 @@ class ExposureManager(object):
         inst = ['front', 'back']
         self.ea  = [EffectiveArea(sa.irf+'_'+x) for x in inst]
         if sa.verbose: print ' -->effective areas at 1 GeV: ', ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
-        self.exposure = [Exposure(sa.pixeldata.lt,ea) for ea in self.ea]
+        if sa.use_weighted_livetime:
+            self.exposure = [Exposure(sa.pixeldata.lt,sa.pixeldata.weighted_lt,ea) for ea in self.ea]
+        else:
+            self.exposure = [Exposure(sa.pixeldata.lt,ea) for ea in self.ea]
 
     def value(self, sdir, energy, event_class):
         return self.exposure[event_class].value(sdir, energy)
@@ -91,11 +93,11 @@ class ConsistentBackground(object):
    """Manage the construction of a consistent background model.
 
       *Notes*
-      
+
       A background model comprises diffuse and point sources.  While
       some parameters may be refit in a spectral analysis, the default
       background model should give a good representation.
-      
+
       The class handles matching LAT source lists with the diffuse models
       used to generate them.  The combination is a "consistent"
       background.
@@ -217,10 +219,10 @@ class FermiCatalog(PointSourceCatalog):
       f.close()
 
    def get_sources(self,skydir,radius=15):
-    
+
       diffs   = N.degrees(N.asarray([skydir.difference(d) for d in self.dirs]))
       #mask    = ((diffs < radius)&(self.ts > self.min_ts)) & \
-      #          ((self.fluxes > self.min_flux)|(diffs < self.max_distance))         
+      #          ((self.fluxes > self.min_flux)|(diffs < self.max_distance))
       mask    = diffs < radius
       diffs   = diffs[mask]
       sorting = N.argsort(diffs)
