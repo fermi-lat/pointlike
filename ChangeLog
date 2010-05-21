@@ -1,5 +1,19 @@
 ------------------------------------------------------------
 User: wallacee  Thu May 20 20:24:08 PDT 2010
+pointlike/python/uw/utilities
+
+Added Files:
+	utils.py 
+Log Message:
+Added options to use the livetime-fraction weighted exposure implemented in 
+skymaps (Main thing is the 'use_weighted_livetime' kwarg to SpectralAnalysis).
+Added a subclass of pointspec.DataSpecification, pointspec.SavedData, to set up
+saved data products, as set up on our local cluster.  Added module
+uw.utilities.utils, which contains some functions used by SavedData.
+
+    *
+------------------------------------------------------------
+User: wallacee  Thu May 20 20:24:08 PDT 2010
 pointlike/python/uw/like
 
 Modified Files:
