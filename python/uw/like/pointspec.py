@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.9 2010/04/30 22:31:00 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.10 2010/05/18 22:25:36 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.9 $'.split()[1]
+version='$Revision: 1.10 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -19,7 +19,8 @@ from roi_managers import ROIPointSourceManager,ROIBackgroundManager,ROIDiffuseMa
 from roi_analysis import ROIAnalysis
 from roi_diffuse import ROIDiffuseModel_OTF
 from uw.utilities.fitstools import merge_bpd,sum_ltcubes
-from uw.utilities.fermitime import MET
+from uw.utilities.fermitime import MET,utc_to_met
+from uw.utilities.utils import get_data
 import numpy as N
 
 class DataSpecification(object):
@@ -46,6 +47,12 @@ class DataSpecification(object):
           exist, the binned data will be written to the file
           N.B. -- this file should be re-generated if, e.g., the
           energy binning used in the later spectral analysis changes.
+      weighted_ltcube : string, optional
+          points to a livetime cube with integrals weighted by livetime
+          fraction; if not given, but needed, the weighted livetime will
+          be generated on-the-fly.  If a file is provided but does
+          not exist, the livetime cube will be generated and written
+          to the specified file.
     """
 
 
@@ -55,6 +62,7 @@ class DataSpecification(object):
         self.ft2files = None
         self.ltcube   = None
         self.binfile  = None
+        self.weighted_ltcube = None
 
     def __init__(self,**kwargs):
         self.init()
@@ -71,6 +79,71 @@ class DataSpecification(object):
         ft1 = self.ft1files; ft2 = self.ft2files
         self.ft1files = ft1 if (hasattr(ft1,'__iter__') or ft1 is None) else [ft1]
         self.ft2files = ft2 if (hasattr(ft2,'__iter__') or ft2 is None) else [ft2]
+
+class SavedData(DataSpecification):
+    """Specify saved daily data files to use for analysis.
+
+    Current implementation assumes that the specified directory has subfolders named 'daily','weekly', and 'monthly',
+    each with subfolders 'bpd','lt', and 'lt_weighted', containing BinnedPhotonData, LivetimeCube, and weighted LivetimeCube
+    files, respectively.  It looks for filenames of the format 'timescale_yyyymmdd_type.fits', where timescale is one of 'day',
+    'week', or 'month', and type is one of '#bpd', 'lt', or 'lt_weighted' (the # in the bpd filename is the number of bins per 
+    decade).  The yyyymmdd is the date of the first day the file covers (UTC); in the monthly case, the dd is dropped. So, for 
+    example, the BinnedPhotonData for Nov 6, 2009, with 4 bins/decade, is daily/bpd/day_20091106_4bpd.fits, the weighted 
+    livetime cube for the week beginning May 10, 2010 is weekly/lt_weighted/week_20100510_lt_weighted.fits, and the unweighted 
+    livetime for the month of December 2008 is monthly/lt/month_200812_lt.fits.
+
+    **Parameters**
+
+    tstart: Starting time for the analysis in MET.  Note that if this is not the beginning of a day, the data for the full day
+        containing tstart will be used.
+    tstop: Ending time for the analysis in MET.  As with tstart, if it is not at a boundary between days, the data for the full day
+        containing tstop will be used.
+    data_path: string['/phys/groups/tev/scratch1/users/Fermi/data']
+        path to the saved data products
+    use_weighted_livetime: boolean[False]
+        Specify whether to get the weighted livetimes.
+    binsperdec: int[4] Bins/decade for the BinnedPhotonData files. Currently, we only have 4bpd files saved, but this should provide flexibility
+	if we save additional binnings in the future.
+    ltcube: string, optional
+        File under which to save the sum of the livetime cubes for the specified time range. If not specified, the file will still
+        be saved, under a name derived from the time range. 
+    weighted_ltcube: string, optional 
+        File under which to save the sum of the weighted livetime cubes for the specified time range. If not specified, the file will still
+        be saved, under a name derived from the time range. 
+    binfile: string, optional
+        File under which to save the sum of the BinnedPhotonDatas for the specified time range. If not specified, the file will still
+        be saved, under a name derived from the time range. 
+    
+    """
+    
+    def __init__(self,tstart,tstop,use_weighted_livetime = False,binsperdec = 4,**kwargs):
+        self.init()
+	self.tstart = tstart
+        self.tstop = tstop
+        self.binsperdec = binsperdec
+        self.use_weighted_livetime = use_weighted_livetime
+        self.__dict__.update(kwargs)
+
+
+        if not (os.path.exists(str(self.binfile)) and os.path.exists(str(self.ltcube)) and 
+               (os.path.exists(str(self.weighted_ltcube)) or not self.use_weighted_livetime)):
+            tstart = self.tstart if self.tstart else utc_to_met(2008,8,4)
+            tstop = self.tstop if self.tstop else utc_to_met(*date.today().timetuple()[:6])
+            bpds,lts,weighted_lts = get_data(tstart,tstop)
+            start_date = MET(tstart).time
+            stop_date = MET(tstop).time
+            start_date = start_date.year*10000+start_date.month*100+start_date.day
+            stop_date = stop_date.year*10000+stop_date.month*100+stop_date.day
+            if not self.binfile:
+                self.binfile = '%i-%i_%ibpd.fits'%(start_date,stop_date,self.binsperdec)
+            if not self.ltcube:
+                self.ltcube = '%i-%i_lt.fits'%(start_date,stop_date)
+            if self.use_weighted_livetime and not self.weighted_ltcube:
+                self.weighted_ltcube = '%i-%i_lt_weighted.fits'%(start_date,stop_date)
+            merge_bpd(bpds,self.binfile)
+            sum_ltcubes(lts,self.ltcube)
+            if self.use_weighted_livetime:
+                sum_ltcubes(weighted_lts,self.weighted_ltcube)
 
 ########################################
 ########### DEPRECATED #################
@@ -102,6 +175,11 @@ class AnalysisEnvironment(object):
           be generated on-the-fly.  If a file is provided but does
           not exist, the livetime cube will be generated and written
           to the specified file.
+      weighted_ltcube : string, optional
+          points to a livetime-fraction-weighted livetime_cube; if not
+          given, livetime will be generated on the fly if needed.  If 
+          a filename is provided and does not exist, the livetime cube
+          will be generated and written to the specified file, if needed.
       binfile : string, optional
           points to a binned representation of the data; will be
           generated if not provided; if file specified but does not
@@ -129,6 +207,7 @@ class AnalysisEnvironment(object):
       self.ft1files = None
       self.ft2files = None
       self.ltcube   = None
+      self.weighted_ltcube = None
       self.binfile  = None
 
    def __init__(self,**kwargs):
@@ -235,6 +314,7 @@ Optional keyword arguments:
   binsperdec   [4] energy binning granularity when binning FT1
   emin         [100] Minimum energy
   emax         [3e5] Maximum energy
+  use_weighted_livetime [False] Use the weighted livetime
   use_daily_data [False] For the local cluster, use the pre-binned daily data.
   daily_data_path ['/phys/groups/tev/scratch1/users/Fermi/data/daily'] 
                   If use_daily_data, path to look for daily files.
@@ -243,6 +323,8 @@ Optional keyword arguments:
   full days containing tstart and tstop will be used. Also, it is left to the user to 
   ensure that the irf used is compatible with that used to bin the data (currently only
   P6_v3_diff on the TeV cluster).
+
+  use_daily_data DEPRECATED in favor of using the SavedData class.
   **********
 
   =========    KEYWORDS FOR MONTE CARLO DATA
@@ -282,6 +364,7 @@ Optional keyword arguments:
         self.tstop       = 0
         self.emin        = 200    # MeV  -- note changed defaults to better deal with energy dispersion
         self.emax        = 2e5    # MeV
+        self.use_weighted_livetime = False
 
         self.mc_src_id   = -1
         self.mc_energy   = False
@@ -297,7 +380,7 @@ Optional keyword arguments:
         self.quiet       = False
         self.verbose     = False
 
-        self.use_daily_data = False
+        self.use_daily_data = False  #DEPRECATED
         self.daily_data_path = '/phys/groups/tev/scratch1/users/Fermi/data/daily'
 
         self.ae = self.dataspec = data_specification
@@ -316,11 +399,16 @@ Optional keyword arguments:
         self.psf = CALDBPsf(self.CALDB,irf=self.irf,psf_irf=self.psf_irf)
 
     def setup_daily_data(self):
-        """Setup paths to use saved daily data and livetime files on our local cluster."""
+        """Setup paths to use saved daily data and livetime files on our local cluster.
+        
+        Should no longer be necossary, but keeping around for now for backward compatability."""
 
         data_dir = self.daily_data_path
         bpds = glob(os.path.join(data_dir,'bpd','*.fits'))
-        lts = glob(os.path.join(data_dir,'lt','*.fits'))
+        if self.weighted_livetime:
+            lts = glob(os.path.join(data_dir,'lt_weighted','*.fits'))
+        else:
+            lts = glob(os.path.join(data_dir,'lt','*.fits'))
         bpds.sort()
         lts.sort()
         start_date = MET(self.tstart).time if self.tstart else date(2008,8,4)
@@ -334,7 +422,10 @@ Optional keyword arguments:
         if not self.binfile:
             self.binfile = '%i-%i_%ibpd.fits'%(start_date,stop_date,self.binsperdec)
         if not self.ltcube:
-            self.ltcube = '%i-%i_lt.fits'%(start_date,stop_date)
+            if self.weighted_livetime:
+                self.ltcube = '%i-%i_lt_weighted.fits'%(start_date,stop_date)
+            else:
+                self.ltcube = '%i-%i_lt.fits'%(start_date,stop_date)
         merge_bpd(bpds,self.binfile)
         sum_ltcubes(lts,self.ltcube)
 
