@@ -98,7 +98,7 @@ class SavedData(DataSpecification):
         containing tstart will be used.
     tstop: Ending time for the analysis in MET.  As with tstart, if it is not at a boundary between days, the data for the full day
         containing tstop will be used.
-    data_path: string['/phys/groups/tev/scratch1/users/Fermi/data']
+    data_dir: string['/phys/groups/tev/scratch1/users/Fermi/data']
         path to the saved data products
     use_weighted_livetime: boolean[False]
         Specify whether to get the weighted livetimes.
@@ -116,12 +116,13 @@ class SavedData(DataSpecification):
     
     """
     
-    def __init__(self,tstart,tstop,use_weighted_livetime = False,binsperdec = 4,**kwargs):
+    def __init__(self,tstart,tstop,**kwargs):
         self.init()
 	self.tstart = tstart
         self.tstop = tstop
-        self.binsperdec = binsperdec
-        self.use_weighted_livetime = use_weighted_livetime
+        self.binsperdec = 4
+        self.use_weighted_livetime = False
+        self.data_dir = '/phys/groups/tev/scratch1/users/Fermi/data'
         self.__dict__.update(kwargs)
 
 
@@ -129,7 +130,7 @@ class SavedData(DataSpecification):
                (os.path.exists(str(self.weighted_ltcube)) or not self.use_weighted_livetime)):
             tstart = self.tstart if self.tstart else utc_to_met(2008,8,4)
             tstop = self.tstop if self.tstop else utc_to_met(*date.today().timetuple()[:6])
-            bpds,lts,weighted_lts = get_data(tstart,tstop)
+            bpds,lts,weighted_lts = get_data(tstart,tstop,data_dir=self.data_dir)
             start_date = MET(tstart).time
             stop_date = MET(tstop).time
             start_date = start_date.year*10000+start_date.month*100+start_date.day
