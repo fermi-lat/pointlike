@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.1 2010/05/18 22:19:28 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.2 2010/05/18 23:59:39 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -151,22 +151,25 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
             if band.has_pixels:
                 myband.pi_counts = (myband.pi_evals * myband.mo_evals).sum(axis=1)
 
-        self.init_norm = self.smodel.p[0]
+        self.init_p = self.smodel.p.copy()
+        self.prev_p = self.smodel.p.copy()
 
     def update_counts(self,bands,model_index):
 
         mi = model_index
         sm = self.smodel
-        if not N.any(sm.free): return
+        if N.all(self.prev_p == sm.p): return
+        self.prev_p[:] = sm.p
 
-        # model is not energy-dependent
-        if not N.any(sm.free[1:]):
-            ratio = 10**(sm.p[0]-self.init_norm)
+        # counts can just be scaled from initial integral
+        if N.all(sm.p[1:] == self.init_p[1:])
+            ratio = 10**(sm.p[0]-self.init_p[0])
             for myband,band in zip(self.bands,bands): 
                band.bg_counts[mi] = ratio * myband.ap_counts
                if band.has_pixels:
                   band.bg_pix_counts[:,mi] = ratio * myband.pi_counts
 
+        # update requires new integral over energy
         else:
             for myband,band in zip(self.bands,bands):
                 pts = sm(myband.bg_points)
