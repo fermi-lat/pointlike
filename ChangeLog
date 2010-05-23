@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Sun May 23 15:50:20 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+Fixed a logic bug in itne update_counts method of ROIDiffuseModel_OTF and added a bit of code to save the previous parameter values to give a more robust caching.
+    *
+------------------------------------------------------------
 User: wallacee  Sat May 22 15:58:35 PDT 2010
 pointlike/python/uw/like
 
