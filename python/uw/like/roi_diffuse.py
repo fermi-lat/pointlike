@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.3 2010/05/23 22:50:19 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.4 2010/05/24 08:10:30 lande Exp $
 
 author: Matthew Kerr
 """
@@ -159,7 +159,7 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
                 myband.pi_counts = (myband.pi_evals * myband.mo_evals).sum(axis=1)
 
         self.init_p = self.smodel.p.copy()
-        self.prev_p = self.smodel.p.copy()
+        self.prev_p = self.smodel.p.copy() +1e-5 # kluge
 
     def update_counts(self,bands,model_index):
 
