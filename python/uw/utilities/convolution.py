@@ -1,10 +1,12 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.1 2010/05/19 00:00:09 burnett Exp $
 """
-from skymaps import SkyDir
+from skymaps import SkyDir,WeightedSkyDirList,Hep3Vector
 from pointlike import DoubleVector
 import numpy as N
-from scipy.interpolate import interp2d
+from scipy.interpolate import interp2d,interp1d
+from scipy.integrate import quad,Inf
+from scipy.special import hyp2f1
 from uw.like.pypsf import BandCALDBPsf,PretendBand
 from numpy.fft import fftshift,ifft2,fft2
 
@@ -192,3 +194,80 @@ class BackgroundConvolution(Grid):
         P.imshow(N.log10(self.cvals).transpose()[::-1],norm=norm,interpolation='nearest')
         P.axvline(marker,color='k')
         P.axhline(marker,color='k')
+
+#===============================================================================================#
+
+class BackgroundConvolutionNorm(BackgroundConvolution):
+
+    def convolve(self,*args,**kwargs):
+        super(BackgroundConvolutionNorm,self).convolve(*args,**kwargs)
+        self.cvals /= self.cvals.sum()
+
+#===============================================================================================#
+
+class AnalyticConvolution(BackgroundConvolution):
+    """ Calculates the convolution of the psf with a radially symmetric spatial_model. """
+
+    def __init__(self,spatial_model,psf):
+        self.spatial_model=spatial_model
+        self.psf=psf
+
+    def do_convolution(self,energy,conversion_type):
+        pb = PretendBand(energy,conversion_type)
+        self.bpsf = BandCALDBPsf(self.psf,pb)
+
+        self.convolve()
+
+    def bg_fill(self):
+        raise NotImplementedError,'Classes must implement this method!'
+
+    def convolve(self):
+        if self.bpsf.newstyle:
+            # nc,nt,gc,gt,sc,st,w = band.bpsf.par
+            raise Exception("AnalyticPDF Not implemented for newstyle psf.")
+
+        else:
+            # g = gamma, s = sigma, w = weight
+            g,s,weight = self.bpsf.par
+            # weight over cos theta bins.
+            g=(g*weight).sum()
+            s=(s*weight).sum()
+
+            # intensity values
+            self.rmax=10*(s+self.spatial_model.get_r68())
+            num_points=100
+
+            self.rlist=N.linspace(0,self.rmax,num_points)
+            # u value corresponding to the given r.
+            self.ulist=0.5*(self.rlist/s)**2
+
+            # intensity values for each r (in a given energy bin)
+            self.intensity=N.empty_like(self.rlist)
+
+            for i,u in enumerate(self.ulist):
+                integrand = lambda v: self.spatial_model.at_r(N.sqrt(2*v)*s)\
+                                                  *((g-1)/g)*(g/(g+u+v))**g\
+                                                  *hyp2f1(g/2.,(1+g)/2.,1.,4.*u*v/(g+u+v)**2)
+
+                self.intensity[i]=quad(integrand,0,Inf,epsabs=1e-4,full_output=True)[0]
+
+            # Assume intensity is 0 outside of the bound,
+            # reasonable if rmax is big enough
+            self.interp=interp1d(self.rlist,self.intensity,kind='cubic',bounds_error=False,fill_value=0)
+
+    def ap_average(self,radius):
+        print 'AnalyticConvolution.ap_average needs to be correctly implemented.'
+        return 1
+
+    def __call__(self,skydir,not_needed=None):
+        if type(skydir)==list and len(skydir)==3:
+            skydir = SkyDir(Hep3Vector(skydir[0],skydir[1],skydir[2]))
+        if type(skydir)==SkyDir:
+            return float(self.interp(skydir.difference(self.spatial_model.center)))
+        elif type(skydir)== WeightedSkyDirList:
+            dv = DoubleVector()
+            skydir.arclength(self.spatial_model.center,dv)
+            difference = N.fromiter(dv,dtype=float)
+            return self.interp(difference)
+        else:
+            raise Exception("Unknown input to AnalyticConvolution.__call__()")
