@@ -1,4 +1,41 @@
 ------------------------------------------------------------
+User: lande  Mon May 24 01:10:30 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py pointspec_helpers.py roi_analysis.py 
+	roi_diffuse.py roi_managers.py 
+Added Files:
+	SpatialModels.py roi_extended.py 
+Log Message:
+Code changes:
+
+-- Major Changes --
+
+* ROIAnalysis object now contains a function mapper which turns which into a tuple with the manager (self.psm or self.dsm) and the index of the source in the list. Currently it will work for an int (return the psm) or a PointSource/DiffuseSource object. It would be an easy generalization to have it work with a string name object.
+
+* Addition of SpatialModel.py object. 
+
+* Addition of roi_extended.py with ExtendedSource object, ROIExtendedModel object, and ROIExtendedModelAnalytic object.
+
+-- Minor Changes --
+
+* In SpectralAnalysis.roi(), replace dsources with diffuse_sources everywhere, which I think fixes a logic bug.
+
+* Generalization of Simpson integral to ns=0 case as we discuss before.
+
+* model.background = True set in the DiffuseSource object, not in the ROIDiffuseManager
+
+* Store the diffuse_source object in each ROIDiffuseModels as self.diffuse_source. Also have the ROIDiffuseManager store a list of diffuse_sources (self.diffuse_sources). This is to allow fast(er) lookups of diffuse sources when passed as the which flag, and also to maintain symmetry with the ROIPointSourceManager
+
+* In ROIDiffuseModel_OTF, Replace __ap_value with _ap_value & __pix_value with _pix_value. I.E. turn two underscores into one underscore. That is because python mangles the double undderscore, so __ap_value => _ROIDiffuseModel_OTF__ap_value which is ugly to overload. (http://docs.python.org/tutorial/classes.html, section 9.6 Private Variables)
+
+* Make the exceptions in get_default_diffuse display the name of the diffuse file that doesn't exist. This is useful if you are not sure what the default should be.
+
+
+
+    *
+------------------------------------------------------------
 User: kerrm  Sun May 23 15:50:20 PDT 2010
 pointlike/python/uw/like
 
