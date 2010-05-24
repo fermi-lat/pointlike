@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.2 2010/05/18 23:59:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.3 2010/05/23 22:50:19 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -22,6 +22,8 @@ class DiffuseSource(object):
 
         self.dmodel = diffuse_model
         self.smodel = scaling_model
+
+        self.smodel.background = True
 
         if name is None:
             self.name = 'Diffuse Source %d'%(DiffuseSource.__counter)
@@ -44,9 +46,10 @@ class ROIDiffuseModel(object):
 
         self.sa = spectral_analysis
         self.roi_dir = roi_dir
-        self.dmodel  = diffuse_source.dmodel
-        self.smodel  = diffuse_source.smodel
-        self.name    = diffuse_source.name
+        self.diffuse_source = diffuse_source
+        self.dmodel         = diffuse_source.dmodel
+        self.smodel         = diffuse_source.smodel
+        self.name           = diffuse_source.name
 
         self.init()
         self.__dict__.update(kwargs)
@@ -99,8 +102,8 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         Use a Simpson's rule integration over the exposure.
         
         To use a different convolution scheme but maintain the Simpson's
-        rule exposure integral, child methods may override __ap_value 
-        and __pix_value."""
+        rule exposure integral, child methods may override _ap_value 
+        and _pix_value."""
 
     def init(self):
         self.pixelsize = 0.5
@@ -122,14 +125,18 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         self.active_bgc = self.bgc[conversion_type if (len(self.bgc) > 1) else 0]
         self.active_bgc.do_convolution(energy,conversion_type)
 
-    def initalize_counts(self,bands,roi_dir=None):
+    def initialize_counts(self,bands,roi_dir=None):
         ns = self.nsimps; rd = self.roi_dir if roi_dir is None else roi_dir
         self.bands = [SmallBand() for i in xrange(len(bands))]
 
         for myband,band in zip(self.bands,bands):
-            myband.bg_points = sp = N.logspace(N.log10(band.emin),N.log10(band.emax),ns+1)
-            myband.bg_vector = sp * (N.log(sp[-1]/sp[0])/(3.*ns)) * \
-                                     N.asarray([1.] + ([4.,2.]*(ns/2))[:-1] + [1.])
+            if ns > 0:
+                myband.bg_points = sp = N.logspace(N.log10(band.emin),N.log10(band.emax),ns+1)
+                myband.bg_vector = sp * (N.log(sp[-1]/sp[0])/(3.*ns)) * \
+                                         N.asarray([1.] + ([4.,2.]*(ns/2))[:-1] + [1.])
+            else:
+                myband.bg_points = sp = N.asarray([band.e])
+                myband.bg_vector = sp * N.log(band.emax/band.emin)
 
             #figure out best way to handle no pixel cases...
             myband.ap_evals  = N.empty(ns + 1)      
@@ -138,9 +145,9 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
                   
             for ne,e in enumerate(myband.bg_points):
                 self.set_state(e,band.ct)
-                myband.ap_evals[ne] = self.__ap_value(rd,band.radius_in_rad)
+                myband.ap_evals[ne] = self._ap_value(rd,band.radius_in_rad)
                 if band.has_pixels:
-                    myband.pi_evals[:,ne] = self.__pix_value(band.wsdl)
+                    myband.pi_evals[:,ne] = self._pix_value(band.wsdl)
 
             myband.ap_evals *= (band.solid_angle   * myband.bg_vector)
             myband.pi_evals *= (band.b.pixelArea() * myband.bg_vector)
@@ -162,7 +169,7 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         self.prev_p[:] = sm.p
 
         # counts can just be scaled from initial integral
-        if N.all(sm.p[1:] == self.init_p[1:])
+        if N.all(sm.p[1:] == self.init_p[1:]):
             ratio = 10**(sm.p[0]-self.init_p[0])
             for myband,band in zip(self.bands,bands): 
                band.bg_counts[mi] = ratio * myband.ap_counts
@@ -178,14 +185,14 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
                     band.bg_pix_counts[:,mi] = (myband.pi_evals * pts).sum(axis=1)               
                   
 
-    def __ap_value(self,center,radius):
+    def _ap_value(self,center,radius):
         """ Return the integral of the model over the aperture for the
             current state (energy/conversion type).
             Convolution could/should be done.
         """
         return self.active_bgc.ap_average(radius)
 
-    def __pix_value(self,pixlist):
+    def _pix_value(self,pixlist):
         """ Return the model evaluated at each data pixel for the current
             state (energy/conversion type).
             Convolution could/should be done.
@@ -242,10 +249,10 @@ class ROIDiffuseModel_PC(ROIDiffuseModel_OTF):
         self.active_bg = self.bgs[conversion_type if (len(self.bgs) > 1) else 0]
         self.active_bg.setEnergy(energy)
 
-    def __ap_value(self,center,radius):
+    def _ap_value(self,center,radius):
         return SkyIntegrator.ss_average(self.active_bg,center,radius)
 
-    def __pix_value(self,pixlist):
+    def _pix_value(self,pixlist):
         return N.asarray(self.active_bg.wsdl_vector_value(pixlist))
 
 

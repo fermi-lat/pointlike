@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.10 2010/05/18 22:25:36 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.12 2010/05/22 22:58:34 wallacee Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.10 $'.split()[1]
+version='$Revision: 1.12 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -528,12 +528,12 @@ Optional keyword arguments:
         # process diffuse models
         if len(diffuse_sources) == 0:
             # try to use default
-            dsources = get_default_diffuse(diffdir=diffdir)
+            diffuse_sources = get_default_diffuse(diffdir=diffdir)
             if len(diffuse_sources) == 0:
                 print 'WARNING!  No diffuse sources are included in the model.'
         if diffuse_mapper is None:
             diffuse_mapper = lambda x: ROIDiffuseModel_OTF(self,x,roi_dir)
-        diffuse_models = [diffuse_mapper(ds) for ds in dsources]
+        diffuse_models = [diffuse_mapper(ds) for ds in diffuse_sources]
 
         # instantiate and return ROIAnalysis object
         psm = ROIPointSourceManager(point_sources,roi_dir,quiet=self.quiet)

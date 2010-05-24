@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.13 2010/05/18 22:25:36 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.14 2010/05/18 23:58:55 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -14,6 +14,7 @@ from roi_bands import *
 from roi_plotting import *
 from roi_localize import *
 from pointspec_helpers import PointSource
+from roi_diffuse import DiffuseSource
 
 from specfitter import SpectralModelFitter,mycov
 
@@ -101,6 +102,31 @@ class ROIAnalysis(object):
          groupings[bc] = [band for band in self.bands if band.e==bc]
 
       self.energy_bands = [ROIEnergyBand(groupings[bc]) for bc in self.bin_centers]
+
+
+   def mapper(self,which):
+       """ Map the argument `which' passed into functions such as localize
+           into the manager that which belongs to and and index in the
+           manager for the particular source referred to.
+
+           If which is an integer, it is assumed to be in the point
+           source manager, so the return is the poin tsource manager
+           and the particular index.
+
+           If which is of type PointSource, the return is the point
+           source manager and the index for the particular point source.
+
+           If which is of type DiffuseSource, the reutrn is the diffuse
+           source manager and the index is for the particular diffuse
+           source. """
+       if type(which)==int:
+           return self.psm,which
+       elif isinstance(which,PointSource):
+           return self.psm,self.psm.point_sources.index(which)
+       elif isinstance(which,DiffuseSource):
+           return self.dsm,self.dsm.diffuse_sources.index(which)
+       else:
+           raise Exception("Unknown which argument = %s" % str(which))
 
 
    def logLikelihood(self,parameters,*args):
@@ -397,7 +423,7 @@ class ROIAnalysis(object):
       self.psm.set_covariance_matrix(self.cov_matrix,current_position = len(self.bgm.parameters()))
 
    def __str__(self):
-      bg_header  = '======== BACKGROUND FITS =============='
+      bg_header  = '======== DIFFUSE SOURCE FITS =============='
       ps_header  = '======== POINT SOURCE FITS ============'
       if (self.logl is not None) and (self.prev_logl is not None):
          ll_string  = 'Log likelihood change: %.2f'%(self.logl - self.prev_logl)
@@ -442,10 +468,16 @@ class ROIAnalysis(object):
 
          return fit position
       """
-      rl = ROILocalizer(self,which=which,bandfits=bandfits,tolerance=tolerance,update=update,verbose=verbose)
-      if seedpos is not None:
-         rl.sd = seedpos  # override 
-      return rl.localize()
+      manager,index=self.mapper(which)
+
+      if manager==self.psm:
+          rl = ROILocalizer(self,which=index,bandfits=bandfits,tolerance=tolerance,update=update,verbose=verbose)
+          if seedpos is not None:
+             rl.sd = seedpos  # override 
+          return rl.localize()
+
+      elif manager==self.dsm:
+          self.dsm.bgmodels[index].localize(self,which=index)
 
    def upper_limit(self,which = 0,confidence = .95,e_weight = 0,cgs = False):
        """Compute an upper limit on the flux of a source.
@@ -559,20 +591,30 @@ class ROIAnalysis(object):
       pass #make this a TS map? negative -- spatialLikelihood does it, essentially
 
    def add_ps(self,ps):
-      """Add a new PointSource object to the model."""
-      self.psm.add_ps(ps,self.bands)
+       """Add a new source object to the model.
+
+         N.B. for point sources, add PointSource object. For diffuse
+         sources, add ROIDiffuseModel object."""
+       if isinstance(ps,PointSource):
+           manager=self.psm
+       elif isinstance(ps,DiffuseSource):
+           manager=self.dsm
+       manager.add_source(ps,self.bands)
 
    def del_ps(self,which):
-      """Remove the PointSource at position given by which from the model."""
-      return self.psm.del_ps(which,self.bands)
+       """Remove the source at position given by which from the model."""
+       manager,index=self.mapper(which)
+       return manager.del_source(index,self.bands)
 
    def zero_ps(self,which):
-      """Set the flux of point source given by which to 0."""
-      return self.psm.zero_ps(which,self.bands)
+       """Set the flux of the source given by which to 0."""
+       manager,index=self.mapper(which)
+       return manager.zero_source(index,self.bands)
 
    def unzero_ps(self,which):
-      """Restore a previously-zeroed flux."""
-      self.psm.unzero_ps(which,self.bands)
+       """Restore a previously-zeroed flux."""
+       manager,index=self.mapper(which)
+       manager.unzero_source(index,self.bands)
 
    def modify_loc(self,skydir,which):
       """Move point source given by which to new location given by skydir."""
