@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.6 2010/05/17 05:16:05 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.7 2010/05/18 22:25:36 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -42,6 +42,18 @@ class ROIModelManager(object):
 
    def get_free_errors(self):
       return list(N.concatenate([m.get_free_errors() for m in self.models]))
+
+   def add_source(self, model, bands):
+       raise NotImplementedError("Subclasses should implement this.")
+
+   def del_source(self, which, bands):
+       raise NotImplementedError("Subclasses should implement this.")
+
+   def zero_source(self, which, bands):
+       raise NotImplementedError("Subclasses should implement this.")
+
+   def unzero_source(self, which, bands):
+       raise NotImplementedError("Subclasses should implement this.")
       
 
 ###====================================================================================================###
@@ -186,7 +198,7 @@ class ROIPointSourceManager(ROIModelManager):
       self.models[which] = e
       self.point_sources[which].model = e
 
-   def add_ps(self, ps, bands):
+   def add_source(self, ps, bands):
       """Add a new PointSource object to the model and re-calculate the point source
          contribution."""
 
@@ -194,14 +206,14 @@ class ROIPointSourceManager(ROIModelManager):
       self.models        = N.append(self.models,ps.model)
       self.setup_initial_counts(bands) # not most efficient, but fewest loc!
 
-   def del_ps(self, which, bands):
+   def del_source(self, which, bands):
       ops = self.point_sources[which]
       self.point_sources = N.delete(self.point_sources,which)
       self.models        = N.delete(self.models,which)
       self.setup_initial_counts(bands) # ditto
       return ops
 
-   def zero_ps(self, which, bands):
+   def zero_source(self, which, bands):
       m = self.models[which]
       m.old_flux = m.p[0]
       m.p[0] = -100
@@ -209,7 +221,7 @@ class ROIPointSourceManager(ROIModelManager):
       m.free[:] = False
       self.cache(bands)
 
-   def unzero_ps(self, which, bands):
+   def unzero_source(self, which, bands):
       m = self.models[which]
       try:
          m.p[0] = m.old_flux
@@ -236,12 +248,7 @@ class ROIDiffuseManager(ROIModelManager):
 
         self.bgmodels = models
         self.models   = N.asarray([bgm.smodel for bgm in self.bgmodels])
-        
-        ### NOTA BENE ###
-        # check where this bit is used and see about it in the "diffuse" paradigm
-        for model in self.models:
-            model.background = True
-        #################
+        self.diffuse_sources = [bgm.diffuse_source for bgm in self.bgmodels]
 
         self.roi_dir  = roi_dir
       
@@ -270,7 +277,7 @@ class ROIDiffuseManager(ROIModelManager):
 
         # initialize models and get inital counts
         for ibg,bg in enumerate(self.bgmodels):
-            bg.initalize_counts(bands)
+            bg.initialize_counts(bands)
             bg.update_counts(bands,ibg)
 
 
@@ -296,6 +303,40 @@ class ROIDiffuseManager(ROIModelManager):
 
         return N.concatenate([bg.gradient(bands,ibg,phase_factor)
                               for ibg,bg in enumerate(self.bgmodels)])
+
+    def add_source(self, model, bands):
+        """Add a new PointSource object to the model and re-calculate the point source
+        contribution."""
+
+        self.bgmodels        = N.append(self.bgmodels,model)
+        self.models          = N.append(self.models,model.smodel)
+        self.diffuse_sources = N.append(self.diffuse_sources,model.diffuse_source)
+        self.setup_initial_counts(bands) # not most efficient, but fewest loc!
+
+    def del_source(self, which, bands):
+        ops = self.bgmodels[which]
+        self.bgmodels        = N.delete(self.bgmodels,which)
+        self.models          = N.delete(self.models,which)
+        self.diffuse_sources = N.delete(self.diffuse_sources,which)
+        self.setup_initial_counts(bands) # ditto
+        return ops
+
+    def zero_source(self, which, bands):
+        m = self.models[which]
+        m.old_flux = m.p[0]
+        m.p[0] = -100
+        m.old_free = m.free.copy()
+        m.free[:] = False
+        self.update_counts(bands)
+
+    def unzero_source(self, which, bands):
+        m = self.models[which]
+        try:
+            m.p[0] = m.old_flux
+            m.free = m.old_free.copy()
+            self.update_counts(bands)
+        except:
+            print 'Source indicated was not zeroed in the first place!'
 
 
 ###====================================================================================================###

@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.6 2010/05/18 22:25:36 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.7 2010/05/21 03:24:08 wallacee Exp $
 
    author: Matthew Kerr
    """
@@ -370,13 +370,13 @@ def get_default_diffuse(diffdir=None,gfile='gll_iem_v02.fit',ifile='isotropic_ie
     if gfile is not None:
         gfile = join(diffdir,gfile)
         if not os.path.exists(gfile):
-            raise Exception,'Invalid file specified for Galactic diffuse.'
+            raise Exception,'Invalid file specified for Galactic diffuse: %s' % gfile
         else:
             dsources += [get_diffuse_source('MapCubeFunction',gfile,'PowerLaw',None,'Galactic Diffuse')]
     if ifile is not None:
         ifile = join(diffdir,ifile)
         if not os.path.exists(ifile):
-            raise Exception,'Invalid file specified for isotropic diffuse.'
+            raise Exception,'Invalid file specified for isotropic diffuse: %s' % ifile
         else:
             dsources += [get_diffuse_source('ConstantValue',None,'FileFunction',ifile,'Isotropic Diffuse')]
 
