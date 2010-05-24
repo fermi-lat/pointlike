@@ -1,5 +1,5 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.1 2010/05/19 00:00:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.2 2010/05/24 08:11:01 lande Exp $
 """
 from skymaps import SkyDir,WeightedSkyDirList,Hep3Vector
 from pointlike import DoubleVector
@@ -90,8 +90,8 @@ class Grid(object):
             skydir = [skydir]
             #lon,lat = (skydir.l(),skydir.b()) if self.usegal else (skydir.ra(),skydir.dec())
         #else:
-        lon = N.asarray([sd.l() if self.usegal else skydir.ra() for sd in skydir])
-        lat = N.asarray([sd.b() if self.usegal else skydir.dec() for sd in skydir])
+        lon = N.asarray([sd.l() if self.usegal else sd.ra() for sd in skydir])
+        lat = N.asarray([sd.b() if self.usegal else sd.dec() for sd in skydir])
         if self.wrap:
             # adopt negative longitudes for the nonce; fine for calculating differences
             lon = N.where(lon > 180, lon - 360 , lon)
