@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Mon May 24 15:07:39 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+Fix a little bug with the caching, forcing the next call to update_count after a setup_initial_counts to always go through.
+    *
+------------------------------------------------------------
 User: wallacee  Mon May 24 10:32:11 PDT 2010
 pointlike/python/uw/utilities
 
