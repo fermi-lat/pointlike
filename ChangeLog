@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: lande  Mon May 24 01:11:01 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Addition of AnalyticConvolution object to uw.utilities.convoluiton
+
+
+    *
+------------------------------------------------------------
 User: lande  Mon May 24 01:10:30 PDT 2010
 pointlike/python/uw/like
 
