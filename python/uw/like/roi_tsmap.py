@@ -1,7 +1,7 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.3 2010/02/10 00:21:58 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.1 2010/05/07 18:39:07 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -34,6 +34,7 @@ class TSCalc(object):
         self.roi = roi
         self.ro  = PsfOverlap()
         self.rd  = roi.sa.roi_dir
+        self.phase_factor = roi.phase_factor
         
         mo  = PowerLaw(p=[1e-12,2])
         self.n0 = 10**mo.p[0]
@@ -42,7 +43,7 @@ class TSCalc(object):
         
         self.seeds = N.concatenate(([-20.],N.arange(-14,-8.9,0.5)))
 
-    def __call__(self,skydir,repeat_diffuse=False,bright_source_mask=None):
+    def __call__(self,skydir,repeat_diffuse=False,bright_source_mask=None,no_cache=False):
         """Return the TS for the position on the sky given by the argument.
         
            bright_sources = a mask to select sources to include with the
@@ -51,8 +52,9 @@ class TSCalc(object):
         bands = self.roi.bands
         bsm   = bright_source_mask
         dv    = DoubleVector()
+        pf    = self.phase_factor
 
-        if not repeat_diffuse:
+        if not repeat_diffuse or no_cache:
 
             for i,band in enumerate(bands):
 
@@ -69,6 +71,10 @@ class TSCalc(object):
 
                 # calculate overlap
                 band.ts_overlap = self.ro(band,self.rd,skydir)
+
+        if not repeat_diffuse:
+
+            for i,band in enumerate(bands):
 
                 # pre-calculate the "pixel" part
                 if band.has_pixels:
@@ -100,7 +106,7 @@ class TSCalc(object):
             accum = 0
             for band in bands:
                 pix_term = (band.pix_counts*N.log(1 + n0/band.ts_pix_term)).sum() if band.has_pixels else 0
-                ap_term  = - n0*band.ts_overlap*band.ts_exp
+                ap_term  = - n0*band.ts_overlap*band.ts_exp*pf
                 accum   += pix_term + ap_term
             return accum
 
@@ -109,7 +115,7 @@ class TSCalc(object):
             accum = 0
             for band in bands:
                 pix_term = - (band.pix_counts*(1 + band.ts_pix_term/n0)**-1).sum() if band.has_pixels else 0
-                ap_term  = n0*band.ts_exp*band.ts_overlap
+                ap_term  = n0*band.ts_exp*band.ts_overlap*pf
                 accum   += pix_term + ap_term
             return J*accum
 
@@ -122,7 +128,7 @@ class TSCalc(object):
                     pix_term = - (band.pix_counts*quot/(1+quot)**2).sum()
                 else:
                     pix_term = 0
-                ap_term  = n0*band.ts_exp*band.ts_overlap
+                ap_term  = n0*band.ts_exp*band.ts_overlap*pf
                 accum   += pix_term + ap_term
             return J*J*accum
 
@@ -162,12 +168,14 @@ class TSCalc(object):
 ###====================================================================================================###
 class TSCalcPySkyFunction(object):
 
-    def __init__(self,tscalc):
+    def __init__(self,tscalc,repeat_diffuse=False,bright_source_mask=None):
         self.tscalc = tscalc
+        self.repeat_diffuse=repeat_diffuse
+        self.bright_source_mask=bright_source_mask
 
     def __call__(self,v):
         sd = SkyDir(Hep3Vector(v[0],v[1],v[2]))
-        return self.tscalc(sd)
+        return self.tscalc(sd,repeat_diffuse=self.repeat_diffuse,bright_source_mask=self.bright_source_mask,no_cache=True)
 
     def get_pyskyfun(self):
         return PySkyFunction(self)
