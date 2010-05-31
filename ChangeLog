@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon May 31 16:50:46 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_tsmap.py 
+Log Message:
+Adding --nocache flag to allow calculating all of one type of ts map and then the other. This isn't very efficient but fits well with the skyfunction interface. Also allowing the TSCalcPySkyFunction the functionality of repleate_diffuse and bright_source_mask.
+    *
+------------------------------------------------------------
 User: kerrm  Mon May 24 15:07:39 PDT 2010
 pointlike/python/uw/like
 
