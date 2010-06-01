@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: lande  Tue Jun  1 01:12:34 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Weighting of sigmas & gammas after fitting
+
+    *
+------------------------------------------------------------
 User: lande  Mon May 31 16:50:46 PDT 2010
 pointlike/python/uw/like
 
