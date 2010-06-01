@@ -9,11 +9,9 @@ class ExtendedSource(DiffuseSource):
 
     def __init__(self,name=None,model=None,spatial_model=None,free_parameters=True):
         """ Make the naming consistent with the PointSource object so that
-            extended sources 'feel' like point sources. 
+            extended sources 'feel' like point sources.
 
-            spatial_model should inherit from SpatialModel
-            
-            """
+            spatial_model should inherit from SpatialModel. """
         if spatial_model is None: spatial_model = Gaussian()
 
         self.spatial_model = spatial_model
@@ -40,21 +38,14 @@ class ExtendedSource(DiffuseSource):
                           'Model:\t\t%s'%(self.smodel.name),
                           'SpatialModel:\t%s'%(self.spatial_model.pretty_name)])
 
-    def pretty_string(self):
-        """ Return a one line string of the spatial parameters of the extended source. """
-        return 'dir = (%.3f,%.3f), ext = %s' % (self.spatial_model.center.ra(),
-                                              self.spatial_model.center.dec(),
-                                              self.spatial_model.pretty_string())
-
 
 ###=========================================================================###
 
 
 class ROIExtendedModel(ROIDiffuseModel_OTF):
     """ Implements the ROIDiffuseModel interface for the
-        representation of a spatial source which can be
-        represented as an analytic function inherting from
-        the SpatialModel class."""
+        representation of a spatial source which can be represented as
+        an analytic function inherting from the SpatialModel class."""
 
     @staticmethod 
     def factory(spectral_analysis,extended_source,*args,**kwargs):
@@ -77,7 +68,7 @@ class ROIExtendedModel(ROIDiffuseModel_OTF):
         self.nsimps    = 0
 
     def setup(self):
-        """ Use the Normalized convolution object and always do the 
+        """ Use the Normalized convolution object and always do the
             convolution around the spatial model's center. """
         exp = self.sa.exposure.exposure; psf = self.sa.psf
         self.bg  = [Background(self.dmodel[0],exp[0],exp[1])]
@@ -90,24 +81,23 @@ class ROIExtendedModel(ROIDiffuseModel_OTF):
         self.extended_source = self.diffuse_source = extended_source
 
         super(ROIExtendedModel,self).__init__(
-            spectral_analysis = spectral_analysis,
-            diffuse_source =    extended_source,
-            roi_dir =           roi_dir,
-            scaling_model =     extended_source.smodel,
-            name =              extended_source.name)
+            spectral_analysis, extended_source,
+            roi_dir, extended_source.name,*args,**kwargs)
 
     def __str__(self):
         es = self.extended_source
+        sm = es.spatial_model
 
         return '%s fitted with %s\n%s\n%s fitted with %s\n%s' % \
-                (es.name,es.smodel.pretty_name,
-                 es.smodel.__str__(),
-                 ' '*len(es.name),es.spatial_model.pretty_name,
-                 es.spatial_model.__str__())
+                (es.name,sm.pretty_name,
+                 sm.__str__(),
+                 es.name,es.smodel.pretty_name,
+                 es.smodel.__str__())
 
     def localize(self,roi,which):
 
         es = self.extended_source
+        sm = es.spatial_model
 
         old_dsm_quiet = roi.dsm.quiet
         old_quiet = roi.quiet
@@ -115,12 +105,13 @@ class ROIExtendedModel(ROIDiffuseModel_OTF):
 
         ll_0 = -roi.logLikelihood(roi.parameters())
 
-        init_vals = es.smodel.p.copy()
+        init_spectral = es.smodel.get_parameters()
+        init_spatial = sm.get_parameters()
 
-        def likelihood_wrapper(params):
-            """ Helper function which takes in the spatial parameters for the extended
-                source and returns the logLikelihood. 
-                
+        def likelihood_wrapper(p):
+            """ Helper function which takes in the spatial parameters
+                for the extended source and returns the logLikelihood.
+
                 Implemenation note: Sometimes the fitter gets
                 confused. For example, if the last iteration moved to
                 a spatial value really far from the initial position,
@@ -128,42 +119,45 @@ class ROIExtendedModel(ROIDiffuseModel_OTF):
                 during the next iteration at a more reasonable spatial
                 value, the fit will be unable to reconverge on the best
                 flux and stays at 0. To get around this, I cache the
-                initial fit value (which is presumably pretty good), and
-                whenever the current fit logLikelihood is less then the
-                initial logLikelihood, I rest the loglikelihood to
-                
-                """
-            p=params[2:]
-            center= SkyDir(*params[0:2])
-            es.spatial_model.update(p=p, center=center)
+                initial fit value (which is presumably pretty good),
+                and whenever the current fit logLikelihood is less then
+                the initial logLikelihood, I rest the loglikelihood to """
+            sm.set_parameters(p)
             self.initialize_counts(roi.bands)
-            # roi.dsm.update_counts handled by fit() calling logLikelihood()
-            roi.fit()
-
-            ll=float(-roi.logLikelihood(roi.parameters()))
+            # N.B. roi.dsm.update_counts handled by fit() calling logLikelihood()
+            ll=roi.fit()
 
             if ll < ll_0:
-                prev_fit =self.smodel.p.copy()
-                self.smodel.p = init_vals.copy()
-                roi.fit()
-                ll_alt=float(roi.logLikelihood(roi.parameters()))
+                prev_fit=self.smodel.get_parameters()
+                self.smodel.set_parameters(init_spectral)
+                ll_alt=roi.fit()
 
                 if ll_alt > ll:
                     ll = ll_alt
                 else:
-                    self.smodel.p = prev_fit
+                    self.smodel.set_parameters(prev_fit)
 
-                ll=max(ll_alt,ll)
-
-            if not old_quiet: print '%s, logL = %.2f, dlogL = %.2f' % (es.pretty_string(),ll,ll-ll_0)
+            if not old_quiet: print '%s, logL = %.2f, dlogL = %.2f' % (sm.pretty_string(),ll,ll-ll_0)
             return -ll
 
-        print 'Localizing %s source %s' % (es.spatial_model.pretty_name,es.name)
+        print 'Localizing %s source %s' % (sm.pretty_name,es.name)
 
-        init_dir=es.spatial_model.center
-        init_params=[init_dir.ra(),init_dir.dec()]+es.spatial_model.p
-        f=fmin(likelihood_wrapper,init_params,full_output=1,
-               maxiter=10000,maxfun=20000, ftol=1e-2, disp=0 if old_quiet else 1)
+        from uw.utilities.minuit import Minuit
+        
+        # these guys should eventually be prompoted to input parameters
+        tolerance = 0.01
+        method = 'HESSE'
+        param_names = sm.get_param_names()
+
+
+        m = Minuit(likelihood_wrapper,init_spatial,up=.5,maxcalls=20000,tolerance=tolerance,printMode=-old_quiet,param_names=param_names)
+        params,fval = m.minimize()
+
+        print 'Calculating Covariance Matrix'
+
+        cov_matrix = m.errors(method=method)
+
+        sm.set_cov_matrix(cov_matrix)
 
         roi.quiet = old_quiet
 
@@ -173,12 +167,20 @@ class ROIExtendedModel(ROIDiffuseModel_OTF):
 class ROIExtendedModelAnalytic(ROIExtendedModel):
     """ Implements the ROIDiffuseModel interface for a radially
         symmetric extended source. Utilize teh semi-analytic
-        convolution for a more efficient pdf calculation."""
+        convolution for a more efficient pdf calculation.
+        
+        Pass argument ``fast'' to constructor to use the faster
+        analytic convolution that weights the sigmas and gammas 
+        before fitting instead of afterwords. """
+
+    def init(self,*args,**kwargs):
+        super(ROIExtendedModelAnalytic,self).init(*args,**kwargs)
+        self.fast = False
 
     def setup(self):
         self.exp = self.sa.exposure.exposure; 
         psf = self.sa.psf
-        self.bgc = AnalyticConvolution(self.extended_source.spatial_model,psf)
+        self.bgc = AnalyticConvolution(self.extended_source.spatial_model,psf,fast=self.fast)
 
     def set_state(self,energy,conversion_type):
         self.current_energy = energy
@@ -186,8 +188,7 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         self.bgc.do_convolution(energy,conversion_type)
 
     def _ap_value(self,center,radius):
-        solid_angle=2*N.pi*(1-N.cos(radius))
-        return self.current_exposure/solid_angle
+        return self.current_exposure*self.bgc.ap_average(center,radius)
 
     def _pix_value(self,pixlist):
         return self.current_exposure*self.bgc(pixlist)
