@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: lande  Tue Jun  1 01:13:00 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py roi_extended.py 
+Log Message:
+Freezing spatial parameters during fit. Also, saving of covariance matrix to allow estimating errors during spatial fit.
+
+    *
+------------------------------------------------------------
 User: lande  Tue Jun  1 01:12:34 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
