@@ -1,7 +1,7 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.2 2010/05/24 08:11:01 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.3 2010/05/24 17:32:10 wallacee Exp $
 """
-from skymaps import SkyDir,WeightedSkyDirList,Hep3Vector
+from skymaps import SkyDir,WeightedSkyDirList,Hep3Vector,SkyIntegrator,PySkyFunction
 from pointlike import DoubleVector
 import numpy as N
 from scipy.interpolate import interp2d,interp1d
@@ -205,69 +205,103 @@ class BackgroundConvolutionNorm(BackgroundConvolution):
 
 #===============================================================================================#
 
-class AnalyticConvolution(BackgroundConvolution):
-    """ Calculates the convolution of the psf with a radially symmetric spatial_model. """
+class AnalyticConvolution(object):
+    """ Calculates the convolution of the psf with a radially symmetric spatial_model. 
+        Has a very similar interface to BackgroundConvolution. Maybe one day they will
+        derive from a base convolution object."""
 
-    def __init__(self,spatial_model,psf):
+    def init(self):
+        self.fast       = False                 # Weight sigmas & gammas before convolving.
+        self.num_points = 50                    # Number of points between 0 and rmax.
+        self.tolerance  = 0.02                  # Tolerance set when integrating the function
+        self.skyfun     = PySkyFunction(self)
+
+    def __init__(self,spatial_model,psf,**kwargs):
+        self.init()
+        self.__dict__.update(**kwargs)
+
         self.spatial_model=spatial_model
         self.psf=psf
+
+
+    def _get_pdf(self,rlist,g,s):
+
+        # integrate until you get to 10x the r68() of the source.
+        # since the intgral includes at term which is the PDF,
+        # the integral will presumably contribute very littel
+        # further away then this.
+        self.int_max = .5*(10*self.spatial_model.r68()/s)**2
+
+        # u value corresponding to the given r.
+        ulist=0.5*(self.rlist/s)**2
+
+        # pdf values for each r (in a given energy bin)
+        pdf =N.empty_like(self.rlist)
+
+        for i,u in enumerate(ulist):
+            integrand = lambda v: self.spatial_model.at_r(N.sqrt(2*v)*s)\
+                                              *((g-1)/g)*(g/(g+u+v))**g\
+                                              *hyp2f1(g/2.,(1+g)/2.,1.,4.*u*v/(g+u+v)**2)
+
+            pdf[i]=quad(integrand,0,self.int_max,epsabs=1e-3,full_output=True)[0]
+
+        return pdf 
 
     def do_convolution(self,energy,conversion_type):
         pb = PretendBand(energy,conversion_type)
         self.bpsf = BandCALDBPsf(self.psf,pb)
 
-        self.convolve()
-
-    def bg_fill(self):
-        raise NotImplementedError,'Classes must implement this method!'
-
-    def convolve(self):
         if self.bpsf.newstyle:
             # nc,nt,gc,gt,sc,st,w = band.bpsf.par
             raise Exception("AnalyticPDF Not implemented for newstyle psf.")
 
         else:
             # g = gamma, s = sigma, w = weight
-            g,s,weight = self.bpsf.par
-            # weight over cos theta bins.
-            g=(g*weight).sum()
-            s=(s*weight).sum()
+            glist,slist,wlist = self.bpsf.par
 
-            # intensity values
-            self.rmax=10*(s+self.spatial_model.get_r68())
-            num_points=100
+            self.rmax=10*(slist.max()+self.spatial_model.r68())
 
-            self.rlist=N.linspace(0,self.rmax,num_points)
-            # u value corresponding to the given r.
-            self.ulist=0.5*(self.rlist/s)**2
+            self.rlist=N.linspace(0,self.rmax,self.num_points)
 
-            # intensity values for each r (in a given energy bin)
-            self.intensity=N.empty_like(self.rlist)
+            # pdf is the probability per unit area at a given radius.
+            self.pdf=N.zeros_like(self.rlist)
 
-            for i,u in enumerate(self.ulist):
-                integrand = lambda v: self.spatial_model.at_r(N.sqrt(2*v)*s)\
-                                                  *((g-1)/g)*(g/(g+u+v))**g\
-                                                  *hyp2f1(g/2.,(1+g)/2.,1.,4.*u*v/(g+u+v)**2)
+            if self.fast:
+                # weight the convolved shape by gamma, sigma, and weight
+                g=(glist*wlist).sum()
+                s=(slist*wlist).sum()
+                self.pdf = self._get_pdf(self.rlist,g,s)
+            else:
+                # weight the convolved shape by gamma, sigma, and weight
+                for g,s,w in zip(glist,slist,wlist):
+                    self.pdf += w*self._get_pdf(self.rlist,g,s)
 
-                self.intensity[i]=quad(integrand,0,Inf,epsabs=1e-4,full_output=True)[0]
-
-            # Assume intensity is 0 outside of the bound,
+            # Assume pdf is 0 outside of the bound,
             # reasonable if rmax is big enough
-            self.interp=interp1d(self.rlist,self.intensity,kind='cubic',bounds_error=False,fill_value=0)
+            self.interp=interp1d(self.rlist,self.pdf,kind='cubic',bounds_error=False,fill_value=0)
 
-    def ap_average(self,radius):
-        print 'AnalyticConvolution.ap_average needs to be correctly implemented.'
-        return 1
+    def ap_average(self,center,radius):
+        solid_angle=2*N.pi*(1-N.cos(radius))
+        if center.difference(self.spatial_model.center)+self.rmax < radius:
+            # the source is properly normalized, so there is only 
+            # a need to calculate the contribution if the PDF spills
+            # outside of the ROI.
+            return 1/solid_angle
+        else:
+            SkyIntegrator.set_tolerance(self.tolerance)
+            return SkyIntegrator.average(self.skyfun,center,radius)
 
     def __call__(self,skydir,not_needed=None):
-        if type(skydir)==list and len(skydir)==3:
-            skydir = SkyDir(Hep3Vector(skydir[0],skydir[1],skydir[2]))
-        if type(skydir)==SkyDir:
-            return float(self.interp(skydir.difference(self.spatial_model.center)))
-        elif type(skydir)== WeightedSkyDirList:
+        if type(skydir)==WeightedSkyDirList:
             dv = DoubleVector()
             skydir.arclength(self.spatial_model.center,dv)
             difference = N.fromiter(dv,dtype=float)
             return self.interp(difference)
-        else:
-            raise Exception("Unknown input to AnalyticConvolution.__call__()")
+
+        if type(skydir)==list and len(skydir)==3:
+            skydir = SkyDir(Hep3Vector(skydir[0],skydir[1],skydir[2]))
+
+        if type(skydir)==SkyDir:
+            return float(self.interp(skydir.difference(self.spatial_model.center)))
+
+        raise Exception("Unknown input to AnalyticConvolution.__call__()")
