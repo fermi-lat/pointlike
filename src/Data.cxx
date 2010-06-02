@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/Data.cxx,v 1.69 2010/02/01 23:57:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.70 2010/02/25 23:29:52 wallacee Exp $
 
 */
 
@@ -327,7 +327,8 @@ bool Data::addgti(const std::string& inputFile)
             ok = (m_start==0 || tmax > m_start)
                 && (m_stop==0 || tmin < m_stop ) ;
             if( ok ) {
-                skymaps::Gti timerange(tnew.applyTimeRangeCut(m_start, std::min(m_stop, tmax)));
+                double max(m_stop==0 ? tmax : std::min(m_stop,tmax));
+                skymaps::Gti timerange(tnew.applyTimeRangeCut(m_start, max));
                 m_data->addgti(timerange); 
                 log() << " found interval " 
                     << int(tmin)<<"-"<< int(tmax)<<  std::endl;
