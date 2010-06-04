@@ -2,7 +2,7 @@
 # @file SConscript
 # @brief scons build specifications
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/SConscript,v 1.101 2010/04/15 05:21:44 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/SConscript,v 1.102 2010/04/23 18:01:53 burnett Exp $
 # Authors: Toby Burnett <tburnett@u.washington.edu>
 # Version: pointlike-07-04-02
 
@@ -35,6 +35,7 @@ progEnv.Tool('registerTargets',
              binaryCxts  = [[progEnv.Program(name, listFiles(['src/%s/*.cxx'%name])), progEnv] for name in apps], 
              testAppCxts  = [[progEnv.Program('test_'+package, listFiles(['src/test/*.cxx'])), progEnv]],
              python = (['src/pointlike.py','python/pointlike_defaults.py',
-                       'python/test_pointlike_setup.py']+listFiles(['python/uw'],recursive=True)))
+			'python/pointfit.py', 'python/pointfit_setup.py', 
+                        'python/test_pointlike_setup.py']+listFiles(['python/uw'],recursive=True)))
 
 
