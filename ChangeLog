@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jun  4 12:08:39 PDT 2010
+pointlike
+
+Modified Files:
+	SConscript 
+Log Message:
+add the pointfit module to those that are exported to the global python folder
+    *
+------------------------------------------------------------
 User: wallacee  Wed Jun  2 16:43:49 PDT 2010
 pointlike/src
 
