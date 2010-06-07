@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.7 2010/05/21 03:24:08 wallacee Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.8 2010/05/24 08:10:30 lande Exp $
 
    author: Matthew Kerr
    """
@@ -365,18 +365,18 @@ def get_default_diffuse(diffdir=None,gfile='gll_iem_v02.fit',ifile='isotropic_ie
     """ Try to get defaults for the diffuse background sources.
         Setting gfile or ifile to None ignores that entry."""
     if diffdir is None:
-        diffdir = join(os.environ['GLAST_EXT'],'extFiles','galdiffuse')
+        diffdir = join(os.environ['EXTFILESSYS'],'galdiffuse')
     dsources = []
     if gfile is not None:
         gfile = join(diffdir,gfile)
         if not os.path.exists(gfile):
-            raise Exception,'Invalid file specified for Galactic diffuse: %s' % gfile
+            raise Exception,' Galactic diffuse file "%s" not found.' %gfile
         else:
             dsources += [get_diffuse_source('MapCubeFunction',gfile,'PowerLaw',None,'Galactic Diffuse')]
     if ifile is not None:
         ifile = join(diffdir,ifile)
         if not os.path.exists(ifile):
-            raise Exception,'Invalid file specified for isotropic diffuse: %s' % ifile
+            raise Exception,'isotropic diffuse file "%s" not found.'%ifile
         else:
             dsources += [get_diffuse_source('ConstantValue',None,'FileFunction',ifile,'Isotropic Diffuse')]
 
