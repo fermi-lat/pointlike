@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.8 2010/04/23 22:22:36 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.9 2010/05/21 03:24:08 wallacee Exp $
 
 """
-version='$Revision: 1.8 $'.split()[1]
+version='$Revision: 1.9 $'.split()[1]
 import os
 import math
 import skymaps
@@ -75,14 +75,12 @@ Optional keyword arguments:
 
     def fill_empty_bands(self,bpd):
 
-        from pointlike import Photon
-        from skymaps import SkyDir
-        dummy = SkyDir(0,0)
+        dummy = skymaps.SkyDir(0,0)
         bands = self.my_bins
 
         for bin_center in (bands[:-1]*bands[1:])**0.5:
-             ph_f = Photon(dummy,bin_center,2.5e8,0)
-             ph_b = Photon(dummy,bin_center,2.5e8,1)
+             ph_f = pointlike.Photon(dummy,bin_center,2.5e8,0)
+             ph_b = pointlike.Photon(dummy,bin_center,2.5e8,1)
              bpd.addBand(ph_f)
              bpd.addBand(ph_b)
 
@@ -103,17 +101,6 @@ Optional keyword arguments:
             pointlike.Data.setPhotonBinner(self.binner)
             self.binner_set = True
 
-    def _PSF_setup(self):
-
-        # modify the psf parameters in the band objects
-        # note there is a small discrepancy since the PSF average does not
-        # currently know about the theta cut
-        ip = skymaps.IParams
-        #if self.ltcube is not None and self.roi_dir is not None:
-           #ip.set_livetimefile(self.ltcube)
-           #ip.set_skydir(self.roi_dir)
-        ip.set_CALDB(self.CALDB)
-        ip.init('_'.join(self.irf.split('_')[:-1]),self.irf.split('_')[-1])
 
     def _GTI_setup(self):
         """Create the GTI object that will be used to filter photon events and
@@ -219,7 +206,8 @@ Optional keyword arguments:
                 # no roi specified: use full sky
                 self.roi_dir = skymaps.SkyDir(0,0)
                 self.exp_radius = 180
-
+            if not self.quiet:
+                print 'LivetimeCube file %s does not exist: will generate it from the ft2 files' % self.ltcube
             lt = skymaps.LivetimeCube(
                 cone_angle =self.exp_radius,
                 dir        =self.roi_dir,
