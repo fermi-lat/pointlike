@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.4 2010/03/30 18:17:39 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.5 2010/05/11 18:54:51 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -191,7 +191,9 @@ class ROIEnergyBand(object):
          
          
    def bandFit(self,which=0,saveto=None):
-      """Fit a model-independent flux to a point source."""
+      """Fit a model-independent flux to a point source.
+        return value of ts for the band
+      """
 
       bad_fit = False
       self.m = PowerLaw(free=[True,False],e0=(self.emin*self.emax)**0.5) # fix index to 2
@@ -254,3 +256,4 @@ class ROIEnergyBand(object):
          alt_ll  = sum( (b.bandLikelihood([b.expected(self.m)],which) for b in self.bands) )
          self.ts = 2*(null_ll - alt_ll)
          
+      return self.ts
