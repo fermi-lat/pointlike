@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jun  7 07:49:13 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+fix CALDB setup
+    *
+------------------------------------------------------------
 User: burnett  Mon Jun  7 07:48:18 PDT 2010
 pointlike/python/uw/like
 
