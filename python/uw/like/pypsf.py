@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.5 2010/05/18 22:25:36 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.6 2010/05/19 19:58:01 burnett Exp $
 author: M. Kerr
 
 """
@@ -37,6 +37,10 @@ class Psf(object):
              print 'Environment variable CALDB was not set'
              raise
       self.CALDB = join(CALDB,'bcf')
+      if not os.path.exists(self.CALDB):
+         self.CALDB = join(CALDB,'data', 'glast', 'lat', 'bcf')
+         if not os.path.exists(self.CALDB):
+            raise Exception,  'Invalid CALDB'
       self.init()
       self.__dict__.update(kwargs)
 
@@ -44,12 +48,15 @@ class Psf(object):
       self.__read_params__()
       self.__calc_weights__()
 
+   def __read_params__(self):pass
+   
    def __readCALDB__(self):
 
       # open CALDB files
       if self.psf_irf is not None:
          print 'Overriding default PSF; using %s'%(self.psf_irf)
       psf_files = [join(self.CALDB,'psf','psf_%s_%s.fits'%(self.psf_irf or self.irf,x)) for x in ['front','back']]
+      
       try:
          h0,h1 = self.CALDBhandles = [pf.open(x) for x in psf_files]
       except:
