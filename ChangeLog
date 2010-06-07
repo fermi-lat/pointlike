@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jun  7 07:50:02 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_bands.py 
+Log Message:
+have band_fit return the TS
+    *
+------------------------------------------------------------
 User: burnett  Mon Jun  7 07:49:13 PDT 2010
 pointlike/python/uw/like
 
