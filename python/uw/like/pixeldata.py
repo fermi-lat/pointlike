@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.9 2010/05/21 03:24:08 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.10 2010/06/07 14:46:07 burnett Exp $
 
 """
-version='$Revision: 1.9 $'.split()[1]
+version='$Revision: 1.10 $'.split()[1]
 import os
 import math
 import skymaps
@@ -95,7 +95,6 @@ Optional keyword arguments:
         if not self.quiet: print '.....set Data theta cut at %.1f deg'%(self.thetacut)
 
         if not self.binner_set:
-            self._PSF_setup()
             from pointlike import DoubleVector
             self.binner = skymaps.PhotonBinner(DoubleVector(self.my_bins))
             pointlike.Data.setPhotonBinner(self.binner)
@@ -151,7 +150,7 @@ Optional keyword arguments:
 
             self._Data_setup()
 
-            if self.verbose: print 'loading file(s) %s' % self.ft1files
+            if not self.quiet: print 'loading file(s) %s' % self.ft1files
             data = pointlike.Data(self.ft1files,self.conv_type,self.tstart,self.tstop,self.mc_src_id,'')
 
             self.fill_empty_bands(data.map())     # fill any empty bins
