@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.2 2010/02/10 00:21:15 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.3 2010/03/11 19:23:29 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -296,6 +296,9 @@ Optional keyword arguments:
          lo.p[i] += errs[i]
 
       return N.asarray(derivs)
+      
+   def full_name(self):
+      return self.pretty_name if self.pretty_name != 'PowerLaw' else 'PowerLaw, e0=%.0f'% self.e0
 
 #===============================================================================================#
 
@@ -320,6 +323,16 @@ Spectral parameters:
       n0,gamma = 10**self.p
       f = (n0/self.flux_scale)*(self.e0/e)**(gamma-self.index_offset)
       return N.asarray([f/n0,f*N.log(self.e0/e)])
+
+   def pivot_energy(self):
+      """ assuming a fit was done, estimate the pivot energy 
+           (This only implemented for this model)
+      """
+      A  = 10**self.p[0]
+      C = self.get_cov_matrix()
+      if C[1,1]==0:
+         raise Exception('PowerLaw fit required before calculating pivot energy')
+      return self.e0*N.exp( C[0,1]/(A*C[1,1]) )
 
 #===============================================================================================#
 
