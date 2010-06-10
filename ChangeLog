@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Thu Jun 10 09:10:52 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	fitstools.py 
+Log Message:
+Fixed an array problem in trap_mask.
+    *
+------------------------------------------------------------
 User: burnett  Tue Jun  8 12:54:06 PDT 2010
 pointlike/python/uw/like
 
