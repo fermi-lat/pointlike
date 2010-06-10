@@ -6,7 +6,7 @@ Given an ROIAnalysis object roi:
     plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.6 2010/02/23 19:13:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.7 2010/06/07 14:51:32 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -193,6 +193,7 @@ def make_sed(r,which=0,axes=None,axis=None,plot_model=True,
     if axis is None:
         axes.axis([1e2,1e5,1e-10,1e-2])
     else: axes.axis(axis)
+    axes.set_autoscale_on(False)
     axes.grid(True)
     
 
