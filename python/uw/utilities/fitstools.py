@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.10 2010/04/20 18:40:42 wallacee Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.11 2010/04/28 20:52:10 wallacee Exp $
 
    author: Matthew Kerr
 
@@ -36,7 +36,7 @@ def trap_mask(ras,decs,cut_dir,radius):
    mask = N.abs(ras - cut_dir.ra()) <= ra_radius
    mask = N.logical_and(mask,N.abs(decs - cut_dir.dec()) <= radius)
    #If cut radius overlaps the pole, keep a polar cap above cut_dir.dec()
-   if (cut_dir.dec()+radius > N.pi/2.) or (cut_dir.dec() - radius < -N.pi/2.):
+   if N.any(cut_dir.dec()+radius > N.pi/2.) or N.any(cut_dir.dec() - radius < -N.pi/2.):
       mask = N.logical_or(mask,N.abs(decs)>N.abs(cut_dir.dec()))
    mask[radius > 20] = True # cut doesn't work for large radii?
    return mask
