@@ -1,9 +1,9 @@
 """
 do pivot stuff 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pivot.py,v 1.3 2010/04/29 21:19:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pivot.py,v 1.4 2010/05/11 19:05:00 burnett Exp $
 
 """
-version='$Revision: 1.3 $'.split()[1]
+version='$Revision: 1.4 $'.split()[1]
 from uw.utilities import collection
 from uw.thb_roi import pipeline, catalog
 from skymaps import SkyDir
@@ -88,7 +88,10 @@ class Pivot(object):
         col.add_facet('a', 'Number', 'F3', uwc.a)
         col.add_facet('b', 'Number', 'F3', uwc.b)
         col.add_facet('qual', 'Number', 'F1', uwc.qual)
-        col.add_facet('lognorm', 'Number', 'F3', np.log10(uwc.pnorm) )
+        col.add_facet('pivot_energy', 'Number', 'F1', uwc.pivot_energy)
+        pnorm = uwc.pnorm
+        pnorm[np.isinf(pnorm) * ( pnorm< 1e-20)] = 1e-20
+        col.add_facet('lognorm', 'Number', 'F3', np.log10(pnorm) )
         col.add_facet('pindex',  'Number', 'F3', uwc.pindex) 
 
         dts = uwc.delta_ts
@@ -98,6 +101,7 @@ class Pivot(object):
         inridge = (abs(cglon)<60)*(abs(glat)<1.)
         col.add_facet('class', 'String', 'C', ['%3s'% s if s!='' else 'None' for s in uwc.aclass])
         col.add_facet('ridge', 'String', 'C', inridge)
+        col.add_facet('high lat', 'String', 'C', (abs(glat)>10))
 
         ## nearby sources 
         ## (commented out since takes a long time with large collections: need to fix)
@@ -113,9 +117,9 @@ class Pivot(object):
         #col.add_facet('nearby sources', 'Number', 'F', nearcount)
         #
       
-    def add_facet(self,  name, type, format, data):
+    def add_facet(self,  name, type, format, data, **kwargs):
         """ add  a facet """
-        self.collection.add_facet( name, type, format, data)
+        self.collection.add_facet( name, type, format, data, **kwargs)
         
     def write(self, outfile='pivot.cxml', id_offset=0):
         fulloutfile = os.path.join(self.outdir, outfile)
