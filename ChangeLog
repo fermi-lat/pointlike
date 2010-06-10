@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jun 10 14:41:03 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	tsmap_grid.py 
+Log Message:
+update to work for sed plots
+    *
+------------------------------------------------------------
 User: burnett  Thu Jun 10 14:39:39 PDT 2010
 pointlike/python/uw/like
 
