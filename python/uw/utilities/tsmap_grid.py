@@ -1,6 +1,6 @@
 """
 HTML clickable map stuff
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/tsmap_grid.py,v 1.1 2010/02/15 18:42:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/tsmap_grid.py,v 1.2 2010/02/23 01:13:29 burnett Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 """
@@ -24,6 +24,28 @@ html_header="""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "h
 <body><div align="center"><h2>%s</h2></div>\n"""
 html_trailer="""\n</body></html>\n"""
 
+class Holder(object):
+    def __init__(self, size=(1536,1280)):
+        self.image = Image.new('RGB', size, (255,255,255)) 
+    def insert(self, filename, size=None, pos=(0,0)):
+        """
+        """
+        im = im2= Image.open(filename)
+        if size is not None:
+            im2 = im.resize(size)
+        self.image.paste(im2, pos)
+        return im2 
+        
+    def save(self, filename, crop = None):
+        """ crop is a box
+        """
+        if crop is not None:
+            self.image.crop(crop).save(filename)
+        else:
+            self.image.save(filename)
+    
+        
+
 def make_map(images, names=None,
             title = 'TS map',
             html_file='tsmap_grid.htm',  img_file=None, 
@@ -35,7 +57,7 @@ def make_map(images, names=None,
     """ create a grid of thumbnails from the list of images
         and a corresponding html map
         
-        images: list if image file names
+        images: list of image file names
         title: title for web page, and heading for the image
         names : [None] corresponding titles for tool tips (default: the filenames)
         title:  ['TSmap'] title to use for the web page.
@@ -82,7 +104,7 @@ def main(image_dir='tsmap', title='1FGL TS maps from 11 month data set', **kwarg
     """create a grid of thumbnails from the files in image_dir, in alphabetical order
     """
     assert(os.path.exists(image_dir))
-    images = glob.glob(os.path.join(image_dir,'*_tsmap.png'))
+    images = glob.glob(os.path.join(image_dir,'*.png'))
     assert(len(images)>0)
     images.sort()
     names = ['%d: %s' %(i+1,(os.path.split(img)[1][:-10]).replace('p','+')) for (i,img) in enumerate(images)]
