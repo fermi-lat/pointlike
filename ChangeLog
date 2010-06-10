@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jun 10 14:37:20 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+implement pivot energy calculation for PowerLaw; also full_name() function to include e0 information
+    *
+------------------------------------------------------------
 User: kerrm  Thu Jun 10 09:10:52 PDT 2010
 pointlike/python/uw/utilities
 
