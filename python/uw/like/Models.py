@@ -183,7 +183,7 @@ Optional keyword arguments:
 
       m=max([len(n) for n in pnames])
       l=[]
-      if N.any(lo_p[0:-2] != 0): #if statistical errors are present   
+      if N.any(p != lo_p): #if statistical errors are present   
          for i in xrange(len(pnames)):
             n=pnames[i][:m]
             t_n=n+(m-len(n))*' '
