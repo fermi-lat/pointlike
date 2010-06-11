@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/SpatialModels.py,v 1.1 2010/05/24 08:10:30 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/SpatialModels.py,v 1.2 2010/06/01 08:13:00 lande Exp $
 
    author: Joshua Lande
 
@@ -14,11 +14,35 @@ from skymaps import SkyIntegrator,SkyDir
 from pointlike import DoubleVector
 
 class DefaultSpatialModelValues(object):
+    """ Add documentaion about asumption taht first two coordinates are
+        lon & lat and how fitting is always distance way, first two limits
+        are limits on distance relative to the first coordinate.
+        
+        p: the spatial paraemters. There values are absolute.
+        param_names: the names of the spatial parameters
+        limits: the limits imposed on the paraemters when fitting. 
+            These values are absolute.
+        log: Wheter or not the parameter should be mapped into log space.
+            The first to parametesr (lon & lat) cannot have log=True.
+            parameters and limits will be converted if log is True.
+    """
     models = {
-       'Gaussian'           : {'p':[0,0,M.radians(.1)],                 'param_names':['lon','lat','sigma']},
-       'PseudoGaussian'     : {'p':[0,0],                               'param_names':['lon','lat']},
-       'EllipticalGaussian' : {'p':[0,0,M.radians(.1),M.radians(.1),0], 'param_names':['lon','lat','sigma x','sigma y','theta']},
-       'Template'           : {'p':[0,0],                               'param_names':['lon','lat']},
+        'Gaussian'           : {'p':[0,0,M.radians(.1)],                 
+                                'param_names':['lon','lat','sigma'],                        
+                                'limits':N.radians([[-10,10],[-10,10],[1e-6,3]]),
+                                'log':[False,False,True]},
+        'PseudoGaussian'     : {'p':[0,0],                               
+                                'param_names':['lon','lat'],                               
+                                'limits':N.radians([[-10,10],[-10,10]]),
+                                'log':[False,False]},
+        'EllipticalGaussian' : {'p':[0,0,M.radians(.1),M.radians(.1),0], 
+                                'param_names':['lon','lat','sigma x','sigma y','theta'],
+                                'limits':N.radians([[-10,10],[-10,10],[1e-6,3],[1e-6,3],[-360,360]]),
+                                'log':[False,False,True,True,False]},
+        'Template'           : {'p':[0,0], # lon & lat measured relative to fits center
+                                'param_names':['lon','lat'],
+                                'limits':[[-10,10],[-10,10]],
+                                'log':[False,False]}
     }
 
     @staticmethod
@@ -32,7 +56,9 @@ class DefaultSpatialModelValues(object):
         the_model.free = N.asarray([True] * len(the_model.p))
 
         the_model.p=N.asarray(the_model.p)
+        the_model.log=N.asarray(the_model.log)
         the_model.param_names=N.asarray(the_model.param_names)
+        the_model.limits=N.asarray(the_model.limits)
 
         the_model.coordsystem = SkyDir.EQUATORIAL
 
@@ -50,7 +76,23 @@ class SpatialModel(object):
 
         All SpatialModel objects must implement the __call__ function,
         which takes a skydir object and returns the intensity at that
-        direction. """
+        direction. 
+        
+        One slight differnece between the SpatialModel and Model class
+        has to do with absolute. Always, absolute=True has the same
+        meanings, pass in the true value of the parameters. But
+        absolute=False has different meanings for different functions.
+        
+        For most functions, absolute=false means the values for which log=True
+        should be in log space. This is the calse for set_parameters, 
+        get_parameters, and get_cov_matrix. This is different from
+        how Models works where absolute=False means all parameters are
+        in log space.
+        
+        On the other hand, the function statistical has absolute=false
+        intepreted the same convention as absolute, where absolute=false
+        means return the relative error (absolute error/parameter value)
+        which is useful for printing percent error, etc. """
 
     def __init__(self,**kwargs):
         DefaultSpatialModelValues.setup(self)
@@ -70,9 +112,18 @@ class SpatialModel(object):
 
         # rename coordsystem to properly reflect projection.
         if self.coordsystem == SkyDir.EQUATORIAL:
-            self.param_names[0:2] = ['ra','dec']
+            self.param_names[0:2] = ['RA','Dec']
         elif self.coordsystem == SkyDir.GALACTIC:
             self.param_names[0:2] = ['l','b']
+
+        if self.log[0] != False or self.log[1] != False:
+            raise Exception("Do not make the spatial parameters log.")
+
+        # map the log parameters into log space.
+        # careful not to take log of a negative number
+        self.p = N.asarray([N.log10(p) if log else p for p,log in zip(self.p,self.log)])
+        self.limits = N.asarray([N.log10(lim) if log else lim \
+                                 for lim,log in zip(self.limits,self.log)])
 
         self.cache()
 
@@ -82,14 +133,27 @@ class SpatialModel(object):
 
         self.center = SkyDir(self.p[0],self.p[1],self.coordsystem)
 
-    def get_parameters(self):
-        """Return FREE parameters; used for spatial fitting."""
-        return self.p[self.free]
+    def get_parameters(self,absolute=False,all=False):
+        """Return FREE parameters; used for spatial fitting.
+           all=True returns all parameters. """
+        if absolute:
+            ret=((10**self.p)*self.log + self.p*(~self.log))
+        else:
+            ret=self.p
+        return ret if all else ret[self.free]
 
-    def get_param_names(self):
-        return self.param_names[self.free]
+    def get_param_names(self,all=False):
+        return self.param_names[self.free] if not all else self.param_names
 
-    def set_parameters(self,p,center=None):
+    def get_limits(self,absolute=False,all=False):
+        ret = N.asarray([10**lim if log and absolute else lim \
+                         for lim,log in zip(self.limits,self.log)])
+        if all:
+            return ret
+        else:
+            return [_ for _,free in zip(ret,self.free) if free]
+
+    def set_parameters(self,p,absolute=False,center=None):
         """ Set FREE parameters; p should have length equal to number of free parameters.
 
             If center is given as an argument, it is appended to the beginning of the p
@@ -105,7 +169,12 @@ class SpatialModel(object):
         if len(p)!=(self.free).sum():
             raise Exception("SpatialModel.set_parameters given the wrong number of arguments.")
 
-        self.p[self.free] = p.astype(float) # downcast to float needed?
+        if absolute:
+            # careful not to take log of a negative number
+            self.p[self.free] = N.asarray([N.log10(_) if log else _ \
+                                           for _,log in zip(p,self.log[self.free])])
+        else:
+            self.p[self.free] = p
 
         self.cache()
 
@@ -126,26 +195,37 @@ class SpatialModel(object):
     def set_cov_matrix(self,new_cov_matrix):
         self.cov_matrix[N.outer(self.free,self.free)] = N.ravel(new_cov_matrix)
 
-    def get_cov_matrix(self):
+    def get_cov_matrix(self,absolute=True):
         """Return covariance matrix."""
-        return self.cov_matrix
 
-    def get_free_errors(self):
+        p = (10**self.p)*self.log + self.p*(~self.log) if absolute else N.ones_like(self.p)
+        jac = N.log10(N.exp(1)) #log_10(e)
+        pt=p.reshape((p.shape[0],1)) #transpose
+        return p*self.cov_matrix*pt/jac**2
+
+    def get_free_errors(self,absolute=False):
         """Return the diagonal elements of the covariance matrix for free parameters."""
-        return N.diag(self.cov_matrix)[self.free]**0.5
+        return N.diag(self.get_cov_matrix(absolute))[self.free]**0.5
 
-    def statistical(self,absolute=False):
+    def statistical(self,absolute=False,two_sided=False):
         """Return the parameter values and fractional statistical errors.
            If no error estimates are present, return 0 for the fractional error."""
-        p = self.p 
-        try: #see if error estimates are present
-            err = self.get_free_errors()
-            if absolute:
-                return p,err
-            else:
-                return p,err/p
-        except:
-            return p,N.zeros_like(p)
+
+        p = self.get_parameters(absolute=True,all=True)
+        if not two_sided:
+            # for one sided case, completely map covarinace matrix
+            # to absolute values & then divide by p to get relative
+            # errors
+            errs = N.diag(self.get_cov_matrix(absolute=True))**0.5
+            return p,errs/(1. if absolute else p)
+        else:
+            # parameters fit in log space must be treated differently.
+            errs = N.diag(self.cov_matrix)**0.5
+            lo_abs = (p-10**(self.p-errs))*self.log+errs*(~self.log)
+            hi_abs = (10**(self.p+errs)-p)*self.log+errs*(~self.log)
+            return  p, \
+                    hi_abs/(1. if absolute else p), \
+                    lo_abs/(1. if absolute else p)
 
 
     def __call__(self,v,energy=None):
@@ -172,20 +252,21 @@ class SpatialModel(object):
 
     def __str__(self,absolute=False):
         """Return a pretty print version of parameter values and errors."""
-        p,avg = self.statistical(absolute=absolute)
-        pnames = self.param_names
+        p,hi_p,lo_p = self.statistical(absolute=absolute,two_sided=True)
+        p,avg_p     = self.statistical(absolute=absolute,two_sided=False)
+        pnames      = self.param_names
 
         m=max([len(n) for n in pnames])
         l=[]
-        if N.any(avg != 0): #if statistical errors are present   
+        if N.any(avg_p != 0): #if statistical errors are present   
             for i in xrange(len(pnames)):
                 n=pnames[i][:m]
                 t_n=n+(m-len(n))*' '
                 frozen = '' if self.free[i] else '(FROZEN)'
                 if not absolute:
-                    l+=[t_n+': (1 +/- %.3f) %.3g %s'%(avg[i],p[i],frozen)]
+                   l+=[t_n+': (1 + %.3f - %.3f) (avg = %.3f) %.3g %s'%(hi_p[i],lo_p[i],avg_p[i],p[i],frozen)]
                 else:
-                    l+=[t_n+': %.3g +/- %.3g %s'%(p[i],avg[i],frozen)]
+                   l+=[t_n+': %.3g + %.3g - %.3g (avg = %.3g) %s'%(p[i],hi_p[i],lo_p[i],avg_p[i],frozen)]
             return '\n'.join(l)
         else: #if no errors are present
             for i in xrange(len(pnames)):
@@ -206,7 +287,7 @@ class SpatialModel(object):
     def pretty_spatial_string(self):
         """ Print out just the spatial part of the model, excluding
             the source location."""
-        return "[ "+" ".join(["%.3f" % _ for _ in self.p[2:]])+" ]"
+        return "[ "+" ".join(["%.3f" % _ for _ in self.get_parameters(absolute=True,all=True)[2:]])+" ]"
 
 #===============================================================================================#
 
@@ -246,7 +327,7 @@ class Gaussian(RadiallySymmetricModel):
        sigma = one dimensional r68 of the spatial model, measured in radians
        """
     def extension(self):
-        return self.p[2]
+        return self.get_parameters(absolute=True,all=True)[2]
 
     def cache(self):
         super(Gaussian,self).cache()
@@ -271,7 +352,7 @@ class PseudoGaussian(Gaussian):
         small radius. Useful to ensure that the null hypothesis
         of an extended source has the exact same PDF as the
         extended source."""
-    def extension(self): return M.radians(1e-5)
+    def extension(self): return M.radians(1e-10)
 
 #===============================================================================================#
 
@@ -297,7 +378,7 @@ class EllipticalGaussian(SpatialModel):
 
         super(EllipticalGaussian,self).cache()
 
-        sigma_x, sigma_y, theta = self.p
+        sigma_x, sigma_y, theta = self.get_parameters(absolute=True,all=True)[2:]
 
         # parameters from
         # http://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
@@ -343,10 +424,39 @@ class EllipticalGaussian(SpatialModel):
 
 
 class Template(SpatialModel):
+    """ Implement an extended source not as a simple geometric shape but as from a 2 dimensional
+        fits file. A Template has two spatial parameters, which represent a rotation of
+        the template away from the fits file's center."""
 
     def cache():
         if not self.__dict__.has_key('template'):
-            raise Exception("Object Template must be initialized with template=template.fits argument.")
+            raise Exception("Object Template must be initialized with template=template.fits keyword.")
 
-        self.skyfun = ConvertFitsFileToSkyFunction(self.template)
+        extension="" # use primary extension.
+        interpolate=True # Note, interpolate=True necessary to not read outside array
 
+        self.skyfun=SkyImage(self.template,extension,interpolate)
+
+        self.projection = self.skyfun.projector()
+        naxis1=img.naxis1()
+        naxis2=img.naxis2()
+
+        def dir(x,y):
+            coordsystem=SkyDir.GALACTIC if self.projection.isGalactic() else SkyDir.EQUATORIAL
+            x,y=self.projection.pix2sph(x,y)
+            return SkyDir(x,y,coordsystem)
+
+        # get center of image. I am not sure if this formula is generally true.
+        self.fits_center=dir((naxis1+1)/2,(naxis2+1)/2)
+
+        # Get all 4 image corners
+        edges=[dir(1,1),dir(1,naxis2+1),dir(naxis1+1,1),dir(naxis1+1,naxis2+1)]
+
+        # Find further corner, add 10% to be safe.
+        rad=1.1*max([_.difference(self.fits_center) for _ in edges])
+
+        # Integrate to find the normalization.
+        self.norm=SkyIntegrator.ap_int(spectrum,self.fits_center,rad)
+
+    def __call__(self,v,energy=None):
+        return self.skyfun(v)/self.norm
