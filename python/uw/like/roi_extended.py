@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header$
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_extended.py,v 1.4 2010/06/11 03:14:33 lande Exp $
 
     author: Joshua Lande
 """
@@ -11,7 +11,6 @@ from SpatialModels import RadiallySymmetricModel,Gaussian,SpatialModel
 from uw.utilities.minuit import Minuit
 from uw.utilities.convolution import BackgroundConvolution,BackgroundConvolutionNorm,AnalyticConvolution
 from roi_diffuse import DiffuseSource,ROIDiffuseModel_OTF
-from scipy.optimize import fmin
 from skymaps import SkyDir,Background
 import numpy as N
 
@@ -201,7 +200,7 @@ Optional keyword arguments:
                 ll_alt=roi.fit(estimate_errors=False)
 
                 if ll_alt > ll:
-                    ll = ll_alt
+                    ll=ll_alt
                 else:
                     self.smodel.set_parameters(prev_fit)
             return ll
@@ -210,18 +209,18 @@ Optional keyword arguments:
             """ Helper function which takes in the spatial parameters
                 for the extended source and returns the logLikelihood.
             """
+
+            roi.bgm.update_counts(roi.bands)
+            roi.psm.update_counts(roi.bands)
+
             ll = 0
             if 'energy_bands' not in roi.__dict__.keys(): roi.setup_energy_bands()
 
+            # Note, negative sign to be consistent with value returned
+            # by roi.fit()
             for eb in roi.energy_bands: 
-                eb.bandFit(which=which,saveto='bandfits',diffuse=True)
+                ll -= eb.bandFitDiffuse(which=which)
 
-            for band in roi.bands:
-
-                # Only include likelihood from good bands.
-                if band.bandfit < 0: 
-                    continue
-                ll  += b.bandLikelihood(band.bandfit,which,diffuse=True)
             return ll
 
         def likelihood_wrapper(p):
@@ -260,21 +259,18 @@ Optional keyword arguments:
             # This rotation takes (0,0) back to the initial position
             new_dir().rotateY(N.radians(-init_lat)).rotateZ(N.radians(init_lon))
 
+            # Now add the rotated spatial part back to the list.
             if cs == SkyDir.GALACTIC:
-                if N.any(pn=='b'): p=N.append(new_dir().b(),p)
-                if N.any(pn=='l'): p=N.append(new_dir().l(),p)
+                if N.any(pn=='b'): p=N.append(new_dir.b(),p)
+                if N.any(pn=='l'): p=N.append(new_dir.l(),p)
             elif cs == SkyDir.EQUATORIAL:
-                if N.any(pn=='Dec'): p=N.append(new_dir().dec(),p)
-                if N.any(pn=='RA'): p=N.append(new_dir().ra(),p)
+                if N.any(pn=='Dec'): p=N.append(new_dir.dec(),p)
+                if N.any(pn=='RA'): p=N.append(new_dir.ra(),p)
 
             sm.set_parameters(p=p,absolute=False)
             self.initialize_counts(roi.bands)
 
-            if not bandfits:
-                ll = loglike()
-            else:
-                ll = bandlike()
-
+            ll = bandlike() if bandfits else loglike()
 
             if verbose: print '%s, logL = %.2f, dlogL = %.2f' % (sm.pretty_string(),ll,ll-ll_0)
             return -ll
@@ -282,9 +278,10 @@ Optional keyword arguments:
         f=likelihood_wrapper
 
         ll_0 = 0
-        ll_0 = -f(init_spatial)
+        old_verbose = verbose; verbose = False; ll_0 = -f(init_spatial); verbose = old_verbose
 
-        print 'Localizing %s source %s' % (sm.pretty_name,es.name)
+        print 'Localizing %s source %s Using %s' % (sm.pretty_name,es.name,
+                                                    'BandFits' if bandfits else 'Spectral Fits')
 
         if init_grid is not None:
             print 'Testing initial grid values'
