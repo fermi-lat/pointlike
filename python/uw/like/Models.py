@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.3 2010/03/11 19:23:29 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.4 2010/06/10 21:37:19 burnett Exp $
 
    author: Matthew Kerr
 
@@ -183,7 +183,7 @@ Optional keyword arguments:
 
       m=max([len(n) for n in pnames])
       l=[]
-      if N.any(p != lo_p): #if statistical errors are present   
+      if N.any(lo_p[0:-2] != 0): #if statistical errors are present   
          for i in xrange(len(pnames)):
             n=pnames[i][:m]
             t_n=n+(m-len(n))*' '
