@@ -1,3 +1,12 @@
+""" Provides classes to encapsulate and manipulate extended sources. 
+
+    This code all derives from objects in roi_diffuse.py
+
+    $Header$
+
+    author: Joshua Lande
+"""
+
 from SpatialModels import RadiallySymmetricModel,Gaussian,SpatialModel
 from uw.utilities.minuit import Minuit
 from uw.utilities.convolution import BackgroundConvolution,BackgroundConvolutionNorm,AnalyticConvolution
