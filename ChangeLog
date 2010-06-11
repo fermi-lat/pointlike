@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jun 11 15:34:33 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py roi_bands.py 
+Log Message:
+Adding diffuse bandfits option as new functions in roi_bands so as to not interfere with how things currently work. One day the functions may merge together
+    *
+------------------------------------------------------------
 User: lande  Thu Jun 10 20:14:33 PDT 2010
 pointlike/python/uw/like
 
