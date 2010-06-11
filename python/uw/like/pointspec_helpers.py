@@ -204,11 +204,7 @@ class FermiCatalog(PointSourceCatalog):
       sname    = 'NickName' if 'NickName' in colnames else 'Source_Name'
       ras  = f[1].data.field('RA')
       decs = f[1].data.field('DEC')
-      try: 
-          pens = f[1].data.field('PIVOT_ENERGY')
-      except:
-          pens = 1e4*N.ones_like(ras)
-
+      pens = f[1].data.field('PIVOT_ENERGY')
       n0s  = f[1].data.field('FLUX_DENSITY')
       inds = f[1].data.field('SPECTRAL_INDEX')
       #ts   = f[1].data.field('TEST_STATISTIC')

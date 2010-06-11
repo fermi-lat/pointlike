@@ -94,43 +94,23 @@ class ROIBand(object):
 
    def bandLikelihood(self, parameters, *args):
       """Implement a model independent likelihood for the number of counts of a particular source.
-         Other sources (diffuse, neighboring point sources) are treated as fixed.
-         
-         diffuse    [False] Get the likelihood for a diffuse component specified by which 
-                            instead of a point source component."""
+         Other sources (diffuse, neighboring point sources) are treated as fixed."""
 
       new_counts = parameters[0]
       which = args[0] if len(args) > 0 else 0
       band = self
 
-      diffuse=args[1] if len(args) > 1 else False
+      old_counts = band.ps_counts[which]
 
-      if diffuse==False:
-          old_counts = band.ps_counts[which]
+      tot_term = (self.bg_all_counts + self.ps_all_counts + self.overlaps[which]*(new_counts - old_counts))*self.phase_factor
 
-          tot_term = (self.bg_all_counts + self.ps_all_counts + self.overlaps[which]*(new_counts - old_counts))*self.phase_factor
+      pix_term = (self.pix_counts * 
+                     N.log(
+                        self.bg_all_pix_counts + self.ps_all_pix_counts + self.ps_pix_counts[:,which]*(new_counts - old_counts)
+                     )
+                 ).sum() if self.has_pixels else 0.
 
-          pix_term = (self.pix_counts * 
-                         N.log(
-                            self.bg_all_pix_counts + self.ps_all_pix_counts + self.ps_pix_counts[:,which]*(new_counts - old_counts)
-                         )
-                     ).sum() if self.has_pixels else 0.
-
-          return tot_term - pix_term
-      else:
-          # This implementation is suboptimal because it assumes that the aperature/pixel values  and 
-          # spectrum decouple and can be independently integrated over spectrum.
-          old_counts = band.bg_counts[which]
-
-          tot_term = (self.bg_all_counts + self.ps_all_counts + band.ap_evals[which].sum(axis=1)*new_counts - old_counts)*self.phase_factor
-
-          pix_term = (self.pix_counts * 
-                         N.log(
-                            self.bg_all_pix_counts + self.ps_all_pix_counts + self.pi_evals[which].sum(axis=1)*(new_counts - old_counts)
-                         )
-                     ).sum() if self.has_pixels else 0.
-
-          return tot_term - pix_term
+      return tot_term - pix_term
 
    def loglikelihood(self,tot_only=False,pix_only=False,tl=False):
 
@@ -210,7 +190,7 @@ class ROIEnergyBand(object):
       return tot**-0.5
          
          
-   def bandFit(self,which=0,saveto=None,diffuse=False):
+   def bandFit(self,which=0,saveto=None):
       """Fit a model-independent flux to a point source.
         return value of ts for the band
       """
@@ -219,18 +199,18 @@ class ROIEnergyBand(object):
       self.m = PowerLaw(free=[True,False],e0=(self.emin*self.emax)**0.5) # fix index to 2
       f = self.bandLikelihood
 
-      self.fit = fmin(f,self.m.get_parameters(),disp=0,full_output=1,args=(self.m,which,diffuse))
+      self.fit = fmin(f,self.m.get_parameters(),disp=0,full_output=1,args=(self.m,which))
 
       def upper_limit():
 
          flux_copy = self.m.p[0]
-         zp        = self.bandLikelihood(N.asarray([-20]),self.m,which,diffuse)
+         zp        = self.bandLikelihood(N.asarray([-20]),self.m,which)
 
          # NB -- the 95% upper limit is calculated by assuming the likelihood is peaked at
          # 0 flux and finding the flux at which it has fallen by 1.35; this is a two-sided
          # 90% limit, or a one-sided 95% limit -- that's how it works, right?
          def f95(parameters):
-            return abs(self.bandLikelihood(parameters,self.m,which,diffuse) - zp - 1.35)
+            return abs(self.bandLikelihood(parameters,self.m,which) - zp - 1.35)
          
          # for some reason, can't get fsolve to work here.  good ol' fmin to the rescue
          self.uflux = 10**fmin(f95,N.asarray([-11.75]),disp=0)[0]
@@ -272,8 +252,8 @@ class ROIEnergyBand(object):
       if bad_fit:
          self.ts = 0
       else:
-         null_ll = sum( (b.bandLikelihood([0],which,diffuse) for b in self.bands) )
-         alt_ll  = sum( (b.bandLikelihood([b.expected(self.m)],which,diffuse) for b in self.bands) )
+         null_ll = sum( (b.bandLikelihood([0],which) for b in self.bands) )
+         alt_ll  = sum( (b.bandLikelihood([b.expected(self.m)],which) for b in self.bands) )
          self.ts = 2*(null_ll - alt_ll)
          
       return self.ts
