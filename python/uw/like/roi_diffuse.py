@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.5 2010/05/24 22:07:39 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.6 2010/06/01 08:13:32 lande Exp $
 
 author: Matthew Kerr
 """
@@ -236,6 +236,7 @@ class ROIDiffuseModel_PC(ROIDiffuseModel_OTF):
 
     def init(self):
         self.tolerance = 0.02
+        self.nsimps    = 4
 
     def setup(self):
         SkyIntegrator.set_tolerance(self.tolerance)
