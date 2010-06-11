@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.14 2010/05/18 23:58:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.15 2010/05/24 08:10:30 lande Exp $
 
 author: Matthew Kerr
 """
@@ -122,9 +122,9 @@ class ROIAnalysis(object):
        if type(which)==int:
            return self.psm,which
        elif isinstance(which,PointSource):
-           return self.psm,self.psm.point_sources.index(which)
+           return self.psm,int(N.where(self.psm.point_sources==which)[0])
        elif isinstance(which,DiffuseSource):
-           return self.dsm,self.dsm.diffuse_sources.index(which)
+           return self.dsm,int(N.where(self.dsm.diffuse_sources==which)[0])
        else:
            raise Exception("Unknown which argument = %s" % str(which))
 
@@ -372,6 +372,8 @@ class ROIAnalysis(object):
             self.prev_logl = self.logl if self.logl is not None else -f[1]
             self.logl = -f[1]
 
+         return -f[1]
+
       ## check for error conditions here
       #   if not self.quiet: print 'good fit!'
       #   return -f[1]
@@ -449,14 +451,14 @@ class ROIAnalysis(object):
       save_params = self.parameters().copy() # save free parameters
       self.zero_ps(which)
       ll_0 = self.fit(save_values = False,method=method)
-      print self
+      if not self.quiet: print self
       self.unzero_ps(which)
       self.set_parameters(save_params) # reset free parameters
       self.__pre_fit__() # restore caching
       ll = -self.logLikelihood(save_params)
       return -2*(ll_0 - ll)
 
-   def localize(self,which=0, tolerance=1e-3,update=False, verbose=False, bandfits=False, seedpos=None):
+   def localize(self,which=0, tolerance=1e-3,update=False, verbose=False, bandfits=False, seedpos=None,**kwargs):
       """Localize a source using an elliptic approximation to the likelihood surface.
 
          which     -- index of point source; default to central
@@ -477,7 +479,8 @@ class ROIAnalysis(object):
           return rl.localize()
 
       elif manager==self.dsm:
-          self.dsm.bgmodels[index].localize(self,which=index)
+          self.dsm.bgmodels[index].localize(self,which=index,bandfits=bandfits,tolerance=tolerance,
+                                            update=update, verbose=verbose, **kwargs)
 
    def upper_limit(self,which = 0,confidence = .95,e_weight = 0,cgs = False):
        """Compute an upper limit on the flux of a source.
