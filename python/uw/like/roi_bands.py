@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.6 2010/06/07 14:50:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.8 2010/06/11 02:46:17 lande Exp $
 
 author: Matthew Kerr
 """
@@ -107,6 +107,23 @@ class ROIBand(object):
       pix_term = (self.pix_counts * 
                      N.log(
                         self.bg_all_pix_counts + self.ps_all_pix_counts + self.ps_pix_counts[:,which]*(new_counts - old_counts)
+                     )
+                 ).sum() if self.has_pixels else 0.
+
+      return tot_term - pix_term
+
+   def bandLikelihoodDiffuse(self, m, *args):
+      
+      which = args[0] if len(args) > 0 else 0
+      band = self
+
+      old_counts = band.ps_counts[which]
+
+      tot_term = (self.bg_all_counts + self.ps_all_counts + + band.bg_counts[which]*(10**m.p[0]-1) )*self.phase_factor
+
+      pix_term = (self.pix_counts * 
+                     N.log(
+                         self.bg_all_pix_counts + self.ps_all_pix_counts + self.bg_pix_counts[:,which]*(10**m.p[0]-1)
                      )
                  ).sum() if self.has_pixels else 0.
 
@@ -257,3 +274,22 @@ class ROIEnergyBand(object):
          self.ts = 2*(null_ll - alt_ll)
          
       return self.ts
+
+   def bandLikelihoodDiffuse(self,parameters,*args):
+      m = args[0]
+      m.set_parameters(parameters)
+      return sum( (b.bandLikelihoodDiffuse(m,*args[1:]) for b in self.bands) )
+
+   def bandFitDiffuse(self,which=0):
+      """Fit a model-independent flux to a diffuse source.
+        return value of ts for the band
+
+        One day this function will act more like a point source.
+      """
+
+      m = Constant()
+      f = self.bandLikelihoodDiffuse
+
+      self.fit = fmin(f,m.get_parameters(),disp=0,full_output=1,args=(m,which))
+
+      return self.fit[1]
