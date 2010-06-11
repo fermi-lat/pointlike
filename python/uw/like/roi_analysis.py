@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.16 2010/06/11 02:37:58 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.17 2010/06/11 02:48:33 lande Exp $
 
 author: Matthew Kerr
 """
@@ -479,8 +479,8 @@ class ROIAnalysis(object):
           return rl.localize()
 
       elif manager==self.dsm:
-          self.dsm.bgmodels[index].localize(self,which=index,bandfits=bandfits,tolerance=tolerance,
-                                            update=update, verbose=verbose, **kwargs)
+          return self.dsm.bgmodels[index].localize(self,which=index,bandfits=bandfits,tolerance=tolerance,
+                                                   update=update, verbose=verbose, **kwargs)
 
    def upper_limit(self,which = 0,confidence = .95,e_weight = 0,cgs = False):
        """Compute an upper limit on the flux of a source.
