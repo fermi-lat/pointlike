@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.8 2010/05/24 08:10:30 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.9 2010/06/10 21:38:32 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -63,7 +63,7 @@ class ROIPointSourceManager(ROIModelManager):
    
    def __init__(self,point_sources,roi_dir, quiet=False):
       self.roi_dir = roi_dir
-      self.point_sources = point_sources
+      self.point_sources = N.asarray(point_sources)
       self.models = N.asarray([point_source.model for point_source in point_sources])
       self.mask   = N.asarray([True]*len(self.models),bool)
       self.quiet = quiet
@@ -248,7 +248,7 @@ class ROIDiffuseManager(ROIModelManager):
 
         self.bgmodels = models
         self.models   = N.asarray([bgm.smodel for bgm in self.bgmodels])
-        self.diffuse_sources = [bgm.diffuse_source for bgm in self.bgmodels]
+        self.diffuse_sources = N.asarray([bgm.diffuse_source for bgm in self.bgmodels])
 
         self.roi_dir  = roi_dir
       
