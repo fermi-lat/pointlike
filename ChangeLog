@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jun 15 13:06:50 PDT 2010
+pointlike/python/uw/thb_roi
+
+Added Files:
+	bandflux.py 
+Log Message:
+refactor, encapsulate SED analysis
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-17-00, operation: add
 Package: pointlike
