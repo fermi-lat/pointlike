@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.2 2010/05/11 19:01:03 burnett Exp $
+$Header: /usr/local/CVS/SLAC/pointlike/python/uw/thb_roi/roi_factory.py,v 1.3 2010/05/19 00:02:43 burnett Exp $
 author: T.Burnett <tburnett@u.washington.edu>
 """
 
@@ -8,7 +8,7 @@ import numpy as np
 from uw.like import pointspec, Models, pointspec_helpers, roi_managers
 from skymaps import SkyDir
 # in this package
-import data, roi_setup, catalog, myroi
+import data, roi_setup, catalog, myroi, config
 
 ## this should go to Models 
 def make_model( name='PowerLaw', pars=(1e-12/1.53, 2.3), quiet=True):
@@ -37,39 +37,35 @@ class ROIfactory(pointspec.SpectralAnalysis):
     """ subclass of SpectralAnalysis, coded as a ROI "factory"
     """
 
-    def __init__(self,  **kwargs):
+    def __init__(self, **kwargs): 
         
-        defaults = {
-            'fit_bg_first': False,
-            'use_gradient': True,
-            'free_radius':  1.0,
-            'prune_radius': 0.1,
-            }
-        self.log = None
-        defaults.update(kwargs)
-        ae = analysis_environment =  data.MyAnalysisEnvironment( **defaults)
-        super(ROIfactory,self).__init__( analysis_environment, **defaults)
-        self.__dict__.update(defaults)
+        self.log = kwargs.pop('log', None)
+        analysis_environment = config.AE(**kwargs)
+        super(ROIfactory,self).__init__( analysis_environment)
 
         # setup background model manager, catalog mangagers
         self.bgmodels = roi_setup.ConsistentBackground(analysis_environment.diffdir, quiet=self.quiet)
 
-        self.catman= roi_setup.CatalogManager(os.path.join(ae.catdir, ae.catalog), **kwargs)
+        self.catman= roi_setup.CatalogManager(os.path.join(analysis_environment.catdir, analysis_environment.catalog))
 
         aux = self.__dict__.pop('aux_cat', None)
         if aux:
             if not self.quiet: print 'adding sources from catalog'
             self.cb.append(aux)
             
-        if not self.quiet: print >>self.log, self
+        if not self.quiet: 
+            print >>self.log, self
+            if self.log is not None: self.log.close()
+        
 
 
     def __str__(self):
-        s = 'ROIfactory configuration:\n'
-        ignore = ('psf', 'exposure', 'cb', 'mc_energy', 'mc_src_id', 'daily_data_path', 'use_daily_data')
-        for key in sorted(self.__dict__.keys()):
-            if key in self.ae.__dict__ or key in ignore: continue # avoid duplication internal functions
-            s += '\t%-20s: %s\n' %(key, self.__dict__[key])
+        s = 'ROIfactory analysis environment:\n'
+        s += self.ae.__str__()
+        #ignore = ('ae', 'psf', 'exposure', 'cb', 'catman')
+        #for key in sorted(self.__dict__.keys()):
+        #    if key in ignore: continue # avoid duplication internal functions and copy in ae
+        #    s += '\t%-20s: %s\n' %(key, self.__dict__[key])
         return s
 
     def __call__(self, sources, max_roi=None, min_roi=None, roi_dir=None, **kwargs):
