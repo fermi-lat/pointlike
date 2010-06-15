@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Tue Jun 15 13:50:35 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	roi_factory.py 
+Added Files:
+	config.py 
+Log Message:
+convert to using config to set up analysis envornment
+    *
+------------------------------------------------------------
 User: burnett  Tue Jun 15 13:48:51 PDT 2010
 pointlike/python/uw/thb_roi
 
