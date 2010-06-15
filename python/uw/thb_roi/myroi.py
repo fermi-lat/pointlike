@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.9 2010/05/19 00:02:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.10 2010/05/20 17:33:36 burnett Exp $
 
 """
 
@@ -15,6 +15,7 @@ from uw.like import roi_analysis, roi_localize, roi_plotting,  Models
 from uw.utilities import makerec, fermitime, image
 from skymaps import SkyDir,  PySkyFunction
 
+import bandflux
 
 def spectralString(band,which=None):
   """Return a string suitable for printSpectrum.
@@ -72,17 +73,14 @@ class MyROI(roi_analysis.ROIAnalysis):
             bgfree [True, False, True]
             prune_radius [0.1]
             free_radius  [0]
-
         """
-        bgfree = [True,False,True]
-        if 'bgfree' in kwargs:
-            bgfree = np.array(kwargs['bgfree'])
-            kwargs.pop('bgfree')
+        bgfree = kwargs.pop('bgfree', [True,False,True])
         if 'fit_bg_first' in kwargs:
             self.fit_bg_first = kwargs['fit_bg_first']
         super(MyROI, self).__init__(roi_dir, ps_manager, bg_manager, roifactory, **kwargs)
         self.bgm.models[0].free = np.array(bgfree[:2])
-        self.bgm.models[1].free = np.array([bgfree[2]])
+        if len(self.bgm.models)>1:
+            self.bgm.models[1].free = np.array([bgfree[2]])
         self.name = self.psm.point_sources[0].name # default name
         self.center= roi_dir
 
@@ -93,12 +91,45 @@ class MyROI(roi_analysis.ROIAnalysis):
         if 'fit_bg_first' in kwargs: 
             fit_bg_first = kwargs.pop('fit_bg_first')
         if 'use_gradient' not in kwargs: kwargs['use_gradient']=self.use_gradient
+        pivot = kwargs.pop('pivot', False)
         try:
             ret = super(MyROI, self).fit(fit_bg_first=fit_bg_first, **kwargs)
             if not self.quiet: print self
-        except Exception:
-            if not self.quiet: print 'Fit failed'
+            if pivot:
+                ## refit to determine parameters at the pivot energy
+                m = self.psm.models[0]
+                #reassign, but keep in range
+                m.e0= np.min(np.max(m.pivot_energy(), self.fit_emin[0]), self.fit_emax[0])
+                assert m.e0>100 and m.e0< 1e5, "check that it worked"
+                if not self.quiet:
+                    print 'Refit only first source with e0=%.0f' % m.e0
+                fr = self.get_free()
+                fr[:]=False
+                fr[:2]=True
+                
+                super(MyROI, self).fit(**kwargs)
+                if not self.quiet: 
+                    print m
+            if not self.quiet:
+                print '---- predicted pivot_energy: %.0f'  % self.psm.models[0].pivot_energy()
+        except Exception, msg:
+            if not self.quiet: print 'Fit failed: %s' % msg
 
+    def get_free(self):
+        """ return array of the free variables, point sources followed by background"""
+        t =np.hstack((self.psm.models, self.bgm.models))
+        return np.hstack([m.free for m in t])
+ 
+    def set_free(self, free):
+        """ save the array retrieved by get_free
+        """
+        i = 0
+        t =np.hstack((self.psm.models, self.bgm.models))
+        for m in t:
+            j = i+len(m.free)
+            m.free = free[i:j]
+            i = j
+     
     def band_ts(self, which=0):
         """ return the sum of the individual band ts values
         """
@@ -214,12 +245,13 @@ class MyROI(roi_analysis.ROIAnalysis):
         output['dec']  = self.center.dec()
         
         # get source fit parameters, relative uncertainty
-        p,p_unc = self.psm.point_sources[0].model.statistical()
-        output['src_par'] = p #10**self.psm.models[0].p
+        p,p_unc = self.psm.models[0].statistical()
+        output['src_par'] = p 
         output['src_par_unc'] = p*p_unc 
-        
-        output['bgm_par'] = np.hstack((10**self.bgm.models[0].p, 10**self.bgm.models[1].p))
-        output['bgm_par_unc'] = None #### TODO
+        output['pivot_energy'] = self.psm.models[0].e0 #this is 1000 by default, but catalog will be different
+        output['src_model'] = self.psm.models[0] # simpler to save it all
+        output['bgm_par'] = np.hstack([m.statistical()[0] for m in self.bgm.models] )
+        output['bgm_par_unc'] = np.hstack([m.statistical()[1] for m in self.bgm.models] )
         try:
             output['qform_par'] = self.qform.par if 'qform' in self.__dict__ else None
         except AttributeError:
@@ -396,9 +428,9 @@ class MyROI(roi_analysis.ROIAnalysis):
             assoc = None,
             notitle = False,
             nolegend = False,
-            markersize=12,
-            primary_markersize=14,
-            ): #, **kwargs):
+            markercolor='blue', markersize=12,
+            primary_markercolor='green', primary_markersize=14,
+             **kwargs):
         """ create a TS map for the source
 
         Optional keyword arguments:
@@ -419,6 +451,7 @@ class MyROI(roi_analysis.ROIAnalysis):
   notitle     [False] -- set to turn off (allows setting the current Axes object title)
   nolegend    [False]
   markersize  [12]
+  markercolor [blue]
   =========   =======================================================
 
         returns the image.TSplot object for plotting positions, for example
@@ -432,7 +465,7 @@ class MyROI(roi_analysis.ROIAnalysis):
             plt.figure(fignum,figsize=(5,5)); plt.clf()
         
         tsp = image.TSplot(tsm, sdir, size, pixelsize =pixelsize if pixelsize is not None else size/20. , 
-                    axes=axes, galactic=galactic, galmap=galmap)
+                    axes=axes, galactic=galactic, galmap=galmap, **kwargs)
         if 'qform' in roi.__dict__ and roi.qform is not None:
             sigma = math.sqrt(roi.qform.par[3]*roi.qform.par[4]) # why do I need this?
             qual = roi.qform.par[6]
@@ -446,15 +479,16 @@ class MyROI(roi_analysis.ROIAnalysis):
             
         # plot the primary source, any nearby from the fit
         x,y = tsp.zea.pixel(sdir)
-        tsp.zea.axes.plot([x],[y], '*', color='grey', label=name, markersize=primary_markersize)
+        tsp.zea.axes.plot([x],[y], '*', color=primary_markercolor, label=name, markersize=primary_markersize)
         marker = 'ov^<>1234sphH'; i=k=0
-        for ps in self.psm.point_sources: # skip 
-            x,y = tsp.zea.pixel(ps.skydir)
-            if ps.name==name or x<0 or x>tsp.zea.nx or y<0 or y>tsp.zea.ny: continue
-            tsp.zea.axes.plot([x],[y], marker[k%12], color='blue', label=ps.name, markersize=markersize)
-            k+=1
+        if markersize==0:
+            for ps in self.psm.point_sources: # skip 
+                x,y = tsp.zea.pixel(ps.skydir)
+                if ps.name==name or x<0 or x>tsp.zea.nx or y<0 or y>tsp.zea.ny: continue
+                tsp.zea.axes.plot([x],[y], marker[k%12], color=markercolor, label=ps.name, markersize=markersize)
+                k+=1
         
-        tsp.plot(tsp.tsmaxpos, symbol='x') # at the maximum
+        tsp.plot(tsp.tsmaxpos, symbol='+', color='k') # at the maximum
         if not notitle: plt.title( name, fontsize=24)
 
         if assoc is not None:
@@ -510,10 +544,12 @@ class MyROI(roi_analysis.ROIAnalysis):
         
     def plot_sed(self, fignum=5, axes=None,
             axis=(1e2,1e5,1e-8,1e-2),
-            data_kwargs={'linewidth':2, 'color':'k',},
-            fit_kwargs={'lw':2, 'color':'r',},
+            data_kwargs=dict(linewidth=2, color='k',),
+            fit_kwargs =dict(lw=2,        color='r',),
+            butterfly = False,
             ):
-        """Plot a SED, a thin interface to uw.like.roi_plotting.make_sed
+        """Plot a SED, a thin interface to uw.like.roi_plotting.make_sed.
+            add point showing the position and error at e0
         ========     ===================================================
         keyword      description
         ========     ===================================================
@@ -527,12 +563,85 @@ class MyROI(roi_analysis.ROIAnalysis):
         """
         oldlw = plt.rcParams['axes.linewidth']
         plt.rcParams['axes.linewidth'] = 2
-        if fignum is not None: 
+        if axes is None: 
             fig=plt.figure(fignum, figsize=(4,4)); plt.clf()
             fig.add_axes((0.2,0.15,0.75,0.72))
-        roi_plotting.make_sed(self,axes=axes, axis=axis, data_kwargs=data_kwargs, fit_kwargs=fit_kwargs)
+            axes = plt.gca()
+        plot_model = True # check to see if bad fit??    
+        #roi_plotting.make_sed(self,axes=axes, axis=axis, plot_model=plot_model, 
+        #        data_kwargs=data_kwargs, fit_kwargs=fit_kwargs)
+        bf = bandflux.BandFlux(self, merge=True)
+        bf.plot(axes=axes, axis=axis, **data_kwargs)
+        
+        # add point for the pivot, error bars
+        m = self.psm.models[0]
+        stat = m.statistical()
+        err = stat[0]*stat[1]
+        plt.errorbar([m.e0], [stat[0][0]*m.e0**2], fmt='or', yerr=err[0]*m.e0**2, elinewidth=2, markersize=8)
         plt.rcParams['axes.linewidth'] = oldlw
-        plt.title(self.name)
 
+        dom = np.logspace(np.log10(self.fit_emin[0]), np.log10(self.fit_emax[0]), 101)
+        model = self.psm.models[0]
+        plt.plot( dom, model(dom)*dom**2, **fit_kwargs)
+        if butterfly:
+            # 'butterfly' region
+            dom_r = np.array([dom[-i-1] for i in range(len(dom))]) #crude reversal
+            a,gamma = stat[0]
+            var = err**2
+            # r is e/e0
+            bfun = lambda r: r**-gamma * np.sqrt(var[0] + (a*np.log(r))**2 * var[1])
+            upper = (m(dom)  + bfun(dom/m.e0)  )*dom**2
+            lower = (m(dom_r)- bfun(dom_r/m.e0))*dom_r**2
+            ymin, ymax = axis[2:]
+            lower[lower<ymin] = ymin
+            upper[upper>ymax] = ymax
+            t =plt.fill(np.hstack( [dom,   dom_r] ), 
+                        np.hstack( [upper, lower] ), 'r')
+            t[0].set_alpha(0.4)
+               
+        if axis is not None:
+            axes.axis(axis)
+            axes.set_autoscale_on(False)
+
+        # improve the axis labels
+        plt.ylabel(r'$\mathsf{Energy\ Flux\ (MeV\ cm^{-2}\ s^{-1})}$')
+        plt.xlabel(r'$\mathsf{Energy\ (MeV)}$')
+        plt.title(self.name)
+    
+    def butterfly_fun(self):
+        m = self.psm.models[0]
+        stat = m.statistical()
+        a,gamma = stat[0]
+        err = stat[0]*stat[1]
+        var = err**2
+        return lambda e: (e/m.e0)**-gamma * np.sqrt(var[0] + (a*np.log(e/m.e0))**2 * var[1])
+     
+
+    def band_info(self):
+        """ return dictionary of the band ts values and photons, diffuse  
+        """
+        self.setup_energy_bands()
+        bands = self.energy_bands
+        return BandDict(
+            ts =      [band.bandFit()                             for band in bands],
+            photons = [int(sum( (b.photons for b in band.bands))) for band in bands],
+            galactic= [sum((b.bg_counts[0] for b in band.bands))  for band in bands],
+            isotropic=[sum((b.bg_counts[1] for b in band.bands))  for band in bands],
+            flux   =  [band.flux for band in bands],
+            lflux  =  [band.lflux for band in bands],
+            uflux =   [band.uflux for band in bands],
+            signal =  [sum( (b.expected(band.m) for b in band.bands) )for band in bands],
+            )
+class BandDict(dict):
+    """ a dictionary of Band stuff with access functions, like __str__
+    """
+    def __str__(self):
+        n = len(self['ts'])
+        #          0    1371   231.0   528.6  2242.0
+        return 'band photons     gal     iso      TS\n'\
+            +'\n'.join(['%4i%8i%8.1f%8.1f%8.1f' \
+                    %(i, self['photons'][i],self['galactic'][i],self['isotropic'][i] ,self['ts'][i])for i in range(n)]) \
+            +'\n Sum%33.1f' % sum(self['ts'])
+        
 if __name__=='__main__':
     pass
