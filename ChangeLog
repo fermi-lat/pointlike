@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jun 16 01:08:49 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_bands.py 
+Log Message:
+updates to diffuse bin by bin fitting
+    *
+------------------------------------------------------------
 User: lande  Wed Jun 16 01:08:23 PDT 2010
 pointlike/python/uw/like
 
