@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jun 16 01:08:23 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Increase default number of simpson integrals.
+    *
+------------------------------------------------------------
 User: burnett  Tue Jun 15 13:53:39 PDT 2010
 pointlike/python/uw/thb_roi
 
