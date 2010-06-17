@@ -1,5 +1,9 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.3 2010/05/24 17:32:10 wallacee Exp $
+
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.3 2010/05/24 17:32:10 wallacee Exp $
+
+author : M. Kerr
+
 """
 from skymaps import SkyDir,WeightedSkyDirList,Hep3Vector,SkyIntegrator,PySkyFunction
 from pointlike import DoubleVector
@@ -10,11 +14,19 @@ from scipy.special import hyp2f1
 from uw.like.pypsf import BandCALDBPsf,PretendBand
 from numpy.fft import fftshift,ifft2,fft2
 
-class Grid(object):
-    """ Define a grid with vertices separated by a uniform arclength, i.e., flat.
+### TODO -- find a way to evaluate the PSF on a finer grid ###
 
-        The default coordinate system is Galactic.  When the center is placed too
-        close to the poll, algorithm will switch to celestial.
+class Grid(object):
+    """ Define a grid with vertices approximately separated by a uniform arclength.
+
+        Although the routine is agnostic, Galactic coordinates are used
+        throughout.  Any lon/lat argument is understood to be GLON/GLAT.
+
+        The default grid is established on the equator, at the azimuth
+        specified by GLON of the center, and is then rotated to the 
+        appropriate latitude.  Since a CAR projection is used, this rotation
+        minimizes the distortion and non-distance-preserving properties of the
+        projection.
 
         The convention for the coordinates is that the origin is in the upper
         lefthand corner.  The function is evaluated at pixel *corners*.  This puts the
@@ -44,10 +56,10 @@ class Grid(object):
         self.npix,self.pixelsize = npix,pixelsize
         
         l,b    = center.l(),center.b()
-        usegal = self.usegal = abs(b) < 70
+        self.center = center
         
-        self.clon,self.clat = (center.l(),center.b()) if usegal else (center.ra(),center.dec())
-        self.delta_lon = (npix-1)*pixelsize/N.cos(N.radians(self.clat))
+        self.clon,self.clat = l,0
+        self.delta_lon = (npix-1)*pixelsize
         self.delta_lat = (npix-1)*pixelsize
         self.lon0 = (self.clon + self.delta_lon/2.)%360
         self.lat0 = self.clat - self.delta_lat/2.
@@ -62,10 +74,19 @@ class Grid(object):
         self.lons = DoubleVector(N.where(self.lons < 0,self.lons+360,self.lons)) # if origin in frame
         self.lats = DoubleVector(N.linspace(0,1,self.npix)*self.delta_lat + self.lat0)
 
+        self.rot_axis = SkyDir(l+90,0).dir() # Hep3Vector
+
+    def rot_lon_lat(self,lon,lat):
+        """ Rotate the specified lon/lat to the equatorial grid. """
+        v1 = DoubleVector(); v2 = DoubleVector()
+        Background.rot_grid(v1,v2,DoubleVector([lon]),DoubleVector([lat]),self.center)
+        return v1[0],v2[0]
+
     def in_grid(self,lon,lat,skydir=None):
         """ check whether the provided lon/lat is within the grid. """
         if skydir is not None:
-            lon,lat = (skydir.l(),skydir.b()) if self.usegal else (skydir.ra(),skydir.dec())
+            lon = skydir.l(); lat = skydir.b()
+        lon,lat = self.rot_lon_lat(lon,lat)
         delta_lon = abs(lon - self.clon)
         delta_lon = min(360-delta_lon,delta_lon)
         lon_ok = delta_lon < self.delta_lon/2.
@@ -74,7 +95,8 @@ class Grid(object):
         return lat_ok and lon_ok
 
     def pix(self,skydir):
-        lon,lat = (skydir.l(),skydir.b()) if self.usegal else (skydir.ra(),skydir.dec())
+        """ return the pixel corresponding to the argument skydir. """
+        lon,lat = self.rot_lon_lat(skydir.l(),skydir.b())
         if self.wrap:
             lon = N.where(lon > 180, lon - 360 , lon)
         np = self.npix - 1
@@ -85,39 +107,44 @@ class Grid(object):
     def __call__(self,skydir,v):
         """ Using v, an array of values that has been evaluated on the Grid (e.g., by fill),
             find the value(s) corresponding to skydir (can be single ora list) using
-            bilinear interpolation."""
-        if hasattr(skydir,'EQUATORIAL'):
-            skydir = [skydir]
-            #lon,lat = (skydir.l(),skydir.b()) if self.usegal else (skydir.ra(),skydir.dec())
-        #else:
-        lon = N.asarray([sd.l() if self.usegal else sd.ra() for sd in skydir])
-        lat = N.asarray([sd.b() if self.usegal else sd.dec() for sd in skydir])
+            bilinear interpolation.
+            
+            The skydir(s) are rotated onto the equatorial grid."""
+        
+        if hasattr(skydir,'EQUATORIAL'): skydir = [skydir]
+        lon = N.asarray(map(SkyDir.l,skydir))
+        lat = N.asarray(map(SkyDir.b,skydir))
+        rlon = DoubleVector() ; rlat = DoubleVector()
+        Background.rot_grid(rlon,rlat,lon,lat,self.center)
+        lon = N.asarray(rlon) ; lat = N.asarray(rlat)
         if self.wrap:
             # adopt negative longitudes for the nonce; fine for calculating differences
             lon = N.where(lon > 180, lon - 360 , lon)
         np = self.npix - 1
-        x = (self.lon0 - lon)/self.delta_lon*np
-        y = (lat - self.lat0)/self.delta_lat*np
+        x = (self.lon0 - lon) / (self.delta_lon / np)
+        y = (lat - self.lat0) / (self.delta_lat / np)
         #if N.any( (x<0) || (x > np) || (y < 0) || (y > np) ):
         #    return N.nan
         xlo,ylo = N.floor(x+1e-6).astype(int),N.floor(y+1e-6).astype(int)
         xhi,yhi = xlo+1,ylo+1
         dx = N.maximum(0,x - xlo)
         dy = N.maximum(0,y - ylo)
-        #print x,xlo,xhi,dx
-        #print y,ylo,yhi,dy
-        v = N.asarray(v)
+        v  = N.asarray(v)
         return v[xlo,ylo]*(1-dx)*(1-dy) + v[xlo,yhi]*(1-dx)*dy + v[xhi,ylo]*dx*(1-dy) + v[xhi,yhi]*dx*dy
 
     def fill(self,skyfun):
-        """Evaluate skyfun along the internal grid and return the resulting array."""
-        lons,lats = self.lons,self.lats
-        v = N.empty([len(lons),len(lats)])
-        s = [SkyDir.GALACTIC if self.usegal else SkyDir.EQUATORIAL] * len(lons)
-        for ilon,lon in enumerate(lons):
-            sds = map(SkyDir,[lon]*len(lons),lats,s)
-            v[ilon,:] = [skyfun(sd) for sd in sds]
-        return v
+        """ Evaluate skyfun along the internal grid and return the resulting array.
+        
+            In this process, the internal grid is transformed to the center of
+            the ROI, and the skyfun evaluated for each of the resulting
+            positions.
+            
+            ***THIS SHOULD BE PROFILED AT SOME POINT TO SEE IF WE SHOULD
+            ***PRE-CALCULATE THE TRANSFORMATION.
+        """
+        v = DoubleVector()
+        Background.val_grid(v,self.lons,self.lats,self.center,skyfun)
+        return N.resize(v,[self.npix,self.npix])
 
 class BackgroundConvolution(Grid):
 
@@ -131,6 +158,11 @@ class BackgroundConvolution(Grid):
 
         self.bg,self.psf = bg,psf
         super(BackgroundConvolution,self).__init__(center,**kwargs)
+        if (self.npix%2 != 1):
+            print """WARNING! You are attempting to convolve a map on a
+                     grid with an even number of pixels.  This is NOT
+                     recommended as it will smear the map inappropriately
+                     at high energies."""
 
     def do_convolution(self,energy,conversion_type,override_skyfun=None):
         """ Perform a convolution at the specified energy, for the specified
@@ -139,7 +171,7 @@ class BackgroundConvolution(Grid):
         if override_skyfun is None:
             self.bg.setEnergy(energy)
             self.bg.set_event_class(conversion_type)
-            self.bg_fill()
+            self.bg_vals = self.fill(self.bg)
         else:
             self.bg_vals = self.fill(override_skyfun)
         pb = PretendBand(energy,conversion_type)
@@ -147,12 +179,6 @@ class BackgroundConvolution(Grid):
         self.psf_fill(bpsf)
         self.convolve()
 
-    def bg_fill(self):
-        """ Evaluate the internal bg member over the grid."""
-        lons,lats = self.lons,self.lats
-        rval = DoubleVector()
-        self.bg.grid_values(rval,lons,lats,SkyDir.GALACTIC if self.usegal else SkyDir.EQUATORIAL)
-        self.bg_vals = N.resize(rval,[self.npix,self.npix])
 
     def psf_fill(self,psf):
         """ Evaluate a band psf over the grid."""
@@ -303,5 +329,40 @@ class AnalyticConvolution(object):
 
         if type(skydir)==SkyDir:
             return float(self.interp(skydir.difference(self.spatial_model.center)))
+        elif type(skydir)== WeightedSkyDirList:
+            dv = DoubleVector()
+            skydir.arclength(self.spatial_model.center,dv)
+            difference = N.fromiter(dv,dtype=float)
+            return self.interp(difference)
+        else:
+            raise Exception("Unknown input to AnalyticConvolution.__call__()")
 
-        raise Exception("Unknown input to AnalyticConvolution.__call__()")
+
+"""
+a little sanity check class
+from skymaps import *
+from uw.utilities.image import ZEA
+class GridPySkyFun(object):
+
+    def __init__(self,grid,sf):
+        self.grid = grid
+        self.grid_vals = self.grid.fill(sf)
+        self.sf = sf
+
+    def __call__(self,v):
+        sd = SkyDir(Hep3Vector(v[0],v[1],v[2]))
+        return self.grid(sd,self.grid_vals)
+
+    def get_pyskyfun(self):
+        return PySkyFunction(self)
+
+    def do_zea(self,size=10):
+
+        z = ZEA(self.grid.center,size=size,
+                pixelsize=self.grid.pixelsize/2,galactic=True)
+        z.fill(self.get_pyskyfun())
+        z.set_axes()
+        z.imshow()
+        #z.axes.imshow(z.image,origin='lower')
+        self.z = z
+"""
