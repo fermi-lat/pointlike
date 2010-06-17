@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Thu Jun 17 09:52:48 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Major changes to support a shifted origin for the background convolution.  The code now rorates the diffuse map to the equator to minimize the distortion effects.
+    *
+------------------------------------------------------------
 User: lande  Wed Jun 16 01:08:49 PDT 2010
 pointlike/python/uw/like
 
