@@ -1,8 +1,8 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.3 2010/05/24 17:32:10 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.5 2010/06/17 16:52:48 kerrm Exp $
 
-author : M. Kerr
+authors: M. Kerr, J. Lande
 
 """
 from skymaps import SkyDir,WeightedSkyDirList,Hep3Vector,SkyIntegrator,PySkyFunction
