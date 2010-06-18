@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.9 2010/06/11 22:34:32 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.10 2010/06/16 08:08:49 lande Exp $
 
 author: Matthew Kerr
 """
@@ -31,6 +31,11 @@ class ROIBand(object):
       self.catalog_aperture = -1
 
    def __init__(self,band,spectral_analysis,skydir,**kwargs):
+      """
+      band: a skymaps.Band object
+      spectral_analysis: needed for exposure, psf.band_psf, minROI, maxROI 
+      skydir a SkyDir object, used to select data from the Band
+      """
 
       self.init()
       self.__dict__.update(**kwargs)
@@ -150,13 +155,16 @@ class ROIBand(object):
 class ROIEnergyBand(object):
    """Wrap 1 or 2 ROIBand objects corresponding to the same energy level 
       but different conversion classes.  Implement a likelihood as a
-      function of energy."""
+      function of energy.
+      
+      Can also accomodate multiple energies, allowing simple merge (but needs some work)
+      """
 
    def __init__(self,bands,emin=None,emax=None):
 
       self.bands = bands
       self.emin = self.bands[0].emin if emin is None else emin
-      self.emax = self.bands[0].emax if emax is None else emax
+      self.emax = self.bands[-1].emax if emax is None else emax
 
    def __rois__(self):
       R2D = 180./N.pi
@@ -274,6 +282,12 @@ class ROIEnergyBand(object):
          self.ts = 2*(null_ll - alt_ll)
          
       return self.ts
+      
+   def energy_flux(self):
+      """ return a tuple (flux, lflux, uflux) of the energy flux in ergs cm**-2 s**-1 units
+      """
+      ec = self.emin*self.emax * 1.602e-6
+      return (ec*self.flux, ec*self.lflux, ec*self.uflux)
 
    def bandLikelihoodDiffuse(self,parameters,*args):
       m = args[0]
