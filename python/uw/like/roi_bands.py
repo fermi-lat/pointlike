@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.10 2010/06/16 08:08:49 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.11 2010/06/18 12:24:56 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -46,10 +46,11 @@ class ROIBand(object):
       self.sd  = skydir
       self.ec  = self.ct = band.event_class()  & 1        # note change and mask
       self.exp = self.sa.exposure.exposure[self.ct]
-      self.psf = self.sa.psf.band_psf(self)
 
       self.__setup_data__()
       self.__setup_sp_simps__()
+
+      self.psf = self.sa.psf.band_psf(self,adjust_mean=True)
 
    def __setup_data__(self):
       """Get all pixels within the ROI in this band."""
