@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Fri Jun 18 15:21:14 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py roi_bands.py 
+Log Message:
+Added a bit of code in pypsf, invoked during the initalization of an ROIBand, to calculate the optimal energy at which to evaluate the PSF for a source with a photon index of 2.  This turns out to be very close to the geometric mean for a wide range of indices and over all energies.
+    *
+------------------------------------------------------------
 User: burnett  Fri Jun 18 05:24:56 PDT 2010
 pointlike/python/uw/like
 
