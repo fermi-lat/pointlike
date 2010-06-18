@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.4 2010/06/10 21:37:19 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.6 2010/06/11 02:40:52 lande Exp $
 
    author: Matthew Kerr
 
@@ -333,6 +333,14 @@ Spectral parameters:
       if C[1,1]==0:
          raise Exception('PowerLaw fit required before calculating pivot energy')
       return self.e0*N.exp( C[0,1]/(A*C[1,1]) )
+      
+   def set_e0(self, e0p):
+      """ set a new reference energy, adjusting the norm parameter """
+      # TODO: move this upstream
+      gamma = 10** self.p[1]
+      self.p[0] += gamma * N.log10(self.e0/e0p)
+      self.e0 = e0p
+      
 
 #===============================================================================================#
 
