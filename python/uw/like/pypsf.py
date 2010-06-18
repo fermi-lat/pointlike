@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.6 2010/05/19 19:58:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.7 2010/06/07 14:49:13 burnett Exp $
 author: M. Kerr
 
 """
@@ -208,7 +208,8 @@ class CALDBPsf(Psf):
          if trial > 0: break
       return N.degrees(trial)
              
-   def band_psf(self,band,weightfunc=None): return BandCALDBPsf(self,band,weightfunc=weightfunc,newstyle=self.newstyle)
+   def band_psf(self,band,weightfunc=None,adjust_mean=False):
+      return BandCALDBPsf(self,band,weightfunc=weightfunc,adjust_mean=adjust_mean,newstyle=self.newstyle)
 
 ###====================================================================================================###
 ###====================================================================================================###
@@ -218,30 +219,37 @@ class BandPsf(object):
    def init(self):
       self.newstyle = False
 
-   def __init__(self,psf,band,weightfunc=None,**kwargs):
+   def __init__(self,psf,band,weightfunc=None,adjust_mean=False,**kwargs):
       self.init()
       self.newstyle = psf.newstyle
       self.__dict__.update(kwargs)
       self.par     = psf.get_p(band.e,band.ct).copy()
-      if weightfunc is not None:
+      
+      if adjust_mean:
+         # calculate the correct energy to let us take the PSF out
+         # of the rate integral according to the Mean Value Theorem
+         # this implementation relies explictly on the form of the
+         # pre-scaling of the PSF
+         f1 = lambda e: e**-2 * psf.scale_func[band.ct](e)
+         f2 = lambda e: e**-2
+         p1 = psf.scale_factors[0 if band.ct==0 else 2]
+         p2 = psf.scale_factors[-1]
+         p3 = psf.scale_factors[1 if band.ct==0 else 3]
+         i1 = band.expected(f1)
+         i2 = band.expected(f2)
+         self.eopt  = 100*N.exp(N.log(((i1/i2)**2 - p3**2)**0.5/p1)/p2)
+         self.scale = psf.scale_func[band.ct](self.eopt)
+
+      elif weightfunc is not None:
          dom   = N.logspace(N.log10(band.emin),N.log10(band.emax),9)
          wvals = [weightfunc(x) for x in dom]
          svals = psf.scale_func[band.ct](dom)
          num = simps(wvals*svals*dom,x=dom)
          dom = simps(wvals*dom,x=dom)
-         self.scale=num/dom
-         #def numfunc(loge):
-         #   e = N.exp(loge)
-         #   return psf.scale_func[band.ct](e) * weightfunc(e) * e
-         #def domfunc(loge):
-         #   e = N.exp(loge)
-         #   return weightfunc(e) * e
-         #e0,e1 = N.log([band.emin,band.emax])
-         #num = quad(numfunc,e0,e1,epsrel=1e-3,full_output=0,limit=100)[0]
-         #dom = quad(domfunc,e0,e1,epsrel=1e-3,full_output=0,limit=100)[0]
          self.scale = num/dom
          self.comp_scale = psf.scale_func[band.ct](band.e)
          print num,dom,num/dom,self.comp_scale
+
       else:
          self.scale   = psf.scale_func[band.ct](band.e)
       if self.newstyle:
