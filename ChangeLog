@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jun 20 06:35:47 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	bandflux.py 
+Log Message:
+move all SED plotting to here.
+    *
+------------------------------------------------------------
 User: kerrm  Fri Jun 18 15:21:14 PDT 2010
 pointlike/python/uw/like
 
