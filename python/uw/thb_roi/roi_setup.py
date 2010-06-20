@@ -1,7 +1,7 @@
 """
 supplemental setup of ROI
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_setup.py,v 1.5 2010/05/20 18:56:57 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_setup.py,v 1.6 2010/06/15 20:48:51 burnett Exp $
 
 These are near-duplicates of the classes with the same name in uw.like, but modifed for the interactive access
 
@@ -55,19 +55,21 @@ class CatalogManager(object):
         self.init()
         self.__dict__.update(kwargs)
         cdata = pyfits.open(catalog_file)[1].data
-        ras  = np.asarray(cdata.field('RA'),float)
-        decs = np.asarray(cdata.field('DEC'),float)
         try:
-            pens = cdata.field('PIVOT_ENERGY')
+            ts   = np.asarray(cdata.field('Test_Statistic'),float)
         except KeyError:
-            pens = np.array(len(cdata)*[1000.])
-        n0s  = cdata.field('FLUX_DENSITY')
-        inds = cdata.field('SPECTRAL_INDEX')
+            ts   = np.asarray(cdata.field('Signif_Avg'))**2
+        good = ts>self.min_ts
+        ras  = np.asarray(cdata.field('RA'),float)[good]
+        decs = np.asarray(cdata.field('DEC'),float)[good]
+        pens = cdata.field('PIVOT_ENERGY')[good]
+        n0s  = cdata.field('FLUX_DENSITY')[good]
+        inds = cdata.field('SPECTRAL_INDEX')[good]
         inds = np.where(inds > 0, inds, -inds)
         try:
-            self.names  = np.asarray(cdata.field('Source_Name'))
+            self.names  = np.asarray(cdata.field('Source_Name'))[good]
         except KeyError:
-            self.names  = np.asarray(cdata.field('NickName'))
+            self.names  = np.asarray(cdata.field('NickName'))[good]
 
         self.dirs   = map(SkyDir,ras,decs)
         self.models = np.asarray([Models.PowerLaw(p=[n0,ind],e0=pen) for n0,ind,pen in zip(n0s,inds,pens)])
