@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jun 20 06:41:11 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	myroi.py 
+Log Message:
+move plot_sed specific code to bandflux
+    *
+------------------------------------------------------------
 User: burnett  Sun Jun 20 06:39:30 PDT 2010
 pointlike/python/uw/thb_roi
 
