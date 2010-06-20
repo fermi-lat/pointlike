@@ -1,7 +1,7 @@
 """
 generate collection file for LiveLabs Pivot viewer
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.4 2010/04/29 21:17:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.5 2010/05/11 18:59:44 burnett Exp $
 See <http://getpivot.com>
 Author: Toby Burnett <tburnett@uw.edu>
 """
@@ -133,7 +133,8 @@ class Collection(object):
         out.write('\n<FacetCategories>' )
         for facet in self.facets:
             #IsFilterVisible="%(filter)s"
-            out.write('\n  <FacetCategory Name="%(name)s" Type="%(type)s" Format="%(format)s" d1p1:IsFilterVisible="%(filter)s"/>' %(facet.__dict__))
+            out.write('\n  <FacetCategory Name="%(name)s" Type="%(type)s" Format="%(format)s" d1p1:IsFilterVisible="%(filter)s"/>'\
+                %(facet.__dict__))
         out.write('\n</FacetCategories>')
     
     def writeAllItems(self, out,last_id):
