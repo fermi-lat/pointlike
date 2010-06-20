@@ -95,8 +95,10 @@ system_config = dict(
     ltcube       = None,  
     binsperdec   = 4,
     conv_type    = -1,
-    emax         = 300000.0,
+    emax         = 1000000.0,
     emin         = 100,
+    fit_emin     = 175,
+    fit_emax     = 600000.,
     event_class  = 3,
     exp_radius   = 180,
     fit_bg_first = False,
@@ -133,8 +135,8 @@ class AE(object):
             if key not in self.__dict__:
                 raise Exception, 'keyword "%s" is not recognized' %key
         self.__dict__.update(**kwargs)
-        if self.ft1files is None or self.ft2files is None:
-            raise Exception, 'Expect both ft1files and ft2files to be set to lists of filenames'
+        #if self.ft1files is None or self.ft2files is None:
+        #    raise Exception, 'Expect both ft1files and ft2files to be set to lists of filenames'
         
     def __str__(self):
         s = self.__class__.__name__+'\n'
