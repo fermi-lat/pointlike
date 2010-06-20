@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.4 2010/06/15 20:50:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.5 2010/06/20 13:38:16 burnett Exp $
 author: T.Burnett <tburnett@u.washington.edu>
 """
 
@@ -8,7 +8,7 @@ import numpy as np
 from uw.like import pointspec, Models, pointspec_helpers, roi_managers
 from skymaps import SkyDir
 # in this package
-import data, roi_setup, catalog, myroi, config
+import roi_setup, catalog, myroi, config
 
 ## this should go to Models 
 def make_model( name='PowerLaw', pars=(1e-12/1.53, 2.3), quiet=True):
