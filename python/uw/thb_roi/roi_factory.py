@@ -1,5 +1,5 @@
 """
-$Header: /usr/local/CVS/SLAC/pointlike/python/uw/thb_roi/roi_factory.py,v 1.3 2010/05/19 00:02:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.4 2010/06/15 20:50:34 burnett Exp $
 author: T.Burnett <tburnett@u.washington.edu>
 """
 
@@ -132,7 +132,7 @@ class ROIfactory(pointspec.SpectralAnalysis):
         ps_manager = roi_managers.ROIPointSourceManager(ps, skydir,quiet=self.quiet)
         bg_manager = roi_managers.ROIBackgroundManager(self, self.bgmodels(skydir), self.roi_dir,quiet=self.quiet)
 
-        emin,emax = self.emin, self.emax
+        emin,emax = self.fit_emin, self.fit_emax
         r = myroi.MyROI(skydir, ps_manager, bg_manager, self, 
                         point_sources = ps,
                         fit_emin=[emin,emin], fit_emax=[emax,emax],
