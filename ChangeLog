@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Sun Jun 20 06:53:17 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	catalog.py roi_factory.py 
+Removed Files:
+	data.py 
+Log Message:
+remove data.py in favor of new config module
+    *
+------------------------------------------------------------
 User: burnett  Sun Jun 20 06:42:35 PDT 2010
 pointlike/python/uw
 
