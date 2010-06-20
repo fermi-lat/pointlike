@@ -10,29 +10,34 @@ import pylab as plt
     
 class BandFlux(object):
 
-    def __init__(self, roi, which=0, merge=True):
+    def __init__(self, roi, which=0, merge=True, scale_factor=1.0):
         """ extracted from roi_plotting
             roi:   has a list of ROIEnergyBand objects (only dependence)
             which: 
             merge: flag to merge adjacent upper and lower bands with upper limits only
+            scale_factor [1.0] used to scale flux units
         """
         self.which = which
         roi.setup_energy_bands()
         self.bands = roi.energy_bands
+        self.scale_factor = scale_factor 
         centers = np.array([(b.emin*b.emax)**0.5  for b in self.bands])
 
         for eb in self.bands:
             eb.bandFit(which=which)
             eb.merged = False
 
+        
         if merge:
-            # count in from high end to find how many high energy bins have only upper limits
+            # this function decides if there is a measurement, meaning the lower flux is finite
+            checkbound = lambda x: x.lflux> 1e-15 
+            # count in from high end to find how many high energy bins have no measurements
             for nhi,neb in enumerate(self.bands[::-1]):
-                if neb.flux is not None: break
+                if checkbound(neb): break
 
-            # count in from low end to find how many low energy bins have only upper limits
+            # count in from low end to find how many low energy bins have no measurements
             for nlo,neb in enumerate(self.bands):
-                if neb.flux is not None: break
+                if checkbound(neb): break
         else:
             nlo = nhi = 0
         
@@ -48,8 +53,8 @@ class BandFlux(object):
         for eb in bands:
 
             xlo,xhi = eb.emin,eb.emax
-            fac = xlo*xhi 
-            bc  = (fac)**0.5
+            fac = xlo*xhi * scale_factor # note the scale is here, perhaps to ergs
+            bc  = (xlo*xhi)**0.5
             hw  = (xhi-xlo)/2.
             if eb.merged: hw /= eb.num
             
@@ -69,12 +74,28 @@ class BandFlux(object):
         for eb in ebands:
             for band in eb.bands:
                 hbands.append(band)
-        ebmerged = roi_bands.ROIEnergyBand(hbands, ebands[0].emin, ebands[-1].emax)
+        ebmerged = roi_bands.ROIEnergyBand(hbands)
         ebmerged.bandFit(which=self.which) # a new fit
         ebmerged.merged = True
         ebmerged.num = len(ebands)
         return ebmerged
 
+    def __call__(self, emin, emax):
+        """ call: return total ROIEnergyBand in given range
+        
+        """
+        hbands = []
+        num = 0
+        for eb in self.bands:
+            if eb.emin>emin/1.01 and eb.emax<emax*1.01:
+                num +=1
+                for band in eb.bands:
+                    hbands.append(band)
+        ebmerged = roi_bands.ROIEnergyBand(hbands)
+        ebmerged.bandFit(which=self.which) # a new fit
+        ebmerged.merged = True
+        ebmerged.num = num
+        return ebmerged
         
     
     def __str__(self):
@@ -82,17 +103,10 @@ class BandFlux(object):
         return ((2*'%10s'+' '+n*'%-12s'+'\n') % self.rec.dtype.names)\
              +'\n'.join( [(2*'%10.0f'+n*'%12.3e') % tuple(row) for row in self.rec])
         
-    def plot(self, fignum=5, axes= None, axis=None, **kwargs):
-        
-        if axes is None:
-            plt.figure(fignum); plt.clf()
-            axes = plt.gca()
-        axes.set_xscale('log')
-        axes.set_yscale('log')
-        axes.grid(True)
+    def plot_data(self, axes, **kwargs):
         
         if 'color' not in kwargs:
-            color=kwargs['color'] = 'k'
+            kwargs['color'] = 'k'
         
         for r in self.rec:
             xl, xh = r.elow, r.ehigh
@@ -107,8 +121,34 @@ class BandFlux(object):
                 axes.plot([x, x,     x*1.2, x,     x/1.2, x],
                           [y, y*0.6, y*0.6, y*0.4, y*0.6, y*0.6], **kwargs)
  
-        if axis is not None:
-            axes.axis(axis)
-            axes.set_autoscale_on(False)
-        return axes                        
-                                
+                      
+    def plot_model(self, axes, m, dom,  butterfly, **kwargs):
+        """ 
+            m: the model, implements MOdels.Model
+            dom: the domain, a set of points
+        """
+        stat = m.statistical()
+        err = stat[0]*stat[1]
+        energy_flux_factor = self.scale_factor
+        axes.errorbar([m.e0], [energy_flux_factor*stat[0][0]*m.e0**2], fmt='or', 
+                yerr=energy_flux_factor*err[0]*m.e0**2, elinewidth=2, markersize=8)
+
+        axes.plot( dom, energy_flux_factor*m(dom)*dom**2, **kwargs)
+        if butterfly:
+            # 'butterfly' region
+            dom_r = np.array([dom[-i-1] for i in range(len(dom))]) #crude reversal.
+            a,gamma = stat[0]
+            var = err**2
+            # r is e/e0
+            bfun = lambda r: r**-gamma * np.sqrt(var[0] + (a*np.log(r))**2 * var[1])
+            upper = energy_flux_factor*(m(dom)  + bfun(dom/m.e0)  )*dom**2
+            lower = energy_flux_factor*(m(dom_r)/(1 +bfun(dom_r/m.e0)/m(dom_r)))*dom_r**2
+            ymin, ymax = plt.gca().get_ylim()
+            lower[lower<ymin] = ymin
+            upper[upper>ymax] = ymax
+            t =axes.fill(np.hstack( [dom,   dom_r] ), 
+                        np.hstack( [upper, lower] ), 'r')
+            t[0].set_alpha(0.4)
+               
+     
+    
