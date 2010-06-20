@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.10 2010/05/20 17:33:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.11 2010/06/15 20:53:39 burnett Exp $
 
 """
 
@@ -92,15 +92,20 @@ class MyROI(roi_analysis.ROIAnalysis):
             fit_bg_first = kwargs.pop('fit_bg_first')
         if 'use_gradient' not in kwargs: kwargs['use_gradient']=self.use_gradient
         pivot = kwargs.pop('pivot', False)
+        ts = 0
+        ignore_exception = kwargs.pop('ignore_exception', True)
         try:
-            ret = super(MyROI, self).fit(fit_bg_first=fit_bg_first, **kwargs)
+            super(MyROI, self).fit(fit_bg_first=fit_bg_first, **kwargs)
+            ts = self.TS()
             if not self.quiet: print self
             if pivot:
                 ## refit to determine parameters at the pivot energy
                 m = self.psm.models[0]
                 #reassign, but keep in range
-                m.e0= np.min(np.max(m.pivot_energy(), self.fit_emin[0]), self.fit_emax[0])
-                assert m.e0>100 and m.e0< 1e5, "check that it worked"
+                e0= np.min(np.max(m.pivot_energy(), self.fit_emin[0]), self.fit_emax[0])
+                assert e0>100 and e0< 1e5, "check that it worked"
+                m.set_e0(e0)
+                
                 if not self.quiet:
                     print 'Refit only first source with e0=%.0f' % m.e0
                 fr = self.get_free()
@@ -114,6 +119,8 @@ class MyROI(roi_analysis.ROIAnalysis):
                 print '---- predicted pivot_energy: %.0f'  % self.psm.models[0].pivot_energy()
         except Exception, msg:
             if not self.quiet: print 'Fit failed: %s' % msg
+            if not ignore_exception: raise
+        return ts
 
     def get_free(self):
         """ return array of the free variables, point sources followed by background"""
@@ -300,7 +307,7 @@ class MyROI(roi_analysis.ROIAnalysis):
             print 'Unrecognized source specification:', s
             bad_sources += [s]
         sources = set([s for s in sources if not s in bad_sources])
-        indices = [self.psm.point_sources.index(s) for s in sources]
+        indices = [list(self.psm.point_sources).index(s) for s in sources]
         self.setup_energy_bands()
 
         fields = ['  Emin',' f_ROI',' b_ROI' ,' Events','Galactic','Isotropic','Excess']\
@@ -543,79 +550,59 @@ class MyROI(roi_analysis.ROIAnalysis):
         return maxpixel
         
     def plot_sed(self, fignum=5, axes=None,
-            axis=(1e2,1e5,1e-8,1e-2),
+            axis=None, #(1e2,1e6,1e-8,1e-2),
             data_kwargs=dict(linewidth=2, color='k',),
             fit_kwargs =dict(lw=2,        color='r',),
-            butterfly = False,
+            butterfly = True,
+            use_ergs = True, 
+
             ):
-        """Plot a SED, a thin interface to uw.like.roi_plotting.make_sed.
+        """Plot a SED, an interface to bandflux.BandFlux
             add point showing the position and error at e0
         ========     ===================================================
         keyword      description
         ========     ===================================================
         fignum       [5] if set, use (and clear) this figure. If None, use current Axes object
         axes         [None] If set use this Axes object
-        axis         (1e2, 1e5, 1e-8, 1e-2)
+        axis         None, (1e2, 1e5, 1e-8, 1e-2) depending on 
         data_kwargs  a dict to pass to the data part of the display
         fit_kwargs   a dict to pass to the fit part of the display
+        butterfly    [True] plot model with a butterfly outline
+        use_ergs     [True] convert to ergs in the flux units
         ========     ===================================================
         
         """
+        energy_flux_unit = 'ergs' if use_ergs else 'MeV'
+        energy_flux_factor = 1.602e-6 if use_ergs else 1.0
+        # conversion 1.602E-19 * 1E6 eV/Mev * 1E7 erg/J * = 1.602E-6 erg/MeV
         oldlw = plt.rcParams['axes.linewidth']
         plt.rcParams['axes.linewidth'] = 2
         if axes is None: 
             fig=plt.figure(fignum, figsize=(4,4)); plt.clf()
-            fig.add_axes((0.2,0.15,0.75,0.72))
+            fig.add_axes((0.22,0.15,0.75,0.72))
             axes = plt.gca()
-        plot_model = True # check to see if bad fit??    
-        #roi_plotting.make_sed(self,axes=axes, axis=axis, plot_model=plot_model, 
-        #        data_kwargs=data_kwargs, fit_kwargs=fit_kwargs)
-        bf = bandflux.BandFlux(self, merge=True)
-        bf.plot(axes=axes, axis=axis, **data_kwargs)
+        axes.set_xscale('log')
+        axes.set_yscale('log')
+        if axis is None:
+            axis = (1e2,1e6,1e-14,1e-8) if use_ergs else (1e2,1e6,1e-8,1e-2)
+        axes.axis(axis)
+        axes.grid(True)
+        axes.set_autoscale_on(False)
+       
+        #  create a BandFlux, and have it plot the band fluxes, merging adjacent limits at the ends
+        bf = bandflux.BandFlux(self, merge=True, scale_factor= energy_flux_factor)
+        bf.plot_data(axes, **data_kwargs)
         
-        # add point for the pivot, error bars
-        m = self.psm.models[0]
-        stat = m.statistical()
-        err = stat[0]*stat[1]
-        plt.errorbar([m.e0], [stat[0][0]*m.e0**2], fmt='or', yerr=err[0]*m.e0**2, elinewidth=2, markersize=8)
+        # and the model, perhaps with a butterfly
+        dom = np.logspace(np.log10(self.fit_emin[0]), np.log10(self.fit_emax[0]), 101)
+        bf.plot_model(axes, self.psm.models[0], dom, butterfly, **fit_kwargs)
         plt.rcParams['axes.linewidth'] = oldlw
 
-        dom = np.logspace(np.log10(self.fit_emin[0]), np.log10(self.fit_emax[0]), 101)
-        model = self.psm.models[0]
-        plt.plot( dom, model(dom)*dom**2, **fit_kwargs)
-        if butterfly:
-            # 'butterfly' region
-            dom_r = np.array([dom[-i-1] for i in range(len(dom))]) #crude reversal
-            a,gamma = stat[0]
-            var = err**2
-            # r is e/e0
-            bfun = lambda r: r**-gamma * np.sqrt(var[0] + (a*np.log(r))**2 * var[1])
-            upper = (m(dom)  + bfun(dom/m.e0)  )*dom**2
-            lower = (m(dom_r)- bfun(dom_r/m.e0))*dom_r**2
-            ymin, ymax = axis[2:]
-            lower[lower<ymin] = ymin
-            upper[upper>ymax] = ymax
-            t =plt.fill(np.hstack( [dom,   dom_r] ), 
-                        np.hstack( [upper, lower] ), 'r')
-            t[0].set_alpha(0.4)
-               
-        if axis is not None:
-            axes.axis(axis)
-            axes.set_autoscale_on(False)
-
-        # improve the axis labels
-        plt.ylabel(r'$\mathsf{Energy\ Flux\ (MeV\ cm^{-2}\ s^{-1})}$')
+        # the axis labels
+        plt.ylabel(r'$\mathsf{Energy\ Flux\ (%s\ cm^{-2}\ s^{-1})}$' % energy_flux_unit)
         plt.xlabel(r'$\mathsf{Energy\ (MeV)}$')
         plt.title(self.name)
     
-    def butterfly_fun(self):
-        m = self.psm.models[0]
-        stat = m.statistical()
-        a,gamma = stat[0]
-        err = stat[0]*stat[1]
-        var = err**2
-        return lambda e: (e/m.e0)**-gamma * np.sqrt(var[0] + (a*np.log(e/m.e0))**2 * var[1])
-     
 
     def band_info(self):
         """ return dictionary of the band ts values and photons, diffuse  
