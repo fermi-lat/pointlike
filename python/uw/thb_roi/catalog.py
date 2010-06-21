@@ -1,19 +1,24 @@
 """
  catalog stuff
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/catalog.py,v 1.4 2010/05/11 19:03:39 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/catalog.py,v 1.5 2010/06/20 13:53:17 burnett Exp $
  """
 
 import sys, os, math
 from skymaps import SkyDir, SpectralFunction
 import numpy as np
 from uw.utilities import makerec
-import config
-catalog_root = os.path.join(config.fermi_root,'catalog')
-default_assoc =  'gll_psc11month_v4r4_flags_v4r3p8.fit' #'gll_psc11month_v1r2.fit'
-default_assoc =  'gll_psc11month_v4r4_flags_v4r3p1_v4.fit' # after 14 Jan
-default_assoc =  'gll_psc11month_v4r4_flags_v4r4p1.fit'  # final 1FGL
 
-default_catalog = config.site_config['catalog'] # use the same one analyhsis
+
+import config
+
+def get_catalog():
+    catalog_root = os.path.join(config.fermi_root,'catalog')
+    default_assoc =  'gll_psc11month_v4r4_flags_v4r3p8.fit' #'gll_psc11month_v1r2.fit'
+    default_assoc =  'gll_psc11month_v4r4_flags_v4r3p1_v4.fit' # after 14 Jan
+    default_assoc =  'gll_psc11month_v4r4_flags_v4r4p1.fit'  # final 1FGL
+
+    default_catalog = config.site_config['catalog'] # use the same one analyhsis
+    return default_catalog, default_assoc
 
 def parse_coords(coords):
     """
@@ -51,15 +56,17 @@ def parse_coords(coords):
         ra,dec=coords
     return ra,dec
 
-def atnf(filename=os.path.join(catalog_root, 'ATNF.txt')):
+def atnf(filename=None):
+    if filename is None: filename = os.path.join(catalog_root, 'ATNF.txt')
     ret= makerec.textrec(filename, quiet=True)
     assert(len(ret)>0)
     return ret
 
-def bzcat(filename=os.path.join(catalog_root,'BZCAT.txt')):
+def bzcat(filename=None):
     """ return a catalog with the BZCAT entries
         initial columns are name, ra, dec, z, mag, type_code
     """
+    if filename is None: filename = os.path.join(catalog_root, 'BZCAT.txt')
     f = open(filename)
     names = []; ras=[]; decs=[]; zs=[]; mags=[]; types=[]
     for line in f:
@@ -77,7 +84,9 @@ def bzcat(filename=os.path.join(catalog_root,'BZCAT.txt')):
     f.close()
     return r
 
-def crates(filename=os.path.join(catalog_root,'crates_table5.txt')):
+def crates(filename=None):
+    if filename is None: filename = os.path.join(catalog_root, 'crates_table5.txt')
+
     """ return a catalog with the CRATES entries
 
 J000000-002157   116 -0.498 00 00 01.66 -00 22 10.0 V    89.5 00 00 01.66 -00 22 09.8   215.4 -0.490 P
@@ -95,7 +104,9 @@ J000000-002157   116 -0.498 00 00 01.66 -00 22 10.0 V    89.5 00 00 01.66 -00 22
     f.close()
     return r
 
-def cgrabs(filename=os.path.join(catalog_root,'cgrabs.txt')):
+def cgrabs(filename=None):
+    if filename is None: filename = os.path.join(catalog_root, 'cgrabs.txt')
+
     return makerec.textrec(filename)
 
 class Density(object):
@@ -183,8 +194,8 @@ class Blazars(object):
         return None
 
 class Catalog(object):
-    def __init__(self, cat_file=default_catalog, assoc=default_assoc, quiet=True):
-
+    def __init__(self, quiet=True):
+        default_catalog, default_assoc = get_catalog()
         self.cat_file = cat_file
         self.sources = makerec.fitsrec(os.path.join(catalog_root, cat_file),quiet=quiet)
         if assoc is None:

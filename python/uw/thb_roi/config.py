@@ -2,7 +2,7 @@
 Define an analysis environment for the UW pointlike ROI analysis
 """
 
-import os, glob 
+import os, glob, types 
 import skymaps 
 
 # UW local configuration
@@ -120,6 +120,7 @@ class AE(object):
     """ Implement the AnalysisEnvironment interface, just a list of attribures
         kwargs: override only: items must already be present, except for "dataset", 
         which is expanded locally to ft1files, ft2files, binfile, ltcube
+        
     """
 
     def __init__(self,  **kwargs):
@@ -127,22 +128,35 @@ class AE(object):
         self.__dict__.update(site_config)
         dataset = kwargs.pop('dataset', None)
         if dataset is not None: 
-            try:
-                self.__dict__.update(data_dict[dataset])
-            except KeyError:
-                raise KeyError, 'dataset "%s" is not in the data dictionary: %s' % (dataset, data_dict.keys())
+            if type(dataset)==types.StringType:
+                try:
+                    self.__dict__.update(data_dict[dataset])
+                except KeyError:
+                    raise KeyError, 'dataset "%s" is not in the data dictionary: %s' % (dataset, data_dict.keys())
+            elif type(dataset==types.TupleType) and len(dataset)==2:
+                # assume a tuple with data, ltcube
+                kwargs['binfile'], kwargs['ltcube'] = dataset
+            else:
+                raise Exception, 'dataset specification %s not recognized: expect string, or tuple of (binfile,ltcube)'%dataset
         for key in kwargs.keys():
             if key not in self.__dict__:
                 raise Exception, 'keyword "%s" is not recognized' %key
         self.__dict__.update(**kwargs)
-        #if self.ft1files is None or self.ft2files is None:
-        #    raise Exception, 'Expect both ft1files and ft2files to be set to lists of filenames'
+        if self.ft1files is None and self.binfile is None:
+            raise Exception('Expect either or both of ft1files and binfile to be set')
+        if type( self.ft1files)==types.StringType:
+            self.ft1files = glob.glob(self.ft1files)
+        if self.ft2files is None and self.ltcube is None:
+            raise Exception( 'Expect either or both of ft2files and ltcube to be set')
+        if type( self.ft2files)==types.StringType:
+            self.ft2files = glob.glob(self.ft2files)
+        
         
     def __str__(self):
         s = self.__class__.__name__+'\n'
         for key in sorted(self.__dict__.keys()):
             v = self.__dict__[key]
-            if key[:2]=='ft' and len(v)>3:
+            if key[:2]=='ft' and v is not None and len(v)>3:
                 s += '\t%-20s: %s ... %s\n' %(key, v[0], v[-1])
             else:
                 s += '\t%-20s: %s\n' %(key, v)
