@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Jun 21 12:52:32 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	config.py 
+Log Message:
+more tweaks to be location-independent
+    *
+------------------------------------------------------------
+User: burnett  Mon Jun 21 12:52:32 PDT 2010
 pointlike/python/uw
 
 Modified Files:
