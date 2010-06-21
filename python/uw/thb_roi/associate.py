@@ -1,15 +1,15 @@
 
 """
  Manage the catalog association tables
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/associate.py,v 1.6 2010/04/23 04:08:48 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/associate.py,v 1.7 2010/05/11 19:02:45 burnett Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
-import catalog, data #local
-from uw.utilities import makerec
-from uw.like import srcid  # gtsrcid work-alike from Eric
+import pyfits, os, pickle, glob
 import numpy as np
 from skymaps import SkyDir
-import pyfits, os, pickle, glob
+from uw.utilities import makerec
+from uw.like import srcid  # gtsrcid work-alike from Eric
+import catalog   #local
 
 def delta(ra1,dec1,ra2,dec2):
     """ return r and theta (assume close)
