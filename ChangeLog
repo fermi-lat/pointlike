@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jun 21 08:42:31 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	associate.py catalog.py config.py 
+Log Message:
+fixes for portability of config setup
+    *
+------------------------------------------------------------
 User: burnett  Sun Jun 20 07:16:30 PDT 2010
 pointlike/python/uw/utilities
 
