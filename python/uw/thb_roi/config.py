@@ -5,23 +5,30 @@ Define an analysis environment for the UW pointlike ROI analysis
 import os, glob, types 
 import skymaps 
 
-# UW local configuration
-if os.name=='posix':
-    fermi_root = '/phys/groups/tev/scratch1/users/Fermi'
-elif os.environ['computername']=='GLAST-TS':
-    fermi_root = 'f:\\glast'
-elif os.environ['computername']=='FERMI-TS':
-    fermi_root = 'T:\\'
-else: # all others
-    fermi_root = 'D:\\fermi'
+fermi_root = None
+data_path = None
+galprop_path = None
+catalog_path = None
 
-# expect to find folders for ft1/ft2 data, galprop, and catalog info
-data_path    = os.path.join(fermi_root, 'data')
-galprop_path = os.path.join(data_path, 'galprop')
-catalog_path = os.path.join(fermi_root, 'catalog')
-for t in (data_path, galprop_path, catalog_path):
-    if not os.path.exists(t):
-        raise Exception('path does not exist: "%s"' % t)
+def setup():
+    global fermi_root, data_path, galprop_path, catalog_path
+    # UW local configuration
+    if os.name=='posix':
+        fermi_root = '/phys/groups/tev/scratch1/users/Fermi'
+    elif os.environ['computername']=='GLAST-TS':
+        fermi_root = 'f:\\glast'
+    elif os.environ['computername']=='FERMI-TS':
+        fermi_root = 'T:\\'
+    else: # all others
+        fermi_root = 'D:\\fermi'
+
+    # expect to find folders for ft1/ft2 data, galprop, and catalog info
+    data_path    = os.path.join(fermi_root, 'data')
+    galprop_path = os.path.join(data_path, 'galprop')
+    catalog_path = os.path.join(fermi_root, 'catalog')
+    for t in (data_path, galprop_path, catalog_path):
+        if not os.path.exists(t):
+            raise Exception('path does not exist: "%s"' % t)
 
 def data_join(*pars):
     return os.path.join(data_path, *pars)
@@ -41,49 +48,6 @@ def gti_noGRB():
     g.insertInterval(tbegin, tend)
     return g
 
-# basic data files
-    
-data_dict = {
-'1FGL': dict( data_name = '11 month 1FGL data set',
-    ft1files  = [data_join('flight','%s-ft1.fits')%x for  x in 
-        ('aug2008','sep2008','oct2008','nov2008','dec2008',
-         'jan2009','feb2009','mar2009','apr2009','may2009','jun2009','jul2009_1to4')],
-    ft2files  = [data_join('flight','%s-ft1.fits')%x for  x in    
-        ('aug2008','sep2008','oct2008','nov2008','dec2008',
-         'jan2009','feb2009','mar2009','apr2009','may2009','jun2009','jul2009_1to4')],
-    binfile = data_join('catalog_noGRB_4.fits'),
-    ltcube =  data_join('catalog_noGRB_livetimes.fits'),
-    gtimask = gti_noGRB(),
-    ),
-'18M': dict( data_name = '18 month data set for 18M catalog',
-    ft1files    = glob.glob(data_join('kerr2', '18M_data','*_ft1.fits')),
-    ft2files    = glob.glob(data_join('kerr2', '18M_data','*_ft2.fits')),
-    binfile     = data_join('18M', '18months_4.fits'),
-    ltcube      = data_join('18M', '18month_livetime.fits'),
-    gtimask     = gti_noGRB(),
-  ),
-'18M_tev': dict( data_name = '18 month data set for 18M catalog, high energy',
-    ft1files    = glob.glob(data_join('kerr2', '18M_data','*_ft1.fits')),
-    ft2files    = glob.glob(data_join('kerr2', '18M_data','*_ft2.fits')),
-    binfile     = data_join('18M', '18months_tev_4.fits'),
-    ltcube      = data_join('18M', '18month_livetime.fits'),
-    gtimask     = gti_noGRB(),
-  ),
-'20months': dict(data_name = "twenty months, 4 bins/decade to 1 TeV",
-    ft1files    = glob.glob(data_join('bpd','*.fits')),
-    ft2files    = glob.glob(data_join('lt','*.fits')),
-    binfile     = data_join('twenty','20month_4bpd.fits'),
-    ltcube      = data_join('twenty','20month_lt.fits'),
-    ),
-}
-
-# these configuration values are system, or time dependent
-site_config = dict(
-    catdir              = catalog_path,      # where to find catalog files
-    catalog             = 'gll_psc_v03.fit', # the current catalog
-    diffdir             = galprop_path,      # where to fine diffuse files
-    aux_cat             = None,              # auxiallary catalog
-)
 
 
 ## basic system configuration defaults
@@ -124,15 +88,17 @@ class AE(object):
     """
 
     def __init__(self,  **kwargs):
+        setup() # execute and check system paths, etc.
         self.__dict__.update(system_config)
-        self.__dict__.update(site_config)
+        self.__dict__.update(self.site_config())
         dataset = kwargs.pop('dataset', None)
         if dataset is not None: 
             if type(dataset)==types.StringType:
                 try:
-                    self.__dict__.update(data_dict[dataset])
+                    self.__dict__.update(self.data_dict(dataset))
                 except KeyError:
-                    raise KeyError, 'dataset "%s" is not in the data dictionary: %s' % (dataset, data_dict.keys())
+                    #raise KeyError, 'dataset "%s" is not in the data dictionary: %s' % (dataset, data_dict.keys())
+                    raise KeyError, 'dataset "%s" is not in the data dictionary' % dataset
             elif type(dataset==types.TupleType) and len(dataset)==2:
                 # assume a tuple with data, ltcube
                 kwargs['binfile'], kwargs['ltcube'] = dataset
@@ -161,4 +127,53 @@ class AE(object):
             else:
                 s += '\t%-20s: %s\n' %(key, v)
         return s
+        
+    def data_dict(self, lookup):
+        # basic data files
+    
+        return  {
+        '1FGL': dict( data_name = '11 month 1FGL data set',
+            ft1files  = [data_join('flight','%s-ft1.fits')%x for  x in 
+                ('aug2008','sep2008','oct2008','nov2008','dec2008',
+                 'jan2009','feb2009','mar2009','apr2009','may2009','jun2009','jul2009_1to4')],
+            ft2files  = [data_join('flight','%s-ft1.fits')%x for  x in    
+                ('aug2008','sep2008','oct2008','nov2008','dec2008',
+                 'jan2009','feb2009','mar2009','apr2009','may2009','jun2009','jul2009_1to4')],
+            binfile = data_join('catalog_noGRB_4.fits'),
+            ltcube =  data_join('catalog_noGRB_livetimes.fits'),
+            gtimask = gti_noGRB(),
+            ),
+        '18M': dict( data_name = '18 month data set for 18M catalog',
+            ft1files    = glob.glob(data_join('kerr2', '18M_data','*_ft1.fits')),
+            ft2files    = glob.glob(data_join('kerr2', '18M_data','*_ft2.fits')),
+            binfile     = data_join('18M', '18months_4.fits'),
+            ltcube      = data_join('18M', '18month_livetime.fits'),
+            gtimask     = gti_noGRB(),
+          ),
+        '18M_tev': dict( data_name = '18 month data set for 18M catalog, high energy',
+            ft1files    = glob.glob(data_join('kerr2', '18M_data','*_ft1.fits')),
+            ft2files    = glob.glob(data_join('kerr2', '18M_data','*_ft2.fits')),
+            binfile     = data_join('18M', '18months_tev_4.fits'),
+            ltcube      = data_join('18M', '18month_livetime.fits'),
+            gtimask     = gti_noGRB(),
+          ),
+        '20months': dict(data_name = "twenty months, 4 bins/decade to 1 TeV",
+            ft1files    = glob.glob(data_join('bpd','*.fits')),
+            ft2files    = glob.glob(data_join('lt','*.fits')),
+            binfile     = data_join('twenty','20month_4bpd.fits'),
+            ltcube      = data_join('twenty','20month_lt.fits'),
+            ),
+        }[lookup]
+        
+    def site_config(self):
+    # these configuration values are system, or time dependent
+        return dict(
+            catdir              = catalog_path,      # where to find catalog files
+            catalog             = 'gll_psc_v03.fit', # the current catalog
+            diffdir             = galprop_path,      # where to fine diffuse files
+            aux_cat             = None,              # auxiallary catalog
+        )
+
+
+
     
