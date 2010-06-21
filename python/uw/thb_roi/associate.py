@@ -1,7 +1,7 @@
 
 """
  Manage the catalog association tables
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/associate.py,v 1.7 2010/05/11 19:02:45 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/associate.py,v 1.8 2010/06/21 15:42:31 burnett Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
 import pyfits, os, pickle, glob
@@ -9,7 +9,7 @@ import numpy as np
 from skymaps import SkyDir
 from uw.utilities import makerec
 from uw.like import srcid  # gtsrcid work-alike from Eric
-import catalog   #local
+import config, catalog   #local
 
 def delta(ra1,dec1,ra2,dec2):
     """ return r and theta (assume close)
@@ -184,12 +184,12 @@ class SrcId(srcid.SourceAssociation):
         
         """
         self.classes = classes
-        d = os.path.join(data.catalog_path, 'srcid', 'classes')
+        d = os.path.join(config.catalog_path, 'srcid', 'classes')
         q = glob.glob(os.path.join(d, '*.py'))
         allclasses =[os.path.split(u)[-1].split('.')[0] for u in q if '__init__' not in u]
         if classes=='all': 
             # special tag to really get everything
-            d = os.path.join(data.catalog_path, 'srcid', 'classes')
+            d = os.path.join(config.catalog_path, 'srcid', 'classes')
             q = glob.glob(os.path.join(d, '*.py'))
             self.classes = allclasses
         elif self.classes=='all_but_gammas':
@@ -203,7 +203,7 @@ class SrcId(srcid.SourceAssociation):
             if c not in allclasses:
                 txt = 'class %s not in set classes: %s' % (c, allclasses)
                 raise Exception(txt)
-        super(SrcId, self).__init__(os.path.join(data.catalog_path, 'srcid'),quiet=True)
+        super(SrcId, self).__init__(os.path.join(config.catalog_path, 'srcid'),quiet=True)
         
     def id(self, pos, error):
         """ the format returned by Srcid:
