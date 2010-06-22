@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.9 2010/06/07 14:48:17 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.11 2010/06/11 02:44:57 lande Exp $
 
    author: Matthew Kerr
    """
@@ -73,10 +73,20 @@ class ExposureManager(object):
 
     def __init__(self,sa):
 
-        EffectiveArea.set_CALDB(sa.CALDB)
+        caldb = sa.CALDB
+        if not os.path.exists(os.path.join(caldb, 'bcf')):
+            caldb = os.path.join(caldb, 'data', 'glast','lat')
+            if not os.path.exists(os.path.join(caldb, 'bcf')):
+                raise Exception('ExposureManager attempt to set invalid CALDB: "%s"' % sa.CALDB)
+        EffectiveArea.set_CALDB(caldb)
+        
         Exposure.set_cutoff(N.cos(N.radians(sa.thetacut)))
         inst = ['front', 'back']
-        self.ea  = [EffectiveArea(sa.irf+'_'+x) for x in inst]
+        aeff_files = [os.path.join(caldb, 'bcf','ea', 'aeff_%s_%s.fits'%(sa.irf,fb)) for fb in inst] 
+        ok = [os.path.exists(file) for file in aeff_files]
+        if not all(ok):
+            raise Exception('one of CALDB aeff files not found: %s' %aeff_files)
+        self.ea  = [EffectiveArea('', file) for file in aeff_files]
         if sa.verbose: print ' -->effective areas at 1 GeV: ', ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
         if sa.use_weighted_livetime:
             self.exposure = [Exposure(sa.pixeldata.lt,sa.pixeldata.weighted_lt,ea) for ea in self.ea]
