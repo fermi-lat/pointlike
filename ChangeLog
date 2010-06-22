@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun 22 14:54:05 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_bands.py 
+Log Message:
+Clean up diffuse bandfits & remove unused flag.
+    *
+------------------------------------------------------------
 User: lande  Tue Jun 22 14:53:19 PDT 2010
 pointlike/python/uw/like
 
