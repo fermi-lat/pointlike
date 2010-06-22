@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun 22 14:53:19 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Better test to print errors & removing unused flag.
+    *
+------------------------------------------------------------
 User: burnett  Tue Jun 22 05:01:54 PDT 2010
 pointlike/python/uw/thb_roi
 
