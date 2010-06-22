@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.6 2010/06/11 02:40:52 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.7 2010/06/18 12:22:35 burnett Exp $
 
    author: Matthew Kerr
 
@@ -141,7 +141,7 @@ Optional keyword arguments:
       pt=p.reshape((p.shape[0],1)) #transpose
       return p*self.cov_matrix*pt/jac**2
 
-   def get_free_errors(self,absolute=False):
+   def get_free_errors(self):
       """Return the diagonal elements of the (log space) covariance matrix for free parameters."""
       return N.diag(self.cov_matrix)[self.free]**0.5
 
@@ -183,7 +183,8 @@ Optional keyword arguments:
 
       m=max([len(n) for n in pnames])
       l=[]
-      if N.any(p != lo_p): #if statistical errors are present   
+      if (not self.background and N.any(lo_p[0:-2]!=0)) or \
+             (self.background and N.any(lo_p!=0)): #if statistical errors are present   
          for i in xrange(len(pnames)):
             n=pnames[i][:m]
             t_n=n+(m-len(n))*' '
