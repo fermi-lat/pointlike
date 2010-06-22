@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.11 2010/06/15 20:53:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.12 2010/06/20 13:41:11 burnett Exp $
 
 """
 
@@ -115,8 +115,7 @@ class MyROI(roi_analysis.ROIAnalysis):
                 super(MyROI, self).fit(**kwargs)
                 if not self.quiet: 
                     print m
-            if not self.quiet:
-                print '---- predicted pivot_energy: %.0f'  % self.psm.models[0].pivot_energy()
+                    print '---- predicted pivot_energy: %.0f'  % self.psm.models[0].pivot_energy()
         except Exception, msg:
             if not self.quiet: print 'Fit failed: %s' % msg
             if not ignore_exception: raise
