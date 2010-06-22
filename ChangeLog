@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jun 22 04:56:56 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	catalog.py 
+Log Message:
+fix references to catalog path
+    *
+------------------------------------------------------------
 User: burnett  Tue Jun 22 04:55:44 PDT 2010
 pointlike/python/uw/like
 
