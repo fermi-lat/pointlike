@@ -3,10 +3,10 @@ basic pipeline setup
 
 Implement processing of a set of sources in a way that is flexible and easy to use with assigntasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.11 2010/05/20 17:32:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.12 2010/06/15 20:51:49 burnett Exp $
 
 """
-version='$Revision: 1.11 $'.split()[1]
+version='$Revision: 1.12 $'.split()[1]
 import sys, os, pyfits, glob, pickle, math, time, types
 import numpy as np
 import pylab as plt
@@ -40,7 +40,7 @@ class Pipeline(object):
                 fit_method= 'minuit',
                 seeds     = None,
                 seeds_only= False,
-                sed_limits= (1e2,1e5,1e-8,1e-2),
+                sed_limits= None, 
                 size      = 0,
                 pivot     = True,
                 butterfly = True,
@@ -102,10 +102,10 @@ class Pipeline(object):
             r.psm.models[1].p[0]=-20
             print '-----> disabled catalog source with same name found in background <-------'
         r.dump(maxdist=2)
-        r.fit(method=self.fit_method, pivot=self.pivot)
+        ts = r.fit(method=self.fit_method, pivot=self.pivot)
         r.dump(maxdist=2, title='after fit')
         binfo = r.band_info()
-        print '\n     TS: %.1f' % r.TS()
+        print '\n     TS: %.1f, %.1f' % ( ts, r.TS())
         print   'band TS: %.1f = ' %r.band_ts(), '+'.join(['%.1f'%ts for ts in binfo['ts']])
         
         print '\n========  LOCALIZATION   =============='
@@ -177,12 +177,13 @@ class Pipeline(object):
         self.pickle( r, name , s,
                 fname=fname,
                 delta_ts=delta_ts,
-                ts=r.TS(),
+                ts=ts, ts2=r.TS(), #inital, current TS
                 band_ts = r.band_ts(),
                 tsmap_max = None ,
                 id = None,
                 adict=adict,
                 band_info = r.band_info(), 
+                parameters = r.get_parameters(),
                 )
         
         if self.sedfig_dir is not None:
@@ -215,6 +216,72 @@ class Pipeline(object):
         for i in range(self.n):
             self(i)
 
+
+class LightCurve(Pipeline): 
+    """ part of a light curve
+    """
+    def __init__(self, outdir, monthly, **kwargs):
+        """
+        monthly: a dict with keys 'number' and 'dataset'
+        """
+        self.month = monthly['number']
+        kwargs['dataset'] = monthly['dataset']
+        self.sources = glob.glob(os.path.join(outdir, 'pickle', '*.pickle'))
+        self.n = len(self.sources)
+        assert(self.n>0)
+        super(LightCurve,self).__init__(**kwargs)
+        
+    def source(self,i):
+        return self.sources[i]
+    
+
+    def roi(self, i): 
+        """ return roi for ith source"""
+        s = self.source(i)
+        pk = pickle.load(open(s))
+        parameters = pk['parameters']
+        name = pk['name']
+        ra, dec = pk['ra'], pk['dec']
+        sdir = SkyDir(ra,dec)
+        print '\n'+60*'=','\nprocessing source %s at %s' % (name, sdir), '\n'+ 60*'='
+        if name[:4]=='1FGL': name = name[5:]
+        roi = self.factory('%-s %.4f %.4f' % (name, ra, dec))
+        roi.set_parameters(parameters)
+        fr = roi.get_free()
+        fr[1:]=False
+        roi.set_free(fr)
+        model = roi.psm.models[0]
+        model.set_e0(pk['pivot_energy'])
+        roi.fit(pivot=False)
+  
+        return roi
+
+    def process(self, s):
+        """ process the source described by the pickle file s"""
+        pk = pickle.load(open(s))
+        parameters = pk['parameters']
+        name = pk['name']
+        ra, dec = pk['ra'], pk['dec']
+        sdir = SkyDir(ra,dec)
+        print '\n'+60*'=','\nprocessing source %s at %s' % (name, sdir), '\n'+ 60*'='
+        if name[:4]=='1FGL': name = name[5:]
+        roi = self.factory('%-s %.4f %.4f' % (name, ra, dec))
+        roi.set_parameters(parameters)
+        fr = roi.get_free()
+        fr[1:]=False
+        roi.set_free(fr)
+        model = roi.psm.models[0]
+        model.set_e0(pk['pivot_energy'])
+        roi.fit(pivot=False)
+        roi.dump(maxdist=2, title='after refit to flux')
+        if 'months' not in pk: pk['months'] = dict()
+        pk['months'][self.month] = dict( 
+            stat=model.statistical(),
+            ts = roi.TS(),
+            band_info =roi.band_info(),
+            )
+        
+        pickle.dump(pk, open(s, 'wb'))
 
 class PipeSourceList(Pipeline):
     def __init__(self, infile, **kwargs):
@@ -432,7 +499,7 @@ def load_rec_from_pickles(outdir, other_keys=None):
     assert(len(filelist)>0)
     filelist.sort()
     standard = """name ra dec psig  dcp qual pivot_energy pnorm pnorm_unc pindex pindex_unc cc
-                delta_ts fit_ra fit_dec a b ang ts band_ts galnorm isonorm
+                delta_ts fit_ra fit_dec a b ang ts ts2 band_ts galnorm isonorm
                 tsmap_max_diff tsm_ra tsm_dec
                 id_prob aclass low_ts high_ts low_counts high_counts 
                 low_signal high_signal signal_1GeV
@@ -485,6 +552,7 @@ def load_rec_from_pickles(outdir, other_keys=None):
                 good = False
             delta_ts=p['delta_ts']
             ts = p['ts']
+            ts2 = ts if 'ts2' not in p else p['ts2'] # after fit maybe
             band_ts= p['band_ts']
             tsmap_max_diff, tsm_ra, tsm_dec = [0,0,0] if 'tsmap_max' not in p or p['tsmap_max'] is None  else p['tsmap_max']
             galnorm = p['bgm_par'][0]
@@ -512,7 +580,7 @@ def load_rec_from_pickles(outdir, other_keys=None):
             
             pars = (name, ra,dec, ptsig, \
                 dcp,  qual, pivot_energy, pnorm, pnorm_unc, pindex, pindex_unc, cc,\
-                delta_ts, fit_ra, fit_dec, a, b, ang, ts, 
+                delta_ts, fit_ra, fit_dec, a, b, ang, ts, ts2, 
                 band_ts, galnorm, isonorm, tsmap_max_diff, tsm_ra, tsm_dec, 
                 id_prob, aclass,
                 low_ts, high_ts,
