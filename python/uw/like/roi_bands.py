@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.11 2010/06/18 12:24:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.12 2010/06/18 22:21:14 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -26,7 +26,6 @@ class ROIBand(object):
 
       self.umax      = 50
       self.nsp_simps = 16
-      self.nbg_simps = 8
 
       self.catalog_aperture = -1
 
@@ -307,12 +306,8 @@ class ROIEnergyBand(object):
 
       self.fit = fmin(f,self.m.get_parameters(),disp=0,full_output=1,args=(self.m,which))
 
-      # if flux below a certain level, set an upper limit
-      if self.m.p[0] < -20:
-         bad_fit = True
-
       if saveto is not None:
          for b in self.bands: 
-             b.__dict__[saveto] = self.m.p[0] if not bad_fit else -1
+             b.__dict__[saveto] = self.m.p[0]
 
       return self.fit[1]
