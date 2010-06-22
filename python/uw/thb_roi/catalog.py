@@ -1,6 +1,6 @@
 """
  catalog stuff
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/catalog.py,v 1.5 2010/06/20 13:53:17 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/catalog.py,v 1.6 2010/06/21 15:42:31 burnett Exp $
  """
 
 import sys, os, math
@@ -57,7 +57,7 @@ def parse_coords(coords):
     return ra,dec
 
 def atnf(filename=None):
-    if filename is None: filename = os.path.join(catalog_root, 'ATNF.txt')
+    if filename is None: filename = os.path.join(config.catalog_path, 'ATNF.txt')
     ret= makerec.textrec(filename, quiet=True)
     assert(len(ret)>0)
     return ret
@@ -66,7 +66,7 @@ def bzcat(filename=None):
     """ return a catalog with the BZCAT entries
         initial columns are name, ra, dec, z, mag, type_code
     """
-    if filename is None: filename = os.path.join(catalog_root, 'BZCAT.txt')
+    if filename is None: filename = os.path.join(config.catalog_path, 'BZCAT.txt')
     f = open(filename)
     names = []; ras=[]; decs=[]; zs=[]; mags=[]; types=[]
     for line in f:
@@ -85,7 +85,7 @@ def bzcat(filename=None):
     return r
 
 def crates(filename=None):
-    if filename is None: filename = os.path.join(catalog_root, 'crates_table5.txt')
+    if filename is None: filename = os.path.join(config.catalog_path, 'crates_table5.txt')
 
     """ return a catalog with the CRATES entries
 
@@ -105,7 +105,7 @@ J000000-002157   116 -0.498 00 00 01.66 -00 22 10.0 V    89.5 00 00 01.66 -00 22
     return r
 
 def cgrabs(filename=None):
-    if filename is None: filename = os.path.join(catalog_root, 'cgrabs.txt')
+    if filename is None: filename = os.path.join(config.catalog_path, 'cgrabs.txt')
 
     return makerec.textrec(filename)
 
@@ -197,11 +197,11 @@ class Catalog(object):
     def __init__(self, quiet=True):
         default_catalog, default_assoc = get_catalog()
         self.cat_file = cat_file
-        self.sources = makerec.fitsrec(os.path.join(catalog_root, cat_file),quiet=quiet)
+        self.sources = makerec.fitsrec(os.path.join(config.catalog_path, cat_file),quiet=quiet)
         if assoc is None:
             self.assoc=self.sources
         else:
-            self.assoc = makerec.fitsrec(os.path.join(catalog_root,assoc ),quiet=quiet) #different version?
+            self.assoc = makerec.fitsrec(os.path.join(config.catalog_path,assoc ),quiet=quiet) #different version?
         self.asslist = self.assoc[self.assoc.id_name!='']
         self.assdirs = [SkyDir(ass.ra,ass.dec) for ass in self.asslist]
 
@@ -335,7 +335,7 @@ def find_source(spec):
     """
     t = spec.split()
     if len(t)==2 and t[0]=='1FGL' or len(t)==1 and t[0]=='J' and len(spec)==12:
-        sources = makerec.fitsrec(os.path.join(catalog_root, default_catalog), quiet=True)
+        sources = makerec.fitsrec(os.path.join(config.catalog_path, default_catalog), quiet=True)
         q = sources.source_name==spec if len(t)==2 else '1FGL '+spec
         if q.sum()==0: 
             raise Exception('%s not found in catalog %s' %(spec, default_catalog))
@@ -365,7 +365,7 @@ def find_source(spec):
                 e = bzc[q][0]
                 return (name, e.ra, e.dec)
             else: print '%s starts with "BZ", not found in BZcat' %spec
-        sources = makerec.fitsrec(os.path.join(catalog_root, default_catalog), quiet=True)
+        sources = makerec.fitsrec(os.path.join(config.catalog_path, default_catalog), quiet=True)
         q = sources.source_name==name
         if q.sum()==0: 
             raise Exception('"%s" not found in catalog %s' %(spec, default_catalog))
