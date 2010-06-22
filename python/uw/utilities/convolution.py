@@ -1,11 +1,11 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.5 2010/06/17 16:52:48 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.6 2010/06/17 16:53:39 kerrm Exp $
 
 authors: M. Kerr, J. Lande
 
 """
-from skymaps import SkyDir,WeightedSkyDirList,Hep3Vector,SkyIntegrator,PySkyFunction
+from skymaps import SkyDir,WeightedSkyDirList,Hep3Vector,SkyIntegrator,PySkyFunction,Background
 from pointlike import DoubleVector
 import numpy as N
 from scipy.interpolate import interp2d,interp1d
@@ -234,24 +234,38 @@ class BackgroundConvolutionNorm(BackgroundConvolution):
 class AnalyticConvolution(object):
     """ Calculates the convolution of the psf with a radially symmetric spatial_model. 
         Has a very similar interface to BackgroundConvolution. Maybe one day they will
-        derive from a base convolution object."""
+        derive from the same base convolution object. For now they are different enough."""
 
     def init(self):
-        self.fast       = False                 # Weight sigmas & gammas before convolving.
-        self.num_points = 50                    # Number of points between 0 and rmax.
-        self.tolerance  = 0.02                  # Tolerance set when integrating the function
-        self.skyfun     = PySkyFunction(self)
+        self.weight_before  =  False
+        self.tolerance      =  1e-3
+        self.num_points     =  50
+        self.skyfun         = PySkyFunction(self)
 
     def __init__(self,spatial_model,psf,**kwargs):
+        """
+Optional keyword arguments:
+
+  =========   =======================================================
+  Keyword     Description
+  =========   =======================================================
+  weight_before [False] Weight sigmas & gammas before convolving.
+  tolerance     [1e-4]  Tolerance set when integrating hypergeometirc
+                        function to calcualte PDF.
+  num_points    [100]   Number of points to calculate the PDF at.
+                        interpolation is done in between.
+  =========   =======================================================
+        """
+
         self.init()
         self.__dict__.update(**kwargs)
+
 
         self.spatial_model=spatial_model
         self.psf=psf
 
 
     def _get_pdf(self,rlist,g,s):
-
         # integrate until you get to 10x the r68() of the source.
         # since the intgral includes at term which is the PDF,
         # the integral will presumably contribute very littel
@@ -269,7 +283,7 @@ class AnalyticConvolution(object):
                                               *((g-1)/g)*(g/(g+u+v))**g\
                                               *hyp2f1(g/2.,(1+g)/2.,1.,4.*u*v/(g+u+v)**2)
 
-            pdf[i]=quad(integrand,0,self.int_max,epsabs=1e-3,full_output=True)[0]
+            pdf[i]=quad(integrand,0,self.int_max,epsabs=self.tolerance,full_output=True)[0]
 
         return pdf 
 
@@ -278,8 +292,32 @@ class AnalyticConvolution(object):
         self.bpsf = BandCALDBPsf(self.psf,pb)
 
         if self.bpsf.newstyle:
-            # nc,nt,gc,gt,sc,st,w = band.bpsf.par
-            raise Exception("AnalyticPDF Not implemented for newstyle psf.")
+            nclist,ntlist,gclist,gtlist,\
+                    sclist,stlist,wlist = self.bpsf.par
+
+            self.rmax=10*(N.append(sclist,stlist).max() +
+                          self.spatial_model.r68())
+
+            self.rlist=N.linspace(0,self.rmax,self.num_points)
+
+            # pdf is the probability per unit area at a given radius.
+            self.pdf=N.zeros_like(self.rlist)
+
+            if self.weight_before:
+                nc=(nclist*wlist).sum()
+                nt=(ntlist*wlist).sum()
+                gc=(gclist*wlist).sum()
+                gt=(gtlist*wlist).sum()
+                sc=(sclist*wlist).sum()
+                st=(stlist*wlist).sum()
+
+                self.pdf = nc*self._get_pdf(self.rlist,gc,sc)+\
+                        nt*self._get_pdf(self.rlist,gt,st)
+            else:
+                for nc,gc,sc,nt,gt,st,w in zip(nclist,gclist,sclist,\
+                                               ntlist,gtlist,stlist,wlist):
+                    self.pdf += w*(nc*self._get_pdf(self.rlist,gc,sc)+
+                                   nt*self._get_pdf(self.rlist,gt,st))
 
         else:
             # g = gamma, s = sigma, w = weight
@@ -292,7 +330,7 @@ class AnalyticConvolution(object):
             # pdf is the probability per unit area at a given radius.
             self.pdf=N.zeros_like(self.rlist)
 
-            if self.fast:
+            if self.weight_before:
                 # weight the convolved shape by gamma, sigma, and weight
                 g=(glist*wlist).sum()
                 s=(slist*wlist).sum()
@@ -302,9 +340,22 @@ class AnalyticConvolution(object):
                 for g,s,w in zip(glist,slist,wlist):
                     self.pdf += w*self._get_pdf(self.rlist,g,s)
 
-            # Assume pdf is 0 outside of the bound,
-            # reasonable if rmax is big enough
-            self.interp=interp1d(self.rlist,self.pdf,kind='cubic',bounds_error=False,fill_value=0)
+        bad = N.isnan(self.pdf)|N.isinf(self.pdf)
+
+        if sum(bad)>0:
+            print 'WARNING! %d bad values in PDF. Removing them from interpolation.' % sum(bad)
+            self.rlist=self.rlist[~bad]
+            self.pdf=self.pdf[~bad]
+
+        # Assume pdf is 0 outside of the bound, which is reasonable if 
+        # rmax is big enough also, interpolate the log of the intensity, which 
+        # should for the types of shapes we are calculating be much more linear.
+        self.log_pdf=N.log(self.pdf)
+        self.interp=interp1d(self.rlist,self.log_pdf,kind='cubic',bounds_error=False,fill_value=0)
+
+        # Just in case the first entry is a NaN, set values below equal to the first non-nan/inf
+        # pdf value.
+        self.val=lambda x: N.exp(self.interp(x))*(x>=self.rlist[0])+self.pdf[0]*(x<self.rlist[0])
 
     def ap_average(self,center,radius):
         solid_angle=2*N.pi*(1-N.cos(radius))
@@ -314,7 +365,7 @@ class AnalyticConvolution(object):
             # outside of the ROI.
             return 1/solid_angle
         else:
-            SkyIntegrator.set_tolerance(self.tolerance)
+            SkyIntegrator.set_tolerance(0.02)
             return SkyIntegrator.average(self.skyfun,center,radius)
 
     def __call__(self,skydir,not_needed=None):
@@ -322,18 +373,18 @@ class AnalyticConvolution(object):
             dv = DoubleVector()
             skydir.arclength(self.spatial_model.center,dv)
             difference = N.fromiter(dv,dtype=float)
-            return self.interp(difference)
+            return self.val(difference)
 
         if type(skydir)==list and len(skydir)==3:
             skydir = SkyDir(Hep3Vector(skydir[0],skydir[1],skydir[2]))
 
         if type(skydir)==SkyDir:
-            return float(self.interp(skydir.difference(self.spatial_model.center)))
+            return float(self.val(skydir.difference(self.spatial_model.center)))
         elif type(skydir)== WeightedSkyDirList:
             dv = DoubleVector()
             skydir.arclength(self.spatial_model.center,dv)
             difference = N.fromiter(dv,dtype=float)
-            return self.interp(difference)
+            return self.val(difference)
         else:
             raise Exception("Unknown input to AnalyticConvolution.__call__()")
 
