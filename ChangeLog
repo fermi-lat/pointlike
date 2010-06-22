@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun 22 14:55:44 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Better nan handling for analytic convolution.
+    *
+------------------------------------------------------------
 User: lande  Tue Jun 22 14:54:05 PDT 2010
 pointlike/python/uw/like
 
