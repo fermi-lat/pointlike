@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jun 23 01:29:21 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Remove negative PDF values from analytic convolution.
+    *
+------------------------------------------------------------
 User: lande  Tue Jun 22 14:55:44 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
