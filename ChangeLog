@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jun 23 09:10:47 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Relaxed the cut on fit_emin so that if it is within 1 MeV of the minimum energy of the band, the band is included.  This because loss of numerical precision was somtimes excluding bands in cases where emin = fit_emin.
+    *
+------------------------------------------------------------
 User: lande  Wed Jun 23 01:29:21 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
