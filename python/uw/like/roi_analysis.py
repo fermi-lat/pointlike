@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.17 2010/06/11 02:48:33 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.18 2010/06/11 22:35:33 lande Exp $
 
 author: Matthew Kerr
 """
@@ -85,7 +85,7 @@ class ROIAnalysis(object):
       for band in self.sa.pixeldata.dmap:
          evcl = band.event_class() & 1 # protect high bits
 
-         if band.emin() >= self.fit_emin[evcl] and band.emax() < self.fit_emax[evcl]:
+         if (band.emin() + 1) >= self.fit_emin[evcl] and band.emax() < self.fit_emax[evcl]:
             self.bands.append(ROIBand(band,self.sa,self.roi_dir,catalog_aperture=self.catalog_aperture))
 
       self.bands = N.asarray(self.bands)
