@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.6 2010/06/17 16:53:39 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.7 2010/06/22 21:55:43 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -295,7 +295,7 @@ Optional keyword arguments:
             nclist,ntlist,gclist,gtlist,\
                     sclist,stlist,wlist = self.bpsf.par
 
-            self.rmax=10*(N.append(sclist,stlist).max() +
+            self.rmax=5*(N.append(sclist,stlist).max() +
                           self.spatial_model.r68())
 
             self.rlist=N.linspace(0,self.rmax,self.num_points)
@@ -323,7 +323,7 @@ Optional keyword arguments:
             # g = gamma, s = sigma, w = weight
             glist,slist,wlist = self.bpsf.par
 
-            self.rmax=10*(slist.max()+self.spatial_model.r68())
+            self.rmax=5*(slist.max()+self.spatial_model.r68())
 
             self.rlist=N.linspace(0,self.rmax,self.num_points)
 
@@ -340,10 +340,18 @@ Optional keyword arguments:
                 for g,s,w in zip(glist,slist,wlist):
                     self.pdf += w*self._get_pdf(self.rlist,g,s)
 
-        bad = N.isnan(self.pdf)|N.isinf(self.pdf)
+        # for some reason, I incorrectly got a negative pdf value for r=0 and for
+        # especially large gaussian MC sources. Not sure how the integral of the 
+        # hypergeometric function could do this, but it is best to simply remove 
+        # it from the list since we know they are unphysical.
+        bad = N.isnan(self.pdf)|N.isinf(self.pdf)|(self.pdf<0)
 
-        if sum(bad)>0:
-            print 'WARNING! %d bad values in PDF. Removing them from interpolation.' % sum(bad)
+        if N.any(bad):
+            print 'WARNING! Bad values found in PDF. Removing them from interpolation.' % sum(bad),
+            if N.any(N.isnan(self.pdf)): print ' (%d nan values)' % sum(N.isnan(self.pdf)),
+            if N.any(N.isinf(self.pdf)): print ' (%d inf values)' % sum(N.isinf(self.pdf)),
+            if N.any(self.pdf<0):        print ' (%d negative values)' % sum(self.pdf<0),
+            print
             self.rlist=self.rlist[~bad]
             self.pdf=self.pdf[~bad]
 
@@ -359,14 +367,7 @@ Optional keyword arguments:
 
     def ap_average(self,center,radius):
         solid_angle=2*N.pi*(1-N.cos(radius))
-        if center.difference(self.spatial_model.center)+self.rmax < radius:
-            # the source is properly normalized, so there is only 
-            # a need to calculate the contribution if the PDF spills
-            # outside of the ROI.
-            return 1/solid_angle
-        else:
-            SkyIntegrator.set_tolerance(0.02)
-            return SkyIntegrator.average(self.skyfun,center,radius)
+        return 1/solid_angle
 
     def __call__(self,skydir,not_needed=None):
         if type(skydir)==WeightedSkyDirList:
