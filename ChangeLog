@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jun 25 01:39:42 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+psf fitting for extension fitting.
+    *
+------------------------------------------------------------
 User: kerrm  Wed Jun 23 09:10:47 PDT 2010
 pointlike/python/uw/like
 
