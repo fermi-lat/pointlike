@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.12 2010/06/20 13:41:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/thb_roi/myroi.py,v 1.13 2010/06/22 11:58:05 burnett Exp $
 
 """
 
@@ -446,7 +446,7 @@ class MyROI(roi_analysis.ROIAnalysis):
   =========   =======================================================
   name        [None]  -- provide name for title, and to save figure if outdir set
   center      [None] -- center, default the roi center
-  outdir      [None] -- folder name to save the image in, outdir/<name>_tsmaps.png
+  outdir       [None] if set, save sed into <outdir>/<source_name>_tsmap.png if outdir is a directory, save into filename=<outdir> if not.  
   catsig      [99]  -- if set and less than 1.0, draw cross with this size (degrees)
   size        [0.5]  -- half width=height (deg)
   pixelsize   [None] -- if not set, will be 20 x20 pixels
@@ -521,7 +521,11 @@ class MyROI(roi_analysis.ROIAnalysis):
         if not nolegend: tsp.zea.axes.legend(loc=2, numpoints=1, bbox_to_anchor=(-0.15,1.0))
         plt.rcParams['font.size'] = fs
 
-        if outdir is not None: plt.savefig(os.path.join(outdir,'%s_tsmap.png'%name.strip()))
+        if outdir is not None: 
+          if os.path.isdir(outdir):
+            plt.savefig(os.path.join(outdir,'%s_tsmap.png'%name.strip()))
+          else :
+            plt.savefig(outdir)
         return tsp
 
     def plot_FITS(self, fitsfile,  size=0.5, bandfits=True,):
@@ -553,8 +557,8 @@ class MyROI(roi_analysis.ROIAnalysis):
             data_kwargs=dict(linewidth=2, color='k',),
             fit_kwargs =dict(lw=2,        color='r',),
             butterfly = True,
-            use_ergs = True, 
-
+            use_ergs = True,
+			outdir = None
             ):
         """Plot a SED, an interface to bandflux.BandFlux
             add point showing the position and error at e0
@@ -568,6 +572,7 @@ class MyROI(roi_analysis.ROIAnalysis):
         fit_kwargs   a dict to pass to the fit part of the display
         butterfly    [True] plot model with a butterfly outline
         use_ergs     [True] convert to ergs in the flux units
+        outdir       [None] if set, save sed into <outdir>/<source_name>_sed.png if outdir is a directory, save into filename=<outdir> if not.
         ========     ===================================================
         
         """
@@ -601,7 +606,13 @@ class MyROI(roi_analysis.ROIAnalysis):
         plt.ylabel(r'$\mathsf{Energy\ Flux\ (%s\ cm^{-2}\ s^{-1})}$' % energy_flux_unit)
         plt.xlabel(r'$\mathsf{Energy\ (MeV)}$')
         plt.title(self.name)
-    
+
+        if outdir is not None: 
+          if os.path.isdir(outdir):
+            plt.savefig(os.path.join(outdir,'%s_sed.png'%name.strip()))
+          else :
+            plt.savefig(outdir)
+
 
     def band_info(self):
         """ return dictionary of the band ts values and photons, diffuse  
