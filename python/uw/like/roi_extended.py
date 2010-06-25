@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_extended.py,v 1.5 2010/06/11 22:34:32 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_extended.py,v 1.6 2010/06/16 08:08:22 lande Exp $
 
     author: Joshua Lande
 """
@@ -11,8 +11,11 @@ from SpatialModels import RadiallySymmetricModel,Gaussian,SpatialModel
 from uw.utilities.minuit import Minuit
 from uw.utilities.convolution import BackgroundConvolution,BackgroundConvolutionNorm,AnalyticConvolution
 from roi_diffuse import DiffuseSource,ROIDiffuseModel_OTF
+from textwrap import dedent
 from skymaps import SkyDir,Background
+from scipy.optimize import fmin 
 import numpy as N
+from uw.like.Models import PowerLaw
 
 class ExtendedSource(DiffuseSource):
     """ Class inherting from DiffuseSource but implementing a spatial source. 
@@ -297,7 +300,7 @@ Optional keyword arguments:
 
             index=N.argmin(ll)
             start_spatial=transformed[index]
-            print 'Starting with the best initial parameters: ',init_grid[index]
+            if verbose: print 'Now starting with the best initial parameters'
         else:
             start_spatial = init_spatial
 
@@ -338,15 +341,25 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         Any of the optional keyword arguments to uw.utilities.convolution's 
         AnalyticConvolution class will be passed on to that class.  """
 
+    def init(self):
+        super(ROIExtendedModelAnalytic,self).init()
+        self.fitpsf=False
+        self.already_fit=False
+
+
     def setup(self):
         self.exp = self.sa.exposure.exposure; 
         psf = self.sa.psf
+
+        if self.fitpsf and self.nsimps > 0:
+            raise Exception("ROIExtendedModelAnalytic Error: fitpsf and nsimps>0 are incompatable.")
+
         self.bgc = AnalyticConvolution(self.extended_source.spatial_model,psf,**self.__dict__)
 
-    def set_state(self,energy,conversion_type):
+    def set_state(self,energy,conversion_type,band):
         self.current_energy = energy
         self.current_exposure = self.exp[conversion_type].value(self.extended_source.spatial_model.center,energy)
-        self.bgc.do_convolution(energy,conversion_type)
+        self.bgc.do_convolution(energy,conversion_type,band)
 
     def _ap_value(self,center,radius):
         return self.current_exposure*self.bgc.ap_average(center,radius)
@@ -354,4 +367,87 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
     def _pix_value(self,pixlist):
         return self.current_exposure*self.bgc(pixlist)
 
+    def initialize_counts(self,bands,roi_dir=None):
+        # probably there is a cleaner way to do this, but since you should only 
+        # use this feature in the process of localizing one source, it is 
+        # probably good enough.
+
+        if self.fitpsf and not self.already_fit: 
+            # Note that this must be done before calculating the pdf.
+            fitter=BandFitter(bands)
+            fitter.fit()
+            self.already_fit=True
+
+        super(ROIExtendedModelAnalytic,self).initialize_counts(bands,roi_dir)
+
+
+class BandFitter(object):
+
+    def __init__(self,bands):
+        self.bands=bands
+
+    def fit(self,weightspectrum=PowerLaw()):
+        for band in self.bands: 
+            self._fit_band(band,weightspectrum)
+
+    def psf_base(self,g,s,delta):
+        """Implement the PSF base function; g = gamma, s = sigma, delta = deviation in radians."""
+        #u = 0.5 * N.outer(delta,1./s)**2
+        u = 0.5*(delta/s)**2
+        y = (1-1./g)*(1+u/g)**(-g)/(2*N.pi*s**2)
+        return y
+
+    def _fit_band(self,band,weightspectrum):
+        """ Fit a psf with a default spectral index of 2. """
+
+        psf=band.sa.psf
+
+        newstyle = psf.newstyle
+
+        scale = psf.scale_func[band.ct](band.e)
+        p=psf.get_p(band.e,band.ct)
+        gamma_middle=sum(p[0]*p[2])/sum(p[2])
+        sigma_middle=sum(p[1]*p[2])/sum(p[2])
+        sigma_middle=sigma_middle*scale
+
+        rlist = N.linspace(0,20*sigma_middle,10000)
+        pdf = N.zeros_like(rlist)
+        pdf_weight = N.zeros_like(rlist)
+        if newstyle:
+            raise Exception("...")
+        else:
+            weight_sum,s_list= 0,[]
+            for e,sp in zip(band.sp_points,band.sp_vector):
+                temp = psf.get_p(e,band.ct).copy()
+                scale = psf.scale_func[band.ct](e)
+                temp[1] *= scale # scale sigma
+                gc,si,we = temp
+                for g,s,w in zip(gc,si,we):
+                    pdf += w*sp*weightspectrum(e)*self.psf_base(g,s,rlist)
+                    s_list.append(s)
+
+                weight_sum += sp*weightspectrum(e)
+            
+            # Normalize
+            pdf /= weight_sum 
+
+            # Function returns the difference between the true pdf and 
+            # the psf for a given gamma & sigma.
+            f=lambda p: N.std(self.psf_base(p[0],p[1],rlist)-pdf)
+
+            fit = fmin(f,[gamma_middle,sigma_middle],full_output=False,disp=False)
+            fit_gamma,fit_sigma = fit
+
+            # the fit sigma should be somewhere between the two extremes.
+            # Not so sure about the gamma tail parameter being a good
+            # measure.
+            if fit_sigma < min(s_list) or fit_sigma > max(s_list): 
+                print dedent("""\
+                    Error: Sigma fit outside of a 
+                    reasonable range. fit sigma is %g,
+                    minimum sigma is %g. maximum sigma
+                    is %g.""" % \
+                    (fit_sigma,min(s_list),max(s_list)))
+
+            band.fit_gamma,band.fit_sigma=fit_gamma,fit_sigma
 

@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.7 2010/06/22 21:55:43 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.8 2010/06/23 08:29:21 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -237,10 +237,15 @@ class AnalyticConvolution(object):
         derive from the same base convolution object. For now they are different enough."""
 
     def init(self):
-        self.weight_before  =  False
-        self.tolerance      =  1e-3
-        self.num_points     =  50
+        self.weight_before  = False
+        self.tolerance      = 1e-2
+        # 50 points & tolerance 1e-2 was picked for default because 
+        # I saw emperically that
+        # we could obtain a percent error < 1e-5 for all PDF values 
+        # up to the maximum and for all energies & conversion types.
+        self.num_points     = 50
         self.skyfun         = PySkyFunction(self)
+        self.fitpsf         = False
 
     def __init__(self,spatial_model,psf,**kwargs):
         """
@@ -250,10 +255,12 @@ Optional keyword arguments:
   Keyword     Description
   =========   =======================================================
   weight_before [False] Weight sigmas & gammas before convolving.
-  tolerance     [1e-4]  Tolerance set when integrating hypergeometirc
+  tolerance     [1e-2]  Tolerance set when integrating hypergeometirc
                         function to calcualte PDF.
   num_points    [100]   Number of points to calculate the PDF at.
                         interpolation is done in between.
+  fitpsf        [False] Use emperical fits to the psf instead of
+                        weighting over cos theta.
   =========   =======================================================
         """
 
@@ -266,11 +273,11 @@ Optional keyword arguments:
 
 
     def _get_pdf(self,rlist,g,s):
-        # integrate until you get to 10x the r68() of the source.
+        # integrate until you get to 5x the r68() of the source.
         # since the intgral includes at term which is the PDF,
         # the integral will presumably contribute very littel
         # further away then this.
-        self.int_max = .5*(10*self.spatial_model.r68()/s)**2
+        self.int_max = .5*(5*self.spatial_model.r68()/s)**2
 
         # u value corresponding to the given r.
         ulist=0.5*(self.rlist/s)**2
@@ -287,15 +294,40 @@ Optional keyword arguments:
 
         return pdf 
 
-    def do_convolution(self,energy,conversion_type):
+    def do_convolution(self,energy,conversion_type,band=None):
+        """ Generate points uniformly in r^2 ~ u, to ensure there are more 
+            points near the center, where the PDF is bigger and changing
+            rapidly. Then, do a cubic spline interpolation of the log of
+            the PDF values. Why like this? 
+            
+            The PSF is (1-1/g)(1+u/g)^-g, so
+
+            log(PSF) = log(1-1/g) -g*log(1+u/g)
+
+            So a plot of log(PSF) vs r^2 is close to being linear. In
+            the limit of u/g being small (near the peak of the PSF where
+            the convolution is most important), we have log(1+u/g) ~ u/g
+            so 
+            
+            log(PSF) ~ A + B*u
+
+            which is why it makes sense to do an interpolation of log(PSF)
+            vs u which should be close to a straight line and interpolate 
+            with little error. 
+            
+            Of course, this argument isn't really correct because we are
+            interpolationt he PDF not the PSF, but I assume convolving
+            the PSF with an extended shape like a gaussian would also
+            create something that looks like a gaussian. """
         pb = PretendBand(energy,conversion_type)
         self.bpsf = BandCALDBPsf(self.psf,pb)
 
         if self.bpsf.newstyle:
+
             nclist,ntlist,gclist,gtlist,\
                     sclist,stlist,wlist = self.bpsf.par
 
-            self.rmax=5*(N.append(sclist,stlist).max() +
+            self.rmax=10*(N.append(sclist,stlist).max() +
                           self.spatial_model.r68())
 
             self.rlist=N.linspace(0,self.rmax,self.num_points)
@@ -303,7 +335,10 @@ Optional keyword arguments:
             # pdf is the probability per unit area at a given radius.
             self.pdf=N.zeros_like(self.rlist)
 
-            if self.weight_before:
+
+            if self.fitpsf:
+                raise Exception("fitpsf not enabled with newstyle psf.")
+            elif self.weight_before:
                 nc=(nclist*wlist).sum()
                 nt=(ntlist*wlist).sum()
                 gc=(gclist*wlist).sum()
@@ -323,13 +358,15 @@ Optional keyword arguments:
             # g = gamma, s = sigma, w = weight
             glist,slist,wlist = self.bpsf.par
 
-            self.rmax=5*(slist.max()+self.spatial_model.r68())
+            self.rmax=10*(slist.max()+self.spatial_model.r68())
 
-            self.rlist=N.linspace(0,self.rmax,self.num_points)
+            self.rlist=N.linspace(0,N.sqrt(self.rmax),self.num_points)**2
 
             # pdf is the probability per unit area at a given radius.
             self.pdf=N.zeros_like(self.rlist)
 
+            if self.fitpsf:
+                self.pdf = self._get_pdf(self.rlist,band.fit_gamma,band.fit_sigma)
             if self.weight_before:
                 # weight the convolved shape by gamma, sigma, and weight
                 g=(glist*wlist).sum()
@@ -359,7 +396,8 @@ Optional keyword arguments:
         # rmax is big enough also, interpolate the log of the intensity, which 
         # should for the types of shapes we are calculating be much more linear.
         self.log_pdf=N.log(self.pdf)
-        self.interp=interp1d(self.rlist,self.log_pdf,kind='cubic',bounds_error=False,fill_value=0)
+        # Kind of a hack, but log of 0 is very small.
+        self.interp=interp1d(self.rlist,self.log_pdf,kind='cubic',bounds_error=False,fill_value=-1000)
 
         # Just in case the first entry is a NaN, set values below equal to the first non-nan/inf
         # pdf value.
