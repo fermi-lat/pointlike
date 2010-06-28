@@ -2,15 +2,55 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.10 2010/06/07 14:46:07 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.11 2010/06/08 19:54:06 burnett Exp $
 
 """
-version='$Revision: 1.10 $'.split()[1]
+version='$Revision: 1.11 $'.split()[1]
 import os
 import math
 import skymaps
 import pointlike
 import pyfits
+import numpy as N
+
+class NsideMapper(object):
+    """
+Manage the mapping between energy bands and pixel size, as parameterized
+by nside, the number of subdivisions of the base pixels in HEALPix scheme.
+
+Roughly, the side of a (quadrilateral) pixel is 1/Nside radians, or
+60/Nside degrees.
+
+The default scheme is hardwired based on the pre-scaling of the PSF
+for Pass 6.  This is a power law with slope -0.8.  This prescaling
+gives, approximately, r68.
+
+The default pixelization is chosen so that 5 pixels fit within r68.
+
+This pixelization continues until about 1 GeV, when nside goes rapidly
+to 8192, the maximum value for 32-bit architecture, with a pixel size
+of 0.007 deg.  We do this because with pixels appropriate to the PSF
+the mean pixel occupation becomes 1 at about 1 GeV, so there is nothing
+to be gained by binning.  Using such small pixels means the data are
+essentially unbinned in position for E > a few GeV.
+    """
+
+    norms    = [0.0116,0.0192] # pix size at 100 MeV in radians
+    slopes   = [-0.8,-0.8]     # slope for pix size with energy
+    cuts     = [20.,20.]   # "cutoff" energy, 2 GeV = 20 in E_100 units
+    maxnside = [8192,8192]
+
+    @staticmethod
+    def nside(en,ct=0):
+        """Return nside for provide energy and conversion type.
+           en -- energy in MeV
+           ct -- conversion type (0/1)
+        """
+        en  = N.asarray(en)/100.
+        nsm = NsideMapper
+        mns = nsm.maxnside[ct]
+        t = nsm.norms[ct]*(en)**nsm.slopes[ct]*N.exp(-(en/nsm.cuts[ct])**2)
+        return N.round(float(mns)/(1+mns*t)).astype(int)
 
 
 class PixelData(object):
@@ -86,6 +126,22 @@ Optional keyword arguments:
 
     def _Data_setup(self):
 
+        # check emin and bpd for consistency with CALDB
+        c1 = N.abs(self.my_bins - 100).min() > 1
+        c2 = (self.bindsperdec % 4) > 0
+        if c1 or c2:
+            print """
+            ###################WARNING!!!##########################
+            It is STRONGLY recommended that you use a binning comm-
+            ensurate with CALDB binning.  This can be achieved by 
+            making sure 100 MeV appears in the bin edges (an easy 
+            way is to set emin=100) and that binsperdec is a multi-
+            ple of 4.  You can choose a subset of these bins in the
+            likelihood fitting if you want to narrow the energy
+            bounds.
+            #######################################################
+            """
+
         from numpy import arccos,pi
         pointlike.Data.set_class_level(self.event_class)
         pointlike.Data.set_zenith_angle_cut(self.zenithcut)
@@ -95,8 +151,10 @@ Optional keyword arguments:
         if not self.quiet: print '.....set Data theta cut at %.1f deg'%(self.thetacut)
 
         if not self.binner_set:
-            from pointlike import DoubleVector
-            self.binner = skymaps.PhotonBinner(DoubleVector(self.my_bins))
+            from pointlike import DoubleVector,IntVector
+            f_nside = IntVector(NsideMapper.nside(self.my_bins,0))
+            b_nside = IntVector(NsideMapper.nside(self.my_bins,1))
+            self.binner = skymaps.PhotonBinner(DoubleVector(self.my_bins),f_nside,b_nside)
             pointlike.Data.setPhotonBinner(self.binner)
             self.binner_set = True
 
