@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jun 28 13:32:58 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pixeldata.py 
+Log Message:
+Changed the data binning.  There is a new class, NsideMapper, to provide a pixel size as a function of energy/conversion type independent of IRF.  This class furnishes the nside parameters for the new PhotonBinner constructor.
+
+Thus, binning is now independent of IRF and should be consistent until the parameters hard coded in NsideMapper are changed.
+    *
+------------------------------------------------------------
 User: cohen  Fri Jun 25 08:45:15 PDT 2010
 ScienceTools-scons/pointlike/python/uw/thb_roi
 
