@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.11 2010/06/08 19:54:06 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.12 2010/06/28 20:32:58 kerrm Exp $
 
 """
-version='$Revision: 1.11 $'.split()[1]
+version='$Revision: 1.12 $'.split()[1]
 import os
 import math
 import skymaps
@@ -128,7 +128,7 @@ Optional keyword arguments:
 
         # check emin and bpd for consistency with CALDB
         c1 = N.abs(self.my_bins - 100).min() > 1
-        c2 = (self.bindsperdec % 4) > 0
+        c2 = (self.binsperdec % 4) > 0
         if c1 or c2:
             print """
             ###################WARNING!!!##########################
