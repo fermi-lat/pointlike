@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jun 30 13:51:05 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_managers.py 
+Log Message:
+Added a convenience parameter to ROIPointSourceManager.add_cutoff to let the cutoff parameter start off free.
+    *
+------------------------------------------------------------
 User: kerrm  Wed Jun 30 13:50:16 PDT 2010
 pointlike/python/uw/like
 
