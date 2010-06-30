@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_extended.py,v 1.6 2010/06/16 08:08:22 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_extended.py,v 1.7 2010/06/25 08:39:42 lande Exp $
 
     author: Joshua Lande
 """
@@ -148,8 +148,8 @@ Optional keyword arguments:
 
         Implemenation notes, do not directly fit RA and
               Dec. Instead, rotate the coordiante to (0,0) and
-              fit longitude and latitude in this rotated coordiante
-              system. For each function iteration, rotate back to the
+              fit x & y deviation (measured in radians) in this 
+              rotated coordinate system. For each function iteration, rotate back to the
               original space and set the direction to there.  This is a
               more robust fitting algorithm for high latitude and allows
               for errors that are physical distance. 
@@ -166,6 +166,8 @@ Optional keyword arguments:
         pn = sm.get_param_names()
         cs = sm.coordsystem
 
+        origin=SkyDir(0,0,cs)
+
         old_dsm_quiet = roi.dsm.quiet
         old_quiet = roi.quiet
         roi.quiet = True
@@ -181,6 +183,7 @@ Optional keyword arguments:
         # here we need to get the first two parameters (position) so
         # we can fit relative to it.
         init_lon,init_lat = sm.p[0:2]
+        init_dir          = SkyDir(init_lon,init_lat,cs)
 
         # Fit in coordinate system rotated so y=z=0.
         if cs == SkyDir.GALACTIC:
@@ -256,11 +259,19 @@ Optional keyword arguments:
                 lat     = float(p[pn=='Dec'] or 0)
                 p=p[(pn!='RA')&(pn!='Dec')]
 
-            # in rotated coordiante system
-            new_dir = SkyDir(lon,lat,cs)
+            # New direction in rotated coordiante system
+            new_dir = SkyDir(N.degrees(lon),N.degrees(lat),cs)
+
+            # find vector perpendicular to both origin & initial dir,
+            # rotate around that vector by the distance from the initial
+            # angle to the origin. This rotation takes the origin to the
+            # initial position and small deviations around the origin to
+            # corresponding small deviations.
+            cross=origin.cross(init_dir)()
+            theta=origin.difference(init_dir)
 
             # This rotation takes (0,0) back to the initial position
-            new_dir().rotateY(N.radians(-init_lat)).rotateZ(N.radians(init_lon))
+            new_dir().rotate(cross,theta)
 
             # Now add the rotated spatial part back to the list.
             if cs == SkyDir.GALACTIC:
@@ -309,7 +320,8 @@ Optional keyword arguments:
 
         m = Minuit(f,start_spatial,up=.5,maxcalls=20000,tolerance=tolerance,
                    printMode=verbose,param_names=pn,
-                   limits=sm.get_limits(absolute=False))
+                   limits=sm.get_limits(absolute=False),
+                   steps  =sm.get_steps())
         best_spatial,fval = m.minimize(method="SIMPLEX")
 
         if verbose: print 'Calculating Covariance Matrix'
@@ -382,18 +394,55 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
 
 
 class BandFitter(object):
+    """ This class has a somewhat wierd function. Basically the PSF is
+        a king function, (or for the newpsf two king functions). But
+        this psf shape is a function of energy and the incident theta
+        angle of the photos. When studying extended sources, we have a
+        semianalytic formula to convolve a king function with the shape
+        we are interested in studying. On the other hand, pointlike
+        does a binned analysis binning in course energy bins and not
+        in photon theta angle. So when calculating an extended source
+        model counts, we must convolve our spatial model with the PSF
+        for different theta and energy values in a particular energy
+        bin and then integrate over energy & theta weighting by the LAT's
+        exposure and the spectral model's spectrum. For point sources,
+        the PSF is integrated over 16 sub energy values and 8 theta
+        values for each energy bin to get the model predicted counts.
+        But to study extended sources, for each band doing 16x8 of these
+        convolutions becomes untenable in the process of fitting the
+        spatial extension of the source.
+
+        To work around this, we are interested in 'faking' by calculating
+        what the psf truly should by correctly weighting the different
+        energies and theta values in an energy bin with an assumed
+        spectrum (defaulting to a powerlaw index 2) and then fitting a
+        single king function to this psf, which is considered the energy
+        bin average of the psf and should be a reasonable representation
+        of the width of the source, for the sake of fitting the extension
+        of a source.
+
+        N.B. For the newstyle psf which is represtened by the sum of
+        two king functions, it is best to weight each king function
+        independently and end up with an average core and average tail
+        PSF for the particular energy bin.  """
 
     def __init__(self,bands):
+        """ Pass in the roi.bands object. """
         self.bands=bands
 
     def fit(self,weightspectrum=PowerLaw()):
+        """ Fit the psf. the fit values will be stored inside of
+            each band in the variables band.fit_gamma and band.fit_sigma,
+            or for the newstyle psf as band.fit_gamma_core
+            and band.fit_sigma_core & band.fit_gamma_tail and
+            band.fit_sigma_tail. """
         for band in self.bands: 
             self._fit_band(band,weightspectrum)
 
     def psf_base(self,g,s,delta):
-        """Implement the PSF base function; g = gamma, s = sigma, delta = deviation in radians."""
-        #u = 0.5 * N.outer(delta,1./s)**2
-        u = 0.5*(delta/s)**2
+        # Fancy vectorized code taken from BandCALDBPsf. Maybe one
+        # day these functions can share a common base.
+        u = 0.5 * N.outer(delta,1./s)**2
         y = (1-1./g)*(1+u/g)**(-g)/(2*N.pi*s**2)
         return y
 
@@ -417,14 +466,15 @@ class BandFitter(object):
             raise Exception("...")
         else:
             weight_sum,s_list= 0,[]
+
+            # Use the same simpson integral used to calculate
+            # predicted counts for a point source.
             for e,sp in zip(band.sp_points,band.sp_vector):
-                temp = psf.get_p(e,band.ct).copy()
+                g,s,w = psf.get_p(e,band.ct).copy()
                 scale = psf.scale_func[band.ct](e)
-                temp[1] *= scale # scale sigma
-                gc,si,we = temp
-                for g,s,w in zip(gc,si,we):
-                    pdf += w*sp*weightspectrum(e)*self.psf_base(g,s,rlist)
-                    s_list.append(s)
+                s *= scale 
+                pdf += (w*self.psf_base(g,s,rlist)).sum(axis=1)*sp*weightspectrum(e)
+                s_list += list(s)
 
                 weight_sum += sp*weightspectrum(e)
             
@@ -433,7 +483,7 @@ class BandFitter(object):
 
             # Function returns the difference between the true pdf and 
             # the psf for a given gamma & sigma.
-            f=lambda p: N.std(self.psf_base(p[0],p[1],rlist)-pdf)
+            f=lambda p: N.std(self.psf_base(p[0],p[1],rlist).sum(axis=1)-pdf)
 
             fit = fmin(f,[gamma_middle,sigma_middle],full_output=False,disp=False)
             fit_gamma,fit_sigma = fit
