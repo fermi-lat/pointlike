@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.11 2010/06/11 02:44:57 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.12 2010/06/22 11:55:44 burnett Exp $
 
    author: Matthew Kerr
    """
@@ -15,12 +15,13 @@ import os
 ###====================================================================================================###
 
 class PointSource(object):
-   def __init__(self,skydir,name,model=None,free_parameters=True):
+   def __init__(self,skydir,name,model=None,free_parameters=True,leave_parameters=False):
       self.name   = name
       self.skydir = skydir
       self.model  = PowerLaw() if model is None else model
       #if not free_parameters:
-      for i in xrange(len(self.model.free)): self.model.free[i] = free_parameters
+      if not leave_parameters:
+         for i in xrange(len(self.model.free)): self.model.free[i] = free_parameters
       self.duplicate = False
    def __str__(self):
       return '\n'.join(['\n',
@@ -277,10 +278,10 @@ class CatalogManager(FermiCatalog):
 
 
 def get_diffuse_source(spatialModel='ConstantValue',
-                      spatialModelFile=None,
-                      spectralModel='PowerLaw',
-                      spectralModelFile=None,
-                      name=None):
+                       spatialModelFile=None,
+                       spectralModel='PowerLaw',
+                       spectralModelFile=None,
+                       name=None):
 
     """ Return a DiffuseSource instance suitable for
         instantiating a child of ROIDiffuseModel.
@@ -304,6 +305,7 @@ def get_diffuse_source(spatialModel='ConstantValue',
                          If an XML-style keyword, valid options are
                          1) FileFunction
                          2) PowerLaw
+                         3) Constant
                         
         spectralModelFile -- if a tabular function is specified,
                              its location
@@ -313,8 +315,8 @@ def get_diffuse_source(spatialModel='ConstantValue',
 
     # check input sanity
     if not isinstance(spectralModel,Model):
-        if spectralModel == 'FileFunction':
-            if (spectralModelFile is None) or (not os.path.exists(spectralModelFile)):
+        if (spectralModelFile is not None):
+            if not os.path.exists(spectralModelFile):
                 raise Exception,'Could not find the ASCII file specified for FileFunction'
         elif spectralModel != 'PowerLaw':
             raise NotImplementedError,'Must provide one of the understood spectral models.'
@@ -334,9 +336,12 @@ def get_diffuse_source(spatialModel='ConstantValue',
 
     # deal with isotropic models
     if spatialModel=='ConstantValue':
-        if spectralModel == 'FileFunction':
+        if spectralModelFile is not None:
             dmodel = IsotropicSpectrum(spectralModelFile)
-            smodel = Constant()
+            if isinstance(spectralModel,Model):
+                smodel = spectralModel
+            else:
+                smodel = Constant()
         elif spectralModel == 'PowerLaw':
             # use Sreekumar-like defaults
             dmodel = IsotropicPowerLaw(1.5e-5,2.1)
