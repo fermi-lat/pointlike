@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.18 2010/06/11 22:35:33 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.19 2010/06/23 16:10:47 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -646,7 +646,7 @@ class ROIAnalysis(object):
        print ('%-20s'+n*'%10s')% colnames
        for ps in self.psm.point_sources:
            dist=math.degrees(sdir.difference(ps.skydir))
-           if maxdist and dist>maxdist:  break
+           if maxdist and dist>maxdist:  continue
            loc = (ps.skydir.l(),ps.skydir.b()) if galactic else (ps.skydir.ra(),ps.skydir.dec())
            fmt = '%-20s'+(n-2)*'%10.3f'+' '+2*'%9.2f%1s'
            freeflag = [ '*' if f else ' ' for f in ps.model.free]
@@ -654,3 +654,32 @@ class ROIAnalysis(object):
                    +( ps.model.fast_iflux()/1e-8, freeflag[0], 10**ps.model.p[1], freeflag[1]))
            print fmt % values
 
+   def print_resids(self):
+        d = dict()
+        for b in self.bands:
+            key = (-1 if b.ct==1 else 1)*int(b.e)
+            d[key] = b
+        ens = N.sort(list(set([b.e for b in self.bands]))).astype(int)
+        print ''
+        print '      \t-------CT=0--------     -------CT=1--------     ------CT=0+1-------'
+        print 'Energy\tMod     Obs     Res     Mod     Obs     Res     Mod     Obs     Res'
+        print '      \t-------------------     -------------------     -------------------'
+        for en in ens:
+            s1 = '%-6.0f'%(en)
+            tm = 0; to = 0
+            for key in [en,-en]:
+                if key in d.keys():
+                    b  = d[key]
+                    m = b.ps_all_counts + b.bg_all_counts
+                    o = b.photons
+                else:
+                    m = o = 0
+                tm += m; to += o
+                s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(m,o,(o-m)/m**0.5)])
+            s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(tm,to,(to-tm)/tm**0.5)])
+            print s1
+    
+   def toXML(self,filename):
+      """Write out a gtlike-style XML file."""
+      from uw.utilities.xml_parsers import writeROI
+      writeROI(self,filename)
