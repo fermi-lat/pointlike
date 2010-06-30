@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jun 30 13:59:41 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+Changed default resolution of background grid to 0.25-deg.  This slows setup time down a bit.  Hoping to bring it back up with some tweaks in populating the grid.
+    *
+------------------------------------------------------------
 User: kerrm  Wed Jun 30 13:52:28 PDT 2010
 pointlike/python/uw/like
 
