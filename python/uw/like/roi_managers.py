@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.9 2010/06/10 21:38:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.10 2010/06/11 02:37:58 lande Exp $
 
 author: Matthew Kerr
 """
@@ -182,7 +182,7 @@ class ROIPointSourceManager(ROIModelManager):
             band.frozen_pix_counts   = 0
 
            
-   def add_cutoff(self,which):
+   def add_cutoff(self,which, free_cutoff=False):
       """Replace a power law point source with one with a cutoff.  Useful for catalog pulsars."""
 
       e = ExpCutoff()
@@ -192,7 +192,7 @@ class ROIPointSourceManager(ROIModelManager):
       e.p[1]      = m.p[1]
       e.p[2]      = N.log10(5e5)
       e.free[:2]  = m.free[:2]
-      e.free[2]   = False
+      e.free[2]   = free_cutoff
       e.e0        = m.e0
 
       self.models[which] = e
