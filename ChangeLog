@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jun 30 13:48:31 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Fix print_summary to work for non-distance-ordered sources.  Added print_resids method to inspect the residuals for front/back independently.  Added toXML method.
+    *
+------------------------------------------------------------
 User: kerrm  Wed Jun 30 13:47:36 PDT 2010
 pointlike/python/uw/like
 
