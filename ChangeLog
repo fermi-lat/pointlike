@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun 29 17:40:17 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py SpatialModels.py 
+Log Message:
+Better step size when fitting. Fix but to fit in radians, not degrees. Improved rotatation code which allows display of either celestial or galactic coordinates when fitting extension. Somewhat vectorize the PSF fitting code.
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jun 28 19:37:51 PDT 2010
 pointlike/python/uw/like
 
