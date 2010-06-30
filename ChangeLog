@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jun 30 13:46:23 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Fixed printout.  Added support for XML stuff.  Added gradient to PLSuperExpCutoff.
+    *
+------------------------------------------------------------
 User: kerrm  Wed Jun 30 13:44:04 PDT 2010
 pointlike/python/uw/utilities
 
