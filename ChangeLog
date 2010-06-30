@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jun 30 13:52:28 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Some tweaks to plot_counts to better display the source names.
+    *
+------------------------------------------------------------
 User: kerrm  Wed Jun 30 13:51:05 PDT 2010
 pointlike/python/uw/like
 
