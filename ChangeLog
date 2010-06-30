@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jun 30 13:47:36 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+Fix some logic errors in setting up default diffuse sources.  Added option to PointSource to prevent modification of passed Model objects.
+    *
+------------------------------------------------------------
 User: kerrm  Wed Jun 30 13:46:23 PDT 2010
 pointlike/python/uw/like
 
