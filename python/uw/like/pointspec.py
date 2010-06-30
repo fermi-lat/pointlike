@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.13 2010/05/24 08:10:30 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.14 2010/06/11 02:37:58 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.13 $'.split()[1]
+version='$Revision: 1.14 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -373,6 +373,7 @@ Optional keyword arguments:
         self.irf         = 'P6_v3_diff'
         self.psf_irf     = None
         self.CALDB       = os.environ['CALDB']
+        self._check_CALDB()
 
         self.background  = '1FGL'
         self.maxROI      = 10    # deg
@@ -398,6 +399,15 @@ Optional keyword arguments:
         self.pixeldata = PixelData(self.__dict__)
         self.exposure  = ExposureManager(self)
         self.psf = CALDBPsf(self.CALDB,irf=self.irf,psf_irf=self.psf_irf)
+
+    def _check_CALDB(self):
+        """ Make sure the CALDB member includes the entire path."""
+        # this implementation a little crude, but there appear to be only
+        # two possibilities
+        toks = os.path.split(self.CALDB)
+        if toks[1] != 'lat':
+            self.CALDB = os.path.join(self.CALDB,'data','glast','lat')
+
 
     def setup_daily_data(self):
         """Setup paths to use saved daily data and livetime files on our local cluster.
@@ -539,6 +549,32 @@ Optional keyword arguments:
         psm = ROIPointSourceManager(point_sources,roi_dir,quiet=self.quiet)
         dsm = ROIDiffuseManager(diffuse_models,roi_dir,quiet=self.quiet)           
         return ROIAnalysis(roi_dir,psm,dsm,self,**kwargs)
+
+    def roi_from_xml(self,roi_dir,xmlfile,diffuse_mapper=None,*args,**kwargs):
+        """
+        return an ROIAnalysis object with a source model specified by
+        a gtlike-style XML file.
+
+        Arguments:
+            
+        roi_dir          A SkyDir giving the center of the ROI.
+
+        xmlfile          The full path to a gtlike-style XML file giving the
+                         source model for the ROI.
+
+        diffuse_mapper   [None] a function or functor 
+                         which takes two arguments, a DiffuseSource and the ROI
+                         center, and returns an object implementing the
+                         ROIDiffuseModel interface.  If None, the system uses
+                         the default, an on-the-fly numerical convolution.
+
+        Optional Keyword Arguments:
+            see docstring for SpectralAnalysis.roi
+        """
+        from uw.utilities.xml_parsers import parse_sources
+        ps,ds = parse_sources(xmlfile)
+        return self.roi(roi_dir=roi_dir,point_sources=ps,diffuse_sources=ds,
+                        diffuse_mapper=diffuse_mapper,*args,**kwargs)
                 
 
     def roi_old(self, point_sources = None, bgmodels = None, previous_fit = None, no_roi = False, **kwargs):
