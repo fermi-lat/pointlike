@@ -1,12 +1,11 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/SpatialModels.py,v 1.2 2010/06/01 08:13:00 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/SpatialModels.py,v 1.3 2010/06/11 02:37:58 lande Exp $
 
    author: Joshua Lande
 
 """
 
-import math as M
 import numpy as N
 from scipy import vectorize
 from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,SkyImage,Background,WeightedSkyDirList
@@ -18,24 +17,30 @@ class DefaultSpatialModelValues(object):
         lon & lat and how fitting is always distance way, first two limits
         are limits on distance relative to the first coordinate.
         
-        p: the spatial paraemters. There values are absolute.
+        p: the spatial parameters. There values are absolute.
         param_names: the names of the spatial parameters
         limits: the limits imposed on the paraemters when fitting. 
-            These values are absolute.
+            These values are absolute. Note that by and large, everything
+            is measured in radians. The limits on relative movement of
+            longitude and latitude are measured in radians.
         log: Wheter or not the parameter should be mapped into log space.
             The first to parametesr (lon & lat) cannot have log=True.
             parameters and limits will be converted if log is True.
     """
     models = {
-        'Gaussian'           : {'p':[0,0,M.radians(.1)],                 
+        'Gaussian'           : {'p':[0,0,N.radians(.1)],                 
                                 'param_names':['lon','lat','sigma'],                        
                                 'limits':N.radians([[-10,10],[-10,10],[1e-6,3]]),
-                                'log':[False,False,True]},
+                                'log':[False,False,True],
+                                # Note that the step for sigma is a step in log space!
+                                # As minuit.py's doc says, sigma step about 10% in log space
+                                'steps':N.append(N.radians([0.05,0.05]),0.04)}, 
         'PseudoGaussian'     : {'p':[0,0],                               
                                 'param_names':['lon','lat'],                               
                                 'limits':N.radians([[-10,10],[-10,10]]),
-                                'log':[False,False]},
-        'EllipticalGaussian' : {'p':[0,0,M.radians(.1),M.radians(.1),0], 
+                                'log':[False,False],
+                                'steps':N.radians([0.05,0.05])},
+        'EllipticalGaussian' : {'p':[0,0,N.radians(.1),N.radians(.1),0], 
                                 'param_names':['lon','lat','sigma x','sigma y','theta'],
                                 'limits':N.radians([[-10,10],[-10,10],[1e-6,3],[1e-6,3],[-360,360]]),
                                 'log':[False,False,True,True,False]},
@@ -153,6 +158,11 @@ class SpatialModel(object):
         else:
             return [_ for _,free in zip(ret,self.free) if free]
 
+    def get_steps(self):
+        if not self.__dict__.has_key('steps'):
+            raise Exception("Spatial model %s does not have fitting step sizes defined for it." % pretty_name)
+        return self.steps
+
     def set_parameters(self,p,absolute=False,center=None):
         """ Set FREE parameters; p should have length equal to number of free parameters.
 
@@ -174,7 +184,7 @@ class SpatialModel(object):
             self.p[self.free] = N.asarray([N.log10(_) if log else _ \
                                            for _,log in zip(p,self.log[self.free])])
         else:
-            self.p[self.free] = p
+            self.p[self.free] = N.asarray(p)
 
         self.cache()
 
@@ -334,16 +344,16 @@ class Gaussian(RadiallySymmetricModel):
 
         self.sigma=self.extension()
         self.sigma2=self.sigma**2 # cache this value
-        self.pref=1/(2*M.pi*self.sigma2)
+        self.pref=1/(2*N.pi*self.sigma2)
 
     def at_r(self,r):
-        return self.pref*M.exp(-r**2/(2*self.sigma2))
+        return self.pref*N.exp(-r**2/(2*self.sigma2))
 
     def r68(self):
         return 1.5*self.sigma
 
     def pretty_spatial_string(self):
-        return "[ %.3f' ]" % (60*M.degrees(self.sigma))
+        return "[ %.3f' ]" % (60*N.degrees(self.sigma))
 
 #===============================================================================================#
 
@@ -352,7 +362,7 @@ class PseudoGaussian(Gaussian):
         small radius. Useful to ensure that the null hypothesis
         of an extended source has the exact same PDF as the
         extended source."""
-    def extension(self): return M.radians(1e-10)
+    def extension(self): return N.radians(1e-10)
 
 #===============================================================================================#
 
@@ -385,11 +395,11 @@ class EllipticalGaussian(SpatialModel):
         # where I have replaced theta with -theta to get a postive angle to correspond
         # with a rotation of the semi-major axis towards positive RA.
 
-        self.a =  M.cos(theta)**2/(2*sigma_x**2) + M.sin(theta)**2/(2*sigma_y**2)
-        self.b =  M.sin(2*theta)/(4*sigma_x**2)  - M.sin(2*theta)/(4*sigma_y**2)
-        self.c =  M.sin(theta)**2/(2*sigma_x**2) + M.cos(theta)**2/(2*sigma_y**2)
+        self.a =  N.cos(theta)**2/(2*sigma_x**2) + N.sin(theta)**2/(2*sigma_y**2)
+        self.b =  N.sin(2*theta)/(4*sigma_x**2)  - N.sin(2*theta)/(4*sigma_y**2)
+        self.c =  N.sin(theta)**2/(2*sigma_x**2) + N.cos(theta)**2/(2*sigma_y**2)
 
-        self.pref = 1/(2*M.pi*sigma_x*sigma_y)
+        self.pref = 1/(2*N.pi*sigma_x*sigma_y)
 
 
     def __call__(self,v,energy=None):
@@ -414,13 +424,13 @@ class EllipticalGaussian(SpatialModel):
 
         delta_y = skydir.difference(SkyDir(self.center.ra(),skydir.dec()))*sign(skydir.ra(),self.center.ra(),360)
 
-        return self.pref*M.exp(-(self.a*delta_x**2 +
+        return self.pref*N.exp(-(self.a*delta_x**2 +
                                2*self.b*delta_x*delta_y+
                                self.c*delta_y**2))
 
     def pretty_spatial_string(self):
         return "[ %.3f', %.3f', %.1d ]" % \
-                (60*M.degrees(self.sigma_x),60*M.degrees(self.sigma_y), M.degrees(theta))
+                (60*N.degrees(self.sigma_x),60*N.degrees(self.sigma_y), N.degrees(theta))
 
 
 class Template(SpatialModel):
