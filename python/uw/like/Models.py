@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.7 2010/06/18 12:22:35 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.8 2010/06/22 21:53:19 lande Exp $
 
    author: Matthew Kerr
 
@@ -9,7 +9,7 @@
 import numpy as N
 import math as M
 from scipy.integrate import quad
-
+      
 
 #===============================================================================================#
 
@@ -131,6 +131,8 @@ Optional keyword arguments:
             if parameter == name: parameter = n; break
       self.free[parameter] = not freeze
 
+   def thaw(self,parameter): self.freeze(parameter,freeze=False)
+
    def set_cov_matrix(self,new_cov_matrix):
       self.cov_matrix[N.outer(self.free,self.free)] = N.ravel(new_cov_matrix)
 
@@ -154,6 +156,9 @@ Optional keyword arguments:
       """Return the parameter values and fractional statistical errors.
          If no error estimates are present, return 0 for the fractional error."""
       p = 10**self.p #convert from log format
+      if N.all(self.cov_matrix==0):
+         if not two_sided: return p,N.zeros_like(p)
+         return p,N.zeros_like(p),N.zeros_like(p)
       try: #see if error estimates are present
          if not two_sided:
             ratios = N.diag(self.get_cov_matrix(absolute=False))**0.5
@@ -171,10 +176,15 @@ Optional keyword arguments:
       #p,avg       = self.statistical(absolute=absolute,two_sided=False)
       p,hi_p,lo_p = self.statistical(absolute=absolute,two_sided=True)
       if not self.background:
-         f,fhi,flo   = self.i_flux(e_weight=0,two_sided=True,cgs=True,error=True)
-         e,ehi,elo   = self.i_flux(e_weight=1,emax=3e5,two_sided=True,cgs=True,error=True)
-         if not absolute:
-            fhi /= f; flo /= f; ehi /= e; elo /= e;
+         if not N.all(self.cov_matrix==0):
+            f,fhi,flo   = self.i_flux(e_weight=0,two_sided=True,cgs=True,error=True)
+            e,ehi,elo   = self.i_flux(e_weight=1,emax=3e5,two_sided=True,cgs=True,error=True)
+            if not absolute:
+               fhi /= f; flo /= f; ehi /= e; elo /= e;
+         else:
+            f = self.i_flux(e_weight=0,cgs=True,error=False)
+            e = self.i_flux(e_weight=1,cgs=True,error=False)
+            fhi = flo = ehi = elo = 0
          p           = N.append(p, [f,e])
          hi_p        = N.append(hi_p, N.abs([fhi,ehi]))
          lo_p        = N.append(lo_p, N.abs([flo,elo]))
@@ -533,6 +543,12 @@ Spectral parameters:
       n0,gamma,cutoff,b=10**self.p
       return (n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-(e/cutoff)**b)
 
+   def gradient(self,e):
+      n0,gamma,cutoff,b = 10**self.p
+      f = (n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-(e/cutoff)**b)
+      return N.asarray([f/n0,f*N.log(self.e0/e),
+                f*(b/cutoff)*(e/cutoff)**b,f*(e/cutoff)**b*N.log(cutoff/e)])
+
 #===============================================================================================#
 
 class PLSuperExpCutoffF(Model):
@@ -585,23 +601,14 @@ class InterpConstants(Model):
       interp = interp1d(self.e_breaks,10**self.p)
       return interp(N.log10(e))
 
-#===============================================================================================#
 
-class Dispersion(object):
-   """Manage the energy dispersion pdf."""
-   def __init__(self,input_min=18,input_max=700000,output_min=30,output_max=520000):
-      self.input_min=input_min #Artificial Monte Carlo bounds
-      self.input_max=input_max
-      self.output_min=output_min
-      self.output_max=output_max
-   def __call__(self,e1,e2): #P(e1|e2)
-      if (e2<self.input_min or e2>self.input_max): return 0.
-      elif (e1<self.output_min or e1>self.output_max): return 0
-      var=(e2*0.08+0.6*e2**0.5)**2
-      return (2*M.pi*var)**(-0.5)*M.exp(-0.5*(e1-e2)**2/var)
-
-
-#===============================================================================================#
-if __name__=='__main__':
-   disp=Dispersion()
-   print disp(300,330)
+def convert_exp_cutoff(model):
+    if model.name != 'ExpCutoff':
+        raise Exception,'Cannot process %s into PLSuperExpCutoff'%(model.name)
+    nm = PLSuperExpCutoff()
+    nm.p    = N.append(model.p,0)
+    nm.free = N.append(model.free,False)
+    nm.cov_matrix[:,:] = 0
+    nm.cov_matrix[:-1,:-1] = model.cov_matrix[:,:]
+    nm.e0 = model.e0
+    return nm
