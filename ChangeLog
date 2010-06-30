@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jun 30 13:44:04 PDT 2010
+pointlike/python/uw/utilities
+
+Added Files:
+	xml_parsers.py 
+Log Message:
+New module to handle reading & writing gtlike style XML files.
+    *
+------------------------------------------------------------
 User: lande  Tue Jun 29 17:40:17 PDT 2010
 pointlike/python/uw/like
 
