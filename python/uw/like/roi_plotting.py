@@ -6,7 +6,7 @@ Given an ROIAnalysis object roi:
     plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.7 2010/06/07 14:51:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.8 2010/06/10 21:39:39 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -25,7 +25,7 @@ from scipy.stats import poisson,norm
 from scipy.optimize import fmin,fsolve
 
 import pylab as P
-from matplotlib import rcParams,mpl,pyplot,ticker
+from matplotlib import rcParams,mpl,pyplot,ticker,font_manager
 from matplotlib.patches import FancyArrow
 
 def band_spectra(r,source=0):
@@ -259,9 +259,8 @@ def plot_counts(r,fignum=1,outfile=None,integral=False,max_label=10,merge_non_fr
       ps_names = [ps_names[i] for i in xrange(len(ps_names)) if free_mask[i]]
       ps_names += ['Other Point Sources']
       
-
-   P.clf()
    P.figure(fignum,(14,8))
+   P.clf()
    P.subplot(121)
    P.gca().set_xscale('log')
    P.gca().set_yscale('log')
@@ -292,7 +291,8 @@ def plot_counts(r,fignum=1,outfile=None,integral=False,max_label=10,merge_non_fr
    else:
       P.ylabel('Counts per Bin')
    P.xlabel('Energy (MeV)')
-   P.legend(loc=0)
+   prop = font_manager.FontProperties(size='x-small')
+   P.legend(loc=0,prop=prop)
    P.grid(b=True)
 
    P.subplot(122)
