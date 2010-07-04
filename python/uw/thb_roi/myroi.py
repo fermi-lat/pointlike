@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.14 2010/06/25 15:45:15 cohen Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.15 2010/07/04 19:22:06 burnett Exp $
 
 """
 
@@ -600,7 +600,7 @@ class MyROI(roi_analysis.ROIAnalysis):
         
         # and the model, perhaps with a butterfly
         dom = np.logspace(np.log10(self.fit_emin[0]), np.log10(self.fit_emax[0]), 101)
-        bf.plot_model(axes, self.psm.models[0], dom, butterfly, **fit_kwargs)
+        bf.plot_model(axes, self.psm.models[which], dom, butterfly, **fit_kwargs)
         plt.rcParams['axes.linewidth'] = oldlw
 
         # the axis labels
