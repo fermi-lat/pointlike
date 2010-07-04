@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/thb_roi/myroi.py,v 1.13 2010/06/22 11:58:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.14 2010/06/25 15:45:15 cohen Exp $
 
 """
 
@@ -154,7 +154,7 @@ class MyROI(roi_analysis.ROIAnalysis):
           tolerance -- maximum difference in degrees between two successive best fit positions
           update    -- if True, update localization internally, i.e., recalculate point source contribution
           bandfits  -- if True, use a band-by-band (model independent) spectral fit; otherwise, use broabband fit
-          seedloc   -- use for a modified position (pass to superclass)
+          seedpos   -- use for a modified position (pass to superclass)
 
          return fit position, change in TS
         """
@@ -552,19 +552,20 @@ class MyROI(roi_analysis.ROIAnalysis):
                 % (self.tsmap_max, maxpixel.ra(),maxpixel.dec())
         return maxpixel
         
-    def plot_sed(self, fignum=5, axes=None,
+    def plot_sed(self, which=0, fignum=5, axes=None,
             axis=None, #(1e2,1e6,1e-8,1e-2),
             data_kwargs=dict(linewidth=2, color='k',),
             fit_kwargs =dict(lw=2,        color='r',),
             butterfly = True,
             use_ergs = True,
-			outdir = None
+            outdir = None
             ):
         """Plot a SED, an interface to bandflux.BandFlux
             add point showing the position and error at e0
         ========     ===================================================
         keyword      description
         ========     ===================================================
+        which        [0] index of source to plot
         fignum       [5] if set, use (and clear) this figure. If None, use current Axes object
         axes         [None] If set use this Axes object
         axis         None, (1e2, 1e5, 1e-8, 1e-2) depending on 
@@ -594,7 +595,7 @@ class MyROI(roi_analysis.ROIAnalysis):
         axes.set_autoscale_on(False)
        
         #  create a BandFlux, and have it plot the band fluxes, merging adjacent limits at the ends
-        bf = bandflux.BandFlux(self, merge=True, scale_factor= energy_flux_factor)
+        bf = bandflux.BandFlux(self, which=which, merge=True, scale_factor= energy_flux_factor)
         bf.plot_data(axes, **data_kwargs)
         
         # and the model, perhaps with a butterfly
