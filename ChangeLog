@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jul  4 12:22:06 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	myroi.py 
+Log Message:
+add which parameter to plot_sed
+    *
+------------------------------------------------------------
 User: kerrm  Wed Jun 30 13:59:41 PDT 2010
 pointlike/python/uw/like
 
