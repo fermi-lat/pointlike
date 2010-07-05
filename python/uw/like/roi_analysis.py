@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.19 2010/06/23 16:10:47 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.20 2010/06/30 20:48:31 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -110,8 +110,12 @@ class ROIAnalysis(object):
            manager for the particular source referred to.
 
            If which is an integer, it is assumed to be in the point
-           source manager, so the return is the poin tsource manager
+           source manager, so the return is the point source manager
            and the particular index.
+
+           if which is a string, the name of all the point sources and
+           diffuse sources is searched and the first source with that
+           name is returned.
 
            If which is of type PointSource, the return is the point
            source manager and the index for the particular point source.
@@ -121,6 +125,13 @@ class ROIAnalysis(object):
            source. """
        if type(which)==int:
            return self.psm,which
+       elif type(which)==str:
+           if N.any(self.psm.names==which):
+               return self.psm,int(N.where(self.psm.names==which)[0])
+           elif N.any(self.dsm.names==which):
+               return self.dsm,int(N.where(self.dsm.names==which)[0])
+           else:
+               raise Exception('Source "%s" is not a name of any point or diffuse source' % which)
        elif isinstance(which,PointSource):
            return self.psm,int(N.where(self.psm.point_sources==which)[0])
        elif isinstance(which,DiffuseSource):
