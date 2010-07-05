@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jul  5 12:19:21 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py roi_managers.py 
+Log Message:
+Mapper object now recognizes strings for the 'which' parameter and can search through the objects names.
+    *
+------------------------------------------------------------
 User: burnett  Sun Jul  4 12:30:48 PDT 2010
 pointlike/python/uw/thb_roi
 
