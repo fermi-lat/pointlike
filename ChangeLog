@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jul  5 18:48:24 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+Added a blurb to help with loading in XML sources when the paths aren't right.  (Specify diffdir.)
+    *
+------------------------------------------------------------
 User: lande  Mon Jul  5 12:19:21 PDT 2010
 pointlike/python/uw/like
 
