@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.7 2010/06/11 02:37:58 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.8 2010/06/30 20:59:41 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -121,7 +121,7 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
             self.bgc = [BackgroundConvolution(self.roi_dir,bg,psf,
                         npix=self.npix,pixelsize=self.pixelsize) for bg in self.bg]
 
-    def set_state(self,energy,conversion_type):
+    def set_state(self,energy,conversion_type,**kwargs):
         self.active_bgc = self.bgc[conversion_type if (len(self.bgc) > 1) else 0]
         self.active_bgc.do_convolution(energy,conversion_type)
 
@@ -144,7 +144,7 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
 
                   
             for ne,e in enumerate(myband.bg_points):
-                self.set_state(e,band.ct)
+                self.set_state(e,band.ct,band=band) # band needed for extended sources
                 myband.ap_evals[ne] = self._ap_value(rd,band.radius_in_rad)
                 if band.has_pixels:
                     myband.pi_evals[:,ne] = self._pix_value(band.wsdl)
@@ -246,7 +246,7 @@ class ROIDiffuseModel_PC(ROIDiffuseModel_OTF):
         else:
             self.bgs  = map(Background,self.dmodel,exp)
 
-    def set_state(self,energy,conversion_type):
+    def set_state(self,energy,conversion_type,**kwargs):
         self.active_bg = self.bgs[conversion_type if (len(self.bgs) > 1) else 0]
         self.active_bg.setEnergy(energy)
 

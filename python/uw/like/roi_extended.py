@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_extended.py,v 1.7 2010/06/25 08:39:42 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_extended.py,v 1.8 2010/06/30 00:40:15 lande Exp $
 
     author: Joshua Lande
 """
@@ -22,7 +22,7 @@ class ExtendedSource(DiffuseSource):
         The main difference is the requirement of a spatial model to accomany 
         a spectral model. """
 
-    def __init__(self,name=None,model=None,spatial_model=None,free_parameters=True):
+    def __init__(self,name=None,model=None,spatial_model=None,free_parameters=True,leave_parameters=False):
         """ Make the naming consistent with the PointSource object so that
             extended sources 'feel' like point sources.
 
@@ -40,9 +40,12 @@ class ExtendedSource(DiffuseSource):
             diffuse_model = spatial_model.get_PySkySpectrum(),
             scaling_model = model,
             name          = name)
+
         self.smodel.background = False
 
-        for i in xrange(len(self.smodel.free)): self.smodel.free[i] = free_parameters
+        if not leave_parameters:
+            for i in xrange(len(self.smodel.free)): self.smodel.free[i] = free_parameters
+            for i in xrange(len(self.spatial_model.free)): self.spatial_model.free[i] = free_parameters
 
     def __str__(self):
         return '\n'.join(['\n',
@@ -116,8 +119,8 @@ class ROIExtendedModel(ROIDiffuseModel_OTF):
                  es.name,es.smodel.pretty_name,
                  es.smodel.__str__())
 
-    def localize(self,roi,which,bandfits=True,tolerance=1e-3,update=False,verbose=False,
-                 error="HESSE",init_grid=None):
+    def localize(self,roi,which,tolerance=1e-3,update=False,verbose=False,
+                 bandfits=True, error="HESSE",init_grid=None,fitpsf=False):
         """ Localize this extended source by fitting all non-fixed spatial paraameters of 
             self.extended_source. The likelihood at the best position is returned.
 
@@ -144,11 +147,17 @@ Optional keyword arguments:
                           should be measured relative to the spatial model's center: (0,0)
                         - The init_grid values should be absolute, none of them should
                           be given in log space.
+
+  fitpsf        [False] Use an approximation to the PSF in each energy bin
+                        where PSF is weighted in each energy bin by an assumed
+                        spectral index and is fit by a single king function
+                        which is then convovled with the extended source shape.
+                        This leads to a significantly faster source localization.
   =========   =======================================================
 
         Implemenation notes, do not directly fit RA and
               Dec. Instead, rotate the coordiante to (0,0) and
-              fit x & y deviation (measured in radians) in this 
+              fit x & y deviation (measured in degrees) in this 
               rotated coordinate system. For each function iteration, rotate back to the
               original space and set the direction to there.  This is a
               more robust fitting algorithm for high latitude and allows
@@ -161,9 +170,14 @@ Optional keyword arguments:
         may not be directly fitting the spatail parameters (by fixing the
         spatial parameters), so the code has to intellegently """
 
+        if fitpsf:
+            if verbose: print 'Changing to fitpsf accuracy for localization step.'
+            self.nsimps,old_nsimps=0,self.nsimps
+            self.fitpsf,old_fitpsf=True,self.fitpsf
+
         es = self.extended_source
         sm = es.spatial_model
-        pn = sm.get_param_names()
+        pn = sm.get_param_names(absolute=True,all=False)
         cs = sm.coordsystem
 
         origin=SkyDir(0,0,cs)
@@ -260,7 +274,7 @@ Optional keyword arguments:
                 p=p[(pn!='RA')&(pn!='Dec')]
 
             # New direction in rotated coordiante system
-            new_dir = SkyDir(N.degrees(lon),N.degrees(lat),cs)
+            new_dir = SkyDir(lon,lat,cs)
 
             # find vector perpendicular to both origin & initial dir,
             # rotate around that vector by the distance from the initial
@@ -295,7 +309,7 @@ Optional keyword arguments:
         ll_0 = 0
         old_verbose = verbose; verbose = False; ll_0 = -f(init_spatial); verbose = old_verbose
 
-        print 'Localizing %s source %s Using %s' % (sm.pretty_name,es.name,
+        if verbose: print 'Localizing %s source %s Using %s' % (sm.pretty_name,es.name,
                                                     'BandFits' if bandfits else 'Spectral Fits')
 
         if init_grid is not None:
@@ -315,11 +329,11 @@ Optional keyword arguments:
         else:
             start_spatial = init_spatial
 
-        
-        # these guys should eventually be prompoted to input parameters
+        # Display which parameters are in log space.
+        relative_names = sm.get_param_names(absolute=False,all=False)
 
         m = Minuit(f,start_spatial,up=.5,maxcalls=20000,tolerance=tolerance,
-                   printMode=verbose,param_names=pn,
+                   printMode=verbose,param_names=relative_names,
                    limits=sm.get_limits(absolute=False),
                    steps  =sm.get_steps())
         best_spatial,fval = m.minimize(method="SIMPLEX")
@@ -338,6 +352,12 @@ Optional keyword arguments:
             likelihood_wrapper(init_spatial)
 
         roi.quiet = old_quiet
+
+        if fitpsf:
+            if verbose: print 'Setting back to original PDF accuracy.'
+            self.nsimps=old_nsimps
+            self.fitpsf=old_fitpsf
+            self.initialize_counts(roi.bands)
 
         # return log likelihood from fitting extension.
         return -fval
@@ -436,6 +456,8 @@ class BandFitter(object):
             or for the newstyle psf as band.fit_gamma_core
             and band.fit_sigma_core & band.fit_gamma_tail and
             band.fit_sigma_tail. """
+
+        print 'Fitting PSF to weighted average'
         for band in self.bands: 
             self._fit_band(band,weightspectrum)
 
@@ -463,7 +485,7 @@ class BandFitter(object):
         pdf = N.zeros_like(rlist)
         pdf_weight = N.zeros_like(rlist)
         if newstyle:
-            raise Exception("...")
+            raise Exception("PSF Fitting is not yet implemented for the newstyle PSF. Bug Josh to add this")
         else:
             weight_sum,s_list= 0,[]
 
