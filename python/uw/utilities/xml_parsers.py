@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.8 2010/05/24 08:10:30 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.1 2010/06/30 20:44:04 kerrm Exp $
 
    author: Matthew Kerr
 """
@@ -87,7 +87,8 @@ class XML_to_Model(object):
             'PowerLaw'  : 'PowerLaw',
             'PowerLaw2' : 'PowerLawFlux',
             'PLSuperExpCutoff' : 'PLSuperExpCutoff',
-            'Constant'  : 'Constant',
+            'Constant'  : 'Constant', # should this have been ConstantValue key?
+            'ConstantValue' : 'Constant',
             'FileFunction' : 'Constant' # a big klugey
             })
         
@@ -328,7 +329,7 @@ def parse_point_sources(handler):
         point_sources.append(PointSource(sd,src['name'],mo,leave_parameters=True))
     return point_sources
 
-def parse_diffuse_sources(handler):
+def parse_diffuse_sources(handler,diffdir=None):
     gds = get_diffuse_source
     ds = deque()
     xtm = XML_to_Model()
@@ -340,7 +341,7 @@ def parse_diffuse_sources(handler):
             if spectral['type'] == 'FileFunction':
                 fname = str(os.path.expandvars(spectral['file']))
                 mo = xtm.get_model(spectral)
-                ds.append(gds('ConstantValue',None,mo,fname))
+                ds.append(gds('ConstantValue',None,mo,fname,diffdir=diffdir))
             elif (spectral['type'] == 'PowerLaw' ) or (spectral['type'] == 'PowerLaw2'):
                 mo = xtm.get_model(spectral)
                 ds.append(gds('ConstantValue',None,mo,None))
@@ -356,19 +357,19 @@ def parse_diffuse_sources(handler):
                 print mo.index_offset
             else:
                 raise Exception,'Non-isotropic model not implemented'
-            ds.append(gds('MapCubeFunction',fname,mo,None))
+            ds.append(gds('MapCubeFunction',fname,mo,None,diffdir=diffdir))
             
         else:
             raise Exception,'Spatial model not recognized'
         ds[-1].name = src['name']
     return ds
 
-def parse_sources(xmlfile):
+def parse_sources(xmlfile,diffdir=None):
     """Convenience function to parse an entire file into
        point sources and diffuse sources."""
     handler = parse_sourcelib(xmlfile)
     ps = parse_point_sources(handler)
-    ds = parse_diffuse_sources(handler)
+    ds = parse_diffuse_sources(handler,diffdir=diffdir)
     return ps,ds
 
 def unparse_point_sources(point_sources):
