@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jul  5 18:50:54 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Modify the default convolution to use the new Background Skyfunction functionality with exposure caching.
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jul  5 18:49:52 PDT 2010
 pointlike/python/uw/like
 
