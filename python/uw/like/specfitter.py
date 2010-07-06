@@ -1,6 +1,6 @@
 """A module for classes that perform spectral fitting.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/specfitter.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/specfitter.py,v 1.2 2010/03/11 19:23:29 kerrm Exp $
 
     author: Matthew Kerr
 """
@@ -10,6 +10,7 @@ import numpy as np
 class SpectralModelFitter(object):
    """A host class for the spectral fitting methods.  All called statically."""
 
+   ### DEPRECATED -- very old
    @staticmethod
    def least_squares(pslw,model,quiet=False):
       """Perform a least squares fit of the spectral parameters.  Appropriate for very bright sources
@@ -48,6 +49,7 @@ class SpectralModelFitter(object):
             print str(model)+'\n'
       return model
 
+   ### DEPRECATED -- very old
    @staticmethod
    def poisson(pslw,model,prefit=True):
       """Fit a spectral model using Poisson statistics."""
