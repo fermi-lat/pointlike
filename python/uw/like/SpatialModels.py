@@ -1,11 +1,10 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/SpatialModels.py,v 1.3 2010/06/11 02:37:58 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/SpatialModels.py,v 1.4 2010/06/30 00:40:16 lande Exp $
 
    author: Joshua Lande
 
 """
-
 import numpy as N
 from scipy import vectorize
 from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,SkyImage,Background,WeightedSkyDirList
@@ -13,41 +12,51 @@ from skymaps import SkyIntegrator,SkyDir
 from pointlike import DoubleVector
 
 class DefaultSpatialModelValues(object):
-    """ Add documentaion about asumption taht first two coordinates are
-        lon & lat and how fitting is always distance way, first two limits
-        are limits on distance relative to the first coordinate.
-        
-        p: the spatial parameters. There values are absolute.
-        param_names: the names of the spatial parameters
-        limits: the limits imposed on the paraemters when fitting. 
-            These values are absolute. Note that by and large, everything
-            is measured in radians. The limits on relative movement of
-            longitude and latitude are measured in radians.
-        log: Wheter or not the parameter should be mapped into log space.
-            The first to parametesr (lon & lat) cannot have log=True.
-            parameters and limits will be converted if log is True.
-    """
+    """ Spatial Parameters:
+            p: the spatial parameters. There values are all assumed to be absolute.
+            param_names: the names of the spatial parameters
+            limits: the limits imposed on the paraemters when fitting. 
+                These values are absolute. Note that by and large, everything
+                is measured in radians. The limits on relative movement of
+                longitude and latitude are measured in degrees.
+            log: Wheter or not the parameter should be mapped into log space.
+            steps: used by minuit when fitting the source. useful to make them comparable
+                to distance away from true values. These are not absolute. For log parameters,
+                the step is the step in the log of the parameter.
+
+        By construction, the first two spatial parameters of all extended sources
+        is the center of the source. The limits on the first two parameters are
+        defined as a physical angular distance away from the source.
+        The first to parametesr (lon & lat) are forced to have log=False
+        The firs two parametesr are not defined in teh models dict but always set
+        to defaults lower in the function. """
     models = {
-        'Gaussian'           : {'p':[0,0,N.radians(.1)],                 
-                                'param_names':['lon','lat','sigma'],                        
-                                'limits':N.radians([[-10,10],[-10,10],[1e-6,3]]),
-                                'log':[False,False,True],
+        'Gaussian'           : {'p':[N.radians(.1)],                 
+                                'param_names':['Sigma'],                        
+                                'limits':N.radians([[1e-6,3]]),
+                                'log':[True],
+                                'steps':[0.04]
                                 # Note that the step for sigma is a step in log space!
-                                # As minuit.py's doc says, sigma step about 10% in log space
-                                'steps':N.append(N.radians([0.05,0.05]),0.04)}, 
-        'PseudoGaussian'     : {'p':[0,0],                               
-                                'param_names':['lon','lat'],                               
-                                'limits':N.radians([[-10,10],[-10,10]]),
-                                'log':[False,False],
-                                'steps':N.radians([0.05,0.05])},
-        'EllipticalGaussian' : {'p':[0,0,N.radians(.1),N.radians(.1),0], 
-                                'param_names':['lon','lat','sigma x','sigma y','theta'],
-                                'limits':N.radians([[-10,10],[-10,10],[1e-6,3],[1e-6,3],[-360,360]]),
-                                'log':[False,False,True,True,False]},
-        'Template'           : {'p':[0,0], # lon & lat measured relative to fits center
-                                'param_names':['lon','lat'],
-                                'limits':[[-10,10],[-10,10]],
-                                'log':[False,False]}
+                                # As minuit.py's doc says, a step of .04 is about 10% in log space
+                               }, 
+        'PseudoGaussian'     : {},
+        'Disk'               : {'p':[0,0,N.radians(.1)],
+                                'param_names':['lon,lat','Sigma'],
+                                'limits':N.radians([[1e-6,3]]),
+                                'log':[False,False,True]},
+        'PseudoDisk'         : {'p':[], 'param_names':[], 'limits':[], 'log':[], 'steps':[]},
+        'NFW'                : {'p':[N.radians(.1)],
+                                'param_names': 'Sigma',
+                                'limits': N.radians([[1e-6,3]]),
+                                'log':[True]},
+        'PseudoNFW'          : {'p':[], 'param_names':[], 'limits':[], 'log':[], 'steps':[]},
+        'EllipticalGaussian' : {'p':[N.radians(.1),N.radians(.1),0], 
+                                'param_names':['Major_Axis','Minor_Axis','Position_Angle'],
+                                'limits':N.radians([[1e-6,3],
+                                                    [1e-6,3],
+                                                    [-360,360]]),
+                                'log':[True,True,False]},
+        'Template'           : {'p':[], 'param_names':[], 'limits':[], 'log':[]}
     }
 
     @staticmethod
@@ -57,16 +66,25 @@ class DefaultSpatialModelValues(object):
         for key,val in DefaultSpatialModelValues.models[classname].items():
             exec('the_model.%s = val'%key)
 
-        the_model.cov_matrix = N.zeros([len(the_model.p),len(the_model.p)]) #default covariance matrix
-        the_model.free = N.asarray([True] * len(the_model.p))
+        the_model.p=N.append([0.,0.],the_model.p) \
+                if the_model.__dict__.has_key('p') else N.asarray([0.,0.])
 
-        the_model.p=N.asarray(the_model.p)
-        the_model.log=N.asarray(the_model.log)
-        the_model.param_names=N.asarray(the_model.param_names)
-        the_model.limits=N.asarray(the_model.limits)
+        the_model.log=N.append([False,False,],the_model.log) \
+                if the_model.__dict__.has_key('log') else N.asarray([False,False])
+
+        the_model.param_names=N.append(['lon','lat'],the_model.param_names) \
+                if the_model.__dict__.has_key('param_names') else N.asarray(['lon','lat'])
+
+        the_model.limits=N.append([[-10.,10.],[-10.,10.]],the_model.limits,axis=0) \
+                if the_model.__dict__.has_key('limits') else N.asarray([[-10.,10],[-10.,10.]])
+
+        the_model.steps=N.append([0.05,0.05],the_model.steps) \
+                if the_model.__dict__.has_key('steps') else N.asarray([0.05,0.05])
 
         the_model.coordsystem = SkyDir.EQUATORIAL
 
+        the_model.cov_matrix = N.zeros([len(the_model.p),len(the_model.p)])
+        the_model.free = N.asarray([True] * len(the_model.p))
 
 #===============================================================================================#
 
@@ -138,6 +156,22 @@ class SpatialModel(object):
 
         self.center = SkyDir(self.p[0],self.p[1],self.coordsystem)
 
+    def change_coordsystem(cs):
+        """ Change the internal coordinate system. This is what is
+            used when the source is displayed/what is read in
+            as longitude and latitude when a parameter is set. Also
+            changes what the errors are estimates of. """
+        the_model.coordsystem = cs
+        if cs  == SkyDir.EQUATORIAL:
+            self.param_names[0:2] = ['RA','Dec']
+            self.p[0:2] = [center.ra(),center.dec()]
+        elif cs == SkyDir.GALACTIC:
+            self.param_names[0:2] = ['l','b']
+            self.p[0:2] = [center.l(),center.b()]
+
+        # Errors are no longer valid, so reset cov matrix.
+        self.cov_matrix = N.zeros([len(self.p),len(self.p)]) 
+
     def get_parameters(self,absolute=False,all=False):
         """Return FREE parameters; used for spatial fitting.
            all=True returns all parameters. """
@@ -147,8 +181,19 @@ class SpatialModel(object):
             ret=self.p
         return ret if all else ret[self.free]
 
-    def get_param_names(self,all=False):
-        return self.param_names[self.free] if not all else self.param_names
+    def get_param_names(self,absolute=True,all=False):
+        if all:
+            if absolute:
+                return self.param_names
+            else:
+                return ["log(%s)" % n if log else n \
+                        for n,log in zip(self.param_names,self.log)]
+        else:
+            if absolute:
+                return self.param_names[self.free] 
+            else:
+                return ["log(%s)" % n if log else n \
+                        for n,log in zip(self.param_names[self.free],self.log[self.free])]
 
     def get_limits(self,absolute=False,all=False):
         ret = N.asarray([10**lim if log and absolute else lim \
@@ -208,10 +253,10 @@ class SpatialModel(object):
     def get_cov_matrix(self,absolute=True):
         """Return covariance matrix."""
 
-        p = (10**self.p)*self.log + self.p*(~self.log) if absolute else N.ones_like(self.p)
-        jac = N.log10(N.exp(1)) #log_10(e)
+        jac = N.log10(N.exp(1))
+        p = ((10**self.p)*jac)*self.log + 1*(~self.log) if absolute else N.ones_like(self.p)
         pt=p.reshape((p.shape[0],1)) #transpose
-        return p*self.cov_matrix*pt/jac**2
+        return p*self.cov_matrix*pt
 
     def get_free_errors(self,absolute=False):
         """Return the diagonal elements of the covariance matrix for free parameters."""
@@ -231,8 +276,8 @@ class SpatialModel(object):
         else:
             # parameters fit in log space must be treated differently.
             errs = N.diag(self.cov_matrix)**0.5
-            lo_abs = (p-10**(self.p-errs))*self.log+errs*(~self.log)
-            hi_abs = (10**(self.p+errs)-p)*self.log+errs*(~self.log)
+            lo_abs = (p-10**(self.p-errs))*self.log + errs*(~self.log)
+            hi_abs = (10**(self.p+errs)-p)*self.log + errs*(~self.log)
             return  p, \
                     hi_abs/(1. if absolute else p), \
                     lo_abs/(1. if absolute else p)
@@ -337,6 +382,8 @@ class Gaussian(RadiallySymmetricModel):
        sigma = one dimensional r68 of the spatial model, measured in radians
        """
     def extension(self):
+        # extension defined as a function so it is easy to overload
+        # by the pseudo hypothesis.
         return self.get_parameters(absolute=True,all=True)[2]
 
     def cache(self):
@@ -357,6 +404,7 @@ class Gaussian(RadiallySymmetricModel):
 
 #===============================================================================================#
 
+
 class PseudoGaussian(Gaussian):
     """ A PseudoGuassian is a Gaussian source with a fixed
         small radius. Useful to ensure that the null hypothesis
@@ -366,14 +414,72 @@ class PseudoGaussian(Gaussian):
 
 #===============================================================================================#
 
+class Disk(RadiallySymmetricModel):
+    """ Defined as a constant value up to a distance Sigma away from the source. """
+    def extension(self):
+        return self.get_parameters(absolute=True,all=True)[2]
+
+    def cache(self):
+        super(Disk,self).cache()
+
+        self.sigma=self.extension()
+        self.sigma2=self.sigma**2 # cache this value
+        self.pref=1/(N.pi*self.sigma2)
+
+    def at_r(self,r):
+        return self.pref if r < self.sigma else 0
+
+    def r68(self):
+        return 0.824621125*self.sigma
+
+    def pretty_spatial_string(self):
+        return "[ %.3f' ]" % (60*N.degrees(self.sigma))
+
+#===============================================================================================#
+
+class PseudoDisk(Disk):
+    """ A PseudoDisk is a Disk with a fixed
+        small radius. Useful to ensure that the null hypothesis
+        of an extended source has the exact same PDF as the
+        extended source with small extension."""
+    def extension(self): return N.radians(1e-10)
+
+#===============================================================================================#
+
+class NFW(Disk):
+    """ Ping's parameterization of the NFW Source is 
+        P(x,y)=2/(pi*r*s*(1+r/s)^5) """
+
+    def extension(self):
+        return self.get_parameters(absolute=True,all=True)[2]
+
+    def cache(self):
+        super(Disk,self).cache()
+
+        self.sigma=self.extension()
+
+    def at_r(self,r):
+        return 2/(N.pi*r*self.sigma*(1+r/self.sigma)**5)
+
+    def r68(self):
+        return 0.33*self.sigma
+
+    def pretty_spatial_string(self):
+        return "[ %.3f' ]" % (60*N.degrees(self.sigma))
+
+class PseudoNFW(NFW):
+
+    def extension(self): return N.radians(1e-10)
+
+
 class EllipticalGaussian(SpatialModel):
-    """  Defined as a gaussian in the major axis of width sigma_M
-         times a gaussian in the minor axis of width sigma_m
+    """  Defined as a gaussian in the major axis of width Major_Axis
+         times a gaussian in the minor axis of width Minor_Axis
          where the major axis is at an angle theta from the
 
          The three parameters are
 
-         p = [ sigma_x, sigma_y, theta ]
+         p = [ Major_Axis, Minor_Axis, Theta ]
 
          They are all in radians.
 

@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.13 2010/06/30 20:47:36 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.14 2010/07/06 01:48:24 kerrm Exp $
 
    author: Matthew Kerr
    """
@@ -9,6 +9,7 @@ from skymaps import *
 from uw.like.Models import Model,Constant,PowerLaw,DefaultModelValues
 from roi_managers import ROIBackgroundModel
 from roi_diffuse import DiffuseSource
+from roi_extended import ExtendedSource
 from os.path import join
 import os
 
@@ -186,7 +187,7 @@ class PointSourceCatalog(object):
     def get_sources(self,skydir,radius=15):
         raise NotImplementedError,'Virtual'
 
-    def merge_lists(self,skydir,radius=15,user_list=None):
+    def merge_lists(self,skydir,radius=15,user_point_list=None,user_diffuse_list=None):
         raise NotImplementedError,'Virtual'
 
 ###====================================================================================================###
@@ -250,27 +251,34 @@ class FermiCatalog(PointSourceCatalog):
       return point_sources
 
 
-   def merge_lists(self,skydir,radius=15,user_list=None):
+   def merge_lists(self,skydir,radius=15,user_point_list=[],user_diffuse_list=[]):
       """Get a list of catalog sources and merge it with an (optional) list of PointSource objects
          provided by the user.  In case of duplicates (closer than prune_radius), the user object
          takes precedence."""
 
+      user_extended_list = [i for i in user_diffuse_list if isinstance(i,ExtendedSource)]
+
       cat_list = self.get_sources(skydir,radius)
-      if user_list is None: return cat_list
+      if user_point_list==[] and user_extended_list==[]: return cat_list
 
       from collections import deque
-      merged_list = deque(user_list)
+      merged_list = deque(user_point_list)
+
 
       for ncps,cps in enumerate(cat_list):
          merged_list.append(cps)
-         for ups in user_list:
+         for ups in user_point_list:
             if N.degrees(ups.skydir.difference(cps.skydir)) < self.prune_radius:
+               merged_list.pop(); break
+
+         for ues in user_extended_list:
+            if N.degrees(ues.spatial_model.center.difference(cps.skydir)) < self.prune_radius:
                merged_list.pop(); break
 
       merged_list = list(merged_list)
       merged_list.sort(key = lambda ps: ps.skydir.difference(skydir))
 
-      return merged_list
+      return merged_list,user_diffuse_list
 
 class CatalogManager(FermiCatalog):
     """ For compatibility.  Temporary."""
