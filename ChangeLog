@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jul  5 18:52:11 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Add support for diffdir and put in a kluge for diffuse models with constant spectra.
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jul  5 18:50:54 PDT 2010
 pointlike/python/uw/utilities
 
