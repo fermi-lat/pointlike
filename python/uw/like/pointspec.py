@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.14 2010/06/11 02:37:58 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.15 2010/06/30 20:50:16 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.14 $'.split()[1]
+version='$Revision: 1.15 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -550,7 +550,8 @@ Optional keyword arguments:
         dsm = ROIDiffuseManager(diffuse_models,roi_dir,quiet=self.quiet)           
         return ROIAnalysis(roi_dir,psm,dsm,self,**kwargs)
 
-    def roi_from_xml(self,roi_dir,xmlfile,diffuse_mapper=None,*args,**kwargs):
+    def roi_from_xml(self,roi_dir,xmlfile,diffuse_mapper=None,
+                          diffdir=None,*args,**kwargs):
         """
         return an ROIAnalysis object with a source model specified by
         a gtlike-style XML file.
@@ -568,11 +569,14 @@ Optional keyword arguments:
                          ROIDiffuseModel interface.  If None, the system uses
                          the default, an on-the-fly numerical convolution.
 
-        Optional Keyword Arguments:
+        diffdir          [None] An optional path if the files necessary for 
+                         diffuse sources are specified relative to this path.
+
+        Optional Arguments and Keyword Arguments:
             see docstring for SpectralAnalysis.roi
         """
         from uw.utilities.xml_parsers import parse_sources
-        ps,ds = parse_sources(xmlfile)
+        ps,ds = parse_sources(xmlfile,diffdir=diffdir)
         return self.roi(roi_dir=roi_dir,point_sources=ps,diffuse_sources=ds,
                         diffuse_mapper=diffuse_mapper,*args,**kwargs)
                 
