@@ -1,4 +1,45 @@
 ------------------------------------------------------------
+User: lande  Tue Jul  6 16:01:05 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py pointspec_helpers.py roi_extended.py 
+	roi_diffuse.py SpatialModels.py 
+Log Message:
+
+
+In pointspec.py
+* Change the default diffuse_mapper to map ExtendedSource objects to ROIExtendedModel objects.
+
+In pointspec.py/pointspec_helper.py
+* Change the default Fermi catalog to merge only point sources that aren't very close to the center of extended sources.
+
+In roi_extended.py 
+* Easier interface to localizing with a fitpsf.
+* Fix bug so that fit of spatial parmaeters is in degrees, not radians.
+
+In roi_diffuse.py
+* Pass band objects to the diffuse's set_state function to allow for more intellegent semianalytic convolution.
+
+In SpatialModels.py
+* Fix bug in Spatial model error calculation.
+* Change name of spatial parameters to increase consistency with Pointlike and gtobssim's naming conventation
+* Addition of Disk, PseudoDisk, NFW, and PseudoNFW spatial model
+* Improve simplicity of Default spatial model parameters
+
+In convolution.py
+* Increase convolution radius improves TS_ext calcuation.
+* Don't convolve outside of the ROI
+* Fix bug so fitpsf works.
+* Increase defualt number of convolution points
+
+In xml_parser.py
+* Addition of extended source parsing
+* Fix ambiguity in conversion of model to xml between Constant and FileFunction spectral model.
+* Minor tweaking of newlines in saved xml layout
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jul  5 18:52:11 PDT 2010
 pointlike/python/uw/utilities
 
