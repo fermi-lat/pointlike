@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jul  5 18:49:52 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	specfitter.py 
+Log Message:
+Added deprecation notices to old code.
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jul  5 18:49:10 PDT 2010
 pointlike/python/uw/like
 
