@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.12 2010/06/22 11:55:44 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.13 2010/06/30 20:47:36 kerrm Exp $
 
    author: Matthew Kerr
    """
@@ -281,7 +281,8 @@ def get_diffuse_source(spatialModel='ConstantValue',
                        spatialModelFile=None,
                        spectralModel='PowerLaw',
                        spectralModelFile=None,
-                       name=None):
+                       name=None,
+                       diffdir = None):
 
     """ Return a DiffuseSource instance suitable for
         instantiating a child of ROIDiffuseModel.
@@ -311,7 +312,17 @@ def get_diffuse_source(spatialModel='ConstantValue',
                              its location
 
         name -- a name for the ol' model
+
+        
+        diffdir -- if the XML files specify paths relative to some
+                   directory, set this variable appropriately
     """
+
+    if (diffdir is not None):
+        if spatialModelFile is not None:
+            spatialModelFile = os.path.join(diffdir,spatialModelFile)
+        if spectralModelFile is not None:
+            spectralModelFile = os.path.join(diffdir,spectralModelFile)
 
     # check input sanity
     if not isinstance(spectralModel,Model):
