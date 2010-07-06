@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jul  5 18:49:10 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py 
+Log Message:
+Modified roi_from_xml to allow a diffdir specification in the case that file names are not saved absolutely.
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jul  5 18:48:24 PDT 2010
 pointlike/python/uw/like
 
