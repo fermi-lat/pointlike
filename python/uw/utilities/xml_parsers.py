@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.1 2010/06/30 20:44:04 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.2 2010/07/06 01:52:11 kerrm Exp $
 
    author: Matthew Kerr
 """
@@ -11,7 +11,9 @@ import xml.sax as x
 from collections import deque
 from uw.like.pointspec_helpers import PointSource,get_diffuse_source
 from uw.like.roi_diffuse import DiffuseSource
+from uw.like.roi_extended import ExtendedSource
 from uw.like.Models import *
+from uw.like.SpatialModels import *
 from skymaps import SkyDir,DiffuseFunction,IsotropicSpectrum,IsotropicPowerLaw
 import os
 
@@ -144,6 +146,77 @@ class XML_to_Model(object):
 
         return model
 
+class XML_to_SpatialModel(object):
+
+    def __init__(self):
+
+        self.spatialdict = dict({
+            'Gaussian'           : ['Sigma'],
+            'PseudoGaussian'     : [],
+            'Disk'               : ['Sigma'],
+            'PseudoDisk'         : [],
+            'NFW'                : ['Sigma'],
+            'PseudoNFW'          : [],
+            'EllipticalGaussian' : ['MajorAxis','MinorAxis','PositionAngle'],
+            })
+
+    def get_spatial_model(self,xml_dict):
+        """ Kind of like getting a spectral model, but
+            instead returns a SpatialModel object. 
+            
+            Since extended ources don't exist in gtlike, no need
+            to keep backwards compatability. Just trying
+            to keep a farmilliar interface and make the
+            naming convention similar to gtobssim. """
+
+        spatialname = xml_dict['type']
+        params      = xml_dict.children
+
+        d = dict()
+        for p in params: d[p['name']] = p
+
+        if d.has_key('RA') and d.has_key('DEC') and not (d.has_key('L') or d.has_key('B')):
+            coordsystem="SkyDir.EQUATORIAL"
+            self.spatialdict[spatialname]=['RA','DEC']+self.spatialdict[spatialname]
+        elif d.has_key('L') and d.has_key('B') and not (d.has_key('RA') or d.has_key('DEC')):
+            coordsystem="SkyDir.EQUATORIAL"
+            self.spatialdict[spatialname]=['L','B']+self.spatialdict[spatialname]
+        else: raise Exception("Unable to parse spatial model %s. Either RA and Dec or L and B must be parameters." % spatialname)
+
+        spatial_model = eval('%s(coordsystem=%s)' % (spatialname,coordsystem))
+
+        for ip,p in enumerate(self.spatialdict[spatialname]):
+            pdict = d[p]
+
+            scale = float(pdict['scale'])
+            value = float(pdict['value'])
+
+            if spatial_model.log[ip]:
+                spatial_model.p[ip] = N.log10(value*scale) 
+                if pdict.has_key('min'):
+                    spatial_model.limits[ip,0] = N.log10(pdict['min']*scale) 
+                if pdict.has_key('max'):
+                    spatial_model.limits[ip,1] = N.log10(pdict['max']*scale) 
+
+            else:
+                spatial_model.p[ip] = value*scale
+                if pdict.has_key('min'):
+                    spatial_model.limits[ip,0] = pdict['min']*scale
+                if pdict.has_key('max'):
+                    spatial_model.limits[ip,1] = pdict['max']*scale
+
+            spatial_model.free[ip] = (pdict['free'] == '1')
+
+            if 'error' in pdict.keys():
+                err = float(pdict['error'])
+                if spatial_model.log[ip]: 
+                    spatial_model.cov_matrix[ip,ip] = (err/value*JAC)**2
+                else:
+                    spatial_model.cov_matrix[ip,ip] = err**2
+
+        spatial_model.cache()
+        return spatial_model
+
 
 class Model_to_XML(object):
     """Convert a Model instance to an XML entry.
@@ -197,6 +270,15 @@ class Model_to_XML(object):
             self.pval = [1]
             self.perr = [0]
 
+        elif name == 'ConstantValue':
+            self.pname  = ['Value']
+            self.pfree  = [1]
+            self.pscale = [1]
+            self.pmin   = [0.1]
+            self.pmax   = [10]
+            self.pval   = [1]
+            self.perr   = [0]
+
         else:
             raise Exception,'Unrecognized model %s'%(name)
 
@@ -206,7 +288,7 @@ class Model_to_XML(object):
         return None
 
     def param_strings(self):
-        err_strings = ['error = "%s"'%(e) if (e>0) else '' for e in self.perr]
+        err_strings = ['error="%s"'%(e) if (e>0) else '' for e in self.perr]
         return ['\t<parameter %s free="%d" max="%s" min="%s" name="%s" scale="%s" value="%s"/>'%(e,f,m1,m2,n,s,v)
             for e,f,m1,m2,n,s,v in zip(err_strings,self.pfree,self.pmax,self.pmin,self.pname,self.pscale,self.pval)]
 
@@ -226,17 +308,24 @@ class Model_to_XML(object):
             self.pval[index] = val - model.index_offset
             self.pscale[index] = -1
 
-    def process_model(self,model,scaling=False):
-        """model an instance of Model"""
+    def process_model(self,model,xml_name=None,scaling=False):
+        """model an instance of Model
+        
+           Allow an override of the xml_name to map the model on
+           when there is ambiguity (i.e. for ConstantValue vs.
+           FileFunction). """
 
         if model.name == 'ExpCutoff':
             model = convert_exp_cutoff(model)
 
         # map the Model instance onto an xml-style model
-        for xml_name,v in self.x2m.modict.iteritems():
-            if v == model.name: break
-        if v != model.name:
-            raise Exception,'Unable to find an XML model for %s'%(model.name)
+        elif xml_name == None:
+            if model.name == 'Constant': xml_name='ConstantValue'
+            else:
+                for xml_name,v in self.x2m.modict.iteritems():
+                    if v == model.name: break
+                if v != model.name:
+                    raise Exception,'Unable to find an XML model for %s'%(model.name)
         self.update(xml_name,scaling=scaling)
 
         # replace spectral parameters
@@ -312,6 +401,32 @@ def makeDSMapcubeSpatialModel(filename='ERROR',tablevel=1):
     ]
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
 
+def makeExtendedSourceSpatialModel(es,tablevel=1):
+    """Encode a spatial model."""
+    strings = [
+        '<spatialModel type="%s">' % es.pretty_name,
+    ]
+
+    xtsm = XML_to_SpatialModel()
+    param_names = xtsm.spatialdict[es.pretty_name]
+    if es.coordsystem == SkyDir.GALACTIC:
+        param_names=['L','B']+param_names
+    if es.coordsystem == SkyDir.EQUATORIAL:
+        param_names=['RA','DEC']+self.spatialdict
+
+    params,param_errors=es.statistical(absolute=True)
+    err_strings = ['error="%s" '%(e) if (e>0) else '' for e in param_errors]
+    min_params,max_params=N.transpose(es.get_limits(absolute=True,all=True))
+    min_params[0],max_params[0]=[-360,360]
+    min_params[1],max_params[1]=[-90,90]
+    for param,err,free,min,max,name in zip(params,err_strings,
+                                       es.free,min_params,max_params,
+                                       param_names):
+        strings.append('\t<parameter %sfree="%d" max="%g" min="%g" name="%s" scale="1.0" value="%g" />' % \
+                       (err,free,max,min,name,param))
+    strings.append('</spatialModel>')
+    return ''.join([decorate(st,tablevel=tablevel) for st in strings])
+
 def parse_sourcelib(xml):
     parser = x.make_parser()
     handler = SourceHandler()
@@ -337,14 +452,15 @@ def parse_diffuse_sources(handler,diffdir=None):
         if src['type'] != 'DiffuseSource': continue
         spatial  = src.getChild('spatialModel')
         spectral = src.getChild('spectrum')
+        name = src['name']
         if spatial['type'] == 'ConstantValue':
             if spectral['type'] == 'FileFunction':
                 fname = str(os.path.expandvars(spectral['file']))
                 mo = xtm.get_model(spectral)
-                ds.append(gds('ConstantValue',None,mo,fname,diffdir=diffdir))
+                ds.append(gds('ConstantValue',None,mo,fname,name,diffdir=diffdir))
             elif (spectral['type'] == 'PowerLaw' ) or (spectral['type'] == 'PowerLaw2'):
                 mo = xtm.get_model(spectral)
-                ds.append(gds('ConstantValue',None,mo,None))
+                ds.append(gds('ConstantValue',None,mo,None,name))
             else:
                 raise Exception,'Isotropic model not implemented'
     
@@ -357,11 +473,18 @@ def parse_diffuse_sources(handler,diffdir=None):
                 print mo.index_offset
             else:
                 raise Exception,'Non-isotropic model not implemented'
-            ds.append(gds('MapCubeFunction',fname,mo,None,diffdir=diffdir))
+            ds.append(gds('MapCubeFunction',fname,mo,None,name,diffdir=diffdir))
             
+        elif spatial['type'] in [ 'PseudoGaussian', 'Gaussian', 'Disk', 'PseudoDisk', 'NFW', 'PseudoNFW']:
+            xtsm = XML_to_SpatialModel()
+            spatial_model=xtsm.get_spatial_model(spatial)
+            spectral_model=xtm.get_model(spectral)
+            ds.append(ExtendedSource(name=name,
+                                     model=spectral_model,
+                                     spatial_model=spatial_model,
+                                     leave_parameters=True))
         else:
             raise Exception,'Spatial model not recognized'
-        ds[-1].name = src['name']
     return ds
 
 def parse_sources(xmlfile,diffdir=None):
@@ -391,7 +514,11 @@ def process_diffuse_source(ds):
     dm = ds.dmodel
     if hasattr(dm,'__len__'):  dm = dm[0]
 
-    if isinstance(dm,DiffuseFunction):
+    if isinstance(ds,ExtendedSource):
+        m2x.process_model(ds.smodel,scaling=True)
+        specxml = m2x.getXML()
+        skyxml = makeExtendedSourceSpatialModel(ds.spatial_model)
+    elif isinstance(dm,DiffuseFunction):
         filename = os.path.abspath(dm.name())
         skyxml = makeDSMapcubeSpatialModel(filename=filename)
         m2x.process_model(ds.smodel,scaling=True)
@@ -400,7 +527,7 @@ def process_diffuse_source(ds):
         skyxml = makeDSConstantSpatialModel()
         if isinstance(dm,IsotropicSpectrum):
             filename = os.path.abspath(dm.name())
-            m2x.process_model(ds.smodel,scaling=True)
+            m2x.process_model(ds.smodel,xml_name='FileFunction',scaling=True)
             specxml = m2x.getXML(spec_attrs='file=\"%s\"'%(filename))
         elif isinstance(dm,IsotropicPowerLaw):
             sd = SkyDir()
@@ -414,7 +541,7 @@ def process_diffuse_source(ds):
             specxml = m2x.getXML()
         else:
             raise Exception,'Did not recognize %s'%(ds.name)
-    s1 = '<source name="%s" type="DiffuseSource">\n'%(ds.name)
+    s1 = '\n<source name="%s" type="DiffuseSource">\n'%(ds.name)
     s2 = '</source>'
     return ''.join([s1,specxml,skyxml,s2])
     
@@ -428,11 +555,11 @@ def unparse_diffuse_sources(diffuse_sources):
 def writeXML(stacks,filename):
     """Write XML blurbs to a gtlike-style XML file."""
     f = open(filename,'wb')
-    f.write('<source_library title="source_library">\n')
+    f.write('<source_library title="source_library">')
     for stack in stacks:
         for elem in stack:
             f.write(elem)
-    f.write('</source_library>')
+    f.write('\n</source_library>')
 
 def writeROI(roi,filename):
     """Write out the contents of an ROIAnalysis source model

@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.9 2010/06/25 08:39:42 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.10 2010/07/06 01:50:54 kerrm Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -239,12 +239,8 @@ class AnalyticConvolution(object):
 
     def init(self):
         self.weight_before  = False
-        self.tolerance      = 1e-2
-        # 50 points & tolerance 1e-2 was picked for default because 
-        # I saw emperically that
-        # we could obtain a percent error < 1e-5 for all PDF values 
-        # up to the maximum and for all energies & conversion types.
-        self.num_points     = 50
+        self.tolerance      = 1e-3
+        self.num_points     = 100
         self.skyfun         = PySkyFunction(self)
         self.fitpsf         = False
 
@@ -295,7 +291,7 @@ Optional keyword arguments:
 
         return pdf 
 
-    def do_convolution(self,energy,conversion_type,band=None):
+    def do_convolution(self,energy,conversion_type,band):
         """ Generate points uniformly in r^2 ~ u, to ensure there are more 
             points near the center, where the PDF is bigger and changing
             rapidly. Then, do a cubic spline interpolation of the log of
@@ -328,10 +324,9 @@ Optional keyword arguments:
             nclist,ntlist,gclist,gtlist,\
                     sclist,stlist,wlist = self.bpsf.par
 
-            self.rmax=10*(N.append(sclist,stlist).max() +
-                          self.spatial_model.r68())
+            self.rmax=40*(N.append(sclist,stlist).max()) + 5*self.spatial_model.r68()
 
-            self.rlist=N.linspace(0,self.rmax,self.num_points)
+            self.rlist=N.linspace(0,N.sqrt(self.rmax),self.num_points)**2
 
             # pdf is the probability per unit area at a given radius.
             self.pdf=N.zeros_like(self.rlist)
@@ -359,7 +354,15 @@ Optional keyword arguments:
             # g = gamma, s = sigma, w = weight
             glist,slist,wlist = self.bpsf.par
 
-            self.rmax=10*(slist.max()+self.spatial_model.r68())
+            # I found emperically that 40*the biggest sigma would adequatly
+            # cover the PSF
+            self.rmax=40*slist.max()+5*self.spatial_model.r68()
+
+            # edge of 
+            self.edge_distance=band.sd.difference(self.spatial_model.center) + \
+                               band.radius_in_rad
+
+            self.rmax=min(self.rmax,self.edge_distance)
 
             self.rlist=N.linspace(0,N.sqrt(self.rmax),self.num_points)**2
 
@@ -368,7 +371,7 @@ Optional keyword arguments:
 
             if self.fitpsf:
                 self.pdf = self._get_pdf(self.rlist,band.fit_gamma,band.fit_sigma)
-            if self.weight_before:
+            elif self.weight_before:
                 # weight the convolved shape by gamma, sigma, and weight
                 g=(glist*wlist).sum()
                 s=(slist*wlist).sum()
@@ -400,11 +403,12 @@ Optional keyword arguments:
         # Kind of a hack, but log of 0 is very small.
         self.interp=interp1d(self.rlist,self.log_pdf,kind='cubic',bounds_error=False,fill_value=-1000)
 
-        # Just in case the first entry is a NaN, set values below equal to the first non-nan/inf
-        # pdf value.
+        # Just in case the first few radius values got removed for eing nan/inf/negative, 
+        # set values below equal to the first non-nan/inf pdf value.
         self.val=lambda x: N.exp(self.interp(x))*(x>=self.rlist[0])+self.pdf[0]*(x<self.rlist[0])
 
     def ap_average(self,center,radius):
+        # This function needs to be fixed
         solid_angle=2*N.pi*(1-N.cos(radius))
         return 1/solid_angle
 
