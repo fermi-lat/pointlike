@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/SpatialModels.py,v 1.4 2010/06/30 00:40:16 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/SpatialModels.py,v 1.5 2010/07/06 23:01:05 lande Exp $
 
    author: Joshua Lande
 
@@ -28,12 +28,12 @@ class DefaultSpatialModelValues(object):
         is the center of the source. The limits on the first two parameters are
         defined as a physical angular distance away from the source.
         The first to parametesr (lon & lat) are forced to have log=False
-        The firs two parametesr are not defined in teh models dict but always set
+        The firs two parametesr are not defined in the models dict but always set
         to defaults lower in the function. """
     models = {
         'Gaussian'           : {'p':[N.radians(.1)],                 
                                 'param_names':['Sigma'],                        
-                                'limits':N.radians([[1e-6,3]]),
+                                'limits':N.radians([[1e-10,3]]),
                                 'log':[True],
                                 'steps':[0.04]
                                 # Note that the step for sigma is a step in log space!
@@ -42,12 +42,13 @@ class DefaultSpatialModelValues(object):
         'PseudoGaussian'     : {},
         'Disk'               : {'p':[0,0,N.radians(.1)],
                                 'param_names':['lon,lat','Sigma'],
-                                'limits':N.radians([[1e-6,3]]),
+                                'limits':N.radians([[1e-10,3]]),
                                 'log':[False,False,True]},
         'PseudoDisk'         : {'p':[], 'param_names':[], 'limits':[], 'log':[], 'steps':[]},
         'NFW'                : {'p':[N.radians(.1)],
                                 'param_names': 'Sigma',
-                                'limits': N.radians([[1e-6,3]]),
+                                'limits': N.radians([[1e-10,9]]), # constrain r68 to 3 degrees.
+                                'steps':[0.04],
                                 'log':[True]},
         'PseudoNFW'          : {'p':[], 'param_names':[], 'limits':[], 'log':[], 'steps':[]},
         'EllipticalGaussian' : {'p':[N.radians(.1),N.radians(.1),0], 
@@ -254,13 +255,16 @@ class SpatialModel(object):
         """Return covariance matrix."""
 
         jac = N.log10(N.exp(1))
-        p = ((10**self.p)*jac)*self.log + 1*(~self.log) if absolute else N.ones_like(self.p)
+        p = ((10**self.p)/jac)*self.log + 1*(~self.log) if absolute else N.ones_like(self.p)
         pt=p.reshape((p.shape[0],1)) #transpose
         return p*self.cov_matrix*pt
 
-    def get_free_errors(self,absolute=False):
+    def get_free_errors(self,absolute=False,all=False):
         """Return the diagonal elements of the covariance matrix for free parameters."""
-        return N.diag(self.get_cov_matrix(absolute))[self.free]**0.5
+        if all:
+            return N.diag(self.get_cov_matrix(absolute))**0.5
+        else:
+            return N.diag(self.get_cov_matrix(absolute))[self.free]**0.5
 
     def statistical(self,absolute=False,two_sided=False):
         """Return the parameter values and fractional statistical errors.
@@ -271,11 +275,11 @@ class SpatialModel(object):
             # for one sided case, completely map covarinace matrix
             # to absolute values & then divide by p to get relative
             # errors
-            errs = N.diag(self.get_cov_matrix(absolute=True))**0.5
+            errs = self.get_free_errors(absolute=True,all=True)
             return p,errs/(1. if absolute else p)
         else:
-            # parameters fit in log space must be treated differently.
-            errs = N.diag(self.cov_matrix)**0.5
+            # Perfrom conversion out of log space.
+            errs = self.get_free_errors(absolute=False,all=True)
             lo_abs = (p-10**(self.p-errs))*self.log + errs*(~self.log)
             hi_abs = (10**(self.p+errs)-p)*self.log + errs*(~self.log)
             return  p, \
@@ -457,12 +461,15 @@ class NFW(Disk):
         super(Disk,self).cache()
 
         self.sigma=self.extension()
+        # Ask Alex DW if you don't understand this
+        self.factor=1.07
+        self.scaled_sigma=self.sigma/self.factor
 
     def at_r(self,r):
-        return 2/(N.pi*r*self.sigma*(1+r/self.sigma)**5)
+        return 2/(N.pi*r*self.scaled_sigma*(1+r/self.scaled_sigma)**5)
 
     def r68(self):
-        return 0.33*self.sigma
+        return 0.33*self.scaled_sigma
 
     def pretty_spatial_string(self):
         return "[ %.3f' ]" % (60*N.degrees(self.sigma))
