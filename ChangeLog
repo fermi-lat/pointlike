@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jul  7 23:20:19 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Print DERIVED/FIXED values even if no errors are present.
+    *
+------------------------------------------------------------
 User: lande  Tue Jul  6 16:01:24 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
