@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.8 2010/06/22 21:53:19 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.9 2010/06/30 20:46:23 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -211,7 +211,11 @@ Optional keyword arguments:
          for i in xrange(len(pnames)):
             n=pnames[i][:m]
             t_n=n+(m-len(n))*' '
-            l+=[t_n+': %.3g'%(p[i])]
+            if i < len(self.p):
+               frozen = '' if self.free[i] else '(FROZEN)'
+            else:
+               frozen = '(DERIVED)'
+            l+=[t_n+': %.3g %s'%(p[i],frozen)]
          return '\n'.join(l)
 
    def i_flux(self,emin=100,emax=N.inf,e_weight=0,cgs=False,error=False,two_sided=False):
