@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jul  7 23:20:49 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Fix bug in error calculation. Fix parameterization of NFW.
+    *
+------------------------------------------------------------
 User: lande  Wed Jul  7 23:20:19 PDT 2010
 pointlike/python/uw/like
 
