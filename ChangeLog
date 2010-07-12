@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Sun Jul 11 21:00:19 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Changes to allow modification of the grid size for convolution on a band-by-band basis.  Also, a kluge to force an integral over an energy band to use the appropriate PSF parameters.  (I.e., the sigma/gamma for an energy endpoint should be the same as the rest of the band.)
+    *
+------------------------------------------------------------
 User: lande  Wed Jul  7 23:21:20 PDT 2010
 pointlike/python/uw/like
 
