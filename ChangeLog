@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Sun Jul 11 21:06:28 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_bands.py 
+Log Message:
+Disable the energy "optimization" of PSF band.  For now, use geometric mean.  An improved version in the works.
+    *
+------------------------------------------------------------
 User: kerrm  Sun Jul 11 21:05:37 PDT 2010
 pointlike/python/uw/like
 
