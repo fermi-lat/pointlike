@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Sun Jul 11 21:05:37 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+Made changes to use a finer energy subgrid at E < 200 MeV.  Changed the behavior of ROIDiffuseModel_OTF to set the grid size based on the PSF and ROI radius for the band.
+    *
+------------------------------------------------------------
 User: kerrm  Sun Jul 11 21:01:46 PDT 2010
 pointlike/python/uw/like
 
