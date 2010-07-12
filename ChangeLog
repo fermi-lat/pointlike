@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jul 12 15:57:31 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+Fix a small bug that resulted from putting in the on-the-fly grid sizing.
+    *
+------------------------------------------------------------
 User: lande  Mon Jul 12 12:26:29 PDT 2010
 pointlike/python/uw/like
 
