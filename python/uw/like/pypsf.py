@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.7 2010/06/07 14:49:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.8 2010/06/18 22:21:14 kerrm Exp $
 author: M. Kerr
 
 """
@@ -217,15 +217,18 @@ class CALDBPsf(Psf):
 class BandPsf(object):
 
    def init(self):
-      self.newstyle = False
+      self.newstyle    = False
+      self.override_en = None
+      self.adjust_mean = False
+      self.weightfunc  = None
 
-   def __init__(self,psf,band,weightfunc=None,adjust_mean=False,**kwargs):
+   def __init__(self,psf,band,**kwargs):
       self.init()
       self.newstyle = psf.newstyle
       self.__dict__.update(kwargs)
-      self.par     = psf.get_p(band.e,band.ct).copy()
+      self.par     = psf.get_p(self.override_en or band.e,band.ct).copy()
       
-      if adjust_mean:
+      if self.adjust_mean:
          # calculate the correct energy to let us take the PSF out
          # of the rate integral according to the Mean Value Theorem
          # this implementation relies explictly on the form of the
@@ -240,7 +243,8 @@ class BandPsf(object):
          self.eopt  = 100*N.exp(N.log(((i1/i2)**2 - p3**2)**0.5/p1)/p2)
          self.scale = psf.scale_func[band.ct](self.eopt)
 
-      elif weightfunc is not None:
+      elif self.weightfunc is not None:
+         weightfunc = self.weightfunc
          dom   = N.logspace(N.log10(band.emin),N.log10(band.emax),9)
          wvals = [weightfunc(x) for x in dom]
          svals = psf.scale_func[band.ct](dom)
