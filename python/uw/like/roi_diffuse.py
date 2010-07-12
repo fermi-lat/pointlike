@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.8 2010/06/30 20:59:41 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.9 2010/07/06 23:01:05 lande Exp $
 
 author: Matthew Kerr
 """
@@ -107,8 +107,8 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
 
     def init(self):
         self.pixelsize = 0.25
-        self.npix      = 101
-        self.nsimps    = 4   # consider making a function?
+        #self.npix      = 101 # no longer needed, specified on the fly
+        self.nsimps    = 4   # note -- some energies use a multiple of this
 
     def setup(self):
         exp = self.sa.exposure.exposure; psf = self.sa.psf
@@ -121,15 +121,25 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
             self.bgc = [BackgroundConvolution(self.roi_dir,bg,psf,
                         npix=self.npix,pixelsize=self.pixelsize) for bg in self.bg]
 
-    def set_state(self,energy,conversion_type,**kwargs):
+    def set_state(self,energy,conversion_type,band,**kwargs):
         self.active_bgc = self.bgc[conversion_type if (len(self.bgc) > 1) else 0]
-        self.active_bgc.do_convolution(energy,conversion_type)
+        multi = 1 + 0.01*(energy==band.emin) -0.01*(energy==band.emax)
+        r95 = self.sa.psf.inverse_integral(energy*multi,conversion_type,95)
+        rad = r95 + N.degrees(band.radius_in_rad)
+        rad = max(min(20,rad),N.degrees(band.radius_in_rad)+2.5)
+        npix = int(round(2*rad/self.pixelsize))
+        npix += (npix%2 == 0)
+        self.active_bgc.setup_grid(npix,self.pixelsize)
+        self.active_bgc.do_convolution(energy,conversion_type,override_en=band.e)
 
     def initialize_counts(self,bands,roi_dir=None):
-        ns = self.nsimps; rd = self.roi_dir if roi_dir is None else roi_dir
+        rd = self.roi_dir if roi_dir is None else roi_dir
         self.bands = [SmallBand() for i in xrange(len(bands))]
 
         for myband,band in zip(self.bands,bands):
+
+            # use a higher nsimps at low energy where effective area is jagged
+            ns = (2 if band.emin<200 else 1)*self.nsimps
             if ns > 0:
                 myband.bg_points = sp = N.logspace(N.log10(band.emin),N.log10(band.emax),ns+1)
                 myband.bg_vector = sp * (N.log(sp[-1]/sp[0])/(3.*ns)) * \
@@ -144,7 +154,7 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
 
                   
             for ne,e in enumerate(myband.bg_points):
-                self.set_state(e,band.ct,band=band) # band needed for extended sources
+                self.set_state(e,band.ct,band)
                 myband.ap_evals[ne] = self._ap_value(rd,band.radius_in_rad)
                 if band.has_pixels:
                     myband.pi_evals[:,ne] = self._pix_value(band.wsdl)
