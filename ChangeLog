@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Sun Jul 11 21:01:46 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+Allow an override energy for a PSF band.  This will set the sigma/gamma that are drawn from CALDB while allowing finer behavior of the prescale sigma.
+    *
+------------------------------------------------------------
 User: kerrm  Sun Jul 11 21:00:19 PDT 2010
 pointlike/python/uw/utilities
 
