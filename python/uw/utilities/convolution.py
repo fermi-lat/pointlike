@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.10 2010/07/06 01:50:54 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.11 2010/07/06 23:01:23 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -52,29 +52,27 @@ class Grid(object):
             npix   -- the number of pixels along a grid side
             pixelsize -- the length of the side of a pixel (deg)
         """
+        self.center = center
+        self.clon,self.clat = center.l(),0
+        self.rot_axis = SkyDir(self.clon+90,0).dir() # Hep3Vector
+        self.setup_grid(npix,pixelsize)
+
+    def setup_grid(self,npix=4*25+1,pixelsize=1./4):
 
         self.npix,self.pixelsize = npix,pixelsize
-        
-        l,b    = center.l(),center.b()
-        self.center = center
-        
-        self.clon,self.clat = l,0
         self.delta_lon = (npix-1)*pixelsize
         self.delta_lat = (npix-1)*pixelsize
         self.lon0 = (self.clon + self.delta_lon/2.)%360
         self.lat0 = self.clat - self.delta_lat/2.
         self.wrap = self.lon0 <= self.delta_lon # True if origin (0/360) is in frame
 
-        npix  = self.npix
-        mpix  = (float(self.npix)-1)/2.
+        mpix  = (float(npix)-1)/2.
         v     = (N.arange(0,npix) - mpix)**2
         self.dists = N.asarray([v+v[i] for i in xrange(npix)])**0.5*(N.radians(self.pixelsize))
 
         self.lons = self.lon0 - N.linspace(0,1,self.npix)*self.delta_lon
         self.lons = DoubleVector(N.where(self.lons < 0,self.lons+360,self.lons)) # if origin in frame
         self.lats = DoubleVector(N.linspace(0,1,self.npix)*self.delta_lat + self.lat0)
-
-        self.rot_axis = SkyDir(l+90,0).dir() # Hep3Vector
 
     def rot_lon_lat(self,lon,lat):
         """ Rotate the specified lon/lat to the equatorial grid. """
@@ -164,7 +162,7 @@ class BackgroundConvolution(Grid):
                      recommended as it will smear the map inappropriately
                      at high energies."""
 
-    def do_convolution(self,energy,conversion_type,override_skyfun=None):
+    def do_convolution(self,energy,conversion_type,override_skyfun=None,override_en=None):
         """ Perform a convolution at the specified energy, for the specified
             conversion type.  The values are stored internally as "cvals".
         """
@@ -176,15 +174,16 @@ class BackgroundConvolution(Grid):
         else:
             self.bg_vals = self.fill(override_skyfun)
         pb = PretendBand(energy,conversion_type)
-        bpsf = BandCALDBPsf(self.psf,pb)
+        bpsf = BandCALDBPsf(self.psf,pb,override_en=override_en)
         self.psf_fill(bpsf)
         self.convolve()
 
 
     def psf_fill(self,psf):
         """ Evaluate a band psf over the grid."""
-        psf_vals = psf(self.dists).reshape([self.npix,self.npix])
+        psf_vals = psf(self.dists,density=True).reshape([self.npix,self.npix])
         self.psf_vals = psf_vals / psf_vals.sum()
+        #self.psf_vals = psf_vals*N.radians(self.pixelsize)**2
 
     def convolve(self):
         """ Perform the convolution with the current values of the bg
