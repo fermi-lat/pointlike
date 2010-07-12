@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.9 2010/07/06 23:01:05 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.10 2010/07/12 04:05:37 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -107,7 +107,7 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
 
     def init(self):
         self.pixelsize = 0.25
-        #self.npix      = 101 # no longer needed, specified on the fly
+        self.npix      = 101 # note -- can be overridden at the band level
         self.nsimps    = 4   # note -- some energies use a multiple of this
 
     def setup(self):
