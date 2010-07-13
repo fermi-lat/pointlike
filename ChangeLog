@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jul 12 19:59:01 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Error checking in TS function.
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jul 12 15:57:31 PDT 2010
 pointlike/python/uw/like
 
