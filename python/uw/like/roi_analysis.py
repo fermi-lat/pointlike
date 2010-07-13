@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.21 2010/07/05 19:19:20 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.22 2010/07/08 06:21:19 lande Exp $
 
 author: Matthew Kerr
 """
@@ -457,6 +457,9 @@ class ROIAnalysis(object):
          ll_0 = self.logLikelihood(self.get_parameters())
          self.unzero_ps(which)
          ll_1 = self.logLikelihood(self.get_parameters())
+         if ll_0 == 1e6 or ll_1 == 1e6: 
+             print 'Warning: loglikelihood is NaN, returning TS=0'
+             return 0
          return 2*(ll_0 - ll_1)
 
       save_params = self.parameters().copy() # save free parameters
@@ -467,6 +470,9 @@ class ROIAnalysis(object):
       self.set_parameters(save_params) # reset free parameters
       self.__pre_fit__() # restore caching
       ll = -self.logLikelihood(save_params)
+      if ll_0 == 1e6 or ll == 1e6: 
+          print 'Warning: loglikelihood is NaN, returning TS=0'
+          return 0
       return -2*(ll_0 - ll)
 
    def localize(self,which=0, tolerance=1e-3,update=False, verbose=False, bandfits=False, seedpos=None,**kwargs):
@@ -476,7 +482,7 @@ class ROIAnalysis(object):
                       ***if localizing non-central, ensure ROI is large enough!***
          tolerance -- maximum difference in degrees between two successive best fit positions
          update    -- if True, update localization internally, i.e., recalculate point source contribution
-         bandfits  -- if True, use a band-by-band (model independent) spectral fit; otherwise, use broabband fit
+         bandfits  -- if True, use a band-by-band (model independent) spectral fit; otherwise, use broadband fit
          seedpos   -- if set, use this position instead of the source position
 
          return fit position
