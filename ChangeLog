@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Tue Jul 13 15:26:03 PDT 2010
+pointlike/python/uw/utilities
+
+Added Files:
+	boresight.py 
+Log Message:
+Removed old alignment application and added boresight methods in python (uw.utilities.boresight) and added test files
+    *
+------------------------------------------------------------
 User: mar0  Tue Jul 13 15:22:03 PDT 2010
 pointlike/python/uw/utilities/boresighttest
 
