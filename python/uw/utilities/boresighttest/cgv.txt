@@ -1,0 +1,4 @@
+name                       type         ra       dec      flux9     emin     emax   index1   index2   ebreak     id                       fitsfile     lc     #generated      #in_output
+PSRJ0534+2200	83.6295	22.0167
+PSRJ0633+1746	98.4805	17.7693
+PSRJ0835-4510	128.8379	-45.1761
