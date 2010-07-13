@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.22 2010/07/08 06:21:19 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.23 2010/07/13 02:59:01 lande Exp $
 
 author: Matthew Kerr
 """
@@ -11,7 +11,6 @@ import numpy as N
 import math
 from roi_managers import *
 from roi_bands import *
-from roi_plotting import *
 from roi_localize import *
 from pointspec_helpers import PointSource
 from roi_diffuse import DiffuseSource
