@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jul 12 20:00:22 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Only import minuit when needed.
+    *
+------------------------------------------------------------
 User: lande  Mon Jul 12 19:59:01 PDT 2010
 pointlike/python/uw/like
 
