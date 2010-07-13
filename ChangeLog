@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jul 13 14:26:00 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+No importing roi_analysis -> No matplotlib dependence unless plotting.
+    *
+------------------------------------------------------------
 User: lande  Mon Jul 12 20:00:22 PDT 2010
 pointlike/python/uw/like
 
