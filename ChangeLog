@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jul 15 18:41:38 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Restructure semi-analytic convolution code. More accurate caching algorithm for high energy.
+    *
+------------------------------------------------------------
 User: lande  Thu Jul 15 18:40:06 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
