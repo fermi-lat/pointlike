@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.9 2010/06/30 20:46:23 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.10 2010/07/08 06:20:19 lande Exp $
 
    author: Matthew Kerr
 
@@ -191,19 +191,24 @@ Optional keyword arguments:
          pnames      = self.param_names + ['Ph. Flux','En. Flux']
       else: pnames = self.param_names
 
-      m=max([len(n) for n in pnames])
       l=[]
       if (not self.background and N.any(lo_p[0:-2]!=0)) or \
              (self.background and N.any(lo_p!=0)): #if statistical errors are present   
          for i in xrange(len(pnames)):
-            n=pnames[i][:m]
-            t_n=n+(m-len(n))*' '
+            t_n = '%-10s' % pnames[i]
             if i < len(self.p):
-               frozen = '' if self.free[i] else '(FROZEN)'
+               # if free is empty (shouldn't happen normally) treat as all False
+               frozen = '' if len(self.free)>i and self.free[i] else '(FROZEN)'
             else:
                frozen = '(DERIVED)'
             if not absolute:
-               l+=[t_n+': (1 + %.3f - %.3f) (avg = %.3f) %.3g %s'%(hi_p[i],lo_p[i],(hi_p[i]*lo_p[i])**0.5,p[i],frozen)]
+               low, high = max(0, lo_p[i]), max(0,hi_p[i]) 
+               if low>1e2 or high >1e2: 
+                  low=high=0
+                  frozen= '(Failed fit)'
+               q = [high,low,(high*low)**0.5]
+               if N.any(N.isnan(q)): q = 3*[0]
+               l+=[t_n+': (1 + %.3f - %.3f) (avg = %.3f) %-10.3g %s'% (tuple(q) + (p[i],frozen))]
             else:
                l+=[t_n+': %.3g + %.3g - %.3g (avg = %.3g) %s'%(p[i],hi_p[i],lo_p[i],(hi_p[i]*lo_p[i])**0.5,frozen)]
          return '\n'.join(l)
