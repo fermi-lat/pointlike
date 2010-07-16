@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.12 2010/06/28 20:32:58 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.13 2010/06/29 02:37:51 kerrm Exp $
 
 """
-version='$Revision: 1.12 $'.split()[1]
+version='$Revision: 1.13 $'.split()[1]
 import os
 import math
 import skymaps
@@ -55,35 +55,47 @@ essentially unbinned in position for E > a few GeV.
 
 class PixelData(object):
     """
-Create a new PixelData instance, managing data and livetime.
+Manage data and livetime for spectral analysis
 
-    analysis_environment: an instance of AnalysisEnvironment correctly configured with
-                          the location of files needed for spectral analysis (see its
-                          docstring for more information.)
-
-Optional keyword arguments:
-
-   see docstring for SpectralAnalysis
 """
 
-    def __init__(self, spectral_analysis ):
+    def __init__(self, aedict=dict(), **kwargs ):
         """
 Create a new PixelData instance, managing data and livetime.
+    aedict: a dictionary from the analysis environment
+    kwargs: update or set one of the following parameters.
 
-    analysis_environment: an instance of AnalysisEnvironment correctly configured with
-                          the location of files needed for spectral analysis (see its
-                          docstring for more information.)
-
-Optional keyword arguments:
-
-   see docstring for SpectralAnalysis
-"""
-
-        self.__dict__.update(spectral_analysis)
-
-        from numpy import arange,log10
-        self.my_bins = 10**arange(log10(self.emin),log10(self.emax*1.01),1./self.binsperdec)
-        self.binner_set = False
+    """
+        defaults =  dict(
+            binfile   = None,
+            binsperdec= 4,
+            conv_type = -1,
+            emin      = 100,
+            emax      = 1e6,
+            event_class = 3,
+            ft1files  = [],
+            ft2files  = [],
+            gti_mask  = None,
+            ltcube    = None,
+            thetacut  = 66.4,
+            tstart    = 0,
+            tstop     = 0,
+            quiet     = False,
+            roi_dir   = None,
+            verbose   = False,
+            use_weighted_livetime = False,
+            zenithcut = 105,
+        )
+        self.__dict__.update(defaults)
+        for key, value in aedict.items():
+            if key in self.__dict__:
+                self.__dict__[key] = value
+        for key, value in kwargs.items():
+            if key in self.__dict__:
+                self.__dict__[key] = value
+            else:
+                raise Exception, 'keyword %s not recognized' % key
+        self._binner_set = False
 
         # check explicit files
         for filelist in [self.ft1files, self.ft2files] :
@@ -94,12 +106,19 @@ Optional keyword arguments:
         self.gti  =  self._GTI_setup()
         self.lt   =  self.get_livetime()
         self.weighted_lt = self.get_livetime(weighted=True) if self.use_weighted_livetime else None
-        self.data = self.get_data()
-        self.dmap = self.data.map()
+        self.get_data()
         self.dmap.updateIrfs()
 
     def __str__(self):
-        return 'Pixeldata: %.3f M events, %.3f Ms' % (self.dmap.photonCount()/1e6, self.gti.computeOntime()/1e6)
+        s ='Pixeldata: %.3f M events, %.3f Ms' % (self.dmap.photonCount()/1e6, self.gti.computeOntime()/1e6)
+        for key in sorted(self.__dict__.keys()):
+            if key[0]=='_': continue
+            v = self.__dict__[key]
+            if key[:2]=='ft' and len(v)>3:
+                s += '\t%-20s: %s ... %s\n' %(key, v[0], v[-1])
+            else:
+                s += '\t%-20s: %s\n' %(key, v)
+        return s
 
     def __repr__(self):
         return str(self)
@@ -109,8 +128,9 @@ Optional keyword arguments:
         for filelist in  [self.ft1files, self.ft2files] :
             if filelist is not None and len(filelist)>0 and not os.path.exists(filelist[0]):
                 raise Exception('PixelData setup: file name or path "%s" not found'%filelist[0])
-        self.data = self.get_data()
-        self.dmap = self.data.map()
+        #self.data = self.get_data()
+        #self.dmap = self.data.map()
+        self.dmap = self.get_data()
         self.dmap.updateIrfs()
 
     def fill_empty_bands(self,bpd):
@@ -156,7 +176,7 @@ Optional keyword arguments:
             b_nside = IntVector(NsideMapper.nside(self.my_bins,1))
             self.binner = skymaps.PhotonBinner(DoubleVector(self.my_bins),f_nside,b_nside)
             pointlike.Data.setPhotonBinner(self.binner)
-            self.binner_set = True
+            self._binner_set = True
 
 
     def _GTI_setup(self):
@@ -211,7 +231,8 @@ Optional keyword arguments:
             if not self.quiet: print 'loading file(s) %s' % self.ft1files
             data = pointlike.Data(self.ft1files,self.conv_type,self.tstart,self.tstop,self.mc_src_id,'')
 
-            self.fill_empty_bands(data.map())     # fill any empty bins
+            self.dmap =data.map()
+            self.fill_empty_bands(self.dmap)     # fill any empty bins
 
             if self.verbose: print 'done'
             if self.binfile is not None:
@@ -240,15 +261,15 @@ Optional keyword arguments:
                 f.writeto(self.binfile,clobber=True)
                 f.close()
                 """
-        else:
-            data = pointlike.Data(self.binfile)
-            if not self.quiet: print '.....loaded binfile %s ' % self.binfile
+        if self.binfile is not None:
+            if not self.quiet: print '.....loading binfile %s ...' % self.binfile ,
+            self.dmap = skymaps.BinnedPhotonData(self.binfile)
+        if not self.quiet: print 'found %d bands.' % len(self.dmap)
 
         if self.verbose:
-            data.map().info()
+            self.dmap.info()
             print '---------------------'
 
-        return data
 
     def test_pixelfile_consistency(self):
         """Check the keywords in a binned photon data header for consistency with the analysis environment."""
