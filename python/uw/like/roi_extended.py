@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.10 2010/07/13 03:00:22 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.11 2010/07/13 21:26:18 lande Exp $
 
     author: Joshua Lande
 """
@@ -118,7 +118,7 @@ class ROIExtendedModel(ROIDiffuseModel_OTF):
                  es.name,es.smodel.pretty_name,
                  es.smodel.__str__())
 
-    def localize(self,roi,which,tolerance=1e-3,update=False,verbose=False,
+    def localize(self,roi,which,tolerance=1e-2,update=False,verbose=False,
                  bandfits=True, error="HESSE",init_grid=None,fitpsf=False):
         """ Localize this extended source by fitting all non-fixed spatial paraameters of 
             self.extended_source. The likelihood at the best position is returned.
@@ -129,7 +129,7 @@ Optional keyword arguments:
   Keyword     Description
   =========   =======================================================
   bandfits      [True]  Spectrum independent fitting.
-  tolerance     [1e-3]  Tolerance set when integrating hypergeometirc
+  tolerance     [1e-2]  Tolerance set when integrating hypergeometirc
                         function to calcualte PDF.
   update        [False] Number of points to calculate the PDF at.
                         interpolation is done in between.
@@ -505,8 +505,10 @@ class BandFitter(object):
             pdf /= weight_sum 
 
             # Function returns the difference between the true pdf and 
-            # the psf for a given gamma & sigma.
-            f=lambda p: N.std(self.psf_base(p[0],p[1],rlist).sum(axis=1)-pdf)
+            # the psf for a given gamma & sigma. Note that the most
+            # accurate thing is the probability per unit radius summed over
+            # all of the radii.
+            f=lambda p: N.std(rlist*(self.psf_base(p[0],p[1],rlist).sum(axis=1)-pdf))
 
             fit = fmin(f,[gamma_middle,sigma_middle],full_output=False,disp=False)
             fit_gamma,fit_sigma = fit
