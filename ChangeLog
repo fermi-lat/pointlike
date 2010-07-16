@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 16 14:25:51 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+improve __str__ formatting.
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 16 14:23:50 PDT 2010
 pointlike/python/uw/like
 
