@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/SpatialModels.py,v 1.6 2010/07/08 06:20:49 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.7 2010/07/12 19:26:28 lande Exp $
 
    author: Joshua Lande
 
@@ -561,8 +561,8 @@ class Template(SpatialModel):
         self.skyfun=SkyImage(self.template,extension,interpolate)
 
         self.projection = self.skyfun.projector()
-        naxis1=img.naxis1()
-        naxis2=img.naxis2()
+        naxis1=self.projection.naxis1()
+        naxis2=self.projection.naxis2()
 
         def dir(x,y):
             coordsystem=SkyDir.GALACTIC if self.projection.isGalactic() else SkyDir.EQUATORIAL
