@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 16 15:01:12 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pixeldata.py 
+Log Message:
+update to PixelData ctor to allow minimal dictionary, with defaults filled in.
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 16 14:25:51 PDT 2010
 pointlike/python/uw/like
 
