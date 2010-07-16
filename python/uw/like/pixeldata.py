@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.13 2010/06/29 02:37:51 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.14 2010/07/16 22:01:12 burnett Exp $
 
 """
-version='$Revision: 1.13 $'.split()[1]
+version='$Revision: 1.14 $'.split()[1]
 import os
 import math
 import skymaps
@@ -147,7 +147,8 @@ Create a new PixelData instance, managing data and livetime.
     def _Data_setup(self):
 
         # check emin and bpd for consistency with CALDB
-        c1 = N.abs(self.my_bins - 100).min() > 1
+        my_bins = 10**N.arange(N.log10(self.emin),N.log10(self.emax*1.01),1./self.binsperdec)
+        c1 = N.abs(my_bins - 100).min() > 1
         c2 = (self.binsperdec % 4) > 0
         if c1 or c2:
             print """
@@ -166,15 +167,16 @@ Create a new PixelData instance, managing data and livetime.
         pointlike.Data.set_class_level(self.event_class)
         pointlike.Data.set_zenith_angle_cut(self.zenithcut)
         pointlike.Data.set_theta_cut(self.thetacut)
-        pointlike.Data.set_use_mc_energy(self.mc_energy)
+        if 'mc_energy' in self.__dict__:
+            pointlike.Data.set_use_mc_energy(self.mc_energy)
         pointlike.Data.set_Gti_mask(self.gti)
         if not self.quiet: print '.....set Data theta cut at %.1f deg'%(self.thetacut)
 
-        if not self.binner_set:
+        if not self._binner_set:
             from pointlike import DoubleVector,IntVector
-            f_nside = IntVector(NsideMapper.nside(self.my_bins,0))
-            b_nside = IntVector(NsideMapper.nside(self.my_bins,1))
-            self.binner = skymaps.PhotonBinner(DoubleVector(self.my_bins),f_nside,b_nside)
+            f_nside = IntVector(NsideMapper.nside(my_bins,0))
+            b_nside = IntVector(NsideMapper.nside(my_bins,1))
+            self.binner = skymaps.PhotonBinner(DoubleVector(my_bins),f_nside,b_nside)
             pointlike.Data.setPhotonBinner(self.binner)
             self._binner_set = True
 
