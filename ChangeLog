@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jul 15 18:40:06 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Fit P(r) not P(x,y) in psf fitting for less biased fit. Decrease defualt accuracy.
+    *
+------------------------------------------------------------
 User: lande  Thu Jul 15 18:39:29 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
