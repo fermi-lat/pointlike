@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 16 14:23:50 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_bands.py 
+Log Message:
+fix slight bug in exception handling
+    *
+------------------------------------------------------------
 User: lande  Thu Jul 15 18:41:38 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
