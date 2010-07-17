@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.18 2010/05/19 00:01:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.19 2010/05/20 17:30:11 burnett Exp $
 
 """
-version = '$Revision: 1.18 $'.split()[1]
+version = '$Revision: 1.19 $'.split()[1]
 
 import pylab
 import math
@@ -395,6 +395,27 @@ class AIT(object):
         rp = [ self.pixel(sdir) for sdir in dirs]
         self.axes.plot( [r[0] for r in rp], [r[1] for r in rp], 'k', **kwargs)
 
+def galactic_map(skydir, axes=None, pos=(0.77,0.88), width=0.2, color='w', symbol='sr'):
+    """ 
+    insert a little map showing the galactic position
+        skydir: sky coordinate for point
+        axes: Axes object, use gca() if None
+        pos: location within the map
+        width: width, fraction of map siza
+        color: line color
+        symbol ['sr'] plot symbol+color
+    returns the AIT_grid to allow plotting other points
+    """
+    # create new a Axes object positioned according to axes that we are using
+    if axes is None: axes=pl.gca()
+    b = axes.get_position()
+    xsize, ysize = b.x1-b.x0, b.y1-b.y0
+    axi = axes.figure.add_axes((b.x0+pos[0]*xsize, b.y0+pos[1]*ysize, width*xsize, 0.5*width*ysize))
+    ait_insert=AIT_grid(axes=axi, labels=False, color=color)
+    ait_insert.plot([skydir], symbol)
+    axes.figure.sca(axes) # restore previous axes
+    return ait_insert 
+
         
 class ZEA(object):
     """ Manage a square image SkyImage
@@ -703,7 +724,7 @@ class TSplot(object):
         parameters:
         *tsmap*   a SkyFunction, that takes a SkyDir argument and returns a value
         *center*  SkyDir direction to center the plot
-        *size*    (degrees) half width of plot
+        *size*    (degrees)  width of plot
         *pixelsize* [None] size (degrees) of a pixel: if not specified, will be size/10
         *axes* [None] Axes object to use: if None, use current
         *nticks* [4] Suggestion for labeling
