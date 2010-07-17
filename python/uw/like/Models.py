@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.10 2010/07/08 06:20:19 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.11 2010/07/16 21:25:51 burnett Exp $
 
    author: Matthew Kerr
 
@@ -214,8 +214,7 @@ Optional keyword arguments:
          return '\n'.join(l)
       else: #if no errors are present
          for i in xrange(len(pnames)):
-            n=pnames[i][:m]
-            t_n=n+(m-len(n))*' '
+            t_n = '%-10s' % pnames[i]
             if i < len(self.p):
                frozen = '' if self.free[i] else '(FROZEN)'
             else:
