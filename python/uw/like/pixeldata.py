@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.14 2010/07/16 22:01:12 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.15 2010/07/16 22:23:32 burnett Exp $
 
 """
-version='$Revision: 1.14 $'.split()[1]
+version='$Revision: 1.15 $'.split()[1]
 import os
 import math
 import skymaps
@@ -85,6 +85,8 @@ Create a new PixelData instance, managing data and livetime.
             verbose   = False,
             use_weighted_livetime = False,
             zenithcut = 105,
+            mc_src_id = -1,
+            mc_energy = False
         )
         self.__dict__.update(defaults)
         for key, value in aedict.items():
@@ -105,7 +107,7 @@ Create a new PixelData instance, managing data and livetime.
         # order of operations: GTI is needed for livetime; livetime is needed for PSF
         self.gti  =  self._GTI_setup()
         self.lt   =  self.get_livetime()
-        self.weighted_lt = self.get_livetime(weighted=True) if self.use_weighted_livetime else None
+        self.weighted_lt = self.get_livetime(weighted=True,clobber=False) if self.use_weighted_livetime else None
         self.get_data()
         self.dmap.updateIrfs()
 
@@ -133,10 +135,9 @@ Create a new PixelData instance, managing data and livetime.
         self.dmap = self.get_data()
         self.dmap.updateIrfs()
 
-    def fill_empty_bands(self,bpd):
+    def fill_empty_bands(self,bpd,bands):
 
         dummy = skymaps.SkyDir(0,0)
-        bands = self.my_bins
 
         for bin_center in (bands[:-1]*bands[1:])**0.5:
              ph_f = pointlike.Photon(dummy,bin_center,2.5e8,0)
@@ -144,11 +145,10 @@ Create a new PixelData instance, managing data and livetime.
              bpd.addBand(ph_f)
              bpd.addBand(ph_b)
 
-    def _Data_setup(self):
+    def _Data_setup(self,bins):
 
         # check emin and bpd for consistency with CALDB
-        my_bins = 10**N.arange(N.log10(self.emin),N.log10(self.emax*1.01),1./self.binsperdec)
-        c1 = N.abs(my_bins - 100).min() > 1
+        c1 = N.abs(bins - 100).min() > 1
         c2 = (self.binsperdec % 4) > 0
         if c1 or c2:
             print """
@@ -174,9 +174,9 @@ Create a new PixelData instance, managing data and livetime.
 
         if not self._binner_set:
             from pointlike import DoubleVector,IntVector
-            f_nside = IntVector(NsideMapper.nside(my_bins,0))
-            b_nside = IntVector(NsideMapper.nside(my_bins,1))
-            self.binner = skymaps.PhotonBinner(DoubleVector(my_bins),f_nside,b_nside)
+            f_nside = IntVector(NsideMapper.nside(bins,0))
+            b_nside = IntVector(NsideMapper.nside(bins,1))
+            self.binner = skymaps.PhotonBinner(DoubleVector(bins),f_nside,b_nside)
             pointlike.Data.setPhotonBinner(self.binner)
             self._binner_set = True
 
@@ -227,8 +227,9 @@ Create a new PixelData instance, managing data and livetime.
 
         #if no binned object present, create; apply cuts
         if self.binfile is None or not os.path.exists(self.binfile):
+            my_bins = 10**N.arange(N.log10(self.emin),N.log10(self.emax*1.01),1./self.binsperdec)
 
-            self._Data_setup()
+            self._Data_setup(my_bins)
 
             if not self.quiet: print 'loading file(s) %s' % self.ft1files
             data = pointlike.Data(self.ft1files,self.conv_type,self.tstart,self.tstop,self.mc_src_id,'')
@@ -277,38 +278,43 @@ Create a new PixelData instance, managing data and livetime.
         """Check the keywords in a binned photon data header for consistency with the analysis environment."""
         pass
 
-    def get_livetime(self,   pixelsize=1.0,weighted = False):
+    def get_livetime(self,pixelsize=1.0,weighted = False,clobber = True):
 
         gti = self.gti
-        ltcube = self.weighted_ltcube if weighted else self.ltcube
-        if ltcube is None or not os.path.exists(ltcube):
-            if self.roi_dir is None:
-                # no roi specified: use full sky
-                self.roi_dir = skymaps.SkyDir(0,0)
-                self.exp_radius = 180
-            if not self.quiet:
-                print 'LivetimeCube file %s does not exist: will generate it from the ft2 files' % self.ltcube
-            lt = skymaps.LivetimeCube(
-                cone_angle =self.exp_radius,
-                dir        =self.roi_dir,
-                zcut       =math.cos(math.radians(self.zenithcut)),
-                pixelsize  =pixelsize,
-                quiet      =self.quiet,
-                weighted   =weighted)
+        if self.ltcube is not None and os.path.exists(self.ltcube):
+            try:
+                lt = skymaps.LivetimeCube(self.ltcube,weighted=weighted)
+                if not self.quiet: print 'loaded LivetimeCube %s ' % self.ltcube
+                return lt
+            except RuntimeError:
+                if not self.quiet:
+                    ext = 'WEIGHTED_EXPOSURE' if weighted else 'EXPOSURE'
+                    print('no extension %s in file %s: will generate it from the ft2files'%(ext,self.ltcube))
+        elif not self.quiet:
+            print 'LivetimeCube file %s does not exist: will generate it from the ft2 files' % self.ltcube
+        if self.roi_dir is None:
+            # no roi specified: use full sky
+            self.roi_dir = skymaps.SkyDir(0,0)
+            self.exp_radius = 180
+        lt = skymaps.LivetimeCube(
+            cone_angle =self.exp_radius,
+            dir        =self.roi_dir,
+            zcut       =math.cos(math.radians(self.zenithcut)),
+            pixelsize  =pixelsize,
+            quiet      =self.quiet,
+            weighted   =weighted)
 
-            for hf in self.ft2files:
-                if not self.quiet: print 'loading FT2 file %s' %hf ,
-                lt_gti = skymaps.Gti(hf,'SC_DATA')
-                if not ((lt_gti.maxValue() < self.gti.minValue()) or
-                        (lt_gti.minValue() > self.gti.maxValue())):
-                   lt.load(hf,gti)
+        for hf in self.ft2files:
+            if not self.quiet: print 'loading FT2 file %s' %hf ,
+            lt_gti = skymaps.Gti(hf,'SC_DATA')
+            if not ((lt_gti.maxValue() < self.gti.minValue()) or
+                    (lt_gti.minValue() > self.gti.maxValue())):
+               lt.load(hf,gti)
 
-            # write out ltcube if requested
-            if self.ltcube is not None: lt.write(ltcube)
-        else:
-            # ltcube exists: just use it! (need to bullet-proof this)
-            lt = skymaps.LivetimeCube(ltcube)
-            if not self.quiet: print 'loaded LivetimeCube %s ' % ltcube
+        # write out ltcube if requested
+        if self.ltcube is not None:
+            extension = 'WEIGHTED_EXPOSURE' if weighted else 'EXPOSURE'
+            lt.write(self.ltcube,extension,clobber)
         return lt
 
 
