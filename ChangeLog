@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jul 18 09:08:52 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+update print_summary to show all model parameters
+    *
+------------------------------------------------------------
 User: burnett  Sat Jul 17 13:06:53 PDT 2010
 pointlike/python/uw/like
 
