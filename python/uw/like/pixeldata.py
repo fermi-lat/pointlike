@@ -2,16 +2,13 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.15 2010/07/16 22:23:32 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.16 2010/07/17 02:32:51 wallacee Exp $
 
 """
-version='$Revision: 1.15 $'.split()[1]
-import os
-import math
-import skymaps
-import pointlike
-import pyfits
+version='$Revision: 1.16 $'.split()[1]
+import os, math, pyfits
 import numpy as N
+import pointlike, skymaps
 
 class NsideMapper(object):
     """
@@ -63,10 +60,7 @@ Manage data and livetime for spectral analysis
         """
 Create a new PixelData instance, managing data and livetime.
     aedict: a dictionary from the analysis environment
-    kwargs: update or set one of the following parameters.
-
-    """
-        defaults =  dict(
+    kwargs: set one of the following parameters.
             binfile   = None,
             binsperdec= 4,
             conv_type = -1,
@@ -82,6 +76,31 @@ Create a new PixelData instance, managing data and livetime.
             tstop     = 0,
             quiet     = False,
             roi_dir   = None,
+            verbose   = False,
+            use_weighted_livetime = False,
+            zenithcut = 105,
+            mc_src_id = -1,
+            mc_energy = False
+
+
+    """
+        defaults =  dict(
+            binfile   = None,   # if specified and exists, will be used for binned photon data
+                                # if specified and does not exist, will be generated
+            binsperdec= 4,      # bins per decade if generating data
+            conv_type = -1,
+            emin      = 100,
+            emax      = 1e6,
+            event_class = 3,
+            ft1files  = [],
+            ft2files  = [],
+            gti_mask  = None,
+            ltcube    = None,
+            thetacut  = 66.4,
+            tstart    = 0,
+            tstop     = 0,
+            quiet     = False,
+            roi_dir   = None, exp_radius=180, # for selecting a cone when generating a LT cube
             verbose   = False,
             use_weighted_livetime = False,
             zenithcut = 105,
@@ -180,7 +199,6 @@ Create a new PixelData instance, managing data and livetime.
             pointlike.Data.setPhotonBinner(self.binner)
             self._binner_set = True
 
-
     def _GTI_setup(self):
         """Create the GTI object that will be used to filter photon events and
            to calculate the livetime.
@@ -231,11 +249,12 @@ Create a new PixelData instance, managing data and livetime.
 
             self._Data_setup(my_bins)
 
-            if not self.quiet: print 'loading file(s) %s' % self.ft1files
-            data = pointlike.Data(self.ft1files,self.conv_type,self.tstart,self.tstop,self.mc_src_id,'')
+            if not self.quiet: print 'loading %d FT1 file(s) %s...%s' % (len(self.ft1files), self.ft1files[0], self.ft1files[-1])
+            src_id = -1 if 'mc_src_id' not in self.__dict__ else self.mc_src_id
+            data = pointlike.Data(self.ft1files,self.conv_type,self.tstart,self.tstop, src_id,'')
 
             self.dmap =data.map()
-            self.fill_empty_bands(self.dmap)     # fill any empty bins
+            self.fill_empty_bands(self.dmap, my_bins)     # fill any empty bins
 
             if self.verbose: print 'done'
             if self.binfile is not None:
