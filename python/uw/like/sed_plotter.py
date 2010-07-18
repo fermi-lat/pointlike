@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.1 2010/07/18 18:15:04 burnett Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -169,8 +169,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
             outdir = None,
             galmap = True,
             ):
-    """Plot a SED, an interface to bandflux.BandFlux
-        add point showing the position and error at e0
+    """Plot a SED
     ========     ===================================================
     keyword      description
     ========     ===================================================
@@ -211,8 +210,8 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     bf.plot_data(axes, **data_kwargs)
     
     # and the model, perhaps with a butterfly
-    dom = np.logspace(np.log10(self.fit_emin[0]), np.log10(self.fit_emax[0]), 101)
-    bf.plot_model(axes, self.psm.models[which], dom, butterfly, **fit_kwargs)
+    dom = np.logspace(np.log10(roi.fit_emin[0]), np.log10(roi.fit_emax[0]), 101)
+    bf.plot_model(axes, roi.psm.models[which], dom, butterfly, **fit_kwargs)
     plt.rcParams['axes.linewidth'] = oldlw
 
     # the axis labels
@@ -222,14 +221,14 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
         axes.set_xticklabels(['','1','10','100', ''])
     else:
         plt.xlabel(r'$\mathsf{Energy\ (MeV)}$')
-    plt.title(self.name if which==0 else self.psm.point_sources[0].name)
+    plt.title(roi.name if which==0 else roi.psm.point_sources[which].name)
     
     # a galactic map if requested
-    if galmap: image.galactic_map(self.center, color='lightblue', symbol='*r')
+    if galmap: image.galactic_map(roi.center, color='lightblue', symbol='*r')
     
     if outdir is not None: 
         if os.path.isdir(outdir):
-            plt.savefig(os.path.join(outdir,'%s_sed.png'%self.name.strip().replace(' ','_').replace('+', 'p')))
+            plt.savefig(os.path.join(outdir,'%s_sed.png'%roi.name.strip().replace(' ','_').replace('+', 'p')))
         else :
             plt.savefig(outdir)
 
