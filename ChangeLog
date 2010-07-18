@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jul 18 09:14:11 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pixeldata.py 
+Log Message:
+fix binning for creating a new binned photon data object
+    *
+------------------------------------------------------------
 User: burnett  Sun Jul 18 09:08:52 PDT 2010
 pointlike/python/uw/like
 
