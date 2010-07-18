@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
    on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.23 2010/07/13 02:59:01 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.24 2010/07/13 21:26:00 lande Exp $
 
 author: Matthew Kerr
 """
@@ -655,7 +655,7 @@ class ROIAnalysis(object):
        """
        if sdir is None: sdir = self.psm.point_sources[0].skydir
        print '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
-       colstring = 'name dist ra dec flux8 index'
+       colstring = 'name dist ra dec flux8 index cutoff'
        if galactic: colstring =colstring.replace('ra dec', 'l b')
        colnames = tuple(colstring.split())
        n = len(colnames)-1
@@ -664,10 +664,14 @@ class ROIAnalysis(object):
            dist=math.degrees(sdir.difference(ps.skydir))
            if maxdist and dist>maxdist:  continue
            loc = (ps.skydir.l(),ps.skydir.b()) if galactic else (ps.skydir.ra(),ps.skydir.dec())
-           fmt = '%-20s'+(n-2)*'%10.3f'+' '+2*'%9.2f%1s'
+           par= ps.model.p
+           npar = len(par)
+           fmt = '%-20s'+3*'%10.3f'+' %9.2f%1s'
            freeflag = [ '*' if f else ' ' for f in ps.model.free]
-           values = ((ps.name, dist) +loc
-                   +( ps.model.fast_iflux()/1e-8, freeflag[0], 10**ps.model.p[1], freeflag[1]))
+           values = (ps.name, dist) +loc+( ps.model.fast_iflux()/1e-8, freeflag[0], )
+           for i in range(1,npar): # parameters beyond flux
+              fmt    += '%9.2f%1s'
+              values += (10**par[i], freeflag[i]) 
            print fmt % values
 
    def print_resids(self):
