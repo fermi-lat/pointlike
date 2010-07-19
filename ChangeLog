@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Sun Jul 18 20:04:16 PDT 2010
+pointlike/src
+
+Modified Files:
+	EventList.cxx 
+Log Message:
+Removed extra GTI query in Eventlist, already done in BinnedPhotonData
+    *
+------------------------------------------------------------
 User: burnett  Sun Jul 18 11:39:11 PDT 2010
 pointlike/python/uw/like
 
