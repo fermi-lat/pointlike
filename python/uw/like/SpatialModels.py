@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.7 2010/07/12 19:26:28 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.8 2010/07/16 01:39:29 lande Exp $
 
    author: Joshua Lande
 
@@ -450,7 +450,7 @@ class PseudoDisk(Disk):
 
 #===============================================================================================#
 
-class NFW(Disk):
+class NFW(RadiallySymmetricModel):
     """ Ping's parameterization of the NFW Source is 
         P(x,y)=2/(pi*r*s*(1+r/s)^5) """
 
