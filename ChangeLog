@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jul 19 13:24:28 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+small bug in NFW source.
+    *
+------------------------------------------------------------
 User: mar0  Sun Jul 18 20:04:16 PDT 2010
 pointlike/src
 
