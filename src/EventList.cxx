@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.15 2010/02/01 23:57:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.16 2010/04/21 20:39:19 kerrm Exp $
 */
 
 #include "EventList.h"
@@ -58,7 +58,6 @@ void AddPhoton::operator()(const Photon& gamma)
       
         // timing: either start/stop interval, or a Gti object
         if( m_start>0   && gamma.time()<m_start ||  m_stop>m_start && gamma.time()>m_stop) return;
-        if( m_use_gti && ! m_gti.accept(gamma.time()) ) return;
 
         if( m_source>-1 && sourceid != m_source)return;
 
