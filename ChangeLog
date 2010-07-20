@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jul 20 15:24:35 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pixeldata.py 
+Log Message:
+Fixing swig bug by preconverting to python list.
+    *
+------------------------------------------------------------
 User: lande  Mon Jul 19 13:24:28 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
