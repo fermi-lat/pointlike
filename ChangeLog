@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Tue Jul 20 16:17:05 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+Fixed a return statement in FermiCatalog to return two values.
+    *
+------------------------------------------------------------
 User: lande  Tue Jul 20 15:24:35 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
