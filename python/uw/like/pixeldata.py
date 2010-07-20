@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.16 2010/07/17 02:32:51 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pixeldata.py,v 1.17 2010/07/18 16:14:11 burnett Exp $
 
 """
-version='$Revision: 1.16 $'.split()[1]
+version='$Revision: 1.17 $'.split()[1]
 import os, math, pyfits
 import numpy as N
 import pointlike, skymaps
@@ -47,7 +47,7 @@ essentially unbinned in position for E > a few GeV.
         nsm = NsideMapper
         mns = nsm.maxnside[ct]
         t = nsm.norms[ct]*(en)**nsm.slopes[ct]*N.exp(-(en/nsm.cuts[ct])**2)
-        return N.round(float(mns)/(1+mns*t)).astype(int)
+        return N.round(float(mns)/(1+mns*t)).astype(int).tolist()
 
 
 class PixelData(object):
