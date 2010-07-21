@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jul 21 14:18:58 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	minuit.py 
+Log Message:
+Fixing parameters.
+    *
+------------------------------------------------------------
 User: kerrm  Tue Jul 20 16:17:05 PDT 2010
 pointlike/python/uw/like
 
