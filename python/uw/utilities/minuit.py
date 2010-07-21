@@ -2,7 +2,7 @@
 Provides a  convenience class to call Minuit, mimicking the interface to scipy.optimizers.fmin.
 
 author: Eric Wallace <wallacee@uw.edu>
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/minuit.py,v 1.13 2010/02/12 00:24:17 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/minuit.py,v 1.14 2010/03/11 19:23:30 kerrm Exp $
 
 """
 import sys, os
@@ -90,6 +90,7 @@ class Minuit(object):
                           first derivatives of myFCN.  Assumed to take the same args as myFCN.
         force_gradient [0] : Set to 1 to force Minuit to use the user-provided gradient function.
         strategy[1] : Strategy for minuit to use, from 0 (fast) to 2 (safe) 
+        fixed [False, False, ...] : If passed, an array of all the parameters to fix
     """
 
 
@@ -108,6 +109,7 @@ class Minuit(object):
         self.gradient = None
         self.force_gradient = 0
         self.strategy = 1
+        self.fixed = np.zeros_like(params)
         self.__dict__.update(kwargs)
 
         self.params = np.asarray(params,dtype='float')
@@ -125,6 +127,11 @@ class Minuit(object):
             self.minuit.DefineParameter(i,self.param_names[i],self.params[i],self.steps[i],self.limits[i][0],self.limits[i][1])
 
         self.minuit.SetErrorDef(self.up)
+
+        for index in np.where(self.fixed)[0]:
+            self.minuit.FixParameter(int(index))
+
+
 
     def minimize(self,method='MIGRAD'):
 
