@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.2 2010/07/06 01:52:11 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.3 2010/07/06 23:01:23 lande Exp $
 
    author: Matthew Kerr
 """
@@ -150,6 +150,7 @@ class XML_to_SpatialModel(object):
 
     def __init__(self):
 
+        # exclude position from spatialdict
         self.spatialdict = dict({
             'Gaussian'           : ['Sigma'],
             'PseudoGaussian'     : [],
@@ -412,11 +413,11 @@ def makeExtendedSourceSpatialModel(es,tablevel=1):
     if es.coordsystem == SkyDir.GALACTIC:
         param_names=['L','B']+param_names
     if es.coordsystem == SkyDir.EQUATORIAL:
-        param_names=['RA','DEC']+self.spatialdict
+        param_names=['RA','DEC']+param_names
 
     params,param_errors=es.statistical(absolute=True)
     err_strings = ['error="%s" '%(e) if (e>0) else '' for e in param_errors]
-    min_params,max_params=N.transpose(es.get_limits(absolute=True,all=True))
+    min_params,max_params=N.transpose(es.get_limits(absolute=True))
     min_params[0],max_params[0]=[-360,360]
     min_params[1],max_params[1]=[-90,90]
     for param,err,free,min,max,name in zip(params,err_strings,
