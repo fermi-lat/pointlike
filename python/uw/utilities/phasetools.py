@@ -4,23 +4,30 @@ from types import FunctionType,MethodType
 from skymaps import SkyDir
 from fitstools import rad_extract
 
+TWOPI = 2*N.pi
+
 def phase_cut(eventfile,outputfile=None,phaseranges=[[0,1]],phase_col_name='PULSE_PHASE'):
     """Select phases within a set of intervals.
     
         outputfile  - set to change the default output (eventfile_PHASECUT.fits)
-        phaseranges - a set of ranges on which to make inclusive cuts"""
+        phaseranges - a set of ranges on which to make inclusive cuts
+        
+        NB -- there was a problem with using the mask as below.  Seems to be resolved,
+              but check for consistency in output FITS file to be safe."""
 
-    from numarray import array as narray
     from numpy import array
-    import pyfits as PF
-    ef=PF.open(eventfile)
-    ph=array(ef['EVENTS'].data.field(phase_col_name)).astype(float)
-    mask=narray([False]*len(ph))
-    #mask = array([False]*len(ph)) #NOTA BENE! uncomment on SLAC
+    ef = PF.open(eventfile)
+    ph = array(ef['EVENTS'].data.field(phase_col_name)).astype(float)
+    mask = array([False]*len(ph))
+    
     for r in phaseranges:
-        for i in xrange(len(ph)):
-            if r[0]<= ph[i] and ph[i] <= r[1]: mask[i]=True                    
-    hdu=PF.new_table(ef['EVENTS'].columns,nrows=len(mask[mask]))
+        for i,myph in enumerate(ph):
+            if (r[0]<= myph) and (myph <= r[1]): mask[i]=True
+            
+    duty_cycle = sum( (x[1] - x[0] for x in phaseranges) )
+    print 'Selecting %d / %d photons (duty cycle = %.2f)'%(mask.sum(),len(mask),duty_cycle)
+
+    hdu = PF.new_table(ef['EVENTS'].columns,nrows=mask.sum())
     for i in xrange(len(ef['EVENTS'].columns)):
         hdu.data.field(i)[:]=ef['EVENTS'].data.field(i)[mask]
     ef['EVENTS'].data=hdu.data
@@ -259,26 +266,6 @@ class PulsarLightCurve(object):
       sigma   = sig2sigma(sig)
       return h_equiv,sigma
 
-def h_statistic(phases,weights=None):
-
-   phases = N.asarray(phases)*(2*N.pi) #phase in radians
-
-   if weights is None:
-      n = len(phases); weights = 1
-   else:
-      n = weights.sum();
-
-   if n < 1e5:  #faster but requires ~20x memory of alternative
-
-      s = (weights*N.cos(N.outer(N.arange(1,21),phases))).sum(axis=1)**2 +\
-          (weights*N.sin(N.outer(N.arange(1,21),phases))).sum(axis=1)**2
-
-   else:
-
-      s = (N.asarray([(weights*N.cos(k*phases)).sum() for k in xrange(1,21)]))**2 +\
-          (N.asarray([(weights*N.sin(k*phases)).sum() for k in xrange(1,21)]))**2
-
-   return (2./n*N.cumsum(s) - 4*N.arange(0,20)).max()
 
 def h_sig(h):
    """Convert the H-test statistic to a chance probability."""
@@ -320,99 +307,50 @@ def sigma_trials(sigma,trials):
       # use an asymptotic expansion -- this needs to be checked!
       return (sigma**2 - 2*N.log(trials))**0.5
 
-class PhotonProbability(object):
-
-   def init(self):
-      self.diffuse_file = r'f:\glast\data\galprop\gll_iem_v01.fit'
-      #self.diffuse_file = r'f:\glast\data\galprop\GP_gamma_healpix_o8_54_59Xvarh8S.fits'
-      self.iso_file     = r'f:\glast\data\galprop\iso_mapcube2.fits'
-      self.catalog_file = r'd:/users/kerrm/python/analyses/spec_tests/gll_psc3monthiG5_v2.fit'
-      self.e_range = [100,2e5]
-      self.max_radius  = 3
-   
-   def __init__(self,**kwargs):
-
-      self.init()
-      self.__dict__.update(kwargs)
-
-      from skymaps import HealpixDiffuseFunc,DiffuseFunction,CompositeSkySpectrum
-      try:
-         self.galdiffuse = DiffuseFunction(self.diffuse_file)
-      except:
-         self.galdiffuse = HealpixDiffuseFunc(self.diffuse_file)
-
-      self.isodiffuse = DiffuseFunction(self.iso_file)
-
-      self.diffuse = CompositeSkySpectrum(self.galdiffuse,1.0)
-      self.diffuse.add(self.isodiffuse,1.0)
-
-      from psf import PSF
-      self.psf = PSF(use_psf_init=True)
-
-      from psmanager import CatalogManager
-      self.cm = CatalogManager(self.catalog_file)
-
-   def get_probs(self,event_files,point_source, return_cols =['ENERGY']):
-
-      d = point_source.skydir
-      keys = list(set(['RA','DEC','ENERGY','EVENT_CLASS']+return_cols))
-      cols = rad_extract(event_files,d,self.max_radius,return_cols = keys)
-      mask = cols['ENERGY'] > 200
-      for key in cols.keys():
-         cols[key] = cols[key][mask]
-      ps = self.cm.generate_source_list(d,cat_loc_override=True)
-      ens,ecs,diffs = cols['ENERGY'],cols['EVENT_CLASS'],cols['DIFFERENCES']
-
-      from skymaps import SkyDir
-      skydirs = map(SkyDir,cols['RA'],cols['DEC'])
-
-      units    = N.pi/180.
-      jac      = 2*N.pi*N.asarray([self.psf.sigma(en,ec) for en,ec in zip(ens,ecs)])**2 * units**2
-      f_values = N.asarray([self.psf(en,diff,ec) for en,diff,ec in zip(ens,diffs,ecs)])/jac
-
-      neighbour_values = N.zeros_like(ens)
-      
-      if len(ps) > 1:
-         for neighbour in ps[1:]:
-            model_vals = neighbour.model(ens)
-            my_diffs = N.asarray([neighbour.skydir.difference(skydir) for skydir in skydirs])
-            psf_vals = N.asarray([self.psf(en,diff,ec) for en,diff,ec in zip(ens,my_diffs,ecs)])/jac
-            neighbour_values += model_vals*psf_vals
-      
-      diff_values = N.asarray([self.diffuse.value(di,en) for di,en in zip(skydirs,ens)])
-      e_scale = point_source.model(ens)
-      v = e_scale*f_values/(diff_values+neighbour_values+e_scale*f_values)
-
-      return [v,diffs*180/N.pi]+[cols[key] for key in return_cols]
-
-
-def simple_h_statistic(phases):
-
-   phases = N.asarray(phases)*(2*N.pi) #phase in radians
-
-   n = len(phases)
-
-   s = (N.asarray([(N.cos(k*phases)).sum() for k in xrange(1,21)]))**2 +\
-       (N.asarray([(N.sin(k*phases)).sum() for k in xrange(1,21)]))**2
-
-   return (2./n*N.cumsum(s) - 4*N.arange(0,20)).max()
 
 def z2m(phases,m=2):
    """ Return the Z_m^2 test for each harmonic up to the specified m."""
 
-   phases = N.asarray(phases)*(2*N.pi) #phase in radians
+   phases = N.asarray(phases)*TWOPI #phase in radians
 
    n = len(phases)
 
-   s = (N.asarray([(N.cos(k*phases)).sum() for k in xrange(1,m+1)]))**2 +\
-       (N.asarray([(N.sin(k*phases)).sum() for k in xrange(1,m+1)]))**2
+
+   if n < 5e3:  #faster for 100s to 1000s of phases, but requires ~20x memory of alternative
+
+      s = (N.cos(N.outer(N.arange(1,m+1),phases))).sum(axis=1)**2 +\
+          (N.sin(N.outer(N.arange(1,m+1),phases))).sum(axis=1)**2
+
+   else:
+
+      s = (N.asarray([(N.cos(k*phases)).sum() for k in xrange(1,m+1)]))**2 +\
+          (N.asarray([(N.sin(k*phases)).sum() for k in xrange(1,m+1)]))**2
 
    return 2./n*N.cumsum(s)
+
+def z2mw(phases,weights,m=2):
+   """ Return the Z_m^2 test for each harmonic up to the specified m.
+
+       The user provides a list of weights.  In the case that they are
+       well-distributed or assumed to be fixed, the CLT applies and the
+       statistic remains calibrated.  Nice!
+
+       NB -- the phases must be uniformly distributed, i.e., have 0 mean
+       and a variance of 0.5.  Then, the 2nd central moment is just
+       0.5 * the expectation of the square of the weights.
+    """
+
+   phases = N.asarray(phases)*(2*N.pi) #phase in radians
+
+   s = (N.asarray([(N.cos(k*phases)*weights).sum() for k in xrange(1,m+1)]))**2 +\
+       (N.asarray([(N.sin(k*phases)*weights).sum() for k in xrange(1,m+1)]))**2
+
+   return N.cumsum(s) / (0.5*(weights**2).sum())
 
 def em_four(phases,m=2,weights=None):
    """ Return the empirical Fourier coefficients up to the mth harmonic."""
    
-   phases = N.asarray(phases)*(2*N.pi) #phase in radians
+   phases = N.asarray(phases)*TWOPI #phase in radians
 
    n = len(phases) if weights is None else weights.sum()
    weights = 1. if weights is None else weights
@@ -442,36 +380,43 @@ def weighted_z1(phases,weights):
 
    return 2/weights.sum()*(a + b)
 
-def z2mw(phases,weights,m=2):
-   """ Return the Z_m^2 test for each harmonic up to the specified m."""
+
+def h_statistic(phases,m=20):
+
+   phases = N.asarray(phases)*(2*N.pi) #phase in radians
+   n = len(phases)
+
+   if n < 5e3:  #faster for 100s to 1000s of phases, but requires ~20x memory of alternative
+
+      s = (N.cos(N.outer(N.arange(1,m+1),phases))).sum(axis=1)**2 +\
+          (N.sin(N.outer(N.arange(1,m+1),phases))).sum(axis=1)**2
+
+   else:
+
+      s = (N.asarray([(N.cos(k*phases)).sum() for k in xrange(1,m+1)]))**2 +\
+          (N.asarray([(N.sin(k*phases)).sum() for k in xrange(1,m+1)]))**2
+
+   return (2./n*N.cumsum(s) - 4*N.arange(0,m)).max()
+
+
+def simple_h_statistic(phases):
 
    phases = N.asarray(phases)*(2*N.pi) #phase in radians
 
    n = len(phases)
-   #w = weights.sum()
-   s = (N.asarray([(N.cos(k*phases)*weights).sum() for k in xrange(1,m+1)]))**2 +\
-       (N.asarray([(N.sin(k*phases)*weights).sum() for k in xrange(1,m+1)]))**2
 
-   return 2./weights.sum()*N.cumsum(s)
+   s = (N.asarray([(N.cos(k*phases)).sum() for k in xrange(1,21)]))**2 +\
+       (N.asarray([(N.sin(k*phases)).sum() for k in xrange(1,21)]))**2
 
+   return (2./n*N.cumsum(s) - 4*N.arange(0,20)).max()
 
-def h_statistic(phases,weights=None,m=20):
+def weighted_h_statistic(phases,weights,m=20):
 
    phases = N.asarray(phases)*(2*N.pi) #phase in radians
 
-   if weights is None:
-      n = len(phases); weights = 1
-   else:
-      n = weights.sum();
+   n = len(phases)
 
-   if n < 1e5:  #faster but requires ~20x memory of alternative
+   s = (N.asarray([(weights*N.cos(k*phases)).sum() for k in xrange(1,m+1)]))**2 +\
+       (N.asarray([(weights*N.sin(k*phases)).sum() for k in xrange(1,m+1)]))**2
 
-      s = (weights*N.cos(N.outer(N.arange(1,m+1),phases))).sum(axis=1)**2 +\
-          (weights*N.sin(N.outer(N.arange(1,m+1),phases))).sum(axis=1)**2
-
-   else:
-
-      s = (N.asarray([(weights*N.cos(k*phases)).sum() for k in xrange(1,m+1)]))**2 +\
-          (N.asarray([(weights*N.sin(k*phases)).sum() for k in xrange(1,m+1)]))**2
-
-   return (2./n*N.cumsum(s) - 4*N.arange(0,m)).max()
+   return ((2./(weights**2).sum())*N.cumsum(s) - 4*N.arange(0,m)).max()
