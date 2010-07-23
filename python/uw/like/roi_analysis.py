@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.25 2010/07/18 16:08:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.26 2010/07/18 17:43:43 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -171,6 +171,29 @@ class ROIAnalysis(object):
 
         #print ll,parameters
         return 1e6 if N.isnan(ll) else ll
+
+    def bandFit(which):
+        """ Perform a spectral independendent fit."""
+        manager,index=self.mapper(index)
+
+        self.bgm.update_counts(bands)
+        self.psm.update_counts(bands)
+
+        if manager == self.psm:
+            for eb in roi.energy_bands:
+                eb.bandFit(which=index,saveto='bandfits')
+
+            ll = -sum([band.bandLikelihood([band.bandfits if
+                                            band.bandfits > 0 else 0],index) \
+                       for band in roi.bands])
+        else:
+            for eb in roi.energy_bands:
+                eb.bandFitDiffuse(which=index,saveto='bandfits')
+
+            ll = -sum([band.bandLikelihoodDiffuse([band.bandfits],index) \
+                       for band in roi.bands])
+
+        return ll
 
     def gradient_old(self,parameters,*args):
         """ Implement the gradient of the log likelihood wrt the model parameters."""
@@ -443,19 +466,25 @@ class ROIAnalysis(object):
             ll_string  = ''
         return '\n\n'.join([ps_header,self.psm.__str__(),bg_header,self.bgm.__str__(),ll_string])
 
-    def TS(self,quick=True,which=0,method='simplex'):
+    def TS(self,quick=True,which=0,method='simplex', bandfits=False):
         """Calculate the significance of the central point source.
 
             quick -- if set True, just calculate likelihood with source flux set to 0
                         if set False, do a full refit of all other free sources
 
-            which -- the index of source to calculate -- default to central."""
+            which -- the index of source to calculate -- default to central.
+
+            bandfits  -- if True, calcualte the likelihood using a band-by-band (model independent) spectral fit """
 
         if quick:
             self.zero_ps(which)
             ll_0 = self.logLikelihood(self.get_parameters())
             self.unzero_ps(which)
-            ll_1 = self.logLikelihood(self.get_parameters())
+            if not bandfits:
+                ll_1 = self.logLikelihood(self.get_parameters())
+            else:
+                ll_1 = self.bandFit(which)
+
             if ll_0 == 1e6 or ll_1 == 1e6: 
                  print 'Warning: loglikelihood is NaN, returning TS=0'
                  return 0
@@ -468,7 +497,10 @@ class ROIAnalysis(object):
         self.unzero_ps(which)
         self.set_parameters(save_params) # reset free parameters
         self.__pre_fit__() # restore caching
-        ll = -self.logLikelihood(save_params)
+        if not bandfits:
+            ll = -self.logLikelihood(save_params)
+        else:
+            ll = self.bandFit(which)
         if ll_0 == 1e6 or ll == 1e6: 
              print 'Warning: loglikelihood is NaN, returning TS=0'
              return 0
