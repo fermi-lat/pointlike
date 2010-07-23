@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.19 2010/05/20 17:30:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.20 2010/07/17 18:06:50 burnett Exp $
 
 """
-version = '$Revision: 1.19 $'.split()[1]
+version = '$Revision: 1.20 $'.split()[1]
 
 import pylab
 import math
@@ -497,7 +497,7 @@ class ZEA(object):
         self.axes.set_xlim((0.0,self.nx))
         self.axes.set_ylim((0.0,self.ny))
         self.axes.set_autoscale_on(False) 
-        r =Rescale(self,self.nticks)
+        r =Rescale(self,self.nticks, galactic = self.galactic)
         r.apply(self.axes)
 
         labels = ['l','b'] if self.galactic else ['RA','Dec'] 
