@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jul 23 13:45:47 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Fist attempt at exposing high level roi bandfit likelihood function
+    *
+------------------------------------------------------------
 User: kerrm  Thu Jul 22 18:10:48 PDT 2010
 pointlike/python/uw/utilities
 
