@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Thu Jul 22 18:10:48 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	image.py 
+Log Message:
+Add missing kwarg to Rescale for Galactic option.
+    *
+------------------------------------------------------------
 User: lande  Wed Jul 21 14:18:58 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
