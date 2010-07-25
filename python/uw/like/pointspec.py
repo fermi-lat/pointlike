@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.16 2010/07/06 01:49:10 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.17 2010/07/06 23:01:05 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.16 $'.split()[1]
+version='$Revision: 1.17 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -313,6 +313,8 @@ Optional keyword arguments:
   conv_type    [ -1] select conversion type (0 - front; 1 - back; -1 = front + back)
   tstart       [0] Default no cut on time; otherwise, cut on MET > tstart
   tstop        [0] Default no cut on time; otherwise, cut on MET < tstop
+  recalcgti    [False] if True, try to get GTI from GT1 files;
+                        otherwise, try from livetime cube or binned data file
   binsperdec   [4] energy binning granularity when binning FT1
   emin         [100] Minimum energy
   emax         [3e5] Maximum energy
@@ -364,6 +366,7 @@ Optional keyword arguments:
         self.binsperdec  = 4
         self.tstart      = 0
         self.tstop       = 0
+        self.recalcgti   = False
         self.emin        = 200    # MeV  -- note changed defaults to better deal with energy dispersion
         self.emax        = 2e5    # MeV
         self.use_weighted_livetime = False
