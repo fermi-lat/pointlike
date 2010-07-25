@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.11 2010/07/16 21:25:51 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.12 2010/07/17 20:06:52 burnett Exp $
 
    author: Matthew Kerr
 
@@ -379,6 +379,15 @@ Spectral parameters:
    def fast_iflux(self,emin=100,emax=N.inf):
       n0,gamma = 10**self.p
       return n0*(emax**(1-gamma) - emin**(1-gamma)) / (self.emax**(1-gamma) - self.emin**(1-gamma))
+
+   def gradient(self,e):
+      flux,gamma = 10**self.p
+      e1 = self.emax; e0 = self.emin
+      d1 = e1**(1-gamma)
+      d0 = e0**(1-gamma)
+      t  = (M.log(e0)*d0 - M.log(e1)*d1)/(d1 - d0)
+      f  = ((flux/self.flux_scale)*(1-gamma)/(d1-d0))*e**(-gamma)
+      return N.asarray([f/flux,-f*(N.log(e) + (1./(1-gamma) + t))])
 
 #===============================================================================================#
 
