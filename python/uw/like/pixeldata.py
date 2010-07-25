@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pixeldata.py,v 1.17 2010/07/18 16:14:11 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.18 2010/07/20 22:24:35 lande Exp $
 
 """
-version='$Revision: 1.17 $'.split()[1]
+version='$Revision: 1.18 $'.split()[1]
 import os, math, pyfits
 import numpy as N
 import pointlike, skymaps
@@ -20,9 +20,8 @@ Roughly, the side of a (quadrilateral) pixel is 1/Nside radians, or
 
 The default scheme is hardwired based on the pre-scaling of the PSF
 for Pass 6.  This is a power law with slope -0.8.  This prescaling
-gives, approximately, r68.
-
-The default pixelization is chosen so that 5 pixels fit within r68.
+gives, approximately, r68.  The default pixelization is so that, at
+100 MeV, 5 pixels fit within the sigma pre-scale.
 
 This pixelization continues until about 1 GeV, when nside goes rapidly
 to 8192, the maximum value for 32-bit architecture, with a pixel size
@@ -36,6 +35,7 @@ essentially unbinned in position for E > a few GeV.
     slopes   = [-0.8,-0.8]     # slope for pix size with energy
     cuts     = [20.,20.]   # "cutoff" energy, 2 GeV = 20 in E_100 units
     maxnside = [8192,8192]
+    minnside = [0,0]
 
     @staticmethod
     def nside(en,ct=0):
@@ -47,7 +47,8 @@ essentially unbinned in position for E > a few GeV.
         nsm = NsideMapper
         mns = nsm.maxnside[ct]
         t = nsm.norms[ct]*(en)**nsm.slopes[ct]*N.exp(-(en/nsm.cuts[ct])**2)
-        return N.round(float(mns)/(1+mns*t)).astype(int).tolist()
+        nside = N.round(float(mns)/(1+mns*t)).astype(int)
+        return N.maximum(nside,nsm.minnside[ct]).tolist()
 
 
 class PixelData(object):
@@ -71,6 +72,7 @@ Create a new PixelData instance, managing data and livetime.
             ft2files  = [],
             gti_mask  = None,
             ltcube    = None,
+            recalcgti = False,
             thetacut  = 66.4,
             tstart    = 0,
             tstop     = 0,
@@ -96,6 +98,7 @@ Create a new PixelData instance, managing data and livetime.
             ft2files  = [],
             gti_mask  = None,
             ltcube    = None,
+            recalcgti = False,
             thetacut  = 66.4,
             tstart    = 0,
             tstop     = 0,
@@ -218,12 +221,13 @@ Create a new PixelData instance, managing data and livetime.
         """
         if not self.quiet: print('applying GTI')
 
-        if self.ltcube is not None and os.path.exists(self.ltcube):
-            if self.verbose: print('Using gti from %s'%(self.ltcube))
-            return skymaps.Gti(self.ltcube)
-        elif self.binfile is not None and os.path.exists(self.binfile):
-            if self.verbose: print('Using gti from %s'%(self.binfile))
-            return skymaps.Gti(self.binfile)
+        if not self.recalcgti:
+            if self.ltcube is not None and os.path.exists(self.ltcube):
+                if self.verbose: print('Using gti from %s'%(self.ltcube))
+                return skymaps.Gti(self.ltcube)
+            elif self.binfile is not None and os.path.exists(self.binfile):
+                if self.verbose: print('Using gti from %s'%(self.binfile))
+                return skymaps.Gti(self.binfile)
 
         gti = skymaps.Gti(self.ft1files[0])
 
