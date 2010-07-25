@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.10 2010/07/12 04:05:37 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.11 2010/07/12 22:57:30 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -109,6 +109,8 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         self.pixelsize = 0.25
         self.npix      = 101 # note -- can be overridden at the band level
         self.nsimps    = 4   # note -- some energies use a multiple of this
+        self.r_multi   = 1.0 # multiple of r95 to set max dimension of grid
+        self.r_max     = 20  # an absolute maximum (half)-size of grid (deg)
 
     def setup(self):
         exp = self.sa.exposure.exposure; psf = self.sa.psf
@@ -125,8 +127,8 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         self.active_bgc = self.bgc[conversion_type if (len(self.bgc) > 1) else 0]
         multi = 1 + 0.01*(energy==band.emin) -0.01*(energy==band.emax)
         r95 = self.sa.psf.inverse_integral(energy*multi,conversion_type,95)
-        rad = r95 + N.degrees(band.radius_in_rad)
-        rad = max(min(20,rad),N.degrees(band.radius_in_rad)+2.5)
+        rad = self.r_multi*r95 + N.degrees(band.radius_in_rad)
+        rad = max(min(self.r_max,rad),N.degrees(band.radius_in_rad)+2.5)
         npix = int(round(2*rad/self.pixelsize))
         npix += (npix%2 == 0)
         self.active_bgc.setup_grid(npix,self.pixelsize)
