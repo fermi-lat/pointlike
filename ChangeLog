@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Sun Jul 25 12:43:29 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pixeldata.py 
+Log Message:
+Added "recalcgti" to force a re-determination of the GTI directly from the FT1 files.
+    *
+------------------------------------------------------------
 User: kerrm  Sun Jul 25 12:40:56 PDT 2010
 pointlike/python/uw/like
 
