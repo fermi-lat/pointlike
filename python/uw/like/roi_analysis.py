@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.27 2010/07/23 20:45:46 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.28 2010/07/25 19:39:17 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -174,9 +174,9 @@ class ROIAnalysis(object):
         #print ll,parameters
         return 1e6 if N.isnan(ll) else ll
 
-    def bandFit(which):
+    def bandFit(self,which):
         """ Perform a spectral independendent fit."""
-        manager,index=self.mapper(index)
+        manager,index=self.mapper(which)
 
         self.bgm.update_counts(bands)
         self.psm.update_counts(bands)
