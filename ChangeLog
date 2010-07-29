@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jul 28 20:11:38 PDT 2010
+ScienceTools-scons/pointlike/src
+
+Modified Files:
+	EventList.cxx EventList.h 
+Log Message:
+change to compile with vc90, needed for STL compliance
+    *
+------------------------------------------------------------
 User: wallacee  Wed Jul 28 12:09:22 PDT 2010
 pointlike/python/uw/like
 
