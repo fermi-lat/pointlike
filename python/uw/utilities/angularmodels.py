@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/angularmodels.py,v 1.0 2010/07/29 13:53:17 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/angularmodels.py,v 1.1 2010/07/29 21:40:59 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -315,7 +315,7 @@ class CompositeModel(object):
     def addModel(self,model):
         self.models.append(model)
         for free in model.free:
-            self.free.append(free)
+            self.free.append(not free)
         for par in model.model_par:
             self.par.append(par)
         for steps in model.steps:
@@ -340,10 +340,10 @@ class CompositeModel(object):
             header = header+('N%s\t'%self.models[x].name)
             if len(free)==0:
                 pars.append(n/(1.*len(self.models)))
-                frees.append(True)
+                frees.append(False)
             else:
                 pars.append(exp[x])
-                frees.append(free[x])
+                frees.append(not free[x])
             lims.append([0,2*n])
             steps.append(N.sqrt(n))
         
@@ -360,7 +360,7 @@ class CompositeModel(object):
         self.clock=t.time()
         
         #minimize likelihood for parameters with respect to the parameters
-        self.minuit = Minuit(lambda x: self.extlikelihood(x,photons),pars,free=frees,limits=lims,tolerance=1e-3,strategy=1,printMode=-1)
+        self.minuit = Minuit(lambda x: self.extlikelihood(x,photons),pars,fixed=frees,limits=lims,tolerance=1e-3,strategy=1,printMode=-1)
         self.minuit.minimize()
 
         self.nest = self.minuit.params[:len(self.models)] # first parameters are the number estimators
