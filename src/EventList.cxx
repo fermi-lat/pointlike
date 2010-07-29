@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.16 2010/04/21 20:39:19 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/EventList.cxx,v 1.17 2010/07/19 03:04:16 mar0 Exp $
 */
 
 #include "EventList.h"
@@ -122,7 +122,7 @@ EventList::EventList(const std::string infile, bool selectid, bool use_mc_energy
             // (*m_itbegin)["DIFRSP1"].get(dif);
             (*m_itbegin)["CTBCLASSLEVEL"].get(dif);
             m_pass7=false;
-        } catch (const std::exception& e){}
+        } catch (const std::exception& ){}
     }
 
 }
