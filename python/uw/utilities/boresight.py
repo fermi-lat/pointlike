@@ -235,14 +235,11 @@ class StackLoader(object):
             ssign = '+'
         else:
             ssign = '-'
-        print '***************************************'
+        print '**********************************************************'
         print 'Sigma = %1.3f [1 +/- %1.2f] (%s%1.0f)'%(self.sigma*rd,self.sigmae/self.sigma,ssign,100*abs((self.sigma-sigma)/sigma))
         print 'Gamma = %1.2f  [1 +/- %1.2f] (%s%1.0f)'%(self.gamma,self.gammae/self.gamma,gsign,100*abs((self.gamma-gamma)/gamma))
         TS = -2*(fl-self.il)
         print 'Significance of psf change was TS = %d'%TS
-        for param in cm.models[0].model_par:
-            print param
-        print sigma,gamma
         self.cm=cm
 
     def solvehalo(self):
@@ -278,6 +275,7 @@ class StackLoader(object):
         hists=[]
         errs=[]
         names=[]
+        names.append('data')
         for model in range(len(self.cm.models)):
             fits.append([])
             names.append(self.cm.models[model].name)
@@ -292,7 +290,9 @@ class StackLoader(object):
             hists.append(hist[0][it]/(right**2-left**2)/(rd**2))
             errs.append(N.sqrt(hist[0][it])/(right**2-left**2)/(rd**2))
         pts=[]
-        p.errorbar(be+d2/bins/2+2*N.log10(rd),hists,yerr=errs,ls='None',marker='o')
+
+        p1 = p.errorbar(be+d2/bins/2+2*N.log10(rd),hists,yerr=errs,ls='None',marker='o')
+        pts.append(p1[0])
         for ad in fits:
             p1 = p.plot(be+d2/bins/2+2*N.log10(rd),ad,'-')
             pts.append(p1)
@@ -499,14 +499,14 @@ def test2():
     fdir = plr+'/python/uw/utilities/boresighttest/'
     os.system('cd %s'%fdir)
     al = StackLoader(lis='cgv',files=['test'],datadr=fdir,ft2dr=fdir,srcdr=fdir)
-    al.loadphotons(1,5620,1000,0,999999999,0)
+    al.loadphotons(10,1000,1770,0,999999999,0)
     al.solvepsf()
+    ret=0
+    if (al.sigma*rd-0.140)>1e-3:
+        ret = ret + 1
+    if (al.gamma-1.53)>1e-2:
+        ret = ret + 2 
     al.makeplot()
-
-def test3():
-    al = StackLoader('agn-psf-study')
-    al.loadphotons(4,10000,2e6,0,239557417+720*86400,0)
-    al.solvehalo()
-    al.makeplot()
+    return ret
     
 ###################################################################################################
