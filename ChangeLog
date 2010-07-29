@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: mar0  Thu Jul 29 14:40:59 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	boresight.py 
+Added Files:
+	CLHEP.py angularmodels.py 
+Log Message:
+Made boresight and PSF optimization process more modular, with plots
+    *
+------------------------------------------------------------
 User: burnett  Wed Jul 28 20:11:38 PDT 2010
 ScienceTools-scons/pointlike/src
 
