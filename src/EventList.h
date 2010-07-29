@@ -1,7 +1,7 @@
 /** @file EventList.h 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.7 2009/12/08 22:19:44 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/EventList.h,v 1.8 2010/02/01 23:57:11 burnett Exp $
 */
 
 
@@ -115,6 +115,13 @@ public:
     // make it a container by implementing a forward iterator
     class Iterator {
     public:
+  	// these traits needed  for STL functions like accumulate
+		typedef const Photon& reference;
+		typedef const Photon* pointer;
+		typedef Photon value_type;
+		typedef std::forward_iterator_tag iterator_category;
+		typedef int difference_type; //??? needed, hope this kluge does not break anythin
+
         Iterator(tip::Table::ConstIterator it, bool fits, bool selectid=false, bool use_mc_energy=false, bool pass7=false)
             : m_it(it)
             , m_fits(fits)
