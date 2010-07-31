@@ -1,7 +1,7 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.1 2010/05/07 18:39:07 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.2 2010/05/31 23:50:46 lande Exp $
 
 author: Matthew Kerr
 """
@@ -33,7 +33,7 @@ class TSCalc(object):
     def __init__(self,roi):
         self.roi = roi
         self.ro  = PsfOverlap()
-        self.rd  = roi.sa.roi_dir
+        self.rd  = roi.roi_dir
         self.phase_factor = roi.phase_factor
         
         mo  = PowerLaw(p=[1e-12,2])
@@ -614,3 +614,135 @@ def get_seeds(self,mode=0,ts_thresh=9):
 
     return [b2.dir(x) for x in seeds],N.asarray(seeds_ts)
 
+###====================================================================================================###
+class HealpixKDEMap(object):
+
+    def __init__(self,hr=None,pickle=None,factor = 100):
+        """hr     :   an instance of HealpixROI
+           pickle :   a pickle saved from a previous HealpixTSMap
+           factor :   number of intervals to divide base Healpixel side into"""
+
+        if   hr     is not None: self.setup_from_roi(hr,factor)
+        elif pickle is not None: self.load(pickle)
+        else:
+            print 'Must provide either a HealpixROI instance or a pickle file!'
+            raise Exception
+
+    def setup_from_roi(self,hr,factor):
+
+        band1  = hr.band
+        band2  = Band(int(round(band1.nside()*factor)))
+        rd     = band1.dir(hr.index) 
+
+        # get pixels within a radius 10% greater than the base Healpix diagonal dimension
+        radius = (N.pi/(3*band1.nside()**2))**0.5 * 2**0.5 * 1.1
+        wsdl   = WeightedSkyDirList(band2,rd,radius,True)
+        
+        # then cut down to just the pixels inside the base Healpixel
+        inds   = N.asarray([band1.index(x) for x in wsdl])
+        mask   = inds == hr.index
+        dirs   = [wsdl[i] for i in xrange(len(mask)) if mask[i]]
+        inds   = N.asarray([band2.index(x) for x in dirs]).astype(int)
+
+        # sanity check
+        if abs(float(mask.sum())/factor**2 - 1) > 0.01:
+            print 'Warning: number of pixels found does not agree with expectations!'
+
+        # loop through the bands and image pixels to calculate the KDE
+        from pointlike import DoubleVector
+        dv = DoubleVector()
+        img = N.zeros(len(inds))
+        weights = [ N.asarray([x.weight() for x in b.wsdl]).astype(int) for b in hr.roi.bands ]
+        for idir,mydir in enumerate(dirs):
+            #print 'Processing pixel %d'%(idir)
+            for iband,band in enumerate(hr.roi.bands):
+                band.wsdl.arclength(mydir,dv)
+                img[idir] += (band.psf(N.fromiter(dv,dtype=float),density=True)*weights[iband]).sum()
+
+        self.band1 = band1
+        self.band2 = band2
+        self.previous_index = -1
+
+        sorting    = N.argsort(inds)
+        self.inds  = inds[sorting]
+        self.img   = img[sorting]
+
+        self.index = hr.index
+
+    def dump(self,filename):
+        d = dict()
+        d['inds'] = self.inds
+        d['img']  = self.img
+        d['nside1'] = self.band1.nside()
+        d['nside2'] = self.band2.nside()
+        d['index']  = self.index
+        dump(d,file(filename,'w'))
+        
+    def load(self,filename):
+        d = load(file(filename))
+        self.inds   = d['inds']
+        self.band1  = Band(d['nside1'])
+        self.band2  = Band(d['nside2'])
+        self.img    = d['img']
+        self.index  = d['index']
+        self.previous_index = -1
+
+    def pyskyfun(self):
+        return PySkyFunction(self)
+
+    def __call__(self,v,skydir = None):
+        sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
+        if self.band1.index(sd) != self.index: return N.nan
+        id = self.band2.index(sd)
+        if id != self.previous_index:
+            self.previous_value = self.img[N.searchsorted(self.inds,id)]
+            self.previous_index = id
+        return self.previous_value
+
+    def multipix_call(self,sd):
+        """A faster version of the skydir lookup where it assumed that the argument
+           lies within the boundaries of this Healpixel."""
+        id = self.band2.index(sd)
+        if id != self.previous_index:
+            self.previous_value = self.img[N.searchsorted(self.inds,id)]
+            self.previous_index = id
+        return self.previous_value
+
+class ROIWrapper(object):
+    """Wrap up an ROI as if it were a HealpixROI, for testing."""
+
+    def __init__(self,roi,nside=6):
+        self.roi = roi
+        self.band = Band(6)
+        self.index = self.band.index(roi.roi_dir)
+
+class MultiHealpixKDEMap(object):
+
+    def __init__(self,glob_expansion):
+        """glob_expansion: an expression that can be expanded by glob into a list of the
+                           pickles of HealpixTSMaps that this class will access
+                           
+                           N.B. it is necessary that these objects all have been constructed
+                           with the same settings of base nside and sub-grid factor!
+        """
+
+        tsmaps = [HealpixKDEMap(pickle=x)for x in glob(glob_expansion)]
+        nside1 = tsmaps[0].band1.nside()
+        
+        self.band1 = Band(nside1)
+        self.tsmaps = [False] * 12 * nside1**2
+        for tsmap in tsmaps:
+            self.tsmaps[tsmap.index] = tsmap
+        self.scale = 0
+
+    def __call__(self,v,skydir = None):
+        sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
+        id = self.band1.index(sd)
+        tsmap = self.tsmaps[id]
+        if not tsmap: return N.nan
+        return tsmap.multipix_call(sd)
+
+    def make_zea(self,center,size=10,pixelsize=0.02,galactic=False):
+        z = ZEA(center,size=size,pixelsize=pixelsize,galactic=galactic)
+        z.fill(PySkyFunction(self))
+        self.z = z
