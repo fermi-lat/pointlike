@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: kerrm  Fri Jul 30 17:35:25 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_tsmap.py 
+Log Message:
+1) Fix a bug where TSCalc was referencing the roi_dir member of SpectralAnalysis instead of ROIAnalysis.
+
+2) Some new code for doing KDE counts maps -- preliminary.
+    *
+------------------------------------------------------------
 User: mar0  Thu Jul 29 15:25:25 PDT 2010
 pointlike/python/uw/utilities
 
