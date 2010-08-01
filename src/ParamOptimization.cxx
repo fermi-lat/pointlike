@@ -1,7 +1,7 @@
 /** @file ParamOptimization.cxx 
 @brief ParamOptimization member functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/ParamOptimization.cxx,v 1.15 2008/08/28 22:43:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/ParamOptimization.cxx,v 1.16 2008/11/11 01:31:16 mar0 Exp $
 
 */
 
@@ -85,7 +85,7 @@ std::vector<double> ParamOptimization::compute() {
     std::vector<double> energies;
     skymaps::BinnedPhotonData::const_iterator bit = m_data.begin();
     //for each band, optimize
-    for(int iter=0;iter<m_likes.front()->size();++iter,++bit) {
+    for(unsigned int iter=0;iter<m_likes.front()->size();++iter,++bit) {
         //if((*m_likes.front())[iter]->band().event_class()==0) continue;
         cband=iter;
         int whileit =0;
@@ -97,7 +97,7 @@ std::vector<double> ParamOptimization::compute() {
         std::vector<std::vector<double> > unit;
         
         //define unit directions for powell
-        for(int i(0);i<pa.size();++i) {
+        for(unsigned int i(0);i<pa.size();++i) {
             std::vector<double> temp(pa.size(),0);
             temp[i]=0.01;
             unit.push_back(temp);
@@ -341,7 +341,7 @@ std::vector<double> ParamOptimization::fit_sigma() {
     std::cout << "a= " << d[0] << "\tb= " << d[1] << "\tc= " << d[2] << "\td= " << d[3];
     std::cout << std::endl;
     std::vector<std::vector<double> > unit;
-    for(int i(0);i<d.size();++i) {
+    for(unsigned int i(0);i<d.size();++i) {
         std::vector<double> temp(d.size(),0);
         temp[i]=1;
         unit.push_back(temp);
@@ -570,7 +570,7 @@ void ParamOptimization::powell(std::vector<double> &p,std::vector<std::vector<do
 
 double ParamOptimization::chisq(std::vector<double> &params) {
     double chis=0;
-    for(int i(0);i<m_sigmas.size();++i) {
+    for(unsigned int i(0);i<m_sigmas.size();++i) {
         chis+=(sigma_param(params[0],params[1],params[2],params[3],m_energy[i])-m_params[i])
             *(sigma_param(params[0],params[1],params[2],params[3],m_energy[i])-m_params[i])/(m_sigmas[i]*m_sigmas[i]);
     }

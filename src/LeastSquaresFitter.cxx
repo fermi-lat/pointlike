@@ -1,7 +1,7 @@
 /** @file LeastSquaresFitter.cxx 
 @brief Methods for rotation information
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/LeastSquaresFitter.cxx,v 1.9 2009/04/29 19:29:49 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/LeastSquaresFitter.cxx,v 1.10 2009/06/03 22:18:09 burnett Exp $
 */
 
 //#define MIN_DEBUG
@@ -350,7 +350,7 @@ int LeastSquaresFitter::test() {
     fit(test_vec,1/3.);
     double tol(1e-5);
     double ac(0.);
-    for(int i(0);i<m_fitparams.size()-1;++i) {
+    for(unsigned int i(0);i<m_fitparams.size()-1;++i) {
         ac+=fabs(1.-m_fitparams[i]);
     }
     if(ac<tol) {
