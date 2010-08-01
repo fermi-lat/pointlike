@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Jul 31 21:22:16 PDT 2010
+ScienceTools-scons/pointlike/src
+
+Modified Files:
+	AlignProc.cxx LeastSquaresFitter.cxx ParamOptimization.cxx 
+Log Message:
+fix vc90 warnings
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-05-00, operation: add
 Package: pointlike
