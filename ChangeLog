@@ -1,4 +1,31 @@
 ------------------------------------------------------------
+User: lande  Sat Jul 31 17:07:09 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py minuit.py 
+Log Message:
+Improvements:
+
+    * Optimization of the radially symmetric extended source
+      algorithm. Using vectorization and simpson integrals.
+    * Fix the Minuit.py's covariance calculating code for the case
+      of free parameters.
+    * Cleaning up the extended source fitting code to use the freeing
+      parameters (instead of having to do the work in the extended
+      source code).
+    * Generalize the modify_loc function to work for extended sources.
+    * Remove some now unnecessary parameters from the SpatialModels.py
+      object.
+    * Fixing but for in SpatialModels to allow fitting sources with very
+      large RA/Dec values (~300). Previously, it would produce NaNs/Infs.
+    * Improve documentation in pointspec.py to describe defaults of
+      minROI/maxROI
+    * Fix bug for calculating bandfits TS.
+
+
+    *
+------------------------------------------------------------
 User: lande  Sat Jul 31 17:06:46 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
