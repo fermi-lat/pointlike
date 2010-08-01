@@ -59,6 +59,14 @@ private:
 // make it a container by implementing a forward iterator
 class PhotonListIterator {
 public:
+		// these traits needed  for STL functions like accumulate
+	typedef const astro::Photon& reference;
+	typedef const astro::Photon* pointer;
+	typedef astro::Photon value_type;
+	typedef std::forward_iterator_tag iterator_category;
+	typedef int difference_type;
+
+
     PhotonListIterator(const PhotonList& list, long index=0)
         :m_list(list), m_index(index){}
         astro::Photon operator*()const;             ///< dereference
