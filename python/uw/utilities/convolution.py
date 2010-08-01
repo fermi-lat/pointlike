@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.12 2010/07/12 04:00:19 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.13 2010/07/16 01:41:38 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -9,7 +9,7 @@ from skymaps import SkyDir,WeightedSkyDirList,Hep3Vector,SkyIntegrator,PySkyFunc
 from pointlike import DoubleVector
 import numpy as N
 from scipy.interpolate import interp2d,interp1d
-from scipy.integrate import quad,Inf
+from scipy.integrate import simps
 from scipy.special import hyp2f1
 from uw.like.pypsf import BandCALDBPsf,PretendBand
 from numpy.fft import fftshift,ifft2,fft2
@@ -237,8 +237,10 @@ class AnalyticConvolution(object):
         derive from the same base convolution object. For now they are different enough."""
 
     def init(self):
-        self.tolerance      = 1e-3
         self.num_points     = 200
+
+        # number of points to use in the intergral
+        self.num_int_points = 200
         self.skyfun         = PySkyFunction(self)
         self.fitpsf         = False
 
@@ -249,13 +251,13 @@ Optional keyword arguments:
   =========   =======================================================
   Keyword     Description
   =========   =======================================================
-  tolerance     [1e-2]  Tolerance set when integrating hypergeometirc
-                        function to calcualte PDF.
-  num_points    [100]   Number of points to calculate the PDF at.
-                        interpolation is done in between.
-  fitpsf        [False] Use emperical fits to the psf instead of
-                        weighting over cos theta.
-  =========   =======================================================
+  num_points     [200]   Number of points to calculate the PDF at.
+                         interpolation is done in between.
+  num_int_points [200]   Number of points to use in evaluating the 
+                         integral.
+  fitpsf         [False] Use emperical fits to the psf instead of
+                         weighting over cos theta.
+  =========     =======================================================
         """
 
         self.init()
@@ -267,26 +269,34 @@ Optional keyword arguments:
 
 
     def _get_pdf(self,rlist,g,s):
-        # integrate until you get to 5x the r68() of the source.
-        # since the intgral includes at term which is the PDF,
-        # the integral will presumably contribute very littel
-        # further away then this.
-        self.int_max = .5*(5*self.spatial_model.r68()/s)**2
+        """ Function to calculate the pdf at the givin radii points
+            for a given psf sigma and gamma. (and a radially symmetric
+            spatial model self.spatial_model
+
+            For each givin radii, we must integrate to to the 
+            maximum source radius
+
+        integrate to the edge of the source, which is decided on a
+        source by source basis (so that sharp edge sources can define
+        automatically. The default is a some constant times r68 since
+        the intgral includes at term which is the PDF, the integral
+        will presumably contribute very littel further away then this.
+        """
+        self.int_max = .5*(self.spatial_model.effective_edge()/s)**2
 
         # u value corresponding to the given r.
         ulist=0.5*(self.rlist/s)**2
 
-        # pdf values for each r (in a given energy bin)
-        pdf =N.empty_like(self.rlist)
+        vlist=N.linspace(0,self.int_max,self.num_int_points)
 
-        for i,u in enumerate(ulist):
-            integrand = lambda v: self.spatial_model.at_r(N.sqrt(2*v)*s)\
-                                              *((g-1)/g)*(g/(g+u+v))**g\
-                                              *hyp2f1(g/2.,(1+g)/2.,1.,4.*u*v/(g+u+v)**2)
+        v,u=N.meshgrid(vlist,ulist)
 
-            pdf[i]=quad(integrand,0,self.int_max,epsabs=self.tolerance,full_output=True)[0]
+        integrand = self.spatial_model.at_r(N.sqrt(2*v)*s)\
+                                          *((g-1)/g)*(g/(g+u+v))**g\
+                                          *hyp2f1(g/2.,(1+g)/2.,1.,4.*u*v/(g+u+v)**2)
+        pdf = simps(integrand,v)
+        return pdf
 
-        return pdf 
 
     def do_convolution(self,energy,conversion_type,band):
         """ Generate points uniformly in r^2 ~ u, to ensure there are more 
@@ -327,32 +337,15 @@ Optional keyword arguments:
             glist,slist,wlist = self.bpsf.par
             smax=slist.max()
 
-        dv = DoubleVector()
-        band.wsdl.arclength(self.spatial_model.center,dv)
-        wsdl_radii = N.fromiter(dv,dtype=float)
+        # Distance to furthest pixel is the farthest one ever needs to calculate PDF to.
+        # Note that this generally interfeers with ap_average. Will fix 
+        # eventually.
+        self.edge_distance=band.sd.difference(self.spatial_model.center) + \
+                band.radius_in_rad
 
-        # calcualte rlist
-        if len(band.wsdl) <= self.num_points:
-            # For bins with fewer than num_points bins with counts in them, 
-            # it is easier to just evaluate the PDF at each of the bin centers.
-            self.eval_at_wsdl=True
-            self.rlist = wsdl_radii
-        else:
-            self.eval_at_wsdl=False
-            # I found emperically that 40*the biggest sigma would adequatly
-            # cover the PSF
-            self.rmax=80*smax + 5*self.spatial_model.r68()
+        self.rmax=1.1*self.edge_distance
 
-            self.rlist=N.linspace(0,N.sqrt(self.rmax),self.num_points)**2
-
-            # Distance to furthest pixel is the farthest one ever needs to calculate PDF to.
-            # Note that this generally interfeers with ap_average. Will fix 
-            # eventually.
-            edge_distance=N.max(wsdl_radii)
-
-            self.rmax=min(self.rmax,edge_distance)
-
-            self.rlist=N.linspace(0,N.sqrt(self.rmax),self.num_points)**2
+        self.rlist=N.linspace(0,N.sqrt(self.rmax),self.num_points)**2
 
 
         # pdf is the probability per unit area at a given radius.
@@ -374,59 +367,33 @@ Optional keyword arguments:
                 for g,s,w in zip(glist,slist,wlist):
                     self.pdf += w*self._get_pdf(self.rlist,g,s)
 
+        # Assume pdf is 0 outside of the bound, which is reasonable if 
+        # rmax is big enough also, interpolate the log of the intensity, which 
+        # should for the types of shapes we are calculating be much more linear.
+        self.log_pdf=N.log(self.pdf)
+        self.interp=interp1d(self.rlist,self.log_pdf,kind=3,bounds_error=False,fill_value=self.log_pdf[-1])
 
-        if not self.eval_at_wsdl:
-            # for some reason, I incorrectly got a negative pdf value for r=0 and for
-            # especially large gaussian MC sources. Not sure how the integral of the 
-            # hypergeometric function could do this, but it is best to simply remove 
-            # it from the list since we know they are unphysical.
-            bad = N.isnan(self.pdf)|N.isinf(self.pdf)|(self.pdf<0)
-
-            if N.any(bad):
-                print 'WARNING! Bad values found in PDF. Removing them from interpolation.' % sum(bad),
-                if N.any(N.isnan(self.pdf)): print ' (%d nan values)' % sum(N.isnan(self.pdf)),
-                if N.any(N.isinf(self.pdf)): print ' (%d inf values)' % sum(N.isinf(self.pdf)),
-                if N.any(self.pdf<0):        print ' (%d negative values)' % sum(self.pdf<0),
-                print
-                self.rlist=self.rlist[~bad]
-                self.pdf=self.pdf[~bad]
-
-            # Assume pdf is 0 outside of the bound, which is reasonable if 
-            # rmax is big enough also, interpolate the log of the intensity, which 
-            # should for the types of shapes we are calculating be much more linear.
-            self.log_pdf=N.log(self.pdf)
-            # Kind of a hack, but log of 0 is very small.
-            self.interp=interp1d(self.rlist,self.log_pdf,kind='cubic',bounds_error=False,fill_value=-1000)
-
-            # Just in case the first few radius values got removed for eing nan/inf/negative, 
-            # set values below equal to the first non-nan/inf pdf value.
-            self.val=lambda x: N.exp(self.interp(x))*(x>=self.rlist[0])+self.pdf[0]*(x<self.rlist[0])
+        self.val=lambda x: N.exp(self.interp(x))*(x<=self.rlist[-1])
 
     def ap_average(self,center,radius):
-        # This function needs to be fixed
+        # This function needs to be fixed to really integrate for when the extended source isn't all in.
         solid_angle=2*N.pi*(1-N.cos(radius))
         return 1/solid_angle
 
     def __call__(self,skydir,not_needed=None):
-        if self.eval_at_wsdl:
-            if type(skydir) == WeightedSkyDirList:
-                return self.pdf
-            else:
-                raise Exception("Currently, __call__ only accepts wsdl.")
+        if type(skydir) == WeightedSkyDirList:
+            dv = DoubleVector()
+            skydir.arclength(self.spatial_model.center,dv)
+            difference = N.fromiter(dv,dtype=float)
+            return self.val(difference)
+
+        elif type(skydir)==list and len(skydir)==3:
+            skydir = SkyDir(Hep3Vector(skydir[0],skydir[1],skydir[2]))
+
+        elif type(skydir)==SkyDir:
+            return float(self.val(skydir.difference(self.spatial_model.center)))
         else:
-            if type(skydir) == WeightedSkyDirList:
-                dv = DoubleVector()
-                skydir.arclength(self.spatial_model.center,dv)
-                difference = N.fromiter(dv,dtype=float)
-                return self.val(difference)
-
-            elif type(skydir)==list and len(skydir)==3:
-                skydir = SkyDir(Hep3Vector(skydir[0],skydir[1],skydir[2]))
-
-            elif type(skydir)==SkyDir:
-                return float(self.val(skydir.difference(self.spatial_model.center)))
-            else:
-                raise Exception("Unknown input to AnalyticConvolution.__call__()")
+            raise Exception("Unknown input to AnalyticConvolution.__call__()")
 
 
 """

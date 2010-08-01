@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.17 2010/07/06 23:01:05 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.18 2010/07/25 19:40:56 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.17 $'.split()[1]
+version='$Revision: 1.18 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -342,8 +342,8 @@ Optional keyword arguments:
 
   =========    KEYWORDS CONTROLLING SPECTRAL ANALYSIS
   background   ['1FGL'] - a choice of global model specifying a diffuse background; see ConsistentBackground for options
-  maxROI       [25] maximum ROI for analysis; note ROI aperture is energy-dependent = max(maxROI,r95(e,conversion_type))
-  minROI       [0] minimum ROI analysis
+  maxROI       [10] maximum ROI for analysis; note ROI aperture is energy-dependent = max(maxROI,r95(e,conversion_type))
+  minROI       [5] minimum ROI analysis
 
   ***N.B.***
   ROI radius is energy-dependent: minROI < r95(e,conversion_type) < maxROI
