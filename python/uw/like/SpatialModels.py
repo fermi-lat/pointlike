@@ -1,15 +1,13 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.8 2010/07/16 01:39:29 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.9 2010/07/19 20:24:28 lande Exp $
 
    author: Joshua Lande
 
 """
 import numpy as N
 from scipy import vectorize
-from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,SkyImage,Background,WeightedSkyDirList
-from skymaps import SkyIntegrator,SkyDir
-from pointlike import DoubleVector
+from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,SkyImage,SkyIntegrator
 
 class DefaultSpatialModelValues(object):
     """ Spatial Parameters:
@@ -51,6 +49,7 @@ class DefaultSpatialModelValues(object):
                                 'steps':[0.04],
                                 'log':[True]},
         'PseudoNFW'          : {'p':[], 'param_names':[], 'limits':[], 'log':[], 'steps':[]},
+        'RadialProfile'      : {'p':[], 'param_names':[], 'limits':[], 'log':[], 'steps':[]},
         'EllipticalGaussian' : {'p':[N.radians(.1),N.radians(.1),0], 
                                 'param_names':['Major_Axis','Minor_Axis','Position_Angle'],
                                 'limits':N.radians([[1e-6,3],
@@ -173,36 +172,22 @@ class SpatialModel(object):
         # Errors are no longer valid, so reset cov matrix.
         self.cov_matrix = N.zeros([len(self.p),len(self.p)]) 
 
-    def get_parameters(self,absolute=False,all=False):
-        """Return FREE parameters; used for spatial fitting.
-           all=True returns all parameters. """
+    def get_parameters(self,absolute=False):
+        """Return all parameters; used for spatial fitting. 
+           This is different from in Models.py """
+        return N.nan_to_num((10**self.p)*self.log) + self.p*(~self.log) if absolute else self.p
+
+    def get_param_names(self,absolute=True):
         if absolute:
-            ret=((10**self.p)*self.log + self.p*(~self.log))
+            return self.param_names
         else:
-            ret=self.p
-        return ret if all else ret[self.free]
+            return ["log10(%s)" % n if log else n \
+                    for n,log in zip(self.param_names,self.log)]
 
-    def get_param_names(self,absolute=True,all=False):
-        if all:
-            if absolute:
-                return self.param_names
-            else:
-                return ["log10(%s)" % n if log else n \
-                        for n,log in zip(self.param_names,self.log)]
-        else:
-            if absolute:
-                return self.param_names[self.free] 
-            else:
-                return ["log10(%s)" % n if log else n \
-                        for n,log in zip(self.param_names[self.free],self.log[self.free])]
-
-    def get_limits(self,absolute=False,all=False):
+    def get_limits(self,absolute=False):
         ret = N.asarray([10**lim if log and absolute else lim \
                          for lim,log in zip(self.limits,self.log)])
-        if all:
-            return ret
-        else:
-            return [_ for _,free in zip(ret,self.free) if free]
+        return ret
 
     def get_steps(self):
         if not self.__dict__.has_key('steps'):
@@ -210,11 +195,11 @@ class SpatialModel(object):
         return self.steps
 
     def set_parameters(self,p,absolute=False,center=None):
-        """ Set FREE parameters; p should have length equal to number of free parameters.
+        """ Set all parameters; p should have length equal to number of parameters.
+            Note that this API is different from in Models.py
 
-            If center is given as an argument, it is appended to the beginning of the p
+            If center is given as an argument, the longitude and latitude are appended to the beginning of the p
             as the first two coordinaets..
-        
         """
         if center:
             if self.coordsystem == SkyDir.EQUATORIAL:
@@ -222,15 +207,22 @@ class SpatialModel(object):
             elif self.coordsystem == SkyDir.GALACTIC:
                 p = N.append([center.l(),center.b()],p)
 
-        if len(p)!=(self.free).sum():
+        if len(p)!=len(self.p):
             raise Exception("SpatialModel.set_parameters given the wrong number of arguments.")
 
         if absolute:
             # careful not to take log of a negative number
-            self.p[self.free] = N.asarray([N.log10(_) if log else _ \
-                                           for _,log in zip(p,self.log[self.free])])
+            self.p = N.asarray([N.log10(_) if log else _ for _,log in zip(p,self.log)])
         else:
-            self.p[self.free] = N.asarray(p)
+            self.p = N.asarray(p)
+
+        self.cache()
+    
+    def modify_loc(self,center):
+        if self.coordsystem == SkyDir.EQUATORIAL:
+            self.p[0:2] = [center.ra(),center.dec()]
+        elif self.coordsystem == SkyDir.GALACTIC:
+            self.p[0:2] = [center.l(),center.b()]
 
         self.cache()
 
@@ -249,39 +241,36 @@ class SpatialModel(object):
         self.free[parameter] = not freeze
 
     def set_cov_matrix(self,new_cov_matrix):
-        self.cov_matrix[N.outer(self.free,self.free)] = N.ravel(new_cov_matrix)
+        self.cov_matrix = new_cov_matrix
 
     def get_cov_matrix(self,absolute=True):
         """Return covariance matrix."""
 
         jac = N.log10(N.exp(1))
-        p = ((10**self.p)/jac)*self.log + 1*(~self.log) if absolute else N.ones_like(self.p)
+        p = N.nan_to_num((10**self.p)/jac)*self.log + 1*(~self.log) if absolute else N.ones_like(self.p)
         pt=p.reshape((p.shape[0],1)) #transpose
         return p*self.cov_matrix*pt
 
-    def get_free_errors(self,absolute=False,all=False):
+    def get_free_errors(self,absolute=False):
         """Return the diagonal elements of the covariance matrix for free parameters."""
-        if all:
-            return N.diag(self.get_cov_matrix(absolute))**0.5
-        else:
-            return N.diag(self.get_cov_matrix(absolute))[self.free]**0.5
+        return N.diag(self.get_cov_matrix(absolute))**0.5
 
     def statistical(self,absolute=False,two_sided=False):
         """Return the parameter values and fractional statistical errors.
            If no error estimates are present, return 0 for the fractional error."""
 
-        p = self.get_parameters(absolute=True,all=True)
+        p = self.get_parameters(absolute=True)
         if not two_sided:
             # for one sided case, completely map covarinace matrix
             # to absolute values & then divide by p to get relative
             # errors
-            errs = self.get_free_errors(absolute=True,all=True)
+            errs = self.get_free_errors(absolute=True)
             return p,errs/(1. if absolute else p)
         else:
             # Perfrom conversion out of log space.
-            errs = self.get_free_errors(absolute=False,all=True)
-            lo_abs = (p-10**(self.p-errs))*self.log + errs*(~self.log)
-            hi_abs = (10**(self.p+errs)-p)*self.log + errs*(~self.log)
+            errs = self.get_free_errors(absolute=False)
+            lo_abs = N.nan_to_num(p-10**(self.p-errs))*self.log + errs*(~self.log)
+            hi_abs = N.nan_to_num(10**(self.p+errs)-p)*self.log + errs*(~self.log)
             return  p, \
                     hi_abs/(1. if absolute else p), \
                     lo_abs/(1. if absolute else p)
@@ -293,6 +282,11 @@ class SpatialModel(object):
     def r68(self):
         """ It is useful to know the average spatial model size. """
         raise NotImplementedError("Subclasses should implement this!")
+
+    def effective_edge(self):
+        """ For analytic convolution, distance to be taken as the edge of the
+            source. """
+        return 5*self.r68()
 
     def get_PySkyFunction(self):
         return PySkyFunction(self)
@@ -346,7 +340,7 @@ class SpatialModel(object):
     def pretty_spatial_string(self):
         """ Print out just the spatial part of the model, excluding
             the source location."""
-        return "[ "+" ".join(["%.3f" % _ for _ in self.get_parameters(absolute=True,all=True)[2:]])+" ]"
+        return "[ "+" ".join(["%.3f" % _ for _ in self.get_parameters(absolute=True)[2:]])+" ]"
 
 #===============================================================================================#
 
@@ -388,7 +382,7 @@ class Gaussian(RadiallySymmetricModel):
     def extension(self):
         # extension defined as a function so it is easy to overload
         # by the pseudo hypothesis.
-        return self.get_parameters(absolute=True,all=True)[2]
+        return self.get_parameters(absolute=True)[2]
 
     def cache(self):
         super(Gaussian,self).cache()
@@ -421,7 +415,7 @@ class PseudoGaussian(Gaussian):
 class Disk(RadiallySymmetricModel):
     """ Defined as a constant value up to a distance Sigma away from the source. """
     def extension(self):
-        return self.get_parameters(absolute=True,all=True)[2]
+        return self.get_parameters(absolute=True)[2]
 
     def cache(self):
         super(Disk,self).cache()
@@ -435,6 +429,10 @@ class Disk(RadiallySymmetricModel):
 
     def r68(self):
         return 0.824621125*self.sigma
+
+    def effective_edge(self):
+        """ Disk has a well defined edge, so there is no reason to integrate past it. """
+        return self.sigma
 
     def pretty_spatial_string(self):
         return "[ %.3f' ]" % (60*N.degrees(self.sigma))
@@ -455,7 +453,7 @@ class NFW(RadiallySymmetricModel):
         P(x,y)=2/(pi*r*s*(1+r/s)^5) """
 
     def extension(self):
-        return self.get_parameters(absolute=True,all=True)[2]
+        return self.get_parameters(absolute=True)[2]
 
     def cache(self):
         super(Disk,self).cache()
@@ -477,6 +475,33 @@ class NFW(RadiallySymmetricModel):
 class PseudoNFW(NFW):
 
     def extension(self): return N.radians(1e-10)
+
+
+class RadialProfile(RadiallySymmetricModel):
+    def __init__(self,*kargs,**kwargs):
+
+        super(RadiallySymmetricModel).__init__(*kargs,**kwargs)
+
+        if not self.dict.has_key('file') or not os.path.exists(self.file):
+            raise Exception("RadialProfile must be passed an existing file")
+
+        self.r,self.pdf=N.loadtxt(self.file,unpack=True)
+
+        self.r = N.radians(self.r) # convert to radians
+
+        # Explicitly normalize the RadialProfile.
+        self.interp = N.interp1d(self.r.self.pdf,kind='cubic',bound_error=False,fill_value=0)
+
+        r  = N.linspace(0,self.r[-1],10000)
+        dr = r[1]-r[0]
+        self.norm = self.interp(r)*2*N.pi*r*dr
+        self.pdf /= self.norm
+
+        # redo normalized interpolation
+        self.interp = N.interp1d(self.r.self.pdf,kind='cubic',bound_error=False,fill_value=0)
+
+    def at_r(self,r):
+        return self.interp(r)
 
 
 class EllipticalGaussian(SpatialModel):
@@ -501,7 +526,7 @@ class EllipticalGaussian(SpatialModel):
 
         super(EllipticalGaussian,self).cache()
 
-        sigma_x, sigma_y, theta = self.get_parameters(absolute=True,all=True)[2:]
+        sigma_x, sigma_y, theta = self.get_parameters(absolute=True)[2:]
 
         # parameters from
         # http://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function

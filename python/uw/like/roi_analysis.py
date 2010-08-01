@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.28 2010/07/25 19:39:17 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.29 2010/07/28 19:09:22 wallacee Exp $
 
 author: Matthew Kerr
 """
@@ -14,6 +14,7 @@ from roi_bands import *
 from roi_localize import *
 from pointspec_helpers import PointSource
 from roi_diffuse import DiffuseSource
+from roi_extended import ExtendedSource
 
 from specfitter import SpectralModelFitter,mycov
 
@@ -174,29 +175,28 @@ class ROIAnalysis(object):
         #print ll,parameters
         return 1e6 if N.isnan(ll) else ll
 
-    def bandFit(self,which):
-        """ Perform a spectral independendent fit."""
+    def bandLikelihood(self,which):
+        """ Perform a spectral independendent fit of the source specified by which."""
         manager,index=self.mapper(which)
 
-        self.bgm.update_counts(bands)
-        self.psm.update_counts(bands)
+        self.bgm.update_counts(self.bands)
+        self.psm.update_counts(self.bands)
 
         if manager == self.psm:
-            for eb in roi.energy_bands:
+            for eb in self.energy_bands:
                 eb.bandFit(which=index,saveto='bandfits')
 
-            ll = -sum([band.bandLikelihood([band.bandfits if
+            ll = sum([band.bandLikelihood([band.bandfits if
                                             band.bandfits > 0 else 0],index) \
-                       for band in roi.bands])
+                       for band in self.bands])
         else:
-            for eb in roi.energy_bands:
+            for eb in self.energy_bands:
                 eb.bandFitDiffuse(which=index,saveto='bandfits')
 
-            ll = -sum([band.bandLikelihoodDiffuse([band.bandfits],index) \
-                       for band in roi.bands])
+            ll = sum([band.bandLikelihoodDiffuse([band.bandfits],index) \
+                       for band in self.bands])
 
-        return ll
-
+        return ll 
     def gradient_old(self,parameters,*args):
         """ Implement the gradient of the log likelihood wrt the model parameters."""
 
@@ -485,7 +485,7 @@ class ROIAnalysis(object):
             if not bandfits:
                 ll_1 = self.logLikelihood(self.get_parameters())
             else:
-                ll_1 = self.bandFit(which)
+                ll_1 = self.bandLikelihood(which)
 
             if ll_0 == 1e6 or ll_1 == 1e6: 
                  print 'Warning: loglikelihood is NaN, returning TS=0'
@@ -502,7 +502,7 @@ class ROIAnalysis(object):
         if not bandfits:
             ll = -self.logLikelihood(save_params)
         else:
-            ll = self.bandFit(which)
+            ll = -self.bandLikelihood(which)
         if ll_0 == 1e6 or ll == 1e6: 
              print 'Warning: loglikelihood is NaN, returning TS=0'
              return 0
@@ -671,9 +671,16 @@ class ROIAnalysis(object):
 
     def modify_loc(self,skydir,which):
         """Move point source given by which to new location given by skydir."""
-        rl = ROILocalizer(self,which=which,update=True)
-        rl.spatialLikelihood(skydir)
-        self.psm.point_sources[which].skydir = skydir
+        manager,index=self.mapper(which)
+        if manager==self.psm:
+            rl = ROILocalizer(self,which=index,update=True)
+            rl.spatialLikelihood(skydir)
+            self.psm.point_sources[index].skydir = skydir
+        elif manager==self.dsm:
+            if isinstance(self.dsm.diffuse_sources[index],ExtendedSource):
+                self.dsm.bgmodels[index].modify_loc(self.bands,skydir)
+            else:
+                raise Exception("Unable to modify_loc of diffuse source %s" % which)
         
     def print_summary(self, sdir=None, galactic=False, maxdist=5, title=''):
          """ formatted table point sources positions and parameter in the ROI

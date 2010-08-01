@@ -2,7 +2,7 @@
 Provides a  convenience class to call Minuit, mimicking the interface to scipy.optimizers.fmin.
 
 author: Eric Wallace <wallacee@uw.edu>
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/minuit.py,v 1.14 2010/03/11 19:23:30 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/minuit.py,v 1.15 2010/07/21 21:18:58 lande Exp $
 
 """
 import sys, os
@@ -68,11 +68,9 @@ class FCN(object):
 class Minuit(object):
     """A wrapper class to initialize a minuit object with a numpy array.
 
-    For now, assumes that all parameters are free. 
-
     Positional args:
         myFCN : A python callable
-        params : An array (or other python sequence) of free parameters
+        params : An array (or other python sequence) of parameters
 
     Keyword args:
 
@@ -113,6 +111,7 @@ class Minuit(object):
         self.__dict__.update(kwargs)
 
         self.params = np.asarray(params,dtype='float')
+        self.fixed=np.asarray(self.fixed,dtype=bool)
         self.fcn = FCN(myFCN,self.params,args=self.args,gradient=self.gradient)
         self.fval = self.fcn.fval
         self.minuit = TMinuit(self.npars)
@@ -145,13 +144,28 @@ class Minuit(object):
 
     def errors(self,method='HESSE'):
         """method ['HESSE']   : how to calculate the errors; options are ['HESSE','MIGRAD','MINOS']."""
-        mat = np.zeros(self.npars**2)
-        if method == 'HESSE':
-            self.minuit.mnhess()
+        if not np.any(self.fixed):
+            mat = np.zeros(self.npars**2)
+            if method == 'HESSE':
+                self.minuit.mnhess()
+            else:
+                pass
+            self.minuit.mnemat(mat,self.npars)
+            return mat.reshape((self.npars,self.npars))
         else:
-            pass
-        self.minuit.mnemat(mat,self.npars)
-        return mat.reshape((self.npars,self.npars))
+            # Kind of ugly, but for fixed parameters, you need to expand out the covariance matrix.
+            nf=int(np.sum(~self.fixed))
+            mat = np.zeros(nf**2)
+            if method == 'HESSE':
+                self.minuit.mnhess()
+            else:
+                pass
+            self.minuit.mnemat(mat,nf)
+
+            # Expand out the covariance matrix.
+            cov = np.zeros((self.npars,self.npars))
+            cov[np.outer(~self.fixed,~self.fixed)] = np.ravel(mat)
+            return cov
 
 def mycov(self,full_output=False,min_step=1e-5,max_step=1,max_iters=5,target=0.5,min_func=1e-4,max_func=4):
     """Perform finite differences on the _analytic_ gradient provided by user to calculate hessian/covariance matrix.

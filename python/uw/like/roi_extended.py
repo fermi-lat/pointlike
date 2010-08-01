@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.11 2010/07/13 21:26:18 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.12 2010/07/16 01:40:06 lande Exp $
 
     author: Joshua Lande
 """
@@ -118,7 +118,7 @@ class ROIExtendedModel(ROIDiffuseModel_OTF):
                  es.name,es.smodel.pretty_name,
                  es.smodel.__str__())
 
-    def localize(self,roi,which,tolerance=1e-2,update=False,verbose=False,
+    def localize(self,roi,which,tolerance,update=False,verbose=False,
                  bandfits=True, error="HESSE",init_grid=None,fitpsf=False):
         """ Localize this extended source by fitting all non-fixed spatial paraameters of 
             self.extended_source. The likelihood at the best position is returned.
@@ -129,7 +129,7 @@ Optional keyword arguments:
   Keyword     Description
   =========   =======================================================
   bandfits      [True]  Spectrum independent fitting.
-  tolerance     [1e-2]  Tolerance set when integrating hypergeometirc
+  tolerance             Tolerance set when integrating hypergeometirc
                         function to calcualte PDF.
   update        [False] Number of points to calculate the PDF at.
                         interpolation is done in between.
@@ -178,7 +178,6 @@ Optional keyword arguments:
 
         es = self.extended_source
         sm = es.spatial_model
-        pn = sm.get_param_names(absolute=True,all=False)
         cs = sm.coordsystem
 
         origin=SkyDir(0,0,cs)
@@ -200,49 +199,9 @@ Optional keyword arguments:
         init_lon,init_lat = sm.p[0:2]
         init_dir          = SkyDir(init_lon,init_lat,cs)
 
+
         # Fit in coordinate system rotated so y=z=0.
-        if cs == SkyDir.GALACTIC:
-            init_spatial[(pn=='l')|(pn=='b')] = 0 
-        elif cs == SkyDir.EQUATORIAL:
-            init_spatial[(pn=='RA')|(pn=='Dec')] = 0 
-
-        def loglike():
-            """ Wrapper to call the standard likelihood function and,
-                if it fails to converge, retry the likelihood from 
-                the initial spectral values. This is useful in case
-                the fitting algorithm moves way too far away and
-                the source flux gets fit to 0, the fitter may be
-                too far away from the minimum to converge. """
-            ll=roi.fit(estimate_errors=False)
-
-            if ll < ll_0:
-                prev_fit=self.smodel.get_parameters()
-                self.smodel.set_parameters(init_spectral)
-                ll_alt=roi.fit(estimate_errors=False)
-
-                if ll_alt > ll:
-                    ll=ll_alt
-                else:
-                    self.smodel.set_parameters(prev_fit)
-            return ll
-
-        def bandlike():
-            """ Helper function which takes in the spatial parameters
-                for the extended source and returns the logLikelihood.
-            """
-
-            roi.bgm.update_counts(roi.bands)
-            roi.psm.update_counts(roi.bands)
-
-            ll = 0
-            if 'energy_bands' not in roi.__dict__.keys(): roi.setup_energy_bands()
-
-            # Note, negative sign to be consistent with value returned
-            # by roi.fit()
-            for eb in roi.energy_bands: 
-                ll -= eb.bandFitDiffuse(which=which)
-
-            return ll
+        init_spatial[0:2]=0
 
         def likelihood_wrapper(p):
             """ Helper function which takes in the spatial parameters
@@ -261,19 +220,9 @@ Optional keyword arguments:
                 
                 N.B. roi.dsm.update_counts handled by fit() calling logLikelihood()
                 """
+            p=p.copy()
 
-            # Only pull ra & dec/l & b out of parameters if they are being fit.
-            # otherwise they are, by definition, equal to 0 (in rotated 
-            # coordinates)
-            if cs == SkyDir.GALACTIC:
-                lon     = float(p[pn=='l'] or 0)
-                lat     = float(p[pn=='b'] or 0)
-                p=p[(pn!='l')&(pn!='b')]
-            elif cs == SkyDir.EQUATORIAL:
-                lon     = float(p[pn=='RA'] or 0)
-                lat     = float(p[pn=='Dec'] or 0)
-                p=p[(pn!='RA')&(pn!='Dec')]
-
+            lon,lat=p[0:2]
             # New direction in rotated coordiante system
             new_dir = SkyDir(lon,lat,cs)
 
@@ -290,17 +239,26 @@ Optional keyword arguments:
 
             # Now add the rotated spatial part back to the list.
             if cs == SkyDir.GALACTIC:
-                if N.any(pn=='b'): p=N.append(new_dir.b(),p)
-                if N.any(pn=='l'): p=N.append(new_dir.l(),p)
+                p[0:2]=new_dir.l(),new_dir.b()
             elif cs == SkyDir.EQUATORIAL:
-                if N.any(pn=='Dec'): p=N.append(new_dir.dec(),p)
-                if N.any(pn=='RA'): p=N.append(new_dir.ra(),p)
+                p[0:2]=new_dir.ra(),new_dir.dec()
 
             # Do the convolution here.
             sm.set_parameters(p=p,absolute=False)
             self.initialize_counts(roi.bands)
 
-            ll = bandlike() if bandfits else loglike()
+            if bandfits:
+                ll=-roi.bandLikelihood(self.extended_source)
+            else:
+                ll=roi.fit(estimate_errors=False)
+
+                if ll < ll_0:
+                    prev_fit=self.smodel.get_parameters()
+                    self.smodel.set_parameters(init_spectral)
+                    ll_alt=roi.fit(estimate_errors=False)
+
+                    if ll_alt > ll: ll=ll_alt
+                    else: self.smodel.set_parameters(prev_fit)
 
             if verbose: print '%s, logL = %.2f, dlogL = %.2f' % (sm.pretty_string(),ll,ll-ll_0)
             return -ll
@@ -331,12 +289,19 @@ Optional keyword arguments:
             start_spatial = init_spatial
 
         # Display which parameters are in log space.
-        relative_names = sm.get_param_names(absolute=False,all=False)
+        relative_names = sm.get_param_names(absolute=False)
 
-        m = Minuit(f,start_spatial,up=.5,maxcalls=20000,tolerance=tolerance,
-                   printMode=verbose,param_names=relative_names,
-                   limits=sm.get_limits(absolute=False),
-                   steps  =sm.get_steps())
+        # convert tolerance from Minuit's definition .001*up*tolerance (up=.5 for log likelihood).
+        m = Minuit(f,start_spatial,
+                   up=0.5,
+                   maxcalls=20000,
+                   tolerance=tolerance/0.0005,
+                   printMode = verbose,
+                   param_names=relative_names,
+                   limits    = sm.get_limits(absolute=False),
+                   fixed     = ~sm.free,
+                   steps     = sm.get_steps())
+
         best_spatial,fval = m.minimize(method="SIMPLEX")
 
         if verbose: print 'Calculating Covariance Matrix'
@@ -362,6 +327,10 @@ Optional keyword arguments:
 
         # return log likelihood from fitting extension.
         return -fval
+
+    def modify_loc(self,bands,center):
+        self.extended_source.spatial_model.modify_loc(center)
+        self.initialize_counts(bands)
 
 ###=========================================================================###
 
@@ -405,6 +374,9 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         # use this feature in the process of localizing one source, it is 
         # probably good enough.
 
+        if self.fitpsf and self.nsimps != 0:
+            raise Exception("For extended source objects, fitpsf can only be set with nsimps=0.")
+
         if self.fitpsf and not self.already_fit: 
             # Note that this must be done before calculating the pdf.
             fitter=BandFitter(bands)
@@ -415,7 +387,7 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
 
 
 class BandFitter(object):
-    """ This class has a somewhat wierd function. Basically the PSF is
+    """ This class has a somewhat weird purpose. Basically the PSF is
         a king function, (or for the newpsf two king functions). But
         this psf shape is a function of energy and the incident theta
         angle of the photos. When studying extended sources, we have a
@@ -488,7 +460,7 @@ class BandFitter(object):
         if newstyle:
             raise Exception("PSF Fitting is not yet implemented for the newstyle PSF. Bug Josh to add this")
         else:
-            weight_sum,s_list= 0,[]
+            weight_sum,s_list=0,[]
 
             # Use the same simpson integral used to calculate
             # predicted counts for a point source.
