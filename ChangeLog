@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Aug  1 23:15:51 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Small bug reading in extended sources in galactic coordinates.
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-05-01, operation: add
 Package: pointlike
