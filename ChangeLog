@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Aug  2 13:47:46 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Error message for unknown fit method.
+    *
+------------------------------------------------------------
 User: lande  Mon Aug  2 13:46:53 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
