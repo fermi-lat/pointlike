@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.29 2010/07/28 19:09:22 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.30 2010/08/01 00:06:46 lande Exp $
 
 author: Matthew Kerr
 """
@@ -353,6 +353,9 @@ class ROIAnalysis(object):
             method     -- ['simplex'] fitter; 'powell' or 'simplex' or 'minuit'
             tolerance -- (approximate) absolute tolerance of log likelihood value
         """
+
+        if method not in ['simplex','powell','minuit']:
+            raise Exception('Unknown fitting method for roi.fit(): "%s"' % method)
 
         if fit_bg_first:
             self.fit_background()
