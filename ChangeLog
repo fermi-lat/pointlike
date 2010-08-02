@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Mon Aug  2 12:47:27 PDT 2010
+ScienceTools-scons/pointlike/src/test
+
+Modified Files:
+	test_main.cxx 
+Log Message:
+fix files used in test program.
+    *
+------------------------------------------------------------
+User: burnett  Mon Aug  2 12:47:27 PDT 2010
 ScienceTools-scons/pointlike
 
 Modified Files:
