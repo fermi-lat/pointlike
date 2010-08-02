@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/boresight.py,v 1.0 2010/07/29 13:53:17 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/stacklike.py,v 1.0 2010/07/29 13:53:17 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -14,26 +14,79 @@ import os as os
 from uw.utilities.angularmodels import CompositeModel,PSF,PSFAlign,Backg,Halo
 from uw.utilities.CLHEP import HepRotation,Hep3Vector,Photon
 
+#################################################        STACKLIKE         ####################################################
+#
+#                           Stacklike is an analysis suite which models angular distributions of photons
+#                           by stacking sources. The angular distributions are then fit to the models
+#                           by maximizing the extended likelihood with respect model parameters. This
+#                           includes the number of photons associated with each submodel (eg PSF parameters
+#                           and # of photons from the PSF). The submodels are defined in angularmodels.py,
+#                           and are combined into a composite model where the overall likelihood is calculated.
+#                           This makes it natural to add additional model components with different angular
+#                           distributions.
+#
+#                           files:
+#                           stacklike.py     - this file
+#                           angularmodels.py - contains all models, composite models, and fitters
+#                           CLHEP.py         - contains implementation of matrix and vector classes for transforming 
+#                                              photon positions 
+#                           
+#
+
+
+################################################# HOWTO MAKE SOURCE LISTS #####################################################
+#
+#  simply make a new text file: 'test.txt'
+#
+#  the first line of the file will be ignored so feel free to make a header:
+#
+#         #name    ra    dec
+#         source1  128.8379  -45.1763
+#         source2  0.0000    0.0000
+#         .........................
+#         (und so weiter)
+#
+
+
+
+################################################## ENVIRONMENT SETUP        ###################################################
 debug=False
-rd = 180./N.pi
+rd = 180./N.pi        #to radians
 monthlist = ['aug2008','sep2008','oct2008','nov2008','dec2008','jan2009','feb2009','mar2009','apr2009'\
     ,'may2009','jun2009','jul2009','aug2009','sep2009','oct2009','nov2009','dec2009','jan2010','feb2010','mar2010'\
     ,'apr2010','may2010','jun2010']
-CALDBdir = r'd:\fermi/CALDB/v1r1/CALDB/data/glast/lat/'
-datadir = r'd:\fermi\data\flight/'
-ft2dir = r'd:\fermi\data\flight/'
-srcdir = r'd:\common\mar0\sourcelists/'
-files = []
-ft2s = []
+CALDBdir = r'y:\fermi/CALDB/v1r1/CALDB/data/glast/lat'
+datadir = r'y:\fermi\data\flight/'                             #directory for FT1 files
+ft2dir = r'y:\fermi\data\flight/'                              #directory for FT2 files
+srcdir = r'y:\common\mar0\sourcelists/'                        #directory for source lists
+files = []                                                     #default list of FT1 file names (minus '-ft1.fits')
+ft2s = []                                                      #default list of FT2 file names (minus '-ft2.fits')
 for month in monthlist:
     files.append('%s'%month)
     ft2s.append('%s'%month)
 
-###################################################  START STACKLOADER CLASS ##################################################    
+###################################################  START STACKLOADER CLASS ##################################################
 
-##  Stackloader class
+##  StackLoader class
 #   
-#   loads a set of photons 
+#   loads a set of photons with instrument coordinate information and stacks them based on a list of sources
+#
+#   usage:
+#
+#   sl = Stackloader(args1)
+#   sl.loadphotons(args2)
+#   
+#
+#   StackLoader contains methods to solve alignment, PSF, and halo parameters
+#   ***************************************************************************
+#   solverot() - outputs the boresight alignment in arcseconds for Rx(x)*Ry(y)*Rz(z)
+#
+#   solvepsf() - fits the parameters of a single King function in a uniform background
+#
+#   solvehalo() - fits the parameters of a gaussain halo with a PSF and uniform background
+#
+#   solvedoublepsf() - fits the parameters of two King functions in a uniform background
+#   !!!Warning: large degeneracy in on-orbit data, only works with very low uniform background!!!
 class StackLoader(object):
 
 
@@ -46,11 +99,12 @@ class StackLoader(object):
     #   @param ft2dr ft2 file directory
     #   @param datadr ft1 file directory
     #   @param srcdr source list directory (ascii file with 'name    ra     dec', first line is skipped)
-    def __init__(self,lis='strong',tev=False,rot=[0,0,0],files=files,CALDBdr=CALDBdir,datadr=datadir,ft2dr=ft2dir,srcdr=srcdir,test=False):
+    #   @param irf response function of the form 'P?_v?'
+    def __init__(self,lis='strong',tev=False,rot=[0,0,0],files=files,CALDBdr=CALDBdir,datadr=datadir,ft2dr=ft2dir,srcdr=srcdir,irf = 'P6_v3'):
         
         self.firstlight = False
         self.rot = HepRotation(rot,False)
-        self.rot.echo()
+        print 'Using boresight alignment (in arcsec): Rx=%1.0f Ry=%1.0f Rz=%1.0f'%(rot[0]*rd*3600,rot[1]*rd*3600,rot[2]*rd*3600)
         self.tev = tev
         self.CALDBdir = CALDBdr
         self.datadir = datadr
@@ -76,7 +130,7 @@ class StackLoader(object):
 
 
         s.IParams.set_CALDB(self.CALDBdir)
-        s.IParams.init('P6_v3')
+        s.IParams.init(irf)
         self.atb = []
         self.srcs = []
         sf = file(self.srcdir+lis+'.txt')
@@ -106,6 +160,15 @@ class StackLoader(object):
         self.aeff = []
         
         print 'Applying masks to data'
+        print '*********************************'
+        print '%1.0f < Energy < %1.0f'%(self.emin,self.emax)
+        print '%1.2f degrees from source'%(self.rad)
+        print '%1.0f < Time < %1.0f'%(start,stop)
+        print 'Event class = %1.0f'%(cls)
+        print '%1.2f < costh < %1.2f'%(self.ctmin,self.ctmax)
+        print '*********************************'
+
+        #go through each fits file, mask unwanted events, and setup tables
         for ff in self.files:
             print ff
             tff = pf.open(ff)
@@ -115,22 +178,30 @@ class StackLoader(object):
             tff.close()
         self.photons = []
 
+        #go through each table and contruct Photon objects
         for j,tb in enumerate(self.atb):
             print 'Examining %d events'%len(tb)
             if len(tb)>0:
                 print '    *Loading pointing history'
                 phist = pl.PointingHistory(self.ft2s[j])
                 print '    *Loading events'
+                
+                #iterate over events for photons
                 for k in range(len(tb)):
                     event = tb[k]
                     sd = s.SkyDir(float(event.field('RA')),float(event.field('DEC')))
                     rsrc = self.srcs[0]
                     diff = 1e40
+
+                    #associate with a particular source
                     for src in self.srcs:
                         tdiff = sd.difference(src)*rd
                         if tdiff<diff:
                             rsrc=src
                             diff=tdiff
+                    
+                    #if photons is not too far away from any source
+                    #add it to the list
                     if diff<rad:
                         time = event.field('TIME')
                         pi = phist(time)
@@ -144,40 +215,31 @@ class StackLoader(object):
                         photon = Photon(sd.ra(),sd.dec(),event.field('ENERGY'),time,event.field('EVENT_CLASS'),xv,zv,rsrc)
                         self.ebar = self.ebar+event.field('ENERGY')
                         self.photons.append(photon)
-                        if debug:
-                            bpd.addPhoton(pl.Photon(sd,float(event.field('ENERGY')),float(time),int(event.field('EVENT_CLASS'))))
-                del phist
-        self.aeff = N.array(self.aeff).transpose()
-        self.ebar = self.ebar/len(self.photons)
 
-    #Find the uniform background component
+                del phist #free up memory from pointing history object
+        self.ebar = self.ebar/len(self.photons)  #calculate mean energy of photons
+
+    ## estimates uniform background component from PSF
     def solveback(self):
-        alphas = [0.5]
-        psfa = PSFAlign(lims=[0,self.rad/rd])
+        #Try to estimate the number of background photons
+        sigma=s.IParams.sigma(self.ebar,int(self.photons[0].event_class))
+        gamma=s.IParams.gamma(self.ebar,int(self.photons[0].event_class))
+        psf = PSF(lims=[0,self.rad/rd],model_par=[sigma,gamma],free=[False,False])
         bck = Backg(lims=[0,self.rad/rd])
         cm = CompositeModel()
-
-        #Model is a point source described 
-        #by a psf in a uniform background
-        cm.addModel(psfa)
+        cm.addModel(psf)
         cm.addModel(bck)
-        cm.fit(self.photons)
-        Npsf = cm.minuit.params[0]
-        Npsfe = cm.minuit.errors()[0][0]
-        Nback = cm.minuit.params[1]
-        Nbacke = cm.minuit.errors()[1][1]
-        self.Npsf = Npsf
-        self.Nback = Nback
-        self.alpha = Npsf/(Npsf+Nback)
-        self.sigalph = self.alpha*N.sqrt(Npsfe/(Npsf**2)+(Npsfe+Nbacke)/((Npsf+Nback)**2))
-        self.il = cm.minuit.fval
-        print 'Expected %d photons, got %d ( %d (%d) + %d (%d) )'%(len(self.photons),int(Npsf+Nback),int(Npsf),int(N.sqrt(Npsfe)),int(Nback),int(N.sqrt(Nbacke)))
-        print self.alpha,self.sigalph
-        self.cm=cm
+        cm.fit(self.photons,mode=0)
 
-    # Finds boresight alignment solution
+        self.Npsf = cm.minuit.params[0]
+        self.Nback = cm.minuit.params[1]
+        self.errs = cm.minuit.errors()
+        self.Npsfe = N.sqrt(self.errs[0][0])
+        self.Nbacke = N.sqrt(self.errs[1][1])
+        
+    ## Finds boresight alignment solution
     def solverot(self):
-        psfa = PSFAlign(lims=[0,self.rad/rd],free=[True,True,True])
+        psfa = PSFAlign(lims=[0,self.rad/rd],free=[True,True,True],ebar=self.ebar)
         bck = Backg(lims=[0,self.rad/rd])
         cm = CompositeModel()
         cm.addModel(psfa)
@@ -203,8 +265,13 @@ class StackLoader(object):
         print 'Called likelihood %d times'%cm.calls
         self.cm=cm
 
-
+    ## tries to solve parameters for a single King function in a uniform background
     def solvepsf(self):
+
+        #estimate uniform background component
+        self.solveback()
+
+        #solve for PSF parameters
         sigma=s.IParams.sigma(self.ebar,int(self.photons[0].event_class))
         gamma=s.IParams.gamma(self.ebar,int(self.photons[0].event_class))
         psf = PSF(lims=[0,self.rad/rd],model_par=[sigma,gamma])
@@ -212,7 +279,7 @@ class StackLoader(object):
         cm = CompositeModel()
         cm.addModel(psf)
         cm.addModel(bck)
-        cm.fit(self.photons)
+        cm.fit(self.photons,free=[True,True],exp=[self.Npsf,self.Nback],mode=1)
         fl = cm.minuit.fval
         self.Npsf = cm.minuit.params[0]
         self.Nback = cm.minuit.params[1]
@@ -235,82 +302,71 @@ class StackLoader(object):
             ssign = '+'
         else:
             ssign = '-'
+
+        phs = (self.Npsf+self.Nback)
+        tr = sum([self.errs[i][i] for i in range(len(self.errs))])
+        f1 = self.Npsf/phs
+        f1e = f1*N.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
+        f2 = self.Nback/phs
+        f2e = f2*N.sqrt(self.errs[1][1]/(self.Nback**2)+tr/(phs**2))
         print '**********************************************************'
-        print 'Sigma = %1.3f [1 +/- %1.2f] (%s%1.0f)'%(self.sigma*rd,self.sigmae/self.sigma,ssign,100*abs((self.sigma-sigma)/sigma))
-        print 'Gamma = %1.2f  [1 +/- %1.2f] (%s%1.0f)'%(self.gamma,self.gammae/self.gamma,gsign,100*abs((self.gamma-gamma)/gamma))
+        print 'Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
+        print 'Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100)
+        print 'Sigma = %1.3f [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.sigma*rd,self.sigmae/self.sigma,ssign,100*abs((self.sigma-sigma)/sigma))
+        print 'Gamma = %1.2f  [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.gamma,self.gammae/self.gamma,gsign,100*abs((self.gamma-gamma)/gamma))
         TS = -2*(fl-self.il)
         print 'Significance of psf change was TS = %d'%TS
         self.cm=cm
 
+    # tries to fit a halo component on top of a PSF defined by 'irf' in a uniform background
     def solvehalo(self):
-        sigma=s.IParams.sigma(self.ebar,int(self.photons[0].event_class))
-        gamma=s.IParams.gamma(self.ebar,int(self.photons[0].event_class))
+
+        #estimate uniform background component
+        self.solveback()
+
+        #solve for Halo model component while freezing PSF parameters
+
         psf = PSF(lims=[0,self.rad/rd],model_par=[sigma,gamma],free=[False,False])
-        halo = Halo(lims=[0,self.rad/rd],model_par=[0.5/rd])
+        halo = Halo(lims=[0,self.rad/rd])
         bck = Backg(lims=[0,self.rad/rd])
         cm = CompositeModel()
         cm.addModel(psf)
         cm.addModel(halo)
         cm.addModel(bck)
-        cm.fit(self.photons)
-        print 'Halo width was %1.3f deg'%(cm.minuit.params[5]*rd)
+        cm.fit(self.photons,free=[True,True,True],exp=[self.Npsf/2.,self.Npsf/2.,self.Nback],mode=1)
+        self.errs = cm.minuit.errors()
+        self.Npsf = cm.minuit.params[0]
+        self.Npsfe = N.sqrt(self.errs[0][0])
+        self.Nhalo = cm.minuit.params[1]
+        self.Nhaloe = N.sqrt(self.errs[1][1])
+        self.Nback = cm.minuit.params[2]
+        self.Nbacke = N.sqrt(self.errs[2][2])
+        self.theta = cm.minuit.params[5]
+        self.frac = self.Nhalo*100./(self.Nhalo+self.Npsf)
+        ferr = self.frac*N.sqrt(self.Nhaloe/(self.Nhalo**2)+self.Npsfe/(self.Npsf**2))
+        phs = (self.Npsf+self.Nback+self.Nhalo)
+        tr = sum([self.errs[i][i] for i in range(len(self.errs))])
+        f1 = self.Npsf/phs
+        f1e = f1*N.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
+        f2 = self.Nhalo/phs
+        f2e = f2*N.sqrt(self.errs[1][1]/(self.Nhalo**2)+tr/(phs**2))
+        f3 = self.Nback/phs
+        f3e = f3*N.sqrt(self.errs[2][2]/(self.Nback**2)+tr/(phs**2))
+        print '**********************************************************'
+        print 'Npsf  = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
+        print 'Nhalo = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Nhalo,self.Nhaloe/self.Nhalo,f2*100,f2e*100)
+        print 'Nback = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f3*100,f3e*100)
+        print 'Halo width was %1.3f [1 +/- %1.2f] deg'%(self.theta*rd,N.sqrt(self.errs[5][5])/self.theta)
+        print 'Halo fraction was %1.0f [1 +/- %1.2f]'%(self.frac,ferr/self.frac)
         self.cm=cm
 
-    ## Makes a plot of all of the models and the angular distribution of photons
-    #  @param name filename of output file
-    def makeplot(self,name='test.png'):
-        self.getds()
-        bins = 20.
-        mi = N.log10((min(self.ds))**2)
-        ma = N.log10((max(self.ds))**2)
-        d2 = ma-mi
-        be = N.arange(mi,ma,d2/bins)
-        be2 = N.arange(mi,(1.-1./bins)*ma,d2/bins)
-        be3 = N.sqrt(10**(be2))
-        p.ioff()
-        p.figure(figsize=(8,8))
-        hist = p.hist(N.log10(self.ds*self.ds),bins=be2,fc='None')
-        p.clf()
-        fits=[]
-        hists=[]
-        errs=[]
-        names=[]
-        names.append('data')
-        for model in range(len(self.cm.models)):
-            fits.append([])
-            names.append(self.cm.models[model].name)
-        fits.append([])
-        names.append('total')
-        for it,ba in enumerate(be):
-            left=be3[it]
-            right=be3[it+1]
-            for it2,model in enumerate(self.cm.models):
-                fits[it2].append(self.cm.nest[it2]*model.integral(left,right)/model.integral(0,self.rad/rd)/(right**2-left**2)/(rd**2))
-            fits[len(fits)-1].append(self.cm.integral(left,right,0,self.rad/rd)/(right**2-left**2)/(rd**2))
-            hists.append(hist[0][it]/(right**2-left**2)/(rd**2))
-            errs.append(N.sqrt(hist[0][it])/(right**2-left**2)/(rd**2))
-        pts=[]
-
-        p1 = p.errorbar(be+d2/bins/2+2*N.log10(rd),hists,yerr=errs,ls='None',marker='o')
-        pts.append(p1[0])
-        for ad in fits:
-            p1 = p.plot(be+d2/bins/2+2*N.log10(rd),ad,'-')
-            pts.append(p1)
-
-        p.legend(pts,names)
-
-        ax = p.gca()
-        ax.set_yscale("log", nonposy='clip')
-        p.ylim(0.1*min(hists),10*max(hists))
-        p.xlim(min(be+2*N.log10(rd)),max(be+d2/bins+2*N.log10(rd)))
-        p.xlabel(r'$log(\theta^2)\/[log(deg^2)]$')
-        p.ylabel(r'$dN/d\Omega$')
-        #p.ylim(0.5,max(hist[0])*2.)
-        p.grid()
-        p.savefig(name)
-        
-    ## tries to fit two King functions
+    ## tries to fit two King functions in a uniform background
     def solvedoublepsf(self):
+        
+        #estimate uniform background component
+        self.solveback()
+
+        #solve two King function parameters
         sigma=s.IParams.sigma(self.ebar,int(self.photons[0].event_class))
         gamma=s.IParams.gamma(self.ebar,int(self.photons[0].event_class))
         psf = PSF(lims=[0,self.rad/rd],model_par=[sigma,gamma])
@@ -320,7 +376,7 @@ class StackLoader(object):
         cm.addModel(psf)
         cm.addModel(psf)
         cm.addModel(bck)
-        cm.fit(self.photons)
+        cm.fit(self.photons,free=[True,True,True],exp=[self.Npsf/2.,self.Npsf/2.,self.Nback],mode=1)
         fl = cm.minuit.fval
         self.Npsf = cm.minuit.params[0]
         self.Npsf2 = cm.minuit.params[1]
@@ -359,50 +415,142 @@ class StackLoader(object):
             ssign2 = '+'
         else:
             ssign2 = '-'
+        phs = (self.Npsf+self.Nback+self.Npsf2)
+        tr = sum([self.errs[i][i] for i in range(len(self.errs))])
+        f1 = self.Npsf/phs
+        f1e = f1*N.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
+        f2 = self.Npsf2/phs
+        f2e = f2*N.sqrt(self.errs[1][1]/(self.Npsf2**2)+tr/(phs**2))
+        f3 = self.Nback/phs
+        f3e = f3*N.sqrt(self.errs[2][2]/(self.Nback**2)+tr/(phs**2))
         print '***************************************'
-        print 'Sigma = %1.3f [1 +/- %1.2f] (%s%1.0f)'%(self.sigma*rd,self.sigmae/self.sigma,ssign,100*abs((self.sigma-sigma)/sigma))
-        print 'Gamma = %1.2f  [1 +/- %1.2f] (%s%1.0f)'%(self.gamma,self.gammae/self.gamma,gsign,100*abs((self.gamma-gamma)/gamma))
-        print 'Sigma2 = %1.3f [1 +/- %1.2f] (%s%1.0f)'%(self.sigma2*rd,self.sigmae2/self.sigma2,ssign2,100*abs((self.sigma2-sigma)/sigma))
-        print 'Gamma2 = %1.2f  [1 +/- %1.2f] (%s%1.0f)'%(self.gamma2,self.gammae2/self.gamma2,gsign,100*abs((self.gamma2-gamma)/gamma))
+        print 'Npsf   = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
+        print 'Npsf2  = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Npsf2,self.Npsf2e/self.Npsf2,f2*100,f2e*100)
+        print 'Nback  = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f3*100,f3e*100)
+        print 'Sigma  = %1.3f [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.sigma*rd,self.sigmae/self.sigma,ssign,100*abs((self.sigma-sigma)/sigma))
+        print 'Gamma  = %1.2f  [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.gamma,self.gammae/self.gamma,gsign,100*abs((self.gamma-gamma)/gamma))
+        print 'Sigma2 = %1.3f [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.sigma2*rd,self.sigmae2/self.sigma2,ssign2,100*abs((self.sigma2-sigma)/sigma))
+        print 'Gamma2 = %1.2f  [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.gamma2,self.gammae2/self.gamma2,gsign2,100*abs((self.gamma2-gamma)/gamma))
         TS = -2*(fl-self.il)
         print 'Significance of psf change was TS = %d'%TS
         self.cm=cm
 
-    #helper function - cuts unused data
+    ## Makes a plot of all of the models and the angular distribution of photons
+    #  @param name filename of output file
+    def makeplot(self,name='test.png'):
+        #calculate angular separations
+        self.getds()
+
+        #plotting setup
+        bins = 25.                       #angular bins
+        mi = N.log10((min(self.ds))**2)
+        ma = N.log10((max(self.ds))**2)
+        d2 = ma-mi
+        be = N.arange(mi,ma,d2/bins)
+        be2 = N.arange(mi,(1.-1./bins)*ma,d2/bins)
+        be3 = N.sqrt(10**(be2))
+        be4 = 10**(be+d2/bins/2)*rd*rd
+        p.ioff()
+        p.figure(figsize=(8,8))
+        hist = p.hist(N.log10(self.ds*self.ds),bins=be2,fc='None')
+        p.clf()
+        fits=[]
+        hists=[]
+        errs=[]
+        names=[]                      #names of the various plots
+        names.append('data')
+        
+        #retrieve all model names
+        for model in range(len(self.cm.models)):
+            fits.append([])
+            names.append(self.cm.models[model].name)
+        fits.append([])
+        names.append('total')
+
+        #fill all model plots
+        for it,ba in enumerate(be):
+            left=be3[it]
+            right=be3[it+1]
+            for it2,model in enumerate(self.cm.models):
+                fits[it2].append(self.cm.nest[it2]*model.integral(left,right)/model.integral(0,self.rad/rd)/(right**2-left**2)/(rd**2))
+            fits[len(fits)-1].append(self.cm.integral(left,right,0,self.rad/rd)/(right**2-left**2)/(rd**2))
+            hists.append(hist[0][it]/(right**2-left**2)/(rd**2))
+            errs.append(N.sqrt(hist[0][it])/(right**2-left**2)/(rd**2))
+        pts=[]
+
+        #plot histogrammed events
+        p1 = p.errorbar(be4,hists,yerr=errs,ls='None',marker='o')
+        pts.append(p1[0])
+
+        #plot all models
+        for ad in fits:
+            p1 = p.plot(be4,ad,'-')
+            pts.append(p1)
+
+        #finish up plotting
+        p.legend(pts,names)
+        ax = p.gca()
+        ax.set_yscale("log", nonposy='clip')
+        p.semilogx()
+        p.ylim(0.01*min(fits[len(fits)-1]),100*max(fits[len(fits)-1]))
+        p.xlim(0.8*min(be4),max(be4)*1.2)
+        p.xlabel(r'$\theta^2\/(\rm{deg^2})$')
+        p.ylabel(r'$dN/d\Omega$')
+        p.grid()
+        p.savefig(name)
+        
+
+
+    ## helper function - cuts unused data
+    #  @param table 'EVENTS' FITS table from FT1 data
+    #  @param srcs list of skymaps::SkyDirs of sources to stack
+    #  @param emin minimum energy (MeV)
+    #  @param emax maximum energy (MeV)
+    #  @param start minimum MET
+    #  @param stop maximum MET
+    #  @param rad ROI in degrees around sources
+    #  @param cls conversion type: 0=front,1=back,-1=all
     def mask(self,table,srcs,emin,emax,start,stop,rad,cls):
         cuts = [0,0,0,0,0,0]
         total = len(table)
         tc = len(table)
+
+        #make time cuts
         msk = (table.field('TIME')>start) & (table.field('TIME')<stop)
         table = table[msk]
         tc = tc - len(table)
         cuts[0] = tc
         tc = len(table)
         if len(table)>0:
+            #make energy cuts
             msk = (table.field('ENERGY')>emin) & (table.field('ENERGY')<emax)
             table = table[msk]
             tc = tc - len(table)
             cuts[1] = tc
             tc = len(table)
             if len(table)>0:
+                #make instrument theta cuts
                 msk = (table.field('THETA')<(N.arccos(self.ctmin)*rd)) & (table.field('THETA')>(N.arccos(self.ctmax)*rd))
                 table = table[msk]
                 tc = tc - len(table)
                 cuts[2] = tc
                 tc = len(table)
                 if len(table)>0:
+                    #make zenith angle cuts to remove limb photons
                     msk = table.field('ZENITH_ANGLE')<105
                     table = table[msk]
                     tc = tc - len(table)
                     cuts[3] = tc
                     tc = len(table)
                     if len(table)>0:
+                        #optionally cut out conversion type
                         if cls!=-1:
                             msk = table.field('CONVERSION_TYPE')==cls
                             table = table[msk]
                             tc = tc - len(table)
                             cuts[4] = tc
                             tc = len(table)
+                        #make ROI cuts
                         if len(table)>0:
                             msk = self.dirmask(srcs[0],rad,table)
                             for j in range(len(srcs)-1):
@@ -411,13 +559,19 @@ class StackLoader(object):
                             tc = tc - len(table)
                             cuts[5] = tc
         tc = len(table)
+        #display number of photons cut from each step and finally the number of photons examined
         print 'TOTAL: %d    TIMEC: %d    ENERGY: %d    THETA: %d    ZENITH: %d    ECLASS: %d    POS: %d    EXAM: %d'%(total,cuts[0],cuts[1],cuts[2],cuts[3],cuts[4],cuts[5],tc)
         return table
     
 
-    #direction mask - masks area around sources to speed execution
+    ## direction mask - masks area around sources to speed execution
+    #  @param sd skymaps::SkyDir of source location
+    #  @param deg radius in degrees
+    #  @param tb 'EVENTS' FITS table from FT1 file
     def dirmask(self,sd,deg,tb):
         ra,dec=sd.ra(),sd.dec()
+
+        #does the region overlap the poles?
         if deg+abs(dec)>90:
             if dec<0:
                 ldec = dec+deg
@@ -438,12 +592,15 @@ class StackLoader(object):
                 ramax = ra+deg/cdec
                 decmin = dec-deg
                 decmax = dec+deg
-                            #ramin < 0 go to 360+ramin               racut                                  deccut
+                   #ramin < 0 go to 360+ramin                              racut                                         deccut
             mask = ( ((tb.field('RA')>360+ramin)&(ramin<0))  |  ((tb.field('RA')>ramin)&(tb.field('RA')<ramax))  )\
             & ( (tb.field('DEC')>decmin)&(tb.field('DEC')<decmax) )
         return mask
 
-    #sets scaled angular deviations
+    ##  sets scaled angular deviations for rotated events
+    #   @param x1 x-rotation
+    #   @param y1 y-rotation
+    #   @param z1 z-rotation
     def getus(self,x1,y1,z1):
         self.us=[]
         x,y,z=x1/rd/3600.,y1/rd/3600.,z1/rd/3600.
@@ -470,14 +627,19 @@ class StackLoader(object):
 
 ################################################### END ALIGNMENT CLASS ###########################################
 
-########################################### TEST METHODS  #################################################
+################################################### TEST METHODS  #################################################
 
+
+##   alignment test program
+##   runs on a small set of flight data and uses Crab, Geminga, and Vela as sources
+##   if everything is ok, should return 0
 def test():
     plr = os.environ['POINTLIKEROOT']
     fdir = plr+'/python/uw/utilities/boresighttest/'
     al = StackLoader(lis='cgv',files=['test'],datadr=fdir,ft2dr=fdir,srcdr=fdir)
     al.loadphotons(1,1000,2e6,0,999999999,-1)
     al.solverot()
+    al.makeplot('aligntest.png')
     ret = 0
     if (al.params[0]+77.6158515)>10:
         ret = ret + 1
@@ -493,7 +655,9 @@ def test():
         ret = ret +32
     return ret
 
-
+##   psf parameter test program
+##   runs on a small set of flight data and uses Crab, Geminga, and Vela as sources
+##   if everything is ok, should return 0
 def test2():
     plr = os.environ['POINTLIKEROOT']
     fdir = plr+'/python/uw/utilities/boresighttest/'
@@ -506,7 +670,7 @@ def test2():
         ret = ret + 1
     if (al.gamma-1.53)>1e-2:
         ret = ret + 2 
-    al.makeplot()
+    al.makeplot('psftest.png')
     return ret
     
 ###################################################################################################

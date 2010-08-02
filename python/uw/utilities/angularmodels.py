@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/angularmodels.py,v 1.1 2010/07/29 21:40:59 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/angularmodels.py,v 1.0 2010/07/29 13:53:17 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -45,7 +45,7 @@ class PSF(Model):
         self.model_par=model_par
         self.free=free
         self.steps=[0.001/rd,0.01]                 #size of step taken by fitter
-        self.limits=[[0.001/rd,10/rd],[1.01,5.]]   #limits of fitter (gamma>1)
+        self.limits=[[0.001/rd,10./rd],[1.01,5.]]   #limits of fitter (gamma>1)
         self.name='psf'
         self.header='sigma\tgamma\t'
     
@@ -113,12 +113,13 @@ class PSFAlign(PSF):
     #  @param lims [min,max], minimum and maximum angular deviations in radians
     #  @param model_par [sig,gam], model parameters (sigma, gamma), with sigma in radians
     #  @param free [sig,gam], frees parameters to be fit
-    def __init__(self,lims,model_par=[0,0,0],free=[False,False,False],rot=[0,0,0]):
+    def __init__(self,lims,model_par=[0,0,0],free=[False,False,False],rot=[0,0,0],ebar=1e4):
         super(Model,self).__init__(model_par,free)
         self.rot = HepRotation(rot,False)
         self.model_par=model_par
         self.free=free
         self.lims=lims
+        self.ebar=ebar
         self.steps=[20./3600./rd,20./3600./rd,30./3600./rd]
         self.limits=[[-N.pi,N.pi],[-N.pi,N.pi],[-N.pi,N.pi]]
         self.name='psf'
@@ -165,8 +166,8 @@ class PSFAlign(PSF):
     #  @param delmin minimum angle in radians
     #  @param delmax maximum angle in radians
     def integral(self,delmin,delmax):
-        sig = s.IParams.sigma(float(photon.energy),int(photon.event_class))
-        g = s.IParams.gamma(float(photon.energy),int(photon.event_class))
+        sig = (s.IParams.sigma(float(self.ebar),0)+s.IParams.sigma(float(self.ebar),1))/2.
+        g = (s.IParams.gamma(float(self.ebar),0)+s.IParams.gamma(float(self.ebar),1))/2.
         um = delmin*delmin/(2.*sig*sig)
         ua = delmax*delmax/(2.*sig*sig)
         f0 = (1+um/g)**(-g+1)
@@ -178,7 +179,7 @@ class PSFAlign(PSF):
     def update(self,pars):
         self.model_par=pars
 
-################################################### END PSF CLASS       ###########################################
+################################################### END PSFALIGN CLASS  ###########################################
 
 ################################################### BACKG CLASS         ###########################################
 
@@ -243,7 +244,7 @@ class Halo(Model):
         self.free=free
         self.lims=lims
         self.steps=[0.01/rd]
-        self.limits=[[0.001/rd,10./rd]]
+        self.limits=[[0.001/rd,2./rd]]
         self.name='halo'
         self.header='theta\t'
     
@@ -327,7 +328,8 @@ class CompositeModel(object):
     #  @param photons list of CLHEP photons
     #  @param free frees all number estimators, assumed to be true
     #  @param exp if free is set to [..False..], exp = [..Ni..], where Ni is the estimator for the number of photons in model i
-    def fit(self,photons,free=[],exp=[]):
+    #  @param mode minuit fit strategy: 0-quick 1-normal 2-careful
+    def fit(self,photons,free=[],exp=[],mode=1):
         n = len(photons)
         pars = []
         frees = []
@@ -360,7 +362,7 @@ class CompositeModel(object):
         self.clock=t.time()
         
         #minimize likelihood for parameters with respect to the parameters
-        self.minuit = Minuit(lambda x: self.extlikelihood(x,photons),pars,fixed=frees,limits=lims,tolerance=1e-3,strategy=1,printMode=-1)
+        self.minuit = Minuit(lambda x: self.extlikelihood(x,photons),pars,free=frees,limits=lims,tolerance=1e-3,strategy=mode,printMode=-1)
         self.minuit.minimize()
 
         self.nest = self.minuit.params[:len(self.models)] # first parameters are the number estimators
@@ -401,7 +403,7 @@ class CompositeModel(object):
         acc = acc + sum(nest)
         self.calls=self.calls+1
 
-        #print paramter set ever 10 function evals
+        #print parameter set every 10 function evals
         if self.calls%10==0:
             st = '%d\t'%self.calls
             st = st+'%5.0f\t'%(int(sum(nest)))
