@@ -12,6 +12,8 @@
 #include "skymaps/Exposure.h"
 #include "skymaps/IsotropicPowerLaw.h"
 
+#include "facilities/commonUtilities.h"
+
 #include "pointlike/SimpleTSmap.h"
 #include "pointlike/ParamOptimization.h"
 #include "pointlike/ConfidenceLevel.h"
@@ -35,7 +37,8 @@ class Points{public:
     using namespace pointlike;
 
 // test data file, generated using obsSim with 3 sources
-std::string inputFile(  "../src/test/test_events.root" );
+std::string inputFile(facilities::commonUtilities::joinPath(facilities::commonUtilities::getDataPath("pointlike"), 
+                     "test_events.root" ));
 
 /** @class AddPhoton
 
@@ -82,7 +85,7 @@ int main(int argc , char** argv )
 
         { 
             std::vector<std::string>ft1_list;
-            ft1_list.push_back("../src/test/r0236198321_ft1.fit");
+            ft1_list.push_back(facilities::commonUtilities::joinPath(facilities::commonUtilities::getDataPath("pointlike"),"r0236198321_ft1.fit"));
             Data test(ft1_list); 
             test.info();
         }
