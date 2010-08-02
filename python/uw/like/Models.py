@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.12 2010/07/17 20:06:52 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.13 2010/07/25 19:37:14 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -421,24 +421,6 @@ Spectral parameters:
       n0,gamma1,gamma2,e_break,cutoff=10**self.p
       return (n0/self.flux_scale)*N.where( e < e_break, (e_break/e)**gamma1, (e_break/e)**gamma2 )*N.exp(-e/cutoff)
 
-
-#===============================================================================================#
-
-class BrokenPowerLawF(Model):
-   """Implement a broken power law.  See constructor docstring for further keyword arguments.
-
-Spectral parameters:
-
-  n0         differential flux at e0 MeV
-  gamma1     (absolute value of) spectral index for e < e_break
-  gamma2     (absolute value of) spectral index for e > e_break
-  e_break    break energy (nota bene: fixed!)
-      """
-   def __call__(self,e):
-      n0,gamma1,gamma2=10**self.p
-      e_break = self.e_break
-      return (n0/self.flux_scale)*N.where( e < e_break, (e_break/e)**gamma1, (e_break/e)**gamma2 )
-
 #===============================================================================================#
 
 class DoublePowerLaw(Model):
@@ -471,7 +453,6 @@ Spectral parameters:
    def __call__(self,e):
       n0,gamma1,gamma2,cutoff,ratio=10**self.p
       return (n0/self.flux_scale)*((self.e0/e)**gamma1*N.exp(-e/cutoff) + ratio*(self.e0/e)**gamma2)
-
 
 
 #===============================================================================================#
@@ -566,21 +547,6 @@ Spectral parameters:
       return N.asarray([f/n0,f*N.log(self.e0/e),
                 f*(b/cutoff)*(e/cutoff)**b,f*(e/cutoff)**b*N.log(cutoff/e)])
 
-#===============================================================================================#
-
-class PLSuperExpCutoffF(Model):
-   """Implement a power law with fixed hyper-exponential cutoff.  See constructor docstring for further keyword arguments.
-
-Spectral parameters:
-
-  n0         differential flux at e0 MeV
-  gamma      (absolute value of) spectral index
-  cutoff     e-folding cutoff energy (MeV)
-  b          hyperexponential index
-      """
-   def __call__(self,e):
-      n0,gamma,cutoff=10**self.p
-      return (n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-(e/cutoff)**self.b)
 
 #===============================================================================================#
 
