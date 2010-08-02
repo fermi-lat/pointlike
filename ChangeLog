@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Aug  2 08:19:37 PDT 2010
+ScienceTools-scons/pointlike
+
+Modified Files:
+	SConscript 
+Log Message:
+refactor a bit, add win32
+    *
+------------------------------------------------------------
 User: lande  Sun Aug  1 23:15:51 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
