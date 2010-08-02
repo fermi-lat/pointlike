@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.12 2010/07/16 01:40:06 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.13 2010/08/01 00:06:46 lande Exp $
 
     author: Joshua Lande
 """
@@ -294,7 +294,7 @@ Optional keyword arguments:
         # convert tolerance from Minuit's definition .001*up*tolerance (up=.5 for log likelihood).
         m = Minuit(f,start_spatial,
                    up=0.5,
-                   maxcalls=20000,
+                   maxcalls=500,
                    tolerance=tolerance/0.0005,
                    printMode = verbose,
                    param_names=relative_names,
