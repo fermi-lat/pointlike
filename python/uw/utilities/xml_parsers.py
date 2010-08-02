@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.3 2010/07/06 23:01:23 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.4 2010/07/23 21:10:23 lande Exp $
 
    author: Matthew Kerr
 """
@@ -180,7 +180,7 @@ class XML_to_SpatialModel(object):
             coordsystem="SkyDir.EQUATORIAL"
             self.spatialdict[spatialname]=['RA','DEC']+self.spatialdict[spatialname]
         elif d.has_key('L') and d.has_key('B') and not (d.has_key('RA') or d.has_key('DEC')):
-            coordsystem="SkyDir.EQUATORIAL"
+            coordsystem="SkyDir.GALACTIC"
             self.spatialdict[spatialname]=['L','B']+self.spatialdict[spatialname]
         else: raise Exception("Unable to parse spatial model %s. Either RA and Dec or L and B must be parameters." % spatialname)
 
