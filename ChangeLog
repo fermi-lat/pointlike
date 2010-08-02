@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Mon Aug  2 16:24:18 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Removed two redundant spectral model classes.
+    *
+------------------------------------------------------------
 User: mar0  Mon Aug  2 13:48:11 PDT 2010
 pointlike/src/alignment
 
