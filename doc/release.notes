@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.143 2010/08/01 04:05:44 burnett Exp $
+$Id: release.notes,v 1.144 2010/08/01 22:22:39 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-05-02 02-Aug-2010 burnett scons/win32 fix
  pointlike-07-05-01 01-Aug-2010 burnett more corrections to fix vc90 warnigns
  pointlike-07-05-00 31-Jul-2010 burnett many improvements in python
  pointlike-07-04-04 08-Jun-2010 burnett minor python improvements
