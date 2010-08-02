@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Mon Aug  2 13:48:11 PDT 2010
+pointlike/src/alignment
+
+Removed Files:
+	alignment.txt vela.txt 
+Log Message:
+Changed 'boresight' to 'stacklike' to better reflect analysis
+    *
+------------------------------------------------------------
 User: mar0  Mon Aug  2 13:48:10 PDT 2010
 pointlike/python/uw/utilities
 
