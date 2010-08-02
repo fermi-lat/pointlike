@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.18 2010/07/25 19:40:56 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.19 2010/08/01 00:06:46 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.18 $'.split()[1]
+version='$Revision: 1.19 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -508,7 +508,7 @@ Optional keyword arguments:
             ==========   =============
             keyword      description
             ==========   =============
-            fit_emin     [100,100] minimum energies (separate for front and back) to use in spectral fitting.
+            fit_emin     [125,125] minimum energies (separate for front and back) to use in spectral fitting.
             fit_emax     [1e5,1e5] maximum energies (separate for front and back) to use in spectral fitting.
             diffdir      [None] a directory to look for the default diffuse models (e.g. gll_iem_v02.fit)
             ==========   =============
