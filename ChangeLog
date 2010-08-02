@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Aug  2 13:44:56 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+Stripwhite space from catalog source names.
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-05-03, operation: add
 Package: pointlike
