@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Aug  3 01:02:24 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Implementing the newstyle psf for extended sources.
+    *
+------------------------------------------------------------
 User: lande  Tue Aug  3 01:01:39 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
