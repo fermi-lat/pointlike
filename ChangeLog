@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Aug  3 15:28:20 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+add method to change e0 needed by thb pipeline
+    *
+------------------------------------------------------------
 User: lande  Tue Aug  3 01:02:24 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
