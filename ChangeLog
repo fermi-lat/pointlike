@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Aug  2 20:34:39 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Addition of BrokenPowerLaw and BrokenPowerLaw2 to spectral models. Also, improve error messages.
+    *
+------------------------------------------------------------
 User: lande  Mon Aug  2 17:59:05 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
