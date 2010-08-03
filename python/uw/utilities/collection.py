@@ -1,7 +1,7 @@
 """
 generate collection file for LiveLabs Pivot viewer
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.5 2010/05/11 18:59:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.6 2010/06/20 14:16:30 burnett Exp $
 See <http://getpivot.com>
 Author: Toby Burnett <tburnett@uw.edu>
 """
@@ -45,7 +45,9 @@ def image_list(item_names, full_dzc):
     try:
         return [ids[n+'.xml'] for n in names]
     except:
-        print 'Source %s not found in list of images %s' %  full_dzc
+        for n in names:
+            if n+'.xml' not in ids:
+                print 'Item %s not found in list of images %s' %  ( n, full_dzc)
         raise
 
 
