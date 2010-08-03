@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Aug  2 20:48:03 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	quadform.py roi_tsmap.py 
+Log Message:
+Moving import of matplotlib/pylab to section of the code where it is used. This is to ensure that matplotlib is not loaded unless plotting is done.
+    *
+------------------------------------------------------------
 User: lande  Mon Aug  2 20:47:07 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
