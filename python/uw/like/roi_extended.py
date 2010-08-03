@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.13 2010/08/01 00:06:46 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.14 2010/08/02 20:46:31 lande Exp $
 
     author: Joshua Lande
 """
@@ -448,53 +448,69 @@ class BandFitter(object):
 
         newstyle = psf.newstyle
 
+        # Get a rough estimate of the gamma & sigma
+        # in the middle by weighting sigmas & gammas in the 
+        # geomeric mean energy over cos theta.
+        # This serves as the starting fit value.
         scale = psf.scale_func[band.ct](band.e)
-        p=psf.get_p(band.e,band.ct)
-        gamma_middle=sum(p[0]*p[2])/sum(p[2])
-        sigma_middle=sum(p[1]*p[2])/sum(p[2])
+        if newstyle:
+            nc,nt,gc,gt,sc,st,w = psf.get_p(band.e,band.ct)
+            gamma_middle=sum(w*(nc*gc+nt*gt))
+            sigma_middle=sum(w*(nc*sc+nt*st))
+        else:
+            g,s,w=psf.get_p(band.e,band.ct)
+            gamma_middle=sum(g*w)
+            sigma_middle=sum(s*w)
+
         sigma_middle=sigma_middle*scale
 
         rlist = N.linspace(0,20*sigma_middle,10000)
         pdf = N.zeros_like(rlist)
         pdf_weight = N.zeros_like(rlist)
-        if newstyle:
-            raise Exception("PSF Fitting is not yet implemented for the newstyle PSF. Bug Josh to add this")
-        else:
-            weight_sum,s_list=0,[]
 
-            # Use the same simpson integral used to calculate
-            # predicted counts for a point source.
-            for e,sp in zip(band.sp_points,band.sp_vector):
+        weight_sum,s_list=0,[]
+
+        # Use the same simpson integral used to calculate
+        # predicted counts for a point source.
+        for e,sp in zip(band.sp_points,band.sp_vector):
+            scale = psf.scale_func[band.ct](e)
+            if newstyle:
+                nc,nt,gc,gt,sc,st,w = psf.get_p(e,band.ct)
+                sc *= scale
+                st *= scale
+                pdf += (w*(nc*self.psf_base(gc,sc,rlist)+
+                           nt*self.psf_base(gt,st,rlist))).sum(axis=1)*sp*weightspectrum(e)
+                s_list += list(sc) + list(st)
+            else:
                 g,s,w = psf.get_p(e,band.ct).copy()
-                scale = psf.scale_func[band.ct](e)
                 s *= scale 
                 pdf += (w*self.psf_base(g,s,rlist)).sum(axis=1)*sp*weightspectrum(e)
                 s_list += list(s)
 
-                weight_sum += sp*weightspectrum(e)
-            
-            # Normalize
-            pdf /= weight_sum 
+            weight_sum += sp*weightspectrum(e)
+        
+        # Normalize
+        pdf /= weight_sum 
 
-            # Function returns the difference between the true pdf and 
-            # the psf for a given gamma & sigma. Note that the most
-            # accurate thing is the probability per unit radius summed over
-            # all of the radii.
-            f=lambda p: N.std(rlist*(self.psf_base(p[0],p[1],rlist).sum(axis=1)-pdf))
+        # Function returns the difference between the true pdf and 
+        # the psf for a given gamma & sigma. Note that the most
+        # accurate thing is the probability per unit radius summed over
+        # all of the radii.
+        f=lambda p: N.std(rlist*(self.psf_base(p[0],p[1],rlist).sum(axis=1)-pdf))
 
-            fit = fmin(f,[gamma_middle,sigma_middle],full_output=False,disp=False)
-            fit_gamma,fit_sigma = fit
+        fit = fmin(f,[gamma_middle,sigma_middle],full_output=False,disp=False)
+        fit_gamma,fit_sigma = fit
 
-            # the fit sigma should be somewhere between the two extremes.
-            # Not so sure about the gamma tail parameter being a good
-            # measure.
-            if fit_sigma < min(s_list) or fit_sigma > max(s_list): 
-                print dedent("""\
-                    Error: Sigma fit outside of a 
-                    reasonable range. fit sigma is %g,
-                    minimum sigma is %g. maximum sigma
-                    is %g.""" % \
-                    (fit_sigma,min(s_list),max(s_list)))
+        # the fit sigma should be somewhere between the two extremes.
+        # Not so sure about the gamma tail parameter being a good
+        # measure.
+        if fit_sigma < min(s_list) or fit_sigma > max(s_list): 
+            print dedent("""\
+                Error: Sigma fit outside of a 
+                reasonable range. fit sigma is %g,
+                minimum sigma is %g. maximum sigma
+                is %g.""" % \
+                (fit_sigma,min(s_list),max(s_list)))
 
-            band.fit_gamma,band.fit_sigma=fit_gamma,fit_sigma
+        band.fit_gamma,band.fit_sigma=fit_gamma,fit_sigma
 
