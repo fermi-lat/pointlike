@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.4 2010/07/23 21:10:23 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.5 2010/08/02 06:15:51 lande Exp $
 
    author: Matthew Kerr
 """
@@ -88,6 +88,8 @@ class XML_to_Model(object):
         self.modict   = dict({
             'PowerLaw'  : 'PowerLaw',
             'PowerLaw2' : 'PowerLawFlux',
+            'BrokenPowerLaw' : 'BrokenPowerLaw',
+            'BrokenPowerLaw2' : 'BrokenPowerLawFlux',
             'PLSuperExpCutoff' : 'PLSuperExpCutoff',
             'Constant'  : 'Constant', # should this have been ConstantValue key?
             'ConstantValue' : 'Constant',
@@ -97,6 +99,8 @@ class XML_to_Model(object):
         self.specdict = dict({
             'PowerLaw'  : ['Prefactor','Index'],
             'PowerLaw2' : ['Integral','Index'],
+            'BrokenPowerLaw' : ['Prefactor', 'Index1', 'Index2', 'BreakValue'],
+            'BrokenPowerLaw2' : ['Integral', 'Index1', 'Index2', 'BreakValue'],
             'PLSuperExpCutoff' : ['Prefactor','Index1','Cutoff','Index2'],
             'ConstantValue' : ['Value'],
             'FileFunction'  : ['Normalization']
@@ -105,6 +109,8 @@ class XML_to_Model(object):
         self.kwargdict = dict({
             'PowerLaw'  : [ ['Scale','e0' ] ],
             'PowerLaw2' : [ ['LowerLimit','emin'], ['UpperLimit','emax'] ],
+            'BrokenPowerLaw' : [],
+            'BrokenPowerLaw2' : [ ['LowerLimit','emin'], ['UpperLimit','emax'] ],
             'PLSuperExpCutoff' : [ ['Scale','e0' ] ],
             'ConstantValue' : [],
             'FileFunction' : []
@@ -125,7 +131,7 @@ class XML_to_Model(object):
             pdict = d[p]
             scale = float(pdict['scale'])
             value = float(pdict['value'])
-            if (p == 'Index') or (p == 'Index1'):
+            if (p == 'Index') or (p == 'Index1') or (p == 'Index2'):
                 # gtlike uses a neg. index internally so scale > 0
                 # means we need to take the negative of the value
                 if scale > 0: value = -value
@@ -253,6 +259,24 @@ class Model_to_XML(object):
                 self.pmax   = [1e4,5,5e5]
                 self.pval   = [1,2,1e3]
 
+        elif name == 'BrokenPowerLaw':
+            self.pname  = ['Prefactor', 'Index1', 'Index2', 'BreakValue']
+            self.pfree  = [1,1,1,1]
+            self.pscale = [1e-9,-1,-1,1]
+            self.pmin   = [1e-5,0,0,30]
+            self.pmax   = [1e4,5,5,5e5]
+            self.pval   = [1,2,2,1e3]
+            self.perr   = [0,0,0,0]
+
+        elif name == 'BrokenPowerLaw2':
+            self.pname  = ['Integral','Index1','Index2','BreakValue','LowerLimit','UpperLimit']
+            self.pfree  = [1,1,1,1,0,0]
+            self.pscale = [1e-7,-1,-1,1,1,1]
+            self.pmin   = [1e-4,0,0,30,30,30]
+            self.pmax   = [1e4,5,5,5e5,5e5,5e5]
+            self.pval   = [2,1,1,1e3,1e2,1e5]
+            self.perr   = [0,0,0,0,-1,-1]
+
         elif name == 'PLSuperExpCutoff':
             self.pname = ['Prefactor','Index1','Cutoff','Index2','Scale']
             self.pfree  = [1,1,1,0,0]
@@ -340,7 +364,7 @@ class Model_to_XML(object):
             self.pfree[index] = model.free[iparam]
             self.pval[index] = vals[iparam] / self.pscale[index]
             self.perr[index] = errs[iparam] / self.pscale[index]
-            if (param == 'Index') or (param == 'Index1'):
+            if (param == 'Index') or (param == 'Index1') or (param == 'Index2'):
                 self.process_photon_index(model,index,vals[iparam],errs[iparam])
             if self.pval[index] < self.pmin[index]:
                 print 'WARNING: Found %s for minimum value %s (%s)'%(str(self.pval[index]),str(self.pmin[index]),param)
@@ -368,6 +392,8 @@ class Model_to_XML(object):
 def get_skydir(elem):
     """convert a parsed SpatialModel into a SkyDir."""
     d = dict()
+    if elem['type'] != 'SkyDirFunction':
+        raise Exception("""The PointSource's SpatialModel must have type="PointSource".""")
     for p in elem.children:
         d[p['name']] = float(p['value'])
     return SkyDir(d['RA'],d['DEC'])
@@ -485,7 +511,7 @@ def parse_diffuse_sources(handler,diffdir=None):
                                      spatial_model=spatial_model,
                                      leave_parameters=True))
         else:
-            raise Exception,'Spatial model not recognized'
+            raise Exception('Diffuse spatial model "%s" not recognized' % spatial['type'])
     return ds
 
 def parse_sources(xmlfile,diffdir=None):
