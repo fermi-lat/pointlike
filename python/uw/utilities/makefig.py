@@ -1,13 +1,13 @@
 """ 
 Make combinded figures for Pivot, perhaps
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makefig.py,v 1.3 2010/04/29 21:18:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makefig.py,v 1.4 2010/05/11 18:57:21 burnett Exp $
 
 """ 
 
 from PIL import Image
 import glob, os, sys, exceptions
 import pylab  as plt
-version='$Revision: 1.3 $'.split()[1]
+version='$Revision: 1.4 $'.split()[1]
 
 class InvalidParameter(exceptions.Exception):
     pass
@@ -50,11 +50,10 @@ class Holder(object):
         else:
             self.image.save(filename)
 
-w= 1536 # default initial width -- numbers below tuned by hand for tsmap, sed, log
-def combine_images(names, hsize=(2304,w), 
-                    sizes=     [(w,w) , None, None], 
-                    positions= [(0,0), (w,75), (w-25,w-1015)],
-                    crop=(50,50,2050, 1500),
+def combine_images(names, hsize=(2048,1600), 
+                    sizes=     [(1050,1050) , None, None, None], 
+                    positions= [(0,0), (70,1000), (1050,80), (570, 1000)],
+                    crop=(0,32, 1568, 1470),  #2048, 1568),
                     outdir=None,
                     ):
     c = Holder(size=hsize)
@@ -70,14 +69,15 @@ def combine_images(names, hsize=(2304,w),
         outfile =  sname
     c.save(outfile, crop=crop)
 
-def combine_image(name, path):
+def combine_image(name, path, subpaths=('tsmap', 'sedfig', 'log', 'light_curves'), outfolder='combined'):
     """ special to combine a create a single image
     """
     try:
-        names = [glob.glob(os.path.join(path,subpath, '%s*.png'%name))[0] for subpath in ('tsmap', 'sedfig', 'log') ]
+        names = [glob.glob(os.path.join(path,subpath, '%s*.png'%name))[0] \
+                    for subpath in subpaths ]
     except IndexError:
-        raise InvalidParameter('Source name %s not found  in one of the folders'%name)
-    combine_images(names, outdir=os.path.join(path, 'combined'))
+        raise InvalidParameter('Source name %s not found  in one of the folders %s'%(name, subpaths))
+    combine_images(names, outdir=os.path.join(path, outfolder))
 
 def make_dzc(infolder, outfolder,
         imagefolder='dzi', #'healpipe1_dzimages', 
@@ -108,13 +108,16 @@ def make_dzc(infolder, outfolder,
 
 
 def main(
-        figpath ,
+        names,  figpath ,
         pivot_dir  = None, 
         nmax=0,
         force_log_gen = False,
+        subpaths=('tsmap', 'sedfig', 'log', 'light_curves'),
     ):
     """
     Args:
+    names:  list of source names to combine for Pivot
+        assume that filename is the name with spaces converted to '_', plus sign to 'p'
     figpath: where to find the figures, assuming tsmap, sedfig are subfolders
     pivot_dir [None]: folder to save merged figures
     nmax [0]: if >0, limit number to convert (for testing)
@@ -122,33 +125,21 @@ def main(
     Will save combined figures in 'combined' folder
     """
     
-    tsmaps = glob.glob(os.path.join(figpath,'tsmap','*.png'))
-    tsmaps.sort()
-    sedfigs= glob.glob(os.path.join(figpath,'sedfig','*.png'))
-    sedfigs.sort()
-    n = len(tsmaps)
-    logfigs = glob.glob(os.path.join(figpath,'log', '*.png'))
-    logfigs.sort()
-    if n>0 and len(logfigs)!=n or force_log_gen:
-        print 'generating png versions of log files...'
+    if force_log_gen or not os.path.exists(os.path.join(figpath, 'log', names[0])):
         convert_log_to_png(figpath)
-        logfigs = glob.glob(os.path.join(figpath,'log', '*.png'))
-        logfigs.sort()
-
         
-    print 'found %d tsmap, %d sedfig images, and %d logfigs in %s' % (n, len(sedfigs), len(logfigs), figpath)
-    if (n==0 or n!=len(sedfigs) or n!=len(logfigs)):
-        raise InvalidParameter('expected equal numbers of files in each folder to combine')
+    
     outdir = os.path.join(figpath, 'combined')
     if not os.path.exists(outdir): os.mkdir(outdir)
     print 'Creating combined images in folder %s' % outdir
 
-    for i,names in enumerate(zip(tsmaps, sedfigs,logfigs)):
-        if nmax>0 and i>nmax: break
-        
-        combine_images(names, outdir=outdir)
-        if i%500==0: print '.',
-        
+    for name in names:
+        try:
+            combine_image(name.replace(' ','_').replace('+', 'p'), figpath, subpaths=subpaths)
+        except:
+            print 'fail to convert source "%s"' % name
+            raise
+            
     if pivot_dir is not None: make_dzc(outdir, pivot_dir)
 
 
