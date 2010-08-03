@@ -1,7 +1,7 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.2 2010/05/31 23:50:46 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_tsmap.py,v 1.3 2010/07/31 00:35:24 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -9,7 +9,6 @@ author: Matthew Kerr
 import numpy as N
 from uw.like.pypsf import PsfOverlap
 from uw.like.Models import PowerLaw
-from uw.utilities.image import ZEA
 from skymaps import Band,WeightedSkyDirList,PySkyFunction,Hep3Vector,SkyDir,BinnedPhotonData,SkyImage
 from pointlike import IntVector,DoubleVector
 from scipy.optimize import fmin
@@ -391,6 +390,7 @@ class MultiHealpixTSMap(object):
             if tsmap: tsmap.set_mode(mode)
 
     def make_zea(center,size=10,pixelsize=0.02,galactic=False):
+        from uw.utilities.image import ZEA
         z = ZEA(center,size=size,pixelsize=pixelsize,galactic=galactic)
         z.fill(PySkyFunction(self))
         self.z = z
@@ -430,6 +430,7 @@ class MultiHealpixTSMap(object):
             scale : 0 == linear, 1 == sqrt
         """
         import pylab as P
+        from uw.utilities.image import ZEA
         from matplotlib.colorbar import ColorbarBase
         from matplotlib.colors import Normalize
 
@@ -477,6 +478,7 @@ class MultiHealpixTSMap(object):
         import pylab as P
         from matplotlib.colorbar import ColorbarBase
         from matplotlib.colors import Normalize
+        from uw.utilities.image import ZEA
 
         cmap = P.cm.jet
         cmap.set_bad('white')
