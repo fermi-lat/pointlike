@@ -3,7 +3,7 @@ Manage quadratic fitting, elliptical representation of the TS surface
 
 see Localize
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/quadform.py,v 1.6 2009/11/19 18:10:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/quadform.py,v 1.1 2010/01/13 20:56:47 kerrm Exp $
 
 """
 from numpy import asarray, array, arange, zeros, matrix, sign, rec, linspace, isnan
@@ -11,7 +11,6 @@ from math import sqrt, atan2, sin, cos, atan, pi, degrees, radians
 import os
 from skymaps import SkyDir
 import numpy as np
-import pylab 
 
 
 def quadfun(r, p):
@@ -136,6 +135,7 @@ class Ellipse(object):
         return x,y      
 
     def draw(self, data=None, scale=2):
+        import pylab 
         x,y = self.circuit()
         pylab.plot(x,y, '-')
         pylab.plot([x0],[y0], '+') 
