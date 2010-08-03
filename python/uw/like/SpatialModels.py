@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.9 2010/07/19 20:24:28 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.10 2010/08/01 00:06:46 lande Exp $
 
    author: Joshua Lande
 
@@ -175,7 +175,7 @@ class SpatialModel(object):
     def get_parameters(self,absolute=False):
         """Return all parameters; used for spatial fitting. 
            This is different from in Models.py """
-        return N.nan_to_num((10**self.p)*self.log) + self.p*(~self.log) if absolute else self.p
+        return N.where(self.log,10**self.p,self.p) if absolute else self.p
 
     def get_param_names(self,absolute=True):
         if absolute:
@@ -247,7 +247,7 @@ class SpatialModel(object):
         """Return covariance matrix."""
 
         jac = N.log10(N.exp(1))
-        p = N.nan_to_num((10**self.p)/jac)*self.log + 1*(~self.log) if absolute else N.ones_like(self.p)
+        p = N.where(self.log,(10**self.p)/jac,1) if absolute else N.ones_like(self.p)
         pt=p.reshape((p.shape[0],1)) #transpose
         return p*self.cov_matrix*pt
 
@@ -269,8 +269,8 @@ class SpatialModel(object):
         else:
             # Perfrom conversion out of log space.
             errs = self.get_free_errors(absolute=False)
-            lo_abs = N.nan_to_num(p-10**(self.p-errs))*self.log + errs*(~self.log)
-            hi_abs = N.nan_to_num(10**(self.p+errs)-p)*self.log + errs*(~self.log)
+            lo_abs = N.where(self.log,p-10**(self.p-errs),errs)
+            hi_abs = N.where(self.log,10**(self.p+errs)-p,errs)
             return  p, \
                     hi_abs/(1. if absolute else p), \
                     lo_abs/(1. if absolute else p)
