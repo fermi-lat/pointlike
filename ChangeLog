@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Aug  2 17:59:05 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Adding BrokenPowerLawFlux spectral model and cleaning up after removal of unneeded models.
+    *
+------------------------------------------------------------
 User: kerrm  Mon Aug  2 16:24:18 PDT 2010
 pointlike/python/uw/like
 
