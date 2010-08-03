@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Aug  2 20:47:07 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+More elegant parameter mapping.
+    *
+------------------------------------------------------------
 User: lande  Mon Aug  2 20:34:39 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
