@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.13 2010/07/16 01:41:38 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.14 2010/08/01 00:07:08 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -351,18 +351,15 @@ Optional keyword arguments:
         # pdf is the probability per unit area at a given radius.
         self.pdf=N.zeros_like(self.rlist)
 
-        if self.bpsf.newstyle:
-            if self.fitpsf:
-                raise Exception("fitpsf not enabled with newstyle psf.")
-            else:
+        if self.fitpsf:
+            # For new & old style psf, fit a single king function to the data.
+            self.pdf = self._get_pdf(self.rlist,band.fit_gamma,band.fit_sigma)
+        else:
+            if self.bpsf.newstyle:
                 for nc,gc,sc,nt,gt,st,w in zip(nclist,gclist,sclist,\
                                                ntlist,gtlist,stlist,wlist):
                     self.pdf += w*(nc*self._get_pdf(self.rlist,gc,sc)+
                                    nt*self._get_pdf(self.rlist,gt,st))
-
-        else:
-            if self.fitpsf:
-                self.pdf = self._get_pdf(self.rlist,band.fit_gamma,band.fit_sigma)
             else:
                 for g,s,w in zip(glist,slist,wlist):
                     self.pdf += w*self._get_pdf(self.rlist,g,s)
