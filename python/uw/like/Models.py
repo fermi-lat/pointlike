@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.13 2010/07/25 19:37:14 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.14 2010/08/02 23:24:18 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -20,7 +20,7 @@ class DefaultModelValues(object):
       'PowerLaw'         : {'p':[1e-11, 2.0],          'param_names':['Norm','Index'],'index_offset':0},
       'PowerLawFlux'     : {'p':[1e-7 , 2.0],          'param_names':['Int_Flux','Index'],'emin':100,'emax':1e6},
       'BrokenPowerLaw'   : {'p':[1e-11, 2.0, 2.0 ,1e3],'param_names':['Norm','Index_1','Index_2', 'E_break']},
-      'BrokenPowerLawF'  : {'p':[1e-11, 2.0,2.0],      'param_names':['Norm','Index_1','Index_2'],'e_break':1000},
+      'BrokenPowerLawFlux' : {'p':[1e-7, 2.0, 2.0 ,1e3],'param_names':['Int_Flux','Index_1','Index_2', 'E_break'],'emin':100,'emax':1e6},
       'BrokenPowerLawCutoff': {'p':[1e-11,2,2,1e3,3e3],'param_names':['Norm','Index_1','Index_2','E_break','Cutoff']},
       'DoublePowerLaw'   : {'p':[5e-12, 2.0, 2.0, 1],  'param_names':['Norm','Index_1','Index_2','Ratio']},
       'DoublePowerLawCutoff' : {'p':[5e-12,2,2,1e3,1], 'param_names':['Norm','Index_1','Index_2','Cutoff','Ratio']},
@@ -29,7 +29,6 @@ class DefaultModelValues(object):
       'ExpCutoffPlusPL'  : {'p':[1e-11,2.0,2e3,1e-12,1.5],'param_names':['Norm1','Index1','Cutoff1','Norm2','Index2']},
       'AllCutoff'        : {'p':[1e-11, 1e3],          'param_names':['Norm','Cutoff']},
       'PLSuperExpCutoff' : {'p':[1e-11, 2.0, 2e3 ,1.], 'param_names':['Norm','Index','Cutoff', 'b']},
-      'PLSuperExpCutoffF': {'p':[1e-11, 2.0, 2e3],     'param_names':['Norm','Index','Cutoff'],'b':1.},
       'Constant'         : {'p':[1.],                  'param_names':['Scale']},
       'InterpConstants'  : {'p':[1.]*5,                'param_names':['Scale_Vector'],'e_breaks':N.log10([100,300,1000,3000,3e5])}
       }
@@ -399,11 +398,36 @@ Spectral parameters:
   n0         differential flux at e0 MeV
   gamma1     (absolute value of) spectral index for e < e_break
   gamma2     (absolute value of) spectral index for e > e_break
-  e_break    break energy (free parameter)
+  e_break    break energy
       """
    def __call__(self,e):
       n0,gamma1,gamma2,e_break=10**self.p
       return (n0/self.flux_scale)*N.where( e < e_break, (e_break/e)**gamma1, (e_break/e)**gamma2 )
+
+#===============================================================================================#
+
+class BrokenPowerLawFlux(Model):
+   """ Similar to PowerLawFlux for BrokenPowerLaw spectrum, the integral 
+       flux is the free parameter rather than the Prefactor.
+
+Spectral parameters:
+
+    flux     integrated flux from emin to emax MeV
+    gamma1  (absolute value of) spectral index for e < e_break
+    gamma2  (absolute value of) spectral index for e > e_break
+    e_break break energy
+      """
+   def __call__(self,e):
+      flux,gamma1,gamma2,e_break=10**self.p
+      if self.emax < e_break:
+          norm=(1-gamma1)*e_break**(-gamma1)/(self.emax**(1-gamma1)-self.emin**(1-gamma1))
+      elif self.emin > e_break:
+          norm=(1-gamma2)*e_break**(-gamma2)/(self.emax**(1-gamma2)-self.emin**(1-gamma2))
+      else:
+          norm=1/(e_break**(gamma1)*(e_break**(1-gamma1)-self.emin**(1-gamma1))/(1-gamma1) + \
+                  e_break**(gamma2)*(self.emax**(1-gamma2)-e_break**(1-gamma2))/(1-gamma1))
+
+      return (flux/self.flux_scale)*norm*N.where( e < e_break, (e_break/e)**gamma1, (e_break/e)**gamma2 )
 
 #===============================================================================================#
 
@@ -415,7 +439,7 @@ Spectral parameters:
   n0         differential flux at e0 MeV
   gamma1     (absolute value of) spectral index for e < e_break
   gamma2     (absolute value of) spectral index for e > e_break
-  e_break    break energy (free parameter)
+  e_break    break energy
       """
    def __call__(self,e):
       n0,gamma1,gamma2,e_break,cutoff=10**self.p
