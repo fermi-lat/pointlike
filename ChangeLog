@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Aug  3 01:01:39 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Implementing the newstyle psf for extended sources.
+    *
+------------------------------------------------------------
 User: lande  Mon Aug  2 20:48:03 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
