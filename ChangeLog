@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Aug  4 16:27:11 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Fix scope bug.
+    *
+------------------------------------------------------------
 User: mar0  Wed Aug  4 11:52:22 PDT 2010
 pointlike/python/uw/utilities
 
