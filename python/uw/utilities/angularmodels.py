@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/angularmodels.py,v 1.0 2010/07/29 13:53:17 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/angularmodels.py,v 1.3 2010/08/02 20:48:10 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -8,6 +8,7 @@ from uw.utilities.CLHEP import HepRotation
 import numpy as N
 import scipy.integrate as si
 import scipy.special as sp
+import scipy.misc as sm
 import skymaps as s
 import time as t
 
@@ -98,6 +99,35 @@ class PSF(Model):
     #  @param pars [sigma,gamma], sigma in radians
     def update(self,pars):
         self.model_par=pars
+
+    ## returns the radius in radians of a particular confidence level
+    #  @param cl confidence level on interval (0,1)
+    def rcl(self,cl):
+        if cl<0 or cl>=1:
+            return -1
+        sig = self.model_par[0]
+        g = self.model_par[1]
+        return self.recl(cl,sig,g)
+     
+    ## returns the radius in radians of a particular confidence level
+    #  @param cl confidence level on interval (0,1)
+    #  @param sig sigma parameter in radians
+    #  @param g gamma parameter
+    def recl(self,cl,sig,g):
+        return sig*N.sqrt(2*g*((1-cl)**(1/(-g+1))-1))
+
+    ## returns the radius in radians of a particular confidence level
+    #  @param cl confidence level on interval (0,1)
+    #  @param errs error in the sigma parameter in radians
+    #  @param g error in the gamma parameter
+    #  @param cov covariance between sigma and gamma
+    def clerr(self,cl,errs,errg,cov):
+        sig = self.model_par[0]
+        g = self.model_par[1]
+        dfds = sm.derivative(lambda x: self.recl(cl,x,g),sig,dx=sig/10.)
+        dfdg = sm.derivative(lambda x: self.recl(cl,sig,x),g,dx=g/10.)
+        acc = dfds*dfds*errs*errs+dfdg*dfdg*errg*errg+2*dfds*dfdg*cov
+        return N.sqrt(acc)
 
 ################################################### END PSF CLASS       ###########################################
 
@@ -362,7 +392,7 @@ class CompositeModel(object):
         self.clock=t.time()
         
         #minimize likelihood for parameters with respect to the parameters
-        self.minuit = Minuit(lambda x: self.extlikelihood(x,photons),pars,free=frees,limits=lims,tolerance=1e-3,strategy=mode,printMode=-1)
+        self.minuit = Minuit(lambda x: self.extlikelihood(x,photons),pars,fixed=frees,limits=lims,tolerance=1e-3,strategy=mode,printMode=-1)
         self.minuit.minimize()
 
         self.nest = self.minuit.params[:len(self.models)] # first parameters are the number estimators
