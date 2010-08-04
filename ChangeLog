@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Aug  4 11:52:22 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	angularmodels.py stacklike.py 
+Log Message:
+Changed free parameters to fixed parameters and fixed some minor issues with stacklike
+    *
+------------------------------------------------------------
 User: lande  Tue Aug  3 22:12:46 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
