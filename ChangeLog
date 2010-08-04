@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Aug  3 22:12:46 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Fix bug in reading extended source spatial paremter limits.
+    *
+------------------------------------------------------------
 User: burnett  Tue Aug  3 15:29:42 PDT 2010
 pointlike/python/uw/utilities
 
