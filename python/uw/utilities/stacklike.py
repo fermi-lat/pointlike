@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/stacklike.py,v 1.0 2010/07/29 13:53:17 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/stacklike.py,v 1.1 2010/08/02 20:48:10 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -54,7 +54,7 @@ debug=False
 rd = 180./N.pi        #to radians
 monthlist = ['aug2008','sep2008','oct2008','nov2008','dec2008','jan2009','feb2009','mar2009','apr2009'\
     ,'may2009','jun2009','jul2009','aug2009','sep2009','oct2009','nov2009','dec2009','jan2010','feb2010','mar2010'\
-    ,'apr2010','may2010','jun2010']
+    ,'apr2010','may2010','jun2010','jul2010']
 CALDBdir = r'y:\fermi/CALDB/v1r1/CALDB/data/glast/lat'
 datadir = r'y:\fermi\data\flight/'                             #directory for FT1 files
 ft2dir = r'y:\fermi\data\flight/'                              #directory for FT2 files
@@ -104,6 +104,7 @@ class StackLoader(object):
         
         self.firstlight = False
         self.rot = HepRotation(rot,False)
+        print 'Using list: %s.txt'%lis
         print 'Using boresight alignment (in arcsec): Rx=%1.0f Ry=%1.0f Rz=%1.0f'%(rot[0]*rd*3600,rot[1]*rd*3600,rot[2]*rd*3600)
         self.tev = tev
         self.CALDBdir = CALDBdr
@@ -111,6 +112,7 @@ class StackLoader(object):
         self.srcdir = srcdr
         self.ctmin=0.4
         self.ctmax=1.0
+        self.irf=irf
 
         if tev:
             self.CALDBdir = r'/phys/groups/tev/scratch1/users/Fermi/CALDB/v1r1/CALDB/data/glast/lat/'
@@ -130,7 +132,7 @@ class StackLoader(object):
 
 
         s.IParams.set_CALDB(self.CALDBdir)
-        s.IParams.init(irf)
+        s.IParams.init(self.irf)
         self.atb = []
         self.srcs = []
         sf = file(self.srcdir+lis+'.txt')
@@ -139,7 +141,8 @@ class StackLoader(object):
             line = lines.split()
             ra = float(line[1])
             dec = float(line[2])
-            self.srcs.append(s.SkyDir(ra,dec))
+            sd = s.SkyDir(ra,dec)
+            self.srcs.append(sd)
 
     ##  loads photons from FT1 file near sources  
     #   @param rad ROI in degrees
@@ -291,17 +294,20 @@ class StackLoader(object):
         self.sigmae = N.sqrt(self.errs[2][2])
         self.gamma = cm.minuit.params[3]
         self.gammae = N.sqrt(self.errs[3][3])
+        self.cov = self.errs[2][3]
 
         self.il=cm.extlikelihood([self.Npsf,self.Nback,sigma,gamma],self.photons)
 
-        if self.gamma>gamma:
-            gsign = '+'
-        else:
-            gsign = '-'
-        if self.sigma>sigma:
-            ssign = '+'
-        else:
-            ssign = '-'
+        self.r68 = cm.models[0].rcl(0.68)
+        self.r95 = cm.models[0].rcl(0.95)
+        self.r68e = cm.models[0].clerr(0.68,self.sigmae,self.gammae,self.cov)
+        self.r95e = cm.models[0].clerr(0.95,self.sigmae,self.gammae,self.cov)
+        if (self.r68+self.r68e)>self.r95:
+            self.r68e = self.r95-self.r68
+        if (self.r95-self.r95e)<self.r68:
+            self.r95e = self.r95-self.r68
+        r68o = cm.models[0].recl(0.68,sigma,gamma)
+        r95o = cm.models[0].recl(0.95,sigma,gamma)
 
         phs = (self.Npsf+self.Nback)
         tr = sum([self.errs[i][i] for i in range(len(self.errs))])
@@ -312,8 +318,10 @@ class StackLoader(object):
         print '**********************************************************'
         print 'Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
         print 'Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100)
-        print 'Sigma = %1.3f [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.sigma*rd,self.sigmae/self.sigma,ssign,100*abs((self.sigma-sigma)/sigma))
-        print 'Gamma = %1.2f  [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.gamma,self.gammae/self.gamma,gsign,100*abs((self.gamma-gamma)/gamma))
+        print 'Sigma = %1.3f [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.sigma*rd,self.sigmae/self.sigma,self.irf,self.sigma/sigma)
+        print 'Gamma = %1.2f  [1 +/- %1.2f]        Ratio to %s: (%1.2f)'%(self.gamma,self.gammae/self.gamma,self.irf,self.gamma/gamma)
+        print 'R68   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r68*rd,self.r68e/self.r68,self.irf,self.r68/r68o)
+        print 'R95   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r95*rd,self.r95e/self.r95,self.irf,self.r95/r95o)
         TS = -2*(fl-self.il)
         print 'Significance of psf change was TS = %d'%TS
         self.cm=cm
@@ -325,9 +333,10 @@ class StackLoader(object):
         self.solveback()
 
         #solve for Halo model component while freezing PSF parameters
-
+        sigma=s.IParams.sigma(self.ebar,int(self.photons[0].event_class))
+        gamma=s.IParams.gamma(self.ebar,int(self.photons[0].event_class))
         psf = PSF(lims=[0,self.rad/rd],model_par=[sigma,gamma],free=[False,False])
-        halo = Halo(lims=[0,self.rad/rd])
+        halo = Halo(lims=[0,self.rad/rd],model_par=[0.2/rd])
         bck = Backg(lims=[0,self.rad/rd])
         cm = CompositeModel()
         cm.addModel(psf)
@@ -437,7 +446,7 @@ class StackLoader(object):
 
     ## Makes a plot of all of the models and the angular distribution of photons
     #  @param name filename of output file
-    def makeplot(self,name='test.png'):
+    def makeplot(self,name='test.png',fig=-1):
         #calculate angular separations
         self.getds()
 
@@ -447,11 +456,14 @@ class StackLoader(object):
         ma = N.log10((max(self.ds))**2)
         d2 = ma-mi
         be = N.arange(mi,ma,d2/bins)
-        be2 = N.arange(mi,(1.-1./bins)*ma,d2/bins)
+        be2 = N.append(be,be[len(be)-1]+d2/bins)
         be3 = N.sqrt(10**(be2))
         be4 = 10**(be+d2/bins/2)*rd*rd
         p.ioff()
-        p.figure(figsize=(8,8))
+        if fig ==-1:
+            p.figure(figsize=(8,8))
+        else:
+            p.clf()
         hist = p.hist(N.log10(self.ds*self.ds),bins=be2,fc='None')
         p.clf()
         fits=[]
@@ -495,7 +507,7 @@ class StackLoader(object):
         p.ylim(0.01*min(fits[len(fits)-1]),100*max(fits[len(fits)-1]))
         p.xlim(0.8*min(be4),max(be4)*1.2)
         p.xlabel(r'$\theta^2\/(\rm{deg^2})$')
-        p.ylabel(r'$dN/d\Omega$')
+        p.ylabel(r'$dN/d\theta^2$')
         p.grid()
         p.savefig(name)
         
