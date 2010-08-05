@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Thu Aug  5 07:56:45 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+Bugfix - a line in FermiCatalog.__open_catalog__ specified the wrong module
+for a function.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Aug  4 16:27:11 PDT 2010
 pointlike/python/uw/utilities
 
