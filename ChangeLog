@@ -1,4 +1,18 @@
 ------------------------------------------------------------
+User: burnett  Fri Aug  6 11:15:11 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	associate.py config.py findsource.py myroi.py pipeline.py 
+	pivot.py roi_factory.py roi_setup.py 
+Added Files:
+	limits.py variation.py 
+Removed Files:
+	bandflux.py catalog.py 
+Log Message:
+bring up to date with current catalog pipeline
+    *
+------------------------------------------------------------
 User: burnett  Fri Aug  6 11:13:16 PDT 2010
 pointlike/python/uw/like
 
