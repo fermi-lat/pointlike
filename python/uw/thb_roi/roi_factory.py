@@ -1,14 +1,14 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.5 2010/06/20 13:38:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.6 2010/06/20 13:53:17 burnett Exp $
 author: T.Burnett <tburnett@u.washington.edu>
 """
 
 import os, copy, types
 import numpy as np
-from uw.like import pointspec, Models, pointspec_helpers, roi_managers
+from uw.like import pointspec, Models, pointspec_helpers, roi_managers, roi_diffuse
 from skymaps import SkyDir
 # in this package
-import roi_setup, catalog, myroi, config
+import roi_setup, myroi, config, findsource
 
 ## this should go to Models 
 def make_model( name='PowerLaw', pars=(1e-12/1.53, 2.3), quiet=True):
@@ -43,10 +43,14 @@ class ROIfactory(pointspec.SpectralAnalysis):
         analysis_environment = config.AE(**kwargs)
         super(ROIfactory,self).__init__( analysis_environment)
 
-        # setup background model manager, catalog mangagers
-        self.bgmodels = roi_setup.ConsistentBackground(analysis_environment.diffdir, quiet=self.quiet)
-
-        self.catman= roi_setup.CatalogManager(os.path.join(analysis_environment.catdir, analysis_environment.catalog))
+        ae = analysis_environment
+        catpars = dict(  # this is ugly, need general solution: want to pass in ae, extract only the ones catman wants.
+                pulsar_dict = ae.__dict__.pop('pulsar_dict', None), 
+                quiet = ae.quiet,
+                verbose = ae.verbose,
+                )
+        self.catman= roi_setup.CatalogManager(os.path.join(analysis_environment.catdir, analysis_environment.catalog),
+            **catpars)
 
         aux = self.__dict__.pop('aux_cat', None)
         if aux:
@@ -98,14 +102,19 @@ class ROIfactory(pointspec.SpectralAnalysis):
             ==========   =============
         """
         ps = None
-        modelname = kwargs.pop('model', 'PowerLaw')
+        model_specified = True
+        modelname = kwargs.pop('model', None)
         model_par = kwargs.pop('model_par', (1e-12, 2.3))
+        if modelname is None:
+            model_specified = False
+            modelname = 'PowerLaw'
+         
         if type(sources)==types.StringType:
-            try:
-                name, ra, dec = catalog.find_source(sources)
-            except:
-                print 'expected string with name ra dec'
-                raise
+            #try:
+            name, ra, dec = findsource.find_source(sources, catalog=self.catalog)
+            if not self.quiet: print '%s --> %s at (%s, %s)' % (sources, name, ra, dec)
+            #except Exception, arg:
+            #    raise Exception, 'source name "%s" unrecognized, reason %s' % (sources, arg)
             themodel = make_model(modelname, model_par)
             ps = [pointspec_helpers.PointSource(SkyDir(float(ra), float(dec)), name, themodel)]
         else:
@@ -127,10 +136,23 @@ class ROIfactory(pointspec.SpectralAnalysis):
         # add background point sources from the CatalogManager
         ps = ps + self.catman(skydir, self.maxROI)
         excluded = self.catman.exclude
-        if excluded is not None: ps[0].model = excluded.model # if replacing a cat source, use its model
+        if excluded is not None:
+            if not model_specified:
+                ps[0].model = excluded.model # if replacing a cat source, use its model
+            elif modelname=='ExpCutoff':
+                # specified ExpCufoff: copy catalog values for flux, index
+                ps[0].model.p[:2] = excluded.model.p[:2]
         
         ps_manager = roi_managers.ROIPointSourceManager(ps, skydir,quiet=self.quiet)
-        bg_manager = roi_managers.ROIBackgroundManager(self, self.bgmodels(skydir), self.roi_dir,quiet=self.quiet)
+        
+        # following is deprecated!
+        #bg_manager = roi_managers.ROIBackgroundManager(self, self.bgmodels(skydir), self.roi_dir,quiet=self.quiet)
+        # new way
+        diffuse_mapper = lambda x: roi_diffuse.ROIDiffuseModel_OTF(self, x, skydir)
+        diffuse_sources = pointspec_helpers.get_default_diffuse( *self.diffuse)
+
+        diffuse_models = [diffuse_mapper(ds) for ds in diffuse_sources]
+        bg_manager = roi_managers.ROIDiffuseManager(diffuse_models,skydir,quiet=self.quiet)
 
         emin,emax = self.fit_emin, self.fit_emax
         r = myroi.MyROI(skydir, ps_manager, bg_manager, self, 

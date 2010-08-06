@@ -1,13 +1,13 @@
 """
 supplemental setup of ROI
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_setup.py,v 1.6 2010/06/15 20:48:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_setup.py,v 1.7 2010/06/20 13:39:30 burnett Exp $
 
 These are near-duplicates of the classes with the same name in uw.like, but modifed for the interactive access
 
 """
 import numpy as np
-import os, pyfits
+import os, pyfits, types, pickle
 
 from uw.utilities import makerec
 from uw.like import Models, roi_managers, pointspec_helpers
@@ -21,7 +21,7 @@ class ConsistentBackground(object):
     def __init__(self, diffdir, quiet=False):
         fb = ('front','back')
         self.dmodels = ( 
-           [ DiffuseFunction(os.path.join(diffdir,'gll_iem_v02_P6_v3_diff_%s.fits'%c)) for c in fb], 
+           [ DiffuseFunction(os.path.join(diffdir,'gll_iem_v02_P6_v8_diff_%s.fits'%c)) for c in fb], 
            [ IsotropicSpectrum(os.path.join(diffdir,'isotropic_iem_%s_v02.txt'%c)) for c in fb],
            )
         self.names = ('gll_iem_v02', 'Isotropic Diffuse')
@@ -41,19 +41,26 @@ class ConsistentBackground(object):
       
 class CatalogManager(object):
     """Read a  catalogue and use it to set up a source list for a ROI."""
-
-    def init(self):
-        self.prune_radius  = 0.10 #deg; in a merge, consider sources closer than this duplicates
-        self.free_radius   = 1 #deg; sources within this distance have free spectral parameters
-        self.min_flux      = 2e-9 #ph/cm2/s; minimum flux for sources beyond a certain proximity
-        self.max_distance  = 5 #deg; distance inside which sources are returned regardless of flux
-        self.min_ts        = 25
-        self.quiet         = False
+    defaults = dict(
+        prune_radius  = 0.10,   #deg; in a merge, consider sources closer than this duplicates
+        free_radius   = 1,      #deg; sources within this distance have free spectral parameters
+        min_flux      = 2e-9,   #ph/cm2/s; minimum flux for sources beyond a certain proximity
+        max_distance  = 5,      #deg; distance inside which sources are returned regardless of flux
+        min_ts        = 25,
+        pulsar_dict   = None,   # optional pulsar dictionary with ExpCutoff parameters to use
+        quiet         = False,
+        verbose       = False,
+        )
 
     def __init__(self,catalog_file,*args,**kwargs):
-        print 'creating a CatalogManager'
-        self.init()
-        self.__dict__.update(kwargs)
+        self.__dict__.update(CatalogManager.defaults)
+        for key, value in kwargs.items():
+            if key in self.__dict__: self.__dict__[key]=value
+            else:
+                print 'warning: key %s not recognized by CatalogManager' % key
+        #self.__dict__.update(kwargs)
+        if not self.quiet: 
+            print 'creating a CatalogManager'
         cdata = pyfits.open(catalog_file)[1].data
         try:
             ts   = np.asarray(cdata.field('Test_Statistic'),float)
@@ -72,10 +79,30 @@ class CatalogManager(object):
             self.names  = np.asarray(cdata.field('NickName'))[good]
 
         self.dirs   = map(SkyDir,ras,decs)
-        self.models = np.asarray([Models.PowerLaw(p=[n0,ind],e0=pen) for n0,ind,pen in zip(n0s,inds,pens)])
-
+        
+        pdkeys = [] 
+        if self.pulsar_dict is not None:
+            if type(self.pulsar_dict) == types.StringType:
+                self.pulsar_dict = pickle.load(open(self.pulsar_dict))
+            pdkeys = self.pulsar_dict.keys()
+        def load_model(name, n0,ind, pen):
+            #if name[:3]=='PSR': assert False, 'breakpoint'
+            if name not in pdkeys:
+                return Models.PowerLaw(p=[n0,ind],e0=pen)
+            psr = self.pulsar_dict[name]
+            if psr['TS']<100:return Models.PowerLaw(p=[n0,ind],e0=pen)
+            stat = psr['stat'][0]
+            if self.verbose: 
+                print ('replacing catalog fits for source %s, par='+3*'%12.2e')\
+                    % ((name,) + tuple(stat) )
+            return Models.ExpCutoff(p=stat)
+            
+        self.models = np.asarray([load_model(name.strip(),n0,ind,pen) for name,n0,ind,pen in zip(self.names,n0s,inds,pens)])
         if not self.quiet: 
             print 'Loaded %d sources from catalog "%s" for roi backgrounds' % (len(cdata), catalog_file)
+            if self.pulsar_dict is not None:
+                print '\tUsing a pulsar dictionary with %d entries' % len(pdkeys)
+
     
     def append(self, acat):
         """ 
@@ -110,11 +137,11 @@ class CatalogManager(object):
 
         fm = (diffs[sorting] < self.free_radius) 
         point_sources = map(pointspec_helpers.PointSource,dirs,names,models,fm)
-        if True: #not self.quiet:
+        if not self.quiet:
             print '...selected %d sources within %.1f deg for roi' % (len(point_sources), radius)
             print '...selected %d sources within %.1f deg for refit' % (fm.sum(), self.free_radius)
         if diffs[sorting][0]< self.prune_radius: 
-            if True: #not self.quiet:
+            if not self.quiet:
                 print '...exclude catalog source %s  closer than %.1f' % (names[0], self.prune_radius)
             self.exclude = point_sources[0] 
             return point_sources[1:]

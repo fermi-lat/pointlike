@@ -1,11 +1,11 @@
 """
 do pivot stuff 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pivot.py,v 1.5 2010/06/10 21:48:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pivot.py,v 1.6 2010/06/20 14:16:30 burnett Exp $
 
 """
-version='$Revision: 1.5 $'.split()[1]
+version='$Revision: 1.6 $'.split()[1]
 from uw.utilities import collection
-from uw.thb_roi import pipeline, catalog
+from uw.thb_roi import pipeline, findsource
 from skymaps import SkyDir
 import numpy as np
 import os, sys, exceptions
@@ -28,7 +28,7 @@ def selection(indir, select_all=False, mindist=0.25, other_keys=None):
     print 'selected %d with standard cuts' %len(r1)
     if mindist==0: return r1
     # need to prune
-    prunecut = catalog.prune(r1)
+    prunecut = findsource.prune(r1)
     print 'selected %d after prune within %.2f deg' % (prunecut.sum(), mindist)    
     return r1[prunecut]
 
@@ -61,6 +61,12 @@ class Pivot(object):
         self.collection=collection.Collection(name, outdir,  self.rec.name, dzc,  icon=icon) 
         
         self.fill_default()
+    def limit(self, v, a, b, nan=None):
+        r = v[:]
+        if nan is not None: r[np.isnan(v)]=nan
+        if a is not None: r[v<a]=a
+        if b is not None: r[v>b]=b
+        return r
 
     def fill_default(self):
         uwc = self.rec
@@ -80,7 +86,7 @@ class Pivot(object):
         uwc.ts[uwc.ts<1]=0
         uwc.ts[uwc.ts>1e5]=1e5
         col.add_facet('band_ts', 'Number', 'F1', uwc.band_ts)
-        col.add_facet('ts', 'Number', 'F1', uwc.ts)
+        col.add_facet('TS', 'Number', 'F1', self.limit(uwc.ts2, 0, None))  # should fix this!
         col.add_facet('isonorm', 'Number', 'F2', uwc.isonorm)
         uwc.galnorm[uwc.galnorm<1e-3]=0
         uwc.isonorm[uwc.isonorm<1e-3]=0
@@ -88,15 +94,11 @@ class Pivot(object):
         col.add_facet('a', 'Number', 'F3', uwc.a)
         col.add_facet('b', 'Number', 'F3', uwc.b)
         col.add_facet('qual', 'Number', 'F1', uwc.qual)
-        col.add_facet('pivot_energy', 'Number', 'F1', uwc.pivot_energy)
-        pnorm = uwc.pnorm
-        pnorm[np.isinf(pnorm) + ( pnorm< 1e-20)] = 1e-20
-        col.add_facet('lognorm', 'Number', 'F3', np.log10(pnorm) )
-        col.add_facet('pindex',  'Number', 'F3', uwc.pindex) 
+        col.add_facet('e_pivot', 'Number', 'F1', uwc.pivot_energy)
+        col.add_facet('lognorm', 'Number', 'F3', self.limit(np.log10(uwc.pnorm), -15, -8, nan=-15) )
+        col.add_facet('pindex',  'Number', 'F3', self.limit(uwc.pindex, 0,5) ) 
 
-        dts = uwc.delta_ts
-        dts[dts<1e-3]=0
-        col.add_facet('delta_ts', 'Number', 'F1', dts)
+        col.add_facet('delta_ts', 'Number', 'F1', uwc.delta_ts)
         col.add_facet('id_prob', 'Number', 'F3', uwc.id_prob)
         inridge = (abs(cglon)<60)*(abs(glat)<1.)
         col.add_facet('class', 'String', 'C', ['%3s'% s if s!='' else 'None' for s in uwc.aclass])
@@ -124,13 +126,15 @@ class Pivot(object):
     def write(self, outfile='pivot.cxml', id_offset=0):
         fulloutfile = os.path.join(self.outdir, outfile)
 
-        print 'writing collection file to "%s" ...' % fulloutfile, 
+        print 'writing collection file with %d Items, %d Facets to "%s" ...' % \
+            (self.collection.n, len(self.collection.facets), fulloutfile), 
         self.collection.write(fulloutfile, id_offset)
         print 'done!'
 
 class MultiPivot(Pivot):
     """
     Subclass of Pivot implementing multiple Deepzoom collections
+    (note that the Silverlight control does not support this feature :-( )
     
     """
     def __init__(self, rec,  dzc_list, outdir, name,  icon=None, ):
