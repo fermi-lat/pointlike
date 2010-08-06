@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.1 2010/07/18 18:15:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.2 2010/07/18 18:39:11 burnett Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -194,13 +194,13 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     oldlw = plt.rcParams['axes.linewidth']
     plt.rcParams['axes.linewidth'] = 2
     if axes is None: 
-        fig=plt.figure(fignum, figsize=(5,5)); plt.clf()
+        fig=plt.figure(fignum, figsize=(4,4)); plt.clf()
         fig.add_axes((0.22,0.15,0.75,0.72))
         axes = plt.gca()
     axes.set_xscale('log')
     axes.set_yscale('log')
     if axis is None:
-        axis = (1e2,1e6,1e-14,1e-8) if use_ergs else (1e2,1e6,1e-8,1e-2)
+        axis = (1e2,1e6,1e-13,1e-8) if use_ergs else (1e2,1e6,1e-8,1e-2)
     axes.axis(axis)
     axes.grid(True)
     axes.set_autoscale_on(False)
