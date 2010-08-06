@@ -9,6 +9,8 @@ fermi_root = None
 data_path = None
 galprop_path = None
 catalog_path = None
+default_catalog = 'gll_psc_v03.fit' # 1FGL release
+default_catalog = 'gll_psc18month_uw11b.fits' # later
 
 def setup():
     global fermi_root, data_path, galprop_path, catalog_path
@@ -29,16 +31,26 @@ def setup():
     for t in (data_path, galprop_path, catalog_path):
         if not os.path.exists(t):
             raise Exception('path does not exist: "%s"' % t)
+            
 
 def data_join(*pars):
+    if data_path is None: setup()
     return os.path.join(data_path, *pars)
+    
+def data_glob(*pars):
+    """ run glob and sort"""
+    t = glob.glob(data_join(*pars))
+    t.sort()
+    return t
 
 def gti_noGRB():
     """ return a Gti object appropriate to mask off the GRB intervals, using Gti.intersection()
+    (GRB 080916C: 243216749-243217979, 090510: 263607771-263625987, 090902B: 273582299-273586600, 090926A: 275631598-275632048).
     """
     grbs=[(243216749,243217979), # GRB 080916C
           (263607771,263625987), # GRB 090510
-          (273582299,273586600), # GRB 090902B:
+          (273582299,273586600), # GRB 090902B
+          (275631598,275632048), # GRB 090926A
           ]
     g = skymaps.Gti()
     tbegin, tend = 0, 999999999
@@ -47,7 +59,6 @@ def gti_noGRB():
         tbegin = grb[1]
     g.insertInterval(tbegin, tend)
     return g
-
 
 
 ## basic system configuration defaults
@@ -67,7 +78,7 @@ system_config = dict(
     exp_radius   = 180,
     fit_bg_first = False,
     free_radius  = 1.0,
-    gti_mask     = None,
+    gtimask      = None,
     irf          = 'P6_v8_diff',
     prune_radius = 0.1,
     quiet        = False,
@@ -78,6 +89,7 @@ system_config = dict(
     use_gradient = True,
     verbose      = False,
     zenithcut    = 105,
+    pulsar_dict  = None,
     )
 
 class AE(object):
@@ -91,6 +103,7 @@ class AE(object):
         setup() # execute and check system paths, etc.
         self.__dict__.update(system_config)
         self.__dict__.update(self.site_config())
+        default_catalog = self.catalog # save 
         dataset = kwargs.pop('dataset', None)
         if dataset is not None: 
             if type(dataset)==types.StringType:
@@ -146,7 +159,7 @@ class AE(object):
         '18M': dict( data_name = '18 month data set for 18M catalog',
             ft1files    = glob.glob(data_join('kerr2', '18M_data','*_ft1.fits')),
             ft2files    = glob.glob(data_join('kerr2', '18M_data','*_ft2.fits')),
-            binfile     = data_join('18M', '18months_4.fits'),
+            binfile     = data_join('18M', '18months_4bpd.fits'),
             ltcube      = data_join('18M', '18month_livetime.fits'),
             gtimask     = gti_noGRB(),
           ),
@@ -158,20 +171,27 @@ class AE(object):
             gtimask     = gti_noGRB(),
           ),
         '20months': dict(data_name = "twenty months, 4 bins/decade to 1 TeV",
-            ft1files    = glob.glob(data_join('bpd','*.fits')),
-            ft2files    = glob.glob(data_join('lt','*.fits')),
+            ft1files    = data_glob('monthly','bpd','*_4bpd.fits')[:20],
+            ft2files    = data_glob('monthly','lt','*.fits')[:20],
             binfile     = data_join('twenty','20month_4bpd.fits'),
             ltcube      = data_join('twenty','20month_lt.fits'),
+            ),
+       '2years': dict(data_name = "two years 4 bins/decade to 1 TeV",
+            ft1files    = data_glob('monthly','bpd','*_4bpd.fits')[:24],
+            ft2files    = data_glob('monthly','lt','*.fits')[:24],
+            binfile     = data_join('monthly','2years_4bpd.fits'),
+            ltcube      = data_join('monthly','2years_lt.fits'),
             ),
         }[lookup]
         
     def site_config(self):
     # these configuration values are system, or time dependent
         return dict(
-            catdir              = catalog_path,      # where to find catalog files
-            catalog             = 'gll_psc_v03.fit', # the current catalog
-            diffdir             = galprop_path,      # where to fine diffuse files
-            aux_cat             = None,              # auxiallary catalog
+            catdir      = catalog_path,      # where to find catalog files
+            catalog     = default_catalog,   # the current catalog
+            diffuse     = (galprop_path, 
+                        'ring_21month_v1.fits','isotrop_21month_v1.txt',),
+            aux_cat     = None,              # auxiallary catalog
         )
 
 

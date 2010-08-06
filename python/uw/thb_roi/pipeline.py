@@ -3,10 +3,10 @@ basic pipeline setup
 
 Implement processing of a set of sources in a way that is flexible and easy to use with assigntasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.12 2010/06/15 20:51:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.13 2010/06/22 12:01:54 burnett Exp $
 
 """
-version='$Revision: 1.12 $'.split()[1]
+version='$Revision: 1.13 $'.split()[1]
 import sys, os, pyfits, glob, pickle, math, time, types
 import numpy as np
 import pylab as plt
@@ -16,8 +16,7 @@ from uw.utilities import makerec, fermitime, image
 from uw.utilities.assigntasks import setup_mec, AssignTasks, get_mec, kill_mec
 import uw
 from skymaps import SkyDir
-import myroi, catalog, associate , config, roi_factory# for default configuration (local stuff)
-
+from uw.thb_roi import myroi, associate , config, roi_factory, variation
 
 class InvalidArgument(Exception):
     pass
@@ -44,6 +43,7 @@ class Pipeline(object):
                 size      = 0,
                 pivot     = True,
                 butterfly = True,
+                write_xml = False, # set True to write out model XML description
             )
         for key in pipeline_opts.keys():
             if key in kwargs:
@@ -75,6 +75,9 @@ class Pipeline(object):
         if self.sedfig:
             self.sedfig_dir = os.path.join(outdir,'sedfig'); dirs.append(self.sedfig_dir)
         else: self.sedfig_dir=None
+        if self.write_xml:
+            self.xml_dir = os.path.join(outdir,'xml'); dirs.append(self.xml_dir)
+        else: self.xml_dir=None
         for d in (dirs):
             if not os.path.exists(d): os.mkdir(d)
                 
@@ -189,6 +192,10 @@ class Pipeline(object):
         if self.sedfig_dir is not None:
             self.make_sed(r, tname, fname, limits=self.sed_limits, butterfly = self.butterfly)
   
+        if self.write_xml:
+            fout = os.path.join(self.xml_dir, fname+'.xml')
+            r.toXML( fout)
+            print 'saved xml to %s' % fout 
         return
 
     def pickle(self, roi, name, s, **kwargs):
@@ -227,16 +234,21 @@ class LightCurve(Pipeline):
         self.month = monthly['number']
         kwargs['dataset'] = monthly['dataset']
         self.sources = glob.glob(os.path.join(outdir, 'pickle', '*.pickle'))
+        self.namelist = [pickle.load(open(source))['name'] for source in self.sources] 
         self.n = len(self.sources)
         assert(self.n>0)
         super(LightCurve,self).__init__(**kwargs)
         
     def source(self,i):
+        if type(i)==types.StringType:
+            i = self.namelist.index(i.replace('_',' ').replace('p','+'))
         return self.sources[i]
-    
+    def names(self):
+        return self.namelist
+
 
     def roi(self, i): 
-        """ return roi for ith source"""
+        """ return roi for ith source (or source name i)"""
         s = self.source(i)
         pk = pickle.load(open(s))
         parameters = pk['parameters']
@@ -252,12 +264,14 @@ class LightCurve(Pipeline):
         roi.set_free(fr)
         model = roi.psm.models[0]
         model.set_e0(pk['pivot_energy'])
-        roi.fit(pivot=False)
-  
         return roi
 
     def process(self, s):
-        """ process the source described by the pickle file s"""
+        """ process the source described by the pickle file s
+            save all band info, 
+            likelihood function evaluated at 8 points: 
+                max, -sigma, +sigma, 95%, 0, avflux, avflux-sigflux, avflux+sigflux
+        """
         pk = pickle.load(open(s))
         parameters = pk['parameters']
         name = pk['name']
@@ -265,23 +279,38 @@ class LightCurve(Pipeline):
         sdir = SkyDir(ra,dec)
         print '\n'+60*'=','\nprocessing source %s at %s' % (name, sdir), '\n'+ 60*'='
         if name[:4]=='1FGL': name = name[5:]
-        roi = self.factory('%-s %.4f %.4f' % (name, ra, dec))
+        
+        roi = self.factory('%-s %.4f %.4f' % (name.replace(' ','_'), ra, dec))
         roi.set_parameters(parameters)
+        model = roi.psm.models[0]
+        model.set_e0(pk['pivot_energy'])
+        
+        # freeze all but first parameter, then refit
         fr = roi.get_free()
         fr[1:]=False
         roi.set_free(fr)
-        model = roi.psm.models[0]
-        model.set_e0(pk['pivot_energy'])
-        roi.fit(pivot=False)
+        roi.fit(pivot=False, ignore_exception=True, use_gradient=False)
         roi.dump(maxdist=2, title='after refit to flux')
+        
+        avflux =pk['src_par'][0]
+        sigflux=pk['src_par_unc'][0]
+        if avflux<1e-14: avflux, siglfux = 1e-14,0 #avoid original failure, slog on
+        w = variation.LogLikelihood(roi) #, maxflux=10*avflux
+        print 'Likelihood: \n', w
+        t = (w(avflux), w(avflux-sigflux),w(avflux+sigflux))
+        print (' likelihood values at avflux=%.2e, +/-sigma=%.2e: '+3*'%.2e, ') %\
+            (avflux, sigflux, t[0],t[1],t[2])
+
         if 'months' not in pk: pk['months'] = dict()
         pk['months'][self.month] = dict( 
-            stat=model.statistical(),
-            ts = roi.TS(),
             band_info =roi.band_info(),
+            likelihood = (w.maxl,) +  w.errors() + (w.upper_limit(),  w.TS())+ t
             )
-        
+        print 'updating file %s' % s
         pickle.dump(pk, open(s, 'wb'))
+        
+        #w.plot(fignum = self.month+100) # see what is going on
+        
 
 class PipeSourceList(Pipeline):
     def __init__(self, infile, **kwargs):
@@ -293,83 +322,83 @@ class PipeSourceList(Pipeline):
     def source(self,i):
         return self.sourcelist[i]
 
-class RefitCatalog(Pipeline):
-    """ manage refitting catalog sources, using the 11-month catalog dataset default
-    """
-    def default_data(self):
-        return data.Catalog_noGRB();
-    def default_irf(self):
-        return 'P6_v3_diff'
-        
-    def __init__(self, factory=None, subset=None,  **kwargs):
-        """ subset: bool array to select sources to refit
-        
-        """
-        factory = factory or uw.factory(dataset=self.default_data(), irf=self.default_irf(), gti_mask=data.gti_noGRB())
-        self.fit_method = 'simplex' #'minuit'
-        super(RefitCatalog,self).__init__(factory=factory, 
-                associate=associate.Association(),
-                **kwargs)
-        cat =pyfits.open(os.path.join(data.catalog_path,catalog.default_catalog))
-        cdata = cat[1].data
-        csnames=cdata.Source_Name
-#        cjnames=np.asarray([n[5:]  if n[-1]!='c' else n[5:-1]  for n in csnames])
-        cjnames=np.asarray([n[5:]  for n in csnames])
-        cata = cdata.Conf_95_SemiMajor
-        catb = cdata.Conf_95_SemiMinor
-        catang=cdata.Conf_95_PosAng
-        cindex =cdata.Spectral_Index
-        cpivot =cdata.Pivot_Energy
-        csignif=cdata.Sqrt_TS300_1000 #place holdef?
-        cra    = np.asarray(cdata.RA,float)
-        cdec   = np.asarray(cdata.DEC,float)
-        cid_class   = cdata.CLASS1
-        subset = subset or np.index_exp[:len(cdata)]
-
-        cflags = np.asarray(cdata.Flags,int)
-        class Source():
-            def __init__(self, *par):
-                p = par[0]
-                self.name,self.ra,self.dec = p[0],p[1],p[2]
-                self.id_class, self.flags = p[3],p[4]
-                self.pivot_energy,self.spectral_index, self.signif_avg, self.a95,self.b95,self.ang = p[5:11]
-
-        self.sourcelist = [Source(par) for par  in\
-            zip(cjnames[subset], cra[subset], cdec[subset], 
-                cid_class[subset],cflags[subset],
-                cpivot[subset],cindex[subset],csignif[subset],
-                cata[subset],catb[subset],catang[subset])]
-        self.sourcenames = cjnames[subset]
-        self.n = len(self.sourcelist)
-        assert(self.n>0)
-        
-    def source(self, i):
-        if type(i)==types.StringType:
-            try:
-                i = list(self.sourcenames).index(i)
-            except:
-                raise InvalidArgument('source %s not found in list of sources' % i)
-        return self.sourcelist[i]
-    def names(self):
-        return self.sourcenames
-        
-    def __call__(self, i):
-        self.process(self.source(i)) 
-
-    def tsmap_append(self, tsm, s):
-        if not np.isnan(s.a95) and s.a95<1.0:
-            print 'overplotting catalog fit: %.3f %.3f %.1f' % (s.a95,s.b95,s.ang)
-            tsm.overplot((s.ra,s.dec,s.a95,s.b95,s.ang), contours=[1.0], lw=2, ls='-', color='gray')
-        else:
-            print 'Source has no catalog error circle'
-
-    def pickle(self, roi, name, s, **kwargs):
-        """ intercept this to add fit info from catalog """
-        
-        roi.pickle( name, self.pickle_dir,
-            cat_fit=[s.pivot_energy, s.spectral_index, s.signif_avg, 0], **kwargs)
-
-
+#class RefitCatalog(Pipeline):
+#    """ manage refitting catalog sources, using the 11-month catalog dataset default
+#    """
+#    def default_data(self):
+#        return data.Catalog_noGRB();
+#    def default_irf(self):
+#        return 'P6_v3_diff'
+#        
+#    def __init__(self, factory=None, subset=None,  **kwargs):
+#        """ subset: bool array to select sources to refit
+#        
+#        """
+#        factory = factory or uw.factory(dataset=self.default_data(), irf=self.default_irf(), gti_mask=data.gti_noGRB())
+#        self.fit_method = 'simplex' #'minuit'
+#        super(RefitCatalog,self).__init__(factory=factory, 
+#                associate=associate.Association(),
+#                **kwargs)
+#        cat =pyfits.open(os.path.join(data.catalog_path,catalog.default_catalog))
+#        cdata = cat[1].data
+#        csnames=cdata.Source_Name
+##        cjnames=np.asarray([n[5:]  if n[-1]!='c' else n[5:-1]  for n in csnames])
+#        cjnames=np.asarray([n[5:]  for n in csnames])
+#        cata = cdata.Conf_95_SemiMajor
+#        catb = cdata.Conf_95_SemiMinor
+#        catang=cdata.Conf_95_PosAng
+#        cindex =cdata.Spectral_Index
+#        cpivot =cdata.Pivot_Energy
+#        csignif=cdata.Sqrt_TS300_1000 #place holdef?
+#        cra    = np.asarray(cdata.RA,float)
+#        cdec   = np.asarray(cdata.DEC,float)
+#        cid_class   = cdata.CLASS1
+#        subset = subset or np.index_exp[:len(cdata)]
+#
+#        cflags = np.asarray(cdata.Flags,int)
+#        class Source():
+#            def __init__(self, *par):
+#                p = par[0]
+#                self.name,self.ra,self.dec = p[0],p[1],p[2]
+#                self.id_class, self.flags = p[3],p[4]
+#                self.pivot_energy,self.spectral_index, self.signif_avg, self.a95,self.b95,self.ang = p[5:11]
+#
+#        self.sourcelist = [Source(par) for par  in\
+#            zip(cjnames[subset], cra[subset], cdec[subset], 
+#                cid_class[subset],cflags[subset],
+#                cpivot[subset],cindex[subset],csignif[subset],
+#                cata[subset],catb[subset],catang[subset])]
+#        self.sourcenames = cjnames[subset]
+#        self.n = len(self.sourcelist)
+#        assert(self.n>0)
+#        
+#    def source(self, i):
+#        if type(i)==types.StringType:
+#            try:
+#                i = list(self.sourcenames).index(i)
+#            except:
+#                raise InvalidArgument('source %s not found in list of sources' % i)
+#        return self.sourcelist[i]
+#    def names(self):
+#        return self.sourcenames
+#        
+#    def __call__(self, i):
+#        self.process(self.source(i)) 
+#
+#    def tsmap_append(self, tsm, s):
+#        if not np.isnan(s.a95) and s.a95<1.0:
+#            print 'overplotting catalog fit: %.3f %.3f %.1f' % (s.a95,s.b95,s.ang)
+#            tsm.overplot((s.ra,s.dec,s.a95,s.b95,s.ang), contours=[1.0], lw=2, ls='-', color='gray')
+#        else:
+#            print 'Source has no catalog error circle'
+#
+#    def pickle(self, roi, name, s, **kwargs):
+#        """ intercept this to add fit info from catalog """
+#        
+#        roi.pickle( name, self.pickle_dir,
+#            cat_fit=[s.pivot_energy, s.spectral_index, s.signif_avg, 0], **kwargs)
+#
+#
 class FitNewCatalog(Pipeline):
     """
     pipeline with extended catalog
@@ -487,7 +516,7 @@ def get_class(adict):
         cls = adict['name'][cat_list.index(c)][:3].lower()
     return cls
 
-def load_rec_from_pickles(outdir, other_keys=None):
+def load_rec_from_pickles(outdir, other_keys=None, **kwargs):
     """
     create recarray from list of pickled 
     outdir -- folder for analysis results, expect to find "pickle" below it
@@ -498,12 +527,16 @@ def load_rec_from_pickles(outdir, other_keys=None):
     filelist = glob.glob(os.path.join(outdir, 'pickle', '*.pickle'))
     assert(len(filelist)>0)
     filelist.sort()
-    standard = """name ra dec psig  dcp qual pivot_energy pnorm pnorm_unc pindex pindex_unc cc
+    standard = """name ra dec psig  dcp qual pivot_energy pnorm pnorm_unc pindex pindex_unc cutoff cutoff_unc cc
                 delta_ts fit_ra fit_dec a b ang ts ts2 band_ts galnorm isonorm
                 tsmap_max_diff tsm_ra tsm_dec
                 id_prob aclass low_ts high_ts low_counts high_counts 
                 low_signal high_signal signal_1GeV
                 """.split()
+    variability = kwargs.pop('variability',False)
+    ignore_exception = kwargs.pop('ignore_exception',False)
+    if variability:
+        standard += 'sigma delta prob cprob varindex'.split()
     if other_keys is not None: standard = standard+other_keys                          
     rec = makerec.RecArray(standard)
     for fname in filelist:
@@ -533,13 +566,16 @@ def load_rec_from_pickles(outdir, other_keys=None):
                 cindex = p['cat_fit'][1]
             else: csig=cindex=-1
             # powerlaw fits from pointlike
-            pivot_energy = p['pivot_energy']
-            pnorm,pindex  = p['src_par']
+            pivot_energy = p['pivot_energy'] if 'pivot_energy' in p else 1000.
+            src_par, src_par_unc = p['src_par'], p['src_par_unc'] 
+            pnorm,pindex  = src_par[:2]
             if 'src_par_unc' in p:
-                punc = p['src_par_unc'] 
+                punc = src_par_unc[:2] 
             else: punc = None
             pnorm_unc, pindex_unc = punc if punc is not None else (0,0)
             cc = 0 # correlation coefficient
+            # assume that if there is a third entry in the source parameters, it is exponential cutoff
+            cutoff, cutoff_unc = 2*(np.nan,) if len(src_par)==2 else (src_par[2], src_par_unc[2])
             if 'src_model' in p:
                 src_model = p['src_model']
                 #extract correlation coefficient
@@ -566,32 +602,46 @@ def load_rec_from_pickles(outdir, other_keys=None):
             aclass = '%-7s'%get_class(adict)
             id_dts = p.get('id_dts', 99)
             id_cat = p.get('id_cat', 99) 
-            bi = p['band_info']
-            bts = bi['ts']
-            low_ts = sum(bts[:4])
-            high_ts = sum(bts[4:])
-            counts = np.array(bi['photons']) - np.array(bi['galactic']) - np.array(bi['isotropic'])
-            low_counts = sum(counts[:4])
-            high_counts = sum(counts[4:])
-            signal= np.array(bi['signal'])
-            low_signal = max(1e-3, sum(signal[:4]))
-            high_signal= max(1e-3, sum(signal[4:]))
-            signal_1GeV = max(1e-3, signal[0])
+            try:
+                bi = p['band_info']
+                bts = bi['ts']
+                low_ts = sum(bts[:4])
+                high_ts = sum(bts[4:])
+                counts = np.array(bi['photons']) - np.array(bi['galactic']) - np.array(bi['isotropic'])
+                low_counts = sum(counts[:4])
+                high_counts = sum(counts[4:])
+                signal= np.array(bi['signal'])
+                low_signal = max(1e-3, sum(signal[:4]))
+                high_signal= max(1e-3, sum(signal[4:]))
+                signal_1GeV = max(1e-3, signal[0])
+            except:
+                low_ts=high_ts=counts=low_counts=high_counts=signal=low_signal=high_signal=signal_1GeV=0
             
+             
             pars = (name, ra,dec, ptsig, \
-                dcp,  qual, pivot_energy, pnorm, pnorm_unc, pindex, pindex_unc, cc,\
+                dcp,  qual, pivot_energy, pnorm, pnorm_unc, pindex, pindex_unc, cutoff, cutoff_unc, cc,\
                 delta_ts, fit_ra, fit_dec, a, b, ang, ts, ts2, 
                 band_ts, galnorm, isonorm, tsmap_max_diff, tsm_ra, tsm_dec, 
                 id_prob, aclass,
                 low_ts, high_ts,
                 low_counts, high_counts, low_signal, high_signal, signal_1GeV,
                 )
+            if variability:
+                try:
+                    lc = p['variability']
+                    pars += (lc['sigma'], lc['delta'], lc['prob'], lc['cprob'], lc['varindex'])
+                except KeyError:
+                    print 'key "variability" not found in file for %s' % name
+                    pars += 4*(0,)
+                
             if other_keys is not None:
                 othervals = [p[n] for n in other_keys]
                 pars = pars + tuple(othervals)
             rec.append( *pars)
-        except Exception:
-            raise
+        except Exception, arg:
+            
+            print 'Failed to load file  %s: %s' % (fname, arg)
+            if not ignore_exception: raisef
             failed +=1
     print 'read %d entries from %s (%d failed)' % (len(filelist),outdir,failed)
     return rec()
@@ -625,7 +675,8 @@ def getg(setup_string):
 def main( setup_string, outdir, mec=None, startat=0, n=0, local=False,
         machines='tev1 tev2 tev3 tev4'.split(), 
         seeds_only=False,
-        ignore_exception=True):
+        ignore_exception=True, 
+        logpath='log'):
         
     if not os.path.exists(outdir): 
         os.mkdir(outdir)
@@ -653,7 +704,7 @@ def main( setup_string, outdir, mec=None, startat=0, n=0, local=False,
     def callback(id, result):
         try:
             name = names[id+startat]
-            logdir = os.path.join(outdir, 'log')
+            logdir = os.path.join(outdir, logpath)
             if not os.path.exists(logdir): os.mkdir(logdir)
             out = open(os.path.join(logdir, '%s.txt' % name.strip().replace(' ','_').replace('+','p')), 'w')
             print >>out, result

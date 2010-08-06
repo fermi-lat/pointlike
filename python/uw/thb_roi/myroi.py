@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.15 2010/07/04 19:22:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.16 2010/07/04 19:30:48 burnett Exp $
 
 """
 
@@ -11,11 +11,10 @@ from scipy import optimize
 import pylab as plt
 import os, pickle, math 
 
-from uw.like import roi_analysis, roi_localize, roi_plotting,  Models
+from uw.like import roi_analysis, roi_localize, roi_plotting,  Models, sed_plotter
 from uw.utilities import makerec, fermitime, image
 from skymaps import SkyDir,  PySkyFunction
 
-import bandflux
 
 def spectralString(band,which=None):
   """Return a string suitable for printSpectrum.
@@ -448,7 +447,7 @@ class MyROI(roi_analysis.ROIAnalysis):
   center      [None] -- center, default the roi center
   outdir       [None] if set, save sed into <outdir>/<source_name>_tsmap.png if outdir is a directory, save into filename=<outdir> if not.  
   catsig      [99]  -- if set and less than 1.0, draw cross with this size (degrees)
-  size        [0.5]  -- half width=height (deg)
+  size        [0.5]  -- width=height (deg)
   pixelsize   [None] -- if not set, will be 20 x20 pixels
   galmap      [True] -- if set, draw a galactic coordinate image with the source position shown
   galactic    [False] -- plot using galactic coordinates
@@ -456,7 +455,7 @@ class MyROI(roi_analysis.ROIAnalysis):
   assoc       [None] -- if set, a list of tuple of associated sources 
   notitle     [False] -- set to turn off (allows setting the current Axes object title)
   nolegend    [False]
-  markersize  [12]
+  markersize  [12]   -- set 0 to not plot nearby sources in the model
   markercolor [blue]
   =========   =======================================================
 
@@ -487,7 +486,7 @@ class MyROI(roi_analysis.ROIAnalysis):
         x,y = tsp.zea.pixel(sdir)
         tsp.zea.axes.plot([x],[y], '*', color=primary_markercolor, label=name, markersize=primary_markersize)
         marker = 'ov^<>1234sphH'; i=k=0
-        if markersize==0:
+        if markersize!=0: 
             for ps in self.psm.point_sources: # skip 
                 x,y = tsp.zea.pixel(ps.skydir)
                 if ps.name==name or x<0 or x>tsp.zea.nx or y<0 or y>tsp.zea.ny: continue
@@ -552,68 +551,6 @@ class MyROI(roi_analysis.ROIAnalysis):
                 % (self.tsmap_max, maxpixel.ra(),maxpixel.dec())
         return maxpixel
         
-    def plot_sed(self, which=0, fignum=5, axes=None,
-            axis=None, #(1e2,1e6,1e-8,1e-2),
-            data_kwargs=dict(linewidth=2, color='k',),
-            fit_kwargs =dict(lw=2,        color='r',),
-            butterfly = True,
-            use_ergs = True,
-            outdir = None
-            ):
-        """Plot a SED, an interface to bandflux.BandFlux
-            add point showing the position and error at e0
-        ========     ===================================================
-        keyword      description
-        ========     ===================================================
-        which        [0] index of source to plot
-        fignum       [5] if set, use (and clear) this figure. If None, use current Axes object
-        axes         [None] If set use this Axes object
-        axis         None, (1e2, 1e5, 1e-8, 1e-2) depending on 
-        data_kwargs  a dict to pass to the data part of the display
-        fit_kwargs   a dict to pass to the fit part of the display
-        butterfly    [True] plot model with a butterfly outline
-        use_ergs     [True] convert to ergs in the flux units
-        outdir       [None] if set, save sed into <outdir>/<source_name>_sed.png if outdir is a directory, save into filename=<outdir> if not.
-        ========     ===================================================
-        
-        """
-        energy_flux_unit = 'ergs' if use_ergs else 'MeV'
-        energy_flux_factor = 1.602e-6 if use_ergs else 1.0
-        # conversion 1.602E-19 * 1E6 eV/Mev * 1E7 erg/J * = 1.602E-6 erg/MeV
-        oldlw = plt.rcParams['axes.linewidth']
-        plt.rcParams['axes.linewidth'] = 2
-        if axes is None: 
-            fig=plt.figure(fignum, figsize=(4,4)); plt.clf()
-            fig.add_axes((0.22,0.15,0.75,0.72))
-            axes = plt.gca()
-        axes.set_xscale('log')
-        axes.set_yscale('log')
-        if axis is None:
-            axis = (1e2,1e6,1e-14,1e-8) if use_ergs else (1e2,1e6,1e-8,1e-2)
-        axes.axis(axis)
-        axes.grid(True)
-        axes.set_autoscale_on(False)
-       
-        #  create a BandFlux, and have it plot the band fluxes, merging adjacent limits at the ends
-        bf = bandflux.BandFlux(self, which=which, merge=True, scale_factor= energy_flux_factor)
-        bf.plot_data(axes, **data_kwargs)
-        
-        # and the model, perhaps with a butterfly
-        dom = np.logspace(np.log10(self.fit_emin[0]), np.log10(self.fit_emax[0]), 101)
-        bf.plot_model(axes, self.psm.models[which], dom, butterfly, **fit_kwargs)
-        plt.rcParams['axes.linewidth'] = oldlw
-
-        # the axis labels
-        plt.ylabel(r'$\mathsf{Energy\ Flux\ (%s\ cm^{-2}\ s^{-1})}$' % energy_flux_unit)
-        plt.xlabel(r'$\mathsf{Energy\ (MeV)}$')
-        plt.title(self.name)
-
-        if outdir is not None: 
-          if os.path.isdir(outdir):
-            plt.savefig(os.path.join(outdir,'%s_sed.png'%name.strip()))
-          else :
-            plt.savefig(outdir)
-
 
     def band_info(self):
         """ return dictionary of the band ts values and photons, diffuse  
@@ -630,6 +567,38 @@ class MyROI(roi_analysis.ROIAnalysis):
             uflux =   [band.uflux for band in bands],
             signal =  [sum( (b.expected(band.m) for b in band.bands) )for band in bands],
             )
+            
+    def plot_sed(self, which=0, fignum=5, axes=None,
+            axis=None, #(1e2,1e6,1e-8,1e-2),
+            data_kwargs=dict(linewidth=2, color='k',),
+            fit_kwargs =dict(lw=2,        color='r',),
+            butterfly = True,
+            use_ergs = True,
+            outdir = None,
+            galmap = True,
+            ):
+        """Plot a SED
+        ========     ===================================================
+        keyword      description
+        ========     ===================================================
+        which        [0] index of source to plot
+        fignum       [5] if set, use (and clear) this figure. If None, use current Axes object
+        axes         [None] If set use this Axes object
+        axis         None, (1e2, 1e5, 1e-8, 1e-2) depending on use_ergs
+        data_kwargs  a dict to pass to the data part of the display
+        fit_kwargs   a dict to pass to the fit part of the display
+        butterfly    [True] plot model with a butterfly outline
+        use_ergs     [True] convert to ergs in the flux units and use GeV on the x-axis
+        outdir       [None] if set, save sed into <outdir>/<source_name>_sed.png if outdir is a directory, 
+                            save into filename=<outdir> if not.
+        galmap       [True] plot position on galactic map if set
+        ========     ===================================================
+        
+        """
+        return sed_plotter.plot_sed(self,which,fignum, axes, axis, data_kwargs, 
+            fit_kwargs, butterfly, use_ergs, outdir, galmap)
+
+
 class BandDict(dict):
     """ a dictionary of Band stuff with access functions, like __str__
     """
