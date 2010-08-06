@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.7 2010/08/04 05:12:46 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.8 2010/08/04 23:27:11 kerrm Exp $
 
    author: Matthew Kerr
 """
@@ -314,8 +314,8 @@ class Model_to_XML(object):
 
     def param_strings(self):
         err_strings = ['error="%s"'%(e) if (e>0) else '' for e in self.perr]
-        return ['\t<parameter %s free="%d" max="%s" min="%s" name="%s" scale="%s" value="%s"/>'%(e,f,m1,m2,n,s,v)
-            for e,f,m1,m2,n,s,v in zip(err_strings,self.pfree,self.pmax,self.pmin,self.pname,self.pscale,self.pval)]
+        return ['\t<parameter name="%s" value="%s" %s free="%d" max="%s" min="%s" scale="%s" />'%(e,f,m1,m2,n,s,v)
+            for e,f,m1,m2,n,s,v in zip(self.pname,self.pval, err_strings,self.pfree,self.pmax,self.pmin,self.pscale,)]
 
     def getXML(self,tablevel=1,spec_attrs='',comment_string=None):
         cstring = [] if comment_string is None else [comment_string]
@@ -405,8 +405,8 @@ def makePSSpatialModel(ra,dec,tablevel=1):
 
     strings = [
         '<spatialModel type="SkyDirFunction">',
-        '\t<parameter free="0" max="360.0" min="-360.0" name="RA" scale="1.0" value="%s"/>' %(ra),
-        '\t<parameter free="0" max="90" min="-90" name="DEC" scale="1.0" value="%s"/>' %(dec),
+        '\t<parameter name="RA"  value="%s" free="0" max="360.0" min="-360.0" scale="1.0" />' %(ra),
+        '\t<parameter name="DEC" value="%s" free="0" max="90" min="-90" scale="1.0" />' %(dec),
         '</spatialModel>'
         ]
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
@@ -416,7 +416,7 @@ def makeDSConstantSpatialModel(tablevel=1):
     
     strings = [
         '<spatialModel type="ConstantValue">',
-        '\t<parameter free="0" max="10.0" min="0.0" name="Value" scale="1.0" value="1.0"/>',
+        '\t<parameter  name="Value" value="1.0" free="0" max="10.0" min="0.0"scale="1.0" />',
         '</spatialModel>'
 	]
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
@@ -425,7 +425,7 @@ def makeDSMapcubeSpatialModel(filename='ERROR',tablevel=1):
     """Encode a mapcube model."""
     strings = [
         '<spatialModel file="%s" type="MapCubeFunction">'%(filename),
-        '\t<parameter free="0" max="1e3" min="1e-3" name="Normalization" scale="1.0" value="1.0"/>',
+        '\t<parameter name="Normalization" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />',
 	    '</spatialModel>'
     ]
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
@@ -451,8 +451,8 @@ def makeExtendedSourceSpatialModel(es,tablevel=1):
     for param,err,free,min,max,name in zip(params,err_strings,
                                        es.free,min_params,max_params,
                                        param_names):
-        strings.append('\t<parameter %sfree="%d" max="%g" min="%g" name="%s" scale="1.0" value="%g" />' % \
-                       (err,free,max,min,name,param))
+        strings.append('\t<parameter name="%s" value="%g" error="%g" %sfree="%d" max="%g" min="%g" scale="1.0" />' % \
+                       (name,param,err,free,max,min))
     strings.append('</spatialModel>')
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
 
@@ -557,7 +557,7 @@ def process_diffuse_source(ds):
         if isinstance(dm,IsotropicSpectrum):
             filename = os.path.abspath(dm.name())
             m2x.process_model(ds.smodel,xml_name='FileFunction',scaling=True)
-            specxml = m2x.getXML(spec_attrs='file=\"%s\"'%(filename))
+            specxml = m2x.getXML(spec_attrs='file=\"%s\"'%(filename.replace('\\','/')))
         elif isinstance(dm,IsotropicPowerLaw):
             sd = SkyDir()
             iflux = dm.integral(sd,100,3e5)
@@ -581,19 +581,22 @@ def unparse_diffuse_sources(diffuse_sources):
         xml_blurbs.push(process_diffuse_source(ds))
     return xml_blurbs
 
-def writeXML(stacks,filename):
+def writeXML(stacks,filename, title='source_library'):
     """Write XML blurbs to a gtlike-style XML file."""
     f = open(filename,'wb')
-    f.write('<source_library title="source_library">')
+    f.write('<source_library title="%s">'% title)
     for stack in stacks:
         for elem in stack:
             f.write(elem)
     f.write('\n</source_library>')
 
 def writeROI(roi,filename):
-    """Write out the contents of an ROIAnalysis source model
+    """ out the contents of an ROIAnalysis source model
        to a gtlike XML file."""
-    dxml = unparse_diffuse_sources(roi.dsm.diffuse_sources)
-    pxml = unparse_point_sources(roi.psm.point_sources)
-    writeXML([dxml,pxml],filename)
+    source_xml = [unparse_point_sources(roi.psm.point_sources)]
+    try:
+        source_xml.append( unparse_diffuse_sources(roi.dsm.diffuse_sources))
+    except AttributeError: 
+        print 'warning: no diffuse sources found to write to xml'
+    writeXML(source_xml,filename)
             
