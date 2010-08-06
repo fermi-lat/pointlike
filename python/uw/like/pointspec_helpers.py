@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.17 2010/08/02 20:44:56 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.18 2010/08/05 14:56:45 wallacee Exp $
 
    author: Matthew Kerr
    """
@@ -396,23 +396,24 @@ def get_diffuse_source(spatialModel='ConstantValue',
 
 
 def get_default_diffuse(diffdir=None,gfile='gll_iem_v02.fit',ifile='isotropic_iem_v02.txt'):
-    """ Try to get defaults for the diffuse background sources.
+    """ Try to get defaults for the diffuse background sources, assumed to be 
+        a MapCubeFunction/Powerlaw and ConstantValue/FileFunction
         Setting gfile or ifile to None ignores that entry."""
     if diffdir is None:
         diffdir = join(os.environ['EXTFILESSYS'],'galdiffuse')
     dsources = []
     if gfile is not None:
-        gfile = join(diffdir,gfile)
-        if not os.path.exists(gfile):
-            raise Exception,' Galactic diffuse file "%s" not found.' %gfile
+        gfilex = join(diffdir,gfile)
+        if not os.path.exists(gfilex):
+            raise Exception,' Galactic diffuse file "%s" not found.' %gfilex
         else:
-            dsources += [get_diffuse_source('MapCubeFunction',gfile,'PowerLaw',None,'Galactic Diffuse')]
+            dsources += [get_diffuse_source('MapCubeFunction',gfilex,'PowerLaw',None,'Galactic Diffuse (%s)'%gfile)]
     if ifile is not None:
-        ifile = join(diffdir,ifile)
-        if not os.path.exists(ifile):
-            raise Exception,'isotropic diffuse file "%s" not found.'%ifile
+        ifilex = join(diffdir,ifile)
+        if not os.path.exists(ifilex):
+            raise Exception,'isotropic diffuse file "%s" not found.'%ifilex
         else:
-            dsources += [get_diffuse_source('ConstantValue',None,'FileFunction',ifile,'Isotropic Diffuse')]
+            dsources += [get_diffuse_source('ConstantValue',None,'FileFunction',ifilex,'Isotropic Diffuse (%s)'%ifile)]
 
     if len(dsources) == 0:
         raise Exception,'Unable to find any diffuse sources.'
