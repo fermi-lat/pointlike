@@ -1,11 +1,12 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.2 2010/07/18 18:39:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.3 2010/08/06 18:13:15 burnett Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
 """
+import os,sys
 from uw.like import roi_bands
 from uw.utilities import makerec, image
 import numpy as np
@@ -224,7 +225,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     plt.title(roi.name if which==0 else roi.psm.point_sources[which].name)
     
     # a galactic map if requested
-    if galmap: image.galactic_map(roi.center, color='lightblue', symbol='*r')
+    if galmap: image.galactic_map(roi.center, color='lightblue', marker='*', markercolor='r')
     
     if outdir is not None: 
         if os.path.isdir(outdir):
