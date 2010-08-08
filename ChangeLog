@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Sun Aug  8 16:47:34 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	image.py 
+Log Message:
+use marker, markercolor for symbol spec
+use scatter for plotting sources in AIT_grid
+    *
+------------------------------------------------------------
 User: burnett  Sun Aug  8 16:44:41 PDT 2010
 pointlike/python/uw/like
 
