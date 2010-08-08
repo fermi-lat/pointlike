@@ -5,15 +5,16 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.20 2010/07/17 18:06:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.21 2010/07/23 01:10:48 kerrm Exp $
 
 """
-version = '$Revision: 1.20 $'.split()[1]
+version = '$Revision: 1.21 $'.split()[1]
 
 import pylab
 import math
 import numpy as np
 import pylab as pl
+import pylab as plt
 from matplotlib import mpl, pyplot, ticker
 from skymaps import SkyImage, SkyDir, double2, SkyProj,PySkyFunction,Hep3Vector
 from math import exp
@@ -179,13 +180,30 @@ class AIT_grid():
                 x,y = self.ait(0,b)
                 self.axes.text(x,y+b/90*label_offset,'%+3.0f'%b, size=textsize, ha='center',va='center') 
 
+    def skydir(self, x, y):
+        """ from pixel coordinates to sky """
+        return SkyDir(x+0.5, y+0.5, self.proj) 
+
+    def pixel(self, sdir):
+        """ return pixel coordinates for the skydir
+        """
+        self.proj.sph2pix(sdir.l(),sdir.b())
+        return  (x-0.5,y-0.5)
+
     def ait(self, l, b):
         " convert lon, lat to car "
         return self.proj.sph2pix(l, b)
 
-    def plot(self, sources, symbol='+', text=None, fontsize=8, **kwargs):
+    def plot(self, sources, marker='o', markersize=10, text=None, fontsize=8, **kwargs):
         """ plot symbols at points
-        text: optional text strings (same lenght as soruces)
+        text: optional text strings (same length as sources)
+        fontsize: for text
+        marker
+        markersize
+        kwargs: applied to scatter, use c as an array of floats, with optional
+                cmap=None, norm=None, vmin=None, vmax=None
+                to make color key for another value
+                in that case, you can use Axes.colorbar
         """
         X=[]
         Y=[]
@@ -195,7 +213,12 @@ class AIT_grid():
             Y.append(y)
             if text is not None:
                 self.axes.text(x,y,text[i],fontsize=fontsize)
-        self.axes.plot(X,Y, symbol,  **kwargs)
+        #self.axes.plot(X,Y, symbol,  **kwargs)
+        self.axes.scatter(X,Y, s=markersize, marker=marker,  **kwargs)
+        
+    def colorbar(self, *pars, **kwargs):
+        if 'shrink' not in kwargs: kwargs['shrink'] = 0.7
+        plt.colorbar(*pars, **kwargs)
 
 
 
@@ -255,7 +278,8 @@ class AIT(object):
 
 
     def grid(self, fig=None, labels=True, color='gray'):
-	"""Draws gridlines and labels for map."""
+    	"""Draws gridlines and labels for map."""
+
         self.axes = pylab.axes() #creates figure and axes if not set
 
         pylab.matplotlib.interactive(False)
@@ -395,7 +419,7 @@ class AIT(object):
         rp = [ self.pixel(sdir) for sdir in dirs]
         self.axes.plot( [r[0] for r in rp], [r[1] for r in rp], 'k', **kwargs)
 
-def galactic_map(skydir, axes=None, pos=(0.77,0.88), width=0.2, color='w', symbol='sr'):
+def galactic_map(skydir, axes=None, pos=(0.77,0.88), width=0.2, color='w', marker='s', markercolor='r'):
     """ 
     insert a little map showing the galactic position
         skydir: sky coordinate for point
@@ -403,7 +427,7 @@ def galactic_map(skydir, axes=None, pos=(0.77,0.88), width=0.2, color='w', symbo
         pos: location within the map
         width: width, fraction of map siza
         color: line color
-        symbol ['sr'] plot symbol+color
+        marker, markercolor ['s', 'r'] plot symbol+color
     returns the AIT_grid to allow plotting other points
     """
     # create new a Axes object positioned according to axes that we are using
@@ -629,7 +653,7 @@ class ZEA(object):
         pixelsize=self.pixelsize #scale for plot
         self.axes.plot(x0+np.asarray(x)/pixelsize, y0+np.asarray(y)/pixelsize, symbol, **kwargs)
         
-    def galactic_map(self, pos=(0.77,0.88), width=0.2, color='w', symbol='sr'):
+    def galactic_map(self, pos=(0.77,0.88), width=0.2, color='w', marker='s', markercolor='r'):
         """ 
         insert a little map showing the galactic position
             pos: location within the map
@@ -643,7 +667,7 @@ class ZEA(object):
         xsize, ysize = b.x1-b.x0, b.y1-b.y0
         axi = self.axes.figure.add_axes((b.x0+pos[0]*xsize, b.y0+pos[1]*ysize, width*xsize, 0.5*width*ysize))
         ait_insert=AIT_grid(axes=axi, labels=False, color=color)
-        ait_insert.plot([self.center], symbol)
+        ait_insert.plot([self.center], marker=marker, c=markercolor)
         self.axes.figure.sca(self.axes) # restore previous axes
         return ait_insert 
 
