@@ -1,7 +1,7 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_tsmap.py,v 1.3 2010/07/31 00:35:24 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.4 2010/08/03 03:48:03 lande Exp $
 
 author: Matthew Kerr
 """
@@ -224,7 +224,7 @@ class HealpixTSMap(object):
                 ts_vals[1].append(tsc(d,repeat_diffuse=True))
                 ts_vals[2].append(tsc(d,repeat_diffuse=True,bright_source_mask=bsm))
         else:
-            self.ts_vals = [deque(),deque()]
+            self.ts_vals = ts_vals = [deque(),deque()]
             for d in dirs:
                 ts_vals[0].append(tsc(d))
                 ts_vals[1].append(tsc(d,repeat_diffuse=True))
