@@ -1,12 +1,13 @@
 """A set of classes to implement spectral models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.15 2010/08/03 00:59:05 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.16 2010/08/03 22:28:20 burnett Exp $
 
    author: Matthew Kerr
 
 """
 
 import numpy as N
+import numpy as np
 import math as M
 from scipy.integrate import quad
       
@@ -105,9 +106,12 @@ Optional keyword arguments:
   free        [True, True,...] a boolean list the same length as p giving the free (True) and fixed (False) parameters
   =========   =======================================================
      """
-      DefaultModelValues.setup(self,**kwargs)
+      iscopy = kwargs.pop('iscopy', False)
+      DefaultModelValues.setup(self,**kwargs) # if called from copy method, will set p
       self.__dict__.update(**kwargs)
-      self.p = N.log10(self.p)
+      if not iscopy:
+        assert np.all(self.p>0), 'fail parameter positivity constraint' 
+        self.p = N.log10(self.p)
       self.free = N.asarray(self.free)
 
    def get_parameters(self):
@@ -264,7 +268,9 @@ Optional keyword arguments:
          print 'Encountered a numerical error when attempting to calculate integral flux.'
 
    def copy(self):
-      a = eval(self.name+'(**self.__dict__)') #create instance of same spectral model type
+      
+      a = eval(self.name+'(iscopy=True, **self.__dict__)') #create instance of same spectral model type
+      
       a.p = N.asarray(self.p).copy() #copy in log values
       try: a.cov_matrix = self.cov_matrix.__copy__()
       except: pass
