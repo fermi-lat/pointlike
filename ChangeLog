@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Aug 10 16:22:48 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py roi_localize.py roi_plotting.py specfitter.py 
+Log Message:
+fix indent to hopefully be consistent with 4
+    *
+------------------------------------------------------------
 User: burnett  Tue Aug 10 16:13:27 PDT 2010
 pointlike/python/uw/like
 
