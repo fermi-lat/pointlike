@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.18 2010/08/05 14:56:45 wallacee Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.19 2010/08/06 18:12:03 burnett Exp $
 
    author: Matthew Kerr
    """
@@ -7,7 +7,7 @@
 import numpy as N
 from skymaps import *
 from uw.like.Models import Model,Constant,PowerLaw,DefaultModelValues
-from roi_managers import ROIBackgroundModel
+#from roi_managers import ROIBackgroundModel
 from roi_diffuse import DiffuseSource
 from roi_extended import ExtendedSource
 from os.path import join
@@ -16,6 +16,7 @@ import os
 ###====================================================================================================###
 
 class PointSource(object):
+   """ combine name, skydir, model """
    def __init__(self,skydir,name,model=None,free_parameters=True,leave_parameters=False):
       self.name   = name
       self.skydir = skydir
@@ -28,12 +29,11 @@ class PointSource(object):
       return '\n'.join(['\n',
                         '='*60,
                         'Name:\t\t%s'%(self.name),
-                        'R.A. (J2000):\t\t%.5f'%(self.skydir.ra()),
-                        'Dec. (J2000):\t\t%.5f'%(self.skydir.dec()),
-                        'Model:\t\t%s'%(self.model.name),
-                        '\n',
-                        'Model Parameters:',
-                        '%s'%(str(self.model))])
+                        'R.A. (J2000):\t%.5f'%(self.skydir.ra()),
+                        'Dec. (J2000):\t%.5f'%(self.skydir.dec()),
+                        'Model:\t\t%s'%(self.model.full_name()),
+                        '\t'+self.model.__str__(indent='\t'), 
+                        ])
 
 ###====================================================================================================###
 
@@ -101,81 +101,81 @@ class ExposureManager(object):
 ###====================================================================================================###
 
 
-class ConsistentBackground(object):
-   """Manage the construction of a consistent background model.
-
-      *Notes*
-
-      A background model comprises diffuse and point sources.  While
-      some parameters may be refit in a spectral analysis, the default
-      background model should give a good representation.
-
-      The class handles matching LAT source lists with the diffuse models
-      used to generate them.  The combination is a "consistent"
-      background.
-
-   """
-
-   def __init__(self,analysis_environment,background='1FGL',**kwargs):
-
-      self.diffdir    = analysis_environment.diffdir
-      self.catdir     = analysis_environment.catdir
-      self.background = background
-
-      eval('self.make_%s()'%background)
-
-      if 'cat' in kwargs: cat = kwargs['cat']
-      else:               cat = self.cat
-      singl = Singleton(CatalogManager,'cat',cat)
-      self.cm = singl('cat')
-
-   def make_nms_galprop(self):
-
-      singl = Singleton(DiffuseFunction,'gf',join(self.diffdir,'gas_mapcube_54_77Xvarh7S_P6_v3_diff_front.fits'))
-      singl.add(        DiffuseFunction,'gb',join(self.diffdir,'gas_mapcube_54_77Xvarh7S_P6_v3_diff_back.fits'))
-      singl.add(        DiffuseFunction,'if',join(self.diffdir,'ics_isotropic_mapcube_54_77Xvarh7S_P6_v3_diff_front.fits'))
-      singl.add(        DiffuseFunction,'ib',join(self.diffdir,'ics_isotropic_mapcube_54_77Xvarh7S_P6_v3_diff_back.fits'))
-      singl.add(        IsotropicSpectrum,'iso',join(self.diffdir,'Total_b30_EGBfree.txt'))
-
-      self.dmodels = [ [singl('gf'),singl('gb')] , singl('iso') , [singl('if'),singl('ib')] ]
-      self.smodels = [ PowerLaw(p=[1,1],free=[True,True],index_offset=1),
-                       Constant(free=[True]), Constant(free[False]) ]
-      self.names   = ['Gas Galactic Diffuse', 'Isotropic Diffuse', 'IC Galactic Diffuse']
-      self.cat     = join(self.catdir,r'gll_psc9month_v2r2.fit')
-
-   def make_ems_ring(self):
-
-      singl = Singleton(DiffuseFunction,'gf',join(self.diffdir,'gll_iem_v02_P6_v3_diff_front.fits'))
-      singl.add(        DiffuseFunction,'gb',join(self.diffdir,'gll_iem_v02_P6_v3_diff_back.fits'))
-      singl.add(        IsotropicSpectrum,'if',join(self.diffdir,'isotropic_iem_front_v02.txt'))
-      singl.add(        IsotropicSpectrum,'ib',join(self.diffdir,'isotropic_iem_back_v02.txt'))
-
-      self.dmodels = [ [singl('gf'),singl('gb')], [singl('if'),singl('ib')] ]
-      self.smodels = [ PowerLaw(p=[1,1],free=[True,True],index_offset=1),
-                       Constant(free=[True]) ]
-      self.names   = ['gll_iem_v02', 'Isotropic Diffuse']
-      self.cat     = join(self.catdir,r'gll_psc11month_v2.fit')
-
-   def make_1FGL(self):
-
-      singl = Singleton(DiffuseFunction,'gf',join(self.diffdir,'gll_iem_v02_P6_v3_diff_front.fits'))
-      singl.add(        DiffuseFunction,'gb',join(self.diffdir,'gll_iem_v02_P6_v3_diff_back.fits'))
-      singl.add(        IsotropicSpectrum,'if',join(self.diffdir,'isotropic_iem_front_v02.txt'))
-      singl.add(        IsotropicSpectrum,'ib',join(self.diffdir,'isotropic_iem_back_v02.txt'))
-
-      self.dmodels = [ [singl('gf'),singl('gb')], [singl('if'),singl('ib')] ]
-      self.smodels = [ PowerLaw(p=[1,1],free=[True,True],index_offset=1),
-                       Constant(free=[True]) ]
-      self.names   = ['gll_iem_v02', 'Isotropic Diffuse']
-      self.cat     = join(self.catdir,r'gll_psc_v03.fit')  # thb: this has one slight change from v02, involving a name
-
-
-   def get_bgmodels(self, models = None, lat = None):
-
-      gal_index = True if (lat is not None and abs(lat) < 20) else False
-      self.smodels[0].free[1] = gal_index # need to be careful about this
-      smodels = self.smodels if models is None else models
-      return map(ROIBackgroundModel,self.dmodels,smodels,self.names)
+#class ConsistentBackground(object):
+#   """Manage the construction of a consistent background model.
+#
+#      *Notes*
+#
+#      A background model comprises diffuse and point sources.  While
+#      some parameters may be refit in a spectral analysis, the default
+#      background model should give a good representation.
+#
+#      The class handles matching LAT source lists with the diffuse models
+#      used to generate them.  The combination is a "consistent"
+#      background.
+#
+#   """
+#
+#   def __init__(self,analysis_environment,background='1FGL',**kwargs):
+#
+#      self.diffdir    = analysis_environment.diffdir
+#      self.catdir     = analysis_environment.catdir
+#      self.background = background
+#
+#      eval('self.make_%s()'%background)
+#
+#      if 'cat' in kwargs: cat = kwargs['cat']
+#      else:               cat = self.cat
+#      singl = Singleton(CatalogManager,'cat',cat)
+#      self.cm = singl('cat')
+#
+#   def make_nms_galprop(self):
+#
+#      singl = Singleton(DiffuseFunction,'gf',join(self.diffdir,'gas_mapcube_54_77Xvarh7S_P6_v3_diff_front.fits'))
+#      singl.add(        DiffuseFunction,'gb',join(self.diffdir,'gas_mapcube_54_77Xvarh7S_P6_v3_diff_back.fits'))
+#      singl.add(        DiffuseFunction,'if',join(self.diffdir,'ics_isotropic_mapcube_54_77Xvarh7S_P6_v3_diff_front.fits'))
+#      singl.add(        DiffuseFunction,'ib',join(self.diffdir,'ics_isotropic_mapcube_54_77Xvarh7S_P6_v3_diff_back.fits'))
+#      singl.add(        IsotropicSpectrum,'iso',join(self.diffdir,'Total_b30_EGBfree.txt'))
+#
+#      self.dmodels = [ [singl('gf'),singl('gb')] , singl('iso') , [singl('if'),singl('ib')] ]
+#      self.smodels = [ PowerLaw(p=[1,1],free=[True,True],index_offset=1),
+#                       Constant(free=[True]), Constant(free[False]) ]
+#      self.names   = ['Gas Galactic Diffuse', 'Isotropic Diffuse', 'IC Galactic Diffuse']
+#      self.cat     = join(self.catdir,r'gll_psc9month_v2r2.fit')
+#
+#   def make_ems_ring(self):
+#
+#      singl = Singleton(DiffuseFunction,'gf',join(self.diffdir,'gll_iem_v02_P6_v3_diff_front.fits'))
+#      singl.add(        DiffuseFunction,'gb',join(self.diffdir,'gll_iem_v02_P6_v3_diff_back.fits'))
+#      singl.add(        IsotropicSpectrum,'if',join(self.diffdir,'isotropic_iem_front_v02.txt'))
+#      singl.add(        IsotropicSpectrum,'ib',join(self.diffdir,'isotropic_iem_back_v02.txt'))
+#
+#      self.dmodels = [ [singl('gf'),singl('gb')], [singl('if'),singl('ib')] ]
+#      self.smodels = [ PowerLaw(p=[1,1],free=[True,True],index_offset=1),
+#                       Constant(free=[True]) ]
+#      self.names   = ['gll_iem_v02', 'Isotropic Diffuse']
+#      self.cat     = join(self.catdir,r'gll_psc11month_v2.fit')
+#
+#   def make_1FGL(self):
+#
+#      singl = Singleton(DiffuseFunction,'gf',join(self.diffdir,'gll_iem_v02_P6_v3_diff_front.fits'))
+#      singl.add(        DiffuseFunction,'gb',join(self.diffdir,'gll_iem_v02_P6_v3_diff_back.fits'))
+#      singl.add(        IsotropicSpectrum,'if',join(self.diffdir,'isotropic_iem_front_v02.txt'))
+#      singl.add(        IsotropicSpectrum,'ib',join(self.diffdir,'isotropic_iem_back_v02.txt'))
+#
+#      self.dmodels = [ [singl('gf'),singl('gb')], [singl('if'),singl('ib')] ]
+#      self.smodels = [ PowerLaw(p=[1,1],free=[True,True],index_offset=1),
+#                       Constant(free=[True]) ]
+#      self.names   = ['gll_iem_v02', 'Isotropic Diffuse']
+#      self.cat     = join(self.catdir,r'gll_psc_v03.fit')  # thb: this has one slight change from v02, involving a name
+#
+#
+#   def get_bgmodels(self, models = None, lat = None):
+#
+#      gal_index = True if (lat is not None and abs(lat) < 20) else False
+#      self.smodels[0].free[1] = gal_index # need to be careful about this
+#      smodels = self.smodels if models is None else models
+#      return map(ROIBackgroundModel,self.dmodels,smodels,self.names)
 
 
 ###====================================================================================================###
