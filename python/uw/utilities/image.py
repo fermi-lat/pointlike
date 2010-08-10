@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.21 2010/07/23 01:10:48 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.22 2010/08/08 23:47:34 burnett Exp $
 
 """
-version = '$Revision: 1.21 $'.split()[1]
+version = '$Revision: 1.22 $'.split()[1]
 
 import pylab
 import math
@@ -436,7 +436,7 @@ def galactic_map(skydir, axes=None, pos=(0.77,0.88), width=0.2, color='w', marke
     xsize, ysize = b.x1-b.x0, b.y1-b.y0
     axi = axes.figure.add_axes((b.x0+pos[0]*xsize, b.y0+pos[1]*ysize, width*xsize, 0.5*width*ysize))
     ait_insert=AIT_grid(axes=axi, labels=False, color=color)
-    ait_insert.plot([skydir], symbol)
+    ait_insert.plot([skydir], marker)
     axes.figure.sca(axes) # restore previous axes
     return ait_insert 
 
