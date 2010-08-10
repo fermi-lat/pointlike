@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.30 2010/08/01 00:06:46 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.31 2010/08/02 20:47:45 lande Exp $
 
 author: Matthew Kerr
 """
@@ -71,13 +71,6 @@ class ROIAnalysis(object):
         self.param_vals  = N.concatenate([m.p for m in self.psm.models] + [m.p for m in self.bgm.models])
         self.psm.cache(self.bands)
         self.psm.update_counts(self.bands)
-
-        #### TEMPORARY ###
-        from roi_managers import ROIDiffuseManager
-        if isinstance(ds_manager,ROIDiffuseManager):
-            self.gradient = self.gradient_new
-        else:
-            self.gradient = self.gradient_old
 
         self.logLikelihood(self.get_parameters()) # make sure everything initialized
 
@@ -197,67 +190,8 @@ class ROIAnalysis(object):
                        for band in self.bands])
 
         return ll 
-    def gradient_old(self,parameters,*args):
-        """ Implement the gradient of the log likelihood wrt the model parameters."""
 
-        bands     = self.bands
-        pf         = self.phase_factor  # can just multiply the aperture term
-        models    = self.psm.models
-        bgmodels = self.bgm.models
-
-        # sanity check -- for efficiency, the gradient should be called with the same params as the log likelihood
-        if not N.allclose(parameters,self.parameters(),rtol=0):
-            self.set_parameters(parameters)
-            self.bgm.update_counts(bands)
-            self.psm.update_counts(bands)
-
-        gradient = N.zeros_like(parameters)
-
-        # say byebye to abstraction and hello to disgusting code!
-
-        # the positions in the list of point sources with free parameters
-        indices = N.arange(len(models))[N.asarray([N.any(m.free) for m in models])]
-        nparams = N.asarray([model.free.sum() for model in models])
-
-        for b in bands:
-            cp = 0
-            if b.has_pixels:
-                #tot_pix = b.bg_all_pix_counts + b.ps_all_pix_counts
-                pix_weights = b.pix_counts / (b.bg_all_pix_counts + b.ps_all_pix_counts)
-            else:
-                pixterm = 0
-
-            # do the backgrounds -- essentially, integrate the spectral gradient for each data pixel
-            # and for the aperture
-            for ind,model in enumerate(bgmodels):
-                if not N.any(model.free):
-                    continue
-                pts = model.gradient(b.bg_points)
-                if len(pts.shape) == 1: pts = N.asarray([pts])
-                for j in xrange(len(model.p)):
-                    if not model.free[j]: continue
-                    apterm = pf*(b.ap_evals[ind,:] * pts[j,:]).sum()
-                    if b.has_pixels:
-                        pixterm = (pix_weights*(b.pi_evals[:,ind,:] * pts[j,:]).sum(axis=1)).sum()
-                    gradient[cp] += apterm - pixterm
-                    cp += 1
-
-            # do the point sources -- call the band method, which will integrate the gradient
-            # over the exposure -- NB -- inconsistency in that no correction is being made for
-            # the position of the point sources...
-            for ind,model in zip(indices,models[indices]):
-                grad    = b.gradient(model)[model.free]*b.er[ind] # correct for exposure
-                np      = nparams[ind]
-                apterm = pf*b.overlaps[ind]
-                if b.has_pixels:
-                    pixterm = (pix_weights*b.ps_pix_counts[:,ind]).sum()
-                gradient[cp:cp+np] += grad * (apterm - pixterm)
-                cp += np
-
-        gradient *= 10**parameters * 1./N.log10(N.exp(1.)) # Jacobian
-        return gradient
-
-    def gradient_new(self,parameters,*args):
+    def gradient(self,parameters,*args):
           """ Implement the gradient of the log likelihood wrt the model parameters."""
 
           bands     = self.bands
@@ -747,3 +681,5 @@ class ROIAnalysis(object):
         """Write out a gtlike-style XML file."""
         from uw.utilities.xml_parsers import writeROI
         writeROI(self,filename)
+        
+ 

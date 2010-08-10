@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.11 2010/06/30 20:51:05 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.12 2010/07/05 19:19:20 lande Exp $
 
 author: Matthew Kerr
 """
@@ -12,10 +12,6 @@ from pointlike import DoubleVector
 from Models import *
 from pypsf import *
 from roi_bands import *
-
-### NOTA BENE -- this may only be temporary
-from roi_diffuse import *
-###########################################
 
       
 ###====================================================================================================###
@@ -342,98 +338,6 @@ class ROIDiffuseManager(ROIModelManager):
 
 
 ###====================================================================================================###
-
-
-#####################################
-############ DEPRECATED #############
-#####################################
-
-###====================================================================================================###
-class ROIBackgroundCounts(object):
-    """Handle the mapping of the spectral model to counts."""
-
-    def __init__(self,roi_bgm,bg_model):
-        """roi_bgm  -- an instance of ROIBackgroundManager
-           bg_model -- an instance of ROIBackgroundModel"""
-        SkyIntegrator.set_tolerance(0.02)
-        exp = roi_bgm.sa.exposure.exposure
-        self.bgs = [Background(bg_model.get_dmodel(i),exp[i]) for i in xrange(len(exp))]
-        self.bg = self.bgs[0]
-
-    def set_state(self,energy,conversion_type):
-        self.bg = self.bgs[conversion_type]
-        self.bg.setEnergy(energy)
-
-    def ap_value(self,center,radius):
-        return SkyIntegrator.ss_average(self.bg,center,radius)
-
-    def pix_value(self,pixlist):
-        return N.asarray(self.bg.wsdl_vector_value(pixlist))
-
-#####################################
-############ DEPRECATED #############
-#####################################
-
-###====================================================================================================###
-class ROIBackgroundCountsOTF(object):
-    """Handle the mapping of the spectral model to counts."""
-
-    def __init__(self,roi_bgm,bg_model):
-        """roi_bgm  -- an instance of ROIBackgroundManager
-           bg_model -- an instance of ROIBackgroundModel"""
-        exp = roi_bgm.sa.exposure.exposure
-        self.bg  = Background(bg_model.get_dmodel(),exp[0],exp[1])
-        from kerrtools.convolution import BackgroundConvolution
-        self.bgc = BackgroundConvolution(roi_bgm.sa.roi_dir,self.bg,roi_bgm.sa.psf,npix=51,pixelsize=0.5)
-
-    def set_state(self,energy,conversion_type):
-        self.bgc.do_convolution(energy,conversion_type)
-
-    def ap_value(self,center,radius):
-        return self.bgc.ap_average(radius)
-
-    def pix_value(self,pixlist):
-        return self.bgc(pixlist,self.bgc.cvals)
-
-
-#####################################
-############ DEPRECATED #############
-#####################################
-
-
-###====================================================================================================###
-
-class ROIBackgroundModel(object):
-   """A wrapper to neatly associate spectral scaling models with their SkySpectrum instances."""
-
-   def __init__(self,diffuse_model,scaling_model=None,name=None):
-      """diffuse_model --- a SkySpectrum object describing a diffuse background; can
-                           be a tuple of there is a separate version for front & back
-
-         scaling_model --- [None] a spectral model from the Models module
-                           if None, default to a simple scaling of the normalization
-
-         name          --- [None] model name for pretty printing
-      """
-
-      self.dmodel = diffuse_model
-      if scaling_model is None:
-         self.smodel = Constant(p=[1],free=[True])
-      else:
-         self.smodel = scaling_model
-      self.name   = name if name is not None else "Diffuse Background"
-
-   def get_dmodel(self,event_class=0):
-      if len(N.ravel(self.dmodel)) == 1: return self.dmodel
-      else:
-         return self.dmodel[event_class]
-      
-   def __str__(self):
-      return '%s scaled with %s\n'%(self.name,self.smodel.pretty_name)+self.smodel.__str__()
-
-#####################################
-############ DEPRECATED #############
-#####################################
 
        
 ###====================================================================================================###
