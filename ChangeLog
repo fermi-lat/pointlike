@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Aug 11 14:20:56 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_bands.py 
+Log Message:
+Remove some cruft from ROIBand.logLikelihood.
+    *
+------------------------------------------------------------
 User: burnett  Wed Aug 11 12:42:05 PDT 2010
 pointlike/python/uw/like
 
