@@ -2,24 +2,19 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.33 2010/08/11 00:21:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.34 2010/08/11 18:48:43 kerrm Exp $
 
 author: Matthew Kerr
 """
 
 import numpy as N
-import math
-from roi_managers import *
-from roi_bands import *
-from roi_localize import *
+import math, pickle, collections
+
+from uw.like import roi_bands, roi_localize , specfitter
+
 from pointspec_helpers import PointSource
 from roi_diffuse import DiffuseSource
 from roi_extended import ExtendedSource
-
-from specfitter import SpectralModelFitter,mycov
-
-from collections import deque,defaultdict
-from cPickle import dump
 
 from scipy.optimize import fmin,fmin_powell,fmin_bfgs
 from scipy.stats.distributions import chi2
@@ -32,15 +27,14 @@ LOG_JACOBIAN = 1./N.log10(EULER_CONST)
 
 class ROIAnalysis(object):
 
-    def init(self):
-
-        self.fit_emin = [125,125] #independent energy ranges for front and back
-        self.fit_emax = [1e5 + 100,1e5 + 100] #0th position for event class 0
-        self.quiet    = False
-        self.verbose = False
-
-        self.catalog_aperture = -1 # pulsar catalog analysis only -- deprecate
-        self.phase_factor = 1.
+    defaults = dict(
+        fit_emin = [125,125],    #independent energy ranges for front and back
+        fit_emax = [1e5 + 100,1e5 + 100], #0th position for event class 0
+        quiet    = False,
+        verbose  = False,
+        catalog_aperture = -1, # pulsar catalog analysis only -- deprecate
+        phase_factor = 1.,    # pulsar phase
+        )
 
     def __init__(self,roi_dir,ps_manager,ds_manager,spectral_analysis,**kwargs):
         """ roi_dir     -- the center of the ROI
@@ -54,11 +48,12 @@ class ROIAnalysis(object):
              phase_factor -- a correction that can be made if the data has
                                   undergone a phase selection -- between 0 and 1
         """
-        self.init()
+        self.__dict__.update(ROIAnalysis.defaults)
         self.__dict__.update(**kwargs)
         self.roi_dir = roi_dir
         self.psm  = ps_manager
-        self.bgm  = self.dsm = ds_manager
+        self.dsm  = ds_manager
+        self.bgm  = self.dsm ### bgm is deprecated, set here for convenience of interactive access
 
         self.sa    = spectral_analysis
         self.logl = None
@@ -70,23 +65,23 @@ class ROIAnalysis(object):
         self.param_state = N.concatenate([m.free for m in self.psm.models] + [m.free for m in self.bgm.models])
         self.param_vals  = N.concatenate([m.p for m in self.psm.models] + [m.p for m in self.bgm.models])
         self.psm.cache(self.bands)
-        self.psm.update_counts(self.bands)
+        #self.psm.update_counts(self.bands)
 
         self.logLikelihood(self.get_parameters()) # make sure everything initialized
 
     def __setup_bands__(self):
 
-        self.bands = deque()
+        self.bands = collections.deque()
         for band in self.sa.pixeldata.dmap:
             evcl = band.event_class() & 1 # protect high bits
 
             if (band.emin() + 1) >= self.fit_emin[evcl] and band.emax() < self.fit_emax[evcl]:
-                self.bands.append(ROIBand(band,self.sa,self.roi_dir,catalog_aperture=self.catalog_aperture))
+                self.bands.append(roi_bands.ROIBand(band,self.sa,self.roi_dir,catalog_aperture=self.catalog_aperture))
 
         self.bands = N.asarray(self.bands)
 
         self.psm.setup_initial_counts(self.bands)
-        self.bgm.setup_initial_counts(self.bands)
+        self.dsm.setup_initial_counts(self.bands)
 
         for band in self.bands: band.phase_factor = self.phase_factor
 
@@ -96,7 +91,7 @@ class ROIAnalysis(object):
         for bc in self.bin_centers:
             groupings[bc] = [band for band in self.bands if (band.e==bc and (band.emin>=emin[band.ct]))]
 
-        self.energy_bands = [ROIEnergyBand(groupings[bc]) for bc in self.bin_centers]
+        self.energy_bands = [roi_bands.ROIEnergyBand(groupings[bc]) for bc in self.bin_centers]
 
 
     def mapper(self,which):
@@ -134,46 +129,34 @@ class ROIAnalysis(object):
         else:
             raise Exception("Unknown which argument = %s" % str(which))
 
+    def update_counts(self, parameters=None):
+        """ set parameters, if specified
+            in any case, update the predicted counts in all the bands from the diffuse and point source models
+        """
+        if parameters is not None:
+            self.set_parameters(parameters)
+        self.bgm.update_counts(self.bands)
+        self.psm.update_counts(self.bands)
 
     def logLikelihood(self,parameters,*args):
-
-        bands = self.bands
-        pf     = self.phase_factor
-
+        """ the total likelihood, according to model
+            parameters parameters to pass to model
+        """
         if N.any(N.isnan(parameters)):
             # pretty ridiculous that this check must be made, but fitter passes NaNs...
             return 1e6
             # not sure if should "set parameters" in this case
 
-        self.set_parameters(parameters)
-        self.bgm.update_counts(bands)
-        self.psm.update_counts(bands)
+        self.update_counts(parameters)
 
-        ll = 0
-
-        for b in bands:
-
-            ll +=  (
-                         #integral terms for ROI (go in positive)
-                         (b.bg_all_counts + b.ps_all_counts)*pf
-
-                         -
-
-                         #pixelized terms (go in negative) -- note, no need for phase factor here
-                         (b.pix_counts *
-                              N.log(  b.bg_all_pix_counts + b.ps_all_pix_counts )
-                         ).sum() if b.has_pixels else 0.
-                     )
-
-        #print ll,parameters
+        ll = sum([band.logLikelihood(phase_factor=self.phase_factor) for band in self.bands])
         return 1e6 if N.isnan(ll) else ll
 
     def bandLikelihood(self,which):
         """ Perform a spectral independendent fit of the source specified by which."""
         manager,index=self.mapper(which)
 
-        self.bgm.update_counts(self.bands)
-        self.psm.update_counts(self.bands)
+        self.update_counts()
 
         if manager == self.psm:
             for eb in self.energy_bands:
@@ -200,9 +183,7 @@ class ROIAnalysis(object):
 
         # sanity check -- for efficiency, the gradient should be called with the same params as the log likelihood
         if not N.allclose(parameters,self.parameters(),rtol=0):
-            self.set_parameters(parameters)
-            self.bgm.update_counts(bands)
-            self.psm.update_counts(bands)
+            self.update_counts(parameters)
 
         # do the point sources
         indices  = N.arange(len(models))[N.asarray([N.any(m.free) for m in models])]
@@ -289,7 +270,7 @@ class ROIAnalysis(object):
         """
 
         if method not in ['simplex','powell','minuit']:
-            raise Exception('Unknown fitting method for roi.fit(): "%s"' % method)
+            raise Exception('Unknown fitting method for F.fit(): "%s"' % method)
 
         if fit_bg_first:
             self.fit_background()
@@ -354,9 +335,9 @@ class ROIAnalysis(object):
 
         n = len(self.bgm.parameters())
         if use_gradient:
-            hessian = mycov(self.gradient,self.parameters(),full_output=True)[1]
+            hessian = specfitter.mycov(self.gradient,self.parameters(),full_output=True)[1]
         else:
-            hessian = SpectralModelFitter.hessian(self,self.logLikelihood)[0] #does Hessian for free parameters
+            hessian = specfitter.SpectralModelFitter.hessian(self,self.logLikelihood)[0] #does Hessian for free parameters
         success = False
         # TODO -- check the return code
 
@@ -460,7 +441,7 @@ class ROIAnalysis(object):
         manager,index=self.mapper(which)
 
         if manager==self.psm:
-             rl = ROILocalizer(self,which=index,bandfits=bandfits,tolerance=tolerance,update=update,verbose=verbose)
+             rl = roi_localize.ROILocalizer(self,which=index,bandfits=bandfits,tolerance=tolerance,update=update,verbose=verbose)
              if seedpos is not None:
                  rl.sd = seedpos  # override 
              return rl.localize()
@@ -556,7 +537,7 @@ class ROIAnalysis(object):
             additional_data: an optional dictionary with keys to add to output; note that
                                   all entries should be serializable!"""
 
-        d = defaultdict(list)
+        d = collections.defaultdict(list)
         for ps in self.psm.point_sources:
             m = ps.model
             m.ra  = ps.skydir.ra()
@@ -573,7 +554,7 @@ class ROIAnalysis(object):
             try:     d.update(additional_data)
             except: print 'Warning! Could not merge requested keys into output dictionary.'
         f = open(outfile,'w')
-        dump(d,f)
+        pickle.dump(d,f)
         f.close()
 
     def __call__(self,v):
