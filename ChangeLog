@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Aug 10 17:21:58 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+fix indent to hopefully be consistent with 4
+    *
+------------------------------------------------------------
 User: burnett  Tue Aug 10 16:22:48 PDT 2010
 pointlike/python/uw/like
 
