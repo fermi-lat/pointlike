@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.16 2010/08/10 23:13:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.17 2010/08/11 18:48:43 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -79,6 +79,14 @@ class ROIBand(object):
         self.b = band
         self.__setup_data__()
 
+    def update_bg_counts(self, bgmodels):
+        """ 
+           setup counts corresponding to a set of bgmodels 
+           (not done yet, placeholder)
+        """
+        #self.bg_counts = ??
+        self.bg_all_counts = self.bg_counts.sum()
+        
     def expected(self,model):
         """Integrate the passed spectral model over the exposure and return expected counts."""
         return (model(self.sp_points)*self.sp_vector).sum()
@@ -124,21 +132,25 @@ class ROIBand(object):
 
         return tot_term - pix_term
 
-    def loglikelihood(self,tot_only=False,pix_only=False,tl=False):
-
-        tot = self.bg_all_counts + self.ps_all_counts
+    def logLikelihood(self, phase_factor=1.0, tot_only=False, pix_only=False, tl=False):
+        """ Return the log likelihood for this band. Assume that the model has been evaluated, and 
+            the data members bg_all_counts and ps_all_counts set accordingly
         
-        if (tot_only):# or (not self.has_pixels):
+        phase_factor [1.0]: adjust predicted counts if analyzing a pulsar with phase selection. 
+        tot_only [False]: debug? 
+        pix_only [False]: debug?
+        t1       [False]: debug?
+        
+        """
+        tot = (self.bg_all_counts + self.ps_all_counts) * phase_factor
+        
+        if (tot_only): # or (not self.has_pixels):
             return (self.photons*N.log(tot) - tot) if tl else tot #non extended likelihood
         
-        if self.has_pixels:
-            pix = (self.pix_counts * N.log(self.bg_all_pix_counts + self.ps_all_pix_counts)).sum()
-        else:
-            pix = 0
+        pix = (self.pix_counts * N.log(self.bg_all_pix_counts + self.ps_all_pix_counts)).sum()\
+            if self.has_pixels else 0
 
-        if pix_only: return pix #log likelihood for pixels only
-
-        else: return tot - pix #-log likelihood
+        return tot - pix  if not pix_only else pix 
 
 ###====================================================================================================###
 
