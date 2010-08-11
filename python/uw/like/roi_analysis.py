@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.32 2010/08/10 22:06:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.33 2010/08/11 00:21:54 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -611,7 +611,7 @@ class ROIAnalysis(object):
         manager,index=self.mapper(which)
         if manager==self.psm:
             rl = ROILocalizer(self,which=index,update=True)
-            rl.spatialLikelihood(skydir)
+            rl.spatialLikelihood(skydir,update=True)
             self.psm.point_sources[index].skydir = skydir
         elif manager==self.dsm:
             if isinstance(self.dsm.diffuse_sources[index],ExtendedSource):
@@ -653,6 +653,13 @@ class ROIAnalysis(object):
             print fmt % values
 
     def print_resids(self):
+        """Print out (weighted) residuals for each energy range, both in
+           separate front/back columns and in a joint column.
+
+           Useful for identifying systematic effects that distinguish between
+           front and back events.
+        """
+
         d = dict()
         for b in self.bands:
             key = (-1 if b.ct==1 else 1)*int(b.e)
@@ -672,11 +679,11 @@ class ROIAnalysis(object):
                     o = b.photons
                 else:
                     m = o = 0
-                tm += m; to += o
-                s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(m,o,(o-m)/m**0.5)])
+                wres = (o-m)/m**0.5 if m>0 else 0
+                s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(m,o,wres)])
             s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(tm,to,(to-tm)/tm**0.5)])
             print s1
-   
+
     def toXML(self,filename):
         """Write out a gtlike-style XML file."""
         from uw.utilities.xml_parsers import writeROI

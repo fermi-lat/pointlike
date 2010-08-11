@@ -1,7 +1,7 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.4 2010/08/03 03:48:03 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.5 2010/08/09 21:59:25 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -17,7 +17,7 @@ from glob import glob
 from collections import deque
 
 def get_latalog(latalog_file='f:/glast/data/kerr/gll_psc_v02.fit'):
-    from latalog import Latalog
+    from kerrtools.latalog import Latalog
     return Latalog(latalog_file)
 
 ###====================================================================================================###
@@ -389,7 +389,7 @@ class MultiHealpixTSMap(object):
         for tsmap in self.tsmaps:
             if tsmap: tsmap.set_mode(mode)
 
-    def make_zea(center,size=10,pixelsize=0.02,galactic=False):
+    def make_zea(self,center,size=10,pixelsize=0.02,galactic=False):
         from uw.utilities.image import ZEA
         z = ZEA(center,size=size,pixelsize=pixelsize,galactic=galactic)
         z.fill(PySkyFunction(self))
@@ -414,6 +414,7 @@ class MultiHealpixTSMap(object):
         az = fgl.get(az_key).astype(float)
         po = fgl.get(po_key).astype(float)
         na = fgl.get('Source_Name')
+        print po_min,po_max,az_min,az_max
 
         mask = (po > po_min) & (po < po_max)
         if az_zero_cross:
