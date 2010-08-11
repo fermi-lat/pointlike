@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.31 2010/08/02 20:47:45 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.32 2010/08/10 22:06:41 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -100,39 +100,39 @@ class ROIAnalysis(object):
 
 
     def mapper(self,which):
-         """ Map the argument `which' passed into functions such as localize
-              into the manager that which belongs to and and index in the
-              manager for the particular source referred to.
+        """ Map the argument `which' passed into functions such as localize
+             into the manager that which belongs to and and index in the
+             manager for the particular source referred to.
 
-              If which is an integer, it is assumed to be in the point
-              source manager, so the return is the point source manager
-              and the particular index.
+             If which is an integer, it is assumed to be in the point
+             source manager, so the return is the point source manager
+             and the particular index.
 
-              if which is a string, the name of all the point sources and
-              diffuse sources is searched and the first source with that
-              name is returned.
+             if which is a string, the name of all the point sources and
+             diffuse sources is searched and the first source with that
+             name is returned.
 
-              If which is of type PointSource, the return is the point
-              source manager and the index for the particular point source.
+             If which is of type PointSource, the return is the point
+             source manager and the index for the particular point source.
 
-              If which is of type DiffuseSource, the reutrn is the diffuse
-              source manager and the index is for the particular diffuse
-              source. """
-         if type(which)==int:
-              return self.psm,which
-         elif type(which)==str:
-              if N.any(self.psm.names==which):
-                    return self.psm,int(N.where(self.psm.names==which)[0])
-              elif N.any(self.dsm.names==which):
-                    return self.dsm,int(N.where(self.dsm.names==which)[0])
-              else:
-                    raise Exception('Source "%s" is not a name of any point or diffuse source' % which)
-         elif isinstance(which,PointSource):
-              return self.psm,int(N.where(self.psm.point_sources==which)[0])
-         elif isinstance(which,DiffuseSource):
-              return self.dsm,int(N.where(self.dsm.diffuse_sources==which)[0])
-         else:
-              raise Exception("Unknown which argument = %s" % str(which))
+             If which is of type DiffuseSource, the reutrn is the diffuse
+             source manager and the index is for the particular diffuse
+             source. """
+        if type(which)==int:
+            return self.psm,which
+        elif type(which)==str:
+            if N.any(self.psm.names==which):
+                return self.psm,int(N.where(self.psm.names==which)[0])
+            elif N.any(self.dsm.names==which):
+                return self.dsm,int(N.where(self.dsm.names==which)[0])
+            else:
+                raise Exception('Source "%s" is not a name of any point or diffuse source' % which)
+        elif isinstance(which,PointSource):
+            return self.psm,int(N.where(self.psm.point_sources==which)[0])
+        elif isinstance(which,DiffuseSource):
+            return self.dsm,int(N.where(self.dsm.diffuse_sources==which)[0])
+        else:
+            raise Exception("Unknown which argument = %s" % str(which))
 
 
     def logLikelihood(self,parameters,*args):
@@ -192,45 +192,45 @@ class ROIAnalysis(object):
         return ll 
 
     def gradient(self,parameters,*args):
-          """ Implement the gradient of the log likelihood wrt the model parameters."""
+        """ Implement the gradient of the log likelihood wrt the model parameters."""
 
-          bands     = self.bands
-          pf         = self.phase_factor  # can just multiply the aperture term
-          models    = self.psm.models
+        bands     = self.bands
+        pf         = self.phase_factor  # can just multiply the aperture term
+        models    = self.psm.models
 
-          # sanity check -- for efficiency, the gradient should be called with the same params as the log likelihood
-          if not N.allclose(parameters,self.parameters(),rtol=0):
-                self.set_parameters(parameters)
-                self.bgm.update_counts(bands)
-                self.psm.update_counts(bands)
+        # sanity check -- for efficiency, the gradient should be called with the same params as the log likelihood
+        if not N.allclose(parameters,self.parameters(),rtol=0):
+            self.set_parameters(parameters)
+            self.bgm.update_counts(bands)
+            self.psm.update_counts(bands)
 
-          # do the point sources
-          indices  = N.arange(len(models))[N.asarray([N.any(m.free) for m in models])]
-          nparams  = N.asarray([model.free.sum() for model in models])
-          gradient = N.zeros(nparams.sum())
+        # do the point sources
+        indices  = N.arange(len(models))[N.asarray([N.any(m.free) for m in models])]
+        nparams  = N.asarray([model.free.sum() for model in models])
+        gradient = N.zeros(nparams.sum())
 
-          for b in bands:
-                cp = 0
+        for b in bands:
+            cp = 0
+            if b.has_pixels:
+                b.pix_weights = pix_weights = b.pix_counts / (b.bg_all_pix_counts + b.ps_all_pix_counts)
+            else:
+                pixterm = 0
+
+            for ind,model in zip(indices,models[indices]):
+                grad    = b.gradient(model)[model.free]*b.er[ind] # correct for exposure
+                np      = nparams[ind]
+                apterm = pf*b.overlaps[ind]
                 if b.has_pixels:
-                     b.pix_weights = pix_weights = b.pix_counts / (b.bg_all_pix_counts + b.ps_all_pix_counts)
-                else:
-                     pixterm = 0
+                    pixterm = (pix_weights*b.ps_pix_counts[:,ind]).sum()
+                gradient[cp:cp+np] += grad * (apterm - pixterm)
+                cp += np
 
-                for ind,model in zip(indices,models[indices]):
-                     grad    = b.gradient(model)[model.free]*b.er[ind] # correct for exposure
-                     np      = nparams[ind]
-                     apterm = pf*b.overlaps[ind]
-                     if b.has_pixels:
-                          pixterm = (pix_weights*b.ps_pix_counts[:,ind]).sum()
-                     gradient[cp:cp+np] += grad * (apterm - pixterm)
-                     cp += np
-
-          # add in diffuse components
-          gradient  = N.append(self.bgm.gradient(bands,pf),gradient)
-          
-          # transform into log space and return
-          return gradient * 10**parameters * LOG_JACOBIAN
-          
+        # add in diffuse components
+        gradient  = N.append(self.bgm.gradient(bands,pf),gradient)
+        
+        # transform into log space and return
+        return gradient * 10**parameters * LOG_JACOBIAN
+         
 
     def parameters(self):
         """Merge parameters from background and point sources."""
@@ -620,63 +620,63 @@ class ROIAnalysis(object):
                 raise Exception("Unable to modify_loc of diffuse source %s" % which)
         
     def print_summary(self, sdir=None, galactic=False, maxdist=5, title=''):
-         """ formatted table point sources positions and parameter in the ROI
-         Parameters
-         ----------
-              sdir : SkyDir, optional, default None for center
-                    for center: default will be the first source
-              galactic : bool, optional, default False
-                  set true for l,b
-              maxdist : float, optional, default 5
-                  radius in degrees
+        """ formatted table point sources positions and parameter in the ROI
+        Parameters
+        ----------
+             sdir : SkyDir, optional, default None for center
+                   for center: default will be the first source
+             galactic : bool, optional, default False
+                 set true for l,b
+             maxdist : float, optional, default 5
+                 radius in degrees
 
-         """
-         if sdir is None: sdir = self.psm.point_sources[0].skydir
-         print '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
-         colstring = 'name dist ra dec flux8 index cutoff'
-         if galactic: colstring =colstring.replace('ra dec', 'l b')
-         colnames = tuple(colstring.split())
-         n = len(colnames)-1
-         print ('%-20s'+n*'%10s')% colnames
-         for ps in self.psm.point_sources:
-              dist=math.degrees(sdir.difference(ps.skydir))
-              if maxdist and dist>maxdist:  continue
-              loc = (ps.skydir.l(),ps.skydir.b()) if galactic else (ps.skydir.ra(),ps.skydir.dec())
-              par= ps.model.p
-              npar = len(par)
-              fmt = '%-20s'+3*'%10.3f'+' %9.2f%1s'
-              freeflag = [ '*' if f else ' ' for f in ps.model.free]
-              values = (ps.name, dist) +loc+( ps.model.fast_iflux()/1e-8, freeflag[0], )
-              for i in range(1,npar): # parameters beyond flux
-                  fmt     += '%9.2f%1s'
-                  values += (10**par[i], freeflag[i]) 
-              print fmt % values
+        """
+        if sdir is None: sdir = self.psm.point_sources[0].skydir
+        print '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
+        colstring = 'name dist ra dec flux8 index cutoff'
+        if galactic: colstring =colstring.replace('ra dec', 'l b')
+        colnames = tuple(colstring.split())
+        n = len(colnames)-1
+        print ('%-20s'+n*'%10s')% colnames
+        for ps in self.psm.point_sources:
+            dist=math.degrees(sdir.difference(ps.skydir))
+            if maxdist and dist>maxdist:  continue
+            loc = (ps.skydir.l(),ps.skydir.b()) if galactic else (ps.skydir.ra(),ps.skydir.dec())
+            par= ps.model.p
+            npar = len(par)
+            fmt = '%-20s'+3*'%10.3f'+' %9.2f%1s'
+            freeflag = [ '*' if f else ' ' for f in ps.model.free]
+            values = (ps.name, dist) +loc+( ps.model.fast_iflux()/1e-8, freeflag[0], )
+            for i in range(1,npar): # parameters beyond flux
+                fmt     += '%9.2f%1s'
+                values += (10**par[i], freeflag[i]) 
+            print fmt % values
 
     def print_resids(self):
-          d = dict()
-          for b in self.bands:
-                key = (-1 if b.ct==1 else 1)*int(b.e)
-                d[key] = b
-          ens = N.sort(list(set([b.e for b in self.bands]))).astype(int)
-          print ''
-          print '        \t-------CT=0--------      -------CT=1--------      ------CT=0+1-------'
-          print 'Energy\tMod      Obs      Res      Mod      Obs      Res      Mod      Obs      Res'
-          print '        \t-------------------      -------------------      -------------------'
-          for en in ens:
-                s1 = '%-6.0f'%(en)
-                tm = 0; to = 0
-                for key in [en,-en]:
-                     if key in d.keys():
-                          b  = d[key]
-                          m = b.ps_all_counts + b.bg_all_counts
-                          o = b.photons
-                     else:
-                          m = o = 0
-                     tm += m; to += o
-                     s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(m,o,(o-m)/m**0.5)])
-                s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(tm,to,(to-tm)/tm**0.5)])
-                print s1
-     
+        d = dict()
+        for b in self.bands:
+            key = (-1 if b.ct==1 else 1)*int(b.e)
+            d[key] = b
+        ens = N.sort(list(set([b.e for b in self.bands]))).astype(int)
+        print ''
+        print '        \t-------CT=0--------      -------CT=1--------      ------CT=0+1-------'
+        print 'Energy\tMod      Obs      Res      Mod      Obs      Res      Mod      Obs      Res'
+        print '        \t-------------------      -------------------      -------------------'
+        for en in ens:
+            s1 = '%-6.0f'%(en)
+            tm = 0; to = 0
+            for key in [en,-en]:
+                if key in d.keys():
+                    b  = d[key]
+                    m = b.ps_all_counts + b.bg_all_counts
+                    o = b.photons
+                else:
+                    m = o = 0
+                tm += m; to += o
+                s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(m,o,(o-m)/m**0.5)])
+            s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(tm,to,(to-tm)/tm**0.5)])
+            print s1
+   
     def toXML(self,filename):
         """Write out a gtlike-style XML file."""
         from uw.utilities.xml_parsers import writeROI
