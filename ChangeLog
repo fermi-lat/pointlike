@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Aug 11 12:42:05 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py roi_bands.py 
+Log Message:
+refactor a bit.
+    *
+------------------------------------------------------------
 User: burnett  Wed Aug 11 12:41:22 PDT 2010
 pointlike/python/uw/utilities
 
