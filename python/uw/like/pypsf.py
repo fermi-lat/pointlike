@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.9 2010/07/12 04:01:46 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.10 2010/08/10 23:22:48 burnett Exp $
 author: M. Kerr
 
 """
@@ -12,7 +12,7 @@ import numpy as N
 from os.path import join
 import os
 from cPickle import load
-from skymaps import ExposureWeighter,SkyDir,PySkyFunction,Hep3Vector
+from skymaps import ExposureWeighter,SkyDir,PySkyFunction,Hep3Vector,WeightedSkyDirList
 from scipy.integrate import quad,simps
 from math import cos,sin
 
@@ -20,6 +20,7 @@ def scale_factor(e,c0,c1,exp):
     return ( (c0*(e/100)**(exp))**2 + c1**2 )**0.5
 
 TWOPI = (2*N.pi)
+RAD2DEG = 180./N.pi
 
 ###====================================================================================================###
 ###====================================================================================================###
@@ -105,7 +106,6 @@ class Psf(object):
         else:
             return N.append(p[:,cthetabin],1)
 
-
 ###====================================================================================================###
 ###====================================================================================================###
 ###====================================================================================================###
@@ -154,7 +154,6 @@ class CALDBPsf(Psf):
         y = (1-1./g)*(1+u/g)**(-g)
         return y / (TWOPI*s**2 if density else 1.)
  
-
     """ Not sure these are in use -- if they are, update for old/new CALDB formats.
     def set_cache(self,e,ct):
         np = len(self.get_p(e[0],ct[0])[0])
@@ -192,21 +191,33 @@ class CALDBPsf(Psf):
             u2 = 0.5 * (dmax / si)**2
             return  (w*( (1+u1/gc)**(1-gc)  - (1+u2/gc)**(1-gc)  )).sum()
 
-    def inverse_integral(self,e,ct,percent=68):
+    def inverse_integral(self,e,ct,percent=68,on_axis=False):
         """Return the radius at which the integral PSF reaches the required percentage.
-            Pretty primitive, zero error checking, caveat caller.
-            
-            NB -- returned value is in degrees.
+         
+           NB -- returned value is in degrees.
         """
-        percent /= 100.
-        def f(dmax):
-            if dmax <= 0: return -percent
-            return self.integral(e,ct,dmax) - percent
-        from scipy.optimize import fsolve
-        for seed in N.radians([1,0.5,0.1,0.05,0.01]):
-            trial = fsolve(f,N.radians(1))
-            if trial > 0: break
-        return N.degrees(trial)
+        percent = float(percent)/100
+        if on_axis:
+            sf = self.scale_func[ct](e)
+            if self.newstyle:
+                nc,nt,gc,gt,sc,st,w = self.get_p(e,ct)
+                u1 = gc[0]*( (1-percent)**(1./(1-gc[0])) - 1)
+                u2 = gt[0]*( (1-percent)**(1./(1-gt[0])) - 1)
+                return RAD2DEG*sf*(nc[0]*(u1*2)**0.5*sc[0] + nt[0]*(u2*2)**0.5*st[0]) #approx
+            else:
+                gc,sc,w = self.get_p(e,ct)
+                u1 = gc[0]*( (1-percent)**(1./(1-gc[0])) - 1)
+                return RAD2DEG*sf*(2*u1)**0.5*sc[0]
+        f = lambda x: abs(self.integral(e,ct,x) - percent)
+        from scipy.optimize import fmin
+        seeds = N.asarray([5,4,3,2.5,2,1.5,1,0.5,0.25])*self.scale_func[ct](e)
+        seedvals = N.asarray([self.integral(e,ct,x) for x in seeds])
+        seed = seeds[N.argmin(N.abs(seedvals-percent))]
+        trial = fmin(f,seed,disp=0,ftol=0.01,xtol=0.01)
+        if trial > 0:
+            return trial[0]*RAD2DEG
+        print 'Warning: could not invert integral; return best grid value.'
+        return seed*RAD2DEG
                  
     def band_psf(self,band,weightfunc=None,adjust_mean=False):
         return BandCALDBPsf(self,band,weightfunc=weightfunc,adjust_mean=adjust_mean,newstyle=self.newstyle)
@@ -217,30 +228,47 @@ class CALDBPsf(Psf):
 class BandPsf(object):
 
     def init(self):
-        self.newstyle     = False
+        self.newstyle    = False
         self.override_en = None
         self.adjust_mean = False
         self.weightfunc  = None
 
     def __init__(self,psf,band,**kwargs):
         self.init()
+        self.parent_psf = psf # save a reference
         self.newstyle = psf.newstyle
         self.__dict__.update(kwargs)
-        self.par      = psf.get_p(self.override_en or band.e,band.ct).copy()
+        self.par     = psf.get_p(self.override_en or band.e,band.ct).copy()
         
+        index = 2
         if self.adjust_mean:
-            # calculate the correct energy to let us take the PSF out
-            # of the rate integral according to the Mean Value Theorem
-            # this implementation relies explictly on the form of the
-            # pre-scaling of the PSF
-            f1 = lambda e: e**-2 * psf.scale_func[band.ct](e)
-            f2 = lambda e: e**-2
-            p1 = psf.scale_factors[0 if band.ct==0 else 2]
-            p2 = psf.scale_factors[-1]
-            p3 = psf.scale_factors[1 if band.ct==0 else 3]
-            i1 = band.expected(f1)
-            i2 = band.expected(f2)
-            self.eopt  = 100*N.exp(N.log(((i1/i2)**2 - p3**2)**0.5/p1)/p2)
+            # estimate an optimal energy based on the log likelihood
+            from scipy.integrate import simps
+            f = lambda e: e**-index
+            b = band    
+            rad = min(b.radius_in_rad,N.radians(psf.inverse_integral(band.e,band.ct,percent=99,on_axis=True)))
+            dom = N.linspace(0,rad**2,101)**0.5
+         
+            # calculate the actual PSF integral over sub-bands
+            fopt = N.zeros_like(dom)
+            for i in xrange(len(b.sp_points)):
+                n = psf(b.sp_points[i],b.ct,dom,density=True)*b.sp_vector[i]*b.sp_points[i]**-index
+                fopt += n
+            n = (b.sp_vector*f(b.sp_points)).sum()
+         
+            # an estimate of log likelihood in infinite-N limit
+            logl1 = simps(fopt) - simps(fopt*N.log(fopt))
+    
+            # now, find E_opt that gives same likelihood; linear fit
+            edom = N.linspace(band.e*0.98,band.e*1.02,3)
+            ecod = N.empty_like(edom)
+            for ien,en in enumerate(edom):
+                fe = n*psf(en,b.ct,dom,density=True)
+                ecod[ien] = simps(fe) - simps(fe*N.log(fe))
+            slope = (ecod[-1] - ecod[0])/(band.e*0.04)
+            self.eopt = band.e + (logl1 - ecod[1])/slope
+            if abs(self.eopt/band.e - 1) > 0.10: # sanity check
+                self.eopt = band.e
             self.scale = psf.scale_func[band.ct](self.eopt)
 
         elif self.weightfunc is not None:
@@ -267,9 +295,22 @@ class BandPsf(object):
             g,s,w = self.par
             self.int_par = w,(2*s**2*g)**-1,1-g
 
-    # ACHTUNG WITH NEW PSF -- where is this used?  I don't immediately spot a reference.
-    #def sigma(self): return (self.par[1]*self.par[-1]).sum()
+    def inverse_integral_on_axis(self,frac=0.68):
+        """Return an approxmation of the angle that contains frac of the
+           photon.  The approximation uses the on-axis PSF and, for newstyle
+           PSFs, weights the two results according to ncore and ntail.
 
+           Return value in degrees.
+        """
+        if self.newstyle:
+            nc,nt,gc,gt,sc,st,w = self.par
+            u1 = gc[0]*( (1-frac)**(1./(1-gc[0])) - 1)
+            u2 = gt[0]*( (1-frac)**(1./(1-gt[0])) - 1)
+            return RAD2DEG*(nc[0]*(u1*2)**0.5*sc[0] + nt[0]*(u2*2)**0.5*st[0])
+        else:
+            gc,sc,w = self.par
+            u1 = gc[0]*( (1-frac)**(1./(1-gc[0])) - 1)
+            return RAD2DEG*(2*u1)**0.5*sc[0]
 
 ###====================================================================================================###
 ###====================================================================================================###
@@ -319,17 +360,33 @@ class PsfOverlap(object):
 
     def init(self):
         self.quadrature_tol = 1e-4
+        self.cache_hash = None
 
     def __init__(self,**kwargs):
         self.init()
         self.__dict__.update(kwargs)
 
-    def __call__(self,band,roi_dir,ps_dir,radius_in_rad=None):
+    def set_dir_cache(self,band,roi_dir,radius):
+        self.cache_wsdl = WeightedSkyDirList(band.b,roi_dir,radius,True)
+        self.cache_diffs = N.empty(len(self.cache_wsdl))
+        self.cache_hash = hash(band)
+
+    def num_overlap(self,band,roi_dir,ps_dir,radius_in_rad=None):
+        roi_rad  = radius_in_rad or band.radius_in_rad
+        if self.cache_hash != hash(band): self.set_dir_cache(band,roi_dir,roi_rad) # fragile due to radius dep.
+        self.cache_wsdl.arr_arclength(self.cache_diffs,ps_dir)
+        return band.psf(self.cache_diffs,density=True).sum()*band.b.pixelArea()
+
+    def __call__(self,band,roi_dir,ps_dir,radius_in_rad=None,ragged_edge=0.06):
         """Return an array of fractional overlap for a point source at location skydir.
             Note radius arguments are in radians."""
 
         roi_rad  = radius_in_rad or band.radius_in_rad
         integral = band.psf.integral
+
+        if ((band.b.pixelArea()**0.5/band.radius_in_rad) > ragged_edge) and (band.b.nside < 200):
+            return self.num_overlap(band,roi_dir,ps_dir,roi_rad)
+        
         offset    = roi_dir.difference(ps_dir)
 
         if offset < 1e-5:
@@ -358,10 +415,57 @@ class PsfOverlap(object):
             limit = N.arcsin(roi_rad / offset)
             return quad(exterior,0,limit,epsabs=self.quadrature_tol)[0]/N.pi
 
+###====================================================================================================###
+###====================================================================================================###
+###====================================================================================================###
+class PsfOverlapHealpix(object):
+    """Routines to calculate how much of the emission of a point source falls onto an ROI."""
+
+    def init(self):
+        self.quadrature_tol = 1e-4
+
+    def __init__(self,**kwargs):
+        self.init()
+        self.__dict__.update(kwargs)
+
+    def __call__(self,band,nside,index,ps_dir):
+        """Return an array of fractional overlap for a point source at location skydir."""
+        
+        # pick an nside commensurate with PSF and that will fit evenly within base pixel
+        scale = band.psf.parent_psf.scale_func[band.ct](band.e)/5
+        sample_nside = (N.pi/3)**0.5/scale
+        p0 = N.log(sample_nside/nside)/N.log(2)
+        last_overlap = None
+        overlaps = []
+        for addon in [0]:
+            sample_nside = min(8192,nside*2**(int(p0)+addon))
+            geo = (4*N.pi/12/sample_nside**2)
+            #print sample_nside,index
+            
+            # temporary code for testing!
+            if True:
+                from skymaps import Band
+                band.b = Band(sample_nside)
+
+            wsdl = WeightedSkyDirList(band.b,nside,index,True)
+            from skymaps import DoubleVector
+            dv = DoubleVector()
+            wsdl.arclength(ps_dir,dv)
+            diffs = N.fromiter(dv,dtype=float)
+            vals = band.psf(diffs,density=True)
+            overlap = vals.sum()*geo
+            #print overlap
+            overlaps.append(overlap)
+            #if last_overlap is not None:
+            #    new_est = (2*last_overlap+4*overlap)/6
+            #    print 'Updated estimate: ',new_est
+            last_overlap = overlap
+        #print ('%.6f\t'*(len(overlaps)))%(tuple(overlaps))
+        return overlaps[-1],sample_nside
 
 
 ###====================================================================================================###
-###====================================================================================================###
+###deprecated==========================================================================================###
 ###====================================================================================================###
 
 deg2rad = N.pi / 180.

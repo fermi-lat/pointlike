@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.15 2010/07/16 21:23:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.16 2010/08/10 23:13:27 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -21,13 +21,11 @@ from scipy.optimize import fmin,fsolve
 class ROIBand(object):
     """Wrap a Band object, and provide additional functionality for likelihood."""
 
+    ADJUST_MEAN = True # provide a "static" interface for functionality below
     
     def init(self):
-
-        self.umax        = 50
+        self.umax      = 50
         self.nsp_simps = 16
-
-        self.catalog_aperture = -1
 
     def __init__(self,band,spectral_analysis,skydir,**kwargs):
         """
@@ -49,7 +47,7 @@ class ROIBand(object):
         self.__setup_data__()
         self.__setup_sp_simps__()
 
-        self.psf = self.sa.psf.band_psf(self,adjust_mean=False)
+        self.psf = self.sa.psf.band_psf(self,adjust_mean=ROIBand.ADJUST_MEAN)
 
     def __setup_data__(self):
         """Get all pixels within the ROI in this band."""
@@ -57,14 +55,6 @@ class ROIBand(object):
         mi,ma                  = N.asarray([self.sa.minROI,self.sa.maxROI])*(N.pi/180.)
         # note use of band sigma for consistency in photon selection!
         self.radius_in_rad = max(min((2*self.umax)**0.5*self.b.sigma(),ma),mi)
-        ###### begin PSR cat code
-        if self.catalog_aperture > 0:
-            #th = 0.8*(self.e/1000.)**-0.75
-            th = 3.4*(self.e/100.)**-0.75
-            if th > self.catalog_aperture: th = self.catalog_aperture
-            if th < 0.35: th = 0.35
-            self.radius_in_rad = th * N.pi / 180
-        ###### end PSR cat code
         self.wsdl             = WeightedSkyDirList(self.b,self.sd,self.radius_in_rad,False)
         self.pix_counts     = N.asarray([x.weight() for x in self.wsdl]) if len(self.wsdl) else 0.
         self.photons         = self.wsdl.counts()

@@ -6,7 +6,7 @@ Given an ROIAnalysis object roi:
      plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.9 2010/06/30 20:52:28 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.10 2010/08/10 23:22:48 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -88,7 +88,7 @@ def band_spectra(r,source=0):
 #-----------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------#
 
-def band_fluxes(r,which=0,axes=None,axis=None,outfile=None, **kwargs):
+def band_fluxes(r,which=0,axes=None,axis=None,outfile=None,emin=[0,0], **kwargs):
 
     plot_kwargs = {'color':'red', 'linewidth':1,}
     plot_kwargs.update(kwargs)
@@ -100,7 +100,7 @@ def band_fluxes(r,which=0,axes=None,axis=None,outfile=None, **kwargs):
     ax.set_yscale('log')
     ax.grid(True)
 
-    r.setup_energy_bands()
+    r.setup_energy_bands(emin=emin)
 
     for eb in r.energy_bands:
         eb.bandFit(which=which)
@@ -174,11 +174,12 @@ def band_fluxes(r,which=0,axes=None,axis=None,outfile=None, **kwargs):
 #-----------------------------------------------------------------------------#
 
 def make_sed(r,which=0,axes=None,axis=None,plot_model=True, 
-          data_kwargs=None, fit_kwargs=None):
+          data_kwargs=None, fit_kwargs=None,emin=[0,0]):
+     
      if data_kwargs is None: data_kwargs={}
      if fit_kwargs is None: fit_kwargs={'color':'blue', 'linewidth':1}
      if axes is None: axes = P.gca()
-     band_fluxes(r,which=which,axes=axes, **data_kwargs)
+     band_fluxes(r,which=which,axes=axes,emin=emin, **data_kwargs)
      axes.set_xlabel('Energy (MeV)')
      axes.set_ylabel('Energy Flux (MeV/cm2/s)')
      if plot_model:
@@ -195,7 +196,6 @@ def make_sed(r,which=0,axes=None,axis=None,plot_model=True,
      else: axes.axis(axis)
      axes.set_autoscale_on(False)
      axes.grid(True)
-     
 
 #-----------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------#

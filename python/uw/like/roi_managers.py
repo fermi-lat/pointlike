@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.13 2010/08/10 22:06:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.14 2010/08/10 23:03:33 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -82,17 +82,17 @@ class ROIPointSourceManager(ROIModelManager):
 
         roi_dir = self.roi_dir
         overlap = PsfOverlap()
-        dv        = DoubleVector()
+        dv      = DoubleVector()
 
         for i,band in enumerate(bands):
 
-            en,exp,pa = band.e,band.exp.value,band.b.pixelArea()
+            en,exp = band.e,band.exp.value
 
             # make a first-order correction for exposure variation
             denom = exp(roi_dir,en)
             if denom==0:
                 raise Exception('ROIPointSourceManager: exposure is zero for  energy %f'%en)
-            band.er = er         = N.asarray([exp(ps.skydir,en)/denom for ps in self.point_sources])
+            band.er = er = N.asarray([exp(ps.skydir,en)/denom for ps in self.point_sources])
 
             #unnormalized PSF evaluated at each pixel, for each point source
             band.ps_pix_counts = N.empty([len(band.wsdl),len(self.point_sources)])
@@ -100,14 +100,13 @@ class ROIPointSourceManager(ROIModelManager):
                 #diffs = N.asarray([ps.skydir.difference(w) for w in band.wsdl])
                 band.wsdl.arclength(ps.skydir,dv)
                 band.ps_pix_counts[:,nps] = band.psf(N.fromiter(dv,dtype=float),density=True)
-            band.ps_pix_counts*= pa
+            band.ps_pix_counts*= band.b.pixelArea()
 
-            #fraction of PSF contained within the ROI
-            band.overlaps        = N.asarray([overlap(band,roi_dir,ps.skydir) for ps in self.point_sources])
-            band.overlaps      *= (band.solid_angle/band.solid_angle_p) #small correction for ragged edge
-            
+            # note this will use a numerical integration if the ragged edge is impt.
+            band.overlaps      = N.asarray([overlap(band,roi_dir,ps.skydir) for ps in self.point_sources])
+
             #initial model prediction
-            band.ps_counts      = N.asarray([band.expected(model) for model in self.models])*er
+            band.ps_counts     = N.asarray([band.expected(model) for model in self.models])*er
     
         if not self.quiet: print 'done!'
     
@@ -162,7 +161,7 @@ class ROIPointSourceManager(ROIModelManager):
 
             band.ps_counts = N.asarray([band.expected(model) for model in self.models]) * band.er
 
-            if m_sum > 0 and band.has_pixels:
+            if (m_sum > 0) and band.has_pixels:
                 band.unfrozen_pix_counts = band.ps_pix_counts.transpose()[m].transpose()
             else:
                 band.unfrozen_pix_counts = 0
