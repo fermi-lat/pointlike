@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.17 2010/08/11 18:48:43 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.18 2010/08/11 19:42:05 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -132,25 +132,20 @@ class ROIBand(object):
 
         return tot_term - pix_term
 
-    def logLikelihood(self, phase_factor=1.0, tot_only=False, pix_only=False, tl=False):
-        """ Return the log likelihood for this band. Assume that the model has been evaluated, and 
-            the data members bg_all_counts and ps_all_counts set accordingly
+    def logLikelihood(self, phase_factor=1.0):
+        """ Return the (negative) log likelihood for this band.  Certain members
+            of this object are set externally and are required here, specifically
+            ps_all_counts, ps_all_pix_counts, bg_all_counts, and bg_all_pix_counts.
         
         phase_factor [1.0]: adjust predicted counts if analyzing a pulsar with phase selection. 
-        tot_only [False]: debug? 
-        pix_only [False]: debug?
-        t1       [False]: debug?
         
         """
         tot = (self.bg_all_counts + self.ps_all_counts) * phase_factor
-        
-        if (tot_only): # or (not self.has_pixels):
-            return (self.photons*N.log(tot) - tot) if tl else tot #non extended likelihood
-        
+               
         pix = (self.pix_counts * N.log(self.bg_all_pix_counts + self.ps_all_pix_counts)).sum()\
-            if self.has_pixels else 0
+              if self.has_pixels else 0
 
-        return tot - pix  if not pix_only else pix 
+        return tot - pix
 
 ###====================================================================================================###
 
