@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Thu Aug 12 12:12:35 PDT 2010
+pointlike/src
+
+Modified Files:
+	PointSourceLikelihood.cxx 
+Log Message:
+Added functionailty to pointsourcelikelihood to use an isotropic file
+    *
+------------------------------------------------------------
 User: kerrm  Thu Aug 12 11:13:37 PDT 2010
 pointlike/python/uw/like
 
