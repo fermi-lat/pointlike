@@ -1,4 +1,58 @@
 ------------------------------------------------------------
+User: lande  Thu Aug 12 16:10:47 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py pointspec_helpers.py roi_analysis.py 
+	roi_extended.py 
+Log Message:
+General code improvements.
+
+pointspec_helpers.py
+* Removal of catalog sources which have the same catalog name as provided 
+  sources, even if they are not positionally coincident with the catalog
+  source.
+* In the FermiCatalog, if the catalog has a cutoff colum, model sources with
+  a cutoff as ExpCutoff.
+
+Roi_analysis.py
+* Addition of toRegion & toResults functions for creating ds9 region & gtlike 
+  style results files.
+* in ROIAnalysis.__setup_bands__, make the test for emax more forgiving by 
+  upping the fit_emax by 1 before testing. Useful incase of floating point
+  rounding.
+* Allow for the mapper object to correctly map a list of sources for
+  cases where which can be a list of sources. Also allow for mapper object
+  to read numpy string objects.
+* bugfix in the bandFit object.
+
+A bunch of stuff to improve studying spatially extended sources.
+
+SpatialModel.py
+* Bugfix for PseudoDisk
+* Conversion from Template() to SpatialMap() object. Update it
+  to be more efficient.
+* Generalization of extended source objects to allow energy
+  dependence of the shape (if desired). Default is no energy
+  dependence.
+* Improve defaults for SpatialModel.save_template
+* Introduction of PseudoSpatialModel object so that 
+  pseudo extended sources can be more easily identified
+  in other parts of the code.
+* Improved accuracy of r68 function for Gaussian/Disk.
+* Bugfix in EllipticalGaussian code. I think it acutally works now.
+
+roi_extended.py:
+* Rewrite of the extended source code to work for non-radially symmetric sources
+  using the uw.utilities.convolution object.
+* Rewrite of the extended source convolution code
+* Copy of the code from roi_diffuse to calcualte the convolution far enough outside
+  of the extended source to allow now boundary induced innacuracy.
+* Change default tolerance in localization object.
+
+
+    *
+------------------------------------------------------------
 User: lande  Thu Aug 12 16:09:22 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
