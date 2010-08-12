@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.18 2010/08/10 22:04:43 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.19 2010/08/10 23:03:33 burnett Exp $
 
     author: Matthew Kerr
 
@@ -225,7 +225,7 @@ Optional keyword arguments:
                 else:
                     frozen = '(DERIVED)'
                 l+=[t_n+': %.3g %s'%(p[i],frozen)]
-            return ('\n'+offset).join(l)
+            return ('\n'+indent).join(l)
 
     def i_flux(self,emin=100,emax=N.inf,e_weight=0,cgs=False,error=False,two_sided=False):
         """Return the integral flux.            
