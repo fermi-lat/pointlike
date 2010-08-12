@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.76 2009/05/25 18:53:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.77 2009/06/03 22:18:09 burnett Exp $
 
 */
 
@@ -142,10 +142,11 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
     par.getValue("interpolate", interpolate, interpolate);
 
     double flux(1.5e-5), index(2.1);
+    std::string ltfile,isofile;
     par.getValue("Isotropic.flux", flux, flux);
     par.getValue("Isotropic.index", index, index);
+    par.getValue("Isotropic.file",isofile,isofile);
 
-    std::string ltfile;
     par.getValue("Exposure.livetimefile", ltfile);
     std::string irf_name("P6_v1_diff");
     par.getValue("Exposure.IRF", irf_name, irf_name);
@@ -160,7 +161,7 @@ void PointSourceLikelihood::setParameters(const embed_python::Module& par)
                 << " with exposure factor " << exposure << std::endl;
         }else{
             // combine all components in better Background ctor
-            const Background* bg = new Background(irf_name, ltfile, diffusefile, std::make_pair(flux,index));
+            const Background* bg = new Background(irf_name, ltfile, diffusefile, isofile);
             set_background(bg);
 
         }
