@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.14 2010/08/01 00:07:08 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.15 2010/08/03 08:02:24 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -8,7 +8,7 @@ authors: M. Kerr, J. Lande
 from skymaps import SkyDir,WeightedSkyDirList,Hep3Vector,SkyIntegrator,PySkyFunction,Background
 from pointlike import DoubleVector
 import numpy as N
-from scipy.interpolate import interp2d,interp1d
+from scipy.interpolate import interp1d
 from scipy.integrate import simps
 from scipy.special import hyp2f1
 from uw.like.pypsf import BandCALDBPsf,PretendBand
@@ -47,7 +47,7 @@ class Grid(object):
         Note -- to display, imshow(Grid.vals.transpose()[::-1]) works -- a little cumbersome.
     """
 
-    def __init__(self,center,npix=4*25+1,pixelsize=1./4):
+    def __init__(self,center,npix=4*25+1,pixelsize=1./4,bounds_error=True,fill_value=0):
         """ center -- a SkyDir giving the center of the grid
             npix   -- the number of pixels along a grid side
             pixelsize -- the length of the side of a pixel (deg)
@@ -56,6 +56,9 @@ class Grid(object):
         self.clon,self.clat = center.l(),0
         self.rot_axis = SkyDir(self.clon+90,0).dir() # Hep3Vector
         self.setup_grid(npix,pixelsize)
+
+        self.bounds_error=bounds_error
+        self.fill_value=fill_value
 
     def setup_grid(self,npix=4*25+1,pixelsize=1./4):
 
@@ -104,7 +107,7 @@ class Grid(object):
     
     def __call__(self,skydir,v):
         """ Using v, an array of values that has been evaluated on the Grid (e.g., by fill),
-            find the value(s) corresponding to skydir (can be single ora list) using
+            find the value(s) corresponding to skydir (can be single or a list) using
             bilinear interpolation.
             
             The skydir(s) are rotated onto the equatorial grid."""
@@ -128,7 +131,14 @@ class Grid(object):
         dx = N.maximum(0,x - xlo)
         dy = N.maximum(0,y - ylo)
         v  = N.asarray(v)
-        return v[xlo,ylo]*(1-dx)*(1-dy) + v[xlo,yhi]*(1-dx)*dy + v[xhi,ylo]*dx*(1-dy) + v[xhi,yhi]*dx*dy
+        if self.bounds_error: 
+            return v[xlo,ylo]*(1-dx)*(1-dy) + v[xlo,yhi]*(1-dx)*dy + v[xhi,ylo]*dx*(1-dy) + v[xhi,yhi]*dx*dy
+        else:
+            return N.where((xlo<0) | (ylo<0) | (xhi>np) | (yhi>np),self.fill_value,
+                           v[N.clip(xlo,0,np),N.clip(ylo,0,np)]*(1-dx)*(1-dy) + \
+                           v[N.clip(xlo,0,np),N.clip(yhi,0,np)]*(1-dx)*dy + \
+                           v[N.clip(xhi,0,np),N.clip(ylo,0,np)]*dx*(1-dy) + \
+                           v[N.clip(xhi,0,np),N.clip(yhi,0,np)]*dx*dy)
 
     def fill(self,skyfun):
         """ Evaluate skyfun along the internal grid and return the resulting array.
@@ -224,17 +234,32 @@ class BackgroundConvolution(Grid):
 #===============================================================================================#
 
 class BackgroundConvolutionNorm(BackgroundConvolution):
+    """ This object is suitable for a spatial model which are supposed to be normalized to 1.
+        It is also intended for spatial models where the entire convolution radius is
+        inside of the total roi.
+        
+        Note that this implementation assumes that there is no exposure variation
+        across the source and ap_average must be mulitplied by the exposure
+        outside of this function."""
 
     def convolve(self,*args,**kwargs):
         super(BackgroundConvolutionNorm,self).convolve(*args,**kwargs)
-        self.cvals /= self.cvals.sum()
+        self.cvals /= self.cvals.sum()*N.radians(self.pixelsize)**2
+
+    def ap_average(self,center,radius):
+        # This function needs to be fixed to really integrate for when the extended source isn't all in.
+        solid_angle=2*N.pi*(1-N.cos(radius))
+        return 1/solid_angle
 
 #===============================================================================================#
 
 class AnalyticConvolution(object):
     """ Calculates the convolution of the psf with a radially symmetric spatial_model. 
-        Has a very similar interface to BackgroundConvolution. Maybe one day they will
-        derive from the same base convolution object. For now they are different enough."""
+        This object has a similar interface to BackgroundConvolution.         
+
+        Note that this implementation assumes that there is no exposure variation
+        across the source and ap_average must be mulitplied by the exposure
+        outside of this function. """
 
     def init(self):
         self.num_points     = 200
@@ -268,7 +293,7 @@ Optional keyword arguments:
         self.psf=psf
 
 
-    def _get_pdf(self,rlist,g,s):
+    def _get_pdf(self,rlist,g,s,energy):
         """ Function to calculate the pdf at the givin radii points
             for a given psf sigma and gamma. (and a radially symmetric
             spatial model self.spatial_model
@@ -282,7 +307,7 @@ Optional keyword arguments:
         the intgral includes at term which is the PDF, the integral
         will presumably contribute very littel further away then this.
         """
-        self.int_max = .5*(self.spatial_model.effective_edge()/s)**2
+        self.int_max = 0.5*(self.spatial_model.effective_edge(energy)/s)**2
 
         # u value corresponding to the given r.
         ulist=0.5*(self.rlist/s)**2
@@ -291,9 +316,9 @@ Optional keyword arguments:
 
         v,u=N.meshgrid(vlist,ulist)
 
-        integrand = self.spatial_model.at_r(N.sqrt(2*v)*s)\
+        integrand = self.spatial_model.at_r(N.sqrt(2*v)*s,energy)\
                                           *((g-1)/g)*(g/(g+u+v))**g\
-                                          *hyp2f1(g/2.,(1+g)/2.,1.,4.*u*v/(g+u+v)**2)
+                                          *hyp2f1(g/2.0,(1+g)/2.0,1.0,4.0*u*v/(g+u+v)**2)
         pdf = simps(integrand,v)
         return pdf
 
@@ -353,16 +378,16 @@ Optional keyword arguments:
 
         if self.fitpsf:
             # For new & old style psf, fit a single king function to the data.
-            self.pdf = self._get_pdf(self.rlist,band.fit_gamma,band.fit_sigma)
+            self.pdf = self._get_pdf(self.rlist,band.fit_gamma,band.fit_sigma,energy)
         else:
             if self.bpsf.newstyle:
                 for nc,gc,sc,nt,gt,st,w in zip(nclist,gclist,sclist,\
                                                ntlist,gtlist,stlist,wlist):
-                    self.pdf += w*(nc*self._get_pdf(self.rlist,gc,sc)+
-                                   nt*self._get_pdf(self.rlist,gt,st))
+                    self.pdf += w*(nc*self._get_pdf(self.rlist,gc,sc,energy)+
+                                   nt*self._get_pdf(self.rlist,gt,st,energy))
             else:
                 for g,s,w in zip(glist,slist,wlist):
-                    self.pdf += w*self._get_pdf(self.rlist,g,s)
+                    self.pdf += w*self._get_pdf(self.rlist,g,s,energy)
 
         # Assume pdf is 0 outside of the bound, which is reasonable if 
         # rmax is big enough also, interpolate the log of the intensity, which 
@@ -377,7 +402,7 @@ Optional keyword arguments:
         solid_angle=2*N.pi*(1-N.cos(radius))
         return 1/solid_angle
 
-    def __call__(self,skydir,not_needed=None):
+    def __call__(self,skydir):
         if type(skydir) == WeightedSkyDirList:
             dv = DoubleVector()
             skydir.arclength(self.spatial_model.center,dv)
