@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.8 2010/08/04 23:27:11 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.9 2010/08/06 18:03:59 burnett Exp $
 
    author: Matthew Kerr
 """
@@ -165,6 +165,7 @@ class XML_to_SpatialModel(object):
             'NFW'                : ['Sigma'],
             'PseudoNFW'          : [],
             'EllipticalGaussian' : ['MajorAxis','MinorAxis','PositionAngle'],
+            'SpatialMap'         : [],
             })
 
     def get_spatial_model(self,xml_dict):
@@ -178,6 +179,11 @@ class XML_to_SpatialModel(object):
 
         spatialname = xml_dict['type']
         params      = xml_dict.children
+
+        if spatialname == 'SpatialMap':
+            # For spatial maps, ignore any of the parameters.
+            file = str(os.path.expandvars(xml_dict['file']))
+            return SpatialMap(file=file)
 
         d = dict()
         for p in params: d[p['name']] = p
@@ -313,8 +319,8 @@ class Model_to_XML(object):
         return None
 
     def param_strings(self):
-        err_strings = ['error="%s"'%(e) if (e>0) else '' for e in self.perr]
-        return ['\t<parameter name="%s" value="%s" %s free="%d" max="%s" min="%s" scale="%s" />'%(e,f,m1,m2,n,s,v)
+        err_strings = ['error="%s" '%(e) if (e>0) else '' for e in self.perr]
+        return ['\t<parameter name="%s" value="%s" %sfree="%d" max="%s" min="%s" scale="%s" />'%(e,f,m1,m2,n,s,v)
             for e,f,m1,m2,n,s,v in zip(self.pname,self.pval, err_strings,self.pfree,self.pmax,self.pmin,self.pscale,)]
 
     def getXML(self,tablevel=1,spec_attrs='',comment_string=None):
@@ -416,7 +422,7 @@ def makeDSConstantSpatialModel(tablevel=1):
     
     strings = [
         '<spatialModel type="ConstantValue">',
-        '\t<parameter  name="Value" value="1.0" free="0" max="10.0" min="0.0"scale="1.0" />',
+        '\t<parameter  name="Value" value="1.0" free="0" max="10.0" min="0.0" scale="1.0" />',
         '</spatialModel>'
 	]
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
@@ -432,27 +438,33 @@ def makeDSMapcubeSpatialModel(filename='ERROR',tablevel=1):
 
 def makeExtendedSourceSpatialModel(es,tablevel=1):
     """Encode a spatial model."""
-    strings = [
-        '<spatialModel type="%s">' % es.pretty_name,
-    ]
+    if es.name != 'SpatialMap':
+        strings = [
+            '<spatialModel type="%s">' % es.pretty_name,
+        ]
+        xtsm = XML_to_SpatialModel()
+        param_names = xtsm.spatialdict[es.pretty_name]
+        if es.coordsystem == SkyDir.GALACTIC:
+            param_names=['L','B']+param_names
+        if es.coordsystem == SkyDir.EQUATORIAL:
+            param_names=['RA','DEC']+param_names
 
-    xtsm = XML_to_SpatialModel()
-    param_names = xtsm.spatialdict[es.pretty_name]
-    if es.coordsystem == SkyDir.GALACTIC:
-        param_names=['L','B']+param_names
-    if es.coordsystem == SkyDir.EQUATORIAL:
-        param_names=['RA','DEC']+param_names
+        params,param_errors=es.statistical(absolute=True)
+        err_strings = ['error="%s" '%(e) if (e>0) else '' for e in param_errors]
+        min_params,max_params=N.transpose(es.get_limits(absolute=True))
+        min_params[0],max_params[0]=[-360,360]
+        min_params[1],max_params[1]=[-90,90]
+        for param,err,free,min,max,name in zip(params,err_strings,
+                                           es.free,min_params,max_params,
+                                           param_names):
+            strings.append('\t<parameter name="%s" value="%g" %sfree="%d" max="%g" min="%g" scale="1.0" />' % \
+                           (name,param,err,free,max,min))
+    else:
+        strings = [
+            '<spatialModel type="%s" file="%s" >' % (es.pretty_name,es.file),
+            '\t<parameter name="Prefactor" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />'
+        ]
 
-    params,param_errors=es.statistical(absolute=True)
-    err_strings = ['error="%s" '%(e) if (e>0) else '' for e in param_errors]
-    min_params,max_params=N.transpose(es.get_limits(absolute=True))
-    min_params[0],max_params[0]=[-360,360]
-    min_params[1],max_params[1]=[-90,90]
-    for param,err,free,min,max,name in zip(params,err_strings,
-                                       es.free,min_params,max_params,
-                                       param_names):
-        strings.append('\t<parameter name="%s" value="%g" error="%g" %sfree="%d" max="%g" min="%g" scale="1.0" />' % \
-                       (name,param,err,free,max,min))
     strings.append('</spatialModel>')
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
 
@@ -504,7 +516,8 @@ def parse_diffuse_sources(handler,diffdir=None):
                 raise Exception,'Non-isotropic model not implemented'
             ds.append(gds('MapCubeFunction',fname,mo,None,name,diffdir=diffdir))
             
-        elif spatial['type'] in [ 'PseudoGaussian', 'Gaussian', 'Disk', 'PseudoDisk', 'NFW', 'PseudoNFW']:
+        elif spatial['type'] in [ 'SpatialMap', 'PseudoGaussian', 'Gaussian', 
+                                 'Disk', 'PseudoDisk', 'NFW', 'PseudoNFW']:
             xtsm = XML_to_SpatialModel()
             spatial_model=xtsm.get_spatial_model(spatial)
             spectral_model=xtm.get_model(spectral)
@@ -544,7 +557,7 @@ def process_diffuse_source(ds):
     if hasattr(dm,'__len__'):  dm = dm[0]
 
     if isinstance(ds,ExtendedSource):
-        m2x.process_model(ds.smodel,scaling=True)
+        m2x.process_model(ds.smodel,scaling=False)
         specxml = m2x.getXML()
         skyxml = makeExtendedSourceSpatialModel(ds.spatial_model)
     elif isinstance(dm,DiffuseFunction):
