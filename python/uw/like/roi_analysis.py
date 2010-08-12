@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.34 2010/08/11 18:48:43 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.35 2010/08/11 19:42:05 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -75,7 +75,7 @@ class ROIAnalysis(object):
         for band in self.sa.pixeldata.dmap:
             evcl = band.event_class() & 1 # protect high bits
 
-            if (band.emin() + 1) >= self.fit_emin[evcl] and band.emax() < self.fit_emax[evcl]:
+            if (band.emin() + 1) >= self.fit_emin[evcl] and (band.emax() - 1) < self.fit_emax[evcl]:
                 self.bands.append(roi_bands.ROIBand(band,self.sa,self.roi_dir,catalog_aperture=self.catalog_aperture))
 
         self.bands = N.asarray(self.bands)
@@ -96,36 +96,43 @@ class ROIAnalysis(object):
 
     def mapper(self,which):
         """ Map the argument `which' passed into functions such as localize
-             into the manager that which belongs to and and index in the
-             manager for the particular source referred to.
+            into the manager that which belongs to and and index in the
+            manager for the particular source referred to.
 
-             If which is an integer, it is assumed to be in the point
-             source manager, so the return is the point source manager
-             and the particular index.
+            If which is an integer, it is assumed to be in the point
+            source manager, so the return is the point source manager
+            and the particular index.
 
-             if which is a string, the name of all the point sources and
-             diffuse sources is searched and the first source with that
-             name is returned.
+            if which is a string, the name of all the point sources and
+            diffuse sources is searched and the first source with that
+            name is returned.
 
-             If which is of type PointSource, the return is the point
-             source manager and the index for the particular point source.
+            If which is of type PointSource, the return is the point
+            source manager and the index for the particular point source.
 
-             If which is of type DiffuseSource, the reutrn is the diffuse
-             source manager and the index is for the particular diffuse
-             source. """
+            If which is of type DiffuseSource, the return is the diffuse
+            source manager and the index is for the particular diffuse
+            source. 
+
+            If which is a list, convert each of the items in the list
+            to a manager & index and if all the managers are the same,
+            return a list of indices. If there are multiple different
+            managers, an exception is raised. """
         if type(which)==int:
             return self.psm,which
-        elif type(which)==str:
-            if N.any(self.psm.names==which):
-                return self.psm,int(N.where(self.psm.names==which)[0])
-            elif N.any(self.dsm.names==which):
-                return self.dsm,int(N.where(self.dsm.names==which)[0])
-            else:
-                raise Exception('Source "%s" is not a name of any point or diffuse source' % which)
+        elif N.any(str(which)==self.psm.names):
+            return self.psm,int(N.where(str(which)==self.psm.names)[0])
+        elif N.any(str(which)==self.dsm.names):
+            return self.dsm,int(N.where(str(which)==self.dsm.names)[0])
         elif isinstance(which,PointSource):
             return self.psm,int(N.where(self.psm.point_sources==which)[0])
         elif isinstance(which,DiffuseSource):
             return self.dsm,int(N.where(self.dsm.diffuse_sources==which)[0])
+        elif type(which) == list:
+            managers,indices=zip(*[list(self.mapper(_)) for _ in which])
+            if N.unique(managers).shape[0]!=1:
+                raise Exception("List passed as which argument must be all point or diffuse sources.")
+            return managers[0],N.asarray(indices)
         else:
             raise Exception("Unknown which argument = %s" % str(which))
 
@@ -152,19 +159,23 @@ class ROIAnalysis(object):
         ll = sum([band.logLikelihood(phase_factor=self.phase_factor) for band in self.bands])
         return 1e6 if N.isnan(ll) else ll
 
-    def bandLikelihood(self,which):
-        """ Perform a spectral independendent fit of the source specified by which."""
+    def bandFit(self,which):
+        """ Perform a spectral independendent fit of the source
+            specified by which and return the negative of the log
+            likelihood. This is analogous to roi.fit() for a 
+            spectral independent model. """
         manager,index=self.mapper(which)
 
         self.update_counts()
 
+        self.setup_energy_bands()
         if manager == self.psm:
             for eb in self.energy_bands:
                 eb.bandFit(which=index,saveto='bandfits')
 
             ll = sum([band.bandLikelihood([band.bandfits if
-                                            band.bandfits > 0 else 0],index) \
-                       for band in self.bands])
+                                           band.bandfits > 0 else 0],index) \
+                      for band in self.bands])
         else:
             for eb in self.energy_bands:
                 eb.bandFitDiffuse(which=index,saveto='bandfits')
@@ -403,7 +414,7 @@ class ROIAnalysis(object):
             if not bandfits:
                 ll_1 = self.logLikelihood(self.get_parameters())
             else:
-                ll_1 = self.bandLikelihood(which)
+                ll_1 = self.bandFit(which)
 
             if ll_0 == 1e6 or ll_1 == 1e6: 
                  print 'Warning: loglikelihood is NaN, returning TS=0'
@@ -420,7 +431,7 @@ class ROIAnalysis(object):
         if not bandfits:
             ll = -self.logLikelihood(save_params)
         else:
-            ll = -self.bandLikelihood(which)
+            ll = -self.bandFit(which)
         if ll_0 == 1e6 or ll == 1e6: 
              print 'Warning: loglikelihood is NaN, returning TS=0'
              return 0
@@ -669,5 +680,13 @@ class ROIAnalysis(object):
         """Write out a gtlike-style XML file."""
         from uw.utilities.xml_parsers import writeROI
         writeROI(self,filename)
-        
- 
+
+    def toRegion(self,filename,**kwargs):
+        """Write out a ds9 region file."""
+        from uw.utilities.region_writer import writeRegion
+        writeRegion(self,filename,**kwargs)
+
+    def toResults(self,filename,**kwargs):
+        """Write out a gtlike style results file."""
+        from uw.utilities.results_writer import writeResults
+        writeResults(self,filename,**kwargs)
