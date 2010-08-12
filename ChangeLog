@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Thu Aug 12 11:13:37 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Fix little typo in Model.__str__
+    *
+------------------------------------------------------------
 User: kerrm  Wed Aug 11 14:20:56 PDT 2010
 pointlike/python/uw/like
 
