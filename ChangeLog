@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: lande  Thu Aug 12 16:08:34 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Addition of bounds_error & fill_value flags to the Grid object to allow for setting an arbitrary value outside of the convolution grid.
+
+
+    *
+------------------------------------------------------------
 User: mar0  Thu Aug 12 12:12:35 PDT 2010
 pointlike/src
 
