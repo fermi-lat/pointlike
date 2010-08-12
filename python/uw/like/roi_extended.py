@@ -2,13 +2,13 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.14 2010/08/02 20:46:31 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.15 2010/08/03 08:01:38 lande Exp $
 
     author: Joshua Lande
 """
 
-from SpatialModels import RadiallySymmetricModel,Gaussian,SpatialModel
-from uw.utilities.convolution import BackgroundConvolution,BackgroundConvolutionNorm,AnalyticConvolution
+from SpatialModels import RadiallySymmetricModel,Gaussian,SpatialModel,SpatialMap
+from uw.utilities.convolution import BackgroundConvolutionNorm,AnalyticConvolution
 from roi_diffuse import DiffuseSource,ROIDiffuseModel_OTF
 from textwrap import dedent
 from skymaps import SkyDir,Background
@@ -86,19 +86,40 @@ class ROIExtendedModel(ROIDiffuseModel_OTF):
         else:
             raise Exception("The extended_source.dmodel option passed to ROIExtendedModel.factory must inherit from SpatialModel.")
 
-    def init(self,*args,**kwargs):
+    def init(self):
         self.pixelsize = 0.05
-        self.npix      = 512
-        self.nsimps    = 16 # for consistency with point sources.
+        self.npix      = 101
+        self.nsimps    = 16  # note -- some energies use a multiple of this
+        self.r_multi   = 1.0 # multiple of r95 to set max dimension of grid
+        self.r_max     = 20  # an absolute maximum (half)-size of grid (deg)
 
     def setup(self):
-        """ Use the Normalized convolution object and always do the
-            convolution around the spatial model's center. """
+        """ Unlike background models, always do the convolution around 
+            the spatial model's center. """
         exp = self.sa.exposure.exposure; psf = self.sa.psf
-        self.bg  = [Background(self.dmodel[0],exp[0],exp[1])]
-        self.bgc = [BackgroundConvolution(self.extended_source.spatial_model.center,self.bg[0],psf,
-                    npix=self.npix,pixelsize=self.pixelsize)]
+        self.active_bgc = BackgroundConvolutionNorm(self.extended_source.spatial_model.center,None,psf,
+                                          npix=self.npix,pixelsize=self.pixelsize,
+                                          bounds_error=False,fill_value=0)
 
+    def set_state(self,energy,conversion_type,band,**kwargs):
+        edge=self.extended_source.spatial_model.effective_edge()
+        multi = 1 + 0.01*(energy==band.emin) -0.01*(energy==band.emax)
+        r95 = self.sa.psf.inverse_integral(energy*multi,conversion_type,95)
+        rad = self.r_multi*r95 + N.degrees(edge)
+        rad = max(min(self.r_max,rad),N.degrees(edge)+2.5)
+        npix = int(round(2*rad/self.pixelsize))
+        npix += (npix%2 == 0)
+        self.active_bgc.setup_grid(npix,self.pixelsize)
+        self.active_bgc.do_convolution(energy,conversion_type,override_en=band.e,
+                                       override_skyfun=self.extended_source.spatial_model.skyfun)
+
+        self.current_exposure = self.sa.exposure.exposure[conversion_type].value(self.extended_source.spatial_model.center,energy)
+
+    def _pix_value(self,pixlist):
+        return self.current_exposure*self.active_bgc(pixlist,self.active_bgc.cvals)
+
+    def _ap_value(self,center,radius):
+        return self.current_exposure*self.active_bgc.ap_average(center,radius)
 
     def __init__(self,spectral_analysis,extended_source,roi_dir,name=None,*args,**kwargs):
 
@@ -177,6 +198,10 @@ Optional keyword arguments:
             self.fitpsf,old_fitpsf=True,self.fitpsf
 
         es = self.extended_source
+
+        if type(es) == SpatialMap: 
+            raise Exception("Unable to localize a SpatialMap extended source.")
+
         sm = es.spatial_model
         cs = sm.coordsystem
 
@@ -198,7 +223,6 @@ Optional keyword arguments:
         # we can fit relative to it.
         init_lon,init_lat = sm.p[0:2]
         init_dir          = SkyDir(init_lon,init_lat,cs)
-
 
         # Fit in coordinate system rotated so y=z=0.
         init_spatial[0:2]=0
@@ -295,7 +319,7 @@ Optional keyword arguments:
         m = Minuit(f,start_spatial,
                    up=0.5,
                    maxcalls=500,
-                   tolerance=tolerance/0.0005,
+                   tolerance=tolerance,
                    printMode = verbose,
                    param_names=relative_names,
                    limits    = sm.get_limits(absolute=False),
@@ -356,18 +380,18 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         if self.fitpsf and self.nsimps > 0:
             raise Exception("ROIExtendedModelAnalytic Error: fitpsf and nsimps>0 are incompatable.")
 
-        self.bgc = AnalyticConvolution(self.extended_source.spatial_model,psf,**self.__dict__)
+        self.active_bgc = AnalyticConvolution(self.extended_source.spatial_model,psf,**self.__dict__)
 
     def set_state(self,energy,conversion_type,band):
         self.current_energy = energy
         self.current_exposure = self.exp[conversion_type].value(self.extended_source.spatial_model.center,energy)
-        self.bgc.do_convolution(energy,conversion_type,band)
+        self.active_bgc.do_convolution(energy,conversion_type,band)
 
     def _ap_value(self,center,radius):
-        return self.current_exposure*self.bgc.ap_average(center,radius)
+        return self.current_exposure*self.active_bgc.ap_average(center,radius)
 
     def _pix_value(self,pixlist):
-        return self.current_exposure*self.bgc(pixlist)
+        return self.current_exposure*self.active_bgc(pixlist)
 
     def initialize_counts(self,bands,roi_dir=None):
         # probably there is a cleaner way to do this, but since you should only 

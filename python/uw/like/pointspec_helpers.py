@@ -1,12 +1,12 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.20 2010/08/10 22:04:43 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.21 2010/08/10 23:03:33 burnett Exp $
 
     author: Matthew Kerr
     """
 
 import numpy as N
 from skymaps import *
-from uw.like.Models import Model,Constant,PowerLaw,DefaultModelValues
+from uw.like.Models import Model,Constant,PowerLaw,ExpCutoff,DefaultModelValues
 from roi_diffuse import DiffuseSource
 from roi_extended import ExtendedSource
 from os.path import join
@@ -140,11 +140,17 @@ class FermiCatalog(PointSourceCatalog):
         pens = f[1].data.field('PIVOT_ENERGY')
         n0s  = f[1].data.field('FLUX_DENSITY')
         inds = f[1].data.field('SPECTRAL_INDEX')
+        cutoffs = f[1].data.field('CUTOFF_ENERGY') if 'Cutoff_Energy' in colnames else None
         #ts    = f[1].data.field('TEST_STATISTIC')
         inds = N.where(inds > 0, inds, -inds)
 
         self.dirs    = map(SkyDir,N.asarray(ras).astype(float),N.asarray(decs).astype(float))
-        self.models = N.asarray([PowerLaw(p=[n0,ind],e0=pen) for n0,ind,pen in zip(n0s,inds,pens)])
+        if cutoffs is None:
+            self.models = N.asarray([PowerLaw(p=[n0,ind],e0=pen) for n0,ind,pen in zip(n0s,inds,pens)])
+        else:
+            self.models = N.asarray([PowerLaw(p=[n0,ind],e0=pen) if N.isnan(cutoff) else 
+                                     ExpCutoff(p=[n0,ind,cutoff],e0=pen)
+                                     for n0,ind,pen,cutoff in zip(n0s,inds,pens,cutoffs)])
         #self.fluxes = N.asarray(f[1].data.field('FLUX100'))
         self.names  = N.chararray.strip(f[1].data.field(sname))
         #self.ts      = N.asarray(ts)
@@ -189,11 +195,13 @@ class FermiCatalog(PointSourceCatalog):
         for ncps,cps in enumerate(cat_list):
             merged_list.append(cps)
             for ups in user_point_list:
-                if N.degrees(ups.skydir.difference(cps.skydir)) < self.prune_radius:
+                if N.degrees(ups.skydir.difference(cps.skydir)) < self.prune_radius or \
+                        ups.name == cps.name:
                     merged_list.pop(); break
 
             for ues in user_extended_list:
-                if N.degrees(ues.spatial_model.center.difference(cps.skydir)) < self.prune_radius:
+                if N.degrees(ues.spatial_model.center.difference(cps.skydir)) < self.prune_radius or \
+                        ues.name == cps.name:
                     merged_list.pop(); break
 
         merged_list = list(merged_list)

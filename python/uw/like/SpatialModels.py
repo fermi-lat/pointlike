@@ -1,13 +1,14 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.10 2010/08/01 00:06:46 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.11 2010/08/03 03:47:07 lande Exp $
 
    author: Joshua Lande
 
 """
 import numpy as N
 from scipy import vectorize
-from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,SkyImage,SkyIntegrator
+from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
+        SkyImage,SkyIntegrator,CompositeSkyFunction
 
 class DefaultSpatialModelValues(object):
     """ Spatial Parameters:
@@ -38,25 +39,27 @@ class DefaultSpatialModelValues(object):
                                 # As minuit.py's doc says, a step of .04 is about 10% in log space
                                }, 
         'PseudoGaussian'     : {},
-        'Disk'               : {'p':[0,0,N.radians(.1)],
-                                'param_names':['lon,lat','Sigma'],
+        'Disk'               : {'p':[N.radians(.1)],
+                                'param_names':['Sigma'],
                                 'limits':N.radians([[1e-10,3]]),
-                                'log':[False,False,True]},
-        'PseudoDisk'         : {'p':[], 'param_names':[], 'limits':[], 'log':[], 'steps':[]},
+                                'log':[True],
+                                'steps':[0.04]},
+        'PseudoDisk'         : {},
         'NFW'                : {'p':[N.radians(.1)],
-                                'param_names': 'Sigma',
+                                'param_names': ['Sigma'],
                                 'limits': N.radians([[1e-10,9]]), # constrain r68 to 3 degrees.
                                 'steps':[0.04],
                                 'log':[True]},
-        'PseudoNFW'          : {'p':[], 'param_names':[], 'limits':[], 'log':[], 'steps':[]},
+        'PseudoNFW'          : {},
         'RadialProfile'      : {'p':[], 'param_names':[], 'limits':[], 'log':[], 'steps':[]},
         'EllipticalGaussian' : {'p':[N.radians(.1),N.radians(.1),0], 
                                 'param_names':['Major_Axis','Minor_Axis','Position_Angle'],
                                 'limits':N.radians([[1e-6,3],
                                                     [1e-6,3],
                                                     [-360,360]]),
-                                'log':[True,True,False]},
-        'Template'           : {'p':[], 'param_names':[], 'limits':[], 'log':[]}
+                                'log':[True,True,False],
+                                'steps':[0.04,0.04,5]},
+        'SpatialMap'         : {}
     }
 
     @staticmethod
@@ -78,8 +81,8 @@ class DefaultSpatialModelValues(object):
         the_model.limits=N.append([[-10.,10.],[-10.,10.]],the_model.limits,axis=0) \
                 if the_model.__dict__.has_key('limits') else N.asarray([[-10.,10],[-10.,10.]])
 
-        the_model.steps=N.append([0.05,0.05],the_model.steps) \
-                if the_model.__dict__.has_key('steps') else N.asarray([0.05,0.05])
+        the_model.steps=N.append([0.1,0.1],the_model.steps) \
+                if the_model.__dict__.has_key('steps') else N.asarray([0.1,0.1])
 
         the_model.coordsystem = SkyDir.EQUATORIAL
 
@@ -156,12 +159,12 @@ class SpatialModel(object):
 
         self.center = SkyDir(self.p[0],self.p[1],self.coordsystem)
 
-    def change_coordsystem(cs):
+    def change_coordsystem(self,cs):
         """ Change the internal coordinate system. This is what is
             used when the source is displayed/what is read in
             as longitude and latitude when a parameter is set. Also
             changes what the errors are estimates of. """
-        the_model.coordsystem = cs
+        self.coordsystem = cs
         if cs  == SkyDir.EQUATORIAL:
             self.param_names[0:2] = ['RA','Dec']
             self.p[0:2] = [center.ra(),center.dec()]
@@ -279,14 +282,11 @@ class SpatialModel(object):
     def __call__(self,v,energy=None):
         raise NotImplementedError("Subclasses should implement this!")
 
-    def r68(self):
-        """ It is useful to know the average spatial model size. """
+    def effective_edge(self,energy=None):
+        """ It is useful to know an approximate edge to the image
+            It is defined as a radius such that from the center to the
+            enclosed circle contains (approximatly) the entire object. """
         raise NotImplementedError("Subclasses should implement this!")
-
-    def effective_edge(self):
-        """ For analytic convolution, distance to be taken as the edge of the
-            source. """
-        return 5*self.r68()
 
     def get_PySkyFunction(self):
         return PySkyFunction(self)
@@ -296,9 +296,10 @@ class SpatialModel(object):
             pure lazieness, since it is not needed elsewhere. """
         return PySkySpectrum(self,None)
 
-    def save_template(self,filename,diameter=8,pixelsize=.125,galactic=True):
+    def save_template(self,filename,pixelsize=0.05):
         center=self.center
-        image=SkyImage(center,filename,pixelsize,diameter,1,"ZEA",galactic,False)
+        image=SkyImage(center,filename,pixelsize,self.effective_edge(),1,"ZEA",
+                       True if self.coordsystem == SkyDir.GALACTIC else False,False)
         skyfunction=self.get_PySkyFunction()
         image.fill(skyfunction)
         image.save()
@@ -309,7 +310,9 @@ class SpatialModel(object):
         p,avg_p     = self.statistical(absolute=absolute,two_sided=False)
         pnames      = self.param_names
 
-        m=max([len(n) for n in pnames])
+        if len(pnames)==0: return 'No Spatial Parameters'# Needed for SpatialMap model.
+
+        m=max(len(n) for n in pnames)
         l=[]
         if N.any(avg_p != 0): #if statistical errors are present   
             for i in xrange(len(pnames)):
@@ -357,15 +360,25 @@ class RadiallySymmetricModel(SpatialModel):
         else:
             raise Exception("Incorrect argument to __call__ function.")
 
-        return self.at_r(skydir.difference(self.center))
+        return self.at_r(skydir.difference(self.center),energy)
 
     def r68(self):
         raise NotImplementedError("Subclasses should implement this!")
 
-    def at_r(self,r):
+    def at_r(self,r,energy=None):
         """ Should return the intensity at a distance r from the spatial model's center,
             where r is in radians. """
         raise NotImplementedError("Subclasses should implement this!")
+
+    def effective_edge(self,energy=None):
+        """ For analytic convolution, distance to be taken as the edge of the
+            source. """
+        return 5*self.r68()
+
+#===============================================================================================#
+
+class PseudoSpatialModel(SpatialModel):
+    pass
 
 #===============================================================================================#
 
@@ -391,11 +404,11 @@ class Gaussian(RadiallySymmetricModel):
         self.sigma2=self.sigma**2 # cache this value
         self.pref=1/(2*N.pi*self.sigma2)
 
-    def at_r(self,r):
+    def at_r(self,r,energy=None):
         return self.pref*N.exp(-r**2/(2*self.sigma2))
 
     def r68(self):
-        return 1.5*self.sigma
+        return 1.50959219*self.sigma
 
     def pretty_spatial_string(self):
         return "[ %.3f' ]" % (60*N.degrees(self.sigma))
@@ -403,7 +416,7 @@ class Gaussian(RadiallySymmetricModel):
 #===============================================================================================#
 
 
-class PseudoGaussian(Gaussian):
+class PseudoGaussian(PseudoSpatialModel,Gaussian):
     """ A PseudoGuassian is a Gaussian source with a fixed
         small radius. Useful to ensure that the null hypothesis
         of an extended source has the exact same PDF as the
@@ -424,13 +437,13 @@ class Disk(RadiallySymmetricModel):
         self.sigma2=self.sigma**2 # cache this value
         self.pref=1/(N.pi*self.sigma2)
 
-    def at_r(self,r):
-        return self.pref if r < self.sigma else 0
+    def at_r(self,r,energy=None):
+        return N.where(r<=self.sigma,self.pref,0)
 
     def r68(self):
         return 0.824621125*self.sigma
 
-    def effective_edge(self):
+    def effective_edge(self,energy=None):
         """ Disk has a well defined edge, so there is no reason to integrate past it. """
         return self.sigma
 
@@ -439,7 +452,7 @@ class Disk(RadiallySymmetricModel):
 
 #===============================================================================================#
 
-class PseudoDisk(Disk):
+class PseudoDisk(PseudoSpatialModel,Disk):
     """ A PseudoDisk is a Disk with a fixed
         small radius. Useful to ensure that the null hypothesis
         of an extended source has the exact same PDF as the
@@ -463,7 +476,7 @@ class NFW(RadiallySymmetricModel):
         self.factor=1.07
         self.scaled_sigma=self.sigma/self.factor
 
-    def at_r(self,r):
+    def at_r(self,r,energy=None):
         return 2/(N.pi*r*self.scaled_sigma*(1+r/self.scaled_sigma)**5)
 
     def r68(self):
@@ -472,15 +485,15 @@ class NFW(RadiallySymmetricModel):
     def pretty_spatial_string(self):
         return "[ %.3f' ]" % (60*N.degrees(self.sigma))
 
-class PseudoNFW(NFW):
+class PseudoNFW(PseudoSpatialModel,NFW):
 
     def extension(self): return N.radians(1e-10)
 
 
 class RadialProfile(RadiallySymmetricModel):
-    def __init__(self,*kargs,**kwargs):
+    def __init__(self,*args,**kwargs):
 
-        super(RadiallySymmetricModel).__init__(*kargs,**kwargs)
+        super(RadiallySymmetricModel).__init__(*args,**kwargs)
 
         if not self.dict.has_key('file') or not os.path.exists(self.file):
             raise Exception("RadialProfile must be passed an existing file")
@@ -498,9 +511,9 @@ class RadialProfile(RadiallySymmetricModel):
         self.pdf /= self.norm
 
         # redo normalized interpolation
-        self.interp = N.interp1d(self.r.self.pdf,kind='cubic',bound_error=False,fill_value=0)
+        self.interp = N.interp1d(self.r*self.pdf,kind='cubic',bound_error=False,fill_value=0)
 
-    def at_r(self,r):
+    def at_r(self,r,energy=None):
         return self.interp(r)
 
 
@@ -526,19 +539,21 @@ class EllipticalGaussian(SpatialModel):
 
         super(EllipticalGaussian,self).cache()
 
-        sigma_x, sigma_y, theta = self.get_parameters(absolute=True)[2:]
+        self.sigma_x, self.sigma_y, self.theta = self.get_parameters(absolute=True)[2:]
 
         # parameters from
         # http://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
         # where I have replaced theta with -theta to get a postive angle to correspond
         # with a rotation of the semi-major axis towards positive RA.
 
-        self.a =  N.cos(theta)**2/(2*sigma_x**2) + N.sin(theta)**2/(2*sigma_y**2)
-        self.b =  N.sin(2*theta)/(4*sigma_x**2)  - N.sin(2*theta)/(4*sigma_y**2)
-        self.c =  N.sin(theta)**2/(2*sigma_x**2) + N.cos(theta)**2/(2*sigma_y**2)
+        self.a =  N.cos(theta)**2/(2*self.sigma_x**2) + N.sin(theta)**2/(2*sigma_y**2)
+        self.b =  N.sin(2*theta)/(4*self.sigma_x**2)  - N.sin(2*theta)/(4*sigma_y**2)
+        self.c =  N.sin(theta)**2/(2*self.sigma_x**2) + N.cos(theta)**2/(2*sigma_y**2)
 
-        self.pref = 1/(2*N.pi*sigma_x*sigma_y)
+        self.pref = 1/(2*N.pi*self.sigma_x*sigma_y)
 
+    def effective_edge(self,energy=None):
+        return 5*max(self.sigma_x,self.sigma_y)
 
     def __call__(self,v,energy=None):
         if type(v)==list and len(v)==3:
@@ -571,40 +586,64 @@ class EllipticalGaussian(SpatialModel):
                 (60*N.degrees(self.sigma_x),60*N.degrees(self.sigma_y), N.degrees(theta))
 
 
-class Template(SpatialModel):
-    """ Implement an extended source not as a simple geometric shape but as from a 2 dimensional
-        fits file. A Template has two spatial parameters, which represent a rotation of
+class SpatialMap(SpatialModel):
+    """ Implement an extended source not as a simple geometric shape
+        but as from a 2 dimensional fits file. 
+        
+        This is analogous to gtlike's SpatialModel type SpatialMap. It
+        is different in that this template is explicity normalized.
+        
+        A Template still has two spatial parameters, which represent a rotation of 
         the template away from the fits file's center."""
 
-    def cache():
-        if not self.__dict__.has_key('template'):
-            raise Exception("Object Template must be initialized with template=template.fits keyword.")
+    def __init__(self,*args,**kwargs):
+
+        super(SpatialMap,self).__init__(*args,**kwargs)
+
+        if not self.__dict__.has_key('file'):
+            raise Exception("Object Template must be initialized with file=template.fits keyword.")
 
         extension="" # use primary extension.
         interpolate=True # Note, interpolate=True necessary to not read outside array
 
-        self.skyfun=SkyImage(self.template,extension,interpolate)
+        # The skyfun is not normalized. The normaliztaion happens later, after
+        # the convolution step.
+        self.skyfun=SkyImage(self.file,extension,interpolate)
 
-        self.projection = self.skyfun.projector()
-        naxis1=self.projection.naxis1()
-        naxis2=self.projection.naxis2()
+        self.projection = p = self.skyfun.projector()
+        naxis1=self.skyfun.naxis1()
+        naxis2=self.skyfun.naxis2()
 
-        def dir(x,y):
-            coordsystem=SkyDir.GALACTIC if self.projection.isGalactic() else SkyDir.EQUATORIAL
-            x,y=self.projection.pix2sph(x,y)
-            return SkyDir(x,y,coordsystem)
+        def dir(x,y): return SkyDir(x,y,self.projection)
 
-        # get center of image. I am not sure if this formula is generally true.
-        self.fits_center=dir((naxis1+1)/2,(naxis2+1)/2)
+        self.coordsystem = SkyDir.GALACTIC if self.projection.isGalactic() else SkyDir.EQUATORIAL
 
-        # Get all 4 image corners
-        edges=[dir(1,1),dir(1,naxis2+1),dir(naxis1+1,1),dir(naxis1+1,naxis2+1)]
+        # Set the source center to the center of the image.
+        self.center=SkyDir((naxis1-1)/2,(naxis2-1)/2,p)
 
-        # Find further corner, add 10% to be safe.
-        rad=1.1*max([_.difference(self.fits_center) for _ in edges])
+        # Don't display any spatial parameters
+        self.p=N.asarray([])
+        self.param_names=N.asarray([])
+        self.free=N.asarray([])
+        self.log=N.asarray([])
+        self.cov_matrix = N.asarray([[]])
 
-        # Integrate to find the normalization.
-        self.norm=SkyIntegrator.ap_int(spectrum,self.fits_center,rad)
+        # SkyDir of image corners
+        edges=[SkyDir(0,0,p),SkyDir(0,naxis2,p),
+               SkyDir(naxis1,0,p),SkyDir(naxis1,naxis2,p)]
+
+        # Find furthest corner
+        self.edge=max(_.difference(self.center) for _ in edges)
+
+    def effective_edge(self,energy=None):
+        return self.edge
 
     def __call__(self,v,energy=None):
-        return self.skyfun(v)/self.norm
+        if type(v)==list and len(v)==3:
+            skydir = SkyDir(Hep3Vector(v[0],v[1],v[2]))
+        elif type(v)==SkyDir:
+            skydir = v
+        else:
+            raise Exception("Incorrect argument to __call__ function.")
+
+        return self.skyfun(skydir)
