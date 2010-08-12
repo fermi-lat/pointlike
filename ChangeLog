@@ -1,4 +1,21 @@
 ------------------------------------------------------------
+User: lande  Thu Aug 12 16:08:56 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+* Fix scaling of extended sources when they are written out.
+
+* Addition of reading in a SpatialMap template as a DiffuseSource's
+  spatial model.
+
+* Minor formatting of the output xml to make the spaces nicer.
+
+
+
+    *
+------------------------------------------------------------
 User: lande  Thu Aug 12 16:08:34 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
