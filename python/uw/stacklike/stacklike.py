@@ -1,18 +1,18 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/stacklike.py,v 1.1 2010/08/02 20:48:10 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/stacklike.py,v 1.2 2010/08/04 18:52:22 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
-import numpy as N
-import pylab as p
+import numpy as np
+import pylab as py
 import skymaps as s
 import pointlike as pl
 import pyfits as pf
 import glob as glob
 import scipy.integrate as si
 import os as os
-from uw.utilities.angularmodels import CompositeModel,PSF,PSFAlign,Backg,Halo
-from uw.utilities.CLHEP import HepRotation,Hep3Vector,Photon
+from uw.stacklike.angularmodels import CompositeModel,PSF,PSFAlign,Backg,Halo
+from uw.stacklike.CLHEP import HepRotation,Hep3Vector,Photon
 
 #################################################        STACKLIKE         ####################################################
 #
@@ -51,7 +51,7 @@ from uw.utilities.CLHEP import HepRotation,Hep3Vector,Photon
 
 ################################################## ENVIRONMENT SETUP        ###################################################
 debug=False
-rd = 180./N.pi        #to radians
+rd = 180./np.pi        #to radians
 monthlist = ['aug2008','sep2008','oct2008','nov2008','dec2008','jan2009','feb2009','mar2009','apr2009'\
     ,'may2009','jun2009','jul2009','aug2009','sep2009','oct2009','nov2009','dec2009','jan2010','feb2010','mar2010'\
     ,'apr2010','may2010','jun2010','jul2010']
@@ -100,10 +100,16 @@ class StackLoader(object):
     #   @param datadr ft1 file directory
     #   @param srcdr source list directory (ascii file with 'name    ra     dec', first line is skipped)
     #   @param irf response function of the form 'P?_v?'
-    def __init__(self,lis='strong',tev=False,rot=[0,0,0],files=files,CALDBdr=CALDBdir,datadr=datadir,ft2dr=ft2dir,srcdr=srcdir,irf = 'P6_v3'):
-        
+    def __init__(self,lis='strong',tev=False,rot=[0,0,0],files=files,CALDBdr=CALDBdir,datadr=datadir,ft2dr=ft2dir,srcdr=srcdir,irf = 'P6_v3',quiet=True):
+        self.quiet=quiet
         self.firstlight = False
         self.rot = HepRotation(rot,False)
+        print ''
+        print '**********************************************************'
+        print '*                                                        *'
+        print '*                       STACKLIKE                        *'
+        print '*                                                        *'
+        print '**********************************************************'
         print 'Using list: %s.txt'%lis
         print 'Using boresight alignment (in arcsec): Rx=%1.0f Ry=%1.0f Rz=%1.0f'%(rot[0]*rd*3600,rot[1]*rd*3600,rot[2]*rd*3600)
         self.tev = tev
@@ -151,7 +157,8 @@ class StackLoader(object):
     #   @param start start time (MET)
     #   @param stop end time (MET)
     #   @param cls conversion type: 0=front,1=back,-1=all
-    def loadphotons(self,rad,emin,emax,start,stop,cls):
+    def loadphotons(self,rad,emin,emax,start,stop,cls,ctrange=[0.4,1.0]):
+        self.ctmin,self.ctmax=ctrange[0],ctrange[1]
         self.emin=emin
         self.emax=emax
         self.ebar=0
@@ -163,31 +170,49 @@ class StackLoader(object):
         self.aeff = []
         
         print 'Applying masks to data'
-        print '*********************************'
+        print '**********************************************************'
         print '%1.0f < Energy < %1.0f'%(self.emin,self.emax)
         print '%1.2f degrees from source'%(self.rad)
         print '%1.0f < Time < %1.0f'%(start,stop)
         print 'Event class = %1.0f'%(cls)
         print '%1.2f < costh < %1.2f'%(self.ctmin,self.ctmax)
-        print '*********************************'
+        print '**********************************************************'
 
         #go through each fits file, mask unwanted events, and setup tables
+        tcuts = np.array([0,0,0,0,0,0,0,0])
         for ff in self.files:
-            print ff
+            if not self.quiet:
+                print ff
             tff = pf.open(ff)
             ttb = tff[1].data
-            ttb = self.mask(ttb,self.srcs,emin,emax,start,stop,rad,cls)
+            ttb,ttcut = self.mask(ttb,self.srcs,emin,emax,start,stop,rad,cls)
+            tcuts=tcuts+ttcut
             self.atb.append(ttb)
             tff.close()
+        print 'Photon pruning information'
+        print '%d photons available'%tcuts[0]
+        print '---------------------------------------'
+        print '%d cut by time range'%tcuts[1]
+        print '%d cut by energy range'%tcuts[2]
+        print '%d cut by instrument theta'%tcuts[3]
+        print '%d cut by zenith angle'%tcuts[4]
+        print '%d cut by conversion type'%tcuts[5]
+        print '%d cut by proximity to sources'%tcuts[6]
+        print '---------------------------------------'
+        print '%d photons remain'%tcuts[7]
+        print '**********************************************************'
         self.photons = []
 
         #go through each table and contruct Photon objects
         for j,tb in enumerate(self.atb):
-            print 'Examining %d events'%len(tb)
+            if not self.quiet:
+                print 'Examining %d events'%len(tb)
             if len(tb)>0:
-                print '    *Loading pointing history'
+                if not self.quiet:
+                    print '    *Loading pointing history'
                 phist = pl.PointingHistory(self.ft2s[j])
-                print '    *Loading events'
+                if not self.quiet:
+                    print '    *Loading events'
                 
                 #iterate over events for photons
                 for k in range(len(tb)):
@@ -232,30 +257,34 @@ class StackLoader(object):
         cm = CompositeModel()
         cm.addModel(psf)
         cm.addModel(bck)
-        cm.fit(self.photons,mode=0)
+        cm.fit(self.photons,mode=0,quiet=self.quiet)
 
         self.Npsf = cm.minuit.params[0]
         self.Nback = cm.minuit.params[1]
         self.errs = cm.minuit.errors()
-        self.Npsfe = N.sqrt(self.errs[0][0])
-        self.Nbacke = N.sqrt(self.errs[1][1])
+        self.Npsfe = np.sqrt(self.errs[0][0])
+        self.Nbacke = np.sqrt(self.errs[1][1])
         
     ## Finds boresight alignment solution
     def solverot(self):
+
+        #estimate uniform background component
+        self.solveback()
+
         psfa = PSFAlign(lims=[0,self.rad/rd],free=[True,True,True],ebar=self.ebar)
         bck = Backg(lims=[0,self.rad/rd])
         cm = CompositeModel()
         cm.addModel(psfa)
         cm.addModel(bck)
-        cm.fit(self.photons)
+        cm.fit(self.photons,free=[True,True],exp=[self.Npsf,self.Nback],mode=1,quiet=self.quiet)
         fl = cm.minuit.fval
         self.Npsf = cm.minuit.params[0]
         self.Nback = cm.minuit.params[1]
         self.errs = cm.minuit.errors()
-        self.Npsfe = N.sqrt(self.errs[0][0])
-        self.Nbacke = N.sqrt(self.errs[1][1])
+        self.Npsfe = np.sqrt(self.errs[0][0])
+        self.Nbacke = np.sqrt(self.errs[1][1])
         self.params=[x*rd*3600 for x in cm.minuit.params[2:]]
-        self.errors=[N.sqrt(self.errs[x+2][x+2])*rd*3600 for x in range(3)]
+        self.errors=[np.sqrt(self.errs[x+2][x+2])*rd*3600 for x in range(3)]
         self.il=cm.extlikelihood([self.Npsf,self.Nback,0,0,0],self.photons)
         for x in range(3):
             print 'R%d %3.0f +/-%3.0f arcsec'%(x+1,self.params[x],self.errors[x])
@@ -264,7 +293,7 @@ class StackLoader(object):
             print 'Significance of rotation was TS = %d'%TS
         except:
             print 'Cannot determine improvement'
-        print 'Expected %d photons, got %d ( %d (%d) + %d (%d) )'%(len(self.photons),int(self.Npsf+self.Nback),int(self.Npsf),int(N.sqrt(self.Npsfe)),int(self.Nback),int(N.sqrt(self.Nbacke)))
+        print 'Expected %d photons, got %d ( %d (%d) + %d (%d) )'%(len(self.photons),int(self.Npsf+self.Nback),int(self.Npsf),int(np.sqrt(self.Npsfe)),int(self.Nback),int(np.sqrt(self.Nbacke)))
         print 'Called likelihood %d times'%cm.calls
         self.cm=cm
 
@@ -282,18 +311,18 @@ class StackLoader(object):
         cm = CompositeModel()
         cm.addModel(psf)
         cm.addModel(bck)
-        cm.fit(self.photons,free=[True,True],exp=[self.Npsf,self.Nback],mode=1)
+        cm.fit(self.photons,free=[True,True],exp=[self.Npsf,self.Nback],mode=1,quiet=self.quiet)
         fl = cm.minuit.fval
         self.Npsf = cm.minuit.params[0]
         self.Nback = cm.minuit.params[1]
         self.errs = cm.minuit.errors()
-        self.Npsfe = N.sqrt(self.errs[0][0])
-        self.Nbacke = N.sqrt(self.errs[1][1])
+        self.Npsfe = np.sqrt(self.errs[0][0])
+        self.Nbacke = np.sqrt(self.errs[1][1])
 
         self.sigma = cm.minuit.params[2]
-        self.sigmae = N.sqrt(self.errs[2][2])
+        self.sigmae = np.sqrt(self.errs[2][2])
         self.gamma = cm.minuit.params[3]
-        self.gammae = N.sqrt(self.errs[3][3])
+        self.gammae = np.sqrt(self.errs[3][3])
         self.cov = self.errs[2][3]
 
         self.il=cm.extlikelihood([self.Npsf,self.Nback,sigma,gamma],self.photons)
@@ -312,9 +341,9 @@ class StackLoader(object):
         phs = (self.Npsf+self.Nback)
         tr = sum([self.errs[i][i] for i in range(len(self.errs))])
         f1 = self.Npsf/phs
-        f1e = f1*N.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
+        f1e = f1*np.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
         f2 = self.Nback/phs
-        f2e = f2*N.sqrt(self.errs[1][1]/(self.Nback**2)+tr/(phs**2))
+        f2e = f2*np.sqrt(self.errs[1][1]/(self.Nback**2)+tr/(phs**2))
         print '**********************************************************'
         print 'Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
         print 'Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100)
@@ -342,30 +371,30 @@ class StackLoader(object):
         cm.addModel(psf)
         cm.addModel(halo)
         cm.addModel(bck)
-        cm.fit(self.photons,free=[True,True,True],exp=[self.Npsf/2.,self.Npsf/2.,self.Nback],mode=1)
+        cm.fit(self.photons,free=[True,True,True],exp=[self.Npsf/2.,self.Npsf/2.,self.Nback],mode=1,quiet=self.quiet)
         self.errs = cm.minuit.errors()
         self.Npsf = cm.minuit.params[0]
-        self.Npsfe = N.sqrt(self.errs[0][0])
+        self.Npsfe = np.sqrt(self.errs[0][0])
         self.Nhalo = cm.minuit.params[1]
-        self.Nhaloe = N.sqrt(self.errs[1][1])
+        self.Nhaloe = np.sqrt(self.errs[1][1])
         self.Nback = cm.minuit.params[2]
-        self.Nbacke = N.sqrt(self.errs[2][2])
+        self.Nbacke = np.sqrt(self.errs[2][2])
         self.theta = cm.minuit.params[5]
         self.frac = self.Nhalo*100./(self.Nhalo+self.Npsf)
-        ferr = self.frac*N.sqrt(self.Nhaloe/(self.Nhalo**2)+self.Npsfe/(self.Npsf**2))
+        ferr = self.frac*np.sqrt(self.Nhaloe/(self.Nhalo**2)+self.Npsfe/(self.Npsf**2))
         phs = (self.Npsf+self.Nback+self.Nhalo)
         tr = sum([self.errs[i][i] for i in range(len(self.errs))])
         f1 = self.Npsf/phs
-        f1e = f1*N.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
+        f1e = f1*np.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
         f2 = self.Nhalo/phs
-        f2e = f2*N.sqrt(self.errs[1][1]/(self.Nhalo**2)+tr/(phs**2))
+        f2e = f2*np.sqrt(self.errs[1][1]/(self.Nhalo**2)+tr/(phs**2))
         f3 = self.Nback/phs
-        f3e = f3*N.sqrt(self.errs[2][2]/(self.Nback**2)+tr/(phs**2))
+        f3e = f3*np.sqrt(self.errs[2][2]/(self.Nback**2)+tr/(phs**2))
         print '**********************************************************'
         print 'Npsf  = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
         print 'Nhalo = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Nhalo,self.Nhaloe/self.Nhalo,f2*100,f2e*100)
         print 'Nback = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f3*100,f3e*100)
-        print 'Halo width was %1.3f [1 +/- %1.2f] deg'%(self.theta*rd,N.sqrt(self.errs[5][5])/self.theta)
+        print 'Halo width was %1.3f [1 +/- %1.2f] deg'%(self.theta*rd,np.sqrt(self.errs[5][5])/self.theta)
         print 'Halo fraction was %1.0f [1 +/- %1.2f]'%(self.frac,ferr/self.frac)
         self.cm=cm
 
@@ -385,24 +414,24 @@ class StackLoader(object):
         cm.addModel(psf)
         cm.addModel(psf)
         cm.addModel(bck)
-        cm.fit(self.photons,free=[True,True,True],exp=[self.Npsf/2.,self.Npsf/2.,self.Nback],mode=1)
+        cm.fit(self.photons,free=[True,True,True],exp=[self.Npsf/2.,self.Npsf/2.,self.Nback],mode=1,quiet=self.quiet)
         fl = cm.minuit.fval
         self.Npsf = cm.minuit.params[0]
         self.Npsf2 = cm.minuit.params[1]
         self.Nback = cm.minuit.params[2]
         self.errs = cm.minuit.errors()
-        self.Npsfe = N.sqrt(self.errs[0][0])
-        self.Npsf2e = N.sqrt(self.errs[1][1])
-        self.Nbacke = N.sqrt(self.errs[2][2])
+        self.Npsfe = np.sqrt(self.errs[0][0])
+        self.Npsf2e = np.sqrt(self.errs[1][1])
+        self.Nbacke = np.sqrt(self.errs[2][2])
 
         self.sigma = cm.minuit.params[3]
-        self.sigmae = N.sqrt(self.errs[3][3])
+        self.sigmae = np.sqrt(self.errs[3][3])
         self.gamma = cm.minuit.params[4]
-        self.gammae = N.sqrt(self.errs[4][4])
+        self.gammae = np.sqrt(self.errs[4][4])
         self.sigma2 = cm.minuit.params[5]
-        self.sigmae2 = N.sqrt(self.errs[5][5])
+        self.sigmae2 = np.sqrt(self.errs[5][5])
         self.gamma2 = cm.minuit.params[6]
-        self.gammae2 = N.sqrt(self.errs[6][6])
+        self.gammae2 = np.sqrt(self.errs[6][6])
 
         self.il=cm.extlikelihood([self.Npsf,self.Npsf2,self.Nback,sigma,gamma,sigma,gamma],self.photons)
 
@@ -427,11 +456,11 @@ class StackLoader(object):
         phs = (self.Npsf+self.Nback+self.Npsf2)
         tr = sum([self.errs[i][i] for i in range(len(self.errs))])
         f1 = self.Npsf/phs
-        f1e = f1*N.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
+        f1e = f1*np.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
         f2 = self.Npsf2/phs
-        f2e = f2*N.sqrt(self.errs[1][1]/(self.Npsf2**2)+tr/(phs**2))
+        f2e = f2*np.sqrt(self.errs[1][1]/(self.Npsf2**2)+tr/(phs**2))
         f3 = self.Nback/phs
-        f3e = f3*N.sqrt(self.errs[2][2]/(self.Nback**2)+tr/(phs**2))
+        f3e = f3*np.sqrt(self.errs[2][2]/(self.Nback**2)+tr/(phs**2))
         print '***************************************'
         print 'Npsf   = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
         print 'Npsf2  = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Npsf2,self.Npsf2e/self.Npsf2,f2*100,f2e*100)
@@ -452,30 +481,37 @@ class StackLoader(object):
 
         #plotting setup
         bins = 25.                       #angular bins
-        mi = N.log10((min(self.ds))**2)
-        ma = N.log10((max(self.ds))**2)
+        mi = np.log10((min(self.ds))**2)
+        ma = np.log10((max(self.ds))**2)
         d2 = ma-mi
-        be = N.arange(mi,ma,d2/bins)
-        be2 = N.append(be,be[len(be)-1]+d2/bins)
-        be3 = N.sqrt(10**(be2))
-        be4 = 10**(be+d2/bins/2)*rd*rd
-        p.ioff()
+        be = np.arange(mi,ma,d2/bins)
+        be2 = np.append(be,be[len(be)-1]+d2/bins)
+        be3 = np.sqrt(10**(be2))
+        be4 = np.sqrt(10**(be+d2/bins/2))*rd
+        py.ioff()
         if fig ==-1:
-            p.figure(figsize=(8,8))
+            py.figure(figsize=(8,8))
         else:
-            p.clf()
-        hist = p.hist(N.log10(self.ds*self.ds),bins=be2,fc='None')
-        p.clf()
+            py.clf()
+        hist = py.hist(np.log10(self.ds*self.ds),bins=be2,fc='None')
+        py.clf()
         fits=[]
         hists=[]
         errs=[]
         names=[]                      #names of the various plots
+        ctn=[]
         names.append('data')
         
+
         #retrieve all model names
         for model in range(len(self.cm.models)):
             fits.append([])
             names.append(self.cm.models[model].name)
+            if self.cm.models[model].name=='psf':
+                names.append('psf r68')
+                names.append('psf r95')
+                ctn.append(self.cm.models[model].rcl(0.68)*rd)
+                ctn.append(self.cm.models[model].rcl(0.95)*rd)
         fits.append([])
         names.append('total')
 
@@ -487,29 +523,47 @@ class StackLoader(object):
                 fits[it2].append(self.cm.nest[it2]*model.integral(left,right)/model.integral(0,self.rad/rd)/(right**2-left**2)/(rd**2))
             fits[len(fits)-1].append(self.cm.integral(left,right,0,self.rad/rd)/(right**2-left**2)/(rd**2))
             hists.append(hist[0][it]/(right**2-left**2)/(rd**2))
-            errs.append(N.sqrt(hist[0][it])/(right**2-left**2)/(rd**2))
+            errs.append(min(np.sqrt(hist[0][it])/(right**2-left**2)/(rd**2),(hist[0][it]/(right**2-left**2)/(rd**2))*(1.-1.e-15)))
+
         pts=[]
 
+        pmin,pmax=0.01*min(fits[len(fits)-1]),100*max(fits[len(fits)-1])
+
         #plot histogrammed events
-        p1 = p.errorbar(be4,hists,yerr=errs,ls='None',marker='o')
+        p1 = py.errorbar(be4,hists,yerr=errs,ls='None',marker='o')
         pts.append(p1[0])
 
+        pcts=0
+
         #plot all models
-        for ad in fits:
-            p1 = p.plot(be4,ad,'-')
+        for model in range(len(self.cm.models)):
+            p1 = py.plot(be4,fits[model],'-')
             pts.append(p1)
+            if self.cm.models[model].name=='psf':
+                p1 = py.plot([ctn[2*pcts],ctn[2*pcts]],[pmin,pmax],'--')
+                pts.append(p1)
+                p1 = py.plot([ctn[2*pcts+1],ctn[2*pcts+1]],[pmin,pmax],'--')
+                pts.append(p1)
+                pcts=pcts+1
+        p1 = py.plot(be4,fits[len(fits)-1],'-')
+        pts.append(p1)
+
 
         #finish up plotting
-        p.legend(pts,names)
-        ax = p.gca()
-        ax.set_yscale("log", nonposy='clip')
-        p.semilogx()
-        p.ylim(0.01*min(fits[len(fits)-1]),100*max(fits[len(fits)-1]))
-        p.xlim(0.8*min(be4),max(be4)*1.2)
-        p.xlabel(r'$\theta^2\/(\rm{deg^2})$')
-        p.ylabel(r'$dN/d\theta^2$')
-        p.grid()
-        p.savefig(name)
+        py.legend(pts,names)
+	py.loglog()
+        py.ylim(pmin,pmax)
+        py.xlim(0.8*min(be4),max(be4)*1.2)
+        py.xlabel(r'$\theta\/(\rm{deg})$')
+        py.ylabel(r'$dN/d\theta^2$')
+        py.grid()
+        #p.semilogx()
+        #ax = py.gca()
+        #ax.set_yscale("log", nonposy='clip')
+        #ax.set_xscale("log", nonposx='clip')
+
+        #p.semilogy()
+        py.savefig(name)
         
 
 
@@ -542,7 +596,7 @@ class StackLoader(object):
             tc = len(table)
             if len(table)>0:
                 #make instrument theta cuts
-                msk = (table.field('THETA')<(N.arccos(self.ctmin)*rd)) & (table.field('THETA')>(N.arccos(self.ctmax)*rd))
+                msk = (table.field('THETA')<(np.arccos(self.ctmin)*rd)) & (table.field('THETA')>(np.arccos(self.ctmax)*rd))
                 table = table[msk]
                 tc = tc - len(table)
                 cuts[2] = tc
@@ -572,8 +626,9 @@ class StackLoader(object):
                             cuts[5] = tc
         tc = len(table)
         #display number of photons cut from each step and finally the number of photons examined
-        print 'TOTAL: %d    TIMEC: %d    ENERGY: %d    THETA: %d    ZENITH: %d    ECLASS: %d    POS: %d    EXAM: %d'%(total,cuts[0],cuts[1],cuts[2],cuts[3],cuts[4],cuts[5],tc)
-        return table
+        if not self.quiet:
+            print 'TOTAL: %d    TIMEC: %d    ENERGY: %d    THETA: %d    ZENITH: %d    ECLASS: %d    POS: %d    EXAM: %d'%(total,cuts[0],cuts[1],cuts[2],cuts[3],cuts[4],cuts[5],tc)
+        return table,np.array([total,cuts[0],cuts[1],cuts[2],cuts[3],cuts[4],cuts[5],tc])
     
 
     ## direction mask - masks area around sources to speed execution
@@ -593,13 +648,13 @@ class StackLoader(object):
                 mask = tb.field('DEC')>ldec
         else:
             if dec<0:
-                cdec = N.cos((dec-deg)/rd)
+                cdec = np.cos((dec-deg)/rd)
                 ramin = ra-deg/cdec
                 ramax = ra+deg/cdec
                 decmin = dec-deg
                 decmax = dec+deg
             else:
-                cdec = N.cos((dec+deg)/rd)
+                cdec = np.cos((dec+deg)/rd)
                 ramin = ra-deg/cdec
                 ramax = ra+deg/cdec
                 decmin = dec-deg
@@ -631,10 +686,7 @@ class StackLoader(object):
         for photon in self.photons:
             u = photon.diff(self.rot)
             self.ds.append(u)
-        self.ds = N.array(self.ds)
-
-        self.hist = N.histogram(N.log(self.ds),bins=200,new=True)
-        self.hist = [self.hist[0],self.hist[1],(self.hist[1][1]-self.hist[1][0])/2.]
+        self.ds = np.array(self.ds)
 
 
 ################################################### END ALIGNMENT CLASS ###########################################
@@ -647,8 +699,8 @@ class StackLoader(object):
 ##   if everything is ok, should return 0
 def test():
     plr = os.environ['POINTLIKEROOT']
-    fdir = plr+'/python/uw/utilities/boresighttest/'
-    al = StackLoader(lis='cgv',files=['test'],datadr=fdir,ft2dr=fdir,srcdr=fdir)
+    fdir = plr+'/python/uw/stacklike/boresighttest/'
+    al = StackLoader(lis='cgv',files=['test'],datadr=fdir,ft2dr=fdir,srcdr=fdir,quiet=False)
     al.loadphotons(1,1000,2e6,0,999999999,-1)
     al.solverot()
     al.makeplot('aligntest.png')
@@ -672,7 +724,7 @@ def test():
 ##   if everything is ok, should return 0
 def test2():
     plr = os.environ['POINTLIKEROOT']
-    fdir = plr+'/python/uw/utilities/boresighttest/'
+    fdir = plr+'/python/uw/stacklike/boresighttest/'
     os.system('cd %s'%fdir)
     al = StackLoader(lis='cgv',files=['test'],datadr=fdir,ft2dr=fdir,srcdr=fdir)
     al.loadphotons(10,1000,1770,0,999999999,0)

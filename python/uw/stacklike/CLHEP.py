@@ -1,10 +1,10 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/CLHEP.py,v 1.0 2010/07/29 13:53:17 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/CLHEP.py,v 1.1 2010/07/29 21:40:59 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
 import skymaps as s
-import numpy as N
+import numpy as np
 
 ############################################ START HEPROTATION CLASS ##########################################################
 
@@ -20,17 +20,17 @@ class HepRotation(object):
             self.matrix = c[0]
         if len(c)==3 and axes:
             vecx,vecy,vecz=c[0],c[1],c[2]
-            self.matrix = N.matrix([[vecx.x(),vecy.x(),vecz.x()],[vecx.y(),vecy.y(),vecz.y()],[vecx.z(),vecy.z(),vecz.z()]])
+            self.matrix = np.matrix([[vecx.x(),vecy.x(),vecz.x()],[vecx.y(),vecy.y(),vecz.y()],[vecx.z(),vecy.z(),vecz.z()]])
         if len(c)==3 and not axes:
             x,y,z=c[0],c[1],c[2]
             #non-Euler
-            self.matrix = N.matrix([[1,0,0],[0,N.cos(x),N.sin(x)],[0,-N.sin(x),N.cos(x)]])
-            self.matrix = self.matrix * N.matrix([[N.cos(y),0,-N.sin(y)],[0,1,0],[N.sin(y),0,N.cos(y)]])
-            self.matrix = self.matrix * N.matrix([[N.cos(z),N.sin(z),0],[-N.sin(z),N.cos(z),0],[0,0,1]])
+            self.matrix = np.matrix([[1,0,0],[0,np.cos(x),np.sin(x)],[0,-np.sin(x),np.cos(x)]])
+            self.matrix = self.matrix * np.matrix([[np.cos(y),0,-np.sin(y)],[0,1,0],[np.sin(y),0,np.cos(y)]])
+            self.matrix = self.matrix * np.matrix([[np.cos(z),np.sin(z),0],[-np.sin(z),np.cos(z),0],[0,0,1]])
             #Euler
-            """self.matrix = N.matrix([[N.cos(x),N.sin(x),0],[-N.sin(x),N.cos(x),0],[0,0,1]])
-            self.matrix = self.matrix * N.matrix([[1,0,0],[0,N.cos(y),N.sin(y)],[0,-N.sin(y),N.cos(y)]])
-            self.matrix = self.matrix * N.matrix([[N.cos(z),N.sin(z),0],[-N.sin(z),N.cos(z),0],[0,0,1]])"""
+            """self.matrix = np.matrix([[np.cos(x),np.sin(x),0],[-np.sin(x),np.cos(x),0],[0,0,1]])
+            self.matrix = self.matrix * np.matrix([[1,0,0],[0,np.cos(y),np.sin(y)],[0,-np.sin(y),np.cos(y)]])
+            self.matrix = self.matrix * np.matrix([[np.cos(z),np.sin(z),0],[-np.sin(z),np.cos(z),0],[0,0,1]])"""
 
     ## displays matrix
     def echo(self):
@@ -47,7 +47,7 @@ class HepRotation(object):
 
     ## make inverse
     def inverse(self):
-        return HepRotation([N.linalg.inv(self.matrix)])
+        return HepRotation([np.linalg.inv(self.matrix)])
 
 ################################################## END HEPROTATION CLASS ################################################
 
@@ -65,32 +65,32 @@ class Hep3Vector(object):
             self.vec = c[0]
         if len(c)==2:
             phi,theta = c[0],c[1]
-            self.vec = N.matrix([[N.cos(phi)*N.cos(theta)],[N.sin(phi)*N.cos(theta)],[N.sin(theta)]])
+            self.vec = np.matrix([[np.cos(phi)*np.cos(theta)],[np.sin(phi)*np.cos(theta)],[np.sin(theta)]])
         if len(c)==3:
             x,y,z=c[0],c[1],c[2]
-            self.vec = N.matrix([[x],[y],[z]])/N.sqrt(x*x+y*y+z*z)
+            self.vec = np.matrix([[x],[y],[z]])/np.sqrt(x*x+y*y+z*z)
         self.matrix =self.vec
 
     ## convert from a skydir
     #  @param sd skymaps SkyDir object
     def __call__(self,sd):
-        phi,theta = sd.ra()*N.pi/180,sd.dec()*N.pi/180
-        self.vec = N.matrix([[N.cos(phi)*N.cos(theta)],[N.sin(phi)*N.cos(theta)],[N.sin(theta)]])
+        phi,theta = sd.ra()*np.pi/180,sd.dec()*np.pi/180
+        self.vec = np.matrix([[np.cos(phi)*np.cos(theta)],[np.sin(phi)*np.cos(theta)],[np.sin(theta)]])
 
     def phi(self):
         x,y=self.x(),self.y()
         if x>0 and y>0:
-            return N.arctan(y/x)
+            return np.arctan(y/x)
         if x<0 and y>0:
-            return N.pi-N.arctan(y/x)
+            return np.pi-np.arctan(y/x)
         if x<0 and y<0:
-            return N.pi+N.arctan(y/x)
+            return np.pi+np.arctan(y/x)
         if x>0 and y<0:
-            return 2*N.pi-N.arctan(y/x)
+            return 2*np.pi-np.arctan(y/x)
         if x==0 and y>0:
-            return N.pi/2
+            return np.pi/2
         if x==0 and y<0:
-            return 3.*N.pi/2
+            return 3.*np.pi/2
         if y==0:
             return 0
 
@@ -98,13 +98,13 @@ class Hep3Vector(object):
         return s.SkyDir(self.ra(),self.dec())
     
     def ra(self):
-        return self.phi()*180/N.pi
+        return self.phi()*180/np.pi
     
     def dec(self):
-        return self.theta()*180/N.pi
+        return self.theta()*180/np.pi
     
     def theta(self):
-        return N.arcsin(self.z())
+        return np.arcsin(self.z())
 
     def x(self):
         return self.vec[0][0].item()
@@ -116,7 +116,7 @@ class Hep3Vector(object):
         return self.vec[2][0].item()
 
     def cross(self,other):
-        return Hep3Vector([N.matrix([[self.y()*other.z()-self.z()*other.y()],[self.z()*other.x()-self.x()*other.z()],[self.x()*other.y()-self.y()*other.x()]])])
+        return Hep3Vector([np.matrix([[self.y()*other.z()-self.z()*other.y()],[self.z()*other.x()-self.x()*other.z()],[self.x()*other.y()-self.y()*other.x()]])])
 
     def dot(self,other):
         return self.x()*other.x()+self.y()*other.y()+self.z()*other.z()
@@ -135,7 +135,7 @@ class Hep3Vector(object):
 class Photon(object):
 
     def __init__(self,ra,dec,en,time,ec,hepx,hepz,srcdir):
-        self.vec=Hep3Vector([ra*N.pi/180,dec*N.pi/180])
+        self.vec=Hep3Vector([ra*np.pi/180,dec*np.pi/180])
         self.energy=en
         self.time=time
         self.event_class=ec
@@ -146,7 +146,7 @@ class Photon(object):
         self.srcdir=srcdir
         h1=Hep3Vector([0,0])
         h1(self.srcdir)
-        self.sdiff = N.arccos(h1.dot(self.vec))
+        self.sdiff = np.arccos(h1.dot(self.vec))
 
     ## return rotated vector
     #  @param rot CLHEP HepRotation matrix
@@ -158,7 +158,7 @@ class Photon(object):
     def diff(self,rot):
         h1=Hep3Vector([0,0])
         h1(self.srcdir)
-        return N.arccos(h1.dot(self.rotate(rot)))
+        return np.arccos(h1.dot(self.rotate(rot)))
     
     ## return angular separation from source
     def srcdiff(self):
