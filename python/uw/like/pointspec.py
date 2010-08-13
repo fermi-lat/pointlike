@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.19 2010/08/01 00:06:46 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.20 2010/08/02 20:46:53 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.19 $'.split()[1]
+version='$Revision: 1.20 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -19,7 +19,7 @@ from roi_managers import ROIPointSourceManager,ROIBackgroundManager,ROIDiffuseMa
 from roi_analysis import ROIAnalysis
 from roi_diffuse import ROIDiffuseModel_OTF
 from roi_extended import ExtendedSource,ROIExtendedModel
-from uw.utilities.fitstools import merge_bpd,sum_ltcubes
+from uw.utilities.fitstools import merge_bpd,merge_lt
 from uw.utilities.fermitime import MET,utc_to_met
 from uw.utilities.utils import get_data
 import numpy as N
@@ -48,12 +48,6 @@ class DataSpecification(object):
           exist, the binned data will be written to the file
           N.B. -- this file should be re-generated if, e.g., the
           energy binning used in the later spectral analysis changes.
-      weighted_ltcube : string, optional
-          points to a livetime cube with integrals weighted by livetime
-          fraction; if not given, but needed, the weighted livetime will
-          be generated on-the-fly.  If a file is provided but does
-          not exist, the livetime cube will be generated and written
-          to the specified file.
     """
 
 
@@ -63,7 +57,6 @@ class DataSpecification(object):
         self.ft2files = None
         self.ltcube   = None
         self.binfile  = None
-        self.weighted_ltcube = None
 
     def __init__(self,**kwargs):
         self.init()
@@ -85,13 +78,12 @@ class SavedData(DataSpecification):
     """Specify saved daily data files to use for analysis.
 
     Current implementation assumes that the specified directory has subfolders named 'daily','weekly', and 'monthly',
-    each with subfolders 'bpd','lt', and 'lt_weighted', containing BinnedPhotonData, LivetimeCube, and weighted LivetimeCube
-    files, respectively.  It looks for filenames of the format 'timescale_yyyymmdd_type.fits', where timescale is one of 'day',
-    'week', or 'month', and type is one of '#bpd', 'lt', or 'lt_weighted' (the # in the bpd filename is the number of bins per 
-    decade).  The yyyymmdd is the date of the first day the file covers (UTC); in the monthly case, the dd is dropped. So, for 
-    example, the BinnedPhotonData for Nov 6, 2009, with 4 bins/decade, is daily/bpd/day_20091106_4bpd.fits, the weighted 
-    livetime cube for the week beginning May 10, 2010 is weekly/lt_weighted/week_20100510_lt_weighted.fits, and the unweighted 
-    livetime for the month of December 2008 is monthly/lt/month_200812_lt.fits.
+    each with subfolders 'bpd' and 'lt', containing BinnedPhotonData and LivetimeCube files, respectively.  It looks for filenames
+    of the format 'timescale_yyyymmdd_type.fits', where timescale is one of 'day', 'week', or 'month', and type is one of '#bpd' or
+    'lt' (the # in the bpd filename is the number of bins per decade).  The yyyymmdd is the date of the first day the file covers
+    (UTC); in the monthly case, the dd is dropped. So, for example, the BinnedPhotonData for Nov 6, 2009, with 4 bins/decade, 
+    is daily/bpd/day_20091106_4bpd.fits, the BinnedPhotonData for the week beginning May 10, 2010, with 8 bins/decade,  is
+    weekly/bpd/week_20100510_8bpd.fits, and the livetime for the month of December 2008 is monthly/lt/month_200812_lt.fits.
 
     **Parameters**
 
@@ -103,35 +95,41 @@ class SavedData(DataSpecification):
         path to the saved data products
     use_weighted_livetime: boolean[False]
         Specify whether to get the weighted livetimes.
-    binsperdec: int[4] Bins/decade for the BinnedPhotonData files. Currently, we only have 4bpd files saved, but this should provide flexibility
-	if we save additional binnings in the future.
+    binsperdec: int[4] Bins/decade for the BinnedPhotonData files.
     ltcube: string, optional
         File under which to save the sum of the livetime cubes for the specified time range. If not specified, the file will still
-        be saved, under a name derived from the time range. 
-    weighted_ltcube: string, optional 
-        File under which to save the sum of the weighted livetime cubes for the specified time range. If not specified, the file will still
-        be saved, under a name derived from the time range. 
+        be saved, under a name derived from the time range.
     binfile: string, optional
         File under which to save the sum of the BinnedPhotonDatas for the specified time range. If not specified, the file will still
-        be saved, under a name derived from the time range. 
-    
+        be saved, under a name derived from the time range.
+
     """
-    
+
     def __init__(self,tstart,tstop,**kwargs):
         self.init()
-	self.tstart = tstart
+        self.tstart = tstart
         self.tstop = tstop
         self.binsperdec = 4
-        self.use_weighted_livetime = False
-        self.data_dir = '/phys/groups/tev/scratch1/users/Fermi/data'
-        self.__dict__.update(kwargs)
+        self.use_weighted_livetime = True
+        try:
+            self.data_dir = os.environ['DATA_DIR']
+        except KeyError:
+            self.data_dir = ''
+        for k,v in kwargs.items():
+            try:
+                self.__setattr__(k,v)
+            except AttributeError:
+                raise AttributeError('Invalid keyword argument: %s'%k)
 
+        if self.data_dir =='' or not os.path.exists(self.data_dir):
+            raise Exception("""No valid data directory provided. Either the DATA_DIR environment
+                               variable or the data_dir keyword argument must point to a valid 
+                               directory.""")
 
-        if not (os.path.exists(str(self.binfile)) and os.path.exists(str(self.ltcube)) and 
-               (os.path.exists(str(self.weighted_ltcube)) or not self.use_weighted_livetime)):
+        if not (os.path.exists(str(self.binfile)) and os.path.exists(str(self.ltcube))):
             tstart = self.tstart if self.tstart else utc_to_met(2008,8,4)
             tstop = self.tstop if self.tstop else utc_to_met(*date.today().timetuple()[:6])
-            bpds,lts,weighted_lts = get_data(tstart,tstop,data_dir=self.data_dir)
+            bpds,lts = get_data(tstart,tstop,data_dir=self.data_dir)
             start_date = MET(tstart).time
             stop_date = MET(tstop).time
             start_date = start_date.year*10000+start_date.month*100+start_date.day
@@ -140,12 +138,8 @@ class SavedData(DataSpecification):
                 self.binfile = '%i-%i_%ibpd.fits'%(start_date,stop_date,self.binsperdec)
             if not self.ltcube:
                 self.ltcube = '%i-%i_lt.fits'%(start_date,stop_date)
-            if self.use_weighted_livetime and not self.weighted_ltcube:
-                self.weighted_ltcube = '%i-%i_lt_weighted.fits'%(start_date,stop_date)
             merge_bpd(bpds,self.binfile)
-            sum_ltcubes(lts,self.ltcube)
-            if self.use_weighted_livetime:
-                sum_ltcubes(weighted_lts,self.weighted_ltcube)
+            merge_lt(lts,self.ltcube,weighted = self.use_weighted_livetime)
 
 ########################################
 ########### DEPRECATED #################
@@ -177,11 +171,6 @@ class AnalysisEnvironment(object):
           be generated on-the-fly.  If a file is provided but does
           not exist, the livetime cube will be generated and written
           to the specified file.
-      weighted_ltcube : string, optional
-          points to a livetime-fraction-weighted livetime_cube; if not
-          given, livetime will be generated on the fly if needed.  If 
-          a filename is provided and does not exist, the livetime cube
-          will be generated and written to the specified file, if needed.
       binfile : string, optional
           points to a binned representation of the data; will be
           generated if not provided; if file specified but does not
@@ -209,7 +198,6 @@ class AnalysisEnvironment(object):
       self.ft1files = None
       self.ft2files = None
       self.ltcube   = None
-      self.weighted_ltcube = None
       self.binfile  = None
 
    def __init__(self,**kwargs):
@@ -238,56 +226,7 @@ class AnalysisEnvironment(object):
 
 
 class SpectralAnalysis(object):
-    """
-    Interface to the spectral analysis code.
-Create a new spectral analysis object.
-
-    analysis_environment: an instance of AnalysisEnvironment correctly configured with
-                          the location of files needed for spectral analysis (see its
-                          docstring for more information.)
-
-Optional keyword arguments:
-
-  ===========    =======================================================
-  parameter      comments
-  ===========    =======================================================
-  **binning and livetime calculation**
-  ----------------------------------------------------------------------
-  roi_dir        [ None] aperture center; if None, assume all-sky analysis
-  exp_radius     [ 20]  radius (deg) to use if calculate exposure or a ROI. (180 for full sky)
-  zenithcut      [ 105]  Maximum spacecraft pointing angle with respect to zenith to allow
-  thetacut       [ 66.4] Cut on photon incidence angle
-  event_class    [ 3]  select class level (3 - diffuse; 2 - source; 1 - transient; 0 - Monte Carlo)
-  conv_type      [ -1] select conversion type (0 - front; 1 - back; -1 = front + back)
-  tstart         [0] Default no cut on time; otherwise, cut on MET > tstart
-  tstop          [0] Default no cut on time; otherwise, cut on MET < tstop
-  binsperdec     [4] energy binning granularity when binning FT1
-  emin           [100] Minimum energy
-  emax           [3e5] Maximum energy
-  **Monte carlo selection**
-  ----------------------------------------------------------------------
-  mc_src_id      [ -1] set to select on MC_SRC_ID column in FT1
-  mc_energy      [False] set True to use MC_ENERGY instead of ENERGY
-  **Instrument response**
-  ----------------------------------------------------------------------
-  irf            ['P6_v3_diff'] Which IRF to use
-  psf_irf        [None] specify a different IRF to use for the PSF; must be in same format/location as typical IRF file!
-  **spectral analysis**
-  ----------------------------------------------------------------------
-  background     ['ems_ring'] - a choice of global model specifying a diffuse background; see ConsistentBackground for options
-  maxROI         [25] maximum ROI for analysis; note ROI aperture is energy-dependent = max(maxROI,r95(e,conversion_type))
-  minROI         [0] minimum ROI analysis
-
-                 **Note** The ROI radius is energy-dependent: minROI < r95(e,conversion_type) < maxROI
-                  That is, the radius is given by the 95% PSF containment for the band, subject
-                  to the constraint that it be >= minROI and <= maxROI
-  **Miscellaneous**
-  ----------------------------------------------------------------------
-  quiet          [False] Set True to suppress (some) output
-  verbose        [False] More output
-  ===========    =======================================================
-
-    """
+    """ Interface to the spectral analysis code."""
 
     def __init__(self, data_specification, **kwargs):
         """
@@ -319,17 +258,6 @@ Optional keyword arguments:
   emin         [100] Minimum energy
   emax         [3e5] Maximum energy
   use_weighted_livetime [False] Use the weighted livetime
-  use_daily_data [False] For the local cluster, use the pre-binned daily data.
-  daily_data_path ['/phys/groups/tev/scratch1/users/Fermi/data/daily'] 
-                  If use_daily_data, path to look for daily files.
-  ***N.B.***
-  If use_daily_data is True, tstart and tstop will be respected modulo one day: the
-  full days containing tstart and tstop will be used. Also, it is left to the user to 
-  ensure that the irf used is compatible with that used to bin the data (currently only
-  P6_v3_diff on the TeV cluster).
-
-  use_daily_data DEPRECATED in favor of using the SavedData class.
-  **********
 
   =========    KEYWORDS FOR MONTE CARLO DATA
   mc_src_id    [ -1] set to select on MC_SRC_ID column in FT1
@@ -386,18 +314,12 @@ Optional keyword arguments:
         self.quiet       = False
         self.verbose     = False
 
-        self.use_daily_data = False  #DEPRECATED
         self.daily_data_path = '/phys/groups/tev/scratch1/users/Fermi/data/daily'
 
         self.ae = self.dataspec = data_specification
 
         self.__dict__.update(self.dataspec.__dict__)
         self.__dict__.update(**kwargs)
-
-        if self.use_daily_data:
-            if not ((self.binfile and self.ltcube) and
-                    (os.path.exists(self.binfile) and os.path.exists(self.ltcube))):
-                self.setup_daily_data()
 
          #TODO -- sanity check that BinnedPhotonData agrees with analysis parameters
         self.pixeldata = PixelData(self.__dict__)
@@ -412,41 +334,9 @@ Optional keyword arguments:
         if toks[1] != 'lat':
             self.CALDB = os.path.join(self.CALDB,'data','glast','lat')
 
-
-    def setup_daily_data(self):
-        """Setup paths to use saved daily data and livetime files on our local cluster.
-        
-        Should no longer be necossary, but keeping around for now for backward compatability."""
-
-        data_dir = self.daily_data_path
-        bpds = glob(os.path.join(data_dir,'bpd','*.fits'))
-        if self.weighted_livetime:
-            lts = glob(os.path.join(data_dir,'lt_weighted','*.fits'))
-        else:
-            lts = glob(os.path.join(data_dir,'lt','*.fits'))
-        bpds.sort()
-        lts.sort()
-        start_date = MET(self.tstart).time if self.tstart else date(2008,8,4)
-        stop_date = MET(self.tstop).time if self.tstop else date.today()-timedelta(1,0,0)
-        start_date = start_date.year*10000+start_date.month*100+start_date.day
-        stop_date = stop_date.year*10000+stop_date.month*100+stop_date.day
-        start_ind = bpds.index(os.path.join(data_dir,'bpd','%i_%ibpd.fits'%(start_date,self.binsperdec)))
-        stop_ind = bpds.index(os.path.join(data_dir,'bpd','%i_%ibpd.fits'%(stop_date,self.binsperdec)))
-        bpds = bpds[start_ind:stop_ind+1]
-        lts = lts[start_ind:stop_ind+1]
-        if not self.binfile:
-            self.binfile = '%i-%i_%ibpd.fits'%(start_date,stop_date,self.binsperdec)
-        if not self.ltcube:
-            if self.weighted_livetime:
-                self.ltcube = '%i-%i_lt_weighted.fits'%(start_date,stop_date)
-            else:
-                self.ltcube = '%i-%i_lt.fits'%(start_date,stop_date)
-        merge_bpd(bpds,self.binfile)
-        sum_ltcubes(lts,self.ltcube)
-
     def set_psf_weights(self,skydir):
         """ Set the PSF to a new position.  Weights by livetime."""
-        
+
         self.psf.set_weights(self.ltcube,skydir)
 
     def roi(self, roi_dir = None,
@@ -457,7 +347,7 @@ Optional keyword arguments:
         return an ROIAnalysis object
 
         Arguments:
-            
+
         roi_dir          [None] A SkyDir giving the center of the ROI.  If the user
                          does not specify one, the system tries to infer it: if the
                          user has provided a list of point_sources, the position of
@@ -472,7 +362,7 @@ Optional keyword arguments:
                             catalog_mapper.  If this argument is not set, the
                             strings will be interpreted as Fermi-compatible catalogs.
                          ***
-                         Catalogs  are processed sequentially; 
+                         Catalogs  are processed sequentially;
                          if duplicate objects are found (as defined within
                          the PointSourceCatalog instances), then sources found in the
                          point_sources kwarg take precendence, followed by sources in the
@@ -483,7 +373,7 @@ Optional keyword arguments:
                          if he/she wants point sources in the ROI.  There isn't
                          really isn't a sensible, machine-independent default.
 
-                         
+
                          If the user provides no point sources, the user must
                          provide a center for the ROI via the roi_dir kwarg or
                          by setting the roi_dir element of this object.
@@ -503,7 +393,7 @@ Optional keyword arguments:
                          center, and returns an object implementing the
                          ROIDiffuseModel interface.  If None, the system uses
                          the default, an on-the-fly numerical convolution.
-         
+
         Optional Keyword Arguments:
             ==========   =============
             keyword      description
@@ -517,10 +407,10 @@ Optional keyword arguments:
         # process kwargs
         diffdir = None
         if 'diffdir' in kwargs.keys(): diffdir = kwargs.pop('diffdir')
-        
+
         # determine ROI center
         if roi_dir is None:
-            roi_dir = self.roi_dir if len(point_sources)==0 else point_sources[0].skydir             
+            roi_dir = self.roi_dir if len(point_sources)==0 else point_sources[0].skydir
         if roi_dir is None:
             raise Exception,'User must provide an ROI direction!  (See docstring.)'
 
@@ -553,7 +443,7 @@ Optional keyword arguments:
 
         # instantiate and return ROIAnalysis object
         psm = ROIPointSourceManager(point_sources,roi_dir,quiet=self.quiet)
-        dsm = ROIDiffuseManager(diffuse_models,roi_dir,quiet=self.quiet)           
+        dsm = ROIDiffuseManager(diffuse_models,roi_dir,quiet=self.quiet)
         return ROIAnalysis(roi_dir,psm,dsm,self,**kwargs)
 
     def roi_from_xml(self,roi_dir,xmlfile,diffuse_mapper=None,
@@ -563,7 +453,7 @@ Optional keyword arguments:
         a gtlike-style XML file.
 
         Arguments:
-            
+
         roi_dir          A SkyDir giving the center of the ROI.
 
         xmlfile          The full path to a gtlike-style XML file giving the
@@ -585,7 +475,6 @@ Optional keyword arguments:
         ps,ds = parse_sources(xmlfile,diffdir=diffdir)
         return self.roi(roi_dir=roi_dir,point_sources=ps,diffuse_sources=ds,
                         diffuse_mapper=diffuse_mapper,*args,**kwargs)
-                
 
     def roi_old(self, point_sources = None, bgmodels = None, previous_fit = None, no_roi = False, **kwargs):
         """
