@@ -1,18 +1,18 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/angularmodels.py,v 1.3 2010/08/02 20:48:10 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/angularmodels.py,v 1.4 2010/08/04 18:52:22 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
 from uw.utilities.minuit import Minuit
-from uw.utilities.CLHEP import HepRotation
-import numpy as N
+from uw.stacklike.CLHEP import HepRotation
+import numpy as np
 import scipy.integrate as si
 import scipy.special as sp
 import scipy.misc as sm
 import skymaps as s
 import time as t
 
-rd = 180./N.pi
+rd = 180./np.pi
 
 ################################################### MODEL CLASS         ###########################################
 
@@ -82,7 +82,7 @@ class PSF(Model):
         f0 = (1+um/g)**(-g+1)
         f1 = (1+ua/g)**(-g+1)
         return sig*sig*(f0-f1)
-
+    
     ## return the integral of the psf
     #  @param delmin minimum angle in radians
     #  @param delmax maximum angle in radians
@@ -94,7 +94,7 @@ class PSF(Model):
         f0 = (1+um/g)**(-g+1)
         f1 = (1+ua/g)**(-g+1)
         return sig*sig*(f0-f1)
-
+    
     ## updates King function parameters, through fitter
     #  @param pars [sigma,gamma], sigma in radians
     def update(self,pars):
@@ -114,7 +114,7 @@ class PSF(Model):
     #  @param sig sigma parameter in radians
     #  @param g gamma parameter
     def recl(self,cl,sig,g):
-        return sig*N.sqrt(2*g*((1-cl)**(1/(-g+1))-1))
+        return sig*np.sqrt(2*g*((1-cl)**(1/(-g+1))-1))
 
     ## returns the radius in radians of a particular confidence level
     #  @param cl confidence level on interval (0,1)
@@ -127,7 +127,7 @@ class PSF(Model):
         dfds = sm.derivative(lambda x: self.recl(cl,x,g),sig,dx=sig/10.)
         dfdg = sm.derivative(lambda x: self.recl(cl,sig,x),g,dx=g/10.)
         acc = dfds*dfds*errs*errs+dfdg*dfdg*errg*errg+2*dfds*dfdg*cov
-        return N.sqrt(acc)
+        return np.sqrt(acc)
 
 ################################################### END PSF CLASS       ###########################################
 
@@ -151,7 +151,7 @@ class PSFAlign(PSF):
         self.lims=lims
         self.ebar=ebar
         self.steps=[20./3600./rd,20./3600./rd,30./3600./rd]
-        self.limits=[[-N.pi,N.pi],[-N.pi,N.pi],[-N.pi,N.pi]]
+        self.limits=[[-np.pi,np.pi],[-np.pi,np.pi],[-np.pi,np.pi]]
         self.name='psf'
         self.header='Rx\tRy\tRz\t'
     
@@ -255,6 +255,7 @@ class Backg(Model):
     ## updates model parameters (none) 
     def update(self,pars):
         self.model_par=pars
+
 ################################################### END BACKG CLASS     ###########################################
 
 ################################################### HALO CLASS          ###########################################
@@ -294,7 +295,7 @@ class Halo(Model):
     #  @param diff angular difference in radians
     #  @param theta width of distribution in radians
     def psf(self,diff,theta):
-        return N.exp(-(diff)**4/(theta**4))
+        return np.exp(-(diff)**4/(theta**4))
     
     ## returns integral of halo distribution for a photon with given parameters
     #  @param photon CLHEP photon
@@ -303,7 +304,7 @@ class Halo(Model):
         theta = pars[0]
         um = self.lims[0]*self.lims[0]/(theta*theta)
         ua = self.lims[1]*self.lims[1]/(theta*theta)
-        fint = theta*theta*N.sqrt(N.pi)/4.*(sp.erf(ua)-sp.erf(um))
+        fint = theta*theta*np.sqrt(np.pi)/4.*(sp.erf(ua)-sp.erf(um))
         return fint
 
     ## returns integral of halo distribution between limits
@@ -313,7 +314,7 @@ class Halo(Model):
         theta = self.model_par[0]
         um = delmin*delmin/(theta*theta)
         ua = delmax*delmax/(theta*theta)
-        fint = theta*theta*N.sqrt(N.pi)/4.*(sp.erf(ua)-sp.erf(um))
+        fint = theta*theta*np.sqrt(np.pi)/4.*(sp.erf(ua)-sp.erf(um))
         return fint
 
     ## updates halo parameters
@@ -359,7 +360,7 @@ class CompositeModel(object):
     #  @param free frees all number estimators, assumed to be true
     #  @param exp if free is set to [..False..], exp = [..Ni..], where Ni is the estimator for the number of photons in model i
     #  @param mode minuit fit strategy: 0-quick 1-normal 2-careful
-    def fit(self,photons,free=[],exp=[],mode=1):
+    def fit(self,photons,free=[],exp=[],mode=1,quiet=True):
         n = len(photons)
         pars = []
         frees = []
@@ -377,7 +378,7 @@ class CompositeModel(object):
                 pars.append(exp[x])
                 frees.append(not free[x])
             lims.append([0,2*n])
-            steps.append(N.sqrt(n))
+            steps.append(np.sqrt(n))
         
         for md in self.models:
             header = header+md.header
@@ -388,11 +389,13 @@ class CompositeModel(object):
             lims.append(self.limits[i])
             steps.append(self.steps[i])
         header = header+'Likelihood\tsec/call'
-        print header
+        if not quiet:
+            print header
         self.clock=t.time()
-        
+
         #minimize likelihood for parameters with respect to the parameters
-        self.minuit = Minuit(lambda x: self.extlikelihood(x,photons),pars,fixed=frees,limits=lims,tolerance=1e-3,strategy=mode,printMode=-1)
+        #gradient=(lambda x:self.gradient(x,photons,quiet)),
+        self.minuit = Minuit(lambda x: self.extlikelihood(x,photons,quiet),pars,fixed=frees,limits=lims,tolerance=1e-3,strategy=mode,printMode=-1)
         self.minuit.minimize()
 
         self.nest = self.minuit.params[:len(self.models)] # first parameters are the number estimators
@@ -408,7 +411,7 @@ class CompositeModel(object):
     ## returns the extended likelihood of models and number estimators
     #  @param pars [N1...Nn,p11...,pnm] 'n' number estimators (N) with 'm' parameters (p)
     #  @param photons list of CLHEP photons to fit to
-    def extlikelihood(self,pars,photons):
+    def extlikelihood(self,pars,photons,quiet=True):
         nest = pars[:len(self.models)]
         mpars = pars[len(self.models):]
         acc = 0
@@ -429,7 +432,7 @@ class CompositeModel(object):
                 fint = model.integrate(photon,mpars[lastp:lastp+prs])
                 tacc = tacc + nest[i]*f0/fint
                 lastp=lastp+prs
-            acc = acc - N.log(tacc)
+            acc = acc - np.log(tacc)
         acc = acc + sum(nest)
         self.calls=self.calls+1
 
@@ -444,7 +447,8 @@ class CompositeModel(object):
             st = st +'%5.1f\t'%acc
             ctime = t.time()
             st = st+'%1.1f'%((ctime-self.clock)/self.calls)
-            print st
+            if not quiet:
+                print st
         return acc
 
     ## integrates the total model from delmin to delmax, normalized to omin,omax (for differentials)
