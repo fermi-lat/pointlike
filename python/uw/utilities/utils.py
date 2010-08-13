@@ -38,7 +38,7 @@ def deg_to_hms(deg):
     s = (deg-m//4)/15.
     return h,m,s
     
-def get_data(tstart,tstop,data_dir = '/phys/groups/tev/scratch1/users/Fermi/data'):
+def get_data(tstart,tstop,binsperdec = 4,data_dir = '/phys/groups/tev/scratch1/users/Fermi/data'):
     """Find saved data products for the time range tstart to tstop (MET).
     
     Directory structure and file names are assumed to be as described in the docstring
@@ -46,18 +46,16 @@ def get_data(tstart,tstop,data_dir = '/phys/groups/tev/scratch1/users/Fermi/data
     """
     start_date = MyDate(*MET(tstart).time.timetuple()[:6])
     stop_date = MyDate(*MET(tstop).time.timetuple()[:6])
-    bpds,lts,weighted_lts = [],[],[]
+    files = dict(monthly=dict(bpd=None,lt=None),weekly=dict(bpd=None,lt=None),daily=dict(bpd=None,lt=None))
     for t in ['monthly','weekly','daily']:
-        for f in ['bpd','lt','lt_weighted']:
-            exec('%s_%s=np.array(glob(os.path.join(data_dir,"%s","%s","*_*_*%s.fits")))'%(t,f,t,f,f))
-            exec('%s_%s.sort()'%(t,f))
-    month_mask,gti = accept_files(monthly_bpd,start_date,stop_date,months = True)
-    week_mask,gti = accept_files(weekly_bpd,start_date,stop_date,gti=gti)
-    day_mask,gti = accept_files(daily_bpd,start_date,stop_date,gti=gti)
-    bpds = np.append(bpds,np.append(monthly_bpd[month_mask],np.append(weekly_bpd[week_mask],daily_bpd[day_mask])))
-    lts = np.append(lts,np.append(monthly_lt[month_mask],np.append(weekly_lt[week_mask],daily_lt[day_mask])))
-    weighted_lts = np.append(weighted_lts,np.append(monthly_lt_weighted[month_mask],np.append(weekly_lt_weighted[week_mask],daily_lt_weighted[day_mask])))
-    return bpds,lts,weighted_lts
+            files[t]['bpd'] = np.asarray(sorted(glob(os.path.join(data_dir,t,'bpd','%s_*_%ibpd.fits'%(t[:-2].replace('i','y'),binsperdec)))))
+            files[t]['lt'] = np.asarray(sorted(glob(os.path.join(data_dir,t,'lt','%s_*_lt.fits'%(t[:-2].replace('i','y'))))))
+    month_mask,gti = accept_files(files['monthly']['bpd'],start_date,stop_date,months = True)
+    week_mask,gti = accept_files(files['weekly']['bpd'],start_date,stop_date,gti=gti)
+    day_mask,gti = accept_files(files['daily']['bpd'],start_date,stop_date,gti=gti)
+    bpds = np.append(files['monthly']['bpd'][month_mask],np.append(files['weekly']['bpd'][week_mask],files['daily']['bpd'][day_mask]))
+    lts = np.append(files['monthly']['lt'][month_mask],np.append(files['weekly']['lt'][week_mask],files['daily']['lt'][day_mask]))
+    return bpds,lts
 
 class MyDate(datetime):
     """Extend datetime with convenience functions for adding days,weeks, and months."""
