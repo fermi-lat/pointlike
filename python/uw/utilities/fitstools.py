@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.11 2010/04/28 20:52:10 wallacee Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.12 2010/06/10 16:10:52 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -345,6 +345,72 @@ def merge_bpd(bpd_files,outfile = None):
         new_bpd.write(outfile)
 
     return new_bpd
+
+def merge_lt(lt_files,outfile = 'merged_lt.fits',weighted = True):
+    """Merge a list of LivetimeCube files, handling the WEIGHTED_EXPOSURE extension.
+
+    kwargs:
+        outfile: File to save the merged LivetimeCube to
+        weighted: If true, merge WEIGHTED_EXPOSURE tables, in addition to
+                  EXPOSURE.
+    """
+
+    files = __FITS_parse__(lt_files)
+
+    try:
+        f = pf.open(files[0])
+        p_header = f['PRIMARY'].header
+        err = 'EXPOSURE'
+        header = f['EXPOSURE'].header
+        exposures = [f['EXPOSURE'].data.COSBINS]
+        err = 'WEIGHTED_EXPOSURE'
+        if weighted:
+            w_header = f['WEIGHTED_EXPOSURE'].header
+            w_exposures = [f['WEIGHTED_EXPOSURE'].data.COSBINS]
+    except KeyError:
+        print('file %s has no %s table: aborting'%(files[0],ext))
+        return
+    finally:
+        f.close() 
+
+    for file in files[1:]:
+        try:
+            f = pf.open(file)
+            ext = 'EXPOSURE'
+            h = f['EXPOSURE'].header
+            for key in header.keys():
+                assert(h[key]==header[key])
+            exposures+=[f['EXPOSURE'].data.COSBINS]
+
+            if weighted:
+                ext = 'WEIGHTED_EXPOSURE'
+                hw = f['WEIGHTED_EXPOSURE'].header
+                for key in w_header.keys():
+                    assert(hw[key]==w_header[key])
+                w_exposures += [f['WEIGHTED_EXPOSURE'].data.COSBINS]
+
+        except AssertionError:
+            print('Inconsistent header values, file %s, extension %s, keyword %s'%(file,ext,key))
+            return
+        except KeyError:
+            print('File %s has no table "%s": aborting'%(file,ext))
+            return
+        finally:
+            f.close()
+    primary = pf.PrimaryHDU(data=None,header = p_header)
+    hdulist = pf.HDUList([primary])
+    summed_exposure = N.array(exposures).sum(axis=0)
+    coldef = pf.ColDefs([pf.Column(name='COSBINS',format=header['TFORM1'],null=header['TNULL1'],array=summed_exposure)])
+    exp_table = pf.new_table(coldef,header=header,nrows=exposures[0].shape[0])
+    hdulist.append(exp_table)
+    if weighted:
+        summed_w_exposure = N.array(w_exposures).sum(axis=0)
+        coldef_w = pf.ColDefs([pf.Column(name='COSBINS',format=w_header['TFORM1'],null=w_header['TNULL1'],array=summed_w_exposure)])
+        w_exp_table = pf.new_table(coldef,header=w_header,nrows=w_exposures[0].shape[0])
+        hdulist.append(w_exp_table)
+    hdulist.writeto(outfile,clobber=True)
+    gti = merge_gti(files)
+    gti.writeExtension(outfile)
 
 #EVERYTHING BELOW IS AN INTERNAL CALL.
 
