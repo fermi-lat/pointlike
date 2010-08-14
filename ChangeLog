@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Fri Aug 13 18:02:24 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Add a check to make sure 'index2' belongs to BrokenPowerLaw before treating it like a photon index.  (I.e., not a PLSuperExpCutoff.)
+    *
+------------------------------------------------------------
 User: wallacee  Fri Aug 13 16:01:09 PDT 2010
 pointlike/python/uw/utilities
 
