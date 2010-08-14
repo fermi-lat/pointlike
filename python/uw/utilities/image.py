@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.23 2010/08/10 22:31:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.24 2010/08/11 19:41:22 burnett Exp $
 
 """
-version = '$Revision: 1.23 $'.split()[1]
+version = '$Revision: 1.24 $'.split()[1]
 
 import pylab
 import math
@@ -75,7 +75,6 @@ class Rescale(object):
 
         self.xticklabels = self.formatter(self.uticks)
         self.yticklabels = self.formatter(self.vticks)
-
     def formatter(self, t):
         n=0
         s = np.abs(np.array(t))+1e-9
@@ -98,6 +97,7 @@ class Rescale(object):
         if len(self.yticks)>=3:
             axes.set_yticks(self.yticks[1:-1])
             axes.set_yticklabels(self.yticklabels[1:-1])
+
         axes.yaxis.set_ticks_position('left')
         #axes.set_ylim((0.5,self.ny+0.5)) # have to do again?
 
@@ -140,8 +140,8 @@ def draw_grid(ait, labels=True, color='gray', pixelsize=0.5, textsize=8):
 class AIT_grid():
 
     def __init__(self, axes=None, labels=True, color='gray', pixelsize=0.5, textsize=8, linestyle='-'):
-	"""Draws gridlines and labels for map.
-        
+        """Draws gridlines and labels for map.
+
         """
 
         self.pixelsize = pixelsize
@@ -248,7 +248,7 @@ class AIT(object):
             center = SkyDir(0,0, SkyDir.GALACTIC if galactic else SkyDir.EQUATORIAL)
         self.skyimage = SkyImage(center, fitsfile, pixelsize, size, 1, proj, galactic, earth)
         # we want access to the projection object, to allow interactive display via pix2sph function
-        self.proj = self.skyimage.projector()
+        self.projector = self.skyimage.projector()
         self.x = self.y = 100 # initial def
         self.nx, self.ny = self.skyimage.naxis1(), self.skyimage.naxis2()
 
@@ -445,10 +445,20 @@ def galactic_map(skydir, axes=None, pos=(0.77,0.88), width=0.2,
 class ZEA(object):
     """ Manage a square image SkyImage
      """
-    
-    def __init__(self, center, size=2, pixelsize=0.1, galactic=False, fitsfile='', axes=None, nticks=5, proj='ZEA'):
+    defaults = dict(
+        size     = 2, 
+        pixelsize= 0.1, 
+        galactic = False, 
+        fitsfile = '', 
+        axes     = None, 
+        nticks   = 5, 
+        proj     = 'ZEA',
+    )
+
+    def __init__(self, center, **kwargs):
         """
         center SkyDir specifying center of image
+        **kwargs**
         size [2]  
         pixelsize [0.1] size, in degrees, of pixels
         galactic [False] galactic or equatorial coordinates
@@ -457,21 +467,22 @@ class ZEA(object):
         proj ['ZEA'] can change if desired
 
         """
-       
-        self.galactic = galactic
-        self.pixelsize = pixelsize
-        self.size = size
+        self.__dict__.update(ZEA.defaults)
+        for key,value in kwargs.items():
+            if key in self.__dict__: self.__dict__[key]=value
+            else:
+                raise KeyError, "key '%s' not recognized by ZEA" % key
+            
         self.center = center
-        self.nticks = nticks
         # set up, then create a SkyImage object to perform the projection to a grid and manage an image
-        self.skyimage = SkyImage(center, fitsfile, pixelsize, size, 1, proj, galactic, False)
+        self.skyimage = SkyImage(center, self.fitsfile, self.pixelsize, self.size, 1, self.proj, self.galactic, False)
         
         # now extract stuff for the pylab image
         self.nx, self.ny = self.skyimage.naxis1(), self.skyimage.naxis2()
 
         # we want access to the projection object, to allow interactive display via pix2sph function
-        self.proj = self.skyimage.projector()
-        self.set_axes(axes)
+        self.projector = self.skyimage.projector()
+        self.set_axes()
         self.cid = None #callback id
 
     # note the 1/2 pixel offset: WCS convention is that pixel centers are integers starting from 1.
@@ -479,13 +490,13 @@ class ZEA(object):
 
     def skydir(self, x, y):
         """ from pixel coordinates to sky """
-        return SkyDir(x+0.5, y+0.5, self.proj) 
+        return SkyDir(x+0.5, y+0.5, self.projector) 
 
     def pixel(self, sdir):
         """ return pixel coordinates for the skydir
         """
-        x,y = self.proj.sph2pix(sdir.ra(),sdir.dec()) \
-            if not self.galactic else self.proj.sph2pix(sdir.l(),sdir.b())
+        x,y = self.projector.sph2pix(sdir.ra(),sdir.dec()) \
+            if not self.galactic else self.projector.sph2pix(sdir.l(),sdir.b())
         return  (x-0.5,y-0.5)
 
     def inside(self, sdir):
@@ -501,12 +512,12 @@ class ZEA(object):
         self.vmin ,self.vmax = self.skyimage.minimum(), self.skyimage.maximum()
         return self.image
 
-    def set_axes(self, axes=None):
+    def set_axes(self):
         """ configure the axes object
-          +axes [None] if None, simply use gca()
+           if self.axes is None, simply use gca()
           (set coordinate scale offset by 0.5 from WCS standard)
         """
-        if axes is None:
+        if self.axes is None:
             figure = pyplot.gcf()
             if len(figure.get_axes())==0:
                 # no axes in the current figure: add one that has equal aspect ratio
@@ -523,6 +534,7 @@ class ZEA(object):
         self.axes.set_ylim((0.0,self.ny))
         self.axes.set_autoscale_on(False) 
         r =Rescale(self,self.nticks, galactic = self.galactic)
+
         r.apply(self.axes)
 
         labels = ['l','b'] if self.galactic else ['RA','Dec'] 
@@ -533,10 +545,14 @@ class ZEA(object):
         """
 
         if nticks is None: nticks=self.nticks
+
         r = Rescale(self, nticks, galactic = self.galactic)
         r.apply(self.axes)
         self.axes.xaxis.set_ticks_position('none')
-        self.axes.yaxis.set_ticks_position('none')
+        #
+        # bug: turns off labels
+        #self.axes.yaxis.set_ticks_position('none')
+        self.axes.yaxis.set_tick_params(which='both', right=False, left=False)
         uticks, vticks = r.uticks, r.vticks
         cs = SkyDir.GALACTIC if self.galactic else SkyDir.EQUATORIAL
         for u in uticks:
@@ -698,10 +714,10 @@ class ZEA(object):
 
 
 
-def ZEA_test(ra=90, dec=80, size=5, nticks=8, galactic=False):
+def ZEA_test(ra=90, dec=80, size=5, nticks=8, galactic=False, **kwargs):
     """ exercise (most) everything """
     pyplot.clf()
-    q = ZEA(SkyDir(ra,dec), size=size, nticks=nticks, galactic=galactic)
+    q = ZEA(SkyDir(ra,dec), size=size, nticks=nticks, galactic=galactic, **kwargs)
     q.grid(color='gray')
     q.scale_bar(1, '$1^0$')
     q.axes.set_title('test of ZEA region plot')
@@ -716,7 +732,7 @@ def ZEA_test(ra=90, dec=80, size=5, nticks=8, galactic=False):
     q.fill(PySkyFunction(myfun))
     q.imshow()
     q.colorbar()
-    pyplot.show()
+    q.axes.figure.show()
     return q
 
 class TSplot(object):
@@ -725,8 +741,15 @@ class TSplot(object):
     Uses the ZEA class for display
 
     """
-    def __init__(self, tsmap, center, size, pixelsize=None, axes=None, nticks=4, fitsfile='', 
-            galmap=True,**kwargs):
+    defaults = dict(
+        pixelsize  = None,  # passed to ZEA
+        axes       = None, # passed to ZEA
+        nticks     = 4,    # passed to ZEA
+        fitsfile   = '', 
+        galmap     = True, # determine if overlay a galactic map
+        scalebar   = True,
+            )
+    def __init__(self, tsmap, center, size,  **kwargs):
         """
         parameters:
         *tsmap*   a SkyFunction, that takes a SkyDir argument and returns a value
@@ -737,14 +760,17 @@ class TSplot(object):
         *nticks* [4] Suggestion for labeling
         *fitsfile*[''] 
         *galmap* [True] overplot a little map in galactic coordinates showing the position
+        *scalebar" [True] overplot a scalebar in lower left
         **kwargs  additional args for ZEA, like galactic
         """
-
+        self.__dict__.update(TSplot.defaults) 
+        for key in self.__dict__.keys():
+            if key in kwargs: self.__dict__[key] = kwargs.pop(key)
         self.tsmap = tsmap
         self.size=size
-        if pixelsize is None: pixelsize=size/10. 
-        self.zea= ZEA(center, size, pixelsize, axes=axes, nticks=nticks,fitsfile=fitsfile, **kwargs)
-        print 'TSplot: filling %d pixels...'% (size/pixelsize)**2
+        if self.pixelsize is None: self.pixelsize=size/10. 
+        self.zea= ZEA(center, size, self.pixelsize, axes=self.axes, nticks=self.nticks,fitsfile=self.fitsfile, **kwargs)
+        print 'TSplot: filling %d pixels...'% (size/self.pixelsize)**2
         self.zea.fill(tsmap)
         # create new image that is the significance in sigma with respect to local max
         self.tsmaxpos=tsmaxpos = find_local_maximum(tsmap, center) # get local maximum, then check that is in the image
@@ -759,7 +785,6 @@ class TSplot(object):
         self.cb=None
         # np.sqrt(-2* np.log(1-np.array([0.68,0.95, 0.99]))
         self.clevels = np.array([1.51, 2.45, 3.03])
-        self.galmap = galmap
 
          
     def show(self, colorbar=True):
@@ -795,14 +820,15 @@ class TSplot(object):
         pl.clabel(ct, fmt=cfmt, fontsize=8)
         #axes.set_xlim((0,nx)); axes.set_ylim((0,ny))
         #print 'after reset', axes.get_xlim(), axes.get_ylim()
-        if self.size< 0.03:
-            self.zea.scale_bar(1/120.,  '30"', color='w')
-        elif self.size<0.6:
-            self.zea.scale_bar(0.1, "$0.1^o$", color='w')
-        elif self.size<1.1:
-            self.zea.scale_bar(0.5, "$0.5^o$", color='w')
-        else:
-            self.zea.scale_bar(1.0, '$1^o$', color='w')
+        if self.scalebar:
+            if self.size< 0.03:
+                self.zea.scale_bar(1/120.,  '30"', color='w')
+            elif self.size<0.6:
+                self.zea.scale_bar(0.1, "$0.1^o$", color='w')
+            elif self.size<1.1:
+                self.zea.scale_bar(0.5, "$0.5^o$", color='w')
+            else:
+                self.zea.scale_bar(1.0, '$1^o$', color='w')
         self.zea.grid(color='gray')
         
         if self.galmap:
@@ -944,5 +970,6 @@ def find_local_maximum( mapfun, startpos):
     return LocalMax(mapfun, startpos).find()
     
 if __name__=='__main__':
+    ZEA_test(dec=0, nticks=6)
     pass
 
