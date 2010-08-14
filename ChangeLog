@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Fri Aug 13 19:23:58 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Initialize logl and prev_logl members and use generator exrp. in logLikelihood.
+    *
+------------------------------------------------------------
 User: kerrm  Fri Aug 13 18:02:24 PDT 2010
 pointlike/python/uw/utilities
 
