@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Aug 14 11:29:47 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	image.py 
+Log Message:
+some restructuring; matplotlib 1.0.0 bug work-around for ZEA y axis labels
+    *
+------------------------------------------------------------
 User: burnett  Sat Aug 14 11:01:31 PDT 2010
 pointlike/python/uw/like
 
