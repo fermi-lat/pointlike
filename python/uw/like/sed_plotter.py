@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.4 2010/08/08 23:44:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.5 2010/08/10 22:05:43 burnett Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -222,14 +222,15 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
         axes.set_xticklabels(['','1','10','100', ''])
     else:
         plt.xlabel(r'$\mathsf{Energy\ (MeV)}$')
-    plt.title(roi.name if which==0 else roi.psm.point_sources[which].name)
+    plt.title(roi.psm.point_sources[which].name)
     
     # a galactic map if requested
-    if galmap: image.galactic_map(roi.center, color='lightblue', marker='o', markercolor='r')
+    if galmap: image.galactic_map(roi.roi_dir, color='lightblue', marker='o', markercolor='r')
     
     if outdir is not None: 
         if os.path.isdir(outdir):
-            plt.savefig(os.path.join(outdir,'%s_sed.png'%roi.name.strip().replace(' ','_').replace('+', 'p')))
+            name = self.psm.point_sources[0].name.replace(' ','_').replace('+','p'_)
+            plt.savefig(os.path.join(outdir,'%s_sed.png'%name))
         else :
             plt.savefig(outdir)
 
