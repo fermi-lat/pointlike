@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.9 2010/08/06 18:03:59 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.10 2010/08/12 23:08:56 lande Exp $
 
    author: Matthew Kerr
 """
@@ -131,7 +131,7 @@ class XML_to_Model(object):
             pdict = d[p]
             scale = float(pdict['scale'])
             value = float(pdict['value'])
-            if (p == 'Index') or (p == 'Index1') or (p == 'Index2'):
+            if (p == 'Index') or (p == 'Index1') or (p == 'Index2' and self.modict[specname][0]=='B'):
                 # gtlike uses a neg. index internally so scale > 0
                 # means we need to take the negative of the value
                 if scale > 0: value = -value
