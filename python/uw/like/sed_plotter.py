@@ -1,13 +1,14 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.5 2010/08/10 22:05:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/sed_plotter.py,v 1.6 2010/08/14 18:01:31 burnett Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
 """
 import os,sys
 from uw.like import roi_bands
+from uw.like.roi_extended import BandFitExtended
 from uw.utilities import makerec, image
 import numpy as np
 import pylab as plt
@@ -23,13 +24,20 @@ class BandFlux(object):
             scale_factor [1.0] used to scale flux units
         """
         self.which = which
+        self.manager,self.index=roi.mapper(which)
+        self.roi   = roi
+
         roi.setup_energy_bands()
         self.bands = roi.energy_bands
         self.scale_factor = scale_factor 
         centers = np.array([(b.emin*b.emax)**0.5  for b in self.bands])
 
         for eb in self.bands:
-            eb.bandFit(which=which)
+            if self.manager == roi.psm:
+                eb.bandFit(which=self.index)
+            else:
+                BandFitExtended(self.index,eb,self.roi).fit()
+
             eb.merged = False
 
         
@@ -80,7 +88,12 @@ class BandFlux(object):
             for band in eb.bands:
                 hbands.append(band)
         ebmerged = roi_bands.ROIEnergyBand(hbands)
-        ebmerged.bandFit(which=self.which) # a new fit
+
+        if self.manager == self.roi.psm:
+            ebmerged.bandFit(which=self.index) # a new fit
+        else:
+            BandFitExtended(self.index,ebmerged,self.roi).fit()
+
         ebmerged.merged = True
         ebmerged.num = len(ebands)
         return ebmerged
@@ -97,7 +110,12 @@ class BandFlux(object):
                 for band in eb.bands:
                     hbands.append(band)
         ebmerged = roi_bands.ROIEnergyBand(hbands)
-        ebmerged.bandFit(which=self.which) # a new fit
+
+        if self.manager == self.roi.psm:
+            ebmerged.bandFit(which=self.which) # a new fit
+        else:
+            BandFitExtended(self.index,ebmerged,self.roi).fit()
+
         ebmerged.merged = True
         ebmerged.num = num
         return ebmerged
@@ -209,10 +227,14 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     #  create a BandFlux, and have it plot the band fluxes, merging adjacent limits at the ends
     bf = BandFlux(self, which=which, merge=True, scale_factor= energy_flux_factor)
     bf.plot_data(axes, **data_kwargs)
+
+    manager,index=self.mapper(which)
+    model = manager.models[index]
+    name  = manager.names[index]
     
     # and the model, perhaps with a butterfly
     dom = np.logspace(np.log10(roi.fit_emin[0]), np.log10(roi.fit_emax[0]), 101)
-    bf.plot_model(axes, roi.psm.models[which], dom, butterfly, **fit_kwargs)
+    bf.plot_model(axes, model, dom, butterfly, **fit_kwargs)
     plt.rcParams['axes.linewidth'] = oldlw
 
     # the axis labels
@@ -222,14 +244,14 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
         axes.set_xticklabels(['','1','10','100', ''])
     else:
         plt.xlabel(r'$\mathsf{Energy\ (MeV)}$')
-    plt.title(roi.psm.point_sources[which].name)
+    plt.title(name)
     
     # a galactic map if requested
     if galmap: image.galactic_map(roi.roi_dir, color='lightblue', marker='o', markercolor='r')
     
     if outdir is not None: 
         if os.path.isdir(outdir):
-            name = self.psm.point_sources[0].name.replace(' ','_').replace('+','p'_)
+            name = name.replace(' ','_').replace('+','p')
             plt.savefig(os.path.join(outdir,'%s_sed.png'%name))
         else :
             plt.savefig(outdir)

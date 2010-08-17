@@ -2,14 +2,14 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.15 2010/08/03 08:01:38 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.16 2010/08/12 23:10:47 lande Exp $
 
     author: Joshua Lande
 """
 
 from SpatialModels import RadiallySymmetricModel,Gaussian,SpatialModel,SpatialMap
 from uw.utilities.convolution import BackgroundConvolutionNorm,AnalyticConvolution
-from roi_diffuse import DiffuseSource,ROIDiffuseModel_OTF
+from roi_diffuse import DiffuseSource,ROIDiffuseModel,SmallBand
 from textwrap import dedent
 from skymaps import SkyDir,Background
 from scipy.optimize import fmin 
@@ -59,7 +59,7 @@ class ExtendedSource(DiffuseSource):
 ###=========================================================================###
 
 
-class ROIExtendedModel(ROIDiffuseModel_OTF):
+class ROIExtendedModel(ROIDiffuseModel):
     """ Implements the ROIDiffuseModel interface for the
         representation of a spatial source which can be represented as
         an analytic function inherting from the SpatialModel class."""
@@ -89,14 +89,13 @@ class ROIExtendedModel(ROIDiffuseModel_OTF):
     def init(self):
         self.pixelsize = 0.05
         self.npix      = 101
-        self.nsimps    = 16  # note -- some energies use a multiple of this
         self.r_multi   = 1.0 # multiple of r95 to set max dimension of grid
         self.r_max     = 20  # an absolute maximum (half)-size of grid (deg)
 
     def setup(self):
         """ Unlike background models, always do the convolution around 
             the spatial model's center. """
-        exp = self.sa.exposure.exposure; psf = self.sa.psf
+        self.exp = self.sa.exposure.exposure; psf = self.sa.psf
         self.active_bgc = BackgroundConvolutionNorm(self.extended_source.spatial_model.center,None,psf,
                                           npix=self.npix,pixelsize=self.pixelsize,
                                           bounds_error=False,fill_value=0)
@@ -113,13 +112,43 @@ class ROIExtendedModel(ROIDiffuseModel_OTF):
         self.active_bgc.do_convolution(energy,conversion_type,override_en=band.e,
                                        override_skyfun=self.extended_source.spatial_model.skyfun)
 
-        self.current_exposure = self.sa.exposure.exposure[conversion_type].value(self.extended_source.spatial_model.center,energy)
+        self.current_exposure = self.exp[conversion_type].value(self.extended_source.spatial_model.center,energy)
+
+    def initialize_counts(self,bands,roi_dir=None):
+        rd = self.roi_dir if roi_dir is None else roi_dir
+        self.bands = [SmallBand() for i in xrange(len(bands))]
+
+        es = self.extended_source
+        sm = es.smodel
+
+        for myband,band in zip(self.bands,bands):
+
+            # Use the 'optimal' energy (calculated by the ADJUST_MEAN flag) if it exists.
+            en=band.psf.eopt if band.psf.__dict__.has_key('eopt') else band.e
+            exp=band.exp.value
+
+            self.set_state(en,band.ct,band)
+
+            myband.er = exp(es.spatial_model.center,en)/exp(rd,en)
+
+            myband.pix_counts = self._pix_value(band.wsdl)
+            myband.pix_counts *= band.b.pixelArea()
+
+            myband.overlaps = 1
+
+    def update_counts(self,bands,model_index):
+        """Update models with free parameters."""
+        sm = self.smodel
+        mi = model_index
+
+        for myband,band in zip(self.bands,bands):
+            myband.es_counts = band.expected(sm)*myband.er
+
+            band.bg_counts[mi] = myband.overlaps*myband.es_counts
+            band.bg_pix_counts[:,mi] = myband.pix_counts * myband.es_counts
 
     def _pix_value(self,pixlist):
-        return self.current_exposure*self.active_bgc(pixlist,self.active_bgc.cvals)
-
-    def _ap_value(self,center,radius):
-        return self.current_exposure*self.active_bgc.ap_average(center,radius)
+        return self.active_bgc(pixlist,self.active_bgc.cvals)
 
     def __init__(self,spectral_analysis,extended_source,roi_dir,name=None,*args,**kwargs):
 
@@ -194,7 +223,6 @@ Optional keyword arguments:
 
         if fitpsf:
             if verbose: print 'Changing to fitpsf for localization step.'
-            self.nsimps,old_nsimps=0,self.nsimps
             self.fitpsf,old_fitpsf=True,self.fitpsf
 
         es = self.extended_source
@@ -269,10 +297,10 @@ Optional keyword arguments:
 
             # Do the convolution here.
             sm.set_parameters(p=p,absolute=False)
-            self.initialize_counts(roi.bands)
+            self.initialize_counts(roi.bands,which)
 
             if bandfits:
-                ll=-roi.bandLikelihood(self.extended_source)
+                ll=roi.bandFit(self.extended_source)
             else:
                 ll=roi.fit(estimate_errors=False)
 
@@ -345,7 +373,6 @@ Optional keyword arguments:
 
         if fitpsf:
             if verbose: print 'Setting back to original PDF accuracy.'
-            self.nsimps=old_nsimps
             self.fitpsf=old_fitpsf
             self.initialize_counts(roi.bands)
 
@@ -372,13 +399,9 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         self.fitpsf=False
         self.already_fit=False
 
-
     def setup(self):
         self.exp = self.sa.exposure.exposure; 
         psf = self.sa.psf
-
-        if self.fitpsf and self.nsimps > 0:
-            raise Exception("ROIExtendedModelAnalytic Error: fitpsf and nsimps>0 are incompatable.")
 
         self.active_bgc = AnalyticConvolution(self.extended_source.spatial_model,psf,**self.__dict__)
 
@@ -387,19 +410,13 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         self.current_exposure = self.exp[conversion_type].value(self.extended_source.spatial_model.center,energy)
         self.active_bgc.do_convolution(energy,conversion_type,band)
 
-    def _ap_value(self,center,radius):
-        return self.current_exposure*self.active_bgc.ap_average(center,radius)
-
     def _pix_value(self,pixlist):
-        return self.current_exposure*self.active_bgc(pixlist)
+        return self.active_bgc(pixlist)
 
     def initialize_counts(self,bands,roi_dir=None):
         # probably there is a cleaner way to do this, but since you should only 
         # use this feature in the process of localizing one source, it is 
         # probably good enough.
-
-        if self.fitpsf and self.nsimps != 0:
-            raise Exception("For extended source objects, fitpsf can only be set with nsimps=0.")
 
         if self.fitpsf and not self.already_fit: 
             # Note that this must be done before calculating the pdf.
@@ -538,3 +555,105 @@ class BandFitter(object):
 
         band.fit_gamma,band.fit_sigma=fit_gamma,fit_sigma
 
+
+class BandFitExtended(object):
+
+    def __init__(self,which,energy_band,roi):
+        """ extendedsource
+            which             index of source
+            energy_band       ROIEnergyBand object to fit.
+            bands             all energy bands in roi. """
+
+        self.energy_band = energy_band
+        self.bands       = self.energy_band.bands
+        self.all_bands   = roi.bands
+
+        self.which = which
+
+        self.all_mybands = roi.dsm.bgmodels[self.which].bands
+
+        # list of the mybands corresponding to energy_bands
+        self.mybands = []
+
+        # Create a lsit of myband object corresponding to the bands 
+        # in the energy_band.
+        for eb_band in self.bands:
+            for band,myband in zip(self.all_bands,self.all_mybands):
+                if eb_band == band:
+                    self.mybands.append(myband)
+                    break
+
+    def bandLikelihoodExtended(self,parameters, band, myband):
+
+        new_counts = parameters[0]
+
+        old_counts = band.bg_counts[self.which]
+
+        tot_term = (band.bg_all_counts + band.ps_all_counts + myband.overlaps*(new_counts - old_counts))*band.phase_factor
+
+        pix_term = (band.pix_counts * 
+                            N.log(
+                                band.bg_all_pix_counts + band.ps_all_pix_counts + myband.pix_counts*(new_counts - old_counts)
+                            )
+                      ).sum() if band.has_pixels else 0.
+
+        return tot_term - pix_term
+
+    def energyBandLikelihoodExtended(self,parameters,m):
+        m.set_parameters(parameters)
+        return sum(self.bandLikelihoodExtended([b.expected(m)],b,mb) for b,mb in 
+                   zip(self.bands,self.mybands))
+
+    def normUncertaintyExtended(self):
+        tot = 0
+        for b,mb in zip(self.bands,self.mybands):
+            if not b.has_pixels: continue
+            my_pix_counts = mb.pix_counts*b.expected(self.m)
+            all_pix_counts= b.bg_all_pix_counts + b.ps_all_pix_counts - mb.pix_counts*b.bg_counts[self.which] + my_pix_counts
+            tot += (b.pix_counts * (my_pix_counts/all_pix_counts)**2).sum()
+        return tot**-0.5
+
+    def fit(self,saveto=None):
+
+        bad_fit = False
+        self.m = PowerLaw(free=[True,False],e0=(self.energy_band.emin*self.energy_band.emax)**0.5) # fix index to 2
+        f = self.energyBandLikelihoodExtended
+
+        self.fit = fmin(f,self.m.get_parameters(),disp=0,full_output=1,args=(self.m,))
+
+        def upper_limit():
+
+            flux_copy = self.m.p[0]
+            zp          = self.energyBandLikelihoodExtended(N.asarray([-20]),self.m)
+
+            # NB -- the 95% upper limit is calculated by assuming the likelihood is peaked at
+            # 0 flux and finding the flux at which it has fallen by 1.35; this is a two-sided
+            # 90% limit, or a one-sided 95% limit -- that's how it works, right?
+            def f95(parameters):
+                return abs(self.energyBandLikelihoodExtended(parameters,self.m) - zp - 1.35)
+            
+            # for some reason, can't get fsolve to work here.  good ol' fmin to the rescue
+            self.energy_band.uflux = 10**fmin(f95,N.asarray([-11.75]),disp=0)[0]
+            self.energy_band.lflux = None
+            self.energy_band.flux  = None
+
+            self.m.p[0] = flux_copy
+
+        # if flux below a certain level, set an upper limit
+        if self.m.p[0] < -20:
+            bad_fit = True
+            upper_limit()
+
+        else:
+            try:
+                err = self.normUncertaintyExtended()
+            except:
+                bad_fit = True
+                err = 0 
+
+            self.energy_band.flux  = 10**self.m.p[0] 
+            self.energy_band.uflux = self.energy_band.flux*(1 + err)
+            self.energy_band.lflux = max(self.energy_band.flux*(1 - err),1e-30)
+
+        if saveto is not None:
+            for b in self.bands: b.__dict__[saveto] = (b.expected(self.m) if not bad_fit else -1)

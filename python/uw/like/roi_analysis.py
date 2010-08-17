@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.36 2010/08/12 23:10:47 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.37 2010/08/14 02:23:58 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -14,7 +14,7 @@ from uw.like import roi_bands, roi_localize , specfitter
 
 from pointspec_helpers import PointSource
 from roi_diffuse import DiffuseSource
-from roi_extended import ExtendedSource
+from roi_extended import ExtendedSource,BandFitExtended
 
 from scipy.optimize import fmin,fmin_powell,fmin_bfgs
 from scipy.stats.distributions import chi2
@@ -163,8 +163,13 @@ class ROIAnalysis(object):
         """ Perform a spectral independendent fit of the source
             specified by which and return the negative of the log
             likelihood. This is analogous to roi.fit() for a 
-            spectral independent model. """
+            spectral independent model. Note that unlike 
+            roi.logLikelihood, the positive loglikelihood is returned. """
         manager,index=self.mapper(which)
+
+        if manager == self.dsm and not \
+                isinstance(self.dsm.diffuse_sources[index],ExtendedSource):
+            raise Exception("Warning, bandFit only works for ExtendedSource diffuse sources.")
 
         self.update_counts()
 
@@ -173,17 +178,21 @@ class ROIAnalysis(object):
             for eb in self.energy_bands:
                 eb.bandFit(which=index,saveto='bandfits')
 
-            ll = sum([band.bandLikelihood([band.bandfits if
+            ll = -sum(band.bandLikelihood([band.bandfits if
                                            band.bandfits > 0 else 0],index) \
-                      for band in self.bands])
+                      for band in self.bands)
+            return ll
         else:
+            ll = 0
             for eb in self.energy_bands:
-                eb.bandFitDiffuse(which=index,saveto='bandfits')
+                bfe=BandFitExtended(index,eb,self)
+                bfe.fit(saveto='bandfits')
 
-            ll = sum([band.bandLikelihoodDiffuse([band.bandfits],index) \
-                       for band in self.bands])
+                ll -= sum(bfe.bandLikelihoodExtended([band.bandfits if band.bandfits > 0 else 0], 
+                                                     band, myband) \
+                          for band,myband in zip(bfe.bands,bfe.mybands))
+            return ll
 
-        return ll 
 
     def gradient(self,parameters,*args):
         """ Implement the gradient of the log likelihood wrt the model parameters."""
@@ -414,7 +423,7 @@ class ROIAnalysis(object):
             if not bandfits:
                 ll_1 = self.logLikelihood(self.get_parameters())
             else:
-                ll_1 = self.bandFit(which)
+                ll_1 = -self.bandFit(which)
 
             if ll_0 == 1e6 or ll_1 == 1e6: 
                  print 'Warning: loglikelihood is NaN, returning TS=0'
@@ -431,7 +440,7 @@ class ROIAnalysis(object):
         if not bandfits:
             ll = -self.logLikelihood(save_params)
         else:
-            ll = -self.bandFit(which)
+            ll = self.bandFit(which)
         if ll_0 == 1e6 or ll == 1e6: 
              print 'Warning: loglikelihood is NaN, returning TS=0'
              return 0
