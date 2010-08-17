@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.18 2010/08/11 19:42:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_bands.py,v 1.19 2010/08/11 21:20:56 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -110,23 +110,6 @@ class ROIBand(object):
         pix_term = (self.pix_counts * 
                             N.log(
                                 self.bg_all_pix_counts + self.ps_all_pix_counts + self.ps_pix_counts[:,which]*(new_counts - old_counts)
-                            )
-                      ).sum() if self.has_pixels else 0.
-
-        return tot_term - pix_term
-
-    def bandLikelihoodDiffuse(self, parameters, *args):
-
-        new_scale = parameters[0]
-        
-        which = args[0] if len(args) > 0 else 0
-        band = self
-
-        tot_term = (self.bg_all_counts + self.ps_all_counts + + band.bg_counts[which]*(10**new_scale-1) )*self.phase_factor
-
-        pix_term = (self.pix_counts * 
-                            N.log(
-                                 self.bg_all_pix_counts + self.ps_all_pix_counts + self.bg_pix_counts[:,which]*(10**new_scale-1)
                             )
                       ).sum() if self.has_pixels else 0.
 
@@ -275,26 +258,3 @@ class ROIEnergyBand(object):
         """
         ec = self.emin*self.emax * 1.602e-6
         return (ec*self.flux, ec*self.lflux, ec*self.uflux)
-
-    def bandLikelihoodDiffuse(self,parameters,*args):
-        m = args[0]
-        m.set_parameters(parameters)
-        return sum( (b.bandLikelihoodDiffuse(parameters,*args[1:]) for b in self.bands) )
-
-    def bandFitDiffuse(self,which=0,saveto=None):
-        """Fit a model-independent flux to a diffuse source.
-          return value of ts for the band
-
-          One day this function will act more like a point source.
-        """
-
-        self.m = Constant()
-        f = self.bandLikelihoodDiffuse
-
-        self.fit = fmin(f,self.m.get_parameters(),disp=0,full_output=1,args=(self.m,which))
-
-        if saveto is not None:
-            for b in self.bands: 
-                 b.__dict__[saveto] = self.m.p[0]
-
-        return self.fit[1]
