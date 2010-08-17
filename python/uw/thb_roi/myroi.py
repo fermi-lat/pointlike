@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.16 2010/07/04 19:30:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.17 2010/08/06 18:15:11 burnett Exp $
 
 """
 
@@ -9,7 +9,7 @@ import numpy as np
 import numpy as N  # for Kerr compatibility
 from scipy import optimize
 import pylab as plt
-import os, pickle, math 
+import os, pickle, math, types 
 
 from uw.like import roi_analysis, roi_localize, roi_plotting,  Models, sed_plotter
 from uw.utilities import makerec, fermitime, image
@@ -17,34 +17,34 @@ from skymaps import SkyDir,  PySkyFunction
 
 
 def spectralString(band,which=None):
-  """Return a string suitable for printSpectrum.
+    """Return a string suitable for printSpectrum.
 
-     which -- if not None, an array of indices for point sources to fit
-  """
-  self=band
-  which = which or [0]
-  r     = []
-  for w in which:
-     try:
-        self.bandFit(which=w)
-     except np.linalg.LinAlgError:
-        return 'singular matrix'
-     self.m.p[0] = N.log10(self.uflux)
-     ul = sum( (b.expected(self.m) for b in self.bands) )
-     if self.flux is None:
-        r += [0,ul,0]
-     else:
-        n = ul*self.flux/self.uflux
-        r += [n,ul - n, n - ul*self.lflux/self.uflux]
-     r += [self.ts]
+       which -- if not None, an array of indices for point sources to fit
+    """
+    self=band
+    which = which or [0]
+    r     = []
+    for w in which:
+       try:
+          self.bandFit(which=w)
+       except np.linalg.LinAlgError:
+          return 'singular matrix'
+       self.m.p[0] = N.log10(self.uflux)
+       ul = sum( (b.expected(self.m) for b in self.bands) )
+       if self.flux is None:
+          r += [0,ul,0]
+       else:
+          n = ul*self.flux/self.uflux
+          r += [n,ul - n, n - ul*self.lflux/self.uflux]
+       r += [self.ts]
 
-  rois = self.__rois__()
-  ph   = int(sum( (b.photons for b in self.bands) ))
-  gal  = sum( (b.bg_counts[0] for b in self.bands) )
-  iso  = sum( (b.bg_counts[1] for b in self.bands) )
-  values = tuple([int(round(self.emin)),rois[0],rois[1],ph,gal,iso, ph-gal-iso] + r)
-  format = '  '.join(['%6i','%6.1f','%6.1f','%7i','%8.1f','%9.1f','%6.1f']+['%7.1f +%5.1f -%5.1f %6.1f' ]*len(which))
-  return format%values
+    rois = self.__rois__()
+    ph   = int(sum( (b.photons for b in self.bands) ))
+    gal  = sum( (b.bg_counts[0] for b in self.bands) )
+    iso  = sum( (b.bg_counts[1] for b in self.bands) )
+    values = tuple([int(round(self.emin)),rois[0],rois[1],ph,gal,iso, ph-gal-iso] + r)
+    format = '  '.join(['%6i','%6.1f','%6.1f','%7i','%8.1f','%9.1f','%6.1f']+['%7.1f +%5.1f -%5.1f %6.1f' ]*len(which))
+    return format%values
 
 
 class MyROI(roi_analysis.ROIAnalysis):
@@ -163,11 +163,12 @@ class MyROI(roi_analysis.ROIAnalysis):
                             tolerance=tolerance,update=update,verbose=verbose, seedpos=seedpos)
             self.quiet = quiet
             if not self.quiet: 
-                print 'Localization: %d iterations, moved %.3f deg, deltaTS: %.1f' % (i, delta, deltaTS)
+                name = self.psm.point_sources[which].name if type(which)==types.IntType else which
+                print 'Localization of %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
+                    (name,i, delta, deltaTS)
                 self.print_ellipse()
-        except:
-            #raise
-            print 'Localization failed!'
+        except Exception, e:
+            print 'Localization failed! %s' % e
             self.qform=None
             loc, deltaTS = None, 99 
         #self.find_tsmax()
