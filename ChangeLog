@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Aug 17 10:58:16 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	roi_factory.py 
+Log Message:
+pass on prune_radius and fit_radius; bug fix for no primary source in ROI
+    *
+------------------------------------------------------------
 User: burnett  Tue Aug 17 10:57:04 PDT 2010
 pointlike/python/uw/thb_roi
 
