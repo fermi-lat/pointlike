@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.17 2010/08/17 03:20:49 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.18 2010/08/17 04:13:48 lande Exp $
 
     author: Joshua Lande
 """
@@ -145,7 +145,8 @@ class ROIExtendedModel(ROIDiffuseModel):
             myband.es_counts = band.expected(sm)*myband.er
 
             band.bg_counts[mi] = myband.overlaps*myband.es_counts
-            band.bg_pix_counts[:,mi] = myband.pix_counts * myband.es_counts
+            if band.has_pixels:
+                band.bg_pix_counts[:,mi] = myband.pix_counts * myband.es_counts
 
     def _pix_value(self,pixlist):
         return self.active_bgc(pixlist,self.active_bgc.cvals)
