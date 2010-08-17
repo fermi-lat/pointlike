@@ -1,4 +1,35 @@
 ------------------------------------------------------------
+User: lande  Mon Aug 16 20:20:49 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py roi_bands.py roi_extended.py sed_plotter.py 
+Log Message:
+Major change to the underlying extended source code. In particular,
+extended source model predicted counts are not calculated more
+consistently like point sources where the spatial map is evaluated at
+the geometric mean (or at the adjusted mean if that option is set)
+whereas the spectra is integrated over the band's energy using the
+band.expected() formula.
+
+Additionally, all of the band fits code for diffuse sources has been
+removed from roi_bands.py and moved into a new (hopefully temporary)
+class BandFitExtended in roi_extended.py. The nice thing about this new
+implementation is that the bin by bin fitting is more symmetric with
+point sources in that flux is directly fit and the same general formula
+can be used to estimate the fit uncertainty. Eventually the code to do
+bin by bin fitting will merge, but for now it exists in a separate state
+in BandFitExtended.
+
+roi_analysis.py's bandFit function has been updated to correctly use
+this new code.
+
+And finally, sed_plotter.py has been updated to calculate SEDs of
+spatially extended sources.
+
+
+    *
+------------------------------------------------------------
 User: lande  Mon Aug 16 19:05:51 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
