@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.15 2010/08/03 08:02:24 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.16 2010/08/12 23:08:34 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -245,11 +245,6 @@ class BackgroundConvolutionNorm(BackgroundConvolution):
     def convolve(self,*args,**kwargs):
         super(BackgroundConvolutionNorm,self).convolve(*args,**kwargs)
         self.cvals /= self.cvals.sum()*N.radians(self.pixelsize)**2
-
-    def ap_average(self,center,radius):
-        # This function needs to be fixed to really integrate for when the extended source isn't all in.
-        solid_angle=2*N.pi*(1-N.cos(radius))
-        return 1/solid_angle
 
 #===============================================================================================#
 
