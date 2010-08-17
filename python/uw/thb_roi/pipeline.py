@@ -3,10 +3,10 @@ basic pipeline setup
 
 Implement processing of a set of sources in a way that is flexible and easy to use with assigntasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.13 2010/06/22 12:01:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.14 2010/08/06 18:15:11 burnett Exp $
 
 """
-version='$Revision: 1.13 $'.split()[1]
+version='$Revision: 1.14 $'.split()[1]
 import sys, os, pyfits, glob, pickle, math, time, types
 import numpy as np
 import pylab as plt
@@ -641,7 +641,7 @@ def load_rec_from_pickles(outdir, other_keys=None, **kwargs):
         except Exception, arg:
             
             print 'Failed to load file  %s: %s' % (fname, arg)
-            if not ignore_exception: raisef
+            if not ignore_exception: raise
             failed +=1
     print 'read %d entries from %s (%d failed)' % (len(filelist),outdir,failed)
     return rec()
