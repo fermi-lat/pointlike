@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.24 2010/08/11 19:41:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.25 2010/08/14 18:29:47 burnett Exp $
 
 """
-version = '$Revision: 1.24 $'.split()[1]
+version = '$Revision: 1.25 $'.split()[1]
 
 import pylab
 import math
@@ -446,8 +446,8 @@ class ZEA(object):
     """ Manage a square image SkyImage
      """
     defaults = dict(
-        size     = 2, 
-        pixelsize= 0.1, 
+        size     =  2, 
+        pixelsize=0.1, 
         galactic = False, 
         fitsfile = '', 
         axes     = None, 
@@ -455,7 +455,7 @@ class ZEA(object):
         proj     = 'ZEA',
     )
 
-    def __init__(self, center, **kwargs):
+    def __init__(self, center,**kwargs):
         """
         center SkyDir specifying center of image
         **kwargs**
@@ -471,7 +471,7 @@ class ZEA(object):
         for key,value in kwargs.items():
             if key in self.__dict__: self.__dict__[key]=value
             else:
-                raise KeyError, "key '%s' not recognized by ZEA" % key
+                raise KeyError, "option '%s' not recognized by ZEA" % key
             
         self.center = center
         # set up, then create a SkyImage object to perform the projection to a grid and manage an image
@@ -528,7 +528,6 @@ class ZEA(object):
                     figure.add_axes((0.18, 0.15, 0.75, w/h*0.75))
             
             self.axes=pyplot.gca()
-        else: self.axes = axes
         self.axes.set_aspect(1)
         self.axes.set_xlim((0.0,self.nx))
         self.axes.set_ylim((0.0,self.ny))
@@ -769,7 +768,7 @@ class TSplot(object):
         self.tsmap = tsmap
         self.size=size
         if self.pixelsize is None: self.pixelsize=size/10. 
-        self.zea= ZEA(center, size, self.pixelsize, axes=self.axes, nticks=self.nticks,fitsfile=self.fitsfile, **kwargs)
+        self.zea= ZEA(center, size=size, pixelsize=self.pixelsize, axes=self.axes, nticks=self.nticks,fitsfile=self.fitsfile, **kwargs)
         print 'TSplot: filling %d pixels...'% (size/self.pixelsize)**2
         self.zea.fill(tsmap)
         # create new image that is the significance in sigma with respect to local max
