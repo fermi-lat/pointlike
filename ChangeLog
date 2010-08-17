@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Aug 17 10:54:58 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	myroi.py 
+Log Message:
+deal with fit exception a little better
+    *
+------------------------------------------------------------
 User: burnett  Tue Aug 17 10:53:20 PDT 2010
 pointlike/python/uw/utilities
 
