@@ -4,6 +4,7 @@ Define an analysis environment for the UW pointlike ROI analysis
 
 import os, glob, types 
 import skymaps 
+import numpy as np
 
 fermi_root = None
 data_path = None
@@ -63,32 +64,22 @@ def gti_noGRB():
 
 ## basic system configuration defaults
 system_config = dict(
-    CALDB        = os.environ['CALDB'] if 'CALDB' in os.environ else None, 
+    CALDB        = os.environ.get('CALDB', None), 
     ft1files     = None,
     ft2files     = None,  
     binfile      = None,   
     ltcube       = None,  
-    binsperdec   = 4,
-    conv_type    = -1,
-    emax         = 1000000.0,
-    emin         = 100,
     fit_emin     = 175,
     fit_emax     = 600000.,
-    event_class  = 3,
-    exp_radius   = 180,
+    minROI       = 5,
+    maxROI       = 10,
     fit_bg_first = False,
     free_radius  = 1.0,
-    gtimask      = None,
     irf          = 'P6_v8_diff',
     prune_radius = 0.1,
     quiet        = False,
-    roi_dir      = None,
-    thetacut     = 66.4,
-    tstart       = 0,
-    tstop        = 0,
     use_gradient = True,
     verbose      = False,
-    zenithcut    = 105,
     pulsar_dict  = None,
     )
 
@@ -119,6 +110,8 @@ class AE(object):
                 raise Exception, 'dataset specification %s not recognized: expect string, or tuple of (binfile,ltcube)'%dataset
         for key in kwargs.keys():
             if key not in self.__dict__:
+                print 'keyword "%s" is not recognized. Keys are:' %key
+                print self
                 raise Exception, 'keyword "%s" is not recognized' %key
         self.__dict__.update(**kwargs)
         if self.ft1files is None and self.binfile is None:
@@ -129,7 +122,7 @@ class AE(object):
             raise Exception( 'Expect either or both of ft2files and ltcube to be set')
         if type( self.ft2files)==types.StringType:
             self.ft2files = glob.glob(self.ft2files)
-        
+        np.seterr(all='ignore')
         
     def __str__(self):
         s = self.__class__.__name__+'\n'
@@ -171,14 +164,12 @@ class AE(object):
             gtimask     = gti_noGRB(),
           ),
         '20months': dict(data_name = "twenty months, 4 bins/decade to 1 TeV",
-            ft1files    = data_glob('monthly','bpd','*_4bpd.fits')[:20],
-            ft2files    = data_glob('monthly','lt','*.fits')[:20],
             binfile     = data_join('twenty','20month_4bpd.fits'),
             ltcube      = data_join('twenty','20month_lt.fits'),
             ),
        '2years': dict(data_name = "two years 4 bins/decade to 1 TeV",
-            ft1files    = data_glob('monthly','bpd','*_4bpd.fits')[:24],
-            ft2files    = data_glob('monthly','lt','*.fits')[:24],
+            ft1files    = None,
+            ft2files    = None,
             binfile     = data_join('monthly','2years_4bpd.fits'),
             ltcube      = data_join('monthly','2years_lt.fits'),
             ),
@@ -190,7 +181,9 @@ class AE(object):
             catdir      = catalog_path,      # where to find catalog files
             catalog     = default_catalog,   # the current catalog
             diffuse     = (galprop_path, 
-                        'ring_21month_v1.fits','isotrop_21month_v1.txt',),
+                        'ring_21month_v1.fits','isotrop_21month_v1a.txt',),
+                        #'gll_iem_v02.fit','isotropic_iem_v02.txt'),
+                        
             aux_cat     = None,              # auxiallary catalog
         )
 
