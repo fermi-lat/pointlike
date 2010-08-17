@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.16 2010/08/12 23:10:47 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.17 2010/08/17 03:20:49 lande Exp $
 
     author: Joshua Lande
 """
@@ -297,7 +297,7 @@ Optional keyword arguments:
 
             # Do the convolution here.
             sm.set_parameters(p=p,absolute=False)
-            self.initialize_counts(roi.bands,which)
+            self.initialize_counts(roi.bands)
 
             if bandfits:
                 ll=roi.bandFit(self.extended_source)
