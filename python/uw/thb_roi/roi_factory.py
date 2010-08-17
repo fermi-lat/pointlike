@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.6 2010/06/20 13:53:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.7 2010/08/06 18:15:11 burnett Exp $
 author: T.Burnett <tburnett@u.washington.edu>
 """
 
@@ -45,7 +45,9 @@ class ROIfactory(pointspec.SpectralAnalysis):
 
         ae = analysis_environment
         catpars = dict(  # this is ugly, need general solution: want to pass in ae, extract only the ones catman wants.
-                pulsar_dict = ae.__dict__.pop('pulsar_dict', None), 
+                pulsar_dict = ae.__dict__.pop('pulsar_dict', None),
+                free_radius = ae.__dict__.pop('free_radius'),
+                prune_radius= ae.__dict__.pop('prune_radius'),
                 quiet = ae.quiet,
                 verbose = ae.verbose,
                 )
@@ -101,7 +103,7 @@ class ROIfactory(pointspec.SpectralAnalysis):
             model_par    [1e-12, 2.3]    a list of initial model parameters
             ==========   =============
         """
-        ps = None
+        ps = []
         model_specified = True
         modelname = kwargs.pop('model', None)
         model_par = kwargs.pop('model_par', (1e-12, 2.3))
@@ -118,7 +120,6 @@ class ROIfactory(pointspec.SpectralAnalysis):
             themodel = make_model(modelname, model_par)
             ps = [pointspec_helpers.PointSource(SkyDir(float(ra), float(dec)), name, themodel)]
         else:
-            ps = []
             for s in sources:
                 name,dir = s[:2]
                 themodel = s[2] if len(s)==3 else make_model(modelname, model_par);
@@ -136,12 +137,14 @@ class ROIfactory(pointspec.SpectralAnalysis):
         # add background point sources from the CatalogManager
         ps = ps + self.catman(skydir, self.maxROI)
         excluded = self.catman.exclude
-        if excluded is not None:
+        if len(excluded)>0:
             if not model_specified:
-                ps[0].model = excluded.model # if replacing a cat source, use its model
+                ps[0].model = excluded[0].model # if replacing a cat source, use its model
             elif modelname=='ExpCutoff':
                 # specified ExpCufoff: copy catalog values for flux, index
-                ps[0].model.p[:2] = excluded.model.p[:2]
+                ps[0].model.p[:2] = excluded[0].model.p[:2]
+            if len(excluded)>1: 
+                print 'warning: did not use fit parameters for excluded catalog source(s)'
         
         ps_manager = roi_managers.ROIPointSourceManager(ps, skydir,quiet=self.quiet)
         
