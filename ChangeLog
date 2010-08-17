@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Aug 17 10:53:20 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	image.py 
+Log Message:
+fix ZEA use of kwargs
+    *
+------------------------------------------------------------
 User: lande  Mon Aug 16 21:13:48 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
