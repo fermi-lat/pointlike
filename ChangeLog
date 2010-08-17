@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Aug 16 19:05:51 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Removing an unneeded function from the BackgroundConvolutionNorm object.
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-18-00, operation: add
 Package: pointlike
