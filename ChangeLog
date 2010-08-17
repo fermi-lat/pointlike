@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Aug 17 11:00:51 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	config.py 
+Log Message:
+remove parameters only used to define dataset cuts; change to new default diffuse
+    *
+------------------------------------------------------------
 User: burnett  Tue Aug 17 10:59:13 PDT 2010
 pointlike/python/uw/thb_roi
 
