@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.25 2010/08/14 18:29:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.26 2010/08/17 17:53:19 burnett Exp $
 
 """
-version = '$Revision: 1.25 $'.split()[1]
+version = '$Revision: 1.26 $'.split()[1]
 
 import pylab
 import math
@@ -139,11 +139,16 @@ def draw_grid(ait, labels=True, color='gray', pixelsize=0.5, textsize=8):
 
 class AIT_grid():
 
-    def __init__(self, axes=None, labels=True, color='gray', pixelsize=0.5, textsize=8, linestyle='-'):
+    def __init__(self, fignum=20, axes=None, labels=True, color='gray', pixelsize=0.5, textsize=8, linestyle='-'):
         """Draws gridlines and labels for map.
 
         """
 
+        if axes is None:
+            fig=plt.figure(fignum, figsize=(12,6))
+            fig.clf()
+            self.axes = fig.gca()
+        else: self.axes = axes
         self.pixelsize = pixelsize
 
         xsize,ysize = 325,162
@@ -152,8 +157,7 @@ class AIT_grid():
         cdelt = double2(-pixelsize, pixelsize)
         self.proj = SkyProj('AIT', crpix, crval, cdelt, 0, True)
         
-        self.axes = axes if axes is not None else pylab.gca() #creates figure and axes if not set
-
+ 
         self.axes.set_autoscale_on(False)
         self.axes.set_xlim(0, 360/self.pixelsize)
         self.axes.set_ylim(0, 180/self.pixelsize)
@@ -194,11 +198,15 @@ class AIT_grid():
         " convert lon, lat to car "
         return self.proj.sph2pix(l, b)
 
-    def plot(self, sources, marker='o', text=None, fontsize=8, **kwargs):
-        """ plot symbols at points
-        text: optional text strings (same length as sources)
-        fontsize: for text
-        marker
+    def plot(self, sources, marker='o', text=None, fontsize=8, colorbar=False, **kwargs):
+        """ plot symbols at points 
+        sources: list of SkyDir
+        
+        keywords:
+            text: optional text strings (same length as sources if specified)
+            fontsize: for text
+            marker: symbol to use, see scatter doc.
+            
         kwargs: applied to scatter, use c as an array of floats, with optional
                 cmap=None, norm=None, vmin=None, vmax=None
                 to make color key for another value
@@ -214,11 +222,19 @@ class AIT_grid():
             if text is not None:
                 self.axes.text(x,y,text[i],fontsize=fontsize)
         #self.axes.plot(X,Y, symbol,  **kwargs)
-        self.axes.scatter(X,Y, marker=marker,  **kwargs)
+        self.col=self.axes.scatter(X,Y, marker=marker,  **kwargs)
+        plt.draw_if_interactive()
         
-    def colorbar(self, *pars, **kwargs):
+    def colorbar(self,  **kwargs):
         if 'shrink' not in kwargs: kwargs['shrink'] = 0.7
-        plt.colorbar(*pars, **kwargs)
+        label = kwargs.pop('label',None)
+        fig = self.axes.figure
+        if 'col' not in self.__dict__:
+            raise Exception('colorbar called with no mappable defined, say by plot(..., c=...)')
+        cb =fig.colorbar(self.col, cax=None, ax=self.axes, **kwargs)
+        if label: cb.set_label(label)
+        plt.draw_if_interactive()
+
 
 
 
@@ -464,7 +480,8 @@ class ZEA(object):
         galactic [False] galactic or equatorial coordinates
         axes [None] Axes object to use: if None
         nticks [5] number ot tick marks to attempt
-        proj ['ZEA'] can change if desired
+        proj ['ZEA'] can change if desired 
+        %(ZEA.defaults)s
 
         """
         self.__dict__.update(ZEA.defaults)
@@ -548,10 +565,12 @@ class ZEA(object):
         r = Rescale(self, nticks, galactic = self.galactic)
         r.apply(self.axes)
         self.axes.xaxis.set_ticks_position('none')
-        #
-        # bug: turns off labels
-        #self.axes.yaxis.set_ticks_position('none')
-        self.axes.yaxis.set_tick_params(which='both', right=False, left=False)
+        try:
+            # need this for 1.0.0 due to bug that turns off labels
+            self.axes.yaxis.set_tick_params(which='both', right=False, left=False)
+        except:
+            self.axes.yaxis.set_ticks_position('none')
+        
         uticks, vticks = r.uticks, r.vticks
         cs = SkyDir.GALACTIC if self.galactic else SkyDir.EQUATORIAL
         for u in uticks:
