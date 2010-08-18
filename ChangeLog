@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Aug 18 12:22:14 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	image.py 
+Log Message:
+Implement colorbar for AIT_grid
+    *
+------------------------------------------------------------
 User: lande  Tue Aug 17 12:01:42 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
