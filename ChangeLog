@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Aug 20 10:27:19 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	image.py 
+Log Message:
+switch  to new keyword processing; python 2.6 SWIG int  to float problem with sph2pix fixed.
+    *
+------------------------------------------------------------
 User: burnett  Fri Aug 20 10:23:57 PDT 2010
 pointlike/python/uw/utilities
 
