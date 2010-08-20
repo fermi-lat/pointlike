@@ -5,12 +5,13 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.26 2010/08/17 17:53:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.27 2010/08/18 19:22:14 burnett Exp $
 
 """
-version = '$Revision: 1.26 $'.split()[1]
+version = '$Revision: 1.27 $'.split()[1]
 
 import pylab
+import types
 import math
 import numpy as np
 import pylab as pl
@@ -20,6 +21,7 @@ from skymaps import SkyImage, SkyDir, double2, SkyProj,PySkyFunction,Hep3Vector
 from math import exp
 from numpy.fft import fft2,ifft2,fftshift
 from scipy import optimize
+import keyword_options
 
 class Ellipse(object):
     def __init__(self, q):
@@ -113,7 +115,6 @@ def draw_grid(ait, labels=True, color='gray', pixelsize=0.5, textsize=8):
         my_axes.set_ylim(0, 180/pixelsize)
         my_axes.set_axis_off()
         my_axes.set_aspect('equal')
-        #? extent= (ait(180,0)[0],ait(180.001,0)[0], ait(0,-90)[1], ait(0,90)[1])
 
 
         bs = np.arange(-90, 91, 5)
@@ -196,7 +197,7 @@ class AIT_grid():
 
     def ait(self, l, b):
         " convert lon, lat to car "
-        return self.proj.sph2pix(l, b)
+        return self.proj.sph2pix(float(l), float(b))
 
     def plot(self, sources, marker='o', text=None, fontsize=8, colorbar=False, **kwargs):
         """ plot symbols at points 
@@ -206,6 +207,7 @@ class AIT_grid():
             text: optional text strings (same length as sources if specified)
             fontsize: for text
             marker: symbol to use, see scatter doc.
+            colorbar: set True to add a colorbar. (See method to attach label)
             
         kwargs: applied to scatter, use c as an array of floats, with optional
                 cmap=None, norm=None, vmin=None, vmax=None
@@ -223,11 +225,13 @@ class AIT_grid():
                 self.axes.text(x,y,text[i],fontsize=fontsize)
         #self.axes.plot(X,Y, symbol,  **kwargs)
         self.col=self.axes.scatter(X,Y, marker=marker,  **kwargs)
+        if colorbar: self.colorbar()
         plt.draw_if_interactive()
         
-    def colorbar(self,  **kwargs):
+    def colorbar(self, label=None, **kwargs):
+        """ attach a colorbar to a plot, expect it was generated with the 'c' argument
+        """
         if 'shrink' not in kwargs: kwargs['shrink'] = 0.7
-        label = kwargs.pop('label',None)
         fig = self.axes.figure
         if 'col' not in self.__dict__:
             raise Exception('colorbar called with no mappable defined, say by plot(..., c=...)')
@@ -242,27 +246,28 @@ class AIT(object):
     """ Manage a full-sky image of a SkyProjection or SkyFunction, wrapping SkyImage
      """
     
-    def __init__(self, skyfun, pixelsize=0.5, center=None, galactic=True, fitsfile='', proj='AIT', size=180, earth=False):
+    defaults= (
+        ('pixelsize', 0.5, 'size, in degrees, of pixels'),
+        ('galactic',  True, 'alactic or equatorial coordinates'),
+        ('fitsfile',  '',   'if set, write the projection to a FITS file'),
+        ('proj',      'AIT', 'could be ''CAR'' for carree or ''ZEA'': used by wcslib'),
+        ('center',    None,   'if default center at (0,0) in coord system'),
+        ('size',      180,   'make less for restricted size'),
+        ('earth',     False, 'if looking down at Earth'),
+        )
+    
+    @keyword_options.decorate(defaults)
+    def __init__(self, skyfun, **kwargs):
         """
         skyfun SkyProjection or SkyFunction object
-        pixelsize [0.5] size, in degrees, of pixels
-        galactic [True] galactic or equatorial coordinates
-        fitsfile [''] if set, write the projection to a FITS file
-        proj ['AIT'] could be 'CAR' for carree or 'ZEA': used by wcslib
-        center [None] if default center at (0,0) in coord system
-        size [180] make less for restricted size
-        earth [False]  looking down at Earth
-
         """
+        keyword_options.process(self, kwargs)
         self.skyfun = skyfun
-        self.galactic = galactic
-        self.pixelsize = pixelsize
-        self.size = size
-        self.center = center
-        # set up, then create a SkyImage object to perform the projection to a grid
-        if center is None:
-            center = SkyDir(0,0, SkyDir.GALACTIC if galactic else SkyDir.EQUATORIAL)
-        self.skyimage = SkyImage(center, fitsfile, pixelsize, size, 1, proj, galactic, earth)
+         # set up, then create a SkyImage object to perform the projection to a grid
+        if self.center is None:
+            self.center = SkyDir(0,0, SkyDir.GALACTIC if galactic else SkyDir.EQUATORIAL)
+        self.skyimage = SkyImage(self.center, self.fitsfile, self.pixelsize, 
+            self.size, 1, self.proj, self.galactic, self.earth)
         # we want access to the projection object, to allow interactive display via pix2sph function
         self.projector = self.skyimage.projector()
         self.x = self.y = 100 # initial def
@@ -270,7 +275,7 @@ class AIT(object):
 
         if skyfun is not None: 
             self.skyimage.fill(skyfun)
-            self.setup_image(earth)
+            self.setup_image(self.earth)
         else:
             # special case: want to set pixels by hand
             pass
@@ -460,36 +465,26 @@ def galactic_map(skydir, axes=None, pos=(0.77,0.88), width=0.2,
         
 class ZEA(object):
     """ Manage a square image SkyImage
-     """
-    defaults = dict(
-        size     =  2, 
-        pixelsize=0.1, 
-        galactic = False, 
-        fitsfile = '', 
-        axes     = None, 
-        nticks   = 5, 
-        proj     = 'ZEA',
+    """
+    defaults = (
+        ('size',     2,     'size of image in degrees'), 
+        ('pixelsize',0.1,   'size, in degrees, of pixels'), 
+        ('galactic', False, 'galactic or equatorial coordinates'), 
+        ('fitsfile', '',    'set non-empty to write out as a FITS file'), 
+        ('axes',     None,  'Axes object to use: \n if None, ...'), 
+        ('nticks',   5,     'number of tick marks to attempt'), 
+        50*'-',
+        ('proj',     'ZEA', 'projection name: can change if desired'),
     )
 
-    def __init__(self, center,**kwargs):
+    @keyword_options.decorate(defaults)
+    def __init__(self, center, **kwargs):
         """
         center SkyDir specifying center of image
-        **kwargs**
-        size [2]  
-        pixelsize [0.1] size, in degrees, of pixels
-        galactic [False] galactic or equatorial coordinates
-        axes [None] Axes object to use: if None
-        nticks [5] number ot tick marks to attempt
-        proj ['ZEA'] can change if desired 
-        %(ZEA.defaults)s
 
         """
-        self.__dict__.update(ZEA.defaults)
-        for key,value in kwargs.items():
-            if key in self.__dict__: self.__dict__[key]=value
-            else:
-                raise KeyError, "option '%s' not recognized by ZEA" % key
-            
+        keyword_options.process(self, kwargs)
+ 
         self.center = center
         # set up, then create a SkyImage object to perform the projection to a grid and manage an image
         self.skyimage = SkyImage(center, self.fitsfile, self.pixelsize, self.size, 1, self.proj, self.galactic, False)
