@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.20 2010/08/02 20:46:53 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.21 2010/08/13 22:43:59 wallacee Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.20 $'.split()[1]
+version='$Revision: 1.21 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -140,89 +140,6 @@ class SavedData(DataSpecification):
                 self.ltcube = '%i-%i_lt.fits'%(start_date,stop_date)
             merge_bpd(bpds,self.binfile)
             merge_lt(lts,self.ltcube,weighted = self.use_weighted_livetime)
-
-########################################
-########### DEPRECATED #################
-########################################
-
-class AnalysisEnvironment(object):
-   """A class to collect locations of files needed for analysis.
-
-      Specify the a directory in which to find the diffuse models,
-      a LAT source list, the relevant version of CALDB, and the data
-      files (FT1, FT2, livetime) to be used in the analysis.
-
-      While these parameters can be specified as keyword arguments,
-      it is probably best to update the default values in
-      AnalysisEnvironment.init.
-
-      **Parameters**
-
-      ft1files : string or list of strings
-          if a single string: points to a single FT1 file, or if
-          contains wild cards is expanded by glob into a list of files
-          if a list of string: each string points to an FT1 file
-      ft2files : string or list of string
-          same format as ft1files, but N.B. that the current
-          implementation expects a one-to-one correspondence of FT1
-          and FT2 files!
-      ltcube : string, optional
-          points to a livetime cube; if not given, the livetime will
-          be generated on-the-fly.  If a file is provided but does
-          not exist, the livetime cube will be generated and written
-          to the specified file.
-      binfile : string, optional
-          points to a binned representation of the data; will be
-          generated if not provided; if file specified but does not
-          exist, the binned data will be written to the file
-          N.B. -- this file should be re-generated if, e.g., the
-          energy binning used in the later spectral analysis changes.
-      diffdir : string, optional (but default must be correct!)
-          the directory in which to find mapcubes and tables for
-          the diffuse backgrounds
-      catdir : string, optional (but default must be correct!)
-          the directory in which to find a FITS representation of
-          a LAT source list
-      CALDB : string, optional (but default must be correct!)
-          the directory in which to find the relevant version of CALDB.
-          see the default value for the precise subdirectory required.
-   """
-
-   def init(self):
-
-      self.diffdir = r'f:/glast/data/galprop'
-      self.catdir  = r'f:/glast/data/kerr'
-      #self.CALDB   = r'f:/glast/caldb/v1r1/CALDB/data/glast/lat'
-      self.CALDB   = r'd:/fermi/caldb/v1r1/CALDB/data/glast/lat'
-
-      self.ft1files = None
-      self.ft2files = None
-      self.ltcube   = None
-      self.binfile  = None
-
-   def __init__(self,**kwargs):
-      self.init()
-      self.__dict__.update(kwargs)
-
-      if self.ft1files is None and self.binfile is None:
-         print 'No event data (FT1 or binfile) provided!  Must pass at least one of these.'
-         raise Exception
-
-      try:
-         f = open(self.ltcube)
-         ltfile_exists = True
-      except (IOError, TypeError):
-         ltfile_exists = False
-
-      if self.ft2files is None and (self.ltcube is None or ltfile_exists == False):
-         print 'No spacecraft history (FT2) or livetime file provided! Must pass at least one of these.'
-         raise Exception
-
-      # make everything consistently a list
-      ft1files = self.ft1files; ft2files = self.ft2files
-      self.ft1files = ft1files if type(ft1files)==type([]) or ft1files is None else [ft1files]
-      self.ft2files = ft2files if type(ft2files)==type([]) or ft2files is None else [ft2files]
-
 
 
 class SpectralAnalysis(object):
@@ -476,94 +393,6 @@ Optional keyword arguments:
         return self.roi(roi_dir=roi_dir,point_sources=ps,diffuse_sources=ds,
                         diffuse_mapper=diffuse_mapper,*args,**kwargs)
 
-    def roi_old(self, point_sources = None, bgmodels = None, previous_fit = None, no_roi = False, **kwargs):
-        """
-        return an ROIAnalysis object with default settings.
-
-        point_sources    [None] a list of PointSource objects to merge with a Catalog list
-                         (if None, the nearest catalog source will be fit)
-
-        bgmodels         a list of ROIBackgroundModels with which to override the default
-                         isotropic and Galactic backgrounds (optional)
-
-        previous_fit     [None] a file containing the results of an earlier spectral fit;
-                         if not None, set spectral values to this fit
-                         ***WARNING*** not tested!
-
-        no_roi           [False] if True, return a tuple with an instance of PSManager and
-                         of BGManager; can be used to instantiate an ROIAnalysis (or child)
-                         object later
-
-
-        Optional Keyword Arguments:
-            ==========   =============
-            keyword      description
-            ==========   =============
-
-            nocat        [False] if True, do not add additional sources from a catalog
-            minflux      [1e-8] Minimum integral flux (ph/cm2/s) for sources more than 5 deg from ROI center to be included
-            free_radius  [2] background point sources within this radius (deg) are allowed
-                             to vary in the fit; others are fixed at the catalog values
-            prune_radius [0.1] removes catalog sources within this distance of a user-
-                               defined source; degrees
-            bg_smodels   [None]  a list of spectral models to replace the default ones in ConsistentBackground
-                                 i.e., a custom set of spectral scaling models
-            glat         [None]  the Galactic latitude of the source; sets default free parameters in diffuse
-            fit_emin     [100,100] minimum energies (separate for front and back) to use in spectral fitting.
-            fit_emax     [1e5,1e5] maximum energies (separate for front and back) to use in spectral fitting.
-            no_roi       [False] If set, return a ps_manager, roi_manager instead (for separate generation of an ROIAnalysis)
-            user_skydir  [None] A user-provided SkyDir that will be the center of the ROI
-            ==========   =============
-        """
-
-        if point_sources is None and self.roi_dir is None:
-            print 'No direction specified!  Provide a point source or set roi_dir member of this object!'
-            return
-
-        # Easier to store point_sources as an empty list then as None for later loops
-        if point_sources is None: point_sources=[]
-
-        # process kwargs
-        glat,bg_smodels,nocat,minflux,free_radius,prune_radius,user_skydir = None,None,False,1e-8,2,0.1,None
-        #for key in ['glat','bg_smodels','nocat','minflux','free_radius','prune_radius']
-        if 'glat'        in kwargs.keys(): glat        = kwargs.pop('glat')
-        if 'bg_smodels'  in kwargs.keys(): bg_smodels  = kwargs.pop('bg_smodels')
-        if 'nocat'       in kwargs.keys(): nocat       = kwargs.pop('nocat')
-        if 'minflux'     in kwargs.keys(): minflux     = kwargs.pop('minflux')
-        if 'free_radius' in kwargs.keys(): free_radius = kwargs.pop('free_radius')
-        if 'prune_radius'in kwargs.keys(): prune_radius= kwargs.pop('prune_radius')
-        if 'user_skydir' in kwargs.keys(): user_skydir = kwargs.pop('user_skydir')
-
-        # setup backgrounds and point sources
-        skydir        = user_skydir or (self.roi_dir if point_sources==[] else point_sources[0].skydir)
-        cb            = ConsistentBackground(self.ae,self.background)
-        cb.cm.free_radius  = free_radius;
-        cb.cm.prune_radius = prune_radius;
-        cb.cm.min_flux     = minflux
-        bgmodels      = cb.get_bgmodels(models=bg_smodels,lat=glat) if bgmodels is None else bgmodels
-        point_sources = point_sources if nocat else cb.cm.merge_lists(skydir,self.maxROI+5,point_sources)
-
-        # try to read in a previous fit
-        if previous_fit is not None:
-            from roi_analysis import read_fit
-            source_list,bg = read_fit(previous_fit)
-            for i in xrange(len(bg)):
-                backgrounds[i].smodel = bg[i]
-
-        ps_manager = ROIPointSourceManager(point_sources,skydir,quiet=self.quiet)
-        bg_manager = ROIBackgroundManager(self,bgmodels,skydir,quiet=self.quiet)
-
-        # if didn't specify a source, pick closest one and make it free -- maybe remove this?
-        if point_sources==[] and (not N.any([N.any(m.free) for m in ps_manager.models])):
-            if ps_manager.models.shape[0] != 0:
-                ps_manager.models[0].free[:] = True
-
-        # n.b. weighting PSF for the central point source
-        self.psf.set_weights(self.ltcube,skydir)
-
-        if no_roi: return ps_manager,bg_manager
-
-        return ROIAnalysis(skydir,ps_manager,bg_manager,self,**kwargs)
 
     def __str__(self):
         s = '%s configuration:\n'% self.__class__.__name__
