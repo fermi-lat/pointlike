@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/sed_plotter.py,v 1.6 2010/08/14 18:01:31 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.7 2010/08/17 03:20:49 lande Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -251,8 +251,8 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     
     if outdir is not None: 
         if os.path.isdir(outdir):
-            name = name.replace(' ','_').replace('+','p')
-            plt.savefig(os.path.join(outdir,'%s_sed.png'%name))
+            fname = name.replace(' ','_').replace('+','p')
+            plt.savefig(os.path.join(outdir,'%s_sed.png'%fname))
         else :
             plt.savefig(outdir)
 
