@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Mon Aug 23 13:47:30 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	pipeline.py 
+Added Files:
+	source_pickle.py 
+Log Message:
+move pickle processing code
+    *
+------------------------------------------------------------
 User: burnett  Mon Aug 23 13:45:50 PDT 2010
 pointlike/python/uw/like
 
