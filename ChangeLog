@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Aug 23 13:48:42 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	myroi.py 
+Log Message:
+moved plotting, pickle code
+    *
+------------------------------------------------------------
 User: burnett  Mon Aug 23 13:47:30 PDT 2010
 pointlike/python/uw/thb_roi
 
