@@ -3,10 +3,10 @@ basic pipeline setup
 
 Implement processing of a set of sources in a way that is flexible and easy to use with assigntasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.14 2010/08/06 18:15:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.15 2010/08/17 17:59:13 burnett Exp $
 
 """
-version='$Revision: 1.14 $'.split()[1]
+version='$Revision: 1.15 $'.split()[1]
 import sys, os, pyfits, glob, pickle, math, time, types
 import numpy as np
 import pylab as plt
@@ -490,161 +490,6 @@ class TrialSourceFits(Pipeline):
         self.__dict__.update(kwargs)
         self.n = len(self.sources)
 
-
-def get_class(adict):
-    """Given association dictionary, decide what class to ascribe the source to.  Partly guesswork!
-        original version by Eric Wallace
-        added tev
-    """
-    if adict is None: return '   '
-    cat_list=adict['cat']
-    priority = '''bllac bzcat cgrabs crates crates_fom seyfert seyfert_rl qso agn 
-                vcs galaxies pulsar_lat snr snr_ext pulsar_high pulsar_low pulsar_fom
-                msp pwn hmxb lmxb globular tev ibis lbv dwarfs
-               '''.split()
-    ass_class = ['bzb','bzcat']+['bzq']*3+['agn']*6+['LAT psr']+\
-                ['snr']*2 + ['psr']*4 + ['pwn'] + ['hmxb'] + ['lmxb']+ ['glc'] +['tev'] + 3*['None']
-    cls = None
-    for c,a in zip(priority,ass_class):
-        if c in cat_list:
-            cls = a
-            break
-    if cls is None:
-        print 'warning: %s not recognized' % cat_list
-        return '   '
-    if cls == 'bzcat': #special, use first 3 chars of source name
-        cls = adict['name'][cat_list.index(c)][:3].lower()
-    return cls
-
-def load_rec_from_pickles(outdir, other_keys=None, **kwargs):
-    """
-    create recarray from list of pickled 
-    outdir -- folder for analysis results, expect to find "pickle" below it
-    other_keys -- a list of keys to include (assume point to numeric values)
-    """
-    failed=0
-    assert(os.path.exists(os.path.join(outdir,'pickle')))
-    filelist = glob.glob(os.path.join(outdir, 'pickle', '*.pickle'))
-    assert(len(filelist)>0)
-    filelist.sort()
-    standard = """name ra dec psig  dcp qual pivot_energy pnorm pnorm_unc pindex pindex_unc cutoff cutoff_unc cc
-                delta_ts fit_ra fit_dec a b ang ts ts2 band_ts galnorm isonorm
-                tsmap_max_diff tsm_ra tsm_dec
-                id_prob aclass low_ts high_ts low_counts high_counts 
-                low_signal high_signal signal_1GeV
-                """.split()
-    variability = kwargs.pop('variability',False)
-    ignore_exception = kwargs.pop('ignore_exception',False)
-    if variability:
-        standard += 'sigma delta prob cprob varindex'.split()
-    if other_keys is not None: standard = standard+other_keys                          
-    rec = makerec.RecArray(standard)
-    for fname in filelist:
-        #print 'loading %s...' % fname,
-        try:
-            p = pickle.load(open(fname))
-            name= '%-20s' %p['name']
-            ra,dec =p['ra'],p['dec']
-            qfp = p['qform_par']
-            fit_ra,fit_dec=ra,dec  # leave same if bad fit
-            good = True
-            if qfp:
-                ptsig = math.sqrt(qfp[3]*qfp[4])
-                dcp = math.degrees(SkyDir(ra,dec).difference(SkyDir(qfp[0],qfp[1])))
-                qual = qfp[6]
-                a,b,ang = qfp[3:6]
-                fit_ra,fit_dec=qfp[0:2]
-            else: 
-                ptsig = 1
-                dcp = 1
-                qual=99
-                a,b,ang = 0,0,0
-                fit_ra,fit_dec,qual=999,999,99
-                good = False
-            if 'cat_fit' in p:
-                csig = p['cat_fit'][3] 
-                cindex = p['cat_fit'][1]
-            else: csig=cindex=-1
-            # powerlaw fits from pointlike
-            pivot_energy = p['pivot_energy'] if 'pivot_energy' in p else 1000.
-            src_par, src_par_unc = p['src_par'], p['src_par_unc'] 
-            pnorm,pindex  = src_par[:2]
-            if 'src_par_unc' in p:
-                punc = src_par_unc[:2] 
-            else: punc = None
-            pnorm_unc, pindex_unc = punc if punc is not None else (0,0)
-            cc = 0 # correlation coefficient
-            # assume that if there is a third entry in the source parameters, it is exponential cutoff
-            cutoff, cutoff_unc = 2*(np.nan,) if len(src_par)==2 else (src_par[2], src_par_unc[2])
-            if 'src_model' in p:
-                src_model = p['src_model']
-                #extract correlation coefficient
-                V = src_model.cov_matrix
-                cc = V[0,1]/np.sqrt(V[0,0]*V[1,1])
-            #if pindex>5 or pindex<1: good=False
-            if np.isinf(csig): good=False
-            if ptsig>1: 
-                ptsig=1
-                good = False
-            delta_ts=p['delta_ts']
-            ts = p['ts']
-            ts2 = ts if 'ts2' not in p else p['ts2'] # after fit maybe
-            band_ts= p['band_ts']
-            tsmap_max_diff, tsm_ra, tsm_dec = [0,0,0] if 'tsmap_max' not in p or p['tsmap_max'] is None  else p['tsmap_max']
-            galnorm = p['bgm_par'][0]
-            isonorm = p['bgm_par'][2]
-
-            # association stuff
-            adict = p.get('adict', None)
-            if adict is not None:
-                id_prob = adict['prob'][0]
-            else:  id_prob =p.get('id_prob', 1e-6) # kluge to make it real
-            aclass = '%-7s'%get_class(adict)
-            id_dts = p.get('id_dts', 99)
-            id_cat = p.get('id_cat', 99) 
-            try:
-                bi = p['band_info']
-                bts = bi['ts']
-                low_ts = sum(bts[:4])
-                high_ts = sum(bts[4:])
-                counts = np.array(bi['photons']) - np.array(bi['galactic']) - np.array(bi['isotropic'])
-                low_counts = sum(counts[:4])
-                high_counts = sum(counts[4:])
-                signal= np.array(bi['signal'])
-                low_signal = max(1e-3, sum(signal[:4]))
-                high_signal= max(1e-3, sum(signal[4:]))
-                signal_1GeV = max(1e-3, signal[0])
-            except:
-                low_ts=high_ts=counts=low_counts=high_counts=signal=low_signal=high_signal=signal_1GeV=0
-            
-             
-            pars = (name, ra,dec, ptsig, \
-                dcp,  qual, pivot_energy, pnorm, pnorm_unc, pindex, pindex_unc, cutoff, cutoff_unc, cc,\
-                delta_ts, fit_ra, fit_dec, a, b, ang, ts, ts2, 
-                band_ts, galnorm, isonorm, tsmap_max_diff, tsm_ra, tsm_dec, 
-                id_prob, aclass,
-                low_ts, high_ts,
-                low_counts, high_counts, low_signal, high_signal, signal_1GeV,
-                )
-            if variability:
-                try:
-                    lc = p['variability']
-                    pars += (lc['sigma'], lc['delta'], lc['prob'], lc['cprob'], lc['varindex'])
-                except KeyError:
-                    print 'key "variability" not found in file for %s' % name
-                    pars += 4*(0,)
-                
-            if other_keys is not None:
-                othervals = [p[n] for n in other_keys]
-                pars = pars + tuple(othervals)
-            rec.append( *pars)
-        except Exception, arg:
-            
-            print 'Failed to load file  %s: %s' % (fname, arg)
-            if not ignore_exception: raise
-            failed +=1
-    print 'read %d entries from %s (%d failed)' % (len(filelist),outdir,failed)
-    return rec()
 
 class Logs(object):
     """ access the logs from a run"""
