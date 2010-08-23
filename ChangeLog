@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Aug 23 13:44:45 PDT 2010
+pointlike/python/uw/like
+
+Added Files:
+	tsmap_plotter.py 
+Log Message:
+code moved from thb_roi/myroi to generate pipeline ts maps
+    *
+------------------------------------------------------------
 User: kerrm  Sat Aug 21 18:50:42 PDT 2010
 pointlike/python/uw/like
 
