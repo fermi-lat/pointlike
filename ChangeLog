@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Aug 23 13:45:50 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	sed_plotter.py 
+Log Message:
+small fix to generate filename
+    *
+------------------------------------------------------------
 User: burnett  Mon Aug 23 13:44:45 PDT 2010
 pointlike/python/uw/like
 
