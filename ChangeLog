@@ -1,4 +1,23 @@
 ------------------------------------------------------------
+User: lande  Tue Aug 24 16:50:32 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Addition of override_vals flag to BackgroundConvolution.do_convolution to allow extended sources to fill the grid from python.
+
+Addition of overlap() function to BackgroundConvolutionNorm to calculate fraction of PDF within the ROI.
+
+Addition of keyword_options decorator for constructor of AnalyticConvolution.
+
+Addition of caching of last pdf values for AnalyticConvolution so that when the spatial model does not change, the convolution is not redone. This increases performance when just the location is changed.
+
+Addition of integral() function to AnalyticConvolution to caluclate fraction of PDF inside of a given radius. The interface mirrors the band integral function and can be used by PsfOverlap to caluclate the overlap of radially symmetric extended sources.
+
+
+    *
+------------------------------------------------------------
 User: lande  Tue Aug 24 16:38:57 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
