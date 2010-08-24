@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.17 2010/08/17 02:05:51 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.18 2010/08/24 18:18:28 kerrm Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -9,10 +9,11 @@ from skymaps import SkyDir,WeightedSkyDirList,Hep3Vector,SkyIntegrator,PySkyFunc
 from pointlike import DoubleVector
 import numpy as N
 from scipy.interpolate import interp1d
-from scipy.integrate import simps
+from scipy.integrate import simps,cumtrapz
 from scipy.special import hyp2f1
 from uw.like.pypsf import BandCALDBPsf,PretendBand
 from numpy.fft import fftshift,ifft2,fft2
+import keyword_options
 
 ### TODO -- find a way to evaluate the PSF on a finer grid ###
 
@@ -182,15 +183,19 @@ class BackgroundConvolution(Grid):
                      recommended as it will smear the map inappropriately
                      at high energies."""
 
-    def do_convolution(self,energy,conversion_type,override_skyfun=None,override_en=None):
+    def do_convolution(self,energy,conversion_type,override_skyfun=None,override_vals=None,
+                       override_en=None):
         """ Perform a convolution at the specified energy, for the specified
             conversion type.  The values are stored internally as "cvals".
         """
-        if override_skyfun is None:
+        if override_skyfun is None and override_vals is None:
             self.bg.set_skyfun(conversion_type,energy)
             self.bg_vals = self.fill(self.bg)
-        else:
+        elif override_vals is None:
             self.bg_vals = self.fill(override_skyfun)
+        else:
+            self.bg_vals = override_vals
+
         pb = PretendBand(energy,conversion_type)
         bpsf = BandCALDBPsf(self.psf,pb,override_en=override_en,adjust_mean=False)
         self.psf_fill(bpsf)
@@ -242,9 +247,9 @@ class BackgroundConvolution(Grid):
 #===============================================================================================#
 
 class BackgroundConvolutionNorm(BackgroundConvolution):
-    """ This object is suitable for a spatial model which are supposed to be normalized to 1.
-        It is also intended for spatial models where the entire convolution radius is
-        inside of the total roi.
+    """ This object is suitable for spatial models which are supposed to be 
+        normalized to 1. It is also intended for spatial models where the entire 
+        convolution radius is inside of the total roi.
         
         Note that this implementation assumes that there is no exposure variation
         across the source and ap_average must be mulitplied by the exposure
@@ -254,6 +259,33 @@ class BackgroundConvolutionNorm(BackgroundConvolution):
         super(BackgroundConvolutionNorm,self).convolve(*args,**kwargs)
         self.cvals /= self.cvals.sum()*N.radians(self.pixelsize)**2
 
+    def overlap(self,roi_center,roi_radius):
+        """ Calculate the fraction of PDF contained within ROI (which
+            is defined by the input radius and center). This is the extended
+            source analog of the pypsf.PsfOverlap object. It is convenient
+            to return just the overlap fraction since it is known that
+            the entire spatial part is normalized.
+
+            Note that this formula assumes the entire extended source is
+            within the grid (or equivalently that the entire spatial part is
+            normalized), but not that the entire ROI is within the
+            grid. Any addition to the fraction from parts of the ROI
+            outside of the grid simply contribue 0 and can therefore
+            be ignored.
+            
+            roi_radius is in radians."""
+        
+        # If grid is entirly inside of roi, overlap is 1
+        if self.center.difference(roi_center) + \
+                N.radians(self.pixelsize)*self.npix < roi_radius:
+            return 1.0
+
+        x,y = self.pix(roi_center)
+        dx =((N.arange(0,self.npix)-x)**2).reshape(self.npix,1)
+        dy =((N.arange(0,self.npix)-y)**2)
+        d  = N.sqrt(dx+dy)*N.radians(self.pixelsize)
+        return (self.cvals[d <= roi_radius]).sum()*N.radians(self.pixelsize)**2
+
 #===============================================================================================#
 
 class AnalyticConvolution(object):
@@ -261,39 +293,31 @@ class AnalyticConvolution(object):
         This object has a similar interface to BackgroundConvolution.         
 
         Note that this implementation assumes that there is no exposure variation
-        across the source and ap_average must be mulitplied by the exposure
-        outside of this function. """
+        across the source.        
 
-    def init(self):
-        self.num_points     = 200
+        This object implements a caching mecanism so that when the 
+        same spatial parameters are passed (and the same fitpsf value) as 
+        the last time, the previous value is returned.
+        """
 
-        # number of points to use in the intergral
-        self.num_int_points = 200
-        self.skyfun         = PySkyFunction(self)
-        self.fitpsf         = False
+    defaults = (
+        ('num_points',     200, 'Number of points to calculate the PDF at. Interpolation is done in between.'),
+        ('num_int_points', 200, 'Number of points to use in evaluating the integral.')
+    )
 
+    @keyword_options.decorate(defaults)
     def __init__(self,spatial_model,psf,**kwargs):
-        """
-Optional keyword arguments:
-
-  =========   =======================================================
-  Keyword     Description
-  =========   =======================================================
-  num_points     [200]   Number of points to calculate the PDF at.
-                         interpolation is done in between.
-  num_int_points [200]   Number of points to use in evaluating the 
-                         integral.
-  fitpsf         [False] Use emperical fits to the psf instead of
-                         weighting over cos theta.
-  =========     =======================================================
+        """ spatial_model  a SpatialModel object
+            psf            a PSF object.
         """
 
-        self.init()
-        self.__dict__.update(**kwargs)
-
+        keyword_options.process(self, kwargs)
 
         self.spatial_model=spatial_model
         self.psf=psf
+
+        self.last_p         = {}
+        self.last_pdf       = {}
 
 
     def _get_pdf(self,rlist,g,s,energy):
@@ -326,7 +350,7 @@ Optional keyword arguments:
         return pdf
 
 
-    def do_convolution(self,energy,conversion_type,band):
+    def do_convolution(self,energy,conversion_type,band,fitpsf):
         """ Generate points uniformly in r^2 ~ u, to ensure there are more 
             points near the center, where the PDF is bigger and changing
             rapidly. Then, do a cubic spline interpolation of the log of
@@ -350,47 +374,63 @@ Optional keyword arguments:
             Of course, this argument isn't really correct because we are
             interpolationt he PDF not the PSF, but I assume convolving
             the PSF with an extended shape like a gaussian would also
-            create something that looks like a gaussian. """
-        pb = PretendBand(energy,conversion_type)
-        self.bpsf = BandCALDBPsf(self.psf,pb)
+            create something that looks like a gaussian. 
+            
+  =========   =======================================================
+  Keyword     Description
+  =========   =======================================================
+  fitpsf         [False] Use emperical fits to the psf instead of
+                         weighting over cos theta.
+  =========     =======================================================
+            """
 
-        if self.bpsf.newstyle:
-            nclist,ntlist,gclist,gtlist,\
-                    sclist,stlist,wlist = self.bpsf.par
+        if self.last_p.has_key((energy,conversion_type,fitpsf)) and \
+                self.last_p[energy,conversion_type,fitpsf] == self.spatial_model.p[2:]:
 
-            smax = N.append(sclist,stlist).max()
+            self.pdf = self.last_pdf[energy,conversion_type,fitpsf]
 
         else:
-            # g = gamma, s = sigma, w = weight
-            glist,slist,wlist = self.bpsf.par
-            smax=slist.max()
 
-        # Distance to furthest pixel is the farthest one ever needs to calculate PDF to.
-        # Note that this generally interfeers with ap_average. Will fix 
-        # eventually.
-        self.edge_distance=band.sd.difference(self.spatial_model.center) + \
-                band.radius_in_rad
+            pb = PretendBand(energy,conversion_type)
+            self.bpsf = BandCALDBPsf(self.psf,pb)
 
-        self.rmax=1.1*self.edge_distance
-
-        self.rlist=N.linspace(0,N.sqrt(self.rmax),self.num_points)**2
-
-
-        # pdf is the probability per unit area at a given radius.
-        self.pdf=N.zeros_like(self.rlist)
-
-        if self.fitpsf:
-            # For new & old style psf, fit a single king function to the data.
-            self.pdf = self._get_pdf(self.rlist,band.fit_gamma,band.fit_sigma,energy)
-        else:
             if self.bpsf.newstyle:
-                for nc,gc,sc,nt,gt,st,w in zip(nclist,gclist,sclist,\
-                                               ntlist,gtlist,stlist,wlist):
-                    self.pdf += w*(nc*self._get_pdf(self.rlist,gc,sc,energy)+
-                                   nt*self._get_pdf(self.rlist,gt,st,energy))
+                nclist,ntlist,gclist,gtlist,\
+                        sclist,stlist,wlist = self.bpsf.par
+
+                smax = N.append(sclist,stlist).max()
+
             else:
-                for g,s,w in zip(glist,slist,wlist):
-                    self.pdf += w*self._get_pdf(self.rlist,g,s,energy)
+                # g = gamma, s = sigma, w = weight
+                glist,slist,wlist = self.bpsf.par
+                smax=slist.max()
+
+            self.edge_distance=band.sd.difference(self.spatial_model.center) + \
+                    band.radius_in_rad
+
+            self.rmax=1.1*self.edge_distance
+
+            self.rlist=N.linspace(0,N.sqrt(self.rmax),self.num_points)**2
+
+
+            # pdf is the probability per unit area at a given radius.
+            self.pdf=N.zeros_like(self.rlist)
+
+            if fitpsf:
+                # For new & old style psf, fit a single king function to the data.
+                self.pdf = self._get_pdf(self.rlist,band.fit_gamma,band.fit_sigma,energy)
+            else:
+                if self.bpsf.newstyle:
+                    for nc,gc,sc,nt,gt,st,w in zip(nclist,gclist,sclist,\
+                                                   ntlist,gtlist,stlist,wlist):
+                        self.pdf += w*(nc*self._get_pdf(self.rlist,gc,sc,energy)+
+                                       nt*self._get_pdf(self.rlist,gt,st,energy))
+                else:
+                    for g,s,w in zip(glist,slist,wlist):
+                        self.pdf += w*self._get_pdf(self.rlist,g,s,energy)
+
+            self.last_p[energy,conversion_type,fitpsf]=self.spatial_model.p[2:].copy()
+            self.last_pdf[energy,conversion_type,fitpsf]=self.pdf
 
         # Assume pdf is 0 outside of the bound, which is reasonable if 
         # rmax is big enough also, interpolate the log of the intensity, which 
@@ -400,12 +440,21 @@ Optional keyword arguments:
 
         self.val=lambda x: N.exp(self.interp(x))*(x<=self.rlist[-1])
 
-    def ap_average(self,center,radius):
-        # This function needs to be fixed to really integrate for when the extended source isn't all in.
-        solid_angle=2*N.pi*(1-N.cos(radius))
-        return 1/solid_angle
+        # Calculate the integral of the pdf. Then do an interploation of it.
+        # This is used for the integrate function, which is supposed to
+        # be analogous to the BandCALDBPsf.integral function.
+        self.int_pdf=cumtrapz(x=self.rlist,y=2*N.pi*self.rlist*self.pdf)
+        self.int_rlist=self.rlist[1:]
+        self.int_interp=interp1d(self.int_rlist,self.int_pdf,
+                                        bounds_error=False,fill_value=1)
+        # fill 0 for smaller radii. Fill 1 above
+        self.int_val=lambda x:self.int_interp(x)*(x>=self.int_rlist[0])
 
     def __call__(self,skydir):
+        """ This funciton is analogous to the BandCALDBPsf.__call__ function
+            except that it always returns the density (probability per unit
+            area). Also, it is different in that it takes in a skydir or WSDL 
+            instead of a radial distance. """
         if type(skydir) == WeightedSkyDirList:
             dv = DoubleVector()
             skydir.arclength(self.spatial_model.center,dv)
@@ -420,6 +469,11 @@ Optional keyword arguments:
         else:
             raise Exception("Unknown input to AnalyticConvolution.__call__()")
 
+    def integral(self,dmax,dmin=0):
+        """ This funciton is analogous to the BandCALDBPsf.integral function
+            Note that when dmax=0 (with dmin=0), the integral equals 0. When
+            dmax->infty (with dmin=0), the integral aproaches 1. """
+        return float(self.int_val(dmax)-self.int_val(dmin))
 
 """
 a little sanity check class
