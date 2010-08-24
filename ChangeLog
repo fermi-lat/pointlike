@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Aug 24 16:52:41 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Addition of strict flag to writeXML to allow conversion of all extended sources to the SpatialMap template for total compatability with gtlike.
+    *
+------------------------------------------------------------
 User: lande  Tue Aug 24 16:51:13 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
