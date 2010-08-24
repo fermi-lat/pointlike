@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.11 2010/07/12 22:57:30 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.12 2010/07/25 19:40:13 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -132,7 +132,8 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         npix = int(round(2*rad/self.pixelsize))
         npix += (npix%2 == 0)
         self.active_bgc.setup_grid(npix,self.pixelsize)
-        self.active_bgc.do_convolution(energy,conversion_type,override_en=band.e)
+        #self.active_bgc.do_convolution(energy,conversion_type,override_en=band.e)
+        self.active_bgc.do_convolution(energy,conversion_type)
 
     def initialize_counts(self,bands,roi_dir=None):
         rd = self.roi_dir if roi_dir is None else roi_dir
