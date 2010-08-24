@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.7 2010/04/25 01:50:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.8 2010/08/10 23:22:48 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -125,46 +125,42 @@ class ROILocalizer(object):
         """
         
         ro  = PsfOverlap()
-        roi = self.roi
         rd  = self.rd
-        sd  = self.sd 
+        roi = self.roi
         ll  = 0
-        pf  = roi.phase_factor
-        bf  = self.bandfits
         wh  = self.which
         dv  = DoubleVector()
 
         for i,band in enumerate(roi.bands):
 
-            en,exp,pa                 = band.e,band.exp,band.b.pixelArea()
-            exposure_ratio          = exp.value(skydir,en)/exp.value(sd,en) # changed to "sd" Feb. 6 2010
+            # N.B. -- needs to be the ratio with ROI_DIR to be consistent with ROIPointSourceManager
+            exposure_ratio  = band.exp.value(skydir,band.e)/band.exp.value(rd,band.e)
             
-            nover                      = ro(band,rd,skydir) * exposure_ratio * band.solid_angle / band.solid_angle_p
-            oover                      = band.overlaps[wh]
-            psnc                        = band.bandfits if bf else band.ps_counts[wh]
-            psoc                        = band.ps_counts[wh]
+            nover           = ro(band,rd,skydir)
+            oover           = band.overlaps[wh]
+            psnc            = (band.bandfits if self.bandfits else band.ps_counts[wh])*exposure_ratio
+            psoc            = band.ps_counts[wh]*band.er[wh]
 
             if psnc < 0: continue # skip potentially bad band fits, or bands without appreciable flux
 
-            tot_term                  = (band.bg_all_counts + band.ps_all_counts + psnc * nover - psoc * oover ) * pf
+            tot_term = (band.bg_all_counts + band.ps_all_counts + psnc*nover - psoc*oover ) * roi.phase_factor
 
             if band.has_pixels:
+                
+                rvals = N.empty(len(band.wsdl))
+                band.psf.cpsf.wsdl_val(rvals,skydir,band.wsdl)
+                ps_pix_counts = rvals*band.b.pixelArea()
+                ### DEPRECATED
+                #band.wsdl.arclength(skydir,dv)
+                #ps_pix_counts = band.psf(N.fromiter(dv,dtype=float),density=True)*band.b.pixelArea()
+                ### END DEPRECATED
 
-                #ps_pix_counts = band.psf(N.asarray([skydir.difference(x) for x in band.wsdl]),density=True)*pa*exposure_ratio
-                band.wsdl.arclength(skydir,dv)
-                ps_pix_counts = band.psf(N.fromiter(dv,dtype=float),density=True)*pa*exposure_ratio
+                pix_term = (band.pix_counts * N.log(
+                                band.bg_all_pix_counts + band.ps_all_pix_counts -
+                                psoc*band.ps_pix_counts[:,wh] + psnc*ps_pix_counts
+                            ) ).sum()
 
-                pix_term = (band.pix_counts * N.log
-                                    (
-                                        band.bg_all_pix_counts + 
-                                        band.ps_all_pix_counts -
-                                        psoc * band.ps_pix_counts[:,wh] +
-                                        psnc * ps_pix_counts
-                                    )
-                              ).sum()
-
-            else:
-                pix_term = 0
+            else: pix_term = 0
 
             ll += tot_term - pix_term
             if N.isnan(ll):
@@ -175,10 +171,10 @@ class ROILocalizer(object):
                 # model rather than the band-by-band fit; otherwise, subsequent fits for broadband parameters
                 # would fail
                 band.overlaps[which] = nover
-                band.ps_all_counts  += psoc * (nover - oover)
+                band.ps_all_counts  += psoc*(nover - oover)
                 if band.has_pixels:
                     band.ps_all_pix_counts    += psoc * (ps_pix_counts - band.ps_pix_counts[:,wh])                                        
-                    band.ps_pix_counts[:,wh]  = ps_pix_counts
+                    band.ps_pix_counts[:,wh]   = ps_pix_counts
 
         if N.isnan(ll):
             raise Exception('ROIAnalysis.spatialLikelihood failure at %.3f,%.3f' %(skydir.ra(),skydir.dec()))
