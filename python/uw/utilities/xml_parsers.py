@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.11 2010/08/14 01:02:24 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.12 2010/08/24 18:19:22 kerrm Exp $
 
    author: Matthew Kerr
 """
@@ -567,7 +567,7 @@ def unparse_point_sources(point_sources):
         xml_blurbs.push(''.join([s1,specxml,skyxml,s2]))
     return xml_blurbs
 
-def process_diffuse_source(ds):
+def process_diffuse_source(ds,strict):
     """Convert an instance of DiffuseSource into an XML blurb."""
     m2x = Model_to_XML()
     dm = ds.dmodel
@@ -576,7 +576,10 @@ def process_diffuse_source(ds):
     if isinstance(ds,ExtendedSource):
         m2x.process_model(ds.smodel,scaling=False)
         specxml = m2x.getXML()
-        skyxml = makeExtendedSourceSpatialModel(ds.spatial_model)
+        spatial = ds.spatial_model
+        if strict: spatial = convert_spatial_map(spatial,'template_%s_%s.fits' % \
+                                                 (ds.name,spatial.pretty_name))
+        skyxml = makeExtendedSourceSpatialModel(spatial)
     elif isinstance(dm,DiffuseFunction):
         filename = os.path.abspath(dm.name())
         skyxml = makeDSMapcubeSpatialModel(filename=filename)
@@ -604,11 +607,11 @@ def process_diffuse_source(ds):
     s2 = '</source>'
     return ''.join([s1,specxml,skyxml,s2])
     
-def unparse_diffuse_sources(diffuse_sources):
+def unparse_diffuse_sources(diffuse_sources,strict):
     """Convert a list of DiffuseSources into XML blurbs."""
     xml_blurbs = Stack()
     for ds in diffuse_sources:
-        xml_blurbs.push(process_diffuse_source(ds))
+        xml_blurbs.push(process_diffuse_source(ds,strict))
     return xml_blurbs
 
 def writeXML(stacks,filename, title='source_library'):
@@ -620,12 +623,25 @@ def writeXML(stacks,filename, title='source_library'):
             f.write(elem)
     f.write('\n</source_library>')
 
-def writeROI(roi,filename):
+def writeROI(roi,filename,strict=False):
     """ out the contents of an ROIAnalysis source model
-       to a gtlike XML file."""
+        to a gtlike XML file.
+       
+        N.B. By default, extended sources are saved out with
+        a format incompatable with gtlike. This is because
+        each diffuse source has its spatial parameters saved
+        out in the xml file. This is useful for saving
+        errors on the fit spatial parameters as well as for
+        easibly being read back into pointlike. OTOH, it is
+        sometimes desirable for extended source output to be
+        stirctly compatable with gtlike, to allow reading
+        extended sources into gtlike. For this case, strict
+        can be set to true and all extended sources are
+        converted into SpatialMap objects before the xml is
+        created. """
     source_xml = [unparse_point_sources(roi.psm.point_sources)]
     try:
-        source_xml.append( unparse_diffuse_sources(roi.dsm.diffuse_sources))
+        source_xml.append(unparse_diffuse_sources(roi.dsm.diffuse_sources,strict))
     except AttributeError: 
         print 'warning: no diffuse sources found to write to xml'
     writeXML(source_xml,filename)
