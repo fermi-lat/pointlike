@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.145 2010/08/02 15:21:53 burnett Exp $
+$Id: release.notes,v 1.146 2010/08/02 19:48:48 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-06-00 24-Aug-2010 burnett many python changes, see changelog, but especially use of C++ implementation of PSF, etc.
  pointlike-07-05-03 02-Aug-2010 burnett test program data into data folder
  pointlike-07-05-02 02-Aug-2010 burnett scons/win32 fix
  pointlike-07-05-01 01-Aug-2010 burnett more corrections to fix vc90 warnigns
