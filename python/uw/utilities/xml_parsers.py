@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.10 2010/08/12 23:08:56 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.11 2010/08/14 01:02:24 kerrm Exp $
 
    author: Matthew Kerr
 """
@@ -131,7 +131,7 @@ class XML_to_Model(object):
             pdict = d[p]
             scale = float(pdict['scale'])
             value = float(pdict['value'])
-            if (p == 'Index') or (p == 'Index1') or (p == 'Index2' and self.modict[specname][0]=='B'):
+            if (p == 'Index') or (p == 'Index1') or (p == 'Index2' and self.modict[specname]!='PLSuperExpCutoff'):
                 # gtlike uses a neg. index internally so scale > 0
                 # means we need to take the negative of the value
                 if scale > 0: value = -value
@@ -251,6 +251,7 @@ class Model_to_XML(object):
             self.pmax   = [1e4,5,5e5,5e5]
             self.pval   = [2,1,1e3,1e5]
             self.perr   = [0,0,-1,-1]
+            self.oomp   = [1,0,0,0]
 
         elif name == 'PowerLaw':
             self.pname  = ['Prefactor','Index','Scale']
@@ -259,11 +260,13 @@ class Model_to_XML(object):
             if scaling:
                 self.pscale = [1,-1,1] ; self.pmin  = [0.1,-1,30]
                 self.pmax  = [10,1,5e5]; self.pval = [1,0,1e3]
+                self.oomp   = [0,0,0]
             else:
                 self.pscale = [1e-9,-1,1]
                 self.pmin   = [1e-5,0,30]
                 self.pmax   = [1e4,5,5e5]
                 self.pval   = [1,2,1e3]
+                self.oomp   = [1,0,0]
 
         elif name == 'BrokenPowerLaw':
             self.pname  = ['Prefactor', 'Index1', 'Index2', 'BreakValue']
@@ -273,6 +276,7 @@ class Model_to_XML(object):
             self.pmax   = [1e4,5,5,5e5]
             self.pval   = [1,2,2,1e3]
             self.perr   = [0,0,0,0]
+            self.oomp   = [1,0,0,1]
 
         elif name == 'BrokenPowerLaw2':
             self.pname  = ['Integral','Index1','Index2','BreakValue','LowerLimit','UpperLimit']
@@ -282,15 +286,17 @@ class Model_to_XML(object):
             self.pmax   = [1e4,5,5,5e5,5e5,5e5]
             self.pval   = [2,1,1,1e3,1e2,1e5]
             self.perr   = [0,0,0,0,-1,-1]
+            self.oomp   = [1,0,0,1,0,0]
 
         elif name == 'PLSuperExpCutoff':
             self.pname = ['Prefactor','Index1','Cutoff','Index2','Scale']
             self.pfree  = [1,1,1,0,0]
-            self.pscale = [1e-9,-1,1000,1,1]
+            self.pscale = [1e-9,-1,1000.,1,1]
             self.pmin   = [1e-4,0,0.1,0,30]
             self.pmax   = [1e4,5,3e5,5,5e5]
             self.pval   = [1,2,1,1,1000]
             self.perr   = [0,0,0,0,-1]
+            self.oomp   = [1,0,1,0,0]
 
         elif name == 'FileFunction':
             self.pname = ['Normalization']
@@ -300,6 +306,7 @@ class Model_to_XML(object):
             self.pmax = [10]
             self.pval = [1]
             self.perr = [0]
+            self.oomp = [0]
 
         elif name == 'ConstantValue':
             self.pname  = ['Value']
@@ -309,6 +316,7 @@ class Model_to_XML(object):
             self.pmax   = [10]
             self.pval   = [1]
             self.perr   = [0]
+            self.oomp   = [0]
 
         else:
             raise Exception,'Unrecognized model %s'%(name)
@@ -338,6 +346,14 @@ class Model_to_XML(object):
         else:
             self.pval[index] = val - model.index_offset
             self.pscale[index] = -1
+
+    def process_scale(self,val,index):
+        if not self.oomp[index]: return
+        # else adjust scale to nearest order of magnitude
+        scale = round(N.log10(val))
+        self.pscale[index] = 10**scale
+        self.pmin[index] = 1e-2
+        self.pmax[index] = 1e2
 
     def process_model(self,model,xml_name=None,scaling=False):
         """model an instance of Model
@@ -369,10 +385,11 @@ class Model_to_XML(object):
             index = self.find_param(param)
             if index is None:
                 raise Exception,'Unrecognized parameter %s'%(param)
+            self.process_scale(vals[iparam],index)
             self.pfree[index] = model.free[iparam]
             self.pval[index] = vals[iparam] / self.pscale[index]
             self.perr[index] = errs[iparam] / self.pscale[index]
-            if (param == 'Index') or (param == 'Index1') or (param == 'Index2'):
+            if (param == 'Index') or (param == 'Index1') or (param == 'Index2' and model.name!='PLSuperExpCutoff'):
                 self.process_photon_index(model,index,vals[iparam],errs[iparam])
             if self.pval[index] < self.pmin[index]:
                 print 'WARNING: Found %s for minimum value %s (%s)'%(str(self.pval[index]),str(self.pmin[index]),param)
