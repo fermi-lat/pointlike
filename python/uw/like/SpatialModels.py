@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.11 2010/08/03 03:47:07 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.12 2010/08/12 23:10:47 lande Exp $
 
    author: Joshua Lande
 
@@ -9,6 +9,7 @@ import numpy as N
 from scipy import vectorize
 from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
         SkyImage,SkyIntegrator,CompositeSkyFunction
+from uw.utilities.convolution import Grid
 
 class DefaultSpatialModelValues(object):
     """ Spatial Parameters:
@@ -30,7 +31,7 @@ class DefaultSpatialModelValues(object):
         The firs two parametesr are not defined in the models dict but always set
         to defaults lower in the function. """
     models = {
-        'Gaussian'           : {'p':[N.radians(.1)],                 
+        'Gaussian'           : {'p':[N.radians(0.1)],                 
                                 'param_names':['Sigma'],                        
                                 'limits':N.radians([[1e-10,3]]),
                                 'log':[True],
@@ -39,28 +40,54 @@ class DefaultSpatialModelValues(object):
                                 # As minuit.py's doc says, a step of .04 is about 10% in log space
                                }, 
         'PseudoGaussian'     : {},
-        'Disk'               : {'p':[N.radians(.1)],
+        'Disk'               : {'p':[N.radians(0.1)],
                                 'param_names':['Sigma'],
                                 'limits':N.radians([[1e-10,3]]),
                                 'log':[True],
                                 'steps':[0.04]},
         'PseudoDisk'         : {},
+        'Ring'               : {'p':[N.radians(0.1),0.5],
+                                'param_names':['Sigma','Fraction'],
+                                'limits':N.radians([[1e-10,3],[0,1]]),
+                                'log':[True,False],
+                                'steps':[0.04,0.1]},
         'NFW'                : {'p':[N.radians(.1)],
                                 'param_names': ['Sigma'],
                                 'limits': N.radians([[1e-10,9]]), # constrain r68 to 3 degrees.
                                 'steps':[0.04],
                                 'log':[True]},
         'PseudoNFW'          : {},
-        'RadialProfile'      : {'p':[], 'param_names':[], 'limits':[], 'log':[], 'steps':[]},
-        'EllipticalGaussian' : {'p':[N.radians(.1),N.radians(.1),0], 
+        'RadialProfile'      : {},
+        'EllipticalGaussian' : {'p':[N.radians(0.1),N.radians(0.1),0], 
                                 'param_names':['Major_Axis','Minor_Axis','Position_Angle'],
                                 'limits':N.radians([[1e-6,3],
                                                     [1e-6,3],
-                                                    [-360,360]]),
+                                                    [-45,45]]),
+                                # Note for elliptical shapes, theta > 45 is the same as a negative angle
                                 'log':[True,True,False],
-                                'steps':[0.04,0.04,5]},
+                                'steps':[0.04,0.04,N.radians(5)]},
+        'EllipticalDisk'     : {'p':[N.radians(0.1),N.radians(0.1),0], 
+                                'param_names':['Major_Axis','Minor_Axis','Position_Angle'],
+                                'limits':N.radians([[1e-6,3],
+                                                    [1e-6,3],
+                                                    [-45,45]]),
+                                'log':[True,True,False],
+                                'steps':[0.04,0.04,N.radians(5)]},
+        'EllipticalRing'     : {'p':[N.radians(0.1),N.radians(0.1),0,0.5], 
+                                'param_names':['Major_Axis','Minor_Axis','Position_Angle','Fraction'],
+                                'limits':N.radians([[1e-6,3],
+                                                    [1e-6,3],
+                                                    [-45,45],
+                                                    [0,1]]),
+                                'log':[True,True,False,False],
+                                'steps':[0.04,0.04,N.radians(5),0.1]},
         'SpatialMap'         : {}
     }
+
+    models['PseudoEllipticalGaussian'] = models['PseudoGaussian']
+    models['RadiallySymmetricEllipticalGaussian'] = models['Gaussian']
+    models['PseudoEllipticalDisk'] = models['PseudoDisk']
+    models['RadiallySymmetricEllipticalDisk'] = models['Disk']
 
     @staticmethod
     def setup(the_model):
@@ -72,7 +99,7 @@ class DefaultSpatialModelValues(object):
         the_model.p=N.append([0.,0.],the_model.p) \
                 if the_model.__dict__.has_key('p') else N.asarray([0.,0.])
 
-        the_model.log=N.append([False,False,],the_model.log) \
+        the_model.log=N.append([False,False],the_model.log) \
                 if the_model.__dict__.has_key('log') else N.asarray([False,False])
 
         the_model.param_names=N.append(['lon','lat'],the_model.param_names) \
@@ -123,33 +150,40 @@ class SpatialModel(object):
     def __init__(self,**kwargs):
         DefaultSpatialModelValues.setup(self)
 
+        iscopy = kwargs.pop('iscopy', False)
+
         self.__dict__.update(**kwargs)
 
-        # if center is passed as a flag, add it to the paraemters.
-        if 'center' in kwargs.keys(): 
-            center = kwargs.pop('center')
-            if not kwargs.has_key('p'):
-                # remove first two elements from default parameters.
-                self.p = self.p[2:]
+        if not iscopy:
+            # if center is passed as a flag, add it to the paraemters.
+            if 'center' in kwargs.keys(): 
+                center = kwargs.pop('center')
+                if not kwargs.has_key('p'):
+                    # remove first two elements from default parameters.
+                    self.p = self.p[2:]
+                if self.coordsystem == SkyDir.EQUATORIAL:
+                    self.p = N.append([center.ra(),center.dec()],self.p)
+                elif self.coordsystem == SkyDir.GALACTIC:
+                    self.p = N.append([center.l(),center.b()],self.p)
+
+            if len(self.p) != len(self.param_names):
+                raise Exception("SpatialModel set with wrong number of parameters.")
+
+            # rename coordsystem to properly reflect projection.
             if self.coordsystem == SkyDir.EQUATORIAL:
-                self.p = N.append([center.ra(),center.dec()],self.p)
+                self.param_names[0:2] = ['RA','Dec']
             elif self.coordsystem == SkyDir.GALACTIC:
-                self.p = N.append([center.l(),center.b()],self.p)
+                self.param_names[0:2] = ['l','b']
 
-        # rename coordsystem to properly reflect projection.
-        if self.coordsystem == SkyDir.EQUATORIAL:
-            self.param_names[0:2] = ['RA','Dec']
-        elif self.coordsystem == SkyDir.GALACTIC:
-            self.param_names[0:2] = ['l','b']
+            if self.log[0] != False or self.log[1] != False:
+                raise Exception("Do not make the spatial parameters log.")
 
-        if self.log[0] != False or self.log[1] != False:
-            raise Exception("Do not make the spatial parameters log.")
-
-        # map the log parameters into log space.
-        # careful not to take log of a negative number
-        self.p = N.asarray([N.log10(p) if log else p for p,log in zip(self.p,self.log)])
-        self.limits = N.asarray([N.log10(lim) if log else lim \
-                                 for lim,log in zip(self.limits,self.log)])
+            # map the log parameters into log space.
+            # careful not to take log of a negative number
+            self.p = N.where(self.log,N.log10(self.p),self.p)
+            log_transpose = self.log.reshape((self.log.shape[0],1))
+            self.limits = N.where(log_transpose,
+                                  N.log10(self.limits),self.limits)
 
         self.cache()
 
@@ -184,8 +218,8 @@ class SpatialModel(object):
         if absolute:
             return self.param_names
         else:
-            return ["log10(%s)" % n if log else n \
-                    for n,log in zip(self.param_names,self.log)]
+            return ["log10(%s)" % n.replace('Dec','Dec (rotated)') \
+                    if log else n for n,log in zip(self.param_names,self.log)]
 
     def get_limits(self,absolute=False):
         ret = N.asarray([10**lim if log and absolute else lim \
@@ -211,14 +245,9 @@ class SpatialModel(object):
                 p = N.append([center.l(),center.b()],p)
 
         if len(p)!=len(self.p):
-            raise Exception("SpatialModel.set_parameters given the wrong number of arguments.")
+            raise Exception("SpatialModel.set_parameters given the wrong number of parameters.")
 
-        if absolute:
-            # careful not to take log of a negative number
-            self.p = N.asarray([N.log10(_) if log else _ for _,log in zip(p,self.log)])
-        else:
-            self.p = N.asarray(p)
-
+        self.p = N.where(self.log,N.log10(p),p) if absolute else N.asarray(p)
         self.cache()
     
     def modify_loc(self,center):
@@ -278,6 +307,20 @@ class SpatialModel(object):
                     hi_abs/(1. if absolute else p), \
                     lo_abs/(1. if absolute else p)
 
+    def copy(self):
+        
+        a = eval(self.name+'(iscopy=True, **self.__dict__)') #create instance of same spectral model type
+        
+        a.p = N.asarray(self.p).copy() #copy in parameters
+        a.param_names = N.asarray(self.param_names).copy() # copy in names
+        a.limits = N.asarray(self.limits).copy() #copy in limits
+        a.log = N.asarray(self.log).copy() #copy in log
+        a.steps = N.asarray(self.steps).copy() #copy in steps
+
+        try: a.cov_matrix = self.cov_matrix.__copy__()
+        except: pass
+
+        return a
 
     def __call__(self,v,energy=None):
         raise NotImplementedError("Subclasses should implement this!")
@@ -296,15 +339,17 @@ class SpatialModel(object):
             pure lazieness, since it is not needed elsewhere. """
         return PySkySpectrum(self,None)
 
-    def save_template(self,filename,pixelsize=0.05):
+    def save_template(self,filename,pixelsize=0.025):
+        if isinstance(self,EnergyDependentSpatialModel):
+            raise Exception("Unable to save template for energy dependent SpatialModel.")
         center=self.center
-        image=SkyImage(center,filename,pixelsize,self.effective_edge(),1,"ZEA",
+        image=SkyImage(center,filename,pixelsize,N.degrees(self.effective_edge()),1,"ZEA",
                        True if self.coordsystem == SkyDir.GALACTIC else False,False)
         skyfunction=self.get_PySkyFunction()
         image.fill(skyfunction)
         image.save()
 
-    def __str__(self,absolute=False):
+    def __str__(self,absolute=False, indent=''):
         """Return a pretty print version of parameter values and errors."""
         p,hi_p,lo_p = self.statistical(absolute=absolute,two_sided=True)
         p,avg_p     = self.statistical(absolute=absolute,two_sided=False)
@@ -319,23 +364,25 @@ class SpatialModel(object):
                 n=pnames[i][:m]
                 t_n=n+(m-len(n))*' '
                 frozen = '' if self.free[i] else '(FROZEN)'
-                if not absolute:
+                if p[i] == 0: 
+                   l+=[t_n+': (1 +       -      ) (avg =      ) %.3g %s'%(p[i],frozen)]
+                elif not absolute:
                    l+=[t_n+': (1 + %.3f - %.3f) (avg = %.3f) %.3g %s'%(hi_p[i],lo_p[i],avg_p[i],p[i],frozen)]
                 else:
                    l+=[t_n+': %.3g + %.3g - %.3g (avg = %.3g) %s'%(p[i],hi_p[i],lo_p[i],avg_p[i],frozen)]
-            return '\n'.join(l)
+            return ('\n'+indent).join(l)
         else: #if no errors are present
             for i in xrange(len(pnames)):
                 n=pnames[i][:m]
                 t_n=n+(m-len(n))*' '
                 l+=[t_n+': %.3g'%(p[i])]
-            return '\n'.join(l)
+            return ('\n'+indent).join(l)
 
     def pretty_string(self):
         """ Default pretty string prints out the spatial parameters
             of the source in one terse line. This is useful to
             print during localization. """
-        str = 'dir = (%.3f,%.3f)' % (self.p[0],self.p[1])
+        str = 'dir = [ %.3fd, %.3fd ]' % (self.p[0],self.p[1])
         if len(self.p)>2:
             str+=', ext = %s' % (self.pretty_spatial_string())
         return str
@@ -343,7 +390,7 @@ class SpatialModel(object):
     def pretty_spatial_string(self):
         """ Print out just the spatial part of the model, excluding
             the source location."""
-        return "[ "+" ".join(["%.3f" % _ for _ in self.get_parameters(absolute=True)[2:]])+" ]"
+        return "[ "+", ".join(["%.3f" % _ for _ in self.get_parameters(absolute=True)[2:]])+" ]"
 
 #===============================================================================================#
 
@@ -461,6 +508,33 @@ class PseudoDisk(PseudoSpatialModel,Disk):
 
 #===============================================================================================#
 
+class Ring(RadiallySymmetricModel):
+    """ The ring is defined as a constant value between one radius and another. """
+    def cache(self):
+        super(Disk,self).cache()
+
+        self.sigma,self.frac=self.get_parameters(absolute=True)[2:4]
+
+        if self.frac < 0 or self.frac >= 1: 
+            raise Exception("Ring spatial model must have 'frac' spatial parameter >=0 and < 1.")
+
+
+        self.sigma2=self.sigma**2
+        self.pref=1/(N.pi*self.sigma2*(1-self.frac**2))
+
+    def at_r(self,r,energy=None):
+        return N.where((r>=self.frac*self.sigma)&(r<=self.sigma),
+                       self.sigma,self.pref,0)
+
+    def effective_edge(self,energy=None):
+        """ Disk has a well defined edge, so there is no reason to integrate past it. """
+        return self.sigma_outer
+
+    def pretty_spatial_string(self):
+        return "[ %.3f', %.3f' ]" % (60*N.degrees(self.sigma_outer),(60*N.degrees(self.sigma_inner)))
+
+#===============================================================================================#
+
 class NFW(RadiallySymmetricModel):
     """ Ping's parameterization of the NFW Source is 
         P(x,y)=2/(pi*r*s*(1+r/s)^5) """
@@ -485,10 +559,13 @@ class NFW(RadiallySymmetricModel):
     def pretty_spatial_string(self):
         return "[ %.3f' ]" % (60*N.degrees(self.sigma))
 
+#===============================================================================================#
+
 class PseudoNFW(PseudoSpatialModel,NFW):
 
     def extension(self): return N.radians(1e-10)
 
+#===============================================================================================#
 
 class RadialProfile(RadiallySymmetricModel):
     def __init__(self,*args,**kwargs):
@@ -516,8 +593,9 @@ class RadialProfile(RadiallySymmetricModel):
     def at_r(self,r,energy=None):
         return self.interp(r)
 
+#===============================================================================================#
 
-class EllipticalGaussian(SpatialModel):
+class EllipticalSpatialModel(SpatialModel):
     """  Defined as a gaussian in the major axis of width Major_Axis
          times a gaussian in the minor axis of width Minor_Axis
          where the major axis is at an angle theta from the
@@ -535,27 +613,83 @@ class EllipticalGaussian(SpatialModel):
 
          http://fermi.gsfc.nasa.gov/ssc/data/access/lat/1yr_catalog/1FGL_column_descriptions_v2.pdf
     """
+    def extension(self):
+        """ For overloading by pseudo hypothesis. """
+        return self.get_parameters(absolute=True)[2:5]
+
     def cache(self):
 
-        super(EllipticalGaussian,self).cache()
+        super(EllipticalSpatialModel,self).cache()
 
-        self.sigma_x, self.sigma_y, self.theta = self.get_parameters(absolute=True)[2:]
+        self.sigma_x, self.sigma_y, self.theta = self.extension()
 
-        # parameters from
-        # http://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
-        # where I have replaced theta with -theta to get a postive angle to correspond
-        # with a rotation of the semi-major axis towards positive RA.
+        self.call_grid = None
 
-        self.a =  N.cos(theta)**2/(2*self.sigma_x**2) + N.sin(theta)**2/(2*sigma_y**2)
-        self.b =  N.sin(2*theta)/(4*self.sigma_x**2)  - N.sin(2*theta)/(4*sigma_y**2)
-        self.c =  N.sin(theta)**2/(2*self.sigma_x**2) + N.cos(theta)**2/(2*sigma_y**2)
+    def fill_grid(self,grid,energy=None,override_skydir=None):
+        """ grid is a convolution.Grid object.
 
-        self.pref = 1/(2*N.pi*self.sigma_x*sigma_y)
+            It is assumed that the center of the grid is the same
+            as the center of the extended source! This is ensured
+            by the roi_extended object.
 
-    def effective_edge(self,energy=None):
-        return 5*max(self.sigma_x,self.sigma_y)
+            Return an array of the pdf value on the rotated grid 
+            (like the Grid.fill function). 
+            
+            Converstion from angles & lengths to a,b, and c parameters comes from
+            http://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
+
+            Honestly though, there is an overall normalization of the
+            angle and I canot intuit why it should have the paritcular
+            value that it does. So the factor of 45degrees and the minus
+            sign in the angle formula I discovered simply by running the
+            code a bunch of times with different angles and positions in
+            the sky and creating skymaps of the PDF until I was convinced
+            the formula was correct. 
+            
+            override_skydir is just used internally so the same function
+            can be used by the __call__ function given a SkyDir object. """
+
+        mpix = (float(grid.npix)-1)/2.
+        if override_skydir:
+            # I have no idea why this works, and it really confuses me. But
+            # I confirmed it just by making a lot of skyimages.
+            y,x = grid.pix(override_skydir)
+            dLons=(mpix-x)*N.radians(grid.pixelsize)
+            dLats=(y-mpix)*N.radians(grid.pixelsize)
+        else:
+            dLons,dLats= N.meshgrid((N.arange(0,grid.npix)-mpix)*N.radians(grid.pixelsize),
+                                     (mpix-N.arange(0,grid.npix))*N.radians(grid.pixelsize))
+
+        # calculate the angle from the center of the grid to the celestial north
+        # pole by finding the image coordinates for the center and for the sky
+        # coordinate rotated up towards the north pole by one degree.
+        towards_cel_north = SkyDir(self.center.ra(),self.center.dec()+1)
+        x,y   = grid.pix(towards_cel_north)
+        xc,yc = grid.pix(self.center)
+
+        # Magic factor of 90degrees still confuses me.
+        angle = N.radians(90) - (self.theta + N.arctan2(y-yc,x-xc))
+
+        a =  N.cos(angle)**2/(self.sigma_x**2)  + N.sin(angle)**2/(self.sigma_y**2)
+        b = -N.sin(2*angle)/(2*self.sigma_x**2) + N.sin(2*angle)/(2*self.sigma_y**2)
+        c =  N.sin(angle)**2/(self.sigma_x**2)  + N.cos(angle)**2/(self.sigma_y**2)
+
+        x=a*dLons**2 + 2*b*dLons*dLats+ c*dLats**2
+
+        return self.value_at(x)
+
+    def value_at(self,x):
+        raise NotImplementedError("Subclasses should implement this!")
 
     def __call__(self,v,energy=None):
+        """ This code is very inefficient and should not be used for anything
+            serious. 
+            
+            It is here for
+            (a) completeness
+            (b) for use by save_template where efficiency isn't important.
+            
+            """
         if type(v)==list and len(v)==3:
             skydir = SkyDir(Hep3Vector(v[0],v[1],v[2]))
         elif type(v)==SkyDir:
@@ -563,28 +697,99 @@ class EllipticalGaussian(SpatialModel):
         else:
             raise Exception("Incorrect argument to __call__ function.")
 
-        def sign(x,y,z):
-            """ Return the sign of the difference between x and y (sign(y-x))
-                with the added complication that x and y are the values mod z.
-                Doesn't worry about edge case where x=y."""
-            temp=(x-y) % z # calculate the difference mod z
-            temp-= (temp>z/2)*z # no get the interval b/n -z/2 and z/2
-            if temp>=0: return 1 # if this is > 0, then x > y
-            return -1 # otherwise x < y
+        # creating a grid for each function call is horribly inneficient, so
+        # this function shouldn't be used for anything serious.
+        if self.call_grid is None: 
+            self.call_grid=Grid(self.center)
+            self.call_grid.wrap=True
 
-        # the semi major axis should point towards Celestial North, so it is ~ (dec_point - dec_center)
-        delta_x = skydir.difference(SkyDir(skydir.ra(),self.center.dec()))*sign(skydir.dec(),self.center.dec(),180)
-
-        delta_y = skydir.difference(SkyDir(self.center.ra(),skydir.dec()))*sign(skydir.ra(),self.center.ra(),360)
-
-        return self.pref*N.exp(-(self.a*delta_x**2 +
-                               2*self.b*delta_x*delta_y+
-                               self.c*delta_y**2))
+        return self.fill_grid(self.call_grid,energy=None,override_skydir=skydir)
 
     def pretty_spatial_string(self):
-        return "[ %.3f', %.3f', %.1d ]" % \
-                (60*N.degrees(self.sigma_x),60*N.degrees(self.sigma_y), N.degrees(theta))
+        return "[ %.3f', %.3f', %.2fd ]" % \
+                (60*N.degrees(self.sigma_x),60*N.degrees(self.sigma_y), N.degrees(self.theta))
 
+#===============================================================================================#
+
+class EllipticalGaussian(EllipticalSpatialModel):
+
+    def effective_edge(self,energy=None):
+        return 5*max(self.sigma_x,self.sigma_y)
+
+    def cache(self):
+        super(EllipticalGaussian,self).cache()
+        self.pref = 1/(2*N.pi*self.sigma_x*self.sigma_y)
+
+    def value_at(self,x):
+        return self.pref*N.exp(-x/2)
+
+#===============================================================================================#
+
+class PseudoEllipticalGaussian(PseudoSpatialModel,EllipticalGaussian):
+
+    def extension(self):
+        return N.radians(1e-10),N.radians(1e-10),0
+
+#===============================================================================================#
+
+class RadiallySymmetricEllipticalGaussian(EllipticalGaussian):
+    def extension(self):
+        sigma=self.get_parameters(absolute=True)[2]
+        return sigma,sigma,0
+
+#===============================================================================================#
+
+class EllipticalDisk(EllipticalSpatialModel):
+    """ The elliptical disk is defined as. """
+
+    def effective_edge(self,energy=None):
+        return max(self.sigma_x,self.sigma_y)
+
+    def cache(self):
+        super(EllipticalDisk,self).cache()
+        self.pref = 1/(N.pi*self.sigma_x*self.sigma_y)
+
+    def value_at(self,x):
+        return N.where(x<1,self.pref,0)
+
+#===============================================================================================#
+
+class RadiallySymmetricEllipticalDisk(EllipticalDisk):
+    def extension(self):
+        sigma=self.get_parameters(absolute=True)[2]
+        return sigma,sigma,0
+
+#===============================================================================================#
+
+class PseudoEllipticalDisk(PseudoSpatialModel,EllipticalDisk):
+    def extension(self):
+        return N.radians(1e-10),N.radians(1e-10),0
+
+#===============================================================================================#
+
+class EllipticalRing(EllipticalSpatialModel):
+
+    def effective_edge(self,energy=None):
+        """ sqrt(2) s for case of theta=45deg with
+            respect to the imagined box's edge. """
+        return max(self.sigma_x,self.sigma_y)
+
+    def cache(self):
+        super(EllipticalRing,self).cache()
+
+        self.frac = self.get_parameters(absolute=True)[5]
+
+        self.pref = 1/(N.pi*self.sigma_x*self.sigma_y*(1-self.frac**2))
+
+    def value_at(self,x):
+        return N.where((x>self.frac)&(x<1),self.pref,0)
+
+    def pretty_spatial_string(self):
+        return "[ %.3f', %.3f', %.2fd, %.2f ]" % \
+                (60*N.degrees(self.sigma_x),60*N.degrees(self.sigma_y),
+                 N.degrees(self.theta),self.frac)
+
+#===============================================================================================#
 
 class SpatialMap(SpatialModel):
     """ Implement an extended source not as a simple geometric shape
@@ -647,3 +852,29 @@ class SpatialMap(SpatialModel):
             raise Exception("Incorrect argument to __call__ function.")
 
         return self.skyfun(skydir)
+
+    def get_PySkyFunction():
+        return self.skyfun(skydir)
+
+#===============================================================================================#
+
+class EnergyDependentSpatialModel(SpatialModel):
+    """ This is the base class for all spatial models where the extended source
+        shape is a function of energy. """
+    pass
+
+
+def convert_spatial_map(spatial,filename):
+    """ This function needed for xml parsing.
+    
+        Convert any SpatialModel object into a SpatialMap object. This is
+        useful for ensuring compliance with gtlike.
+        
+        spatial is the name of the input spatial model
+        filename is the filename for the saved template
+        
+        The return is a SpatialMap object with the same PDF. """
+    filename = 'template_%s_%s.fits' % spatial.pretty_name
+    spatial.save_template(filename)
+    nm = SpatialMap(file=filename)
+    return nm
