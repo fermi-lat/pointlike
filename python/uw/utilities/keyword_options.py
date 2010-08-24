@@ -3,11 +3,12 @@ Support for generating doc strings, and setting keyword options for class constr
   decorate: decorator to append keyword info to the docstring
   process:  set the class dictionary from the defaults and supplied keywords
   
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/keyword_options.py,v 1.1 2010/08/20 17:23:57 burnett Exp $
 
 Author: T. Burnett <tburnett@uw.edu>
 """
 import types 
+import textwrap
 
 ##
 #
@@ -27,7 +28,7 @@ def decorate(defaults):
      usage: 
     class Myclass(object):
         defaults = ( ('key', value, 'description'), )
-        @keyword_option.decorate(defaults)
+        @keyword_options.decorate(defaults)
         def __init__(self, *pars, **kwargs):
             keyword_options.process(self, kwargs)
     """
@@ -44,6 +45,7 @@ def decorate(defaults):
                 value = "'" + value + "'"
             s += indent+'%-12s%-10s' % (key, value)
             s += ' '+ (indent+22*' ').join(description.split('\n'))
+        if func.__doc__ is None: func.__doc__ = ''
         func.__doc__ += s+hbar
         return func
     return decorator
