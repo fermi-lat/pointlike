@@ -1,11 +1,11 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.16 2010/08/12 23:08:34 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.17 2010/08/17 02:05:51 lande Exp $
 
 authors: M. Kerr, J. Lande
 
 """
-from skymaps import SkyDir,WeightedSkyDirList,Hep3Vector,SkyIntegrator,PySkyFunction,Background
+from skymaps import SkyDir,WeightedSkyDirList,Hep3Vector,SkyIntegrator,PySkyFunction,Background,PythonUtilities
 from pointlike import DoubleVector
 import numpy as N
 from scipy.interpolate import interp1d
@@ -113,11 +113,16 @@ class Grid(object):
             The skydir(s) are rotated onto the equatorial grid."""
         
         if hasattr(skydir,'EQUATORIAL'): skydir = [skydir]
+        """ # this block is DEPRECATED -- remove if C++ changes successful for everyone
         lon = N.asarray(map(SkyDir.l,skydir))
         lat = N.asarray(map(SkyDir.b,skydir))
         rlon = DoubleVector() ; rlat = DoubleVector()
         Background.rot_grid(rlon,rlat,lon,lat,self.center)
         lon = N.asarray(rlon) ; lat = N.asarray(rlat)
+        """ # end DEPRECATED
+        rvals = N.empty(len(skydir)*2,dtype=float)
+        PythonUtilities.rot_grid(rvals,skydir,self.center)
+        lon = rvals[::2]; lat = rvals[1::2]
         if self.wrap:
             # adopt negative longitudes for the nonce; fine for calculating differences
             lon = N.where(lon > 180, lon - 360 , lon)
@@ -147,12 +152,17 @@ class Grid(object):
             the ROI, and the skyfun evaluated for each of the resulting
             positions.
             
-            ***THIS SHOULD BE PROFILED AT SOME POINT TO SEE IF WE SHOULD
-            ***PRE-CALCULATE THE TRANSFORMATION.
+            The rotation is rather fast, likely no need to pre-compute.
         """
+        """ # this block is DEPRECATED -- remove if C++ changes successful for everyone
         v = DoubleVector()
         Background.val_grid(v,self.lons,self.lats,self.center,skyfun)
         return N.resize(v,[self.npix,self.npix])
+        """ # end DEPRECATED
+        v = N.empty(self.npix*self.npix)
+        PythonUtilities.val_grid(v,self.lons,self.lats,self.center,skyfun)
+        return v.reshape([self.npix,self.npix])
+        
 
 class BackgroundConvolution(Grid):
 
@@ -177,14 +187,12 @@ class BackgroundConvolution(Grid):
             conversion type.  The values are stored internally as "cvals".
         """
         if override_skyfun is None:
-            #self.bg.setEnergy(energy)
-            #self.bg.set_event_class(conversion_type)
             self.bg.set_skyfun(conversion_type,energy)
             self.bg_vals = self.fill(self.bg)
         else:
             self.bg_vals = self.fill(override_skyfun)
         pb = PretendBand(energy,conversion_type)
-        bpsf = BandCALDBPsf(self.psf,pb,override_en=override_en)
+        bpsf = BandCALDBPsf(self.psf,pb,override_en=override_en,adjust_mean=False)
         self.psf_fill(bpsf)
         self.convolve()
 
