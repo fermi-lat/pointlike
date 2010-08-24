@@ -1,7 +1,7 @@
 """
 Manage the UW catalog source pickle storage
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/source_pickle.py,v 1.1 2010/08/23 20:47:30 burnett Exp $
 """
 import os, pickle, glob, math
 import numpy as np
@@ -65,7 +65,7 @@ def get_class(adict):
             cls = a
             break
     if cls is None:
-        if cls not in others: print 'warning: %s not recognized' % cat_list
+        if cat_list[0] not in others: print 'warning: ''%s'' not recognized' % cat_list
         return '   '
     if cls == 'bzcat': #special, use first 3 chars of source name
         cls = adict['name'][cat_list.index(c)][:3].lower()
@@ -175,7 +175,8 @@ class FitQualityInfo(object):
         """ append values to pars tuple from pk dictionary """
         bi = pk['band_info']
         # merge the fit_ts array
-        fts = bi['fit_ts']
+        fts = bi.get('fit_ts', None)
+        if fts is None: return 2*(-1,)
         fit_ts =fts[::2]+fts[1::2] # fit TS per energy band, assume alternate front, back  
         #dts = bi['band_ts'] -bi['fit_ts']
         dts = bi['ts'] - fit_ts 
