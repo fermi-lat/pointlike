@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.14 2010/08/10 23:03:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.15 2010/08/11 18:48:43 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -87,6 +87,8 @@ class ROIPointSourceManager(ROIModelManager):
         for i,band in enumerate(bands):
 
             en,exp = band.e,band.exp.value
+            rvals  = N.empty(len(band.wsdl),dtype=float)
+            cpsf   = band.psf.cpsf
 
             # make a first-order correction for exposure variation
             denom = exp(roi_dir,en)
@@ -97,9 +99,12 @@ class ROIPointSourceManager(ROIModelManager):
             #unnormalized PSF evaluated at each pixel, for each point source
             band.ps_pix_counts = N.empty([len(band.wsdl),len(self.point_sources)])
             for nps,ps in enumerate(self.point_sources):
-                #diffs = N.asarray([ps.skydir.difference(w) for w in band.wsdl])
-                band.wsdl.arclength(ps.skydir,dv)
-                band.ps_pix_counts[:,nps] = band.psf(N.fromiter(dv,dtype=float),density=True)
+                ### DEPRECATED -- remove if new C++ classes work OK
+                #band.wsdl.arclength(ps.skydir,dv)
+                #band.ps_pix_counts[:,nps] = band.psf(N.fromiter(dv,dtype=float),density=True)
+                ### END DEPRECATED                
+                cpsf.wsdl_val(rvals,ps.skydir,band.wsdl)
+                band.ps_pix_counts[:,nps] = rvals
             band.ps_pix_counts*= band.b.pixelArea()
 
             # note this will use a numerical integration if the ragged edge is impt.
@@ -111,17 +116,16 @@ class ROIPointSourceManager(ROIModelManager):
         if not self.quiet: print 'done!'
     
     def reload_data(self,bands):
-
+        """ Recalculate the PS model for new data.  NB -- only appropriate for Monte Carlo
+            since no exposure changes are factored in."""
         for i,band in enumerate(bands):
-
+            cpsf = band.psf.cpsf
+            rvals = N.empty(len(band.wsdl))
             # only need to re-calculate the models for new data pixels
-            band.ps_pix_counts     = N.empty([len(band.wsdl),len(self.point_sources)])
             for nps,ps in enumerate(self.point_sources):
-                #diffs = N.asarray([ps.skydir.difference(w) for w in band.wsdl])
-                band.wsdl.arclength(ps.skydir,dv)
-                band.ps_pix_counts[:,nps] = band.psf(N.fromiter(dv,dtype=float),density=True)
+                cpsf.wsdl_val(rvals,ps.skydir,band.wsdl)
+                band.ps_pix_counts[:,nps] = rvals
             band.ps_pix_counts    *= b.pixelArea()
-
 
     def update_counts(self,bands):
         """Update models with free parameters."""
