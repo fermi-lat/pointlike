@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Aug 24 16:16:48 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+seedpos to extended source localization. kwargs to the XML writer (for strict flag).
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-06-00, operation: add
 Package: pointlike
