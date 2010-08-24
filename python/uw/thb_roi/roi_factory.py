@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.7 2010/08/06 18:15:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.8 2010/08/17 17:58:16 burnett Exp $
 author: T.Burnett <tburnett@u.washington.edu>
 """
 
@@ -63,8 +63,6 @@ class ROIfactory(pointspec.SpectralAnalysis):
             print >>self.log, self
             if self.log is not None: self.log.close()
         
-
-
     def __str__(self):
         s = 'ROIfactory analysis environment:\n'
         s += self.ae.__str__()
@@ -130,7 +128,7 @@ class ROIfactory(pointspec.SpectralAnalysis):
         if max_roi: self.maxROI=max_roi 
         
         # pass on default values for optional args
-        passon_list = ('free_radius', 'prune_radius', 'fit_bg_first', 'use_gradient')
+        passon_list = ('free_radius', 'prune_radius', 'fit_bg_first', 'use_gradient', 'bgfree')
         for x in passon_list:
                 if x not in kwargs: kwargs[x] = self.__dict__[x]
 
@@ -148,9 +146,6 @@ class ROIfactory(pointspec.SpectralAnalysis):
         
         ps_manager = roi_managers.ROIPointSourceManager(ps, skydir,quiet=self.quiet)
         
-        # following is deprecated!
-        #bg_manager = roi_managers.ROIBackgroundManager(self, self.bgmodels(skydir), self.roi_dir,quiet=self.quiet)
-        # new way
         diffuse_mapper = lambda x: roi_diffuse.ROIDiffuseModel_OTF(self, x, skydir)
         diffuse_sources = pointspec_helpers.get_default_diffuse( *self.diffuse)
 
@@ -166,7 +161,6 @@ class ROIfactory(pointspec.SpectralAnalysis):
         # if a different direction, we need to disable the original, most likely the nearest
         if len(r.psm.point_sources)>1 and r.psm.point_sources[1].name.strip() == r.name:
             r.psm.models[1].p[0]=-20
-
         return r
     
         
