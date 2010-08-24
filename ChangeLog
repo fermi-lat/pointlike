@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Aug 24 15:02:58 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	roi_factory.py 
+Log Message:
+bgfree implementation
+    *
+------------------------------------------------------------
 User: burnett  Tue Aug 24 15:02:19 PDT 2010
 pointlike/python/uw/thb_roi
 
