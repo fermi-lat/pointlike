@@ -3,10 +3,10 @@ basic pipeline setup
 
 Implement processing of a set of sources in a way that is flexible and easy to use with assigntasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.15 2010/08/17 17:59:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.16 2010/08/23 20:47:30 burnett Exp $
 
 """
-version='$Revision: 1.15 $'.split()[1]
+version='$Revision: 1.16 $'.split()[1]
 import sys, os, pyfits, glob, pickle, math, time, types
 import numpy as np
 import pylab as plt
@@ -36,7 +36,7 @@ class Pipeline(object):
                 roifig    = False,
                 sedfig    = True,
                 bgfree    =  [True,False,True],
-                fit_method= 'minuit',
+                fit_method= 'simplex',
                 seeds     = None,
                 seeds_only= False,
                 sed_limits= None, 
@@ -101,7 +101,7 @@ class Pipeline(object):
         r = self.factory([(name, sdir)], bgfree=self.bgfree) #use default model parameters
 
         # if a different direction, we need to disable the original, most likely the nearest
-        if r.psm.point_sources[1].name.strip() == '%s' % r.name.strip():
+        if len(r.psm.point_sources)>1 and r.psm.point_sources[1].name.strip() == '%s' % r.name.strip():
             r.psm.models[1].p[0]=-20
             print '-----> disabled catalog source with same name found in background <-------'
         r.dump(maxdist=2)
@@ -134,6 +134,11 @@ class Pipeline(object):
                 print 'failed'
                 psig = 0.5; ellipse = (psig,psig,0) #default 
                 tsmaxpos = r.center # just for deltata below
+        if psig>0.5 or not localized: #protection
+            oldsig = psig
+            psig = 0.5; ellipse = (psig,psig,0)
+            print 'warning: too large error ellipse, %.1f deg, cut to %.1f' % (oldsig, psig)
+            
 
         print '\n========   ASSOCIATION  =============='
         adict = self.associate(name, sdir, ellipse) if self.associate else None
