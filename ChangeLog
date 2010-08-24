@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Tue Aug 24 11:19:22 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Make an exception for "Index2" of PLSuperExpCutoff.  Add support for adjusting the scale of fluxes to nearest order of magnitude.
+    *
+------------------------------------------------------------
 User: kerrm  Tue Aug 24 11:18:28 PDT 2010
 pointlike/python/uw/utilities
 
