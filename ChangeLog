@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Tue Aug 24 11:16:34 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+Fix the override energy (no reason to pass it.)
+    *
+------------------------------------------------------------
 User: kerrm  Tue Aug 24 11:15:54 PDT 2010
 pointlike/python/uw/like
 
