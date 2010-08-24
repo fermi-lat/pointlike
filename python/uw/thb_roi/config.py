@@ -1,5 +1,7 @@
 """
 Define an analysis environment for the UW pointlike ROI analysis
+$Header$
+
 """
 
 import os, glob, types 
@@ -71,6 +73,7 @@ system_config = dict(
     ltcube       = None,  
     fit_emin     = 175,
     fit_emax     = 600000.,
+    bgfree       = [True,False,True],
     minROI       = 5,
     maxROI       = 10,
     fit_bg_first = False,
@@ -147,21 +150,21 @@ class AE(object):
                  'jan2009','feb2009','mar2009','apr2009','may2009','jun2009','jul2009_1to4')],
             binfile = data_join('catalog_noGRB_4.fits'),
             ltcube =  data_join('catalog_noGRB_livetimes.fits'),
-            gtimask = gti_noGRB(),
+            #gtimask = gti_noGRB(),
             ),
         '18M': dict( data_name = '18 month data set for 18M catalog',
             ft1files    = glob.glob(data_join('kerr2', '18M_data','*_ft1.fits')),
             ft2files    = glob.glob(data_join('kerr2', '18M_data','*_ft2.fits')),
             binfile     = data_join('18M', '18months_4bpd.fits'),
             ltcube      = data_join('18M', '18month_livetime.fits'),
-            gtimask     = gti_noGRB(),
+            #gtimask     = gti_noGRB(),
           ),
         '18M_tev': dict( data_name = '18 month data set for 18M catalog, high energy',
             ft1files    = glob.glob(data_join('kerr2', '18M_data','*_ft1.fits')),
             ft2files    = glob.glob(data_join('kerr2', '18M_data','*_ft2.fits')),
             binfile     = data_join('18M', '18months_tev_4.fits'),
             ltcube      = data_join('18M', '18month_livetime.fits'),
-            gtimask     = gti_noGRB(),
+            #gtimask     = gti_noGRB(),
           ),
         '20months': dict(data_name = "twenty months, 4 bins/decade to 1 TeV",
             binfile     = data_join('twenty','20month_4bpd.fits'),
