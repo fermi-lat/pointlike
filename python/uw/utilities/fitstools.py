@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.12 2010/06/10 16:10:52 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.13 2010/08/13 23:01:09 wallacee Exp $
 
    author: Matthew Kerr
 
@@ -203,7 +203,7 @@ def merge_flight_data(files, outputfile = None, cuts = None, fields = None):
 
    return handles[0]
 
-def get_fields(files, fields, cuts = None):
+def get_fields(files, fields, cuts = None, memmap = False):
    """A lightweight version to get only certain fields of flight data."""
 
    #from collections import defaultdict
@@ -212,7 +212,7 @@ def get_fields(files, fields, cuts = None):
    files = __FITS_parse__(files)
 
    #Process the cuts
-   f = pf.open(files[0],memmap=1)
+   f = pf.open(files[0],memmap=memmap)
    if cuts is not None:
       cut_fields = set()
       for i,cut in enumerate(cuts): #put cut columns in namespace
@@ -224,13 +224,15 @@ def get_fields(files, fields, cuts = None):
       cut_fields = list(cut_fields)
    else: cut_fields = []
    f.close()
+   del(f)
 
    counts = N.empty(len(files),dtype=int)
 
    for nfi,fi in enumerate(files):
-      f = pf.open(fi,memmap=1)
+      f = pf.open(fi,memmap=memmap)
       counts[nfi] = len(f['EVENTS'].data) #f['EVENTS'].data.getshape()[0]
       f.close()
+      del(f)
 
    for field in fields + cut_fields:
       data[field] = N.empty(counts.sum(),dtype=float)
@@ -238,12 +240,13 @@ def get_fields(files, fields, cuts = None):
    #Get fields
    counter = 0
    for fi,counts in zip(files,counts):
-      f = pf.open(fi,memmap=1)
+      f = pf.open(fi,memmap=memmap)
       for field in fields + cut_fields:
          #data[field] += [N.array(f['EVENTS'].data.field(field),dtype=N.float32)]
          data[field][counter:counter+counts] = f['EVENTS'].data.field(field)
       counter += counts
       f.close()
+      del(f)
 
    import gc
    gc.collect()
