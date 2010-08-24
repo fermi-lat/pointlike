@@ -1,6 +1,6 @@
 """ Class to write out gtlike-style results files. 
 
-$Header:$
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/results_writer.py,v 1.1 2010/08/12 23:09:22 lande Exp $
 
 author: Joshua Lande
 """
@@ -16,12 +16,12 @@ def unparse_spectral(model,**kwargs):
     m2x.process_model(model,**kwargs)
     names,vals,errs=m2x.pname,m2x.pval,m2x.perr
 
-    return dict((name,'%g +/- %g' % (p,perr) if perr>0 else '%g' % p)
+    return dict(('%s' % name,'%g +/- %g' % (p,perr) if perr>0 else '%g' % p)
                 for name,p,perr in zip(names,vals,errs))
 
 def unparse_spatial(model):
     """ Convert a SpatialModel object to a gtlike-inspired dictionary. """
-    return dict((name,'%g +/- %g' % (p,perr) if perr != 0 else '%g' % p)
+    return dict(('%s' % name,'%g +/- %g' % (p,perr) if perr != 0 else '%g' % p)
                 for name,p,perr in zip(model.param_names,
                                        *model.statistical(absolute=True,two_sided=False)))
 
@@ -29,12 +29,14 @@ def unparse_point_sources(roi,point_sources,emin,emax,**kwargs):
     """ Convert a PointSource object into a gtlike style dictionary. """
     point_dict = {}
     for ps in point_sources:
-        point_dict[ps.name]={'TS value':'%g' % roi.TS(which=ps,**kwargs)}
-        point_dict[ps.name].update(unparse_spectral(ps.model,scaling=False))
-        if not N.all(ps.model.cov_matrix==0):
-            point_dict[ps.name]['Flux']='%g +/- %g' % ps.model.i_flux(emin,emax,cgs=True,two_sided=False,error=True)
+
+        name = str(ps.name)
+        point_dict[name]={'TS value':'%g' % roi.TS(which=ps,**kwargs)}
+        point_dict[name].update(unparse_spectral(ps.model,scaling=False))
+        if not N.all(model.cov_matrix==0):
+            point_dict[name]['Flux']='%g +/- %g' % ps.model.i_flux(emin,emax,cgs=True,two_sided=False,error=True)
         else:
-            point_dict[ps.name]['Flux']='%g' % ps.model.i_flux(emin,emax,cgs=True,two_sided=False,error=False)
+            point_dict[name]['Flux']='%g' % ps.model.i_flux(emin,emax,cgs=True,two_sided=False,error=False)
     return point_dict
 
 def unparse_diffuse_sources(roi,diffuse_sources,emin,emax,**kwargs):
@@ -43,28 +45,31 @@ def unparse_diffuse_sources(roi,diffuse_sources,emin,emax,**kwargs):
         dm = ds.dmodel
         if hasattr(dm,'__len__'):  dm = dm[0]
 
-        diffuse_dict[ds.name]={}
+        name = str(ds.name)
 
-        diffuse_dict[ds.name].update(
+        diffuse_dict[name]={}
+
+        diffuse_dict[name].update(
             unparse_spectral(ds.smodel,scaling=False if isinstance(ds,ExtendedSource) else True,
                              xml_name = 'FileFunction'\
                              if isinstance(dm,IsotropicSpectrum) else None))
 
         if isinstance(ds,ExtendedSource):
-            diffuse_dict[ds.name].update(unparse_spatial(ds.spatial_model))
+            diffuse_dict[name].update(unparse_spatial(ds.spatial_model))
 
             if not N.all(ds.smodel.cov_matrix==0):
-                diffuse_dict[ds.name]['Flux']='%g +/- %g' % ds.smodel.i_flux(emin,emax,cgs=True,two_sided=False,error=True)
+                diffuse_dict[name]['Flux']='%g +/- %g' % ds.smodel.i_flux(emin,emax,cgs=True,two_sided=False,error=True)
             else:
-                diffuse_dict[ds.name]['Flux']='%g' % ds.smodel.i_flux(emin,emax,cgs=True,two_sided=False,error=False)
+                diffuse_dict[name]['Flux']='%g' % ds.smodel.i_flux(emin,emax,cgs=True,two_sided=False,error=False)
 
-            diffuse_dict[ds.name]['TS value']='%g' % roi.TS(which=ds,**kwargs)
+            diffuse_dict[name]['TS value']='%g' % roi.TS(which=ds,**kwargs)
 
     return diffuse_dict
 
 def writeResults(roi,filename,**kwargs):
     emin,emax=roi.bin_edges[[0,-1]]
     if not roi.quiet:
+        print "\nSaving ROI to results file %s" % filename
         print "\nPhoton fluxes are computed for the energy range %d to %d" % (emin,emax)
 
     source_dict={}
