@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Aug 24 16:38:57 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	keyword_options.py 
+Log Message:
+Fix for case where no doc string exists. Also minor fix in documentation.
+    *
+------------------------------------------------------------
 User: lande  Tue Aug 24 16:32:17 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
