@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.37 2010/08/14 02:23:58 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.38 2010/08/17 03:20:49 lande Exp $
 
 author: Matthew Kerr
 """
@@ -467,8 +467,9 @@ class ROIAnalysis(object):
              return rl.localize()
 
         elif manager==self.dsm:
-             return self.dsm.bgmodels[index].localize(self,which=index,bandfits=bandfits,tolerance=tolerance,
-                                                                    update=update, verbose=verbose, **kwargs)
+             return self.dsm.bgmodels[index].localize(self,which=index,bandfits=bandfits,
+                                                      seedpos=None,tolerance=tolerance,
+                                                      update=update,verbose=verbose,**kwargs)
 
     def upper_limit(self,which = 0,confidence = .95,e_weight = 0,cgs = False):
          """Compute an upper limit on the flux of a source.
@@ -685,10 +686,10 @@ class ROIAnalysis(object):
             s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(tm,to,(to-tm)/tm**0.5)])
             print s1
 
-    def toXML(self,filename):
+    def toXML(self,filename,**kwargs):
         """Write out a gtlike-style XML file."""
         from uw.utilities.xml_parsers import writeROI
-        writeROI(self,filename)
+        writeROI(self,filename,**kwargs)
 
     def toRegion(self,filename,**kwargs):
         """Write out a ds9 region file."""
