@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Wed Aug 25 16:39:20 PDT 2010
+pointlike/python/uw/eew_roi
+
+Modified Files:
+	roi_lightcurve.py 
+Log Message:
+Fix the plotting, and some other errors.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Aug 25 15:02:11 PDT 2010
 pointlike/python/uw/like
 
