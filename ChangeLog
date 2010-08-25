@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Wed Aug 25 15:02:11 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+Fixed a bug introduced in the last update.  (Was using a function that didn't end up getting checked in.)
+    *
+------------------------------------------------------------
 User: wallacee  Wed Aug 25 13:43:05 PDT 2010
 pointlike/python/uw/eew_roi
 
