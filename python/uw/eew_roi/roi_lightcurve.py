@@ -5,8 +5,8 @@
    Author: Eric Wallace
 """
 
-__version__ = "$Revision: 1.1 $".split()[0]
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/eew_roi/roi_lightcurve.py,v 1.1 2010/08/25 20:30:59 wallacee Exp $
+__version__ = "$Revision: 1.2 $".split()[0]
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/eew_roi/roi_lightcurve.py,v 1.2 2010/08/25 20:43:04 wallacee Exp $
 
 import datetime
 import cPickle
@@ -125,8 +125,9 @@ class LightCurve(object):
         self.bg_roi = self.background_fit()
         if self.free_mask is None:
             self.free_mask = self._get_free_mask()
-        self.data = np.array((self.bins.shape[0],    #axis 0 = time bins
-                              self.free_mask.sum(),  #axis 1 = free sources
+        self.nfree = self.free_mask.sum()
+        self.data = np.empty((self.bins.shape[0],    #axis 0 = time bins
+                              self.nfree,  #axis 1 = free sources
                               11)                    #axis 2 = values
                               ,dtype='object')
 
@@ -215,8 +216,8 @@ class LightCurve(object):
             pars = roi.parameters()
             hi_errs = (10**(pars + roi.get_free_errors()) - 10**pars)
             lo_errs = (10**(pars - roi.get_free_errors()) - 10**pars)
-            ts = np.array([roi.TS(which = int(i))
-                           for i in np.where(self.free_mask)[0]])
+            ts = np.array([roi.TS(which = int(x))
+                           for x in np.where(self.free_mask)[0]])
             if self.index_free:
                 index = 10**pars.pop(1)
                 index_hi, index_lo = hi_errs.pop(1), lo_errs.pop(1)
@@ -228,26 +229,28 @@ class LightCurve(object):
             iflux_hi_errs = ifluxes[:,1]
             iflux_lo_errs = ifluxes[:,2]
             ifluxes = ifluxes[:,0]
-            ulimit_mask = (iflux_lo_errs<=0) | (ts < self.ts_threshold)
+            iflux_hi = ifluxes+iflux_hi_errs
+            iflux_lo = ifluxes-iflux_lo_errs
+            ulimit_mask = (iflux_lo<=0) | (ts < self.ts_threshold)
             for j in np.where(ulimit_mask)[0]:
                 ulimit = self.upper_limit(roi = roi
                                           ,which = j
                                           ,confidence = .95)
-                iflux_hi_errs[j] = ulimit
-                iflux_lo_errs[j] = 0
+                iflux_hi[j] = ulimit
+                iflux_lo[j] = 0
             ll_plus1sigma = roi.logLikelihood(np.log10(hi_errs))
             ll_minus1sigma = roi.logLikelihood(np.log10(lo_errs))
-            self.data[i] = np.vstack([[bin[0]]*nfree
-                             ,[bin[1]]*nfree
+            self.data[i] = np.vstack([[bin[0]]*self.nfree
+                             ,[bin[1]]*self.nfree
                              ,[ps.name.replace(' ','_') for ps in
                                roi.psm.point_sources[self.free_mask]]
                              ,ifluxes
-                             ,iflux_hi_errs
-                             ,iflux_lo_errs
-                             ,[ll_0]*nfree
-                             ,[ll_1]*nfree
-                             ,[ll_plus1sigma]*nfree
-                             ,[ll_minus1sigma]*nfree
+                             ,iflux_hi
+                             ,iflux_lo
+                             ,[ll_0]*self.nfree
+                             ,[ll_1]*self.nfree
+                             ,[ll_plus1sigma]*self.nfree
+                             ,[ll_minus1sigma]*self.nfree
                              ,ts
                              ]).transpose()
 
@@ -304,7 +307,8 @@ class LightCurve(object):
             roi.psm.models[kw['which']].p[0] = norm
             return np.exp(ll_0-roi.logLikelihood(roi.parameters()))
         npoints = kw['simps_points'] * (kw['integral_max'] - kw['integral_min'])
-        points = np.log10(np.logspace(kw['integral_min'],kw['integral_max'],npoints*2+1))
+        points = np.log10(np.logspace(kw['integral_min'],
+                                      kw['integral_max'],npoints*2+1))
         y = np.array([like(x)*10**x for x in points])
         trapz1 = integrate.cumtrapz(y[::2])
         trapz2 = integrate.cumtrapz(y)[::2]
@@ -346,28 +350,36 @@ class LightCurve(object):
     def plot(self):
         """Make a nice plot of a light curve.
         If outfile == '', make up a name; if outfile is None, don't save."""
-        edges = np.append(self.bins[:,0],self.bins[-1,-1])
-        x = self.bins.mean(axis=1)
-        xlo = self.bins[:,0]
-        xhi = self.bins[:,1]
-        for i in xrange(self.free_mask.sum()):
-            name = self.bg_roi.psm.point_sources[self.free_mask][i].name
-            outfile = '%s_lightcurve_%i-%i.png'%(name,
+        #Check to make sure the data exists
+        try:
+            assert(self.data[0,0,0] is not None)
+        except AssertionError:
+            print('No data yet! Must run build_light_curve before we can plot.')
+        xlo = self.data[:,0,0].astype('float')
+        xhi = self.data[:,0,1].astype('float')
+        x = .5*(xlo+xhi)
+        for i in xrange(self.data.shape[1]):
+            name = self.data[0,i,2]
+            outfile = '%s_lightcurve_%i-%i.png'%(name.replace(' ','_'),
                                                  self.factory_kwargs['tstart'],
                                                  self.factory_kwargs['tstop'])
-            y = self.ifluxes[i]
-            ylo,yhi = y-self.iflux_lo_errs[i],y+self.iflux_hi_errs[i]
-            mask = (y>1e-11)&(ylo<y)&~np.isnan(ylo)
+            y,yhi,ylo = self.data[:,i,3:6].astype('float').transpose()
+            #mask = (y>1e-11)&(ylo<y)&~np.isnan(ylo)
+            mask = ylo>0
             ax = pl.gca()
-            ax.plot([xlo[mask],xhi[mask]],[y[mask],y[mask]],color='r',linewidth=1)
-            ax.plot([x[mask],x[mask]],[ylo[mask],yhi[mask]],color='r',linewidth=1)
+            ax.plot([xlo[mask],xhi[mask]],
+                    [y[mask]]*2,
+                    color='r',
+                    linewidth=1)
+            ax.plot([x[mask]]*2,
+                    [ylo[mask],yhi[mask]],
+                    color='r',
+                    linewidth=1)
             nmask = ~mask
             ax.plot([xlo[nmask],xhi[nmask]],
-                    [np.array([self.upper_limit(bin = j,
-                                                which = i,
-                                                confidence = .68)
-                     for j in np.where(nmask)[0]])]*2,
-                    color='k',linewidth=1)
+                    [yhi[nmask]]*2,
+                    color='k',
+                    linewidth=1)
             ax.set_xbound(xlo[0]-86400,xhi[-1]+86400)
             ticks = ax.get_xticks()
             labels = []
@@ -382,7 +394,7 @@ class LightCurve(object):
 
 
 if __name__=='__main__':
-    start,stop = (utc_to_met(2008,8,4),utc_to_met(2010,8,4))
+    start,stop = (utc_to_met(2008,8,4),utc_to_met(2008,9,1))
     roi_dir =  SkyDir(250.745,39.810)
     lc = LightCurve(roi_dir,
                     tstart = start,
@@ -391,6 +403,6 @@ if __name__=='__main__':
                     refit_radius = 1,
                     timebin = 7)
     lc.build_light_curve()
-    self.save()
-    #lc.plot()
+    lc.save()
+    lc.plot()
 
