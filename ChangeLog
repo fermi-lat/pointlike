@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Aug 24 22:55:09 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Radially Symmetric convolution now uses improved arclength function from PythonUtilities.
+    *
+------------------------------------------------------------
 User: lande  Tue Aug 24 22:54:21 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
