@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pypsf.py,v 1.13 2010/08/25 00:29:19 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.14 2010/08/25 03:14:14 lande Exp $
 author: M. Kerr
 
 """
@@ -12,7 +12,7 @@ import numpy as N
 from os.path import join
 import os
 from cPickle import load
-from skymaps import ExposureWeighter,SkyDir,PySkyFunction,Hep3Vector,WeightedSkyDirList
+from skymaps import ExposureWeighter,SkyDir,PySkyFunction,Hep3Vector,WeightedSkyDirList,PythonUtilities
 from scipy.integrate import quad,simps
 from math import cos,sin
 
@@ -384,12 +384,11 @@ class PsfOverlap(object):
     def num_overlap(self,band,roi_dir,ps_dir,radius_in_rad=None,override_pdf=None):
         roi_rad  = radius_in_rad or band.radius_in_rad
         if self.cache_hash != hash(band): self.set_dir_cache(band,roi_dir,roi_rad) # fragile due to radius dep.
-        self.cache_wsdl.arr_arclength(self.cache_diffs,ps_dir)
-
-        pdf=band.psf(self.cache_diffs,density=True) if override_pdf is None else \
-                override_pdf(self.cache_diffs)
-        return pdf.sum()*band.b.pixelArea()
-
+        if override_pdf is None:
+            band.cpsf.wsdl_val(self.cache_diffs,ps_dir,self.cache_wsdl)
+            return self.cache_diffs.sum()*band.b.pixelArea()
+        else:
+            return override_pdf(self.cache_diffs).sum()*band.b.pixelArea()
 
     def __call__(self,band,roi_dir,ps_dir,radius_in_rad=None,ragged_edge=0.06,
                  override_pdf=None,override_integral=None):
@@ -399,9 +398,6 @@ class PsfOverlap(object):
         roi_rad  = radius_in_rad or band.radius_in_rad
         integral = band.psf.integral if override_integral is None else override_integral
 
-        #if ((band.b.pixelArea()**0.5/band.radius_in_rad) > ragged_edge) and (band.b.nside < 200):
-        #    return self.num_overlap(band,roi_dir,ps_dir,roi_rad)
-        
         offset    = roi_dir.difference(ps_dir)
 
         if offset < 1e-5:
