@@ -5,8 +5,8 @@
    Author: Eric Wallace
 """
 
-__version__ = "$Revision: 1.0 $".split()[0]
-#$Header: $
+__version__ = "$Revision: 1.1 $".split()[0]
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/eew_roi/roi_lightcurve.py,v 1.1 2010/08/25 20:30:59 wallacee Exp $
 
 import datetime
 import cPickle
@@ -125,9 +125,10 @@ class LightCurve(object):
         self.bg_roi = self.background_fit()
         if self.free_mask is None:
             self.free_mask = self._get_free_mask()
-        self.data = np.array((self.bins.shape[0],     #axis 0 = time bins
-                              self.free_mask[0],  #axis 1 = free sources
-                              6))                      #axis 2 = values
+        self.data = np.array((self.bins.shape[0],    #axis 0 = time bins
+                              self.free_mask.sum(),  #axis 1 = free sources
+                              11)                    #axis 2 = values
+                              ,dtype='object')
 
 
     def _get_bins(self):
@@ -208,8 +209,6 @@ class LightCurve(object):
 
     def build_light_curve(self):
         """Construct the light curve."""
-        nfree = self.free_mask.sum()
-        self.data = np.empty((self.bins.shape[0],nfree,11), dtype='object')
         for i,bin in enumerate(self.bins):
             roi,ll_0,ll_1 = self.fit(*bin,return_likelihood=True)
             #Not saving individual model parameters for now, but might want to
