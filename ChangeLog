@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Aug 25 01:13:55 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Fix in printing
+    *
+------------------------------------------------------------
 User: lande  Tue Aug 24 23:10:06 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
