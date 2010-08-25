@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.13 2010/08/24 23:32:17 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.14 2010/08/25 05:54:21 lande Exp $
 
    author: Joshua Lande
 
@@ -730,12 +730,19 @@ class PseudoEllipticalGaussian(PseudoSpatialModel,EllipticalGaussian):
     def extension(self):
         return N.radians(1e-10),N.radians(1e-10),0
 
+    def pretty_spatial_string(self):
+        return "[ %.3f' ]" % (60*N.degrees(self.sigma_x))
+
 #===============================================================================================#
 
 class RadiallySymmetricEllipticalGaussian(EllipticalGaussian):
+
     def extension(self):
         sigma=self.get_parameters(absolute=True)[2]
         return sigma,sigma,0
+
+    def pretty_spatial_string(self):
+        return "[ %.3f' ]" % (60*N.degrees(self.sigma_x))
 
 #===============================================================================================#
 
