@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Aug 24 22:54:21 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+fix bug in filename for convert_spatial_map
+    *
+------------------------------------------------------------
 User: lande  Tue Aug 24 20:14:14 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
