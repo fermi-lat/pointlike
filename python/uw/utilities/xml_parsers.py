@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.12 2010/08/24 18:19:22 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.13 2010/08/24 23:52:40 lande Exp $
 
    author: Matthew Kerr
 """
@@ -162,11 +162,19 @@ class XML_to_SpatialModel(object):
             'PseudoGaussian'     : [],
             'Disk'               : ['Sigma'],
             'PseudoDisk'         : [],
+            'Ring'               : ['Sigma','Fraction'],
             'NFW'                : ['Sigma'],
             'PseudoNFW'          : [],
             'EllipticalGaussian' : ['MajorAxis','MinorAxis','PositionAngle'],
+            'EllipticalDisk'     : ['MajorAxis','MinorAxis','PositionAngle'],
+            'EllipticalRing'     : ['MajorAxis','MinorAxis','PositionAngle','Fraction'],
             'SpatialMap'         : [],
             })
+
+        self.spatialdict['PseudoEllipticalGaussian'] = self.spatialdict['PseudoGaussian']
+        self.spatialdict['RadiallySymmetricEllipticalGaussian'] = self.spatialdict['Gaussian']
+        self.spatialdict['PseudoEllipticalDisk'] = self.spatialdict['PseudoDisk']
+        self.spatialdict['RadiallySymmetricEllipticalDisk'] = self.spatialdict['Disk']
 
     def get_spatial_model(self,xml_dict):
         """ Kind of like getting a spectral model, but
@@ -533,17 +541,19 @@ def parse_diffuse_sources(handler,diffdir=None):
                 raise Exception,'Non-isotropic model not implemented'
             ds.append(gds('MapCubeFunction',fname,mo,None,name,diffdir=diffdir))
             
-        elif spatial['type'] in [ 'SpatialMap', 'PseudoGaussian', 'Gaussian', 
-                                 'Disk', 'PseudoDisk', 'NFW', 'PseudoNFW']:
-            xtsm = XML_to_SpatialModel()
-            spatial_model=xtsm.get_spatial_model(spatial)
-            spectral_model=xtm.get_model(spectral)
-            ds.append(ExtendedSource(name=name,
-                                     model=spectral_model,
-                                     spatial_model=spatial_model,
-                                     leave_parameters=True))
         else:
-            raise Exception('Diffuse spatial model "%s" not recognized' % spatial['type'])
+            xtsm = XML_to_SpatialModel()
+
+            if spatial['type'] in xtsm.spatialdict.keys():
+
+                spatial_model=xtsm.get_spatial_model(spatial)
+                spectral_model=xtm.get_model(spectral)
+                ds.append(ExtendedSource(name=name,
+                                         model=spectral_model,
+                                         spatial_model=spatial_model,
+                                         leave_parameters=True))
+            else:
+                raise Exception('Diffuse spatial model "%s" not recognized' % spatial['type'])
     return ds
 
 def parse_sources(xmlfile,diffdir=None):
