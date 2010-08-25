@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.11 2010/08/11 18:48:43 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pypsf.py,v 1.12 2010/08/24 18:15:54 kerrm Exp $
 author: M. Kerr
 
 """
@@ -381,19 +381,23 @@ class PsfOverlap(object):
         self.cache_diffs = N.empty(len(self.cache_wsdl))
         self.cache_hash = hash(band)
 
-    def num_overlap(self,band,roi_dir,ps_dir,radius_in_rad=None):
+    def num_overlap(self,band,roi_dir,ps_dir,radius_in_rad=None,override_pdf=None):
         roi_rad  = radius_in_rad or band.radius_in_rad
         if self.cache_hash != hash(band): self.set_dir_cache(band,roi_dir,roi_rad) # fragile due to radius dep.
         self.cache_wsdl.arr_arclength(self.cache_diffs,ps_dir)
-        return band.psf(self.cache_diffs,density=True).sum()*band.b.pixelArea()
+
+        pdf=band.psf(self.cache_diffs,density=True) if override_pdf is None else \
+                override_pdf(self.cache_diffs)
+        return pdf.sum()*band.b.pixelArea()
 
 
-    def __call__(self,band,roi_dir,ps_dir,radius_in_rad=None,ragged_edge=0.06):
+    def __call__(self,band,roi_dir,ps_dir,radius_in_rad=None,ragged_edge=0.06
+                 override_pdf=None,override_integral=None):
         """Return an array of fractional overlap for a point source at location skydir.
             Note radius arguments are in radians."""
 
         roi_rad  = radius_in_rad or band.radius_in_rad
-        integral = band.psf.integral
+        integral = band.psf.integral if override_integral is None else override_integral
 
         #if ((band.b.pixelArea()**0.5/band.radius_in_rad) > ragged_edge) and (band.b.nside < 200):
         #    return self.num_overlap(band,roi_dir,ps_dir,roi_rad)
@@ -401,7 +405,7 @@ class PsfOverlap(object):
         offset    = roi_dir.difference(ps_dir)
 
         if offset < 1e-5:
-            overlap = band.psf.integral(roi_rad) #point source in center of ROI, symmetry
+            overlap = integral(roi_rad) #point source in center of ROI, symmetry
 
         elif offset < roi_rad:
 
@@ -428,7 +432,7 @@ class PsfOverlap(object):
 
 
         if ((band.b.pixelArea()**0.5/band.radius_in_rad) > ragged_edge) and (band.b.nside() < 200):
-            n_overlap = self.num_overlap(band,roi_dir,ps_dir,roi_rad)
+            n_overlap = self.num_overlap(band,roi_dir,ps_dir,roi_rad,override_pdf)
             print overlap,n_overlap
             print 'Using numerical overlap, difference is %.6f'%(n_overlap-overlap)
             return n_overlap
