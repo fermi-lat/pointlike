@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.12 2010/08/12 23:10:47 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.13 2010/08/24 23:32:17 lande Exp $
 
    author: Joshua Lande
 
@@ -874,7 +874,6 @@ def convert_spatial_map(spatial,filename):
         filename is the filename for the saved template
         
         The return is a SpatialMap object with the same PDF. """
-    filename = 'template_%s_%s.fits' % spatial.pretty_name
     spatial.save_template(filename)
     nm = SpatialMap(file=filename)
     return nm
