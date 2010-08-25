@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.18 2010/08/17 04:13:48 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.19 2010/08/17 19:01:42 lande Exp $
 
     author: Joshua Lande
 """
@@ -15,45 +15,64 @@ from skymaps import SkyDir,Background
 from scipy.optimize import fmin 
 import numpy as N
 from uw.like.Models import PowerLaw
+from uw.utilities import keyword_options
+from uw.like.pypsf import PsfOverlap
 
 class ExtendedSource(DiffuseSource):
     """ Class inherting from DiffuseSource but implementing a spatial source. 
         The main difference is the requirement of a spatial model to accomany 
         a spectral model. """
 
-    def __init__(self,name=None,model=None,spatial_model=None,free_parameters=True,leave_parameters=False):
+    defaults = (
+        ('name',None,'The name of the extended source.'),
+        ('model','PowerLaw','a Model object.'),
+        ('spatial_model','Gaussian',"""The spatial model to use. 
+                                       This is a SpatialModel object."""),
+        ('free_parameters',True,"""Set all spectral model and 
+                                   spatial_model parameter's free 
+                                   status to this value"""),
+        ('leave_parameters',False,"""Don't set any of the spectral 
+                                     or spatial parameter's free status. 
+                                     Leave them at whatever their default 
+                                     values are.""")
+    )
+
+    @keyword_options.decorate(defaults)
+    def __init__(self,**kwargs):
         """ Make the naming consistent with the PointSource object so that
             extended sources 'feel' like point sources.
 
-            spatial_model should inherit from SpatialModel. """
-        if spatial_model is None: spatial_model = Gaussian()
+            """
+        keyword_options.process(self, kwargs)
 
-        self.spatial_model = spatial_model
-
-        if model is None: model = PowerLaw()
+        if self.model == 'PowerLaw': self.model = PowerLaw()
+        if self.spatial_model == 'Gaussian': self.spatial_model = Gaussian()
 
         if not isinstance(self.spatial_model,SpatialModel):
             raise Exception("The diffuse_model passed to an Extended Source must inherit from SpatialModel.")
 
         super(ExtendedSource,self).__init__(
-            diffuse_model = spatial_model.get_PySkySpectrum(),
-            scaling_model = model,
-            name          = name)
+            diffuse_model = self.spatial_model.get_PySkySpectrum(),
+            scaling_model = self.model,
+            name          = self.name)
 
         self.smodel.background = False
 
-        if not leave_parameters:
-            for i in xrange(len(self.smodel.free)): self.smodel.free[i] = free_parameters
-            for i in xrange(len(self.spatial_model.free)): self.spatial_model.free[i] = free_parameters
+        if not self.leave_parameters:
+            for i in xrange(len(self.smodel.free)): self.smodel.free[i] = self.free_parameters
+            for i in xrange(len(self.spatial_model.free)): self.spatial_model.free[i] = self.free_parameters
 
     def __str__(self):
         return '\n'.join(['\n',
-                          ''.join(['=']*60),
+                          '='*60,
                           'Name:\t\t%s'%(self.name),
                           'R.A. (J2000):\t\t%.5f'%(self.spatial_model.center.ra()),
                           'Dec. (J2000):\t\t%.5f'%(self.spatial_model.center.dec()),
-                          'Model:\t\t%s'%(self.smodel.name),
-                          'SpatialModel:\t%s'%(self.spatial_model.pretty_name)])
+                          'Model:\t\t%s'%(self.smodel.full_name()),
+                          '\t'+self.smodel.__str__(indent='\t'), 
+                          'SpatialModel:\t%s'%(self.spatial_model.pretty_name),
+                          '\t'+self.spatial_model.__str__(indent='\t')
+                         ])
 
 
 ###=========================================================================###
@@ -87,7 +106,7 @@ class ROIExtendedModel(ROIDiffuseModel):
             raise Exception("The extended_source.dmodel option passed to ROIExtendedModel.factory must inherit from SpatialModel.")
 
     def init(self):
-        self.pixelsize = 0.05
+        self.pixelsize = 0.025
         self.npix      = 101
         self.r_multi   = 1.0 # multiple of r95 to set max dimension of grid
         self.r_max     = 20  # an absolute maximum (half)-size of grid (deg)
@@ -101,6 +120,11 @@ class ROIExtendedModel(ROIDiffuseModel):
                                           bounds_error=False,fill_value=0)
 
     def set_state(self,energy,conversion_type,band,**kwargs):
+        """ Note, this implementation ensures that the entire source is 
+            convolved, even if a substatial part of it lies outside of
+            the ROI. this is useful so that the entire extended source
+            shape can be renormalized after convolution, which leads
+            to a less biased measure of the source flux. """
         edge=self.extended_source.spatial_model.effective_edge()
         multi = 1 + 0.01*(energy==band.emin) -0.01*(energy==band.emax)
         r95 = self.sa.psf.inverse_integral(energy*multi,conversion_type,95)
@@ -109,8 +133,24 @@ class ROIExtendedModel(ROIDiffuseModel):
         npix = int(round(2*rad/self.pixelsize))
         npix += (npix%2 == 0)
         self.active_bgc.setup_grid(npix,self.pixelsize)
-        self.active_bgc.do_convolution(energy,conversion_type,override_en=band.e,
-                                       override_skyfun=self.extended_source.spatial_model.skyfun)
+
+        if hasattr(self.extended_source.spatial_model,'fill_grid'):
+            vals=self.extended_source.spatial_model.fill_grid(self.active_bgc,energy)
+            self.active_bgc.do_convolution(energy,conversion_type,override_en=energy,
+                                           override_vals=vals)
+        else:
+            if isinstance(self.extended_source.spatial_model,SpatialMap):
+                self.active_bgc.do_convolution(energy,conversion_type,override_en=energy,
+                                               override_skyfun=self.extended_source.spatial_model.skyfun)
+            else:
+                # This part of the code wraps the spatial_model object as a PySkySpectrum object 
+                # and is very poorly optimized. Hopefully it will only exist as a fallback 
+                # because extended sources will either
+                # (a) be radially symmetric
+                # (b) Immediatly fill the convolution grid in python
+                # (c) Have a C++ implementation of the sky function interface so that 
+                #     it can be filled in python.
+                self.active_bgc.do_convolution(energy,conversion_type,override_en=energy)
 
         self.current_exposure = self.exp[conversion_type].value(self.extended_source.spatial_model.center,energy)
 
@@ -125,16 +165,16 @@ class ROIExtendedModel(ROIDiffuseModel):
 
             # Use the 'optimal' energy (calculated by the ADJUST_MEAN flag) if it exists.
             en=band.psf.eopt if band.psf.__dict__.has_key('eopt') else band.e
-            exp=band.exp.value
 
             self.set_state(en,band.ct,band)
 
+            exp=band.exp.value
             myband.er = exp(es.spatial_model.center,en)/exp(rd,en)
 
             myband.pix_counts = self._pix_value(band.wsdl)
             myband.pix_counts *= band.b.pixelArea()
 
-            myband.overlaps = 1
+            myband.overlaps = self._overlaps(rd,band.radius_in_rad,band)
 
     def update_counts(self,bands,model_index):
         """Update models with free parameters."""
@@ -150,6 +190,9 @@ class ROIExtendedModel(ROIDiffuseModel):
 
     def _pix_value(self,pixlist):
         return self.active_bgc(pixlist,self.active_bgc.cvals)
+
+    def _overlaps(self,center,radius,band=None):
+        return self.active_bgc.overlap(center,radius)
 
     def __init__(self,spectral_analysis,extended_source,roi_dir,name=None,*args,**kwargs):
 
@@ -170,25 +213,28 @@ class ROIExtendedModel(ROIDiffuseModel):
                  es.smodel.__str__())
 
     def localize(self,roi,which,tolerance,update=False,verbose=False,
-                 bandfits=True, error="HESSE",init_grid=None,fitpsf=False):
+                 bandfits=False, seedpos=None, error="HESSE",init_grid=None):
         """ Localize this extended source by fitting all non-fixed spatial paraameters of 
             self.extended_source. The likelihood at the best position is returned.
 
-Optional keyword arguments:
+Arguments:
 
   =========   =======================================================
   Keyword     Description
   =========   =======================================================
-  bandfits      [True]  Spectrum independent fitting.
+  roi                   An ROIAnalysis object.
+  which                 The array index in the ROIDiffuseManager object for
+                        this current extended source.
+  seedpos               if a SkyDir, set the initial fit position to seedpos. 
+                        If None, use current location.
   tolerance             Tolerance set when integrating hypergeometirc
                         function to calcualte PDF.
   update        [False] Number of points to calculate the PDF at.
                         interpolation is done in between.
   verbose       [False] Make noise when fitting
-
-  error         [HESSE] The fitting algorithm to use when calculating errors.
-
-  init_grid     [None]  A list of spatial parameters. The likelihood
+  bandfits      [False] Spectrum independent fitting.
+  error       ["HESSE"] The fitting algorithm to use when calculating errors.
+  init_grid      [None] A list of spatial parameters. The likelihood
                         for each of the spatial parametesr is tested and the minimum
                         one is used as the initial guess when running minuit. Useful
                         for doing initial grid search. 
@@ -197,34 +243,17 @@ Optional keyword arguments:
                           should be measured relative to the spatial model's center: (0,0)
                         - The init_grid values should be absolute, none of them should
                           be given in log space.
-
-  fitpsf        [False] Use an approximation to the PSF in each energy bin
-                        where PSF is weighted in each energy bin by an assumed
-                        spectral index and is fit by a single king function
-                        which is then convovled with the extended source shape.
-                        This leads to a significantly faster source localization.
   =========   =======================================================
 
-        Implemenation notes, do not directly fit RA and
-              Dec. Instead, rotate the coordiante to (0,0) and
-              fit x & y deviation (measured in degrees) in this 
-              rotated coordinate system. For each function iteration, rotate back to the
-              original space and set the direction to there.  This is a
-              more robust fitting algorithm for high latitude and allows
-              for errors that are physical distance. 
-              
-        N.B This code is ugly, mainly because you don't want to directly
-        fit the spatial parameters of a source but fit the relative
-        deviation of the source away from its starting value. This makes
-        the method robust anywhere in the sky. This gets bad because you
-        may not be directly fitting the spatail parameters (by fixing the
-        spatial parameters), so the code has to intellegently """
+        Implemenation notes, do not directly fit RA and Dec. Instead,
+        rotate the coordiante to (0,0) and fit x & y deviation (measured
+        in degrees) in this rotated coordinate system. For each function
+        iteration, rotate back to the original space and set the direction
+        to there.  The error on RA (Dec) is thus the distance error
+        in the direction of increasing RA (Dec). This makes the method
+        robust anywhere in the sky. """
 
         from uw.utilities.minuit import Minuit
-
-        if fitpsf:
-            if verbose: print 'Changing to fitpsf for localization step.'
-            self.fitpsf,old_fitpsf=True,self.fitpsf
 
         es = self.extended_source
 
@@ -240,10 +269,13 @@ Optional keyword arguments:
         old_quiet = roi.quiet
         roi.quiet = True
 
+        if seedpos is not None: self.modify_loc(self,roi.bands,seedpos)
+
         init_spectral = self.smodel.get_parameters()
         init_spatial = sm.get_parameters(absolute=False)
 
         if len(init_spatial) < 1:
+            # Necessary if all parameters are fixed.
             print 'Unable to localize diffuse source %s. No parameters to fit.' % es.name
             return
 
@@ -253,23 +285,30 @@ Optional keyword arguments:
         init_lon,init_lat = sm.p[0:2]
         init_dir          = SkyDir(init_lon,init_lat,cs)
 
-        # Fit in coordinate system rotated so y=z=0.
-        init_spatial[0:2]=0
+
+        # Define an axis and angle that takes the equator point (of the
+        # same longitude) to the original position.
+        # Fit values around at the equator around this new point.
+        axis=SkyDir(init_lon-90,0,cs)
+        theta=N.radians(init_lat)
+
+        # Fit in the rotated coodinate system.
+        init_spatial[0:2]=[init_lon,0]
 
         def likelihood_wrapper(p):
             """ Helper function which takes in the spatial parameters
                 for the extended source and returns the logLikelihood.
 
-                Implemenation note: Sometimes the fitter gets
-                confused. For example, if the last iteration moved to
-                a spatial value really far from the initial position,
-                the source flux will get fit to 0 (as it should), but
-                during the next iteration at a more reasonable spatial
-                value, the fit will be unable to reconverge on the best
-                flux and stays at 0. To get around this, I cache the
-                initial fit value (which is presumably pretty good),
-                and whenever the current fit logLikelihood is less then
-                the initial logLikelihood, I rest the loglikelihood to 
+                Note: Sometimes the fitter gets confused. For example,
+                if the last iteration moved to a spatial value really far
+                from the initial position, the source flux will get fit
+                to 0 (as it should), but during the next iteration at a
+                more reasonable spatial value, the fit will be unable
+                to reconverge on the best flux and stays at 0. To get
+                around this, I cache the initial fit value (which is
+                presumably pretty good), and whenever the current fit
+                logLikelihood is less then the initial logLikelihood,
+                I rest the loglikelihood to
                 
                 N.B. roi.dsm.update_counts handled by fit() calling logLikelihood()
                 """
@@ -279,16 +318,9 @@ Optional keyword arguments:
             # New direction in rotated coordiante system
             new_dir = SkyDir(lon,lat,cs)
 
-            # find vector perpendicular to both origin & initial dir,
-            # rotate around that vector by the distance from the initial
-            # angle to the origin. This rotation takes the origin to the
-            # initial position and small deviations around the origin to
-            # corresponding small deviations.
-            cross=origin.cross(init_dir)()
-            theta=origin.difference(init_dir)
 
             # This rotation takes (0,0) back to the initial position
-            new_dir().rotate(cross,theta)
+            new_dir().rotate(axis(),theta)
 
             # Now add the rotated spatial part back to the list.
             if cs == SkyDir.GALACTIC:
@@ -313,7 +345,7 @@ Optional keyword arguments:
                     if ll_alt > ll: ll=ll_alt
                     else: self.smodel.set_parameters(prev_fit)
 
-            if verbose: print '%s, logL = %.2f, dlogL = %.2f' % (sm.pretty_string(),ll,ll-ll_0)
+            if verbose: print '%s, logL = %.3f, dlogL = %.3f' % (sm.pretty_string(),ll,ll-ll_0)
             return -ll
 
         f=likelihood_wrapper
@@ -329,9 +361,11 @@ Optional keyword arguments:
             ll = [] 
             transformed = []
             for _ in init_grid:
-                # easy way to turn parameters into their non-absolute value.
+                # convert into log space.
                 sm.set_parameters(_,absolute=True)
                 param=sm.get_parameters(absolute=False)
+                param[0] += init_lon # rotate longitude to fit area
+                # easy way to turn parameters into their non-absolute value.
                 ll.append(likelihood_wrapper(param))
                 transformed.append(param)
 
@@ -344,14 +378,16 @@ Optional keyword arguments:
         # Display which parameters are in log space.
         relative_names = sm.get_param_names(absolute=False)
 
-        # convert tolerance from Minuit's definition .001*up*tolerance (up=.5 for log likelihood).
+        limits=sm.get_limits(absolute=False)
+        limits[0]+= init_lon
+
         m = Minuit(f,start_spatial,
                    up=0.5,
                    maxcalls=500,
                    tolerance=tolerance,
                    printMode = verbose,
                    param_names=relative_names,
-                   limits    = sm.get_limits(absolute=False),
+                   limits    = limits,
                    fixed     = ~sm.free,
                    steps     = sm.get_steps())
 
@@ -371,11 +407,6 @@ Optional keyword arguments:
             likelihood_wrapper(init_spatial)
 
         roi.quiet = old_quiet
-
-        if fitpsf:
-            if verbose: print 'Setting back to original PDF accuracy.'
-            self.fitpsf=old_fitpsf
-            self.initialize_counts(roi.bands)
 
         # return log likelihood from fitting extension.
         return -fval
@@ -404,15 +435,29 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         self.exp = self.sa.exposure.exposure; 
         psf = self.sa.psf
 
-        self.active_bgc = AnalyticConvolution(self.extended_source.spatial_model,psf,**self.__dict__)
+        d={}
+        if self.__dict__.has_key('num_points'): d['num_points']=self.num_points
+        if self.__dict__.has_key('num_int_points'): d['num_int_points']=self.num_int_points
+        self.active_bgc = AnalyticConvolution(self.extended_source.spatial_model,psf,**d)
 
     def set_state(self,energy,conversion_type,band):
         self.current_energy = energy
         self.current_exposure = self.exp[conversion_type].value(self.extended_source.spatial_model.center,energy)
-        self.active_bgc.do_convolution(energy,conversion_type,band)
+        self.active_bgc.do_convolution(energy,conversion_type,band,self.fitpsf)
 
     def _pix_value(self,pixlist):
         return self.active_bgc(pixlist)
+
+    def _overlaps(self,center,radius,band):
+        """ Calculate the fraction of the PDF not contained within the ROI
+            using the PsfOverlap object (but override the pdf and integral
+            function to use instead the extended source pdf. """
+        return self.overlap(band=band,
+                            roi_dir=center,
+                            ps_dir=self.extended_source.spatial_model.center,
+                            radius_in_rad=radius,
+                            override_pdf=self.active_bgc,
+                            override_integral=self.active_bgc.integral)
 
     def initialize_counts(self,bands,roi_dir=None):
         # probably there is a cleaner way to do this, but since you should only 
@@ -425,8 +470,48 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
             fitter.fit()
             self.already_fit=True
 
+        self.overlap = PsfOverlap()
+
         super(ROIExtendedModelAnalytic,self).initialize_counts(bands,roi_dir)
 
+    def localize(self,*args,**kwargs):
+        """ Localiztion of radially symmetric extended sources is exactly the same as
+            regular extended sources. The only difference is radially symmetric
+            sources can be fit with the addition of an optional flag 'fitpsf'.
+
+  =========   =======================================================
+  Keyword     Description
+  =========   =======================================================
+  fitpsf        [True]  Use an approximation to the PSF in each energy bin
+                        where PSF is weighted in each energy bin by an assumed
+                        spectral index and is fit by a single king function
+                        which is then convovled with the extended source shape.
+                        This leads to a significantly faster source localization.
+  =========   =======================================================
+        """
+        if kwargs.has_key('roi'):
+            roi = kwargs['roi']
+        else:
+            roi=args[0]
+
+        verbose=False
+        if kwargs.has_key('verbose'):
+            verbose = kwargs['verbose']
+
+        fitpsf=True
+        if kwargs.has_key('fitpsf'):
+            verbose = kwargs.pop('fitpsf')
+
+        if fitpsf:
+            if verbose: print 'Changing to fitpsf for localization step.'
+            self.fitpsf,old_fitpsf=True,self.fitpsf
+
+        super(ROIExtendedModelAnalytic,self).localize(*args,**kwargs)
+
+        if fitpsf:
+            if verbose: print 'Setting back to original PDF accuracy.'
+            self.fitpsf=old_fitpsf
+            self.initialize_counts(roi.bands)
 
 class BandFitter(object):
     """ This class has a somewhat weird purpose. Basically the PSF is
