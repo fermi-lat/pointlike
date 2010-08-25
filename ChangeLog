@@ -1,4 +1,25 @@
 ------------------------------------------------------------
+User: lande  Tue Aug 24 17:33:39 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Correct calculation of ROI overlap for extended sources!
+
+For localization, no longer rotate to the origin but instead just to the equator. This ensures that the error on longitude (latitude) are really in the direction of increasing longitude (latitude).
+
+For non-radially symmetric spatially extended sources (excuding SpatialMap), fill the convolution grid in python using numpy vectors for efficient convolution.
+
+Improved ExtendedSource & localization printing.
+
+Remove reference to fitpsf from non-radially symmetric source localization (since it is only used for radially symmetric sources).
+
+Use of keyword_options for ExtendedSource object.
+
+
+    *
+------------------------------------------------------------
 User: lande  Tue Aug 24 17:29:19 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
