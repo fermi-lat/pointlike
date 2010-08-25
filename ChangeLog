@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Aug 25 01:14:52 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Code to parse more extended source shapes.
+    *
+------------------------------------------------------------
 User: lande  Wed Aug 25 01:13:55 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
