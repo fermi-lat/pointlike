@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Aug 24 17:29:19 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+Allowing an override pdf/integral function to PsfOverlap object to allow use for calculating the overlap of radially symmetric spatially extended sources.
+    *
+------------------------------------------------------------
 User: lande  Tue Aug 24 16:52:41 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
