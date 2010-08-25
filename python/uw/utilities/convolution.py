@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.18 2010/08/24 18:18:28 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.19 2010/08/24 23:50:32 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -456,9 +456,8 @@ class AnalyticConvolution(object):
             area). Also, it is different in that it takes in a skydir or WSDL 
             instead of a radial distance. """
         if type(skydir) == WeightedSkyDirList:
-            dv = DoubleVector()
-            skydir.arclength(self.spatial_model.center,dv)
-            difference = N.fromiter(dv,dtype=float)
+            difference = N.empty(len(skydir),dtype=float)
+            PythonUtilities.arclength(difference,skydir,self.spatial_model.center)
             return self.val(difference)
 
         elif type(skydir)==list and len(skydir)==3:
