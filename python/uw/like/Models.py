@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.21 2010/08/20 23:22:04 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.22 2010/08/24 18:14:57 kerrm Exp $
 
     author: Matthew Kerr
 
@@ -228,19 +228,21 @@ Optional keyword arguments:
             return ('\n'+indent).join(l)
 
     def i_flux(self,emin=100,emax=N.inf,e_weight=0,cgs=False,error=False,two_sided=False):
-        """Return the integral flux.            
+        """Return the integral flux, \int_{emin}^{emax} dE E^{e_weight} dN/dE.
+           e_weight = 0 gives the photon flux (ph cm^-2 s^-1)
+           e_weight = 1 gives the energy flux (MeV cm^-2 s^-1) (see kwargs)
 
 Optional keyword arguments:
 
   =========    =======================================================
   Keyword      Description
   =========    =======================================================
-  emin          [100] lower bound in MeV
-  emax          [N.inf] upper bound in MeV
+  emin         [100] lower bound in MeV
+  emax         [N.inf] upper bound in MeV
   e_weight     [0] energy power by which to scale dN/dE
-  cgs            [False] if True, energy in ergs
-  error         [False] if True, return value is a tuple with flux and estimated error
-  two_tailed  [False] if True, return value is a triple with flux, estimated high and low errors
+  cgs          [False] if True, energy in ergs, else in MeV
+  error        [False] if True, return value is a tuple with flux and estimated error
+  two_sided    [False] if True, return value is a triple with flux, estimated high and low errors
   =========    =======================================================
         """
 
