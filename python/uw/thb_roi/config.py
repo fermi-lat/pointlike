@@ -1,6 +1,6 @@
 """
 Define an analysis environment for the UW pointlike ROI analysis
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/config.py,v 1.7 2010/08/24 22:00:54 burnett Exp $
 
 """
 
@@ -84,6 +84,7 @@ system_config = dict(
     use_gradient = True,
     verbose      = False,
     pulsar_dict  = None,
+    point_source = None,
     )
 
 class AE(object):
