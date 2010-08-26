@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.8 2010/08/17 17:58:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.9 2010/08/24 22:02:58 burnett Exp $
 author: T.Burnett <tburnett@u.washington.edu>
 """
 
@@ -48,6 +48,7 @@ class ROIfactory(pointspec.SpectralAnalysis):
                 pulsar_dict = ae.__dict__.pop('pulsar_dict', None),
                 free_radius = ae.__dict__.pop('free_radius'),
                 prune_radius= ae.__dict__.pop('prune_radius'),
+                point_source= ae.__dict__.pop('point_source', pointspec_helpers.PointSource),
                 quiet = ae.quiet,
                 verbose = ae.verbose,
                 )

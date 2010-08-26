@@ -1,7 +1,7 @@
 """
 supplemental setup of ROI
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_setup.py,v 1.8 2010/08/06 18:15:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_setup.py,v 1.9 2010/08/17 17:57:04 burnett Exp $
 
 These are near-duplicates of the classes with the same name in uw.like, but modifed for the interactive access
 
@@ -9,31 +9,32 @@ These are near-duplicates of the classes with the same name in uw.like, but modi
 import numpy as np
 import os, pyfits, types, pickle
 
-from uw.utilities import makerec
+from uw.utilities import makerec, keyword_options
 from uw.like import Models,  pointspec_helpers
 from skymaps import SkyDir
 
      
 class CatalogManager(object):
     """Read a  catalogue and use it to set up a source list for a ROI."""
-    defaults = dict(
-        prune_radius  = 0.10,   #deg; in a merge, consider sources closer than this duplicates
-                                # or to exclude all sources within a larger region for separate specification
-        free_radius   = 1,      #deg; sources within this distance have free spectral parameters
-        min_flux      = 2e-9,   #ph/cm2/s; minimum flux for sources beyond a certain proximity
-        max_distance  = 5,      #deg; distance inside which sources are returned regardless of flux
-        min_ts        = 25,
-        pulsar_dict   = None,   # optional pulsar dictionary with ExpCutoff parameters to use
-        quiet         = False,
-        verbose       = False,
+    defaults = (
+        ('prune_radius',  0.10,  'deg; in a merge, consider sources closer than this duplicates\n'
+                                ' or to exclude all sources within a larger region for separate specification'),
+        ('free_radius',   1,      'deg; sources within this distance have free spectral parameters'),
+        ('min_flux',     2e-9,   'ph/cm2/s; minimum flux for sources beyond a certain proximity'),
+        ('max_distance',  5,      'deg; distance inside which sources are returned regardless of flux'),
+        ('min_ts',       25,     ''),
+        ('pulsar_dict',   None,   ' optional pulsar dictionary with ExpCutoff parameters to use'),
+        ('point_source',  pointspec_helpers.PointSource, ' allow modification'),
+        ('quiet',         False,   ''),
+        ('verbose',       False,   ''),
         )
 
-    def __init__(self,catalog_file,*args,**kwargs):
-        self.__dict__.update(CatalogManager.defaults)
-        for key, value in kwargs.items():
-            if key in self.__dict__: self.__dict__[key]=value
-            else:
-                print 'warning: key %s not recognized by CatalogManager' % key
+    @keyword_options.decorate(defaults)
+    def __init__(self,catalog_file, *args, **kwargs):
+        """ Create the catalog: 
+            catalog_file: a Fermi-LAT FITS format catalog
+            """
+        keyword_options.process(self, kwargs)
         if not self.quiet: 
             print 'creating a CatalogManager from %s...' %catalog_file
         cdata = pyfits.open(catalog_file)[1].data
@@ -128,7 +129,7 @@ class CatalogManager(object):
         exclude = (diffs[sorting] < self.prune_radius) 
         numex = exclude.sum()
         makefree = (diffs[sorting] < self.free_radius) 
-        point_sources = map(pointspec_helpers.PointSource,dirs,names,models,makefree)
+        point_sources = map(self.point_source,dirs,names,models,makefree)
         if not self.quiet:
             print '...selected %d sources within %.1f deg for roi'   % (len(point_sources), radius)
             print '...selected %d sources within %.1f deg for refit' % (makefree.sum(), self.free_radius)
