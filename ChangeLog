@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Thu Aug 26 09:14:33 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Clarify docstring for i_flux.
+    *
+------------------------------------------------------------
 User: burnett  Thu Aug 26 08:20:21 PDT 2010
 pointlike/python/uw/thb_roi
 
