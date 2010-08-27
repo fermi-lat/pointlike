@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.19 2010/08/24 23:50:32 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.20 2010/08/25 05:55:09 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -9,7 +9,7 @@ from skymaps import SkyDir,WeightedSkyDirList,Hep3Vector,SkyIntegrator,PySkyFunc
 from pointlike import DoubleVector
 import numpy as N
 from scipy.interpolate import interp1d
-from scipy.integrate import simps,cumtrapz
+from scipy.integrate import quad,romberg,cumtrapz,inf
 from scipy.special import hyp2f1
 from uw.like.pypsf import BandCALDBPsf,PretendBand
 from numpy.fft import fftshift,ifft2,fft2
@@ -302,7 +302,6 @@ class AnalyticConvolution(object):
 
     defaults = (
         ('num_points',     200, 'Number of points to calculate the PDF at. Interpolation is done in between.'),
-        ('num_int_points', 200, 'Number of points to use in evaluating the integral.')
     )
 
     @keyword_options.decorate(defaults)
@@ -334,19 +333,33 @@ class AnalyticConvolution(object):
         the intgral includes at term which is the PDF, the integral
         will presumably contribute very littel further away then this.
         """
-        self.int_max = 0.5*(self.spatial_model.effective_edge(energy)/s)**2
+        int_max = 0.5*(self.spatial_model.effective_edge(energy)/s)**2
 
         # u value corresponding to the given r.
         ulist=0.5*(self.rlist/s)**2
 
-        vlist=N.linspace(0,self.int_max,self.num_int_points)
+        # pdf values for each r (in a given energy bin)
+        pdf=N.empty_like(self.rlist)
 
-        v,u=N.meshgrid(vlist,ulist)
-
-        integrand = self.spatial_model.at_r(N.sqrt(2*v)*s,energy)\
+        integrand = lambda v,u: self.spatial_model.at_r(N.sqrt(2*v)*s)\
                                           *((g-1)/g)*(g/(g+u+v))**g\
-                                          *hyp2f1(g/2.0,(1+g)/2.0,1.0,4.0*u*v/(g+u+v)**2)
-        pdf = simps(integrand,v)
+                                          *hyp2f1(g/2.,(1+g)/2.,1.,4.*u*v/(g+u+v)**2)
+        for i,u in enumerate(ulist):
+            pdf[i]=quad(integrand,0,int_max,args=(u,),epsrel=1e-3,
+                        epsabs=1e-3,full_output=True)[0]
+            # Sometimes this algorithm is not robust. In that case,
+            # try to do the integral more accuratly
+            if N.isnan(pdf[i]) or N.isinf(pdf[i]) or pdf[i]<0:
+
+                # try integrating to infinity
+                pdf[i]=quad(integrand,0,inf,args=(u,),epsrel=1e-3,
+                            epsabs=1e-3,full_output=True)[0]
+
+                if N.isnan(pdf[i]) or N.isinf(pdf[i]) or pdf[i]<0:
+
+                    # try to use romberg to do the integral.
+                    pdf[i]=romberg(integrand,0,int_max,args=(u,),divmax=20)
+                                   
         return pdf
 
 
@@ -408,7 +421,7 @@ class AnalyticConvolution(object):
             self.edge_distance=band.sd.difference(self.spatial_model.center) + \
                     band.radius_in_rad
 
-            self.rmax=1.1*self.edge_distance
+            self.rmax=self.edge_distance
 
             self.rlist=N.linspace(0,N.sqrt(self.rmax),self.num_points)**2
 
@@ -432,11 +445,24 @@ class AnalyticConvolution(object):
             self.last_p[energy,conversion_type,fitpsf]=self.spatial_model.p[2:].copy()
             self.last_pdf[energy,conversion_type,fitpsf]=self.pdf
 
+
+        # for some reason, I incorrectly got a negative pdf value for r=0 and for
+        # especially large gaussian MC sources. Not sure how the integral of the 
+        # hypergeometric function could do this, but it is best to simply remove 
+        # it from the list since we know they are unphysical.
+        bad = N.isnan(self.pdf)|N.isinf(self.pdf)|(self.pdf<0)
+        if N.any(bad):
+            message='WARNING! Bad values found in PDF. Removing them from interpolation.' % sum(bad)
+            if N.any(N.isnan(self.pdf)): message += ' (%d NaN values)' % sum(N.isnan(self.pdf)),
+            if N.any(N.isinf(self.pdf)): message += ' (%d Inf values)' % sum(N.isinf(self.pdf)),
+            if N.any(self.pdf<0):        message +=' (%d negative values)' % sum(self.pdf<0),
+            raise Exception(message)
+
         # Assume pdf is 0 outside of the bound, which is reasonable if 
         # rmax is big enough also, interpolate the log of the intensity, which 
         # should for the types of shapes we are calculating be much more linear.
         self.log_pdf=N.log(self.pdf)
-        self.interp=interp1d(self.rlist,self.log_pdf,kind=3,bounds_error=False,fill_value=self.log_pdf[-1])
+        self.interp=interp1d(self.rlist,self.log_pdf,kind=3,bounds_error=False,fill_value=self.log_pdf[0])
 
         self.val=lambda x: N.exp(self.interp(x))*(x<=self.rlist[-1])
 
@@ -459,13 +485,15 @@ class AnalyticConvolution(object):
             difference = N.empty(len(skydir),dtype=float)
             PythonUtilities.arclength(difference,skydir,self.spatial_model.center)
             return self.val(difference)
-
+        elif type(skydir)== N.ndarray:
+            return self.val(skydir)
         elif type(skydir)==list and len(skydir)==3:
             skydir = SkyDir(Hep3Vector(skydir[0],skydir[1],skydir[2]))
 
         elif type(skydir)==SkyDir:
             return float(self.val(skydir.difference(self.spatial_model.center)))
         else:
+            print 'type',type(skydir)
             raise Exception("Unknown input to AnalyticConvolution.__call__()")
 
     def integral(self,dmax,dmin=0):
