@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Aug 26 23:43:51 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Changing the semianalytic convolution algorithm from simps to quad due to accuracy problems for large extended sources at high energy. Also, allowing two fallback integrals using quad and romberg in case any of the integral points come up unphysical. Finally, allow passing an array of radii to AnalyticConvolution.__call__.
+    *
+------------------------------------------------------------
 User: lande  Thu Aug 26 23:10:33 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
