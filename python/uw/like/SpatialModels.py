@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.15 2010/08/25 08:13:55 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.16 2010/08/27 03:01:40 lande Exp $
 
    author: Joshua Lande
 
@@ -66,17 +66,18 @@ class DefaultSpatialModelValues(object):
                                 # Note for elliptical shapes, theta > 45 is the same as a negative angle
                                 'log':[True,True,False],
                                 'steps':[0.04,0.04,N.radians(5)]},
+        # N,B limits or Non-radially symmetric sources dictated more by pixelization of grid.
         'EllipticalDisk'     : {'p':[N.radians(0.1),N.radians(0.1),0], 
                                 'param_names':['Major_Axis','Minor_Axis','Position_Angle'],
-                                'limits':N.radians([[1e-6,3],
-                                                    [1e-6,3],
+                                'limits':N.radians([[1e-3,3],
+                                                    [1e-3,3],
                                                     [-45,45]]),
                                 'log':[True,True,False],
                                 'steps':[0.04,0.04,N.radians(5)]},
         'EllipticalRing'     : {'p':[N.radians(0.1),N.radians(0.1),0,0.5], 
                                 'param_names':['Major_Axis','Minor_Axis','Position_Angle','Fraction'],
-                                'limits':N.radians([[1e-6,3],
-                                                    [1e-6,3],
+                                'limits':N.radians([[1e-3,3],
+                                                    [1e-3,3],
                                                     [-45,45],
                                                     [0,1]]),
                                 'log':[True,True,False,False],
@@ -648,9 +649,9 @@ class EllipticalSpatialModel(SpatialModel):
         if override_skydir:
             # I have no idea why this works, and it really confuses me. But
             # I confirmed it just by making a lot of skyimages.
-            y,x = grid.pix(override_skydir)
-            dLons=(mpix-x)*N.radians(grid.pixelsize)
-            dLats=(y-mpix)*N.radians(grid.pixelsize)
+            x,y = grid.pix(override_skydir)
+            dLats=(x-mpix)*N.radians(grid.pixelsize)
+            dLons=(mpix-y)*N.radians(grid.pixelsize)
         else:
             dLons,dLats= N.meshgrid((N.arange(0,grid.npix)-mpix)*N.radians(grid.pixelsize),
                                      (mpix-N.arange(0,grid.npix))*N.radians(grid.pixelsize))
@@ -723,7 +724,7 @@ class EllipticalGaussian(EllipticalSpatialModel):
 class PseudoEllipticalGaussian(PseudoSpatialModel,EllipticalGaussian):
 
     def extension(self):
-        return N.radians(1e-10),N.radians(1e-10),0
+        return N.radians(1e-3),N.radians(1e-3),0
 
     def pretty_spatial_string(self):
         return "[ %.3f' ]" % (60*N.degrees(self.sigma_x))
@@ -765,7 +766,7 @@ class RadiallySymmetricEllipticalDisk(EllipticalDisk):
 
 class PseudoEllipticalDisk(PseudoSpatialModel,EllipticalDisk):
     def extension(self):
-        return N.radians(1e-10),N.radians(1e-10),0
+        return N.radians(1e-3),N.radians(1e-3),0
 
 #===============================================================================================#
 
