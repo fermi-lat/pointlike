@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.19 2010/08/17 19:01:42 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.20 2010/08/25 00:33:38 lande Exp $
 
     author: Joshua Lande
 """
@@ -136,11 +136,11 @@ class ROIExtendedModel(ROIDiffuseModel):
 
         if hasattr(self.extended_source.spatial_model,'fill_grid'):
             vals=self.extended_source.spatial_model.fill_grid(self.active_bgc,energy)
-            self.active_bgc.do_convolution(energy,conversion_type,override_en=energy,
+            self.active_bgc.do_convolution(energy,conversion_type,
                                            override_vals=vals)
         else:
             if isinstance(self.extended_source.spatial_model,SpatialMap):
-                self.active_bgc.do_convolution(energy,conversion_type,override_en=energy,
+                self.active_bgc.do_convolution(energy,conversion_type,
                                                override_skyfun=self.extended_source.spatial_model.skyfun)
             else:
                 # This part of the code wraps the spatial_model object as a PySkySpectrum object 
@@ -150,7 +150,7 @@ class ROIExtendedModel(ROIDiffuseModel):
                 # (b) Immediatly fill the convolution grid in python
                 # (c) Have a C++ implementation of the sky function interface so that 
                 #     it can be filled in python.
-                self.active_bgc.do_convolution(energy,conversion_type,override_en=energy)
+                self.active_bgc.do_convolution(energy,conversion_type)
 
         self.current_exposure = self.exp[conversion_type].value(self.extended_source.spatial_model.center,energy)
 
@@ -435,9 +435,7 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         self.exp = self.sa.exposure.exposure; 
         psf = self.sa.psf
 
-        d={}
-        if self.__dict__.has_key('num_points'): d['num_points']=self.num_points
-        if self.__dict__.has_key('num_int_points'): d['num_int_points']=self.num_int_points
+        d={'num_points':self.num_points} if self.__dict__.has_key('num_points') else {}
         self.active_bgc = AnalyticConvolution(self.extended_source.spatial_model,psf,**d)
 
     def set_state(self,energy,conversion_type,band):
