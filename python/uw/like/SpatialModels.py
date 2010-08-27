@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.14 2010/08/25 05:54:21 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.15 2010/08/25 08:13:55 lande Exp $
 
    author: Joshua Lande
 
@@ -93,23 +93,18 @@ class DefaultSpatialModelValues(object):
     def setup(the_model):
         classname = the_model.name = the_model.pretty_name = the_model.__class__.__name__
 
+        the_model.p,the_model.log,the_model.param_names,the_model.steps=[],[],[],[]
+
         for key,val in DefaultSpatialModelValues.models[classname].items():
             exec('the_model.%s = val'%key)
 
-        the_model.p=N.append([0.,0.],the_model.p) \
-                if the_model.__dict__.has_key('p') else N.asarray([0.,0.])
-
-        the_model.log=N.append([False,False],the_model.log) \
-                if the_model.__dict__.has_key('log') else N.asarray([False,False])
-
-        the_model.param_names=N.append(['lon','lat'],the_model.param_names) \
-                if the_model.__dict__.has_key('param_names') else N.asarray(['lon','lat'])
-
+        # Add in point source parts.
+        the_model.p=N.append([0.,0.],the_model.p)
+        the_model.log=N.append([False,False],the_model.log)
+        the_model.param_names=N.append(['lon','lat'],the_model.param_names)
         the_model.limits=N.append([[-10.,10.],[-10.,10.]],the_model.limits,axis=0) \
                 if the_model.__dict__.has_key('limits') else N.asarray([[-10.,10],[-10.,10.]])
-
-        the_model.steps=N.append([0.1,0.1],the_model.steps) \
-                if the_model.__dict__.has_key('steps') else N.asarray([0.1,0.1])
+        the_model.steps=N.append([0.1,0.1],the_model.steps)
 
         the_model.coordsystem = SkyDir.EQUATORIAL
 
