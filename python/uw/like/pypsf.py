@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.14 2010/08/25 03:14:14 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pypsf.py,v 1.15 2010/08/25 22:02:11 kerrm Exp $
 author: M. Kerr
 
 """
@@ -386,13 +386,15 @@ class PsfOverlap(object):
         if self.cache_hash != hash(band): self.set_dir_cache(band,roi_dir,roi_rad) # fragile due to radius dep.
         if override_pdf is None:
             band.cpsf.wsdl_val(self.cache_diffs,ps_dir,self.cache_wsdl)
-            return self.cache_diffs.sum()*band.b.pixelArea()
         else:
-            return override_pdf(self.cache_diffs).sum()*band.b.pixelArea()
+            difference = N.empty(len(self.cache_wsdl))
+            PythonUtilities.arclength(difference,self.cache_wsdl,roi_dir)
+            self.cache_diffs = override_pdf(difference)
+        return self.cache_diffs.sum()*band.b.pixelArea()
 
     def __call__(self,band,roi_dir,ps_dir,radius_in_rad=None,ragged_edge=0.06,
                  override_pdf=None,override_integral=None):
-        """Return an array of fractional overlap for a point source at location skydir.
+        """Return the fractional overlap for a point source at location skydir.
             Note radius arguments are in radians."""
 
         roi_rad  = radius_in_rad or band.radius_in_rad
