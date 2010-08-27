@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Aug 26 20:03:11 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Removal of unneedeed flags
+    *
+------------------------------------------------------------
 User: lande  Thu Aug 26 20:01:40 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
