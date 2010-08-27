@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Aug 26 23:02:16 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Increase limits for numerical sources due to finit grid effects.
+    *
+------------------------------------------------------------
 User: lande  Thu Aug 26 20:23:53 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
