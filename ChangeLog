@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Aug 29 13:22:51 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	config.py myroi.py 
+Log Message:
+clean up; allow bgpars
+    *
+------------------------------------------------------------
 User: burnett  Sun Aug 29 13:21:10 PDT 2010
 pointlike/python/uw/thb_roi
 
