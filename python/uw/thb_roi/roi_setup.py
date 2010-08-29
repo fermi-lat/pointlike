@@ -1,7 +1,7 @@
 """
 supplemental setup of ROI
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_setup.py,v 1.9 2010/08/17 17:57:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_setup.py,v 1.10 2010/08/26 15:20:21 burnett Exp $
 
 These are near-duplicates of the classes with the same name in uw.like, but modifed for the interactive access
 
@@ -24,7 +24,7 @@ class CatalogManager(object):
         ('max_distance',  5,      'deg; distance inside which sources are returned regardless of flux'),
         ('min_ts',       25,     ''),
         ('pulsar_dict',   None,   ' optional pulsar dictionary with ExpCutoff parameters to use'),
-        ('point_source',  pointspec_helpers.PointSource, ' allow modification'),
+        ('point_source',  None,   ' class that creates point source objects: if None, use pointspec_helpers.PointSource'),
         ('quiet',         False,   ''),
         ('verbose',       False,   ''),
         )
@@ -35,6 +35,7 @@ class CatalogManager(object):
             catalog_file: a Fermi-LAT FITS format catalog
             """
         keyword_options.process(self, kwargs)
+        if self.point_source is None: self.point_source = pointspec_helpers.PointSource
         if not self.quiet: 
             print 'creating a CatalogManager from %s...' %catalog_file
         cdata = pyfits.open(catalog_file)[1].data
@@ -134,7 +135,8 @@ class CatalogManager(object):
             print '...selected %d sources within %.1f deg for roi'   % (len(point_sources), radius)
             print '...selected %d sources within %.1f deg for refit' % (makefree.sum(), self.free_radius)
             if numex>0:
-                print '...excluded %d sources within %.1f deg : %s ' % (numex, self.prune_radius, ', '.join([s.name.strip() for s in point_sources[:numex]]))
+                print '...excluded %d sources within %.1f deg : %s ' %\
+            (numex, self.prune_radius, ', '.join([s.name.strip() for s in point_sources[:numex]]))
         
         self.exclude= point_sources[:numex]
         return point_sources[numex:]
