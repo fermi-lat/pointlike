@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.27 2010/08/18 19:22:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.28 2010/08/20 17:27:19 burnett Exp $
 
 """
-version = '$Revision: 1.27 $'.split()[1]
+version = '$Revision: 1.28 $'.split()[1]
 
 import pylab
 import types
@@ -253,6 +253,7 @@ class AIT(object):
         ('proj',      'AIT', 'could be ''CAR'' for carree or ''ZEA'': used by wcslib'),
         ('center',    None,   'if default center at (0,0) in coord system'),
         ('size',      180,   'make less for restricted size'),
+        ('galactic',  True,  'use galactic coordinates'),
         ('earth',     False, 'if looking down at Earth'),
         )
     
@@ -265,7 +266,7 @@ class AIT(object):
         self.skyfun = skyfun
          # set up, then create a SkyImage object to perform the projection to a grid
         if self.center is None:
-            self.center = SkyDir(0,0, SkyDir.GALACTIC if galactic else SkyDir.EQUATORIAL)
+            self.center = SkyDir(0,0, SkyDir.GALACTIC if self.galactic else SkyDir.EQUATORIAL)
         self.skyimage = SkyImage(self.center, self.fitsfile, self.pixelsize, 
             self.size, 1, self.proj, self.galactic, self.earth)
         # we want access to the projection object, to allow interactive display via pix2sph function
@@ -309,10 +310,10 @@ class AIT(object):
         self.axes.set_ylim(0, 180/self.pixelsize)
         self.axes.set_axis_off()
         self.axes.set_aspect('equal')
-        ait = self.proj.sph2pix
+        ait = self.projector.sph2pix
         self.extent= (ait(180,0)[0],ait(180.001,0)[0], ait(0,-90)[1], ait(0,90)[1])
 
-        draw_grid(self.proj.sph2pix, labels=labels, color=color, pixelsize=self.pixelsize) 
+        draw_grid(self.projector.sph2pix, labels=labels, color=color, pixelsize=self.pixelsize) 
         pylab.show()
 
     def plot(self, sources, symbol='+',  **kwargs):
