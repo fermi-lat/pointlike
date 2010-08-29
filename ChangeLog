@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Aug 29 13:21:10 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	roi_factory.py 
+Log Message:
+allow setting of bgpars; fix fit_emin to allow front/back difference
+    *
+------------------------------------------------------------
 User: burnett  Sun Aug 29 13:19:58 PDT 2010
 pointlike/python/uw/thb_roi
 
