@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.19 2010/08/23 20:48:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.20 2010/08/24 22:01:38 burnett Exp $
 
 """
 
@@ -12,7 +12,7 @@ import pylab as plt
 import os, pickle, math, types 
 
 from uw.like import roi_analysis, roi_localize, roi_plotting,  Models, sed_plotter, roi_bands, tsmap_plotter
-from uw.utilities import makerec, fermitime, image
+from uw.utilities import makerec, fermitime, image, region_writer
 from skymaps import SkyDir,  PySkyFunction
 import source_pickle
 
@@ -59,41 +59,35 @@ def spectralString(band,which=None):
 
 class MyROI(roi_analysis.ROIAnalysis):
     """ create an ROIAnalysis subclass 
-
-        Parameters
-
-        ps_manager :  PointSourceManager
-        bg_manager :  BackgroundManager
-        roifactory :  ROIfactory
-
     """
 
-    def __init__(self,roi_dir, ps_manager,bg_manager,roifactory,**kwargs):
+#    def __init__(self,roi_dir, ps_manager,bg_manager,roifactory,**kwargs):
+    def __init__(self,*pars,**kwargs):
         """
-        Parameters
-
-        ps_manager :  
-        bg_manager : 
-        roifactory : 
-       
-        change default free_radius to turn this off
-
-        optional:
+        optional kwargs:
             bgfree [True, False, True]
-            prune_radius [0.1]
-            free_radius  [0]
+            brpars [1.,1.,1.]
         """
+        # remove kwargs for the subclass only
         bgfree = kwargs.pop('bgfree', [True,False,True])
         if bgfree is None:
             bgfree = [False,False,False]
+        bgpars = kwargs.pop('bgpars', [1.,1.,1.])
         if 'fit_bg_first' in kwargs:
             self.fit_bg_first = kwargs['fit_bg_first']
-        super(MyROI, self).__init__(roi_dir, ps_manager, bg_manager, roifactory, **kwargs)
+            
+        # invoke the super class ctor, then modify background model
+#        super(MyROI, self).__init__(roi_dir, ps_manager, bg_manager, roifactory, **kwargs)
+        super(MyROI, self).__init__(*pars, **kwargs)
+        logpars = np.log10(np.array(bgpars))
         self.bgm.models[0].free = np.array(bgfree[:2])
+        self.bgm.models[0].p = logpars[:2]
         if len(self.bgm.models)>1:
             self.bgm.models[1].free = np.array([bgfree[2]])
+            self.bgm.models[1].p    = logpars[2:3]
+            
         self.name = self.psm.point_sources[0].name # default name
-        self.center= roi_dir
+        self.center= pars[0] #roi_dir
 
     def fit(self, **kwargs):
         """ invoke base class fitter, but insert defaults first 
@@ -223,8 +217,6 @@ class MyROI(roi_analysis.ROIAnalysis):
         """
         self.print_summary(sdir, galactic, maxdist, title)
 
-    
-
     def tsmap(self, which=0, bandfits=True):
         """ return function of likelihood in neighborhood of given source
             tsm = roi.tsmap(which)
@@ -232,7 +224,6 @@ class MyROI(roi_analysis.ROIAnalysis):
             tsp = image.TSplot(tsm, center, size, pixelsize =size/20, axes=plt.gca())
             tsp.plot(center, label=name)
             tsp.show()
-
         """
         self.localizer = roi_localize.ROILocalizer(self, which, bandfits=bandfits)
         return PySkyFunction(self.localizer)
@@ -324,64 +315,6 @@ class MyROI(roi_analysis.ROIAnalysis):
             rec.append( *get_band_info(eb) )
         return rec()
 
-    #def printMySpectrum(self,sources=None, out=None):
-    #    """Print total counts and estimated signal in each band for a list of sources.
-
-  # #     Sources can be specified as PointSource objects, source names, or integers
-    #    to be interpreted as indices for the list of point sources in the roi. If
-    #    only one source is desired, it needn't be specified as a list. If no sources
-    #    are specified, all sources with free fit parameters will be used.
-    #    
-    #    """
-    #    #super(MyROI,self).printSpectrum(sources)
-    #    if sources is None:
-    #     sources = [s for s in self.psm.point_sources if N.any(s.model.free)]
-    #    elif type(sources) != type([]): 
-    #     sources = [sources]
-    #    bad_sources = []
-    #    for i,s in enumerate(sources):
-    #        if type(s) == roi_analysis.PointSource:
-    #           if not s in self.psm.point_sources:
-    #              print 'Source not found in source list:\n%s\n'%s
-    #              bad_sources += [s]
-    #        elif type(s) == int:
-    #           try:
-    #              sources[i] = self.psm.point_sources[s]
-    #           except IndexError:
-    #              print 'No source #%i. Only %i source(s) specified.'\
-    #                    %(s,len(self.psm.point_sources))
-    #              bad_sources += [s]
-    #        elif type(s) == type(''):
-    #           names = [ps.name for ps in self.psm.point_sources]
-    #           try:
-    #              sources[i] = self.psm.point_sources[names.index(s)]
-    #           except ValueError:
-    #              print 'No source named %s'%s
-    #              bad_sources += [s]            
-    #        else:
-    #           print 'Unrecognized source specification:', s
-    #           bad_sources += [s]
-    #    sources = set([s for s in sources if not s in bad_sources])
-    #    spectra = dict.fromkeys(sources)
-    #    for s in sources:
-    #     spectra[s] = roi_plotting.band_spectra(self,source=self.psm.point_sources.index(s))
-    #    iso,gal,src,obs = roi_plotting.counts(self)[1:5]
-    #    fields = ['  Emin',' f_ROI',' b_ROI' ,' Events','Galactic','Isotropic','   excess']\
-    #            +[' '*10+'Signal']*len(sources)
-    #    outstring = 'Spectra of sources in ROI about %s at ra = %.3f, dec = %.3f\n'\
-    #                %(self.psm.point_sources[0].name, self.center.ra(), self.center.dec())\
-
-  # #     outstring += ' '*68+'  '.join(['%-18s'%s.name for s in sources])+'\n'
-    #    outstring += '  '.join(fields)+'\n'
-    #    for i,band in enumerate(zip(self.bands[::2],self.bands[1::2])):
-    #        values = (band[0].emin, band[0].radius_in_rad*180/N.pi,
-    #                  band[1].radius_in_rad*180/N.pi,obs[i],gal[i],iso[i], obs[i]-gal[i]-iso[i])
-    #        for s in sources:
-    #            values+=(spectra[s][1][i],.5*(spectra[s][3][i]-spectra[s][2][i]))          
-    #        string = '  '.join(['%6i','%6.2f','%6.2f','%7i','%8.1f','%9.1f','%9.1f']+
-    #                           ['%8.1f +/-%6.1f']*len(sources))%values
-    #        outstring += string+'\n'
-    #    print >>out, outstring
 
     def get_photons(self, emin=1000): 
         """ access binned photon data
@@ -476,6 +409,11 @@ class MyROI(roi_analysis.ROIAnalysis):
     @decorate_with(roi_plotting.plot_counts)
     def plot_counts(self, **kwargs):
         return roi_plotting.plot_counts(self, **kwargs)
+        
+    @decorate_with(region_writer.writeRegion)
+    def write_region(self,*pars, **kwargs):
+        return region_writer.writeRegion(self, *pars, **kwargs)
+        
 
 class BandDict(dict):
     """ a dictionary of Band stuff with access functions, like __str__

@@ -1,6 +1,6 @@
 """
 Define an analysis environment for the UW pointlike ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/config.py,v 1.7 2010/08/24 22:00:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/config.py,v 1.8 2010/08/26 15:20:21 burnett Exp $
 
 """
 
@@ -74,6 +74,7 @@ system_config = dict(
     fit_emin     = 175,
     fit_emax     = 600000.,
     bgfree       = [True,False,True],
+    bgpars       = (1,1,1),
     minROI       = 5,
     maxROI       = 10,
     fit_bg_first = False,
@@ -88,7 +89,7 @@ system_config = dict(
     )
 
 class AE(object):
-    """ Implement the AnalysisEnvironment interface, just a list of attribures
+    """ Implement the AnalysisEnvironment interface, just a list of attributes
         kwargs: override only: items must already be present, except for "dataset", 
         which is expanded locally to ft1files, ft2files, binfile, ltcube
         
