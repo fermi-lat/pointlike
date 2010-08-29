@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Aug 29 13:19:58 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	roi_setup.py 
+Log Message:
+fix usage of alternate PointSource class
+    *
+------------------------------------------------------------
 User: burnett  Sun Aug 29 13:17:40 PDT 2010
 pointlike/python/uw/utilities
 
