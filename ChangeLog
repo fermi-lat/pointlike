@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Aug 31 12:32:11 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+add print_ellipse method
+    *
+------------------------------------------------------------
 User: lande  Mon Aug 30 21:26:21 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
