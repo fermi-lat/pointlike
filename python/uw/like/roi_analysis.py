@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.38 2010/08/17 03:20:49 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.39 2010/08/24 23:16:48 lande Exp $
 
 author: Matthew Kerr
 """
@@ -685,7 +685,25 @@ class ROIAnalysis(object):
                 s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(m,o,wres)])
             s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(tm,to,(to-tm)/tm**0.5)])
             print s1
-
+ 
+    def print_ellipse(self, label=True, line=True):
+        """ print the ellipical parameters (all deg units):
+                ra, dec
+                a, b  : major and minor 1-sigma axes
+                ang   : ellipse orientation, E of N
+                qual  : measure of fit quality.
+        Optional parameters:
+            label [True] print a label line
+            line  [True] print the line corresponding to the current fit
+                  (only knows about one at a time)
+        """
+        if not self.qform: return
+        labels = 'ra dec a b ang qual'.split()
+        if label: print (len(labels)*'%10s') % tuple(labels)
+        if not line: return
+        p = self.qform.par[0:2]+self.qform.par[3:]
+        print len(p)*'%10.4f' % tuple(p)
+ 
     def toXML(self,filename,**kwargs):
         """Write out a gtlike-style XML file."""
         from uw.utilities.xml_parsers import writeROI
