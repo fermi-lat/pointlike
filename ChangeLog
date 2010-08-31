@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Aug 30 21:26:21 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+Small bug in location of cpsf inside of the band.
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-18-03, operation: add
 Package: pointlike
