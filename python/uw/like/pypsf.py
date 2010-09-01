@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pypsf.py,v 1.16 2010/08/27 03:23:53 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.17 2010/08/31 04:26:21 lande Exp $
 author: M. Kerr
 
 """
@@ -431,8 +431,8 @@ class PsfOverlap(object):
 
         if ((band.b.pixelArea()**0.5/band.radius_in_rad) > ragged_edge) and (band.b.nside() < 200):
             n_overlap = self.num_overlap(band,roi_dir,ps_dir,roi_rad,override_pdf)
-            print overlap,n_overlap
-            print 'Using numerical overlap, difference is %.6f'%(n_overlap-overlap)
+            #print overlap,n_overlap
+            #print 'Using numerical overlap, difference is %.6f'%(n_overlap-overlap)
             return n_overlap
 
         return overlap
