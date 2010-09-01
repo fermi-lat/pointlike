@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Sep  1 14:35:16 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+Added BinnedPhotonData support to stacklike, and fixed a pypsf print issue
+    *
+------------------------------------------------------------
 User: wallacee  Wed Sep  1 14:01:13 PDT 2010
 pointlike/python/uw/eew_roi
 
