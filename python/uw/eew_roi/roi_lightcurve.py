@@ -5,8 +5,8 @@
    Author: Eric Wallace
 """
 
-__version__ = "$Revision: 1.2 $".split()[0]
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/eew_roi/roi_lightcurve.py,v 1.2 2010/08/25 20:43:04 wallacee Exp $
+__version__ = "$Revision: 1.3 $".split()[0]
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/eew_roi/roi_lightcurve.py,v 1.3 2010/08/25 23:39:20 wallacee Exp $
 
 import datetime
 import cPickle
@@ -125,11 +125,13 @@ class LightCurve(object):
         self.bg_roi = self.background_fit()
         if self.free_mask is None:
             self.free_mask = self._get_free_mask()
+        self.names = [ps.name.replace(' ','_') for ps in
+                      self.bg_roi.psm.point_sources[self.free_mask]]
         self.nfree = self.free_mask.sum()
         self.data = np.empty((self.bins.shape[0],    #axis 0 = time bins
-                              self.nfree,  #axis 1 = free sources
-                              11)                    #axis 2 = values
-                              ,dtype='object')
+                              self.nfree,            #axis 1 = free sources
+                              10)                    #axis 2 = values
+                              ,dtype='float')
 
 
     def _get_bins(self):
@@ -242,8 +244,6 @@ class LightCurve(object):
             ll_minus1sigma = roi.logLikelihood(np.log10(lo_errs))
             self.data[i] = np.vstack([[bin[0]]*self.nfree
                              ,[bin[1]]*self.nfree
-                             ,[ps.name.replace(' ','_') for ps in
-                               roi.psm.point_sources[self.free_mask]]
                              ,ifluxes
                              ,iflux_hi
                              ,iflux_lo
@@ -343,11 +343,11 @@ class LightCurve(object):
                       ,bg_roi_radius = (self.bg_roi.sa.minROI,self.bg_roi.sa.maxROI)
                       ,bg_free_radius = self.catalog_kwargs['free_radius']
                       ,roi_dir = (self.bg_roi.roi_dir.ra(),self.bg_roi.roi_dir.dec()))
-        dict_ = dict(data=self.data,bg_data=bg_data)
+        dict_ = dict(data=self.data,bg_data=bg_data,names = self.names)
         cPickle.dump(dict_,file_)
         file_.close()
 
-    def plot(self):
+    def plot(self,outfile = ''):
         """Make a nice plot of a light curve.
         If outfile == '', make up a name; if outfile is None, don't save."""
         #Check to make sure the data exists
@@ -360,7 +360,8 @@ class LightCurve(object):
         x = .5*(xlo+xhi)
         for i in xrange(self.data.shape[1]):
             name = self.data[0,i,2]
-            outfile = '%s_lightcurve_%i-%i.png'%(name.replace(' ','_'),
+            if outfile == '':
+                outfile = '%s_lightcurve_%i-%i.png'%(name.replace(' ','_'),
                                                  self.factory_kwargs['tstart'],
                                                  self.factory_kwargs['tstop'])
             y,yhi,ylo = self.data[:,i,3:6].astype('float').transpose()
@@ -394,7 +395,7 @@ class LightCurve(object):
 
 
 if __name__=='__main__':
-    start,stop = (utc_to_met(2008,8,4),utc_to_met(2008,9,1))
+    start,stop = (utc_to_met(2008,8,4),utc_to_met(2010,8,1))
     roi_dir =  SkyDir(250.745,39.810)
     lc = LightCurve(roi_dir,
                     tstart = start,
