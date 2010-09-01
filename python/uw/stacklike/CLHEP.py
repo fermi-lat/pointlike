@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/CLHEP.py,v 1.1 2010/07/29 21:40:59 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/CLHEP.py,v 1.1 2010/08/13 22:03:21 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -134,19 +134,21 @@ class Hep3Vector(object):
 
 class Photon(object):
 
-    def __init__(self,ra,dec,en,time,ec,hepx,hepz,srcdir):
+    def __init__(self,ra,dec,en,time,ec,hepx,hepz,srcdir,weight=1):
         self.vec=Hep3Vector([ra*np.pi/180,dec*np.pi/180])
         self.energy=en
         self.time=time
         self.event_class=ec
-        self.hepx=hepx
-        self.hepz=hepz
-        self.hepy=hepz.cross(hepx)
-        self.rot=HepRotation([hepx,self.hepy,hepz])
+        if hepx!=[]:
+            self.hepx=hepx
+            self.hepz=hepz
+            self.hepy=hepz.cross(hepx)
+            self.rot=HepRotation([hepx,self.hepy,hepz])
         self.srcdir=srcdir
         h1=Hep3Vector([0,0])
         h1(self.srcdir)
         self.sdiff = np.arccos(h1.dot(self.vec))
+        self.weight=weight
 
     ## return rotated vector
     #  @param rot CLHEP HepRotation matrix

@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/angularmodels.py,v 1.4 2010/08/04 18:52:22 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/angularmodels.py,v 1.1 2010/08/13 22:03:21 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -361,7 +361,7 @@ class CompositeModel(object):
     #  @param exp if free is set to [..False..], exp = [..Ni..], where Ni is the estimator for the number of photons in model i
     #  @param mode minuit fit strategy: 0-quick 1-normal 2-careful
     def fit(self,photons,free=[],exp=[],mode=1,quiet=True):
-        n = len(photons)
+        n = sum([x.weight for x in photons])
         pars = []
         frees = []
         lims=[]
@@ -393,6 +393,7 @@ class CompositeModel(object):
             print header
         self.clock=t.time()
 
+        self.initial = self.extlikelihood(pars,photons,quiet)
         #minimize likelihood for parameters with respect to the parameters
         #gradient=(lambda x:self.gradient(x,photons,quiet)),
         self.minuit = Minuit(lambda x: self.extlikelihood(x,photons,quiet),pars,fixed=frees,limits=lims,tolerance=1e-3,strategy=mode,printMode=-1)
@@ -432,7 +433,7 @@ class CompositeModel(object):
                 fint = model.integrate(photon,mpars[lastp:lastp+prs])
                 tacc = tacc + nest[i]*f0/fint
                 lastp=lastp+prs
-            acc = acc - np.log(tacc)
+            acc = acc - np.log(tacc)*photon.weight
         acc = acc + sum(nest)
         self.calls=self.calls+1
 
@@ -444,7 +445,7 @@ class CompositeModel(object):
                 st = st +'%5.0f\t'%(int(ne))
             for spar in mpars:
                 st = st+'%1.4f\t'%(spar)
-            st = st +'%5.1f\t'%acc
+            st = st +'%5.1f\t'%(2*(self.initial-acc))
             ctime = t.time()
             st = st+'%1.1f'%((ctime-self.clock)/self.calls)
             if not quiet:

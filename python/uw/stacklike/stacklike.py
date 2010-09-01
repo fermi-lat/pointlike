@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/stacklike.py,v 1.2 2010/08/04 18:52:22 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/stacklike.py,v 1.1 2010/08/13 22:03:21 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -55,16 +55,16 @@ rd = 180./np.pi        #to radians
 monthlist = ['aug2008','sep2008','oct2008','nov2008','dec2008','jan2009','feb2009','mar2009','apr2009'\
     ,'may2009','jun2009','jul2009','aug2009','sep2009','oct2009','nov2009','dec2009','jan2010','feb2010','mar2010'\
     ,'apr2010','may2010','jun2010','jul2010']
-CALDBdir = r'y:\fermi/CALDB/v1r1/CALDB/data/glast/lat'
-datadir = r'y:\fermi\data\flight/'                             #directory for FT1 files
-ft2dir = r'y:\fermi\data\flight/'                              #directory for FT2 files
-srcdir = r'y:\common\mar0\sourcelists/'                        #directory for source lists
+CALDBdir = r'd:\fermi/CALDB/v1r1/CALDB/data/glast/lat'
+datadir = r'd:\fermi\data\flight/'                             #directory for FT1 files
+ft2dir = r'd:\fermi\data\flight/'                              #directory for FT2 files
+srcdir = r'd:\common\mar0\sourcelists/'                        #directory for source lists
 files = []                                                     #default list of FT1 file names (minus '-ft1.fits')
 ft2s = []                                                      #default list of FT2 file names (minus '-ft2.fits')
 for month in monthlist:
     files.append('%s'%month)
     ft2s.append('%s'%month)
-
+pulsar=True
 ###################################################  START STACKLOADER CLASS ##################################################
 
 ##  StackLoader class
@@ -100,27 +100,37 @@ class StackLoader(object):
     #   @param datadr ft1 file directory
     #   @param srcdr source list directory (ascii file with 'name    ra     dec', first line is skipped)
     #   @param irf response function of the form 'P?_v?'
-    def __init__(self,lis='strong',tev=False,rot=[0,0,0],files=files,CALDBdr=CALDBdir,datadr=datadir,ft2dr=ft2dir,srcdr=srcdir,irf = 'P6_v3',quiet=True):
-        self.quiet=quiet
+    def __init__(self,**kwargs):
+        self.lis='strong'
+        self.rot=[0,0,0]
+        self.files=files
+        self.CALDBdir=CALDBdir
+        self.datadir=datadir
+        self.srcdir=srcdir
+        self.ft2dir=ft2dir
+        self.binfile=''
+        self.irf = 'P6_v3'
+        self.ctmin=0.4
+        self.ctmax=1.0
+        self.quiet=True
         self.firstlight = False
-        self.rot = HepRotation(rot,False)
+        self.tev = False
+        self.bin=False
+        self.useft2s=True
+        self.__dict__.update(kwargs)
+
         print ''
         print '**********************************************************'
         print '*                                                        *'
         print '*                       STACKLIKE                        *'
         print '*                                                        *'
         print '**********************************************************'
-        print 'Using list: %s.txt'%lis
-        print 'Using boresight alignment (in arcsec): Rx=%1.0f Ry=%1.0f Rz=%1.0f'%(rot[0]*rd*3600,rot[1]*rd*3600,rot[2]*rd*3600)
-        self.tev = tev
-        self.CALDBdir = CALDBdr
-        self.datadir = datadr
-        self.srcdir = srcdr
-        self.ctmin=0.4
-        self.ctmax=1.0
-        self.irf=irf
+        print 'Using list: %s.txt'%self.lis
+        print 'Using boresight alignment (in arcsec): Rx=%1.0f Ry=%1.0f Rz=%1.0f'%(self.rot[0]*rd*3600,self.rot[1]*rd*3600,self.rot[2]*rd*3600)
 
-        if tev:
+        self.rot = HepRotation(self.rot,False)
+
+        if self.tev:
             self.CALDBdir = r'/phys/groups/tev/scratch1/users/Fermi/CALDB/v1r1/CALDB/data/glast/lat/'
             self.datadir = r'/phys/groups/tev/scratch1/users/Fermi/data/flight/'
             self.ft2dir = r'/phys/users/mar0/python/'
@@ -128,20 +138,25 @@ class StackLoader(object):
             self.logfile = open(r'/phys/users/mar0/python/alignment_log.txt','w')
 
         if not self.firstlight:
-            self.ft2dir = ft2dr
-            self.files = [self.datadir + fil+'-ft1.fits' for fil in files]
-            self.ft2s = [self.ft2dir + fil+'-ft2.fits' for fil in files]
+            ftemp = [self.datadir + fil+'-ft1.fits' for fil in self.files]
+            if self.useft2s:
+                self.ft2s = [self.ft2dir + fil+'-ft2.fits' for fil in self.files]
+            else:
+                self.ft2s = []
+            self.files=ftemp
         else:
             self.ft2dir = r'd:\common\mar0\data\firstlight/'
             self.files = [self.ft2dir+'jul2008-ft1.fits']
             self.ft2s = [self.ft2dir+'jul2008-ft2.fits']
 
+        if self.binfile != '':
+            self.bin = True
 
         s.IParams.set_CALDB(self.CALDBdir)
         s.IParams.init(self.irf)
         self.atb = []
         self.srcs = []
-        sf = file(self.srcdir+lis+'.txt')
+        sf = file(self.srcdir+self.lis+'.txt')
         header = sf.readline()
         for lines in sf:
             line = lines.split()
@@ -157,8 +172,7 @@ class StackLoader(object):
     #   @param start start time (MET)
     #   @param stop end time (MET)
     #   @param cls conversion type: 0=front,1=back,-1=all
-    def loadphotons(self,rad,emin,emax,start,stop,cls,ctrange=[0.4,1.0]):
-        self.ctmin,self.ctmax=ctrange[0],ctrange[1]
+    def loadphotons(self,rad,emin,emax,start,stop,cls):
         self.emin=emin
         self.emax=emax
         self.ebar=0
@@ -168,84 +182,112 @@ class StackLoader(object):
         self.atb = []
         self.diffs =[]
         self.aeff = []
-        
-        print 'Applying masks to data'
-        print '**********************************************************'
-        print '%1.0f < Energy < %1.0f'%(self.emin,self.emax)
-        print '%1.2f degrees from source'%(self.rad)
-        print '%1.0f < Time < %1.0f'%(start,stop)
-        print 'Event class = %1.0f'%(cls)
-        print '%1.2f < costh < %1.2f'%(self.ctmin,self.ctmax)
-        print '**********************************************************'
-
-        #go through each fits file, mask unwanted events, and setup tables
-        tcuts = np.array([0,0,0,0,0,0,0,0])
-        for ff in self.files:
-            if not self.quiet:
-                print ff
-            tff = pf.open(ff)
-            ttb = tff[1].data
-            ttb,ttcut = self.mask(ttb,self.srcs,emin,emax,start,stop,rad,cls)
-            tcuts=tcuts+ttcut
-            self.atb.append(ttb)
-            tff.close()
-        print 'Photon pruning information'
-        print '%d photons available'%tcuts[0]
-        print '---------------------------------------'
-        print '%d cut by time range'%tcuts[1]
-        print '%d cut by energy range'%tcuts[2]
-        print '%d cut by instrument theta'%tcuts[3]
-        print '%d cut by zenith angle'%tcuts[4]
-        print '%d cut by conversion type'%tcuts[5]
-        print '%d cut by proximity to sources'%tcuts[6]
-        print '---------------------------------------'
-        print '%d photons remain'%tcuts[7]
-        print '**********************************************************'
         self.photons = []
+        self.eave = np.sqrt(self.emin*self.emax)
+        if self.bin:
+            print 'Applying masks to data'
+            print '**********************************************************'
+            print '%1.0f < Energy < %1.0f'%(self.emin,self.emax)
+            print 'Event class = %1.0f'%(cls)
+            print '**********************************************************'
 
-        #go through each table and contruct Photon objects
-        for j,tb in enumerate(self.atb):
-            if not self.quiet:
-                print 'Examining %d events'%len(tb)
-            if len(tb)>0:
-                if not self.quiet:
-                    print '    *Loading pointing history'
-                phist = pl.PointingHistory(self.ft2s[j])
-                if not self.quiet:
-                    print '    *Loading events'
-                
-                #iterate over events for photons
-                for k in range(len(tb)):
-                    event = tb[k]
-                    sd = s.SkyDir(float(event.field('RA')),float(event.field('DEC')))
-                    rsrc = self.srcs[0]
-                    diff = 1e40
-
-                    #associate with a particular source
+            self.bpd = s.BinnedPhotonData(self.datadir+self.binfile)
+            self.ebar = 0
+            for bnd in self.bpd:
+                if bnd.emin()<self.eave and bnd.emax()>self.eave and (bnd.event_class()==cls or cls==-1):
+                    ebar = np.sqrt(bnd.emin()*bnd.emax())
                     for src in self.srcs:
-                        tdiff = sd.difference(src)*rd
-                        if tdiff<diff:
-                            rsrc=src
-                            diff=tdiff
-                    
-                    #if photons is not too far away from any source
-                    #add it to the list
-                    if diff<rad:
-                        time = event.field('TIME')
-                        pi = phist(time)
-                        xax = pi.xAxis()
-                        zax = pi.zAxis()
-                        zen = pi.zenith()
-                        xv = Hep3Vector([])
-                        zv = Hep3Vector([])
-                        xv(xax)
-                        zv(zax)
-                        photon = Photon(sd.ra(),sd.dec(),event.field('ENERGY'),time,event.field('EVENT_CLASS'),xv,zv,rsrc)
-                        self.ebar = self.ebar+event.field('ENERGY')
-                        self.photons.append(photon)
+                        wsdl = s.WeightedSkyDirList(bnd,src,rad/rd)
+                        sds = len(wsdl)
+                        for wsd in wsdl:
+                            self.photons.append(Photon(wsd.ra(),wsd.dec(),ebar,0,bnd.event_class(),[],[],src,wsd.weight()))
+                            self.ebar = self.ebar + wsd.weight()*ebar
+            pcnts = sum([x.weight for x in self.photons])
+            if len(self.photons)==0:
+                raise 'No photons!'
+            else:
+                self.ebar = self.ebar/pcnts
+            print '%d photons remain'%pcnts
+            print '**********************************************************'
+        else:
+            print 'Applying masks to data'
+            print '**********************************************************'
+            print '%1.0f < Energy < %1.0f'%(self.emin,self.emax)
+            print '%1.2f degrees from source'%(self.rad)
+            print '%1.0f < Time < %1.0f'%(start,stop)
+            print 'Event class = %1.0f'%(cls)
+            print '%1.2f < costh < %1.2f'%(self.ctmin,self.ctmax)
+            print '**********************************************************'
 
-                del phist #free up memory from pointing history object
-        self.ebar = self.ebar/len(self.photons)  #calculate mean energy of photons
+            #go through each fits file, mask unwanted events, and setup tables
+            tcuts = np.array([0,0,0,0,0,0,0,0])
+            for ff in self.files:
+                if not self.quiet:
+                    print ff
+                tff = pf.open(ff)
+                ttb = tff[1].data
+                ttb,ttcut = self.mask(ttb,self.srcs,emin,emax,start,stop,rad,cls)
+                tcuts=tcuts+ttcut
+                self.atb.append(ttb)
+                tff.close()
+            print 'Photon pruning information'
+            print '%d photons available'%tcuts[0]
+            print '---------------------------------------'
+            print '%d cut by time range'%tcuts[1]
+            print '%d cut by energy range'%tcuts[2]
+            print '%d cut by instrument theta'%tcuts[3]
+            print '%d cut by zenith angle'%tcuts[4]
+            print '%d cut by conversion type'%tcuts[5]
+            print '%d cut by proximity to sources'%tcuts[6]
+            print '---------------------------------------'
+            print '%d photons remain'%tcuts[7]
+            print '**********************************************************'
+
+
+            #go through each table and contruct Photon objects
+            for j,tb in enumerate(self.atb):
+                if not self.quiet:
+                    print 'Examining %d events'%len(tb)
+                if len(tb)>0:
+                    if not self.quiet:
+                        if self.useft2s:
+                            print '    *Loading pointing history'
+                            phist = pl.PointingHistory(self.ft2s[j])
+                    if not self.quiet:
+                        print '    *Loading events'
+                    
+                    #iterate over events for photons
+                    for k in range(len(tb)):
+                        event = tb[k]
+                        sd = s.SkyDir(float(event.field('RA')),float(event.field('DEC')))
+                        rsrc = self.srcs[0]
+                        diff = 1e40
+
+                        #associate with a particular source
+                        for src in self.srcs:
+                            diff = sd.difference(src)*rd
+                        
+                            #if photons is not too far away from any source
+                            #add it to the list
+                            if diff<rad:
+                                time = event.field('TIME')
+                                xv = []
+                                zv = []
+                                if self.useft2s:
+                                    pi = phist(time)
+                                    xv = Hep3Vector([])
+                                    zv = Hep3Vector([])
+                                    xax = pi.xAxis()
+                                    zax = pi.zAxis()
+                                    zen = pi.zenith()
+                                    xv(xax)
+                                    zv(zax)
+                                photon = Photon(sd.ra(),sd.dec(),event.field('ENERGY'),time,event.field('EVENT_CLASS'),xv,zv,src)
+                                self.ebar = self.ebar+event.field('ENERGY')
+                                self.photons.append(photon)
+                    if self.useft2s:
+                        del phist #free up memory from pointing history object
+            self.ebar = self.ebar/len(self.photons)  #calculate mean energy of photons
 
     ## estimates uniform background component from PSF
     def solveback(self):
@@ -264,7 +306,8 @@ class StackLoader(object):
         self.errs = cm.minuit.errors()
         self.Npsfe = np.sqrt(self.errs[0][0])
         self.Nbacke = np.sqrt(self.errs[1][1])
-        
+        self.cm = cm
+
     ## Finds boresight alignment solution
     def solverot(self):
 
@@ -380,8 +423,10 @@ class StackLoader(object):
         self.Nback = cm.minuit.params[2]
         self.Nbacke = np.sqrt(self.errs[2][2])
         self.theta = cm.minuit.params[5]
+        self.thetae = np.sqrt(self.errs[5][5])/self.theta
         self.frac = self.Nhalo*100./(self.Nhalo+self.Npsf)
         ferr = self.frac*np.sqrt(self.Nhaloe/(self.Nhalo**2)+self.Npsfe/(self.Npsf**2))
+        self.frace = ferr/self.frac
         phs = (self.Npsf+self.Nback+self.Nhalo)
         tr = sum([self.errs[i][i] for i in range(len(self.errs))])
         f1 = self.Npsf/phs
@@ -394,8 +439,8 @@ class StackLoader(object):
         print 'Npsf  = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
         print 'Nhalo = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Nhalo,self.Nhaloe/self.Nhalo,f2*100,f2e*100)
         print 'Nback = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f3*100,f3e*100)
-        print 'Halo width was %1.3f [1 +/- %1.2f] deg'%(self.theta*rd,np.sqrt(self.errs[5][5])/self.theta)
-        print 'Halo fraction was %1.0f [1 +/- %1.2f]'%(self.frac,ferr/self.frac)
+        print 'Halo width was %1.3f [1 +/- %1.2f] deg'%(self.theta*rd,self.thetae)
+        print 'Halo fraction was %1.0f [1 +/- %1.2f]'%(self.frac,self.frace)
         self.cm=cm
 
     ## tries to fit two King functions in a uniform background
@@ -408,11 +453,11 @@ class StackLoader(object):
         sigma=s.IParams.sigma(self.ebar,int(self.photons[0].event_class))
         gamma=s.IParams.gamma(self.ebar,int(self.photons[0].event_class))
         psf = PSF(lims=[0,self.rad/rd],model_par=[sigma,gamma])
-        psf2 = PSF(lims=[0,self.rad/rd],model_par=[sigma,gamma])
+        psf2 = PSF(lims=[0,self.rad/rd],model_par=[1.2*sigma,gamma*0.7]) #try to separate psfs initially
         bck = Backg(lims=[0,self.rad/rd])
         cm = CompositeModel()
         cm.addModel(psf)
-        cm.addModel(psf)
+        cm.addModel(psf2)
         cm.addModel(bck)
         cm.fit(self.photons,free=[True,True,True],exp=[self.Npsf/2.,self.Npsf/2.,self.Nback],mode=1,quiet=self.quiet)
         fl = cm.minuit.fval
@@ -485,7 +530,10 @@ class StackLoader(object):
         ma = np.log10((max(self.ds))**2)
         d2 = ma-mi
         be = np.arange(mi,ma,d2/bins)
-        be2 = np.append(be,be[len(be)-1]+d2/bins)
+        if be[len(be)-1]-ma<0:
+            be2 = np.append(be,ma)#be[len(be)-1]+d2/bins)
+        else:
+            be2 = np.append(be,ma+d2/bins)
         be3 = np.sqrt(10**(be2))
         be4 = np.sqrt(10**(be+d2/bins/2))*rd
         py.ioff()
@@ -523,12 +571,12 @@ class StackLoader(object):
                 fits[it2].append(self.cm.nest[it2]*model.integral(left,right)/model.integral(0,self.rad/rd)/(right**2-left**2)/(rd**2))
             fits[len(fits)-1].append(self.cm.integral(left,right,0,self.rad/rd)/(right**2-left**2)/(rd**2))
             hists.append(hist[0][it]/(right**2-left**2)/(rd**2))
-            errs.append(min(np.sqrt(hist[0][it])/(right**2-left**2)/(rd**2),(hist[0][it]/(right**2-left**2)/(rd**2))*(1.-1.e-15)))
+            errs.append(max(min(np.sqrt(hist[0][it])/(right**2-left**2)/(rd**2),(hist[0][it]/(right**2-left**2)/(rd**2))*(1.-1.e-15)),1e-40))
 
         pts=[]
 
         pmin,pmax=0.01*min(fits[len(fits)-1]),100*max(fits[len(fits)-1])
-
+        py.subplot(2,1,1)
         #plot histogrammed events
         p1 = py.errorbar(be4,hists,yerr=errs,ls='None',marker='o')
         pts.append(p1[0])
@@ -548,15 +596,34 @@ class StackLoader(object):
         p1 = py.plot(be4,fits[len(fits)-1],'-')
         pts.append(p1)
 
-
+        #calculate chisq
+        self.chisq=0.
+        total = fits[len(fits)-1]
+        for it,bin in enumerate(hists):
+            if errs[it]>1e-35:
+                self.chisq = self.chisq + ((bin-total[it])/errs[it])**2
+                #print bin,total[it],errs[it],self.chisq
+        #print self.chisq
+        py.errorbar
         #finish up plotting
-        py.legend(pts,names)
-	py.loglog()
+        py.legend(pts,names,bbox_to_anchor=(1.14, 1.25))
+        py.loglog()
         py.ylim(pmin,pmax)
         py.xlim(0.8*min(be4),max(be4)*1.2)
         py.xlabel(r'$\theta\/(\rm{deg})$')
         py.ylabel(r'$dN/d\theta^2$')
         py.grid()
+        clas = ['front','back']
+        py.suptitle('%s: Energy(MeV): [%1.0f,%1.0f]\nClass: %s    Costh: [%1.1f,%1.1f]\nChisq: %1.1f / %1.0f dof'%(self.lis,self.emin,self.emax,clas[self.cls],self.ctmin,self.ctmax,self.chisq,len(be2)-1))
+        py.subplot(2,1,2)
+        py.semilogx()
+        py.plot([0.8*min(be4),max(be4)*1.2],[0,0],'r-')
+        py.errorbar(be4,(np.array(hists)-np.array(total))/np.array(errs),yerr=1,marker='o',ls='None')
+        py.xlim(0.8*min(be4),max(be4)*1.2)
+        py.ylim(-5,5)
+        py.grid()
+        py.xlabel(r'$\theta\/(\rm{deg})$')
+        py.ylabel(r'$\frac{\rm{Data}-\rm{Model}}{\sigma}$')
         #p.semilogx()
         #ax = py.gca()
         #ax.set_yscale("log", nonposy='clip')
@@ -684,8 +751,16 @@ class StackLoader(object):
     def getds(self):
         self.ds=[]
         for photon in self.photons:
-            u = photon.diff(self.rot)
-            self.ds.append(u)
+            if self.bin:
+                u = photon.srcdiff()
+                for k in range(int(photon.weight)):
+                    self.ds.append(u)
+            else:
+                if self.useft2s:
+                    u = photon.diff(self.rot)
+                else:
+                    u = photon.srcdiff()
+                self.ds.append(u)
         self.ds = np.array(self.ds)
 
 
@@ -700,22 +775,22 @@ class StackLoader(object):
 def test():
     plr = os.environ['POINTLIKEROOT']
     fdir = plr+'/python/uw/stacklike/boresighttest/'
-    al = StackLoader(lis='cgv',files=['test'],datadr=fdir,ft2dr=fdir,srcdr=fdir,quiet=False)
+    al = StackLoader(lis='cgv',files=['test'],datadir=fdir,ft2dir=fdir,srcdir=fdir,quiet=False)
     al.loadphotons(1,1000,2e6,0,999999999,-1)
     al.solverot()
     al.makeplot('aligntest.png')
     ret = 0
-    if (al.params[0]+77.6158515)>10:
+    if (al.params[0]+76)>10:
         ret = ret + 1
-    if (al.params[1]+73.5283828322)>10:
+    if (al.params[1]+73)>10:
         ret = ret + 2
-    if (al.params[2]-67.346498744)>10:
+    if (al.params[2]-62)>10:
         ret = ret + 4
-    if (al.errors[0]-60.9043937028)>10:
+    if (al.errors[0]-58)>10:
         ret = ret+8
-    if (al.errors[1]-59.0699490493)>10:
+    if (al.errors[1]-56)>10:
         ret = ret+16
-    if (al.errors[2]-91.2188846332)>10:
+    if (al.errors[2]-88)>10:
         ret = ret +32
     return ret
 
@@ -726,13 +801,13 @@ def test2():
     plr = os.environ['POINTLIKEROOT']
     fdir = plr+'/python/uw/stacklike/boresighttest/'
     os.system('cd %s'%fdir)
-    al = StackLoader(lis='cgv',files=['test'],datadr=fdir,ft2dr=fdir,srcdr=fdir)
+    al = StackLoader(lis='cgv',files=['test'],datadir=fdir,ft2dir=fdir,srcdir=fdir,quiet=False,useft2s=False)
     al.loadphotons(10,1000,1770,0,999999999,0)
     al.solvepsf()
     ret=0
-    if (al.sigma*rd-0.140)>1e-3:
+    if (al.sigma*rd-0.149)>1e-3:
         ret = ret + 1
-    if (al.gamma-1.53)>1e-2:
+    if (al.gamma-1.63)>1e-2:
         ret = ret + 2 
     al.makeplot('psftest.png')
     return ret
