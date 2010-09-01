@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Wed Sep  1 14:01:13 PDT 2010
+pointlike/python/uw/eew_roi
+
+Modified Files:
+	roi_lightcurve.py 
+Log Message:
+Save the names of free sources separately from the data array.
+
+    *
+------------------------------------------------------------
 User: mar0  Wed Sep  1 13:59:47 PDT 2010
 pointlike/python/uw/stacklike
 
