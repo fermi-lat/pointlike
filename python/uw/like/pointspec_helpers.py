@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.21 2010/08/10 23:03:33 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.22 2010/08/12 23:10:47 lande Exp $
 
     author: Matthew Kerr
     """
@@ -186,7 +186,7 @@ class FermiCatalog(PointSourceCatalog):
         user_extended_list = [i for i in user_diffuse_list if isinstance(i,ExtendedSource)]
 
         cat_list = self.get_sources(skydir,radius)
-        if user_point_list==[] and user_extended_list==[]: return cat_list,[]
+        if user_point_list==[] and user_extended_list==[]: return cat_list,user_diffuse_list
 
         from collections import deque
         merged_list = deque(user_point_list)
