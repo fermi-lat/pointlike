@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Thu Sep  2 14:51:19 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+Fixed issue with pointspec_helper catalog manager overriding new diffuse model
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-06-01, operation: add
 Package: pointlike
