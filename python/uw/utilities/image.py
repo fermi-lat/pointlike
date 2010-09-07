@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.28 2010/08/20 17:27:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.29 2010/08/29 20:17:40 burnett Exp $
 
 """
-version = '$Revision: 1.28 $'.split()[1]
+version = '$Revision: 1.29 $'.split()[1]
 
 import pylab
 import types
@@ -402,7 +402,6 @@ class AIT(object):
 
     def skydir(self, x, y):
         " from pixel coordinates to sky "
-        from pointlike import SkyDir
         xpixel = (180-x)*float(self.nx)/360.
         ypixel = (y+90)*float(self.ny)/180.
         if self.proj.testpix2sph(xpixel,ypixel) !=0: return None #outside valid region

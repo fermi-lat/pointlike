@@ -1,23 +1,19 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/swig_setup.i,v 1.5 2009/04/30 15:15:47 glastrm Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/swig_setup.i,v 1.1 2010/01/27 00:54:32 burnett Exp $
 %{
 #include <stdexcept>
 #include <vector>
 #include <utility>
 
-#include "astro/SkyDir.h"
 #include "astro/SkyProj.h"
 #include "astro/Photon.h"
-#include "astro/PointingTransform.h"
 #include "astro/PointingHistory.h"
 #include "astro/PointingInfo.h"
 #include "astro/EarthCoordinate.h"
 #include "astro/GPS.h"
-#include "astro/SolarSystem.h"
 
 #include "healpix/Healpix.h"
 #include "healpix/HealPixel.h"
-#include "healpix/HealpixMap.h"
 
 #include "embed_python/Module.h"
 
@@ -53,7 +49,6 @@
    }
 }
 
-
 %template(DoublePair) std::pair<double, double>;
 %template(StringVector) std::vector<std::string>;
 %template(DoubleVector) std::vector<double>;
@@ -80,23 +75,6 @@ public:
       }
    }
    size_t __len__() {      return 3;       }
-}
-%extend astro::SkyDir{
-// for convenience: make it behave like array of 3 elements
-   double __getitem__(size_t i) {
-      switch (i){
-      case 0: return self->dir().x();
-      case 1: return self->dir().y();
-      case 2: return self->dir().z();
-      case 3: throw std::range_error("StopIteration"); //must be exactly this string
-      default: throw std::range_error("IndexError");
-      }
-   }
-   size_t __len__() {      return 3;       }
-   // ctor to initialize from python vector?
-   SkyDir(std::vector<double>& vec){
-     return new astro::SkyDir( Hep3Vector(vec[0],vec[1],vec[2]));
-     }
 }
 
 %extend CLHEP::HepRotation{
@@ -130,26 +108,17 @@ public:
 }
 
 
-%extend healpix::HealpixMap{
-   float __getitem__(size_t i)            {return (*self)[i];}
-   double __call__(const astro::SkyDir& d){return (*self)(d);}
-   size_t __len__() {return self->size();}
-}  
 %include astro/SkyProj.h
-%include astro/SkyDir.h
 %include astro/Photon.h
-%include astro/PointingTransform.h
 %include astro/PointingHistory.h
 %include astro/PointingInfo.h
 %include astro/EarthCoordinate.h
 %include astro/GPS.h
 %include astro/Quaternion.h
 %include astro/JulianDate.h
-%include astro/SolarSystem.h
 
 
 %include healpix/Healpix.h
-%include healpix/HealpixMap.h
 
 // fails now
 //%include $(HEALPIXROOT)/healpix/HealPixel.h
