@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: wallacee  Tue Sep  7 16:14:23 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	image.py 
+Log Message:
+Remove duplicate includes in skymaps and pointlike SWIG interfaces, to
+avoid bugs related to multiple wrappers of SWIG objects (such as PySwigIterator),
+and make the appropriate changes to python import statements.
+
+    *
+------------------------------------------------------------
 User: wallacee  Tue Sep  7 16:14:22 PDT 2010
 pointlike/src
 
