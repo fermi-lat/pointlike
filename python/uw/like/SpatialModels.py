@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.16 2010/08/27 03:01:40 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.17 2010/08/27 06:02:16 lande Exp $
 
    author: Joshua Lande
 
@@ -10,6 +10,12 @@ from scipy import vectorize
 from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
         SkyImage,SkyIntegrator,CompositeSkyFunction
 from uw.utilities.convolution import Grid
+
+# Mathematical constants. They are the ratio of r68 (the %68 containment
+# radius) to sigma, the 'size' parameter of an extended source.
+GAUSSIAN_X68=1.50959219
+DISK_X68=0.824621125
+NFW_X68=0.33
 
 class DefaultSpatialModelValues(object):
     """ Spatial Parameters:
@@ -58,27 +64,28 @@ class DefaultSpatialModelValues(object):
                                 'log':[True]},
         'PseudoNFW'          : {},
         'RadialProfile'      : {},
-        'EllipticalGaussian' : {'p':[N.radians(0.1),N.radians(0.1),0], 
+        # Note, angle is in degrees
+        'EllipticalGaussian' : {'p':[N.radians(0.2),N.radians(0.1),0], 
                                 'param_names':['Major_Axis','Minor_Axis','Position_Angle'],
                                 'limits':N.radians([[1e-6,3],
                                                     [1e-6,3],
-                                                    [-45,45]]),
-                                # Note for elliptical shapes, theta > 45 is the same as a negative angle
+                                                    [N.radians(-45),N.radians(45)]]),
+                                # Note for elliptical shapes, theta > radians(45) is the same as a negative angle
                                 'log':[True,True,False],
                                 'steps':[0.04,0.04,N.radians(5)]},
         # N,B limits or Non-radially symmetric sources dictated more by pixelization of grid.
-        'EllipticalDisk'     : {'p':[N.radians(0.1),N.radians(0.1),0], 
+        'EllipticalDisk'     : {'p':[N.radians(0.2),N.radians(0.1),0], 
                                 'param_names':['Major_Axis','Minor_Axis','Position_Angle'],
                                 'limits':N.radians([[1e-3,3],
                                                     [1e-3,3],
-                                                    [-45,45]]),
+                                                    [N.radians(-45),N.radians(45)]]),
                                 'log':[True,True,False],
                                 'steps':[0.04,0.04,N.radians(5)]},
-        'EllipticalRing'     : {'p':[N.radians(0.1),N.radians(0.1),0,0.5], 
+        'EllipticalRing'     : {'p':[N.radians(0.2),N.radians(0.1),0,0.5], 
                                 'param_names':['Major_Axis','Minor_Axis','Position_Angle','Fraction'],
                                 'limits':N.radians([[1e-3,3],
                                                     [1e-3,3],
-                                                    [-45,45],
+                                                    [N.radians(-45),N.radians(45)],
                                                     [0,1]]),
                                 'log':[True,True,False,False],
                                 'steps':[0.04,0.04,N.radians(5),0.1]},
@@ -339,7 +346,8 @@ class SpatialModel(object):
         if isinstance(self,EnergyDependentSpatialModel):
             raise Exception("Unable to save template for energy dependent SpatialModel.")
         center=self.center
-        image=SkyImage(center,filename,pixelsize,N.degrees(self.effective_edge()),1,"ZEA",
+        # NB, effective_edge is radius, SkyImage takes in diameter
+        image=SkyImage(center,filename,pixelsize,2*N.degrees(self.effective_edge()),1,"ZEA",
                        True if self.coordsystem == SkyDir.GALACTIC else False,False)
         skyfunction=self.get_PySkyFunction()
         image.fill(skyfunction)
@@ -451,7 +459,7 @@ class Gaussian(RadiallySymmetricModel):
         return self.pref*N.exp(-r**2/(2*self.sigma2))
 
     def r68(self):
-        return 1.50959219*self.sigma
+        return GAUSSIAN_X68*self.sigma
 
     def pretty_spatial_string(self):
         return "[ %.3f' ]" % (60*N.degrees(self.sigma))
@@ -484,7 +492,7 @@ class Disk(RadiallySymmetricModel):
         return N.where(r<=self.sigma,self.pref,0)
 
     def r68(self):
-        return 0.824621125*self.sigma
+        return DISK_X68*self.sigma
 
     def effective_edge(self,energy=None):
         """ Disk has a well defined edge, so there is no reason to integrate past it. """
@@ -507,27 +515,29 @@ class PseudoDisk(PseudoSpatialModel,Disk):
 class Ring(RadiallySymmetricModel):
     """ The ring is defined as a constant value between one radius and another. """
     def cache(self):
-        super(Disk,self).cache()
+        super(Ring,self).cache()
 
         self.sigma,self.frac=self.get_parameters(absolute=True)[2:4]
 
         if self.frac < 0 or self.frac >= 1: 
             raise Exception("Ring spatial model must have 'frac' spatial parameter >=0 and < 1.")
 
-
         self.sigma2=self.sigma**2
-        self.pref=1/(N.pi*self.sigma2*(1-self.frac**2))
+        self.frac2=self.frac**2
+        self.pref=1/(N.pi*self.sigma2*(1-self.frac2))
 
     def at_r(self,r,energy=None):
-        return N.where((r>=self.frac*self.sigma)&(r<=self.sigma),
-                       self.sigma,self.pref,0)
+        return N.where((r>=self.frac*self.sigma)&(r<=self.sigma),self.pref,0)
+
+    def r68(self):
+        return DISK_X68*(1-self.frac2)+self.frac2
 
     def effective_edge(self,energy=None):
         """ Disk has a well defined edge, so there is no reason to integrate past it. """
-        return self.sigma_outer
+        return self.sigma
 
     def pretty_spatial_string(self):
-        return "[ %.3f', %.3f' ]" % (60*N.degrees(self.sigma_outer),(60*N.degrees(self.sigma_inner)))
+        return "[ %.3f', %.3f' ]" % (60*N.degrees(self.sigma),(60*N.degrees(self.frac*self.sigma)))
 
 #===============================================================================================#
 
@@ -539,7 +549,7 @@ class NFW(RadiallySymmetricModel):
         return self.get_parameters(absolute=True)[2]
 
     def cache(self):
-        super(Disk,self).cache()
+        super(NFW,self).cache()
 
         self.sigma=self.extension()
         # Ask Alex DW if you don't understand this
@@ -550,7 +560,7 @@ class NFW(RadiallySymmetricModel):
         return 2/(N.pi*r*self.scaled_sigma*(1+r/self.scaled_sigma)**5)
 
     def r68(self):
-        return 0.33*self.scaled_sigma
+        return NFW_X68*self.scaled_sigma
 
     def pretty_spatial_string(self):
         return "[ %.3f' ]" % (60*N.degrees(self.sigma))
@@ -663,7 +673,7 @@ class EllipticalSpatialModel(SpatialModel):
         x,y   = grid.pix(towards_cel_north)
         xc,yc = grid.pix(self.center)
 
-        # Magic factor of 90degrees still confuses me.
+        # Magic factor of 90 degrees still confuses me.
         angle = N.radians(90) - (self.theta + N.arctan2(y-yc,x-xc))
 
         a =  N.cos(angle)**2/(self.sigma_x**2)  + N.sin(angle)**2/(self.sigma_y**2)
@@ -704,7 +714,12 @@ class EllipticalSpatialModel(SpatialModel):
     def pretty_spatial_string(self):
         return "[ %.3f', %.3f', %.2fd ]" % \
                 (60*N.degrees(self.sigma_x),60*N.degrees(self.sigma_y), N.degrees(self.theta))
-
+    
+    def ellipse_68(self):
+        """ Returns the parameters of an ellipse (sigma_x, sigma_y, theta)
+            which has the same ellipticity/angle of the regular shape but
+            encloses 68 percent of the intensity. """
+        raise NotImplementedError("Subclasses should implement this!")
 #===============================================================================================#
 
 class EllipticalGaussian(EllipticalSpatialModel):
@@ -718,6 +733,9 @@ class EllipticalGaussian(EllipticalSpatialModel):
 
     def value_at(self,x):
         return self.pref*N.exp(-x/2)
+
+    def ellipse_68(self):
+        return GAUSSIAN_X68*self.sigma_x,GAUSSIAN_X68*self.sigma_y,self.theta
 
 #===============================================================================================#
 
@@ -755,6 +773,9 @@ class EllipticalDisk(EllipticalSpatialModel):
     def value_at(self,x):
         return N.where(x<1,self.pref,0)
 
+    def ellipse_68(self):
+        return DISK_X68*self.sigma_x,DISK_X68*self.sigma_y,self.theta
+
 #===============================================================================================#
 
 class RadiallySymmetricEllipticalDisk(EllipticalDisk):
@@ -781,11 +802,16 @@ class EllipticalRing(EllipticalSpatialModel):
         super(EllipticalRing,self).cache()
 
         self.frac = self.get_parameters(absolute=True)[5]
+        self.frac2 = self.frac**2
 
         self.pref = 1/(N.pi*self.sigma_x*self.sigma_y*(1-self.frac**2))
 
     def value_at(self,x):
-        return N.where((x>self.frac)&(x<1),self.pref,0)
+        return N.where((x>self.frac2)&(x<1),self.pref,0)
+
+    def ellipse_68(self):
+        x68=DISK_X68*(1-self.frac2)+self.frac2
+        return x68*self.sigma_x,x68*self.sigma_y,self.theta
 
     def pretty_spatial_string(self):
         return "[ %.3f', %.3f', %.2fd, %.2f ]" % \
