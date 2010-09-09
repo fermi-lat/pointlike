@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Sep  9 16:06:07 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Removing pointless print statement
+    *
+------------------------------------------------------------
 User: lande  Thu Sep  9 16:04:44 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
