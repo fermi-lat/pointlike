@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Sep  9 16:41:16 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	region_writer.py 
+Log Message:
+Draw extended source shape for ellpitical shapes. For shapes with hard edge (disk, ring, elliptical disk, elliptical ring), For the ds9 shape draw the edge of the source.
+    *
+------------------------------------------------------------
 User: lande  Thu Sep  9 16:06:07 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
