@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.13 2010/08/24 23:52:40 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.14 2010/08/25 08:14:52 lande Exp $
 
    author: Matthew Kerr
 """
@@ -536,7 +536,6 @@ def parse_diffuse_sources(handler,diffdir=None):
                 mo = xtm.get_model(spectral)
             elif spectral['type'] == 'PowerLaw':
                 mo = xtm.get_model(spectral,index_offset=1)
-                print mo.index_offset
             else:
                 raise Exception,'Non-isotropic model not implemented'
             ds.append(gds('MapCubeFunction',fname,mo,None,name,diffdir=diffdir))
