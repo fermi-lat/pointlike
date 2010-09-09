@@ -1,11 +1,11 @@
 """ Class to write out region files compatable with ds9. 
 
-$Header:$
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.1 2010/08/12 23:09:22 lande Exp $
 
 author: Joshua Lande
 """
 from uw.like.roi_extended import ExtendedSource
-from uw.like.SpatialModels import RadiallySymmetricModel,SpatialMap,PseudoSpatialModel
+from uw.like.SpatialModels import *
 from math import degrees
 
 def unparse_point_sources(point_sources):
@@ -19,19 +19,48 @@ def unparse_diffuse_sources(diffuse_sources):
     lines = []
     for ds in diffuse_sources:
         if isinstance(ds,ExtendedSource):
+            sm = ds.spatial_model
+
+            ra,dec=sm.center.ra(),sm.center.dec()
 
             lines.append("fk5; point(%.4f, %.4f) # point=cross text={%s}" % \
-                          (ds.spatial_model.center.ra(),
-                           ds.spatial_model.center.dec(),
-                           ds.name))
+                          (ra,dec,ds.name))
 
-            if isinstance(ds.spatial_model,RadiallySymmetricModel) and not \
-                (isinstance(ds.spatial_model,PseudoSpatialModel) or \
-                 type(ds.spatial_model) == SpatialMap):
-                    lines.append("fk5; circle(%.4f, %.4f, %.4f)" % \
-                                  (ds.spatial_model.center.ra(),
-                                  ds.spatial_model.center.dec(),
-                                  degrees(ds.spatial_model.r68())))
+            if isinstance(sm,SpatialModel):
+
+                if isinstance(sm,PseudoSpatialModel) or type(sm) == SpatialMap:
+                    continue
+
+                if isinstance(sm,RadiallySymmetricModel):
+                    sigma=sm.sigma
+                    if isinstance(sm,Disk):
+                        lines.append("fk5; circle(%.4f, %.4f, %.4f) # Circle encloses all of the disk." % \
+                                      (ra,dec,degrees(sigma)))
+                    elif isinstance(sm,Ring):
+                        frac=sm.frac
+                        lines += ["fk5; circle(%.4f, %.4f, %.4f)" % \
+                                      (ra,dec,degrees(_)) for _ in [frac*sigma,sigma]]
+                    else:    
+                        lines.append("fk5; circle(%.4f, %.4f, %.4f) # Circle contaning 68 percent of the source." % \
+                                      (ra,dec,degrees(sm.r68())))
+
+                elif isinstance(sm,EllipticalSpatialModel):
+                    sigma_x, sigma_y, theta = sm.sigma_x, sm.sigma_y, sm.theta
+                    if isinstance(sm,EllipticalDisk):
+                        lines.append("fk5; ellipse(%.4f, %.4f, %.4f %.4f, %.4f)" % \
+                                (ra,dec,degrees(sigma_x),degrees(sigma_y),degrees(sm.theta)+90))
+
+                    elif isinstance(sm,EllipticalRing):
+                        frac = sm.frac
+                        lines += ["fk5; ellipse(%.4f, %.4f, %.4f %.4f, %.4f)" % \
+                                (ra,dec,degrees(_*sigma_x),degrees(_*sigma_y),degrees(sm.theta)+90) \
+                                for _ in [frac,1]]
+                    else:
+                        a,b,c=sm.ellipse_68()
+                        lines.append("fk5; ellipse(%.4f, %.4f, %.4f %.4f, %.4f)" % \
+                                (ra,dec,degrees(a),degrees(b),degrees(c)+90))
+
+
     return lines
 
 def writeRegion(roi,filename,color='green'):
