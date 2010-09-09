@@ -1,4 +1,19 @@
 ------------------------------------------------------------
+User: lande  Thu Sep  9 16:04:44 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+* Restructuring physical constants.
+* Adding x68 for elliptical sources
+* Fix bug in size of Templates previously saved too small
+* Fix bug in EllipticalRing pdf
+* Fix limits on angle for Elliptical sources.
+
+
+    *
+------------------------------------------------------------
 User: wallacee  Tue Sep  7 16:14:23 PDT 2010
 pointlike/python/uw/like
 
