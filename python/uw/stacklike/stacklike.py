@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/stacklike.py,v 1.1 2010/08/13 22:03:21 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/stacklike.py,v 1.2 2010/09/01 20:59:47 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -11,8 +11,11 @@ import pyfits as pf
 import glob as glob
 import scipy.integrate as si
 import os as os
-from uw.stacklike.angularmodels import CompositeModel,PSF,PSFAlign,Backg,Halo
+from uw.like import pypsf
+from uw.stacklike.angularmodels import CompositeModel,PSF,PSFAlign,Isotropic,Halo,Custom
 from uw.stacklike.CLHEP import HepRotation,Hep3Vector,Photon
+import matplotlib.font_manager
+
 
 #################################################        STACKLIKE         ####################################################
 #
@@ -81,12 +84,12 @@ pulsar=True
 #   ***************************************************************************
 #   solverot() - outputs the boresight alignment in arcseconds for Rx(x)*Ry(y)*Rz(z)
 #
-#   solvepsf() - fits the parameters of a single King function in a uniform background
+#   solvepsf() - fits the parameters of a single King function in a uniform backround
 #
-#   solvehalo() - fits the parameters of a gaussain halo with a PSF and uniform background
+#   solvehalo() - fits the parameters of a gaussain halo with a PSF and uniform backround
 #
-#   solvedoublepsf() - fits the parameters of two King functions in a uniform background
-#   !!!Warning: large degeneracy in on-orbit data, only works with very low uniform background!!!
+#   solvedoublepsf() - fits the parameters of two King functions in a uniform backround
+#   !!!Warning: large degeneracy in on-orbit data, only works with very low uniform backround!!!
 class StackLoader(object):
 
 
@@ -289,13 +292,13 @@ class StackLoader(object):
                         del phist #free up memory from pointing history object
             self.ebar = self.ebar/len(self.photons)  #calculate mean energy of photons
 
-    ## estimates uniform background component from PSF
+    ## estimates Isotropic component from PSF
     def solveback(self):
-        #Try to estimate the number of background photons
+        #Try to estimate the number of Isotropic photons
         sigma=s.IParams.sigma(self.ebar,int(self.photons[0].event_class))
         gamma=s.IParams.gamma(self.ebar,int(self.photons[0].event_class))
         psf = PSF(lims=[0,self.rad/rd],model_par=[sigma,gamma],free=[False,False])
-        bck = Backg(lims=[0,self.rad/rd])
+        bck = Isotropic(lims=[0,self.rad/rd])
         cm = CompositeModel()
         cm.addModel(psf)
         cm.addModel(bck)
@@ -311,11 +314,11 @@ class StackLoader(object):
     ## Finds boresight alignment solution
     def solverot(self):
 
-        #estimate uniform background component
+        #estimate Isotropic component
         self.solveback()
 
         psfa = PSFAlign(lims=[0,self.rad/rd],free=[True,True,True],ebar=self.ebar)
-        bck = Backg(lims=[0,self.rad/rd])
+        bck = Isotropic(lims=[0,self.rad/rd])
         cm = CompositeModel()
         cm.addModel(psfa)
         cm.addModel(bck)
@@ -340,36 +343,55 @@ class StackLoader(object):
         print 'Called likelihood %d times'%cm.calls
         self.cm=cm
 
-    ## tries to solve parameters for a single King function in a uniform background
-    def solvepsf(self):
+    ## tries to solve parameters for a single King function with Isotropic background
+    def solvepsf(self,func=[[],[]],free=[True,True],exp=[]):
 
-        #estimate uniform background component
+        #estimate Isotropic component
         self.solveback()
 
         #solve for PSF parameters
         sigma=s.IParams.sigma(self.ebar,int(self.photons[0].event_class))
         gamma=s.IParams.gamma(self.ebar,int(self.photons[0].event_class))
         psf = PSF(lims=[0,self.rad/rd],model_par=[sigma,gamma])
-        bck = Backg(lims=[0,self.rad/rd])
+        bck = Isotropic(lims=[0,self.rad/rd])
         cm = CompositeModel()
         cm.addModel(psf)
         cm.addModel(bck)
-        cm.fit(self.photons,free=[True,True],exp=[self.Npsf,self.Nback],mode=1,quiet=self.quiet)
+
+        #if custom background is specified, add it
+        if len(func[0])!=0:
+            bck2 = Custom(lims=[0,self.rad/rd],func=func)
+            cm.addModel(bck2)
+
+        #check to see if number estimators are specified
+        if exp==[]: 
+            if len(cm.models)==2:
+                exp=[self.Npsf,self.Nback]
+            else:
+                exp=[self.Npsf,self.Nback,0.]
+                free=[True,True,True]
+
+        #fit all free parameters
+        cm.fit(self.photons,free=free,exp=exp,mode=1,quiet=self.quiet)
+        nm = len(cm.models)
         fl = cm.minuit.fval
         self.Npsf = cm.minuit.params[0]
         self.Nback = cm.minuit.params[1]
         self.errs = cm.minuit.errors()
         self.Npsfe = np.sqrt(self.errs[0][0])
         self.Nbacke = np.sqrt(self.errs[1][1])
-
-        self.sigma = cm.minuit.params[2]
-        self.sigmae = np.sqrt(self.errs[2][2])
-        self.gamma = cm.minuit.params[3]
-        self.gammae = np.sqrt(self.errs[3][3])
-        self.cov = self.errs[2][3]
-
-        self.il=cm.extlikelihood([self.Npsf,self.Nback,sigma,gamma],self.photons)
-
+        if nm==3:
+            self.Ncust = cm.minuit.params[2]
+            self.Ncuste = np.sqrt(self.errs[2][2])
+        self.sigma = cm.minuit.params[nm]
+        self.sigmae = np.sqrt(self.errs[nm][nm])
+        self.gamma = cm.minuit.params[nm+1]
+        self.gammae = np.sqrt(self.errs[nm+1][nm+1])
+        self.cov = self.errs[nm][nm+1]
+        if len(cm.models)==2:
+            self.il=cm.extlikelihood([self.Npsf,self.Nback,sigma,gamma],self.photons)
+        else:
+            self.il=cm.extlikelihood([self.Npsf,self.Nback,0.,sigma,gamma],self.photons)
         self.r68 = cm.models[0].rcl(0.68)
         self.r95 = cm.models[0].rcl(0.95)
         self.r68e = cm.models[0].clerr(0.68,self.sigmae,self.gammae,self.cov)
@@ -398,10 +420,10 @@ class StackLoader(object):
         print 'Significance of psf change was TS = %d'%TS
         self.cm=cm
 
-    # tries to fit a halo component on top of a PSF defined by 'irf' in a uniform background
+    # tries to fit a halo component on top of a PSF defined by 'irf' in a Isotropic background
     def solvehalo(self):
 
-        #estimate uniform background component
+        #estimate Isotropic component
         self.solveback()
 
         #solve for Halo model component while freezing PSF parameters
@@ -409,7 +431,7 @@ class StackLoader(object):
         gamma=s.IParams.gamma(self.ebar,int(self.photons[0].event_class))
         psf = PSF(lims=[0,self.rad/rd],model_par=[sigma,gamma],free=[False,False])
         halo = Halo(lims=[0,self.rad/rd],model_par=[0.2/rd])
-        bck = Backg(lims=[0,self.rad/rd])
+        bck = Isotropic(lims=[0,self.rad/rd])
         cm = CompositeModel()
         cm.addModel(psf)
         cm.addModel(halo)
@@ -443,10 +465,10 @@ class StackLoader(object):
         print 'Halo fraction was %1.0f [1 +/- %1.2f]'%(self.frac,self.frace)
         self.cm=cm
 
-    ## tries to fit two King functions in a uniform background
-    def solvedoublepsf(self):
+    ## tries to fit two King functions in an Isotropic background
+    def solvedoublepsf(self,func=[[],[]],free=[True,True,True],exp=[]):
         
-        #estimate uniform background component
+        #estimate uniform Isotropic component
         self.solveback()
 
         #solve two King function parameters
@@ -454,12 +476,23 @@ class StackLoader(object):
         gamma=s.IParams.gamma(self.ebar,int(self.photons[0].event_class))
         psf = PSF(lims=[0,self.rad/rd],model_par=[sigma,gamma])
         psf2 = PSF(lims=[0,self.rad/rd],model_par=[1.2*sigma,gamma*0.7]) #try to separate psfs initially
-        bck = Backg(lims=[0,self.rad/rd])
+        bck = Isotropic(lims=[0,self.rad/rd])
         cm = CompositeModel()
         cm.addModel(psf)
         cm.addModel(psf2)
         cm.addModel(bck)
-        cm.fit(self.photons,free=[True,True,True],exp=[self.Npsf/2.,self.Npsf/2.,self.Nback],mode=1,quiet=self.quiet)
+        if len(func[0])!=0:
+            bck2 = Custom(lims=[0,self.rad/rd],func=func)
+            cm.addModel(bck2)
+        if exp==[]: 
+            if cm.models==3:
+                exp=[self.Npsf/2.,self.Npsf/2.,self.Nback]
+                free = [True,True,True]
+            else:
+                exp=[self.Npsf/2.,self.Npsf/2.,self.Nback,0.]
+                free=[True,True,True,True]
+        cm.fit(self.photons,free=free,exp=exp,mode=1,quiet=self.quiet)
+        nm = len(cm.models)
         fl = cm.minuit.fval
         self.Npsf = cm.minuit.params[0]
         self.Npsf2 = cm.minuit.params[1]
@@ -468,17 +501,21 @@ class StackLoader(object):
         self.Npsfe = np.sqrt(self.errs[0][0])
         self.Npsf2e = np.sqrt(self.errs[1][1])
         self.Nbacke = np.sqrt(self.errs[2][2])
-
-        self.sigma = cm.minuit.params[3]
-        self.sigmae = np.sqrt(self.errs[3][3])
-        self.gamma = cm.minuit.params[4]
-        self.gammae = np.sqrt(self.errs[4][4])
-        self.sigma2 = cm.minuit.params[5]
-        self.sigmae2 = np.sqrt(self.errs[5][5])
-        self.gamma2 = cm.minuit.params[6]
-        self.gammae2 = np.sqrt(self.errs[6][6])
-
-        self.il=cm.extlikelihood([self.Npsf,self.Npsf2,self.Nback,sigma,gamma,sigma,gamma],self.photons)
+        if nm==4:
+            self.Ncust = cm.minuit.params[3]
+            self.Ncuste = np.sqrt(self.errs[3][3])
+        self.sigma = cm.minuit.params[nm]
+        self.sigmae = np.sqrt(self.errs[nm][nm])
+        self.gamma = cm.minuit.params[nm+1]
+        self.gammae = np.sqrt(self.errs[nm+1][nm+1])
+        self.sigma2 = cm.minuit.params[nm+2]
+        self.sigmae2 = np.sqrt(self.errs[nm+2][nm+2])
+        self.gamma2 = cm.minuit.params[nm+3]
+        self.gammae2 = np.sqrt(self.errs[nm+3][nm+3])
+        if nm==3:
+            self.il=cm.extlikelihood([self.Npsf,self.Npsf2,self.Nback,sigma,gamma,sigma,gamma],self.photons)
+        else:
+            self.il=cm.extlikelihood([self.Npsf,self.Npsf2,self.Nback,0.,sigma,gamma,sigma,gamma],self.photons)
 
         if self.gamma>gamma:
             gsign = '+'
@@ -520,12 +557,12 @@ class StackLoader(object):
 
     ## Makes a plot of all of the models and the angular distribution of photons
     #  @param name filename of output file
-    def makeplot(self,name='test.png',fig=-1):
+    def makeplot(self,name='test.png',fig=-1,bin=25.):
         #calculate angular separations
         self.getds()
 
         #plotting setup
-        bins = 25.                       #angular bins
+        bins = bin                       #angular bins
         mi = np.log10((min(self.ds))**2)
         ma = np.log10((max(self.ds))**2)
         d2 = ma-mi
@@ -602,11 +639,10 @@ class StackLoader(object):
         for it,bin in enumerate(hists):
             if errs[it]>1e-35:
                 self.chisq = self.chisq + ((bin-total[it])/errs[it])**2
-                #print bin,total[it],errs[it],self.chisq
-        #print self.chisq
-        py.errorbar
+
+        prop = matplotlib.font_manager.FontProperties(size=9) 
         #finish up plotting
-        py.legend(pts,names,bbox_to_anchor=(1.14, 1.25))
+        py.legend(pts,names,bbox_to_anchor=(1.1, 1.25),prop=prop)
         py.loglog()
         py.ylim(pmin,pmax)
         py.xlim(0.8*min(be4),max(be4)*1.2)
@@ -624,12 +660,6 @@ class StackLoader(object):
         py.grid()
         py.xlabel(r'$\theta\/(\rm{deg})$')
         py.ylabel(r'$\frac{\rm{Data}-\rm{Model}}{\sigma}$')
-        #p.semilogx()
-        #ax = py.gca()
-        #ax.set_yscale("log", nonposy='clip')
-        #ax.set_xscale("log", nonposx='clip')
-
-        #p.semilogy()
         py.savefig(name)
         
 
@@ -763,6 +793,20 @@ class StackLoader(object):
                 self.ds.append(u)
         self.ds = np.array(self.ds)
 
+    def writebpd(self,bpd=8):
+        binfile = s.BinnedPhotonData(bpd)
+        for photon in self.photons:
+            if self.bin:
+                u = photon.srcdiff()
+            else:
+                if self.useft2s:
+                    u = photon.diff(self.rot)
+                else:
+                    u = photon.srcdiff()
+            u = u*rd
+            binfile.addPhoton(s.Photon(s.SkyDir(u,0),float(photon.energy),float(photon.time),int(self.cls)))
+        binfile.write('%s_%1.0f_%1.0f_%1.0f.fits'%(self.lis,self.cls,self.emin,self.emax))
+
 
 ################################################### END ALIGNMENT CLASS ###########################################
 
@@ -797,7 +841,7 @@ def test():
 ##   psf parameter test program
 ##   runs on a small set of flight data and uses Crab, Geminga, and Vela as sources
 ##   if everything is ok, should return 0
-def test2():
+def test2(bins=25.):
     plr = os.environ['POINTLIKEROOT']
     fdir = plr+'/python/uw/stacklike/boresighttest/'
     os.system('cd %s'%fdir)
@@ -809,7 +853,7 @@ def test2():
         ret = ret + 1
     if (al.gamma-1.63)>1e-2:
         ret = ret + 2 
-    al.makeplot('psftest.png')
+    al.makeplot('psftest.png',bin=bins)
     return ret
     
 ###################################################################################################
