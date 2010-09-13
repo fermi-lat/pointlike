@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Mon Sep 13 12:34:30 PDT 2010
+pointlike/python/uw/stacklike
+
+Modified Files:
+	angularmodels.py stacklike.py 
+Log Message:
+Added custom background fucntionality to stacklike, for use with background subtracted pulsars
+    *
+------------------------------------------------------------
 User: lande  Thu Sep  9 16:41:16 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
