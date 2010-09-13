@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/angularmodels.py,v 1.1 2010/08/13 22:03:21 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/angularmodels.py,v 1.2 2010/09/01 20:59:47 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -46,7 +46,7 @@ class PSF(Model):
         self.model_par=model_par
         self.free=free
         self.steps=[0.001/rd,0.01]                 #size of step taken by fitter
-        self.limits=[[0.001/rd,10./rd],[1.01,5.]]   #limits of fitter (gamma>1)
+        self.limits=[[0.0001/rd,360./rd],[1.000000001,1000.]]   #limits of fitter (gamma>1)
         self.name='psf'
         self.header='sigma\tgamma\t'
     
@@ -55,7 +55,7 @@ class PSF(Model):
     #  @params pars psf parameters, fed in by fitter
     def value(self,photon,pars):
         if len(pars)!=len(self.model_par):
-            print 'Wrong number of PSF parameters!'
+            print 'Wrong number of PSF parameters, got %d instead of %d'%(len(pars),len(self.model_par))
             raise
         sig = pars[0]
         g = pars[1]
@@ -160,7 +160,7 @@ class PSFAlign(PSF):
     #  @params pars psf parameters, fed in by fitter
     def value(self,photon,pars):
         if len(pars)!=len(self.model_par):
-            print 'Wrong number of PSFAlign parameters!'
+            print 'Wrong number of PSFAlign parameters, got %d instead of %d'%(len(pars),len(self.model_par))
             raise
         sig = s.IParams.sigma(float(photon.energy),int(photon.event_class))
         g = s.IParams.gamma(float(photon.energy),int(photon.event_class))
@@ -211,12 +211,12 @@ class PSFAlign(PSF):
 
 ################################################### END PSFALIGN CLASS  ###########################################
 
-################################################### BACKG CLASS         ###########################################
+################################################### Isotropic CLASS         ###########################################
 
-## Backg class
+## Isotropic class
 #
-# Manages uniform background model
-class Backg(Model):
+# Manages uniform Isotropicround model
+class Isotropic(Model):
 
     ## Constructor
     #
@@ -228,23 +228,23 @@ class Backg(Model):
         self.lims=lims
         self.steps=[]
         self.limits=[]
-        self.name='back'
+        self.name='iso'
         self.header=''
     
-    ## returns 1 since background is constant in (d)**2
+    ## returns 1 since Isotropic is constant in (d)**2
     def value(self,photon,pars):
         if len(pars)!=len(self.model_par):
-            print 'There should be no parameters for a uniform background!'
+            print 'There should be no parameters for Isotropic, got %d'%len(pars)
             raise
         return 1.
     
-    ## returns integral of background for a photon between self.lims
+    ## returns integral of Isotropic for a photon between self.lims
     def integrate(self,photon,pars):
         um = self.lims[0]*self.lims[0]/2.
         ua = self.lims[1]*self.lims[1]/2.
         return ua-um
 
-    ## returns integral of background between delmin and delmax
+    ## returns integral of Isotropic between delmin and delmax
     #  @param delmin minimum angle in radians
     #  @param delmax maximum angle in radians
     def integral(self,delmin,delmax):
@@ -256,7 +256,110 @@ class Backg(Model):
     def update(self,pars):
         self.model_par=pars
 
-################################################### END BACKG CLASS     ###########################################
+################################################### END Isotropic CLASS     ###########################################
+
+################################################### CUSTOM CLASS        ###########################################
+
+## Custom class
+#  
+#  Define a custom angular distribution in counts/degree
+class Custom(Model):
+
+    ## Constructor
+    #
+    #  @param lims [min,max], minimum and maximum angular deviations in radians
+    #  @param func [[ang],[f(ang)]] array of angular separations in radians and the pdf of that separation
+    def __init__(self,lims,func):
+        super(Model,self).__init__([],[])
+        self.model_par=[]
+        self.free=[]
+        self.lims=lims
+        self.steps=[]
+        self.limits=[]
+        self.name='custom'
+        self.header=''
+        #assume bins centers
+        self.seps = np.array(func[0])
+        self.bins = len(self.seps)
+        self.delt = self.seps[1]-self.seps[0]
+        acc = 0
+        self.integ = []
+        self.fun =[]
+        for it,fn in enumerate(func[1]):
+            acc = acc+fn
+            self.fun.append(fn/self.seps[it])
+            self.integ.append(acc*self.delt)
+        self.integ = np.array(self.integ)/sum(self.fun)
+        self.fun = np.array(self.fun)/sum(self.fun)
+
+    ## linear interpolater
+    #  @param val x-value to be interpolated
+    #  @param xv x-values to check against
+    #  @param yv y-values corresponding to x-values
+    def litp(self,val,xv,yv):
+        idx = xv.searchsorted(val)
+        mi=idx-1
+        ma=idx+1
+        if idx>=(len(xv)-1):
+            mi = len(xv)-3
+            idx = mi+1
+            ma = mi+2
+        if idx==0:
+            mi = 0
+            idx = 1
+            ma= 2
+        while yv[mi]==0. and mi>1:
+            mi=mi-1
+        while yv[ma]==0. and ma<(len(xv)-1):
+            ma=ma+1
+
+        ata = np.matrix([[xv[mi]**2+xv[idx]**2+xv[ma]**2,xv[mi]+xv[idx]+xv[ma]],[xv[mi]+xv[idx]+xv[ma],3]])
+        atb = np.matrix([[xv[mi]*yv[mi]+xv[idx]*yv[idx]+xv[ma]*yv[ma]],[yv[mi]+yv[idx]+yv[ma]]])
+        sol = np.linalg.inv(ata) * atb
+        m = sol[0][0].item()
+        b = sol[1][0].item()
+
+        rval = m*val+b
+        if rval<0:
+            return 0
+        else:
+            return rval
+
+    ## pdf function
+    #  @param val x-value to be interpolated
+    #  @param xv x-values to check against
+    def value(self,photon,pars):
+        if len(pars)!=len(self.model_par):
+            print 'There should be no parameters for a custom model, got %d'%len(pars)
+            raise
+        diff = photon.srcdiff()
+        return self.litp(diff,self.seps,self.fun)
+
+    ## pdf probability distribution function
+    #  @param diff angular separation in radians
+    def pdf(self,diff):
+        return self.litp(diff,self.seps,self.fun)
+
+    ## cdf function
+    #  @param photon CLHEP photon
+    #  @param pars function parameters (None)
+    def integrate(self,photon,pars):
+        ib = self.litp(self.lims[1],self.seps+self.delt/2,self.integ)
+        ia = self.litp(self.lims[0],self.seps+self.delt/2,self.integ)
+        return (ib-ia)
+    
+    ## returns integral of custom between delmin and delmax
+    #  @param delmin minimum angle in radians
+    #  @param delmax maximum angle in radians
+    def integral(self,delmin,delmax):
+        ib = self.litp(delmax,self.seps+self.delt/2,self.integ)
+        ia = self.litp(delmin,self.seps+self.delt/2,self.integ)
+        return (ib-ia)
+
+    ## updates model parameters (none) 
+    def update(self,pars):
+        self.model_par=pars
+################################################### END CUSTOM CLASS    ###########################################
 
 ################################################### HALO CLASS          ###########################################
 
@@ -369,7 +472,12 @@ class CompositeModel(object):
         header = 'Calls\tNtotal\t'
 
         #set up printing headers and free parameters
+        if not quiet:
+            print 'Fitting %d models'%len(self.models)
+            print '-----------------'
         for x in range(len(self.models)):
+            if not quiet:
+                print self.models[x].name
             header = header+('N%s\t'%self.models[x].name)
             if len(free)==0:
                 pars.append(n/(1.*len(self.models)))
@@ -379,7 +487,8 @@ class CompositeModel(object):
                 frees.append(not free[x])
             lims.append([0,2*n])
             steps.append(np.sqrt(n))
-        
+        if not quiet:
+            print '-----------------'
         for md in self.models:
             header = header+md.header
                 
