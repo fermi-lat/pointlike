@@ -1,14 +1,15 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.21 2010/08/13 22:43:59 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.22 2010/08/22 01:50:42 kerrm Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.21 $'.split()[1]
+version='$Revision: 1.22 $'.split()[1]
 import os
 from os.path import join
 import sys
+from textwrap import dedent
 from glob import glob
 from datetime import date,timedelta
 
@@ -22,45 +23,37 @@ from roi_extended import ExtendedSource,ROIExtendedModel
 from uw.utilities.fitstools import merge_bpd,merge_lt
 from uw.utilities.fermitime import MET,utc_to_met
 from uw.utilities.utils import get_data
+from uw.utilities import keyword_options
 import numpy as N
 
 class DataSpecification(object):
-    """ Specify the data to use for an analysis.
+    """ Specify the data to use for an analysis."""
 
-      **Parameters**
-
-      ft1files : string or list of strings
-          if a single string: points to a single FT1 file, or if
-          contains wild cards is expanded by glob into a list of files
-          if a list of string: each string points to an FT1 file
-      ft2files : string or list of string
+    defaults= (
+        ('ft1files',None,"""String or list of strings
+         if a single string: points to a single FT1 file, or if
+         contains wild cards is expanded by glob into a list of files
+         if a list of string: each string points to an FT1 file"""),
+        ('ft2files',None,"""String or list of string
           same format as ft1files, but N.B. that the current
-          implementation expects a one-to-one correspondence of FT1
-          and FT2 files!
-      ltcube : string, optional
+          implementation expects a one-to-one correspondence of FT1"""),
+        ('ltcube',None,"""string, optional
           points to a livetime cube; if not given, the livetime will
           be generated on-the-fly.  If a file is provided but does
           not exist, the livetime cube will be generated and written
-          to the specified file.
-      binfile : string, optional
+          to the specified file."""),
+        ('binfile',None,"""string, optional
           points to a binned representation of the data; will be
           generated if not provided; if file specified but does not
           exist, the binned data will be written to the file
           N.B. -- this file should be re-generated if, e.g., the
-          energy binning used in the later spectral analysis changes.
-    """
-
-
-    def init(self):
-
-        self.ft1files = None
-        self.ft2files = None
-        self.ltcube   = None
-        self.binfile  = None
-
+          energy binning used in the later spectral analysis changes."""),
+    )
+    
+    @keyword_options.decorate(defaults)
     def __init__(self,**kwargs):
-        self.init()
-        self.__dict__.update(kwargs)
+
+        keyword_options.process(self, kwargs)
 
         if self.ft1files is None and self.binfile is None:
             raise Exception,'No event data (FT1 or binfile) provided!  Must pass at least one of these.'
@@ -145,93 +138,55 @@ class SavedData(DataSpecification):
 class SpectralAnalysis(object):
     """ Interface to the spectral analysis code."""
 
+    defaults = (
+        'keywords controlling data binning and livetime calculation',
+        ('roi_dir',None,'aperture center; if None, assume all-sky analysis'),
+        ('exp_radius',20,'radius (deg) to use if calculate exposure or a ROI. (180 for full sky)'),
+        ('zenithcut',105,'Maximum spacecraft pointing angle with respect to zenith to allow'),
+        ('thetacut',66.4,'Cut on photon incidence angle'),
+        ('event_class',3,'select class level (3 - diffuse; 2 - source; 1 - transient; 0 - Monte Carlo)'),
+        ('conv_type',-1,'select conversion type (0 - front; 1 - back; -1 = front + back)'),
+        ('tstart',0,'Default no cut on time; otherwise, cut on MET > tstart'),
+        ('tstop',0,'Default no cut on time; otherwise, cut on MET < tstop'),
+        ('recalcgti',False,'if True, try to get GTI from GT1 files; otherwise, try from livetime cube or binned data file'),
+        ('binsperdec',4,'energy binning granularity when binning FT1'),
+        ('emin',200,'Minimum energy'),
+        ('emax',2e5,'Maximum energy'),
+        ('use_weighted_livetime',False,'Use the weighted livetime'),
+        'keywords for monte carlo data',
+        ('mc_src_id',-1,'set to select on MC_SRC_ID column in FT1'),
+        ('mc_energy',False,'set True to use MC_ENERGY instead of ENERGY'),
+        'keywords controlling instrument response',
+        ('irf','P6_v3_diff','Which IRF to use'),
+        ('psf_irf',None,'specify a different IRF to use for the PSF; must be in same format/location as typical IRF file!'),
+        ('CALDB',os.environ['CALDB'],'override the CALDB specified by the env. variable'),
+        ('keywords controlling spectral analysis'),
+        ('background','1FGL','a choice of global model specifying a diffuse background; see ConsistentBackground for options'),
+        ('maxROI',10,'maximum ROI for analysis; note ROI aperture is energy-dependent = max(maxROI,r95(e,conversion_type))'),
+        ('minROI',5,dedent("""\
+                minimum ROI analysis 
+                ***N.B.***
+                ROI radius is energy-dependent: minROI < r95(e,conversion_type) < maxROI
+                That is, the radius is given by the 95% PSF containment for the band, subject
+                to the constraint that it be >= minROI and <= maxROI
+                **********""")),
+        'miscelleneous keywords',
+        ('quiet',False,'Set True to suppress (some) output'),
+        ('verbose',False,'More output'),
+        ('daily_data_path','/phys/groups/tev/scratch1/users/Fermi/data/daily','Data Path'),
+    )
+    @keyword_options.decorate(defaults)
     def __init__(self, data_specification, **kwargs):
         """
-
-Create a new spectral analysis object.
+    Create a new spectral analysis object.
 
     data_specification: an instance of DataSpecification with links to the FT1/FT2,
                         and/or binned data / livetime cube needed for analysis
                         (see docstring for that class)
-
-Optional keyword arguments:
-
-  =========    =======================================================
-  Keyword      Description
-  =========    =======================================================
-
-  =========    KEYWORDS CONTROLLING DATA BINNING AND LIVETIME CALCULATION
-  roi_dir      [ None] aperture center; if None, assume all-sky analysis
-  exp_radius   [ 20]  radius (deg) to use if calculate exposure or a ROI. (180 for full sky)
-  zenithcut    [ 105]  Maximum spacecraft pointing angle with respect to zenith to allow
-  thetacut     [ 66.4] Cut on photon incidence angle
-  event_class  [ 3]  select class level (3 - diffuse; 2 - source; 1 - transient; 0 - Monte Carlo)
-  conv_type    [ -1] select conversion type (0 - front; 1 - back; -1 = front + back)
-  tstart       [0] Default no cut on time; otherwise, cut on MET > tstart
-  tstop        [0] Default no cut on time; otherwise, cut on MET < tstop
-  recalcgti    [False] if True, try to get GTI from GT1 files;
-                        otherwise, try from livetime cube or binned data file
-  binsperdec   [4] energy binning granularity when binning FT1
-  emin         [100] Minimum energy
-  emax         [3e5] Maximum energy
-  use_weighted_livetime [False] Use the weighted livetime
-
-  =========    KEYWORDS FOR MONTE CARLO DATA
-  mc_src_id    [ -1] set to select on MC_SRC_ID column in FT1
-  mc_energy    [False] set True to use MC_ENERGY instead of ENERGY
-
-  =========    KEYWORDS CONTROLLING INSTRUMENT RESPONSE
-  irf          ['P6_v3_diff'] Which IRF to use
-  psf_irf      [None] specify a different IRF to use for the PSF; must be in same format/location as typical IRF file!
-  CALDB        [environment variable] override the CALDB specified by the env. variable
-
-  =========    KEYWORDS CONTROLLING SPECTRAL ANALYSIS
-  background   ['1FGL'] - a choice of global model specifying a diffuse background; see ConsistentBackground for options
-  maxROI       [10] maximum ROI for analysis; note ROI aperture is energy-dependent = max(maxROI,r95(e,conversion_type))
-  minROI       [5] minimum ROI analysis
-
-  ***N.B.***
-  ROI radius is energy-dependent: minROI < r95(e,conversion_type) < maxROI
-  That is, the radius is given by the 95% PSF containment for the band, subject
-  to the constraint that it be >= minROI and <= maxROI
-  **********
-
-  =========    MISCELLENEOUS KEYWORDS
-  quiet        [False] Set True to suppress (some) output
-  verbose      [False] More output
-  =========   =======================================================
   """
+        keyword_options.process(self, kwargs)
 
-        self.roi_dir     = None
-        self.exp_radius  = 20     # deg
-        self.zenithcut   = 105    # deg
-        self.thetacut    = 66.4   # deg
-        self.event_class = 3      # diffuse
-        self.conv_type   = -1     # front + back
-        self.binsperdec  = 4
-        self.tstart      = 0
-        self.tstop       = 0
-        self.recalcgti   = False
-        self.emin        = 200    # MeV  -- note changed defaults to better deal with energy dispersion
-        self.emax        = 2e5    # MeV
-        self.use_weighted_livetime = False
-
-        self.mc_src_id   = -1
-        self.mc_energy   = False
-
-        self.irf         = 'P6_v3_diff'
-        self.psf_irf     = None
-        self.CALDB       = os.environ['CALDB']
         self._check_CALDB()
-
-        self.background  = '1FGL'
-        self.maxROI      = 10    # deg
-        self.minROI      = 5     # deg
-
-        self.quiet       = False
-        self.verbose     = False
-
-        self.daily_data_path = '/phys/groups/tev/scratch1/users/Fermi/data/daily'
 
         self.ae = self.dataspec = data_specification
 
