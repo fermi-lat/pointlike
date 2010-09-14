@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Sep 14 00:49:44 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	image.py 
+Log Message:
+Minor formatting of keword_options list.
+    *
+------------------------------------------------------------
 User: lande  Tue Sep 14 00:49:24 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
