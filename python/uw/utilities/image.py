@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.29 2010/08/29 20:17:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/image.py,v 1.30 2010/09/07 23:14:22 wallacee Exp $
 
 """
-version = '$Revision: 1.29 $'.split()[1]
+version = '$Revision: 1.30 $'.split()[1]
 
 import pylab
 import types
@@ -471,7 +471,7 @@ class ZEA(object):
         ('pixelsize',0.1,   'size, in degrees, of pixels'), 
         ('galactic', False, 'galactic or equatorial coordinates'), 
         ('fitsfile', '',    'set non-empty to write out as a FITS file'), 
-        ('axes',     None,  'Axes object to use: \n if None, ...'), 
+        ('axes',     None,  'Axes object to use: \nif None, ...'), 
         ('nticks',   5,     'number of tick marks to attempt'), 
         50*'-',
         ('proj',     'ZEA', 'projection name: can change if desired'),
