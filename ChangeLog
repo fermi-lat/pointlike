@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Sep 14 01:04:39 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py 
+Log Message:
+Addition of keword_options argument parsing for DataSpecification and SpectralAnalysis object. This should in no way effect backwards compatibility, but provides a more elegant manner for error handling/default value specification.
+    *
+------------------------------------------------------------
 User: lande  Tue Sep 14 00:49:44 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
