@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Sep 15 17:18:54 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Adding keyword_options parsing for the ROIAnalysis object.
+    *
+------------------------------------------------------------
 User: lande  Tue Sep 14 01:04:39 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
