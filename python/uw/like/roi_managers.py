@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.15 2010/08/11 18:48:43 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.16 2010/08/24 18:15:54 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -203,13 +203,18 @@ class ROIPointSourceManager(ROIModelManager):
             contribution."""
 
         self.point_sources = N.append(self.point_sources,ps)
-        self.models          = N.append(self.models,ps.model)
+        self.models        = N.append(self.models,ps.model)
+        self.names         = N.append(self.names,ps.name)
+        self.mask          = N.append(self.mask,N.any(ps.model.free))
         self.setup_initial_counts(bands) # not most efficient, but fewest loc!
 
     def del_source(self, which, bands):
         ops = self.point_sources[which]
         self.point_sources = N.delete(self.point_sources,which)
-        self.models          = N.delete(self.models,which)
+        self.models        = N.delete(self.models,which)
+        self.names         = N.delete(self.names,which)
+        self.mask          = N.delete(self.mask,which)
+
         self.setup_initial_counts(bands) # ditto
         return ops
 
@@ -311,6 +316,7 @@ class ROIDiffuseManager(ROIModelManager):
 
         self.bgmodels        = N.append(self.bgmodels,model)
         self.models          = N.append(self.models,model.smodel)
+        self.names           = N.append(self.names,model.name)
         self.diffuse_sources = N.append(self.diffuse_sources,model.diffuse_source)
         self.setup_initial_counts(bands) # not most efficient, but fewest loc!
 
@@ -318,6 +324,7 @@ class ROIDiffuseManager(ROIModelManager):
         ops = self.bgmodels[which]
         self.bgmodels        = N.delete(self.bgmodels,which)
         self.models          = N.delete(self.models,which)
+        self.names           = N.delete(self.names,which)
         self.diffuse_sources = N.delete(self.diffuse_sources,which)
         self.setup_initial_counts(bands) # ditto
         return ops
