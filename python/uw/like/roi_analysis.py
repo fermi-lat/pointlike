@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.39 2010/08/24 23:16:48 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.40 2010/08/31 19:32:11 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -15,6 +15,7 @@ from uw.like import roi_bands, roi_localize , specfitter
 from pointspec_helpers import PointSource
 from roi_diffuse import DiffuseSource
 from roi_extended import ExtendedSource,BandFitExtended
+from uw.utilities import keyword_options
 
 from scipy.optimize import fmin,fmin_powell,fmin_bfgs
 from scipy.stats.distributions import chi2
@@ -27,28 +28,22 @@ LOG_JACOBIAN = 1./N.log10(EULER_CONST)
 
 class ROIAnalysis(object):
 
-    defaults = dict(
-        fit_emin = [125,125],    #independent energy ranges for front and back
-        fit_emax = [1e5 + 100,1e5 + 100], #0th position for event class 0
-        quiet    = False,
-        verbose  = False,
-        catalog_aperture = -1, # pulsar catalog analysis only -- deprecate
-        phase_factor = 1.,    # pulsar phase
-        )
+    defaults = (
+        ("fit_emin",[125,125],"a two-element list giving front/back minimum energy. Independent energy ranges for front and back"),
+        ("fit_emax",[1e5 + 100,1e5 + 100],"A two-element list giving front/back maximum energy. 0th position for event class 0."),
+        ("quiet",False,'Set True to suppress (some) output'),
+        ("catalog_aperture",-1,"Pulsar catalog analysis only -- deprecate"),
+        ("phase_factor",1.,"Pulsar phase. A correction that can be made if the data has undergone a phase selection -- between 0 and 1"),
+    )
 
+    @keyword_options.decorate(defaults)
     def __init__(self,roi_dir,ps_manager,ds_manager,spectral_analysis,**kwargs):
-        """ roi_dir     -- the center of the ROI
-             ps_manager -- an instance of ROIPointSourceManager
-             ds_manager -- an instance of ROIDiffuseManager
-
-             Optional Keyword Arguments
-             ==========================
-             fit_emin -- a two-element list giving front/back minimum energy
-             fit_emax -- a two-element list giving front/back maximum energy
-             phase_factor -- a correction that can be made if the data has
-                                  undergone a phase selection -- between 0 and 1
+        """ roi_dir    -- the center of the ROI
+            ps_manager -- an instance of ROIPointSourceManager
+            ds_manager -- an instance of ROIDiffuseManager
         """
-        self.__dict__.update(ROIAnalysis.defaults)
+        keyword_options.process(self, kwargs)
+
         self.__dict__.update(**kwargs)
         self.roi_dir = roi_dir
         self.psm  = ps_manager
