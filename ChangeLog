@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Sep 15 22:16:36 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_managers.py 
+Log Message:
+Bugfix in the deleting/adding source functions. Now, correct updating of all the internal arrays
+    *
+------------------------------------------------------------
 User: lande  Wed Sep 15 17:18:54 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
