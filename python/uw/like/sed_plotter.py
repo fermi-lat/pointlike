@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.7 2010/08/17 03:20:49 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/sed_plotter.py,v 1.8 2010/08/23 20:45:49 burnett Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -41,9 +41,9 @@ class BandFlux(object):
             eb.merged = False
 
         
+        checkbound = lambda x: x.lflux> 1e-15 
         if merge:
             # this function decides if there is a measurement, meaning the lower flux is finite
-            checkbound = lambda x: x.lflux> 1e-15 
             # count in from high end to find how many high energy bins have no measurements
             for nhi,neb in enumerate(self.bands[::-1]):
                 if checkbound(neb): break
@@ -55,11 +55,15 @@ class BandFlux(object):
             nlo = nhi = 0
         
         nt = len(self.bands)
-        eblo = [self.merge(0,nlo)]  if nlo>0 else []
-        ebhi = [self.merge(nt-nhi, nt)] if nhi>0 else []
+        if nlo != nt-1:
+            eblo = [self.merge(0,nlo)]  if nlo>0 else []
+            ebhi = [self.merge(nt-nhi, nt)] if nhi>0 else []
 
-        # the truncated list of bands
-        bands = eblo + self.bands[nlo:nt-nhi] + ebhi
+            # the truncated list of bands
+            bands = eblo + self.bands[nlo:nt-nhi] + ebhi
+        else:
+            # Merge all bands
+            bands = [self.merge(0,nt-1)]
 
         # Save info for plots or print in a recarray
         rec = makerec.RecArray('elow ehigh flux lflux uflux'.split())
@@ -71,7 +75,7 @@ class BandFlux(object):
             hw  = (xhi-xlo)/2.
             if eb.merged: hw /= eb.num
             
-            if eb.flux is not None: 
+            if checkbound(eb): 
                 rec.append(xlo, xhi, fac*eb.flux, fac*eb.lflux, fac*eb.uflux)
             else:
                 rec.append(xlo, xhi, 0, 0, fac*eb.uflux)
