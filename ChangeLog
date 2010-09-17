@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Sep 17 11:57:02 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Fix for convert_spatial_map when a SpatialMap is passed into the function
+    *
+------------------------------------------------------------
 User: lande  Fri Sep 17 11:56:25 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
