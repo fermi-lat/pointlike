@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Fri Sep 17 12:21:45 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+Add a wrapper for std::vector<double> back into skymaps to deal with a problem
+with pypsf. Need to figure out what caused the problem to begin with.
+
+    *
+------------------------------------------------------------
 User: lande  Fri Sep 17 11:57:02 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
