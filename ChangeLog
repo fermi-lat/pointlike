@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Sep 17 11:56:25 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	sed_plotter.py 
+Log Message:
+Better check for when to place an upper limit (when lflux is < a small value). Fix for pathological case when none of the bands are significant and only one upper limit should be plotted
+    *
+------------------------------------------------------------
 User: lande  Thu Sep 16 19:21:09 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
