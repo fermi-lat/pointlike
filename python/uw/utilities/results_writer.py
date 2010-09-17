@@ -1,6 +1,6 @@
 """ Class to write out gtlike-style results files. 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/results_writer.py,v 1.2 2010/08/24 23:51:13 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/results_writer.py,v 1.3 2010/08/25 06:10:06 lande Exp $
 
 author: Joshua Lande
 """
@@ -79,3 +79,6 @@ def writeResults(roi,filename,**kwargs):
     file=open(filename,'w')
     file.write(pformat(source_dict))
     file.close()
+
+    if not roi.quiet:
+        print "\nDone Saving ROI to results file %s" % filename
