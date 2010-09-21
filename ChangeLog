@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Sep 21 14:57:39 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Allow ability to pass in file object instead of file name. Also, better formatting of templates paths in xml files for extended sources.
+    *
+------------------------------------------------------------
 User: wallacee  Fri Sep 17 12:21:45 PDT 2010
 pointlike/python/uw/like
 
