@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.14 2010/08/25 08:14:52 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.15 2010/09/09 23:06:06 lande Exp $
 
    author: Matthew Kerr
 """
@@ -576,7 +576,7 @@ def unparse_point_sources(point_sources):
         xml_blurbs.push(''.join([s1,specxml,skyxml,s2]))
     return xml_blurbs
 
-def process_diffuse_source(ds,strict):
+def process_diffuse_source(ds,strict,filename):
     """Convert an instance of DiffuseSource into an XML blurb."""
     m2x = Model_to_XML()
     dm = ds.dmodel
@@ -584,10 +584,17 @@ def process_diffuse_source(ds,strict):
 
     if isinstance(ds,ExtendedSource):
         m2x.process_model(ds.smodel,scaling=False)
-        specxml = m2x.getXML()
-        spatial = ds.spatial_model
-        if strict: spatial = convert_spatial_map(spatial,'template_%s_%s.fits' % \
-                                                 (ds.name,spatial.pretty_name))
+        specxml  = m2x.getXML()
+        spatial  = ds.spatial_model
+        spectral = ds.smodel
+        if strict and not isinstance(spatial,SpatialMap): 
+            folder=os.path.dirname(filename)
+            template_name=folder+os.sep if folder != '' else ''
+            template_name+='template_%s_%s_%s.fits' % (ds.name.replace(' ','_'),
+                                                       spatial.pretty_name, 
+                                                       spectral.pretty_name)
+            spatial = convert_spatial_map(spatial,template_name)
+            spatial.file = os.path.basename(template_name) # better format for xml file
         skyxml = makeExtendedSourceSpatialModel(spatial)
     elif isinstance(dm,DiffuseFunction):
         filename = os.path.abspath(dm.name())
@@ -616,16 +623,16 @@ def process_diffuse_source(ds,strict):
     s2 = '</source>'
     return ''.join([s1,specxml,skyxml,s2])
     
-def unparse_diffuse_sources(diffuse_sources,strict):
+def unparse_diffuse_sources(diffuse_sources,strict,filename):
     """Convert a list of DiffuseSources into XML blurbs."""
     xml_blurbs = Stack()
     for ds in diffuse_sources:
-        xml_blurbs.push(process_diffuse_source(ds,strict))
+        xml_blurbs.push(process_diffuse_source(ds,strict,filename))
     return xml_blurbs
 
 def writeXML(stacks,filename, title='source_library'):
     """Write XML blurbs to a gtlike-style XML file."""
-    f = open(filename,'wb')
+    f = open(filename,'wb') if type(filename)==str else filename
     f.write('<source_library title="%s">'% title)
     for stack in stacks:
         for elem in stack:
@@ -650,7 +657,8 @@ def writeROI(roi,filename,strict=False):
         created. """
     source_xml = [unparse_point_sources(roi.psm.point_sources)]
     try:
-        source_xml.append(unparse_diffuse_sources(roi.dsm.diffuse_sources,strict))
+        source_xml.append(unparse_diffuse_sources(roi.dsm.diffuse_sources,strict,
+            filename))
     except AttributeError: 
         print 'warning: no diffuse sources found to write to xml'
     writeXML(source_xml,filename)
