@@ -3,8 +3,8 @@ THe UW system for performing spectral analysis
 
 at this top level define a simple "factory" function giving a simple user access to the system
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/__init__.py,v 1.5 2010/06/20 13:42:35 burnett Exp $
-Authors:  T. Burnett, M. Kerr, E. Wallace, M. Roth
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/__init__.py,v 1.6 2010/06/21 19:52:32 burnett Exp $
+Authors:  T. Burnett, M. Kerr, E. Wallace, M. Roth, J. Lande
 """
 
 def factory(**kwargs):
