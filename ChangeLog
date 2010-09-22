@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Sep 21 17:45:34 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Make roi.TS() quietwhen roi.quiet=True
+    *
+------------------------------------------------------------
 User: lande  Tue Sep 21 14:58:08 PDT 2010
 ScienceTools-scons/pointlike/python/uw
 
