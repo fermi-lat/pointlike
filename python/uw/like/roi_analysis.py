@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.40 2010/08/31 19:32:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.41 2010/09/16 00:18:54 lande Exp $
 
 author: Matthew Kerr
 """
@@ -428,7 +428,7 @@ class ROIAnalysis(object):
         save_params = self.parameters().copy() # save free parameters
         self.zero_ps(which)
         ll_0 = self.fit(save_values = False,method=method)
-        print self
+        if not self.quiet: print self
         self.unzero_ps(which)
         self.set_parameters(save_params) # reset free parameters
         self.__pre_fit__() # restore caching
