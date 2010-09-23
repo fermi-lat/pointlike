@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.22 2010/08/24 18:14:57 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.23 2010/08/26 16:14:05 kerrm Exp $
 
     author: Matthew Kerr
 
@@ -334,6 +334,10 @@ Optional keyword arguments:
         gamma = 10** self.p[1]
         self.p[0] += gamma * N.log10(self.e0/e0p)
         self.e0 = e0p
+        
+    def pivot_energy(self):
+        """ default to indicate no such """
+        return None 
         
 
 #===============================================================================================#
