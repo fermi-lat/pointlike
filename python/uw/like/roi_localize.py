@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.8 2010/08/10 23:22:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.9 2010/08/24 18:15:26 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -41,7 +41,8 @@ class ROILocalizer(object):
                 if not self.quiet: print 'Warning! No good band fits.  Reverting to broadband fit...'
                 self.bandfits = False
         self.tsref=0
-        self.tsref = self.TSmap(self.rd)
+        #self.tsref = self.TSmap(self.rd)
+        self.tsref = self.TSmap(self.sd) # source position not necessarily ROI center
 
     def TSmap(self,skydir):
         return (-2)*self.spatialLikelihood(skydir,which=self.which,bandfits=self.bandfits)-self.tsref
@@ -71,7 +72,6 @@ class ROILocalizer(object):
         l    = quadform.Localize(self,verbose = verbose)
         ld  = SkyDir(l.dir.ra(),l.dir.dec())
         ps  = roi.psm.point_sources[which]
-
 
         ll0 = self.spatialLikelihood(ps.skydir,update=False,which=which,bandfits=bandfits)
 
@@ -138,8 +138,8 @@ class ROILocalizer(object):
             
             nover           = ro(band,rd,skydir)
             oover           = band.overlaps[wh]
-            psnc            = (band.bandfits if self.bandfits else band.ps_counts[wh])*exposure_ratio
-            psoc            = band.ps_counts[wh]*band.er[wh]
+            psnc            = (band.bandfits if self.bandfits else band.ps_counts[wh]/band.er[wh])*exposure_ratio
+            psoc            = band.ps_counts[wh] # N.B. -- ps_counts includes exposure ratio
 
             if psnc < 0: continue # skip potentially bad band fits, or bands without appreciable flux
 
