@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Thu Sep 23 10:13:02 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_bands.py roi_localize.py 
+Log Message:
+(Hopefully) fixed the exposure ratio to be consistent in localization and band fitting.
+    *
+------------------------------------------------------------
 User: lande  Tue Sep 21 17:45:34 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
