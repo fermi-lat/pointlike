@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Sep 23 15:15:09 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+define a default member function pivot_energy that returns None
+    *
+------------------------------------------------------------
 User: kerrm  Thu Sep 23 14:28:38 PDT 2010
 pointlike/python/uw/like
 
