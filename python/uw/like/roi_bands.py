@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_bands.py,v 1.19 2010/08/11 21:20:56 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.20 2010/08/17 03:20:49 lande Exp $
 
 author: Matthew Kerr
 """
@@ -99,9 +99,12 @@ class ROIBand(object):
         """Implement a model independent likelihood for the number of counts of a particular source.
             Other sources (diffuse, neighboring point sources) are treated as fixed."""
 
-        new_counts = parameters[0]
+        # N.B. -- it is assumed that new_counts *does not* include exposure ratio
+        # this is the easiest way to deal with the exposure ratio, but it must be explicitly set if the *counts*
+        # are used elsewhere.  This comes up in, e.g., saving the values for use in localization.
         which = args[0] if len(args) > 0 else 0
-        band = self
+        new_counts = parameters[0]*self.er[which]
+        band = self # what's this for? M.K. 23 Sept. 2010
 
         old_counts = band.ps_counts[which]
 
@@ -162,7 +165,7 @@ class ROIEnergyBand(object):
         for w in which:
             self.bandFit(which=w)
             self.m.p[0] = N.log10(self.uflux)
-            ul = sum( (b.expected(self.m) for b in self.bands) ) * self.bands[0].phase_factor
+            ul = sum( (b.expected(self.m)*b.er[w] for b in self.bands) ) * self.bands[0].phase_factor
             if self.flux is None:
                 r += [0,ul,0]
             else:
@@ -189,7 +192,7 @@ class ROIEnergyBand(object):
         tot = 0
         for b in self.bands:
             if not b.has_pixels: continue
-            my_pix_counts = b.ps_pix_counts[:,which]*b.expected(self.m)
+            my_pix_counts = b.ps_pix_counts[:,which]*b.expected(self.m)*b.er[which]
             all_pix_counts= b.bg_all_pix_counts + b.ps_all_pix_counts - b.ps_pix_counts[:,which]*b.ps_counts[which] + my_pix_counts
             tot += (b.pix_counts * (my_pix_counts/all_pix_counts)**2).sum()
         return tot**-0.5
@@ -242,7 +245,7 @@ class ROIEnergyBand(object):
             self.lflux = max(self.flux*(1 - err),1e-30)
 
         if saveto is not None:
-            for b in self.bands: b.__dict__[saveto] = (b.expected(self.m) if not bad_fit else -1)
+            for b in self.bands: b.__dict__[saveto] = (b.expected(self.m)*b.er[which] if not bad_fit else -1)
 
         if bad_fit:
             self.ts = 0
