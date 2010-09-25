@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.18 2010/09/09 23:04:43 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.19 2010/09/17 18:57:02 lande Exp $
 
    author: Joshua Lande
 
@@ -65,7 +65,7 @@ class DefaultSpatialModelValues(object):
         'PseudoNFW'          : {},
         'RadialProfile'      : {},
         # Note, angle is in degrees
-        'EllipticalGaussian' : {'p':[N.radians(0.2),N.radians(0.1),0], 
+        'EllipticalGaussian' : {'p':N.radians([0.2,0.1,0]), 
                                 'param_names':['Major_Axis','Minor_Axis','Position_Angle'],
                                 'limits':N.radians([[1e-6,3],
                                                     [1e-6,3],
@@ -74,7 +74,7 @@ class DefaultSpatialModelValues(object):
                                 'log':[True,True,False],
                                 'steps':[0.04,0.04,N.radians(5)]},
         # N,B limits or Non-radially symmetric sources dictated more by pixelization of grid.
-        'EllipticalDisk'     : {'p':[N.radians(0.2),N.radians(0.1),0], 
+        'EllipticalDisk'     : {'p':N.radians([0.2,0.1,0]), 
                                 'param_names':['Major_Axis','Minor_Axis','Position_Angle'],
                                 'limits':N.radians([[1e-3,3],
                                                     [1e-3,3],
@@ -655,14 +655,15 @@ class EllipticalSpatialModel(SpatialModel):
             override_skydir is just used internally so the same function
             can be used by the __call__ function given a SkyDir object. """
 
-        mpix = (float(grid.npix)-1)/2.
         if override_skydir:
             # I have no idea why this works, and it really confuses me. But
             # I confirmed it just by making a lot of skyimages.
             x,y = grid.pix(override_skydir)
-            dLats=(x-mpix)*N.radians(grid.pixelsize)
-            dLons=(mpix-y)*N.radians(grid.pixelsize)
+            x_c,y_c = grid.pix(grid.center)
+            dLats=(x-x_c)*N.radians(grid.pixelsize)
+            dLons=(y_c-y)*N.radians(grid.pixelsize)
         else:
+            mpix = (float(grid.npix)-1)/2.
             dLons,dLats= N.meshgrid((N.arange(0,grid.npix)-mpix)*N.radians(grid.pixelsize),
                                      (mpix-N.arange(0,grid.npix))*N.radians(grid.pixelsize))
 
