@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Sep 24 19:06:11 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Bug fix saving non-radially symmetric spatial models to a file.
+    *
+------------------------------------------------------------
 User: lande  Fri Sep 24 18:28:10 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
