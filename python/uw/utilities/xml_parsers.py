@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.15 2010/09/09 23:06:06 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.16 2010/09/21 21:57:38 lande Exp $
 
    author: Matthew Kerr
 """
@@ -547,7 +547,7 @@ def parse_diffuse_sources(handler,diffdir=None):
 
                 spatial_model=xtsm.get_spatial_model(spatial)
                 spectral_model=xtm.get_model(spectral)
-                ds.append(ExtendedSource(name=name,
+                ds.append(ExtendedSource(name=str(name),
                                          model=spectral_model,
                                          spatial_model=spatial_model,
                                          leave_parameters=True))
