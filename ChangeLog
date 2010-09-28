@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: cohen  Tue Sep 28 13:14:23 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+fix initialization of roi.logl and roi.prev_logl in ROIAnalyzer
+    *
+------------------------------------------------------------
 User: lande  Fri Sep 24 19:06:11 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
