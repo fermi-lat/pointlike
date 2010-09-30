@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.20 2010/08/25 05:55:09 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.21 2010/08/27 06:43:51 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -333,7 +333,7 @@ class AnalyticConvolution(object):
         the intgral includes at term which is the PDF, the integral
         will presumably contribute very littel further away then this.
         """
-        int_max = 0.5*(self.spatial_model.effective_edge(energy)/s)**2
+        int_max = 0.5*(N.radians(self.spatial_model.effective_edge(energy))/s)**2
 
         # u value corresponding to the given r.
         ulist=0.5*(self.rlist/s)**2
