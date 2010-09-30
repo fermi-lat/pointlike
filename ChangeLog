@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Sep 30 13:58:39 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Improve some scales, fix index2 bug
+    *
+------------------------------------------------------------
 User: burnett  Thu Sep 30 13:54:41 PDT 2010
 pointlike/python/uw/utilities
 
