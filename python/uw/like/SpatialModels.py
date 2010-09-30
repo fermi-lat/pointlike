@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.19 2010/09/17 18:57:02 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.20 2010/09/25 02:06:11 lande Exp $
 
    author: Joshua Lande
 
@@ -23,7 +23,7 @@ class DefaultSpatialModelValues(object):
             param_names: the names of the spatial parameters
             limits: the limits imposed on the paraemters when fitting. 
                 These values are absolute. Note that by and large, everything
-                is measured in radians. The limits on relative movement of
+                is measured in degrees. The limits on relative movement of
                 longitude and latitude are measured in degrees.
             log: Wheter or not the parameter should be mapped into log space.
             steps: used by minuit when fitting the source. useful to make them comparable
@@ -37,58 +37,58 @@ class DefaultSpatialModelValues(object):
         The firs two parametesr are not defined in the models dict but always set
         to defaults lower in the function. """
     models = {
-        'Gaussian'           : {'p':[N.radians(0.1)],                 
+        'Gaussian'           : {'p':[0.1],                 
                                 'param_names':['Sigma'],                        
-                                'limits':N.radians([[1e-10,3]]),
+                                'limits':[[1e-10,3]],
                                 'log':[True],
                                 'steps':[0.04]
                                 # Note that the step for sigma is a step in log space!
                                 # As minuit.py's doc says, a step of .04 is about 10% in log space
                                }, 
         'PseudoGaussian'     : {},
-        'Disk'               : {'p':[N.radians(0.1)],
+        'Disk'               : {'p':[0.1],
                                 'param_names':['Sigma'],
-                                'limits':N.radians([[1e-10,3]]),
+                                'limits':[[1e-10,3]],
                                 'log':[True],
                                 'steps':[0.04]},
         'PseudoDisk'         : {},
-        'Ring'               : {'p':[N.radians(0.1),0.5],
+        'Ring'               : {'p':[0.1,0.5],
                                 'param_names':['Sigma','Fraction'],
-                                'limits':N.radians([[1e-10,3],[0,1]]),
+                                'limits':[[1e-10,3],[0,1]],
                                 'log':[True,False],
                                 'steps':[0.04,0.1]},
-        'NFW'                : {'p':[N.radians(.1)],
+        'NFW'                : {'p':[0.1],
                                 'param_names': ['Sigma'],
-                                'limits': N.radians([[1e-10,9]]), # constrain r68 to 3 degrees.
+                                'limits': [[1e-10,9]], # constrain r68 to 9 degrees.
                                 'steps':[0.04],
                                 'log':[True]},
         'PseudoNFW'          : {},
         'RadialProfile'      : {},
         # Note, angle is in degrees
-        'EllipticalGaussian' : {'p':N.radians([0.2,0.1,0]), 
+        'EllipticalGaussian' : {'p':[0.2,0.1,0], 
                                 'param_names':['Major_Axis','Minor_Axis','Position_Angle'],
-                                'limits':N.radians([[1e-6,3],
-                                                    [1e-6,3],
-                                                    [N.radians(-45),N.radians(45)]]),
-                                # Note for elliptical shapes, theta > radians(45) is the same as a negative angle
+                                'limits':[[1e-6,3],
+                                          [1e-6,3],
+                                          [-45,45]],
+                                # Note for elliptical shapes, theta > 45 is the same as a negative angle
                                 'log':[True,True,False],
-                                'steps':[0.04,0.04,N.radians(5)]},
+                                'steps':[0.04,0.04,5]},
         # N,B limits or Non-radially symmetric sources dictated more by pixelization of grid.
-        'EllipticalDisk'     : {'p':N.radians([0.2,0.1,0]), 
+        'EllipticalDisk'     : {'p':[0.2,0.1,0], 
                                 'param_names':['Major_Axis','Minor_Axis','Position_Angle'],
-                                'limits':N.radians([[1e-3,3],
-                                                    [1e-3,3],
-                                                    [N.radians(-45),N.radians(45)]]),
+                                'limits':[[1e-3,3],
+                                          [1e-3,3],
+                                           [-45,45]],
                                 'log':[True,True,False],
-                                'steps':[0.04,0.04,N.radians(5)]},
-        'EllipticalRing'     : {'p':[N.radians(0.2),N.radians(0.1),0,0.5], 
+                                'steps':[0.04,0.04,5]},
+        'EllipticalRing'     : {'p':[0.2,0.1,0,0.5], 
                                 'param_names':['Major_Axis','Minor_Axis','Position_Angle','Fraction'],
-                                'limits':N.radians([[1e-3,3],
-                                                    [1e-3,3],
-                                                    [N.radians(-45),N.radians(45)],
-                                                    [0,1]]),
+                                'limits':[[1e-3,3],
+                                          [1e-3,3],
+                                          [-45,45],
+                                          [0,1]],
                                 'log':[True,True,False,False],
-                                'steps':[0.04,0.04,N.radians(5),0.1]},
+                                'steps':[0.04,0.04,5,0.1]},
         'SpatialMap'         : {}
     }
 
@@ -342,12 +342,14 @@ class SpatialModel(object):
             pure lazieness, since it is not needed elsewhere. """
         return PySkySpectrum(self,None)
 
-    def save_template(self,filename,pixelsize=0.025):
+    def save_template(self,filename,npix=100):
+        """ npix is the number of pixels in tempalate in either dimension. """
         if isinstance(self,EnergyDependentSpatialModel):
             raise Exception("Unable to save template for energy dependent SpatialModel.")
         center=self.center
-        # NB, effective_edge is radius, SkyImage takes in diameter
-        image=SkyImage(center,filename,pixelsize,2*N.degrees(self.effective_edge()),1,"ZEA",
+        diameter=2.0*self.effective_edge()
+        pixelsize=diameter/npix
+        image=SkyImage(center,filename,pixelsize,diameter,1,"ZEA",
                        True if self.coordsystem == SkyDir.GALACTIC else False,False)
         skyfunction=self.get_PySkyFunction()
         image.fill(skyfunction)
@@ -417,8 +419,13 @@ class RadiallySymmetricModel(SpatialModel):
         raise NotImplementedError("Subclasses should implement this!")
 
     def at_r(self,r,energy=None):
+        """ r is in radians. """
+        return self.at_r_in_deg(N.degrees(r),energy)
+
+    def at_r_in_deg(self,r,energy=None):
         """ Should return the intensity at a distance r from the spatial model's center,
-            where r is in radians. """
+
+            r is in degrees. """
         raise NotImplementedError("Subclasses should implement this!")
 
     def effective_edge(self,energy=None):
@@ -441,7 +448,7 @@ class Gaussian(RadiallySymmetricModel):
 
        p = [ ra, dec, sigma ]
 
-       sigma = one dimensional r68 of the spatial model, measured in radians
+       sigma = one dimensional r68 of the spatial model, measured in degrees
        """
     def extension(self):
         # extension defined as a function so it is easy to overload
@@ -453,16 +460,16 @@ class Gaussian(RadiallySymmetricModel):
 
         self.sigma=self.extension()
         self.sigma2=self.sigma**2 # cache this value
-        self.pref=1/(2*N.pi*self.sigma2)
+        self.pref=1/(2*N.pi*N.radians(self.sigma)**2)
 
-    def at_r(self,r,energy=None):
+    def at_r_in_deg(self,r,energy=None):
         return self.pref*N.exp(-r**2/(2*self.sigma2))
 
     def r68(self):
         return GAUSSIAN_X68*self.sigma
 
     def pretty_spatial_string(self):
-        return "[ %.3f' ]" % (60*N.degrees(self.sigma))
+        return "[ %.3f' ]" % (60*self.sigma)
 
 #===============================================================================================#
 
@@ -472,7 +479,7 @@ class PseudoGaussian(PseudoSpatialModel,Gaussian):
         small radius. Useful to ensure that the null hypothesis
         of an extended source has the exact same PDF as the
         extended source."""
-    def extension(self): return N.radians(1e-10)
+    def extension(self): return 1e-10
 
 #===============================================================================================#
 
@@ -486,9 +493,9 @@ class Disk(RadiallySymmetricModel):
 
         self.sigma=self.extension()
         self.sigma2=self.sigma**2 # cache this value
-        self.pref=1/(N.pi*self.sigma2)
+        self.pref=1/(N.pi*N.radians(self.sigma)**2)
 
-    def at_r(self,r,energy=None):
+    def at_r_in_deg(self,r,energy=None):
         return N.where(r<=self.sigma,self.pref,0)
 
     def r68(self):
@@ -499,7 +506,7 @@ class Disk(RadiallySymmetricModel):
         return self.sigma
 
     def pretty_spatial_string(self):
-        return "[ %.3f' ]" % (60*N.degrees(self.sigma))
+        return "[ %.3f' ]" % (60*self.sigma)
 
 #===============================================================================================#
 
@@ -508,7 +515,7 @@ class PseudoDisk(PseudoSpatialModel,Disk):
         small radius. Useful to ensure that the null hypothesis
         of an extended source has the exact same PDF as the
         extended source with small extension."""
-    def extension(self): return N.radians(1e-10)
+    def extension(self): return 1e-10
 
 #===============================================================================================#
 
@@ -524,9 +531,9 @@ class Ring(RadiallySymmetricModel):
 
         self.sigma2=self.sigma**2
         self.frac2=self.frac**2
-        self.pref=1/(N.pi*self.sigma2*(1-self.frac2))
+        self.pref=1/(N.pi*N.radians(self.sigma)**2*(1-self.frac2))
 
-    def at_r(self,r,energy=None):
+    def at_r_in_deg(self,r,energy=None):
         return N.where((r>=self.frac*self.sigma)&(r<=self.sigma),self.pref,0)
 
     def r68(self):
@@ -537,7 +544,7 @@ class Ring(RadiallySymmetricModel):
         return self.sigma
 
     def pretty_spatial_string(self):
-        return "[ %.3f', %.3f' ]" % (60*N.degrees(self.sigma),(60*N.degrees(self.frac*self.sigma)))
+        return "[ %.3f', %.3f' ]" % (60*self.sigma,60*self.frac*self.sigma)
 
 #===============================================================================================#
 
@@ -552,24 +559,24 @@ class NFW(RadiallySymmetricModel):
         super(NFW,self).cache()
 
         self.sigma=self.extension()
-        # Ask Alex DW if you don't understand this
+        # Ask Alex DW if you don't understand where this came from
         self.factor=1.07
         self.scaled_sigma=self.sigma/self.factor
 
-    def at_r(self,r,energy=None):
+    def at_r_in_deg(self,r,energy=None):
         return 2/(N.pi*r*self.scaled_sigma*(1+r/self.scaled_sigma)**5)
 
     def r68(self):
         return NFW_X68*self.scaled_sigma
 
     def pretty_spatial_string(self):
-        return "[ %.3f' ]" % (60*N.degrees(self.sigma))
+        return "[ %.3f' ]" % (60*self.sigma)
 
 #===============================================================================================#
 
 class PseudoNFW(PseudoSpatialModel,NFW):
 
-    def extension(self): return N.radians(1e-10)
+    def extension(self): return 1e-10
 
 #===============================================================================================#
 
@@ -583,8 +590,6 @@ class RadialProfile(RadiallySymmetricModel):
 
         self.r,self.pdf=N.loadtxt(self.file,unpack=True)
 
-        self.r = N.radians(self.r) # convert to radians
-
         # Explicitly normalize the RadialProfile.
         self.interp = N.interp1d(self.r.self.pdf,kind='cubic',bound_error=False,fill_value=0)
 
@@ -596,7 +601,7 @@ class RadialProfile(RadiallySymmetricModel):
         # redo normalized interpolation
         self.interp = N.interp1d(self.r*self.pdf,kind='cubic',bound_error=False,fill_value=0)
 
-    def at_r(self,r,energy=None):
+    def at_r_in_deg(self,r,energy=None):
         return self.interp(r)
 
 #===============================================================================================#
@@ -610,7 +615,7 @@ class EllipticalSpatialModel(SpatialModel):
 
          p = [ Major_Axis, Minor_Axis, Theta ]
 
-         They are all in radians.
+         They are all in degrees.
 
          sigma_x is the semi major axis and sigma_y is the semi minor axis.
 
@@ -646,7 +651,7 @@ class EllipticalSpatialModel(SpatialModel):
 
             Honestly though, there is an overall normalization of the
             angle and I canot intuit why it should have the paritcular
-            value that it does. So the factor of 45degrees and the minus
+            value that it does. So the factor of 45 degrees and the minus
             sign in the angle formula I discovered simply by running the
             code a bunch of times with different angles and positions in
             the sky and creating skymaps of the PDF until I was convinced
@@ -655,17 +660,19 @@ class EllipticalSpatialModel(SpatialModel):
             override_skydir is just used internally so the same function
             can be used by the __call__ function given a SkyDir object. """
 
+        # NB, pixelsize is in degrees so dLons/dLats are in degres, which
+        # is consistent with sigmax/sigma y in degrees.
         if override_skydir:
             # I have no idea why this works, and it really confuses me. But
             # I confirmed it just by making a lot of skyimages.
             x,y = grid.pix(override_skydir)
             x_c,y_c = grid.pix(grid.center)
-            dLats=(x-x_c)*N.radians(grid.pixelsize)
-            dLons=(y_c-y)*N.radians(grid.pixelsize)
+            dLats=(x-x_c)*grid.pixelsize
+            dLons=(y_c-y)*grid.pixelsize
         else:
             mpix = (float(grid.npix)-1)/2.
-            dLons,dLats= N.meshgrid((N.arange(0,grid.npix)-mpix)*N.radians(grid.pixelsize),
-                                     (mpix-N.arange(0,grid.npix))*N.radians(grid.pixelsize))
+            dLons,dLats= N.meshgrid((N.arange(0,grid.npix)-mpix)*grid.pixelsize,
+                                     (mpix-N.arange(0,grid.npix))*grid.pixelsize)
 
         # calculate the angle from the center of the grid to the celestial north
         # pole by finding the image coordinates for the center and for the sky
@@ -675,7 +682,7 @@ class EllipticalSpatialModel(SpatialModel):
         xc,yc = grid.pix(self.center)
 
         # Magic factor of 90 degrees still confuses me.
-        angle = N.radians(90) - (self.theta + N.arctan2(y-yc,x-xc))
+        angle = N.radians(90) - (N.radians(self.theta) + N.arctan2(y-yc,x-xc))
 
         a =  N.cos(angle)**2/(self.sigma_x**2)  + N.sin(angle)**2/(self.sigma_y**2)
         b = -N.sin(2*angle)/(2*self.sigma_x**2) + N.sin(2*angle)/(2*self.sigma_y**2)
@@ -714,7 +721,7 @@ class EllipticalSpatialModel(SpatialModel):
 
     def pretty_spatial_string(self):
         return "[ %.3f', %.3f', %.2fd ]" % \
-                (60*N.degrees(self.sigma_x),60*N.degrees(self.sigma_y), N.degrees(self.theta))
+                (60*self.sigma_x,60*self.sigma_y, self.theta)
     
     def ellipse_68(self):
         """ Returns the parameters of an ellipse (sigma_x, sigma_y, theta)
@@ -743,10 +750,10 @@ class EllipticalGaussian(EllipticalSpatialModel):
 class PseudoEllipticalGaussian(PseudoSpatialModel,EllipticalGaussian):
 
     def extension(self):
-        return N.radians(1e-3),N.radians(1e-3),0
+        return 1e-3,1e-3,0
 
     def pretty_spatial_string(self):
-        return "[ %.3f' ]" % (60*N.degrees(self.sigma_x))
+        return "[ %.3f' ]" % (60*self.sigma_x)
 
 #===============================================================================================#
 
@@ -757,7 +764,7 @@ class RadiallySymmetricEllipticalGaussian(EllipticalGaussian):
         return sigma,sigma,0
 
     def pretty_spatial_string(self):
-        return "[ %.3f' ]" % (60*N.degrees(self.sigma_x))
+        return "[ %.3f' ]" % (60*self.sigma_x)
 
 #===============================================================================================#
 
@@ -769,7 +776,7 @@ class EllipticalDisk(EllipticalSpatialModel):
 
     def cache(self):
         super(EllipticalDisk,self).cache()
-        self.pref = 1/(N.pi*self.sigma_x*self.sigma_y)
+        self.pref = 1/(N.pi*N.radians(self.sigma_x)*N.radians(self.sigma_y))
 
     def value_at(self,x):
         return N.where(x<1,self.pref,0)
@@ -788,7 +795,7 @@ class RadiallySymmetricEllipticalDisk(EllipticalDisk):
 
 class PseudoEllipticalDisk(PseudoSpatialModel,EllipticalDisk):
     def extension(self):
-        return N.radians(1e-3),N.radians(1e-3),0
+        return 1e-3,1e-3,0
 
 #===============================================================================================#
 
@@ -805,7 +812,7 @@ class EllipticalRing(EllipticalSpatialModel):
         self.frac = self.get_parameters(absolute=True)[5]
         self.frac2 = self.frac**2
 
-        self.pref = 1/(N.pi*self.sigma_x*self.sigma_y*(1-self.frac**2))
+        self.pref = 1/(N.pi*N.radians(self.sigma_x)*N.radians(self.sigma_y)*(1-self.frac**2))
 
     def value_at(self,x):
         return N.where((x>self.frac2)&(x<1),self.pref,0)
@@ -816,8 +823,8 @@ class EllipticalRing(EllipticalSpatialModel):
 
     def pretty_spatial_string(self):
         return "[ %.3f', %.3f', %.2fd, %.2f ]" % \
-                (60*N.degrees(self.sigma_x),60*N.degrees(self.sigma_y),
-                 N.degrees(self.theta),self.frac)
+                (60*self.sigma_x,60*self.sigma_y,
+                 self.theta,self.frac)
 
 #===============================================================================================#
 
