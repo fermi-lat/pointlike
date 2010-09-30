@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Sep 30 13:33:54 PDT 2010
+pointlike/python/uw/like
+
+Added Files:
+	counts_plotter.py 
+Log Message:
+New file with refactored and extended code for making count plots
+    *
+------------------------------------------------------------
 User: cohen  Thu Sep 30 12:28:40 PDT 2010
 pointlike/python/uw/like
 
