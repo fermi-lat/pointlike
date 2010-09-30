@@ -1,7 +1,7 @@
 """
 generate collection file for LiveLabs Pivot viewer
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.6 2010/06/20 14:16:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.7 2010/08/03 22:29:42 burnett Exp $
 See <http://getpivot.com>
 Author: Toby Burnett <tburnett@uw.edu>
 """
@@ -66,7 +66,9 @@ class Collection(object):
     trailer = """\n</Collection> """ 
 
 
-    def __init__(self, cname, folder, item_names, dzc,  icon=None, href=None):
+    def __init__(self, cname, folder, item_names, dzc,  icon=None, 
+        href=None, 
+        ignore_exception=True):
         """
         parameters description
         ---------- -----------
@@ -75,10 +77,11 @@ class Collection(object):
         item_names list of names for each item
         dzc        filename for the Deep Zoom (DZ) Collection of images, relative to folder
         href       list of references, same length as item_names if specified
-       
+                    
         """
         self.name = cname
         self.folder = folder
+        self.ignore_exception=ignore_exception
         if not os.path.exists(folder):
             raise InvalidParameter('folder %f does not exist' % folder)
         self.facets =[]
@@ -88,6 +91,7 @@ class Collection(object):
             raise InvalidParameter('List of Item names is empty')
         self.icon = icon
         self.href =href
+        self.related = None
         self.dzc  = dzc
         
 
@@ -109,7 +113,16 @@ class Collection(object):
         assert( type in 'String Number LongString DateTime Link'.split())
         assert(len(data)==self.n) # make sure all columns the same length
         self.facets.append(Collection.Facet(name, type, format, data, filter))
-        
+    
+    def add_related(self, related):
+        """
+                related    None, or a list of n lists of pairs (name, href)
+                    href is relative path to a related collection
+        """
+
+        self.related=related
+        assert len(related)==self.n, 'related has wrong length'
+
     def write(self, outfile='pivot.cxml', last_id=-1):
         """ The Facet objects have all been added
             
@@ -144,6 +157,15 @@ class Collection(object):
         self.last_id = last_id
         img_list = image_list(self.item_names, os.path.join(self.folder,self.dzc))
         self.writeItems(out, self.dzc, self.item_names, img_list, self.facets)
+  
+
+    def write_related(self, out, related):
+        out.write(
+            '\n  <Extension><Related xmlns="http://schemas.microsoft.com/livelabs/pivot/collection/2009">')
+        for name, href in related:
+            out.write('\n   <Link Name="%s" Href="%s"/>' % (name,href) )
+        out.write(    '\n  </Related></Extension>')
+  
  
     def writeItems(self,out, imagebase, item_names, img_list, facets, select=None):
         """ write out an Items element
@@ -159,6 +181,7 @@ class Collection(object):
         for i,name in enumerate(item_names):
             if select is not None and not select[i]: continue
             img = img_list[i]
+            if img is None: continue # image was not found
             href= ' Href="%s"' % self.href[i] if self.href is not None else ""
             self.last_id+=1
             out.write('\n<Item Id="%d" Img="#%d" Name="%s" %s>' % (self.last_id, int(img), name, href))
@@ -180,7 +203,10 @@ class Collection(object):
                         out.write('<%s Value="%s"/>' %( facet.type, d))
                     out.write(' </Facet>' ) 
                 
-            out.write('\n </Facets>\n</Item>') 
+            out.write('\n </Facets>')
+            if self.related is not None:
+                self.write_related(out, self.related[i])
+            out.write('\n</Item>') 
         out.write('\n</Items>')
     
 class MultiCollection(Collection):
@@ -196,7 +222,9 @@ class MultiCollection(Collection):
         for i, dict in enumerate(self.imageid_dicts):
             try:
                 return i, dict[fname]
-            except: pass
+            except: 
+                print 'name %s not found in DeepZoom collections'%fname
+                if self.ignore_exception: return i, None
         raise InvalidParameter('name %s not found in DeepZoom collections'%fname)
         
     def writeAllItems(self, out,last_id):
@@ -209,7 +237,8 @@ class MultiCollection(Collection):
         found = np.array([ self._getid(name) for name in self.item_names])
         #z = np.rec.fromarrays([found[:,0], found[:,1], self.item_names], names='dzc i name'.split())
         for i, dzc in enumerate(self.dzc):
-            select = np.asarray([int(f)==i for f in found[:,0]])
+            g = found[:,0]
+            select = np.asarray([int(f)==i for f in g])
             if select.sum()==0:
                 print 'warning: no Items with images in DZC %s' % dzc
                 continue
