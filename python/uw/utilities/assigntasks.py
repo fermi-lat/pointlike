@@ -1,12 +1,12 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.13 2010/04/23 04:14:44 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.14 2010/04/29 21:14:14 burnett Exp $
 
 """
 from IPython.kernel import client
 import time, os, pickle
-version = '$Revision: 1.13 $'.split()[1]
+version = '$Revision: 1.14 $'.split()[1]
 
 
 def get_mec():
@@ -47,7 +47,8 @@ class AssignTasks(object):
             except:
                 print 'No connection available: you must run ipcluster'
                 raise
-            assert(len(self.mec.get_ids())>0)
+            time.sleep(0.5) 
+            assert len(self.mec.get_ids())>0, 'no engines found'
         self.assigned = {}
         self.tasks = tasks
         assert(len(tasks)>0)
@@ -181,7 +182,8 @@ class AssignTasks(object):
         still = [id for id in self.get_ids() if not self.check_result(id)]
         curtime = time.clock()
         while len(still)>0:
-            self.log('Still running: %d engines %d ... %d'% (len(still), still[0], still[-1]))
+            self.log('Still running: %d engines %d ...%d tasks %d...%d'%\
+                    (len(still), still[0], still[-1], self.assigned[still[0]],self.assigned[still[-1]]))
             if time.clock()-curtime>self.timelimit:
                 self.log('quitting, exceeded time limit: %f' %self.timelimit)
                 break
@@ -238,6 +240,10 @@ def setup_mec(engines=None, machines='tev1 tev2 tev3 tev4'.split()):
 def kill_mec():
     get_mec().kill(True)
 
+def free(machines):
+    for m in machines:
+        os.system('ssh %s free'% m) 
+    
 
 def test(tasks=9, **kwargs):
     def callback(id,result): 
