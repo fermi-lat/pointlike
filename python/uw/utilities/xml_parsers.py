@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.16 2010/09/21 21:57:38 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.17 2010/09/25 01:28:09 lande Exp $
 
    author: Matthew Kerr
 """
@@ -131,7 +131,7 @@ class XML_to_Model(object):
             pdict = d[p]
             scale = float(pdict['scale'])
             value = float(pdict['value'])
-            if (p == 'Index') or (p == 'Index1') or (p == 'Index2' and self.modict[specname]!='PLSuperExpCutoff'):
+            if (p == 'Index') or (p == 'Index1') :#THB or (p == 'Index2' and self.modict[specname]!='PLSuperExpCutoff'):
                 # gtlike uses a neg. index internally so scale > 0
                 # means we need to take the negative of the value
                 if scale > 0: value = -value
@@ -254,7 +254,7 @@ class Model_to_XML(object):
         if name == 'PowerLaw2':
             self.pname  = ['Integral','Index','LowerLimit','UpperLimit']
             self.pfree  = [1,1,0,0]
-            self.pscale = [1e-7,-1,1,1]
+            self.pscale = [1e-10,-1,1,1]
             self.pmin   = [1e-4,0,30,30]
             self.pmax   = [1e4,5,5e5,5e5]
             self.pval   = [2,1,1e3,1e5]
@@ -271,7 +271,7 @@ class Model_to_XML(object):
                 self.oomp   = [0,0,0]
             else:
                 self.pscale = [1e-9,-1,1]
-                self.pmin   = [1e-5,0,30]
+                self.pmin   = [1e-6,0,30]
                 self.pmax   = [1e4,5,5e5]
                 self.pval   = [1,2,1e3]
                 self.oomp   = [1,0,0]
@@ -449,15 +449,15 @@ def makeDSConstantSpatialModel(tablevel=1):
         '<spatialModel type="ConstantValue">',
         '\t<parameter  name="Value" value="1.0" free="0" max="10.0" min="0.0" scale="1.0" />',
         '</spatialModel>'
-	]
+    ]
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
 
 def makeDSMapcubeSpatialModel(filename='ERROR',tablevel=1):
     """Encode a mapcube model."""
     strings = [
-        '<spatialModel file="%s" type="MapCubeFunction">'%(filename),
+        '<spatialModel file="%s" type="MapCubeFunction">'%(filename.replace('\\','/')),
         '\t<parameter name="Normalization" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />',
-	    '</spatialModel>'
+        '</spatialModel>'
     ]
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
 
@@ -571,7 +571,7 @@ def unparse_point_sources(point_sources):
         skyxml = makePSSpatialModel(ps.skydir.ra(),ps.skydir.dec())
         m2x.process_model(ps.model)
         specxml = m2x.getXML()
-        s1 = '\n<source name="%s" type="PointSource">\n'%(ps.name)
+        s1 = '\n<source name="%s" type="PointSource" Pivot_Energy="%.0f">\n'%(ps.name, ps.model.e0)
         s2 = '</source>'
         xml_blurbs.push(''.join([s1,specxml,skyxml,s2]))
     return xml_blurbs
