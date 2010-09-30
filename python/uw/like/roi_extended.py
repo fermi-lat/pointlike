@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_extended.py,v 1.22 2010/08/27 06:10:33 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.23 2010/09/30 19:28:39 cohen Exp $
 
     author: Joshua Lande
 """
@@ -128,8 +128,8 @@ class ROIExtendedModel(ROIDiffuseModel):
         edge=self.extended_source.spatial_model.effective_edge()
         multi = 1 + 0.01*(energy==band.emin) -0.01*(energy==band.emax)
         r95 = self.sa.psf.inverse_integral(energy*multi,conversion_type,95)
-        rad = self.r_multi*r95 + N.degrees(edge)
-        rad = max(min(self.r_max,rad),N.degrees(edge)+2.5)
+        rad = self.r_multi*r95 + edge
+        rad = max(min(self.r_max,rad),edge+2.5)
         npix = int(round(2*rad/self.pixelsize))
         npix += (npix%2 == 0)
         self.active_bgc.setup_grid(npix,self.pixelsize)
@@ -409,11 +409,9 @@ Arguments:
         roi.quiet = old_quiet
 
         # return log likelihood from fitting extension.
-        final_dir=sm.get_parameters()
-        final_dir=SkyDir(final_dir[0],final_dir[1],cs)
-        delt = final_dir.difference(init_dir)*180/N.pi
-        return final_dir,0, delt,-2*(ll_0+fval)
-
+        final_dir=sm.center()
+        delt = N.degrees(final_dir.difference(init_dir))
+        return final_dir,0,delt,-2*(ll_0+fval)
 
     def modify_loc(self,bands,center):
         self.extended_source.spatial_model.modify_loc(center)
