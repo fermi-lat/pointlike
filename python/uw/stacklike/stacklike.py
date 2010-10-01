@@ -158,8 +158,18 @@ class StackLoader(object):
         s.IParams.set_CALDB(self.CALDBdir)
         s.IParams.init(self.irf)
         self.atb = []
+
+        self.psf = pypsf.CALDBPsf(irf=self.irf+'_diff')
+        self.ds = []
+        self.diffs =[]
+        self.aeff = []
+        self.photons = []
+        self.ebar=0
+        self.loadsrclist(self.lis)
+
+    def loadsrclist(self,fname):
         self.srcs = []
-        sf = file(self.srcdir+self.lis+'.txt')
+        sf = file(self.srcdir+fname+'.txt')
         header = sf.readline()
         for lines in sf:
             line = lines.split()
@@ -169,23 +179,21 @@ class StackLoader(object):
             self.srcs.append(sd)
 
     ##  loads photons from FT1 file near sources  
-    #   @param rad ROI in degrees
+    #   @param minroi min ROI in degrees
+    #   @param maxroi max ROI in degrees
     #   @param emin minimum energy in MeV
     #   @param emax maximum energy in MeV
     #   @param start start time (MET)
     #   @param stop end time (MET)
     #   @param cls conversion type: 0=front,1=back,-1=all
-    def loadphotons(self,rad,emin,emax,start,stop,cls):
+    def loadphotons(self,minroi,maxroi,emin,emax,start,stop,cls):
+        self.atb = []
+        self.ebar=self.ebar*len(self.photons)
         self.emin=emin
         self.emax=emax
-        self.ebar=0
-        self.rad = rad
+        self.minroi = minroi
+        self.maxroi = maxroi
         self.cls = cls
-        self.us = []
-        self.atb = []
-        self.diffs =[]
-        self.aeff = []
-        self.photons = []
         self.eave = np.sqrt(self.emin*self.emax)
         if self.bin:
             print 'Applying masks to data'
@@ -200,13 +208,14 @@ class StackLoader(object):
                 if bnd.emin()<self.eave and bnd.emax()>self.eave and (bnd.event_class()==cls or cls==-1):
                     ebar = np.sqrt(bnd.emin()*bnd.emax())
                     for src in self.srcs:
-                        wsdl = s.WeightedSkyDirList(bnd,src,rad/rd)
+                        wsdl = s.WeightedSkyDirList(bnd,src,self.maxroi/rd)
                         sds = len(wsdl)
                         for wsd in wsdl:
                             self.photons.append(Photon(wsd.ra(),wsd.dec(),ebar,0,bnd.event_class(),[],[],src,wsd.weight()))
                             self.ebar = self.ebar + wsd.weight()*ebar
             pcnts = sum([x.weight for x in self.photons])
             if len(self.photons)==0:
+                print 'No photons!'
                 raise 'No photons!'
             else:
                 self.ebar = self.ebar/pcnts
@@ -215,8 +224,8 @@ class StackLoader(object):
         else:
             print 'Applying masks to data'
             print '**********************************************************'
-            print '%1.0f < Energy < %1.0f'%(self.emin,self.emax)
-            print '%1.2f degrees from source'%(self.rad)
+            print '%1.0f < Energy (MeV) < %1.0f'%(self.emin,self.emax)
+            print '%1.2f < Separation (deg) < %1.2f'%(self.minroi,self.maxroi)
             print '%1.0f < Time < %1.0f'%(start,stop)
             print 'Event class = %1.0f'%(cls)
             print '%1.2f < costh < %1.2f'%(self.ctmin,self.ctmax)
@@ -229,7 +238,7 @@ class StackLoader(object):
                     print ff
                 tff = pf.open(ff)
                 ttb = tff[1].data
-                ttb,ttcut = self.mask(ttb,self.srcs,emin,emax,start,stop,rad,cls)
+                ttb,ttcut = self.mask(ttb,self.srcs,emin,emax,start,stop,self.maxroi,cls)
                 tcuts=tcuts+ttcut
                 self.atb.append(ttb)
                 tff.close()
@@ -272,7 +281,7 @@ class StackLoader(object):
                         
                             #if photons is not too far away from any source
                             #add it to the list
-                            if diff<rad:
+                            if diff<self.maxroi and diff>self.minroi:
                                 time = event.field('TIME')
                                 xv = []
                                 zv = []
@@ -285,24 +294,47 @@ class StackLoader(object):
                                     zen = pi.zenith()
                                     xv(xax)
                                     zv(zax)
-                                photon = Photon(sd.ra(),sd.dec(),event.field('ENERGY'),time,event.field('EVENT_CLASS'),xv,zv,src)
+                                photon = Photon(sd.ra(),sd.dec(),event.field('ENERGY'),time,event.field('CONVERSION_TYPE'),xv,zv,src)
                                 self.ebar = self.ebar+event.field('ENERGY')
                                 self.photons.append(photon)
                     if self.useft2s:
                         del phist #free up memory from pointing history object
-            self.ebar = self.ebar/len(self.photons)  #calculate mean energy of photons
+            if len(self.photons)>0:
+                self.ebar = self.ebar/len(self.photons)  #calculate mean energy of photons
+            else:
+                print 'No Photons!'
+                raise 'No Photons!'
 
     ## estimates Isotropic component from PSF
     def solveback(self):
+
         #Try to estimate the number of Isotropic photons
-        sigma=s.IParams.sigma(self.ebar,int(self.photons[0].event_class))
-        gamma=s.IParams.gamma(self.ebar,int(self.photons[0].event_class))
-        psf = PSF(lims=[0,self.rad/rd],model_par=[sigma,gamma],free=[False,False])
-        bck = Isotropic(lims=[0,self.rad/rd])
+        #by looking at density near tails
+        self.getds()
+        frac = 0.98
+        area = 1-frac*frac
+        density = len(self.ds[self.ds>(frac*self.maxroi/rd)])
+        denback = density/(self.maxroi**2)/area*(self.maxroi*self.maxroi-self.minroi*self.minroi)
+
+        if denback>len(self.photons):
+            denback = len(self.photons)
+        if self.cls==-1:
+            r68f=self.psf.inverse_integral(self.ebar,0,68.)/rd
+            r95f=self.psf.inverse_integral(self.ebar,0,95.)/rd
+            r68b=self.psf.inverse_integral(self.ebar,1,68.)/rd
+            r95b=self.psf.inverse_integral(self.ebar,1,95.)/rd
+            r68=np.sqrt(r68f*r68b)
+            r95=np.sqrt(r95f*r95b)
+        else:
+            r68=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),68.)/rd
+            r95=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),95.)/rd
+        psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25],free=[False,False])
+        psf.fromcontain(r68,r95,0.68,0.95)
+        bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
         cm = CompositeModel()
         cm.addModel(psf)
         cm.addModel(bck)
-        cm.fit(self.photons,mode=0,quiet=self.quiet)
+        cm.fit(self.photons,mode=0,quiet=self.quiet,free=[True,True],exp=[len(self.photons)-denback,denback])
 
         self.Npsf = cm.minuit.params[0]
         self.Nback = cm.minuit.params[1]
@@ -317,8 +349,8 @@ class StackLoader(object):
         #estimate Isotropic component
         self.solveback()
 
-        psfa = PSFAlign(lims=[0,self.rad/rd],free=[True,True,True],ebar=self.ebar)
-        bck = Isotropic(lims=[0,self.rad/rd])
+        psfa = PSFAlign(lims=[self.minroi/rd,self.maxroi/rd],free=[True,True,True],ebar=self.ebar,ec=self.cls,irf=self.irf)
+        bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
         cm = CompositeModel()
         cm.addModel(psfa)
         cm.addModel(bck)
@@ -350,17 +382,20 @@ class StackLoader(object):
         self.solveback()
 
         #solve for PSF parameters
-        sigma=s.IParams.sigma(self.ebar,int(self.photons[0].event_class))
-        gamma=s.IParams.gamma(self.ebar,int(self.photons[0].event_class))
-        psf = PSF(lims=[0,self.rad/rd],model_par=[sigma,gamma])
-        bck = Isotropic(lims=[0,self.rad/rd])
+        r68=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),68.)/rd
+        r95=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),95.)/rd
+        psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25])
+        psf.fromcontain(r68,r95,0.68,0.95)
+        sigma = psf.model_par[0]
+        gamma = psf.model_par[1]
+        bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
         cm = CompositeModel()
         cm.addModel(psf)
         cm.addModel(bck)
 
         #if custom background is specified, add it
         if len(func[0])!=0:
-            bck2 = Custom(lims=[0,self.rad/rd],func=func)
+            bck2 = Custom(lims=[self.minroi/rd,self.maxroi/rd],func=func)
             cm.addModel(bck2)
 
         #check to see if number estimators are specified
@@ -368,7 +403,7 @@ class StackLoader(object):
             if len(cm.models)==2:
                 exp=[self.Npsf,self.Nback]
             else:
-                exp=[self.Npsf,self.Nback,0.]
+                exp=[self.Npsf,0.,self.Nback]
                 free=[True,True,True]
 
         #fit all free parameters
@@ -421,17 +456,29 @@ class StackLoader(object):
         self.cm=cm
 
     # tries to fit a halo component on top of a PSF defined by 'irf' in a Isotropic background
-    def solvehalo(self):
+    def solvehalo(self,cust=[]):
 
         #estimate Isotropic component
         self.solveback()
 
         #solve for Halo model component while freezing PSF parameters
-        sigma=s.IParams.sigma(self.ebar,int(self.photons[0].event_class))
-        gamma=s.IParams.gamma(self.ebar,int(self.photons[0].event_class))
-        psf = PSF(lims=[0,self.rad/rd],model_par=[sigma,gamma],free=[False,False])
-        halo = Halo(lims=[0,self.rad/rd],model_par=[0.2/rd])
-        bck = Isotropic(lims=[0,self.rad/rd])
+        if cust==[]:
+            if self.cls==-1:
+                r68f=self.psf.inverse_integral(self.ebar,0,68.)/rd
+                r95f=self.psf.inverse_integral(self.ebar,0,95.)/rd
+                r68b=self.psf.inverse_integral(self.ebar,1,68.)/rd
+                r95b=self.psf.inverse_integral(self.ebar,1,95.)/rd
+                r68=np.sqrt(r68f**2+r68b**2)
+                r95=np.sqrt(r95f**2+r95b**2)
+            else:
+                r68=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),68.)/rd
+                r95=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),95.)/rd
+            psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25],free=[False,False])
+            psf.fromcontain(r68,r95,0.68,0.95)
+        else:
+            psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=cust,free=[False,False])
+        halo = Halo(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.2/rd])
+        bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
         cm = CompositeModel()
         cm.addModel(psf)
         cm.addModel(halo)
@@ -447,7 +494,7 @@ class StackLoader(object):
         self.theta = cm.minuit.params[5]
         self.thetae = np.sqrt(self.errs[5][5])/self.theta
         self.frac = self.Nhalo*100./(self.Nhalo+self.Npsf)
-        ferr = self.frac*np.sqrt(self.Nhaloe/(self.Nhalo**2)+self.Npsfe/(self.Npsf**2))
+        ferr = self.frac*np.sqrt(self.Nhaloe**2/(self.Nhalo**2)+self.Npsfe**2/(self.Npsf**2))
         self.frace = ferr/self.frac
         phs = (self.Npsf+self.Nback+self.Nhalo)
         tr = sum([self.errs[i][i] for i in range(len(self.errs))])
@@ -472,17 +519,20 @@ class StackLoader(object):
         self.solveback()
 
         #solve two King function parameters
-        sigma=s.IParams.sigma(self.ebar,int(self.photons[0].event_class))
-        gamma=s.IParams.gamma(self.ebar,int(self.photons[0].event_class))
-        psf = PSF(lims=[0,self.rad/rd],model_par=[sigma,gamma])
-        psf2 = PSF(lims=[0,self.rad/rd],model_par=[1.2*sigma,gamma*0.7]) #try to separate psfs initially
-        bck = Isotropic(lims=[0,self.rad/rd])
+        r68=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),68.)/rd
+        r95=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),95.)/rd
+        psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25])
+        psf.fromcontain(r68,r95,0.68,0.95)
+        sigma = psf.model_par[0]
+        gamma = psf.model_par[1]
+        psf2 = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[1.2*psf.model_par[0],0.7*psf.model_par[1]]) #try to separate psfs initially
+        bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
         cm = CompositeModel()
         cm.addModel(psf)
         cm.addModel(psf2)
         cm.addModel(bck)
         if len(func[0])!=0:
-            bck2 = Custom(lims=[0,self.rad/rd],func=func)
+            bck2 = Custom(lims=[self.minroi/rd,self.maxroi/rd],func=func)
             cm.addModel(bck2)
         if exp==[]: 
             if cm.models==3:
@@ -557,28 +607,73 @@ class StackLoader(object):
 
     ## Makes a plot of all of the models and the angular distribution of photons
     #  @param name filename of output file
-    def makeplot(self,name='test.png',fig=-1,bin=25.):
+    #  @param fig fignum of pylab figure, default is 1
+    #  @param bin number of bins for unbinned data
+    #  @param scale makes the x-scale log/linear  ['log','linear']
+    #  @param jac either counts/deg or counts/(deg**2) ['square','linear']
+    #  @param xs x-scale either deg or deg**2 ['linear','square']
+    def makeplot(self,name='test.png',fig=-1,bin=25.,scale='log',jac='square',xs='linear'):
         #calculate angular separations
         self.getds()
 
         #plotting setup
         bins = bin                       #angular bins
-        mi = np.log10((min(self.ds))**2)
-        ma = np.log10((max(self.ds))**2)
+
+        #figure out scales depending on scale/jacobian parameters
+        if scale == 'log':
+            if xs=='square':
+                jmin = min(self.ds)**2
+                jmax = max(self.ds)**2
+            else:
+                jmin = min(self.ds) 
+                jmax = max(self.ds)
+            mi = np.log10(jmin)
+            ma = np.log10(jmax)
+        else:
+            if xs=='square':
+                jmin = min(self.ds)**2
+                jmax = max(self.ds)**2
+            else:
+                jmin = min(self.ds) 
+                jmax = max(self.ds)
+            mi = jmin
+            ma = jmax
         d2 = ma-mi
         be = np.arange(mi,ma,d2/bins)
         if be[len(be)-1]-ma<0:
             be2 = np.append(be,ma)#be[len(be)-1]+d2/bins)
         else:
             be2 = np.append(be,ma+d2/bins)
-        be3 = np.sqrt(10**(be2))
-        be4 = np.sqrt(10**(be+d2/bins/2))*rd
+        if scale =='log':
+            if xs=='square':
+                be3 = np.sqrt(10**(be2))
+                be4 = (10**(be+d2/bins/2))*rd*rd
+            else:
+                be3 = 10**(be2)
+                be4 = (10**(be+d2/bins/2))*rd
+        else:
+            if xs=='square':
+                be3 = np.sqrt(be2)
+                be4 = (be+d2/bins/2)*rd*rd
+            else:
+                be3 = be2
+                be4 = (be+d2/bins/2)*rd
         py.ioff()
         if fig ==-1:
             py.figure(figsize=(8,8))
         else:
             py.clf()
-        hist = py.hist(np.log10(self.ds*self.ds),bins=be2,fc='None')
+        if scale == 'log':
+            if xs=='square':
+                binning = np.log10(self.ds*self.ds)
+            else:
+                binning = np.log10(self.ds)
+        else:
+            if xs=='square':
+                binning = self.ds*self.ds
+            else:
+                binning = self.ds
+        hist = py.hist(binning,bins=be2,fc='None')
         py.clf()
         fits=[]
         hists=[]
@@ -595,8 +690,12 @@ class StackLoader(object):
             if self.cm.models[model].name=='psf':
                 names.append('psf r68')
                 names.append('psf r95')
-                ctn.append(self.cm.models[model].rcl(0.68)*rd)
-                ctn.append(self.cm.models[model].rcl(0.95)*rd)
+                if xs=='square':
+                    ctn.append((self.cm.models[model].rcl(0.68)*rd)**2)
+                    ctn.append((self.cm.models[model].rcl(0.95)*rd)**2)
+                else:
+                    ctn.append(self.cm.models[model].rcl(0.68)*rd)
+                    ctn.append(self.cm.models[model].rcl(0.95)*rd)
         fits.append([])
         names.append('total')
 
@@ -604,14 +703,17 @@ class StackLoader(object):
         for it,ba in enumerate(be):
             left=be3[it]
             right=be3[it+1]
+            if jac=='square':
+                area = (right**2-left**2)/(rd**2)
+            else:
+                area = (right-left)/rd
             for it2,model in enumerate(self.cm.models):
-                fits[it2].append(self.cm.nest[it2]*model.integral(left,right)/model.integral(0,self.rad/rd)/(right**2-left**2)/(rd**2))
-            fits[len(fits)-1].append(self.cm.integral(left,right,0,self.rad/rd)/(right**2-left**2)/(rd**2))
-            hists.append(hist[0][it]/(right**2-left**2)/(rd**2))
-            errs.append(max(min(np.sqrt(hist[0][it])/(right**2-left**2)/(rd**2),(hist[0][it]/(right**2-left**2)/(rd**2))*(1.-1.e-15)),1e-40))
+                fits[it2].append(self.cm.nest[it2]*model.integral(left,right)/model.integral(self.minroi/rd,self.maxroi/rd)/area)
+            fits[len(fits)-1].append(self.cm.integral(left,right,self.minroi/rd,self.maxroi/rd)/area)
+            hists.append(hist[0][it]/area)
+            errs.append(max(min(np.sqrt(hist[0][it])/area,(hist[0][it]/area)*(1.-1.e-15)),1e-40))
 
         pts=[]
-
         pmin,pmax=0.01*min(fits[len(fits)-1]),100*max(fits[len(fits)-1])
         py.subplot(2,1,1)
         #plot histogrammed events
@@ -622,7 +724,7 @@ class StackLoader(object):
 
         #plot all models
         for model in range(len(self.cm.models)):
-            p1 = py.plot(be4,fits[model],'-')
+            p1 = py.plot(be4,fits[model],self.cm.models[model].mark)
             pts.append(p1)
             if self.cm.models[model].name=='psf':
                 p1 = py.plot([ctn[2*pcts],ctn[2*pcts]],[pmin,pmax],'--')
@@ -630,7 +732,7 @@ class StackLoader(object):
                 p1 = py.plot([ctn[2*pcts+1],ctn[2*pcts+1]],[pmin,pmax],'--')
                 pts.append(p1)
                 pcts=pcts+1
-        p1 = py.plot(be4,fits[len(fits)-1],'-')
+        p1 = py.plot(be4,fits[len(fits)-1],self.cm.mark)
         pts.append(p1)
 
         #calculate chisq
@@ -643,19 +745,35 @@ class StackLoader(object):
         prop = matplotlib.font_manager.FontProperties(size=9) 
         #finish up plotting
         py.legend(pts,names,bbox_to_anchor=(1.1, 1.25),prop=prop)
-        py.loglog()
+        if scale=='log':
+            py.loglog()
+        else:
+            py.semilogy()
         py.ylim(pmin,pmax)
-        py.xlim(0.8*min(be4),max(be4)*1.2)
-        py.xlabel(r'$\theta\/(\rm{deg})$')
-        py.ylabel(r'$dN/d\theta^2$')
+        if scale=='log':
+            py.xlim(0.8*min(be4),max(be4)*1.2)
+        else:
+            py.xlim(0,max(be4)*1.01)
+        if xs=='square':
+            py.xlabel(r'$\theta^2\/(\rm{deg^2})$')
+        else:
+            py.xlabel(r'$\theta\/(\rm{deg})$')
+        if jac=='square':
+            py.ylabel(r'$dN/d\theta^2$')
+        else:
+            py.ylabel(r'$dN/d\theta$')
         py.grid()
         clas = ['front','back']
         py.suptitle('%s: Energy(MeV): [%1.0f,%1.0f]\nClass: %s    Costh: [%1.1f,%1.1f]\nChisq: %1.1f / %1.0f dof'%(self.lis,self.emin,self.emax,clas[self.cls],self.ctmin,self.ctmax,self.chisq,len(be2)-1))
         py.subplot(2,1,2)
-        py.semilogx()
+        if scale=='log':
+            py.semilogx()
         py.plot([0.8*min(be4),max(be4)*1.2],[0,0],'r-')
         py.errorbar(be4,(np.array(hists)-np.array(total))/np.array(errs),yerr=1,marker='o',ls='None')
-        py.xlim(0.8*min(be4),max(be4)*1.2)
+        if scale=='log':
+            py.xlim(0.8*min(be4),max(be4)*1.2)
+        else:
+            py.xlim(0,max(be4)*1.01)
         py.ylim(-5,5)
         py.grid()
         py.xlabel(r'$\theta\/(\rm{deg})$')
@@ -771,7 +889,7 @@ class StackLoader(object):
         rot = HepRotation([x,y,z],False)
         for photon in self.photons:
             sig = s.IParams.sigma(float(photon.energy),int(photon.event_class))
-            umax = (self.rad/sig/rd)
+            umax = (self.maxroi/sig/rd)
             umax = umax*umax/2
             u = photon.diff(rot)/sig
             u = u*u/2
@@ -779,19 +897,19 @@ class StackLoader(object):
 
     #sets angular deviations
     def getds(self):
-        self.ds=[]
-        for photon in self.photons:
-            if self.bin:
-                u = photon.srcdiff()
-                for k in range(int(photon.weight)):
-                    self.ds.append(u)
-            else:
-                if self.useft2s:
-                    u = photon.diff(self.rot)
-                else:
+        if self.ds==[]:
+            for photon in self.photons:
+                if self.bin:
                     u = photon.srcdiff()
-                self.ds.append(u)
-        self.ds = np.array(self.ds)
+                    for k in range(int(photon.weight)):
+                        self.ds.append(u)
+                else:
+                    if self.useft2s:
+                        u = photon.diff(self.rot)
+                    else:
+                        u = photon.srcdiff()
+                    self.ds.append(u)
+            self.ds = np.array(self.ds)
 
     def writebpd(self,bpd=8):
         binfile = s.BinnedPhotonData(bpd)
@@ -819,22 +937,22 @@ class StackLoader(object):
 def test():
     plr = os.environ['POINTLIKEROOT']
     fdir = plr+'/python/uw/stacklike/boresighttest/'
-    al = StackLoader(lis='cgv',files=['test'],datadir=fdir,ft2dir=fdir,srcdir=fdir,quiet=False)
-    al.loadphotons(1,1000,2e6,0,999999999,-1)
+    al = StackLoader(lis='cgv',files=['test'],datadir=fdir,ft2dir=fdir,srcdir=fdir,quiet=False,irf='P6_v8')
+    al.loadphotons(0,4,1000,2e6,0,999999999,0)
     al.solverot()
     al.makeplot('aligntest.png')
     ret = 0
-    if (al.params[0]+76)>10:
+    if abs(al.params[0]+31)>10:
         ret = ret + 1
-    if (al.params[1]+73)>10:
+    if abs(al.params[1]-9)>10:
         ret = ret + 2
-    if (al.params[2]-62)>10:
+    if abs(al.params[2]+45)>10:
         ret = ret + 4
-    if (al.errors[0]-58)>10:
+    if abs(al.errors[0]-60)>10:
         ret = ret+8
-    if (al.errors[1]-56)>10:
+    if abs(al.errors[1]-59)>10:
         ret = ret+16
-    if (al.errors[2]-88)>10:
+    if abs(al.errors[2]-96)>10:
         ret = ret +32
     return ret
 
@@ -846,14 +964,14 @@ def test2(bins=25.):
     fdir = plr+'/python/uw/stacklike/boresighttest/'
     os.system('cd %s'%fdir)
     al = StackLoader(lis='cgv',files=['test'],datadir=fdir,ft2dir=fdir,srcdir=fdir,quiet=False,useft2s=False)
-    al.loadphotons(10,1000,1770,0,999999999,0)
+    al.loadphotons(0,10,1000,1770,0,999999999,0)
     al.solvepsf()
     ret=0
     if (al.sigma*rd-0.149)>1e-3:
         ret = ret + 1
     if (al.gamma-1.63)>1e-2:
         ret = ret + 2 
-    al.makeplot('psftest.png',bin=bins)
+    al.makeplot('psftest.png',bin=bins,scale='linear',jac='square',xs='square')
     return ret
     
 ###################################################################################################
