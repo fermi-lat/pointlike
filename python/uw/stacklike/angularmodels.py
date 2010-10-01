@@ -5,6 +5,7 @@ author: M.Roth <mar0@u.washington.edu>
 
 from uw.utilities.minuit import Minuit
 from uw.stacklike.CLHEP import HepRotation
+from uw.like import pypsf
 import numpy as np
 import scipy.integrate as si
 import scipy.special as sp
@@ -42,6 +43,7 @@ class PSF(Model):
 
     def __init__(self,lims,model_par,free=[True,True]):
         super(PSF,self).__init__(model_par,free)
+        self.mark='-'
         self.lims=lims
         self.model_par=model_par
         self.free=free
@@ -50,6 +52,9 @@ class PSF(Model):
         self.name='psf'
         self.header='sigma\tgamma\t'
     
+    def __call__(self,diff):
+        return self.psf(diff,self.model_par[0],self.model_par[1])
+
     ## returns the value of the unnormalized psf for a photon
     #  @param photon CLHEP photon
     #  @params pars psf parameters, fed in by fitter
@@ -129,6 +134,22 @@ class PSF(Model):
         acc = dfds*dfds*errs*errs+dfdg*dfdg*errg*errg+2*dfds*dfdg*cov
         return np.sqrt(acc)
 
+    ## setup parameters from containment radii
+    #  @param r0 first containment in radians
+    #  @param r1 second containment in radians
+    #  @param c0 first containment fraction [0-1]
+    #  @param c1 second containment fraction [0-1]
+    def fromcontain(self,r0,r1,c0,c1):
+        pars = [0.01/rd,2.25]
+        minuit = Minuit(lambda x: self.cfunc(x[0],x[1],r0,r1,c0,c1),pars,limits=self.limits,tolerance=1e-3,strategy=0,printMode=-1)
+        minuit.minimize()
+        self.model_par=minuit.params
+
+    ## fitting function for containment
+    def cfunc(self,sigma,gamma,r0,r1,c0,c1):
+        acc = (r0-self.recl(c0,sigma,gamma))**2
+        acc = acc + (r1-self.recl(c1,sigma,gamma))**2
+        return acc
 ################################################### END PSF CLASS       ###########################################
 
 ################################################### PSFALIGN CLASS      ###########################################
@@ -143,9 +164,19 @@ class PSFAlign(PSF):
     #  @param lims [min,max], minimum and maximum angular deviations in radians
     #  @param model_par [sig,gam], model parameters (sigma, gamma), with sigma in radians
     #  @param free [sig,gam], frees parameters to be fit
-    def __init__(self,lims,model_par=[0,0,0],free=[False,False,False],rot=[0,0,0],ebar=1e4):
+    def __init__(self,lims,model_par=[0,0,0],free=[False,False,False],rot=[0,0,0],ebar=1e4,ec=0,irf='P6_v3'):
         super(Model,self).__init__(model_par,free)
+        self.mark='-'
         self.rot = HepRotation(rot,False)
+        cdb = pypsf.CALDBPsf(irf=irf+'_diff')
+        if ec!=-1:
+            r68=cdb.inverse_integral(ebar,ec,68.)/rd
+            r95=cdb.inverse_integral(ebar,ec,95.)/rd
+        else:
+            r68=(cdb.inverse_integral(ebar,0,68.)+cdb.inverse_integral(ebar,1,68.))/rd/2.
+            r95=(cdb.inverse_integral(ebar,0,95.)+cdb.inverse_integral(ebar,1,95.))/rd/2.
+        self.PSF = PSF(lims=lims,model_par=[0.001,2.25],free=[False,False])
+        self.PSF.fromcontain(r68,r95,0.68,0.95)
         self.model_par=model_par
         self.free=free
         self.lims=lims
@@ -154,7 +185,7 @@ class PSFAlign(PSF):
         self.limits=[[-np.pi,np.pi],[-np.pi,np.pi],[-np.pi,np.pi]]
         self.name='psf'
         self.header='Rx\tRy\tRz\t'
-    
+
     ## returns the value of the unnormalized psf for a photon
     #  @param photon CLHEP photon
     #  @params pars psf parameters, fed in by fitter
@@ -162,47 +193,33 @@ class PSFAlign(PSF):
         if len(pars)!=len(self.model_par):
             print 'Wrong number of PSFAlign parameters, got %d instead of %d'%(len(pars),len(self.model_par))
             raise
-        sig = s.IParams.sigma(float(photon.energy),int(photon.event_class))
-        g = s.IParams.gamma(float(photon.energy),int(photon.event_class))
         rx = pars[0]
         ry = pars[1]
         rz = pars[2]
         rot = HepRotation([rx,ry,rz],False).m(self.rot)
         diff = photon.diff(rot)
-        f = self.psf(diff,sig,g)
+        f = self.PSF(diff)
         return f
     
     ## returns the value of the unnormalized psf for a photon
     #  @param diff angular deviation in radians
     #  @param sig sigma parameter in radians
     #  @param g gamma parameter
-    def psf(self,diff,sig,g):
-        u = diff*diff/(2*sig*sig)
-        return (1-1/g)*(1+u/g)**-g
+    #def psf(self,diff,sig,g):
+    #    u = diff*diff/(2*sig*sig)
+    #    return (1-1/g)*(1+u/g)**-g
 
     ## return the integral for a photon based on self.lims
     #  @param photon CLHEP photon
     #  @param pars psf parameters, fed in by fitter
     def integrate(self,photon,pars):
-        sig = s.IParams.sigma(float(photon.energy),int(photon.event_class))
-        g = s.IParams.gamma(float(photon.energy),int(photon.event_class))
-        um = self.lims[0]*self.lims[0]/(2.*sig*sig)
-        ua = self.lims[1]*self.lims[1]/(2.*sig*sig)
-        f0 = (1+um/g)**(-g+1)
-        f1 = (1+ua/g)**(-g+1)
-        return sig*sig*(f0-f1)
+        return self.PSF.integrate(photon,self.PSF.model_par)
 
     ## return the integral of the psf
     #  @param delmin minimum angle in radians
     #  @param delmax maximum angle in radians
     def integral(self,delmin,delmax):
-        sig = (s.IParams.sigma(float(self.ebar),0)+s.IParams.sigma(float(self.ebar),1))/2.
-        g = (s.IParams.gamma(float(self.ebar),0)+s.IParams.gamma(float(self.ebar),1))/2.
-        um = delmin*delmin/(2.*sig*sig)
-        ua = delmax*delmax/(2.*sig*sig)
-        f0 = (1+um/g)**(-g+1)
-        f1 = (1+ua/g)**(-g+1)
-        return sig*sig*(f0-f1)
+        return self.PSF.integral(delmin,delmax)
 
     ## updates King function parameters, through fitter
     #  @param pars [sigma,gamma], sigma in radians
@@ -223,6 +240,7 @@ class Isotropic(Model):
     #  @param lims [min,max], minimum and maximum angular deviations in radians
     def __init__(self,lims):
         super(Model,self).__init__([],[])
+        self.mark='-'
         self.model_par=[]
         self.free=[]
         self.lims=lims
@@ -271,6 +289,7 @@ class Custom(Model):
     #  @param func [[ang],[f(ang)]] array of angular separations in radians and the pdf of that separation
     def __init__(self,lims,func):
         super(Model,self).__init__([],[])
+        self.mark='x'
         self.model_par=[]
         self.free=[]
         self.lims=lims
@@ -374,6 +393,7 @@ class Halo(Model):
     #  @param free [True], will fit the parameter theta
     def __init__(self,lims,model_par,free=[True]):
         super(Model,self).__init__(model_par,free)
+        self.mark='-'
         self.model_par=model_par
         self.free=free
         self.lims=lims
@@ -437,6 +457,7 @@ class CompositeModel(object):
     ## Constructor
     #  just set up all of the members
     def __init__(self):
+        self.mark='-'
         self.models = []  #list of Model objects
         self.par = []     #all parameters for models
         self.free = []    #corresponding free parameters for models
