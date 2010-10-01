@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Oct  1 08:15:48 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	counts_plotter.py 
+Log Message:
+Add a function to correspond with specific formatting used by roi_pipeline
+    *
+------------------------------------------------------------
 User: lande  Thu Sep 30 21:13:38 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
