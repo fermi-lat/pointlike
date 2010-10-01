@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Fri Oct  1 12:09:38 PDT 2010
+pointlike/python/uw/stacklike
+
+Modified Files:
+	angularmodels.py stacklike.py 
+Log Message:
+Added CALDBPsf support for all of the PSF optimization routines in stacklike, as well as the possibility to add custom background.
+    *
+------------------------------------------------------------
 User: burnett  Fri Oct  1 08:15:48 PDT 2010
 pointlike/python/uw/like
 
