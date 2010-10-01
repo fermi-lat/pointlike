@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.17 2010/09/25 01:28:09 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.18 2010/09/30 20:58:38 burnett Exp $
 
    author: Matthew Kerr
 """
@@ -116,7 +116,8 @@ class XML_to_Model(object):
             'FileFunction' : []
             })
 
-    def get_model(self,xml_dict,index_offset=0):
+    def get_model(self,xml_dict,source_name,index_offset=0):
+        """ source_name is used for better error message printing. """
 
         specname = xml_dict['type']
         params   = xml_dict.children
@@ -139,6 +140,7 @@ class XML_to_Model(object):
                 value += index_offset
                 model.index_offset = index_offset
             model.p[ip] = value*scale
+            if model.p[ip]<=0: raise Exception('For source %s, %s parameter %s cannot be negative' % (source_name,specname,p))
             model.free[ip] = (pdict['free'] == '1')
             if 'error' in pdict.keys():
                 err = float(pdict['error'])
@@ -505,9 +507,10 @@ def parse_point_sources(handler):
     xtm = XML_to_Model()
     for src in handler.sources:
         if src['type'] != 'PointSource': continue
+        name = src['name']
         sd = get_skydir(src.getChild('spatialModel'))
-        mo = xtm.get_model(src.getChild('spectrum'))
-        point_sources.append(PointSource(sd,src['name'],mo,leave_parameters=True))
+        mo = xtm.get_model(src.getChild('spectrum'),name)
+        point_sources.append(PointSource(sd,name,mo,leave_parameters=True))
     return point_sources
 
 def parse_diffuse_sources(handler,diffdir=None):
@@ -522,10 +525,10 @@ def parse_diffuse_sources(handler,diffdir=None):
         if spatial['type'] == 'ConstantValue':
             if spectral['type'] == 'FileFunction':
                 fname = str(os.path.expandvars(spectral['file']))
-                mo = xtm.get_model(spectral)
+                mo = xtm.get_model(spectral,name)
                 ds.append(gds('ConstantValue',None,mo,fname,name,diffdir=diffdir))
             elif (spectral['type'] == 'PowerLaw' ) or (spectral['type'] == 'PowerLaw2'):
-                mo = xtm.get_model(spectral)
+                mo = xtm.get_model(spectral,name)
                 ds.append(gds('ConstantValue',None,mo,None,name))
             else:
                 raise Exception,'Isotropic model not implemented'
@@ -533,9 +536,9 @@ def parse_diffuse_sources(handler,diffdir=None):
         elif spatial['type'] == 'MapCubeFunction':
             fname = str(os.path.expandvars(spatial['file']))
             if spectral['type'] == 'ConstantValue':
-                mo = xtm.get_model(spectral)
+                mo = xtm.get_model(spectral,name)
             elif spectral['type'] == 'PowerLaw':
-                mo = xtm.get_model(spectral,index_offset=1)
+                mo = xtm.get_model(spectral,name,index_offset=1)
             else:
                 raise Exception,'Non-isotropic model not implemented'
             ds.append(gds('MapCubeFunction',fname,mo,None,name,diffdir=diffdir))
@@ -546,7 +549,7 @@ def parse_diffuse_sources(handler,diffdir=None):
             if spatial['type'] in xtsm.spatialdict.keys():
 
                 spatial_model=xtsm.get_spatial_model(spatial)
-                spectral_model=xtm.get_model(spectral)
+                spectral_model=xtm.get_model(spectral,name)
                 ds.append(ExtendedSource(name=str(name),
                                          model=spectral_model,
                                          spatial_model=spatial_model,
