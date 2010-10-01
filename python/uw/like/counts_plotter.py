@@ -1,10 +1,11 @@
 """
 Code to generate an ROI counts plot 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/counts_plotter.py,v 1.1 2010/09/30 20:33:53 burnett Exp $
 
 Author M. Kerr, T. Burnett
 
 """
+import os
 import numpy as np
 import pylab as plt
 from matplotlib import font_manager
@@ -86,7 +87,7 @@ def plot_counts(roi,fignum=1, outfile=None,
         ax.set_xscale('log')
         ax.errorbar(en,(obs-tot)/(tot), yerr=tot**-0.5, **plot_kw)
         ax.axhline(0, color = 'black')
-        ybound = min( 0.5, np.abs(np.array(ax.get_ylim()).max() ))
+        ybound = min( 0.5, np.abs(np.array(ax.get_ylim())).max() )
         ax.set_ylim((-ybound,ybound))
         ax.set_ylabel(ylabel)
         ax.set_xlabel('Energy (MeV)')
@@ -102,3 +103,38 @@ def plot_counts(roi,fignum=1, outfile=None,
     if len(axes>1): plot_residuals(axes[1], count_data)
     if outfile is not None: plt.savefig(outfile)
 
+
+def roi_pipeline_counts_plot(roi, counts_dir=None, fignum=6, **kwargs):
+    """ 
+    Code used by the ROI pipeline to make a stacked plot
+        
+        roi : A ROIanalaysis object
+            Uses the name as a title,
+        counts_dir : None or the name of a folder
+            In the folder case, makes a file name from the ROI name
+            
+        Creates the two Axes objects, and returns them
+    """
+    plt.close(fignum)
+    oldlw = plt.rcParams['axes.linewidth']
+    plt.rcParams['axes.linewidth'] = 2
+    fig, axes = plt.subplots(2,1, sharex=True, num=fignum, figsize=(6,8))
+    fig.subplots_adjust(hspace=0)
+    axes[0].tick_params(labelbottom='off')
+    left, bottom, width, height = (0.15, 0.10, 0.75, 0.85)
+    fraction = 0.8
+
+    axes[0].set_position([left, bottom+(1-fraction)*height, width, fraction*height])
+    axes[1].set_position([left, bottom, width, (1-fraction)*height])
+    plot_counts(roi, axes=axes, outfile=None, **kwargs)
+    plt.rcParams['axes.linewidth'] = oldlw
+
+    axes[0].set_xlabel('') 
+    axes[0].set_ylim(ymin=0.3)
+    axes[1].set_ylabel('fract. dev')
+    fig.suptitle(roi.name)
+    if counts_dir is not None:
+        fout = os.path.join(counts_dir, ('%s_counts.png'%roi.name) )
+        fig.savefig(fout)
+        print 'saved counts plot to %s' % fout
+    return axes
