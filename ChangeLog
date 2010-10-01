@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Sep 30 21:13:38 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Friendly error message when negative parameters set by xml file.
+    *
+------------------------------------------------------------
 User: lande  Thu Sep 30 15:55:55 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
