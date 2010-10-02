@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.20 2010/08/17 03:20:49 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_bands.py,v 1.21 2010/09/23 17:13:02 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -251,7 +251,7 @@ class ROIEnergyBand(object):
             self.ts = 0
         else:
             null_ll = sum( (b.bandLikelihood([0],which) for b in self.bands) )
-            alt_ll  = sum( (b.bandLikelihood([b.expected(self.m)],which) for b in self.bands) )
+            alt_ll  = sum( (b.bandLikelihood([b.expected(self.m)*b.er[which]],which) for b in self.bands) )
             self.ts = 2*(null_ll - alt_ll)
             
         return self.ts
