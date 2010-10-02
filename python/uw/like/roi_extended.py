@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.23 2010/09/30 19:28:39 cohen Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.24 2010/09/30 22:55:33 lande Exp $
 
     author: Joshua Lande
 """
@@ -672,7 +672,7 @@ class BandFitExtended(object):
 
     def bandLikelihoodExtended(self,parameters, band, myband):
 
-        new_counts = parameters[0]
+        new_counts = parameters[0]*myband.er
 
         old_counts = band.bg_counts[self.which]
 
@@ -695,7 +695,7 @@ class BandFitExtended(object):
         tot = 0
         for b,mb in zip(self.bands,self.mybands):
             if not b.has_pixels: continue
-            my_pix_counts = mb.pix_counts*b.expected(self.m)
+            my_pix_counts = mb.pix_counts*b.expected(self.m)*mb.er
             all_pix_counts= b.bg_all_pix_counts + b.ps_all_pix_counts - mb.pix_counts*b.bg_counts[self.which] + my_pix_counts
             tot += (b.pix_counts * (my_pix_counts/all_pix_counts)**2).sum()
         return tot**-0.5
@@ -743,4 +743,14 @@ class BandFitExtended(object):
             self.energy_band.lflux = max(self.energy_band.flux*(1 - err),1e-30)
 
         if saveto is not None:
-            for b in self.bands: b.__dict__[saveto] = (b.expected(self.m) if not bad_fit else -1)
+            for b,mb in zip(self.bands,self.mybands): 
+                b.__dict__[saveto] = (b.expected(self.m)*mb.er if not bad_fit else -1)
+
+        if bad_fit:
+            self.ts = 0
+        else:
+            null_ll = sum(self.bandLikelihoodExtended([0],b,mb)
+                for b,mb in zip(self.bands,self.mybands))
+            alt_ll  = sum(self.bandLikelihoodExtended([b.expected(self.m)*mb.er],b,mb)
+                    for b,mb in zip(self.bands,self.mybands))
+            self.ts = 2*(null_ll - alt_ll)
