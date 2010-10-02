@@ -1,6 +1,6 @@
 """ Class to write out region files compatable with ds9. 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.1 2010/08/12 23:09:22 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.2 2010/09/09 23:41:16 lande Exp $
 
 author: Joshua Lande
 """
@@ -35,30 +35,30 @@ def unparse_diffuse_sources(diffuse_sources):
                     sigma=sm.sigma
                     if isinstance(sm,Disk):
                         lines.append("fk5; circle(%.4f, %.4f, %.4f) # Circle encloses all of the disk." % \
-                                      (ra,dec,degrees(sigma)))
+                                      (ra,dec,sigma))
                     elif isinstance(sm,Ring):
                         frac=sm.frac
                         lines += ["fk5; circle(%.4f, %.4f, %.4f)" % \
-                                      (ra,dec,degrees(_)) for _ in [frac*sigma,sigma]]
+                                      (ra,dec,_) for _ in [frac*sigma,sigma]]
                     else:    
                         lines.append("fk5; circle(%.4f, %.4f, %.4f) # Circle contaning 68 percent of the source." % \
-                                      (ra,dec,degrees(sm.r68())))
+                                      (ra,dec,sm.r68()))
 
                 elif isinstance(sm,EllipticalSpatialModel):
                     sigma_x, sigma_y, theta = sm.sigma_x, sm.sigma_y, sm.theta
                     if isinstance(sm,EllipticalDisk):
                         lines.append("fk5; ellipse(%.4f, %.4f, %.4f %.4f, %.4f)" % \
-                                (ra,dec,degrees(sigma_x),degrees(sigma_y),degrees(sm.theta)+90))
+                                (ra,dec,sigma_x,sigma_y,sm.theta+90))
 
                     elif isinstance(sm,EllipticalRing):
                         frac = sm.frac
                         lines += ["fk5; ellipse(%.4f, %.4f, %.4f %.4f, %.4f)" % \
-                                (ra,dec,degrees(_*sigma_x),degrees(_*sigma_y),degrees(sm.theta)+90) \
+                                (ra,dec,_*sigma_x,_*sigma_y,sm.theta+90) \
                                 for _ in [frac,1]]
                     else:
                         a,b,c=sm.ellipse_68()
                         lines.append("fk5; ellipse(%.4f, %.4f, %.4f %.4f, %.4f)" % \
-                                (ra,dec,degrees(a),degrees(b),degrees(c)+90))
+                                (ra,dec,a,b,c+90))
 
 
     return lines
