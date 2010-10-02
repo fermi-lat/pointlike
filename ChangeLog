@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sat Oct  2 16:43:00 PDT 2010
+ScienceTools-scons/pointlike/src
+
+Modified Files:
+	swig_setup.i 
+Log Message:
+Hopefully, this fixes the swig::stop_iteration error caused by wraping the same objects in multiple places
+    *
+------------------------------------------------------------
 User: lande  Sat Oct  2 16:41:56 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
