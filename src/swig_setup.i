@@ -1,5 +1,6 @@
 %module(docstring="Interface to pointlike") pointlike
-// $Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/swig_setup.i,v 1.1 2010/01/27 00:54:32 burnett Exp $
+// $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/swig_setup.i,v 1.2 2010/09/07 23:14:22 wallacee Exp $
+#define PySwigIterator pointlike_PySwigIterator
 %{
 #include <stdexcept>
 #include <vector>
