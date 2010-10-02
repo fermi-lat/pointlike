@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sat Oct  2 16:41:56 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	region_writer.py 
+Log Message:
+radian -> degrees change for extended sources.
+    *
+------------------------------------------------------------
 User: lande  Sat Oct  2 16:40:25 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
