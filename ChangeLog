@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sat Oct  2 16:39:47 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_bands.py 
+Log Message:
+Adding first order exposure variation calculation also for band.ts calculation
+    *
+------------------------------------------------------------
 User: mar0  Fri Oct  1 12:09:38 PDT 2010
 pointlike/python/uw/stacklike
 
