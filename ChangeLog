@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sat Oct  2 16:40:25 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Add first order exposure calculation for extended source bin by bin fitting
+    *
+------------------------------------------------------------
 User: lande  Sat Oct  2 16:39:47 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
