@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.25 2010/10/02 23:40:25 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.26 2010/10/05 00:10:09 lande Exp $
 
     author: Joshua Lande
 """
@@ -409,7 +409,7 @@ Arguments:
         roi.quiet = old_quiet
 
         # return log likelihood from fitting extension.
-        final_dir=sm.center()
+        final_dir=sm.center
         delt = N.degrees(final_dir.difference(init_dir))
         return final_dir,0,delt,-2*(ll_0+fval)
 
