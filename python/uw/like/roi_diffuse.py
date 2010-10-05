@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.12 2010/07/25 19:40:13 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.13 2010/08/24 18:16:34 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -237,6 +237,8 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
                 apterm = phase_factor*(myband.ap_evals * pts[j,:]).sum()
                 if band.has_pixels:
                     pixterm = (band.pix_weights*(myband.pi_evals * pts[j,:]).sum(axis=1)).sum()
+                else:
+                    pixterm = 0
                 gradient[cp] += apterm - pixterm
                 cp += 1
         return gradient
