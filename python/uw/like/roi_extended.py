@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.24 2010/09/30 22:55:33 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.25 2010/10/02 23:40:25 lande Exp $
 
     author: Joshua Lande
 """
@@ -747,10 +747,10 @@ class BandFitExtended(object):
                 b.__dict__[saveto] = (b.expected(self.m)*mb.er if not bad_fit else -1)
 
         if bad_fit:
-            self.ts = 0
+            self.energy_band.ts = 0
         else:
             null_ll = sum(self.bandLikelihoodExtended([0],b,mb)
                 for b,mb in zip(self.bands,self.mybands))
             alt_ll  = sum(self.bandLikelihoodExtended([b.expected(self.m)*mb.er],b,mb)
                     for b,mb in zip(self.bands,self.mybands))
-            self.ts = 2*(null_ll - alt_ll)
+            self.energy_band.ts = 2*(null_ll - alt_ll)
