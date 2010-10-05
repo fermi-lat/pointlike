@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Tue Oct  5 12:52:27 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+Fix a bug where pixel term was not initialized properly.
+    *
+------------------------------------------------------------
 User: lande  Mon Oct  4 17:11:20 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
