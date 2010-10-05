@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Oct  4 17:10:09 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+bugfix for extended source band.ts
+    *
+------------------------------------------------------------
 User: lande  Sat Oct  2 16:43:00 PDT 2010
 ScienceTools-scons/pointlike/src
 
