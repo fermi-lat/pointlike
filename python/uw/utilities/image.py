@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/image.py,v 1.30 2010/09/07 23:14:22 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.31 2010/09/14 07:49:44 lande Exp $
 
 """
-version = '$Revision: 1.30 $'.split()[1]
+version = '$Revision: 1.31 $'.split()[1]
 
 import pylab
 import types
@@ -48,35 +48,42 @@ class Rescale(object):
     def __init__(self, image, nticks=5, galactic=False):
         """ image: a SkyImage object
             nticks: suggested number of ticks for the ticker
+            
+            warning: fails if the north pole is in the image (TODO: figure out a sensible approach)
         """
 
         # get ra range from top, dec range along center of SkyImage
         nx,ny = image.nx, image.ny
         self.nx=nx
         self.ny=ny
-        xl = image.skydir(0,ny).l() if galactic else image.skydir(0,ny).ra()
-        xr = image.skydir(nx,ny).l() if galactic else image.skydir(nx,ny).ra()
+        # convenient lat, lon functions for pixel coords
+        lat = lambda x,y: image.skydir(x,y).l() if galactic else image.skydir(x,y).ra()
+        lon = lambda x,y: image.skydir(x,y).b() if galactic else image.skydir(x,y).dec()
+        xl,xr = lat(0,0), lat(nx,0)
         if xl<xr: # did it span the boundary?
             xr = xr-360 
-        self.vmin = image.skydir(0, 0).b() if galactic else image.skydir(0, 0).dec()
-        self.vmax = image.skydir(nx/2.,ny).b() if galactic else image.skydir(nx/2.,ny).dec()
+        self.vmin, self.vmax = lon(0,0), lon(nx/2.,ny)
         ticklocator = ticker.MaxNLocator(nticks, steps=[1,2,5])
         self.uticks = [ix if ix>-1e-6 else ix+360\
               for ix in ticklocator.bin_boundaries(xr,xl)[::-1]] #reverse
         self.ul = xl
         self.ur = xr
         self.vticks = ticklocator.bin_boundaries(self.vmin,self.vmax)
+        if len(self.vticks)==0: # protect against rare situatin
+            self.vticks = [self.vmin,self.vmax]
 
         # extract positions in image coords,  text labels
         self.xticks = [image.pixel(SkyDir(x,self.vmin,SkyDir.GALACTIC if galactic else SkyDir.EQUATORIAL))[0]\
                        for x in self.uticks]
         #self.yticks = [image.pixel(SkyDir(xl,v))[1] for v in self.vticks]
         # proportional is usually good?
-        yscale = ny/((image.skydir(0,ny).b() if galactic else image.skydir(0,ny).dec())-self.vmin)
+        yscale = ny/(lon(0,ny)-self.vmin)
         self.yticks = [ (v-self.vmin)*yscale for v in self.vticks]
-
-        self.xticklabels = self.formatter(self.uticks)
-        self.yticklabels = self.formatter(self.vticks)
+        try:
+            self.xticklabels = self.formatter(self.uticks)
+            self.yticklabels = self.formatter(self.vticks)
+        except:
+            print 'formatting failure in image.py'
     def formatter(self, t):
         n=0
         s = np.abs(np.array(t))+1e-9
@@ -197,7 +204,9 @@ class AIT_grid():
 
     def ait(self, l, b):
         " convert lon, lat to car "
-        return self.proj.sph2pix(float(l), float(b))
+        # floats seem to be necessary: gcc SWIG oddity?
+        z = self.proj.sph2pix(float(l), float(b))
+        return (float(z[0]),float(z[1]))
 
     def plot(self, sources, marker='o', text=None, fontsize=8, colorbar=False, **kwargs):
         """ plot symbols at points 
@@ -255,6 +264,7 @@ class AIT(object):
         ('size',      180,   'make less for restricted size'),
         ('galactic',  True,  'use galactic coordinates'),
         ('earth',     False, 'if looking down at Earth'),
+        ('axes',      None,   'set to use, otherwise create figure if necessary'),
         )
     
     @keyword_options.decorate(defaults)
@@ -302,7 +312,8 @@ class AIT(object):
     def grid(self, fig=None, labels=True, color='gray'):
     	"""Draws gridlines and labels for map."""
 
-        self.axes = pylab.axes() #creates figure and axes if not set
+        if self.axes is None:
+            self.axes = pylab.gca() #creates figure and axes if not set
 
         pylab.matplotlib.interactive(False)
         self.axes.set_autoscale_on(False)
@@ -344,21 +355,21 @@ class AIT(object):
     def imshow(self,  title=None, scale='linear', factor=1.0, **kwargs):
         'run imshow'
         from numpy import ma
-        #self.axes = pylab.axes()
+        if self.axes is None: self.axes = pylab.gca()
         # change defaults
         if 'origin'        not in kwargs: kwargs['origin']='lower'
         if 'interpolation' not in kwargs: kwargs['interpolation']='nearest'
         if 'extent'        not in kwargs: kwargs['extent']=self.extent
         
         if self.size==180: pylab.axes().set_axis_off()
-        if   scale=='linear':  pylab.imshow(self.masked_image*factor,   **kwargs)
-        elif scale=='log':     pylab.imshow(ma.log10(self.masked_image), **kwargs)
-        elif scale=='sqrt':    pylab.imshow(ma.sqrt(self.masked_image), **kwargs)
+        if   scale=='linear':  m=self.axes.imshow(self.masked_image*factor,   **kwargs)
+        elif scale=='log':     m=self.axes.imshow(ma.log10(self.masked_image), **kwargs)
+        elif scale=='sqrt':    m=self.axes.imshow(ma.sqrt(self.masked_image), **kwargs)
         else: raise Exception('bad scale: %s, expect either "linear" or "log"'%scale)
                                         
-        self.colorbar =pylab.colorbar(orientation='horizontal', shrink=1.0 if self.size==180 else 1.0)
+        #self.colorbar =pylab.colorbar(orientation='horizontal', shrink=1.0 if self.size==180 else 1.0)
+        self.colorbar =self.axes.figure.colorbar(m, ax=self.axes, orientation='vertical', shrink=0.6 if self.size==180 else 1.0)
         self.title(title)
-        self.axes = pylab.gca()
 
         # for interactive formatting of the coordinates when hovering
         ##pylab.gca().format_coord = self.format_coord # replace the function on the fly!
@@ -384,19 +395,19 @@ class AIT(object):
         self.colorbar=pylab.colorbar(orientation='horizontal', shrink=1.0 if self.size==180 else 1.0)
 
         self.title(title)
-        self.axes = pylab.gca()
+        if self.axes is None: self.axes = pylab.gca()
 
     def axislines(self, color='black',  **kwargs):
         ' overplot axis lines'
         import pylab
-        pylab.axvline(0, color=color, **kwargs)
-        pylab.axhline(0, color=color, **kwargs)
+        self.axes.axvline(0, color=color, **kwargs)
+        self.axes.axhline(0, color=color, **kwargs)
         pylab.axis(self.extent)
  
     def title(self, text=None, **kwargs):
         ' plot a title, default the name of the SkySpectrum'
         try:
-            self.axes.title( text if text is not None else self.skyfun.name(), **kwargs)
+            self.axes.set_title( text if text is not None else self.skyfun.name(), **kwargs)
         except AttributeError: #no name?
             pass
 
@@ -644,9 +655,11 @@ class ZEA(object):
         """
         x,y = self.pixel(source)
         if x<0 or x> self.nx or y<0 or y>self.ny: return False
-        self.axes.plot([x],[y], symbol,  **kwargs)
+        self.axes.plot([x],[y], symbol, 
+            markersize=kwargs.pop('markersize',12), **kwargs)
         #self.axes.text(x,y, name, fontsize=fontsize, **kwargs)
-        self.axes.text( x+self.nx/100., y+self.nx/100., name, fontsize=fontsize, **kwargs)
+        self.axes.text( x+self.nx/100., y+self.nx/100., name, 
+            fontsize=fontsize, **kwargs)
         return True
 
 
