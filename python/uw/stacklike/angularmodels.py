@@ -119,7 +119,7 @@ class PSF(Model):
     #  @param sig sigma parameter in radians
     #  @param g gamma parameter
     def recl(self,cl,sig,g):
-        return sig*np.sqrt(2*g*((1-cl)**(1/(-g+1))-1))
+        return sig*np.sqrt(2.*g*((1.-cl)**(1./(-g+1.))-1.))
 
     ## returns the radius in radians of a particular confidence level
     #  @param cl confidence level on interval (0,1)
@@ -140,15 +140,17 @@ class PSF(Model):
     #  @param c0 first containment fraction [0-1]
     #  @param c1 second containment fraction [0-1]
     def fromcontain(self,r0,r1,c0,c1):
-        pars = [0.01/rd,2.25]
-        minuit = Minuit(lambda x: self.cfunc(x[0],x[1],r0,r1,c0,c1),pars,limits=self.limits,tolerance=1e-3,strategy=0,printMode=-1)
+        pars = [r0/c0*0.68,2.25]
+        minuit = Minuit(lambda x: self.cfunc(x[0],x[1],r0,r1,c0,c1),pars,limits=self.limits,tolerance=1e-10,strategy=2,printMode=-1)
         minuit.minimize()
         self.model_par=minuit.params
+        #print r0,self.recl(c0,self.model_par[0],self.model_par[1])
+        #print r1,self.recl(c1,self.model_par[0],self.model_par[1])
 
     ## fitting function for containment
     def cfunc(self,sigma,gamma,r0,r1,c0,c1):
-        acc = (r0-self.recl(c0,sigma,gamma))**2
-        acc = acc + (r1-self.recl(c1,sigma,gamma))**2
+        acc = ((r0-self.recl(c0,sigma,gamma))/r0)**2
+        acc = acc + ((r1-self.recl(c1,sigma,gamma))/r1)**2
         return acc
 ################################################### END PSF CLASS       ###########################################
 
