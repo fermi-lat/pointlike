@@ -128,6 +128,7 @@ class StackLoader(object):
         print '*                       STACKLIKE                        *'
         print '*                                                        *'
         print '**********************************************************'
+        print 'Using irf: %s_diff'%self.irf
         print 'Using list: %s.txt'%self.lis
         print 'Using boresight alignment (in arcsec): Rx=%1.0f Ry=%1.0f Rz=%1.0f'%(self.rot[0]*rd*3600,self.rot[1]*rd*3600,self.rot[2]*rd*3600)
 
@@ -164,6 +165,9 @@ class StackLoader(object):
         self.diffs =[]
         self.aeff = []
         self.photons = []
+        self.photoncount=0
+        self.Npsf =0
+        self.Nback =0
         self.ebar=0
         self.loadsrclist(self.lis)
 
@@ -214,6 +218,7 @@ class StackLoader(object):
                             self.photons.append(Photon(wsd.ra(),wsd.dec(),ebar,0,bnd.event_class(),[],[],src,wsd.weight()))
                             self.ebar = self.ebar + wsd.weight()*ebar
             pcnts = sum([x.weight for x in self.photons])
+            self.photonscount = self.photoncount+pcnts
             if len(self.photons)==0:
                 print 'No photons!'
                 raise 'No photons!'
@@ -297,6 +302,7 @@ class StackLoader(object):
                                 photon = Photon(sd.ra(),sd.dec(),event.field('ENERGY'),time,event.field('CONVERSION_TYPE'),xv,zv,src)
                                 self.ebar = self.ebar+event.field('ENERGY')
                                 self.photons.append(photon)
+                                self.photoncount = self.photoncount + 1
                     if self.useft2s:
                         del phist #free up memory from pointing history object
             if len(self.photons)>0:
@@ -306,7 +312,10 @@ class StackLoader(object):
                 raise 'No Photons!'
 
     ## estimates Isotropic component from PSF
-    def solveback(self):
+    #  @param func optional custom background component to fit [[angular separations],[counts]]
+    #  @param free free or fix model number estimators
+    #  @param exp specify number estimators
+    def solveback(self,func=[[],[]],free=[True,True],exp=[]):
 
         #Try to estimate the number of Isotropic photons
         #by looking at density near tails
@@ -314,34 +323,55 @@ class StackLoader(object):
         frac = 0.98
         area = 1-frac*frac
         density = len(self.ds[self.ds>(frac*self.maxroi/rd)])
-        denback = density/(self.maxroi**2)/area*(self.maxroi*self.maxroi-self.minroi*self.minroi)
+        denback = density*(self.maxroi*self.maxroi-self.minroi*self.minroi)/((self.maxroi**2)*area)
 
-        if denback>len(self.photons):
-            denback = len(self.photons)
-        if self.cls==-1:
-            r68f=self.psf.inverse_integral(self.ebar,0,68.)/rd
-            r95f=self.psf.inverse_integral(self.ebar,0,95.)/rd
-            r68b=self.psf.inverse_integral(self.ebar,1,68.)/rd
-            r95b=self.psf.inverse_integral(self.ebar,1,95.)/rd
-            r68=np.sqrt(r68f*r68b)
-            r95=np.sqrt(r95f*r95b)
-        else:
-            r68=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),68.)/rd
-            r95=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),95.)/rd
-        psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25],free=[False,False])
-        psf.fromcontain(r68,r95,0.68,0.95)
+        if denback>len(self.ds):
+            denback = len(self.ds)
+        psf = self.getpsf()
         bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
         cm = CompositeModel()
         cm.addModel(psf)
         cm.addModel(bck)
-        cm.fit(self.photons,mode=0,quiet=self.quiet,free=[True,True],exp=[len(self.photons)-denback,denback])
+        #if custom background is specified, add it
+        if len(func[0])!=0:
+            bck2 = Custom(lims=[self.minroi/rd,self.maxroi/rd],func=func)
+            cm.addModel(bck2)
 
+        #check to see if number estimators are specified
+        if exp==[]: 
+            if len(cm.models)==2:
+                exp=[len(self.photons)-denback,denback]
+            else:
+                exp=[len(self.photons)-denback,0.,denback]
+        if len(free)!=len(cm.models):
+            free=[True,True,True]
+        cm.fit(self.photons,mode=0,quiet=self.quiet,free=free,exp=exp)
         self.Npsf = cm.minuit.params[0]
         self.Nback = cm.minuit.params[1]
         self.errs = cm.minuit.errors()
         self.Npsfe = np.sqrt(self.errs[0][0])
         self.Nbacke = np.sqrt(self.errs[1][1])
         self.cm = cm
+
+    ## returns the TS for a point source in a uniform background
+    #  @param ct optionally define the PSF by [R68,R95] in radians, default is the self.irf
+    def TS(self,ct=[]):
+        if len(self.photons)==0:
+            return 0
+        if (self.Npsf+self.Nback)==0:
+            self.solveback()
+        cm = CompositeModel()
+        if ct==[]:
+            psf = self.getpsf()
+        else:
+            psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25],free=[True,True])
+            psf.fromcontain(ct[0],ct[1],0.68,0.95)
+        back = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
+        cm.addModel(psf)
+        cm.addModel(back)
+        f0 = cm.extlikelihood([0,self.Npsf+self.Nback,psf.model_par[0],psf.model_par[1]],self.photons)
+        f1 = cm.extlikelihood([self.Npsf,self.Nback,psf.model_par[0],psf.model_par[1]],self.photons)
+        return -2*(f1-f0)
 
     ## Finds boresight alignment solution
     def solverot(self):
@@ -376,16 +406,16 @@ class StackLoader(object):
         self.cm=cm
 
     ## tries to solve parameters for a single King function with Isotropic background
+    #  @param func optional custom background component to fit [[angular separations],[counts]]
+    #  @param free free or fix model number estimators
+    #  @param exp specify number estimators
     def solvepsf(self,func=[[],[]],free=[True,True],exp=[]):
 
         #estimate Isotropic component
         self.solveback()
 
         #solve for PSF parameters
-        r68=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),68.)/rd
-        r95=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),95.)/rd
-        psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25])
-        psf.fromcontain(r68,r95,0.68,0.95)
+        psf = self.getpsf(True)
         sigma = psf.model_par[0]
         gamma = psf.model_par[1]
         bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
@@ -456,25 +486,16 @@ class StackLoader(object):
         self.cm=cm
 
     # tries to fit a halo component on top of a PSF defined by 'irf' in a Isotropic background
+    #  @param cust [sigma,gamma] of PSF, where sigma is in radians
     def solvehalo(self,cust=[]):
 
         #estimate Isotropic component
         self.solveback()
 
         #solve for Halo model component while freezing PSF parameters
+
         if cust==[]:
-            if self.cls==-1:
-                r68f=self.psf.inverse_integral(self.ebar,0,68.)/rd
-                r95f=self.psf.inverse_integral(self.ebar,0,95.)/rd
-                r68b=self.psf.inverse_integral(self.ebar,1,68.)/rd
-                r95b=self.psf.inverse_integral(self.ebar,1,95.)/rd
-                r68=np.sqrt(r68f**2+r68b**2)
-                r95=np.sqrt(r95f**2+r95b**2)
-            else:
-                r68=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),68.)/rd
-                r95=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),95.)/rd
-            psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25],free=[False,False])
-            psf.fromcontain(r68,r95,0.68,0.95)
+            psf = self.getpsf()
         else:
             psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=cust,free=[False,False])
         halo = Halo(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.2/rd])
@@ -513,16 +534,16 @@ class StackLoader(object):
         self.cm=cm
 
     ## tries to fit two King functions in an Isotropic background
+    #  @param func optional custom background component to fit [[angular separations],[counts]]
+    #  @param free free or fix model number estimators
+    #  @param exp specify number estimators
     def solvedoublepsf(self,func=[[],[]],free=[True,True,True],exp=[]):
         
         #estimate uniform Isotropic component
         self.solveback()
 
         #solve two King function parameters
-        r68=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),68.)/rd
-        r95=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),95.)/rd
-        psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25])
-        psf.fromcontain(r68,r95,0.68,0.95)
+        psf = self.getpsf(True)
         sigma = psf.model_par[0]
         gamma = psf.model_par[1]
         psf2 = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[1.2*psf.model_par[0],0.7*psf.model_par[1]]) #try to separate psfs initially
@@ -910,6 +931,25 @@ class StackLoader(object):
                         u = photon.srcdiff()
                     self.ds.append(u)
             self.ds = np.array(self.ds)
+
+    ## returns a PSF object based on containment specified by self.irf
+    #  @param opt frees or fixes PSF parameters
+    def getpsf(self,opt=False):
+        self.psf = pypsf.CALDBPsf(irf=self.irf+'_diff')
+        if self.cls==-1:
+            r68f=self.psf.inverse_integral(self.ebar,0,68.)/rd
+            r95f=self.psf.inverse_integral(self.ebar,0,95.)/rd
+            r68b=self.psf.inverse_integral(self.ebar,1,68.)/rd
+            r95b=self.psf.inverse_integral(self.ebar,1,95.)/rd
+            r68=np.sqrt(r68f*r68b)
+            r95=np.sqrt(r95f*r95b)
+        else:
+            r68=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),68.)/rd
+            r95=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),95.)/rd
+        psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25],free=[opt,opt])
+        psf.fromcontain(1.,r95/r68,0.68,0.95)
+        psf.model_par[0]=psf.model_par[0]*r68
+        return psf
 
     def writebpd(self,bpd=8):
         binfile = s.BinnedPhotonData(bpd)
