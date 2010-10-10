@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Sun Oct 10 15:45:05 PDT 2010
+pointlike/python/uw/stacklike
+
+Modified Files:
+	angularmodels.py stacklike.py 
+Log Message:
+Fixed the way the psf was calculated from containment for stacklike
+    *
+------------------------------------------------------------
 User: burnett  Tue Oct  5 20:39:01 PDT 2010
 pointlike/python/uw/utilities
 
