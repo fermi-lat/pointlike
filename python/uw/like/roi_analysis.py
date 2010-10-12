@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.43 2010/09/28 20:14:23 cohen Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.46 2010/10/12 19:03:45 wallacee Exp $
 
 author: Matthew Kerr
 """
@@ -562,21 +562,21 @@ class ROIAnalysis(object):
         equation.
         """
 
-         delta_logl = chi2.ppf(2*confidence-1,1)/2.
-         params = self.parameters().copy()
-         #self.psm.models[which].p[0]  = -20
-         zp = self.logLikelihood(self.parameters())
+        delta_logl = chi2.ppf(2*confidence-1,1)/2.
+        params = self.parameters().copy()
+        #self.psm.models[which].p[0]  = -20
+        zp = self.logLikelihood(self.parameters())
 
-         def f(norm):
-              self.psm.models[which].p[0] = N.log10(norm)
-              ll = self.logLikelihood(self.parameters())
-              return abs(ll - zp - delta_logl)
+        def f(norm):
+            self.psm.models[which].p[0] = N.log10(norm)
+            ll = self.logLikelihood(self.parameters())
+            return abs(ll - zp - delta_logl)
 
-         limit = fmin(f,N.array([10**-6]),disp=0)[0]
-         self.psm.models[which].p[0] = N.log10(limit)
-         uflux = self.psm.models[which].i_flux(e_weight = e_weight,cgs = cgs)
-         self.set_parameters(params)
-         return uflux
+        limit = fmin(f,N.array([10**-6]),disp=0)[0]
+        self.psm.models[which].p[0] = N.log10(limit)
+        uflux = self.psm.models[which].i_flux(e_weight = e_weight,cgs = cgs)
+        self.set_parameters(params)
+        return uflux
 
     def printSpectrum(self,sources=None):
         """Print total counts and estimated signal in each band for a list of sources.
