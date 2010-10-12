@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Mon Oct 11 19:34:08 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Change the upper limit method to use the (hopefully) more robust Bayesian method.
+
+    *
+------------------------------------------------------------
 User: mar0  Sun Oct 10 15:45:05 PDT 2010
 pointlike/python/uw/stacklike
 
