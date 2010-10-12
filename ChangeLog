@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Tue Oct 12 12:03:45 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Rename old upper_limit method to upper_limit_quick.
+
+    *
+------------------------------------------------------------
 User: wallacee  Mon Oct 11 19:34:08 PDT 2010
 pointlike/python/uw/like
 
