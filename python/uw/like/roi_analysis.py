@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.44 2010/09/30 19:28:39 cohen Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.43 2010/09/28 20:14:23 cohen Exp $
 
 author: Matthew Kerr
 """
@@ -452,7 +452,7 @@ class ROIAnalysis(object):
             bandfits  -- if True, use a band-by-band (model independent) spectral fit; otherwise, use broadband fit
             seedpos    -- if set, use this position instead of the source position
 
-            return fit position, number of iterations, distance moved, delta TS
+            return fit position
         """
         manager,index=self.mapper(which)
 
@@ -537,21 +537,34 @@ class ROIAnalysis(object):
         self.logLikelihood(params)
         return uflux
 
-    def upper_limit(self,which = 0,confidence = .95,e_weight = 0,cgs = False):
-         """Compute an upper limit on the flux of a source.
+    def upper_limit_quick(self,which = 0,confidence = .95,e_weight = 0,cgs = False):
+        """Compute an upper limit on the flux of a source assuming a gaussian likelihood.
 
-             which        -- index of point source; default to central
-             confidence -- confidence level for the upper limit, default to 95%
+        Arguments:
+            which: integer [0]
+                Index of the point source for which to compute the limit.
+            confidence: float [.95]
+                Desired confidence level of the upper limit.
+            e_weight: float [0]
+                Energy weight for the flux integral (see documentation for uw.like.Models)
+            cgs: bool [False]
+                If true return flux in cgs units (see documentation for uw.like.Models)
 
-          The flux returned is an upper limit on the integral flux for the model
-          above 100 MeV.
+        The flux returned is an upper limit on the integral flux for the model
+        above 100 MeV.
 
-          N.B.-This still needs some work.  The fmin call will sometimes get lost
-          and return an absurdly low limit (~10^-23 ph/cm^2/s, e.g.)
-         """
+        The upper limit is found based on the change in the log likelihood
+        from the maximum, using the Gaussian approximation. It is quicker
+        than the Bayesian method performed by upper_limit, but less robust.
+        In particular, fmin will sometimes get lost and return absurdly
+        small values, and if the maximum is too far above zero, it will
+        often find the lower of the two solutions to the appropriate
+        equation.
+        """
+
          delta_logl = chi2.ppf(2*confidence-1,1)/2.
          params = self.parameters().copy()
-         self.psm.models[which].p[0]  = -20
+         #self.psm.models[which].p[0]  = -20
          zp = self.logLikelihood(self.parameters())
 
          def f(norm):
