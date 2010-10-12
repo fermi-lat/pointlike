@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.43 2010/09/28 20:14:23 cohen Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.44 2010/09/30 19:28:39 cohen Exp $
 
 author: Matthew Kerr
 """
@@ -19,6 +19,7 @@ from uw.utilities import keyword_options
 
 from scipy.optimize import fmin,fmin_powell,fmin_bfgs
 from scipy.stats.distributions import chi2
+from scipy import integrate
 from numpy.linalg import inv
 
 EULER_CONST  = N.exp(1)
@@ -466,6 +467,76 @@ class ROIAnalysis(object):
                                                       seedpos=None,tolerance=tolerance,
                                                       update=update,verbose=verbose,**kwargs)
 
+    def upper_limit(self,**kwargs):
+        """Compute an upper limit on the source flux, by the "PDG Method"
+
+        This method computes an upper limit on the flux of a specified source
+        for a given time interval. The limit is computed by integrating the
+        likelihood over the flux of the source, via Simpson's Rule, up to the
+        desired percentile (confidence level). As such, it is essentially a
+        Bayesian credible interval, using a uniform prior on the flux
+        parameter.
+
+        Note that the default integral limits are determined assuming that
+        the relevant parameter is the normalization parameter of a PowerLaw
+        model. For other models, especially PowerLawFlux, the limits should
+        be specified appropriately.
+
+        The limit returned is the integrated flux above 100 MeV in photons
+        per square centimeter per second.
+
+        Arguments:
+            which: integer [0]
+                Index of the point source for which to compute the limit.
+            confidence: float [.95]
+                Desired confidence level of the upper limit.
+            integral_min: float [-15]
+                Lower limit of the likelihood integral *in log space*.
+            integral_max: float [-8]
+                Upper limit of the likelihood integral *in log space*.
+            simps_points: int [10]
+                Number of evaluation points *per decade* for Simpson's rule.
+            e_weight: float [0]
+                Energy weight for the flux integral (see documentation for uw.like.Models)
+            cgs: bool [False]
+                If true return flux in cgs units (see documentation for uw.like.Models)
+        """
+        kw = dict(which=0,
+                  confidence=0.95,
+                  integral_min=-15,
+                  integral_max =-8,
+                  simps_points = 100,
+                  e_weight = 0,
+                  cgs = False)
+        for k,v in kw.items():
+            kw[k] = kwargs.pop(k,v)
+        if kwargs:
+            for k in kwargs.keys():
+                print("Invalid keyword argument for ROIAnalysis.upper_limit: %s"%k)
+        params = self.parameters().copy()
+        ll_0 = self.logLikelihood(self.parameters())
+        def like(norm):
+            self.psm.models[kw['which']].p[0] = norm
+            return N.exp(ll_0-self.logLikelihood(self.parameters()))
+        npoints = kw['simps_points'] * (kw['integral_max'] - kw['integral_min'])
+        points = N.log10(N.logspace(kw['integral_min'],
+                                      kw['integral_max'],npoints*2+1))
+        y = N.array([like(x)*10**x for x in points])
+        trapz1 = integrate.cumtrapz(y[::2])
+        trapz2 = integrate.cumtrapz(y)[::2]
+        cumsimps = (4*trapz2 - trapz1)/3.
+        cumsimps /= cumsimps[-1]
+        i1 = N.where(cumsimps<.95)[0][-1]
+        i2 = N.where(cumsimps>.95)[0][0]
+        x1, x2 = points[::2][i1], points[::2][i2]
+        y1, y2 = cumsimps[i1], cumsimps[i2]
+        #Linear interpolation should be good enough at this point
+        limit = x1 + ((x2-x1)/(y2-y1))*(kw['confidence']-y1)
+        self.psm.models[0].p[0] = limit
+        uflux = self.psm.models[0].i_flux(e_weight=kw['e_weight'],cgs=kw['cgs'])
+        self.logLikelihood(params)
+        return uflux
+
     def upper_limit(self,which = 0,confidence = .95,e_weight = 0,cgs = False):
          """Compute an upper limit on the flux of a source.
 
@@ -713,3 +784,4 @@ class ROIAnalysis(object):
         """Write out a gtlike style results file."""
         from uw.utilities.results_writer import writeResults
         writeResults(self,filename,**kwargs)
+    
