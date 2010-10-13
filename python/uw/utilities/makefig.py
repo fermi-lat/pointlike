@@ -1,13 +1,13 @@
 """ 
 Make combinded figures for Pivot, perhaps
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makefig.py,v 1.4 2010/05/11 18:57:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makefig.py,v 1.5 2010/08/03 22:29:42 burnett Exp $
 
 """ 
 
 from PIL import Image
 import glob, os, sys, exceptions
 import pylab  as plt
-version='$Revision: 1.4 $'.split()[1]
+version='$Revision: 1.5 $'.split()[1]
 
 class InvalidParameter(exceptions.Exception):
     pass
@@ -50,24 +50,29 @@ class Holder(object):
         else:
             self.image.save(filename)
 
-def combine_images(names, hsize=(2048,1600), 
+def combine_images( sname, names, 
+                    hsize=(2048,1600), 
                     sizes=     [(1050,1050) , None, None, None], 
                     positions= [(0,0), (70,1000), (1050,80), (570, 1000)],
-                    crop=(0,32, 1568, 1470),  #2048, 1568),
+                    crop=(0,32, 1568, 1470),  
                     outdir=None,
+                    overwrite = False,
+                    title = None,
                     ):
-    c = Holder(size=hsize)
-    for i,(name, size,pos) in enumerate(zip(names, sizes, positions)):
-        c.insert(name, size, pos)
-
-    #sname = os.path.split(names[0])[1].split('_')[-2]
-    sname = os.path.split(names[0])[1].replace('_tsmap.png','.jpg')
-    print sname
     if outdir is not None:
         outfile = os.path.join(outdir, sname )
     else:
         outfile =  sname
+    if os.path.exists(outfile) and not overwrite: return False
+    c = Holder(size=hsize)
+    for i,(name, size,pos) in enumerate(zip(names, sizes, positions)):
+        c.insert(name, size, pos)
+    if title is not None: # expect a tuple (function, (l,t))
+        title[0](sname, 'temp.png') # write a temporary file
+        c.insert('temp.png', None, title[1])
+        os.remove('temp.png')
     c.save(outfile, crop=crop)
+    return True
 
 def combine_image(name, path, subpaths=('tsmap', 'sedfig', 'log', 'light_curves'), outfolder='combined'):
     """ special to combine a create a single image
@@ -82,17 +87,20 @@ def combine_image(name, path, subpaths=('tsmap', 'sedfig', 'log', 'light_curves'
 def make_dzc(infolder, outfolder,
         imagefolder='dzi', #'healpipe1_dzimages', 
         collection_name='dzc', #'healpipe1_dzcollection' 
+        type = 'jpg',  
         ):
-    """ infolder: path to a folder containing a bunch of jpg images to convert
-        outfolder: where to set up the dzc and dzi
-        imagefolder: name of a folder for the created dzi images
-        collection_name: name to apply to the deep zoom collection: will be the name of a xml file.
+    """ infolder   :  path to a folder containing a bunch of images to convert
+        outfolder  :   where to set up the dzc and dzi
+    keyword parameters
+        imagefolder: ['dzi'] name of a folder for the created dzi images
+        collection_name: ['dzc'] name to apply to the deep zoom collection: will be the name of a xml file.
+        type       : ['jpg'] graphics type, perhaps 'png'
     """
     imagefolder = imagefolder or '%s_dzi' % infolder
     collection_name = collection_name or '%s_dzc' % infolder
-    t = '%s\\*.jpg' % infolder
+    t = '%s\\*.%s' % (infolder, type)
     n = len(glob.glob(t))
-    if n ==0: raise InvalidParameter('no jpg files found in folder "%s"' % infolder)
+    if n ==0: raise InvalidParameter('no %s files found in folder "%s"' % (type,infolder))
     print 'Converting %d jpg images from %s, dzi to %s, collection %s' \
         % (n, infolder, imagefolder, collection_name)
     def cmd(c): 
@@ -113,6 +121,7 @@ def main(
         nmax=0,
         force_log_gen = False,
         subpaths=('tsmap', 'sedfig', 'log', 'light_curves'),
+        allow_missing=True,
     ):
     """
     Args:
@@ -138,7 +147,7 @@ def main(
             combine_image(name.replace(' ','_').replace('+', 'p'), figpath, subpaths=subpaths)
         except:
             print 'fail to convert source "%s"' % name
-            raise
+            if not allow_missing: raise
             
     if pivot_dir is not None: make_dzc(outdir, pivot_dir)
 
