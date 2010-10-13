@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.10 2010/08/26 15:20:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.11 2010/08/29 20:21:10 burnett Exp $
 author: T.Burnett <tburnett@u.washington.edu>
 """
 
@@ -40,10 +40,14 @@ class ROIfactory(pointspec.SpectralAnalysis):
     def __init__(self, **kwargs): 
         
         self.log = kwargs.pop('log', None)
-        analysis_environment = config.AE(**kwargs)
-        super(ROIfactory,self).__init__( analysis_environment)
-
-        ae = analysis_environment
+        ae = config.AE(**kwargs)
+        super(ROIfactory,self).__init__( ae)
+        self.setup_catalog(ae)
+        if not self.quiet: 
+            print >>self.log, self
+            if self.log is not None: self.log.close()
+        
+    def setup_catalog(self, ae):
         catpars = dict(  # this is ugly, need general solution: want to pass in ae, extract only the ones catman wants.
                 pulsar_dict = ae.__dict__.pop('pulsar_dict', None),
                 free_radius = ae.__dict__.pop('free_radius'),
@@ -52,18 +56,15 @@ class ROIfactory(pointspec.SpectralAnalysis):
                 quiet = ae.quiet,
                 verbose = ae.verbose,
                 )
-        self.catman= roi_setup.CatalogManager(os.path.join(analysis_environment.catdir, analysis_environment.catalog),
+        self.catman= roi_setup.CatalogManager(os.path.join(ae.catdir, ae.catalog),
             **catpars)
-
-        aux = self.__dict__.pop('aux_cat', None)
-        if aux:
-            if not self.quiet: print 'adding sources from catalog'
-            self.cb.append(aux)
-            
-        if not self.quiet: 
-            print >>self.log, self
-            if self.log is not None: self.log.close()
-        
+        # obsolete??
+        #aux = self.__dict__.pop('aux_cat', None)
+        #if aux:
+        #    if not self.quiet: print 'adding sources from catalog'
+        #    self.cb.append(aux)
+        #    
+ 
     def __str__(self):
         s = 'ROIfactory analysis environment:\n'
         s += self.ae.__str__()
@@ -73,11 +74,74 @@ class ROIfactory(pointspec.SpectralAnalysis):
         #    s += '\t%-20s: %s\n' %(key, self.__dict__[key])
         return s
 
-    def __call__(self, sources, max_roi=None, min_roi=None, roi_dir=None, **kwargs):
+    def global_sources(self, skydir):
+        """ return the manager for the all-sky diffuse sources, convolved at the given skydir
+        """
+        # diffuse sources setup
+        diffuse_mapper = lambda x: roi_diffuse.ROIDiffuseModel_OTF(self, x, skydir)
+        diffuse_sources = pointspec_helpers.get_default_diffuse( *self.diffuse)
+        diffuse_models = [diffuse_mapper(ds) for ds in diffuse_sources]
+        return roi_managers.ROIDiffuseManager(diffuse_models,skydir,quiet=self.quiet)
+    
+    def local_sources(self, sources,  **kwargs):
+        """ return a manager for the local sources with significant overlap with the ROI
+        """
+        # ROI spec
+        max_roi = kwargs.pop('max_roi', None)
+        min_roi = kwargs.pop('min_roi', None)
+        roi_dir = kwargs.pop('roi_dir', None)
+        if min_roi: self.minROI=min_roi  
+        if max_roi: self.maxROI=max_roi 
+        
+        ps = []
+        model_specified = True
+        modelname = kwargs.pop('model', None)
+        model_par = kwargs.pop('model_par', (1e-12, 2.3))
+        if modelname is None:
+            model_specified = False
+            modelname = 'PowerLaw'
+         
+        if type(sources)==types.StringType:
+            #try:
+            name, ra, dec = findsource.find_source(sources, catalog=self.catalog)
+            if not self.quiet: print '%s --> %s at (%s, %s)' % (sources, name, ra, dec)
+            #except Exception, arg:
+            #    raise Exception, 'source name "%s" unrecognized, reason %s' % (sources, arg)
+            themodel = make_model(modelname, model_par)
+            ps = [pointspec_helpers.PointSource(SkyDir(float(ra), float(dec)), name, themodel)]
+        else:
+            for s in sources:
+                name,dir = s[:2]
+                themodel = s[2] if len(s)==3 else make_model(modelname, model_par);
+                ps.append(pointspec_helpers.PointSource(dir,name, themodel) )
+         
+        
+        # pass on default values for optional args
+        passon_list = ('free_radius', 'prune_radius', 'fit_bg_first', 'use_gradient', 'bgfree', 'bgpars',)
+        for x in passon_list:
+                if x not in kwargs: kwargs[x] = self.__dict__[x]
+        skydir =self.roi_dir = roi_dir or ps[0].skydir
+
+        # add background point sources from the CatalogManager
+        ps = ps + self.catman(skydir, self.maxROI)
+        excluded = self.catman.exclude
+        if len(excluded)>0:
+            if not model_specified:
+                ps[0].model = excluded[0].model # if replacing a cat source, use its model
+            elif modelname=='ExpCutoff':
+                # specified ExpCufoff: copy catalog values for flux, index
+                ps[0].model.p[:2] = excluded[0].model.p[:2]
+            if len(excluded)>1: 
+                print 'warning: did not use fit parameters for excluded catalog source(s)'
+        
+        return roi_managers.ROIPointSourceManager(ps, skydir,quiet=self.quiet)
+
+    
+    def __call__(self, source_specification, **kwargs):
         """ 
         return a MyROI object
 
-        sources -- a list (name, skydir, model) of sources, or a text string for one source
+        source_specification -- a list (name, skydir, model) of sources, or a text string for one source
                    with:
                       name ra dec 
                       name     (look up in catalog if so)
@@ -102,68 +166,25 @@ class ROIfactory(pointspec.SpectralAnalysis):
             model_par    [1e-12, 2.3]    a list of initial model parameters
             ==========   =============
         """
-        ps = []
-        model_specified = True
-        modelname = kwargs.pop('model', None)
-        model_par = kwargs.pop('model_par', (1e-12, 2.3))
-        if modelname is None:
-            model_specified = False
-            modelname = 'PowerLaw'
-         
-        if type(sources)==types.StringType:
-            #try:
-            name, ra, dec = findsource.find_source(sources, catalog=self.catalog)
-            if not self.quiet: print '%s --> %s at (%s, %s)' % (sources, name, ra, dec)
-            #except Exception, arg:
-            #    raise Exception, 'source name "%s" unrecognized, reason %s' % (sources, arg)
-            themodel = make_model(modelname, model_par)
-            ps = [pointspec_helpers.PointSource(SkyDir(float(ra), float(dec)), name, themodel)]
-        else:
-            for s in sources:
-                name,dir = s[:2]
-                themodel = s[2] if len(s)==3 else make_model(modelname, model_par);
-                ps.append(pointspec_helpers.PointSource(dir,name, themodel) )
-         
-        skydir =self.roi_dir = roi_dir or ps[0].skydir
-        if min_roi: self.minROI=min_roi  
-        if max_roi: self.maxROI=max_roi 
+        ps_manager = self.local_sources( source_specification, **kwargs)
+        bg_manager = self.global_sources(ps_manager.roi_dir)
         
-        # pass on default values for optional args
+        def iterable_check(x):
+            return x if hasattr(x,'__iter__') else (x,x)
+
+        # pass on default values for optional args to MyROi
         passon_list = ('free_radius', 'prune_radius', 'fit_bg_first', 'use_gradient', 'bgfree', 'bgpars',)
         for x in passon_list:
                 if x not in kwargs: kwargs[x] = self.__dict__[x]
 
-        # add background point sources from the CatalogManager
-        ps = ps + self.catman(skydir, self.maxROI)
-        excluded = self.catman.exclude
-        if len(excluded)>0:
-            if not model_specified:
-                ps[0].model = excluded[0].model # if replacing a cat source, use its model
-            elif modelname=='ExpCutoff':
-                # specified ExpCufoff: copy catalog values for flux, index
-                ps[0].model.p[:2] = excluded[0].model.p[:2]
-            if len(excluded)>1: 
-                print 'warning: did not use fit parameters for excluded catalog source(s)'
-        
-        ps_manager = roi_managers.ROIPointSourceManager(ps, skydir,quiet=self.quiet)
-        
-        # diffuse sources setup
-        diffuse_mapper = lambda x: roi_diffuse.ROIDiffuseModel_OTF(self, x, skydir)
-        diffuse_sources = pointspec_helpers.get_default_diffuse( *self.diffuse)
-        diffuse_models = [diffuse_mapper(ds) for ds in diffuse_sources]
-        bg_manager = roi_managers.ROIDiffuseManager(diffuse_models,skydir,quiet=self.quiet)
-
-        emin,emax = self.fit_emin, self.fit_emax
-        def iterable_check(x):
-            return x if hasattr(x,'__iter__') else (x,x)
-        r = myroi.MyROI(skydir, ps_manager, bg_manager, self, 
-                        point_sources = ps,
-                        fit_emin=iterable_check(emin), fit_emax=iterable_check(emax),
-                        quiet=self.quiet, **kwargs)
-
-        # if a different direction, we need to disable the original, most likely the nearest
-        if len(r.psm.point_sources)>1 and r.psm.point_sources[1].name.strip() == r.name:
-            r.psm.models[1].p[0]=-20
+        r = myroi.MyROI(ps_manager.roi_dir, 
+                    ps_manager, bg_manager, 
+                    self, 
+                    point_sources = ps_manager.point_sources, # redundant???
+                    fit_emin=iterable_check(self.fit_emin), 
+                    fit_emax=iterable_check(self.fit_emax),
+                    quiet=self.quiet, 
+                    **kwargs)
         return r
     
         

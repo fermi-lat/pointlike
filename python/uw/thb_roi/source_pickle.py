@@ -1,7 +1,7 @@
 """
 Manage the UW catalog source pickle storage
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/source_pickle.py,v 1.1 2010/08/23 20:47:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/source_pickle.py,v 1.2 2010/08/24 22:03:40 burnett Exp $
 """
 import os, pickle, glob, math
 import numpy as np
@@ -56,7 +56,7 @@ def get_class(adict):
                 vcs galaxies pulsar_lat snr snr_ext pulsar_high pulsar_low pulsar_fom
                 msp pwn hmxb lmxb globular tev ibis lbv dwarfs
                '''.split()
-    others = ['ostar']
+    others = ['ostar', 'starbursts', 'ocl']
     ass_class = ['bzb','bzcat']+['bzq']*3+['agn']*6+['LAT psr']+\
                 ['snr']*2 + ['psr']*4 + ['pwn'] + ['hmxb'] + ['lmxb']+ ['glc'] +['tev'] + 3*['None']
     cls = None

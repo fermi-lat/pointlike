@@ -1,7 +1,7 @@
 
 """
  Manage the catalog association tables
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/associate.py,v 1.9 2010/06/21 15:55:54 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/associate.py,v 1.10 2010/08/06 18:15:11 burnett Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
 import pyfits, os, pickle, glob
@@ -214,9 +214,12 @@ class SrcId(srcid.SourceAssociation):
     def __call__(self, name, pos, error):
         """ name: source name, ignored, for reference
             pos: a SkyDir object
-            error: a tuple (a,b,ang)
+            error: a tuple (a,b,ang) or, ra,dec,a,b,ang,...
             returns None, or a dictionary consistent with Association above. (elements sorted by prob.)
         """
+        if len(error)==7: 
+            error = error[3:6] 
+        assert len(error)==3, 'wrong length for error ellipse specification'
         source_ass = self.id(pos,error)
         # select first association per catalog, rearrange to sort on over-all prob.
         candidates = [(v[0][1],v[0][0],v[0][2],key) for key,v in source_ass.items() if v!={}]

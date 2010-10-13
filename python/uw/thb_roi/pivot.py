@@ -1,9 +1,9 @@
 """
 do pivot stuff 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pivot.py,v 1.6 2010/06/20 14:16:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pivot.py,v 1.7 2010/08/06 18:15:11 burnett Exp $
 
 """
-version='$Revision: 1.6 $'.split()[1]
+version='$Revision: 1.7 $'.split()[1]
 from uw.utilities import collection
 from uw.thb_roi import pipeline, findsource
 from skymaps import SkyDir
@@ -38,7 +38,7 @@ class Pivot(object):
                 select_all=False, 
                 dzc='dzc.xml',
                 other_keys = None,
-                icon=None,
+                **kwargs
         ):
         
         """
@@ -58,7 +58,7 @@ class Pivot(object):
         self.rec = selection(indir, select_all, other_keys=other_keys)
 
         # create the Collection
-        self.collection=collection.Collection(name, outdir,  self.rec.name, dzc,  icon=icon) 
+        self.collection=collection.Collection(name, outdir,  self.rec.name, dzc, **kwargs) 
         
         self.fill_default()
     def limit(self, v, a, b, nan=None):
@@ -86,22 +86,29 @@ class Pivot(object):
         uwc.ts[uwc.ts<1]=0
         uwc.ts[uwc.ts>1e5]=1e5
         col.add_facet('band_ts', 'Number', 'F1', uwc.band_ts)
-        col.add_facet('TS', 'Number', 'F1', self.limit(uwc.ts2, 0, None))  # should fix this!
-        col.add_facet('isonorm', 'Number', 'F2', uwc.isonorm)
-        uwc.galnorm[uwc.galnorm<1e-3]=0
-        uwc.isonorm[uwc.isonorm<1e-3]=0
-        col.add_facet('galnorm', 'Number', 'F2', uwc.galnorm)
-        col.add_facet('a', 'Number', 'F3', uwc.a)
-        col.add_facet('b', 'Number', 'F3', uwc.b)
-        col.add_facet('qual', 'Number', 'F1', uwc.qual)
+        col.add_facet('TS', 'Number', 'F1', self.limit(uwc.ts, 0, 1e5))  # should fix this!
+        
+        if 'isonorm' in uwc.dtype.names:
+            # has diffuse normalization info (old style)
+            col.add_facet('isonorm', 'Number', 'F2', uwc.isonorm)
+            uwc.galnorm[uwc.galnorm<1e-3]=0
+            uwc.isonorm[uwc.isonorm<1e-3]=0
+            col.add_facet('galnorm', 'Number', 'F2', uwc.galnorm)
+        
+        col.add_facet('a', 'Number', 'F3', self.limit(uwc.a,0, 1, nan=2))
+        col.add_facet('b', 'Number', 'F3', self.limit(uwc.b, 0,1, nan=2))
+        col.add_facet('qual', 'Number', 'F1', self.limit(uwc.qual,0, 100, 100))
         col.add_facet('e_pivot', 'Number', 'F1', uwc.pivot_energy)
         col.add_facet('lognorm', 'Number', 'F3', self.limit(np.log10(uwc.pnorm), -15, -8, nan=-15) )
         col.add_facet('pindex',  'Number', 'F3', self.limit(uwc.pindex, 0,5) ) 
 
-        col.add_facet('delta_ts', 'Number', 'F1', uwc.delta_ts)
-        col.add_facet('id_prob', 'Number', 'F3', uwc.id_prob)
+        col.add_facet('delta_ts', 'Number', 'F1', self.limit(uwc.delta_ts,0, 100, 100))
+        
+        if 'id_prob' in uwc.dtype.names:
+            # has association data
+            col.add_facet('id_prob', 'Number', 'F3', uwc.id_prob)
+            col.add_facet('class', 'String', 'C', ['%3s'% s if s!='' else 'None' for s in uwc.aclass])
         inridge = (abs(cglon)<60)*(abs(glat)<1.)
-        col.add_facet('class', 'String', 'C', ['%3s'% s if s!='' else 'None' for s in uwc.aclass])
         col.add_facet('ridge', 'String', 'C', inridge)
         col.add_facet('high lat', 'String', 'C', (abs(glat)>10))
 
@@ -123,6 +130,9 @@ class Pivot(object):
         """ add  a facet """
         self.collection.add_facet( name, type, format, data, **kwargs)
         
+    def add_related(self, related):
+        self.collection.add_related(related)
+        
     def write(self, outfile='pivot.cxml', id_offset=0):
         fulloutfile = os.path.join(self.outdir, outfile)
 
@@ -137,7 +147,7 @@ class MultiPivot(Pivot):
     (note that the Silverlight control does not support this feature :-( )
     
     """
-    def __init__(self, rec,  dzc_list, outdir, name,  icon=None, ):
+    def __init__(self, rec,  dzc_list, outdir, name,  fill_default_facets=True, **kwargs):
         
         """
          rec:      record array with all info, expect it to have a name field
@@ -151,10 +161,10 @@ class MultiPivot(Pivot):
         self.rec = rec
 
         # create the Collection, actually a subclass that knows about mulitple dzc's
-        self.collection=collection.MultiCollection(name, outdir,  self.rec.name, dzc_list,  icon=icon) 
+        self.collection=collection.MultiCollection(name, outdir,  self.rec.name, dzc_list,  **kwargs) 
         
         # add default Facets
-        self.fill_default()
+        if fill_default_facets: self.fill_default()
 
 
 if __name__=='__main__':
