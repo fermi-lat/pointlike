@@ -1,17 +1,17 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.20 2010/08/24 22:01:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.21 2010/08/29 20:22:51 burnett Exp $
 
 """
 
 import numpy as np
 import numpy as N  # for Kerr compatibility
-from scipy import optimize
+#from scipy import optimize
 import pylab as plt
 import os, pickle, math, types 
 
-from uw.like import roi_analysis, roi_localize, roi_plotting,  Models, sed_plotter, roi_bands, tsmap_plotter
+from uw.like import roi_analysis, roi_localize, counts_plotter,  Models, sed_plotter, roi_bands, tsmap_plotter
 from uw.utilities import makerec, fermitime, image, region_writer
 from skymaps import SkyDir,  PySkyFunction
 import source_pickle
@@ -78,7 +78,8 @@ class MyROI(roi_analysis.ROIAnalysis):
             
         # invoke the super class ctor, then modify background model
 #        super(MyROI, self).__init__(roi_dir, ps_manager, bg_manager, roifactory, **kwargs)
-        super(MyROI, self).__init__(*pars, **kwargs)
+        roi_kw = dict(fit_emin=kwargs.get('fit_emin'), fit_emax = kwargs.pop('fit_emax'))
+        super(MyROI, self).__init__(*pars, **roi_kw)
         logpars = np.log10(np.array(bgpars))
         self.bgm.models[0].free = np.array(bgfree[:2])
         self.bgm.models[0].p = logpars[:2]
@@ -86,15 +87,14 @@ class MyROI(roi_analysis.ROIAnalysis):
             self.bgm.models[1].free = np.array([bgfree[2]])
             self.bgm.models[1].p    = logpars[2:3]
             
-        self.name = self.psm.point_sources[0].name # default name
+        self.name = kwargs.pop('name', self.psm.point_sources[0].name) # default name
         self.center= pars[0] #roi_dir
+        self.use_gradient = kwargs.pop('use_gradient', True)
 
     def fit(self, **kwargs):
         """ invoke base class fitter, but insert defaults first 
         """
-        fit_bg_first = self.fit_bg_first
-        if 'fit_bg_first' in kwargs: 
-            fit_bg_first = kwargs.pop('fit_bg_first')
+        fit_bg_first = kwargs.pop('fit_bg_first', self.fit_bg_first)
         if 'use_gradient' not in kwargs: kwargs['use_gradient']=self.use_gradient
         pivot = kwargs.pop('pivot', False)
         ts = 0
@@ -406,9 +406,9 @@ class MyROI(roi_analysis.ROIAnalysis):
     def plot_sed(self, **kwargs):
         return sed_plotter.plot_sed(self,**kwargs)
 
-    @decorate_with(roi_plotting.plot_counts)
+    @decorate_with(counts_plotter.plot_counts)
     def plot_counts(self, **kwargs):
-        return roi_plotting.plot_counts(self, **kwargs)
+        return counts_plotter.plot_counts(self, **kwargs)
         
     @decorate_with(region_writer.writeRegion)
     def write_region(self,*pars, **kwargs):

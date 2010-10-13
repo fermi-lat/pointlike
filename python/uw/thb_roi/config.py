@@ -1,6 +1,6 @@
 """
 Define an analysis environment for the UW pointlike ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/config.py,v 1.8 2010/08/26 15:20:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/config.py,v 1.9 2010/08/29 20:22:51 burnett Exp $
 
 """
 
@@ -14,6 +14,9 @@ galprop_path = None
 catalog_path = None
 default_catalog = 'gll_psc_v03.fit' # 1FGL release
 default_catalog = 'gll_psc18month_uw11b.fits' # later
+default_diffuse = ('ring_21month_v1.fits','isotrop_21month_uw03.txt',)#'isotrop_21month_v1b.txt',)
+                        #'gll_iem_v02.fit','isotropic_iem_v02.txt')
+ 
 
 def setup():
     global fermi_root, data_path, galprop_path, catalog_path
@@ -185,10 +188,8 @@ class AE(object):
         return dict(
             catdir      = catalog_path,      # where to find catalog files
             catalog     = default_catalog,   # the current catalog
-            diffuse     = (galprop_path, 
-                        'ring_21month_v1.fits','isotrop_21month_v1a.txt',),
-                        #'gll_iem_v02.fit','isotropic_iem_v02.txt'),
-                        
+            cat_update  = None,              # something that may update the catalog
+            diffuse     = (galprop_path, )+default_diffuse,
             aux_cat     = None,              # auxiallary catalog
         )
 

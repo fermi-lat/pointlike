@@ -3,10 +3,10 @@ basic pipeline setup
 
 Implement processing of a set of sources in a way that is flexible and easy to use with assigntasks
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.16 2010/08/23 20:47:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pipeline.py,v 1.17 2010/08/24 22:02:19 burnett Exp $
 
 """
-version='$Revision: 1.16 $'.split()[1]
+version='$Revision: 1.17 $'.split()[1]
 import sys, os, pyfits, glob, pickle, math, time, types
 import numpy as np
 import pylab as plt
@@ -453,7 +453,10 @@ class UWsourceFits(Pipeline):
             # assume filename
             ft = os.path.splitext(sourcelist)[-1]
             if ft=='.txt':
-                self.sources=makerec.textrec(sourcelist)
+                t=makerec.textrec(sourcelist)
+                if 'name' not in t.dtype.names:
+                    self.sources = plt.mlab.rec_append_fields(t, 'name', t.source_name)
+                else: self.sources=t    
             elif ft=='.fit' or ft=='.fits':
                 t=makerec.fitsrec(sourcelist)
                 self.sources = plt.mlab.rec_append_fields(t, 'name', t.source_name)
@@ -523,7 +526,7 @@ def getg(setup_string):
             
 
 def main( setup_string, outdir, mec=None, startat=0, n=0, local=False,
-        machines='tev1 tev2 tev3 tev4'.split(), 
+        machines='tev1 tev2 tev3 tev4'.split(), engines=None,
         seeds_only=False,
         ignore_exception=True, 
         logpath='log'):
@@ -563,7 +566,7 @@ def main( setup_string, outdir, mec=None, startat=0, n=0, local=False,
             print 'got exception writing %s' % name
             raise
             
-    if not local: setup_mec(machines=machines)
+    if not local: setup_mec(machines=machines, engines=engines)
     time.sleep(10)
     lc= AssignTasks(setup_string, tasks[startat:endat], mec=mec, timelimit=1000, local=local, callback=callback, 
     ignore_exception=ignore_exception)

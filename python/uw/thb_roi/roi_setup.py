@@ -1,7 +1,7 @@
 """
 supplemental setup of ROI
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_setup.py,v 1.10 2010/08/26 15:20:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_setup.py,v 1.11 2010/08/29 20:19:58 burnett Exp $
 
 These are near-duplicates of the classes with the same name in uw.like, but modifed for the interactive access
 
@@ -9,7 +9,7 @@ These are near-duplicates of the classes with the same name in uw.like, but modi
 import numpy as np
 import os, pyfits, types, pickle
 
-from uw.utilities import makerec, keyword_options
+from uw.utilities import makerec, keyword_options, xml_parsers
 from uw.like import Models,  pointspec_helpers
 from skymaps import SkyDir
 
@@ -89,7 +89,6 @@ class CatalogManager(object):
 
             if self.pulsar_dict is not None:
                 print '\tUsing a pulsar dictionary with %d entries' % len(pdkeys)
-
     
     def append(self, acat):
         """ 
@@ -103,15 +102,18 @@ class CatalogManager(object):
         self.names = np.hstack((self.names, names))
         self.dirs= self.dirs+dirs
         self.models = np.hstack((self.models, models))
-        if not self.quiet: print 'Added %d sources to roi background catalog, total now: %d' % (len(acat), len(self.names))
+        if not self.quiet: print 'Added %d sources to roi background catalog, total now: %d'\
+            % (len(acat), len(self.names))
  
         
-    def __call__(self,skydir, radius):
+    def __call__(self,skydir, radius, **kwargs):
         """ return sources, as a list of PointSource objects, within radius of skydir
             set as free those within free_radius
             exclude those within prune_radius
         """
-
+        quiet = kwargs.pop('quiet', self.quiet)
+        free_radius = kwargs.pop('free_radius', self.free_radius)
+        prune_radius = kwargs.pop('prune_radius', self.prune_radius)
         diffs   = np.degrees(np.asarray([skydir.difference(d) for d in self.dirs]))
         #mask    = ((diffs < radius)&(self.ts > self.min_ts)) & \
         #          ((self.fluxes > self.min_flux)|(diffs < self.max_distance))         
@@ -127,16 +129,16 @@ class CatalogManager(object):
         models  = [x.copy() for x in self.models[mask][sorting]]
 
         # now select those in annulus between prune_radius and free_radius for inclusion in the model
-        exclude = (diffs[sorting] < self.prune_radius) 
+        exclude = (diffs[sorting] < prune_radius) 
         numex = exclude.sum()
-        makefree = (diffs[sorting] < self.free_radius) 
+        makefree = (diffs[sorting] < free_radius) 
         point_sources = map(self.point_source,dirs,names,models,makefree)
-        if not self.quiet:
+        if not quiet:
             print '...selected %d sources within %.1f deg for roi'   % (len(point_sources), radius)
-            print '...selected %d sources within %.1f deg for refit' % (makefree.sum(), self.free_radius)
+            print '...selected %d sources within %.1f deg for refit' % (makefree.sum(), free_radius)
             if numex>0:
                 print '...excluded %d sources within %.1f deg : %s ' %\
-            (numex, self.prune_radius, ', '.join([s.name.strip() for s in point_sources[:numex]]))
+            (numex, prune_radius, ', '.join([s.name.strip() for s in point_sources[:numex]]))
         
         self.exclude= point_sources[:numex]
         return point_sources[numex:]
@@ -146,7 +148,6 @@ class CatalogManager(object):
          provided by the user.  In case of duplicates (closer than prune_radius), the user object
          takes precedence.
          """
-
         cat_list = self(skydir,radius)
         if user_list is None: return cat_list
 
@@ -168,16 +169,40 @@ class CatalogManager(object):
         """ return a recarry of the full list of sources used for models
         """
         return np.rec.fromarrays(
-                        [ self.names, 
-                          [s.ra() for s in self.dirs], 
-                          [s.dec() for s in self.dirs], 
-                          [10**m.p[0] for m in self.models],
-                          [10**m.p[1] for m in self.models],
-                        ],
-                        names = 'name ra dec pnorm pindex'.split(),
-                       )
+                [   [name.strip() for name in self.names], 
+                    [s.ra() for s in self.dirs], 
+                    [s.dec() for s in self.dirs], 
+                    [10**m.p[0] for m in self.models],
+                    [10**m.p[1] for m in self.models],
+                    [10**m.p[2] if len(m.p)==3 else np.nan for m in self.models ],
+                    [m.e0 for m in self.models],
+                ],
+                names = 'name ra dec pnorm pindex cutoff pivot'.split(),
+           )
 
+    def write_reg_file(self, filename, color='green'):
+        """ generate a 'reg' file from the catalog, write to outfile
+        """
+        catrec = self.source_recarray()
+        have_ellipse = 'Conf_95_SemiMajor' in catrec.dtype.names
+        out = open(filename, 'w')
+        print >>out, "# Region file format: DS9 version 4.0 global color=%s" % color
+        for s in catrec:
+            if have_ellipse:
+                print >>out, "fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) #text={%s}" % \
+                                (s.ra,s,dec,
+                                  s.Conf_95_SemiMinor,Conf_95_SemiMajor,Conf_95_PosAng,
+                                  s.name)
+            else:
+                print >> out, "fk5; point(%.4f, %.4f) # point=cross text={%s}" %\
+                                (s.ra, s.dec, s.name)
+        out.close()
 
+    def write_xml_file(self, filename, title='source_library'):
+        
+        point_sources = map(self.point_source,self.dirs,self.names,self.models)
+        stacks= xml_parsers.unparse_point_sources(point_sources)
+        xml_parsers.writeXML(stacks, filename, title=title)
 
 if __name__=='__main__':
     pass
