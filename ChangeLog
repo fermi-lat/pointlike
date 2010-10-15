@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Oct 14 17:22:04 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Bugfix in extended source convolution initialization.
+    *
+------------------------------------------------------------
 User: burnett  Wed Oct 13 05:26:01 PDT 2010
 pointlike/python/uw/thb_roi
 
