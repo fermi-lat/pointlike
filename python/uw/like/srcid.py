@@ -38,6 +38,7 @@ class SourceAssociation(object):
         if kwargs:
             raise SrcidError('\n'.join(['Unrecognized kwargs:']+
                             ["\t%s"%k for k in kwargs.keys()]+['']))
+        if kw['quiet']: kw['verbosity']=0
         self.__dict__.update(kw)
         if self.catalog_dir is None:
             self.catalog_dir = os.path.join(srcid_dir,'cat')
