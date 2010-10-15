@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: wallacee  Fri Oct 15 12:59:10 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	srcid.py 
+Log Message:
+Added method for running associations on full LAT catalog (SourceAssociation.associate_catalog).
+Added kwargs to various methods to do calculations in exactly the same way as gtsrcid.
+General code cleanup and refactoring.
+
+    *
+------------------------------------------------------------
 User: lande  Thu Oct 14 17:22:04 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
