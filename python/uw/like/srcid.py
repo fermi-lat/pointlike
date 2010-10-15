@@ -17,7 +17,7 @@ from uw.utilities.fitstools import rad_mask
 conv95 = (-2*np.log(0.05))**.5
 class SourceAssociation(object):
     """A class to associate LAT sources with multiwavelength counterparts."""
-    defaults = dict(catalog_dir = None,class_dir = None,verbosity=1)
+    defaults = dict(catalog_dir = None,class_dir = None,verbosity=1,quiet=False)
 
     def __init__(self,srcid_dir,**kwargs):
         """
