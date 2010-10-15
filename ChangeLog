@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Fri Oct 15 13:06:45 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	srcid.py 
+Log Message:
+Fix quiet kwarg, included for backward compatibility.
+
+    *
+------------------------------------------------------------
 User: wallacee  Fri Oct 15 12:59:10 PDT 2010
 pointlike/python/uw/like
 
