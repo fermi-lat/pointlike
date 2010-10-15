@@ -1,56 +1,66 @@
 """
 Python support for source association, equivalent to the Fermi Science Tool gtsrcid
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.19 2010/04/20 14:24:30 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.20 2010/04/20 23:48:11 wallacee Exp $
 author:  Eric Wallace <ewallace@uw.edu>
 """
 import os
 import sys
 import math
 import re
-from operator import mul
+from operator import mul,add
 from glob import glob
 import numpy as np
 import pyfits as pf
 from skymaps import SkyDir
-from uw.utilities.fitstools import trap_mask, rad_mask
+from uw.utilities.fitstools import rad_mask
 
-
+conv95 = (-2*np.log(0.05))**.5
 class SourceAssociation(object):
-    """A class to find association probabilities for sources with a given set of counterpart catalogs."""
+    """A class to associate LAT sources with multiwavelength counterparts."""
+    defaults = dict(catalog_dir = None,class_dir = None,verbosity=1)
 
-    def __init__(self,srcid_dir,catalog_dir = None,class_dir = None,quiet=False):
-        """srcid_dir : Path to a directory containing a subfolders 'cat', containing counterpart catalogs,
-                    and 'classes', containing python modules describing the catalogs.
-           catalog_dir: Path to counterpart catalogs, overriding 'srcid_dir/cat'
-           class_dir: Path to directory containing class modules, overriding 'srcid_dir/classes'
-           quiet : Suppress some output
+    def __init__(self,srcid_dir,**kwargs):
         """
-        self.quiet = quiet
-        if catalog_dir:
-            self.catalog_dir = catalog_dir
-        else:
+        Arguments:
+           srcid_dir : Path to a directory containing a subfolders 'cat',
+                       containing counterpart catalogs, and 'classes',
+                       containing python modules describing the catalogs.
+        Keyword Arguments:
+           catalog_dir: Path to counterpart catalogs, overriding 'srcid_dir/cat'
+           class_dir: Path to directory containing class modules,
+                      overriding 'srcid_dir/classes'
+           verbosity : int, 0 for no output, 1 for normal output, 2 for extra output
+           quiet: bool, deprecated, set verbosity = 0
+        """
+        kw = self.defaults.copy()
+        for k,v in kw.items():
+            kw[k] = kwargs.pop(k,v)
+        if kwargs:
+            raise SrcidError('\n'.join(['Unrecognized kwargs:']+
+                            ["\t%s"%k for k in kwargs.keys()]+['']))
+        self.__dict__.update(kw)
+        if self.catalog_dir is None:
             self.catalog_dir = os.path.join(srcid_dir,'cat')
-        if class_dir:
-            self.class_dir = class_dir
-            srcid_dir = os.path.join(class_dir,os.path.pardir)
-        else:
+        if self.class_dir is None:
             self.class_dir = os.path.join(srcid_dir,'classes')
         if not srcid_dir in sys.path:
             sys.path.insert(0,srcid_dir)
         self.class_list=None
         try:
+            global classes
             import classes
+            from classes import *
             self.class_list = classes.__all__
         except ImportError:
-            print('Cannot find class modules to import.')
+            raise SrcidError('Cannot find class modules to import.')
 
         finally:
-            if not self.quiet:
+            if self.verbosity:
                 print('Available counterpart classes are:\n%s'%(' '.join(self.class_list)))
         self.catalogs = {}
         self.sources = {}
 
-    def id(self,position,error,class_list = None,name=None):
+    def id(self,position,error,**kwargs):
         """Find associations for each class in classes.
 
         Arguments:
@@ -58,38 +68,52 @@ class SourceAssociation(object):
             error:      Either the radius of a 1-sigma error circle, or a list
                         of major and minor axis and position angle for a 1-sigma
                         error ellipse
-            classes[None]:    List of source classes to be associated.  If None, use all modules
-                        in self.class_dir.
-            name[None]: A string to use as a key in the saved dictionary of associations.  If None,
-                        don't save.
+        Keyword Arguments:
+            cpt_class[None]: string or [strings], Counterpart class(es) to use for
+                          associations. Can be a single name or a list. If None,
+                          use all availabile classes.
+            name[None]: string, key under which to save association information
+                        in self.sources. If None, don't save.
+            unique[False]: bool, if True, compute probabilities for unique 
+                           associations (one counterpart per LAT source)
+            trap_mask[False]: bool, if True, use a trapezoidal mask for
+                              computing local counterpart densities.
+                              This is only included to get the same numbers
+                              as gtsrcid, no reason to use it in general.
         Return: a dictionary with keys=class, value = a list of (name, prob. skydir) tuples sorted by prob.
         """
-        #if self.class_dir not in sys.path:
-        #    sys.path.insert(0,self.class_dir)
-        #If classes is not a list, make it one
-        if class_list is not None:
-            if not hasattr(class_list,'__iter__'): 
-                try:
-                    import classes
-                    class_list = eval('classes.%s'%class_list)
-                except AttributeError:
-                    class_list = [class_list]
-        else:
-            class_list = self.class_list #All available classes
-        associations = {}
-        for cls in class_list:
-            exec("from classes import %s"%cls)
-            class_module = eval(cls)
-            if not self.catalogs.has_key(cls):
-                self.catalogs[cls] = Catalog(class_module,self.catalog_dir,quiet = self.quiet)
-            these = self.catalogs[cls].associate(position,error)
-            if these:
-                associations[cls] = [(a[0].name, a[1], a[0].skydir) for a in these]
-        if name is not None:
-            self.sources[name] = associations
+        kw = dict(cpt_class = None,name=None,trap_mask=False,unique = False)
+        for k,v in kw.items():
+            kw[k] = kwargs.pop(k,v)
+        if kwargs:
+            raise SrcidError('\n'.join(['Unrecognized kwargs for method "id":']+
+                            ["\t%s"%k for k in kwargs.keys()]+['']))
+        locals().update(kw)
+        if kw['cpt_class'] is None:
+            kw['cpt_class'] = self.class_list
+        if hasattr(kw['cpt_class'],'__iter__'):
+            associations = dict()
+            id_kw = kw.copy()
+            for c in kw['cpt_class']:
+                id_kw['cpt_class'] = c
+                ass = self.id(position,error,**id_kw)
+                if ass:
+                    associations[c] = ass
+            return associations
+        if not hasattr(classes,kw['cpt_class']):
+            raise SrcidError("Counterpart class %s not found."%kw['cpt_class'])
+        class_module = eval('classes.%s'%kw['cpt_class'])
+        if not self.catalogs.has_key(kw['cpt_class']):
+            self.catalogs[kw['cpt_class']] = Catalog(class_module,self.catalog_dir,verbosity=self.verbosity)
+        these = self.catalogs[kw['cpt_class']].associate(position,error,
+                                                         trap_mask=kw['trap_mask'],
+                                                         unique = kw['unique'])
+        associations = [(a[0].name, a[1], a[0].skydir) for a in these if these]
+        if kw['name'] is not None:
+            self.sources[kw['name']] = associations
         return associations
-    
-    def id_list(self,r,class_list = None):
+
+    def id_list(self,r,class_list = None,trap_mask=False,unique = False):
         """Perform associations on a recarray of sources.
         r: a recarray with columns name,ra,dec,a,b,ang
         class_list: list of counterpart classes
@@ -97,8 +121,59 @@ class SourceAssociation(object):
 
         associations = {}
         for s in r:
-            associations[s.name] = self.id(SkyDir(s.ra,s.dec),(s.a,s.b,s.ang),class_list = class_list,name = s.name)
+            associations[s.name] = self.id(SkyDir(s.ra,s.dec),(s.a,s.b,s.ang),
+                                           cpt_class = class_list,name = s.name,
+                                           trap_mask=trap_mask,unique = False)
         return associations
+
+    def associate_catalog(self,catalog,**kwargs):
+        """Cross-correlate a Fermi catalog with a given counterpart catalog
+
+        Arguments:
+            catalog: string, path to a LAT catalog for which to perform
+                     associations
+        Keyword Arguments:
+            cpt_class[None]: string or [strings], Counterpart class(es) to use for
+                          associations. Can be a single name or a list. If None,
+                          use all availabile classes.
+            name[None]: string, key under which to save association information
+                        in self.sources. If None, don't save.
+            unique[False]: bool, if True, compute probabilities for unique 
+                           associations (one counterpart per LAT source)
+            trap_mask[False]: bool, if True, use a trapezoidal mask for
+                              computing local counterpart densities.
+                              This is only included to get the same numbers
+                              as gtsrcid, no reason to use it in general.
+            elliptical_errors[True]: bool, if True, use the full elliptical
+                                     error paraemeters, otherwise use a circle
+                                     with radius equal to the semi-major axis
+                                     of the ellipse. Provided for compatibility
+                                     with older versions of gtsrcid, no reason
+                                     to use it otherwise.
+        Return: a dictionary with keys=names, values=dicts returned by id()
+        """
+        #Read in Fermi catalog
+        kw = dict(cpt_class = None,unique=True,
+                  trap_mask=False,elliptical_errors=True)
+        for k,v in kw.items():
+            kw[k] = kwargs.pop(k,v)
+        if kwargs:
+            raise SrcidError('\n'.join(['Unrecognized kwargs for method "id":']+
+                            ["\t%s"%k for k in kwargs.keys()]+['']))
+        locals().update(kw)
+        _cat = pf.open(catalog)
+        dat = _cat['LAT_POINT_SOURCE_CATALOG'].data
+        names = dat.Source_Name if 'Source_Name' in dat.names else dat.NickName
+        ras,decs = dat.RA.astype('float'),dat.DEC.astype('float')
+        if kw['elliptical_errors']:
+            maj_axes,min_axes = dat.Conf_95_SemiMajor/conv95,dat.Conf_95_SemiMinor/conv95
+            angles = dat.Conf_95_PosAng
+        else:
+            maj_axes=min_axes=angles = dat.Conf_95_SemiMajor/conv95
+        id_kw = kw.copy()
+        id_kw.pop('elliptical_errors')
+        return dict(((name,self.id(SkyDir(ra,dec),(a,b,ang),**id_kw))
+                      for name,ra,dec,a,b,ang in zip(names,ras,decs,maj_axes,min_axes,angles)))
 
     def __str__(self):
         n = 0
@@ -121,29 +196,26 @@ class SourceAssociation(object):
             if c in cat_list:
                 cls = a
                 break
-        
         if cls == 'bzcat':
             cls = source[cls][0][0][:3].lower()
         return cls
 
-
 class Catalog(object):
     """A class to manage the relevant information from a FITS catalog."""
-
-    def __new__(cls,class_module,catalog_dir,quiet=False):
-        gamma_catalogs = 'agile egr cosb eg3 fermi_bsl'.split()
+    def __new__(cls,class_module,catalog_dir,verbosity=1):
+        gamma_catalogs = 'agile egr cosb eg3 fermi_bsl fermi_1fgl'.split()
         extended_catalogs = 'dwarfs snr_ext'.split()
-        #cf = os.path.splitext(os.path.basename(class_file))[0]
-        if class_module.__name__ in gamma_catalogs:
+        modname = class_module.__name__.split('.')[-1]
+        if modname in gamma_catalogs:
             obj = object.__new__(GammaCatalog)
-        elif class_module.__name__ in extended_catalogs:
+        elif modname in extended_catalogs:
             obj = object.__new__(ExtendedCatalog)
         else:
             obj = object.__new__(Catalog)
         return obj
 
-    def init(self,class_module,catalog_dir,quiet=False):
-        self.quiet = quiet
+    def init(self,class_module,catalog_dir,verbosity=1):
+        self.verbosity = verbosity
         #self.class_module = self._get_class_module(class_file)
         if type(class_module) == type(''):
             exec('import %s'%class_module)
@@ -151,7 +223,7 @@ class Catalog(object):
         else:
             self.class_module = class_module
         self.cat_file = os.path.join(catalog_dir,self.class_module.catname)
-        if not self.quiet:
+        if self.verbosity > 1:
             print('Setting up catalog for source class "%s" from file "%s"'%(self.class_module.catid,self.cat_file))
         if hasattr(self.class_module,'name_prefix'):
             self.name_prefix = self.class_module.name_prefix
@@ -178,8 +250,8 @@ class Catalog(object):
             raise CatalogError(self.cat_file,'Could not find columns with source positions')
         return names,lons,lats
 
-    def __init__(self,class_module,catalog_dir,quiet = False):
-        self.names,lons,lats = self.init(class_module,catalog_dir,quiet=quiet)
+    def __init__(self,class_module,catalog_dir,verbosity=1):
+        self.names,lons,lats = self.init(class_module,catalog_dir,verbosity=verbosity)
         self.mask = self._make_selection()
         self.sources = np.array([CatalogSource(self,name,SkyDir(lon,lat,self.coords))
                         for name,lon,lat in zip(self.names,lons,lats)])[self.mask]
@@ -348,28 +420,30 @@ class Catalog(object):
         for source in self.sources:
             source.fom = fom_dict[source.name]
 
-    def select_circle(self,position,radius):
+    def select_circle(self,position,radius,trapezoid=False):
         """Return an array of CatalogSources within radius degrees of position.
 
         Arguments:
             position    : SkyDir for center of selection region.
             radius      : radius of selection region.
         """
-
-        #ras = np.array([source.skydir.ra() for source in self.sources])
-        #decs = np.array([source.skydir.dec() for source in self.sources])
-        #tmask = trap_mask(self.ras,self.decs,position,radius)
         ras,decs = self.ras,self.decs
-        rmask = rad_mask(self.ras,self.decs,position,radius,mask_only=True)
-        return self.sources[rmask]
+        if trapezoid:
+            tmask = trap_mask(self.ras,self.decs,position,radius)
+            sources = self.sources[tmask]
+            rmask = rad_mask(self.ras[tmask],self.decs[tmask],position,radius,mask_only=True)
+            return sources[rmask]
+        else:
+            rmask = rad_mask(self.ras,self.decs,position,radius,mask_only=True)
+            return self.sources[rmask]
 
-    def local_density(self,position,radius=4,fom=1.0):
+    def local_density(self,position,radius=4,fom=1.0,trap_mask=False):
         """Return the local density of catalog sources in a radius-degree region about position.
 
         Only counts sources with figures of merit >= fom. The default fom for CatalogSources should be 1.,
         so the default fom=0 should not cut anything out.  However, this method ought to be independent
         of the implementation of the fom in CatalogSource, so this should get refactored at some point."""
-        n_sources = sum([1. for source in self.select_circle(position,radius) if
+        n_sources = sum([1. for source in self.select_circle(position,radius,trapezoid = trap_mask) if
                          source.fom >= fom])
         #If no sources within radius, set n_sources = 1 to give lower limit on density
         #Maybe better to expand the radius in this case?
@@ -378,7 +452,7 @@ class Catalog(object):
         solid_angle = np.degrees(np.degrees(solid_angle))
         return n_sources/solid_angle
 
-    def associate(self,position,error_ellipse):
+    def associate(self,position,error_ellipse,unique = True,trap_mask=False):
         """Given a skydir and error ellipse, return associations.
 
         Arguments:
@@ -393,19 +467,31 @@ class Catalog(object):
         try:
             assert(len(error_ellipse)==3)
         except TypeError:
-            if not self.quiet:
+            if self.verbosity > 0:
                 print("Got scalar instead of sequence for error ellipse: Assuming this is 1-sigma error radius in degrees")
             error_ellipse = [error_ellipse]*2+[0]
         except AssertionError:
             print("Wrong length for error_ellipse: Needed length 3, got %i"%len(error_ellipse))
             return
         if self.source_mask_radius is None:
-            self.source_mask_radius = error_ellipse[0]*2.45*5
+            self.source_mask_radius = error_ellipse[0]*conv95*5
         if np.isnan(self.source_mask_radius) or self.source_mask_radius == 0.:
             self.source_mask_radius = 1.
         #filter sources by position, ~5-sigma radius
-        sources = self.select_circle(position,self.source_mask_radius)
-        post_probs = [source.posterior_probability(position,error_ellipse) for source in sources]
+        sources = self.select_circle(position,self.source_mask_radius,trapezoid=trap_mask)
+        post_probs = np.array([source.posterior_probability(position,error_ellipse,trap_mask=trap_mask)
+                               for source in sources])
+        #If desired, require no more than 1 counterpart per LAT source.
+        if unique:
+            inv_probs = 1-post_probs
+            phk = np.zeros(post_probs.shape) #P(Hk) as defined in 1FGL paper
+            norm = inv_probs.prod()
+            for i in xrange(post_probs.shape[0]):
+                mask = np.zeros(post_probs.shape,dtype='bool')
+                mask[i] = True
+                phk[i] = post_probs[mask]*inv_probs[~mask].prod()
+                norm += phk[i]
+            post_probs = phk/norm
         #return sources above threshold with posterior probability, sorted by posterior probability
         source_list = [(source,prob) for prob,source in zip(post_probs,sources) if prob > self.prob_threshold]
         source_list.sort(key = lambda x:-x[1])
@@ -415,8 +501,8 @@ class Catalog(object):
 class GammaCatalog(Catalog):
     """A catalog of gamma-ray sources (i.e. sources with error circles comparable to LAT)"""
 
-    def __init__(self,class_module,catalog_dir,quiet = False):
-        self.names,lons,lats = self.init(class_module,catalog_dir,quiet = quiet)
+    def __init__(self,class_module,catalog_dir,verbosity = 1):
+        self.names,lons,lats = self.init(class_module,catalog_dir,verbosity = verbosity)
         errors = self.get_position_errors()
         self.source_mask_radius = 3*max(errors)
         self.mask = self._make_selection()
@@ -442,12 +528,11 @@ class GammaCatalog(Catalog):
         else:
             raise CatalogError(self.cat_file,'Could not find position uncertainties.')
 
-
 class ExtendedCatalog(Catalog):
     """A catalog of extended sources"""
 
-    def __init__(self,class_module,catalog_dir,quiet = False):
-        self.names,lons,lats= self.init(class_module,catalog_dir,quiet = quiet)
+    def __init__(self,class_module,catalog_dir,verbosity = 1):
+        self.names,lons,lats= self.init(class_module,catalog_dir,verbosity = verbosity)
         radii = self.get_radii()
         self.source_mask_radius = max(radii)*3
         self.mask = self._make_selection()
@@ -515,22 +600,30 @@ class CatalogSource(object):
         norm = 2.*math.pi*mul(*error_ellipse[:2])
         return math.exp(-self.delta_logl(position,error_ellipse))/norm
 
-    def chance_probability(self,position,radius = 4):
+    def chance_probability(self,position,radius = 4,trap_mask=False):
         """Probability of chance association"""
-        return self.catalog.local_density(position,radius=radius,fom=self.fom)
+        return self.catalog.local_density(position,radius=radius,
+                                          fom=self.fom,trap_mask=trap_mask)
 
     def prior_probability(self):
         """Prior probability for association"""
         return self.catalog.prior
 
-    def posterior_probability(self,position,error_ellipse):
+    def posterior_probability(self,position,error_ellipse,trap_mask=False):
         """Posterior probability for association with given position and error ellipse"""
         #Kludge to associate lat pulsars, which have no errors in catalog
         if np.isnan(error_ellipse)[0] and position.difference(self.skydir)<=1e-5:
             return self.catalog.prob_threshold+1e-5
-        arg = (self.chance_probability(position)*(1-self.prior_probability())/
-               (self.positional_likelihood(position,error_ellipse)*self.prior_probability()))
-        return (self.fom/(1.+arg))
+        ring_rad = error_ellipse[0]*(-2*np.log(1-.95))**.5*5/2
+        if ring_rad <4:
+            ring_rad = 4
+        arg = (self.chance_probability(position,radius=ring_rad,trap_mask=trap_mask)*
+               (1-self.prior_probability())/(self.positional_likelihood(position,error_ellipse)*self.prior_probability()))
+        prob = self.fom/(1.+arg)
+        if prob > 1e-8:
+            return prob
+        else:
+            return 0.
 
 class GammaRaySource(CatalogSource):
     """A source from a gamma-ray catalog."""
@@ -539,7 +632,8 @@ class GammaRaySource(CatalogSource):
         super(GammaRaySource,self).__init__(catalog,name,skydir)
         self.error = error
 
-    def posterior_probability(self,position,error_ellipse):
+    def posterior_probability(self,position,error_ellipse,trap_mask = True):
+        error_ellipse = np.where(np.isnan(error_ellipse),0,error_ellipse)
         if self.combined_error(error_ellipse) >= self.angular_separation(position):
             return self.catalog.prob_threshold + 1e-5
         else:
@@ -547,7 +641,7 @@ class GammaRaySource(CatalogSource):
 
     def combined_error(self,error_ellipse):
         #note 2.45 factor - conversion from 1-sigma ellipse to 95%
-        return ((error_ellipse[0]*2.45)**2 + self.error**2)**.5
+        return ((error_ellipse[0]*conv95)**2 + self.error**2)**.5
 
 class ExtendedSource(CatalogSource):
     """An extended catalog source"""
@@ -556,12 +650,20 @@ class ExtendedSource(CatalogSource):
         super(ExtendedSource,self).__init__(catalog,name,skydir)
         self.radius = radius
 
-    def posterior_probability(self,position,error_ellipse):
+    def posterior_probability(self,position,error_ellipse,trap_mask=True):
         #note 2.45 factor - conversion from 1-sigma ellipse to 95%
-        if self.angular_separation(position)<=(error_ellipse[0]*2.45+self.radius):
+        error_ellipse = np.where(np.isnan(error_ellipse),0,error_ellipse)
+        if self.angular_separation(position)<=(error_ellipse[0]*conv95+self.radius):
             return self.catalog.prob_threshold + 1e-5
         else:
             return 0.0
+
+class SrcidError(Exception):
+    """Exception class for general problems."""
+    def __init__(self,message):
+        self.message = message
+    def __str__(self):
+        return self.message
 
 class CatalogError(Exception):
     """Exception class for problems with a catalog."""
@@ -571,8 +673,20 @@ class CatalogError(Exception):
     def __str__(self):
         return 'In catalog %s:\n\t%s'%(self.catalog,self.message)
 
+def trap_mask(ras,decs,cut_dir,radius):
+    dec_min = max(cut_dir.dec()-radius,-90)
+    dec_max = min(cut_dir.dec()+radius,90)
+    ra_rad = radius/np.cos(np.radians(cut_dir.dec()))
+    ra_min,ra_max = cut_dir.ra()-ra_rad,cut_dir.ra()+ra_rad
+    ra_min = ra_min if ra_min>0 else ra_min+360
+    ra_max = ra_max if ra_max<360 else ra_max-360
+    dec_mask = np.logical_and(decs>=dec_min,decs<=dec_max)
+    ra_mask = (np.logical_and(ras>=ra_min,ras<=ra_max) if ra_max>ra_min else
+              np.logical_or(ras<min(ra_min,ra_max),ras>max(ra_min,ra_max)))
+    return np.logical_and(dec_mask,ra_mask)
+
 if __name__=='__main__':
-    assoc = SourceAssociation('/phys/groups/tev/scratch1/users/Fermi/catalog/srcid_catalog')
+    assoc = SourceAssociation('/home/eric/smb/tev-scratch1/users/Fermi/catalog/srcid_catalog')
     #3C 454.3
     pos, error = SkyDir(343.495,16.149), .016/2.45*1.51
     associations = assoc.id(pos,error,'all_agn','3C 454.3')
