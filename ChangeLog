@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Oct 15 18:18:26 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+SpatialMap __str__ formatting
+    *
+------------------------------------------------------------
 User: lande  Fri Oct 15 17:48:34 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
