@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.18 2010/09/30 20:58:38 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.19 2010/10/01 04:13:38 lande Exp $
 
    author: Matthew Kerr
 """
@@ -15,6 +15,7 @@ from uw.like.roi_extended import ExtendedSource
 from uw.like.Models import *
 from uw.like.SpatialModels import *
 from skymaps import SkyDir,DiffuseFunction,IsotropicSpectrum,IsotropicPowerLaw
+from os.path import join
 import os
 
 JAC = N.log10(N.exp(1))
@@ -132,7 +133,7 @@ class XML_to_Model(object):
             pdict = d[p]
             scale = float(pdict['scale'])
             value = float(pdict['value'])
-            if (p == 'Index') or (p == 'Index1') :#THB or (p == 'Index2' and self.modict[specname]!='PLSuperExpCutoff'):
+            if (p == 'Index') or (p == 'Index1') or (p == 'Index2' and self.modict[specname]!='PLSuperExpCutoff'):
                 # gtlike uses a neg. index internally so scale > 0
                 # means we need to take the negative of the value
                 if scale > 0: value = -value
@@ -178,7 +179,7 @@ class XML_to_SpatialModel(object):
         self.spatialdict['PseudoEllipticalDisk'] = self.spatialdict['PseudoDisk']
         self.spatialdict['RadiallySymmetricEllipticalDisk'] = self.spatialdict['Disk']
 
-    def get_spatial_model(self,xml_dict):
+    def get_spatial_model(self,xml_dict,diffdir=None):
         """ Kind of like getting a spectral model, but
             instead returns a SpatialModel object. 
             
@@ -192,7 +193,10 @@ class XML_to_SpatialModel(object):
 
         if spatialname == 'SpatialMap':
             # For spatial maps, ignore any of the parameters.
-            file = str(os.path.expandvars(xml_dict['file']))
+            if diffdir:
+                file = join(diffdir,str(xml_dict['file']))
+            else:
+                file = os.path.expandvars(str(xml_dict['file']))
             return SpatialMap(file=file)
 
         d = dict()
@@ -548,7 +552,7 @@ def parse_diffuse_sources(handler,diffdir=None):
 
             if spatial['type'] in xtsm.spatialdict.keys():
 
-                spatial_model=xtsm.get_spatial_model(spatial)
+                spatial_model=xtsm.get_spatial_model(spatial,diffdir=diffdir)
                 spectral_model=xtm.get_model(spectral,name)
                 ds.append(ExtendedSource(name=str(name),
                                          model=spectral_model,
