@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Oct 15 19:14:49 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+First pass at an Catalog object to read in the Elizabeth Ferrara style extended source catalogs.
+    *
+------------------------------------------------------------
 User: lande  Fri Oct 15 18:18:26 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
