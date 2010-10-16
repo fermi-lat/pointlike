@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Oct 15 17:48:34 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Switching back the Index2 code. I hope this doesn't cause problems for people. Also, allowing diffdir for extended sources.
+    *
+------------------------------------------------------------
 User: wallacee  Fri Oct 15 13:27:58 PDT 2010
 pointlike/python/uw/like
 
