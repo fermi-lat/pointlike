@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.20 2010/09/25 02:06:11 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.21 2010/09/30 22:55:33 lande Exp $
 
    author: Joshua Lande
 
@@ -10,6 +10,7 @@ from scipy import vectorize
 from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
         SkyImage,SkyIntegrator,CompositeSkyFunction
 from uw.utilities.convolution import Grid
+import os
 
 # Mathematical constants. They are the ratio of r68 (the %68 containment
 # radius) to sigma, the 'size' parameter of an extended source.
@@ -361,7 +362,8 @@ class SpatialModel(object):
         p,avg_p     = self.statistical(absolute=absolute,two_sided=False)
         pnames      = self.param_names
 
-        if len(pnames)==0: return 'No Spatial Parameters'# Needed for SpatialMap model.
+        if self.pretty_name == 'SpatialMap':                                                                                                              
+            return '%-10s: %s' % ('Template',os.path.basename(self.file))
 
         m=max(len(n) for n in pnames)
         l=[]
