@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.22 2010/08/12 23:10:47 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.23 2010/09/02 21:51:19 mar0 Exp $
 
     author: Matthew Kerr
     """
@@ -208,6 +208,86 @@ class FermiCatalog(PointSourceCatalog):
         merged_list.sort(key = lambda ps: ps.skydir.difference(skydir))
 
         return merged_list,user_diffuse_list
+
+
+class ExtendedSourceCatalog(PointSourceCatalog):
+    """ Object to read in spatially extended sources from Elizabeth Ferrara suggested
+        table of extended sources.
+
+        The input to this object is the directory contaning the extended source table
+        and a folder for xml descriptions and templates of extended sources.
+
+        For a description of the format of these sources, see:
+
+            https://confluence.slac.stanford.edu/x/Qw2JBQ
+    '"""
+
+    def __init__(self,archive_directory):
+        self.__open_catalog__(archive_directory)
+
+    def __open_catalog__(self,archive_directory):
+        """ Parses the LAT_extended_sources.fit table 
+            to get a list of the extended sources. """
+        self.archive_directory = archive_directory
+
+        from pyfits import open
+        f = open(join(archive_directory,"LAT_extended_sources.fit"))
+        self.names = f[1].data.field('Source_Name')
+        ras   = f[1].data.field('RA')
+        decs  = f[1].data.field('DEC')
+
+        # The xml filename for the extended sources.
+        self.xmls      = f[1].data.field('Spectral_Filename').astype(str)
+
+        # Ugly hack for bug in LAT_extended_sources_v01.tgz
+        self.xmls[self.xmls=='./XML/IC443.fit.result.xml']='./XML/IC443.xml'
+
+        self.dirs    = map(SkyDir,N.asarray(ras).astype(float),N.asarray(decs).astype(float))
+
+    def get_sources(self,skydir,radius=15):
+        """ Returns a list of ExtendedSource objects from the extended source
+            catalog that have a center withing a distance radius of the
+            position skydir. """
+
+        from uw.utilities.xml_parsers import parse_sources
+
+        diffs    = N.degrees(N.asarray([skydir.difference(d) for d in self.dirs]))
+        mask     = diffs < radius
+        diffs    = diffs[mask]
+        sorting = N.argsort(diffs)
+
+        names     = self.names[mask][sorting]
+        xmls = self.xmls[mask][sorting]
+
+        sources = []
+        for name,xml in zip(names,xmls):
+
+            full_xml=join(self.archive_directory,'XML',os.path.basename(xml))
+            template_dir=join(self.archive_directory,'Templates')
+
+            # Use the built in xml parser to load the extended source.
+            ps,ds=parse_sources(xmlfile=full_xml,diffdir=template_dir)
+            if len(ps) > 0: 
+                raise Exception("A point source was found in the extended source file %s" % xmlfile)
+            if len(ds) > 1: 
+                raise Exception("No diffuse sources were found in the extended soruce file %s" % xmlfile)
+            if len(ds) < 1: 
+                raise Exception("More than one diffuse source was found in the extended soruce file %s" % xmlfile)
+
+            sources.append(ds[0])
+
+        return sources
+
+    def merge_lists(self,skydir,radius=15,user_point_list=[],user_diffuse_list=[]):
+        """ Get a list of extended sources from the  catalog and merge it with 
+            and already existin glist of point and diffuse sources.
+
+            Unlike the FermiCatalog, no source pruning is done. """
+
+        cat_list = self.get_sources(skydir,radius)
+
+        return user_point_list,user_diffuse_list+cat_list
+
 
 class CatalogManager(FermiCatalog):
      """ For compatibility.  Temporary."""
