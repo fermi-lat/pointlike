@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/stacklike.py,v 1.2 2010/09/01 20:59:47 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/stacklike.py,v 1.5 2010/10/10 22:45:05 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -12,7 +12,7 @@ import glob as glob
 import scipy.integrate as si
 import os as os
 from uw.like import pypsf
-from uw.stacklike.angularmodels import CompositeModel,PSF,PSFAlign,Isotropic,Halo,Custom
+from uw.stacklike.angularmodels import *
 from uw.stacklike.CLHEP import HepRotation,Hep3Vector,Photon
 import matplotlib.font_manager
 
@@ -626,6 +626,40 @@ class StackLoader(object):
         print 'Significance of psf change was TS = %d'%TS
         self.cm=cm
 
+    def solvediffuse(self):
+        #Try to estimate the number of Isotropic photons
+        #by looking at density near tails
+        self.getds()
+        frac = 0.98
+        area = 1-frac*frac
+        density = len(self.ds[self.ds>(frac*self.maxroi/rd)])
+        denback = density*(self.maxroi*self.maxroi-self.minroi*self.minroi)/((self.maxroi**2)*area)
+
+        if denback>len(self.ds):
+            denback = len(self.ds)
+        exp=[len(self.ds)-denback,denback/3.,denback/3.,denback/3.]
+        #exp = [len(self.ds)/2.,len(self.ds)/2.,0]
+        diffusefile = r'd:\fermi\data\galprop\ring_21month_v1.fits'
+
+        psf = self.getpsf()
+        bck = Diffuse(lims=[self.minroi/rd,self.maxroi/rd],diff=diffusefile,ebar=self.ebar)
+        bck2 = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
+        bck3 = Gaussian(lims=[self.minroi/rd,self.maxroi/rd],model_par=[1./rd])
+        for src in self.srcs:
+            bck.addsrc(src)
+        cm = CompositeModel()
+        cm.addModel(psf)
+        cm.addModel(bck)
+        cm.addModel(bck2)
+        cm.addModel(bck3)
+        cm.fit(self.photons,mode=0,quiet=self.quiet,free=[True,True,True,True],exp=exp)
+        self.Npsf = cm.minuit.params[0]
+        self.Nback = cm.minuit.params[1]
+        self.errs = cm.minuit.errors()
+        self.Npsfe = np.sqrt(self.errs[0][0])
+        self.Nbacke = np.sqrt(self.errs[1][1])
+        self.cm = cm
+
     ## Makes a plot of all of the models and the angular distribution of photons
     #  @param name filename of output file
     #  @param fig fignum of pylab figure, default is 1
@@ -633,9 +667,12 @@ class StackLoader(object):
     #  @param scale makes the x-scale log/linear  ['log','linear']
     #  @param jac either counts/deg or counts/(deg**2) ['square','linear']
     #  @param xs x-scale either deg or deg**2 ['linear','square']
-    def makeplot(self,name='test.png',fig=-1,bin=25.,scale='log',jac='square',xs='linear'):
+    def makeplot(self,name='test.png',fig=-1,bin=25.,scale='log',jac='square',xs='linear',xlims=[]):
         #calculate angular separations
         self.getds()
+
+        if not xlims==[]:
+            self.ds = self.ds[(self.ds>(xlims[0]/rd))&(self.ds<(xlims[1]/rd))]
 
         #plotting setup
         bins = bin                       #angular bins
@@ -947,8 +984,9 @@ class StackLoader(object):
             r68=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),68.)/rd
             r95=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),95.)/rd
         psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25],free=[opt,opt])
-        psf.fromcontain(1.,r95/r68,0.68,0.95)
-        psf.model_par[0]=psf.model_par[0]*r68
+        factor = 2.
+        psf.fromcontain(1./factor,r95/r68/factor,0.68,0.95)
+        psf.model_par[0]=psf.model_par[0]*r68*factor
         return psf
 
     def writebpd(self,bpd=8):
