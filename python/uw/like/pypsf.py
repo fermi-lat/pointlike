@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.20 2010/09/17 19:21:45 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.21 2010/09/23 21:28:38 kerrm Exp $
 author: M. Kerr
 
 """
@@ -213,7 +213,7 @@ class CALDBPsf(Psf):
         seeds = N.asarray([5,4,3,2.5,2,1.5,1,0.5,0.25])*self.scale_func[ct](e)
         seedvals = N.asarray([self.integral(e,ct,x) for x in seeds])
         seed = seeds[N.argmin(N.abs(seedvals-percent))]
-        trial = fmin(f,seed,disp=0,ftol=0.01,xtol=0.01)
+        trial = fmin(f,seed,disp=0,ftol=0.000001,xtol=0.01)
         if trial > 0:
             return trial[0]*RAD2DEG
         print 'Warning: could not invert integral; return best grid value.'
