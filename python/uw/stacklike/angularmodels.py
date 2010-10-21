@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/angularmodels.py,v 1.2 2010/09/01 20:59:47 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/angularmodels.py,v 1.5 2010/10/10 22:45:05 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -7,11 +7,14 @@ from uw.utilities.minuit import Minuit
 from uw.stacklike.CLHEP import HepRotation
 from uw.like import pypsf
 import numpy as np
+import pylab as py
+import uw.utilities.image as im
 import scipy.integrate as si
 import scipy.special as sp
 import scipy.misc as sm
 import skymaps as s
 import time as t
+import copy as cp
 
 rd = 180./np.pi
 
@@ -278,6 +281,77 @@ class Isotropic(Model):
 
 ################################################### END Isotropic CLASS     ###########################################
 
+################################################### DIFFUSE CLASS           ###########################################
+
+class Diffuse(Model):
+
+    def __init__(self,lims,diff,ebar):
+        super(Model,self).__init__([],[])
+        self.lims=lims
+        self.mark='o'
+        self.name='diff'
+        self.header=''
+        self.model_par=[]
+        self.free=[]
+        self.steps=[]
+        self.limits=[]
+        nside = 8192#int(2.*5270./(self.lims[1]*rd))
+        print nside
+        self.band = s.Band(int(nside))
+        self.area = self.band.pixelArea()
+        self.diffuse = s.DiffuseFunction(diff,ebar)
+        self.ebar = ebar
+        self.func = [[],[]]
+
+    def addsrc(self,src):
+        start = t.time()
+        wsdl = s.WeightedSkyDirList(self.band,src,self.lims[1],True)
+        bins = np.arange(0.,100.,1.)
+        bins = bins*self.lims[1]/100.
+        delt = bins[1]-bins[0]
+        seps = []
+        mags = []
+        for wsd in wsdl:
+            diff = wsd.difference(src)
+            mag = self.diffuse.value(wsd,self.ebar)
+            seps.append(diff)
+            mags.append(mag)
+        seps = np.array(seps)
+        mags = np.array(mags)
+        first = self.func[0]==[]
+        for it in range(len(bins)-1):
+            cut = mags[(seps>bins[it])&(seps<bins[it+1])]
+            #integral = N(pixels)*Area(Pixels)*(sum(f(pixel)))
+            fint = (len(cut)*self.area)*(sum(cut))
+            #print len(cut),sum(cut),bins[it]+delt/2,fint
+            if first:
+                self.func[0].append(bins[it]+delt/2)
+                self.func[1].append(fint)
+            else:
+                self.func[1][it] = self.func[1][it] + fint
+        self.custom = Custom(self.lims,cp.copy(self.func))
+        del wsdl
+        del seps
+        del mags
+        stop = t.time()
+        print 'Took %d seconds to setup the diffuse'%(int(stop-start))
+
+    def value(self,photon,pars):
+        return self.custom.value(photon,pars)
+    
+    def pdf(self,diff):
+        return self.custom.pdf(diff)
+
+    def integrate(self,photon,pars):
+        return self.custom.integrate(photon,pars)
+
+    def integral(self,delmin,delmax):
+        return self.custom.integral(delmin,delmax)
+
+    def update(self,pars):
+        self.model_par=pars
+################################################### END DIFFUSE CLASS       ###########################################
+
 ################################################### CUSTOM CLASS        ###########################################
 
 ## Custom class
@@ -291,7 +365,7 @@ class Custom(Model):
     #  @param func [[ang],[f(ang)]] array of angular separations in radians and the pdf of that separation
     def __init__(self,lims,func):
         super(Model,self).__init__([],[])
-        self.mark='x'
+        self.mark='o'
         self.model_par=[]
         self.free=[]
         self.lims=lims
@@ -381,6 +455,73 @@ class Custom(Model):
     def update(self,pars):
         self.model_par=pars
 ################################################### END CUSTOM CLASS    ###########################################
+
+################################################### GAUSSIAN            ###########################################
+
+## Gaussian class
+#
+# Manages model of gaussian in 'd' (narrower than PSF)
+class Gaussian(Model):
+
+    ## Constructor
+    #  @param lims [min,max], minimum and maximum angular deviations in radians
+    #  @param model_par [theta], parameter to describe gaussian width in radians
+    #  @param free [True], will fit the parameter theta
+    def __init__(self,lims,model_par,free=[True]):
+        super(Model,self).__init__(model_par,free)
+        self.mark='-'
+        self.model_par=model_par
+        self.free=free
+        self.lims=lims
+        self.steps=[0.01/rd]
+        self.limits=[[0.001/rd,10./rd]]
+        self.name='gaussian'
+        self.header='theta\t'
+    
+    ## returns value of halo distribution for a photon
+    #  @param photon CLHEP photon
+    #  @param pars parameter [theta], passed on by fitter
+    def value(self,photon,pars):
+        if len(pars)!=len(self.model_par):
+            print 'Wrong number of GAUSSIAN parameters!'
+            raise
+        theta = pars[0]
+        diff = photon.srcdiff()
+        f0 = self.psf(diff,theta)
+        return f0
+
+    ## returns psf value of halo distributino for a specific value
+    #  @param diff angular difference in radians
+    #  @param theta width of distribution in radians
+    def psf(self,diff,theta):
+        return np.exp(-(diff/theta)**2/2)
+    
+    ## returns integral of halo distribution for a photon with given parameters
+    #  @param photon CLHEP photon
+    #  @param pars parameter [theta], passed on by fitter
+    def integrate(self,photon,pars):
+        theta = pars[0]
+        um = self.lims[0]
+        ua = self.lims[1]
+        fint = theta*theta*(np.exp(-(um/theta)**2/2)-np.exp(-(ua/theta)**2/2))
+        return fint
+
+    ## returns integral of halo distribution between limits
+    #  @param delmin minimum angle in radians
+    #  @param delmax maximum angle in radians
+    def integral(self,delmin,delmax):
+        theta = self.model_par[0]
+        um = delmin
+        ua = delmax
+        fint = theta*theta*(np.exp(-(um/theta)**2/2)-np.exp(-(ua/theta)**2/2))
+        return fint
+
+    ## updates halo parameters
+    #  @params pars [theta] in radians
+    def update(self,pars):
+        self.model_par=pars
+
+################################################### END GUASSIAN CLASS  ###########################################
 
 ################################################### HALO CLASS          ###########################################
 
