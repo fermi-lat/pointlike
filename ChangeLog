@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Oct 22 11:43:54 PDT 2010
+ScienceTools-scons/pointlike/python/uw/thb_roi
+
+Modified Files:
+	config.py roi_factory.py 
+Log Message:
+Adding the ability to load in extended sources from the Extended Source archive
+    *
+------------------------------------------------------------
 User: mar0  Thu Oct 21 15:36:43 PDT 2010
 pointlike/python/uw/like
 
