@@ -1,11 +1,11 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/roi_factory.py,v 1.11 2010/08/29 20:21:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/thb_roi/roi_factory.py,v 1.12 2010/10/13 12:26:00 burnett Exp $
 author: T.Burnett <tburnett@u.washington.edu>
 """
 
 import os, copy, types
 import numpy as np
-from uw.like import pointspec, Models, pointspec_helpers, roi_managers, roi_diffuse
+from uw.like import pointspec, Models, pointspec_helpers, roi_managers, roi_diffuse, roi_extended
 from skymaps import SkyDir
 # in this package
 import roi_setup, myroi, config, findsource
@@ -64,7 +64,10 @@ class ROIfactory(pointspec.SpectralAnalysis):
         #    if not self.quiet: print 'adding sources from catalog'
         #    self.cb.append(aux)
         #    
- 
+
+        self.extcat = pointspec_helpers.ExtendedSourceCatalog(os.path.join(ae.catdir,ae.extended_catalog)) \
+            if ae.extended_catalog is not None else None
+
     def __str__(self):
         s = 'ROIfactory analysis environment:\n'
         s += self.ae.__str__()
@@ -81,7 +84,21 @@ class ROIfactory(pointspec.SpectralAnalysis):
         diffuse_mapper = lambda x: roi_diffuse.ROIDiffuseModel_OTF(self, x, skydir)
         diffuse_sources = pointspec_helpers.get_default_diffuse( *self.diffuse)
         diffuse_models = [diffuse_mapper(ds) for ds in diffuse_sources]
+        
+        # Add in the extended guys
+        diffuse_models += self.extended_sources(skydir)
+
         return roi_managers.ROIDiffuseManager(diffuse_models,skydir,quiet=self.quiet)
+
+    def extended_sources(self, skydir):
+        """ Get all the extended sources from the Extended Source archive. """
+        if self.extcat is None: return []
+
+        extended_mapper = lambda x: roi_extended.ROIExtendedModel.factory(self,x,skydir)
+
+        extended_sources = self.extcat.get_sources(skydir,self.maxROI)
+        extended_models = [extended_mapper(es) for es in extended_sources]
+        return extended_models
     
     def local_sources(self, sources,  **kwargs):
         """ return a manager for the local sources with significant overlap with the ROI
