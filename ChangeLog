@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Oct 22 19:36:08 PDT 2010
+pointlike/python/uw/thb_roi
+
+Modified Files:
+	myroi.py 
+Log Message:
+fix background parameter default to not set anything
+    *
+------------------------------------------------------------
 User: lande  Fri Oct 22 11:43:54 PDT 2010
 ScienceTools-scons/pointlike/python/uw/thb_roi
 
