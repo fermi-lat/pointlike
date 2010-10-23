@@ -1,7 +1,7 @@
 """
 User interface to SpectralAnalysis
 ----------------------------------
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.21 2010/08/29 20:22:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/myroi.py,v 1.22 2010/10/13 12:26:00 burnett Exp $
 
 """
 
@@ -72,7 +72,7 @@ class MyROI(roi_analysis.ROIAnalysis):
         bgfree = kwargs.pop('bgfree', [True,False,True])
         if bgfree is None:
             bgfree = [False,False,False]
-        bgpars = kwargs.pop('bgpars', [1.,1.,1.])
+        bgpars = kwargs.pop('bgpars', None)
         if 'fit_bg_first' in kwargs:
             self.fit_bg_first = kwargs['fit_bg_first']
             
@@ -80,12 +80,15 @@ class MyROI(roi_analysis.ROIAnalysis):
 #        super(MyROI, self).__init__(roi_dir, ps_manager, bg_manager, roifactory, **kwargs)
         roi_kw = dict(fit_emin=kwargs.get('fit_emin'), fit_emax = kwargs.pop('fit_emax'))
         super(MyROI, self).__init__(*pars, **roi_kw)
-        logpars = np.log10(np.array(bgpars))
-        self.bgm.models[0].free = np.array(bgfree[:2])
-        self.bgm.models[0].p = logpars[:2]
-        if len(self.bgm.models)>1:
-            self.bgm.models[1].free = np.array([bgfree[2]])
-            self.bgm.models[1].p    = logpars[2:3]
+        
+        if bgpars is not None:
+            # involves background assumption
+            logpars = np.log10(np.array(bgpars))
+            self.bgm.models[0].free = np.array(bgfree[:2])
+            self.bgm.models[0].p = logpars[:2]
+            if len(self.bgm.models)>1:
+                self.bgm.models[1].free = np.array([bgfree[2]])
+                self.bgm.models[1].p    = logpars[2:3]
             
         self.name = kwargs.pop('name', self.psm.point_sources[0].name) # default name
         self.center= pars[0] #roi_dir
