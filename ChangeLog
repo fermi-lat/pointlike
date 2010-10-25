@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Oct 25 14:05:02 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	specfitter.py 
+Log Message:
+More helpful error message.
+    *
+------------------------------------------------------------
 User: lande  Sun Oct 24 21:24:33 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
