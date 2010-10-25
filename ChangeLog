@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Oct 24 21:23:52 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Adding SmoothBrokenPowerLaw source. Also improving inheritance structure of full_name function.
+    *
+------------------------------------------------------------
 User: lande  Sun Oct 24 21:16:55 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
