@@ -1,6 +1,6 @@
 """A module for classes that perform spectral fitting.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/specfitter.py,v 1.4 2010/08/10 23:22:48 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/specfitter.py,v 1.5 2010/08/11 00:35:01 burnett Exp $
 
     author: Matthew Kerr
 """
@@ -194,7 +194,7 @@ def mycov(grad,par,full_output=False,init_step=0.04,min_step=1e-6,max_step=1,max
     except:
         print 'Error inverting hessian.'
         #cov = np.zeros([nparams,nparams])
-        raise Exception
+        raise Exception('Error inverting hessian')
     if full_output:
         return cov,hess,step_size,iters,min_flags,max_flags
     else:
