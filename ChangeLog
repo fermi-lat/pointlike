@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Oct 24 21:16:55 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Addition of analytic gradient (w/r/t spectral parameters) for spatially extended sources. Also, more helpful print string
+    *
+------------------------------------------------------------
 User: burnett  Fri Oct 22 19:36:08 PDT 2010
 pointlike/python/uw/thb_roi
 
