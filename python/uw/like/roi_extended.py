@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.27 2010/10/05 00:11:20 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.28 2010/10/15 00:22:04 lande Exp $
 
     author: Joshua Lande
 """
@@ -192,6 +192,32 @@ class ROIExtendedModel(ROIDiffuseModel):
             if band.has_pixels:
                 band.bg_pix_counts[:,mi] = myband.pix_counts * myband.es_counts
 
+    def gradient(self,bands,model_index,phase_factor=1):
+        """ Return the gradient of the log likelihood with respect to the spectral parameters of
+            this model. Note that this calculation is essentially identical to that of point
+            sources since extended sources decouple the spectral and spatial parts, as is done
+            for point soruces. """
+        sm  = self.smodel
+        np  = len(sm.p)
+        nfp = sm.free.sum()
+
+        # special case -- no free parameters
+        if nfp == 0: return []
+
+        gradient = [0]*nfp
+
+        for myband,band in zip(self.bands,bands):
+
+            grad    = band.gradient(sm)[sm.free]*myband.er # correct for exposure
+            apterm = phase_factor*myband.overlaps
+            if band.has_pixels:
+                pixterm = (band.pix_weights*myband.pix_counts).sum()
+            else:
+                pixterm = 0
+            gradient += grad * (apterm - pixterm)
+
+        return gradient
+
     def _pix_value(self,pixlist):
         return self.active_bgc(pixlist,self.active_bgc.cvals)
 
@@ -213,7 +239,7 @@ class ROIExtendedModel(ROIDiffuseModel):
         return '%s fitted with %s\n%s\n%s fitted with %s\n%s' % \
                 (es.name,sm.pretty_name,
                  sm.__str__(),
-                 es.name,es.smodel.pretty_name,
+                 es.name,es.smodel.full_name(),
                  es.smodel.__str__())
 
     def localize(self,roi,which,tolerance,update=False,verbose=False,
