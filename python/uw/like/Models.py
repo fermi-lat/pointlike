@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.23 2010/08/26 16:14:05 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.24 2010/09/23 22:15:09 burnett Exp $
 
     author: Matthew Kerr
 
@@ -23,6 +23,7 @@ class DefaultModelValues(object):
         'BrokenPowerLaw'    : {'p':[1e-11, 2.0, 2.0 ,1e3],'param_names':['Norm','Index_1','Index_2', 'E_break']},
         'BrokenPowerLawFlux' : {'p':[1e-7, 2.0, 2.0 ,1e3],'param_names':['Int_Flux','Index_1','Index_2', 'E_break'],'emin':100,'emax':1e6},
         'BrokenPowerLawCutoff': {'p':[1e-11,2,2,1e3,3e3],'param_names':['Norm','Index_1','Index_2','E_break','Cutoff']},
+        'SmoothBrokenPowerLaw': {'p':[1e-11,2.0,2.0, 1e3],'param_names':['Norm','Index_1','Index_2','E_break'],'beta':0.1},
         'DoublePowerLaw'    : {'p':[5e-12, 2.0, 2.0, 1],  'param_names':['Norm','Index_1','Index_2','Ratio']},
         'DoublePowerLawCutoff' : {'p':[5e-12,2,2,1e3,1], 'param_names':['Norm','Index_1','Index_2','Cutoff','Ratio']},
         'LogParabola'        : {'p':[1e-11, 2.0, 1e-5,2e3],'param_names':['Norm','Index','beta','E_break']},
@@ -326,7 +327,7 @@ Optional keyword arguments:
         return N.asarray(derivs)
         
     def full_name(self):
-        return self.pretty_name if self.pretty_name != 'PowerLaw' else 'PowerLaw, e0=%.0f'% self.e0
+        return self.pretty_name
     
     def set_e0(self, e0p):
         """ set a new reference energy, adjusting the norm parameter """
@@ -381,6 +382,8 @@ Spectral parameters:
         self.p[0] += gamma * N.log10(self.e0/e0p)
         self.e0 = e0p
         
+    def full_name(self):
+        return '%s, e0=%.0f'% (self.pretty_name,self.e0)
 
 #===============================================================================================#
 
@@ -465,6 +468,57 @@ Spectral parameters:
     def __call__(self,e):
         n0,gamma1,gamma2,e_break,cutoff=10**self.p
         return (n0/self.flux_scale)*N.where( e < e_break, (e_break/e)**gamma1, (e_break/e)**gamma2 )*N.exp(-e/cutoff)
+
+#===============================================================================================#
+
+class SmoothBrokenPowerLaw(Model):
+    """Implement a smoothed broken power law. This is similar to a broken 
+       powerlaw but uses the parameter beta to smoothly interpolate between 
+       the two powerlaws.
+
+       Everything is defined exactly the same as gtlike except for the 
+       usual replacement that gamma1 and gamma2 are defined to be the 
+       negative of the gtlike definition. 
+
+       Note that this function has a somewhat confusing feature that when
+       beta>0, the function always becomes softer for energies greater then
+       the break. For beta<0, the function always becomes harder for energies
+       greater than the break. So you need to pick beta in advance depending
+       upon whether you want your function to slope up or down.
+
+       For now, I am not allowing beta to be fit. It would be somewhat
+       ackward trying to fit it since it may need negative values.
+
+       Also note that e0 is used in the spectral function and can be set (but 
+       not fit) by passing in e0 when initialized. """
+    def __call__(self,e):
+        n0,gamma1,gamma2,e_break=10**self.p
+        return (n0/self.flux_scale)*(self.e0/e)**gamma1*\
+               (1+(e_break/e)**((gamma1-gamma2)/self.beta))**(-self.beta)
+
+    def gradient(self,e):
+        """ lots of derivatives. You can derive them all by hitting the 
+            derivative on log(dN/dE). """
+
+        n0,gamma1,gamma2,e_break=10**self.p
+
+        f=self(e)
+        df_n0=f/n0
+
+        bottom=1.0+(e_break/e)**(-(gamma1-gamma2)/self.beta)
+        df_gamma1=f*(N.log(self.e0/e)-N.log(e_break/e)/bottom)
+        df_gamma2=f*N.log(e_break/e)/bottom
+        df_break=-f*(gamma1-gamma2)/e_break/bottom
+
+        # for completeness, here is the gradient with respect to beta.
+        # For now, no compelling reason to fit it.
+        # df_beta=f*(-N.log(1.0+(e_break/e)**((gamma1-gamma2)/self.beta))
+        #            +((gamma1-gamma2)/self.beta)*N.log(e_break/e)/bottom)
+
+        return N.asarray([df_n0,df_gamma1,df_gamma2,df_break])
+
+    def full_name(self):
+        return '%s, e0=%.0f, beta=%.3g'% (self.pretty_name,self.e0,self.beta)
 
 #===============================================================================================#
 
