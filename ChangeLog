@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Oct 24 21:24:33 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Adding SmoothBrokenPowerLaw function. Also adding some more useful error messages when improper xml is parsed
+    *
+------------------------------------------------------------
 User: lande  Sun Oct 24 21:23:52 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
