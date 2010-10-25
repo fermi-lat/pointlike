@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.19 2010/10/01 04:13:38 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.20 2010/10/16 00:48:34 lande Exp $
 
    author: Matthew Kerr
 """
@@ -91,6 +91,7 @@ class XML_to_Model(object):
             'PowerLaw2' : 'PowerLawFlux',
             'BrokenPowerLaw' : 'BrokenPowerLaw',
             'BrokenPowerLaw2' : 'BrokenPowerLawFlux',
+            'SmoothBrokenPowerLaw' : 'SmoothBrokenPowerLaw',
             'PLSuperExpCutoff' : 'PLSuperExpCutoff',
             'Constant'  : 'Constant', # should this have been ConstantValue key?
             'ConstantValue' : 'Constant',
@@ -102,6 +103,7 @@ class XML_to_Model(object):
             'PowerLaw2' : ['Integral','Index'],
             'BrokenPowerLaw' : ['Prefactor', 'Index1', 'Index2', 'BreakValue'],
             'BrokenPowerLaw2' : ['Integral', 'Index1', 'Index2', 'BreakValue'],
+            'SmoothBrokenPowerLaw' : ['Prefactor', 'Index1', 'Index2', 'BreakValue'],
             'PLSuperExpCutoff' : ['Prefactor','Index1','Cutoff','Index2'],
             'ConstantValue' : ['Value'],
             'FileFunction'  : ['Normalization']
@@ -112,6 +114,7 @@ class XML_to_Model(object):
             'PowerLaw2' : [ ['LowerLimit','emin'], ['UpperLimit','emax'] ],
             'BrokenPowerLaw' : [],
             'BrokenPowerLaw2' : [ ['LowerLimit','emin'], ['UpperLimit','emax'] ],
+            'SmoothBrokenPowerLaw' : [ ['Scale','e0' ], ['Beta','beta'] ],
             'PLSuperExpCutoff' : [ ['Scale','e0' ] ],
             'ConstantValue' : [],
             'FileFunction' : []
@@ -130,7 +133,11 @@ class XML_to_Model(object):
         model = eval('%s()'%(self.modict[specname]))
 
         for ip,p in enumerate(self.specdict[specname]):
-            pdict = d[p]
+            try:
+                pdict = d[p]
+            except:
+                raise Exception("For source %s, %s parameter %s not found in xml file." % (source_name,specname,p))
+
             scale = float(pdict['scale'])
             value = float(pdict['value'])
             if (p == 'Index') or (p == 'Index1') or (p == 'Index2' and self.modict[specname]!='PLSuperExpCutoff'):
@@ -151,6 +158,11 @@ class XML_to_Model(object):
 
         for p in self.kwargdict[specname]:
             pdict = d[p[0]]
+
+            if pdict['free'] != '0':
+                # Sanity check on validity of xml 
+                raise Exception('For source %s, %s parameter %s cannot be fit (must be free="0")' % (source_name,specname,p[0]))
+
             model.__dict__[p[1]] = float(pdict['value'])
 
         return model
@@ -311,6 +323,16 @@ class Model_to_XML(object):
             self.pval   = [1,2,1,1,1000]
             self.perr   = [0,0,0,0,-1]
             self.oomp   = [1,0,1,0,0]
+
+        elif name == 'SmoothBrokenPowerLaw':
+            self.pname  = ['Prefactor', 'Index1', 'Index2', 'BreakValue', 'Scale', 'Beta']
+            self.pfree  = [1,1,1,1,0,0]
+            self.pscale = [1e-9,-1,-1,1,1,1]
+            self.pmin   = [1e-5,0,0,30,30,-10]
+            self.pmax   = [1e4,5,5,5e5,5e5,10]
+            self.pval   = [1,2,2,1e3,1e3,0.1]
+            self.perr   = [0,0,0,0,-1,-1]
+            self.oomp   = [1,0,0,1,0,0]
 
         elif name == 'FileFunction':
             self.pname = ['Normalization']
