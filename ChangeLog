@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Oct 26 15:26:02 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_managers.py 
+Log Message:
+bugfix, when deleting diffuse source, return DiffuseSource object, not ROIDiffuseModel object.
+    *
+------------------------------------------------------------
 User: lande  Tue Oct 26 15:25:25 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
