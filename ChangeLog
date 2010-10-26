@@ -1,4 +1,25 @@
 ------------------------------------------------------------
+User: lande  Tue Oct 26 15:41:01 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py roi_extended.py 
+Log Message:
+Allow fitting the position of SpatialMap (template) extended sources.
+
+Intellegent caching of non-radially symmetric extended sources. Only reconvolve when new extension parameters are changed.
+
+Improve print formatting of extended sources.
+
+New convolution objects to abstract out the convolution caching mechanism.
+
+Recalculate spectral errors at end of extended source localization.
+
+Better 'verbose' handeling in extended source localization
+
+
+    *
+------------------------------------------------------------
 User: lande  Tue Oct 26 15:40:52 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
