@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.46 2010/10/12 19:03:45 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.47 2010/10/12 19:21:37 wallacee Exp $
 
 author: Matthew Kerr
 """
@@ -13,7 +13,7 @@ import math, pickle, collections
 from uw.like import roi_bands, roi_localize , specfitter
 
 from pointspec_helpers import PointSource
-from roi_diffuse import DiffuseSource
+from roi_diffuse import ROIDiffuseModel,DiffuseSource
 from roi_extended import ExtendedSource,BandFitExtended
 from uw.utilities import keyword_options
 
@@ -668,7 +668,7 @@ class ROIAnalysis(object):
             sources, add ROIDiffuseModel object."""
          if isinstance(ps,PointSource):
               manager=self.psm
-         elif isinstance(ps,DiffuseSource):
+         elif isinstance(ps,ROIDiffuseModel):
               manager=self.dsm
          manager.add_source(ps,self.bands)
 
