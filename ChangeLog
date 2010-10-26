@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Oct 26 15:25:25 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Bugfix, when adding new diffuse source, require input of ROIDiffuseModel.
+    *
+------------------------------------------------------------
 User: lande  Tue Oct 26 15:15:52 PDT 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
