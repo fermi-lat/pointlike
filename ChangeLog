@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: lande  Tue Oct 26 15:40:52 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Intellegent caching of non-radially symmetric extended sources. Only reconvolve when new extension parameters are changed.
+
+New convolution objects to abstract out the convolution caching mechanism.
+
+
+    *
+------------------------------------------------------------
 User: lande  Tue Oct 26 15:26:02 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
