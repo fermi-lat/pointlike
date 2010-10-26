@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.16 2010/08/24 18:15:54 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.17 2010/09/16 05:16:35 lande Exp $
 
 author: Matthew Kerr
 """
@@ -311,7 +311,7 @@ class ROIDiffuseManager(ROIModelManager):
                               for ibg,bg in enumerate(self.bgmodels)])
 
     def add_source(self, model, bands):
-        """Add a new PointSource object to the model and re-calculate the point source
+        """Add a new ROIDiffuseModel object to the model and re-calculate the point source
         contribution."""
 
         self.bgmodels        = N.append(self.bgmodels,model)
@@ -321,7 +321,7 @@ class ROIDiffuseManager(ROIModelManager):
         self.setup_initial_counts(bands) # not most efficient, but fewest loc!
 
     def del_source(self, which, bands):
-        ops = self.bgmodels[which]
+        ops = self.diffuse_sources[which]
         self.bgmodels        = N.delete(self.bgmodels,which)
         self.models          = N.delete(self.models,which)
         self.names           = N.delete(self.names,which)
