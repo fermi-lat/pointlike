@@ -2,13 +2,13 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.28 2010/10/15 00:22:04 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.29 2010/10/25 04:16:55 lande Exp $
 
     author: Joshua Lande
 """
 
 from SpatialModels import RadiallySymmetricModel,Gaussian,SpatialModel,SpatialMap
-from uw.utilities.convolution import BackgroundConvolutionNorm,AnalyticConvolution
+from uw.utilities.convolution import ExtendedSourceConvolutionCache,AnalyticConvolutionCache
 from roi_diffuse import DiffuseSource,ROIDiffuseModel,SmallBand
 from textwrap import dedent
 from skymaps import SkyDir,Background
@@ -70,7 +70,7 @@ class ExtendedSource(DiffuseSource):
                           'Dec. (J2000):\t\t%.5f'%(self.spatial_model.center.dec()),
                           'Model:\t\t%s'%(self.smodel.full_name()),
                           '\t'+self.smodel.__str__(indent='\t'), 
-                          'SpatialModel:\t%s'%(self.spatial_model.pretty_name),
+                          'SpatialModel:\t%s'%(self.spatial_model.full_name()),
                           '\t'+self.spatial_model.__str__(indent='\t')
                          ])
 
@@ -115,7 +115,7 @@ class ROIExtendedModel(ROIDiffuseModel):
         """ Unlike background models, always do the convolution around 
             the spatial model's center. """
         self.exp = self.sa.exposure.exposure; psf = self.sa.psf
-        self.active_bgc = BackgroundConvolutionNorm(self.extended_source.spatial_model.center,None,psf,
+        self.active_bgc = ExtendedSourceConvolutionCache(self.extended_source.spatial_model,psf,
                                           npix=self.npix,pixelsize=self.pixelsize,
                                           bounds_error=False,fill_value=0)
 
@@ -134,31 +134,10 @@ class ROIExtendedModel(ROIDiffuseModel):
         npix += (npix%2 == 0)
         self.active_bgc.setup_grid(npix,self.pixelsize)
 
-        if hasattr(self.extended_source.spatial_model,'fill_grid'):
-            vals=self.extended_source.spatial_model.fill_grid(self.active_bgc,energy)
-            self.active_bgc.do_convolution(energy,conversion_type,
-                                           override_vals=vals)
-        else:
-            if isinstance(self.extended_source.spatial_model,SpatialMap):
-                self.active_bgc.do_convolution(energy,conversion_type,
-                                               override_skyfun=self.extended_source.spatial_model.skyfun)
-            else:
-                # This part of the code wraps the spatial_model object as a PySkySpectrum object 
-                # and is very poorly optimized. Hopefully it will only exist as a fallback 
-                # because extended sources will either
-                # (a) be radially symmetric
-                # (b) Immediatly fill the convolution grid in python
-                # (c) Have a C++ implementation of the sky function interface so that 
-                #     it can be filled in python.
-                self.active_bgc.do_convolution(energy,conversion_type)
-
+        self.active_bgc.do_convolution(energy,conversion_type)
         self.current_exposure = self.exp[conversion_type].value(self.extended_source.spatial_model.center,energy)
 
     def initialize_counts(self,bands,roi_dir=None):
-        # Need to recreate the BackgroundConvolutionNorm object before reconvolving
-        # (to update the center object.)
-        self.setup() 
-
         rd = self.roi_dir if roi_dir is None else roi_dir
         self.bands = [SmallBand() for i in xrange(len(bands))]
 
@@ -237,13 +216,13 @@ class ROIExtendedModel(ROIDiffuseModel):
         sm = es.spatial_model
 
         return '%s fitted with %s\n%s\n%s fitted with %s\n%s' % \
-                (es.name,sm.pretty_name,
-                 sm.__str__(),
+                (es.name,sm.full_name(),
+                 '\t'+sm.__str__(indent='\t'),
                  es.name,es.smodel.full_name(),
-                 es.smodel.__str__())
+                 '\t'+es.smodel.__str__(indent='\t'))
 
     def localize(self,roi,which,tolerance,update=False,verbose=False,
-                 bandfits=False, seedpos=None, error="HESSE",init_grid=None):
+                 bandfits=False, seedpos=None, error="HESSE",init_grid=None, use_gradient=False):
         """ Localize this extended source by fitting all non-fixed spatial paraameters of 
             self.extended_source. The likelihood at the best position is returned.
 
@@ -286,9 +265,6 @@ Arguments:
         from uw.utilities.minuit import Minuit
 
         es = self.extended_source
-
-        if type(es) == SpatialMap: 
-            raise Exception("Unable to localize a SpatialMap extended source.")
 
         sm = es.spatial_model
         cs = sm.coordsystem
@@ -365,12 +341,12 @@ Arguments:
             if bandfits:
                 ll=roi.bandFit(self.extended_source)
             else:
-                ll=roi.fit(estimate_errors=False)
+                ll=roi.fit(estimate_errors=False,use_gradient=use_gradient)
 
                 if ll < ll_0:
                     prev_fit=self.smodel.get_parameters()
                     self.smodel.set_parameters(init_spectral)
-                    ll_alt=roi.fit(estimate_errors=False)
+                    ll_alt=roi.fit(estimate_errors=False,use_gradient=use_gradient)
 
                     if ll_alt > ll: ll=ll_alt
                     else: self.smodel.set_parameters(prev_fit)
@@ -415,7 +391,7 @@ Arguments:
                    up=0.5,
                    maxcalls=500,
                    tolerance=tolerance,
-                   printMode = verbose,
+                   printMode = 1 if verbose else -1,
                    param_names=relative_names,
                    limits    = limits,
                    fixed     = ~sm.free,
@@ -435,6 +411,9 @@ Arguments:
         else:
             if verbose: print 'setting source back to original parameters'
             likelihood_wrapper(init_spatial)
+
+        # Fit once more at the end to get the right errors.
+        roi.fit(estimate_errors=True,use_gradient=use_gradient)
 
         roi.quiet = old_quiet
 
@@ -456,7 +435,7 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         convolution for a more efficient pdf calculation.
 
         Any of the optional keyword arguments to uw.utilities.convolution's 
-        AnalyticConvolution class will be passed on to that class.  """
+        AnalyticConvolutionCache class will be passed on to that class.  """
 
     def init(self):
         super(ROIExtendedModelAnalytic,self).init()
@@ -468,7 +447,7 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         psf = self.sa.psf
 
         d={'num_points':self.num_points} if self.__dict__.has_key('num_points') else {}
-        self.active_bgc = AnalyticConvolution(self.extended_source.spatial_model,psf,**d)
+        self.active_bgc = AnalyticConvolutionCache(self.extended_source.spatial_model,psf,**d)
 
     def set_state(self,energy,conversion_type,band):
         self.current_energy = energy
