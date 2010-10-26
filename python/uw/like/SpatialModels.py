@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.21 2010/09/30 22:55:33 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.22 2010/10/16 01:18:25 lande Exp $
 
    author: Joshua Lande
 
@@ -9,7 +9,6 @@ import numpy as N
 from scipy import vectorize
 from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
         SkyImage,SkyIntegrator,CompositeSkyFunction
-from uw.utilities.convolution import Grid
 import os
 
 # Mathematical constants. They are the ratio of r68 (the %68 containment
@@ -356,41 +355,37 @@ class SpatialModel(object):
         image.fill(skyfunction)
         image.save()
 
-    def __str__(self,absolute=False, indent=''):
+    def __str__(self, indent=''):
         """Return a pretty print version of parameter values and errors."""
-        p,hi_p,lo_p = self.statistical(absolute=absolute,two_sided=True)
-        p,avg_p     = self.statistical(absolute=absolute,two_sided=False)
+        p,hi_p,lo_p = self.statistical(absolute=False,two_sided=True)
+        p,avg_p     = self.statistical(absolute=False,two_sided=False)
+        p,abs_p     = self.statistical(absolute=True,two_sided=False)
         pnames      = self.param_names
-
-        if self.pretty_name == 'SpatialMap':                                                                                                              
-            return '%-10s: %s' % ('Template',os.path.basename(self.file))
 
         m=max(len(n) for n in pnames)
         l=[]
-        if N.any(avg_p != 0): #if statistical errors are present   
-            for i in xrange(len(pnames)):
-                n=pnames[i][:m]
-                t_n=n+(m-len(n))*' '
-                frozen = '' if self.free[i] else '(FROZEN)'
-                if p[i] == 0: 
-                   l+=[t_n+': (1 +       -      ) (avg =      ) %.3g %s'%(p[i],frozen)]
-                elif not absolute:
-                   l+=[t_n+': (1 + %.3f - %.3f) (avg = %.3f) %.3g %s'%(hi_p[i],lo_p[i],avg_p[i],p[i],frozen)]
-                else:
-                   l+=[t_n+': %.3g + %.3g - %.3g (avg = %.3g) %s'%(p[i],hi_p[i],lo_p[i],avg_p[i],frozen)]
-            return ('\n'+indent).join(l)
-        else: #if no errors are present
-            for i in xrange(len(pnames)):
-                n=pnames[i][:m]
-                t_n=n+(m-len(n))*' '
-                l+=[t_n+': %.3g'%(p[i])]
-            return ('\n'+indent).join(l)
+        for name,val,lo,hi,avg,abs,log,free in zip(pnames,p,hi_p,lo_p,avg_p,abs_p,self.log,self.free):
+            l += [ '%-*s : ' % (m,name) ]
+
+            if log and avg != 0 and hi != 0 and lo !=0:
+                l[-1] += '(1 + %.3f - %.3f) (avg = %.3f) ' % (hi,lo,avg)
+
+            l[-1] += '%.4g'%(val)
+
+            if not log and abs != 0: 
+                l[-1] += ' +/- %.3g' % abs
+
+            if not free: print ' (FROZEN)'
+        return ('\n'+indent).join(l)
+
+    def full_name(self):
+        return self.pretty_name
 
     def pretty_string(self):
         """ Default pretty string prints out the spatial parameters
             of the source in one terse line. This is useful to
             print during localization. """
-        str = 'dir = [ %.3fd, %.3fd ]' % (self.p[0],self.p[1])
+        str = 'center = [ %.3fd, %.3fd ]' % (self.p[0],self.p[1])
         if len(self.p)>2:
             str+=', ext = %s' % (self.pretty_spatial_string())
         return str
@@ -716,6 +711,7 @@ class EllipticalSpatialModel(SpatialModel):
         # creating a grid for each function call is horribly inneficient, so
         # this function shouldn't be used for anything serious.
         if self.call_grid is None: 
+            from uw.utilities.convolution import Grid
             self.call_grid=Grid(self.center)
             self.call_grid.wrap=True
 
@@ -860,17 +856,16 @@ class SpatialMap(SpatialModel):
 
         def dir(x,y): return SkyDir(x,y,self.projection)
 
-        self.coordsystem = SkyDir.GALACTIC if self.projection.isGalactic() else SkyDir.EQUATORIAL
-
         # Set the source center to the center of the image.
         self.center=SkyDir((naxis1-1)/2,(naxis2-1)/2,p)
 
-        # Don't display any spatial parameters
-        self.p=N.asarray([])
-        self.param_names=N.asarray([])
-        self.free=N.asarray([])
-        self.log=N.asarray([])
-        self.cov_matrix = N.asarray([[]])
+        # the spatial parameters are just the center of the image.
+        if self.coordsystem == SkyDir.EQUATORIAL:
+            self.p = N.asarray([self.center.ra(),self.center.dec()])
+        elif self.coordsystem == SkyDir.GALACTIC:
+            self.p = N.asarray([self.center.l(),self.center.b()])
+
+        self.init_p=self.p.copy()
 
         # SkyDir of image corners
         edges=[SkyDir(0,0,p),SkyDir(0,naxis2,p),
@@ -878,6 +873,9 @@ class SpatialMap(SpatialModel):
 
         # Find furthest corner
         self.edge=max(_.difference(self.center) for _ in edges)
+
+    def full_name(self):
+        return '%s (%s)' % (self.pretty_name,os.path.basename(self.file))
 
     def effective_edge(self,energy=None):
         return self.edge
@@ -912,7 +910,11 @@ def convert_spatial_map(spatial,filename):
         spatial is the name of the input spatial model
         filename is the filename for the saved template
         
-        The return is a SpatialMap object with the same PDF. """
+        The return is a SpatialMap object with the same PDF. 
+        
+        When a SpatialMap object is passed in, only save out a new template if
+        the source has been moved. This, of course, will degrade the quality
+        of the saved template. """
     if isinstance(spatial,SpatialMap): 
         return spatial
 
