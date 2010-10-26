@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Oct 26 15:15:52 PDT 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Warning message when you try to save out localized SpatialMap extended source.
+    *
+------------------------------------------------------------
 User: lande  Mon Oct 25 14:05:02 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
