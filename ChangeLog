@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Wed Oct 27 11:37:40 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	srcid.py 
+Log Message:
+Fix a bug that prevented SourceAssociation.id from saving results when using
+multiple counterpart classes.
+
+    *
+------------------------------------------------------------
 User: lande  Tue Oct 26 15:41:01 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
