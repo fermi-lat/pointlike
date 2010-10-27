@@ -89,7 +89,6 @@ class SourceAssociation(object):
         if kwargs:
             raise SrcidError('\n'.join(['Unrecognized kwargs for method "id":']+
                             ["\t%s"%k for k in kwargs.keys()]+['']))
-        locals().update(kw)
         if kw['cpt_class'] is None:
             kw['cpt_class'] = self.class_list
         if hasattr(kw['cpt_class'],'__iter__'):
@@ -97,7 +96,7 @@ class SourceAssociation(object):
             id_kw = kw.copy()
             for c in kw['cpt_class']:
                 id_kw['cpt_class'] = c
-                ass = self.id(position,error,**id_kw)
+                ass = SourceAssociation.id(self,position,error,**id_kw)
                 if ass:
                     associations[c] = ass
             return associations
