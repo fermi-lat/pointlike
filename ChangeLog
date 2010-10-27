@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Wed Oct 27 14:11:03 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	srcid.py 
+Log Message:
+Change SourceAssociation.id to avoid calling subclass id method on recursive
+calls.
+
+    *
+------------------------------------------------------------
 User: wallacee  Wed Oct 27 11:37:40 PDT 2010
 pointlike/python/uw/like
 
