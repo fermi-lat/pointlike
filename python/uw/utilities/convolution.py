@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.22 2010/09/30 22:55:55 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.23 2010/10/26 22:40:52 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -376,7 +376,7 @@ class AnalyticConvolution(object):
         self.psf=psf
 
 
-    def _get_pdf(self,rlist,g,s,energy):
+    def _convolve(self,rlist,g,s,energy):
         """ Function to calculate the pdf at the givin radii points
             for a given psf sigma and gamma. (and a radially symmetric
             spatial model self.spatial_model
@@ -418,7 +418,62 @@ class AnalyticConvolution(object):
                     pdf[i]=romberg(integrand,0,int_max,args=(u,),divmax=20)
                                    
         return pdf
+    
+    def _get_pdf(self,energy,conversion_type,band,fitpsf):
+        """ This function has to calculate self.rlist and self.pdf
+            and is abstracted from the rest of the do_convolution
+            function so that it can be overloaded for caching
+            by AnalyticConvolutionCache. """
 
+        pb = PretendBand(energy,conversion_type)
+        self.bpsf = BandCALDBPsf(self.psf,pb)
+
+        if self.bpsf.newstyle:
+            nclist,ntlist,gclist,gtlist,\
+                    sclist,stlist,wlist = self.bpsf.par
+
+            smax = N.append(sclist,stlist).max()
+
+        else:
+            # g = gamma, s = sigma, w = weight
+            glist,slist,wlist = self.bpsf.par
+            smax=slist.max()
+
+        self.edge_distance=band.sd.difference(self.spatial_model.center) + \
+                band.radius_in_rad
+
+        self.rmax=self.edge_distance
+
+        self.rlist=N.linspace(0,N.sqrt(self.rmax),self.num_points)**2
+
+
+        # pdf is the probability per unit area at a given radius.
+        self.pdf=N.zeros_like(self.rlist)
+
+        if fitpsf:
+            # For new & old style psf, fit a single king function to the data.
+            self.pdf = self._convolve(self.rlist,band.fit_gamma,band.fit_sigma,energy)
+        else:
+            if self.bpsf.newstyle:
+                for nc,gc,sc,nt,gt,st,w in zip(nclist,gclist,sclist,\
+                                               ntlist,gtlist,stlist,wlist):
+                    self.pdf += w*(nc*self._convolve(self.rlist,gc,sc,energy)+
+                                   nt*self._convolve(self.rlist,gt,st,energy))
+            else:
+                for g,s,w in zip(glist,slist,wlist):
+                    self.pdf += w*self._convolve(self.rlist,g,s,energy)
+
+        # for some reason, I incorrectly got a negative pdf value for r=0 and for
+        # especially large gaussian MC sources. Not sure how the integral of the 
+        # hypergeometric function could do this, but it is best to simply remove 
+        # it from the list since we know they are unphysical.
+        bad = N.isnan(self.pdf)|N.isinf(self.pdf)|(self.pdf<0)
+        if N.any(bad):
+            message='WARNING! Bad values found in PDF. Removing them from interpolation.' % sum(bad)
+            if N.any(N.isnan(self.pdf)): message += ' (%d NaN values)' % sum(N.isnan(self.pdf)),
+            if N.any(N.isinf(self.pdf)): message += ' (%d Inf values)' % sum(N.isinf(self.pdf)),
+            if N.any(self.pdf<0):        message +=' (%d negative values)' % sum(self.pdf<0),
+            raise Exception(message)
 
     def do_convolution(self,energy,conversion_type,band,fitpsf):
         """ Generate points uniformly in r^2 ~ u, to ensure there are more 
@@ -454,55 +509,9 @@ class AnalyticConvolution(object):
   =========     =======================================================
             """
 
-        pb = PretendBand(energy,conversion_type)
-        self.bpsf = BandCALDBPsf(self.psf,pb)
-
-        if self.bpsf.newstyle:
-            nclist,ntlist,gclist,gtlist,\
-                    sclist,stlist,wlist = self.bpsf.par
-
-            smax = N.append(sclist,stlist).max()
-
-        else:
-            # g = gamma, s = sigma, w = weight
-            glist,slist,wlist = self.bpsf.par
-            smax=slist.max()
-
-        self.edge_distance=band.sd.difference(self.spatial_model.center) + \
-                band.radius_in_rad
-
-        self.rmax=self.edge_distance
-
-        self.rlist=N.linspace(0,N.sqrt(self.rmax),self.num_points)**2
-
-
-        # pdf is the probability per unit area at a given radius.
-        self.pdf=N.zeros_like(self.rlist)
-
-        if fitpsf:
-            # For new & old style psf, fit a single king function to the data.
-            self.pdf = self._get_pdf(self.rlist,band.fit_gamma,band.fit_sigma,energy)
-        else:
-            if self.bpsf.newstyle:
-                for nc,gc,sc,nt,gt,st,w in zip(nclist,gclist,sclist,\
-                                               ntlist,gtlist,stlist,wlist):
-                    self.pdf += w*(nc*self._get_pdf(self.rlist,gc,sc,energy)+
-                                   nt*self._get_pdf(self.rlist,gt,st,energy))
-            else:
-                for g,s,w in zip(glist,slist,wlist):
-                    self.pdf += w*self._get_pdf(self.rlist,g,s,energy)
-
-        # for some reason, I incorrectly got a negative pdf value for r=0 and for
-        # especially large gaussian MC sources. Not sure how the integral of the 
-        # hypergeometric function could do this, but it is best to simply remove 
-        # it from the list since we know they are unphysical.
-        bad = N.isnan(self.pdf)|N.isinf(self.pdf)|(self.pdf<0)
-        if N.any(bad):
-            message='WARNING! Bad values found in PDF. Removing them from interpolation.' % sum(bad)
-            if N.any(N.isnan(self.pdf)): message += ' (%d NaN values)' % sum(N.isnan(self.pdf)),
-            if N.any(N.isinf(self.pdf)): message += ' (%d Inf values)' % sum(N.isinf(self.pdf)),
-            if N.any(self.pdf<0):        message +=' (%d negative values)' % sum(self.pdf<0),
-            raise Exception(message)
+        # do most of the work in this subfunction, which allows for caching
+        # by the AnalyticConvolutionCache subclass.
+        self._get_pdf(energy,conversion_type,band,fitpsf)
 
         # Assume pdf is 0 outside of the bound, which is reasonable if 
         # rmax is big enough also, interpolate the log of the intensity, which 
@@ -562,26 +571,23 @@ class AnalyticConvolutionCache(AnalyticConvolution):
 
         self.last_p         = {}
         self.last_pdf       = {}
-        self.last_val       = {}
-        self.last_int_val   = {}
+        self.last_rlist     = {}
 
-    def do_convolution(self,energy,conversion_type,band,fitpsf):
+    def _get_pdf(self,energy,conversion_type,band,fitpsf):
 
         if self.last_p.has_key((energy,conversion_type,fitpsf)) and \
                 N.all(self.last_p[energy,conversion_type,fitpsf] == self.spatial_model.p[2:]):
 
+            self.rlist   = self.last_rlist[energy,conversion_type,fitpsf]
             self.pdf     = self.last_pdf[energy,conversion_type,fitpsf]
-            self.val     = self.last_val[energy,conversion_type,fitpsf]
-            self.int_val = self.last_int_val[energy,conversion_type,fitpsf]
 
         else:
-            super(AnalyticConvolutionCache,self).do_convolution(
+            super(AnalyticConvolutionCache,self)._get_pdf(
                     energy,conversion_type,band,fitpsf)
 
             self.last_p[energy,conversion_type,fitpsf]=self.spatial_model.p[2:].copy()
+            self.last_rlist[energy,conversion_type,fitpsf]=self.rlist
             self.last_pdf[energy,conversion_type,fitpsf]=self.pdf
-            self.last_val[energy,conversion_type,fitpsf]=self.val
-            self.last_int_val[energy,conversion_type,fitpsf]=self.int_val
 
 """
 a little sanity check class
