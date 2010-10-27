@@ -110,8 +110,10 @@ class SourceAssociation(object):
                                                          trap_mask=kw['trap_mask'],
                                                          unique = kw['unique'])
         associations = [(a[0].name, a[1], a[0].skydir) for a in these if these]
-        if kw['name'] is not None:
-            self.sources[kw['name']] = associations
+        if kw['name'] is not None and associations!=[]:
+            if not self.sources.has_key(kw['name']):
+                self.sources[kw['name']] = dict()
+            self.sources[kw['name']][kw['cpt_class']] = associations
         return associations
 
     def id_list(self,r,class_list = None,trap_mask=False,unique = False):
