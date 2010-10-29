@@ -1,15 +1,17 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.22 2010/10/16 01:18:25 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.23 2010/10/26 22:41:01 lande Exp $
 
    author: Joshua Lande
 
 """
+import os
+import copy
+
 import numpy as N
 from scipy import vectorize
 from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
         SkyImage,SkyIntegrator,CompositeSkyFunction
-import os
 
 # Mathematical constants. They are the ratio of r68 (the %68 containment
 # radius) to sigma, the 'size' parameter of an extended source.
@@ -221,8 +223,10 @@ class SpatialModel(object):
         if absolute:
             return self.param_names
         else:
-            return ["log10(%s)" % n.replace('Dec','Dec (rotated)') \
-                    if log else n for n,log in zip(self.param_names,self.log)]
+            # Can't fit l or dec in log space.
+            return ["log10(%s)" % n if log \
+                    else n.replace('Dec','Dec (rotated)').replace('b','b (rotated)') \
+                    for n,log in zip(self.param_names,self.log)]
 
     def get_limits(self,absolute=False):
         ret = N.asarray([10**lim if log and absolute else lim \
@@ -843,18 +847,18 @@ class SpatialMap(SpatialModel):
         if not self.__dict__.has_key('file'):
             raise Exception("Object Template must be initialized with file=template.fits keyword.")
 
-        extension="" # use primary extension.
-        interpolate=True # Note, interpolate=True necessary to not read outside array
+        self.extension="" # use primary extension.
+        self.interpolate=True # Note, interpolate=True necessary to not read outside array
 
         # The skyfun is not normalized. The normaliztaion happens later, after
         # the convolution step.
-        self.skyfun=SkyImage(self.file,extension,interpolate)
+        self.skyfun=SkyImage(self.file,self.extension,self.interpolate)
 
-        self.projection = p = self.skyfun.projector()
+        projection = p = self.skyfun.projector()
         naxis1=self.skyfun.naxis1()
         naxis2=self.skyfun.naxis2()
 
-        def dir(x,y): return SkyDir(x,y,self.projection)
+        def dir(x,y): return SkyDir(x,y,projection)
 
         # Set the source center to the center of the image.
         self.center=SkyDir((naxis1-1)/2,(naxis2-1)/2,p)
@@ -890,8 +894,21 @@ class SpatialMap(SpatialModel):
 
         return self.skyfun(skydir)
 
-    def get_PySkyFunction():
+    def get_PySkyFunction(self):
         return self.skyfun(skydir)
+
+    def __getstate__(self):
+        """ You cannot pickle a skymaps.SkyImage object. To avoid this,
+            simply delete it before pickling. We are storing enough
+            information to recreate it when unpickling. """
+        d=copy.copy(self.__dict__)
+        del d['skyfun']
+        return d
+
+    def __setstate__(self,state):
+        """ When unpickling the object, afterwords recreate the skymaps.SkyImage object. """
+        self.__dict__ = state
+        self.skyfun=SkyImage(self.file,self.extension,self.interpolate)
 
 #===============================================================================================#
 
