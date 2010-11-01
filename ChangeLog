@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Nov  1 12:54:18 PDT 2010
+pointlike/python/uw/pulsar
+
+Added Files:
+	examples.py lcfitters.py lcprimitives.py lcspeclike.py 
+	mcphase.py py_exposure.py stats.py 
+Log Message:
+Initial commit of pulsar tools.
+    *
+------------------------------------------------------------
 User: kerrm  Mon Nov  1 12:53:25 PDT 2010
 pointlike/python/uw/pulsar
 
