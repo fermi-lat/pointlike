@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Nov  1 23:38:10 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+poor variable name fixed.
+    *
+------------------------------------------------------------
 User: kerrm  Mon Nov  1 12:54:18 PDT 2010
 pointlike/python/uw/pulsar
 
