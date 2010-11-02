@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.29 2010/10/25 04:16:55 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.30 2010/10/26 22:41:01 lande Exp $
 
     author: Joshua Lande
 """
@@ -151,8 +151,8 @@ class ROIExtendedModel(ROIDiffuseModel):
 
             self.set_state(en,band.ct,band)
 
-            exp=band.exp.value
-            myband.er = exp(es.spatial_model.center,en)/exp(rd,en)
+            exposure=band.exp.value
+            myband.er = exposure(es.spatial_model.center,en)/exposure(rd,en)
 
             myband.pix_counts = self._pix_value(band.wsdl)
             myband.pix_counts *= band.b.pixelArea()
