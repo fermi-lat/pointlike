@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.48 2010/10/26 22:25:25 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.49 2010/11/03 00:20:39 lande Exp $
 
 author: Matthew Kerr
 """
@@ -113,17 +113,22 @@ class ROIAnalysis(object):
             If which is a list, convert each of the items in the list
             to a manager & index and if all the managers are the same,
             return a list of indices. If there are multiple different
-            managers, an exception is raised. """
+            managers, an exception is raised. 
+            
+            As a practical aside, if which is a Point/Diffuse source 
+            whose integral diverges, str(which) will print a warning message.
+            So it is best to get rid of these cases before trying
+            to cast which to a string. """
         if type(which)==int:
             return self.psm,which
-        elif N.any(str(which)==self.psm.names):
-            return self.psm,int(N.where(str(which)==self.psm.names)[0])
-        elif N.any(str(which)==self.dsm.names):
-            return self.dsm,int(N.where(str(which)==self.dsm.names)[0])
         elif isinstance(which,PointSource):
             return self.psm,int(N.where(self.psm.point_sources==which)[0])
         elif isinstance(which,DiffuseSource):
             return self.dsm,int(N.where(self.dsm.diffuse_sources==which)[0])
+        elif N.any(str(which)==self.psm.names):
+            return self.psm,int(N.where(str(which)==self.psm.names)[0])
+        elif N.any(str(which)==self.dsm.names):
+            return self.dsm,int(N.where(str(which)==self.dsm.names)[0])
         elif type(which) == list:
             managers,indices=zip(*[list(self.mapper(_)) for _ in which])
             if N.unique(managers).shape[0]!=1:
