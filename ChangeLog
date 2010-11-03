@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Nov  2 17:20:39 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Fix minor modify_loc import bug.
+    *
+------------------------------------------------------------
 User: kerrm  Tue Nov  2 12:55:40 PDT 2010
 pointlike/python/uw/pulsar
 
