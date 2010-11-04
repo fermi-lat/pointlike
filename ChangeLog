@@ -1,4 +1,21 @@
 ------------------------------------------------------------
+User: lande  Thu Nov  4 14:10:35 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py roi_localize.py 
+Log Message:
+Fix a bug in ROILocalizer.spatialLikelihood to correctly cache frozen_pix_counts/unfrozen_pix_counts when update=True. 
+
+Fix bug to correct for change in the exposure ratio changing when the sources is moved and update=True.
+
+Have the point source's postion updated when inside the spatialLikelihood function when update=True.
+
+Remove unused paramters passed into the spatialLikelihood function.
+
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Nov  4 12:21:35 PDT 2010
 pointlike/python/uw/like
 
