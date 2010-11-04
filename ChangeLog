@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: kerrm  Thu Nov  4 12:21:35 PDT 2010
+pointlike/python/uw/like
+
+Modified Files:
+	roi_tsmap.py 
+Log Message:
+Refactored TSCalc and changed interface slightly.  It should be much clearer now how to extract the TS with a given background model.
+
+The user can now specify an arbitrary photon index *or* an arbitrary spectral model.
+
+Added a method to calculate an upper limit with a Bayesian-style integration of the likelihood function.  This is fast and generally gives a limit within a factor of 2 of that obtained with profile likelihood methods.
+    *
+------------------------------------------------------------
 User: lande  Wed Nov  3 12:49:31 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
