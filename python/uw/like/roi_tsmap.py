@@ -1,166 +1,247 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.5 2010/08/09 21:59:25 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.6 2010/08/11 18:48:43 kerrm Exp $
 
 author: Matthew Kerr
 """
 
-import numpy as N
+import numpy as np
 from uw.like.pypsf import PsfOverlap
-from uw.like.Models import PowerLaw
+from uw.like.Models import *
+from uw.utilities import keyword_options
 from skymaps import Band,WeightedSkyDirList,PySkyFunction,Hep3Vector,SkyDir,BinnedPhotonData,SkyImage
 from pointlike import IntVector,DoubleVector
 from scipy.optimize import fmin
 from cPickle import dump,load
 from glob import glob
 from collections import deque
+from scipy.integrate import cumtrapz,simps
 
 def get_latalog(latalog_file='f:/glast/data/kerr/gll_psc_v02.fit'):
     from kerrtools.latalog import Latalog
     return Latalog(latalog_file)
 
+J = np.log(10)
+
+# re-implementation of scipy version that uses half the calls!               
+def my_newton(func,x0,fprime,tol=1e-2):
+    p0 = x0
+    for i in xrange(30):
+        fval = func(x0)
+        if fval == 0: return x0,True
+        gval = fprime(x0)
+        delt = fval/gval
+        x0  -= delt
+        if (abs(delt) < tol):
+            return x0,True
+    return x0,False
+
 ###====================================================================================================###
 class TSCalc(object):
-    """Extract a TS as a function of sky position.
+    """Extract a TS as a function of position on the sky.
 
-       The implementation is different from that in ROILocalizer in that, for each position on the sky,
-       a model is fit.  (Whereas, for ROILocalizer, the same broadband model is moved about the sky
-       without a refit.)  Thus, this version is appropriate for source finding.
+       The implementation is different from that in ROILocalizer in that,
+       for each position on the sky, the flux is fit.  Whereas, for ROILocalizer,
+       the same broadband model is moved about the sky without a refit.  That
+       version is thus appropriate for localization, this version for source finding.
     """
-    
-    def __init__(self,roi):
-        self.roi = roi
+
+    defaults = ('keywords governing the spectral model used to calculate the TS',
+                    ('photon_index',2,'photon index for default power law model'),
+                    ('spectral_model',None,'instance of spectral model to use for TS calc'),
+               )
+
+    @keyword_options.decorate(defaults)    
+    def __init__(self,roi,**kwargs):
+        keyword_options.process(self,kwargs)
+        self.roi = roi; self.bands = roi.bands
         self.ro  = PsfOverlap()
         self.rd  = roi.roi_dir
         self.phase_factor = roi.phase_factor
         
-        mo  = PowerLaw(p=[1e-12,2])
+        base = PowerLaw(p=[1e-12,2])
+        if self.spectral_model is not None:
+            self.mo = mo = self.spectral_model
+        else:
+            self.mo = mo  = PowerLaw(p=[1e-12,self.photon_index])
         self.n0 = 10**mo.p[0]
         for band in roi.bands:
-            band.ts_exp = band.expected(mo) / self.n0
+            band.ts_exp = band.expected(mo) / self.n0  # counts / default flux
+            band.rvals  = np.empty(len(band.wsdl),dtype=float) # allocate memory for arclength calc
         
-        self.seeds = N.concatenate(([-20.],N.arange(-14,-8.9,0.5)))
+        self.seeds  = np.concatenate(([-20.],np.arange(-14,-8.9,0.5)))
+        self.seeds += (mo.p[0] - base.p[0]) # adjust seeds to flux scale of alt. model
+        self.cache_ra = self.cache_dec = -1
 
-    def __call__(self,skydir,repeat_diffuse=False,bright_source_mask=None,no_cache=False):
-        """Return the TS for the position on the sky given by the argument.
+    def _cache(self,skydir):
+        """Cache results for a particular SkyDir.  Then can change the model
+           minimal overhead."""
+
+        if (skydir.ra() == self.cache_ra) and (skydir.dec() == self.cache_dec):
+            return
         
-           bright_sources = a mask to select sources to include with the
-           diffuse when generating the TS map."""
+        for i,band in enumerate(self.roi.bands):
+
+            en,exp,pa = band.e,band.exp.value,band.b.pixelArea()
+
+            # make a first-order correction for exposure variation
+            band.ts_er = exp(skydir,en)/exp(self.rd,en)
+      
+            # unnormalized PSF evaluated at each data pixel
+            band.wsdl.arr_arclength(band.rvals,skydir)
+            band.ts_pix_counts = pa * band.psf(band.rvals,density=True)
+
+            # calculate overlap
+            band.ts_overlap = self.ro(band,self.rd,skydir)
+
+        self.cache_ra = skydir.ra(); self.cache_dec = skydir.dec()
+
+    # the likelihood function
+    def _f0(self,n0,*args):
+        n0 = 10**n0
+        accum = 0
+        pf = self.phase_factor
+        for band in self.bands:
+            pix_term = (band.pix_counts*np.log(1 + n0/band.ts_pix_term)).sum() if band.has_pixels else 0
+            ap_term  = - n0*band.ts_overlap*band.ts_exp*pf
+            accum   += pix_term + ap_term
+        return accum
+
+    # the likelihood function's first derivative wrt the flux parameter
+    def _f1(self,n0,*args):
+        n0 = 10**n0
+        accum = 0
+        pf = self.phase_factor
+        for band in self.bands:
+            pix_term = - (band.pix_counts*(1 + band.ts_pix_term/n0)**-1).sum() if band.has_pixels else 0
+            ap_term  = n0*band.ts_exp*band.ts_overlap*pf
+            accum   += pix_term + ap_term
+        return J*accum
+
+    # the likelihood function's second derivative wrt the flux parameter
+    def _f2(self,n0,*args):
+        n0 = 10**n0
+        accum = 0
+        pf = self.phase_factor
+        for band in self.bands:
+            if band.has_pixels:
+                quot     = band.ts_pix_term/n0
+                pix_term = - (band.pix_counts*quot/(1+quot)**2).sum()
+            else:
+                pix_term = 0
+            ap_term  = n0*band.ts_exp*band.ts_overlap*pf
+            accum   += pix_term + ap_term
+        return J*J*accum
+
+
+    def upper_limit(self,skydir,conf=0.99,points=10,tol=0.01,e_weight=1,cgs=True):
+        """Get the flux sensitivity (under the assumed spectral model) at the
+           position for the given TS threshold."""
+
+        f0_0 = self(skydir)/2
+
+        # first, find a good upper limit for the integration
+        goal = 10
+        lo = self.mo.p[0] if f0_0>0 else -20; hi = -5
+        for i in xrange(20):
+            avg = float(lo+hi)/2
+            f_new = self._f0(avg) - f0_0 + goal
+            #print avg,f_new
+            if f_new > 0: lo = avg
+            else        : hi = avg
+            if abs(f_new) < 1: break
+
+        # next, do a crude iteration to achieve desired accuracy
+        def find_conf(my_iter,*args):
+            npts = points
+            for i in xrange(my_iter): npts = npts*2 - 1
+            pts = np.linspace(0,10**avg,npts)
+            val = np.empty_like(pts)
+            if my_iter > 0:
+                val[::2] = args[0]
+                val[1::2] = np.exp(np.asarray([self._f0(x) for x in np.log10(pts[1::2])])-f0_0)     
+            else:
+                val = np.exp(np.asarray([self._f0(x) for x in np.log10(pts)])-f0_0)            
+            cdist = cumtrapz(val,x=pts)
+            cdist /= cdist[-1]
+            n0 = np.interp(conf,cdist,(pts[1:]+pts[:-1])/2,left=-1,right=-1)
+            if n0 < 0:
+                raise Exception,'Ran over edge of distribution.'
+            return n0,val,pts
+        
+        prev_val = 0; val = 0
+        for i in xrange(10):
+            #print 'Loop iter %d'%(i)
+            n0,val,pts = find_conf(i,val)
+            self.mo.p[0] = np.log10(n0)
+            if abs(prev_val/n0 - 1) < tol:
+                self.mo.p[0] = np.log10(n0)
+                return self.mo.i_flux(e_weight=e_weight,cgs=cgs)#,val,pts
+            else:
+                prev_val = n0
+
+    def __call__(self,skydir,source_mask=None,no_cache=False):
+        """ Return the TS for the position on the sky given by the argument.
+
+            By default, the algorithm includes all known point sources and
+            diffuse sources in the background model.  The resulting TS is thus
+            a "residual" and can be used to find new sources.
+
+            Alternatively, the method can be used to construct an "image"
+            of a source (or sources) via TS, e.g. for extended sources.
+            To enable this functionality, use the "source_mask" keyword.
+            It should be set to an array of booleans with an entry 
+            corresponding to each point source.  "True" means the source 
+            will be masked, i.e., included in the background model, while 
+            "False" will result in the source appearing in the TS image.
+
+            This approach reaches its apotheosis by passing a source mask
+            masking all point sources, in which case a TS map in which
+            only the diffuse background is modeled is delivered.
+        """
 
         bands = self.roi.bands
-        bsm   = bright_source_mask
-        dv    = DoubleVector()
+        bsm   = source_mask
         pf    = self.phase_factor
 
-        if not repeat_diffuse or no_cache:
+        if not no_cache: self._cache(skydir)
 
+        if bsm is None:
             for i,band in enumerate(bands):
-
-                en,exp,pa = band.e,band.exp.value,band.b.pixelArea()
-
-                # make a first-order correction for exposure variation
-                band.ts_er = exp(skydir,en)/exp(self.rd,en)
-          
-                # unnormalized PSF evaluated at each data pixel
-                #diffs = N.asarray([skydir.difference(w) for w in band.wsdl])
-                #band.ts_pix_counts = pa * band.psf(diffs,density=True)
-                band.wsdl.arclength(skydir,dv)
-                band.ts_pix_counts = pa * band.psf(N.fromiter(dv,dtype=float),density=True)
-
-                # calculate overlap
-                band.ts_overlap = self.ro(band,self.rd,skydir)
-
-        if not repeat_diffuse:
-
-            for i,band in enumerate(bands):
-
                 # pre-calculate the "pixel" part
                 if band.has_pixels:
                     band.ts_pix_term = (band.ps_all_pix_counts + band.bg_all_pix_counts)/ \
                                        (band.ts_exp*band.ts_pix_counts)
-
         else:
-        
-            # include bright point sources and diffuse in the background model
-            if bsm is not None:
+            # include (some) point sources and diffuse in the background model
+            if not np.all(bsm):
                 for i,band in enumerate(bands):
                     if band.has_pixels:
                         bps_term = (band.ps_counts[bsm] * band.overlaps[bsm] * band.ps_pix_counts[:,bsm]).sum(axis=1)
-                        band.ts_pix_term = (bps_term + band.bg_all_pix_counts) / (band.ts_exp*band.ts_pix_counts)
-            
+                        band.ts_pix_term = (bps_term + band.bg_all_pix_counts) / (band.ts_exp*band.ts_pix_counts)            
             # include only the diffuse in the background model
             else:
                 for i,band in enumerate(bands):
                     if band.has_pixels:
                         band.ts_pix_term = band.bg_all_pix_counts / (band.ts_exp*band.ts_pix_counts)
 
-
-        # NB -- can save some computation by calculating f0/f1/f2 simultaneously, but it is
-        # currently a minute fraction of the total time (above code dominates)
-        J = N.log(10)
-
-        def f0(n0,*args):
-            n0 = 10**n0
-            accum = 0
-            for band in bands:
-                pix_term = (band.pix_counts*N.log(1 + n0/band.ts_pix_term)).sum() if band.has_pixels else 0
-                ap_term  = - n0*band.ts_overlap*band.ts_exp*pf
-                accum   += pix_term + ap_term
-            return accum
-
-        def f1(n0,*args):
-            n0 = 10**n0
-            accum = 0
-            for band in bands:
-                pix_term = - (band.pix_counts*(1 + band.ts_pix_term/n0)**-1).sum() if band.has_pixels else 0
-                ap_term  = n0*band.ts_exp*band.ts_overlap*pf
-                accum   += pix_term + ap_term
-            return J*accum
-
-        def f2(n0,*args):
-            n0 = 10**n0
-            accum = 0
-            for band in bands:
-                if band.has_pixels:
-                    quot     = band.ts_pix_term/n0
-                    pix_term = - (band.pix_counts*quot/(1+quot)**2).sum()
-                else:
-                    pix_term = 0
-                ap_term  = n0*band.ts_exp*band.ts_overlap*pf
-                accum   += pix_term + ap_term
-            return J*J*accum
-
-        def TS(n0,*args): return 2*f0(n0,*args)
-
         # assess along a grid of seed values to make sure we have a good starting position
-        vals  = [f0(x) for x in self.seeds]
-        amax  = N.argmax(vals)
+        self.vals = vals  = [self._f0(x) for x in self.seeds]
+        amax  = np.argmax(vals)
         if amax == 0: return 0
         seed  = self.seeds[amax] + 0.5 # for some reason, helps to start *above* the critical point
 
-        # re-implementation of scipy version that uses half the calls!               
-        def my_newton(func,x0,fprime,tol=1e-2):
-            p0 = x0
-            for i in xrange(30):
-                fval = func(x0)
-                if fval == 0: return x0,True
-                gval = fprime(x0)
-                delt = fval/gval
-                x0  -= delt
-                if (abs(delt) < tol):
-                    return x0,True
-            return x0,False
-
-        n0,conv = my_newton(f1,seed,fprime=f2)
-        if conv: return TS(n0)
+        n0,conv = my_newton(self._f1,seed,fprime=self._f2)
+        self.mo.p[0] = n0
+        if conv: return 2*self._f0(n0)
         else:
-            print 'Warning! did not converge to a value or a value consistent with 0 flux.'
+            print 'Warning! did not converge to a value or converged to a value consistent with 0 flux.'
             print 'Trying again...'
-            n0,conv = my_newton(f1,n0,fprime=f2)
+            n0,conv = my_newton(self._f1,n0,fprime=self._f2)
             if conv:
                 print 'Converged on 2nd Try'
-                return TS(n0)
+                return 2*self._f0(n0)
             print 'DID NOT CONVERGE AFTER TWO ATTEMPTS'
             return -1
 
@@ -201,14 +282,14 @@ class HealpixTSMap(object):
         rd     = band1.dir(hr.index) 
 
         # get pixels within a radius 10% greater than the base Healpix diagonal dimension
-        radius = (N.pi/(3*band1.nside()**2))**0.5 * 2**0.5 * 1.1
+        radius = (np.pi/(3*band1.nside()**2))**0.5 * 2**0.5 * 1.1
         wsdl   = WeightedSkyDirList(band2,rd,radius,True)
         
         # then cut down to just the pixels inside the base Healpixel
-        inds   = N.asarray([band1.index(x) for x in wsdl])
+        inds   = np.asarray([band1.index(x) for x in wsdl])
         mask   = inds == hr.index
         dirs   = [wsdl[i] for i in xrange(len(mask)) if mask[i]]
-        inds   = N.asarray([band2.index(x) for x in dirs]).astype(int)
+        inds   = np.asarray([band2.index(x) for x in dirs]).astype(int)
 
         # sanity check
         if abs(float(mask.sum())/factor**2 - 1) > 0.01:
@@ -218,7 +299,7 @@ class HealpixTSMap(object):
         tsc      = TSCalc(hr.roi)
         if self.bright_sources is not None:
             ts_vals = self.ts_vals = [deque(),deque(),deque()]
-            bsm = N.asarray([x.source_name in self.bright_sources for x in hr.roi.psm.models])
+            bsm = np.asarray([x.source_name in self.bright_sources for x in hr.roi.psm.models])
             for d in dirs:
                 ts_vals[0].append(tsc(d))
                 ts_vals[1].append(tsc(d,repeat_diffuse=True))
@@ -232,10 +313,10 @@ class HealpixTSMap(object):
         self.band1 = band1
         self.band2 = band2
 
-        sorting    = N.argsort(inds)
+        sorting    = np.argsort(inds)
         self.inds  = inds[sorting]
         for i in range(len(ts_vals)):
-            ts_vals[i] = N.asarray(ts_vals[i])[sorting]
+            ts_vals[i] = np.asarray(ts_vals[i])[sorting]
 
         self.previous_index = -1
         self.index          = hr.index
@@ -260,8 +341,8 @@ class HealpixTSMap(object):
             self.ts_vals= d['ts_vals']
         else:
             dim = (self.band2.nside()/self.band1.nside())**2
-            self.ts_vals = N.empty([3,dim])
-            self.ts_vals[:] = N.nan
+            self.ts_vals = np.empty([3,dim])
+            self.ts_vals[:] = np.nan
         self.index  = d['index']
         self.ts     = self.ts_vals[0]
         self.previous_index = -1
@@ -272,10 +353,10 @@ class HealpixTSMap(object):
 
     def __call__(self,v,skydir = None):
         sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
-        if self.band1.index(sd) != self.index: return N.nan
+        if self.band1.index(sd) != self.index: return np.nan
         id = self.band2.index(sd)
         if id != self.previous_index:
-            self.previous_value = self.ts[N.searchsorted(self.inds,id)]
+            self.previous_value = self.ts[np.searchsorted(self.inds,id)]
             self.previous_index = id
         return self.previous_value
 
@@ -284,7 +365,7 @@ class HealpixTSMap(object):
            lies within the boundaries of this Healpixel."""
         id = self.band2.index(sd)
         if id != self.previous_index:
-            self.previous_value = self.ts[N.searchsorted(self.inds,id)]
+            self.previous_value = self.ts[np.searchsorted(self.inds,id)]
             self.previous_index = id
         return self.previous_value
 
@@ -308,11 +389,11 @@ class HealpixMap(object):
 
     def __init__(self,nside,inds,vals):
         self.band = Band(nside)
-        #s = N.argsort(inds)
+        #s = np.argsort(inds)
         #self.inds = inds[s]
         #self.vals = vals[s]
-        self.vals = N.empty(12*nside**2)
-        self.vals[:] = N.nan
+        self.vals = np.empty(12*nside**2)
+        self.vals[:] = np.nan
         self.vals[inds] = vals
         
         from pointlike import IntVector
@@ -329,26 +410,26 @@ class HealpixMap(object):
         healpix_index = b.index(sd)
         d = b.dir(healpix_index)
         b.findNeighbors(healpix_index,self.iv)
-        idx   = N.asarray([x for x in iv] + [healpix_index])
+        idx   = np.asarray([x for x in iv] + [healpix_index])
         dirs  = [b.dir(idx) for idx in self.iv] + [d]
-        diffs = N.asarray([sd.difference(di) for di in dirs])
+        diffs = np.asarray([sd.difference(di) for di in dirs])
 
         # use co-ordinate system that puts pixels closest to equator
         use_gal = abs(d.b()) < abs(d.dec())
         if use_gal:
-            lons = N.asarray([d.b() for d in dirs])
-            lats = N.asarray([d.l() for d in dirs])
+            lons = np.asarray([d.b() for d in dirs])
+            lats = np.asarray([d.l() for d in dirs])
             sdlon = sd.b();  sdlat = sd.l()
         else:
-            lons = N.asarray([d.ra() for d in dirs])
-            lats = N.asarray([d.dec() for d in dirs])
+            lons = np.asarray([d.ra() for d in dirs])
+            lats = np.asarray([d.dec() for d in dirs])
             sdlon = sd.ra(); sdlat = sd.dec()
         
-        s = N.argsort(diffs)
+        s = np.argsort(diffs)
         lons = lons[s][:4]
         lats = lats[s][:4]
-        vals = N.asarray([self(0,skydir=dirs[x]) for x in s[:4]])
-        return (N.abs(lons-sdlon)*N.abs(lats-sdlat)*vals).sum()        
+        vals = np.asarray([self(0,skydir=dirs[x]) for x in s[:4]])
+        return (np.abs(lons-sdlon)*np.abs(lats-sdlat)*vals).sum()        
     
         
 
@@ -375,7 +456,7 @@ class MultiHealpixTSMap(object):
         sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
         id = self.band1.index(sd)
         tsmap = self.tsmaps[id]
-        if not tsmap: return N.nan
+        if not tsmap: return np.nan
         return tsmap.multipix_call(sd)
 
     def set_mode(self,mode=1):
@@ -425,7 +506,7 @@ class MultiHealpixTSMap(object):
         return na[mask],sds
 
     def make_map(self,center,size=10,pixelsize=0.02,galactic=False,axes=None,
-                 scale=1,thresh_low=0,thresh_high=N.inf,label_1FGL=True,mode=1,cmap=None,
+                 scale=1,thresh_low=0,thresh_high=np.inf,label_1FGL=True,mode=1,cmap=None,
                  log_transform=False,labels=None):
         """
             scale : 0 == linear, 1 == sqrt
@@ -444,19 +525,19 @@ class MultiHealpixTSMap(object):
         z.fill(PySkyFunction(self))
         im = z.image.copy()
         print 'Max Value: %.2f'%(im.max())
-        im[im < thresh_low]  = N.nan
+        im[im < thresh_low]  = np.nan
         im[im > thresh_high] = thresh_high
         z.grid()
         im = im**(0.5 if scale else 1)
         if log_transform:
             im[im < 1] = 1
-            im = N.log10(im)
+            im = np.log10(im)
         P.imshow(im,cmap=cmap)
         #P.colorbar(ax=axes,cmap=cmap,orientation='horizontal')
-        #P.contour(im,N.asarray([9,16,25,50,100,1000])**(0.5 if scale else 1))        
+        #P.contour(im,np.asarray([9,16,25,50,100,1000])**(0.5 if scale else 1))        
         #P.contour(im,10)
-        #contours = N.asarray([9,16,25,36,49,64,81,100,225,400,625,900,1225,1600])**(0.5 if scale else 1)
-        #if log_transform: contours = N.log10(contours)
+        #contours = np.asarray([9,16,25,36,49,64,81,100,225,400,625,900,1225,1600])**(0.5 if scale else 1)
+        #if log_transform: contours = np.log10(contours)
         #P.contour(im,contours)
         if label_1FGL:
             names,skydirs = self.get_1FGL_sources(z)
@@ -517,76 +598,12 @@ class MultiHealpixTSMap(object):
                 #P.colorbar()
         return axes,zeas
                                   
-class DataMap(object):
-    """Read from a BinnedPhotonData with a single pixel size.  Generate a counts map."""
-
-    def __init__(self,bpdfile,**kwargs):
-        self.bpd    = BinnedPhotonData(bpdfile)
-        self.band   = self.bpd[0]
-        self.smooth = False
-        self.kernel = (4*N.pi/(12*self.band.nside()**2))**0.5
-
-        self.iv = IntVector()
-        self.previous_index = -1
-        self.previous_vals  = None
-        self.previous_dirs  = None
-
-        self.__dict__.update(kwargs)
-
-    def set_band(self,index):
-        if index >= len(self.bpd):
-            raise Exception
-        self.band = self.bpd[index]
-
-    def __call__(self,v,skydir = None):
-        sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
-        b   = self.band
-        if not self.smooth: return b(sd)
-        
-        idx = b.index(sd)
-  
-        if idx == self.previous_index:
-            neighbor_dirs = self.previous_dirs
-            neighbor_vals = self.previous_vals
-        else:
-            b.findNeighbors(idx,self.iv)
-            neighbor_dirs = [b.dir(idx)] + [b.dir(i) for i in self.iv]
-            neighbor_vals = [b(d) for d in neighbor_dirs]
-            self.previous_index = idx
-            self.previous_dirs = neighbor_dirs
-            self.previous_vals = neighbor_vals
-        diffs   = N.asarray([sd.difference(d) for d in neighbor_dirs])
-        weights = N.exp(-0.5*(diffs/self.kernel)**2)
-        return (neighbor_vals*weights).sum()/weights.sum()
-
-    def pyskyfun(self):
-        return PySkyFunction(self)
-
-    def get_AIT(self,**kwargs):
-        from uw.utilities.image import AIT
-        a = AIT(self.pyskyfun(),**kwargs)
-        a.fill(a.skyfun)
-        a.grid()
-        a.axes.imshow(a.image)
-        return a
-
-    def get_ZEA(self,center,**kwargs):
-        from uw.utilities.image import ZEA
-        z = ZEA(center,**kwargs)
-        z.fill(self.pyskyfun())
-        z.grid()
-        z.axes.imshow(z.image)
-        return z
-
-    def get_vector(self):
-        b = self.band
-        return N.asarray([self(b.dir(i)) for i in xrange(12*b.nside()**2)])
 
 def get_seeds(self,mode=0,ts_thresh=9):
     """Do a crude test to try to find good seeds."""
 
     ts   = self.ts_vals[mode]
-    mask = N.asarray([True]*len(ts))
+    mask = np.asarray([True]*len(ts))
     b2   = self.band2
     inds = self.inds
     iv   = IntVector()
@@ -597,7 +614,7 @@ def get_seeds(self,mode=0,ts_thresh=9):
 
     for i in xrange(n):
         my_ts  = ts[mask]
-        amax   = N.argmax(my_ts)
+        amax   = np.argmax(my_ts)
         mts    = my_ts[amax]
         if mts < ts_thresh:
             break
@@ -605,31 +622,62 @@ def get_seeds(self,mode=0,ts_thresh=9):
         b2.findNeighbors(idx,iv)
         neigh_ts = deque()
         for neigh in [x for x in iv]:
-            arg = N.searchsorted(inds,neigh)
+            arg = np.searchsorted(inds,neigh)
             if (arg < n) and (inds[arg] == neigh):
                 mask[arg] = False
                 neigh_ts.append(ts[arg])
-        arg = N.searchsorted(inds,idx)
+        arg = np.searchsorted(inds,idx)
         mask[arg] = False
         if mts > max(neigh_ts):
             seeds.append(idx)
             seeds_ts.append(mts)
 
-    return [b2.dir(x) for x in seeds],N.asarray(seeds_ts)
+    return [b2.dir(x) for x in seeds],np.asarray(seeds_ts)
 
 ###====================================================================================================###
 class HealpixKDEMap(object):
 
-    def __init__(self,hr=None,pickle=None,factor = 100):
+    defaults = dict(
+                    factor = 100,
+                    emin=[500,1000],
+                   )
+
+    def __init__(self,hr=None,pickle=None,do_healpix=False,**kwargs):
         """hr     :   an instance of HealpixROI
            pickle :   a pickle saved from a previous HealpixTSMap
            factor :   number of intervals to divide base Healpixel side into"""
 
-        if   hr     is not None: self.setup_from_roi(hr,factor)
+        self.__dict__.update(HealpixKDEMap.defaults); self.__dict__.update(kwargs)
+        if   hr     is not None:
+            if do_healpix:
+                self.__call__ = self.call
+                self.setup_from_roi(hr,self.factor)
+            else:
+                self.__call__ = self.call2
+                self.setup_from_roi2(hr)
         elif pickle is not None: self.load(pickle)
         else:
             print 'Must provide either a HealpixROI instance or a pickle file!'
             raise Exception
+
+    def setup_from_roi2(self,hr):
+        self.bands = []
+        for iband,band in enumerate(hr.roi.bands):
+            if band.emin < self.emin[band.ct]:
+                continue
+            else:
+                self.bands += [band]
+            band.rvals = np.empty(len(band.wsdl),dtype=float)
+            band.r99   = np.radians(band.psf.inverse_integral_on_axis(0.95))
+
+    def call2(self,v,skydir = None):
+        sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
+        rval = 0
+        for band in self.bands:
+            band.wsdl.arr_arclength(band.rvals,sd)
+            mask = band.rvals < band.r99
+            rval +=(band.psf(band.rvals[mask],density=True)*band.pix_counts[mask]).sum()
+        return rval
 
     def setup_from_roi(self,hr,factor):
 
@@ -638,14 +686,14 @@ class HealpixKDEMap(object):
         rd     = band1.dir(hr.index) 
 
         # get pixels within a radius 10% greater than the base Healpix diagonal dimension
-        radius = (N.pi/(3*band1.nside()**2))**0.5 * 2**0.5 * 1.1
+        radius = (np.pi/(3*band1.nside()**2))**0.5 * 2**0.5 * 1.1
         wsdl   = WeightedSkyDirList(band2,rd,radius,True)
         
         # then cut down to just the pixels inside the base Healpixel
-        inds   = N.asarray([band1.index(x) for x in wsdl])
+        inds   = np.asarray([band1.index(x) for x in wsdl])
         mask   = inds == hr.index
         dirs   = [wsdl[i] for i in xrange(len(mask)) if mask[i]]
-        inds   = N.asarray([band2.index(x) for x in dirs]).astype(int)
+        inds   = np.asarray([band2.index(x) for x in dirs]).astype(int)
 
         # sanity check
         if abs(float(mask.sum())/factor**2 - 1) > 0.01:
@@ -653,20 +701,23 @@ class HealpixKDEMap(object):
 
         # loop through the bands and image pixels to calculate the KDE
         from pointlike import DoubleVector
-        dv = DoubleVector()
-        img = N.zeros(len(inds))
-        weights = [ N.asarray([x.weight() for x in b.wsdl]).astype(int) for b in hr.roi.bands ]
+        #dv = DoubleVector()
+        rvs = [np.empty(len(band.wsdl),dtype=float) for band in hr.roi.bands]
+        img = np.zeros(len(inds))
+        weights = [ np.asarray([x.weight() for x in b.wsdl]).astype(int) for b in hr.roi.bands ]
         for idir,mydir in enumerate(dirs):
             #print 'Processing pixel %d'%(idir)
             for iband,band in enumerate(hr.roi.bands):
-                band.wsdl.arclength(mydir,dv)
-                img[idir] += (band.psf(N.fromiter(dv,dtype=float),density=True)*weights[iband]).sum()
+                #band.wsdl.arclength(mydir,dv)
+                #img[idir] += (band.psf(np.fromiter(dv,dtype=float),density=True)*weights[iband]).sum()
+                band.wsdl.arr_arclength(rvs[iband],mydir)
+                img[idir] += (band.psf(rvs[iband],density=True)*weights[iband]).sum()
 
         self.band1 = band1
         self.band2 = band2
         self.previous_index = -1
 
-        sorting    = N.argsort(inds)
+        sorting    = np.argsort(inds)
         self.inds  = inds[sorting]
         self.img   = img[sorting]
 
@@ -695,19 +746,19 @@ class HealpixKDEMap(object):
 
     def __call__(self,v,skydir = None):
         sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
-        if self.band1.index(sd) != self.index: return N.nan
+        if self.band1.index(sd) != self.index: return np.nan
         id = self.band2.index(sd)
         if id != self.previous_index:
-            self.previous_value = self.img[N.searchsorted(self.inds,id)]
+            self.previous_value = self.img[np.searchsorted(self.inds,id)]
             self.previous_index = id
         return self.previous_value
-
+    
     def multipix_call(self,sd):
         """A faster version of the skydir lookup where it assumed that the argument
            lies within the boundaries of this Healpixel."""
         id = self.band2.index(sd)
         if id != self.previous_index:
-            self.previous_value = self.img[N.searchsorted(self.inds,id)]
+            self.previous_value = self.img[np.searchsorted(self.inds,id)]
             self.previous_index = id
         return self.previous_value
 
@@ -742,10 +793,234 @@ class MultiHealpixKDEMap(object):
         sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
         id = self.band1.index(sd)
         tsmap = self.tsmaps[id]
-        if not tsmap: return N.nan
+        if not tsmap: return np.nan
         return tsmap.multipix_call(sd)
 
     def make_zea(self,center,size=10,pixelsize=0.02,galactic=False):
         z = ZEA(center,size=size,pixelsize=pixelsize,galactic=galactic)
         z.fill(PySkyFunction(self))
         self.z = z
+
+###====================================================================================================###
+class ROI_KDEMap_OTF(object):
+
+    defaults = dict(
+                    psf_rad = 0.95,
+                    emin=[200,400],
+                    emax=[np.inf,np.inf]
+                   )
+
+    def __init__(self,roi,**kwargs):
+        """roi: an instance of ROIAnalysis"""
+
+        self.__dict__.update(ROI_KDEMap_OTF.defaults); self.__dict__.update(kwargs)
+        self.setup(roi)
+
+    def setup(self,roi):
+        self.bands = []
+        for band in roi.bands:
+            if (band.emin < self.emin[band.ct]) or (band.emax > self.emax[band.ct]): continue
+            self.bands += [band]
+            band.rvals   = np.empty(len(band.wsdl),dtype=float)
+            band.max_rad = np.radians(band.psf.inverse_integral_on_axis(self.psf_rad))
+
+    def __call__(self,v,skydir = None):
+        sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
+        rval = 0
+        for band in self.bands:
+            band.wsdl.arr_arclength(band.rvals,sd)
+            mask = band.rvals < band.max_rad
+            rval +=(band.psf(band.rvals[mask],density=True)*band.pix_counts[mask]).sum()
+        return rval
+    
+    def pyskyfun(self): return PySkyFunction(self)
+
+def make_comp(roi,outstem,size=15,pixelsize=0.02,galactic=True,
+               ebands=[100,500,2200,10000],double_back=True):
+    from uw.utilities.image import ZEA
+    multi = 1. + double_back
+    counter = 1
+    for emin,emax in zip(ebands[:-1],ebands[1:]):
+        print 'Working on image %d of %d'%(counter,len(ebands)-1)
+        rko = ROI_KDEMap_OTF(roi,emin=[emin,multi*emin],emax=[emax,multi*emax])
+        z = ZEA(roi.roi_dir,size=size,pixelsize=pixelsize,galactic=galactic,
+                 fitsfile = '%s_%d_%d.fits'%(outstem,emin,emax))
+        im = z.fill(rko.pyskyfun())
+        del(z)
+
+###====================================================================================================###
+class FastTSCalc(object):
+    """
+    """
+    defaults = dict(
+                    photon_index = 2,
+                    max_rad      = 0.95,
+                   )
+    
+    def __init__(self,roi,**kwargs):
+        self.__dict__.update(FastTSCalc.defaults); self.__dict__.update(**kwargs)
+        self.roi = roi
+        self.ro  = PsfOverlap()
+        self.rd  = roi.roi_dir
+        self.phase_factor = roi.phase_factor
+        
+        mo  = PowerLaw(p=[1e-12,self.photon_index])
+        self.n0 = 10**mo.p[0]
+        for band in roi.bands:
+            band.ts_exp = band.expected(mo) / self.n0
+            band.rvals  = np.empty(len(band.wsdl),dtype=float) # allocate memory for arclength calc
+            band.max_rad= np.radians(band.psf.inverse_integral_on_axis(self.max_rad))
+        
+        self.seeds = np.concatenate(([-20.],np.arange(-14,-8.9,0.5)))
+
+    def __call__(self,skydir,repeat_diffuse=False,bright_source_mask=None,no_cache=False):
+        """Return the TS for the position on the sky given by the argument.
+        
+           bright_sources = a mask to select sources to include with the
+           diffuse when generating the TS map.
+           
+           repeat_diffuse [False] -- if set to True, will assume that the PSF eval.
+                                     has already been done and the function is
+                                     being called again with a change to the diffuse.
+
+           no_cache       [False] -- will never pre-compute the PSF
+        """
+
+        bands = self.roi.bands
+        bsm   = bright_source_mask
+        pf    = self.phase_factor
+        offset= skydir.difference(self.roi.roi_dir)
+
+        if not repeat_diffuse or no_cache:
+
+            for i,band in enumerate(bands):
+
+                en,exp,pa = band.e,band.exp.value,band.b.pixelArea()
+
+                # make a first-order correction for exposure variation
+                band.ts_er = exp(skydir,en)/exp(self.rd,en)
+          
+                # separation of data from position
+                band.wsdl.arr_arclength(band.rvals,skydir)
+
+                # screen out pixels too far
+                max_rad = min(band.radius_in_rad-offset,band.max_rad)
+                band.ts_mask = band.rvals <= max_rad
+
+                # evaluate PSF at pixels
+                band.ts_pix_counts = pa * band.psf(band.rvals[band.ts_mask],density=True)
+
+                # calculate overlap
+                #band.ts_overlap = self.ro(band,self.rd,skydir)
+                band.ts_overlap = band.psf.integral(max_rad)
+
+        if not repeat_diffuse:
+
+            for i,band in enumerate(bands):
+
+                # pre-calculate the "pixel" part
+                if band.has_pixels:
+                    band.ts_pix_term = (band.ps_all_pix_counts[band.ts_mask] + band.bg_all_pix_counts[band.ts_mask])/ \
+                                       (band.ts_exp*band.ts_pix_counts)
+
+        else:
+        
+            # include bright point sources and diffuse in the background model
+            if bsm is not None:
+                for i,band in enumerate(bands):
+                    if band.has_pixels:
+                        bps_term = (band.ps_counts[bsm] * band.overlaps[bsm] * band.ps_pix_counts[:,bsm]).sum(axis=1)
+                        band.ts_pix_term = (bps_term + band.bg_all_pix_counts)[band.ts_mask] / (band.ts_exp*band.ts_pix_counts)
+            
+            # include only the diffuse in the background model
+            else:
+                for i,band in enumerate(bands):
+                    if band.has_pixels:
+                        band.ts_pix_term = band.bg_all_pix_counts[band.ts_mask] / (band.ts_exp*band.ts_pix_counts)
+
+
+        # NB -- can save some computation by calculating f0/f1/f2 simultaneously, but it is
+        # currently a minute fraction of the total time (above code dominates)
+        J = np.log(10)
+
+        def f0(n0,*args):
+            n0 = 10**n0
+            accum = 0
+            for band in bands:
+                pix_term = (band.pix_counts[band.ts_mask]*np.log(1 + n0/band.ts_pix_term)).sum() if band.has_pixels else 0
+                ap_term  = - n0*band.ts_overlap*band.ts_exp*pf
+                accum   += pix_term + ap_term
+            return accum
+
+        def f1(n0,*args):
+            n0 = 10**n0
+            accum = 0
+            for band in bands:
+                pix_term = - (band.pix_counts[band.ts_mask]*(1 + band.ts_pix_term/n0)**-1).sum() if band.has_pixels else 0
+                ap_term  = n0*band.ts_exp*band.ts_overlap*pf
+                accum   += pix_term + ap_term
+            return J*accum
+
+        def f2(n0,*args):
+            n0 = 10**n0
+            accum = 0
+            for band in bands:
+                if band.has_pixels:
+                    quot     = band.ts_pix_term/n0
+                    pix_term = - (band.pix_counts[band.ts_mask]*quot/(1+quot)**2).sum()
+                else:
+                    pix_term = 0
+                ap_term  = n0*band.ts_exp*band.ts_overlap*pf
+                accum   += pix_term + ap_term
+            return J*J*accum
+
+        def TS(n0,*args): return 2*f0(n0,*args)
+
+        # assess along a grid of seed values to make sure we have a good starting position
+        vals  = [f0(x) for x in self.seeds]
+        amax  = np.argmax(vals)
+        if amax == 0: return 0
+        seed  = self.seeds[amax] + 0.5 # for some reason, helps to start *above* the critical point
+
+        # re-implementation of scipy version that uses half the calls!               
+        def my_newton(func,x0,fprime,tol=1e-2):
+            p0 = x0
+            for i in xrange(30):
+                fval = func(x0)
+                if fval == 0: return x0,True
+                gval = fprime(x0)
+                delt = fval/gval
+                x0  -= delt
+                if (abs(delt) < tol):
+                    return x0,True
+            return x0,False
+
+        n0,conv = my_newton(f1,seed,fprime=f2)
+        if conv: return TS(n0)
+        else:
+            print 'Warning! did not converge to a value or a value consistent with 0 flux.'
+            print 'Trying again...'
+            n0,conv = my_newton(f1,n0,fprime=f2)
+            if conv:
+                print 'Converged on 2nd Try'
+                return TS(n0)
+            print 'DID NOT CONVERGE AFTER TWO ATTEMPTS'
+            return -1
+
+###====================================================================================================###
+class FastTSCalcPySkyFunction(object):
+
+    def __init__(self,tscalc,repeat_diffuse=False,bright_source_mask=None):
+        self.tscalc = tscalc
+        self.repeat_diffuse=repeat_diffuse
+        self.bright_source_mask=bright_source_mask
+
+    def __call__(self,v):
+        sd = SkyDir(Hep3Vector(v[0],v[1],v[2]))
+        v1  = self.tscalc(sd,repeat_diffuse=False,bright_source_mask=None)
+        if self.bright_source_mask is not None:           
+            return self.tscalc(sd,repeat_diffuse=True,bright_source_mask=self.bright_source_mask)
+        return v1 
+
+    def get_pyskyfun(self):
+        return PySkyFunction(self)
