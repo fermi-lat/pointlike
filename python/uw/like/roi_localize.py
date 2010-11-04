@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.9 2010/08/24 18:15:26 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.10 2010/09/23 17:13:02 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -45,7 +45,7 @@ class ROILocalizer(object):
         self.tsref = self.TSmap(self.sd) # source position not necessarily ROI center
 
     def TSmap(self,skydir):
-        return (-2)*self.spatialLikelihood(skydir,which=self.which,bandfits=self.bandfits)-self.tsref
+        return (-2)*self.spatialLikelihood(skydir)-self.tsref
 
     def dir(self):
         #return self.rd
@@ -73,7 +73,7 @@ class ROILocalizer(object):
         ld  = SkyDir(l.dir.ra(),l.dir.dec())
         ps  = roi.psm.point_sources[which]
 
-        ll0 = self.spatialLikelihood(ps.skydir,update=False,which=which,bandfits=bandfits)
+        ll0 = self.spatialLikelihood(ps.skydir,update=False)
 
         if not self.quiet:
             fmt ='Localizing source %s, tolerance=%.1e...\n\t'+7*'%10s'
@@ -105,10 +105,7 @@ class ROILocalizer(object):
             ld = SkyDir(l.dir.ra(),l.dir.dec())
             old_sigma=sigma
 
-        if update:
-            ps.skydir = l.dir
-            
-        ll1 = self.spatialLikelihood(l.dir,update=update,which=which,bandfits=bandfits)
+        ll1 = self.spatialLikelihood(l.dir,update=update)
         if not self.quiet: print 'TS change: %.2f'%(2*(ll0 - ll1))
 
         roi.qform    = l
@@ -117,7 +114,7 @@ class ROILocalizer(object):
         roi.delta_loc_logl = (ll0 - ll1)
         return l.dir, i, delt, 2*(ll0-ll1)
 
-    def spatialLikelihood(self,skydir,update=False,which=0,bandfits=False):
+    def spatialLikelihood(self,skydir,update=False):
         """Calculate log likelihood as a function of position a point source.
         
             which    -- index of point source; default to central
@@ -170,11 +167,19 @@ class ROILocalizer(object):
                 # update the cached counts with new location -- note that this used the _broadband_ spectral
                 # model rather than the band-by-band fit; otherwise, subsequent fits for broadband parameters
                 # would fail
-                band.overlaps[which] = nover
-                band.ps_all_counts  += psoc*(nover - oover)
+                band.overlaps[wh] = nover
+                band.ps_counts[wh]*=exposure_ratio/band.er[wh]
+                band.er[wh] = exposure_ratio
+                band.ps_all_counts += band.ps_counts[wh]*nover - psoc*oover
                 if band.has_pixels:
-                    band.ps_all_pix_counts    += psoc * (ps_pix_counts - band.ps_pix_counts[:,wh])                                        
+                    band.ps_all_pix_counts    += band.ps_counts[wh]*ps_pix_counts - psoc*band.ps_pix_counts[:,wh]
                     band.ps_pix_counts[:,wh]   = ps_pix_counts
+        if update:
+            # need to update frozen_pix_counts/unfrozen_pix_counts
+            roi.psm.cache(roi.bands)
+            
+            # update source position
+            roi.psm.point_sources[wh].skydir = skydir
 
         if N.isnan(ll):
             raise Exception('ROIAnalysis.spatialLikelihood failure at %.3f,%.3f' %(skydir.ra(),skydir.dec()))
