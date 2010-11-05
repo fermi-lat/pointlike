@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.31 2010/09/14 07:49:44 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.32 2010/10/06 03:39:01 burnett Exp $
 
 """
-version = '$Revision: 1.31 $'.split()[1]
+version = '$Revision: 1.32 $'.split()[1]
 
 import pylab
 import types
@@ -265,6 +265,7 @@ class AIT(object):
         ('galactic',  True,  'use galactic coordinates'),
         ('earth',     False, 'if looking down at Earth'),
         ('axes',      None,   'set to use, otherwise create figure if necessary'),
+        ('nocolorbar',False,  'set to turn off colorbar' ),
         )
     
     @keyword_options.decorate(defaults)
@@ -352,24 +353,29 @@ class AIT(object):
                 self.poslabel.set_text("")
         self.figure.canvas.draw()
                   
-    def imshow(self,  title=None, scale='linear', factor=1.0, **kwargs):
+    def imshow(self,  title=None, scale='linear', title_kw={}, **kwargs):
         'run imshow'
         from numpy import ma
+        nocolorbar =kwargs.pop('nocolorbar', self.nocolorbar)
+        cb_kw = kwargs.pop('colorbar_kw',
+                dict(orientation='vertical', shrink=0.6 if self.size==180 else 1.0))
         if self.axes is None: self.axes = pylab.gca()
+        scale_fun = kwargs.pop('fun', lambda x : x)
         # change defaults
         if 'origin'        not in kwargs: kwargs['origin']='lower'
         if 'interpolation' not in kwargs: kwargs['interpolation']='nearest'
         if 'extent'        not in kwargs: kwargs['extent']=self.extent
         
-        if self.size==180: pylab.axes().set_axis_off()
-        if   scale=='linear':  m=self.axes.imshow(self.masked_image*factor,   **kwargs)
+        if self.size==180: self.axes.set_axis_off()
+        if   scale=='linear':  m=self.axes.imshow(scale_fun(self.masked_image),   **kwargs)
         elif scale=='log':     m=self.axes.imshow(ma.log10(self.masked_image), **kwargs)
         elif scale=='sqrt':    m=self.axes.imshow(ma.sqrt(self.masked_image), **kwargs)
         else: raise Exception('bad scale: %s, expect either "linear" or "log"'%scale)
                                         
         #self.colorbar =pylab.colorbar(orientation='horizontal', shrink=1.0 if self.size==180 else 1.0)
-        self.colorbar =self.axes.figure.colorbar(m, ax=self.axes, orientation='vertical', shrink=0.6 if self.size==180 else 1.0)
-        self.title(title)
+        if not nocolorbar:
+            self.colorbar =self.axes.figure.colorbar(m, ax=self.axes, **cb_kw)
+        self.title(title, **title_kw)
 
         # for interactive formatting of the coordinates when hovering
         ##pylab.gca().format_coord = self.format_coord # replace the function on the fly!
