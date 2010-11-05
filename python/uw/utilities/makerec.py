@@ -1,5 +1,5 @@
 """ Various useful utilities for creating, dumping numpy recarry objects
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makerec.py,v 1.2 2010/04/23 04:16:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makerec.py,v 1.3 2010/05/11 18:58:41 burnett Exp $
 
 
 
@@ -94,6 +94,6 @@ def load(filename):
     ext = os.path.splitext(filename)[1]
     if ext=='.txt':
         return textrec(filename)
-    elif ext=='.pickle':
+    elif ext=='.pickle' or ext=='.rec':
         return pickle.load(open(filename))
-    raise Exception('extension %s not recognized: expect either txt or pickle' %ext)
+    raise Exception('extension %s not recognized: expect txt, rec or pickle' %ext)
