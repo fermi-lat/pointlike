@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.24 2010/10/16 02:14:49 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.25 2010/10/29 23:36:21 lande Exp $
 
     author: Matthew Kerr
     """
@@ -33,6 +33,12 @@ class PointSource(object):
                                 'Model:\t\t%s'%(self.model.full_name()),
                                 '\t'+self.model.__str__(indent='\t'), 
                                 ])
+
+    def copy(self):
+        """ Create a deep copy of the point source. """
+        return PointSource(SkyDir(self.skydir.ra(),self.skydir.dec()),
+                           self.name,self.model.copy(),leave_parameters=True)
+
 
 ###====================================================================================================###
 
