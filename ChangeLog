@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Nov  4 21:41:44 PDT 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+Add copy() function for PointSource objects.
+    *
+------------------------------------------------------------
 User: lande  Thu Nov  4 14:10:35 PDT 2010
 ScienceTools-scons/pointlike/python/uw/like
 
