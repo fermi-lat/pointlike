@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Nov  5 15:53:01 PDT 2010
+pointlike/python/uw/utilities
+
+Modified Files:
+	keyword_options.py 
+Log Message:
+small fix for non-stripped kw
+    *
+------------------------------------------------------------
 User: burnett  Fri Nov  5 15:51:36 PDT 2010
 pointlike/python/uw/utilities
 
