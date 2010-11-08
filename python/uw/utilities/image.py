@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.32 2010/10/06 03:39:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.33 2010/11/05 22:51:36 burnett Exp $
 
 """
-version = '$Revision: 1.32 $'.split()[1]
+version = '$Revision: 1.33 $'.split()[1]
 
 import pylab
 import types
@@ -111,38 +111,50 @@ class Rescale(object):
         #axes.set_ylim((0.5,self.ny+0.5)) # have to do again?
 
 
+class AITproj(object):
+    def __init__(self, proj):
+        self.proj = proj
+        self.center = proj(0,0)
+        self.scale = ((proj(180,0)[0]-self.center[0])/180., (proj(0,90)[1]-self.center[1])/90)
+    def __call__(self,l,b):
+        r = self.proj(l,b)
+        return [(r[i]-self.center[i])/self.scale[i] for i in range(2)]
 
-def draw_grid(ait, labels=True, color='gray', pixelsize=0.5, textsize=8):
+
+def draw_grid(self, labels=True, color='gray', pixelsize=0.5, textsize=8):
         label_offset = 5/pixelsize
-        my_axes = pylab.axes() #creates figure and axes if not set
+        
+        #my_axes = pylab.axes() #creates figure and axes if not set
 
-        pylab.matplotlib.interactive(False)
-        my_axes.set_autoscale_on(False)
-        my_axes.set_xlim(0, 360/pixelsize)
-        my_axes.set_ylim(0, 180/pixelsize)
-        my_axes.set_axis_off()
-        my_axes.set_aspect('equal')
-
-
+        # # pylab.matplotlib.interactive(False)
+        #my_axes.set_autoscale_on(False)
+        #my_axes.set_xlim(0, 360/pixelsize)
+        #my_axes.set_ylim(0, 180/pixelsize)
+        #my_axes.set_axis_off()
+        #my_axes.set_aspect('equal')
+        ait = AITproj(self.projector.sph2pix) # the projector to use
+        axes = self.axes
+        
         bs = np.arange(-90, 91, 5)
         for l in np.hstack((np.arange(0, 360, 45),[180.01])):
             lstyle = '-' if int(l)==180 or int(l)==0 else '--' 
-            pylab.plot([ait(l,b)[0] for b in bs], [ait(l,b)[1] for b in bs], lstyle, color=color)
+            # axes.plot([ait(l,b)[0] for b in bs], [ait(l,b)[1] for b in bs], lstyle, color=color)
+            axes.plot([ait(l,b)[0] for b in bs], [ait(l,b)[1] for b in bs], lstyle, color=color)
             if labels:
                 x,y = ait(l, 45) 
-                pylab.text(x,y, '%3.0f'%l ,size=textsize, ha='center')
+                axes.text(x,y, '%3.0f'%l ,size=textsize, ha='center')
 
         ls = np.hstack((np.arange(180, 0, -5), np.arange(355, 180,-5), [180.01]))
         for b in np.arange(-60, 61, 30):
             lstyle = '-' if int(b)==0 else '--'
-            pylab.plot([ait(l,b)[0] for l in ls], [ait(l,b)[1] for l in ls], lstyle, color=color)
+            axes.plot([ait(l,b)[0] for l in ls], [ait(l,b)[1] for l in ls], lstyle, color=color)
             if labels:
                 x,y = ait(180.1, b)                                               
-                pylab.text(x+label_offset,y+b/60*label_offset, '%+3.0f'%b, size=textsize, ha='center',va='center')
+                axes.text(x+label_offset,y+b/60*label_offset, '%+3.0f'%b, size=textsize, ha='center',va='center')
         if labels:
             for b in [90,-90]:
                 x,y = ait(0,b)
-                pylab.text(x,y+b/90*label_offset,'%+3.0f'%b, size=textsize, ha='center',va='center') 
+                axes.text(x,y+b/90*label_offset,'%+3.0f'%b, size=textsize, ha='center',va='center') 
 
 
 class AIT_grid():
@@ -245,6 +257,7 @@ class AIT_grid():
         if 'col' not in self.__dict__:
             raise Exception('colorbar called with no mappable defined, say by plot(..., c=...)')
         cb =fig.colorbar(self.col, cax=None, ax=self.axes, **kwargs)
+        fig.sca(self.axes) # restore selected axes objet
         if label: cb.set_label(label)
         plt.draw_if_interactive()
 
@@ -284,6 +297,9 @@ class AIT(object):
         self.projector = self.skyimage.projector()
         self.x = self.y = 100 # initial def
         self.nx, self.ny = self.skyimage.naxis1(), self.skyimage.naxis2()
+        self.center = self.projector.sph2pix(0,0)
+        self.scale = ((self.projector.sph2pix(180,0)[0]-self.center[0])/180., 
+                      (self.projector.sph2pix( 0,90)[1]-self.center[1])/90)
 
         if skyfun is not None: 
             self.skyimage.fill(skyfun)
@@ -309,36 +325,76 @@ class AIT(object):
        
         self.vmin ,self.vmax = self.skyimage.minimum(), self.skyimage.maximum()
 
+    
+    def __call__(self,l,b):
+        """ return x, y plot coordinates given l,b """
+        r = self.projector.sph2pix(l,b)
+        return [(r[i]-self.center[i])/self.scale[i] for i in range(2)]
 
-    def grid(self, fig=None, labels=True, color='gray'):
-    	"""Draws gridlines and labels for map."""
+    def plot_coord(self, sdir):
+        """ return x,y plot coordinates given a SkyDir"""
+        if self.galactic:
+            return self(sdir.l(),sdir.b())
+        return self(sdir.ra(), sdir.dec())
 
-        if self.axes is None:
-            self.axes = pylab.gca() #creates figure and axes if not set
+    def grid(self, labels=False, color='gray', textsize=8, label_offset=10):
+    	"""Draws gridlines and optional labels for map.  """
+    
+        bs = np.arange(-90, 91, 5)
+        for l in np.hstack((np.arange(0, 360, 45),[180.01])):
+            lstyle = '-' if int(l)==180 or int(l)==0 else '--' 
+            #self.axes.plot([self(l,b)[0] for b in bs], [self(l,b)[1] for b in bs], lstyle, color=color)
+            self.axes.plot(map(lambda b: self(l,b)[0], bs), 
+                           map(lambda b: self(l,b)[1], bs), lstyle, color=color)
+            if labels:
+                x,y = self(l, 45) 
+                self.axes.text(x,y, '%3.0f'%l ,size=textsize, ha='center')
 
-        pylab.matplotlib.interactive(False)
-        self.axes.set_autoscale_on(False)
-        self.axes.set_xlim(0, 360/self.pixelsize)
-        self.axes.set_ylim(0, 180/self.pixelsize)
-        self.axes.set_axis_off()
-        self.axes.set_aspect('equal')
-        ait = self.projector.sph2pix
-        self.extent= (ait(180,0)[0],ait(180.001,0)[0], ait(0,-90)[1], ait(0,90)[1])
+        ls = np.hstack((np.arange(180, 0, -5), np.arange(355, 180,-5), [180.01]))
+        for b in np.arange(-60, 61, 30):
+            lstyle = '-' if int(b)==0 else '--'
+            self.axes.plot(map(lambda l: self(l,b)[0], ls), 
+                           map(lambda l: self(l,b)[1], ls), lstyle, color=color)
+            if labels:
+                x,y = self(180.1, b)                                               
+                self.axes.text(x+label_offset,y+b/60*label_offset, '%+3.0f'%b, 
+                    size=textsize, ha='center',va='center')
+        if labels:
+            for b in [90,-90]:
+                x,y = self(0,b)
+                self.axes.text(x,y+b/90*label_offset,'%+3.0f'%b, 
+                    size=textsize, ha='center',va='center') 
 
-        draw_grid(self.projector.sph2pix, labels=labels, color=color, pixelsize=self.pixelsize) 
-        pylab.show()
-
-    def plot(self, sources, symbol='+',  **kwargs):
-        " plot symbols at points"
+    def plot(self, sources, marker='o', text=None, 
+            colorbar=False, text_kw={}, **kwargs):
+        """ plot symbols at points 
+        sources: list of SkyDir
         
+        keywords:
+            text: optional text strings (same length as sources if specified)
+            text_kw: dict
+                keywords for the text function
+            marker: symbol to use, see scatter doc.
+            
+            colorbar: set True to add a colorbar. (See method to attach label)
+            
+        kwargs: applied to scatter, use c as an array of floats, with optional
+                cmap=None, norm=None, vmin=None, vmax=None
+                to make color key for another value
+                in that case, you can use Axes.colorbar
+                set s to change from default size =10
+        """
+        if 'fontsize' not in text_kw: text_kw['fontsize']=8
         X=[]
         Y=[]
-        for s in sources:
-            if self.galactic:   x,y = self.proj.sph2pix(s.l(),s.b())
-            else:  x,y = self.proj.sph2pix(s.ra(),s.dec())
+        for i,s in enumerate(sources):
+            x,y = self.plot_coord(s)
             X.append(x)
             Y.append(y)
-        self.axes.plot(X,Y, symbol,  **kwargs)
+            if text is not None:
+                self.axes.text(x,y,text[i], **text_kw )
+        self.source_cb=self.axes.scatter(X,Y, marker=marker,  **kwargs)
+        if colorbar: assert False, "not implemented" #self.colorbar()
 
     def on_move(self, event):
         """Reports mouse's position in galactic coordinates."""
@@ -375,6 +431,9 @@ class AIT(object):
         #self.colorbar =pylab.colorbar(orientation='horizontal', shrink=1.0 if self.size==180 else 1.0)
         if not nocolorbar:
             self.colorbar =self.axes.figure.colorbar(m, ax=self.axes, **cb_kw)
+            self.mappable = self.colorbar.mappable
+        else:
+            self.mappable=m
         self.title(title, **title_kw)
 
         # for interactive formatting of the coordinates when hovering
@@ -522,7 +581,7 @@ class ZEA(object):
         return SkyDir(x+0.5, y+0.5, self.projector) 
 
     def pixel(self, sdir):
-        """ return pixel coordinates for the skydir
+        """ return  coordinates for the skydir
         """
         x,y = self.projector.sph2pix(sdir.ra(),sdir.dec()) \
             if not self.galactic else self.projector.sph2pix(sdir.l(),sdir.b())
@@ -571,6 +630,7 @@ class ZEA(object):
     def grid(self, nticks=None, **kwargs):
         """ draw a grid
         """
+        label_offset = 5 # units degrees?
 
         if nticks is None: nticks=self.nticks
 
