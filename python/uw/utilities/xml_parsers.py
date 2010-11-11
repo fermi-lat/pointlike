@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.21 2010/10/25 04:24:33 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.22 2010/10/26 22:15:52 lande Exp $
 
    author: Matthew Kerr
 """
@@ -151,7 +151,7 @@ class XML_to_Model(object):
             if model.p[ip]<=0: raise Exception('For source %s, %s parameter %s cannot be negative' % (source_name,specname,p))
             model.free[ip] = (pdict['free'] == '1')
             if 'error' in pdict.keys():
-                err = float(pdict['error'])
+                err = float(pdict['error'])*scale
                 model.cov_matrix[ip,ip] = (err/value*JAC)**2
 
         model.p = N.log10(model.p)
@@ -247,7 +247,7 @@ class XML_to_SpatialModel(object):
             spatial_model.free[ip] = (pdict['free'] == '1')
 
             if 'error' in pdict.keys():
-                err = float(pdict['error'])
+                err = float(pdict['error'])*scale
                 if spatial_model.log[ip]: 
                     spatial_model.cov_matrix[ip,ip] = (err/value*JAC)**2
                 else:
