@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.10 2010/09/23 17:13:02 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.11 2010/11/04 21:10:35 lande Exp $
 
 author: Matthew Kerr
 """
@@ -135,7 +135,8 @@ class ROILocalizer(object):
             
             nover           = ro(band,rd,skydir)
             oover           = band.overlaps[wh]
-            psnc            = (band.bandfits if self.bandfits else band.ps_counts[wh]/band.er[wh])*exposure_ratio
+            psnc            = (band.bandfits if self.bandfits else band.ps_counts[wh])*exposure_ratio/band.er[wh]                                          
+
             psoc            = band.ps_counts[wh] # N.B. -- ps_counts includes exposure ratio
 
             if psnc < 0: continue # skip potentially bad band fits, or bands without appreciable flux
