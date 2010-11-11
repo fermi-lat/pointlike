@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Nov 11 11:22:11 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Function shrink() to convert extended source to null hypothesis. Print extension in degrees. Define new constant SMALL_EXTENSION.
+    *
+------------------------------------------------------------
 User: lande  Wed Nov 10 20:43:36 PST 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
