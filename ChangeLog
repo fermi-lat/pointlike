@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Nov 10 20:41:00 PST 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Fix bug to scale the error that is read in from an xml file.
+    *
+------------------------------------------------------------
 User: lande  Wed Nov 10 20:33:00 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
