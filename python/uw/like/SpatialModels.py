@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.23 2010/10/26 22:41:01 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.24 2010/10/29 23:35:48 lande Exp $
 
    author: Joshua Lande
 
@@ -18,6 +18,8 @@ from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
 GAUSSIAN_X68=1.50959219
 DISK_X68=0.824621125
 NFW_X68=0.33
+
+SMALL_EXTENSION=1e-10
 
 class DefaultSpatialModelValues(object):
     """ Spatial Parameters:
@@ -41,7 +43,7 @@ class DefaultSpatialModelValues(object):
     models = {
         'Gaussian'           : {'p':[0.1],                 
                                 'param_names':['Sigma'],                        
-                                'limits':[[1e-10,3]],
+                                'limits':[[SMALL_EXTENSION,3]],
                                 'log':[True],
                                 'steps':[0.04]
                                 # Note that the step for sigma is a step in log space!
@@ -50,18 +52,18 @@ class DefaultSpatialModelValues(object):
         'PseudoGaussian'     : {},
         'Disk'               : {'p':[0.1],
                                 'param_names':['Sigma'],
-                                'limits':[[1e-10,3]],
+                                'limits':[[SMALL_EXTENSION,3]],
                                 'log':[True],
                                 'steps':[0.04]},
         'PseudoDisk'         : {},
         'Ring'               : {'p':[0.1,0.5],
                                 'param_names':['Sigma','Fraction'],
-                                'limits':[[1e-10,3],[0,1]],
+                                'limits':[[SMALL_EXTENSION,3],[0,1]],
                                 'log':[True,False],
                                 'steps':[0.04,0.1]},
         'NFW'                : {'p':[0.1],
                                 'param_names': ['Sigma'],
-                                'limits': [[1e-10,9]], # constrain r68 to 9 degrees.
+                                'limits': [[SMALL_EXTENSION,9]], # constrain r68 to 9 degrees.
                                 'steps':[0.04],
                                 'log':[True]},
         'PseudoNFW'          : {},
@@ -274,7 +276,7 @@ class SpatialModel(object):
       
             parameter: a parameter name or index.
             freeze   : if True, freeze parameter; if False, free it """
-        if type(parameter) == type(''):
+        if type(parameter) == str:
             for n,name in enumerate(self.param_names):
                 if parameter == name: parameter = n; break
         self.free[parameter] = not freeze
@@ -399,6 +401,11 @@ class SpatialModel(object):
             the source location."""
         return "[ "+", ".join(["%.3f" % _ for _ in self.get_parameters(absolute=True)[2:]])+" ]"
 
+    def shrink(self): 
+        """ Update the spatial model so that the source is very small. This
+            is useful for null hypothesis testing. """
+        raise NotImplementedError("Subclasses should implement this!")
+
 #===============================================================================================#
 
 class RadiallySymmetricModel(SpatialModel):
@@ -470,7 +477,12 @@ class Gaussian(RadiallySymmetricModel):
         return GAUSSIAN_X68*self.sigma
 
     def pretty_spatial_string(self):
-        return "[ %.3f' ]" % (60*self.sigma)
+        return "[ %.3fd ]" % (self.sigma)
+
+    def shrink(self): 
+        self.p[2]=N.where(self.log[2],N.log10(SMALL_EXTENSION),SMALL_EXTENSION)
+        self.free[2]=False
+        self.cache()
 
 #===============================================================================================#
 
@@ -480,7 +492,7 @@ class PseudoGaussian(PseudoSpatialModel,Gaussian):
         small radius. Useful to ensure that the null hypothesis
         of an extended source has the exact same PDF as the
         extended source."""
-    def extension(self): return 1e-10
+    def extension(self): return SMALL_EXTENSION
 
 #===============================================================================================#
 
@@ -507,7 +519,12 @@ class Disk(RadiallySymmetricModel):
         return self.sigma
 
     def pretty_spatial_string(self):
-        return "[ %.3f' ]" % (60*self.sigma)
+        return "[ %.3fd ]" % (self.sigma)
+
+    def shrink(self): 
+        self.p[2]=N.where(self.log[2],N.log10(SMALL_EXTENSION),SMALL_EXTENSION)
+        self.free[2]=False
+        self.cache()
 
 #===============================================================================================#
 
@@ -516,7 +533,7 @@ class PseudoDisk(PseudoSpatialModel,Disk):
         small radius. Useful to ensure that the null hypothesis
         of an extended source has the exact same PDF as the
         extended source with small extension."""
-    def extension(self): return 1e-10
+    def extension(self): return SMALL_EXTENSION
 
 #===============================================================================================#
 
@@ -545,7 +562,13 @@ class Ring(RadiallySymmetricModel):
         return self.sigma
 
     def pretty_spatial_string(self):
-        return "[ %.3f', %.3f' ]" % (60*self.sigma,60*self.frac*self.sigma)
+        return "[ %.3fd, %.3d' ]" % (self.sigma,self.frac*self.sigma)
+
+    def shrink(self): 
+        self.p[2]=N.where(self.log[2],N.log10(SMALL_EXTENSION),SMALL_EXTENSION)
+        self.p[3]=1
+        self.free[2:4]=False
+        self.cache()
 
 #===============================================================================================#
 
@@ -571,13 +594,18 @@ class NFW(RadiallySymmetricModel):
         return NFW_X68*self.scaled_sigma
 
     def pretty_spatial_string(self):
-        return "[ %.3f' ]" % (60*self.sigma)
+        return "[ %.3fd ]" % (self.sigma)
+
+    def shrink(self): 
+        self.p[2]=N.where(self.log[2],N.log10(SMALL_EXTENSION),SMALL_EXTENSION)
+        self.free[2]=False
+        self.cache()
 
 #===============================================================================================#
 
 class PseudoNFW(PseudoSpatialModel,NFW):
 
-    def extension(self): return 1e-10
+    def extension(self): return SMALL_EXTENSION
 
 #===============================================================================================#
 
@@ -722,14 +750,21 @@ class EllipticalSpatialModel(SpatialModel):
         return self.fill_grid(self.call_grid,energy=None,override_skydir=skydir)
 
     def pretty_spatial_string(self):
-        return "[ %.3f', %.3f', %.2fd ]" % \
-                (60*self.sigma_x,60*self.sigma_y, self.theta)
+        return "[ %.3fd, %.3fd, %.2fd ]" % \
+                (self.sigma_x,self.sigma_y, self.theta)
     
     def ellipse_68(self):
         """ Returns the parameters of an ellipse (sigma_x, sigma_y, theta)
             which has the same ellipticity/angle of the regular shape but
             encloses 68 percent of the intensity. """
         raise NotImplementedError("Subclasses should implement this!")
+
+    def shrink(self): 
+        self.p[2:4]=N.where(self.log[2:4],N.log10(SMALL_EXTENSION),SMALL_EXTENSION)
+        self.p[4]=0
+        self.free[2:5]=False
+        self.cache()
+
 #===============================================================================================#
 
 class EllipticalGaussian(EllipticalSpatialModel):
@@ -755,7 +790,7 @@ class PseudoEllipticalGaussian(PseudoSpatialModel,EllipticalGaussian):
         return 1e-3,1e-3,0
 
     def pretty_spatial_string(self):
-        return "[ %.3f' ]" % (60*self.sigma_x)
+        return "[ %.3fd ]" % (self.sigma_x)
 
 #===============================================================================================#
 
@@ -766,7 +801,7 @@ class RadiallySymmetricEllipticalGaussian(EllipticalGaussian):
         return sigma,sigma,0
 
     def pretty_spatial_string(self):
-        return "[ %.3f' ]" % (60*self.sigma_x)
+        return "[ %.3fd ]" % (self.sigma_x)
 
 #===============================================================================================#
 
@@ -824,9 +859,16 @@ class EllipticalRing(EllipticalSpatialModel):
         return x68*self.sigma_x,x68*self.sigma_y,self.theta
 
     def pretty_spatial_string(self):
-        return "[ %.3f', %.3f', %.2fd, %.2f ]" % \
-                (60*self.sigma_x,60*self.sigma_y,
+        return "[ %.3fd, %.3fd, %.2fd, %.2f ]" % \
+                (self.sigma_x,self.sigma_y,
                  self.theta,self.frac)
+
+    def shrink(self): 
+        self.p[2:4]=N.where(self.log[2:4],N.log10(SMALL_EXTENSION),SMALL_EXTENSION)
+        self.p[4]=0
+        self.p[5]=1
+        self.free[2:6]=False
+        self.cache()
 
 #===============================================================================================#
 
