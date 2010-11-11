@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.22 2010/10/26 22:15:52 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.23 2010/11/11 04:41:00 lande Exp $
 
    author: Matthew Kerr
 """
@@ -228,21 +228,32 @@ class XML_to_SpatialModel(object):
             pdict = d[p]
 
             scale = float(pdict['scale'])
-            value = float(pdict['value'])
+            value = float(pdict['value'])*scale
 
             if spatial_model.log[ip]:
-                spatial_model.p[ip] = N.log10(value*scale) 
+                if value<=0: 
+                    raise Exception("Unable to parse %s's parameter %s. Value must be greater than 0" % (spatialname,pdict['name']))
+                spatial_model.p[ip] = N.log10(value) 
                 if pdict.has_key('min'):
-                    spatial_model.limits[ip,0] = N.log10(float(pdict['min'])*scale) 
+                    minimum=float(pdict['min'])*scale
+                    if minimum<=0: 
+                        raise Exception("Unable to parse %s's parameter %s. Minimum fit range must be greater than 0" % (spatialname,pdict['name']))
+                    spatial_model.limits[ip,0] = N.log10(minimum) 
                 if pdict.has_key('max'):
-                    spatial_model.limits[ip,1] = N.log10(float(pdict['max'])*scale) 
+                    maximum=float(pdict['max'])*scale
+                    if maximum<=0: 
+                        raise Exception("Unable to parse %s's parameter %s. Maximum fit range must be greater than 0" % (spatialname,pdict['name']))
+                    spatial_model.limits[ip,1] = N.log10(maximum) 
 
             else:
-                spatial_model.p[ip] = value*scale
+                spatial_model.p[ip] = value
                 if pdict.has_key('min'):
                     spatial_model.limits[ip,0] = float(pdict['min'])*scale
                 if pdict.has_key('max'):
                     spatial_model.limits[ip,1] = float(pdict['max'])*scale
+
+            if spatial_model.limits[ip][0] >= spatial_model.limits[ip][1]:
+                raise Exception("Unable to parse %s's parameter %s. Maximum fit range must be greater minimum fit range." % (spatialname,pdict['name']))
 
             spatial_model.free[ip] = (pdict['free'] == '1')
 
@@ -563,10 +574,10 @@ def parse_diffuse_sources(handler,diffdir=None):
             fname = str(os.path.expandvars(spatial['file']))
             if spectral['type'] == 'ConstantValue':
                 mo = xtm.get_model(spectral,name)
-            elif spectral['type'] == 'PowerLaw':
+            elif spectral['type'] == 'PowerLaw' or spectral['type'] == 'PowerLaw2':
                 mo = xtm.get_model(spectral,name,index_offset=1)
             else:
-                raise Exception,'Non-isotropic model not implemented'
+                raise Exception('Non-isotropic model "%s" not implemented' % spatial['type'])
             ds.append(gds('MapCubeFunction',fname,mo,None,name,diffdir=diffdir))
             
         else:
