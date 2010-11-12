@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.50 2010/11/03 19:49:31 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.51 2010/11/04 21:10:35 lande Exp $
 
 author: Matthew Kerr
 """
@@ -447,7 +447,7 @@ class ROIAnalysis(object):
              return 0
         return -2*(ll_0 - ll)
 
-    def localize(self,which=0, tolerance=1e-3,update=False, verbose=False, bandfits=False, seedpos=None,**kwargs):
+    def localize(self,which=0, tolerance=1e-3,update=False, verbose=False, bandfits=False, seedpos=None):
         """Localize a source using an elliptic approximation to the likelihood surface.
 
             which      -- index of point source; default to central
@@ -459,18 +459,37 @@ class ROIAnalysis(object):
 
             return fit position
         """
+
+        manager,index = self.mapper(which)
+
+        if manager == self.dsm and not isinstance(manager.diffuse_sources[index],ExtendedSource):
+            raise Exception("Can only localize Point and Extended Sources")
+
+        f = roi_localize.ROILocalizer if manager == self.psm else roi_localize.ROILocalizerExtended
+        rl = f(self,which=index,bandfits=bandfits,tolerance=tolerance,update=update,verbose=verbose)
+
+        if seedpos is not None:
+            rl.sd = seedpos  # override 
+        return rl.localize()
+    
+    def fit_extension(self,which,*args,**kwargs):
+        """ See roi_extended.ROIExtendedModelAnalytic's fit_extension function for parameters. """
+
         manager,index=self.mapper(which)
 
-        if manager==self.psm:
-             rl = roi_localize.ROILocalizer(self,which=index,bandfits=bandfits,tolerance=tolerance,update=update,verbose=verbose)
-             if seedpos is not None:
-                 rl.sd = seedpos  # override 
-             return rl.localize()
+        if manager != self.dsm or not isinstance(self.dsm.diffuse_sources[index],ExtendedSource):
+            raise Exception("Can only fit the extension of extended sources.")
 
-        elif manager==self.dsm:
-             return self.dsm.bgmodels[index].localize(self,which=index,bandfits=bandfits,
-                                                      seedpos=None,tolerance=tolerance,
-                                                      update=update,verbose=verbose,**kwargs)
+        return self.dsm.bgmodels[index].fit_extension(self,*args,**kwargs)
+
+    def TS_ext(self,which,*args,**kwargs):
+
+        manager,index=self.mapper(which)
+
+        if manager != self.dsm or not isinstance(self.dsm.diffuse_sources[index],ExtendedSource):
+            raise Exception("Can only calculate TS_ext of extended sources.")
+
+        return self.dsm.bgmodels[index].TS_ext(self,*args,**kwargs)
 
     def upper_limit(self,**kwargs):
         """Compute an upper limit on the source flux, by the "PDG Method"
@@ -675,6 +694,8 @@ class ROIAnalysis(object):
               manager=self.psm
          elif isinstance(ps,ROIDiffuseModel):
               manager=self.dsm
+         else:
+             raise Exception("Unable to add source %s. Only able to add PointSource and ROIDiffuseModel objects.")
          manager.add_source(ps,self.bands)
 
     def del_ps(self,which):
