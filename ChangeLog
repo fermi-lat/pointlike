@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Nov 12 09:09:57 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py roi_localize.py 
+Log Message:
+New TS_ext function. Update localize to work for extended sources and create new fit_extension function to replace previous extension fitting code.
+    *
+------------------------------------------------------------
 User: lande  Thu Nov 11 11:22:11 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
