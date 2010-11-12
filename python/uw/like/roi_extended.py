@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.30 2010/10/26 22:41:01 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.31 2010/11/02 06:38:10 lande Exp $
 
     author: Joshua Lande
 """
@@ -106,36 +106,16 @@ class ROIExtendedModel(ROIDiffuseModel):
             raise Exception("The extended_source.dmodel option passed to ROIExtendedModel.factory must inherit from SpatialModel.")
 
     def init(self):
-        self.pixelsize = 0.025
-        self.npix      = 101
-        self.r_multi   = 2.0 # multiple of r95 to set max dimension of grid
-        self.r_max     = 20  # an absolute maximum (half)-size of grid (deg)
+        pass
 
     def setup(self):
         """ Unlike background models, always do the convolution around 
             the spatial model's center. """
         self.exp = self.sa.exposure.exposure; psf = self.sa.psf
-        self.active_bgc = ExtendedSourceConvolutionCache(self.extended_source.spatial_model,psf,
-                                          npix=self.npix,pixelsize=self.pixelsize,
-                                          bounds_error=False,fill_value=0)
+        self.active_bgc = ExtendedSourceConvolutionCache(self.extended_source.spatial_model,psf)
 
-    def set_state(self,energy,conversion_type,band,**kwargs):
-        """ Note, this implementation ensures that the entire source is 
-            convolved, even if a substatial part of it lies outside of
-            the ROI. this is useful so that the entire extended source
-            shape can be renormalized after convolution, which leads
-            to a less biased measure of the source flux. """
-        edge=self.extended_source.spatial_model.effective_edge()
-        multi = 1 + 0.01*(energy==band.emin) -0.01*(energy==band.emax)
-        r95 = self.sa.psf.inverse_integral(energy*multi,conversion_type,95)
-        rad = self.r_multi*r95 + edge
-        rad = max(min(self.r_max,rad),edge+2.5)
-        npix = int(round(2*rad/self.pixelsize))
-        npix += (npix%2 == 0)
-        self.active_bgc.setup_grid(npix,self.pixelsize)
-
-        self.active_bgc.do_convolution(energy,conversion_type)
-        self.current_exposure = self.exp[conversion_type].value(self.extended_source.spatial_model.center,energy)
+    def set_state(self,band):
+        self.active_bgc.do_convolution(band)
 
     def initialize_counts(self,bands,roi_dir=None):
         rd = self.roi_dir if roi_dir is None else roi_dir
@@ -146,18 +126,18 @@ class ROIExtendedModel(ROIDiffuseModel):
 
         for myband,band in zip(self.bands,bands):
 
-            # Use the 'optimal' energy (calculated by the ADJUST_MEAN flag) if it exists.
-            en=band.psf.eopt if band.psf.__dict__.has_key('eopt') else band.e
-
-            self.set_state(en,band.ct,band)
+            self.set_state(band)
 
             exposure=band.exp.value
-            myband.er = exposure(es.spatial_model.center,en)/exposure(rd,en)
 
-            myband.pix_counts = self._pix_value(band.wsdl)
-            myband.pix_counts *= band.b.pixelArea()
+            # Use the 'optimal' energy (calculated by the ADJUST_MEAN flag) if it exists.
+            self.current_energy = energy=band.psf.eopt if band.psf.__dict__.has_key('eopt') else band.e
 
-            myband.overlaps = self._overlaps(rd,band.radius_in_rad,band)
+            myband.er = exposure(es.spatial_model.center,self.current_energy)/exposure(rd,self.current_energy)
+
+            myband.es_pix_counts = self._pix_value(band.wsdl)*band.b.pixelArea()
+
+            myband.overlaps = self._overlaps(rd,band)
 
     def update_counts(self,bands,model_index):
         """Update models with free parameters."""
@@ -169,7 +149,7 @@ class ROIExtendedModel(ROIDiffuseModel):
 
             band.bg_counts[mi] = myband.overlaps*myband.es_counts
             if band.has_pixels:
-                band.bg_pix_counts[:,mi] = myband.pix_counts * myband.es_counts
+                band.bg_pix_counts[:,mi] = myband.es_pix_counts * myband.es_counts
 
     def gradient(self,bands,model_index,phase_factor=1):
         """ Return the gradient of the log likelihood with respect to the spectral parameters of
@@ -190,7 +170,7 @@ class ROIExtendedModel(ROIDiffuseModel):
             grad    = band.gradient(sm)[sm.free]*myband.er # correct for exposure
             apterm = phase_factor*myband.overlaps
             if band.has_pixels:
-                pixterm = (band.pix_weights*myband.pix_counts).sum()
+                pixterm = (band.pix_weights*myband.es_pix_counts).sum()
             else:
                 pixterm = 0
             gradient += grad * (apterm - pixterm)
@@ -200,8 +180,8 @@ class ROIExtendedModel(ROIDiffuseModel):
     def _pix_value(self,pixlist):
         return self.active_bgc(pixlist,self.active_bgc.cvals)
 
-    def _overlaps(self,center,radius,band=None):
-        return self.active_bgc.overlap(center,radius)
+    def _overlaps(self,center,band=None):
+        return self.active_bgc.overlap(center,band.radius_in_rad)
 
     def __init__(self,spectral_analysis,extended_source,roi_dir,name=None,*args,**kwargs):
 
@@ -221,9 +201,9 @@ class ROIExtendedModel(ROIDiffuseModel):
                  es.name,es.smodel.full_name(),
                  '\t'+es.smodel.__str__(indent='\t'))
 
-    def localize(self,roi,which,tolerance,update=False,verbose=False,
-                 bandfits=False, seedpos=None, error="HESSE",init_grid=None, use_gradient=False):
-        """ Localize this extended source by fitting all non-fixed spatial paraameters of 
+    def fit_extension(self,roi,tolerance=0.05,update=False,verbose=False,
+                 bandfits=False, error="HESSE",init_grid=None, use_gradient=False):
+        """ Fit the extension of this extended source by fitting all non-fixed spatial paraameters of 
             self.extended_source. The likelihood at the best position is returned.
 
 Arguments:
@@ -232,10 +212,6 @@ Arguments:
   Keyword     Description
   =========   =======================================================
   roi                   An ROIAnalysis object.
-  which                 The array index in the ROIDiffuseManager object for
-                        this current extended source.
-  seedpos               if a SkyDir, set the initial fit position to seedpos. 
-                        If None, use current location.
   tolerance             Tolerance set when integrating hypergeometirc
                         function to calcualte PDF.
   update        [False] Number of points to calculate the PDF at.
@@ -243,6 +219,7 @@ Arguments:
   verbose       [False] Make noise when fitting
   bandfits      [False] Spectrum independent fitting.
   error       ["HESSE"] The fitting algorithm to use when calculating errors.
+                        Specify None to not calculate errors.
   init_grid      [None] A list of spatial parameters. The likelihood
                         for each of the spatial parametesr is tested and the minimum
                         one is used as the initial guess when running minuit. Useful
@@ -275,15 +252,11 @@ Arguments:
         old_quiet = roi.quiet
         roi.quiet = True
 
-        if seedpos is not None: self.modify_loc(self,roi.bands,seedpos)
-
         init_spectral = self.smodel.get_parameters()
         init_spatial = sm.get_parameters(absolute=False)
 
-        if len(init_spatial) < 1:
-            # Necessary if all parameters are fixed.
-            print 'Unable to localize diffuse source %s. No parameters to fit.' % es.name
-            return
+        if not N.any(sm.free):
+            raise Exception("Unable to fit the diffuse source %s's extension. No parameters to fit." % es.name)
 
         # Remember thet get_parameters only returns the free parameters.
         # here we need to get the first two parameters (position) so
@@ -337,9 +310,11 @@ Arguments:
             # Do the convolution here.
             sm.set_parameters(p=p,absolute=False)
             self.initialize_counts(roi.bands)
+            # Note: roi.dsm.update_counts called by the fit function.
+
 
             if bandfits:
-                ll=roi.bandFit(self.extended_source)
+                ll=roi.bandFit(es)
             else:
                 ll=roi.fit(estimate_errors=False,use_gradient=use_gradient)
 
@@ -399,9 +374,11 @@ Arguments:
 
         best_spatial,fval = m.minimize(method="SIMPLEX")
 
-        if verbose: print 'Calculating Covariance Matrix'
-
-        cov_matrix = m.errors(method=error)
+        if error is not None:
+            if verbose: print 'Calculating Covariance Matrix'
+            cov_matrix = m.errors(method=error)
+        else:
+            cov_matrix = N.zeros([len(sm.p),len(sm.p)])
 
         sm.set_cov_matrix(cov_matrix)
 
@@ -425,6 +402,63 @@ Arguments:
     def modify_loc(self,bands,center):
         self.extended_source.spatial_model.modify_loc(center)
         self.initialize_counts(bands)
+    
+    def TS_ext(self,roi,**kwargs):
+        """ Any argument passed into this function is passed into fit_extension when
+            the null hypothesis is localized. 
+            
+            Neither 'error' or 'update' are allowed to be passed into fit_extension,
+            because it is of no use to calculate for the null hypothesis. """
+        if kwargs.has_key('error') or kwargs.has_key('update'): 
+            raise Exception("argument 'error' cannot be passed into function TS_ext")
+
+        es = self.extended_source
+        sm = es.spatial_model
+
+        old_p    = sm.p.copy()
+        old_free = sm.free.copy()
+        old_params = roi.get_parameters().copy()
+        old_cov    = roi.cov_matrix.copy() if roi.__dict__.has_key('cov_matrix') else None
+
+        if kwargs.has_key('bandfits') and kwargs['bandfits']:
+            ll_disk = roi.bandFit(es)
+        else:
+            ll_disk = -roi.logLikelihood(roi.get_parameters())
+
+        try:
+            sm.shrink()
+        except:
+            raise Exception("Unable to calculate ts_ext for %s source %s. No way to shrink to null hypothesis." % (sm.pretty_name,es.name))
+        self.initialize_counts(roi.bands)
+
+        self.fit_extension(roi,error=None,update=False,**kwargs)
+
+        # have to refit in case fitpsf or bandfits was used during the localization.
+        d={'use_gradient':kwargs['use_gradient']} if kwargs.has_key('use_gradient') else {}
+        roi.fit(estimate_errors=True,**d)
+
+        if kwargs.has_key('bandfits') and kwargs['bandfits']:
+            ll_point = roi.bandFit(es)
+        else:
+            ll_point = -roi.logLikelihood(roi.get_parameters())
+
+        ts_ext = 2*(ll_disk - ll_point)
+
+        sm.set_parameters(p=old_p,absolute=False)
+        sm.free = old_free
+
+        self.initialize_counts(roi.bands)
+        # reset point source
+        roi.set_parameters(old_params) 
+
+        if old_cov is not None:
+            # reset spectral errors
+            roi.bgm.set_covariance_matrix(old_cov,current_position = 0)
+            roi.psm.set_covariance_matrix(old_cov,current_position = len(roi.bgm.parameters()))
+
+        roi.__pre_fit__() # restore caching (Note update_counts called by logLikelihood)
+
+        return ts_ext
 
 ###=========================================================================###
 
@@ -442,6 +476,8 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         self.fitpsf=False
         self.already_fit=False
 
+        self.overlap = PsfOverlap()
+
     def setup(self):
         self.exp = self.sa.exposure.exposure; 
         psf = self.sa.psf
@@ -449,22 +485,20 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         d={'num_points':self.num_points} if self.__dict__.has_key('num_points') else {}
         self.active_bgc = AnalyticConvolutionCache(self.extended_source.spatial_model,psf,**d)
 
-    def set_state(self,energy,conversion_type,band):
-        self.current_energy = energy
-        self.current_exposure = self.exp[conversion_type].value(self.extended_source.spatial_model.center,energy)
-        self.active_bgc.do_convolution(energy,conversion_type,band,self.fitpsf)
+    def set_state(self,band):
+        self.active_bgc.do_convolution(band,self.fitpsf)
 
     def _pix_value(self,pixlist):
         return self.active_bgc(pixlist)
 
-    def _overlaps(self,center,radius,band):
+    def _overlaps(self,center,band):
         """ Calculate the fraction of the PDF not contained within the ROI
             using the PsfOverlap object (but override the pdf and integral
             function to use instead the extended source pdf. """
         return self.overlap(band=band,
                             roi_dir=center,
                             ps_dir=self.extended_source.spatial_model.center,
-                            radius_in_rad=radius,
+                            radius_in_rad=band.radius_in_rad,
                             override_pdf=self.active_bgc,
                             override_integral=self.active_bgc.integral)
 
@@ -479,11 +513,9 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
             fitter.fit()
             self.already_fit=True
 
-        self.overlap = PsfOverlap()
-
         super(ROIExtendedModelAnalytic,self).initialize_counts(bands,roi_dir)
 
-    def localize(self,*args,**kwargs):
+    def fit_extension(self,*args,**kwargs):
         """ Localiztion of radially symmetric extended sources is exactly the same as
             regular extended sources. The only difference is radially symmetric
             sources can be fit with the addition of an optional flag 'fitpsf'.
@@ -515,7 +547,7 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
             if verbose: print 'Changing to fitpsf for localization step.'
             self.fitpsf,old_fitpsf=True,self.fitpsf
 
-        stuff = super(ROIExtendedModelAnalytic,self).localize(*args,**kwargs)
+        stuff = super(ROIExtendedModelAnalytic,self).fit_extension(*args,**kwargs)
 
         if fitpsf:
             if verbose: print 'Setting back to original PDF accuracy.'
@@ -689,7 +721,7 @@ class BandFitExtended(object):
 
         pix_term = (band.pix_counts * 
                             N.log(
-                                band.bg_all_pix_counts + band.ps_all_pix_counts + myband.pix_counts*(new_counts - old_counts)
+                                band.bg_all_pix_counts + band.ps_all_pix_counts + myband.es_pix_counts*(new_counts - old_counts)
                             )
                       ).sum() if band.has_pixels else 0.
 
@@ -704,8 +736,8 @@ class BandFitExtended(object):
         tot = 0
         for b,mb in zip(self.bands,self.mybands):
             if not b.has_pixels: continue
-            my_pix_counts = mb.pix_counts*b.expected(self.m)*mb.er
-            all_pix_counts= b.bg_all_pix_counts + b.ps_all_pix_counts - mb.pix_counts*b.bg_counts[self.which] + my_pix_counts
+            my_pix_counts = mb.es_pix_counts*b.expected(self.m)*mb.er
+            all_pix_counts= b.bg_all_pix_counts + b.ps_all_pix_counts - mb.es_pix_counts*b.bg_counts[self.which] + my_pix_counts
             tot += (b.pix_counts * (my_pix_counts/all_pix_counts)**2).sum()
         return tot**-0.5
 
