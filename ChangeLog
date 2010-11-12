@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Nov 12 09:13:03 PST 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+For extended sources, move calculaation of roi size into caching area. Also clean up general caching of extended sources a bit.
+    *
+------------------------------------------------------------
 User: lande  Fri Nov 12 09:12:02 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
