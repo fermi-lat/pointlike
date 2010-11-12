@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.11 2010/11/04 21:10:35 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.12 2010/11/11 04:33:00 lande Exp $
 
 author: Matthew Kerr
 """
@@ -31,18 +31,26 @@ class ROILocalizer(object):
 
         # we need a reference both to the center of the ROI, for use in calculating overlap,
         # and to the original position of the point source, which may or may not be the same
-        self.rd = roi.psm.roi_dir
-        self.sd = roi.psm.point_sources[which].skydir
+        self.rd = roi.roi_dir
+
+        self.set_source_info()
+        if self.bandfits: self.do_bandfits()
         
-        if self.bandfits:
-            if 'energy_bands' not in roi.__dict__.keys(): roi.setup_energy_bands()
-            for eb in roi.energy_bands: eb.bandFit(which=which,saveto='bandfits')
-            if N.all(N.asarray([b.bandfits for b in roi.bands]) < 0):
-                if not self.quiet: print 'Warning! No good band fits.  Reverting to broadband fit...'
-                self.bandfits = False
         self.tsref=0
         #self.tsref = self.TSmap(self.rd)
         self.tsref = self.TSmap(self.sd) # source position not necessarily ROI center
+
+    def set_source_info(self):
+        """ Set information about the point source that will be localized. """
+        self.sd   = self.roi.psm.point_sources[self.which].skydir
+        self.name = self.roi.psm.point_sources[self.which].name
+
+    def do_bandfits(self):
+        if 'energy_bands' not in roi.__dict__.keys(): roi.setup_energy_bands()
+        for eb in roi.energy_bands: eb.bandFit(which=self.which,saveto='bandfits')
+        if N.all(N.asarray([b.bandfits for b in roi.bands]) < 0):
+            if not self.quiet: print 'Warning! No good band fits.  Reverting to broadband fit...'
+            self.bandfits = False
 
     def TSmap(self,skydir):
         return (-2)*self.spatialLikelihood(skydir)-self.tsref
@@ -71,16 +79,15 @@ class ROILocalizer(object):
         tolerance= self.tolerance
         l    = quadform.Localize(self,verbose = verbose)
         ld  = SkyDir(l.dir.ra(),l.dir.dec())
-        ps  = roi.psm.point_sources[which]
 
-        ll0 = self.spatialLikelihood(ps.skydir,update=False)
+        ll0 = self.spatialLikelihood(self.sd,update=False)
 
         if not self.quiet:
             fmt ='Localizing source %s, tolerance=%.1e...\n\t'+7*'%10s'
-            tup = (ps.name, tolerance,)+tuple('moved delta ra     dec    a     b  qual'.split())
+            tup = (self.name, tolerance,)+tuple('moved delta ra     dec    a     b  qual'.split())
             print fmt % tup
-            print ('\t'+4*'%10.4f')% (0,0,ps.skydir.ra(), ps.skydir.dec())
-            diff = l.dir.difference(ps.skydir)*180/N.pi
+            print ('\t'+4*'%10.4f')% (0,0,self.sd.ra(), self.sd.dec())
+            diff = l.dir.difference(self.sd)*180/N.pi
             print ('\t'+7*'%10.4f')% (diff,diff, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
         
         old_sigma=1.0
@@ -94,7 +101,7 @@ class ROILocalizer(object):
                 if not self.quiet: print 'trying a recenter...'
                 continue
             diff = l.dir.difference(ld)*180/N.pi
-            delt = l.dir.difference(ps.skydir)*180/N.pi
+            delt = l.dir.difference(self.sd)*180/N.pi
             sigma = l.par[3]
             if not self.quiet: print ('\t'+7*'%10.4f')% (diff, delt, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
             if delt>self.maxdist:
@@ -112,7 +119,13 @@ class ROILocalizer(object):
         roi.ldir     = l.dir
         roi.lsigma  = l.sigma
         roi.delta_loc_logl = (ll0 - ll1)
+
+        self.update_source()
+
         return l.dir, i, delt, 2*(ll0-ll1)
+
+    def update_source(self):
+        pass
 
     def spatialLikelihood(self,skydir,update=False):
         """Calculate log likelihood as a function of position a point source.
@@ -136,7 +149,6 @@ class ROILocalizer(object):
             nover           = ro(band,rd,skydir)
             oover           = band.overlaps[wh]
             psnc            = (band.bandfits if self.bandfits else band.ps_counts[wh])*exposure_ratio/band.er[wh]                                          
-
             psoc            = band.ps_counts[wh] # N.B. -- ps_counts includes exposure ratio
 
             if psnc < 0: continue # skip potentially bad band fits, or bands without appreciable flux
@@ -186,3 +198,98 @@ class ROILocalizer(object):
             raise Exception('ROIAnalysis.spatialLikelihood failure at %.3f,%.3f' %(skydir.ra(),skydir.dec()))
         return ll
 
+class ROILocalizerExtended(ROILocalizer):
+
+    def set_source_info(self):
+        self.sd = self.roi.dsm.diffuse_sources[self.which].spatial_model.center
+        self.name = self.roi.dsm.diffuse_sources[self.which].name
+
+    def do_bandfits(self):
+        roi = self.roi
+        if 'energy_bands' not in roi.__dict__.keys(): roi.setup_energy_bands()
+        for eb in roi.energy_bands: 
+            bfe=BandFitExtended(which,eb,roi)
+            bfe.fit(saveto='bandfits')
+        if N.all(N.asarray([b.bandfits for b in roi.bands]) < 0):
+            if not self.quiet: print 'Warning! No good band fits.  Reverting to broadband fit...'
+            self.bandfits = False
+
+    def spatialLikelihood(self,skydir,update=False):
+        """Calculate log likelihood as a function of position of an extended source.
+        
+            which    -- index of the extended source; default to central
+                          ***if localizing non-central, ensure ROI is large enough!***
+        """
+        
+        rd  = self.rd
+        roi = self.roi
+        ll  = 0
+        wh  = self.which
+
+        es = roi.dsm.bgmodels[wh]
+        sm  = es.extended_source.spatial_model
+
+        sm.modify_loc(skydir)
+
+        for i,(band,myband) in enumerate(zip(roi.bands,es.bands)):
+
+            es.set_state(band)
+
+            # N.B. -- needs to be the ratio with ROI_DIR to be consistent with ROIPointSourceManager
+            exposure_ratio  = band.exp.value(skydir,es.current_energy)/band.exp.value(rd,es.current_energy)
+            
+            nover           = es._overlaps(skydir,band)
+            oover           = myband.overlaps
+            esnc            = (band.bandfits if self.bandfits else myband.es_counts)*exposure_ratio/myband.er
+            esoc            = myband.es_counts # N.B. -- es_counts includes exposure ratio
+
+            if esnc < 0: continue # skip potentially bad band fits, or bands without appreciable flux
+
+            tot_term = (band.bg_all_counts + band.ps_all_counts + esnc*nover - esoc*oover ) * roi.phase_factor
+
+            if band.has_pixels:
+                
+                es_pix_counts = es._pix_value(band.wsdl)*band.b.pixelArea()
+
+                pix_term = (band.pix_counts * N.log(
+                                band.bg_all_pix_counts + band.ps_all_pix_counts -
+                                esoc*myband.es_pix_counts + esnc*es_pix_counts
+                            ) ).sum()
+
+            else: pix_term = 0
+
+            ll += tot_term - pix_term
+            if N.isnan(ll):
+                raise Exception('ROIAnalysis.spatialLikelihood failure at %.3f,%.3f, band %d' %(skydir.ra(),skydir.dec(),i))
+
+
+        if update:
+            # update the cached counts with new location -- note that this used the _broadband_ spectral
+            # model rather than the band-by-band fit; otherwise, subsequent fits for broadband parameters
+            # would fail
+            es.initialize_counts(roi.bands)
+            roi.dsm.update_counts(roi.bands)
+
+        else:
+            sm.modify_loc(self.sd)
+            # Note that since initialize_counts wasn't previous called,
+            # all of the previous values were still set at the correct
+            # values, so there is no reason to reinitialize back to the
+            # original values.
+            for band in roi.bands: es.set_state(band)
+
+        return ll
+
+    def update_source(self):
+        """ Update covariance matrix of the extended source with the best fit error.
+            Note that this update doesn't deal with correlation in the fit parameters,
+            but should be good enough for the purpose of displaying sources.
+            
+            Also, since we can't fit lon/lat in log space, filling to covaraince matrix is easy. """
+        wh  = self.which
+
+        es = roi.dsm.bgmodels[wh]
+        sm  = es.extended_source.spatial_model
+
+        sm.cov_matrix = N.zeros([len(sm.p),len(sm.p)])
+        sm.cov_matrix[0][0] = self.cov_matrix[1][1] = self.roi.lsigma**2
