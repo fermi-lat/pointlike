@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.24 2010/10/29 23:35:48 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.25 2010/11/11 19:22:10 lande Exp $
 
    author: Joshua Lande
 
@@ -19,7 +19,8 @@ GAUSSIAN_X68=1.50959219
 DISK_X68=0.824621125
 NFW_X68=0.33
 
-SMALL_EXTENSION=1e-10
+SMALL_ANALYTIC_EXTENSION=1e-10
+SMALL_NUMERIC_EXTENSION=1e-3
 
 class DefaultSpatialModelValues(object):
     """ Spatial Parameters:
@@ -43,7 +44,7 @@ class DefaultSpatialModelValues(object):
     models = {
         'Gaussian'           : {'p':[0.1],                 
                                 'param_names':['Sigma'],                        
-                                'limits':[[SMALL_EXTENSION,3]],
+                                'limits':[[SMALL_ANALYTIC_EXTENSION,3]],
                                 'log':[True],
                                 'steps':[0.04]
                                 # Note that the step for sigma is a step in log space!
@@ -52,18 +53,18 @@ class DefaultSpatialModelValues(object):
         'PseudoGaussian'     : {},
         'Disk'               : {'p':[0.1],
                                 'param_names':['Sigma'],
-                                'limits':[[SMALL_EXTENSION,3]],
+                                'limits':[[SMALL_ANALYTIC_EXTENSION,3]],
                                 'log':[True],
                                 'steps':[0.04]},
         'PseudoDisk'         : {},
         'Ring'               : {'p':[0.1,0.5],
                                 'param_names':['Sigma','Fraction'],
-                                'limits':[[SMALL_EXTENSION,3],[0,1]],
+                                'limits':[[SMALL_ANALYTIC_EXTENSION,3],[0,1]],
                                 'log':[True,False],
                                 'steps':[0.04,0.1]},
         'NFW'                : {'p':[0.1],
                                 'param_names': ['Sigma'],
-                                'limits': [[SMALL_EXTENSION,9]], # constrain r68 to 9 degrees.
+                                'limits': [[SMALL_ANALYTIC_EXTENSION,9]], # constrain r68 to 9 degrees.
                                 'steps':[0.04],
                                 'log':[True]},
         'PseudoNFW'          : {},
@@ -80,15 +81,15 @@ class DefaultSpatialModelValues(object):
         # N,B limits or Non-radially symmetric sources dictated more by pixelization of grid.
         'EllipticalDisk'     : {'p':[0.2,0.1,0], 
                                 'param_names':['Major_Axis','Minor_Axis','Position_Angle'],
-                                'limits':[[1e-3,3],
-                                          [1e-3,3],
+                                'limits':[[SMALL_NUMERIC_EXTENSION,3],
+                                          [SMALL_NUMERIC_EXTENSION,3],
                                            [-45,45]],
                                 'log':[True,True,False],
                                 'steps':[0.04,0.04,5]},
         'EllipticalRing'     : {'p':[0.2,0.1,0,0.5], 
                                 'param_names':['Major_Axis','Minor_Axis','Position_Angle','Fraction'],
-                                'limits':[[1e-3,3],
-                                          [1e-3,3],
+                                'limits':[[SMALL_NUMERIC_EXTENSION,3],
+                                          [SMALL_NUMERIC_EXTENSION,3],
                                           [-45,45],
                                           [0,1]],
                                 'log':[True,True,False,False],
@@ -480,7 +481,7 @@ class Gaussian(RadiallySymmetricModel):
         return "[ %.3fd ]" % (self.sigma)
 
     def shrink(self): 
-        self.p[2]=N.where(self.log[2],N.log10(SMALL_EXTENSION),SMALL_EXTENSION)
+        self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
         self.free[2]=False
         self.cache()
 
@@ -492,7 +493,7 @@ class PseudoGaussian(PseudoSpatialModel,Gaussian):
         small radius. Useful to ensure that the null hypothesis
         of an extended source has the exact same PDF as the
         extended source."""
-    def extension(self): return SMALL_EXTENSION
+    def extension(self): return SMALL_ANALYTIC_EXTENSION
 
 #===============================================================================================#
 
@@ -522,7 +523,7 @@ class Disk(RadiallySymmetricModel):
         return "[ %.3fd ]" % (self.sigma)
 
     def shrink(self): 
-        self.p[2]=N.where(self.log[2],N.log10(SMALL_EXTENSION),SMALL_EXTENSION)
+        self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
         self.free[2]=False
         self.cache()
 
@@ -533,7 +534,7 @@ class PseudoDisk(PseudoSpatialModel,Disk):
         small radius. Useful to ensure that the null hypothesis
         of an extended source has the exact same PDF as the
         extended source with small extension."""
-    def extension(self): return SMALL_EXTENSION
+    def extension(self): return SMALL_ANALYTIC_EXTENSION
 
 #===============================================================================================#
 
@@ -565,7 +566,7 @@ class Ring(RadiallySymmetricModel):
         return "[ %.3fd, %.3d' ]" % (self.sigma,self.frac*self.sigma)
 
     def shrink(self): 
-        self.p[2]=N.where(self.log[2],N.log10(SMALL_EXTENSION),SMALL_EXTENSION)
+        self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
         self.p[3]=1
         self.free[2:4]=False
         self.cache()
@@ -597,7 +598,7 @@ class NFW(RadiallySymmetricModel):
         return "[ %.3fd ]" % (self.sigma)
 
     def shrink(self): 
-        self.p[2]=N.where(self.log[2],N.log10(SMALL_EXTENSION),SMALL_EXTENSION)
+        self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
         self.free[2]=False
         self.cache()
 
@@ -605,7 +606,7 @@ class NFW(RadiallySymmetricModel):
 
 class PseudoNFW(PseudoSpatialModel,NFW):
 
-    def extension(self): return SMALL_EXTENSION
+    def extension(self): return SMALL_ANALYTIC_EXTENSION
 
 #===============================================================================================#
 
@@ -760,7 +761,7 @@ class EllipticalSpatialModel(SpatialModel):
         raise NotImplementedError("Subclasses should implement this!")
 
     def shrink(self): 
-        self.p[2:4]=N.where(self.log[2:4],N.log10(SMALL_EXTENSION),SMALL_EXTENSION)
+        self.p[2:4]=N.where(self.log[2:4],N.log10(SMALL_NUMERIC_EXTENSION),SMALL_NUMERIC_EXTENSION)
         self.p[4]=0
         self.free[2:5]=False
         self.cache()
@@ -787,7 +788,7 @@ class EllipticalGaussian(EllipticalSpatialModel):
 class PseudoEllipticalGaussian(PseudoSpatialModel,EllipticalGaussian):
 
     def extension(self):
-        return 1e-3,1e-3,0
+        return SMALL_NUMERIC_EXTENSION,SMALL_NUMERIC_EXTENSION,0
 
     def pretty_spatial_string(self):
         return "[ %.3fd ]" % (self.sigma_x)
@@ -832,7 +833,7 @@ class RadiallySymmetricEllipticalDisk(EllipticalDisk):
 
 class PseudoEllipticalDisk(PseudoSpatialModel,EllipticalDisk):
     def extension(self):
-        return 1e-3,1e-3,0
+        return SMALL_NUMERIC_EXTENSION,SMALL_NUMERIC_EXTENSION,0
 
 #===============================================================================================#
 
@@ -864,11 +865,11 @@ class EllipticalRing(EllipticalSpatialModel):
                  self.theta,self.frac)
 
     def shrink(self): 
-        self.p[2:4]=N.where(self.log[2:4],N.log10(SMALL_EXTENSION),SMALL_EXTENSION)
-        self.p[4]=0
         self.p[5]=1
-        self.free[2:6]=False
-        self.cache()
+        self.free[5]=False
+
+        # this calls the cache function
+        super(EllipticalRing,self).shrink()
 
 #===============================================================================================#
 
