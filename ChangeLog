@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sat Nov 13 20:50:18 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Fix bug for small extended sources which are not radially symmetric
+    *
+------------------------------------------------------------
 User: lande  Fri Nov 12 09:13:03 PST 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
