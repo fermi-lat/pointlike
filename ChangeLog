@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Nov 14 16:27:09 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Removing not-useful flags from fit_extension like update (now always update) and verbose (read from roi.quiet now). Also, make sure to call update_counts after performing fit so that all of the model predicted counts quantities get correctly computed.
+    *
+------------------------------------------------------------
 User: lande  Sun Nov 14 16:23:12 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
