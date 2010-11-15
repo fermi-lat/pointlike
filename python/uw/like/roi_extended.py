@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.31 2010/11/02 06:38:10 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.32 2010/11/12 17:12:02 lande Exp $
 
     author: Joshua Lande
 """
@@ -201,8 +201,7 @@ class ROIExtendedModel(ROIDiffuseModel):
                  es.name,es.smodel.full_name(),
                  '\t'+es.smodel.__str__(indent='\t'))
 
-    def fit_extension(self,roi,tolerance=0.05,update=False,verbose=False,
-                 bandfits=False, error="HESSE",init_grid=None, use_gradient=False):
+    def fit_extension(self,roi,tolerance=0.05, bandfits=False, error="HESSE",init_grid=None, use_gradient=False):
         """ Fit the extension of this extended source by fitting all non-fixed spatial paraameters of 
             self.extended_source. The likelihood at the best position is returned.
 
@@ -212,12 +211,10 @@ Arguments:
   Keyword     Description
   =========   =======================================================
   roi                   An ROIAnalysis object.
-  tolerance             Tolerance set when integrating hypergeometirc
-                        function to calcualte PDF.
-  update        [False] Number of points to calculate the PDF at.
-                        interpolation is done in between.
-  verbose       [False] Make noise when fitting
-  bandfits      [False] Spectrum independent fitting.
+  tolerance             This is passed into Minuit while fitting the extension parameters.
+  bandfits      [False] Whether to use a spectral independent model when fitting extension.
+  use_gradient  [False] If bandfits is False, whether to use the analytic gradient when fitting 
+                        spectral parameters (during an iteration for a given extension).
   error       ["HESSE"] The fitting algorithm to use when calculating errors.
                         Specify None to not calculate errors.
   init_grid      [None] A list of spatial parameters. The likelihood
@@ -248,8 +245,8 @@ Arguments:
 
         origin=SkyDir(0,0,cs)
 
-        old_dsm_quiet = roi.dsm.quiet
-        old_quiet = roi.quiet
+        # keep the roi quiet during fit, so lots of print is supressed during the iteration.
+        quiet = roi.quiet
         roi.quiet = True
 
         init_spectral = self.smodel.get_parameters()
@@ -310,6 +307,7 @@ Arguments:
             # Do the convolution here.
             sm.set_parameters(p=p,absolute=False)
             self.initialize_counts(roi.bands)
+            roi.update_counts()
             # Note: roi.dsm.update_counts called by the fit function.
 
 
@@ -326,15 +324,17 @@ Arguments:
                     if ll_alt > ll: ll=ll_alt
                     else: self.smodel.set_parameters(prev_fit)
 
-            if verbose: print '%s, logL = %.3f, dlogL = %.3f' % (sm.pretty_string(),ll,ll-ll_0)
+            if not quiet: print '%s, logL = %.3f, dlogL = %.3f' % (sm.pretty_string(),ll,ll-ll_0)
             return -ll
 
         f=likelihood_wrapper
 
         ll_0 = 0
-        old_verbose = verbose; verbose = False; ll_0 = -f(init_spatial); verbose = old_verbose
+        old_quiet = quiet; quiet = False; 
+        ll_0 = -f(init_spatial); 
+        quiet = old_quiet
 
-        if verbose: print 'Localizing %s source %s Using %s' % (sm.pretty_name,es.name,
+        if quiet: print 'Localizing %s source %s Using %s' % (sm.pretty_name,es.name,
                                                     'BandFits' if bandfits else 'Spectral Fits')
 
         if init_grid is not None:
@@ -352,7 +352,7 @@ Arguments:
 
             index=N.argmin(ll)
             start_spatial=transformed[index]
-            if verbose: print 'Now starting with the best initial parameters'
+            if quiet: print 'Now starting with the best initial parameters'
         else:
             start_spatial = init_spatial
 
@@ -366,7 +366,7 @@ Arguments:
                    up=0.5,
                    maxcalls=500,
                    tolerance=tolerance,
-                   printMode = 1 if verbose else -1,
+                   printMode = -1 if quiet else 1,
                    param_names=relative_names,
                    limits    = limits,
                    fixed     = ~sm.free,
@@ -375,24 +375,20 @@ Arguments:
         best_spatial,fval = m.minimize(method="SIMPLEX")
 
         if error is not None:
-            if verbose: print 'Calculating Covariance Matrix'
+            if not quiet: print 'Calculating Covariance Matrix'
             cov_matrix = m.errors(method=error)
         else:
             cov_matrix = N.zeros([len(sm.p),len(sm.p)])
 
         sm.set_cov_matrix(cov_matrix)
 
-        if update:
-            if verbose: print 'setting source to best fit parameters'
-            likelihood_wrapper(best_spatial)
-        else:
-            if verbose: print 'setting source back to original parameters'
-            likelihood_wrapper(init_spatial)
+        if not quiet: print 'setting source to best fit parameters'
+        likelihood_wrapper(best_spatial)
 
         # Fit once more at the end to get the right errors.
         roi.fit(estimate_errors=True,use_gradient=use_gradient)
 
-        roi.quiet = old_quiet
+        roi.quiet = quiet
 
         # return log likelihood from fitting extension.
         final_dir=sm.center
@@ -431,7 +427,7 @@ Arguments:
             raise Exception("Unable to calculate ts_ext for %s source %s. No way to shrink to null hypothesis." % (sm.pretty_name,es.name))
         self.initialize_counts(roi.bands)
 
-        self.fit_extension(roi,error=None,update=False,**kwargs)
+        self.fit_extension(roi,error=None,**kwargs)
 
         # have to refit in case fitpsf or bandfits was used during the localization.
         d={'use_gradient':kwargs['use_gradient']} if kwargs.has_key('use_gradient') else {}
@@ -456,7 +452,8 @@ Arguments:
             roi.bgm.set_covariance_matrix(old_cov,current_position = 0)
             roi.psm.set_covariance_matrix(old_cov,current_position = len(roi.bgm.parameters()))
 
-        roi.__pre_fit__() # restore caching (Note update_counts called by logLikelihood)
+        roi.__pre_fit__() # restore caching 
+        roi.update_counts()
 
         return ts_ext
 
@@ -535,24 +532,21 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         else:
             roi=args[0]
 
-        verbose=False
-        if kwargs.has_key('verbose'):
-            verbose = kwargs['verbose']
-
         fitpsf=True
         if kwargs.has_key('fitpsf'):
-            verbose = kwargs.pop('fitpsf')
+            fitpsf = kwargs.pop('fitpsf')
 
         if fitpsf:
-            if verbose: print 'Changing to fitpsf for localization step.'
+            if not roi.quiet: print 'Changing to fitpsf for localization step.'
             self.fitpsf,old_fitpsf=True,self.fitpsf
 
         stuff = super(ROIExtendedModelAnalytic,self).fit_extension(*args,**kwargs)
 
         if fitpsf:
-            if verbose: print 'Setting back to original PDF accuracy.'
+            if not roi.quiet: print 'Setting back to original PDF accuracy.'
             self.fitpsf=old_fitpsf
             self.initialize_counts(roi.bands)
+            roi.update_counts()
         return stuff
 
 class BandFitter(object):
