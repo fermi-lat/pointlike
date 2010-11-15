@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.12 2010/11/11 04:33:00 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.13 2010/11/12 17:09:56 lande Exp $
 
 author: Matthew Kerr
 """
@@ -11,6 +11,7 @@ import numpy as N
 from skymaps import SkyDir,Hep3Vector
 from pointlike import DoubleVector
 from pypsf import PsfOverlap
+from roi_extended import BandFitExtended
 
 ###====================================================================================================###
 class ROILocalizer(object):
@@ -46,6 +47,7 @@ class ROILocalizer(object):
         self.name = self.roi.psm.point_sources[self.which].name
 
     def do_bandfits(self):
+        roi=self.roi
         if 'energy_bands' not in roi.__dict__.keys(): roi.setup_energy_bands()
         for eb in roi.energy_bands: eb.bandFit(which=self.which,saveto='bandfits')
         if N.all(N.asarray([b.bandfits for b in roi.bands]) < 0):
@@ -205,12 +207,11 @@ class ROILocalizerExtended(ROILocalizer):
         self.name = self.roi.dsm.diffuse_sources[self.which].name
 
     def do_bandfits(self):
-        roi = self.roi
-        if 'energy_bands' not in roi.__dict__.keys(): roi.setup_energy_bands()
-        for eb in roi.energy_bands: 
-            bfe=BandFitExtended(which,eb,roi)
+        if 'energy_bands' not in self.roi.__dict__.keys(): self.roi.setup_energy_bands()
+        for eb in self.roi.energy_bands: 
+            bfe=BandFitExtended(self.which,eb,self.roi)
             bfe.fit(saveto='bandfits')
-        if N.all(N.asarray([b.bandfits for b in roi.bands]) < 0):
+        if N.all(N.asarray([b.bandfits for b in self.roi.bands]) < 0):
             if not self.quiet: print 'Warning! No good band fits.  Reverting to broadband fit...'
             self.bandfits = False
 
@@ -268,7 +269,7 @@ class ROILocalizerExtended(ROILocalizer):
             # model rather than the band-by-band fit; otherwise, subsequent fits for broadband parameters
             # would fail
             es.initialize_counts(roi.bands)
-            roi.dsm.update_counts(roi.bands)
+            roi.update_counts()
 
         else:
             sm.modify_loc(self.sd)
@@ -276,6 +277,10 @@ class ROILocalizerExtended(ROILocalizer):
             # all of the previous values were still set at the correct
             # values, so there is no reason to reinitialize back to the
             # original values.
+
+            # You have to set_state to redo the convolution. Note that
+            # since caching has been enabled, all this really does is
+            # reset the center of the extended source for the convolution.
             for band in roi.bands: es.set_state(band)
 
         return ll
@@ -288,7 +293,7 @@ class ROILocalizerExtended(ROILocalizer):
             Also, since we can't fit lon/lat in log space, filling to covaraince matrix is easy. """
         wh  = self.which
 
-        es = roi.dsm.bgmodels[wh]
+        es = self.roi.dsm.bgmodels[wh]
         sm  = es.extended_source.spatial_model
 
         sm.cov_matrix = N.zeros([len(sm.p),len(sm.p)])
