@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.13 2010/11/12 17:09:56 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.14 2010/11/15 00:23:12 lande Exp $
 
 author: Matthew Kerr
 """
@@ -297,4 +297,4 @@ class ROILocalizerExtended(ROILocalizer):
         sm  = es.extended_source.spatial_model
 
         sm.cov_matrix = N.zeros([len(sm.p),len(sm.p)])
-        sm.cov_matrix[0][0] = self.cov_matrix[1][1] = self.roi.lsigma**2
+        sm.cov_matrix[0][0] = sm.cov_matrix[1][1] = self.roi.lsigma**2
