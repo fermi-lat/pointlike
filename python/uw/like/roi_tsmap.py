@@ -1,7 +1,7 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.7 2010/11/04 19:21:35 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_tsmap.py,v 1.8 2010/11/15 03:25:34 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -89,7 +89,7 @@ class TSCalc(object):
             band.ts_er = exp(skydir,en)/exp(self.rd,en)
       
             # unnormalized PSF evaluated at each data pixel
-            PythonUtilities.arclength(band.rvals,band,wsdk,skydir)
+            PythonUtilities.arclength(band.rvals,band.wsdl,skydir)
             band.ts_pix_counts = pa * band.psf(band.rvals,density=True)
 
             # calculate overlap
@@ -247,15 +247,13 @@ class TSCalc(object):
 
 ###====================================================================================================###
 class TSCalcPySkyFunction(object):
-
-    def __init__(self,tscalc,repeat_diffuse=False,bright_source_mask=None):
+    def __init__(self,tscalc,source_mask=None):
         self.tscalc = tscalc
-        self.repeat_diffuse=repeat_diffuse
-        self.bright_source_mask=bright_source_mask
+        self.source_mask=source_mask
 
     def __call__(self,v):
         sd = SkyDir(Hep3Vector(v[0],v[1],v[2]))
-        return self.tscalc(sd,repeat_diffuse=self.repeat_diffuse,bright_source_mask=self.bright_source_mask,no_cache=True)
+        return self.tscalc(sd,source_mask=self.source_mask)
 
     def get_pyskyfun(self):
         return PySkyFunction(self)
