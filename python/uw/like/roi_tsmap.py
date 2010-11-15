@@ -1,7 +1,7 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.6 2010/08/11 18:48:43 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.7 2010/11/04 19:21:35 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -10,7 +10,7 @@ import numpy as np
 from uw.like.pypsf import PsfOverlap
 from uw.like.Models import *
 from uw.utilities import keyword_options
-from skymaps import Band,WeightedSkyDirList,PySkyFunction,Hep3Vector,SkyDir,BinnedPhotonData,SkyImage
+from skymaps import Band,WeightedSkyDirList,PySkyFunction,Hep3Vector,SkyDir,BinnedPhotonData,SkyImage,PythonUtilities
 from pointlike import IntVector,DoubleVector
 from scipy.optimize import fmin
 from cPickle import dump,load
@@ -89,7 +89,7 @@ class TSCalc(object):
             band.ts_er = exp(skydir,en)/exp(self.rd,en)
       
             # unnormalized PSF evaluated at each data pixel
-            band.wsdl.arr_arclength(band.rvals,skydir)
+            PythonUtilities.arclength(band.rvals,band,wsdk,skydir)
             band.ts_pix_counts = pa * band.psf(band.rvals,density=True)
 
             # calculate overlap
@@ -674,7 +674,8 @@ class HealpixKDEMap(object):
         sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
         rval = 0
         for band in self.bands:
-            band.wsdl.arr_arclength(band.rvals,sd)
+            band.rvals = np.empty(len(band.wsdl),dtype=float)
+            PythonUtilities.arclength(band.rvals,band.wsdl,sd)
             mask = band.rvals < band.r99
             rval +=(band.psf(band.rvals[mask],density=True)*band.pix_counts[mask]).sum()
         return rval
@@ -708,9 +709,7 @@ class HealpixKDEMap(object):
         for idir,mydir in enumerate(dirs):
             #print 'Processing pixel %d'%(idir)
             for iband,band in enumerate(hr.roi.bands):
-                #band.wsdl.arclength(mydir,dv)
-                #img[idir] += (band.psf(np.fromiter(dv,dtype=float),density=True)*weights[iband]).sum()
-                band.wsdl.arr_arclength(rvs[iband],mydir)
+                PythonUtilities.arclength(band.rvals,band.wsdl,mydir)
                 img[idir] += (band.psf(rvs[iband],density=True)*weights[iband]).sum()
 
         self.band1 = band1
@@ -828,7 +827,7 @@ class ROI_KDEMap_OTF(object):
         sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
         rval = 0
         for band in self.bands:
-            band.wsdl.arr_arclength(band.rvals,sd)
+            PythonUtilities.arclength(band.rvals,band.wsdl,sd)
             mask = band.rvals < band.max_rad
             rval +=(band.psf(band.rvals[mask],density=True)*band.pix_counts[mask]).sum()
         return rval
@@ -901,7 +900,7 @@ class FastTSCalc(object):
                 band.ts_er = exp(skydir,en)/exp(self.rd,en)
           
                 # separation of data from position
-                band.wsdl.arr_arclength(band.rvals,skydir)
+                PythonUtilities.arclength(band.rvals,band.wsdl,skydir)
 
                 # screen out pixels too far
                 max_rad = min(band.radius_in_rad-offset,band.max_rad)
