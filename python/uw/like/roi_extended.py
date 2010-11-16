@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.32 2010/11/12 17:12:02 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.33 2010/11/15 00:27:09 lande Exp $
 
     author: Joshua Lande
 """
@@ -411,10 +411,11 @@ Arguments:
         es = self.extended_source
         sm = es.spatial_model
 
-        old_p    = sm.p.copy()
-        old_free = sm.free.copy()
-        old_params = roi.get_parameters().copy()
-        old_cov    = roi.cov_matrix.copy() if roi.__dict__.has_key('cov_matrix') else None
+        old_sm_p       = sm.p.copy()
+        old_sm_cov     = sm.cov_matrix.copy()
+        old_sm_free    = sm.free.copy()
+        old_roi_p   = roi.get_parameters().copy()
+        old_roi_cov = roi.cov_matrix.copy() if roi.__dict__.has_key('cov_matrix') else None
 
         if kwargs.has_key('bandfits') and kwargs['bandfits']:
             ll_disk = roi.bandFit(es)
@@ -440,17 +441,18 @@ Arguments:
 
         ts_ext = 2*(ll_disk - ll_point)
 
-        sm.set_parameters(p=old_p,absolute=False)
-        sm.free = old_free
+        sm.set_parameters(p=old_sm_p,absolute=False)
+        sm.cov_matrix = old_sm_cov
+        sm.free = old_sm_free
+
+        roi.set_parameters(old_roi_p) 
+        if old_roi_cov is not None:
+            # reset spectral errors
+            roi.bgm.set_covariance_matrix(old_roi_cov,current_position = 0)
+            roi.psm.set_covariance_matrix(old_roi_cov,current_position = len(roi.bgm.parameters()))
 
         self.initialize_counts(roi.bands)
         # reset point source
-        roi.set_parameters(old_params) 
-
-        if old_cov is not None:
-            # reset spectral errors
-            roi.bgm.set_covariance_matrix(old_cov,current_position = 0)
-            roi.psm.set_covariance_matrix(old_cov,current_position = len(roi.bgm.parameters()))
 
         roi.__pre_fit__() # restore caching 
         roi.update_counts()
