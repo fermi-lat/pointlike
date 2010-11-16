@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.25 2010/10/29 23:36:21 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.26 2010/11/05 04:41:43 lande Exp $
 
     author: Matthew Kerr
     """
@@ -359,7 +359,7 @@ def get_diffuse_source(spatialModel='ConstantValue',
 
     if spatialModel=='MapCubeFunction':
         if (spatialModelFile is None) or (not os.path.exists(spatialModelFile)):
-            raise Exception,'Could not find the FITS file specified for MapCubeFunction.'
+            raise Exception,'Could not find the FITS file specified for MapCubeFunction (file = %s).' % spatialModelFile
     elif spatialModel != 'ConstantValue':
         raise NotImplementedError,'Must provide one of the understood spatial models.'
     else:
