@@ -2,9 +2,9 @@
 # @file SConscript
 # @brief scons build specifications
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/SConscript,v 1.112 2010/08/24 22:12:16 burnett Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/SConscript,v 1.113 2010/09/02 14:22:08 burnett Exp $
 # Authors: Toby Burnett <tburnett@u.washington.edu>
-# Version: pointlike-07-06-01
+# Version: pointlike-07-07-00
 
 import os
 
