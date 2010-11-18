@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Nov 17 21:53:07 PST 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Clip to 0 NaNs in diffuse model (to allow 0 values in diffuse models)
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-00, operation: add
 Package: pointlike
