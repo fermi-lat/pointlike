@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.24 2010/10/27 22:03:36 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.25 2010/11/12 17:13:02 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -199,6 +199,7 @@ class BackgroundConvolution(Grid):
             self.bg_vals = self.fill(override_skyfun)
         else:
             self.bg_vals = override_vals
+        self.bg_vals[N.isnan(self.bg_vals)] = 0
 
         pb = PretendBand(energy,conversion_type)
         bpsf = BandCALDBPsf(self.psf,pb,override_en=override_en,adjust_mean=False)
