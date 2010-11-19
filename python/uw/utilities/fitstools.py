@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.13 2010/08/13 23:01:09 wallacee Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.14 2010/08/24 18:17:31 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -15,7 +15,7 @@ import pyfits as pf
 import numpy as N
 from types import ListType,FunctionType,MethodType
 from math import cos,sin,pi
-from skymaps import SkyDir,Gti,BinnedPhotonData
+from skymaps import SkyDir,Gti,BinnedPhotonData,PythonUtilities
 
 def rect_mask(lons,lats,cut_lon,cut_lat,lon_hwidth,lat_hwidth):
    mask = N.abs( lons - cut_lon)/N.cos(lats * N.pi / 180.) < lon_hwidth
@@ -101,8 +101,15 @@ Optional keyword arguments:
 
    for eventfile in eventfiles:
       e = pf.open(eventfile,memmap=1)
+      nrows = e[1].data.shape[0]
+      e.close()
 
-      for key in keys: cols[key] = N.asarray(e['EVENTS'].data.field(key)).astype(float)
+      for key in keys:
+         cols[key] = N.empty(nrows,dtype=float)
+         PythonUtilities.get_float_col(cols[key],eventfile,'EVENTS',key)
+
+      #for key in keys: cols[key] = N.asarray(e['EVENTS'].data.field(key)).astype(float)
+      #for key in keys: cols[key] = e['EVENTS'].data.field(key)
 
       rad   = radius_function(cols['ENERGY'],cols['CONVERSION_TYPE'])
       tmask = N.logical_and(trap_mask(cols['RA'],cols['DEC'],center,rad),cols['ZENITH_ANGLE'] < ZENITH_CUT)
