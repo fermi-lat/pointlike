@@ -2,7 +2,7 @@
 A module collecting various routines for calculating pulsation test
 test statistics and helper functions.
 
-$Header:  $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/stats.py,v 1.1 2010/11/01 19:54:18 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 """
@@ -177,15 +177,8 @@ def hm(phases,m=20,c=4):
     """
     phases = np.asarray(phases)*(2*np.pi) #phase in radians
 
-    if n < 5e3:  #faster for 100s to 1000s of phases, but requires ~20x memory of alternative
-
-        s = (np.cos(np.outer(np.arange(1,m+1),phases))).sum(axis=1)**2 +\
-            (np.sin(np.outer(np.arange(1,m+1),phases))).sum(axis=1)**2
-
-    else:
-
-        s = (np.asarray([(np.cos(k*phases)).sum() for k in xrange(1,m+1)]))**2 +\
-            (np.asarray([(np.sin(k*phases)).sum() for k in xrange(1,m+1)]))**2
+    s = (np.asarray([(np.cos(k*phases)).sum() for k in xrange(1,m+1)]))**2 +\
+        (np.asarray([(np.sin(k*phases)).sum() for k in xrange(1,m+1)]))**2
 
     return ((2./len(phases))*np.cumsum(s) - c*np.arange(0,m)).max()
 
