@@ -54,6 +54,7 @@ class LCLikelihood(object):
       self.psrcataperture  = None
       self.prms            = 0
       self.eventclass      = 3
+      self.cuts            = None # cuts on FT1 columns in radial extraction
 
       self.emin = 1e2
       self.emax = 1e4
@@ -70,7 +71,7 @@ class LCLikelihood(object):
 
       # in principle, might want to vary the location in a blind search, but the sensitivity
       # of the pulsed photons to position is much greater than the DC likelihood
-      skydir = roi.psm.point_sources[0].skydir
+      skydir = roi.psm.point_sources[self.source_number].skydir
 
       # instantiate a PSF using the IRF/livetime of the ROI object
       #psf = OldPsf(roi.sa.CALDB,irf=roi.sa.irf)
@@ -90,7 +91,7 @@ class LCLikelihood(object):
          r = self.flaperture
 
       return_cols = ['TIME','CONVERSION_TYPE','EVENT_CLASS'] + ([self.phase_col_name] if self.period is None else [])
-      edict = rad_extract(ft1files,skydir,r,return_cols=return_cols,cuts=None)
+      edict = rad_extract(ft1files,skydir,r,return_cols=return_cols,cuts=self.cuts)
       mask = np.logical_and(edict['ENERGY'] > self.emin,edict['ENERGY'] < self.emax)
       mask = np.logical_and(edict['EVENT_CLASS'] >= self.eventclass, mask)
       for k,v in edict.iteritems(): edict[k] = v[mask]
