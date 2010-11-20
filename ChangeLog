@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: mar0  Fri Nov 19 16:57:59 PST 2010
+pointlike/python/uw/stacklike
+
+Modified Files:
+	angularmodels.py stacklike.py 
+Added Files:
+	fitsmooth.py 
+Log Message:
+Stacklike changes: fixed diffuse class modeling, added upper limits on halo code as well as determining the smooth PSF functions
+    *
+------------------------------------------------------------
 User: kerrm  Fri Nov 19 15:11:17 PST 2010
 pointlike/python/uw/like
 
