@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/angularmodels.py,v 1.5 2010/10/10 22:45:05 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/angularmodels.py,v 1.6 2010/10/21 22:35:35 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
@@ -319,17 +319,28 @@ class Diffuse(Model):
         seps = np.array(seps)
         mags = np.array(mags)
         first = self.func[0]==[]
+        if first:
+            self.func[0]=[0]
         for it in range(len(bins)-1):
             cut = mags[(seps>bins[it])&(seps<bins[it+1])]
             #integral = N(pixels)*Area(Pixels)*(sum(f(pixel)))
-            fint = (len(cut)*self.area)*(sum(cut))
+            fint = (self.area)*(sum(cut))
             #print len(cut),sum(cut),bins[it]+delt/2,fint
             if first:
-                self.func[0].append(bins[it]+delt/2)
+                self.func[0].append(bins[it+1])
                 self.func[1].append(fint)
             else:
                 self.func[1][it] = self.func[1][it] + fint
         self.custom = Custom(self.lims,cp.copy(self.func))
+        
+        """grid = im.AIT(skyfun=None,size=5.)
+        mask = (seps>bins[len(bins)/2])&(seps<bins[len(bins)/2+1])
+        ras = np.array([wsd.ra() for wsd in wsdl])
+        decs = np.array([wsd.dec() for wsd in wsdl])
+        ras = ras[mask]
+        decs = decs[mask]
+        seldirs = [s.SkyDir(ras[it],decs[it]) for it in range(len(ras))]
+        p1 = grid.plot(seldirs,marker='o',c=mags[mask],cmap=py.cm.hot)"""
         del wsdl
         del seps
         del mags
@@ -374,18 +385,27 @@ class Custom(Model):
         self.name='custom'
         self.header=''
         #assume bins centers
-        self.seps = np.array(func[0])
+        self.seps = []
         self.bins = len(self.seps)
-        self.delt = self.seps[1]-self.seps[0]
         acc = 0
         self.integ = []
         self.fun =[]
+        self.right = []
         for it,fn in enumerate(func[1]):
             acc = acc+fn
-            self.fun.append(fn/self.seps[it])
-            self.integ.append(acc*self.delt)
-        self.integ = np.array(self.integ)/sum(self.fun)
-        self.fun = np.array(self.fun)/sum(self.fun)
+            xbar = np.sqrt((func[0][it+1]**2+func[0][it]**2)/2.)
+            delt = (func[0][it+1]**2-func[0][0]**2)/2.
+            self.fun.append(fn/xbar)
+            self.seps.append(xbar)
+            self.right.append(func[0][it+1])
+            self.integ.append(acc)
+        self.fun = np.array(self.fun)/self.integ[len(self.integ)-1]
+        self.integ = np.array(self.integ)/self.integ[len(self.integ)-1]
+        for it,fn in enumerate(self.integ):
+            delt = func[0][it+1]-func[0][it]
+            self.integ[it]=fn*delt
+        self.seps = np.array(self.seps)
+        self.right = np.array(self.right)
 
     ## linear interpolater
     #  @param val x-value to be interpolated
@@ -439,16 +459,16 @@ class Custom(Model):
     #  @param photon CLHEP photon
     #  @param pars function parameters (None)
     def integrate(self,photon,pars):
-        ib = self.litp(self.lims[1],self.seps+self.delt/2,self.integ)
-        ia = self.litp(self.lims[0],self.seps+self.delt/2,self.integ)
+        ib = self.litp(self.lims[1],self.right,self.integ)
+        ia = self.litp(self.lims[0],self.right,self.integ)
         return (ib-ia)
     
     ## returns integral of custom between delmin and delmax
     #  @param delmin minimum angle in radians
     #  @param delmax maximum angle in radians
     def integral(self,delmin,delmax):
-        ib = self.litp(delmax,self.seps+self.delt/2,self.integ)
-        ia = self.litp(delmin,self.seps+self.delt/2,self.integ)
+        ib = self.litp(delmax,self.right,self.integ)
+        ia = self.litp(delmin,self.right,self.integ)
         return (ib-ia)
 
     ## updates model parameters (none) 
@@ -737,4 +757,5 @@ class CompositeModel(object):
             acc = acc + self.nest[it]*model.integral(delmin,delmax)/model.integral(omin,omax)
         return acc
 
+    
 ################################################### END COMPOSITE MODEL CLASS #########################################
