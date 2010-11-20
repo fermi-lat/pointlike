@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.33 2010/11/05 22:51:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.34 2010/11/08 15:39:13 burnett Exp $
 
 """
-version = '$Revision: 1.33 $'.split()[1]
+version = '$Revision: 1.34 $'.split()[1]
 
 import pylab
 import types
@@ -211,7 +211,7 @@ class AIT_grid():
     def pixel(self, sdir):
         """ return pixel coordinates for the skydir
         """
-        self.proj.sph2pix(sdir.l(),sdir.b())
+        x,y=self.proj.sph2pix(sdir.l(),sdir.b())
         return  (x-0.5,y-0.5)
 
     def ait(self, l, b):
@@ -671,13 +671,12 @@ class ZEA(object):
         """ run imshow on the image, presumably set by a fill: set up for colorbar.
         
         """
-        if 'image' not in self.__dict__: raise Exception('you must run fill first')
-        if 'cmap' not in kwargs: kwargs['cmap']=None
-        self.cmap = kwargs['cmap']
-        if 'norm' not in kwargs: kwargs['norm']=None
-        self.norm = kwargs['norm']
-        if 'interpolation' not in kwargs: kwargs['interpolation']='nearest'
-        self.cax = self.axes.imshow(self.image, **kwargs)
+        if 'image' not in self.__dict__: raise Exception, 'no data to show: must run fill first'
+        # set up kw 
+        self.imshow_kw = dict(cmap=None, norm=None, interpolation='nearest')
+        self.imshow_kw.update(kwargs)
+        fun = self.imshow_kw.pop('fun', lambda x: x)
+        self.cax = self.axes.imshow(fun(self.image), **self.imshow_kw)
         
     def colorbar(self, label=None, **kwargs):
         """ 
@@ -688,19 +687,19 @@ class ZEA(object):
         returns the colorbar object
         """
         if 'cax' not in self.__dict__: raise Exception('You must call imshow first')
-        fig = self.axes.figure
-        if 'orientation' not in kwargs: kwargs['orientation']= 'vertical'
-        if 'pad' not in kwargs: kwargs['pad'] = 0.01
-        if 'ticks' not in kwargs: kwargs['ticks'] = ticker.MaxNLocator(4)
-        if 'fraction' not in kwargs: kwargs['fraction']=0.10
-        if 'shrink' not in kwargs:  kwargs['shrink'] = 1.0 
-        if 'cmap' not in kwargs: kwargs['cmap']=self.cmap
-        if 'norm' not in kwargs: kwargs['norm']=self.norm
-        self.cb=fig.colorbar(self.cax,  **kwargs)
+        cb_kw=dict(orientation= 'vertical',
+                pad    = 0.01,
+                ticks  = ticker.MaxNLocator(4),   
+                fraction=0.10,
+                shrink  = 1.0,
+                cmap    = self.imshow_kw['cmap'],
+                norm    = self.imshow_kw['norm'],
+                )
+        cb_kw.update(kwargs)
+                
+        self.cb=self.axes.figure.colorbar(self.cax,  **cb_kw)
         if label is not None: self.cb.set_label(label)
         return self.cb
-       
-
 
     def box(self, image, **kwargs):
         """ draw a box at the center, the outlines of the image
