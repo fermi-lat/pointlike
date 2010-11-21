@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.14 2010/11/15 00:23:12 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.15 2010/11/15 20:39:50 lande Exp $
 
 author: Matthew Kerr
 """
@@ -122,12 +122,7 @@ class ROILocalizer(object):
         roi.lsigma  = l.sigma
         roi.delta_loc_logl = (ll0 - ll1)
 
-        self.update_source()
-
         return l.dir, i, delt, 2*(ll0-ll1)
-
-    def update_source(self):
-        pass
 
     def spatialLikelihood(self,skydir,update=False):
         """Calculate log likelihood as a function of position a point source.
@@ -271,6 +266,13 @@ class ROILocalizerExtended(ROILocalizer):
             es.initialize_counts(roi.bands)
             roi.update_counts()
 
+            # Update covariance matrix of the extended source with the best fit error.
+            # Note that this update doesn't deal with correlation in the fit parameters,
+            # but should be good enough for the purpose of displaying sources.
+            # Since we can't fit lon/lat in log space, filling to covaraince matrix is easy.
+            sm.cov_matrix = N.zeros([len(sm.p),len(sm.p)])
+            sm.cov_matrix[0][0] = sm.cov_matrix[1][1] = roi.lsigma**2
+
         else:
             sm.modify_loc(self.sd)
             # Note that since initialize_counts wasn't previous called,
@@ -285,16 +287,3 @@ class ROILocalizerExtended(ROILocalizer):
 
         return ll
 
-    def update_source(self):
-        """ Update covariance matrix of the extended source with the best fit error.
-            Note that this update doesn't deal with correlation in the fit parameters,
-            but should be good enough for the purpose of displaying sources.
-            
-            Also, since we can't fit lon/lat in log space, filling to covaraince matrix is easy. """
-        wh  = self.which
-
-        es = self.roi.dsm.bgmodels[wh]
-        sm  = es.extended_source.spatial_model
-
-        sm.cov_matrix = N.zeros([len(sm.p),len(sm.p)])
-        sm.cov_matrix[0][0] = sm.cov_matrix[1][1] = self.roi.lsigma**2
