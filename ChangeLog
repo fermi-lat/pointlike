@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Nov 21 15:48:31 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_localize.py 
+Log Message:
+(Hopefully) final fix to roi_localize.spatialLikelihood for calls with update=True to consistently update the model predictions at the new source position. Fix requires a call to roi.pwm.update_counts which will be marginally slower, but ensures that the point source model predicted counts are consistently updated.
+    *
+------------------------------------------------------------
 User: lande  Sun Nov 21 15:46:26 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
