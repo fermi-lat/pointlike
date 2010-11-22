@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.16 2010/11/21 23:46:26 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.17 2010/11/21 23:48:31 lande Exp $
 
 author: Matthew Kerr
 """
@@ -114,12 +114,13 @@ class ROILocalizer(object):
             ld = SkyDir(l.dir.ra(),l.dir.dec())
             old_sigma=sigma
 
+        roi.qform    = l
+        roi.ldir     = l.dir
+        roi.lsigma   = l.sigma
+
         ll1 = self.spatialLikelihood(l.dir,update=update)
         if not self.quiet: print 'TS change: %.2f'%(2*(ll0 - ll1))
 
-        roi.qform    = l
-        roi.ldir     = l.dir
-        roi.lsigma  = l.sigma
         roi.delta_loc_logl = (ll0 - ll1)
 
         return l.dir, i, delt, 2*(ll0-ll1)
