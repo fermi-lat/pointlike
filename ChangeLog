@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Nov 22 15:55:18 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_localize.py 
+Log Message:
+Set roi.qform before calling spatialLikelihood(update=True) so that the update function can use qform.
+    *
+------------------------------------------------------------
 User: lande  Sun Nov 21 15:48:31 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
