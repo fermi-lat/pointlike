@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.52 2010/11/12 17:09:56 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.53 2010/11/19 23:11:17 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -738,14 +738,13 @@ class ROIAnalysis(object):
         Parameters
         ----------
              sdir : SkyDir, optional, default None for center
-                   for center: default will be the first source
              galactic : bool, optional, default False
                  set true for l,b
              maxdist : float, optional, default 5
                  radius in degrees
 
         """
-        if sdir is None: sdir = self.psm.point_sources[0].skydir
+        if sdir is None: sdir = self.roi_dir
         print '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
         colstring = 'name dist ra dec flux8 index cutoff'
         if galactic: colstring =colstring.replace('ra dec', 'l b')
