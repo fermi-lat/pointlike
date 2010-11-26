@@ -1,6 +1,6 @@
 """ Class to write out region files compatable with ds9. 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.2 2010/09/09 23:41:16 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.3 2010/10/02 23:41:56 lande Exp $
 
 author: Joshua Lande
 """
@@ -15,6 +15,10 @@ def unparse_point_sources(point_sources):
             for ps in point_sources]
 
 def unparse_diffuse_sources(diffuse_sources):
+    """ There is the same inconsistency in ellipse definition 
+        between extended sources ellipses and ds9 ellipses as
+        is discussed in the docstring for unparse_localization,
+        resulting in the same switch from maj,min <-> min,maj. """
 
     lines = []
     for ds in diffuse_sources:
@@ -48,20 +52,34 @@ def unparse_diffuse_sources(diffuse_sources):
                     sigma_x, sigma_y, theta = sm.sigma_x, sm.sigma_y, sm.theta
                     if isinstance(sm,EllipticalDisk):
                         lines.append("fk5; ellipse(%.4f, %.4f, %.4f %.4f, %.4f)" % \
-                                (ra,dec,sigma_x,sigma_y,sm.theta+90))
+                                (ra,dec,sigma_y,sigma_x,sm.theta))
 
                     elif isinstance(sm,EllipticalRing):
                         frac = sm.frac
                         lines += ["fk5; ellipse(%.4f, %.4f, %.4f %.4f, %.4f)" % \
-                                (ra,dec,_*sigma_x,_*sigma_y,sm.theta+90) \
+                                (ra,dec,_*sigma_y,_*sigma_x,sm.theta) \
                                 for _ in [frac,1]]
                     else:
                         a,b,c=sm.ellipse_68()
                         lines.append("fk5; ellipse(%.4f, %.4f, %.4f %.4f, %.4f)" % \
-                                (ra,dec,a,b,c+90))
-
+                                (ra,dec,b,a,c))
 
     return lines
+
+def unparse_localization(roi):
+    """ Note that maj and min are switched. This is caused by a discrepancy between
+        pointlike's localization code and ds9's ellipse definition. It was 
+        discussed in http://confluence.slac.stanford.edu/x/JSCJBQ
+        The same link is: https://confluence.slac.stanford.edu/display/SCIGRPS/LAT+Catalog+ds9+regions
+        """
+
+    if roi.__dict__.has_key('qform'):
+        ra,dec,a,b,ang=roi.qform.par[0:5]
+        return ["# The next line is the localization error",
+                "fk5; ellipse(%.4f, %.4f, %.4f %.4f, %.4f)" % \
+                (ra,dec,b,a,ang)]
+    else:
+        return []
 
 def writeRegion(roi,filename,color='green'):
 
@@ -72,6 +90,7 @@ def writeRegion(roi,filename,color='green'):
 
     lines += unparse_diffuse_sources(roi.dsm.diffuse_sources)
     lines += unparse_point_sources(roi.psm.point_sources)
+    lines += unparse_localization(roi)
 
     file=open(filename,'w')
     file.write('\n'.join(lines))
