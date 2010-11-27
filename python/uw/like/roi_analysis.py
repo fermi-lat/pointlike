@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.53 2010/11/19 23:11:17 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.54 2010/11/26 18:11:57 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -67,6 +67,16 @@ class ROIAnalysis(object):
 
     def __setup_bands__(self):
 
+        try:
+            self.fit_emin = [float(self.fit_emin)]*2
+        except:
+            pass
+
+        try:
+            self.fit_emax = [float(self.fit_emax)]*2
+        except:
+            pass
+
         self.bands = collections.deque()
         for band in self.sa.pixeldata.dmap:
             evcl = band.event_class() & 1 # protect high bits
@@ -130,6 +140,7 @@ class ROIAnalysis(object):
         elif N.any(str(which)==self.dsm.names):
             return self.dsm,int(N.where(str(which)==self.dsm.names)[0])
         elif type(which) == list:
+            if len(which)<1: raise Exception("Cannot pass empty list as argument for which")
             managers,indices=zip(*[list(self.mapper(_)) for _ in which])
             if N.unique(managers).shape[0]!=1:
                 raise Exception("List passed as which argument must be all point or diffuse sources.")
@@ -693,33 +704,39 @@ class ROIAnalysis(object):
 
         pass #make this a TS map? negative -- spatialLikelihood does it, essentially
 
-    def add_ps(self,ps):
+    def add_source(self,source):
          """Add a new source object to the model.
 
             N.B. for point sources, add PointSource object. For diffuse
             sources, add ROIDiffuseModel object."""
-         if isinstance(ps,PointSource):
+         if isinstance(source,PointSource):
               manager=self.psm
-         elif isinstance(ps,ROIDiffuseModel):
+         elif isinstance(source,ROIDiffuseModel):
               manager=self.dsm
          else:
              raise Exception("Unable to add source %s. Only able to add PointSource and ROIDiffuseModel objects.")
-         manager.add_source(ps,self.bands)
+         manager.add_source(source,self.bands)
 
-    def del_ps(self,which):
+    def del_source(self,which):
          """Remove the source at position given by which from the model."""
          manager,index=self.mapper(which)
          return manager.del_source(index,self.bands)
 
-    def zero_ps(self,which):
+    def zero_source(self,which):
          """Set the flux of the source given by which to 0."""
          manager,index=self.mapper(which)
          return manager.zero_source(index,self.bands)
 
-    def unzero_ps(self,which):
+    def unzero_source(self,which):
          """Restore a previously-zeroed flux."""
          manager,index=self.mapper(which)
          manager.unzero_source(index,self.bands)
+
+    # for backwards compatability, clone functions
+    add_ps = add_source
+    del_ps = del_source
+    zero_ps = zero_source
+    unzero_ps = unzero_source
 
     def modify_loc(self,skydir,which):
         """Move point source given by which to new location given by skydir."""
