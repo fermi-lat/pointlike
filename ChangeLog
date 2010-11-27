@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sat Nov 27 14:22:44 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_tsmap.py 
+Log Message:
+Generalizing parameter passing from TSCalcPySkyFunction to TSCalc.
+    *
+------------------------------------------------------------
 User: lande  Fri Nov 26 14:36:35 PST 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
