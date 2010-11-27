@@ -1,7 +1,7 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_tsmap.py,v 1.8 2010/11/15 03:25:34 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_tsmap.py,v 1.9 2010/11/15 20:40:25 lande Exp $
 
 author: Matthew Kerr
 """
@@ -247,13 +247,13 @@ class TSCalc(object):
 
 ###====================================================================================================###
 class TSCalcPySkyFunction(object):
-    def __init__(self,tscalc,source_mask=None):
+    def __init__(self,tscalc,**kwargs):
         self.tscalc = tscalc
-        self.source_mask=source_mask
+        self.kwargs = kwargs
 
     def __call__(self,v):
         sd = SkyDir(Hep3Vector(v[0],v[1],v[2]))
-        return self.tscalc(sd,source_mask=self.source_mask)
+        return self.tscalc(sd,**self.kwargs)
 
     def get_pyskyfun(self):
         return PySkyFunction(self)
