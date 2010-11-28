@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.26 2010/11/14 04:50:18 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.27 2010/11/16 06:47:56 lande Exp $
 
    author: Joshua Lande
 
@@ -71,7 +71,7 @@ class DefaultSpatialModelValues(object):
         'RadialProfile'      : {},
         # Note, angle is in degrees
         'EllipticalGaussian' : {'p':[0.2,0.1,0], 
-                                'param_names':['Major_Axis','Minor_Axis','Position_Angle'],
+                                'param_names':['Major_Axis','Minor_Axis','Pos_Angle'],
                                 'limits':[[1e-6,3],
                                           [1e-6,3],
                                           [-45,45]],
@@ -80,14 +80,14 @@ class DefaultSpatialModelValues(object):
                                 'steps':[0.04,0.04,5]},
         # N,B limits or Non-radially symmetric sources dictated more by pixelization of grid.
         'EllipticalDisk'     : {'p':[0.2,0.1,0], 
-                                'param_names':['Major_Axis','Minor_Axis','Position_Angle'],
+                                'param_names':['Major_Axis','Minor_Axis','Pos_Angle'],
                                 'limits':[[SMALL_NUMERIC_EXTENSION,3],
                                           [SMALL_NUMERIC_EXTENSION,3],
                                            [-45,45]],
                                 'log':[True,True,False],
                                 'steps':[0.04,0.04,5]},
         'EllipticalRing'     : {'p':[0.2,0.1,0,0.5], 
-                                'param_names':['Major_Axis','Minor_Axis','Position_Angle','Fraction'],
+                                'param_names':['Major_Axis','Minor_Axis','Pos_Angle','Fraction'],
                                 'limits':[[SMALL_NUMERIC_EXTENSION,3],
                                           [SMALL_NUMERIC_EXTENSION,3],
                                           [-45,45],
@@ -370,10 +370,9 @@ class SpatialModel(object):
         p,abs_p     = self.statistical(absolute=True,two_sided=False)
         pnames      = self.param_names
 
-        m=max(len(n) for n in pnames)
         l=[]
         for name,val,lo,hi,avg,abs,log,free in zip(pnames,p,hi_p,lo_p,avg_p,abs_p,self.log,self.free):
-            l += [ '%-*s : ' % (m,name) ]
+            l += [ '%-10s: ' % name ]
 
             if log and avg != 0 and hi != 0 and lo !=0:
                 l[-1] += '(1 + %.3f - %.3f) (avg = %.3f) ' % (hi,lo,avg)
