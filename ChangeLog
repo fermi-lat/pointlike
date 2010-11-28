@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Nov 28 12:37:45 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Rename elliptical angle parameter to be shorter. Change print width formatting to be consistent with spectral models.
+    *
+------------------------------------------------------------
 User: lande  Sun Nov 28 12:37:04 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
