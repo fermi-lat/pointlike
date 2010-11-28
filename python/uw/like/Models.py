@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.25 2010/10/25 04:23:52 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.26 2010/11/16 06:46:56 lande Exp $
 
     author: Matthew Kerr
 
@@ -413,6 +413,9 @@ Spectral parameters:
         f  = ((flux/self.flux_scale)*(1-gamma)/(d1-d0))*e**(-gamma)
         return N.asarray([f/flux,-f*(N.log(e) + (1./(1-gamma) + t))])
 
+    def full_name(self):
+        return '%s, emin=%.0f emax=%.0f'% (self.pretty_name,self.emin,self.emax)
+
 #===============================================================================================#
 
 class BrokenPowerLaw(Model):
@@ -453,6 +456,9 @@ Spectral parameters:
                         e_break**(gamma2)*(self.emax**(1-gamma2)-e_break**(1-gamma2))/(1-gamma1))
 
         return (flux/self.flux_scale)*norm*N.where( e < e_break, (e_break/e)**gamma1, (e_break/e)**gamma2 )
+
+    def full_name(self):
+        return '%s, emin=%.0f emax=%.0f'% (self.pretty_name,self.emin,self.emax)
 
 #===============================================================================================#
 
