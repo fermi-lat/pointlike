@@ -1,13 +1,14 @@
 """
 Code to plot fancy-looking TS maps, used in pipeline
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/tsmap_plotter.py,v 1.1 2010/08/23 20:44:45 burnett Exp $
 
 """
 import math
 import numpy as np
 from uw.utilities import image
-from skymaps import SkyDir
+from uw.like import roi_localize
+from skymaps import SkyDir, PySkyFunction
 import pylab as plt
 
 def plot_tsmap(roi, name=None, center=None, size=0.5, pixelsize=None, outdir=None, 
@@ -48,7 +49,9 @@ def plot_tsmap(roi, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
     """
     kwargs={} #fix later
     name = roi.psm.point_sources[0].name if name is None else name
-    tsm = roi.tsmap(which=which, bandfits=bandfits)
+    localizer = roi_localize.ROILocalizer(roi, which, bandfits=bandfits)
+    tsm = PySkyFunction(localizer)
+
     sdir = center if center is not None else roi.roi_dir
     if axes is None: 
         plt.figure(fignum,figsize=(5,5)); plt.clf()
