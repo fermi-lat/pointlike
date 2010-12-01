@@ -166,10 +166,12 @@ class StackLoader(object):
         self.diffs =[]
         self.aeff = []
         self.photons = []
+        self.offsrc = []
         self.photoncount=0
         self.Npsf =0
         self.Nback =0
         self.ebar=0
+        self.cls=0
         self.loadsrclist(self.lis)
 
     def loadsrclist(self,fname):
@@ -653,59 +655,77 @@ class StackLoader(object):
         gamma = psf.model_par[1]
         bck = Diffuse(lims=[self.minroi/rd,self.maxroi/rd],diff=diffusefile,ebar=self.ebar)
         bck2 = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
+        offs = []
+        for off in self.offsrc:
+            toff = OffPsf(lims=[self.minroi/rd,self.maxroi/rd],model_par=[psf.model_par[0],psf.model_par[1]],off=off)
+            offs.append(toff)
         #bck3 = Gaussian(lims=[self.minroi/rd,self.maxroi/rd],model_par=[1./rd])
         for src in self.srcs:
             bck.addsrc(src)
+            for tof in offs:
+                tof.addsrc(src)
+        
         cm = CompositeModel()
         cm.addModel(psf)
         cm.addModel(bck)
         cm.addModel(bck2)
-        #cm.addModel(bck3)
+        for tof in offs:
+            cm.addModel(tof)
         nm = len(cm.models)
-        cm.fit(self.photons,mode=0,quiet=self.quiet,free=[True,True,True],exp=exp)
-        self.Npsf = cm.minuit.params[0]
-        self.Nbacki = cm.minuit.params[1]
-        self.Nbackd = cm.minuit.params[2]
-        self.Nback = self.Nbacki+self.Nbackd
-        self.errs = cm.minuit.errors()
-        self.Npsfe = np.sqrt(self.errs[0][0])
-        self.Nbacke = np.sqrt(self.errs[1][1]+self.errs[2][2])
-        self.cm = cm
-        self.sigma = cm.minuit.params[nm]
-        self.sigmae = np.sqrt(self.errs[nm][nm])
-        self.gamma = cm.minuit.params[nm+1]
-        self.gammae = np.sqrt(self.errs[nm+1][nm+1])
-        self.cov = self.errs[nm][nm+1]
-        fl = cm.minuit.fval
-        self.il=cm.extlikelihood([self.Npsf,self.Nbackd,self.Nbacki,sigma,gamma],self.photons)
-        self.r68 = cm.models[0].rcl(0.68)
-        self.r95 = cm.models[0].rcl(0.95)
-        self.r68e = cm.models[0].clerr(0.68,self.sigmae,self.gammae,self.cov)
-        self.r95e = cm.models[0].clerr(0.95,self.sigmae,self.gammae,self.cov)
-        if (self.r68+self.r68e)>self.r95:
-            self.r68e = self.r95-self.r68
-        if (self.r95-self.r95e)<self.r68:
-            self.r95e = self.r95-self.r68
-        r68o = cm.models[0].recl(0.68,sigma,gamma)
-        r95o = cm.models[0].recl(0.95,sigma,gamma)
+        if nm<=3:
+            cm.fit(self.photons,mode=0,quiet=self.quiet,free=[True,True,True],exp=exp)
+            self.Npsf = cm.minuit.params[0]
+            self.Nbacki = cm.minuit.params[1]
+            self.Nbackd = cm.minuit.params[2]
+            self.Nback = self.Nbacki+self.Nbackd
+            self.errs = cm.minuit.errors()
+            self.Npsfe = np.sqrt(self.errs[0][0])
+            self.Nbacke = np.sqrt(self.errs[1][1]+self.errs[2][2])
+            self.cm = cm
+            self.sigma = cm.minuit.params[nm]
+            self.sigmae = np.sqrt(self.errs[nm][nm])
+            self.gamma = cm.minuit.params[nm+1]
+            self.gammae = np.sqrt(self.errs[nm+1][nm+1])
+            self.cov = self.errs[nm][nm+1]
+            fl = cm.minuit.fval
+            self.il=cm.extlikelihood([self.Npsf,self.Nbackd,self.Nbacki,sigma,gamma],self.photons)
+            self.r68 = cm.models[0].rcl(0.68)
+            self.r95 = cm.models[0].rcl(0.95)
+            self.r68e = cm.models[0].clerr(0.68,self.sigmae,self.gammae,self.cov)
+            self.r95e = cm.models[0].clerr(0.95,self.sigmae,self.gammae,self.cov)
+            if (self.r68+self.r68e)>self.r95:
+                self.r68e = self.r95-self.r68
+            if (self.r95-self.r95e)<self.r68:
+                self.r95e = self.r95-self.r68
+            r68o = cm.models[0].recl(0.68,sigma,gamma)
+            r95o = cm.models[0].recl(0.95,sigma,gamma)
 
-        phs = (self.Npsf+self.Nback)
-        tr = sum([self.errs[i][i] for i in range(len(self.errs))])
-        f1 = self.Npsf/phs
-        f1e = f1*np.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
-        f2 = self.Nback/phs
-        f2e = f2*np.sqrt(self.errs[1][1]/(self.Nback**2)+tr/(phs**2))
-        print '**********************************************************'
-        print 'Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
-        print 'Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100)
-        print 'Sigma = %1.3f [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.sigma*rd,self.sigmae/self.sigma,self.irf,self.sigma/sigma)
-        print 'Gamma = %1.2f  [1 +/- %1.2f]        Ratio to %s: (%1.2f)'%(self.gamma,self.gammae/self.gamma,self.irf,self.gamma/gamma)
-        print 'R68   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r68*rd,self.r68e/self.r68,self.irf,self.r68/r68o)
-        print 'R95   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r95*rd,self.r95e/self.r95,self.irf,self.r95/r95o)
-        TS = -2*(fl-self.il)
-        print 'Significance of psf change was TS = %d'%TS
+            phs = (self.Npsf+self.Nback)
+            tr = sum([self.errs[i][i] for i in range(len(self.errs))])
+            f1 = self.Npsf/phs
+            f1e = f1*np.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
+            f2 = self.Nback/phs
+            f2e = f2*np.sqrt(self.errs[1][1]/(self.Nback**2)+tr/(phs**2))
+            print '**********************************************************'
+            print 'Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
+            print 'Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100)
+            print 'Sigma = %1.3f [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.sigma*rd,self.sigmae/self.sigma,self.irf,self.sigma/sigma)
+            print 'Gamma = %1.2f  [1 +/- %1.2f]        Ratio to %s: (%1.2f)'%(self.gamma,self.gammae/self.gamma,self.irf,self.gamma/gamma)
+            print 'R68   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r68*rd,self.r68e/self.r68,self.irf,self.r68/r68o)
+            print 'R95   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r95*rd,self.r95e/self.r95,self.irf,self.r95/r95o)
+            TS = -2*(fl-self.il)
+            print 'Significance of psf change was TS = %d'%TS
+        else:
+            left = len(self.ds)-denback
+            exp = [left/(nm-2.) for x in range(nm)]
+            free = [True for x in range(nm)]
+            exp[1]=denback/2.
+            exp[2]=denback/2.
+            cm.fit(self.photons,mode=0,quiet=self.quiet,free=free,exp=exp)
+            self.cm = cm
 
-    def solvehalolims(self):
+
+    def solvehalolims(self,frac):
         self.solveback()
         psf = self.getpsf(True)
         bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
@@ -753,7 +773,7 @@ class StackLoader(object):
 
             fint = integ(self.Npsf)
             
-            best = so.fmin_powell(lambda x:contain(x,fint,0.68),0,maxiter=2,full_output=1,disp=1)
+            best = so.fmin_powell(lambda x:contain(x,fint,frac),0,maxiter=2,full_output=1,disp=1)
             upl = best[0]#self.Nhalo+np.sqrt(self.errors[2][2])*2
             uplim.append(upl)
             print upl
@@ -877,7 +897,8 @@ class StackLoader(object):
         pmin,pmax=0.01*min(fits[len(fits)-1]),100*max(fits[len(fits)-1])
         py.subplot(2,1,1)
         #plot histogrammed events
-        p1 = py.errorbar(be4,hists,yerr=errs,ls='None',marker='o')
+        py.errorbar(be4,hists,yerr=errs,ls='None',marker='None',ecolor='blue',capsize=80./bin)
+        p1 = py.step(be4,hists,where='mid')
         pts.append(p1[0])
 
         pcts=0
@@ -936,7 +957,10 @@ class StackLoader(object):
             py.xlim(0,max(be4)*1.01)
         py.ylim(-5,5)
         py.grid()
-        py.xlabel(r'$\theta\/(\rm{deg})$')
+        if xs=='square':
+            py.xlabel(r'$\theta^2\/(\rm{deg^2})$')
+        else:
+            py.xlabel(r'$\theta\/(\rm{deg})$')
         py.ylabel(r'$\frac{\rm{Data}-\rm{Model}}{\sigma}$')
         py.savefig(name)
         
@@ -1071,6 +1095,21 @@ class StackLoader(object):
                     self.ds.append(u)
             self.ds = np.array(self.ds)
 
+    def saveds(self,fname='ds.npy'):
+        if self.ds==[]:
+            self.getds()
+        np.save(fname,self.ds)
+
+    def loadds(self,fname):
+        self.ds = np.load(fname)
+        self.srcs = [s.SkyDir(0,0)]
+        for ang in self.ds:
+            photon = Photon(ang*rd,0,0,0,0,[],[],self.srcs[0])
+            self.photons.append(photon)
+            self.photoncount = self.photoncount+1
+        self.maxroi = max(self.ds)*rd
+        self.minroi = min(self.ds)*rd
+
     ## returns a PSF object based on containment specified by self.irf
     #  @param opt frees or fixes PSF parameters
     def getpsf(self,opt=False):
@@ -1151,7 +1190,7 @@ def test2(bins=25.):
         ret = ret + 1
     if (al.gamma-1.63)>1e-2:
         ret = ret + 2 
-    al.makeplot('psftest.png',bin=bins,scale='linear',jac='square',xs='square')
+    al.makeplot('psftest.png',bin=bins,scale='log',jac='square',xs='square')
     return ret
     
 ###################################################################################################

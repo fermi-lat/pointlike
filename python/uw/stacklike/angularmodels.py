@@ -363,6 +363,90 @@ class Diffuse(Model):
         self.model_par=pars
 ################################################### END DIFFUSE CLASS       ###########################################
 
+################################################### OFFPSF CLASS           ###########################################
+
+class OffPsf(Model):
+
+    def __init__(self,lims,model_par,off):
+        super(Model,self).__init__([],[])
+        self.lims=lims
+        self.mark='--'
+        self.name='offpsf'
+        self.header=''
+        self.model_par=[]
+        self.psf = PSF(lims,model_par,free=[False,False])
+        self.free=[]
+        self.steps=[]
+        self.limits=[]
+        self.off = off
+        nside = 8192#int(2.*5270./(self.lims[1]*rd))
+        print nside
+        self.band = s.Band(int(nside))
+        self.area = self.band.pixelArea()
+        self.func = [[],[]]
+
+    def addsrc(self,src):
+        start = t.time()
+        wsdl = s.WeightedSkyDirList(self.band,src,self.lims[1],True)
+        bins = np.arange(0.,100.,1.)
+        bins = bins*self.lims[1]/100.
+        delt = bins[1]-bins[0]
+        seps = []
+        mags = []
+        for wsd in wsdl:
+            diffoff = wsd.difference(self.off)
+            diffsrc = wsd.difference(src)
+            mag = self.psf.psf(diffoff,self.psf.model_par[0],self.psf.model_par[1])
+            seps.append(diffsrc)
+            mags.append(mag)
+        seps = np.array(seps)
+        mags = np.array(mags)
+        first = self.func[0]==[]
+        if first:
+            self.func[0]=[0]
+        for it in range(len(bins)-1):
+            cut = mags[(seps>bins[it])&(seps<bins[it+1])]
+            #integral = N(pixels)*Area(Pixels)*(sum(f(pixel)))
+            fint = (self.area)*(sum(cut))
+            #print len(cut),sum(cut),bins[it]+delt/2,fint
+            if first:
+                self.func[0].append(bins[it+1])
+                self.func[1].append(fint)
+            else:
+                self.func[1][it] = self.func[1][it] + fint
+        self.custom = Custom(self.lims,cp.copy(self.func))
+        
+        """grid = im.AIT(skyfun=None,size=5.)
+        mask = (seps>bins[len(bins)/2])&(seps<bins[len(bins)/2+1])
+        ras = np.array([wsd.ra() for wsd in wsdl])
+        decs = np.array([wsd.dec() for wsd in wsdl])
+        ras = ras[mask]
+        decs = decs[mask]
+        seldirs = [s.SkyDir(ras[it],decs[it]) for it in range(len(ras))]
+        p1 = grid.plot(seldirs,marker='o',c=mags[mask],cmap=py.cm.hot)"""
+        del wsdl
+        del seps
+        del mags
+        stop = t.time()
+        print 'Took %d seconds to setup the offpsf'%(int(stop-start))
+
+    def value(self,photon,pars):
+        return self.custom.value(photon,pars)
+    
+    def pdf(self,diff):
+        return self.custom.pdf(diff)
+
+    def integrate(self,photon,pars):
+        return self.custom.integrate(photon,pars)
+
+    def integral(self,delmin,delmax):
+        return self.custom.integral(delmin,delmax)
+
+    def update(self,pars):
+        self.model_par=pars
+################################################### END DIFFUSE CLASS       ###########################################
+
+
 ################################################### CUSTOM CLASS        ###########################################
 
 ## Custom class
