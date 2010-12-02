@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.27 2010/11/16 06:47:56 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.28 2010/11/28 20:37:44 lande Exp $
 
    author: Joshua Lande
 
@@ -938,7 +938,7 @@ class SpatialMap(SpatialModel):
         return self.skyfun(skydir)
 
     def get_PySkyFunction(self):
-        return self.skyfun(skydir)
+        return self.skyfun
 
     def __getstate__(self):
         """ You cannot pickle a skymaps.SkyImage object. To avoid this,
