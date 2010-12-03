@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.24 2010/11/11 04:43:36 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.25 2010/11/28 17:08:40 cohen Exp $
 
    author: Matthew Kerr
 """
@@ -95,7 +95,8 @@ class XML_to_Model(object):
             'PLSuperExpCutoff' : 'PLSuperExpCutoff',
             'Constant'  : 'Constant', # should this have been ConstantValue key?
             'ConstantValue' : 'Constant',
-            'FileFunction' : 'Constant' # a big klugey
+            'FileFunction' : 'Constant', # a big klugey
+            'LogParabola'  : 'LogParabola'
             })
         
         self.specdict = dict({
@@ -106,7 +107,8 @@ class XML_to_Model(object):
             'SmoothBrokenPowerLaw' : ['Prefactor', 'Index1', 'Index2', 'BreakValue'],
             'PLSuperExpCutoff' : ['Prefactor','Index1','Cutoff','Index2'],
             'ConstantValue' : ['Value'],
-            'FileFunction'  : ['Normalization']
+            'FileFunction'  : ['Normalization'],
+            'LogParabola'  : ['norm', 'alpha', 'beta', 'Eb']
             })
 
         self.kwargdict = dict({
@@ -117,7 +119,8 @@ class XML_to_Model(object):
             'SmoothBrokenPowerLaw' : [ ['Scale','e0' ], ['Beta','beta'] ],
             'PLSuperExpCutoff' : [ ['Scale','e0' ] ],
             'ConstantValue' : [],
-            'FileFunction' : []
+            'FileFunction' : [],
+            'LogParabola'  : []
             })
 
     def get_model(self,xml_dict,source_name,index_offset=0):
@@ -206,7 +209,7 @@ class XML_to_SpatialModel(object):
         if spatialname == 'SpatialMap':
             # For spatial maps, ignore any of the parameters.
             if diffdir:
-                file = join(diffdir,str(xml_dict['file']))
+                file = join(diffdir,os.path.basename(str(xml_dict['file'])))
             else:
                 file = os.path.expandvars(str(xml_dict['file']))
             return SpatialMap(file=file)
@@ -365,6 +368,16 @@ class Model_to_XML(object):
             self.perr   = [0]
             self.oomp   = [0]
 
+        elif name == 'LogParabola':
+            self.pname  = ['norm', 'alpha', 'beta', 'Eb' ]
+            self.pfree  = [1,1,1,1]
+            self.perr   = [0,0,0,0]
+            self.pscale = [1e-9,-1,1,1]
+            self.pmin   = [1e-6,0,0,30]
+            self.pmax   = [1e4,5,5,5e5]
+            self.pval   = [1,2,0,1e3]
+            self.oomp   = [1,0,0,1]
+
         else:
             raise Exception,'Unrecognized model %s'%(name)
 
@@ -436,6 +449,7 @@ class Model_to_XML(object):
             self.pfree[index] = model.free[iparam]
             self.pval[index] = vals[iparam] / self.pscale[index]
             self.perr[index] = errs[iparam] / self.pscale[index]
+            # Note that logParabola is already consistent with gtlike
             if (param == 'Index') or (param == 'Index1') or (param == 'Index2' and model.name!='PLSuperExpCutoff'):
                 self.process_photon_index(model,index,vals[iparam],errs[iparam])
             if self.pval[index] < self.pmin[index]:
@@ -547,7 +561,7 @@ def parse_point_sources(handler,roi_dir,max_roi):
         name = src['name']
         sd = get_skydir(src.getChild('spatialModel'))
         mo = xtm.get_model(src.getChild('spectrum'),name)
-	if sd.difference(roi_dir)*180./N.pi<max_roi:
+        if None in [roi_dir,max_roi] or N.degrees(sd.difference(roi_dir))<max_roi:
             point_sources.append(PointSource(sd,name,mo,leave_parameters=True))
     return point_sources
 
