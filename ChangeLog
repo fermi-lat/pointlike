@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Dec  2 16:12:42 PST 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Addition of LogParabola to xml parsing. Observe max_roi only when roi_dir and max_roi are not None in parse_point_sources. When diffdir is specified, only use basename of xml of extended source file.
+    *
+------------------------------------------------------------
 User: lande  Thu Dec  2 15:59:00 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
