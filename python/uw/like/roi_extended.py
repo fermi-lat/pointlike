@@ -2,12 +2,12 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.33 2010/11/15 00:27:09 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.34 2010/11/16 06:45:21 lande Exp $
 
     author: Joshua Lande
 """
 
-from SpatialModels import RadiallySymmetricModel,Gaussian,SpatialModel,SpatialMap
+from SpatialModels import RadiallySymmetricModel,Disk,SpatialModel,SpatialMap
 from uw.utilities.convolution import ExtendedSourceConvolutionCache,AnalyticConvolutionCache
 from roi_diffuse import DiffuseSource,ROIDiffuseModel,SmallBand
 from textwrap import dedent
@@ -25,8 +25,8 @@ class ExtendedSource(DiffuseSource):
 
     defaults = (
         ('name',None,'The name of the extended source.'),
-        ('model','PowerLaw','a Model object.'),
-        ('spatial_model','Gaussian',"""The spatial model to use. 
+        ('model',None,'a Model object.'),
+        ('spatial_model',None,"""The spatial model to use. 
                                        This is a SpatialModel object."""),
         ('free_parameters',True,"""Set all spectral model and 
                                    spatial_model parameter's free 
@@ -45,8 +45,8 @@ class ExtendedSource(DiffuseSource):
             """
         keyword_options.process(self, kwargs)
 
-        if self.model == 'PowerLaw': self.model = PowerLaw()
-        if self.spatial_model == 'Gaussian': self.spatial_model = Gaussian()
+        if self.model == None: self.model = PowerLaw()
+        if self.spatial_model == None: self.spatial_model = Disk()
 
         if not isinstance(self.spatial_model,SpatialModel):
             raise Exception("The diffuse_model passed to an Extended Source must inherit from SpatialModel.")
@@ -61,6 +61,21 @@ class ExtendedSource(DiffuseSource):
         if not self.leave_parameters:
             for i in xrange(len(self.smodel.free)): self.smodel.free[i] = self.free_parameters
             for i in xrange(len(self.spatial_model.free)): self.spatial_model.free[i] = self.free_parameters
+
+    def __getattr__(self, item):
+        """ Pretend that this object directly contains skydir. Avoid
+            two copies of the same object. """
+        if item == 'skydir':
+            return self.spatial_model.center
+        else:
+            return self.__dict__[item]
+
+    def __setattr__(self,item,value):
+        """ Allow setting the spatial model's center through skydir. """
+        if item == 'skydir':
+            return self.spatial_model.modify_loc(value)
+        else:
+            object.__setattr__(self, item, value)
 
     def __str__(self):
         return '\n'.join(['\n',
@@ -417,10 +432,13 @@ Arguments:
         old_roi_p   = roi.get_parameters().copy()
         old_roi_cov = roi.cov_matrix.copy() if roi.__dict__.has_key('cov_matrix') else None
 
-        if kwargs.has_key('bandfits') and kwargs['bandfits']:
-            ll_disk = roi.bandFit(es)
-        else:
-            ll_disk = -roi.logLikelihood(roi.get_parameters())
+        def l():
+            if kwargs.has_key('bandfits') and kwargs['bandfits']:
+                return roi.bandFit(es)
+            else:
+                return -roi.logLikelihood(roi.get_parameters())
+
+        ll_disk = l()
 
         try:
             sm.shrink()
@@ -430,14 +448,12 @@ Arguments:
 
         self.fit_extension(roi,error=None,**kwargs)
 
+        print 'Redoing spectral fit in the null hypothesis'
         # have to refit in case fitpsf or bandfits was used during the localization.
         d={'use_gradient':kwargs['use_gradient']} if kwargs.has_key('use_gradient') else {}
         roi.fit(estimate_errors=True,**d)
 
-        if kwargs.has_key('bandfits') and kwargs['bandfits']:
-            ll_point = roi.bandFit(es)
-        else:
-            ll_point = -roi.logLikelihood(roi.get_parameters())
+        ll_point = l()
 
         ts_ext = 2*(ll_disk - ll_point)
 
