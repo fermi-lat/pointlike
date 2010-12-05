@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.23 2010/09/14 08:04:39 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.24 2010/11/28 17:08:40 cohen Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.23 $'.split()[1]
+version='$Revision: 1.24 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -18,7 +18,6 @@ from pypsf     import Psf,OldPsf,NewPsf,CALDBPsf
 from pointspec_helpers import *
 from roi_managers import ROIPointSourceManager,ROIBackgroundManager,ROIDiffuseManager
 from roi_analysis import ROIAnalysis
-from roi_diffuse import ROIDiffuseModel_OTF
 from roi_extended import ExtendedSource,ROIExtendedModel
 from uw.utilities.fitstools import merge_bpd,merge_lt
 from uw.utilities.fermitime import MET,utc_to_met
@@ -292,6 +291,8 @@ class SpectralAnalysis(object):
         # process point sources
         if catalog_mapper is None:
             catalog_mapper = lambda x: FermiCatalog(x)
+
+        if not hasattr(catalogs,'__iter__'): catalogs = [catalogs]
         for cat in catalogs:
             if not isinstance(cat,PointSourceCatalog):
                 cat = catalog_mapper(cat)
@@ -306,10 +307,7 @@ class SpectralAnalysis(object):
             if len(diffuse_sources) == 0:
                 print 'WARNING!  No diffuse sources are included in the model.'
         if diffuse_mapper is None:
-            diffuse_mapper = lambda x: ROIExtendedModel.factory(self,x,roi_dir) \
-                    if isinstance(x,ExtendedSource) \
-                    else ROIDiffuseModel_OTF(self,x,roi_dir)
-
+            diffuse_mapper = get_default_diffuse_mapper(self,roi_dir)
 
         diffuse_models = [diffuse_mapper(ds) for ds in diffuse_sources]
 
