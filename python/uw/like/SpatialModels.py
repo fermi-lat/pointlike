@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.28 2010/11/28 20:37:44 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.29 2010/12/02 23:59:00 lande Exp $
 
    author: Joshua Lande
 
@@ -883,6 +883,12 @@ class SpatialMap(SpatialModel):
         A Template still has two spatial parameters, which represent a rotation of 
         the template away from the fits file's center."""
 
+    @staticmethod
+    def expand(file):
+        """ dunno why, but the gltike convention is $(VAR) instead of ${VAR} """
+        file = file.replace('(','{').replace(')','}')
+        return os.path.expandvars(file)
+
     def __init__(self,*args,**kwargs):
 
         super(SpatialMap,self).__init__(*args,**kwargs)
@@ -895,7 +901,8 @@ class SpatialMap(SpatialModel):
 
         # The skyfun is not normalized. The normaliztaion happens later, after
         # the convolution step.
-        self.skyfun=SkyImage(self.file,self.extension,self.interpolate)
+
+        self.skyfun=SkyImage(SpatialMap.expand(self.file),self.extension,self.interpolate)
 
         projection = p = self.skyfun.projector()
         naxis1=self.skyfun.naxis1()
@@ -951,7 +958,7 @@ class SpatialMap(SpatialModel):
     def __setstate__(self,state):
         """ When unpickling the object, afterwords recreate the skymaps.SkyImage object. """
         self.__dict__ = state
-        self.skyfun=SkyImage(self.file,self.extension,self.interpolate)
+        self.skyfun=SkyImage(SpatialMap.expand(self.file),self.extension,self.interpolate)
 
 #===============================================================================================#
 
