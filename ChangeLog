@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Dec  5 01:33:56 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py 
+Log Message:
+Move the default diffuse mapper to pointspec_helpers.py. Allow the catalogs flag to be a single object instead of a list.
+    *
+------------------------------------------------------------
 User: lande  Sun Dec  5 01:31:40 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
