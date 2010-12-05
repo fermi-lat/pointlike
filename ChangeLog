@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Dec  5 01:31:40 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+New get_default_diffuse_mapper function so that poinspec.py and roi_mangers can both access a default diffuse mapper. When reading in the extended archive, when possible read in extended sources with their analytic shapes. Also, for extended archive, preserve the $(LATEXTDIR) environemnt variable in the SpatialMap filenames.
+    *
+------------------------------------------------------------
 User: lande  Sun Dec  5 01:29:08 PST 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
