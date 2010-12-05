@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.26 2010/11/05 04:41:43 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.27 2010/11/16 06:46:13 lande Exp $
 
     author: Matthew Kerr
     """
@@ -7,8 +7,9 @@
 import numpy as N
 from skymaps import *
 from uw.like.Models import Model,Constant,PowerLaw,ExpCutoff,DefaultModelValues
-from roi_diffuse import DiffuseSource
-from roi_extended import ExtendedSource
+from roi_diffuse import DiffuseSource,ROIDiffuseModel_OTF
+from roi_extended import ExtendedSource,ROIExtendedModel
+from SpatialModels import Disk,Gaussian,EllipticalDisk,EllipticalGaussian,GAUSSIAN_X68
 from os.path import join
 import os
 
@@ -239,8 +240,12 @@ class ExtendedSourceCatalog(PointSourceCatalog):
         from pyfits import open
         f = open(join(archive_directory,"LAT_extended_sources.fit"))
         self.names = f[1].data.field('Source_Name')
-        ras   = f[1].data.field('RA')
-        decs  = f[1].data.field('DEC')
+        ras   = f[1].data.field('RAJ2000')
+        decs  = f[1].data.field('DEJ2000')
+        form = f[1].data.field('Model_Form')
+        major = f[1].data.field('Model_SemiMajor')
+        minor = f[1].data.field('Model_SemiMinor')
+        posang = f[1].data.field('Model_PosAng')
 
         # The xml filename for the extended sources.
         self.xmls      = f[1].data.field('Spectral_Filename').astype(str)
@@ -249,6 +254,25 @@ class ExtendedSourceCatalog(PointSourceCatalog):
         self.xmls[self.xmls=='./XML/IC443.fit.result.xml']='./XML/IC443.xml'
 
         self.dirs    = map(SkyDir,N.asarray(ras).astype(float),N.asarray(decs).astype(float))
+
+        # build up a list of the analytic extended source shapes (when applicable)
+        self.spatial_models = []
+        for i in range(len(self.names)):
+            if form[i] == 'Disk':
+                if major[i] == minor[i] and posang[i] == 0:
+                    self.spatial_models.append(Disk(p=[major[i]],center=self.dirs[i]))
+                else:
+                    self.spatial_models.append(EllipticalDisk(p=[major[i],minor[i],posang[i]],center=self.dirs[i]))
+            elif form[i] == '2D Gaussian':
+                if major[i] == minor[i] and posang[i] == 0:
+                    self.spatial_models.append(Gaussian(p=[major[i]/GAUSSIAN_X68],center=self.dirs[i]))
+                else:
+                    self.spatial_models.append(
+                        EllipticalGaussian(p=[major[i]/GAUSSIAN_X68,minor[i]/GAUSSIAN_X68,posang[i]],
+                                           center=self.dirs[i]))
+            else:
+                self.spatial_models.append(None)
+        self.spatial_models = N.asarray(self.spatial_models)
 
     def get_sources(self,skydir,radius=15):
         """ Returns a list of ExtendedSource objects from the extended source
@@ -263,24 +287,35 @@ class ExtendedSourceCatalog(PointSourceCatalog):
         sorting = N.argsort(diffs)
 
         names     = self.names[mask][sorting]
-        xmls = self.xmls[mask][sorting]
+        xmls      = self.xmls[mask][sorting]
+        spatials  = self.spatial_models[mask][sorting]
+
+        template_dir=join(self.archive_directory,'Templates')
+        os.environ["LATEXTDIR"]=template_dir
 
         sources = []
-        for name,xml in zip(names,xmls):
+        for name,xml,spatial in zip(names,xmls,spatials):
 
             full_xml=join(self.archive_directory,'XML',os.path.basename(xml))
-            template_dir=join(self.archive_directory,'Templates')
 
             # Use the built in xml parser to load the extended source.
-            ps,ds=parse_sources(xmlfile=full_xml,diffdir=template_dir)
+            ps,ds=parse_sources(xmlfile=full_xml)
             if len(ps) > 0: 
                 raise Exception("A point source was found in the extended source file %s" % xmlfile)
             if len(ds) > 1: 
                 raise Exception("No diffuse sources were found in the extended soruce file %s" % xmlfile)
             if len(ds) < 1: 
-                raise Exception("More than one diffuse source was found in the extended soruce file %s" % xmlfile)
+                raise Exception("More than one diffuse source was found in the extended source file %s" % xmlfile)
 
-            sources.append(ds[0])
+            source=ds[0]
+            if spatial is not None:
+                # replace the SpatialMap extended source with an analytic one.
+                analytic_source = ExtendedSource(name=source.name,model=source.model,
+                                                 spatial_model=spatial,leave_parameters=True)
+                analytic_source.original_template = source.spatial_model.file # for reference
+                sources.append(analytic_source)
+            else:
+                sources.append(source)
 
         return sources
 
@@ -408,6 +443,18 @@ def get_diffuse_source(spatialModel='ConstantValue',
          raise Exception,'Was unable to parse input.'
 
     return DiffuseSource(dmodel,smodel,name)
+
+
+def get_default_diffuse_mapper(sa,roi_dir):
+    """ Returns a function which maps a roi_diffuse.DiffuseSource
+        object to its corresponding roi_diffuse.ROIDiffuseModel object.
+
+        The default mapping is that an extended source is mapped into
+        an ROIExtendedModel object using ROIExtendedModel's factory
+        function. Otherwise, an ROIDiffuseModel_OTF object is returned. """
+    return lambda x: ROIExtendedModel.factory(sa,x,roi_dir) \
+                     if isinstance(x,ExtendedSource) \
+                     else ROIDiffuseModel_OTF(sa,x,roi_dir)
 
 
 def get_default_diffuse(diffdir=None,gfile='gll_iem_v02.fit',ifile='isotropic_iem_v02.txt'):
