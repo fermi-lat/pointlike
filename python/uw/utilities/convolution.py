@@ -1,11 +1,11 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.25 2010/11/12 17:13:02 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.26 2010/11/18 05:53:07 lande Exp $
 
 authors: M. Kerr, J. Lande
 
 """
-from skymaps import SkyDir,WeightedSkyDirList,Hep3Vector,SkyIntegrator,PySkyFunction,Background,PythonUtilities
+from skymaps import SkyDir,BaseWeightedSkyDirList,Hep3Vector,SkyIntegrator,PySkyFunction,Background,PythonUtilities
 from pointlike import DoubleVector
 import numpy as N
 from scipy.interpolate import interp1d
@@ -574,7 +574,7 @@ class AnalyticConvolution(object):
             except that it always returns the density (probability per unit
             area). Also, it is different in that it takes in a skydir or WSDL 
             instead of a radial distance. """
-        if type(skydir) == WeightedSkyDirList:
+        if isinstance(skydir,BaseWeightedSkyDirList):
             difference = N.empty(len(skydir),dtype=float)
             PythonUtilities.arclength(difference,skydir,self.spatial_model.center)
             return self.val(difference)
