@@ -6,7 +6,7 @@ Given an ROIAnalysis object roi:
      plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.10 2010/08/10 23:22:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.11 2010/08/11 18:48:43 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -14,10 +14,12 @@ import exceptions
 import numpy as N
 from skymaps import PySkyFunction,Background,Band,SkyDir,Hep3Vector,SkyIntegrator
 from roi_bands import ROIEnergyBand
+from roi_image import ModelImage,CountsImage
 from pypsf import OldPsf
 from uw.utilities.fitstools import get_fields
 from uw.utilities import colormaps
 from uw.utilities.image import ZEA
+from uw.utilities import keyword_options
 
 from collections import deque
 
@@ -381,246 +383,32 @@ def plot_spectra(r, which=0, eweight=2,fignum=1,outfile=None,merge_bins=False,
 #-----------------------------------------------------------------------------#
 #-----------------------------------------------------------------------------#
 
-class ROIModelSkyFunction(object):
-
-    def init(self):
-        self.emin  = 1e2
-        self.emax  = 1e5
-        self.nside = 2**7
-
-        #1 for pixelixed display, #2 for density
-        self.mode  = 1
-        self.std_weight = True #weight model-obs by 1./root(model)
-
-        self.event_class = -1
-
-    def __init__(self,roi_manager,**kwargs):
-        self.init()
-        #self.__dict__.update(kwargs)
-        for k,v in kwargs.iteritems():
-            if k in self.__dict__: self.__dict__[k] = v
-    
-        self.roi = roi_manager
-        sa = self.roi.sa
-        self.psf = OldPsf(CALDB = sa.CALDB,irf = sa.irf, )
-
-        self.simpsn = simpsn = (int(round((N.log10(self.emax)-N.log10(self.emin))/0.2)) >> 1) << 1 #5 per decade
-        self.points = N.logspace(N.log10(self.emin),N.log10(self.emax),simpsn+1)
-        self.simpsf = self.points*N.log(self.points[-1]/self.points[0])*\
-                          N.asarray([1.] + ([4.,2.]*(simpsn/2))[:-1] + [1.])/(3.*simpsn)
-
-        self.psf.set_cache(N.append(self.points,self.points),N.append([0]*len(self.points),[1]*len(self.points)))
-
-        self.exp = exp = sa.exposure.exposure
-        ps  = self.roi.psm.point_sources
-        self.exp_f  = N.asarray([[exp[0].value(p.skydir,point) for point in self.points] for p in ps])
-        self.exp_b  = N.asarray([[exp[1].value(p.skydir,point) for point in self.points] for p in ps])
-        self.model  = N.asarray([p.model(self.points) for p in ps])
-
-        
-        if self.event_class < 0: self.event_classes = [0,1]
-        else:
-            #setting exposure to 0 a succinct but inefficient way to select on event class
-            [self.exp_b,self.exp_f][self.event_class] = N.zeros_like([self.exp_f])
-            self.event_classes = [self.event_class]
-
-        bg = self.roi.bgm
-
-        self.e_models  = [m.smodel(self.points) for m in bg.bgmodels]
-        self.b_models  = [ [Background(m.get_dmodel(0),exp[0]),Background(m.get_dmodel(1),exp[1])] for m in bg.bgmodels]
-
-        self.cache_pix = dict()
-        self.band        = Band(self.nside)
-        self.pskyf      = PySkyFunction(self)
-
-    def __call__(self,v,v_is_skydir=False):
-    
-        skydir = v if v_is_skydir else SkyDir(Hep3Vector(v[0],v[1],v[2]))
-
-        if self.mode == 1:
-
-            hindex = self.band.index(skydir)
-
-            if hindex in self.cache_pix: 
-                hval = self.cache_pix[hindex]
-            else:
-                self.mode = 2
-                hval = SkyIntegrator.pix_int(self.pskyf,skydir,self.nside)
-                self.cache_pix[hindex]=hval
-                self.mode = 1
-
-            return hval
-
-        simpsn,points,simpsf = self.simpsn,self.points,self.simpsf
-        ps = self.roi.psm.point_sources
-
-        integrand = N.zeros_like(points)
-
-        #point source contributions
-        for i,p in enumerate(ps):
-            delta  = skydir.difference(p.skydir)
-            psf_vals = self.psf.get_cache(delta,density=True) #gets cached vals
-            np = len(points)
-            integrand += self.model[i,:] * (self.exp_f[i,:] * psf_vals[:np] + self.exp_b[i,:] * psf_vals[np:])
-        
-        #diffuse contributions
-        for em,bm in zip(self.e_models,self.b_models):
-            for ec in self.event_classes:
-                integrand += em * N.asarray([bm[ec].value(skydir,point) for point in self.points])
-
-        return (simpsf * integrand).sum()
-
-#-----------------------------------------------------------------------------#
-#-----------------------------------------------------------------------------#
-#-----------------------------------------------------------------------------#
-
-class DataSkyFunction(object):
-    """Build a SkyFunction from FT1 files.
-
-    Arguments:
-        sa_or_data  --- provide either a list of FT1 files or a SpectralAnalysis object
-        
-    Keyword Arguments:
-        nside         --- [2^7] Healpix resolution parameter; resolution ~ 60deg / nside
-        mode          --- [1] == 1 for pixelized representation -- mode 2 currently broken!
-        cuts          --- [None] a list of cuts to apply to the data, e.g., ['ENERGY > 1000','CTBCLASSLEVEL == 3']
-        emin          --- [1e2] minimum energy
-        emax          --- [1e5] maximum energy
-
-    Note: implements the PySkyFunction interface, so. e.g, to use with SkyImage, just cast it
-    """
-
-    def init(self):
-
-        self.nside    = 2**7
-        self.mode     = 1
-        self.cuts     = None
-        self.emin     = 1e2
-        self.emax     = 1e5
-        self.event_class = -1
-        self.mc_src_id = None
-
-    def __init__(self,sa_or_data,**kwargs):
-
-        self.init()
-        for k,v in kwargs.iteritems():
-            if k in self.__dict__: self.__dict__[k] = v
-
-        self.sa_or_data = sa_or_data
-        self.mode1setup = self.mode2setup = False
-
-        #if self.mode == 1: self.mode_1_setup()
-        #else: self.mode_2_setup()
-        self.mode_1_setup()
-
-        self.cache_pix = dict()
-
-    def process_filedata(self,fields):
-
-        base_cuts = ['ENERGY > %s'%(self.emin),'ENERGY < %s'%(self.emax),'ZENITH_ANGLE < 105']
-        if self.event_class >= 0:        base_cuts += ['EVENT_CLASS == %d'%(self.event_class)]
-        if self.mc_src_id is not None: base_cuts += ['MC_SRC_ID == %d'%(self.mc_src_id)]
-        cuts = base_cuts if self.cuts is None else self.cuts + base_cuts
-        event_files = self.sa_or_data if type(self.sa_or_data) == type([]) else self.sa_or_data.pixeldata.ft1files
-        
-        data = get_fields(event_files,fields,cuts)
-
-        return data
-
-    def mode_1_setup(self):
-
-        data = self.process_filedata(['RA','DEC'])
-
-        self.band = Band(self.nside)
-
-        for i in xrange(len(data['RA'])):
-            self.band.add(SkyDir(float(data['RA'][i]),float(data['DEC'][i])))
-
-        #for skydir in map(SkyDir,data['RA'],data['DEC']): self.band.add(skydir)
-
-        self.mode1setup = True
-
-    """
-    def mode_2_setup(self):
-
-        data = self.process_filedata(['RA','DEC','ENERGY','EVENT_CLASS'])
-
-        self.skydirs = map(SkyDir,data['RA'],data['DEC'])
-        
-        from psf import PSF
-        if type(self.sa_or_data) != type([]):
-            sa = self.sa_or_data            
-            psf = PSF(use_mc_psf = sa.use_mc_psf, use_psf_init = sa.use_psf_init, irf = sa.irf)
-        else:
-            psf = PSF(use_mc_psf = True, use_psf_init = True, irf = 'P6_v3_diff')
-
-        self.sigmas = psf.sigma(data['ENERGY'],data['EVENT_CLASS'])*N.pi/180.
-        self.gammas = psf.gamma(data['ENERGY'],data['EVENT_CLASS'])
-
-        self.mode2setup = True
-    """
-    
-    def __call__(self,v,v_is_skydir=False):
-
-        v = v if v_is_skydir else SkyDir(Hep3Vector(v[0],v[1],v[2]))
-        
-        #if self.mode == 1:
-        if not self.mode1setup: self.mode_1_setup()
-        ind = self.band.index(v)
-        
-        #need to store these values, so this check is necessary
-        if not ind in self.cache_pix:
-            val = self.band(v)
-            self.cache_pix[ind] = val
-            return val
-        
-        else: return self.cache_pix[ind] #but need to check whether the O(1) hash quicker than the Band call -- suspect it is!
-
-        #else:
-        #    if not selt.mode2setup: self.mode_2_setup()
-        #    diffs = N.asarray([v.difference(sd) for sd in self.skydirs])
-        #    us     = 0.5 * (diffs/self.sigmas)**2
-        #    jac    = (2*N.pi)*(self.sigmas)**2
-        #    return ( (1.-1./self.gammas)*(1+u/self.gammas)**-self.gammas )/jac
 
 
 class ROIDisplay(object):
     """Manage the plotting of ROI info."""
 
-    def init(self): 
-        
-        self.figsize = (12,8)
-        self.fignum  = 3
-        
-        self.nside = 2**7
-        self.pixelsize = 0.25
-        self.size = 10
-        self.nticks = 5
-
-        self.log_counts_min = 1.0
-        self.log_counts_max = 2.5
-
-        self.label_sources = False
-
-        self.galactic = True
-
-        self.std_weight = True
-
-        self.emin = 1e2
-        self.emax = 1e5
-
-        self.event_class = -1
-
-        self.mm = self.cm = None
+    defaults = (
+            ('figsize',       (12,8),         'Size of the image'),
+            ('fignum',             3,  'matplotlib figure number'),
+            ('pixelsize',       0.25,  'size of each image pixel'),
+            ('size',              10, 'Size of the field of view'),
+            ('nticks',             5, 'Number of axes tick marks'),
+            ('log_counts_min',   1.0,      'Counts scale minimum'),
+            ('log_counts_max',   2.5,      'Counts scale maximum'),
+            ('label_sources',  False,  'Label sources duing plot'),
+            ('galactic',        True, 'Coordinate system for plot')
+    )
 
     def mathrm(self,st):
         return  r'$\mathrm{'+st.replace(' ','\/')+'}$'
 
-    def __init__(self, roi_manager, **kwargs):
+    @keyword_options.decorate(defaults)
+    def __init__(self, roi, **kwargs):
+        keyword_options.process(self, kwargs)
         
-        self.init()
         self.__dict__.update(kwargs)
-        self.rm = roi_manager
+        self.roi = roi
 
         rcParams['xtick.major.size']=10 #size in points
         rcParams['xtick.minor.size']=6
@@ -629,11 +417,10 @@ class ROIDisplay(object):
         rcParams['xtick.labelsize']=12
         rcParams['ytick.labelsize']=12
         rcParams['font.family']='serif'
-        #rcParams['text.usetex']=True
 
         try:
             self.cmap_sls = colormaps.sls
-            self.cmap_b    = colormaps.b
+            self.cmap_b   = colormaps.b
         except:
             self.cmap_sls = self.cmap_b = mpl.cm.jet
 
@@ -669,13 +456,11 @@ class ROIDisplay(object):
 
         #resid colorbar
         rcb_axes = fig.add_axes([imx[3]+imw[3]*0.72,imy[3],0.01,imh[3]])
-        #rcb_norm = mpl.colors.Normalize(vmin=0,vmax=5)
         rcb        = mpl.colorbar.ColorbarBase(rcb_axes,
                                                             norm=self.norm1,
                                                             ticks = ticker.MaxNLocator(4),
                                                             cmap  = colormaps.b,
                                                             orientation='vertical')
-        #rcb.set_label('')
 
         #counts colorbar
         ccb_axes1 = fig.add_axes([imx[0]+imw[0]*0.72,imy[0],0.01,imh[0]])
@@ -695,17 +480,14 @@ class ROIDisplay(object):
         ccb3        = mpl.colorbar.ColorbarBase(ccb_axes3,
                                                             norm=self.norm3,
                                                             ticks = ticker.MaxNLocator(4),
-                                                            #cmap  = colormaps.b,
                                                             orientation='vertical')
-        #rcb.set_label('')
 
-        self.mm = ROIModelSkyFunction(roi_manager,mode=1,**self.__dict__) if self.mm is None else self.mm
-        self.cm = DataSkyFunction(roi_manager.sa,mode=1,**self.__dict__) if self.cm is None else self.cm
+        self.cm = CountsImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic)
+        self.mm = ModelImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic)
 
     def model_plot(self):
 
-        self.mm_zea = ZEA(self.rm.psm.ROI_dir(),self.size,self.pixelsize,galactic=self.galactic,axes=self.axes1)
-        self.mm_zea.fill(PySkyFunction(self.mm))
+        self.mm_zea = self.mm.get_ZEA(nticks=self.nticks, axes=self.axes1)
         self.axes1.imshow(N.log10(self.mm_zea.image),origin='lower',interpolation='nearest',cmap=self.cmap_b,norm=self.norm2)
         self.mm_zea.grid()
         self.mm_zea.scale_bar(color='white')
@@ -713,8 +495,7 @@ class ROIDisplay(object):
         
     def counts_plot(self):
 
-        self.cm_zea = ZEA(self.rm.psm.ROI_dir(),self.size,self.pixelsize,galactic=self.galactic,axes=self.axes2)
-        self.cm_zea.fill(PySkyFunction(self.cm))
+        self.cm_zea = self.cm.get_ZEA(nticks=self.nticks, axes=self.axes2)
         self.axes2.imshow(N.log10(self.cm_zea.image),origin='lower',interpolation='nearest',cmap=self.cmap_b,norm=self.norm2)
         self.cm_zea.grid()
         self.cm_zea.scale_bar(color='white')
@@ -722,17 +503,16 @@ class ROIDisplay(object):
 
     def resids_plot(self):
 
-        self.resids_zea = ZEA(self.rm.psm.ROI_dir(),self.size,self.pixelsize,galactic=self.galactic,axes=self.axes3)
-        self.resids_zea.image = (self.mm_zea.image - self.cm_zea.image)/self.mm_zea.image**0.5
+        self.resids_zea = ZEA(self.roi.roi_dir,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic,axes=self.axes3)
+        self.resids_zea.image = (self.cm_zea.image-self.mm_zea.image)/self.mm_zea.image**0.5
         self.axes3.imshow(self.resids_zea.image,origin='lower',interpolation='nearest',norm=self.norm3)
         self.resids_zea.grid()
         self.plot_sources(self.resids_zea,mc='k')
         
         pvals = 1 - poisson.cdf(self.cm_zea.image,self.mm_zea.image ) #0 problem?
         pvals = N.abs(N.where(pvals < 0.5, N.log10(pvals), N.log10(1-pvals)))
-        #pvals = N.abs( N.tan ( pvals*N.pi - N.pi/2 ) )
 
-        self.pvals_zea = ZEA(self.rm.psm.ROI_dir(),self.size,self.pixelsize,galactic=self.galactic,axes=self.axes4)
+        self.pvals_zea = ZEA(self.roi.roi_dir,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic,axes=self.axes4)
         self.pvals_zea.image = pvals
         self.axes4.imshow(self.pvals_zea.image,origin='lower',interpolation='nearest',cmap=self.cmap_b,norm=self.norm1)
         self.pvals_zea.grid()
@@ -741,10 +521,10 @@ class ROIDisplay(object):
 
     def hist_plot(self):
 
-        mc = N.asarray(self.mm.cache_pix.values())
-        cc = N.asarray(self.cm.cache_pix.values())
+        mc = self.mm_zea.image.flatten()
+        cc = self.cm_zea.image.flatten()
 
-        pvals = N.asarray([1-poisson.cdf(cc[i],mc[i]) for i in xrange(len(mc))])
+        pvals = 1-poisson.cdf(cc,mc)
 
         nb = 20
         av = float(len(pvals)) / nb
@@ -754,7 +534,9 @@ class ROIDisplay(object):
         self.axes5.axhspan( lo , hi , facecolor='red', alpha=0.3,label='95% Conf.')
         self.axes5.legend(loc='upper right')
 
-        self.axes6.hist( (mc - cc)/mc**0.5, bins=N.linspace(-5,5,20), histtype='step')
+        self.axes6.hist( (cc - mc)/mc**0.5, bins=N.linspace(-5,5,20), histtype='step',normed=True)
+        b=N.linspace(-5,5,100)
+        self.axes6.plot(b,norm.pdf(b))
         self.axes6.axvline(0,color='red')
         self.axes6.grid(True)
         self.axes6.set_xbound(lower=-5,upper=5)
@@ -776,7 +558,7 @@ class ROIDisplay(object):
     def plot_sources(self, image, symbol='+',  fontsize=8, markersize=10, fontcolor='w', mc= 'green',**kwargs):
         nx = image.nx
         ny = image.ny
-        ps = self.rm.psm.point_sources
+        ps = self.roi.psm.point_sources
 
         def allow(nx, ny, px, py, padx = 0.15, pady = 0.15):
             padx = padx * nx
