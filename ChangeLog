@@ -1,4 +1,25 @@
 ------------------------------------------------------------
+User: lande  Sun Dec  5 01:53:32 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Added Files:
+	roi_image.py 
+Log Message:
+Rewriting the whole framework for creating counts and model predicted counts maps to be more elegant and work with the new on the fly diffuse background convolution code. 
+
+Basically, roi_plotting.ROIModelSkyFunction gets replaced with roi_image.ModelImage and roi_plotting.DataSkyFunction gets replaced by roi_image.CountsImage.
+
+These objects more elegantly interface with the SkyImage object. Additionaly, ModelImage (in a not very elegant manner) is able to integrate the model over each of the spatial pixels.
+
+The code inside of roi_plotting.ROIDisplay was rewritten to use these new objects as well as being modernized to use the keyword_options argument parsing. It is almost fully backwards compatability, but lost the abililty to specify energy binning, which is now always set to be consistent with ROIAnalysis.bands.
+
+Finally, a normal distribution of mean 0 and width 1 is displayed on top of the weighted reisdual histogram because I think it is helpful.
+
+
+    *
+------------------------------------------------------------
 User: lande  Sun Dec  5 01:33:56 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
