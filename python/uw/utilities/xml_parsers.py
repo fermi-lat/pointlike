@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.25 2010/11/28 17:08:40 cohen Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.26 2010/12/03 00:12:41 lande Exp $
 
    author: Matthew Kerr
 """
@@ -211,7 +211,7 @@ class XML_to_SpatialModel(object):
             if diffdir:
                 file = join(diffdir,os.path.basename(str(xml_dict['file'])))
             else:
-                file = os.path.expandvars(str(xml_dict['file']))
+                file = str(xml_dict['file'])
             return SpatialMap(file=file)
 
         d = dict()
