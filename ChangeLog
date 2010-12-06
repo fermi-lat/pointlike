@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kerrm  Mon Dec  6 13:45:51 PST 2010
+pointlike/python/uw/utilities
+
+Added Files:
+	gt_scripts.py 
+Log Message:
+A collection of scripts for working with the ST from Python.
+    *
+------------------------------------------------------------
 User: lande  Sun Dec  5 01:55:22 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
