@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_bands.py,v 1.21 2010/09/23 17:13:02 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_bands.py,v 1.22 2010/10/02 23:39:46 lande Exp $
 
 author: Matthew Kerr
 """
@@ -79,14 +79,6 @@ class ROIBand(object):
         self.b = band
         self.__setup_data__()
 
-    def update_bg_counts(self, bgmodels):
-        """ 
-           setup counts corresponding to a set of bgmodels 
-           (not done yet, placeholder)
-        """
-        #self.bg_counts = ??
-        self.bg_all_counts = self.bg_counts.sum()
-        
     def expected(self,model):
         """Integrate the passed spectral model over the exposure and return expected counts."""
         return (model(self.sp_points)*self.sp_vector).sum()
