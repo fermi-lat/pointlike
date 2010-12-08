@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Dec  7 22:15:27 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Crash fit_extension function if source TS<1. Fix minor logical bug.
+    *
+------------------------------------------------------------
 User: lande  Tue Dec  7 17:58:56 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
