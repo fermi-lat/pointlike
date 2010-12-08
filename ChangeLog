@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Dec  7 22:19:12 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_managers.py 
+Log Message:
+When adding or deleting a new diffuse_source, don't recalculate model predictions for the rest of the diffuse sources. When adding a new point source, resort the pointsources based upon distance to the roi center.
+    *
+------------------------------------------------------------
 User: lande  Tue Dec  7 22:17:46 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
