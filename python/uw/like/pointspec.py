@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.24 2010/11/28 17:08:40 cohen Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.25 2010/12/05 09:33:56 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.24 $'.split()[1]
+version='$Revision: 1.25 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -213,7 +213,7 @@ class SpectralAnalysis(object):
     def roi(self, roi_dir = None,
                   point_sources = [], catalogs = [], catalog_mapper = None,
                   diffuse_sources = [], diffuse_mapper = None,
-                  *args,**kwargs):
+                  **kwargs):
         """
         return an ROIAnalysis object
 
