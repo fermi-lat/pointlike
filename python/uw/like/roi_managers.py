@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.18 2010/10/26 22:26:02 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.19 2010/11/19 23:06:54 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -9,6 +9,8 @@ author: Matthew Kerr
 import numpy as N
 from skymaps import SkyDir,SkyIntegrator,Background
 from pointlike import DoubleVector
+from pointspec_helpers import get_default_diffuse_mapper
+from roi_diffuse import ROIDiffuseModel,DiffuseSource
 from Models import *
 from pypsf import *
 from roi_bands import *
@@ -200,12 +202,16 @@ class ROIPointSourceManager(ROIModelManager):
 
     def add_source(self, ps, bands):
         """Add a new PointSource object to the model and re-calculate the point source
-            contribution."""
+           contribution. When adding the source, resort the point sources
+           based upon their distance from the center. """
 
-        self.point_sources = N.append(self.point_sources,ps)
-        self.models        = N.append(self.models,ps.model)
-        self.names         = N.append(self.names,ps.name)
-        self.mask          = N.append(self.mask,N.any(ps.model.free))
+        sd = [ i.skydir for i in self.point_sources ] + [ ps.skydir ]
+        sort_index=N.argsort([self.roi_dir.difference(i) for i in sd])
+
+        self.point_sources = N.append(self.point_sources,ps)[sort_index]
+        self.models        = N.append(self.models,ps.model)[sort_index]
+        self.names         = N.append(self.names,ps.name)[sort_index]
+        self.mask          = N.append(self.mask,N.any(ps.model.free))[sort_index]
         self.setup_initial_counts(bands) # not most efficient, but fewest loc!
         self.cache(bands)
 
@@ -313,22 +319,39 @@ class ROIDiffuseManager(ROIModelManager):
                               for ibg,bg in enumerate(self.bgmodels)])
 
     def add_source(self, model, bands):
-        """Add a new ROIDiffuseModel object to the model and re-calculate the point source
-        contribution."""
+        """Add a new diffuse object to the model and re-calculate the diffuse source
+            contribution. Model must be an roi_diffuse.ROIDiffuseModel object. """
+        if not isinstance(model,ROIDiffuseModel):
+            raise Exception("Can only add to ROI an ROIDiffuseModel object.")
 
         self.bgmodels        = N.append(self.bgmodels,model)
         self.models          = N.append(self.models,model.smodel)
         self.names           = N.append(self.names,model.name)
         self.diffuse_sources = N.append(self.diffuse_sources,model.diffuse_source)
-        self.setup_initial_counts(bands) # not most efficient, but fewest loc!
+
+        # Add in this one source to the band, instead of recalculating
+        # all other background models.
+        index = len(self.models)-1
+        for band in bands:
+            band.bg_counts = N.append(band.bg_counts,N.empty(1))
+            band.bg_pix_counts = N.append(band.bg_pix_counts, N.empty((len(band.wsdl),1)),axis=1) if band.has_pixels else 0
+
+        self.bgmodels[index].initialize_counts(bands)
+        self.bgmodels[index].update_counts(bands,index)
 
     def del_source(self, which, bands):
+        """ which must be an index to the desired diffuse source 
+            to delete. """
         ops = self.diffuse_sources[which]
         self.bgmodels        = N.delete(self.bgmodels,which)
         self.models          = N.delete(self.models,which)
         self.names           = N.delete(self.names,which)
         self.diffuse_sources = N.delete(self.diffuse_sources,which)
-        self.setup_initial_counts(bands) # ditto
+
+        for band in bands:
+            band.bg_counts = N.delete(band.bg_counts,which)
+            band.bg_pix_counts = N.delete(band.bg_pix_counts, which, axis=1)
+
         return ops
 
     def zero_source(self, which, bands):
