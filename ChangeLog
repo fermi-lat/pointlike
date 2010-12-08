@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Dec  7 17:58:56 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_bands.py 
+Log Message:
+Removing function which is depricated/never used (The intent was to update background counts, but it doesn't work).
+    *
+------------------------------------------------------------
 User: lande  Tue Dec  7 17:58:10 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
