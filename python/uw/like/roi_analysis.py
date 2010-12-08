@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.54 2010/11/26 18:11:57 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.55 2010/11/27 22:34:47 lande Exp $
 
 author: Matthew Kerr
 """
@@ -12,7 +12,7 @@ import math, pickle, collections
 
 from uw.like import roi_bands, roi_localize , specfitter
 
-from pointspec_helpers import PointSource
+from pointspec_helpers import PointSource,get_default_diffuse_mapper
 from roi_diffuse import ROIDiffuseModel,DiffuseSource
 from roi_extended import ExtendedSource,BandFitExtended
 from uw.utilities import keyword_options
@@ -139,6 +139,8 @@ class ROIAnalysis(object):
             return self.psm,int(N.where(str(which)==self.psm.names)[0])
         elif N.any(str(which)==self.dsm.names):
             return self.dsm,int(N.where(str(which)==self.dsm.names)[0])
+        elif isinstance(which,ROIDiffuseModel):
+            return self.dsm,int(N.where(self.dsm.bgmodels==which)[0])
         elif type(which) == list:
             if len(which)<1: raise Exception("Cannot pass empty list as argument for which")
             managers,indices=zip(*[list(self.mapper(_)) for _ in which])
@@ -707,14 +709,23 @@ class ROIAnalysis(object):
     def add_source(self,source):
          """Add a new source object to the model.
 
-            N.B. for point sources, add PointSource object. For diffuse
-            sources, add ROIDiffuseModel object."""
+            N.B. for point sources, add a pointspec_helpers.PointSource
+            object. For diffuse sources, add either a
+            roi_diffuse.DiffuseSource or an ROIDiffuseModel object.
+            If model is an roi_diffuse.DiffuseSource object, the
+            pointspec_helpers.get_default_diffuse_mapper function is used
+            to convert it to an roi_diffuse.ROIDiffuseModel object. """
          if isinstance(source,PointSource):
-              manager=self.psm
-         elif isinstance(source,ROIDiffuseModel):
-              manager=self.dsm
+             manager=self.psm
+         elif isinstance(source,DiffuseSource) or isinstance(source,ROIDiffuseModel):
+             manager=self.dsm
+
+             # convert DiffuseSource -> ROIDiffuseModel object
+             if isinstance(source,DiffuseSource):
+                 diffuse_mapper = get_default_diffuse_mapper(self.sa,self.roi_dir)
+                 source=diffuse_mapper(source)
          else:
-             raise Exception("Unable to add source %s. Only able to add PointSource and ROIDiffuseModel objects.")
+             raise Exception("Unable to add source %s. Only able to add PointSource, DiffuseSource, or ROIDiffuseModel objects.")
          manager.add_source(source,self.bands)
 
     def del_source(self,which):
