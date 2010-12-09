@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Dec  8 17:52:46 PST 2010
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	region_writer.py 
+Log Message:
+Fix bug in error ellipse
+    *
+------------------------------------------------------------
 User: lande  Tue Dec  7 22:19:12 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
