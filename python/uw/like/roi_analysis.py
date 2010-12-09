@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.55 2010/11/27 22:34:47 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.56 2010/12/08 06:17:45 lande Exp $
 
 author: Matthew Kerr
 """
@@ -706,7 +706,7 @@ class ROIAnalysis(object):
 
         pass #make this a TS map? negative -- spatialLikelihood does it, essentially
 
-    def add_source(self,source):
+    def add_source(self,source,**kwargs):
          """Add a new source object to the model.
 
             N.B. for point sources, add a pointspec_helpers.PointSource
@@ -726,7 +726,7 @@ class ROIAnalysis(object):
                  source=diffuse_mapper(source)
          else:
              raise Exception("Unable to add source %s. Only able to add PointSource, DiffuseSource, or ROIDiffuseModel objects.")
-         manager.add_source(source,self.bands)
+         manager.add_source(source,self.bands,**kwargs)
 
     def del_source(self,which):
          """Remove the source at position given by which from the model."""
