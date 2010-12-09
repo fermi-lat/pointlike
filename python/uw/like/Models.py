@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.26 2010/11/16 06:46:56 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.27 2010/11/28 20:37:04 lande Exp $
 
     author: Matthew Kerr
 
@@ -227,6 +227,8 @@ Optional keyword arguments:
                     frozen = '(DERIVED)'
                 l+=[t_n+': %.3g %s'%(p[i],frozen)]
             return ('\n'+indent).join(l)
+            
+    def __repr__(self): return self.__str__()
 
     def i_flux(self,emin=100,emax=N.inf,e_weight=0,cgs=False,error=False,two_sided=False):
         """Return the integral flux, \int_{emin}^{emax} dE E^{e_weight} dN/dE.
@@ -576,14 +578,38 @@ Spectral parameters:
         """
     def __call__(self,e):
         n0,alpha,beta,e_break=10**self.p
-        return (n0/self.flux_scale)*(e_break/e)**(alpha - beta*N.log(e_break/e))
+#        return (n0/self.flux_scale)*(e_break/e)**(alpha - beta*N.log(e_break/e))
+        x = N.log(e_break/e)
+        return (n0/self.flux_scale)*N.exp( (alpha - beta*x)*x)
 
     def gradient(self,e):
         n0,alpha,beta,e_break=10**self.p
-        f  = (n0/self.flux_scale)*(e_break/e)**(alpha - beta*N.log(e_break/e))
-        log_term = N.log(e_break/e)
-        return N.asarray([f/n0,f*log_term,-f*log_term**2,f*alpha/e_break])
+        #f  = (n0/self.flux_scale)*(e_break/e)**(alpha - beta*N.log(e_break/e))
+        #log_term = N.log(e_break/e)
+        #return N.asarray([f/n0,f*log_term,-f*log_term**2,f*alpha/e_break])
+        x =N.log(e_break/e)
+        f = (n0/self.flux_scale)*N.exp( (alpha - beta*x)*x)
+        return N.asarray([f/n0, f*x, -f*x**2, f*alpha/e_break])
 
+    def pivot_energy(self):
+        """  estimate the pivot energy, assuming that the beta part is not so important
+        """
+        #if sum(self.free) != 2 or self.p[2]>-2:
+        #    raise Exception( 'Cannot calculate pivot energy for LogParabola unless in power-law mode')
+        A  = 10**self.p[0]
+        C = self.get_cov_matrix()
+        if C[1,1]==0:
+            raise Exception('Models.LogParabola: Fit required before calculating pivot energy')
+        ebreak = 10**self.p[3]
+        return ebreak*N.exp( C[0,1]/(A*C[1,1]) )
+        
+    def set_e0(self, e0p):
+        """ set a new break energy, adjusting the norm parameter """
+        ebreak = 10** self.p[3]
+        gamma = 10** self.p[1]
+        self.p[0] += gamma * N.log10(ebreak/e0p)
+        self.p[3] = N.log10(e0p)
+ 
 #===============================================================================================#
 
 class ExpCutoff(Model):
