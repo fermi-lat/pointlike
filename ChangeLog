@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Dec  9 14:21:35 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_image.py 
+Log Message:
+shifting around the work to be a little more elegant
+    *
+------------------------------------------------------------
 User: lande  Thu Dec  9 14:21:06 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
