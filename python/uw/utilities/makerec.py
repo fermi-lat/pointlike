@@ -1,5 +1,5 @@
 """ Various useful utilities for creating, dumping numpy recarry objects
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makerec.py,v 1.3 2010/05/11 18:58:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makerec.py,v 1.4 2010/11/05 22:53:49 burnett Exp $
 
 
 
@@ -13,7 +13,7 @@ def makefits(r, filename=None):
     def convertformat(dtype):
         if dtype[:2]=='|S': return dtype[2:]+'A'
         try:
-            return {'<f8':'D', '<f4':'E', '<i4':'J', '|b1':'L', '|O4':'|O4',}[dtype]
+            return {'<f8':'D', '<f4':'E', '<i4':'J', '|b1':'L', '|O4':'|O4','<i8':'I',}[dtype]
         except KeyError:
             print 'recarry type %s not recognized' %dtype
             raise
