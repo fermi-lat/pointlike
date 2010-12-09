@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.36 2010/12/05 09:55:22 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.37 2010/12/08 06:15:27 lande Exp $
 
     author: Joshua Lande
 """
@@ -77,16 +77,16 @@ class ExtendedSource(DiffuseSource):
         else:
             object.__setattr__(self, item, value)
 
-    def __str__(self):
-        return '\n'.join(['\n',
+    def __str__(self,indent=''):
+        return indent+('\n'+indent).join(['\n',
                           '='*60,
                           'Name:\t\t%s'%(self.name),
                           'R.A. (J2000):\t\t%.5f'%(self.spatial_model.center.ra()),
                           'Dec. (J2000):\t\t%.5f'%(self.spatial_model.center.dec()),
                           'Model:\t\t%s'%(self.smodel.full_name()),
-                          '\t'+self.smodel.__str__(indent='\t'), 
+                          '\t'+self.smodel.__str__(indent='\t\t'), 
                           'SpatialModel:\t%s'%(self.spatial_model.full_name()),
-                          '\t'+self.spatial_model.__str__(indent='\t')
+                          '\t'+self.spatial_model.__str__(indent='\t\t')
                          ])
 
 
@@ -447,9 +447,10 @@ Arguments:
             raise Exception("Unable to calculate ts_ext for %s source %s. No way to shrink to null hypothesis." % (sm.pretty_name,es.name))
         self.initialize_counts(roi.bands)
 
+        if not roi.quiet: print 'Refitting position for the null hypothesis'
         self.fit_extension(roi,error=None,**kwargs)
 
-        print 'Redoing spectral fit in the null hypothesis'
+        if not roi.quiet: print 'Redoing spectral fit in the null hypothesis'
         # have to refit in case fitpsf or bandfits was used during the localization.
         d={'use_gradient':kwargs['use_gradient']} if kwargs.has_key('use_gradient') else {}
         roi.fit(estimate_errors=True,**d)
