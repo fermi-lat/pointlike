@@ -6,17 +6,15 @@ Given an ROIAnalysis object roi:
      plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.11 2010/08/11 18:48:43 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.12 2010/12/05 09:53:32 lande Exp $
 
 author: Matthew Kerr
 """
 import exceptions
 import numpy as N
-from skymaps import PySkyFunction,Background,Band,SkyDir,Hep3Vector,SkyIntegrator
 from roi_bands import ROIEnergyBand
 from roi_image import ModelImage,CountsImage
-from pypsf import OldPsf
-from uw.utilities.fitstools import get_fields
+from roi_extended import ExtendedSource
 from uw.utilities import colormaps
 from uw.utilities.image import ZEA
 from uw.utilities import keyword_options
@@ -400,14 +398,14 @@ class ROIDisplay(object):
             ('galactic',        True, 'Coordinate system for plot')
     )
 
-    def mathrm(self,st):
+    @staticmethod
+    def mathrm(st):
         return  r'$\mathrm{'+st.replace(' ','\/')+'}$'
 
     @keyword_options.decorate(defaults)
     def __init__(self, roi, **kwargs):
         keyword_options.process(self, kwargs)
         
-        self.__dict__.update(kwargs)
         self.roi = roi
 
         rcParams['xtick.major.size']=10 #size in points
@@ -441,7 +439,7 @@ class ROIDisplay(object):
 
         for y in [titles,xlabels,ylabels]:
             for i in xrange(len(y)):
-                y[i] = self.mathrm(y[i])
+                y[i] = ROIDisplay.mathrm(y[i])
 
         for i,(t,xl,yl) in enumerate(zip(titles,xlabels,ylabels)):
             ax = self.__dict__['axes%d'%(i+1)] = fig.add_axes([imx[i],imy[i],imw[i],imh[i]])
@@ -556,9 +554,12 @@ class ROIDisplay(object):
         if to_screen: P.show()
 
     def plot_sources(self, image, symbol='+',  fontsize=8, markersize=10, fontcolor='w', mc= 'green',**kwargs):
+        """ Plot both point and diffuse sources. """
         nx = image.nx
         ny = image.ny
-        ps = self.roi.psm.point_sources
+
+        src = list(self.roi.psm.point_sources) + \
+              [i for i in self.roi.dsm.diffuse_sources if isinstance(i,ExtendedSource)]
 
         def allow(nx, ny, px, py, padx = 0.15, pady = 0.15):
             padx = padx * nx
@@ -566,7 +567,7 @@ class ROIDisplay(object):
 
             return (px > padx and px < nx - padx) and (py > pady and py < ny - pady)
 
-        for p in ps:
+        for p in src:
             x,y = image.pixel(p.skydir)
             if self.label_sources:
                 padx = pady = 0.15
