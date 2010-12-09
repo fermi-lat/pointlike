@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.13 2010/08/24 18:16:34 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.14 2010/10/05 19:52:27 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -33,7 +33,8 @@ class DiffuseSource(object):
         if not hasattr(self.dmodel,'__len__'):
             self.dmodel = [self.dmodel]
    
-    def __str__(self): return self.name
+    def __str__(self): return '\n'.join((self.name,'\t'+self.dmodel.__str__(),
+            '\t'+self.smodel.__str__()))
 
 
 ###=========================================================================###
