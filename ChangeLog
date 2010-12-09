@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Dec  8 21:49:25 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_managers.py roi_analysis.py 
+Log Message:
+adding flag nosort for add_source  to not sort point sources after adding a new one to the roi.
+    *
+------------------------------------------------------------
 User: lande  Wed Dec  8 17:52:46 PST 2010
 ScienceTools-scons/pointlike/python/uw/utilities
 
