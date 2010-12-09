@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Dec  8 21:51:40 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Remove unnecessary imports. Plot extended sources with ROIDisplay's plot_sources function.
+    *
+------------------------------------------------------------
 User: lande  Wed Dec  8 21:49:55 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
