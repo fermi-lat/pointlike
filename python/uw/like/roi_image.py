@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header:$
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.1 2010/12/05 09:53:32 lande Exp $
 
 author: Joshua Lande
 """
@@ -50,6 +50,9 @@ class ROIImage(object):
 
         self.fill()
 
+        self.nx, self.ny = self.skyimage.naxis1(), self.skyimage.naxis2()
+        self.image=N.array(self.skyimage.image()).reshape((self.ny, self.nx))
+
     def get_ZEA(self,axes=None,nticks=None):
         """ axes and nticks can be created by this object's constructor, but are
             more logically specified here. If they are not specified, get values from
@@ -61,11 +64,11 @@ class ROIImage(object):
 
         zea=ZEA(self.center,**zea_dict)
         zea.skyimage = self.skyimage
+        zea.image = self.image
 
-        # The old one gets removed by python's garbage collector.
+        # The old one gets removed by python's garbage collector (when zea.skyimage is replaced).
         zea.projector = zea.skyimage.projector() 
 
-        zea.image = N.array(zea.skyimage.image()).reshape((zea.ny, zea.nx))
         zea.vmin,zea.vmax = zea.skyimage.minimum(), zea.skyimage.maximum()
         return zea
 
