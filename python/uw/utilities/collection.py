@@ -1,12 +1,12 @@
 """
-generate collection file for LiveLabs Pivot viewer
+generate collection file for the  Pivot viewer
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.7 2010/08/03 22:29:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/collection.py,v 1.8 2010/09/30 20:54:41 burnett Exp $
 See <http://getpivot.com>
 Author: Toby Burnett <tburnett@uw.edu>
 """
 
-import os, pickle, pyfits, types, exceptions
+import os, types, exceptions
 import xml.sax
 
 import numpy as np
