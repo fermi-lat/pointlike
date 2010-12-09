@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/counts_plotter.py,v 1.1 2010/09/30 20:33:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/counts_plotter.py,v 1.2 2010/10/01 15:15:47 burnett Exp $
 
 Author M. Kerr, T. Burnett
 
@@ -20,26 +20,35 @@ def get_counts(roi, merge_non_free=True, merge_all=False, integral=False):
     en = (en[1:]*en[:-1])**0.5
     tot = src.sum(axis=1) + dif.sum(axis=1)
 
+    # merge all sources, or ...
+    if merge_all:
+        new_src    = np.zeros([len(en),1])
+        for i in range(src.shape[1]):
+            new_src[:,0]+= src[:,i]
+        src = new_src
+        ps_names = ['All sources']
+        
     # optionally merge all of the "frozen" sources for a cleaner plot
-    if merge_non_free:
-        free_mask = np.asarray([np.any(m.free) for m in roi.psm.models])
+    elif merge_non_free:
+        free_mask = np.asarray([np.any(m.free) for m in roi.psm.models]) 
         new_src    = np.zeros([len(en),free_mask.sum()+1])
         counter = 0
         for i in xrange(len(free_mask)):
-            if free_mask[i]:
+            if free_mask[i] :
                 new_src[:,counter] = src[:,i]
                 counter += 1
             else:
                 new_src[:,-1] += src[:,i]
         src        = new_src
-        ps_names = [ps_names[i] for i in xrange(len(ps_names)) if free_mask[i]]
-        ps_names += ['Other Point Sources']
+        ps_names = [ps_names[i] for i in xrange(len(ps_names)) if free_mask[i] ]
+        ps_names += ['Other Point Sources' ]
     models =  zip(bg_names+ps_names, np.hstack((dif,src)).T)
     return dict(energies=en, observed=obs, models=models, total=tot)
 
 
 def plot_counts(roi,fignum=1, outfile=None,
         integral=False, max_label=10, merge_non_free=True,
+        merge_all=False,
         axes = None,
         ):
     """Make counts and residual plots for the ROI roi
@@ -51,6 +60,8 @@ def plot_counts(roi,fignum=1, outfile=None,
         max_label : integer
         merge_non_free : bool
             if True (default) combine all sources that are not free
+        merge_all: bool
+            if True (False default) combine *all* sources
         axes : array of one or two Axes instances, or None 
             If None (default), create standard horizontal layout with figure number fignum
             First is filled with the log plot, second, if there, with the residual 
@@ -97,7 +108,7 @@ def plot_counts(roi,fignum=1, outfile=None,
         plt.close(fignum) # close it if exists
         fig, axes = plt.subplots(1,2, sharex=True, num=fignum, figsize=(12,6))
 
-    count_data = get_counts(roi,merge_non_free, integral)
+    count_data = get_counts(roi, integral=integral, merge_non_free=merge_non_free, merge_all=merge_all)
 
     plot_counts_and_models(axes[0], count_data)
     if len(axes>1): plot_residuals(axes[1], count_data)
