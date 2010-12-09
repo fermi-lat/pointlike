@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.34 2010/11/08 15:39:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.35 2010/11/20 23:06:05 burnett Exp $
 
 """
-version = '$Revision: 1.34 $'.split()[1]
+version = '$Revision: 1.35 $'.split()[1]
 
 import pylab
 import types
@@ -549,6 +549,7 @@ class ZEA(object):
         ('fitsfile', '',    'set non-empty to write out as a FITS file'), 
         ('axes',     None,  'Axes object to use: \nif None, ...'), 
         ('nticks',   5,     'number of tick marks to attempt'), 
+        ('nocolorbar', False, 'set to suppress the colorbar'),
         50*'-',
         ('proj',     'ZEA', 'projection name: can change if desired'),
     )
@@ -686,6 +687,7 @@ class ZEA(object):
         
         returns the colorbar object
         """
+        if self.nocolorbar: return
         if 'cax' not in self.__dict__: raise Exception('You must call imshow first')
         cb_kw=dict(orientation= 'vertical',
                 pad    = 0.01,
@@ -723,10 +725,29 @@ class ZEA(object):
         self.axes.plot([x],[y], symbol, 
             markersize=kwargs.pop('markersize',12), **kwargs)
         #self.axes.text(x,y, name, fontsize=fontsize, **kwargs)
-        self.axes.text( x+self.nx/100., y+self.nx/100., name, 
-            fontsize=fontsize, **kwargs)
+        if name is not None:
+            self.axes.text( x+self.nx/100., y+self.nx/100., name, 
+                fontsize=fontsize, **kwargs)
         return True
 
+    def plot(self, sources, marker='o', text=None, 
+            colorbar=False, text_kw={}, **kwargs):
+        """ plot symbols at points 
+        see AIT.plot
+        """
+        if 'fontsize' not in text_kw: text_kw['fontsize']=8
+        X=[]
+        Y=[]
+        for i,s in enumerate(sources):
+            
+            x,y = self.pixel(s)
+            if not x> 0 and y>0 and x<self.nx and  y<self.ny: continue
+            X.append(x)
+            Y.append(y)
+            if text is not None:
+                self.axes.text(x,y,text[i], **text_kw )
+        self.source_cb=self.axes.scatter(X,Y, marker=marker,  **kwargs)
+        if colorbar: assert False, "not implemented" #self.colorbar()
 
     def cross(self, sdir, size, text=None, **kwargs):
         """ draw a cross at sdir,
