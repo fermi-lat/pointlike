@@ -1,7 +1,7 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_tsmap.py,v 1.9 2010/11/15 20:40:25 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.10 2010/11/27 22:22:44 lande Exp $
 
 author: Matthew Kerr
 """
@@ -764,7 +764,7 @@ class ROIWrapper(object):
 
     def __init__(self,roi,nside=6):
         self.roi = roi
-        self.band = Band(6)
+        self.band = Band(nside)
         self.index = self.band.index(roi.roi_dir)
 
 class MultiHealpixKDEMap(object):
