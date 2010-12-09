@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.37 2010/12/08 06:15:27 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.38 2010/12/09 05:49:54 lande Exp $
 
     author: Joshua Lande
 """
@@ -439,6 +439,10 @@ Arguments:
             else:
                 return -roi.logLikelihood(roi.get_parameters())
 
+        def f():
+            d={'use_gradient':kwargs['use_gradient']} if kwargs.has_key('use_gradient') else {}
+            roi.fit(estimate_errors=True,**d)
+
         ll_disk = l()
 
         try:
@@ -448,12 +452,12 @@ Arguments:
         self.initialize_counts(roi.bands)
 
         if not roi.quiet: print 'Refitting position for the null hypothesis'
+        f() # have to fit with shrunk spatial model to get a reasonable starting spectrum for extension fit.
         self.fit_extension(roi,error=None,**kwargs)
 
         if not roi.quiet: print 'Redoing spectral fit in the null hypothesis'
-        # have to refit in case fitpsf or bandfits was used during the localization.
-        d={'use_gradient':kwargs['use_gradient']} if kwargs.has_key('use_gradient') else {}
-        roi.fit(estimate_errors=True,**d)
+
+        f() # have to refit in case fitpsf or bandfits was used during the localization.
 
         ll_point = l()
 
