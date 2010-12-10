@@ -82,13 +82,14 @@ int main(int argc , char** argv )
         std::for_each(photons.begin(), photons.end(), AddPhoton<skymaps::BinnedPhotonData>(x));
 
         x.info();
-
+#if 0 // disable this since that file does not have GTI
         { 
             std::vector<std::string>ft1_list;
             ft1_list.push_back(facilities::commonUtilities::joinPath(facilities::commonUtilities::getDataPath("pointlike"),"r0236198321_ft1.fit"));
             Data test(ft1_list); 
             test.info();
         }
+#endif
 
 #if 0 // test code for SimpleTSmap
         std::cout << "\ntesting SimpleTSmap..." << std::endl;
