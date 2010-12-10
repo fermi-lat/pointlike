@@ -107,11 +107,11 @@ int main(int argc , char** argv )
 
 
         std::vector<astro::SkyDir> directions;
-
+#if 0 //?
         // test fitting with a diffuse component
         skymaps::SkySpectrum* diffuse(new skymaps::IsotropicPowerLaw());
         PointSourceLikelihood::set_diffuse(diffuse);
-
+#endif
         for( int n=0; !points[n].name.empty(); ++n){
                         
             astro::SkyDir dir(points[n].ra,points[n].dec);
