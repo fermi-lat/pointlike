@@ -6,7 +6,7 @@ Given an ROIAnalysis object roi:
      plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.12 2010/12/05 09:53:32 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.13 2010/12/09 05:51:40 lande Exp $
 
 author: Matthew Kerr
 """
@@ -15,6 +15,7 @@ import numpy as N
 from roi_bands import ROIEnergyBand
 from roi_image import ModelImage,CountsImage
 from roi_extended import ExtendedSource
+from pointspec_helpers import PointSource
 from uw.utilities import colormaps
 from uw.utilities.image import ZEA
 from uw.utilities import keyword_options
@@ -603,5 +604,188 @@ def int2bin(n, count=24):
     """returns the binary of integer n, using count number of digits"""
     return "".join([str((n >> y) & 1) for y in range(count-1, -1, -1)])
 
+#===============================================================================================#
 
+class ROISlice(object):
 
+    defaults = (
+            ('figsize',        (7,6),          'Size of the image'),
+            ('fignum',             3,   'matplotlib figure number'),
+            ('pixelsize',      0.125,   'size of each image pixel'),
+            ('size',              10,  'Size of the field of view'),
+            ('galactic',        True, 'Coordinate system for plot'),
+            ('int_width',          2, ''),
+            ('which',           None, 'Name of source to make a slice for.'),
+            ('nosource',        True, """ Display also the model predictions without the mentioned 
+                                          source. Only works when which is specified."""),
+            ('aspoint',         True, """ Display also the model predictions for an extended source 
+                                          fit with the point hypothesis. Only works when which is an
+                                          extended source. """),
+            ('oversample_factor',  4, """ Calculate the model predictions this many times more finely. 
+                                          This will create a smoother plot of model predictions. Set 
+                                          to 1 if you want the model predictions to 'look like' the 
+                                          data."""),
+            ('smooth_model',    True, """Connect the model preditions with a line (instead of steps) 
+                                         to make the model look smoother.""")
+    )
+
+    @keyword_options.decorate(defaults)
+    def __init__(self, roi, **kwargs):
+        keyword_options.process(self, kwargs)
+
+        if not type(self.oversample_factor) == int:
+            raise Exception("oversample_factor must be an integer.")
+        
+        self.roi = roi
+
+        if self.which is not None:
+            manager,index=self.roi.mapper(self.which)
+            if manager == roi.psm:
+                self.source=manager.point_sources[index]
+                self.pretty_name = 'Point'
+            else:
+                self.source=manager.diffuse_sources[index]
+
+                self.pretty_name = self.source.spatial_model.pretty_name
+
+            self.center=self.source.skydir
+        else:
+            self.center=self.roi.roi_dir
+            self.pretty_name = 'Model'
+            self.source=None
+
+        rcParams['xtick.major.size']=10 #size in points
+        rcParams['xtick.minor.size']=6
+        rcParams['ytick.major.size']=10 #size in points
+        rcParams['ytick.minor.size']=6
+        rcParams['xtick.labelsize']=12
+        rcParams['ytick.labelsize']=12
+        rcParams['font.family']='serif'
+
+        P.ioff()
+        fig = P.figure(self.fignum,self.figsize)
+        P.clf()
+
+        self.get_counts()
+        self.get_model()
+
+    def get_counts(self):
+        ps=self.pixelsize
+        gal=self.galactic
+        self.ci_x = CountsImage(self.roi,center=self.center,size=(self.size,self.int_width),pixelsize=ps,galactic=gal)
+        self.ci_y = CountsImage(self.roi,center=self.center,size=(self.int_width,self.size),pixelsize=ps,galactic=gal)
+
+    def get_model(self):
+        kwargs=dict(center=self.center,pixelsize=float(self.pixelsize)/self.oversample_factor,
+                    galactic=self.galactic)
+
+        self.mi_x = dict()
+        self.mi_y = dict()
+
+        self.mi_x[self.pretty_name]=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
+        self.mi_y[self.pretty_name]=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
+
+        if self.nosource and self.which is not None:
+            # Hide the source, again calculate model predictions, and then restore.
+
+            save_params = self.roi.parameters().copy() # save free parameters
+
+            self.roi.zero_source(self.which)
+            self.roi.fit(estimate_errors=False)
+
+            self.mi_x['Background']=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
+            self.mi_y['Background']=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
+
+            self.roi.unzero_source(self.which)
+
+            self.roi.set_parameters(save_params) # reset free parameters
+            self.roi.__pre_fit__() # restore caching
+            self.roi.update_counts()
+
+        if self.aspoint and isinstance(self.source,ExtendedSource):
+            # change extended source to point source, relocalize point source, 
+            # calculate model predictions, then restore. Kind of ugly, improve
+            # if time.
+            save_params = self.roi.parameters().copy() # save free parameters
+
+            es=self.roi.del_source(self.which)
+
+            ps=PointSource(name=es.name,model=es.model.copy(),skydir=es.spatial_model.center)
+            
+            self.roi.add_source(ps)
+
+            self.roi.fit(estimate_errors=False)
+            self.roi.localize(which=ps,update=True)
+            self.roi.fit(estimate_errors=False)
+
+            self.mi_x['Point']=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
+            self.mi_y['Point']=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
+
+            self.roi.del_source(ps)
+            self.roi.add_source(es)
+
+            self.roi.set_parameters(save_params)
+            self.roi.__pre_fit__() # restore caching 
+            self.roi.update_counts()
+
+    @staticmethod
+    def range(data,pixelsize,x_axis=False):
+        if x_axis:
+            return (len(data)/2.0-N.arange(len(data)))*pixelsize - pixelsize/2
+        else:
+            return (N.arange(len(data))-len(data)/2.0)*pixelsize + pixelsize/2
+
+    def plot_dx(self):
+
+        P.subplot(211)
+
+        for name,model in self.mi_x.items():
+            m=model.image.sum(axis=0)*self.oversample_factor
+
+            x=ROISlice.range(m,model.pixelsize,x_axis=True)
+            P.plot(x,m,drawstyle='steps' if not self.smooth_model else 'default',
+                   label=name)
+
+        cm_x=self.ci_x.image.sum(axis=0)
+        x=ROISlice.range(cm_x,self.pixelsize,x_axis=True)
+        P.errorbar(x,cm_x,yerr=N.sqrt(cm_x),label='counts', fmt='.')
+
+        P.gca().set_xlim(x[0],x[-1])
+
+        P.legend(numpoints=1)
+
+        P.xlabel(ROIDisplay.mathrm('delta l' if self.galactic else 'delta ra'))
+        P.ylabel(ROIDisplay.mathrm('Counts'))
+
+    def plot_dy(self):
+
+        P.subplot(212)
+
+        for name,model in self.mi_y.items():
+            m=model.image.sum(axis=1)*self.oversample_factor
+            y=ROISlice.range(m,model.pixelsize,x_axis=False)
+            P.plot(y,m,drawstyle='steps' if not self.smooth_model else 'default',
+                   label=name)
+
+        cm_y=self.ci_y.image.sum(axis=1)
+        y=ROISlice.range(cm_y,self.pixelsize,x_axis=False)
+        P.errorbar(y,cm_y,yerr=N.sqrt(cm_y),label='observed', fmt='.')
+
+        P.xlabel(ROIDisplay.mathrm('delta b' if self.galactic else 'delta dec'))
+        P.ylabel(ROIDisplay.mathrm('Counts'))
+
+        P.gca().set_xlim(y[0],y[-1])
+
+        # only need to show legend once
+        
+    def show(self,to_screen=True,out_file=None):
+
+        self.plot_dx()
+        self.plot_dy()
+
+        title = 'Counts Slice'
+        if self.source is not None: title += ' for Source %s' % self.source.name
+        P.suptitle(title)
+
+        if out_file is not None: P.savefig(out_file)
+        if to_screen: P.show()
