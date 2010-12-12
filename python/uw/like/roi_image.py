@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.1 2010/12/05 09:53:32 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.2 2010/12/09 22:21:35 lande Exp $
 
 author: Joshua Lande
 """
@@ -18,9 +18,6 @@ from uw.like.roi_extended import ROIExtendedModel
 from uw.utilities import keyword_options
 from uw.utilities.fitstools import get_fields
 from uw.utilities.image import ZEA
-
-
-import numpy
 
 class ROIImage(object):
     """ This object is suitable for creating a SkyImage object
@@ -36,6 +33,11 @@ class ROIImage(object):
 
     @keyword_options.decorate(defaults)
     def __init__(self,roi,**kwargs):
+        """ Note, unlike ZEA, can support non-square images. To specify a nonsquare
+            image, set the size parameter to a lenght two tuple:
+                
+                size=(10,5) # dx=10 degrees, dy=5 degrees. 
+        """
         keyword_options.process(self, kwargs)
         
         self.roi = roi
@@ -45,19 +47,30 @@ class ROIImage(object):
 
         # set up, then create a SkyImage object to perform the projection
         # to a grid and manage an image
-        self.skyimage = SkyImage(self.center, self.fitsfile, self.pixelsize, 
-                                 self.size, 1, self.proj, self.galactic, False)
+        if not hasattr(self.size,'__iter__'):
+            self.skyimage = SkyImage(self.center, self.fitsfile, self.pixelsize, 
+                                     self.size, 1, self.proj, self.galactic, False)
+        else:
+            self.skyimage = SkyImage(self.center, self.fitsfile, self.pixelsize, 
+                                     float(self.size[0]), 1, self.proj, self.galactic, False, float(self.size[1]))
 
         self.fill()
 
         self.nx, self.ny = self.skyimage.naxis1(), self.skyimage.naxis2()
         self.image=N.array(self.skyimage.image()).reshape((self.ny, self.nx))
 
+    def fill():
+        raise NotImplementedError("Subclasses should implement this!")
+
     def get_ZEA(self,axes=None,nticks=None):
         """ axes and nticks can be created by this object's constructor, but are
             more logically specified here. If they are not specified, get values from
             initial object creation. """
         # get out of the object all parameters which should be passed to ZEA.
+
+        if hasattr(self.size,'__iter__'):
+            raise Exception("Can only create ZEA object for square objects.")
+
         zea_dict = dict((d[0],self.__dict__[d[0]]) for d in ZEA.defaults if hasattr(d,'__iter__'))
         if axes is not None: zea_dict['axes']=axes
         if nticks is not None: zea_dict['nticks']=nticks
@@ -74,40 +87,40 @@ class ROIImage(object):
 
 
 class CountsImage(ROIImage):
+    """ This ROIImage subclass fills the sky image with the observed Fermi counts. """
 
     defaults = ROIImage.defaults + (
         ('mc_src_id', None, ''),
         ('cuts',      None, '')
     )
 
-    @keyword_options.decorate(defaults)
-    def __init__(self,roi,**kwargs):
+    @staticmethod
+    def process_filedata(roi,fields,mc_src_id,extra_cuts):
+        print 'Warning, the photon binning is not correctly applying whatever GTI cuts are requested. It is unlikely this is a big error'
 
-        self.ft1files=roi.sa.pixeldata.ft1files
+        emin = roi.bin_edges[0]
+        emax = roi.bin_edges[-1]
+        conv_type = roi.sa.conv_type
 
-        super(CountsImage,self).__init__(roi,**kwargs)
+        ft1files=roi.sa.pixeldata.ft1files
 
-    def process_filedata(self,fields):
-
-        emin = self.roi.bin_edges[0]
-        emax = self.roi.bin_edges[-1]
-        conv_type = self.roi.sa.conv_type
-
-        base_cuts = ['ENERGY > %s'%(emin),'ENERGY < %s'%(emax),'ZENITH_ANGLE < 105']
+        base_cuts = ['ENERGY > %s'% emin,
+                     'ENERGY < %s'% emax,
+                     'ZENITH_ANGLE < %s' % roi.sa.pixeldata.zenithcut,
+                     'THETA < %s' % roi.sa.pixeldata.thetacut,
+                     'EVENT_CLASS == %s' % roi.sa.pixeldata.event_class]
         if conv_type >= 0:        base_cuts += ['EVENT_CLASS == %d'%(conv_type)]
-        if self.mc_src_id is not None: base_cuts += ['MC_SRC_ID == %d'%(self.mc_src_id)]
-        cuts = base_cuts if self.cuts is None else self.cuts + base_cuts
+        if mc_src_id is not None: base_cuts += ['MC_SRC_ID == %d'%(mc_src_id)]
+        cuts = base_cuts if extra_cuts is None else extra_cuts + base_cuts
 
-        data = get_fields(self.ft1files,fields,cuts)
-
-        return data
+        data = get_fields(ft1files,fields,cuts)
+        skydirs = [ SkyDir(float(data['RA'][i]),float(data['DEC'][i])) for i in xrange(len(data['RA']))]
+        return skydirs
 
     def fill(self):
-        print 'Currently, this function is not correctly applying Theta/GTI/Zenith cuts.'
-        data = self.process_filedata(['RA','DEC'])
+        dirs = CountsImage.process_filedata(self.roi,['RA','DEC'],self.mc_src_id,self.cuts)
 
-        for i in xrange(len(data['RA'])):
-            photon_dir=SkyDir(float(data['RA'][i]),float(data['DEC'][i]))
+        for photon_dir in dirs:
             self.skyimage.addPoint(photon_dir)
 
 
@@ -200,7 +213,7 @@ class ModelImage(ROIImage):
         """
         xs,ys = myarr.shape
         crarr = myarr[:xs-(xs % int(factor)),:ys-(ys % int(factor))]
-        dsarr = numpy.concatenate([[crarr[i::factor,j::factor] 
+        dsarr = N.concatenate([[crarr[i::factor,j::factor] 
             for i in range(factor)] 
             for j in range(factor)]).mean(axis=0)
         return dsarr
@@ -219,8 +232,13 @@ class ModelImage(ROIImage):
             return self.wsdl
         else:
             # hold onto this thing since it is needed by downsample_model
-            self.fine_skyimage = SkyImage(self.center, self.fitsfile, float(self.pixelsize)/self.factor,
-                                     self.size, 1, self.proj, self.galactic, False)
+            if not hasattr(self.size,'__iter__'):
+                self.fine_skyimage = SkyImage(self.center, self.fitsfile, float(self.pixelsize)/self.factor,
+                                         self.size, 1, self.proj, self.galactic, False)
+            else:
+                self.fine_skyimage = SkyImage(self.center, self.fitsfile, float(self.pixelsize)/self.factor,
+                                         float(self.size[0]), 1, self.proj, self.galactic, False, float(self.size[1]))
+
             wsdl = self.fine_skyimage.get_wsdl() 
             return wsdl
 
@@ -333,3 +351,41 @@ class ModelImage(ROIImage):
         """ Calculate the diffuse source contributions. """
         return sum(self.diffuse_source_counts(bg)
                    for bg in self.roi.dsm.bgmodels)
+
+
+
+class ROIRadialIntegral(object):
+    """ This object is similar to ROIImage but performs a radial
+        integral around around a given direction in the sky. """
+
+
+    defaults = (
+            ('center',    None, 'Center of image'),
+            ('size',         2, 'Size of image in degrees'), 
+            ('npix',        20, 'Number of pixels for the image.')
+    )
+
+    @keyword_options.decorate(defaults)
+    def __init__(self,roi,**kwargs):
+        keyword_options.process(self, kwargs)
+        
+        self.roi = roi
+
+        # by default, use get energy range and image center from roi.
+        if self.center is None: self.center=self.roi.roi_dir
+
+        self.bin_edges   = N.uniform(0,self.size**2,self.npix+1)
+        self.bin_centers = None
+
+        # the lower and upper agle for each bin.
+        self.theta_pairs = zip(N.radians(N.sqrt(self.bin_edges[0:-1])),
+                               N.radians(N.sqrt(self.bin_edges[1:])))
+
+
+        self.fill()
+
+    def fill():
+        """ This should fill up self.image appropriatly."""
+        raise NotImplementedError("Subclasses should implement this!")
+
+
