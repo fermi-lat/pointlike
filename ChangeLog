@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sat Dec 11 23:05:39 PST 2010
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_image.py 
+Log Message:
+Allow ROIImage to be non-square.
+    *
+------------------------------------------------------------
 User: lande  Sat Dec 11 22:50:35 PST 2010
 ScienceTools-scons/pointlike/python/uw/like
 
