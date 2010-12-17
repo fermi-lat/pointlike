@@ -4,7 +4,7 @@ of a pulsar light curve.  Included a primitives (Gaussian, Lorentzian), etc.
 as well as more sophisticated holistic templates that provide 
 single-parameter (location) representations of the light curve.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.1 2010/11/01 19:54:18 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.2 2010/11/19 21:36:02 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -92,9 +92,6 @@ class LCPrimitive(object):
     def gradient(self):
         raise NotImplementedError('No gradient function found for this object.')
       
-    def integrate(self):
-        raise NotImplementedError('No integrate function found for this object.')
-
     def __str__(self):
         m=max([len(n) for n in self.pnames])
         l = []
@@ -136,7 +133,6 @@ class LCWrappedFunction(LCPrimitive):
         return results
 
     def integrate(self,x1=0,x2=1):
-        norm,width,x0 = self.p
         results = self.base_int(x1,x2,index=0)
         for i in xrange(1,MAXWRAPS+1):
             for j in [i,-i]:
@@ -190,6 +186,63 @@ class LCGaussian(LCWrappedFunction):
 
 #===============================================================================================#
 
+class LCGaussian2(LCWrappedFunction):
+    """ Represent a (wrapped) Gaussian peak with two sides.
+
+        Parameters:
+            Norm      :     fraction of photons belonging to peak
+            Width1    :     the standard deviation parameter of the norm dist.
+            Width2    :     the standard deviation parameter of the norm dist.
+            Location  :     the mode of the Gaussian distribution
+    """
+
+    def init(self):
+        self.p    = np.asarray([1,0.03,0.03,0.5])
+        self.free = np.asarray([True]*len(self.p))
+        self.pnames = ['Norm','Width','Location']
+        self.name = 'Gaussian2'
+        self.two_sided = True
+
+    def fwhm(self):
+        raise ValueError,'Does not make sense'
+        #return self.p[1]*(8 * np.log(2))**0.5
+
+    def base_func(self,phases,index=0):
+        norm,w1,w2,x0 = self.p
+        n1 = 2*norm/(1+w2/w1); n2 = n1*(w2/w1)
+        delta = (phases - x0 + index)
+        mask = delta < 0
+        if np.all(mask):
+            return (n1/(w1*ROOT2PI))*np.exp(-0.5*(delta/w1)**2 )
+        elif np.all(~mask):
+            return (n2/(w2*ROOT2PI))*np.exp(-0.5*(delta/w2)**2 )
+        else:
+            width = np.where(mask,w1,w2)
+            norm  = np.where(mask,n1,n2)
+            return norm/(width*ROOT2PI)*np.exp(-0.5*(delta/width)**2)
+            
+    def base_grad(self,phases,index=0):
+        raise NotImplementedError,'Have not done gradient yet...'
+        #norm,width,x0 = self.p
+        #z      = (phases - x0 + index)/width
+        #fvals  = self._base_func(phases,index=index)
+        #return np.asarray([fvals/norm,fvals/width*(z**2 - 1.),fvals/width*z])
+
+    def base_int(self,x1,x2,index=0):
+        norm,w1,w2,x0 = self.p
+        n1 = 2*norm/(1+w2/w1); n2 = n1*(w2/w1)
+        if x2 <= x0:
+            z1 = (x1 - x0 + index)/w1; z2 = (x2 - x0 + index)/w1;
+            return 0.5*n1*(erf(z2/ROOT2)-erf(z1/ROOT2))
+        elif x1 >= x0:
+            z1 = (x1 - x0 + index)/w2; z2 = (x2 - x0 + index)/w2;
+            return 0.5*n2*(erf(z2/ROOT2)-erf(z1/ROOT2))
+        else:
+            return self.base_int(x1,x0,index) + self.base_int(x0,x2,index)
+
+
+#===============================================================================================#
+
 class LCLorentzian(LCWrappedFunction):
     """ Represent a Lorentzian peak.
    
@@ -210,7 +263,7 @@ class LCLorentzian(LCWrappedFunction):
 
     def base_func(self,phases,index=0):
         norm,gamma,x0 = self.p
-        return (gamma/np.pi*norm) * ( (phases - x0 + index)**2 + gamma**2)**-1
+        return (gamma/np.pi*norm) / ( (phases - x0 + index)**2 + gamma**2)
 
     def base_int(self,x1,x2,index=0):
         norm,gamma,x0 = self.p
@@ -242,7 +295,7 @@ class LCVonMises(LCPrimitive):
         norm,width,loc = self.p
         return norm*np.exp(np.cos(TWOPI*(phases-loc))/width)/i0(1./width)
 
-    def integrate(x0=0,x1=1):
+    def integrate(self,x0=0,x1=1):
         if (x0==0) and (x1==1): return self.p[0]
         dom = np.linspace(0,1,min(500,max(100,5./self.p[1])))
         cod = self(dom)
