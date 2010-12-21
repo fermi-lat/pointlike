@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.26 2010/12/03 00:12:41 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.27 2010/12/05 09:28:05 lande Exp $
 
    author: Matthew Kerr
 """
@@ -550,7 +550,10 @@ def parse_sourcelib(xml):
     parser = x.make_parser()
     handler = SourceHandler()
     parser.setContentHandler(handler)
-    parser.parse(xml)
+    if isinstance(xml,list):
+	    [parser.parse(xmlfile) for xmlfile in xml]
+    else:
+	    parser.parse(xml)
     return handler
 
 def parse_point_sources(handler,roi_dir,max_roi):
