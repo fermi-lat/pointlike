@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.27 2010/12/05 09:28:05 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.28 2010/12/21 20:30:28 cohen Exp $
 
    author: Matthew Kerr
 """
@@ -276,9 +276,10 @@ class Model_to_XML(object):
        
        This class should be extended as more use cases arise."""
     
-    def __init__(self,debug=False):
+    def __init__(self,debug=False, strict=False):
         self.x2m = XML_to_Model()
         self.debug = debug
+        self.strict = strict
 
     def update(self,name,scaling=False):
         self.name = name
@@ -372,7 +373,7 @@ class Model_to_XML(object):
             self.pname  = ['norm', 'alpha', 'beta', 'Eb' ]
             self.pfree  = [1,1,1,1]
             self.perr   = [0,0,0,0]
-            self.pscale = [1e-9,-1,1,1]
+            self.pscale = [1e-9,1,1,1]
             self.pmin   = [1e-6,0,0,30]
             self.pmax   = [1e4,5,5,5e5]
             self.pval   = [1,2,0,1e3]
@@ -453,12 +454,14 @@ class Model_to_XML(object):
             if (param == 'Index') or (param == 'Index1') or (param == 'Index2' and model.name!='PLSuperExpCutoff'):
                 self.process_photon_index(model,index,vals[iparam],errs[iparam])
             if self.pval[index] < self.pmin[index]:
-                print 'WARNING: Found %s for minimum value %s (%s)'%(str(self.pval[index]),str(self.pmin[index]),param)
-                print 'Setting parameter value to minimum.'
+                msg = 'Found %s=%s < %s, minimum allowed valus '%(param, str(self.pval[index]),str(self.pmin[index]))
+                if self.strict: raise Exception(msg)
+                print 'WARNING: %s, \n\tSetting parameter value to minimum.' %s
                 self.pval[index] = self.pmin[index]
             if self.pval[index] > self.pmax[index]:
-                print 'Found %s for maximum value %s (%s)'%(str(self.pval[index]),str(self.pmax[index]),param)
-                print 'Setting parameter value to maximum.'
+                msg = 'Found %s=%s > %s, maximum allowed value'%(param, str(self.pval[index]),str(self.pmax[index]))
+                if self.strict: raise Exception(msg)
+                print 'Warning %s, \n\tSetting parameter value to maximum.'%msg
                 self.pval[index] = self.pmax[index]
 
         # replace non-variable parameters
@@ -621,13 +624,19 @@ def parse_sources(xmlfile,diffdir=None,roi_dir=None,max_roi=None):
     ds = parse_diffuse_sources(handler,diffdir=diffdir)
     return ps,ds
 
-def unparse_point_sources(point_sources):
-    """Convert a list (or other iterable) of PointSource objects into XML."""
+def unparse_point_sources(point_sources, strict=False):
+    """Convert a list (or other iterable) of PointSource objects into XML.
+        strict : bool
+            set True to generate exception, error message identifying offending source, reason
+    """
     xml_blurbs = Stack()
-    m2x = Model_to_XML()
+    m2x = Model_to_XML(strict=strict)
     for ps in point_sources:
         skyxml = makePSSpatialModel(ps.skydir.ra(),ps.skydir.dec())
-        m2x.process_model(ps.model)
+        try:
+            m2x.process_model(ps.model)
+        except Exception, emsg:
+            print 'Failed to process source %s: %s' %(ps.name, emsg)
         specxml = m2x.getXML()
         s1 = '\n<source name="%s" type="PointSource" Pivot_Energy="%.0f">\n'%(ps.name, ps.model.e0)
         s2 = '</source>'
@@ -691,7 +700,7 @@ def unparse_diffuse_sources(diffuse_sources,strict,filename):
         xml_blurbs.push(process_diffuse_source(ds,strict,filename))
     return xml_blurbs
 
-def writeXML(stacks,filename, title='source_library'):
+def writeXML(stacks,filename, title='source_library', strict=False):
     """Write XML blurbs to a gtlike-style XML file."""
     f = open(filename,'wb') if type(filename)==str else filename
     f.write('<source_library title="%s">'% title)
