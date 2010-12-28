@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.27 2010/11/16 06:46:13 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.28 2010/12/05 09:31:40 lande Exp $
 
     author: Matthew Kerr
     """
@@ -277,12 +277,16 @@ class ExtendedSourceCatalog(PointSourceCatalog):
     def get_sources(self,skydir,radius=15):
         """ Returns a list of ExtendedSource objects from the extended source
             catalog that have a center withing a distance radius of the
-            position skydir. """
+            position skydir. 
+           
+        Note that if there are none, it returns an empty list.   
+        """
 
         from uw.utilities.xml_parsers import parse_sources
 
         diffs    = N.degrees(N.asarray([skydir.difference(d) for d in self.dirs]))
         mask     = diffs < radius
+        if sum(mask)==0: return []
         diffs    = diffs[mask]
         sorting = N.argsort(diffs)
 
