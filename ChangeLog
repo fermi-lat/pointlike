@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jan  5 21:33:45 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+Fixing edge case for PsfOverlap where radius=0.
+    *
+------------------------------------------------------------
 User: cohen  Mon Jan  3 20:09:17 PST 2011
 pointlike/python/uw/utilities
 
