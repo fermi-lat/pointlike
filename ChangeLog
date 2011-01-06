@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jan  5 23:26:57 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+move the calculation of ns,bg_points, and bg_vector to a static function so that the same routine can be called by roi_image objects.
+    *
+------------------------------------------------------------
 User: lande  Wed Jan  5 21:33:45 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
