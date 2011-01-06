@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.14 2010/10/05 19:52:27 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.15 2010/12/09 23:43:35 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -136,6 +136,23 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         #self.active_bgc.do_convolution(energy,conversion_type,override_en=band.e)
         self.active_bgc.do_convolution(energy,conversion_type)
 
+    @staticmethod 
+    def sub_energy_binning(band,nsimps):
+        """ This code is in a static method so it can be used consistently with 
+            the model predicted counts code (in roi_image.py). """
+
+        # use a higher nsimps at low energy where effective area is jagged
+        ns = (2 if band.emin<200 else 1)*nsimps
+        if ns > 0:
+            bg_points = sp = N.logspace(N.log10(band.emin),N.log10(band.emax),ns+1)
+            bg_vector = sp * (N.log(sp[-1]/sp[0])/(3.*ns)) * \
+                                     N.asarray([1.] + ([4.,2.]*(ns/2))[:-1] + [1.])
+        else:
+            bg_points = sp = N.asarray([band.e])
+            bg_vector = sp * N.log(band.emax/band.emin)
+        return ns,bg_points,bg_vector
+
+
     def initialize_counts(self,bands,roi_dir=None):
         rd = self.roi_dir if roi_dir is None else roi_dir
         self.bands = [SmallBand() for i in xrange(len(bands))]
@@ -143,14 +160,7 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         for myband,band in zip(self.bands,bands):
 
             # use a higher nsimps at low energy where effective area is jagged
-            ns = (2 if band.emin<200 else 1)*self.nsimps
-            if ns > 0:
-                myband.bg_points = sp = N.logspace(N.log10(band.emin),N.log10(band.emax),ns+1)
-                myband.bg_vector = sp * (N.log(sp[-1]/sp[0])/(3.*ns)) * \
-                                         N.asarray([1.] + ([4.,2.]*(ns/2))[:-1] + [1.])
-            else:
-                myband.bg_points = sp = N.asarray([band.e])
-                myband.bg_vector = sp * N.log(band.emax/band.emin)
+            ns,myband.bg_points,myband.bg_vector = ROIDiffuseModel_OTF.sub_energy_binning(band,self.nsimps)
 
             #figure out best way to handle no pixel cases...
             myband.ap_evals  = N.empty(ns + 1)      
