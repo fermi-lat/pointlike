@@ -6,18 +6,20 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.2 2010/12/09 22:21:35 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.3 2010/12/12 07:05:39 lande Exp $
 
 author: Joshua Lande
 """
-from skymaps import SkyImage,SkyDir,PythonUtilities
+from skymaps import SkyImage,SkyDir,PythonUtilities,Band,WeightedSkyDirList
 import numpy as N
 
-from uw.like.roi_diffuse import ROIDiffuseModel_OTF
-from uw.like.roi_extended import ROIExtendedModel
+from roi_diffuse import ROIDiffuseModel_OTF
+from roi_extended import ROIExtendedModel,ROIExtendedModelAnalytic
 from uw.utilities import keyword_options
 from uw.utilities.fitstools import get_fields
 from uw.utilities.image import ZEA
+from pypsf import PsfOverlap
+import collections
 
 class ROIImage(object):
     """ This object is suitable for creating a SkyImage object
@@ -25,9 +27,7 @@ class ROIImage(object):
         quantity gotten from an ROIAnalysis object. 
         The acutal work is done by subclasses. """
 
-    defaults = ZEA.defaults 
-    
-    defaults += (
+    defaults = ZEA.defaults + (
             ('center',    None,  'Center of image'),
     )
 
@@ -47,7 +47,7 @@ class ROIImage(object):
 
         # set up, then create a SkyImage object to perform the projection
         # to a grid and manage an image
-        if not hasattr(self.size,'__iter__'):
+        if not isinstance(self.size,collections.Iterable):
             self.skyimage = SkyImage(self.center, self.fitsfile, self.pixelsize, 
                                      self.size, 1, self.proj, self.galactic, False)
         else:
@@ -95,8 +95,7 @@ class CountsImage(ROIImage):
     )
 
     @staticmethod
-    def process_filedata(roi,fields,mc_src_id,extra_cuts):
-        print 'Warning, the photon binning is not correctly applying whatever GTI cuts are requested. It is unlikely this is a big error'
+    def process_filedata(roi,mc_src_id,extra_cuts):
 
         emin = roi.bin_edges[0]
         emax = roi.bin_edges[-1]
@@ -113,12 +112,17 @@ class CountsImage(ROIImage):
         if mc_src_id is not None: base_cuts += ['MC_SRC_ID == %d'%(mc_src_id)]
         cuts = base_cuts if extra_cuts is None else extra_cuts + base_cuts
 
-        data = get_fields(ft1files,fields,cuts)
+        data = get_fields(ft1files,['RA','DEC','time'],cuts)
+        # convert into skydirs
         skydirs = [ SkyDir(float(data['RA'][i]),float(data['DEC'][i])) for i in xrange(len(data['RA']))]
+
+        # apply the same gti cut used to read in the initial WSDL.
+        gti=roi.sa.pixeldata.gti
+        skydirs = [ skydir for skydir,time in zip(skydirs,data['time']) if gti.accept(time)]
         return skydirs
 
     def fill(self):
-        dirs = CountsImage.process_filedata(self.roi,['RA','DEC'],self.mc_src_id,self.cuts)
+        dirs = CountsImage.process_filedata(self.roi,self.mc_src_id,self.cuts)
 
         for photon_dir in dirs:
             self.skyimage.addPoint(photon_dir)
@@ -180,6 +184,7 @@ class ModelImage(ROIImage):
         """
 
     defaults = ROIImage.defaults
+
     @keyword_options.decorate(defaults)
     def __init__(self,*args,**kwargs):
         if kwargs.has_key('proj') and kwargs['proj'] != 'ZEA':
@@ -316,11 +321,7 @@ class ModelImage(ROIImage):
 
         for band in bands:
 
-            # use a higher nsimps at low energy where effective area is jagged
-            ns = (2 if band.emin<200 else 1)*bg.nsimps
-            bg_points = sp = N.logspace(N.log10(band.emin),N.log10(band.emax),ns+1)
-            bg_vector = sp * (N.log(sp[-1]/sp[0])/(3.*ns)) * \
-                                     N.asarray([1.] + ([4.,2.]*(ns/2))[:-1] + [1.])
+            ns,bg_points,bg_vector = ROIDiffuseModel_OTF.sub_energy_binning(band,bg.nsimps)
 
             pi_evals  = N.empty([len(self.wsdl),ns + 1])
 
@@ -354,32 +355,41 @@ class ModelImage(ROIImage):
 
 
 
-class ROIRadialIntegral(object):
+class RadialImage(object):
     """ This object is similar to ROIImage but performs a radial
         integral around around a given direction in the sky. """
 
 
     defaults = (
-            ('center',    None, 'Center of image'),
-            ('size',         2, 'Size of image in degrees'), 
-            ('npix',        20, 'Number of pixels for the image.')
+            ('center',       None, 'Center of image'),
+            ('size',            2, 'Size of image (in degrees)'), 
+            ('pixelsize', 0.00625, """ size of each image pixel. This is a little misleading because the
+                                       size of each pixel varies, but regardless this is used to determine
+                                       the total number of pixels with npix=size/pixelsize """),
     )
 
     @keyword_options.decorate(defaults)
     def __init__(self,roi,**kwargs):
         keyword_options.process(self, kwargs)
+
+        self.npix = float(self.size)/self.pixelsize
         
         self.roi = roi
 
         # by default, use get energy range and image center from roi.
         if self.center is None: self.center=self.roi.roi_dir
 
-        self.bin_edges   = N.uniform(0,self.size**2,self.npix+1)
-        self.bin_centers = None
+        # bins in theta^2
+        self.bin_edges_deg = N.linspace(0.0,self.size**2,self.npix+1)
+        self.bin_centers_deg = (self.bin_edges_deg[1:] + self.bin_edges_deg[:-1])/2.0
+        
+        # two factors of radians b/c theta^2
+        self.bin_edges_rad = N.radians(N.radians(self.bin_edges_deg))
+        self.bin_centers_rad = N.radians(N.radians(self.bin_centers_deg))
 
         # the lower and upper agle for each bin.
-        self.theta_pairs = zip(N.radians(N.sqrt(self.bin_edges[0:-1])),
-                               N.radians(N.sqrt(self.bin_edges[1:])))
+        self.theta_pairs_rad = zip(N.sqrt(self.bin_edges_rad[:-1]),
+                                   N.sqrt(self.bin_edges_rad[1:]))
 
 
         self.fill()
@@ -389,3 +399,167 @@ class ROIRadialIntegral(object):
         raise NotImplementedError("Subclasses should implement this!")
 
 
+class RadialCounts(RadialImage):
+    """ This subclass of RadialImage calculates the counts within
+        each radial bin. """
+
+    defaults = RadialImage.defaults + (
+        ('mc_src_id', None, ''),
+        ('cuts',      None, '')
+    )
+
+    def fill(self):
+        dirs = CountsImage.process_filedata(self.roi,self.mc_src_id,self.cuts)
+        diffs = [self.center.difference(i) for i in dirs]
+        self.image=N.histogram(diffs,bins=N.sqrt(self.bin_edges_rad))[0]
+
+class RadialModel(RadialImage):
+
+    defaults = RadialImage.defaults
+
+    def fill(self):
+
+        self.image=N.zeros_like(self.bin_centers_rad)
+
+        self.image += self.all_point_sources_counts()
+        self.image += self.all_diffuse_sources_counts()
+
+    def all_point_sources_counts(self):
+        """ Calculate the point source contributions. """
+        roi=self.roi
+        bands=roi.bands
+        point_sources = roi.psm.point_sources
+
+        point_counts = N.zeros_like(self.bin_centers_rad)
+
+        overlap = PsfOverlap()
+
+        for i,(theta_min,theta_max) in enumerate(self.theta_pairs_rad):
+
+            model_counts=0
+
+            for j,ps in enumerate(point_sources):
+                for band in bands:
+
+                    # this code requires a redundant call to overlap. Improve if time.
+                    fraction=overlap(band,self.center,ps.skydir,radius_in_rad=theta_max) - \
+                             overlap(band,self.center,ps.skydir,radius_in_rad=theta_min)
+
+                    model_counts += band.ps_counts[j]*fraction
+
+            point_counts[i] = model_counts
+
+        return point_counts
+
+    def extended_source_counts(self,extended_model):
+        if type(extended_model) not in [ROIExtendedModel,ROIExtendedModelAnalytic]:
+            raise Exception("Unknown extended model.")
+
+        roi=self.roi
+        bands=roi.bands
+
+        extended_counts = N.zeros_like(self.bin_centers_rad)
+
+        for band,myband in zip(bands,extended_model.bands):
+            extended_model.set_state(band)
+
+            if type(extended_model) == ROIExtendedModel:
+
+                num_points_per_ring=20
+                nside = int(N.ceil(N.sqrt(num_points_per_ring*(4./12.)*(self.npix/N.radians(self.size)**2))))
+
+                temp_band = Band(nside)
+                wsdl = WeightedSkyDirList(temp_band,self.center,N.radians(self.size),True)
+                vals=extended_model._pix_value(wsdl)
+
+                rvals=N.empty(len(wsdl),dtype=float)
+                PythonUtilities.arclength(rvals,wsdl,self.center)
+
+                # get average value in each ring by averaging values.
+                fraction = N.histogram(rvals,weights=vals,bins=N.sqrt(self.bin_edges_rad))[0]/\
+                           N.histogram(rvals,bins=N.sqrt(self.bin_edges_rad))[0]
+
+                # multiply intensities by solid angle in ring
+                fraction *= 2*N.pi*(1-N.cos(N.radians(self.size)))/self.npix
+
+            elif type(extended_model) == ROIExtendedModelAnalytic:
+
+                fraction = N.empty_like(self.bin_centers_rad)
+
+                for i,(theta_min,theta_max) in enumerate(self.theta_pairs_rad):
+
+                    fraction[i]=extended_model._overlaps(self.center,band,theta_max) - \
+                             extended_model._overlaps(self.center,band,theta_min)
+
+            # total counts * fraction = model predictions in each ring.
+            extended_counts += myband.es_counts*fraction
+
+        return extended_counts
+
+
+    def otf_source_counts(self,bg):
+        """
+            Solid angle of each healpix pixel is 4pi/(12*ns^2)
+            Solid angel of each ring is 4*(size)^2/npix
+            Want size of each ring > 20*size of each healpix (so that
+            we get 20 pixels to sample each ring).
+
+            Solving for ns, the size of the healpixels required, we get
+
+            ns=ceil(20*(4/12)*npix/size^2) 
+            
+            with where size is in radians. 
+        """
+
+        roi=self.roi
+        bands=roi.bands
+
+        mo=bg.smodel
+
+        background_counts = N.zeros_like(self.bin_centers_rad)
+
+        for band in bands:
+
+            ns,bg_points,bg_vector = ROIDiffuseModel_OTF.sub_energy_binning(band,bg.nsimps)
+
+            num_points_per_ring=20
+            nside = int(N.ceil(N.sqrt(num_points_per_ring*(4./12.)*(self.npix/N.radians(self.size)**2))))
+
+            temp_band = Band(nside)
+            wsdl = WeightedSkyDirList(temp_band,self.center,N.radians(self.size),True)
+
+            ap_evals = N.empty([len(self.bin_centers_rad),len(bg_points)])
+
+            for ne,e in enumerate(bg_points):
+
+                bg.set_state(e,band.ct,band)
+
+                rvals=N.empty(len(wsdl),dtype=float)
+                PythonUtilities.arclength(rvals,wsdl,self.center)
+                vals=bg._pix_value(wsdl)
+
+                # get average value in each ring by averaging values.
+                ap_evals[:,ne] = N.histogram(rvals,weights=vals,bins=N.sqrt(self.bin_edges_rad))[0]/\
+                                 N.histogram(rvals,bins=N.sqrt(self.bin_edges_rad))[0]
+
+                # multiply intensities by solid angle in ring
+                ap_evals[:,ne] *= 2*N.pi*(1-N.cos(N.radians(self.size)))/self.npix
+
+            ap_evals          *= bg_vector
+            mo_evals           = mo(bg_points)
+            background_counts += (ap_evals * mo_evals).sum(axis=1)
+
+        return background_counts
+
+    def diffuse_source_counts(self,bg):
+        if isinstance(bg,ROIDiffuseModel_OTF):
+            return self.otf_source_counts(bg)
+        elif isinstance(bg,ROIExtendedModel):
+            return self.extended_source_counts(bg)
+        else:
+            raise Exception("Unable to calculate model predictions for diffuse source %s", bg.name)
+
+    def all_diffuse_sources_counts(self):
+        """ Calculate the diffuse source contributions. """
+        return sum(self.diffuse_source_counts(bg)
+                   for bg in self.roi.dsm.bgmodels)
