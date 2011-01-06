@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jan  5 23:48:23 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_image.py 
+Log Message:
+Addition of RadialImage (renamed from ROIRadialIntegral), RadialCounts, and RadialModel objects. The code is now in place to calculate model predictions integrated in radius. Correctly apply gti cut when binning ft1 file. Some overal code cleanup (including now importing bg_points and bg_vectors to avoid code overlap).
+    *
+------------------------------------------------------------
 User: lande  Wed Jan  5 23:27:27 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
