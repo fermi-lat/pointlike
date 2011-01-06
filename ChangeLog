@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jan  5 23:56:14 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Add ROIRadialIntegral object. Some code cleanup to avoid code repeat.
+    *
+------------------------------------------------------------
 User: lande  Wed Jan  5 23:48:23 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
