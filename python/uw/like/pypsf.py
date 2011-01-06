@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.21 2010/09/23 21:28:38 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pypsf.py,v 1.22 2010/10/21 22:36:43 mar0 Exp $
 author: M. Kerr
 
 """
@@ -397,7 +397,7 @@ class PsfOverlap(object):
         """Return the fractional overlap for a point source at location skydir.
             Note radius arguments are in radians."""
 
-        roi_rad  = radius_in_rad or band.radius_in_rad
+        roi_rad  = band.radius_in_rad if radius_in_rad is None else radius_in_rad
         integral = band.psf.integral if override_integral is None else override_integral
 
         offset    = roi_dir.difference(ps_dir)
