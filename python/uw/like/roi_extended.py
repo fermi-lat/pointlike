@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.38 2010/12/09 05:49:54 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.39 2010/12/09 22:21:06 lande Exp $
 
     author: Joshua Lande
 """
@@ -513,14 +513,14 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
     def _pix_value(self,pixlist):
         return self.active_bgc(pixlist)
 
-    def _overlaps(self,center,band):
+    def _overlaps(self,center,band,radius=None):
         """ Calculate the fraction of the PDF not contained within the ROI
             using the PsfOverlap object (but override the pdf and integral
             function to use instead the extended source pdf. """
         return self.overlap(band=band,
                             roi_dir=center,
                             ps_dir=self.extended_source.spatial_model.center,
-                            radius_in_rad=band.radius_in_rad,
+                            radius_in_rad=radius if radius is not None else band.radius_in_rad,
                             override_pdf=self.active_bgc,
                             override_integral=self.active_bgc.integral)
 
