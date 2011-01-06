@@ -6,14 +6,14 @@ Given an ROIAnalysis object roi:
      plot_counts(roi)
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.13 2010/12/09 05:51:40 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.14 2010/12/12 06:50:35 lande Exp $
 
 author: Matthew Kerr
 """
 import exceptions
 import numpy as N
 from roi_bands import ROIEnergyBand
-from roi_image import ModelImage,CountsImage
+from roi_image import ModelImage,CountsImage,RadialCounts,RadialModel
 from roi_extended import ExtendedSource
 from pointspec_helpers import PointSource
 from uw.utilities import colormaps
@@ -403,12 +403,8 @@ class ROIDisplay(object):
     def mathrm(st):
         return  r'$\mathrm{'+st.replace(' ','\/')+'}$'
 
-    @keyword_options.decorate(defaults)
-    def __init__(self, roi, **kwargs):
-        keyword_options.process(self, kwargs)
-        
-        self.roi = roi
-
+    @staticmethod
+    def matplotlib_format():
         rcParams['xtick.major.size']=10 #size in points
         rcParams['xtick.minor.size']=6
         rcParams['ytick.major.size']=10 #size in points
@@ -416,6 +412,14 @@ class ROIDisplay(object):
         rcParams['xtick.labelsize']=12
         rcParams['ytick.labelsize']=12
         rcParams['font.family']='serif'
+
+    @keyword_options.decorate(defaults)
+    def __init__(self, roi, **kwargs):
+        keyword_options.process(self, kwargs)
+        
+        self.roi = roi
+
+        ROIDisplay.matplotlib_format()
 
         try:
             self.cmap_sls = colormaps.sls
@@ -610,7 +614,7 @@ class ROISlice(object):
 
     defaults = (
             ('figsize',        (7,6),          'Size of the image'),
-            ('fignum',             3,   'matplotlib figure number'),
+            ('fignum',             4,   'matplotlib figure number'),
             ('pixelsize',      0.125,   'size of each image pixel'),
             ('size',              10,  'Size of the field of view'),
             ('galactic',        True, 'Coordinate system for plot'),
@@ -638,29 +642,22 @@ class ROISlice(object):
         
         self.roi = roi
 
-        if self.which is not None:
+        if self.which is None:
+            self.source=None
+            self.pretty_name = 'Model'
+            self.center=self.roi.roi_dir
+        else:
             manager,index=self.roi.mapper(self.which)
             if manager == roi.psm:
                 self.source=manager.point_sources[index]
                 self.pretty_name = 'Point'
             else:
                 self.source=manager.diffuse_sources[index]
-
                 self.pretty_name = self.source.spatial_model.pretty_name
 
             self.center=self.source.skydir
-        else:
-            self.center=self.roi.roi_dir
-            self.pretty_name = 'Model'
-            self.source=None
 
-        rcParams['xtick.major.size']=10 #size in points
-        rcParams['xtick.minor.size']=6
-        rcParams['ytick.major.size']=10 #size in points
-        rcParams['ytick.minor.size']=6
-        rcParams['xtick.labelsize']=12
-        rcParams['ytick.labelsize']=12
-        rcParams['font.family']='serif'
+        ROIDisplay.matplotlib_format()
 
         P.ioff()
         fig = P.figure(self.fignum,self.figsize)
@@ -675,6 +672,26 @@ class ROISlice(object):
         self.ci_x = CountsImage(self.roi,center=self.center,size=(self.size,self.int_width),pixelsize=ps,galactic=gal)
         self.ci_y = CountsImage(self.roi,center=self.center,size=(self.int_width,self.size),pixelsize=ps,galactic=gal)
 
+    @staticmethod
+    def cache_roi(roi):
+        roi.old_parameters = roi.parameters().copy() # save free parameters
+        roi.old_cov_matrix = roi.cov_matrix.copy() if roi.__dict__.has_key('cov_matrix') else None
+
+    @staticmethod
+    def uncache_roi(roi):
+
+        roi.set_parameters(roi.old_parameters) # reset free parameters
+
+        if roi.old_cov_matrix is not None:
+            # reset spectral errors
+            roi.cov_matrix = roi.old_cov_matrix
+            roi.bgm.set_covariance_matrix(roi.old_cov_matrix,current_position = 0)
+            roi.psm.set_covariance_matrix(roi.old_cov_matrix,current_position = len(roi.bgm.parameters()))
+
+        roi.__pre_fit__() # restore caching
+        roi.update_counts()
+
+
     def get_model(self):
         kwargs=dict(center=self.center,pixelsize=float(self.pixelsize)/self.oversample_factor,
                     galactic=self.galactic)
@@ -688,35 +705,30 @@ class ROISlice(object):
         if self.nosource and self.which is not None:
             # Hide the source, again calculate model predictions, and then restore.
 
-            save_params = self.roi.parameters().copy() # save free parameters
+            ROISlice.cache_roi(self.roi)
 
             self.roi.zero_source(self.which)
-            self.roi.fit(estimate_errors=False)
+            self.roi.fit()
 
             self.mi_x['Background']=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
             self.mi_y['Background']=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
 
             self.roi.unzero_source(self.which)
 
-            self.roi.set_parameters(save_params) # reset free parameters
-            self.roi.__pre_fit__() # restore caching
-            self.roi.update_counts()
+            ROISlice.uncache_roi(self.roi)
 
         if self.aspoint and isinstance(self.source,ExtendedSource):
-            # change extended source to point source, relocalize point source, 
-            # calculate model predictions, then restore. Kind of ugly, improve
-            # if time.
-            save_params = self.roi.parameters().copy() # save free parameters
+
+            ROISlice.cache_roi(self.roi)
 
             es=self.roi.del_source(self.which)
 
-            ps=PointSource(name=es.name,model=es.model.copy(),skydir=es.spatial_model.center)
-            
+            ps=PointSource(name=es.name,model=es.model.copy(),skydir=es.spatial_model.center,leave_parameters=True)
             self.roi.add_source(ps)
 
-            self.roi.fit(estimate_errors=False)
+            self.roi.fit()
             self.roi.localize(which=ps,update=True)
-            self.roi.fit(estimate_errors=False)
+            self.roi.fit()
 
             self.mi_x['Point']=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
             self.mi_y['Point']=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
@@ -724,9 +736,7 @@ class ROISlice(object):
             self.roi.del_source(ps)
             self.roi.add_source(es)
 
-            self.roi.set_parameters(save_params)
-            self.roi.__pre_fit__() # restore caching 
-            self.roi.update_counts()
+            ROISlice.uncache_roi(self.roi)
 
     @staticmethod
     def range(data,pixelsize,x_axis=False):
@@ -784,8 +794,132 @@ class ROISlice(object):
         self.plot_dy()
 
         title = 'Counts Slice'
-        if self.source is not None: title += ' for Source %s' % self.source.name
+        if self.source is not None: title += ' for %s' % self.source.name
         P.suptitle(title)
+
+        if out_file is not None: P.savefig(out_file)
+        if to_screen: P.show()
+
+
+class ROIRadialIntegral(object):
+
+    defaults = (
+            ('figsize',        (7,6),          'Size of the image'),
+            ('size',               2, 'Size of image in degrees'), 
+            ('pixelsize',     0.0625, """ size of each image pixel. This is a little misleading because the
+                                          size of each pixel varies, but regardless this is used to determine
+                                          the total number of pixels with npix=size/pixelsize """),
+            ('fignum',             5, 'matplotlib figure number'),
+            ('which',           None, 'Name of source to make a slice for.'),
+            ('nosource',        True, """ Display also the model predictions without the mentioned 
+                                          source. Only works when which is specified."""),
+            ('aspoint',         True, """ Display also the model predictions for an extended source 
+                                          fit with the point hypothesis. Only works when which is an
+                                          extended source. """),
+            ('oversample_factor',  4, """ Calculate the model predictions this many times more finely. 
+                                          This will create a smoother plot of model predictions. Set 
+                                          to 1 if you want the model predictions to 'look like' the 
+                                          data."""),
+            ('smooth_model',    True, """Connect the model preditions with a line (instead of steps) 
+                                         to make the model look smoother.""")
+    )
+
+    @keyword_options.decorate(defaults)
+    def __init__(self, roi, **kwargs):
+        keyword_options.process(self, kwargs)
+
+        if not type(self.oversample_factor) == int:
+            raise Exception("oversample_factor must be an integer.")
+        
+        self.roi = roi
+
+        if self.which is None:
+            self.source=None
+            self.pretty_name = 'Model'
+            self.center=self.roi.roi_dir
+        else:
+            manager,index=self.roi.mapper(self.which)
+            if manager == roi.psm:
+                self.source=manager.point_sources[index]
+                self.pretty_name = 'Point'
+            else:
+                self.source=manager.diffuse_sources[index]
+                self.pretty_name = self.source.spatial_model.pretty_name
+
+            self.center=self.source.skydir
+
+        ROIDisplay.matplotlib_format()
+
+        P.ioff()
+        fig = P.figure(self.fignum,self.figsize)
+        P.clf()
+
+        self.get_counts()
+        self.get_model()
+
+    def get_counts(self):
+        self.ci = RadialCounts(self.roi,center=self.center,size=self.size,pixelsize=self.pixelsize)
+
+    def get_model(self):
+        kwargs=dict(center=self.center,size=self.size,pixelsize=self.pixelsize/self.oversample_factor)
+
+        self.mi = dict()
+
+        self.mi[self.pretty_name]=RadialModel(self.roi,**kwargs)
+
+        if self.nosource and self.which is not None:
+            # Hide the source, again calculate model predictions, and then restore.
+
+            ROISlice.cache_roi(self.roi)
+
+            self.roi.zero_source(self.which)
+            self.roi.fit()
+
+            self.mi['Background']=RadialModel(self.roi,**kwargs)
+
+            self.roi.unzero_source(self.which)
+
+            ROISlice.uncache_roi(self.roi)
+
+        if self.aspoint and isinstance(self.source,ExtendedSource):
+
+            ROISlice.cache_roi(self.roi)
+
+            es=self.roi.del_source(self.which)
+            ps=PointSource(name=es.name,model=es.model.copy(),skydir=es.spatial_model.center,leave_parameters=True)
+            self.roi.add_source(ps)
+            self.roi.fit()
+            self.roi.localize(which=ps,update=True)
+            self.roi.fit()
+
+            self.mi['Point']=RadialModel(self.roi,**kwargs)
+
+            self.roi.del_source(ps)
+            self.roi.add_source(es)
+
+            ROISlice.uncache_roi(self.roi)
+
+    def show(self,to_screen=True,out_file=None):
+
+        for name,model in self.mi.items():
+
+            theta_sqr=model.bin_centers_deg
+            m=model.image*self.oversample_factor
+            P.plot(theta_sqr,m,drawstyle='steps' if not self.smooth_model else 'default',
+                   label=name)
+
+        theta_sqr=self.ci.bin_centers_deg
+        c=self.ci.image
+        P.errorbar(theta_sqr,c,yerr=N.sqrt(c),label='counts', fmt='.')
+
+        P.legend(numpoints=1)
+
+        P.xlabel(ROIDisplay.mathrm(r'delta \theta^2 [deg^2]'))
+        P.ylabel(ROIDisplay.mathrm('Counts'))
+
+        title = 'Radial Integral Counts'
+        if self.source is not None: title += ' for %s' % self.source.name
+        P.title(title)
 
         if out_file is not None: P.savefig(out_file)
         if to_screen: P.show()
