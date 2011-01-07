@@ -1,14 +1,26 @@
 """
 Plotting routines to display results of an ROI analysis.
 Given an ROIAnalysis object roi:
+
+     # Make an SED (somewhat duplicate functionality to sed_plotter.plot_sed)
      plot_spectra(roi)
+
+     # Make a 2 dimensional map of the region
      ROIDisplay(roi).show()
+
+     # Make a counts SED
      plot_counts(roi)
 
+     # Plot the counts in a vertical slice
+     ROISlice(roi).show()
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.14 2010/12/12 06:50:35 lande Exp $
+     # Plot the integral counts in a radius.
+     ROIRadialIntegral(roi).show()
 
-author: Matthew Kerr
+
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.15 2011/01/06 07:56:14 lande Exp $
+
+author: Matthew Kerr, Joshua Lande
 """
 import exceptions
 import numpy as N
