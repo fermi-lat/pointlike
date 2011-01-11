@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.29 2010/12/02 23:59:00 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.30 2010/12/05 09:27:04 lande Exp $
 
    author: Joshua Lande
 
@@ -371,7 +371,7 @@ class SpatialModel(object):
         pnames      = self.param_names
 
         l=[]
-        for name,val,lo,hi,avg,abs,log,free in zip(pnames,p,hi_p,lo_p,avg_p,abs_p,self.log,self.free):
+        for name,val,hi,lo,avg,abs,log,free in zip(pnames,p,hi_p,lo_p,avg_p,abs_p,self.log,self.free):
             l += [ '%-10s: ' % name ]
 
             if log and avg != 0 and hi != 0 and lo !=0:
