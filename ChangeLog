@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jan 10 17:14:18 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Bug flipping the low and high errors in the printing of spatial parameters fit in log space. Ooops..
+    *
+------------------------------------------------------------
 User: lande  Fri Jan  7 14:11:04 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
