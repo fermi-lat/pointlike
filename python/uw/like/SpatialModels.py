@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.30 2010/12/05 09:27:04 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.31 2011/01/11 01:14:17 lande Exp $
 
    author: Joshua Lande
 
@@ -382,7 +382,8 @@ class SpatialModel(object):
             if not log and abs != 0: 
                 l[-1] += ' +/- %.3g' % abs
 
-            if not free: print ' (FROZEN)'
+            if not free: l[-1] += ' (FROZEN)'
+
         return ('\n'+indent).join(l)
 
     def full_name(self):
