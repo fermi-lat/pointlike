@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jan 11 10:38:16 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_managers.py 
+Log Message:
+More consistently update counts of diffuse sources after add_source
+    *
+------------------------------------------------------------
 User: lande  Tue Jan 11 10:33:22 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
