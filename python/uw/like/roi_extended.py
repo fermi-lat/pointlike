@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.39 2010/12/09 22:21:06 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.40 2011/01/06 07:27:27 lande Exp $
 
     author: Joshua Lande
 """
@@ -127,7 +127,7 @@ class ROIExtendedModel(ROIDiffuseModel):
         """ Unlike background models, always do the convolution around 
             the spatial model's center. """
         self.exp = self.sa.exposure.exposure; psf = self.sa.psf
-        self.active_bgc = ExtendedSourceConvolutionCache(self.extended_source.spatial_model,psf)
+        self.active_bgc = ExtendedSourceConvolutionCache(self.extended_source,psf)
 
     def set_state(self,band):
         self.active_bgc.do_convolution(band)
@@ -269,7 +269,7 @@ Arguments:
         init_spatial = sm.get_parameters(absolute=False)
 
         if not N.any(sm.free):
-            raise Exception("Unable to fit the diffuse source %s's extension. No parameters to fit." % es.name)
+            raise Exception("Unable to fit the diffuse source %s's extension. No parameters to fit. Perhaps when you wrote your xml file, you forgot to set some of the spatial parameters to be free?" % es.name)
 
         # Remember thet get_parameters only returns the free parameters.
         # here we need to get the first two parameters (position) so
@@ -504,7 +504,7 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         psf = self.sa.psf
 
         d={'num_points':self.num_points} if self.__dict__.has_key('num_points') else {}
-        self.active_bgc = AnalyticConvolutionCache(self.extended_source.spatial_model,psf,**d)
+        self.active_bgc = AnalyticConvolutionCache(self.extended_source,psf,**d)
 
     def set_state(self,band):
         self.active_bgc.do_convolution(band,self.fitpsf)
