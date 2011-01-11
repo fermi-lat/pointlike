@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.26 2010/11/18 05:53:07 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.27 2010/12/05 09:54:10 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -260,14 +260,14 @@ class ExtendedSourceConvolution(BackgroundConvolution):
         across the source and ap_average must be mulitplied by the exposure
         outside of this function."""
 
-    def __init__(self,spatial_model,psf):
+    def __init__(self,extended_source,psf):
 
         self.pixelsize = 0.025
         self.npix      = 101 # Initial value gets reset automatically by do_convolution.
         self.r_multi   = 2.0 # multiple of r95 to set max dimension of grid
         self.r_max     = 20  # an absolute maximum (half)-size of grid (deg)
 
-        self.spatial_model = spatial_model
+        self.extended_source = extended_source
 
         # Pass in none for the 
         super(ExtendedSourceConvolution,self).__init__(spatial_model.center,None,psf,
@@ -308,12 +308,12 @@ class ExtendedSourceConvolution(BackgroundConvolution):
     def do_convolution(self,band):
 
         # recenter convolution grid to (possibly) new extended source center.
-        self.set_center(self.spatial_model.center)
+        self.set_center(self.extended_source.spatial_model.center)
 
         # Use the 'optimal' energy (calculated by the ADJUST_MEAN flag) if it exists.
         energy = band.psf.eopt if band.psf.__dict__.has_key('eopt') else band.e
 
-        edge=self.spatial_model.effective_edge()
+        edge=self.extended_source.spatial_model.effective_edge()
         r95 = self.psf.inverse_integral(energy,band.ct,95)
         rad = self.r_multi*r95 + edge
         rad = max(min(self.r_max,rad),edge+2.5)
@@ -322,16 +322,16 @@ class ExtendedSourceConvolution(BackgroundConvolution):
 
         self.setup_grid(self.npix,self.pixelsize)
 
-        if hasattr(self.spatial_model,'fill_grid'):
+        if hasattr(self.extended_source.spatial_model,'fill_grid'):
             # Generally, extended soruces should implment the fill_grid function.
-            vals=self.spatial_model.fill_grid(self,energy)
+            vals=self.extended_source.spatial_model.fill_grid(self,energy)
             super(ExtendedSourceConvolution,self).do_convolution(energy,band.ct,override_vals=vals)
 
-        elif isinstance(self.spatial_model,SpatialMap):
+        elif isinstance(self.extended_source.spatial_model,SpatialMap):
             # For the SpatialMap object, there is already a C++ implmentation of the SkyFunction,
             # so we can quickly fill from it.
             super(ExtendedSourceConvolution,self).do_convolution(energy,band.ct,
-                                   override_skyfun=self.spatial_model.skyfun)
+                                   override_skyfun=self.extended_source.spatial_model.skyfun)
         else:
             # This part of the code wraps the spatial_model object as a PySkySpectrum object 
             # and is very poorly optimized. Hopefully it will only exist as a fallback 
@@ -366,7 +366,7 @@ class ExtendedSourceConvolutionCache(ExtendedSourceConvolution):
     def do_convolution(self,band):
 
         if self.last_p.has_key(band) and \
-                N.all(self.last_p[band] == self.spatial_model.p[2:]):
+                N.all(self.last_p[band] == self.extended_source.spatial_model.p[2:]):
 
             self.npix=self.last_npix[band]
             self.cvals = self.last_cvals[band]
@@ -374,7 +374,7 @@ class ExtendedSourceConvolutionCache(ExtendedSourceConvolution):
             # recenter convolution grid to (possibly) new extended source center.
             # Useful since convolution need not be redone if only extended
             # source center changes.
-            self.set_center(self.spatial_model.center)
+            self.set_center(self.extended_source.spatial_model.center)
 
             self.setup_grid(self.npix,self.pixelsize)
 
@@ -382,7 +382,7 @@ class ExtendedSourceConvolutionCache(ExtendedSourceConvolution):
         else:
             super(ExtendedSourceConvolutionCache,self).do_convolution(band)
 
-            self.last_p[band]=self.spatial_model.p[2:].copy()
+            self.last_p[band]=self.extended_source.spatial_model.p[2:].copy()
             self.last_cvals[band]=self.cvals
             self.last_npix[band]=self.npix
 
@@ -401,21 +401,21 @@ class AnalyticConvolution(object):
     )
 
     @keyword_options.decorate(defaults)
-    def __init__(self,spatial_model,psf,**kwargs):
+    def __init__(self,extended_source,psf,**kwargs):
         """ spatial_model  a SpatialModel object
             psf            a PSF object.
         """
 
         keyword_options.process(self, kwargs)
 
-        self.spatial_model=spatial_model
+        self.extended_source = extended_source
         self.psf=psf
 
 
     def _convolve(self,rlist,g,s,energy):
         """ Function to calculate the pdf at the givin radii points
             for a given psf sigma and gamma. (and a radially symmetric
-            spatial model self.spatial_model
+            spatial model self.extended_source.spatial_model
 
             For each givin radii, we must integrate to to the 
             maximum source radius
@@ -426,7 +426,7 @@ class AnalyticConvolution(object):
         the intgral includes at term which is the PDF, the integral
         will presumably contribute very littel further away then this.
         """
-        int_max = 0.5*(N.radians(self.spatial_model.effective_edge(energy))/s)**2
+        int_max = 0.5*(N.radians(self.extended_source.spatial_model.effective_edge(energy))/s)**2
 
         # u value corresponding to the given r.
         ulist=0.5*(self.rlist/s)**2
@@ -434,7 +434,7 @@ class AnalyticConvolution(object):
         # pdf values for each r (in a given energy bin)
         pdf=N.empty_like(self.rlist)
 
-        integrand = lambda v,u: self.spatial_model.at_r(N.sqrt(2*v)*s)\
+        integrand = lambda v,u: self.extended_source.spatial_model.at_r(N.sqrt(2*v)*s)\
                                           *((g-1)/g)*(g/(g+u+v))**g\
                                           *hyp2f1(g/2.,(1+g)/2.,1.,4.*u*v/(g+u+v)**2)
         for i,u in enumerate(ulist):
@@ -475,7 +475,7 @@ class AnalyticConvolution(object):
             glist,slist,wlist = self.bpsf.par
             smax=slist.max()
 
-        self.edge_distance=band.sd.difference(self.spatial_model.center) + \
+        self.edge_distance=band.sd.difference(self.extended_source.spatial_model.center) + \
                 band.radius_in_rad
 
         self.rmax=self.edge_distance
@@ -576,7 +576,7 @@ class AnalyticConvolution(object):
             instead of a radial distance. """
         if isinstance(skydir,BaseWeightedSkyDirList):
             difference = N.empty(len(skydir),dtype=float)
-            PythonUtilities.arclength(difference,skydir,self.spatial_model.center)
+            PythonUtilities.arclength(difference,skydir,self.extended_source.spatial_model.center)
             return self.val(difference)
         elif type(skydir)== N.ndarray:
             return self.val(skydir)
@@ -584,7 +584,7 @@ class AnalyticConvolution(object):
             skydir = SkyDir(Hep3Vector(skydir[0],skydir[1],skydir[2]))
 
         elif type(skydir)==SkyDir:
-            return float(self.val(skydir.difference(self.spatial_model.center)))
+            return float(self.val(skydir.difference(self.extended_source.spatial_model.center)))
         else:
             raise Exception("Unknown input to AnalyticConvolution.__call__()")
 
@@ -614,7 +614,7 @@ class AnalyticConvolutionCache(AnalyticConvolution):
     def _get_pdf(self,energy,conversion_type,band,fitpsf):
 
         if self.last_p.has_key((band,fitpsf)) and \
-                N.all(self.last_p[band,fitpsf] == self.spatial_model.p[2:]):
+                N.all(self.last_p[band,fitpsf] == self.extended_source.spatial_model.p[2:]):
 
             self.rlist   = self.last_rlist[band,fitpsf]
             self.pdf     = self.last_pdf[band,fitpsf]
@@ -623,7 +623,7 @@ class AnalyticConvolutionCache(AnalyticConvolution):
             super(AnalyticConvolutionCache,self)._get_pdf(
                     energy,conversion_type,band,fitpsf)
 
-            self.last_p[band,fitpsf]=self.spatial_model.p[2:].copy()
+            self.last_p[band,fitpsf]=self.extended_source.spatial_model.p[2:].copy()
             self.last_rlist[band,fitpsf]=self.rlist
             self.last_pdf[band,fitpsf]=self.pdf
 
