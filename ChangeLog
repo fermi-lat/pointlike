@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jan 11 10:39:45 PST 2011
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Dont store any references to spatial_model but only extended_source (so that it can be more easily replaced).
+    *
+------------------------------------------------------------
 User: lande  Tue Jan 11 10:39:03 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
