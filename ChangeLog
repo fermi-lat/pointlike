@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jan 12 06:21:37 PST 2011
+pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+make strict default to False
+    *
+------------------------------------------------------------
 User: burnett  Wed Jan 12 06:12:19 PST 2011
 pointlike/python/uw/pipeline
 
