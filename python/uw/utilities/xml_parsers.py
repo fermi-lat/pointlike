@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.29 2010/12/27 17:17:50 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.30 2011/01/04 04:09:16 cohen Exp $
 
    author: Matthew Kerr
 """
@@ -700,7 +700,7 @@ def unparse_diffuse_sources(diffuse_sources,strict,filename):
         xml_blurbs.push(process_diffuse_source(ds,strict,filename))
     return xml_blurbs
 
-def writeXML(stacks,filename, title='source_library', strict=False):
+def writeXML(stacks,filename, title='source_library'):
     """Write XML blurbs to a gtlike-style XML file."""
     f = open(filename,'wb') if type(filename)==str else filename
     f.write('<source_library title="%s">'% title)
@@ -725,7 +725,7 @@ def writeROI(roi,filename,strict=False):
         can be set to true and all extended sources are
         converted into SpatialMap objects before the xml is
         created. """
-    source_xml = [unparse_point_sources(roi.psm.point_sources)]
+    source_xml = [unparse_point_sources(roi.psm.point_sources, strict=strict)]
     try:
         source_xml.append(unparse_diffuse_sources(roi.dsm.diffuse_sources,strict,
             filename))
