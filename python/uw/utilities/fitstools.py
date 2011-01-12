@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.14 2010/08/24 18:17:31 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.15 2010/11/19 21:46:00 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -324,7 +324,8 @@ def sum_ltcubes(files,outputfile = 'summed_ltcube.fits'):
             f.close()
 
     summed_exposure = N.array(exposures).sum(axis=0)
-    coldef = pf.ColDefs([pf.Column(name='COSBINS',format=header['TFORM1'],null=header['TNULL1'],array=summed_exposure)])
+    null = header.get('TNULL1', None) #THB: kluge fix.
+    coldef = pf.ColDefs([pf.Column(name='COSBINS',format=header['TFORM1'],null=null,array=summed_exposure)])
     exp_table = pf.new_table(coldef,header=header,nrows=exposures[0].shape[0])
     gti = merge_gti(files)
     exp_table.writeto(outputfile,clobber=True)
