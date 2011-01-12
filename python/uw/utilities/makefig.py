@@ -1,13 +1,13 @@
 """ 
 Make combinded figures for Pivot, perhaps
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makefig.py,v 1.5 2010/08/03 22:29:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makefig.py,v 1.6 2010/10/13 12:23:50 burnett Exp $
 
 """ 
 
 from PIL import Image
 import glob, os, sys, exceptions
 import pylab  as plt
-version='$Revision: 1.5 $'.split()[1]
+version='$Revision: 1.6 $'.split()[1]
 
 class InvalidParameter(exceptions.Exception):
     pass
@@ -17,7 +17,7 @@ def convert_log_to_png(outdir):
     path = os.path.join(outdir, 'log')
     files = glob.glob(os.path.join(path, '*.txt'))
     if len(files)==0: raise InvalidParameter('no .txt files found in folder "%s"' % path)
-    plt.figure(figsize=(5,10))
+    plt.figure(figsize=(7.0,10))
     for file in files:
         plt.clf()
         t = open(file).read()
@@ -25,7 +25,7 @@ def convert_log_to_png(outdir):
         plt.savefig(file.replace('.txt', '.png'))
 
 def convert_one_log(filename):
-    plt.figure(figsize=(5,10))
+    plt.figure(figsize=(7.0,10))
     plt.clf()
     t = open(filename).read()
     plt.figtext(0.02,0.98,t,fontsize=8,va='top', fontname='monospace')
@@ -84,37 +84,8 @@ def combine_image(name, path, subpaths=('tsmap', 'sedfig', 'log', 'light_curves'
         raise InvalidParameter('Source name %s not found  in one of the folders %s'%(name, subpaths))
     combine_images(names, outdir=os.path.join(path, outfolder))
 
-def make_dzc(infolder, outfolder,
-        imagefolder='dzi', #'healpipe1_dzimages', 
-        collection_name='dzc', #'healpipe1_dzcollection' 
-        type = 'jpg',  
-        ):
-    """ infolder   :  path to a folder containing a bunch of images to convert
-        outfolder  :   where to set up the dzc and dzi
-    keyword parameters
-        imagefolder: ['dzi'] name of a folder for the created dzi images
-        collection_name: ['dzc'] name to apply to the deep zoom collection: will be the name of a xml file.
-        type       : ['jpg'] graphics type, perhaps 'png'
-    """
-    imagefolder = imagefolder or '%s_dzi' % infolder
-    collection_name = collection_name or '%s_dzc' % infolder
-    t = '%s\\*.%s' % (infolder, type)
-    n = len(glob.glob(t))
-    if n ==0: raise InvalidParameter('no %s files found in folder "%s"' % (type,infolder))
-    print 'Converting %d jpg images from %s, dzi to %s, collection %s' \
-        % (n, infolder, imagefolder, collection_name)
-    def cmd(c): 
-        print c
-        os.system(c)
-    curdir = os.getcwd()
-    if not os.path.exists(outfolder): os.mkdir(outfolder)
-    os.chdir(outfolder)
-    print 'cd %s' %outfolder
-    cmd('DZconvert %s %s' % (os.path.join(curdir,t), imagefolder) ) 
-    cmd('DZcollection %s %s' % (imagefolder, collection_name))
-    os.chdir(curdir)
 
-
+    
 def main(
         names,  figpath ,
         pivot_dir  = None, 
