@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Wed Jan 12 07:56:56 PST 2011
+pointlike/python/uw/pipeline
+
+Added Files:
+	associate.py dataspec.py pipe.py plot_sed.py processor.py 
+	skyanalysis.py skymodel.py 
+Log Message:
+Inital commit of UW pipeline code
+    *
+------------------------------------------------------------
 User: burnett  Wed Jan 12 06:25:38 PST 2011
 pointlike/python/uw/utilities
 
