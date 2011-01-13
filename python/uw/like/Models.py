@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.27 2010/11/28 20:37:04 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.28 2010/12/09 23:35:50 burnett Exp $
 
     author: Matthew Kerr
 
@@ -609,6 +609,7 @@ Spectral parameters:
         gamma = 10** self.p[1]
         self.p[0] += gamma * N.log10(ebreak/e0p)
         self.p[3] = N.log10(e0p)
+        self.e0 = e0p
  
 #===============================================================================================#
 
@@ -623,13 +624,32 @@ Spectral parameters:
         """
     def __call__(self,e):
         n0,gamma,cutoff=10**self.p
-        return (n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-e/cutoff)
+        return (n0/self.flux_scale) * (self.e0/e)**gamma * N.exp(-e/cutoff)
 
     def gradient(self,e):
         n0,gamma,cutoff = 10**self.p
-        f = (n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-e/cutoff)
+        f = (n0/self.flux_scale) * (self.e0/e)**gamma * N.exp(-e/cutoff)
         return N.asarray([f/n0,f*N.log(self.e0/e),f*e/cutoff**2])
 
+    def pivot_energy(self):
+        """ assuming a fit was done, estimate the pivot energy 
+              
+        """
+        A  = 10**self.p[0]
+        C = self.get_cov_matrix()
+        if C[1,1]==0:
+            raise Exception('%s fit required before calculating pivot energy' %self.name)
+        return self.e0*N.exp( C[0,1]/(A*C[1,1]) )
+        
+    def set_e0(self, e0p):
+        """ set a new reference energy, adjusting the norm parameter """
+        gamma = 10** self.p[1]
+        self.p[0] += gamma * N.log10(self.e0/e0p)
+        self.e0 = float(e0p) 
+        
+    def full_name(self):
+        return '%s, e0=%.0f'% (self.pretty_name,self.e0)
+        
 #===============================================================================================#
 
 class ExpCutoffPlusPL(Model):
