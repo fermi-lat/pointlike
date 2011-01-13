@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jan 12 16:09:55 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+add pivot energy to ExpCutorr
+    *
+------------------------------------------------------------
 User: burnett  Wed Jan 12 07:56:56 PST 2011
 pointlike/python/uw/pipeline
 
