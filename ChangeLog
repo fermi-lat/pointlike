@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: cohen  Thu Jan 13 12:22:07 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+fix screen printout for Index when index_offset is present
+    *
+------------------------------------------------------------
 User: burnett  Wed Jan 12 16:09:55 PST 2011
 pointlike/python/uw/like
 
