@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.28 2010/12/09 23:35:50 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.29 2011/01/13 00:09:55 burnett Exp $
 
     author: Matthew Kerr
 
@@ -181,6 +181,8 @@ Optional keyword arguments:
         """
         #p,avg         = self.statistical(absolute=absolute,two_sided=False)
         p,hi_p,lo_p = self.statistical(absolute=absolute,two_sided=True)
+        if hasattr(self,'index_offset'):
+            p[1]=p[1]-self.index_offset #Index is parameter 1
         if not self.background:
             if not N.all(self.cov_matrix==0):
                 f,fhi,flo    = self.i_flux(e_weight=0,two_sided=True,cgs=True,error=True)
