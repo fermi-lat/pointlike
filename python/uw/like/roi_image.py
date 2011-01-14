@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.4 2011/01/06 07:48:23 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.5 2011/01/14 09:58:30 lande Exp $
 
 author: Joshua Lande
 """
@@ -107,7 +107,7 @@ class CountsImage(ROIImage):
                      'ENERGY < %s'% emax,
                      'ZENITH_ANGLE < %s' % roi.sa.pixeldata.zenithcut,
                      'THETA < %s' % roi.sa.pixeldata.thetacut,
-                     'EVENT_CLASS == %s' % roi.sa.pixeldata.event_class]
+                     'EVENT_CLASS >= %s' % roi.sa.pixeldata.event_class]
         if conv_type >= 0:        base_cuts += ['EVENT_CLASS == %d'%(conv_type)]
         if mc_src_id is not None: base_cuts += ['MC_SRC_ID == %d'%(mc_src_id)]
         cuts = base_cuts if extra_cuts is None else extra_cuts + base_cuts
