@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.3 2010/12/12 07:05:39 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.4 2011/01/06 07:48:23 lande Exp $
 
 author: Joshua Lande
 """
@@ -201,6 +201,7 @@ class ModelImage(ROIImage):
 
         model_counts += self.all_point_sources_counts()
         model_counts += self.all_diffuse_sources_counts()
+        model_counts *= self.roi.phase_factor # don't forget about the phase factor!
 
         PythonUtilities.set_wsdl_weights(model_counts,self.wsdl)
         
@@ -419,10 +420,10 @@ class RadialModel(RadialImage):
 
     def fill(self):
 
-        self.image=N.zeros_like(self.bin_centers_rad)
-
+        self.image = N.zeros_like(self.bin_centers_rad)
         self.image += self.all_point_sources_counts()
         self.image += self.all_diffuse_sources_counts()
+        self.image *= self.roi.phase_factor # don't forget about the phase factor!
 
     def all_point_sources_counts(self):
         """ Calculate the point source contributions. """
