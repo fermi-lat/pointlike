@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jan 14 01:58:30 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_image.py 
+Log Message:
+Fix bug for phase factor
+    *
+------------------------------------------------------------
 User: cohen  Thu Jan 13 12:22:07 PST 2011
 pointlike/python/uw/like
 
