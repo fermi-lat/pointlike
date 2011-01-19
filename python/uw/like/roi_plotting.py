@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.15 2011/01/06 07:56:14 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.16 2011/01/07 22:11:04 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -439,7 +439,7 @@ class ROIDisplay(object):
         except:
             self.cmap_sls = self.cmap_b = mpl.cm.jet
 
-        P.ioff()
+        interactive=P.isinteractive(); P.ioff()
         fig = P.figure(self.fignum,self.figsize)
         P.clf()
 
@@ -499,6 +499,7 @@ class ROIDisplay(object):
 
         self.cm = CountsImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic)
         self.mm = ModelImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic)
+        if interactive: P.ion()
 
     def model_plot(self):
 
@@ -559,6 +560,8 @@ class ROIDisplay(object):
 
     def show(self,to_screen=True,out_file=None):
 
+        interactive=P.isinteractive(); P.ioff()
+
         t =self.label_sources
         self.model_plot()
         self.label_sources=False #only label the model plot
@@ -566,6 +569,8 @@ class ROIDisplay(object):
         self.resids_plot()
         self.hist_plot()
         self.label_sources = t
+
+        if interactive: P.ion()
 
         if out_file is not None: P.savefig(out_file)
         if to_screen: P.show()
@@ -671,7 +676,6 @@ class ROISlice(object):
 
         ROIDisplay.matplotlib_format()
 
-        P.ioff()
         fig = P.figure(self.fignum,self.figsize)
         P.clf()
 
@@ -862,7 +866,6 @@ class ROIRadialIntegral(object):
 
         ROIDisplay.matplotlib_format()
 
-        P.ioff()
         fig = P.figure(self.fignum,self.figsize)
         P.clf()
 
