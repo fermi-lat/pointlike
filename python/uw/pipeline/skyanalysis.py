@@ -1,6 +1,6 @@
 """
 Basic ROI analysis
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.1 2011/01/12 15:56:56 burnett Exp $
 """
 import os, pickle, glob, types
 import numpy as np
@@ -20,12 +20,10 @@ def decorate_with(other_func, append=False):
     return decorator
 
 
-
-
 class SkyAnalysis(pointspec.SpectralAnalysis):
 
     config = dict(
-        fit_emin     = 175.,
+        fit_emin     = 100,
         fit_emax     = 600000.,
         minROI       = 5,
         maxROI       = 5,
@@ -36,7 +34,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         log          = None,
         )
 
-    def __init__(self, sky, dataset='24MP7source', **kwargs):
+    def __init__(self, sky, dataset, **kwargs):
         """
         sky:  skymodel object
         dataset:
@@ -102,7 +100,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         def iterable_check(x):
             return x if hasattr(x,'__iter__') else (x,x)
 
-        r = ROIanalysis(ps_manager.roi_dir, 
+        r = PipelineROI(ps_manager.roi_dir, 
                     ps_manager, bg_manager, 
                     self, 
                     name = 'HP12_%04d' % index,
@@ -112,7 +110,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
                     fit_kw = self.fit_kw)
         return r
 
-class ROIanalysis(roi_analysis.ROIAnalysis):
+class PipelineROI(roi_analysis.ROIAnalysis):
     """ sub class of the standard ROIAnalysis class to cusomize the fit, add convenience functions
     """
 
@@ -126,7 +124,7 @@ class ROIanalysis(roi_analysis.ROIAnalysis):
                 self.name=self.psm.point_sources[0].name
             else: self.name='(not set)'
         self.center= pars[0] #roi_dir
-        super(ROIanalysis, self).__init__(*pars, **kwargs)
+        super(PipelineROI, self).__init__(*pars, **kwargs)
         
     def logLikelihood(self, parameters, *args):
         """ the total likelihood, according to model
@@ -155,7 +153,7 @@ class ROIanalysis(roi_analysis.ROIAnalysis):
         initial_count = self.likelihood_count
         initialL = self.logl
         try:
-            super(ROIanalysis, self).fit( **fit_kw)
+            super(PipelineROI, self).fit( **fit_kw)
             ts = self.TS()
         except Exception, msg:
             if not self.quiet: print 'Fit failed: %s' % msg
@@ -200,7 +198,7 @@ class ROIanalysis(roi_analysis.ROIAnalysis):
         """
         try:
             quiet, self.quiet = self.quiet, not verbose # turn off details of fitting
-            loc, i, delta, deltaTS= super(ROIanalysis,self).localize(which=which,bandfits=bandfits,
+            loc, i, delta, deltaTS= super(PipelineROI,self).localize(which=which,bandfits=bandfits,
                             tolerance=tolerance,update=update,verbose=verbose, seedpos=seedpos)
             self.quiet = quiet
             if not self.quiet: 
