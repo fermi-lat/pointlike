@@ -1,18 +1,62 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.1 2011/01/12 15:56:56 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
 import numpy as np
 from skymaps import SkyDir, Band, IsotropicSpectrum, DiffuseFunction
-from uw.utilities import keyword_options
-from uw.like import pointspec_helpers
+from uw.utilities import keyword_options, makerec
+from uw.like import pointspec_helpers, Models
+
+class Singleton(object):
+    _instance={}
+    def __init__(self,constructor):
+        self.constructor = constructor
+        self.key=str(constructor)
+    def set_instance(self,  *pars):
+        Singleton._instance[self.key]= self.constructor(*pars)
+    def instance(self):
+        return Singleton._instance[self.key]
+        
+class Diffuse(Singleton):
+    """ manage a skymaps.DiffuseFunction object, create only when new fits file found to open
+    """
+    _dfile = None
+    locked = False
+    key = None
+    def __init__(self, dfile, lock=False):
+        super(Diffuse,self).__init__(DiffuseFunction)
+        if Diffuse.locked or dfile==Diffuse._dfile: return
+        Diffuse._dfile=dfile
+        self.set_instance(dfile)
+        print 'loaded new diffuse map, %s' %dfile
+        Diffuse.locked = lock
+        
+class Isotropic(Singleton):
+    """ manage a skymaps.IsotropicSpectrum object, create only when new fits file found to open
+    """
+    _dfile = None
+    locked = False
+    key = None
+    def __init__(self, dfile, lock=False):
+        super(Isotropic,self).__init__(IsotropicSpectrum)
+        if Isotropic.locked or dfile==Isotropic._dfile: return
+        Isotropic._dfile=dfile
+        self.set_instance(dfile)
+        print 'loaded new isotropic spectrum, %s' %dfile
+        Isotropic.locked = lock
 
 class Source(object):
+    """ base class for various sources
+    """
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
-        self.free = self.model.free.copy()  # save copy of free to restore
+        if 'model' not in kwargs:
+            self.model=Models.PowerLaw(p=[1e-13, 2.2])
+        self.free = self.model.free.copy()  # save copy of initial free array to restore
+    def freeze(self, freeze):
+        self.model.free[:] = False if freeze else self.free
     def __str__(self):
         return self.name + ' '+ self.skydir.__str__() + self.model.name \
                 +  (' (free)' if np.any(self.model.free) else ' (fixed)')
@@ -47,11 +91,15 @@ class ExtendedCatalog(pointspec_helpers.ExtendedSourceCatalog):
         """ return an ExtendedSource object, or None if not found """
         for source in self.sources:
             if name==source.name:
-                spatial_model = source.spatial_model
-                return ExtendedSource(name=name, skydir=source.skydir,
-                    model = source.model, 
-                    spatial_model = source.spatial_model)
-                    
+                source.free = source.model.free.copy() 
+                return source
+                # since Josh checks for his ExtendedSource class, I have to modify it rather than 
+                # use my own
+                #spatial_model = source.spatial_model
+                #return ExtendedSource(name=name, skydir=source.skydir,
+                #    model = source.model, 
+                #    spatial_model = source.spatial_model)
+                #    
         raise Exception( ' extended source %s not found' % name)
     
 class SkyModel(object):
@@ -59,7 +107,9 @@ class SkyModel(object):
     """
     
     defaults= (
-        ('extended_catalog_name', '$FERMI/catalog/Extended_archive_jbb03',  'name of folder with extended info'),
+        ('extended_catalog_name', 'Extended_archive_jbb03',  'name of folder with extended info'),
+        ('diffuse', ('ring_24month_P74_v1.fits', 'isotrop_21month_v2.txt'),   'pair of diffuse file names: use to locked'),
+        ('auxcat', None, 'name of auxilliary catalog of point sources to append',),
         ('nside',      12,   'HEALpix nside'),
         ('quiet',   False,  'make quiet' ),
     )
@@ -79,18 +129,53 @@ class SkyModel(object):
             raise Exception('sky model folder %s not found' % folder)
         self._setup_extended()
         self._load_sources()
-        #if not self.quiet:
-        #    print 'loaded %d sources from %s' % (len(self.sources), self.folder)
+        if self.diffuse is not None:
+            assert len(self.diffuse)==2, 'expect 2 diffuse names'
+            x = map(lambda f:os.path.expandvars(os.path.join('$FERMI','diffuse',f)), self.diffuse)
+            Diffuse(x[0], True)
+            Isotropic(x[1], True)
+            
+        self.load_auxcat()
         
     def __str__(self):
-        return 'SkyModel from  %s\n\7\textended catalog:%s' %(self.folder, self.extended_catalog)
+        return 'SkyModel %s' %self.folder\
+                +'\n\t\tdiffuse: %s' %list(self.diffuse)\
+                +'\n\t\textended: %s' %self.extended_catalog_name
+                
+    def load_auxcat(self):
+        if self.auxcat is None or self.auxcat=='': return
+        cat = self.auxcat 
+        if not os.path.exists(cat):
+            cat = os.expandvars(os.path.join('$FERMI','catalog', cat))
+        if not os.path.exists(cat):
+            raise Exception('auxilliary catalog %s not found locally or in $FERMI/catalog'%self.auxcat)
+        ss = makerec.load(cat)
+        names = set([s.name for s in self.sources])
+        tagged=set()
+        print 'process auxcat %s' %cat
+        for s in ss:
+            sname = s.name.replace('_',' ')
+            if sname  not in names: 
+                skydir=SkyDir(float(s.ra), float(s.dec))
+                index=self.index(skydir)
+                self.sources.append(PointSource(name=s.name, skydir=skydir, index=index))
+                print '\tadded new source %s at ROI %d' % (s.name, index)
+            else: 
+                print '\t source %s is  in the model will remove if ra<0' % sname
+                if s.ra<0: 
+                    tagged.add(sname)
+        if len(tagged)==0: return
+        for s in self.sources:
+            if s.name in tagged: self.sources.remove(s)
+            
     def _setup_extended(self):
         if self.extended_catalog_name is None: return None
-        self.extended_catalog_name = os.path.expandvars(self.extended_catalog_name)
-        if not os.path.exists(self.extended_catalog_name):
-            raise Exception('extended source folder "%s" not found' % self.extended_catalog_name)
-        self.extended_catalog= ExtendedCatalog(self.extended_catalog_name)
-        print 'Loaded extended catalog %s' % self.extended_catalog_name
+        extended_catalog_name = \
+            os.path.expandvars(os.path.join('$FERMI','catalog',self.extended_catalog_name))
+        if not os.path.exists(extended_catalog_name):
+            raise Exception('extended source folder "%s" not found' % extended_catalog_name)
+        self.extended_catalog= ExtendedCatalog(extended_catalog_name)
+        #print 'Loaded extended catalog %s' % self.extended_catalog_name
         
     def get_extended_sources(self,skydir, radius):
         """ add any extended sources with center within the outer radius.
@@ -155,7 +240,7 @@ class SkyModel(object):
         """
         ret =  [source for source in self.sources if selection(source)]
         for ps in ret:
-            ps.model.free[:] = False if freeze else ps.free
+            ps.freeze(freeze) 
         return ret
         
     def get_point_sources(self, index, radius=10):
@@ -178,14 +263,15 @@ class SkyModel(object):
             assert os.path.exists(dfile), 'file %s not found' % dfile
             ext = os.path.splitext(dfile)[-1]
             if ext=='.txt':
-                s.dmodel = [IsotropicSpectrum(dfile)]
+                s.dmodel = [Isotropic(dfile).instance()]
             elif ext=='.fits' or ext=='.fit':
-                s.dmodel = [DiffuseFunction(dfile)]
+                s.dmodel = [Diffuse(dfile).instance()]
             else:
                 raise Exception('unrecognized diffuse file extention %s' % dfile)
             s.smodel=s.model
         center = self.skydir(index)
-        extended =  [es for es in self.extended_sources if es.near(center,radius)]
+#        extended =  [es for es in self.extended_sources if es.near(center,radius)]
+        extended =  [es for es in self.extended_sources if center.difference(es.skydir)<np.radians(radius)]
         for es in extended:
             es.model.free[:] = es.free if self.index(es.skydir)==index else False
             es.dmodel = es.spatial_model # references needed 
