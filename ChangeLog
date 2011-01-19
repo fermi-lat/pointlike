@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jan 19 14:19:33 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Removing unnecessary calls to P.ioff from ROISlice and ROIRadialIntegral. Toggling back ion() after ROIDisplay finishes.
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan 18 17:42:03 PST 2011
 pointlike/python/uw/utilities
 
