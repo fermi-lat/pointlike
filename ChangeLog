@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan 18 17:37:06 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	dataspec.py pipe.py processor.py 
+Added Files:
+	maps.py 
+Log Message:
+initial checkin or update
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan 18 17:34:52 PST 2011
 pointlike/python/uw/pipeline
 
