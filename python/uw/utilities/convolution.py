@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.27 2010/12/05 09:54:10 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.28 2011/01/11 18:39:45 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -270,7 +270,7 @@ class ExtendedSourceConvolution(BackgroundConvolution):
         self.extended_source = extended_source
 
         # Pass in none for the 
-        super(ExtendedSourceConvolution,self).__init__(spatial_model.center,None,psf,
+        super(ExtendedSourceConvolution,self).__init__(self.extended_source.spatial_model.center,None,psf,
                 npix=self.npix,pixelsize=self.pixelsize,
                 bounds_error=False,fill_value=0)
 
