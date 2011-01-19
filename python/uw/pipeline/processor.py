@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/users/burnett/pipeline/roi_process.py,v 1.5 2011/01/01 15:50:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.1 2011/01/12 15:56:56 burnett Exp $
 """
 import os, pickle
 import numpy as np
@@ -175,7 +175,8 @@ def make_tsmap(roi, source, tsmap_dir, **kwargs):
  
 def make_association(source, tsf, associate):
     print ' %s association(s) ' % source.name,
-    ell = source.ellipse
+    try:    ell = source.ellipse
+    except: ell = None
     if ell is None:
         print '...no localization'
         source.adict = None
@@ -199,7 +200,9 @@ def make_association(source, tsf, associate):
 
 def process_sources(roi, sources, **kwargs):
     outdir     = kwargs.pop('outdir', '.')
+    for source in sources: source.ellipse=None
     associate= kwargs.pop('associate', None)
+    
     if associate is not None:
         for which,source in enumerate(sources):
             make_association(source, roi.tsmap(which), associate)
