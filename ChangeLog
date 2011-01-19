@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan 18 17:28:09 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skymodel.py 
+Log Message:
+fix singleton, extended, auxcat
+    *
+------------------------------------------------------------
 User: lande  Fri Jan 14 02:52:20 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
