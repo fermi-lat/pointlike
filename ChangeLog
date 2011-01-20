@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan 20 07:54:29 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_managers.py 
+Log Message:
+unzero input check
+    *
+------------------------------------------------------------
 User: burnett  Thu Jan 20 07:52:59 PST 2011
 pointlike/python/uw/like
 
