@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.16 2011/01/07 22:11:04 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.17 2011/01/19 22:19:33 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -741,9 +741,6 @@ class ROISlice(object):
 
             ps=PointSource(name=es.name,model=es.model.copy(),skydir=es.spatial_model.center,leave_parameters=True)
             self.roi.add_source(ps)
-
-            self.roi.fit()
-            self.roi.localize(which=ps,update=True)
             self.roi.fit()
 
             self.mi_x['Point']=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
@@ -903,8 +900,6 @@ class ROIRadialIntegral(object):
             es=self.roi.del_source(self.which)
             ps=PointSource(name=es.name,model=es.model.copy(),skydir=es.spatial_model.center,leave_parameters=True)
             self.roi.add_source(ps)
-            self.roi.fit()
-            self.roi.localize(which=ps,update=True)
             self.roi.fit()
 
             self.mi['Point']=RadialModel(self.roi,**kwargs)
