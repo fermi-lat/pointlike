@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.18 2010/11/22 23:55:18 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.19 2011/01/20 01:13:59 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -10,18 +10,18 @@ import quadform
 import numpy as N
 from skymaps import SkyDir,Hep3Vector
 from pointlike import DoubleVector
-from pypsf import PsfOverlap
-from roi_extended import BandFitExtended
+from . import pypsf, roi_extended
 
 def localizer(roi, which, **kwargs):
-    """ roi : a ROIanalysis object
-        which: int or string
+    """
+    roi : a ROIanalysis object
+    which: int or string
             if int, the index of the point source; if string, the name of a point or extended source
     --> a Localizer object
     """
     manager,index = roi.mapper(which)
 
-    if manager == roi.dsm and not isinstance(manager.diffuse_sources[index],ExtendedSource):
+    if manager == roi.dsm and not isinstance(manager.diffuse_sources[index],roi_extended.ExtendedSource):
         raise Exception("Can only localize Point and Extended Sources")
 
     return ROILocalizer(roi, index, **kwargs) if manager == roi.psm\
@@ -52,7 +52,6 @@ class ROILocalizer(object):
         if self.bandfits: self.do_bandfits()
         
         self.tsref=0
-        #self.tsref = self.TSmap(self.rd)
         self.tsref = self.TSmap(self.sd) # source position not necessarily ROI center
 
     def set_source_info(self):
@@ -146,7 +145,7 @@ class ROILocalizer(object):
                           ***if localizing non-central, ensure ROI is large enough!***
         """
         
-        ro  = PsfOverlap()
+        ro  = pypsf.PsfOverlap()
         rd  = self.rd
         roi = self.roi
         ll  = 0
@@ -220,7 +219,7 @@ class ROILocalizerExtended(ROILocalizer):
     def do_bandfits(self):
         if 'energy_bands' not in self.roi.__dict__.keys(): self.roi.setup_energy_bands()
         for eb in self.roi.energy_bands: 
-            bfe=BandFitExtended(self.which,eb,self.roi)
+            bfe=roi_extended.BandFitExtended(self.which,eb,self.roi)
             bfe.fit(saveto='bandfits')
         if N.all(N.asarray([b.bandfits for b in self.roi.bands]) < 0):
             if not self.quiet: print 'Warning! No good band fits.  Reverting to broadband fit...'
