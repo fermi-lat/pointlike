@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan 20 07:49:16 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	tsmap_plotter.py 
+Log Message:
+adjust to allow maps of extended sources
+    *
+------------------------------------------------------------
 User: burnett  Wed Jan 19 17:13:59 PST 2011
 pointlike/python/uw/like
 
