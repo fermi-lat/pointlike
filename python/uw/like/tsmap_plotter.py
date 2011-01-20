@@ -1,13 +1,13 @@
 """
 Code to plot fancy-looking TS maps, used in pipeline
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/tsmap_plotter.py,v 1.1 2010/08/23 20:44:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/tsmap_plotter.py,v 1.2 2010/11/30 16:53:26 burnett Exp $
 
 """
-import math
+import math, os
 import numpy as np
 from uw.utilities import image
-from uw.like import roi_localize
+from uw.like import roi_localize, roi_managers
 from skymaps import SkyDir, PySkyFunction
 import pylab as plt
 
@@ -37,7 +37,8 @@ def plot_tsmap(roi, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
       pixelsize   [None] -- if not set, will be 20 x20 pixels
       galmap      [True] -- if set, draw a galactic coordinate image with the source position shown
       galactic    [False] -- plot using galactic coordinates
-      which       [0]    -- chose a different source in the ROI to plot
+      which       [0]    -- chose a different source in the ROI to plot 
+                            can be an index for point sources, or a name to also get extended sources   
       assoc       [None] -- if set, a list of tuple of associated sources 
       notitle     [False] -- set to turn off (allows setting the current Axes object title)
       nolegend    [False]
@@ -48,8 +49,8 @@ def plot_tsmap(roi, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
     returns the image.TSplot object for plotting positions, for example
     """
     kwargs={} #fix later
-    name = roi.psm.point_sources[0].name if name is None else name
-    localizer = roi_localize.ROILocalizer(roi, which, bandfits=bandfits)
+    localizer = roi_localize.localizer(roi, which, bandfits=bandfits)
+   
     tsm = PySkyFunction(localizer)
 
     sdir = center if center is not None else roi.roi_dir
