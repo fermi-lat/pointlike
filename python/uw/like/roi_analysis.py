@@ -2,12 +2,13 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.57 2010/12/09 05:49:25 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.58 2010/12/09 23:41:47 burnett Exp $
 
 author: Matthew Kerr
 """
 
 import numpy as N
+np = N #standard numpy
 import math, pickle, collections
 
 from uw.like import roi_bands, roi_localize , specfitter
@@ -261,6 +262,7 @@ class ROIAnalysis(object):
 
     def set_parameters(self,parameters):
         """Support for hessian calculation in specfitter module."""
+        assert len(parameters)==len(self.psm.parameters())+len(self.bgm.parameters()), 'bad parameter lenght'
         self.bgm.set_parameters(parameters,current_position=0)
         self.psm.set_parameters(parameters,current_position=len(self.bgm.parameters()))
         self.fit_parameters = parameters
@@ -438,6 +440,8 @@ class ROIAnalysis(object):
 
             bandfits  -- if True, calcualte the likelihood using a band-by-band (model independent) spectral fit """
 
+        if len(self.psm.models)==0: 
+            return -99  #flag that there are no sources
         if quick:
             self.zero_ps(which)
             ll_0 = self.logLikelihood(self.get_parameters())
@@ -761,37 +765,68 @@ class ROIAnalysis(object):
             else:
                 raise Exception("Unable to modify_loc of diffuse source %s" % which)
         
-    def print_summary(self, sdir=None, galactic=False, maxdist=5, title=''):
-        """ formatted table point sources positions and parameter in the ROI
+    def print_summary(self, sdir=None, galactic=False, maxdist=5, title=None):
+        """ formatted table point sources positions and parameter in the ROI, 
+            followed by summary of diffuse names, parameters values.
+            values are followed by a character to indicate status:
+                blank: fixed
+                ?      sigma=0, not fit yet
+                !      relative error<0.1
+                *      otherwise
         Parameters
         ----------
              sdir : SkyDir, optional, default None for center
+                   for center: default will be the first source
              galactic : bool, optional, default False
                  set true for l,b
              maxdist : float, optional, default 5
                  radius in degrees
+             title: None or a string
+                if None, use the name of the ROI. 
 
         """
+        def makefreeflag(free, sigma, goodfit=0.1):
+            if not free: return ' '
+            if sigma==0: return '?'
+            if sigma<goodfit: return '!'
+            return '*'
         if sdir is None: sdir = self.roi_dir
-        print '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
-        colstring = 'name dist ra dec flux8 index cutoff'
+        if title is None: title = self.name
+        print 90*'-', '\n\t Nearby point sources within %.1f degrees %s' % (maxdist,title)
+        colstring = 'name dist ra dec TS flux8 index beta cutoff'
         if galactic: colstring =colstring.replace('ra dec', 'l b')
         colnames = tuple(colstring.split())
         n = len(colnames)-1
-        print ('%-20s'+n*'%10s')% colnames
-        for ps in self.psm.point_sources:
+        print ('%-13s'+n*'%10s')% colnames
+        for which,ps in enumerate(self.psm.point_sources):
             dist=math.degrees(sdir.difference(ps.skydir))
             if maxdist and dist>maxdist:  continue
             loc = (ps.skydir.l(),ps.skydir.b()) if galactic else (ps.skydir.ra(),ps.skydir.dec())
-            par= ps.model.p
+            par, sigpar= ps.model.statistical()
+            expcutoff = ps.model.name=='ExpCutoff'
             npar = len(par)
-            fmt = '%-20s'+3*'%10.3f'+' %9.2f%1s'
-            freeflag = [ '*' if f else ' ' for f in ps.model.free]
-            values = (ps.name, dist) +loc+( ps.model.fast_iflux()/1e-8, freeflag[0], )
+            ts = '%10.0f'% self.TS(which=which) if np.any(ps.model.free) else 10*' '
+            fmt = '%-18s%5.1f'+2*'%10.3f'+ '%10s'+ '%10.2f%1s'
+            freeflag = map(makefreeflag, ps.model.free, sigpar)
+            values = (ps.name.strip(), dist) +loc+ (ts,)+( ps.model.fast_iflux()/1e-8, freeflag[0], )
             for i in range(1,npar): # parameters beyond flux
-                fmt     += '%9.2f%1s'
-                values += (10**par[i], freeflag[i]) 
+                if expcutoff and i==npar-1: fmt+=10*' '# gap if ExpCutoff to line up with cutoff 
+                fmt    += '%9.2f%1s' 
+                values += (par[i], freeflag[i]) 
             print fmt % values
+        print 90*'-','\n\tDiffuse sources\n',90*'-'
+        for bgmodel in self.bgm.bgmodels:
+            par, sigpar = bgmodel.smodel.statistical()
+            n= len(par)
+            freeflag = map(makefreeflag, bgmodel.smodel.free, sigpar)
+            fmt ='%-22s' 
+            values = (bgmodel.name.strip(),)
+            for v,f in zip(par, freeflag):
+                fmt +='%10.2f%1s'
+                values +=(v,f)
+            print fmt % values
+        print 90*'-'
+
 
     def print_resids(self):
         """Print out (weighted) residuals for each energy range, both in
