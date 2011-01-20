@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan 20 08:02:43 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	pixeldata.py 
+Log Message:
+use glob to allow passing FT1 and FT2 patterns instead of lists
+    *
+------------------------------------------------------------
 User: burnett  Thu Jan 20 08:01:45 PST 2011
 pointlike/python/uw/like
 
