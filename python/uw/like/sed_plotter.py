@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/sed_plotter.py,v 1.8 2010/08/23 20:45:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.9 2010/09/17 18:56:25 lande Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -159,10 +159,12 @@ class BandFlux(object):
         stat = m.statistical()
         err = stat[0]*stat[1]
         energy_flux_factor = self.scale_factor
-        # show position of e0 if powerlaw
-        if m.name=='PowerLaw':
-            axes.errorbar([m.e0], [energy_flux_factor*stat[0][0]*m.e0**2], fmt='or', 
-                yerr=energy_flux_factor*err[0]*m.e0**2, elinewidth=2, markersize=8)
+        # show position of e0 
+        e0 = m.e0 if m.name!='LogParabola' else 10**m.p[-1]
+        flux = m(e0); flux_unc = flux*stat[1][0]
+        axes.errorbar([e0], 
+                [energy_flux_factor*flux * m.e0**2], fmt='or', 
+            yerr=energy_flux_factor*flux_unc * m.e0**2, elinewidth=2, markersize=8)
         # plot the curve
         axes.plot( dom, energy_flux_factor*m(dom)*dom**2, **kwargs)
         #butterfly if powerlaw
