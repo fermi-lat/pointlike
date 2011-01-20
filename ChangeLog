@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan 20 08:00:04 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+allow for convolving SpatialMap
+    *
+------------------------------------------------------------
 User: burnett  Thu Jan 20 07:57:40 PST 2011
 pointlike/python/uw/like
 
