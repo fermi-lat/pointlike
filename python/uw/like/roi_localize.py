@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.17 2010/11/21 23:48:31 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.18 2010/11/22 23:55:18 lande Exp $
 
 author: Matthew Kerr
 """
@@ -12,6 +12,20 @@ from skymaps import SkyDir,Hep3Vector
 from pointlike import DoubleVector
 from pypsf import PsfOverlap
 from roi_extended import BandFitExtended
+
+def localizer(roi, which, **kwargs):
+    """ roi : a ROIanalysis object
+        which: int or string
+            if int, the index of the point source; if string, the name of a point or extended source
+    --> a Localizer object
+    """
+    manager,index = roi.mapper(which)
+
+    if manager == roi.dsm and not isinstance(manager.diffuse_sources[index],ExtendedSource):
+        raise Exception("Can only localize Point and Extended Sources")
+
+    return ROILocalizer(roi, index, **kwargs) if manager == roi.psm\
+      else ROILocalizerExtended(roi, index, **kwargs)
 
 ###====================================================================================================###
 class ROILocalizer(object):
