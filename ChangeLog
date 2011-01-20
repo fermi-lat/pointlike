@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan 20 08:08:04 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skymodel.py 
+Log Message:
+fix log parabola default free
+    *
+------------------------------------------------------------
 User: burnett  Thu Jan 20 08:07:03 PST 2011
 pointlike/python/uw/pipeline
 
