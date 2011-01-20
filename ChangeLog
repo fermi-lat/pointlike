@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan 20 08:08:53 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skyanalysis.py 
+Log Message:
+add plot_tsmap, fix get_model
+    *
+------------------------------------------------------------
 User: burnett  Thu Jan 20 08:08:04 PST 2011
 pointlike/python/uw/pipeline
 
