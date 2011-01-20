@@ -1,7 +1,7 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.10 2010/11/27 22:22:44 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.11 2010/12/09 23:47:02 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -672,6 +672,7 @@ class HealpixKDEMap(object):
         sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
         rval = 0
         for band in self.bands:
+            if band.photons==0: continue
             band.rvals = np.empty(len(band.wsdl),dtype=float)
             PythonUtilities.arclength(band.rvals,band.wsdl,sd)
             mask = band.rvals < band.r99
