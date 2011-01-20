@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan 20 07:51:06 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	sed_plotter.py 
+Log Message:
+show e0 if LogParabola
+    *
+------------------------------------------------------------
 User: burnett  Thu Jan 20 07:49:16 PST 2011
 pointlike/python/uw/like
 
