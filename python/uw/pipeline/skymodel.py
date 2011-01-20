@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.1 2011/01/12 15:56:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.2 2011/01/19 01:28:09 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -91,7 +91,8 @@ class ExtendedCatalog(pointspec_helpers.ExtendedSourceCatalog):
         """ return an ExtendedSource object, or None if not found """
         for source in self.sources:
             if name==source.name:
-                source.free = source.model.free.copy() 
+                source.free = source.model.free.copy()
+                if source.model.name=='LogParabola': source.free[-1]=False # E_break not free
                 return source
                 # since Josh checks for his ExtendedSource class, I have to modify it rather than 
                 # use my own
@@ -208,7 +209,7 @@ class SkyModel(object):
             # make a list of extended sources used in the model   
             t = []
             for name, model in zip(p['diffuse_names'] , p['diffuse']):
-                if len(t)<2: # alwasy assume first two are global
+                if len(t)<2: # always assume first two are global
                     t.append(GlobalSource(name=name, model=model, skydir=None, index=index))
                 else:
                     es = self.extended_catalog.lookup(name)
