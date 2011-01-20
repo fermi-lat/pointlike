@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jan 20 07:52:59 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_tsmap.py 
+Log Message:
+small bug fix needed if no data in a band
+    *
+------------------------------------------------------------
 User: burnett  Thu Jan 20 07:51:06 PST 2011
 pointlike/python/uw/like
 
