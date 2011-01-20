@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.22 2010/12/11 14:45:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.23 2011/01/11 18:38:16 lande Exp $
 
 author: Matthew Kerr
 """
@@ -244,11 +244,12 @@ class ROIPointSourceManager(ROIModelManager):
     def unzero_source(self, which, bands):
         m = self.models[which]
         try:
+            assert m.old_flux!=-100, 'attempt to unzero non-zeroed source %d ' % which
             m.p[0] = m.old_flux
             m.free = m.old_free.copy()
             self.cache(bands)      
         except:
-            print 'Source indicated was not zeroed in the first place!'
+            print 'Source %d indicated was not zeroed in the first place!' %which
 
 
 ###====================================================================================================###
