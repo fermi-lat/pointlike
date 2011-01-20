@@ -1,18 +1,16 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.1 2011/01/12 15:56:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.2 2011/01/19 01:37:05 burnett Exp $
 """
 import os, pickle
 import numpy as np
 import pylab as plt
 from skymaps import SkyDir
-from uw.like import counts_plotter
-from uw.pipeline import plot_sed  
+from uw.like import counts_plotter, roi_extended
 from uw.utilities import image
-try:
-    from uw.utilities import makefig
-except:
-    print 'no PIL!'
+try:    from uw.utilities import makefig
+except:    print 'no PIL!'
+from . import plot_sed  
   
 
         
@@ -148,9 +146,8 @@ def make_tsmap(roi, source, tsmap_dir, **kwargs):
     adict = source.adict if 'adict' in source.__dict__ else None #kwargs.pop('adict', None)
     tsize = source.ellipse[2]*15. if source.ellipse is not None else 1.1
     name = source.name
-    for which, s in enumerate(roi.psm.point_sources):
-        if s.name==name: break
     fout = os.path.join(tsmap_dir, ('%s_tsmap.png'%fname(name)) )
+    which = source.name 
     try:
         roi.qform= None #kluge to ignore the last fit
         tsm=roi.plot_tsmap( which=which, center=source.skydir, name=roi.name,
@@ -204,12 +201,12 @@ def process_sources(roi, sources, **kwargs):
     associate= kwargs.pop('associate', None)
     
     if associate is not None:
-        for which,source in enumerate(sources):
-            make_association(source, roi.tsmap(which), associate)
+        for source in sources:
+            make_association(source, roi.tsmap(which=source.name), associate)
  
     # add band info to the source objects
-    for which, source in enumerate(sources):
-        source.sedrec = plot_sed.SEDflux(roi, which).rec
+    for source in sources:
+        source.sedrec = plot_sed.SEDflux(roi, which=source.name).rec
         
     dirs = [kwargs.pop(dirname,None) for dirname in ('sedfig_dir', 'tsmap_dir')]
     procs = (make_sed, make_tsmap)
@@ -224,20 +221,23 @@ def process_sources(roi, sources, **kwargs):
 def localize_all(roi,sources):
 
     roi.qform=None
-    for which,source in enumerate(sources):
-        source.tsmaxpos, delta_ts =roi.localize(which)
-        source.ellipse = roi.qform.par[0:2]+roi.qform.par[3:7] +[delta_ts] if roi.qform is not None else None
+    for source in sources:
+        if isinstance(source, roi_extended.ExtendedSource):
+            print 'source %s is extended: not localizing' % source.name
+            source.ellipse=None
+        else:
+            source.tsmaxpos, delta_ts =roi.localize(which=source.name)
+            source.ellipse = roi.qform.par[0:2]+roi.qform.par[3:7] +[delta_ts] if roi.qform is not None else None
         
-def repivot(roi,   min_ts = 25, max_beta=0.2):
+def repivot(roi, fit_sources, min_ts = 25, max_beta=0.2):
         print '\ncheck need to repivot sources with TS>%.0f, beta<%.1f: \n'\
         'source                     TS        e0      pivot' % (min_ts, max_beta)
         need_refit =False
-        fit_sources = [s for s in roi.psm.point_sources if np.any(s.model.free)]
 
-        for which,source in enumerate(fit_sources):
+        for source in fit_sources:
             model = source.model
             try:
-                ts, e0, pivot = roi.TS(which=which),model.e0, model.pivot_energy()
+                ts, e0, pivot = roi.TS(which=source.name),model.e0, model.pivot_energy()
             except Exception, e:
                 print 'source %s:exception %s' %(source.name, e)
                 continue
@@ -290,7 +290,8 @@ def process(roi, **kwargs):
     if not os.path.exists(counts_dir):os.makedirs(counts_dir)
     
     roi.print_summary(sdir=roi.roi_dir, title='before fit, logL=%0.f'%initial_logl)
-    fit_sources = [s for s in roi.psm.point_sources if np.any(s.model.free)]
+    fit_sources = [s for s in roi.psm.point_sources if np.any(s.model.free)]\
+                + [s for s in roi.dsm.diffuse_sources if isinstance(s,roi_extended.ExtendedSource) and np.any(s.model.free)]
     if len(roi.get_parameters())==0:
         print '===================== nothing to fit========================'
     else:
@@ -305,7 +306,7 @@ def process(roi, **kwargs):
             print 'Refit not requested'
     
         if repivot_flag:
-            repivot(roi)
+            repivot(roi, fit_sources)
         
         if fixbeta:
             if not fix_beta(roi):
