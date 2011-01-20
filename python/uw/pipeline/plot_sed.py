@@ -16,13 +16,13 @@ Two classes:
     Note that PlotSED is independent of the likelihood code, and the plot can be recreated
     from the fluxes, model and name
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/plot_sed.py,v 1.1 2011/01/12 15:56:56 burnett Exp $
 """
 import os, sys
 import numpy as np
 import pylab as plt
 from uw.utilities import makerec, image
-from uw.like import roi_bands
+from uw.like import roi_bands, roi_extended
 
 class SEDflux(object):
     """ manage the band fluxes from a point source fit (extracted from roi_plotting)
@@ -55,7 +55,7 @@ class SEDflux(object):
             if self.manager == roi.psm:
                 eb.bandFit(which=self.index)
             else:
-                BandFitExtended(self.index,eb,self.roi).fit()
+                roi_extended.BandFitExtended(self.index,eb,self.roi).fit()
 
             eb.merged = False
         checkbound = lambda x: x.lflux> 1e-15 
@@ -112,7 +112,7 @@ class SEDflux(object):
         if self.manager == self.roi.psm:
             ebmerged.bandFit(which=self.index) # a new fit
         else:
-            BandFitExtended(self.index,ebmerged,self.roi).fit()
+            roi_extended.BandFitExtended(self.index,ebmerged,self.roi).fit()
 
         ebmerged.merged = True
         ebmerged.num = len(ebands)
