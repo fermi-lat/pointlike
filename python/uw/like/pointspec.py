@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.25 2010/12/05 09:33:56 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.26 2010/12/08 01:58:10 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.25 $'.split()[1]
+version='$Revision: 1.26 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -149,14 +149,14 @@ class SpectralAnalysis(object):
         ('tstop',0,'Default no cut on time; otherwise, cut on MET < tstop'),
         ('recalcgti',False,'if True, try to get GTI from GT1 files; otherwise, try from livetime cube or binned data file'),
         ('binsperdec',4,'energy binning granularity when binning FT1'),
-        ('emin',200,'Minimum energy'),
-        ('emax',2e5,'Maximum energy'),
+        ('emin',100,'Minimum energy'),
+        ('emax',1e6,'Maximum energy'),
         ('use_weighted_livetime',False,'Use the weighted livetime'),
         'keywords for monte carlo data',
         ('mc_src_id',-1,'set to select on MC_SRC_ID column in FT1'),
         ('mc_energy',False,'set True to use MC_ENERGY instead of ENERGY'),
         'keywords controlling instrument response',
-        ('irf','P6_v3_diff','Which IRF to use'),
+        ('irf','none','Which IRF to use'),
         ('psf_irf',None,'specify a different IRF to use for the PSF; must be in same format/location as typical IRF file!'),
         ('CALDB',os.environ['CALDB'],'override the CALDB specified by the env. variable'),
         ('keywords controlling spectral analysis'),
