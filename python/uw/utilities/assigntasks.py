@@ -1,13 +1,43 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.14 2010/04/29 21:14:14 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.15 2010/09/30 20:53:25 burnett Exp $
 
 """
 from IPython.kernel import client
 import time, os, pickle
-version = '$Revision: 1.14 $'.split()[1]
+version = '$Revision: 1.15 $'.split()[1]
 
+class ProgressBar:
+    def __init__(self, total=60, width=40):
+        self.total = total
+        self.prog_bar = '[]'
+        self.fill_char = '#'
+        self.width = width
+        self.__update_amount(0)
+    
+    def __update_amount(self, new_amount):
+        percent_done = int(round((new_amount / 100.0) * 100.0))
+        
+        all_full = self.width - 2
+        num_hashes = int(round((percent_done / 100.0) * all_full))
+        self.prog_bar = '[' + self.fill_char * num_hashes + ' ' * (all_full - num_hashes) + ']'
+        pct_place = (len(self.prog_bar) / 2) - len(str(percent_done))
+        pct_string = '%3d%%' % min(percent_done,99)
+        self.prog_bar = self.prog_bar[0:pct_place] + \
+            (pct_string + self.prog_bar[pct_place + len(pct_string):])
+        
+    def update(self, current):
+        if current>=self.total:
+            self.prog_bar = '['+(self.width-1)*self.fill_char+']'
+        else:
+            self.__update_amount((current / float(self.total)) * 100.0)
+        self.prog_bar += '  %d/%s' % (current, self.total)
+        
+    def __str__(self):
+        return str(self.prog_bar)
+    def display(self):
+        print self()+'\r'
 
 def get_mec():
     return client.MultiEngineClient()
@@ -22,6 +52,7 @@ class AssignTasks(object):
             quiet=False, log=None, timelimit=60,
             callback = None,
             ignore_exception = True,
+            progress_bar = False,
             ):
         """
         setup_string: python code to setup the clients for the tasks
@@ -35,6 +66,7 @@ class AssignTasks(object):
         timelimit: [60] limit (s) for a single task
         callback: [None] if set, will call as callback(task_index, result) 
         ignore_exception: [True] Determine what to do if an engine has an exception: continue, or throw it
+        progress_bar : [False] If set, change quiet to false, log to open('assign_tasks.log', 'w')
         """
         self.local = local
         self.timelimit = timelimit
@@ -61,6 +93,11 @@ class AssignTasks(object):
         self.engine_time={} #dict. of time per engine
         self.lost     = set() # list of dead ids
         self.ignore_exception = ignore_exception
+        self.progress_bar = progress_bar
+        if progress_bar:
+            if self.logstream is None:
+                self.logstream = open('assigntasks.log', 'w')
+            self.progress_bar=ProgressBar(len(tasks))
 
         self.log('Start AssignTasks, with %d tasks and  %d engines'\
                %( len(self.tasks), len(self.get_ids())))
@@ -93,7 +130,7 @@ class AssignTasks(object):
         self.pending[id] = self.execute(self.tasks[self.index], id, block=False)
         self.index+=1
         if self.index==len(self.tasks): # check if done
-            self.index=0 # reset index for another run
+            #self.index=0 # reset index for another run
             return True  
         return False
 
@@ -101,6 +138,9 @@ class AssignTasks(object):
         if not self.quiet:
             print >>self.logstream,\
                 '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (message,))
+        if self.progress_bar:
+            self.progress_bar.update(self.index+1)
+            print self.progress_bar.__str__()+ ' '+message+ ('\r' if os.name=='nt' else chr(27)+'[A'),
 
     def check_result(self, id, block=False):
         """ 
@@ -202,6 +242,7 @@ class AssignTasks(object):
             self.log('possibly failed tasks: %s' % list(self.lost).sort() )
         self.log( 'Cycled through main loop %d times, slept %d times; elapsed, total times: %.1f, %.1f s'\
                 %( loop_iters, sleepcount, time.clock()-starttime, sum(self.time.values())-self.time[-1]) )
+        if self.logstream is not None: self.logstream.close()
 
 
     def dump(self, filename='summary.pickle'):
@@ -215,7 +256,7 @@ def setup_mec(engines=None, machines='tev1 tev2 tev3 tev4'.split()):
     """
     if os.name=='nt':
         engines = engines or 4
-        os.system(r'start /MIN /D %s cmd /K python C:\python25\scripts\ipcluster local -xy -n %d'% (os.getcwd(),engines))
+        os.system(r'start /MIN /D %s cmd /K ipcluster local -xy -n %d'% (os.getcwd(),engines))
     else:
         # on a tev machine
         engines = engines or 16 #default on a tev machine!
@@ -235,7 +276,7 @@ def setup_mec(engines=None, machines='tev1 tev2 tev3 tev4'.split()):
         for m in machines:
             for i in range(engines):
                 time.sleep(0.1) # make sure the controller is started ?
-                os.system('ssh %s ipengine > /dev/null &'% m) # this assumes that the environment is setup with non-interactive login
+                os.system('ssh -x %s ipengine > /dev/null &'% m) # this assumes that the environment is setup with non-interactive login
 
 def kill_mec():
     get_mec().kill(True)
