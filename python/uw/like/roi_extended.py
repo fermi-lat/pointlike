@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.40 2011/01/06 07:27:27 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_extended.py,v 1.41 2011/01/11 18:39:03 lande Exp $
 
     author: Joshua Lande
 """
@@ -108,14 +108,14 @@ class ROIExtendedModel(ROIDiffuseModel):
             numeric convolution extended model for non-radially symmetric
             sources. """
 
-        if not isinstance(extended_source,ExtendedSource):
-            raise Exception("The extended_source option passed to ROIExtendedModel.factory() must inherit from ExtendedSource.")
+        #if not isinstance(extended_source,ExtendedSource):
+        #    raise Exception("The extended_source option passed to ROIExtendedModel.factory() must inherit from ExtendedSource.")
 
         spatial_model = extended_source.spatial_model
 
         if isinstance(spatial_model,RadiallySymmetricModel):
             return ROIExtendedModelAnalytic(spectral_analysis,extended_source,*args,**kwargs)
-        elif isinstance(spatial_model,SpatialModel):
+        elif isinstance(spatial_model,SpatialModel) or isinstance(spatial_model,SpatialMap):
             return ROIExtendedModel(spectral_analysis,extended_source,*args,**kwargs)
         else:
             raise Exception("The extended_source.dmodel option passed to ROIExtendedModel.factory must inherit from SpatialModel.")
