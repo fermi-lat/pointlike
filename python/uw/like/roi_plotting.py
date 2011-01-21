@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.17 2011/01/19 22:19:33 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.18 2011/01/20 18:51:30 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -405,8 +405,6 @@ class ROIDisplay(object):
             ('pixelsize',       0.25,  'size of each image pixel'),
             ('size',              10, 'Size of the field of view'),
             ('nticks',             5, 'Number of axes tick marks'),
-            ('log_counts_min',   1.0,      'Counts scale minimum'),
-            ('log_counts_max',   2.5,      'Counts scale maximum'),
             ('label_sources',  False,  'Label sources duing plot'),
             ('galactic',        True, 'Coordinate system for plot')
     )
@@ -430,6 +428,9 @@ class ROIDisplay(object):
         keyword_options.process(self, kwargs)
         
         self.roi = roi
+
+        self.cm = CountsImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic)
+        self.mm = ModelImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic)
 
         ROIDisplay.matplotlib_format()
 
@@ -464,47 +465,51 @@ class ROIDisplay(object):
             ax.set_title(t)
             ax.set_xlabel(xl) 
             ax.set_ylabel(yl)
+        
+        # round scale to nearest half integer, wuch that model & counts have same scale.
+        log_counts_max = 10**(N.ceil(2*N.log10(max(N.max(self.cm.image),N.max(self.mm.image))))/2.0)
+        log_counts_min = 10**max(N.floor(2*N.log10(min(N.min(self.cm.image),N.min(self.mm.image))))/2.0,0)
+        print 'min,max',log_counts_min,log_counts_max
 
         self.norm1 = mpl.colors.Normalize(vmin=0,vmax=5)
-        self.norm2 = mpl.colors.Normalize(vmin=self.log_counts_min,vmax=self.log_counts_max)
+        self.norm2 = mpl.colors.LogNorm(vmin=log_counts_min,vmax=log_counts_max,clip=True)
         self.norm3 = mpl.colors.Normalize(vmin=-5,vmax=5)
 
         #resid colorbar
         rcb_axes = fig.add_axes([imx[3]+imw[3]*0.72,imy[3],0.01,imh[3]])
         rcb        = mpl.colorbar.ColorbarBase(rcb_axes,
-                                                            norm=self.norm1,
-                                                            ticks = ticker.MaxNLocator(4),
-                                                            cmap  = colormaps.b,
-                                                            orientation='vertical')
+                                               norm=self.norm1,
+                                               ticks = ticker.MaxNLocator(4),
+                                               cmap  = colormaps.b,
+                                               orientation='vertical')
 
         #counts colorbar
         ccb_axes1 = fig.add_axes([imx[0]+imw[0]*0.72,imy[0],0.01,imh[0]])
         ccb1        = mpl.colorbar.ColorbarBase(ccb_axes1,
-                                                            norm=self.norm2,
-                                                            ticks = ticker.MaxNLocator(4),
-                                                            cmap  = colormaps.b,
-                                                            orientation='vertical')
+                                                norm=self.norm2,
+                                                ticks = ticker.LogLocator(),
+                                                cmap  = colormaps.b,
+                                                orientation='vertical')
+
         ccb_axes2 = fig.add_axes([imx[1]+imw[1]*0.72,imy[1],0.01,imh[1]])
         ccb2        = mpl.colorbar.ColorbarBase(ccb_axes2,
-                                                            norm=self.norm2,
-                                                            ticks = ticker.MaxNLocator(4),
-                                                            cmap  = colormaps.b,
-                                                            orientation='vertical')
+                                                norm=self.norm2,
+                                                ticks = ticker.LogLocator(),
+                                                cmap  = colormaps.b,
+                                                orientation='vertical')
 
         ccb_axes3 = fig.add_axes([imx[2]+imw[2]*0.72,imy[2],0.01,imh[2]])
         ccb3        = mpl.colorbar.ColorbarBase(ccb_axes3,
-                                                            norm=self.norm3,
-                                                            ticks = ticker.MaxNLocator(4),
-                                                            orientation='vertical')
+                                                norm=self.norm3,
+                                                ticks = ticker.MaxNLocator(4),
+                                                orientation='vertical')
 
-        self.cm = CountsImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic)
-        self.mm = ModelImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic)
         if interactive: P.ion()
 
     def model_plot(self):
 
         self.mm_zea = self.mm.get_ZEA(nticks=self.nticks, axes=self.axes1)
-        self.axes1.imshow(N.log10(self.mm_zea.image),origin='lower',interpolation='nearest',cmap=self.cmap_b,norm=self.norm2)
+        self.axes1.imshow(self.mm_zea.image,origin='lower',interpolation='nearest',cmap=self.cmap_b,norm=self.norm2)
         self.mm_zea.grid()
         self.mm_zea.scale_bar(color='white')
         self.plot_sources(self.mm_zea,mc='k')
@@ -512,7 +517,8 @@ class ROIDisplay(object):
     def counts_plot(self):
 
         self.cm_zea = self.cm.get_ZEA(nticks=self.nticks, axes=self.axes2)
-        self.axes2.imshow(N.log10(self.cm_zea.image),origin='lower',interpolation='nearest',cmap=self.cmap_b,norm=self.norm2)
+        # note that we must explicitly clip bins with no counts to avoid confusing the colorbar with NaNs.
+        self.axes2.imshow(self.cm_zea.image,origin='lower',interpolation='nearest',cmap=self.cmap_b,norm=self.norm2)
         self.cm_zea.grid()
         self.cm_zea.scale_bar(color='white')
         self.plot_sources(self.cm_zea,mc='k')
