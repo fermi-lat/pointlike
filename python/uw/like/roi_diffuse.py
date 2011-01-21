@@ -1,13 +1,14 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.15 2010/12/09 23:43:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.16 2011/01/06 07:26:56 lande Exp $
 
 author: Matthew Kerr
 """
 import numpy as N
 from uw.utilities.convolution import BackgroundConvolution
-from skymaps import SkyIntegrator,Background
+from skymaps import SkyIntegrator,Background,IsotropicSpectrum,DiffuseFunction
+import copy
 
 class SmallBand(object):
     """ A little holder."""
@@ -36,6 +37,19 @@ class DiffuseSource(object):
     def __str__(self): return '\n'.join((self.name,'\t'+self.dmodel.__str__(),
             '\t'+self.smodel.__str__()))
 
+    def __getstate__(self):
+        """ this is a poor man's pickeling. Convert all the IsotropicSpectrum and DiffuseFunction
+            objects into pickelable filenames. This implementation should be more robust. """
+
+        d=copy.copy(self.__dict__)
+        d['dmodel'] = [ (type(i),i.name()) if \
+                        (isinstance(i,IsotropicSpectrum) or isinstance(i,DiffuseFunction)) else i for i in d['dmodel'] ]
+        return d
+
+    def __setstate__(self,state):
+        """ recreate the dmodel. """
+        self.__dict__ = state
+        self.dmodel = [ i[0](i[1]) if type(i)==tuple else i for i in self.dmodel]
 
 ###=========================================================================###
 class ROIDiffuseModel(object):
