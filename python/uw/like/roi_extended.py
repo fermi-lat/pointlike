@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_extended.py,v 1.41 2011/01/11 18:39:03 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.42 2011/01/20 16:00:04 burnett Exp $
 
     author: Joshua Lande
 """
@@ -52,7 +52,7 @@ class ExtendedSource(DiffuseSource):
             raise Exception("The diffuse_model passed to an Extended Source must inherit from SpatialModel.")
 
         super(ExtendedSource,self).__init__(
-            diffuse_model = self.spatial_model.get_PySkySpectrum(),
+            diffuse_model = self.spatial_model,
             scaling_model = self.model,
             name          = self.name)
 
