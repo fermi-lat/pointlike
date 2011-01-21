@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jan 21 15:09:21 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+Allow for a poor-mans pickling of diffuse_sources by simply removing and recreating the unpickalable skymaps objects. This implementation is somewhat fragile because it depends upon path names, but should be a quick fix.
+    *
+------------------------------------------------------------
 User: lande  Thu Jan 20 18:55:59 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
