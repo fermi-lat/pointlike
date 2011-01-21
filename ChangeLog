@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jan 21 15:10:52 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Set an extended_source's dmodel to be the spatial_model object (instead of a PySkyFunction object) so that ExtendedSources are pickleable.
+    *
+------------------------------------------------------------
 User: lande  Fri Jan 21 15:09:21 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
