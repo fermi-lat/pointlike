@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.28 2010/12/05 09:31:40 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.29 2010/12/28 00:55:37 burnett Exp $
 
     author: Matthew Kerr
     """
@@ -81,16 +81,11 @@ class ExposureManager(object):
 
     def __init__(self,sa):
 
-        caldb = sa.CALDB
-        if not os.path.exists(os.path.join(caldb, 'bcf')):
-            caldb = os.path.join(caldb, 'data', 'glast','lat')
-            if not os.path.exists(os.path.join(caldb, 'bcf')):
-                raise Exception('ExposureManager attempt to set invalid CALDB: "%s"' % sa.CALDB)
-        EffectiveArea.set_CALDB(caldb)
+        EffectiveArea.set_CALDB(sa.CALDBManager.CALDB)
         
         Exposure.set_cutoff(N.cos(N.radians(sa.thetacut)))
         inst = ['front', 'back']
-        aeff_files = [os.path.join(caldb, 'bcf','ea', 'aeff_%s_%s.fits'%(sa.irf,fb)) for fb in inst] 
+        aeff_files = sa.CALDBManager.get_aeff()
         ok = [os.path.exists(file) for file in aeff_files]
         if not all(ok):
             raise Exception('one of CALDB aeff files not found: %s' %aeff_files)
