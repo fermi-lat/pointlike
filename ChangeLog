@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jan 24 13:57:41 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+fixes for case with no localizaiton
+    *
+------------------------------------------------------------
 User: burnett  Mon Jan 24 13:56:30 PST 2011
 pointlike/python/uw/pipeline
 
