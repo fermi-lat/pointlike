@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.26 2010/12/08 01:58:10 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.27 2011/01/20 16:03:47 burnett Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.26 $'.split()[1]
+version='$Revision: 1.27 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -15,6 +15,7 @@ from datetime import date,timedelta
 
 from pixeldata import PixelData
 from pypsf     import Psf,OldPsf,NewPsf,CALDBPsf
+from pycaldb   import CALDBManager
 from pointspec_helpers import *
 from roi_managers import ROIPointSourceManager,ROIBackgroundManager,ROIDiffuseManager
 from roi_analysis import ROIAnalysis
@@ -159,6 +160,7 @@ class SpectralAnalysis(object):
         ('irf','none','Which IRF to use'),
         ('psf_irf',None,'specify a different IRF to use for the PSF; must be in same format/location as typical IRF file!'),
         ('CALDB',os.environ['CALDB'],'override the CALDB specified by the env. variable'),
+        ('custom_irf_dir',None,'override the CUSTOM_IRF_DIR specified by the env. variable'),
         ('keywords controlling spectral analysis'),
         ('background','1FGL','a choice of global model specifying a diffuse background; see ConsistentBackground for options'),
         ('maxROI',10,'maximum ROI for analysis; note ROI aperture is energy-dependent = max(maxROI,r95(e,conversion_type))'),
@@ -183,27 +185,19 @@ class SpectralAnalysis(object):
                         and/or binned data / livetime cube needed for analysis
                         (see docstring for that class)
   """
-        keyword_options.process(self, kwargs)
-
-        self._check_CALDB()
 
         self.ae = self.dataspec = data_specification
 
         self.__dict__.update(self.dataspec.__dict__)
-        self.__dict__.update(**kwargs)
+        keyword_options.process(self, kwargs)
+
+        self.CALDBManager = CALDBManager(irf=self.irf,psf_irf=self.psf_irf,
+                                         CALDB=self.CALDB,custom_irf_dir=self.custom_irf_dir)
 
          #TODO -- sanity check that BinnedPhotonData agrees with analysis parameters
         self.pixeldata = PixelData(self.__dict__)
         self.exposure  = ExposureManager(self)
-        self.psf = CALDBPsf(self.CALDB,irf=self.irf,psf_irf=self.psf_irf)
-
-    def _check_CALDB(self):
-        """ Make sure the CALDB member includes the entire path."""
-        # this implementation a little crude, but there appear to be only
-        # two possibilities
-        toks = os.path.split(self.CALDB)
-        if toks[1] != 'lat':
-            self.CALDB = os.path.join(self.CALDB,'data','glast','lat')
+        self.psf = CALDBPsf(self.CALDBManager)
 
     def set_psf_weights(self,skydir):
         """ Set the PSF to a new position.  Weights by livetime."""
