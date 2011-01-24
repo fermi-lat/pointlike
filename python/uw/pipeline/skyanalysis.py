@@ -1,11 +1,11 @@
 """
 Basic ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.2 2011/01/19 01:34:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.3 2011/01/20 16:08:53 burnett Exp $
 """
 import os, pickle, glob, types
 import numpy as np
 from skymaps import SkyDir, PySkyFunction
-from uw.pipeline import skymodel, dataspec
+from . import skymodel, dataspec
 from uw.utilities import keyword_options
 from uw.like import pointspec, roi_analysis, roi_managers, roi_diffuse, roi_localize
 from uw.like import sed_plotter, tsmap_plotter, counts_plotter
@@ -233,7 +233,7 @@ class PipelineROI(roi_analysis.ROIAnalysis):
             tsp.plot(center, label=name)
             tsp.show()
         """
-        self.localizer = roi_localize.ROILocalizer(self, which, bandfits=bandfits)
+        self.localizer = roi_localize.localizer(self, which, bandfits=bandfits)
         return PySkyFunction(self.localizer)
         
     def fit_ts_list(self, which=0):
