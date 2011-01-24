@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.1 2011/01/12 15:56:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.2 2011/01/19 01:37:05 burnett Exp $
 """
 import os, types, glob, time, pickle
 import numpy as np
@@ -50,7 +50,7 @@ class Pipe(skyanalysis.SkyAnalysis):
         processor.process(roi, **self.process_kw)
 
     def names(self):
-        return ['HP12_%04d'%i for i in range(12*12**2)]
+        return ['HP%d_%04d'%(self.nside,i) for i in range(12*self.nside**2)]
 
 class Setup(dict):
     """ Setup is a dictionary with variable run parameters
