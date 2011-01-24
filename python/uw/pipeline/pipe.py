@@ -1,10 +1,10 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.2 2011/01/19 01:37:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.3 2011/01/24 20:25:58 kerrm Exp $
 """
 import os, types, glob, time, pickle
 import numpy as np
-import skymodel, skyanalysis, processor, associate
+from . import skymodel, skyanalysis, processor, associate
 from uw.utilities import makerec
 from uw.utilities.assigntasks import setup_mec, AssignTasks, get_mec, kill_mec
 
@@ -33,7 +33,7 @@ class Pipe(skyanalysis.SkyAnalysis):
         self.skymodel_kw= kwargs.pop('skymodel_kw', dict())
  
         associator = kwargs.pop('associate', 'all_but_gammas')
-        if associator is not None:
+        if associator is not None and associator!='None':
             associator = associate.SrcId('$FERMI/catalog', associator)
             #print 'will associate with catalogs %s' % associator.classes
         self.process_kw['associate'] = associator
@@ -80,6 +80,7 @@ class Setup(dict):
                 fix_beta=False, dofit=True,
                 source_kw=dict(),
                 fit_kw=dict(use_gradient=False,),
+                repivot = True,
                 tables = None,  #roi_maps.ROItables("%(outdir)s", skyfuns=(
                                 # (roi_tsmap.TSCalc, 'ts', dict(photon_index=2.0),) 
                                 #  (ts_map.KdeMap, "kde", dict()),))
@@ -95,7 +96,7 @@ class Setup(dict):
 import os; os.chdir(r"%(cwd)s");
 from uw.pipeline import pipe, maps;
 g=pipe.Pipe("%(indir)s", "%(dataset)s",
-        skymodel_kw=dict(auxcat="%(auxcat)s"),
+        skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,),
         irf="%(irf)s",
         fit_emin=%(fit_emin)s, fit_emax=%(fit_emax)s, minROI=5, maxROI=5,
         associate="%(associator)s",
@@ -104,6 +105,7 @@ g=pipe.Pipe("%(indir)s", "%(dataset)s",
             localize=%(localize)s,
             fix_beta= %(fix_beta)s, dofit=%(dofit)s,
             tables= %(tables)s,
+            repivot=%(repivot)s,
             ),
         fit_kw = %(fit_kw)s,
     ) 
@@ -131,7 +133,12 @@ def roirec(version=None):
         version = int(open('version.txt').read())
     roi_files = glob.glob('uw%02d/pickle/*.pickle'%version)
     roi_files.sort()
-    assert len(roi_files)==1728, 'misssing roi files'
+    if len(roi_files)<1728:
+        t = map(lambda x : int(x[-11:-7]), roi_files)
+        missing = [x for x in xrange(1728) if x not in t]
+        print 'misssing roi files: %s' % missing
+        raise Exception('misssing roi files: %s' % missing)
+        
     recarray = makerec.RecArray('name chisq loglike'.split())
     for fname in roi_files:
         p = pickle.load(open(fname))
@@ -178,7 +185,7 @@ def main( setup_string, outdir, mec=None, startat=0, n=0, local=False,
     # executing the setup string must create an object g, where g(n) for 0<=n<len(g.names())
     # will execute the task n
     g = getg(setup_string)
-    print >> open(os.path.join(outdir, 'config.txt'), 'w'), g
+    print >> open(os.path.join(outdir, 'config.txt'), 'w'), str(g)
     print >> open(os.path.join(outdir, 'setup_string.txt'), 'w'), setup_string
     names = g.names(); 
     print 'Start at source %d' % startat
@@ -206,14 +213,16 @@ def main( setup_string, outdir, mec=None, startat=0, n=0, local=False,
             print 'got exception writing %s' % name
             raise
             
-    if not local: setup_mec(machines=machines, engines=engines)
+    if not local and mec is None: 
+        setup_mec(machines=machines, engines=engines)
     time.sleep(10)
     lc= AssignTasks(setup_string, tasks[startat:endat], mec=mec, 
         timelimit=2000, local=local, callback=callback, 
         ignore_exception=ignore_exception,
          progress_bar=progress_bar)
     lc(5)
-    if not local: get_mec().kill(True)
+    if not local and mec is None: 
+        get_mec().kill(True)
     return lc
    
 
