@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jan 24 13:58:55 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skymodel.py 
+Log Message:
+add the association stuff (is this the best place?), fixes for managing the global diffuse files
+    *
+------------------------------------------------------------
 User: burnett  Mon Jan 24 13:57:41 PST 2011
 pointlike/python/uw/pipeline
 
