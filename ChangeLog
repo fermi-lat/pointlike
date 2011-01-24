@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jan 24 13:59:56 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skyanalysis.py 
+Log Message:
+get the right localizer for extended sources
+    *
+------------------------------------------------------------
 User: burnett  Mon Jan 24 13:58:55 PST 2011
 pointlike/python/uw/pipeline
 
