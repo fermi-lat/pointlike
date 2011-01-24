@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.2 2011/01/19 01:37:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.3 2011/01/20 16:09:41 burnett Exp $
 """
 import os, pickle
 import numpy as np
@@ -116,7 +116,7 @@ def pickle_dump(roi, pickle_dir, pass_number, **kwargs):
             band_info = band_info, 
             band_ts=np.sum(band_info['ts']),
             pivot_energy = pivot_energy,
-            ellipse= np.array(s.ellipse,np.float32),
+            ellipse= np.array(s.ellipse,np.float32) if 'ellipse' in s.__dict__ else None,
             associations = s.adict if 'adict' in s.__dict__ else None,
             )
     output.update(kwargs) # add additional entries from kwargs
@@ -130,11 +130,8 @@ def fname(name):
 
 def make_sed(roi, source, sedfig_dir, **kwargs):
     plot_sed.PlotSED(source.sedrec)(source.model, source.name)
-    # a galactic map if requested
-    image.galactic_map(roi.roi_dir, color='lightblue', marker='o', markercolor='r')
-
-    #roi.plot_sed(which=name, **kwargs)
-    
+    # add a galactic map if requested
+    image.galactic_map(roi.roi_dir, color='lightblue', marker='s', markercolor='r')
     fout = os.path.join(sedfig_dir, ('%s_sed.png'%fname(source.name)) )
     plt.title(source.name)
     plt.savefig(fout)
@@ -149,19 +146,27 @@ def make_tsmap(roi, source, tsmap_dir, **kwargs):
     fout = os.path.join(tsmap_dir, ('%s_tsmap.png'%fname(name)) )
     which = source.name 
     try:
-        roi.qform= None #kluge to ignore the last fit
-        tsm=roi.plot_tsmap( which=which, center=source.skydir, name=roi.name,
-            outdir=None, catsig=0, size=tsize, 
-            pixelsize= tsize/14,
-            # todo: fix this
-            assoc=adict if adict is not None else None, # either None or a dictionary
-            notitle=True, #don't do title
-            markersize=10,
-            primary_markersize=12,
-            )
-        if source.ellipse is not None:
-            tsm.overplot(source.ellipse)
-        tsm.zea.axes.set_title('%s'% name, fontsize=16)  # big title
+        if not isinstance(source,roi_extended.ExtendedSource): 
+            roi.qform= None #kluge to ignore the last fit
+            tsm=roi.plot_tsmap( which=which, center=source.skydir, name=roi.name,
+                outdir=None, catsig=0, size=tsize, 
+                pixelsize= tsize/14,
+                # todo: fix this
+                assoc=adict if adict is not None else None, # either None or a dictionary
+                notitle=True, #don't do title
+                markersize=10,
+                primary_markersize=12,
+                )
+            if source.ellipse is not None:
+                tsm.overplot(source.ellipse)
+            tsm.zea.axes.set_title('%s'% name, fontsize=16)  # big title
+        else: 
+            # yucky branch to avoid trying to generate TS maps for extended sources
+            print 'dummy TS map for extended source %s ' % name
+            fig = plt.figure(figsize=(5,5))
+            plt.title('%s'% name, fontsize=16)
+            plt.text(0.2,0.5, '(extended source)', fontsize=16)
+            plt.gca().set_axis_off()
         plt.savefig(fout)
         print 'saved tsplot to %s' % fout 
     except Exception, e:
@@ -197,7 +202,6 @@ def make_association(source, tsf, associate):
 
 def process_sources(roi, sources, **kwargs):
     outdir     = kwargs.pop('outdir', '.')
-    for source in sources: source.ellipse=None
     associate= kwargs.pop('associate', None)
     
     if associate is not None:
@@ -229,7 +233,7 @@ def localize_all(roi,sources):
             source.tsmaxpos, delta_ts =roi.localize(which=source.name)
             source.ellipse = roi.qform.par[0:2]+roi.qform.par[3:7] +[delta_ts] if roi.qform is not None else None
         
-def repivot(roi, fit_sources, min_ts = 25, max_beta=0.2):
+def repivot(roi, fit_sources, min_ts = 25, max_beta=1.5):
         print '\ncheck need to repivot sources with TS>%.0f, beta<%.1f: \n'\
         'source                     TS        e0      pivot' % (min_ts, max_beta)
         need_refit =False
