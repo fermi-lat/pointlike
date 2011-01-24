@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Mon Jan 24 14:03:45 PST 2011
+pointlike/python/uw/pipeline/pub
+
+Added Files:
+	__init__.py combine_figures.py deepzoom.py display_map.py 
+	dz_collection.py healpix_map.py makecat.py pivot.py publish.py 
+	roi_pivot.py source_pivot.py 
+Log Message:
+initial commit of code generating web access
+    *
+------------------------------------------------------------
 User: burnett  Mon Jan 24 14:01:42 PST 2011
 pointlike/python/uw/pipeline/pub
 
