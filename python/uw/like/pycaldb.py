@@ -1,5 +1,5 @@
 """  A module to handle finding irfs
-    $Header:$
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pycaldb.py,v 1.1 2011/01/24 21:22:40 lande Exp $
 
     author: Joshua Lande """
 import os
@@ -143,13 +143,9 @@ class CALDBManager(object):
     def construct_edisp(self):
         raise NotImplementedException("No current need for this function.")
 
-    def get_psf(self): 
-        print self.psf_files
-        return self.psf_files
+    def get_psf(self): return self.psf_files
 
-    def get_aeff(self): 
-        print self.aeff_files
-        return self.aeff_files
+    def get_aeff(self): return self.aeff_files
 
     def get_edisp(self):
         raise NotImplementedException("No current need for this function.")
