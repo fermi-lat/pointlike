@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jan 24 23:32:57 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_image.py 
+Log Message:
+More elegant calculation of nside with better default value
+    *
+------------------------------------------------------------
 User: lande  Mon Jan 24 23:32:23 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
