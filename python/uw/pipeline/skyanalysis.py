@@ -1,6 +1,6 @@
 """
 Basic ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.3 2011/01/20 16:08:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.4 2011/01/24 21:59:56 burnett Exp $
 """
 import os, pickle, glob, types
 import numpy as np
@@ -29,6 +29,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         maxROI       = 5,
         radius       =10, 
         irf          = 'P6_v11_diff',
+        convo_reso   = 0.25,
         fit_kw = dict(fit_bg_first = False,
             use_gradient = True, ),
         log          = None,
@@ -60,22 +61,23 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         show = """CALDB irf skymodel dataspec fit_emin fit_emax fit_kw 
                minROI maxROI process_kw""".split()
         for key in show:
-            s += '\t%-20s: %s\n' %(key, self.__dict__[key])
+            s += '\t%-20s: %s\n' %(key, 
+                self.__dict__[key] if key in self.__dict__.keys() else 'not in self.__dict__!')
         return s
 
         s = 'SkyAnalysis analysis environment:\n'
         s += super(SkyAnalysis,self).__str__()
         return s
     
-    def _diffuse_sources(self, index ):
+    def _diffuse_sources(self, src_sel):
         """ return a source manager for the diffuse,  global and extended sources
         """
-        skydir = self.skymodel.skydir(index)
+        skydir = src_sel.skydir()
         # get all diffuse models appropriate for this ROI
-        globals, extended = self.skymodel.get_diffuse_sources(index, radius=self.radius)
+        globals, extended = self.skymodel.get_diffuse_sources(src_sel)
        
         # perform OTF convolutions with PSFs
-        diffuse_mapper = lambda x: roi_diffuse.ROIDiffuseModel_OTF(self, x, skydir)
+        diffuse_mapper = lambda x: roi_diffuse.ROIDiffuseModel_OTF(self, x, skydir, pixelsize=self.convo_reso)
         global_models = map(diffuse_mapper, globals)
         
         extended_mapper =lambda x: roi_extended.ROIExtendedModel.factory(self,x,skydir)
@@ -84,18 +86,25 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         # create and return the manager
         return roi_managers.ROIDiffuseManager(global_models+extended_models, skydir, quiet=self.quiet)
         
-    def _local_sources(self, index ):
+    def _local_sources(self, src_sel):
         """ return a manager for the local sources with significant overlap with the ROI
         """
-        ps = self.skymodel.get_point_sources(index, self.radius)
-        skydir = self.skymodel.skydir(index)
+        ps = self.skymodel.get_point_sources(src_sel)
+        skydir = src_sel.skydir()
         return roi_managers.ROIPointSourceManager(ps, skydir,quiet=self.quiet)
         
-    def roi(self, index):
+    def roi(self, index, src_sel=None):
         """ return a roi_analysis.ROIAnalysis object based on the roi index
         """
-        ps_manager = self._local_sources( index)
-        bg_manager = self._diffuse_sources(index)
+        if src_sel is None:
+            src_sel = HEALPixSourceSelector(index,self.skymodel,max_radius=self.radius)
+        else:
+            if (src_sel.max_radius != self.radius):
+                print 'Warning, overriding max radius of %.2f with %.2f'%(src_sel.max_radius,self.radius)
+                src_sel.max_radius = self.radius
+
+        ps_manager = self._local_sources(src_sel)
+        bg_manager = self._diffuse_sources(src_sel)
         
         def iterable_check(x):
             return x if hasattr(x,'__iter__') else (x,x)
@@ -109,6 +118,46 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
                     quiet=self.quiet, 
                     fit_kw = self.fit_kw)
         return r
+
+  
+class SourceSelector(object):
+    """ Manage inclusion of sources in an ROI."""
+    
+    defaults = (
+        ('max_radius',10,'Maximum radius (deg.) within which sources will be selected.'),
+        ('free_radius',3,'Radius (deg.) in which sources will have free parameters'),
+    )
+
+    @keyword_options.decorate(defaults)
+    def __init__(self, skydir, **kwargs):
+        self.mskydir = skydir
+        keyword_options.process(self,kwargs)
+
+    def include(self,source):
+        """ source -- an instance of Source
+            skymodel -- an instance of SkyModel """
+        return source.near(self.mskydir,self.max_radius)
+
+    def free(self,source):
+        """ source -- an instance of Source
+            skymodel -- an instance of SkyModel """
+        return source.near(self.mskydir,self.free_radius)
+
+    def frozen(self,source): return not self.free(source)
+
+    def skydir(self): return self.mskydir
+        
+class HEALPixSourceSelector(SourceSelector):
+    """ Manage inclusion of sources in an ROI based on HEALPix."""
+
+    @keyword_options.decorate(SourceSelector.defaults)
+    def __init__(self, index, skymodel,**kwargs):
+        keyword_options.process(self,kwargs)
+        self.index = index
+        self.mskydir = skymodel.skydir(index)
+
+    def free(self,source):
+        return source.index == self.index
 
 class PipelineROI(roi_analysis.ROIAnalysis):
     """ sub class of the standard ROIAnalysis class to cusomize the fit, add convenience functions
