@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan 25 10:09:19 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skyanalysis.py skymodel.py 
+Log Message:
+refactor and clearn up after recent commit.
+    *
+------------------------------------------------------------
 User: lande  Mon Jan 24 23:32:57 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
