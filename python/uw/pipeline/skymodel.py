@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.3 2011/01/20 16:08:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.4 2011/01/24 21:58:55 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -248,21 +248,20 @@ class SkyModel(object):
             ps.freeze(freeze) 
         return ret
         
-    def get_point_sources(self, index, radius=10):
+    def get_point_sources(self, src_sel):
         """
         return a list of PointSource objects appropriate for the ROI
         """
-        ps_roi = self.select(lambda s: s.index==index, freeze=False)
-        center = self.skydir(index)
-        ps_rest = self.select(lambda s: s.near(center,radius) and not s.index==index, freeze=True)
-        return ps_roi+ps_rest
+        ps_all = filter(src_sel.include,self.sources)
+        map(PointSource.freeze,ps_all,map(src_sel.frozen,ps_all))
+        return filter(src_sel.free,ps_all) + filter(src_sel.frozen,ps_all)
         
-    def get_diffuse_sources(self, index,radius=10):
+    def get_diffuse_sources(self, src_sel):
         """return diffuse, global and extended sources needed for this HEALpix index
             always the global diffuse, and perhaps local extended sources.
             For the latter, make parameters free only if center is in the pixel
         """
-        globals = self.global_sources[index]
+        globals = self.global_sources[self.index(src_sel.skydir())]
         for s in globals:
             dfile = os.path.expandvars(os.path.join('$FERMI','diffuse', s.name))
             assert os.path.exists(dfile), 'file %s not found' % dfile
@@ -276,11 +275,10 @@ class SkyModel(object):
             else:
                 raise Exception('unrecognized diffuse file extention %s' % dfile)
             s.smodel=s.model
-        center = self.skydir(index)
 #        extended =  [es for es in self.extended_sources if es.near(center,radius)]
-        extended =  [es for es in self.extended_sources if center.difference(es.skydir)<np.radians(radius)]
+        extended =  [es for es in self.extended_sources if src_sel.include(es)]
         for es in extended:
-            es.model.free[:] = es.free if self.index(es.skydir)==index else False
+            es.model.free[:] = src_sel.free(es)
             es.dmodel = es.spatial_model # references needed 
             es.smodel = es.model
         return globals, extended
@@ -466,5 +464,3 @@ def create_catalog(outdir, **kwargs):
         pickle.dump(rec, open(fname,'wb'))
         print 'saved %d entries to pickle file %s' % (len(rec), fname)
         
- 
-     
