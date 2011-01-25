@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan 25 11:26:10 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+modify log10 mapping to avoid invalids
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan 25 11:07:03 PST 2011
 pointlike/python/uw/pipeline
 
