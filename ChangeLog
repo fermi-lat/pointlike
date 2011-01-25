@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jan 24 19:24:14 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skyanalysis.py skymodel.py 
+Log Message:
+Added helper classes to skyanalysis.py to generalize source selection,
+and modified SkyAnalysis and SkyModel to use it.
+Added kwarg to SkyAnalysis to control resolution of convolution grid.
+Fixed __str__ method in SkyModel when invoked with process_kw kwarg.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jan 24 17:32:50 PST 2011
 pointlike/python/uw/pipeline
 
