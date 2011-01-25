@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.5 2011/01/25 03:24:14 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.6 2011/01/25 18:09:19 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -273,7 +273,12 @@ class SkyModel(object):
             else:
                 raise Exception('unrecognized diffuse file extention %s' % dfile)
             s.smodel=s.model
-        return globals, self._select_and_freeze(self.extended_sources, src_sel)
+        extended = self._select_and_freeze(self.extended_sources, src_sel)
+        for es in extended: # this seems redundant, but was necessary
+            es.model.free[:] = src_sel.free(es)
+            es.smodel = es.model
+            
+        return globals, extended
         
 def get_association_class(adict):
     """Given association dictionary, decide what class to ascribe the source to.  Partly guesswork!
