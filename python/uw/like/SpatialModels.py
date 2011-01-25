@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.31 2011/01/11 01:14:17 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/SpatialModels.py,v 1.32 2011/01/11 18:33:22 lande Exp $
 
    author: Joshua Lande
 
@@ -187,11 +187,10 @@ class SpatialModel(object):
                 raise Exception("Do not make the spatial parameters log.")
 
             # map the log parameters into log space.
-            # careful not to take log of a negative number
-            self.p = N.where(self.log,N.log10(self.p),self.p)
-            log_transpose = self.log.reshape((self.log.shape[0],1))
-            self.limits = N.where(log_transpose,
-                                  N.log10(self.limits),self.limits)
+            for i in range(2,len(self.log)):
+                if self.log[i]: 
+                    self.p[i] = N.log10(self.p[i])
+                    self.limits[i,:] = N.log10(self.limits[i,:])
 
         self.cache()
 
