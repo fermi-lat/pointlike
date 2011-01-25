@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.5 2011/01/14 09:58:30 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.6 2011/01/14 10:52:20 lande Exp $
 
 author: Joshua Lande
 """
@@ -466,8 +466,7 @@ class RadialModel(RadialImage):
 
             if type(extended_model) == ROIExtendedModel:
 
-                num_points_per_ring=20
-                nside = int(N.ceil(N.sqrt(num_points_per_ring*(4./12.)*(self.npix/N.radians(self.size)**2))))
+                nsize = RadialModel.get_nside(self.size,self.npix)
 
                 temp_band = Band(nside)
                 wsdl = WeightedSkyDirList(temp_band,self.center,N.radians(self.size),True)
@@ -497,20 +496,24 @@ class RadialModel(RadialImage):
 
         return extended_counts
 
-
-    def otf_source_counts(self,bg):
-        """
-            Solid angle of each healpix pixel is 4pi/(12*ns^2)
-            Solid angel of each ring is 4*(size)^2/npix
-            Want size of each ring > 20*size of each healpix (so that
+    @staticmethod
+    def get_nside(size,npix,num_points_per_ring=1000):
+        """ Solid angle of each healpix pixel is 4pi/(12*ns^2)
+            Solid angel of each ring is pi*(size)^2/npix
+            Want size of each ring > num_points_per_ring*size of each healpix (so that
             we get 20 pixels to sample each ring).
 
-            Solving for ns, the size of the healpixels required, we get
-
-            ns=ceil(20*(4/12)*npix/size^2) 
-            
-            with where size is in radians. 
+            Solving for ns, the size of the healpixels required, we get the required formula
         """
+        total_solid_angle=4*N.pi
+        image_solid_angle=2*N.pi*(1-N.cos(N.radians(size)))
+
+        solid_angle_per_ring=image_solid_angle/npix
+
+        nside = int(N.ceil(N.sqrt(num_points_per_ring*total_solid_angle/(12*solid_angle_per_ring))))
+        return nside
+
+    def otf_source_counts(self,bg):
 
         roi=self.roi
         bands=roi.bands
@@ -523,8 +526,7 @@ class RadialModel(RadialImage):
 
             ns,bg_points,bg_vector = ROIDiffuseModel_OTF.sub_energy_binning(band,bg.nsimps)
 
-            num_points_per_ring=20
-            nside = int(N.ceil(N.sqrt(num_points_per_ring*(4./12.)*(self.npix/N.radians(self.size)**2))))
+            nside = RadialModel.get_nside(self.size,self.npix)
 
             temp_band = Band(nside)
             wsdl = WeightedSkyDirList(temp_band,self.center,N.radians(self.size),True)
