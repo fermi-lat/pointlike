@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.4 2011/01/24 21:58:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.5 2011/01/25 03:24:14 kerrm Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -63,7 +63,7 @@ class Source(object):
     def freeze(self, freeze):
         self.model.free[:] = False if freeze else self.free
     def __str__(self):
-        return self.name + ' '+ self.skydir.__str__() + self.model.name \
+        return self.name + ' '+ self.skydir.__str__() +' '+ self.model.name \
                 +  (' (free)' if np.any(self.model.free) else ' (fixed)')
  
 class PointSource(Source):
@@ -92,19 +92,18 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
         assert len(self.sources)==len(self.names), 'inconsistent list lengths'
         
     def lookup(self, name):
-        """ return an ExtendedSource object, or None if not found """
+        """ return an ExtendedSource object,  """
         for source in self.sources:
             if name==source.name:
-                source.free = source.model.free.copy()
-                if source.model.name=='LogParabola': source.free[-1]=False # E_break not free
-                return source
-                # since Josh checks for his ExtendedSource class, I have to modify it rather than 
-                # use my own
-                #spatial_model = source.spatial_model
-                #return ExtendedSource(name=name, skydir=source.skydir,
-                #    model = source.model, 
-                #    spatial_model = source.spatial_model)
-                #    
+                # make a new object copied from original
+                extsource= ExtendedSource(name=name, skydir=source.skydir,
+                    model = source.model, 
+                    spatial_model = source.spatial_model,
+                    smodel= source.smodel,      # these reference copies needed
+                    dmodel= source.spatial_model
+                    )
+                if extsource.model.name=='LogParabola': extsource.free[-1]=False # E_break not free
+                return extsource    
         raise Exception( ' extended source %s not found' % name)
     
 class SkyModel(object):
@@ -235,31 +234,30 @@ class SkyModel(object):
     def index(self, skydir):
         return Band(self.nside).index(skydir)
     
-    def select(self, selection, freeze=False):
-        """ return a list of point sources objects
-        selection : function
-            for example, lamda s : s.index=888
-        freeze : bool
-            determine 
-        
+    def _select_and_freeze(self, sources, src_sel):
+        """ 
+        sources : list of Source objects
+        src_sel : selection object
+        -> list of selected sources selected by src_sel.include, 
+            with some frozen according to src_sel.frozen
+            order so the free are first
         """
-        ret =  [source for source in self.sources if selection(source)]
-        for ps in ret:
-            ps.freeze(freeze) 
-        return ret
-        
+        inroi = filter(src_sel.include, sources)
+        for s in inroi:
+            s.freeze(src_sel.frozen(s))
+        return filter(src_sel.free,inroi) + filter(src_sel.frozen, inroi)
+    
     def get_point_sources(self, src_sel):
         """
         return a list of PointSource objects appropriate for the ROI
         """
-        ps_all = filter(src_sel.include,self.sources)
-        map(PointSource.freeze,ps_all,map(src_sel.frozen,ps_all))
-        return filter(src_sel.free,ps_all) + filter(src_sel.frozen,ps_all)
+        return self._select_and_freeze(self.sources, src_sel)
         
     def get_diffuse_sources(self, src_sel):
-        """return diffuse, global and extended sources needed for this HEALpix index
+        """return diffuse, global and extended sources defined by src_sel
             always the global diffuse, and perhaps local extended sources.
-            For the latter, make parameters free only if center is in the pixel
+            For the latter, make parameters free if not selected by src_sel.frozen
+            TODO: feature to override free selection for globals.
         """
         globals = self.global_sources[self.index(src_sel.skydir())]
         for s in globals:
@@ -275,13 +273,7 @@ class SkyModel(object):
             else:
                 raise Exception('unrecognized diffuse file extention %s' % dfile)
             s.smodel=s.model
-#        extended =  [es for es in self.extended_sources if es.near(center,radius)]
-        extended =  [es for es in self.extended_sources if src_sel.include(es)]
-        for es in extended:
-            es.model.free[:] = src_sel.free(es)
-            es.dmodel = es.spatial_model # references needed 
-            es.smodel = es.model
-        return globals, extended
+        return globals, self._select_and_freeze(self.extended_sources, src_sel)
         
 def get_association_class(adict):
     """Given association dictionary, decide what class to ascribe the source to.  Partly guesswork!
