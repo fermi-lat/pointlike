@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jan 24 23:32:23 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Adding a convenience function get_source to roi_analysis.
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jan 24 19:24:14 PST 2011
 pointlike/python/uw/pipeline
 
