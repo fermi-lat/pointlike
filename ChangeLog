@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan 25 11:07:03 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skymodel.py 
+Log Message:
+small fix apparently needed to properly freeze extended sources
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan 25 10:09:19 PST 2011
 pointlike/python/uw/pipeline
 
