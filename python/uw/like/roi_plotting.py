@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.19 2011/01/21 02:45:47 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.20 2011/01/21 02:55:59 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -470,7 +470,7 @@ class ROIDisplay(object):
         counts_max = N.ceil(max(N.max(self.cm.image),N.max(self.mm.image)))
         counts_min = 1.0
 
-        self.norm1 = mpl.colors.Normalize(vmin=0,vmax=5)
+        self.norm1 = mpl.colors.Normalize(vmin=0,vmax=1)
         self.norm2 = mpl.colors.LogNorm(vmin=counts_min,vmax=counts_max,clip=True)
         self.norm3 = mpl.colors.Normalize(vmin=-5,vmax=5)
 
@@ -479,7 +479,7 @@ class ROIDisplay(object):
         rcb        = mpl.colorbar.ColorbarBase(rcb_axes,
                                                norm=self.norm1,
                                                ticks = ticker.MaxNLocator(4),
-                                               cmap  = colormaps.b,
+                                               cmap  = self.cmap_b,
                                                orientation='vertical')
 
         #counts colorbar
@@ -487,14 +487,14 @@ class ROIDisplay(object):
         ccb1        = mpl.colorbar.ColorbarBase(ccb_axes1,
                                                 norm=self.norm2,
                                                 ticks = ticker.LogLocator(),
-                                                cmap  = colormaps.b,
+                                                cmap  = self.cmap_b,
                                                 orientation='vertical')
 
         ccb_axes2 = fig.add_axes([imx[1]+imw[1]*0.72,imy[1],0.01,imh[1]])
         ccb2        = mpl.colorbar.ColorbarBase(ccb_axes2,
                                                 norm=self.norm2,
                                                 ticks = ticker.LogLocator(),
-                                                cmap  = colormaps.b,
+                                                cmap  = self.cmap_b,
                                                 orientation='vertical')
 
         ccb_axes3 = fig.add_axes([imx[2]+imw[2]*0.72,imy[2],0.01,imh[2]])
@@ -531,7 +531,6 @@ class ROIDisplay(object):
         self.plot_sources(self.resids_zea,mc='k')
         
         pvals = 1 - poisson.cdf(self.cm_zea.image,self.mm_zea.image ) #0 problem?
-        pvals = N.abs(N.where(pvals < 0.5, N.log10(pvals), N.log10(1-pvals)))
 
         self.pvals_zea = ZEA(self.roi.roi_dir,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic,axes=self.axes4)
         self.pvals_zea.image = pvals
@@ -696,19 +695,10 @@ class ROISlice(object):
     @staticmethod
     def cache_roi(roi):
         roi.old_parameters = roi.parameters().copy() # save free parameters
-        roi.old_cov_matrix = roi.cov_matrix.copy() if roi.__dict__.has_key('cov_matrix') else None
 
     @staticmethod
     def uncache_roi(roi):
-
         roi.set_parameters(roi.old_parameters) # reset free parameters
-
-        if roi.old_cov_matrix is not None:
-            # reset spectral errors
-            roi.cov_matrix = roi.old_cov_matrix
-            roi.bgm.set_covariance_matrix(roi.old_cov_matrix,current_position = 0)
-            roi.psm.set_covariance_matrix(roi.old_cov_matrix,current_position = len(roi.bgm.parameters()))
-
         roi.__pre_fit__() # restore caching
         roi.update_counts()
 
@@ -729,7 +719,7 @@ class ROISlice(object):
             ROISlice.cache_roi(self.roi)
 
             self.roi.zero_source(self.which)
-            self.roi.fit()
+            self.roi.fit(estimate_errors=False)
 
             self.mi_x['Background']=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
             self.mi_y['Background']=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
@@ -742,17 +732,21 @@ class ROISlice(object):
 
             ROISlice.cache_roi(self.roi)
 
-            es=self.roi.del_source(self.which)
-
+            es=self.roi.get_source(self.which)
+            
             ps=PointSource(name=es.name,model=es.model.copy(),skydir=es.spatial_model.center,leave_parameters=True)
             self.roi.add_source(ps)
-            self.roi.fit()
+
+            # only zero it after making a copy of the spectral part!
+            self.roi.zero_source(es)
+
+            self.roi.fit(estimate_errors=False)
 
             self.mi_x['Point']=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
             self.mi_y['Point']=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
 
             self.roi.del_source(ps)
-            self.roi.add_source(es)
+            self.roi.unzero_source(es)
 
             ROISlice.uncache_roi(self.roi)
 
@@ -834,10 +828,6 @@ class ROIRadialIntegral(object):
             ('aspoint',         True, """ Display also the model predictions for an extended source 
                                           fit with the point hypothesis. Only works when which is an
                                           extended source. """),
-            ('oversample_factor',  4, """ Calculate the model predictions this many times more finely. 
-                                          This will create a smoother plot of model predictions. Set 
-                                          to 1 if you want the model predictions to 'look like' the 
-                                          data."""),
             ('smooth_model',    True, """Connect the model preditions with a line (instead of steps) 
                                          to make the model look smoother.""")
     )
@@ -846,9 +836,6 @@ class ROIRadialIntegral(object):
     def __init__(self, roi, **kwargs):
         keyword_options.process(self, kwargs)
 
-        if not type(self.oversample_factor) == int:
-            raise Exception("oversample_factor must be an integer.")
-        
         self.roi = roi
 
         if self.which is None:
@@ -878,7 +865,7 @@ class ROIRadialIntegral(object):
         self.ci = RadialCounts(self.roi,center=self.center,size=self.size,pixelsize=self.pixelsize)
 
     def get_model(self):
-        kwargs=dict(center=self.center,size=self.size,pixelsize=self.pixelsize/self.oversample_factor)
+        kwargs=dict(center=self.center,size=self.size,pixelsize=self.pixelsize)
 
         self.mi = dict()
 
@@ -890,7 +877,7 @@ class ROIRadialIntegral(object):
             ROISlice.cache_roi(self.roi)
 
             self.roi.zero_source(self.which)
-            self.roi.fit()
+            self.roi.fit(estimate_errors=False)
 
             self.mi['Background']=RadialModel(self.roi,**kwargs)
 
@@ -902,15 +889,20 @@ class ROIRadialIntegral(object):
 
             ROISlice.cache_roi(self.roi)
 
-            es=self.roi.del_source(self.which)
+            es=self.roi.get_source(self.which)
+
             ps=PointSource(name=es.name,model=es.model.copy(),skydir=es.spatial_model.center,leave_parameters=True)
             self.roi.add_source(ps)
-            self.roi.fit()
+
+            # only zero it after making a copy of the spectral part!
+            self.roi.zero_source(es)
+
+            self.roi.fit(estimate_errors=False)
 
             self.mi['Point']=RadialModel(self.roi,**kwargs)
 
             self.roi.del_source(ps)
-            self.roi.add_source(es)
+            self.roi.unzero_source(es)
 
             ROISlice.uncache_roi(self.roi)
 
@@ -919,7 +911,7 @@ class ROIRadialIntegral(object):
         for name,model in self.mi.items():
 
             theta_sqr=model.bin_centers_deg
-            m=model.image*self.oversample_factor
+            m=model.image
             P.plot(theta_sqr,m,drawstyle='steps' if not self.smooth_model else 'default',
                    label=name)
 
