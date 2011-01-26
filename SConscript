@@ -2,7 +2,7 @@
 # @file SConscript
 # @brief scons build specifications
 #
-# $Header: /nfs/slac/g/glast/ground/cvs/pointlike/SConscript,v 1.115 2010/12/09 05:54:01 lande Exp $
+# $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/SConscript,v 1.116 2010/12/10 18:50:15 burnett Exp $
 # Authors: Toby Burnett <tburnett@u.washington.edu>
 # Version: pointlike-07-07-02
 
@@ -25,17 +25,9 @@ libEnv.Tool('addLinkDeps', package=package, toBuild='shared')
 progEnv.Tool(libname)
 
 lib = libEnv.SharedLibrary(package, listFiles(['src/*.cxx']))
-if baseEnv['PLATFORM']=='win32':
-    # Add a post-build step to embed the manifest using mt.exe
-    # The number at the end of the line indicates the file type (1: EXE; 2:DLL).
-    libEnv.AddPostAction(lib, 'mt.exe -nologo -manifest ${TARGET}.manifest -outputresource:$TARGET;2')
-
 
 swigEnv = progEnv.Clone()
 pyLib = swigEnv.SwigLibrary('_'+package,'src/swig_setup.i')
-if baseEnv['PLATFORM']=='win32':
-    libEnv.AddPostAction(pyLib, 'mt.exe -nologo -manifest ${TARGET}.manifest -outputresource:$TARGET;2')
-
 
 progEnv.Tool('registerTargets', 
              package   = package, 
