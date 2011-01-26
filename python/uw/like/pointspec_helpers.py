@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.29 2010/12/28 00:55:37 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.30 2011/01/24 21:22:40 lande Exp $
 
     author: Matthew Kerr
     """
@@ -131,6 +131,7 @@ class FermiCatalog(PointSourceCatalog):
         self.init()
         self.__dict__.update(kwargs)
         self.__open_catalog__(catalog_file)
+        self.catalog_file=catalog_file
 
     def __open_catalog__(self,catalog_file):
         from pyfits import open
