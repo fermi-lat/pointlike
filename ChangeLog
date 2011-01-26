@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jan 25 17:52:28 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Change P values plot to directly plot pvalues. Clean up fitting code in ROISlice and ROIRadialIntegral to not overwrite spectral errors. Remove ROIRadialIntegral's oversample_factor flag since its generally not useful. 
+    *
+------------------------------------------------------------
 User: lande  Tue Jan 25 17:50:49 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
