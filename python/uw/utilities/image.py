@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.35 2010/11/20 23:06:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.36 2010/12/09 23:30:12 burnett Exp $
 
 """
-version = '$Revision: 1.35 $'.split()[1]
+version = '$Revision: 1.36 $'.split()[1]
 
 import pylab
 import types
@@ -22,6 +22,8 @@ from math import exp
 from numpy.fft import fft2,ifft2,fftshift
 from scipy import optimize
 import keyword_options
+
+SkyImage.setNaN(np.nan) 
 
 class Ellipse(object):
     def __init__(self, q):
@@ -426,7 +428,7 @@ class AIT(object):
         if   scale=='linear':  m=self.axes.imshow(scale_fun(self.masked_image),   **kwargs)
         elif scale=='log':     m=self.axes.imshow(ma.log10(self.masked_image), **kwargs)
         elif scale=='sqrt':    m=self.axes.imshow(ma.sqrt(self.masked_image), **kwargs)
-        else: raise Exception('bad scale: %s, expect either "linear" or "log"'%scale)
+        else: raise Exception('bad scale: %s, expect either "linear" "sqrt", or "log"'%scale)
                                         
         #self.colorbar =pylab.colorbar(orientation='horizontal', shrink=1.0 if self.size==180 else 1.0)
         if not nocolorbar:
