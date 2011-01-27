@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.6 2011/01/14 10:52:20 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.7 2011/01/25 07:32:57 lande Exp $
 
 author: Joshua Lande
 """
@@ -59,7 +59,7 @@ class ROIImage(object):
         self.nx, self.ny = self.skyimage.naxis1(), self.skyimage.naxis2()
         self.image=N.array(self.skyimage.image()).reshape((self.ny, self.nx))
 
-    def fill():
+    def fill(self):
         raise NotImplementedError("Subclasses should implement this!")
 
     def get_ZEA(self,axes=None,nticks=None):
@@ -239,10 +239,10 @@ class ModelImage(ROIImage):
         else:
             # hold onto this thing since it is needed by downsample_model
             if not hasattr(self.size,'__iter__'):
-                self.fine_skyimage = SkyImage(self.center, self.fitsfile, float(self.pixelsize)/self.factor,
+                self.fine_skyimage = SkyImage(self.center, '', float(self.pixelsize)/self.factor,
                                          self.size, 1, self.proj, self.galactic, False)
             else:
-                self.fine_skyimage = SkyImage(self.center, self.fitsfile, float(self.pixelsize)/self.factor,
+                self.fine_skyimage = SkyImage(self.center, '', float(self.pixelsize)/self.factor,
                                          float(self.size[0]), 1, self.proj, self.galactic, False, float(self.size[1]))
 
             wsdl = self.fine_skyimage.get_wsdl() 
@@ -395,7 +395,7 @@ class RadialImage(object):
 
         self.fill()
 
-    def fill():
+    def fill(self):
         """ This should fill up self.image appropriatly."""
         raise NotImplementedError("Subclasses should implement this!")
 
