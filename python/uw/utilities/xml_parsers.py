@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.30 2011/01/04 04:09:16 cohen Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.31 2011/01/12 14:21:37 burnett Exp $
 
    author: Matthew Kerr
 """
@@ -412,6 +412,9 @@ class Model_to_XML(object):
         if not self.oomp[index]: return
         # else adjust scale to nearest order of magnitude
         scale = round(N.log10(val))
+
+        if scale == float('-inf'): return # happens if a parameter is too close to 0.
+
         self.pscale[index] = 10**scale
         self.pmin[index] = 1e-2
         self.pmax[index] = 1e2
@@ -454,7 +457,7 @@ class Model_to_XML(object):
             if (param == 'Index') or (param == 'Index1') or (param == 'Index2' and model.name!='PLSuperExpCutoff'):
                 self.process_photon_index(model,index,vals[iparam],errs[iparam])
             if self.pval[index] < self.pmin[index]:
-                msg = 'Found %s=%s < %s, minimum allowed valus '%(param, str(self.pval[index]),str(self.pmin[index]))
+                msg = 'Found %s=%s < %s, minimum allowed value'%(param, str(self.pval[index]),str(self.pmin[index]))
                 if self.strict: raise Exception(msg)
                 print 'WARNING: %s, \n\tSetting parameter value to minimum.' %msg
                 self.pval[index] = self.pmin[index]
@@ -643,7 +646,7 @@ def unparse_point_sources(point_sources, strict=False):
         xml_blurbs.push(''.join([s1,specxml,skyxml,s2]))
     return xml_blurbs
 
-def process_diffuse_source(ds,strict,filename):
+def process_diffuse_source(ds,convert_extended,filename):
     """Convert an instance of DiffuseSource into an XML blurb."""
     m2x = Model_to_XML()
     dm = ds.dmodel
@@ -654,7 +657,7 @@ def process_diffuse_source(ds,strict,filename):
         specxml  = m2x.getXML()
         spatial  = ds.spatial_model
         spectral = ds.smodel
-        if strict and not isinstance(spatial,SpatialMap): 
+        if convert_extended and not isinstance(spatial,SpatialMap): 
             folder=os.path.dirname(filename)
             template_name=folder+os.sep if folder != '' else ''
             template_name+='template_%s_%s_%s.fits' % (ds.name.replace(' ','_'),
@@ -693,11 +696,11 @@ def process_diffuse_source(ds,strict,filename):
     s2 = '</source>'
     return ''.join([s1,specxml,skyxml,s2])
     
-def unparse_diffuse_sources(diffuse_sources,strict,filename):
+def unparse_diffuse_sources(diffuse_sources,convert_extended,filename):
     """Convert a list of DiffuseSources into XML blurbs."""
     xml_blurbs = Stack()
     for ds in diffuse_sources:
-        xml_blurbs.push(process_diffuse_source(ds,strict,filename))
+        xml_blurbs.push(process_diffuse_source(ds,convert_extended,filename))
     return xml_blurbs
 
 def writeXML(stacks,filename, title='source_library'):
@@ -709,25 +712,26 @@ def writeXML(stacks,filename, title='source_library'):
             f.write(elem)
     f.write('\n</source_library>')
 
-def writeROI(roi,filename,strict=False):
+def writeROI(roi,filename,strict=False,convert_extended=False):
     """ out the contents of an ROIAnalysis source model
         to a gtlike XML file.
-       
-        N.B. By default, extended sources are saved out with
-        a format incompatable with gtlike. This is because
-        each diffuse source has its spatial parameters saved
-        out in the xml file. This is useful for saving
-        errors on the fit spatial parameters as well as for
-        easibly being read back into pointlike. OTOH, it is
-        sometimes desirable for extended source output to be
-        stirctly compatable with gtlike, to allow reading
-        extended sources into gtlike. For this case, strict
-        can be set to true and all extended sources are
-        converted into SpatialMap objects before the xml is
-        created. """
+
+        the strict flag raises an exception if any of the spectral
+        parameters are outside of the fit range.
+
+        The convert_extended converst extended sources to be fully
+        compliant with gtlike.  By default, extended sources are saved
+        out with a format incompatable with gtlike. This is because
+        each diffuse source has its spatial parameters saved out in
+        the xml file. This is useful for saving errors on the fit
+        spatial parameters as well as for easibly being read back into
+        pointlike. OTOH, it is sometimes desirable for extended source
+        output to be stirctly compatable with gtlike. This can be done
+        with the convert_extended flag, which converts all extended
+        sources cto SpatialMap objects before the xml is created. """
     source_xml = [unparse_point_sources(roi.psm.point_sources, strict=strict)]
     try:
-        source_xml.append(unparse_diffuse_sources(roi.dsm.diffuse_sources,strict,
+        source_xml.append(unparse_diffuse_sources(roi.dsm.diffuse_sources,convert_extended,
             filename))
     except AttributeError: 
         print 'warning: no diffuse sources found to write to xml'
