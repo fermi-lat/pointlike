@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jan 27 11:04:46 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_image.py 
+Log Message:
+Bugfix so that the fitsfile parameter for a ROIImage object will cause the ROIImage to be saved to a fits file.
+    *
+------------------------------------------------------------
 User: lande  Thu Jan 27 10:36:48 PST 2011
 ScienceTools-scons/pointlike/python/uw/utilities
 
