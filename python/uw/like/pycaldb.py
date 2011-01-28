@@ -1,5 +1,5 @@
 """  A module to handle finding irfs
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pycaldb.py,v 1.1 2011/01/24 21:22:40 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pycaldb.py,v 1.2 2011/01/24 22:38:09 lande Exp $
 
     author: Joshua Lande """
 import os
@@ -90,8 +90,8 @@ class CALDBManager(object):
             return
 
         # try to read form caldb index
-        front=N.where((N.char.find(self.irf_names,irf)!=-1)&(self.irf_types=='RPSF')&(self.conv_types=='FRONT'))[0]
-        back=N.where((N.char.find(self.irf_names,irf)!=-1)&(self.irf_types=='RPSF')&(self.conv_types=='BACK'))[0]
+        front=N.where((N.chararray.find(self.irf_names,irf)!=-1)&(self.irf_types=='RPSF')&(self.conv_types=='FRONT'))[0]
+        back=N.where((N.chararray.find(self.irf_names,irf)!=-1)&(self.irf_types=='RPSF')&(self.conv_types=='BACK'))[0]
 
         # if front & back exist in the caldb.indx
         if len(front)==1 and len(back)==1:
