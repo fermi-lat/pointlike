@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jan 28 10:46:49 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+tweak Model.statistical() a bit to avoid generating numeric errors
+    *
+------------------------------------------------------------
 User: burnett  Fri Jan 28 10:45:11 PST 2011
 pointlike/python/uw/like
 
