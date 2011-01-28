@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: burnett  Fri Jan 28 10:45:11 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Added Files:
+	roi_printing.py 
+Log Message:
+add get_model, get_source function to ROIAnalysis
+Improve print_summary output to include extended sources, move code to new module
+    *
+------------------------------------------------------------
 User: cohen  Fri Jan 28 01:15:02 PST 2011
 pointlike/python/uw/like
 
