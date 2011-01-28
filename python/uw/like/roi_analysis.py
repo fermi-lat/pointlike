@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.59 2011/01/20 16:01:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.60 2011/01/25 07:32:23 lande Exp $
 
 author: Matthew Kerr
 """
@@ -11,13 +11,12 @@ import numpy as N
 np = N #standard numpy
 import math, pickle, collections
 
-from uw.like import roi_bands, roi_localize , specfitter
-
-from pointspec_helpers import PointSource,get_default_diffuse_mapper
-from roi_diffuse import ROIDiffuseModel,DiffuseSource
-from roi_extended import ExtendedSource,BandFitExtended
+from . import roi_bands, roi_localize , specfitter
+from . pointspec_helpers import PointSource,get_default_diffuse_mapper
+from . roi_diffuse import ROIDiffuseModel,DiffuseSource
+from . roi_extended import ExtendedSource,BandFitExtended
+from . import roi_printing
 from uw.utilities import keyword_options
-
 from scipy.optimize import fmin,fmin_powell,fmin_bfgs
 from scipy.stats.distributions import chi2
 from scipy import integrate
@@ -25,6 +24,15 @@ from numpy.linalg import inv
 
 EULER_CONST  = N.exp(1)
 LOG_JACOBIAN = 1./N.log10(EULER_CONST)
+
+# special function to replace or extend a docstring from that of another function
+def decorate_with(other_func, append=False):
+    def decorator(func):
+        if append: func.__doc__ += other_func.__doc__ 
+        else:      func.__doc__  = other_func.__doc__ 
+        return func
+    return decorator
+
 
 ###====================================================================================================###
 
@@ -775,68 +783,9 @@ class ROIAnalysis(object):
             else:
                 raise Exception("Unable to modify_loc of diffuse source %s" % which)
         
+    @decorate_with(roi_printing.print_summary)
     def print_summary(self, sdir=None, galactic=False, maxdist=5, title=None):
-        """ formatted table point sources positions and parameter in the ROI, 
-            followed by summary of diffuse names, parameters values.
-            values are followed by a character to indicate status:
-                blank: fixed
-                ?      sigma=0, not fit yet
-                !      relative error<0.1
-                *      otherwise
-        Parameters
-        ----------
-             sdir : SkyDir, optional, default None for center
-                   for center: default will be the first source
-             galactic : bool, optional, default False
-                 set true for l,b
-             maxdist : float, optional, default 5
-                 radius in degrees
-             title: None or a string
-                if None, use the name of the ROI. 
-
-        """
-        def makefreeflag(free, sigma, goodfit=0.1):
-            if not free: return ' '
-            if sigma==0: return '?'
-            if sigma<goodfit: return '!'
-            return '*'
-        if sdir is None: sdir = self.roi_dir
-        if title is None: title = self.name
-        print 90*'-', '\n\t Nearby point sources within %.1f degrees %s' % (maxdist,title)
-        colstring = 'name dist ra dec TS flux8 index beta cutoff'
-        if galactic: colstring =colstring.replace('ra dec', 'l b')
-        colnames = tuple(colstring.split())
-        n = len(colnames)-1
-        print ('%-13s'+n*'%10s')% colnames
-        for which,ps in enumerate(self.psm.point_sources):
-            dist=math.degrees(sdir.difference(ps.skydir))
-            if maxdist and dist>maxdist:  continue
-            loc = (ps.skydir.l(),ps.skydir.b()) if galactic else (ps.skydir.ra(),ps.skydir.dec())
-            par, sigpar= ps.model.statistical()
-            expcutoff = ps.model.name=='ExpCutoff'
-            npar = len(par)
-            ts = '%10.0f'% self.TS(which=which) if np.any(ps.model.free) else 10*' '
-            fmt = '%-18s%5.1f'+2*'%10.3f'+ '%10s'+ '%10.2f%1s'
-            freeflag = map(makefreeflag, ps.model.free, sigpar)
-            values = (ps.name.strip(), dist) +loc+ (ts,)+( ps.model.fast_iflux()/1e-8, freeflag[0], )
-            for i in range(1,npar): # parameters beyond flux
-                if expcutoff and i==npar-1: fmt+=10*' '# gap if ExpCutoff to line up with cutoff 
-                fmt    += '%9.2f%1s' 
-                values += (par[i], freeflag[i]) 
-            print fmt % values
-        print 90*'-','\n\tDiffuse sources\n',90*'-'
-        for bgmodel in self.bgm.bgmodels:
-            par, sigpar = bgmodel.smodel.statistical()
-            n= len(par)
-            freeflag = map(makefreeflag, bgmodel.smodel.free, sigpar)
-            fmt ='%-22s' 
-            values = (bgmodel.name.strip(),)
-            for v,f in zip(par, freeflag):
-                fmt +='%10.2f%1s'
-                values +=(v,f)
-            print fmt % values
-        print 90*'-'
-
+        roi_printing.print_summary(self, sdir, galactic,maxdist, title)
 
     def print_resids(self):
         """Print out (weighted) residuals for each energy range, both in
@@ -903,3 +852,15 @@ class ROIAnalysis(object):
         from uw.utilities.results_writer import writeResults
         writeResults(self,filename,**kwargs)
     
+    def get_model(self,which):
+        """ return a reference to the model
+            which : integer or string
+        """
+        psm, index = self.mapper(which) #raise exception if wrong.
+        return psm.models[index]
+        
+    def get_source(self, which):
+        """ return a reference to a source in the ROI by name, or point-source index"""
+        psm, index = self.mapper(which) #raise exception if wrong.
+        return psm.point_sources[index] if psm==self.psm else self.dsm.bgmodels[index] 
+        
