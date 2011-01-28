@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.29 2011/01/13 00:09:55 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.30 2011/01/13 20:22:07 cohen Exp $
 
     author: Matthew Kerr
 
@@ -158,22 +158,27 @@ Optional keyword arguments:
 
     def statistical(self,absolute=False,two_sided=False):
         """Return the parameter values and fractional statistical errors.
-            If no error estimates are present, return 0 for the fractional error."""
+            If no error estimates are present, return 0 for the fractional error.
+        two_sided : bool
+            if set, return 3 tuples: values, +errors, -errors    
+            """
         p = 10**self.p #convert from log format
-        if N.all(self.cov_matrix==0):
-            if not two_sided: return p,N.zeros_like(p)
-            return p,N.zeros_like(p),N.zeros_like(p)
+        z = N.zeros_like(p)
+        vars = N.diag(self.cov_matrix)
+        # this check for valid covariance matrix
+        if N.all(self.cov_matrix==0) or N.any(vars<0) or len(vars)!=len(p):
+            return (p,z,z) if two_sided else (p,z) 
         try: #see if error estimates are present
             if not two_sided:
-                ratios = N.diag(self.get_cov_matrix(absolute=False))**0.5
-                return p,ratios*(p if absolute else N.ones_like(p))
+                errs = N.diag(self.get_cov_matrix(absolute=False))
+                return p,errs*(p if absolute else N.ones_like(p))
             else:
-                errs = N.diag(self.cov_matrix)**0.5
+                errs = vars**0.5
                 lo_rat = (p-10**(self.p-errs))/(1. if absolute else p)
                 hi_rat = (10**(self.p+errs)-p)/(1. if absolute else p)
                 return p,hi_rat,lo_rat
         except:
-            return p,N.zeros_like(p)
+            return (p,z,z) if two_sided else (p,z) 
 
     def __str__(self,absolute=False, indent=''):
         """Return a pretty print version of parameter values and errors.
