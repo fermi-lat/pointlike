@@ -1,12 +1,12 @@
 """
 Basic ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.6 2011/01/25 18:09:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.7 2011/01/30 00:08:18 burnett Exp $
 """
 import os, pickle, glob, types
 import numpy as np
 from skymaps import SkyDir, PySkyFunction
 from . import skymodel, dataspec
-from uw.utilities import keyword_options
+from uw.utilities import keyword_options, convolution
 from uw.like import pointspec, roi_analysis, roi_managers, roi_diffuse, roi_localize
 from uw.like import sed_plotter, tsmap_plotter, counts_plotter
 from uw.like import roi_extended #ExtendedSource,ROIExtendedModel
@@ -29,10 +29,12 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         maxROI       = 5,
         radius       =10, 
         irf          = 'P6_v11_diff',
-        convo_reso   = 0.25,
         fit_kw = dict(fit_bg_first = False,
             use_gradient = True, ),
         log          = None,
+        convolve_kw = dict( resolution=0.125, # applied to OTF convolutoin
+                        pixelsize=0.05, # ExtendedSourceConvolution
+                        num_points=25), # AnalyticConvolution
         )
 
     def __init__(self, sky, dataset, **kwargs):
@@ -52,6 +54,8 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         # now add waht is left
         self.__dict__.update(self.config)
         self.skymodel = sky
+        convolution.AnalyticConvolution.set_points(self.convolve_kw['num_points'])
+        convolution.ExtendedSourceConvolution.set_pixelsize(self.convolve_kw['pixelsize'])
         if not self.quiet: 
             print >>self.log, self
             if self.log is not None: self.log.close()
@@ -59,7 +63,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
     def __str__(self):
         s = '%s configuration:\n'% self.__class__.__name__
         show = """CALDB irf skymodel dataspec fit_emin fit_emax fit_kw 
-               minROI maxROI process_kw""".split()
+               minROI maxROI convolve_kw process_kw""".split()
         for key in show:
             s += '\t%-20s: %s\n' %(key, 
                 self.__dict__[key] if key in self.__dict__.keys() else 'not in self.__dict__!')
@@ -78,7 +82,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
        
         # perform OTF convolutions with PSFs: first diffuse, then extended if any
         def diffuse_mapper( source):
-            return roi_diffuse.ROIDiffuseModel_OTF(self, source, skydir, pixelsize=self.convo_reso)
+            return roi_diffuse.ROIDiffuseModel_OTF(self, source, skydir, pixelsize=self.convolve_kw['resolution'])
         global_models = map(diffuse_mapper, globals)
 
         def extended_mapper( source):
