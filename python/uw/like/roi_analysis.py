@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.60 2011/01/25 07:32:23 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.61 2011/01/28 18:45:11 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -760,16 +760,6 @@ class ROIAnalysis(object):
     del_ps = del_source
     zero_ps = zero_source
     unzero_ps = unzero_source
-
-    def get_source(self,which):
-        """ If which refers to a point source, return the corresponding
-            pointspec_helpers.PointSource object. If which refers to a
-            diffuse source, return roi_diffuse.DiffuseSource object. """
-        manager,index=self.mapper(which)
-        if manager==self.psm:
-            return self.psm.point_sources[index]
-        elif manager==self.dsm:
-            return self.dsm.diffuse_sources[index]
 
     def modify_loc(self,skydir,which):
         """Move point source given by which to new location given by skydir."""
