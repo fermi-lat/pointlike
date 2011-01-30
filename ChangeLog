@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: burnett  Sat Jan 29 16:08:18 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skyanalysis.py skymodel.py 
+Added Files:
+	sources.py 
+Log Message:
+refactor the skymodel: move source stuff to its own module, move selection class to skymodel
+add error checking, conversion code to deal with only logparabola and expcutoff models
+    *
+------------------------------------------------------------
 User: burnett  Fri Jan 28 10:46:49 PST 2011
 pointlike/python/uw/like
 
