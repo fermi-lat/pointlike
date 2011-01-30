@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.28 2011/01/11 18:39:45 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.29 2011/01/19 01:42:03 burnett Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -260,13 +260,29 @@ class ExtendedSourceConvolution(BackgroundConvolution):
         across the source and ap_average must be mulitplied by the exposure
         outside of this function."""
 
-    def __init__(self,extended_source,psf):
+    defaults =[
+        ['pixelsize', 0.025, 'convolution resolution'],
+        ['npix'   ,   101,  'Initial value gets reset automatically by do_convolution.'],
+        ['r_multi',   2.0,  'multiple of r95 to set max dimension of grid'],
+        ['r_max',     20,   'an absolute maximum (half)-size of grid (deg)'],
+        ]
+    @staticmethod
+    def set_pixelsize(psize):
+        was = ExtendedSourceConvolution.defaults[0][1]
+        ExtendedSourceConvolution.defaults[0][1] =psize
+        return was
+    @keyword_options.decorate(defaults)
+    def __init__(self,extended_source,psf, **kwargs):
+        """ extended_source : object containing a spatial_model object
+            psf : PSF object used for convolution
+        """
+        # original settings
+        #self.pixelsize = 0.025
+        #self.npix      = 101 # Initial value gets reset automatically by do_convolution.
+        #self.r_multi   = 2.0 # multiple of r95 to set max dimension of grid
+        #self.r_max     = 20  # an absolute maximum (half)-size of grid (deg)
 
-        self.pixelsize = 0.025
-        self.npix      = 101 # Initial value gets reset automatically by do_convolution.
-        self.r_multi   = 2.0 # multiple of r95 to set max dimension of grid
-        self.r_max     = 20  # an absolute maximum (half)-size of grid (deg)
-
+        keyword_options.process(self, kwargs)
         self.extended_source = extended_source
 
         # Pass in none for the 
@@ -397,8 +413,13 @@ class AnalyticConvolution(object):
         """
 
     defaults = (
-        ('num_points',     200, 'Number of points to calculate the PDF at. Interpolation is done in between.'),
+        ['num_points',     200, 'Number of points to calculate the PDF at. Interpolation is done in between.'],
     )
+    @staticmethod
+    def set_points(psize):
+        was = AnalyticConvolution.defaults[0][1]
+        AnalyticConvolution.defaults[0][1] =psize
+        return was
 
     @keyword_options.decorate(defaults)
     def __init__(self,extended_source,psf,**kwargs):
