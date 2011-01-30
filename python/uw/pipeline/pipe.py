@@ -1,12 +1,12 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.3 2011/01/24 20:25:58 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.4 2011/01/24 21:56:29 burnett Exp $
 """
 import os, types, glob, time, pickle
 import numpy as np
 from . import skymodel, skyanalysis, processor, associate
 from uw.utilities import makerec
-from uw.utilities.assigntasks import setup_mec, AssignTasks, get_mec, kill_mec
+from uw.utilities.assigntasks import setup_mec, AssignTasks, get_mec, kill_mec, free
 
 class Pipe(skyanalysis.SkyAnalysis):
     """ This is a subclass of SkyAnalysis, itself a subclass of the basic pointlike
@@ -81,6 +81,7 @@ class Setup(dict):
                 source_kw=dict(),
                 fit_kw=dict(use_gradient=False,),
                 repivot = True,
+                update_positions=None,
                 tables = None,  #roi_maps.ROItables("%(outdir)s", skyfuns=(
                                 # (roi_tsmap.TSCalc, 'ts', dict(photon_index=2.0),) 
                                 #  (ts_map.KdeMap, "kde", dict()),))
@@ -96,7 +97,7 @@ class Setup(dict):
 import os; os.chdir(r"%(cwd)s");
 from uw.pipeline import pipe, maps;
 g=pipe.Pipe("%(indir)s", "%(dataset)s",
-        skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,),
+        skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,update_positions=%(update_positions)s,),
         irf="%(irf)s",
         fit_emin=%(fit_emin)s, fit_emax=%(fit_emax)s, minROI=5, maxROI=5,
         associate="%(associator)s",
