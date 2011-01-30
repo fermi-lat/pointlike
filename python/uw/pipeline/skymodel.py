@@ -1,128 +1,35 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.6 2011/01/25 18:09:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.7 2011/01/25 19:07:03 burnett Exp $
 
 """
-import os, pickle, glob, types, copy
+import os, pickle, glob, types
 import numpy as np
-from skymaps import SkyDir, Band, IsotropicSpectrum, DiffuseFunction
+from skymaps import SkyDir, Band
 from uw.utilities import keyword_options, makerec
-from uw.like import  Models
-from uw.like import pointspec_helpers
+from . import sources
 
-class Singleton(object):
-    _instance={}
-    def __init__(self,constructor):
-        self.constructor = constructor
-        self.key=str(constructor)
-    def set_instance(self,  *pars):
-        Singleton._instance[self.key]= self.constructor(*pars)
-    def instance(self):
-        try:
-            return Singleton._instance[self.key]
-        except KeyError:
-            print 'SkyModel: Global source %s not initialized' % self.key
-            raise
-            
-class Diffuse(Singleton):
-    """ manage a skymaps.DiffuseFunction object, create only when new fits file found to open
-    """
-    _dfile = None
-    locked = False
-    key = None
-    def __init__(self, dfile, lock=False):
-        super(Diffuse,self).__init__(DiffuseFunction)
-        if Diffuse.locked or dfile==Diffuse._dfile: return
-        Diffuse._dfile=dfile
-        self.set_instance(dfile)
-        print 'loaded new diffuse map, %s with lock=%s' %(dfile, lock)
-        Diffuse.locked = lock
-        
-class Isotropic(Singleton):
-    """ manage a skymaps.IsotropicSpectrum object, create only when new fits file found to open
-    """
-    _dfile = None
-    locked = False
-    key = None
-    def __init__(self, dfile, lock=False):
-        super(Isotropic,self).__init__(IsotropicSpectrum)
-        if Isotropic.locked or dfile==Isotropic._dfile: return
-        Isotropic._dfile=dfile
-        self.set_instance(dfile)
-        print 'loaded new isotropic spectrum, %s, with lock=%s' %(dfile, lock)
-        Isotropic.locked = lock
-
-class Source(object):
-    """ base class for various sources
-    """
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
-        if 'model' not in kwargs:
-            self.model=Models.PowerLaw(p=[1e-13, 2.2])
-        self.free = self.model.free.copy()  # save copy of initial free array to restore
-    def freeze(self, freeze):
-        self.model.free[:] = False if freeze else self.free
-    def __str__(self):
-        return self.name + ' '+ self.skydir.__str__() +' '+ self.model.name \
-                +  (' (free)' if np.any(self.model.free) else ' (fixed)')
- 
-class PointSource(Source):
-    def near(self, otherdir, distance=10):
-        return self.skydir.difference(otherdir) < np.radians(distance)
-        
-class GlobalSource(Source):
-    def __init__(self, **kwargs):
-        super(GlobalSource, self).__init__(**kwargs)
-    
-class ExtendedSource(Source):
-    def __str__(self):
-        return self.name + ' '+ self.model.name \
-                +  (' (free)' if np.any(self.model.free) else ' (fixed)')    
-    def near(self, otherdir, distance=10):
-        return self.skydir.difference(otherdir) < np.radians(distance)
-
-
-class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
-    """ subclass to add this lookup function """
-
-    def __init__(self, *pars, **kwargs):
-        """ initialize by also filling an array with all source spectral models"""
-        super(ExtendedCatalog,self).__init__(*pars, **kwargs)
-        self.sources = self.get_sources(SkyDir(),180)
-        assert len(self.sources)==len(self.names), 'inconsistent list lengths'
-        
-    def lookup(self, name):
-        """ return an ExtendedSource object,  """
-        for source in self.sources:
-            if name==source.name:
-                # make a new object copied from original
-                extsource= ExtendedSource(name=name, skydir=source.skydir,
-                    model = source.model, 
-                    spatial_model = source.spatial_model,
-                    smodel= source.smodel,      # these reference copies needed
-                    dmodel= source.spatial_model
-                    )
-                if extsource.model.name=='LogParabola': extsource.free[-1]=False # E_break not free
-                return extsource    
-        raise Exception( ' extended source %s not found' % name)
-    
 class SkyModel(object):
     """
+    Define a model of the gamma-ray sky, including point, extended, and global sources
+    
+    Implement methods to create ROI for pointlike
     """
     
     defaults= (
         ('extended_catalog_name', 'Extended_archive_jbb03',  'name of folder with extended info'),
-        ('diffuse', ('ring_24month_P74_v1.fits', 'isotrop_21month_v2.txt'),   'pair of diffuse file names: use to locked'),
-        ('auxcat', None, 'name of auxilliary catalog of point sources to append',),
-        ('nside',      12,   'HEALpix nside'),
-        ('quiet',   False,  'make quiet' ),
+        ('diffuse', ('ring_24month_P74_v1.fits', 'isotrop_21month_v2.txt'), 'pair of diffuse file names: use to locked'),
+        ('auxcat', None, 'name of auxilliary catalog of point sources to append or names to remove',),
+        ('update_positions', None, 'set to minimum ts  update positions if localization information found in the database'),
+        ('quiet',  False,  'make quiet' ),
     )
     
     @keyword_options.decorate(defaults)
     def __init__(self, folder=None,  **kwargs):
         """
         folder : string or None
-            name of folder to find all files defining the sky model
+            name of folder to find all files defining the sky model, including:
+             a subfolder 'pickle' with files *.pickle describing each ROI, partitioned as a HEALpix set.
         """
         keyword_options.process(self, kwargs)
 
@@ -136,8 +43,8 @@ class SkyModel(object):
         if self.diffuse is not None:
             assert len(self.diffuse)==2, 'expect 2 diffuse names'
             x = map(lambda f:os.path.expandvars(os.path.join('$FERMI','diffuse',f)), self.diffuse)
-            Diffuse(x[0], True)
-            Isotropic(x[1], True)
+            sources.Diffuse(x[0], True)
+            sources.Isotropic(x[1], True)
             
         self.load_auxcat()
         
@@ -154,7 +61,7 @@ class SkyModel(object):
         if not os.path.exists(cat):
             raise Exception('auxilliary catalog %s not found locally or in $FERMI/catalog'%self.auxcat)
         ss = makerec.load(cat)
-        names = set([s.name for s in self.sources])
+        names = set([s.name for s in self.point_sources])
         tagged=set()
         print 'process auxcat %s' %cat
         for s in ss:
@@ -162,15 +69,15 @@ class SkyModel(object):
             if sname  not in names: 
                 skydir=SkyDir(float(s.ra), float(s.dec))
                 index=self.index(skydir)
-                self.sources.append(PointSource(name=s.name, skydir=skydir, index=index))
+                self.point_sources.append(PointSource(name=s.name, skydir=skydir, index=index))
                 print '\tadded new source %s at ROI %d' % (s.name, index)
             else: 
                 print '\t source %s is  in the model will remove if ra<0' % sname
                 if s.ra<0: 
                     tagged.add(sname)
         if len(tagged)==0: return
-        for s in self.sources:
-            if s.name in tagged: self.sources.remove(s)
+        for s in self.point_sources:
+            if s.name in tagged: self.point_sources.remove(s)
             
     def _setup_extended(self):
         if self.extended_catalog_name is None: return None
@@ -178,7 +85,7 @@ class SkyModel(object):
             os.path.expandvars(os.path.join('$FERMI','catalog',self.extended_catalog_name))
         if not os.path.exists(extended_catalog_name):
             raise Exception('extended source folder "%s" not found' % extended_catalog_name)
-        self.extended_catalog= ExtendedCatalog(extended_catalog_name)
+        self.extended_catalog= sources.ExtendedCatalog(extended_catalog_name)
         #print 'Loaded extended catalog %s' % self.extended_catalog_name
         
     def get_extended_sources(self,skydir, radius):
@@ -187,33 +94,54 @@ class SkyModel(object):
         """
         if self.extended_catalog is None: return []
         ret =self.extended_catalog.get_sources(skydir, radius)
-        return ret    
-
+        return ret 
+              
     def _load_sources(self):
         """
         run through the pickled roi dictionaries, create lists of point and extended sources
+        assume that the number of such corresponds to a HEALpix partition of the sky
         """
-        self.sources= []
+        self.point_sources= []
         files = glob.glob(os.path.join(self.folder, 'pickle', '*.pickle'))
         files.sort()
+        self.nside = int(np.sqrt(len(files)/12))
+        if len(files) != 12*self.nside**2:
+            msg = 'Number of pickled ROI files, %d, found in folder %s, not consistent with HEALpix' \
+                % (len(files),os.path.join(self.folder, 'pickle'))
+            raise Exception(msg)
         self.global_sources = []  # allocate list to index parameters for global sources
         self.extended_sources=[]  # list of unique extended sources
         self.changed=set() # to keep track of extended models that are different from catalog
+        moved=0
         for i,file in enumerate(files):
             p = pickle.load(open(file))
             index = int(os.path.splitext(file)[0][-4:])
             assert i==index, 'logic error: file name %s inconsistent with expected index %d' % (file, i)
-            sources = p['sources']
-            for key,item in sources.items():
-                self.sources.append( PointSource(name=key, 
-                    skydir=item['skydir'], model= item['model'],
+            roi_sources = p['sources']
+            for key,item in roi_sources.items():
+                skydir = item['skydir']
+                if self.update_positions is not None:
+                    ellipse = item.get('ellipse', None)
+                    ts = item['ts']
+                    if ellipse is not None and not np.any(np.isnan(ellipse)) :
+                        fit_ra, fit_dec, a, b, ang, qual, delta_ts = ellipse
+                        if qual<5 and a < 0.2 and \
+                                ts>self.update_positions and delta_ts>1:
+                            skydir = SkyDir(float(fit_ra),float(fit_dec))
+                            moved +=1
+                ps = sources.PointSource(name=key, 
+                    skydir=skydir, model= item['model'],
                     ts=item['ts'],band_ts=item['band_ts'], index=index)
-                    )
+                sources.validate(ps) 
+                self.point_sources.append( ps)
             # make a list of extended sources used in the model   
             t = []
             for name, model in zip(p['diffuse_names'] , p['diffuse']):
-                if len(t)<2: # always assume first two are global
-                    t.append(GlobalSource(name=name, model=model, skydir=None, index=index))
+                if len(t)<2: # always assume first two are global ????
+                    if model.p[0]<-2:
+                        model.p[0]=-2
+                        #print 'SkyModel warning: reset norm to 1e-2 for %s' % name
+                    t.append(sources.GlobalSource(name=name, model=model, skydir=None, index=index))
                 else:
                     es = self.extended_catalog.lookup(name)
                     if es is None:
@@ -222,12 +150,15 @@ class SkyModel(object):
                     
                     if es.model.name!=model.name:
                         if name not in self.changed:
-                            print 'catalog model %s changed from %s for %s'% (es.model.name, model.name, name)
+                            print 'SkyModel warning: catalog model %s changed from %s for %s'% (es.model.name, model.name, name)
                         self.changed.add(name)
                     else:
                         es.model=model #update with fit values
+                    sources.validate(es)
                     self.extended_sources.append(es)
             self.global_sources.append(t)
+        if self.update_positions and moved>0:
+            print 'updated positions of %d sources' % moved
  
     def skydir(self, index):
         return Band(self.nside).dir(index)
@@ -244,14 +175,15 @@ class SkyModel(object):
         """
         inroi = filter(src_sel.include, sources)
         for s in inroi:
-            s.freeze(src_sel.frozen(s))
+            #s.freeze(src_sel.frozen(s))
+            s.model.free[:] = False if src_sel.frozen(s) else s.free
         return filter(src_sel.free,inroi) + filter(src_sel.frozen, inroi)
     
     def get_point_sources(self, src_sel):
         """
         return a list of PointSource objects appropriate for the ROI
         """
-        return self._select_and_freeze(self.sources, src_sel)
+        return self._select_and_freeze(self.point_sources, src_sel)
         
     def get_diffuse_sources(self, src_sel):
         """return diffuse, global and extended sources defined by src_sel
@@ -265,199 +197,68 @@ class SkyModel(object):
             assert os.path.exists(dfile), 'file %s not found' % dfile
             ext = os.path.splitext(dfile)[-1]
             if ext=='.txt':
-                s.dmodel = [Isotropic(dfile).instance()]
-                s.name = os.path.split(Isotropic._dfile)[-1]
+                s.dmodel = [sources.Isotropic(dfile).instance()]
+                s.name = os.path.split(sources.Isotropic._dfile)[-1]
             elif ext=='.fits' or ext=='.fit':
-                s.dmodel = [Diffuse(dfile).instance()]
-                s.name = os.path.split(Diffuse._dfile)[-1]
+                s.dmodel = [sources.Diffuse(dfile).instance()]
+                s.name = os.path.split(sources.Diffuse._dfile)[-1]
             else:
                 raise Exception('unrecognized diffuse file extention %s' % dfile)
             s.smodel=s.model
         extended = self._select_and_freeze(self.extended_sources, src_sel)
-        for es in extended: # this seems redundant, but was necessary
-            es.model.free[:] = src_sel.free(es)
-            es.smodel = es.model
+        for s in extended: # this seems redundant, but was necessary
+            s.model.free[:] = False if src_sel.frozen(s) else s.free
+            sources.validate(s)
+            s.smodel = s.model
             
         return globals, extended
         
-def get_association_class(adict):
-    """Given association dictionary, decide what class to ascribe the source to.  Partly guesswork!
-        original version by Eric Wallace
-        added tev
+class SourceSelector(object):
+    """ Manage inclusion of sources in an ROI."""
+    
+    defaults = (
+        ('max_radius',10,'Maximum radius (deg.) within which sources will be selected.'),
+        ('free_radius',3,'Radius (deg.) in which sources will have free parameters'),
+    )
+
+    @keyword_options.decorate(defaults)
+    def __init__(self, skydir, **kwargs):
+        self.mskydir = skydir
+        keyword_options.process(self,kwargs)
+
+    def near(self,source, radius):
+        return source.skydir.difference(self.mskydir)< np.radians(radius)
+    def include(self,source):
+        """ source -- an instance of Source """
+        return self.near(source, self.max_radius)
+
+    def free(self,source):
+        """ source -- an instance of Source """
+        return self.near(source, self.free_radius)
+
+    def frozen(self,source): return not self.free(source)
+
+    def skydir(self): return self.mskydir
+        
+class HEALPixSourceSelector(SourceSelector):
+    """ Manage inclusion of sources in an ROI based on HEALPix.
+    Overrides the free method to define HEALpix-based free regions
     """
-    if adict is None: return '   '
-    cat_list=adict['cat']
-    priority = '''bllac bzcat cgrabs crates crates_fom seyfert seyfert_rl qso agn 
-                vcs galaxies pulsar_lat snr snr_ext pulsar_high pulsar_low pulsar_fom
-                msp pwn hmxb lmxb globular tev ibis lbv dwarfs
-               '''.split()
-    others = ['ostar', 'starbursts', 'ocl']
-    ass_class = ['bzb','bzcat']+['bzq']*3+['agn']*6+['LAT psr']+\
-                ['snr']*2 + ['psr']*4 + ['pwn'] + ['hmxb'] + ['lmxb']+ ['glc'] +['tev'] + 3*['None']
-    cls = None
-    for c,a in zip(priority,ass_class):
-        if c in cat_list:
-            cls = a
-            break
-    if cls is None:
-        if cat_list[0] not in others: print 'warning: ''%s'' not recognized' % cat_list
-        return '   '
-    if cls == 'bzcat': #special, use first 3 chars of source name
-        cls = adict['name'][cat_list.index(c)][:3].lower()
-    return cls
-        
-     
-def create_catalog(outdir, **kwargs):
-    """ make source and roi rec files in the skymodel directory, containing updated values for all the 
-        sources found in the pickle folder
-            note that order of first 6 parameters is assumed above
-        also make a diffuse parameter dictionary
-    """
-    assert os.path.exists(os.path.join(outdir,'pickle')), 'pickle folder not found under %s' %outdir
-    filelist = glob.glob(os.path.join(outdir, 'pickle', '*.pickle'))
-    assert len(filelist)>0, 'no .pickle files found in %s/pickle' % outdir 
-    failed,maxfail = 0,kwargs.pop('maxfail',10)
-    ignore_exception = kwargs.pop('ignore_exception',False)
-    save_local = kwargs.pop('save_local',True) 
-    assert len(kwargs.keys())==0, 'unrecognized kw %s' %kwargs 
-    filelist.sort()
-    
-    class CatalogRecArray(object):
-        def __init__(self, minflux=1e-16, update_position=False, ts_min=25):
-            self.minflux=minflux
-            self.update_position = update_position
-            self.count=self.reject=self.moved=0
-            self.rejected=[]
-            self.ts_min=ts_min
-            self.moved = 0
-            self.colnames ="""name ra dec 
-                pnorm pindex cutoff 
-                pnorm_unc pindex_unc cutoff_unc
-                e0 pivot_energy 
-                flux flux_unc
-                beta beta_unc
-                modelname 
-                ts band_ts bts10
-                fit_ra fit_dec a b ang qual delta_ts
-                id_prob aclass hp12
-                """.split() 
-            self.rec =makerec.RecArray(self.colnames) 
 
-        def process(self,pk, cnan=np.nan):
-            sources = pk['sources']
-            for name,entry in sources.items():
-                self.count+=1
-                skydir = entry['skydir']
-                data = [name, skydir.ra(), skydir.dec()]
-                model  = entry['model']
-                p,p_relunc = model.statistical()
-                if p[0]< self.minflux or np.any(np.isnan(p[:2])):
-                    self.reject+=1
-                    self.rejected.append(name)
-                    continue
-                p_unc = p*p_relunc
-                psr_fit =  model.name=='ExpCutoff'
-                data += [p[0],     p[1],     p[2] if psr_fit else cnan, ]
-                data += [p_unc[0], p_unc[1] ,p_unc[2] if psr_fit else cnan,]
-                pivot_energy = entry.get('pivot_energy',model.e0)
-                if pivot_energy=='None': pivot_energy=model.e0
-                e0 = model.e0 if model.name!='LogParabola' else p[3]
-                flux = model(e0)
-                flux_unc = flux*p_relunc[0]
-                data += [e0, pivot_energy]
-                data += [flux, flux_unc]
-                if psr_fit:
-                    data += [cnan,cnan, 'ExpCutoff']
-                else:
-                    data += [cnan,cnan, 'PowerLaw'] if len(p)<3 or p[2]<=0.01 else [p[2], p_unc[2], 'LogParabola']
-                ts = entry['ts']
-                data += [ts, entry['band_ts']]
-                data += [sum(entry['band_info']['ts'][7:])] ### note assumption that 10 GeV starts at 7
-                ellipse = entry.get('ellipse', None)
-                if ellipse is None or np.any(np.isnan(ellipse)):
-                    data += [np.nan]*7
-                else:
-                    data += ellipse 
-                    if self.update_position and ts>self.ts_min:
-                        fit_ra, fit_dec, a, b, ang, qual, delta_ts = ellipse
-                        #assert False, 'break'
-                        if qual<5 and delta_ts<9 and a < 0.2 :
-                            data[1:3] = [fit_ra, fit_dec]
-                            self.moved +=1
-                adict =  entry.get('associations', None)
-                data.append( cnan if adict is None else adict['prob'][0])
-                data.append('%-7s'%get_association_class(adict))
-                data.append(Band(12).index(skydir))
+    @keyword_options.decorate(SourceSelector.defaults)
+    def __init__(self, index, skymodel,  **kwargs):
+        """ index : int
+                HEALpix index for the ROI
+            skymodel : an instance of SkyModel (used to define nside)
+        """
+        keyword_options.process(self,kwargs)
+        self.index = index
+        self.skymodel = skymodel
+        self.mskydir =  skymodel.skydir(index)
 
-                assert len(data)==len(self.colnames), 'mismatch between names, data'
-                #assert not np.any(np.isinf(data[1:])), 'found inf for source %s' % name 
-                self.rec.append(*data)
-
-        def __call__(self): 
-            print 'processed %d sources, rejected %d' %(self.count, self.reject)
-            if self.reject>0:
-                print 'rejected: flux<%.1e ' %self.minflux, self.rejected
-            if self.update_position:
-                print '\tmoved %d sources according to localization' % self.moved
-            return self.rec()
-        
-    class DiffuseRecArray(object):
-    
-    
-        def __init__(self, ndiff=3, nside=12):
-            self.ndiff=ndiff
-            if ndiff==3:
-                self.colnames = """name galnorm galindex isonorm 
-                                galnorm_unc galindex_unc isonorm_unc 
-                                 loglike chisq""".split()
-            else:
-                self.colnames = """name galnorm galindex isonorm  isonorm2
-                                galnorm_unc galindex_unc isonorm_unc isonorm2_unc
-                                loglike chisq""".split()
-            self.rec = makerec.RecArray(self.colnames)
-            self.nside=nside
-            
-        def process(self, pk):
-            name = pk['name']
-            p, p_relunc = [np.hstack([m.statistical()[i] for m in pk['diffuse']] ) for i in range(2)]
-            if len(p)!=self.ndiff:
-                msg = 'unexpected number of diffuse parameters, %d vs %d, processing %s' % (len(p),self.ndiff,name)
-                #print msg
-                p = p[:self.ndiff]; p_relunc = p_relunc[:self.ndiff]
-            data = [name] + list(np.hstack((p, p*p_relunc)))
-            data += [pk['logl']]
-            counts = pk['counts']
-            obs,mod = counts['observed'], counts['total']
-            data += [((obs-mod)**2/mod).sum()]
-            assert len(data)==len(self.colnames), 'mismatch between names, data'
-            self.rec.append(*data)
-            
-        def __call__(self):
-            t = self.rec()
-            n = 12*self.nside**2
-            if len(t)!=n: 
-                q = np.array([ 'HP12_%04d' % i not in t.name for i in range(n)])
-                msg  = 'pixel file missing entries %s' % np.arange(n)[q]
-                print msg
-                raise Exception, msg
-            return t
-
-        
-    crec = CatalogRecArray(**kwargs)
-    drec = DiffuseRecArray()
-    for fname in filelist:
-        try:
-            p = pickle.load(open(fname))
-            crec.process(p)
-            drec.process(p)
-        except Exception, arg:
-            print 'Failed to load file  %s: %s' % (fname, arg)
-            if not ignore_exception or failed>maxfail: raise
-            failed +=1
-    print 'read %d entries from %s (%d failed)' % (len(filelist),outdir,failed)
-    for r,name in ((crec, 'sources'), (drec, 'rois')):
-        fname = '%s_%s.rec'%(name, outdir) if not save_local else '%s/%s.rec' % (outdir, name)
-        rec = r()
-        pickle.dump(rec, open(fname,'wb'))
-        print 'saved %d entries to pickle file %s' % (len(rec), fname)
-        
+    def free(self,source):
+        """
+        source : instance of skymodel.Source
+        -> bool, if this source in in the region where fit parameters are free
+        """
+        return self.skymodel.index(source.skydir) == self.index
