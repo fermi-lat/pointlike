@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jan 30 10:40:50 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_managers.py 
+Log Message:
+move printout  of count setup to loop doing it to guage timimg.
+    *
+------------------------------------------------------------
 User: burnett  Sun Jan 30 10:38:58 PST 2011
 pointlike/python/uw/like
 
