@@ -1,17 +1,18 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.3 2011/01/20 16:09:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.4 2011/01/24 21:57:41 burnett Exp $
 """
 import os, pickle
 import numpy as np
 import pylab as plt
 from skymaps import SkyDir
-from uw.like import counts_plotter, roi_extended
+from uw.like import counts_plotter
 from uw.utilities import image
-try:    from uw.utilities import makefig
-except:    print 'no PIL!'
 from . import plot_sed  
   
+def isextended(source):
+    return 'spatial_model' in source.__dict__
+    
 
         
 def fix_beta(roi, bts_min=50, qual_min=20,):
@@ -146,7 +147,7 @@ def make_tsmap(roi, source, tsmap_dir, **kwargs):
     fout = os.path.join(tsmap_dir, ('%s_tsmap.png'%fname(name)) )
     which = source.name 
     try:
-        if not isinstance(source,roi_extended.ExtendedSource): 
+        if not isextended(source): 
             roi.qform= None #kluge to ignore the last fit
             tsm=roi.plot_tsmap( which=which, center=source.skydir, name=roi.name,
                 outdir=None, catsig=0, size=tsize, 
@@ -226,7 +227,7 @@ def localize_all(roi,sources):
 
     roi.qform=None
     for source in sources:
-        if isinstance(source, roi_extended.ExtendedSource):
+        if isextended(source):
             print 'source %s is extended: not localizing' % source.name
             source.ellipse=None
         else:
@@ -295,7 +296,7 @@ def process(roi, **kwargs):
     
     roi.print_summary(sdir=roi.roi_dir, title='before fit, logL=%0.f'%initial_logl)
     fit_sources = [s for s in roi.psm.point_sources if np.any(s.model.free)]\
-                + [s for s in roi.dsm.diffuse_sources if isinstance(s,roi_extended.ExtendedSource) and np.any(s.model.free)]
+                + [s for s in roi.dsm.diffuse_sources if isextended(s) and np.any(s.model.free)]
     if len(roi.get_parameters())==0:
         print '===================== nothing to fit========================'
     else:
