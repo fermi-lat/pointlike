@@ -1,6 +1,6 @@
 """
 Basic ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.5 2011/01/25 03:24:14 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.6 2011/01/25 18:09:19 burnett Exp $
 """
 import os, pickle, glob, types
 import numpy as np
@@ -76,11 +76,13 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         # get all diffuse models appropriate for this ROI
         globals, extended = self.skymodel.get_diffuse_sources(src_sel)
        
-        # perform OTF convolutions with PSFs
-        diffuse_mapper = lambda x: roi_diffuse.ROIDiffuseModel_OTF(self, x, skydir, pixelsize=self.convo_reso)
+        # perform OTF convolutions with PSFs: first diffuse, then extended if any
+        def diffuse_mapper( source):
+            return roi_diffuse.ROIDiffuseModel_OTF(self, source, skydir, pixelsize=self.convo_reso)
         global_models = map(diffuse_mapper, globals)
-        
-        extended_mapper =lambda x: roi_extended.ROIExtendedModel.factory(self,x,skydir)
+
+        def extended_mapper( source):
+            return roi_extended.ROIExtendedModel.factory(self,source,skydir)
         extended_models = map(extended_mapper, extended)
         
         # create and return the manager
@@ -97,7 +99,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         """ return a roi_analysis.ROIAnalysis object based on the roi index
         """
         if src_sel is None:
-            src_sel = HEALPixSourceSelector(index,self.skymodel,max_radius=self.radius)
+            src_sel = skymodel.HEALPixSourceSelector(index,self.skymodel,max_radius=self.radius)
         else:
             if (src_sel.max_radius != self.radius):
                 print 'Warning, overriding max radius of %.2f with %.2f'%(src_sel.max_radius,self.radius)
@@ -120,56 +122,6 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         return r
 
   
-class SourceSelector(object):
-    """ Manage inclusion of sources in an ROI."""
-    
-    defaults = (
-        ('max_radius',10,'Maximum radius (deg.) within which sources will be selected.'),
-        ('free_radius',3,'Radius (deg.) in which sources will have free parameters'),
-    )
-
-    @keyword_options.decorate(defaults)
-    def __init__(self, skydir, **kwargs):
-        self.mskydir = skydir
-        keyword_options.process(self,kwargs)
-
-    def include(self,source):
-        """ source -- an instance of Source """
-        return source.near(self.mskydir,self.max_radius)
-
-    def free(self,source):
-        """ source -- an instance of Source """
-        return source.near(self.mskydir,self.free_radius)
-
-    def frozen(self,source): return not self.free(source)
-
-    def skydir(self): return self.mskydir
-        
-class HEALPixSourceSelector(SourceSelector):
-    """ Manage inclusion of sources in an ROI based on HEALPix.
-    Overrides the free method to define HEALpix-based free regions
-    """
-
-    @keyword_options.decorate(SourceSelector.defaults)
-    def __init__(self, index, skymodel,  **kwargs):
-        """ index : int
-                HEALpix index for the ROI
-            skymodel : an instance of SkyModel
-        """
-        keyword_options.process(self,kwargs)
-        self.index = index
-        self.skymodel = skymodel
-        self.mskydir =  skymodel.skydir(index)
-
-    def free(self,source):
-        """
-        source : instance of skymodel.Source
-        -> bool, if this source in in the region where fit parameters are free
-        """
-        return self.skymodel.index(source.skydir) == self.index
-
-    
-
 class PipelineROI(roi_analysis.ROIAnalysis):
     """ sub class of the standard ROIAnalysis class to cusomize the fit, add convenience functions
     """
@@ -222,8 +174,9 @@ class PipelineROI(roi_analysis.ROIAnalysis):
             print 'logLikelihood called %d times, change: %.1f' % (self.likelihood_count - initial_count, initialL-self.logl )
         return ts
         
+    @decorate_with(roi_analysis.ROIAnalysis.print_summary)
     def dump(self, sdir=None, galactic=False, maxdist=5, title=''):
-        """ formatted table point sources positions and parameter in the ROI"""
+        """ formatted table of sources positions and parameters in the ROI"""
         self.print_summary(sdir, galactic, maxdist, title)
     
     @decorate_with(sed_plotter.plot_sed)
@@ -277,13 +230,6 @@ class PipelineROI(roi_analysis.ROIAnalysis):
         #self.find_tsmax()
         return loc, deltaTS
     
-    def get_model(self,which):
-        """ return a reference to the model
-            which : integer or string
-            
-        """
-        psm, index = self.mapper(which) #raise exception if wrong.
-        return psm.models[index]
   
     def tsmap(self, which=0, bandfits=True):
         """ return function of likelihood in neighborhood of given source
