@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Jan 29 16:10:28 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	maps.py pipe.py processor.py 
+Log Message:
+fixes for pipeline processing
+    *
+------------------------------------------------------------
 User: burnett  Sat Jan 29 16:08:18 PST 2011
 pointlike/python/uw/pipeline
 
