@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.19 2011/01/20 01:13:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.20 2011/01/20 15:57:40 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -21,7 +21,7 @@ def localizer(roi, which, **kwargs):
     """
     manager,index = roi.mapper(which)
 
-    if manager == roi.dsm and not isinstance(manager.diffuse_sources[index],roi_extended.ExtendedSource):
+    if manager == roi.dsm and not 'skydir' in manager.diffuse_sources[index].__dict__:
         raise Exception("Can only localize Point and Extended Sources")
 
     return ROILocalizer(roi, index, **kwargs) if manager == roi.psm\
