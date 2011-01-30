@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.23 2011/01/11 18:38:16 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.24 2011/01/20 15:54:29 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -284,11 +284,6 @@ class ROIDiffuseManager(ROIModelManager):
             with shape parameters should make use of it whenever the value
             of a shape parameter changes."""
 
-        if not self.quiet:
-            print '.....setting up diffuse backgrounds...'
-            for bg in self.bgmodels:
-                print '..........using %s'%(bg.name)
-
         nm  = len(self.models)
         rd  = self.roi_dir
 
@@ -298,7 +293,11 @@ class ROIDiffuseManager(ROIModelManager):
             band.bg_pix_counts = N.empty([len(band.wsdl),nm]) if band.has_pixels else 0
 
         # initialize models and get inital counts
+        if not self.quiet:
+            print '.....setting up diffuse/extended backgrounds for %d bands...'%len(bands)
         for ibg,bg in enumerate(self.bgmodels):
+            if not self.quiet:
+                print '.......... %s'%(bg.name) 
             bg.initialize_counts(bands)
             bg.update_counts(bands,ibg)
 
