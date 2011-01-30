@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jan 30 11:02:04 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skyanalysis.py 
+Log Message:
+manage convolution resolution setup
+    *
+------------------------------------------------------------
 User: burnett  Sun Jan 30 11:00:57 PST 2011
 pointlike/python/uw/pipeline
 
