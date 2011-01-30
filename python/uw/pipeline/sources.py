@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.1 2011/01/30 00:08:18 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -133,19 +133,24 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
         return None #raise Exception( ' extended source %s not found' % name)
   
 def validate( ps):
-    """ validate a Source: if not OK, give standard parameters, disable all but small flux level
+    """ validate a Source: if not OK, reset to standard parameters, disable all but small flux level
     """
     model = ps.model
     if model.name=='LogParabola':
         norm, alpha, beta, eb = 10**model.p
         check = norm>1e-16 and alpha>0.5 and alpha<5 and beta<3
         if check: return
-        print 'SkyModel warning for %-20s: out of range found %s' %(ps.name, model.p)
+        print 'SkyModel warning for %-20s: out of range, resetting \n%s' %(ps.name, model.p)
         model.p[:] = [-15, 0.4, -3, 3]
         ps.free[1:] = False
         model.cov_matrix[:] = 0 
     elif model.name=='ExpCutoff':
-        pass
+        norm, gamma, ec = 10**model.p
+        check = norm>1e-16 and gamma>0.5 and gamma<5 and ec>100
+        if check: return
+        print 'SkyModel warning for %-20s: out of range, ressetting \n%s' %(ps.name, model.p)
+        model.p[:] = [-11, 0, 3]
+        model.cov_matrix[:] = 0 
     else:
         print 'Skymodel warning: model name %s for source %s not recognized'%(model.name, ps.name)
     if np.any(np.diag(ps.model.cov_matrix)<0):
