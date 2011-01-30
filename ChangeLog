@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jan 30 10:45:47 PST 2011
+pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+make convolution resolution for extended source accessible with static methods
+    *
+------------------------------------------------------------
 User: burnett  Sun Jan 30 10:40:50 PST 2011
 pointlike/python/uw/like
 
