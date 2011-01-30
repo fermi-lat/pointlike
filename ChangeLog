@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Jan 30 09:47:26 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Remove my get_source function since Toby added his own
+    *
+------------------------------------------------------------
 User: burnett  Sat Jan 29 16:10:28 PST 2011
 pointlike/python/uw/pipeline
 
