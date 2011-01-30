@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Jan 30 11:00:57 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	sources.py 
+Log Message:
+expcutoff parameter check
+    *
+------------------------------------------------------------
 User: burnett  Sun Jan 30 10:45:47 PST 2011
 pointlike/python/uw/utilities
 
