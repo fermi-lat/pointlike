@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Jan 30 17:19:26 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py 
+Log Message:
+Allowing an ROI to be created with no diffuse sources by passing diffuse_sources=None to the SpectralAnalysis.roi(...) function
+    *
+------------------------------------------------------------
 User: lande  Sun Jan 30 17:17:55 PST 2011
 ScienceTools-scons/pointlike/python/uw/utilities
 
