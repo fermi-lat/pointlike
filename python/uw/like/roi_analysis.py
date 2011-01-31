@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.61 2011/01/28 18:45:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.62 2011/01/30 17:47:26 lande Exp $
 
 author: Matthew Kerr
 """
@@ -17,6 +17,9 @@ from . roi_diffuse import ROIDiffuseModel,DiffuseSource
 from . roi_extended import ExtendedSource,BandFitExtended
 from . import roi_printing
 from uw.utilities import keyword_options
+from uw.utilities import xml_parsers
+from uw.utilities import region_writer
+from uw.utilities import results_writer
 from scipy.optimize import fmin,fmin_powell,fmin_bfgs
 from scipy.stats.distributions import chi2
 from scipy import integrate
@@ -827,20 +830,17 @@ class ROIAnalysis(object):
         p = self.qform.par[0:2]+self.qform.par[3:]
         print len(p)*'%10.4f' % tuple(p)
  
+    @decorate_with(xml_parsers.writeROI)
     def toXML(self,filename,**kwargs):
-        """Write out a gtlike-style XML file."""
-        from uw.utilities.xml_parsers import writeROI
-        writeROI(self,filename,**kwargs)
+        xml_parsers.writeROI(self,filename,**kwargs)
 
+    @decorate_with(region_writer.writeRegion)
     def toRegion(self,filename,**kwargs):
-        """Write out a ds9 region file."""
-        from uw.utilities.region_writer import writeRegion
-        writeRegion(self,filename,**kwargs)
+        region_writer.writeRegion(self,filename,**kwargs)
 
+    @decorate_with(results_writer.writeResults)
     def toResults(self,filename,**kwargs):
-        """Write out a gtlike style results file."""
-        from uw.utilities.results_writer import writeResults
-        writeResults(self,filename,**kwargs)
+        results_writer.writeResults(self,filename,**kwargs)
     
     def get_model(self,which):
         """ return a reference to the model
