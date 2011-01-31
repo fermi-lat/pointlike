@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.150 2010/12/09 05:54:01 lande Exp $
+$Id: release.notes,v 1.151 2010/12/10 18:50:16 burnett Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-07-03 30-Jan-2011  lande Updating pointlike to the latest version
  pointlike-07-07-02 10-Dec-2010 burnett fix test program
  pointlike-07-07-01 08-Dec-2010  lande New model counts code as well as improvemnts to adding/removing sources from an ROI.
  pointlike-07-07-00 15-Nov-2010  lande Lots of improvements to the extended source code including new localization function, new ts_ext function and lots of minor formatting. Also, change to the interface for the tsmap code
