@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Jan 30 17:58:58 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Improving docstrings for functions toRegion, toResults, and toXML.
+    *
+------------------------------------------------------------
 User: lande  Sun Jan 30 17:19:26 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
