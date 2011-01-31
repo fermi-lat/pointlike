@@ -1,6 +1,6 @@
 """ Class to write out region files compatable with ds9. 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.4 2010/11/26 22:36:35 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.5 2010/12/09 01:52:45 lande Exp $
 
 author: Joshua Lande
 """
@@ -83,6 +83,10 @@ def unparse_localization(roi):
         return []
 
 def writeRegion(roi,filename,color='green'):
+    """ Saves out an ROI to a ds9 style region file.
+        
+        The size of simple exended sources is saved to the region file
+        as are elliptical localization errors if they exist. """
 
     lines = [
         "# Region file format: DS9 version 4.0",
