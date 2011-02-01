@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.28 2011/01/24 21:22:40 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.29 2011/01/31 01:19:26 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.28 $'.split()[1]
+version='$Revision: 1.29 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -70,36 +70,39 @@ class DataSpecification(object):
 class SavedData(DataSpecification):
     """Specify saved daily data files to use for analysis.
 
-    Current implementation assumes that the specified directory has subfolders named 'daily','weekly', and 'monthly',
-    each with subfolders 'bpd' and 'lt', containing BinnedPhotonData and LivetimeCube files, respectively.  It looks for filenames
-    of the format 'timescale_yyyymmdd_type.fits', where timescale is one of 'day', 'week', or 'month', and type is one of '#bpd' or
-    'lt' (the # in the bpd filename is the number of bins per decade).  The yyyymmdd is the date of the first day the file covers
-    (UTC); in the monthly case, the dd is dropped. So, for example, the BinnedPhotonData for Nov 6, 2009, with 4 bins/decade, 
-    is daily/bpd/day_20091106_4bpd.fits, the BinnedPhotonData for the week beginning May 10, 2010, with 8 bins/decade,  is
-    weekly/bpd/week_20100510_8bpd.fits, and the livetime for the month of December 2008 is monthly/lt/month_200812_lt.fits.
+    Current implementation assumes that the specified directory has subfolders
+    named 'daily','weekly', and 'monthly', each with subfolders 'bpd' and 'lt',
+    containing BinnedPhotonData and LivetimeCube files, respectively.  It looks
+    for filenames of the format 'timescale_yyyymmdd_type.fits', where timescale
+    is one of 'day', 'week', or 'month', and type is one of '#bpd' or 'lt' (the
+    # in the bpd filename is the number of bins per decade).  The yyyymmdd is
+    the date of the first day the file covers (UTC); in the monthly case, the
+    dd is dropped. So, for example, the BinnedPhotonData for Nov 6, 2009, with
+    4 bins/decade, is daily/bpd/day_20091106_4bpd.fits, the BinnedPhotonData
+    for the week beginning May 10, 2010, with 8 bins/decade,  is
+    weekly/bpd/week_20100510_8bpd.fits, and the livetime for the month of
+    December 2008 is monthly/lt/month_200812_lt.fits.
 
     **Parameters**
 
-    tstart: Starting time for the analysis in MET.  Note that if this is not the beginning of a day, the data for the full day
-        containing tstart will be used.
-    tstop: Ending time for the analysis in MET.  As with tstart, if it is not at a boundary between days, the data for the full day
-        containing tstop will be used.
-    data_dir: string['/phys/groups/tev/scratch1/users/Fermi/data']
-        path to the saved data products
-    use_weighted_livetime: boolean[False]
-        Specify whether to get the weighted livetimes.
-    binsperdec: int[4] Bins/decade for the BinnedPhotonData files.
-    ltcube: string, optional
-        File under which to save the sum of the livetime cubes for the specified time range. If not specified, the file will still
-        be saved, under a name derived from the time range.
-    binfile: string, optional
-        File under which to save the sum of the BinnedPhotonDatas for the specified time range. If not specified, the file will still
-        be saved, under a name derived from the time range.
-
+    tstart: Starting time for the analysis in MET.  Note that if this is not
+            the beginning of a day, the data for the full day containing tstart
+            will be used.
+    tstop: Ending time for the analysis in MET.  As with tstart, if it is not
+           at a boundary between days, the data for the full day containing
+           tstop will be used.
     """
+    defaults = (('data_dir','','path to the saved data products')
+               ,('use_weighted_livetime',False,'''Specify whether to get
+                  the weighted livetimes.''')
+               ,('binsperdec',4,'''Bins per decade for the
+                  BinnedPhotonData files.''')
+               )
 
+    @keyword_options.decorate(DataSpecification.defaults + defaults)
     def __init__(self,tstart,tstop,**kwargs):
-        self.init()
+        self.binfile = None
+        self.ltcube = None
         self.tstart = tstart
         self.tstop = tstop
         self.binsperdec = 4
@@ -131,8 +134,10 @@ class SavedData(DataSpecification):
                 self.binfile = '%i-%i_%ibpd.fits'%(start_date,stop_date,self.binsperdec)
             if not self.ltcube:
                 self.ltcube = '%i-%i_lt.fits'%(start_date,stop_date)
-            merge_bpd(bpds,self.binfile)
-            merge_lt(lts,self.ltcube,weighted = self.use_weighted_livetime)
+            if not os.path.exists(self.binfile):
+                merge_bpd(bpds,self.binfile)
+            if not os.path.exists(self.ltcube):
+                merge_lt(lts,self.ltcube,weighted = self.use_weighted_livetime)
 
 
 class SpectralAnalysis(object):
