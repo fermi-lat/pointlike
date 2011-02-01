@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jan 31 21:41:31 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Changing ROIExtendedSources to use the keyword options. Add the new fastpsf flag and expose setting it by a static function.
+    *
+------------------------------------------------------------
 User: lande  Mon Jan 31 21:40:57 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
