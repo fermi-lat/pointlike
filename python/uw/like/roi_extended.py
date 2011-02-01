@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.42 2011/01/20 16:00:04 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.43 2011/01/21 23:10:52 lande Exp $
 
     author: Joshua Lande
 """
@@ -119,9 +119,6 @@ class ROIExtendedModel(ROIDiffuseModel):
             return ROIExtendedModel(spectral_analysis,extended_source,*args,**kwargs)
         else:
             raise Exception("The extended_source.dmodel option passed to ROIExtendedModel.factory must inherit from SpatialModel.")
-
-    def init(self):
-        pass
 
     def setup(self):
         """ Unlike background models, always do the convolution around 
@@ -492,11 +489,21 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         Any of the optional keyword arguments to uw.utilities.convolution's 
         AnalyticConvolutionCache class will be passed on to that class.  """
 
-    def init(self):
-        super(ROIExtendedModelAnalytic,self).init()
-        self.fitpsf=False
-        self.already_fit=False
+    defaults = [
+        ['fitpsf',False,'Method where the psf is calculated by fitting a single king function to the actual psf.'],
+        ['fastpsf',False,'Method where the psf is apprximated by weighting the sigmas and gammas before evaluating the psf.']
+    ]
 
+    @staticmethod
+    def set_fastpsf(fastpsf):
+        was = ROIExtendedModelAnalytic.defaults[1][1]
+        ROIExtendedModelAnalytic.defaults[1][1] = fastpsf
+        return was
+
+    @keyword_options.decorate(defaults)
+    def __init__(self,*args,**kwargs):
+        super(ROIExtendedModelAnalytic,self).__init__(*args,**kwargs)
+        self.already_fit=False
         self.overlap = PsfOverlap()
 
     def setup(self):
@@ -507,7 +514,7 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         self.active_bgc = AnalyticConvolutionCache(self.extended_source,psf,**d)
 
     def set_state(self,band):
-        self.active_bgc.do_convolution(band,self.fitpsf)
+        self.active_bgc.do_convolution(band,self.fitpsf,self.fastpsf)
         self.current_energy = energy=band.psf.eopt if band.psf.__dict__.has_key('eopt') else band.e
 
     def _pix_value(self,pixlist):
@@ -557,11 +564,13 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         else:
             roi=args[0]
 
-        fitpsf=True
+        fitpsf=True if self.fastpsf!=True else False
         if kwargs.has_key('fitpsf'):
             fitpsf = kwargs.pop('fitpsf')
 
         if fitpsf:
+            if self.fastpsf: raise Exception("Cannot specify fitpsf for localization since fastpsf is already selected.")
+
             if not roi.quiet: print 'Changing to fitpsf for localization step.'
             self.fitpsf,old_fitpsf=True,self.fitpsf
 
