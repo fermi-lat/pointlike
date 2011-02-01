@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Tue Feb  1 11:59:28 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py 
+Log Message:
+A few changes to uw.like.pointspec.SavedData to bring it up to date with the
+current method of handling kwargs.
+
+    *
+------------------------------------------------------------
 User: lande  Mon Jan 31 21:41:31 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
