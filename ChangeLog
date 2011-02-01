@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jan 31 21:40:57 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+Changing ROIDiffuseSources to use the keyword_options interface
+    *
+------------------------------------------------------------
 User: lande  Mon Jan 31 21:33:32 PST 2011
 ScienceTools-scons/pointlike/python/uw/utilities
 
