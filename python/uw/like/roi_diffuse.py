@@ -1,12 +1,13 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.16 2011/01/06 07:26:56 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.17 2011/01/21 23:09:21 lande Exp $
 
 author: Matthew Kerr
 """
 import numpy as N
 from uw.utilities.convolution import BackgroundConvolution
+from uw.utilities import keyword_options
 from skymaps import SkyIntegrator,Background,IsotropicSpectrum,DiffuseFunction
 import copy
 
@@ -57,7 +58,10 @@ class ROIDiffuseModel(object):
     
         Provide the interface that ROIDiffuseModel et al. should satisfy."""
 
-    def __init__(self,spectral_analysis,diffuse_source,roi_dir,name=None,*args,**kwargs):
+    defaults = (())
+
+    @keyword_options.decorate(defaults)
+    def __init__(self,spectral_analysis,diffuse_source,roi_dir,name=None,**kwargs):
 
         self.sa = spectral_analysis
         self.roi_dir = roi_dir
@@ -66,11 +70,9 @@ class ROIDiffuseModel(object):
         self.smodel         = diffuse_source.smodel
         self.name           = diffuse_source.name
 
-        self.init()
-        self.__dict__.update(kwargs)
+        keyword_options.process(self, kwargs)
         self.setup()
    
-    def init(self):  pass
     def setup(self): pass
     
     def __str__(self):
@@ -120,12 +122,17 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         rule exposure integral, child methods may override _ap_value 
         and _pix_value."""
 
-    def init(self):
-        self.pixelsize = 0.25
-        self.npix      = 101 # note -- can be overridden at the band level
-        self.nsimps    = 4   # note -- some energies use a multiple of this
-        self.r_multi   = 1.0 # multiple of r95 to set max dimension of grid
-        self.r_max     = 20  # an absolute maximum (half)-size of grid (deg)
+    defaults = (
+        ('pixelsize',0.25,'Pixel size for convolution grid'),
+        ('npix',101,"Note -- can be overridden at the band level"),
+        ('nsimps',4,"Note -- some energies use a multiple of this"),
+        ('r_multi',1.0,"Multiple of r95 to set max dimension of grid"),
+        ('r_max',20,"An absolute maximum (half)-size of grid (deg)")
+    )
+
+    @keyword_options.decorate(defaults)
+    def __init__(self,*args,**kwargs):
+        super(ROIDiffuseModel_OTF,self).__init__(*args,**kwargs)
 
     def setup(self):
         exp = self.sa.exposure.exposure; psf = self.sa.psf
@@ -274,9 +281,14 @@ class ROIDiffuseModel_PC(ROIDiffuseModel_OTF):
     """ The diffuse model is assumed to be pre-convolved.  This class then
         manages the exposure integral and model evaluation."""
 
-    def init(self):
-        self.tolerance = 0.02
-        self.nsimps    = 4
+    defaults = (
+        ('tolerance',0.02,'SkyIntegrator tolerance'),
+        ('nsimps',4,'Number of subenergies to evalulate the simpson integral over')
+    )
+
+    @keyword_options.decorate(defaults)
+    def __init__(self,*args,**kwargs):
+        super(ROIDiffuseModel_OTF,self).__init__(*args,**kwargs)
 
     def setup(self):
         SkyIntegrator.set_tolerance(self.tolerance)
