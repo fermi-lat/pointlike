@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.29 2011/01/19 01:42:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.30 2011/01/30 18:45:47 burnett Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -476,11 +476,14 @@ class AnalyticConvolution(object):
                                    
         return pdf
     
-    def _get_pdf(self,energy,conversion_type,band,fitpsf):
+    def _get_pdf(self,energy,conversion_type,band,fitpsf,fastpsf):
         """ This function has to calculate self.rlist and self.pdf
             and is abstracted from the rest of the do_convolution
             function so that it can be overloaded for caching
             by AnalyticConvolutionCache. """
+
+        if fitpsf==True and fastpsf==True:
+            raise Exception("Only one of fitpsf or fastpsf may be set true")
 
         pb = PretendBand(energy,conversion_type)
         self.bpsf = BandCALDBPsf(self.psf,pb)
@@ -510,6 +513,22 @@ class AnalyticConvolution(object):
         if fitpsf:
             # For new & old style psf, fit a single king function to the data.
             self.pdf = self._convolve(self.rlist,band.fit_gamma,band.fit_sigma,energy)
+
+        elif fastpsf:
+            # weight sigmas & gammas before fit, useful for fast rough calculations of the pdf.
+            if self.bpsf.newstyle:
+                nc,nt=(nclist*wlist).sum(),(ntlist*wlist).sum()
+
+                gc,sc=(gclist*wlist).sum(),(sclist*wlist).sum()
+                gt,st=(gtlist*wlist).sum(),(stlist*wlist).sum()
+
+                self.pdf += nc*self._convolve(self.rlist,gc,sc,energy) + \
+                            nt*self._convolve(self.rlist,gt,st,energy)
+            else:
+                g,s=(glist*wlist).sum(),(slist*wlist).sum()
+
+                self.pdf += self._convolve(self.rlist,g,s,energy)
+
         else:
             if self.bpsf.newstyle:
                 for nc,gc,sc,nt,gt,st,w in zip(nclist,gclist,sclist,\
@@ -532,7 +551,7 @@ class AnalyticConvolution(object):
             if N.any(self.pdf<0):        message +=' (%d negative values)' % sum(self.pdf<0)
             raise Exception(message)
 
-    def do_convolution(self,band,fitpsf):
+    def do_convolution(self,band,fitpsf,fastpsf):
         """ Generate points uniformly in r^2 ~ u, to ensure there are more 
             points near the center, where the PDF is bigger and changing
             rapidly. Then, do a cubic spline interpolation of the log of
@@ -563,6 +582,15 @@ class AnalyticConvolution(object):
   =========   =======================================================
   fitpsf         [False] Use emperical fits to the psf instead of
                          weighting over cos theta.
+  fastpsf        [False] Estimate the psf by weighting the sigmas 
+                         and gammas before the fit. Useful for 
+                         rough, but faster calculations. Note that
+                         if you are going to do a lot of iterations
+                         of convolving, its probably better to do
+                         use fitpsf because it will get a generally
+                         better represetnation of the psf. But if
+                         you want speed and only to do the convolution
+                         once, fastpsf is a good option.
   =========     =======================================================
             """
         # Use the 'optimal' energy (calculated by the ADJUST_MEAN flag) if it exists.
@@ -570,7 +598,7 @@ class AnalyticConvolution(object):
 
         # do most of the work in this subfunction, which allows for caching
         # by the AnalyticConvolutionCache subclass.
-        self._get_pdf(energy,band.ct,band,fitpsf)
+        self._get_pdf(energy,band.ct,band,fitpsf,fastpsf)
 
         # Assume pdf is 0 outside of the bound, which is reasonable if 
         # rmax is big enough also, interpolate the log of the intensity, which 
@@ -632,21 +660,21 @@ class AnalyticConvolutionCache(AnalyticConvolution):
         self.last_pdf       = {}
         self.last_rlist     = {}
 
-    def _get_pdf(self,energy,conversion_type,band,fitpsf):
+    def _get_pdf(self,energy,conversion_type,band,fitpsf,fastpsf):
 
-        if self.last_p.has_key((band,fitpsf)) and \
-                N.all(self.last_p[band,fitpsf] == self.extended_source.spatial_model.p[2:]):
+        if self.last_p.has_key((band,fitpsf,fastpsf)) and \
+                N.all(self.last_p[band,fitpsf,fastpsf] == self.extended_source.spatial_model.p[2:]):
 
-            self.rlist   = self.last_rlist[band,fitpsf]
-            self.pdf     = self.last_pdf[band,fitpsf]
+            self.rlist   = self.last_rlist[band,fitpsf,fastpsf]
+            self.pdf     = self.last_pdf[band,fitpsf,fastpsf]
 
         else:
             super(AnalyticConvolutionCache,self)._get_pdf(
-                    energy,conversion_type,band,fitpsf)
+                    energy,conversion_type,band,fitpsf,fastpsf)
 
-            self.last_p[band,fitpsf]=self.extended_source.spatial_model.p[2:].copy()
-            self.last_rlist[band,fitpsf]=self.rlist
-            self.last_pdf[band,fitpsf]=self.pdf
+            self.last_p[band,fitpsf,fastpsf]=self.extended_source.spatial_model.p[2:].copy()
+            self.last_rlist[band,fitpsf,fastpsf]=self.rlist
+            self.last_pdf[band,fitpsf,fastpsf]=self.pdf
 
 """
 a little sanity check class
