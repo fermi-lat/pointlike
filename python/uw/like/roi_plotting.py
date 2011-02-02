@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.20 2011/01/21 02:55:59 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.21 2011/01/26 01:52:28 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -403,10 +403,11 @@ class ROIDisplay(object):
             ('figsize',       (12,8),         'Size of the image'),
             ('fignum',             3,  'matplotlib figure number'),
             ('pixelsize',       0.25,  'size of each image pixel'),
+            ('conv_type',         -1,           'Conversion type'),
             ('size',              10, 'Size of the field of view'),
             ('nticks',             5, 'Number of axes tick marks'),
             ('label_sources',  False,  'Label sources duing plot'),
-            ('galactic',        True, 'Coordinate system for plot')
+            ('galactic',        True,'Coordinate system for plot'),
     )
 
     @staticmethod
@@ -429,8 +430,8 @@ class ROIDisplay(object):
         
         self.roi = roi
 
-        self.cm = CountsImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic)
-        self.mm = ModelImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic)
+        self.cm = CountsImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic,conv_type=self.conv_type)
+        self.mm = ModelImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic,conv_type=self.conv_type)
 
         ROIDisplay.matplotlib_format()
 
@@ -634,13 +635,14 @@ def int2bin(n, count=24):
 class ROISlice(object):
 
     defaults = (
-            ('figsize',        (7,6),          'Size of the image'),
-            ('fignum',             4,   'matplotlib figure number'),
-            ('pixelsize',      0.125,   'size of each image pixel'),
-            ('size',              10,  'Size of the field of view'),
+            ('figsize',        (7,6), 'Size of the image'),
+            ('fignum',             4, 'matplotlib figure number'),
+            ('pixelsize',      0.125, 'size of each image pixel'),
+            ('size',              10, 'Size of the field of view'),
             ('galactic',        True, 'Coordinate system for plot'),
-            ('int_width',          2, ''),
+            ('int_width',          2, 'Integration width for slice.'),
             ('which',           None, 'Name of source to make a slice for.'),
+            ('conv_type',         -1, 'Conversion type'),
             ('nosource',        True, """ Display also the model predictions without the mentioned 
                                           source. Only works when which is specified."""),
             ('aspoint',         True, """ Display also the model predictions for an extended source 
@@ -687,10 +689,10 @@ class ROISlice(object):
         self.get_model()
 
     def get_counts(self):
-        ps=self.pixelsize
-        gal=self.galactic
-        self.ci_x = CountsImage(self.roi,center=self.center,size=(self.size,self.int_width),pixelsize=ps,galactic=gal)
-        self.ci_y = CountsImage(self.roi,center=self.center,size=(self.int_width,self.size),pixelsize=ps,galactic=gal)
+        self.ci_x = CountsImage(self.roi,center=self.center,size=(self.size,self.int_width),
+                                pixelsize=self.pixelsize,galactic=self.galactic,conv_type=self.conv_type)
+        self.ci_y = CountsImage(self.roi,center=self.center,size=(self.int_width,self.size),
+                                pixelsize=self.pixelsize,galactic=self.galactic,conv_type=self.conv_type)
 
     @staticmethod
     def cache_roi(roi):
@@ -705,7 +707,7 @@ class ROISlice(object):
 
     def get_model(self):
         kwargs=dict(center=self.center,pixelsize=float(self.pixelsize)/self.oversample_factor,
-                    galactic=self.galactic)
+                    galactic=self.galactic,conv_type=self.conv_type)
 
         self.mi_x = dict()
         self.mi_y = dict()
@@ -816,13 +818,14 @@ class ROISlice(object):
 class ROIRadialIntegral(object):
 
     defaults = (
-            ('figsize',        (7,6),          'Size of the image'),
+            ('figsize',        (7,6), 'Size of the image'),
             ('size',               2, 'Size of image in degrees'), 
             ('pixelsize',     0.0625, """ size of each image pixel. This is a little misleading because the
                                           size of each pixel varies, but regardless this is used to determine
                                           the total number of pixels with npix=size/pixelsize """),
             ('fignum',             5, 'matplotlib figure number'),
             ('which',           None, 'Name of source to make a slice for.'),
+            ('conv_type',         -1, 'Conversion type'),
             ('nosource',        True, """ Display also the model predictions without the mentioned 
                                           source. Only works when which is specified."""),
             ('aspoint',         True, """ Display also the model predictions for an extended source 
@@ -862,10 +865,10 @@ class ROIRadialIntegral(object):
         self.get_model()
 
     def get_counts(self):
-        self.ci = RadialCounts(self.roi,center=self.center,size=self.size,pixelsize=self.pixelsize)
+        self.ci = RadialCounts(self.roi,center=self.center,size=self.size,pixelsize=self.pixelsize,conv_type=self.conv_type)
 
     def get_model(self):
-        kwargs=dict(center=self.center,size=self.size,pixelsize=self.pixelsize)
+        kwargs=dict(center=self.center,size=self.size,pixelsize=self.pixelsize,conv_type=self.conv_type)
 
         self.mi = dict()
 
