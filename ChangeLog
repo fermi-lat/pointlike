@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Feb  2 14:21:10 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Remove the cov_matrix after adding or deleting a source
+    *
+------------------------------------------------------------
 User: lande  Tue Feb  1 19:03:05 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
