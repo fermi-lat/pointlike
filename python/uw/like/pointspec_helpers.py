@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.30 2011/01/24 21:22:40 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.31 2011/01/26 01:50:48 lande Exp $
 
     author: Matthew Kerr
     """
@@ -290,7 +290,7 @@ class ExtendedSourceCatalog(PointSourceCatalog):
         xmls      = self.xmls[mask][sorting]
         spatials  = self.spatial_models[mask][sorting]
 
-        template_dir=join(self.archive_directory,'Templates')
+        template_dir=self.archive_directory
         os.environ["LATEXTDIR"]=template_dir
 
         sources = []
