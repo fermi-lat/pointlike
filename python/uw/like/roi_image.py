@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.8 2011/01/27 19:04:46 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.9 2011/02/01 05:28:41 lande Exp $
 
 author: Joshua Lande
 """
@@ -28,7 +28,8 @@ class ROIImage(object):
         The acutal work is done by subclasses. """
 
     defaults = ZEA.defaults + (
-            ('center',    None,  'Center of image'),
+        ('center',    None, 'Center of image'),
+        ('conv_type',   -1, 'Conversion type'),
     )
 
     @keyword_options.decorate(defaults)
@@ -94,11 +95,11 @@ class CountsImage(ROIImage):
     )
 
     @staticmethod
-    def process_filedata(roi,mc_src_id,extra_cuts=''):
+    def process_filedata(roi,mc_src_id,conv_type=None,extra_cuts=None):
 
         emin = roi.bin_edges[0]
         emax = roi.bin_edges[-1]
-        conv_type = roi.sa.conv_type
+        conv_type = roi.sa.conv_type if conv_type==None else conv_type
 
         ft1files=roi.sa.pixeldata.ft1files
 
@@ -107,7 +108,7 @@ class CountsImage(ROIImage):
                      'ZENITH_ANGLE < %s' % roi.sa.pixeldata.zenithcut,
                      'THETA < %s' % roi.sa.pixeldata.thetacut,
                      'EVENT_CLASS >= %s' % roi.sa.pixeldata.event_class]
-        if conv_type >= 0:        base_cuts += ['EVENT_CLASS == %d'%(conv_type)]
+        if conv_type >= 0:        base_cuts += ['CONVERSION_TYPE == %d'%(conv_type)]
         if mc_src_id is not None: base_cuts += ['MC_SRC_ID == %d'%(mc_src_id)]
         cuts = base_cuts if extra_cuts is None else extra_cuts + base_cuts
 
@@ -121,7 +122,7 @@ class CountsImage(ROIImage):
         return skydirs
 
     def fill(self):
-        dirs = CountsImage.process_filedata(self.roi,self.mc_src_id)
+        dirs = CountsImage.process_filedata(self.roi,self.mc_src_id,conv_type=self.conv_type)
 
         for photon_dir in dirs:
             self.skyimage.addPoint(photon_dir)
@@ -192,6 +193,9 @@ class ModelImage(ROIImage):
         super(ModelImage,self).__init__(*args,**kwargs)
 
     def fill(self):
+        self.selected_bands = self.roi.bands if self.conv_type < 0 else \
+            [ band for band in self.roi.bands if band.ct == self.conv_type ]
+
         self.wsdl = self.skyimage.get_wsdl()
 
         self.solid_angle = N.radians(self.pixelsize)**2
@@ -258,11 +262,10 @@ class ModelImage(ROIImage):
     def all_point_sources_counts(self):
         """ Calculate the point source contributions. """
         roi=self.roi
-        bands=roi.bands
         point_sources = roi.psm.point_sources
         point_counts = N.zeros(len(self.wsdl),dtype=float)
 
-        for band in bands:
+        for band in self.selected_bands:
             cpsf = band.psf.cpsf
 
             # generate a list of skydirs on a finer grid.
@@ -292,7 +295,7 @@ class ModelImage(ROIImage):
 
         extended_counts = N.zeros(len(self.wsdl),dtype=float)
 
-        for band in self.roi.bands:
+        for band in self.selected_bands:
             extended_model.set_state(band)
             exposure=band.exp.value
 
@@ -313,13 +316,12 @@ class ModelImage(ROIImage):
 
     def otf_source_counts(self,bg):
         roi=self.roi
-        bands=roi.bands
 
         mo=bg.smodel
 
         background_counts = N.zeros(len(self.wsdl),dtype=float)
 
-        for band in bands:
+        for band in self.selected_bands:
 
             ns,bg_points,bg_vector = ROIDiffuseModel_OTF.sub_energy_binning(band,bg.nsimps)
 
@@ -361,11 +363,12 @@ class RadialImage(object):
 
 
     defaults = (
-            ('center',       None, 'Center of image'),
+            ('center',       None,            'Center of image'),
             ('size',            2, 'Size of image (in degrees)'), 
             ('pixelsize', 0.00625, """ size of each image pixel. This is a little misleading because the
                                        size of each pixel varies, but regardless this is used to determine
                                        the total number of pixels with npix=size/pixelsize """),
+            ('conv_type',      -1,            'Conversion type'),
     )
 
     @keyword_options.decorate(defaults)
@@ -408,7 +411,7 @@ class RadialCounts(RadialImage):
     )
 
     def fill(self):
-        dirs = CountsImage.process_filedata(self.roi,self.mc_src_id)
+        dirs = CountsImage.process_filedata(self.roi,self.mc_src_id,conv_type=self.conv_type)
         diffs = [self.center.difference(i) for i in dirs]
         self.image=N.histogram(diffs,bins=N.sqrt(self.bin_edges_rad))[0]
 
@@ -418,6 +421,9 @@ class RadialModel(RadialImage):
 
     def fill(self):
 
+        self.selected_bands = self.roi.bands if self.conv_type < 0 else \
+            [ band for band in self.roi.bands if band.ct == self.conv_type ]
+
         self.image = N.zeros_like(self.bin_centers_rad)
         self.image += self.all_point_sources_counts()
         self.image += self.all_diffuse_sources_counts()
@@ -426,7 +432,6 @@ class RadialModel(RadialImage):
     def all_point_sources_counts(self):
         """ Calculate the point source contributions. """
         roi=self.roi
-        bands=roi.bands
         point_sources = roi.psm.point_sources
 
         point_counts = N.zeros_like(self.bin_centers_rad)
@@ -438,7 +443,7 @@ class RadialModel(RadialImage):
             model_counts=0
 
             for j,ps in enumerate(point_sources):
-                for band in bands:
+                for band in self.selected_bands:
 
                     # this code requires a redundant call to overlap. Improve if time.
                     fraction=overlap(band,self.center,ps.skydir,radius_in_rad=theta_max) - \
@@ -455,11 +460,13 @@ class RadialModel(RadialImage):
             raise Exception("Unknown extended model.")
 
         roi=self.roi
-        bands=roi.bands
 
         extended_counts = N.zeros_like(self.bin_centers_rad)
 
-        for band,myband in zip(bands,extended_model.bands):
+        # get the corresponding mybands.
+        mybands=[extended_model.bands[N.where(roi.bands==band)[0][0]] for band in self.selected_bands]
+
+        for band,myband in zip(self.selected_bands,mybands):
             extended_model.set_state(band)
 
             if type(extended_model) == ROIExtendedModel:
@@ -514,13 +521,12 @@ class RadialModel(RadialImage):
     def otf_source_counts(self,bg):
 
         roi=self.roi
-        bands=roi.bands
 
         mo=bg.smodel
 
         background_counts = N.zeros_like(self.bin_centers_rad)
 
-        for band in bands:
+        for band in self.selected_bands:
 
             ns,bg_points,bg_vector = ROIDiffuseModel_OTF.sub_energy_binning(band,bg.nsimps)
 
