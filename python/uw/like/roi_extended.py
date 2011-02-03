@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.43 2011/01/21 23:10:52 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.44 2011/02/01 05:41:30 lande Exp $
 
     author: Joshua Lande
 """
@@ -428,7 +428,6 @@ Arguments:
         old_sm_cov     = sm.cov_matrix.copy()
         old_sm_free    = sm.free.copy()
         old_roi_p   = roi.get_parameters().copy()
-        old_roi_cov = roi.cov_matrix.copy() if roi.__dict__.has_key('cov_matrix') else None
 
         def l():
             if kwargs.has_key('bandfits') and kwargs['bandfits']:
@@ -465,10 +464,7 @@ Arguments:
         sm.free = old_sm_free
 
         roi.set_parameters(old_roi_p) 
-        if old_roi_cov is not None:
-            # reset spectral errors
-            roi.bgm.set_covariance_matrix(old_roi_cov,current_position = 0)
-            roi.psm.set_covariance_matrix(old_roi_cov,current_position = len(roi.bgm.parameters()))
+        roi.__set_error__()
 
         self.initialize_counts(roi.bands)
         # reset point source
