@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.30 2011/01/30 18:45:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.31 2011/02/01 05:33:32 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -302,11 +302,8 @@ class ExtendedSourceConvolution(BackgroundConvolution):
             the entire spatial part is normalized.
 
             Note that this formula assumes the entire extended source is
-            within the grid (or equivalently that the entire spatial part is
-            normalized), but not that the entire ROI is within the
-            grid. Any addition to the fraction from parts of the ROI
-            outside of the grid simply contribue 0 and can therefore
-            be ignored.
+            within the grid, which should be enforced by a reasonable
+            choice of r_max and r_multi.
             
             roi_radius is in radians."""
         
