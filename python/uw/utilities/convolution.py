@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.32 2011/02/03 01:24:09 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.33 2011/02/03 20:25:30 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -410,7 +410,7 @@ class AnalyticConvolution(object):
         """
 
     defaults = (
-        ['num_points',     200, 'Number of points to calculate the PDF at. Interpolation is done in between.'],
+        ['num_points',     100, 'Number of points to calculate the PDF at. Interpolation is done in between.'],
     )
     @staticmethod
     def set_points(psize):
