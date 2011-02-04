@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: lande  Thu Feb  3 18:53:48 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py pointspec_helpers.py roi_image.py 
+	roi_managers.py 
+Log Message:
+Modernize code to use abstractmethod
+    *
+------------------------------------------------------------
 User: lande  Thu Feb  3 13:08:57 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
