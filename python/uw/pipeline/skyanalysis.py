@@ -1,6 +1,6 @@
 """
 Basic ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.7 2011/01/30 00:08:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.8 2011/01/30 19:02:04 burnett Exp $
 """
 import os, pickle, glob, types
 import numpy as np
@@ -35,6 +35,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         convolve_kw = dict( resolution=0.125, # applied to OTF convolutoin
                         pixelsize=0.05, # ExtendedSourceConvolution
                         num_points=25), # AnalyticConvolution
+        selector = skymodel.HEALPixSourceSelector, # this is a factory of SourceSelector objects
         )
 
     def __init__(self, sky, dataset, **kwargs):
@@ -99,15 +100,10 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         skydir = src_sel.skydir()
         return roi_managers.ROIPointSourceManager(ps, skydir,quiet=self.quiet)
         
-    def roi(self, index, src_sel=None):
-        """ return a roi_analysis.ROIAnalysis object based on the roi index
+    def roi(self, *pars, **kwargs):
+        """ return a roi_analysis.ROIAnalysis object based on the selector
         """
-        if src_sel is None:
-            src_sel = skymodel.HEALPixSourceSelector(index,self.skymodel,max_radius=self.radius)
-        else:
-            if (src_sel.max_radius != self.radius):
-                print 'Warning, overriding max radius of %.2f with %.2f'%(src_sel.max_radius,self.radius)
-                src_sel.max_radius = self.radius
+        src_sel = self.selector(*pars, **kwargs)
 
         ps_manager = self._local_sources(src_sel)
         bg_manager = self._diffuse_sources(src_sel)
@@ -118,7 +114,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         r = PipelineROI(ps_manager.roi_dir, 
                     ps_manager, bg_manager, 
                     self, 
-                    name = 'HP12_%04d' % index,
+                    name = src_sel.name(), 
                     fit_emin=iterable_check(self.fit_emin), 
                     fit_emax=iterable_check(self.fit_emax),
                     quiet=self.quiet, 

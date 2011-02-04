@@ -1,7 +1,7 @@
 
 """
  Manage the catalog association tables
- $Header$
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/associate.py,v 1.1 2011/01/12 15:56:56 burnett Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
 import pyfits, os, pickle, glob
@@ -209,7 +209,9 @@ class SrcId(srcid.SourceAssociation):
                 raise Exception(txt)
         super(SrcId, self).__init__(os.path.join(catalog_path, 'srcid'),quiet=True)
         self.class_list = self.classes # will be used by the id method
-        
+     
+    def __str__(self):
+        return 'SrcId(%s)' %self.classes
     #def id(self, pos, error):
     #    """ the format returned by Srcid:
     #        a dictionary with keys classes and values a dict[sourcename]
