@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.9 2011/02/01 05:28:41 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.10 2011/02/02 03:02:36 lande Exp $
 
 author: Joshua Lande
 """
@@ -20,6 +20,8 @@ from uw.utilities.fitstools import get_fields
 from uw.utilities.image import ZEA
 from pypsf import PsfOverlap
 import collections
+from abc import abstractmethod
+
 
 class ROIImage(object):
     """ This object is suitable for creating a SkyImage object
@@ -60,8 +62,8 @@ class ROIImage(object):
         self.nx, self.ny = self.skyimage.naxis1(), self.skyimage.naxis2()
         self.image=N.array(self.skyimage.image()).reshape((self.ny, self.nx))
 
-    def fill(self):
-        raise NotImplementedError("Subclasses should implement this!")
+    @abstractmethod
+    def fill(self): pass
 
     def get_ZEA(self,axes=None,nticks=None):
         """ axes and nticks can be created by this object's constructor, but are
@@ -397,9 +399,10 @@ class RadialImage(object):
 
         self.fill()
 
+    @abstractmethod
     def fill(self):
         """ This should fill up self.image appropriatly."""
-        raise NotImplementedError("Subclasses should implement this!")
+        pass
 
 
 class RadialCounts(RadialImage):
