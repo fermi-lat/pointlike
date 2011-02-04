@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Feb  4 13:17:56 PST 2011
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Decrease to 100 number of convolution points to speed up analytic convolution
+    *
+------------------------------------------------------------
 User: lande  Fri Feb  4 13:10:22 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
