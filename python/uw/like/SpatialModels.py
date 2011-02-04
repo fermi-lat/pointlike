@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/SpatialModels.py,v 1.32 2011/01/11 18:33:22 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.33 2011/01/25 19:26:10 burnett Exp $
 
    author: Joshua Lande
 
@@ -12,6 +12,8 @@ import numpy as N
 from scipy import vectorize
 from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
         SkyImage,SkyIntegrator,CompositeSkyFunction
+from abc import abstractmethod
+
 
 # Mathematical constants. They are the ratio of r68 (the %68 containment
 # radius) to sigma, the 'size' parameter of an extended source.
@@ -332,14 +334,15 @@ class SpatialModel(object):
 
         return a
 
-    def __call__(self,v,energy=None):
-        raise NotImplementedError("Subclasses should implement this!")
+    @abstractmethod
+    def __call__(self,v,energy=None): pass
 
+    @abstractmethod
     def effective_edge(self,energy=None):
         """ It is useful to know an approximate edge to the image
             It is defined as a radius such that from the center to the
             enclosed circle contains (approximatly) the entire object. """
-        raise NotImplementedError("Subclasses should implement this!")
+        pass
 
     def get_PySkyFunction(self):
         return PySkyFunction(self)
@@ -402,10 +405,11 @@ class SpatialModel(object):
             the source location."""
         return "[ "+", ".join(["%.3f" % _ for _ in self.get_parameters(absolute=True)[2:]])+" ]"
 
+    @abstractmethod
     def shrink(self): 
         """ Update the spatial model so that the source is very small. This
             is useful for null hypothesis testing. """
-        raise NotImplementedError("Subclasses should implement this!")
+        pass
 
 #===============================================================================================#
 
@@ -424,18 +428,20 @@ class RadiallySymmetricModel(SpatialModel):
 
         return self.at_r(skydir.difference(self.center),energy)
 
+    @abstractmethod
     def r68(self):
-        raise NotImplementedError("Subclasses should implement this!")
+        pass
 
     def at_r(self,r,energy=None):
         """ r is in radians. """
         return self.at_r_in_deg(N.degrees(r),energy)
 
+    @abstractmethod
     def at_r_in_deg(self,r,energy=None):
         """ Should return the intensity at a distance r from the spatial model's center,
 
             r is in degrees. """
-        raise NotImplementedError("Subclasses should implement this!")
+        pass
 
     def effective_edge(self,energy=None):
         """ For analytic convolution, distance to be taken as the edge of the
@@ -722,8 +728,9 @@ class EllipticalSpatialModel(SpatialModel):
 
         return self.value_at(x)
 
+    @abstractmethod
     def value_at(self,x):
-        raise NotImplementedError("Subclasses should implement this!")
+        pass
 
     def __call__(self,v,energy=None):
         """ This code is very inefficient and should not be used for anything
@@ -754,11 +761,12 @@ class EllipticalSpatialModel(SpatialModel):
         return "[ %.3fd, %.3fd, %.2fd ]" % \
                 (self.sigma_x,self.sigma_y, self.theta)
     
+    @abstractmethod
     def ellipse_68(self):
         """ Returns the parameters of an ellipse (sigma_x, sigma_y, theta)
             which has the same ellipticity/angle of the regular shape but
             encloses 68 percent of the intensity. """
-        raise NotImplementedError("Subclasses should implement this!")
+        pass
 
     def shrink(self): 
         self.p[2:4]=N.where(self.log[2:4],N.log10(SMALL_NUMERIC_EXTENSION),SMALL_NUMERIC_EXTENSION)

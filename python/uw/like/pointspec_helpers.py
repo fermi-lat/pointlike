@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.31 2011/01/26 01:50:48 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.32 2011/02/02 23:53:45 lande Exp $
 
     author: Matthew Kerr
     """
@@ -12,6 +12,7 @@ from roi_extended import ExtendedSource,ROIExtendedModel
 from SpatialModels import Disk,Gaussian,EllipticalDisk,EllipticalGaussian,GAUSSIAN_X68
 from os.path import join
 import os
+from abc import abstractmethod
 
 ###====================================================================================================###
 
@@ -107,11 +108,13 @@ class PointSourceCatalog(object):
     """ Define an interface for point source catalog that can be used to
          construct the model for an ROI analysis."""
 
+    @abstractmethod
     def get_sources(self,skydir,radius=15):
-        raise NotImplementedError,'Virtual'
+        pass
 
+    @abstractmethod
     def merge_lists(self,skydir,radius=15,user_point_list=None,user_diffuse_list=None):
-        raise NotImplementedError,'Virtual'
+        pass
 
 ###====================================================================================================###
 
