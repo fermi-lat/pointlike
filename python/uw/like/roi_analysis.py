@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.64 2011/02/02 03:03:05 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.65 2011/02/02 22:21:10 lande Exp $
 
 author: Matthew Kerr
 """
@@ -10,6 +10,7 @@ author: Matthew Kerr
 import numpy as N
 np = N #standard numpy
 import math, pickle, collections
+import numbers
 
 from . import roi_bands, roi_localize , specfitter
 from . pointspec_helpers import PointSource,get_default_diffuse_mapper
@@ -42,8 +43,10 @@ def decorate_with(other_func, append=False):
 class ROIAnalysis(object):
 
     defaults = (
-        ("fit_emin",[125,125],"a two-element list giving front/back minimum energy. Independent energy ranges for front and back"),
-        ("fit_emax",[1e5 + 100,1e5 + 100],"A two-element list giving front/back maximum energy. 0th position for event class 0."),
+        ("fit_emin",None,"""a two-element list giving front/back minimum energy. 
+                            Independent energy ranges for front and back. 0th position is for event class 0.
+                            If not specified, default is read from SpectralAnalysis."""),
+        ("fit_emax",None,"A two-element list giving front/back maximum energy. Same qualifications as fit_emax."),
         ("quiet",False,'Set True to suppress (some) output'),
         ("catalog_aperture",-1,"Pulsar catalog analysis only -- deprecate"),
         ("phase_factor",1.,"Pulsar phase. A correction that can be made if the data has undergone a phase selection -- between 0 and 1"),
@@ -79,15 +82,14 @@ class ROIAnalysis(object):
 
     def __setup_bands__(self):
 
-        try:
-            self.fit_emin = [float(self.fit_emin)]*2
-        except:
-            pass
+        if self.fit_emin is None: self.fit_emin = self.sa.emin
+        if self.fit_emax is None: self.fit_emax = self.sa.emax
 
-        try:
-            self.fit_emax = [float(self.fit_emax)]*2
-        except:
-            pass
+        if isinstance(self.fit_emin,numbers.Real):
+            self.fit_emin = [self.fit_emin]*2
+
+        if isinstance(self.fit_emax,numbers.Real):
+            self.fit_emax = [self.fit_emax]*2
 
         self.bands = collections.deque()
         for band in self.sa.pixeldata.dmap:
@@ -307,7 +309,7 @@ class ROIAnalysis(object):
             self.param_state = param_state
             self.param_vals  = param_vals
 
-    def fit(self,method='simplex', tolerance = 0.01, save_values = True, do_background=True,
+    def fit(self,method='simplex', tolerance = 0.01, save_values = True, 
                      fit_bg_first = False, estimate_errors=True, error_for_steps=False,
                      use_gradient = False, gtol = 1e-1):
         """Maximize likelihood and estimate errors.
@@ -376,7 +378,7 @@ class ROIAnalysis(object):
             if not self.quiet: print 'Function value at minimum: %.8g'%f[1]
             if save_values:
                 self.set_parameters(f[0])
-                if estimate_errors: self.__set_error__(do_background,use_gradient)
+                if estimate_errors: self.__set_error__(use_gradient)
                 self.prev_logl = self.logl if self.logl is not None else -f[1]
                 self.logl = -f[1]
 
@@ -386,7 +388,7 @@ class ROIAnalysis(object):
         #    if not self.quiet: print 'good fit!'
         #    return -f[1]
 
-    def __set_error__(self,do_background=True,use_gradient=False):
+    def __set_error__(self,use_gradient=False):
 
         n = len(self.bgm.parameters())
         if use_gradient:
@@ -397,7 +399,6 @@ class ROIAnalysis(object):
         # TODO -- check the return code
 
         try:
-            if not do_background: raise Exception # what is this about?
             if not self.quiet: print 'Attempting to invert full hessian...'
             self.cov_matrix = cov_matrix = inv(hessian)
             if N.any(N.isnan(cov_matrix)):
@@ -451,8 +452,6 @@ class ROIAnalysis(object):
 
             bandfits  -- if True, calcualte the likelihood using a band-by-band (model independent) spectral fit """
 
-        if len(self.psm.models)==0: 
-            return -99  #flag that there are no sources
         if quick:
             self.zero_ps(which)
             ll_0 = self.logLikelihood(self.get_parameters())
