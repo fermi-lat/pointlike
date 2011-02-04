@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.32 2011/02/02 23:53:45 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.33 2011/02/04 02:53:48 lande Exp $
 
     author: Matthew Kerr
     """
@@ -13,6 +13,7 @@ from SpatialModels import Disk,Gaussian,EllipticalDisk,EllipticalGaussian,GAUSSI
 from os.path import join
 import os
 from abc import abstractmethod
+from uw.utilities import keyword_options
 
 ###====================================================================================================###
 
@@ -123,16 +124,15 @@ class FermiCatalog(PointSourceCatalog):
     
         This class works (mostly) for EMS and 1FGL styles."""
 
-    def init(self):
-        self.prune_radius  = 0.10 #deg; in a merge, consider sources closer than this duplicates
-        self.free_radius    = 2 #deg; sources within this distance have free spectral parameters
-        # self.min_flux        = 2e-9 #ph/cm2/s; minimum flux for sources beyond a certain proximity
-        # self.max_distance  = 5 #deg; distance inside which sources are returned regardless of flux
-        # self.min_ts          = 25
+    defaults = (
+        ("prune_radius",0.10,"deg; in a merge, consider sources closer than this duplicates"),
+        ("free_radius",2,"deg; sources within this distance have free spectral parameters"),
+    )
 
+    @keyword_options.decorate(defaults)
     def __init__(self,catalog_file,**kwargs):
-        self.init()
-        self.__dict__.update(kwargs)
+        keyword_options.process(self, kwargs)
+
         self.__open_catalog__(catalog_file)
         self.catalog_file=catalog_file
 
@@ -147,7 +147,6 @@ class FermiCatalog(PointSourceCatalog):
         n0s  = f[1].data.field('FLUX_DENSITY')
         inds = f[1].data.field('SPECTRAL_INDEX')
         cutoffs = f[1].data.field('CUTOFF_ENERGY') if 'Cutoff_Energy' in colnames else None
-        #ts    = f[1].data.field('TEST_STATISTIC')
         inds = N.where(inds > 0, inds, -inds)
 
         self.dirs    = map(SkyDir,N.asarray(ras).astype(float),N.asarray(decs).astype(float))
@@ -157,17 +156,13 @@ class FermiCatalog(PointSourceCatalog):
             self.models = N.asarray([PowerLaw(p=[n0,ind],e0=pen) if N.isnan(cutoff) else 
                                      ExpCutoff(p=[n0,ind,cutoff],e0=pen)
                                      for n0,ind,pen,cutoff in zip(n0s,inds,pens,cutoffs)])
-        #self.fluxes = N.asarray(f[1].data.field('FLUX100'))
         self.names  = N.chararray.strip(f[1].data.field(sname))
-        #self.ts      = N.asarray(ts)
 
         f.close()
 
     def get_sources(self,skydir,radius=15):
 
         diffs    = N.degrees(N.asarray([skydir.difference(d) for d in self.dirs]))
-        #mask     = ((diffs < radius)&(self.ts > self.min_ts)) & \
-        #             ((self.fluxes > self.min_flux)|(diffs < self.max_distance))
         mask     = diffs < radius
         diffs    = diffs[mask]
         sorting = N.argsort(diffs)
@@ -293,8 +288,13 @@ class ExtendedSourceCatalog(PointSourceCatalog):
         xmls      = self.xmls[mask][sorting]
         spatials  = self.spatial_models[mask][sorting]
 
-        template_dir=self.archive_directory
-        os.environ["LATEXTDIR"]=template_dir
+        if self.archive_directory in [ "Extended_archive_v01", "Extended_archive_v02", 
+                                       "Extended_archive_jbb02", "Extended_archive_jbb03" ]:
+
+            # old style archives
+            os.environ["LATEXTDIR"]=join(self.archive_directory,'Templates')
+        else:
+            os.environ["LATEXTDIR"]=self.archive_directory
 
         sources = []
         for name,xml,spatial in zip(names,xmls,spatials):
