@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.4 2011/01/24 21:56:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.5 2011/01/30 00:10:28 burnett Exp $
 """
 import os, types, glob, time, pickle
 import numpy as np
@@ -37,6 +37,8 @@ class Pipe(skyanalysis.SkyAnalysis):
             associator = associate.SrcId('$FERMI/catalog', associator)
             #print 'will associate with catalogs %s' % associator.classes
         self.process_kw['associate'] = associator
+        self.selector = skymodel.HEALPixSourceSelector
+        self.selector.nside = self.nside
 
         # create the SkyModel object passing any additional keywords to it, and start the superclass
         sm = skymodel.SkyModel(indir,  **self.skymodel_kw)
@@ -46,11 +48,11 @@ class Pipe(skyanalysis.SkyAnalysis):
         """ perform analysis for the ROI
         Note that it is done by a function in the processor module
         """
-        roi = self.roi(index)
+        roi = self.roi(index )
         processor.process(roi, **self.process_kw)
 
     def names(self):
-        return ['HP%d_%04d'%(self.nside,i) for i in range(12*self.nside**2)]
+        return [self.selector(i).name() for i in range(12*self.nside**2)]
 
 class Setup(dict):
     """ Setup is a dictionary with variable run parameters
@@ -67,9 +69,11 @@ class Setup(dict):
         self.update(dict( cwd =os.getcwd(), 
                 indir = indir,
                 auxcat='',
+                nside = 12,
                 outdir=outdir,
                 dataset = 'P7_V4_SOURCE',
                 diffuse = ('ring_24month_P74_v1.fits', 'isotrop_21month_v2.txt'),
+                extended= 'LAT_extended_sources_v04',
                 irf = 'P7SOURCE_V4PSF',
                 associator ='all_but_gammas',
                 sedfig = None,
@@ -97,9 +101,10 @@ class Setup(dict):
 import os; os.chdir(r"%(cwd)s");
 from uw.pipeline import pipe, maps;
 g=pipe.Pipe("%(indir)s", "%(dataset)s",
-        skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,update_positions=%(update_positions)s,),
-        irf="%(irf)s",
-        fit_emin=%(fit_emin)s, fit_emax=%(fit_emax)s, minROI=5, maxROI=5,
+        skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,
+            extended_catalog_name="%(extended)s", update_positions=%(update_positions)s,),
+        irf="%(irf)s", nside=%(nside)s,
+        fit_emin=%(fit_emin)s, fit_emax=%(fit_emax)s, minROI=%(minROI)s, maxROI=%(maxROI)s,
         associate="%(associator)s",
         process_kw=dict(outdir="%(outdir)s",
             tsmap_dir=%(tsmap)s,  sedfig_dir=%(sedfig)s,
@@ -129,14 +134,15 @@ def getg(setup_string):
     exec(setup_string, globals()) # should set g
     return g
 
-def roirec(version=None):
+def roirec(version=None, nside=12):
     if version is None:
         version = int(open('version.txt').read())
     roi_files = glob.glob('uw%02d/pickle/*.pickle'%version)
     roi_files.sort()
-    if len(roi_files)<1728:
+    n = 12*nside**2
+    if len(roi_files)<n:
         t = map(lambda x : int(x[-11:-7]), roi_files)
-        missing = [x for x in xrange(1728) if x not in t]
+        missing = [x for x in xrange(n) if x not in t]
         print 'misssing roi files: %s' % missing
         raise Exception('misssing roi files: %s' % missing)
         
@@ -149,12 +155,12 @@ def roirec(version=None):
 
         recarray.append(p['name'], chisq, p['logl'])
     return recarray()
-def converge_test(version=None, thresh=10,):
+def converge_test(version=None, thresh=10,nside=12):
     if version is None:
         version = int(open('version.txt').read())
-    old_drec = roirec(version-1)
+    old_drec = roirec(version-1, nside)
     old_loglike = sum(old_drec.loglike)
-    new_drec = roirec (version)
+    new_drec = roirec (version,nside)
     new_loglike= sum(new_drec.loglike)
     deltas = new_drec.loglike - old_drec.loglike
     moved = sum(np.abs(deltas)>thresh)
@@ -168,17 +174,27 @@ def iterate(setup, **kwargs):
     """
     version = setup.version
     main(setup(), setup.outdir, **kwargs)
-    converge_test(version+1)
+    converge_test(version+1, setup['nside'])
     setup.increment_version()
 
  
 #--------------------        
-def main( setup_string, outdir, mec=None, startat=0, n=0, local=False,
+def main( setup_string, outdir, mec=None, taskids=None, local=False,
         machines=[], engines=None,
         ignore_exception=False, 
         logpath='log',
         progress_bar=False):
-        
+    """
+    Parameters
+        setup_string : string
+            Python code, must define an object "g". It must implement:
+                a function g(n), n an integer
+                g.names() must return a list of task names
+        outdir : directory to save files
+        mec : None or a MultiEngineClient instance
+        taskids : None or a list of integers
+            the integers should be in range(0,len(g.names())
+    """
     if not os.path.exists(outdir): 
         os.mkdir(outdir)
     print 'writing results to %s' %outdir
@@ -189,21 +205,21 @@ def main( setup_string, outdir, mec=None, startat=0, n=0, local=False,
     print >> open(os.path.join(outdir, 'config.txt'), 'w'), str(g)
     print >> open(os.path.join(outdir, 'setup_string.txt'), 'w'), setup_string
     names = g.names(); 
-    print 'Start at source %d' % startat
+
+    if taskids is None: taskids = range(len(names))
     if len(names)==0:
         raise InvalidArgument('no tasks defined by Pipeline object')
     else:
-        print 'found %d entries to process' % len(names)
+        print 'found %d tasks, will process %d' % (len(names), len(taskids))
 
-    if n==0: endat = len(names)
-    else: endat = min(startat+n, len(names))
+    
     # list of function calls to exec for all the tasks     
-    tasks = ['g(%d)'% i for i in range(len(names))]
+    tasks = ['g(%d)'% i for i in taskids]
     del g #do not need this instance
     
     def callback(id, result):
         try:
-            name = names[id+startat]
+            name = names[taskids[id]]
             logdir = os.path.join(outdir, logpath)
             if not os.path.exists(logdir): os.mkdir(logdir)
             out = open(os.path.join(logdir, '%s.txt' % name.strip().replace(' ','_').replace('+','p')), 'a')
@@ -217,7 +233,7 @@ def main( setup_string, outdir, mec=None, startat=0, n=0, local=False,
     if not local and mec is None: 
         setup_mec(machines=machines, engines=engines)
     time.sleep(10)
-    lc= AssignTasks(setup_string, tasks[startat:endat], mec=mec, 
+    lc= AssignTasks(setup_string, tasks, mec=mec, 
         timelimit=2000, local=local, callback=callback, 
         ignore_exception=ignore_exception,
          progress_bar=progress_bar)

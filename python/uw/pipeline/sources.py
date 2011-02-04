@@ -1,11 +1,11 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.1 2011/01/30 00:08:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.2 2011/01/30 19:00:57 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
 import numpy as np
-from skymaps import SkyDir,  IsotropicSpectrum, DiffuseFunction
+from skymaps import SkyDir, Band, IsotropicSpectrum, DiffuseFunction
 from uw.like import  Models
 from uw.like import pointspec_helpers
 
@@ -21,7 +21,7 @@ class Source(object):
             return
         
         if 'model' not in kwargs:
-            self.model=Models.LogParabola(p=[1e-14, 2.2, 1e-3])
+            self.model=Models.LogParabola(p=[1e-14, 2.2, 1e-3, 1e3])
             self.model.free[2:]=False
         if self.model.name=='PowerLaw':
             par,sig = self.model.statistical()
@@ -32,6 +32,9 @@ class Source(object):
             self.model = Models.ExpCutoff(p=par[:-1])
         elif self.model.name=='LogParabola':
             self.model.free[-1]=False
+            if self.model.cov_matrix[3,3]<0:  
+                self.model.cov_matrix[3,3]= 100.
+                print 'fix covariance matrix for source %s' % self.name
         elif self.model.name=='PowerLawFlux':
             f, gamma = 10**self.model.p
             emin = self.model.emin
@@ -132,23 +135,34 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
                 return extsource    
         return None #raise Exception( ' extended source %s not found' % name)
   
-def validate( ps):
+def validate( ps, nside=12):
     """ validate a Source: if not OK, reset to standard parameters, disable all but small flux level
     """
     model = ps.model
+    hpindex = lambda x: Band(nside).index(x)
     if model.name=='LogParabola':
         norm, alpha, beta, eb = 10**model.p
-        check = norm>1e-16 and alpha>0.5 and alpha<5 and beta<3
-        if check: return
-        print 'SkyModel warning for %-20s: out of range, resetting \n%s' %(ps.name, model.p)
-        model.p[:] = [-15, 0.4, -3, 3]
-        ps.free[1:] = False
-        model.cov_matrix[:] = 0 
+        if beta<0.01: # linear
+            check = norm>1e-18 and norm< 1e-4 and alpha>0.25 and alpha<5 
+            if check: return
+            print 'SkyModel warning for %-20s(%d): out of range, norm,alpha=%.2e %.2f' %(ps.name, hpindex(ps.skydir),norm,alpha)
+            model.p[:] = [-15, 0.4, -3, 3]
+            ps.free[2:] = False
+            model.cov_matrix[:] = 0 
+        else: #log parabola
+            check = norm>1e-18 and alpha>1e-4 and alpha<10 and beta<10
+            if check: return
+            print 'SkyModel warning for %-20s(%d): out of range, norm,alpha=%.2e %.2f' %(ps.name, hpindex(ps.skydir),norm,alpha)
+            model.p[:] = [-15, 0.4, -3, 3]
+            ps.free[2:] = False
+            model.cov_matrix[:] = 0 
+        
     elif model.name=='ExpCutoff':
         norm, gamma, ec = 10**model.p
-        check = norm>1e-16 and gamma>0.5 and gamma<5 and ec>100
+        if np.any(np.diag(model.cov_matrix)<0): model.cov_matrix[:]=0 
+        check = norm>1e-18 and gamma>1e-5 and gamma<5 and ec>100
         if check: return
-        print 'SkyModel warning for %-20s: out of range, ressetting \n%s' %(ps.name, model.p)
+        print 'SkyModel warning for %-20s(%d): out of range, ressetting from %s' %(ps.name, hp12(ps.skydir),model.p)
         model.p[:] = [-11, 0, 3]
         model.cov_matrix[:] = 0 
     else:

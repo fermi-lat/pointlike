@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.4 2011/01/24 21:57:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.5 2011/01/30 00:10:28 burnett Exp $
 """
 import os, pickle
 import numpy as np
@@ -28,7 +28,7 @@ def fix_beta(roi, bts_min=50, qual_min=20,):
         beta = 10**model.p[2]
         band_ts, ts = roi.band_ts(which=which), roi.TS(which=which)
         print '%-20s %10.2f %10.1f %10.1f ' %(roi.psm.point_sources[which].name,beta, band_ts, band_ts-ts),
-        if beta>=1.0: print 'beta>1 too large'; continue
+        if beta>=3.0: print 'beta>1 too large'; continue
         if band_ts<bts_min: print 'band_ts< %.1f'%bts_min; continue # not significant
         if band_ts-ts < qual_min and beta<=0.01:print 'qual<%.1f' %qual_min; continue # already a good fit
         print '<-- select to free beta' # ok, modify
@@ -72,7 +72,7 @@ def source_band_info(roi, which):
         fit_ts =  roi.fit_ts_list(),
         )
 
-def pickle_dump(roi, pickle_dir, pass_number, **kwargs):
+def pickle_dump(roi, fit_sources, pickle_dir, pass_number, **kwargs):
     """ dump the source information from an ROI constructed from the sources here
     """
     
@@ -99,8 +99,7 @@ def pickle_dump(roi, pickle_dir, pass_number, **kwargs):
     
     sources=dict()
     output['sources']= sources
-    for i,s in enumerate(roi.psm.point_sources):
-        if not np.any(s.model.free): continue
+    for i,s in enumerate(fit_sources):
         try:
             pivot_energy = s.model.pivot_energy()
         except: # if not fit
@@ -112,7 +111,7 @@ def pickle_dump(roi, pickle_dir, pass_number, **kwargs):
         band_info = source_band_info(roi, i)
         sources[s.name]=dict(skydir=s.skydir, 
             model=s.model, 
-            ts = roi.TS(which=i),
+            ts = roi.TS(which=s.name),
             sedrec = sedrec,
             band_info = band_info, 
             band_ts=np.sum(band_info['ts']),
@@ -345,7 +344,7 @@ def process(roi, **kwargs):
             % (dampen, -roi.logLikelihood(dpar))
     pickle_dir = os.path.join(outdir, 'pickle')
     if not os.path.exists(pickle_dir): os.makedirs(pickle_dir)
-    pickle_dump(roi, pickle_dir, pass_number,
+    pickle_dump(roi, fit_sources, pickle_dir, pass_number,
         initial_logl=initial_logl, 
         counts=counts,
         )

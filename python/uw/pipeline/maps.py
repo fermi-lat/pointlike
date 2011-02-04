@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/maps.py,v 1.1 2011/01/19 01:37:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/maps.py,v 1.2 2011/01/30 00:10:28 burnett Exp $
 
 """
 import os, glob, pickle, types
@@ -284,7 +284,8 @@ class Display_map(object):
                 os.makedirs(self.map_path)
             print 'will save figures in folder %s' % self.map_path
         else: self.map_path = None
-        self.sources = skymodel.SkyModel(outdir).sources
+        skm = skymodel.SkyModel(outdir)
+        self.sources = skm.point_sources+skm.extended_sources
         print 'loaded %d sources from skymodel %s' % (len(self.sources),outdir)
          
     def get_pyskyfun(self):
