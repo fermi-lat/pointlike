@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.10 2011/02/02 03:02:36 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.11 2011/02/04 02:53:48 lande Exp $
 
 author: Joshua Lande
 """
@@ -474,7 +474,7 @@ class RadialModel(RadialImage):
 
             if type(extended_model) == ROIExtendedModel:
 
-                nsize = RadialModel.get_nside(self.size,self.npix)
+                nside = RadialModel.get_nside(self.size,self.npix)
 
                 temp_band = Band(nside)
                 wsdl = WeightedSkyDirList(temp_band,self.center,N.radians(self.size),True)
