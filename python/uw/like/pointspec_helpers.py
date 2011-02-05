@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.33 2011/02/04 02:53:48 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.34 2011/02/04 21:10:22 lande Exp $
 
     author: Matthew Kerr
     """
@@ -9,7 +9,7 @@ from skymaps import *
 from uw.like.Models import Model,Constant,PowerLaw,ExpCutoff,DefaultModelValues
 from roi_diffuse import DiffuseSource,ROIDiffuseModel_OTF
 from roi_extended import ExtendedSource,ROIExtendedModel
-from SpatialModels import Disk,Gaussian,EllipticalDisk,EllipticalGaussian,GAUSSIAN_X68
+from SpatialModels import Disk,Gaussian,EllipticalDisk,EllipticalGaussian,SpatialMap,GAUSSIAN_X68
 from os.path import join
 import os
 from abc import abstractmethod
@@ -232,7 +232,7 @@ class ExtendedSourceCatalog(PointSourceCatalog):
         self.archive_directory = archive_directory
 
         from pyfits import open
-        f = open(join(archive_directory,"LAT_extended_sources.fit"))
+        f = open(join(self.archive_directory,"LAT_extended_sources.fit"))
         self.names = f[1].data.field('Source_Name')
         ras   = f[1].data.field('RAJ2000')
         decs  = f[1].data.field('DEJ2000')
@@ -243,11 +243,18 @@ class ExtendedSourceCatalog(PointSourceCatalog):
 
         # The xml filename for the extended sources.
         self.xmls      = f[1].data.field('Spectral_Filename').astype(str)
-
-        # Ugly hack for bug in LAT_extended_sources_v01.tgz
-        self.xmls[self.xmls=='./XML/IC443.fit.result.xml']='./XML/IC443.xml'
+        self.templates = f[1].data.field('Spatial_Filename').astype(str)
 
         self.dirs    = map(SkyDir,N.asarray(ras).astype(float),N.asarray(decs).astype(float))
+
+        if self.archive_directory in [ "Extended_archive_v01", "Extended_archive_v02", 
+                                       "Extended_archive_jbb02", "Extended_archive_jbb03" ]:
+
+            # old style archives
+            os.environ["LATEXTDIR"]=join(self.archive_directory,'Templates')
+        else:
+            os.environ["LATEXTDIR"]=self.archive_directory
+
 
         # build up a list of the analytic extended source shapes (when applicable)
         self.spatial_models = []
@@ -265,7 +272,10 @@ class ExtendedSourceCatalog(PointSourceCatalog):
                         EllipticalGaussian(p=[major[i]/GAUSSIAN_X68,minor[i]/GAUSSIAN_X68,posang[i]],
                                            center=self.dirs[i]))
             else:
-                self.spatial_models.append(None)
+                self.spatial_models.append(
+                    SpatialMap(file=self.templates[i])
+                )
+
         self.spatial_models = N.asarray(self.spatial_models)
 
     def get_sources(self,skydir,radius=15):
@@ -287,14 +297,6 @@ class ExtendedSourceCatalog(PointSourceCatalog):
         names     = self.names[mask][sorting]
         xmls      = self.xmls[mask][sorting]
         spatials  = self.spatial_models[mask][sorting]
-
-        if self.archive_directory in [ "Extended_archive_v01", "Extended_archive_v02", 
-                                       "Extended_archive_jbb02", "Extended_archive_jbb03" ]:
-
-            # old style archives
-            os.environ["LATEXTDIR"]=join(self.archive_directory,'Templates')
-        else:
-            os.environ["LATEXTDIR"]=self.archive_directory
 
         sources = []
         for name,xml,spatial in zip(names,xmls,spatials):
