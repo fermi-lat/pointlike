@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Feb  6 13:16:53 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_image.py 
+Log Message:
+Cleaning up parameter list
+    *
+------------------------------------------------------------
 User: lande  Sat Feb  5 16:40:13 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
