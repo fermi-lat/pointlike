@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.11 2011/02/04 02:53:48 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.12 2011/02/05 00:32:44 lande Exp $
 
 author: Joshua Lande
 """
@@ -97,7 +97,7 @@ class CountsImage(ROIImage):
     )
 
     @staticmethod
-    def process_filedata(roi,mc_src_id,conv_type=None,extra_cuts=None):
+    def process_filedata(roi,conv_type=None,mc_src_id=None,extra_cuts=None):
 
         emin = roi.bin_edges[0]
         emax = roi.bin_edges[-1]
@@ -124,7 +124,7 @@ class CountsImage(ROIImage):
         return skydirs
 
     def fill(self):
-        dirs = CountsImage.process_filedata(self.roi,self.mc_src_id,conv_type=self.conv_type)
+        dirs = CountsImage.process_filedata(self.roi,mc_src_id=self.mc_src_id,conv_type=self.conv_type)
 
         for photon_dir in dirs:
             self.skyimage.addPoint(photon_dir)
@@ -414,7 +414,7 @@ class RadialCounts(RadialImage):
     )
 
     def fill(self):
-        dirs = CountsImage.process_filedata(self.roi,self.mc_src_id,conv_type=self.conv_type)
+        dirs = CountsImage.process_filedata(self.roi,mc_src_id=self.mc_src_id,conv_type=self.conv_type)
         diffs = [self.center.difference(i) for i in dirs]
         self.image=N.histogram(diffs,bins=N.sqrt(self.bin_edges_rad))[0]
 
