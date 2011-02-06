@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.32 2011/01/27 18:36:47 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.33 2011/01/31 01:17:54 lande Exp $
 
    author: Matthew Kerr
 """
@@ -520,7 +520,7 @@ def makeDSMapcubeSpatialModel(filename='ERROR',tablevel=1):
     ]
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
 
-def makeExtendedSourceSpatialModel(es,tablevel=1):
+def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
     """Encode a spatial model."""
     if es.name != 'SpatialMap':
         strings = [
@@ -544,8 +544,9 @@ def makeExtendedSourceSpatialModel(es,tablevel=1):
             strings.append('\t<parameter name="%s" value="%g" %sfree="%d" max="%g" min="%g" scale="1.0" />' % \
                            (name,param,err,free,max,min))
     else:
+        file=os.path.expandvars(es.file) if expand_env_vars else es.file
         strings = [
-            '<spatialModel type="%s" file="%s" >' % (es.pretty_name,es.file),
+            '<spatialModel type="%s" file="%s" >' % (es.pretty_name,file),
             '\t<parameter name="Prefactor" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />'
         ]
 
@@ -646,7 +647,7 @@ def unparse_point_sources(point_sources, strict=False):
         xml_blurbs.push(''.join([s1,specxml,skyxml,s2]))
     return xml_blurbs
 
-def process_diffuse_source(ds,convert_extended,filename):
+def process_diffuse_source(ds,convert_extended,expand_env_vars,filename):
     """Convert an instance of DiffuseSource into an XML blurb."""
     m2x = Model_to_XML()
     dm = ds.dmodel
@@ -665,7 +666,7 @@ def process_diffuse_source(ds,convert_extended,filename):
                                                        spectral.pretty_name)
             spatial = convert_spatial_map(spatial,template_name)
             spatial.file = os.path.basename(template_name) # better format for xml file
-        skyxml = makeExtendedSourceSpatialModel(spatial)
+        skyxml = makeExtendedSourceSpatialModel(spatial,expand_env_vars)
         if isinstance(spatial,SpatialMap) and not N.all(spatial.p==spatial.init_p):
             print 'Warning: When saving out SpatialMap object which has been localized, the original unmoved template is saved in the xml model.'
 
@@ -696,11 +697,11 @@ def process_diffuse_source(ds,convert_extended,filename):
     s2 = '</source>'
     return ''.join([s1,specxml,skyxml,s2])
     
-def unparse_diffuse_sources(diffuse_sources,convert_extended,filename):
+def unparse_diffuse_sources(diffuse_sources,convert_extended,expand_env_vars,filename):
     """Convert a list of DiffuseSources into XML blurbs."""
     xml_blurbs = Stack()
     for ds in diffuse_sources:
-        xml_blurbs.push(process_diffuse_source(ds,convert_extended,filename))
+        xml_blurbs.push(process_diffuse_source(ds,convert_extended,expand_env_vars,filename))
     return xml_blurbs
 
 def writeXML(stacks,filename, title='source_library'):
@@ -712,7 +713,7 @@ def writeXML(stacks,filename, title='source_library'):
             f.write(elem)
     f.write('\n</source_library>')
 
-def writeROI(roi,filename,strict=False,convert_extended=False):
+def writeROI(roi,filename,strict=False,convert_extended=False,expand_env_vars=False):
     """ Out the contents of an ROIAnalysis source model
         to a gtlike XML file.
 
@@ -728,11 +729,16 @@ def writeROI(roi,filename,strict=False,convert_extended=False):
         pointlike. OTOH, it is sometimes desirable for extended source
         output to be stirctly compatable with gtlike. This can be done
         with the convert_extended flag, which converts all extended
-        sources cto SpatialMap objects before the xml is created. """
+        sources cto SpatialMap objects before the xml is created. 
+        
+        Currently, expand_env_vars only applies for extended
+        sources. There really isn't a good way in pointlike to have
+        diffuse sources mantain a memory of environment varaibles in their
+        pathname, but this would be a nice addition in the future. """
     source_xml = [unparse_point_sources(roi.psm.point_sources, strict=strict)]
     try:
-        source_xml.append(unparse_diffuse_sources(roi.dsm.diffuse_sources,convert_extended,
-            filename))
+        source_xml.append(unparse_diffuse_sources(roi.dsm.diffuse_sources,
+                                                  convert_extended,expand_env_vars,filename))
     except AttributeError: 
         print 'warning: no diffuse sources found to write to xml'
     writeXML(source_xml,filename)
