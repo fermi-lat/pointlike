@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.65 2011/02/02 22:21:10 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.66 2011/02/04 21:08:21 lande Exp $
 
 author: Matthew Kerr
 """
@@ -574,8 +574,14 @@ class ROIAnalysis(object):
                 print("Invalid keyword argument for ROIAnalysis.upper_limit: %s"%k)
         params = self.parameters().copy()
         ll_0 = self.logLikelihood(self.parameters())
+
+        source = self.get_source(kw['which'])
+        if not source.__dict__.has_key('model'):
+            raise Exception("upper_limit can only calculate upper limits of point and extended sources.")
+        model=source.model
+
         def like(norm):
-            self.psm.models[kw['which']].p[0] = norm
+            model.p[0] = norm
             return N.exp(ll_0-self.logLikelihood(self.parameters()))
         npoints = kw['simps_points'] * (kw['integral_max'] - kw['integral_min'])
         points = N.log10(N.logspace(kw['integral_min'],
@@ -591,7 +597,7 @@ class ROIAnalysis(object):
         y1, y2 = cumsimps[i1], cumsimps[i2]
         #Linear interpolation should be good enough at this point
         limit = x1 + ((x2-x1)/(y2-y1))*(kw['confidence']-y1)
-        self.psm.models[0].p[0] = limit
+        model.p[0] = limit
         uflux = self.psm.models[0].i_flux(e_weight=kw['e_weight'],cgs=kw['cgs'])
         self.logLikelihood(params)
         return uflux
