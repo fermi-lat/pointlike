@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Feb  7 21:36:56 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Remove hide_source flag, which I decided is not useful.
+    *
+------------------------------------------------------------
 User: lande  Mon Feb  7 21:12:21 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
