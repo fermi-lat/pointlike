@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.21 2011/01/26 01:52:28 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.22 2011/02/02 03:02:37 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -469,7 +469,7 @@ class ROIDisplay(object):
         
         # Use same scale for the counts and model map
         counts_max = N.ceil(max(N.max(self.cm.image),N.max(self.mm.image)))
-        counts_min = 1.0
+        counts_min = max(N.floor(min(N.min(self.cm.image),N.min(self.mm.image))),1.0)
 
         self.norm1 = mpl.colors.Normalize(vmin=0,vmax=1)
         self.norm2 = mpl.colors.LogNorm(vmin=counts_min,vmax=counts_max,clip=True)
@@ -643,8 +643,13 @@ class ROISlice(object):
             ('int_width',          2, 'Integration width for slice.'),
             ('which',           None, 'Name of source to make a slice for.'),
             ('conv_type',         -1, 'Conversion type'),
-            ('nosource',        True, """ Display also the model predictions without the mentioned 
-                                          source. Only works when which is specified."""),
+            ('hide_source',     True, """ Display also the model predictions without the mentioned 
+                                          source. Only works when which is specified. The
+                                          background is not refit since you get a significantly 
+                                          biased background fit ignoring the source. """),
+            ('just_diffuse',    True, """ Display the model predictions with all point + extended
+                                          sources removed. The background is 
+                                          not refit. """),
             ('aspoint',         True, """ Display also the model predictions for an extended source 
                                           fit with the point hypothesis. Only works when which is an
                                           extended source. """),
@@ -655,6 +660,11 @@ class ROISlice(object):
             ('smooth_model',    True, """Connect the model preditions with a line (instead of steps) 
                                          to make the model look smoother.""")
     )
+
+    @staticmethod
+    def set_color_cycle():
+        P.gca().set_color_cycle(['k', 'b', 'g', 'r', 'm', 'y', 'k'])
+
 
     @keyword_options.decorate(defaults)
     def __init__(self, roi, **kwargs):
@@ -715,13 +725,12 @@ class ROISlice(object):
         self.mi_x[self.pretty_name]=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
         self.mi_y[self.pretty_name]=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
 
-        if self.nosource and self.which is not None:
+        if self.hide_source and self.which is not None:
             # Hide the source, again calculate model predictions, and then restore.
 
             ROISlice.cache_roi(self.roi)
 
             self.roi.zero_source(self.which)
-            self.roi.fit(estimate_errors=False)
 
             self.mi_x['Background']=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
             self.mi_y['Background']=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
@@ -730,7 +739,27 @@ class ROISlice(object):
 
             ROISlice.uncache_roi(self.roi)
 
+        if self.just_diffuse:
+            # hide all point + extended sources.
+
+            sources = list(self.roi.psm.point_sources) + \
+                    [ i for i in self.roi.dsm.diffuse_sources if isinstance(i,ExtendedSource) ]
+            # don't zero already zeroed sources
+            sources = [ i for i in sources if i.model.p[0] != -100 ]
+
+            ROISlice.cache_roi(self.roi)
+
+            for source in sources: self.roi.zero_source(source)
+
+            self.mi_x['Diffuse']=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
+            self.mi_y['DIffuse']=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
+
+            for source in sources: self.roi.unzero_source(source)
+
+            ROISlice.uncache_roi(self.roi)
+
         if self.aspoint and isinstance(self.source,ExtendedSource):
+            # replace with a point source
 
             ROISlice.cache_roi(self.roi)
 
@@ -763,16 +792,18 @@ class ROISlice(object):
 
         P.subplot(211)
 
+        ROISlice.set_color_cycle()
+
+        cm_x=self.ci_x.image.sum(axis=0)
+        x=ROISlice.range(cm_x,self.pixelsize,x_axis=True)
+        P.errorbar(x,cm_x,yerr=N.sqrt(cm_x),label='counts', fmt='.')
+
         for name,model in self.mi_x.items():
             m=model.image.sum(axis=0)*self.oversample_factor
 
             x=ROISlice.range(m,model.pixelsize,x_axis=True)
             P.plot(x,m,drawstyle='steps' if not self.smooth_model else 'default',
                    label=name)
-
-        cm_x=self.ci_x.image.sum(axis=0)
-        x=ROISlice.range(cm_x,self.pixelsize,x_axis=True)
-        P.errorbar(x,cm_x,yerr=N.sqrt(cm_x),label='counts', fmt='.')
 
         P.gca().set_xlim(x[0],x[-1])
 
@@ -785,15 +816,17 @@ class ROISlice(object):
 
         P.subplot(212)
 
+        ROISlice.set_color_cycle()
+
+        cm_y=self.ci_y.image.sum(axis=1)
+        y=ROISlice.range(cm_y,self.pixelsize,x_axis=False)
+        P.errorbar(y,cm_y,yerr=N.sqrt(cm_y),label='observed', fmt='.')
+
         for name,model in self.mi_y.items():
             m=model.image.sum(axis=1)*self.oversample_factor
             y=ROISlice.range(m,model.pixelsize,x_axis=False)
             P.plot(y,m,drawstyle='steps' if not self.smooth_model else 'default',
                    label=name)
-
-        cm_y=self.ci_y.image.sum(axis=1)
-        y=ROISlice.range(cm_y,self.pixelsize,x_axis=False)
-        P.errorbar(y,cm_y,yerr=N.sqrt(cm_y),label='observed', fmt='.')
 
         P.xlabel(ROIDisplay.mathrm('delta b' if self.galactic else 'delta dec'))
         P.ylabel(ROIDisplay.mathrm('Counts'))
@@ -826,8 +859,13 @@ class ROIRadialIntegral(object):
             ('fignum',             5, 'matplotlib figure number'),
             ('which',           None, 'Name of source to make a slice for.'),
             ('conv_type',         -1, 'Conversion type'),
-            ('nosource',        True, """ Display also the model predictions without the mentioned 
-                                          source. Only works when which is specified."""),
+            ('hide_source',     True, """ Display also the model predictions without the mentioned 
+                                          source. Only works when which is specified. The
+                                          background is not refit since you get a significantly 
+                                          biased background fit ignoring the source. """),
+            ('just_diffuse',    True, """ Display the model predictions with all point + extended
+                                          sources removed. The background is 
+                                          not refit. """),
             ('aspoint',         True, """ Display also the model predictions for an extended source 
                                           fit with the point hypothesis. Only works when which is an
                                           extended source. """),
@@ -874,17 +912,33 @@ class ROIRadialIntegral(object):
 
         self.mi[self.pretty_name]=RadialModel(self.roi,**kwargs)
 
-        if self.nosource and self.which is not None:
+        if self.hide_source and self.which is not None:
             # Hide the source, again calculate model predictions, and then restore.
 
             ROISlice.cache_roi(self.roi)
 
             self.roi.zero_source(self.which)
-            self.roi.fit(estimate_errors=False)
 
             self.mi['Background']=RadialModel(self.roi,**kwargs)
 
             self.roi.unzero_source(self.which)
+
+            ROISlice.uncache_roi(self.roi)
+
+        if self.just_diffuse:
+
+            sources = list(self.roi.psm.point_sources) + \
+                    [ i for i in self.roi.dsm.diffuse_sources if isinstance(i,ExtendedSource) ]
+            # don't zero already zeroed sources
+            sources = [ i for i in sources if i.model.p[0] != -100 ] 
+
+            ROISlice.cache_roi(self.roi)
+
+            for source in sources: self.roi.zero_source(source)
+
+            self.mi['Diffuse']=RadialModel(self.roi,**kwargs)
+
+            for source in sources: self.roi.unzero_source(source)
 
             ROISlice.uncache_roi(self.roi)
 
@@ -911,16 +965,18 @@ class ROIRadialIntegral(object):
 
     def show(self,to_screen=True,out_file=None):
 
+        ROISlice.set_color_cycle()
+
+        theta_sqr=self.ci.bin_centers_deg
+        c=self.ci.image
+        P.errorbar(theta_sqr,c,yerr=N.sqrt(c),label='counts', fmt='.')
+
         for name,model in self.mi.items():
 
             theta_sqr=model.bin_centers_deg
             m=model.image
             P.plot(theta_sqr,m,drawstyle='steps' if not self.smooth_model else 'default',
                    label=name)
-
-        theta_sqr=self.ci.bin_centers_deg
-        c=self.ci.image
-        P.errorbar(theta_sqr,c,yerr=N.sqrt(c),label='counts', fmt='.')
 
         P.legend(numpoints=1)
 
