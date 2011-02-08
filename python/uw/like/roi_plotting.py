@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.22 2011/02/02 03:02:37 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.23 2011/02/08 05:12:21 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -643,13 +643,8 @@ class ROISlice(object):
             ('int_width',          2, 'Integration width for slice.'),
             ('which',           None, 'Name of source to make a slice for.'),
             ('conv_type',         -1, 'Conversion type'),
-            ('hide_source',     True, """ Display also the model predictions without the mentioned 
-                                          source. Only works when which is specified. The
-                                          background is not refit since you get a significantly 
-                                          biased background fit ignoring the source. """),
             ('just_diffuse',    True, """ Display the model predictions with all point + extended
-                                          sources removed. The background is 
-                                          not refit. """),
+                                          sources removed. The background is not refit. """),
             ('aspoint',         True, """ Display also the model predictions for an extended source 
                                           fit with the point hypothesis. Only works when which is an
                                           extended source. """),
@@ -724,20 +719,6 @@ class ROISlice(object):
 
         self.mi_x[self.pretty_name]=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
         self.mi_y[self.pretty_name]=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
-
-        if self.hide_source and self.which is not None:
-            # Hide the source, again calculate model predictions, and then restore.
-
-            ROISlice.cache_roi(self.roi)
-
-            self.roi.zero_source(self.which)
-
-            self.mi_x['Background']=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
-            self.mi_y['Background']=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
-
-            self.roi.unzero_source(self.which)
-
-            ROISlice.uncache_roi(self.roi)
 
         if self.just_diffuse:
             # hide all point + extended sources.
@@ -859,13 +840,8 @@ class ROIRadialIntegral(object):
             ('fignum',             5, 'matplotlib figure number'),
             ('which',           None, 'Name of source to make a slice for.'),
             ('conv_type',         -1, 'Conversion type'),
-            ('hide_source',     True, """ Display also the model predictions without the mentioned 
-                                          source. Only works when which is specified. The
-                                          background is not refit since you get a significantly 
-                                          biased background fit ignoring the source. """),
             ('just_diffuse',    True, """ Display the model predictions with all point + extended
-                                          sources removed. The background is 
-                                          not refit. """),
+                                          sources removed. The background is not refit. """),
             ('aspoint',         True, """ Display also the model predictions for an extended source 
                                           fit with the point hypothesis. Only works when which is an
                                           extended source. """),
@@ -911,19 +887,6 @@ class ROIRadialIntegral(object):
         self.mi = dict()
 
         self.mi[self.pretty_name]=RadialModel(self.roi,**kwargs)
-
-        if self.hide_source and self.which is not None:
-            # Hide the source, again calculate model predictions, and then restore.
-
-            ROISlice.cache_roi(self.roi)
-
-            self.roi.zero_source(self.which)
-
-            self.mi['Background']=RadialModel(self.roi,**kwargs)
-
-            self.roi.unzero_source(self.which)
-
-            ROISlice.uncache_roi(self.roi)
 
         if self.just_diffuse:
 
