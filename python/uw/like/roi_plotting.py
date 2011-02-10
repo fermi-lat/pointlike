@@ -18,11 +18,12 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.23 2011/02/08 05:12:21 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.24 2011/02/08 05:36:56 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
 import exceptions
+import pprint
 import numpy as N
 from roi_bands import ROIEnergyBand
 from roi_image import ModelImage,CountsImage,RadialCounts,RadialModel
@@ -641,7 +642,6 @@ class ROISlice(object):
             ('size',              10, 'Size of the field of view'),
             ('galactic',        True, 'Coordinate system for plot'),
             ('int_width',          2, 'Integration width for slice.'),
-            ('which',           None, 'Name of source to make a slice for.'),
             ('conv_type',         -1, 'Conversion type'),
             ('just_diffuse',    True, """ Display the model predictions with all point + extended
                                           sources removed. The background is not refit. """),
@@ -662,28 +662,24 @@ class ROISlice(object):
 
 
     @keyword_options.decorate(defaults)
-    def __init__(self, roi, **kwargs):
+    def __init__(self, roi, which, **kwargs):
         keyword_options.process(self, kwargs)
 
         if not type(self.oversample_factor) == int:
             raise Exception("oversample_factor must be an integer.")
-        
-        self.roi = roi
 
-        if self.which is None:
-            self.source=None
-            self.pretty_name = 'Model'
-            self.center=self.roi.roi_dir
+        self.roi   = roi
+        self.which = which
+
+        manager,index=self.roi.mapper(self.which)
+        if manager == roi.psm:
+            self.source=manager.point_sources[index]
+            self.pretty_name = 'Point'
         else:
-            manager,index=self.roi.mapper(self.which)
-            if manager == roi.psm:
-                self.source=manager.point_sources[index]
-                self.pretty_name = 'Point'
-            else:
-                self.source=manager.diffuse_sources[index]
-                self.pretty_name = self.source.spatial_model.pretty_name
+            self.source=manager.diffuse_sources[index]
+            self.pretty_name = self.source.spatial_model.pretty_name
 
-            self.center=self.source.skydir
+        self.center=self.source.skydir
 
         ROIDisplay.matplotlib_format()
 
@@ -696,8 +692,21 @@ class ROISlice(object):
     def get_counts(self):
         self.ci_x = CountsImage(self.roi,center=self.center,size=(self.size,self.int_width),
                                 pixelsize=self.pixelsize,galactic=self.galactic,conv_type=self.conv_type)
+
+        self.counts_x=self.ci_x.image.sum(axis=0)
+        self.counts_dx=ROISlice.range(self.counts_x,self.pixelsize,x_axis=True)
+
+        if N.any(N.isnan(self.counts_x)):
+            raise Exception("Error in calculating a slice, the x counts slice contains NaNs.")
+
         self.ci_y = CountsImage(self.roi,center=self.center,size=(self.int_width,self.size),
                                 pixelsize=self.pixelsize,galactic=self.galactic,conv_type=self.conv_type)
+
+        self.counts_y=self.ci_y.image.sum(axis=1)
+        self.counts_dy=ROISlice.range(self.counts_y,self.pixelsize,x_axis=False)
+
+        if N.any(N.isnan(self.counts_y)):
+            raise Exception("Error in calculating a slice, the y counts slice contains NaNs.")
 
     @staticmethod
     def cache_roi(roi):
@@ -711,7 +720,9 @@ class ROISlice(object):
 
 
     def get_model(self):
-        kwargs=dict(center=self.center,pixelsize=float(self.pixelsize)/self.oversample_factor,
+        model_pixelsize=float(self.pixelsize)/self.oversample_factor
+
+        kwargs=dict(center=self.center,pixelsize=model_pixelsize,
                     galactic=self.galactic,conv_type=self.conv_type)
 
         self.mi_x = dict()
@@ -733,7 +744,7 @@ class ROISlice(object):
             for source in sources: self.roi.zero_source(source)
 
             self.mi_x['Diffuse']=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
-            self.mi_y['DIffuse']=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
+            self.mi_y['Diffuse']=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
 
             for source in sources: self.roi.unzero_source(source)
 
@@ -762,6 +773,12 @@ class ROISlice(object):
 
             ROISlice.uncache_roi(self.roi)
 
+        self.models_x=dict([[name,model.image.sum(axis=0)*self.oversample_factor] for name,model in self.mi_x.items()])
+        self.models_y=dict([[name,model.image.sum(axis=1)*self.oversample_factor] for name,model in self.mi_y.items()])
+
+        self.model_dx = ROISlice.range(self.models_x[self.pretty_name],model_pixelsize,x_axis=True)
+        self.model_dy = ROISlice.range(self.models_y[self.pretty_name],model_pixelsize,x_axis=False)
+
     @staticmethod
     def range(data,pixelsize,x_axis=False):
         if x_axis:
@@ -775,20 +792,15 @@ class ROISlice(object):
 
         ROISlice.set_color_cycle()
 
-        cm_x=self.ci_x.image.sum(axis=0)
-        x=ROISlice.range(cm_x,self.pixelsize,x_axis=True)
-        P.errorbar(x,cm_x,yerr=N.sqrt(cm_x),label='counts', fmt='.')
+        P.errorbar(self.counts_dx,self.counts_x,yerr=N.sqrt(self.counts_x),label='Counts', fmt='.')
 
-        for name,model in self.mi_x.items():
-            m=model.image.sum(axis=0)*self.oversample_factor
-
-            x=ROISlice.range(m,model.pixelsize,x_axis=True)
-            P.plot(x,m,drawstyle='steps' if not self.smooth_model else 'default',
+        for name,model in self.models_x.items():
+            P.plot(self.model_dx,model,drawstyle='steps' if not self.smooth_model else 'default',
                    label=name)
 
-        P.gca().set_xlim(x[0],x[-1])
+        P.gca().set_xlim(self.counts_dx[0],self.counts_dx[-1])
 
-        P.legend(numpoints=1)
+        P.legend(loc='best',numpoints=1)
 
         P.xlabel(ROIDisplay.mathrm('delta l' if self.galactic else 'delta ra'))
         P.ylabel(ROIDisplay.mathrm('Counts'))
@@ -799,31 +811,59 @@ class ROISlice(object):
 
         ROISlice.set_color_cycle()
 
-        cm_y=self.ci_y.image.sum(axis=1)
-        y=ROISlice.range(cm_y,self.pixelsize,x_axis=False)
-        P.errorbar(y,cm_y,yerr=N.sqrt(cm_y),label='observed', fmt='.')
+        P.errorbar(self.counts_dy,self.counts_y,yerr=N.sqrt(self.counts_y),label='Counts', fmt='.')
 
-        for name,model in self.mi_y.items():
-            m=model.image.sum(axis=1)*self.oversample_factor
-            y=ROISlice.range(m,model.pixelsize,x_axis=False)
-            P.plot(y,m,drawstyle='steps' if not self.smooth_model else 'default',
+        for name,model in self.models_y.items():
+            P.plot(self.model_dy,model,drawstyle='steps' if not self.smooth_model else 'default',
                    label=name)
 
         P.xlabel(ROIDisplay.mathrm('delta b' if self.galactic else 'delta dec'))
         P.ylabel(ROIDisplay.mathrm('Counts'))
 
-        P.gca().set_xlim(y[0],y[-1])
+        P.gca().set_xlim(self.counts_dy[0],self.counts_dy[-1])
 
         # only need to show legend once
-        
-    def show(self,to_screen=True,out_file=None):
+
+    def save_data(self,data_file):
+        """ Note, shrink model predicted counts to be same size as regular counts,
+            for an easier file format. """
+        import yaml
+
+        x,y,dx,dy=['l','b','dl','db'] if self.galactic else ['ra','dec','dra','ddec']
+            
+        results_dict = {
+            x : {
+                dx: self.counts_dx.tolist(),
+                'Counts': self.counts_x.tolist()
+            },
+            y : {
+                dy: self.counts_dy.tolist(),
+                'Counts': self.counts_y.tolist()
+            }
+        }
+
+        of=self.oversample_factor
+        for name,model in self.models_x.items():
+            results_dict[x][name]=ModelImage.downsample(model,of).tolist()
+
+        for name,model in self.models_y.items():
+            results_dict[y][name]=ModelImage.downsample(model,of).tolist()
+
+        file = open(data_file,'w')
+        file.write(yaml.dump(results_dict))
+        file.close()
+
+    def show(self,to_screen=True,out_file=None, data_file=None):
 
         self.plot_dx()
         self.plot_dy()
 
         title = 'Counts Slice'
         if self.source is not None: title += ' for %s' % self.source.name
+
         P.suptitle(title)
+
+        if data_file is not None: self.save_data(data_file)
 
         if out_file is not None: P.savefig(out_file)
         if to_screen: P.show()
@@ -834,11 +874,12 @@ class ROIRadialIntegral(object):
     defaults = (
             ('figsize',        (7,6), 'Size of the image'),
             ('size',               2, 'Size of image in degrees'), 
-            ('pixelsize',     0.0625, """ size of each image pixel. This is a little misleading because the
-                                          size of each pixel varies, but regardless this is used to determine
-                                          the total number of pixels with npix=size/pixelsize """),
+            ('pixelsize',     0.0625, """ size of each image pixel. This is a misleading because the
+                                          size of each pixel varies, since the image is uniform in theta^2. 
+                                          This value is used to determine the total number of pixels using
+                                          the formula npix=size/pixelsize and represents something
+                                          like an average pixelsize."""),
             ('fignum',             5, 'matplotlib figure number'),
-            ('which',           None, 'Name of source to make a slice for.'),
             ('conv_type',         -1, 'Conversion type'),
             ('just_diffuse',    True, """ Display the model predictions with all point + extended
                                           sources removed. The background is not refit. """),
@@ -850,25 +891,21 @@ class ROIRadialIntegral(object):
     )
 
     @keyword_options.decorate(defaults)
-    def __init__(self, roi, **kwargs):
+    def __init__(self, roi, which, **kwargs):
         keyword_options.process(self, kwargs)
 
-        self.roi = roi
+        self.roi   = roi
+        self.which = which
 
-        if self.which is None:
-            self.source=None
-            self.pretty_name = 'Model'
-            self.center=self.roi.roi_dir
+        manager,index=self.roi.mapper(self.which)
+        if manager == roi.psm:
+            self.source=manager.point_sources[index]
+            self.pretty_name = 'Point'
         else:
-            manager,index=self.roi.mapper(self.which)
-            if manager == roi.psm:
-                self.source=manager.point_sources[index]
-                self.pretty_name = 'Point'
-            else:
-                self.source=manager.diffuse_sources[index]
-                self.pretty_name = self.source.spatial_model.pretty_name
+            self.source=manager.diffuse_sources[index]
+            self.pretty_name = self.source.spatial_model.pretty_name
 
-            self.center=self.source.skydir
+        self.center=self.source.skydir
 
         ROIDisplay.matplotlib_format()
 
@@ -880,6 +917,11 @@ class ROIRadialIntegral(object):
 
     def get_counts(self):
         self.ci = RadialCounts(self.roi,center=self.center,size=self.size,pixelsize=self.pixelsize,conv_type=self.conv_type)
+        self.counts = self.ci.image
+
+        if N.any(N.isnan(self.counts)):
+            raise Exception("Error in calculating a radial integral plot, the counts contains NaNs.")
+
 
     def get_model(self):
         kwargs=dict(center=self.center,size=self.size,pixelsize=self.pixelsize,conv_type=self.conv_type)
@@ -926,22 +968,38 @@ class ROIRadialIntegral(object):
 
             ROISlice.uncache_roi(self.roi)
 
-    def show(self,to_screen=True,out_file=None):
+        self.theta_sqr=self.ci.bin_centers_deg
+        self.models=dict([[name,model.image] for name,model in self.mi.items()])
+
+        for name,model in self.models.items():
+            if N.any(N.isnan(model)):
+                raise Exception("Error in calculating a radial integral, model %s contains NaNs." % name)
+
+    def save_data(self,data_file):
+        import yaml
+
+        results_dict = dict(
+            Radius=self.theta_sqr.tolist(),
+            Counts=self.counts.tolist()
+        )
+        for name,model in self.models.items():
+            results_dict[name]=model.tolist()
+
+        file = open(data_file,'w')
+        file.write(yaml.dump(results_dict))
+        file.close()
+
+    def show(self,to_screen=True,out_file=None,data_file=None):
 
         ROISlice.set_color_cycle()
 
-        theta_sqr=self.ci.bin_centers_deg
-        c=self.ci.image
-        P.errorbar(theta_sqr,c,yerr=N.sqrt(c),label='counts', fmt='.')
+        P.errorbar(self.theta_sqr,self.counts,yerr=N.sqrt(self.counts),label='Counts', fmt='.')
 
-        for name,model in self.mi.items():
-
-            theta_sqr=model.bin_centers_deg
-            m=model.image
-            P.plot(theta_sqr,m,drawstyle='steps' if not self.smooth_model else 'default',
+        for name,model in self.models.items():
+            P.plot(self.theta_sqr,model,drawstyle='steps' if not self.smooth_model else 'default',
                    label=name)
 
-        P.legend(numpoints=1)
+        P.legend(loc='best',numpoints=1)
 
         P.xlabel(ROIDisplay.mathrm(r'delta \theta^2 [deg^2]'))
         P.ylabel(ROIDisplay.mathrm('Counts'))
@@ -949,6 +1007,8 @@ class ROIRadialIntegral(object):
         title = 'Radial Integral Counts'
         if self.source is not None: title += ' for %s' % self.source.name
         P.title(title)
+
+        if data_file is not None: self.save_data(data_file)
 
         if out_file is not None: P.savefig(out_file)
         if to_screen: P.show()
