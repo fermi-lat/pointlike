@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.12 2011/02/05 00:32:44 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.13 2011/02/06 21:16:53 lande Exp $
 
 author: Joshua Lande
 """
@@ -21,6 +21,23 @@ from uw.utilities.image import ZEA
 from pypsf import PsfOverlap
 import collections
 from abc import abstractmethod
+import numbers
+
+def memoize(function):
+    """ This decorator allows painless caching of a function.
+        
+        From http://programmingzen.com/2009/05/18/memoization-in-ruby-and-python/,
+
+        It should probably be placed somewhere more generally accessible. """
+    cache = {}
+    def decorated_function(*args):
+        try:
+            return cache[args]
+        except KeyError:
+            val = function(*args)
+            cache[args] = val
+            return val
+    return decorated_function
 
 
 class ROIImage(object):
@@ -97,6 +114,7 @@ class CountsImage(ROIImage):
     )
 
     @staticmethod
+    @memoize
     def process_filedata(roi,conv_type=None,mc_src_id=None,extra_cuts=None):
 
         emin = roi.bin_edges[0]
@@ -121,10 +139,14 @@ class CountsImage(ROIImage):
         # apply the same gti cut used to read in the initial WSDL.
         gti=roi.sa.pixeldata.gti
         skydirs = [ skydir for skydir,time in zip(skydirs,data['time']) if gti.accept(time)]
+
+        # apply ROI radial cut
+        skydirs = [ skydir for skydir in skydirs if N.degrees(skydir.difference(roi.roi_dir)) < roi.sa.maxROI ]
+
         return skydirs
 
     def fill(self):
-        dirs = CountsImage.process_filedata(self.roi,mc_src_id=self.mc_src_id,conv_type=self.conv_type)
+        dirs = CountsImage.process_filedata(self.roi,self.conv_type,self.mc_src_id)
 
         for photon_dir in dirs:
             self.skyimage.addPoint(photon_dir)
@@ -217,17 +239,28 @@ class ModelImage(ROIImage):
         """
         Code taken from http://code.google.com/p/agpy/source/browse/trunk/agpy/downsample.py
 
-        Downsample a 2D array by averaging over *factor* pixels in each axis.
+        Downsample a 1D or 2D array by averaging over *factor* pixels in each axis.
         Crops upper edge if the shape is not a multiple of factor.
 
         This code is pure numpy and should be fast.
         """
-        xs,ys = myarr.shape
-        crarr = myarr[:xs-(xs % int(factor)),:ys-(ys % int(factor))]
-        dsarr = N.concatenate([[crarr[i::factor,j::factor] 
-            for i in range(factor)] 
-            for j in range(factor)]).mean(axis=0)
-        return dsarr
+        assert isinstance(factor,numbers.Integral)
+        assert len(myarr.shape) <= 2
+
+        if len(myarr.shape) == 1:
+            xs = myarr.shape[0]
+            assert xs % factor == 0
+            dsarr = N.concatenate([[myarr[i::factor]]
+                                   for i in range(factor)]).mean(axis=0)
+            return dsarr
+
+        elif len(myarr.shape) == 2:
+            xs,ys = myarr.shape
+            assert xs % factor == 0 and ys % factor == 0
+            dsarr = N.concatenate([[myarr[i::factor,j::factor] 
+                for i in range(factor)] 
+                for j in range(factor)]).mean(axis=0)
+            return dsarr
 
     def bigger_wsdl(self,band,compare=None):
         """ Want to sample on a grid that is comparable in size (or
@@ -414,7 +447,7 @@ class RadialCounts(RadialImage):
     )
 
     def fill(self):
-        dirs = CountsImage.process_filedata(self.roi,mc_src_id=self.mc_src_id,conv_type=self.conv_type)
+        dirs = CountsImage.process_filedata(self.roi,self.conv_type,self.mc_src_id)
         diffs = [self.center.difference(i) for i in dirs]
         self.image=N.histogram(diffs,bins=N.sqrt(self.bin_edges_rad))[0]
 
