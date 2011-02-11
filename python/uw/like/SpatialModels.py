@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.34 2011/02/04 02:53:48 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.35 2011/02/11 01:48:30 lande Exp $
 
    author: Joshua Lande
 
@@ -23,6 +23,9 @@ NFW_X68=0.33
 
 SMALL_ANALYTIC_EXTENSION=1e-10
 SMALL_NUMERIC_EXTENSION=1e-3
+
+# for disk shapes
+SMALL_FRACTION = SMALL_ANALYTIC_EXTENSION
 
 class DefaultSpatialModelValues(object):
     """ Spatial Parameters:
@@ -573,7 +576,7 @@ class Ring(RadiallySymmetricModel):
 
     def shrink(self): 
         self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
-        self.p[3]=0
+        self.p[3]=N.where(self.log[3],N.log10(SMALL_FRACTION),SMALL_FRACTION)
         self.free[2:4]=False
         self.cache()
 
