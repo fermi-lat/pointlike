@@ -1,12 +1,12 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.9 2011/02/04 05:22:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/skymodel.py,v 1.10 2011/02/11 21:27:33 burnett Exp $
 
 """
 import os, pickle, glob, types
 import numpy as np
 from skymaps import SkyDir, Band
-from uw.utilities import keyword_options, makerec
+from uw.utilities import keyword_options, makerec, xml_parsers
 from . import sources
 
 class SkyModel(object):
@@ -235,6 +235,14 @@ class SkyModel(object):
             s.smodel = s.model
             
         return globals, extended
+
+    def toXML(self,filename):
+        stacks= [
+            xml_parsers.unparse_diffuse_sources(self.extended_sources,True,False,filename),
+            xml_parsers.unparse_point_sources(self.point_sources,strict=True),
+        ]
+        xml_parsers.writeXML(stacks, filename)
+
         
 class SourceSelector(object):
     """ Manage inclusion of sources in an ROI."""
