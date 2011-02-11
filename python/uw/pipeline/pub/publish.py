@@ -1,14 +1,14 @@
 """
 manage publishing 
-$Header: /nfs/slac/g/glast/ground/cvs/users/burnett/pipeline/publish.py,v 1.8 2011/01/01 15:50:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/publish.py,v 1.1 2011/01/24 22:03:45 burnett Exp $
 """
 import sys, os, pickle, glob, types
 import PIL
 import numpy as np
 import pylab as plt
 from uw.utilities import makefig, makerec
-from . import healpix_map, dz_collection  
-from . import source_pivot, roi_pivot, makecat, display_map
+from . import healpix_map, dz_collection , catrec
+from . import source_pivot, roi_pivot, makecat, display_map, healpix_map
 from .. import skymodel
 from skymaps import Band, SkyDir 
 
@@ -77,7 +77,7 @@ class Publish(object):
         self.mec=mec
         recfiles = map(lambda name: os.path.join(outdir, '%s.rec'%name) , ('rois','sources'))
         if not os.path.exists(recfiles[0]):
-            skymodel.create_catalog(outdir)
+            catrec.create_catalog(outdir, save_local=True, ts_min=5)
         self.rois,self.sources = map( lambda f: pickle.load(open(f)), recfiles)
         print 'loaded %d rois, %d sources' % (len(self.rois), len(self.sources))
         if ts_min is not None:
@@ -206,7 +206,7 @@ class Publish(object):
         """ generate the xml and reg version of the catalog in the folder with the pivots"""
         if catname is None:
             catname = os.path.join(self.pivot_dir,self.name+'.fits') 
-        cat = CatalogManager(catname, min_ts = self.ts_min)
+        cat = catalog.CatalogManager(catname, min_ts = self.ts_min)
         #try:
         fn = os.path.join(self.pivot_dir, self.name+'.xml')
         cat.write_xml_file(fn, title='catalog %s sources'%self.name)
@@ -238,7 +238,7 @@ class Publish(object):
                     continue
             makerec.makefits(rec, outfile)
             print 'wrote %s' %outfile
-        self.write_xml_and_reg(catname)
+        #self.write_xml_and_reg(catname)
     
     def write_map(self, name, fun, title, vmax=None, table=None):
         """ write out image files for a single table
@@ -307,7 +307,21 @@ class Publish(object):
                 self.write_map(*pars)
             except:
                 print 'failed to process %s' % pars
-     
+    
+    def write_hpmaps(self, outfile='aladin256.fits', nside=256):
+        outfile = os.path.join(self.pivot_dir, outfile)
+        if os.path.exists(outfile):
+            if self.overwrite: 
+                os.remove(outfile)
+            else: return
+        # grab the .pickle table files
+        cols = healpix_map.tables(self.outdir)
+        # add the diffuse directly
+        gal = eval(self.config['diffuse'])[0]
+        cols.append(healpix_map.diffusefun(gal, nside=nside))
+        healpix_map.HEALPixFITS(cols, nside=nside).write(outfile)
+        print 'wrote file %s with %d columns' %(outfile, len(cols))
+    
     def write_zips(self):
         """ generate zip files containing the contents of a folder
         """
@@ -335,7 +349,7 @@ class Publish(object):
         q = glob.glob(os.path.join(self.pivot_dir,'*_ait.png'))
         if self.refdir !='':
             q.append(os.path.join(self.ref_pivot_dir,'kde_ait.png')) 
-        if len(q)>0: 
+        if len(q)==0: 
             print  'WARNING: no image files found'
             return 'WARNING: no image '
         heads = [os.path.split(t)[0] for t in q]
@@ -362,13 +376,15 @@ class Publish(object):
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <title>Fermi-LAT sky model %(catname)s</title></head>
 <body><h2>Fermi-LAT sky model version %(catname)s</h2>
+    Diffuse components: %(diffuse)s<br/>
+    Extended definition: %(extended)s<br/>
+
 <h3>Generated files:</h3>
 <ul>
  <li><a href="%(catname)s.fits">Catalog-format source fits file</a> (Standard list for external. 
     <br/>There is an internal version with more information<a href="%(catname)s_sources.fits">(FITS)</a>)
  </li>
  <li>ROI information<a href="%(catname)s_rois.fits"> (FITS)</a> <br/>
-    Diffuse components to the model used: %(diffuse)s<br/>
     ROI fit parameters, chisquared: %(roi_fit)s
  </li>
  <li><a href="%(catname)s.xml">XML-format file for gtlike</a></li>
@@ -378,7 +394,6 @@ class Publish(object):
 
 %(imagefiles)s
 <h3><a href="http://www.silverlight.net/learn/pivotviewer/">Pivot</a> Collections</h3>
-    Linked Pivot collections.
 <ul><li><a href="http://fermi-ts.phys.washington.edu/pivot/viewer/?uw=%(catname)s/sources.cxml">sources</a>
     All sources in the model.
    </li>
@@ -392,6 +407,7 @@ class Publish(object):
                 % (file,name) for file,name in zip(self.zips, self.zipnames)]),
             imagefiles=self.image_html(),
             diffuse = eval(self.config['diffuse']),
+            extended= self.config['extended'],
             roi_fit = self.roi_fit_html(),
         )
         open(os.path.join(self.pivot_dir, 'default.htm'),'w').write(html)

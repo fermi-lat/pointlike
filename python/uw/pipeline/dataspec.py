@@ -1,7 +1,7 @@
 """
 Manage data specification
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/dataspec.py,v 1.2 2011/01/19 01:37:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/dataspec.py,v 1.3 2011/02/04 05:22:59 burnett Exp $
 
 """
 import os, glob
@@ -49,8 +49,6 @@ class DataSpec(object):
             ltcube      = data_join('twenty','20month_lt.fits'),
             ),
        '2years': dict(data_name = "two years 4 bins/decade to 1 TeV",
-            ft1files    = None,
-            ft2files    = None,
             binfile     = data_join('monthly','2years_4bpd.fits'),
             ltcube      = data_join('monthly','2years_lt.fits'),
             ),

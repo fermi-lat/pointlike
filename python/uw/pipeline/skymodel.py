@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.8 2011/01/30 00:08:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.9 2011/02/04 05:22:59 burnett Exp $
 
 """
 import os, pickle, glob, types
@@ -20,6 +20,7 @@ class SkyModel(object):
     
     defaults= (
         ('extended_catalog_name', None,  'name of folder with extended info'),
+        ('alias', dict(), 'dictionary of aliases to use for lookup'),
         ('diffuse', ('ring_24month_P74_v1.fits', 'isotrop_21month_v2.txt'), 'pair of diffuse file names: use to locked'),
         ('auxcat', None, 'name of auxilliary catalog of point sources to append or names to remove',),
         ('update_positions', None, 'set to minimum ts  update positions if localization information found in the database'),
@@ -93,22 +94,22 @@ class SkyModel(object):
             self.point_sources.remove(ps)
             
     def _setup_extended(self):
-        if self.extended_catalog_name is None: return None
+        if not self.extended_catalog_name: return None
         extended_catalog_name = \
             os.path.expandvars(os.path.join('$FERMI','catalog',self.extended_catalog_name))
         if not os.path.exists(extended_catalog_name):
             raise Exception('extended source folder "%s" not found' % extended_catalog_name)
-        self.extended_catalog= sources.ExtendedCatalog(extended_catalog_name)
+        self.extended_catalog= sources.ExtendedCatalog(extended_catalog_name, alias=self.alias)
         #print 'Loaded extended catalog %s' % self.extended_catalog_name
         
-    def get_extended_sources(self,skydir, radius):
-        """ add any extended sources with center within the outer radius.
-            set parameters free if the center is inside the HEALpix region
-        """
-        if self.extended_catalog is None: return []
-        ret =self.extended_catalog.get_sources(skydir, radius)
-        return ret 
-              
+    #def get_extended_sources(self,skydir, radius):
+    #    """ add any extended sources with center within the outer radius.
+    #        set parameters free if the center is inside the HEALpix region
+    #    """
+    #    if self.extended_catalog is None: return []
+    #    ret =self.extended_catalog.get_sources(skydir, radius)
+    #    return ret 
+    #          
     def _load_sources(self):
         """
         run through the pickled roi dictionaries, create lists of point and extended sources
@@ -149,7 +150,8 @@ class SkyModel(object):
                 self.point_sources.append( ps)
             # make a list of extended sources used in the model   
             t = []
-            for name, model in zip(p['diffuse_names'] , p['diffuse']):
+            names = p.get('diffuse_names', self.diffuse )
+            for name, model in zip(names, p['diffuse']):
                 if len(t)<2: # always assume first two are global ????
                     if model.p[0]<-2:
                         model.p[0]=-2
@@ -170,9 +172,17 @@ class SkyModel(object):
                     sources.validate(es,self.nside)
                     self.extended_sources.append(es)
             self.global_sources.append(t)
+        # check for new extended sources not yet in model
+        self._check_for_extended()
         if self.update_positions and moved>0:
             print 'updated positions of %d sources' % moved
  
+    def _check_for_extended(self):
+        for name in self.extended_catalog.names:
+            if name.replace(' ','') not in [g.name.replace(' ','') for g in self.extended_sources]:
+                print 'extended source %s added to model' % name
+                self.extended_sources.append(self.extended_catalog.lookup(name))
+    
     #def skydir(self, index):
     #    return Band(self.nside).dir(index)
     def hpindex(self, skydir):

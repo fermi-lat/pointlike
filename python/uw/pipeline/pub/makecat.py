@@ -1,11 +1,9 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-
+$Header$
 """
 import os
-#from uw.utilities import xml_parsers
-#from uw.thb_roi import config
 import pyfits
 from skymaps import SkyDir
 

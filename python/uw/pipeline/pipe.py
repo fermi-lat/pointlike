@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.5 2011/01/30 00:10:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.6 2011/02/04 05:22:59 burnett Exp $
 """
 import os, types, glob, time, pickle
 import numpy as np
@@ -74,6 +74,8 @@ class Setup(dict):
                 dataset = 'P7_V4_SOURCE',
                 diffuse = ('ring_24month_P74_v1.fits', 'isotrop_21month_v2.txt'),
                 extended= 'LAT_extended_sources_v04',
+                alias= {'MSH1552': 'MSH 15-52', 
+                        'VelaX':'Vela X', 'HESSJ1835-137':'HESS J1835-137'},
                 irf = 'P7SOURCE_V4PSF',
                 associator ='all_but_gammas',
                 sedfig = None,
@@ -102,7 +104,8 @@ import os; os.chdir(r"%(cwd)s");
 from uw.pipeline import pipe, maps;
 g=pipe.Pipe("%(indir)s", "%(dataset)s",
         skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,
-            extended_catalog_name="%(extended)s", update_positions=%(update_positions)s,),
+            extended_catalog_name="%(extended)s", update_positions=%(update_positions)s,
+            alias =%(alias)s,),
         irf="%(irf)s", nside=%(nside)s,
         fit_emin=%(fit_emin)s, fit_emax=%(fit_emax)s, minROI=%(minROI)s, maxROI=%(maxROI)s,
         associate="%(associator)s",
@@ -173,28 +176,31 @@ def iterate(setup, **kwargs):
     """ 
     """
     version = setup.version
-    main(setup(), setup.outdir, **kwargs)
+    main(setup, **kwargs)
     converge_test(version+1, setup['nside'])
     setup.increment_version()
 
  
 #--------------------        
-def main( setup_string, outdir, mec=None, taskids=None, local=False,
+def main( setup, mec=None, taskids=None, local=False,
         machines=[], engines=None,
         ignore_exception=False, 
         logpath='log',
         progress_bar=False):
     """
     Parameters
-        setup_string : string
-            Python code, must define an object "g". It must implement:
+        setup : Setup object, implements
+            setup_string = setup()
+                Python code, must define an object "g". It must implement:
                 a function g(n), n an integer
                 g.names() must return a list of task names
-        outdir : directory to save files
+            outdir =setup.outidr : directory to save files
         mec : None or a MultiEngineClient instance
         taskids : None or a list of integers
             the integers should be in range(0,len(g.names())
     """
+    setup_string = setup()
+    outdir = setup.outdir
     if not os.path.exists(outdir): 
         os.mkdir(outdir)
     print 'writing results to %s' %outdir

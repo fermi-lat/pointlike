@@ -1,6 +1,6 @@
 """
 Manage creation of a source Pivot collection from a set of sources
-$Header: /nfs/slac/g/glast/ground/cvs/users/burnett/pipeline/source_pivot.py,v 1.6 2011/01/01 15:50:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/source_pivot.py,v 1.1 2011/01/24 22:03:45 burnett Exp $
 
 """
 
@@ -36,9 +36,19 @@ def make_pivot(z, outdir,
         pass
     p.add_facet('SpectrumType', 'String', 'C', z.modelname)
     
-    source = [{'1F':'1FGL', 'PG':'PGW', 'MR':'MRF', 'UW':'UW', 'MS':'MST', 'SE':'SEED', '24':'24M',
-        'Cy':'bin', 'LS':'bin','PS':'PSR','gc':'CG source'}[n[:2]] for n in p.rec.name]
-    p.add_facet('source', 'String', 'C', source)
+    def source_name(name):
+        try:
+            return {'1F':'1FGL', 'PG':'PGW', 'MR':'MRF', 'UW':'UW', 'MS':'MST',
+                    'SE':'SEED', '24':'24M',
+                    'Cy':'bin', 'LS':'bin','PS':'PSR','gc':'CG source'}[name[:2]] 
+        except:
+            if name in ['IC443','W28','HESSJ1825-137','W44','W51C','MSH1552','VelaX','LMC','SMC']:
+                return 'Extended'
+            else: return name[:2]
+        
+    #source = [{'1F':'1FGL', 'PG':'PGW', 'MR':'MRF', 'UW':'UW', 'MS':'MST', 'SE':'SEED', '24':'24M',
+    #   'Cy':'bin', 'LS':'bin','PS':'PSR','gc':'CG source'}[n[:2]] for n in p.rec.name]
+    p.add_facet('source', 'String', 'C', map(source_name, p.rec.name))
     ts = z.ts
     ts[ts<0]=0
     p.add_facet('fit quality', 'Number', 'F1', p.limit(z.band_ts-ts,0,100))
