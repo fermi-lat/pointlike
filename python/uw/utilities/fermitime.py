@@ -1,5 +1,5 @@
 """ manage times 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fermitime.py,v 1.1 2010/01/13 22:09:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fermitime.py,v 1.2 2010/04/19 21:04:51 wallacee Exp $
 
 """
 import datetime
@@ -23,6 +23,13 @@ def utc_to_met(year,month,day,hour = 0,min = 0,sec =0):
     if utc.year>2008: leap_secs+=1
     return diff.days*86400+diff.seconds+leap_secs
 
+def mjd_to_met(mjd):
+    tref = 51910+7.428703703703703e-4
+    return (mjd-tref)*86400
+
+def met_to_mjd(met):
+    tref = 51910+7.428703703703703e-4
+    return float(met)/86400+tref
 
 def date_tag():
     """ useful to tag plots"""
