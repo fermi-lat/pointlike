@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: burnett  Fri Feb 11 13:27:34 PST 2011
+pointlike/python/uw/pipeline/pub
+
+Modified Files:
+	display_map.py healpix_map.py makecat.py publish.py 
+	roi_pivot.py source_pivot.py 
+Added Files:
+	.cvsignore catrec.py print_roi.py 
+Log Message:
+update to current version.
+    *
+------------------------------------------------------------
 User: burnett  Fri Feb 11 13:27:33 PST 2011
 pointlike/python/uw/pipeline
 
