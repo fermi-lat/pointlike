@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Feb 10 17:48:30 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Fix two bugs for Ring sources, one in printing out the fraction during an extension fit and the other in shrinking the source to the null hypothesis.
+    *
+------------------------------------------------------------
 User: lande  Thu Feb 10 17:47:31 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
