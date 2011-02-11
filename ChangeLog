@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Feb 10 20:48:48 PST 2011
+pointlike/python/uw/utilities
+
+Modified Files:
+	fermitime.py 
+Log Message:
+Added methods for converting between MJD and MET, both in TAI.
+
+    *
+------------------------------------------------------------
 User: lande  Thu Feb 10 18:33:18 PST 2011
 ScienceTools-scons/pointlike/python/uw/utilities
 
