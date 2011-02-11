@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.44 2011/02/01 05:41:30 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.45 2011/02/03 21:08:57 lande Exp $
 
     author: Joshua Lande
 """
@@ -84,9 +84,9 @@ class ExtendedSource(DiffuseSource):
                           'R.A. (J2000):\t\t%.5f'%(self.spatial_model.center.ra()),
                           'Dec. (J2000):\t\t%.5f'%(self.spatial_model.center.dec()),
                           'Model:\t\t%s'%(self.smodel.full_name()),
-                          '\t'+self.smodel.__str__(indent='\t\t'), 
+                          '\t'+self.smodel.__str__(indent='\t'), 
                           'SpatialModel:\t%s'%(self.spatial_model.full_name()),
-                          '\t'+self.spatial_model.__str__(indent='\t\t')
+                          '\t'+self.spatial_model.__str__(indent='\t')
                          ])
 
 
