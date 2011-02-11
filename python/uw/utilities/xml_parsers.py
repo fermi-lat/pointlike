@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.33 2011/01/31 01:17:54 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.34 2011/02/06 21:38:25 lande Exp $
 
    author: Matthew Kerr
 """
@@ -659,13 +659,19 @@ def process_diffuse_source(ds,convert_extended,expand_env_vars,filename):
         spatial  = ds.spatial_model
         spectral = ds.smodel
         if convert_extended and not isinstance(spatial,SpatialMap): 
-            folder=os.path.dirname(filename)
-            template_name=folder+os.sep if folder != '' else ''
-            template_name+='template_%s_%s_%s.fits' % (ds.name.replace(' ','_'),
-                                                       spatial.pretty_name, 
-                                                       spectral.pretty_name)
-            spatial = convert_spatial_map(spatial,template_name)
-            spatial.file = os.path.basename(template_name) # better format for xml file
+            if spatial.__dict__.has_key('original_template') and N.all(spatial.original_parameters == spatial.p):
+                # Kludge! this is incase the xml was read in from the 
+                # pointspec_helpers.ExtendedSourceArchive and should be saved 
+                # out with the original template.
+                spatial=SpatialMap(file=spatial.original_template)
+            else:
+                folder=os.path.dirname(filename)
+                template_name=folder+os.sep if folder != '' else ''
+                template_name+='template_%s_%s_%s.fits' % (ds.name.replace(' ','_'),
+                                                           spatial.pretty_name, 
+                                                           spectral.pretty_name)
+                spatial = convert_spatial_map(spatial,template_name)
+                spatial.file = os.path.basename(template_name) # better format for xml file
         skyxml = makeExtendedSourceSpatialModel(spatial,expand_env_vars)
         if isinstance(spatial,SpatialMap) and not N.all(spatial.p==spatial.init_p):
             print 'Warning: When saving out SpatialMap object which has been localized, the original unmoved template is saved in the xml model.'
