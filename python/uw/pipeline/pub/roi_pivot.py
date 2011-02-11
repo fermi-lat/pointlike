@@ -1,7 +1,7 @@
 """
 
 Process the HEALpix ROI information into a pivot collection
-$Header: /nfs/slac/g/glast/ground/cvs/users/burnett/pipeline/roi_pivot.py,v 1.5 2011/01/01 15:50:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/roi_pivot.py,v 1.1 2011/01/24 22:03:45 burnett Exp $
 """
 import os, glob, pickle
 import numpy as np
@@ -62,7 +62,7 @@ def make_pivot(z, outdir,
     maxes = np.array([pks[i,:].max() for i in indices])
     p.add_facet('maximum TS','Number', 'F1', maxes)
 
-    related = [[['sources', 'sources.cxml#healpix_12=EQ.%d'%(index)]] for index in range(len(names))]
+    related = [[['sources', 'sources.cxml#ROI_num=EQ.%d'%(index)]] for index in range(len(names))]
     p.add_related(related)
     p.write(pivot_file)
   

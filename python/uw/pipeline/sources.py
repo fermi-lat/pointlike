@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.2 2011/01/30 19:00:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.3 2011/02/04 05:22:59 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -113,20 +113,26 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
 
     def __init__(self, *pars, **kwargs):
         """ initialize by also filling an array with all source spectral models"""
+        self.alias = kwargs.pop('alias', dict())
         super(ExtendedCatalog,self).__init__(*pars, **kwargs)
         self.sources = self.get_sources(SkyDir(),180)
         assert len(self.sources)==len(self.names), 'inconsistent list lengths'
         
     def lookup(self, name):
         """ return an ExtendedSource object, None if not found """
+        aname = self.alias.get(name,name) #alias will be the new name
+        #if aname != name: print 'Renaming extended source %s to %s' % (name, aname)
         for source in self.sources:
-            if name==source.name:
+            if source.name in (name, aname, aname.replace(' ',''), name.replace(' ','')):
                 #source.free = source.model.free.copy()
                 #if source.model.name=='LogParabola': source.free[-1]=False # E_break not free
                 #return source
                 # make a new object copied from original
-                extsource= ExtendedSource(name=name, skydir=source.skydir,
-                    model = source.model, 
+                if source.model.name=='BrokenPowerLaw': #convert this
+                    model = Models.LogParabola()
+                else: model = source.model
+                extsource= ExtendedSource(name=aname, skydir=source.skydir,
+                    model = model, 
                     spatial_model = source.spatial_model,
                     smodel= source.smodel,      # these reference copies needed
                     dmodel= source.spatial_model
@@ -162,7 +168,7 @@ def validate( ps, nside=12):
         if np.any(np.diag(model.cov_matrix)<0): model.cov_matrix[:]=0 
         check = norm>1e-18 and gamma>1e-5 and gamma<5 and ec>100
         if check: return
-        print 'SkyModel warning for %-20s(%d): out of range, ressetting from %s' %(ps.name, hp12(ps.skydir),model.p)
+        print 'SkyModel warning for %-20s(%d): out of range, ressetting from %s' %(ps.name, hpindex(ps.skydir),model.p)
         model.p[:] = [-11, 0, 3]
         model.cov_matrix[:] = 0 
     else:

@@ -1,12 +1,11 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/maps.py,v 1.2 2011/01/30 00:10:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/maps.py,v 1.3 2011/02/04 05:22:59 burnett Exp $
 
 """
 import os, glob, pickle, types
 import numpy as np
 from uw.like import roi_tsmap
-#from uw.like import roi_plotting
 from uw.utilities import image
 from uw.pipeline import skymodel
 from skymaps import Band, SkyDir, PySkyFunction, Hep3Vector 
@@ -52,32 +51,7 @@ def skyplot(crec, title='', axes=None, fignum=30, ait_kw={}, **kwargs):
     ait.imshow(title=title, **kwargs)
     return ait
 
-  
     
-#class DataMap(dict):
-#    """ Implement a SkyFunction that returns binned data"""
-#    
-#    def __init__(self, roi, nside=12*32, emin=1000):
-#        """ roi: an ROIAnalysis object
-#            nside: int 
-#                HEALPix nside
-#        """
-#        self.nside = nside
-#        self.emin = emin
-#        self.data = dict()
-#        self.bindex = Band(nside).index
-#        for band in roi.bands:
-#            if band.e <emin: continue
-#            # cut on class? t = band.b.event_class() & 3 # note: mask off high bits!
-#            for wsd in band.wsdl:
-#                index = self.bindex(wsd)
-#                self[index] = self.get(index,0) + int(wsd.weight())
-#                
-#    def __call__(self, v, isskydir=False):
-#        skydir = SkyDir(Hep3Vector(v[0],v[1],v[2])) if not isskydir else v
-#        index = self.bindex(skydir)
-#        return self.get(index,0) 
-#
 class KdeMap(dict):
     """ Implement a SkyFunction that returns KDE data for a given ROI"""
     
@@ -184,8 +158,6 @@ def make_index_table(nside, subnside):
     index_table = [a[t==i] for i in xrange(npix)]
     return index_table
  
-   
-    
 def load_tables(name, outdir, nside=12, subnside=12*32):
     files =glob.glob(os.path.join(outdir, '%s_table'%name,'*.pickle'))
     nf = len(files)
@@ -202,12 +174,11 @@ def load_tables(name, outdir, nside=12, subnside=12*32):
         indeces = index_table[index]
         for i,v in enumerate(pk):
             r[indeces[i]]=v
-            
     return r
+
 def dump_tstable(tstable):
     pickle.dump(tstable, open('tstable%02d.pickle'%version, 'wb'))
     
-
 class ROItables(object):
     """ manage one or more tables of values subdividing a HEALpix roi
     
