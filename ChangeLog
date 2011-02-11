@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Feb 10 22:12:10 PST 2011
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Fix syntax bug for IsotropicPowerLaw
+    *
+------------------------------------------------------------
 User: kerrm  Thu Feb 10 20:56:34 PST 2011
 pointlike/python/uw/utilities
 
