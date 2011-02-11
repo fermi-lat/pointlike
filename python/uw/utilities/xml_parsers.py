@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.35 2011/02/11 02:33:18 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.36 2011/02/11 06:12:10 lande Exp $
 
    author: Matthew Kerr
 """
@@ -653,7 +653,7 @@ def process_diffuse_source(ds,convert_extended,expand_env_vars,filename):
     dm = ds.dmodel
     if hasattr(dm,'__len__'):  dm = dm[0]
 
-    if isinstance(ds,ExtendedSource):
+    if isinstance(ds,ExtendedSource) or ds.__dict__.has_key('spatial_model'):
         m2x.process_model(ds.smodel,scaling=False)
         specxml  = m2x.getXML()
         spatial  = ds.spatial_model
@@ -698,7 +698,7 @@ def process_diffuse_source(ds,convert_extended,expand_env_vars,filename):
             m2x.process_model(pl,scaling=False)
             specxml = m2x.getXML()
         else:
-            raise Exception,'Did not recognize %s'%(ds.name)
+            raise Exception('Did not recognize %s'%(ds.name))
     s1 = '\n<source name="%s" type="DiffuseSource">\n'%(ds.name)
     s2 = '</source>'
     return ''.join([s1,specxml,skyxml,s2])
