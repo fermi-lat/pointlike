@@ -7,6 +7,7 @@ import datetime
 class MET(object):
     """ convert time in MET to a datetime object"""
     mission_start = datetime.datetime(2001,1,1)
+    mjd_ref = 51910+7.428703703703703e-4
     def __init__(self, met):
         if met>252460801: met=met-1 # 2008 leap second
         if met>157766400: met=met-1 # 2005 leap second
@@ -24,12 +25,12 @@ def utc_to_met(year,month,day,hour = 0,min = 0,sec =0):
     return diff.days*86400+diff.seconds+leap_secs
 
 def mjd_to_met(mjd):
-    tref = 51910+7.428703703703703e-4
-    return (mjd-tref)*86400
+    """ Convert MJD (TAI) to MET (TAI)."""
+    return (mjd-MET.mjd_ref)*86400
 
 def met_to_mjd(met):
-    tref = 51910+7.428703703703703e-4
-    return float(met)/86400+tref
+    """ Convert MET (TAI) to MJD (TAI)."""
+    return float(met)/86400+MET.mjd_ref
 
 def date_tag():
     """ useful to tag plots"""
