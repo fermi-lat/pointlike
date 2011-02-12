@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.35 2011/02/11 01:48:30 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.36 2011/02/11 01:56:38 lande Exp $
 
    author: Joshua Lande
 
@@ -15,11 +15,13 @@ from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
 from abc import abstractmethod
 
 
-# Mathematical constants. They are the ratio of r68 (the %68 containment
-# radius) to sigma, the 'size' parameter of an extended source.
-GAUSSIAN_X68=1.50959219
-DISK_X68=0.824621125
-NFW_X68=0.33
+# Mathematical constants. They are the ratio of r68 (or r99), the %68 (or %99) containment
+# radius, to sigma, the 'size' parameter of an extended source.
+GAUSSIAN_X68,GAUSSIAN_X99=1.50959219,3.03485426
+DISK_X68,DISK_X99=0.824621125,0.994987437
+
+# I got this from Wolfram Alpha with: solve int 2/(pi*x/1.07*(1+x*1.07)^5)*2*pi*x for x from 0 to y=0.68
+NFW_X68,NFW_X99=0.30801306,2.02082024
 
 SMALL_ANALYTIC_EXTENSION=1e-10
 SMALL_NUMERIC_EXTENSION=1e-3
@@ -341,6 +343,9 @@ class SpatialModel(object):
     def __call__(self,v,energy=None): pass
 
     @abstractmethod
+    def has_edge(self): pass
+
+    @abstractmethod
     def effective_edge(self,energy=None):
         """ It is useful to know an approximate edge to the image
             It is defined as a radius such that from the center to the
@@ -355,12 +360,21 @@ class SpatialModel(object):
             pure lazieness, since it is not needed elsewhere. """
         return PySkySpectrum(self,None)
 
-    def save_template(self,filename,npix=100):
-        """ npix is the number of pixels in tempalate in either dimension. """
+    def save_template(self,filename,npix=150):
+        """ Saves out a template following the recommendation of
+            the page LAT-Detected Extended Sources for Catalog:
+
+                https://confluence.slac.stanford.edu/x/Qw2JBQ
+        
+            npix is the number of pixels in tempalate in either dimension. """
         if isinstance(self,EnergyDependentSpatialModel):
             raise Exception("Unable to save template for energy dependent SpatialModel.")
         center=self.center
-        diameter=2.0*self.effective_edge()
+
+        # The factor of 6/5 is to add a buffer at the edge of the template, which
+        # is similar to the Catalog recommendations.
+        diameter=2.0*(self.effective_edge()*6./5. if self.has_edge() else self.r99())
+        print diameter
         pixelsize=diameter/npix
         image=SkyImage(center,filename,pixelsize,diameter,1,"ZEA",
                        True if self.coordsystem == SkyDir.GALACTIC else False,False)
@@ -432,8 +446,10 @@ class RadiallySymmetricModel(SpatialModel):
         return self.at_r(skydir.difference(self.center),energy)
 
     @abstractmethod
-    def r68(self):
-        pass
+    def r68(self): pass
+
+    @abstractmethod
+    def r99(self): pass
 
     def at_r(self,r,energy=None):
         """ r is in radians. """
@@ -483,11 +499,13 @@ class Gaussian(RadiallySymmetricModel):
     def at_r_in_deg(self,r,energy=None):
         return self.pref*N.exp(-r**2/(2*self.sigma2))
 
-    def r68(self):
-        return GAUSSIAN_X68*self.sigma
+    def r68(self): return GAUSSIAN_X68*self.sigma
+    def r99(self): return GAUSSIAN_X99*self.sigma
 
     def pretty_spatial_string(self):
         return "[ %.3fd ]" % (self.sigma)
+
+    def has_edge(self): return False
 
     def shrink(self): 
         self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
@@ -521,12 +539,14 @@ class Disk(RadiallySymmetricModel):
     def at_r_in_deg(self,r,energy=None):
         return N.where(r<=self.sigma,self.pref,0)
 
-    def r68(self):
-        return DISK_X68*self.sigma
+    def r68(self): return DISK_X68*self.sigma
+    def r99(self): return DISK_X99*self.sigma
 
     def effective_edge(self,energy=None):
         """ Disk has a well defined edge, so there is no reason to integrate past it. """
         return self.sigma
+
+    def has_edge(self): return True
 
     def pretty_spatial_string(self):
         return "[ %.3fd ]" % (self.sigma)
@@ -564,12 +584,14 @@ class Ring(RadiallySymmetricModel):
     def at_r_in_deg(self,r,energy=None):
         return N.where((r>=self.frac*self.sigma)&(r<=self.sigma),self.pref,0)
 
-    def r68(self):
-        return DISK_X68*(1-self.frac2)+self.frac2
+    def r68(self): return DISK_X68*(1-self.frac2)+self.frac2
+    def r99(self): return DISK_X99*(1-self.frac2)+self.frac2
 
     def effective_edge(self,energy=None):
         """ Disk has a well defined edge, so there is no reason to integrate past it. """
         return self.sigma
+
+    def has_edge(self): return True
 
     def pretty_spatial_string(self):
         return "[ %.3fd, %.3f ]" % (self.sigma,self.frac)
@@ -600,8 +622,10 @@ class NFW(RadiallySymmetricModel):
     def at_r_in_deg(self,r,energy=None):
         return 2/(N.pi*r*self.scaled_sigma*(1+r/self.scaled_sigma)**5)
 
-    def r68(self):
-        return NFW_X68*self.scaled_sigma
+    def r68(self): return NFW_X68*self.scaled_sigma
+    def r99(self): return NFW_X99*self.scaled_sigma
+
+    def has_edge(self): return False
 
     def pretty_spatial_string(self):
         return "[ %.3fd ]" % (self.sigma)
@@ -784,6 +808,8 @@ class EllipticalGaussian(EllipticalSpatialModel):
     def effective_edge(self,energy=None):
         return 5*max(self.sigma_x,self.sigma_y)
 
+    def has_edge(self): return False
+
     def cache(self):
         super(EllipticalGaussian,self).cache()
         self.pref = 1/(2*N.pi*self.sigma_x*self.sigma_y)
@@ -791,8 +817,8 @@ class EllipticalGaussian(EllipticalSpatialModel):
     def value_at(self,x):
         return self.pref*N.exp(-x/2)
 
-    def ellipse_68(self):
-        return GAUSSIAN_X68*self.sigma_x,GAUSSIAN_X68*self.sigma_y,self.theta
+    def ellipse_68(self): return GAUSSIAN_X68*self.sigma_x,GAUSSIAN_X68*self.sigma_y,self.theta
+    def ellipse_99(self): return GAUSSIAN_X99*self.sigma_x,GAUSSIAN_X99*self.sigma_y,self.theta
 
 #===============================================================================================#
 
@@ -823,6 +849,8 @@ class EllipticalDisk(EllipticalSpatialModel):
     def effective_edge(self,energy=None):
         return max(self.sigma_x,self.sigma_y)
 
+    def has_edge(self): return True
+
     def cache(self):
         super(EllipticalDisk,self).cache()
         self.pref = 1/(N.pi*N.radians(self.sigma_x)*N.radians(self.sigma_y))
@@ -830,8 +858,8 @@ class EllipticalDisk(EllipticalSpatialModel):
     def value_at(self,x):
         return N.where(x<1,self.pref,0)
 
-    def ellipse_68(self):
-        return DISK_X68*self.sigma_x,DISK_X68*self.sigma_y,self.theta
+    def ellipse_68(self): return DISK_X68*self.sigma_x,DISK_X68*self.sigma_y,self.theta
+    def ellipse_99(self): return DISK_X99*self.sigma_x,DISK_X99*self.sigma_y,self.theta
 
 #===============================================================================================#
 
@@ -855,6 +883,8 @@ class EllipticalRing(EllipticalSpatialModel):
             respect to the imagined box's edge. """
         return max(self.sigma_x,self.sigma_y)
 
+    def has_edge(self): return True
+
     def cache(self):
         super(EllipticalRing,self).cache()
 
@@ -869,6 +899,10 @@ class EllipticalRing(EllipticalSpatialModel):
     def ellipse_68(self):
         x68=DISK_X68*(1-self.frac2)+self.frac2
         return x68*self.sigma_x,x68*self.sigma_y,self.theta
+
+    def ellipse_99(self):
+        x99=DISK_X99*(1-self.frac2)+self.frac2
+        return x99*self.sigma_x,x99*self.sigma_y,self.theta
 
     def pretty_spatial_string(self):
         return "[ %.3fd, %.3fd, %.2fd, %.2f ]" % \
