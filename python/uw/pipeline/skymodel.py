@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/skymodel.py,v 1.10 2011/02/11 21:27:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.11 2011/02/11 22:31:28 lande Exp $
 
 """
 import os, pickle, glob, types
@@ -178,6 +178,7 @@ class SkyModel(object):
             print 'updated positions of %d sources' % moved
  
     def _check_for_extended(self):
+        if self.__dict__.get('extended_catalog') is None: return
         for name in self.extended_catalog.names:
             if name.replace(' ','') not in [g.name.replace(' ','') for g in self.extended_sources]:
                 print 'extended source %s added to model' % name
