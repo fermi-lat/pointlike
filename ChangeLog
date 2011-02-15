@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Feb 14 22:16:03 PST 2011
+pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Remove deprecated code.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sun Feb 13 16:23:03 PST 2011
 pointlike/python/uw/pipeline
 
