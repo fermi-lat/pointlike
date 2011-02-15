@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.33 2011/02/03 20:25:30 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.34 2011/02/04 21:17:56 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -118,13 +118,6 @@ class Grid(object):
             The skydir(s) are rotated onto the equatorial grid."""
         
         if hasattr(skydir,'EQUATORIAL'): skydir = [skydir]
-        """ # this block is DEPRECATED -- remove if C++ changes successful for everyone
-        lon = N.asarray(map(SkyDir.l,skydir))
-        lat = N.asarray(map(SkyDir.b,skydir))
-        rlon = DoubleVector() ; rlat = DoubleVector()
-        Background.rot_grid(rlon,rlat,lon,lat,self.center)
-        lon = N.asarray(rlon) ; lat = N.asarray(rlat)
-        """ # end DEPRECATED
         rvals = N.empty(len(skydir)*2,dtype=float)
         PythonUtilities.rot_grid(rvals,skydir,self.center)
         lon = rvals[::2]; lat = rvals[1::2]
@@ -159,11 +152,6 @@ class Grid(object):
             
             The rotation is rather fast, likely no need to pre-compute.
         """
-        """ # this block is DEPRECATED -- remove if C++ changes successful for everyone
-        v = DoubleVector()
-        Background.val_grid(v,self.lons,self.lats,self.center,skyfun)
-        return N.resize(v,[self.npix,self.npix])
-        """ # end DEPRECATED
         v = N.empty(self.npix*self.npix)
         PythonUtilities.val_grid(v,self.lons,self.lats,self.center,skyfun)
         return v.reshape([self.npix,self.npix])
