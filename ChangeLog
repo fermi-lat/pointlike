@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: cohen  Tue Feb 15 09:12:07 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_printing.py 
+Log Message:
+fix call to source.model that should be source.smodel for DiffuseSource objects
+    *
+------------------------------------------------------------
 User: kerrm  Mon Feb 14 22:16:03 PST 2011
 pointlike/python/uw/utilities
 
