@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Feb 15 18:14:10 PST 2011
+pointlike/python/uw/utilities
+
+Modified Files:
+	fitstools.py 
+Log Message:
+Fixed a bug; passing in a function to rad_extract should work better now.
+
+    *
+------------------------------------------------------------
 User: cohen  Tue Feb 15 09:12:07 PST 2011
 pointlike/python/uw/like
 
