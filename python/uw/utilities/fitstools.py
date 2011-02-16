@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.15 2010/11/19 21:46:00 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.16 2011/01/12 14:24:31 burnett Exp $
 
    author: Matthew Kerr
 
@@ -52,7 +52,17 @@ def rad_mask(ras,decs,cut_dir,radius,mask_only=False):
    else:
       return mask,N.arccos(cos_diffs)[mask]
 
-def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cuts=None,apply_GTI=True):
+def get_gti_mask(ft1file,times):
+    gti = Gti(ft1file)
+    gti_starts,gti_stops = \
+        N.asarray([(x.minValue(),x.maxValue()) for x in gti]).transpose()
+    a = N.argsort(gti_stops)
+    gti_starts = gti_starts[a]; gti_stops = gti_stops[a]
+    indices = N.searchsorted(gti_stops,times)
+    accept = (times > gti_starts[indices]) & (times <= gti_stops[indices])
+    return accept
+
+def rad_extract(eventfiles,center,radius_function,return_cols=['PULSE_PHASE'],cuts=None,apply_GTI=True,no_cuts=False):
    """Extract events with a radial cut.  Return specified columns and perform additional boolean cuts.
 
       Return is in form of a dictionary whose keys are column names (and 'DIFFERENCES') and values are
@@ -81,10 +91,11 @@ Optional keyword arguments:
   return_cols ['RA','DEC','ENERGY','EVENT_CLASS','PULSE_PHASE'] - a list of FT1 column names to return
   cuts        None - an optional list of boolean cuts to apply, e.g., ['ENERGY > 100']
               NB -- cuts not yet implemented!!
+  no_cuts     [False] do not apply default zenith and incidence angle cuts
   apply_GTI   [True] accept or reject an event based on Gti if True; else ignore Gti
   =========   =======================================================
    """
-   if not (type(radius_function) is FunctionType or type(radius_function) is MethodType):
+   if not hasattr(radius_function,'__call__'):
       simple_scalar = True
       rval = radius_function
       radius_function = lambda e,event_class: rval
@@ -112,11 +123,11 @@ Optional keyword arguments:
       #for key in keys: cols[key] = e['EVENTS'].data.field(key)
 
       rad   = radius_function(cols['ENERGY'],cols['CONVERSION_TYPE'])
-      tmask = N.logical_and(trap_mask(cols['RA'],cols['DEC'],center,rad),cols['ZENITH_ANGLE'] < ZENITH_CUT)
-      tmask = N.logical_and(tmask,cols['THETA'] < THETA_CUT )
+      tmask = trap_mask(cols['RA'],cols['DEC'],center,rad)
+      if not no_cuts:
+         tmask &= (cols['ZENITH_ANGLE'] < ZENITH_CUT) & (cols['THETA'] < THETA_CUT )
       if apply_GTI:
-         gti = Gti(eventfile)
-         tmask = N.logical_and(tmask, N.asarray([gti.accept(t) for t in cols['TIME']]))
+         tmask &= get_gti_mask(eventfile,cols['TIME'])
       if simple_scalar:
          rmask,diffs = rad_mask(cols['RA'][tmask],cols['DEC'][tmask],center,rad)
       else:
@@ -213,8 +224,6 @@ def merge_flight_data(files, outputfile = None, cuts = None, fields = None):
 def get_fields(files, fields, cuts = None, memmap = False):
    """A lightweight version to get only certain fields of flight data."""
 
-   #from collections import defaultdict
-   #data = defaultdict(list)
    data = dict()
    files = __FITS_parse__(files)
 
