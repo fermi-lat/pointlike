@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Feb 17 19:36:46 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Added Files:
+	roi_modify.py 
+Log Message:
+Adding new object for modifying an ROI
+    *
+------------------------------------------------------------
 User: lande  Thu Feb 17 19:36:10 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
