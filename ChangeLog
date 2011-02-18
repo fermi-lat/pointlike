@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Feb 17 18:58:57 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Clean up the code to access an ExtendedSource's skydir. New flag refit to TS_ext. Better references to the spectral model of an extended source.
+    *
+------------------------------------------------------------
 User: kerrm  Tue Feb 15 18:14:10 PST 2011
 pointlike/python/uw/utilities
 
