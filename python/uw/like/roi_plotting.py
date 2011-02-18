@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.25 2011/02/10 03:06:49 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.26 2011/02/18 03:40:14 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -826,7 +826,6 @@ class ROISlice(object):
     def save_data(self,data_file):
         """ Note, shrink model predicted counts to be same size as regular counts,
             for an easier file format. """
-        import yaml
 
         x,y,dx,dy=['l','b','dl','db'] if self.galactic else ['ra','dec','dra','ddec']
             
@@ -849,7 +848,13 @@ class ROISlice(object):
             results_dict[y][name]=ModelImage.downsample(model,of).tolist()
 
         file = open(data_file,'w')
-        file.write(yaml.dump(results_dict))
+        try:
+            import yaml
+            file.write(yaml.dump(results_dict))
+        except:
+            import pprint
+            file.write(pprint.pformat(results_dict))
+
         file.close()
 
     def show(self,to_screen=True,out_file=None, data_file=None):
@@ -976,7 +981,6 @@ class ROIRadialIntegral(object):
                 raise Exception("Error in calculating a radial integral, model %s contains NaNs." % name)
 
     def save_data(self,data_file):
-        import yaml
 
         results_dict = dict(
             Radius=self.theta_sqr.tolist(),
@@ -986,7 +990,12 @@ class ROIRadialIntegral(object):
             results_dict[name]=model.tolist()
 
         file = open(data_file,'w')
-        file.write(yaml.dump(results_dict))
+        try:
+            import yaml
+            file.write(yaml.dump(results_dict))
+        except:
+            import pprint
+            file.write(pprint.pformat(results_dict))
         file.close()
 
     def show(self,to_screen=True,out_file=None,data_file=None):
