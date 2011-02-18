@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Feb 17 19:40:14 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py roi_plotting.py 
+Log Message:
+Adding function modify_spatial_model, modify_model, and modify() to ease modifying an ROI. Adding function get_ellipse to easy accessing the results of a localizatoin. Fixing bug in zero_source, unzero_source, add_source, del_source so that the ROI's state is correctly updated. Adding new function __update_state__ to help with this.
+    *
+------------------------------------------------------------
 User: lande  Thu Feb 17 19:36:46 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
