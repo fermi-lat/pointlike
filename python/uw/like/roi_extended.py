@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.45 2011/02/03 21:08:57 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.46 2011/02/11 01:47:31 lande Exp $
 
     author: Joshua Lande
 """
@@ -56,26 +56,14 @@ class ExtendedSource(DiffuseSource):
             scaling_model = self.model,
             name          = self.name)
 
-        self.smodel.background = False
+        self.model.background = False
 
         if not self.leave_parameters:
-            for i in xrange(len(self.smodel.free)): self.smodel.free[i] = self.free_parameters
+            for i in xrange(len(self.model.free)): self.model.free[i] = self.free_parameters
             for i in xrange(len(self.spatial_model.free)): self.spatial_model.free[i] = self.free_parameters
 
-    def __getattr__(self, item):
-        """ Pretend that this object directly contains skydir. Avoid
-            two copies of the same object. """
-        if item == 'skydir':
-            return self.spatial_model.center
-        else:
-            return self.__dict__[item]
-
-    def __setattr__(self,item,value):
-        """ Allow setting the spatial model's center through skydir. """
-        if item == 'skydir':
-            return self.spatial_model.modify_loc(value)
-        else:
-            object.__setattr__(self, item, value)
+    @property
+    def skydir(self): return self.spatial_model.center
 
     def __str__(self,indent=''):
         return indent+('\n'+indent).join(['\n',
@@ -83,8 +71,8 @@ class ExtendedSource(DiffuseSource):
                           'Name:\t\t%s'%(self.name),
                           'R.A. (J2000):\t\t%.5f'%(self.spatial_model.center.ra()),
                           'Dec. (J2000):\t\t%.5f'%(self.spatial_model.center.dec()),
-                          'Model:\t\t%s'%(self.smodel.full_name()),
-                          '\t'+self.smodel.__str__(indent='\t'), 
+                          'Model:\t\t%s'%(self.model.full_name()),
+                          '\t'+self.model.__str__(indent='\t'), 
                           'SpatialModel:\t%s'%(self.spatial_model.full_name()),
                           '\t'+self.spatial_model.__str__(indent='\t')
                          ])
@@ -135,7 +123,7 @@ class ROIExtendedModel(ROIDiffuseModel):
         self.bands = [SmallBand() for i in xrange(len(bands))]
 
         es = self.extended_source
-        sm = es.smodel
+        sm = es.model
 
         for myband,band in zip(self.bands,bands):
 
@@ -151,7 +139,7 @@ class ROIExtendedModel(ROIDiffuseModel):
 
     def update_counts(self,bands,model_index):
         """Update models with free parameters."""
-        sm = self.smodel
+        sm = self.extended_source.model
         mi = model_index
 
         for myband,band in zip(self.bands,bands):
@@ -166,7 +154,7 @@ class ROIExtendedModel(ROIDiffuseModel):
             this model. Note that this calculation is essentially identical to that of point
             sources since extended sources decouple the spectral and spatial parts, as is done
             for point soruces. """
-        sm  = self.smodel
+        sm  = self.extended_source.model
         np  = len(sm.p)
         nfp = sm.free.sum()
 
@@ -208,10 +196,10 @@ class ROIExtendedModel(ROIDiffuseModel):
         return '%s fitted with %s\n%s\n%s fitted with %s\n%s' % \
                 (es.name,sm.full_name(),
                  '\t'+sm.__str__(indent='\t'),
-                 es.name,es.smodel.full_name(),
-                 '\t'+es.smodel.__str__(indent='\t'))
+                 es.name,es.model.full_name(),
+                 '\t'+es.model.__str__(indent='\t'))
 
-    def fit_extension(self,roi,tolerance=0.05, bandfits=False, error="HESSE",init_grid=None, use_gradient=False):
+    def fit_extension(self,roi,tolerance=0.05, bandfits=False, error="HESSE",init_grid=None, use_gradient=True):
         """ Fit the extension of this extended source by fitting all non-fixed spatial paraameters of 
             self.extended_source. The likelihood at the best position is returned.
 
@@ -262,7 +250,7 @@ Arguments:
         if roi.TS(which=self.name,quick=True,bandfits=bandfits) < 1:
             raise Exception("Unable to localize a source with initial TS<1")
 
-        init_spectral = self.smodel.get_parameters()
+        init_spectral = es.model.get_parameters()
         init_spatial = sm.get_parameters(absolute=False)
 
         if not N.any(sm.free):
@@ -330,12 +318,12 @@ Arguments:
                 ll=roi.fit(estimate_errors=False,use_gradient=use_gradient)
 
                 if ll < ll_0:
-                    prev_fit=self.smodel.get_parameters()
-                    self.smodel.set_parameters(init_spectral)
+                    prev_fit=es.model.get_parameters()
+                    es.model.set_parameters(init_spectral)
                     ll_alt=roi.fit(estimate_errors=False,use_gradient=use_gradient)
 
                     if ll_alt > ll: ll=ll_alt
-                    else: self.smodel.set_parameters(prev_fit)
+                    else: es.model.set_parameters(prev_fit)
 
             if not quiet: print '%s, logL = %.3f, dlogL = %.3f' % (sm.pretty_string(),ll,ll-ll_0)
             return -ll
@@ -412,8 +400,12 @@ Arguments:
         self.extended_source.spatial_model.modify_loc(center)
         self.initialize_counts(bands)
     
-    def TS_ext(self,roi,**kwargs):
-        """ Any argument passed into this function is passed into fit_extension when
+    def TS_ext(self,roi,refit=True,**kwargs):
+        """ Refit refers to wheter the localization of the extended source should
+            be relocalized for the null hypothesis. Generally, this is a great idea
+            so the default is to do so.
+
+            Any additional argument passed into this function is passed into fit_extension when
             the null hypothesis is localized. 
             
             Neither 'error' or 'update' are allowed to be passed into fit_extension,
@@ -449,7 +441,7 @@ Arguments:
 
         if not roi.quiet: print 'Refitting position for the null hypothesis'
         f() # have to fit with shrunk spatial model to get a reasonable starting spectrum for extension fit.
-        self.fit_extension(roi,error=None,**kwargs)
+        if refit: self.fit_extension(roi,error=None,**kwargs)
 
         if not roi.quiet: print 'Redoing spectral fit in the null hypothesis'
 
@@ -469,8 +461,7 @@ Arguments:
         self.initialize_counts(roi.bands)
         # reset point source
 
-        roi.__pre_fit__() # restore caching 
-        roi.update_counts()
+        roi.__update_state__()
 
         return ts_ext
 
