@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.30 2011/01/13 20:22:07 cohen Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.31 2011/01/28 18:46:49 burnett Exp $
 
     author: Matthew Kerr
 
@@ -280,6 +280,15 @@ Optional keyword arguments:
             return flux
         except:
             print 'Encountered a numerical error when attempting to calculate integral flux.'
+
+    def set_flux(self,flux,**kwargs):
+        """ Set the flux of the source. 
+                
+            This function ensures that after the function, call,
+                flux == model.i_flux(**kwargs)
+            where kwargs is consistently passed into i_flux and set_flux
+        """
+        self.p[0] += N.log10(flux/self.i_flux(**kwargs))
 
     def copy(self):
         
@@ -748,6 +757,9 @@ class InterpConstants(Model):
         from scipy.interpolate import interp1d
         interp = interp1d(self.e_breaks,10**self.p)
         return interp(N.log10(e))
+
+    def set_flux(self,flux,**kwargs):
+        raise NotImplementedError("No way to set flux for InterpConstants spectral model")
 
 
 def convert_exp_cutoff(model):
