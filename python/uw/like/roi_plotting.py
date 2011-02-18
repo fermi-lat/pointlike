@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.24 2011/02/08 05:36:56 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.25 2011/02/10 03:06:49 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -653,7 +653,8 @@ class ROISlice(object):
                                           to 1 if you want the model predictions to 'look like' the 
                                           data."""),
             ('smooth_model',    True, """Connect the model preditions with a line (instead of steps) 
-                                         to make the model look smoother.""")
+                                         to make the model look smoother."""),
+            ('use_gradient',    True, """Use gradient when refitting."""),
     )
 
     @staticmethod
@@ -715,9 +716,7 @@ class ROISlice(object):
     @staticmethod
     def uncache_roi(roi):
         roi.set_parameters(roi.old_parameters) # reset free parameters
-        roi.__pre_fit__() # restore caching
-        roi.update_counts()
-
+        roi.__update_state__()
 
     def get_model(self):
         model_pixelsize=float(self.pixelsize)/self.oversample_factor
@@ -763,7 +762,7 @@ class ROISlice(object):
             # only zero it after making a copy of the spectral part!
             self.roi.zero_source(es)
 
-            self.roi.fit(estimate_errors=False)
+            self.roi.fit(estimate_errors=False,use_gradient=self.use_gradient)
 
             self.mi_x['Point']=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
             self.mi_y['Point']=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
@@ -800,7 +799,7 @@ class ROISlice(object):
 
         P.gca().set_xlim(self.counts_dx[0],self.counts_dx[-1])
 
-        P.legend(loc='best',numpoints=1)
+        P.legend(loc='upper right',numpoints=1)
 
         P.xlabel(ROIDisplay.mathrm('delta l' if self.galactic else 'delta ra'))
         P.ylabel(ROIDisplay.mathrm('Counts'))
@@ -887,7 +886,8 @@ class ROIRadialIntegral(object):
                                           fit with the point hypothesis. Only works when which is an
                                           extended source. """),
             ('smooth_model',    True, """Connect the model preditions with a line (instead of steps) 
-                                         to make the model look smoother.""")
+                                         to make the model look smoother."""),
+            ('use_gradient',    True, """Use gradient when refitting."""),
     )
 
     @keyword_options.decorate(defaults)
@@ -959,7 +959,7 @@ class ROIRadialIntegral(object):
             # only zero it after making a copy of the spectral part!
             self.roi.zero_source(es)
 
-            self.roi.fit(estimate_errors=False)
+            self.roi.fit(estimate_errors=False,use_gradient=self.use_gradient)
 
             self.mi['Point']=RadialModel(self.roi,**kwargs)
 
@@ -999,7 +999,7 @@ class ROIRadialIntegral(object):
             P.plot(self.theta_sqr,model,drawstyle='steps' if not self.smooth_model else 'default',
                    label=name)
 
-        P.legend(loc='best',numpoints=1)
+        P.legend(loc='upper right',numpoints=1)
 
         P.xlabel(ROIDisplay.mathrm(r'delta \theta^2 [deg^2]'))
         P.ylabel(ROIDisplay.mathrm('Counts'))

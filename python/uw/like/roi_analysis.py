@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.66 2011/02/04 21:08:21 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.67 2011/02/07 19:24:53 lande Exp $
 
 author: Matthew Kerr
 """
@@ -17,6 +17,7 @@ from . pointspec_helpers import PointSource,get_default_diffuse_mapper
 from . roi_diffuse import ROIDiffuseModel,DiffuseSource
 from . roi_extended import ExtendedSource,BandFitExtended
 from . import roi_printing
+from . import roi_modify
 from uw.utilities import keyword_options
 from uw.utilities import xml_parsers
 from uw.utilities import region_writer
@@ -73,10 +74,8 @@ class ROIAnalysis(object):
         self.bin_centers = N.sort(list(set([b.e for b in self.bands])))
         self.bin_edges    = N.sort(list(set([b.emin for b in self.bands] + [b.emax for b in self.bands])))
 
-        self.param_state = N.concatenate([m.free for m in self.psm.models] + [m.free for m in self.bgm.models])
-        self.param_vals  = N.concatenate([m.p for m in self.psm.models] + [m.p for m in self.bgm.models])
-        self.psm.cache(self.bands)
-        #self.psm.update_counts(self.bands)
+        self.param_state, self.param_vals  = None,None
+        self.__pre_fit__()
 
         self.logl = self.prev_logl =-self.logLikelihood(self.get_parameters()) # make sure everything initialized
 
@@ -296,7 +295,8 @@ class ROIAnalysis(object):
         param_state = N.concatenate([m.free for m in self.psm.models] + [m.free for m in self.bgm.models])
         param_vals  = N.concatenate([m.p for m in self.psm.models] + [m.p for m in self.bgm.models])
 
-        if len(param_state)  != len(self.param_state) or \
+        if self.param_state is None or self.param_vals is None or \
+            len(param_state)  != len(self.param_state) or \
             N.any(param_state != self.param_state) or \
             N.any(param_vals  != self.param_vals):
 
@@ -308,6 +308,13 @@ class ROIAnalysis(object):
 
             self.param_state = param_state
             self.param_vals  = param_vals
+
+    def __update_state__(self):
+        """ Helper function which should, hopefully, consistently update
+            all of the model predictions for an ROI, even if some of
+            sources have been deleted, zeroed, or frozen. """
+        self.__pre_fit__()
+        self.update_counts()
 
     def fit(self,method='simplex', tolerance = 0.01, save_values = True, 
                      fit_bg_first = False, estimate_errors=True, error_for_steps=False,
@@ -748,22 +755,28 @@ class ROIAnalysis(object):
              raise Exception("Unable to add source %s. Only able to add PointSource, DiffuseSource, or ROIDiffuseModel objects.")
          if self.__dict__.has_key('cov_matrix'): del self.cov_matrix
          manager.add_source(source,self.bands,**kwargs)
+         self.__update_state__()
 
     def del_source(self,which):
          """Remove the source at position given by which from the model."""
          manager,index=self.mapper(which)
          if self.__dict__.has_key('cov_matrix'): del self.cov_matrix
-         return manager.del_source(index,self.bands)
+         source=manager.del_source(index,self.bands)
+         self.__update_state__()
+         return source
 
     def zero_source(self,which):
          """Set the flux of the source given by which to 0."""
          manager,index=self.mapper(which)
-         return manager.zero_source(index,self.bands)
+         source=manager.zero_source(index,self.bands)
+         self.__update_state__()
+         return source
 
     def unzero_source(self,which):
          """Restore a previously-zeroed flux."""
          manager,index=self.mapper(which)
          manager.unzero_source(index,self.bands)
+         self.__update_state__()
 
     # for backwards compatability, clone functions
     add_ps = add_source
@@ -771,17 +784,22 @@ class ROIAnalysis(object):
     zero_ps = zero_source
     unzero_ps = unzero_source
 
-    def modify_loc(self,skydir,which):
-        """Move point source given by which to new location given by skydir."""
-        manager,index=self.mapper(which)
-        if manager==self.psm:
-            rl = roi_localize.ROILocalizer(self,which=index,update=True,bandfits=False)
-            rl.spatialLikelihood(skydir,update=True)
-        elif manager==self.dsm:
-            if isinstance(self.dsm.diffuse_sources[index],ExtendedSource):
-                self.dsm.bgmodels[index].modify_loc(self.bands,skydir)
-            else:
-                raise Exception("Unable to modify_loc of diffuse source %s" % which)
+    @decorate_with(roi_modify.modify_loc)
+    def modify_loc(self,*args,**kwargs):
+        roi_modify.modify_loc(self,*args,**kwargs)
+
+    @decorate_with(roi_modify.modify_spatial_model)
+    def modify_spatial_model(self,*args,**kwargs):
+        roi_modify.modify_spatial_model(self,*args,**kwargs)
+
+    @decorate_with(roi_modify.modify_model)
+    def modify_model(self,*args,**kwargs):
+        roi_modify.modify_model(self,*args,**kwargs)
+
+    @decorate_with(roi_modify.modify)
+    def modify(self,*args,**kwargs):
+        roi_modify.modify(self,*args,**kwargs)
+
         
     @decorate_with(roi_printing.print_summary)
     def print_summary(self, sdir=None, galactic=False, maxdist=5, title=None):
@@ -836,6 +854,11 @@ class ROIAnalysis(object):
         if not line: return
         p = self.qform.par[0:2]+self.qform.par[3:]
         print len(p)*'%10.4f' % tuple(p)
+
+    def get_ellipse(self):
+        """ Returns a dictionary specifying the elliptical 
+            localiztion parameters. """
+        return dict(zip('ra dec a b ang qual'.split(),self.qform.par[0:6]))
  
     @decorate_with(xml_parsers.writeROI)
     def toXML(self,filename,**kwargs):
@@ -853,11 +876,11 @@ class ROIAnalysis(object):
         """ return a reference to the model
             which : integer or string
         """
-        psm, index = self.mapper(which) #raise exception if wrong.
-        return psm.models[index]
+        manager, index = self.mapper(which) #raise exception if wrong.
+        return manager.models[index]
         
     def get_source(self, which):
         """ return a reference to a source in the ROI by name, or point-source index"""
-        psm, index = self.mapper(which) #raise exception if wrong.
-        return psm.point_sources[index] if psm==self.psm else self.dsm.diffuse_sources[index] 
+        manager, index = self.mapper(which) #raise exception if wrong.
+        return manager.point_sources[index] if manager==self.psm else self.dsm.diffuse_sources[index] 
         
