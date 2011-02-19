@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.26 2011/02/18 03:40:14 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.27 2011/02/18 19:33:20 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -398,7 +398,8 @@ def plot_spectra(r, which=0, eweight=2,fignum=1,outfile=None,merge_bins=False,
 
 
 class ROIDisplay(object):
-    """Manage the plotting of ROI info."""
+    """ Manage the plotting of ROI info. The output is several two dimensional sky maps.
+        These include counts, model counts, residual counts, and p-values. """
 
     defaults = (
             ('figsize',       (12,8),         'Size of the image'),
@@ -634,6 +635,7 @@ def int2bin(n, count=24):
 #===============================================================================================#
 
 class ROISlice(object):
+    """ Object to create counts slice plot. """
 
     defaults = (
             ('figsize',        (7,6), 'Size of the image'),
@@ -874,6 +876,7 @@ class ROISlice(object):
 
 
 class ROIRadialIntegral(object):
+    """ Object to create a radial integral plot, binned uniformly in theta^2. """
 
     defaults = (
             ('figsize',        (7,6), 'Size of the image'),
