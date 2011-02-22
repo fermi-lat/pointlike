@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Feb 21 16:26:57 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+Changed N. to np., removed deprecated code.
+
+    *
+------------------------------------------------------------
 User: lande  Sun Feb 20 16:42:49 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
