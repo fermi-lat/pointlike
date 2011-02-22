@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.25 2011/01/30 18:40:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.26 2011/02/04 02:53:48 lande Exp $
 
 author: Matthew Kerr
 """
@@ -15,9 +15,6 @@ from Models import *
 from pypsf import *
 from roi_bands import *
 from abc import abstractmethod
-
-      
-###====================================================================================================###
 
 class ROIModelManager(object):
     """Parent class for point source manager and background manager.  Provides universal
@@ -54,8 +51,7 @@ class ROIModelManager(object):
     @abstractmethod
     def unzero_source(self, which, bands): pass
         
-
-###====================================================================================================###
+###======================================================================###
 
 class ROIPointSourceManager(ROIModelManager):
     """Manage all point sources."""
@@ -252,8 +248,7 @@ class ROIPointSourceManager(ROIModelManager):
         except:
             print 'Source %d indicated was not zeroed in the first place!' %which
 
-
-###====================================================================================================###
+###======================================================================###
 
 class ROIDiffuseManager(ROIModelManager):
     """ Manage a set of ROIDiffuseModels as they interact with the likelihood."""
@@ -379,11 +374,7 @@ class ROIDiffuseManager(ROIModelManager):
         except:
             print 'Source indicated was not zeroed in the first place!'
 
-
-###====================================================================================================###
-
-       
-###====================================================================================================###
+###======================================================================###
 
 class ROIBackgroundManager(ROIModelManager):
     """Manage.  The input is a set of diffuse models (SkySpectrum instances) and a matching set
