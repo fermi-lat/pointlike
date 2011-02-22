@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.29 2011/01/31 01:19:26 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.30 2011/02/01 19:59:28 wallacee Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.29 $'.split()[1]
+version='$Revision: 1.30 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -14,7 +14,7 @@ from glob import glob
 from datetime import date,timedelta
 
 from pixeldata import PixelData
-from pypsf     import Psf,OldPsf,NewPsf,CALDBPsf
+from pypsf     import Psf,CALDBPsf
 from pycaldb   import CALDBManager
 from pointspec_helpers import *
 from roi_managers import ROIPointSourceManager,ROIBackgroundManager,ROIDiffuseManager
@@ -197,7 +197,7 @@ class SpectralAnalysis(object):
         keyword_options.process(self, kwargs)
 
         self.CALDBManager = CALDBManager(irf=self.irf,psf_irf=self.psf_irf,
-                                         CALDB=self.CALDB,custom_irf_dir=self.custom_irf_dir)
+            CALDB=self.CALDB,custom_irf_dir=self.custom_irf_dir)
 
          #TODO -- sanity check that BinnedPhotonData agrees with analysis parameters
         self.pixeldata = PixelData(self.__dict__)
