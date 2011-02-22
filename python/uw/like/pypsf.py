@@ -2,13 +2,13 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pypsf.py,v 1.23 2011/01/06 05:33:45 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.24 2011/01/24 21:22:40 lande Exp $
 author: M. Kerr
 
 """
 
 import pyfits as pf
-import numpy as N
+import numpy as np
 from os.path import join
 import os
 from cPickle import load
@@ -19,12 +19,12 @@ from math import cos,sin
 def scale_factor(e,c0,c1,exp):
     return ( (c0*(e/100)**(exp))**2 + c1**2 )**0.5
 
-TWOPI = (2*N.pi)
-RAD2DEG = 180./N.pi
+TWOPI = (2*np.pi)
+RAD2DEG = 180./np.pi
+DEG2RAD = np.pi/180
 
-###====================================================================================================###
-###====================================================================================================###
-###====================================================================================================###
+###======================================================================###
+
 class Psf(object):
 
     def init(self):
@@ -48,11 +48,11 @@ class Psf(object):
         h0,h1 = self.CALDBhandles = [pf.open(x) for x in self.CALDBManager.get_psf()]
 
         # read in stuff that doesn't depend on conversion type
-        self.scale_factors = N.asarray(h0[2].data.field('PSFSCALE')).flatten()
-        self.e_los            = N.asarray(h0[1].data.field('ENERG_LO')).flatten().astype(float)
-        self.e_his            = N.asarray(h0[1].data.field('ENERG_HI')).flatten().astype(float)
-        self.c_los            = N.asarray(h0[1].data.field('CTHETA_LO')).flatten().astype(float)
-        self.c_his            = N.asarray(h0[1].data.field('CTHETA_HI')).flatten().astype(float)
+        self.scale_factors = np.asarray(h0[2].data.field('PSFSCALE')).flatten()
+        self.e_los            = np.asarray(h0[1].data.field('ENERG_LO')).flatten().astype(float)
+        self.e_his            = np.asarray(h0[1].data.field('ENERG_HI')).flatten().astype(float)
+        self.c_los            = np.asarray(h0[1].data.field('CTHETA_LO')).flatten().astype(float)
+        self.c_his            = np.asarray(h0[1].data.field('CTHETA_HI')).flatten().astype(float)
 
         sf = self.scale_factors
         self.scale_func = [lambda e: ( (sf[0]*(e/100)**(sf[-1]))**2 + sf[1]**2 )**0.5,
@@ -67,7 +67,7 @@ class Psf(object):
 
         elo,ehi,clo,chi = self.e_los,self.e_his,self.c_los[::-1],self.c_his[::-1]
 
-        weights  = N.zeros([2,len(elo),len(clo)])
+        weights  = np.zeros([2,len(elo),len(clo)])
         for i in xrange(len(elo)):                            # iterator over energies
             em = (elo[i]*ehi[i])**0.5
             for j in [0,1]:                                      # iterate over conversion types
@@ -82,17 +82,18 @@ class Psf(object):
         self.__calc_weights__(livetimefile,skydir)
 
     def get_p(self,e,ct,cthetabin=None):
-        ind    = min(N.searchsorted(self.e_his,e),len(self.e_his) - 1)
+        ind    = min(np.searchsorted(self.e_his,e),len(self.e_his) - 1)
         p      = self.tables[ct,:,ind,:]
         w      = self.weights[ct,ind,:]
         if cthetabin is None:
-            return N.append(p,[w],axis=0)
+            return np.append(p,[w],axis=0)
         else:
-            return N.append(p[:,cthetabin],1)
+            return np.append(p[:,cthetabin],1)
 
-###====================================================================================================###
-###====================================================================================================###
-###====================================================================================================###
+###======================================================================###
+###======================================================================###
+###======================================================================###
+
 class CALDBPsf(Psf):
     """Handle reading in the parameters from CALDB for multiple formats and implement the PSF functions."""
 
@@ -104,18 +105,18 @@ class CALDBPsf(Psf):
 
         if self.newstyle:
 
-            tables = [[1./(1+N.reshape(h[i][1].data.field('NTAIL'),[nc,ne]).transpose()[:,::-1]),
-                          N.reshape(h[i][1].data.field('NTAIL'),[nc,ne]).transpose()[:,::-1]/(1+N.reshape(h[i][1].data.field('NTAIL'),[nc,ne]).transpose()[:,::-1]),
-                          N.reshape(h[i][1].data.field('GCORE'),[nc,ne]).transpose()[:,::-1],
-                          N.reshape(h[i][1].data.field('GTAIL'),[nc,ne]).transpose()[:,::-1],
-                          N.reshape(h[i][1].data.field('SCORE'),[nc,ne]).transpose()[:,::-1],
-                          N.reshape(h[i][1].data.field('STAIL'),[nc,ne]).transpose()[:,::-1]] for i in [0,1]]
+            tables = [[1./(1+np.reshape(h[i][1].data.field('NTAIL'),[nc,ne]).transpose()[:,::-1]),
+                          np.reshape(h[i][1].data.field('NTAIL'),[nc,ne]).transpose()[:,::-1]/(1+np.reshape(h[i][1].data.field('NTAIL'),[nc,ne]).transpose()[:,::-1]),
+                          np.reshape(h[i][1].data.field('GCORE'),[nc,ne]).transpose()[:,::-1],
+                          np.reshape(h[i][1].data.field('GTAIL'),[nc,ne]).transpose()[:,::-1],
+                          np.reshape(h[i][1].data.field('SCORE'),[nc,ne]).transpose()[:,::-1],
+                          np.reshape(h[i][1].data.field('STAIL'),[nc,ne]).transpose()[:,::-1]] for i in [0,1]]
 
         else:
-            tables = [[N.reshape(h[i][1].data.field('GCORE'),[nc,ne]).transpose()[:,::-1],
-                          N.reshape(h[i][1].data.field('SIGMA'),[nc,ne]).transpose()[:,::-1]] for i in [0,1]]
+            tables = [[np.reshape(h[i][1].data.field('GCORE'),[nc,ne]).transpose()[:,::-1],
+                          np.reshape(h[i][1].data.field('SIGMA'),[nc,ne]).transpose()[:,::-1]] for i in [0,1]]
 
-        self.tables  = N.asarray(tables)
+        self.tables  = np.asarray(tables)
 
     def __call__(self,e,ct,delta, scale_sigma=True, density = False):
         sf = self.scale_func[ct](e) if scale_sigma else 1
@@ -128,20 +129,20 @@ class CALDBPsf(Psf):
             # note retaining explicit old style for the nonce, for comparison testing
             gc,si,w = self.get_p(e,ct) # note each parameter is an 8-vector
             si *= sf
-            us  = 0.5 * N.outer(delta,1./si)**2
+            us  = 0.5 * np.outer(delta,1./si)**2
             y    = (1-1./gc)*(1+us/gc)**(-gc)
             return (w*(y / (TWOPI*si**2 if density else 1.))).sum(axis=1)
 
     def psf_base(self,g,s,delta,density=False):
         """Implement the PSF base function; g = gamma, s = sigma, w = weight, delta = deviation in radians."""
-        u = 0.5 * N.outer(delta,1./s)**2
+        u = 0.5 * np.outer(delta,1./s)**2
         y = (1-1./g)*(1+u/g)**(-g)
         return y / (TWOPI*s**2 if density else 1.)
 
     """ Not sure these are in use -- if they are, update for old/new CALDB formats.
     def set_cache(self,e,ct):
         np = len(self.get_p(e[0],ct[0])[0])
-        self.cache = N.empty([3,len(e),np])
+        self.cache = np.empty([3,len(e),np])
         ca = self.cache; gp = self.get_p; sf = self.scale_func
         for i,(mye,myct) in enumerate(zip(e,ct)):
             ca[:,i,:]  = gp(mye,myct)
@@ -194,9 +195,9 @@ class CALDBPsf(Psf):
                 return RAD2DEG*sf*(2*u1)**0.5*sc[0]
         f = lambda x: abs(self.integral(e,ct,x) - percent)
         from scipy.optimize import fmin
-        seeds = N.asarray([5,4,3,2.5,2,1.5,1,0.5,0.25])*self.scale_func[ct](e)
-        seedvals = N.asarray([self.integral(e,ct,x) for x in seeds])
-        seed = seeds[N.argmin(N.abs(seedvals-percent))]
+        seeds = np.asarray([5,4,3,2.5,2,1.5,1,0.5,0.25])*self.scale_func[ct](e)
+        seedvals = np.asarray([self.integral(e,ct,x) for x in seeds])
+        seed = seeds[np.argmin(np.abs(seedvals-percent))]
         trial = fmin(f,seed,disp=0,ftol=0.000001,xtol=0.01)
         if trial > 0:
             return trial[0]*RAD2DEG
@@ -206,9 +207,10 @@ class CALDBPsf(Psf):
     def band_psf(self,band,weightfunc=None,adjust_mean=False):
         return BandCALDBPsf(self,band,weightfunc=weightfunc,adjust_mean=adjust_mean,newstyle=self.newstyle)
 
-###====================================================================================================###
-###====================================================================================================###
-###====================================================================================================###
+###======================================================================###
+###======================================================================###
+###======================================================================###
+
 class BandPsf(object):
 
     def init(self):
@@ -230,25 +232,25 @@ class BandPsf(object):
             from scipy.integrate import simps
             f = lambda e: e**-index
             b = band    
-            rad = min(b.radius_in_rad,N.radians(psf.inverse_integral(band.e,band.ct,percent=99,on_axis=True)))
-            dom = N.linspace(0,rad**2,101)**0.5
+            rad = min(b.radius_in_rad,np.radians(psf.inverse_integral(band.e,band.ct,percent=99,on_axis=True)))
+            dom = np.linspace(0,rad**2,101)**0.5
 
             # calculate the actual PSF integral over sub-bands
-            fopt = N.zeros_like(dom)
+            fopt = np.zeros_like(dom)
             for i in xrange(len(b.sp_points)):
                 n = psf(b.sp_points[i],b.ct,dom,density=True)*b.sp_vector[i]*b.sp_points[i]**-index
                 fopt += n
             n = (b.sp_vector*f(b.sp_points)).sum()
 
             # an estimate of log likelihood in infinite-N limit
-            logl1 = simps(fopt) - simps(fopt*N.log(fopt))
+            logl1 = simps(fopt) - simps(fopt*np.log(fopt))
 
             # now, find E_opt that gives same likelihood; linear fit
-            edom = N.linspace(band.e*0.98,band.e*1.02,3)
-            ecod = N.empty_like(edom)
+            edom = np.linspace(band.e*0.98,band.e*1.02,3)
+            ecod = np.empty_like(edom)
             for ien,en in enumerate(edom):
                 fe = n*psf(en,b.ct,dom,density=True)
-                ecod[ien] = simps(fe) - simps(fe*N.log(fe))
+                ecod[ien] = simps(fe) - simps(fe*np.log(fe))
             slope = (ecod[-1] - ecod[0])/(band.e*0.04)
             self.eopt = band.e + (logl1 - ecod[1])/slope
             if abs(self.eopt/band.e - 1) > 0.10: # sanity check
@@ -257,7 +259,7 @@ class BandPsf(object):
 
         elif self.weightfunc is not None:
             weightfunc = self.weightfunc
-            dom    = N.logspace(N.log10(band.emin),N.log10(band.emax),9)
+            dom    = np.logspace(np.log10(band.emin),np.log10(band.emax),9)
             wvals = [weightfunc(x) for x in dom]
             svals = psf.scale_func[band.ct](dom)
             num = simps(wvals*svals*dom,x=dom)
@@ -306,14 +308,15 @@ class BandPsf(object):
             u1 = gc[0]*( (1-frac)**(1./(1-gc[0])) - 1)
             return RAD2DEG*(2*u1)**0.5*sc[0]
 
-###====================================================================================================###
-###====================================================================================================###
-###====================================================================================================###
+###======================================================================###
+###======================================================================###
+###======================================================================###
+
 class BandCALDBPsf(BandPsf):
 
     def psf_base(self,g,s,delta,density=False):
         """Implement the PSF base function; g = gamma, s = sigma, delta = deviation in radians."""
-        u = 0.5 * N.outer(delta,1./s)**2
+        u = 0.5 * np.outer(delta,1./s)**2
         y = (1-1./g)*(1+u/g)**(-g)
         return y / (TWOPI*s**2 if density else 1.)
 
@@ -325,7 +328,7 @@ class BandCALDBPsf(BandPsf):
             return (w*(nc*yc + nt*yt)).sum(axis=1)
         else:
             gc,si,w = self.par
-            us  = 0.5 * N.outer(delta,1./si)**2
+            us  = 0.5 * np.outer(delta,1./si)**2
             y    = (1-1./gc)*(1+us/gc)**(-gc)
             return (w*(y / (TWOPI*si**2 if density else 1.))).sum(axis=1)
 
@@ -346,9 +349,10 @@ class BandCALDBPsf(BandPsf):
             w,a,b = self.int_par
             return ( w*( (1+a*(dmin*dmin))**b - (1+a*(dmax*dmax))**b ) ).sum()
 
-###====================================================================================================###
-###====================================================================================================###
-###====================================================================================================###
+###======================================================================###
+###======================================================================###
+###======================================================================###
+
 class PsfOverlap(object):
     """Routines to calculate how much of the emission of a point source falls onto an ROI."""
 
@@ -362,7 +366,7 @@ class PsfOverlap(object):
 
     def set_dir_cache(self,band,roi_dir,radius):
         self.cache_wsdl = WeightedSkyDirList(band.b,roi_dir,radius,True)
-        self.cache_diffs = N.empty(len(self.cache_wsdl))
+        self.cache_diffs = np.empty(len(self.cache_wsdl))
         self.cache_hash = hash(band)
 
     def num_overlap(self,band,roi_dir,ps_dir,radius_in_rad=None,override_pdf=None):
@@ -371,7 +375,7 @@ class PsfOverlap(object):
         if override_pdf is None:
             band.psf.cpsf.wsdl_val(self.cache_diffs,ps_dir,self.cache_wsdl)
         else:
-            difference = N.empty(len(self.cache_wsdl))
+            difference = np.empty(len(self.cache_wsdl))
             PythonUtilities.arclength(difference,self.cache_wsdl,roi_dir)
             self.cache_diffs = override_pdf(difference)
         return self.cache_diffs.sum()*band.b.pixelArea()
@@ -397,7 +401,7 @@ class PsfOverlap(object):
                 eff_rad = ( roi_rad**2 + offset**2*(c**2 - 1) )**0.5 - offset*c
                 return integral(eff_rad)
 
-            overlap = quad(interior,0,N.pi,epsabs=self.quadrature_tol)[0]/N.pi
+            overlap = quad(interior,0,np.pi,epsabs=self.quadrature_tol)[0]/np.pi
 
         else:
 
@@ -409,8 +413,8 @@ class PsfOverlap(object):
                 return integral(dmax=de+2*r2,dmin=de)
 
 
-            limit = N.arcsin(roi_rad / offset)
-            overlap = quad(exterior,0,limit,epsabs=self.quadrature_tol)[0]/N.pi
+            limit = np.arcsin(roi_rad / offset)
+            overlap = quad(exterior,0,limit,epsabs=self.quadrature_tol)[0]/np.pi
 
 
         if ((band.b.pixelArea()**0.5/band.radius_in_rad) > ragged_edge) and (band.b.nside() < 200):
@@ -421,9 +425,10 @@ class PsfOverlap(object):
 
         return overlap
 
-###====================================================================================================###
-###====================================================================================================###
-###====================================================================================================###
+###======================================================================###
+###======================================================================###
+###======================================================================###
+
 class PsfOverlapHealpix(object):
     """Routines to calculate how much of the emission of a point source falls onto an ROI."""
 
@@ -439,13 +444,13 @@ class PsfOverlapHealpix(object):
 
         # pick an nside commensurate with PSF and that will fit evenly within base pixel
         scale = band.psf.parent_psf.scale_func[band.ct](band.e)/5
-        sample_nside = (N.pi/3)**0.5/scale
-        p0 = N.log(sample_nside/nside)/N.log(2)
+        sample_nside = (np.pi/3)**0.5/scale
+        p0 = np.log(sample_nside/nside)/np.log(2)
         last_overlap = None
         overlaps = []
         for addon in [0]:
             sample_nside = min(8192,nside*2**(int(p0)+addon))
-            geo = (4*N.pi/12/sample_nside**2)
+            geo = (4*np.pi/12/sample_nside**2)
             #print sample_nside,index
 
             # temporary code for testing!
@@ -454,7 +459,7 @@ class PsfOverlapHealpix(object):
                 band.b = Band(sample_nside)
 
             wsdl  = WeightedSkyDirList(band.b,nside,index,True)
-            vals  = N.empty(len(wsdl))
+            vals  = np.empty(len(wsdl))
             band.psf.cpsf.wsdl_val(vals,ps_dir,wsdl)
             overlap = vals.sum()*geo
             #print overlap
@@ -467,11 +472,9 @@ class PsfOverlapHealpix(object):
         return overlaps[-1],sample_nside
 
 
-###====================================================================================================###
-###deprecated==========================================================================================###
-###====================================================================================================###
-
-deg2rad = N.pi / 180.
+###======================================================================###
+###======================================================================###
+###======================================================================###
 
 class PretendBand(object):
 
@@ -491,149 +494,8 @@ class ConvolutionPsf(object):
 
      def __call__(self,v):
           sd = SkyDir(Hep3Vector(v[0],v[1],v[2]))
-          return self.psf(deg2rad*(90. - sd.b()))[0]          
+          return self.psf(DEG2RAD*(90. - sd.b()))[0]          
 
      def get_pyskyfun(self):
           return PySkyFunction(self)
 
-###====================================================================================================###
-###====================================================================================================###
-###====================================================================================================###
-
-# deprecated
-class NewPsf(Psf):
-
-    def __init__(self,CALDB,my_CALDB_pickle,**kwargs):
-        self.my_CALDB_pickle = my_CALDB_pickle
-        super(NewPsf,self).__init__(CALDB,**kwargs)        
-
-    def __read_params__(self):
-        self.p = p = load(file(self.my_CALDB_pickle))
-
-        # tables are in order: NCORE, SIGMA, A, GCORE, GTAIL
-        ftables = N.asarray(p['ftables'])[:,:,:-1] # trim of 0-66 deg fit
-        btables = N.asarray(p['btables'])[:,:,:-1] 
-
-        # do not fit 24 MeV bin
-        self.e_los     = self.e_los[1:]
-        self.e_his     = self.e_his[1:]
-
-        self.tables = N.asarray([ftables,btables])
-
-    def __call__(self,e,ct,delta, scale_sigma=True, density=False,cthetabin=None):
-        """Return the differential psf at given energy and conversion type.
-
-            Parameters
-            ----------
-            e : float, the energy in MeV
-            ct : float, the conversion type (0 = front, 1 = back)
-            delta : ndarray(float), the angular separation in radians
-
-            Returns
-            -------
-            output : ndarray (1d), the differential psf evaluated at the required points
-        """
-        nc,si,ap,gc,gt,w = self.get_p(e,ct,cthetabin) # note each parameter is an 8-vector
-        if scale_sigma: si *= self.scale_func[ct](e)
-        us  = 0.5 * N.outer(delta,1./si)**2
-        y    = (nc*(1-1./gc))*(1+us/gc)**(-gc) + ((1-nc)*ap**(gt-1))*(1.-1./gt)*(ap+us/gt)**(-gt)
-        return (w*(y / (TWOPI*si**2 if density else 1.))).sum(axis=1)
-
-    def integral(self,e,ct,dmax,dmin=0):
-        """ Note -- does *not* take a vector argument right now."""
-        nc,si,ap,gc,gt,w = self.get_p(e,ct)
-        si *= self.scale_func[ct](e)
-        u1 = 0.5 * (dmin / si)**2
-        u2 = 0.5 * (dmax / si)**2
-        return  (w*(nc*              ( (1+u1/gc)**(1-gc)  - (1+u2/gc)**(1-gc)  ) + \
-                  (1-nc)*ap**(gt-1)*( (ap+u1/gt)**(1-gt) - (ap+u2/gt)**(1-gt) ) )).sum()
-
-    def band_psf(self,band,weightfunc=None): return BandNewPsf(self,band,weightfunc)
-
-###====================================================================================================###
-###====================================================================================================###
-###====================================================================================================###
-
-# deprecated
-class OldPsf(Psf):
-
-    def __read_params__(self):        
-        h      = self.CALDBhandles # a tuple with handles to front and back CALDB
-        ne,nc = len(self.e_los),len(self.c_his)
-        tables = [[N.reshape(h[i][1].data.field('GCORE'),[nc,ne]).transpose()[:,::-1],
-                      N.reshape(h[i][1].data.field('SIGMA'),[nc,ne]).transpose()[:,::-1]] for i in [0,1]]
-        self.tables  = N.asarray(tables)
-
-    def __call__(self,e,ct,delta, scale_sigma=True, density = False):
-        gc,si,w = self.get_p(e,ct) # note each parameter is an 8-vector
-        if scale_sigma: si *= self.scale_func[ct](e)
-        us  = 0.5 * N.outer(delta,1./si)**2
-        y    = (1-1./gc)*(1+us/gc)**(-gc)
-        return (w*(y / (TWOPI*si**2 if density else 1.))).sum(axis=1)
-
-    def set_cache(self,e,ct):
-        np = len(self.get_p(e[0],ct[0])[0])
-        self.cache = N.empty([3,len(e),np])
-        ca = self.cache; gp = self.get_p; sf = self.scale_func
-        for i,(mye,myct) in enumerate(zip(e,ct)):
-            ca[:,i,:]  = gp(mye,myct)
-            ca[1,i,:] *= sf[myct](mye)
-
-    def get_cache(self,delta,density = False):
-        g,s,w = self.cache
-        us     = 0.5 * (delta / s)**2
-        y      = y  = (1-1./g)*(1+us/g)**(-g)
-        return (w*(y / (TWOPI*s**2 if density else 1.))).sum(axis=1)
-
-    def integral(self,e,ct,dmax,dmin=0):
-        """ Note -- does *not* take a vector argument right now."""
-        gc,si,w = self.get_p(e,ct)
-        si *= self.scale_func[ct](e)
-        u1 = 0.5 * (dmin / si)**2
-        u2 = 0.5 * (dmax / si)**2
-        return  (w*( (1+u1/gc)**(1-gc)  - (1+u2/gc)**(1-gc)  )).sum()
-
-    def band_psf(self,band,weightfunc=None): return BandOldPsf(self,band,weightfunc)
-
-
-###====================================================================================================###
-###====================================================================================================###
-###====================================================================================================###
-
-# deprecated
-class BandNewPsf(BandPsf):
-
-    def __call__(self,delta,density=False):
-        nc,si,ap,gc,gt,w = self.par
-        us  = 0.5 * N.outer(delta,1./si)**2
-        y    = (nc*(1-1./gc))*(1+us/gc)**(-gc) + ((1-nc)*ap**(gt-1))*(1.-1./gt)*(ap+us/gt)**(-gt)
-        return (w*(y / (TWOPI*si**2 if density else 1.))).sum(axis=1)
-
-    def integral(self,dmax,dmin=0):
-        """ Note -- does *not* take a vector argument right now."""
-        nc,si,ap,gc,gt,w = self.par
-        u1 = 0.5 * (dmin / si)**2
-        u2 = 0.5 * (dmax / si)**2
-        return  (w*(nc*              ( (1+u1/gc)**(1-gc)  - (1+u2/gc)**(1-gc)  ) + \
-                  (1-nc)*ap**(gt-1)*( (ap+u1/gt)**(1-gt) - (ap+u2/gt)**(1-gt) ) )).sum()
-
-
-###====================================================================================================###
-###====================================================================================================###
-###====================================================================================================###
-
-# deprecated
-class BandOldPsf(BandPsf):
-
-    def __call__(self,delta,density=False):
-        gc,si,w = self.par
-        us  = 0.5 * N.outer(delta,1./si)**2
-        y    = (1-1./gc)*(1+us/gc)**(-gc)
-        return (w*(y / (TWOPI*si**2 if density else 1.))).sum(axis=1)
-
-    def integral(self,dmax,dmin=0):
-        """ Note -- does *not* take a vector argument right now."""
-        gc,si,w = self.par
-        u1 = 0.5 * (dmin / si)**2
-        u2 = 0.5 * (dmax / si)**2
-        return  ( w*( (1+u1/gc)**(1-gc)  - (1+u2/gc)**(1-gc)) ).sum()
