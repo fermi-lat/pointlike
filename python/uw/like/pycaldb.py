@@ -1,5 +1,5 @@
 """  A module to handle finding irfs
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.3 2011/01/28 05:35:13 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.4 2011/01/28 09:15:00 cohen Exp $
 
     author: Joshua Lande """
 import os
@@ -13,10 +13,10 @@ from uw.utilities import keyword_options
 class CALDBManager(object):
     """ This object abstracts access to IRF files which can be
         found in the file system. The intention is to provide a
-        consistentcy between the pointlike and gtlike IRF loading.
+        consistency between the pointlike and gtlike IRF loading.
 
         In particular, the caldb.indx is read so that a consistent
-        naming convnetion can be used. Additionally, the CUSTOM_IRF_DIR
+        naming convention can be used. Additionally, the CUSTOM_IRF_DIR
         environment varaible can used to define new IRFs. """
 
     defaults=(
