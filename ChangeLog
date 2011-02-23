@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Feb 22 22:50:13 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Clean up localization function. Add helper functions for counts maps, slices, and radial integrals.
+    *
+------------------------------------------------------------
 User: lande  Tue Feb 22 22:42:40 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
