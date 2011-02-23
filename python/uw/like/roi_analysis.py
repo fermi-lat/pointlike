@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.67 2011/02/07 19:24:53 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.68 2011/02/18 03:40:14 lande Exp $
 
 author: Matthew Kerr
 """
@@ -18,6 +18,7 @@ from . roi_diffuse import ROIDiffuseModel,DiffuseSource
 from . roi_extended import ExtendedSource,BandFitExtended
 from . import roi_printing
 from . import roi_modify
+from . import roi_plotting
 from uw.utilities import keyword_options
 from uw.utilities import xml_parsers
 from uw.utilities import region_writer
@@ -501,15 +502,8 @@ class ROIAnalysis(object):
 
             return fit position
         """
-
-        manager,index = self.mapper(which)
-
-        if manager == self.dsm and not isinstance(manager.diffuse_sources[index],ExtendedSource):
-            raise Exception("Can only localize Point and Extended Sources")
-
-        f = roi_localize.ROILocalizer if manager == self.psm else roi_localize.ROILocalizerExtended
-        rl = f(self,which=index,bandfits=bandfits,tolerance=tolerance,update=update,verbose=verbose)
-
+        rl = roi_localize.localizer(self, which=which, bandfits=bandfits,
+                                   tolerance=tolerance, update=update, verbose=verbose)
         if seedpos is not None:
             rl.sd = seedpos  # override 
         return rl.localize()
@@ -884,3 +878,16 @@ class ROIAnalysis(object):
         manager, index = self.mapper(which) #raise exception if wrong.
         return manager.point_sources[index] if manager==self.psm else self.dsm.diffuse_sources[index] 
         
+
+    @decorate_with(roi_plotting.ROIDisplay)
+    def plot_maps(self,out_file,**kwargs):
+        roi_plotting.ROIDisplay(self,**kwargs).show(out_file=out_file)
+
+    @decorate_with(roi_plotting.ROISlice)
+    def plot_slice(self,out_file,data_file=None,**kwargs):
+        roi_plotting.ROISlice(self,**kwargs).show(out_file=out_file,data_file=data_file)
+
+    @decorate_with(roi_plotting.ROIRadialIntegral)
+    def plot_radial_integral(self,out_file,data_file=None,**kwargs):
+        roi_plotting.ROIRadialIntegral(self,**kwargs).show(out_file=out_file,data_file=data_file)
+
