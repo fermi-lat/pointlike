@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Wed Feb 23 15:49:55 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	srcid.py 
+Log Message:
+Added a couple kludges to handle the 1FGL catalog correctly as a counterpart
+catalog.
+
+    *
+------------------------------------------------------------
 User: lande  Wed Feb 23 00:28:19 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
