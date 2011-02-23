@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Tue Feb 22 16:12:14 PST 2011
+ScienceTools-scons/pointlike/python/uw/pipeline
+
+Modified Files:
+	dataspec.py skyanalysis.py 
+Log Message:
+Modifications to dataspec.py and skyanalysis.py to allow loading one of a
+set of monthly data files.
+
+    *
+------------------------------------------------------------
 User: wallacee  Tue Feb 22 15:52:23 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
