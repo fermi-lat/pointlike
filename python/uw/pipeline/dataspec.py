@@ -1,7 +1,7 @@
 """
 Manage data specification
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/dataspec.py,v 1.3 2011/02/04 05:22:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/dataspec.py,v 1.2 2011/01/19 01:37:05 burnett Exp $
 
 """
 import os, glob
@@ -9,16 +9,10 @@ class DataSpec(object):
     """
     This needs to be made local to an installation
     """
-    def __init__(self, lookup_key):
-        """
-        lookup_key: string
-            spec
-        """
-        # basic data files
-        def data_join(*pars):
-            return os.path.expandvars(os.path.join('$FERMI','data', *pars))
 
-        self.__dict__.update( {
+    def data_join(*pars):
+        return os.path.expandvars(os.path.join('$FERMI','data', *pars))
+    datasets = {
         '1FGL': dict( data_name = '11 month 1FGL data set',
             ft1files  = [data_join('flight','%s-ft1.fits')%x for  x in 
                 ('aug2008','sep2008','oct2008','nov2008','dec2008',
@@ -49,6 +43,8 @@ class DataSpec(object):
             ltcube      = data_join('twenty','20month_lt.fits'),
             ),
        '2years': dict(data_name = "two years 4 bins/decade to 1 TeV",
+            ft1files    = None,
+            ft2files    = None,
             binfile     = data_join('monthly','2years_4bpd.fits'),
             ltcube      = data_join('monthly','2years_lt.fits'),
             ),
@@ -80,10 +76,24 @@ class DataSpec(object):
             ft1files   = '$FERMI/data/P7_V4_SOURCE/pass7.3*.fits',
             ft2files   = '$FERMI/data/P7_V4_SOURCE/ft2_2years.fits',
             binfile    = '$FERMI/data/P7_V4_SOURCE/24M7_4bpd.fits',
-            ltcube     = '$FERMI/data/P7_V4_SOURCE/24M7_lt.fits'
+            ltcube     = '$FERMI/data/P7_V4_SOURCE/24M7_lt.fits',
+            monthly_bpd= '$FERMI/data/P7_V4_SOURCE/monthly/bpd/*_4bpd.fits',
+            monthly_lt = '$FERMI/data/P7_V4_SOURCE/monthly/lt/*_lt.fits'
             ),
-        }[lookup_key]
-        )
+        }
+
+    def __init__(self, lookup_key, month=None):
+        """
+        lookup_key: string
+            spec
+        """
+        # basic data files
+        data = self.datasets[lookup_key]
+        if month is not None:
+            data['binfile'] = sorted(glob.glob(os.path.expandvars(data['monthly_bpd'])))[month]
+            data['ltcube'] = sorted(glob.glob(os.path.expandvars(data['monthly_lt'])))[month]
+
+        self.__dict__.update(data)
 
     def __str__(self):
         return self.data_name
