@@ -1,6 +1,6 @@
 """
 Basic ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/skyanalysis.py,v 1.9 2011/02/04 05:22:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/skyanalysis.py,v 1.10 2011/02/23 00:12:13 wallacee Exp $
 """
 import os, pickle, glob, types
 import numpy as np
@@ -51,7 +51,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         # add keys to modify to kwargs
         for kw in default_keys: 
             if kw in self.config: kwargs[kw]= self.config[kw]
-        month = kw.pop("month",None)
+        month = kwargs.pop("month",None)
         super(SkyAnalysis,self).__init__( dataspec.DataSpec(dataset,month=month), **kwargs)
         # now add waht is left
         self.__dict__.update(self.config)
