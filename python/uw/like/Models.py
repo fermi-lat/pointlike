@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.31 2011/01/28 18:46:49 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.32 2011/02/18 03:36:10 lande Exp $
 
     author: Matthew Kerr
 
@@ -281,14 +281,14 @@ Optional keyword arguments:
         except:
             print 'Encountered a numerical error when attempting to calculate integral flux.'
 
-    def set_flux(self,flux,**kwargs):
+    def set_flux(self,flux,*args,**kwargs):
         """ Set the flux of the source. 
                 
             This function ensures that after the function, call,
                 flux == model.i_flux(**kwargs)
-            where kwargs is consistently passed into i_flux and set_flux
+            where args and kwargs is consistently passed into i_flux and set_flux
         """
-        self.p[0] += N.log10(flux/self.i_flux(**kwargs))
+        self.p[0] += N.log10(flux/self.i_flux(*args,**kwargs))
 
     def copy(self):
         
