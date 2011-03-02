@@ -1,13 +1,15 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.11 2011/02/11 22:31:28 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.12 2011/02/14 00:23:02 kerrm Exp $
 
 """
 import os, pickle, glob, types
 import numpy as np
 from skymaps import SkyDir, Band
-from uw.utilities import keyword_options, makerec, xml_parsers
-from . import sources
+from uw.utilities import keyword_options, makerec
+#  this is below: only needed when want to create XML
+#from uw.utilities import  xml_parsers
+from . import sources, catrec
 
 class SkyModel(object):
     """
@@ -19,11 +21,15 @@ class SkyModel(object):
     """
     
     defaults= (
-        ('extended_catalog_name', None,  'name of folder with extended info'),
+        ('extended_catalog_name', None,  'name of folder with extended info\n'
+                                         'if None, look it up in the config.txt file'),
         ('alias', dict(), 'dictionary of aliases to use for lookup'),
         ('diffuse', ('ring_24month_P74_v1.fits', 'isotrop_21month_v2.txt'), 'pair of diffuse file names: use to locked'),
         ('auxcat', None, 'name of auxilliary catalog of point sources to append or names to remove',),
         ('update_positions', None, 'set to minimum ts  update positions if localization information found in the database'),
+        ('free_index', None, 'Set to minimum TS to free photon index if fixed'),
+        ('filter',   lambda s: True,   'selection filter'), 
+        ('rename_source',  lambda name: name, 'rename function'),
         ('quiet',  False,  'make quiet' ),
     )
     
@@ -35,12 +41,15 @@ class SkyModel(object):
              a subfolder 'pickle' with files *.pickle describing each ROI, partitioned as a HEALpix set.
         """
         keyword_options.process(self, kwargs)
+        if self.free_index is not None: 
+            print 'will free photon indices for ts>%d' % self.free_index
 
         if folder is None:
             folder = 'uw%02d' % int(open('version.txt').read())
         self.folder = os.path.expandvars(folder)
         if not os.path.exists(self.folder):
             raise Exception('sky model folder %s not found' % folder)
+        self.get_config()
         self._setup_extended()
         self._load_sources()
         if self.diffuse is not None:
@@ -50,12 +59,22 @@ class SkyModel(object):
             sources.Isotropic(x[1], True)
             
         self.load_auxcat()
-        
+      
     def __str__(self):
         return 'SkyModel %s' %self.folder\
                 +'\n\t\tdiffuse: %s' %list(self.diffuse)\
                 +'\n\t\textended: %s' %self.extended_catalog_name 
-                
+     
+    def get_config(self, fn = 'config.txt'):
+        """ parse the items in the configuration file into a dictionary
+        """
+        file = open(os.path.join(self.folder, fn))
+        self.config={}
+        for line in file:
+            item = line.split(':')
+            if len(item)>1:
+                self.config[item[0].strip()]=item[1].strip()
+ 
     def load_auxcat(self):
         """ modify the list of pointsources from entries in the auxcat: for now:
             * add it not there
@@ -66,7 +85,7 @@ class SkyModel(object):
         if self.auxcat is None or self.auxcat=='': return
         cat = self.auxcat 
         if not os.path.exists(cat):
-            cat = os.expandvars(os.path.join('$FERMI','catalog', cat))
+            cat = os.path.expandvars(os.path.join('$FERMI','catalog', cat))
         if not os.path.exists(cat):
             raise Exception('auxilliary catalog %s not found locally or in $FERMI/catalog'%self.auxcat)
         ss = makerec.load(cat)
@@ -94,7 +113,9 @@ class SkyModel(object):
             self.point_sources.remove(ps)
             
     def _setup_extended(self):
-        if not self.extended_catalog_name: return None
+        if self.extended_catalog_name is None:
+            self.extended_catalog_name=self.config['extended']
+        if not self.extended_catalog_name: return 
         extended_catalog_name = \
             os.path.expandvars(os.path.join('$FERMI','catalog',self.extended_catalog_name))
         if not os.path.exists(extended_catalog_name):
@@ -102,14 +123,6 @@ class SkyModel(object):
         self.extended_catalog= sources.ExtendedCatalog(extended_catalog_name, alias=self.alias)
         #print 'Loaded extended catalog %s' % self.extended_catalog_name
         
-    #def get_extended_sources(self,skydir, radius):
-    #    """ add any extended sources with center within the outer radius.
-    #        set parameters free if the center is inside the HEALpix region
-    #    """
-    #    if self.extended_catalog is None: return []
-    #    ret =self.extended_catalog.get_sources(skydir, radius)
-    #    return ret 
-    #          
     def _load_sources(self):
         """
         run through the pickled roi dictionaries, create lists of point and extended sources
@@ -133,6 +146,7 @@ class SkyModel(object):
             assert i==index, 'logic error: file name %s inconsistent with expected index %d' % (file, i)
             roi_sources = p['sources']
             for key,item in roi_sources.items():
+                if key in self.extended_catalog.names: continue
                 skydir = item['skydir']
                 if self.update_positions is not None:
                     ellipse = item.get('ellipse', None)
@@ -143,11 +157,14 @@ class SkyModel(object):
                                 ts>self.update_positions and delta_ts>1:
                             skydir = SkyDir(float(fit_ra),float(fit_dec))
                             moved +=1
-                ps = sources.PointSource(name=key, 
+                ps = sources.PointSource(name=self.rename_source(key), 
                     skydir=skydir, model= item['model'],
                     ts=item['ts'],band_ts=item['band_ts'], index=index)
-                sources.validate(ps,self.nside) 
-                self.point_sources.append( ps)
+                if self.free_index is not None and not ps.free[1] and ps.ts>self.free_index:
+                        ps.free[1]=True
+                        print 'Freed photon index for source %s'%ps.name
+                if sources.validate(ps,self.nside, self.filter): 
+                    self.point_sources.append( ps)
             # make a list of extended sources used in the model   
             t = []
             names = p.get('diffuse_names', self.diffuse )
@@ -169,8 +186,8 @@ class SkyModel(object):
                         self.changed.add(name)
                     else:
                         es.model=model #update with fit values
-                    sources.validate(es,self.nside)
-                    self.extended_sources.append(es)
+                    if sources.validate(es,self.nside, lambda x: True): 
+                        self.extended_sources.append(es)
             self.global_sources.append(t)
         # check for new extended sources not yet in model
         self._check_for_extended()
@@ -232,19 +249,54 @@ class SkyModel(object):
         extended = self._select_and_freeze(self.extended_sources, src_sel)
         for s in extended: # this seems redundant, but was necessary
             s.model.free[:] = False if src_sel.frozen(s) else s.free
-            sources.validate(s,self.nside)
+            sources.validate(s,self.nside, None)
             s.smodel = s.model
             
         return globals, extended
 
-    def toXML(self,filename):
+    def toXML(self,filename, title=None):
+        """ generate a file with the XML version of the sources in the model
+        """
+        from uw.utilities import  xml_parsers # isolate this import, which brings in full pointlike
         stacks= [
             xml_parsers.unparse_diffuse_sources(self.extended_sources,True,False,filename),
             xml_parsers.unparse_point_sources(self.point_sources,strict=True),
         ]
-        xml_parsers.writeXML(stacks, filename)
+        xml_parsers.writeXML(stacks, filename, title=title)
 
-        
+    def write_reg_file(self, filename, color='green'):
+        """ generate a 'reg' file from the catalog, write to filename
+        """
+        catrec = self.source_rec()
+        have_ellipse = 'Conf_95_SemiMajor' in catrec.dtype.names #not relevant: a TODO
+        out = open(filename, 'w')
+        print >>out, "# Region file format: DS9 version 4.0 global color=%s" % color
+        for s in catrec:
+            if have_ellipse:
+                print >>out, "fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) #text={%s}" % \
+                                (s.ra,s,dec,
+                                  s.Conf_95_SemiMinor,Conf_95_SemiMajor,Conf_95_PosAng,
+                                  s.name)
+            else:
+                print >> out, "fk5; point(%.4f, %.4f) # point=cross text={%s}" %\
+                                (s.ra, s.dec, s.name)
+        out.close()
+
+    def _load_recfiles(self):
+        """ make a cache of the recarray summary """
+        recfiles = map(lambda name: os.path.join(self.folder, '%s.rec'%name) , ('rois','sources'))
+        if not os.path.exists(recfiles[0]):
+            catrec.create_catalog(self.folder, save_local=True, ts_min=5)
+        self.rois,self.sources = map( lambda f: pickle.load(open(f)), recfiles)
+        print 'loaded %d rois, %d sources' % (len(self.rois), len(self.sources))
+
+    def roi_rec(self):
+        self._load_recfiles()
+        return self.rois
+    def source_rec(self):
+        self._load_recfiles()
+        return self.sources
+    
 class SourceSelector(object):
     """ Manage inclusion of sources in an ROI."""
     
@@ -304,11 +356,29 @@ class HEALPixSourceSelector(SourceSelector):
     def index(self, skydir):
         return Band(self.nside).index(skydir)
     
-
     def free(self,source):
         """
         source : instance of skymodel.Source
         -> bool, if this source in in the region where fit parameters are free
         """
         return self.index(source.skydir) == self.myindex
+        
+class Rename(object):
+    """ functor class to rename sources
+        pass as object:
+        SkyModel( ..., rename_source=Rename(s,'tset'),...)
+    """
+    def __init__(self, prefix, srec=pickle.load(open('uw00/sources.rec'))):
+        self.srec= srec.copy()
+        self.srec.sort(order='ra')
+        self.names = list(self.srec.name[-self.srec.extended])
+        self.prefix=prefix
+        print 'found %d names to convert' % len(self.names)
+        
+    def __call__(self, name):
+        """ name: string, name to convert"""
+        try:
+            return '%s%04d' %(self.prefix,self.names.index(name))
+        except:
+            return name
         
