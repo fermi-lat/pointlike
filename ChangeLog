@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Mar  2 14:19:12 PST 2011
+pointlike/python/uw/pipeline/pub
+
+Modified Files:
+	healpix_map.py 
+Log Message:
+add a lot of display stuff, consolidating.
+    *
+------------------------------------------------------------
 User: burnett  Wed Mar  2 14:16:36 PST 2011
 pointlike/python/uw/pipeline/pub
 
