@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Mar  2 14:15:36 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	dataspec.py 
+Log Message:
+fix binned files for 2 years
+    *
+------------------------------------------------------------
 User: burnett  Wed Mar  2 14:13:37 PST 2011
 pointlike/python/uw/pipeline
 
