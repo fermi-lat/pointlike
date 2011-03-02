@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Mar  2 14:10:56 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+fix damping, treat extended sources (mostly) as point sources
+    *
+------------------------------------------------------------
 User: burnett  Wed Mar  2 14:09:08 PST 2011
 pointlike/python/uw/pipeline
 
