@@ -152,7 +152,7 @@ class PulsarLightCurve(object):
       ax1 = P.subplot(121) if show_trend else P.axes()
       label = '%d cts/bin'%(npb)
       if kwargs['fill']:
-         ax1.bar(phases,rates,N.append(phases[1:],1)-phases,alpha=1.0,ec='k',fc='red',ec='red')
+         ax1.bar(phases,rates,N.append(phases[1:],1)-phases,alpha=1.0,fc='red',ec='red')
       ax1.step(N.append(phases,1),N.append(rates[0],rates),where='pre',color=kwargs['linecolor'],label=label)
 
       ax = ax1.axis()
