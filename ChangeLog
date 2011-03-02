@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Mar  2 14:09:08 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skymodel.py 
+Log Message:
+add XML, REG, formatting output; implement source rename capability; add  Rename functor class.
+    *
+------------------------------------------------------------
 User: burnett  Wed Mar  2 14:07:09 PST 2011
 pointlike/python/uw/pipeline
 
