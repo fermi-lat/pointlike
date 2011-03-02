@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.3 2011/02/04 05:22:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.4 2011/02/11 21:27:33 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -15,6 +15,7 @@ class Source(object):
     """
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
+        assert self.name is not None, 'bad source name'
         if self.skydir is None:
             # global source: keep original model
             self.free = self.model.free.copy()  # save copy of initial free array to restore
@@ -51,6 +52,9 @@ class Source(object):
                 +  (' (free)' if np.any(self.model.free) else ' (fixed)')
  
 class PointSource(Source):
+    def __init__(self, **kwargs):
+        kwargs.update(spatial_model=None) # allow test for extent (no extent!)
+        super(PointSource, self).__init__(**kwargs)
     def near(self, otherdir, distance=10):
         return self.skydir.difference(otherdir) < np.radians(distance)
         
@@ -117,7 +121,16 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
         super(ExtendedCatalog,self).__init__(*pars, **kwargs)
         self.sources = self.get_sources(SkyDir(),180)
         assert len(self.sources)==len(self.names), 'inconsistent list lengths'
-        
+
+    def realname(self, cname):
+        """ cname was truncated"""
+        if cname in self.names: return cname
+        for name in self.names:
+            assert name is not None, 'bad name'
+            t = name.replace(' ','')
+            if t==cname: return name
+        assert 'compressed name %s not found in list of names, %s' %(cname,self.names)
+
     def lookup(self, name):
         """ return an ExtendedSource object, None if not found """
         aname = self.alias.get(name,name) #alias will be the new name
@@ -131,7 +144,7 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
                 if source.model.name=='BrokenPowerLaw': #convert this
                     model = Models.LogParabola()
                 else: model = source.model
-                extsource= ExtendedSource(name=aname, skydir=source.skydir,
+                extsource= ExtendedSource(name=self.realname(aname), skydir=source.skydir,
                     model = model, 
                     spatial_model = source.spatial_model,
                     smodel= source.smodel,      # these reference copies needed
@@ -141,23 +154,28 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
                 return extsource    
         return None #raise Exception( ' extended source %s not found' % name)
   
-def validate( ps, nside=12):
+def validate( ps, nside, filter):
     """ validate a Source: if not OK, reset to standard parameters, disable all but small flux level
     """
+    if filter is not None:
+        ret = filter(ps)
+        if not ret: 
+            print 'SkyModel: removed source %s' % ps.name
+            return ret
     model = ps.model
     hpindex = lambda x: Band(nside).index(x)
     if model.name=='LogParabola':
         norm, alpha, beta, eb = 10**model.p
         if beta<0.01: # linear
             check = norm>1e-18 and norm< 1e-4 and alpha>0.25 and alpha<5 
-            if check: return
+            if check: return True
             print 'SkyModel warning for %-20s(%d): out of range, norm,alpha=%.2e %.2f' %(ps.name, hpindex(ps.skydir),norm,alpha)
             model.p[:] = [-15, 0.4, -3, 3]
-            ps.free[2:] = False
+            ps.free[1:] = False
             model.cov_matrix[:] = 0 
         else: #log parabola
             check = norm>1e-18 and alpha>1e-4 and alpha<10 and beta<10
-            if check: return
+            if check: return True
             print 'SkyModel warning for %-20s(%d): out of range, norm,alpha=%.2e %.2f' %(ps.name, hpindex(ps.skydir),norm,alpha)
             model.p[:] = [-15, 0.4, -3, 3]
             ps.free[2:] = False
@@ -167,7 +185,7 @@ def validate( ps, nside=12):
         norm, gamma, ec = 10**model.p
         if np.any(np.diag(model.cov_matrix)<0): model.cov_matrix[:]=0 
         check = norm>1e-18 and gamma>1e-5 and gamma<5 and ec>100
-        if check: return
+        if check: return True
         print 'SkyModel warning for %-20s(%d): out of range, ressetting from %s' %(ps.name, hpindex(ps.skydir),model.p)
         model.p[:] = [-11, 0, 3]
         model.cov_matrix[:] = 0 
@@ -176,4 +194,5 @@ def validate( ps, nside=12):
     if np.any(np.diag(ps.model.cov_matrix)<0):
         print 'SkyModel warning for %-20s: invalid cov matrix ' %ps.name
         ps.model.cov_matrix[:] = 0 
+    return True
   
