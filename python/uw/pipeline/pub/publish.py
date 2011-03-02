@@ -1,19 +1,19 @@
 """
 manage publishing 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/publish.py,v 1.1 2011/01/24 22:03:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/publish.py,v 1.2 2011/02/11 21:27:34 burnett Exp $
 """
 import sys, os, pickle, glob, types
 import PIL
+import pyfits
 import numpy as np
 import pylab as plt
 from uw.utilities import makefig, makerec
-from . import healpix_map, dz_collection , catrec
+from . import healpix_map, dz_collection 
 from . import source_pivot, roi_pivot, makecat, display_map, healpix_map
+from ..analysis import residuals
 from .. import skymodel
+
 from skymaps import Band, SkyDir 
-
-
-
 
 def get_files(fname, outdir, subdirs):
     ret = []
@@ -34,7 +34,7 @@ def make_title(title, filename=None):
     
 def combine_images(names, outdir, subdirs, layout_kw,  outfolder, overwrite=False,):
     if not np.all(map(lambda subdir: os.path.exists(os.path.join(outdir,subdir)), subdirs)): 
-        print 'WARNING not all subdirs, %s, exist: not combining images' % subdirs
+        print 'WARNING not all subdirs, %s, exist: not combining images' % list(subdirs)
         return
     target = os.path.join(outdir,outfolder)
     if not os.path.exists(target): os.makedirs(target)
@@ -75,11 +75,10 @@ class Publish(object):
         else:
             self.outdir,self.refdir=outdir
         self.mec=mec
-        recfiles = map(lambda name: os.path.join(outdir, '%s.rec'%name) , ('rois','sources'))
-        if not os.path.exists(recfiles[0]):
-            catrec.create_catalog(outdir, save_local=True, ts_min=5)
-        self.rois,self.sources = map( lambda f: pickle.load(open(f)), recfiles)
-        print 'loaded %d rois, %d sources' % (len(self.rois), len(self.sources))
+        self.get_config()
+        self.skymodel = skymodel.SkyModel(outdir, extended_catalog_name=self.config['extended'])
+        self.rois = self.skymodel.roi_rec()
+        self.sources = self.skymodel.source_rec()
         if ts_min is not None:
             self.sources = self.sources[self.sources.ts>ts_min]
             print 'Selected subset: %d sources with ts>%.0f' % (len(self.sources), ts_min)
@@ -96,12 +95,11 @@ class Publish(object):
         files = glob.glob(os.path.join(self.pivot_dir, '*'))
         print 'existing files:\n\t%s' % '\n\t'.join(files)
         self.overwrite=overwrite
-        self.zips =     ('residual_ts',     'sedfig',      'tsmap',        'kde_figs')
-        self.zipnames = ('roi residual ts', 'source seds', 'source tsmaps','roi kdemaps')
+        self.zips =     ( 'sedfig',      'tsmap',        'ts_maps',      'kde_maps')
+        self.zipnames = ( 'source seds', 'source tsmaps','roi residual ts','roi kdemaps')
         for z in self.zips:
             if not os.path.exists(os.path.join(self.outdir,self.ref(z))):
                 print 'WARNING: missing folder in outdir: %s' % z
-        self.get_config()
     
     def get_config(self, fn = 'config.txt'):
         """ parse the items in the configuration file into a dictionary
@@ -140,9 +138,10 @@ class Publish(object):
 
     def source_plot(self):
         s = self.sources
-        kde =os.path.join(self.outdir,'kde.pickle')
-        if not os.path.exists(kde):
-            print 'cannot create a source plot over the photon density: %s not found' %kde
+        try:
+            kde =pyfits.open(os.path.join(self.outdir,'aladin512.fits'))[1].data.field('kde')
+        except:
+            print 'cannot create a source plot over the photon density: field kde not found' 
             return
         sm = display_map.SourceMap(kde,s)
         sm.fill_ait()
@@ -160,7 +159,7 @@ class Publish(object):
         if rois:
             combine_images(self.rois.name, outdir=self.outdir, 
                 #subdirs=('countsmap','residual_ts', 'counts_dir', 'log'), #gtsmap_dir='gtsmap', 
-                subdirs=(self.ref('kde_figs'),'residual_ts', 'counts_dir', 'log'), #gtsmap_dir='gtsmap', 
+                subdirs=(self.ref('kde_maps'),'ts_maps', 'counts_dir', 'log'), #gtsmap_dir='gtsmap', 
                 layout_kw=dict(
                     hsize=(1800,1100), 
                     sizes=     [(600,600), (600,600), None, None], 
@@ -202,23 +201,25 @@ class Publish(object):
             dzc = self.dzc,
             )
             
-    def write_xml_and_reg(self, catname=None):
-        """ generate the xml and reg version of the catalog in the folder with the pivots"""
-        if catname is None:
-            catname = os.path.join(self.pivot_dir,self.name+'.fits') 
-        cat = catalog.CatalogManager(catname, min_ts = self.ts_min)
-        #try:
+    def write_xml(self, catname=None):
+        """ generate the xml a of the catalog in the folder with the pivots"""
         fn = os.path.join(self.pivot_dir, self.name+'.xml')
-        cat.write_xml_file(fn, title='catalog %s sources'%self.name)
-        #except Exception,e:
-        #    print 'Failed to create xml file %s: %s' %(fn, e)
-        #    raise e
-        fn = os.path.join(self.pivot_dir, self.name+'.txt')
-        #try:
-        cat.write_reg_file(fn)
-        #except Exception,e:
-        #    print 'Failed to create reg file %s: %s' %(fn, e)
-        
+        self.skymodel.toXML(fn, title='catalog %s sources'%self.name)
+    
+    def _check_exist(self, filename):
+        """ return full filename, or None if the file exists and overwrite is not set"""
+        fn = os.path.join(self.pivot_dir, filename)
+        if os.path.exists(fn):
+            if self.overwrite: os.remove(fn)
+            else: return None
+        return fn
+    
+    def write_reg(self):
+        """ generate the reg file """
+        fn = self._check_exist(self.name+'.reg.txt')
+        if fn is None: return
+        self.skymodel.write_reg_file(fn)
+        print 'wrote reg file %s' %fn
         
     def write_FITS(self, TSmin=None):
         """ write out the Catalog format FITS version, and the rois """
@@ -226,7 +227,7 @@ class Publish(object):
         if os.path.exists(catname):
             if self.overwrite: os.remove(catname)
             else: 
-                print 'file %s exists: set overwrite to replace it' % catname
+                return
         cat = makecat.MakeCat(self.sources, TScut=0 if TSmin is None else TSmin)
         cat(catname)
         for rec, rectype in ((self.sources, 'sources'), (self.rois,'rois')):
@@ -241,7 +242,8 @@ class Publish(object):
         #self.write_xml_and_reg(catname)
     
     def write_map(self, name, fun, title, vmax=None, table=None):
-        """ write out image files for a single table
+        """ DISABLED for now 
+        write out image files for a single table
         name : string 
             name of the table, to be loaded by roi_maps.load_tables if table is None 
         fun  : ufunc function
@@ -295,6 +297,8 @@ class Publish(object):
 
     
     def write_maps(self):
+        print 'write_maps is disabled for now'
+        return
         for pars in ( 
             #('data', np.log10, 'log10(counts)', 4),
             ('ts',     np.sqrt,  'sqrt(ts)', 10),
@@ -308,19 +312,31 @@ class Publish(object):
             except:
                 print 'failed to process %s' % pars
     
-    def write_hpmaps(self, outfile='aladin256.fits', nside=256):
+    def write_hpmaps(self, outfile='aladin512.fits', nside=512):
         outfile = os.path.join(self.pivot_dir, outfile)
         if os.path.exists(outfile):
             if self.overwrite: 
                 os.remove(outfile)
             else: return
-        # grab the .pickle table files
-        cols = healpix_map.tables(self.outdir)
+        # look for tables to include
+        t = glob.glob(os.path.join(self.outdir, '*_table'))
+        cols = healpix_map.tables(self.outdir,names=map(lambda x: os.path.split(x)[1][:-6], t))
         # add the diffuse directly
         gal = eval(self.config['diffuse'])[0]
         cols.append(healpix_map.diffusefun(gal, nside=nside))
         healpix_map.HEALPixFITS(cols, nside=nside).write(outfile)
         print 'wrote file %s with %d columns' %(outfile, len(cols))
+        
+    def write_residualmaps(self, outfile='aladin64.fits',nside=64):
+        """ generate set of maps with residuals, chisq, etc"""
+        outfile = os.path.join(self.pivot_dir, outfile)
+        if os.path.exists(outfile):
+            if self.overwrite: 
+                os.remove(outfile)
+            else: return
+        residuals.tofits(self.outdir, outfile, )
+        
+    
     
     def write_zips(self):
         """ generate zip files containing the contents of a folder
@@ -348,10 +364,19 @@ class Publish(object):
         </td>"""
         q = glob.glob(os.path.join(self.pivot_dir,'*_ait.png'))
         if self.refdir !='':
-            q.append(os.path.join(self.ref_pivot_dir,'kde_ait.png')) 
+            q.append(os.path.join(self.ref_pivot_dir,'kde_ait.png'))
+        ret = '<ul>\n'
+        if os.path.exists(os.path.join(self.pivot_dir, 'aladin512.fits')):
+            ret += '<li><a href="aladin512.fits">HEALPix-format file for aladin</a> contains columns %s</li>'\
+                % pyfits.open(os.path.join(self.pivot_dir, 'aladin512.fits'))[1].data.names
+        
+        if os.path.exists(os.path.join(self.pivot_dir, 'aladin64.fits')):
+            ret += '<li><a href="aladin64.fits">HEALPix-format file for aladin</a> contains columns %s</li>'\
+                % pyfits.open(os.path.join(self.pivot_dir, 'aladin64.fits'))[1].data.names
+                
         if len(q)==0: 
             print  'WARNING: no image files found'
-            return 'WARNING: no image '
+            return ret +'\n</ul>\n'
         heads = [os.path.split(t)[0] for t in q]
         names = [ os.path.split(t)[-1].split('_')[0] for t in q]
         paths = ['../%s/'% os.path.split(t)[-1] for t in heads] # relative path to the file
@@ -363,9 +388,9 @@ class Publish(object):
                         ring='<b>Galactic diffuse</b>, at 1 GeV',
                         sources='<b>Source locations</b>',
                     )[name] for name in names]
-        return '\n<table cellpadding="5" cellspacing="0"><tr>'\
+        return ret+'\n<table cellpadding="5" cellspacing="0"><tr>'\
             + '\n  '.join([template%dict(title=a, path=c+b) for a,b,c in zip(titles,names,paths)])\
-            +'\n</tr></table>' 
+            +'\n</tr></table>\n</ul>\n' 
 
     def write_html(self):
         """ write out a little overview to go in the folder"""
@@ -376,6 +401,7 @@ class Publish(object):
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <title>Fermi-LAT sky model %(catname)s</title></head>
 <body><h2>Fermi-LAT sky model version %(catname)s</h2>
+    IRF: %(irf)s<br/>
     Diffuse components: %(diffuse)s<br/>
     Extended definition: %(extended)s<br/>
 
@@ -383,16 +409,16 @@ class Publish(object):
 <ul>
  <li><a href="%(catname)s.fits">Catalog-format source fits file</a> (Standard list for external. 
     <br/>There is an internal version with more information<a href="%(catname)s_sources.fits">(FITS)</a>)
+    <br/>Total sources with TS>10: %(ts10)d; TS>25: %(ts25)d
  </li>
  <li>ROI information<a href="%(catname)s_rois.fits"> (FITS)</a> <br/>
     ROI fit parameters, chisquared: %(roi_fit)s
  </li>
  <li><a href="%(catname)s.xml">XML-format file for gtlike</a></li>
- <li><a href="%(catname)s.txt">Region file for DS9 </a>(note, should be renamed back to '.reg')</li>
+ <li><a href="%(catname)s.reg.txt">Region file for DS9 </a>(note, should be renamed back to '.reg')</li>
 </ul>
-<h3>All-sky Images:</h3>
-
-%(imagefiles)s
+<h3>All-sky HEALPix Images:</h3>
+  %(imagefiles)s
 <h3><a href="http://www.silverlight.net/learn/pivotviewer/">Pivot</a> Collections</h3>
 <ul><li><a href="http://fermi-ts.phys.washington.edu/pivot/viewer/?uw=%(catname)s/sources.cxml">sources</a>
     All sources in the model.
@@ -407,8 +433,10 @@ class Publish(object):
                 % (file,name) for file,name in zip(self.zips, self.zipnames)]),
             imagefiles=self.image_html(),
             diffuse = eval(self.config['diffuse']),
+            irf = self.config['irf'],
             extended= self.config['extended'],
             roi_fit = self.roi_fit_html(),
+            ts10=np.sum(self.sources.ts>10), ts25=np.sum(self.sources.ts>25),
         )
         open(os.path.join(self.pivot_dir, 'default.htm'),'w').write(html)
 
@@ -419,10 +447,13 @@ class Publish(object):
         self.make_pivot()
         self.write_FITS()
         self.write_maps() 
+        self.write_hpmaps() 
+        self.write_residualmaps()
         self.write_zips()
+        self.write_xml()
         self.write_html()
         
-def main(outdir='uw32', **kwargs):
+def main(outdir=None, **kwargs):
     return Publish(outdir, **kwargs) 
  
 def doall(outdir, **kwargs):
@@ -434,6 +465,7 @@ def doall(outdir, **kwargs):
     pub.write_FITS()
     pub.write_maps() 
     pub.write_zips()
+    pub.write_xml()
     pub.write_html()
     
 if __name__=='__main__':
