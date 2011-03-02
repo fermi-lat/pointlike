@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.6 2011/02/04 05:22:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.7 2011/02/11 21:27:33 burnett Exp $
 """
 import os, types, glob, time, pickle
 import numpy as np
@@ -72,10 +72,10 @@ class Setup(dict):
                 nside = 12,
                 outdir=outdir,
                 dataset = 'P7_V4_SOURCE',
-                diffuse = ('ring_24month_P74_v1.fits', 'isotrop_21month_v2.txt'),
-                extended= 'LAT_extended_sources_v04',
-                alias= {'MSH1552': 'MSH 15-52', 
-                        'VelaX':'Vela X', 'HESSJ1835-137':'HESS J1835-137'},
+                diffuse = ('ring_24month_P76_v1.fits', 'isotrop_21month_P76_v2.txt'),
+                extended= None,
+                alias= {}, 
+                skymodel_extra = '',
                 irf = 'P7SOURCE_V4PSF',
                 associator ='all_but_gammas',
                 sedfig = None,
@@ -88,9 +88,11 @@ class Setup(dict):
                 fit_kw=dict(use_gradient=False,),
                 repivot = True,
                 update_positions=None,
+                free_index=None,
                 tables = None,  #roi_maps.ROItables("%(outdir)s", skyfuns=(
                                 # (roi_tsmap.TSCalc, 'ts', dict(photon_index=2.0),) 
                                 #  (ts_map.KdeMap, "kde", dict()),))
+                dampen = 1.0,
                 ))
         self.update(kwargs)
         # first-order replace
@@ -101,11 +103,12 @@ class Setup(dict):
                 #print 'fix key %s: %s' % (key, self[key])
         self.setup_string =  """\
 import os; os.chdir(r"%(cwd)s");
-from uw.pipeline import pipe, maps;
+from uw.pipeline import pipe, maps, skymodel;
 g=pipe.Pipe("%(indir)s", "%(dataset)s",
         skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,
             extended_catalog_name="%(extended)s", update_positions=%(update_positions)s,
-            alias =%(alias)s,),
+            free_index=%(free_index)s,
+            alias =%(alias)s, %(skymodel_extra)s), 
         irf="%(irf)s", nside=%(nside)s,
         fit_emin=%(fit_emin)s, fit_emax=%(fit_emax)s, minROI=%(minROI)s, maxROI=%(maxROI)s,
         associate="%(associator)s",
@@ -114,7 +117,7 @@ g=pipe.Pipe("%(indir)s", "%(dataset)s",
             localize=%(localize)s,
             fix_beta= %(fix_beta)s, dofit=%(dofit)s,
             tables= %(tables)s,
-            repivot=%(repivot)s,
+            repivot=%(repivot)s, dampen=%(dampen)s,
             ),
         fit_kw = %(fit_kw)s,
     ) 
@@ -167,8 +170,10 @@ def converge_test(version=None, thresh=10,nside=12):
     new_loglike= sum(new_drec.loglike)
     deltas = new_drec.loglike - old_drec.loglike
     moved = sum(np.abs(deltas)>thresh)
-    print 'iteration %2d: total log likelihood change: %6.0f, number changed>%2.0f: %4d, min, max changes %8.1f,%8.1f'\
-        % (version, (new_loglike - old_loglike),thresh, moved,  deltas.min(),deltas.max())
+    big = new_drec.name[(deltas==deltas.max())+(deltas==deltas.min())]
+    s='iteration %2d: total log likelihood change: %6.0f\n number changed>%2.0f:'\
+        +'%4d, min, max changes %6.1f,%6.1f (%s,%s)'
+    print s % (version, (new_loglike - old_loglike),thresh, moved,  deltas.min(),deltas.max(),big[0],big[1])
     chisq=new_drec.chisq
     print 'number with chisq>50: %d, max value %.0f' % (sum(chisq>50), chisq.max())
  
@@ -208,8 +213,9 @@ def main( setup, mec=None, taskids=None, local=False,
     # executing the setup string must create an object g, where g(n) for 0<=n<len(g.names())
     # will execute the task n
     g = getg(setup_string)
-    print >> open(os.path.join(outdir, 'config.txt'), 'w'), str(g)
-    print >> open(os.path.join(outdir, 'setup_string.txt'), 'w'), setup_string
+    if logpath is not None:
+        print >> open(os.path.join(outdir, 'config.txt'), 'w'), str(g)
+        print >> open(os.path.join(outdir, 'setup_string.txt'), 'w'), setup_string
     names = g.names(); 
 
     if taskids is None: taskids = range(len(names))
@@ -221,9 +227,11 @@ def main( setup, mec=None, taskids=None, local=False,
     
     # list of function calls to exec for all the tasks     
     tasks = ['g(%d)'% i for i in taskids]
+    post = 'del g' #for cleanup
     del g #do not need this instance
     
     def callback(id, result):
+        if logpath is None: return
         try:
             name = names[taskids[id]]
             logdir = os.path.join(outdir, logpath)
@@ -239,11 +247,11 @@ def main( setup, mec=None, taskids=None, local=False,
     if not local and mec is None: 
         setup_mec(machines=machines, engines=engines)
     time.sleep(10)
-    lc= AssignTasks(setup_string, tasks, mec=mec, 
+    lc= AssignTasks(setup_string, tasks, post=post, mec=mec, 
         timelimit=2000, local=local, callback=callback, 
         ignore_exception=ignore_exception,
          progress_bar=progress_bar)
-    lc(5)
+    lc(15)
     if not local and mec is None: 
         get_mec().kill(True)
     return lc
