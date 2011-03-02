@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Wed Mar  2 14:16:36 PST 2011
+pointlike/python/uw/pipeline/pub
+
+Removed Files:
+	catalog.py catrec.py 
+Log Message:
+added.
+    *
+------------------------------------------------------------
+User: burnett  Wed Mar  2 14:16:36 PST 2011
 pointlike/python/uw/pipeline
 
 Added Files:
