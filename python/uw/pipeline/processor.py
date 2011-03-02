@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.5 2011/01/30 00:10:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.6 2011/02/04 05:22:59 burnett Exp $
 """
 import os, pickle
 import numpy as np
@@ -11,7 +11,7 @@ from uw.utilities import image
 from . import plot_sed  
   
 def isextended(source):
-    return 'spatial_model' in source.__dict__
+    return source.__dict__.get(  'spatial_model', None) is not None
     
 
         
@@ -56,12 +56,13 @@ def fix_beta(roi, bts_min=50, qual_min=20,):
         
 def source_band_info(roi, which):
     """ return dictionary of the band ts values and photons, diffuse  
-        which: index of source in the ROI
+        which: index of source in the ROI, or source name
     """
     # assume done: roi.setup_energy_bands()
+    man,i = roi.mapper(which)
     bands = roi.energy_bands
     return dict(
-        ts =      np.asarray([band.bandFit(which)                        for band in bands],np.float32),
+        ts =      np.asarray([band.bandFit(i)                        for band in bands],np.float32),
         photons = np.array([int(sum( (b.photons for b in band.bands))) for band in bands]),
         galactic= np.asarray([sum((b.bg_counts[0] for b in band.bands))  for band in bands],np.float32),
         isotropic=np.asarray([sum(sum((b.bg_counts[1:]) for b in band.bands))  for band in bands],np.float32),
@@ -99,7 +100,7 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, **kwargs):
     
     sources=dict()
     output['sources']= sources
-    for i,s in enumerate(fit_sources):
+    for s in fit_sources:
         try:
             pivot_energy = s.model.pivot_energy()
         except: # if not fit
@@ -108,9 +109,10 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, **kwargs):
         
         roi.setup_energy_bands() 
         sedrec = s.sedrec
-        band_info = source_band_info(roi, i)
+        band_info = source_band_info(roi, s.name)
         sources[s.name]=dict(skydir=s.skydir, 
-            model=s.model, 
+            model=s.model,
+            extent = s.__dict__.get('spatial_model', None),
             ts = roi.TS(which=s.name),
             sedrec = sedrec,
             band_info = band_info, 
@@ -184,7 +186,11 @@ def make_association(source, tsf, associate):
         source.adict = None
         return
     assert len(ell)>6, 'invalid ellipse for source %s' % source.name
-    adict = associate(source.name, SkyDir(ell[0],ell[1]), ell[2:5]) 
+    try:
+        adict = associate(source.name, SkyDir(ell[0],ell[1]), ell[2:5]) 
+    except SrcidError, msg:
+        print 'Association error %s' % msg
+        adict=None
     source.adict = adict 
     if adict is not None:
     
@@ -275,11 +281,27 @@ def repivot(roi, fit_sources, min_ts = 25, max_beta=1.5):
             roi.fit()
             #roi.print_summary(sdir=roi.roi_dir,maxdist=5, title='after pivot refit(s): logL=%0.f' % roi.logl)
 
+class Damper(object):
+    """ manage adjustment of parameters for damping """
+    def __init__(self, roi, dampen):
+        self.dampen=dampen
+        self.roi = roi
+        self.ipar = roi.get_parameters()[:] # get copy of initial parameters
+        self.initial_logl = roi.logl =  -roi.logLikelihood(self.ipar)
+    def __call__(self):
+        fpar = self.roi.get_parameters()
+        if self.dampen!=1.0 and  len(fpar)==len(self.ipar): 
+            dpar = self.ipar+self.dampen*(fpar-self.ipar)
+            self.roi.set_parameters(dpar)
+            self.roi.logl=-self.roi.logLikelihood(dpar)
+            # check for change, at least 0.5
+            return abs(self.initial_logl-self.roi.logl)>0.5
+        return False
+    
+
 def process(roi, **kwargs):
     """ process the roi object after being set up
     """
-    ipar = roi.get_parameters()
-    initial_logl = -roi.logLikelihood(ipar)
     outdir   = kwargs.get('outdir', None)
     localize = kwargs.pop('localize', True)
     repivot_flag  = kwargs.pop('repivot', True)
@@ -289,11 +311,13 @@ def process(roi, **kwargs):
     dofit   =  kwargs.pop('dofit', True)
     pass_number=kwargs.pop('pass_number', 0)
     tables = kwargs.pop('tables', None)
+
+    damp = Damper(roi, dampen)
     
     if outdir is not None: counts_dir = os.path.join(outdir,counts_dir)
     if not os.path.exists(counts_dir):os.makedirs(counts_dir)
     
-    roi.print_summary(sdir=roi.roi_dir, title='before fit, logL=%0.f'%initial_logl)
+    roi.print_summary(sdir=roi.roi_dir, title='before fit, logL=%0.f'%roi.logl)
     fit_sources = [s for s in roi.psm.point_sources if np.any(s.model.free)]\
                 + [s for s in roi.dsm.diffuse_sources if isextended(s) and np.any(s.model.free)]
     if len(roi.get_parameters())==0:
@@ -303,18 +327,23 @@ def process(roi, **kwargs):
             try:
                 roi.fit(ignore_exception=False)
                 roi.print_summary(sdir=roi.roi_dir,title='after global fit, logL=%0.f'% roi.logl)
-            except:
-                print '============== fit failed, aborting!! ========================'
+
+                if repivot_flag:
+                    repivot(roi, fit_sources)
+                
+                if fixbeta:
+                    if not fix_beta(roi):
+                        print 'fixbeta requested, but no refit needed, quitting'
+                if damp():
+                    roi.print_summary(sdir=roi.roi_dir, title='after damping with factor=%.2f, logL=%0.f'%(dampen,roi.logl))
+                else:
+                    print 'No damping requested, or no difference in log Likelihood'
+            except Exception, msg:
+                print '============== fit failed, aborting!! %s'%msg
                 return False
         else:
             print 'Refit not requested'
     
-        if repivot_flag:
-            repivot(roi, fit_sources)
-        
-        if fixbeta:
-            if not fix_beta(roi):
-                print 'no refit needed, quitting'
     if localize: 
         localize_all(roi, fit_sources)
     if tables is not None:
@@ -336,16 +365,11 @@ def process(roi, **kwargs):
 
     
     if outdir is None: return True
-    fpar = roi.get_parameters()
-    if dampen!=1.0 and  len(fpar)==len(ipar): #later test necessary if nu
-        dpar = ipar+dampen*(fpar-ipar)
-        roi.set_parameters(dpar)
-        print 'apply damping factor %.2f to  parameters in the pickle, logL=%0.f'\
-            % (dampen, -roi.logLikelihood(dpar))
+    
     pickle_dir = os.path.join(outdir, 'pickle')
     if not os.path.exists(pickle_dir): os.makedirs(pickle_dir)
     pickle_dump(roi, fit_sources, pickle_dir, pass_number,
-        initial_logl=initial_logl, 
+        initial_logl=damp.initial_logl, 
         counts=counts,
         )
     return True
