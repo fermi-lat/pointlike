@@ -1,6 +1,6 @@
 """
 Support for generating output files
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/catrec.py,v 1.1 2011/02/11 21:27:34 burnett Exp $
 """
 import os, glob, pickle
 import numpy as np
@@ -58,15 +58,17 @@ def create_catalog(outdir, **kwargs):
             self.ts_min=ts_min
             self.moved = 0
             self.colnames ="""name ra dec 
+                ts band_ts
+                id_prob aclass hp12
+                extended
                 pnorm pindex cutoff 
                 pnorm_unc pindex_unc cutoff_unc
                 e0 pivot_energy 
                 flux flux_unc
                 beta beta_unc
                 modelname 
-                ts band_ts bts10
+                 bts10
                 fit_ra fit_dec a b ang qual delta_ts
-                id_prob aclass hp12
                 """.split() 
             self.rec =makerec.RecArray(self.colnames) 
 
@@ -76,6 +78,15 @@ def create_catalog(outdir, **kwargs):
                 self.count+=1
                 skydir = entry['skydir']
                 data = [name, skydir.ra(), skydir.dec()]
+                
+                ts = entry['ts']
+                data += [ts, entry['band_ts']]
+                adict =  entry.get('associations', None)
+                data.append( cnan if adict is None else adict['prob'][0])
+                data.append('%-7s'%get_class(adict))
+                data.append(Band(12).index(skydir))
+                data.append( entry['extent'] is not None)
+                
                 model  = entry['model']
                 p,p_relunc = model.statistical()
                 if p[0]< self.minflux or np.any(np.isnan(p[:2])):
@@ -97,8 +108,6 @@ def create_catalog(outdir, **kwargs):
                     data += [cnan,cnan, 'ExpCutoff']
                 else:
                     data += [cnan,cnan, 'PowerLaw'] if p[2]<=0.01 else [p[2], p_unc[2], 'LogParabola']
-                ts = entry['ts']
-                data += [ts, entry['band_ts']]
                 data += [sum(entry['band_info']['ts'][7:])] ### note assumption that 10 GeV starts at 7
                 ellipse = entry.get('ellipse', None)
                 if ellipse is None or np.any(np.isnan(ellipse)):
@@ -111,10 +120,6 @@ def create_catalog(outdir, **kwargs):
                         if qual<5 and delta_ts<9 and a < 0.2 :
                             data[1:3] = [fit_ra, fit_dec]
                             self.moved +=1
-                adict =  entry.get('associations', None)
-                data.append( cnan if adict is None else adict['prob'][0])
-                data.append('%-7s'%get_class(adict))
-                data.append(Band(12).index(skydir))
 
                 assert len(data)==len(self.colnames), 'mismatch between names, data'
                 #assert not np.any(np.isinf(data[1:])), 'found inf for source %s' % name 
