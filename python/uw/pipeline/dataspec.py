@@ -1,7 +1,7 @@
 """
 Manage data specification
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/dataspec.py,v 1.2 2011/01/19 01:37:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/dataspec.py,v 1.5 2011/02/23 00:12:13 wallacee Exp $
 
 """
 import os, glob
@@ -75,8 +75,8 @@ class DataSpec(object):
         'P7_V4_SOURCE': dict(data_name='pass 7 2FGL data set',
             ft1files   = '$FERMI/data/P7_V4_SOURCE/pass7.3*.fits',
             ft2files   = '$FERMI/data/P7_V4_SOURCE/ft2_2years.fits',
-            binfile    = '$FERMI/data/P7_V4_SOURCE/24M7_4bpd.fits',
-            ltcube     = '$FERMI/data/P7_V4_SOURCE/24M7_lt.fits',
+            binfile    = '$FERMI/data/P7_V4_SOURCE/24M7_z100_t90_cl0_4bpd.fits',
+            ltcube     = '$FERMI/data/P7_V4_SOURCE/ltcube_24m_pass7.4_source_z100_t90_cl0.fits',
             monthly_bpd= '$FERMI/data/P7_V4_SOURCE/monthly/bpd/*_4bpd.fits',
             monthly_lt = '$FERMI/data/P7_V4_SOURCE/monthly/lt/*_lt.fits'
             ),
