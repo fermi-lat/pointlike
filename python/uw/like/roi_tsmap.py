@@ -1,7 +1,7 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.11 2010/12/09 23:47:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_tsmap.py,v 1.12 2011/01/20 15:52:59 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -24,8 +24,8 @@ def get_latalog(latalog_file='f:/glast/data/kerr/gll_psc_v02.fit'):
 
 J = np.log(10)
 
-# re-implementation of scipy version that uses half the calls!               
 def my_newton(func,x0,fprime,tol=1e-2):
+    """ re-implementation of scipy version that uses half the calls!  """
     p0 = x0
     for i in xrange(30):
         fval = func(x0)
