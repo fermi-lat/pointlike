@@ -1,12 +1,12 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.15 2010/09/30 20:53:25 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.16 2011/01/20 16:05:36 burnett Exp $
 
 """
 from IPython.kernel import client
-import time, os, pickle
-version = '$Revision: 1.15 $'.split()[1]
+import time, os, pickle, subprocess
+version = '$Revision: 1.16 $'.split()[1]
 
 class ProgressBar:
     def __init__(self, total=60, width=40):
@@ -250,40 +250,45 @@ class AssignTasks(object):
         pickle.dump({'time':self.time, 'result':self.result}, open(filename, 'wr'))
 
 
-def setup_mec(engines=None, machines='tev1 tev2 tev3 tev4'.split()):
+def setup_mec(engines=None, machines='tev1 tev2 tev3 tev4'.split(), clusterfile='clusterfile.txt'):
     """ On windows:start cluster and 4 engines on the local machine, in the current directory
         On linux: (our tev cluster) start controller on local machine, 16 engines/machine in all
+            If clusterfile.txt exists in the path: use it
     """
     if os.name=='nt':
         engines = engines or 4
         os.system(r'start /MIN /D %s cmd /K ipcluster local -xy -n %d'% (os.getcwd(),engines))
     else:
         # on a tev machine
+        if os.path.exists(clusterfile):
+            os.system('ipcluster ssh -xy --clusterfile %s &' %clusterfile)
+            return
         engines = engines or 16 #default on a tev machine!
         
-        #clusterfile_data='send_furl = False'\
-        #    + '\nengines={'\
-        #    + '\n'.join(['\t"%s" : %d,'%(m,engines) for m in machines])\
-        #    + '\n}'
-        #print 'cluster info:\n%s' % clusterfile_data
-        #ofile=open('clusterfile', 'w')
-        #ofile.writelines(clusterfile_data)
-        #ofile.close()
-        #os.system('ipcluster ssh -xy --clusterfile clusterfile &')
-
-        # old, klugy way
-        os.system('ipcontroller local -xy > ipcontroller.log &')  
-        for m in machines:
-            for i in range(engines):
-                time.sleep(0.1) # make sure the controller is started ?
-                os.system('ssh -x %s ipengine > /dev/null &'% m) # this assumes that the environment is setup with non-interactive login
+        clusterfile_data='send_furl = False'\
+            + '\nengines={'\
+            + '\n'.join(['\t"%s" : %d,'%(m,engines) for m in machines])\
+            + '\n}'
+        print 'cluster info:\n%s' % clusterfile_data
+        ofile=open(clusterfile, 'w')
+        ofile.writelines(clusterfile_data)
+        ofile.close()
+        os.system('ipcluster ssh -xy --clusterfile %s &' %clusterfile)
 
 def kill_mec():
     get_mec().kill(True)
 
-def free(machines):
+def free(machines=None, clusterfile='clusterfile.txt'):
+    """ run the free command on the machines specified, or get from the clusterfile """
+    if machines is None and os.path.exists(clusterfile):
+        exec(open(clusterfile))
+        machines = engines.keys()
+    print '\t             total       used       free     shared    buffers     cached'
     for m in machines:
-        os.system('ssh %s free'% m) 
+        print m, ':\t'
+        t=subprocess.Popen('ssh %s free'% m, shell=True, stdout=subprocess.PIPE).communicate()
+        for line in  t[0].split('\n')[1:]: print '\t'+line
+        
     
 
 def test(tasks=9, **kwargs):
