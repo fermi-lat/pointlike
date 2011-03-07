@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.12 2011/02/14 00:23:02 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.13 2011/03/02 22:09:08 burnett Exp $
 
 """
 import os, pickle, glob, types
@@ -26,6 +26,7 @@ class SkyModel(object):
         ('alias', dict(), 'dictionary of aliases to use for lookup'),
         ('diffuse', ('ring_24month_P74_v1.fits', 'isotrop_21month_v2.txt'), 'pair of diffuse file names: use to locked'),
         ('auxcat', None, 'name of auxilliary catalog of point sources to append or names to remove',),
+        ('newmodel', None, 'if not None, a string to eval\ndefault new model to apply to appended sources'),
         ('update_positions', None, 'set to minimum ts  update positions if localization information found in the database'),
         ('free_index', None, 'Set to minimum TS to free photon index if fixed'),
         ('filter',   lambda s: True,   'selection filter'), 
@@ -78,7 +79,7 @@ class SkyModel(object):
     def load_auxcat(self):
         """ modify the list of pointsources from entries in the auxcat: for now:
             * add it not there
-            * move there, and new ra,dec
+            * move there, at new ra,dec
             * remove if ra<0
         
         """
@@ -97,7 +98,7 @@ class SkyModel(object):
             if sname  not in names: 
                 skydir=SkyDir(float(s.ra), float(s.dec))
                 index=self.hpindex(skydir)
-                self.point_sources.append(sources.PointSource(name=s.name, skydir=skydir, index=index))
+                self.point_sources.append(sources.PointSource(name=s.name, skydir=skydir, index=index, model=self.newmodel))
                 print '\tadded new source %s at ROI %d' % (s.name, index)
             else: 
                 print '\t source %s is in the model:' %sname, # will remove if ra<0' % sname
@@ -282,19 +283,19 @@ class SkyModel(object):
                                 (s.ra, s.dec, s.name)
         out.close()
 
-    def _load_recfiles(self):
+    def _load_recfiles(self, reload=False):
         """ make a cache of the recarray summary """
         recfiles = map(lambda name: os.path.join(self.folder, '%s.rec'%name) , ('rois','sources'))
-        if not os.path.exists(recfiles[0]):
+        if reload or not os.path.exists(recfiles[0]):
             catrec.create_catalog(self.folder, save_local=True, ts_min=5)
         self.rois,self.sources = map( lambda f: pickle.load(open(f)), recfiles)
         print 'loaded %d rois, %d sources' % (len(self.rois), len(self.sources))
 
-    def roi_rec(self):
-        self._load_recfiles()
+    def roi_rec(self, reload=False):
+        self._load_recfiles(reload)
         return self.rois
-    def source_rec(self):
-        self._load_recfiles()
+    def source_rec(self, reload=False):
+        self._load_recfiles(reload)
         return self.sources
     
 class SourceSelector(object):

@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/healpix_map.py,v 1.2 2011/02/11 21:27:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/healpix_map.py,v 1.3 2011/03/02 22:19:12 burnett Exp $
 """
 import os,glob,pickle, types
 import pylab as plt
@@ -415,5 +415,38 @@ class Rings(object):
 #        return sum([exp.value(skydir, energy) for exp in exposure])
 #    return skyplotfun #HPskyfun('exposure', skyplotfun, nside=nside)
 #
+
+#
+
+def make_setup(outdir, title,
+        imshow_kw,
+        label=''):
+    """
+    Use this to setup for mec-generation combining the individual ROI tables to make images centered on the ROIs
+    """
+    extra='ZEA_kw=dict(galactic=True),imshow_kw=dict(%s),label="%s"' %( imshow_kw,label)
+    setup_string =  """\
+import os; import numpy as np;os.chdir(r"%(cwd)s")
+from uw.pipeline.pub import healpix_map;
+g = healpix_map.ZEAdisplayTasks("%(title)s","%(outdir)s", %(extra)s)
+""" %dict(cwd=os.getcwd(), title=title, outdir=outdir, extra=extra)
+    return setup_string
+
+class Setup(object):
+    def __init__(self,outdir, title):
+        self.outdir = outdir
+        if title[:2]=='ts':
+            self.setup= make_setup(outdir, title, 
+                imshow_kw='interpolation="bilinear", vmin=0,vmax=5,fun=np.sqrt',
+                label = r'$\mathrm{\sqrt{TS_{max}-TS}}$',
+                )
+        elif title=='kde':
+                self.setup= make_setup(outdir, title, 
+                imshow_kw='interpolation="bilinear",fun=np.log10',
+                label='log10(photon density)')
+        else:
+            assert False, 'title %s not recognized' % title
+    def __call__(self):
+        return self.setup
 
     

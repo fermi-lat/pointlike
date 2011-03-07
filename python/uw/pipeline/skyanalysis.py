@@ -1,6 +1,6 @@
 """
 Basic ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/skyanalysis.py,v 1.10 2011/02/23 00:12:13 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.11 2011/02/23 00:17:47 wallacee Exp $
 """
 import os, pickle, glob, types
 import numpy as np
@@ -252,4 +252,27 @@ class PipelineROI(roi_analysis.ROIAnalysis):
         self.update_counts(self.get_parameters())
         w1 = np.array([band.logLikelihood() for band in self.bands])
         return 2*(w0-w1)
+      
+    def signal_counts(self, which):
+        """ return list of (value, +sig, -sig) for measured counts per energy band
+        (code cribbed from roi_bands.ROIEnergyBand, only implemented for point sources)
         
+        """
+        man,i = self.mapper(which)
+        if 'energy_bands' not in self.__dict__:
+            self.setup_energy_bands()
+        if man != self.psm:
+            # cannot handle extended sources
+            return np.zeros((len(self.energy_bands), 3))
+        r = []
+        for eband in self.energy_bands:
+            eband.bandFit(which=i)
+            eband.m.p[0] = np.log10(eband.uflux)
+            ul = sum( (b.expected(eband.m)*b.er[i] for b in eband.bands) ) * eband.bands[0].phase_factor
+            if eband.flux is None:
+                r.append([ 0, ul,0] )
+            else:
+                n = ul*eband.flux/eband.uflux
+                r.append( [n,ul-n, n-ul*eband.lflux/eband.uflux] )
+        return np.array(r, np.float32)
+
