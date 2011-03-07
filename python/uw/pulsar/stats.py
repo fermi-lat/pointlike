@@ -2,12 +2,14 @@
 A module collecting various routines for calculating pulsation test
 test statistics and helper functions.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/stats.py,v 1.1 2010/11/01 19:54:18 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/stats.py,v 1.2 2010/11/19 21:37:18 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 """
 
 import numpy as np
+
+TWOPI = np.pi*2
 
 def vec(func):
     from numpy import vectorize
