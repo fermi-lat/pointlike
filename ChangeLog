@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Sun Mar  6 16:07:44 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	associate.py catrec.py processor.py skyanalysis.py skymodel.py 
+	sources.py 
+Log Message:
+up to date for P72Y series.
+    *
+------------------------------------------------------------
 User: burnett  Sun Mar  6 12:26:28 PST 2011
 pointlike/python/uw/utilities
 
