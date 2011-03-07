@@ -1,6 +1,6 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/catrec.py,v 1.1 2011/02/11 21:27:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/catrec.py,v 1.1 2011/03/02 22:16:36 burnett Exp $
 """
 import os, glob, pickle
 import numpy as np
@@ -59,7 +59,9 @@ def create_catalog(outdir, **kwargs):
             self.moved = 0
             self.colnames ="""name ra dec 
                 ts band_ts
-                id_prob aclass hp12
+                id_prob aclass id_ts
+                hp12
+                counts counts1 counts10
                 extended
                 pnorm pindex cutoff 
                 pnorm_unc pindex_unc cutoff_unc
@@ -67,7 +69,7 @@ def create_catalog(outdir, **kwargs):
                 flux flux_unc
                 beta beta_unc
                 modelname 
-                 bts10
+                bts1 bts10
                 fit_ra fit_dec a b ang qual delta_ts
                 """.split() 
             self.rec =makerec.RecArray(self.colnames) 
@@ -84,7 +86,12 @@ def create_catalog(outdir, **kwargs):
                 adict =  entry.get('associations', None)
                 data.append( cnan if adict is None else adict['prob'][0])
                 data.append('%-7s'%get_class(adict))
+                data.append( cnan if adict is None else adict['deltats'][0])
                 data.append(Band(12).index(skydir))
+                band_info = entry['band_info']
+                sig_counts=band_info['signal_counts'] if 'signal_counts' in band_info else None
+                for i in (0,4,8):
+                    data.append(sig_counts[i:,0].sum() if sig_counts is not None else cnan)
                 data.append( entry['extent'] is not None)
                 
                 model  = entry['model']
@@ -108,7 +115,8 @@ def create_catalog(outdir, **kwargs):
                     data += [cnan,cnan, 'ExpCutoff']
                 else:
                     data += [cnan,cnan, 'PowerLaw'] if p[2]<=0.01 else [p[2], p_unc[2], 'LogParabola']
-                data += [sum(entry['band_info']['ts'][7:])] ### note assumption that 10 GeV starts at 7
+                bts = band_info['ts']
+                data += [sum(bts[4:]), sum(bts[8:])] ### note assumptions that 1, 10 GeV start at 4,8
                 ellipse = entry.get('ellipse', None)
                 if ellipse is None or np.any(np.isnan(ellipse)):
                     data += [np.nan]*7

@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.4 2011/02/11 21:27:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.5 2011/03/02 22:07:08 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -9,7 +9,11 @@ from skymaps import SkyDir, Band, IsotropicSpectrum, DiffuseFunction
 from uw.like import  Models
 from uw.like import pointspec_helpers
 
-
+# convenience adapters 
+def LogParabola(*pars):return Models.LogParabola(p=pars)
+def PowerLaw(*pars):   return Models.PowerLaw(p=pars)
+def ExpCutoff(*pars):  return Models.ExpCutoff(p=pars)
+    
 class Source(object):
     """ base class for various sources
     """
@@ -20,18 +24,21 @@ class Source(object):
             # global source: keep original model
             self.free = self.model.free.copy()  # save copy of initial free array to restore
             return
-        
-        if 'model' not in kwargs:
-            self.model=Models.LogParabola(p=[1e-14, 2.2, 1e-3, 1e3])
+        if 'model' not in kwargs or self.model is None:
+            self.model=LogParabola(1e-14, 2.2, 1e-3, 1e3)
             self.model.free[2:]=False
+        if type(self.model)==types.StringType:
+            self.model = eval(self.model)
         if self.model.name=='PowerLaw':
             par,sig = self.model.statistical()
-            self.model = Models.LogParabola(p=list(par)+[1e-3, self.model.e0])
+            self.model = LogParabola(list(par)+[1e-3, self.model.e0])
             self.model.free[2:]=False
         elif self.model.name=='PLSuperExpCutoff':
             par,sig=self.model.statistical()
-            self.model = Models.ExpCutoff(p=par[:-1])
+            self.model = ExpCutoff(par[:-1])
         elif self.model.name=='LogParabola':
+            if 'index_offset' not in self.model.__dict__:
+                self.model.index_offset = 0
             self.model.free[-1]=False
             if self.model.cov_matrix[3,3]<0:  
                 self.model.cov_matrix[3,3]= 100.
@@ -39,7 +46,7 @@ class Source(object):
         elif self.model.name=='PowerLawFlux':
             f, gamma = 10**self.model.p
             emin = self.model.emin
-            self.model=Models.LogParabola(p=[f*(gamma-1)/emin, gamma, 1e-3, emin])
+            self.model=LogParabola(f*(gamma-1)/emin, gamma, 1e-3, emin)
             self.model.free[2:]=False
         if self.model.name not in ['LogParabola','ExpCutoff','Constant']:
             raise Exception('model %s not supported' % self.model.name)
