@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: kerrm  Sun Mar  6 17:00:54 PST 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py lcprimitives.py lcspeclike.py parfiles.py 
+	stats.py 
+Log Message:
+Major updates!
+
+    *
+------------------------------------------------------------
 User: burnett  Sun Mar  6 16:07:45 PST 2011
 pointlike/python/uw/pipeline/pub
 
