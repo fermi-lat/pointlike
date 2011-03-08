@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Mar  7 20:18:08 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Cleanup localize function. Add get_sources function to return all sources
+    *
+------------------------------------------------------------
 User: lande  Mon Mar  7 20:16:35 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
