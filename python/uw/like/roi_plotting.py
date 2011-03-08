@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.27 2011/02/18 19:33:20 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.28 2011/02/19 02:28:44 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -587,8 +587,7 @@ class ROIDisplay(object):
         nx = image.nx
         ny = image.ny
 
-        src = list(self.roi.psm.point_sources) + \
-              [i for i in self.roi.dsm.diffuse_sources if isinstance(i,ExtendedSource)]
+        src = [p for p in self.roi.get_sources() if hasattr(p,'skydir')]
 
         def allow(nx, ny, px, py, padx = 0.15, pady = 0.15):
             padx = padx * nx
