@@ -60,9 +60,9 @@ def modify_spatial_model(roi,which,spatial_model,preserve_center=False):
             if not isinstance(manager.diffuse_sources[index],ExtendedSource):
                 raise Exception("Can only modify the spatial model of point and extended sources.")
 
-            manager.diffuse_sources[index].spatial_model=spatial_model
-            manager.bgmodels[index].initialize_counts(roi.bands)
-            manager.update_counts(roi.bands)
+            roi.dsm.diffuse_sources[index].spatial_model=spatial_model
+            roi.dsm.bgmodels[index].initialize_counts(roi.bands)
+            roi.dsm.update_counts(roi.bands)
     else:
         raise Exception("spatial must be either a skydir or a SpatialModel")
     roi.__update_state__()
