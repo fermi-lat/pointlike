@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.68 2011/02/18 03:40:14 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.70 2011/02/23 08:27:21 lande Exp $
 
 author: Matthew Kerr
 """
@@ -501,15 +501,8 @@ class ROIAnalysis(object):
 
             return fit position
         """
-
-        manager,index = self.mapper(which)
-
-        if manager == self.dsm and not isinstance(manager.diffuse_sources[index],ExtendedSource):
-            raise Exception("Can only localize Point and Extended Sources")
-
-        f = roi_localize.ROILocalizer if manager == self.psm else roi_localize.ROILocalizerExtended
-        rl = f(self,which=index,bandfits=bandfits,tolerance=tolerance,update=update,verbose=verbose)
-
+        rl = roi_localize.localizer(self, which=which, bandfits=bandfits,
+                                   tolerance=tolerance, update=update, verbose=verbose)
         if seedpos is not None:
             rl.sd = seedpos  # override 
         return rl.localize()
@@ -883,4 +876,6 @@ class ROIAnalysis(object):
         """ return a reference to a source in the ROI by name, or point-source index"""
         manager, index = self.mapper(which) #raise exception if wrong.
         return manager.point_sources[index] if manager==self.psm else self.dsm.diffuse_sources[index] 
-        
+    
+    def get_sources(self,which):
+        return self.psm.point_sources.tolist()+ self.dsm.diffuse_sources.tolist() 
