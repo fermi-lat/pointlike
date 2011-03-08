@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Mar  7 20:18:46 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Also plot extended sources wtih ROIDisplay
+    *
+------------------------------------------------------------
 User: lande  Mon Mar  7 20:18:23 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
