@@ -1,12 +1,12 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.16 2011/01/20 16:05:36 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/assigntasks.py,v 1.17 2011/03/06 20:24:15 burnett Exp $
 
 """
 from IPython.kernel import client
 import time, os, pickle, subprocess
-version = '$Revision: 1.16 $'.split()[1]
+version = '$Revision: 1.17 $'.split()[1]
 
 class ProgressBar:
     def __init__(self, total=60, width=40):
@@ -138,6 +138,7 @@ class AssignTasks(object):
         if not self.quiet:
             print >>self.logstream,\
                 '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (message,))
+            if self.logstream is not None: self.logstream.flush()
         if self.progress_bar:
             self.progress_bar.update(self.index+1)
             print self.progress_bar.__str__()+ ' '+message+ ('\r' if os.name=='nt' else chr(27)+'[A'),
