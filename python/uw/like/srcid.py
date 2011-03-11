@@ -1,6 +1,6 @@
 """
 Python support for source association, equivalent to the Fermi Science Tool gtsrcid
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/srcid.py,v 1.26 2011/02/23 23:49:54 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.27 2011/03/07 18:20:34 wallacee Exp $
 author:  Eric Wallace <ewallace@uw.edu>
 """
 import os
@@ -13,6 +13,8 @@ import numpy as np
 import pyfits as pf
 from skymaps import SkyDir
 from uw.utilities.fitstools import rad_mask
+
+class SrcidError(Exception): pass
 
 conv95 = (-2*np.log(0.05))**.5
 class SourceAssociation(object):

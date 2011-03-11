@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.26 2011/02/04 02:53:48 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.27 2011/02/22 00:27:20 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -181,21 +181,22 @@ class ROIPointSourceManager(ROIModelManager):
                 band.frozen_pix_counts    = 0
 
               
-    def add_cutoff(self,which, free_cutoff=False):
-        """Replace a power law point source with one with a cutoff.  Useful for catalog pulsars."""
+    # comment out since so dependent on representaion
+    #def add_cutoff(self,which, free_cutoff=False):
+    #    """Replace a power law point source with one with a cutoff.  Useful for catalog pulsars."""
 
-        e = ExpCutoff()
-        m = self.models[which]
+  # #     e = ExpCutoff()
+    #    m = self.models[which]
 
-        e.p[0]        = N.log10(m(1000.))
-        e.p[1]        = m.p[1]
-        e.p[2]        = N.log10(5e5)
-        e.free[:2]  = m.free[:2]
-        e.free[2]    = free_cutoff
-        e.e0          = m.e0
+  # #     e.p[0]        = N.log10(m(1000.))
+    #    e.p[1]        = m.p[1]
+    #    e.p[2]        = N.log10(5e5)
+    #    e.free[:2]  = m.free[:2]
+    #    e.free[2]    = free_cutoff
+    #    e.e0          = m.e0
 
-        self.models[which] = e
-        self.point_sources[which].model = e
+  # #     self.models[which] = e
+    #    self.point_sources[which].model = e
 
     def add_source(self, ps, bands, nosort=False):
         """Add a new PointSource object to the model and re-calculate the point source
@@ -231,9 +232,9 @@ class ROIPointSourceManager(ROIModelManager):
 
     def zero_source(self, which, bands):
         m = self.models[which]
-        if m.p[0]==-100: return #already zeroed
-        m.old_flux = m.p[0]
-        m.p[0] = -100
+        if m.getp(0,internal=True)==-100: return #already zeroed
+        m.old_flux = m.getp(0, internal=True) # get the internal value
+        m.setp(0,  -100, internal=True)
         m.old_free = m.free.copy()
         m.free[:] = False
         self.cache(bands)
@@ -242,7 +243,7 @@ class ROIPointSourceManager(ROIModelManager):
         m = self.models[which]
         try:
             assert m.old_flux!=-100, 'attempt to unzero non-zeroed source %d ' % which
-            m.p[0] = m.old_flux
+            m.setp(0, m.old_flux, internal=True)
             m.free = m.old_free.copy()
             self.cache(bands)      
         except:
@@ -359,8 +360,8 @@ class ROIDiffuseManager(ROIModelManager):
 
     def zero_source(self, which, bands):
         m = self.models[which]
-        m.old_flux = m.p[0]
-        m.p[0] = -100
+        m.old_flux = m[0]
+        m[0] = 1e-100
         m.old_free = m.free.copy()
         m.free[:] = False
         self.update_counts(bands)
@@ -368,7 +369,7 @@ class ROIDiffuseManager(ROIModelManager):
     def unzero_source(self, which, bands):
         m = self.models[which]
         try:
-            m.p[0] = m.old_flux
+            m[0] = m.old_flux
             m.free = m.old_free.copy()
             self.update_counts(bands)
         except:
@@ -454,7 +455,7 @@ class ROIBackgroundManager(ROIModelManager):
             band.backup_bg_counts      = band.bg_counts.copy()
             if band.has_pixels:
                 band.backup_bg_pix_counts = band.bg_pix_counts.copy()
-            self.init_norms = N.asarray([m.p[0] for m in self.models])
+            self.init_norms = N.asarray([m[0] for m in self.models])
 
         self.cache() # check that this doesn't cause problems -- it shouldn't
         if not self.quiet: print 'done!'
@@ -481,8 +482,8 @@ class ROIBackgroundManager(ROIModelManager):
                         band.bg_pix_counts[:,nm] = (band.pi_evals[:,nm,:] * pts).sum(axis=1)                    
                         
             else:
-                ratio = 10**(m.p[0]-self.init_norms[nm])
-                if ratio == 0 or N.isnan(ratio): print ratio,m.p[0]
+                ratio = (m[0]/self.init_norms[nm])
+                if ratio == 0 or N.isnan(ratio): print ratio,m[0]
                 #self.init_norms[nm] = m.p[0]
                 for band in bands: 
                     #band.bg_counts[nm] *= ratio

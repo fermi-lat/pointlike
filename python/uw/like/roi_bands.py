@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_bands.py,v 1.22 2010/10/02 23:39:46 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.23 2010/12/08 01:58:56 lande Exp $
 
 author: Matthew Kerr
 """
@@ -156,7 +156,7 @@ class ROIEnergyBand(object):
         r      = []
         for w in which:
             self.bandFit(which=w)
-            self.m.p[0] = N.log10(self.uflux)
+            self.m[0] = self.uflux
             ul = sum( (b.expected(self.m)*b.er[w] for b in self.bands) ) * self.bands[0].phase_factor
             if self.flux is None:
                 r += [0,ul,0]
@@ -202,8 +202,9 @@ class ROIEnergyBand(object):
         self.fit = fmin(f,self.m.get_parameters(),disp=0,full_output=1,args=(self.m,which))
 
         def upper_limit():
+            ### warning: this code depends on the log10 representation of the flux
 
-            flux_copy = self.m.p[0]
+            flux_copy = self.m[0]
             zp          = self.bandLikelihood(N.asarray([-20]),self.m,which)
 
             # NB -- the 95% upper limit is calculated by assuming the likelihood is peaked at
@@ -217,10 +218,10 @@ class ROIEnergyBand(object):
             self.lflux = None
             self.flux  = None
 
-            self.m.p[0] = flux_copy
+            self.m[0] = flux_copy
 
         # if flux below a certain level, set an upper limit
-        if self.m.p[0] < -20:
+        if self.m[0] < 1e-20:
             bad_fit = True
             upper_limit()
 
@@ -232,7 +233,7 @@ class ROIEnergyBand(object):
                 bad_fit = True
                 err = 0 
 
-            self.flux  = 10**self.m.p[0] 
+            self.flux  = self.m[0] 
             self.uflux = self.flux*(1 + err)
             self.lflux = max(self.flux*(1 - err),1e-30)
 
