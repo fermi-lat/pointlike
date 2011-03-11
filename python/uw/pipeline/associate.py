@@ -1,7 +1,7 @@
 
 """
  Manage the catalog association tables
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/associate.py,v 1.2 2011/02/04 05:22:59 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/associate.py,v 1.3 2011/03/07 00:07:44 burnett Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
 import pyfits, os, pickle, glob
@@ -199,7 +199,7 @@ class SrcId(srcid.SourceAssociation):
         elif self.classes=='all_but_gammas':
             self.classes = ['agn', 'bllac', 'bzcat', 'cgrabs', 'crates', 'crates_fom', 'dwarfs', 
             'galaxies', 'globular', 'hmxb', 'ibis', 'lbv', 'lmxb', 'msp', 'ocl', 'ostar', 
-            'pulsar_fom','pulsar_high', 'pulsar_lat', 'pulsar_low', #'pulsar_nonATNF', 
+            'pulsar_fom','pulsar_high', 'pulsar_lat', 'pulsar_low', 'pulsar_nonATNF', 
             'pwn', 'qso', 'seyfert', 'seyfert_rl', 'snr', 'snr_ext', 'starbursts', 'tev']
         else:
             self.classes=classes
