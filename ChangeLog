@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Fri Mar 11 14:46:48 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py pixeldata.py roi_analysis.py roi_bands.py 
+	roi_diffuse.py roi_extended.py roi_managers.py roi_tsmap.py 
+	srcid.py 
+Log Message:
+changes associated with encapsulating Model parameter dependence
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-06, operation: add
 Package: pointlike
