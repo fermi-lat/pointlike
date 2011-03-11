@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.46 2011/02/11 01:47:31 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_extended.py,v 1.47 2011/02/18 02:58:57 lande Exp $
 
     author: Joshua Lande
 """
@@ -155,7 +155,7 @@ class ROIExtendedModel(ROIDiffuseModel):
             sources since extended sources decouple the spectral and spatial parts, as is done
             for point soruces. """
         sm  = self.extended_source.model
-        np  = len(sm.p)
+        np  = sm.len() 
         nfp = sm.free.sum()
 
         # special case -- no free parameters
@@ -501,7 +501,7 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         self.active_bgc = AnalyticConvolutionCache(self.extended_source,psf,**d)
 
     def set_state(self,band):
-        self.active_bgc.do_convolution(band,self.fitpsf,self.fastpsf)
+        self.active_bgc.do_convolution(band,self.fitpsf, self.fastpsf)
         self.current_energy = energy=band.psf.eopt if band.psf.__dict__.has_key('eopt') else band.e
 
     def _pix_value(self,pixlist):
@@ -766,7 +766,7 @@ class BandFitExtended(object):
 
         def upper_limit():
 
-            flux_copy = self.m.p[0]
+            flux_copy = self.m[0]
             zp          = self.energyBandLikelihoodExtended(N.asarray([-20]),self.m)
 
             # NB -- the 95% upper limit is calculated by assuming the likelihood is peaked at
@@ -780,10 +780,10 @@ class BandFitExtended(object):
             self.energy_band.lflux = None
             self.energy_band.flux  = None
 
-            self.m.p[0] = flux_copy
+            self.m[0] = flux_copy
 
         # if flux below a certain level, set an upper limit
-        if self.m.p[0] < -20:
+        if self.m[0] < 1e-20:
             bad_fit = True
             upper_limit()
 
@@ -794,7 +794,7 @@ class BandFitExtended(object):
                 bad_fit = True
                 err = 0 
 
-            self.energy_band.flux  = 10**self.m.p[0] 
+            self.energy_band.flux  = self.m[0] 
             self.energy_band.uflux = self.energy_band.flux*(1 + err)
             self.energy_band.lflux = max(self.energy_band.flux*(1 - err),1e-30)
 

@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.71 2011/03/08 04:18:08 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.72 2011/03/09 00:36:50 lande Exp $
 
 author: Matthew Kerr
 """
@@ -293,7 +293,8 @@ class ROIAnalysis(object):
 
         #cache frozen values
         param_state = N.concatenate([m.free for m in self.psm.models] + [m.free for m in self.bgm.models])
-        param_vals  = N.concatenate([m.p for m in self.psm.models] + [m.p for m in self.bgm.models])
+        param_vals  = N.concatenate([m.get_all_parameters(internal=True)  for m in self.psm.models] \
+                                + [m.get_all_parameters(internal=True)  for m in self.bgm.models])
 
         if self.param_state is None or self.param_vals is None or \
             len(param_state)  != len(self.param_state) or \

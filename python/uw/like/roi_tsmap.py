@@ -1,7 +1,7 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_tsmap.py,v 1.12 2011/01/20 15:52:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.13 2011/03/03 03:43:20 lande Exp $
 
 author: Matthew Kerr
 """
@@ -37,6 +37,11 @@ def my_newton(func,x0,fprime,tol=1e-2):
             return x0,True
     return x0,False
 
+def get_logflux(model):
+    """ local convenience to get the flux, in internal (log10 for now) representation"""
+    return model.getp(0, internal=True)
+def set_logflux(model, value):
+    model.setp(0, value, internal=True)
 ###====================================================================================================###
 class TSCalc(object):
     """Extract a TS as a function of position on the sky.
@@ -65,13 +70,13 @@ class TSCalc(object):
             self.mo = mo = self.spectral_model
         else:
             self.mo = mo  = PowerLaw(p=[1e-12,self.photon_index])
-        self.n0 = 10**mo.p[0]
+        self.n0 = 10**get_logflux(mo)
         for band in roi.bands:
             band.ts_exp = band.expected(mo) / self.n0  # counts / default flux
             band.rvals  = np.empty(len(band.wsdl),dtype=float) # allocate memory for arclength calc
         
         self.seeds  = np.concatenate(([-20.],np.arange(-14,-8.9,0.5)))
-        self.seeds += (mo.p[0] - base.p[0]) # adjust seeds to flux scale of alt. model
+        self.seeds += (get_logflux(mo) - get_logflux(base)) # adjust seeds to flux scale of alt. model
         self.cache_ra = self.cache_dec = -1
 
     def _cache(self,skydir):
@@ -143,7 +148,7 @@ class TSCalc(object):
 
         # first, find a good upper limit for the integration
         goal = 10
-        lo = self.mo.p[0] if f0_0>0 else -20; hi = -5
+        lo = get_logflux(self.mo) if f0_0>0 else -20; hi = -5
         for i in xrange(20):
             avg = float(lo+hi)/2
             f_new = self._f0(avg) - f0_0 + goal
@@ -174,9 +179,9 @@ class TSCalc(object):
         for i in xrange(10):
             #print 'Loop iter %d'%(i)
             n0,val,pts = find_conf(i,val)
-            self.mo.p[0] = np.log10(n0)
+            set_logflux(self.mo, np.log10(n0))  #self.mo[0] = n0
             if abs(prev_val/n0 - 1) < tol:
-                self.mo.p[0] = np.log10(n0)
+                set_logflux(self.mo, np.log10(n0)) #self.mo[0] = n0
                 return self.mo.i_flux(e_weight=e_weight,cgs=cgs)#,val,pts
             else:
                 prev_val = n0
@@ -233,7 +238,7 @@ class TSCalc(object):
         seed  = self.seeds[amax] + 0.5 # for some reason, helps to start *above* the critical point
 
         n0,conv = my_newton(self._f1,seed,fprime=self._f2)
-        self.mo.p[0] = n0
+        set_logflux(self.mo,n0) # self.mo.p[0] = n0
         if conv: return 2*self._f0(n0)
         else:
             print 'Warning! did not converge to a value or converged to a value consistent with 0 flux.'
@@ -863,7 +868,7 @@ class FastTSCalc(object):
         self.phase_factor = roi.phase_factor
         
         mo  = PowerLaw(p=[1e-12,self.photon_index])
-        self.n0 = 10**mo.p[0]
+        self.n0 =  10** get_logflux(mo) #THB 
         for band in roi.bands:
             band.ts_exp = band.expected(mo) / self.n0
             band.rvals  = np.empty(len(band.wsdl),dtype=float) # allocate memory for arclength calc

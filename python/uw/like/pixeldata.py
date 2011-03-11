@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.19 2010/07/25 19:43:29 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.20 2011/01/20 16:02:43 burnett Exp $
 
 """
-version='$Revision: 1.19 $'.split()[1]
+version='$Revision: 1.20 $'.split()[1]
 import os, math, pyfits, types, glob
 import numpy as N
 import pointlike, skymaps
@@ -135,8 +135,10 @@ Create a new PixelData instance, managing data and livetime.
         """
         if type(self.ft1files)==types.StringType:
             self.ft1files = glob.glob(os.path.expandvars(self.ft1files))
+            self.ft1files.sort()
         if type(self.ft2files)== types.StringType:
             self.ft2files = glob.glob(os.path.expandvars(self.ft2files))
+            self.ft2files.sort()
             
         # check explicit files
         for filelist in [self.ft1files, self.ft2files] :
@@ -234,16 +236,16 @@ Create a new PixelData instance, managing data and livetime.
            can, e.g., be used to filter out GRBs.  An intersection with the GTIs
            from the FT1 files and this gti_mask is made.
         """
-        if not self.quiet: print('applying GTI')
 
         if not self.recalcgti:
             if self.ltcube is not None and os.path.exists(self.ltcube):
-                if self.verbose: print('Using gti from %s'%(self.ltcube))
+                if not self.quiet: print('Using gti from %s'%(self.ltcube))
                 return skymaps.Gti(self.ltcube)
             elif self.binfile is not None and os.path.exists(self.binfile):
-                if self.verbose: print('Using gti from %s'%(self.binfile))
+                if not self.quiet: print('Using gti from %s'%(self.binfile))
                 return skymaps.Gti(self.binfile)
-
+        if len(self.ft1files)==0 or not os.path.exists(self.ft1files[0]):
+            raise Exception('Cannot process GTI: no files found')
         gti = skymaps.Gti(self.ft1files[0])
 
         # take the union of the GTI in each FT1 file
@@ -305,7 +307,8 @@ Create a new PixelData instance, managing data and livetime.
         if self.binfile is not None:
             if not self.quiet: print '.....loading binfile %s ...' % self.binfile ,
             self.dmap = skymaps.BinnedPhotonData(self.binfile)
-        if not self.quiet: print 'found %d bands.' % len(self.dmap)
+        if not self.quiet: print 'found %d bands, energies %.0f-%.0f MeV'\
+                % (len(self.dmap), self.dmap[1].emin(), self.dmap[len(self.dmap)-1].emax())
 
         if self.verbose:
             self.dmap.info()

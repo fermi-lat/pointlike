@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.17 2011/01/21 23:09:21 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.18 2011/02/01 05:40:57 lande Exp $
 
 author: Matthew Kerr
 """
@@ -203,19 +203,24 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
             if band.has_pixels:
                 myband.pi_counts = (myband.pi_evals * myband.mo_evals).sum(axis=1)
 
-        self.init_p = self.smodel.p.copy()
-        self.prev_p = self.smodel.p.copy() +1e-5 # kluge
+        self.init_p = self.smodel.get_all_parameters(internal=True)
+        self.prev_p = self.smodel.get_all_parameters(internal=True) +1e-5 # kluge
 
     def update_counts(self,bands,model_index):
 
         mi = model_index
         sm = self.smodel
-        if N.all(self.prev_p == sm.p): return
-        self.prev_p[:] = sm.p
+        #if N.all(self.prev_p == sm.p): return
+        #self.prev_p[:] = sm.p
+        smp = sm.get_all_parameters(internal=True)
+        if N.all(self.prev_p == smp): return
+        self.prev_p[:] = smp
+        
 
         # counts can just be scaled from initial integral
-        if N.all(sm.p[1:] == self.init_p[1:]):
-            ratio = 10**(sm.p[0]-self.init_p[0])
+        smp = sm.get_all_parameters(internal=True)
+        if N.all(smp[1:] == self.init_p[1:]):
+            ratio = 10**(smp[0]-self.init_p[0])
             for myband,band in zip(self.bands,bands): 
                band.bg_counts[mi] = ratio * myband.ap_counts
                if band.has_pixels:
@@ -246,7 +251,7 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
 
     def gradient(self,bands,model_index,phase_factor=1):
         sm  = self.smodel
-        np  = len(sm.p)
+        np  = len(sm.get_all_parameters())
         nfp = sm.free.sum()
 
         # special case -- no free parameters
@@ -256,7 +261,8 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         if (nfp == 1) and sm.free[0]:
             apterm  = sum( (b.bg_counts[model_index] for b in bands) )
             pixterm = sum( ( (b.bg_pix_counts[:,model_index]*b.pix_weights).sum() for b in bands if b.has_pixels) )
-            return [(phase_factor*apterm - pixterm)/10**sm.p[0]]
+            #return [(phase_factor*apterm - pixterm)/10**sm.p[0]]
+            return [(phase_factor*apterm - pixterm)/sm.getp(0)]
 
         # general case -- this is a little gross, improve if time
         gradient = [0]*nfp
