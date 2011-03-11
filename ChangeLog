@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Fri Mar 11 14:52:15 PST 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	associate.py catrec.py plot_sed.py processor.py skyanalysis.py 
+	skymodel.py sources.py 
+Log Message:
+changes to adapt to Model parameter encapsulation.
+    *
+------------------------------------------------------------
 User: burnett  Fri Mar 11 14:46:49 PST 2011
 pointlike/python/uw/utilities
 
