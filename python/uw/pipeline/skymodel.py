@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.13 2011/03/02 22:09:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.14 2011/03/07 00:07:44 burnett Exp $
 
 """
 import os, pickle, glob, types
@@ -31,6 +31,7 @@ class SkyModel(object):
         ('free_index', None, 'Set to minimum TS to free photon index if fixed'),
         ('filter',   lambda s: True,   'selection filter'), 
         ('rename_source',  lambda name: name, 'rename function'),
+        ('closeness_tolerance', 0.2, 'if>0, check for being too close, print warning'),
         ('quiet',  False,  'make quiet' ),
     )
     
@@ -83,7 +84,8 @@ class SkyModel(object):
             * remove if ra<0
         
         """
-        if self.auxcat is None or self.auxcat=='': return
+        if self.auxcat is None or self.auxcat=='': 
+            return
         cat = self.auxcat 
         if not os.path.exists(cat):
             cat = os.path.expandvars(os.path.join('$FERMI','catalog', cat))
@@ -155,7 +157,7 @@ class SkyModel(object):
                     if ellipse is not None and not np.any(np.isnan(ellipse)) :
                         fit_ra, fit_dec, a, b, ang, qual, delta_ts = ellipse
                         if qual<5 and a < 0.2 and \
-                                ts>self.update_positions and delta_ts>1:
+                                ts>self.update_positions and delta_ts>0.2:
                             skydir = SkyDir(float(fit_ra),float(fit_dec))
                             moved +=1
                 ps = sources.PointSource(name=self.rename_source(key), 
@@ -164,15 +166,19 @@ class SkyModel(object):
                 if self.free_index is not None and not ps.free[1] and ps.ts>self.free_index:
                         ps.free[1]=True
                         print 'Freed photon index for source %s'%ps.name
-                if sources.validate(ps,self.nside, self.filter): 
+                if sources.validate(ps,self.nside, self.filter):
+                    self._check_position(ps) # check that it is not coincident with previous source(warning for now?)
                     self.point_sources.append( ps)
             # make a list of extended sources used in the model   
             t = []
             names = p.get('diffuse_names', self.diffuse )
             for name, model in zip(names, p['diffuse']):
+                if '_p' not in model.__dict__:
+                    model.__dict__['_p'] = model.__dict__.pop('p')  # if loaded from old representation
+
                 if len(t)<2: # always assume first two are global ????
-                    if model.p[0]<-2:
-                        model.p[0]=-2
+                    if model[0]<1e-2:
+                        model[0]=1e-2
                         #print 'SkyModel warning: reset norm to 1e-2 for %s' % name
                     t.append(sources.GlobalSource(name=name, model=model, skydir=None, index=index))
                 else:
@@ -201,7 +207,14 @@ class SkyModel(object):
             if name.replace(' ','') not in [g.name.replace(' ','') for g in self.extended_sources]:
                 print 'extended source %s added to model' % name
                 self.extended_sources.append(self.extended_catalog.lookup(name))
-    
+    def _check_position(self, ps):
+        if self.closeness_tolerance<0.: return
+        for s in self.point_sources:
+            delta=np.degrees(s.skydir.difference(ps.skydir))
+            if delta<self.closeness_tolerance:
+                print  'SkyModel warning: appended source %s is %.2f deg (<%.1f) from %s'\
+                    %(ps.name, delta, self.closeness_tolerance, s.name)
+        
     #def skydir(self, index):
     #    return Band(self.nside).dir(index)
     def hpindex(self, skydir):
@@ -246,7 +259,10 @@ class SkyModel(object):
                 s.name = os.path.split(sources.Diffuse._dfile)[-1]
             else:
                 raise Exception('unrecognized diffuse file extention %s' % dfile)
-            s.smodel=s.model
+            s.smodel = s.model
+            if '_p' not in s.model.__dict__:
+                s.model.__dict__['_p'] = s.model.__dict__.pop('p')  # if loaded from old representation
+
         extended = self._select_and_freeze(self.extended_sources, src_sel)
         for s in extended: # this seems redundant, but was necessary
             s.model.free[:] = False if src_sel.frozen(s) else s.free
@@ -369,7 +385,7 @@ class Rename(object):
         pass as object:
         SkyModel( ..., rename_source=Rename(s,'tset'),...)
     """
-    def __init__(self, prefix, srec=pickle.load(open('uw00/sources.rec'))):
+    def __init__(self, prefix, srec):
         self.srec= srec.copy()
         self.srec.sort(order='ra')
         self.names = list(self.srec.name[-self.srec.extended])
@@ -382,4 +398,14 @@ class Rename(object):
             return '%s%04d' %(self.prefix,self.names.index(name))
         except:
             return name
-        
+
+class RemoveByName(object):
+    """ functor to remove sources, intended to be a filter for SkyModel"""
+    def __init__(self, names):
+        """ names : string or list of strings
+            if a string, assume space-separated set of names (actually works for a single name)
+        """
+        self.names = names.split() if type(names)==types.StringType else names
+    def __call__(self,ps):
+        return ps.name.strip() not in self.names
+    

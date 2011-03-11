@@ -16,7 +16,7 @@ Two classes:
     Note that PlotSED is independent of the likelihood code, and the plot can be recreated
     from the fluxes, model and name
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/plot_sed.py,v 1.1 2011/01/12 15:56:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/plot_sed.py,v 1.2 2011/01/20 16:07:03 burnett Exp $
 """
 import os, sys
 import numpy as np
@@ -194,7 +194,7 @@ class PlotSED(object):
         energy_flux_factor = self.scale_factor
         
         # show position of e0, possibly the pivot energy
-        e0 = m.e0 if m.name!='LogParabola' else 10**m.p[-1]
+        e0 = m.e0 if m.name!='LogParabola' else m[-1]
         flux = m(e0); flux_unc = flux*stat[1][0]
         axes.errorbar([e0], 
                 [energy_flux_factor*flux * e0**2], fmt='or', 

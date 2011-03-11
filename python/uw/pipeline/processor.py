@@ -1,12 +1,12 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.7 2011/03/02 22:10:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.8 2011/03/07 00:07:44 burnett Exp $
 """
 import os, pickle
 import numpy as np
 import pylab as plt
 from skymaps import SkyDir
-from uw.like import counts_plotter
+from uw.like import counts_plotter, srcid
 from uw.utilities import image
 from . import plot_sed  
   
@@ -25,7 +25,7 @@ def fix_beta(roi, bts_min=50, qual_min=20,):
         if not candidate:
             print 'name            beta   band_ts  fitqual'
         candidate=True
-        beta = 10**model.p[2]
+        beta = model[2]
         band_ts, ts = roi.band_ts(which=which), roi.TS(which=which)
         print '%-20s %10.2f %10.1f %10.1f ' %(roi.psm.point_sources[which].name,beta, band_ts, band_ts-ts),
         if beta>=3.0: print 'beta>1 too large'; continue
@@ -43,10 +43,10 @@ def fix_beta(roi, bts_min=50, qual_min=20,):
         for which,model in enumerate(roi.psm.models):
             if not np.any(model.free): break
             if model.name!='LogParabola': continue
-            beta = 10**model.p[2]
+            beta = model[2]
             if beta < 2.5: continue
             model.free[2]=False
-            model.p[2]=np.log10(2.5)
+            model[2]=2.5
         if refit:
             print 'need to refit: beta too large'
             roi.fit()
@@ -182,8 +182,9 @@ def make_association(source, tsf, associate):
     assert len(ell)>6, 'invalid ellipse for source %s' % source.name
     try:
         adict = associate(source.name, SkyDir(ell[0],ell[1]), ell[2:5]) 
-    except SrcidError, msg:
+    except srcid.SrcidError, msg:
         print 'Association error %s' % msg
+        raise
         adict=None
     source.adict = adict 
     if adict is not None:
@@ -247,7 +248,7 @@ def repivot(roi, fit_sources, min_ts = 25, max_beta=1.5):
                 continue
                 
             if pivot is None: continue
-            if model.name=='LogParabola': e0 = 10**model.p[3]
+            if model.name=='LogParabola': e0 = model[3]
             elif model.name=='ExpCutoff':
                 e0 = model.e0
             else:
@@ -257,8 +258,8 @@ def repivot(roi, fit_sources, min_ts = 25, max_beta=1.5):
                 print 'TS too small'
                 continue
             if model.name=='LogParabola':
-                if 10**model.p[2]>max_beta: 
-                    print 'beta= %.2f too large' %(10**model.p[2])
+                if model[2]>max_beta: 
+                    print 'beta= %.2f too large' %(model[2])
                     continue #very 
                 else:
                     model.free[2]=False # make sure beta fixed?

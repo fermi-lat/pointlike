@@ -1,6 +1,6 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/catrec.py,v 1.1 2011/03/02 22:16:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/catrec.py,v 1.2 2011/03/07 00:07:44 burnett Exp $
 """
 import os, glob, pickle
 import numpy as np
@@ -15,12 +15,12 @@ def get_class(adict):
     if adict is None: return '   '
     cat_list=adict['cat']
     priority = '''bllac bzcat cgrabs crates crates_fom seyfert seyfert_rl qso agn 
-                vcs galaxies pulsar_lat snr snr_ext pulsar_high pulsar_low pulsar_fom
+                vcs galaxies pulsar_lat snr snr_ext pulsar_high pulsar_low pulsar_fom pulsar_nonATNF
                 msp pwn hmxb lmxb globular tev ibis lbv dwarfs
                '''.split()
     others = ['ostar', 'starbursts', 'ocl']
     ass_class = ['bzb','bzcat']+['bzq']*3+['agn']*6+['LAT psr']+\
-                ['snr']*2 + ['psr']*4 + ['pwn'] + ['hmxb'] + ['lmxb']+ ['glc'] +['tev'] + 3*['None']
+                ['snr']*2 + ['psr']*5 + ['pwn'] + ['hmxb'] + ['lmxb']+ ['glc'] +['tev'] + 3*['None']
     cls = None
     for c,a in zip(priority,ass_class):
         if c in cat_list:
