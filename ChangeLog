@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Mar 11 14:46:49 PST 2011
+pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+changes associated with encapsulating Model parameter dependence
+    *
+------------------------------------------------------------
 User: burnett  Fri Mar 11 14:46:48 PST 2011
 pointlike/python/uw/like
 
