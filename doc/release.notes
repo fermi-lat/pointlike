@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.153 2011/02/18 03:45:10 lande Exp $
+$Id: release.notes,v 1.154 2011/03/08 19:14:17 lande Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-07-06 10-Mar-2011  lande Tagging Pointlike
  pointlike-07-07-05 08-Mar-2011  lande Tagging Pointlike
  pointlike-07-07-04 17-Feb-2011  lande adding function modify to ROIAnalysis.
  pointlike-07-07-03 30-Jan-2011  lande Updating pointlike to the latest version
