@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.33 2011/02/27 20:08:41 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.34 2011/03/11 22:46:48 burnett Exp $
 
     author: Matthew Kerr
 
@@ -203,7 +203,8 @@ Optional keyword arguments:
             return (p,z,z) if two_sided else (p,z) 
         try: #see if error estimates are present
             if not two_sided:
-                errs = N.diag(self.get_cov_matrix(absolute=False))
+                vars = N.diag(self.get_cov_matrix(absolute=False))
+                errs = vars**0.5 
                 return p,errs*(p if absolute else N.ones_like(p))
             else:
                 errs = vars**0.5
@@ -804,7 +805,7 @@ def convert_exp_cutoff(model):
     if model.name != 'ExpCutoff':
         raise Exception,'Cannot process %s into PLSuperExpCutoff'%(model.name)
     nm = PLSuperExpCutoff()
-    nm.p    = N.append(model.p,0)
+    nm._p    = N.append(model._p,0)
     nm.free = N.append(model.free,False)
     nm.cov_matrix[:,:] = 0
     nm.cov_matrix[:-1,:-1] = model.cov_matrix[:,:]
