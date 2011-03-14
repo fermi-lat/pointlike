@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Mar 14 11:07:02 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+fix missing sqrt in the statistics() function.
+    *
+------------------------------------------------------------
 User: burnett  Fri Mar 11 14:52:15 PST 2011
 pointlike/python/uw/pipeline
 
