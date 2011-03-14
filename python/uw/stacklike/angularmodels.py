@@ -1,9 +1,11 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/angularmodels.py,v 1.6 2010/10/21 22:35:35 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/angularmodels.py,v 1.8 2010/12/01 19:40:11 mar0 Exp $
 author: M.Roth <mar0@u.washington.edu>
 """
 
 from uw.utilities.minuit import Minuit
+from uw.like import SpatialModels
+from uw.utilities.convolution import AnalyticConvolution
 from uw.stacklike.CLHEP import HepRotation
 from uw.like import pypsf
 import numpy as np
@@ -15,6 +17,8 @@ import scipy.misc as sm
 import skymaps as s
 import time as t
 import copy as cp
+import scipy.interpolate as sint
+from uw.like.pycaldb import CALDBManager
 
 rd = 180./np.pi
 
@@ -138,24 +142,172 @@ class PSF(Model):
         return np.sqrt(acc)
 
     ## setup parameters from containment radii
-    #  @param r0 first containment in radians
-    #  @param r1 second containment in radians
-    #  @param c0 first containment fraction [0-1]
-    #  @param c1 second containment fraction [0-1]
-    def fromcontain(self,r0,r1,c0,c1):
-        pars = [r0/c0*0.68,2.25]
-        minuit = Minuit(lambda x: self.cfunc(x[0],x[1],r0,r1,c0,c1),pars,limits=self.limits,tolerance=1e-10,strategy=2,printMode=-1)
+    #  @param r containment in radians array
+    #  @param c containment fraction [0-1] array
+    def fromcontain(self,r,c):
+        if len(r)!=len(c):
+            print 'Containment and Containment fraction arrays must have same length'
+            return
+        if len(r)<2:
+            print 'Need at least two containment points'
+            return
+        pars = [r[0]/c[0]*0.68,2.25]
+        minuit = Minuit(lambda x: self.cfunc(x[0],x[1],r,c),pars,limits=self.limits,tolerance=1e-10,strategy=2,printMode=-1)
         minuit.minimize()
         self.model_par=minuit.params
         #print r0,self.recl(c0,self.model_par[0],self.model_par[1])
         #print r1,self.recl(c1,self.model_par[0],self.model_par[1])
 
     ## fitting function for containment
-    def cfunc(self,sigma,gamma,r0,r1,c0,c1):
-        acc = ((r0-self.recl(c0,sigma,gamma))/r0)**2
-        acc = acc + ((r1-self.recl(c1,sigma,gamma))/r1)**2
+    def cfunc(self,sigma,gamma,r,c):
+        acc = 0
+        for i in range(len(r)):
+            acc = acc + ((r[i]-self.recl(c[i],sigma,gamma))/r[i])**2
         return acc
 ################################################### END PSF CLASS       ###########################################
+
+################################################### PSF THETACLASS           ###########################################
+
+## PSF class
+#
+#  Models the angular distribution of a single King function for fitting width and tails
+
+class PSFTheta(Model):
+    ## Constructor
+    #
+    #  @param lims [min,max], minimum and maximum angular deviations in radians
+    #  @param model_par [sig,gam], model parameters (sigma, gamma), with sigma in radians
+    #  @param free [sig,gam], frees parameters to be fit
+
+    def __init__(self,lims,model_par,free=[True,True,True,True]):
+        #super(PSF,self).__init__(model_par,free)
+        self.mark='-'
+        self.lims=lims
+        self.model_par=model_par
+        self.free=free
+        self.steps=[0.001/rd,0.01,0.01,0.01]                 #size of step taken by fitter
+        self.limits=[[0.0001/rd,360./rd],[1.000000001,1000.],[-1.,1e7],[-1.,1e7]]   #limits of fitter (gamma>1)
+        self.name='psftheta'
+        self.header='sigma\tgamma\tsm\tgm\t'
+    
+    def __call__(self,diff):
+        return self.psf(diff,self.model_par[0],self.model_par[1])
+
+    ## returns the value of the unnormalized psf for a photon
+    #  @param photon CLHEP photon
+    #  @params pars psf parameters, fed in by fitter
+    def value(self,photon,pars):
+        if len(pars)!=len(self.model_par):
+            print 'Wrong number of PSF parameters, got %d instead of %d'%(len(pars),len(self.model_par))
+            raise
+        sig = pars[0]
+        g = pars[1]
+        ms = pars[2]
+        mg = pars[3]
+        ct = photon.ct
+        sig=((1.-ct)*ms+1.)*sig
+        g = ((1.-ct)*mg+1.)*g
+        diff = photon.srcdiff()
+        f = self.psf(diff,sig,g)
+        return f
+    
+    ## returns the value of the unnormalized psf for a photon
+    #  @param diff angular deviation in radians
+    #  @param sig sigma parameter in radians
+    #  @param g gamma parameter
+    def psf(self,diff,sig,g):
+        u = diff*diff/(2*sig*sig)
+        return (1-1/g)*(1+u/g)**-g
+
+    ## return the integral for a photon based on self.lims
+    #  @param photon CLHEP photon
+    #  @param pars psf parameters, fed in by fitter
+    def integrate(self,photon,pars):
+        sig = pars[0]
+        g = pars[1]
+        ms = pars[2]
+        mg = pars[3]
+        ct = photon.ct
+        sig=((1.-ct)*ms+1.)*sig
+        g = ((1.-ct)*mg+1.)*g
+        diff = photon.srcdiff()
+        f = self.psf(diff,sig,g)
+        um = self.lims[0]*self.lims[0]/(2.*sig*sig)
+        ua = self.lims[1]*self.lims[1]/(2.*sig*sig)
+        f0 = (1+um/g)**(-g+1)
+        f1 = (1+ua/g)**(-g+1)
+        return sig*sig*(f0-f1)
+    
+    ## return the integral of the psf
+    #  @param delmin minimum angle in radians
+    #  @param delmax maximum angle in radians
+    def integral(self,delmin,delmax):
+        sig = self.model_par[0]
+        g = self.model_par[1]
+        um = delmin*delmin/(2.*sig*sig)
+        ua = delmax*delmax/(2.*sig*sig)
+        f0 = (1+um/g)**(-g+1)
+        f1 = (1+ua/g)**(-g+1)
+        return sig*sig*(f0-f1)
+    
+    ## updates King function parameters, through fitter
+    #  @param pars [sigma,gamma], sigma in radians
+    def update(self,pars):
+        self.model_par=pars
+
+    ## returns the radius in radians of a particular confidence level
+    #  @param cl confidence level on interval (0,1)
+    def rcl(self,cl):
+        if cl<0 or cl>=1:
+            return -1
+        sig = self.model_par[0]
+        g = self.model_par[1]
+        return self.recl(cl,sig,g)
+     
+    ## returns the radius in radians of a particular confidence level
+    #  @param cl confidence level on interval (0,1)
+    #  @param sig sigma parameter in radians
+    #  @param g gamma parameter
+    def recl(self,cl,sig,g):
+        return sig*np.sqrt(2.*g*((1.-cl)**(1./(-g+1.))-1.))
+
+    ## returns the radius in radians of a particular confidence level
+    #  @param cl confidence level on interval (0,1)
+    #  @param errs error in the sigma parameter in radians
+    #  @param g error in the gamma parameter
+    #  @param cov covariance between sigma and gamma
+    def clerr(self,cl,errs,errg,cov):
+        sig = self.model_par[0]
+        g = self.model_par[1]
+        dfds = sm.derivative(lambda x: self.recl(cl,x,g),sig,dx=sig/10.)
+        dfdg = sm.derivative(lambda x: self.recl(cl,sig,x),g,dx=g/10.)
+        acc = dfds*dfds*errs*errs+dfdg*dfdg*errg*errg+2*dfds*dfdg*cov
+        return np.sqrt(acc)
+
+    ## setup parameters from containment radii
+    #  @param r containment in radians array
+    #  @param c containment fraction [0-1] array
+    def fromcontain(self,r,c):
+        if len(r)!=len(c):
+            print 'Containment and Containment fraction arrays must have same length'
+            return
+        if len(r)<2:
+            print 'Need at least two containment points'
+            return
+        pars = [r[0]/c[0]*0.68,2.25]
+        minuit = Minuit(lambda x: self.cfunc(x[0],x[1],r,c),pars,limits=self.limits,tolerance=1e-10,strategy=2,printMode=-1)
+        minuit.minimize()
+        self.model_par=minuit.params
+        #print r0,self.recl(c0,self.model_par[0],self.model_par[1])
+        #print r1,self.recl(c1,self.model_par[0],self.model_par[1])
+
+    ## fitting function for containment
+    def cfunc(self,sigma,gamma,r,c):
+        acc = 0
+        for i in range(len(r)):
+            acc = acc + ((r[i]-self.recl(c[i],sigma,gamma))/r[i])**2
+        return acc
+################################################### END PSF THETA CLASS       ###########################################
 
 ################################################### PSFALIGN CLASS      ###########################################
 
@@ -169,11 +321,11 @@ class PSFAlign(PSF):
     #  @param lims [min,max], minimum and maximum angular deviations in radians
     #  @param model_par [sig,gam], model parameters (sigma, gamma), with sigma in radians
     #  @param free [sig,gam], frees parameters to be fit
-    def __init__(self,lims,model_par=[0,0,0],free=[False,False,False],rot=[0,0,0],ebar=1e4,ec=0,irf='P6_v3'):
-        super(Model,self).__init__(model_par,free)
+    def __init__(self,lims,model_par=[0,0,0],free=[False,False,False],rot=[0,0,0],ebar=1e4,ec=0,irf='P6_v3_diff'):
+        #super(Model,self).__init__(model_par,free)
         self.mark='-'
         self.rot = HepRotation(rot,False)
-        cdb = pypsf.CALDBPsf(irf=irf+'_diff')
+        cdb = pypsf.CALDBPsf(CALDBManager(irf=irf))
         if ec!=-1:
             r68=cdb.inverse_integral(ebar,ec,68.)/rd
             r95=cdb.inverse_integral(ebar,ec,95.)/rd
@@ -181,7 +333,7 @@ class PSFAlign(PSF):
             r68=(cdb.inverse_integral(ebar,0,68.)+cdb.inverse_integral(ebar,1,68.))/rd/2.
             r95=(cdb.inverse_integral(ebar,0,95.)+cdb.inverse_integral(ebar,1,95.))/rd/2.
         self.PSF = PSF(lims=lims,model_par=[0.001,2.25],free=[False,False])
-        self.PSF.fromcontain(r68,r95,0.68,0.95)
+        self.PSF.fromcontain([r68,r95],[0.68,0.95])
         self.model_par=model_par
         self.free=free
         self.lims=lims
@@ -244,7 +396,7 @@ class Isotropic(Model):
     #
     #  @param lims [min,max], minimum and maximum angular deviations in radians
     def __init__(self,lims):
-        super(Model,self).__init__([],[])
+        #super(Model,self).__init__([],[])
         self.mark='-'
         self.model_par=[]
         self.free=[]
@@ -261,6 +413,9 @@ class Isotropic(Model):
             raise
         return 1.
     
+    def pdf(self,diff):
+        return 1.
+
     ## returns integral of Isotropic for a photon between self.lims
     def integrate(self,photon,pars):
         um = self.lims[0]*self.lims[0]/2.
@@ -285,10 +440,11 @@ class Isotropic(Model):
 
 class Diffuse(Model):
 
-    def __init__(self,lims,diff,ebar):
-        super(Model,self).__init__([],[])
+    def __init__(self,lims,diff,ebar,ltc='',ea=''):
+        #super(Model,self).__init__([],[])
+        self.useltc = not (ltc=='')
         self.lims=lims
-        self.mark='o'
+        self.mark='--'
         self.name='diff'
         self.header=''
         self.model_par=[]
@@ -300,6 +456,10 @@ class Diffuse(Model):
         self.band = s.Band(int(nside))
         self.area = self.band.pixelArea()
         self.diffuse = s.DiffuseFunction(diff,ebar)
+        if self.useltc:
+            self.ltc = s.LivetimeCube(ltc)
+            self.ea = s.EffectiveArea(ea)
+            self.exp = s.Exposure(self.ltc,self.ea)
         self.ebar = ebar
         self.func = [[],[]]
 
@@ -314,6 +474,9 @@ class Diffuse(Model):
         for wsd in wsdl:
             diff = wsd.difference(src)
             mag = self.diffuse.value(wsd,self.ebar)
+            if self.useltc:
+                exp = self.exp(wsd)
+                mag = mag*exp
             seps.append(diff)
             mags.append(mag)
         seps = np.array(seps)
@@ -363,14 +526,158 @@ class Diffuse(Model):
         self.model_par=pars
 ################################################### END DIFFUSE CLASS       ###########################################
 
-################################################### OFFPSF CLASS           ###########################################
+################################################### CONVOLVED DISK CLASS    ###########################################
+
+## CDISK class
+#
+# Manages uniform Convolution DISK shape
+class CDisk(Model):
+
+    ## Constructor
+    #
+    #  @param lims [min,max], minimum and maximum angular deviations in radians
+    def __init__(self,lims,model_par,free,energy,ct):
+        #super(Model,self).__init__([],[])
+        self.mark=':'
+        self.model_par=[]#model_par
+        self.free=free
+        self.lims=lims
+        self.steps=[]#[0.01/rd]
+        self.limits=[]#[[0.001/rd,10./rd]]
+        self.name='cdisk'
+        self.header=''
+        self.psf = pypsf.CALDBPsf(CALDBManager(irf='P6_v11_diff'))
+        self.sp = SpatialModels.Disk(p=[0,0,model_par[0]*rd])
+        self.ac = AnalyticConvolution(self.sp,self.psf)
+        self.ac.do_convolution_noband(energy,ct,self.lims[1]*rd,False)
+        #delt = (lims[1]-lims[0])/100.
+        #xr = np.arange(lims[0],lims[1],delt)
+        #yr = np.array([self.ac(s.SkyDir((x*1.+0.5)*rd*delt,0)) for x in range(len(xr)-1)])
+        #self.custom = Custom(lims,[xr,yr])
+        self.norm = si.quad(lambda x: x/rd/rd*self.ac(s.SkyDir(x,0)),lims[0]*rd,lims[1]*rd)[0]
+    
+    ## returns 1 since Isotropic is constant in (d)**2
+    def value(self,photon,pars):
+        diff = photon.srcdiff()*rd
+        val = self.ac(s.SkyDir(diff,0))
+        #print 'f0=%1.8f'%val
+        return val
+    
+    def pdf(self,diff):
+        val = self.ac(s.SkyDir(diff*rd,0))
+        #print 'f0=%1.8f'%val
+        return val
+
+    ## returns integral of Isotropic for a photon between self.lims
+    def integrate(self,photon,pars):
+        val = self.norm*self.ac.integral(self.lims[1],self.lims[0])
+        #print 'integral=%1.8f'%val
+        return val
+
+    ## returns integral of Isotropic between delmin and delmax
+    #  @param delmin minimum angle in radians
+    #  @param delmax maximum angle in radians
+    def integral(self,delmin,delmax):
+        return self.norm*self.ac.integral(delmax,delmin)
+    
+    """def value(self,photon,pars):
+        return self.custom.value(photon,pars)
+    
+    def pdf(self,diff):
+        return self.custom.pdf(diff)
+
+    def integrate(self,photon,pars):
+        return self.custom.integrate(photon,pars)
+
+    def integral(self,delmin,delmax):
+        return self.custom.integral(delmin,delmax)"""
+
+    ## updates model parameters (none) 
+    def update(self,pars):
+        self.model_par=pars
+
+################################################### END CDISK CLASS         ###########################################
+
+################################################### CONVOLVED HALO CLASS    ###########################################
+
+## CHalo class
+#
+# Manages convolution of gaussian in theta**2
+class CHalo(Model):
+
+    ## Constructor
+    #
+    #  @param lims [min,max], minimum and maximum angular deviations in radians
+    def __init__(self,lims,model_par,free,energy,ct):
+        #super(Model,self).__init__([],[])
+        self.mark=':'
+        self.model_par=[]#model_par
+        self.free=free
+        self.lims=lims
+        self.steps=[]#[0.01/rd]
+        self.limits=[]#[[0.001/rd,10./rd]]
+        self.name='chalo'
+        self.header='theta\t'
+        self.psf = pypsf.CALDBPsf(CALDBManager(irf='P6_v11_diff'))
+        self.sp = SpatialModels.GaussianR2(p=[0,0,model_par[0]*rd])
+        self.ac = AnalyticConvolution(self.sp,self.psf)
+        self.ac.do_convolution_noband(energy,ct,self.lims[1]*rd,False)
+        #delt = (lims[1]-lims[0])/100.
+        #xr = np.arange(lims[0],lims[1],delt)
+        #yr = np.array([self.ac(s.SkyDir((x*1.+0.5)*rd*delt,0)) for x in range(len(xr)-1)])
+        #self.custom = Custom(lims,[xr,yr])
+        self.norm = si.quad(lambda x: x/rd/rd*self.ac(s.SkyDir(x,0)),lims[0]*rd,lims[1]*rd)[0]
+    
+    ## returns 1 since Isotropic is constant in (d)**2
+    def value(self,photon,pars):
+        diff = photon.srcdiff()*rd
+        val = self.ac(s.SkyDir(diff,0))
+        #print 'f0=%1.8f'%val
+        return val
+
+    def pdf(self,diff):
+        val = self.ac(s.SkyDir(diff*rd,0))
+        #print 'f0=%1.8f'%val
+        return val
+
+    ## returns integral of Isotropic for a photon between self.lims
+    def integrate(self,photon,pars):
+        val = self.norm*self.ac.integral(self.lims[1],self.lims[0])
+        #print 'integral=%1.8f'%val
+        return val
+
+    ## returns integral of Isotropic between delmin and delmax
+    #  @param delmin minimum angle in radians
+    #  @param delmax maximum angle in radians
+    def integral(self,delmin,delmax):
+        return self.norm*self.ac.integral(delmax,delmin)
+
+    """def value(self,photon,pars):
+        return self.custom.value(photon,pars)
+    
+    def pdf(self,diff):
+        return self.custom.pdf(diff)
+
+    def integrate(self,photon,pars):
+        return self.custom.integrate(photon,pars)
+
+    def integral(self,delmin,delmax):
+        return self.custom.integral(delmin,delmax)"""
+
+    ## updates model parameters (none) 
+    def update(self,pars):
+        self.model_par=pars
+
+################################################### END CHALO CLASS         ###########################################
+
+################################################### OFFPSF CLASS            ###########################################
 
 class OffPsf(Model):
 
     def __init__(self,lims,model_par,off):
-        super(Model,self).__init__([],[])
+        #super(Model,self).__init__([],[])
         self.lims=lims
-        self.mark='--'
+        self.mark='k:'
         self.name='offpsf'
         self.header=''
         self.model_par=[]
@@ -459,7 +766,7 @@ class Custom(Model):
     #  @param lims [min,max], minimum and maximum angular deviations in radians
     #  @param func [[ang],[f(ang)]] array of angular separations in radians and the pdf of that separation
     def __init__(self,lims,func):
-        super(Model,self).__init__([],[])
+        #super(Model,self).__init__([],[])
         self.mark='o'
         self.model_par=[]
         self.free=[]
@@ -490,6 +797,8 @@ class Custom(Model):
             self.integ[it]=fn*delt
         self.seps = np.array(self.seps)
         self.right = np.array(self.right)
+        #self.pdfint = sint.interp1d(self.seps,self.fun,kind=3,bounds_error=False,fill_value=self.fun[len(self.fun)-1])
+        #self.intint = sint.interp1d(self.right,self.integ,kind=3,bounds_error=False,fill_value=0)
 
     ## linear interpolater
     #  @param val x-value to be interpolated
@@ -532,11 +841,13 @@ class Custom(Model):
             print 'There should be no parameters for a custom model, got %d'%len(pars)
             raise
         diff = photon.srcdiff()
+        #return self.pdfint(diff)
         return self.litp(diff,self.seps,self.fun)
 
     ## pdf probability distribution function
     #  @param diff angular separation in radians
     def pdf(self,diff):
+        #return self.pdfint(diff)
         return self.litp(diff,self.seps,self.fun)
 
     ## cdf function
@@ -544,7 +855,9 @@ class Custom(Model):
     #  @param pars function parameters (None)
     def integrate(self,photon,pars):
         ib = self.litp(self.lims[1],self.right,self.integ)
+        #ib = self.intint(self.lims[1])
         ia = self.litp(self.lims[0],self.right,self.integ)
+        #ia = self.intint(self.lims[0])
         return (ib-ia)
     
     ## returns integral of custom between delmin and delmax
@@ -552,7 +865,9 @@ class Custom(Model):
     #  @param delmax maximum angle in radians
     def integral(self,delmin,delmax):
         ib = self.litp(delmax,self.right,self.integ)
+        #ib = self.intint(delmax)
         ia = self.litp(delmin,self.right,self.integ)
+        #ia = self.intint(delmin)
         return (ib-ia)
 
     ## updates model parameters (none) 
@@ -639,7 +954,7 @@ class Halo(Model):
     #  @param model_par [theta], parameter to describe gaussian width in radians
     #  @param free [True], will fit the parameter theta
     def __init__(self,lims,model_par,free=[True]):
-        super(Model,self).__init__(model_par,free)
+        #super(Model,self).__init__(model_par,free)
         self.mark='-'
         self.model_par=model_par
         self.free=free
@@ -816,18 +1131,23 @@ class CompositeModel(object):
 
         #print parameter set every 10 function evals
         if self.calls%10==0:
+            if np.isnan(sum(nest)):
+                return acc
             st = '%d\t'%self.calls
             st = st+'%5.0f\t'%(int(sum(nest)))
             for ne in nest:
                 st = st +'%5.0f\t'%(int(ne))
             for spar in mpars:
-                st = st+'%1.4f\t'%(spar)
+                st = st+'%1.6f\t'%(spar)
             st = st +'%5.1f\t'%(2*(self.initial-acc))
             ctime = t.time()
             st = st+'%1.1f'%((ctime-self.clock)/self.calls)
             if not quiet:
                 print st
-        return acc
+        if np.isnan(sum(pars)) or np.isnan(acc):
+            return 1e40
+        else:
+            return acc
 
     ## integrates the total model from delmin to delmax, normalized to omin,omax (for differentials)
     ## this is useful for plotting purposes
