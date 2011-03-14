@@ -1,3 +1,4 @@
+import skymaps as sk
 from uw.utilities.minuit import Minuit
 import uw.stacklike.stacklike as b
 import numpy as np
@@ -12,12 +13,14 @@ import copy as cp
 import matplotlib
 import os as os
 import time as t
+from uw.stacklike.CLHEP import Photon
 
 rd = 180/np.pi   #DEG2RAD
 trad = rd
-ft1dir = r'D:\common\mar0\data\flight\7.3c/'          #ft1 fits files directory
-stacklist = 'agn-psf-study-bright'                    #text file containing 'name ra dec' for each stacked source
-cdb = r'd:\fermi\CALDB\v1r1\CALDB\data\glast\lat'     #CALDB directory
+ft1dir = r'/phys/groups/tev/scratch1/users/Fermi/mar0/data/6.3/'          #ft1 fits files directory
+stacklist = 'cgv'                    #text file containing 'name ra dec' for each stacked source
+cdb = r'/phys/groups/tev/scratch1/users/Fermi/CALDB/v1r1/CALDB/data/glast/lat'     #CALDB directory
+sdir='/phys/users/mar0/sourcelists/'
 
 ## Main method
 # @param ec Conversion Type (0-front 1-back)
@@ -59,7 +62,7 @@ class Fitter(object):
 
         emin=[]
         emax=[]
-        irf = 'P6_v11'
+        irf = 'P6_v3_diff'
         st1=0.25
         st2=0.25
         st3=0.5
@@ -79,14 +82,18 @@ class Fitter(object):
         
         altb=[]
 
-        files = glob.glob(ftdir+'*.fits')
+        files = glob.glob(ftdir+'*-ft1.fits')
 
         ## setup the stacker for each energy bin
         for it,en in enumerate(emin):
-            al = b.StackLoader(lis=slist,quiet=False,useft2s=False,irf=irf,ctmin=0.3)
+            al = b.StackLoader(lis=slist,quiet=False,useft2s=False,irf=irf,ctmin=0.4,srcdir=sdir,ft1dir=ft1dir)
             al.files=files
             al.loadphotons(0.,4.,en,emax[it],0,999999999,ec)
+            events = len(al.photons)
+            al.bindata()
+            al.solveback()
             altb.append(al)
+            #al.makeplot(name='/phys/users/mar0/figures/%s%d%d'%(slist,al.ebar,al.cls),scale='linear',bin=len(hist[0]))
 
         ## optimize curves
         almin = so.fmin_powell(lambda x:self.likelihood(altb,x[0],x[1],x[2],x[3],x[4],x[5],x[6],x[7],x[8],x[9]),pars,disp=1,full_output=1)
@@ -229,6 +236,12 @@ def getirfparams(irf='P6_v8_diff',out='P6_v10_diff'):
     #r68bp = [6.7,0.0961,-0.796,0.4235,-0.1016]
     #r95bp = [20.997,0.4271,-0.786,1.021,-0.0663]
 
+    ######## P6_v12 5 pars ###############
+    r68fp = [3.639,-0.006,-0.8354,0.1943,-0.0786]
+    r95fp = [8.297,0.0288,-0.7702,0.4022,-0.1096]
+    r68bp = [7.411,0.045,-0.861,0.4557,-0.0927]
+    r95bp = [17.956,0.3554,-0.7484,0.9265,-0.0624]
+
     ######## P7_v3 5 pars ###############
     #r68fp = [3.701,0.0289,-0.8256,0.1628,-0.0906]
     #r95fp = [9.635,0.0841,-0.8181,0.3695,-0.0725]
@@ -254,10 +267,22 @@ def getirfparams(irf='P6_v8_diff',out='P6_v10_diff'):
     #r95bp = [24.82,0.3825,-0.8018,0.9080,0.0075]
 
     ######## P7_v4 clean 5 pars ###############
-    r68fp = [4.057,0.0099,-0.8145,0.2090,-0.0793]
-    r95fp = [12.17,0.0613,-0.8285,0.4340,0.0034]
-    r68bp = [7.575,0.1139,-0.8332,0.4637,-0.0784]
-    r95bp = [25.52,0.3097,-0.7823,0.8766,0.0470]
+    #r68fp = [4.057,0.0099,-0.8145,0.2090,-0.0793]
+    #r95fp = [12.17,0.0613,-0.8285,0.4340,0.0034]
+    #r68bp = [7.575,0.1139,-0.8332,0.4637,-0.0784]
+    #r95bp = [25.52,0.3097,-0.7823,0.8766,0.0470]
+
+    ######## P6_v12 5 pars ###############
+    r68fp = [3.525,-0.002,-0.8261,0.1997,-0.0825]
+    r95fp = [7.846,0.0263,-0.7468,0.3948,-0.1152]
+    r68bp = [5.905,0.037,-0.8749,0.4633,-0.0903]
+    r95bp = [12.423,0.2504,-0.81,0.9353,-0.0510]
+
+    ######## P6_v12 5 pars cgv ###############
+    r68fp = [3.477,-0.0000,-0.8271,0.2207,-0.0525]
+    r95fp = [9.662,0.0126,-0.8254,0.5893,-0.0962]
+    r68bp = [6.658,0.0334,-0.8516,0.4959,-0.0642]
+    r95bp = [16.172,1.003,-0.8369,1.3854,-0.0490]
 
     pname = cdb+r'\bcf\psf\psf_%s_'%irf
     print pname
@@ -421,14 +446,13 @@ def getirfparams(irf='P6_v8_diff',out='P6_v10_diff'):
     ff.flush()
     bf.flush()
 
-def makeplots(irfs=['P6_v11_diff']):
+def makeplots(irfs=['P6_v11_diff'],fact=1.,num=32.,cts=[34,68,95]):
     
-    cts = [34,68,95]
     nms = [str(x)+y for x in cts for y in irfs]
     clr = ['b','g','r']
     sty = ['-','--','-.',':']
 
-    energy = N.arange(1.25,5.75,1./32.)
+    energy = N.arange(1.25,5.75,1./num)
     energy=10**energy
     py.ioff()
     py.hold(True)
@@ -439,7 +463,7 @@ def makeplots(irfs=['P6_v11_diff']):
     for it1,ct in enumerate(cts):
         for it2,irf in enumerate(irfs):
             psf = up.CALDBPsf(irf=irf)
-            rct = [psf.inverse_integral(x,0,ct) for x in energy]
+            rct = [np.sqrt(psf.inverse_integral(x/fact,0,ct)*np.sqrt(psf.inverse_integral(x*fact,0,ct))) for x in energy]
             p1 = py.plot(energy,rct,clr[it1]+sty[it2])
             ps.append(p1)
     py.grid()
@@ -455,7 +479,7 @@ def makeplots(irfs=['P6_v11_diff']):
     for it1,ct in enumerate(cts):
         for it2,irf in enumerate(irfs):
             psf = up.CALDBPsf(irf=irf)
-            rct = [psf.inverse_integral(x,1,ct) for x in energy]
+            rct = [np.sqrt(psf.inverse_integral(x/fact,1,ct)*np.sqrt(psf.inverse_integral(x*fact,1,ct))) for x in energy]
             p1 = py.plot(energy,rct,clr[it1]+sty[it2])
             ps.append(p1)
     py.grid()
@@ -469,4 +493,4 @@ def makeplots(irfs=['P6_v11_diff']):
     for irf in irfs:
         title=title+irf+'_'
     py.suptitle(title)
-    py.savefig(title.strip('_')+'.png')
+    py.savefig(title.strip('_')+'%1.4f.png'%fact)
