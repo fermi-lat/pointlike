@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.37 2011/02/11 02:32:28 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.38 2011/03/03 03:43:03 lande Exp $
 
     author: Matthew Kerr
     """
@@ -195,7 +195,8 @@ class FermiCatalog(PointSourceCatalog):
             provided by the user.  In case of duplicates (closer than prune_radius), the user object
             takes precedence."""
 
-        user_extended_list = [i for i in user_diffuse_list if isinstance(i,ExtendedSource)]
+        user_extended_list = [i for i in user_diffuse_list if isinstance(i,ExtendedSource)] \
+                if user_diffuse_list is not None else []
 
         cat_list = self.get_sources(skydir,radius)
         if user_point_list==[] and user_extended_list==[]: return cat_list,user_diffuse_list
