@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Mar 15 13:29:47 PDT 2011
+ScienceTools-scons/pointlike/python/uw/pipeline
+
+Modified Files:
+	skyanalysis.py 
+Log Message:
+attempted fix for signal_counts
+    *
+------------------------------------------------------------
 User: burnett  Tue Mar 15 05:52:16 PDT 2011
 pointlike/python/uw/pipeline
 
