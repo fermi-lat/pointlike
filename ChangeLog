@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Mar 15 15:34:40 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+bug fix if no diffuse sources
+    *
+------------------------------------------------------------
 User: kerrm  Tue Mar 15 15:32:12 PDT 2011
 pointlike/python/uw/pipeline
 
