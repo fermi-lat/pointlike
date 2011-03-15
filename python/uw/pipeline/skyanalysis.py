@@ -1,6 +1,6 @@
 """
 Basic ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/skyanalysis.py,v 1.13 2011/03/11 22:52:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.14 2011/03/15 02:40:10 lande Exp $
 """
 import os, pickle, glob, types
 import numpy as np
@@ -245,6 +245,13 @@ class PipelineROI(roi_analysis.ROIAnalysis):
         
     def fit_ts_list(self, which=0):
         """ return breakdown of final fit ts per band """
+        man,i = self.mapper(which)
+        if 'energy_bands' not in self.__dict__:
+            self.setup_energy_bands()
+        if man != self.psm:
+            # cannot handle extended sources
+            return np.zeros((len(self.energy_bands)))
+
         self.zero_ps(which)
         self.update_counts(self.get_parameters())
         w0 = np.array([band.logLikelihood() for band in self.bands])
@@ -255,23 +262,18 @@ class PipelineROI(roi_analysis.ROIAnalysis):
       
     def signal_counts(self, which):
         """ return list of (value, +sig, -sig) for measured counts per energy band
-        (code cribbed from roi_bands.ROIEnergyBand, only implemented for point sources)
+        (code cribbed from roi_bands.ROIEnergyBand, )
         
         """
         man,i = self.mapper(which)
         if 'energy_bands' not in self.__dict__:
             self.setup_energy_bands()
-        if man != self.psm:
-            # cannot handle extended sources
-            return np.zeros((len(self.energy_bands), 3))
         r = []
         for eband in self.energy_bands:
             if man == self.psm:
                 eband.bandFit(which=i)
             else:
-                from uw.like.roi_extended import BandFitExtended
-                bfe=BandFitExtended(i,eband,self)
-                bfe.fit()
+                roi_extended.BandFitExtended(i,eband,self).fit()
 
             eband.m[0] = eband.uflux
             ul = sum( (b.expected(eband.m)*b.er[i] for b in eband.bands) ) * eband.bands[0].phase_factor
