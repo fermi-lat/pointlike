@@ -1,6 +1,6 @@
 """
 Basic ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.14 2011/03/15 02:40:10 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/skyanalysis.py,v 1.15 2011/03/15 12:52:16 burnett Exp $
 """
 import os, pickle, glob, types
 import numpy as np
@@ -273,10 +273,16 @@ class PipelineROI(roi_analysis.ROIAnalysis):
             if man == self.psm:
                 eband.bandFit(which=i)
             else:
-                roi_extended.BandFitExtended(i,eband,self).fit()
+                bfe=roi_extended.BandFitExtended(i,eband,self)
+                bfe.fit()
 
             eband.m[0] = eband.uflux
-            ul = sum( (b.expected(eband.m)*b.er[i] for b in eband.bands) ) * eband.bands[0].phase_factor
+            if man == self.psm:
+                ul = sum( (b.expected(eband.m)*b.er[i] for b in eband.bands) ) * eband.bands[0].phase_factor
+            else:
+                ul = sum( (b.expected(eband.m)*mb.er for b,my in zip(bfe.bands,bfe.mybands))) * eband.bands[0].phase_factor
+
+
             if eband.flux is None:
                 r.append([ 0, ul,0] )
             else:
