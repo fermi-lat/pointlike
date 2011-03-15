@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Mar 15 15:32:12 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skyanalysis.py 
+Log Message:
+Added ability to parse multiple types of data specification.  Additional ROIAnalysis kwargs via dict.
+
+    *
+------------------------------------------------------------
 User: lande  Tue Mar 15 13:29:47 PDT 2011
 ScienceTools-scons/pointlike/python/uw/pipeline
 
