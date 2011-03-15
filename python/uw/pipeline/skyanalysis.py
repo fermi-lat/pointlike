@@ -1,6 +1,6 @@
 """
 Basic ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/skyanalysis.py,v 1.15 2011/03/15 12:52:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.16 2011/03/15 20:29:47 lande Exp $
 """
 import os, pickle, glob, types
 import numpy as np
@@ -52,8 +52,8 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         for kw in default_keys: 
             if kw in self.config: kwargs[kw]= self.config[kw]
         month = kwargs.pop("month",None)
-        super(SkyAnalysis,self).__init__( dataspec.DataSpec(dataset,month=month), **kwargs)
-        # now add waht is left
+        super(SkyAnalysis,self).__init__( self._process_dataset(dataset,month=month), **kwargs)
+        # now add what is left
         self.__dict__.update(self.config)
         self.skymodel = sky
         convolution.AnalyticConvolution.set_points(self.convolve_kw['num_points'])
@@ -61,6 +61,17 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         if not self.quiet: 
             print >>self.log, self
             if self.log is not None: self.log.close()
+
+    def _process_dataset(self,dataset,month):
+        """ Parse the dataset as either a DataSpecification object, a dict, or a string lookup key."""
+        if hasattr(dataset,'binfile'): # dataset is DataSpecification instance
+            return dataset
+        if hasattr(dataset,'pop'): # dataset is a dict
+            if 'data_name' not in dataset.keys():
+                dataset['data_name'] = 'Custom Dataset %d'%id(dataset)
+            dataspec.DataSpec.datasets[id(dataset)] = dataset
+            return dataspec.DataSpec(id(dataset),month=month)
+        return dataspec.DataSpec(dataset,month=month)
     
     def __str__(self):
         s = '%s configuration:\n'% self.__class__.__name__
@@ -104,6 +115,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
     def roi(self, *pars, **kwargs):
         """ return a roi_analysis.ROIAnalysis object based on the selector
         """
+        roi_kw = kwargs.pop('roi_kw',None)
         src_sel = self.selector(*pars, **kwargs)
 
         ps_manager = self._local_sources(src_sel)
@@ -112,6 +124,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         def iterable_check(x):
             return x if hasattr(x,'__iter__') else (x,x)
 
+
         r = PipelineROI(ps_manager.roi_dir, 
                     ps_manager, bg_manager, 
                     self, 
@@ -119,7 +132,8 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
                     fit_emin=iterable_check(self.fit_emin), 
                     fit_emax=iterable_check(self.fit_emax),
                     quiet=self.quiet, 
-                    fit_kw = self.fit_kw)
+                    fit_kw = self.fit_kw,
+                    roi_kw = roi_kw)
         return r
 
   
@@ -129,6 +143,8 @@ class PipelineROI(roi_analysis.ROIAnalysis):
 
     def __init__(self, *pars, **kwargs):
         self.fit_kw = kwargs.pop('fit_kw', dict())
+        roi_kw = kwargs.pop('roi_kw',None)
+        if roi_kw is not None: kwargs.update(roi_kw)
         self.likelihood_count=0
         self.prior = lambda x : 0 # default, no prior
         self.name = kwargs.pop('name', None)
