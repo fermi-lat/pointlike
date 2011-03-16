@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.155 2011/03/11 01:05:45 lande Exp $
+$Id: release.notes,v 1.156 2011/03/11 01:05:50 lande Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-07-07 16-Mar-2011  lande Better point source code
  pointlike-07-07-06 10-Mar-2011  lande Tagging Pointlike
  pointlike-07-07-06 10-Mar-2011  lande Tagging Pointlike
  pointlike-07-07-05 08-Mar-2011  lande Tagging Pointlike
