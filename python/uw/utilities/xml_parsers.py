@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.37 2011/02/11 22:31:58 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.38 2011/03/11 22:46:49 burnett Exp $
 
    author: Matthew Kerr
 """
@@ -152,6 +152,7 @@ class XML_to_Model(object):
                 model.index_offset = index_offset
             #model.p[ip] = value*scale
             if value*scale<0: raise Exception('For source %s, %s parameter %s cannot be negative' % (source_name,specname,p))
+            if N.isnan(value*scale): raise Exception('For source %s, %s parameter %s is NaN' % (source_name,specname,p))
             model.setp(ip, value*scale)
             model.free[ip] = (pdict['free'] == '1')
             if 'error' in pdict.keys():
