@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Mar 17 16:38:21 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_printing.py 
+Log Message:
+bug fix in case roi.title does not exist
+    *
+------------------------------------------------------------
 User: lande  Thu Mar 17 16:37:58 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
