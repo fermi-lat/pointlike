@@ -1,0 +1,112 @@
+"""
+Module to save an ROIAnalysis object to a file and to load it back in.
+
+$Header:$
+
+author: Joshua Lande
+"""
+import cPickle
+import uw.like.pointspec 
+from uw.like.pointspec import SpectralAnalysis
+from uw.like.pointspec import DataSpecification
+from . roi_analysis import ROIAnalysis
+import collections
+
+class Empty: pass
+
+def save(roi,filename):
+    """ Save ROI to file. 
+    
+        This implementation has many limitations and is suitable only for quick hacks.
+
+            * To keep the saved file small, this none of the model predictions are saved. After
+              reloading the ROI, all of these time consuming calculations have to be redone.
+            * Is fragile to the exact path of things. So you probably could not reload the ROI
+              with a new version of the science tools, or after moving the location of your
+              diffuse sources or anything like that.
+            * Can only pickle certain kinds of diffuse sources.
+            * Does not respect if a special diffuse_mapper was used to create the ROI.
+
+        Nevertheless, it is very useful to be able to temporarily save and load an ROI. """
+    self=roi
+
+    d=collections.defaultdict(dict)
+
+    for i in DataSpecification.defaults:
+        if len(i)==3:
+            j=i[0]
+            d['DataSpecification'][j]=self.sa.dataspec.__dict__[j]
+
+    for i in SpectralAnalysis.defaults:
+        if len(i)==3:
+            j=i[0]
+            d['SpectralAnalysis'][j]=self.sa.__dict__[j]
+
+    d['roi_dir']=self.roi_dir
+    d['point_sources']=self.psm.point_sources.tolist()
+    d['diffuse_sources']=self.dsm.diffuse_sources.tolist()
+
+    if self.__dict__.has_key('qform') and \
+            self.__dict__.has_key('ldir') and \
+            self.__dict__.has_key('lsigma') and \
+            self.__dict__.has_key('delta_loc_logl'):
+
+        # can't save out qform, but at least save qform.par
+        empty_qform=Empty()
+        empty_qform.par=self.qform.par
+
+        # add in localization stuff, kinda ugly
+        d['localization']={'qform':empty_qform,
+                           'ldir':self.ldir,
+                           'lsigma':self.lsigma,
+                           'delta_loc_logl':self.delta_loc_logl}
+
+
+    for i in ROIAnalysis.defaults:
+        if len(i)==3:
+            j=i[0]
+            d['ROIAnalysis'][j]=self.__dict__[j]
+
+    cPickle.dump(d,open(filename,'w'))
+
+def load(filename,**kwargs):
+    """ Factory method to return a ROIAnalysis object
+        that has been saved to a file. 
+        
+        Any additional kwargs is used to modify DataSpecification, SpectralAnalysis,
+        and ROIAnalysis objects."""
+    d=cPickle.load(open(filename,'r'))
+
+    for k,v in kwargs.items():
+
+        keys=lambda x: [ i[0] for i in x]
+
+        if k in keys(DataSpecification.defaults):
+            d['DataSpecification'][k]=v
+        elif k in keys(SpectralAnalysis.defaults):
+            # allow changing the ROIAnalysis parameters when
+            d['SpectralAnalysis'][k]=v
+        elif k in keys(ROIAnalysis.defaults):
+            d['ROIAnalysis'][k]=v
+        else:
+            raise Exception("Unknown argument %s to function load" % k)
+
+    ds=DataSpecification(**d['DataSpecification'])
+    sa=SpectralAnalysis(ds,**d['SpectralAnalysis'])
+    roi=sa.roi(roi_dir=d['roi_dir'],
+               point_sources=d['point_sources'],
+               diffuse_sources=d['diffuse_sources'],
+               **d['ROIAnalysis'])
+
+    # add in localization stuff, kinda ugly
+    if d.has_key('localization'):
+        roi.qform=d['localization']['qform']
+        roi.ldir=d['localization']['ldir']
+        roi.lsigma=d['localization']['lsigma']
+        roi.delta_loc_logl=d['localization']['delta_loc_logl']
+
+    # just to be safe
+    roi.__update_state__()
+
+    return roi
+
