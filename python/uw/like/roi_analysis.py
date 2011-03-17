@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.72 2011/03/09 00:36:50 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.73 2011/03/11 22:46:48 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -582,7 +582,7 @@ class ROIAnalysis(object):
         model=source.model
 
         def like(norm):
-            model.p[0] = norm
+            model.setp(0,norm,internal=True)
             return N.exp(ll_0-self.logLikelihood(self.parameters()))
         npoints = kw['simps_points'] * (kw['integral_max'] - kw['integral_min'])
         points = N.log10(N.logspace(kw['integral_min'],
@@ -598,7 +598,7 @@ class ROIAnalysis(object):
         y1, y2 = cumsimps[i1], cumsimps[i2]
         #Linear interpolation should be good enough at this point
         limit = x1 + ((x2-x1)/(y2-y1))*(kw['confidence']-y1)
-        model.p[0] = limit
+        model.setp(0,limit,internal=True)
         uflux = self.psm.models[0].i_flux(e_weight=kw['e_weight'],cgs=kw['cgs'])
         self.logLikelihood(params)
         return uflux
@@ -880,3 +880,15 @@ class ROIAnalysis(object):
     
     def get_sources(self):
         return self.psm.point_sources.tolist()+ self.dsm.diffuse_sources.tolist() 
+
+    def save(self,*args,**kwargs):
+        from . import roi_save
+        roi_save.save(self,*args,**kwargs)
+
+    @staticmethod
+    def load(*args,**kwargs):
+        from . import roi_save
+        return roi_save.load(self,*args,**kwargs)
+
+load=ROIAnalysis.load
+
