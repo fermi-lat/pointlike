@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Mar 17 16:37:19 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py 
+Log Message:
+Adding new flag catalog_include_radius
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-08, operation: add
 Package: pointlike
