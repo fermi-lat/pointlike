@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.32 2011/02/22 23:52:22 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.33 2011/03/08 04:16:35 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.32 $'.split()[1]
+version='$Revision: 1.33 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -207,6 +207,7 @@ class SpectralAnalysis(object):
     def roi(self, roi_dir = None,
                   point_sources = [], catalogs = [], catalog_mapper = None,
                   diffuse_sources = [], diffuse_mapper = None,
+                  catalog_include_radius = None,
                   **kwargs):
         """
         return an ROIAnalysis object
@@ -259,6 +260,8 @@ class SpectralAnalysis(object):
                          center, and returns an object implementing the
                          ROIDiffuseModel interface.  If None, the system uses
                          the default, an on-the-fly numerical convolution.
+        catalog_include_radius [None] The radius within which all catalog sources are 
+                         included. The default is 5 degrees larger than maxROI
 
         Optional Keyword Arguments:
             ==========   =============
@@ -291,7 +294,9 @@ class SpectralAnalysis(object):
         for cat in catalogs:
             if not isinstance(cat,PointSourceCatalog):
                 cat = catalog_mapper(cat)
-            point_sources,diffuse_sources = cat.merge_lists(roi_dir,self.maxROI+5,point_sources,diffuse_sources)
+            point_sources,diffuse_sources = cat.merge_lists(roi_dir,
+                    self.maxROI+5 if catalog_include_radius is None else catalog_include_radius,
+                    point_sources,diffuse_sources)
         if point_sources == []:
             print 'WARNING!  No point sources are included in the model.'
 
