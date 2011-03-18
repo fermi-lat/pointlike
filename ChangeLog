@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Mar 18 05:45:41 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skyanalysis.py skymodel.py sources.py 
+Log Message:
+clean-up after new diffuse implementation
+    *
+------------------------------------------------------------
 User: burnett  Thu Mar 17 19:39:57 PDT 2011
 pointlike/python/uw/pipeline
 
