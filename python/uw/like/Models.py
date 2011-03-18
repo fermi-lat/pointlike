@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.34 2011/03/11 22:46:48 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.35 2011/03/14 18:07:02 burnett Exp $
 
     author: Matthew Kerr
 
@@ -322,7 +322,7 @@ Optional keyword arguments:
                 flux == model.i_flux(**kwargs)
             where args and kwargs is consistently passed into i_flux and set_flux
         """
-        self.p[0] += N.log10(flux/self.i_flux(*args,**kwargs))
+        self._p[0] += N.log10(flux/self.i_flux(*args,**kwargs))
 
     def copy(self):
         
