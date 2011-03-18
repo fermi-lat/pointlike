@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.14 2011/03/07 00:07:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.15 2011/03/11 22:52:15 burnett Exp $
 
 """
 import os, pickle, glob, types
@@ -9,6 +9,8 @@ from skymaps import SkyDir, Band
 from uw.utilities import keyword_options, makerec
 #  this is below: only needed when want to create XML
 #from uw.utilities import  xml_parsers
+from ..like import Models
+
 from . import sources, catrec
 
 class SkyModel(object):
@@ -31,7 +33,7 @@ class SkyModel(object):
         ('free_index', None, 'Set to minimum TS to free photon index if fixed'),
         ('filter',   lambda s: True,   'selection filter'), 
         ('rename_source',  lambda name: name, 'rename function'),
-        ('closeness_tolerance', 0.2, 'if>0, check for being too close, print warning'),
+        ('closeness_tolerance', 0., 'if>0, check each point source for being too close to another, print warning'),
         ('quiet',  False,  'make quiet' ),
     )
     
@@ -41,6 +43,7 @@ class SkyModel(object):
         folder : string or None
             name of folder to find all files defining the sky model, including:
              a subfolder 'pickle' with files *.pickle describing each ROI, partitioned as a HEALpix set.
+             a file 'config.txt' written by the pipeline
         """
         keyword_options.process(self, kwargs)
         if self.free_index is not None: 
@@ -53,14 +56,19 @@ class SkyModel(object):
             raise Exception('sky model folder %s not found' % folder)
         self.get_config()
         self._setup_extended()
-        self._load_sources()
         if self.diffuse is not None:
-            assert len(self.diffuse)==2, 'expect 2 diffuse names'
-            x = map(lambda f:os.path.expandvars(os.path.join('$FERMI','diffuse',f)), self.diffuse)
-            sources.Diffuse(x[0], True)
-            sources.Isotropic(x[1], True)
-            
+            """ make a dictionary of (file, object) tuples with key the first part of the diffuse name"""
+            assert len(self.diffuse)<4, 'expect 2 or 3 diffuse names'
+            self.diffuse_dict = sources.DiffuseDict(self.diffuse)
+            #x = map(lambda f:os.path.expandvars(os.path.join('$FERMI','diffuse',f)), self.diffuse)
+            #sources.Diffuse(x[0], True)
+            #sources.Isotropic(x[1], True)
+            #if len(self.diffuse)==3:
+            #    sources.Limb(x[2], True)
+            #
+        self._load_sources()
         self.load_auxcat()
+        self.add_limb() #### temporary?
       
     def __str__(self):
         return 'SkyModel %s' %self.folder\
@@ -175,11 +183,11 @@ class SkyModel(object):
             for name, model in zip(names, p['diffuse']):
                 if '_p' not in model.__dict__:
                     model.__dict__['_p'] = model.__dict__.pop('p')  # if loaded from old representation
-
-                if len(t)<2: # always assume first two are global ????
-                    if model[0]<1e-2:
-                        model[0]=1e-2
-                        #print 'SkyModel warning: reset norm to 1e-2 for %s' % name
+                key = name.split('_')[0]
+                if key in self.diffuse_dict:
+                    #if model[0]<1e-2:
+                    #    model[0]=1e-2
+                    #print 'SkyModel warning: reset norm to 1e-2 for %s' % name
                     t.append(sources.GlobalSource(name=name, model=model, skydir=None, index=index))
                 else:
                     es = self.extended_catalog.lookup(name)
@@ -212,8 +220,8 @@ class SkyModel(object):
         for s in self.point_sources:
             delta=np.degrees(s.skydir.difference(ps.skydir))
             if delta<self.closeness_tolerance:
-                print  'SkyModel warning: appended source %s is %.2f deg (<%.1f) from %s'\
-                    %(ps.name, delta, self.closeness_tolerance, s.name)
+                print  'SkyModel warning: appended source %s %.2f %.2f is %.2f deg (<%.1f) from %s'\
+                    %(ps.name, ps.skydir.ra(), ps.skydir.dec(), delta, self.closeness_tolerance, s.name)
         
     #def skydir(self, index):
     #    return Band(self.nside).dir(index)
@@ -250,15 +258,22 @@ class SkyModel(object):
         for s in globals:
             dfile = os.path.expandvars(os.path.join('$FERMI','diffuse', s.name))
             assert os.path.exists(dfile), 'file %s not found' % dfile
-            ext = os.path.splitext(dfile)[-1]
-            if ext=='.txt':
-                s.dmodel = [sources.Isotropic(dfile).instance()]
-                s.name = os.path.split(sources.Isotropic._dfile)[-1]
-            elif ext=='.fits' or ext=='.fit':
-                s.dmodel = [sources.Diffuse(dfile).instance()]
-                s.name = os.path.split(sources.Diffuse._dfile)[-1]
-            else:
-                raise Exception('unrecognized diffuse file extention %s' % dfile)
+            prefix = s.name.split('_')[0]
+            ##ext = os.path.splitext(dfile)[-1]
+            #if prefix=='isotrop': #if ext=='.txt':
+            #    s.dmodel = [sources.Isotropic(dfile).instance()]
+            #    s.name = os.path.split(sources.Isotropic._dfile)[-1]
+            #elif prefix=='ring': #ext=='.fits' or ext=='.fit':
+            #    s.dmodel = [sources.Diffuse(dfile).instance()]
+            #    s.name = os.path.split(sources.Diffuse._dfile)[-1]
+            #elif prefix=='limb':
+            #    s.dmodel = [sources.Limb(dfile).instance()]
+            #    s.name = os.path.split(sources.Limb._dfile)[-1]
+            #else:
+            #    raise Exception('unrecognized diffuse file prefix  for file %s' % dfile)
+            filename, dmodel = self.diffuse_dict[prefix]
+            s.dmodel = [dmodel]
+            s.name = os.path.split(filename)[-1]
             s.smodel = s.model
             if '_p' not in s.model.__dict__:
                 s.model.__dict__['_p'] = s.model.__dict__.pop('p')  # if loaded from old representation
@@ -313,6 +328,20 @@ class SkyModel(object):
     def source_rec(self, reload=False):
         self._load_recfiles(reload)
         return self.sources
+    def add_limb(self, scale=1e-3, mindec=45):
+        from uw.like import Models
+        con = Models.Constant(p=[scale])
+        t = sources.GlobalSource(name='limb_cube_v0.fits', model=con, skydir=None)
+        cnt=0
+        for index in range(1728):
+            gs = self.global_sources[index]
+            if len(gs)==3: continue # if 3, already added
+            if np.abs(Band(self.nside).dir(index).dec())<mindec: continue
+            gs.append(sources.GlobalSource(name='limb_cube_v0.fits', model=con, skydir=None))
+            cnt+=1
+        print 'Added the limb to %d rois above abs(dec)=%.1f' % (cnt, mindec)
+
+    
     
 class SourceSelector(object):
     """ Manage inclusion of sources in an ROI."""
@@ -408,4 +437,27 @@ class RemoveByName(object):
         self.names = names.split() if type(names)==types.StringType else names
     def __call__(self,ps):
         return ps.name.strip() not in self.names
+    
+class UpdatePulsarModel(object):
+    """ special filter to replace models if necessary"""
+    def __init__(self, infile=None):
+        import pyfits
+        if infile is None:
+            infile = os.path.expandvars(os.path.join('$FERMI','catalog','srcid', 'cat','obj-pulsar-lat_v446.fits')) 
+        self.data = pyfits.open(infile)[1].data
+        self.sdir = map(lambda x,y: SkyDir(float(x),float(y)), self.data.field('RAJ2000'), self.data.field('DEJ2000'))
+        self.names = self.data.field('Source_Name')
+    def __call__(self, s, tol=0.25):
+        sdir = s.skydir
+        for i,t in enumerate(self.sdir):
+            if np.degrees(t.difference(sdir))<tol and s.model.name!='ExpCutoff':
+                flux = s.model[0]
+                if flux>1e-13:
+                    print 'replacing model for: %s(%d): pulsar name: %s' % (s.name, s.index, self.names[i]) 
+                    s.model = Models.ExpCutoff()
+                    s.free = s.model.free
+                else:
+                    print 'Apparent pulsar %s(%d), %s, is very weak, flux=%.2e <1e-13: leave as powerlaw' % (s.name, s.index, self.names[i], flux)
+                break
+        return True
     

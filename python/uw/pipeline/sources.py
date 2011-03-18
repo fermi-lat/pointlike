@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.6 2011/03/07 00:07:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.7 2011/03/11 22:52:15 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -91,33 +91,63 @@ class Singleton(object):
             print 'SkyModel: Global source %s not initialized' % self.key
             raise
             
-class Diffuse(Singleton):
-    """ manage a skymaps.DiffuseFunction object, create only when new fits file found to open
+#class Diffuse(Singleton):
+#    """ manage a skymaps.DiffuseFunction object, create only when new fits file found to open
+#    """
+#    _dfile = None
+#    locked = False
+#    key = None
+#    def __init__(self, dfile, lock=False):
+#        super(Diffuse,self).__init__(DiffuseFunction)
+#        if Diffuse.locked or dfile==Diffuse._dfile: return
+#        Diffuse._dfile=dfile
+#        self.set_instance(dfile)
+#        print 'loaded new diffuse map, %s with lock=%s' %(dfile, lock)
+#        Diffuse.locked = lock
+#class Limb(Singleton):
+#    _dfile = None
+#    locked = False
+#    key = None
+#    def __init__(self, dfile, lock=False):
+#        super(Limb,self).__init__(DiffuseFunction)
+#        if Limb.locked or dfile==Diffuse._dfile: return
+#        Limb._dfile=dfile
+#        self.set_instance(dfile)
+#        print 'loaded new Limb map, %s with lock=%s' %(dfile, lock)
+#        Limb.locked = lock
+#        
+#class Isotropic(Singleton):
+#    """ manage a skymaps.IsotropicSpectrum object, create only when new fits file found to open
+#    """
+#    _dfile = None
+#    locked = False
+#    key = None
+#    def __init__(self, dfile, lock=False):
+#        super(Isotropic,self).__init__(IsotropicSpectrum)
+#        if Isotropic.locked or dfile==Isotropic._dfile: return
+#        Isotropic._dfile=dfile
+#        self.set_instance(dfile)
+#        print 'loaded new isotropic spectrum, %s, with lock=%s' %(dfile, lock)
+#        Isotropic.locked = lock
+
+class DiffuseDict(dict):
+    """ manage a dictionary of diffuse objects
+    
     """
-    _dfile = None
-    locked = False
-    key = None
-    def __init__(self, dfile, lock=False):
-        super(Diffuse,self).__init__(DiffuseFunction)
-        if Diffuse.locked or dfile==Diffuse._dfile: return
-        Diffuse._dfile=dfile
-        self.set_instance(dfile)
-        print 'loaded new diffuse map, %s with lock=%s' %(dfile, lock)
-        Diffuse.locked = lock
-        
-class Isotropic(Singleton):
-    """ manage a skymaps.IsotropicSpectrum object, create only when new fits file found to open
-    """
-    _dfile = None
-    locked = False
-    key = None
-    def __init__(self, dfile, lock=False):
-        super(Isotropic,self).__init__(IsotropicSpectrum)
-        if Isotropic.locked or dfile==Isotropic._dfile: return
-        Isotropic._dfile=dfile
-        self.set_instance(dfile)
-        print 'loaded new isotropic spectrum, %s, with lock=%s' %(dfile, lock)
-        Isotropic.locked = lock
+    def __init__(self, diffuse):
+        assert len(diffuse)<4, 'expect 2 or 3 diffuse names'
+        keys = map( lambda x: x.split('_')[0], diffuse)
+        files = map(lambda f:os.path.expandvars(os.path.join('$FERMI','diffuse',f)), diffuse)
+        for key, file in zip(keys, files):
+            assert os.path.exists(file), 'file %s not found' %file
+            ext = os.path.splitext(file)[-1]
+            if ext=='.txt':
+                self[key]=(file, IsotropicSpectrum(file))
+            elif ext in ('.fit','.fits'):
+                self[key]=(file, DiffuseFunction(file))
+            else:
+                raise Exception('File type, %s, for diffuse not recognized'% ext)
+
 
 class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
     """ subclass to add this lookup function """
@@ -195,7 +225,7 @@ def validate( ps, nside, filter):
         if np.any(np.diag(model.cov_matrix)<0): model.cov_matrix[:]=0 
         check = norm>1e-18 and gamma>1e-5 and gamma<5 and ec>100
         if check: return True
-        print 'SkyModel warning for %-20s(%d): out of range, ressetting from %s' %(ps.name, hpindex(ps.skydir),model.p)
+        print 'SkyModel warning for %-20s(%d): out of range, ressetting from %s' %(ps.name, hpindex(ps.skydir),model.get_all_parameters())
         model.set_all_parameters( [-11, 0, 3], internal=True)
         model.cov_matrix[:] = 0 
     else:
