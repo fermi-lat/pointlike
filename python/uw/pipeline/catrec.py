@@ -1,6 +1,6 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/catrec.py,v 1.2 2011/03/07 00:07:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/catrec.py,v 1.3 2011/03/11 22:52:15 burnett Exp $
 """
 import os, glob, pickle
 import numpy as np
@@ -48,6 +48,10 @@ def create_catalog(outdir, **kwargs):
     ts_min = kwargs.pop('ts_min', 5)
     assert len(kwargs.keys())==0, 'unrecognized kw %s' %kwargs 
     filelist.sort()
+    if 'LATEXTDIR' not in os.environ:
+        t = os.path.join(os.environ['FERMI'],'catalog','Extended_archive_v08') 
+        assert os.path.exists(os.path.join(t,'Templates')), 'path %s not found' %t
+        os.environ['LATEXTDIR']=t
     
     class CatalogRecArray(object):
         def __init__(self, minflux=1e-16, update_position=False, ts_min=ts_min):
