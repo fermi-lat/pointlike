@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Mar 17 19:39:57 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skymodel.py sources.py 
+Log Message:
+implement revised diffuse support (forgive commented-out code for nwo)
+    *
+------------------------------------------------------------
 User: burnett  Thu Mar 17 19:38:27 PDT 2011
 pointlike/python/uw/pipeline
 
