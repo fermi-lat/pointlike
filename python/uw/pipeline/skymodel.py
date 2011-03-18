@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.15 2011/03/11 22:52:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.16 2011/03/18 02:39:56 burnett Exp $
 
 """
 import os, pickle, glob, types
@@ -259,18 +259,6 @@ class SkyModel(object):
             dfile = os.path.expandvars(os.path.join('$FERMI','diffuse', s.name))
             assert os.path.exists(dfile), 'file %s not found' % dfile
             prefix = s.name.split('_')[0]
-            ##ext = os.path.splitext(dfile)[-1]
-            #if prefix=='isotrop': #if ext=='.txt':
-            #    s.dmodel = [sources.Isotropic(dfile).instance()]
-            #    s.name = os.path.split(sources.Isotropic._dfile)[-1]
-            #elif prefix=='ring': #ext=='.fits' or ext=='.fit':
-            #    s.dmodel = [sources.Diffuse(dfile).instance()]
-            #    s.name = os.path.split(sources.Diffuse._dfile)[-1]
-            #elif prefix=='limb':
-            #    s.dmodel = [sources.Limb(dfile).instance()]
-            #    s.name = os.path.split(sources.Limb._dfile)[-1]
-            #else:
-            #    raise Exception('unrecognized diffuse file prefix  for file %s' % dfile)
             filename, dmodel = self.diffuse_dict[prefix]
             s.dmodel = [dmodel]
             s.name = os.path.split(filename)[-1]
@@ -455,7 +443,7 @@ class UpdatePulsarModel(object):
                 if flux>1e-13:
                     print 'replacing model for: %s(%d): pulsar name: %s' % (s.name, s.index, self.names[i]) 
                     s.model = Models.ExpCutoff()
-                    s.free = s.model.free
+                    s.free = s.model.free.copy()
                 else:
                     print 'Apparent pulsar %s(%d), %s, is very weak, flux=%.2e <1e-13: leave as powerlaw' % (s.name, s.index, self.names[i], flux)
                 break
