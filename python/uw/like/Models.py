@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.35 2011/03/14 18:07:02 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.36 2011/03/18 00:28:53 lande Exp $
 
     author: Matthew Kerr
 
@@ -130,14 +130,15 @@ Optional keyword arguments:
     def getp(self, i, internal=False):
         """ get external value for parameter # i
         """
+        i=self.mapper(i)
         return self._p[i] if internal else 10**(self._p[i])
     
-    def get_all_parameters(self, internal =False):
-        """ get a copy of the full set of parameters (extrnal representation)"""
+    def get_all_parameters(self, internal=False):
+        """ get a copy of the full set of parameters (external representation)"""
         return self._p.copy() if internal else 10**self._p
     
     def set_all_parameters(self, pars, internal=False):
-        """ set all parameters (extrnal representation)"""
+        """ set all parameters (external representation)"""
         assert len(pars)== len(self._p)
         self._p = np.asarray(pars) if internal else np.log10(asarray(pars))
 
@@ -146,6 +147,7 @@ Optional keyword arguments:
         """
         if not internal: 
             assert par>0, 'Model external parameter cannont be negative'
+        i=self.mapper(i)
         self._p[i] = par if internal else  np.log10(par)
         
     def get_parameters(self):
@@ -157,18 +159,27 @@ Optional keyword arguments:
         assert(len(new_vals)==(self.free).sum())
         self._p[self.free] = new_vals.astype('f') # downcast to float needed?
 
-    def freeze(self,parameter,freeze=True):
+    def mapper(self,i):
+        """ This object takes in a parameter and maps it to an index.
+            Currently, this function is not particularly useful, but it
+            could be generalized to allow lazier parameter selection. """
+        if isinstance(i,str):
+            if i not in self.param_names:
+                raise Exception("Unknown parameter name %s" % i)
+            return self.param_names.index(i)
+        else:
+            return i
+
+    def freeze(self,i,freeze=True):
         """Freeze one of the spectral parameters from fitting.
         
-            parameter: a parameter name or index.
+            i: a parameter name or index.
             freeze    : if True, freeze parameter; if False, free it
             """
-        if type(parameter) == type(''):
-            for n,name in enumerate(self.param_names):
-                if parameter == name: parameter = n; break
-        self.free[parameter] = not freeze
+        i=self.mapper(i)
+        self.free[i] = not freeze
 
-    def thaw(self,parameter): self.freeze(parameter,freeze=False)
+    def thaw(self,i): self.freeze(i,freeze=False)
 
     def set_cov_matrix(self,new_cov_matrix):
         self.cov_matrix[N.outer(self.free,self.free)] = N.ravel(new_cov_matrix)
