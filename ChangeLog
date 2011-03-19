@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Mar 18 17:22:34 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Bugfix for analytic gradient with no point sources
+    *
+------------------------------------------------------------
 User: lande  Fri Mar 18 17:22:02 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
