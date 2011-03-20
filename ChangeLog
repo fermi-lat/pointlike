@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Sun Mar 20 16:24:53 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	srcid.py 
+Log Message:
+Yet another kludge, this time for the new version of the LAT pulsar catalog.
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-22-00, operation: add
 Package: pointlike
