@@ -1,6 +1,6 @@
 """
 Python support for source association, equivalent to the Fermi Science Tool gtsrcid
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.27 2011/03/07 18:20:34 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/srcid.py,v 1.28 2011/03/11 22:46:48 burnett Exp $
 author:  Eric Wallace <ewallace@uw.edu>
 """
 import os
@@ -320,7 +320,7 @@ class Catalog(object):
                             break
                     except IndexError:
                         pass
-            if card.key[:5]=='TTYPE' and card.value.upper() in ['NAME','ID','PSR_NAME']:
+            if card.key[:5]=='TTYPE' and card.value.upper() in ['NAME','ID','PSR_NAME','SOURCE_NAME']:
                 name_key = card.value
                 break
         try:
