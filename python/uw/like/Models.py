@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.36 2011/03/18 00:28:53 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.37 2011/03/19 00:22:01 lande Exp $
 
     author: Matthew Kerr
 
@@ -140,7 +140,7 @@ Optional keyword arguments:
     def set_all_parameters(self, pars, internal=False):
         """ set all parameters (external representation)"""
         assert len(pars)== len(self._p)
-        self._p = np.asarray(pars) if internal else np.log10(asarray(pars))
+        self._p = np.asarray(pars) if internal else np.log10(np.asarray(pars))
 
     def setp(self, i, par, internal=False):
         """ set internal value, convert unless inte
