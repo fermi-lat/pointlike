@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Wed Mar 23 19:25:21 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Fix a typo in Model.set_all_parameters (missing np. on np.asarray)
+
+    *
+------------------------------------------------------------
 User: wallacee  Sun Mar 20 16:24:53 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
