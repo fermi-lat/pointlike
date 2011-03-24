@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.16 2011/03/18 02:39:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/skymodel.py,v 1.17 2011/03/18 12:45:41 burnett Exp $
 
 """
 import os, pickle, glob, types
@@ -27,6 +27,7 @@ class SkyModel(object):
                                          'if None, look it up in the config.txt file'),
         ('alias', dict(), 'dictionary of aliases to use for lookup'),
         ('diffuse', ('ring_24month_P74_v1.fits', 'isotrop_21month_v2.txt'), 'pair of diffuse file names: use to locked'),
+        ('use_limb',True,'whether to include the model for the limb emission'),
         ('auxcat', None, 'name of auxilliary catalog of point sources to append or names to remove',),
         ('newmodel', None, 'if not None, a string to eval\ndefault new model to apply to appended sources'),
         ('update_positions', None, 'set to minimum ts  update positions if localization information found in the database'),
@@ -68,7 +69,8 @@ class SkyModel(object):
             #
         self._load_sources()
         self.load_auxcat()
-        self.add_limb() #### temporary?
+        if self.use_limb:
+            self.add_limb() #### temporary?
       
     def __str__(self):
         return 'SkyModel %s' %self.folder\
