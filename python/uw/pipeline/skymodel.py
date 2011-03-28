@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/skymodel.py,v 1.17 2011/03/18 12:45:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.18 2011/03/24 02:27:06 wallacee Exp $
 
 """
 import os, pickle, glob, types
@@ -26,7 +26,7 @@ class SkyModel(object):
         ('extended_catalog_name', None,  'name of folder with extended info\n'
                                          'if None, look it up in the config.txt file'),
         ('alias', dict(), 'dictionary of aliases to use for lookup'),
-        ('diffuse', ('ring_24month_P74_v1.fits', 'isotrop_21month_v2.txt'), 'pair of diffuse file names: use to locked'),
+        ('diffuse', None,   'set of diffuse file names; if None, expect config to have'),
         ('use_limb',True,'whether to include the model for the limb emission'),
         ('auxcat', None, 'name of auxilliary catalog of point sources to append or names to remove',),
         ('newmodel', None, 'if not None, a string to eval\ndefault new model to apply to appended sources'),
@@ -60,13 +60,9 @@ class SkyModel(object):
         if self.diffuse is not None:
             """ make a dictionary of (file, object) tuples with key the first part of the diffuse name"""
             assert len(self.diffuse)<4, 'expect 2 or 3 diffuse names'
-            self.diffuse_dict = sources.DiffuseDict(self.diffuse)
-            #x = map(lambda f:os.path.expandvars(os.path.join('$FERMI','diffuse',f)), self.diffuse)
-            #sources.Diffuse(x[0], True)
-            #sources.Isotropic(x[1], True)
-            #if len(self.diffuse)==3:
-            #    sources.Limb(x[2], True)
-            #
+        else:
+            self.diffuse = eval(self.config['diffuse'])
+        self.diffuse_dict = sources.DiffuseDict(self.diffuse)
         self._load_sources()
         self.load_auxcat()
         if self.use_limb:
@@ -222,8 +218,8 @@ class SkyModel(object):
         for s in self.point_sources:
             delta=np.degrees(s.skydir.difference(ps.skydir))
             if delta<self.closeness_tolerance:
-                print  'SkyModel warning: appended source %s %.2f %.2f is %.2f deg (<%.1f) from %s'\
-                    %(ps.name, ps.skydir.ra(), ps.skydir.dec(), delta, self.closeness_tolerance, s.name)
+                print  'SkyModel warning: appended source %s %.2f %.2f is %.2f deg (<%.2f) from %s (%d)'\
+                    %(ps.name, ps.skydir.ra(), ps.skydir.dec(), delta, self.closeness_tolerance, s.name, s.index)
         
     #def skydir(self, index):
     #    return Band(self.nside).dir(index)
@@ -276,24 +272,27 @@ class SkyModel(object):
             
         return globals, extended
 
-    def toXML(self,filename, title=None):
+    def toXML(self,filename, ts_min=None, title=None):
         """ generate a file with the XML version of the sources in the model
         """
+        catrec = self.source_rec()
+        point_sources = self.point_sources if ts_min is None else filter(lambda s: s.ts>ts_min, self.point_sources)
         from uw.utilities import  xml_parsers # isolate this import, which brings in full pointlike
         stacks= [
             xml_parsers.unparse_diffuse_sources(self.extended_sources,True,False,filename),
-            xml_parsers.unparse_point_sources(self.point_sources,strict=True),
+            xml_parsers.unparse_point_sources(point_sources,strict=True),
         ]
         xml_parsers.writeXML(stacks, filename, title=title)
 
-    def write_reg_file(self, filename, color='green'):
+    def write_reg_file(self, filename, ts_min=None, color='green'):
         """ generate a 'reg' file from the catalog, write to filename
         """
         catrec = self.source_rec()
         have_ellipse = 'Conf_95_SemiMajor' in catrec.dtype.names #not relevant: a TODO
         out = open(filename, 'w')
         print >>out, "# Region file format: DS9 version 4.0 global color=%s" % color
-        for s in catrec:
+        rec = catrec if ts_min is  None else catrec[catrec.ts>ts_min]
+        for s in rec:
             if have_ellipse:
                 print >>out, "fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) #text={%s}" % \
                                 (s.ra,s,dec,
@@ -424,30 +423,60 @@ class RemoveByName(object):
         """ names : string or list of strings
             if a string, assume space-separated set of names (actually works for a single name)
         """
-        self.names = names.split() if type(names)==types.StringType else names
+        tnames = names.split() if type(names)==types.StringType else names
+        self.names = map( lambda x: x.replace('_', ' '), tnames)
     def __call__(self,ps):
-        return ps.name.strip() not in self.names
+        name = ps.name.strip().replace('_', ' ')
+        return name not in self.names
     
 class UpdatePulsarModel(object):
     """ special filter to replace models if necessary"""
-    def __init__(self, infile=None):
+    def __init__(self, infile=None, tol=0.2):
         import pyfits
+        self.tol=tol
         if infile is None:
             infile = os.path.expandvars(os.path.join('$FERMI','catalog','srcid', 'cat','obj-pulsar-lat_v446.fits')) 
         self.data = pyfits.open(infile)[1].data
         self.sdir = map(lambda x,y: SkyDir(float(x),float(y)), self.data.field('RAJ2000'), self.data.field('DEJ2000'))
         self.names = self.data.field('Source_Name')
-    def __call__(self, s, tol=0.25):
+        self.tags = [False]*len(self.data)
+    def __call__(self, s):
         sdir = s.skydir
         for i,t in enumerate(self.sdir):
-            if np.degrees(t.difference(sdir))<tol and s.model.name!='ExpCutoff':
+            if np.degrees(t.difference(sdir))<self.tol:
+                self.tags[i]=True
+                if s.model.name=='ExpCutoff': return True
                 flux = s.model[0]
-                if flux>1e-13:
-                    print 'replacing model for: %s(%d): pulsar name: %s' % (s.name, s.index, self.names[i]) 
+                if flux>1e-18:
+                    print 'Skymodel: replacing model for: %s(%d): pulsar name: %s' % (s.name, s.index, self.names[i]) 
                     s.model = Models.ExpCutoff()
                     s.free = s.model.free.copy()
                 else:
                     print 'Apparent pulsar %s(%d), %s, is very weak, flux=%.2e <1e-13: leave as powerlaw' % (s.name, s.index, self.names[i], flux)
                 break
+        if s.model.name=='ExpCutoff':
+            print 'Skymodel setup warning: %s not a pulsar, should not be expcutoff' % s.name
         return True
-    
+    def summary(self):
+        n = len(self.tags)-sum(self.tags)
+        if n==0: return
+        print 'did not find %d sources ' % n
+        for i in range(len(self.tags)):
+            if not self.tags[i]: print '%s %9.3f %9.3f ' % (self.names[i], self.sdir[i].ra(), self.sdir[i].dec())
+     
+class MultiFilter(list):
+    """ filter that is a list of filters """
+    def __init__(self, filters):
+        """ filters : list
+                if an element of the list is a string, evaluate it first
+        """
+        for filter in filters: 
+            if type(filter)==types.StringType:
+                filter = eval(filter)
+            self.append(filter)
+            
+                
+    def __call__(self, source):
+        for filter in self:
+            if not filter(source): return False
+        return True
