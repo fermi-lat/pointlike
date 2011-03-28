@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Mar 28 10:21:00 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skymodel.py 
+Log Message:
+TS threshold  for XML creation, filter updates
+    *
+------------------------------------------------------------
 User: burnett  Mon Mar 28 10:15:11 PDT 2011
 pointlike/python/uw/like
 
