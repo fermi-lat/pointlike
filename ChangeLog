@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: wallacee  Wed Mar 30 10:36:58 PDT 2011
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	assigntasks.py 
+Log Message:
+Add a clobber kwarg to setup_mec to overwrite an existing clusterfile.
+Allow setup_mec to accept a list for "engines", specifying different numbers
+of engines for each machine.
+
+    *
+------------------------------------------------------------
 User: nuss  Wed Mar 30 09:06:30 PDT 2011
 pointlike/python/uw/like
 
