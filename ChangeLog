@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: nuss  Wed Mar 30 09:06:30 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	sed_plotter.py 
+Log Message:
+fix m.p into m._p
+    *
+------------------------------------------------------------
 User: burnett  Mon Mar 28 10:21:00 PDT 2011
 pointlike/python/uw/pipeline
 
