@@ -1,12 +1,12 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/assigntasks.py,v 1.17 2011/03/06 20:24:15 burnett Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/assigntasks.py,v 1.18 2011/03/09 00:40:50 kerrm Exp $
 
 """
 from IPython.kernel import client
 import time, os, pickle, subprocess
-version = '$Revision: 1.17 $'.split()[1]
+version = '$Revision: 1.18 $'.split()[1]
 
 class ProgressBar:
     def __init__(self, total=60, width=40):
@@ -251,7 +251,7 @@ class AssignTasks(object):
         pickle.dump({'time':self.time, 'result':self.result}, open(filename, 'wr'))
 
 
-def setup_mec(engines=None, machines='tev1 tev2 tev3 tev4'.split(), clusterfile='clusterfile.txt'):
+def setup_mec(engines=None, machines='tev1 tev2 tev3 tev4'.split(), clusterfile='clusterfile.txt',clobber=False):
     """ On windows:start cluster and 4 engines on the local machine, in the current directory
         On linux: (our tev cluster) start controller on local machine, 16 engines/machine in all
             If clusterfile.txt exists in the path: use it
@@ -262,14 +262,25 @@ def setup_mec(engines=None, machines='tev1 tev2 tev3 tev4'.split(), clusterfile=
     else:
         # on a tev machine
         if os.path.exists(clusterfile):
-            os.system('ipcluster ssh -xy --clusterfile %s &' %clusterfile)
-            return
-        engines = engines or 16 #default on a tev machine!
-        
-        clusterfile_data='send_furl = False'\
-            + '\nengines={'\
-            + '\n'.join(['\t"%s" : %d,'%(m,engines) for m in machines])\
-            + '\n}'
+            if not clobber:
+                os.system('ipcluster ssh -xy --clusterfile %s &' %clusterfile)
+                return
+            else:
+                os.remove(clusterfile)
+        #engines = engines or 16 #default on a tev machine!
+        if engines is None:
+            engines = 16
+        if type(engines) == type([]):
+            clusterfile_data = '\n'.join(['send_furl=False',
+                                         'engines={',
+                                         '\n'.join(['\t"%s":%d,'%(machines[i],engines[i]) for i in xrange(len(machines))]),
+                                         '}'])
+        else:
+            clusterfile_data = '\n'.join(['send_furl = False',
+                                          'engines={',
+                                          '\n'.join(['\t"%s" : %d,'%(m,engines) for m in machines]),
+                                          '}'])
+
         print 'cluster info:\n%s' % clusterfile_data
         ofile=open(clusterfile, 'w')
         ofile.writelines(clusterfile_data)
