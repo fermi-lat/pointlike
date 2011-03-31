@@ -1,11 +1,11 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.38 2011/03/24 02:25:21 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.39 2011/03/28 17:15:11 burnett Exp $
 
     author: Matthew Kerr
 
 """
-
+import types
 import numpy as N
 import numpy as np
 import math as M
@@ -111,7 +111,8 @@ Optional keyword arguments:
       """
         iscopy = kwargs.pop('iscopy', False)
         DefaultModelValues.setup(self,**kwargs) # if called from copy method, will set p
-        self.__dict__['_p'] = kwargs.pop('p', self._p)
+        self.__dict__['_p'] = np.asarray(kwargs.pop('p', self._p),float)
+        assert len(self._p)==len(self.param_names), 'Model: wrong number of parameters set: %s' % self._p
         self.__dict__.update(**kwargs)
         if not iscopy:
           assert np.all(self._p>0), 'fail parameter positivity constraint' 
@@ -140,7 +141,8 @@ Optional keyword arguments:
     def set_all_parameters(self, pars, internal=False):
         """ set all parameters (external representation)"""
         assert len(pars)== len(self._p)
-        self._p = np.asarray(pars) if internal else np.log10(np.asarray(pars))
+        t = np.asarray(pars, float)
+        self._p = t if internal else np.log10(t)
 
     def setp(self, i, par, internal=False):
         """ set internal value, convert unless inte
