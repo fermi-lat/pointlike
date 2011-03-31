@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Mar 30 20:52:04 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+add a few checks that the model parameters are always float, and have the right length
+    *
+------------------------------------------------------------
 User: lande  Wed Mar 30 13:37:10 PDT 2011
 ScienceTools-scons/pointlike/python/uw/utilities
 
