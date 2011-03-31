@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Mar 30 20:53:45 PDT 2011
+pointlike/python/uw/like
+
+Added Files:
+	print_roi.py 
+Log Message:
+Set up module dedicated to pretty formats for ROI printout, for now only used by pipeline
+    *
+------------------------------------------------------------
 User: burnett  Wed Mar 30 20:52:04 PDT 2011
 pointlike/python/uw/like
 
