@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.8 2011/03/18 02:39:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.9 2011/03/18 12:45:41 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -35,7 +35,7 @@ class Source(object):
             self.model.free[2:]=False
         elif self.model.name=='PLSuperExpCutoff':
             par,sig=self.model.statistical()
-            self.model = ExpCutoff(par[:-1])
+            self.model = ExpCutoff(*par[:-1])
         elif self.model.name=='LogParabola':
             if 'index_offset' not in self.model.__dict__:
                 self.model.index_offset = 0
@@ -185,10 +185,10 @@ def validate( ps, nside, filter):
     elif model.name=='ExpCutoff':
         norm, gamma, ec = model.get_all_parameters() #10**model.p
         if np.any(np.diag(model.cov_matrix)<0): model.cov_matrix[:]=0 
-        check = norm>1e-18 and gamma>1e-5 and gamma<5 and ec>100
+        check = norm>1e-18 and gamma>1e-10 and gamma<5 and ec>100
         if check: return True
         print 'SkyModel warning for %-20s(%d): out of range, ressetting from %s' %(ps.name, hpindex(ps.skydir),model.get_all_parameters())
-        model.set_all_parameters( [-11, 0, 3], internal=True)
+        model[:] = [1e-15, 1.0, 500.]
         model.cov_matrix[:] = 0 
     else:
         print 'Skymodel warning: model name %s for source %s not recognized'%(model.name, ps.name)

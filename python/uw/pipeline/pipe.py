@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.7 2011/02/11 21:27:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.8 2011/03/02 22:13:37 burnett Exp $
 """
 import os, types, glob, time, pickle
 import numpy as np
@@ -102,7 +102,7 @@ class Setup(dict):
                 self['tables'] = self['tables']%self
                 #print 'fix key %s: %s' % (key, self[key])
         self.setup_string =  """\
-import os; os.chdir(r"%(cwd)s");
+import os, pickle; os.chdir(r"%(cwd)s");
 from uw.pipeline import pipe, maps, skymodel;
 g=pipe.Pipe("%(indir)s", "%(dataset)s",
         skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,

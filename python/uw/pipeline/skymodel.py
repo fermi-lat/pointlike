@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.18 2011/03/24 02:27:06 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.19 2011/03/28 17:21:00 burnett Exp $
 
 """
 import os, pickle, glob, types
@@ -190,7 +190,9 @@ class SkyModel(object):
                 else:
                     es = self.extended_catalog.lookup(name)
                     if es is None:
-                        raise Exception( 'Extended source %s not found in extended catalog' %name)
+                        #raise Exception( 'Extended source %s not found in extended catalog' %name)
+                        print 'SkyModel warning: Extended source %s not found in extended catalog, removing' %name
+                        continue
                     if self.hpindex(es.skydir)!=index: continue
                     
                     if es.model.name!=model.name:
@@ -328,7 +330,7 @@ class SkyModel(object):
             if np.abs(Band(self.nside).dir(index).dec())<mindec: continue
             gs.append(sources.GlobalSource(name='limb_cube_v0.fits', model=con, skydir=None))
             cnt+=1
-        print 'Added the limb to %d rois above abs(dec)=%.1f' % (cnt, mindec)
+        if cnt>0: print 'Added the limb to %d rois above abs(dec)=%.1f' % (cnt, mindec)
 
     
     
@@ -435,7 +437,7 @@ class UpdatePulsarModel(object):
         import pyfits
         self.tol=tol
         if infile is None:
-            infile = os.path.expandvars(os.path.join('$FERMI','catalog','srcid', 'cat','obj-pulsar-lat_v446.fits')) 
+            infile = os.path.expandvars(os.path.join('$FERMI','catalog','srcid', 'cat','obj-pulsar-lat_v450.fits')) 
         self.data = pyfits.open(infile)[1].data
         self.sdir = map(lambda x,y: SkyDir(float(x),float(y)), self.data.field('RAJ2000'), self.data.field('DEJ2000'))
         self.names = self.data.field('Source_Name')
@@ -455,7 +457,7 @@ class UpdatePulsarModel(object):
                     print 'Apparent pulsar %s(%d), %s, is very weak, flux=%.2e <1e-13: leave as powerlaw' % (s.name, s.index, self.names[i], flux)
                 break
         if s.model.name=='ExpCutoff':
-            print 'Skymodel setup warning: %s not a pulsar, should not be expcutoff' % s.name
+            print 'Skymodel setup warning: %s (%d) not a pulsar, should not be expcutoff' % (s.name, s.index)
         return True
     def summary(self):
         n = len(self.tags)-sum(self.tags)
