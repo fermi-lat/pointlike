@@ -1,6 +1,6 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/catrec.py,v 1.3 2011/03/11 22:52:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/catrec.py,v 1.4 2011/03/18 02:38:27 burnett Exp $
 """
 import os, glob, pickle
 import numpy as np
@@ -148,27 +148,22 @@ def create_catalog(outdir, **kwargs):
     class DiffuseRecArray(object):
     
     
-        def __init__(self, ndiff=3, nside=12):
-            self.ndiff=ndiff
-            if ndiff==3:
-                self.colnames = """name galnorm galindex isonorm 
-                                galnorm_unc galindex_unc isonorm_unc 
-                                 loglike chisq""".split()
-            else:
-                self.colnames = """name galnorm galindex isonorm  isonorm2
-                                galnorm_unc galindex_unc isonorm_unc isonorm2_unc
+        def __init__(self,  nside=12):
+            self.colnames = """name galnorm galindex isonorm  limbnorm
+                                galnorm_unc galindex_unc isonorm_unc limbnorm_unc
                                 loglike chisq""".split()
             self.rec = makerec.RecArray(self.colnames)
             self.nside=nside
             
         def process(self, pk):
             name = pk['name']
-            p, p_relunc = [np.hstack([m.statistical()[i] for m in pk['diffuse']] ) for i in range(2)]
-            if len(p)!=self.ndiff:
-                msg = 'unexpected number of diffuse parameters, %d vs %d, processing %s' % (len(p),self.ndiff,name)
-                #print msg
-                p = p[:self.ndiff]; p_relunc = p_relunc[:self.ndiff]
-            data = [name] + list(np.hstack((p, p*p_relunc)))
+            diffuse_names = pk['diffuse_names']
+            norm, norm_relunc = [np.hstack([m.statistical()[i] for m in pk['diffuse']] ) for i in range(2)]
+            p = norm[:3]
+            p_unc = p*norm_relunc[:3] 
+            no_limb = len(diffuse_names)==2 or (diffuse_names[2]).split('_')[0]!='limb'
+            limbnorm, limbnorm_unc = [0,0] if no_limb else [norm[3], norm[3]*norm_relunc[3]]
+            data = [name] + list(np.hstack((p,[limbnorm], p_unc, [limbnorm_unc])))
             data += [pk['logl']]
             counts = pk['counts']
             obs,mod = counts['observed'], counts['total']
