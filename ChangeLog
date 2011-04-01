@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Apr  1 15:08:53 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	catrec.py pipe.py processor.py skymodel.py sources.py 
+Log Message:
+updates to agree with 2FGL processing, mostly special cases.
+    *
+------------------------------------------------------------
 User: burnett  Wed Mar 30 20:53:45 PDT 2011
 pointlike/python/uw/like
 
