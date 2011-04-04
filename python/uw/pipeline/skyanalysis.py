@@ -1,6 +1,6 @@
 """
 Basic ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.17 2011/03/15 22:32:12 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.18 2011/03/18 12:45:41 burnett Exp $
 """
 import os, pickle, glob, types
 import numpy as np
@@ -168,7 +168,7 @@ class PipelineROI(roi_analysis.ROIAnalysis):
 
         self.update_counts(parameters)
 
-        ll = sum(band.logLikelihood(phase_factor=self.phase_factor) for band in self.bands)
+        ll = sum(band.logLikelihood() for band in self.bands)
         if np.isnan(ll) : return 1e6
         return ll -self.prior(self.psm.models)
 
@@ -294,10 +294,9 @@ class PipelineROI(roi_analysis.ROIAnalysis):
 
             eband.m[0] = eband.uflux
             if man == self.psm:
-                ul = sum( (b.expected(eband.m)*b.er[i] for b in eband.bands) ) * eband.bands[0].phase_factor
+                ul = sum( (b.phase_factor*b.expected(eband.m)*b.er[i] for b in eband.bands) )
             else:
-                ul = sum( (b.expected(eband.m)*mb.er for b,mb in zip(bfe.bands,bfe.mybands))) * eband.bands[0].phase_factor
-
+                ul = sum( (b.phase_factor*b.expected(eband.m)*mb.er for b,my in zip(bfe.bands,bfe.mybands)))
 
             if eband.flux is None:
                 r.append([ 0, ul,0] )
