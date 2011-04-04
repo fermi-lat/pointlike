@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.24 2011/03/08 04:18:23 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.25 2011/04/04 22:56:25 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -11,6 +11,7 @@ import numpy as N
 from skymaps import SkyDir,Hep3Vector
 from pointlike import DoubleVector
 from . import pypsf, roi_extended
+from uw.utilities import keyword_options
 
 def localizer(roi, which, **kwargs):
     """
@@ -32,17 +33,19 @@ def localizer(roi, which, **kwargs):
 ###====================================================================================================###
 class ROILocalizer(object):
 
-    def init(self):
-        self.tolerance = 1e-3
-        self.verbose    = False
-        self.update     = False
-        self.max_iteration=10
-        self.bandfits  = True  #default use bandfits
-        self.maxdist    = 1     #fail if try to move further than this
+    defaults = (
+        ('tolerance',1e-3),
+        ('verbose',False),
+        ('update',False,"Update the source position after localization"),
+        ('max_iteration',10,"Number of iterations"),
+        ('bandfits',True,"Default use bandfits"),
+        ('maxdist',1,"fail if try to move further than this")
+    )
 
+    @keyword_options.decorate(defaults)
     def __init__(self,roi,which=0,**kwargs):
-        self.init()
-        self.__dict__.update(kwargs)
+        keyword_options.process(self, kwargs)
+
         self.roi,self.which = roi, which
         self.quiet = roi.quiet
 
