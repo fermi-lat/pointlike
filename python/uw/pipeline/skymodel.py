@@ -1,9 +1,9 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.19 2011/03/28 17:21:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.20 2011/04/01 22:08:53 burnett Exp $
 
 """
-import os, pickle, glob, types
+import os, pickle, glob, types, cPickle
 import numpy as np
 from skymaps import SkyDir, Band
 from uw.utilities import keyword_options, makerec
@@ -76,9 +76,10 @@ class SkyModel(object):
     def get_config(self, fn = 'config.txt'):
         """ parse the items in the configuration file into a dictionary
         """
-        file = open(os.path.join(self.folder, fn))
         self.config={}
-        for line in file:
+        fn = os.path.join(self.folder,fn)
+        if not os.path.exists(fn): return
+        for line in open(fn):
             item = line.split(':')
             if len(item)>1:
                 self.config[item[0].strip()]=item[1].strip()
@@ -123,7 +124,7 @@ class SkyModel(object):
             
     def _setup_extended(self):
         if self.extended_catalog_name is None:
-            self.extended_catalog_name=self.config['extended']
+            self.extended_catalog_name=self.config.get('extended')
         if not self.extended_catalog_name: return 
         extended_catalog_name = \
             os.path.expandvars(os.path.join('$FERMI','catalog',self.extended_catalog_name))
@@ -150,12 +151,13 @@ class SkyModel(object):
         self.changed=set() # to keep track of extended models that are different from catalog
         moved=0
         for i,file in enumerate(files):
-            p = pickle.load(open(file))
+            p = cPickle.load(open(file))
             index = int(os.path.splitext(file)[0][-4:])
             assert i==index, 'logic error: file name %s inconsistent with expected index %d' % (file, i)
             roi_sources = p['sources']
+            extended_names = {} if (self.__dict__.get('extended_catalog') is None) else self.extended_catalog.names
             for key,item in roi_sources.items():
-                if key in self.extended_catalog.names: continue
+                if key in extended_names: continue
                 skydir = item['skydir']
                 if self.update_positions is not None:
                     ellipse = item.get('ellipse', None)
@@ -215,13 +217,16 @@ class SkyModel(object):
             if name.replace(' ','') not in [g.name.replace(' ','') for g in self.extended_sources]:
                 print 'extended source %s added to model' % name
                 self.extended_sources.append(self.extended_catalog.lookup(name))
+
     def _check_position(self, ps):
         if self.closeness_tolerance<0.: return
+        tol = np.radians(self.closeness_tolerance)
+        func = ps.skydir.difference
         for s in self.point_sources:
-            delta=np.degrees(s.skydir.difference(ps.skydir))
-            if delta<self.closeness_tolerance:
+            delta=func(s.skydir)
+            if delta<tol:
                 print  'SkyModel warning: appended source %s %.2f %.2f is %.2f deg (<%.2f) from %s (%d)'\
-                    %(ps.name, ps.skydir.ra(), ps.skydir.dec(), delta, self.closeness_tolerance, s.name, s.index)
+                    %(ps.name, ps.skydir.ra(), ps.skydir.dec(), np.degrees(delta), self.closeness_tolerance, s.name, s.index)
         
     #def skydir(self, index):
     #    return Band(self.nside).dir(index)
@@ -346,11 +351,11 @@ class SourceSelector(object):
     def __init__(self, skydir, **kwargs):
         self.mskydir = skydir
         keyword_options.process(self,kwargs)
-        self.name='ROI#04d' % iteration
-        self.iteration += 1
+        self.iteration = SourceSelector.iteration
+        SourceSelector.iteration += 1
     
     def name(self):
-        return 'ROI#04d' % iteration
+        return 'ROI#%04d' % self.iteration
 
     def near(self,source, radius):
         return source.skydir.difference(self.mskydir)< np.radians(radius)
