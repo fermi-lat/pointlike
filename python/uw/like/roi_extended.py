@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_extended.py,v 1.48 2011/03/11 22:46:48 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.49 2011/04/04 22:56:25 kerrm Exp $
 
     author: Joshua Lande
 """
@@ -199,7 +199,7 @@ class ROIExtendedModel(ROIDiffuseModel):
                  es.name,es.model.full_name(),
                  '\t'+es.model.__str__(indent='\t'))
 
-    def fit_extension(self,roi,tolerance=0.05, bandfits=False, error="HESSE",init_grid=None, use_gradient=True):
+    def fit_extension(self,roi,tolerance=0.05, bandfits=False, error="HESSE",init_grid=None, use_gradient=True, estimate_errors=True):
         """ Fit the extension of this extended source by fitting all non-fixed spatial paraameters of 
             self.extended_source. The likelihood at the best position is returned.
 
@@ -375,7 +375,7 @@ Arguments:
 
         best_spatial,fval = m.minimize(method="SIMPLEX")
 
-        if error is not None:
+        if estimate_errors is True and error is not None:
             if not quiet: print 'Calculating Covariance Matrix'
             cov_matrix = m.errors(method=error)
         else:
