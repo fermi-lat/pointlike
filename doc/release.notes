@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.159 2011/03/17 23:40:42 lande Exp $
+$Id: release.notes,v 1.160 2011/03/19 00:23:23 lande Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-07-11 03-Apr-2011  lande Fixing buggy gradient code.
  pointlike-07-07-10 18-Mar-2011  lande Bugfixes and interface improvements
  pointlike-07-07-09 17-Mar-2011  lande Tagging poitnlike
  pointlike-07-07-08 16-Mar-2011  lande Better Error message
