@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Apr  3 22:14:14 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Revert buggy gradient code
+    *
+------------------------------------------------------------
 User: mar0  Fri Apr  1 20:39:22 PDT 2011
 pointlike/python/uw/stacklike
 
