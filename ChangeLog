@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Apr  4 15:56:59 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skymodel.py 
+Log Message:
+A few tweaks for speed, and a few corrections to allow running without an extended catalog.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Apr  4 15:56:25 PDT 2011
 pointlike/python/uw/like
 
