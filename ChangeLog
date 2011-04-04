@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Apr  4 16:33:20 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_localize.py 
+Log Message:
+Use @keyword_options for ROILocalizer
+    *
+------------------------------------------------------------
 User: lande  Mon Apr  4 16:22:40 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
