@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.23 2011/02/23 08:28:19 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_localize.py,v 1.24 2011/03/08 04:18:23 lande Exp $
 
 author: Matthew Kerr
 """
@@ -166,7 +166,7 @@ class ROILocalizer(object):
 
             if psnc < 0: continue # skip potentially bad band fits, or bands without appreciable flux
 
-            tot_term = (band.bg_all_counts + band.ps_all_counts + psnc*nover - psoc*oover ) * roi.phase_factor
+            tot_term = (band.bg_all_counts + band.ps_all_counts + psnc*nover - psoc*oover ) * band.phase_factor
 
             if band.has_pixels:
                 
@@ -258,7 +258,7 @@ class ROILocalizerExtended(ROILocalizer):
 
             if esnc < 0: continue # skip potentially bad band fits, or bands without appreciable flux
 
-            tot_term = (band.bg_all_counts + band.ps_all_counts + esnc*nover - esoc*oover ) * roi.phase_factor
+            tot_term = (band.bg_all_counts + band.ps_all_counts + esnc*nover - esoc*oover ) * band.phase_factor
 
             if band.has_pixels:
                 

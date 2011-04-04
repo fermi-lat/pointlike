@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.28 2011/02/19 02:28:44 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.29 2011/03/08 04:18:46 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -219,7 +219,6 @@ def make_sed(r,which=0,axes=None,axis=None,plot_model=True,
 def counts(r,integral=False):
 
     groupings = [deque() for x in xrange(len(r.bin_centers))]
-    p = r.phase_factor
 
     #group slw by energy
     for i,ei in enumerate(r.bin_centers):
@@ -230,9 +229,9 @@ def counts(r,integral=False):
 
     #iso = N.asarray([ sum((band.bg_counts[1] for band in g)) for g in groupings]) * p
     #gal = N.asarray([ sum((band.bg_counts[0] for band in g)) for g in groupings]) * p
-    dif = N.asarray([ N.asarray([band.bg_counts for band in g]).sum(axis=0) for g in groupings])*p
+    dif = N.asarray([ N.asarray([band.phase_factor*band.bg_counts for band in g]).sum(axis=0) for g in groupings])
     obs = N.asarray([ sum((band.photons for band in g)) for g in groupings])
-    src = N.asarray([ N.asarray([band.ps_counts*band.overlaps for band in g]).sum(axis=0) for g in groupings])*p
+    src = N.asarray([ N.asarray([band.phase_factor*band.ps_counts*band.overlaps for band in g]).sum(axis=0) for g in groupings])*p
     
     if integral:
         for i in xrange(len(iso)):

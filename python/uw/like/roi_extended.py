@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_extended.py,v 1.47 2011/02/18 02:58:57 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_extended.py,v 1.48 2011/03/11 22:46:48 burnett Exp $
 
     author: Joshua Lande
 """
@@ -149,7 +149,7 @@ class ROIExtendedModel(ROIDiffuseModel):
             if band.has_pixels:
                 band.bg_pix_counts[:,mi] = myband.es_pix_counts * myband.es_counts
 
-    def gradient(self,bands,model_index,phase_factor=1):
+    def gradient(self,bands,model_index):
         """ Return the gradient of the log likelihood with respect to the spectral parameters of
             this model. Note that this calculation is essentially identical to that of point
             sources since extended sources decouple the spectral and spatial parts, as is done
@@ -166,7 +166,7 @@ class ROIExtendedModel(ROIDiffuseModel):
         for myband,band in zip(self.bands,bands):
 
             grad    = band.gradient(sm)[sm.free]*myband.er # correct for exposure
-            apterm = phase_factor*myband.overlaps
+            apterm =  band.phase_factor*myband.overlaps
             if band.has_pixels:
                 pixterm = (band.pix_weights*myband.es_pix_counts).sum()
             else:

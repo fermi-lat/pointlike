@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.27 2011/02/22 00:27:20 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.28 2011/03/11 22:46:48 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -311,7 +311,7 @@ class ROIDiffuseManager(ROIModelManager):
             if band.has_pixels:
                 band.bg_all_pix_counts = band.bg_pix_counts.sum(axis=1)
 
-    def gradient(self,bands,phase_factor=1):
+    def gradient(self,bands):
         """ Calculate the gradient for the free spectral parameters.
             Requires input from *all* sources, so there is necessarily
             some loss of abstraction.  The band objects *must* have a
@@ -319,7 +319,7 @@ class ROIDiffuseManager(ROIModelManager):
             to the total expected counts from all models for the pixel.
         """
 
-        return N.concatenate([bg.gradient(bands,ibg,phase_factor)
+        return N.concatenate([bg.gradient(bands,ibg)
                               for ibg,bg in enumerate(self.bgmodels)])
 
     def add_source(self, model, bands):

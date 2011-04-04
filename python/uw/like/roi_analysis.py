@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.75 2011/03/19 00:22:34 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.76 2011/04/04 05:14:13 lande Exp $
 
 author: Matthew Kerr
 """
@@ -51,6 +51,7 @@ class ROIAnalysis(object):
         ("quiet",False,'Set True to suppress (some) output'),
         ("catalog_aperture",-1,"Pulsar catalog analysis only -- deprecate"),
         ("phase_factor",1.,"Pulsar phase. A correction that can be made if the data has undergone a phase selection -- between 0 and 1"),
+        ("bracketing_function",None,"A function by which to multiply the counts in each band, e.g. 1.2 for a 20% 'high' IRF.  It should be a function taking as arguments energy and conversion type."),
     )
 
     @keyword_options.decorate(defaults)
@@ -91,18 +92,19 @@ class ROIAnalysis(object):
             self.fit_emax = [self.fit_emax]*2
 
         self.bands = collections.deque()
+        band_kwargs = {'catalog_aperture':self.catalog_aperture,
+                    'bracketing_function':self.bracketing_function,
+                    'phase_factor':self.phase_factor}
         for band in self.sa.pixeldata.dmap:
             evcl = band.event_class() & 1 # protect high bits
 
             if (band.emin() + 1) >= self.fit_emin[evcl] and (band.emax() - 1) < self.fit_emax[evcl]:
-                self.bands.append(roi_bands.ROIBand(band,self.sa,self.roi_dir,catalog_aperture=self.catalog_aperture))
+                self.bands.append(roi_bands.ROIBand(band,self.sa,self.roi_dir,**band_kwargs))
 
         self.bands = N.asarray(self.bands)
 
         self.psm.setup_initial_counts(self.bands)
         self.dsm.setup_initial_counts(self.bands)
-
-        for band in self.bands: band.phase_factor = self.phase_factor
 
     def setup_energy_bands(self,emin=[0,0]):
 
@@ -183,7 +185,7 @@ class ROIAnalysis(object):
 
         self.update_counts(parameters)
 
-        ll = sum(band.logLikelihood(phase_factor=self.phase_factor) for band in self.bands)
+        ll = sum(band.logLikelihood() for band in self.bands)
         return 1e6 if N.isnan(ll) else ll
 
     def bandFit(self,which):
@@ -225,7 +227,6 @@ class ROIAnalysis(object):
         """ Implement the gradient of the log likelihood wrt the model parameters."""
 
         bands     = self.bands
-        pf         = self.phase_factor  # can just multiply the aperture term
         models    = self.psm.models
 
         # sanity check -- for efficiency, the gradient should be called with the same params as the log likelihood
@@ -247,14 +248,14 @@ class ROIAnalysis(object):
             for ind,model in zip(indices,models[indices]):
                 grad    = b.gradient(model)[model.free]*b.er[ind] # correct for exposure
                 np      = nparams[ind]
-                apterm = pf*b.overlaps[ind]
+                apterm = b.phase_factor*b.overlaps[ind]
                 if b.has_pixels:
                     pixterm = (pix_weights*b.ps_pix_counts[:,ind]).sum()
                 gradient[cp:cp+np] += grad * (apterm - pixterm)
                 cp += np
 
         # add in diffuse components
-        gradient  = N.append(self.bgm.gradient(bands,pf),gradient)
+        gradient  = N.append(self.bgm.gradient(bands),gradient)
         
         # transform into log space and return
         return gradient * 10**parameters * LOG_JACOBIAN
