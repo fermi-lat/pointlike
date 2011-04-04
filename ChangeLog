@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Apr  4 11:40:49 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Add gradient method to BrokenPowerLaw.
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-11, operation: add
 Package: pointlike
