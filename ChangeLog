@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Apr  4 15:58:38 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skyanalysis.py 
+Log Message:
+Switch to new phase_factor paradigm.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Apr  4 15:56:59 PDT 2011
 pointlike/python/uw/pipeline
 
