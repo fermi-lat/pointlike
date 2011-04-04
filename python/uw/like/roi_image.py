@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.13 2011/02/06 21:16:53 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_image.py,v 1.14 2011/02/10 03:02:32 lande Exp $
 
 author: Joshua Lande
 """
@@ -229,6 +229,7 @@ class ModelImage(ROIImage):
         model_counts += self.all_point_sources_counts()
         model_counts += self.all_diffuse_sources_counts()
         model_counts *= self.roi.phase_factor # don't forget about the phase factor!
+        #NB -- this will need to be fixed if want to account for bracketing IRFs
 
         PythonUtilities.set_wsdl_weights(model_counts,self.wsdl)
         

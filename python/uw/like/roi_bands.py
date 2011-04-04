@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.23 2010/12/08 01:58:56 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.24 2011/03/11 22:46:48 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -16,7 +16,7 @@ from specfitter import SpectralModelFitter
 from numpy.linalg import inv
 from scipy.optimize import fmin,fsolve
 
-###====================================================================================================###
+###======================================================================###
 
 class ROIBand(object):
     """Wrap a Band object, and provide additional functionality for likelihood."""
@@ -26,6 +26,8 @@ class ROIBand(object):
     def init(self):
         self.umax      = 50
         self.nsp_simps = 16
+        self.bracketing_function = None
+        self.phase_factor = 1.
 
     def __init__(self,band,spectral_analysis,skydir,**kwargs):
         """
@@ -48,6 +50,10 @@ class ROIBand(object):
         self.__setup_sp_simps__()
 
         self.psf = self.sa.psf.band_psf(self,adjust_mean=ROIBand.ADJUST_MEAN)
+
+        # this is sneaky but should work just fine
+        if self.bracketing_function is not None:
+            self.phase_factor *= self.bracketing_function(self.e,self.ec)
 
     def __setup_data__(self):
         """Get all pixels within the ROI in this band."""
@@ -110,22 +116,20 @@ class ROIBand(object):
 
         return tot_term - pix_term
 
-    def logLikelihood(self, phase_factor=1.0):
+    def logLikelihood(self):
         """ Return the (negative) log likelihood for this band.  Certain members
             of this object are set externally and are required here, specifically
             ps_all_counts, ps_all_pix_counts, bg_all_counts, and bg_all_pix_counts.
         
-        phase_factor [1.0]: adjust predicted counts if analyzing a pulsar with phase selection. 
-        
         """
-        tot = (self.bg_all_counts + self.ps_all_counts) * phase_factor
+        tot = (self.bg_all_counts + self.ps_all_counts) * self.phase_factor
                
         pix = (self.pix_counts * N.log(self.bg_all_pix_counts + self.ps_all_pix_counts)).sum()\
               if self.has_pixels else 0
 
         return tot - pix
 
-###====================================================================================================###
+###======================================================================###
 
 class ROIEnergyBand(object):
     """Wrap 1 or 2 ROIBand objects corresponding to the same energy level 
@@ -157,7 +161,7 @@ class ROIEnergyBand(object):
         for w in which:
             self.bandFit(which=w)
             self.m[0] = self.uflux
-            ul = sum( (b.expected(self.m)*b.er[w] for b in self.bands) ) * self.bands[0].phase_factor
+            ul = sum( (b.phase_factor*b.expected(self.m)*b.er[w] for b in self.bands) )
             if self.flux is None:
                 r += [0,ul,0]
             else:

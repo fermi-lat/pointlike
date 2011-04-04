@@ -1,7 +1,7 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.13 2011/03/03 03:43:20 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.14 2011/03/11 22:46:48 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -106,10 +106,9 @@ class TSCalc(object):
     def _f0(self,n0,*args):
         n0 = 10**n0
         accum = 0
-        pf = self.phase_factor
         for band in self.bands:
             pix_term = (band.pix_counts*np.log(1 + n0/band.ts_pix_term)).sum() if band.has_pixels else 0
-            ap_term  = - n0*band.ts_overlap*band.ts_exp*pf
+            ap_term  = - n0*band.ts_overlap*band.ts_exp*band.phase_factor
             accum   += pix_term + ap_term
         return accum
 
@@ -117,10 +116,9 @@ class TSCalc(object):
     def _f1(self,n0,*args):
         n0 = 10**n0
         accum = 0
-        pf = self.phase_factor
         for band in self.bands:
             pix_term = - (band.pix_counts*(1 + band.ts_pix_term/n0)**-1).sum() if band.has_pixels else 0
-            ap_term  = n0*band.ts_exp*band.ts_overlap*pf
+            ap_term  = n0*band.ts_exp*band.ts_overlap*band.phase_factor
             accum   += pix_term + ap_term
         return J*accum
 
@@ -128,14 +126,13 @@ class TSCalc(object):
     def _f2(self,n0,*args):
         n0 = 10**n0
         accum = 0
-        pf = self.phase_factor
         for band in self.bands:
             if band.has_pixels:
                 quot     = band.ts_pix_term/n0
                 pix_term = - (band.pix_counts*quot/(1+quot)**2).sum()
             else:
                 pix_term = 0
-            ap_term  = n0*band.ts_exp*band.ts_overlap*pf
+            ap_term  = n0*band.ts_exp*band.ts_overlap*band.phase_factor
             accum   += pix_term + ap_term
         return J*J*accum
 
@@ -208,7 +205,6 @@ class TSCalc(object):
 
         bands = self.roi.bands
         bsm   = source_mask
-        pf    = self.phase_factor
 
         if not no_cache: self._cache(skydir)
 
@@ -865,7 +861,6 @@ class FastTSCalc(object):
         self.roi = roi
         self.ro  = PsfOverlap()
         self.rd  = roi.roi_dir
-        self.phase_factor = roi.phase_factor
         
         mo  = PowerLaw(p=[1e-12,self.photon_index])
         self.n0 =  10** get_logflux(mo) #THB 
@@ -891,7 +886,6 @@ class FastTSCalc(object):
 
         bands = self.roi.bands
         bsm   = bright_source_mask
-        pf    = self.phase_factor
         offset= skydir.difference(self.roi.roi_dir)
 
         if not repeat_diffuse or no_cache:
@@ -951,7 +945,7 @@ class FastTSCalc(object):
             accum = 0
             for band in bands:
                 pix_term = (band.pix_counts[band.ts_mask]*np.log(1 + n0/band.ts_pix_term)).sum() if band.has_pixels else 0
-                ap_term  = - n0*band.ts_overlap*band.ts_exp*pf
+                ap_term  = - n0*band.ts_overlap*band.ts_exp*band.phase_factor
                 accum   += pix_term + ap_term
             return accum
 
@@ -960,7 +954,7 @@ class FastTSCalc(object):
             accum = 0
             for band in bands:
                 pix_term = - (band.pix_counts[band.ts_mask]*(1 + band.ts_pix_term/n0)**-1).sum() if band.has_pixels else 0
-                ap_term  = n0*band.ts_exp*band.ts_overlap*pf
+                ap_term  = n0*band.ts_exp*band.ts_overlap*band.phase_factor
                 accum   += pix_term + ap_term
             return J*accum
 
@@ -973,7 +967,7 @@ class FastTSCalc(object):
                     pix_term = - (band.pix_counts[band.ts_mask]*quot/(1+quot)**2).sum()
                 else:
                     pix_term = 0
-                ap_term  = n0*band.ts_exp*band.ts_overlap*pf
+                ap_term  = n0*band.ts_exp*band.ts_overlap*band.phase_factor
                 accum   += pix_term + ap_term
             return J*J*accum
 
