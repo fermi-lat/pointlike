@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Apr  5 16:10:01 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Adding flag countsfile and modelfile to ROIDisplay. Adding class ROISignificance and ROISmoothedSource.
+    *
+------------------------------------------------------------
 User: lande  Tue Apr  5 15:46:07 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
