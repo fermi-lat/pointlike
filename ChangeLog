@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Apr  5 15:46:07 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_image.py 
+Log Message:
+Adding get_pyfits function to ROIImage. Introduction of SummedImage, SummedCounts, and SummedModel class. Some code refactoring.
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr  5 14:42:36 PDT 2011
 pointlike/python/uw/pipeline
 
