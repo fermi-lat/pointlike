@@ -6,15 +6,20 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_image.py,v 1.14 2011/02/10 03:02:32 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.15 2011/04/04 22:56:25 kerrm Exp $
 
 author: Joshua Lande
 """
 from skymaps import SkyImage,SkyDir,PythonUtilities,Band,WeightedSkyDirList
 import numpy as N
+import pyfits
+import scipy
+import scipy.ndimage
 
-from roi_diffuse import ROIDiffuseModel_OTF
-from roi_extended import ROIExtendedModel,ROIExtendedModelAnalytic
+
+from . roi_diffuse import ROIDiffuseModel_OTF
+from . roi_extended import ROIExtendedModel,ROIExtendedModelAnalytic
+from . pointspec_helpers import get_default_diffuse_mapper
 from uw.utilities import keyword_options
 from uw.utilities.fitstools import get_fields
 from uw.utilities.image import ZEA
@@ -77,7 +82,13 @@ class ROIImage(object):
         self.fill()
 
         self.nx, self.ny = self.skyimage.naxis1(), self.skyimage.naxis2()
-        self.image=N.array(self.skyimage.image()).reshape((self.ny, self.nx))
+        self.image=ROIImage.skyimage2numpy(self.skyimage)
+
+    @staticmethod
+    def skyimage2numpy(skyimage):
+        nx, ny = skyimage.naxis1(), skyimage.naxis2()
+        image=N.array(skyimage.image()).reshape((ny, nx))
+        return image
 
     @abstractmethod
     def fill(self): pass
@@ -97,7 +108,8 @@ class ROIImage(object):
 
         zea=ZEA(self.center,**zea_dict)
         zea.skyimage = self.skyimage
-        zea.image = self.image
+        # recalculate, in case the sky image has changed
+        zea.image = ROIImage.skyimage2numpy(self.skyimage)
 
         # The old one gets removed by python's garbage collector (when zea.skyimage is replaced).
         zea.projector = zea.skyimage.projector() 
@@ -105,17 +117,63 @@ class ROIImage(object):
         zea.vmin,zea.vmax = zea.skyimage.minimum(), zea.skyimage.maximum()
         return zea
 
+    def get_pyfits(self):
+        """ Create and return a pyfits object that corresponds to the ROIImage object. 
+            The fits file created is supposed to be consistent with the internal
+            representation that SkyImage/SkyProj uses. """
+
+        if self.galactic: 
+            ctype1="GLON-%s" % self.proj
+            ctype2="GLAT-%s" % self.proj
+            crval1,crval2=self.center.l(),self.center.b()
+        else:
+            ctype1="RA-%s" % self.proj
+            ctype2="DEC-%s" % self.proj
+            crval1,crval2=self.center.ra(),self.center.dec()
+
+        cdelt1,cdelt2=-self.pixelsize,self.pixelsize
+
+        # from SkyImage.cxx like 92:
+        #   "center pixel; WCS convention is that center of a pixel is a half-integer"
+        crpix1,crpix2=(self.skyimage.naxis1()+1)/2.0,(self.skyimage.naxis2()+1)/2.0
+
+        values = [
+            ["TELESCOP", "GLAST"],
+            ["INSTRUME", "LAT"],
+            ["DATE-OBS", ""],
+            ["DATE-END", ""],
+            ["EQUINOX", 2000.0, "Equinox of RA & DEC specifications"],
+            ["CTYPE1", ctype1, "[RA|GLON]---%%%, %%% represents the projection method such as AIT"],
+            ["CRPIX1", crpix1, "Reference pixel"],
+            ["CRVAL1", crval1, "RA or GLON at the reference pixel"],
+            ["CDELT1", cdelt1, "X-axis incr per pixel of physical coord at position of ref pixel(deg)"],
+            ["CTYPE2", ctype2, "[DEC|GLAT]---%%%, %%% represents the projection method such as AIT"],
+            ["CRPIX2", crpix2, "Reference pixel"],
+            ["CRVAL2", crval2, "DEC or GLAT at the reference pixel"],
+            ["CDELT2", cdelt2, "Y-axis incr per pixel of physical coord at position of ref pixel(deg)"],
+            ["CROTA2",  0, "Image rotation (deg)"],
+        ]
+
+        cards = [ pyfits.Card(*i) for i in values]
+
+        header=pyfits.Header(cards=cards)
+
+        hdu=pyfits.PrimaryHDU(data=self.image, header=header)
+        fits = pyfits.HDUList([hdu])
+
+        return fits
 
 class CountsImage(ROIImage):
     """ This ROIImage subclass fills the sky image with the observed Fermi counts. """
 
-    defaults = ROIImage.defaults + (
-        ('mc_src_id', None, ''),
-    )
+    defaults = ROIImage.defaults
 
     @staticmethod
     @memoize
-    def process_filedata(roi,conv_type=None,mc_src_id=None,extra_cuts=None):
+    def process_filedata(roi,conv_type=None,extra_cuts=None,radius=None):
+        """ The radius parameter will apply a radius cut. """
+
+        if radius is None: radius=roi.sa.maxROI
 
         emin = roi.bin_edges[0]
         emax = roi.bin_edges[-1]
@@ -129,7 +187,6 @@ class CountsImage(ROIImage):
                      'THETA < %s' % roi.sa.pixeldata.thetacut,
                      'EVENT_CLASS >= %s' % roi.sa.pixeldata.event_class]
         if conv_type >= 0:        base_cuts += ['CONVERSION_TYPE == %d'%(conv_type)]
-        if mc_src_id is not None: base_cuts += ['MC_SRC_ID == %d'%(mc_src_id)]
         cuts = base_cuts if extra_cuts is None else extra_cuts + base_cuts
 
         data = get_fields(ft1files,['RA','DEC','time'],cuts)
@@ -141,12 +198,12 @@ class CountsImage(ROIImage):
         skydirs = [ skydir for skydir,time in zip(skydirs,data['time']) if gti.accept(time)]
 
         # apply ROI radial cut
-        skydirs = [ skydir for skydir in skydirs if N.degrees(skydir.difference(roi.roi_dir)) < roi.sa.maxROI ]
+        skydirs = [ skydir for skydir in skydirs if N.degrees(skydir.difference(roi.roi_dir)) < radius ]
 
         return skydirs
 
     def fill(self):
-        dirs = CountsImage.process_filedata(self.roi,self.conv_type,self.mc_src_id)
+        dirs = CountsImage.process_filedata(self.roi,self.conv_type)
 
         for photon_dir in dirs:
             self.skyimage.addPoint(photon_dir)
@@ -207,7 +264,12 @@ class ModelImage(ROIImage):
 
         """
 
-    defaults = ROIImage.defaults
+    defaults = ROIImage.defaults + (
+            ('override_point_sources', None, """ If either is specified, use override_point_sources these
+                                                 and override_diffuse_sources to generate the image instead
+                                                 of the sources in the ROI."""),
+            ('override_diffuse_sources', None, 'Same as override_point_sources'),
+    )
 
     @keyword_options.decorate(defaults)
     def __init__(self,*args,**kwargs):
@@ -226,7 +288,7 @@ class ModelImage(ROIImage):
 
         model_counts = N.zeros(len(self.wsdl),dtype=float)
 
-        model_counts += self.all_point_sources_counts()
+        model_counts += self.all_point_source_counts()
         model_counts += self.all_diffuse_sources_counts()
         model_counts *= self.roi.phase_factor # don't forget about the phase factor!
         #NB -- this will need to be fixed if want to account for bracketing IRFs
@@ -295,10 +357,14 @@ class ModelImage(ROIImage):
             rvals = ModelImage.downsample(rvals,self.factor).flatten()
             return rvals
 
-    def all_point_sources_counts(self):
+    def all_point_source_counts(self):
         """ Calculate the point source contributions. """
         roi=self.roi
-        point_sources = roi.psm.point_sources
+        if self.override_point_sources is None and self.override_diffuse_sources is None:
+            point_sources = roi.psm.point_sources 
+        else:
+            point_sources = self.override_point_sources
+
         point_counts = N.zeros(len(self.wsdl),dtype=float)
 
         for band in self.selected_bands:
@@ -388,8 +454,18 @@ class ModelImage(ROIImage):
 
     def all_diffuse_sources_counts(self):
         """ Calculate the diffuse source contributions. """
+
+        if self.override_point_sources is None and self.override_diffuse_sources is None:
+            bgmodels = self.roi.dsm.bgmodels
+        else:
+            mapper=get_default_diffuse_mapper(self.roi.sa,self.roi.roi_dir)
+            if self.override_diffuse_sources is None:
+                bgmodels = []
+            else:
+                bgmodels = [mapper(ds) for ds in self.override_diffuse_sources] 
+
         return sum(self.diffuse_source_counts(bg)
-                   for bg in self.roi.dsm.bgmodels)
+                   for bg in bgmodels)
 
 
 
@@ -443,12 +519,10 @@ class RadialCounts(RadialImage):
     """ This subclass of RadialImage calculates the counts within
         each radial bin. """
 
-    defaults = RadialImage.defaults + (
-        ('mc_src_id', None, ''),
-    )
+    defaults = RadialImage.defaults
 
     def fill(self):
-        dirs = CountsImage.process_filedata(self.roi,self.conv_type,self.mc_src_id)
+        dirs = CountsImage.process_filedata(self.roi,self.conv_type)
         diffs = [self.center.difference(i) for i in dirs]
         self.image=N.histogram(diffs,bins=N.sqrt(self.bin_edges_rad))[0]
 
@@ -462,11 +536,11 @@ class RadialModel(RadialImage):
             [ band for band in self.roi.bands if band.ct == self.conv_type ]
 
         self.image = N.zeros_like(self.bin_centers_rad)
-        self.image += self.all_point_sources_counts()
+        self.image += self.all_point_source_counts()
         self.image += self.all_diffuse_sources_counts()
         self.image *= self.roi.phase_factor # don't forget about the phase factor!
 
-    def all_point_sources_counts(self):
+    def all_point_source_counts(self):
         """ Calculate the point source contributions. """
         roi=self.roi
         point_sources = roi.psm.point_sources
@@ -522,7 +596,7 @@ class RadialModel(RadialImage):
                            N.histogram(rvals,bins=N.sqrt(self.bin_edges_rad))[0]
 
                 # multiply intensities by solid angle in ring
-                fraction *= 2*N.pi*(1-N.cos(N.radians(self.size)))/self.npix
+                fraction *= RadialModel.solid_angle_cone(N.radians(self.size))/self.npix
 
             elif type(extended_model) == ROIExtendedModelAnalytic:
 
@@ -539,6 +613,10 @@ class RadialModel(RadialImage):
         return extended_counts
 
     @staticmethod
+    def solid_angle_cone(radius_in_radians):
+        return 2*N.pi*(1-N.cos(radius_in_radians))
+
+    @staticmethod
     def get_nside(size,npix,num_points_per_ring=1000):
         """ Solid angle of each healpix pixel is 4pi/(12*ns^2)
             Solid angel of each ring is pi*(size)^2/npix
@@ -548,7 +626,7 @@ class RadialModel(RadialImage):
             Solving for ns, the size of the healpixels required, we get the required formula
         """
         total_solid_angle=4*N.pi
-        image_solid_angle=2*N.pi*(1-N.cos(N.radians(size)))
+        image_solid_angle=RadialModel.solid_angle_cone(N.radians(size))
 
         solid_angle_per_ring=image_solid_angle/npix
 
@@ -586,8 +664,8 @@ class RadialModel(RadialImage):
                 ap_evals[:,ne] = N.histogram(rvals,weights=vals,bins=N.sqrt(self.bin_edges_rad))[0]/\
                                  N.histogram(rvals,bins=N.sqrt(self.bin_edges_rad))[0]
 
-                # multiply intensities by solid angle in ring
-                ap_evals[:,ne] *= 2*N.pi*(1-N.cos(N.radians(self.size)))/self.npix
+            # multiply intensities by solid angle in ring
+            ap_evals *= RadialModel.solid_angle_cone(N.radians(self.size))/self.npix
 
             ap_evals          *= bg_vector
             mo_evals           = mo(bg_points)
@@ -607,3 +685,94 @@ class RadialModel(RadialImage):
         """ Calculate the diffuse source contributions. """
         return sum(self.diffuse_source_counts(bg)
                    for bg in self.roi.dsm.bgmodels)
+
+
+class SummedImage(ROIImage):
+
+    defaults = CountsImage.defaults + (
+        ('sum_rad',   0.5, 'Sum counts within radius degrees.'),
+    )
+
+    @staticmethod        
+    def defaults_to_kwargs(obj,defaults):
+        """ Take in a defaults list (used by keyword_options) and an object 
+            which recognizes the keyword_options. A dictionary is
+            returned with each of the defaults pointing to the value
+            found in the object. This is useful for recreating 
+            the object. """
+        return dict([[i[0],getattr(obj,i[0])] for i in defaults if isinstance(i,list) or isinstance(i,tuple)])
+
+    @staticmethod
+    def sum_array(image,width):
+        """ Summ all this pixels within a given pixel width
+        
+            code taken from 
+            
+            http://code.google.com/p/agpy/source/browse/trunk/agpy/convolve.py """
+        kernel = N.zeros_like(image)
+        xx,yy = N.indices(image.shape)
+        rr = N.sqrt((xx-image.shape[0]/2.)**2+(yy-image.shape[1]/2.)**2)
+        kernel[rr<width] = 1
+
+        out=N.empty_like(image)
+        scipy.ndimage.filters.convolve(image, kernel, out, mode='constant', cval=0)
+        return out
+
+    @staticmethod
+    def add_to_skyimage(skyimage,image):
+        """ Take in a two dimensional numpy array representing the
+            fits data and put it into the skyimage. """
+        temp=image.reshape(image.shape[0]*image.shape[1])
+
+        wsdl = skyimage.get_wsdl()
+        PythonUtilities.set_wsdl_weights(temp,wsdl)
+        skyimage.set_wsdl(wsdl)
+
+    @staticmethod
+    def sum_skyimage(skyimage,width):
+        """ Take in a skyimage object and sum each pixel with all the
+            pixels within a given width. """
+        image=ROIImage.skyimage2numpy(skyimage)
+
+        image=SummedImage.sum_array(image,width)
+
+        SummedImage.add_to_skyimage(skyimage,image)
+
+        return skyimage
+
+    @keyword_options.decorate(defaults)
+    def __init__(self,*args,**kwargs):
+
+        super(SummedImage,self).__init__(*args,**kwargs)
+
+        width = int(N.ceil(self.sum_rad/self.pixelsize))
+
+        # Make an image, bigger then the desired one, by twice
+        # the smooth radius in each direction.
+        self.pass_dict=SummedImage.defaults_to_kwargs(self,self.object.defaults)
+        self.pass_dict['size']=self.size+4*width*self.pixelsize
+        self.summed=self.object(self.roi,**self.pass_dict)
+
+        self.summed.skyimage=SummedImage.sum_skyimage(self.summed.skyimage,width)
+        self.summed.image=ROIImage.skyimage2numpy(self.summed.skyimage)
+
+        # now, shrink down summed and replace the current skyimage
+
+        self.image = self.summed.image[2*width:-2*width,2*width:-2*width]
+        SummedImage.add_to_skyimage(self.skyimage,self.image)
+
+class SummedCounts(SummedImage):
+
+    defaults = CountsImage.defaults + (
+        ('sum_rad',   0.5, 'Sum counts within radius degrees.'),
+    )
+
+    object=CountsImage
+
+class SummedModel(SummedImage):
+
+    defaults = ModelImage.defaults + (
+        ('sum_rad',   0.5, 'Sum counts within radius degrees.'),
+    )
+
+    object=ModelImage
