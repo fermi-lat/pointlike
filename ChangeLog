@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Apr  5 12:26:26 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_modify.py 
+Log Message:
+Bug fix for new Model format.
+
+    *
+------------------------------------------------------------
 User: mar0  Mon Apr  4 19:57:34 PDT 2011
 pointlike/python/uw/stacklike
 
