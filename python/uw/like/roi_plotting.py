@@ -18,20 +18,22 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.29 2011/03/08 04:18:46 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.30 2011/04/04 22:56:25 kerrm Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
 import exceptions
 import pprint
 import numpy as N
+import copy
 from roi_bands import ROIEnergyBand
-from roi_image import ModelImage,CountsImage,RadialCounts,RadialModel
+from roi_image import ModelImage,CountsImage,RadialCounts,RadialModel,SummedCounts,SummedModel
 from roi_extended import ExtendedSource
 from pointspec_helpers import PointSource
 from uw.utilities import colormaps
 from uw.utilities.image import ZEA
 from uw.utilities import keyword_options
+from skymaps import SkyDir
 
 from collections import deque
 
@@ -409,6 +411,8 @@ class ROIDisplay(object):
             ('nticks',             5, 'Number of axes tick marks'),
             ('label_sources',  False,  'Label sources duing plot'),
             ('galactic',        True,'Coordinate system for plot'),
+            ('countsfile',      '','File to save counts map'),
+            ('modelfile',       '','File to save model map'),
     )
 
     @staticmethod
@@ -433,6 +437,13 @@ class ROIDisplay(object):
 
         self.cm = CountsImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic,conv_type=self.conv_type)
         self.mm = ModelImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic,conv_type=self.conv_type)
+
+        if self.countsfile is not '':
+            fits=self.cm.get_pyfits()
+            fits.writeto(self.countsfile,clobber=True)
+        if self.modelfile is not '':
+            fits=self.mm.get_pyfits()
+            fits.writeto(self.modelfile,clobber=True)
 
         ROIDisplay.matplotlib_format()
 
@@ -1022,3 +1033,196 @@ class ROIRadialIntegral(object):
 
         if out_file is not None: P.savefig(out_file)
         if to_screen: P.show()
+
+
+class ROISignificance(object):
+    """ Make a plot of the statistical significance (D-M)/sqrt(M)
+        where D and M are the measured counts and the model predicted
+        counts integrated within a circual aperature of radius . """
+
+    defaults = (
+            ('figsize',        (5,5),         'Size of the image'),
+            ('fignum',             3,  'matplotlib figure number'),
+            ('conv_type',         -1,           'Conversion type'),
+            ('size',               5, 'Size of the field of view'),
+            ('galactic',        True,'Coordinate system for plot'),
+            ('sum_rad',          0.5, 'Sum counts/model within radius degrees.'),
+            ('label_sources',  False,  'Label sources duing plot'),
+    )
+
+    @keyword_options.decorate(defaults)
+    def __init__(self, roi, **kwargs):
+        keyword_options.process(self, kwargs)
+        
+        self.roi = roi
+
+        # Fit many pixels inside of the summing radius
+        self.pixelsize=self.sum_rad/10.0
+
+        kwargs=dict(size=self.size,
+                    pixelsize=self.pixelsize,
+                    galactic=self.galactic,
+                    conv_type=self.conv_type,
+                    sum_rad=self.sum_rad)
+
+        self.counts=SummedCounts(self.roi,**kwargs)
+        self.model=SummedModel(self.roi,**kwargs)
+
+        self.significance = (self.counts.image - self.model.image)/N.sqrt(self.model.image)
+
+        self.pyfits = self.counts.get_pyfits()
+        self.pyfits[0].data = self.significance
+
+    @staticmethod
+    def plot_sources( ax, roi):
+
+        src = [p for p in roi.get_sources() if hasattr(p,'skydir')]
+
+        for p in src:
+            l,b=p.skydir.l(),p.skydir.b()
+
+            ax['gal'].plot([l], [b], 'x', markersize=15, mec='k', mfc='k', mew=2)
+            ax['gal'].plot([l], [b], '+', markersize=15, mec='white', mfc='white', mew=2)
+
+    def show(self,to_screen=True,out_file=None):
+
+        import pywcsgrid2
+        from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
+        from matplotlib.axes import Axes
+
+        self.fig = P.figure(self.fignum,self.figsize)
+        P.clf()
+
+        h, d = self.pyfits[0].header, self.pyfits[0].data
+
+        ax = pywcsgrid2.subplot(111, header=h)
+
+        # add colorbar axes
+        divider = make_axes_locatable(ax)
+        cax = divider.new_horizontal("5%", pad=0.1, axes_class=Axes)
+        self.fig.add_axes(cax)
+
+        im = ax.imshow(d, origin="lower", interpolation='bilinear')
+        cbar = P.colorbar(im, cax=cax)
+
+        ax.set_title('Significance $(D-M)/\sqrt{M}$')
+        
+        ax.grid()
+
+        ROISignificance.plot_sources(ax,self.roi)
+
+        if out_file is not None: P.savefig(out_file)
+        if to_screen: P.show()
+
+class ROISmoothedSource(object):
+    """ Make a smoothed residual plot to look at a paritcular source. 
+    
+        This object requires pywcsgrid2. To get it, go to
+        http://leejjoon.github.com/pywcsgrid2/users/overview.html """
+
+    defaults = (
+            ('which',   None, 'Draw the smoothed point version of this source.'),
+            ('figsize',       (5,5),         'Size of the image'),
+            ('fignum',             3,  'matplotlib figure number'),
+            ('conv_type',         -1,           'Conversion type'),
+            ('size',               5, 'Size of the field of view'),
+            ('psf_size',         1.5, 'Size of the field of view'),
+            ('galactic',        True, 'Coordinate system for plot'),
+            ('sum_rad',         0.25, 'Sum counts/model within radius degrees.'),
+            ('overlay_psf',     True, 'Add a smoothed reference PSF on top of the counts.'),
+    )
+
+    @keyword_options.decorate(defaults)
+    def __init__(self, roi, **kwargs):
+        keyword_options.process(self, kwargs)
+
+        if self.which is None: raise Exception("Parameter soruce must be specified.")
+        
+        self.roi = roi
+
+        # Fit many pixels inside of the summing radius
+        self.pixelsize=self.sum_rad/10.0
+
+        kwargs=dict(size=self.size,
+                    pixelsize=self.pixelsize,
+                    galactic=self.galactic,
+                    conv_type=self.conv_type,
+                    sum_rad=self.sum_rad)
+
+        if self.overlay_psf:
+            source = roi.get_source(self.which)
+
+            # convert it to a point source placed at the origin
+            point_version=PointSource(name=source.name,
+                                      skydir=source.skydir,
+                                      model=source.model.copy())
+
+        self.roi.zero_source(which=self.which)
+
+        self.counts=SummedCounts(self.roi,**kwargs)
+        self.model=SummedModel(self.roi,**kwargs)
+
+        self.roi.unzero_source(which=self.which)
+
+        self.residual = self.counts.image - self.model.image
+
+        self.residual_pyfits = self.counts.get_pyfits()
+        self.residual_pyfits[0].data = self.residual
+
+        if self.overlay_psf:
+            # create an image of the PSF (for our model).
+            # Shrink down the image of the psf
+            psf_kwargs=copy.deepcopy(kwargs)
+            psf_kwargs['size']=self.psf_size
+            self.psf_model=SummedModel(self.roi,
+                    override_point_sources=[point_version],
+                    **psf_kwargs)
+            self.psf_pyfits = self.psf_model.get_pyfits()
+
+    def show(self,to_screen=True,out_file=None):
+        import pywcsgrid2
+        from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
+        from mpl_toolkits.axes_grid1.axes_grid import ImageGrid
+
+        self.fig = P.figure(self.fignum,self.figsize)
+        P.clf()
+
+        h, d = self.residual_pyfits[0].header, self.residual_pyfits[0].data
+
+        from mpl_toolkits.axes_grid1.axes_grid import AxesGrid
+
+        grid = ImageGrid(self.fig, (1, 1, 1), nrows_ncols = (1, 1),
+                         cbar_mode="single", cbar_pad="2%",
+                         cbar_location="right",
+                         axes_class=(pywcsgrid2.Axes, dict(header=h)))
+
+        ax = grid[0]
+
+        im=ax.imshow(d, origin="lower")
+
+        cb_axes = grid.cbar_axes[0] # colorbar axes
+
+        cb_axes.colorbar(im)
+        
+        ax.grid()
+
+        ax.set_title('Background Subtracted Counts')
+
+        if self.overlay_psf:
+            h_psf, d_psf = self.psf_pyfits[0].header, self.psf_pyfits[0].data
+            axins = zoomed_inset_axes(ax, zoom=1, loc=4,
+                              axes_class=pywcsgrid2.Axes,
+                              axes_kwargs=dict(wcs=h_psf))
+
+            # Note, match color maps with parent.
+            im2=axins.imshow(d_psf, cmap=im.cmap,
+                             origin="lower")
+            axins.axis[:].toggle(all=False)
+
+            axins.add_inner_title("PSF", loc=3)
+
+        ROISignificance.plot_sources(ax,self.roi)
+
+        if out_file is not None: P.savefig(out_file)
+        if to_screen: P.show()
+
