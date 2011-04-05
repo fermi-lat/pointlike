@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Mon Apr  4 19:57:34 PDT 2011
+pointlike/python/uw/stacklike
+
+Modified Files:
+	binned.py 
+Log Message:
+fixed adaptive binning
+    *
+------------------------------------------------------------
 User: lande  Mon Apr  4 16:33:20 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
