@@ -155,19 +155,30 @@ class CombinedLike(object):
         alldata = []
         
         #determine needed bins by combining all data (except background)
+        chist=[]
         for puls in self.pulse_ons:
             for sep in puls:
                 alldata.append(sep)
-        for sep in self.agns[0]:
-            alldata.append(sep)
-        alldata = np.sort(np.array(alldata))
+                chist.append(1.)
+        for it1,puls in enumerate(self.pulse_offs):
+            for sep in puls:
+                alldata.append(sep)
+                chist.append(-self.pulsars[it1][1])
+        #for sep in self.agns[0]:
+        #    alldata.append(sep)
+        alldata = np.array(alldata)
+        key = np.argsort(alldata)
+        chist = np.array(chist)[key]
+        alldata = alldata[key]
 
         #adaptive binning
         if bins>0:
-            bins = bins+1
+            chist = np.array([sum(chist[:x+1]) for x in range(len(chist))])
+            chist = chist/max(chist)
             cumm = np.array([(1.*x+1.)/len(alldata) for x in range(len(alldata))])      #cumulative dist function
-            ct = (1.*np.arange(0,bins,1))/bins                                          #cumulative fractions, [0,1/bins,2/bins...(bins-1)/bins]
-            xbins = np.array([alldata[max(0,len(cumm[cumm<x])-1)] for x in ct])         #bin edges corresponding to fractions
+            ct = (1.*np.arange(0,bins+1,1))/bins                                          #cumulative fractions, [0,1/bins,2/bins...(bins-1)/bins]
+            mask = np.array([max(0,len(chist[chist<x])-1) for x in ct])
+            xbins = alldata[mask]#np.array([alldata[max(0,len(chist[chist<x])-1)] for x in ct])         #bin edges corresponding to fractions
             self.angbins = xbins
 
         # sqrt(N) binning
