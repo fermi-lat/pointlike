@@ -102,7 +102,9 @@ def modify_model(roi,which,model,free=None,preserve_flux=False):
 
     if free is not None: 
         model=roi.get_model(which)
-        model.freeze(parameter=N.arange(len(model.p)),freeze=not free)
+        assert(len(free)==len(model.get_all_parameters()))
+        for i in xrange(len(free)):
+            model.freeze(i,freeze=not free[i])
     roi.__update_state__()
 
 
