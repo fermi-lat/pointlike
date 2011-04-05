@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.9 2011/03/11 22:52:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.10 2011/04/01 22:08:53 burnett Exp $
 """
 import os, pickle
 import numpy as np
@@ -205,7 +205,7 @@ def process_sources(roi, sources, **kwargs):
     outdir     = kwargs.pop('outdir', '.')
     associate= kwargs.pop('associate', None)
     
-    if associate is not None:
+    if associate is not None and associate!='None':
         for source in sources:
             make_association(source, roi.tsmap(which=source.name), associate)
  
