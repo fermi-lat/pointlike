@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Tue Apr  5 17:38:50 PDT 2011
+pointlike/python/uw/pipeline/analysis
+
+Modified Files:
+	chisq_analysis.py 
+Added Files:
+	residuals.py 
+Log Message:
+
+    *
+------------------------------------------------------------
 User: lande  Tue Apr  5 16:10:01 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
