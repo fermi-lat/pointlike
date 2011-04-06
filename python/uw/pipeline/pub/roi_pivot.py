@@ -1,7 +1,7 @@
 """
 
 Process the HEALpix ROI information into a pivot collection
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/roi_pivot.py,v 1.2 2011/02/11 21:27:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/roi_pivot.py,v 1.3 2011/03/07 00:07:45 burnett Exp $
 """
 import os, glob, pickle
 import numpy as np
@@ -54,7 +54,7 @@ def make_pivot(z, outdir,
     p.add_facet('glat','Number', 'F1', b)
     p.add_facet('glon','Number', 'F1', [s.l() for s in sdir])
     p.add_facet('High Latitude', 'String', 'C', np.abs(b)>10)
-    for cname in 'galnorm galindex isonorm loglike chisq'.split():
+    for cname in 'galnorm galindex isonorm limbnorm loglike chisq'.split():
         p.add_facet(cname, 'Number', 'F2', z.field(cname))
         
     # get the TS map arrays

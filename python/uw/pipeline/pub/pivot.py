@@ -1,9 +1,9 @@
 """
 do pivot stuff 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/thb_roi/pivot.py,v 1.8 2010/10/13 12:26:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/pivot.py,v 1.1 2011/01/24 22:03:44 burnett Exp $
 
 """
-version='$Revision: 1.8 $'.split()[1]
+version='$Revision: 1.1 $'.split()[1]
 import os, sys, exceptions
 import numpy as np
 from skymaps import SkyDir
@@ -37,7 +37,7 @@ class Pivot(object):
         self.fill_default()
 
     def limit(self, v, a, b, nan=None):
-        r = v[:]
+        r = v.copy()
         if nan is not None: r[np.isnan(v)]=nan
         if a is not None: r[v<a]=a
         if b is not None: r[v>b]=b
