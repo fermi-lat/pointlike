@@ -1,6 +1,6 @@
 """
 manage publishing 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/publish.py,v 1.3 2011/03/02 22:20:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/publish.py,v 1.4 2011/03/07 00:07:45 burnett Exp $
 """
 import sys, os, pickle, glob, types
 import PIL
@@ -120,6 +120,7 @@ class Publish(object):
         for field, vmin, vmax in (
              ('galnorm', 0.5,1.4),
              ('isonorm', 0,  2.0),
+             ('limbnorm', 0,  2.0),
              ('chisq',   0,  50 )):
             dm = display_map.DisplayMap(r.field(field))
             dm.fill_ait(show_kw=dict(vmin=vmin, vmax=vmax))
@@ -131,17 +132,22 @@ class Publish(object):
     def roi_fit_html(self):
         def entry(name):
             return """<b>%(title)s</b> <br/> <a href="roi_%(name)s.png"> <img alt="%(name)s_ait.png"  src="roi_%(name)s_thumbnail.png" /></a> """\
-                %dict(name=name, title = dict(isonorm='Isotropic nomalization', galnorm='Galactic normalization', chisq='Chi Squared')[name])
+                %dict(name=name, 
+                    title = dict(isonorm='Isotropic nomalization', 
+                        galnorm='Galactic normalization', 
+                        limbnorm='Limb normailzation',
+                        chisq='Chi Squared')[name])
         files = glob.glob(os.path.join(self.pivot_dir,'roi_*.png'))
         if len(files)==0: return ''
-        return '<table cellspacing="0" cellpadding="5"><tr>\n' +'\n'.join(['\t<td>%s</td>'%entry(f) for f in 'galnorm isonorm chisq'.split()])+'</tr></table>'
+        return '<table cellspacing="0" cellpadding="5"><tr>\n' +'\n'.join(['\t<td>%s</td>'%entry(f) for f in 'galnorm isonorm limbnorm chisq'.split()])+'</tr></table>'
 
-    def source_plot(self):
+    def source_plot(self, field='kde', healpix_file='aladin512.fits'):
         s = self.sources
         try:
-            kde =pyfits.open(os.path.join(self.outdir,'aladin512.fits'))[1].data.field('kde')
+            kde =pyfits.open(os.path.join(self.outdir,healpix_file))[1].data.field(field)
         except:
-            print 'cannot create a source plot over the photon density: field kde not found' 
+            print 'cannot create a source plot over the photon density: '\
+                    'field %s not found in %s'% (field, healpix_file)
             return
         sm = display_map.SourceMap(kde,s)
         sm.fill_ait()
@@ -204,7 +210,7 @@ class Publish(object):
     def write_xml(self, catname=None):
         """ generate the xml a of the catalog in the folder with the pivots"""
         fn = os.path.join(self.pivot_dir, self.name+'.xml')
-        self.skymodel.toXML(fn, title='catalog %s sources'%self.name)
+        self.skymodel.toXML(fn, ts_min=self.ts_min, title='catalog %s sources'%self.name)
     
     def _check_exist(self, filename):
         """ return full filename, or None if the file exists and overwrite is not set"""
@@ -392,9 +398,22 @@ class Publish(object):
             + '\n  '.join([template%dict(title=a, path=c+b) for a,b,c in zip(titles,names,paths)])\
             +'\n</tr></table>\n</ul>\n' 
 
-    def write_html(self):
+    def write_html(self, tables=False):
         """ write out a little overview to go in the folder"""
-        html="""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+        
+        d = dict(catname=self.name,
+            zipfiles='\n'.join(['<li><a href="%s_images.zip">%s <a/></li>'
+                % (file,name) for file,name in zip(self.zips, self.zipnames)\
+                    if os.path.exists(os.path.join(self.pivot_dir,file+'_images.zip'))]),
+            diffuse = eval(self.config['diffuse']),
+            irf = self.config['irf'],
+            extended= self.config['extended'],
+            roi_fit = self.roi_fit_html(),
+            ts10=np.sum(self.sources.ts>10), ts25=np.sum(self.sources.ts>25),
+        )
+        if not tables: d.update( imagefiles=self.image_html())
+
+        html_basic="""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta http-equiv="Content-Language" content="en-us" />
@@ -418,8 +437,10 @@ class Publish(object):
  </li>
  <li><a href="%(catname)s.xml">XML-format file for gtlike</a></li>
  <li><a href="%(catname)s.reg.txt">Region file for DS9 </a>(note, should be renamed back to '.reg')</li>
+ <li>ZIP files, if any, of ROI- or source-based images. Note: TS cut is not applied, all sources in the model are included.</h3> <ul> %(zipfiles)s</li>
 </ul>
-<h3>All-sky HEALPix Images:</h3>
+"""%d
+        html_imaages="""<h3>All-sky HEALPix Images:</h3>
   %(imagefiles)s
 <h3><a href="http://www.silverlight.net/learn/pivotviewer/">Pivot</a> Collections</h3>
 <ul><li><a href="http://fermi-ts.phys.washington.edu/pivot/viewer/?uw=%(catname)s/sources.cxml">sources</a>
@@ -428,19 +449,10 @@ class Publish(object):
 	<li><a href="http://fermi-ts.phys.washington.edu/pivot/viewer/?uw=%(catname)s/rois.cxml">rois</a>
     Entries for all 1728 ROIs
     </li>
-</ul>
-<h3>ZIP files of ROI or source-based images</h3> <ul> %(zipfiles)s</ul>
-</body></html>"""% dict(catname=self.name,
-            zipfiles='\n'.join(['<li><a href="%s_images.zip">%s <a/></li>'
-                % (file,name) for file,name in zip(self.zips, self.zipnames)]),
-            imagefiles=self.image_html(),
-            diffuse = eval(self.config['diffuse']),
-            irf = self.config['irf'],
-            extended= self.config['extended'],
-            roi_fit = self.roi_fit_html(),
-            ts10=np.sum(self.sources.ts>10), ts25=np.sum(self.sources.ts>25),
-        )
-        open(os.path.join(self.pivot_dir, 'default.htm'),'w').write(html)
+</ul>"""%d
+        html_tail="</body></html>"     
+        open(os.path.join(self.pivot_dir, 'default.htm'),'w').write(html_basic + ( html_image if not tables else '') + html_tail)
+        print 'wrote HTML file %s' % os.path.join(self.pivot_dir, 'default.htm')
 
     def doall(self):
         self.combine_plots()
@@ -453,7 +465,15 @@ class Publish(object):
         self.write_residualmaps()
         self.write_zips()
         self.write_xml()
+        self.write_reg()
         self.write_html()
+    def tables(self):
+        self.write_FITS()
+        self.write_zips()
+        self.write_xml()
+        self.write_reg()
+        self.roi_plots()
+        self.write_html(tables=True)
         
 def main(outdir=None, **kwargs):
     return Publish(outdir, **kwargs) 
@@ -468,6 +488,7 @@ def doall(outdir, **kwargs):
     pub.write_maps() 
     pub.write_zips()
     pub.write_xml()
+    pub.write_reg()
     pub.write_html()
     
 if __name__=='__main__':

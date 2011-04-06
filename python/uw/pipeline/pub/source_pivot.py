@@ -1,6 +1,6 @@
 """
 Manage creation of a source Pivot collection from a set of sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/source_pivot.py,v 1.2 2011/02/11 21:27:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/source_pivot.py,v 1.3 2011/03/07 00:07:45 burnett Exp $
 
 """
 
@@ -36,17 +36,17 @@ def make_pivot(z, outdir,
         pass
     p.add_facet('SpectrumType', 'String', 'C', z.modelname)
     
-    def source_name(name):
+    def source_name(name, extended):
+        if extended: return 'Extended'
         try:
             return {'1F':'1FGL', 'PG':'PGW', 'MR':'MRF', 'UW':'UW', 'MS':'MST',
                     'SE':'SEED', '24':'24M',
                     'Cy':'bin', 'LS':'bin','PS':'PSR','gc':'CG source'}[name[:2]] 
         except:
-            if name in ['IC443','W28','HESS J1825-137','W44','W51C','MSH 1552','Vela X','LMC','SMC']:
-                return 'Extended'
-            else: return name[:2]
+            return name[:2]
         
-    p.add_facet('source', 'String', 'C', map(source_name, p.rec.name))
+    p.add_facet('source', 'String', 'C', map(source_name, p.rec.name, z.extended))
+    p.add_facet('extended', 'String','C', z.extended)
     ts = z.ts
     ts[ts<0]=0
     p.add_facet('fit quality', 'Number', 'F1', p.limit(z.band_ts-ts,0,100))
