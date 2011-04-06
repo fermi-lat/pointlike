@@ -16,9 +16,17 @@ def load_count_data(outdir=None):
     if outdir is None:
         outdir=get_outdir()
     pkfiles = glob.glob(os.path.join(outdir,'pickle', '*.pickle'))
+    pkfiles.sort()
     clist = [pickle.load(open(fname)) for fname in np.sort(pkfiles)]
     if len(clist)<1728: print 'warning: missing pickle files? found %d/1726' %len(clist)
     return clist
+
+def get_axes(fignum, axes):
+    if axes is None:
+        plt.close(fignum)
+        fig = plt.figure(fignum)
+        axes = fig.gca()
+    return axes
     
     
 class Chisq(object):
@@ -28,30 +36,36 @@ class Chisq(object):
         clist: list of pickled roi 
         skysel : None, or a tuple (function, description)
                 the function, of a SkyDir, must return a bool: example
-                 skysel=(lambda s: abs(s.b())>10, '|b|.10')
+                 skysel=(lambda s: abs(s.b())>10, '|b|>10')
         """
         if clist is None: clist = load_count_data()
         self.obs =[]
         self.gal =[]
         self.iso =[]
+        self.limb=[]
         self.src =[]
         self.tot =[]
+        self.roi=[]
         self.energies =clist[0]['counts']['energies']
         self.nroi= 0
         self.subset = 'All sky' if skysel is None else skysel[1]
         self.index_array = []
         for index,roi in enumerate(clist):
-            glat = roi['skydir'].b()
             if skysel is not None:
                 if not skysel[0](roi['skydir']): continue
             self.nroi +=1
+            self.roi.append(index)
             self.index_array.append(index)
             counts=roi['counts']
             models = counts['models']
             self.obs.append( counts['observed'])
             self.gal.append( models[0][1])
             self.iso.append( models[1][1])
-            self.src.append( models[2][1])
+            if models[2][0].split('_')[0]=='limb':
+                self.limb.append( models[2][1])
+                self.src.append( models[3][1])
+            else:
+                self.src.append( models[2][1])
             self.tot.append( counts['total']) # should be sum of gal,iso,src 
         self.nband = len(self.energies)
         self.which = 1
@@ -159,6 +173,57 @@ class Chisq(object):
         axes.grid(True)
         if title is not None: axes.set_title(title)
         else: axes.set_title(self.subset)
+        
+def plot_spectra(self,  axes=None, fignum=5, title=None, nolegend=False, **kwargs):
+    axes = get_axes(fignum, axes)
+    n = len(self.energies)
+    def addup(x):
+        if len(x)==0: return np.zeros(n)
+        t = np.vstack(x)
+        return np.array([t[:,i].sum() for i in range(n)])
+    e = np.array(self.energies)
+    tot = addup(self.tot)
+    obs = addup(self.obs)
+    gal = addup(self.gal)
+    iso = addup(self.iso)
+    limb= addup(self.limb)
+    src = addup(self.src)
+    # factor of 2 is sqrt(1728/525) to sort of account for overlaps 
+    axes.errorbar(e, obs*e, yerr=2.*np.sqrt(tot)*e, fmt='o', label='data', **kwargs)
+    axes.plot(e, tot*(e), '-k', label='total')
+    axes.plot(e, gal*(e), '-b', label='galactic')
+    axes.plot(e, iso*(e), '--g', label='isotropic')
+    axes.plot(e, src*(e), '-r', label='sources')
+    axes.plot(e, limb*(e), ':', color='orange', label='limb')
+    axes.set_xscale('log')
+    if not nolegend: axes.legend(loc='lower right')
+    axes.set_yscale('log');
+    axes.set_ylim(ymin=1e6)
+    axes.set_xlim(xmax=4e5)
+    axes.grid(True)
+    axes.set_xlabel('energy (MeV)');axes.set_ylabel('E*counts');
+    axes.set_title(self.subset if title is None else title)
+    plt.draw_if_interactive()
+        
+    
+def multi_spectra(clist, ndiv=8, north=True, ymax=None):
+    class Sector(object):
+        def __init__(self, k):
+            self.k = k
+        def __call__(self,s):
+            if s.b()<60 if north else s.b()>-60 : return False
+            return np.int(np.mod(s.l(),360.)/(360/ndiv))==self.k
+    sectors = [Chisq(clist, (Sector(k), 'sector %d'%(k+1))) for k in range(ndiv)]
+    fig, ax = plt.subplots(2,ndiv/2, sharey=True, figsize=(12,12))
+    for i in range(ndiv):
+        axes = ax.flatten()[i]
+        plot_spectra(sectors[i], axes=axes, nolegend=True)
+        if np.mod(i,ndiv/2)!=0: axes.set_ylabel('')
+        if i/(ndiv/2) ==0: axes.set_xlabel('')
+    plt.suptitle('North' if north else 'South')
+    ax[0,0].legend(bbox_to_anchor=(0.1,1.2))
+    if ymax is not None: ax[0,0].set_ylim(ymax=ymax)
+
     
 def go(clist=None, fignum=1, title=None, ylim=50):
     """ make multiple plots for Chisq """
@@ -171,6 +236,7 @@ def go(clist=None, fignum=1, title=None, ylim=50):
         (lambda s: np.abs(s.b())>40, '|b|>40'),
         (lambda s: np.abs(s.b())<5, '|b|<5'),
         (lambda s: np.abs(s.b())<5 and (s.l()<60  or s.l()>300),  'ridge'),
+        (lambda s: np.abs(s.b())>5 and np.abs(s.dec()>60 ),  'celestial poles'),
         )
 
     for axes,subset in zip(ax.flatten(), subsets):
