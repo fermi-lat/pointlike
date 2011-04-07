@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Apr  7 11:39:34 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Bugfix for ROI saving
+    *
+------------------------------------------------------------
 User: lande  Thu Apr  7 11:39:18 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
