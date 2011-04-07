@@ -1,7 +1,7 @@
 """
 Module to save an ROIAnalysis object to a file and to load it back in.
 
-$Header:$
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_save.py,v 1.1 2011/03/17 23:37:58 lande Exp $
 
 author: Joshua Lande
 """
@@ -90,6 +90,12 @@ def load(filename,**kwargs):
             d['ROIAnalysis'][k]=v
         else:
             raise Exception("Unknown argument %s to function load" % k)
+
+    # backwards compatability
+    for ps in d['point_sources']: 
+        if hasattr(ps.model,'p'): ps.model._p=ps.model.p
+    for ds in d['diffuse_sources']: 
+        if hasattr(ds.smodel,'p'): ds.smodel._p=ds.smodel.p
 
     ds=DataSpecification(**d['DataSpecification'])
     sa=SpectralAnalysis(ds,**d['SpectralAnalysis'])
