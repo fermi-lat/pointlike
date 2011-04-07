@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.30 2011/04/04 22:56:25 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.31 2011/04/05 23:10:01 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1081,8 +1081,7 @@ class ROISignificance(object):
         for p in src:
             l,b=p.skydir.l(),p.skydir.b()
 
-            ax['gal'].plot([l], [b], 'x', markersize=15, mec='k', mfc='k', mew=2)
-            ax['gal'].plot([l], [b], '+', markersize=15, mec='white', mfc='white', mew=2)
+            ax['gal'].plot([l], [b], 'x', markersize=15, mec='k', mfc='k')
 
     def show(self,to_screen=True,out_file=None):
 
@@ -1121,15 +1120,15 @@ class ROISmoothedSource(object):
         http://leejjoon.github.com/pywcsgrid2/users/overview.html """
 
     defaults = (
-            ('which',   None, 'Draw the smoothed point version of this source.'),
-            ('figsize',       (5,5),         'Size of the image'),
-            ('fignum',             3,  'matplotlib figure number'),
-            ('conv_type',         -1,           'Conversion type'),
-            ('size',               5, 'Size of the field of view'),
-            ('psf_size',         1.5, 'Size of the field of view'),
-            ('galactic',        True, 'Coordinate system for plot'),
-            ('sum_rad',         0.25, 'Sum counts/model within radius degrees.'),
+            ('which',           None,    'Draw the smoothed point version of this source.'),
+            ('figsize',        (5,5),                                  'Size of the image'),
+            ('fignum',             3,                           'Matplotlib figure number'),
+            ('conv_type',         -1,                                    'Conversion type'),
+            ('size',               3,                          'Size of the field of view'),
+            ('galactic',        True,                         'Coordinate system for plot'),
+            ('sum_rad',         0.25,            'Sum counts/model within radius degrees.'),
             ('overlay_psf',     True, 'Add a smoothed reference PSF on top of the counts.'),
+            ('psf_size',           1,                         'Size of the PSF insert box'),
     )
 
     @keyword_options.decorate(defaults)
@@ -1143,19 +1142,21 @@ class ROISmoothedSource(object):
         # Fit many pixels inside of the summing radius
         self.pixelsize=self.sum_rad/10.0
 
+        self.source = roi.get_source(self.which)
+
         kwargs=dict(size=self.size,
                     pixelsize=self.pixelsize,
                     galactic=self.galactic,
                     conv_type=self.conv_type,
+                    center=self.source.skydir,
                     sum_rad=self.sum_rad)
 
         if self.overlay_psf:
-            source = roi.get_source(self.which)
 
             # convert it to a point source placed at the origin
-            point_version=PointSource(name=source.name,
-                                      skydir=source.skydir,
-                                      model=source.model.copy())
+            point_version=PointSource(name=self.source.name,
+                                      skydir=self.source.skydir,
+                                      model=self.source.model.copy())
 
         self.roi.zero_source(which=self.which)
 
@@ -1206,7 +1207,7 @@ class ROISmoothedSource(object):
         
         ax.grid()
 
-        ax.set_title('Background Subtracted Counts')
+        ax.set_title('%s Background Subtracted' % self.source.name)
 
         if self.overlay_psf:
             h_psf, d_psf = self.psf_pyfits[0].header, self.psf_pyfits[0].data
