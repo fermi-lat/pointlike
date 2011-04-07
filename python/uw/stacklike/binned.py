@@ -1,6 +1,7 @@
 import skymaps as s
 import pylab as py
 import numpy as np
+import matplotlib.pyplot as plt
 from uw.stacklike.stacklike import *
 from uw.stacklike.angularmodels import *
 from uw.utilities.minuit import Minuit
@@ -13,6 +14,16 @@ import os as os
 import copy as cp
 import glob as glob
 import time as t
+import math
+import sys
+
+def format_error(v,err):
+
+    logz = math.floor(math.log10(err))-1
+    z = 10**logz
+    err = round(err/z)*z
+    v = round(v/z)*z
+    return '%10s +/- %10s'%(v,err)
 
 
 ####################### PSR file naming conventions ######################
@@ -240,9 +251,9 @@ class CombinedLike(object):
         self.psfm = np.array([psf.integral(self.ebar,self.ctype,self.angbins[it+1]/rd,self.angbins[it]/rd)/fint for it in range(self.nbins)])
 
         #set up initial psf parameters (uniform)
-        params = [self.psfm[x] for x in range(self.nbins)]
-        limits = [[-1,1] for x in range(self.nbins)]
-        fixed = [False for x in range(self.nbins)]
+        params = [self.psfm[x] for x in range(self.nbins-1)]
+        limits = [[-1,1] for x in range(self.nbins-1)]
+        fixed = [False for x in range(self.nbins-1)]
 
         psrs = len(self.ponhists)
         agns = len(self.agnhists)
@@ -279,43 +290,47 @@ class CombinedLike(object):
         fixed.append(self.halomodel=='')
         print 'Setting up Minuit and maximizing'
         ############  setup Minuit and optimize  ###############
-        self.minuit = Minuit(self.likelihood,params,gradient=self.gradient,force_gradient=1,fixed=fixed,limits=limits,strategy=2,tolerance=1e-10,printMode=self.mode)
+        self.minuit = Minuit(self.likelihood,params,#gradient=self.gradient,force_gradient=1,
+                             fixed=fixed,limits=limits,strategy=2,tolerance=0.0001,printMode=self.mode)
         self.minuit.minimize()
-        print 'Likelihood value: %1.1f'%self.minuit.fval[0]
+        print 'Likelihood value: %1.1f'%self.minuit.fval
         print '**********************************************************'
         #self.gradient(self.minuit.params,True)
         ###########  get parameters and errors #################
-        self.errs = self.minuit.errors()#method='MINOS')
-        self.errs2 = [self.errors(it) for it in range(len(self.minuit.params))]#self.errs[it][it] for it in range(len(self.minuit.params))]
-        self.errs2 = [self.finderrs(it) for it in range(len(self.minuit.params))]
-        self.psf = self.minuit.params[:self.nbins]
-        scale = sum(self.psf)                                                                                          #normalize psf
-        self.psf = self.psf/scale                                                                                      #PSF
-        self.psfe = np.array([np.sqrt(self.errs2[i])/scale for i in range(self.nbins)])                              #PSF errors
-        self.Npj = self.minuit.params[self.nbins:self.nbins+psrs]*scale                                                #PSR number est
-        self.Npje = np.array([np.sqrt(self.errs2[self.nbins+i])*scale for i in range(psrs)])              #PSR number est errors
-        self.Naj = self.minuit.params[self.nbins+psrs:self.nbins+psrs+agns]*scale                                      #AGN number est
-        self.Naje = np.array([np.sqrt(self.errs2[self.nbins+psrs+i])*scale for i in range(agns)])    #AGN number errors
-        self.Ni  = self.minuit.params[self.nbins+psrs+agns:self.nbins+psrs+agns+agns]                                  #isotropic number est
-        self.Nie = [np.sqrt(self.errs2[self.nbins+psrs+agns+i]) for i in range(agns)]           #isotropic number est errors
-        if self.halomodel!='':
-            self.Nh = self.minuit.params[self.nbins+psrs+agns+1:self.nbins+psrs+agns+agns+2]                                 #halo est
-            self.Nhe = np.sqrt(self.errs2[self.nbins+psrs+agns+1])                                    #halo err
-        print ''
-        print '--------- Pulsars-------------'
-        for it,nj in enumerate(self.Npj):
-            print 'N(%s) = %1.0f (1 +/- %1.2f)'%(self.pulsars[it][0],nj,self.Npje[it]/nj)
-        print ''
-        print '--------- AGN    -------------'
-        for it,nj in enumerate(self.Naj):
-            print 'Npsf(%s) = %1.0f (1 +/- %1.2f)'%(self.agnlist[it],nj,self.Naje[it]/nj)
-            print 'Niso(%s) = %1.0f (1 +/- %1.2f)'%(self.agnlist[it],self.Ni[it],self.Nie[it]/self.Ni[it])
-        print ''
-        if self.halomodel!='':
-            print 'Nhalo = %1.0f (1 +/- %1.2f)'%(self.Nh[0],self.Nhe/self.Nh[0])
+        self.cov = self.minuit.errors()
+        self.errs = np.sqrt(np.diag(self.cov))
 
-        #for it in range(len(self.minuit.params)):
-        #    print np.sqrt(self.errs[it][it]),np.sqrt(self.errs2[it])
+        for i in range(len(self.minuit.params)):
+            print '%12.4g +/- %12.4g'%(self.minuit.params[i], self.errs[i])
+
+        for i in range(len(self.cov)):
+            for j in range(len(self.cov[i])):
+                print '%12.4g'%self.cov[i][j],
+            print
+
+
+        nmu = self.nbins - 1        
+        self.psf = self.minuit.params[:nmu]
+        self.psfe = np.array([self.errs[i] for i in range(nmu)]) 
+
+        # Compute the value and error of the nth PSF weight
+        self.psf = np.append(self.psf,[1-np.sum(self.psf)])
+        dxdmu = np.zeros(len(self.minuit.params))
+        dxdmu[:nmu] = -1
+        mun_err = np.sqrt(np.dot(np.dot(self.cov,dxdmu),dxdmu))        
+        self.psfe = np.append(self.psfe,[mun_err])
+
+
+        self.Npj  = self.minuit.params[nmu:nmu+psrs] #PSR number est
+        self.Npje = self.errs[nmu:nmu+psrs]         #PSR number est errors
+        self.Naj  = self.minuit.params[nmu+psrs:nmu+psrs+agns]   #AGN number est
+        self.Naje = self.errs[nmu+psrs:nmu+psrs+agns]           #AGN number errors
+        self.Ni   = self.minuit.params[nmu+psrs+agns:nmu+psrs+agns+agns] #isotropic number est
+        self.Nie  = self.errs[nmu+psrs+agns:nmu+psrs+agns+agns]         #isotropic number est errors
+        if self.halomodel!='':
+            self.Nh  = self.minuit.params[nmu+psrs+agns+1]  #halo est
+            self.Nhe = self.errs[nmu+psrs+agns+1]           #halo err
+
 
         """seps = np.arange(-2.0,2.1,0.1)
         py.figure(figsize=(16,16))
@@ -356,7 +371,6 @@ class CombinedLike(object):
                 #estimate errors by propagation
                 dvdm = sm.derivative(lambda x: self.backest(a,n,b,x,N),m,m/10.)   #background/psf derivative
                 dvdN = sm.derivative(lambda x: self.backest(a,n,b,m,x),N,N/10.)   #background/psr number estimator derivative
-                cov = self.errs[it2][self.nbins+it1]                              #covariance of psf and number estimator
                 Ne = self.Npje[it1]
                 me = self.psfe[it2]
                 ve = np.sqrt((dvdm*me)**2+(dvdN*Ne)**2)      #naive error propagation
@@ -369,6 +383,25 @@ class CombinedLike(object):
         self.vije = np.array(self.vije)                                      #PSR background number estimator errors
 
         return self.minuit.fval
+
+    def printResults(self):
+        print ''
+        print '--------- PSF    -------------'
+
+        for it, x in enumerate(self.psf):
+            print '%8.3g %8.3g'%(self.angbins[it],self.angbins[it+1]), format_error(self.psf[it],self.psfe[it])
+
+        print '--------- Pulsars-------------'
+        for it,nj in enumerate(self.Npj):
+            print 'N(%s) = %1.0f (1 +/- %1.2f)'%(self.pulsars[it][0],nj,self.Npje[it]/nj)
+        print ''
+        print '--------- AGN    -------------'
+        for it,nj in enumerate(self.Naj):
+            print 'Npsf(%s) = %1.0f (1 +/- %1.2f)'%(self.agnlist[it],nj,self.Naje[it]/nj)
+            print 'Niso(%s) = %1.0f (1 +/- %1.2f)'%(self.agnlist[it],self.Ni[it],self.Nie[it]/self.Ni[it])
+        print ''
+        if self.halomodel!='':
+            print 'Nhalo = %1.0f (1 +/- %1.2f)'%(self.Nh[0],self.Nhe/self.Nh[0])
 
 
     ######################################################################
@@ -384,13 +417,18 @@ class CombinedLike(object):
         npij = self.ponhists
         bpij = self.pofhists
         naij = self.agnhists
-        mi = params[:self.nbins]
-        Npj = params[self.nbins:self.nbins+psrs]
-        Naj = params[self.nbins+psrs:self.nbins+psrs+agns]
-        Ni = params[self.nbins+psrs+agns:self.nbins+psrs+agns+agns]
-        Nh = params[self.nbins+psrs+agns+agns:self.nbins+psrs+agns+agns+1]
+
+        nmu = self.nbins - 1
+
+        mi = params[:nmu]
+        Npj = params[nmu:nmu+psrs]
+        Naj = params[nmu+psrs:nmu+psrs+agns]
+        Ni = params[nmu+psrs+agns:nmu+psrs+agns+agns]
+        Nh = params[nmu+psrs+agns+agns:nmu+psrs+agns+agns+1]
         acc = 0
         verb=False    #set to true for slow,verbose output
+
+        mi = np.append(mi,[1-np.sum(mi)])
 
         ########################################
         #          first sum in (3)            #
@@ -400,7 +438,7 @@ class CombinedLike(object):
 
             N = Npj[it1]                    #pulsar number estimator
             a = self.pulsars[it1][1]        #ratio of on-off
-
+            
             #loop over angular bins
             for it2,n in enumerate(row):
                 #n on pulse in current bin
@@ -593,26 +631,39 @@ class CombinedLike(object):
         npij = self.ponhists
         bpij = self.pofhists
         naij = self.agnhists
-        mi = params[:self.nbins]
-        Npj = params[self.nbins:self.nbins+psrs]
-        Naj = params[self.nbins+psrs:self.nbins+psrs+agns]
-        Ni = params[self.nbins+psrs+agns:self.nbins+psrs+agns+agns]
-        Nh = params[self.nbins+psrs+agns+agns:self.nbins+psrs+agns+agns+1]
+
+        nmu = self.nbins - 1
+
+        mi = params[:nmu]
+        Npj = params[nmu:nmu+psrs]
+        Naj = params[nmu+psrs:nmu+psrs+agns]
+        Ni = params[nmu+psrs+agns:nmu+psrs+agns+agns]
+#        Nh = params[nmu+psrs+agns+agns:nmu+psrs+agns+agns+1]
+
+        mun = 1-np.sum(mi)
+
         grad = []
         if verb:
             print 'Obs\tmod\tfact\tnum\tacc'
             print '----------------------'
 
         #PSF gradient
-        for it in range(self.nbins):
+        for it in range(nmu):
             acc = 0
             flag = False
             for it2 in range(psrs):
                 alpha = self.pulsars[it2][1]
-                denom = Npj[it2]*mi[it]+alpha*self.backest(alpha,npij[it2][it],bpij[it2][it],mi[it],Npj[it2])
+                best = self.backest(alpha,npij[it2][it],bpij[it2][it],mi[it],Npj[it2])
+                denom = Npj[it2]*mi[it]+alpha*best
                 if denom <=0:
                     flag=True
                 acc = acc + Npj[it2]*(npij[it2][it]/(denom) - 1.)
+
+                # Compute contribution to gradient of mu_i from nth angular bin
+                best2 = self.backest(alpha,npij[it2][nmu],bpij[it2][nmu],mun,Npj[it2])
+                denom2 = Npj[it2]*mun+alpha*best
+                acc = acc - Npj[it2]*(npij[it2][nmu]/(denom2) - 1.)
+
                 if verb:
                     print npij[it2][it],denom,(npij[it2][it]/(denom) - 1.),Npj[it2],acc
                     t.sleep(0.25)
@@ -622,6 +673,11 @@ class CombinedLike(object):
                 if denom <=0:
                     flag=True
                 acc = acc + Naj[it2]*(naij[it2][it]/(denom) - 1.)
+
+                # Compute contribution to gradient of mu_i from nth angular bin
+                denom2 = Naj[it2]*mun+Ni[it2]*self.iso[nmu]+Nh[0]*self.hmd[nmu]
+                acc = acc - Naj[it2]*(naij[it2][nmu]/(denom2) - 1.)
+
                 if verb:
                     print naij[it2][it],denom,(naij[it2][it]/(denom) - 1.),Naj[it2],acc
                     t.sleep(0.25)
@@ -727,9 +783,11 @@ class CombinedLike(object):
             disp = 0
         
         #find points on either side of maximum where likelihood has decreased by 1/2
-        err1 = so.fmin_powell(lambda x: abs(self.likelihood(self.minuit.params+x[0]*eig)-self.minuit.fval-0.5),[self.minuit.params[num]*0.01],full_output=1,disp=disp)
+        err1 = so.fmin_powell(lambda x: abs(self.likelihood(self.minuit.params+x[0]*eig)-self.minuit.fval-0.5),
+                              [self.minuit.params[num]*0.01],full_output=1,disp=disp)
         err1 = abs(err1[0])
-        err2 = so.fmin_powell(lambda x: abs(self.likelihood(self.minuit.params-x[0]*eig)-self.minuit.fval-0.5),[self.minuit.params[num]*0.01],full_output=1,disp=disp)
+        err2 = so.fmin_powell(lambda x: abs(self.likelihood(self.minuit.params-x[0]*eig)-self.minuit.fval-0.5),
+                              [self.minuit.params[num]*0.01],full_output=1,disp=disp)
         err2 = abs(err2[0])
 
         #try to catch badly formed likelihood surfaces
@@ -749,8 +807,8 @@ class CombinedLike(object):
         err = np.sqrt(self.errs2[num])
         rt = np.sqrt(2)
 
-        py.figure(2,figsize=(16,16))
-        py.clf()
+#        py.figure(2,figsize=(16,16))
+#        py.clf()
         rows = int(np.sqrt(len(self.minuit.params)))+1
         #go through all parameters
         #find the quadratic form of the likelihood surface
@@ -801,7 +859,7 @@ class CombinedLike(object):
                 except:
                     pass
                     #print 'Caught poorly formed quad surface'
-        py.savefig('likes%d.png'%num)
+#        py.savefig('likes%d.png'%num)
 
         return (ma*err)**2
 
