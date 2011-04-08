@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.38 2011/03/11 22:46:49 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.39 2011/03/16 19:25:59 lande Exp $
 
    author: Matthew Kerr
 """
@@ -631,10 +631,12 @@ def parse_sources(xmlfile,diffdir=None,roi_dir=None,max_roi=None):
     ds = parse_diffuse_sources(handler,diffdir=diffdir)
     return ps,ds
 
-def unparse_point_sources(point_sources, strict=False):
+def unparse_point_sources(point_sources, strict=False, properties=lambda x:''):
     """Convert a list (or other iterable) of PointSource objects into XML.
         strict : bool
             set True to generate exception, error message identifying offending source, reason
+        properties : a function
+            the function, if specified, returns a string for the source element with properties, like TS
     """
     xml_blurbs = Stack()
     m2x = Model_to_XML(strict=strict)
@@ -645,10 +647,11 @@ def unparse_point_sources(point_sources, strict=False):
         except Exception, emsg:
             print 'Failed to process source %s: %s' %(ps.name, emsg)
         specxml = m2x.getXML()
-        s1 = '\n<source name="%s" type="PointSource" Pivot_Energy="%.0f">\n'%(ps.name, ps.model.e0)
+        s1 = '\n<source name="%s" type="PointSource" %s >\n'%(ps.name, properties(ps))
         s2 = '</source>'
         xml_blurbs.push(''.join([s1,specxml,skyxml,s2]))
     return xml_blurbs
+
 
 def process_diffuse_source(ds,convert_extended,expand_env_vars,filename):
     """Convert an instance of DiffuseSource into an XML blurb."""
