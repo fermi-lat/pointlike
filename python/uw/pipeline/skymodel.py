@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.20 2011/04/01 22:08:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.21 2011/04/04 22:56:59 kerrm Exp $
 
 """
 import os, pickle, glob, types, cPickle
@@ -284,10 +284,14 @@ class SkyModel(object):
         """
         catrec = self.source_rec()
         point_sources = self.point_sources if ts_min is None else filter(lambda s: s.ts>ts_min, self.point_sources)
+        print 'SkyModel: writing XML representations of %d point sources %s and %d extended sources to %s' \
+            %(len(point_sources), ('' if ts_min is None else '(with TS>%.f)'%ts_min), len(self.extended_sources), filename)
         from uw.utilities import  xml_parsers # isolate this import, which brings in full pointlike
+        def pointsource_properties(s):
+            return 'Pivot_Energy="%.1f" TS="%.1f"' % (s.model.e0, s.ts)
         stacks= [
             xml_parsers.unparse_diffuse_sources(self.extended_sources,True,False,filename),
-            xml_parsers.unparse_point_sources(point_sources,strict=True),
+            xml_parsers.unparse_point_sources(point_sources,strict=True, properties=pointsource_properties),
         ]
         xml_parsers.writeXML(stacks, filename, title=title)
 
