@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Apr  8 11:54:50 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skymodel.py 
+Log Message:
+=adjust toXML to apply ts cut, generate some info in source element
+    *
+------------------------------------------------------------
 User: burnett  Fri Apr  8 11:52:53 PDT 2011
 pointlike/python/uw/utilities
 
