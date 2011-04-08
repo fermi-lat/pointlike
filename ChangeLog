@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Apr  8 11:52:53 PDT 2011
+pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+=allow flexible list of properties for the <source element
+    *
+------------------------------------------------------------
 User: mar0  Thu Apr  7 15:59:14 PDT 2011
 pointlike/python/uw/stacklike
 
