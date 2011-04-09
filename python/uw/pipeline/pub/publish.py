@@ -1,8 +1,8 @@
 """
 manage publishing 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/publish.py,v 1.4 2011/03/07 00:07:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/publish.py,v 1.5 2011/04/06 00:42:41 burnett Exp $
 """
-import sys, os, pickle, glob, types
+import sys, os, pickle, glob, types, time
 import PIL
 import pyfits
 import numpy as np
@@ -224,7 +224,7 @@ class Publish(object):
         """ generate the reg file """
         fn = self._check_exist(self.name+'.reg.txt')
         if fn is None: return
-        self.skymodel.write_reg_file(fn)
+        self.skymodel.write_reg_file(fn, ts_min=self.ts_min)
         print 'wrote reg file %s' %fn
         
     def write_FITS(self, TSmin=None):
@@ -410,6 +410,7 @@ class Publish(object):
             extended= self.config['extended'],
             roi_fit = self.roi_fit_html(),
             ts10=np.sum(self.sources.ts>10), ts25=np.sum(self.sources.ts>25),
+            imagefiles='',
         )
         if not tables: d.update( imagefiles=self.image_html())
 
@@ -437,10 +438,11 @@ class Publish(object):
  </li>
  <li><a href="%(catname)s.xml">XML-format file for gtlike</a></li>
  <li><a href="%(catname)s.reg.txt">Region file for DS9 </a>(note, should be renamed back to '.reg')</li>
- <li>ZIP files, if any, of ROI- or source-based images. Note: TS cut is not applied, all sources in the model are included.</h3> <ul> %(zipfiles)s</li>
-</ul>
+ <li>ZIP files, if any, of ROI- or source-based images. Note: TS cut is not applied, all sources in the model are included.
+ </h3> <ul> %(zipfiles)s</li></ul>
+ </ul>
 """%d
-        html_imaages="""<h3>All-sky HEALPix Images:</h3>
+        html_images="""<h3>All-sky HEALPix Images:</h3>
   %(imagefiles)s
 <h3><a href="http://www.silverlight.net/learn/pivotviewer/">Pivot</a> Collections</h3>
 <ul><li><a href="http://fermi-ts.phys.washington.edu/pivot/viewer/?uw=%(catname)s/sources.cxml">sources</a>
@@ -450,8 +452,8 @@ class Publish(object):
     Entries for all 1728 ROIs
     </li>
 </ul>"""%d
-        html_tail="</body></html>"     
-        open(os.path.join(self.pivot_dir, 'default.htm'),'w').write(html_basic + ( html_image if not tables else '') + html_tail)
+        html_tail="<hr>Last update: %s</body></html>"% time.asctime()    
+        open(os.path.join(self.pivot_dir, 'default.htm'),'w').write(html_basic + ( html_images if not tables else '') + html_tail)
         print 'wrote HTML file %s' % os.path.join(self.pivot_dir, 'default.htm')
 
     def doall(self):
