@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Apr  9 07:26:04 PDT 2011
+pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+convert LogParabola to PowerLaw if appropriate
+    *
+------------------------------------------------------------
 User: burnett  Sat Apr  9 07:24:42 PDT 2011
 pointlike/python/uw/pipeline/analysis
 
