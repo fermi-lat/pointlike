@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.25 2011/04/04 22:56:25 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.26 2011/04/04 23:33:19 lande Exp $
 
 author: Matthew Kerr
 """
@@ -140,6 +140,9 @@ class ROILocalizer(object):
         if not self.quiet: print 'TS change: %.2f'%(2*(ll0 - ll1))
 
         roi.delta_loc_logl = (ll0 - ll1)
+
+        # this is necessary in case the fit always fails.
+        delt = l.dir.difference(self.sd)*180/N.pi
 
         return l.dir, i, delt, 2*(ll0-ll1)
 
