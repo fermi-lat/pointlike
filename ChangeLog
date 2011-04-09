@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Apr  8 19:24:29 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_localize.py 
+Log Message:
+Bugfix for edge case in localizing code
+    *
+------------------------------------------------------------
 User: lande  Fri Apr  8 19:24:09 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
