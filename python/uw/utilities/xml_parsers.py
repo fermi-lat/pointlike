@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.39 2011/03/16 19:25:59 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.40 2011/04/08 18:52:53 burnett Exp $
 
    author: Matthew Kerr
 """
@@ -432,6 +432,9 @@ class Model_to_XML(object):
         my_xml_name = xml_name # fix scope issue
         if model.name == 'ExpCutoff':
             model = convert_exp_cutoff(model)
+        elif model.name == 'LogParabola' and model[2]<= 2e-3 and not model.free[2]:
+            # convert to equivalent powerlaw
+            model = model.create_powerlaw()
 
         # map the Model instance onto an xml-style model
         if xml_name == None:
