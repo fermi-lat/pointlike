@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Apr 12 14:08:20 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_modify.py 
+Log Message:
+Bugfix to allow freezing & fixing all parameters at once
+    *
+------------------------------------------------------------
 User: kerrm  Mon Apr 11 13:54:26 PDT 2011
 pointlike/python/uw/like
 
