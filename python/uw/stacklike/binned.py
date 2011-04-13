@@ -74,6 +74,7 @@ class CombinedLike(object):
         self.cachedir = cachedir
         self.irf = irf
         self.cache = True
+        self.verbose = False
         self.pulse_ons = []         #pulsar on pulse angular distributions
         self.pulse_offs = []        #pulsar off pulse angular distributions
         self.agns = []              #agn angular distributions
@@ -114,7 +115,8 @@ class CombinedLike(object):
         for psr in self.pulsars:
 
             if os.path.exists(self.cachedir+'%son%s.npy'%(psr[0],tag)):
-                print 'Loaded %s on pulse from cache'%(psr[0])
+                if self.verbose:
+                    print 'Loaded %s on pulse from cache'%(psr[0])
                 hist = np.load(self.cachedir+'%son%s.npy'%(psr[0],tag))
                 self.pulse_ons.append(hist)
             else:
@@ -128,7 +130,8 @@ class CombinedLike(object):
                 del sl
 
             if os.path.exists(self.cachedir+'%soff%s.npy'%(psr[0],tag)):
-                print 'Loaded %s off pulse from cache'%(psr[0])
+                if self.verbose:
+                    print 'Loaded %s off pulse from cache'%(psr[0])
                 hist = np.load(self.cachedir+'%soff%s.npy'%(psr[0],tag))
                 self.pulse_offs.append(hist)
             else:
@@ -144,7 +147,8 @@ class CombinedLike(object):
         #load agn data
         for lists in self.agnlist:
             if os.path.exists(self.cachedir+'%s%s.npy'%(lists,tag)):
-                print 'Loaded %s from cache'%(lists)
+                if self.verbose:
+                    print 'Loaded %s from cache'%(lists)
                 hist = np.load(self.cachedir+'%s%s.npy'%(lists,tag))
                 self.agns.append(hist)
             else:
@@ -221,6 +225,21 @@ class CombinedLike(object):
         self.areas = np.array([self.angbins[it+1]**2-self.angbins[it]**2 for it in range(self.nbins)])           #jacobian
 
     ######################################################################
+    #    Generate the profile likelihood in one parameter                #
+    ######################################################################
+    def profile(self,ip,x):
+
+        params = cp.copy(self.params)
+        params[ip] = x
+        fixed = cp.copy(self.fixed)
+        fixed[ip] = True
+
+        self.minuit = Minuit(self.likelihood,params,#gradient=self.gradient,force_gradient=1,
+                             fixed=fixed,limits=self.limits,strategy=2,tolerance=0.0001,printMode=self.mode)
+        self.minuit.minimize()
+        return self.minuit.fval
+
+    ######################################################################
     #    Sets up Minuit and determines maximum likelihood parameters     #
     ######################################################################
     ## maximizes likelihood
@@ -230,55 +249,60 @@ class CombinedLike(object):
     def fit(self,**kwargs):
         self.__dict__.update(kwargs)
 
-        print ''
-        print '**********************************************************'
-        print '*                                                        *'
-        print '*             Combined Likelihood Analysis               *'
-        print '*                                                        *'
-        print '**********************************************************'
+ 
         psrs = ''
         for psl in self.pulsars:
             psrs = psrs + '%s\t'%psl[0]
-        print 'Pulsars: %s'%psrs
+
         agns = ''
         for agnl in self.agnlist:
             agns = agns + '%s\t'%agnl
-        print 'AGNs: %s'%agns
-        print 'Using halo model: %s'%self.halomodel
+
         pars = ''
         for par in self.haloparams:
             pars = pars + '%1.6f\t'%par
-        print 'Using parameters: %s'%pars
-        print '**********************************************************'
+
+        if self.verbose:
+            print ''
+            print '**********************************************************'
+            print '*                                                        *'
+            print '*             Combined Likelihood Analysis               *'
+            print '*                                                        *'
+            print '**********************************************************'
+            print 'Pulsars: %s'%psrs
+            print 'AGNs: %s'%agns
+            print 'Using halo model: %s'%self.halomodel
+            print 'Using parameters: %s'%pars
+            print '**********************************************************'
 
         psf = CALDBPsf(CALDBManager(irf=self.irf))
         fint = psf.integral(self.ebar,self.ctype,max(self.angbins)/rd,min(self.angbins)/rd)
         self.psfm = np.array([psf.integral(self.ebar,self.ctype,self.angbins[it+1]/rd,self.angbins[it]/rd)/fint for it in range(self.nbins)])
 
         #set up initial psf parameters (uniform)
-        params = [self.psfm[x] for x in range(self.nbins-1)]
-        limits = [[-1,1] for x in range(self.nbins-1)]
-        fixed = [False for x in range(self.nbins-1)]
+        self.params = [self.psfm[x] for x in range(self.nbins-1)]
+        self.limits = [[-1,1] for x in range(self.nbins-1)]
+        self.fixed = [False for x in range(self.nbins-1)]
 
         psrs = len(self.ponhists)
         agns = len(self.agnhists)
 
         #pulsar estimators
         for hist in self.ponhists:
-            params.append(sum(hist)/2.)
-            limits.append([-sum(hist)*100,sum(hist)*100])
-            fixed.append(False)
+            self.params.append(sum(hist)/2.)
+            self.limits.append([-sum(hist)*100,sum(hist)*100])
+            self.fixed.append(False)
 
         #agn estimators
         for hist in self.agnhists:
-            params.append(sum(hist)/2.)
-            limits.append([-sum(hist)*100,sum(hist)*100])
-            fixed.append(False)
+            self.params.append(sum(hist)/2.)
+            self.limits.append([-sum(hist)*100,sum(hist)*100])
+            self.fixed.append(False)
 
         #iso estimator
-        params.append(1.)
-        limits.append([-sum(self.agnhists[0])*100,sum(self.agnhists[0])*100])
-        fixed.append(False)
+        self.params.append(1.)
+        self.limits.append([-sum(self.agnhists[0])*100,sum(self.agnhists[0])*100])
+        self.fixed.append(False)
 
         self.Nh=[0]
         self.Nhe=1e-40
@@ -292,21 +316,26 @@ class CombinedLike(object):
             mint = mod.integral(min(self.angbins)/rd,max(self.angbins)/rd)
             self.hmd = np.array([mod.integral(self.angbins[it]/rd,self.angbins[it+1]/rd)/mint for it in range(self.nbins)])
 
-        params.append(self.Nh[0])
-        limits.append([0,sum(self.agnhists[0])])
-        fixed.append(self.halomodel=='')
-        print 'Setting up Minuit and maximizing'
+        self.params.append(self.Nh[0])
+        self.limits.append([-sum(self.agnhists[0]),sum(self.agnhists[0])])
+        self.fixed.append(self.halomodel=='')
+
+        if self.verbose:
+            print 'Setting up Minuit and maximizing'
         ############  setup Minuit and optimize  ###############
-        self.minuit = Minuit(self.likelihood,params,#gradient=self.gradient,force_gradient=1,
-                             fixed=fixed,limits=limits,strategy=2,tolerance=0.0001,printMode=self.mode)
+        self.minuit = Minuit(self.likelihood,self.params,#gradient=self.gradient,force_gradient=1,
+                             fixed=self.fixed,limits=self.limits,strategy=2,tolerance=0.0001,printMode=self.mode)
         self.minuit.minimize()
-        print 'Likelihood value: %1.1f'%self.minuit.fval
-        print '**********************************************************'
+
+        if self.verbose:
+            print 'Likelihood value: %1.1f'%self.minuit.fval
+            print '**********************************************************'
         #self.gradient(self.minuit.params,True)
         ###########  get parameters and errors #################
-        self.errs = self.minuit.errors()#method='MINOS')
+        self.lnl = self.minuit.fval
         self.cov = self.minuit.errors()
         self.errs = np.sqrt(np.diag(self.cov))
+        self.params = cp.copy(self.minuit.params)
 
         #for i in range(len(self.minuit.params)):
         #    print '%12.4g +/- %12.4g'%(self.minuit.params[i], self.errs[i])
@@ -327,41 +356,41 @@ class CombinedLike(object):
         #self.errs=np.sqrt(self.errs2)
         #scale = sum(self.psf)                                                                                          #normalize psf
         nmu = self.nbins - 1        
-        self.psf = self.minuit.params[:nmu]
+        self.psf = self.params[:nmu]
         self.psfe = np.array([self.errs[i] for i in range(nmu)])                             #PSF errors
         # Compute the value and error of the nth PSF weight
         self.psf = np.append(self.psf,[1-np.sum(self.psf)])
-        dxdmu = np.zeros(len(self.minuit.params))
+        dxdmu = np.zeros(len(self.params))
         dxdmu[:nmu] = -1
         mun_err = np.sqrt(np.dot(np.dot(self.cov,dxdmu),dxdmu))        
         self.psfe = np.append(self.psfe,[mun_err])
 
-        self.Npj  = self.minuit.params[nmu:nmu+psrs] #PSR number est
+        self.Npj  = self.params[nmu:nmu+psrs] #PSR number est
         self.Npje = self.errs[nmu:nmu+psrs]         #PSR number est errors
-        self.Naj  = self.minuit.params[nmu+psrs:nmu+psrs+agns]   #AGN number est
+        self.Naj  = self.params[nmu+psrs:nmu+psrs+agns]   #AGN number est
         self.Naje = self.errs[nmu+psrs:nmu+psrs+agns]           #AGN number errors
-        self.Ni   = self.minuit.params[nmu+psrs+agns:nmu+psrs+agns+agns] #isotropic number est
+        self.Ni   = self.params[nmu+psrs+agns:nmu+psrs+agns+agns] #isotropic number est
         self.Nie  = self.errs[nmu+psrs+agns:nmu+psrs+agns+agns]         #isotropic number est errors
         
         if self.halomodel!='':
-            self.Nh  = self.minuit.params[nmu+psrs+agns+1]  #halo est
+            self.Nh  = self.params[nmu+psrs+agns+1]  #halo est
             self.Nhe = self.errs[nmu+psrs+agns+1]           #halo err                               #halo err
 
 
-        #for it in range(len(self.minuit.params)):
+        #for it in range(len(self.params)):
         #    print np.sqrt(self.errs[it][it]),np.sqrt(self.errs2[it])
 
         """seps = np.arange(-2.0,2.1,0.1)
         py.figure(figsize=(16,16))
-        rows = int(np.sqrt(len(self.minuit.params)))+1
+        rows = int(np.sqrt(len(self.params)))+1
 
-        for it in range(len(self.minuit.params)):
+        for it in range(len(self.params)):
             py.subplot(rows,rows,it+1)
-            er = np.zeros(len(self.minuit.params))
+            er = np.zeros(len(self.params))
             er[it] = np.sqrt(self.errs2[it])
             like = []
             for x in seps:
-                modif = self.minuit.params+er*x
+                modif = self.params+er*x
                 tlike = self.minuit.fval-self.likelihood(modif)
                 like.append(tlike)
             py.plot(seps,like)
@@ -425,7 +454,7 @@ class CombinedLike(object):
             print 'Niso(%s) = %1.0f (1 +/- %1.3f)'%(self.agnlist[it],self.Ni[it],self.Nie[it]/self.Ni[it])
         print ''
         if self.halomodel!='':
-            print 'Nhalo = %1.0f (1 +/- %1.3f)'%(self.Nh[0],self.Nhe/self.Nh[0])
+            print 'Nhalo = %1.0f (1 +/- %1.3f)'%(self.Nh,self.Nhe/self.Nh)
 
 
     ######################################################################
