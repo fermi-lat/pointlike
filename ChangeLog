@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Apr 13 10:59:10 PDT 2011
+pointlike/python/uw/stacklike
+
+Modified Files:
+	angularmodels.py binned.py 
+Log Message:
+added more verbose output to plots as well as on-pulse and agn estimators
+    *
+------------------------------------------------------------
 User: mdwood  Wed Apr 13 10:41:42 PDT 2011
 ScienceTools-scons/pointlike/python/uw/stacklike
 
