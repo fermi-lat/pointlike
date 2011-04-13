@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mdwood  Wed Apr 13 10:41:42 PDT 2011
+ScienceTools-scons/pointlike/python/uw/stacklike
+
+Modified Files:
+	binned.py 
+Log Message:
+Added verbose option and profile likelihood to binned psf analysis.
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-12, operation: add
 Package: pointlike
