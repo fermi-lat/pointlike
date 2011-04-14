@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.10 2011/04/01 22:08:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.11 2011/04/05 21:42:08 burnett Exp $
 """
 import os, pickle
 import numpy as np
@@ -15,9 +15,10 @@ def isextended(source):
     
 
         
-def fix_beta(roi, bts_min=50, qual_min=20,):
+def fix_beta(roi, bts_min=30, qual_min=15,):
     refit=candidate=False
     print 'checking for beta fit...',
+    models_to_fit=[]
     for which, model in enumerate(roi.psm.models):
         if not np.any(model.free): break
         if model.name!='LogParabola': continue
@@ -33,6 +34,7 @@ def fix_beta(roi, bts_min=50, qual_min=20,):
         if band_ts-ts < qual_min and beta<=0.01:print 'qual<%.1f' %qual_min; continue # already a good fit
         print '<-- select to free beta' # ok, modify
         model.free[2]=True
+        models_to_fit.append(model) # save for later check
         refit = True
     if refit:    
         print 'start fit'
@@ -47,9 +49,20 @@ def fix_beta(roi, bts_min=50, qual_min=20,):
             if beta < 2.5: continue
             model.free[2]=False
             model[2]=2.5
+            model.cov_matrix[:]=0 # can screw up fit if bad.
         if refit:
             print 'need to refit: beta too large'
             roi.fit()
+            refit=False
+            for model in models_to_fit():
+                if model[2]>3.0 :
+                    print 'reseting model: beta =%.1f too large' % model[2]
+                    model[2]=2.; model.free[2]=False
+                    refit = True
+            if refit:
+                print 'refitting again'
+                roi.fit()
+            
     else:
         print 'none found'
     return refit    

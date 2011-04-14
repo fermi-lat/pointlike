@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.9 2011/03/18 12:45:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.10 2011/04/01 22:08:53 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -57,13 +57,18 @@ class Source(object):
     def __str__(self):
         return self.name + ' '+ self.skydir.__str__() +' '+ self.model.name \
                 +  (' (free)' if np.any(self.model.free) else ' (fixed)')
- 
+
 class PointSource(Source):
     def __init__(self, **kwargs):
         kwargs.update(spatial_model=None) # allow test for extent (no extent!)
         super(PointSource, self).__init__(**kwargs)
     def near(self, otherdir, distance=10):
         return self.skydir.difference(otherdir) < np.radians(distance)
+    def copy(self):
+        """ return a new PointSource object, with a copy of the model, others"""
+        ret = PointSource(**self.__dict__)
+        ret.model = self.model.copy()
+        return ret
         
 class GlobalSource(Source):
     def __init__(self, **kwargs):
@@ -76,6 +81,12 @@ class ExtendedSource(Source):
                 +  (' (free)' if np.any(self.model.free) else ' (fixed)')    
     def near(self, otherdir, distance=10):
         return self.skydir.difference(otherdir) < np.radians(distance)
+    def copy(self):
+        """ return a new ExtendSource object, with a copy of the model object"""
+        ret = ExtendedSource(**self.__dict__)
+        ret.model = self.model.copy()
+        return ret
+    
 
 class Singleton(object):
     _instance={}
@@ -175,7 +186,7 @@ def validate( ps, nside, filter):
             ps.free[1:] = False
             model.cov_matrix[:] = 0 
         else: #log parabola
-            check = norm>1e-18 and alpha>1e-4 and alpha<10 and beta<10
+            check = norm>1e-18 and alpha>1e-4 and alpha<6 and beta<10
             if check: return True
             print 'SkyModel warning for %-20s(%d): out of range, norm,alpha=%.2e %.2f' %(ps.name, hpindex(ps.skydir),norm,alpha)
             model.set_all_parameters(  [-15, 0.4, -3, 3], internal=True)
