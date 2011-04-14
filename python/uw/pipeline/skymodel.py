@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.21 2011/04/04 22:56:59 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.22 2011/04/08 18:54:50 burnett Exp $
 
 """
 import os, pickle, glob, types, cPickle
@@ -241,11 +241,13 @@ class SkyModel(object):
             with some frozen according to src_sel.frozen
             order so the free are first
         """
+        def copy_source(s): 
+            return s.copy()
         inroi = filter(src_sel.include, sources)
         for s in inroi:
             #s.freeze(src_sel.frozen(s))
             s.model.free[:] = False if src_sel.frozen(s) else s.free
-        return filter(src_sel.free,inroi) + filter(src_sel.frozen, inroi)
+        return map(copy_source, filter(src_sel.free,inroi)) + filter(src_sel.frozen, inroi)
     
     def get_point_sources(self, src_sel):
         """
@@ -442,20 +444,24 @@ class RemoveByName(object):
     
 class UpdatePulsarModel(object):
     """ special filter to replace models if necessary"""
-    def __init__(self, infile=None, tol=0.2):
+    def __init__(self, infile=None, tol=0.2, ts_min=10):
         import pyfits
         self.tol=tol
+        self.ts_min=ts_min
         if infile is None:
             infile = os.path.expandvars(os.path.join('$FERMI','catalog','srcid', 'cat','obj-pulsar-lat_v450.fits')) 
         self.data = pyfits.open(infile)[1].data
         self.sdir = map(lambda x,y: SkyDir(float(x),float(y)), self.data.field('RAJ2000'), self.data.field('DEJ2000'))
         self.names = self.data.field('Source_Name')
         self.tags = [False]*len(self.data)
+        self.assoc = [['',-1, -1]]*len(self.data) #associated names
     def __call__(self, s):
         sdir = s.skydir
         for i,t in enumerate(self.sdir):
-            if np.degrees(t.difference(sdir))<self.tol:
+            dist = np.degrees(t.difference(sdir))
+            if dist<self.tol and s.ts>self.ts_min:
                 self.tags[i]=True
+                self.assoc[i]=(s.name, dist, s.ts)
                 if s.model.name=='ExpCutoff': return True
                 flux = s.model[0]
                 if flux>1e-18:
