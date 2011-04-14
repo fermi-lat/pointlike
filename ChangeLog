@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Apr 14 10:00:35 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	__init__.py processor.py skymodel.py sources.py 
+Log Message:
+finally fix model copy in ROI definition to not modify the skymodel
+    *
+------------------------------------------------------------
 User: burnett  Thu Apr 14 09:59:04 PDT 2011
 pointlike/python/uw/like
 
