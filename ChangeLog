@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Apr 14 08:25:01 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+fix bug in Model.copy, from conversion to _p
+    *
+------------------------------------------------------------
 User: mar0  Wed Apr 13 10:59:10 PDT 2011
 pointlike/python/uw/stacklike
 
