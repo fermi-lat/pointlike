@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.40 2011/03/31 03:52:04 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.41 2011/04/04 18:40:49 kerrm Exp $
 
     author: Matthew Kerr
 
@@ -341,7 +341,7 @@ Optional keyword arguments:
         
         a = eval(self.name+'(iscopy=True, **self.__dict__)') #create instance of same spectral model type
         
-        a.p = N.asarray(self._p).copy() #copy in log values
+        a._p = N.asarray(self._p).copy() #copy in log values
         a.free = N.asarray(self.free).copy()
         try: a.cov_matrix = self.cov_matrix.__copy__()
         except: pass
