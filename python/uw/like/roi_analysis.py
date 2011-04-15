@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.79 2011/04/07 18:39:34 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.80 2011/04/09 02:24:09 lande Exp $
 
 author: Matthew Kerr
 """
@@ -145,7 +145,10 @@ class ROIAnalysis(object):
             So it is best to get rid of these cases before trying
             to cast which to a string. """
         if type(which)==int:
-            return self.psm,which
+            if which<len(self.psm.models):
+                return self.psm,which
+            else:
+                return self.dsm,which-len(self.psm.models)-1
         elif isinstance(which,PointSource):
             return self.psm,int(N.where(self.psm.point_sources==which)[0])
         elif isinstance(which,DiffuseSource):
@@ -275,7 +278,7 @@ class ROIAnalysis(object):
 
     def set_parameters(self,parameters):
         """Support for hessian calculation in specfitter module."""
-        assert len(parameters)==len(self.psm.parameters())+len(self.bgm.parameters()), 'bad parameter lenght'
+        assert len(parameters)==len(self.psm.parameters())+len(self.bgm.parameters()), 'bad parameter length'
         self.bgm.set_parameters(parameters,current_position=0)
         self.psm.set_parameters(parameters,current_position=len(self.bgm.parameters()))
         self.fit_parameters = parameters
