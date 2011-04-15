@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.80 2011/04/09 02:24:09 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.81 2011/04/15 19:17:11 wallacee Exp $
 
 author: Matthew Kerr
 """
@@ -480,11 +480,13 @@ class ROIAnalysis(object):
 
         save_params = self.parameters().copy() # save free parameters
         self.zero_ps(which)
-        ll_0 = self.fit(save_values = False,method=method)
+        self.fit(save_values = False,method=method)
+        ll_0 = -self.logLikelihood(self.parameters())
+
         if not self.quiet: print self
         self.unzero_ps(which)
         self.set_parameters(save_params) # reset free parameters
-        self.__pre_fit__() # restore caching
+        self.__update_state__() # restore caching
         if not bandfits:
             ll = -self.logLikelihood(save_params)
         else:
@@ -492,7 +494,7 @@ class ROIAnalysis(object):
         if ll_0 == 1e6 or ll == 1e6: 
              print 'Warning: loglikelihood is NaN, returning TS=0'
              return 0
-        return -2*(ll_0 - ll)
+        return 2*(ll - ll_0)
 
     def localize(self,which=0, tolerance=1e-3,update=False, verbose=False, bandfits=False, seedpos=None, **kwargs):
         """Localize a source using an elliptic approximation to the likelihood surface.
