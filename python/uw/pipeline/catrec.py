@@ -1,6 +1,6 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/catrec.py,v 1.4 2011/03/18 02:38:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/catrec.py,v 1.5 2011/04/01 22:08:53 burnett Exp $
 """
 import os, glob, pickle
 import numpy as np
@@ -158,7 +158,11 @@ def create_catalog(outdir, **kwargs):
         def process(self, pk):
             name = pk['name']
             diffuse_names = pk['diffuse_names']
-            norm, norm_relunc = [np.hstack([m.statistical()[i] for m in pk['diffuse']] ) for i in range(2)]
+            models = pk['diffuse'] 
+            # klugy fix to read in pre-_p model fix
+            for m in models: 
+                if '_p' not in m.__dict__: m._p = m.p
+            norm, norm_relunc = [np.hstack([m.statistical()[i] for m in models] ) for i in range(2)]
             p = norm[:3]
             p_unc = p*norm_relunc[:3] 
             no_limb = len(diffuse_names)==2 or (diffuse_names[2]).split('_')[0]!='limb'
