@@ -1,7 +1,7 @@
 """
 Manage data specification
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/dataspec.py,v 1.5 2011/02/23 00:12:13 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/dataspec.py,v 1.6 2011/03/02 22:15:35 burnett Exp $
 
 """
 import os, glob
@@ -80,6 +80,12 @@ class DataSpec(object):
             monthly_bpd= '$FERMI/data/P7_V4_SOURCE/monthly/bpd/*_4bpd.fits',
             monthly_lt = '$FERMI/data/P7_V4_SOURCE/monthly/lt/*_lt.fits'
             ),
+       'P7_V4_SOURCE_11M': dict(data_name='pass 7 1FGL data set',
+            ft1files   = '$FERMI/data/P7_V4_SOURCE/pass7.3*.fits',
+            ft2files   = '$FERMI/data/P7_V4_SOURCE/ft2_2years.fits',
+            binfile    = '$FERMI/data/P7_V4_SOURCE/11M7_4bpd.fits',
+            ltcube     = '$FERMI/data/P7_V4_SOURCE/11M7_lt.fits',
+            ),
         }
 
     def __init__(self, lookup_key, month=None):
@@ -87,8 +93,13 @@ class DataSpec(object):
         lookup_key: string
             spec
         """
-        # basic data files
+        # basic data files: will expand here
         data = self.datasets[lookup_key]
+        for key in 'ft1files ft2files binfile ltcube'.split():
+            if key in data:
+                data[key]=os.path.expandvars(data[key])
+                # need a check, but will fail if need to glob
+                #assert os.path.exists(data[key]), 'DataSpec: file %s not found' % data[key]
         if month is not None:
             data['binfile'] = sorted(glob.glob(os.path.expandvars(data['monthly_bpd'])))[month]
             data['ltcube'] = sorted(glob.glob(os.path.expandvars(data['monthly_lt'])))[month]

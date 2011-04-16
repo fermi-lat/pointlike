@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.11 2011/04/05 21:42:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.12 2011/04/14 17:00:35 burnett Exp $
 """
 import os, pickle
 import numpy as np
@@ -17,7 +17,7 @@ def isextended(source):
         
 def fix_beta(roi, bts_min=30, qual_min=15,):
     refit=candidate=False
-    print 'checking for beta fit...',
+    print 'checking for beta fit...'
     models_to_fit=[]
     for which, model in enumerate(roi.psm.models):
         if not np.any(model.free): break
@@ -37,32 +37,23 @@ def fix_beta(roi, bts_min=30, qual_min=15,):
         models_to_fit.append(model) # save for later check
         refit = True
     if refit:    
-        print 'start fit'
+        print 'start refit with beta(s) freed...'
         roi.fit()
         roi.print_summary(title='after freeing one or more beta parameters')
         # now check for overflow
         refit = False
-        for which,model in enumerate(roi.psm.models):
-            if not np.any(model.free): break
-            if model.name!='LogParabola': continue
+        for model in models_to_fit:
             beta = model[2]
-            if beta < 2.5: continue
+            if beta < 3.0: continue
+            print 'reseting model: beta =%.1f too large' % model[2]
             model.free[2]=False
-            model[2]=2.5
-            model.cov_matrix[:]=0 # can screw up fit if bad.
+            model[0:3]=(1e-15, 2.0, 3.0) #reset everything
+            model.cov_matrix[:]=0 
+            refit=True
         if refit:
-            print 'need to refit: beta too large'
+            print 'need to re-refit: beta too large'
             roi.fit()
-            refit=False
-            for model in models_to_fit():
-                if model[2]>3.0 :
-                    print 'reseting model: beta =%.1f too large' % model[2]
-                    model[2]=2.; model.free[2]=False
-                    refit = True
-            if refit:
-                print 'refitting again'
-                roi.fit()
-            
+            roi.print_summary(title='re-refit after freeing one or more beta parameters')
     else:
         print 'none found'
     return refit    
