@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Apr 16 07:14:14 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	catrec.py dataspec.py processor.py skyanalysis.py skymodel.py 
+Log Message:
+fix extended option to deal with none
+    *
+------------------------------------------------------------
 User: kerrm  Fri Apr 15 16:01:10 PDT 2011
 pointlike/python/uw/like
 
