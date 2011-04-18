@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Apr 17 17:44:16 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_modify.py 
+Log Message:
+better help message
+    *
+------------------------------------------------------------
 User: burnett  Sat Apr 16 07:14:14 PDT 2011
 pointlike/python/uw/pipeline
 
