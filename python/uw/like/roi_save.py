@@ -1,15 +1,11 @@
 """
 Module to save an ROIAnalysis object to a file and to load it back in.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_save.py,v 1.1 2011/03/17 23:37:58 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_save.py,v 1.2 2011/04/07 18:39:18 lande Exp $
 
 author: Joshua Lande
 """
 import cPickle
-import uw.like.pointspec 
-from uw.like.pointspec import SpectralAnalysis
-from uw.like.pointspec import DataSpecification
-from . roi_analysis import ROIAnalysis
 import collections
 
 class Empty: pass
@@ -31,6 +27,8 @@ def save(roi,filename):
     self=roi
 
     d=collections.defaultdict(dict)
+
+    from . pointspec import DataSpecification,SpectralAnalysis
 
     for i in DataSpecification.defaults:
         if len(i)==3:
@@ -61,6 +59,7 @@ def save(roi,filename):
                            'lsigma':self.lsigma,
                            'delta_loc_logl':self.delta_loc_logl}
 
+    from . roi_analysis import ROIAnalysis
 
     for i in ROIAnalysis.defaults:
         if len(i)==3:
@@ -76,6 +75,9 @@ def load(filename,**kwargs):
         Any additional kwargs is used to modify DataSpecification, SpectralAnalysis,
         and ROIAnalysis objects."""
     d=cPickle.load(open(filename,'r'))
+
+    from . pointspec import DataSpecification,SpectralAnalysis
+    from . roi_analysis import ROIAnalysis
 
     for k,v in kwargs.items():
 
