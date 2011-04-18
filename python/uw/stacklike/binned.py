@@ -98,6 +98,9 @@ class CombinedLike(object):
         self.__dict__.update(kwargs)
         self.TS = 0
 
+    ######################################################################
+    #          Makes a verbose output of the likelihood analysis         #
+    ######################################################################
     def __str__(self):
         verbose = '\n'
         verbose = verbose + '--------- PSF    -------------\n'
@@ -324,20 +327,20 @@ class CombinedLike(object):
 
         #pulsar estimators
         for hist in self.ponhists:
-            params.append(sum(hist)/2.)
-            limits.append([0,sum(hist)*100])
-            fixed.append(False)
+            self.params.append(sum(hist)/2.)
+            self.limits.append([0,sum(hist)*100])
+            self.fixed.append(False)
 
         #agn estimators
         for hist in self.agnhists:
-            params.append(alims/2.)
-            limits.append([0,alims*100])
-            fixed.append(False)
+            self.params.append(alims/2.)
+            self.limits.append([0,alims*100])
+            self.fixed.append(False)
 
         #iso estimator
-        params.append(1.)
-        limits.append([0,alims*100])
-        fixed.append(False)
+        self.params.append(1.)
+        self.limits.append([0,alims*100])
+        self.fixed.append(False)
 
         self.Nh=0
         self.Nhe=1e-40
@@ -347,20 +350,20 @@ class CombinedLike(object):
             halomodel = eval(self.halomodel)
             if self.haloparams[0]<0:
                 return np.Infinity
-            mod = halomodel(lims=[min(self.angbins),max(self.angbins)],model_par=self.haloparams)
+            mod = halomodel(lims=[min(self.angbins)/rd,max(self.angbins)/rd],model_par=self.haloparams)
             mint = mod.integral(min(self.angbins)/rd,max(self.angbins)/rd)
             self.hmd = np.array([mod.integral(self.angbins[it]/rd,self.angbins[it+1]/rd)/mint for it in range(self.nbins)])
             self.hmd = self.hmd/sum(self.hmd)
 
-        params.append(self.Nh)
-        limits.append([0,alims*100])
-        fixed.append(self.halomodel=='')
-        print 'Setting up Minuit and maximizing'
+        self.params.append(self.Nh)
+        self.limits.append([0,alims*100])
+        self.fixed.append(self.halomodel=='')
+        if self.verbose:
+            print 'Setting up Minuit and maximizing'
         ############  setup Minuit and optimize  ###############
         self.minuit = Minuit(self.likelihood,self.params,#gradient=self.gradient,force_gradient=1,
                              fixed=self.fixed,limits=self.limits,strategy=2,tolerance=0.0001,printMode=self.mode)
         self.minuit.minimize()
-
         if self.verbose:
             print 'Likelihood value: %1.1f'%self.minuit.fval
             print '**********************************************************'
@@ -476,7 +479,7 @@ class CombinedLike(object):
     #######################################################################
     ## printResults() - summary
     def printResults(self):
-		print str(self)
+        print str(self)
 
     ######################################################################
     #      Likelihood function from (3) in paper                         #
@@ -1114,12 +1117,12 @@ class CombinedLike(object):
 # @param emin minimum energy
 # @param emax maximum energy
 # @param days number of days of data to examine from start of P6 data
-def test(bins=8,ctype=0,emin=1000,emax=1778,days=30,irf='P6_v3_diff',maxr=-1,sel='[0]'):
+def test(bins=8,ctype=0,emin=1000,emax=1778,days=30,irf='P6_v3_diff',maxr=-1,sel='[0]',agnlis='agn-psf-study-bright'):
     psf = CALDBPsf(CALDBManager(irf=irf))
     ebar = np.sqrt(emin*emax)
     if maxr<0:
         maxr = psf.inverse_integral(ebar,ctype,99.5)*1.5             #use 1.5 times the 99.5% containment as the maximum distance
-    cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''))
+    cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''),agnlist=[agnlis])
     cl.loadphotons(0,maxr,emin,emax,239517417,239517417+days*86400,ctype)
     cl.bindata(bins)
     f0 = cl.fit()

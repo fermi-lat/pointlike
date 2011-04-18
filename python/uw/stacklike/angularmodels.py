@@ -609,10 +609,10 @@ class CHalo(Model):
     ## Constructor
     #
     #  @param lims [min,max], minimum and maximum angular deviations in radians
-    def __init__(self,lims,model_par,free,energy,ct):
+    def __init__(self,lims,model_par,free=[]):
         #super(Model,self).__init__([],[])
         self.mark=':'
-        self.model_par=[]#model_par
+        self.model_par=model_par
         self.free=free
         self.lims=lims
         self.steps=[]#[0.01/rd]
@@ -620,9 +620,9 @@ class CHalo(Model):
         self.name='chalo'
         self.header='theta\t'
         self.psf = pypsf.CALDBPsf(CALDBManager(irf='P6_v11_diff'))
-        self.sp = SpatialModels.GaussianR2(p=[0,0,model_par[0]*rd])
+        self.sp = SpatialModels.GaussianR2(p=np.array([0,0,self.model_par[0]*rd]))
         self.ac = AnalyticConvolution(self.sp,self.psf)
-        self.ac.do_convolution_noband(energy,ct,self.lims[1]*rd,False)
+        self.ac.do_convolution_noband(self.model_par[1],self.model_par[2],self.lims[1]*rd,False)
         #delt = (lims[1]-lims[0])/100.
         #xr = np.arange(lims[0],lims[1],delt)
         #yr = np.array([self.ac(s.SkyDir((x*1.+0.5)*rd*delt,0)) for x in range(len(xr)-1)])
