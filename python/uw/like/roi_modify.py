@@ -115,7 +115,10 @@ def modify_model(roi,which,model,free=None,preserve_flux=False):
 def modify(roi,which=0,skydir=None,model=None,spatial_model=None,
         preserve_flux=False,preserve_center=False,free=None):
     """ This is a just a glue function wich will call all of the required
-        modification functions to fully modify the source. """
+        modification functions to fully modify the source. 
+        
+        See function roi_modify.modify_loc, roi_modify.modify_spatial_model, 
+        and roi.modify_model to see what the various parameters do. """
 
     if skydir is None and model is None and spatial_model is None and free is None:
         raise Exception("Parameter to modify must be specified.")
