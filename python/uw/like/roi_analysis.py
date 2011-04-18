@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.81 2011/04/15 19:17:11 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.82 2011/04/15 23:01:10 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -18,6 +18,7 @@ from . roi_diffuse import ROIDiffuseModel,DiffuseSource
 from . roi_extended import ExtendedSource,BandFitExtended
 from . import roi_printing
 from . import roi_modify
+from . import roi_save
 from uw.utilities import keyword_options
 from uw.utilities import xml_parsers
 from uw.utilities import region_writer
@@ -784,26 +785,14 @@ class ROIAnalysis(object):
     zero_ps = zero_source
     unzero_ps = unzero_source
 
-    @decorate_with(roi_modify.modify_loc)
-    def modify_loc(self,*args,**kwargs):
-        roi_modify.modify_loc(self,*args,**kwargs)
-
-    @decorate_with(roi_modify.modify_spatial_model)
-    def modify_spatial_model(self,*args,**kwargs):
-        roi_modify.modify_spatial_model(self,*args,**kwargs)
-
-    @decorate_with(roi_modify.modify_model)
-    def modify_model(self,*args,**kwargs):
-        roi_modify.modify_model(self,*args,**kwargs)
-
-    @decorate_with(roi_modify.modify)
-    def modify(self,*args,**kwargs):
-        roi_modify.modify(self,*args,**kwargs)
-
+    # Get the modify functions from roi_modify
+    modify_loc = roi_modify.modify_loc
+    modify_spatial_model = roi_modify.modify_spatial_model
+    modify_model = roi_modify.modify_model
+    modify = roi_modify.modify
         
-    @decorate_with(roi_printing.print_summary)
-    def print_summary(self, sdir=None, galactic=False, maxdist=5, title=None):
-        roi_printing.print_summary(self, sdir, galactic,maxdist, title)
+    # get the print_summary function from roi_printing
+    print_summary=roi_printing.print_summary
 
     def print_resids(self):
         """Print out (weighted) residuals for each energy range, both in
@@ -860,17 +849,10 @@ class ROIAnalysis(object):
             localiztion parameters. """
         return dict(zip('ra dec a b ang qual'.split(),self.qform.par[0:6]))
  
-    @decorate_with(xml_parsers.writeROI)
-    def toXML(self,filename,**kwargs):
-        xml_parsers.writeROI(self,filename,**kwargs)
-
-    @decorate_with(region_writer.writeRegion)
-    def toRegion(self,filename,**kwargs):
-        region_writer.writeRegion(self,filename,**kwargs)
-
-    @decorate_with(results_writer.writeResults)
-    def toResults(self,filename,**kwargs):
-        results_writer.writeResults(self,filename,**kwargs)
+    # get the toXML, toRegion, and toResults function from xml_parsers
+    toXML=xml_parsers.writeROI
+    toRegion=region_writer.writeRegion
+    toResults=results_writer.writeResults
     
     def get_model(self,which):
         """ return a reference to the model
@@ -887,14 +869,9 @@ class ROIAnalysis(object):
     def get_sources(self):
         return self.psm.point_sources.tolist()+ self.dsm.diffuse_sources.tolist() 
 
-    def save(self,*args,**kwargs):
-        from . import roi_save
-        roi_save.save(self,*args,**kwargs)
-
-    @staticmethod
-    def load(*args,**kwargs):
-        from . import roi_save
-        return roi_save.load(*args,**kwargs)
+    # get these functions from roi_save.py
+    save=roi_save.save
+    load=staticmethod(roi_save.load)
 
 load=ROIAnalysis.load
 
