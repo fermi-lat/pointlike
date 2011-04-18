@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Apr 17 18:17:51 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Make more general the set_parameters function
+    *
+------------------------------------------------------------
 User: lande  Sun Apr 17 18:16:49 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
