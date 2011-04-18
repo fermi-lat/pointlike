@@ -1,8 +1,9 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/catrec.py,v 1.5 2011/04/01 22:08:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/catrec.py,v 1.6 2011/04/16 14:14:14 burnett Exp $
 """
-import os, glob, pickle
+import os, glob
+import cPickle as pickle
 import numpy as np
 from uw.utilities import makerec
 from skymaps import Band, SkyDir

@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.24 2011/04/16 14:14:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/skymodel.py,v 1.25 2011/04/18 16:43:55 burnett Exp $
 
 """
 import os, pickle, glob, types, cPickle
@@ -248,7 +248,7 @@ class SkyModel(object):
         inroi = filter(src_sel.include, sources)
         for s in inroi:
             #s.freeze(src_sel.frozen(s))
-            s.model.free[:] = False if src_sel.frozen(s) else s.free
+            s.model.free[:] = False if src_sel.frozen(s) else s.free[:]
         return map(copy_source, filter(src_sel.free,inroi)) + filter(src_sel.frozen, inroi)
     
     def get_point_sources(self, src_sel):
@@ -277,7 +277,7 @@ class SkyModel(object):
 
         extended = self._select_and_freeze(self.extended_sources, src_sel)
         for s in extended: # this seems redundant, but was necessary
-            s.model.free[:] = False if src_sel.frozen(s) else s.free
+            s.model.free[:] = False if src_sel.frozen(s) else s.free[:]
             sources.validate(s,self.nside, None)
             s.smodel = s.model
             
@@ -323,7 +323,7 @@ class SkyModel(object):
         recfiles = map(lambda name: os.path.join(self.folder, '%s.rec'%name) , ('rois','sources'))
         if reload or not os.path.exists(recfiles[0]):
             catrec.create_catalog(self.folder, save_local=True, ts_min=5)
-        self.rois,self.sources = map( lambda f: pickle.load(open(f)), recfiles)
+        self.rois,self.sources = map( lambda f: cPickle.load(open(f)), recfiles)
         print 'loaded %d rois, %d sources' % (len(self.rois), len(self.sources))
 
     def roi_rec(self, reload=False):

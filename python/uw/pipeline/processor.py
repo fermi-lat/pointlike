@@ -1,8 +1,9 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.12 2011/04/14 17:00:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/processor.py,v 1.13 2011/04/16 14:14:14 burnett Exp $
 """
-import os, pickle
+import os
+import cPickle as pickle
 import numpy as np
 import pylab as plt
 from skymaps import SkyDir

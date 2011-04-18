@@ -1,8 +1,9 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.8 2011/03/02 22:13:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/pipe.py,v 1.9 2011/04/01 22:08:53 burnett Exp $
 """
-import os, types, glob, time, pickle
+import os, types, glob, time
+import cPickle as pickle
 import numpy as np
 from . import skymodel, skyanalysis, processor, associate
 from uw.utilities import makerec
