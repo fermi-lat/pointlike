@@ -1,10 +1,11 @@
 
 """
  Manage the catalog association tables
- $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/associate.py,v 1.3 2011/03/07 00:07:44 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/associate.py,v 1.4 2011/03/11 22:52:15 burnett Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
-import pyfits, os, pickle, glob
+import pyfits, os, glob
+import cPickle as pickle
 import numpy as np
 from skymaps import SkyDir
 from uw.utilities import makerec
