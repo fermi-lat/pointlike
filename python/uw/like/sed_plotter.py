@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.11 2011/03/30 16:06:30 nuss Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.12 2011/04/04 22:56:25 kerrm Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -134,6 +134,11 @@ class BandFlux(object):
         
         if 'color' not in kwargs:
             kwargs['color'] = 'k'
+        printout = kwargs.pop('printout',False)
+        
+        def lsp(val,spaces=6):
+            s = str(val)
+            return ' '*(spaces-len(s))+s
         
         for r in self.rec:
             xl, xh = r.elow, r.ehigh
@@ -147,6 +152,8 @@ class BandFlux(object):
                 # plot arrow 0.6 long by 0.4 wide, triangular head (in log coords)
                 axes.plot([x, x,     x*1.2, x,     x/1.2, x],
                           [y, y*0.6, y*0.6, y*0.4, y*0.6, y*0.6], **kwargs)
+            if printout:
+                print '%s %s   %s   %s   %s'%(lsp(int(round(xl))),lsp(int(round(xh))),lsp('%.3g'%r.flux,8),lsp('%.3g'%r.lflux,8),lsp('%.3g'%r.uflux,8))
  
                       
     def plot_model(self, axes, m, dom,  butterfly, **kwargs):
@@ -194,6 +201,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
             outdir = None,
             galmap = True,
             phase_corr=False,
+            printout=False,
             ):
     """Plot a SED
     ========     ===================================================
@@ -211,6 +219,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     outdir       [None] if set, save sed into <outdir>/<source_name>_sed.png if outdir is a directory, save into filename=<outdir> if not.
     galmap       [True] plot position on galactic map if set
     phase_corr   [False] multiply sed by phase_factor; appropriate for an on-pulse spectral analysis
+    printout     [False] if True, print the sed points to stdout
     ========     ===================================================
     
     """
@@ -234,6 +243,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
    
     #  create a BandFlux, and have it plot the band fluxes, merging adjacent limits at the ends
     bf = BandFlux(self, which=which, merge=True, scale_factor= energy_flux_factor)
+    data_kwargs['printout'] = printout
     bf.plot_data(axes, **data_kwargs)
 
     manager,index=self.mapper(which)
