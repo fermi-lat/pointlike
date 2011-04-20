@@ -1,6 +1,6 @@
 """ Class to write out region files compatable with ds9. 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.6 2011/01/31 01:17:12 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.7 2011/04/18 01:18:22 lande Exp $
 
 author: Joshua Lande
 """
@@ -11,7 +11,7 @@ from math import degrees
 def unparse_point(ps,label_sources):
     string="fk5; point(%.4f, %.4f) # point=cross" % \
             (ps.skydir.ra(),ps.skydir.dec())
-    if label_sources: string += " test={%s}" % ps.name
+    if label_sources: string += " text={%s}" % ps.name
     return string
 
 def unparse_point_sources(point_sources,label_sources):
@@ -54,17 +54,17 @@ def unparse_diffuse_sources(diffuse_sources,label_sources):
                 elif isinstance(sm,EllipticalSpatialModel):
                     sigma_x, sigma_y, theta = sm.sigma_x, sm.sigma_y, sm.theta
                     if isinstance(sm,EllipticalDisk):
-                        lines.append("fk5; ellipse(%.4f, %.4f, %.4f %.4f, %.4f)" % \
+                        lines.append("fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f)" % \
                                 (ra,dec,sigma_y,sigma_x,sm.theta))
 
                     elif isinstance(sm,EllipticalRing):
                         frac = sm.frac
-                        lines += ["fk5; ellipse(%.4f, %.4f, %.4f %.4f, %.4f)" % \
+                        lines += ["fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f)" % \
                                 (ra,dec,_*sigma_y,_*sigma_x,sm.theta) \
                                 for _ in [frac,1]]
                     else:
                         a,b,c=sm.ellipse_68()
-                        lines.append("fk5; ellipse(%.4f, %.4f, %.4f %.4f, %.4f)" % \
+                        lines.append("fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f)" % \
                                 (ra,dec,b,a,c))
 
     return lines
@@ -80,7 +80,7 @@ def unparse_localization(roi):
         ra,dec=roi.qform.par[0:2]
         a,b,ang=roi.qform.par[3:6]
         return ["# The next line is the localization error",
-                "fk5; ellipse(%.4f, %.4f, %.4f %.4f, %.4f)" % \
+                "fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f)" % \
                 (ra,dec,b,a,ang)]
     else:
         return []
