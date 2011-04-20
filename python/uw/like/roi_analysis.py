@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.82 2011/04/15 23:01:10 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.83 2011/04/18 01:16:49 lande Exp $
 
 author: Matthew Kerr
 """
@@ -15,7 +15,7 @@ import numbers
 from . import roi_bands, roi_localize , specfitter
 from . pointspec_helpers import PointSource,get_default_diffuse_mapper
 from . roi_diffuse import ROIDiffuseModel,DiffuseSource
-from . roi_extended import ExtendedSource,BandFitExtended
+from . roi_extended import ExtendedSource,BandFitExtended,ROIExtendedModel
 from . import roi_printing
 from . import roi_modify
 from . import roi_save
@@ -515,6 +515,7 @@ class ROIAnalysis(object):
             rl.sd = seedpos  # override 
         return rl.localize()
     
+    @decorate_with(ROIExtendedModel.fit_extension)
     def fit_extension(self,which,*args,**kwargs):
         """ See roi_extended.ROIExtendedModelAnalytic's fit_extension function for parameters. """
 
@@ -525,6 +526,7 @@ class ROIAnalysis(object):
 
         return self.dsm.bgmodels[index].fit_extension(self,*args,**kwargs)
 
+    @decorate_with(ROIExtendedModel.TS_ext)
     def TS_ext(self,which,*args,**kwargs):
 
         manager,index=self.mapper(which)
