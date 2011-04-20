@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Apr 19 18:29:54 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+bugfix for label_sources
+    *
+------------------------------------------------------------
 User: lande  Tue Apr 19 17:39:38 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
