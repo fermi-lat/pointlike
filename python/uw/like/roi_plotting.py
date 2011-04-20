@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.32 2011/04/07 18:40:00 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.33 2011/04/11 20:54:26 kerrm Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -26,12 +26,14 @@ import exceptions
 import pprint
 import numpy as N
 import copy
-from roi_bands import ROIEnergyBand
-from roi_image import ModelImage,CountsImage,RadialCounts,RadialModel,SummedCounts,SummedModel
-from roi_extended import ExtendedSource
-from pointspec_helpers import PointSource
+from . roi_bands import ROIEnergyBand
+from . roi_image import ModelImage,CountsImage,RadialCounts,RadialModel,SmoothedCounts,SmoothedModel,SmoothedResidual
+from . roi_extended import ExtendedSource
+from . pointspec_helpers import PointSource
+from . SpatialModels import Disk, Gaussian
 from uw.utilities import colormaps
 from uw.utilities.image import ZEA
+from uw.utilities.region_writer import get_region
 from uw.utilities import keyword_options
 from skymaps import SkyDir
 
@@ -1046,7 +1048,7 @@ class ROISignificance(object):
             ('conv_type',         -1,           'Conversion type'),
             ('size',               5, 'Size of the field of view'),
             ('galactic',        True,'Coordinate system for plot'),
-            ('sum_rad',          0.5, 'Sum counts/model within radius degrees.'),
+            ('kernel_rad',       0.25, 'Sum counts/model within radius degrees.'),
             ('label_sources',  False,  'Label sources duing plot'),
     )
 
@@ -1057,16 +1059,17 @@ class ROISignificance(object):
         self.roi = roi
 
         # Fit many pixels inside of the summing radius
-        self.pixelsize=self.sum_rad/10.0
+        self.pixelsize=self.kernel_rad/10.0
 
         kwargs=dict(size=self.size,
                     pixelsize=self.pixelsize,
                     galactic=self.galactic,
                     conv_type=self.conv_type,
-                    sum_rad=self.sum_rad)
+                    kerneltype='tophat',
+                    kernel_rad=self.kernel_rad)
 
-        self.counts=SummedCounts(self.roi,**kwargs)
-        self.model=SummedModel(self.roi,**kwargs)
+        self.counts=SmoothedCounts(self.roi,**kwargs)
+        self.model=SmoothedModel(self.roi,**kwargs)
 
         self.significance = (self.counts.image - self.model.image)/N.sqrt(self.model.image)
 
@@ -1074,14 +1077,27 @@ class ROISignificance(object):
         self.pyfits[0].data = self.significance
 
     @staticmethod
-    def plot_sources( ax, roi):
+    def plot_sources(roi, ax, header, label_sources):
+        """ Add to the pywcsgrid2 axes ax any sources in the ROI which
+            have a center. Also, overlay the extended source shapes
+            if there are any. Note, this function requires pyregion. 
+            
+            The code to do this was found at:
+                http://leejjoon.github.com/matplotlib_astronomy_gallery/tutorial/w51c.html
+                
+        """
 
-        src = [p for p in roi.get_sources() if hasattr(p,'skydir')]
+        import pyregion
+        region_string = get_region(roi,color='black',label_sources=label_sources)
+        reg = pyregion.parse(region_string).as_imagecoord(header)
+        patch_list, artist_list = reg.get_mpl_patches_texts()
 
-        for p in src:
-            l,b=p.skydir.l(),p.skydir.b()
-
-            ax['gal'].plot([l], [b], 'x', markersize=15, mec='k', mfc='k')
+        for p in patch_list: ax.add_patch(p)
+        
+        for t in artist_list: 
+            # make the markers bigger
+            t.set_markersize(4*t.get_markersize())
+            ax.add_artist(t)
 
     def show(self,to_screen=True,out_file=None):
 
@@ -1108,7 +1124,7 @@ class ROISignificance(object):
         
         ax.grid()
 
-        ROISignificance.plot_sources(ax,self.roi)
+        ROISignificance.plot_sources(self.roi,ax,h,self.label_sources)
 
         if out_file is not None: P.savefig(out_file)
         if to_screen: P.show()
@@ -1126,10 +1142,23 @@ class ROISmoothedSource(object):
             ('conv_type',         -1,                                    'Conversion type'),
             ('size',               3,                          'Size of the field of view'),
             ('galactic',        True,                         'Coordinate system for plot'),
-            ('sum_rad',         0.25,            'Sum counts/model within radius degrees.'),
             ('overlay_psf',     True, 'Add a smoothed reference PSF on top of the counts.'),
-            ('psf_size',           1,                         'Size of the PSF insert box'),
+            ('psf_size',           1,                         'Size of the PSF insert box'), ('label_sources',  False,  'Label sources duing plot'),
+            ('kerneltype', 'gaussian',  'Type of kernel to smooth image with'),
+            ('kernel_rad',       0.25,            'Sum counts/model within radius degrees.'),
+            ('title',            None,            'Title for the plot'),
     )
+
+    def get_residual(self,**kwargs):
+        """ Allow the particular method for getting the residual image to be overloaded. """
+
+        self.roi.zero_source(which=self.which)
+
+        residual = SmoothedResidual(self.roi,**kwargs)
+
+        self.roi.unzero_source(which=self.which)
+
+        return residual
 
     @keyword_options.decorate(defaults)
     def __init__(self, roi, **kwargs):
@@ -1139,17 +1168,20 @@ class ROISmoothedSource(object):
         
         self.roi = roi
 
+        self.cmap = colormaps.b
+
         # Fit many pixels inside of the summing radius
-        self.pixelsize=self.sum_rad/10.0
+        self.pixelsize=self.kernel_rad/10.0
 
         self.source = roi.get_source(self.which)
 
-        kwargs=dict(size=self.size,
+        smoothed_kwargs=dict(size=self.size,
                     pixelsize=self.pixelsize,
                     galactic=self.galactic,
                     conv_type=self.conv_type,
                     center=self.source.skydir,
-                    sum_rad=self.sum_rad)
+                    kerneltype=self.kerneltype,
+                    kernel_rad=self.kernel_rad)
 
         if self.overlay_psf:
 
@@ -1157,28 +1189,25 @@ class ROISmoothedSource(object):
             point_version=PointSource(name=self.source.name,
                                       skydir=self.source.skydir,
                                       model=self.source.model.copy())
+        
+        self.residual = self.get_residual(**smoothed_kwargs)
 
-        self.roi.zero_source(which=self.which)
-
-        self.counts=SummedCounts(self.roi,**kwargs)
-        self.model=SummedModel(self.roi,**kwargs)
-
-        self.roi.unzero_source(which=self.which)
-
-        self.residual = self.counts.image - self.model.image
-
-        self.residual_pyfits = self.counts.get_pyfits()
-        self.residual_pyfits[0].data = self.residual
+        self.residual_pyfits = self.residual.get_pyfits()
 
         if self.overlay_psf:
             # create an image of the PSF (for our model).
             # Shrink down the image of the psf
-            psf_kwargs=copy.deepcopy(kwargs)
+            psf_kwargs=copy.deepcopy(smoothed_kwargs)
             psf_kwargs['size']=self.psf_size
-            self.psf_model=SummedModel(self.roi,
+            self.psf_model=SmoothedModel(self.roi,
                     override_point_sources=[point_version],
                     **psf_kwargs)
             self.psf_pyfits = self.psf_model.get_pyfits()
+            # Normalize psf to have same maximum pixel scale
+            # as residual image.
+            self.psf_pyfits[0].data *= \
+                    N.max(self.residual_pyfits[0].data)/\
+                    N.max(self.psf_pyfits[0].data)
 
     def show(self,to_screen=True,out_file=None):
         import pywcsgrid2
@@ -1199,15 +1228,17 @@ class ROISmoothedSource(object):
 
         ax = grid[0]
 
-        im=ax.imshow(d, origin="lower")
+        im=ax.imshow(d, origin="lower", cmap=self.cmap)
 
         cb_axes = grid.cbar_axes[0] # colorbar axes
 
         cb_axes.colorbar(im)
+
+        cb_axes.axis["right"].toggle(ticklabels=False)
         
         ax.grid()
 
-        ax.set_title('%s Background Subtracted' % self.source.name)
+        if self.title: ax.set_title(self.title)
 
         if self.overlay_psf:
             h_psf, d_psf = self.psf_pyfits[0].header, self.psf_pyfits[0].data
@@ -1222,8 +1253,19 @@ class ROISmoothedSource(object):
 
             axins.add_inner_title("PSF", loc=3)
 
-        ROISignificance.plot_sources(ax,self.roi)
+        ROISignificance.plot_sources(self.roi,ax,h,self.label_sources)
 
         if out_file is not None: P.savefig(out_file)
         if to_screen: P.show()
 
+class ROISmoothedSources(ROISmoothedSource):
+    """ Subclass ROISmoothedSource, but add only the diffuse emission to the background. """
+
+
+    def get_residual(self,**kwargs):
+
+        residual = SmoothedResidual(self.roi,
+                override_diffuse_sources=[i for i in self.roi.dsm.diffuse_sources if not hasattr(i,'skydir')],
+                **kwargs)
+
+        return residual
