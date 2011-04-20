@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.15 2011/04/04 22:56:25 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.16 2011/04/05 22:46:06 lande Exp $
 
 author: Joshua Lande
 """
@@ -43,6 +43,14 @@ def memoize(function):
             cache[args] = val
             return val
     return decorated_function
+
+def defaults_to_kwargs(obj,defaults):
+    """ Take in a defaults list (used by keyword_options) and an object 
+        which recognizes the keyword_options. A dictionary is
+        returned with each of the defaults pointing to the value
+        found in the object. This is useful for recreating 
+        the object. """
+    return dict([[i[0],getattr(obj,i[0])] for i in defaults if isinstance(i,list) or isinstance(i,tuple)])
 
 
 class ROIImage(object):
@@ -363,7 +371,7 @@ class ModelImage(ROIImage):
         if self.override_point_sources is None and self.override_diffuse_sources is None:
             point_sources = roi.psm.point_sources 
         else:
-            point_sources = self.override_point_sources
+            point_sources = self.override_point_sources if self.override_point_sources is not None else []
 
         point_counts = N.zeros(len(self.wsdl),dtype=float)
 
@@ -467,6 +475,23 @@ class ModelImage(ROIImage):
         return sum(self.diffuse_source_counts(bg)
                    for bg in bgmodels)
 
+
+class ResidualImage(ROIImage):
+    """ Has the same arguments at both ModelImage and Counts image but
+        is a ROIImage object representing the difference between the
+        source Counts and the ROI Model. """
+
+    # get unique items in the Model + Counts defaults
+    defaults = tuple(set(ModelImage.defaults).union(CountsImage.defaults))
+
+    def __init__(self,roi,**kwargs):
+        super(ResidualImage,self).__init__(roi,**kwargs)
+
+        self.model=ModelImage(self.roi,**defaults_to_kwargs(self,ModelImage.defaults))
+        self.counts=CountsImage(self.roi,**defaults_to_kwargs(self,CountsImage.defaults))
+
+        self.image = self.counts.image - self.model.image
+        SmoothedImage.add_to_skyimage(self.skyimage,self.image)
 
 
 class RadialImage(object):
@@ -687,35 +712,25 @@ class RadialModel(RadialImage):
                    for bg in self.roi.dsm.bgmodels)
 
 
-class SummedImage(ROIImage):
-
-    defaults = CountsImage.defaults + (
-        ('sum_rad',   0.5, 'Sum counts within radius degrees.'),
+class SmoothedImage(ROIImage):
+    
+    smoothed_options = (
+        ('kerneltype', 'tophat', 'Type of kernel to use'),
+        ('kernel_rad',   0.25, 'Sum counts within radius degrees.'),
     )
 
-    @staticmethod        
-    def defaults_to_kwargs(obj,defaults):
-        """ Take in a defaults list (used by keyword_options) and an object 
-            which recognizes the keyword_options. A dictionary is
-            returned with each of the defaults pointing to the value
-            found in the object. This is useful for recreating 
-            the object. """
-        return dict([[i[0],getattr(obj,i[0])] for i in defaults if isinstance(i,list) or isinstance(i,tuple)])
+    defaults = ROIImage.defaults + smoothed_options
+
+
 
     @staticmethod
-    def sum_array(image,width):
+    def convolve_array(image,width):
         """ Summ all this pixels within a given pixel width
         
             code taken from 
             
             http://code.google.com/p/agpy/source/browse/trunk/agpy/convolve.py """
-        kernel = N.zeros_like(image)
-        xx,yy = N.indices(image.shape)
-        rr = N.sqrt((xx-image.shape[0]/2.)**2+(yy-image.shape[1]/2.)**2)
-        kernel[rr<width] = 1
 
-        out=N.empty_like(image)
-        scipy.ndimage.filters.convolve(image, kernel, out, mode='constant', cval=0)
         return out
 
     @staticmethod
@@ -729,50 +744,87 @@ class SummedImage(ROIImage):
         skyimage.set_wsdl(wsdl)
 
     @staticmethod
-    def sum_skyimage(skyimage,width):
+    def convolve_skyimage(skyimage,kernel):
         """ Take in a skyimage object and sum each pixel with all the
             pixels within a given width. """
         image=ROIImage.skyimage2numpy(skyimage)
 
-        image=SummedImage.sum_array(image,width)
+        convolved=scipy.ndimage.filters.convolve(image, kernel)
 
-        SummedImage.add_to_skyimage(skyimage,image)
+        SmoothedImage.add_to_skyimage(skyimage,convolved)
 
         return skyimage
+
+    @staticmethod
+    def get_kernel(kerneltype,kernel_rad,pixelsize):
+        """ returns the kernel. Code inspired by
+                http://code.google.com/p/agpy/source/browse/trunk/agpy/convolve.py
+        """
+
+        width = int(N.ceil(kernel_rad/pixelsize))
+
+        if kerneltype == 'tophat':
+            kernelsize=4*width
+
+            kernel = N.zeros([kernelsize,kernelsize],dtype=float)
+
+            xx,yy = N.indices(kernel.shape)
+            rr = N.sqrt((xx-kernel.shape[0]/2.)**2+(yy-kernel.shape[1]/2.)**2)
+            kernel[rr<width] = 1
+
+        elif kerneltype == 'gaussian':
+            kernelsize = 8*width
+
+            kernel = N.zeros([kernelsize,kernelsize],dtype=float)
+            xx,yy = N.indices(kernel.shape)
+            rr = N.sqrt((xx-kernel.shape[0]/2.)**2+(yy-kernel.shape[1]/2.)**2)
+            kernel = N.exp(-(rr**2)/(2*width**2)) / (width**2 * (2*N.pi))
+
+
+        else:
+            raise Exception("...")
+
+        return kernel
+
 
     @keyword_options.decorate(defaults)
     def __init__(self,*args,**kwargs):
 
-        super(SummedImage,self).__init__(*args,**kwargs)
+        super(SmoothedImage,self).__init__(*args,**kwargs)
 
-        width = int(N.ceil(self.sum_rad/self.pixelsize))
+        self.kernel=self.get_kernel(self.kerneltype,self.kernel_rad,self.pixelsize)
+
+        self.kernelsize=self.kernel.shape[0]
 
         # Make an image, bigger then the desired one, by twice
         # the smooth radius in each direction.
-        self.pass_dict=SummedImage.defaults_to_kwargs(self,self.object.defaults)
-        self.pass_dict['size']=self.size+4*width*self.pixelsize
-        self.summed=self.object(self.roi,**self.pass_dict)
+        self.pass_dict=defaults_to_kwargs(self,self.object.defaults)
+        self.pass_dict['size']=self.size+self.kernelsize*self.pixelsize
+        self.smoothed=self.object(self.roi,**self.pass_dict)
 
-        self.summed.skyimage=SummedImage.sum_skyimage(self.summed.skyimage,width)
-        self.summed.image=ROIImage.skyimage2numpy(self.summed.skyimage)
 
-        # now, shrink down summed and replace the current skyimage
+        self.smoothed.skyimage=SmoothedImage.convolve_skyimage(self.smoothed.skyimage,self.kernel)
+        self.smoothed.image=ROIImage.skyimage2numpy(self.smoothed.skyimage)
 
-        self.image = self.summed.image[2*width:-2*width,2*width:-2*width]
-        SummedImage.add_to_skyimage(self.skyimage,self.image)
+        # now, shrink down smoothed image and replace the current skyimage with it
 
-class SummedCounts(SummedImage):
+        self.image = self.smoothed.image[self.kernelsize/2:-self.kernelsize/2,self.kernelsize/2:-self.kernelsize/2]
+        SmoothedImage.add_to_skyimage(self.skyimage,self.image)
 
-    defaults = CountsImage.defaults + (
-        ('sum_rad',   0.5, 'Sum counts within radius degrees.'),
-    )
+class SmoothedCounts(SmoothedImage):
+
+    defaults = CountsImage.defaults + SmoothedImage.smoothed_options
 
     object=CountsImage
 
-class SummedModel(SummedImage):
+class SmoothedModel(SmoothedImage):
 
-    defaults = ModelImage.defaults + (
-        ('sum_rad',   0.5, 'Sum counts within radius degrees.'),
-    )
+    defaults = ModelImage.defaults + SmoothedImage.smoothed_options
 
     object=ModelImage
+
+class SmoothedResidual(SmoothedImage):
+
+    defaults = ResidualImage.defaults + SmoothedImage.smoothed_options
+
+    object=ResidualImage
