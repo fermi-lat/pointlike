@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.37 2011/02/12 22:42:28 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.38 2011/04/18 01:17:51 lande Exp $
 
    author: Joshua Lande
 
@@ -451,10 +451,14 @@ class RadiallySymmetricModel(SpatialModel):
         return self.at_r(skydir.difference(self.center),energy)
 
     @abstractmethod
-    def r68(self): pass
+    def r68(self): 
+        """ 68% containment radius, in degrees. """
+        pass
 
     @abstractmethod
-    def r99(self): pass
+    def r99(self): 
+        """ 99% containment radius, in degrees. """
+        pass
 
     def at_r(self,r,energy=None):
         """ r is in radians. """
@@ -487,7 +491,7 @@ class Gaussian(RadiallySymmetricModel):
 
        p = [ ra, dec, sigma ]
 
-       sigma = one dimensional r68 of the spatial model, measured in degrees
+       sigma = one dimensional size of the spatial model, measured in degrees
        """
     def extension(self):
         # extension defined as a function so it is easy to overload

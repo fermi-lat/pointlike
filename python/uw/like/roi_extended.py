@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.49 2011/04/04 22:56:25 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.50 2011/04/04 23:22:40 lande Exp $
 
     author: Joshua Lande
 """
@@ -401,15 +401,17 @@ Arguments:
         self.initialize_counts(bands)
     
     def TS_ext(self,roi,refit=True,**kwargs):
-        """ Refit refers to wheter the localization of the extended source should
-            be relocalized for the null hypothesis. Generally, this is a great idea
-            so the default is to do so.
+        """ Calculates TS_ext for an extended source, which is defined as 2*(ll_ext-ll_pt).
+            This code does so by shinking the extended source down to be very small and
+            relocalizing the shrunk source to calculate the likelihood in the null hypothesis.
+            After calculating TS_ext, the ROI is reset to the state before the function is called.
+        
+            If refit is false, the null hypothesis (shrunken source) is not relocalized.
+            Generally, this is a great idea since it gives a biased estimate of significance,
+            but may be useful to quickly get approximate values
 
             Any additional argument passed into this function is passed into fit_extension when
-            the null hypothesis is localized. 
-            
-            Neither 'error' or 'update' are allowed to be passed into fit_extension,
-            because it is of no use to calculate for the null hypothesis. """
+            the null hypothesis is relocalized. """
         if kwargs.has_key('error') or kwargs.has_key('update'): 
             raise Exception("argument 'error' cannot be passed into function TS_ext")
 
