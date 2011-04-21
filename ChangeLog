@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Apr 21 15:00:20 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Fixed a bug with hessian calculation.
+
+    *
+------------------------------------------------------------
 User: lande  Thu Apr 21 11:55:39 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
