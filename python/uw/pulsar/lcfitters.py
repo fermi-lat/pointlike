@@ -9,7 +9,7 @@ a maximum likielihood fit to determine the light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.2 2010/11/19 21:37:58 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.3 2011/03/07 01:00:53 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -147,7 +147,7 @@ class LCTemplate(object):
         """ Return a string compatible with the format used by pygaussfit.
             Assume all primitives are gaussians."""
         rstrings = []
-        dashes = '--------------------------------------'
+        dashes = '-'*25
         norm,errnorm = 0,0
       
         for nprim,prim in enumerate(self.primitives):
@@ -180,17 +180,16 @@ class LCTemplate(object):
         norms = [prim.get_norm() for prim in self.primitives]
         norms = np.append(norms,[1-sum(norms)])
         a = np.argsort(norms)[::-1]
-        comps = np.arange(len(norms))[a]
         boundaries = np.cumsum(norms[a])
         components = np.searchsorted(boundaries,np.random.rand(n))
         rvals = np.empty(n)
         counter = 0
-        for comp in comps:
+        for mapped_comp,comp in zip(a,np.arange(len(norms))):
             n = (components==comp).sum()
-            if comp == len(norms)-1:
+            if mapped_comp == len(norms)-1:
                 rvals[counter:counter+n] = np.random.rand(n) 
             else:
-                rvals[counter:counter+n] = self.primitives[comp].random(n)
+                rvals[counter:counter+n] = self.primitives[mapped_comp].random(n)
             counter += n
         return rvals
 
@@ -242,11 +241,13 @@ class UnweightedLCFitter(object):
         self.counts = hist[0][hist[0]>0]
 
     def unbinned_loglikelihood(self,p,*args):
-        if not self.template.shift_mode and np.any(p < 0):
+        if (not self.template.shift_mode and np.any(p < 0)):
          #guard against negative parameters
             return 2e20
         args[0].set_parameters(p)
-        return -np.log(self.template(self.phases)).sum()
+        rvals = -np.log(self.template(self.phases)).sum()
+        if np.isnan(rvals): return 2e20 # NB need to do better accounting of norm
+        return rvals
 
     def binned_loglikelihood(self,p,*args):
         if not self.template.shift_mode and np.any(p<0):
@@ -292,12 +293,15 @@ class UnweightedLCFitter(object):
 
     def __errors__(self):
         from numpy.linalg import inv
-        h = hessian(self.template,self.loglikelihood)
+        h1 = hessian(self.template,self.loglikelihood)
         try: 
-            self.cov_matrix = inv(h)
-            h = hessian(self.template,self.loglikelihood,delt=np.diag(self.cov_matrix)**0.5)
-            self.cov_matrix = inv(h)
-        except:
+            c1 = inv(h1)
+            h2 = hessian(self.template,self.loglikelihood,delt=np.diag(c1)**0.5)
+            c2 = inv(h2)
+            if np.all(np.diag(c2)>0): self.cov_matrix = c2
+            elif np.all(np.diag(c1)>0): self.cov_matrix = c1
+            else: raise Exception
+        except ValueError:
             print 'Unable to invert hessian!'
             self.cov_matrix = np.zeros_like(h)
 
@@ -441,5 +445,44 @@ def make_twoside_gaussian(one_side_gaussian):
     g2.p[-1] = g1.p[-1]
     g2.p[1:3] = g1.p[1]
     return g2
+
+def get_errors(template,total,n=100):
+    from scipy.optimize import fmin
+    ph0 = template.get_location()
+    def logl(phi,*args):
+        phases = args[0]
+        template.set_overall_phase(phi%1)
+        return -np.log(template(phases)).sum()
+    errors = np.empty(n)
+    fitvals = np.empty(n)
+    errors_r = np.empty(n)
+    delta = 0.01
+    mean = 0
+    for i in xrange(n):
+        template.set_overall_phase(ph0)
+        ph = template.random(total)
+        results = fmin(logl,ph0,args=(ph,),full_output=1,disp=0)
+        phi0,fopt = results[0],results[1]
+        fitvals[i] = phi0
+        mean += logl(phi0+delta,ph)-logl(phi0,ph)
+        errors[i] = (logl(phi0+delta,ph)-fopt*2+logl(phi0-delta,ph))/delta**2
+        my_delta = errors[i]**-0.5
+        errors_r[i] = (logl(phi0+my_delta,ph)-fopt*2+logl(phi0-my_delta,ph))/my_delta**2
+    print 'Mean: %.2f'%(mean/n)
+    return fitvals-ph0,errors**-0.5,errors_r**-0.5
+
+def make_err_plot(template,totals=[10,20,50,100,500],n=1000):
+    import pylab as pl
+    fvals = []; errs = []
+    bins = np.arange(-5,5.1,0.25)
+    for tot in totals:
+        f,e = get_errors(template,tot,n=n)
+        fvals += [f]; errs += [e]
+        pl.hist(f/e,bins=np.arange(-5,5.1,0.5),histtype='step',normed=True,label='N = %d'%tot);
+    g = lambda x: (np.pi*2)**-0.5*np.exp(-x**2/2)
+    dom = np.linspace(-5,5,101)
+    pl.plot(dom,g(dom),color='k')
+    pl.legend()
+    pl.axis([-5,5,0,0.5])
 
 
