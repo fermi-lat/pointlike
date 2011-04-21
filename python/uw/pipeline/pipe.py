@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/pipe.py,v 1.9 2011/04/01 22:08:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.10 2011/04/18 17:06:38 wallacee Exp $
 """
 import os, types, glob, time
 import cPickle as pickle
@@ -72,7 +72,7 @@ class Setup(dict):
                 auxcat='',
                 nside = 12,
                 outdir=outdir,
-                dataset = 'P7_V4_SOURCE',
+                dataset = 'P7_V4_SOURCE', 
                 diffuse = ('ring_24month_P76_v1.fits', 'isotrop_21month_P76_v2.txt'),
                 extended= None,
                 alias= {}, 
@@ -94,6 +94,7 @@ class Setup(dict):
                                 # (roi_tsmap.TSCalc, 'ts', dict(photon_index=2.0),) 
                                 #  (ts_map.KdeMap, "kde", dict()),))
                 dampen = 1.0,
+                setup_cmds='',
                 ))
         self.update(kwargs)
         # first-order replace
@@ -103,9 +104,9 @@ class Setup(dict):
                 self['tables'] = self['tables']%self
                 #print 'fix key %s: %s' % (key, self[key])
         self.setup_string =  """\
-import os, pickle; os.chdir(r"%(cwd)s");
+import os, pickle; os.chdir(r"%(cwd)s");%(setup_cmds)s
 from uw.pipeline import pipe, maps, skymodel;
-g=pipe.Pipe("%(indir)s", "%(dataset)s",
+g=pipe.Pipe("%(indir)s", "%(dataset)s", event_class=0, 
         skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,
             extended_catalog_name="%(extended)s", update_positions=%(update_positions)s,
             free_index=%(free_index)s,
