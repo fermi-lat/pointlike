@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Apr 21 10:41:45 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skymodel.py 
+Log Message:
+stuff to implement lack of extended catalog
+    *
+------------------------------------------------------------
 User: burnett  Thu Apr 21 10:40:57 PDT 2011
 pointlike/python/uw/pipeline
 
