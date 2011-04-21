@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/maps.py,v 1.4 2011/02/11 21:27:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/maps.py,v 1.5 2011/03/03 21:17:52 burnett Exp $
 
 """
 import os, glob, pickle, types
@@ -12,6 +12,36 @@ from skymaps import Band, SkyDir, PySkyFunction, Hep3Vector
 def LogParabola(*pars):return Models.LogParabola(p=pars)
 def PowerLaw(*pars):   return Models.PowerLaw(p=pars)
 def ExpCutoff(*pars):  return Models.ExpCutoff(p=pars)
+
+class CountsMap(dict):
+    """ A map with counts per HEALPix bin """
+    
+    def __init__(self, roi, emin=1000, nside=512):
+        """ roi : a region of interest object
+            emin : float
+                minimum energy for constructing the counts map
+            nside : int
+                the nside parameter for the HEALPix map
+        Note that is is implemented as a dictionary, with the pixel index as key
+        """
+        self.indexfun = Band(nside).index
+        self.emin=emin
+        self._get_photons(roi, emin)
+        
+    def _add_photon(self, wsd):
+        index = self.indexfun(wsd)
+        if index in self: self[index]+=1
+        else: self[index]=1
+    def _get_photons(self, roi, emin):
+        for band in roi.bands:
+            e = band.e
+            if e<emin: continue
+            t = band.b.event_class() & 3 # note: mask off high bits!
+            for wsd in band.wsdl:
+                for i in range(wsd.weight()):
+                    self._add_photon(wsd)
+    def __call__(self,v):
+        return self.get(self.indexfun(v), 0)
     
 class KdeMap(dict):
     """ Implement a SkyFunction that returns KDE data for a given ROI"""
