@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/skymodel.py,v 1.25 2011/04/18 16:43:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.26 2011/04/18 17:06:39 wallacee Exp $
 
 """
 import os, pickle, glob, types, cPickle
@@ -33,6 +33,7 @@ class SkyModel(object):
         ('update_positions', None, 'set to minimum ts  update positions if localization information found in the database'),
         ('free_index', None, 'Set to minimum TS to free photon index if fixed'),
         ('filter',   lambda s: True,   'selection filter: see examples at the end.'), 
+        ('global_check', lambda s: None, 'check global sources: can modify parameters'),
         ('rename_source',  lambda name: name, 'rename function'),
         ('closeness_tolerance', 0., 'if>0, check each point source for being too close to another, print warning'),
         ('quiet',  False,  'make quiet' ),
@@ -127,6 +128,7 @@ class SkyModel(object):
         if self.extended_catalog_name is None:
             self.extended_catalog_name=self.config.get('extended')
         if not self.extended_catalog_name or self.extended_catalog_name=='None' :
+            self.extended_catalog = None
             return
         extended_catalog_name = \
             os.path.expandvars(os.path.join('$FERMI','catalog',self.extended_catalog_name))
@@ -190,9 +192,11 @@ class SkyModel(object):
                     #if model[0]<1e-2:
                     #    model[0]=1e-2
                     #print 'SkyModel warning: reset norm to 1e-2 for %s' % name
-                    t.append(sources.GlobalSource(name=name, model=model, skydir=None, index=index))
+                    gs = sources.GlobalSource(name=name, model=model, skydir=None, index=index)
+                    self.global_check(gs)
+                    t.append(gs)
                 else:
-                    es = self.extended_catalog.lookup(name)
+                    es = self.extended_catalog.lookup(name) if self.extended_catalog is not None else None
                     if es is None:
                         #raise Exception( 'Extended source %s not found in extended catalog' %name)
                         print 'SkyModel warning: Extended source %s not found in extended catalog, removing' %name
