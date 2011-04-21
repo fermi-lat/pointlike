@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Apr 21 16:09:58 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Hang onto axes object
+    *
+------------------------------------------------------------
 User: kerrm  Thu Apr 21 15:00:20 PDT 2011
 pointlike/python/uw/pulsar
 
