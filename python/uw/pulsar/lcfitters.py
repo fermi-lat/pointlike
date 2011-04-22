@@ -9,7 +9,7 @@ a maximum likielihood fit to determine the light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.3 2011/03/07 01:00:53 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.4 2011/04/21 22:00:20 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -300,7 +300,7 @@ class UnweightedLCFitter(object):
             c2 = inv(h2)
             if np.all(np.diag(c2)>0): self.cov_matrix = c2
             elif np.all(np.diag(c1)>0): self.cov_matrix = c1
-            else: raise Exception
+            else: raise ValueError
         except ValueError:
             print 'Unable to invert hessian!'
             self.cov_matrix = np.zeros_like(h)
