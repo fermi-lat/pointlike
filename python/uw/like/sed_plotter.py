@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.12 2011/04/04 22:56:25 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/sed_plotter.py,v 1.13 2011/04/19 20:06:43 kerrm Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -246,9 +246,8 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     data_kwargs['printout'] = printout
     bf.plot_data(axes, **data_kwargs)
 
-    manager,index=self.mapper(which)
-    model = manager.models[index]
-    name  = manager.names[index]
+    model = roi.get_model(which)
+    name  = model.name
     
     # and the model, perhaps with a butterfly
     dom = np.logspace(np.log10(roi.fit_emin[0]), np.log10(roi.fit_emax[0]), 101)
