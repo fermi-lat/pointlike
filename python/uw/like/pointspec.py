@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.33 2011/03/08 04:16:35 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.34 2011/03/17 23:37:18 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.33 $'.split()[1]
+version='$Revision: 1.34 $'.split()[1]
 import os
 from os.path import join
 import sys
@@ -159,7 +159,7 @@ class SpectralAnalysis(object):
         'keywords controlling instrument response',
         ('irf','none','Which IRF to use'),
         ('psf_irf',None,'specify a different IRF to use for the PSF; must be in same format/location as typical IRF file!'),
-        ('CALDB',os.environ['CALDB'],'override the CALDB specified by the env. variable'),
+        ('CALDB',None,'override the CALDB specified by $CALDB.'),
         ('custom_irf_dir',None,'override the CUSTOM_IRF_DIR specified by the env. variable'),
         ('keywords controlling spectral analysis'),
         ('background','1FGL','a choice of global model specifying a diffuse background; see ConsistentBackground for options'),
