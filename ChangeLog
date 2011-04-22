@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Apr 22 16:10:13 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	sed_plotter.py 
+Log Message:
+fix bug introduced into SED title
+    *
+------------------------------------------------------------
 User: kerrm  Fri Apr 22 12:47:18 PDT 2011
 pointlike/python/uw/pulsar
 
