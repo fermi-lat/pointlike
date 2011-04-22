@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Apr 22 11:11:28 PDT 2011
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	region_writer.py 
+Log Message:
+New show_localization flag
+    *
+------------------------------------------------------------
 User: lande  Fri Apr 22 11:11:13 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
