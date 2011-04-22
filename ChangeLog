@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Apr 22 11:10:04 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py 
+Log Message:
+Don't assume /u/gl/lande/head/ScienceTools-scons/irfs/caldb/CALDB/ exists
+    *
+------------------------------------------------------------
 User: lande  Fri Apr 22 08:54:38 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
