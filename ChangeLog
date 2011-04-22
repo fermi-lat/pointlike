@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Apr 22 11:10:24 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pycaldb.py 
+Log Message:
+Allow $CALDB to be found by py_facilities
+    *
+------------------------------------------------------------
 User: lande  Fri Apr 22 11:10:04 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
