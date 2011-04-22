@@ -93,12 +93,8 @@ def modify_model(roi,which,model,free=None,preserve_flux=False):
 
         manager.models[index]=model
 
-        if manager==roi.psm:
-            source.model=model
-        else:
-            source.smodel=model
-            if isinstance(roi.dsm.diffuse_sources,ExtendedSource):
-                source.model=model
+        if hasattr(source,'model'): source.model=model
+        if hasattr(source,'smodel'): source.smodel=model
 
     if free is not None: 
         model=roi.get_model(which)
@@ -109,6 +105,7 @@ def modify_model(roi,which,model,free=None,preserve_flux=False):
         assert(len(free)==len(model.get_all_parameters()))
         for i in xrange(len(free)):
             model.freeze(i,freeze=not free[i])
+
     roi.__update_state__()
 
 
