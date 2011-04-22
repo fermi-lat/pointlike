@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Apr 22 12:33:11 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_modify.py 
+Log Message:
+Bugfix for modifying the spectral model of extended sources
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-13, operation: add
 Package: pointlike
