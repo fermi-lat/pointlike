@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Apr 21 17:58:14 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Minor bug fix to exception throwing.
+
+    *
+------------------------------------------------------------
 User: lande  Thu Apr 21 16:09:58 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
