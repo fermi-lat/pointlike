@@ -9,7 +9,7 @@ a maximum likielihood fit to determine the light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.6 2011/04/22 01:01:27 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.7 2011/04/22 01:46:38 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -106,6 +106,11 @@ class LCTemplate(object):
     def norm(self):
         self.last_norm = sum( (prim.integrate() for prim in self.primitives) )
         return self.last_norm
+
+    def integrate(self,phi1,phi2):
+        norm = self.norm()
+        dphi = (phi2-phi1)
+        return (1-norm)*dphi + sum( (prim.integrate(phi1,phi2) for prim in self.primitives) )
 
     def max(self,resolution=0.01):
         return self(np.arange(0,1,resolution)).max()
@@ -320,6 +325,20 @@ class UnweightedLCFitter(object):
         pl.figure(fignum)
         pl.hist(self.phases,bins=np.linspace(0,1,nbins+1),histtype='step',ec='red',normed=True,lw=1)
         pl.plot(dom,cod,color='blue',lw=1)
+        pl.ylabel('Normalized Profile')
+        pl.xlabel('Phase')
+        pl.grid(True)
+
+    def plot_residuals(self,nbins=50,fignum=3):
+        import pylab as pl
+        edges = np.linspace(0,1,nbins+1)
+        lct = self.template
+        cod = np.asarray([lct.integrate(e1,e2) for e1,e2 in zip(edges[:-1],edges[1:])])*len(self.phases)
+        pl.figure(fignum)
+        counts= np.histogram(self.phases,bins=edges)[0]
+        pl.errorbar(x=(edges[1:]+edges[:-1])/2,y=counts-cod,yerr=counts**0.5,ls=' ',marker='o',color='red')
+        pl.axhline(0,color='blue')
+        pl.ylabel('Residuals (Data - Model)')
         pl.xlabel('Phase')
         pl.grid(True)
 
