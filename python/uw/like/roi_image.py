@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.16 2011/04/05 22:46:06 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.17 2011/04/20 00:37:24 lande Exp $
 
 author: Joshua Lande
 """
@@ -161,6 +161,8 @@ class ROIImage(object):
             ["CDELT2", cdelt2, "Y-axis incr per pixel of physical coord at position of ref pixel(deg)"],
             ["CROTA2",  0, "Image rotation (deg)"],
         ]
+        for i in values: 
+            if len(i)>2 and len(i[2])>47: i[2]=i[2][0:47]
 
         cards = [ pyfits.Card(*i) for i in values]
 
