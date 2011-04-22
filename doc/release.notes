@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.162 2011/04/12 21:31:19 lande Exp $
+$Id: release.notes,v 1.163 2011/04/22 18:11:47 lande Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-07-14 22-Apr-2011  lande bugfix
  pointlike-07-07-13 22-Apr-2011  lande CALDB fix
  pointlike-07-07-12 12-Apr-2011  lande bugfix for modify() function
  pointlike-07-07-11 03-Apr-2011  lande Fixing buggy gradient code.
