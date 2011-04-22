@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.35 2011/04/20 01:29:54 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.36 2011/04/21 23:09:58 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1088,7 +1088,7 @@ class ROISignificance(object):
         """
 
         import pyregion
-        region_string = region_writer.get_region(roi,color='black',label_sources=label_sources)
+        region_string = region_writer.get_region(roi,color='black',label_sources=label_sources, show_localization=False)
         reg = pyregion.parse(region_string).as_imagecoord(header)
         patch_list, artist_list = reg.get_mpl_patches_texts()
 
@@ -1143,7 +1143,9 @@ class ROISmoothedSource(object):
             ('size',               3,                          'Size of the field of view'),
             ('galactic',        True,                         'Coordinate system for plot'),
             ('overlay_psf',     True, 'Add a smoothed reference PSF on top of the counts.'),
-            ('psf_size',           1,                         'Size of the PSF insert box'), ('label_sources',  False,  'Label sources duing plot'),
+            ('psf_size',           1,                         'Size of the PSF insert box'), 
+            ('psf_loc',            4,                       'Location to put the psf box.'), 
+            ('label_sources',  False,  'Label sources duing plot'),
             ('kerneltype','gaussian',  'Type of kernel to smooth image with'),
             ('kernel_rad',       0.1,            'Sum counts/model within radius degrees.'),
             ('title',           None,            'Title for the plot'),
@@ -1242,7 +1244,7 @@ class ROISmoothedSource(object):
 
         if self.overlay_psf:
             h_psf, d_psf = self.psf_pyfits[0].header, self.psf_pyfits[0].data
-            axins = zoomed_inset_axes(ax, zoom=1, loc=4,
+            axins = zoomed_inset_axes(ax, zoom=1, loc=self.psf_loc,
                               axes_class=pywcsgrid2.Axes,
                               axes_kwargs=dict(wcs=h_psf))
 
