@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Apr 22 11:11:13 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+More features for ROISmoothedSource
+    *
+------------------------------------------------------------
 User: lande  Fri Apr 22 11:10:38 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
