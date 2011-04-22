@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Fri Apr 22 12:47:18 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Added a method to plot residuals.
+
+    *
+------------------------------------------------------------
 User: lande  Fri Apr 22 12:33:11 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
