@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.17 2011/04/20 00:37:24 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.18 2011/04/22 15:54:38 lande Exp $
 
 author: Joshua Lande
 """
@@ -20,6 +20,7 @@ import scipy.ndimage
 from . roi_diffuse import ROIDiffuseModel_OTF
 from . roi_extended import ROIExtendedModel,ROIExtendedModelAnalytic
 from . pointspec_helpers import get_default_diffuse_mapper
+from . roi_tsmap import TSCalc,TSCalcPySkyFunction
 from uw.utilities import keyword_options
 from uw.utilities.fitstools import get_fields
 from uw.utilities.image import ZEA
@@ -61,7 +62,6 @@ class ROIImage(object):
 
     defaults = ZEA.defaults + (
         ('center',    None, 'Center of image'),
-        ('conv_type',   -1, 'Conversion type'),
     )
 
     @keyword_options.decorate(defaults)
@@ -173,10 +173,20 @@ class ROIImage(object):
 
         return fits
 
+class ROITSMapImage(ROIImage):
+    """ Subclass of ROIImage representing a residual TS map. """
+
+    def fill(self):
+        tscalc = TSCalc(self.roi)
+        temp=TSCalcPySkyFunction(tscalc)
+        self.skyimage.fill(temp.get_pyskyfun())
+
 class CountsImage(ROIImage):
     """ This ROIImage subclass fills the sky image with the observed Fermi counts. """
 
-    defaults = ROIImage.defaults
+    defaults = ROIImage.defaults + (
+        ('conv_type',   -1, 'Conversion type'),
+    )
 
     @staticmethod
     @memoize
@@ -279,6 +289,7 @@ class ModelImage(ROIImage):
                                                  and override_diffuse_sources to generate the image instead
                                                  of the sources in the ROI."""),
             ('override_diffuse_sources', None, 'Same as override_point_sources'),
+            ('conv_type',   -1, 'Conversion type'),
     )
 
     @keyword_options.decorate(defaults)
