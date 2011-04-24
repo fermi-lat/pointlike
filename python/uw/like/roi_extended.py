@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.51 2011/04/20 00:36:09 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.52 2011/04/21 18:55:39 lande Exp $
 
     author: Joshua Lande
 """
@@ -76,6 +76,13 @@ class ExtendedSource(DiffuseSource):
                           'SpatialModel:\t%s'%(self.spatial_model.full_name()),
                           '\t'+self.spatial_model.__str__(indent='\t')
                          ])
+
+    def copy(self):
+        """ Create a deep copy of an extended source. """
+        return ExtendedSource(name=self.name,
+                              spatial_model=self.spatial_model.copy(),
+                              model=self.model.copy(),
+                              leave_parameters=True)
 
 
 ###=========================================================================###
