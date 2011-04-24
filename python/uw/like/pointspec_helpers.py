@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.38 2011/03/03 03:43:03 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.39 2011/03/15 22:34:39 lande Exp $
 
     author: Matthew Kerr
     """
@@ -128,6 +128,7 @@ class FermiCatalog(PointSourceCatalog):
     defaults = (
         ("prune_radius",0.10,"deg; in a merge, consider sources closer than this duplicates"),
         ("free_radius",2,"deg; sources within this distance have free spectral parameters"),
+        ("min_ts",None,"If specified, only include sources with a larger catalog TS"),
     )
 
     @keyword_options.decorate(defaults)
@@ -149,6 +150,7 @@ class FermiCatalog(PointSourceCatalog):
         inds = f[1].data.field('SPECTRAL_INDEX')
         cutoffs = f[1].data.field('CUTOFF_ENERGY') if 'Cutoff_Energy' in colnames else None
         betas = f[1].data.field('beta') if 'beta' in colnames else None
+        self.ts=N.asarray(f[1].data.field('TEST_STATISTIC'))
 
         inds = N.where(inds > 0, inds, -inds)
 
@@ -175,6 +177,8 @@ class FermiCatalog(PointSourceCatalog):
 
         diffs    = N.degrees(N.asarray([skydir.difference(d) for d in self.dirs]))
         mask     = diffs < radius
+        if self.min_ts is not None: mask &= self.ts>self.min_ts
+
         diffs    = diffs[mask]
         sorting = N.argsort(diffs)
 
