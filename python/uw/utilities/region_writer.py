@@ -1,6 +1,6 @@
 """ Class to write out region files compatable with ds9. 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.9 2011/04/22 18:11:28 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.10 2011/04/24 05:30:53 lande Exp $
 
 author: Joshua Lande
 """
@@ -85,7 +85,7 @@ def unparse_localization(roi):
     else:
         return []
 
-def get_region(roi,color,label_sources,show_localization,show_extension):
+def get_region(roi,color,label_sources=True,show_localization=True,show_extension=True):
     lines = [
         "# Region file format: DS9 version 4.0",
         "global color=%s" % color,
