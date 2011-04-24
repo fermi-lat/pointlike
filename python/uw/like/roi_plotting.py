@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.36 2011/04/21 23:09:58 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.37 2011/04/22 18:11:12 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -749,7 +749,7 @@ class ROISlice(object):
             sources = list(self.roi.psm.point_sources) + \
                     [ i for i in self.roi.dsm.diffuse_sources if isinstance(i,ExtendedSource) ]
             # don't zero already zeroed sources
-            sources = [ i for i in sources if i.model.p[0] != -100 ]
+            sources = [ i for i in sources if i.model.getp(0,internal=True) != -100 ]
 
             ROISlice.cache_roi(self.roi)
 
@@ -1077,7 +1077,7 @@ class ROISignificance(object):
         self.pyfits[0].data = self.significance
 
     @staticmethod
-    def plot_sources(roi, ax, header, label_sources):
+    def plot_sources(roi, ax, header, label_sources, color='black'):
         """ Add to the pywcsgrid2 axes ax any sources in the ROI which
             have a center. Also, overlay the extended source shapes
             if there are any. Note, this function requires pyregion. 
@@ -1088,7 +1088,7 @@ class ROISignificance(object):
         """
 
         import pyregion
-        region_string = region_writer.get_region(roi,color='black',label_sources=label_sources, show_localization=False)
+        region_string = region_writer.get_region(roi,color=color,label_sources=label_sources, show_localization=False)
         reg = pyregion.parse(region_string).as_imagecoord(header)
         patch_list, artist_list = reg.get_mpl_patches_texts()
 
@@ -1215,13 +1215,12 @@ class ROISmoothedSource(object):
         import pywcsgrid2
         from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
         from mpl_toolkits.axes_grid1.axes_grid import ImageGrid
+        from mpl_toolkits.axes_grid1.axes_grid import AxesGrid
 
         self.fig = P.figure(self.fignum,self.figsize)
         P.clf()
 
         h, d = self.residual_pyfits[0].header, self.residual_pyfits[0].data
-
-        from mpl_toolkits.axes_grid1.axes_grid import AxesGrid
 
         grid = ImageGrid(self.fig, (1, 1, 1), nrows_ncols = (1, 1),
                          cbar_mode="single", cbar_pad="2%",
