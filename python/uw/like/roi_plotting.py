@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.37 2011/04/22 18:11:12 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.38 2011/04/24 03:04:18 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -450,10 +450,9 @@ class ROIDisplay(object):
         ROIDisplay.matplotlib_format()
 
         try:
-            self.cmap_sls = colormaps.sls
             self.cmap_b   = colormaps.b
         except:
-            self.cmap_sls = self.cmap_b = mpl.cm.jet
+            self.cmap_b = mpl.cm.jet
 
         interactive=P.isinteractive(); P.ioff()
         fig = P.figure(self.fignum,self.figsize)
