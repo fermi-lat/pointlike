@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Apr 24 00:00:53 PDT 2011
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	region_writer.py 
+Log Message:
+Fix default values
+    *
+------------------------------------------------------------
 User: lande  Sat Apr 23 22:30:53 PDT 2011
 ScienceTools-scons/pointlike/python/uw/utilities
 
