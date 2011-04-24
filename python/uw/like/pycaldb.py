@@ -1,5 +1,5 @@
 """  A module to handle finding irfs
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pycaldb.py,v 1.5 2011/02/22 00:29:11 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pycaldb.py,v 1.6 2011/04/22 18:10:24 lande Exp $
 
     author: Joshua Lande """
 import os
@@ -108,6 +108,8 @@ class CALDBManager(object):
             
         # try the cusom_irf_dir
         if self.custom_irf_dir is not None:
+            if not os.path.exists(self.custom_irf_dir):
+                raise Exception("custom_irf_dir does not exist.")
             self.psf_files = [join(self.custom_irf_dir,'psf_%s_%s.fits' % (irf,i)) for i in ['front','back']]
 
             if os.path.exists(self.psf_files[0]) and os.path.exists(self.psf_files[0]):
