@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.39 2011/04/24 03:04:55 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.40 2011/04/24 03:20:19 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1076,7 +1076,7 @@ class ROISignificance(object):
         self.pyfits[0].data = self.significance
 
     @staticmethod
-    def plot_sources(roi, ax, header, label_sources, color='black'):
+    def plot_sources(roi, ax, header, color='black', white_marker=True, marker_scale=4, **kwargs):
         """ Add to the pywcsgrid2 axes ax any sources in the ROI which
             have a center. Also, overlay the extended source shapes
             if there are any. Note, this function requires pyregion. 
@@ -1087,7 +1087,7 @@ class ROISignificance(object):
         """
 
         import pyregion
-        region_string = region_writer.get_region(roi,color=color,label_sources=label_sources, show_localization=False)
+        region_string = region_writer.get_region(roi, color=color, show_localization=False, **kwargs)
         reg = pyregion.parse(region_string).as_imagecoord(header)
         patch_list, artist_list = reg.get_mpl_patches_texts()
 
@@ -1095,8 +1095,19 @@ class ROISignificance(object):
         
         for t in artist_list: 
             # make the markers bigger
-            if hasattr(t,'set_markersize'): t.set_markersize(4*t.get_markersize())
+            if hasattr(t,'set_markersize'): t.set_markersize(marker_scale*t.get_markersize())
+
             ax.add_artist(t)
+
+        if white_marker:
+            region_string = region_writer.get_region(roi, color='white', label_sources=False, show_localization=False, show_extension=False)
+            reg = pyregion.parse(region_string).as_imagecoord(header)
+            patch_list, artist_list = reg.get_mpl_patches_texts()
+            for t in artist_list: 
+                t.set_markersize(marker_scale*t.get_markersize())
+                t.set_marker('x')
+                ax.add_artist(t)
+
 
     def show(self,to_screen=True,out_file=None):
 
@@ -1123,7 +1134,7 @@ class ROISignificance(object):
         
         ax.grid()
 
-        ROISignificance.plot_sources(self.roi,ax,h,self.label_sources)
+        ROISignificance.plot_sources(self.roi,ax,h,label_sources=self.label_sources)
 
         if out_file is not None: P.savefig(out_file)
         if to_screen: P.show()
@@ -1253,7 +1264,7 @@ class ROISmoothedSource(object):
 
             axins.add_inner_title("PSF", loc=3)
 
-        ROISignificance.plot_sources(self.roi,ax,h,self.label_sources)
+        ROISignificance.plot_sources(self.roi,ax,h,label_sources=self.label_sources)
 
         if out_file is not None: P.savefig(out_file)
         if to_screen: P.show()
