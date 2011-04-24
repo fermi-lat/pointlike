@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sat Apr 23 22:12:05 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_image.py 
+Log Message:
+Add ROITSMapImage object
+    *
+------------------------------------------------------------
 User: lande  Sat Apr 23 20:20:19 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
