@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Apr 25 11:32:17 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_modify.py 
+Log Message:
+Bugfix for modifying radially symmetric to non-radially symmetric source (and vice verca)
+    *
+------------------------------------------------------------
 User: lande  Mon Apr 25 11:31:39 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
