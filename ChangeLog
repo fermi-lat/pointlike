@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Apr 25 11:32:43 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Better axes numbers for ROISmoothedSource
+    *
+------------------------------------------------------------
 User: lande  Mon Apr 25 11:32:17 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
