@@ -10,7 +10,7 @@ import numpy as N
 from . Models import Model
 from . SpatialModels import SpatialModel
 from . roi_extended import ExtendedSource
-from . pointspec_helpers import PointSource
+from . pointspec_helpers import PointSource,get_default_diffuse_mapper
 from . import roi_localize
 
 from skymaps import SkyDir
@@ -61,6 +61,11 @@ def modify_spatial_model(roi,which,spatial_model,preserve_center=False):
                 raise Exception("Can only modify the spatial model of point and extended sources.")
 
             roi.dsm.diffuse_sources[index].spatial_model=spatial_model
+
+            diffuse_mapper = get_default_diffuse_mapper(roi.sa,roi.roi_dir)
+            bgmodel = diffuse_mapper(roi.dsm.diffuse_sources[index])
+
+            roi.dsm.bgmodels[index]=bgmodel
             roi.dsm.bgmodels[index].initialize_counts(roi.bands)
             roi.dsm.update_counts(roi.bands)
     else:
