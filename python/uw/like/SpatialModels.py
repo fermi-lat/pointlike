@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.38 2011/04/18 01:17:51 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.39 2011/04/20 00:35:46 lande Exp $
 
    author: Joshua Lande
 
@@ -181,6 +181,9 @@ class SpatialModel(object):
                     self.p = N.append([center.ra(),center.dec()],self.p)
                 elif self.coordsystem == SkyDir.GALACTIC:
                     self.p = N.append([center.l(),center.b()],self.p)
+            else:
+                if len(self.p) == len(self.param_names)-2:
+                    self.p = N.append([0,0],self.p)
 
             if len(self.p) != len(self.param_names):
                 raise Exception("SpatialModel set with wrong number of parameters.")
