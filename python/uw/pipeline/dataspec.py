@@ -1,7 +1,7 @@
 """
 Manage data specification
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/dataspec.py,v 1.6 2011/03/02 22:15:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/dataspec.py,v 1.7 2011/04/16 14:14:14 burnett Exp $
 
 """
 import os, glob
@@ -94,7 +94,7 @@ class DataSpec(object):
             spec
         """
         # basic data files: will expand here
-        data = self.datasets[lookup_key]
+        data = self.datasets[lookup_key].copy()
         for key in 'ft1files ft2files binfile ltcube'.split():
             if key in data:
                 data[key]=os.path.expandvars(data[key])
