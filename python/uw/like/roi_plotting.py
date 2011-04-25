@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.40 2011/04/24 03:20:19 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.41 2011/04/24 05:30:06 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1240,6 +1240,8 @@ class ROISmoothedSource(object):
         self.ax = ax = grid[0]
 
         im=ax.imshow(d, origin="lower", cmap=self.cmap)
+
+        ax.set_ticklabel_type("absdeg")
 
         cb_axes = grid.cbar_axes[0] # colorbar axes
 
