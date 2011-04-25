@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: wallacee  Mon Apr 25 14:31:39 PDT 2011
+ScienceTools-scons/pointlike/python/uw/pipeline
+
+Modified Files:
+	dataspec.py 
+Log Message:
+Use a copy of the appropriate dict in the DataSpec.__init__ method so that
+calling it with a non-None 'month' argument doesn't overwrite DataSpec.datasets
+in an interactive session.
+
+    *
+------------------------------------------------------------
 User: lande  Mon Apr 25 11:32:43 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
