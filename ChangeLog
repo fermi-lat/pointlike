@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Apr 26 08:58:16 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+implement proper record keeping when a pickle file is updated
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr 26 08:56:12 PDT 2011
 pointlike/python/uw/pipeline
 
