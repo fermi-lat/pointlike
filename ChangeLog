@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Apr 26 08:56:12 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	sources.py 
+Log Message:
+for check, do not modify parameters if norm is small
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr 26 08:55:21 PDT 2011
 pointlike/python/uw/pipeline
 
