@@ -1,9 +1,10 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.26 2011/04/18 17:06:39 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.27 2011/04/21 17:41:45 burnett Exp $
 
 """
-import os, pickle, glob, types, cPickle
+import os, pickle, glob, types
+import cPickle as pickle
 import numpy as np
 from skymaps import SkyDir, Band
 from uw.utilities import keyword_options, makerec
@@ -155,7 +156,7 @@ class SkyModel(object):
         self.changed=set() # to keep track of extended models that are different from catalog
         moved=0
         for i,file in enumerate(files):
-            p = cPickle.load(open(file))
+            p = pickle.load(open(file))
             index = int(os.path.splitext(file)[0][-4:])
             assert i==index, 'logic error: file name %s inconsistent with expected index %d' % (file, i)
             roi_sources = p['sources']
@@ -209,7 +210,7 @@ class SkyModel(object):
                         self.changed.add(name)
                     else:
                         es.model=model #update with fit values
-                    if sources.validate(es,self.nside, lambda x: True): 
+                    if sources.validate(es,self.nside, self.filter): #lambda x: True): 
                         self.extended_sources.append(es)
             self.global_sources.append(t)
         # check for new extended sources not yet in model
@@ -327,7 +328,7 @@ class SkyModel(object):
         recfiles = map(lambda name: os.path.join(self.folder, '%s.rec'%name) , ('rois','sources'))
         if reload or not os.path.exists(recfiles[0]):
             catrec.create_catalog(self.folder, save_local=True, ts_min=5)
-        self.rois,self.sources = map( lambda f: cPickle.load(open(f)), recfiles)
+        self.rois,self.sources = map( lambda f: pickle.load(open(f)), recfiles)
         print 'loaded %d rois, %d sources' % (len(self.rois), len(self.sources))
 
     def roi_rec(self, reload=False):
@@ -461,7 +462,7 @@ class UpdatePulsarModel(object):
         self.tol=tol
         self.ts_min=ts_min
         if infile is None:
-            infile = os.path.expandvars(os.path.join('$FERMI','catalog','srcid', 'cat','obj-pulsar-lat_v450.fits')) 
+            infile = os.path.expandvars(os.path.join('$FERMI','catalog','srcid', 'cat','obj-pulsar-lat_v456.fits')) 
         self.data = pyfits.open(infile)[1].data
         self.sdir = map(lambda x,y: SkyDir(float(x),float(y)), self.data.field('RAJ2000'), self.data.field('DEJ2000'))
         self.names = self.data.field('Source_Name')
