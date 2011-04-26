@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Apr 26 08:52:15 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	maps.py 
+Log Message:
+fix up count maps a bit
+    *
+------------------------------------------------------------
 User: wallacee  Mon Apr 25 14:31:39 PDT 2011
 ScienceTools-scons/pointlike/python/uw/pipeline
 
