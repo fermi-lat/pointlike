@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.10 2011/04/18 17:06:38 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.11 2011/04/21 17:40:57 burnett Exp $
 """
 import os, types, glob, time
 import cPickle as pickle
@@ -25,7 +25,7 @@ class Pipe(skyanalysis.SkyAnalysis):
         indir : string
             name of a folder containing the sky model description, passed to 
                skymodel.SkyModel
-        dataset : instance of a DataSpec object
+        dataset : instance of a DataSpec object or a string used to lookup
                
         """
         self.nside      = kwargs.pop('nside', 12)
@@ -62,8 +62,8 @@ class Setup(dict):
     def __init__(self, version=None,  **kwargs):
         """ generate setup string"""
         if version is None: version = int(open('version.txt').read())
-        indir='uw%02d'%(version) 
-        outdir=self.outdir='uw%02d'%(version+1)
+        indir=kwargs.pop('indir', 'uw%02d'%(version)) 
+        self.outdir=outdir=kwargs.pop('outdir', 'uw%02d'%(version+1))
         self.version=version
         if os.name=='nt':
             os.system('title %s %s'% (os.getcwd(), indir))
@@ -72,7 +72,8 @@ class Setup(dict):
                 auxcat='',
                 nside = 12,
                 outdir=outdir,
-                dataset = 'P7_V4_SOURCE', 
+                pass_number=0,
+                dataset = 'P7_V4_SOURCE',
                 diffuse = ('ring_24month_P76_v1.fits', 'isotrop_21month_P76_v2.txt'),
                 extended= None,
                 alias= {}, 
@@ -86,7 +87,7 @@ class Setup(dict):
                 fit_emax=800000,
                 fix_beta=False, dofit=True,
                 source_kw=dict(),
-                fit_kw=dict(use_gradient=False,),
+                #fit_kw=dict(use_gradient=False,),
                 repivot = True,
                 update_positions=None,
                 free_index=None,
@@ -106,7 +107,7 @@ class Setup(dict):
         self.setup_string =  """\
 import os, pickle; os.chdir(r"%(cwd)s");%(setup_cmds)s
 from uw.pipeline import pipe, maps, skymodel;
-g=pipe.Pipe("%(indir)s", "%(dataset)s", event_class=0, 
+g=pipe.Pipe("%(indir)s", "%(dataset)s",  event_class=0, 
         skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,
             extended_catalog_name="%(extended)s", update_positions=%(update_positions)s,
             free_index=%(free_index)s,
@@ -114,7 +115,7 @@ g=pipe.Pipe("%(indir)s", "%(dataset)s", event_class=0,
         irf="%(irf)s", nside=%(nside)s,
         fit_emin=%(fit_emin)s, fit_emax=%(fit_emax)s, minROI=%(minROI)s, maxROI=%(maxROI)s,
         associate="%(associator)s",
-        process_kw=dict(outdir="%(outdir)s",
+        process_kw=dict(outdir="%(outdir)s", pass_number=%(pass_number)s,
             tsmap_dir=%(tsmap)s,  sedfig_dir=%(sedfig)s,
             localize=%(localize)s,
             fix_beta= %(fix_beta)s, dofit=%(dofit)s,
@@ -124,7 +125,7 @@ g=pipe.Pipe("%(indir)s", "%(dataset)s", event_class=0,
         fit_kw = %(fit_kw)s,
     ) 
 """ %self
-        print 'new version: %d, output to %s ' % (version+1, self.outdir)
+        print 'Pipeline input, output: %s -> %s ' % (indir, outdir)
     def __call__(self): return self.setup_string
     
     def g(self):
