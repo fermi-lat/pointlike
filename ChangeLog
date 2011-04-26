@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Apr 26 11:00:55 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	pipe.py 
+Log Message:
+need default fit_kw
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr 26 09:14:40 PDT 2011
 pointlike/python/uw/pipeline
 
