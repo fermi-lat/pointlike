@@ -1,8 +1,8 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/processor.py,v 1.13 2011/04/16 14:14:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.14 2011/04/18 17:06:38 wallacee Exp $
 """
-import os
+import os, time
 import cPickle as pickle
 import numpy as np
 import pylab as plt
@@ -72,7 +72,7 @@ def source_band_info(roi, which):
         signal_counts= roi.signal_counts(which),
         )
 
-def pickle_dump(roi, fit_sources, pickle_dir, pass_number, **kwargs):
+def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwargs):
     """ dump the source information from an ROI constructed from the sources here
     """
     
@@ -82,11 +82,17 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, **kwargs):
     if os.path.exists(filename):
         # if the file exists
         output=pickle.load(open(filename))
-        curp = output.get('passes',[])
+        curp = output.get('passes',None)
         if curp is None: curp = []
-        output['passes']=curp.append(pass_number)
-        output['prev_logl'] = output['logl']
-        print 'updating pickle file with pass %d' %pass_number
+        curp.append(pass_number)
+        output['passes']=curp
+        # update history of previous runs
+        last_logl = output.get('logl')
+        prev_logl = output.get('prev_logl', [])
+        if prev_logl is None: prev_logl = []
+        prev_logl.append(last_logl)
+        output['prev_logl'] = prev_logl
+        print 'updating pickle file with pass %d' %(pass_number) 
     else:
         output = dict()
         output['passes']=[pass_number]
@@ -94,8 +100,16 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, **kwargs):
     output['skydir']  = roi.roi_dir
     output['diffuse'] = roi.dsm.models
     output['diffuse_names'] = roi.dsm.names
-    output['logl'] = roi.logl
+    output['logl'] = roi.logl if not failed else 0
     output['parameters'] = roi.get_parameters() 
+    output['time'] = time.asctime()
+
+    if failed:
+        f = open(filename,'wb') #perhaps overwrite
+        pickle.dump(output,f)
+        f.close()
+        print 'saved (failed) pickle file to %s' % filename
+
     
     sources=dict()
     output['sources']= sources
@@ -107,6 +121,9 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, **kwargs):
         if pivot_energy is None: pivot_energy=s.model.e0 # could be a pulsar?
         
         roi.setup_energy_bands() 
+        if 'sedrec' not in s.__dict__:
+            print 'warning: no sedrec in %s' %s.name
+            s.sedrec = None
         sedrec = s.sedrec
         band_info = source_band_info(roi, s.name)
         sources[s.name]=dict(skydir=s.skydir, 
@@ -124,6 +141,7 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, **kwargs):
     f = open(filename,'wb') #perhaps overwrite
     pickle.dump(output,f)
     f.close()
+    print 'saved pickle file to %s' % filename
     
 
 def fname(name):
@@ -340,6 +358,7 @@ def process(roi, **kwargs):
                     print 'No damping requested, or no difference in log Likelihood'
             except Exception, msg:
                 print '============== fit failed, aborting!! %s'%msg
+                pickle_dump(roi, fit_sources, os.path.join(outdir, 'pickle'), pass_number, failed=True)
                 return False
         else:
             print 'Refit not requested'
