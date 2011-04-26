@@ -1,6 +1,6 @@
 """
 Basic ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.20 2011/04/05 21:42:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.21 2011/04/16 14:14:14 burnett Exp $
 """
 import os, pickle, glob, types
 import numpy as np
@@ -29,8 +29,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         maxROI       = 5,
         radius       =10, 
         irf          = 'P6_v11_diff',
-        fit_kw = dict(fit_bg_first = False,
-            use_gradient = True, ),
+        #fit_kw = dict(fit_bg_first = False, use_gradient = True, ),
         log          = None,
         convolve_kw = dict( resolution=0.125, # applied to OTF convolutoin
                         pixelsize=0.05, # ExtendedSourceConvolution
@@ -302,4 +301,4 @@ class PipelineROI(roi_analysis.ROIAnalysis):
                 n = ul*eband.flux/eband.uflux
                 r.append( [n,ul-n, n-ul*eband.lflux/eband.uflux] )
         return np.array(r, np.float32)
-
+    
