@@ -1,6 +1,6 @@
 """
 Code to generate a set of maps for each ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/maps.py,v 1.5 2011/03/03 21:17:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/maps.py,v 1.6 2011/04/21 17:39:41 burnett Exp $
 
 """
 import os, glob, pickle, types
@@ -16,7 +16,7 @@ def ExpCutoff(*pars):  return Models.ExpCutoff(p=pars)
 class CountsMap(dict):
     """ A map with counts per HEALPix bin """
     
-    def __init__(self, roi, emin=1000, nside=512):
+    def __init__(self, roi, emin=1000., nside=512):
         """ roi : a region of interest object
             emin : float
                 minimum energy for constructing the counts map
@@ -28,18 +28,15 @@ class CountsMap(dict):
         self.emin=emin
         self._get_photons(roi, emin)
         
-    def _add_photon(self, wsd):
-        index = self.indexfun(wsd)
-        if index in self: self[index]+=1
-        else: self[index]=1
     def _get_photons(self, roi, emin):
         for band in roi.bands:
             e = band.e
             if e<emin: continue
             t = band.b.event_class() & 3 # note: mask off high bits!
             for wsd in band.wsdl:
-                for i in range(wsd.weight()):
-                    self._add_photon(wsd)
+                index, wt = self.indexfun(wsd), int(wsd.weight())
+                if index in self: self[index]+=wt
+                else: self[index] = wt
     def __call__(self,v):
         return self.get(self.indexfun(v), 0)
     
@@ -134,3 +131,14 @@ class ROItables(object):
             skyfun = fun[0] if type(fun[0])!=types.StringType else eval(fun[0])
             self.process_table(skyfun(roi, **fun[2]), fun[1], pos_list, 
                 os.path.join(self.subdirs[i], roi.name+'.pickle'))
+
+def countmaps(g, outdir=None):
+    """ generate all the roi tables for CountsMap """
+    if outdir is None: outdir = g.process_kw['outdir']
+    if not os.path.exists(outdir): os.mkdir(outdir)
+    table = ROItables(outdir, skyfuns= [["CountsMap", "counts", dict()]])
+    quiet, g.quiet = g.quiet, True
+    for index in range(0,1728):
+        r = g.roi(index, roi_kw=dict(skip_setup=True)) 
+        table(r)
+    g.quiet=quiet    
