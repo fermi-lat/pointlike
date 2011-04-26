@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Apr 26 09:14:40 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	dataspec.py 
+Log Message:
+if key name ends with [n], translate to a 'month'
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr 26 09:06:24 PDT 2011
 pointlike/python/uw/pipeline
 
