@@ -1,7 +1,7 @@
 """
 Manage data specification
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/dataspec.py,v 1.7 2011/04/16 14:14:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/dataspec.py,v 1.8 2011/04/25 21:31:39 wallacee Exp $
 
 """
 import os, glob
@@ -86,23 +86,36 @@ class DataSpec(object):
             binfile    = '$FERMI/data/P7_V4_SOURCE/11M7_4bpd.fits',
             ltcube     = '$FERMI/data/P7_V4_SOURCE/11M7_lt.fits',
             ),
+        'skymodel_ISO_GAL_p7_2Y':  dict(data_name = 'Nicola simulation of 2 years, diffuse only',
+            event_class=-1,
+            ft1files    = ['/phys/groups/tev/scratch1/users/Fermi/data/diffuse_simulation/merged_files_ft1.fits'], #glob.glob(data_join('18M', 'obssim_v9r16p1-*_ft1.fits')),
+            ft2files    = [], #data_join('diffuse_simulation', 'ft2_18months.fits')],
+            binfile    = data_join('diffuse_simulation','2years_4bpd.fits'),
+            ltcube     = data_join('monthly','2years_lt.fits'),
+            ),
         }
 
     def __init__(self, lookup_key, month=None):
         """
         lookup_key: string
-            spec
+            specify a key
         """
         # basic data files: will expand here
-        data = self.datasets[lookup_key].copy()
+        t= lookup_key.split('[') #check for format 'name [n]' where n is a division
+        if len(t)>1:
+            lookup_key = t[0]
+            month = int(t[1][:-1])
+        data = self.datasets[lookup_key].copy() # copy so changes not kept for subsequent calls
         for key in 'ft1files ft2files binfile ltcube'.split():
             if key in data:
                 data[key]=os.path.expandvars(data[key])
                 # need a check, but will fail if need to glob
                 #assert os.path.exists(data[key]), 'DataSpec: file %s not found' % data[key]
         if month is not None:
+            assert 'monthly_bpd' in data, 'data spec %s does not have subdivisions' %lookup_key
             data['binfile'] = sorted(glob.glob(os.path.expandvars(data['monthly_bpd'])))[month]
             data['ltcube'] = sorted(glob.glob(os.path.expandvars(data['monthly_lt'])))[month]
+            data['data_name'] += ' [%d]'%month
 
         self.__dict__.update(data)
 
