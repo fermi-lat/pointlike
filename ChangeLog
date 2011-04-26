@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Apr 26 08:54:09 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skymodel.py 
+Log Message:
+apply filter to extended sources
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr 26 08:52:15 PDT 2011
 pointlike/python/uw/pipeline
 
