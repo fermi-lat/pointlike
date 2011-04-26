@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.11 2011/04/21 17:40:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.12 2011/04/26 16:06:24 burnett Exp $
 """
 import os, types, glob, time
 import cPickle as pickle
@@ -87,7 +87,7 @@ class Setup(dict):
                 fit_emax=800000,
                 fix_beta=False, dofit=True,
                 source_kw=dict(),
-                #fit_kw=dict(use_gradient=False,),
+                fit_kw=dict(),
                 repivot = True,
                 update_positions=None,
                 free_index=None,
