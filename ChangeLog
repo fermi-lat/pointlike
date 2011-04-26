@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Apr 26 08:55:21 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skyanalysis.py 
+Log Message:
+remove default fit_kw: require it be specified
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr 26 08:54:09 PDT 2011
 pointlike/python/uw/pipeline
 
