@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.10 2011/04/01 22:08:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.11 2011/04/14 17:00:35 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -178,15 +178,16 @@ def validate( ps, nside, filter):
     hpindex = lambda x: Band(nside).index(x)
     if model.name=='LogParabola':
         norm, alpha, beta, eb = model.get_all_parameters() #10**model.p
+        if norm<1e-18: model[0]=1e-18 #quietly prevent too small
         if beta<0.01: # linear
-            check = norm>1e-18 and norm< 1e-4 and alpha>0.25 and alpha<5 
+            check =  norm< 1e-4 and alpha>0.25 and alpha<5 
             if check: return True
             print 'SkyModel warning for %-20s(%d): out of range, norm,alpha=%.2e %.2f' %(ps.name, hpindex(ps.skydir),norm,alpha)
             model.set_all_parameters( [-15, 0.4, -3, 3], internal=True)
             ps.free[1:] = False
             model.cov_matrix[:] = 0 
         else: #log parabola
-            check = norm>1e-18 and alpha>1e-4 and alpha<6 and beta<10
+            check =  alpha>1e-4 and alpha<6 and beta<10
             if check: return True
             print 'SkyModel warning for %-20s(%d): out of range, norm,alpha=%.2e %.2f' %(ps.name, hpindex(ps.skydir),norm,alpha)
             model.set_all_parameters(  [-15, 0.4, -3, 3], internal=True)
@@ -196,7 +197,8 @@ def validate( ps, nside, filter):
     elif model.name=='ExpCutoff':
         norm, gamma, ec = model.get_all_parameters() #10**model.p
         if np.any(np.diag(model.cov_matrix)<0): model.cov_matrix[:]=0 
-        check = norm>1e-18 and gamma>1e-10 and gamma<5 and ec>100
+        if norm<1e-18: model[0]=1e-18 #quietly prevent too small
+        check =  gamma>1e-10 and gamma<5 and ec>100
         if check: return True
         print 'SkyModel warning for %-20s(%d): out of range, ressetting from %s' %(ps.name, hpindex(ps.skydir),model.get_all_parameters())
         model[:] = [1e-15, 1.0, 500.]
