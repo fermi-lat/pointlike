@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.52 2011/04/21 18:55:39 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.53 2011/04/24 02:42:33 lande Exp $
 
     author: Joshua Lande
 """
@@ -14,6 +14,7 @@ from textwrap import dedent
 from skymaps import SkyDir,Background
 from scipy.optimize import fmin 
 import numpy as N
+import numbers
 from uw.like.Models import PowerLaw
 from uw.utilities import keyword_options
 from uw.like.pypsf import PsfOverlap
@@ -351,7 +352,7 @@ Arguments:
             transformed = []
             for _ in init_grid:
                 # convert into log space.
-                sm.set_parameters(_,absolute=True)
+                sm.set_parameters([0,0,_] if isinstance(_,numbers.Real) else _,absolute=True)
                 param=sm.get_parameters(absolute=False)
                 param[0] += init_lon # rotate longitude to fit area
                 # easy way to turn parameters into their non-absolute value.
