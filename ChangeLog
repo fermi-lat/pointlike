@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Apr 27 08:24:13 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Bugfix for init_grid parameter
+    *
+------------------------------------------------------------
 User: burnett  Tue Apr 26 11:00:55 PDT 2011
 pointlike/python/uw/pipeline
 
