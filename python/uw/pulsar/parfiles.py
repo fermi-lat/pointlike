@@ -18,15 +18,16 @@ class ParFile(dict):
             self[tok[0]] = tok[1:] if (len(tok[1:]) > 1) else tok[1:][0]
     
     def get(self,key,first_elem=True,type=str):
+        if type==float:
+            type = lambda x: float(x.replace('D','E'))
         t = self[key]
-        if first_elem and hasattr(t,'__iter__'):
-            return type(t[0]) if first_elem else [type(x) for x in t] 
+        if hasattr(t,'__iter__'):
+            if first_elem: return type(t[0])
+            return [type(x) for x in t]
         return type(t)
 
     def get_ra(self): return ra2dec(self.get('RAJ'))
-    
     def get_dec(self): return decl2dec(self.get('DECJ'))
-
     def get_skydir(self):
         from skymaps import SkyDir
         ra = ra2dec(self.get('RAJ'))
@@ -34,27 +35,27 @@ class ParFile(dict):
         return SkyDir(ra,dec)
 
     def p(self,error=False):
-        f0 = self.get('F0',first_elem=not error)
+        f0 = self.get('F0',first_elem=not error,type=float)
         if error and hasattr(f0,'__iter__'):
-            f0,err = float(f0[0]),float(f0[-1])
+            f0,err = f0[0],f0[-1]
             return 1./f0,err/f0**2
-        return 1./float(f0)
+        return 1./f0
  
     def pdot(self,error=False):
-        f0 = self.get('F0',first_elem=not error)
-        f1 = self.get('F1',first_elem=not error)
+        f0 = self.get('F0',first_elem=not error,type=float)
+        f1 = self.get('F1',first_elem=not error,type=float)
         if error and hasattr(f0,'__iter__'):
-            f0,f0_err = float(f0[0]),float(f0[-1])
-            f1,f1_err = float(f1[0]),float(f1[-1])
+            f0,f0_err = f0[0],f0[-1]
+            f1,f1_err = f1[0],f1[-1]
             pdot = -f1/f0**2
             pdot_err = 1./f0**2*(f1_err**2+4*pdot*f0_err**2)**0.5
             return pdot,pdot_err
-        return -float(f1)/float(f0)**2
+        return -f1/f0**2
 
     def edot(self,mom=1e45):
         om = self.get('F0',type=float)*(np.pi*2)
         omdot = self.get('F1',type=float)*(np.pi*2)
-        return -mom*om*omdot
+        return -mom*om*omdot # say this without laughing
 
     def has_waves(self):
         return np.any(['WAVE' in key for key in self.keys()])
@@ -77,6 +78,16 @@ class ParFile(dict):
         met_0 = (t0 - mjd_0) * 86400
         met_1 = (t1 - mjd_0) * 86400
         return max(met_0,0), max(met_1,0)
+
+    def get_binary_dict(self):
+        try:
+            binary_dict = {}
+            keys = ['A1','PB','T0','OM'] + ['E' if 'E' in self.keys() else 'ECC']
+            for key in keys:
+                binary_dict[key] = self.get(key,first_elem=True,type=float)
+            binary_dict['PB'] *= 86400
+            return binary_dict
+        except: return None
 
 class TimFile(object):
 
