@@ -120,7 +120,7 @@ class LCLikelihood(object):
         edict['CONVERSION_TYPE'] = edict['CONVERSION_TYPE'].astype(int)
 
         self.edict  = edict # save values for now for debugging; don't need in likelihood algorithm
-        self.signals,self.backs = calc_ratios(roi,edict,which=self.sn)
+        self.signals,self.backs = calc_ratios(roi,edict,which=self.which)
         self.weights = self.signals / (self.signals + self.backs)
         self.phases = edict[self.phase_col_name] if self.period is None else np.mod((edict['TIME']-edict['TIME'].min())/self.period,1)
         self.times  = edict['TIME']
