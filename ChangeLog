@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Apr 28 10:09:08 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+bugfix for min_ts flag
+    *
+------------------------------------------------------------
 User: kerrm  Wed Apr 27 11:32:03 PDT 2011
 pointlike/python/uw/pulsar
 
