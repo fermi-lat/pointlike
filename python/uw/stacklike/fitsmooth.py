@@ -5,6 +5,7 @@ import numpy as np
 import scipy.optimize as so
 import glob as glob
 import uw.like.pypsf as up
+from uw.like.pycaldb import CALDBManager
 import uw.stacklike.angularmodels as ua
 import pyfits as pf
 import pylab as py
@@ -448,7 +449,7 @@ def getirfparams(irf='P6_v8_diff',out='P6_v10_diff'):
 
 def makeplots(irfs=['P6_v11_diff'],fact=1.,num=32.,cts=[34,68,95]):
     
-    nms = [str(x)+y for x in cts for y in irfs]
+    nms = [str(x)+'% '+y for x in cts for y in irfs]
     clr = ['b','g','r']
     sty = ['-','--','-.',':']
 
@@ -456,29 +457,31 @@ def makeplots(irfs=['P6_v11_diff'],fact=1.,num=32.,cts=[34,68,95]):
     energy=10**energy
     py.ioff()
     py.hold(True)
-    py.figure(figsize=(10.5,4.5))
+    py.figure(figsize=(10.5,4.75))
     py.subplot(1,2,1)
     py.loglog()
+    #print energy
     ps = []
     for it1,ct in enumerate(cts):
         for it2,irf in enumerate(irfs):
-            psf = up.CALDBPsf(irf=irf)
-            rct = [np.sqrt(psf.inverse_integral(x/fact,0,ct)*np.sqrt(psf.inverse_integral(x*fact,0,ct))) for x in energy]
+            psf = up.CALDBPsf(CALDBManager(irf=irf))
+            rct = [np.sqrt(psf.inverse_integral(x/fact,0,ct))*np.sqrt(psf.inverse_integral(x*fact,0,ct)) for x in energy]
             p1 = py.plot(energy,rct,clr[it1]+sty[it2])
+            #print rct
             ps.append(p1)
     py.grid()
     py.ylim(1e-2,1e2)
     prop = matplotlib.font_manager.FontProperties(size=9) 
     py.legend(ps,nms,bbox_to_anchor=(1.0, 1.0),prop=prop)
-    py.xlabel('Energy (MeV)')
-    py.ylabel('PSF containment(deg)')
+    py.xlabel('Energy (MeV)',fontsize=9)
+    py.ylabel('PSF containment(deg)',fontsize=9)
     py.title('Front')
     py.subplot(1,2,2)
     py.loglog()
     ps = []
     for it1,ct in enumerate(cts):
         for it2,irf in enumerate(irfs):
-            psf = up.CALDBPsf(irf=irf)
+            psf = up.CALDBPsf(CALDBManager(irf=irf))
             rct = [np.sqrt(psf.inverse_integral(x/fact,1,ct)*np.sqrt(psf.inverse_integral(x*fact,1,ct))) for x in energy]
             p1 = py.plot(energy,rct,clr[it1]+sty[it2])
             ps.append(p1)
@@ -486,11 +489,16 @@ def makeplots(irfs=['P6_v11_diff'],fact=1.,num=32.,cts=[34,68,95]):
     py.ylim(1e-2,1e2)
     prop = matplotlib.font_manager.FontProperties(size=9) 
     py.legend(ps,nms,bbox_to_anchor=(1.0, 1.0),prop=prop)
-    py.xlabel('Energy (MeV)')
-    py.ylabel('PSF containment(deg)')
+    py.xlabel('Energy (MeV)',fontsize=9)
+    py.ylabel('PSF containment(deg)',fontsize=9)
     py.title('Back')
     title = ''
+    it = 0
     for irf in irfs:
-        title=title+irf+'_'
-    py.suptitle(title)
-    py.savefig(title.strip('_')+'%1.4f.png'%fact)
+        title=title+irf
+        if it<(len(irfs)-1):
+            title = title+'__'
+        it = it +1
+    title2=(title.replace('__',', ')).replace('_',' ')
+    py.suptitle(title2)
+    py.savefig(title.strip('_')+'.eps')

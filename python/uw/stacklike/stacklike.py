@@ -322,7 +322,7 @@ class StackLoader(object):
                 self.ebar = self.ebar/len(self.photons)  #calculate mean energy of photons
             else:
                 print 'No Photons!'
-                raise 'No Photons!'
+                #raise 'No Photons!'
 
     ## Bins all of the angular separations together in separation
     def bindata(self):
@@ -1435,9 +1435,9 @@ class StackLoader(object):
 ##   runs on a small set of flight data and uses Crab, Geminga, and Vela as sources
 ##   if everything is ok, should return 0
 def test():
-    plr = os.environ['POINTLIKEROOT']
-    fdir = plr+'/python/uw/stacklike/boresighttest/'
-    al = StackLoader(lis='cgv',files=['test'],datadir=fdir,ft2dir=fdir,srcdir=fdir,quiet=False,irf='P6_v11_diff')
+    plr = ''#os.environ['POINTLIKEROOT']
+    fdir = plr+'/phys/users/mar0/pointlikedev/uw/stacklike/boresighttest/'
+    al = StackLoader(lis='cgv',files=['test'],datadir=fdir,ft2dir=fdir,srcdir=fdir,quiet=False,irf='P6_v8_diff')
     al.loadphotons(0,4,1000,2e4,0,999999999,0)
     al.solverot()
     al.makeplot('aligntest')
@@ -1460,8 +1460,8 @@ def test():
 ##   runs on a small set of flight data and uses Crab, Geminga, and Vela as sources
 ##   if everything is ok, should return 0
 def test2(bins=25.):
-    plr = os.environ['POINTLIKEROOT']
-    fdir = plr+'/python/uw/stacklike/boresighttest/'
+    plr = ''#os.environ['POINTLIKEROOT']
+    fdir = plr+'/phys/users/mar0/pointlikedev/uw/stacklike/boresighttest/'
     os.system('cd %s'%fdir)
     al = StackLoader(lis='cgv',files=['test'],datadir=fdir,ft2dir=fdir,srcdir=fdir,quiet=False,useft2s=False)
     al.loadphotons(0,10,1000,1770,0,999999999,0)
