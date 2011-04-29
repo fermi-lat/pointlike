@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: mar0  Fri Apr 29 12:28:46 PDT 2011
+pointlike/python/uw/stacklike
+
+Modified Files:
+	angularmodels.py binned.py fitsmooth.py stacklike.py 
+Added Files:
+	limits.py 
+Log Message:
+added code to calculate the upper limits in the case of no halo detection for binned analysis
+    *
+------------------------------------------------------------
 User: lande  Thu Apr 28 10:09:08 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
