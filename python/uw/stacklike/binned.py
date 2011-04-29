@@ -8,10 +8,12 @@ from uw.utilities.minuit import Minuit
 from uw.like.pycaldb import CALDBManager
 from uw.like.pypsf import CALDBPsf
 from uw.like.quadform import QuadForm,Ellipse
+from uw.stacklike.DMLimits import BayesianLimit
 import scipy.optimize as so
 import scipy.misc as sm
 import scipy.stats as sst
 import scipy.special as spec
+import scipy.integrate as si
 import os as os
 import copy as cp
 import glob as glob
@@ -98,9 +100,6 @@ class CombinedLike(object):
         self.__dict__.update(kwargs)
         self.TS = 0
 
-    ######################################################################
-    #          Makes a verbose output of the likelihood analysis         #
-    ######################################################################
     def __str__(self):
         verbose = '\n'
         verbose = verbose + '--------- PSF    -------------\n'
@@ -263,17 +262,31 @@ class CombinedLike(object):
     ######################################################################
     #    Generate the profile likelihood in one parameter                #
     ######################################################################
-    def profile(self,ip,x):
+    def profile(self,ip,x,**kwargs):
+        self.__dict__.update(kwargs)
+        try:
+            params = cp.copy(self.params)
+            params[ip] = x
+            fixed = cp.copy(self.fixed)
+            fixed[ip] = True
 
-        params = cp.copy(self.params)
-        params[ip] = x
-        fixed = cp.copy(self.fixed)
-        fixed[ip] = True
+            self.minuit = Minuit(self.likelihood,params,#gradient=self.gradient,force_gradient=1,
+                                 fixed=fixed,limits=self.limits,strategy=2,tolerance=0.0001,printMode=self.mode)
+            self.minuit.minimize()
+            return self.minuit.fval
+        except:
+            params = cp.copy(self.params)
+            vals = []
+            for xval in x:
+                params[ip] = xval
+                fixed = cp.copy(self.fixed)
+                fixed[ip] = True
 
-        self.minuit = Minuit(self.likelihood,params,#gradient=self.gradient,force_gradient=1,
-                             fixed=fixed,limits=self.limits,strategy=2,tolerance=0.0001,printMode=self.mode)
-        self.minuit.minimize()
-        return self.minuit.fval
+                self.minuit = Minuit(self.likelihood,params,#gradient=self.gradient,force_gradient=1,
+                                     fixed=fixed,limits=self.limits,strategy=2,tolerance=0.0001,printMode=self.mode)
+                self.minuit.minimize()
+                vals.append(self.minuit.fval)
+            return np.array(vals)
 
     ######################################################################
     #    Sets up Minuit and determines maximum likelihood parameters     #
@@ -285,7 +298,6 @@ class CombinedLike(object):
     def fit(self,**kwargs):
         self.__dict__.update(kwargs)
 
- 
         psrs = ''
         for psl in self.pulsars:
             psrs = psrs + '%s\t'%psl[0]
@@ -374,14 +386,14 @@ class CombinedLike(object):
         self.errs = np.sqrt(np.diag(self.cov))
         self.params = cp.copy(self.minuit.params)
 
-        if any(self.errs<0):
+        """if any(self.errs<0):
             self.minuit.minuit.mnmnos()
             self.errs = []
             for it in range(len(self.minuit.params)):
                 eplus,eminus,ecurv,gcc = Double(),Double(),Double(),Double()
                 self.minuit.minuit.mnerrs(it,eplus,eminus,ecurv,gcc)
                 self.errs.append(float(ecurv))
-            self.errs = np.array(self.errs)
+            self.errs = np.array(self.errs)"""
 
         #for i in range(len(self.minuit.params)):
         #    print '%12.4g +/- %12.4g'%(self.minuit.params[i], self.errs[i])
@@ -390,11 +402,13 @@ class CombinedLike(object):
         #    for j in range(len(self.cov[i])):
         #        print '%12.4g'%self.cov[i][j],
         #    print
-        if any(self.errs<0):
-            self.errs2 = [self.errors(it) for it in range(len(self.minuit.params))]#self.errs[it][it] for it in range(len(self.minuit.params))]
-            #self.errs2 = self.errs
-            self.errs2 = [self.finderrs(it) for it in range(len(self.minuit.params))]
-            self.errs=np.sqrt(self.errs2)
+
+        #if any(self.errs<0):
+        self.errs2 = [self.errors(it) for it in range(len(self.minuit.params))]#self.errs[it][it] for it in range(len(self.minuit.params))]
+        #self.errs2 = self.errs
+        self.errs2 = [self.finderrs(it) for it in range(len(self.minuit.params))]
+        self.errs=np.sqrt(self.errs2)
+
         #scale = sum(self.psf)                                                                                          #normalize psf
         nmu = self.nbins - 1        
         self.psf = self.params[:nmu]
@@ -1050,14 +1064,14 @@ class CombinedLike(object):
                 eigy[it]=np.sqrt(self.errs2[it])
 
                 #calulate likelihood along ring around maximum (1-sigma in likelihood)
-                px = (self.likelihood(self.minuit.params+eigx)-self.minuit.fval)[0]
-                pxpy = (self.likelihood(self.minuit.params+(eigx+eigy)/rt)-self.minuit.fval)[0]
-                py1 = (self.likelihood(self.minuit.params+eigy)-self.minuit.fval)[0]
-                mxpy = (self.likelihood(self.minuit.params+(-eigx+eigy)/rt)-self.minuit.fval)[0]
-                mx = (self.likelihood(self.minuit.params-eigx)-self.minuit.fval)[0]
-                mxmy = (self.likelihood(self.minuit.params+(-eigx-eigy)/rt)-self.minuit.fval)[0]
-                my = (self.likelihood(self.minuit.params-eigy)-self.minuit.fval)[0]
-                pxmy = (self.likelihood(self.minuit.params+(eigx-eigy)/rt)-self.minuit.fval)[0]
+                px = (self.likelihood(self.minuit.params+eigx)-self.minuit.fval)
+                pxpy = (self.likelihood(self.minuit.params+(eigx+eigy)/rt)-self.minuit.fval)
+                py1 = (self.likelihood(self.minuit.params+eigy)-self.minuit.fval)
+                mxpy = (self.likelihood(self.minuit.params+(-eigx+eigy)/rt)-self.minuit.fval)
+                mx = (self.likelihood(self.minuit.params-eigx)-self.minuit.fval)
+                mxmy = (self.likelihood(self.minuit.params+(-eigx-eigy)/rt)-self.minuit.fval)
+                my = (self.likelihood(self.minuit.params-eigy)-self.minuit.fval)
+                pxmy = (self.likelihood(self.minuit.params+(eigx-eigy)/rt)-self.minuit.fval)
                 q = [px,pxpy,py1,mxpy,mx,mxmy,my,pxmy]
                 
                 """gridpts = 12
@@ -1117,19 +1131,74 @@ class CombinedLike(object):
 # @param emin minimum energy
 # @param emax maximum energy
 # @param days number of days of data to examine from start of P6 data
-def test(bins=8,ctype=0,emin=1000,emax=1778,days=30,irf='P6_v3_diff',maxr=-1,sel='[0]',agnlis='agn-psf-study-bright'):
+def test(bins=8,ctype=0,emin=1000,emax=1778,days=30,irf='P6_v3_diff',maxr=-1,sel='[0]',agnlis='agn-psf-study-bright',model='Gaussian'):
     psf = CALDBPsf(CALDBManager(irf=irf))
     ebar = np.sqrt(emin*emax)
     if maxr<0:
         maxr = psf.inverse_integral(ebar,ctype,99.5)*1.5             #use 1.5 times the 99.5% containment as the maximum distance
-    cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''),agnlist=[agnlis])
+    cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''),agnlist=[agnlis],verbose=True)
     cl.loadphotons(0,maxr,emin,emax,239517417,239517417+days*86400,ctype)
     cl.bindata(bins)
     f0 = cl.fit()
     psrs = ''
     for psr in cl.pulsars:
         psrs = psrs + '%s_'%psr[0]
-    cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s'%(emin,emax,ctype,maxr,bins,psrs,cl.agnlist[0]))
+    r34 = psf.inverse_integral(ebar,ctype,34.)
+    r68 = psf.inverse_integral(ebar,ctype,68.)
+    r95 = psf.inverse_integral(ebar,ctype,95.)
+    r99 = psf.inverse_integral(ebar,ctype,99.)
+    #testr = (r68+r99)/2.
+    nps = 10
+    pts = np.arange(0,nps+1,1)
+    pts = (pts*(r99-r34)/nps+r34)
+    npars = len(cl.params)
+
+    uplims2 = []
+    uplims1 = []
+    for pt in pts:
+        cl.fit(halomodel=model,haloparams=[pt/rd,ebar,ctype])
+        lmax = cl.minuit.fval
+        #norm = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x)),0,cl.Naj[0])[0]
+        #print norm
+        xr = np.array([x for x in (cl.Nh+np.arange(-10,11,1)*cl.Nhe)/2. if (x>0 and x<cl.Naj[0]) ])
+        if len(xr)<10:
+            xr = np.arange(0,11,1)
+            xr = xr*cl.Naj[0]/10.
+        fx = np.array([lmax-cl.profile(npars-1,x) for x in xr])
+        print xr
+        print fx
+        cl1 = BayesianLimit(xr,fx).getLimit(0.32)
+        cl2 = BayesianLimit(xr,fx).getLimit(0.05)
+        uplims2.append(cl2[0]/(cl.Naj[0]+cl2[0]))
+        uplims1.append(cl1[0]/(cl.Naj[0]+cl1[0]))
+        print cl2[0],cl.Naj[0],cl2[0]/(cl.Naj[0]+cl2[0])
+        #py.clf()
+        #py.plot(xr,np.exp(fx),'ro')
+        #py.savefig('figures/proftest%1.4f.png'%pt)
+        cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s'%(emin,emax,ctype,maxr,bins,pt,psrs,cl.agnlist[0],model))
+        #sig1 = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x))/norm,0,cl.Nh+cl.Nhe)[0]
+        #print sig1
+        #sig2 = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x))/norm,0,cl.Nh+2*cl.Nhe)[0]
+        #print sig2
+        #sig3 = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x))/norm,0,cl.Nh+3*cl.Nhe)[0]
+        #print sig3
+        #print norm,sig1,sig2,sig3,cl.Nh,cl.Nhe
+    py.figure(10,figsize=(8,8))
+    py.clf()
+    p2=py.plot(pts,uplims2,'o')
+    p1=py.plot(pts,uplims1,'o')
+    p3=py.plot([r68,r68],[0,1],'r--')
+    p4=py.plot([r95,r95],[0,1],'r-.')
+    py.grid()
+    py.xlabel('%s halo size (deg)'%model)
+    py.ylabel('%s halo fraction'%model)
+    py.ylim(0,1)
+    py.legend((p1,p2,p3),(r'68% CL',r'95% CL','%s R68'%irf,'%s R95'%irf))
+    py.savefig('figures/uplimemi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s_%s.png'%(emin,emax,ctype,maxr,bins,psrs,cl.agnlist[0],model))
+    #for pt in pts:
+    #    tval = cl.profile(npars-1,pt)
+    #    print pt,(lmax-tval)
+    """cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s'%(emin,emax,ctype,maxr,bins,psrs,cl.agnlist[0]))
     f1=[]
     cl.printResults()
     halorange = np.arange(0.05,maxr,maxr/10.)
@@ -1137,7 +1206,6 @@ def test(bins=8,ctype=0,emin=1000,emax=1778,days=30,irf='P6_v3_diff',maxr=-1,sel
     nest = []
     mi = 1e40
     midx = 0
-    model = 'Gaussian'
     for num,it in enumerate(halorange):
         likes.append(cl.fit(halomodel=model,haloparams=[it/rd,ebar,ctype]))
         nest.append(cl.Nh)
@@ -1158,16 +1226,20 @@ def test(bins=8,ctype=0,emin=1000,emax=1778,days=30,irf='P6_v3_diff',maxr=-1,sel
     #it=bestp[0]
     #f1.append(cl.fit(halomodel='Halo',haloparams=[it/rd]))
     cl.likelihood(cl.minuit.params,True)
-    cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s'%(emin,emax,ctype,maxr,bins,bestp[0],psrs,cl.agnlist[0],model))
+    cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s'%(emin,emax,ctype,maxr,bins,bestp[0],psrs,cl.agnlist[0],model))"""
 
 def runall(bins=12):
-    emins = [1000,1778,3162,5623,10000,17783,31623]
-    emaxs = [1778,3162,5623,10000,17783,31623,100000]
-    ctypes = [0,1]
-    irfs = ['P6_v11_diff','P6_v3_diff']
-    sels = ['[0:1]','[1:2]','[0:2]']
-    for ctype in ctypes:
-        for it,emin in enumerate(emins):
-            for sel in sels:
-                for irf in irfs:
-                    test(bins=bins,ctype=ctype,emin=emin,emax=emaxs[it],days=730,irf=irf,sel=sel)
+    emins = [1000,1778,3162,5623,10000]#,17783,31623]
+    emaxs = [1778,3162,5623,10000,17783]#,31623,100000]
+    ctypes = [0]
+    irfs = ['P6_v11_diff']#,'P6_v3_diff']
+    sels = ['[0:2]']
+    models=['Halo','Gaussian']
+    lists = ['agn_redshift2_lo_bzb','agn_redshift2_hi_bzb']#'tevbzb','1es0229p200','1es0347-121','1es1101-232']
+    for model in models:
+        for lis in lists:
+            for ctype in ctypes:
+                for it,emin in enumerate(emins):
+                    for sel in sels:
+                        for irf in irfs:
+                            test(bins=bins,ctype=ctype,emin=emin,emax=emaxs[it],days=730,irf=irf,sel=sel,model=model,agnlis=lis)
