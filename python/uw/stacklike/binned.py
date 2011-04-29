@@ -8,7 +8,7 @@ from uw.utilities.minuit import Minuit
 from uw.like.pycaldb import CALDBManager
 from uw.like.pypsf import CALDBPsf
 from uw.like.quadform import QuadForm,Ellipse
-from uw.stacklike.DMLimits import BayesianLimit
+from uw.stacklike.limits import BayesianLimit
 import scipy.optimize as so
 import scipy.misc as sm
 import scipy.stats as sst
