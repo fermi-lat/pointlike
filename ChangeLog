@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Fri Apr 29 12:29:23 PDT 2011
+pointlike/python/uw/stacklike
+
+Modified Files:
+	binned.py 
+Log Message:
+fixed import error
+    *
+------------------------------------------------------------
 User: mar0  Fri Apr 29 12:28:46 PDT 2011
 pointlike/python/uw/stacklike
 
