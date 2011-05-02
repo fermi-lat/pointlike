@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.43 2011/04/14 16:59:04 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.44 2011/04/15 19:17:11 wallacee Exp $
 
     author: Matthew Kerr
 
@@ -325,7 +325,7 @@ Optional keyword arguments:
                     return (flux,N.exp(log_flux+log_err)-flux,flux-N.exp(log_flux-log_err))
 
             return flux
-        except:
+        except Exception:
             print 'Encountered a numerical error when attempting to calculate integral flux.'
             return np.nan if not error else ([np.nan]*(3 if two_sided else 2))
 
