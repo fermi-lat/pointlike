@@ -1,5 +1,5 @@
 """  A module to handle finding irfs
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pycaldb.py,v 1.6 2011/04/22 18:10:24 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pycaldb.py,v 1.7 2011/04/24 02:40:17 lande Exp $
 
     author: Joshua Lande """
 import os
@@ -36,7 +36,7 @@ class CALDBManager(object):
                 self.CALDB=os.environ['CALDB']
             except:
                 try:
-                    import py_facilities
+                    from facilities import py_facilities
                     os_environ = py_facilities.commonUtilities_getEnvironment
                     self.CALDB=os_environ('CALDB')
                 except:
