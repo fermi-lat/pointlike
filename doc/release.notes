@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.163 2011/04/22 18:11:47 lande Exp $
+$Id: release.notes,v 1.164 2011/04/22 23:11:18 lande Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-07-15 02-May-2011  lande Bugfixes
  pointlike-07-07-14 22-Apr-2011  lande bugfix
  pointlike-07-07-13 22-Apr-2011  lande CALDB fix
  pointlike-07-07-12 12-Apr-2011  lande bugfix for modify() function
