@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.83 2011/04/18 01:16:49 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.84 2011/04/20 00:36:30 lande Exp $
 
 author: Matthew Kerr
 """
@@ -19,6 +19,7 @@ from . roi_extended import ExtendedSource,BandFitExtended,ROIExtendedModel
 from . import roi_printing
 from . import roi_modify
 from . import roi_save
+from . import roi_image
 from uw.utilities import keyword_options
 from uw.utilities import xml_parsers
 from uw.utilities import region_writer
@@ -517,7 +518,6 @@ class ROIAnalysis(object):
     
     @decorate_with(ROIExtendedModel.fit_extension)
     def fit_extension(self,which,*args,**kwargs):
-        """ See roi_extended.ROIExtendedModelAnalytic's fit_extension function for parameters. """
 
         manager,index=self.mapper(which)
 
@@ -874,6 +874,15 @@ class ROIAnalysis(object):
     # get these functions from roi_save.py
     save=roi_save.save
     load=staticmethod(roi_save.load)
+
+
+    @decorate_with(roi_image.ROITSMapImage.__init__,append=True)
+    def tsmap(self,outfile,**kwargs):
+        """ Function to create a TSMap and save it to the fits
+            file specified by parameter outfile. """
+        tsmap=roi_image.ROITSMapImage(self,**kwargs)
+        self.pf=tsmap.get_pyfits()
+        self.pf.writeto(outfile,clobber=True)
 
 load=ROIAnalysis.load
 
