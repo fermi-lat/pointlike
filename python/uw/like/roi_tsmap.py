@@ -1,7 +1,7 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_tsmap.py,v 1.14 2011/03/11 22:46:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_tsmap.py,v 1.15 2011/04/04 22:56:25 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -54,7 +54,9 @@ class TSCalc(object):
 
     defaults = ('keywords governing the spectral model used to calculate the TS',
                     ('photon_index',2,'photon index for default power law model'),
-                    ('spectral_model',None,'instance of spectral model to use for TS calc'),
+                    ('spectral_model',None,"""instance of spectral model
+                     (from Models.py) to use for TS calc. This will
+                     override photon_index."""),
                )
 
     @keyword_options.decorate(defaults)    
