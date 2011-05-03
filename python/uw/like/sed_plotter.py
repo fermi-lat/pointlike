@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/sed_plotter.py,v 1.14 2011/04/22 18:10:38 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/sed_plotter.py,v 1.15 2011/04/22 23:10:12 lande Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -202,6 +202,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
             galmap = True,
             phase_corr=False,
             printout=False,
+            title=None,
             ):
     """Plot a SED
     ========     ===================================================
@@ -220,6 +221,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     galmap       [True] plot position on galactic map if set
     phase_corr   [False] multiply sed by phase_factor; appropriate for an on-pulse spectral analysis
     printout     [False] if True, print the sed points to stdout
+    title        [None] Title for the plot, if specified. Otherwise, use source name
     ========     ===================================================
     
     """
@@ -262,7 +264,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
         axes.set_xticklabels(['','1','10','100', ''])
     else:
         plt.xlabel(r'$\mathsf{Energy\ (MeV)}$')
-    plt.title(name)
+    plt.title(name if title is None else title)
     
     # a galactic map if requested
     if galmap: image.galactic_map(roi.roi_dir, color='lightblue', marker='o', markercolor='r')
