@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri May  6 14:54:27 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_image.py 
+Log Message:
+Rework RadialImage code to perform convolution in much smaller grid. Allow npix flag for RadialImage.
+    *
+------------------------------------------------------------
 User: lande  Fri May  6 14:53:12 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
