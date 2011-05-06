@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.42 2011/04/25 18:32:43 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.43 2011/05/02 20:49:10 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -667,6 +667,7 @@ class ROISlice(object):
             ('smooth_model',    True, """Connect the model preditions with a line (instead of steps) 
                                          to make the model look smoother."""),
             ('use_gradient',    True, """Use gradient when refitting."""),
+            ('title',           None,            'Title for the plot'),
     )
 
     @staticmethod
@@ -736,30 +737,13 @@ class ROISlice(object):
         kwargs=dict(center=self.center,pixelsize=model_pixelsize,
                     galactic=self.galactic,conv_type=self.conv_type)
 
-        self.mi_x = dict()
-        self.mi_y = dict()
+        self.names = []
+        self.mi_x = []
+        self.mi_y = []
 
-        self.mi_x[self.pretty_name]=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
-        self.mi_y[self.pretty_name]=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
-
-        if self.just_diffuse:
-            # hide all point + extended sources.
-
-            sources = list(self.roi.psm.point_sources) + \
-                    [ i for i in self.roi.dsm.diffuse_sources if isinstance(i,ExtendedSource) ]
-            # don't zero already zeroed sources
-            sources = [ i for i in sources if i.model.getp(0,internal=True) != -100 ]
-
-            ROISlice.cache_roi(self.roi)
-
-            for source in sources: self.roi.zero_source(source)
-
-            self.mi_x['Diffuse']=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
-            self.mi_y['Diffuse']=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
-
-            for source in sources: self.roi.unzero_source(source)
-
-            ROISlice.uncache_roi(self.roi)
+        self.names.append(self.pretty_name)
+        self.mi_x.append(ModelImage(self.roi,size=(self.size,self.int_width),**kwargs))
+        self.mi_y.append(ModelImage(self.roi,size=(self.int_width,self.size),**kwargs))
 
         if self.aspoint and isinstance(self.source,ExtendedSource):
             # replace with a point source
@@ -776,19 +760,40 @@ class ROISlice(object):
 
             self.roi.fit(estimate_errors=False,use_gradient=self.use_gradient)
 
-            self.mi_x['Point']=ModelImage(self.roi,size=(self.size,self.int_width),**kwargs)
-            self.mi_y['Point']=ModelImage(self.roi,size=(self.int_width,self.size),**kwargs)
+            self.names.append('Point')
+            self.mi_x.append(ModelImage(self.roi,size=(self.size,self.int_width),**kwargs))
+            self.mi_y.append(ModelImage(self.roi,size=(self.int_width,self.size),**kwargs))
 
             self.roi.del_source(ps)
             self.roi.unzero_source(es)
 
             ROISlice.uncache_roi(self.roi)
 
-        self.models_x=dict([[name,model.image.sum(axis=0)*self.oversample_factor] for name,model in self.mi_x.items()])
-        self.models_y=dict([[name,model.image.sum(axis=1)*self.oversample_factor] for name,model in self.mi_y.items()])
+        if self.just_diffuse:
+            # hide all point + extended sources.
 
-        self.model_dx = ROISlice.range(self.models_x[self.pretty_name],model_pixelsize,x_axis=True)
-        self.model_dy = ROISlice.range(self.models_y[self.pretty_name],model_pixelsize,x_axis=False)
+            sources = list(self.roi.psm.point_sources) + \
+                    [ i for i in self.roi.dsm.diffuse_sources if isinstance(i,ExtendedSource) ]
+            # don't zero already zeroed sources
+            sources = [ i for i in sources if i.model.getp(0,internal=True) != -100 ]
+
+            ROISlice.cache_roi(self.roi)
+
+            for source in sources: self.roi.zero_source(source)
+
+            self.names.append('Diffuse')
+            self.mi_x.append(ModelImage(self.roi,size=(self.size,self.int_width),**kwargs))
+            self.mi_y.append(ModelImage(self.roi,size=(self.int_width,self.size),**kwargs))
+
+            for source in sources: self.roi.unzero_source(source)
+
+            ROISlice.uncache_roi(self.roi)
+
+        self.models_x=[model.image.sum(axis=0)*self.oversample_factor for model in self.mi_x]
+        self.models_y=[model.image.sum(axis=1)*self.oversample_factor for model in self.mi_y]
+
+        self.model_dx = ROISlice.range(self.models_x[0],model_pixelsize,x_axis=True)
+        self.model_dy = ROISlice.range(self.models_y[0],model_pixelsize,x_axis=False)
 
     @staticmethod
     def range(data,pixelsize,x_axis=False):
@@ -805,7 +810,7 @@ class ROISlice(object):
 
         P.errorbar(self.counts_dx,self.counts_x,yerr=N.sqrt(self.counts_x),label='Counts', fmt='.')
 
-        for name,model in self.models_x.items():
+        for name,model in zip(self.names,self.models_x):
             P.plot(self.model_dx,model,drawstyle='steps' if not self.smooth_model else 'default',
                    label=name)
 
@@ -813,8 +818,8 @@ class ROISlice(object):
 
         P.legend(loc='upper right',numpoints=1)
 
-        P.xlabel(ROIDisplay.mathrm('delta l' if self.galactic else 'delta ra'))
-        P.ylabel(ROIDisplay.mathrm('Counts'))
+        P.xlabel(r'$\Delta l(^\circ)$' if self.galactic else r'$\Delta \text{RA} (^\circ)$')
+        P.ylabel('Counts')
 
     def plot_dy(self):
 
@@ -824,12 +829,12 @@ class ROISlice(object):
 
         P.errorbar(self.counts_dy,self.counts_y,yerr=N.sqrt(self.counts_y),label='Counts', fmt='.')
 
-        for name,model in self.models_y.items():
+        for name,model in zip(self.names,self.models_y):
             P.plot(self.model_dy,model,drawstyle='steps' if not self.smooth_model else 'default',
                    label=name)
 
-        P.xlabel(ROIDisplay.mathrm('delta b' if self.galactic else 'delta dec'))
-        P.ylabel(ROIDisplay.mathrm('Counts'))
+        P.xlabel(r'$\Delta b(^\circ)$' if self.galactic else r'$\Delta \text{Dec} (^\circ)$')
+        P.ylabel('Counts')
 
         P.gca().set_xlim(self.counts_dy[0],self.counts_dy[-1])
 
@@ -853,10 +858,10 @@ class ROISlice(object):
         }
 
         of=self.oversample_factor
-        for name,model in self.models_x.items():
+        for name,model in zip(self.names,self.models_x):
             results_dict[x][name]=ModelImage.downsample(model,of).tolist()
 
-        for name,model in self.models_y.items():
+        for name,model in zip(self.names,self.models_y):
             results_dict[y][name]=ModelImage.downsample(model,of).tolist()
 
         file = open(data_file,'w')
@@ -874,10 +879,11 @@ class ROISlice(object):
         self.plot_dx()
         self.plot_dy()
 
-        title = 'Counts Slice'
-        if self.source is not None: title += ' for %s' % self.source.name
+        if self.title is None:
+            self.title = 'Counts Slice'
+            if self.source is not None: self.title += ' for %s' % self.source.name
 
-        P.suptitle(title)
+        P.suptitle(self.title)
 
         if data_file is not None: self.save_data(data_file)
 
@@ -896,6 +902,7 @@ class ROIRadialIntegral(object):
                                           This value is used to determine the total number of pixels using
                                           the formula npix=size/pixelsize and represents something
                                           like an average pixelsize."""),
+            ('npix',         None, """ If specified, use this value instead of pixelsize. """),
             ('fignum',             5, 'matplotlib figure number'),
             ('conv_type',         -1, 'Conversion type'),
             ('just_diffuse',    True, """ Display the model predictions with all point + extended
@@ -903,14 +910,23 @@ class ROIRadialIntegral(object):
             ('aspoint',         True, """ Display also the model predictions for an extended source 
                                           fit with the point hypothesis. Only works when which is an
                                           extended source. """),
+            ('oversample_factor',  4, """ Calculate the model predictions this many times more finely. 
+                                          This will create a smoother plot of model predictions. Set 
+                                          to 1 if you want the model predictions to 'look like' the 
+                                          data."""),
             ('smooth_model',    True, """Connect the model preditions with a line (instead of steps) 
                                          to make the model look smoother."""),
             ('use_gradient',    True, """Use gradient when refitting."""),
+            ('title',           None,            'Title for the plot'),
     )
 
     @keyword_options.decorate(defaults)
     def __init__(self, roi, which, **kwargs):
         keyword_options.process(self, kwargs)
+
+        if not type(self.oversample_factor) == int:
+            raise Exception("oversample_factor must be an integer.")
+
 
         self.roi   = roi
         self.which = which
@@ -934,36 +950,25 @@ class ROIRadialIntegral(object):
         self.get_model()
 
     def get_counts(self):
-        self.ci = RadialCounts(self.roi,center=self.center,size=self.size,pixelsize=self.pixelsize,conv_type=self.conv_type)
+        self.ci = RadialCounts(self.roi,center=self.center,size=self.size,pixelsize=self.pixelsize,conv_type=self.conv_type, npix=self.npix)
         self.counts = self.ci.image
+
+        self.theta_sqr_co=self.ci.bin_centers_deg
 
         if N.any(N.isnan(self.counts)):
             raise Exception("Error in calculating a radial integral plot, the counts contains NaNs.")
 
 
     def get_model(self):
-        kwargs=dict(center=self.center,size=self.size,pixelsize=self.pixelsize,conv_type=self.conv_type)
+        kwargs=dict(center=self.center,size=self.size,conv_type=self.conv_type, 
+                    pixelsize=self.pixelsize/self.oversample_factor,
+                    npix=self.npix*self.oversample_factor if self.npix is not None else None)
 
-        self.mi = dict()
+        # Use lists to preserve legend order
+        self.mi,self.names = [],[]
 
-        self.mi[self.pretty_name]=RadialModel(self.roi,**kwargs)
-
-        if self.just_diffuse:
-
-            sources = list(self.roi.psm.point_sources) + \
-                    [ i for i in self.roi.dsm.diffuse_sources if isinstance(i,ExtendedSource) ]
-            # don't zero already zeroed sources
-            sources = [ i for i in sources if i.model.getp(0,internal=True) != -100 ]
-
-            ROISlice.cache_roi(self.roi)
-
-            for source in sources: self.roi.zero_source(source)
-
-            self.mi['Diffuse']=RadialModel(self.roi,**kwargs)
-
-            for source in sources: self.roi.unzero_source(source)
-
-            ROISlice.uncache_roi(self.roi)
+        self.mi.append(RadialModel(self.roi,**kwargs))
+        self.names.append(self.pretty_name)
 
         if self.aspoint and isinstance(self.source,ExtendedSource):
 
@@ -979,17 +984,39 @@ class ROIRadialIntegral(object):
 
             self.roi.fit(estimate_errors=False,use_gradient=self.use_gradient)
 
-            self.mi['Point']=RadialModel(self.roi,**kwargs)
+            self.mi.append(RadialModel(self.roi,**kwargs))
+            self.names.append('Point')
 
             self.roi.del_source(ps)
             self.roi.unzero_source(es)
 
             ROISlice.uncache_roi(self.roi)
 
-        self.theta_sqr=self.ci.bin_centers_deg
-        self.models=dict([[name,model.image] for name,model in self.mi.items()])
+        if self.just_diffuse:
 
-        for name,model in self.models.items():
+            sources = list(self.roi.psm.point_sources) + \
+                    [ i for i in self.roi.dsm.diffuse_sources if isinstance(i,ExtendedSource) ]
+            # don't zero already zeroed sources
+            sources = [ i for i in sources if i.model.getp(0,internal=True) != -100 ]
+
+            ROISlice.cache_roi(self.roi)
+
+            for source in sources: self.roi.zero_source(source)
+
+            self.mi.append(RadialModel(self.roi,**kwargs))
+            self.names.append('Diffuse')
+
+            for source in sources: self.roi.unzero_source(source)
+
+            ROISlice.uncache_roi(self.roi)
+
+        self.theta_sqr_mo=self.mi[0].bin_centers_deg
+
+        # scale the model to line up with the counts
+        for i in self.mi: i.image*=self.oversample_factor
+        self.models=[i.image for i in self.mi]
+
+        for name,model in zip(self.names,self.models):
             if N.any(N.isnan(model)):
                 raise Exception("Error in calculating a radial integral, model %s contains NaNs." % name)
 
@@ -999,7 +1026,7 @@ class ROIRadialIntegral(object):
             Radius=self.theta_sqr.tolist(),
             Counts=self.counts.tolist()
         )
-        for name,model in self.models.items():
+        for name,model in zip(self.names,self.models):
             results_dict[name]=model.tolist()
 
         file = open(data_file,'w')
@@ -1015,20 +1042,22 @@ class ROIRadialIntegral(object):
 
         ROISlice.set_color_cycle()
 
-        P.errorbar(self.theta_sqr,self.counts,yerr=N.sqrt(self.counts),label='Counts', fmt='.')
+        P.errorbar(self.theta_sqr_co,self.counts,yerr=N.sqrt(self.counts),label='Counts', fmt='.')
 
-        for name,model in self.models.items():
-            P.plot(self.theta_sqr,model,drawstyle='steps' if not self.smooth_model else 'default',
+        for name,model in zip(self.names,self.models):
+            P.plot(self.theta_sqr_mo,model,drawstyle='steps' if not self.smooth_model else 'default',
                    label=name)
 
         P.legend(loc='upper right',numpoints=1)
 
-        P.xlabel(ROIDisplay.mathrm(r'delta \theta^2 [deg^2]'))
-        P.ylabel(ROIDisplay.mathrm('Counts'))
+        P.xlabel(r'$\Delta \theta^2 (\text{deg}^2)$')
+        P.ylabel('Counts')
 
-        title = 'Radial Integral Counts'
-        if self.source is not None: title += ' for %s' % self.source.name
-        P.title(title)
+        if self.title is None:
+            self.title = 'Radial Integral Counts'
+            if self.source is not None: self.title += ' for %s' % self.source.name
+
+        P.title(self.title)
 
         if data_file is not None: self.save_data(data_file)
 
@@ -1087,6 +1116,16 @@ class ROISignificance(object):
         """
 
         import pyregion
+
+        if white_marker:
+            region_string = region_writer.get_region(roi, color='white', label_sources=False, show_localization=False, show_extension=False)
+            reg = pyregion.parse(region_string).as_imagecoord(header)
+            patch_list, artist_list = reg.get_mpl_patches_texts()
+            for t in artist_list: 
+                t.set_markersize(marker_scale*t.get_markersize())
+                t.set_marker('x')
+                ax.add_artist(t)
+
         region_string = region_writer.get_region(roi, color=color, show_localization=False, **kwargs)
         reg = pyregion.parse(region_string).as_imagecoord(header)
         patch_list, artist_list = reg.get_mpl_patches_texts()
@@ -1098,15 +1137,6 @@ class ROISignificance(object):
             if hasattr(t,'set_markersize'): t.set_markersize(marker_scale*t.get_markersize())
 
             ax.add_artist(t)
-
-        if white_marker:
-            region_string = region_writer.get_region(roi, color='white', label_sources=False, show_localization=False, show_extension=False)
-            reg = pyregion.parse(region_string).as_imagecoord(header)
-            patch_list, artist_list = reg.get_mpl_patches_texts()
-            for t in artist_list: 
-                t.set_markersize(marker_scale*t.get_markersize())
-                t.set_marker('x')
-                ax.add_artist(t)
 
 
     def show(self,to_screen=True,out_file=None):
@@ -1147,7 +1177,7 @@ class ROISmoothedSource(object):
 
     defaults = (
             ('which',           None,    'Draw the smoothed point version of this source.'),
-            ('figsize',        (5,5),                                  'Size of the image'),
+            ('figsize',      (5,4.5),                                  'Size of the image'),
             ('fignum',             3,                           'Matplotlib figure number'),
             ('conv_type',         -1,                                    'Conversion type'),
             ('size',               3,                          'Size of the field of view'),
@@ -1183,7 +1213,7 @@ class ROISmoothedSource(object):
         self.cmap = colormaps.b
 
         # Fit many pixels inside of the summing radius
-        self.pixelsize=self.kernel_rad/10.0
+        self.pixelsize=self.kernel_rad/5.0
 
         self.source = roi.get_source(self.which)
 
@@ -1241,7 +1271,7 @@ class ROISmoothedSource(object):
 
         im=ax.imshow(d, origin="lower", cmap=self.cmap)
 
-        ax.set_ticklabel_type("absdeg")
+        #ax.set_ticklabel_type("absdeg")
 
         cb_axes = grid.cbar_axes[0] # colorbar axes
 
@@ -1249,7 +1279,11 @@ class ROISmoothedSource(object):
 
         ax.grid()
 
-        if self.title: ax.set_title(self.title)
+        if self.title is None: 
+            self.title = 'Smoothed Counts'
+            self.title += ' for %s' % self.source.name
+
+        ax.set_title(self.title)
 
         if self.overlay_psf:
             h_psf, d_psf = self.psf_pyfits[0].header, self.psf_pyfits[0].data
