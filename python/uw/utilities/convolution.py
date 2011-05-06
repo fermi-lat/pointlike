@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.34 2011/02/04 21:17:56 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.35 2011/02/15 06:16:02 kerrm Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -264,11 +264,6 @@ class ExtendedSourceConvolution(BackgroundConvolution):
         """ extended_source : object containing a spatial_model object
             psf : PSF object used for convolution
         """
-        # original settings
-        #self.pixelsize = 0.025
-        #self.npix      = 101 # Initial value gets reset automatically by do_convolution.
-        #self.r_multi   = 2.0 # multiple of r95 to set max dimension of grid
-        #self.r_max     = 20  # an absolute maximum (half)-size of grid (deg)
 
         keyword_options.process(self, kwargs)
         self.extended_source = extended_source
@@ -314,7 +309,12 @@ class ExtendedSourceConvolution(BackgroundConvolution):
         # Use the 'optimal' energy (calculated by the ADJUST_MEAN flag) if it exists.
         energy = band.psf.eopt if band.psf.__dict__.has_key('eopt') else band.e
 
-        edge=self.extended_source.spatial_model.effective_edge()
+        # Extended sources might be much bigger then the ROI if the convolution is only
+        # being redone in a small area (for example, to make a radial profile.
+        edge_distance=N.degrees(band.sd.difference(self.extended_source.spatial_model.center) + band.radius_in_rad)
+        extended_src_edge=self.extended_source.spatial_model.effective_edge()
+        edge=min(edge_distance,extended_src_edge)
+
         r95 = self.psf.inverse_integral(energy,band.ct,95)
         rad = self.r_multi*r95 + edge
         rad = max(min(self.r_max,rad),edge+2.5)
