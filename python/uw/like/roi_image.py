@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.19 2011/04/24 05:12:05 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.20 2011/05/02 20:49:33 lande Exp $
 
 author: Joshua Lande
 """
@@ -17,6 +17,7 @@ import scipy
 import scipy.ndimage
 
 
+from . pypsf import PretendBand
 from . roi_diffuse import ROIDiffuseModel_OTF
 from . roi_extended import ROIExtendedModel,ROIExtendedModelAnalytic
 from . pointspec_helpers import get_default_diffuse_mapper
@@ -529,6 +530,7 @@ class RadialImage(object):
             ('pixelsize', 0.00625, """ size of each image pixel. This is a little misleading because the
                                        size of each pixel varies, but regardless this is used to determine
                                        the total number of pixels with npix=size/pixelsize """),
+            ('npix',         None, """ If specified, use this value instead of pixelsize. """),
             ('conv_type',      -1,            'Conversion type'),
     )
 
@@ -536,7 +538,8 @@ class RadialImage(object):
     def __init__(self,roi,**kwargs):
         keyword_options.process(self, kwargs)
 
-        self.npix = float(self.size)/self.pixelsize
+        if self.npix is None:
+            self.npix = float(self.size)/self.pixelsize
         
         self.roi = roi
 
@@ -584,6 +587,18 @@ class RadialModel(RadialImage):
         self.selected_bands = self.roi.bands if self.conv_type < 0 else \
             [ band for band in self.roi.bands if band.ct == self.conv_type ]
 
+        # Create fake bands just big enough to enclose the radial model.
+        # This will speed up the convolution. 
+        # The fake band will cause the diffuse sources be be convolved
+        # in a smaller area, which will thus make them more accurate,
+        # and create better plots.
+        self.smaller_bands = []
+        for band in self.selected_bands:
+            rad=self.center.difference(self.roi.roi_dir) + N.radians(self.size)
+            pb = PretendBand(band.e,band.ct, psf=band.psf, radius_in_rad=rad,
+                             sd=self.center, emin=band.emin, emax=band.emax)
+            self.smaller_bands.append(pb)
+
         self.image = N.zeros_like(self.bin_centers_rad)
         self.image += self.all_point_source_counts()
         self.image += self.all_diffuse_sources_counts()
@@ -626,8 +641,9 @@ class RadialModel(RadialImage):
         # get the corresponding mybands.
         mybands=[extended_model.bands[N.where(roi.bands==band)[0][0]] for band in self.selected_bands]
 
-        for band,myband in zip(self.selected_bands,mybands):
-            extended_model.set_state(band)
+        for band,myband,smaller_band in zip(self.selected_bands,mybands,self.smaller_bands):
+
+            extended_model.set_state(smaller_band)
 
             if type(extended_model) == ROIExtendedModel:
 
@@ -666,7 +682,7 @@ class RadialModel(RadialImage):
         return 2*N.pi*(1-N.cos(radius_in_radians))
 
     @staticmethod
-    def get_nside(size,npix,num_points_per_ring=1000):
+    def get_nside(size,npix,num_points_per_ring=100):
         """ Solid angle of each healpix pixel is 4pi/(12*ns^2)
             Solid angel of each ring is pi*(size)^2/npix
             Want size of each ring > num_points_per_ring*size of each healpix (so that
@@ -690,7 +706,7 @@ class RadialModel(RadialImage):
 
         background_counts = N.zeros_like(self.bin_centers_rad)
 
-        for band in self.selected_bands:
+        for band,smaller_band in zip(self.selected_bands,self.smaller_bands):
 
             ns,bg_points,bg_vector = ROIDiffuseModel_OTF.sub_energy_binning(band,bg.nsimps)
 
@@ -703,7 +719,7 @@ class RadialModel(RadialImage):
 
             for ne,e in enumerate(bg_points):
 
-                bg.set_state(e,band.ct,band)
+                bg.set_state(e,band.ct,smaller_band)
 
                 rvals=N.empty(len(wsdl),dtype=float)
                 PythonUtilities.arclength(rvals,wsdl,self.center)
