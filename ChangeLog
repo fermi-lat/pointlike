@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri May  6 14:53:12 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pypsf.py 
+Log Message:
+Allow putting more stuff in PretendBand
+    *
+------------------------------------------------------------
 User: lande  Tue May  3 13:42:03 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
