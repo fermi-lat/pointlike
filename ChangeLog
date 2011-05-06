@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri May  6 14:58:01 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+for RadialImage, allow npix flag. Allow not plotting title. show "Disk, Point, Diffuse" in legend in better order. Use Latex for better legends
+    *
+------------------------------------------------------------
 User: lande  Fri May  6 14:56:45 PDT 2011
 ScienceTools-scons/pointlike/python/uw/utilities
 
