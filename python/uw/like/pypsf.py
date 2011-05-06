@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.24 2011/01/24 21:22:40 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pypsf.py,v 1.25 2011/02/22 00:26:56 kerrm Exp $
 author: M. Kerr
 
 """
@@ -478,8 +478,9 @@ class PsfOverlapHealpix(object):
 
 class PretendBand(object):
 
-     def __init__(self,energy,conversion_type):
+     def __init__(self,energy,conversion_type,**kwargs):
           self.e = energy; self.ct = conversion_type
+          self.__dict__.update(kwargs)
 
 class ConvolutionPsf(object):
      """N.B. -- the PSF center is assumed to be at the Galactic north pole."""
