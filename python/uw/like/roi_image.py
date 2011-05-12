@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.21 2011/05/06 21:54:27 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.22 2011/05/11 05:57:27 lande Exp $
 
 author: Joshua Lande
 """
@@ -79,7 +79,7 @@ class ROIImage(object):
         keyword_options.process(self, kwargs)
 
         if self.size < self.pixelsize:
-            raise Exception("Can only create images whith >=1 pixel in them.")
+            raise Exception("Can only create images with >=1 pixel in them.")
         
         self.roi = roi
 
