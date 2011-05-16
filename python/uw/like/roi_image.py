@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.22 2011/05/11 05:57:27 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.23 2011/05/12 06:02:30 lande Exp $
 
 author: Joshua Lande
 """
@@ -118,7 +118,8 @@ class ROIImage(object):
         if hasattr(self.size,'__iter__'):
             raise Exception("Can only create ZEA object for square objects.")
 
-        zea_dict = dict((d[0],self.__dict__[d[0]]) for d in ZEA.defaults if hasattr(d,'__iter__'))
+        zea_dict = dict((d[0],self.__dict__[d[0]]) for d in ZEA.defaults if hasattr(d,'__iter__') and \
+                hasattr(self,d[0]))
         if axes is not None: zea_dict['axes']=axes
         if nticks is not None: zea_dict['nticks']=nticks
 
