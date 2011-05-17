@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.40 2011/04/24 05:12:36 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.41 2011/04/28 17:09:07 lande Exp $
 
     author: Matthew Kerr
     """
@@ -143,8 +143,8 @@ class FermiCatalog(PointSourceCatalog):
         f = open(catalog_file)
         colnames = [x.name for x in f[1].get_coldefs()]
         sname     = 'NickName' if 'NickName' in colnames else 'Source_Name'
-        ras  = f[1].data.field('RA')
-        decs = f[1].data.field('DEC')
+        ras  = f[1].data.field('RA' if 'RA' in colnames else 'RAJ2000')
+        decs = f[1].data.field('DEC' if 'DEC' in colnames else 'DEJ2000')
         pens = f[1].data.field('PIVOT_ENERGY')
         n0s  = f[1].data.field('FLUX_DENSITY')
         inds = f[1].data.field('SPECTRAL_INDEX')
