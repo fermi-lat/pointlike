@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue May 17 07:08:24 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+column names change for new 2FGL catalog
+    *
+------------------------------------------------------------
 User: lande  Mon May 16 07:36:02 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
