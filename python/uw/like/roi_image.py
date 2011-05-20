@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.23 2011/05/12 06:02:30 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.24 2011/05/16 14:36:02 lande Exp $
 
 author: Joshua Lande
 """
@@ -24,7 +24,6 @@ from . pointspec_helpers import get_default_diffuse_mapper
 from . roi_tsmap import TSCalc,TSCalcPySkyFunction
 from uw.utilities import keyword_options
 from uw.utilities.fitstools import get_fields
-from uw.utilities.image import ZEA
 from pypsf import PsfOverlap
 import collections
 from abc import abstractmethod
@@ -123,6 +122,7 @@ class ROIImage(object):
         if axes is not None: zea_dict['axes']=axes
         if nticks is not None: zea_dict['nticks']=nticks
 
+        from uw.utilities.image import ZEA
         zea=ZEA(self.center,**zea_dict)
         zea.skyimage = self.skyimage
         # recalculate, in case the sky image has changed
