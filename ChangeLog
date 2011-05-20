@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri May 20 15:37:06 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Adding plot_sed function to ROIAnalysis
+    *
+------------------------------------------------------------
 User: lande  Tue May 17 07:08:24 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
