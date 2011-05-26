@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.166 2011/05/06 21:58:19 lande Exp $
+$Id: release.notes,v 1.167 2011/05/20 22:38:18 lande Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-07-18 26-May-2011 heather Patches for CLHEP upgrade
  pointlike-07-07-17 20-May-2011  lande Several bugfixes
  pointlike-07-07-16 06-May-2011  lande Improved radial integral code
  pointlike-07-07-15 02-May-2011  lande Bugfixes
