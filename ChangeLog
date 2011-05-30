@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: heather  Sun May 29 20:06:45 PDT 2011
+ScienceTools-scons/pointlike/src
+
+Modified Files:
+	AlignProc.cxx EventList.h LeastSquaresFitter.cxx 
+	PointSourceLikelihood.cxx RotationInfo.cxx 
+	SimpleLikelihood.cxx 
+Log Message:
+really check in clhep updates
+    *
+------------------------------------------------------------
 User: heather  Sun May 29 20:06:44 PDT 2011
 ScienceTools-scons/pointlike/pointlike
 
