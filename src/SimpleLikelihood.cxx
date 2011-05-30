@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.cxx
 @brief Implementation of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/SimpleLikelihood.cxx,v 1.58 2009/02/24 20:50:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/SimpleLikelihood.cxx,v 1.59 2009/04/13 22:56:01 burnett Exp $
 */
 
 #include "pointlike/SimpleLikelihood.h"
@@ -392,9 +392,9 @@ std::pair<double,double> SimpleLikelihood::poissonDerivatives(double a)
     return std::make_pair(d1, d2);
 }
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Hep3Vector SimpleLikelihood::gradient() const
+CLHEP::Hep3Vector SimpleLikelihood::gradient() const
 {
-    Hep3Vector grad;
+    CLHEP::Hep3Vector grad;
     m_curv=m_w=0;
 
     double sig2( sqr(sigma()) );
@@ -402,14 +402,14 @@ Hep3Vector SimpleLikelihood::gradient() const
     //double w(0); // -log likelihood (check)
     int count(0);
 
-    Hep3Vector perp(m_dir().orthogonal());
+    CLHEP::Hep3Vector perp(m_dir().orthogonal());
     PixelList::const_iterator it = m_vec.begin();
 
     for( ; it< m_vec.end(); ++it){
         const std::pair<SkyDir,int>& h = *it;
         SkyDir d( h.first );
         int nphoton( h.second);
-        Hep3Vector delta( m_dir() - d() ); 
+        CLHEP::Hep3Vector delta( m_dir() - d() ); 
         double u( 0.5*delta.mag2()/sig2);
         double y = perp*delta; // pick an arbitrary direction for the curvature
 

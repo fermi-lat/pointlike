@@ -1,7 +1,7 @@
 /** @file EventList.h 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/EventList.h,v 1.8 2010/02/01 23:57:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/EventList.h,v 1.9 2010/07/29 03:11:38 burnett Exp $
 */
 
 
@@ -36,14 +36,14 @@ public:
         , m_theta(theta)
         , m_ctbclasslevel(ctbclasslevel)
     {
-        Hep3Vector scy (scz().cross(scx()));
-        m_rot = HepRotation(scx(), scy, scz());
+        CLHEP::Hep3Vector scy (scz().cross(scx()));
+        m_rot = CLHEP::HepRotation(scx(), scy, scz());
     }
     /// make transformation in GLAST frame
     /// @param corr matrix that corrects direction in the GLAST frame
-    astro::Photon transform(const HepRotation& corr)const
+    astro::Photon transform(const CLHEP::HepRotation& corr)const
     {
-        Hep3Vector 
+        CLHEP::Hep3Vector 
             local( m_rot.inverse()*dir()),
             transformed( m_rot * corr * local );
 
@@ -60,7 +60,7 @@ public:
     double theta()const{return m_theta;}
     int class_level()const{return m_ctbclasslevel;}
 private:
-    HepRotation m_rot;
+    CLHEP::HepRotation m_rot;
     double m_zenith_angle;
     double m_theta;
     int m_ctbclasslevel;

@@ -1,6 +1,6 @@
 /** @file PointSourceLikelihood.cxx
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/PointSourceLikelihood.cxx,v 1.77 2009/06/03 22:18:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/PointSourceLikelihood.cxx,v 1.78 2010/08/12 19:12:35 mar0 Exp $
 
 */
 
@@ -338,14 +338,14 @@ void PointSourceLikelihood::setDir(const astro::SkyDir& dir, bool subset){
     m_dir = dir;
 }
 
-const Hep3Vector& PointSourceLikelihood::gradient() const{
-    m_gradient=Hep3Vector(0);  
+const CLHEP::Hep3Vector& PointSourceLikelihood::gradient() const{
+    m_gradient=CLHEP::Hep3Vector(0);  
     Iterator it(begin(),end());
     for( ; it!=end() ; ++it){
         double ts_i((*it)->TS());
         //if( verbose() ) std::cout << "TS: " << (*it)->TS() << std::endl;
         if( ts_i< s_TScut) continue; // do not count if TS small
-        Hep3Vector grad((*it)->gradient());
+        CLHEP::Hep3Vector grad((*it)->gradient());
         double curv((*it)->curvature());
         if( curv > 0 ) m_gradient+= grad;
     }
@@ -517,7 +517,7 @@ double PointSourceLikelihood::localize()
 
 
     for( ; iter<maxiter; ++iter){
-        Hep3Vector grad( gradient() );
+        CLHEP::Hep3Vector grad( gradient() );
         double     curv( curvature() );
 
         // check that resolution is ok: if curvature gets small or negative we are lost
@@ -530,7 +530,7 @@ double PointSourceLikelihood::localize()
             ,      gradmag( grad.mag() )
             ;
         //,      oldTs( TS() );
-        Hep3Vector delta = grad/curv;
+        CLHEP::Hep3Vector delta = grad/curv;
         double step(delta.mag());
 
         if( verbose() ){
@@ -562,7 +562,7 @@ double PointSourceLikelihood::localize()
         }
 
         // here decide to back off if likelihood does not increase
-        Hep3Vector olddir(m_dir()); int count(backoff_count); 
+        CLHEP::Hep3Vector olddir(m_dir()); int count(backoff_count); 
         backingoff =true;
         while( count-->0){
             m_dir = olddir -delta;
