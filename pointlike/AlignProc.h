@@ -92,9 +92,9 @@ namespace pointlike{
 
             /// make transformation in GLAST frame
             /// @param corr matrix that corrects direction in the GLAST frame
-            astro::Photon transform(const HepRotation& corr)const
+            astro::Photon transform(const CLHEP::HepRotation& corr)const
             {
-                Hep3Vector 
+                CLHEP::Hep3Vector 
                     local( m_rot.inverse()*dir()),
                     transformed( m_rot * corr * local );
 

@@ -1,7 +1,7 @@
 /** 
 Data Processing file, operates on a given Photon
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/AlignProc.cxx,v 1.14 2009/12/08 22:19:44 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/AlignProc.cxx,v 1.15 2010/08/01 04:22:16 burnett Exp $
 
 */
 
@@ -124,7 +124,7 @@ namespace{
 }
 
 //setup initally with no rotation
-HepRotation AlignProc::s_hr(0,0,0);
+CLHEP::HepRotation AlignProc::s_hr(0,0,0);
 int AlignProc::s_classlevel = 2;
 int AlignProc::s_umax = 50;
 
@@ -413,10 +413,10 @@ int AlignProc::add(pointlike::AlignProc::Photona& p){
             outfile << p.source() << std::endl;
 #endif
             added=1;
-            HepRotation glast = p.Rot();
+            CLHEP::HepRotation glast = p.Rot();
             //rotate skydirs into glast centric coordinates
-            Hep3Vector meas = glast.inverse()*p.dir();
-            Hep3Vector tru = glast.inverse()*sd();
+            CLHEP::Hep3Vector meas = glast.inverse()*p.dir();
+            CLHEP::Hep3Vector tru = glast.inverse()*sd();
             //accumulate likelihood statistics
             m_roti.acc(tru,meas,sigmasq,alpha);
             ++m_photons;
@@ -489,9 +489,9 @@ AlignProc::LikeSurface AlignProc::fitsurface() {
 }
 
 void AlignProc::addRot(double x, double y, double z) { 
-    HepRotationX mx(x*M_PI/648000);
-    HepRotationY my(y*M_PI/648000);
-    HepRotationZ mz(z*M_PI/648000);
+    CLHEP::HepRotationX mx(x*M_PI/648000);
+    CLHEP::HepRotationY my(y*M_PI/648000);
+    CLHEP::HepRotationZ mz(z*M_PI/648000);
     s_hr = mx*my*mz;
 }
 

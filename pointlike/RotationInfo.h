@@ -1,7 +1,7 @@
 /** @file RotationInfo.h 
 @brief declaration of the rotation likelihood class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/RotationInfo.h,v 1.5 2008/02/14 01:27:45 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/pointlike/RotationInfo.h,v 1.6 2008/06/17 05:26:03 mar0 Exp $
 */
 #ifndef pointlike__Rotation_h
 #define pointlike__Rotation_h
@@ -25,7 +25,7 @@ namespace pointlike {
             for(int x=-s_points;x<=s_points;++x) {
                 for(int y=-s_points;y<=s_points;++y) {
                     for(int z=-s_points;z<=s_points;++z) {
-                        m_matrices.push_back(HepRotationX(arcsec*x)*HepRotationY(arcsec*y)*HepRotationZ(arcsec*z));
+                        m_matrices.push_back(CLHEP::HepRotationX(arcsec*x)*CLHEP::HepRotationY(arcsec*y)*CLHEP::HepRotationZ(arcsec*z));
                         m_likelihood.push_back(0);
                     }
                 }
@@ -42,13 +42,13 @@ namespace pointlike {
         //! @param tru source direction
         //! @param meas measured direction
         //! @param sigmasq sigma-squared (angular resolution)
-        void acc(const Hep3Vector& tru, const Hep3Vector& meas, double sigmasq, double alpha);
+        void acc(const CLHEP::Hep3Vector& tru, const CLHEP::Hep3Vector& meas, double sigmasq, double alpha);
 
         static int points() {return s_points;}
     private:
         skymaps::PsfFunction m_psf;
         const static int s_points = 2; //grid points: will crash matrix multiplication if larger than 3
-        std::vector<HepRotation> m_matrices; //matrix storage
+        std::vector<CLHEP::HepRotation> m_matrices; //matrix storage
         std::vector<double> m_likelihood; //loglikelihood for each rotation
 
     };

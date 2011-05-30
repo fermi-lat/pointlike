@@ -1,7 +1,7 @@
 /** @file SimpleLikelihood.h
     @brief declaration of class SimpleLikelihood
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/pointlike/SimpleLikelihood.h,v 1.37 2008/12/29 04:12:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/pointlike/SimpleLikelihood.h,v 1.38 2009/03/09 04:33:11 burnett Exp $
 
 */
 
@@ -80,7 +80,7 @@ public:
     int photons()const { return m_photon_count; } ///< number of photons used
 
     /// @brief First derivitive: gradient of function just evaluated  
-    Hep3Vector gradient() const;
+    CLHEP::Hep3Vector gradient() const;
 
     /// @return Second derivative along arbitrary direction.
     double curvature() const;
