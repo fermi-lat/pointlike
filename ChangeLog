@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: heather  Sun May 29 20:06:44 PDT 2011
+ScienceTools-scons/pointlike/pointlike
+
+Modified Files:
+	AlignProc.h RotationInfo.h SimpleLikelihood.h 
+Log Message:
+really check in clhep updates
+    *
+------------------------------------------------------------
 User: heather  Sun May 29 20:06:43 PDT 2011
 ScienceTools-scons/pointlike/doc
 
