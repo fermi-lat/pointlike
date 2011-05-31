@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.39 2011/04/20 00:35:46 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.40 2011/04/25 18:31:39 lande Exp $
 
    author: Joshua Lande
 
@@ -1015,7 +1015,10 @@ class SpatialMap(SpatialModel):
     def __setstate__(self,state):
         """ When unpickling the object, afterwords recreate the skymaps.SkyImage object. """
         self.__dict__ = state
-        self.skyfun=SkyImage(SpatialMap.expand(self.file),self.extension,self.interpolate)
+        try:
+            self.skyfun=SkyImage(SpatialMap.expand(self.file),self.extension,self.interpolate)
+        except:
+            self.skyfun=None
 
 #===============================================================================================#
 
