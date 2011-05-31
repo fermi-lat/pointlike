@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.24 2011/05/16 14:36:02 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.25 2011/05/20 22:37:47 lande Exp $
 
 author: Joshua Lande
 """
@@ -757,10 +757,23 @@ class RadialModel(RadialImage):
 
 
 class SmoothedImage(ROIImage):
+
+    """ Represnts a ROIImage objects that is smoothed. This
+        is an abstract base class, but subclasses represent
+        smoothed versions of particular ROIImage objects.
+
+        SmoothedCounts -> CountsImage
+        SmoothedModel -> ModelImage
+        SmoothedResdiual -> ResidualImage
+
+        Note, after smoothing, the image is normalized to represent
+        
+    """
     
     smoothed_options = (
-        ('kerneltype', 'tophat', 'Type of kernel to use'),
-        ('kernel_rad',   0.25, 'Sum counts within radius degrees.'),
+        ('kerneltype',      'tophat', 'Type of kernel to use'),
+        ('kernel_rad',          0.25, 'Sum counts within radius degrees.'),
+        ('per_solid_angle',    False, 'If true, after smoothing divide by solid angle (counts/[deg]^2'),
     )
 
     defaults = ROIImage.defaults + smoothed_options
@@ -853,6 +866,11 @@ class SmoothedImage(ROIImage):
         # now, shrink down smoothed image and replace the current skyimage with it
 
         self.image = self.smoothed.image[self.kernelsize/2:-self.kernelsize/2,self.kernelsize/2:-self.kernelsize/2]
+
+        if self.per_solid_angle:
+            # convert from counts to counts per square degree
+            self.image = self.image/self.pixelsize**2
+
         SmoothedImage.add_to_skyimage(self.skyimage,self.image)
 
 class SmoothedCounts(SmoothedImage):
