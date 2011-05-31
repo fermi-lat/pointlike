@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.53 2011/04/24 02:42:33 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.54 2011/04/27 15:24:12 lande Exp $
 
     author: Joshua Lande
 """
@@ -217,16 +217,24 @@ Arguments:
   Keyword     Description
   =========   =======================================================
   roi                   An ROIAnalysis object.
-  tolerance             This is passed into Minuit while fitting the extension parameters.
-  bandfits      [False] Whether to use a spectral independent model when fitting extension.
-  use_gradient  [False] If bandfits is False, whether to use the analytic gradient when fitting 
-                        spectral parameters (during an iteration for a given extension).
-  error       ["HESSE"] The fitting algorithm to use when calculating errors.
-                        Specify None to not calculate errors.
+  tolerance             This is passed into Minuit while fitting the
+                        extension parameters.
+  bandfits      [False] Whether to use a spectral independent model when
+                        fitting extension.
+  use_gradient  [False] If bandfits is False, whether to use the analytic
+                        gradient when fitting spectral parameters
+                        (during an iteration for a given extension).
+  error       ["HESSE", "UMINOS"] 
+                        The fitting algorithm to use when calculating
+                        errors.  UMINOS will call uw.utilitites.minuit
+                        function Minuit.uncorrelated_minos_error function.
+                        Specify None to not calculate errors (or set
+                        estimate_errors=False).
   init_grid      [None] A list of spatial parameters. The likelihood
-                        for each of the spatial parametesr is tested and the minimum
-                        one is used as the initial guess when running minuit. Useful
-                        for doing initial grid search. 
+                        for each of the spatial parametesr is tested and
+                        the minimum one is used as the initial guess
+                        when running minuit. Useful for doing initial
+                        grid search.
 
                         - The spatial part of init_grid
                           should be measured relative to the spatial model's center: (0,0)
@@ -385,7 +393,10 @@ Arguments:
 
         if estimate_errors is True and error is not None:
             if not quiet: print 'Calculating Covariance Matrix'
-            cov_matrix = m.errors(method=error)
+            if error == 'UMINOS':
+                cov_matrix = m.uncorrelated_minos_error()
+            else:
+                cov_matrix = m.errors(method=error)
         else:
             cov_matrix = N.zeros([len(sm.p),len(sm.p)])
 
