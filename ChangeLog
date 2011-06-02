@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Jun  2 11:00:01 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_plotting_func.py 
+Log Message:
+Added an independent radius for each band.
+
+    *
+------------------------------------------------------------
 User: parent  Thu Jun  2 09:37:11 PDT 2011
 pointlike/python/uw/utilities
 
