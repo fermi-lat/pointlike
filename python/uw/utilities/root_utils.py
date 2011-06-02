@@ -10,6 +10,8 @@ from ROOT import gROOT
 gROOT.SetBatch(True)
 from ROOT import gStyle    
 
+FONT = 42
+
 def initialization(batch=True):
     '''ROOT initialization.
 
@@ -29,7 +31,7 @@ def initialization(batch=True):
     gStyle.SetCanvasColor(10)
     gStyle.SetLineWidth(1)
     gStyle.SetPalette(1)
-    gStyle.SetTextFont(42)
+    gStyle.SetTextFont(FONT)
 
     # Frame
     gStyle.SetFrameBorderMode(0)
@@ -54,8 +56,8 @@ def initialization(batch=True):
     # histogram title
     gStyle.SetTitleSize(0.22)
     gStyle.SetTitleFontSize(2)
-    gStyle.SetTitleFont(42)
-    gStyle.SetTitleFont(62,"xyz")
+    gStyle.SetTitleFont(FONT)
+    gStyle.SetTitleFont(FONT,"xyz")
     gStyle.SetTitleYOffset(1.0)
     gStyle.SetTitleXOffset(1.0)
     gStyle.SetTitleXSize(0.04)
@@ -67,16 +69,17 @@ def initialization(batch=True):
     
     # statistics box
     gStyle.SetOptStat(0)
-    gStyle.SetStatFont(42)
+    gStyle.SetStatFont(FONT)
     gStyle.SetStatX(.91)
     gStyle.SetStatY(.90)
     gStyle.SetStatW(.15)
     gStyle.SetStatH(.15)
         
     # axis labels
-    gStyle.SetLabelFont(42,"xyz")
+    gStyle.SetLabelFont(FONT)
+    gStyle.SetLabelFont(FONT,"xyz")
     gStyle.SetLabelSize(0.035,"xyz")
-    #    gStyle.SetGridColor(1)
+    # gStyle.SetGridColor(1)
     gStyle.SetLegendBorderSize(1);
 
 
@@ -87,16 +90,19 @@ def set_axis_thx( hist, x_title = "", x_title_size = 0., x_title_offset = 0., x_
     hist.GetXaxis().CenterTitle()
     hist.GetXaxis().SetTitleSize(x_title_size)
     hist.GetXaxis().SetTitleOffset(x_title_offset)
+    hist.GetXaxis().SetTitleFont(FONT)
     hist.GetXaxis().SetLabelSize(x_label_size)
     hist.GetXaxis().SetLabelOffset(0.01)
+    hist.GetXaxis().SetLabelFont(FONT)
     
     hist.GetYaxis().SetTitle(y_title)
     hist.GetYaxis().CenterTitle()
     hist.GetYaxis().SetTitleSize(y_title_size)
     hist.GetYaxis().SetTitleOffset(y_title_offset)
+    hist.GetYaxis().SetTitleFont(FONT)
     hist.GetYaxis().SetLabelSize(y_label_size)
     hist.GetYaxis().SetLabelOffset(0.01)
-    
+    hist.GetYaxis().SetLabelFont(FONT)
 
 def fit_lorentzian(x, par):
     return (0.5*par[0]*par[1]/np.pi) / np.max( 1.e-10,(x[0]-par[2]) * (x[0]-par[2]) + .25*par[1]*par[1])
