@@ -143,6 +143,7 @@ class PulsarLightCurve:
 
         # ===== radius selection =====
         if self.radius is None: self.radius = utilfits.get_header_position(ft1name)[2]
+        if not hasattr(self.radius,'__len__'): self.radius = [self.radius] * len(self.energy_range)
         print "\t(radmin,radmax): (", self.radmin, ",", self.radius, ") deg"
 
         # ===== PSF ====
@@ -231,13 +232,15 @@ class PulsarLightCurve:
             theta = set_psfcut(self.psf_selection,it_events.energy)
 
             basic_filter = self.get_basic_filter(it_events)
-            radius_filter = ( angsep <= self.radius )
+            #radius_filter = ( angsep <= self.radius )
             psf_filter    = (angsep<theta or angsep<self.radmin) if self.psfcut else True
 
             # --- light curve > energy threshold ---
-            if basic_filter and radius_filter and psf_filter:
+            #if basic_filter and radius_filter and psf_filter:
+            if basic_filter and psf_filter:
                 for j in range(len(self.phaseogram)):
-                    if it_events.energy > self.energy_range[j][0] and it_events.energy < self.energy_range[j][1]:
+                    radius_filter = angsep <= self.radius[j]
+                    if radius_filter and (it_events.energy > self.energy_range[j][0]) and (it_events.energy < self.energy_range[j][1]):
                         self.phaseogram[j].Fill(phase); self.phaseogram[j].Fill(phase+1.)
                         self.pulse_phase[j] = numpy.append(self.pulse_phase[j],phase)
                         self.phaseogram2D[j].Fill(phase,it_events.time); self.phaseogram2D[j].Fill(phase+1,it_events.time)
@@ -295,7 +298,7 @@ class PulsarLightCurve:
             basic_filter  = self.get_basic_filter(it_events)
             energy_filter = it_events.energy >= self.energy_range[which][0] and it_events.energy <= self.energy_range[which][1]
             phase_filter  = (phase>=pmin and phase<=pmax) if pmin<pmax else (phase>=pmin or phase<=pmax)
-            radius_filter = angsep <= self.radius
+            radius_filter = angsep <= self.radius[which]
             psf_filter    = (angsep<theta or angsep<self.radmin) if self.psfcut else True
             ring_filter   = angsep >= ring_range[0] and angsep <= ring_range[1]
 
@@ -305,7 +308,7 @@ class PulsarLightCurve:
                 if ring_filter                  : ring_events += 1
 
         phase_norm = (pmax-pmin) if pmin<pmax else (1.+pmax-pmin)
-        surf_norm = (numpy.power(ring_range[1],2)-numpy.power(ring_range[0],2)) / numpy.power(self.radius,2)
+        surf_norm = (numpy.power(ring_range[1],2)-numpy.power(ring_range[0],2)) / numpy.power(self.radius[which],2)
         return ring_events * ((psf_events/basic_events) / phase_norm / float(self.nbins) / surf_norm)
 
     def print_psf(self):
