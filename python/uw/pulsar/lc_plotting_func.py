@@ -1,34 +1,34 @@
 '''
-Module plotting pulse phase from a FT1 file.
+Python module for plotting phaseograms in different energy bands
 '''
-__author__  = 'Damien Parent' 
-__version__ = 1.2
+__author__  = 'Damien Parent'
+__version__ = 1.3
 
 import os, sys
 import numpy, pyfits
 import itertools
-from ROOT import TH1F, TH2F, TGraph, TText, TCanvas, TPad, TLegend, TLine
+from ROOT import gStyle, TH1F, TH2F, TGraph, TText, TCanvas, TPad, TLegend, TLine
 
 from uw.utilities.coords import sepangle_deg
 import uw.utilities.fits_utils as utilfits
-import uw.utilities.root_utils as root
+import uw.utilities.root_utils as root                                                                                                                                                            
+#import root_utils as root
 from uw.utilities.phasetools import h_statistic, z2m, sig2sigma
 
 
 def set_psfcut(par,energy):
     '''Apply a psf cut of the form (ROI x (e/100)**(alpha))**2 + beta**2'''
     theta = numpy.sqrt( numpy.power(par[0],2.) * numpy.power(energy/100.,par[1]*2.) + numpy.power(par[2],2.) )
-    #theta = par[0] * numpy.power(energy/1000.,par[1])
     return theta
 
 def h_sig(h):
        """Convert the H-test statistic to a chance probability."""
        prob = numpy.exp(-0.4*h)
-       if prob < 1e-130: prob = 1e-130 # to avoid saturation            
+       if prob < 1e-130: prob = 1e-130 # to avoid saturation
        return prob
 
 def progressbar( nentries, jentry ):
-    # step --> 10%
+    # step --> 10%                                                                                                                                                                                 
     step1 = int(0.101 * nentries)
     step2 = int(0.02 * nentries)
 
@@ -41,16 +41,16 @@ def progressbar( nentries, jentry ):
 
     if( jentry%step2 == 0 and jentry%step1 != 0 ):
         sys.stdout.write("."),; sys.stdout.flush()
-        
+
     if( jentry == (nentries-1) ):
         print "|100% \n"
-        sys.stdout.flush()                                                                                
+        sys.stdout.flush()
 
 class Event(object):
     '''Declaration of an object called Event.'''
     def __init__(self, ra, dec, time, energy, evtclass, phase, zenith_angle ):
         self.time         = time
-	self.ra           = ra
+        self.ra           = ra
         self.dec          = dec
         self.energy       = energy
         self.phase        = phase
@@ -77,10 +77,11 @@ class PulsarLightCurve:
         self.tmin          = None
         self.tmax          = None
         self.eclsmin       = 0
-        self.eclsmax       = 3
+        self.eclsmax       = 1e5
         self.zenithcut     = 105.
         self.phase_colname = 'PULSE_PHASE'
         self.psfcut        = True
+        self.convtype      = -1
 
     def __init__(self, ft1name, ra_src=None, dec_src=None, **kwargs):
         '''
@@ -93,41 +94,48 @@ class PulsarLightCurve:
         --------
         psrname       : source name                      Default: PSR
         radius        : Maximum radius (deg).            Default: FT1 header.
-        radmin        : Keep all the photons in x (deg). Default: 0.
+        radmin        : Keep all the photons in x deg    Default: 0 (deg)
         emin          : Minimum energy (MeV).            Default: FT1 header.
         emax          : Maximum energy (MeV).            Default: FT1 header.
         tmin          : Start time (MET).                Default: FT1 header.
         tmax          : End time (MET).                  Default: FT1 header.
         eclsmin       : Minimum event class              Default: 0
-        eclsmax       : Maximum event class              Default: 3
+        eclsmax       : Maximum event class              Default: 1e5
         zenithcut     : Zenith Cut (deg)                 Default: 105.
         phase_colname : Phase column name.               Default: PULSE_PHASE
-        psfcut        : PSF-cut selection [True/False]   Default: True 
+        psfcut        : PSF-cut selection [True/False]   Default: True
+        convtype      : -1=both, 0=Front, 1=Back         Defalut: -1
         '''
 
         self.init()
         self.__dict__.update(kwargs)
         self.__ra_src  = ra_src
         self.__dec_src = dec_src
-        
+
         self.psf_selection = None
-        self.energy_range  = [ [100.,3e5] , [100.,300.] , [300.,1000.] , [1000.,3e5] , [3000.,3e5] ]
+        if self.convtype == -1: self.psf_selection = [ 5.12 , -0.8 , 0.07 ]
+        elif self.convtype ==  0: self.psf_selection = [ 3.3 , -0.8 , 0.05 ]
+        elif self.convtype ==  1: self.psf_selection = [ 5.5 , -0.8 , 0.1 ]
+        else: print "convtype that you selected does not exist. Exiting ..."
+                        
+        self.energy_range  = [ [100.,3e5] , [3000.,3e5], [1000.,3e5], [300.,1000.], [100.,300.], [3e3,3e5] ]
 
         print "================="
         print "  ", self.psrname
         print "================="
         print "___PARAMETERS___:"
+
         # ====== time range =====
         ft1range = utilfits.ft1_time_range(ft1name)
-	if self.tmin is None: self.tmin = ft1range['START']
+        if self.tmin is None: self.tmin = ft1range['START']
         if self.tmax is None: self.tmax = ft1range['STOP']
         print "\t(tmin,tmax): (", self.tmin, ",", self.tmax, ") MET"
 
-        # ===== energy range =====       
+        # ===== energy range =====
         if self.emin is None: self.emin = utilfits.get_header_erange(ft1name)[0]
         if self.emax is None: self.emax = utilfits.get_header_erange(ft1name)[1]
         print "\t(emin,emax): (", self.emin, ",", self.emax, ") MeV"
-        
+
         # ====== position of the source (ra,dec) ======
         if ra_src is None: self.__ra_src = utilfits.get_header_position(ft1name)[0]
         if dec_src is None: self.__dec_src = utilfits.get_header_position(ft1name)[1]
@@ -137,22 +145,28 @@ class PulsarLightCurve:
         if self.radius is None: self.radius = utilfits.get_header_position(ft1name)[2]
         print "\t(radmin,radmax): (", self.radmin, ",", self.radius, ") deg"
 
+        # ===== PSF ====
+        if self.psfcut:
+            self.print_psf()
+
+        print ""
+
         # ===== declaration of histograms (ROOT ...) =====
-        self.nbins = 0
         self.phaseogram = []
         self.pulse_phase = []
         self.phaseogram2D = []
-        for i in range(5):
+        for i in range(6):
             histname = "phaseogram_" + str(i)
             self.phaseogram.append(TH1F())
             self.pulse_phase.append(numpy.array([]))
             self.phaseogram2D.append(TH2F())
-                        
+
+        self.nbins = 0
+        self.binmin, self.binmax = 0, 0
+
         # ===== Get the events from the FT1 file =====
-        print "\n___pending___: loading photons from FT1 file ..."
+        print "___pending___: loading photons from FT1 file ..."
         ft1file = pyfits.open(ft1name)
-        # ft1hdr  = hdulist[1].header
-        # ft1dat  = hdulist[1].data
         hduname = 'EVENTS'
 
         ra = ft1file[hduname].data.field('RA')
@@ -167,7 +181,7 @@ class PulsarLightCurve:
         except KeyError:
             print "\t You need to assign a phase for each event in the fits file. Exiting ..."
             exit()
-            
+
         event_iter = itertools.izip(ra, dec, time, energy, evtclass, phase, zenith_angle)
         self.eventlist = [Event(*row) for row in event_iter]
 
@@ -176,26 +190,25 @@ class PulsarLightCurve:
         self.__ra_src  = x
         self.__dec_src = y
 
-    def fill_phaseogram(self, nbins=20, bin_range=[0.,2.], convtype=-1, phase_shift=0.):
+    def fill_phaseogram(self, nbins=20, bin_range=[0.,2.], phase_shift=0.):
         '''Fill both phaseograms (TH1F, TH2F) and pulse_phase objects.
-        
+
         parameters:
         -----------
         nbins       : number of bins in your histogram
-        bin_range   : Min and Max phase interval
-        convtype    : -1=both, 0=Front, 1=Back
+        bin_range   : min and max phase interval
         phase_shift : add a phase shift in your histogram
         '''
-
         print "\n___pending___: loading histograms ..."
-        
         self.nbins = nbins
         self.phase_shift = phase_shift
+        self.binmin = bin_range[0]
+        self.binmax = bin_range[1]
 
         # === initialization of histograms ===
         for item in self.phaseogram:
             item.Reset()
-            item.SetBins(nbins*int(bin_range[1]-bin_range[0]),bin_range[0],bin_range[1])
+            item.SetBins(nbins*int(self.binmax-self.binmin),self.binmin,self.binmax)
 
         for item in self.phaseogram2D:
             item.Reset()
@@ -203,16 +216,9 @@ class PulsarLightCurve:
 
         for i, item in enumerate(self.pulse_phase):
             self.pulse_phase[i] = numpy.array([])
-            
-        if self.psf_selection is None:
-            if   convtype == -1: psf_selection = [ 5.12 , -0.8 , 0.07 ]
-            elif convtype ==  0: psf_selection = [ 3.3 , -0.8 , 0.05 ]
-            elif convtype ==  1: psf_selection = [ 5.5 , -0.8 , 0.1 ]
-            else: print "convtype that you selected does not exist. Exiting ..."
-            self.psf_selection = psf_selection
-            
+
         # ====================== LOOP OVER THE EVENTS  ======================
-        # 
+        #
         # ===================================================================
         for i, it_events in enumerate(self.eventlist):
             progressbar(len(self.eventlist),i)
@@ -226,9 +232,9 @@ class PulsarLightCurve:
 
             basic_filter = self.get_basic_filter(it_events)
             radius_filter = ( angsep <= self.radius )
-            psf_filter    = (angsep<theta or angsep<self.radmin) if self.psfcut else True            
+            psf_filter    = (angsep<theta or angsep<self.radmin) if self.psfcut else True
 
-            # --- light curve > energy threshold ---            
+            # --- light curve > energy threshold ---
             if basic_filter and radius_filter and psf_filter:
                 for j in range(len(self.phaseogram)):
                     if it_events.energy > self.energy_range[j][0] and it_events.energy < self.energy_range[j][1]:
@@ -236,21 +242,22 @@ class PulsarLightCurve:
                         self.pulse_phase[j] = numpy.append(self.pulse_phase[j],phase)
                         self.phaseogram2D[j].Fill(phase,it_events.time); self.phaseogram2D[j].Fill(phase+1,it_events.time)
 
-        # to make a better display due to errorbars
+	# to make a better display due to errorbars
         for histo in self.phaseogram:
             histo.SetMinimum(0.01)
             max_histo = histo.GetBinContent(histo.GetMaximumBin())
             factor = 1.12 + numpy.sqrt(max_histo)/max_histo
-            histo.SetMaximum(max_histo*factor)
+            histo.SetMaximum(int(max_histo*factor))
+            if histo.GetMaximum()%5 == 0:
+		histo.SetMaximum(histo.GetMaximum()+3)
 
     def get_basic_filter(self, event):
         '''Return True if the event goes through the cuts.'''
-
         basic_filter = ( event.evtclass >= self.eclsmin and event.evtclass <= self.eclsmax and
                          event.energy >= self.emin and event.energy <= self.emax and
                          event.time >= self.tmin and event.time <= self.tmax and
                          event.zenith_angle <= self.zenithcut )
-        
+
         return basic_filter
 
     def get_background(self, which=0, phase_range=[0.,1.], ring_range=[1.,2.], psfcut=True):
@@ -266,7 +273,9 @@ class PulsarLightCurve:
         -------
         background/bin
         '''
-        
+
+        print "___pending___: evaluating background ..."
+
         if self.psf_selection is None and self.psfcut:
             print "Error, you have to fill histograms before. Exiting..."
             sys.exit()
@@ -289,33 +298,38 @@ class PulsarLightCurve:
             radius_filter = angsep <= self.radius
             psf_filter    = (angsep<theta or angsep<self.radmin) if self.psfcut else True
             ring_filter   = angsep >= ring_range[0] and angsep <= ring_range[1]
-            
+
             if basic_filter and energy_filter and phase_filter:
                 if radius_filter                : basic_events += 1
                 if psf_filter and radius_filter : psf_events += 1
                 if ring_filter                  : ring_events += 1
-                
+
         phase_norm = (pmax-pmin) if pmin<pmax else (1.+pmax-pmin)
         surf_norm = (numpy.power(ring_range[1],2)-numpy.power(ring_range[0],2)) / numpy.power(self.radius,2)
-        return ring_events * ((psf_events/basic_events) / phase_norm / float(self.nbins) / surf_norm)                
+        return ring_events * ((psf_events/basic_events) / phase_norm / float(self.nbins) / surf_norm)
+
+    def print_psf(self):
+        sys.stdout.write("\tPSF-cut: "),
+        print self.psf_selection[0],
+        sys.stdout.write(" x (E/100)^"),
+        print self.psf_selection[1],
+        sys.stdout.write(" ++ "),
+        print self.psf_selection[2],
+        print "(++: in quadrature)"
 
     def print_summary(self):
-        print "___PARAMETERS___:"
+	print "___PARAMETERS___:"
         print "\t(tmin,tmax): (", self.tmin, ",", self.tmax, ") MET"
         print "\t(emin,emax): (", self.emin, ",", self.emax, ") MeV"
-        print "\t(ra,dec): (", self.__ra_src, ",", self.__dec_src, ") deg"        
-        print "\t(radmin,radmax): (", self.radmin, ",", self.radius, ") deg"        
-        if self.psfcut:
-            sys.stdout.write("\tPSF-cut: "),
-            print self.psf_selection[0],
-            sys.stdout.write(" x (E/100)^"),
-            print self.psf_selection[1],
-            sys.stdout.write(" ++ "),
-            print self.psf_selection[2],
-            print "(++: in quadrature) \n"
-
-        print "PARAMETERS | \t PHASO_0 \t PHASO_1 \t PHASO_2 \t PHASO_3 \t PHASO_4"
-        for x in range(30): print "- ",
+        print "\t(ra,dec): (", self.__ra_src, ",", self.__dec_src, ") deg"
+        print "\t(radmin,radmax): (", self.radmin, ",", self.radius, ") deg"
+        if self.psfcut: self.print_psf()
+        print ""
+        
+        print "PARAMETERS | \t",
+        for i in range(len(self.phaseogram)): print "PHASO_" +  str(i), "\t",
+        print ""
+        for x in range(37): print "- ",
         print ""
         print "ENERGY(MeV)| \t",
         for it, histo in enumerate(self.phaseogram):
@@ -340,285 +354,274 @@ class PulsarLightCurve:
                 print "0 \t \t",
         print ""
         print ""
-        
-    # ================================= PLOT =================================
-    # The following functions are ...
-    # ========================================================================
-    def plot_lc_gamma_radio(self, nbands=3, xdim=1200, ydim=1700, outdir=".", profile=None, ncol=0,
-                            fidpt=0., ylabel="Radio Flux (au)", comment="1.4 GHz", mean_sub=False, background=None):
-        '''ROOT function for plotting [3,4,5] gamma-ray bands and 1 other external band.
-        
+
+    # ================ LOAD RADIO or XRAY PROFILE ================
+    def load_profile(self, profile, fidpt=0., norm=True, mean_sub=False, ncol=1,
+                     ylabel="Radio Flux (au)", comment="", histo=False):
+        '''Load radio/xray profiles
         ___arguments___:
-        nbands     : number of gamma-ray bands in the figure [3,4,5]
-        xdim, ydim : plot dimensions
-        outdir     : output directory (Default=.)
-        profile    : radio or x-ray template file (ascii)
-        ncol       : column number for the radio template file
-        fidpt      : fiducial point
-        ylabel     : ylabel title for the bottom panel
-        comment    : add a comment about the radio observed frequency
+        profile     : radio or x-ray template file (ascii)
+        fidpt       : fiducial point
+        ncol        : column number for the radio template file
+        mean_sub    :
+        norm [True] : normalization
+        ylabel      : ylabel title for the bottom panel
+        comment     : comment on radio observation (e.g. 1.4 GHz)
+        histo[False]: Change the display
         '''
-        
-        root.initialization()
-        phaseogram = self.phaseogram
-
-        # ==========> canvas and pad
-        canvas = TCanvas("canvas","canvas",xdim,ydim);
-        text = TText()
-
-        if nbands is 3:
-            text.SetTextSize(0.08)
-            pad1 = TPad("pad1","pad1",0,0.63,1.,1.00); pad1.Draw()
-            pad3 = TPad("pad3","pad3",0,0.26,1.,0.62); pad3.Draw()
-            pad5 = TPad("pad5","pad5",0,0.00,1.,0.25); pad5.Draw()
-
-        if nbands is 4:
-            text.SetTextSize(0.09)
-            pad1 = TPad("pad1","pad1",0,0.69,1.,1.00); pad1.Draw()
-            pad2 = TPad("pad2","pad2",0,0.47,1.,0.68); pad2.Draw()
-            pad3 = TPad("pad3","pad3",0,0.26,1.,0.47); pad3.Draw()
-            pad5 = TPad("pad5","pad5",0,0.00,1.,0.25); pad5.Draw()
-                                            
-        if nbands is 5:
-            text.SetTextSize(0.09)
-            pad1 = TPad("pad1","pad1",0,0.70,1.,1.00); pad1.Draw()
-            pad2 = TPad("pad2","pad2",0,0.51,1.,0.69); pad2.Draw()
-            pad3 = TPad("pad3","pad3",0,0.33,1.,0.51); pad3.Draw()
-            pad4 = TPad("pad4","pad4",0,0.15,1.,0.33); pad4.Draw()
-            pad5 = TPad("pad5","pad5",0,0.00,1.,0.14); pad5.Draw()
-        
-        # ===========> TOP PANEL
-        pad1.cd()
-        pad1.SetTopMargin(0.02); pad1.SetBottomMargin(0.)
-        
-        ecol = 0
-        if nbands == 3: root.set_axis_thx(phaseogram[ecol],"",0.,0.,0.,"Counts",0.08,0.6,0.05)
-        if nbands == 4: root.set_axis_thx(phaseogram[ecol],"",0.,0.,0.,"Counts",0.07,0.65,0.055)
-        if nbands == 5: root.set_axis_thx(phaseogram[ecol],"",0.,0.,0.,"Counts",0.053,0.84,0.047)
-        ### phaseogram[ecol].SetFillColor(14) #######
-        phaseogram[ecol].Draw(); phaseogram[ecol].Draw("Esame")
-        tt = "> " + str(self.energy_range[ecol][0]/1e3) + " GeV"
-        text.DrawText(0.1,phaseogram[ecol].GetMaximum()*0.88,tt)
-        text.DrawText(1.45,phaseogram[ecol].GetMaximum()*0.88,self.psrname)
-
-        if background is not None:
-              line = TLine(0,background,2,background)
-              line.SetLineStyle(2)
-              line.Draw()
-        
-        # ===========> (2) PANEL
-        if nbands is not 3:
-            pad2.cd()
-            pad2.SetTopMargin(0.); pad2.SetBottomMargin(0.)
-            
-            ecol = 3
-            if nbands is 4: root.set_axis_thx(phaseogram[ecol],"",0.0,0.0,0.0,"Counts",0.11,0.42,0.08)
-            if nbands is 5: root.set_axis_thx(phaseogram[ecol],"",0.0,0.0,0.0,"Counts",0.09,0.5,0.08)
-            phaseogram[ecol].Draw(); phaseogram[ecol].Draw("Esame")
-            tt = "> " + str(self.energy_range[ecol][0]/1e3) + " GeV"
-            text.SetTextSize(0.12)
-            text.DrawText(0.1,phaseogram[ecol].GetMaximum()*0.88,tt)
-            
-            ecol = 4
-            phaseogram[ecol].SetFillColor(14)
-            phaseogram[ecol].Draw("same")
-            text.SetTextColor(14)
-            tt = "> " + str(self.energy_range[ecol][0]/1e3) + " GeV"
-            text.DrawText(0.1,phaseogram[3].GetMaximum()*0.78,tt)
-            
-        # ============> (3) PANEL
-        pad3.cd()
-        pad3.SetTopMargin(0.); pad3.SetBottomMargin(0.)
-        
-        ecol = 2
-        if nbands is 3: root.set_axis_thx(phaseogram[ecol],"",0.0,0.0,0.0,"Counts",0.08,0.6,0.05)
-        if nbands is 4: root.set_axis_thx(phaseogram[ecol],"",0.0,0.0,0.0,"Counts",0.11,0.42,0.08)
-        if nbands is 5: root.set_axis_thx(phaseogram[ecol],"",0.0,0.0,0.0,"Counts",0.09,0.5,0.08)
-        phaseogram[ecol].Draw(); phaseogram[ecol].Draw("Esame")
-        text.SetTextColor(1)
-        tt = str(self.energy_range[ecol][0]/1e3) + " - " + str(self.energy_range[ecol][1]/1e3) + " GeV"
-        text.DrawText(0.1,phaseogram[ecol].GetMaximum()*0.88,tt)
-        
-        # ============> (4) PANEL
-        if nbands is 5:
-            pad4.cd()
-            pad4.SetTopMargin(0.); pad4.SetBottomMargin(0.)
-            
-            ecol = 1
-            root.set_axis_thx(phaseogram[ecol],"",0.0,0.0,0.0,"Counts",0.09,0.5,0.08)
-            phaseogram[ecol].Draw(); phaseogram[ecol].Draw("Esame")
-            text.SetTextColor(1)
-            tt = str(self.energy_range[ecol][0]/1e3) + " - " + str(self.energy_range[ecol][1]/1e3) + " GeV"
-            text.DrawText(0.1,phaseogram[ecol].GetMaximum()*0.88,tt)
-
-        # ==========> TEMPLATE - BOTTOM PANEL
-        pad5.cd()
-        pad5.SetBorderSize(0); pad5.SetTopMargin(0.); pad5.SetBottomMargin(0.3)
-        
-        if profile is not None:
+        try:
             phase_ext = numpy.loadtxt(profile,comments="#")[:,ncol-1]
-            template = TGraph(2*len(phase_ext))
-            phase_ext = numpy.roll(phase_ext,-int(len(phase_ext)*fidpt))  # fiducial point
-            if mean_sub is True:
-                phase_ext -= numpy.mean(phase_ext)
-            phase_ext /= numpy.max(phase_ext)   # normalization
+        except IndexError:
+            phase_ext = numpy.loadtxt(profile,comments="#")
+            
+        phase_ext = numpy.roll(phase_ext,-int(len(phase_ext)*fidpt))  # fiducial point
+        if mean_sub: phase_ext -= numpy.mean(phase_ext)
+        if norm: phase_ext /= numpy.max(phase_ext)   # normalization
 
+        if histo:
+            template = TH1F()
+            template.SetBins(len(phase_ext)*int(self.binmax-self.binmin),self.binmin,self.binmax)
+            for i, item in enumerate(phase_ext):
+                template.Fill(float(i)/len(phase_ext),item)
+                template.Fill(1+float(i)/len(phase_ext),item)
+            template.SetMinimum(0.01)
+            max_histo = template.GetBinContent(template.GetMaximumBin())
+            factor = 1.12 + numpy.sqrt(max_histo)/max_histo
+            template.SetMaximum(int(max_histo*factor))
+        else:
+            template = TGraph(2*len(phase_ext))
             for i, item in enumerate(phase_ext):
                 template.SetPoint(i,float(i)/len(phase_ext),item)
                 template.SetPoint(i+len(phase_ext),1.+float(i)/len(phase_ext),item)
-                
-            # title size, title offset, label size
-            if nbands is 3: root.set_axis_thx(template,"Pulsar Phase",0.11,1.0,0.11,ylabel,0.1,0.44,0.09)
-            if nbands is 4: root.set_axis_thx(template,"Pulsar Phase",0.11,1.0,0.11,ylabel,0.1,0.44,0.09)
-            if nbands is 5: root.set_axis_thx(template,"Pulsar Phase",0.12,1.0,0.11,ylabel,0.1,0.44,0.12)
+                template.GetXaxis().SetRangeUser(self.binmin,self.binmax)
 
-            template.GetXaxis().SetRangeUser(0,2)
-            template.Draw("al");
-            text.SetTextSize(.14);
-            text.DrawText(0.1,0.8,comment)
-            
-        # =======> OUTPUT
-        outfilename = self.psrname + "_phaseogram_gamma_radio_" + str(nbands) + "bands.eps"
-        canvas.Print(os.path.join(outdir,outfilename))
+        return template, ylabel, comment
 
-    def plot_lc_gamma(self, nbands=4, xdim=1200, ydim=1500, outdir=".", background=None):
+    
+    def plot_lightcurve( self, nbands=4, xdim=1200, ydim=1500, outdir="", background=None,
+                         background_sub=False, inset=False, profile=None, profile2=None ):
         '''ROOT function for ploting x gamma-ray bands.
-            
         ___arguments___:
-        nbands     : number of gamma-ray bands in the figure [2,..,5]
-        xdim, ydim : plot dimensions
-        outdir     : output directory
+        nbands         : number of gamma-ray bands in the figure [2,..,5]
+        profile        : radio or x-ray template (use load_profile)
+        profile2       : radio or x-ray template (use load_profile)
+        backgroung     : add a background level on the first panel
+        background_sub : active the zero-suppress on the top panel [false]
+        inset          : add an inset on the top panel [false]
+        xdim, ydim     : plot dimensions
+        outdir         : output directory
         '''
-        
         root.initialization(batch=True)
         phaseogram = self.phaseogram
-        
+
         # ==========> canvas and pad
         canvas = TCanvas("canvas","canvas",xdim,ydim);
+        pad = []
         text = TText()
-        
+
         if nbands is 3:
             text.SetTextSize(0.08)
-            pad1 = TPad("pad1","pad1",0,0.63,1.,1.00); pad1.Draw()
-            pad3 = TPad("pad3","pad3",0,0.34,1.,0.62); pad3.Draw()
-            pad4 = TPad("pad4","pad4",0,0.00,1.,0.34); pad4.Draw()
-        
+            ylow, yup, ystep = 0.68, 1., 0.31
+            if profile is not None: ylow, yup, ystep = 0.64, 1., 0.34
+            
         if nbands is 4:
             text.SetTextSize(0.09)
-            pad1 = TPad("pad1","pad1",0,0.67,1.,1.00); pad1.Draw()
-            pad3 = TPad("pad3","pad3",0,0.46,1.,0.66); pad3.Draw()
-            pad4 = TPad("pad4","pad4",0,0.26,1.,0.46); pad4.Draw()
-            pad5 = TPad("pad5","pad5",0,0.00,1.,0.26); pad5.Draw()
-            
+            ylow, yup, ystep = 0.67, 1., 0.21
+            if profile is not None: ylow, yup, ystep = 0.67, 1., 0.22
+
         if nbands is 5:
             text.SetTextSize(0.09)
-            pad1 = TPad("pad1","pad1",0,0.71,1.,1.00); pad1.Draw()
-            pad2 = TPad("pad2","pad2",0,0.54,1.,0.70); pad2.Draw()  
-            pad3 = TPad("pad3","pad3",0,0.38,1.,0.54); pad3.Draw()
-            pad4 = TPad("pad4","pad4",0,0.22,1.,0.38); pad4.Draw()
-            pad5 = TPad("pad5","pad5",0,0.00,1.,0.22); pad5.Draw()
+            ylow, yup, ystep = 0.7, 1., 0.16
+
+        for i in range(nbands):
+            padname = "pad" + str(i)
+            if i+1 is nbands: ylow = 0
+            pad.append(TPad(padname,padname,0,ylow,1.,yup)); pad[i].Draw()
+            if i == 0: yup = ylow; ylow -= ystep
+            else: yup -= ystep; ylow -= ystep
             
-        # ===========> TOP PANEL
-        pad1.cd()
-        pad1.SetTopMargin(0.05); pad1.SetBottomMargin(0.)
-        
-        ecol = 0
-        if nbands == 3: root.set_axis_thx(phaseogram[ecol],"",0.,0.,0.,"Counts",0.07,0.65,0.05)
-        if nbands == 4: root.set_axis_thx(phaseogram[ecol],"",0.,0.,0.,"Counts",0.067,0.67,0.047)
-        if nbands == 5: root.set_axis_thx(phaseogram[ecol],"",0.,0.,0.,"Counts",0.065,0.74,0.05)
+        # ==========> (0) TOP PANEL
+	ecol = 0
+        pad[ecol].cd(); pad[ecol].SetTopMargin(0.05); pad[ecol].SetBottomMargin(0.)
+
+        # title size, title offset, label size
+        if nbands == 3:
+            root.set_axis_thx(phaseogram[ecol],"",0.,0.,0.,"Counts",0.08,0.62,0.06)
+        if nbands == 4:
+            root.set_axis_thx(phaseogram[ecol],"",0.,0.,0.,"Counts",0.073,0.69,0.053)
+        if nbands == 5:
+            root.set_axis_thx(phaseogram[ecol],"",0.,0.,0.,"Counts",0.073,0.69,0.06)
+
+        if background_sub:
+            min_histo = phaseogram[ecol].GetBinContent(phaseogram[ecol].GetMinimumBin())
+            factor = .8 - numpy.sqrt(min_histo)/min_histo
+            phaseogram[ecol].SetMinimum(int(min_histo*factor))
+            
         phaseogram[ecol].Draw(); phaseogram[ecol].Draw("Esame")
         tt = "> %.2f GeV" %(self.energy_range[ecol][0]/1e3)
-        text.DrawText(0.1,phaseogram[ecol].GetMaximum()*0.87,tt)
-        text.DrawText(1.45,phaseogram[ecol].GetMaximum()*0.87,self.psrname)
+        text.DrawText(0.1,phaseogram[ecol].GetMaximum()*0.9,tt)
+	text.DrawText(1.5,phaseogram[ecol].GetMaximum()*0.9,self.psrname)
 
         if background is not None:
             line = TLine(0,background,2,background)
             line.SetLineStyle(2)
             line.Draw()
 
-        # ===========> (2) PANEL
-        if nbands is 5:
-            pad2.cd(); pad2.SetTopMargin(0.); pad2.SetBottomMargin(0.)
-            
-            ecol = 4
-            root.set_axis_thx(phaseogram[ecol],"",0.0,0.0,0.0,"Counts",0.12,0.39,0.08)
-            phaseogram[ecol].Draw(); phaseogram[ecol].Draw("Esame")
+        if inset:
+            ecol = -1
+            color = 14
+            phaseogram[ecol].SetFillColor(color)
+            phaseogram[ecol].Draw("same")
+            text.SetTextColor(color)
             tt = "> " + str(self.energy_range[ecol][0]/1e3) + " GeV"
-            text.SetTextSize(0.13)
+            text.DrawText(0.1,phaseogram[0].GetMaximum()*0.82,tt)
+            text.SetTextColor(1)
+
+        # =========> (1) PANEL
+        ecol = 1
+        if nbands > ecol:
+            pad[ecol].cd(); pad[ecol].SetTopMargin(0.); pad[ecol].SetBottomMargin(0.)
+
+            if nbands is 3:
+                root.set_axis_thx(phaseogram[ecol],"",0.,0.,0.,"Counts",0.083,0.6,0.07)
+                textsize = 0.09
+            if nbands is 4:
+                root.set_axis_thx(phaseogram[ecol],"",0.,0.,0.,"Counts",0.11,0.42,0.09)
+                textsize = 0.11
+            if nbands is 5:
+                root.set_axis_thx(phaseogram[ecol],"",0.,0.,0.,"Counts",0.13,0.39,0.11)
+                textsize = 0.13
+
+            phaseogram[ecol].Draw(); phaseogram[ecol].Draw("Esame")
+            if self.energy_range[ecol][1] > 50000: tt = "> " + str(self.energy_range[ecol][0]/1e3) + " GeV"
+            else: tt = str(self.energy_range[ecol][0]/1e3) + " - " + str(self.energy_range[ecol][1]/1e3) + " GeV"
+            text.SetTextSize(textsize)
             phaseogram[ecol].SetFillColor(0)
             text.DrawText(0.1,phaseogram[ecol].GetMaximum()*0.87,tt)
-            
-        # ===========> (3) PANEL
-        pad3.cd(); pad3.SetTopMargin(0.); pad3.SetBottomMargin(0.)
-                                    
-        ecol = 3
-        if nbands is 3:
-            root.set_axis_thx(phaseogram[ecol],"",0.0,0.0,0.0,"Counts",0.10,0.45,0.07)
-            tt = "> " + str(self.energy_range[ecol][0]/1e3) + " GeV"
-            textsize = 0.10
-        if nbands is 4:
-            root.set_axis_thx(phaseogram[ecol],"",0.0,0.0,0.0,"Counts",0.11,0.42,0.08)
-            tt = "> " + str(self.energy_range[ecol][0]/1e3) + " GeV"
-            textsize = 0.12
-        if nbands is 5:
-            root.set_axis_thx(phaseogram[ecol],"",0.0,0.0,0.0,"Counts",0.12,0.39,0.08)
-            tt = str(self.energy_range[ecol][0]/1e3) + " - " + str(self.energy_range[ecol][1]/1e3) + " GeV"
-            textsize = 0.13
 
-        phaseogram[ecol].Draw(); phaseogram[ecol].Draw("Esame")
-        text.SetTextSize(textsize)
-        text.DrawText(0.1,phaseogram[ecol].GetMaximum()*0.87,tt)
-
-        if nbands is not 5:
-            ecol = 4
-            phaseogram[ecol].SetFillColor(14)
-            phaseogram[ecol].Draw("same")
-            text.SetTextColor(14)
-            tt = "> " + str(self.energy_range[ecol][0]/1e3) + " GeV"
-            text.DrawText(0.1,phaseogram[3].GetMaximum()*0.78,tt)
-        
-        # ===========> (4) PANEL
-        pad4.cd()
-        pad4.SetTopMargin(0.); pad4.SetBottomMargin(0.)
-            
+        # =========> (2) PANEL
         ecol = 2
-        if nbands is 3:
-            pad4.SetBottomMargin(0.2)
-            root.set_axis_thx(phaseogram[ecol],"Pulsar Phase",0.085,0.9,0.065,"Counts",0.085,0.55,0.055)
-            textsize = 0.08
-        if nbands is 4:
-            root.set_axis_thx(phaseogram[ecol],"",0.0,0.0,0.0,"Counts",0.11,0.42,0.08)
-            textsize = 0.13
-        if nbands is 5:
-            root.set_axis_thx(phaseogram[ecol],"",0.0,0.0,0.0,"Counts",0.12,0.39,0.08)
-            textsize = 0.13
-        
-        phaseogram[ecol].Draw(); phaseogram[ecol].Draw("Esame")
-        text.SetTextColor(1); text.SetTextSize(textsize)
-        tt = str(self.energy_range[ecol][0]/1e3) + " - " + str(self.energy_range[ecol][1]/1e3) + " GeV"
-        text.DrawText(0.1,phaseogram[ecol].GetMaximum()*0.86,tt)
+        if nbands > ecol:
+            pad[ecol].cd(); pad[ecol].SetTopMargin(0.); pad[ecol].SetBottomMargin(0.)
 
-        # ===========> (5) BOTTOM PANEL
-        if nbands is not 3:
-            pad5.cd()
-            pad5.SetTopMargin(0.); pad5.SetBottomMargin(0.2)
-            
-            ecol = 1
+            if nbands is 3:
+                pad[ecol].SetBottomMargin(0.2)
+                root.set_axis_thx(phaseogram[ecol],"Pulsar Phase",0.09,0.95,0.06,"Counts",0.068,0.72,0.05)
+                tt = str(self.energy_range[ecol][0]/1e3) + " - " + str(self.energy_range[ecol][1]/1e3) + " GeV"
+                textsize = 0.07
             if nbands is 4:
-                root.set_axis_thx(phaseogram[ecol],"Pulsar Phase",0.09,1.0,0.07,"Counts",0.086,0.55,0.06)
+                root.set_axis_thx(phaseogram[ecol],"",0.,0.,0.,"Counts",0.11,0.42,0.09)
+                tt = "> " + str(self.energy_range[ecol][0]/1e3) + " GeV"
+                textsize = 0.11
             if nbands is 5:
-                pad5.SetBottomMargin(0.3)
-                root.set_axis_thx(phaseogram[ecol],"Pulsar Phase",0.11,1.1,0.08,"Counts",0.086,0.55,0.06)
+                root.set_axis_thx(phaseogram[ecol],"",0.0,0.0,0.0,"Counts",0.13,0.39,0.11)
+                tt = str(self.energy_range[ecol][0]/1e3) + " - " + str(self.energy_range[ecol][1]/1e3) + " GeV"
+                textsize = 0.13
+
+            phaseogram[ecol].Draw(); phaseogram[ecol].Draw("Esame")
+            text.SetTextSize(textsize)
+            text.DrawText(0.1,phaseogram[ecol].GetMaximum()*0.87,tt)
+
+        # ============> (3) PANEL
+        ecol = 3
+        if nbands > ecol:
+            pad[ecol].cd(); pad[ecol].SetTopMargin(0.); pad[ecol].SetBottomMargin(0.)
+
+            if nbands is 4:
+                pad[ecol].SetBottomMargin(0.2)
+                root.set_axis_thx(phaseogram[ecol],"Pulsar Phase",0.1,0.95,0.09,"Counts",0.092,0.55,0.08)
+                textsize = 0.09
+            if nbands is 5:
+                root.set_axis_thx(phaseogram[ecol],"",0.0,0.0,0.0,"Counts",0.13,0.39,0.11)
+                textsize = 0.13
+
+            phaseogram[ecol].Draw(); phaseogram[ecol].Draw("Esame")
+            text.SetTextColor(1); text.SetTextSize(textsize)
+            tt = str(self.energy_range[ecol][0]/1e3) + " - " + str(self.energy_range[ecol][1]/1e3) + " GeV"
+            text.DrawText(0.1,phaseogram[ecol].GetMaximum()*0.86,tt)
+
+        # ==========> (4) PANEL
+        ecol = 4
+        if nbands > ecol:
+            pad[ecol].cd(); pad[ecol].SetTopMargin(0.); pad[ecol].SetBottomMargin(0.)
+            
+            if nbands is 5:
+                pad[ecol].SetBottomMargin(0.3)
+                root.set_axis_thx(phaseogram[ecol],"Pulsar Phase",0.11,1.1,0.09,"Counts",0.096,0.53,0.08)
+                textsize = 0.095
                 
             phaseogram[ecol].Draw(); phaseogram[ecol].Draw("Esame")
             tt = str(self.energy_range[ecol][0]/1e3) + " - " + str(self.energy_range[ecol][1]/1e3) + " GeV"
-            text.SetTextSize(0.1)
+            text.SetTextSize(textsize)
             text.DrawText(0.1,phaseogram[ecol].GetMaximum()*0.85,tt)
-                                                                                                                        
-        # =======> OUTPUT
-        outfilename = self.psrname + "_phaseogram_gamma_" + str(nbands) + "bands.eps"
-        canvas.Print(os.path.join(outdir,outfilename))
 
+        # ===========> TEMPLATE 1 (e.g. RADIO)
+        if profile is not None:
+            pad[-1].Clear()
+            pad[-1].cd(); pad[-1].SetTopMargin(0.03); pad[-1].SetBottomMargin(0.)
+
+            histo, ylabel, comment = profile
+            # title size, title offset, label size
+            if nbands is 3:
+                pad[-1].SetTopMargin(0.02)
+                pad[-1].SetBottomMargin(0.22)
+                root.set_axis_thx(histo,"Pulsar Phase",0.095,1.,0.08,ylabel,0.09,0.53,0.075)
+                textsize = 0.095
+            if nbands is 4:
+                pad[-1].SetBottomMargin(0.22)
+                root.set_axis_thx(histo,"Pulsar Phase",0.1,0.95,0.09,ylabel,0.095,0.5,0.09)
+                textsize = 0.11
+            if nbands is 5:
+                pad[-1].SetBottomMargin(0.28)
+                root.set_axis_thx(histo,"Pulsar Phase",0.11,1.1,0.09,ylabel,0.09,0.55,0.08)
+                textsize = 0.12
+
+            text.SetTextSize(textsize)
+            
+            if histo.__class__.__name__ == 'TGraph':
+                histo.Draw("al")
+                text.DrawText(0.1,0.9,comment)
+            elif histo.__class__.__name__ == 'TH1F':
+                histo.Draw(); histo.Draw("Esame")
+                text.DrawText(0.1,histo.GetMaximum()*0.86,comment)
+            else:
+                print "Error in format. Exiting ..."; print histo.__class__.__name__
+                sys.exit()
+            
+        # ===========> TEMPLATE 2 (e.g. X-RAY PROFILE)
+        if profile2 is not None:
+            pad[-2].Clear()
+            pad[-2].cd(); pad[-2].SetTopMargin(0.02); pad[-2].SetBottomMargin(0.)
+
+            histo, ylabel, comment = profile2
+            # title size, title offset, label size
+            if nbands is 3: root.set_axis_thx(histo,"Pulsar Phase",0.11,1.0,0.11,ylabel,0.1,0.44,0.09)
+            if nbands is 4:
+                root.set_axis_thx(histo,"Pulsar Phase",0.1,0.95,0.09,ylabel,0.11,0.43,0.08)
+            if nbands is 5:
+                root.set_axis_thx(histo,"",0.,0.,0.,"Counts",0.13,0.39,0.11)
+                textsize = 0.13
+
+            text.SetTextSize(textsize)
+                
+            if histo.__class__.__name__ == 'TGraph':
+                histo.Draw("al")
+                text.DrawText(0.1,0.8,comment)
+            elif histo.__class__.__name__ == 'TH1F':
+                histo.Draw(); histo.Draw("Esame")
+                text.DrawText(0.1,histo.GetMaximum()*0.86,comment)
+            else:
+                print "Error in format. Exiting ..."; print histo.__class__.__name__
+                sys.exit()
+
+        # ===========> OUTPUT
+        outfilename = self.psrname + "_phaseogram_gamma_" + str(nbands)
+        eps_outfilename = outfilename + "bands.eps"
+        canvas.Print(os.path.join(outdir,eps_outfilename))
+        root_outfilename = outfilename + "bands.root"
+        canvas.Print(os.path.join(outdir,root_outfilename))
+
+        
     def plot_phase_time(self, which=0, xdim=600, ydim=800, outdir="."):
         '''Plot phases as a function of the time.
         
@@ -704,7 +707,7 @@ class PulsarLightCurve:
         outdir : output directory
         '''
         
-        filename = os.path.join(output,self.psrname+"_phaseogram.asc")
+        filename = os.path.join(outdir,self.psrname+"_phaseogram.asc")
         outfile = open(filename,"w")
         outfile.write("# ------------------------------------------------------------------ \n")
         outfile.write("# Private results: LAT Collaboration and PTC ONLY \n")
