@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.168 2011/05/26 17:34:05 heather Exp $
+$Id: release.notes,v 1.169 2011/05/30 03:06:43 heather Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-07-20 02-Jun-2011  lande Adding some stuff for Damien
  pointlike-07-07-19 31-May-2011 heather Real Patches for CLHEP upgrade
  pointlike-07-07-18 26-May-2011 heather Patches for CLHEP upgrade
  pointlike-07-07-17 20-May-2011  lande Several bugfixes
