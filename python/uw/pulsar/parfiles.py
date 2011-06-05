@@ -89,6 +89,26 @@ class ParFile(dict):
             return binary_dict
         except: return None
 
+    def comp_mass(self,m1=1.4,sini=0.866):
+        from scipy.optimize import fsolve
+        d = self.get_binary_dict()
+        if d is None:
+            print 'No binary companion in ephemeris.'
+            return
+        a1 = d['A1']*29979245800 # semi-major in cm
+        pb = d['PB'] # period in s
+        kappa = 1.32712440018e26 # heliocentric grav. const in cm^3/s^2
+        f = 4*np.pi**2/kappa*(a1)**3/pb**2 # units = solar mass
+        m2_0 = (f*m1**2)**(1./3)/sini # initial guess
+        return fsolve( lambda m2: (m2*sini)**3/(m1+m2)**2-f,m2_0)
+
+    def t2_mass_range(self):
+        # emulate tempo2's calculation
+        print self.comp_mass(m1=1.35,sini=1.0)
+        print self.comp_mass(m1=1.35,sini=0.86603)
+        print self.comp_mass(m1=1.35,sini=0.43589)
+
+
 class TimFile(object):
 
     def __init__(self,timfile):
