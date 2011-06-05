@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Jun  5 14:50:16 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Added routines to give companion mass estimates in binary systems.
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-20, operation: add
 Package: pointlike
