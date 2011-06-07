@@ -1,6 +1,6 @@
 """ Class to write out region files compatable with ds9. 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.10 2011/04/24 05:30:53 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.11 2011/04/24 07:00:53 lande Exp $
 
 author: Joshua Lande
 """
@@ -18,11 +18,14 @@ def unparse_point_sources(point_sources,label_sources):
 
     return [unparse_point(ps,label_sources) for ps in point_sources]
 
-def unparse_diffuse_sources(diffuse_sources,label_sources,show_extension):
+def unparse_diffuse_sources(diffuse_sources,label_sources,show_extension,extension_color):
     """ There is the same inconsistency in ellipse definition 
         between extended sources ellipses and ds9 ellipses as
         is discussed in the docstring for unparse_localization,
         resulting in the same switch from maj,min <-> min,maj. """
+
+    extra=''
+    if extension_color is not None: extra = 'color=%s' % extension_color
 
     lines = []
     for ds in diffuse_sources:
@@ -41,31 +44,31 @@ def unparse_diffuse_sources(diffuse_sources,label_sources,show_extension):
                 if isinstance(sm,RadiallySymmetricModel):
                     sigma=sm.sigma
                     if isinstance(sm,Disk):
-                        lines.append("fk5; circle(%.4f, %.4f, %.4f) # Circle encloses all of the disk." % \
-                                      (ra,dec,sigma))
+                        lines.append("fk5; circle(%.4f, %.4f, %.4f) # %s Circle encloses all of the disk." % \
+                                      (ra,dec,sigma,extra))
                     elif isinstance(sm,Ring):
                         frac=sm.frac
-                        lines += ["fk5; circle(%.4f, %.4f, %.4f)" % \
-                                      (ra,dec,_) for _ in [frac*sigma,sigma]]
+                        lines += ["fk5; circle(%.4f, %.4f, %.4f) # %s" % \
+                                      (ra,dec,_,color) for _ in [frac*sigma,sigma]]
                     else:    
-                        lines.append("fk5; circle(%.4f, %.4f, %.4f) # Circle contaning 68 percent of the source." % \
-                                      (ra,dec,sm.r68()))
+                        lines.append("fk5; circle(%.4f, %.4f, %.4f) # %s Circle contaning 68 percent of the source." % \
+                                      (ra,dec,sm.r68(),extra))
 
                 elif isinstance(sm,EllipticalSpatialModel):
                     sigma_x, sigma_y, theta = sm.sigma_x, sm.sigma_y, sm.theta
                     if isinstance(sm,EllipticalDisk):
-                        lines.append("fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f)" % \
-                                (ra,dec,sigma_y,sigma_x,sm.theta))
+                        lines.append("fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) # %s" % \
+                                (ra,dec,sigma_y,sigma_x,sm.theta,extra))
 
                     elif isinstance(sm,EllipticalRing):
                         frac = sm.frac
-                        lines += ["fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f)" % \
-                                (ra,dec,_*sigma_y,_*sigma_x,sm.theta) \
+                        lines += ["fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) # %s" % \
+                                (ra,dec,_*sigma_y,_*sigma_x,sm.theta,extra) \
                                 for _ in [frac,1]]
                     else:
                         a,b,c=sm.ellipse_68()
-                        lines.append("fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f)" % \
-                                (ra,dec,b,a,c))
+                        lines.append("fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) # %s" % \
+                                (ra,dec,b,a,c,extra))
 
     return lines
 
@@ -85,13 +88,13 @@ def unparse_localization(roi):
     else:
         return []
 
-def get_region(roi,color,label_sources=True,show_localization=True,show_extension=True):
+def get_region(roi,color,label_sources=True,show_localization=True,show_extension=True,extension_color=None):
     lines = [
         "# Region file format: DS9 version 4.0",
         "global color=%s" % color,
     ]
 
-    lines += unparse_diffuse_sources(roi.dsm.diffuse_sources,label_sources,show_extension)
+    lines += unparse_diffuse_sources(roi.dsm.diffuse_sources,label_sources,show_extension,extension_color)
     lines += unparse_point_sources(roi.psm.point_sources,label_sources)
     if show_localization:
         lines += unparse_localization(roi)
