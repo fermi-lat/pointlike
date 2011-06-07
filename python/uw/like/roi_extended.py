@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.54 2011/04/27 15:24:12 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.55 2011/05/31 04:23:16 lande Exp $
 
     author: Joshua Lande
 """
@@ -460,10 +460,9 @@ Arguments:
 
         ll_disk = l()
 
-        try:
-            sm.shrink()
-        except:
+        if not sm.can_shrink():
             raise Exception("Unable to calculate ts_ext for %s source %s. No way to shrink to null hypothesis." % (sm.pretty_name,es.name))
+
         self.initialize_counts(roi.bands)
 
         if not roi.quiet: print 'Refitting position for the null hypothesis'
