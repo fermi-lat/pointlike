@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun  7 10:22:09 PDT 2011
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+allow setting tolerance
+    *
+------------------------------------------------------------
 User: kerrm  Sun Jun  5 14:50:16 PDT 2011
 pointlike/python/uw/pulsar
 
