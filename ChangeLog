@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun  7 10:25:30 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_printing.py 
+Log Message:
+add flag print_all_ts
+    *
+------------------------------------------------------------
 User: lande  Tue Jun  7 10:24:44 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
