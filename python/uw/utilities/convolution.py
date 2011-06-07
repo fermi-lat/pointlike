@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.35 2011/02/15 06:16:02 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.36 2011/05/06 21:56:45 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -399,12 +399,19 @@ class AnalyticConvolution(object):
 
     defaults = (
         ['num_points',     100, 'Number of points to calculate the PDF at. Interpolation is done in between.'],
+        ['tolerance',     1e-3, 'Passed into quad.'],
     )
     @staticmethod
     def set_points(psize):
         was = AnalyticConvolution.defaults[0][1]
         AnalyticConvolution.defaults[0][1] =psize
         return was
+
+    @staticmethod
+    def set_tolerance(tolerance):
+        was = AnalyticConvolution.defaults[1][1]
+        AnalyticConvolution.defaults[1][1] =tolerance
+        return tolerance
 
     @keyword_options.decorate(defaults)
     def __init__(self,extended_source,psf,**kwargs):
@@ -444,8 +451,8 @@ class AnalyticConvolution(object):
                                           *((g-1)/g)*(g/(g+u+v))**g\
                                           *hyp2f1(g/2.,(1+g)/2.,1.,4.*u*v/(g+u+v)**2)
         for i,u in enumerate(ulist):
-            pdf[i]=quad(integrand,0,int_max,args=(u,),epsrel=1e-3,
-                        epsabs=1e-3,full_output=True)[0]
+            pdf[i]=quad(integrand,0,int_max,args=(u,),epsrel=self.tolerance,
+                        epsabs=self.tolerance,full_output=True)[0]
             # Sometimes this algorithm is not robust. In that case,
             # try to do the integral more accuratly
             if N.isnan(pdf[i]) or N.isinf(pdf[i]) or pdf[i]<0:
