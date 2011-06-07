@@ -1,11 +1,11 @@
 """
 Implementation of various roi printing
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_printing.py,v 1.2 2011/02/15 17:12:07 cohen Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_printing.py,v 1.3 2011/03/17 23:38:21 lande Exp $
 """
 import os, math
 import numpy as np
 
-def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None):
+def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_all_ts=False):
     """ formatted table point sources positions and parameter in the ROI, 
         followed by summary of diffuse names, parameters values.
         values are followed by a character to indicate status:
@@ -53,7 +53,7 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None):
         par, sigpar= model.statistical()
         expcutoff = model.name=='ExpCutoff'
         npar = len(par)
-        ts = '%10.0f'% self.TS(which=ps.name) if np.any(model.free) else 10*' '
+        ts = '%10.0f'% self.TS(which=ps.name) if (np.any(model.free) or print_all_ts) else 10*' '
         fmt = '%-18s%5.1f'+2*'%10.3f'+ '%10s'+ '%10.2f%1s'
         freeflag = map(makefreeflag, model.free, sigpar)
         values = (ps.name.strip(), dist) +loc+ (ts,)+( model.fast_iflux()/1e-8, freeflag[0], )
