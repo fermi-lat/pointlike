@@ -2,7 +2,7 @@
 Provides a  convenience class to call Minuit, mimicking the interface to scipy.optimizers.fmin.
 
 author: Eric Wallace <wallacee@uw.edu>
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/minuit.py,v 1.15 2010/07/21 21:18:58 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/minuit.py,v 1.16 2010/08/01 00:07:09 lande Exp $
 
 """
 import sys, os
@@ -143,13 +143,13 @@ class Minuit(object):
         return (self.params,self.fval)
 
     def errors(self,method='HESSE'):
-        """method ['HESSE']   : how to calculate the errors; options are ['HESSE','MIGRAD','MINOS']."""
+        """method ['HESSE']   : how to calculate the errors; Currently, only 'HESSE' works."""
         if not np.any(self.fixed):
             mat = np.zeros(self.npars**2)
             if method == 'HESSE':
                 self.minuit.mnhess()
             else:
-                pass
+                raise Exception("Method %s not recognized." % method)
             self.minuit.mnemat(mat,self.npars)
             return mat.reshape((self.npars,self.npars))
         else:
@@ -159,13 +159,54 @@ class Minuit(object):
             if method == 'HESSE':
                 self.minuit.mnhess()
             else:
-                pass
+                raise Exception("Method %s not recognized." % method)
             self.minuit.mnemat(mat,nf)
 
             # Expand out the covariance matrix.
             cov = np.zeros((self.npars,self.npars))
             cov[np.outer(~self.fixed,~self.fixed)] = np.ravel(mat)
             return cov
+
+    def uncorrelated_minos_error(self):
+        """ Kind of a kludge, but a compromise between the speed of
+            HESSE errors and the accuracy of MINOS errors.  It accounts
+            for non-linearities in the likelihood by varying each function
+            until the value has fallen by the desired amount using hte
+            MINOS code. But does not account for correlations between
+            the parameters by fixing all other parameters during the
+            minimzation. 
+            
+            Again kludgy, but what is returned is an effective covariance
+            matrix. The diagonal errors are calcualted by averaging the
+            upper and lower errors and the off diagonal terms are set
+            to 0. """
+
+        cov = np.zeros((self.npars,self.npars))
+
+        # fix all parameters
+        for i in range(self.npars):
+            self.minuit.FixParameter(int(i))
+
+        # loop over free paramters getting error
+        for i in np.where(self.fixed==False)[0]:
+            self.minuit.Release(int(i))
+
+            # compute error
+            self.minuit.mnmnos() 
+            low,hi,parab,gcc=ROOT.Double(),ROOT.Double(),ROOT.Double(),ROOT.Double()
+
+            # get error
+            self.minuit.mnerrs(int(i),low,hi,parab,gcc)
+            cov[i,i]=((abs(low)+abs(hi))/2.0)**2
+            self.minuit.FixParameter(int(i))
+
+        for i,fixed in enumerate(self.fixed):
+            if fixed:
+                self.minuit.FixParameter(int(i))
+            else:
+                self.minuit.Release(int(i))
+
+        return cov
 
 def mycov(self,full_output=False,min_step=1e-5,max_step=1,max_iters=5,target=0.5,min_func=1e-4,max_func=4):
     """Perform finite differences on the _analytic_ gradient provided by user to calculate hessian/covariance matrix.
