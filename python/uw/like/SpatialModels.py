@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.40 2011/04/25 18:31:39 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.41 2011/05/31 04:23:41 lande Exp $
 
    author: Joshua Lande
 
@@ -271,7 +271,7 @@ class SpatialModel(object):
         if len(p)!=len(self.p):
             raise Exception("SpatialModel.set_parameters given the wrong number of parameters.")
 
-        self.p = N.where(self.log,N.log10(p),p) if absolute else N.asarray(p)
+        self.p = N.where(self.log,N.log10(p),p) if absolute else N.asarray(p,dtype=float)
         self.cache()
     
     def modify_loc(self,center):
@@ -335,12 +335,12 @@ class SpatialModel(object):
         
         a = eval(self.name+'(iscopy=True, **self.__dict__)') #create instance of same spectral model type
         
-        a.p           = N.asarray(self.p).copy() #copy in parameters
-        a.free        = N.asarray(self.free).copy() 
-        a.param_names = N.asarray(self.param_names).copy() 
-        a.limits      = N.asarray(self.limits).copy() 
-        a.log         = N.asarray(self.log).copy() 
-        a.steps       = N.asarray(self.steps).copy() 
+        a.p           = N.asarray(self.p,dtype=float).copy() #copy in parameters
+        a.free        = N.asarray(self.free,dtype=float).copy() 
+        a.param_names = N.asarray(self.param_names,dtype=float).copy() 
+        a.limits      = N.asarray(self.limits,dtype=float).copy() 
+        a.log         = N.asarray(self.log,dtype=float).copy() 
+        a.steps       = N.asarray(self.steps,dtype=float).copy() 
 
         try: a.cov_matrix = self.cov_matrix.__copy__()
         except: pass
@@ -436,6 +436,11 @@ class SpatialModel(object):
             is useful for null hypothesis testing. """
         pass
 
+    @abstractmethod
+    def can_shrink(self): 
+        raise NotImplementedError('Cannot shrink PseudoGaussian!')
+        
+
 #===============================================================================================#
 
 class RadiallySymmetricModel(SpatialModel):
@@ -523,6 +528,7 @@ class Gaussian(RadiallySymmetricModel):
         self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
         self.free[2]=False
         self.cache()
+    def can_shrink(self): return True
 
 #===============================================================================================#
 
@@ -533,6 +539,10 @@ class PseudoGaussian(PseudoSpatialModel,Gaussian):
         of an extended source has the exact same PDF as the
         extended source."""
     def extension(self): return SMALL_ANALYTIC_EXTENSION
+
+    def shrink(): raise NotImplementedError('Cannot shrink PseudoGaussian!')
+    def can_shrink(self): return False
+
 
 #===============================================================================================#
 
@@ -567,6 +577,7 @@ class Disk(RadiallySymmetricModel):
         self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
         self.free[2]=False
         self.cache()
+    def can_shrink(self): return True
 
 #===============================================================================================#
 
@@ -576,6 +587,9 @@ class PseudoDisk(PseudoSpatialModel,Disk):
         of an extended source has the exact same PDF as the
         extended source with small extension."""
     def extension(self): return SMALL_ANALYTIC_EXTENSION
+
+    def shrink(): raise NotImplementedError('Cannot shrink PseudoDisk!')
+    def can_shrink(self): return False
 
 #===============================================================================================#
 
@@ -613,6 +627,7 @@ class Ring(RadiallySymmetricModel):
         self.p[3]=N.where(self.log[3],N.log10(SMALL_FRACTION),SMALL_FRACTION)
         self.free[2:4]=False
         self.cache()
+    def can_shrink(self): return True
 
 #===============================================================================================#
 
@@ -646,12 +661,16 @@ class NFW(RadiallySymmetricModel):
         self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
         self.free[2]=False
         self.cache()
+    def can_shrink(self): return True
 
 #===============================================================================================#
 
 class PseudoNFW(PseudoSpatialModel,NFW):
 
     def extension(self): return SMALL_ANALYTIC_EXTENSION
+
+    def shrink(): raise NotImplementedError('Cannot shrink PseudoNFW!')
+    def can_shrink(self): return False
 
 #===============================================================================================#
 
@@ -812,6 +831,7 @@ class EllipticalSpatialModel(SpatialModel):
         self.p[4]=0
         self.free[2:5]=False
         self.cache()
+    def can_shrink(self): return True
 
 #===============================================================================================#
 
@@ -841,6 +861,9 @@ class PseudoEllipticalGaussian(PseudoSpatialModel,EllipticalGaussian):
 
     def pretty_spatial_string(self):
         return "[ %.3fd ]" % (self.sigma_x)
+
+    def shrink(): raise NotImplementedError('Cannot shrink PseudoEllipticalGaussian!')
+    def can_shrink(self): return False
 
 #===============================================================================================#
 
@@ -886,6 +909,10 @@ class PseudoEllipticalDisk(PseudoSpatialModel,EllipticalDisk):
     def extension(self):
         return SMALL_NUMERIC_EXTENSION,SMALL_NUMERIC_EXTENSION,0
 
+    def shrink():
+        raise NotImplementedError('Cannot shrink PseudoEllipticalDisk!')
+    def can_shrink(self): return False
+
 #===============================================================================================#
 
 class EllipticalRing(EllipticalSpatialModel):
@@ -927,6 +954,7 @@ class EllipticalRing(EllipticalSpatialModel):
 
         # this calls the cache function
         super(EllipticalRing,self).shrink()
+    def can_shrink(self): return True
 
 #===============================================================================================#
 
@@ -972,9 +1000,9 @@ class SpatialMap(SpatialModel):
 
         # the spatial parameters are just the center of the image.
         if self.coordsystem == SkyDir.EQUATORIAL:
-            self.p = N.asarray([self.center.ra(),self.center.dec()])
+            self.p = N.asarray([self.center.ra(),self.center.dec()],dtype=float)
         elif self.coordsystem == SkyDir.GALACTIC:
-            self.p = N.asarray([self.center.l(),self.center.b()])
+            self.p = N.asarray([self.center.l(),self.center.b()],dtype=float)
 
         self.init_p=self.p.copy()
 
