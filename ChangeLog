@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun  7 10:24:27 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Adding can_shrink function + explicity cast arrays to floats
+    *
+------------------------------------------------------------
 User: lande  Tue Jun  7 10:23:49 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
