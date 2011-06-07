@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.41 2011/05/31 04:23:41 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.42 2011/06/07 17:24:26 lande Exp $
 
    author: Joshua Lande
 
@@ -18,6 +18,7 @@ from abc import abstractmethod
 
 # Mathematical constants. They are the ratio of r68 (or r99), the %68 (or %99) containment
 # radius, to sigma, the 'size' parameter of an extended source.
+# Therefore, sigma*x68=r68
 GAUSSIAN_X68,GAUSSIAN_X99=1.50959219,3.03485426
 DISK_X68,DISK_X99=0.824621125,0.994987437
 
