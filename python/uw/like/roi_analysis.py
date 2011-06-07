@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.85 2011/05/02 20:48:47 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.86 2011/05/20 22:37:06 lande Exp $
 
 author: Matthew Kerr
 """
@@ -870,6 +870,9 @@ class ROIAnalysis(object):
     
     def get_sources(self):
         return self.psm.point_sources.tolist()+ self.dsm.diffuse_sources.tolist() 
+
+    def get_names(self):
+        return N.append(self.psm.names,self.dsm.names).tolist()
 
     # get these functions from roi_save.py
     save=roi_save.save
