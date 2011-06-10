@@ -1,6 +1,6 @@
 """ Class to write out region files compatable with ds9. 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.11 2011/04/24 07:00:53 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.12 2011/06/07 17:23:02 lande Exp $
 
 author: Joshua Lande
 """
@@ -14,11 +14,11 @@ def unparse_point(ps,label_sources):
     if label_sources: string += " text={%s}" % ps.name
     return string
 
-def unparse_point_sources(point_sources,label_sources):
+def unparse_point_sources(point_sources,show_sources,label_sources):
 
-    return [unparse_point(ps,label_sources) for ps in point_sources]
+    return [unparse_point(ps,label_sources) for ps in point_sources] if show_sources else []
 
-def unparse_diffuse_sources(diffuse_sources,label_sources,show_extension,extension_color):
+def unparse_diffuse_sources(diffuse_sources,show_sources,label_sources,show_extension,extension_color):
     """ There is the same inconsistency in ellipse definition 
         between extended sources ellipses and ds9 ellipses as
         is discussed in the docstring for unparse_localization,
@@ -34,7 +34,7 @@ def unparse_diffuse_sources(diffuse_sources,label_sources,show_extension,extensi
 
             ra,dec=sm.center.ra(),sm.center.dec()
 
-            lines.append(unparse_point(ds,label_sources))
+            if show_sources: lines.append(unparse_point(ds,label_sources))
 
             if show_extension:
 
@@ -88,24 +88,25 @@ def unparse_localization(roi):
     else:
         return []
 
-def get_region(roi,color,label_sources=True,show_localization=True,show_extension=True,extension_color=None):
+def get_region(roi,color,show_sources=True, label_sources=True,show_localization=True,show_extension=True,extension_color=None):
     lines = [
         "# Region file format: DS9 version 4.0",
         "global color=%s" % color,
     ]
 
-    lines += unparse_diffuse_sources(roi.dsm.diffuse_sources,label_sources,show_extension,extension_color)
-    lines += unparse_point_sources(roi.psm.point_sources,label_sources)
+    lines += unparse_diffuse_sources(roi.dsm.diffuse_sources,show_sources,label_sources,show_extension,extension_color)
+    lines += unparse_point_sources(roi.psm.point_sources,show_sources,label_sources)
     if show_localization:
         lines += unparse_localization(roi)
+    if len(lines)==2: return None
     return '\n'.join(lines)
 
-def writeRegion(roi,filename,color='green',label_sources=True,show_localization=True, show_extension=True):
+def writeRegion(roi,filename,color='green',show_sources=True, label_sources=True,show_localization=True, show_extension=True):
     """ Saves out an ROI to a ds9 style region file.
         
         The size of simple exended sources is saved to the region file
         as are elliptical localization errors if they exist. """
 
     file=open(filename,'w')
-    file.write(get_region(roi,color,label_sources,show_localization,show_extension))
+    file.write(get_region(roi,color,show_sources,label_sources,show_localization,show_extension))
     file.close()
