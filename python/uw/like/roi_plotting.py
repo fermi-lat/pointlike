@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.43 2011/05/02 20:49:10 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.44 2011/05/06 21:58:01 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -43,7 +43,8 @@ from scipy.stats import poisson,norm
 from scipy.optimize import fmin,fsolve
 
 import pylab as P
-from matplotlib import rcParams,mpl,pyplot,ticker,font_manager
+from matplotlib import rcParams,mpl,pyplot,ticker,font_manager,spines
+from matplotlib.ticker import FormatStrFormatter
 from matplotlib.patches import FancyArrow
 
 def band_spectra(r,source=0):
@@ -664,10 +665,10 @@ class ROISlice(object):
                                           This will create a smoother plot of model predictions. Set 
                                           to 1 if you want the model predictions to 'look like' the 
                                           data."""),
-            ('smooth_model',    True, """Connect the model preditions with a line (instead of steps) 
-                                         to make the model look smoother."""),
             ('use_gradient',    True, """Use gradient when refitting."""),
             ('title',           None,            'Title for the plot'),
+            ('black_and_white',False, """If True, make the plot black and white (better for 
+                                         printing/publishing)"""),
     )
 
     @staticmethod
@@ -802,69 +803,72 @@ class ROISlice(object):
         else:
             return (N.arange(len(data))-len(data)/2.0)*pixelsize + pixelsize/2
 
-    def plot_dx(self):
+    @staticmethod
+    def get_styles(black_and_white):
+        return ['k-','k--','k.-'] if black_and_white else ['r-','b--','g-.']
+
+    def plotx(self):
 
         P.subplot(211)
 
         ROISlice.set_color_cycle()
 
-        P.errorbar(self.counts_dx,self.counts_x,yerr=N.sqrt(self.counts_x),label='Counts', fmt='.')
+        styles=ROISlice.get_styles(self.black_and_white)[0:len(self.names)]
+        for name,model,style in zip(self.names,self.models_x,styles):
+            P.plot(self.model_dx,model,style,label=name)
 
-        for name,model in zip(self.names,self.models_x):
-            P.plot(self.model_dx,model,drawstyle='steps' if not self.smooth_model else 'default',
-                   label=name)
+        P.errorbar(self.counts_dx,self.counts_x,yerr=N.sqrt(self.counts_x),label='Counts', fmt='.')
 
         P.gca().set_xlim(self.counts_dx[0],self.counts_dx[-1])
 
         P.legend(loc='upper right',numpoints=1)
 
-        P.xlabel(r'$\Delta l(^\circ)$' if self.galactic else r'$\Delta \text{RA} (^\circ)$')
+        P.gca().xaxis.set_major_formatter(FormatStrFormatter('$%g^\circ$'))
+
+        P.xlabel(r'$\Delta l$' if self.galactic else r'$\Delta \mathrm{RA}$')
         P.ylabel('Counts')
 
-    def plot_dy(self):
+    def ploty(self):
 
         P.subplot(212)
 
         ROISlice.set_color_cycle()
 
+        styles=ROISlice.get_styles(self.black_and_white)[0:len(self.names)]
+        for name,model,style in zip(self.names,self.models_y,styles):
+            P.plot(self.model_dy,model,style,label=name)
+
         P.errorbar(self.counts_dy,self.counts_y,yerr=N.sqrt(self.counts_y),label='Counts', fmt='.')
 
-        for name,model in zip(self.names,self.models_y):
-            P.plot(self.model_dy,model,drawstyle='steps' if not self.smooth_model else 'default',
-                   label=name)
+        P.gca().xaxis.set_major_formatter(FormatStrFormatter('$%g^\circ$'))
 
-        P.xlabel(r'$\Delta b(^\circ)$' if self.galactic else r'$\Delta \text{Dec} (^\circ)$')
+        P.xlabel(r'$\Delta b$' if self.galactic else r'$\Delta \mathrm{Dec}$')
         P.ylabel('Counts')
 
         P.gca().set_xlim(self.counts_dy[0],self.counts_dy[-1])
 
         # only need to show legend once
 
-    def save_data(self,data_file):
+    def save_data(self,datafile):
         """ Note, shrink model predicted counts to be same size as regular counts,
             for an easier file format. """
 
-        x,y,dx,dy=['l','b','dl','db'] if self.galactic else ['ra','dec','dra','ddec']
+        x,y=['l','b'] if self.galactic else ['ra','dec']
             
         results_dict = {
             x : {
-                dx: self.counts_dx.tolist(),
-                'Counts': self.counts_x.tolist()
+                'Counts': [self.counts_dx.tolist(), self.counts_x.tolist()]
             },
             y : {
-                dy: self.counts_dy.tolist(),
-                'Counts': self.counts_y.tolist()
+                'Counts': [self.counts_dy.tolist(), self.counts_y.tolist()]
             }
         }
 
-        of=self.oversample_factor
-        for name,model in zip(self.names,self.models_x):
-            results_dict[x][name]=ModelImage.downsample(model,of).tolist()
+        for name,modelx,modely in zip(self.names,self.models_x,self.models_y):
+            results_dict[x][name]=[self.model_dx.tolist(), modelx]
+            results_dict[y][name]=[self.model_dy.tolist(), modely]
 
-        for name,model in zip(self.names,self.models_y):
-            results_dict[y][name]=ModelImage.downsample(model,of).tolist()
-
-        file = open(data_file,'w')
+        file = open(datafile,'w')
         try:
             import yaml
             file.write(yaml.dump(results_dict))
@@ -874,10 +878,10 @@ class ROISlice(object):
 
         file.close()
 
-    def show(self,to_screen=True,out_file=None, data_file=None):
+    def show(self,to_screen=True,outfile=None, datafile=None):
 
-        self.plot_dx()
-        self.plot_dy()
+        self.plotx()
+        self.ploty()
 
         if self.title is None:
             self.title = 'Counts Slice'
@@ -885,9 +889,9 @@ class ROISlice(object):
 
         P.suptitle(self.title)
 
-        if data_file is not None: self.save_data(data_file)
+        if datafile is not None: self.save_data(datafile)
 
-        if out_file is not None: P.savefig(out_file)
+        if outfile is not None: P.savefig(outfile)
         if to_screen: P.show()
 
 
@@ -902,7 +906,7 @@ class ROIRadialIntegral(object):
                                           This value is used to determine the total number of pixels using
                                           the formula npix=size/pixelsize and represents something
                                           like an average pixelsize."""),
-            ('npix',         None, """ If specified, use this value instead of pixelsize. """),
+            ('npix',            None, """ If specified, use this value instead of pixelsize. """),
             ('fignum',             5, 'matplotlib figure number'),
             ('conv_type',         -1, 'Conversion type'),
             ('just_diffuse',    True, """ Display the model predictions with all point + extended
@@ -914,10 +918,10 @@ class ROIRadialIntegral(object):
                                           This will create a smoother plot of model predictions. Set 
                                           to 1 if you want the model predictions to 'look like' the 
                                           data."""),
-            ('smooth_model',    True, """Connect the model preditions with a line (instead of steps) 
-                                         to make the model look smoother."""),
             ('use_gradient',    True, """Use gradient when refitting."""),
-            ('title',           None,            'Title for the plot'),
+            ('title',           None,   'Title for the plot'),
+            ('black_and_white',False, """If True, make the plot black and white (better for 
+                                         printing/publishing)"""),
     )
 
     @keyword_options.decorate(defaults)
@@ -1020,16 +1024,15 @@ class ROIRadialIntegral(object):
             if N.any(N.isnan(model)):
                 raise Exception("Error in calculating a radial integral, model %s contains NaNs." % name)
 
-    def save_data(self,data_file):
+    def save_data(self,datafile):
 
-        results_dict = dict(
-            Radius=self.theta_sqr.tolist(),
-            Counts=self.counts.tolist()
-        )
+        results_dict = {}
+
+        results_dict['Counts']=[ self.theta_sqr_co.tolist(), self.counts.tolist() ]
         for name,model in zip(self.names,self.models):
-            results_dict[name]=model.tolist()
+            results_dict[model]=[ self.theta_sqr_mo.tolist(), self.model.tolist() ]
 
-        file = open(data_file,'w')
+        file = open(datafile,'w')
         try:
             import yaml
             file.write(yaml.dump(results_dict))
@@ -1038,19 +1041,19 @@ class ROIRadialIntegral(object):
             file.write(pprint.pformat(results_dict))
         file.close()
 
-    def show(self,to_screen=True,out_file=None,data_file=None):
+    def show(self,to_screen=True,outfile=None,datafile=None):
 
         ROISlice.set_color_cycle()
 
-        P.errorbar(self.theta_sqr_co,self.counts,yerr=N.sqrt(self.counts),label='Counts', fmt='.')
+        styles=ROISlice.get_styles(self.black_and_white)[0:len(self.names)]
+        for name,model,style in zip(self.names,self.models,styles):
+            P.plot(self.theta_sqr_mo,model,style,label=name)
 
-        for name,model in zip(self.names,self.models):
-            P.plot(self.theta_sqr_mo,model,drawstyle='steps' if not self.smooth_model else 'default',
-                   label=name)
+        P.errorbar(self.theta_sqr_co,self.counts,yerr=N.sqrt(self.counts),label='Counts', fmt='.')
 
         P.legend(loc='upper right',numpoints=1)
 
-        P.xlabel(r'$\Delta \theta^2 (\text{deg}^2)$')
+        P.xlabel(r'$\Delta \theta^2 ([\mathrm{deg}]^2)$')
         P.ylabel('Counts')
 
         if self.title is None:
@@ -1059,9 +1062,9 @@ class ROIRadialIntegral(object):
 
         P.title(self.title)
 
-        if data_file is not None: self.save_data(data_file)
+        if datafile is not None: self.save_data(datafile)
 
-        if out_file is not None: P.savefig(out_file)
+        if outfile is not None: P.savefig(outfile)
         if to_screen: P.show()
 
 
@@ -1105,7 +1108,7 @@ class ROISignificance(object):
         self.pyfits[0].data = self.significance
 
     @staticmethod
-    def plot_sources(roi, ax, header, color='black', white_marker=True, marker_scale=4, **kwargs):
+    def plot_sources(roi, ax, header, color='black', show_sources=True, white_marker=True, marker_scale=4, **kwargs):
         """ Add to the pywcsgrid2 axes ax any sources in the ROI which
             have a center. Also, overlay the extended source shapes
             if there are any. Note, this function requires pyregion. 
@@ -1117,7 +1120,7 @@ class ROISignificance(object):
 
         import pyregion
 
-        if white_marker:
+        if show_sources and white_marker:
             region_string = region_writer.get_region(roi, color='white', label_sources=False, show_localization=False, show_extension=False)
             reg = pyregion.parse(region_string).as_imagecoord(header)
             patch_list, artist_list = reg.get_mpl_patches_texts()
@@ -1126,7 +1129,9 @@ class ROISignificance(object):
                 t.set_marker('x')
                 ax.add_artist(t)
 
-        region_string = region_writer.get_region(roi, color=color, show_localization=False, **kwargs)
+        region_string = region_writer.get_region(roi, color=color, show_sources=show_sources, show_localization=False, **kwargs)
+        if region_string is None: return
+
         reg = pyregion.parse(region_string).as_imagecoord(header)
         patch_list, artist_list = reg.get_mpl_patches_texts()
 
@@ -1139,7 +1144,7 @@ class ROISignificance(object):
             ax.add_artist(t)
 
 
-    def show(self,to_screen=True,out_file=None):
+    def show(self,to_screen=True,outfile=None):
 
         import pywcsgrid2
         from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
@@ -1166,29 +1171,35 @@ class ROISignificance(object):
 
         ROISignificance.plot_sources(self.roi,ax,h,label_sources=self.label_sources)
 
-        if out_file is not None: P.savefig(out_file)
+        if outfile is not None: P.savefig(outfile)
         if to_screen: P.show()
 
 class ROISmoothedSource(object):
-    """ Make a smoothed residual plot to look at a paritcular source. 
+    """ Make a smoothed residual plot to look at a particular source. 
+
+        To do so, subtract all backgorund sources.
     
         This object requires pywcsgrid2. To get it, go to
         http://leejjoon.github.com/pywcsgrid2/users/overview.html """
 
     defaults = (
-            ('which',           None,    'Draw the smoothed point version of this source.'),
-            ('figsize',      (5,4.5),                                  'Size of the image'),
-            ('fignum',             3,                           'Matplotlib figure number'),
-            ('conv_type',         -1,                                    'Conversion type'),
-            ('size',               3,                          'Size of the field of view'),
-            ('galactic',        True,                         'Coordinate system for plot'),
-            ('overlay_psf',     True, 'Add a smoothed reference PSF on top of the counts.'),
-            ('psf_size',           1,                         'Size of the PSF insert box'), 
-            ('psf_loc',            4,                       'Location to put the psf box.'), 
-            ('label_sources',  False,  'Label sources duing plot'),
-            ('kerneltype','gaussian',  'Type of kernel to smooth image with'),
-            ('kernel_rad',       0.1,            'Sum counts/model within radius degrees.'),
-            ('title',           None,            'Title for the plot'),
+            ('which',             None,    'Draw the smoothed point version of this source.'),
+            ('figsize',      (5.5,4.5),                                'Size of the image'),
+            ('fignum',               3,                           'Matplotlib figure number'),
+            ('conv_type',           -1,                                    'Conversion type'),
+            ('size',                 3,                          'Size of the field of view'),
+            ('galactic',          True,                         'Coordinate system for plot'),
+            ('overlay_psf',       True, 'Add a smoothed reference PSF on top of the counts.'),
+            ('label_psf',         True,                        'Add a label on the PSF box.'),
+            ('psf_size',             1,                         'Size of the PSF insert box'), 
+            ('psf_loc',              4,                       'Location to put the psf box.'), 
+            ('show_sources',      True,                     'Put an x over all the sources.'),
+            ('label_sources',    False,                           'Label sources duing plot'),
+            ('kerneltype',  'gaussian',                'Type of kernel to smooth image with'),
+            ('kernel_rad',         0.1,            'Sum counts/model within radius degrees.'),
+            ('title',             None,                                 'Title for the plot'),
+            ('show_extension',    True,                             'Overlay the extension.'),
+            ('extension_color','white',                          'Color of extended sources'),
     )
 
     def get_residual(self,**kwargs):
@@ -1222,6 +1233,7 @@ class ROISmoothedSource(object):
                     galactic=self.galactic,
                     conv_type=self.conv_type,
                     center=self.source.skydir,
+                    per_solid_angle=True,
                     kerneltype=self.kerneltype,
                     kernel_rad=self.kernel_rad)
 
@@ -1251,7 +1263,7 @@ class ROISmoothedSource(object):
                     N.max(self.residual_pyfits[0].data)/\
                     N.max(self.psf_pyfits[0].data)
 
-    def show(self,to_screen=True,out_file=None):
+    def show(self,to_screen=True,outfile=None):
         import pywcsgrid2
         from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
         from mpl_toolkits.axes_grid1.axes_grid import ImageGrid
@@ -1262,20 +1274,21 @@ class ROISmoothedSource(object):
 
         h, d = self.residual_pyfits[0].header, self.residual_pyfits[0].data
 
-        grid = ImageGrid(self.fig, (1, 1, 1), nrows_ncols = (1, 1),
+        self.grid = grid = ImageGrid(self.fig, (1, 1, 1), nrows_ncols = (1, 1),
                          cbar_mode="single", cbar_pad="2%",
                          cbar_location="right",
                          axes_class=(pywcsgrid2.Axes, dict(header=h)))
 
         self.ax = ax = grid[0]
 
-        im=ax.imshow(d, origin="lower", cmap=self.cmap)
+        im=ax.imshow(d, origin="lower", cmap=self.cmap, vmin=0)
 
         #ax.set_ticklabel_type("absdeg")
 
         cb_axes = grid.cbar_axes[0] # colorbar axes
 
-        cb_axes.colorbar(im)
+        cbar = cb_axes.colorbar(im)
+        cbar.ax.set_ylabel(r'$\mathrm{counts}/[\mathrm{deg}]^2$')
 
         ax.grid()
 
@@ -1292,15 +1305,18 @@ class ROISmoothedSource(object):
                               axes_kwargs=dict(wcs=h_psf))
 
             # Note, match color maps with parent.
-            im2=axins.imshow(d_psf, cmap=im.cmap,
-                             origin="lower")
+            axins.imshow(d_psf, cmap=im.cmap, origin="lower")
             axins.axis[:].toggle(all=False)
+            axins.axis[:].line.set_color('white')
 
-            axins.add_inner_title("PSF", loc=3)
+            if self.label_psf:
+                axins.add_inner_title("PSF", loc=3)
 
-        ROISignificance.plot_sources(self.roi,ax,h,label_sources=self.label_sources)
+        ROISignificance.plot_sources(self.roi,ax,h,
+                show_sources=self.show_sources,label_sources=self.label_sources,
+                show_extension=self.show_extension,extension_color=self.extension_color)
 
-        if out_file is not None: P.savefig(out_file)
+        if outfile is not None: P.savefig(outfile)
         if to_screen: P.show()
 
 class ROISmoothedSources(ROISmoothedSource):
