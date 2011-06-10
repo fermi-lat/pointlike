@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jun 10 11:18:43 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py roi_image.py 
+Log Message:
+Small bugfix in total model predicted counts for sources vs model predicted counts in aperature. Butfix in to_pyfits to get origin at 0,0. New class RadialSource inherets from ROIImage and represnts unconvolved model predicted counts for an extended source. 
+    *
+------------------------------------------------------------
 User: lande  Fri Jun 10 11:13:02 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
