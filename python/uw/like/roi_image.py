@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.25 2011/05/20 22:37:47 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.26 2011/05/31 04:24:16 lande Exp $
 
 author: Joshua Lande
 """
@@ -20,6 +20,7 @@ import scipy.ndimage
 from . pypsf import PretendBand
 from . roi_diffuse import ROIDiffuseModel_OTF
 from . roi_extended import ROIExtendedModel,ROIExtendedModelAnalytic
+from . SpatialModels import RadiallySymmetricModel
 from . pointspec_helpers import get_default_diffuse_mapper
 from . roi_tsmap import TSCalc,TSCalcPySkyFunction
 from uw.utilities import keyword_options
@@ -142,7 +143,8 @@ class ROIImage(object):
         if self.galactic: 
             ctype1="GLON-%s" % self.proj
             ctype2="GLAT-%s" % self.proj
-            crval1,crval2=self.center.l(),self.center.b()
+            # for some reason, SkyDir(0,0,SkyDir.GALACTIC).l() = 360
+            crval1,crval2=self.center.l() % 360,self.center.b()
         else:
             ctype1="RA-%s" % self.proj
             ctype2="DEC-%s" % self.proj
@@ -394,13 +396,21 @@ class ModelImage(ROIImage):
             rvals = ModelImage.downsample(rvals,self.factor).flatten()
             return rvals
 
+    @staticmethod
+    def get_point_sources(roi,override_point_sources,override_diffuse_sources):
+        if override_point_sources is None and override_diffuse_sources is None:
+            return roi.psm.point_sources 
+        if override_point_sources is None:
+            return []
+        elif not isinstance(override_point_sources,collections.Iterable):
+            return [override_point_sources]
+        else:
+            return override_point_sources
+
     def all_point_source_counts(self):
         """ Calculate the point source contributions. """
-        roi=self.roi
-        if self.override_point_sources is None and self.override_diffuse_sources is None:
-            point_sources = roi.psm.point_sources 
-        else:
-            point_sources = self.override_point_sources if self.override_point_sources is not None else []
+        point_sources=ModelImage.get_point_sources(self.roi,self.override_point_sources,self.override_diffuse_sources)
+        if len(point_sources)==0: return 0
 
         point_counts = N.zeros(len(self.wsdl),dtype=float)
 
@@ -420,7 +430,7 @@ class ModelImage(ROIImage):
                 temp = self.downsample_model(rvals)
 
                 temp *= self.solid_angle #multiply by pixel solid angle
-                temp *= band.ps_counts[nps] # scale by total expected counts
+                temp *= band.expected(ps.model) # scale by total expected counts
                 point_counts += temp
 
         return point_counts
@@ -489,17 +499,24 @@ class ModelImage(ROIImage):
         else:
             raise Exception("Unable to calculate model predictions for diffuse source %s", bg.name)
 
+    @staticmethod
+    def get_diffuse_sources(roi,override_point_sources,override_diffuse_sources):
+
+        if override_point_sources is None and override_diffuse_sources is None:
+            return roi.dsm.bgmodels
+        else:
+            mapper=get_default_diffuse_mapper(roi.sa,roi.roi_dir)
+            if override_diffuse_sources is None:
+                return []
+            elif not isinstance(override_diffuse_sources,collections.Iterable):
+                return [mapper(override_diffuse_sources)]
+            else:
+                return [mapper(ds) for ds in override_diffuse_sources]
+
     def all_diffuse_sources_counts(self):
         """ Calculate the diffuse source contributions. """
-
-        if self.override_point_sources is None and self.override_diffuse_sources is None:
-            bgmodels = self.roi.dsm.bgmodels
-        else:
-            mapper=get_default_diffuse_mapper(self.roi.sa,self.roi.roi_dir)
-            if self.override_diffuse_sources is None:
-                bgmodels = []
-            else:
-                bgmodels = [mapper(ds) for ds in self.override_diffuse_sources] 
+        
+        bgmodels=ModelImage.get_diffuse_sources(self.roi,self.override_point_sources,self.override_diffuse_sources)
 
         return sum(self.diffuse_source_counts(bg)
                    for bg in bgmodels)
@@ -582,9 +599,47 @@ class RadialCounts(RadialImage):
         diffs = [self.center.difference(i) for i in dirs]
         self.image=N.histogram(diffs,bins=N.sqrt(self.bin_edges_rad))[0]
 
+
+class RadialSource(RadialImage):
+    """ Subclass of RadialImage where returns the
+        model predicted counts integrated radially
+        for an extended source. Unlike RadialModel,
+        the PSF is not convolved with the RadialSource
+        (useful for comparing the extended source shape
+        with the PSF). """
+
+    defaults = RadialImage.defaults + (
+            ('extended_source', None, 'A spatial moel'),
+    )
+
+    def fill(self):
+        if self.extended_source is None:
+            raise Exception("RadialSource must be given a spatial_model.")
+
+        es=self.extended_source
+        sm = es.model
+
+        if not isinstance(es.spatial_model,RadiallySymmetricModel):
+            raise Exception("spatial_model must be an instance of RadiallySymmetricModel.")
+
+        total_counts = sum(band.expected(sm) for band in self.roi.bands)
+        solid_angle = RadialModel.solid_angle_cone(N.radians(self.size))/self.npix
+
+        fraction = es.spatial_model.at_r(N.sqrt(self.bin_centers_rad))
+        fraction*=solid_angle
+
+        self.image = total_counts*fraction
+
+
+
 class RadialModel(RadialImage):
 
-    defaults = RadialImage.defaults
+    defaults = RadialImage.defaults + (
+            ('override_point_sources', None, """ If either is specified, use override_point_sources these
+                                                 and override_diffuse_sources to generate the image instead
+                                                 of the sources in the ROI."""),
+            ('override_diffuse_sources', None, 'Same as override_point_sources'),
+    )
 
     def fill(self):
 
@@ -610,8 +665,8 @@ class RadialModel(RadialImage):
 
     def all_point_source_counts(self):
         """ Calculate the point source contributions. """
-        roi=self.roi
-        point_sources = roi.psm.point_sources
+        point_sources=ModelImage.get_point_sources(self.roi,self.override_point_sources,self.override_diffuse_sources)
+        if len(point_sources)==0: return 0
 
         point_counts = N.zeros_like(self.bin_centers_rad)
 
@@ -628,7 +683,7 @@ class RadialModel(RadialImage):
                     fraction=overlap(band,self.center,ps.skydir,radius_in_rad=theta_max) - \
                              overlap(band,self.center,ps.skydir,radius_in_rad=theta_min)
 
-                    model_counts += band.ps_counts[j]*fraction
+                    model_counts += band.expected(ps.model)*fraction
 
             point_counts[i] = model_counts
 
@@ -639,13 +694,11 @@ class RadialModel(RadialImage):
             raise Exception("Unknown extended model.")
 
         roi=self.roi
+        sm = extended_model.extended_source.model
 
         extended_counts = N.zeros_like(self.bin_centers_rad)
 
-        # get the corresponding mybands.
-        mybands=[extended_model.bands[N.where(roi.bands==band)[0][0]] for band in self.selected_bands]
-
-        for band,myband,smaller_band in zip(self.selected_bands,mybands,self.smaller_bands):
+        for band,smaller_band in zip(self.selected_bands,self.smaller_bands):
 
             extended_model.set_state(smaller_band)
 
@@ -676,8 +729,8 @@ class RadialModel(RadialImage):
                     fraction[i]=extended_model._overlaps(self.center,band,theta_max) - \
                              extended_model._overlaps(self.center,band,theta_min)
 
-            # total counts * fraction = model predictions in each ring.
-            extended_counts += myband.es_counts*fraction
+            # total counts from source * fraction of PDF in ring = model predictions in each ring.
+            extended_counts += band.expected(sm)*fraction
 
         return extended_counts
 
@@ -752,8 +805,10 @@ class RadialModel(RadialImage):
 
     def all_diffuse_sources_counts(self):
         """ Calculate the diffuse source contributions. """
+        bgmodels=ModelImage.get_diffuse_sources(self.roi,self.override_point_sources,self.override_diffuse_sources)
+
         return sum(self.diffuse_source_counts(bg)
-                   for bg in self.roi.dsm.bgmodels)
+                   for bg in bgmodels)
 
 
 class SmoothedImage(ROIImage):
