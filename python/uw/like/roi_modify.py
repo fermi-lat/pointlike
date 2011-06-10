@@ -113,8 +113,15 @@ def modify_model(roi,which,model,free=None,preserve_flux=False):
 
     roi.__update_state__()
 
+def modify_name(roi,which,name):
+    """ Modify the name of a source in the ROI."""
+    manager,index = roi.mapper(which)
+    source = roi.get_source(which)
 
-def modify(roi,which=0,skydir=None,model=None,spatial_model=None,
+    manager.names[index]=name
+    source.name=name
+
+def modify(roi,which=0,name=None, skydir=None,model=None,spatial_model=None,
         preserve_flux=False,preserve_center=False,free=None):
     """ This is a just a glue function wich will call all of the required
         modification functions to fully modify the source.
@@ -122,18 +129,21 @@ def modify(roi,which=0,skydir=None,model=None,spatial_model=None,
         See function modify_loc, modify_spatial_model, and modify_model
         to see what the various parameters do. """
 
-    if skydir is None and model is None and spatial_model is None and free is None:
+    if skydir is None and model is None and \
+            spatial_model is None and free is None and name is None:
         raise Exception("Parameter to modify must be specified.")
 
     if skydir is not None and spatial_model is not None:
         raise Exception("Both skydir and spatial_model cannot be specified.")
 
     if skydir is not None:
-        roi.modify_loc(which=which,skydir=skydir)
+        modify_loc(roi,which=which,skydir=skydir)
 
     if spatial_model is not None:
-        roi.modify_spatial_model(which,spatial_model,preserve_center)
+        modify_spatial_model(roi,which,spatial_model,preserve_center)
 
     if model is not None or free is not None:
-        roi.modify_model(which,model,free,preserve_flux)
+        modify_model(roi,which,model,free,preserve_flux)
 
+    if name is not None:
+        modify_name(roi,which,name)
