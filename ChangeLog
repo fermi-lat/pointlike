@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jun 10 11:12:30 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Improved linestyles for ROISlice/ROIRadialIntegral, Better label formatting, better legend sorting, better saving of data, more flags to modify what ROI paramters are overlayed on ROISmoothedSource(s) plots. Normalize smoothed maps by solid angle. White box around psf.
+    *
+------------------------------------------------------------
 User: lande  Tue Jun  7 13:10:48 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
