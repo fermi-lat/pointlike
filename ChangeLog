@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jun 10 19:47:58 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Bugfix in copy funtion
+    *
+------------------------------------------------------------
 User: lande  Fri Jun 10 12:14:50 PDT 2011
 ScienceTools-scons/pointlike/python/uw/utilities
 
