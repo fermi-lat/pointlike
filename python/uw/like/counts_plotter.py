@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/counts_plotter.py,v 1.2 2010/10/01 15:15:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/counts_plotter.py,v 1.3 2010/12/09 23:36:50 burnett Exp $
 
 Author M. Kerr, T. Burnett
 
@@ -143,9 +143,12 @@ def roi_pipeline_counts_plot(roi, counts_dir=None, fignum=6, **kwargs):
     axes[0].set_xlabel('') 
     axes[0].set_ylim(ymin=0.3)
     axes[1].set_ylabel('fract. dev')
-    fig.suptitle(roi.name)
+    if hasattr(roi,'name'): fig.suptitle(roi.name)
     if counts_dir is not None:
-        fout = os.path.join(counts_dir, ('%s_counts.png'%roi.name) )
+        if os.path.isdir(counts_dir) and hasattr(roi,'name'):
+            fout = os.path.join(counts_dir, ('%s_counts.png'%roi.name) )
+        else:
+            fout = counts_dir
         fig.savefig(fout)
         print 'saved counts plot to %s' % fout
     return axes
