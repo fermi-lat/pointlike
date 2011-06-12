@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sat Jun 11 17:51:24 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_image.py 
+Log Message:
+better value for nside
+    *
+------------------------------------------------------------
 User: lande  Sat Jun 11 11:49:32 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
