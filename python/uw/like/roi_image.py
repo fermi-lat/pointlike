@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.26 2011/05/31 04:24:16 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.27 2011/06/10 18:18:43 lande Exp $
 
 author: Joshua Lande
 """
@@ -366,8 +366,8 @@ class ModelImage(ROIImage):
 
     def bigger_wsdl(self,band,compare=None):
         """ Want to sample on a grid that is comparable in size (or
-            smaller than) 10% of the psf.
-            to ensure we get a reasonable. """
+            smaller than) 10% of the psf to ensure we get a reasonable
+            sampling of the grid. """
         if compare is None:
             r10=band.psf.inverse_integral_on_axis(0.10)
             compare=r10
@@ -739,7 +739,7 @@ class RadialModel(RadialImage):
         return 2*N.pi*(1-N.cos(radius_in_radians))
 
     @staticmethod
-    def get_nside(size,npix,num_points_per_ring=100):
+    def get_nside(size,npix,num_points_per_ring=2000):
         """ Solid angle of each healpix pixel is 4pi/(12*ns^2)
             Solid angel of each ring is pi*(size)^2/npix
             Want size of each ring > num_points_per_ring*size of each healpix (so that
