@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header:$
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.1 2011/06/11 18:49:32 lande Exp $
 
 author: Joshua Lande
 """
@@ -157,7 +157,7 @@ class Catalog2FGL(PointSourceCatalog):
 
     @staticmethod
     def sort(list,skydir):
-        return list.sort(key=lambda src:src.skydir.difference(skydir))
+        list.sort(key=lambda src:src.skydir.difference(skydir))
 
     def get_sources(self,skydir,radius=15):
         """ Returns all sources (point + diffuse combined) within radius.
@@ -173,17 +173,18 @@ class Catalog2FGL(PointSourceCatalog):
                 continue
 
             return_sources.append(source.copy())
-            return_sources[-1].model.free[:] == (distance <= self.free_radius)
+            return_sources[-1].model.free[:] = (distance <= self.free_radius)
 
-        return_sources=Catalog2FGL.sort(return_sources,skydir)
+        Catalog2FGL.sort(return_sources,skydir)
 
         return return_sources
 
 
     def merge_lists(self,skydir,radius=15,user_point_list=[],user_diffuse_list=[]):
-        """Get a list of catalog sources and merge it with an (optional) list of PointSource objects
-            provided by the user.  In case of duplicates (closer than prune_radius), the user object
-            takes precedence."""
+        """ Get a list of catalog sources and merge it with an (optional)
+            list of PointSource objects provided by the user.  In case
+            of duplicates (closer than prune_radius), the user object
+            takes precedence. """
 
         user_source_list = [i for i in user_point_list + user_diffuse_list if hasattr(i,'skydir')]
         user_background_list = list(set(user_point_list + user_diffuse_list).difference(user_source_list))
@@ -204,7 +205,7 @@ class Catalog2FGL(PointSourceCatalog):
         user_point_list = [i for i in merged_sources if isinstance(i,PointSource)]
         user_extended_list = list(set(merged_sources).difference(user_point_list))
 
-        user_point_list=Catalog2FGL.sort(user_point_list,skydir)
-        user_extended_list=Catalog2FGL.sort(user_extended_list,skydir)
+        Catalog2FGL.sort(user_point_list,skydir)
+        Catalog2FGL.sort(user_extended_list,skydir)
 
         return user_point_list,user_extended_list+user_background_list
