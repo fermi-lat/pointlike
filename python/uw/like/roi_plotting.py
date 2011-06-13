@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.45 2011/06/10 18:12:30 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.46 2011/06/13 04:08:13 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -407,16 +407,16 @@ class ROIDisplay(object):
         the weighted residuals and the p-values. """
 
     defaults = (
-            ('figsize',        (7,6.5),         'Size of the image'),
-            ('fignum',          None,  'matplotlib figure number'),
-            ('pixelsize',       0.25,  'size of each image pixel'),
-            ('conv_type',         -1,           'Conversion type'),
-            ('size',              10, 'Size of the field of view'),
-            ('nticks',             5, 'Number of axes tick marks'),
-            ('label_sources',  False,  'Label sources duing plot'),
-            ('galactic',        True,'Coordinate system for plot'),
-            ('countsfile',      None,'Fits file to save the counts map data.'),
-            ('modelfile',       None,'Fits file to save the model map data.'),
+            ('figsize',        (7,6.5),                    'Size of the image'),
+            ('fignum',          None,               'matplotlib figure number'),
+            ('pixelsize',       0.25,               'size of each image pixel'),
+            ('conv_type',         -1,                        'Conversion type'),
+            ('size',              10,              'Size of the field of view'),
+            ('nticks',             5,              'Number of axes tick marks'),
+            ('label_sources',  False,               'Label sources duing plot'),
+            ('galactic',        True,             'Coordinate system for plot'),
+            ('countsfile',      None, 'Fits file to save the counts map data.'),
+            ('modelfile',       None,  'Fits file to save the model map data.'),
     )
 
 
@@ -601,13 +601,13 @@ class ROISlice(object):
             ('galactic',        True,              'Coordinate system for plot'),
             ('int_width',          2,            'Integration width for slice.'),
             ('conv_type',         -1,                         'Conversion type'),
-            ('just_diffuse',    True, """ Display the model predictions with 
-                                          all point + extended sources 
-                                          removed. The background is not 
-                                          refit.                            """),
-            ('aspoint',         True, """ Display also the model predictions 
-                                          for an extended source fit with 
-                                          the point hypothesis. Only works 
+            ('just_diffuse',    True, """Display the model predictions with 
+                                               all point + extended sources 
+                                             removed. The background is not 
+                                                                     refit. """),
+            ('aspoint',         True, """Display also the model predictions 
+                                            for an extended source fit with 
+                                           the point hypothesis. Only works 
                                           when which is an extended source. """),
             ('oversample_factor',  4, """ Calculate the model predictions 
                                           this many times more finely.  
@@ -849,8 +849,8 @@ class ROIRadialIntegral(object):
 
     defaults = (
             ('which',           None,                       'Source to analyze'),
-            ('figsize',        (7,6), 'Size of the image'),
-            ('size',               2, 'Size of image in degrees'), 
+            ('figsize',        (7,6),                       'Size of the image'),
+            ('size',               2,                'Size of image in degrees'), 
             ('pixelsize',     0.0625, """ size of each image pixel. This is a misleading because the
                                           size of each pixel varies, since the image is uniform in theta^2. 
                                           This value is used to determine the total number of pixels using
@@ -1020,13 +1020,13 @@ class ROISignificance(object):
         counts integrated within a circual aperature of radius . """
 
     defaults = (
-            ('figsize',        (5,5),         'Size of the image'),
-            ('fignum',          None,  'matplotlib figure number'),
-            ('conv_type',         -1,           'Conversion type'),
-            ('size',               5, 'Size of the field of view'),
-            ('galactic',        True,'Coordinate system for plot'),
+            ('figsize',        (5,5),                        'Size of the image'),
+            ('fignum',          None,                 'matplotlib figure number'),
+            ('conv_type',         -1,                          'Conversion type'),
+            ('size',               5,                'Size of the field of view'),
+            ('galactic',        True,               'Coordinate system for plot'),
             ('kernel_rad',       0.25, 'Sum counts/model within radius degrees.'),
-            ('label_sources',  False,  'Label sources duing plot'),
+            ('label_sources',  False,                 'Label sources duing plot'),
     )
 
     @keyword_options.decorate(defaults)
@@ -1343,3 +1343,110 @@ class ROITSMapPlotter(object):
         ROISignificance.plot_sources(self.roi,ax,h,label_sources=self.label_sources,color='black')
 
         if filename is not None: P.savefig(filename)
+
+
+class ROISmoothedModel(object):
+    """ Plot (on the left) the diffuse subtracted smoothed counts and
+        (on the right) the diffuse subtrcted smoothed model predicted
+        counts Useful to see if your model (qualitativly) looks like
+        the right source. """
+
+    defaults = (
+            ('which',            None,                                   'Source to analyze'),
+            ('figsize',          (8,4),                                  'Size of the image'),
+            ('fignum',            None,                           'Matplotlib figure number'),
+            ('conv_type',           -1,                                    'Conversion type'),
+            ('size',                 3,                          'Size of the field of view'),
+            ('galactic',          True,                         'Coordinate system for plot'),
+            ('show_sources',      True,                     'Put an x over all the sources.'),
+            ('label_sources',    False,                           'Label sources duing plot'),
+            ('kerneltype',  'gaussian',                'Type of kernel to smooth image with'),
+            ('kernel_rad',         0.1,            'Sum counts/model within radius degrees.'),
+    )
+
+    @keyword_options.decorate(defaults)
+    def __init__(self, roi, **kwargs):
+        keyword_options.process(self, kwargs)
+
+        self.roi = roi
+
+        self.cmap = colormaps.b
+
+        # Fit many pixels inside of the summing radius
+        self.pixelsize=self.kernel_rad/5.0
+
+        self.source = roi.get_source(self.which)
+
+        kwargs=dict(size=self.size,
+                    pixelsize=self.pixelsize,
+                    galactic=self.galactic,
+                    conv_type=self.conv_type,
+                    center=self.source.skydir,
+                    per_solid_angle=True,
+                    kerneltype=self.kerneltype,
+                    kernel_rad=self.kernel_rad)
+
+        # Background subtracted counts
+        self.counts = SmoothedResidual(self.roi,
+                override_diffuse_sources=[i for i in self.roi.dsm.diffuse_sources if not hasattr(i,'skydir')],
+                **kwargs)
+
+        # Model counts for non-background sources.
+        self.model = SmoothedModel(self.roi,
+                override_point_sources=self.roi.psm.point_sources,
+                override_diffuse_sources=[i for i in self.roi.dsm.diffuse_sources if hasattr(i,'skydir')],
+                **kwargs)
+
+        self.model_pyfits = self.model.get_pyfits()
+
+        self.counts_pyfits = self.counts.get_pyfits()
+
+    def plot_counts(self):
+        ax = self.grid[0]
+        h, d = self.counts_pyfits[0].header, self.counts_pyfits[0].data
+        im=ax.imshow(d, origin="lower", cmap=self.cmap, vmin=0, vmax=self.max_intensity)
+        ax.grid()
+
+        ROISignificance.plot_sources(self.roi,ax,h,
+                show_sources=self.show_sources,label_sources=self.label_sources,
+                show_extension=False)
+
+        ax.add_inner_title("Counts", loc=2)
+
+    def plot_model(self):
+        ax = self.grid[1]
+        h, d = self.model_pyfits[0].header, self.model_pyfits[0].data
+        im=ax.imshow(d, origin="lower", cmap=self.cmap, vmin=0, vmax=self.max_intensity)
+        ax.grid()
+
+        cb_axes = self.grid.cbar_axes[0]
+        cbar = cb_axes.colorbar(im)
+        cbar.ax.set_ylabel(r'$\mathrm{counts}/[\mathrm{deg}]^2$')
+
+        ROISignificance.plot_sources(self.roi,ax,h,
+                show_sources=self.show_sources,label_sources=self.label_sources,
+                show_extension=False)
+
+        ax.add_inner_title("Model", loc=2)
+
+    def show(self,filename=None):
+        import pywcsgrid2
+        from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
+        from mpl_toolkits.axes_grid1.axes_grid import ImageGrid
+
+        self.fig = P.figure(self.fignum,self.figsize)
+        P.clf()
+
+        self.max_intensity = max(self.counts_pyfits[0].data.max(),self.model_pyfits[0].data.max())
+
+        self.grid = grid = ImageGrid(self.fig, (1, 1, 1), nrows_ncols = (1, 2),
+                         axes_pad=0.1, share_all=True,
+                         cbar_mode="single", cbar_pad="2%",
+                         cbar_location="right",
+                         axes_class=(pywcsgrid2.Axes, dict(header=self.counts_pyfits[0].header)))
+
+        self.plot_counts()
+        self.plot_model()
+
+        if filename is not None: P.savefig(filename)
+
