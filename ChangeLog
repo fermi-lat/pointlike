@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Jun 12 21:08:13 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Total rewrite of ROIDisplay. Remove somewhat pointless to_screen option. Improve fignum support. Improve which defaults. Added ROITSMapPlotter.
+    *
+------------------------------------------------------------
 User: lande  Sun Jun 12 21:01:27 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
