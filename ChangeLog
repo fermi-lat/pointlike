@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jun 13 15:41:35 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Fixed code in plot counts to limit # of sources displayed.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jun 13 15:40:41 PDT 2011
 pointlike/python/uw/like
 
