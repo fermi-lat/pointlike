@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Jun 12 20:57:36 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_modify.py 
+Log Message:
+Rename flag preserve_center to make more sense
+    *
+------------------------------------------------------------
 User: lande  Sat Jun 11 17:52:35 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
