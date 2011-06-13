@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/sed_plotter.py,v 1.15 2011/04/22 23:10:12 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/sed_plotter.py,v 1.16 2011/05/03 20:42:02 lande Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -210,18 +210,24 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     ========     ===================================================
     roi          a ROIAnalysis object
     which        [0] index of source to plot
-    fignum       [5] if set, use (and clear) this figure. If None, use current Axes object
+    fignum       [5] if set, use (and clear) this figure. If None, 
+                 use current Axes object
     axes         [None] If set use this Axes object
     axis         None, (1e2, 1e5, 1e-8, 1e-2) depending on use_ergs
     data_kwargs  a dict to pass to the data part of the display
     fit_kwargs   a dict to pass to the fit part of the display
     butterfly    [True] plot model with a butterfly outline
-    use_ergs     [True] convert to ergs in the flux units and use GeV on the x-axis
-    outdir       [None] if set, save sed into <outdir>/<source_name>_sed.png if outdir is a directory, save into filename=<outdir> if not.
+    use_ergs     [True] convert to ergs in the flux units and use 
+                 GeV on the x-axis
+    outdir       [None] if set, save sed into 
+                 <outdir>/<source_name>_sed.png if outdir is a 
+                 directory, save into filename=<outdir> if not.
     galmap       [True] plot position on galactic map if set
-    phase_corr   [False] multiply sed by phase_factor; appropriate for an on-pulse spectral analysis
+    phase_corr   [False] multiply sed by phase_factor; appropriate 
+                 for an on-pulse spectral analysis
     printout     [False] if True, print the sed points to stdout
-    title        [None] Title for the plot, if specified. Otherwise, use source name
+    title        [None] Title for the plot, if specified. Otherwise, 
+                 use source name
     ========     ===================================================
     
     """
