@@ -1,6 +1,6 @@
 """A module for classes that perform spectral fitting.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/specfitter.py,v 1.5 2010/08/11 00:35:01 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/specfitter.py,v 1.6 2010/10/25 21:05:02 lande Exp $
 
     author: Matthew Kerr
 """
@@ -87,7 +87,7 @@ class SpectralModelFitter(object):
                 xlyl[i] -= xdelt
                 xlyl[j] -= ydelt
 
-                vals = N.asarray([mf(xhyh,m,*args),-mf(xhyl,m,*args),-mf(xlyh,m,*args),mf(xlyl,m,*args)])
+                #vals = N.asarray([mf(xhyh,m,*args),-mf(xhyl,m,*args),-mf(xlyh,m,*args),mf(xlyl,m,*args)])
                 #if i == j:
                 #print (N.abs(vals).max() - N.abs(vals).min())
 
