@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.43 2011/06/07 20:10:48 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.44 2011/06/11 02:47:58 lande Exp $
 
    author: Joshua Lande
 
@@ -124,7 +124,7 @@ class DefaultSpatialModelValues(object):
         the_model.p=N.append([0.,0.],the_model.p)
         the_model.log=N.append([False,False],the_model.log)
         the_model.param_names=N.append(['lon','lat'],the_model.param_names)
-        the_model.limits=N.append([[-10.,10.],[-10.,10.]],the_model.limits,axis=0) \
+        the_model.limits=N.append([[-1.,1.],[-1.,1.]],the_model.limits,axis=0) \
                 if the_model.__dict__.has_key('limits') else N.asarray([[-10.,10],[-10.,10.]])
         the_model.steps=N.append([0.1,0.1],the_model.steps)
 
@@ -423,13 +423,16 @@ class SpatialModel(object):
             print during localization. """
         str = 'center = [ %.3fd, %.3fd ]' % (self.p[0],self.p[1])
         if len(self.p)>2:
-            str+=', ext = %s' % (self.pretty_spatial_string())
+            str+=', ext = [ %s ]' % (self.pretty_spatial_string())
         return str
 
     def pretty_spatial_string(self):
         """ Print out just the spatial part of the model, excluding
             the source location."""
-        return "[ "+", ".join(["%.3f" % _ for _ in self.get_parameters(absolute=True)[2:]])+" ]"
+        return ", ".join(["%.3f" % _ for _ in self.get_parameters(absolute=True)[2:]])
+
+    def full_spatial_string(self):
+        return '%.3f, %.3f, %s' % (self.p[0],self.p[1],self.pretty_spatial_string())
 
     @abstractmethod
     def shrink(self): 
@@ -521,7 +524,7 @@ class Gaussian(RadiallySymmetricModel):
     def r99(self): return GAUSSIAN_X99*self.sigma
 
     def pretty_spatial_string(self):
-        return "[ %.3fd ]" % (self.sigma)
+        return "%.3fd" % (self.sigma)
 
     def has_edge(self): return False
 
@@ -572,7 +575,7 @@ class Disk(RadiallySymmetricModel):
     def has_edge(self): return True
 
     def pretty_spatial_string(self):
-        return "[ %.3fd ]" % (self.sigma)
+        return "%.3fd" % (self.sigma)
 
     def shrink(self): 
         self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
@@ -621,7 +624,7 @@ class Ring(RadiallySymmetricModel):
     def has_edge(self): return True
 
     def pretty_spatial_string(self):
-        return "[ %.3fd, %.3f ]" % (self.sigma,self.frac)
+        return "%.3fd, %.3f" % (self.sigma,self.frac)
 
     def shrink(self): 
         self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
@@ -656,7 +659,7 @@ class NFW(RadiallySymmetricModel):
     def has_edge(self): return False
 
     def pretty_spatial_string(self):
-        return "[ %.3fd ]" % (self.sigma)
+        return "%.3fd" % (self.sigma)
 
     def shrink(self): 
         self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
@@ -817,7 +820,7 @@ class EllipticalSpatialModel(SpatialModel):
         return self.fill_grid(self.call_grid,energy=None,override_skydir=skydir)
 
     def pretty_spatial_string(self):
-        return "[ %.3fd, %.3fd, %.2fd ]" % \
+        return "%.3fd, %.3fd, %.2fd" % \
                 (self.sigma_x,self.sigma_y, self.theta)
     
     @abstractmethod
@@ -861,7 +864,7 @@ class PseudoEllipticalGaussian(PseudoSpatialModel,EllipticalGaussian):
         return SMALL_NUMERIC_EXTENSION,SMALL_NUMERIC_EXTENSION,0
 
     def pretty_spatial_string(self):
-        return "[ %.3fd ]" % (self.sigma_x)
+        return "%.3fd" % (self.sigma_x)
 
     def shrink(): raise NotImplementedError('Cannot shrink PseudoEllipticalGaussian!')
     def can_shrink(self): return False
@@ -875,7 +878,7 @@ class RadiallySymmetricEllipticalGaussian(EllipticalGaussian):
         return sigma,sigma,0
 
     def pretty_spatial_string(self):
-        return "[ %.3fd ]" % (self.sigma_x)
+        return "%.3fd" % (self.sigma_x)
 
 #===============================================================================================#
 
@@ -945,7 +948,7 @@ class EllipticalRing(EllipticalSpatialModel):
         return x99*self.sigma_x,x99*self.sigma_y,self.theta
 
     def pretty_spatial_string(self):
-        return "[ %.3fd, %.3fd, %.2fd, %.2f ]" % \
+        return "%.3fd, %.3fd, %.2fd, %.2f" % \
                 (self.sigma_x,self.sigma_y,
                  self.theta,self.frac)
 
