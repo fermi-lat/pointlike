@@ -27,7 +27,7 @@ def modify_loc(roi,skydir,which):
         else:
             raise Exception("Unable to modify_loc of diffuse source %s" % which)
 
-def modify_spatial_model(roi,which,spatial_model,preserve_center=False):
+def modify_spatial_model(roi,which,spatial_model,preserve_center=True):
     """ Modify a source's spatial model.
 
         If spatial_model is a SpatialModel object and which is a point
@@ -36,7 +36,10 @@ def modify_spatial_model(roi,which,spatial_model,preserve_center=False):
         If spatial_model is a skydir object and which is an extended
         source, the source will be converted to a point source. If
         spatial_model is a skydir object and which is a PointSource,
-        this function will simply call modify_loc. """
+        this function will simply call modify_loc. 
+        
+        preserve_center => keep the center from the old spatial model.
+        """
     manager,index = roi.mapper(which)
     source = roi.get_source(which)
 
@@ -50,7 +53,7 @@ def modify_spatial_model(roi,which,spatial_model,preserve_center=False):
 
     elif isinstance(spatial_model,SpatialModel):
 
-        if not preserve_center: spatial_model.modify_loc(source.skydir)
+        if preserve_center: spatial_model.modify_loc(source.skydir)
 
         if manager==roi.psm:
             roi.del_source(which)
@@ -122,7 +125,7 @@ def modify_name(roi,which,name):
     source.name=name
 
 def modify(roi,which=0,name=None, skydir=None,model=None,spatial_model=None,
-        preserve_flux=False,preserve_center=False,free=None):
+        preserve_flux=False,preserve_center=True,free=None):
     """ This is a just a glue function wich will call all of the required
         modification functions to fully modify the source.
 
