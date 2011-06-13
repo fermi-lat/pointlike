@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.87 2011/06/07 17:24:44 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.88 2011/06/10 18:18:43 lande Exp $
 
 author: Matthew Kerr
 """
@@ -20,6 +20,7 @@ from . import roi_printing
 from . import roi_modify
 from . import roi_save
 from . import roi_image
+from . import sed_plotter
 from uw.utilities import keyword_options
 from uw.utilities import xml_parsers
 from uw.utilities import region_writer
@@ -29,14 +30,23 @@ from scipy.stats.distributions import chi2
 from scipy import integrate
 from numpy.linalg import inv
 
+from . import roi_plotting 
+from . import counts_plotter
+
 EULER_CONST  = N.exp(1)
 LOG_JACOBIAN = 1./N.log10(EULER_CONST)
 
 # special function to replace or extend a docstring from that of another function
-def decorate_with(other_func, append=False):
+def decorate_with(other_func, append=False, append_init=False):
+    """ append_init: If decorating with an object (which has an __init__ function),
+                     then append the doc for the __init__ after the doc for the
+                     overall class. """
     def decorator(func):
         if append: func.__doc__ += other_func.__doc__ 
         else:      func.__doc__  = other_func.__doc__ 
+
+        if append_init and hasattr(other_func,'__init__'):
+                func.__doc__ += other_func.__init__.__doc__
         return func
     return decorator
 
@@ -74,6 +84,7 @@ class ROIAnalysis(object):
         self.logl = None
         self.prev_logl = None
         self.__setup_bands__()
+        self.__warn_about_binning__()
         self.bin_centers = N.sort(list(set([b.e for b in self.bands])))
         self.bin_edges    = N.sort(list(set([b.emin for b in self.bands] + [b.emax for b in self.bands])))
 
@@ -107,6 +118,21 @@ class ROIAnalysis(object):
 
         self.psm.setup_initial_counts(self.bands)
         self.dsm.setup_initial_counts(self.bands)
+
+    def __warn_about_binning__(self):
+        """ Add a user friendly warning if the binning selected
+            by emin & emin in DataSpecification is inconsistent with
+            the energy bins selected using fit_emin and fit_emax. """
+        if self.quiet: return
+
+        for ct in [0,1]:
+            actual_emin=min(b.emin for b in self.bands if b.ct==ct)
+            actual_emax=max(b.emax for b in self.bands if b.ct==ct)
+            requested_emin,requested_emax=self.fit_emin[ct],self.fit_emax[ct]
+            if N.abs(actual_emin-requested_emin)>1:
+                print 'Warning: For ct=%d, requested emin is %d, actual emin is %d' % (ct,requested_emin,actual_emin)
+            if N.abs(actual_emax-requested_emax)>1:
+                print 'Warning: Fot ct=%d, requested emax is %d, actual emax is %d' % (ct,requested_emax,actual_emax)
 
     def setup_energy_bands(self,emin=[0,0]):
 
@@ -151,6 +177,13 @@ class ROIAnalysis(object):
                 return self.psm,which
             else:
                 return self.dsm,which-len(self.psm.models)-1
+        elif which is None:
+            # Get closest to ROI center.
+            sources=[i for i in self.get_sources() if hasattr(i,'skydir')]
+            sources.sort(lambda s:s.skydir.difference(self.roi_dir))
+            source=sources[0]
+            manager=self.psm if isinstance(source,PointSource) else self.dsm
+            return manager,source
         elif isinstance(which,PointSource):
             return self.psm,int(N.where(self.psm.point_sources==which)[0])
         elif isinstance(which,DiffuseSource):
@@ -880,17 +913,42 @@ class ROIAnalysis(object):
     load=staticmethod(roi_save.load)
 
 
-    @decorate_with(roi_image.ROITSMapImage.__init__,append=True)
-    def tsmap(self,outfile,**kwargs):
-        """ Function to create a TSMap and save it to the fits
-            file specified by parameter outfile. """
+    @decorate_with(roi_image.ROITSMapImage,append_init=True)
+    def tsmap(self,filename,**kwargs):
         tsmap=roi_image.ROITSMapImage(self,**kwargs)
-        self.pf=tsmap.get_pyfits()
-        self.pf.writeto(outfile,clobber=True)
+        tsmap.get_pyfits().writeto(filename,clobber=True)
 
-    def plot_sed(self,*args,**kwargs):
-        from uw.like import sed_plotter
-        return sed_plotter.plot_sed(self,*args,**kwargs)
+    @decorate_with(sed_plotter.plot_sed)
+    def plot_sed(self,filename,which=None,**kwargs):
+        return sed_plotter.plot_sed(self,which=which,outdir=filename,**kwargs)
+
+    @decorate_with(roi_plotting.ROIDisplay,append_init=True)
+    def plot_counts_map(self,filename,**kwargs):
+        roi_plotting.ROIDisplay(self,**kwargs).show(filename=filename)
+
+    @decorate_with(counts_plotter.roi_pipeline_counts_plot)
+    def plot_counts_spectra(self,filename,**kwargs):
+        counts_plotter.roi_pipeline_counts_plot(self,counts_dir=filename,**kwargs)
+
+    @decorate_with(roi_plotting.ROISlice,append_init=True)
+    def plot_slice(self,filename,which=None,datafile=None,**kwargs):
+        roi_plotting.ROISlice(self,which=which,**kwargs).show(filename=filename,datafile=datafile)
+
+    @decorate_with(roi_plotting.ROIRadialIntegral,append_init=True)
+    def plot_radial_integral(self,filename,which=None,datafile=None,**kwargs):
+        roi_plotting.ROIRadialIntegral(self,which=which,**kwargs).show(filename=filename,datafile=None)
+
+    @decorate_with(roi_plotting.ROISmoothedSource,append_init=True)
+    def plot_source(self,filename,which=None,**kwargs):
+        roi_plotting.ROISmoothedSource(self,which=which,**kwargs).show(filename=filename)
+
+    @decorate_with(roi_plotting.ROISmoothedSources,append_init=True)
+    def plot_sources(self,filename,which=None,**kwargs):
+        roi_plotting.ROISmoothedSources(self,which=which,**kwargs).show(filename=filename)
+
+    @decorate_with(roi_plotting.ROITSMapPlotter,append_init=True)
+    def plot_tsmap(self,filename,**kwargs):
+        roi_plotting.ROITSMapPlotter(self,**kwargs).show(filename=filename)
 
 load=ROIAnalysis.load
 
