@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Jun 12 21:01:27 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Change error algorithm to UMINOS
+    *
+------------------------------------------------------------
 User: lande  Sun Jun 12 20:57:36 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
