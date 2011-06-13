@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.44 2011/05/06 21:58:01 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.45 2011/06/10 18:12:30 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -402,223 +402,166 @@ def plot_spectra(r, which=0, eweight=2,fignum=1,outfile=None,merge_bins=False,
 
 
 class ROIDisplay(object):
-    """ Manage the plotting of ROI info. The output is several two dimensional sky maps.
-        These include counts, model counts, residual counts, and p-values. """
+    """ Plotting a two dimensional map of the counts, model predicted,
+        and residual counts in the ROI. Also plot a histogram of
+        the weighted residuals and the p-values. """
 
     defaults = (
-            ('figsize',       (12,8),         'Size of the image'),
-            ('fignum',             3,  'matplotlib figure number'),
+            ('figsize',        (7,6.5),         'Size of the image'),
+            ('fignum',          None,  'matplotlib figure number'),
             ('pixelsize',       0.25,  'size of each image pixel'),
             ('conv_type',         -1,           'Conversion type'),
             ('size',              10, 'Size of the field of view'),
             ('nticks',             5, 'Number of axes tick marks'),
             ('label_sources',  False,  'Label sources duing plot'),
             ('galactic',        True,'Coordinate system for plot'),
-            ('countsfile',      '','File to save counts map'),
-            ('modelfile',       '','File to save model map'),
+            ('countsfile',      None,'Fits file to save the counts map data.'),
+            ('modelfile',       None,'Fits file to save the model map data.'),
     )
 
-    @staticmethod
-    def mathrm(st):
-        return  r'$\mathrm{'+st.replace(' ','\/')+'}$'
-
-    @staticmethod
-    def matplotlib_format():
-        rcParams['xtick.major.size']=10 #size in points
-        rcParams['xtick.minor.size']=6
-        rcParams['ytick.major.size']=10 #size in points
-        rcParams['ytick.minor.size']=6
-        rcParams['xtick.labelsize']=12
-        rcParams['ytick.labelsize']=12
-        rcParams['font.family']='serif'
 
     @keyword_options.decorate(defaults)
     def __init__(self, roi, **kwargs):
         keyword_options.process(self, kwargs)
+
+        try:
+            import pywcsgrid2
+        except:
+            raise Exception("You must install pywcsgrid2 to use this module.")
         
         self.roi = roi
 
         self.cm = CountsImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic,conv_type=self.conv_type)
         self.mm = ModelImage(self.roi,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic,conv_type=self.conv_type)
 
-        if self.countsfile is not '':
-            fits=self.cm.get_pyfits()
-            fits.writeto(self.countsfile,clobber=True)
-        if self.modelfile is not '':
-            fits=self.mm.get_pyfits()
-            fits.writeto(self.modelfile,clobber=True)
+        self.cm_pf, self.mm_pf = self.cm.get_pyfits(), self.mm.get_pyfits()
 
-        ROIDisplay.matplotlib_format()
+        self.cm_d, self.mm_d = self.cm_pf[0].data, self.mm_pf[0].data
+        self.res_d=(self.cm_d-self.mm_d)/self.mm_d**0.5
 
-        try:
-            self.cmap_b   = colormaps.b
-        except:
-            self.cmap_b = mpl.cm.jet
+        self.h=self.cm_pf[0].header
 
-        interactive=P.isinteractive(); P.ioff()
-        fig = P.figure(self.fignum,self.figsize)
-        P.clf()
+        if self.countsfile is not None: 
+            self.cm_pf.writeto(self.countsfile,clobber=True)
+        if self.modelfile is not None: 
+            self.mm_pf.writeto(self.modelfile,clobber=True)
 
-        voff = -0.05
-        imw = ( 0.55, 0.55, 0.55,  0.55,      0.25, 0.25) #0.38, 0.38)
-        imh = ( 0.35, 0.35, 0.35,  0.35,      0.17, 0.17) # picture sizes
-        imx = (-0.09, 0.23, 0.55, -0.09,      0.40, 0.40) #0.55, 0.55)
-        imy = ( 0.60+voff, 0.60+voff, 0.60+voff,  0.15+voff,      0.32, 0.08)
-
-
-        titles  = ['Modeled Counts', 'Observed Counts', 'Weighted Residuals', 'P-values','', '']
-        xlabels = ['RA']*4 + ['p-values','weighted residuals'] 
-        ylabels = ['Dec']*4 + ['Frequency','Frequency']
-
-        for y in [titles,xlabels,ylabels]:
-            for i in xrange(len(y)):
-                y[i] = ROIDisplay.mathrm(y[i])
-
-        for i,(t,xl,yl) in enumerate(zip(titles,xlabels,ylabels)):
-            ax = self.__dict__['axes%d'%(i+1)] = fig.add_axes([imx[i],imy[i],imw[i],imh[i]])
-            if i < 4: ax.set_aspect(1)
-            ax.set_title(t)
-            ax.set_xlabel(xl) 
-            ax.set_ylabel(yl)
-        
         # Use same scale for the counts and model map
-        counts_max = N.ceil(max(N.max(self.cm.image),N.max(self.mm.image)))
-        counts_min = max(N.floor(min(N.min(self.cm.image),N.min(self.mm.image))),1.0)
+        self.counts_max = N.ceil(max(N.max(self.cm.image),N.max(self.mm.image)))
+        self.counts_min = max(N.floor(min(N.min(self.cm.image),N.min(self.mm.image))),1.0)
 
-        self.norm1 = mpl.colors.Normalize(vmin=0,vmax=1)
-        self.norm2 = mpl.colors.LogNorm(vmin=counts_min,vmax=counts_max,clip=True)
-        self.norm3 = mpl.colors.Normalize(vmin=-5,vmax=5)
+    def add_cbar(self,im,ax):
+        from matplotlib.axes import Axes
+        import pylab as P
+        from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
-        #resid colorbar
-        rcb_axes = fig.add_axes([imx[3]+imw[3]*0.72,imy[3],0.01,imh[3]])
-        rcb        = mpl.colorbar.ColorbarBase(rcb_axes,
-                                               norm=self.norm1,
-                                               ticks = ticker.MaxNLocator(4),
-                                               cmap  = self.cmap_b,
-                                               orientation='vertical')
-
-        #counts colorbar
-        ccb_axes1 = fig.add_axes([imx[0]+imw[0]*0.72,imy[0],0.01,imh[0]])
-        ccb1        = mpl.colorbar.ColorbarBase(ccb_axes1,
-                                                norm=self.norm2,
-                                                ticks = ticker.LogLocator(),
-                                                cmap  = self.cmap_b,
-                                                orientation='vertical')
-
-        ccb_axes2 = fig.add_axes([imx[1]+imw[1]*0.72,imy[1],0.01,imh[1]])
-        ccb2        = mpl.colorbar.ColorbarBase(ccb_axes2,
-                                                norm=self.norm2,
-                                                ticks = ticker.LogLocator(),
-                                                cmap  = self.cmap_b,
-                                                orientation='vertical')
-
-        ccb_axes3 = fig.add_axes([imx[2]+imw[2]*0.72,imy[2],0.01,imh[2]])
-        ccb3        = mpl.colorbar.ColorbarBase(ccb_axes3,
-                                                norm=self.norm3,
-                                                ticks = ticker.MaxNLocator(4),
-                                                orientation='vertical')
-
-        if interactive: P.ion()
+        divider = make_axes_locatable(ax)
+        cax = divider.new_horizontal("5%", pad=0.1, axes_class=Axes)
+        self.fig.add_axes(cax)
+        cbar = P.colorbar(im, cax=cax)
 
     def model_plot(self):
 
-        self.mm_zea = self.mm.get_ZEA(nticks=self.nticks, axes=self.axes1)
-        self.axes1.imshow(self.mm_zea.image,origin='lower',interpolation='nearest',cmap=self.cmap_b,norm=self.norm2)
-        self.mm_zea.grid()
-        self.mm_zea.scale_bar(color='white')
-        self.plot_sources(self.mm_zea,mc='k')
+        from uw.utilities import colormaps
+        im=self.ax_model.imshow(self.mm_d, norm=self.counts_norm, 
+                            cmap=colormaps.b,
+                            **self.imshow_args)
+
+        #self.grid[0].cax.colorbar(im)
+        self.ax_model.set_title('Model Counts')
+        self.ax_model.grid(linestyle='-')
+        self.add_cbar(im,self.ax_model)
         
     def counts_plot(self):
 
-        self.cm_zea = self.cm.get_ZEA(nticks=self.nticks, axes=self.axes2)
-        # note that we must explicitly clip bins with no counts to avoid confusing the colorbar with NaNs.
-        self.axes2.imshow(self.cm_zea.image,origin='lower',interpolation='nearest',cmap=self.cmap_b,norm=self.norm2)
-        self.cm_zea.grid()
-        self.cm_zea.scale_bar(color='white')
-        self.plot_sources(self.cm_zea,mc='k')
+        from uw.utilities import colormaps
+        d=self.cm_d
+        m=self.counts_min
+        im=self.ax_counts.imshow(N.where(d>m,d,m), norm=self.counts_norm,
+                            cmap=colormaps.b,
+                            **self.imshow_args)
+        self.ax_counts.set_title('Observed Counts')
+        self.ax_counts.grid(linestyle='-')
+        self.add_cbar(im,self.ax_counts)
 
     def resids_plot(self):
 
-        self.resids_zea = ZEA(self.roi.roi_dir,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic,axes=self.axes3)
-        self.resids_zea.image = (self.cm_zea.image-self.mm_zea.image)/self.mm_zea.image**0.5
-        self.axes3.imshow(self.resids_zea.image,origin='lower',interpolation='nearest',norm=self.norm3)
-        self.resids_zea.grid()
-        self.plot_sources(self.resids_zea,mc='k')
-        
-        pvals = 1 - poisson.cdf(self.cm_zea.image,self.mm_zea.image ) #0 problem?
-
-        self.pvals_zea = ZEA(self.roi.roi_dir,size=self.size,pixelsize=self.pixelsize,galactic=self.galactic,axes=self.axes4)
-        self.pvals_zea.image = pvals
-        self.axes4.imshow(self.pvals_zea.image,origin='lower',interpolation='nearest',cmap=self.cmap_b,norm=self.norm1)
-        self.pvals_zea.grid()
-
-        self.plot_sources(self.pvals_zea,mc='k')
+        im=self.ax_res.imshow(self.res_d,
+                            norm=self.norm_res,
+                            **self.imshow_args)
+        self.ax_res.set_title('Weighted Residuals')
+        self.ax_res.grid(linestyle='-')
+        self.add_cbar(im,self.ax_res)
 
     def hist_plot(self):
+        self.ax_pvals.set_title('P-Values')
 
-        mc = self.mm_zea.image.flatten()
-        cc = self.cm_zea.image.flatten()
+        mc = self.mm_d.flatten()
+        cc = self.cm_d.flatten()
+        rc = self.res_d.flatten()
 
         pvals = 1-poisson.cdf(cc,mc)
 
         nb = 20
         av = float(len(pvals)) / nb
-        self.axes5.hist(pvals,bins=N.linspace(0,1,20),histtype='step')
-        self.axes5.axhline( av, color='red')
+        self.ax_pvals.hist(pvals,bins=N.linspace(0,1,20),histtype='step')
+        self.ax_pvals.axhline( av, color='red')  
+        from uw.like.roi_plotting import ppf
         lo,hi = ppf( (50.-95/2)/100., av), ppf( (50. + 95/2)/100.,av)
-        self.axes5.axhspan( lo , hi , facecolor='red', alpha=0.3,label='95% Conf.')
-        self.axes5.legend(loc='upper right')
+        self.ax_pvals.axhspan( lo , hi , facecolor='red', alpha=0.3,label='95% Conf.')
+        self.ax_pvals.legend(loc='upper right')
 
-        self.axes6.hist( (cc - mc)/mc**0.5, bins=N.linspace(-5,5,20), histtype='step',normed=True)
+        self.ax_resplot.set_title('Weighted Residuals')
+
+        self.ax_resplot.hist(rc, bins=N.linspace(-5,5,20), histtype='step',normed=True)
         b=N.linspace(-5,5,100)
-        self.axes6.plot(b,norm.pdf(b))
-        self.axes6.axvline(0,color='red')
-        self.axes6.grid(True)
-        self.axes6.set_xbound(lower=-5,upper=5)
+        self.ax_resplot.plot(b,norm.pdf(b))
+        self.ax_resplot.axvline(0,color='red')
+        self.ax_resplot.grid(True)
+        self.ax_resplot.set_xbound(lower=-5,upper=5)
+
+    def show(self,filename=None):
+
+        # taken from http://matplotlib.sourceforge.net/users/usetex.html
+        from mpl_toolkits.axes_grid1.axes_grid import ImageGrid
+        import pywcsgrid2
+        from matplotlib import mpl
+        from matplotlib.gridspec import GridSpec,GridSpecFromSubplotSpec
+        from uw.like.roi_plotting import ROISignificance
+
+        self.imshow_args = dict(interpolation='nearest', origin='lower')
+
+        print 'figsize=',self.figsize
+
+        self.fig = P.figure(self.fignum,self.figsize)
+        P.clf()
+
+        self.counts_norm = mpl.colors.LogNorm(vmin=self.counts_min,vmax=self.counts_max)
+        self.norm_res = mpl.colors.Normalize(vmin=-5,vmax=5)
 
 
-    def show(self,to_screen=True,out_file=None):
+        # first, divide the plot in 4
+        gs = GridSpec(2, 2)
+        gs.update(wspace=0.35, hspace=0.20) # wspace=0.75,
+        self.ax_model = pywcsgrid2.subplot(gs[0, 0], header=self.h)
+        self.ax_counts = pywcsgrid2.subplot(gs[0,1], header=self.h)
+        self.ax_res = pywcsgrid2.subplot(gs[1:, 0], header=self.h)
 
-        interactive=P.isinteractive(); P.ioff()
+        # then divide the 4th space in two.
+        subgs = GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[1,1], wspace=0, hspace=0.5)
+        self.ax_pvals = P.subplot(subgs[0, 0])
+        self.ax_resplot = P.subplot(subgs[1, 0])
 
-        t =self.label_sources
         self.model_plot()
-        self.label_sources=False #only label the model plot
         self.counts_plot()
         self.resids_plot()
         self.hist_plot()
-        self.label_sources = t
 
-        if interactive: P.ion()
+        for ax in [self.ax_model, self.ax_counts, self.ax_res]:
+            ROISignificance.plot_sources(self.roi,ax,self.h,label_sources=self.label_sources,
+                                         show_extension=False, marker_scale=2, color='k')
 
-        if out_file is not None: P.savefig(out_file)
-        if to_screen: P.show()
-
-    def plot_sources(self, image, symbol='+',  fontsize=8, markersize=10, fontcolor='w', mc= 'green',**kwargs):
-        """ Plot both point and diffuse sources. """
-        nx = image.nx
-        ny = image.ny
-
-        src = [p for p in self.roi.get_sources() if hasattr(p,'skydir')]
-
-        def allow(nx, ny, px, py, padx = 0.15, pady = 0.15):
-            padx = padx * nx
-            pady = pady * ny
-
-            return (px > padx and px < nx - padx) and (py > pady and py < ny - pady)
-
-        for p in src:
-            x,y = image.pixel(p.skydir)
-            if self.label_sources:
-                padx = pady = 0.15
-            else:
-                padx = pady = 0.02
-            if not allow(nx,ny,x,y,padx,pady): continue
-            image.axes.plot([x], [y], symbol, markersize=markersize, mec = mc, mfc = mc,**kwargs)
-            image.axes.plot([x], [y], 'x', markersize=markersize, mec = 'white', mfc = 'white',**kwargs)
-            if self.label_sources:
-                image.axes.text( x+nx/100., y+nx/100., p.name, fontsize=fontsize, color=fontcolor)
-
+        if filename is not None: P.savefig(filename)
 
 
 
@@ -646,29 +589,38 @@ def int2bin(n, count=24):
 #===============================================================================================#
 
 class ROISlice(object):
-    """ Object to create counts slice plot. """
+    """ Create counts slice plot (integrating out one dimention and plotting
+        the counts and model predicted counts in the other direction. """
 
     defaults = (
-            ('figsize',        (7,6), 'Size of the image'),
-            ('fignum',             4, 'matplotlib figure number'),
-            ('pixelsize',      0.125, 'size of each image pixel'),
-            ('size',              10, 'Size of the field of view'),
-            ('galactic',        True, 'Coordinate system for plot'),
-            ('int_width',          2, 'Integration width for slice.'),
-            ('conv_type',         -1, 'Conversion type'),
-            ('just_diffuse',    True, """ Display the model predictions with all point + extended
-                                          sources removed. The background is not refit. """),
-            ('aspoint',         True, """ Display also the model predictions for an extended source 
-                                          fit with the point hypothesis. Only works when which is an
-                                          extended source. """),
-            ('oversample_factor',  4, """ Calculate the model predictions this many times more finely. 
-                                          This will create a smoother plot of model predictions. Set 
-                                          to 1 if you want the model predictions to 'look like' the 
-                                          data."""),
-            ('use_gradient',    True, """Use gradient when refitting."""),
-            ('title',           None,            'Title for the plot'),
-            ('black_and_white',False, """If True, make the plot black and white (better for 
-                                         printing/publishing)"""),
+            ('which',           None,                       'Source to analyze'),
+            ('figsize',        (7,6),                       'Size of the image'),
+            ('fignum',          None,                'matplotlib figure number'),
+            ('pixelsize',      0.125,                'size of each image pixel'),
+            ('size',              10,               'Size of the field of view'),
+            ('galactic',        True,              'Coordinate system for plot'),
+            ('int_width',          2,            'Integration width for slice.'),
+            ('conv_type',         -1,                         'Conversion type'),
+            ('just_diffuse',    True, """ Display the model predictions with 
+                                          all point + extended sources 
+                                          removed. The background is not 
+                                          refit.                            """),
+            ('aspoint',         True, """ Display also the model predictions 
+                                          for an extended source fit with 
+                                          the point hypothesis. Only works 
+                                          when which is an extended source. """),
+            ('oversample_factor',  4, """ Calculate the model predictions 
+                                          this many times more finely.  
+                                          This will create a smoother 
+                                          plot of model predictions. Set 
+                                          to 1 if you want the model 
+                                          predictions to 'look like' the 
+                                          data.                             """),
+            ('use_gradient',    True,            'Use gradient when refitting.'),
+            ('title',           None,                      'Title for the plot'),
+            ('black_and_white',False, """ If True, make the plot black and 
+                                          white (better for printing and
+                                          publishing)                       """),
     )
 
     @staticmethod
@@ -677,14 +629,13 @@ class ROISlice(object):
 
 
     @keyword_options.decorate(defaults)
-    def __init__(self, roi, which, **kwargs):
+    def __init__(self, roi, **kwargs):
         keyword_options.process(self, kwargs)
 
         if not type(self.oversample_factor) == int:
             raise Exception("oversample_factor must be an integer.")
 
         self.roi   = roi
-        self.which = which
 
         manager,index=self.roi.mapper(self.which)
         if manager == roi.psm:
@@ -695,8 +646,6 @@ class ROISlice(object):
             self.pretty_name = self.source.spatial_model.pretty_name
 
         self.center=self.source.skydir
-
-        ROIDisplay.matplotlib_format()
 
         fig = P.figure(self.fignum,self.figsize)
         P.clf()
@@ -878,7 +827,7 @@ class ROISlice(object):
 
         file.close()
 
-    def show(self,to_screen=True,outfile=None, datafile=None):
+    def show(self,filename=None, datafile=None):
 
         self.plotx()
         self.ploty()
@@ -891,14 +840,15 @@ class ROISlice(object):
 
         if datafile is not None: self.save_data(datafile)
 
-        if outfile is not None: P.savefig(outfile)
-        if to_screen: P.show()
+        if filename is not None: P.savefig(filename)
 
 
 class ROIRadialIntegral(object):
-    """ Object to create a radial integral plot, binned uniformly in theta^2. """
+    """ Create a radial integral plot which integrates radially
+        the counts and model predicted counts and bins uniformly in theta^2. """
 
     defaults = (
+            ('which',           None,                       'Source to analyze'),
             ('figsize',        (7,6), 'Size of the image'),
             ('size',               2, 'Size of image in degrees'), 
             ('pixelsize',     0.0625, """ size of each image pixel. This is a misleading because the
@@ -907,7 +857,7 @@ class ROIRadialIntegral(object):
                                           the formula npix=size/pixelsize and represents something
                                           like an average pixelsize."""),
             ('npix',            None, """ If specified, use this value instead of pixelsize. """),
-            ('fignum',             5, 'matplotlib figure number'),
+            ('fignum',          None, 'matplotlib figure number'),
             ('conv_type',         -1, 'Conversion type'),
             ('just_diffuse',    True, """ Display the model predictions with all point + extended
                                           sources removed. The background is not refit. """),
@@ -925,7 +875,7 @@ class ROIRadialIntegral(object):
     )
 
     @keyword_options.decorate(defaults)
-    def __init__(self, roi, which, **kwargs):
+    def __init__(self, roi, **kwargs):
         keyword_options.process(self, kwargs)
 
         if not type(self.oversample_factor) == int:
@@ -933,7 +883,6 @@ class ROIRadialIntegral(object):
 
 
         self.roi   = roi
-        self.which = which
 
         manager,index=self.roi.mapper(self.which)
         if manager == roi.psm:
@@ -944,8 +893,6 @@ class ROIRadialIntegral(object):
             self.pretty_name = self.source.spatial_model.pretty_name
 
         self.center=self.source.skydir
-
-        ROIDisplay.matplotlib_format()
 
         fig = P.figure(self.fignum,self.figsize)
         P.clf()
@@ -1041,7 +988,7 @@ class ROIRadialIntegral(object):
             file.write(pprint.pformat(results_dict))
         file.close()
 
-    def show(self,to_screen=True,outfile=None,datafile=None):
+    def show(self,filename=None,datafile=None):
 
         ROISlice.set_color_cycle()
 
@@ -1057,15 +1004,14 @@ class ROIRadialIntegral(object):
         P.ylabel('Counts')
 
         if self.title is None:
-            self.title = 'Radial Integral Counts'
+            self.title = 'Radially Integrated Counts'
             if self.source is not None: self.title += ' for %s' % self.source.name
 
         P.title(self.title)
 
         if datafile is not None: self.save_data(datafile)
 
-        if outfile is not None: P.savefig(outfile)
-        if to_screen: P.show()
+        if filename is not None: P.savefig(filename)
 
 
 class ROISignificance(object):
@@ -1075,7 +1021,7 @@ class ROISignificance(object):
 
     defaults = (
             ('figsize',        (5,5),         'Size of the image'),
-            ('fignum',             3,  'matplotlib figure number'),
+            ('fignum',          None,  'matplotlib figure number'),
             ('conv_type',         -1,           'Conversion type'),
             ('size',               5, 'Size of the field of view'),
             ('galactic',        True,'Coordinate system for plot'),
@@ -1144,7 +1090,7 @@ class ROISignificance(object):
             ax.add_artist(t)
 
 
-    def show(self,to_screen=True,outfile=None):
+    def show(self,filename=None):
 
         import pywcsgrid2
         from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
@@ -1171,8 +1117,7 @@ class ROISignificance(object):
 
         ROISignificance.plot_sources(self.roi,ax,h,label_sources=self.label_sources)
 
-        if outfile is not None: P.savefig(outfile)
-        if to_screen: P.show()
+        if filename is not None: P.savefig(filename)
 
 class ROISmoothedSource(object):
     """ Make a smoothed residual plot to look at a particular source. 
@@ -1185,7 +1130,7 @@ class ROISmoothedSource(object):
     defaults = (
             ('which',             None,    'Draw the smoothed point version of this source.'),
             ('figsize',      (5.5,4.5),                                'Size of the image'),
-            ('fignum',               3,                           'Matplotlib figure number'),
+            ('fignum',            None,                           'Matplotlib figure number'),
             ('conv_type',           -1,                                    'Conversion type'),
             ('size',                 3,                          'Size of the field of view'),
             ('galactic',          True,                         'Coordinate system for plot'),
@@ -1214,10 +1159,10 @@ class ROISmoothedSource(object):
         return residual
 
     @keyword_options.decorate(defaults)
-    def __init__(self, roi, **kwargs):
+    def __init__(self, roi, which, **kwargs):
         keyword_options.process(self, kwargs)
 
-        if self.which is None: raise Exception("Parameter soruce must be specified.")
+        self.which=which
         
         self.roi = roi
 
@@ -1226,7 +1171,7 @@ class ROISmoothedSource(object):
         # Fit many pixels inside of the summing radius
         self.pixelsize=self.kernel_rad/5.0
 
-        self.source = roi.get_source(self.which)
+        self.source = roi.get_source(which)
 
         smoothed_kwargs=dict(size=self.size,
                     pixelsize=self.pixelsize,
@@ -1263,11 +1208,10 @@ class ROISmoothedSource(object):
                     N.max(self.residual_pyfits[0].data)/\
                     N.max(self.psf_pyfits[0].data)
 
-    def show(self,to_screen=True,outfile=None):
+    def show(self,filename=None):
         import pywcsgrid2
         from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
         from mpl_toolkits.axes_grid1.axes_grid import ImageGrid
-        from mpl_toolkits.axes_grid1.axes_grid import AxesGrid
 
         self.fig = P.figure(self.fignum,self.figsize)
         P.clf()
@@ -1282,8 +1226,6 @@ class ROISmoothedSource(object):
         self.ax = ax = grid[0]
 
         im=ax.imshow(d, origin="lower", cmap=self.cmap, vmin=0)
-
-        #ax.set_ticklabel_type("absdeg")
 
         cb_axes = grid.cbar_axes[0] # colorbar axes
 
@@ -1316,8 +1258,7 @@ class ROISmoothedSource(object):
                 show_sources=self.show_sources,label_sources=self.label_sources,
                 show_extension=self.show_extension,extension_color=self.extension_color)
 
-        if outfile is not None: P.savefig(outfile)
-        if to_screen: P.show()
+        if filename is not None: P.savefig(filename)
 
 class ROISmoothedSources(ROISmoothedSource):
     """ Subclass ROISmoothedSource, but add only the diffuse emission to the background. """
@@ -1330,3 +1271,75 @@ class ROISmoothedSources(ROISmoothedSource):
                 **kwargs)
 
         return residual
+
+class ROITSMapPlotter(object):
+    """ Create a residual TS map plot and overlay
+        on it all of the sources in the ROI."""
+    
+    defaults = (
+        ('size',                        5,                          ),
+        ('pixelsize',               0.125,                          ),
+        ('galactic',                 True,                          ),
+        ('figsize',               (5.5,4),'Size of figure in inches'),
+        ('fignum',                   None,'Matplotlib figure number'),
+        ('title',       'Residual TS Map',       'Title of the plot'),
+        ('label_sources',           False,                          ),
+        ('fitsfile',                 None,                          ), 
+    )
+
+    @keyword_options.decorate(defaults)
+    def __init__(self,roi,**kwargs):
+
+        self.roi=roi
+
+        keyword_options.process(self, kwargs)
+
+        from uw.like.roi_image import ROITSMapImage
+
+        self.image=ROITSMapImage(roi,
+                center=self.roi.roi_dir,
+                pixelsize=self.pixelsize,
+                size=self.size,
+                galactic=self.galactic,
+        )
+
+        self.pf=self.image.get_pyfits()
+
+        if self.fitsfile is not None:
+            self.pf.writeto(self.fitsfile,clobber=True)
+
+    def show(self,filename=None):
+
+        import pylab as P
+        import pywcsgrid2
+        from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
+        from matplotlib.axes import Axes
+        from matplotlib import mpl
+        from uw.utilities import colormaps
+        from uw.like.roi_plotting import ROISignificance
+
+        self.fig =  fig = P.figure(self.fignum,self.figsize)
+        P.clf()
+
+        h, d = self.pf[0].header, self.pf[0].data
+
+        ax = pywcsgrid2.subplot(111, header=h)
+
+        # add colorbar axes
+        divider = make_axes_locatable(ax)
+        cax = divider.new_horizontal("5%", pad=0.1, axes_class=Axes)
+        fig.add_axes(cax)
+
+        # since this is a residual tsmap, never let the scale go below 25.
+        norm=mpl.colors.Normalize(vmin=0, vmax=25) if N.max(self.image.image) < 25 else None
+
+        im = ax.imshow(d, interpolation='nearest', origin="lower", cmap=colormaps.b, norm=norm)
+        cbar = P.colorbar(im, cax=cax)
+
+        ax.set_title(self.title)
+
+        ax.grid(color='w',linestyle='-')
+
+        ROISignificance.plot_sources(self.roi,ax,h,label_sources=self.label_sources,color='black')
+
+        if filename is not None: P.savefig(filename)
