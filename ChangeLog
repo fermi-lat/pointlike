@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jun 13 15:40:41 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_bands.py 
+Log Message:
+Removed cruft.
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-21, operation: add
 Package: pointlike
