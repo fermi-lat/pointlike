@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Jun 12 21:10:05 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Smaller initial fit limits for extended source localization. new function full_spatial_string and rewrite pretty_string a bit.
+    *
+------------------------------------------------------------
 User: lande  Sun Jun 12 21:08:30 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
