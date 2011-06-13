@@ -2,7 +2,7 @@
 Implements classes encapsulating an energy/conversion type band.  These
 are the building blocks for higher level analyses.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.24 2011/03/11 22:46:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_bands.py,v 1.25 2011/04/04 22:56:25 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -102,9 +102,8 @@ class ROIBand(object):
         # are used elsewhere.  This comes up in, e.g., saving the values for use in localization.
         which = args[0] if len(args) > 0 else 0
         new_counts = parameters[0]*self.er[which]
-        band = self # what's this for? M.K. 23 Sept. 2010
 
-        old_counts = band.ps_counts[which]
+        old_counts = self.ps_counts[which]
 
         tot_term = (self.bg_all_counts + self.ps_all_counts + self.overlaps[which]*(new_counts - old_counts))*self.phase_factor
 
