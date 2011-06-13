@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.89 2011/06/13 04:11:37 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.90 2011/06/13 17:54:30 lande Exp $
 
 author: Matthew Kerr
 """
@@ -844,11 +844,11 @@ class ROIAnalysis(object):
         for b in self.bands:
             key = (-1 if b.ct==1 else 1)*int(b.e)
             d[key] = b
-        ens = N.sort(list(set([b.e for b in self.bands]))).astype(int)
+        ens = np.sort(list(set([b.e for b in self.bands]))).astype(int)
         print ''
-        print '        \t-------CT=0--------      -------CT=1--------      ------CT=0+1-------'
-        print 'Energy\tMod      Obs      Res      Mod      Obs      Res      Mod      Obs      Res'
-        print '        \t-------------------      -------------------      -------------------'
+        print '        -------CT=0--------     -------CT=1--------     ------CT=0+1-------'
+        print 'Energy  Mod     Obs     Res     Mod     Obs     Res     Mod     Obs     Res'
+        print '        -------------------     -------------------     -------------------'
         for en in ens:
             s1 = '%-6.0f'%(en)
             tm = 0; to = 0
@@ -859,8 +859,10 @@ class ROIAnalysis(object):
                     o = b.photons
                 else:
                     m = o = 0
+                tm += m; to += o
                 wres = (o-m)/m**0.5 if m>0 else 0
                 s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(m,o,wres)])
+            wres = (to-tm)/tm**0.5 if tm>0 else 0
             s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(tm,to,(to-tm)/tm**0.5)])
             print s1
  
