@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.90 2011/06/13 17:54:30 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.91 2011/06/13 19:01:13 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -151,6 +151,9 @@ class ROIAnalysis(object):
             If which is an integer, it is assumed to be in the point
             source manager, so the return is the point source manager
             and the particular index.
+
+            If which is None, it will find the closest point+extended
+            to the center of the ROI and return that.
 
             if which is a string, the name of all the point sources and
             diffuse sources is searched and the first source with that
@@ -953,6 +956,10 @@ class ROIAnalysis(object):
     @decorate_with(roi_plotting.ROITSMapPlotter,append_init=True)
     def plot_tsmap(self,filename,**kwargs):
         roi_plotting.ROITSMapPlotter(self,**kwargs).show(filename=filename)
+
+    @decorate_with(roi_plotting.ROISmoothedModel,append_init=True)
+    def plot_model(self,filename="model_counts.png",**kwargs):
+        ROISmoothedModel(self,**kwargs).show(filename=filename)
 
 load=ROIAnalysis.load
 
