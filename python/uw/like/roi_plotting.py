@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.46 2011/06/13 04:08:13 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.47 2011/06/13 21:22:27 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -283,22 +283,15 @@ def plot_counts(r,fignum=1,outfile=None,integral=False,max_label=10,merge_non_fr
     P.gca().set_xscale('log')
     P.gca().set_yscale('log')
     for i,name in enumerate(ps_names):
-        #if i < max_label:
-        P.loglog(en,src[:,i],linestyle='-',marker='',label=name)
-        #else:
-        #    P.loglog(en,src[:,i],linestyle='-',marker='')
+        label = name if (i < max_label) else '_nolegend_'
+        P.loglog(en,src[:,i],linestyle='-',marker='',label=label)
     for i,name in enumerate(bg_names):
         if N.any(dif[:,i]==0): continue
         P.loglog(en,dif[:,i],linestyle='-',marker='',label=name)
-    #if not N.any(gal==0.):
-    #    P.loglog(en,gal,linestyle='-',marker='',label='Galactic')
-
-    #if not N.any(iso==0.):
-    #    P.loglog(en,iso,linestyle='-',marker='',label='Isotropic')
 
     #tot = src.sum(axis=1)+iso+gal
     tot = src.sum(axis=1) + dif.sum(axis=1)
-    P.loglog(en,tot,linestyle='steps-mid',label='Total Model',color='black')
+    P.loglog(en,tot,linestyle='steps-mid',color='black',label='Total Model')
     err = obs**0.5
     low_err = N.where(obs-err <= 0, 0.99*obs, err)
     P.errorbar(en,obs,yerr=[low_err,err],linestyle=' ',marker='x',label='Counts',color='black')
