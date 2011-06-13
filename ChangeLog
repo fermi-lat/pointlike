@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Jun 12 21:11:37 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+New convenience functions to make plots. Better decoration of plot_sed function. New warning about energy binning. New behavior if which=None (get closest source to ROI center including extended sources). Improvement to decorator for functions which call objects.
+    *
+------------------------------------------------------------
 User: lande  Sun Jun 12 21:10:05 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
