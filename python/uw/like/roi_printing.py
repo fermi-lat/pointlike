@@ -1,6 +1,6 @@
 """
 Implementation of various roi printing
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_printing.py,v 1.4 2011/06/07 17:25:30 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_printing.py,v 1.5 2011/06/12 00:52:35 lande Exp $
 """
 import os, math
 import numpy as np
@@ -42,7 +42,7 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
     colnames = tuple(colstring.split())
     n = len(colnames)-1
     print ('%-13s'+n*'%10s')% colnames
-    sources = [s for s in self.get_sources() if hasattr(s,'skydir')]
+    sources = self.get_sources()
     sources.sort(key=lambda s:s.skydir.difference(self.roi_dir))
     for ps in sources:
         sdir = ps.skydir
