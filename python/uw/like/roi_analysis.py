@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
     on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.91 2011/06/13 19:01:13 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.92 2011/06/13 21:23:43 lande Exp $
 
 author: Matthew Kerr
 """
@@ -959,7 +959,7 @@ class ROIAnalysis(object):
 
     @decorate_with(roi_plotting.ROISmoothedModel,append_init=True)
     def plot_model(self,filename="model_counts.png",**kwargs):
-        ROISmoothedModel(self,**kwargs).show(filename=filename)
+        roi_plotting.ROISmoothedModel(self,**kwargs).show(filename=filename)
 
 load=ROIAnalysis.load
 
