@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jun 13 20:03:15 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+bugfix for plot_model
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jun 13 15:42:06 PDT 2011
 pointlike/python/uw/like
 
