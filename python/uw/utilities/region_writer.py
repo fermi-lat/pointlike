@@ -1,6 +1,6 @@
 """ Class to write out region files compatable with ds9. 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.12 2011/06/07 17:23:02 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/region_writer.py,v 1.13 2011/06/10 19:14:50 lande Exp $
 
 author: Joshua Lande
 """
@@ -18,57 +18,72 @@ def unparse_point_sources(point_sources,show_sources,label_sources):
 
     return [unparse_point(ps,label_sources) for ps in point_sources] if show_sources else []
 
+
+def unparse_extension(spatial_model,extension_color=None,r68=False):
+    """ By default, return edge for disk source,
+        inner and outer edge for ring sources,
+        and otherwise the 68% edge.
+        
+        If r68 flag is true, always return 68% edge
+        of extended source. """
+    sm = spatial_model
+
+    extra = 'color=%s' % extension_color if extension_color is not None else '' 
+
+    if isinstance(sm,PseudoSpatialModel) or type(sm) == SpatialMap:
+        return []
+
+    ra,dec=sm.center.ra(),sm.center.dec()
+
+    if isinstance(sm,RadiallySymmetricModel):
+        sigma=sm.sigma
+
+        if isinstance(sm,Disk) and r68 is False:
+            return ["fk5; circle(%.4f, %.4f, %.4f) # %s Circle encloses all of the disk." % \
+                          (ra,dec,sigma,extra)]
+        elif isinstance(sm,Ring) and r68 is False:
+            frac=sm.frac
+            return ["fk5; circle(%.4f, %.4f, %.4f) # %s" % \
+                          (ra,dec,_,color) for _ in [frac*sigma,sigma]]
+        else:    
+            return ["fk5; circle(%.4f, %.4f, %.4f) # %s Circle contaning 68 percent of the source." % \
+                          (ra,dec,sm.r68(),extra)]
+
+    elif isinstance(sm,EllipticalSpatialModel):
+        sigma_x, sigma_y, theta = sm.sigma_x, sm.sigma_y, sm.theta
+        if isinstance(sm,EllipticalDisk) and r68 is False:
+            return ["fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) # %s" % \
+                    (ra,dec,sigma_y,sigma_x,sm.theta,extra)]
+
+        elif isinstance(sm,EllipticalRing) and r68 is False:
+            frac = sm.frac
+            return ["fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) # %s" % \
+                    (ra,dec,_*sigma_y,_*sigma_x,sm.theta,extra) \
+                    for _ in [frac,1]]
+        else:
+            a,b,c=sm.ellipse_68()
+            return ["fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) # %s" % \
+                    (ra,dec,b,a,c,extra)]
+    else:
+        raise Exception("Unable to Parse Spatial Model %s" % type(sm))
+
 def unparse_diffuse_sources(diffuse_sources,show_sources,label_sources,show_extension,extension_color):
     """ There is the same inconsistency in ellipse definition 
         between extended sources ellipses and ds9 ellipses as
         is discussed in the docstring for unparse_localization,
         resulting in the same switch from maj,min <-> min,maj. """
 
-    extra=''
-    if extension_color is not None: extra = 'color=%s' % extension_color
-
     lines = []
     for ds in diffuse_sources:
         if isinstance(ds,ExtendedSource):
             sm = ds.spatial_model
 
-            ra,dec=sm.center.ra(),sm.center.dec()
-
-            if show_sources: lines.append(unparse_point(ds,label_sources))
+            if show_sources: 
+                lines.append(unparse_point(ds,label_sources))
 
             if show_extension:
+                lines += unparse_extension(sm,extension_color)
 
-                if isinstance(sm,PseudoSpatialModel) or type(sm) == SpatialMap:
-                    continue
-
-                if isinstance(sm,RadiallySymmetricModel):
-                    sigma=sm.sigma
-                    if isinstance(sm,Disk):
-                        lines.append("fk5; circle(%.4f, %.4f, %.4f) # %s Circle encloses all of the disk." % \
-                                      (ra,dec,sigma,extra))
-                    elif isinstance(sm,Ring):
-                        frac=sm.frac
-                        lines += ["fk5; circle(%.4f, %.4f, %.4f) # %s" % \
-                                      (ra,dec,_,color) for _ in [frac*sigma,sigma]]
-                    else:    
-                        lines.append("fk5; circle(%.4f, %.4f, %.4f) # %s Circle contaning 68 percent of the source." % \
-                                      (ra,dec,sm.r68(),extra))
-
-                elif isinstance(sm,EllipticalSpatialModel):
-                    sigma_x, sigma_y, theta = sm.sigma_x, sm.sigma_y, sm.theta
-                    if isinstance(sm,EllipticalDisk):
-                        lines.append("fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) # %s" % \
-                                (ra,dec,sigma_y,sigma_x,sm.theta,extra))
-
-                    elif isinstance(sm,EllipticalRing):
-                        frac = sm.frac
-                        lines += ["fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) # %s" % \
-                                (ra,dec,_*sigma_y,_*sigma_x,sm.theta,extra) \
-                                for _ in [frac,1]]
-                    else:
-                        a,b,c=sm.ellipse_68()
-                        lines.append("fk5; ellipse(%.4f, %.4f, %.4f, %.4f, %.4f) # %s" % \
-                                (ra,dec,b,a,c,extra))
 
     return lines
 
