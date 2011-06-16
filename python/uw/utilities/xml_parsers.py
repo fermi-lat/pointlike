@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.41 2011/04/09 14:26:04 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.42 2011/05/20 22:37:19 lande Exp $
 
    author: Matthew Kerr
 """
@@ -579,7 +579,7 @@ def parse_point_sources(handler,roi_dir,max_roi):
         mo = xtm.get_model(src.getChild('spectrum'),name)
         if None in [roi_dir,max_roi] or N.degrees(sd.difference(roi_dir))<max_roi:
             point_sources.append(PointSource(sd,name,mo,leave_parameters=True))
-    return point_sources
+    return list(point_sources)
 
 def parse_diffuse_sources(handler,diffdir=None):
     gds = get_diffuse_source
@@ -624,7 +624,7 @@ def parse_diffuse_sources(handler,diffdir=None):
                                          leave_parameters=True))
             else:
                 raise Exception('Diffuse spatial model "%s" not recognized' % spatial['type'])
-    return ds
+    return list(ds)
 
 def parse_sources(xmlfile,diffdir=None,roi_dir=None,max_roi=None):
     """Convenience function to parse an entire file into
