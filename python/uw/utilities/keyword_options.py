@@ -3,7 +3,7 @@ Support for generating doc strings, and setting keyword options for class constr
   decorate: decorator to append keyword info to the docstring
   process:  set the class dictionary from the defaults and supplied keywords
   
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/keyword_options.py,v 1.6 2011/03/06 20:26:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/keyword_options.py,v 1.7 2011/03/30 20:37:10 lande Exp $
 
 Author: T. Burnett <tburnett@uw.edu>
 """
@@ -77,3 +77,20 @@ def process(self, kwargs, defaults=None):
         else:
             raise KeyError, "option '%s' not recognized by %s" % (key,self.__class__.__name__)
 
+
+def defaults_to_kwargs(obj,default_object):
+    """ Take in a defaults list (used by keyword_options) and an object 
+        which recognizes the keyword_options. A dictionary is
+        returned with each of the defaults pointing to the value
+        found in the object. This is useful for recreating 
+        the object. """
+    return dict([[i[0],getattr(obj,i[0])] for i in \
+                default_object.defaults if isinstance(i,list) or isinstance(i,tuple)])
+
+def change_defaults(defaults,key,value):
+    """ Change a defaults dictionary's key 'key'
+        to have a default value 'value'. """
+        
+    for i,default in enumerate(defaults):
+        if default[0] == key:
+            default[1] = value
