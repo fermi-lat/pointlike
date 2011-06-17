@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.27 2011/04/09 02:24:29 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.28 2011/06/17 03:20:04 lande Exp $
 
 author: Matthew Kerr
 """
@@ -351,6 +351,68 @@ class DualLocalizer():
             ('verbose',          True, "Print more stuff during fit.")
     )
 
+    @staticmethod 
+    def rotate_north(skydir,target,anti=False):
+        """ Transformation that will rotate target to celestial north """
+
+        axis=SkyDir(target.ra()-90,0)
+        theta=N.radians(90-target.dec())
+        if anti: theta*=-1
+
+        newdir=SkyDir(skydir.ra(),skydir.dec())
+        newdir().rotate(axis(),theta)
+        return newdir
+
+    @staticmethod 
+    def anti_rotate_north(skydir,target):
+        return DualLocalizer.rotate_north(skydir,target,anti=True)
+
+    @staticmethod 
+    def rotate_equator(skydir,target,anti=False):
+        """ Rotate skydir such that target would be rotated 
+            to the celestial equator. """
+        equator=SkyDir(0,0)
+
+        axis=target.cross(equator)
+
+        theta=equator.difference(target)
+        if anti: theta*=-1
+
+        newdir=SkyDir(skydir.ra(),skydir.dec())
+        newdir().rotate(axis(),theta)
+        return newdir
+
+    @staticmethod 
+    def anti_rotate_equator(skydir,target):
+        return DualLocalizer.rotate_equator(skydir,target,anti=True)
+
+    @staticmethod
+    def mid_point(skydir1,skydir2):
+        """ Return the a SkyDir an equadistance between two points. 
+            This method does not seem numerically robust and sometimes
+            returns NaNs, so I discourage using it. approx_mid_point
+            was developed instead to provide a simpler formula which 
+            should work fine 
+        """
+        r2=DualLocalizer.rotate_north(skydir2,skydir1)
+        return DualLocalizer.anti_rotate_north(SkyDir(r2.ra(),45+r2.dec()/2),skydir1)
+
+    @staticmethod
+    def approx_mid_point(*skydirs):
+        """ This method is only valid in the small distance limit, in which
+            case space is approximatly flat and the rhomb line is equal
+            to the great circle line. """
+        if abs(skydirs[0].b()) < abs(skydirs[0].dec()):
+            return SkyDir(N.average([i.l() for i in skydirs]),
+                          N.average([i.b() for i in skydirs]),
+                          SkyDir.GALACTIC)
+        else:
+            return SkyDir(N.average([i.ra() for i in skydirs]),
+                          N.average([i.dec() for i in skydirs]),
+                          SkyDir.EQUATORIAL)
+        
+
+
     @keyword_options.decorate(defaults)
     def __init__(self, roi, which1, which2, **kwargs):
         keyword_options.process(self, kwargs)
@@ -371,8 +433,8 @@ class DualLocalizer():
         s2 = SkyDir(m_x+d_x,m_y+d_y)
         s1 = SkyDir(m_x-d_x,m_y-d_y)
 
-        rot_back_1=LandeROI.anti_rotate_equator(s1,self.middle)
-        rot_back_2=LandeROI.anti_rotate_equator(s2,self.middle)
+        rot_back_1=DualLocalizer.anti_rotate_equator(s1,self.middle)
+        rot_back_2=DualLocalizer.anti_rotate_equator(s2,self.middle)
 
         roi.modify(which=self.p1,skydir=rot_back_1)
         roi.modify(which=self.p2,skydir=rot_back_2)
@@ -410,11 +472,11 @@ class DualLocalizer():
         d1=self.p1.skydir
         d2=self.p2.skydir
 
-        self.middle=LandeROI.approx_mid_point(d1,d2)
+        self.middle=DualLocalizer.approx_mid_point(d1,d2)
 
         # Points rotated so that the middle is at the equator
-        rot1=LandeROI.rotate_equator(d1,self.middle)
-        rot2=LandeROI.rotate_equator(d2,self.middle)
+        rot1=DualLocalizer.rotate_equator(d1,self.middle)
+        rot2=DualLocalizer.rotate_equator(d2,self.middle)
 
         # Fit average point and distance between them
         # Wrap coordiantes to vary between -180 and 180
