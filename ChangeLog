@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jun 16 20:57:09 PDT 2011
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	keyword_options.py 
+Log Message:
+Improve change_defaults to modify tuples
+    *
+------------------------------------------------------------
 User: lande  Thu Jun 16 20:56:52 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
