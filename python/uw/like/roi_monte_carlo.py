@@ -563,9 +563,9 @@ class SpectralAnalysisMC(SpectralAnalysis):
             ('ltfrac',          None, "See MonteCarlo."),
             ('tempbase', '/scratch/', "See MonteCarlo.")
     )
-    keyword_options.change_defaults(defaults,'event_class',0)
-    keyword_options.change_defaults(defaults,'tstart',None)
-    keyword_options.change_defaults(defaults,'tstop',None)
+    defaults=keyword_options.change_defaults(defaults,'event_class',0)
+    defaults=keyword_options.change_defaults(defaults,'tstart',None)
+    defaults=keyword_options.change_defaults(defaults,'tstop',None)
 
     @keyword_options.decorate(defaults)
     def __init__(self, data_specification, **kwargs):
