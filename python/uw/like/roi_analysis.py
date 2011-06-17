@@ -1,10 +1,10 @@
 """
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
-    on the PSF.
+on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.94 2011/06/14 04:22:46 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.95 2011/06/14 15:52:01 lande Exp $
 
-author: Matthew Kerr
+author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
 
 import numpy as N
@@ -21,13 +21,12 @@ from . import roi_modify
 from . import roi_save
 from . import roi_image
 from . import sed_plotter
+from . import roi_upper_limits
 from uw.utilities import keyword_options
 from uw.utilities import xml_parsers
 from uw.utilities import region_writer
 from uw.utilities import results_writer
 from scipy.optimize import fmin,fmin_powell,fmin_bfgs
-from scipy.stats.distributions import chi2
-from scipy import integrate
 from numpy.linalg import inv
 
 from . import roi_plotting 
@@ -132,7 +131,7 @@ class ROIAnalysis(object):
             if N.abs(actual_emin-requested_emin)>1:
                 print 'Warning: For ct=%d, requested emin is %d, actual emin is %d' % (ct,requested_emin,actual_emin)
             if N.abs(actual_emax-requested_emax)>1:
-                print 'Warning: Fot ct=%d, requested emax is %d, actual emax is %d' % (ct,requested_emax,actual_emax)
+                print 'Warning: For ct=%d, requested emax is %d, actual emax is %d' % (ct,requested_emax,actual_emax)
 
     def setup_energy_bands(self,emin=[0,0]):
 
@@ -551,6 +550,10 @@ class ROIAnalysis(object):
         if seedpos is not None:
             rl.sd = seedpos  # override 
         return rl.localize()
+
+    @decorate_with(roi_localize.DualLocalizer,append_init=True)
+    def dual_localize(self,*args,**kwargs):
+        return roi_localize.DualLocalizer(self,*args,**kwargs).localize()
     
     @decorate_with(ROIExtendedModel.fit_extension)
     def fit_extension(self,which,*args,**kwargs):
@@ -572,205 +575,8 @@ class ROIAnalysis(object):
 
         return self.dsm.bgmodels[index].TS_ext(self,*args,**kwargs)
 
-    def upper_limit(self,**kwargs):
-        """Compute an upper limit on the source flux, by the "PDG Method"
-
-        This method computes an upper limit on the flux of a specified source
-        for a given time interval. The limit is computed by integrating the
-        likelihood over the flux of the source, via Simpson's Rule, up to the
-        desired percentile (confidence level). As such, it is essentially a
-        Bayesian credible interval, using a uniform prior on the flux
-        parameter.
-
-        Note that the default integral limits are determined assuming that
-        the relevant parameter is the normalization parameter of a PowerLaw
-        model. For other models, especially PowerLawFlux, the limits should
-        be specified appropriately.
-
-        The limit returned is the integrated flux above 100 MeV in photons
-        per square centimeter per second.
-
-        Arguments:
-            which: integer [0]
-                Index of the point source for which to compute the limit.
-            confidence: float [.95]
-                Desired confidence level of the upper limit.
-            integral_min: float [-15]
-                Lower limit of the likelihood integral *in log space*.
-            integral_max: float [-8]
-                Upper limit of the likelihood integral *in log space*.
-            simps_points: int [10]
-                Number of evaluation points *per decade* for Simpson's rule.
-            e_weight: float [0]
-                Energy weight for the flux integral (see documentation for uw.like.Models)
-            cgs: bool [False]
-                If true return flux in cgs units (see documentation for uw.like.Models)
-        """
-        kw = dict(which=0,
-                  confidence=0.95,
-                  integral_min=-15,
-                  integral_max =-8,
-                  simps_points = 100,
-                  e_weight = 0,
-                  cgs = False)
-        for k,v in kw.items():
-            kw[k] = kwargs.pop(k,v)
-        if kwargs:
-            for k in kwargs.keys():
-                print("Invalid keyword argument for ROIAnalysis.upper_limit: %s"%k)
-        params = self.parameters().copy()
-        ll_0 = self.logLikelihood(self.parameters())
-
-        source = self.get_source(kw['which'])
-        if not source.__dict__.has_key('model'):
-            raise Exception("upper_limit can only calculate upper limits of point and extended sources.")
-        model=source.model
-
-        def like(norm):
-            model.setp(0,norm,internal=True)
-            return N.exp(ll_0-self.logLikelihood(self.parameters()))
-        npoints = kw['simps_points'] * (kw['integral_max'] - kw['integral_min'])
-        points = N.log10(N.logspace(kw['integral_min'],
-                                      kw['integral_max'],npoints*2+1))
-        y = N.array([like(x)*10**x for x in points])
-        trapz1 = integrate.cumtrapz(y[::2])
-        trapz2 = integrate.cumtrapz(y)[::2]
-        cumsimps = (4*trapz2 - trapz1)/3.
-        cumsimps /= cumsimps[-1]
-        i1 = N.where(cumsimps<.95)[0][-1]
-        i2 = N.where(cumsimps>.95)[0][0]
-        x1, x2 = points[::2][i1], points[::2][i2]
-        y1, y2 = cumsimps[i1], cumsimps[i2]
-        #Linear interpolation should be good enough at this point
-        limit = x1 + ((x2-x1)/(y2-y1))*(kw['confidence']-y1)
-        model.setp(0,limit,internal=True)
-        uflux = self.psm.models[0].i_flux(e_weight=kw['e_weight'],cgs=kw['cgs'])
-        self.logLikelihood(params)
-        return uflux
-
-    def upper_limit_quick(self,which = 0,confidence = .95,e_weight = 0,cgs = False):
-        """Compute an upper limit on the flux of a source assuming a gaussian likelihood.
-
-        Arguments:
-            which: integer [0]
-                Index of the point source for which to compute the limit.
-            confidence: float [.95]
-                Desired confidence level of the upper limit.
-            e_weight: float [0]
-                Energy weight for the flux integral (see documentation for uw.like.Models)
-            cgs: bool [False]
-                If true return flux in cgs units (see documentation for uw.like.Models)
-
-        The flux returned is an upper limit on the integral flux for the model
-        above 100 MeV.
-
-        The upper limit is found based on the change in the log likelihood
-        from the maximum, using the Gaussian approximation. It is quicker
-        than the Bayesian method performed by upper_limit, but less robust.
-        In particular, fmin will sometimes get lost and return absurdly
-        small values, and if the maximum is too far above zero, it will
-        often find the lower of the two solutions to the appropriate
-        equation.
-        """
-
-        delta_logl = chi2.ppf(2*confidence-1,1)/2.
-        params = self.parameters().copy()
-        #self.psm.models[which].p[0]  = -20
-        zp = self.logLikelihood(self.parameters())
-
-        def f(norm):
-            self.psm.models[which].p[0] = N.log10(norm)
-            ll = self.logLikelihood(self.parameters())
-            return abs(ll - zp - delta_logl)
-
-        limit = fmin(f,N.array([10**-6]),disp=0)[0]
-        self.psm.models[which].p[0] = N.log10(limit)
-        uflux = self.psm.models[which].i_flux(e_weight = e_weight,cgs = cgs)
-        self.set_parameters(params)
-        return uflux
-
-    def printSpectrum(self,sources=None):
-        """Print total counts and estimated signal in each band for a list of sources.
-
-        Sources can be specified as PointSource objects, source names, or integers
-        to be interpreted as indices for the list of point sources in the roi. If
-        only one source is desired, it needn't be specified as a list. If no sources
-        are specified, all sources with free fit parameters will be used."""
-        if sources is None:
-            sources = [s for s in self.psm.point_sources if N.any(s.model.free)]
-        elif type(sources) != type([]):
-            sources = [sources]
-        if sources == []: return # No point sources in ROI
-        bad_sources = []
-        for i,s in enumerate(sources):
-            if type(s) == PointSource:
-                if not s in self.psm.point_sources:
-                    print 'Source not found in source list:\n%s\n'%s
-                    bad_sources += [s]
-            elif type(s) == int:
-                try:
-                    sources[i] = self.psm.point_sources[s]
-                except IndexError:
-                    print 'No source #%i. Only %i source(s) specified.'\
-                            %(s,len(self.psm.point_sources))
-                    bad_sources += [s]
-            elif type(s) == type(''):
-                names = [ps.name for ps in self.psm.point_sources]
-                try:
-                    sources[i] = self.psm.point_sources[names.index(s)]
-                except ValueError:
-                    print 'No source named %s'%s
-                    bad_sources += [s]
-            else:
-                print 'Unrecognized source specification:', s
-                bad_sources += [s]
-        sources = set([s for s in sources if not s in bad_sources])
-        indices = [list(self.psm.point_sources).index(s) for s in sources]
-        self.setup_energy_bands()
-
-        fields = ['  Emin',' f_ROI',' b_ROI' ,' Events','Galactic','Isotropic']\
-                     +[' '*15+'Signal']*len(sources)
-        outstring = 'Spectra of sources in ROI about %s at ra = %.2f, dec = %.2f\n'\
-                          %(self.psm.point_sources[0].name, self.roi_dir.ra(), self.roi_dir.dec())
-        outstring += ' '*54+'  '.join(['%21s'%s.name for s in sources])+'\n'
-        outstring += '  '.join(fields)+'\n'
-        print outstring
-        for eb in self.energy_bands:
-            print eb.spectralString(which=indices)
-
-
-    def save_fit(self,outfile,additional_data=None):
-        """Save the spectral models (and locations) for all point sources and diffuse models.
-
-            This saves the need to refit.  A future iteration should actually save all of the
-            pixel predictions to avoid lengthy recalculation, too.
-
-            additional_data: an optional dictionary with keys to add to output; note that
-                                  all entries should be serializable!"""
-
-        d = collections.defaultdict(list)
-        for ps in self.psm.point_sources:
-            m = ps.model
-            m.ra  = ps.skydir.ra()
-            m.dec = ps.skydir.dec()
-            m.source_name = ps.name
-            d['point_sources'].append(m)
-        for bg in self.bgm.models:
-            d['backgrounds'].append(bg)
-        try:
-            d['localization'] = [self.ldir.ra(),self.ldir.dec(),self.lsigma,self.qform.par]
-        except:
-            print 'No localization to save.'
-        if additional_data is not None:
-            try:     d.update(additional_data)
-            except: print 'Warning! Could not merge requested keys into output dictionary.'
-        f = open(outfile,'w')
-        pickle.dump(d,f)
-        f.close()
-
-    def __call__(self,v):
-
-        pass #make this a TS map? negative -- spatialLikelihood does it, essentially
+    upper_limit = roi_upper_limits.upper_limit
+    upper_limit_quick = roi_upper_limits.upper_limit_quick
 
     def add_source(self,source,**kwargs):
          """Add a new source object to the model.
@@ -832,63 +638,12 @@ class ROIAnalysis(object):
         
     # get the print_summary function from roi_printing
     print_summary=roi_printing.print_summary
+    print_resids=roi_printing.print_resids
+    printSpectrum=roi_printing.printSpectrum
 
-    def print_resids(self):
-        """Print out (weighted) residuals for each energy range, both in
-           separate front/back columns and in a joint column.
-
-           Useful for identifying systematic effects that distinguish between
-           front and back events.
-        """
-
-        d = dict()
-        for b in self.bands:
-            key = (-1 if b.ct==1 else 1)*int(b.e)
-            d[key] = b
-        ens = np.sort(list(set([b.e for b in self.bands]))).astype(int)
-        print ''
-        print '        -------CT=0--------     -------CT=1--------     ------CT=0+1-------'
-        print 'Energy  Mod     Obs     Res     Mod     Obs     Res     Mod     Obs     Res'
-        print '        -------------------     -------------------     -------------------'
-        for en in ens:
-            s1 = '%-6.0f'%(en)
-            tm = 0; to = 0
-            for key in [en,-en]:
-                if key in d.keys():
-                    b  = d[key]
-                    m = b.ps_all_counts + b.bg_all_counts
-                    o = b.photons
-                else:
-                    m = o = 0
-                tm += m; to += o
-                wres = (o-m)/m**0.5 if m>0 else 0
-                s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(m,o,wres)])
-            wres = (to-tm)/tm**0.5 if tm>0 else 0
-            s1 = '\t'.join([s1,'%-6.0f\t%-6d\t%.1f'%(tm,to,(to-tm)/tm**0.5)])
-            print s1
- 
-    def print_ellipse(self, label=True, line=True):
-        """ print the ellipical parameters (all deg units):
-                ra, dec
-                a, b  : major and minor 1-sigma axes
-                ang   : ellipse orientation, E of N
-                qual  : measure of fit quality.
-        Optional parameters:
-            label [True] print a label line
-            line  [True] print the line corresponding to the current fit
-                  (only knows about one at a time)
-        """
-        if not self.qform: return
-        labels = 'ra dec a b ang qual'.split()
-        if label: print (len(labels)*'%10s') % tuple(labels)
-        if not line: return
-        p = self.qform.par[0:2]+self.qform.par[3:]
-        print len(p)*'%10.4f' % tuple(p)
-
-    def get_ellipse(self):
-        """ Returns a dictionary specifying the elliptical 
-            localiztion parameters. """
-        return dict(zip('ra dec a b ang qual'.split(),self.qform.par[0:6]))
+    # localization results
+    print_ellipse=roi_localize.print_ellipse
+    get_ellipse=roi_localize.get_ellipse
  
     # get the toXML, toRegion, and toResults function from xml_parsers
     toXML=xml_parsers.writeROI
@@ -897,8 +652,7 @@ class ROIAnalysis(object):
     
     def get_model(self,which):
         """ return a reference to the model
-            which : integer or string
-        """
+            which : integer or string """
         manager, index = self.mapper(which) #raise exception if wrong.
         return manager.models[index]
         
@@ -919,7 +673,6 @@ class ROIAnalysis(object):
     # get these functions from roi_save.py
     save=roi_save.save
     load=staticmethod(roi_save.load)
-
 
     @decorate_with(roi_image.ROITSMapImage,append_init=True)
     def tsmap(self,filename,**kwargs):
@@ -963,4 +716,3 @@ class ROIAnalysis(object):
         roi_plotting.ROISmoothedModel(self,**kwargs).show(filename=filename)
 
 load=ROIAnalysis.load
-
