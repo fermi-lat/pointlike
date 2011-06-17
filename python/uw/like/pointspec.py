@@ -1,15 +1,16 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.34 2011/03/17 23:37:18 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.35 2011/04/22 18:10:04 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.34 $'.split()[1]
+version='$Revision: 1.35 $'.split()[1]
 import os
 from os.path import join
 import sys
 from textwrap import dedent
+import collections
 from glob import glob
 from datetime import date,timedelta
 
@@ -66,9 +67,10 @@ class DataSpecification(object):
             raise Exception,'No FT2 or livetime file provided! Must pass at least one of these.'
 
         # make sure everything is iterable or None
-        ft1 = self.ft1files; ft2 = self.ft2files
-        self.ft1files = ft1 if (hasattr(ft1,'__iter__') or ft1 is None) else [ft1]
-        self.ft2files = ft2 if (hasattr(ft2,'__iter__') or ft2 is None) else [ft2]
+        if isinstance(self.ft1files,collections.Iterable):
+            self.ft1files = [self.ft1files] 
+        if isinstance(self.ft2files,collections.Iterable):
+            self.ft2files = [self.ft2files] 
 
 class SavedData(DataSpecification):
     """Specify saved daily data files to use for analysis.
@@ -157,7 +159,7 @@ class SpectralAnalysis(object):
         ('mc_src_id',-1,'set to select on MC_SRC_ID column in FT1'),
         ('mc_energy',False,'set True to use MC_ENERGY instead of ENERGY'),
         'keywords controlling instrument response',
-        ('irf','none','Which IRF to use'),
+        ('irf',None,'Which IRF to use'),
         ('psf_irf',None,'specify a different IRF to use for the PSF; must be in same format/location as typical IRF file!'),
         ('CALDB',None,'override the CALDB specified by $CALDB.'),
         ('custom_irf_dir',None,'override the CUSTOM_IRF_DIR specified by the env. variable'),
@@ -179,12 +181,11 @@ class SpectralAnalysis(object):
     @keyword_options.decorate(defaults)
     def __init__(self, data_specification, **kwargs):
         """
-    Create a new spectral analysis object.
+        Create a new spectral analysis object.
 
-    data_specification: an instance of DataSpecification with links to the FT1/FT2,
-                        and/or binned data / livetime cube needed for analysis
-                        (see docstring for that class)
-  """
+        data_specification: an instance of DataSpecification with links to the FT1/FT2,
+                            and/or binned data / livetime cube needed for analysis
+                            (see docstring for that class) """
 
         self.ae = self.dataspec = data_specification
 
@@ -290,7 +291,7 @@ class SpectralAnalysis(object):
         if catalog_mapper is None:
             catalog_mapper = lambda x: FermiCatalog(x)
 
-        if not hasattr(catalogs,'__iter__'): catalogs = [catalogs]
+        if not isinstance(catalogs,collections.Iterable): catalogs = [catalogs]
         for cat in catalogs:
             if not isinstance(cat,PointSourceCatalog):
                 cat = catalog_mapper(cat)
@@ -316,8 +317,7 @@ class SpectralAnalysis(object):
         dsm = ROIDiffuseManager(diffuse_models,roi_dir,quiet=self.quiet)
         return ROIAnalysis(roi_dir,psm,dsm,self,**kwargs)
 
-    def roi_from_xml(self,roi_dir,xmlfile,diffuse_mapper=None,
-                          diffdir=None,*args,**kwargs):
+    def roi_from_xml(self,roi_dir,xmlfile,diffdir=None,*args,**kwargs):
         """
         return an ROIAnalysis object with a source model specified by
         a gtlike-style XML file.
@@ -329,12 +329,6 @@ class SpectralAnalysis(object):
         xmlfile          The full path to a gtlike-style XML file giving the
                          source model for the ROI.
 
-        diffuse_mapper   [None] a function or functor 
-                         which takes two arguments, a DiffuseSource and the ROI
-                         center, and returns an object implementing the
-                         ROIDiffuseModel interface.  If None, the system uses
-                         the default, an on-the-fly numerical convolution.
-
         diffdir          [None] An optional path if the files necessary for 
                          diffuse sources are specified relative to this path.
 
@@ -344,7 +338,7 @@ class SpectralAnalysis(object):
         from uw.utilities.xml_parsers import parse_sources
         ps,ds = parse_sources(xmlfile,diffdir=diffdir,roi_dir=roi_dir,max_roi=self.maxROI+5)
         return self.roi(roi_dir=roi_dir,point_sources=ps,diffuse_sources=ds,
-                        diffuse_mapper=diffuse_mapper,*args,**kwargs)
+                        *args,**kwargs)
 
 
     def __str__(self):
