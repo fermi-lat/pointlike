@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_plotting.py,v 1.47 2011/06/13 21:22:27 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.48 2011/06/13 22:41:34 kerrm Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1151,6 +1151,31 @@ class ROISmoothedSource(object):
 
         return residual
 
+    @staticmethod
+    def get_max_intensity(source,pyfits,roi):
+        """ Return the maximum value in the pyfits file either 
+            within the extended source's size or otherwise
+            within the 68% containment radius of the PSF (at
+            the lowest energy). """
+        import pyregion
+
+        if hasattr(source,'spatial_model'):
+            # Get the maximum intensity value inside
+            # the spatial model's extension
+            extension_string='\n'.join(region_writer.unparse_extension(source.spatial_model,r68=True))
+            reg = pyregion.parse(extension_string)
+        else:
+            # Get the maximum intensity inside
+            emin=roi.bin_edges[0]
+            ra,dec=source.skydir.ra(),source.skydir.dec()
+            r68=roi.sa.psf.inverse_integral(emin,1,68)
+            reg = pyregion.parse("fk5; circle(%.4f, %.4f, %.4f)" % (ra,dec,r68))
+
+        mask = reg.get_mask(pyfits[0])
+
+        return pyfits[0].data[mask].max()
+
+
     @keyword_options.decorate(defaults)
     def __init__(self, roi, which, **kwargs):
         keyword_options.process(self, kwargs)
@@ -1195,11 +1220,6 @@ class ROISmoothedSource(object):
                     override_point_sources=[point_version],
                     **psf_kwargs)
             self.psf_pyfits = self.psf_model.get_pyfits()
-            # Normalize psf to have same maximum pixel scale
-            # as residual image.
-            self.psf_pyfits[0].data *= \
-                    N.max(self.residual_pyfits[0].data)/\
-                    N.max(self.psf_pyfits[0].data)
 
     def show(self,filename=None):
         import pywcsgrid2
@@ -1218,7 +1238,9 @@ class ROISmoothedSource(object):
 
         self.ax = ax = grid[0]
 
-        im=ax.imshow(d, origin="lower", cmap=self.cmap, vmin=0)
+        self.max_intensity = ROISmoothedSource.get_max_intensity(self.source,self.residual_pyfits,self.roi)
+
+        im=ax.imshow(d, origin="lower", cmap=self.cmap, vmin=0, vmax=self.max_intensity)
 
         cb_axes = grid.cbar_axes[0] # colorbar axes
 
@@ -1234,6 +1256,11 @@ class ROISmoothedSource(object):
         ax.set_title(self.title)
 
         if self.overlay_psf:
+
+            # Normalize psf to have same maximum pixel scale
+            # as residual image.
+            self.psf_pyfits[0].data *= self.max_intensity/N.max(self.psf_pyfits[0].data)
+
             h_psf, d_psf = self.psf_pyfits[0].header, self.psf_pyfits[0].data
             axins = zoomed_inset_axes(ax, zoom=1, loc=self.psf_loc,
                               axes_class=pywcsgrid2.Axes,
@@ -1430,7 +1457,9 @@ class ROISmoothedModel(object):
         self.fig = P.figure(self.fignum,self.figsize)
         P.clf()
 
-        self.max_intensity = max(self.counts_pyfits[0].data.max(),self.model_pyfits[0].data.max())
+        self.max_intensity = max(
+                ROISmoothedSource.get_max_intensity(self.source,i,self.roi)
+                for i in [self.counts_pyfits,self.model_pyfits])
 
         self.grid = grid = ImageGrid(self.fig, (1, 1, 1), nrows_ncols = (1, 2),
                          axes_pad=0.1, share_all=True,
