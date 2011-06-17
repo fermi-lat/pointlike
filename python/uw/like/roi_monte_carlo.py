@@ -190,7 +190,7 @@ class MonteCarlo(object):
         ]
         return indent+('\n'+indent).join(xml)
 
-    def _make_gaussian(self,es,indent='  '):
+    def _make_powerlaw_gaussian(self,es,indent='  '):
         """ Make an extended source. """
 
         assert isinstance(es.spatial_model,Gaussian) or \
@@ -440,8 +440,10 @@ class MonteCarlo(object):
             return self._make_diffuse(ds,indent)
 
         elif isinstance(ds,ExtendedSource):
-            if isinstance(ds.spatial_model,Gaussian) or isinstance(ds.spatial_model,EllipticalGaussian):
-                return self._make_gaussian(ds,indent)
+            if (isinstance(ds.spatial_model,Gaussian) or \
+                    isinstance(ds.spatial_model,EllipticalGaussian)) and \
+                    (isinstance(es.model,PowerLaw) or isinstance(es.model,PowerLawFlux)):
+                return self._make_powerlaw_gaussian(ds,indent)
             elif isinstance(ds.spatial_model,RadiallySymmetricModel):
                 return self._make_radially_symmetric(ds,indent)
             else:
