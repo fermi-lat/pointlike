@@ -442,7 +442,7 @@ class MonteCarlo(object):
         elif isinstance(ds,ExtendedSource):
             if (isinstance(ds.spatial_model,Gaussian) or \
                     isinstance(ds.spatial_model,EllipticalGaussian)) and \
-                    (isinstance(es.model,PowerLaw) or isinstance(es.model,PowerLawFlux)):
+                    (isinstance(ds.model,PowerLaw) or isinstance(ds.model,PowerLawFlux)):
                 return self._make_powerlaw_gaussian(ds,indent)
             elif isinstance(ds.spatial_model,RadiallySymmetricModel):
                 return self._make_radially_symmetric(ds,indent)
