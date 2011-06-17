@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.16 2011/01/12 14:24:31 burnett Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.17 2011/02/16 02:14:09 kerrm Exp $
 
    author: Matthew Kerr
 
@@ -321,7 +321,8 @@ def sum_ltcubes(files,outputfile = 'summed_ltcube.fits'):
             f = pf.open(file)
             h = f['EXPOSURE'].header
             for key in header.keys():
-                assert(h[key]==header[key])
+                if key not in ['DATE','DATE-OBS','DATE-END','TSTART','TSTOP']:
+                   assert(h[key]==header[key])
             exposures+=[f['EXPOSURE'].data.field('COSBINS')]
         except AssertionError:
             print('Inconsistent header values, file %s, keyword %s'%(file,key))
