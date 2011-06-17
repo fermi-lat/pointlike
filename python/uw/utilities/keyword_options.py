@@ -3,7 +3,7 @@ Support for generating doc strings, and setting keyword options for class constr
   decorate: decorator to append keyword info to the docstring
   process:  set the class dictionary from the defaults and supplied keywords
   
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/keyword_options.py,v 1.7 2011/03/30 20:37:10 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/keyword_options.py,v 1.8 2011/06/17 03:22:00 lande Exp $
 
 Author: T. Burnett <tburnett@uw.edu>
 """
@@ -90,7 +90,13 @@ def defaults_to_kwargs(obj,default_object):
 def change_defaults(defaults,key,value):
     """ Change a defaults dictionary's key 'key'
         to have a default value 'value'. """
+    if isinstance(defaults,tuple):
+        defaults=list(defaults)
         
     for i,default in enumerate(defaults):
         if default[0] == key:
+            if isinstance(default,tuple): 
+                defaults[i]=list(defaults[i])
+                default=defaults[i]
             default[1] = value
+    return defaults
