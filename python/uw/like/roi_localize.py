@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.26 2011/04/04 23:33:19 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.27 2011/04/09 02:24:29 lande Exp $
 
 author: Matthew Kerr
 """
@@ -218,6 +218,30 @@ class ROILocalizer(object):
             raise Exception('ROIAnalysis.spatialLikelihood failure at %.3f,%.3f' %(skydir.ra(),skydir.dec()))
         return ll
 
+def print_ellipse(roi, label=True, line=True):
+    """ print the ellipical parameters (all deg units):
+            ra, dec
+            a, b  : major and minor 1-sigma axes
+            ang   : ellipse orientation, E of N
+            qual  : measure of fit quality.
+    Optional parameters:
+        label [True] print a label line
+        line  [True] print the line corresponding to the current fit
+              (only knows about one at a time)
+    """
+    self=roi
+    if not self.qform: return
+    labels = 'ra dec a b ang qual'.split()
+    if label: print (len(labels)*'%10s') % tuple(labels)
+    if not line: return
+    p = self.qform.par[0:2]+self.qform.par[3:]
+    print len(p)*'%10.4f' % tuple(p)
+
+def get_ellipse(roi):
+    """ Returns a dictionary specifying the elliptical 
+        localiztion parameters. """
+    return dict(zip('ra dec a b ang qual'.split(),roi.qform.par[0:6]))
+
 class ROILocalizerExtended(ROILocalizer):
 
     def set_source_info(self):
@@ -309,4 +333,121 @@ class ROILocalizerExtended(ROILocalizer):
             for band in roi.bands: es.set_state(band)
 
         return ll
+
+
+class DualLocalizer():
+    """ Fit two point sources at the same time. Fit the center of position
+        and relative difference since they are more robust parameters.
+
+        This method is only suitable for sources relativly nearby (~<1 degree).
+
+        Note, bandfits is not allowed for fitting because the bandfits
+        algorithm does not really work when fitting two really nearby
+        sources. """
+
+    defaults = (
+            ('use_gradient',     True, "Analytic gradient of spectral parameters when fitting."),
+            ('tolerance',        0.01, "Fit tolerance to use when fitting"),
+            ('verbose',          True, "Print more stuff during fit.")
+    )
+
+    @keyword_options.decorate(defaults)
+    def __init__(self, roi, which1, which2, **kwargs):
+        keyword_options.process(self, kwargs)
+
+        self.roi = roi
+
+        self.p1 =roi.get_source(which1)
+        self.p2 =roi.get_source(which2)
+
+    @staticmethod
+    def print_flux(source,roi):
+        return source.model.i_flux(emin=min(roi.fit_emin),emax=max(roi.fit_emax),e_weight=0)
+
+    def fit(self,p):
+        m_x,m_y,d_x,d_y=p
+        roi=self.roi
+
+        s2 = SkyDir(m_x+d_x,m_y+d_y)
+        s1 = SkyDir(m_x-d_x,m_y-d_y)
+
+        rot_back_1=LandeROI.anti_rotate_equator(s1,self.middle)
+        rot_back_2=LandeROI.anti_rotate_equator(s2,self.middle)
+
+        roi.modify(which=self.p1,skydir=rot_back_1)
+        roi.modify(which=self.p2,skydir=rot_back_2)
+
+        ll=roi.fit(use_gradient=self.use_gradient,estimate_errors=False)
+
+        if ll < self.ll_0:
+            prev=self.p1.model.get_parameters(),self.p2.model.get_parameters()
+
+            self.p1.model.set_parameters(self.init_spectral_1)
+            self.p2.model.set_parameters(self.init_spectral_2)
+            ll_alt=roi.fit(use_gradient=self.use_gradient,estimate_errors=False)
+
+            if ll_alt > ll: 
+                ll=ll_alt
+            else: 
+                self.p1.model.set_parameters(prev[0])
+                self.p2.model.set_parameters(prev[1])
+
+        if self.verbose: print 'd=%s f=%.1e, d2=%s, f=%.1e, dist=%.3f logL=%.3f dlogL=%.3f' % \
+                (rot_back_1, DualLocalizer.print_flux(self.p1,roi), 
+                 rot_back_2, DualLocalizer.print_flux(self.p2,roi), 
+                 N.degrees(rot_back_1.difference(rot_back_2)),
+                 ll,ll-self.ll_0)
+
+        return -ll # minimize negative log likelihood
+
+    def localize(self):
+        roi=self.roi
+
+        p1,p2=self.p1, self.p2
+
+        if not roi.quiet: print 'Dual localizing source %s and %s' % (self.p1.name,self.p2.name)
+
+        d1=self.p1.skydir
+        d2=self.p2.skydir
+
+        self.middle=LandeROI.approx_mid_point(d1,d2)
+
+        # Points rotated so that the middle is at the equator
+        rot1=LandeROI.rotate_equator(d1,self.middle)
+        rot2=LandeROI.rotate_equator(d2,self.middle)
+
+        # Fit average point and distance between them
+        # Wrap coordiantes to vary between -180 and 180
+        x1 = rot1.ra(); x1 = x1 - (x1>180)*360
+        x2 = rot1.ra(); x2 = x2 - (x2>180)*360
+        y1 = rot1.dec(); y2 = rot2.dec()
+
+        m_x,m_y = (x2+x1)/2, (y2+y1)/2
+        d_x,d_y = (x2-x1)/2, (y2-y1)/2
+
+        p0 = [m_x,m_y,d_x,d_y]
+
+        self.ll_0=-1*roi.logLikelihood(roi.parameters())
+
+        self.init_spectral_1 = self.p1.model.get_parameters()
+        self.init_spectral_2 = self.p2.model.get_parameters()
+
+
+
+        old_quiet= roi.quiet
+        roi.quiet=True
+
+        from uw.utilities.minuit import Minuit
+        steps=[0.1,0.1,0.1,0.1] # expect to fit sources ~ 0.1 degrees away.
+        m = Minuit(self.fit,p0,
+                   tolerance = self.tolerance,
+                   maxcalls  = 500,
+                   printMode = True, 
+                   steps     = steps)
+
+        best_spatial,fval = m.minimize(method="SIMPLEX")
+
+        roi.quiet = old_quiet
+
+        return
 
