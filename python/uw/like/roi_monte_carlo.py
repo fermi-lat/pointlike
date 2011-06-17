@@ -28,8 +28,13 @@ class NoSimulatedPhotons(Exception):
     pass
 
 class MonteCarlo(object):
-    """ This object allowes for 
-        the simulation of data. """
+    """ This object allowes for the simulation of data. Simply pass in
+        a list of point sources and a list of diffuse sources and the
+        object will simulate the region.
+
+        The simulated data will get stored in the file 'ft1'. If you pass
+        in a valid ft2 file, the data will be simulted using that pointing
+        history. Otherwise, a default rocking profile will be used.  """
 
     defaults = (
             ('point_sources',     [], "List of Point Sources to use in the simulation.."),
@@ -538,24 +543,29 @@ class MonteCarlo(object):
 
 
 class SpectralAnalysisMC(SpectralAnalysis):
-    """ The intention of this object is to fill a need
-        for a desire to simulate
-    
-    This object is a child class of SpectralAnalysis which
-        generates MC data for pointlike to simulate from. 
-        
-        Note that this object repurposes the tstart and tstop features
-        of SpectralAnalysis which now specify the time range desired for 
-        the simulation. tstart and tstop are still MET (measured in seconds) """
+    """ The intention of this object is to act just like SpectralAnalysis
+        but with the difference that it will go ahead and simulate the
+        data for you.
+
+        When you create this object, you can pass in a DataSpecifciation
+        object with an existing ft2 file and a not existing ft1 file and
+        the ft1 file will be created with the specified pointing history.
+
+        Otherwise, specify tstart and tstop and the data will be simulated
+        using a default rocking profile for the desired time range.
+
+        The ROI will be simulated self consistently using the
+        point_sources and diffuse_sources passed to the roi() function
+        and the resulting ROI with simulated data is returned. """
 
     defaults = SpectralAnalysis.defaults + (
             ('seed',               0, "See MonteCarlo."),
-            ('tstart',          None, "See MonteCarlo."),
-            ('tstop',           None, "See MonteCarlo."),
             ('ltfrac',          None, "See MonteCarlo."),
             ('tempbase', '/scratch/', "See MonteCarlo.")
     )
     keyword_options.change_defaults(defaults,'event_class',0)
+    keyword_options.change_defaults(defaults,'tstart',None)
+    keyword_options.change_defaults(defaults,'tstop',None)
 
     @keyword_options.decorate(defaults)
     def __init__(self, data_specification, **kwargs):
