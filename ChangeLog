@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Fri Jun 17 17:17:10 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	toabinner.py 
+Log Message:
+Removed significance binner; added one based on template that works MUCH better.
+
+    *
+------------------------------------------------------------
 User: cohen  Fri Jun 17 11:42:18 PDT 2011
 pointlike/python/uw/utilities
 
