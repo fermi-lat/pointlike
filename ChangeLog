@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jun 17 18:51:03 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+New FileFunction object
+    *
+------------------------------------------------------------
 User: kerrm  Fri Jun 17 17:17:10 PDT 2011
 pointlike/python/uw/pulsar
 
