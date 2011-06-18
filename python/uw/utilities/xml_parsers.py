@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.42 2011/05/20 22:37:19 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.43 2011/06/16 21:43:23 lande Exp $
 
    author: Matthew Kerr
 """
@@ -86,42 +86,42 @@ class XML_to_Model(object):
 
     def __init__(self):
 
-        self.modict   = dict({
-            'PowerLaw'  : 'PowerLaw',
-            'PowerLaw2' : 'PowerLawFlux',
-            'BrokenPowerLaw' : 'BrokenPowerLaw',
-            'BrokenPowerLaw2' : 'BrokenPowerLawFlux',
-            'SmoothBrokenPowerLaw' : 'SmoothBrokenPowerLaw',
-            'PLSuperExpCutoff' : 'PLSuperExpCutoff',
-            'Constant'  : 'Constant', # should this have been ConstantValue key?
-            'ConstantValue' : 'Constant',
-            'FileFunction' : 'Constant', # a big klugey
-            'LogParabola'  : 'LogParabola'
-            })
-        
-        self.specdict = dict({
-            'PowerLaw'  : ['Prefactor','Index'],
-            'PowerLaw2' : ['Integral','Index'],
-            'BrokenPowerLaw' : ['Prefactor', 'Index1', 'Index2', 'BreakValue'],
-            'BrokenPowerLaw2' : ['Integral', 'Index1', 'Index2', 'BreakValue'],
-            'SmoothBrokenPowerLaw' : ['Prefactor', 'Index1', 'Index2', 'BreakValue'],
-            'PLSuperExpCutoff' : ['Prefactor','Index1','Cutoff','Index2'],
-            'ConstantValue' : ['Value'],
-            'FileFunction'  : ['Normalization'],
-            'LogParabola'  : ['norm', 'alpha', 'beta', 'Eb']
-            })
+        self.modict = dict(
+                PowerLaw             = PowerLaw,
+                PowerLaw2            = PowerLawFlux,
+                BrokenPowerLaw       = BrokenPowerLaw,
+                BrokenPowerLaw2      = BrokenPowerLawFlux,
+                SmoothBrokenPowerLaw = SmoothBrokenPowerLaw,
+                PLSuperExpCutoff     = PLSuperExpCutoff,
+                Constant             = Constant, # should this have been ConstantValue key?
+                ConstantValue        = Constant,
+                FileFunction         = Constant, # a big klugey
+                LogParabola          = LogParabola
+                )
 
-        self.kwargdict = dict({
-            'PowerLaw'  : [ ['Scale','e0' ] ],
-            'PowerLaw2' : [ ['LowerLimit','emin'], ['UpperLimit','emax'] ],
-            'BrokenPowerLaw' : [],
-            'BrokenPowerLaw2' : [ ['LowerLimit','emin'], ['UpperLimit','emax'] ],
-            'SmoothBrokenPowerLaw' : [ ['Scale','e0' ], ['Beta','beta'] ],
-            'PLSuperExpCutoff' : [ ['Scale','e0' ] ],
-            'ConstantValue' : [],
-            'FileFunction' : [],
-            'LogParabola'  : []
-            })
+        self.specdict = dict(
+                PowerLaw             = ['Prefactor','Index'],
+                PowerLaw2            = ['Integral','Index'],
+                BrokenPowerLaw       = ['Prefactor', 'Index1', 'Index2', 'BreakValue'],
+                BrokenPowerLaw2      = ['Integral', 'Index1', 'Index2', 'BreakValue'],
+                SmoothBrokenPowerLaw = ['Prefactor', 'Index1', 'Index2', 'BreakValue'],
+                PLSuperExpCutoff     = ['Prefactor','Index1','Cutoff','Index2'],
+                ConstantValue        = ['Value'],
+                FileFunction         = ['Normalization'],
+                LogParabola          = ['norm', 'alpha', 'beta', 'Eb']
+                )
+
+        self.kwargdict = dict(
+                PowerLaw             = [ ['Scale','e0' ] ],
+                PowerLaw2            = [ ['LowerLimit','emin'], ['UpperLimit','emax'] ],
+                BrokenPowerLaw       = [],
+                BrokenPowerLaw2      = [ ['LowerLimit','emin'], ['UpperLimit','emax'] ],
+                SmoothBrokenPowerLaw = [ ['Scale','e0' ], ['Beta','beta'] ],
+                PLSuperExpCutoff     = [ ['Scale','e0' ] ],
+                ConstantValue        = [],
+                FileFunction         = [],
+                LogParabola          = []
+                )
 
     def get_model(self,xml_dict,source_name,index_offset=0):
         """ source_name is used for better error message printing. """
@@ -133,7 +133,7 @@ class XML_to_Model(object):
         for p in params:
             d[p['name']] = p
 
-        model = eval('%s()'%(self.modict[specname]))
+        model = self.modict[specname]()
 
         for ip,p in enumerate(self.specdict[specname]):
             try:
@@ -143,14 +143,13 @@ class XML_to_Model(object):
 
             scale = float(pdict['scale'])
             value = float(pdict['value'])
-            if (p == 'Index') or (p == 'Index1') or (p == 'Index2' and self.modict[specname]!='PLSuperExpCutoff'):
+            if (p == 'Index') or (p == 'Index1') or (p == 'Index2' and self.modict[specname]!=PLSuperExpCutoff):
                 # gtlike uses a neg. index internally so scale > 0
                 # means we need to take the negative of the value
                 if scale > 0: value = -value
                 else:         scale = -scale
                 value += index_offset
                 model.index_offset = index_offset
-            #model.p[ip] = value*scale
             if value*scale<0: raise Exception('For source %s, %s parameter %s cannot be negative' % (source_name,specname,p))
             if N.isnan(value*scale): raise Exception('For source %s, %s parameter %s is NaN' % (source_name,specname,p))
             model.setp(ip, value*scale)
@@ -158,9 +157,6 @@ class XML_to_Model(object):
             if 'error' in pdict.keys():
                 err = float(pdict['error'])*scale
                 model.cov_matrix[ip,ip] = (err/value*JAC)**2
-
-        #model.p = N.log10(model.p)
-        # done by selfp
 
         for p in self.kwargdict[specname]:
             pdict = d[p[0]]
