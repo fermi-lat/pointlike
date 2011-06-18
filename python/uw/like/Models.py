@@ -1,8 +1,8 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.44 2011/04/15 19:17:11 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.45 2011/05/02 01:53:44 kerrm Exp $
 
-    author: Matthew Kerr
+    author: Matthew Kerr, Joshua Lande
 
 """
 import types
@@ -10,7 +10,7 @@ import numpy as N
 import numpy as np
 import math as M
 from scipy.integrate import quad
-        
+from scipy.interpolate import interp1d
 
 #===============================================================================================#
 
@@ -19,20 +19,21 @@ class DefaultModelValues(object):
 
     simple_models = {
         'PowerLaw'            : {'_p':[1e-11, 2.0],             'param_names':['Norm','Index'],'index_offset':0},
-        'PowerLawFlux'      : {'_p':[1e-7 , 2.0],             'param_names':['Int_Flux','Index'],'emin':100,'emax':1e6},
-        'BrokenPowerLaw'    : {'_p':[1e-11, 2.0, 2.0 ,1e3],'param_names':['Norm','Index_1','Index_2', 'E_break']},
-        'BrokenPowerLawFlux' : {'_p':[1e-7, 2.0, 2.0 ,1e3],'param_names':['Int_Flux','Index_1','Index_2', 'E_break'],'emin':100,'emax':1e6},
-        'BrokenPowerLawCutoff': {'_p':[1e-11,2,2,1e3,3e3],'param_names':['Norm','Index_1','Index_2','E_break','Cutoff']},
-        'SmoothBrokenPowerLaw': {'_p':[1e-11,2.0,2.0, 1e3],'param_names':['Norm','Index_1','Index_2','E_break'],'beta':0.1},
-        'DoublePowerLaw'    : {'_p':[5e-12, 2.0, 2.0, 1],  'param_names':['Norm','Index_1','Index_2','Ratio']},
-        'DoublePowerLawCutoff' : {'_p':[5e-12,2,2,1e3,1], 'param_names':['Norm','Index_1','Index_2','Cutoff','Ratio']},
-        'LogParabola'        : {'_p':[1e-11, 2.0, 1e-5,2e3],'param_names':['Norm','Index','beta','E_break']},
-        'ExpCutoff'          : {'_p':[1e-11, 2.0, 2e3],      'param_names':['Norm','Index','Cutoff']},
-        'ExpCutoffPlusPL'  : {'_p':[1e-11,2.0,2e3,1e-12,1.5],'param_names':['Norm1','Index1','Cutoff1','Norm2','Index2']},
-        'AllCutoff'          : {'_p':[1e-11, 1e3],             'param_names':['Norm','Cutoff']},
-        'PLSuperExpCutoff' : {'_p':[1e-11, 2.0, 2e3 ,1.], 'param_names':['Norm','Index','Cutoff', 'b']},
-        'Constant'            : {'_p':[1.],                        'param_names':['Scale']},
-        'InterpConstants'  : {'_p':[1.]*5,                     'param_names':['Scale_Vector'],'e_breaks':N.log10([100,300,1000,3000,3e5])}
+        'PowerLawFlux'        : {'_p':[1e-7 , 2.0],             'param_names':['Int_Flux','Index'],'emin':100,'emax':1e6},
+        'BrokenPowerLaw'      : {'_p':[1e-11, 2.0, 2.0 ,1e3],   'param_names':['Norm','Index_1','Index_2', 'E_break']},
+        'BrokenPowerLawFlux'  : {'_p':[1e-7, 2.0, 2.0 ,1e3],    'param_names':['Int_Flux','Index_1','Index_2', 'E_break'],'emin':100,'emax':1e6},
+        'BrokenPowerLawCutoff': {'_p':[1e-11,2,2,1e3,3e3],      'param_names':['Norm','Index_1','Index_2','E_break','Cutoff']},
+        'SmoothBrokenPowerLaw': {'_p':[1e-11,2.0,2.0, 1e3],     'param_names':['Norm','Index_1','Index_2','E_break'],'beta':0.1},
+        'DoublePowerLaw'      : {'_p':[5e-12, 2.0, 2.0, 1],     'param_names':['Norm','Index_1','Index_2','Ratio']},
+        'DoublePowerLawCutoff': {'_p':[5e-12,2,2,1e3,1],        'param_names':['Norm','Index_1','Index_2','Cutoff','Ratio']},
+        'LogParabola'         : {'_p':[1e-11, 2.0, 1e-5,2e3],   'param_names':['Norm','Index','beta','E_break']},
+        'ExpCutoff'           : {'_p':[1e-11, 2.0, 2e3],        'param_names':['Norm','Index','Cutoff']},
+        'ExpCutoffPlusPL'     : {'_p':[1e-11,2.0,2e3,1e-12,1.5],'param_names':['Norm1','Index1','Cutoff1','Norm2','Index2']},
+        'AllCutoff'           : {'_p':[1e-11, 1e3],             'param_names':['Norm','Cutoff']},
+        'PLSuperExpCutoff'    : {'_p':[1e-11, 2.0, 2e3 ,1.],    'param_names':['Norm','Index','Cutoff', 'b']},
+        'Constant'            : {'_p':[1.],                     'param_names':['Scale']},
+        'InterpConstants'     : {'_p':[1.]*5,                   'param_names':['Scale_Vector'],'e_breaks':N.log10([100,300,1000,3000,3e5])},
+        'FileFunction'        : {'_p':[1.],                     'param_names':['Norm']},
         }
 
     names = simple_models.keys()+['MixedModel']
@@ -799,7 +800,7 @@ class MixedModel(Model):
     def __call__(self,e):
         counter = 0
         for i in xrange(len(self.n)):
-            self.spec_models[i].p = self._p[counter:counter+self.n[i]]
+            self.spec_models[i]._p = self._p[counter:counter+self.n[i]]
             counter += self.n[i]
         return N.array([model(e) for model in self.spec_models]).sum(axis=0)
 
@@ -821,13 +822,34 @@ class Constant(Model):
 class InterpConstants(Model):
 
     def __call__(self,e):
-        from scipy.interpolate import interp1d
         interp = interp1d(self.e_breaks,10**self._p)
         return interp(N.log10(e))
 
     def set_flux(self,flux,**kwargs):
         raise NotImplementedError("No way to set flux for InterpConstants spectral model")
 
+#===============================================================================================#
+
+class FileFunction(Model):
+
+    def __init__(self,*args,**kwargs):
+
+        super(FileFunction,self).__init__(*args,**kwargs)
+
+        if not hasattr(self,'file'):
+            raise Exception("FileFunction must be created with a file.")
+
+        file=N.genfromtxt(self.file,unpack=True)
+        self.energy,self.flux=file[0],file[1]
+
+        self.interp = interp1d(N.log10(self.energy),N.log10(self.flux),
+                bounds_error=False,fill_value=-N.inf)
+
+    def __call__(self,e):
+        return 10**(self._p[0]+self.interp(N.log10(e)))
+    
+    def gradient(self,e):
+        return N.asarray([10**self.interp(N.log10(e))])
 
 def convert_exp_cutoff(model):
     # this function need for XML parsing
