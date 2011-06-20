@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jun 20 11:24:31 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_catalogs.py 
+Log Message:
+better error checking on $LATEXTDIR
+    *
+------------------------------------------------------------
 User: lande  Fri Jun 17 18:53:09 PDT 2011
 ScienceTools-scons/pointlike/python/uw/utilities
 
