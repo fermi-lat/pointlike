@@ -1,12 +1,13 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.1 2011/06/11 18:49:32 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.2 2011/06/12 00:51:49 lande Exp $
 
 author: Joshua Lande
 """
 import os
 import numpy as N
+from textwrap import dedent
 
 from pyfits import open
 from skymaps import SkyDir
@@ -33,6 +34,13 @@ class Catalog2FGL(PointSourceCatalog):
     @keyword_options.decorate(defaults)
     def __init__(self,catalog,**kwargs):
         keyword_options.process(self, kwargs)
+
+        if self.latextdir is None and \
+                (not os.environ.has_key('LATEXTDIR') or not os.path.exists(os.environ['LATEXTDIR'])):
+                    raise Exception(dedent("""
+                            Since environment variable $LATEXTDIR does 
+                            not exist, the paramter latextdir must
+                            be passed into this object."""))
 
         if self.latextdir: os.environ['LATEXTDIR']=self.latextdir
 
