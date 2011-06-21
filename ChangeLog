@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun 21 13:25:13 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+Allow simulating arbitrary extended sources
+    *
+------------------------------------------------------------
 User: lande  Tue Jun 21 13:24:53 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
