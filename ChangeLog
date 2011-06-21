@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun 21 13:25:57 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Attempt to remove dependence on pyregion/pyparsing.
+    *
+------------------------------------------------------------
 User: lande  Tue Jun 21 13:25:13 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
