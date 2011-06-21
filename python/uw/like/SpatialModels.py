@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.44 2011/06/11 02:47:58 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.45 2011/06/13 04:10:05 lande Exp $
 
    author: Joshua Lande
 
@@ -383,7 +383,6 @@ class SpatialModel(object):
         # The factor of 6/5 is to add a buffer at the edge of the template, which
         # is similar to the Catalog recommendations.
         diameter=2.0*(self.effective_edge()*6./5. if self.has_edge() else self.r99())
-        print diameter
         pixelsize=diameter/npix
         image=SkyImage(center,filename,pixelsize,diameter,1,"ZEA",
                        True if self.coordsystem == SkyDir.GALACTIC else False,False)
