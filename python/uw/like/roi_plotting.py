@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.49 2011/06/17 03:25:46 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.50 2011/06/21 20:25:56 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1014,7 +1014,7 @@ class ROISignificance(object):
         counts integrated within a circual aperature of radius . """
 
     defaults = (
-            ('figsize',        (5,5),                        'Size of the image'),
+            ('figsize',        (6,5),                        'Size of the image'),
             ('fignum',          None,                 'matplotlib figure number'),
             ('conv_type',         -1,                          'Conversion type'),
             ('size',               5,                'Size of the field of view'),
@@ -1049,55 +1049,63 @@ class ROISignificance(object):
 
     @staticmethod
     def plot_sources(roi, ax, header, color='black', show_sources=True, white_marker=True, marker_scale=4, 
-            label_sources=True, show_localization=True, show_extension=True, extension_color='white'):
+            label_sources=True, show_extension=True, extension_color='white'):
 
         sources = roi.get_sources()
         ras = [source.skydir.ra() for source in sources]
         decs = [source.skydir.dec() for source in sources]
         
         # plot sources
-        ax["fk5"].plot(ras,decs,color=color,marker='x',markersize=marker_scale*6)
-        if white_marker:
-            ax["fk5"].plot(ras,decs,color='w',marker='x',markersize=marker_scale*6)
+        markersize=marker_scale*6
+        if white_marker: ax["fk5"].plot(ras,decs,'w+',markersize=markersize)
+        ax["fk5"].plot(ras,decs,'x',color=color,markersize=markersize)
 
-        if label_sources: raise Exception("label_sources not yet implemented")
+        if label_sources: 
+            from matplotlib.patheffects import withStroke
+            names = [source.name for source in sources]
+            for ra,dec,name in zip(ras,decs,names):
+                myeffect = withStroke(foreground="w", linewidth=2)
+                kwargs=dict(path_effects=[myeffect])
+                ax["fk5"].annotate(name, (ra,dec), 
+                        ha='center', va='top',
+                        xytext=(0,markersize), textcoords='offset points',**kwargs)
 
-        kwargs = dict(color=extension_color,fill=False)
-        for source in roi.get_extended_sources():
-            sm=source.spatial_model
-            ra,dec=sm.center.ra(),sm.center.dec()
+        if show_extension:
 
-            if isinstance(sm,PseudoSpatialModel) or type(sm) == SpatialMap:
-                pass
+            kwargs = dict(color=extension_color,fill=False)
+            for source in roi.get_extended_sources():
+                sm=source.spatial_model
+                ra,dec=sm.center.ra(),sm.center.dec()
 
-            elif isinstance(sm,RadiallySymmetricModel):
-                if isinstance(sm,Disk) or isinstance(sm,Ring):
-                    ax["fk5"].add_patch(Circle((ra,dec),sm.sigma,**kwargs))
-                    if isinstance(sm,Ring):
-                        ax["fk5"].add_patch(Circle((ra,dec),sm.frac*sm.sigma,**kwargs))
-                else:    
-                    ax["fk5"].add_patch(Circle((ra,dec),sm.r68(),**kwargs))
+                if isinstance(sm,PseudoSpatialModel) or type(sm) == SpatialMap:
+                    pass
 
-            elif isinstance(sm,EllipticalSpatialModel):
-                # note ellipses in matplotlib have angle defiend from west
-                # instead of north, so we must rotate by 90 degrees. 
-                # In matplotlib, angles increase in wrong direction.
-                # Also, ellipses specify the total lenght in each
-                # direction (not lenght of semi-major/semi-minor axes),
-                # so we need to scale by a factor of 2.
-                if isinstance(sm,EllipticalDisk) or isinstance(sm,EllipticalRing):
-                    sigma_x, sigma_y, theta = sm.sigma_x, sm.sigma_y, sm.theta
-                    ax["fk5"].add_patch(Ellipse((ra,dec),2*sigma_x,2*sigma_y,90-theta,**kwargs))
-                    if isinstance(sm,EllipticalRing):
-                        frac=sm.frac
-                        ax["fk5"].add_patch(Ellipse((ra,dec),2*frac*sigma_x,2*frac*sigma_y,90-theta,**kwargs))
-                else:    
-                    a,b,c=sm.ellipse_68()
-                    ax["fk5"].add_patch(Ellipse((ra,dec),2*a,2*b,90-c,**kwargs))
-            else:
-                raise Exception("Unable to Plot Spatial Model %s" % type(sm))
+                elif isinstance(sm,RadiallySymmetricModel):
+                    if isinstance(sm,Disk) or isinstance(sm,Ring):
+                        ax["fk5"].add_patch(Circle((ra,dec),sm.sigma,**kwargs))
+                        if isinstance(sm,Ring):
+                            ax["fk5"].add_patch(Circle((ra,dec),sm.frac*sm.sigma,**kwargs))
+                    else:    
+                        ax["fk5"].add_patch(Circle((ra,dec),sm.r68(),**kwargs))
 
-
+                elif isinstance(sm,EllipticalSpatialModel):
+                    # note ellipses in matplotlib have angle defiend from west
+                    # instead of north, so we must rotate by 90 degrees. 
+                    # In matplotlib, angles increase in wrong direction.
+                    # Also, ellipses specify the total lenght in each
+                    # direction (not lenght of semi-major/semi-minor axes),
+                    # so we need to scale by a factor of 2.
+                    if isinstance(sm,EllipticalDisk) or isinstance(sm,EllipticalRing):
+                        sigma_x, sigma_y, theta = sm.sigma_x, sm.sigma_y, sm.theta
+                        ax["fk5"].add_patch(Ellipse((ra,dec),2*sigma_x,2*sigma_y,90-theta,**kwargs))
+                        if isinstance(sm,EllipticalRing):
+                            frac=sm.frac
+                            ax["fk5"].add_patch(Ellipse((ra,dec),2*frac*sigma_x,2*frac*sigma_y,90-theta,**kwargs))
+                    else:    
+                        a,b,c=sm.ellipse_68()
+                        ax["fk5"].add_patch(Ellipse((ra,dec),2*a,2*b,90-c,**kwargs))
+                else:
+                    raise Exception("Unable to Plot Spatial Model %s" % type(sm))
 
     def show(self,filename=None):
 
@@ -1250,10 +1258,12 @@ class ROISmoothedSource(object):
 
         h, d = self.residual_pyfits[0].header, self.residual_pyfits[0].data
 
-        self.grid = grid = ImageGrid(self.fig, (1, 1, 1), nrows_ncols = (1, 1),
-                         cbar_mode="single", cbar_pad="2%",
-                         cbar_location="right",
-                         axes_class=(pywcsgrid2.Axes, dict(header=h)))
+        self.grid = grid = ImageGrid(self.fig,
+            rect=(0.12,0.12,0.75,0.8),
+            nrows_ncols = (1, 1),
+            cbar_mode="single", cbar_pad="2%",
+            cbar_location="right",
+            axes_class=(pywcsgrid2.Axes, dict(header=h)))
 
         self.ax = ax = grid[0]
 
