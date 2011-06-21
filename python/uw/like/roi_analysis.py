@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.95 2011/06/14 15:52:01 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.96 2011/06/17 03:56:35 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -664,6 +664,11 @@ class ROIAnalysis(object):
     def get_sources(self):
         """ Returns all localizable sources in the ROI sorted by skydir. """
         sources=self.psm.point_sources.tolist()+[i for i in self.dsm.diffuse_sources.tolist() if hasattr(i,'skydir')]
+        sources.sort(key=lambda s:s.skydir.difference(self.roi_dir))
+        return sources
+
+    def get_extended_sources(self):
+        sources=[i for i in self.dsm.diffuse_sources.tolist() if hasattr(i,'skydir')]
         sources.sort(key=lambda s:s.skydir.difference(self.roi_dir))
         return sources
 
