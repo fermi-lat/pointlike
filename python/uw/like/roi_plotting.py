@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.48 2011/06/13 22:41:34 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.49 2011/06/17 03:25:46 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -30,7 +30,8 @@ from . roi_bands import ROIEnergyBand
 from . roi_image import ModelImage,CountsImage,RadialCounts,RadialModel,SmoothedCounts,SmoothedModel,SmoothedResidual
 from . roi_extended import ExtendedSource
 from . pointspec_helpers import PointSource
-from . SpatialModels import Disk, Gaussian
+from . SpatialModels import SpatialMap, PseudoSpatialModel, RadiallySymmetricModel, \
+        EllipticalSpatialModel, Disk, EllipticalDisk, Ring, EllipticalRing
 from uw.utilities import colormaps
 from uw.utilities.image import ZEA
 from uw.utilities import region_writer 
@@ -45,7 +46,7 @@ from scipy.optimize import fmin,fsolve
 import pylab as P
 from matplotlib import rcParams,mpl,pyplot,ticker,font_manager,spines
 from matplotlib.ticker import FormatStrFormatter
-from matplotlib.patches import FancyArrow
+from matplotlib.patches import FancyArrow,Circle,Ellipse
 
 def band_spectra(r,source=0):
     
@@ -1047,40 +1048,55 @@ class ROISignificance(object):
         self.pyfits[0].data = self.significance
 
     @staticmethod
-    def plot_sources(roi, ax, header, color='black', show_sources=True, white_marker=True, marker_scale=4, **kwargs):
-        """ Add to the pywcsgrid2 axes ax any sources in the ROI which
-            have a center. Also, overlay the extended source shapes
-            if there are any. Note, this function requires pyregion. 
-            
-            The code to do this was found at:
-                http://leejjoon.github.com/matplotlib_astronomy_gallery/tutorial/w51c.html
-                
-        """
+    def plot_sources(roi, ax, header, color='black', show_sources=True, white_marker=True, marker_scale=4, 
+            label_sources=True, show_localization=True, show_extension=True, extension_color='white'):
 
-        import pyregion
-
-        if show_sources and white_marker:
-            region_string = region_writer.get_region(roi, color='white', label_sources=False, show_localization=False, show_extension=False)
-            reg = pyregion.parse(region_string).as_imagecoord(header)
-            patch_list, artist_list = reg.get_mpl_patches_texts()
-            for t in artist_list: 
-                t.set_markersize(marker_scale*t.get_markersize())
-                t.set_marker('x')
-                ax.add_artist(t)
-
-        region_string = region_writer.get_region(roi, color=color, show_sources=show_sources, show_localization=False, **kwargs)
-        if region_string is None: return
-
-        reg = pyregion.parse(region_string).as_imagecoord(header)
-        patch_list, artist_list = reg.get_mpl_patches_texts()
-
-        for p in patch_list: ax.add_patch(p)
+        sources = roi.get_sources()
+        ras = [source.skydir.ra() for source in sources]
+        decs = [source.skydir.dec() for source in sources]
         
-        for t in artist_list: 
-            # make the markers bigger
-            if hasattr(t,'set_markersize'): t.set_markersize(marker_scale*t.get_markersize())
+        # plot sources
+        ax["fk5"].plot(ras,decs,color=color,marker='x',markersize=marker_scale*6)
+        if white_marker:
+            ax["fk5"].plot(ras,decs,color='w',marker='x',markersize=marker_scale*6)
 
-            ax.add_artist(t)
+        if label_sources: raise Exception("label_sources not yet implemented")
+
+        kwargs = dict(color=extension_color,fill=False)
+        for source in roi.get_extended_sources():
+            sm=source.spatial_model
+            ra,dec=sm.center.ra(),sm.center.dec()
+
+            if isinstance(sm,PseudoSpatialModel) or type(sm) == SpatialMap:
+                pass
+
+            elif isinstance(sm,RadiallySymmetricModel):
+                if isinstance(sm,Disk) or isinstance(sm,Ring):
+                    ax["fk5"].add_patch(Circle((ra,dec),sm.sigma,**kwargs))
+                    if isinstance(sm,Ring):
+                        ax["fk5"].add_patch(Circle((ra,dec),sm.frac*sm.sigma,**kwargs))
+                else:    
+                    ax["fk5"].add_patch(Circle((ra,dec),sm.r68(),**kwargs))
+
+            elif isinstance(sm,EllipticalSpatialModel):
+                # note ellipses in matplotlib have angle defiend from west
+                # instead of north, so we must rotate by 90 degrees. 
+                # In matplotlib, angles increase in wrong direction.
+                # Also, ellipses specify the total lenght in each
+                # direction (not lenght of semi-major/semi-minor axes),
+                # so we need to scale by a factor of 2.
+                if isinstance(sm,EllipticalDisk) or isinstance(sm,EllipticalRing):
+                    sigma_x, sigma_y, theta = sm.sigma_x, sm.sigma_y, sm.theta
+                    ax["fk5"].add_patch(Ellipse((ra,dec),2*sigma_x,2*sigma_y,90-theta,**kwargs))
+                    if isinstance(sm,EllipticalRing):
+                        frac=sm.frac
+                        ax["fk5"].add_patch(Ellipse((ra,dec),2*frac*sigma_x,2*frac*sigma_y,90-theta,**kwargs))
+                else:    
+                    a,b,c=sm.ellipse_68()
+                    ax["fk5"].add_patch(Ellipse((ra,dec),2*a,2*b,90-c,**kwargs))
+            else:
+                raise Exception("Unable to Plot Spatial Model %s" % type(sm))
+
 
 
     def show(self,filename=None):
@@ -1157,23 +1173,26 @@ class ROISmoothedSource(object):
             within the extended source's size or otherwise
             within the 68% containment radius of the PSF (at
             the lowest energy). """
-        import pyregion
+        try:
+            import pyregion
 
-        if hasattr(source,'spatial_model'):
-            # Get the maximum intensity value inside
-            # the spatial model's extension
-            extension_string='\n'.join(region_writer.unparse_extension(source.spatial_model,r68=True))
-            reg = pyregion.parse(extension_string)
-        else:
-            # Get the maximum intensity inside
-            emin=roi.bin_edges[0]
-            ra,dec=source.skydir.ra(),source.skydir.dec()
-            r68=roi.sa.psf.inverse_integral(emin,1,68)
-            reg = pyregion.parse("fk5; circle(%.4f, %.4f, %.4f)" % (ra,dec,r68))
+            if hasattr(source,'spatial_model'):
+                # Get the maximum intensity value inside
+                # the spatial model's extension
+                extension_string='\n'.join(region_writer.unparse_extension(source.spatial_model,r68=True))
+                reg = pyregion.parse(extension_string)
+            else:
+                # Get the maximum intensity inside
+                emin=roi.bin_edges[0]
+                ra,dec=source.skydir.ra(),source.skydir.dec()
+                r68=roi.sa.psf.inverse_integral(emin,1,68)
+                reg = pyregion.parse("fk5; circle(%.4f, %.4f, %.4f)" % (ra,dec,r68))
 
-        mask = reg.get_mask(pyfits[0])
+            mask = reg.get_mask(pyfits[0])
 
-        return pyfits[0].data[mask].max()
+            return pyfits[0].data[mask].max()
+        except:
+            return pyfits[0].data.max()
 
 
     @keyword_options.decorate(defaults)
