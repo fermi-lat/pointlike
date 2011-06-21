@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun 21 13:24:53 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Remove unneeded print statement
+    *
+------------------------------------------------------------
 User: lande  Tue Jun 21 13:24:42 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
