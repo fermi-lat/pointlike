@@ -10,7 +10,7 @@ import os
 import re
 import shutil
 import collections
-from tempfile import mkdtemp,NamedTemporaryFile
+from tempfile import mkdtemp,mkstemp,NamedTemporaryFile
 from GtApp import GtApp
 
 import numpy as N
@@ -20,7 +20,7 @@ from . Models import PowerLaw,PowerLawFlux,Constant
 from . pointspec import DataSpecification,SpectralAnalysis
 from . pointspec_helpers import PointSource
 from . roi_extended import ExtendedSource
-from . SpatialModels import Gaussian,EllipticalGaussian,RadiallySymmetricModel
+from . SpatialModels import Gaussian,EllipticalGaussian,SpatialModel,RadiallySymmetricModel
 
 from uw.utilities import keyword_options 
 
@@ -184,6 +184,34 @@ class MonteCarlo(object):
             '    <SpectrumClass name="RadialSource"',
             '      params="flux=%s, profileFile=%s, specFile=%s, ra=%s, dec=%s"/>' % \
                     (flux,profile,specfile,ra,dec),
+            '    <use_spectrum frame="galaxy"/>',
+            '  </spectrum>',
+            '</source>',
+        ]
+        return indent+('\n'+indent).join(xml)
+
+    def _make_extended_source(self,es,indent):
+
+        sm=es.spatial_model
+
+        assert isinstance(sm,SpatialModel)
+ 
+        mc_emin,mc_emax=self.larger_energy_range()
+
+        flux=es.model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
+
+        ra,dec=sm.center.ra(),sm.center.dec()
+
+        spatialfile=mkstemp(dir='.')[1]
+        sm.save_template(spatialfile)
+        specfile=self._make_specfile(es.model,mc_emin,mc_emax)
+
+        xml=[
+            '<source name="%s">' % MonteCarlo.strip(es.name),
+            '  <spectrum escale="MeV">',
+            '    <SpectrumClass name="FileSpectrumMap"',
+            '      params="flux=%s, fitsFile=%s, specFile=%s, emin=%s, emax=%s"/>' % \
+                    (flux,spatialfile,specfile,mc_emin,mc_emax),
             '    <use_spectrum frame="galaxy"/>',
             '  </spectrum>',
             '</source>',
@@ -447,9 +475,9 @@ class MonteCarlo(object):
             elif isinstance(ds.spatial_model,RadiallySymmetricModel):
                 return self._make_radially_symmetric(ds,indent)
             else:
-                raise Exception("Can simulate diffuse source %s. No code to simulate general non-radially symmetric sources." % ds.name)
+                return self._make_extended_source(ds,indent)
         else:
-            raise Exception("Can simulae diffuse source %s to xml suitable for gtobssim." % ds.name)
+            raise Exception("Can not simulae diffuse source %s. Unknown diffuse source type %s." % (ds.name,type(ds)))
             
     def _make_model(self,savedir,indent='  '):
 
