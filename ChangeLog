@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Jun 22 15:13:04 PDT 2011
+pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+fixed duplicate convolution code
+    *
+------------------------------------------------------------
 User: mar0  Wed Jun 22 15:13:03 PDT 2011
 pointlike/python/uw/stacklike
 
