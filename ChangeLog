@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Jun 22 15:13:03 PDT 2011
+pointlike/python/uw/stacklike
+
+Modified Files:
+	angularmodels.py 
+Log Message:
+fixed duplicate convolution code
+    *
+------------------------------------------------------------
 User: parent  Wed Jun 22 13:20:04 PDT 2011
 pointlike/python/uw/pulsar
 
