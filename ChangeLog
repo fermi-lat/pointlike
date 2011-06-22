@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun 21 17:27:48 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Work around bug in GridSpecFromSubplotSpec with matplotlib 1.0.0 (and better 95% conf label)
+    *
+------------------------------------------------------------
 User: lande  Tue Jun 21 14:48:06 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
