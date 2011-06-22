@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Jun 22 10:28:47 PDT 2011
+pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+added functionality for convolving spatial models without spectral analysis bands
+    *
+------------------------------------------------------------
 User: mar0  Wed Jun 22 10:28:46 PDT 2011
 pointlike/python/uw/stacklike
 
