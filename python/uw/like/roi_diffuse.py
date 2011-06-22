@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.19 2011/03/11 22:46:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.20 2011/04/04 22:56:25 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -10,6 +10,7 @@ from uw.utilities.convolution import BackgroundConvolution
 from uw.utilities import keyword_options
 from skymaps import SkyIntegrator,Background,IsotropicSpectrum,DiffuseFunction
 import copy
+import collections
 
 class SmallBand(object):
     """ A little holder."""
@@ -32,7 +33,7 @@ class DiffuseSource(object):
             DiffuseSource.__counter += 1
         else: self.name = name
 
-        if not hasattr(self.dmodel,'__len__'):
+        if not isinstance(self.dmodel,collections.Iterable):
             self.dmodel = [self.dmodel]
    
     def __str__(self): return '\n'.join((self.name,'\t'+self.dmodel.__str__(),
