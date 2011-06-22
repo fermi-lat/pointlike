@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.36 2011/05/06 21:56:45 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.36 2011/05/06 21:56:45 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -399,19 +399,12 @@ class AnalyticConvolution(object):
 
     defaults = (
         ['num_points',     100, 'Number of points to calculate the PDF at. Interpolation is done in between.'],
-        ['tolerance',     1e-3, 'Passed into quad.'],
     )
     @staticmethod
     def set_points(psize):
         was = AnalyticConvolution.defaults[0][1]
         AnalyticConvolution.defaults[0][1] =psize
         return was
-
-    @staticmethod
-    def set_tolerance(tolerance):
-        was = AnalyticConvolution.defaults[1][1]
-        AnalyticConvolution.defaults[1][1] =tolerance
-        return tolerance
 
     @keyword_options.decorate(defaults)
     def __init__(self,extended_source,psf,**kwargs):
@@ -451,8 +444,8 @@ class AnalyticConvolution(object):
                                           *((g-1)/g)*(g/(g+u+v))**g\
                                           *hyp2f1(g/2.,(1+g)/2.,1.,4.*u*v/(g+u+v)**2)
         for i,u in enumerate(ulist):
-            pdf[i]=quad(integrand,0,int_max,args=(u,),epsrel=self.tolerance,
-                        epsabs=self.tolerance,full_output=True)[0]
+            pdf[i]=quad(integrand,0,int_max,args=(u,),epsrel=1e-3,
+                        epsabs=1e-3,full_output=True)[0]
             # Sometimes this algorithm is not robust. In that case,
             # try to do the integral more accuratly
             if N.isnan(pdf[i]) or N.isinf(pdf[i]) or pdf[i]<0:
@@ -543,7 +536,81 @@ class AnalyticConvolution(object):
             if N.any(self.pdf<0):        message +=' (%d negative values)' % sum(self.pdf<0)
             raise Exception(message)
 
-    def do_convolution(self,band,fitpsf,fastpsf):
+    def _get_pdf_noband(self,energy,conversion_type,roimax,fitpsf,fastpsf):
+        """ This function has to calculate self.rlist and self.pdf
+            and is abstracted from the rest of the do_convolution
+            function so that it can be overloaded for caching
+            by AnalyticConvolutionCache. """
+
+        if fitpsf==True and fastpsf==True:
+            raise Exception("Only one of fitpsf or fastpsf may be set true")
+
+        pb = PretendBand(energy,conversion_type)
+        self.bpsf = BandCALDBPsf(self.psf,pb)
+
+        if self.bpsf.newstyle:
+            nclist,ntlist,gclist,gtlist,\
+                    sclist,stlist,wlist = self.bpsf.par
+
+            smax = N.append(sclist,stlist).max()
+
+        else:
+            # g = gamma, s = sigma, w = weight
+            glist,slist,wlist = self.bpsf.par
+            smax=slist.max()
+
+        self.edge_distance=roimax
+
+        self.rmax=self.edge_distance
+
+        self.rlist=N.linspace(0,N.sqrt(self.rmax),self.num_points)**2
+
+
+        # pdf is the probability per unit area at a given radius.
+        self.pdf=N.zeros_like(self.rlist)
+
+        if fitpsf:
+            # For new & old style psf, fit a single king function to the data.
+            self.pdf = self._convolve(self.rlist,band.fit_gamma,band.fit_sigma,energy)
+
+        elif fastpsf:
+            # weight sigmas & gammas before fit, useful for fast rough calculations of the pdf.
+            if self.bpsf.newstyle:
+                nc,nt=(nclist*wlist).sum(),(ntlist*wlist).sum()
+
+                gc,sc=(gclist*wlist).sum(),(sclist*wlist).sum()
+                gt,st=(gtlist*wlist).sum(),(stlist*wlist).sum()
+
+                self.pdf += nc*self._convolve(self.rlist,gc,sc,energy) + \
+                            nt*self._convolve(self.rlist,gt,st,energy)
+            else:
+                g,s=(glist*wlist).sum(),(slist*wlist).sum()
+
+                self.pdf += self._convolve(self.rlist,g,s,energy)
+
+        else:
+            if self.bpsf.newstyle:
+                for nc,gc,sc,nt,gt,st,w in zip(nclist,gclist,sclist,\
+                                               ntlist,gtlist,stlist,wlist):
+                    self.pdf += w*(nc*self._convolve(self.rlist,gc,sc,energy)+
+                                   nt*self._convolve(self.rlist,gt,st,energy))
+            else:
+                for g,s,w in zip(glist,slist,wlist):
+                    self.pdf += w*self._convolve(self.rlist,g,s,energy)
+
+        # for some reason, I incorrectly got a negative pdf value for r=0 and for
+        # especially large gaussian MC sources. Not sure how the integral of the 
+        # hypergeometric function could do this, but it is best to simply remove 
+        # it from the list since we know they are unphysical.
+        bad = N.isnan(self.pdf)|N.isinf(self.pdf)|(self.pdf<0)
+        if N.any(bad):
+            message='WARNING! Bad values found in PDF. Removing them from interpolation.' % sum(bad)
+            if N.any(N.isnan(self.pdf)): message += ' (%d NaN values)' % sum(N.isnan(self.pdf))
+            if N.any(N.isinf(self.pdf)): message += ' (%d Inf values)' % sum(N.isinf(self.pdf))
+            if N.any(self.pdf<0):        message +=' (%d negative values)' % sum(self.pdf<0)
+            raise Exception(message)
+
+    def do_convolution(self,band,fitpsf,fastpsf,roimax=0,penergy=0,ct=0):
         """ Generate points uniformly in r^2 ~ u, to ensure there are more 
             points near the center, where the PDF is bigger and changing
             rapidly. Then, do a cubic spline interpolation of the log of
@@ -586,11 +653,14 @@ class AnalyticConvolution(object):
   =========     =======================================================
             """
         # Use the 'optimal' energy (calculated by the ADJUST_MEAN flag) if it exists.
-        energy = band.psf.eopt if band.psf.__dict__.has_key('eopt') else band.e
+        energy = penergy if band==None else band.psf.eopt if band.psf.__dict__.has_key('eopt') else band.e
 
         # do most of the work in this subfunction, which allows for caching
         # by the AnalyticConvolutionCache subclass.
-        self._get_pdf(energy,band.ct,band,fitpsf,fastpsf)
+        if band!=None:
+            self._get_pdf(energy,band.ct,band,fitpsf,fastpsf)
+        else:
+            self._get_pdf_noband(energy,ct,roimax,fitpsf,fastpsf)
 
         # Assume pdf is 0 outside of the bound, which is reasonable if 
         # rmax is big enough also, interpolate the log of the intensity, which 
