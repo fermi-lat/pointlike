@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.44 2011/06/18 01:53:08 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.45 2011/06/22 18:05:54 lande Exp $
 
    author: Matthew Kerr
 """
@@ -165,7 +165,7 @@ class XML_to_Model(object):
                 # Sanity check on validity of xml 
                 raise Exception('For source %s, %s parameter %s cannot be fit (must be free="0")' % (source_name,specname,p[0]))
 
-            model.__dict__[p[1]] = float(pdict['value'])
+            model.__dict__[p[1]] = float(pdict['value'])*float(pdict['scale'])
 
         return model
 
