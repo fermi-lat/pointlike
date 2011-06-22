@@ -5,6 +5,7 @@ author: M.Roth <mar0@u.washington.edu>
 
 from uw.utilities.minuit import Minuit
 from uw.like import SpatialModels
+from uw.like.roi_extended import ExtendedSource
 from uw.utilities.convolution import AnalyticConvolution
 from uw.stacklike.CLHEP import HepRotation
 from uw.like import pypsf
@@ -549,8 +550,8 @@ class CDisk(Model):
         self.header=''
         self.psf = pypsf.CALDBPsf(CALDBManager(irf='P6_v11_diff'))
         self.sp = SpatialModels.Disk(p=np.array([0,0,self.model_par[0]*rd]))
-        self.ac = AnalyticConvolution(self.sp,self.psf)
-        self.ac.do_convolution_noband(self.model_par[1],self.model_par[2],self.lims[1]*rd,False)
+        self.ac = AnalyticConvolution(ExtendedSource(spatial_model=self.sp),self.psf)
+        self.ac.do_convolution(None,False,True,self.lims[1]*rd,self.model_par[1],self.model_par[2])
         #delt = (lims[1]-lims[0])/100.
         #xr = np.arange(lims[0],lims[1],delt)
         #yr = np.array([self.ac(s.SkyDir((x*1.+0.5)*rd*delt,0)) for x in range(len(xr)-1)])
@@ -621,8 +622,8 @@ class CHalo(Model):
         self.header='theta\t'
         self.psf = pypsf.CALDBPsf(CALDBManager(irf='P6_v11_diff'))
         self.sp = SpatialModels.GaussianR2(p=np.array([0,0,self.model_par[0]*rd]))
-        self.ac = AnalyticConvolution(self.sp,self.psf)
-        self.ac.do_convolution_noband(self.model_par[1],self.model_par[2],self.lims[1]*rd,False)
+        self.ac = AnalyticConvolution(ExtendedSource(spatial_model=self.sp),self.psf)
+        self.ac.do_convolution(None,False,True,self.lims[1]*rd,self.model_par[1],self.model_par[2])
         #delt = (lims[1]-lims[0])/100.
         #xr = np.arange(lims[0],lims[1],delt)
         #yr = np.array([self.ac(s.SkyDir((x*1.+0.5)*rd*delt,0)) for x in range(len(xr)-1)])
