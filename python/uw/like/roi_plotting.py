@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.50 2011/06/21 20:25:56 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.51 2011/06/21 21:48:06 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -500,10 +500,17 @@ class ROIDisplay(object):
         av = float(len(pvals)) / nb
         self.ax_pvals.hist(pvals,bins=N.linspace(0,1,20),histtype='step')
         self.ax_pvals.axhline( av, color='red')  
-        from uw.like.roi_plotting import ppf
         lo,hi = ppf( (50.-95/2)/100., av), ppf( (50. + 95/2)/100.,av)
-        self.ax_pvals.axhspan( lo , hi , facecolor='red', alpha=0.3,label='95% Conf.')
-        self.ax_pvals.legend(loc='upper right')
+        self.ax_pvals.axhspan( lo , hi , facecolor='red', alpha=0.3)
+
+        from matplotlib.offsetbox import AnchoredText
+        from matplotlib.font_manager import FontProperties
+        from matplotlib.patheffects import withStroke
+
+        font=dict(size='small');
+        at=AnchoredText('$95\%$ Conf.', loc=1, prop=font,frameon=False)
+        self.ax_pvals.add_artist(at)
+        at.txt._text.set_path_effects([withStroke(foreground="w", linewidth=3)])
 
         self.ax_resplot.set_title('Weighted Residuals')
 
@@ -521,7 +528,6 @@ class ROIDisplay(object):
         import pywcsgrid2
         from matplotlib import mpl
         from matplotlib.gridspec import GridSpec,GridSpecFromSubplotSpec
-        from uw.like.roi_plotting import ROISignificance
 
         self.imshow_args = dict(interpolation='nearest', origin='lower')
 
@@ -535,16 +541,15 @@ class ROIDisplay(object):
 
 
         # first, divide the plot in 4
-        gs = GridSpec(2, 2)
-        gs.update(wspace=0.35, hspace=0.20) # wspace=0.75,
-        self.ax_model = pywcsgrid2.subplot(gs[0, 0], header=self.h)
-        self.ax_counts = pywcsgrid2.subplot(gs[0,1], header=self.h)
-        self.ax_res = pywcsgrid2.subplot(gs[1:, 0], header=self.h)
+        gs = GridSpec(4, 4)
+        gs.update(wspace=0.75, hspace=0.75) # wspace=0.75,
+        self.ax_model = pywcsgrid2.subplot(gs[0:2, 0:2], header=self.h)
+        self.ax_counts = pywcsgrid2.subplot(gs[0:2,2:4], header=self.h)
+        self.ax_res = pywcsgrid2.subplot(gs[2:4, 0:2], header=self.h)
 
         # then divide the 4th space in two.
-        subgs = GridSpecFromSubplotSpec(2, 1, subplot_spec=gs[1,1], wspace=0, hspace=0.5)
-        self.ax_pvals = P.subplot(subgs[0, 0])
-        self.ax_resplot = P.subplot(subgs[1, 0])
+        self.ax_pvals = P.subplot(gs[2, 2:4])
+        self.ax_resplot = P.subplot(gs[3, 2:4])
 
         self.model_plot()
         self.counts_plot()
@@ -1365,7 +1370,6 @@ class ROITSMapPlotter(object):
         from matplotlib.axes import Axes
         from matplotlib import mpl
         from uw.utilities import colormaps
-        from uw.like.roi_plotting import ROISignificance
 
         self.fig =  fig = P.figure(self.fignum,self.figsize)
         P.clf()
