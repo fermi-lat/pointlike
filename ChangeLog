@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Jun 22 10:28:46 PDT 2011
+pointlike/python/uw/stacklike
+
+Modified Files:
+	angularmodels.py 
+Log Message:
+added functionality for convolving spatial models without spectral analysis bands
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-26, operation: add
 Package: pointlike
