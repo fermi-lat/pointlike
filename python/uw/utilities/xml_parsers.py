@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.43 2011/06/16 21:43:23 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.44 2011/06/18 01:53:08 lande Exp $
 
    author: Matthew Kerr
 """
@@ -437,9 +437,9 @@ class Model_to_XML(object):
             if model.name == 'Constant': my_xml_name='ConstantValue'
             else:
                 for l_xml_name,v in self.x2m.modict.iteritems():
-                    if v == model.name:
+                    if v == type(model):
                         my_xml_name = l_xml_name;break
-                if v != model.name:
+                if v != type(model):
                     raise Exception,'Unable to find an XML model for %s'%(model.name)
         self.update(my_xml_name,scaling=scaling)
 
