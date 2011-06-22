@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.51 2011/06/21 21:48:06 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.52 2011/06/22 00:27:48 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -70,7 +70,6 @@ def band_spectra(r,source=0):
     exp     = N.asarray([sum([band.expected(m)/m.i_flux(band.emin,band.emax) for band in g]) for g in groupings])
 
     for i,gi in enumerate(groupings):
-        #print pslw.bin_centers[i]
         obs = sum([band.photons for band in gi])
         """ #way to handle 0 count bins
         
@@ -530,8 +529,6 @@ class ROIDisplay(object):
         from matplotlib.gridspec import GridSpec,GridSpecFromSubplotSpec
 
         self.imshow_args = dict(interpolation='nearest', origin='lower')
-
-        print 'figsize=',self.figsize
 
         self.fig = P.figure(self.fignum,self.figsize)
         P.clf()
