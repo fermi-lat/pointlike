@@ -1,11 +1,11 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.45 2011/05/02 01:53:44 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.46 2011/06/18 01:51:03 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
 """
-import types
+import copy
 import numpy as N
 import numpy as np
 import math as M
@@ -832,6 +832,10 @@ class InterpConstants(Model):
 
 class FileFunction(Model):
 
+    def __make_interp__(self):
+        self.interp = interp1d(N.log10(self.energy),N.log10(self.flux),
+                bounds_error=False,fill_value=-N.inf)
+
     def __init__(self,*args,**kwargs):
 
         super(FileFunction,self).__init__(*args,**kwargs)
@@ -842,14 +846,25 @@ class FileFunction(Model):
         file=N.genfromtxt(self.file,unpack=True)
         self.energy,self.flux=file[0],file[1]
 
-        self.interp = interp1d(N.log10(self.energy),N.log10(self.flux),
-                bounds_error=False,fill_value=-N.inf)
+        self.__make_interp__()
 
     def __call__(self,e):
         return 10**(self._p[0]+self.interp(N.log10(e)))
     
     def gradient(self,e):
         return N.asarray([10**self.interp(N.log10(e))])
+
+    def __getstate__(self):
+        """ You cannot pickle an interp1d object. """
+        d=copy.copy(self.__dict__)
+        del d['interp']
+        return d
+
+    def __setstate__(self,state):
+        """ recreate interp1d object. """
+        self.__dict__ = state
+        self.__make_interp__()
+
 
 def convert_exp_cutoff(model):
     # this function need for XML parsing
