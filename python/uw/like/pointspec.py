@@ -1,11 +1,12 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.35 2011/04/22 18:10:04 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.36 2011/06/17 03:51:52 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.35 $'.split()[1]
+version='$Revision: 1.36 $'.split()[1]
+import types
 import os
 from os.path import join
 import sys
@@ -67,9 +68,9 @@ class DataSpecification(object):
             raise Exception,'No FT2 or livetime file provided! Must pass at least one of these.'
 
         # make sure everything is iterable or None
-        if isinstance(self.ft1files,collections.Iterable):
+        if isinstance(self.ft1files,types.StringType):
             self.ft1files = [self.ft1files] 
-        if isinstance(self.ft2files,collections.Iterable):
+        if isinstance(self.ft2files,types.StringType):
             self.ft2files = [self.ft2files] 
 
 class SavedData(DataSpecification):
@@ -291,7 +292,8 @@ class SpectralAnalysis(object):
         if catalog_mapper is None:
             catalog_mapper = lambda x: FermiCatalog(x)
 
-        if not isinstance(catalogs,collections.Iterable): catalogs = [catalogs]
+        if not isinstance(catalogs,collections.Iterable) or \
+                isinstance(catalogs,types.StringType): catalogs = [catalogs]
         for cat in catalogs:
             if not isinstance(cat,PointSourceCatalog):
                 cat = catalog_mapper(cat)
