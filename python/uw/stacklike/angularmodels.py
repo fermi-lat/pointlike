@@ -551,7 +551,8 @@ class CDisk(Model):
         self.psf = pypsf.CALDBPsf(CALDBManager(irf='P6_v11_diff'))
         self.sp = SpatialModels.Disk(p=np.array([0,0,self.model_par[0]*rd]))
         self.ac = AnalyticConvolution(ExtendedSource(spatial_model=self.sp),self.psf)
-        self.ac.do_convolution(None,False,True,self.lims[1]*rd,self.model_par[1],self.model_par[2])
+        pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1])
+        self.ac.do_convolution(pb,False,True)
         #delt = (lims[1]-lims[0])/100.
         #xr = np.arange(lims[0],lims[1],delt)
         #yr = np.array([self.ac(s.SkyDir((x*1.+0.5)*rd*delt,0)) for x in range(len(xr)-1)])
@@ -623,7 +624,8 @@ class CHalo(Model):
         self.psf = pypsf.CALDBPsf(CALDBManager(irf='P6_v11_diff'))
         self.sp = SpatialModels.GaussianR2(p=np.array([0,0,self.model_par[0]*rd]))
         self.ac = AnalyticConvolution(ExtendedSource(spatial_model=self.sp),self.psf)
-        self.ac.do_convolution(None,False,True,self.lims[1]*rd,self.model_par[1],self.model_par[2])
+        pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1])
+        self.ac.do_convolution(pb,False,True)
         #delt = (lims[1]-lims[0])/100.
         #xr = np.arange(lims[0],lims[1],delt)
         #yr = np.array([self.ac(s.SkyDir((x*1.+0.5)*rd*delt,0)) for x in range(len(xr)-1)])
