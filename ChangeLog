@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Jun 23 11:10:48 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Added a function to check if it is possible to use gradient fitter.  Made gradient fitting default.
+
+    *
+------------------------------------------------------------
 User: mar0  Wed Jun 22 15:13:04 PDT 2011
 pointlike/python/uw/utilities
 
