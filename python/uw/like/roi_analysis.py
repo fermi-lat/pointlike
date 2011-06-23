@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.97 2011/06/21 20:24:42 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.98 2011/06/23 18:10:48 kerrm Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -367,7 +367,7 @@ class ROIAnalysis(object):
 
     def fit(self,method='simplex', tolerance = 0.01, save_values = True, 
                      fit_bg_first = False, estimate_errors=True, error_for_steps=False,
-                     use_gradient = False, gtol = 1e-1):
+                     use_gradient = True, gtol = 1e-1):
         """Maximize likelihood and estimate errors.
 
             method     -- ['simplex'] fitter; 'powell' or 'simplex' or 'minuit'
@@ -502,7 +502,7 @@ class ROIAnalysis(object):
             ll_string  = ''
         return '\n\n'.join([ps_header,self.psm.__str__(),bg_header,self.bgm.__str__(),ll_string])
 
-    def TS(self,quick=True,which=0,method='simplex', bandfits=False):
+    def TS(self,which=0,quick=True,method='simplex', bandfits=False):
         """Calculate the significance of the central point source.
 
             quick -- if set True, just calculate likelihood with source flux set to 0
