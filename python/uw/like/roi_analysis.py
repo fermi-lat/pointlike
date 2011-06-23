@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.96 2011/06/17 03:56:35 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.97 2011/06/21 20:24:42 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -351,6 +351,13 @@ class ROIAnalysis(object):
             self.param_state = param_state
             self.param_vals  = param_vals
 
+    def _check_gradient(self):
+        """ Determine if it's OK to use the gradient fitter."""
+        for model in self.psm.models:
+            if np.any(model.free) and (not hasattr(model,'gradient')):
+                return False
+        return True
+
     def __update_state__(self):
         """ Helper function which should, hopefully, consistently update
             all of the model predictions for an ROI, even if some of
@@ -369,6 +376,10 @@ class ROIAnalysis(object):
 
         if method not in ['simplex','powell','minuit']:
             raise Exception('Unknown fitting method for F.fit(): "%s"' % method)
+        if use_gradient and (not self._check_gradient()):
+            if not self.quiet:
+                print 'Found a model without a gradient method.  Switching to simplex method.'
+            method = 'simplex'; use_gradient = False
 
         if fit_bg_first:
             self.fit_background()
