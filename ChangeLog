@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Jun 23 11:59:15 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+use_gradient=True now default; order of kwargs in TS switched.
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Jun 23 11:10:48 PDT 2011
 pointlike/python/uw/like
 
