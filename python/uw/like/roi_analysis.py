@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.98 2011/06/23 18:10:48 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.99 2011/06/23 18:59:15 kerrm Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -696,7 +696,7 @@ class ROIAnalysis(object):
         tsmap.get_pyfits().writeto(filename,clobber=True)
 
     @decorate_with(sed_plotter.plot_sed)
-    def plot_sed(self,filename,which=None,**kwargs):
+    def plot_sed(self,which=None,filename=None,**kwargs):
         return sed_plotter.plot_sed(self,which=which,outdir=filename,**kwargs)
 
     @decorate_with(roi_plotting.ROIDisplay,append_init=True)
@@ -708,19 +708,19 @@ class ROIAnalysis(object):
         counts_plotter.roi_pipeline_counts_plot(self,counts_dir=filename,**kwargs)
 
     @decorate_with(roi_plotting.ROISlice,append_init=True)
-    def plot_slice(self,filename,which=None,datafile=None,**kwargs):
+    def plot_slice(self,which=None,filename=None,datafile=None,**kwargs):
         roi_plotting.ROISlice(self,which=which,**kwargs).show(filename=filename,datafile=datafile)
 
     @decorate_with(roi_plotting.ROIRadialIntegral,append_init=True)
-    def plot_radial_integral(self,filename,which=None,datafile=None,**kwargs):
+    def plot_radial_integral(self,which=None,filename=None,datafile=None,**kwargs):
         roi_plotting.ROIRadialIntegral(self,which=which,**kwargs).show(filename=filename,datafile=None)
 
     @decorate_with(roi_plotting.ROISmoothedSource,append_init=True)
-    def plot_source(self,filename,which=None,**kwargs):
+    def plot_source(self,which=None,filename=None,**kwargs):
         roi_plotting.ROISmoothedSource(self,which=which,**kwargs).show(filename=filename)
 
     @decorate_with(roi_plotting.ROISmoothedSources,append_init=True)
-    def plot_sources(self,filename,which=None,**kwargs):
+    def plot_sources(self,which=None,filename=None,**kwargs):
         roi_plotting.ROISmoothedSources(self,which=which,**kwargs).show(filename=filename)
 
     @decorate_with(roi_plotting.ROITSMapPlotter,append_init=True)
