@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jun 23 21:38:10 PDT 2011
+pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+fix bug to allow use of separate front and back diffuse files
+    *
+------------------------------------------------------------
 User: burnett  Thu Jun 23 21:36:45 PDT 2011
 pointlike/python/uw/utilities
 
