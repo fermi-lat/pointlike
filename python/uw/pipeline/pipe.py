@@ -1,11 +1,11 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.12 2011/04/26 16:06:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.13 2011/04/26 18:00:55 burnett Exp $
 """
 import os, types, glob, time
 import cPickle as pickle
 import numpy as np
-from . import skymodel, skyanalysis, processor, associate
+from . import skymodel, skyanalysis, processor, associate, bandlike
 from uw.utilities import makerec
 from uw.utilities.assigntasks import setup_mec, AssignTasks, get_mec, kill_mec, free
 
@@ -20,13 +20,15 @@ class Pipe(skyanalysis.SkyAnalysis):
            skymodel.SkyModel
            
     """
-    def __init__(self, indir, dataset, **kwargs):
+    def __init__(self, indir, dataset,  **kwargs):
         """
         indir : string
             name of a folder containing the sky model description, passed to 
                skymodel.SkyModel
         dataset : instance of a DataSpec object or a string used to lookup
-               
+              
+        keyword arguments:
+            processor : if set, it is a function
         """
         self.nside      = kwargs.pop('nside', 12)
         self.process_kw = kwargs.pop('process_kw', dict())
@@ -41,6 +43,11 @@ class Pipe(skyanalysis.SkyAnalysis):
         self.selector = skymodel.HEALPixSourceSelector
         self.selector.nside = self.nside
 
+        # the function that will be called for each ROI: default is processor.process
+        self.processor = kwargs.pop('processor', processor.process)
+        if type(self.processor)==types.StringType:
+            self.processor = eval(self.processor)
+
         # create the SkyModel object passing any additional keywords to it, and start the superclass
         sm = skymodel.SkyModel(indir,  **self.skymodel_kw)
         super(Pipe, self).__init__(sm, dataset, **kwargs)
@@ -50,7 +57,7 @@ class Pipe(skyanalysis.SkyAnalysis):
         Note that it is done by a function in the processor module
         """
         roi = self.roi(index )
-        processor.process(roi, **self.process_kw)
+        self.processor(roi, **self.process_kw)
 
     def names(self):
         return [self.selector(i).name() for i in range(12*self.nside**2)]
@@ -81,10 +88,11 @@ class Setup(dict):
                 irf = 'P7SOURCE_V4PSF',
                 associator ='all_but_gammas',
                 sedfig = None,
-                tsmap  = None,
+                tsmap  = None, tsfits=False,
                 localize=True,
                 fit_emin=100,
                 fit_emax=800000,
+                processor='processor.process',
                 fix_beta=False, dofit=True,
                 source_kw=dict(),
                 fit_kw=dict(),
@@ -114,9 +122,11 @@ g=pipe.Pipe("%(indir)s", "%(dataset)s",  event_class=0,
             alias =%(alias)s, %(skymodel_extra)s), 
         irf="%(irf)s", nside=%(nside)s,
         fit_emin=%(fit_emin)s, fit_emax=%(fit_emax)s, minROI=%(minROI)s, maxROI=%(maxROI)s,
+        processor="%(processor)s",
         associate="%(associator)s",
         process_kw=dict(outdir="%(outdir)s", pass_number=%(pass_number)s,
-            tsmap_dir=%(tsmap)s,  sedfig_dir=%(sedfig)s,
+            tsmap_dir=%(tsmap)s,  tsfits=%(tsfits)s,
+            sedfig_dir=%(sedfig)s,
             localize=%(localize)s,
             fix_beta= %(fix_beta)s, dofit=%(dofit)s,
             tables= %(tables)s,
@@ -188,10 +198,105 @@ def iterate(setup, **kwargs):
     converge_test(version+1, setup['nside'])
     setup.increment_version()
 
+def roirec(outdir, check=False):
+    roi_files = sorted(glob.glob(os.path.join(outdir, 'pickle/*.pickle')))
+    n = 1728
+    if len(roi_files)<n:
+        t = map(lambda x : int(x[-11:-7]), roi_files)
+        missing = [x for x in xrange(n) if x not in t]
+        if len(missing)<10:
+            print '\tmisssing roi files: %s' % missing
+        else:
+            print '\tMissing %d roi files: %s...' %( len(missing), missing[:10])
+        if check: return missing    
+    if check: return[]#    return None # raise Exception('misssing roi files: %s' % missing)
+        
+    recarray = makerec.RecArray('name chisq loglike prevlike niter'.split())
+    bad = []
+    for fname in roi_files:
+        p = pickle.load(open(fname))
+        if 'counts' not in p.keys():
+            bad.append(fname)
+            continue
+        counts = p['counts']
+        obs,mod = counts['observed'], counts['total']
+        chisq =  ((obs-mod)**2/mod).sum()
+        logl_list = p.get('prev_logl', [0])
+        recarray.append(p['name'], chisq, p['logl'], logl_list[-1], len(logl_list))
+    if len(bad)>0:
+        print 'no fit info in file(s) %s' % bad if len(bad)<10 else (str(bad[:10])+'...')
+    return recarray()
+
+def check_converge(month, tol=10, log=None):
+    """ check for convergence, ROI that have been updated
+    month: int or string
+        if int, intrepret as a month, else a folder
+        
+    """
+    from pointlike import IntVector
+    from skymaps import Band
+    outdir = 'month%02d'%month if type(month)==types.IntType else month
+    print '%s:' %outdir
+    r = roirec(outdir)
+    if r is None: return
+    diff = r.loglike-r.prevlike
+    dmin,dmax = diff.min(), diff.max()
+    rmin,rmax = list(diff).index(dmin), list(diff).index(dmax)
+    changed = set(np.arange(1728)[np.abs(diff)>tol])
+    print >>log, '\tpass %d:  %d changed > %d, min, max: %d(#%d) %d(#%d)' % (max(r.niter),len(changed), tol, dmin,rmin,dmax,rmax),
+    nbrs = set()
+    b12 = Band(12)
+    for x in changed: 
+        v = IntVector()
+        b12.findNeighbors(int(x),v) # int is tricky
+        for n in v:
+            nbrs.add(n)
+    q =list(changed.union( nbrs))
+    print >>log, ' (total %d)' %len(q)
+    if log is not None: log.flush()
+    return q
+    
+def iterate_months(month, mec, make_setup, minpass=0, maxpass=7, log=None, tol=10, dampen=0.5, **kwargs):
+    """
+    run main for a given month or dataset. minpass is starting pass number:
+        0 : inital run from default skymodel
+        1 : update all ROIs in place
+        >1: update only changed ROIs and neighbors
+    loops until maxpass, or no ROIs to update
+    """
+   
+    outdir = 'month%02d'%month if type(month)==types.IntType else month
+    if log is None:
+        log = open(os.path.join(outdir, 'log.txt'), 'a')
+    converged=False
+    iterfilename = os.path.join(outdir, 'iteration.txt')
+    if  not os.path.exists(iterfilename):
+        iterfile = open(iterfilename, 'w').write('%d'%minpass)
+    minpass = int(open(iterfilename).read())
+    for pass_number in range(minpass, maxpass):
+        print >>log, time.asctime(), 'start iteration %d, damping factor=%.2f' % (pass_number, dampen)
+        log.flush()
+        if pass_number==0:
+            setup = make_setup(outdir, False, pass_number)
+            main(setup, mec=mec, **kwargs)
+        elif pass_number==1:
+            setup = make_setup(outdir, True, pass_number)
+            main(setup, mec=mec, **kwargs)
+        else:
+            taskids = check_converge(outdir, log=log, tol=tol)
+            if len(taskids)==0: 
+                converged=True; break
+            setup = make_setup(outdir, True, pass_number, dampen=dampen)
+            main(setup, mec=mec, taskids=taskids, **kwargs
+            )
+        open(iterfilename, 'w').write('%d'%pass_number);
+    
+    print >>log, time.asctime(), 'finished'
+    log.flush()
+    print 'done!' if converged else 'Warning: did not converge' 
  
 #--------------------        
 def main( setup, mec=None, taskids=None, local=False,
-        machines=[], engines=None,
         ignore_exception=False, 
         logpath='log',
         progress_bar=False):
@@ -209,14 +314,15 @@ def main( setup, mec=None, taskids=None, local=False,
     """
     setup_string = setup()
     outdir = setup.outdir
-    if not os.path.exists(outdir): 
-        os.mkdir(outdir)
-    print 'writing results to %s' %outdir
+    if outdir is not None:
+        if not os.path.exists(outdir): 
+            os.mkdir(outdir)
+        print 'writing results to %s' %outdir
     # create an instance as a test, and to get the number of tasks that it defines.
     # executing the setup string must create an object g, where g(n) for 0<=n<len(g.names())
     # will execute the task n
     g = getg(setup_string)
-    if logpath is not None:
+    if logpath is not None and outdir is not None:
         print >> open(os.path.join(outdir, 'config.txt'), 'w'), str(g)
         print >> open(os.path.join(outdir, 'setup_string.txt'), 'w'), setup_string
     names = g.names(); 
@@ -237,9 +343,10 @@ def main( setup, mec=None, taskids=None, local=False,
         if logpath is None: return
         try:
             name = names[taskids[id]]
-            logdir = os.path.join(outdir, logpath)
+            logdir = os.path.join(outdir, logpath) if outdir is not None else logpath
             if not os.path.exists(logdir): os.mkdir(logdir)
             out = open(os.path.join(logdir, '%s.txt' % name.strip().replace(' ','_').replace('+','p')), 'a')
+            print >>out, '='*80
             print >>out, '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (name,))
             print >>out, result
             out.close()
@@ -248,10 +355,12 @@ def main( setup, mec=None, taskids=None, local=False,
             raise
             
     if not local and mec is None: 
-        setup_mec(machines=machines, engines=engines)
-    time.sleep(10)
+        setup_mec()
+        time.sleep(20)
+        mec=get_mec()
+        assert len(mec.get_ids())>10, 'Failed to setup mec?'
     lc= AssignTasks(setup_string, tasks, post=post, mec=mec, 
-        timelimit=2000, local=local, callback=callback, 
+        timelimit=5000, local=local, callback=callback, 
         ignore_exception=ignore_exception,
          progress_bar=progress_bar)
     lc(15)

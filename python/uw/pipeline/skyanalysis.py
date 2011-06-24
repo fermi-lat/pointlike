@@ -1,6 +1,6 @@
 """
 Basic ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.21 2011/04/16 14:14:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.22 2011/04/26 15:55:21 burnett Exp $
 """
 import os, pickle, glob, types
 import numpy as np
@@ -20,18 +20,19 @@ def decorate_with(other_func, append=False):
     return decorator
 
 
+        
 class SkyAnalysis(pointspec.SpectralAnalysis):
 
     config = dict(
         fit_emin     = 100,
-        fit_emax     = 600000.,
+        fit_emax     = 562341.,
         minROI       = 5,
         maxROI       = 5,
         radius       =10, 
-        irf          = 'P6_v11_diff',
+        irf          = 'P7SOURCE_V6',
         #fit_kw = dict(fit_bg_first = False, use_gradient = True, ),
         log          = None,
-        convolve_kw = dict( resolution=0.125, # applied to OTF convolutoin
+        convolve_kw = dict( resolution=0.125, # applied to OTF convolution
                         pixelsize=0.05, # ExtendedSourceConvolution
                         num_points=25), # AnalyticConvolution
         selector = skymodel.HEALPixSourceSelector, # this is a factory of SourceSelector objects
@@ -40,7 +41,9 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
     def __init__(self, sky, dataset, **kwargs):
         """
         sky:  skymodel object
-        dataset:
+        dataset: string, dict, or DataSpecification object
+            if string: lookup a DataSpec in dataspec.DataSpec
+            if dict: assume contains proper keys
         """
         # extract updates to local kw
         
@@ -62,7 +65,9 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
             if self.log is not None: self.log.close()
 
     def _process_dataset(self,dataset,month):
-        """ Parse the dataset as either a DataSpecification object, a dict, or a string lookup key."""
+        """ Parse the dataset as either a DataSpecification object, a dict, or a string lookup key.
+            month: sub spec.
+        """
         if hasattr(dataset,'binfile'): # dataset is DataSpecification instance
             return dataset
         if hasattr(dataset,'pop'): # dataset is a dict
@@ -70,6 +75,19 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
                 dataset['data_name'] = 'Custom Dataset %d'%id(dataset)
             dataspec.DataSpec.datasets[id(dataset)] = dataset
             return dataspec.DataSpec(id(dataset),month=month)
+        # it is a string, check dictionary in ., then $FERMI/data
+        for folder in  ('.',  os.path.join(os.path.expandvars('$FERMI'),'data')):
+            dict_file=os.path.join(folder, 'dataspec.py')
+            if os.path.exists(dict_file):
+                try:
+                    ldict = eval(open(dict_file).read())
+                except:
+                    print 'Data dictionary file %s not valid' % ldict
+                    raise
+                if dataset in ldict: 
+                    print 'found dataset %s in $FERMI/data' % dataset
+                    return dataspec.DataSpecification(folder, **ldict[dataset])
+        # not found: this is deprecated, leave for backwards consisency
         return dataspec.DataSpec(dataset,month=month)
     
     def __str__(self):
@@ -77,7 +95,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         show = """CALDB irf skymodel dataspec fit_emin fit_emax fit_kw 
                minROI maxROI convolve_kw process_kw""".split()
         for key in show:
-            s += '\t%-20s: %s\n' %(key, 
+            s += '\t%-20s: %s\n' %(key,
                 self.__dict__[key] if key in self.__dict__.keys() else 'not in self.__dict__!')
         return s
 

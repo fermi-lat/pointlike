@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.14 2011/04/18 17:06:38 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.15 2011/04/26 15:58:16 burnett Exp $
 """
 import os, time
 import cPickle as pickle
@@ -160,6 +160,7 @@ def make_tsmap(roi, source, tsmap_dir, **kwargs):
     """ generate a tsmap for source name in the roi
     """
     adict = source.adict if 'adict' in source.__dict__ else None #kwargs.pop('adict', None)
+    tsfits = kwargs.get('tsfits', False)
     tsize = source.ellipse[2]*15. if source.ellipse is not None else 1.1
     name = source.name
     fout = os.path.join(tsmap_dir, ('%s_tsmap.png'%fname(name)) )
@@ -167,9 +168,10 @@ def make_tsmap(roi, source, tsmap_dir, **kwargs):
     try:
         if not isextended(source): 
             roi.qform= None #kluge to ignore the last fit
+            pixelsize= tsize/15.;
             tsm=roi.plot_tsmap( which=which, center=source.skydir, name=roi.name,
                 outdir=None, catsig=0, size=tsize, 
-                pixelsize= tsize/14,
+                pixelsize= pixelsize, # was 14: desire to have central pixel
                 # todo: fix this
                 assoc=adict if adict is not None else None, # either None or a dictionary
                 notitle=True, #don't do title
@@ -179,6 +181,10 @@ def make_tsmap(roi, source, tsmap_dir, **kwargs):
             if source.ellipse is not None:
                 tsm.overplot(source.ellipse)
             tsm.zea.axes.set_title('%s'% name, fontsize=16)  # big title
+            if tsfits: 
+                fitsname = os.path.join(tsmap_dir, '%s_tsmap.fits' % fname(name))
+                tsm.zea.skyimage.reimage(tsm.zea.center,fitsname , pixelsize, tsize)
+
         else: 
             # yucky branch to avoid trying to generate TS maps for extended sources
             print 'dummy TS map for extended source %s ' % name
@@ -188,6 +194,7 @@ def make_tsmap(roi, source, tsmap_dir, **kwargs):
             plt.gca().set_axis_off()
         plt.savefig(fout)
         print 'saved tsplot to %s' % fout 
+        if tsfits: print 'saved fits format to %s' % fitsname
     except Exception, e:
         print 'Failed to calculate tsmap: %s' % e
         fig = plt.figure(figsize=(5,5))
@@ -246,7 +253,7 @@ def process_sources(roi, sources, **kwargs):
             proc(roi, source, full_path, **kwargs)
      
 
-def localize_all(roi,sources):
+def localize_all(roi,sources, **localize_kw):
 
     roi.qform=None
     for source in sources:
@@ -254,7 +261,7 @@ def localize_all(roi,sources):
             print 'source %s is extended: not localizing' % source.name
             source.ellipse=None
         else:
-            source.tsmaxpos, delta_ts =roi.localize(which=source.name)
+            source.tsmaxpos, delta_ts =roi.localize(which=source.name, **localize_kw)
             source.ellipse = roi.qform.par[0:2]+roi.qform.par[3:7] +[delta_ts] if roi.qform is not None else None
         
 def repivot(roi, fit_sources, min_ts = 16, max_beta=3.0):
@@ -329,6 +336,7 @@ def process(roi, **kwargs):
     dofit   =  kwargs.pop('dofit', True)
     pass_number=kwargs.pop('pass_number', 0)
     tables = kwargs.pop('tables', None)
+    localize_kw = kwargs.pop('localize_kw', {}) # could have bandfits=False
 
     damp = Damper(roi, dampen)
     
@@ -364,7 +372,7 @@ def process(roi, **kwargs):
             print 'Refit not requested'
     
     if localize: 
-        localize_all(roi, fit_sources)
+        localize_all(roi, fit_sources, **localize_kw)
     if tables is not None:
         tables(roi)
     
@@ -383,7 +391,7 @@ def process(roi, **kwargs):
         print 'saved counts plot to %s' % fout
 
     
-    if outdir is None: return True
+    if outdir is None or not dofit: return True
     
     pickle_dir = os.path.join(outdir, 'pickle')
     if not os.path.exists(pickle_dir): os.makedirs(pickle_dir)

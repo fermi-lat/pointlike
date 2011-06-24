@@ -1,10 +1,33 @@
 """
 Manage data specification
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/dataspec.py,v 1.8 2011/04/25 21:31:39 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/dataspec.py,v 1.9 2011/04/26 16:14:40 burnett Exp $
 
 """
 import os, glob
+
+
+class DataSpecification(object):
+    """ stand-in for current pointspec.DataSpecification 
+    """
+    def __init__(self, folder, **data):
+        """
+        folder : string
+            the path to the folder where the dictionary was found
+        data : dict
+            dictionary that contains entries sufficient to describe the data, and how to generate it
+        """
+        if folder=='.': folder = os.getcwd()
+        for key in 'ft1files ft2files binfile ltcube'.split():
+            if key in data and data[key] is not None:
+                data[key]=os.path.expandvars(data[key]) 
+                if not os.path.isabs(key):
+                    data[key] = os.path.join(folder,data[key])
+                # need a check, but will fail if need to glob
+                #assert os.path.exists(data[key]), 'DataSpec: file %s not found' % data[key]
+        self.__dict__.update(data)
+        print 'data spec:\n', str(self.__dict__)
+
 class DataSpec(object):
     """
     This needs to be made local to an installation
@@ -107,8 +130,8 @@ class DataSpec(object):
             month = int(t[1][:-1])
         data = self.datasets[lookup_key].copy() # copy so changes not kept for subsequent calls
         for key in 'ft1files ft2files binfile ltcube'.split():
-            if key in data:
-                data[key]=os.path.expandvars(data[key])
+            if key in data and data[key] is not None:
+                data[key]=os.path.expandvars(data[key]) 
                 # need a check, but will fail if need to glob
                 #assert os.path.exists(data[key]), 'DataSpec: file %s not found' % data[key]
         if month is not None:

@@ -1,6 +1,6 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/catrec.py,v 1.6 2011/04/16 14:14:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/catrec.py,v 1.7 2011/04/18 17:06:38 wallacee Exp $
 """
 import os, glob
 import cPickle as pickle
@@ -41,21 +41,22 @@ def create_catalog(outdir, **kwargs):
         also make a diffuse parameter dictionary
     """
     assert os.path.exists(os.path.join(outdir,'pickle')), 'pickle folder not found under %s' %outdir
-    filelist = glob.glob(os.path.join(outdir, 'pickle', '*.pickle'))
+    filelist = sorted(glob.glob(os.path.join(outdir, 'pickle', '*.pickle')))
     assert len(filelist)>0, 'no .pickle files found in %s/pickle' % outdir 
     failed,maxfail = 0,kwargs.pop('maxfail',10)
     ignore_exception = kwargs.pop('ignore_exception',False)
     save_local = kwargs.pop('save_local',False) 
     ts_min = kwargs.pop('ts_min', 5)
+    minflux = kwargs.pop('minflux', 1e-17)
+    addtorec = kwargs.pop('addtorec', None)
     assert len(kwargs.keys())==0, 'unrecognized kw %s' %kwargs 
-    filelist.sort()
     if 'LATEXTDIR' not in os.environ:
-        t = os.path.join(os.environ['FERMI'],'catalog','Extended_archive_v08') 
+        t = os.path.join(os.environ['FERMI'],'catalog','Extended_archive_v10') 
         assert os.path.exists(os.path.join(t,'Templates')), 'path %s not found' %t
         os.environ['LATEXTDIR']=t
     
     class CatalogRecArray(object):
-        def __init__(self, minflux=1e-16, update_position=False, ts_min=ts_min):
+        def __init__(self, minflux=minflux, update_position=False, ts_min=ts_min):
             self.minflux=minflux
             self.update_position = update_position
             self.count=self.reject=self.moved=0
@@ -77,6 +78,8 @@ def create_catalog(outdir, **kwargs):
                 bts1 bts10
                 fit_ra fit_dec a b ang qual delta_ts
                 """.split() 
+            if addtorec is not None:
+                self.colnames += addtorec.colnames
             self.rec =makerec.RecArray(self.colnames) 
 
         def process(self,pk, cnan=np.nan):
@@ -100,6 +103,7 @@ def create_catalog(outdir, **kwargs):
                 data.append( entry['extent'] is not None)
                 
                 model  = entry['model']
+                if '_p' not in model.__dict__: model._p = model.p 
                 p,p_relunc = model.statistical()
                 if p[0]< self.minflux or np.any(np.isnan(p[:2])):
                     self.reject+=1
@@ -133,8 +137,9 @@ def create_catalog(outdir, **kwargs):
                         if qual<5 and delta_ts<9 and a < 0.2 :
                             data[1:3] = [fit_ra, fit_dec]
                             self.moved +=1
-
-                assert len(data)==len(self.colnames), 'mismatch between names, data'
+                if addtorec is not None:
+                    data += addtorec(entry)
+                assert len(data)==len(self.colnames), 'mismatch between names, data, %d, %d' %(len(self.colnames),len(data))
                 #assert not np.any(np.isinf(data[1:])), 'found inf for source %s' % name 
                 self.rec.append(*data)
 
