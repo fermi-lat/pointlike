@@ -1,10 +1,11 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.20 2011/04/04 22:56:25 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.21 2011/06/22 05:17:41 lande Exp $
 
 author: Matthew Kerr
 """
+import sys
 import numpy as N
 from uw.utilities.convolution import BackgroundConvolution
 from uw.utilities import keyword_options
@@ -128,7 +129,8 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         ('npix',101,"Note -- can be overridden at the band level"),
         ('nsimps',4,"Note -- some energies use a multiple of this"),
         ('r_multi',1.0,"Multiple of r95 to set max dimension of grid"),
-        ('r_max',20,"An absolute maximum (half)-size of grid (deg)")
+        ('r_max',20,"An absolute maximum (half)-size of grid (deg)"),
+        ('quiet', False, 'Set True to quiet'),
     )
 
     @keyword_options.decorate(defaults)
@@ -180,7 +182,9 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         self.bands = [SmallBand() for i in xrange(len(bands))]
 
         for myband,band in zip(self.bands,bands):
-
+            if not self.quiet: 
+                print '.',
+                sys.stdout.flush()
             # use a higher nsimps at low energy where effective area is jagged
             ns,myband.bg_points,myband.bg_vector = ROIDiffuseModel_OTF.sub_energy_binning(band,self.nsimps)
 
@@ -206,7 +210,8 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
 
         self.init_p = self.smodel.get_all_parameters(internal=True)
         self.prev_p = self.smodel.get_all_parameters(internal=True) +1e-5 # kluge
-
+        if not self.quiet: print
+        
     def update_counts(self,bands,model_index):
 
         mi = model_index
