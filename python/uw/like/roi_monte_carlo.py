@@ -13,8 +13,9 @@ import collections
 from tempfile import mkdtemp,mkstemp,NamedTemporaryFile
 from GtApp import GtApp
 
+import pyfits
 import numpy as N
-from skymaps import IsotropicSpectrum,IsotropicPowerLaw,DiffuseFunction,PySkyFunction
+from skymaps import IsotropicSpectrum,IsotropicPowerLaw,DiffuseFunction,PySkyFunction,SkyImage,SkyDir
 from . SpatialModels import Gaussian,EllipticalGaussian,RadiallySymmetricModel
 from . Models import PowerLaw,PowerLawFlux,Constant
 from . pointspec import DataSpecification,SpectralAnalysis
