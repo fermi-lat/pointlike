@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/skymaps/python/colormaps.py,v 1.1 2009/07/07 19:14:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/colormaps.py,v 1.1 2010/01/23 14:52:07 burnett Exp $
 
 Author: T. Burnett
 
@@ -211,6 +211,11 @@ __sls_data="""
 1.000000 1.000000 1.000000""".split()
 sls = colors.ListedColormap(nm.asarray(__sls_data, dtype=float).reshape((200,3)))
 
+def __fix(t): 
+    t[0,:]=0.25 #replace black with dark grey
+    return colors.ListedColormap(t)
+slsx = __fix( nm.asarray(__sls_data, dtype=float).reshape((200,3)) )
+
 """ 'b' color map: output from DS9
 RED:
 (0,0)(0.25,0)(0.5,1)(1,1)
@@ -220,18 +225,20 @@ BLUE:
 (0,0)(0.25,1)(0.5,0)(0.75,0)(1,1)
 """
 
-__b_cdict ={'red':((0.0, 0.0, 0.0),
-                  (0.25, 0.0, 0.0),
-                  (0.5, 1.0, 1.0),
-                  (1.0, 1.0, 1.0)),
-         'green':((0.0, 0.0, 0.0),
-                  (0.5, 0.0, 0.0),
-                  (0.75,1.0, 1.0),
-                  (1.0, 1.0, 1.0)),
-         'blue': ((0.0, 0.0, 0.0),
-                  (0.25, 1.0, 1.0),
-                  (0.5,  0.0, 0.0),
-                  (0.75, 0.0, 0.0),
-                  (1.0,  1.0, 1.0))}
+__b_cdict={
+    'red':((0.0,  0.0, 0.0),
+           (0.25, 0.0, 0.0),
+           (0.5,  1.0, 1.0),
+           (1.0,  1.0, 1.0)),
+  'green':((0.0,  0.0, 0.0),
+           (0.5,  0.0, 0.0),
+           (0.75, 1.0, 1.0),
+           (1.0,  1.0, 1.0)),
+   'blue':((0.0,  0.0, 0.0),
+           (0.25, 1.0, 1.0),
+           (0.5,  0.0, 0.0),
+           (0.75, 0.0, 0.0),
+           (1.0,  1.0, 1.0))
+          }
 b = colors.LinearSegmentedColormap('b',__b_cdict,256)
 
