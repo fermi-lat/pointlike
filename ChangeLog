@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jun 23 21:49:25 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+progress printout when convolving
+    *
+------------------------------------------------------------
 User: burnett  Thu Jun 23 21:47:28 PDT 2011
 pointlike/python/uw/like
 
