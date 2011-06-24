@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.36 2011/05/06 21:56:45 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.39 2011/06/22 22:13:04 mar0 Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -181,7 +181,7 @@ class BackgroundConvolution(Grid):
             conversion type.  The values are stored internally as "cvals".
         """
         if override_skyfun is None and override_vals is None:
-            self.bg.set_skyfun(conversion_type,energy)
+            self.bg.set_skyfun(0, energy) #THB special for back # conversion_type,energy)
             self.bg_vals = self.fill(self.bg)
         elif override_vals is None:
             self.bg_vals = self.fill(override_skyfun)
