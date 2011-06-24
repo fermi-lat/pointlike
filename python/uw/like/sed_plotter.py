@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/sed_plotter.py,v 1.16 2011/05/03 20:42:02 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.17 2011/06/13 21:22:09 lande Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -175,7 +175,7 @@ class BandFlux(object):
         # plot the curve
         axes.plot( dom, energy_flux_factor*m(dom)*dom**2, **kwargs)
         #butterfly if powerlaw
-        if butterfly and m.name=='PowerLaw':
+        if butterfly and m.name=='PowerLaw' or m.name=='LogParabola' and m[2]<=1e-3:
             # 'butterfly' region
             dom_r = np.array([dom[-i-1] for i in range(len(dom))]) #crude reversal.
             a,gamma = stat[0][:2]
@@ -197,7 +197,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
             data_kwargs=dict(linewidth=2, color='k',),
             fit_kwargs =dict(lw=2,        color='r',),
             butterfly = True,
-            use_ergs = True,
+            use_ergs = False,
             outdir = None,
             galmap = True,
             phase_corr=False,
@@ -218,7 +218,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     fit_kwargs   a dict to pass to the fit part of the display
     butterfly    [True] plot model with a butterfly outline
     use_ergs     [True] convert to ergs in the flux units and use 
-                 GeV on the x-axis
+                 MeV on the x-axis
     outdir       [None] if set, save sed into 
                  <outdir>/<source_name>_sed.png if outdir is a 
                  directory, save into filename=<outdir> if not.
@@ -232,9 +232,10 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     
     """
     self = roi # temp.
-    energy_flux_unit = 'ergs' if use_ergs else 'MeV'
+    energy_flux_unit = 'erg' if use_ergs else 'MeV'
     energy_flux_factor = (1.602e-6 if use_ergs else 1.0)*(roi.phase_factor if phase_corr else 1)
     # conversion 1.602E-19 * 1E6 eV/Mev * 1E7 erg/J * = 1.602E-6 erg/MeV
+    # conversion 1.602E-19 * 1E9 eV/Gev * 1E7 erg/J * = 1.602E-3 erg/GeV
     oldlw = plt.rcParams['axes.linewidth']
     plt.rcParams['axes.linewidth'] = 2
     if axes is None: 
@@ -244,7 +245,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     axes.set_xscale('log')
     axes.set_yscale('log')
     if axis is None:
-        axis = (1e2,1e6,1e-13,1e-8) if use_ergs else (1e2,1e6,1e-8,1e-2)
+        axis = (1e2,1e6,1e-13,1e-8) if use_ergs else (1e2,1e6,1e-10,1e-5)
     axes.axis(axis)
     axes.grid(True)
     axes.set_autoscale_on(False)
