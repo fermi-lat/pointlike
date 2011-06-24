@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jun 23 21:53:06 PDT 2011
+pointlike/python/uw/pipeline/pub
+
+Modified Files:
+	display_map.py healpix_map.py publish.py source_pivot.py 
+Log Message:
+update to 2FGL level, many changes
+    *
+------------------------------------------------------------
 User: burnett  Thu Jun 23 21:51:45 PDT 2011
 pointlike/python/uw/like
 
