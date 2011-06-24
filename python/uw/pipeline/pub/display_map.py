@@ -1,6 +1,6 @@
 """
 Manage generation of maps from HEALpix tables
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/display_map.py,v 1.1 2011/01/24 22:03:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/display_map.py,v 1.2 2011/02/11 21:27:34 burnett Exp $
 """
 import os,sys, types, pickle
 import numpy as np
@@ -81,18 +81,21 @@ class DisplayMap(object):
         t =self.v[self.band.index(skydir)]
         return self.scale(t) 
 
-    def fill_ait(self, fignum=11, axes=None, show_kw={}, source_kw={}, **kwargs):
+    def fill_ait(self, fignum=11, axes=None, show_kw={}, source_kw={}, figwidth=12, margin=0.15, **kwargs):
         if axes is None:
+            # set up a figure for 2x1 image with equal margins
             plt.close(fignum)
-            fig=plt.figure(fignum, figsize=(12,8));
-            axes=fig.gca()
+            figheight = figwidth*(1.+2*margin)/(1+margin)/2.
+            fig=plt.figure(fignum, figsize=(figwidth, figheight));
+            axes=plt.gca()
+            plt.subplots_adjust(left=0.05, right=0.95) #gives reasonable equal margins
         pixelsize = kwargs.pop('pixelsize', 0.25)
         ait = image.AIT(self.get_pyskyfun(),axes=axes, pixelsize=pixelsize, **kwargs)
         self.imgplot=ait.imshow(**show_kw)
         ait.axes.set_autoscale_on(False)
 
         if self.sources is not None:
-            sdirs = map(SkyDir, s.ra, s.dec)
+            sdirs = map(SkyDir, self.sources.ra, self.sources.dec)
             ait.plot(sdirs, **source_kw)
             print 'found %d sources to plot' % len(sdirs) 
         plt.draw_if_interactive()
