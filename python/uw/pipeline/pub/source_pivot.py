@@ -1,10 +1,11 @@
 """
 Manage creation of a source Pivot collection from a set of sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/source_pivot.py,v 1.3 2011/03/07 00:07:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/source_pivot.py,v 1.4 2011/04/06 00:42:41 burnett Exp $
 
 """
 
 import os, pickle
+import pyfits
 import numpy as np
 from . import roi_pivot, pivot
 from skymaps import SkyDir, Band 
@@ -22,14 +23,23 @@ def make_pivot(z, outdir,
         pivot_dir, pivot_name, 
         pivot_file='sources.cxml',
         dzc = 'dzc.xml',
+        source_names = None,
         variability=False,):
     """make the Pivot collection file for source
+        source_names : string or None
+            if a string, assume a FITS catalog file and check for NickName -> Source_Name
     """
     names = z.name
     assert os.path.exists(pivot_dir), 'pivot directory %s does not exist' %s
     p = pivot.Pivot(z, pivot_dir, pivot_name, dzc)
     # add additional Facets here
-    
+   
+    if source_names is not None:
+        table = pyfits.open(source_names)[1].data
+        sdict=dict(zip(list(table.NickName) ,list(table.Source_Name)))
+        sourcename = [sdict.get(n, '(none)') for n in z.name]
+        p.add_facet('Source_Name', 'String', 'C', sourcename)   
+ 
     try:  p.add_facet('beta', 'Number', 'F3',  p.limit(z.beta, 0,2.5, nan=0))
     except:
         print 'no beta found in the source rec array'

@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/healpix_map.py,v 1.3 2011/03/02 22:19:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/healpix_map.py,v 1.4 2011/03/07 00:07:45 burnett Exp $
 """
 import os,glob,pickle, types
 import pylab as plt
@@ -26,10 +26,9 @@ class HParray(object):
     def getcol(self, type=np.float32): return np.asarray(self.vec, type)
     def skyfun(self, skydir):
         return self[Band(self.nside).index(skydir)]
+        
     def plot(self, title='', axes=None, fignum=30, ait_kw={}, **kwargs):
-        """ make an AIT skyplot of a HEALpix array
-        crec : array
-            must be sorted according to the HEALpix index
+        """ make an AIT skyplot from the array 
         title : string
             set the figure title
         ait_kw : dict

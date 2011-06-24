@@ -1,13 +1,13 @@
 """
 manage publishing 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/publish.py,v 1.5 2011/04/06 00:42:41 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/publish.py,v 1.6 2011/04/09 14:18:37 burnett Exp $
 """
 import sys, os, pickle, glob, types, time
 import PIL
 import pyfits
 import numpy as np
 import pylab as plt
-from uw.utilities import makefig, makerec
+from uw.utilities import makefig, makerec, colormaps
 from . import healpix_map, dz_collection 
 from . import source_pivot, roi_pivot, makecat, display_map, healpix_map
 from ..analysis import residuals
@@ -58,7 +58,10 @@ class Publish(object):
             catalog_name = None,
             dzc = 'dzc.xml',
             overwrite=False,
-            mec=None):
+            mec=None,
+            **kwargs
+            ):
+            
         """
             outdir : 
             ts_min : float,or None
@@ -67,6 +70,7 @@ class Publish(object):
                 use as name, or create with root '24M_' + outdir
             mec : None or IPython.kernel.engine.client.MultiEngineClient object, to use for multprocessing
         """
+        self.source_pivot_kw = kwargs.pop('source_pivot_kw', {})
         if outdir is None:
             outdir='uw%02d' % int(open('version.txt').read())
         if type(outdir)==types.StringType:
@@ -110,7 +114,9 @@ class Publish(object):
             item = line.split(':')
             if len(item)>1:
                 self.config[item[0].strip()]=item[1].strip()
-            
+        
+        if 'extended' not in self.config: self.config['extended']=None
+        
     def ref(self,x):
         if self.refdir =='': return x
         return '../%s/%s' %( self.refdir,x)
@@ -129,14 +135,38 @@ class Publish(object):
             plt.savefig(outfile, bbox_inches='tight')
             make_thumbnail(outfile)
 
+    def ait_plots(self,   **kwargs):
+        """ images from the high-resolution HEALPix, extract from fields of aladin512.fits
+            kwargs: can specify pixelsize, dpi
+        """
+        show_kw_dict=dict( 
+            kde=dict(nocolorbar=True, scale='log',vmin=4.5,vmax=7.5, cmap=colormaps.sls),
+            ts = dict(nocolorbar=False, vmin=10, vmax=25),
+            galactic = dict(nocolorbar=True, scale='log', cmap=colormaps.sls),
+            counts = dict(scale='log'),
+            )
+        dpi = kwargs.pop('dpi', 120)
+        t = pyfits.open(os.path.join(self.pivot_dir,'aladin512.fits'))[1].data
+        for table in t.dtype.names:
+            outfile = self._check_exist(table+'_ait.png')
+            if outfile is None: continue
+            
+            dm = display_map.DisplayMap(t.field(table))
+            show_kw=show_kw_dict.get(table, {})
+            dm.fill_ait(show_kw=show_kw, **kwargs)
+            #plt.title( '%s for %s' % (field, self.outdir))
+            plt.savefig(outfile, bbox_inches='tight', dpi=dpi)
+            make_thumbnail(outfile)
+            print 'wrote %s and its thumbndail' % outfile
+
     def roi_fit_html(self):
         def entry(name):
             return """<b>%(title)s</b> <br/> <a href="roi_%(name)s.png"> <img alt="%(name)s_ait.png"  src="roi_%(name)s_thumbnail.png" /></a> """\
                 %dict(name=name, 
                     title = dict(isonorm='Isotropic nomalization', 
                         galnorm='Galactic normalization', 
-                        limbnorm='Limb normailzation',
-                        chisq='Chi Squared')[name])
+                        limbnorm='Limb normalization',
+                        chisq='Chi Squared', kde='photon density')[name])
         files = glob.glob(os.path.join(self.pivot_dir,'roi_*.png'))
         if len(files)==0: return ''
         return '<table cellspacing="0" cellpadding="5"><tr>\n' +'\n'.join(['\t<td>%s</td>'%entry(f) for f in 'galnorm isonorm limbnorm chisq'.split()])+'</tr></table>'
@@ -200,11 +230,15 @@ class Publish(object):
             pivot_file='rois.cxml',
             dzc = self.dzc,
             )
+        self.write_source_pivot()
+        
+    def write_source_pivot(self):
         source_pivot.make_pivot(self.sources, outdir=self.outdir,
             pivot_dir=self.pivot_dir, 
             pivot_name='%s - sources'%self.outdir,
             pivot_file='sources.cxml',  
             dzc = self.dzc,
+            ** self.source_pivot_kw
             )
             
     def write_xml(self, catname=None):
@@ -247,7 +281,7 @@ class Publish(object):
             print 'wrote %s' %outfile
         #self.write_xml_and_reg(catname)
     
-    def write_map(self, name, fun, title, vmax=None, table=None):
+    def write_map(self, name, fun=lambda x:x, title=None, vmax=None, table=None):
         """ DISABLED for now 
         write out image files for a single table
         name : string 
@@ -273,7 +307,7 @@ class Publish(object):
         if fitsfile != '':
             # first without the usual scaling function for the FITS version
             print 'generating FITS image %s' %fitsfile
-            q=healpix_map.skyplot(table, title,
+            q=display_map.skyplot(table, title,
                 ait_kw=dict(fitsfile=fitsfile,pixelsize=0.1))
             del q
         if not os.path.exists(outfile) or self.overwrite:
@@ -281,7 +315,7 @@ class Publish(object):
             # now with scaling function to generate png
             plt.close(30)
             fig = plt.figure(30, figsize=(16,8))
-            q=healpix_map.skyplot(fun(table), title, axes=fig.gca(),
+            q=display_map.skyplot(fun(table), title, axes=fig.gca(),
                 ait_kw=dict(fitsfile='', pixelsize=0.1), vmax=vmax)
             plt.savefig(outfile, bbox_inches='tight', pad_inches=0)
             im = PIL.Image.open(outfile)
@@ -362,8 +396,8 @@ class Publish(object):
         """ generate a list of images: look for 'name_ait.png' files generated by write_map where name is in the dict below.
         """
         template=""" <td>%(title)s <br/> 
-            <a href="%(path)s_ait.fits">[FITS AIT Image]</a> 
-            <a href="%(path)s_map.fits">[FITS table]</a><br/>
+            <!--<a href="%(path)s_ait.fits">[FITS AIT Image]</a> 
+            <a href="%(path)s_map.fits">[FITS table]</a><br/> -->
             <a href="%(path)s_ait.png"> 
             <img alt="%(path)s_ait.png"  
                  src="%(path)s_ait_thumbnail.png" /></a> <br/>
@@ -390,8 +424,8 @@ class Publish(object):
                         ts=  '<a href="../notes/residual_ts.htm"><b>Residual TS</b></a><br/> assuming powerlaw index=2.0',
                         ts15='<a href="../notes/residual_ts.htm">Residual TS</a> assuming powerlaw index=1.5',
                         ts25='<a href="../notes/residual_ts.htm">Residual TS</a> assuming powerlaw index=2.5',
-                        data='<b>Counts map</b>, E>1GeV',
-                        ring='<b>Galactic diffuse</b>, at 1 GeV',
+                        counts='<b>Counts map</b>, E>1GeV',
+                        galactic='<b>Galactic diffuse</b>, at 1 GeV',
                         sources='<b>Source locations</b>',
                     )[name] for name in names]
         return ret+'\n<table cellpadding="5" cellspacing="0"><tr>'\
@@ -463,7 +497,8 @@ class Publish(object):
         self.make_pivot()
         self.write_FITS()
         self.write_maps() 
-        self.write_hpmaps() 
+        self.write_hpmaps()
+        self.ait_plots()
         self.write_residualmaps()
         self.write_zips()
         self.write_xml()
@@ -492,6 +527,12 @@ def doall(outdir, **kwargs):
     pub.write_xml()
     pub.write_reg()
     pub.write_html()
+    
+    
+def robocopy(fromdir, todir=None, path=r'P:\ '):
+    if todir is None: todir = fromdir
+    cmd = r'C:\Windows\System32\Robocopy.exe %s d:\common\pivot\%s /MIR' %(fromdir, todir)
+    os.system('start /path=%s %s'% (path, cmd))
     
 if __name__=='__main__':
     try:
