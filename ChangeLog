@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jun 24 16:50:04 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Don't plot source markers if there are no soruces
+    *
+------------------------------------------------------------
 User: burnett  Thu Jun 23 21:54:49 PDT 2011
 pointlike/python/uw/pipeline
 
