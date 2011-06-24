@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.27 2011/04/21 17:41:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.28 2011/04/26 15:54:09 burnett Exp $
 
 """
 import os, pickle, glob, types
@@ -155,6 +155,8 @@ class SkyModel(object):
         self.extended_sources=[]  # list of unique extended sources
         self.changed=set() # to keep track of extended models that are different from catalog
         moved=0
+        nfreed = 0
+        self.tagged=set()
         for i,file in enumerate(files):
             p = pickle.load(open(file))
             index = int(os.path.splitext(file)[0][-4:])
@@ -173,12 +175,15 @@ class SkyModel(object):
                                 ts>self.update_positions and delta_ts>0.2:
                             skydir = SkyDir(float(fit_ra),float(fit_dec))
                             moved +=1
+                            self.tagged.add(i)
                 ps = sources.PointSource(name=self.rename_source(key), 
                     skydir=skydir, model= item['model'],
                     ts=item['ts'],band_ts=item['band_ts'], index=index)
                 if self.free_index is not None and not ps.free[1] and ps.ts>self.free_index:
-                        ps.free[1]=True
-                        print 'Freed photon index for source %s'%ps.name
+                    ps.free[1]=True
+                    nfreed +=1
+                    if nfreed<10: print 'Freed photon index for source %s'%ps.name
+                    elif nfreed==10: print ' [...]'
                 if sources.validate(ps,self.nside, self.filter):
                     self._check_position(ps) # check that it is not coincident with previous source(warning for now?)
                     self.point_sources.append( ps)
@@ -193,15 +198,16 @@ class SkyModel(object):
                     #if model[0]<1e-2:
                     #    model[0]=1e-2
                     #print 'SkyModel warning: reset norm to 1e-2 for %s' % name
+                    ###### need to allow for front, back??? Allow for conversion??? 
                     gs = sources.GlobalSource(name=name, model=model, skydir=None, index=index)
                     self.global_check(gs)
                     t.append(gs)
                 else:
                     es = self.extended_catalog.lookup(name) if self.extended_catalog is not None else None
                     if es is None:
-                        #raise Exception( 'Extended source %s not found in extended catalog' %name)
+                        raise Exception( 'Extended source %s not found in extended catalog' %name)
                         print 'SkyModel warning: Extended source %s not found in extended catalog, removing' %name
-                        continue
+                        
                     if self.hpindex(es.skydir)!=index: continue
                     
                     if es.model.name!=model.name:
@@ -214,9 +220,11 @@ class SkyModel(object):
                         self.extended_sources.append(es)
             self.global_sources.append(t)
         # check for new extended sources not yet in model
+        if nfreed>0: 
+            print 'Freed photon index for %d sources' % nfreed
         self._check_for_extended()
         if self.update_positions and moved>0:
-            print 'updated positions of %d sources' % moved
+            print 'updated positions of %d sources, healpix ids in tagged' % moved
  
     def _check_for_extended(self):
         if self.__dict__.get('extended_catalog') is None: return
@@ -269,16 +277,19 @@ class SkyModel(object):
             TODO: feature to override free selection for globals.
         """
         globals = self.global_sources[self.hpindex(src_sel.skydir())]
+        def iterable_check(x):
+            return x if hasattr(x,'__iter__') else (x,x)
+
+
         for s in globals:
             dfile = os.path.expandvars(os.path.join('$FERMI','diffuse', s.name))
             assert os.path.exists(dfile), 'file %s not found' % dfile
             prefix = s.name.split('_')[0]
-            filename, dmodel = self.diffuse_dict[prefix]
-            s.dmodel = [dmodel]
-            s.name = os.path.split(filename)[-1]
+            s.name, s.dmodel = prefix, self.diffuse_dict[prefix]
             s.smodel = s.model
             if '_p' not in s.model.__dict__:
                 s.model.__dict__['_p'] = s.model.__dict__.pop('p')  # if loaded from old representation
+            #assert False, 'breakpoint'
 
         extended = self._select_and_freeze(self.extended_sources, src_sel)
         for s in extended: # this seems redundant, but was necessary
@@ -327,7 +338,7 @@ class SkyModel(object):
         """ make a cache of the recarray summary """
         recfiles = map(lambda name: os.path.join(self.folder, '%s.rec'%name) , ('rois','sources'))
         if reload or not os.path.exists(recfiles[0]):
-            catrec.create_catalog(self.folder, save_local=True, ts_min=5)
+            catrec.create_catalog(self.folder, save_local=True, minflux=1e-18, ts_min=5)
         self.rois,self.sources = map( lambda f: pickle.load(open(f)), recfiles)
         print 'loaded %d rois, %d sources' % (len(self.rois), len(self.sources))
 
@@ -468,6 +479,17 @@ class UpdatePulsarModel(object):
         self.names = self.data.field('Source_Name')
         self.tags = [False]*len(self.data)
         self.assoc = [['',-1, -1]]*len(self.data) #associated names
+        
+    def get_pulsar_name(self, sdir):
+        """ special to check for pulsar name"""
+        for i,t in enumerate(self.sdir):
+            dist = np.degrees(t.difference(sdir))
+            if dist<self.tol:
+                self.tags[i]=True
+                return self.names[i]
+                break
+        return None
+        
     def __call__(self, s):
         sdir = s.skydir
         for i,t in enumerate(self.sdir):

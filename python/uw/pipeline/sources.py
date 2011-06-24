@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.11 2011/04/14 17:00:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.12 2011/04/26 15:56:12 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -87,39 +87,76 @@ class ExtendedSource(Source):
         ret.model = self.model.copy()
         return ret
     
+# #obsolete???
+#class Singleton(object):
+#    _instance={}
+#    def __init__(self,constructor):
+#        self.constructor = constructor
+#        self.key=str(constructor)
+#    def set_instance(self,  *pars):
+#        Singleton._instance[self.key]= self.constructor(*pars)
+#    def instance(self):
+#        try:
+#            return Singleton._instance[self.key]
+#        except KeyError:
+#            print 'SkyModel: Global source %s not initialized' % self.key
+#            raise
+#            
 
-class Singleton(object):
-    _instance={}
-    def __init__(self,constructor):
-        self.constructor = constructor
-        self.key=str(constructor)
-    def set_instance(self,  *pars):
-        Singleton._instance[self.key]= self.constructor(*pars)
-    def instance(self):
-        try:
-            return Singleton._instance[self.key]
-        except KeyError:
-            print 'SkyModel: Global source %s not initialized' % self.key
-            raise
-            
-
+#class DiffuseDict(dict):
+#    """ create a dictionary of global diffuse objects
+#        key:   a string defined by the filename preceding an underscore
+#        value: (name, front,back)  diffuse objects determined by the extension:
+#            txt: IsotropicSpectrum
+#            fit or fits: DiffuseFunction
+#    
+#    """
+#    def __init__(self, diffuse):
+#        """ diffuse: a list, where each entry is a file name or a tuple of two file names, for front and back
+#        """
+#        assert len(diffuse)<4, 'expect 2 or 3 diffuse names, or front/back tuples'
+#        # convert each single entry to a tuple: assume those not simple strings are tuples of strings
+#        tuplelist = map( lambda x: (x,x) if type(x)==types.StringType else x, diffuse)
+#        keys = map( lambda x: x[0].split('_')[0], tuplelist)
+#        front_files = map(lambda f:os.path.expandvars(os.path.join('$FERMI','diffuse',f[0])), tuplelist)
+#        back_files  = map(lambda f:os.path.expandvars(os.path.join('$FERMI','diffuse',f[1])), tuplelist)
+#        for key, front,back in zip(keys, front_files, back_files):
+#            assert os.path.exists(front), 'diffuse file %s not found' %front
+#            assert os.path.exists(back), 'diffuse file %s not found' %back
+#            ext = os.path.splitext(front)[-1]
+#            assert ext==os.path.splitext(back)[-1], 'front diffuse file ext not same as back (%s,%s)'% (front,back)
+#            name = os.path.split(front)[-1]
+#            try:
+#                dfun = {'.txt':IsotropicSpectrum, '.fit':DiffuseFunction, '.fits':DiffuseFunction}[ext]
+#            except:
+#                raise Exception('File type, %s, for diffuse not recognized'% ext)
+#            f= dfun(front)
+#            self[key]=(name, f, f if front==back else dfun(back)  )
 class DiffuseDict(dict):
-    """ manage a dictionary of diffuse objects
+    """ create a dictionary of global diffuse objects
+        key:   a string defined by the filename preceding an underscore
+        value: (both) or (front,back)  diffuse objects determined by the extension:
+            txt: IsotropicSpectrum
+            fit or fits: DiffuseFunction
     
     """
     def __init__(self, diffuse):
-        assert len(diffuse)<4, 'expect 2 or 3 diffuse names'
-        keys = map( lambda x: x.split('_')[0], diffuse)
-        files = map(lambda f:os.path.expandvars(os.path.join('$FERMI','diffuse',f)), diffuse)
-        for key, file in zip(keys, files):
-            assert os.path.exists(file), 'file %s not found' %file
-            ext = os.path.splitext(file)[-1]
-            if ext=='.txt':
-                self[key]=(file, IsotropicSpectrum(file))
-            elif ext in ('.fit','.fits'):
-                self[key]=(file, DiffuseFunction(file))
-            else:
+        """ diffuse: a list, where each entry is a file name or a tuple of one or two file names, for front and back
+        """
+        assert len(diffuse)<4, 'expect 2 or 3 diffuse names, or front/back tuples'
+        # convert each single entry to a tuple: assume those not simple strings are tuples of strings
+        tuplelist = map( lambda x: (x,) if type(x)==types.StringType else x, diffuse)
+        keys = map( lambda x: x[0].split('_')[0], tuplelist) # key or name from first one
+        for key, files in zip(keys, tuplelist):
+            full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)
+            check = map(lambda f: os.path.exists(f), full_files) 
+            assert all(check), 'not all diffuse files %s found' % full_files
+            ext = os.path.splitext(full_files[0])[-1]
+            try:
+                dfun = {'.txt':IsotropicSpectrum, '.fit':DiffuseFunction, '.fits':DiffuseFunction}[ext]
+            except:
                 raise Exception('File type, %s, for diffuse not recognized'% ext)
+            self[key]= map(dfun, full_files) 
 
 
 class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
@@ -178,7 +215,7 @@ def validate( ps, nside, filter):
     hpindex = lambda x: Band(nside).index(x)
     if model.name=='LogParabola':
         norm, alpha, beta, eb = model.get_all_parameters() #10**model.p
-        if norm<1e-18: model[0]=1e-18 #quietly prevent too small
+        #if norm<1e-18: model[0]=1e-18 #quietly prevent too small
         if beta<0.01: # linear
             check =  norm< 1e-4 and alpha>0.25 and alpha<5 
             if check: return True
@@ -187,10 +224,11 @@ def validate( ps, nside, filter):
             ps.free[1:] = False
             model.cov_matrix[:] = 0 
         else: #log parabola
-            check =  alpha>1e-4 and alpha<6 and beta<10
+            check =  alpha>1e-4 and alpha<100 and beta<100
             if check: return True
-            print 'SkyModel warning for %-20s(%d): out of range, norm,alpha=%.2e %.2f' %(ps.name, hpindex(ps.skydir),norm,alpha)
-            model.set_all_parameters(  [-15, 0.4, -3, 3], internal=True)
+            print 'SkyModel warning for %-20s(%d): out of range, norm,alpha=%.2e %.2f %.2f'\
+                    %(ps.name, hpindex(ps.skydir),norm,alpha,beta)
+            model[:]= [1e-15, 5.0, 10.0, 10000]
             ps.free[2:] = False
             model.cov_matrix[:] = 0 
         
