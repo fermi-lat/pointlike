@@ -1,11 +1,12 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.28 2011/03/11 22:46:48 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.29 2011/04/04 22:56:25 kerrm Exp $
 
 author: Matthew Kerr
 """
 
+import sys
 import numpy as N
 from skymaps import SkyDir,SkyIntegrator,Background
 from pointlike import DoubleVector
@@ -288,13 +289,13 @@ class ROIDiffuseManager(ROIModelManager):
         for band in bands:
             band.bg_counts = N.empty(nm)
             band.bg_pix_counts = N.empty([len(band.wsdl),nm]) if band.has_pixels else 0
-
         # initialize models and get inital counts
         if not self.quiet:
             print '.....setting up diffuse/extended backgrounds for %d bands...'%len(bands)
         for ibg,bg in enumerate(self.bgmodels):
             if not self.quiet:
-                print '.......... %s'%(bg.name) 
+                print '.......... %s'%(bg.name) ,
+                sys.stdout.flush()
             bg.initialize_counts(bands)
             bg.update_counts(bands,ibg)
 
