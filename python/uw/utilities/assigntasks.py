@@ -1,12 +1,12 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/assigntasks.py,v 1.18 2011/03/09 00:40:50 kerrm Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.19 2011/03/30 17:36:58 wallacee Exp $
 
 """
 from IPython.kernel import client
 import time, os, pickle, subprocess
-version = '$Revision: 1.18 $'.split()[1]
+version = '$Revision: 1.19 $'.split()[1]
 
 class ProgressBar:
     def __init__(self, total=60, width=40):
@@ -124,9 +124,9 @@ class AssignTasks(object):
         """ assign next task to engine id
             return done status
         """
-        self.log('Assigning task# %d to Engine %d'% ( self.index, id) )
+        self.log('Assigning task# %d (%s) to Engine %d'% ( self.index, self.tasks[self.index], id) )
         self.assigned[id]=self.index
-        self.time[self.index]=self.engine_time[id]=time.clock()
+        self.time[self.index]=self.engine_time[id]=time.time()
         self.pending[id] = self.execute(self.tasks[self.index], id, block=False)
         self.index+=1
         if self.index==len(self.tasks): # check if done
@@ -159,8 +159,8 @@ class AssignTasks(object):
             self.log( "Engine %d added to pool" % (id))
             self.pending[id]=self.execute(self.setup_string, id, block=False)
             self.assigned[id]=-1 #flag that running setup
-            self.engine_time[id]=time.clock()
-            self.time[-1] = time.clock()
+            self.engine_time[id]=time.time()
+            self.time[-1] = time.time()
 
         index = self.assigned[id]
         if index is None: return True # not assigned, ready
@@ -170,7 +170,7 @@ class AssignTasks(object):
                 result = self.pending[id].get_result(block=block)
                 if result is None:
                     # waiting: check time limit
-                    if time.clock()-self.engine_time[id]>self.timelimit:
+                    if time.time()-self.engine_time[id]>self.timelimit:
                         self.log('Engine %d exceeded time limit (%f s) --lost task %d'\
                             %(id, self.timelimit, index))
                         self.lost.add(index)
@@ -181,7 +181,7 @@ class AssignTasks(object):
                 if self.usercallback is not None and index>=0: self.usercallback(index, result)
                 self.result[index]=result
             except:
-                self.log("Engine %d raised exception executing task %d" %(id, index))
+                self.log("Engine %d raised exception executing task %d ('%s')" %(id, index, 'setup' if index<0 else self.tasks[index]) )
                 if not self.ignore_exception:                
                     raise
                 self.lost.add(index)
@@ -189,7 +189,7 @@ class AssignTasks(object):
         else:
             self.result[index]=self.tasks[index]
 
-        self.time[index]=time.clock()-self.time[index]
+        self.time[index]=time.time()-self.time[index]
         self.assigned[id]=None
         return True
 
@@ -202,7 +202,7 @@ class AssignTasks(object):
 
         # loop through the tasks, assigning as engines are available
         loop_iters = wait_iters =sleepcount=0
-        starttime= time.clock()
+        starttime= time.time()
 
         done=busy = False
 
@@ -221,11 +221,11 @@ class AssignTasks(object):
 
         # all tasks have been assigned: wait for all engines to finish
         still = [id for id in self.get_ids() if not self.check_result(id)]
-        curtime = time.clock()
+        curtime = time.time()
         while len(still)>0:
             self.log('Still running: %d engines %d ...%d tasks %d...%d'%\
                     (len(still), still[0], still[-1], self.assigned[still[0]],self.assigned[still[-1]]))
-            if time.clock()-curtime>self.timelimit:
+            if time.time()-curtime>self.timelimit:
                 self.log('quitting, exceeded time limit: %f' %self.timelimit)
                 break
             if wait_iters> 1000:
@@ -242,7 +242,7 @@ class AssignTasks(object):
         if self.lost:
             self.log('possibly failed tasks: %s' % list(self.lost).sort() )
         self.log( 'Cycled through main loop %d times, slept %d times; elapsed, total times: %.1f, %.1f s'\
-                %( loop_iters, sleepcount, time.clock()-starttime, sum(self.time.values())-self.time[-1]) )
+                %( loop_iters, sleepcount, time.time()-starttime, sum(self.time.values())-self.time[-1]) )
         if self.logstream is not None: self.logstream.close()
 
 
@@ -251,7 +251,7 @@ class AssignTasks(object):
         pickle.dump({'time':self.time, 'result':self.result}, open(filename, 'wr'))
 
 
-def setup_mec(engines=None, machines='tev1 tev2 tev3 tev4'.split(), clusterfile='clusterfile.txt',clobber=False):
+def setup_mec(engines=None, machines=None, clusterfile='clusterfile.txt',clobber=False):
     """ On windows:start cluster and 4 engines on the local machine, in the current directory
         On linux: (our tev cluster) start controller on local machine, 16 engines/machine in all
             If clusterfile.txt exists in the path: use it
@@ -261,12 +261,13 @@ def setup_mec(engines=None, machines='tev1 tev2 tev3 tev4'.split(), clusterfile=
         os.system(r'start /MIN /D %s cmd /K ipcluster local -xy -n %d'% (os.getcwd(),engines))
     else:
         # on a tev machine
-        if os.path.exists(clusterfile):
-            if not clobber:
-                os.system('ipcluster ssh -xy --clusterfile %s &' %clusterfile)
-                return
-            else:
-                os.remove(clusterfile)
+        cf = clusterfile if os.path.exists(clusterfile) else '../'+clusterfile
+        assert os.path.exists(cf), 'clusterfile %s not found in local or containing folder' % clusterfile
+        if not clobber:
+            os.system('ipcluster ssh -xy --clusterfile %s &' %cf)
+            return
+        else:
+            os.remove(cf)
         #engines = engines or 16 #default on a tev machine!
         if engines is None:
             engines = 16
@@ -290,16 +291,26 @@ def setup_mec(engines=None, machines='tev1 tev2 tev3 tev4'.split(), clusterfile=
 def kill_mec():
     get_mec().kill(True)
 
-def free(machines=None, clusterfile='clusterfile.txt'):
-    """ run the free command on the machines specified, or get from the clusterfile """
-    if machines is None and os.path.exists(clusterfile):
-        exec(open(clusterfile))
-        machines = engines.keys()
-    print '\t             total       used       free     shared    buffers     cached'
-    for m in machines:
+def get_machines(machines=None, clusterfile='clusterfile.txt'):
+    if machines is None:
+        exec(open(clusterfile if os.path.exists(clusterfile) else '../'+clusterfile))
+        machines = sorted(engines.keys())
+    return machines
+
+def free(machines=None, clusterfile='clusterfile.txt', cmd='free'):
+    """ run the command on the machines specified, or get from the clusterfile 
+    cmd : string
+        default is 'free', which has special formating also suggest 'pkill -9 ipengine' to clean up after disaster.
+    """
+    if cmd=='free':
+        print '\t             total       used       free     shared    buffers     cached'
+    else: print 'running command "%s"' % cmd
+    for m in get_machines(machines, clusterfile):
         print m, ':\t'
-        t=subprocess.Popen('ssh %s free'% m, shell=True, stdout=subprocess.PIPE).communicate()
-        for line in  t[0].split('\n')[1:]: print '\t'+line
+        t=subprocess.Popen('ssh %s %s'% (m,cmd) , shell=True, stdout=subprocess.PIPE).communicate()
+        if cmd=='free':
+            for line in  t[0].split('\n')[1:]: print '\t'+line
+        else: print t
         
     
 
