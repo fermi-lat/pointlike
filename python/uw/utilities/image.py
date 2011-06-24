@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.36 2010/12/09 23:30:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.37 2011/01/26 18:39:04 burnett Exp $
 
 """
-version = '$Revision: 1.36 $'.split()[1]
+version = '$Revision: 1.37 $'.split()[1]
 
 import pylab
 import types
@@ -272,7 +272,7 @@ class AIT(object):
     
     defaults= (
         ('pixelsize', 0.5, 'size, in degrees, of pixels'),
-        ('galactic',  True, 'alactic or equatorial coordinates'),
+        ('galactic',  True, 'galactic or equatorial coordinates'),
         ('fitsfile',  '',   'if set, write the projection to a FITS file'),
         ('proj',      'AIT', 'could be ''CAR'' for carree or ''ZEA'': used by wcslib'),
         ('center',    None,   'if default center at (0,0) in coord system'),
@@ -281,6 +281,8 @@ class AIT(object):
         ('earth',     False, 'if looking down at Earth'),
         ('axes',      None,   'set to use, otherwise create figure if necessary'),
         ('nocolorbar',False,  'set to turn off colorbar' ),
+        ('background',None,   'if set, a value to apply to NaN: default is to not set pixels\n' 
+                                'nb: do not set 0 if log scale'),
         )
     
     @keyword_options.decorate(defaults)
@@ -318,7 +320,11 @@ class AIT(object):
         # now extract stuff for the pylab image, creating a masked array to deal with the NaN values
         self.image = np.array(self.skyimage.image()).reshape((self.ny, self.nx))
         self.mask = np.isnan(self.image)
-        self.masked_image = np.ma.array( self.image, mask=self.mask)
+        if self.background is None:
+            self.masked_image = np.ma.array( self.image, mask=self.mask)
+        else:
+            self.masked_image = np.ma.array( self.image)
+            self.masked_image[self.mask]=self.background
         size = self.size
         if not earth:
             self.extent = (180,-180, -90, 90) if size==180 else (size, -size, -size, size)
@@ -412,25 +418,28 @@ class AIT(object):
         self.figure.canvas.draw()
                   
     def imshow(self,  title=None, scale='linear', title_kw={}, **kwargs):
-        'run imshow'
-        from numpy import ma
+        """run imshow
+        scale : string defining the translation or a ufunc
+            the string can specify linear [default], log for log10, sqrt, or asinh
+        """
         nocolorbar =kwargs.pop('nocolorbar', self.nocolorbar)
         cb_kw = kwargs.pop('colorbar_kw',
                 dict(orientation='vertical', shrink=0.6 if self.size==180 else 1.0))
-        if self.axes is None: self.axes = pylab.gca()
+        from numpy import ma
         scale_fun = kwargs.pop('fun', lambda x : x)
-        # change defaults
-        if 'origin'        not in kwargs: kwargs['origin']='lower'
-        if 'interpolation' not in kwargs: kwargs['interpolation']='nearest'
-        if 'extent'        not in kwargs: kwargs['extent']=self.extent
-        
+        # set defaults
+        imshow_kw =dict(origin='lower', interpolation='nearest', extent=self.extent) 
+        imshow_kw.update( kwargs)
+        if self.axes is None: 
+            self.figure = pylab.gcf()
+         
         if self.size==180: self.axes.set_axis_off()
-        if   scale=='linear':  m=self.axes.imshow(scale_fun(self.masked_image),   **kwargs)
-        elif scale=='log':     m=self.axes.imshow(ma.log10(self.masked_image), **kwargs)
-        elif scale=='sqrt':    m=self.axes.imshow(ma.sqrt(self.masked_image), **kwargs)
-        else: raise Exception('bad scale: %s, expect either "linear" "sqrt", or "log"'%scale)
+        fun_dict = dict(linear=scale_fun, log=ma.log10, sqrt=ma.sqrt, asinh=ma.arcsinh)
+        fun  = fun_dict.get(scale, None) if type(scale)==types.StringType else fun
+        if fun is None:
+            raise Exception('bad scale function: %s, must be one of %s'%(scale,fun_dict.keys()))
+        m = self.axes.imshow(fun(self.masked_image), **imshow_kw)
                                         
-        #self.colorbar =pylab.colorbar(orientation='horizontal', shrink=1.0 if self.size==180 else 1.0)
         if not nocolorbar:
             self.colorbar =self.axes.figure.colorbar(m, ax=self.axes, **cb_kw)
             self.mappable = self.colorbar.mappable
