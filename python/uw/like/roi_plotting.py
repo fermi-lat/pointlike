@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.52 2011/06/22 00:27:48 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.53 2011/06/22 00:31:48 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1054,6 +1054,9 @@ class ROISignificance(object):
             label_sources=True, show_extension=True, extension_color='white'):
 
         sources = roi.get_sources()
+
+        if len(sources)<1: return
+
         ras = [source.skydir.ra() for source in sources]
         decs = [source.skydir.dec() for source in sources]
         
