@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Jun 23 21:51:45 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	sed_plotter.py 
+Log Message:
+Make MeV default.
+    *
+------------------------------------------------------------
 User: burnett  Thu Jun 23 21:50:18 PDT 2011
 pointlike/python/uw/like
 
