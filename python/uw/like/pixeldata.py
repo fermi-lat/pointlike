@@ -2,10 +2,10 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.20 2011/01/20 16:02:43 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.21 2011/03/11 22:46:48 burnett Exp $
 
 """
-version='$Revision: 1.20 $'.split()[1]
+version='$Revision: 1.21 $'.split()[1]
 import os, math, pyfits, types, glob
 import numpy as N
 import pointlike, skymaps
@@ -270,7 +270,9 @@ Create a new PixelData instance, managing data and livetime.
 
             self._Data_setup(my_bins)
 
-            if not self.quiet: print 'loading %d FT1 file(s) %s...%s' % (len(self.ft1files), self.ft1files[0], self.ft1files[-1])
+            if not self.quiet: 
+                print 'loading %d FT1 file(s) %s...%s' % (len(self.ft1files), self.ft1files[0], self.ft1files[-1])
+                if self.event_class>-1: print 'selecting event_class %d' %self.event_class
             src_id = -1 if 'mc_src_id' not in self.__dict__ else self.mc_src_id
             data = pointlike.Data(self.ft1files,self.conv_type,self.tstart,self.tstop, src_id,'')
 
