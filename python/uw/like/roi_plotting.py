@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.53 2011/06/22 00:31:48 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.54 2011/06/24 23:50:04 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1076,41 +1076,19 @@ class ROISignificance(object):
                         xytext=(0,markersize), textcoords='offset points',**kwargs)
 
         if show_extension:
+            try:
+                import pyregion
+                for source in roi.get_extended_sources():
+                    sm=source.spatial_model
+                    region_string='\n'.join(region_writer.unparse_extension(sm,extension_color=extension_color))
+                    reg = pyregion.parse(region_string).as_imagecoord(header)
+                    patch_list, artist_list = reg.get_mpl_patches_texts()
+                    for p in patch_list: ax.add_patch(p)
+                    for t in artist_list: ax.add_artist(t)
 
-            kwargs = dict(color=extension_color,fill=False)
-            for source in roi.get_extended_sources():
-                sm=source.spatial_model
-                ra,dec=sm.center.ra(),sm.center.dec()
+            except ImportError, er:
+                print "To add extension information to plots, must install modules pyregion/pyparsing."
 
-                if isinstance(sm,PseudoSpatialModel) or type(sm) == SpatialMap:
-                    pass
-
-                elif isinstance(sm,RadiallySymmetricModel):
-                    if isinstance(sm,Disk) or isinstance(sm,Ring):
-                        ax["fk5"].add_patch(Circle((ra,dec),sm.sigma,**kwargs))
-                        if isinstance(sm,Ring):
-                            ax["fk5"].add_patch(Circle((ra,dec),sm.frac*sm.sigma,**kwargs))
-                    else:    
-                        ax["fk5"].add_patch(Circle((ra,dec),sm.r68(),**kwargs))
-
-                elif isinstance(sm,EllipticalSpatialModel):
-                    # note ellipses in matplotlib have angle defiend from west
-                    # instead of north, so we must rotate by 90 degrees. 
-                    # In matplotlib, angles increase in wrong direction.
-                    # Also, ellipses specify the total lenght in each
-                    # direction (not lenght of semi-major/semi-minor axes),
-                    # so we need to scale by a factor of 2.
-                    if isinstance(sm,EllipticalDisk) or isinstance(sm,EllipticalRing):
-                        sigma_x, sigma_y, theta = sm.sigma_x, sm.sigma_y, sm.theta
-                        ax["fk5"].add_patch(Ellipse((ra,dec),2*sigma_x,2*sigma_y,90-theta,**kwargs))
-                        if isinstance(sm,EllipticalRing):
-                            frac=sm.frac
-                            ax["fk5"].add_patch(Ellipse((ra,dec),2*frac*sigma_x,2*frac*sigma_y,90-theta,**kwargs))
-                    else:    
-                        a,b,c=sm.ellipse_68()
-                        ax["fk5"].add_patch(Ellipse((ra,dec),2*a,2*b,90-c,**kwargs))
-                else:
-                    raise Exception("Unable to Plot Spatial Model %s" % type(sm))
 
     def show(self,filename=None):
 
