@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.176 2011/06/22 05:17:56 lande Exp $
+$Id: release.notes,v 1.177 2011/06/22 19:06:41 lande Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-07-28 24-Jun-2011  lande Pointlike bugfixes
  pointlike-07-07-27 22-Jun-2011  lande bugfix for xml parsing
  pointlike-07-07-26 21-Jun-2011  lande Does anybody read this?
  pointlike-07-07-25 20-Jun-2011  lande bugfix
