@@ -1,6 +1,6 @@
 """
 Implementation of various roi printing
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_printing.py,v 1.6 2011/06/14 04:23:14 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_printing.py,v 1.7 2011/06/17 03:25:10 lande Exp $
 """
 import os, math
 import numpy as N
@@ -38,7 +38,7 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
     if sdir is None: sdir = self.roi_dir
     if title is None: 
         title = self.name if hasattr(self,'name') else ''
-    print 90*'-', '\n\t Nearby point sources within %.1f degrees %s' % (maxdist,title)
+    print 90*'-', '\n\t Nearby sources within %.1f degrees %s' % (maxdist,title)
     colstring = 'name dist ra dec TS flux8 index beta cutoff'
     if galactic: colstring =colstring.replace('ra dec', 'l b')
     colnames = tuple(colstring.split())
