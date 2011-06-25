@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.54 2011/06/24 23:50:04 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.55 2011/06/25 02:28:47 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1081,6 +1081,7 @@ class ROISignificance(object):
                 for source in roi.get_extended_sources():
                     sm=source.spatial_model
                     region_string='\n'.join(region_writer.unparse_extension(sm,extension_color=extension_color))
+                    if len(region_string) < 1: continue # happens for SpatialMap + PseudoSources.
                     reg = pyregion.parse(region_string).as_imagecoord(header)
                     patch_list, artist_list = reg.get_mpl_patches_texts()
                     for p in patch_list: ax.add_patch(p)
