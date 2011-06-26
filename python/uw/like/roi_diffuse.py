@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.21 2011/06/22 05:17:41 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.22 2011/06/24 04:49:24 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -294,7 +294,8 @@ class ROIDiffuseModel_PC(ROIDiffuseModel_OTF):
 
     defaults = (
         ('tolerance',0.02,'SkyIntegrator tolerance'),
-        ('nsimps',4,'Number of subenergies to evalulate the simpson integral over')
+        ('nsimps',4,'Number of subenergies to evalulate the simpson integral over'),
+        ('quiet', False, 'set True to suppress output'),
     )
 
     @keyword_options.decorate(defaults)
@@ -309,7 +310,8 @@ class ROIDiffuseModel_PC(ROIDiffuseModel_OTF):
         else:
             self.bgs  = map(Background,self.dmodel,exp)
 
-    def set_state(self,energy,conversion_type,**kwargs):
+    def set_state(self,energy,conversion_type,band,**kwargs):
+    #def set_state(self,energy,conversion_type,**kwargs):
         self.active_bg = self.bgs[conversion_type if (len(self.bgs) > 1) else 0]
         self.active_bg.setEnergy(energy)
 
