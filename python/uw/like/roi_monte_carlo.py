@@ -8,6 +8,7 @@ author: Joshua Lande
 """
 import os
 import re
+from textwrap import dedent
 import shutil
 import collections
 from tempfile import mkdtemp,mkstemp,NamedTemporaryFile
@@ -68,11 +69,15 @@ class MonteCarlo(object):
         self.ft1=ft1
 
         if isinstance(self.ft1,collections.Iterable):
-            if len(self.ft1) != 1: raise Exception("...")
+            if len(self.ft1) != 1: raise Exception(dedent("""\
+                                                          Exactly one ft1 file may be specified by roi_monte_carlo script
+                                                          (%s were acutally specified)""" % len(self.ft1)))
             self.ft1=self.ft1[0]
 
         if isinstance(self.ft2,collections.Iterable):
-            if len(self.ft2) != 1: raise Exception("...")
+            if len(self.ft2) != 1: raise Exception(dedent("""\
+                                                   Exactly one ft2 file may be specified by roi_monte_carlo script
+                                                   (%s were acutally specified)""" % len(self.ft2)))
             self.ft2=self.ft2[0]
 
         if os.path.exists(self.ft1):
@@ -570,7 +575,8 @@ class MonteCarlo(object):
 
     def __del__(self):
         """ Remove folder with simulation stuff. """
-        shutil.rmtree(self.tempdir)
+        if os.path.exists(self.tempdir):
+            shutil.rmtree(self.tempdir)
 
 
 class SpectralAnalysisMC(SpectralAnalysis):
@@ -628,40 +634,42 @@ class SpectralAnalysisMC(SpectralAnalysis):
         for cat in catalogs:
             if not isinstance(cat,PointSourceCatalog):
                 cat = catalog_mapper(cat)
-            point_sources,diffuse_sources = cat.merge_lists(roi_dir,
-                    self.maxROI+5 if catalog_include_radius is None else catalog_include_radius,
-                    point_sources,diffuse_sources)
+                point_sources,diffuse_sources = \
+                        cat.merge_lists(roi_dir,
+                                        self.maxROI+5 if catalog_include_radius is None else catalog_include_radius,
+                                        point_sources,diffuse_sources)
 
         monte_carlo=MonteCarlo(
-                ft1=self.dataspec.ft1files, 
-                point_sources=point_sources, 
-                diffuse_sources=diffuse_sources,
-                seed=self.seed, 
-                tempbase=self.tempbase,
-                tstart=self.tstart,
-                tstop=self.tstop, 
-                ft2=self.dataspec.ft2files,
-                ltfrac=self.ltfrac, 
-                emin=self.emin,
-                emax=self.emax,
-                conv_type=self.conv_type,
-                irf=self.irf,
-                roi_dir=roi_dir,
-                maxROI=self.maxROI,
-                mc_energy=self.mc_energy)
+            ft1=self.dataspec.ft1files, 
+            point_sources=point_sources, 
+            diffuse_sources=diffuse_sources,
+            seed=self.seed, 
+            tempbase=self.tempbase,
+            tstart=self.tstart,
+            tstop=self.tstop, 
+            ft2=self.dataspec.ft2files,
+            ltfrac=self.ltfrac, 
+            emin=self.emin,
+            emax=self.emax,
+            conv_type=self.conv_type,
+            irf=self.irf,
+            roi_dir=roi_dir,
+            maxROI=self.maxROI,
+            mc_energy=self.mc_energy,
+            quiet=self.quiet)
 
         monte_carlo.simulate()
 
-        ds=DataSpecification(
-                ft1files=monte_carlo.ft1,
-                ft2files=monte_carlo.ft2,
-                binfile=self.dataspec.binfile,
-                ltcube=self.dataspec.ltcube
-        )
-    
+        ds=DataSpecification(ft1files=monte_carlo.ft1,
+                             ft2files=monte_carlo.ft2,
+                             binfile=self.dataspec.binfile,
+                             ltcube=self.dataspec.ltcube
+                            )
+
         # Create a new SpectralAnalysis object with
         # the now existing ft1/ft2 files (Yo Dawg!)
         sa=SpectralAnalysis(ds,**keyword_options.defaults_to_kwargs(self,SpectralAnalysis))
         return sa.roi(roi_dir=roi_dir,
                       point_sources=point_sources, 
-                      diffuse_sources=diffuse_sources,**kwargs)
+                      diffuse_sources=diffuse_sources,**kwargs
+                     )
