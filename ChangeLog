@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun 28 14:56:25 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_managers.py 
+Log Message:
+Remove unnecessary import
+    *
+------------------------------------------------------------
 User: lande  Tue Jun 28 14:56:08 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
