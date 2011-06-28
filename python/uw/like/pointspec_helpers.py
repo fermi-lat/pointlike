@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.41 2011/04/28 17:09:07 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.42 2011/05/17 14:08:24 lande Exp $
 
     author: Matthew Kerr
     """
@@ -478,16 +478,16 @@ def get_diffuse_source(spatialModel='ConstantValue',
     return DiffuseSource(dmodel,smodel,name)
 
 
-def get_default_diffuse_mapper(sa,roi_dir):
+def get_default_diffuse_mapper(sa,roi_dir,quiet):
     """ Returns a function which maps a roi_diffuse.DiffuseSource
         object to its corresponding roi_diffuse.ROIDiffuseModel object.
 
         The default mapping is that an extended source is mapped into
         an ROIExtendedModel object using ROIExtendedModel's factory
         function. Otherwise, an ROIDiffuseModel_OTF object is returned. """
-    return lambda x: ROIExtendedModel.factory(sa,x,roi_dir) \
+    return lambda x: ROIExtendedModel.factory(sa,x,roi_dir,quiet=quiet) \
                      if isinstance(x,ExtendedSource) \
-                     else ROIDiffuseModel_OTF(sa,x,roi_dir)
+                     else ROIDiffuseModel_OTF(sa,x,roi_dir,quiet=quiet)
 
 
 def get_default_diffuse(diffdir=None,gfile='gll_iem_v02.fit',ifile='isotropic_iem_v02.txt'):

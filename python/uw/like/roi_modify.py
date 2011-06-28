@@ -65,7 +65,7 @@ def modify_spatial_model(roi,which,spatial_model,preserve_center=True):
 
             roi.dsm.diffuse_sources[index].spatial_model=spatial_model
 
-            diffuse_mapper = get_default_diffuse_mapper(roi.sa,roi.roi_dir)
+            diffuse_mapper = get_default_diffuse_mapper(roi.sa,roi.roi_dir,roi.quiet)
             bgmodel = diffuse_mapper(roi.dsm.diffuse_sources[index])
 
             roi.dsm.bgmodels[index]=bgmodel
