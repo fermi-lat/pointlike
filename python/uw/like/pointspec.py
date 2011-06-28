@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.36 2011/06/17 03:51:52 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.37 2011/06/22 03:50:50 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.36 $'.split()[1]
+version='$Revision: 1.37 $'.split()[1]
 import types
 import os
 from os.path import join
@@ -57,6 +57,9 @@ class DataSpecification(object):
 
         keyword_options.process(self, kwargs)
 
+        if self.binfile is not None: self.binfile = os.path.expandvars(self.binfile)
+        if self.ltcube is not None: self.ltcube = os.path.expandvars(self.ltcube)
+
         if self.ft1files is None and self.binfile is None:
             raise Exception,'No event data (FT1 or binfile) provided!  Must pass at least one of these.'
 
@@ -64,14 +67,20 @@ class DataSpecification(object):
             raise Exception,'An FT1 file must be specified if the binfile does not exist.'
 
         ltfile_exists = self.ltcube is not None and os.path.exists(self.ltcube)
-        if self.ft2files is None and (self.ltcube is None or (not ltfile_exists)):
+        if self.ft2files is None and not ltfile_exists:
             raise Exception,'No FT2 or livetime file provided! Must pass at least one of these.'
 
-        # make sure everything is iterable or None
+        # If string, expand it out
         if isinstance(self.ft1files,types.StringType):
-            self.ft1files = [self.ft1files] 
+            self.ft1files = [os.path.expandvars(self.ft1files)]
+        else:
+            self.ft1files = map(os.path.expandvars,self.ft1files)
+
         if isinstance(self.ft2files,types.StringType):
-            self.ft2files = [self.ft2files] 
+            self.ft2files = [os.path.expandvars(self.ft2files)]
+        else:
+            self.ft2files = map(os.path.expandvars,self.ft2files)
+
 
 class SavedData(DataSpecification):
     """Specify saved daily data files to use for analysis.
@@ -277,8 +286,8 @@ class SpectralAnalysis(object):
 
         # process kwargs
         diffdir = None
-        if 'diffdir' in kwargs.keys(): diffdir = kwargs.pop('diffdir')
-
+        if kwargs.has_key('diffdir'): diffdir = kwargs.pop('diffdir')
+        if not kwargs.has_key('quiet'): kwargs['quiet']=self.quiet 
         # determine ROI center
         if roi_dir is None:
             roi_dir = self.roi_dir if len(point_sources)==0 else point_sources[0].skydir
@@ -310,7 +319,7 @@ class SpectralAnalysis(object):
             if len(diffuse_sources) == 0:
                 print 'WARNING!  No diffuse sources are included in the model.'
         if diffuse_mapper is None:
-            diffuse_mapper = get_default_diffuse_mapper(self,roi_dir)
+            diffuse_mapper = get_default_diffuse_mapper(self,roi_dir,self.quiet)
 
         diffuse_models = [diffuse_mapper(ds) for ds in diffuse_sources]  if diffuse_sources is not None else []
 
