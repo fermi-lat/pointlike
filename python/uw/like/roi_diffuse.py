@@ -1,12 +1,14 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.22 2011/06/24 04:49:24 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.23 2011/06/26 14:04:49 burnett Exp $
 
 author: Matthew Kerr
 """
 import sys
 import numpy as N
+import sys
+import numpy as N; np = N
 from uw.utilities.convolution import BackgroundConvolution
 from uw.utilities import keyword_options
 from skymaps import SkyIntegrator,Background,IsotropicSpectrum,DiffuseFunction
