@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Jun 28 16:26:29 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+Bring import up to date.
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-30, operation: add
 Package: pointlike
