@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun 28 14:55:31 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+Pass quiet into get_default_diffuse_mapper
+    *
+------------------------------------------------------------
 User: lande  Tue Jun 28 14:55:11 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
