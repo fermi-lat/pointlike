@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun 28 14:57:36 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Added Files:
+	roi_testing.py 
+Log Message:
+New function roi_testing.py for automated testing of ROI module.
+    *
+------------------------------------------------------------
 User: lande  Tue Jun 28 14:57:12 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
