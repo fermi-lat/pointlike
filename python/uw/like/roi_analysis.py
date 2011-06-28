@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.101 2011/06/25 02:28:33 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.102 2011/06/28 07:50:11 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -605,7 +605,7 @@ class ROIAnalysis(object):
 
              # convert DiffuseSource -> ROIDiffuseModel object
              if isinstance(source,DiffuseSource):
-                 diffuse_mapper = get_default_diffuse_mapper(self.sa,self.roi_dir)
+                 diffuse_mapper = get_default_diffuse_mapper(self.sa,self.roi_dir,self.quiet)
                  source=diffuse_mapper(source)
          else:
              raise Exception("Unable to add source %s. Only able to add PointSource, DiffuseSource, or ROIDiffuseModel objects.")

@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.29 2011/06/13 04:08:30 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.30 2011/06/17 03:21:39 lande Exp $
 
 author: Joshua Lande
 """
@@ -497,7 +497,7 @@ class ModelImage(ROIImage):
         if override_point_sources is None and override_diffuse_sources is None:
             return roi.dsm.bgmodels
         else:
-            mapper=get_default_diffuse_mapper(roi.sa,roi.roi_dir)
+            mapper=get_default_diffuse_mapper(roi.sa,roi.roi_dir,roi.quiet)
             if override_diffuse_sources is None:
                 return []
             elif not isinstance(override_diffuse_sources,collections.Iterable):
