@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_managers.py,v 1.29 2011/04/04 22:56:25 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.30 2011/06/24 04:50:18 burnett Exp $
 
 author: Matthew Kerr
 """
@@ -10,7 +10,6 @@ import sys
 import numpy as N
 from skymaps import SkyDir,SkyIntegrator,Background
 from pointlike import DoubleVector
-from pointspec_helpers import get_default_diffuse_mapper
 from roi_diffuse import ROIDiffuseModel,DiffuseSource
 from Models import *
 from pypsf import *
