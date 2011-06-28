@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun 28 14:57:12 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+Better error messages + indentation
+    *
+------------------------------------------------------------
 User: lande  Tue Jun 28 14:56:48 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
