@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.23 2011/06/26 14:04:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.24 2011/06/28 23:26:29 kerrm Exp $
 
 author: Matthew Kerr
 """
@@ -183,10 +183,10 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         rd = self.roi_dir if roi_dir is None else roi_dir
         self.bands = [SmallBand() for i in xrange(len(bands))]
 
-        for myband,band in zip(self.bands,bands):
+        for iband,(myband,band) in enumerate(zip(self.bands,bands)):
             if not self.quiet: 
-                print '.',
-                sys.stdout.flush()
+                status_string = '...convolving band %2d/%2d'%(iband+1,len(self.bands))
+                print status_string,;sys.stdout.flush()
             # use a higher nsimps at low energy where effective area is jagged
             ns,myband.bg_points,myband.bg_vector = ROIDiffuseModel_OTF.sub_energy_binning(band,self.nsimps)
 
@@ -209,6 +209,8 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
             myband.ap_counts = (myband.ap_evals * myband.mo_evals).sum()
             if band.has_pixels:
                 myband.pi_counts = (myband.pi_evals * myband.mo_evals).sum(axis=1)
+            if not self.quiet: 
+                print '\b'*(2+len(status_string)),;sys.stdout.flush()
 
         self.init_p = self.smodel.get_all_parameters(internal=True)
         self.prev_p = self.smodel.get_all_parameters(internal=True) +1e-5 # kluge
