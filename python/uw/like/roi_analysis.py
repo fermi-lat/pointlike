@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.102 2011/06/28 07:50:11 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.103 2011/06/28 21:56:07 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -458,30 +458,31 @@ class ROIAnalysis(object):
         success = False
         # TODO -- check the return code
 
+        def _has_nan(m):
+            nan = np.any(np.isnan(m))
+            if nan and (not self.quiet): print 'Found NaN in covariance matrix!'
+            return nan
+
         try:
             if not self.quiet: print 'Attempting to invert full hessian...'
             self.cov_matrix = cov_matrix = inv(hessian)
-            if N.any(N.isnan(cov_matrix)):
-                if not self.quiet: print 'Found NaN in covariance matrix!'
-                raise Exception
+            if _has_nan(cov_matrix): raise ValueError
             self.bgm.set_covariance_matrix(cov_matrix,current_position=0)
             self.psm.set_covariance_matrix(cov_matrix,current_position=n)
             success = True
-        except:
+        except Exception:
             if len(self.psm.parameters()) > 0:
                 if not self.quiet: print 'Skipping full Hessian inversion, trying point source parameter subset...'
                 try:
                     self.cov_matrix = cov_matrix = inv(hessian[n:,n:])
-                    if N.any(N.isnan(cov_matrix)):
-                        if not self.quiet: print 'Found NaN in covariance matrix!'
-                        raise Exception
+                    if _has_nan(cov_matrix): raise ValueError
                     self.psm.set_covariance_matrix(cov_matrix,current_position=0)
                     success = True
-                except:
-                    if not self.quiet: print 'Error in calculating and inverting hessian.'
+                except Exception:
+                    if not self.quiet: print 'Unable to recover point source errors.  Any reported error is unreliable!'
             else:
                 np = len(self.get_parameters())
-                self.cov_matrix = N.zeros([np,np])
+                self.cov_matrix = np.zeros([np,np])
 
         return success
 
