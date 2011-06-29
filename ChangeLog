@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jun 29 16:48:46 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Cleaned up error checking of covariance matrix slightly.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Jun 29 16:48:11 PDT 2011
 pointlike/python/uw/like
 
