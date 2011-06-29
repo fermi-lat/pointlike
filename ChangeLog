@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Jun 29 16:48:11 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+Upgraded status report printout on convolution progress.
+
+    *
+------------------------------------------------------------
 User: kerrm  Tue Jun 28 16:26:29 PDT 2011
 pointlike/python/uw/like
 
