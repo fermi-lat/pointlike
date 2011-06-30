@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Jun 30 14:12:20 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	dataspec.py 
+Log Message:
+Add a check in case lookup key isn't string.
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Jun 30 14:11:38 PDT 2011
 pointlike/python/uw/pipeline
 
