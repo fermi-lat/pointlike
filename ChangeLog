@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Jun 30 16:36:22 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+Cleaning up __set_error__ and fixing a redefinition of "np".
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Jun 30 14:12:20 PDT 2011
 pointlike/python/uw/pipeline
 
