@@ -1,6 +1,6 @@
 """
 Basic ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.22 2011/04/26 15:55:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.23 2011/06/24 04:54:49 burnett Exp $
 """
 import os, pickle, glob, types
 import numpy as np
@@ -149,7 +149,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
                     fit_emin=iterable_check(self.fit_emin), 
                     fit_emax=iterable_check(self.fit_emax),
                     quiet=self.quiet, 
-                    fit_kw = self.fit_kw,
+                    #fit_kw = self.fit_kw,
                     roi_kw = roi_kw)
         return r
 
