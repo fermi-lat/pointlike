@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.103 2011/06/28 21:56:07 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.104 2011/06/29 23:48:46 kerrm Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -27,7 +27,6 @@ from uw.utilities import xml_parsers
 from uw.utilities import region_writer
 from uw.utilities import results_writer
 from scipy.optimize import fmin,fmin_powell,fmin_bfgs
-from numpy.linalg import inv
 
 from . import roi_plotting 
 from . import counts_plotter
@@ -427,7 +426,7 @@ class ROIAnalysis(object):
                     f = self._save_bfgs = fmin_bfgs(self.logLikelihood,self.parameters(),self.gradient,full_output=1,maxiter=500,gtol=gtol,disp=0)
                     if abs(f0[1] - f[1]) < tolerance: break # note absolute tolerance
                     if not self.quiet:
-                        print 'Did not converge on first gradient iteration.  Trying again.'
+                        print 'Did not converge on this gradient iteration.  Trying again.'
                         print f0[1],f[1],abs(f0[1]-f[1])
                     f0 = f
 
@@ -465,7 +464,7 @@ class ROIAnalysis(object):
 
         try:
             if not self.quiet: print 'Attempting to invert full hessian...'
-            self.cov_matrix = cov_matrix = inv(hessian)
+            self.cov_matrix = cov_matrix = np.linalg.inv(hessian)
             if _has_nan(cov_matrix): raise ValueError
             self.bgm.set_covariance_matrix(cov_matrix,current_position=0)
             self.psm.set_covariance_matrix(cov_matrix,current_position=n)
@@ -474,15 +473,15 @@ class ROIAnalysis(object):
             if len(self.psm.parameters()) > 0:
                 if not self.quiet: print 'Skipping full Hessian inversion, trying point source parameter subset...'
                 try:
-                    self.cov_matrix = cov_matrix = inv(hessian[n:,n:])
+                    self.cov_matrix = cov_matrix = np.linalg.inv(hessian[n:,n:])
                     if _has_nan(cov_matrix): raise ValueError
                     self.psm.set_covariance_matrix(cov_matrix,current_position=0)
                     success = True
                 except Exception:
                     if not self.quiet: print 'Unable to recover point source errors.  Any reported error is unreliable!'
             else:
-                np = len(self.get_parameters())
-                self.cov_matrix = np.zeros([np,np])
+                nump = len(self.get_parameters())
+                self.cov_matrix = np.zeros([nump,nump])
 
         return success
 
