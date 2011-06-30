@@ -1,7 +1,7 @@
 """
 Manage data specification
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/dataspec.py,v 1.9 2011/04/26 16:14:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/dataspec.py,v 1.10 2011/06/24 04:54:49 burnett Exp $
 
 """
 import os, glob
@@ -124,10 +124,11 @@ class DataSpec(object):
             specify a key
         """
         # basic data files: will expand here
-        t= lookup_key.split('[') #check for format 'name [n]' where n is a division
-        if len(t)>1:
-            lookup_key = t[0]
-            month = int(t[1][:-1])
+        if hasattr(lookup_key,'split'):
+            t= lookup_key.split('[') #check for format 'name [n]' where n is a division
+            if len(t)>1:
+                lookup_key = t[0]
+                month = int(t[1][:-1])
         data = self.datasets[lookup_key].copy() # copy so changes not kept for subsequent calls
         for key in 'ft1files ft2files binfile ltcube'.split():
             if key in data and data[key] is not None:
