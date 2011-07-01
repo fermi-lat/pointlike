@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.28 2011/04/26 15:54:09 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.29 2011/06/24 04:54:49 burnett Exp $
 
 """
 import os, pickle, glob, types
@@ -282,8 +282,6 @@ class SkyModel(object):
 
 
         for s in globals:
-            dfile = os.path.expandvars(os.path.join('$FERMI','diffuse', s.name))
-            assert os.path.exists(dfile), 'file %s not found' % dfile
             prefix = s.name.split('_')[0]
             s.name, s.dmodel = prefix, self.diffuse_dict[prefix]
             s.smodel = s.model
