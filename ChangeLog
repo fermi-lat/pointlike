@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Jun 30 19:13:19 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skymodel.py 
+Log Message:
+Removed problematic second check for diffuse file.
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Jun 30 16:36:22 PDT 2011
 pointlike/python/uw/like
 
