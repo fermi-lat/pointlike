@@ -2,18 +2,19 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.56 2011/06/07 17:23:47 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.57 2011/06/13 04:01:27 lande Exp $
 
     author: Joshua Lande
 """
 
+import sys
 from SpatialModels import RadiallySymmetricModel,Disk,SpatialModel,SpatialMap
 from uw.utilities.convolution import ExtendedSourceConvolutionCache,AnalyticConvolutionCache
 from roi_diffuse import DiffuseSource,ROIDiffuseModel,SmallBand
 from textwrap import dedent
 from skymaps import SkyDir,Background
 from scipy.optimize import fmin 
-import numpy as N
+import numpy as np
 import numbers
 from uw.like.Models import PowerLaw
 from uw.utilities import keyword_options
@@ -133,7 +134,10 @@ class ROIExtendedModel(ROIDiffuseModel):
         es = self.extended_source
         sm = es.model
 
-        for myband,band in zip(self.bands,bands):
+        for iband,(myband,band) in enumerate(zip(self.bands,bands)):
+            if not self.quiet: 
+                status_string = '...convolving band %2d/%2d'%(iband+1,len(self.bands))
+                print status_string,;sys.stdout.flush()
 
             self.set_state(band)
 
@@ -144,6 +148,11 @@ class ROIExtendedModel(ROIDiffuseModel):
             myband.es_pix_counts = self._pix_value(band.wsdl)*band.b.pixelArea()
 
             myband.overlaps = self._overlaps(rd,band)
+
+            if not self.quiet: 
+                print '\b'*(2+len(status_string)),;sys.stdout.flush()
+
+        if not self.quiet: print
 
     def update_counts(self,bands,model_index):
         """Update models with free parameters."""
@@ -269,7 +278,7 @@ Arguments:
         init_spectral = es.model.get_parameters()
         init_spatial = sm.get_parameters(absolute=False)
 
-        if not N.any(sm.free):
+        if not np.any(sm.free):
             raise Exception("Unable to fit the diffuse source %s's extension. No parameters to fit. Perhaps when you wrote your xml file, you forgot to set some of the spatial parameters to be free?" % es.name)
 
         # Remember thet get_parameters only returns the free parameters.
@@ -283,7 +292,7 @@ Arguments:
         # same longitude) to the original position.
         # Fit values around at the equator around this new point.
         axis=SkyDir(init_lon-90,0,cs)
-        theta=N.radians(init_lat)
+        theta=np.radians(init_lat)
 
         # Fit in the rotated coodinate system.
         init_spatial[0:2]=[init_lon,0]
@@ -367,7 +376,7 @@ Arguments:
                 ll.append(likelihood_wrapper(param))
                 transformed.append(param)
 
-            index=N.argmin(ll)
+            index=np.argmin(ll)
             start_spatial=transformed[index]
             if quiet: print 'Now starting with the best initial parameters'
         else:
@@ -398,7 +407,7 @@ Arguments:
             else:
                 cov_matrix = m.errors(method=error)
         else:
-            cov_matrix = N.zeros([len(sm.p),len(sm.p)])
+            cov_matrix = np.zeros([len(sm.p),len(sm.p)])
 
         sm.set_cov_matrix(cov_matrix)
 
@@ -415,7 +424,7 @@ Arguments:
 
         # return log likelihood from fitting extension.
         final_dir=sm.center
-        delt = N.degrees(final_dir.difference(init_dir))
+        delt = np.degrees(final_dir.difference(init_dir))
         return final_dir,0,delt,-2*(ll_0+fval)
 
     def modify_loc(self,bands,center):
@@ -502,10 +511,10 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
         Any of the optional keyword arguments to uw.utilities.convolution's 
         AnalyticConvolutionCache class will be passed on to that class.  """
 
-    defaults = [
+    defaults = ROIExtendedModel.defaults + (
         ['fitpsf',False,'Method where the psf is calculated by fitting a single king function to the actual psf.'],
         ['fastpsf',False,'Method where the psf is apprximated by weighting the sigmas and gammas before evaluating the psf.']
-    ]
+    )
 
     @staticmethod
     def set_fastpsf(fastpsf):
@@ -647,8 +656,8 @@ class BandFitter(object):
     def psf_base(self,g,s,delta):
         # Fancy vectorized code taken from BandCALDBPsf. Maybe one
         # day these functions can share a common base.
-        u = 0.5 * N.outer(delta,1./s)**2
-        y = (1-1./g)*(1+u/g)**(-g)/(2*N.pi*s**2)
+        u = 0.5 * np.outer(delta,1./s)**2
+        y = (1-1./g)*(1+u/g)**(-g)/(2*np.pi*s**2)
         return y
 
     def _fit_band(self,band,weightspectrum):
@@ -674,9 +683,9 @@ class BandFitter(object):
 
         sigma_middle=sigma_middle*scale
 
-        rlist = N.linspace(0,20*sigma_middle,10000)
-        pdf = N.zeros_like(rlist)
-        pdf_weight = N.zeros_like(rlist)
+        rlist = np.linspace(0,20*sigma_middle,10000)
+        pdf = np.zeros_like(rlist)
+        pdf_weight = np.zeros_like(rlist)
 
         weight_sum,s_list=0,[]
 
@@ -706,7 +715,7 @@ class BandFitter(object):
         # the psf for a given gamma & sigma. Note that the most
         # accurate thing is the probability per unit radius summed over
         # all of the radii.
-        f=lambda p: N.std(rlist*(self.psf_base(p[0],p[1],rlist).sum(axis=1)-pdf))
+        f=lambda p: np.std(rlist*(self.psf_base(p[0],p[1],rlist).sum(axis=1)-pdf))
 
         fit = fmin(f,[gamma_middle,sigma_middle],full_output=False,disp=False)
         fit_gamma,fit_sigma = fit
@@ -761,7 +770,7 @@ class BandFitExtended(object):
         tot_term = (band.bg_all_counts + band.ps_all_counts + myband.overlaps*(new_counts - old_counts))*band.phase_factor
 
         pix_term = (band.pix_counts * 
-                            N.log(
+                            np.log(
                                 band.bg_all_pix_counts + band.ps_all_pix_counts + myband.es_pix_counts*(new_counts - old_counts)
                             )
                       ).sum() if band.has_pixels else 0.
@@ -793,7 +802,7 @@ class BandFitExtended(object):
         def upper_limit():
 
             flux_copy = self.m[0]
-            zp          = self.energyBandLikelihoodExtended(N.asarray([-20]),self.m)
+            zp          = self.energyBandLikelihoodExtended(np.asarray([-20]),self.m)
 
             # NB -- the 95% upper limit is calculated by assuming the likelihood is peaked at
             # 0 flux and finding the flux at which it has fallen by 1.35; this is a two-sided
@@ -802,7 +811,7 @@ class BandFitExtended(object):
                 return abs(self.energyBandLikelihoodExtended(parameters,self.m) - zp - 1.35)
             
             # for some reason, can't get fsolve to work here.  good ol' fmin to the rescue
-            self.energy_band.uflux = 10**fmin(f95,N.asarray([-11.75]),disp=0)[0]
+            self.energy_band.uflux = 10**fmin(f95,np.asarray([-11.75]),disp=0)[0]
             self.energy_band.lflux = None
             self.energy_band.flux  = None
 
