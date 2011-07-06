@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jul  5 22:00:28 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_diffuse.py 
+Log Message:
+More elegant handling of quiet in ROIDiffuseSource objects. Remove redundant imports.
+    *
+------------------------------------------------------------
 User: lande  Tue Jul  5 21:59:47 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
