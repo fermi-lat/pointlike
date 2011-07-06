@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.37 2011/06/22 03:50:50 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.38 2011/06/28 21:55:10 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.37 $'.split()[1]
+version='$Revision: 1.38 $'.split()[1]
 import types
 import os
 from os.path import join
@@ -309,14 +309,14 @@ class SpectralAnalysis(object):
             point_sources,diffuse_sources = cat.merge_lists(roi_dir,
                     self.maxROI+5 if catalog_include_radius is None else catalog_include_radius,
                     point_sources,diffuse_sources)
-        if point_sources == []:
+        if point_sources == [] and not self.quiet:
             print 'WARNING!  No point sources are included in the model.'
 
         # process diffuse models
         if diffuse_sources is not None and len(diffuse_sources) == 0:
             # try to use default
             diffuse_sources = get_default_diffuse(diffdir=diffdir)
-            if len(diffuse_sources) == 0:
+            if len(diffuse_sources) == 0 and not self.quiet:
                 print 'WARNING!  No diffuse sources are included in the model.'
         if diffuse_mapper is None:
             diffuse_mapper = get_default_diffuse_mapper(self,roi_dir,self.quiet)
