@@ -1,12 +1,10 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_diffuse.py,v 1.24 2011/06/28 23:26:29 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.25 2011/06/29 23:48:10 kerrm Exp $
 
 author: Matthew Kerr
 """
-import sys
-import numpy as N
 import sys
 import numpy as N; np = N
 from uw.utilities.convolution import BackgroundConvolution
@@ -62,7 +60,9 @@ class ROIDiffuseModel(object):
     
         Provide the interface that ROIDiffuseModel et al. should satisfy."""
 
-    defaults = (())
+    defaults = (
+        ('quiet', False, 'Set True to quiet'),
+    )
 
     @keyword_options.decorate(defaults)
     def __init__(self,spectral_analysis,diffuse_source,roi_dir,name=None,**kwargs):
@@ -126,13 +126,12 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
         rule exposure integral, child methods may override _ap_value 
         and _pix_value."""
 
-    defaults = (
+    defaults = ROIDiffuseModel.defaults + (
         ('pixelsize',0.25,'Pixel size for convolution grid'),
         ('npix',101,"Note -- can be overridden at the band level"),
         ('nsimps',4,"Note -- some energies use a multiple of this"),
         ('r_multi',1.0,"Multiple of r95 to set max dimension of grid"),
         ('r_max',20,"An absolute maximum (half)-size of grid (deg)"),
-        ('quiet', False, 'Set True to quiet'),
     )
 
     @keyword_options.decorate(defaults)
@@ -187,7 +186,7 @@ class ROIDiffuseModel_OTF(ROIDiffuseModel):
             if not self.quiet: 
                 status_string = '...convolving band %2d/%2d'%(iband+1,len(self.bands))
                 print status_string,;sys.stdout.flush()
-            # use a higher nsimps at low energy where effective area is jagged
+
             ns,myband.bg_points,myband.bg_vector = ROIDiffuseModel_OTF.sub_energy_binning(band,self.nsimps)
 
             #figure out best way to handle no pixel cases...
@@ -296,10 +295,9 @@ class ROIDiffuseModel_PC(ROIDiffuseModel_OTF):
     """ The diffuse model is assumed to be pre-convolved.  This class then
         manages the exposure integral and model evaluation."""
 
-    defaults = (
+    defaults = ROIDiffuseModel.defaults + (
         ('tolerance',0.02,'SkyIntegrator tolerance'),
         ('nsimps',4,'Number of subenergies to evalulate the simpson integral over'),
-        ('quiet', False, 'set True to suppress output'),
     )
 
     @keyword_options.decorate(defaults)
