@@ -15,7 +15,7 @@ from tempfile import mkdtemp,mkstemp,NamedTemporaryFile
 from GtApp import GtApp
 
 import pyfits
-import numpy as N
+import numpy as np
 from skymaps import IsotropicSpectrum,IsotropicPowerLaw,DiffuseFunction,PySkyFunction,SkyImage,SkyDir
 from . SpatialModels import Gaussian,EllipticalGaussian,RadiallySymmetricModel
 from . Models import PowerLaw,PowerLawFlux,Constant
@@ -154,7 +154,7 @@ class MonteCarlo(object):
 
     def _make_specfile(self,model,emin,emax,numpoints=200):
         temp=NamedTemporaryFile(dir='.',delete=False)
-        energies=N.logspace(N.log10(emin),N.log10(emax),numpoints)
+        energies=np.logspace(np.log10(emin),np.log10(emax),numpoints)
         fluxes=model(energies)
         temp.write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(energies,fluxes)]))
         temp.close()
@@ -163,7 +163,7 @@ class MonteCarlo(object):
     def _make_profile(self,spatial_model,numpoints=200):
         temp=NamedTemporaryFile(dir='.',delete=False)
         edge=spatial_model.effective_edge()
-        radius=N.linspace(0,edge,numpoints)
+        radius=np.linspace(0,edge,numpoints)
         pdf=spatial_model.at_r_in_deg(radius)
         temp.write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(radius,pdf)]))
         temp.close()
@@ -282,22 +282,22 @@ class MonteCarlo(object):
             to integrate the isotropic spectrum.
         
             Returns a value suitable for gtobssim in units of ph/m^2 """
-        file=N.genfromtxt(filename,unpack=True)
+        file=np.genfromtxt(filename,unpack=True)
         energy,flux=file[0],file[1]
 
         e1,e2=energy[:-1],energy[1:]
         f1,f2=flux[:-1],flux[1:]
 
-        gamma=N.log(f2/f1)/N.log(e2/e1)
+        gamma=np.log(f2/f1)/np.log(e2/e1)
 
         n0 = f1/e1**gamma
 
-        return N.sum(
-            N.where(gamma != -1,
+        return np.sum(
+            np.where(gamma != -1,
                     n0/(gamma+1)*(e2**(gamma+1)-e1**(gamma+1)),
-                    n0*N.log(e2/e1)
+                    n0*np.log(e2/e1)
             )
-        )*4*N.pi*10**4
+        )*4*np.pi*10**4
 
     def _make_isotropic(self,ds,savedir,indent):
 
@@ -309,7 +309,7 @@ class MonteCarlo(object):
         if not (isinstance(sm,Constant) and sm.getp(0) == 1):
             raise Exception("Can only run gtobssim with IsotropicSpectrum diffuse models where the spectral model is a Constant with norm 1.")
 
-        energies=N.genfromtxt(isotropic_spectrum,unpack=True)[0]
+        energies=np.genfromtxt(isotropic_spectrum,unpack=True)[0]
 
         emin,emax=energies[0],energies[-1]
 
@@ -335,14 +335,14 @@ class MonteCarlo(object):
         dm=ds.dmodel[0]
         sm=ds.smodel
 
-        if not (isinstance(sm,PowerLaw) and N.all(sm._p==0) and sm.index_offset==1): 
+        if not (isinstance(sm,PowerLaw) and np.all(sm._p==0) and sm.index_offset==1): 
             raise Exception("Can only run gtobssim with DiffuseFunction diffuse models where the spectral model is a PowerLaw with norm and index 1.")
 
         # flux in ph/cm^2/s/sr b/n 100MeV & infinity
         flux_pointlike=dm.flux()
         index=dm.index()
 
-        x=PowerLawFlux(p=[flux_pointlike,index],emin=100,emax=N.inf)
+        x=PowerLawFlux(p=[flux_pointlike,index],emin=100,emax=np.inf)
 
         mc_emin,mc_emax=self.larger_energy_range()
 
@@ -353,12 +353,12 @@ class MonteCarlo(object):
             radius=self.maxROI+20 
 
             # gtobssim wants ph/m^2/s, integrate over solid angle
-            flux=x.i_flux(mc_emin,mc_emax)*(2*N.pi*(1-N.cos(N.radians(radius))))*10**4
+            flux=x.i_flux(mc_emin,mc_emax)*(2*np.pi*(1-np.cos(np.radians(radius))))*10**4
         else:
             ra,dec,radius=0,0,180
 
             # gtobssim wants ph/m^2/s
-            flux=x.i_flux(mc_emin,mc_emax)*4*N.pi*10**4
+            flux=x.i_flux(mc_emin,mc_emax)*4*np.pi*10**4
 
 
         ds = [
@@ -404,12 +404,12 @@ class MonteCarlo(object):
         import pyLikelihood
         mapcube=pyLikelihood.MapCubeFunction2(filename)
         wcsmap=mapcube.wcsmap()
-        solid_angles=N.empty((nxpix,nypix))
+        solid_angles=np.empty((nxpix,nypix))
         sa=wcsmap.solidAngles()
         for i in xrange(nypix): solid_angles[:,i]=sa[i]
 
         map_integral = \
-                N.sum(solid_angles*\
+                np.sum(solid_angles*\
                     MonteCarlo.powerLawIntegral(energies[0:-1],energies[1:],
                     data[0:-1,:,:],data[1:,:,:]).sum(axis=0))
 
@@ -427,14 +427,14 @@ class MonteCarlo(object):
         # work seamlessly with the 1 dimesnional energy arrays
         y1=y1.transpose()
         y2=y2.transpose()
-        #return N.transpose((y1+y2)/2 * (x2-x1))
+        #return np.transpose((y1+y2)/2 * (x2-x1))
 
-        gamma = N.log(y2/y1)/N.log(x2/x1)
+        gamma = np.log(y2/y1)/np.log(x2/x1)
         n0 = y1/x1**gamma
 
         gp1 = gamma + 1.;
-        integral = N.where(gamma != 1., n0/gp1*(x2**gp1 - x1**gp1), n0*N.log(x2/x1))
-        return N.transpose(integral)
+        integral = np.where(gamma != 1., n0/gp1*(x2**gp1 - x1**gp1), n0*np.log(x2/x1))
+        return np.transpose(integral)
 
     def _make_diffuse(self,ds,indent):
 
@@ -442,7 +442,7 @@ class MonteCarlo(object):
         sm=ds.smodel
 
         # galactic diffuse
-        if not (isinstance(sm,PowerLaw) and N.all(sm._p==0) and sm.index_offset==1): 
+        if not (isinstance(sm,PowerLaw) and np.all(sm._p==0) and sm.index_offset==1): 
             raise Exception("Can only run gtobssim with DiffuseFunction diffuse models where the spectral model is a PowerLaw with norm and index 1.")
 
         filename=dm.name()
