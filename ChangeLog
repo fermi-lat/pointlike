@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jul  5 22:01:19 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Bugfix for extended sources. More verbose output when convolving extended sources. Fix numpy import.
+    *
+------------------------------------------------------------
 User: lande  Tue Jul  5 22:00:28 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
