@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.46 2011/06/21 20:24:53 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.47 2011/07/06 04:59:47 lande Exp $
 
    author: Joshua Lande
 
@@ -9,7 +9,7 @@ import os
 import copy
 import numbers
 
-import numpy as N
+import numpy as np
 from scipy import vectorize
 from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
         SkyImage,SkyIntegrator,CompositeSkyFunction
@@ -60,6 +60,7 @@ class DefaultSpatialModelValues(object):
                                 # As minuit.py's doc says, a step of .04 is about 10% in log space
                                }, 
         'PseudoGaussian'     : {},
+        'SunExtended'        : {'rmax':10},
         'Disk'               : {'p':[0.1],
                                 'param_names':['Sigma'],
                                 'limits':[[SMALL_ANALYTIC_EXTENSION,3]],
@@ -121,17 +122,17 @@ class DefaultSpatialModelValues(object):
             exec('the_model.%s = val'%key)
 
         # Add in point source parts.
-        the_model.p=N.append([0.,0.],the_model.p)
-        the_model.log=N.append([False,False],the_model.log)
-        the_model.param_names=N.append(['lon','lat'],the_model.param_names)
-        the_model.limits=N.append([[-1.,1.],[-1.,1.]],the_model.limits,axis=0) \
-                if the_model.__dict__.has_key('limits') else N.asarray([[-10.,10],[-10.,10.]])
-        the_model.steps=N.append([0.1,0.1],the_model.steps)
+        the_model.p=np.append([0.,0.],the_model.p)
+        the_model.log=np.append([False,False],the_model.log)
+        the_model.param_names=np.append(['lon','lat'],the_model.param_names)
+        the_model.limits=np.append([[-1.,1.],[-1.,1.]],the_model.limits,axis=0) \
+                if the_model.__dict__.has_key('limits') else np.asarray([[-10.,10],[-10.,10.]])
+        the_model.steps=np.append([0.1,0.1],the_model.steps)
 
         the_model.coordsystem = SkyDir.EQUATORIAL
 
-        the_model.cov_matrix = N.zeros([len(the_model.p),len(the_model.p)])
-        the_model.free = N.asarray([True] * len(the_model.p))
+        the_model.cov_matrix = np.zeros([len(the_model.p),len(the_model.p)])
+        the_model.free = np.asarray([True] * len(the_model.p))
 
 #===============================================================================================#
 
@@ -141,8 +142,8 @@ class SpatialModel(object):
         free paraemters.
     
         All spatial models are assumed to be normalized such that the
-        integral over solid angle of the intensity (for a given energy)
-        is equal to 1.
+        integral over solid angle (measured in degrees^2) of the intensity
+        (for a given energy) is equal to 1.
 
         All SpatialModel objects must implement the __call__ function,
         which takes a skydir object and returns the intensity at that
@@ -179,12 +180,12 @@ class SpatialModel(object):
                     # remove first two elements from default parameters.
                     self.p = self.p[2:]
                 if self.coordsystem == SkyDir.EQUATORIAL:
-                    self.p = N.append([center.ra(),center.dec()],self.p)
+                    self.p = np.append([center.ra(),center.dec()],self.p)
                 elif self.coordsystem == SkyDir.GALACTIC:
-                    self.p = N.append([center.l(),center.b()],self.p)
+                    self.p = np.append([center.l(),center.b()],self.p)
             else:
                 if len(self.p) == len(self.param_names)-2:
-                    self.p = N.append([0,0],self.p)
+                    self.p = np.append([0,0],self.p)
 
             if len(self.p) != len(self.param_names):
                 raise Exception("SpatialModel set with wrong number of parameters.")
@@ -201,8 +202,8 @@ class SpatialModel(object):
             # map the log parameters into log space.
             for i in range(2,len(self.log)):
                 if self.log[i]: 
-                    self.p[i] = N.log10(self.p[i])
-                    self.limits[i,:] = N.log10(self.limits[i,:])
+                    self.p[i] = np.log10(self.p[i])
+                    self.limits[i,:] = np.log10(self.limits[i,:])
 
         self.cache()
 
@@ -226,12 +227,12 @@ class SpatialModel(object):
             self.p[0:2] = [center.l(),center.b()]
 
         # Errors are no longer valid, so reset cov matrix.
-        self.cov_matrix = N.zeros([len(self.p),len(self.p)]) 
+        self.cov_matrix = np.zeros([len(self.p),len(self.p)]) 
 
     def get_parameters(self,absolute=False):
         """Return all parameters; used for spatial fitting. 
            This is different from in Models.py """
-        return N.where(self.log,10**self.p,self.p) if absolute else self.p
+        return np.where(self.log,10**self.p,self.p) if absolute else self.p
 
     def get_param_names(self,absolute=True):
         if absolute:
@@ -243,7 +244,7 @@ class SpatialModel(object):
                     for n,log in zip(self.param_names,self.log)]
 
     def get_limits(self,absolute=False):
-        ret = N.asarray([10**lim if log and absolute else lim \
+        ret = np.asarray([10**lim if log and absolute else lim \
                          for lim,log in zip(self.limits,self.log)])
         return ret
 
@@ -261,9 +262,9 @@ class SpatialModel(object):
         """
         if center:
             if self.coordsystem == SkyDir.EQUATORIAL:
-                p = N.append([center.ra(),center.dec()],p)
+                p = np.append([center.ra(),center.dec()],p)
             elif self.coordsystem == SkyDir.GALACTIC:
-                p = N.append([center.l(),center.b()],p)
+                p = np.append([center.l(),center.b()],p)
         if isinstance(p,numbers.Real) and len(self.p)==3:
             return self.set_parameters([p],absolute,center=self.center)
         elif len(p)==len(self.p)-2:
@@ -272,7 +273,7 @@ class SpatialModel(object):
         if len(p)!=len(self.p):
             raise Exception("SpatialModel.set_parameters given the wrong number of parameters.")
 
-        self.p = N.where(self.log,N.log10(p),p) if absolute else N.asarray(p,dtype=float)
+        self.p = np.where(self.log,np.log10(p),p) if absolute else np.asarray(p,dtype=float)
         self.cache()
     
     def modify_loc(self,center):
@@ -303,14 +304,14 @@ class SpatialModel(object):
     def get_cov_matrix(self,absolute=True):
         """Return covariance matrix."""
 
-        jac = N.log10(N.exp(1))
-        p = N.where(self.log,(10**self.p)/jac,1) if absolute else N.ones_like(self.p)
+        jac = np.log10(np.exp(1))
+        p = np.where(self.log,(10**self.p)/jac,1) if absolute else np.ones_like(self.p)
         pt=p.reshape((p.shape[0],1)) #transpose
         return p*self.cov_matrix*pt
 
     def get_free_errors(self,absolute=False):
         """Return the diagonal elements of the covariance matrix for free parameters."""
-        return N.diag(self.get_cov_matrix(absolute))**0.5
+        return np.diag(self.get_cov_matrix(absolute))**0.5
 
     def statistical(self,absolute=False,two_sided=False):
         """Return the parameter values and fractional statistical errors.
@@ -326,8 +327,8 @@ class SpatialModel(object):
         else:
             # Perfrom conversion out of log space.
             errs = self.get_free_errors(absolute=False)
-            lo_abs = N.where(self.log,p-10**(self.p-errs),errs)
-            hi_abs = N.where(self.log,10**(self.p+errs)-p,errs)
+            lo_abs = np.where(self.log,p-10**(self.p-errs),errs)
+            hi_abs = np.where(self.log,10**(self.p+errs)-p,errs)
             return  p, \
                     hi_abs/(1. if absolute else p), \
                     lo_abs/(1. if absolute else p)
@@ -336,12 +337,12 @@ class SpatialModel(object):
         
         a = eval(self.name+'(iscopy=True, **self.__dict__)') #create instance of same spectral model type
         
-        a.p           = N.asarray(self.p,dtype=float).copy() #copy in parameters
-        a.free        = N.asarray(self.free,dtype=bool).copy() 
-        a.param_names = N.asarray(self.param_names).copy() 
-        a.limits      = N.asarray(self.limits,dtype=float).copy() 
-        a.log         = N.asarray(self.log,dtype=bool).copy() 
-        a.steps       = N.asarray(self.steps,dtype=float).copy() 
+        a.p           = np.asarray(self.p,dtype=float).copy() #copy in parameters
+        a.free        = np.asarray(self.free,dtype=bool).copy() 
+        a.param_names = np.asarray(self.param_names).copy() 
+        a.limits      = np.asarray(self.limits,dtype=float).copy() 
+        a.log         = np.asarray(self.log,dtype=bool).copy() 
+        a.steps       = np.asarray(self.steps,dtype=float).copy() 
 
         try: a.cov_matrix = self.cov_matrix.__copy__()
         except: pass
@@ -473,7 +474,7 @@ class RadiallySymmetricModel(SpatialModel):
 
     def at_r(self,r,energy=None):
         """ r is in radians. """
-        return self.at_r_in_deg(N.degrees(r),energy)
+        return self.at_r_in_deg(np.degrees(r),energy)
 
     @abstractmethod
     def at_r_in_deg(self,r,energy=None):
@@ -514,10 +515,10 @@ class Gaussian(RadiallySymmetricModel):
 
         self.sigma=self.extension()
         self.sigma2=self.sigma**2 # cache this value
-        self.pref=1/(2*N.pi*N.radians(self.sigma)**2)
+        self.pref=1/(2*np.pi*np.radians(self.sigma)**2)
 
     def at_r_in_deg(self,r,energy=None):
-        return self.pref*N.exp(-r**2/(2*self.sigma2))
+        return self.pref*np.exp(-r**2/(2*self.sigma2))
 
     def r68(self): return GAUSSIAN_X68*self.sigma
     def r99(self): return GAUSSIAN_X99*self.sigma
@@ -528,10 +529,44 @@ class Gaussian(RadiallySymmetricModel):
     def has_edge(self): return False
 
     def shrink(self): 
-        self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
+        self.p[2]=np.where(self.log[2],np.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
         self.free[2]=False
         self.cache()
     def can_shrink(self): return True
+
+#===============================================================================================#
+
+class SunExtended(RadiallySymmetricModel):
+    """Representes the 1/r emission from the sun (up to a 
+       given maximum radius rmax which defaults to 20 degrees. 
+
+       Note that there is no fittable extension parameter,
+       although the position can be modified.
+
+       PDF = (1/2*pi*rmax*r)*delta(r<rmax)
+
+       p = [ ra, dec ] """
+
+    def cache(self):
+        super(SunExtended,self).cache()
+
+        self.pref=1/(2*np.pi*self.rmax)
+
+    def at_r_in_deg(self,r,energy=None):
+        return self.pref*np.where(r<self.rmax,1./r,0)
+
+    def r68(self): return 0.68*self.rmax
+    def r99(self): return 0.99*self.rmax
+
+    def pretty_spatial_string(self): return ""
+
+    def effective_edge(self,energy=None):
+        """ Disk has a well defined edge, so there is no reason to integrate past it. """
+        return self.rmax
+
+    def has_edge(self): return False
+
+    def can_shrink(self): return False
 
 #===============================================================================================#
 
@@ -559,10 +594,10 @@ class Disk(RadiallySymmetricModel):
 
         self.sigma=self.extension()
         self.sigma2=self.sigma**2 # cache this value
-        self.pref=1/(N.pi*N.radians(self.sigma)**2)
+        self.pref=1/(np.pi*np.radians(self.sigma)**2)
 
     def at_r_in_deg(self,r,energy=None):
-        return N.where(r<=self.sigma,self.pref,0)
+        return np.where(r<=self.sigma,self.pref,0)
 
     def r68(self): return DISK_X68*self.sigma
     def r99(self): return DISK_X99*self.sigma
@@ -577,7 +612,7 @@ class Disk(RadiallySymmetricModel):
         return "%.3fd" % (self.sigma)
 
     def shrink(self): 
-        self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
+        self.p[2]=np.where(self.log[2],np.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
         self.free[2]=False
         self.cache()
     def can_shrink(self): return True
@@ -608,10 +643,10 @@ class Ring(RadiallySymmetricModel):
 
         self.sigma2=self.sigma**2
         self.frac2=self.frac**2
-        self.pref=1/(N.pi*N.radians(self.sigma)**2*(1-self.frac2))
+        self.pref=1/(np.pi*np.radians(self.sigma)**2*(1-self.frac2))
 
     def at_r_in_deg(self,r,energy=None):
-        return N.where((r>=self.frac*self.sigma)&(r<=self.sigma),self.pref,0)
+        return np.where((r>=self.frac*self.sigma)&(r<=self.sigma),self.pref,0)
 
     def r68(self): return DISK_X68*(1-self.frac2)+self.frac2
     def r99(self): return DISK_X99*(1-self.frac2)+self.frac2
@@ -626,8 +661,8 @@ class Ring(RadiallySymmetricModel):
         return "%.3fd, %.3f" % (self.sigma,self.frac)
 
     def shrink(self): 
-        self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
-        self.p[3]=N.where(self.log[3],N.log10(SMALL_FRACTION),SMALL_FRACTION)
+        self.p[2]=np.where(self.log[2],np.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
+        self.p[3]=np.where(self.log[3],np.log10(SMALL_FRACTION),SMALL_FRACTION)
         self.free[2:4]=False
         self.cache()
     def can_shrink(self): return True
@@ -650,7 +685,7 @@ class NFW(RadiallySymmetricModel):
         self.scaled_sigma=self.sigma/self.factor
 
     def at_r_in_deg(self,r,energy=None):
-        return 2/(N.pi*r*self.scaled_sigma*(1+r/self.scaled_sigma)**5)
+        return 2/(np.pi*r*self.scaled_sigma*(1+r/self.scaled_sigma)**5)
 
     def r68(self): return NFW_X68*self.scaled_sigma
     def r99(self): return NFW_X99*self.scaled_sigma
@@ -661,7 +696,7 @@ class NFW(RadiallySymmetricModel):
         return "%.3fd" % (self.sigma)
 
     def shrink(self): 
-        self.p[2]=N.where(self.log[2],N.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
+        self.p[2]=np.where(self.log[2],np.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
         self.free[2]=False
         self.cache()
     def can_shrink(self): return True
@@ -678,25 +713,25 @@ class PseudoNFW(PseudoSpatialModel,NFW):
 #===============================================================================================#
 
 class RadialProfile(RadiallySymmetricModel):
-    def __init__(self,*args,**kwargs):
+    def __init__(self,**kwargs):
 
-        super(RadiallySymmetricModel).__init__(*args,**kwargs)
+        super(RadiallySymmetricModel).__init__(**kwargs)
 
         if not self.dict.has_key('file') or not os.path.exists(self.file):
             raise Exception("RadialProfile must be passed an existing file")
 
-        self.r,self.pdf=N.loadtxt(self.file,unpack=True)
+        self.r,self.pdf=np.loadtxt(self.file,unpack=True)
 
         # Explicitly normalize the RadialProfile.
-        self.interp = N.interp1d(self.r.self.pdf,kind='cubic',bound_error=False,fill_value=0)
+        self.interp = np.interp1d(self.r.self.pdf,kind='cubic',bound_error=False,fill_value=0)
 
-        r  = N.linspace(0,self.r[-1],10000)
+        r  = np.linspace(0,self.r[-1],10000)
         dr = r[1]-r[0]
-        self.norm = self.interp(r)*2*N.pi*r*dr
+        self.norm = self.interp(r)*2*np.pi*r*dr
         self.pdf /= self.norm
 
         # redo normalized interpolation
-        self.interp = N.interp1d(self.r*self.pdf,kind='cubic',bound_error=False,fill_value=0)
+        self.interp = np.interp1d(self.r*self.pdf,kind='cubic',bound_error=False,fill_value=0)
 
     def at_r_in_deg(self,r,energy=None):
         return self.interp(r)
@@ -768,8 +803,8 @@ class EllipticalSpatialModel(SpatialModel):
             dLons=(y_c-y)*grid.pixelsize
         else:
             mpix = (float(grid.npix)-1)/2.
-            dLons,dLats= N.meshgrid((N.arange(0,grid.npix)-mpix)*grid.pixelsize,
-                                     (mpix-N.arange(0,grid.npix))*grid.pixelsize)
+            dLons,dLats= np.meshgrid((np.arange(0,grid.npix)-mpix)*grid.pixelsize,
+                                     (mpix-np.arange(0,grid.npix))*grid.pixelsize)
 
         # calculate the angle from the center of the grid to the celestial north
         # pole by finding the image coordinates for the center and for the sky
@@ -779,11 +814,11 @@ class EllipticalSpatialModel(SpatialModel):
         xc,yc = grid.pix(self.center)
 
         # Magic factor of 90 degrees still confuses me.
-        angle = N.radians(90) - (N.radians(self.theta) + N.arctan2(y-yc,x-xc))
+        angle = np.radians(90) - (np.radians(self.theta) + np.arctan2(y-yc,x-xc))
 
-        a =  N.cos(angle)**2/(self.sigma_x**2)  + N.sin(angle)**2/(self.sigma_y**2)
-        b = -N.sin(2*angle)/(2*self.sigma_x**2) + N.sin(2*angle)/(2*self.sigma_y**2)
-        c =  N.sin(angle)**2/(self.sigma_x**2)  + N.cos(angle)**2/(self.sigma_y**2)
+        a =  np.cos(angle)**2/(self.sigma_x**2)  + np.sin(angle)**2/(self.sigma_y**2)
+        b = -np.sin(2*angle)/(2*self.sigma_x**2) + np.sin(2*angle)/(2*self.sigma_y**2)
+        c =  np.sin(angle)**2/(self.sigma_x**2)  + np.cos(angle)**2/(self.sigma_y**2)
 
         x=a*dLons**2 + 2*b*dLons*dLats+ c*dLats**2
 
@@ -830,7 +865,7 @@ class EllipticalSpatialModel(SpatialModel):
         pass
 
     def shrink(self): 
-        self.p[2:4]=N.where(self.log[2:4],N.log10(SMALL_NUMERIC_EXTENSION),SMALL_NUMERIC_EXTENSION)
+        self.p[2:4]=np.where(self.log[2:4],np.log10(SMALL_NUMERIC_EXTENSION),SMALL_NUMERIC_EXTENSION)
         self.p[4]=0
         self.free[2:5]=False
         self.cache()
@@ -847,10 +882,10 @@ class EllipticalGaussian(EllipticalSpatialModel):
 
     def cache(self):
         super(EllipticalGaussian,self).cache()
-        self.pref = 1/(2*N.pi*self.sigma_x*self.sigma_y)
+        self.pref = 1/(2*np.pi*self.sigma_x*self.sigma_y)
 
     def value_at(self,x):
-        return self.pref*N.exp(-x/2)
+        return self.pref*np.exp(-x/2)
 
     def ellipse_68(self): return GAUSSIAN_X68*self.sigma_x,GAUSSIAN_X68*self.sigma_y,self.theta
     def ellipse_99(self): return GAUSSIAN_X99*self.sigma_x,GAUSSIAN_X99*self.sigma_y,self.theta
@@ -891,10 +926,10 @@ class EllipticalDisk(EllipticalSpatialModel):
 
     def cache(self):
         super(EllipticalDisk,self).cache()
-        self.pref = 1/(N.pi*N.radians(self.sigma_x)*N.radians(self.sigma_y))
+        self.pref = 1/(np.pi*np.radians(self.sigma_x)*np.radians(self.sigma_y))
 
     def value_at(self,x):
-        return N.where(x<1,self.pref,0)
+        return np.where(x<1,self.pref,0)
 
     def ellipse_68(self): return DISK_X68*self.sigma_x,DISK_X68*self.sigma_y,self.theta
     def ellipse_99(self): return DISK_X99*self.sigma_x,DISK_X99*self.sigma_y,self.theta
@@ -933,10 +968,10 @@ class EllipticalRing(EllipticalSpatialModel):
         self.frac = self.get_parameters(absolute=True)[5]
         self.frac2 = self.frac**2
 
-        self.pref = 1/(N.pi*N.radians(self.sigma_x)*N.radians(self.sigma_y)*(1-self.frac**2))
+        self.pref = 1/(np.pi*np.radians(self.sigma_x)*np.radians(self.sigma_y)*(1-self.frac**2))
 
     def value_at(self,x):
-        return N.where((x>self.frac2)&(x<1),self.pref,0)
+        return np.where((x>self.frac2)&(x<1),self.pref,0)
 
     def ellipse_68(self):
         x68=DISK_X68*(1-self.frac2)+self.frac2
@@ -977,12 +1012,12 @@ class SpatialMap(SpatialModel):
         file = file.replace('(','{').replace(')','}')
         return os.path.expandvars(file)
 
-    def __init__(self,*args,**kwargs):
+    def __init__(self,**kwargs):
 
-        super(SpatialMap,self).__init__(*args,**kwargs)
-
-        if not self.__dict__.has_key('file'):
+        if not hasattr(self,'kwargs'):
             raise Exception("Object Template must be initialized with file=template.fits keyword.")
+
+        super(SpatialMap,self).__init__(**kwargs)
 
         self.extension="" # use primary extension.
         self.interpolate=True # Note, interpolate=True necessary to not read outside array
@@ -1003,9 +1038,9 @@ class SpatialMap(SpatialModel):
 
         # the spatial parameters are just the center of the image.
         if self.coordsystem == SkyDir.EQUATORIAL:
-            self.p = N.asarray([self.center.ra(),self.center.dec()],dtype=float)
+            self.p = np.asarray([self.center.ra(),self.center.dec()],dtype=float)
         elif self.coordsystem == SkyDir.GALACTIC:
-            self.p = N.asarray([self.center.l(),self.center.b()],dtype=float)
+            self.p = np.asarray([self.center.l(),self.center.b()],dtype=float)
 
         self.init_p=self.p.copy()
 
