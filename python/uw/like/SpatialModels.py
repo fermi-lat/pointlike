@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.48 2011/07/07 02:51:58 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.49 2011/07/07 20:24:27 lande Exp $
 
    author: Joshua Lande
 
@@ -1044,7 +1044,7 @@ class SpatialMap(SpatialModel):
 
     def __init__(self,**kwargs):
 
-        if not hasattr(self,'kwargs'):
+        if not hasattr(kwargs,'file'):
             raise Exception("Object Template must be initialized with file=template.fits keyword.")
 
         super(SpatialMap,self).__init__(**kwargs)
