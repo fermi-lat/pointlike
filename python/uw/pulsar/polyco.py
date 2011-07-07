@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.84 2011/04/20 00:36:30 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/polyco.py,v 1.1 2011/04/27 18:32:03 kerrm Exp $
 
 Mange polycos from tempo2.
 
@@ -57,7 +57,7 @@ class PolycoEntry:
 class Polyco:
     def __init__(self, fname, psrname=None, recalc_polycos=True,mjd0=51544):
 
-        if fname.endswith( ".par" ):
+        if fname.endswith( ".par" ) or recalc_polycos:
             fname = self.gen_polycos(fname,recalc_polycos=recalc_polycos,mjd0=mjd0)
         
         VERBOSE= False
