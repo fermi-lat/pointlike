@@ -1,7 +1,7 @@
 """
 Module to perfrom routine testing of pointlike's many features.'
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.1 2011/06/28 21:57:36 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.2 2011/07/06 05:03:19 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -66,15 +66,37 @@ def compare_spatial_model(fit,true,lsigma):
     """ Compare a source 'fit's spatial model to the source 'true's spatial model. """
 
     if hasattr(true,'spatial_model') and hasattr(fit,'spatial_model'):
-        [sigma_mc]=true.spatial_model.statistical(absolute=True)[0]
-        [sigma],[sigma_err]=fit.spatial_model.statistical(absolute=True)
-        print ' > True Ext = %.2f, Fit Ext = %.2f +/- %.1g%%' % (sigma_mc,sigma,sigma_err)
+        sigma_mc=true.spatial_model['Sigma']
+        sigma=fit.spatial_model['Sigma']
+        sigma_err=fit.spatial_model.statistical(absolute=True)[1][2]
+        print ' > True Ext = %.2f, Fit Ext = %.2f +/- %.1g%% (pull=%.1f)' % (
+            sigma_mc,sigma,sigma_err,(sigma-sigma_mc)/sigma_err)
 
-    print ' > True Pos = (%.3f,%.3f), Fit Pos =  (%.3f,%.3f), dist=%.3f, err=%.3f (pull=%.1f)' % \
+    print ' > True Pos = (%.3f,%.3f), Fit Pos = (%.3f,%.3f), dist=%.3f, err=%.3f (pull=%.1f)' % \
             (true.skydir.ra(),true.skydir.dec(),
              fit.skydir.ra(),fit.skydir.dec(),
              np.degrees(true.skydir.difference(fit.skydir)),lsigma,
              np.degrees(true.skydir.difference(fit.skydir))/lsigma)
+
+
+def test_models():
+
+    print 'Testing the Model + SpatialModel objects.'
+    print
+
+    model=PowerLaw(p=[1e-7,2])
+    print '> Norm = 1e-7 = %s' % model['Norm']
+
+    model['Norm']=1e-6
+    print '> Norm = 1e-6 = %s' % model['Norm']
+
+    print '> Index = 2 = %s' % model['Index']
+
+    spatial_model = Disk(p=[1.5],center=SkyDir(22,22,SkyDir.GALACTIC))
+    print '> Sigma = 1.5 = %s' % spatial_model['Sigma']
+    
+    spatial_model['Sigma'] = 0.5
+    print '> Sigma = 0.5 = %s' % spatial_model['Sigma']
 
 def test_extended_source():
 
@@ -103,9 +125,6 @@ def test_extended_source():
     roi.fit_extension(which='source')
     roi.localize(update=True)
     roi.fit(use_gradient=True)
-
-    [sigma],[sigma_err]=es_fit.spatial_model.statistical(absolute=False)
-    sigma=es_mc.spatial_model['Sigma']
 
     compare_model(es_fit,es_mc)
     compare_spatial_model(es_fit,es_mc,roi.lsigma)
@@ -148,5 +167,9 @@ if __name__ == '__main__':
     if not os.path.exists(os.path.expandvars("$SIMDIR")):
         raise Exception('$SIMDIR must exist.')
 
+    #np.seterr(all='raise')
+    np.seterr(all='warn')
+
+    test_models()
     test_point_source()
     test_extended_source()
