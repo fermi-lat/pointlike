@@ -6,12 +6,12 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.30 2011/06/17 03:21:39 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.31 2011/06/28 21:55:50 lande Exp $
 
 author: Joshua Lande
 """
 from skymaps import SkyImage,SkyDir,PythonUtilities,Band,WeightedSkyDirList
-import numpy as N
+import numpy as np
 import pyfits
 import scipy
 import scipy.ndimage
@@ -95,7 +95,7 @@ class ROIImage(object):
     @staticmethod
     def skyimage2numpy(skyimage):
         nx, ny = skyimage.naxis1(), skyimage.naxis2()
-        image=N.array(skyimage.image()).reshape((ny, nx))
+        image=np.array(skyimage.image()).reshape((ny, nx))
         return image
 
     @abstractmethod
@@ -228,7 +228,7 @@ class CountsImage(ROIImage):
         skydirs = [ skydir for skydir,time in zip(skydirs,data['time']) if gti.accept(time)]
 
         # apply ROI radial cut
-        skydirs = [ skydir for skydir in skydirs if N.degrees(skydir.difference(roi.roi_dir)) < radius ]
+        skydirs = [ skydir for skydir in skydirs if np.degrees(skydir.difference(roi.roi_dir)) < radius ]
 
         return skydirs
 
@@ -315,9 +315,9 @@ class ModelImage(ROIImage):
 
         self.wsdl = self.skyimage.get_wsdl()
 
-        self.solid_angle = N.radians(self.pixelsize)**2
+        self.solid_angle = np.radians(self.pixelsize)**2
 
-        model_counts = N.zeros(len(self.wsdl),dtype=float)
+        model_counts = np.zeros(len(self.wsdl),dtype=float)
 
         model_counts += self.all_point_source_counts()
         model_counts += self.all_diffuse_sources_counts()
@@ -344,14 +344,14 @@ class ModelImage(ROIImage):
         if len(myarr.shape) == 1:
             xs = myarr.shape[0]
             assert xs % factor == 0
-            dsarr = N.concatenate([[myarr[i::factor]]
+            dsarr = np.concatenate([[myarr[i::factor]]
                                    for i in range(factor)]).mean(axis=0)
             return dsarr
 
         elif len(myarr.shape) == 2:
             xs,ys = myarr.shape
             assert xs % factor == 0 and ys % factor == 0
-            dsarr = N.concatenate([[myarr[i::factor,j::factor] 
+            dsarr = np.concatenate([[myarr[i::factor,j::factor] 
                 for i in range(factor)] 
                 for j in range(factor)]).mean(axis=0)
             return dsarr
@@ -364,7 +364,7 @@ class ModelImage(ROIImage):
             r10=band.psf.inverse_integral_on_axis(0.10)
             compare=r10
         
-        self.factor = int(N.ceil(self.pixelsize/compare))
+        self.factor = int(np.ceil(self.pixelsize/compare))
 
         if self.factor == 1:
             return self.wsdl
@@ -404,7 +404,7 @@ class ModelImage(ROIImage):
         point_sources=ModelImage.get_point_sources(self.roi,self.override_point_sources,self.override_diffuse_sources)
         if len(point_sources)==0: return 0
 
-        point_counts = N.zeros(len(self.wsdl),dtype=float)
+        point_counts = np.zeros(len(self.wsdl),dtype=float)
 
         for band in self.selected_bands:
             cpsf = band.psf.cpsf
@@ -412,7 +412,7 @@ class ModelImage(ROIImage):
             # generate a list of skydirs on a finer grid.
             wsdl = self.bigger_wsdl(band)
 
-            rvals  = N.empty(len(wsdl),dtype=float)
+            rvals  = np.empty(len(wsdl),dtype=float)
 
             for nps,ps in enumerate(point_sources):
                 # evaluate the PSF at the center of each pixel
@@ -434,7 +434,7 @@ class ModelImage(ROIImage):
         es = extended_model.extended_source
         sm = es.smodel
 
-        extended_counts = N.zeros(len(self.wsdl),dtype=float)
+        extended_counts = np.zeros(len(self.wsdl),dtype=float)
 
         for band in self.selected_bands:
             extended_model.set_state(band)
@@ -460,13 +460,13 @@ class ModelImage(ROIImage):
 
         mo=bg.smodel
 
-        background_counts = N.zeros(len(self.wsdl),dtype=float)
+        background_counts = np.zeros(len(self.wsdl),dtype=float)
 
         for band in self.selected_bands:
 
             ns,bg_points,bg_vector = ROIDiffuseModel_OTF.sub_energy_binning(band,bg.nsimps)
 
-            pi_evals  = N.empty([len(self.wsdl),ns + 1])
+            pi_evals  = np.empty([len(self.wsdl),ns + 1])
 
             wsdl = self.bigger_wsdl(band,compare=bg.pixelsize/4.0)
 
@@ -560,16 +560,16 @@ class RadialImage(object):
         if self.center is None: self.center=self.roi.roi_dir
 
         # bins in theta^2
-        self.bin_edges_deg = N.linspace(0.0,self.size**2,self.npix+1)
+        self.bin_edges_deg = np.linspace(0.0,self.size**2,self.npix+1)
         self.bin_centers_deg = (self.bin_edges_deg[1:] + self.bin_edges_deg[:-1])/2.0
         
         # two factors of radians b/c theta^2
-        self.bin_edges_rad = N.radians(N.radians(self.bin_edges_deg))
-        self.bin_centers_rad = N.radians(N.radians(self.bin_centers_deg))
+        self.bin_edges_rad = np.radians(np.radians(self.bin_edges_deg))
+        self.bin_centers_rad = np.radians(np.radians(self.bin_centers_deg))
 
         # the lower and upper agle for each bin.
-        self.theta_pairs_rad = zip(N.sqrt(self.bin_edges_rad[:-1]),
-                                   N.sqrt(self.bin_edges_rad[1:]))
+        self.theta_pairs_rad = zip(np.sqrt(self.bin_edges_rad[:-1]),
+                                   np.sqrt(self.bin_edges_rad[1:]))
 
 
         self.fill()
@@ -589,7 +589,7 @@ class RadialCounts(RadialImage):
     def fill(self):
         dirs = CountsImage.process_filedata(self.roi,self.conv_type)
         diffs = [self.center.difference(i) for i in dirs]
-        self.image=N.histogram(diffs,bins=N.sqrt(self.bin_edges_rad))[0]
+        self.image=np.histogram(diffs,bins=np.sqrt(self.bin_edges_rad))[0]
 
 
 class RadialSource(RadialImage):
@@ -615,9 +615,9 @@ class RadialSource(RadialImage):
             raise Exception("spatial_model must be an instance of RadiallySymmetricModel.")
 
         total_counts = sum(band.expected(sm) for band in self.roi.bands)
-        solid_angle = RadialModel.solid_angle_cone(N.radians(self.size))/self.npix
+        solid_angle = RadialModel.solid_angle_cone(np.radians(self.size))/self.npix
 
-        fraction = es.spatial_model.at_r(N.sqrt(self.bin_centers_rad))
+        fraction = es.spatial_model.at_r(np.sqrt(self.bin_centers_rad))
         fraction*=solid_angle
 
         self.image = total_counts*fraction
@@ -645,12 +645,12 @@ class RadialModel(RadialImage):
         # and create better plots.
         self.smaller_bands = []
         for band in self.selected_bands:
-            rad=self.center.difference(self.roi.roi_dir) + N.radians(self.size)
+            rad=self.center.difference(self.roi.roi_dir) + np.radians(self.size)
             pb = PretendBand(band.e,band.ct, psf=band.psf, radius_in_rad=rad,
                              sd=self.center, emin=band.emin, emax=band.emax)
             self.smaller_bands.append(pb)
 
-        self.image = N.zeros_like(self.bin_centers_rad)
+        self.image = np.zeros_like(self.bin_centers_rad)
         self.image += self.all_point_source_counts()
         self.image += self.all_diffuse_sources_counts()
         self.image *= self.roi.phase_factor # don't forget about the phase factor!
@@ -660,7 +660,7 @@ class RadialModel(RadialImage):
         point_sources=ModelImage.get_point_sources(self.roi,self.override_point_sources,self.override_diffuse_sources)
         if len(point_sources)==0: return 0
 
-        point_counts = N.zeros_like(self.bin_centers_rad)
+        point_counts = np.zeros_like(self.bin_centers_rad)
 
         overlap = PsfOverlap()
 
@@ -688,7 +688,7 @@ class RadialModel(RadialImage):
         roi=self.roi
         sm = extended_model.extended_source.model
 
-        extended_counts = N.zeros_like(self.bin_centers_rad)
+        extended_counts = np.zeros_like(self.bin_centers_rad)
 
         for band,smaller_band in zip(self.selected_bands,self.smaller_bands):
 
@@ -699,22 +699,22 @@ class RadialModel(RadialImage):
                 nside = RadialModel.get_nside(self.size,self.npix)
 
                 temp_band = Band(nside)
-                wsdl = WeightedSkyDirList(temp_band,self.center,N.radians(self.size),True)
+                wsdl = WeightedSkyDirList(temp_band,self.center,np.radians(self.size),True)
                 vals=extended_model._pix_value(wsdl)
 
-                rvals=N.empty(len(wsdl),dtype=float)
+                rvals=np.empty(len(wsdl),dtype=float)
                 PythonUtilities.arclength(rvals,wsdl,self.center)
 
                 # get average value in each ring by averaging values.
-                fraction = N.histogram(rvals,weights=vals,bins=N.sqrt(self.bin_edges_rad))[0]/\
-                           N.histogram(rvals,bins=N.sqrt(self.bin_edges_rad))[0]
+                fraction = np.histogram(rvals,weights=vals,bins=np.sqrt(self.bin_edges_rad))[0]/\
+                           np.histogram(rvals,bins=np.sqrt(self.bin_edges_rad))[0]
 
                 # multiply intensities by solid angle in ring
-                fraction *= RadialModel.solid_angle_cone(N.radians(self.size))/self.npix
+                fraction *= RadialModel.solid_angle_cone(np.radians(self.size))/self.npix
 
             elif type(extended_model) == ROIExtendedModelAnalytic:
 
-                fraction = N.empty_like(self.bin_centers_rad)
+                fraction = np.empty_like(self.bin_centers_rad)
 
                 for i,(theta_min,theta_max) in enumerate(self.theta_pairs_rad):
 
@@ -728,7 +728,7 @@ class RadialModel(RadialImage):
 
     @staticmethod
     def solid_angle_cone(radius_in_radians):
-        return 2*N.pi*(1-N.cos(radius_in_radians))
+        return 2*np.pi*(1-np.cos(radius_in_radians))
 
     @staticmethod
     def get_nside(size,npix,num_points_per_ring=200):
@@ -739,12 +739,12 @@ class RadialModel(RadialImage):
 
             Solving for ns, the size of the healpixels required, we get the required formula
         """
-        total_solid_angle=4*N.pi
-        image_solid_angle=RadialModel.solid_angle_cone(N.radians(size))
+        total_solid_angle=4*np.pi
+        image_solid_angle=RadialModel.solid_angle_cone(np.radians(size))
 
         solid_angle_per_ring=image_solid_angle/npix
 
-        nside = int(N.ceil(N.sqrt(num_points_per_ring*total_solid_angle/(12*solid_angle_per_ring))))
+        nside = int(np.ceil(np.sqrt(num_points_per_ring*total_solid_angle/(12*solid_angle_per_ring))))
         return nside
 
     def otf_source_counts(self,bg):
@@ -753,7 +753,7 @@ class RadialModel(RadialImage):
 
         mo=bg.smodel
 
-        background_counts = N.zeros_like(self.bin_centers_rad)
+        background_counts = np.zeros_like(self.bin_centers_rad)
 
         for band,smaller_band in zip(self.selected_bands,self.smaller_bands):
 
@@ -762,24 +762,24 @@ class RadialModel(RadialImage):
             nside = RadialModel.get_nside(self.size,self.npix)
 
             temp_band = Band(nside)
-            wsdl = WeightedSkyDirList(temp_band,self.center,N.radians(self.size),True)
+            wsdl = WeightedSkyDirList(temp_band,self.center,np.radians(self.size),True)
 
-            ap_evals = N.empty([len(self.bin_centers_rad),len(bg_points)])
+            ap_evals = np.empty([len(self.bin_centers_rad),len(bg_points)])
 
             for ne,e in enumerate(bg_points):
 
                 bg.set_state(e,band.ct,smaller_band)
 
-                rvals=N.empty(len(wsdl),dtype=float)
+                rvals=np.empty(len(wsdl),dtype=float)
                 PythonUtilities.arclength(rvals,wsdl,self.center)
                 vals=bg._pix_value(wsdl)
 
                 # get average value in each ring by averaging values.
-                ap_evals[:,ne] = N.histogram(rvals,weights=vals,bins=N.sqrt(self.bin_edges_rad))[0]/\
-                                 N.histogram(rvals,bins=N.sqrt(self.bin_edges_rad))[0]
+                ap_evals[:,ne] = np.histogram(rvals,weights=vals,bins=np.sqrt(self.bin_edges_rad))[0]/\
+                                 np.histogram(rvals,bins=np.sqrt(self.bin_edges_rad))[0]
 
             # multiply intensities by solid angle in ring
-            ap_evals *= RadialModel.solid_angle_cone(N.radians(self.size))/self.npix
+            ap_evals *= RadialModel.solid_angle_cone(np.radians(self.size))/self.npix
 
             ap_evals          *= bg_vector
             mo_evals           = mo(bg_points)
@@ -865,24 +865,24 @@ class SmoothedImage(ROIImage):
                 http://code.google.com/p/agpy/source/browse/trunk/agpy/convolve.py
         """
 
-        width = int(N.ceil(kernel_rad/pixelsize))
+        width = int(np.ceil(kernel_rad/pixelsize))
 
         if kerneltype == 'tophat':
             kernelsize=4*width
 
-            kernel = N.zeros([kernelsize,kernelsize],dtype=float)
+            kernel = np.zeros([kernelsize,kernelsize],dtype=float)
 
-            xx,yy = N.indices(kernel.shape)
-            rr = N.sqrt((xx-kernel.shape[0]/2.)**2+(yy-kernel.shape[1]/2.)**2)
+            xx,yy = np.indices(kernel.shape)
+            rr = np.sqrt((xx-kernel.shape[0]/2.)**2+(yy-kernel.shape[1]/2.)**2)
             kernel[rr<width] = 1
 
         elif kerneltype == 'gaussian':
             kernelsize = 8*width
 
-            kernel = N.zeros([kernelsize,kernelsize],dtype=float)
-            xx,yy = N.indices(kernel.shape)
-            rr = N.sqrt((xx-kernel.shape[0]/2.)**2+(yy-kernel.shape[1]/2.)**2)
-            kernel = N.exp(-(rr**2)/(2*width**2)) / (width**2 * (2*N.pi))
+            kernel = np.zeros([kernelsize,kernelsize],dtype=float)
+            xx,yy = np.indices(kernel.shape)
+            rr = np.sqrt((xx-kernel.shape[0]/2.)**2+(yy-kernel.shape[1]/2.)**2)
+            kernel = np.exp(-(rr**2)/(2*width**2)) / (width**2 * (2*np.pi))
 
 
         else:
