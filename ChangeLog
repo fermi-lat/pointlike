@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jul  6 19:56:39 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_catalogs.py 
+Log Message:
+Attempt to make 2fgl catalog read in gll_iem_v04.fits. Remove min_ts cut since it doesn't seem to work. Use new extended_source_names column. Better PLExpCutoff. Deal with index=0 + sources with no norm.
+    *
+------------------------------------------------------------
 User: lande  Wed Jul  6 19:54:17 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
