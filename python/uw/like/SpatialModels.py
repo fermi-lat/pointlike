@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.47 2011/07/06 04:59:47 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.48 2011/07/07 02:51:58 lande Exp $
 
    author: Joshua Lande
 
@@ -229,6 +229,27 @@ class SpatialModel(object):
         # Errors are no longer valid, so reset cov matrix.
         self.cov_matrix = np.zeros([len(self.p),len(self.p)]) 
 
+    def len(self):
+        return len(self.p)
+        
+    def __getitem__(self, index):
+        return self.getp(index)
+        
+    def __setitem__(self, index, value):
+        self.setp(index,value)
+        
+    def getp(self, i, internal=False):
+        """ get external value for parameter # i """
+        i=self.mapper(i)
+        return np.where((not internal) & self.log,10**self.p,self.p)[i]
+
+    def setp(self, i, par, internal=False):
+        """ set internal value, convert unless internal """
+        i=self.mapper(i)
+        if not internal: 
+            assert par>0, 'Model external parameter cannont be negative'
+        self.p[i] = par if (internal and self.log[i]) else np.log10(par)
+
     def get_parameters(self,absolute=False):
         """Return all parameters; used for spatial fitting. 
            This is different from in Models.py """
@@ -275,6 +296,15 @@ class SpatialModel(object):
 
         self.p = np.where(self.log,np.log10(p),p) if absolute else np.asarray(p,dtype=float)
         self.cache()
+
+    def mapper(self,i):
+        """ Maps a parameter to an index. """
+        if isinstance(i,str):
+            if i not in self.param_names:
+                raise Exception("Unknown parameter name %s" % i)
+            return np.where(self.param_names==i)[0][0]
+        else:
+            return i
     
     def modify_loc(self,center):
         if self.coordsystem == SkyDir.EQUATORIAL:
