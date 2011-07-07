@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.179 2011/06/28 07:50:46 lande Exp $
+$Id: release.notes,v 1.180 2011/06/28 22:08:27 lande Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-07-31 07-Jul-2011  lande Bugfixes + testing
  pointlike-07-07-30 28-Jun-2011  lande New module roi_testing.py
  pointlike-07-07-29 28-Jun-2011  lande bugfix
  pointlike-07-07-28 24-Jun-2011  lande Pointlike bugfixes
