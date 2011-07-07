@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.57 2011/06/13 04:01:27 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.58 2011/07/06 05:01:19 lande Exp $
 
     author: Joshua Lande
 """
@@ -269,7 +269,7 @@ Arguments:
         origin=SkyDir(0,0,cs)
 
         # keep the roi quiet during fit, so lots of print is supressed during the iteration.
-        quiet = roi.quiet
+        roi.old_quiet = roi.quiet
         roi.quiet = True
 
         if roi.TS(which=self.name,quick=True,bandfits=bandfits) < 1:
@@ -350,17 +350,19 @@ Arguments:
                     if ll_alt > ll: ll=ll_alt
                     else: es.model.set_parameters(prev_fit)
 
-            if not quiet: print '%s, logL = %.3f, dlogL = %.3f' % (sm.pretty_string(),ll,ll-ll_0)
+            if not self.quiet: print '%s, logL = %.3f, dlogL = %.3f' % (sm.pretty_string(),ll,ll-ll_0)
             return -ll
 
         f=likelihood_wrapper
 
         ll_0 = 0
-        old_quiet = quiet; quiet = True; 
-        ll_0 = -f(init_spatial); 
-        quiet = old_quiet
 
-        if quiet: print 'Localizing %s source %s Using %s' % (sm.pretty_name,es.name,
+        # shut up print just the first time
+        old_quiet = self.quiet; self.quiet = True; 
+        ll_0 = -f(init_spatial); 
+        self.quiet = old_quiet
+
+        if not self.quiet: print 'Localizing %s source %s Using %s' % (sm.pretty_name,es.name,
                                                     'BandFits' if bandfits else 'Spectral Fits')
 
         if init_grid is not None:
@@ -378,7 +380,7 @@ Arguments:
 
             index=np.argmin(ll)
             start_spatial=transformed[index]
-            if quiet: print 'Now starting with the best initial parameters'
+            if not self.quiet: print 'Now starting with the best initial parameters'
         else:
             start_spatial = init_spatial
 
@@ -392,7 +394,7 @@ Arguments:
                    up=0.5,
                    maxcalls=500,
                    tolerance=tolerance,
-                   printMode = -1 if quiet else 1,
+                   printMode = -1 if self.quiet else 1,
                    param_names=relative_names,
                    limits    = limits,
                    fixed     = ~sm.free,
@@ -401,7 +403,7 @@ Arguments:
         best_spatial,fval = m.minimize(method="SIMPLEX")
 
         if estimate_errors is True and error is not None:
-            if not quiet: print 'Calculating Covariance Matrix'
+            if not self.quiet: print 'Calculating Covariance Matrix'
             if error == 'UMINOS':
                 cov_matrix = m.uncorrelated_minos_error()
             else:
@@ -411,7 +413,7 @@ Arguments:
 
         sm.set_cov_matrix(cov_matrix)
 
-        if not quiet: print 'setting source to best fit parameters'
+        if not self.quiet: print 'setting source to best fit parameters'
         likelihood_wrapper(best_spatial)
 
         # Fit once more at the end to get the right errors.
@@ -420,7 +422,7 @@ Arguments:
         except Exception, err:
             print err
 
-        roi.quiet = quiet
+        roi.quiet = roi.old_quiet
 
         # return log likelihood from fitting extension.
         final_dir=sm.center
@@ -560,7 +562,7 @@ class ROIExtendedModelAnalytic(ROIExtendedModel):
 
         if self.fitpsf and not self.already_fit: 
             # Note that this must be done before calculating the pdf.
-            fitter=BandFitter(bands)
+            fitter=BandFitter(bands,self.quiet)
             fitter.fit()
             self.already_fit=True
 
@@ -638,9 +640,10 @@ class BandFitter(object):
         independently and end up with an average core and average tail
         PSF for the particular energy bin.  """
 
-    def __init__(self,bands):
+    def __init__(self,bands,quiet):
         """ Pass in the roi.bands object. """
         self.bands=bands
+        self.quiet=quiet
 
     def fit(self,weightspectrum=PowerLaw()):
         """ Fit the psf. the fit values will be stored inside of
@@ -649,7 +652,8 @@ class BandFitter(object):
             and band.fit_sigma_core & band.fit_gamma_tail and
             band.fit_sigma_tail. """
 
-        print 'Fitting PSF to weighted average'
+        if not self.quiet: 
+            print 'Fitting PSF to weighted average'
         for band in self.bands: 
             self._fit_band(band,weightspectrum)
 
@@ -724,12 +728,13 @@ class BandFitter(object):
         # Not so sure about the gamma tail parameter being a good
         # measure.
         if fit_sigma < min(s_list) or fit_sigma > max(s_list): 
-            print dedent("""\
-                Error: Sigma fit outside of a 
-                reasonable range. fit sigma is %g,
-                minimum sigma is %g. maximum sigma
-                is %g.""" % \
-                (fit_sigma,min(s_list),max(s_list)))
+            if not self.quiet:
+                print dedent("""\
+                    Error: Sigma fit outside of a 
+                    reasonable range. fit sigma is %g,
+                    minimum sigma is %g. maximum sigma
+                    is %g.""" % \
+                    (fit_sigma,min(s_list),max(s_list)))
 
         band.fit_gamma,band.fit_sigma=fit_gamma,fit_sigma
 
