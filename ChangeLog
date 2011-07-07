@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jul  6 19:54:00 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_image.py 
+Log Message:
+Better numpy import
+    *
+------------------------------------------------------------
 User: lande  Wed Jul  6 19:51:58 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
