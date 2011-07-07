@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.46 2011/06/18 01:51:03 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.47 2011/06/22 03:51:04 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -130,8 +130,7 @@ Optional keyword arguments:
         self.setp(index,value)
         
     def getp(self, i, internal=False):
-        """ get external value for parameter # i
-        """
+        """ get external value for parameter # i """
         i=self.mapper(i)
         return self._p[i] if internal else 10**(self._p[i])
     
@@ -146,11 +145,11 @@ Optional keyword arguments:
         self._p = t if internal else np.log10(t)
 
     def setp(self, i, par, internal=False):
-        """ set internal value, convert unless inte
+        """ set internal value, convert unless internal
         """
+        i=self.mapper(i)
         if not internal: 
             assert par>0, 'Model external parameter cannont be negative'
-        i=self.mapper(i)
         self._p[i] = par if internal else  np.log10(par)
         
     def get_parameters(self):
