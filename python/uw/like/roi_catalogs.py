@@ -1,12 +1,13 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.2 2011/06/12 00:51:49 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.3 2011/06/20 18:24:31 lande Exp $
 
 author: Joshua Lande
 """
 import os
-import numpy as N
+import numpy as np
+from os.path import expandvars, exists, join
 from textwrap import dedent
 
 from pyfits import open
@@ -19,16 +20,21 @@ from . Models import PowerLaw,PowerLawFlux,LogParabola,ExpCutoff
 from . roi_extended import ExtendedSource
 
 class Catalog2FGL(PointSourceCatalog):
-    """ Catalog format suitable only for 2FGL. Does extended sources,
-        different spectral models.  To create the extended soures, this
-        object requires either the LATEXTDIR environment variable to be
-        set or the paramter latextdir to be passed into the object. """
+    """ Catalog format suitable only for 2FGL.
+
+        This object is designed only to open the 2FGL catalog file
+        gll_psc_v04.fit. It is not supporeted for use on any other
+        catalog.
+
+        Does extended sources, different spectral models.  To create
+        the extended soures, this object requires either the LATEXTDIR
+        environment variable to be set or the paramter latextdir to be
+        passed into the object. """
 
     defaults = (
         ("latextdir",    None, "Directory containing the spatial model templates."),
         ("prune_radius", 0.10, "[deg] consider sources closer than this duplicates"),
         ("free_radius",     2, "[deg] sources within this distance have free spectral parameters"),
-        ("min_ts",       None, "only include sources with a larger catalog TS"),
     )
 
     @keyword_options.decorate(defaults)
@@ -36,13 +42,14 @@ class Catalog2FGL(PointSourceCatalog):
         keyword_options.process(self, kwargs)
 
         if self.latextdir is None and \
-                (not os.environ.has_key('LATEXTDIR') or not os.path.exists(os.environ['LATEXTDIR'])):
+                (not os.environ.has_key('LATEXTDIR') or not exists(expandvars(os.environ['LATEXTDIR']))):
                     raise Exception(dedent("""
                             Since environment variable $LATEXTDIR does 
                             not exist, the paramter latextdir must
                             be passed into this object."""))
 
-        if self.latextdir: os.environ['LATEXTDIR']=self.latextdir
+        else:
+            os.environ['LATEXTDIR']=expandvars(self.latextdir)
 
         self.catalog=catalog
 
@@ -54,7 +61,7 @@ class Catalog2FGL(PointSourceCatalog):
 
         self.__extended_models__()
 
-        f = open(self.catalog)
+        f = open(expandvars(self.catalog))
         colnames = [x.name for x in f[1].get_coldefs()]
         point = f['LAT_POINT_SOURCE_CATALOG'].data
         ras       = point.field('RAJ2000')
@@ -63,41 +70,47 @@ class Catalog2FGL(PointSourceCatalog):
         n0s       = point.field('FLUX_DENSITY')
         inds      = point.field('SPECTRAL_INDEX')
         names     = point.field('SOURCE_NAME')
-        nicknames = point.field('NickName')
+        extended_source_names = point.field('EXTENDED_SOURCE_NAME')
+        f1000s     = point.field('FLUX1000')
         cutoffs   = point.field('CUTOFF')
         betas     = point.field('BETA')
-        tss       = point.field('TEST_STATISTIC')
         stypes    = point.field('SPECTRUMTYPE')
-        f100s     = point.field('FLUX100')
-        extendeds = point.field('EXTENDED')
         f.close()
 
-        self.names = names = N.chararray.strip(names)
-        nicknames = nicknames.replace(' ','')
-        dirs   = map(SkyDir,N.asarray(ras).astype(float),N.asarray(decs).astype(float))
+        self.names = names = np.chararray.strip(names)
+
+        # not sure why there is the naming inconsistency
+        extended_source_names = extended_source_names.replace(' ','')
+
+        dirs   = map(SkyDir,np.asarray(ras).astype(float),np.asarray(decs).astype(float))
 
         # Store both point and extended sources.
         self.sources = []
 
         # This is for the new 2FGL style catalogs
-        for name,nickname,stype,n0,ind,pen,cutoff,beta,f100,extended,dir,ts in \
-                zip(names,nicknames,stypes,n0s,inds,pens,cutoffs,betas,f100s,extendeds,dirs,tss):
+        for name,extended_source_name,stype,n0,ind,pen,cutoff,beta,f1000,dir in \
+                zip(names,extended_source_names,stypes,n0s,inds,pens,cutoffs,betas,f1000s,dirs):
 
             if stype == 'PowerLaw':
-                model=PowerLaw(p=[n0,ind],e0=pen)
-            elif stype == 'PowerLaw2':
-                model=PowerLawFlux(p=[f100,ind],emin=1e2,emax=1e5)
+                if not np.isinf(n0):
+                    model=PowerLaw(p=[n0,ind],e0=pen)
+                else:
+                    # For some reason, the fixed extended sources don't have n0 set.
+                    # So create the source from is f1000 value.
+                    model=PowerLawFlux(p=[f1000,ind],emin=1e3,emax=1e5)
             elif stype == 'LogParabola':
                 model=LogParabola(p=[n0,ind,beta,pen])
-            elif stype == 'PLSuperExpCutoff':
+            elif stype == 'PLExpCutoff':
+                # Following M. Kerr's suggestion, clip the index of pulsars which are too close to 0.
+                if ind >= 0 and ind < 1e-10: ind=1e-10
                 model=ExpCutoff(p=[n0,ind,cutoff],e0=pen)
             else:
                 raise Exception("Unkown spectral model %s for source %s" % (stype,name))
 
-            if extended:
-                spatial_model=self.__get_spatial_model__(nickname)
+            if extended_source_name:
+                spatial_model=self.__get_spatial_model__(extended_source_name)
                 self.sources.append(
-                        ExtendedSource(name=nickname,
+                        ExtendedSource(name=extended_source_name,
                             model=model,
                             spatial_model=spatial_model
                         )
@@ -105,16 +118,13 @@ class Catalog2FGL(PointSourceCatalog):
             else:
                 self.sources.append(PointSource(dir,name,model))
 
-            self.sources[-1].catalog_ts = ts
-
-
     def __extended_models__(self):
         """ Read in the extended source spatial models
             from the catalog. """
 
-        f = open(self.catalog)
+        f = open(expandvars(self.catalog))
         extended = f['EXTENDEDSOURCES'].data
-        self.extended_names = N.chararray.strip(extended.field('Source_Name'))
+        self.extended_names = np.chararray.strip(extended.field('Source_Name'))
         self.extended_nicknames = self.extended_names.replace(' ','')
 
         ras   = extended.field('RAJ2000')
@@ -146,14 +156,14 @@ class Catalog2FGL(PointSourceCatalog):
                     self.extended_models.append(
                         EllipticalGaussian(p=[major/GAUSSIAN_X68,minor/GAUSSIAN_X68,posang],center=center))
             else:
-                self.extended_models.append(SpatialMap(file=template))
+                self.extended_models.append(SpatialMap(file=os.path.join('$LATEXTDIR','Templates',template)))
 
             # remember the fits file template in case the XML needs to be saved out.
             # (for gtlike compatability)
             self.extended_models[-1].original_template = template
             self.extended_models[-1].original_parameters = self.extended_models[-1].p.copy()
 
-        self.extended_models = N.asarray(self.extended_models)
+        self.extended_models = np.asarray(self.extended_models)
 
     def __get_spatial_model__(self,name):
         """ Return the spatial model corresponding to
@@ -167,6 +177,9 @@ class Catalog2FGL(PointSourceCatalog):
     def sort(list,skydir):
         list.sort(key=lambda src:src.skydir.difference(skydir))
 
+    def get_source(self,name):
+        return next(source for source in self.sources if source.name == name)
+
     def get_sources(self,skydir,radius=15):
         """ Returns all sources (point + diffuse combined) within radius.
             Sources only allowed to vary (their spectral paramters)
@@ -174,10 +187,8 @@ class Catalog2FGL(PointSourceCatalog):
         return_sources = []
 
         for source in self.sources:
-            distance=N.degrees(source.skydir.difference(skydir))
+            distance=np.degrees(source.skydir.difference(skydir))
             if distance > radius:
-                continue
-            if self.min_ts is not None and source.catalog_ts < self.min_ts:
                 continue
 
             return_sources.append(source.copy())
@@ -205,7 +216,7 @@ class Catalog2FGL(PointSourceCatalog):
             merged_sources.append(cat)
 
             for user in user_source_list:
-                if N.degrees(user.skydir.difference(cat.skydir)) < self.prune_radius or \
+                if np.degrees(user.skydir.difference(cat.skydir)) < self.prune_radius or \
                         user.name == cat.name:
                     merged_sources.pop()
                     break
