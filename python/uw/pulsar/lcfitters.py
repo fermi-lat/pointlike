@@ -9,7 +9,7 @@ a maximum likielihood fit to determine the light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.7 2011/04/22 01:46:38 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.8 2011/04/22 19:47:18 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -55,7 +55,7 @@ def prim_io(template):
     raise ValueError,'Template format not recognized!'
 
 
-#==============================================================================#
+#=======================================================================#
 class LCTemplate(object):
     """Manage a lightcurve template (collection of LCPrimitive objects).
    
@@ -116,12 +116,19 @@ class LCTemplate(object):
         return self(np.arange(0,1,resolution)).max()
 
     def __call__(self,phases,ignore_cache=False,suppress_bg=False):
+        n = self.norm()
+        """
+        if suppress_bg:
+            for prim in self.primitives:
+                prim.p[0] /= n
+        """
         rval = np.zeros_like(phases)
         for prim in self.primitives:
             #rval += prim.cache_vals if (prim.cache and not ignore_cache) else prim(phases)
             rval += prim(phases)
         if suppress_bg: return rval/self.norm()
         else          : return (1.-self.norm()) + rval
+        #return (1.-n) + rval
 
     def gradient(self,phases):
         r = np.empty([len(self.get_parameters()),len(phases)])
@@ -203,14 +210,14 @@ class LCTemplate(object):
            that match the old one as closely as possible."""
        self.primitives[index] = convert_primitive(self.primitives[index],ptype)
 
-#==============================================================================#
+#=======================================================================#
 
 def LCFitter(template,phases,weights=None,**kwargs):
     if weights is None:
         return UnweightedLCFitter(template,phases,**kwargs)
     return WeightedLCFitter(template,phases,weights,**kwargs)
 
-#==============================================================================#
+#=======================================================================#
 
 class UnweightedLCFitter(object):
     """Perform the maximum likelihood fit template to the unbinned phases."""
@@ -342,7 +349,7 @@ class UnweightedLCFitter(object):
         pl.xlabel('Phase')
         pl.grid(True)
 
-#==============================================================================#
+#=======================================================================#
 
 class WeightedLCFitter(UnweightedLCFitter):
     """Perform the maximum likelihood fit template to the unbinned phases."""
@@ -360,9 +367,10 @@ class WeightedLCFitter(UnweightedLCFitter):
          #guard against negative parameters
             return 2e20
         args[0].set_parameters(p)
-        return -np.log(1+self.weights*(self.template(self.phases)-1)).sum()
+        #return -np.log(1+self.weights*(self.template(self.phases)-1)).sum()
+        return -np.log(1+self.weights*(self.template(self.phases,suppress_bg=True)-1)).sum()
 
-#==============================================================================#
+#=======================================================================#
 
 class WeightedLCFitter_Approx(WeightedLCFitter):
     """Perform the maximum likelihood fit template to the unbinned phases."""
@@ -407,7 +415,7 @@ class WeightedLCFitter_Approx(WeightedLCFitter):
         sig_logl = np.log(1+self.sig_weights*(self.template(self.sig_phases)-1)).sum()
         return -sig_logl
  
-#==============================================================================#
+#=======================================================================#
 
 
 def hessian(m,mf,*args,**kwargs):
@@ -443,7 +451,7 @@ def hessian(m,mf,*args,**kwargs):
    mf(p,m,*args) #call likelihood with original values; this resets model and any other values that might be used later
    return hessian
 
-#==============================================================================#
+#=======================================================================#
 
 def get_gauss2(pulse_frac=1,x1=0.1,x2=0.55,ratio=1.5,width1=0.01,width2=0.02):
     """Return a two-gaussian template.  Convenience function."""

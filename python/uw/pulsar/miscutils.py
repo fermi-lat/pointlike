@@ -4,16 +4,33 @@ from numpy import cos,sin
 EPS = np.radians(23+26./60+21.406/3600) # axial tilt J2000
 SEPS = np.sin(EPS); CEPS = np.cos(EPS)
 
-def prof_offset(prof_name):
+def nancay_zero(prof_name):
+    # check for a fiducial_point in comment
+    for line in file(prof_name):
+        if line.strip()[0] != '#': continue
+        if 'fiducial_point' in line:
+            print 'Found fiducial phase in comments.'
+            return float(line.split('=')[-1].split()[0])
+    print 'No fiducial phase found; using Fourier transform.'
+    return -2
+
+def prof_offset(prof_name,average_level=0):
     """ Compute the zero of phase of a radio profile by determining the 
         position of the fundamental peak."""
     TWOPI = 2*np.pi
     vals = np.asarray([x.strip().split()[1] for x in file(prof_name) if x.strip()[0] != '#']).astype(float)
+    # compute zero phase before any averaging
+    zero_ph = nancay_zero(prof_name)
+    if zero_ph == -2:
+        ph = np.linspace(0,TWOPI,len(vals)+1)[:-1] # LEFT bin edges
+        a1 = (np.sin(ph)*vals).sum()
+        a2 = (np.cos(ph)*vals).sum()
+        zero_ph = np.arctan2(a1,a2)/TWOPI
+    # average if desired
+    for i in xrange(average_level):
+        if len(vals)%2>0: break
+        vals = (vals[::2]+vals[1::2])/2
     ph = np.linspace(0,TWOPI,len(vals)+1)[:-1] # LEFT bin edges
-    a1 = (np.sin(ph)*vals).sum()
-    a2 = (np.cos(ph)*vals).sum()
-    zero_ph = np.arctan2(a1,a2)/TWOPI
-    print a1,a2,zero_ph
     return zero_ph,ph/TWOPI,vals
 
 def cel2ecl(skydir,inverse=False):
