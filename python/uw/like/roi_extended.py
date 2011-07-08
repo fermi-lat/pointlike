@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.58 2011/07/06 05:01:19 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.59 2011/07/07 21:23:26 lande Exp $
 
     author: Joshua Lande
 """
@@ -332,7 +332,11 @@ Arguments:
 
             # Do the convolution here.
             sm.set_parameters(p=p,absolute=False)
+
+            temp=self.quiet;self.quiet=True
             self.initialize_counts(roi.bands)
+            self.quiet=temp
+
             roi.update_counts()
             # Note: roi.dsm.update_counts called by the fit function.
 
