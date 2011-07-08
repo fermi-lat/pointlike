@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.84 2011/04/20 00:36:30 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.1 2011/04/27 18:32:03 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -15,6 +15,7 @@ import scipy.stats
 from scipy.optimize import fmin
 from stats import hm,hmw,sf_hm
 from edf import EDF,find_alignment
+from collections import deque
 
 try:
     import fftfit
@@ -43,9 +44,14 @@ class TOAGenerator(object):
         self.init()
         self.__dict__.update(**kwargs)
         self.mean_err = 1
+        # keep track of errors in phase shift for later analysis
+        self.phases = deque()
+        self.phase_errs = deque()
 
     def get_toas(self,binner,use_midpoint=True):
         """ Calculate the TOAs specified by the binner."""
+
+        self.phases.clear(); self.phase_errs.clear()
 
         # Compute observation duration for each TOA
         toas = np.empty(binner.ntoa)
@@ -104,7 +110,7 @@ class UnbinnedTOAGenerator(TOAGenerator):
         self.template.set_overall_phase(p[0])
         if args[1] is None:
             return -np.log(self.template(args[0])).sum()
-        return -np.log(1+args[1]*(self.template(args[0])-1)).sum()
+        return -np.log(1+args[1]*(self.template(args[0],suppress_bg=True)-1)).sum()
 
     def get_phase_shift(self,phases,weights,polyco_phase0):
 
@@ -129,6 +135,7 @@ class UnbinnedTOAGenerator(TOAGenerator):
                 tau     = (peak_shift - polyco_phase0)
                 tau_err = self.__toa_error__(fit[0][0],phases,weights)
                 print 'Peak Shift: %.5f +/- %.5f'%(peak_shift,tau_err)
+                self.phases.append(peak_shift)
             
         if (not self.good_ephemeris) or self.phase_drift or jump:
             # look for the absolute best fit without any prior information
@@ -146,8 +153,10 @@ class UnbinnedTOAGenerator(TOAGenerator):
             tau_err = self.__toa_error__(tau,phases,weights)         
             tau -= (self.phi0 + polyco_phase0)
             print '(Blind) Peak Shift: %.5f +/- %.5f'%(tau+polyco_phase0,tau_err)
-        
-        return tau,tau_err,sf_hm(hm(phases) if self.weights is None else hmw(phases,weights))
+            self.phases.append(tau+polyco_phase0)        
+
+        self.phase_errs.append(tau_err)
+        return tau,tau_err,sf_hm(hm(phases) if (self.weights is None) else hmw(phases,weights))
 
 
 class BinnedTOAGenerator(TOAGenerator):

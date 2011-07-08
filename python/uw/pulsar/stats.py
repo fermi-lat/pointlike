@@ -2,7 +2,7 @@
 A module collecting various routines for calculating pulsation test
 test statistics and helper functions.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/stats.py,v 1.2 2010/11/19 21:37:18 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/stats.py,v 1.3 2011/03/07 01:00:53 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 """
@@ -120,10 +120,6 @@ def z2mw(phases,weights,m=2):
        The user provides a list of weights.  In the case that they are
        well-distributed or assumed to be fixed, the CLT applies and the
        statistic remains calibrated.  Nice!
-
-       NB -- the phases must be uniformly distributed, i.e., have 0 mean
-       and a variance of 0.5.  Then, the 2nd central moment is just
-       0.5 * the expectation of the square of the weights.
     """
 
    phases = np.asarray(phases)*(2*np.pi) #phase in radians

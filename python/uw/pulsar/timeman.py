@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.84 2011/04/20 00:36:30 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.1 2011/04/27 18:32:03 kerrm Exp $
 
 Handle MET(TT) to MJD(UTC) conversions.
 
@@ -84,8 +84,8 @@ class METConverter(object):
         self.MJDREF    = MJDREF
         self.TIMEZERO  = TIMEZERO
 
-        TSTART = ft1hdr['TSTART']
-        TSTOP = ft1hdr['TSTOP']
+        TSTART = float(ft1hdr['TSTART'])
+        TSTOP = float(ft1hdr['TSTOP'])
 
         # Compute MJDSTART and MJDSTOP in MJD(UTC)
         self.MJDSTART = clockcorr.tt2utc(TSTART/86400.0 + MJDREF + TIMEZERO)
