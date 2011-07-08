@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.49 2011/07/07 20:24:27 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.50 2011/07/07 23:11:44 lande Exp $
 
    author: Joshua Lande
 
@@ -60,7 +60,7 @@ class DefaultSpatialModelValues(object):
                                 # As minuit.py's doc says, a step of .04 is about 10% in log space
                                }, 
         'PseudoGaussian'     : {},
-        'SunExtended'        : {'rmax':10},
+        'SunExtended'        : {'rmax':20},
         'Disk'               : {'p':[0.1],
                                 'param_names':['Sigma'],
                                 'limits':[[SMALL_ANALYTIC_EXTENSION,3]],
@@ -147,7 +147,9 @@ class SpatialModel(object):
 
         All SpatialModel objects must implement the __call__ function,
         which takes a skydir object and returns the intensity at that
-        direction. 
+        direction. The intensity is defined such that the integral
+        of intensity x solid angle = 1 when solid angle is measured
+        in steradians!
         
         One slight differnece between the SpatialModel and Model class
         has to do with absolute. Always, absolute=True has the same
@@ -575,15 +577,27 @@ class SunExtended(RadiallySymmetricModel):
 
        PDF = (1/2*pi*rmax*r)*delta(r<rmax)
 
+       Note that rmax & r must be in steradians in this formula.
+
+       self.rmax in degrees
+       self.rmax_in_rad in radians
+
        p = [ ra, dec ] """
 
     def cache(self):
         super(SunExtended,self).cache()
 
-        self.pref=1/(2*np.pi*self.rmax)
+        self.rmax_in_rad = np.radians(self.rmax)
+
+        self.pref=1/(2*np.pi*self.rmax_in_rad)
+
+    def at_r(self,r,energy=None):
+        """ r in radians. """
+        return self.pref*np.where(r<self.rmax_in_rad,1./r,0)
 
     def at_r_in_deg(self,r,energy=None):
-        return self.pref*np.where(r<self.rmax,1./r,0)
+        """ r is in radians. """
+        return self.at_r(np.radians(r),energy)
 
     def r68(self): return 0.68*self.rmax
     def r99(self): return 0.99*self.rmax
@@ -1044,7 +1058,7 @@ class SpatialMap(SpatialModel):
 
     def __init__(self,**kwargs):
 
-        if not hasattr(kwargs,'file'):
+        if not kwargs.has_key('file'):
             raise Exception("Object Template must be initialized with file=template.fits keyword.")
 
         super(SpatialMap,self).__init__(**kwargs)
