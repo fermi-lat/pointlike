@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.55 2011/06/25 02:28:47 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.56 2011/06/25 03:40:09 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -555,7 +555,7 @@ class ROIDisplay(object):
 
         for ax in [self.ax_model, self.ax_counts, self.ax_res]:
             ROISignificance.plot_sources(self.roi,ax,self.h,label_sources=self.label_sources,
-                                         show_extension=False, marker_scale=2, color='k')
+                                         show_extension=False, color='k')
 
         if filename is not None: P.savefig(filename)
 
@@ -1050,7 +1050,7 @@ class ROISignificance(object):
         self.pyfits[0].data = self.significance
 
     @staticmethod
-    def plot_sources(roi, ax, header, color='black', show_sources=True, white_marker=True, marker_scale=4, 
+    def plot_sources(roi, ax, header, color='black', show_sources=True, white_edge=True, marker_scale=2, 
             label_sources=True, show_extension=True, extension_color='white'):
 
         sources = roi.get_sources()
@@ -1062,8 +1062,8 @@ class ROISignificance(object):
         
         # plot sources
         markersize=marker_scale*6
-        if white_marker: ax["fk5"].plot(ras,decs,'w+',markersize=markersize)
-        ax["fk5"].plot(ras,decs,'x',color=color,markersize=markersize)
+        if white_edge: ax["fk5"].plot(ras,decs,'x',color='white',markersize=markersize+1,markeredgewidth=2,zorder=4)
+        ax["fk5"].plot(ras,decs,'x',color=color,markersize=markersize,zorder=5)
 
         if label_sources: 
             from matplotlib.patheffects import withStroke
