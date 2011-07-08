@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jul  8 11:57:44 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+bugfix for show_sources=False
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-32, operation: add
 Package: pointlike
