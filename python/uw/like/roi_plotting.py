@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.56 2011/06/25 03:40:09 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.57 2011/07/08 15:21:25 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1059,11 +1059,13 @@ class ROISignificance(object):
 
         ras = [source.skydir.ra() for source in sources]
         decs = [source.skydir.dec() for source in sources]
-        
-        # plot sources
-        markersize=marker_scale*6
-        if white_edge: ax["fk5"].plot(ras,decs,'x',color='white',markersize=markersize+1,markeredgewidth=2,zorder=4)
-        ax["fk5"].plot(ras,decs,'x',color=color,markersize=markersize,zorder=5)
+
+        if show_sources:
+            
+            # plot sources
+            markersize=marker_scale*6
+            if white_edge: ax["fk5"].plot(ras,decs,'x',color='white',markersize=markersize+1,markeredgewidth=2,zorder=4)
+            ax["fk5"].plot(ras,decs,'x',color=color,markersize=markersize,zorder=5)
 
         if label_sources: 
             from matplotlib.patheffects import withStroke
