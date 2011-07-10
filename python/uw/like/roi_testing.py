@@ -1,12 +1,13 @@
 """
 Module to perfrom routine testing of pointlike's many features.'
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.2 2011/07/06 05:03:19 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.3 2011/07/07 21:23:55 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
 import datetime
 import os
+import unittest
 
 import numpy as np
 
@@ -14,162 +15,254 @@ from skymaps import SkyDir
 from uw.like.pointspec import DataSpecification,SpectralAnalysis
 from uw.like.pointspec_helpers import PointSource,get_diffuse_source
 from uw.like.Models import PowerLaw
-from uw.like.SpatialModels import Disk,Gaussian
+from uw.like.SpatialModels import Disk,Gaussian,SpatialMap
 from uw.like.roi_extended import ExtendedSource
 from uw.like.roi_monte_carlo import SpectralAnalysisMC
 
 
-def get_roi(name,center,point_sources,diffuse_sources,emin=1e2,emax=1e5):
 
-    ft1='$SIMDIR/%s_ft1.fits' % name
-    ft2='$SIMDIR/%s_ft2.fits' % name
-
-    if os.path.exists(os.path.expandvars(ft1)) and \
-       os.path.exists(os.path.expandvars(ft2)):
-        sa_object=SpectralAnalysis
-    else:
-        sa_object=SpectralAnalysisMC
-
-    ds=DataSpecification(ft1files=ft1,
-                         ft2files=ft2,
-                         ltcube='$SIMDIR/%s_ltcube.fits' % name, 
-                         binfile='$SIMDIR/%s_binfile.fits' % name
-                        )
-
-    sa=sa_object(ds,
-                 irf='P6_V3_DIFFUSE',
-                 binsperdec = 4,
-                 mc_energy=True,
-                 tstart=0,
-                 tstop=datetime.timedelta(days=7).total_seconds(),
-                 quiet=True
-                )
+class PointlikeTest(unittest.TestCase):
 
 
-    global roi # helps with debugging
-    roi=sa.roi(roi_dir=center,
-               point_sources=point_sources,
-               diffuse_sources=diffuse_sources,
-               fit_emin = emin, fit_emax = emax,
-              )
+    def setUp(self):
 
-    return roi
+        # Create/store files in $SIMDIR
+        self.assertTrue(os.environ.has_key('SIMDIR'),'$SIMDIR must be defiend.')
+        self.assertTrue(os.path.exists(os.environ['SIMDIR']),'$SIMDIR must exist.')
 
-def compare_model(fit,true):
-    norm_mc=true.model['Norm']
-    index_mc=true.model['Index']
-    [norm,index],[norm_err,index_err]=fit.model.statistical(absolute=True)
-    print ' > True Norm = %.2e, Fit Norm = %.2e +/- %.2e (pull=%.1f)' % (norm_mc,norm,norm_err,(norm-norm_mc)/norm_err)
-    print ' > True Index = %.2f, Fit Index = %.2f +/- %.2f (pull=%.1f)' % (index_mc,index,index_err,(index-index_mc)/index_err)
+        self.MAX_ALLOWED_PULL = 2
 
-def compare_spatial_model(fit,true,lsigma):
-    """ Compare a source 'fit's spatial model to the source 'true's spatial model. """
+    def compare_model(self,fit,true):
+        norm_pull=(fit.model['Norm']-true.model['Norm'])/fit.model.error('Norm')
+        #print 'norm_pull = ',norm_pull
+        self.assertLess(abs(norm_pull),self.MAX_ALLOWED_PULL,'norm pull=%.1f is bad.' % norm_pull)
 
-    if hasattr(true,'spatial_model') and hasattr(fit,'spatial_model'):
-        sigma_mc=true.spatial_model['Sigma']
-        sigma=fit.spatial_model['Sigma']
-        sigma_err=fit.spatial_model.statistical(absolute=True)[1][2]
-        print ' > True Ext = %.2f, Fit Ext = %.2f +/- %.1g%% (pull=%.1f)' % (
-            sigma_mc,sigma,sigma_err,(sigma-sigma_mc)/sigma_err)
+        index_pull=(fit.model['Index']-true.model['Index'])/fit.model.error('Index')
+        #print 'index_pull = ',index_pull
+        self.assertLess(abs(index_pull),self.MAX_ALLOWED_PULL,'index pull=%.1f is bad.' % index_pull)
 
-    print ' > True Pos = (%.3f,%.3f), Fit Pos = (%.3f,%.3f), dist=%.3f, err=%.3f (pull=%.1f)' % \
-            (true.skydir.ra(),true.skydir.dec(),
-             fit.skydir.ra(),fit.skydir.dec(),
-             np.degrees(true.skydir.difference(fit.skydir)),lsigma,
-             np.degrees(true.skydir.difference(fit.skydir))/lsigma)
+    def compare_spatial_model(self,fit,true,lsigma):
+        """ Compare a source 'fit's spatial model to the source 'true's spatial model. """
 
+        if hasattr(true,'spatial_model') and hasattr(fit,'spatial_model'):
+            sigma_pull = (fit.spatial_model['Sigma'] - true.spatial_model['Sigma'])/fit.spatial_model.error('Sigma')
+            #print 'sigma_pull = ',sigma_pull
+            self.assertLess(abs(sigma_pull),self.MAX_ALLOWED_PULL,'sigma pull=%.1f is bad.' % sigma_pull)
 
-def test_models():
+        dist_pull = np.degrees(true.skydir.difference(fit.skydir))/lsigma
+        #print 'dist_pull = ',dist_pull
+        self.assertLess(abs(dist_pull),self.MAX_ALLOWED_PULL,'dist pull=%.1 is bad.' % dist_pull)
 
-    print 'Testing the Model + SpatialModel objects.'
-    print
+    @staticmethod
+    def get_roi(name,center,point_sources,diffuse_sources,emin=1e2,emax=1e5):
 
-    model=PowerLaw(p=[1e-7,2])
-    print '> Norm = 1e-7 = %s' % model['Norm']
+        ft1='$SIMDIR/%s_ft1.fits' % name
+        ft2='$SIMDIR/%s_ft2.fits' % name
 
-    model['Norm']=1e-6
-    print '> Norm = 1e-6 = %s' % model['Norm']
+        if os.path.exists(os.path.expandvars(ft1)) and \
+           os.path.exists(os.path.expandvars(ft2)):
+            sa_object=SpectralAnalysis
+        else:
+            sa_object=SpectralAnalysisMC
 
-    print '> Index = 2 = %s' % model['Index']
+        ds=DataSpecification(ft1files=ft1,
+                             ft2files=ft2,
+                             ltcube='$SIMDIR/%s_ltcube.fits' % name, 
+                             binfile='$SIMDIR/%s_binfile.fits' % name
+                            )
 
-    spatial_model = Disk(p=[1.5],center=SkyDir(22,22,SkyDir.GALACTIC))
-    print '> Sigma = 1.5 = %s' % spatial_model['Sigma']
-    
-    spatial_model['Sigma'] = 0.5
-    print '> Sigma = 0.5 = %s' % spatial_model['Sigma']
-
-def test_extended_source():
-
-    print 'Analyze a simulated extended source against an isotropic background (E>10GeV)'
-
-    center=SkyDir(0,0,SkyDir.GALACTIC)
-
-    # Sreekumar-like isotropic
-    point_sources=[]
-    diffuse_sources=[
-        get_diffuse_source('ConstantValue',None,'PowerLaw',None,'Isotropic Diffuse')
-    ]
-
-    model = PowerLaw(p=[1,2])
-    model.set_flux(1e-5)
-
-    spatial_model = Gaussian(p=[1],center=center)
-
-    es_mc = ExtendedSource(name='source',spatial_model=spatial_model,model=model)
-    es_fit = es_mc.copy()
-    diffuse_sources.append(es_fit)
-
-    roi = get_roi('extended_test',center,point_sources,diffuse_sources, emin=1e4)
-
-    roi.fit(use_gradient=True)
-    roi.fit_extension(which='source')
-    roi.localize(update=True)
-    roi.fit(use_gradient=True)
-
-    compare_model(es_fit,es_mc)
-    compare_spatial_model(es_fit,es_mc,roi.lsigma)
+        sa=sa_object(ds,
+                     irf='P7SOURCE_V6',
+                     binsperdec = 4,
+                     mc_energy=True,
+                     tstart=0,
+                     tstop=datetime.timedelta(days=7).total_seconds(),
+                     quiet=True,
+                     maxROI =5, minROI = 5,
+                    )
 
 
-def test_point_source():
+        global roi # helps with debugging
+        roi=sa.roi(roi_dir=center,
+                   point_sources=point_sources,
+                   diffuse_sources=diffuse_sources,
+                   fit_emin = emin, fit_emax = emax,
+                  )
 
-    print 'Analyze a simulated point source against an isotropic background'
+        return roi
 
-    center=SkyDir(0,0)
+    @unittest.skip("skip")
+    def test_models(self):
 
-    # Sreekumar-like isotropic
-    diffuse_sources=[
-        get_diffuse_source('ConstantValue',None,'PowerLaw',None,'Isotropic Diffuse')
-    ]
+        print '\nTesting the uw.like.Models.Model object.\n'
 
-    model = PowerLaw(p=[1,2])
-    model.set_flux(1e-6)
-    ps_mc = PointSource(name='source',skydir=center,model=model)
-    ps_fit = ps_mc.copy()
-    point_sources=[ps_fit]
+        model=PowerLaw(p=[1e-7,2])
 
-    roi = get_roi('point_test',center,point_sources,diffuse_sources)
+        self.assertAlmostEqual(1e-7,model['Norm'])
+        self.assertAlmostEqual(1e-7,model['norm'],'case insensitive')
+        model['Norm']=1e-6
+        self.assertAlmostEqual(1e-6,model['Norm'])
 
-    roi.fit(use_gradient=True)
-    roi.localize(update=True)
-    roi.fit(use_gradient=True)
+        model=PowerLaw(index=1)
+        self.assertAlmostEqual(1,model['index'],"test kwargs passing to object")
+        self.assertAlmostEqual(1e-11,model['norm'], "test default value")
 
-    compare_model(ps_fit,ps_mc)
-    compare_spatial_model(ps_fit,ps_mc,roi.lsigma)
+        copy_model=model.copy()
+        self.assertAlmostEqual(1e-11,copy_model['norm'], "test default value")
+        model['norm'] = 1e-10
+        self.assertAlmostEqual(1e-11,copy_model['norm'], "unchanged by copy")
+
+        model=PowerLaw(random_input=3)
+        self.assertEqual(model.random_input,3,'test random kwarg')
+
+    @unittest.skip("skip")
+    def test_spatial_models(self):
+
+        print '\nTesting the uw.like.SpatialModels.SpatialModel object.\n'
+
+        # test default values
+        spatial_model = Disk()
+        self.assertAlmostEqual(0.1,spatial_model['Sigma']) 
+        self.assertAlmostEqual(0,spatial_model['ra']) 
+        self.assertAlmostEqual(0,spatial_model['dec']) 
+
+        spatial_model = Disk(p=[1.5],center=SkyDir(22,22,SkyDir.GALACTIC))
+        self.assertAlmostEqual(1.5,spatial_model['Sigma']) # test getitem/setitem 
+        
+        spatial_model['Sigma'] = 0.5
+        self.assertAlmostEqual(0.5,spatial_model['Sigma']) 
+        spatial_model['sigma'] = 0.5
+        self.assertAlmostEqual(0.5,spatial_model['sigma']) # case insensitive
+        self.assertAlmostEqual(22,spatial_model.center.l())
+        self.assertAlmostEqual(22,spatial_model.center.b())
+
+        spatial_model = Disk(p=[1.5],center=SkyDir(22,22,SkyDir.GALACTIC),coordsystem=SkyDir.GALACTIC)
+        self.assertAlmostEqual(22,spatial_model['l'])
+        self.assertAlmostEqual(22,spatial_model['b'])
+
+        # test what happens when only center is specified
+        spatial_model = Disk(center=SkyDir(22,22))
+        self.assertAlmostEqual(0.1,spatial_model['sigma'])
+        self.assertAlmostEqual(22,spatial_model['ra'])
+        self.assertAlmostEqual(22,spatial_model['dec'])
+
+        spatial_model = Disk(sigma=1.5, l=22, b=22)
+        self.assertAlmostEqual(1.5,spatial_model['Sigma'])
+        self.assertAlmostEqual(22,spatial_model['l'])
+        self.assertAlmostEqual(22,spatial_model['b'])
+
+        self.assertRaises(Exception,spatial_model.__setitem__,['Sigma',-1])
+
+        spatial_model['l'] = -100
+        self.assertAlmostEqual(-100, spatial_model['l'])
+        for k in ['ra','dec']:
+            self.assertRaises(Exception,spatial_model.__getitem__,k)
+            self.assertRaises(Exception,spatial_model.__setitem__,[k,0])
+
+        spatial_model = Disk(p=1.5, ra=22, dec=22)
+        self.assertAlmostEqual(1.5,spatial_model['Sigma'])
+        self.assertAlmostEqual(22,spatial_model['ra'])
+        self.assertAlmostEqual(22,spatial_model['dec'])
+        for k in ['l','b']:
+            self.assertRaises(Exception,spatial_model.__getitem__,k)
+            self.assertRaises(Exception,spatial_model.__setitem__,[k,0])
+
+        spatial_model = Disk(p=[1.5], l=22, b=22)
+        self.assertAlmostEqual(1.5,spatial_model['Sigma'])
+
+        copy_model=spatial_model.copy()
+        self.assertAlmostEqual(1.5,copy_model['Sigma'])
+        spatial_model['Sigma'] = 0.5
+        self.assertAlmostEqual(1.5,copy_model['Sigma']) # unchanged by copy
+
+        model=Disk(random_input=3)
+        self.assertEqual(model.random_input,3,'test random kwarg')
+
+    @unittest.skip("skip")
+    def test_extended_source(self):
+
+        print '\nAnalyze a simulated extended source against an isotropic background (E>10GeV)\n'
+
+        center=SkyDir(0,0,SkyDir.GALACTIC)
+
+        # Sreekumar-like isotropic
+        point_sources=[]
+        diffuse_sources=[
+            get_diffuse_source('ConstantValue',None,'PowerLaw',None,'Isotropic Diffuse')
+        ]
+
+        model = PowerLaw(p=[1,2])
+        model.set_flux(1e-5)
+
+        spatial_model = Gaussian(p=[1],center=center)
+
+        es_mc = ExtendedSource(name='source',spatial_model=spatial_model,model=model)
+        es_fit = es_mc.copy()
+        diffuse_sources.append(es_fit)
+
+        roi = PointlikeTest.get_roi('extended_test',center,point_sources,diffuse_sources, emin=1e4)
+
+        roi.modify(which='source',sigma=0.3)
+
+        roi.fit(use_gradient=True)
+        roi.fit_extension(which='source')
+        roi.localize(update=True)
+        roi.fit(use_gradient=True)
+
+        self.compare_model(es_fit,es_mc)
+
+        compare_spatial_model(es_fit,es_mc,roi.lsigma)
+
+        es_mc.spatial_model.save_template('$SIMDIR/extended_template.fits')
+
+        template_source=ExtendedSource(
+            name='template_source',
+            model=es_mc.model,
+            spatial_model=SpatialMap(file='$SIMDIR/extended_template.fits')
+        )
+
+        roi.del_source(which='source')
+        roi.add_source(which=template_source)
+
+        roi.fit()
+
+        self.compare_model(template_source,es_mc)
+
+
+    @unittest.skip("skip")
+    def test_point_source(self):
+
+        print '\nAnalyze a simulated point source against an isotropic background\n'
+
+        center=SkyDir(0,0)
+
+        # Sreekumar-like isotropic
+        diffuse_sources=[
+            get_diffuse_source('ConstantValue',None,'PowerLaw',None,'Isotropic Diffuse')
+        ]
+
+        model = PowerLaw(p=[1,2])
+        model.set_flux(1e-6)
+        ps_mc = PointSource(name='source',skydir=center,model=model)
+        ps_fit = ps_mc.copy()
+        point_sources=[ps_fit]
+
+        roi = PointlikeTest.get_roi('point_test',center,point_sources,diffuse_sources)
+
+        roi.fit(use_gradient=True)
+        roi.localize(update=True)
+        roi.fit(use_gradient=True)
+
+
+        self.compare_model(ps_fit,ps_mc)
+
+        self.compare_spatial_model(ps_fit,ps_mc,roi.lsigma)
 
 if __name__ == '__main__':
 
-    print 'Performing Automated tests of Pointlike'
-    print
+    print '\nPerforming Automated tests of Pointlike\n'
 
-    # Create/store files in $SIMDIR
-    if not os.environ.has_key('SIMDIR'):
-        raise Exception('$SIMDIR must be defiend.')
-    if not os.path.exists(os.path.expandvars("$SIMDIR")):
-        raise Exception('$SIMDIR must exist.')
+    import numpy as np
+    np.seterr(all='ignore')
 
-    #np.seterr(all='raise')
-    np.seterr(all='warn')
-
-    test_models()
-    test_point_source()
-    test_extended_source()
+    unittest.main(verbosity=2)
