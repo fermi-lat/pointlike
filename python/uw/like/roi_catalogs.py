@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.3 2011/06/20 18:24:31 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.4 2011/07/07 02:56:39 lande Exp $
 
 author: Joshua Lande
 """
@@ -10,7 +10,7 @@ import numpy as np
 from os.path import expandvars, exists, join
 from textwrap import dedent
 
-from pyfits import open
+import pyfits
 from skymaps import SkyDir
 
 from . pointspec_helpers import PointSourceCatalog,PointSource
@@ -61,7 +61,7 @@ class Catalog2FGL(PointSourceCatalog):
 
         self.__extended_models__()
 
-        f = open(expandvars(self.catalog))
+        f = pyfits.open(expandvars(self.catalog))
         colnames = [x.name for x in f[1].get_coldefs()]
         point = f['LAT_POINT_SOURCE_CATALOG'].data
         ras       = point.field('RAJ2000')
@@ -77,10 +77,10 @@ class Catalog2FGL(PointSourceCatalog):
         stypes    = point.field('SPECTRUMTYPE')
         f.close()
 
-        self.names = names = np.chararray.strip(names)
+        self.names = names = np.char.strip(names)
 
         # not sure why there is the naming inconsistency
-        extended_source_names = extended_source_names.replace(' ','')
+        extended_source_names = np.char.replace(extended_source_names,' ','')
 
         dirs   = map(SkyDir,np.asarray(ras).astype(float),np.asarray(decs).astype(float))
 
@@ -122,10 +122,10 @@ class Catalog2FGL(PointSourceCatalog):
         """ Read in the extended source spatial models
             from the catalog. """
 
-        f = open(expandvars(self.catalog))
+        f = pyfits.open(expandvars(self.catalog))
         extended = f['EXTENDEDSOURCES'].data
-        self.extended_names = np.chararray.strip(extended.field('Source_Name'))
-        self.extended_nicknames = self.extended_names.replace(' ','')
+        self.extended_names = np.char.strip(extended.field('Source_Name'))
+        self.extended_nicknames = np.char.replace(self.extended_names,' ','')
 
         ras   = extended.field('RAJ2000')
         decs  = extended.field('DEJ2000')
