@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.38 2011/06/28 21:55:10 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.39 2011/07/06 04:59:36 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.38 $'.split()[1]
+version='$Revision: 1.39 $'.split()[1]
 import types
 import os
 from os.path import join
@@ -290,7 +290,7 @@ class SpectralAnalysis(object):
         if not kwargs.has_key('quiet'): kwargs['quiet']=self.quiet 
         # determine ROI center
         if roi_dir is None:
-            roi_dir = self.roi_dir if len(point_sources)==0 else point_sources[0].skydir
+            roi_dir = self.roi_dir if hasattr(self,'roi_dir') else point_sources[0].skydir
         if roi_dir is None:
             raise Exception,'User must provide an ROI direction!  (See docstring.)'
 
