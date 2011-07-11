@@ -8,6 +8,7 @@ author: Joshua Lande
 """
 import os
 import re
+import types
 from textwrap import dedent
 import shutil
 import collections
@@ -50,7 +51,6 @@ class MonteCarlo(object):
             ('emin',             100, "Minimum energy"),
             ('emax',          100000, "Maximum energy"),
             ('conv_type',         -1, "Conversion Type"),
-            ('irf',             None, "Instrument Response Function."),
             ('roi_dir',         None, "Center of ROI. Gtobssim will use the use_ac flag if this is specified."),
             ('maxROI',          None, "Maximum ROI Size. Gtobssim will use the use_ac flag if this is specified."),
             ('quiet',          False, "Surpress output."),
@@ -62,19 +62,20 @@ class MonteCarlo(object):
         return re.sub('[ \.()]','',name)
 
     @keyword_options.decorate(defaults)
-    def __init__(self,ft1,**kwargs):
+    def __init__(self,ft1,irf,**kwargs):
         """ Constructor does not require a data_specification. """
         keyword_options.process(self, kwargs)
 
         self.ft1=ft1
+        self.irf=irf
 
-        if isinstance(self.ft1,collections.Iterable):
+        if not isinstance(self.ft1,types.StringType):
             if len(self.ft1) != 1: raise Exception(dedent("""\
                                                           Exactly one ft1 file may be specified by roi_monte_carlo script
                                                           (%s were acutally specified)""" % len(self.ft1)))
             self.ft1=self.ft1[0]
 
-        if isinstance(self.ft2,collections.Iterable):
+        if not isinstance(self.ft2,types.StringType):
             if len(self.ft2) != 1: raise Exception(dedent("""\
                                                    Exactly one ft2 file may be specified by roi_monte_carlo script
                                                    (%s were acutally specified)""" % len(self.ft2)))
@@ -103,8 +104,6 @@ class MonteCarlo(object):
         if self.ft2 is not None and os.path.exists(self.ft2):
             self.set_time_from_ft2()
 
-        if self.irf is None:
-            raise Exception("...")
 
     def set_time_from_ft2(self):
         # Note, get the start & stop times from the actual
@@ -575,7 +574,7 @@ class MonteCarlo(object):
 
     def __del__(self):
         """ Remove folder with simulation stuff. """
-        if os.path.exists(self.tempdir):
+        if hasattr(self,'tempdir') and os.path.exists(self.tempdir):
             shutil.rmtree(self.tempdir)
 
 
