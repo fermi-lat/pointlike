@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.42 2011/05/17 14:08:24 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.43 2011/06/28 21:55:30 lande Exp $
 
     author: Matthew Kerr
     """
@@ -139,8 +139,8 @@ class FermiCatalog(PointSourceCatalog):
         self.catalog_file=catalog_file
 
     def __open_catalog__(self,catalog_file):
-        from pyfits import open
-        f = open(catalog_file)
+        import pyfits
+        f = pyfits.open(catalog_file)
         colnames = [x.name for x in f[1].get_coldefs()]
         sname     = 'NickName' if 'NickName' in colnames else 'Source_Name'
         ras  = f[1].data.field('RA' if 'RA' in colnames else 'RAJ2000')
@@ -251,12 +251,12 @@ class ExtendedSourceCatalog(PointSourceCatalog):
             to get a list of the extended sources. """
         self.archive_directory = archive_directory
 
-        from pyfits import open
+        import pyfits
         filename=join(self.archive_directory,"LAT_extended_sources*.fit")
         filename=glob.glob(filename)
         if len(filename)!=1: raise Exception("Unable to find LAT_extended_sources.fit archive file.")
         filename=filename[0]
-        f = open(filename)
+        f = pyfits.open(filename)
         self.names = f[1].data.field('Source_Name')
         ras   = f[1].data.field('RAJ2000')
         decs  = f[1].data.field('DEJ2000')
