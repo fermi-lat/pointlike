@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.25 2011/06/29 23:48:10 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.26 2011/07/06 05:00:28 lande Exp $
 
 author: Matthew Kerr
 """
@@ -53,6 +53,13 @@ class DiffuseSource(object):
         """ recreate the dmodel. """
         self.__dict__ = state
         self.dmodel = [ i[0](i[1]) if type(i)==tuple else i for i in self.dmodel]
+
+    def copy(self):
+        """ Make a copy of a diffuse source. """
+        return DiffuseSource(
+            name = self.name,
+            diffuse_model = self.dmodel,
+            scaling_model = self.smodel.copy())
 
 ###=========================================================================###
 class ROIDiffuseModel(object):
