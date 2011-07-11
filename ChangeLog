@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jul 11 15:51:11 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+Clean up MonteCarlo object.
+    *
+------------------------------------------------------------
 User: lande  Mon Jul 11 14:17:28 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
