@@ -1,7 +1,7 @@
 """
 Module to perfrom routine testing of pointlike's many features.'
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.3 2011/07/07 21:23:55 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.4 2011/07/10 06:46:45 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -210,8 +210,10 @@ class PointlikeTest(unittest.TestCase):
         roi.fit(use_gradient=True)
 
         self.compare_model(es_fit,es_mc)
-
         compare_spatial_model(es_fit,es_mc,roi.lsigma)
+
+        roi.assertGreater(roi.TS(which='source'),25,'The source should be significant')
+        roi.assertGreater(roi.TS_ext(which='source'),25,'And significantly extended')
 
         es_mc.spatial_model.save_template('$SIMDIR/extended_template.fits')
 
@@ -227,6 +229,9 @@ class PointlikeTest(unittest.TestCase):
         roi.fit()
 
         self.compare_model(template_source,es_mc)
+
+        roi.assertGreater(roi.TS(which='source'),25,'Make sure these functions work similary with spatial_map')
+        roi.assertGreater(roi.TS_ext(which='source'),25,'ditto.')
 
 
     @unittest.skip("skip")
