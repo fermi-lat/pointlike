@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jul 12 20:10:12 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+setp/getp interface to SpatialModels (to make consistent with Models). Also allow kwargs setting of parameters.
+    *
+------------------------------------------------------------
 User: lande  Tue Jul 12 20:05:57 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
