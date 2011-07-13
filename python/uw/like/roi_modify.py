@@ -5,7 +5,7 @@ $Header:
 
 author: Matthew Kerr, Joshua Lande
 """
-import numpy as N
+import numpy as np
 
 from . Models import Model
 from . SpatialModels import SpatialModel
@@ -108,7 +108,7 @@ def modify_model(roi,which,model,free=None,preserve_flux=False):
         model=roi.get_model(which)
 
         if isinstance(free,bool):
-            free=N.asarray([free]*len(model.get_all_parameters()))
+            free=np.asarray([free]*len(model.get_all_parameters()))
 
         assert(len(free)==len(model.get_all_parameters()))
         for i in xrange(len(free)):
@@ -124,8 +124,44 @@ def modify_name(roi,which,name):
     manager.names[index]=name
     source.name=name
 
+def modify_spectral_kwargs(roi,which,preserve_flux,kwargs):
+    """ Modify in the spectral model all of the parameters 
+        specified by kwargs. """
+
+    source = roi.get_source(which)
+    model = source.model
+
+    if len([i for i in kwargs.keys() if i in model]) == 0:
+        return
+
+    for key in kwargs.keys():
+
+        if key in model: model[key] = kwargs.pop(key)
+
+    modify_model(roi,which,model,preserve_flux=preserve_flux)
+
+def modify_spatial_kwargs(roi,which,preserve_center,kwargs):
+    """ Modify in the spatial model all of the parameters 
+        specified by kwargs. """
+
+    source = roi.get_source(which)
+
+    if hasattr(source,'spatial_model'):
+
+        spatial_model = source.spatial_model
+       
+        if len([i for i in kwargs.keys() if i in spatial_model]) == 0:
+            return
+
+        for key in kwargs.keys():
+
+            if key in spatial_model: 
+                spatial_model[key] = kwargs.pop(key)
+
+        modify_spatial_model(roi,which,spatial_model,preserve_center)
+
 def modify(roi,which=0,name=None, skydir=None,model=None,spatial_model=None,
-        preserve_flux=False,preserve_center=True,free=None):
+        preserve_flux=False,preserve_center=True,free=None,**kwargs):
     """ This is a just a glue function wich will call all of the required
         modification functions to fully modify the source.
 
@@ -133,7 +169,7 @@ def modify(roi,which=0,name=None, skydir=None,model=None,spatial_model=None,
         to see what the various parameters do. """
 
     if skydir is None and model is None and \
-            spatial_model is None and free is None and name is None:
+            spatial_model is None and free is None and name is None and kwargs is {}:
         raise Exception("Parameter to modify must be specified.")
 
     if skydir is not None and spatial_model is not None:
@@ -143,10 +179,15 @@ def modify(roi,which=0,name=None, skydir=None,model=None,spatial_model=None,
         modify_loc(roi,which=which,skydir=skydir)
 
     if spatial_model is not None:
-        modify_spatial_model(roi,which,spatial_model,preserve_center)
+        modify_spatial_model(roi,spatial_model,preserve_center)
 
     if model is not None or free is not None:
         modify_model(roi,which,model,free,preserve_flux)
 
     if name is not None:
         modify_name(roi,which,name)
+
+    modify_spectral_kwargs(roi,which,preserve_flux,kwargs)
+    modify_spatial_kwargs(roi,which,preserve_center,kwargs)
+    if kwargs != {}: raise Exception("Unable to parse the kwargs=%s" % kwargs)
+
