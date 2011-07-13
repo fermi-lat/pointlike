@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.47 2011/06/22 03:51:04 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.48 2011/07/07 20:24:01 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -112,16 +112,37 @@ Optional keyword arguments:
       """
         iscopy = kwargs.pop('iscopy', False)
         DefaultModelValues.setup(self,**kwargs) # if called from copy method, will set p
-        self.__dict__['_p'] = np.asarray(kwargs.pop('p', self._p),float)
+        self._p = np.asarray(kwargs.pop('p', self._p),float)
         assert len(self._p)==len(self.param_names), 'Model: wrong number of parameters set: %s' % self._p
-        self.__dict__.update(**kwargs)
+
         if not iscopy:
-          assert np.all(self._p>0), 'fail parameter positivity constraint' 
-          self._p = np.log10(self._p)
+            # This has to come before the kwargs parsing
+            # incase the __getitem__ function is called
+            # with an input spectral parameter.
+            assert np.all(self._p>0), 'fail parameter positivity constraint' 
+            self._p = np.log10(self._p)
+
+        # deal with other kwargs. If they are in the list of spectral
+        # parameters, update the corresponding value. Tag them to 
+        # the class.
+        for k,v in kwargs.items():
+            if k in self: 
+                self[k]=v
+            else:
+                self.__dict__[k]=v
+
+
         self.free = np.asarray(self.free)
 
     def len(self):
         return len(self._p)
+
+    def __contains__(self, item):
+        try:
+            self.__getitem__(item)
+            return True
+        except Exception, ex:
+            return False
         
     def __getitem__(self, index):
         return self.getp(index)
@@ -166,9 +187,9 @@ Optional keyword arguments:
             Currently, this function is not particularly useful, but it
             could be generalized to allow lazier parameter selection. """
         if isinstance(i,str):
-            if i not in self.param_names:
+            if i.lower() not in np.char.lower(self.param_names):
                 raise Exception("Unknown parameter name %s" % i)
-            return self.param_names.index(i)
+            return np.where(np.char.lower(self.param_names)==i.lower())[0][0]
         else:
             return i
 
@@ -226,6 +247,11 @@ Optional keyword arguments:
                 return p,hi_rat,lo_rat
         except:
             return (p,z,z) if two_sided else (p,z) 
+
+    def error(self,i, internal=False):
+        """ get error for parameter # i """
+        i=self.mapper(i)
+        return (N.diag(self.get_cov_matrix(absolute=not internal))**0.5)[i]
 
     def __str__(self,absolute=False, indent=''):
         """Return a pretty print version of parameter values and errors.
@@ -340,12 +366,11 @@ Optional keyword arguments:
 
     def copy(self):
         
-        a = eval(self.name+'(iscopy=True, **self.__dict__)') #create instance of same spectral model type
+        a = eval(self.name)(iscopy=True, **self.__dict__) #create instance of same spectral model type
         
         a._p = N.asarray(self._p).copy() #copy in log values
         a.free = N.asarray(self.free).copy()
-        try: a.cov_matrix = self.cov_matrix.__copy__()
-        except: pass
+        if hasattr(a,'cov_matrix'): a.cov_matrix = self.cov_matrix.__copy__()
         return a
 
     def fast_iflux(self,emin=100,emax=1e6):
