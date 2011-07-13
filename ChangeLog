@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jul 12 20:19:37 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+Explicity skymaps import
+    *
+------------------------------------------------------------
 User: lande  Tue Jul 12 20:19:22 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
