@@ -1,13 +1,13 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/convolution.py,v 1.39 2011/06/22 22:13:04 mar0 Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.40 2011/06/24 04:38:10 burnett Exp $
 
 authors: M. Kerr, J. Lande
 
 """
 from skymaps import SkyDir,BaseWeightedSkyDirList,Hep3Vector,SkyIntegrator,PySkyFunction,Background,PythonUtilities
 from pointlike import DoubleVector
-import numpy as N
+import numpy as np
 from scipy.interpolate import interp1d
 from scipy.integrate import quad,romberg,cumtrapz,inf
 from scipy.special import hyp2f1
@@ -75,12 +75,12 @@ class Grid(object):
         self.wrap = self.lon0 <= self.delta_lon # True if origin (0/360) is in frame
 
         mpix  = (float(npix)-1)/2.
-        v     = (N.arange(0,npix) - mpix)**2
-        self.dists = N.asarray([v+v[i] for i in xrange(npix)])**0.5*(N.radians(self.pixelsize))
+        v     = (np.arange(0,npix) - mpix)**2
+        self.dists = np.asarray([v+v[i] for i in xrange(npix)])**0.5*(np.radians(self.pixelsize))
 
-        self.lons = self.lon0 - N.linspace(0,1,self.npix)*self.delta_lon
-        self.lons = DoubleVector(N.where(self.lons < 0,self.lons+360,self.lons)) # if origin in frame
-        self.lats = DoubleVector(N.linspace(0,1,self.npix)*self.delta_lat + self.lat0)
+        self.lons = self.lon0 - np.linspace(0,1,self.npix)*self.delta_lon
+        self.lons = DoubleVector(np.where(self.lons < 0,self.lons+360,self.lons)) # if origin in frame
+        self.lats = DoubleVector(np.linspace(0,1,self.npix)*self.delta_lat + self.lat0)
 
     def rot_lon_lat(self,lon,lat):
         """ Rotate the specified lon/lat to the equatorial grid. """
@@ -104,10 +104,10 @@ class Grid(object):
         """ return the pixel corresponding to the argument skydir. """
         lon,lat = self.rot_lon_lat(skydir.l(),skydir.b())
         if self.wrap:
-            lon = N.where(lon > 180, lon - 360 , lon)
-        np = self.npix - 1
-        x = (self.lon0 - lon)/self.delta_lon*np
-        y = (lat - self.lat0)/self.delta_lat*np
+            lon = np.where(lon > 180, lon - 360 , lon)
+        npix = self.npix - 1
+        x = (self.lon0 - lon)/self.delta_lon*npix
+        y = (lat - self.lat0)/self.delta_lat*npix
         return x,y
     
     def __call__(self,skydir,v):
@@ -118,30 +118,30 @@ class Grid(object):
             The skydir(s) are rotated onto the equatorial grid."""
         
         if hasattr(skydir,'EQUATORIAL'): skydir = [skydir]
-        rvals = N.empty(len(skydir)*2,dtype=float)
+        rvals = np.empty(len(skydir)*2,dtype=float)
         PythonUtilities.rot_grid(rvals,skydir,self.center)
         lon = rvals[::2]; lat = rvals[1::2]
         if self.wrap:
             # adopt negative longitudes for the nonce; fine for calculating differences
-            lon = N.where(lon > 180, lon - 360 , lon)
-        np = self.npix - 1
-        x = (self.lon0 - lon) / (self.delta_lon / np)
-        y = (lat - self.lat0) / (self.delta_lat / np)
-        #if N.any( (x<0) || (x > np) || (y < 0) || (y > np) ):
-        #    return N.nan
-        xlo,ylo = N.floor(x+1e-6).astype(int),N.floor(y+1e-6).astype(int)
+            lon = np.where(lon > 180, lon - 360 , lon)
+        npix = self.npix - 1
+        x = (self.lon0 - lon) / (self.delta_lon / npix)
+        y = (lat - self.lat0) / (self.delta_lat / npix)
+        #if np.any( (x<0) || (x > npix) || (y < 0) || (y > npix) ):
+        #    return np.nan
+        xlo,ylo = np.floor(x+1e-6).astype(int),np.floor(y+1e-6).astype(int)
         xhi,yhi = xlo+1,ylo+1
-        dx = N.maximum(0,x - xlo)
-        dy = N.maximum(0,y - ylo)
-        v  = N.asarray(v)
+        dx = np.maximum(0,x - xlo)
+        dy = np.maximum(0,y - ylo)
+        v  = np.asarray(v)
         if self.bounds_error: 
             return v[xlo,ylo]*(1-dx)*(1-dy) + v[xlo,yhi]*(1-dx)*dy + v[xhi,ylo]*dx*(1-dy) + v[xhi,yhi]*dx*dy
         else:
-            return N.where((xlo<0) | (ylo<0) | (xhi>np) | (yhi>np),self.fill_value,
-                           v[N.clip(xlo,0,np),N.clip(ylo,0,np)]*(1-dx)*(1-dy) + \
-                           v[N.clip(xlo,0,np),N.clip(yhi,0,np)]*(1-dx)*dy + \
-                           v[N.clip(xhi,0,np),N.clip(ylo,0,np)]*dx*(1-dy) + \
-                           v[N.clip(xhi,0,np),N.clip(yhi,0,np)]*dx*dy)
+            return np.where((xlo<0) | (ylo<0) | (xhi>npix) | (yhi>npix),self.fill_value,
+                           v[np.clip(xlo,0,npix),np.clip(ylo,0,npix)]*(1-dx)*(1-dy) + \
+                           v[np.clip(xlo,0,npix),np.clip(yhi,0,npix)]*(1-dx)*dy + \
+                           v[np.clip(xhi,0,npix),np.clip(ylo,0,npix)]*dx*(1-dy) + \
+                           v[np.clip(xhi,0,npix),np.clip(yhi,0,npix)]*dx*dy)
 
     def fill(self,skyfun):
         """ Evaluate skyfun along the internal grid and return the resulting array.
@@ -152,7 +152,7 @@ class Grid(object):
             
             The rotation is rather fast, likely no need to pre-compute.
         """
-        v = N.empty(self.npix*self.npix)
+        v = np.empty(self.npix*self.npix)
         PythonUtilities.val_grid(v,self.lons,self.lats,self.center,skyfun)
         return v.reshape([self.npix,self.npix])
         
@@ -187,7 +187,7 @@ class BackgroundConvolution(Grid):
             self.bg_vals = self.fill(override_skyfun)
         else:
             self.bg_vals = override_vals
-        self.bg_vals[N.isnan(self.bg_vals)] = 0
+        self.bg_vals[np.isnan(self.bg_vals)] = 0
 
         pb = PretendBand(energy,conversion_type)
         bpsf = BandCALDBPsf(self.psf,pb,override_en=override_en,adjust_mean=False)
@@ -199,17 +199,17 @@ class BackgroundConvolution(Grid):
         """ Evaluate a band psf over the grid."""
         psf_vals = psf(self.dists,density=True).reshape([self.npix,self.npix])
         self.psf_vals = psf_vals / psf_vals.sum()
-        #self.psf_vals = psf_vals*N.radians(self.pixelsize)**2
+        #self.psf_vals = psf_vals*np.radians(self.pixelsize)**2
 
     def convolve(self):
         """ Perform the convolution with the current values of the bg
             and psf evaluated over the grid."""
         fft_kernel = fft2(self.psf_vals)
         fft_image  = fft2(self.bg_vals)
-        self.cvals = c = N.real(fftshift(ifft2(fft_kernel*fft_image)))
+        self.cvals = c = np.real(fftshift(ifft2(fft_kernel*fft_image)))
 
         # swap the 0th component into the proper place
-        new = N.empty_like(c)
+        new = np.empty_like(c)
         new[0,:]  = c[-1,:]
         new[1:,:] = c[:-1,:]
         c[:,0]  = new[:,-1]
@@ -227,13 +227,13 @@ class BackgroundConvolution(Grid):
         marker = float(self.npix)/2
         P.subplot(131)
         P.imshow(self.psf_vals,interpolation='nearest')
-        norm = P.normalize(N.log10(self.bg_vals.min()),N.log10(self.bg_vals.max()))
+        norm = P.normalize(np.log10(self.bg_vals.min()),np.log10(self.bg_vals.max()))
         P.subplot(132)
-        P.imshow(N.log10(self.bg_vals).transpose()[::-1],norm=norm,interpolation='nearest')
+        P.imshow(np.log10(self.bg_vals).transpose()[::-1],norm=norm,interpolation='nearest')
         P.axvline(marker,color='k')
         P.axhline(marker,color='k')
         P.subplot(133)
-        P.imshow(N.log10(self.cvals).transpose()[::-1],norm=norm,interpolation='nearest')
+        P.imshow(np.log10(self.cvals).transpose()[::-1],norm=norm,interpolation='nearest')
         P.axvline(marker,color='k')
         P.axhline(marker,color='k')
 
@@ -275,7 +275,7 @@ class ExtendedSourceConvolution(BackgroundConvolution):
 
     def convolve(self,*args,**kwargs):
         super(ExtendedSourceConvolution,self).convolve(*args,**kwargs)
-        self.cvals /= self.cvals.sum()*N.radians(self.pixelsize)**2
+        self.cvals /= self.cvals.sum()*np.radians(self.pixelsize)**2
 
     def overlap(self,roi_center,roi_radius):
         """ Calculate the fraction of PDF contained within ROI (which
@@ -292,14 +292,14 @@ class ExtendedSourceConvolution(BackgroundConvolution):
         
         # If grid is entirly inside of roi, overlap is 1
         if self.center.difference(roi_center) + \
-                N.radians(self.pixelsize)*self.npix < roi_radius:
+                np.radians(self.pixelsize)*self.npix < roi_radius:
             return 1.0
 
         x,y = self.pix(roi_center)
-        dx =((N.arange(0,self.npix)-x)**2).reshape(self.npix,1)
-        dy =((N.arange(0,self.npix)-y)**2)
-        d  = N.sqrt(dx+dy)*N.radians(self.pixelsize)
-        return (self.cvals[d <= roi_radius]).sum()*N.radians(self.pixelsize)**2
+        dx =((np.arange(0,self.npix)-x)**2).reshape(self.npix,1)
+        dy =((np.arange(0,self.npix)-y)**2)
+        d  = np.sqrt(dx+dy)*np.radians(self.pixelsize)
+        return (self.cvals[d <= roi_radius]).sum()*np.radians(self.pixelsize)**2
 
     def do_convolution(self,band):
 
@@ -311,7 +311,7 @@ class ExtendedSourceConvolution(BackgroundConvolution):
 
         # Extended sources might be much bigger then the ROI if the convolution is only
         # being redone in a small area (for example, to make a radial profile.
-        edge_distance=N.degrees(band.sd.difference(self.extended_source.spatial_model.center) + band.radius_in_rad)
+        edge_distance=np.degrees(band.sd.difference(self.extended_source.spatial_model.center) + band.radius_in_rad)
         extended_src_edge=self.extended_source.spatial_model.effective_edge()
         edge=min(edge_distance,extended_src_edge)
 
@@ -367,7 +367,7 @@ class ExtendedSourceConvolutionCache(ExtendedSourceConvolution):
     def do_convolution(self,band):
 
         if self.last_p.has_key(band) and \
-                N.all(self.last_p[band] == self.extended_source.spatial_model.p[2:]):
+                np.all(self.last_p[band] == self.extended_source.spatial_model.p[2:]):
 
             self.npix=self.last_npix[band]
             self.cvals = self.last_cvals[band]
@@ -432,15 +432,15 @@ class AnalyticConvolution(object):
         the intgral includes at term which is the PDF, the integral
         will presumably contribute very littel further away then this.
         """
-        int_max = 0.5*(N.radians(self.extended_source.spatial_model.effective_edge(energy))/s)**2
+        int_max = 0.5*(np.radians(self.extended_source.spatial_model.effective_edge(energy))/s)**2
 
         # u value corresponding to the given r.
         ulist=0.5*(self.rlist/s)**2
 
         # pdf values for each r (in a given energy bin)
-        pdf=N.empty_like(self.rlist)
+        pdf=np.empty_like(self.rlist)
 
-        integrand = lambda v,u: self.extended_source.spatial_model.at_r(N.sqrt(2*v)*s)\
+        integrand = lambda v,u: self.extended_source.spatial_model.at_r(np.sqrt(2*v)*s)\
                                           *((g-1)/g)*(g/(g+u+v))**g\
                                           *hyp2f1(g/2.,(1+g)/2.,1.,4.*u*v/(g+u+v)**2)
         for i,u in enumerate(ulist):
@@ -448,95 +448,77 @@ class AnalyticConvolution(object):
                         epsabs=1e-3,full_output=True)[0]
             # Sometimes this algorithm is not robust. In that case,
             # try to do the integral more accuratly
-            if N.isnan(pdf[i]) or N.isinf(pdf[i]) or pdf[i]<0:
+            if np.isnan(pdf[i]) or np.isinf(pdf[i]) or pdf[i]<0:
 
                 # try integrating to infinity
                 pdf[i]=quad(integrand,0,inf,args=(u,),epsrel=1e-3,
                             epsabs=1e-3,full_output=True)[0]
 
-                if N.isnan(pdf[i]) or N.isinf(pdf[i]) or pdf[i]<0:
+                if np.isnan(pdf[i]) or np.isinf(pdf[i]) or pdf[i]<0:
 
                     # try to use romberg to do the integral.
                     pdf[i]=romberg(integrand,0,int_max,args=(u,),divmax=20)
                                    
         return pdf
     
-    def _get_pdf(self,energy,conversion_type,band,fitpsf,fastpsf):
+    def _get_pdf(self,energy,conversion_type,band):
         """ This function has to calculate self.rlist and self.pdf
             and is abstracted from the rest of the do_convolution
             function so that it can be overloaded for caching
             by AnalyticConvolutionCache. """
 
-        if fitpsf==True and fastpsf==True:
-            raise Exception("Only one of fitpsf or fastpsf may be set true")
-
         pb = PretendBand(energy,conversion_type)
         self.bpsf = BandCALDBPsf(self.psf,pb)
-
-        if self.bpsf.newstyle:
-            nclist,ntlist,gclist,gtlist,\
-                    sclist,stlist,wlist = self.bpsf.par
-
-            smax = N.append(sclist,stlist).max()
-
-        else:
-            # g = gamma, s = sigma, w = weight
-            glist,slist,wlist = self.bpsf.par
-            smax=slist.max()
 
         self.edge_distance=band.sd.difference(self.extended_source.spatial_model.center) + \
                 band.radius_in_rad
 
         self.rmax=self.edge_distance
 
-        self.rlist=N.linspace(0,N.sqrt(self.rmax),self.num_points)**2
+        self.rlist=np.linspace(0,np.sqrt(self.rmax),self.num_points)**2
+        self.pdf=np.zeros_like(self.rlist)
 
+        if self.bpsf.newstyle:
 
-        # pdf is the probability per unit area at a given radius.
-        self.pdf=N.zeros_like(self.rlist)
+            nclist,ntlist,gclist,gtlist,\
+                    sclist,stlist,wlist = self.bpsf.par
 
-        if fitpsf:
-            # For new & old style psf, fit a single king function to the data.
-            self.pdf = self._convolve(self.rlist,band.fit_gamma,band.fit_sigma,energy)
+            smax = np.append(sclist,stlist).max()
 
-        elif fastpsf:
-            # weight sigmas & gammas before fit, useful for fast rough calculations of the pdf.
-            if self.bpsf.newstyle:
-                nc,nt=(nclist*wlist).sum(),(ntlist*wlist).sum()
+            # For P7SOURCE_V6, there is no theta dependence to the
+            # psf so we can just do the convolution once!
+            if np.allclose(nclist,1) and np.allclose(ntlist,0) and \
+               np.allclose(gclist,gclist[0]) & np.allclose(sclist,sclist[0]):
 
-                gc,sc=(gclist*wlist).sum(),(sclist*wlist).sum()
-                gt,st=(gtlist*wlist).sum(),(stlist*wlist).sum()
+                self.pdf += self._convolve(self.rlist,gclist[0],sclist[0],energy)
 
-                self.pdf += nc*self._convolve(self.rlist,gc,sc,energy) + \
-                            nt*self._convolve(self.rlist,gt,st,energy)
             else:
-                g,s=(glist*wlist).sum(),(slist*wlist).sum()
-
-                self.pdf += self._convolve(self.rlist,g,s,energy)
-
-        else:
-            if self.bpsf.newstyle:
                 for nc,gc,sc,nt,gt,st,w in zip(nclist,gclist,sclist,\
                                                ntlist,gtlist,stlist,wlist):
                     self.pdf += w*(nc*self._convolve(self.rlist,gc,sc,energy)+
                                    nt*self._convolve(self.rlist,gt,st,energy))
-            else:
-                for g,s,w in zip(glist,slist,wlist):
-                    self.pdf += w*self._convolve(self.rlist,g,s,energy)
+        else:
+
+            # g = gamma, s = sigma, w = weight
+            glist,slist,wlist = self.bpsf.par
+            smax=slist.max()
+
+            for g,s,w in zip(glist,slist,wlist):
+                self.pdf += w*self._convolve(self.rlist,g,s,energy)
 
         # for some reason, I incorrectly got a negative pdf value for r=0 and for
         # especially large gaussian MC sources. Not sure how the integral of the 
         # hypergeometric function could do this, but it is best to simply remove 
         # it from the list since we know they are unphysical.
-        bad = N.isnan(self.pdf)|N.isinf(self.pdf)|(self.pdf<0)
-        if N.any(bad):
+        bad = np.isnan(self.pdf)|np.isinf(self.pdf)|(self.pdf<0)
+        if np.any(bad):
             message='WARNING! Bad values found in PDF. Removing them from interpolation.' % sum(bad)
-            if N.any(N.isnan(self.pdf)): message += ' (%d NaN values)' % sum(N.isnan(self.pdf))
-            if N.any(N.isinf(self.pdf)): message += ' (%d Inf values)' % sum(N.isinf(self.pdf))
-            if N.any(self.pdf<0):        message +=' (%d negative values)' % sum(self.pdf<0)
+            if np.any(np.isnan(self.pdf)): message += ' (%d NaN values)' % sum(np.isnan(self.pdf))
+            if np.any(np.isinf(self.pdf)): message += ' (%d Inf values)' % sum(np.isinf(self.pdf))
+            if np.any(self.pdf<0):        message +=' (%d negative values)' % sum(self.pdf<0)
             raise Exception(message)
 
-    def do_convolution(self,band,fitpsf,fastpsf):
+    def do_convolution(self,band):
         """ Generate points uniformly in r^2 ~ u, to ensure there are more 
             points near the center, where the PDF is bigger and changing
             rapidly. Then, do a cubic spline interpolation of the log of
@@ -561,42 +543,26 @@ class AnalyticConvolution(object):
             interpolationt he PDF not the PSF, but I assume convolving
             the PSF with an extended shape like a gaussian would also
             create something that looks like a gaussian. 
-            
-  =========   =======================================================
-  Keyword     Description
-  =========   =======================================================
-  fitpsf         [False] Use emperical fits to the psf instead of
-                         weighting over cos theta.
-  fastpsf        [False] Estimate the psf by weighting the sigmas 
-                         and gammas before the fit. Useful for 
-                         rough, but faster calculations. Note that
-                         if you are going to do a lot of iterations
-                         of convolving, its probably better to do
-                         use fitpsf because it will get a generally
-                         better represetnation of the psf. But if
-                         you want speed and only to do the convolution
-                         once, fastpsf is a good option.
-  =========     =======================================================
             """
         # Use the 'optimal' energy (calculated by the ADJUST_MEAN flag) if it exists.
         energy = band.psf.eopt if band.psf.__dict__.has_key('eopt') else band.e
 
         # do most of the work in this subfunction, which allows for caching
         # by the AnalyticConvolutionCache subclass.
-        self._get_pdf(energy,band.ct,band,fitpsf,fastpsf)
+        self._get_pdf(energy,band.ct,band)
 
         # Assume pdf is 0 outside of the bound, which is reasonable if 
         # rmax is big enough also, interpolate the log of the intensity, which 
         # should for the types of shapes we are calculating be much more linear.
-        self.log_pdf=N.log(self.pdf)
+        self.log_pdf=np.log(self.pdf)
         self.interp=interp1d(self.rlist,self.log_pdf,kind=3,bounds_error=False,fill_value=self.log_pdf[0])
 
-        self.val=lambda x: N.exp(self.interp(x))*(x<=self.rlist[-1])
+        self.val=lambda x: np.exp(self.interp(x))*(x<=self.rlist[-1])
 
         # Calculate the integral of the pdf. Then do an interploation of it.
         # This is used for the integrate function, which is supposed to
         # be analogous to the BandCALDBPsf.integral function.
-        self.int_pdf=cumtrapz(x=self.rlist,y=2*N.pi*self.rlist*self.pdf)
+        self.int_pdf=cumtrapz(x=self.rlist,y=2*np.pi*self.rlist*self.pdf)
         self.int_rlist=self.rlist[1:]
         self.int_interp=interp1d(self.int_rlist,self.int_pdf,
                                         bounds_error=False,fill_value=1)
@@ -609,10 +575,10 @@ class AnalyticConvolution(object):
             area). Also, it is different in that it takes in a skydir or WSDL 
             instead of a radial distance. """
         if isinstance(skydir,BaseWeightedSkyDirList):
-            difference = N.empty(len(skydir),dtype=float)
+            difference = np.empty(len(skydir),dtype=float)
             PythonUtilities.arclength(difference,skydir,self.extended_source.spatial_model.center)
             return self.val(difference)
-        elif type(skydir)== N.ndarray:
+        elif type(skydir)== np.ndarray:
             return self.val(skydir)
         elif type(skydir)==list and len(skydir)==3:
             skydir = SkyDir(Hep3Vector(skydir[0],skydir[1],skydir[2]))
@@ -633,8 +599,8 @@ class AnalyticConvolutionCache(AnalyticConvolution):
         perform the exact same cacluation. 
         
         This object implements a caching mechanism so that when the
-        same spatial parameters (except for the first 2) are passed (and
-        the same fitpsf value) as the last time, the previous value is
+        same spatial parameters (except for the first 2) are passed  
+        as the last time, the previous value is
         returned instead of being recalculated. """
 
     defaults = AnalyticConvolution.defaults
@@ -648,21 +614,21 @@ class AnalyticConvolutionCache(AnalyticConvolution):
         self.last_pdf       = {}
         self.last_rlist     = {}
 
-    def _get_pdf(self,energy,conversion_type,band,fitpsf,fastpsf):
+    def _get_pdf(self,energy,conversion_type,band):
 
-        if self.last_p.has_key((band,fitpsf,fastpsf)) and \
-                N.all(self.last_p[band,fitpsf,fastpsf] == self.extended_source.spatial_model.p[2:]):
+        if self.last_p.has_key(band) and \
+                np.all(self.last_p[band] == self.extended_source.spatial_model.p[2:]):
 
-            self.rlist   = self.last_rlist[band,fitpsf,fastpsf]
-            self.pdf     = self.last_pdf[band,fitpsf,fastpsf]
+            self.rlist   = self.last_rlist[band]
+            self.pdf     = self.last_pdf[band]
 
         else:
             super(AnalyticConvolutionCache,self)._get_pdf(
-                    energy,conversion_type,band,fitpsf,fastpsf)
+                    energy,conversion_type,band)
 
-            self.last_p[band,fitpsf,fastpsf]=self.extended_source.spatial_model.p[2:].copy()
-            self.last_rlist[band,fitpsf,fastpsf]=self.rlist
-            self.last_pdf[band,fitpsf,fastpsf]=self.pdf
+            self.last_p[band]=self.extended_source.spatial_model.p[2:].copy()
+            self.last_rlist[band]=self.rlist
+            self.last_pdf[band]=self.pdf
 
 """
 a little sanity check class
