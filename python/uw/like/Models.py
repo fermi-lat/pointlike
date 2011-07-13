@@ -1,11 +1,12 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.48 2011/07/07 20:24:01 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.49 2011/07/13 03:05:57 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
 """
 import copy
+import operator
 import numpy as N
 import numpy as np
 import math as M
@@ -33,16 +34,16 @@ class DefaultModelValues(object):
         'PLSuperExpCutoff'    : {'_p':[1e-11, 2.0, 2e3 ,1.],    'param_names':['Norm','Index','Cutoff', 'b']},
         'Constant'            : {'_p':[1.],                     'param_names':['Scale']},
         'InterpConstants'     : {'_p':[1.]*5,                   'param_names':['Scale_Vector'],'e_breaks':N.log10([100,300,1000,3000,3e5])},
-        'FileFunction'        : {'_p':[1.],                     'param_names':['Norm']},
+        'FileFunction'        : {'_p':[],                       'param_names':[]},
         }
 
-    names = simple_models.keys()+['MixedModel']
+    names = simple_models.keys()+['SumModel','ProductModel']
 
     @staticmethod
     def setup(the_model,**kwargs):
         """Pass a model instance to give it default values.  The keyword arguments are used
-            only for MixedModel, in which case they contain the 'simple_models' keyword argument to
-            describe which simple models the MixedModel comprises."""
+            only for SumModel/ProductModel, in which case they specify a list of
+            Model objects."""
         
         DefaultModelValues.start(the_model)
         classname = the_model.name = the_model.pretty_name = the_model.__class__.__name__
@@ -51,22 +52,18 @@ class DefaultModelValues(object):
             for key,val in DefaultModelValues.simple_models[classname].items():
                 exec('the_model.%s = val'%key)
         
-        if classname == 'MixedModel':
-            val = kwargs['simple_models'] if 'simple_models' in kwargs else ['PowerLaw']
-            if type(val) == type(dict()): #a dictionary with kwargs for each simple model has been passed
-                the_model.models = val.keys()
-                default_dicts = [val[model] for model in the_model.models]
-            else: #a list has been passed; use default values
-                the_model.models = val
-                default_dicts = [DefaultModelValues.simple_models[model] for model in the_model.models]
-            the_model.param_names,the_model.p,the_model.spec_models=[],[],[]
-            for i,model in enumerate(the_model.models):
-                    exec('this_model = %s(**default_dicts[i])'%model)
-                    the_model.spec_models += [this_model]
-                    the_model.param_names += this_model.param_names
-                    the_model.p += list(this_model.p)
-            the_model.n = [len(x.p) for x in the_model.spec_models]
-            the_model.pretty_name = '+'.join(the_model.models)
+        if classname in ['SumModel','ProductModel']:
+            if not kwargs.has_key('models'):
+                raise Exception("keyword 'models' with list of spectral models is required")
+            the_model.models = models = kwargs['models']
+            for model in models:
+                if not isinstance(model,Model):
+                    raise Exception("All 'models' must be instances of uw.like.Models.Model")
+            the_model.param_names = reduce(operator.add,[i.param_names for i in models])
+            the_model._p = 10**N.append(*[i._p for i in models])
+            the_model.n = N.asarray([len(i._p) for i in models])
+            the_model.operator='+' if classname == 'SumModel' else '*'
+            the_model.pretty_name = the_model.operator.join([i.pretty_name for i in models])
 
         DefaultModelValues.finish(the_model)
 
@@ -104,10 +101,10 @@ Optional keyword arguments:
   Keyword      Description
   =========    =======================================================
   e0             [1000] value in MeV at which normalization is given
-  flux_scale  [1e7] multiplier for actual value to make units more convenient
+  flux_scale     [1e7] multiplier for actual value to make units more convenient
   p              [p1,p2,...] default values of spectral parameters; see docstring individual model classes
-  simple_models [] for MixedModel, a list of simple model names composing MixedModel
-  free          [True, True,...] a boolean list the same length as p giving the free (True) and fixed (False) parameters
+  models         [] for SumModel/ProductModels, a list of simple models
+  free           [True, True,...] a boolean list the same length as p giving the free (True) and fixed (False) parameters
   =========    =======================================================
       """
         iscopy = kwargs.pop('iscopy', False)
@@ -816,7 +813,7 @@ Spectral parameters:
 
 #===============================================================================================#
 
-class MixedModel(Model):
+class SumModel(Model):
     """Implement a composite model.  The value is the sum of the simple models.
         See constructor docstring for further keyword arguments.
         NOTA BENE: specify the simple models via the keyword arguments 'models'
@@ -824,9 +821,22 @@ class MixedModel(Model):
     def __call__(self,e):
         counter = 0
         for i in xrange(len(self.n)):
-            self.spec_models[i]._p = self._p[counter:counter+self.n[i]]
+            self.models[i]._p = self._p[counter:counter+self.n[i]]
             counter += self.n[i]
-        return N.array([model(e) for model in self.spec_models]).sum(axis=0)
+        return N.array([model(e) for model in self.models]).sum(axis=0)
+
+
+#===============================================================================================#
+
+class ProductModel(Model):
+    """Implement a product model.  The value is the product of the simple models.
+        """
+    def __call__(self,e):
+        counter = 0
+        for i in xrange(len(self.n)):
+            self.models[i]._p = self._p[counter:counter+self.n[i]]
+            counter += self.n[i]
+        return N.array([model(e) for model in self.models]).prod(axis=0)
 
 
 #===============================================================================================#
@@ -873,10 +883,10 @@ class FileFunction(Model):
         self.__make_interp__()
 
     def __call__(self,e):
-        return 10**(self._p[0]+self.interp(N.log10(e)))
+        return 10**self.interp(N.log10(e))
     
     def gradient(self,e):
-        return N.asarray([10**self.interp(N.log10(e))])
+        return N.asarray([])
 
     def __getstate__(self):
         """ You cannot pickle an interp1d object. """
