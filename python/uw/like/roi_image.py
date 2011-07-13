@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.31 2011/06/28 21:55:50 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.32 2011/07/07 02:54:00 lande Exp $
 
 author: Joshua Lande
 """
@@ -59,6 +59,7 @@ class ROIImage(object):
         ('galactic', False, 'galactic or equatorial coordinates'), 
         ('proj',     'ZEA', 'projection name: can change if desired'),
         ('center',    None, 'Center of image. If None, use roi center.'),
+        ('conv_type',   -1, 'Conversion type'),
     )
 
     @keyword_options.decorate(defaults)
@@ -74,6 +75,9 @@ class ROIImage(object):
             raise Exception("Can only create images with >=1 pixel in them.")
         
         self.roi = roi
+
+        self.selected_bands = tuple(self.roi.bands if self.conv_type < 0 else \
+            [ band for band in self.roi.bands if band.ct == self.conv_type ])
 
         # by default, use get energy range and image center from roi.
         if self.center is None: self.center=self.roi.roi_dir
@@ -194,46 +198,58 @@ class ROITSMapImage(ROIImage):
 class CountsImage(ROIImage):
     """ This ROIImage subclass fills the sky image with the observed Fermi counts. """
 
-    defaults = ROIImage.defaults + (
-        ('conv_type',   -1, 'Conversion type'),
-    )
 
     @staticmethod
     @memoize
-    def process_filedata(roi,conv_type=None,extra_cuts=None,radius=None):
-        """ The radius parameter will apply a radius cut. """
+    def process_filedata(roi,selected_bands):
+        """ The radius parameter will apply a radius cut. 
+            Assume that all bands are contiguous (hope this is always true!) """
 
-        if radius is None: radius=roi.sa.maxROI
+        radius=roi.sa.maxROI
 
-        emin = roi.bin_edges[0]
-        emax = roi.bin_edges[-1]
-        conv_type = roi.sa.conv_type if conv_type==None else conv_type
+        emin = min(b.emin for b in selected_bands)
+        emax = max(b.emax for b in selected_bands)
 
         ft1files=roi.sa.pixeldata.ft1files
 
-        base_cuts = ['ENERGY > %s'% emin,
-                     'ENERGY < %s'% emax,
-                     'ZENITH_ANGLE < %s' % roi.sa.pixeldata.zenithcut,
-                     'THETA < %s' % roi.sa.pixeldata.thetacut,
-                     'EVENT_CLASS >= %s' % roi.sa.pixeldata.event_class]
-        if conv_type >= 0:        base_cuts += ['CONVERSION_TYPE == %d'%(conv_type)]
-        cuts = base_cuts if extra_cuts is None else extra_cuts + base_cuts
+        cuts = ['ENERGY > %s'% emin,
+                'ENERGY < %s'% emax,
+                'ZENITH_ANGLE < %s' % roi.sa.pixeldata.zenithcut,
+                'THETA < %s' % roi.sa.pixeldata.thetacut,
+                'EVENT_CLASS >= %s' % roi.sa.pixeldata.event_class]
 
-        data = get_fields(ft1files,['RA','DEC','time'],cuts)
+        data = get_fields(ft1files,['RA','DEC','TIME','ENERGY','CONVERSION_TYPE'],cuts)
         # convert into skydirs
         skydirs = [ SkyDir(float(data['RA'][i]),float(data['DEC'][i])) for i in xrange(len(data['RA']))]
 
         # apply the same gti cut used to read in the initial WSDL.
         gti=roi.sa.pixeldata.gti
-        skydirs = [ skydir for skydir,time in zip(skydirs,data['time']) if gti.accept(time)]
+        good_dirs = []
 
-        # apply ROI radial cut
-        skydirs = [ skydir for skydir in skydirs if np.degrees(skydir.difference(roi.roi_dir)) < radius ]
+        front_bins = [b for b in selected_bands if b.ct == 0]
+        front_emin = min(b.emin for b in front_bins) if len(front_bins)>0 else None
+        front_emax = max(b.emax for b in front_bins) if len(front_bins)>0 else None
+
+        back_bins = [b for b in selected_bands if b.ct == 1]
+        back_emin = min(b.emin for b in back_bins) if len(back_bins)>0 else None
+        back_emax = max(b.emax for b in back_bins) if len(back_bins)>0 else None
+
+        good_photons = []
+        for skydir,time,energy,ct in zip(skydirs,data['TIME'],data['ENERGY'],data['CONVERSION_TYPE']):
+            if gti.accept(time) and np.degrees(skydir.difference(roi.roi_dir)) < radius:
+                if ct == 0 and \
+                   front_emin is not None and front_emax is not None and \
+                   energy > front_emin and energy < front_emax:
+                    good_photons.append(skydir)
+                if ct == 1 and \
+                   back_emin is not None and back_emax is not None and \
+                   energy > back_emin and energy < back_emax:
+                    good_photons.append(skydir)
 
         return skydirs
 
     def fill(self):
-        dirs = CountsImage.process_filedata(self.roi,self.conv_type)
+        dirs = CountsImage.process_filedata(self.roi,self.selected_bands)
 
         for photon_dir in dirs:
             self.skyimage.addPoint(photon_dir)
@@ -299,7 +315,6 @@ class ModelImage(ROIImage):
                                                  and override_diffuse_sources to generate the image instead
                                                  of the sources in the ROI."""),
             ('override_diffuse_sources', None, 'Same as override_point_sources'),
-            ('conv_type',   -1, 'Conversion type'),
     )
 
     @keyword_options.decorate(defaults)
@@ -310,9 +325,6 @@ class ModelImage(ROIImage):
         super(ModelImage,self).__init__(*args,**kwargs)
 
     def fill(self):
-        self.selected_bands = self.roi.bands if self.conv_type < 0 else \
-            [ band for band in self.roi.bands if band.ct == self.conv_type ]
-
         self.wsdl = self.skyimage.get_wsdl()
 
         self.solid_angle = np.radians(self.pixelsize)**2
@@ -544,7 +556,7 @@ class RadialImage(object):
                                        size of each pixel varies, but regardless this is used to determine
                                        the total number of pixels with npix=size/pixelsize """),
             ('npix',         None, """ If specified, use this value instead of pixelsize. """),
-            ('conv_type',      -1,            'Conversion type'),
+            ('conv_type',    None,            'Conversion type'),
     )
 
     @keyword_options.decorate(defaults)
@@ -555,6 +567,9 @@ class RadialImage(object):
             self.npix = float(self.size)/self.pixelsize
         
         self.roi = roi
+
+        self.selected_bands = tuple(self.roi.bands if self.conv_type < 0 else \
+            [ band for band in self.roi.bands if band.ct == self.conv_type ])
 
         # by default, use get energy range and image center from roi.
         if self.center is None: self.center=self.roi.roi_dir
@@ -587,7 +602,7 @@ class RadialCounts(RadialImage):
     defaults = RadialImage.defaults
 
     def fill(self):
-        dirs = CountsImage.process_filedata(self.roi,self.conv_type)
+        dirs = CountsImage.process_filedata(self.roi,self.selected_bands)
         diffs = [self.center.difference(i) for i in dirs]
         self.image=np.histogram(diffs,bins=np.sqrt(self.bin_edges_rad))[0]
 
@@ -634,9 +649,6 @@ class RadialModel(RadialImage):
     )
 
     def fill(self):
-
-        self.selected_bands = self.roi.bands if self.conv_type < 0 else \
-            [ band for band in self.roi.bands if band.ct == self.conv_type ]
 
         # Create fake bands just big enough to enclose the radial model.
         # This will speed up the convolution. 
