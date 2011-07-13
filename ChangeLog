@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jul 13 15:05:49 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_image.py 
+Log Message:
+bugfix for front/back seperate plots
+    *
+------------------------------------------------------------
 User: lande  Wed Jul 13 14:34:52 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
