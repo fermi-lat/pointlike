@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.50 2011/07/07 23:11:44 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.51 2011/07/08 15:19:55 lande Exp $
 
    author: Joshua Lande
 
@@ -133,6 +133,7 @@ class DefaultSpatialModelValues(object):
 
         the_model.cov_matrix = np.zeros([len(the_model.p),len(the_model.p)])
         the_model.free = np.asarray([True] * len(the_model.p))
+        the_model.center = SkyDir(0,0,the_model.coordsystem)
 
 #===============================================================================================#
 
@@ -167,47 +168,55 @@ class SpatialModel(object):
         means return the relative error (absolute error/parameter value)
         which is useful for printing percent error, etc. """
 
-    def __init__(self,**kwargs):
+    def __init__(self,p=None,center=None,log=None,iscopy=False,coordsystem=None,**kwargs):
         DefaultSpatialModelValues.setup(self)
 
-        iscopy = kwargs.pop('iscopy', False)
+        if iscopy: return
 
-        self.__dict__.update(**kwargs)
+        # first, set the log values of thigns:
+        if log is not None: self.log = np.asarray(log)
 
-        if not iscopy:
-            # if center is passed as a flag, add it to the paraemters.
-            if 'center' in kwargs.keys(): 
-                center = kwargs.pop('center')
-                if not kwargs.has_key('p'):
-                    # remove first two elements from default parameters.
-                    self.p = self.p[2:]
-                if self.coordsystem == SkyDir.EQUATORIAL:
-                    self.p = np.append([center.ra(),center.dec()],self.p)
-                elif self.coordsystem == SkyDir.GALACTIC:
-                    self.p = np.append([center.l(),center.b()],self.p)
+        if coordsystem is not None: 
+            self.coordsystem = coordsystem
+        elif kwargs.has_key('l') and kwargs.has_key('b'):
+            if kwargs.has_key('RA') or kwargs.has_key('Dec'): 
+                raise Exception("Can only pass one of l & b or RA and Dec")
+            self.coordsystem = SkyDir.GALACTIC
+
+        elif kwargs.has_key('RA') and kwargs.has_key('Dec'):
+            if kwargs.has_key('l') or kwargs.has_key('b'):
+                raise Exception("Can only pass one of l & b or RA and Dec")
+
+            self.coordsystem = SkyDir.EQUATORIAL
+
+        # rename coordsystem to properly reflect projection.
+        if self.coordsystem == SkyDir.EQUATORIAL:
+            self.param_names[0:2] = ['RA','Dec']
+        elif self.coordsystem == SkyDir.GALACTIC:
+            self.param_names[0:2] = ['l','b']
+
+        if self.log[0] != False or self.log[1] != False:
+            raise Exception("Do not fit the position parameters in log space.")
+
+        if center is not None: self.modify_loc(center)
+
+        self.set_parameters(p if p is not None else self.p, absolute=True)
+
+        # map the limits parameters into log space.
+        for i in range(2,len(self.log)):
+            if self.log[i]: 
+                self.limits[i,:] = np.log10(self.limits[i,:])
+
+        # deal with other kwargs. If they are in the list of spatial
+        # parameters, update the corresponding value. Tag them to 
+        # the class.
+        for k,v in kwargs.items():
+            if k in self: 
+                self[k]=v
             else:
-                if len(self.p) == len(self.param_names)-2:
-                    self.p = np.append([0,0],self.p)
-
-            if len(self.p) != len(self.param_names):
-                raise Exception("SpatialModel set with wrong number of parameters.")
-
-            # rename coordsystem to properly reflect projection.
-            if self.coordsystem == SkyDir.EQUATORIAL:
-                self.param_names[0:2] = ['RA','Dec']
-            elif self.coordsystem == SkyDir.GALACTIC:
-                self.param_names[0:2] = ['l','b']
-
-            if self.log[0] != False or self.log[1] != False:
-                raise Exception("Do not make the spatial parameters log.")
-
-            # map the log parameters into log space.
-            for i in range(2,len(self.log)):
-                if self.log[i]: 
-                    self.p[i] = np.log10(self.p[i])
-                    self.limits[i,:] = np.log10(self.limits[i,:])
-
-        self.cache()
+                self.__dict__[k]=v
+ 
+        self.cache() # overloaded by subclasses
 
     def cache(self):
         """ This should be inhereted by child classes to cache
@@ -233,6 +242,13 @@ class SpatialModel(object):
 
     def len(self):
         return len(self.p)
+
+    def __contains__(self, item):
+        try:
+            self.__getitem__(item)
+            return True
+        except Exception, ex:
+            return False
         
     def __getitem__(self, index):
         return self.getp(index)
@@ -245,12 +261,19 @@ class SpatialModel(object):
         i=self.mapper(i)
         return np.where((not internal) & self.log,10**self.p,self.p)[i]
 
+    def error(self,i, internal=False):
+        """ get error for parameter # i """
+        i=self.mapper(i)
+        return (N.diag(self.get_cov_matrix(absolute=not internal))**0.5)[i]
+
     def setp(self, i, par, internal=False):
         """ set internal value, convert unless internal """
         i=self.mapper(i)
-        if not internal: 
-            assert par>0, 'Model external parameter cannont be negative'
-        self.p[i] = par if (internal and self.log[i]) else np.log10(par)
+        if (not internal) and self.log[i] and par <=0:
+            raise Exception("Parameter %s must be positive!" % i)
+
+        self.p[i] = np.log10(par) if ((not internal) and self.log[i]) else par
+        self.cache()
 
     def get_parameters(self,absolute=False):
         """Return all parameters; used for spatial fitting. 
@@ -302,13 +325,14 @@ class SpatialModel(object):
     def mapper(self,i):
         """ Maps a parameter to an index. """
         if isinstance(i,str):
-            if i not in self.param_names:
+            if i.lower() not in np.char.lower(self.param_names):
                 raise Exception("Unknown parameter name %s" % i)
-            return np.where(self.param_names==i)[0][0]
+            return np.where(np.char.lower(self.param_names)==i.lower())[0][0]
         else:
             return i
     
     def modify_loc(self,center):
+        self.center = center
         if self.coordsystem == SkyDir.EQUATORIAL:
             self.p[0:2] = [center.ra(),center.dec()]
         elif self.coordsystem == SkyDir.GALACTIC:
@@ -367,7 +391,8 @@ class SpatialModel(object):
 
     def copy(self):
         
-        a = eval(self.name+'(iscopy=True, **self.__dict__)') #create instance of same spectral model type
+        a = eval(self.name)(iscopy=True, **self.__dict__) #create instance of same spectral model type
+        a.__dict__.update(self.__dict__)
         
         a.p           = np.asarray(self.p,dtype=float).copy() #copy in parameters
         a.free        = np.asarray(self.free,dtype=bool).copy() 
@@ -376,8 +401,9 @@ class SpatialModel(object):
         a.log         = np.asarray(self.log,dtype=bool).copy() 
         a.steps       = np.asarray(self.steps,dtype=float).copy() 
 
-        try: a.cov_matrix = self.cov_matrix.__copy__()
-        except: pass
+        if hasattr(a,'cov_matrix'): self.cov_matrix.__copy__()
+
+        a.cache()
 
         return a
 
@@ -656,7 +682,7 @@ class Disk(RadiallySymmetricModel):
         return "%.3fd" % (self.sigma)
 
     def shrink(self): 
-        self.p[2]=np.where(self.log[2],np.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
+        self.p[2]=np.log10(SMALL_ANALYTIC_EXTENSION) if self.log[2] else SMALL_ANALYTIC_EXTENSION
         self.free[2]=False
         self.cache()
     def can_shrink(self): return True
@@ -1152,7 +1178,7 @@ def convert_spatial_map(spatial,filename):
         When a SpatialMap object is passed in, only save out a new template if
         the source has been moved. This, of course, will degrade the quality
         of the saved template. """
-    if isinstance(spatial,SpatialMap): 
+    if isinstance(spatial,SpatialMap):
         return spatial
 
     spatial.save_template(filename)
