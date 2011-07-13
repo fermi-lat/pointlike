@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.31 2011/06/28 21:56:25 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.32 2011/07/13 03:11:27 lande Exp $
 
 author: Matthew Kerr
 """
@@ -350,6 +350,7 @@ class ROIDiffuseManager(ROIModelManager):
             band.bg_counts = N.delete(band.bg_counts,which)
             band.bg_pix_counts = N.delete(band.bg_pix_counts, which, axis=1)
 
+        self.update_counts(bands)
         return ops
 
     def zero_source(self, which, bands):
