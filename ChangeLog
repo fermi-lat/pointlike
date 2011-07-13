@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jul 12 20:20:50 PDT 2011
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+Better optimziation of convolution for radially symmetric extended sources by only convolving for each cos(theta) bin if there is an explicit depedence of the psf on cos(theta). Remove (now) unneeded fitpsf & fastpsf flags.
+    *
+------------------------------------------------------------
 User: lande  Tue Jul 12 20:19:37 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
