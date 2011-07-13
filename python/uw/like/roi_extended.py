@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.60 2011/07/08 21:34:27 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.61 2011/07/13 03:19:21 lande Exp $
 
     author: Joshua Lande
 """
@@ -333,18 +333,13 @@ Arguments:
             if bandfits:
                 ll=roi.bandFit(es)
             else:
-                roi.print_summary()
                 ll=roi.fit(estimate_errors=False,use_gradient=use_gradient)
-
-                roi.print_summary()
 
                 if ll < d['ll_best']:
                     prev_fit=roi.parameters().copy()
                     roi.set_parameters(d['best_spectral'].copy())
                     roi.__update_state__()
                     ll_alt=roi.fit(estimate_errors=False,use_gradient=use_gradient)
-
-                    roi.print_summary()
 
                     if ll_alt > ll: 
                         ll=ll_alt
@@ -357,8 +352,6 @@ Arguments:
                     roi.set_parameters(init_spectral.copy())
                     roi.__update_state__()
                     ll_alt=roi.fit(estimate_errors=False,use_gradient=use_gradient)
-
-                    roi.print_summary()
 
                     if ll_alt > ll: 
                         ll=ll_alt
