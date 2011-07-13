@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jul 12 20:19:22 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+Remove free_parameters and leave_parameters flags since they seem pointless. Better convergence strategy in fit_extension by trying again also at the best likelihood values. Bugfix for TS_ext function. Remove fit_psf and fast_psf flags since they no longer work.
+    *
+------------------------------------------------------------
 User: lande  Tue Jul 12 20:11:46 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
