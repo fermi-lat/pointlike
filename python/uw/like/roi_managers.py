@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.30 2011/06/24 04:50:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.31 2011/06/28 21:56:25 lande Exp $
 
 author: Matthew Kerr
 """
@@ -9,7 +9,6 @@ author: Matthew Kerr
 import sys
 import numpy as N
 from skymaps import SkyDir,SkyIntegrator,Background
-from pointlike import DoubleVector
 from roi_diffuse import ROIDiffuseModel,DiffuseSource
 from Models import *
 from pypsf import *
@@ -81,7 +80,6 @@ class ROIPointSourceManager(ROIModelManager):
 
         roi_dir = self.roi_dir
         overlap = PsfOverlap()
-        dv      = DoubleVector()
 
         for i,band in enumerate(bands):
 
@@ -98,10 +96,6 @@ class ROIPointSourceManager(ROIModelManager):
             #unnormalized PSF evaluated at each pixel, for each point source
             band.ps_pix_counts = N.empty([len(band.wsdl),len(self.point_sources)])
             for nps,ps in enumerate(self.point_sources):
-                ### DEPRECATED -- remove if new C++ classes work OK
-                #band.wsdl.arclength(ps.skydir,dv)
-                #band.ps_pix_counts[:,nps] = band.psf(N.fromiter(dv,dtype=float),density=True)
-                ### END DEPRECATED                
                 cpsf.wsdl_val(rvals,ps.skydir,band.wsdl)
                 band.ps_pix_counts[:,nps] = rvals
             band.ps_pix_counts*= band.b.pixelArea()
