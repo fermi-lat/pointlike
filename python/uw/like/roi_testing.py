@@ -1,11 +1,10 @@
 """
 Module to perfrom routine testing of pointlike's many features.'
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.4 2011/07/10 06:46:45 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.5 2011/07/12 17:32:08 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
-import datetime
 import os
 import unittest
 
@@ -14,7 +13,7 @@ import numpy as np
 from skymaps import SkyDir
 from uw.like.pointspec import DataSpecification,SpectralAnalysis
 from uw.like.pointspec_helpers import PointSource,get_diffuse_source
-from uw.like.Models import PowerLaw
+from uw.like.Models import PowerLaw,LogParabola,SumModel,ProductModel
 from uw.like.SpatialModels import Disk,Gaussian,SpatialMap
 from uw.like.roi_extended import ExtendedSource
 from uw.like.roi_monte_carlo import SpectralAnalysisMC
@@ -76,7 +75,7 @@ class PointlikeTest(unittest.TestCase):
                      binsperdec = 4,
                      mc_energy=True,
                      tstart=0,
-                     tstop=datetime.timedelta(days=7).total_seconds(),
+                     tstop=604800, # 7 days
                      quiet=True,
                      maxROI =5, minROI = 5,
                     )
@@ -91,7 +90,7 @@ class PointlikeTest(unittest.TestCase):
 
         return roi
 
-    @unittest.skip("skip")
+    #@unittest.skip("skip")
     def test_models(self):
 
         print '\nTesting the uw.like.Models.Model object.\n'
@@ -115,7 +114,22 @@ class PointlikeTest(unittest.TestCase):
         model=PowerLaw(random_input=3)
         self.assertEqual(model.random_input,3,'test random kwarg')
 
-    @unittest.skip("skip")
+    #@unittest.skip("skip")
+    def test_sum_product_models(self):
+
+        print '\nTesting the uw.like.Models.Model object.\n'
+
+        m1=PowerLaw(index=2);m1.set_flux(1)
+        m2=LogParabola(beta=2); m1.set_flux(1)
+
+        sum_model=SumModel(models=[m1,m2])
+        prod_model=ProductModel(models=[m1,m2])
+
+        for energy in [1e2,1e3,1e4]:
+            self.assertAlmostEqual(sum_model(energy),m1(energy)+m2(energy))
+            self.assertAlmostEqual(prod_model(energy),m1(energy)*m2(energy))
+
+    #@unittest.skip("skip")
     def test_spatial_models(self):
 
         print '\nTesting the uw.like.SpatialModels.SpatialModel object.\n'
@@ -178,7 +192,7 @@ class PointlikeTest(unittest.TestCase):
         model=Disk(random_input=3)
         self.assertEqual(model.random_input,3,'test random kwarg')
 
-    @unittest.skip("skip")
+    #@unittest.skip("skip")
     def test_extended_source(self):
 
         print '\nAnalyze a simulated extended source against an isotropic background (E>10GeV)\n'
@@ -234,7 +248,7 @@ class PointlikeTest(unittest.TestCase):
         roi.assertGreater(roi.TS_ext(which='source'),25,'ditto.')
 
 
-    @unittest.skip("skip")
+    #@unittest.skip("skip")
     def test_point_source(self):
 
         print '\nAnalyze a simulated point source against an isotropic background\n'
@@ -270,4 +284,4 @@ if __name__ == '__main__':
     import numpy as np
     np.seterr(all='ignore')
 
-    unittest.main(verbosity=2)
+    unittest.main()
