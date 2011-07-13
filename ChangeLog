@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jul 12 20:11:09 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_localize.py 
+Log Message:
+In DualLocalizer, slightly more paranoid copying of parameters to ensure there are no accidentally updated references.
+    *
+------------------------------------------------------------
 User: lande  Tue Jul 12 20:10:12 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
