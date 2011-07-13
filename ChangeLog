@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jul 12 20:05:57 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+kwargs setting of spectral parameters -PowerLaw(norm=1e-7, index=2). Case intensitive also! and new error() function to get the error on a paraemter
+    *
+------------------------------------------------------------
 User: lande  Tue Jul 12 10:32:08 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
