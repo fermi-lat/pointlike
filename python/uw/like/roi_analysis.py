@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.105 2011/06/30 23:36:22 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.106 2011/07/13 18:06:59 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -125,7 +125,7 @@ class ROIAnalysis(object):
 
         for ct in [0,1]:
             if len([b for b in self.bands if b.ct==ct]) == 0:
-                print "Warning: For ct=%s, no photons are selected." % ct
+                print "Warning: No conversion type %s photons were selected." % ct
                 continue
             actual_emin=min(b.emin for b in self.bands if b.ct==ct)
             actual_emax=max(b.emax for b in self.bands if b.ct==ct)
