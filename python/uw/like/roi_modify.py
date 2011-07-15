@@ -179,7 +179,7 @@ def modify(roi,which=0,name=None, skydir=None,model=None,spatial_model=None,
         modify_loc(roi,which=which,skydir=skydir)
 
     if spatial_model is not None:
-        modify_spatial_model(roi,spatial_model,preserve_center)
+        modify_spatial_model(roi,which,spatial_model,preserve_center)
 
     if model is not None or free is not None:
         modify_model(roi,which,model,free,preserve_flux)
