@@ -27,7 +27,7 @@ def modify_loc(roi,skydir,which):
         else:
             raise Exception("Unable to modify_loc of diffuse source %s" % which)
 
-def modify_spatial_model(roi,which,spatial_model,preserve_center=True):
+def modify_spatial_model(roi,which,spatial_model,keep_old_center=True):
     """ Modify a source's spatial model.
 
         If spatial_model is a SpatialModel object and which is a point
@@ -38,7 +38,7 @@ def modify_spatial_model(roi,which,spatial_model,preserve_center=True):
         spatial_model is a skydir object and which is a PointSource,
         this function will simply call modify_loc. 
         
-        preserve_center => keep the center from the old spatial model.
+        keep_old_center => keep the center from the old spatial model.
         """
     manager,index = roi.mapper(which)
     source = roi.get_source(which)
@@ -53,7 +53,8 @@ def modify_spatial_model(roi,which,spatial_model,preserve_center=True):
 
     elif isinstance(spatial_model,SpatialModel):
 
-        if preserve_center: spatial_model.modify_loc(source.skydir)
+        if keep_old_center: 
+            spatial_model.modify_loc(source.skydir)
 
         if manager==roi.psm:
             roi.del_source(which)
@@ -75,7 +76,7 @@ def modify_spatial_model(roi,which,spatial_model,preserve_center=True):
         raise Exception("spatial must be either a skydir or a SpatialModel")
     roi.__update_state__()
 
-def modify_model(roi,which,model,free=None,preserve_flux=False):
+def modify_model(roi,which,model,free=None,keep_old_flux=True):
     """ Modify a spectral model for the source specified by which.
         
         The parameter free can be used to modify the free/frozen state
@@ -86,7 +87,7 @@ def modify_model(roi,which,model,free=None,preserve_flux=False):
         By default, the overal normalization of the spectral model
         will be ignored and the spectral model will be renormalized so
         that it contains the same flux (in the fitted energy range) as
-        the previous model. This can be overridden with the preserve_flux flag. """
+        the previous model. This can be overridden with the keep_old_flux flag. """
 
     manager,index = roi.mapper(which)
     source = roi.get_source(which)
@@ -95,7 +96,7 @@ def modify_model(roi,which,model,free=None,preserve_flux=False):
         if not isinstance(model,Model):
             raise Exception("model must be of type Models.Model")
 
-        if not preserve_flux: 
+        if keep_old_flux: 
             emin,emax=roi.bin_edges[[0,-1]]
             model.set_flux(source.model.i_flux(emin=emin,emax=emax),emin=emin,emax=emax)
 
@@ -124,7 +125,7 @@ def modify_name(roi,which,name):
     manager.names[index]=name
     source.name=name
 
-def modify_spectral_kwargs(roi,which,preserve_flux,kwargs):
+def modify_spectral_kwargs(roi,which,keep_old_flux,kwargs):
     """ Modify in the spectral model all of the parameters 
         specified by kwargs. """
 
@@ -138,9 +139,9 @@ def modify_spectral_kwargs(roi,which,preserve_flux,kwargs):
 
         if key in model: model[key] = kwargs.pop(key)
 
-    modify_model(roi,which,model,preserve_flux=preserve_flux)
+    modify_model(roi,which,model,keep_old_flux=keep_old_flux)
 
-def modify_spatial_kwargs(roi,which,preserve_center,kwargs):
+def modify_spatial_kwargs(roi,which,keep_old_center,kwargs):
     """ Modify in the spatial model all of the parameters 
         specified by kwargs. """
 
@@ -158,10 +159,10 @@ def modify_spatial_kwargs(roi,which,preserve_center,kwargs):
             if key in spatial_model: 
                 spatial_model[key] = kwargs.pop(key)
 
-        modify_spatial_model(roi,which,spatial_model,preserve_center)
+        modify_spatial_model(roi,which,spatial_model,keep_old_center)
 
 def modify(roi,which=0,name=None, skydir=None,model=None,spatial_model=None,
-        preserve_flux=False,preserve_center=True,free=None,**kwargs):
+        keep_old_flux=True,keep_old_center=True,free=None,**kwargs):
     """ This is a just a glue function wich will call all of the required
         modification functions to fully modify the source.
 
@@ -179,15 +180,15 @@ def modify(roi,which=0,name=None, skydir=None,model=None,spatial_model=None,
         modify_loc(roi,which=which,skydir=skydir)
 
     if spatial_model is not None:
-        modify_spatial_model(roi,which,spatial_model,preserve_center)
+        modify_spatial_model(roi,which,spatial_model,keep_old_center)
 
     if model is not None or free is not None:
-        modify_model(roi,which,model,free,preserve_flux)
+        modify_model(roi,which,model,free,keep_old_flux)
 
     if name is not None:
         modify_name(roi,which,name)
 
-    modify_spectral_kwargs(roi,which,preserve_flux,kwargs)
-    modify_spatial_kwargs(roi,which,preserve_center,kwargs)
+    modify_spectral_kwargs(roi,which,keep_old_flux,kwargs)
+    modify_spatial_kwargs(roi,which,keep_old_center,kwargs)
     if kwargs != {}: raise Exception("Unable to parse the kwargs=%s" % kwargs)
 
