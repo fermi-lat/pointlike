@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.51 2011/07/15 18:34:26 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.52 2011/07/15 20:55:55 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -807,18 +807,25 @@ class CompositeModel(Model):
                 raise Exception("CompositeModel must be created with a list of models.")
 
         self.models = models
-        
-        self.param_names = reduce(operator.add,[i.param_names for i in self.models])
-        self.pretty_name = self.operator.join([i.pretty_name for i in self.models])
-
         self.cov_matrix = np.zeros([self.npar,self.npar]) #default covariance matrix
 
-        # seems like a reasonable test
-        self.background  = np.any([i.background for i in self.models])
-
     @abstractmethod
-    def __value__(e): 
+    def __call__(e): 
+        """ Must be implemented by a subclass. """
         pass
+
+    @property
+    def param_names:
+        return reduce(operator.add,[i.param_names for i in self.models])
+
+    @property
+    def pretty_name:
+        return self.operator.join([i.pretty_name for i in self.models])
+
+    @property
+    def background:
+        """ Seems like a reasonable test. """
+        return np.any([i.background for i in self.models])
 
     @property
     def n(self): 
@@ -850,10 +857,6 @@ class CompositeModel(Model):
             self.models[i].free = value[counter:counter+self.n[i]]
             counter += self.n[i]
 
-    def __call__(self,e): 
-        counter = 0
-        return self.__value__(e)
-
 #===============================================================================================#
 
 class SumModel(CompositeModel):
@@ -863,7 +866,7 @@ class SumModel(CompositeModel):
             m = SumModel(PowerLaw(),BrokenPowerLaw()) """
     operator = '+'
 
-    def __value__(self,e):
+    def __call__(self,e):
         return np.array([model(e) for model in self.models]).sum(axis=0)
 
 
@@ -876,7 +879,7 @@ class ProductModel(CompositeModel):
             m = ProductModel(Powerlaw(),FileSpectrum()) """
     operator = '*'
 
-    def __value__(self,e):
+    def __call__(self,e):
         return np.array([model(e) for model in self.models]).prod(axis=0)
 
 
