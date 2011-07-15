@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.49 2011/07/13 03:05:57 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.50 2011/07/13 17:51:18 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -9,7 +9,8 @@ import copy
 import operator
 import numpy as N
 import numpy as np
-import math as M
+from abc import abstractmethod
+
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 
@@ -33,37 +34,19 @@ class DefaultModelValues(object):
         'AllCutoff'           : {'_p':[1e-11, 1e3],             'param_names':['Norm','Cutoff']},
         'PLSuperExpCutoff'    : {'_p':[1e-11, 2.0, 2e3 ,1.],    'param_names':['Norm','Index','Cutoff', 'b']},
         'Constant'            : {'_p':[1.],                     'param_names':['Scale']},
-        'InterpConstants'     : {'_p':[1.]*5,                   'param_names':['Scale_Vector'],'e_breaks':N.log10([100,300,1000,3000,3e5])},
+        'InterpConstants'     : {'_p':[1.]*5,                   'param_names':['Scale_Vector'],'e_breaks':np.log10([100,300,1000,3000,3e5])},
         'FileFunction'        : {'_p':[],                       'param_names':[]},
         }
 
-    names = simple_models.keys()+['SumModel','ProductModel']
-
     @staticmethod
-    def setup(the_model,**kwargs):
-        """Pass a model instance to give it default values.  The keyword arguments are used
-            only for SumModel/ProductModel, in which case they specify a list of
-            Model objects."""
+    def setup(the_model):
         
         DefaultModelValues.start(the_model)
         classname = the_model.name = the_model.pretty_name = the_model.__class__.__name__
         
         if classname in DefaultModelValues.simple_models:
             for key,val in DefaultModelValues.simple_models[classname].items():
-                exec('the_model.%s = val'%key)
-        
-        if classname in ['SumModel','ProductModel']:
-            if not kwargs.has_key('models'):
-                raise Exception("keyword 'models' with list of spectral models is required")
-            the_model.models = models = kwargs['models']
-            for model in models:
-                if not isinstance(model,Model):
-                    raise Exception("All 'models' must be instances of uw.like.Models.Model")
-            the_model.param_names = reduce(operator.add,[i.param_names for i in models])
-            the_model._p = 10**N.append(*[i._p for i in models])
-            the_model.n = N.asarray([len(i._p) for i in models])
-            the_model.operator='+' if classname == 'SumModel' else '*'
-            the_model.pretty_name = the_model.operator.join([i.pretty_name for i in models])
+                the_model.__dict__[key]=val
 
         DefaultModelValues.finish(the_model)
 
@@ -81,9 +64,9 @@ class DefaultModelValues(object):
     def finish(the_model):
         """Common values that can be written once the model type has been sussed out."""
         npar = len(the_model._p)
-        the_model.cov_matrix = N.zeros([npar,npar]) #default covariance matrix
-        the_model.free = N.asarray([True] * npar)
-        the_model._p = N.asarray(the_model._p) #redundant now
+        the_model.cov_matrix = np.zeros([npar,npar]) #default covariance matrix
+        the_model.free = np.asarray([True] * npar)
+        the_model._p = np.asarray(the_model._p) #redundant now
         
 
 #===============================================================================================#
@@ -103,12 +86,11 @@ Optional keyword arguments:
   e0             [1000] value in MeV at which normalization is given
   flux_scale     [1e7] multiplier for actual value to make units more convenient
   p              [p1,p2,...] default values of spectral parameters; see docstring individual model classes
-  models         [] for SumModel/ProductModels, a list of simple models
   free           [True, True,...] a boolean list the same length as p giving the free (True) and fixed (False) parameters
   =========    =======================================================
       """
         iscopy = kwargs.pop('iscopy', False)
-        DefaultModelValues.setup(self,**kwargs) # if called from copy method, will set p
+        DefaultModelValues.setup(self) # if called from copy method, will set p
         self._p = np.asarray(kwargs.pop('p', self._p),float)
         assert len(self._p)==len(self.param_names), 'Model: wrong number of parameters set: %s' % self._p
 
@@ -127,7 +109,6 @@ Optional keyword arguments:
                 self[k]=v
             else:
                 self.__dict__[k]=v
-
 
         self.free = np.asarray(self.free)
 
@@ -202,23 +183,23 @@ Optional keyword arguments:
     def thaw(self,i): self.freeze(i,freeze=False)
 
     def set_cov_matrix(self,new_cov_matrix):
-        self.cov_matrix[N.outer(self.free,self.free)] = N.ravel(new_cov_matrix)
+        self.cov_matrix[np.outer(self.free,self.free)] = np.ravel(new_cov_matrix)
 
     def get_cov_matrix(self,absolute=True):
         """Return covariance matrix transformed out of log space."""
-        p = 10**self._p if absolute else N.ones_like(self._p)
-        jac = N.log10(N.exp(1)) #log_10(e)
+        p = 10**self._p if absolute else np.ones_like(self._p)
+        jac = np.log10(np.exp(1)) #log_10(e)
         pt=p.reshape((p.shape[0],1)) #transpose
         return p*self.cov_matrix*pt/jac**2
 
     def get_free_errors(self):
         """Return the diagonal elements of the (log space) covariance matrix for free parameters."""
-        return N.diag(self.cov_matrix)[self.free]**0.5
+        return np.diag(self.cov_matrix)[self.free]**0.5
 
     def corr_coef(self):
         """Return the linear correlation coefficients for the estimated covariance matrix."""
-        sigmas = N.diag(self.cov_matrix)**0.5
-        return self.cov_matrix / N.outer(sigmas,sigmas)
+        sigmas = np.diag(self.cov_matrix)**0.5
+        return self.cov_matrix / np.outer(sigmas,sigmas)
 
     def statistical(self,absolute=False,two_sided=False):
         """Return the parameter values and fractional statistical errors.
@@ -227,16 +208,16 @@ Optional keyword arguments:
             if set, return 3 tuples: values, +errors, -errors    
             """
         p = 10**self._p #convert from log format
-        z = N.zeros_like(p)
-        vars = N.diag(self.cov_matrix)
+        z = np.zeros_like(p)
+        vars = np.diag(self.cov_matrix)
         # this check for valid covariance matrix
-        if N.all(self.cov_matrix==0) :
+        if np.all(self.cov_matrix==0) :
             return (p,z,z) if two_sided else (p,z) 
         try: #see if error estimates are present
             if not two_sided:
-                vars = N.diag(self.get_cov_matrix(absolute=False))
+                vars = np.diag(self.get_cov_matrix(absolute=False))
                 errs = vars**0.5 
-                return p,errs*(p if absolute else N.ones_like(p))
+                return p,errs*(p if absolute else np.ones_like(p))
             else:
                 errs = vars**0.5
                 lo_rat = (p-10**(self._p-errs))/(1. if absolute else p)
@@ -248,7 +229,7 @@ Optional keyword arguments:
     def error(self,i, internal=False):
         """ get error for parameter # i """
         i=self.mapper(i)
-        return (N.diag(self.get_cov_matrix(absolute=not internal))**0.5)[i]
+        return (np.diag(self.get_cov_matrix(absolute=not internal))**0.5)[i]
 
     def __str__(self,absolute=False, indent=''):
         """Return a pretty print version of parameter values and errors.
@@ -259,7 +240,7 @@ Optional keyword arguments:
         if hasattr(self,'index_offset'):
             p[1]=p[1]-self.index_offset #Index is parameter 1
         if not self.background:
-            if not N.all(self.cov_matrix==0):
+            if not np.all(self.cov_matrix==0):
                 f,fhi,flo    = self.i_flux(e_weight=0,two_sided=True,cgs=True,error=True)
                 e,ehi,elo    = self.i_flux(e_weight=1,emax=3e5,two_sided=True,cgs=True,error=True)
                 if not absolute:
@@ -268,15 +249,15 @@ Optional keyword arguments:
                 f = self.i_flux(e_weight=0,cgs=True,error=False)
                 e = self.i_flux(e_weight=1,cgs=True,error=False)
                 fhi = flo = ehi = elo = 0
-            p              = N.append(p, [f,e])
-            hi_p          = N.append(hi_p, N.abs([fhi,ehi]))
-            lo_p          = N.append(lo_p, N.abs([flo,elo]))
+            p              = np.append(p, [f,e])
+            hi_p          = np.append(hi_p, np.abs([fhi,ehi]))
+            lo_p          = np.append(lo_p, np.abs([flo,elo]))
             pnames        = self.param_names + ['Ph. Flux','En. Flux']
         else: pnames = self.param_names
 
         l=[]
-        if (not self.background and N.any(lo_p[0:-2]!=0)) or \
-                 (self.background and N.any(lo_p!=0)): #if statistical errors are present    
+        if (not self.background and np.any(lo_p[0:-2]!=0)) or \
+                 (self.background and np.any(lo_p!=0)): #if statistical errors are present    
             for i in xrange(len(pnames)):
                 t_n = '%-10s' % pnames[i]
                 if i < len(self._p):
@@ -290,7 +271,7 @@ Optional keyword arguments:
                         low=high=0
                         frozen= '(Failed fit)'
                     q = [high,low,(high*low)**0.5]
-                    if N.any(N.isnan(q)): q = 3*[0]
+                    if np.any(np.isnan(q)): q = 3*[0]
                     l+=[t_n+': (1 + %.3f - %.3f) (avg = %.3f) %-10.3g %s'% (tuple(q) + (p[i],frozen))]
                 else:
                     l+=[t_n+': %.3g + %.3g - %.3g (avg = %.3g) %s'%(p[i],hi_p[i],lo_p[i],(hi_p[i]*lo_p[i])**0.5,frozen)]
@@ -307,7 +288,7 @@ Optional keyword arguments:
             
     def __repr__(self): return self.__str__()
 
-    def i_flux(self,emin=100,emax=N.inf,e_weight=0,cgs=False,error=False,two_sided=False):
+    def i_flux(self,emin=100,emax=np.inf,e_weight=0,cgs=False,error=False,two_sided=False):
         """Return the integral flux, \int_{emin}^{emax} dE E^{e_weight} dN/dE.
            e_weight = 0 gives the photon flux (ph cm^-2 s^-1)
            e_weight = 1 gives the energy flux (MeV cm^-2 s^-1) (see kwargs)
@@ -318,7 +299,7 @@ Optional keyword arguments:
   Keyword      Description
   =========    =======================================================
   emin         [100] lower bound in MeV
-  emax         [N.inf] upper bound in MeV
+  emax         [np.inf] upper bound in MeV
   e_weight     [0] energy power by which to scale dN/dE
   cgs          [False] if True, energy in ergs, else in MeV
   error        [False] if True, return value is a tuple with flux and estimated error
@@ -344,8 +325,8 @@ Optional keyword arguments:
                     return (flux,err)
                 else: #use log transform to estimate two-sided errors
                     log_err  = err/flux
-                    log_flux = N.log(flux)
-                    return (flux,N.exp(log_flux+log_err)-flux,flux-N.exp(log_flux-log_err))
+                    log_flux = np.log(flux)
+                    return (flux,np.exp(log_flux+log_err)-flux,flux-np.exp(log_flux-log_err))
 
             return flux
         except Exception:
@@ -359,14 +340,14 @@ Optional keyword arguments:
                 flux == model.i_flux(**kwargs)
             where args and kwargs is consistently passed into i_flux and set_flux
         """
-        self._p[0] += N.log10(flux/self.i_flux(*args,**kwargs))
+        self._p[0] += np.log10(flux/self.i_flux(*args,**kwargs))
 
     def copy(self):
         
         a = eval(self.name)(iscopy=True, **self.__dict__) #create instance of same spectral model type
         
-        a._p = N.asarray(self._p).copy() #copy in log values
-        a.free = N.asarray(self.free).copy()
+        a._p = np.asarray(self._p).copy() #copy in log values
+        a.free = np.asarray(self.free).copy()
         if hasattr(a,'cov_matrix'): a.cov_matrix = self.cov_matrix.__copy__()
         return a
 
@@ -381,16 +362,16 @@ Optional keyword arguments:
             parameters under this spectral model."""
         
         from pointlike import DoubleVector
-        lemin,lemax = N.log10([emin,emax])
+        lemin,lemax = np.log10([emin,emax])
         simpsn = max(16,(int(round((lemax-lemin)/0.1)) >> 1) << 1) #10 per decade
-        points = N.logspace(lemin,lemax,simpsn+1)
-        simpsf = points*N.log(emax/emin)*N.asarray([1.] + ([4.,2.]*(simpsn/2))[:-1] + [1.])/(3.*simpsn)
+        points = np.logspace(lemin,lemax,simpsn+1)
+        simpsf = points*np.log(emax/emin)*np.asarray([1.] + ([4.,2.]*(simpsn/2))[:-1] + [1.])/(3.*simpsn)
         
         if event_class < 0:
-            exp     = N.asarray(exposure[0].vector_value(skydir,DoubleVector(points))) +\
-                        N.asarray(exposure[1].vector_value(skydir,DoubleVector(points)))
+            exp     = np.asarray(exposure[0].vector_value(skydir,DoubleVector(points))) +\
+                        np.asarray(exposure[1].vector_value(skydir,DoubleVector(points)))
         else:
-            exp     = N.asarray(exposure[event_class].vector_value(skydir,DoubleVector(points)))
+            exp     = np.asarray(exposure[event_class].vector_value(skydir,DoubleVector(points)))
         
         expec = (self(points)*exp*simpsf).sum()
         if weighting_function is not None:
@@ -402,7 +383,7 @@ Optional keyword arguments:
 
         # note -- since spectral parameters are log transformed, just add/subtract a small amount in log space
         delta = 1e-5
-        errs = N.asarray([delta] * len(self._p) )
+        errs = np.asarray([delta] * len(self._p) )
 
         hi,lo = self.copy(),self.copy()
         derivs = []
@@ -413,7 +394,7 @@ Optional keyword arguments:
             hi._p[i] -= errs[i]
             lo._p[i] += errs[i]
 
-        return N.asarray(derivs)
+        return np.asarray(derivs)
         
     def full_name(self):
         return self.pretty_name
@@ -422,7 +403,7 @@ Optional keyword arguments:
         """ set a new reference energy, adjusting the norm parameter """
         # TODO: protect this
         gamma = 10** self._p[1]
-        self._p[0] += gamma * N.log10(self.e0/e0p)
+        self._p[0] += gamma * np.log10(self.e0/e0p)
         self.e0 = e0p
         
     def pivot_energy(self):
@@ -452,7 +433,7 @@ Spectral parameters:
     def gradient(self,e):
         n0,gamma = 10**self._p
         f = (n0/self.flux_scale)*(self.e0/e)**(gamma-self.index_offset)
-        return N.asarray([f/n0,f*N.log(self.e0/e)])
+        return np.asarray([f/n0,f*np.log(self.e0/e)])
 
     def pivot_energy(self):
         """ assuming a fit was done, estimate the pivot energy 
@@ -462,13 +443,13 @@ Spectral parameters:
         C = self.get_cov_matrix()
         if C[1,1]==0:
             raise Exception('PowerLaw fit required before calculating pivot energy')
-        return self.e0*N.exp( C[0,1]/(A*C[1,1]) )
+        return self.e0*np.exp( C[0,1]/(A*C[1,1]) )
         
     def set_e0(self, e0p):
         """ set a new reference energy, adjusting the norm parameter """
         # TODO: move this upstream
         gamma = 10** self._p[1]
-        self._p[0] += gamma * N.log10(self.e0/e0p)
+        self._p[0] += gamma * np.log10(self.e0/e0p)
         self.e0 = e0p
         
     def full_name(self):
@@ -488,7 +469,7 @@ Spectral parameters:
         flux,gamma=10**self._p
         return ((flux/self.flux_scale)*(1-gamma)/(self.emax**(1-gamma)-self.emin**(1-gamma)))*e**(-gamma)
 
-    def fast_iflux(self,emin=100,emax=N.inf):
+    def fast_iflux(self,emin=100,emax=np.inf):
         n0,gamma = 10**self._p
         return n0*(emax**(1-gamma) - emin**(1-gamma)) / (self.emax**(1-gamma) - self.emin**(1-gamma))
 
@@ -497,9 +478,9 @@ Spectral parameters:
         e1 = self.emax; e0 = self.emin
         d1 = e1**(1-gamma)
         d0 = e0**(1-gamma)
-        t  = (M.log(e0)*d0 - M.log(e1)*d1)/(d1 - d0)
+        t  = (np.log(e0)*d0 - np.log(e1)*d1)/(d1 - d0)
         f  = ((flux/self.flux_scale)*(1-gamma)/(d1-d0))*e**(-gamma)
-        return N.asarray([f/flux,-f*(N.log(e) + (1./(1-gamma) + t))])
+        return np.asarray([f/flux,-f*(np.log(e) + (1./(1-gamma) + t))])
 
     def full_name(self):
         return '%s, emin=%.0f emax=%.0f'% (self.pretty_name,self.emin,self.emax)
@@ -551,7 +532,7 @@ Spectral parameters:
              norm=1/(e_break**(gamma1)*(e_break**(1-gamma1)-self.emin**(1-gamma1))/(1-gamma1) + \
                         e_break**(gamma2)*(self.emax**(1-gamma2)-e_break**(1-gamma2))/(1-gamma1))
 
-        return (flux/self.flux_scale)*norm*N.where( e < e_break, (e_break/e)**gamma1, (e_break/e)**gamma2 )
+        return (flux/self.flux_scale)*norm*np.where( e < e_break, (e_break/e)**gamma1, (e_break/e)**gamma2 )
 
     def full_name(self):
         return '%s, emin=%.0f emax=%.0f'% (self.pretty_name,self.emin,self.emax)
@@ -570,7 +551,7 @@ Spectral parameters:
         """
     def __call__(self,e):
         n0,gamma1,gamma2,e_break,cutoff=10**self._p
-        return (n0/self.flux_scale)*N.where( e < e_break, (e_break/e)**gamma1, (e_break/e)**gamma2 )*N.exp(-e/cutoff)
+        return (n0/self.flux_scale)*np.where( e < e_break, (e_break/e)**gamma1, (e_break/e)**gamma2 )*np.exp(-e/cutoff)
 
 #===============================================================================================#
 
@@ -609,16 +590,16 @@ class SmoothBrokenPowerLaw(Model):
         df_n0=f/n0
 
         bottom=1.0+(e_break/e)**(-(gamma1-gamma2)/self.beta)
-        df_gamma1=f*(N.log(self.e0/e)-N.log(e_break/e)/bottom)
-        df_gamma2=f*N.log(e_break/e)/bottom
+        df_gamma1=f*(np.log(self.e0/e)-np.log(e_break/e)/bottom)
+        df_gamma2=f*np.log(e_break/e)/bottom
         df_break=-f*(gamma1-gamma2)/e_break/bottom
 
         # for completeness, here is the gradient with respect to beta.
         # For now, no compelling reason to fit it.
-        # df_beta=f*(-N.log(1.0+(e_break/e)**((gamma1-gamma2)/self.beta))
-        #            +((gamma1-gamma2)/self.beta)*N.log(e_break/e)/bottom)
+        # df_beta=f*(-np.log(1.0+(e_break/e)**((gamma1-gamma2)/self.beta))
+        #            +((gamma1-gamma2)/self.beta)*np.log(e_break/e)/bottom)
 
-        return N.asarray([df_n0,df_gamma1,df_gamma2,df_break])
+        return np.asarray([df_n0,df_gamma1,df_gamma2,df_break])
 
     def full_name(self):
         return '%s, e0=%.0f, beta=%.3g'% (self.pretty_name,self.e0,self.beta)
@@ -642,7 +623,7 @@ Spectral parameters:
 #===============================================================================================#
 
 class DoublePowerLawCutoff(Model):
-    """Spectral model is the sum of two indepedendent power laws, one with a cutoff.  E.g., a pulsar + PWN.
+    """Spectral model is the sum of two indepedendent power laws, one with a cutoff.  E.g., a pulsar + PWnp.
 
 Spectral parameters:
 
@@ -654,7 +635,7 @@ Spectral parameters:
         """
     def __call__(self,e):
         n0,gamma1,gamma2,cutoff,ratio=10**self._p
-        return (n0/self.flux_scale)*((self.e0/e)**gamma1*N.exp(-e/cutoff) + ratio*(self.e0/e)**gamma2)
+        return (n0/self.flux_scale)*((self.e0/e)**gamma1*np.exp(-e/cutoff) + ratio*(self.e0/e)**gamma2)
 
 
 #===============================================================================================#
@@ -673,21 +654,21 @@ Spectral parameters:
     def __call__(self,e):
         n0,alpha,beta,e_break=10**self._p
         #alpha -= self.index_offset
-#        return (n0/self.flux_scale)*(e_break/e)**(alpha - beta*N.log(e_break/e))
-        x = N.log(e_break/e)
+#        return (n0/self.flux_scale)*(e_break/e)**(alpha - beta*np.log(e_break/e))
+        x = np.log(e_break/e)
         y = (alpha - beta*x)*x
-        return (n0/self.flux_scale) * N.exp(y) #N.clip(y, -10, 100)) #protect over, underflows
+        return (n0/self.flux_scale) * np.exp(y) #np.clip(y, -10, 100)) #protect over, underflows
 
     def gradient(self,e):
         n0,alpha,beta,e_break=10**self._p
         #alpha -= self.index_offset
-        #f  = (n0/self.flux_scale)*(e_break/e)**(alpha - beta*N.log(e_break/e))
-        #log_term = N.log(e_break/e)
-        #return N.asarray([f/n0,f*log_term,-f*log_term**2,f*alpha/e_break])
-        x =N.log(e_break/e)
+        #f  = (n0/self.flux_scale)*(e_break/e)**(alpha - beta*np.log(e_break/e))
+        #log_term = np.log(e_break/e)
+        #return np.asarray([f/n0,f*log_term,-f*log_term**2,f*alpha/e_break])
+        x =np.log(e_break/e)
         y = (alpha - beta*x)*x
-        f = (n0/self.flux_scale)*N.exp(y) # N.clip(y, -10, 100))
-        return N.asarray([f/n0, f*x, -f*x**2, f*alpha/e_break])
+        f = (n0/self.flux_scale)*np.exp(y) # np.clip(y, -10, 100))
+        return np.asarray([f/n0, f*x, -f*x**2, f*alpha/e_break])
 
     def pivot_energy(self):
         """  estimate the pivot energy, assuming that the beta part is not so important
@@ -699,14 +680,14 @@ Spectral parameters:
         if C[1,1]==0:
             raise Exception('Models.LogParabola: Fit required before calculating pivot energy')
         ebreak = 10**self._p[3]
-        return ebreak*N.exp( C[0,1]/(A*C[1,1]) )
+        return ebreak*np.exp( C[0,1]/(A*C[1,1]) )
         
     def set_e0(self, e0p):
         """ set a new break energy, adjusting the norm parameter """
         ebreak = 10** self._p[3]
         gamma = 10** self._p[1]
-        self._p[0] += gamma * N.log10(ebreak/e0p)
-        self._p[3] = N.log10(e0p)
+        self._p[0] += gamma * np.log10(ebreak/e0p)
+        self._p[3] = np.log10(e0p)
         self.e0 = e0p
  
     def create_powerlaw(self, beta_max=3e-2):
@@ -729,12 +710,12 @@ Spectral parameters:
         """
     def __call__(self,e):
         n0,gamma,cutoff=10**self._p
-        return (n0/self.flux_scale) * (self.e0/e)**gamma * N.exp(-e/cutoff)
+        return (n0/self.flux_scale) * (self.e0/e)**gamma * np.exp(-e/cutoff)
 
     def gradient(self,e):
         n0,gamma,cutoff = 10**self._p
-        f = (n0/self.flux_scale) * (self.e0/e)**gamma * N.exp(-e/cutoff)
-        return N.asarray([f/n0,f*N.log(self.e0/e),f*e/cutoff**2])
+        f = (n0/self.flux_scale) * (self.e0/e)**gamma * np.exp(-e/cutoff)
+        return np.asarray([f/n0,f*np.log(self.e0/e),f*e/cutoff**2])
 
     def pivot_energy(self):
         """ assuming a fit was done, estimate the pivot energy 
@@ -744,12 +725,12 @@ Spectral parameters:
         C = self.get_cov_matrix()
         if C[1,1]==0:
             raise Exception('%s fit required before calculating pivot energy' %self.name)
-        return self.e0*N.exp( C[0,1]/(A*C[1,1]) )
+        return self.e0*np.exp( C[0,1]/(A*C[1,1]) )
         
     def set_e0(self, e0p):
         """ set a new reference energy, adjusting the norm parameter """
         gamma = 10** self._p[1]
-        self._p[0] += gamma * N.log10(self.e0/e0p)
+        self._p[0] += gamma * np.log10(self.e0/e0p)
         self.e0 = float(e0p) 
         
     def full_name(self):
@@ -758,7 +739,7 @@ Spectral parameters:
 #===============================================================================================#
 
 class ExpCutoffPlusPL(Model):
-    """Implement a power law with exponential cutoff + an additional power law.  A la pulsar + PWN.
+    """Implement a power law with exponential cutoff + an additional power law.  A la pulsar + PWnp.
 
 Spectral parameters:
 
@@ -770,7 +751,7 @@ Spectral parameters:
         """
     def __call__(self,e):
         n0_1,gamma_1,cutoff_1,n0_2,gamma_2 = 10**self._p
-        return (n0_1/self.flux_scale)*(self.e0/e)**gamma_1*N.exp(-e/cutoff_1) + (n0_2/self.flux_scale)*(self.e0/e)**gamma_2
+        return (n0_1/self.flux_scale)*(self.e0/e)**gamma_1*np.exp(-e/cutoff_1) + (n0_2/self.flux_scale)*(self.e0/e)**gamma_2
 
 #===============================================================================================#
 
@@ -786,7 +767,7 @@ Spectral parameters:
     def __call__(self,e):
         n0,cutoff=10**self._p
         if cutoff < 0: return 0
-        return (n0/self.flux_scale)*N.exp(-e/cutoff)
+        return (n0/self.flux_scale)*np.exp(-e/cutoff)
 
 #===============================================================================================#
 
@@ -802,54 +783,84 @@ Spectral parameters:
         """
     def __call__(self,e):
         n0,gamma,cutoff,b=10**self._p
-        return (n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-(e/cutoff)**b)
+        return (n0/self.flux_scale)*(self.e0/e)**gamma*np.exp(-(e/cutoff)**b)
 
     def gradient(self,e):
         n0,gamma,cutoff,b = 10**self._p
-        f = (n0/self.flux_scale)*(self.e0/e)**gamma*N.exp(-(e/cutoff)**b)
-        return N.asarray([f/n0,f*N.log(self.e0/e),
-                     f*(b/cutoff)*(e/cutoff)**b,f*(e/cutoff)**b*N.log(cutoff/e)])
-
+        f = (n0/self.flux_scale)*(self.e0/e)**gamma*np.exp(-(e/cutoff)**b)
+        return np.asarray([f/n0,f*np.log(self.e0/e),
+                     f*(b/cutoff)*(e/cutoff)**b,f*(e/cutoff)**b*np.log(cutoff/e)])
 
 #===============================================================================================#
 
-class SumModel(Model):
-    """Implement a composite model.  The value is the sum of the simple models.
-        See constructor docstring for further keyword arguments.
-        NOTA BENE: specify the simple models via the keyword arguments 'models'
-        """
-    def __call__(self,e):
+class CompositeModel(Model):
+    """ A model which joins other models. Subclasses must
+        implement the __value__(e) function which says
+        how to join the models. """
+
+    def __init__(self,*models):
+
+        if len(models) < 1:
+            raise Exception("CompositeModel must be created with more than one spectral model")
+        for m in models:
+            if not isinstance(m,Model):
+                raise Exception("CompositeModel must be created with a list of models.")
+
+        self.models = models
+        
+        self.param_names = reduce(operator.add,[i.param_names for i in self.models])
+        self._p = 10**np.append(*[i._p for i in self.models])
+        self.n = np.asarray([len(i._p) for i in self.models])
+        self.pretty_name = self.operator.join([i.pretty_name for i in self.models])
+
+    @abstractmethod
+    def __value__(e): 
+        pass
+
+    def __call__(self,e): 
         counter = 0
         for i in xrange(len(self.n)):
             self.models[i]._p = self._p[counter:counter+self.n[i]]
             counter += self.n[i]
-        return N.array([model(e) for model in self.models]).sum(axis=0)
+        return self.__value__(e)
+
+#===============================================================================================#
+
+class SumModel(CompositeModel):
+    """ Model is the sum of other models. 
+    
+        Easy to create: 
+            m = SumModel(PowerLaw(),BrokenPowerLaw()) """
+    operator = '+'
+
+    def __value__(self,e):
+        return np.array([model(e) for model in self.models]).sum(axis=0)
 
 
 #===============================================================================================#
 
-class ProductModel(Model):
-    """Implement a product model.  The value is the product of the simple models.
-        """
-    def __call__(self,e):
-        counter = 0
-        for i in xrange(len(self.n)):
-            self.models[i]._p = self._p[counter:counter+self.n[i]]
-            counter += self.n[i]
-        return N.array([model(e) for model in self.models]).prod(axis=0)
+class ProductModel(CompositeModel):
+    """ Model si the product of other Models.
+
+        Easy to create: 
+            m = ProductModel(Powerlaw(),FileSpectrum()) """
+    operator = '*'
+
+    def __value__(self,e):
+        return np.array([model(e) for model in self.models]).prod(axis=0)
 
 
 #===============================================================================================#
 
 class Constant(Model):
     def __call__(self,e):
-        return N.ones_like(e)*10**self._p[0]
+        return np.ones_like(e)*10**self._p[0]
     
     def fast_iflux(self,emin=100,emax=1e6):
         return (emax-emin)*10**self._p[0]
 
     def gradient(self,e):
-        return N.ones_like(e)
+        return np.ones_like(e)
 
 #===============================================================================================#
 
@@ -857,7 +868,7 @@ class InterpConstants(Model):
 
     def __call__(self,e):
         interp = interp1d(self.e_breaks,10**self._p)
-        return interp(N.log10(e))
+        return interp(np.log10(e))
 
     def set_flux(self,flux,**kwargs):
         raise NotImplementedError("No way to set flux for InterpConstants spectral model")
@@ -867,8 +878,8 @@ class InterpConstants(Model):
 class FileFunction(Model):
 
     def __make_interp__(self):
-        self.interp = interp1d(N.log10(self.energy),N.log10(self.flux),
-                bounds_error=False,fill_value=-N.inf)
+        self.interp = interp1d(np.log10(self.energy),np.log10(self.flux),
+                bounds_error=False,fill_value=-np.inf)
 
     def __init__(self,*args,**kwargs):
 
@@ -877,16 +888,16 @@ class FileFunction(Model):
         if not hasattr(self,'file'):
             raise Exception("FileFunction must be created with a file.")
 
-        file=N.genfromtxt(self.file,unpack=True)
+        file=np.genfromtxt(self.file,unpack=True)
         self.energy,self.flux=file[0],file[1]
 
         self.__make_interp__()
 
     def __call__(self,e):
-        return 10**self.interp(N.log10(e))
+        return 10**self.interp(np.log10(e))
     
     def gradient(self,e):
-        return N.asarray([])
+        return np.asarray([])
 
     def __getstate__(self):
         """ You cannot pickle an interp1d object. """
@@ -905,8 +916,8 @@ def convert_exp_cutoff(model):
     if model.name != 'ExpCutoff':
         raise Exception,'Cannot process %s into PLSuperExpCutoff'%(model.name)
     nm = PLSuperExpCutoff()
-    nm._p    = N.append(model._p,0)
-    nm.free = N.append(model.free,False)
+    nm._p    = np.append(model._p,0)
+    nm.free = np.append(model.free,False)
     nm.cov_matrix[:,:] = 0
     nm.cov_matrix[:-1,:-1] = model.cov_matrix[:,:]
     nm.e0 = model.e0

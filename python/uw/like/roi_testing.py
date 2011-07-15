@@ -1,7 +1,7 @@
 """
 Module to perfrom routine testing of pointlike's many features.'
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.5 2011/07/12 17:32:08 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.6 2011/07/13 21:34:25 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -122,8 +122,8 @@ class PointlikeTest(unittest.TestCase):
         m1=PowerLaw(index=2);m1.set_flux(1)
         m2=LogParabola(beta=2); m1.set_flux(1)
 
-        sum_model=SumModel(models=[m1,m2])
-        prod_model=ProductModel(models=[m1,m2])
+        sum_model=SumModel(m1,m2)
+        prod_model=ProductModel(m1,m2)
 
         for energy in [1e2,1e3,1e4]:
             self.assertAlmostEqual(sum_model(energy),m1(energy)+m2(energy))
