@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.52 2011/07/15 20:55:55 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.53 2011/07/15 21:03:10 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -55,9 +55,6 @@ class DefaultModelValues(object):
         """Common values independent of the model type."""
         the_model.e0 = 1000.
         the_model.flux_scale = 1.
-        the_model.good_fit = False
-        the_model._p = None
-        the_model.param_names = ['Undefined Model']
         the_model.background  = False
 
     @staticmethod
@@ -799,6 +796,7 @@ class CompositeModel(Model):
         how to join the models. """
 
     def __init__(self,*models):
+        
 
         if len(models) < 1:
             raise Exception("CompositeModel must be created with more than one spectral model")
@@ -806,24 +804,26 @@ class CompositeModel(Model):
             if not isinstance(m,Model):
                 raise Exception("CompositeModel must be created with a list of models.")
 
+        self.flux_scale = 1.
         self.models = models
         self.cov_matrix = np.zeros([self.npar,self.npar]) #default covariance matrix
+        self.e0 = 1000. # not sure why, but sed_plotter needs this
 
     @abstractmethod
-    def __call__(e): 
+    def __call__(self,e): 
         """ Must be implemented by a subclass. """
         pass
 
     @property
-    def param_names:
+    def param_names(self):
         return reduce(operator.add,[i.param_names for i in self.models])
 
     @property
-    def pretty_name:
+    def pretty_name(self):
         return self.operator.join([i.pretty_name for i in self.models])
 
     @property
-    def background:
+    def background(self):
         """ Seems like a reasonable test. """
         return np.any([i.background for i in self.models])
 
@@ -865,23 +865,43 @@ class SumModel(CompositeModel):
         Easy to create: 
             m = SumModel(PowerLaw(),BrokenPowerLaw()) """
     operator = '+'
+    name = 'SumModel'
 
     def __call__(self,e):
         return np.array([model(e) for model in self.models]).sum(axis=0)
 
+    def gradient(self,e):
+        """ Assume all models have a gradient! """
+        return np.append([i.gradient(e) for i in self.models])
+
+    def set_flux(self,flux,*args,**kwargs):
+        """ Set the flux of the source. 
+
+            Makes sure relative normalization of each component is unchanged
+        """
+        change = np.log10(flux/self.i_flux(*args,**kwargs))
+        for m in self.models: m._p[0] += change
 
 #===============================================================================================#
 
 class ProductModel(CompositeModel):
-    """ Model si the product of other Models.
+    """ Model is the product of other Models.
 
         Easy to create: 
-            m = ProductModel(Powerlaw(),FileSpectrum()) """
+            m = ProductModel(Powerlaw(),FileSpectrum()) 
+            
+            
+        Note: set_flux function just adjusts normalziation of 
+              first parameter! """
     operator = '*'
+    name = 'ProductModel'
 
     def __call__(self,e):
         return np.array([model(e) for model in self.models]).prod(axis=0)
 
+    def gradient(self,e):
+        """ Assume all models have a gradient! """
+        return np.append([i.gradient(e)/i.__call__(e) for i in self.models])*self.__call__(e)
 
 #===============================================================================================#
 
