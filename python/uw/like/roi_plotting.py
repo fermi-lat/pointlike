@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.57 2011/07/08 15:21:25 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.58 2011/07/08 18:57:43 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1057,23 +1057,23 @@ class ROISignificance(object):
 
         if len(sources)<1: return
 
-        ras = [source.skydir.ra() for source in sources]
-        decs = [source.skydir.dec() for source in sources]
+        glons = [source.skydir.l() for source in sources]
+        glats = [source.skydir.b() for source in sources]
 
         if show_sources:
             
             # plot sources
             markersize=marker_scale*6
-            if white_edge: ax["fk5"].plot(ras,decs,'x',color='white',markersize=markersize+1,markeredgewidth=2,zorder=4)
-            ax["fk5"].plot(ras,decs,'x',color=color,markersize=markersize,zorder=5)
+            if white_edge: ax["gal"].plot(glons,glats,'x',color='white',markersize=markersize+1,markeredgewidth=3,zorder=4)
+            ax["gal"].plot(glons,glats,'x',color=color,markersize=markersize,markeredgewidth=2,zorder=5)
 
         if label_sources: 
             from matplotlib.patheffects import withStroke
             names = [source.name for source in sources]
-            for ra,dec,name in zip(ras,decs,names):
+            for l,b,name in zip(glons,glats,names):
                 myeffect = withStroke(foreground="w", linewidth=2)
                 kwargs=dict(path_effects=[myeffect])
-                ax["fk5"].annotate(name, (ra,dec), 
+                ax["gal"].annotate(name, (l,b), 
                         ha='center', va='top',
                         xytext=(0,markersize), textcoords='offset points',**kwargs)
 
