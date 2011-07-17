@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.58 2011/07/08 18:57:43 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.59 2011/07/15 02:45:49 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -47,6 +47,7 @@ import pylab as P
 from matplotlib import rcParams,mpl,pyplot,ticker,font_manager,spines
 from matplotlib.ticker import FormatStrFormatter
 from matplotlib.patches import FancyArrow,Circle,Ellipse
+from matplotlib.patheffects import withStroke
 
 def band_spectra(r,source=0):
     
@@ -504,7 +505,6 @@ class ROIDisplay(object):
 
         from matplotlib.offsetbox import AnchoredText
         from matplotlib.font_manager import FontProperties
-        from matplotlib.patheffects import withStroke
 
         font=dict(size='small');
         at=AnchoredText('$95\%$ Conf.', loc=1, prop=font,frameon=False)
@@ -1051,7 +1051,7 @@ class ROISignificance(object):
 
     @staticmethod
     def plot_sources(roi, ax, header, color='black', show_sources=True, white_edge=True, marker_scale=2, 
-            label_sources=True, show_extension=True, extension_color='white'):
+            label_sources=True, show_extension=True, extension_color='black'):
 
         sources = roi.get_sources()
 
@@ -1064,18 +1064,16 @@ class ROISignificance(object):
             
             # plot sources
             markersize=marker_scale*6
-            if white_edge: ax["gal"].plot(glons,glats,'x',color='white',markersize=markersize+1,markeredgewidth=3,zorder=4)
-            ax["gal"].plot(glons,glats,'x',color=color,markersize=markersize,markeredgewidth=2,zorder=5)
+            if white_edge: ax["gal"].plot(glons,glats,'x',color='white',markersize=markersize+1,markeredgewidth=3,zorder=5)
+            ax["gal"].plot(glons,glats,'x',color=color,markersize=markersize,markeredgewidth=2,zorder=6)
 
         if label_sources: 
-            from matplotlib.patheffects import withStroke
             names = [source.name for source in sources]
             for l,b,name in zip(glons,glats,names):
-                myeffect = withStroke(foreground="w", linewidth=2)
-                kwargs=dict(path_effects=[myeffect])
                 ax["gal"].annotate(name, (l,b), 
                         ha='center', va='top',
-                        xytext=(0,markersize), textcoords='offset points',**kwargs)
+                        xytext=(0,markersize), textcoords='offset points',
+                        path_effects=[withStroke(foreground="w", linewidth=2)])
 
         if show_extension:
             try:
@@ -1085,9 +1083,13 @@ class ROISignificance(object):
                     region_string='\n'.join(region_writer.unparse_extension(sm,extension_color=extension_color))
                     if len(region_string) < 1: continue # happens for SpatialMap + PseudoSources.
                     reg = pyregion.parse(region_string).as_imagecoord(header)
+
+                    # artist_list doesn't do anything
                     patch_list, artist_list = reg.get_mpl_patches_texts()
-                    for p in patch_list: ax.add_patch(p)
-                    for t in artist_list: ax.add_artist(t)
+                    for p in patch_list: 
+                        p.set_path_effects([withStroke(foreground="w", linewidth=3)])
+                        p.set_zorder(4)
+                        ax.add_patch(p)
 
             except ImportError, er:
                 print "To add extension information to plots, must install modules pyregion/pyparsing."
@@ -1147,7 +1149,7 @@ class ROISmoothedSource(object):
             ('kernel_rad',         0.1,            'Sum counts/model within radius degrees.'),
             ('title',             None,                                 'Title for the plot'),
             ('show_extension',    True,                             'Overlay the extension.'),
-            ('extension_color','white',                          'Color of extended sources'),
+            ('extension_color','black',                          'Color of extended sources'),
     )
 
     def get_residual(self,**kwargs):
