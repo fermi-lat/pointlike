@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.84 2011/04/20 00:36:30 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.1 2011/04/27 18:32:03 kerrm Exp $
 
 Provide a method for interactively fitting a multi-gaussian template to data.
 
@@ -15,11 +15,11 @@ from lcfitters import LCTemplate,LCFitter
 from lcspeclike import light_curve
 from optparse import OptionParser
 
-def get_phases(ft1file,get_weights=False):
+def get_phases(ft1file,get_weights=False,weightcol='WEIGHT'):
     f = pyfits.open(ft1file)
     phases = np.asarray(f['EVENTS'].data.field('PULSE_PHASE'),dtype=float)
     if get_weights:
-        weights = np.asarray(f['EVENTS'].data.field('WEIGHT'),dtype=float)
+        weights = np.asarray(f['EVENTS'].data.field(weightcol),dtype=float)
     else: weights = None
     f.close()
     return phases,weights
@@ -107,13 +107,14 @@ if __name__ == '__main__':
     parser=OptionParser(usage=" %prog [options] [FT1_FILENAME]", description=desc)
     parser.add_option('-n','--nbins',type='int',default=50,help="Number of bins to use in phase histogram.")
     parser.add_option('-w','--weights',action='store_true',default=False,help='Use weighted light curve')
+    parser.add_option('-c','--weightcol',type='string',default='WEIGHT',help='Column in FT1 file that holds the weight')
     parser.add_option('-p','--prof',type='string',default=None,help='Output name for profile')
     parser.add_option('-m','--min_weight',type='float',default=0.1,help='Minimum weight to include in fit.')
     
     ## Parse arguments
     (options,args) = parser.parse_args()
 
-    phases,weights = get_phases(args[0],get_weights=options.weights)
+    phases,weights = get_phases(args[0],get_weights=options.weights,weightcol=options.weightcol)
 
     if options.weights:
         phases = phases[weights > options.min_weight]
