@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.1 2011/04/27 18:32:03 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.2 2011/07/08 23:05:48 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -110,7 +110,8 @@ class UnbinnedTOAGenerator(TOAGenerator):
         self.template.set_overall_phase(p[0])
         if args[1] is None:
             return -np.log(self.template(args[0])).sum()
-        return -np.log(1+args[1]*(self.template(args[0],suppress_bg=True)-1)).sum()
+        #return -np.log(1+args[1]*(self.template(args[0],suppress_bg=True)-1)).sum()
+        return -np.log(1+args[1]*(self.template(args[0])-1)).sum()
 
     def get_phase_shift(self,phases,weights,polyco_phase0):
 
