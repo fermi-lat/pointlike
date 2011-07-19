@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jul 18 17:30:23 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py lcspeclike.py toagen.py 
+Log Message:
+Revert weighted likelihood to include DC component.
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-34, operation: add
 Package: pointlike
