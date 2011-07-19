@@ -155,8 +155,8 @@ def light_curve(phases,weights=None,nbins=25,ec='blue',ls='solid',label=None,axe
 
     if template is not None:
         dom = np.linspace(0,1,101)
-        #axes.plot(dom,template(dom)*(1-bg_level)+bg_level,color='red')
-        axes.plot(dom,template(dom,suppress_bg=(weights is not None))*(1-bg_level)+bg_level,color='red')
+        axes.plot(dom,template(dom)*(1-bg_level)+bg_level,color='red')
+        #axes.plot(dom,template(dom,suppress_bg=(weights is not None))*(1-bg_level)+bg_level,color='red')
 
            
 """
