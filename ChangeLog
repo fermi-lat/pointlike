@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jul 19 14:59:59 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_modify.py 
+Log Message:
+bugfix for modifying a source name
+    *
+------------------------------------------------------------
 User: paulr  Tue Jul 19 14:15:22 PDT 2011
 pointlike/python/uw/pulsar
 
