@@ -185,10 +185,11 @@ def modify(roi,which=0,name=None, skydir=None,model=None,spatial_model=None,
     if model is not None or free is not None:
         modify_model(roi,which,model,free,keep_old_flux)
 
+    modify_spectral_kwargs(roi,which,keep_old_flux,kwargs)
+    modify_spatial_kwargs(roi,which,keep_old_center,kwargs)
+
     if name is not None:
         modify_name(roi,which,name)
 
-    modify_spectral_kwargs(roi,which,keep_old_flux,kwargs)
-    modify_spatial_kwargs(roi,which,keep_old_center,kwargs)
     if kwargs != {}: raise Exception("Unable to parse the kwargs=%s" % kwargs)
 
