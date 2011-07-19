@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: paulr  Tue Jul 19 14:15:22 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	itemplate.py 
+Log Message:
+Added option to specify name of weight column in FITS file.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jul 18 17:30:23 PDT 2011
 pointlike/python/uw/pulsar
 
