@@ -1,12 +1,13 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.6 2011/07/21 20:17:54 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.7 2011/07/21 20:59:10 lande Exp $
 
 author: Joshua Lande
 """
 import os
 from copy import copy
+import glob
 import numpy as np
 from os.path import expandvars, exists, join
 from textwrap import dedent
@@ -66,29 +67,29 @@ class FermiCatalog(SourceCatalog):
         cutoffs = f[1].data.field('CUTOFF_ENERGY') if 'Cutoff_Energy' in colnames else None
         betas = f[1].data.field('beta') if 'beta' in colnames else None
         try:
-            self.ts=N.asarray(f[1].data.field('TEST_STATISTIC'))
+            self.ts=np.asarray(f[1].data.field('TEST_STATISTIC'))
         except KeyError, er:
             if self.min_ts is not None:
                 raise Exception("Cannot apply min_ts cut since TEST_STATISTIC column not found in fits file.")
 
-        inds = N.where(inds > 0, inds, -inds)
+        inds = np.where(inds > 0, inds, -inds)
 
-        self.dirs    = map(SkyDir,N.asarray(ras).astype(float),N.asarray(decs).astype(float))
+        self.dirs    = map(SkyDir,np.asarray(ras).astype(float),np.asarray(decs).astype(float))
 
         self.models = []
         for i,(n0,ind,pen) in enumerate(zip(n0s,inds,pens)):
-            if cutoffs is not None and not N.isnan(cutoffs[i]):
+            if cutoffs is not None and not np.isnan(cutoffs[i]):
                 cutoff=cutoffs[i]
                 self.models.append(ExpCutoff(p=[n0,ind,cutoff],e0=pen))
-            elif betas is not None and not N.isnan(betas[i]):
+            elif betas is not None and not np.isnan(betas[i]):
                 beta=betas[i]
                 self.models.append(LogParabola(p=[n0,ind,beta,pen]))
             else:
                 self.models.append(PowerLaw(p=[n0,ind],e0=pen))
 
-        self.models = N.asarray(self.models)
+        self.models = np.asarray(self.models)
 
-        self.names  = N.chararray.strip(f[1].data.field(sname))
+        self.names  = np.chararray.strip(f[1].data.field(sname))
 
         f.close()
 
@@ -96,12 +97,12 @@ class FermiCatalog(SourceCatalog):
 
         from . pointspec_helpers import PointSource # Avoid circular imports
 
-        diffs    = N.degrees(N.asarray([skydir.difference(d) for d in self.dirs]))
+        diffs    = np.degrees(np.asarray([skydir.difference(d) for d in self.dirs]))
         mask     = diffs < radius
         if self.min_ts is not None: mask &= self.ts>self.min_ts
 
         diffs    = diffs[mask]
-        sorting = N.argsort(diffs)
+        sorting = np.argsort(diffs)
 
         #sort SkyDirs -- pesky vector behavior...
         dirs     = [x for i,x in enumerate(self.dirs) if mask[i]]
@@ -133,12 +134,12 @@ class FermiCatalog(SourceCatalog):
         for ncps,cps in enumerate(cat_list):
             merged_list.append(cps)
             for ups in user_point_list:
-                if N.degrees(ups.skydir.difference(cps.skydir)) < self.prune_radius or \
+                if np.degrees(ups.skydir.difference(cps.skydir)) < self.prune_radius or \
                         ups.name == cps.name:
                     merged_list.pop(); break
 
             for ues in user_extended_list:
-                if N.degrees(ues.spatial_model.center.difference(cps.skydir)) < self.prune_radius or \
+                if np.degrees(ues.spatial_model.center.difference(cps.skydir)) < self.prune_radius or \
                         ues.name == cps.name:
                     merged_list.pop(); break
 
@@ -404,7 +405,7 @@ class ExtendedSourceCatalog(SourceCatalog):
         self.xmls      = f[1].data.field('Spectral_Filename').astype(str)
         self.templates = f[1].data.field('Spatial_Filename').astype(str)
 
-        self.dirs    = map(SkyDir,N.asarray(ras).astype(float),N.asarray(decs).astype(float))
+        self.dirs    = map(SkyDir,np.asarray(ras).astype(float),np.asarray(decs).astype(float))
 
         if self.archive_directory in [ "Extended_archive_v01", "Extended_archive_v02", 
                                        "Extended_archive_jbb02", "Extended_archive_jbb03" ]:
@@ -439,7 +440,7 @@ class ExtendedSourceCatalog(SourceCatalog):
             self.spatial_models[-1].original_parameters = self.spatial_models[-1].p.copy()
 
 
-        self.spatial_models = N.asarray(self.spatial_models)
+        self.spatial_models = np.asarray(self.spatial_models)
 
     def get_sources(self,skydir,radius=15):
         """ Returns a list of ExtendedSource objects from the extended source
@@ -451,11 +452,11 @@ class ExtendedSourceCatalog(SourceCatalog):
 
         from uw.utilities.xml_parsers import parse_sources
 
-        diffs    = N.degrees(N.asarray([skydir.difference(d) for d in self.dirs]))
+        diffs    = np.degrees(np.asarray([skydir.difference(d) for d in self.dirs]))
         mask     = diffs < radius
         if sum(mask)==0: return []
         diffs    = diffs[mask]
-        sorting = N.argsort(diffs)
+        sorting = np.argsort(diffs)
 
         names     = self.names[mask][sorting]
         xmls      = self.xmls[mask][sorting]
