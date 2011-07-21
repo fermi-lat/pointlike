@@ -126,6 +126,7 @@ class StackLoader(object):
         self.tev = False
         self.bin=False
         self.useft2s=True
+
         self.__dict__.update(kwargs)
 
         print ''
@@ -200,6 +201,8 @@ class StackLoader(object):
     #   @param stop end time (MET)
     #   @param cls conversion type: 0=front,1=back,-1=all
     def loadphotons(self,minroi,maxroi,emin,emax,start,stop,cls):
+        self.start = start
+        self.stop = stop
         self.atb = []
         self.ebar=self.ebar*len(self.photons)
         self.emin=emin
@@ -300,7 +303,7 @@ class StackLoader(object):
                             #if photons is not too far away from any source
                             #add it to the list
                             if diff<self.maxroi and diff>self.minroi:
-                                time = event.field('TIME')
+                                time = event.field('TIME')/((stop-start)*1.)
                                 xv = []
                                 zv = []
                                 if self.useft2s:
@@ -312,12 +315,13 @@ class StackLoader(object):
                                     zen = pi.zenith()
                                     xv(xax)
                                     zv(zax)
-                                photon = Photon(sd.ra(),sd.dec(),event.field('ENERGY'),time,event.field('CONVERSION_TYPE'),xv,zv,src,ct=np.cos(event.field('THETA')))
+                                photon = Photon(sd.ra(),sd.dec(),event.field('ENERGY'),time,event.field('CONVERSION_TYPE'),xv,zv,src,ct=np.cos(event.field('THETA')/rd))
                                 self.ebar = self.ebar+event.field('ENERGY')
                                 self.photons.append(photon)
                                 self.photoncount = self.photoncount + 1
                     if self.useft2s:
                         del phist #free up memory from pointing history object
+            #del self.atb
             if len(self.photons)>0:
                 self.ebar = self.ebar/len(self.photons)  #calculate mean energy of photons
             else:
@@ -497,12 +501,45 @@ class StackLoader(object):
         print 'Called likelihood %d times'%cm.calls
         self.cm=cm
 
+    ## Finds boresight alignment solution
+    def solvefish(self,freepsf=False):
+
+        #estimate Isotropic component
+        self.solveback()
+
+        psfa = PSFFish(lims=[self.minroi/rd,self.maxroi/rd],free=[freepsf,freepsf,True],ebar=self.ebar,ec=self.cls,irf=self.irf)
+        #print psfa.limits
+        bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
+        cm = CompositeModel()
+        cm.addModel(psfa)
+        cm.addModel(bck)
+        cm.fit(self.photons,free=[True,True],exp=[self.Npsf,self.Nback],mode=1,quiet=self.quiet)
+        fl = cm.minuit.fval
+        self.Npsf = cm.minuit.params[0]
+        self.Nback = cm.minuit.params[1]
+        self.errs = cm.minuit.errors()
+        self.Npsfe = np.sqrt(self.errs[0][0])
+        self.Nbacke = np.sqrt(self.errs[1][1])
+        self.params=[x*rd*3600 for x in cm.minuit.params[4:]]
+        self.errors=[np.sqrt(self.errs[x+2][x+2])*rd*3600 for x in range(1)]
+        self.il=cm.extlikelihood([self.Npsf,self.Nback,psfa.model_par[0],psfa.model_par[1],0],self.photons)
+        for x in range(1):
+            print 'dTh %3.0f +/-%3.0f arcsec'%(self.params[x],self.errors[x])
+        try:
+            TS = -2*(fl-self.il)
+            print 'Significance of rotation was TS = %d'%TS
+        except:
+            print 'Cannot determine improvement'
+        print 'Expected %d photons, got %d ( %d (%d) + %d (%d) )'%(len(self.photons),int(self.Npsf+self.Nback),int(self.Npsf),int(np.sqrt(self.Npsfe)),int(self.Nback),int(np.sqrt(self.Nbacke)))
+        print 'Called likelihood %d times'%cm.calls
+        self.cm=cm
+
     ## tries to solve parameters for a single King function with Isotropic background
     #  @param func optional custom background component to fit [[angular separations],[counts]]
     #  @param free free or fix model number estimators
     #  @param exp specify number estimators
     #  @param theta fit theta dependence
-    def solvepsf(self,func=[[],[]],free=[True,True],exp=[],theta=False):
+    def solvepsf(self,func=[[],[]],free=[True,True],exp=[],theta=False,outfile=None):
 
         #estimate Isotropic component
         self.solveback()
@@ -559,6 +596,11 @@ class StackLoader(object):
         self.sigmae = np.sqrt(self.errs[nm][nm])
         self.gamma = cm.minuit.params[nm+1]
         self.gammae = np.sqrt(self.errs[nm+1][nm+1])
+        if theta:
+            self.ms = cm.minuit.params[nm+2]
+            self.mse = np.sqrt(self.errs[nm+2][nm+2])
+            self.mg = cm.minuit.params[nm+3]
+            self.mge = np.sqrt(self.errs[nm+3][nm+3])
         self.cov = self.errs[nm][nm+1]
         if len(cm.models)==2:
             if theta:
@@ -595,11 +637,29 @@ class StackLoader(object):
         print 'R68   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r68*rd,self.r68e/self.r68,self.irf,self.r68/r68o)
         print 'R95   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r95*rd,self.r95e/self.r95,self.irf,self.r95/r95o)
         if theta:
-            print 'ms = %1.4f [1 +/- %1.4f]'%(cm.minuit.params[nm+2],np.sqrt(self.errs[nm+2][nm+2])/abs(cm.minuit.params[nm+2]))
-            print 'mg = %1.4f [1 +/- %1.4f]'%(cm.minuit.params[nm+3],np.sqrt(self.errs[nm+3][nm+3])/abs(cm.minuit.params[nm+3]))
-        TS = -2*(fl-self.il)
-        print 'Significance of psf change was TS = %d'%TS
+            print 'ms = %1.4f [1 +/- %1.4f]'%(self.ms,self.mse/abs(cm.minuit.params[nm+2]))
+            print 'mg = %1.4f [1 +/- %1.4f]'%(self.mg,self.mge/abs(cm.minuit.params[nm+3]))
+        self.Ts = -2*(fl-self.il)
+        print 'Significance of psf change was TS = %d'%self.Ts
+        if outfile is not None:
+            print >>outfile,'**********************************************************'
+            print >>outfile,'Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
+            print >>outfile,'Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100)
+            print >>outfile,'Sigma = %1.4f [1 +/- %1.4f] (deg)  Ratio to %s: (%1.2f)'%(self.sigma*rd,self.sigmae/self.sigma,self.irf,self.sigma/sigma)
+            print >>outfile,'Gamma = %1.4f  [1 +/- %1.4f]        Ratio to %s: (%1.2f)'%(self.gamma,self.gammae/self.gamma,self.irf,self.gamma/gamma)
+            print >>outfile,'R68   = %1.4f  [1 +/- %1.4f] (deg)  Ratio to %s: (%1.2f)'%(self.r68*rd,self.r68e/self.r68,self.irf,self.r68/r68o)
+            print >>outfile,'R95   = %1.4f  [1 +/- %1.4f] (deg)  Ratio to %s: (%1.2f)'%(self.r95*rd,self.r95e/self.r95,self.irf,self.r95/r95o)
+            if theta:
+                print >> outfile, 'ms = %1.4f [1 +/- %1.4f]'%(cm.minuit.params[nm+2],np.sqrt(self.errs[nm+2][nm+2])/abs(cm.minuit.params[nm+2]))
+                print >>outfile, 'mg = %1.4f [1 +/- %1.4f]'%(cm.minuit.params[nm+3],np.sqrt(self.errs[nm+3][nm+3])/abs(cm.minuit.params[nm+3]))
+            self.Ts = -2*(fl-self.il)
+            print >>outfile,'Significance of psf change was TS = %d'%self.Ts
         self.cm=cm
+        if theta:
+            for ct in np.linspace(0.,1.,24):
+                tsig,tgam = ((1-ct)*self.ms+1)*self.sigma*rd,((1-ct)*self.mg+1)*self.gamma
+                r68,r95 = cm.models[0].recl(0.68,tsig,tgam),cm.models[0].recl(0.95,tsig,tgam)
+                print '%1.2f %1.3f %1.2f %1.2f %1.2f'%(ct,tsig,tgam,r68,r95)
 
     # tries to fit a halo component on top of a PSF defined by 'irf' in a Isotropic background
     #  @param cust [sigma,gamma] of PSF, where sigma is in radians

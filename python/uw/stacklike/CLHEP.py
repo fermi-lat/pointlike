@@ -163,6 +163,25 @@ class Photon(object):
         h1(self.srcdir)
         return np.arccos(h1.dot(self.rotate(rot)))
     
+    def difftheta(self,dt,verb=False):
+        from time import sleep
+        h1=Hep3Vector([0,0])
+        h1(self.srcdir)
+        sc = self.rot.inverse().m(self.vec)
+        ct = sc.z()
+        st = np.sqrt(1-ct*ct)
+        cp = sc.x()/st
+        sp = sc.y()/st
+        cdt = np.cos(dt)
+        sdt = np.sin(dt)
+        nw = Hep3Vector([cp*(st*cdt+ct*sdt),sp*(st*cdt+ct*sdt),ct*cdt-st*sdt])
+        diff = np.arccos(h1.dot(self.rot.m(nw)))
+        if verb:
+            print sc.x(),sc.y(),sc.z()
+            print nw.x(),nw.y(),nw.z()
+            print ct,st,cp,sp,cdt,sdt,diff
+        return diff
+
     ## return angular separation from source
     def srcdiff(self):
         return self.sdiff

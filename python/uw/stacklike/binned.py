@@ -2,9 +2,11 @@ import skymaps as s
 import pylab as py
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from uw.stacklike.stacklike import *
 from uw.stacklike.angularmodels import *
 from uw.utilities.minuit import Minuit
+import uw.utilities.assigntasks as ua
 from uw.like.pycaldb import CALDBManager
 from uw.like.pypsf import CALDBPsf
 from uw.like.quadform import QuadForm,Ellipse
@@ -96,6 +98,8 @@ class CombinedLike(object):
         self.nbins = 0              #number of angular bins
         self.halomodel=''
         self.haloparams=[]
+        self.ctmin=0.3
+        self.ctmax=1.0
         self.mode=-1
         self.__dict__.update(kwargs)
         self.TS = 0
@@ -144,9 +148,11 @@ class CombinedLike(object):
         self.emax=emax
         self.ebar=np.sqrt(self.emin*self.emax)
 
-        tag = '%1.2f%1.2f%1.2f%1.2f%1.0f%1.0f%1.0f'%(minroi,maxroi,emin,emax,tmin,tmax,ctype)
+        tag = '%1.2f%1.2f%1.2f%1.2f%1.0f%1.0f%1.0f%1.2f%1.2f'%(minroi,maxroi,emin,emax,tmin,tmax,ctype,self.ctmin,self.ctmax)
 
         #load pulsar data
+        thetabar = 0.
+        photons = 0
         for psr in self.pulsars:
 
             if os.path.exists(self.cachedir+'%son%s.npy'%(psr[0],tag)):
@@ -155,10 +161,12 @@ class CombinedLike(object):
                 hist = np.load(self.cachedir+'%son%s.npy'%(psr[0],tag))
                 self.pulse_ons.append(hist)
             else:
-                sl = StackLoader(lis=psr[0],irf=self.irf,srcdir=self.srcdir,useft2s=False)
+                sl = StackLoader(lis=psr[0],irf=self.irf,srcdir=self.srcdir,useft2s=False,ctmin=self.ctmin,ctmax=self.ctmax)
                 sl.files = [self.pulsdir + psr[0]+ 'on-ft1.fits']
                 sl.loadphotons(minroi,maxroi,emin,emax,tmin,tmax,ctype)
                 sl.getds()
+                photons = photons+len(sl.photons)
+                thetabar = thetabar+sum([p.ct for p in sl.photons])
                 self.pulse_ons.append(np.array(cp.copy(sl.ds)))
                 if self.cache:
                     np.save(self.cachedir+'%son%s.npy'%(psr[0],tag),np.array(cp.copy(sl.ds)))
@@ -170,9 +178,11 @@ class CombinedLike(object):
                 hist = np.load(self.cachedir+'%soff%s.npy'%(psr[0],tag))
                 self.pulse_offs.append(hist)
             else:
-                sl = StackLoader(lis=psr[0],irf=self.irf,srcdir=self.srcdir,useft2s=False)
+                sl = StackLoader(lis=psr[0],irf=self.irf,srcdir=self.srcdir,useft2s=False,ctmin=self.ctmin,ctmax=self.ctmax)
                 sl.files = [self.pulsdir + psr[0]+ 'off-ft1.fits']
                 sl.loadphotons(minroi,maxroi,emin,emax,tmin,tmax,ctype)
+                photons = photons+len(sl.photons)
+                thetabar = thetabar+sum([p.ct for p in sl.photons])
                 sl.getds()
                 self.pulse_offs.append(np.array(cp.copy(sl.ds)))
                 if self.cache:
@@ -187,15 +197,19 @@ class CombinedLike(object):
                 hist = np.load(self.cachedir+'%s%s.npy'%(lists,tag))
                 self.agns.append(hist)
             else:
-                sl = StackLoader(lis=lists,irf=self.irf,srcdir=self.srcdir,useft2s=False)
-                sl.files = glob.glob(self.agndir+'*-ft1.fits')
+                sl = StackLoader(lis=lists,irf=self.irf,srcdir=self.srcdir,useft2s=False,ctmin=self.ctmin,ctmax=self.ctmax)
+                sl.files = glob.glob(self.agndir+'*.fits')
                 sl.loadphotons(minroi,maxroi,emin,emax,tmin,tmax,ctype)
+                photons = photons+len(sl.photons)
+                thetabar = thetabar+sum([p.ct for p in sl.photons])
                 sl.getds()
                 self.agns.append(np.array(cp.copy(sl.ds)))
                 if self.cache:
                     np.save(self.cachedir+'%s%s.npy'%(lists,tag),np.array(cp.copy(sl.ds)))
                 del sl
-
+        self.thetabar = 0.5*(self.ctmin+self.ctmax) if photons==0 else thetabar/photons
+        self.photons=photons
+            
 
     ######################################################################
     #   Bins the FT1 data into angular bins that are adaptive or fixed   #
@@ -238,9 +252,12 @@ class CombinedLike(object):
             if len(alldata)>20:
                 bins = int(np.sqrt(len(alldata)))
             else:
-                bins = int(np.sqrt(len(self.agns[0]))/1.5)
-            xbins = np.arange(0,bins,1)/(1.*bins)
-            minimum = min(min(alldata),min(self.agns[0]))*rd
+                bins = min(32,int(np.sqrt(len(self.agns[0]))/1.5))
+            xbins = (np.arange(0,bins,1)/(1.*bins))**2
+            if len(alldata)>0:
+                minimum = min(min(alldata),min(self.agns[0]))*rd
+            else:
+                minimum = min(self.agns[0])*rd
             xbins =  minimum + xbins*(self.maxroi-minimum)
             self.angbins = xbins/rd
 
@@ -258,13 +275,14 @@ class CombinedLike(object):
         self.midpts = np.array([(self.angbins[it+1]+self.angbins[it])/2. for it in range(self.nbins)])           #bin midpoint
         self.widths = np.array([(self.angbins[it+1]-self.angbins[it])/2. for it in range(self.nbins)])           #bin widths
         self.areas = np.array([self.angbins[it+1]**2-self.angbins[it]**2 for it in range(self.nbins)])           #jacobian
+        self.hmd = np.zeros(self.nbins)
 
     ######################################################################
     #    Generate the profile likelihood in one parameter                #
     ######################################################################
     def profile(self,ip,x,**kwargs):
         self.__dict__.update(kwargs)
-        try:
+        if np.isscalar(x):
             params = cp.copy(self.params)
             params[ip] = x
             fixed = cp.copy(self.fixed)
@@ -274,7 +292,7 @@ class CombinedLike(object):
                                  fixed=fixed,limits=self.limits,strategy=2,tolerance=0.0001,printMode=self.mode)
             self.minuit.minimize()
             return self.minuit.fval
-        except:
+        else:
             params = cp.copy(self.params)
             vals = []
             for xval in x:
@@ -332,7 +350,7 @@ class CombinedLike(object):
         self.limits = [[-1,1] for x in range(self.nbins-1)]
         self.fixed = [False for x in range(self.nbins-1)]
 
-        alims = sum(self.agnhists[0])
+        alims = sum([sum(agnhist) for agnhist in self.agnhists])
 
         psrs = len(self.ponhists)
         agns = len(self.agnhists)
@@ -352,12 +370,12 @@ class CombinedLike(object):
         #iso estimator
         self.params.append(1.)
         self.limits.append([0,alims*100])
-        self.fixed.append(False)
+        self.fixed.append(len(self.agnhists)==0)
 
         self.Nh=0
         self.Nhe=1e-40
         if self.halomodel=='':
-            self.hmd = np.zeros(self.nbins)
+            self.hmd=np.zeros(self.nbins)
         else:
             halomodel = eval(self.halomodel)
             if self.haloparams[0]<0:
@@ -487,7 +505,7 @@ class CombinedLike(object):
         self.vije = np.array(self.vije)                                      #PSR background number estimator errors
 
         return self.minuit.fval
-	
+
     #######################################################################
     #                  Summary of Likelihood Analysis                     #
     #######################################################################
@@ -597,6 +615,79 @@ class CombinedLike(object):
                     t.sleep(0.25)
         return acc
 
+    ######################################################################
+    #      Find single or double PSF fits to fractions                   #
+    ######################################################################
+    ## finds sigma gamma and fraction
+    # @param double fits a double PSF
+    def fitpsf(self,double=False):
+        psf = CALDBPsf(CALDBManager(irf='P6_v11_diff'))
+        de = 0.45
+        if double:
+            if psf.newstyle:
+                nc,nt,gc,gt,sc,st,w = psf.get_p(self.ebar,self.ctype)
+                pars = [sc[0],gc[0],st[0],gt[0],nc[0]]
+                lims = [[0,100],[1,100],[0,100],[1,100],[0.5-de,0.5+de]]
+            else:
+                gc,si,w = psf.get_p(self.ebar,self.ctype)
+                pars = [si[0],gc[0]*1.2,si[0],gc[0]*0.8,0.5]
+                lims = [[0,100],[1,100],[0,100],[1,100],[0.5-de,0.5+de]]
+        else:
+            if psf.newstyle:
+                nc,nt,gc,gt,sc,st,w = psf.get_p(self.ebar,self.ctype)
+                pars = [sc[0],gc[0]]
+                lims = [[0,100],[1,100]]
+            else:
+                gc,si,w = psf.get_p(self.ebar,self.ctype)
+                pars = [si[0],gc[0]]
+                lims = [[0,100],[1,100]]
+        tmin = Minuit(lambda x: self.psfchisq(x),pars,limits=lims,printMode=-1,up=1,strategy=1)
+        tmin.minimize()
+        print tmin.params
+        print tmin.fval
+        if not double:
+            psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin.params)
+            print psf1.rcl(0.68),psf1.rcl(0.95)
+            print psf.inverse_integral(self.ebar,self.ctype,68.),psf.inverse_integral(self.ebar,self.ctype,95.)
+        else:
+            psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin.params[0:2])
+            psf2 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin.params[2:4])
+            alph = tmin.params[4]
+            #print psf1.rcl(0.68),psf1.rcl(0.95)
+            print alph*psf1.rcl(0.68)+(1-alph)*psf2.rcl(0.68),alph*psf1.rcl(0.95)+(1-alph)*psf2.rcl(0.95)
+            print psf.inverse_integral(self.ebar,self.ctype,68.),psf.inverse_integral(self.ebar,self.ctype,95.)
+        return np.insert(tmin.params,0,self.ebar)
+
+
+    ######################################################################
+    #      Find single or double PSF fits to fractions                   #
+    ######################################################################
+    ## finds sigma gamma and fraction
+    # @param double fits a double PSF
+    def psfchisq(self,pars):
+        psfs = []
+        fints = []
+        psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=[pars[0],pars[1]])
+        fint1 = psf1.integral(psf1.lims[0],psf1.lims[1])
+        psfs.append(psf1)
+        fints.append(fint1)
+        alphas = [1.,0]
+        if len(pars)>2:
+            alphas = [pars[4],1-pars[4]]
+            psf2 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=[pars[2],pars[3]])
+            fint2 = psf1.integral(psf2.lims[0],psf2.lims[1])
+            psfs.append(psf2)
+            fints.append(fint2)
+        tints = np.zeros(self.nbins)
+        for it,psf in enumerate(psfs):
+            cint = alphas[it]*np.array([psf.integral(self.angbins[it2],self.angbins[it2+1])/fints[it] for it2 in range(self.nbins)])
+            tints = tints + cint
+        chisqa = [((tints[it]-self.psf[it])/self.psfe[it])**2 if self.psfe[it]>0 else 0 for it in range(len(tints))]
+        chisq = sum(chisqa)
+        #print pars,chisqa,chisq
+        #t.sleep(0.25)
+        return chisq
+
 
     ######################################################################
     #      Makes plots of PSR, AGN fits, PSF and background residuals    #
@@ -675,6 +766,8 @@ class CombinedLike(object):
         py.xlabel(r'$\theta\/(\rm{deg})$')
         py.ylabel(r'$dN/d\theta^{2}$')
         py.xlim(min(self.midpts-self.widths)*(1-scale),max(self.midpts+self.widths)*(1+scale))
+        if mi==1e40:
+            mi = min(hist[amask]/self.areas[amask])
         py.ylim(0.25*mi,2*max(hist[amask]/self.areas[amask]))
         py.grid()
         py.legend(pts,names,loc=3)
@@ -1131,18 +1224,41 @@ class CombinedLike(object):
 # @param emin minimum energy
 # @param emax maximum energy
 # @param days number of days of data to examine from start of P6 data
-def test(bins=8,ctype=0,emin=1000,emax=1778,days=30,irf='P6_v3_diff',maxr=-1,sel='[0]',agnlis='agn-psf-study-bright',model='Gaussian'):
+def test(bins=8,ctype=0,emin=1000,emax=1778,days=30,irf='P6_v3_diff',maxr=-1,sel='[0]',agnlis=['agn-psf-study-bright'],double=False,ctlim=[0.4,1.0]):
+    psf = CALDBPsf(CALDBManager(irf=irf))
+    ebar = np.sqrt(emin*emax)
+    psrs = ''
+
+    if maxr<0:
+        maxr = psf.inverse_integral(ebar,ctype,99.5)*1.5             #use 1.5 times the 99.5% containment as the maximum distance
+    cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''),agnlist=agnlis,verbose=True,ctmin=ctlim[0],ctmax=ctlim[1])
+    cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype)
+    cl.bindata(bins)
+    f0 = cl.fit()
+    params = cp.copy(cl.fitpsf(double))
+    print str(cl)
+    for psr in cl.pulsars:
+        psrs = psrs + '%s_'%psr[0]
+    cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s'%(emin,emax,ctype,maxr,bins,psrs,('').join(cl.agnlist)))
+    # cl
+    return params,cl
+
+def test2(bins=8,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,sel='[0]',agnlis='agn-psf-study-bright',model='Gaussian'):
     psf = CALDBPsf(CALDBManager(irf=irf))
     ebar = np.sqrt(emin*emax)
     if maxr<0:
         maxr = psf.inverse_integral(ebar,ctype,99.5)*1.5             #use 1.5 times the 99.5% containment as the maximum distance
-    cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''),agnlist=[agnlis],verbose=True)
-    cl.loadphotons(0,maxr,emin,emax,239517417,239517417+days*86400,ctype)
+    cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''),agnlist=[agnlis],verbose=False)
+    cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype)
     cl.bindata(bins)
     f0 = cl.fit()
+    print cl
+    fitpars = cl.fitpsf()
     psrs = ''
+    psfphotons = cl.Naj[0]
     for psr in cl.pulsars:
         psrs = psrs + '%s_'%psr[0]
+    r05 = psf.inverse_integral(ebar,ctype,5.)
     r34 = psf.inverse_integral(ebar,ctype,34.)
     r68 = psf.inverse_integral(ebar,ctype,68.)
     r95 = psf.inverse_integral(ebar,ctype,95.)
@@ -1150,32 +1266,50 @@ def test(bins=8,ctype=0,emin=1000,emax=1778,days=30,irf='P6_v3_diff',maxr=-1,sel
     #testr = (r68+r99)/2.
     nps = 10
     pts = np.arange(0,nps+1,1)
-    pts = (pts*(r99-r34)/nps+r34)
+    pts = (pts*(r99-r05)/nps+r05)
     npars = len(cl.params)
 
     uplims2 = []
     uplims1 = []
+    detect = []
+    TSs = []
+    of = open('figures/uplimemi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s_%s.txt'%(emin,emax,ctype,maxr,bins,psrs,cl.agnlist[0],model),'w')
+    print >>of,'%1.3f'%f0
+    print >>of,'size(rad)\tmaxL\tNha \tcl68\tcl95\tTS'
     for pt in pts:
-        cl.fit(halomodel=model,haloparams=[pt/rd,ebar,ctype])
+        cl.fit(halomodel=model,haloparams=[pt/rd,ebar,ctype,fitpars[1]/rd,fitpars[2]])
+        print cl
         lmax = cl.minuit.fval
+        cl.TS = 2*(f0-lmax)
+        TSs.append(cl.TS)
         #norm = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x)),0,cl.Naj[0])[0]
         #print norm
-        xr = np.array([x for x in (cl.Nh+np.arange(-10,11,1)*cl.Nhe)/2. if (x>0 and x<cl.Naj[0]) ])
-        if len(xr)<10:
-            xr = np.arange(0,11,1)
-            xr = xr*cl.Naj[0]/10.
+
+        total = cl.Naj[0]+cl.Nh
+        bestp = so.fmin_powell(lambda x: abs(cl.profile(npars-1,x[0])-lmax-0.5) if x[0]>cl.Nh else 1e40,[cl.Nh+total/10.],disp=0,full_output=1)
+
+        fac = bestp[0]#cl.Nh/30. if cl.Nhe>cl.Nh else cl.Nhe
+        #xr = np.array([x for x in (cl.Nh+cl.Naj[0]+np.arange(-10,11,1)*fac) if (x>0) ])
+        #if len(xr)<10:
+        xr = np.arange(0,11,1)
+        if (cl.Nh+(-5)*(fac-cl.Nh)/2.)<0:
+            xr = fac*xr
+        else:
+            xr = cl.Nh+(xr-5)*(fac-cl.Nh)/2.
         fx = np.array([lmax-cl.profile(npars-1,x) for x in xr])
         print xr
         print fx
         cl1 = BayesianLimit(xr,fx).getLimit(0.32)
         cl2 = BayesianLimit(xr,fx).getLimit(0.05)
-        uplims2.append(cl2[0]/(cl.Naj[0]+cl2[0]))
-        uplims1.append(cl1[0]/(cl.Naj[0]+cl1[0]))
-        print cl2[0],cl.Naj[0],cl2[0]/(cl.Naj[0]+cl2[0])
+        detect.append(cl.Nh/(psfphotons))
+        uplims2.append(cl2[0]/(psfphotons))
+        uplims1.append(cl1[0]/(psfphotons))
+        print cl2[0],psfphotons,cl2[0]/(psfphotons)
         #py.clf()
         #py.plot(xr,np.exp(fx),'ro')
         #py.savefig('figures/proftest%1.4f.png'%pt)
         cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s'%(emin,emax,ctype,maxr,bins,pt,psrs,cl.agnlist[0],model))
+        print >>of,'%1.5f\t%1.3f\t%1.1f\t%1.1f\t%1.1f\t%1.3f'%(pt/rd,lmax,cl.Nh,cl1,cl2,cl.TS)
         #sig1 = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x))/norm,0,cl.Nh+cl.Nhe)[0]
         #print sig1
         #sig2 = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x))/norm,0,cl.Nh+2*cl.Nhe)[0]
@@ -1183,18 +1317,27 @@ def test(bins=8,ctype=0,emin=1000,emax=1778,days=30,irf='P6_v3_diff',maxr=-1,sel
         #sig3 = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x))/norm,0,cl.Nh+3*cl.Nhe)[0]
         #print sig3
         #print norm,sig1,sig2,sig3,cl.Nh,cl.Nhe
+
     py.figure(10,figsize=(8,8))
     py.clf()
-    p2=py.plot(pts,uplims2,'o')
-    p1=py.plot(pts,uplims1,'o')
-    p3=py.plot([r68,r68],[0,1],'r--')
-    p4=py.plot([r95,r95],[0,1],'r-.')
+    maxts = max(TSs)*1.1
+    p2=py.plot(pts,np.array(uplims2)*maxts/1.1,'v')
+    p1=py.plot(pts,np.array(uplims1)*maxts/1.1,'v')
+    p5=py.plot(pts,np.array(detect)*maxts/1.1,'o')
+    p6=py.plot(pts,TSs,'d')
+    p3=py.plot([r68,r68],[0,maxts],'r--')
+    p4=py.plot([r95,r95],[0,maxts],'r-.')
+    p7=py.plot([0,max(pts)*1.1],[1,1],'b--')
+    p8=py.plot([0,max(pts)*1.1],[4,4],'b-.')
     py.grid()
     py.xlabel('%s halo size (deg)'%model)
     py.ylabel('%s halo fraction'%model)
-    py.ylim(0,1)
-    py.legend((p1,p2,p3),(r'68% CL',r'95% CL','%s R68'%irf,'%s R95'%irf))
+    py.ylim(0,maxts)
+    py.xlim(0,max(pts)*1.1)
+    prop = mpl.font_manager.FontProperties(size=9) 
+    py.legend((p5,p1,p2,p3,p4,p6,p7,p8),(r'hfract',r'68% CL',r'95% CL','%s R68'%irf,'%s R95'%irf,'TS',r'$1 \sigma$',r'$2 \sigma$'),bbox_to_anchor=(1.1, 1.0),prop=prop)
     py.savefig('figures/uplimemi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s_%s.png'%(emin,emax,ctype,maxr,bins,psrs,cl.agnlist[0],model))
+    of.close()
     #for pt in pts:
     #    tval = cl.profile(npars-1,pt)
     #    print pt,(lmax-tval)
@@ -1206,6 +1349,7 @@ def test(bins=8,ctype=0,emin=1000,emax=1778,days=30,irf='P6_v3_diff',maxr=-1,sel
     nest = []
     mi = 1e40
     midx = 0
+    model = 'Gaussian'
     for num,it in enumerate(halorange):
         likes.append(cl.fit(halomodel=model,haloparams=[it/rd,ebar,ctype]))
         nest.append(cl.Nh)
@@ -1228,18 +1372,61 @@ def test(bins=8,ctype=0,emin=1000,emax=1778,days=30,irf='P6_v3_diff',maxr=-1,sel
     cl.likelihood(cl.minuit.params,True)
     cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s'%(emin,emax,ctype,maxr,bins,bestp[0],psrs,cl.agnlist[0],model))"""
 
-def runall(bins=12):
-    emins = [1000,1778,3162,5623,10000]#,17783,31623]
-    emaxs = [1778,3162,5623,10000,17783]#,31623,100000]
-    ctypes = [0]
+def runall(ctype,bins=12):
+    emins = [100,178,316,562,1000,1778,3162,5623,10000,17783,31623]
+    emaxs = [178,316,562,1000,1778,3162,5623,10000,17783,31623,100000]
+    ctypes = [0,1]
     irfs = ['P6_v11_diff']#,'P6_v3_diff']
     sels = ['[0:2]']
-    models=['Halo','Gaussian']
-    lists = ['agn_redshift2_lo_bzb','agn_redshift2_hi_bzb']#'tevbzb','1es0229p200','1es0347-121','1es1101-232']
-    for model in models:
-        for lis in lists:
-            for ctype in ctypes:
-                for it,emin in enumerate(emins):
-                    for sel in sels:
-                        for irf in irfs:
-                            test(bins=bins,ctype=ctype,emin=emin,emax=emaxs[it],days=730,irf=irf,sel=sel,model=model,agnlis=lis)
+    #models=['Halo','Gaussian']
+    #lists = ['agn_redshift2_lo_bzb','agn_redshift2_hi_bzb']#'tevbzb','1es0229p200','1es0347-121','1es1101-232']
+    lists = ['agn-psf-study-bright']
+    #for model in models:
+    ff = open('figures7c/output%d.txt'%ctype,'w')
+    for it,emin in enumerate(emins):
+        #for ctype in ctypes:
+        for sel in sels:
+            for irf in irfs:
+                if emin<10000:
+                    if (emin+ctype*179)<1778:
+                        lis = []
+                    else:
+                        lis = lists
+                    pars = test(bins=bins,ctype=ctype,emin=emin,emax=emaxs[it],days=730,irf=irf,sel=sel,agnlis=lis,double=False)
+                else:
+                    sl = StackLoader(lis=lists[0],irf=irf,srcdir=srcdir,useft2s=False)
+                    sl.files = glob.glob(agndir+'*.fits')
+                    sl.loadphotons(0,3,emin,emaxs[it],0,239557417+730*86400,ctype)
+                    sl.solvepsf()
+                    pars = [sl.ebar,sl.sigma*rd,sl.gamma]#,sl.sigma2*rd,sl.gamma2,sl.Npsf/(sl.Npsf+sl.Npsf2)]
+                print >>ff,'%1.6f\t%1.6f\t%1.6f'%(pars[0],pars[1],pars[2])
+    ff.close()
+    
+def runconvolution(model=['CDisk','CHalo']):
+    machines = 'tev01 tev02 tev03 tev04 tev05 tev06 tev07 tev08 tev09 tev10 tev11'.split()
+    engines = 2
+    setup_string = 'import uw.stacklike.binned as ub;reload(ub);from uw.stacklike.binned import *'
+    emins = [1000,1778,3162,5623,10000,17783,31623]#[100,178,316,562,
+    emaxs = [1778,3162,5623,10000,17783,31623,100000]#178,316,562,1000,
+    tasks = ['ub.test2(bins=12,ctype=%d,emin=%d,emax=%d,days=730,irf=\'P6_v3_diff\',maxr=-1,sel=\'[0:2]\',agnlis=\'%s\',model=\'%s\')'%(y,emins[x],emaxs[x],lis,mod) for x in range(len(emins)) for y in range(2) for lis in ['agn_redshift2_lo_bzb','agn_redshift2_hi_bzb'] for mod in model]
+    print tasks
+    ua.setup_mec(engines=engines,machines=machines)
+    t.sleep(15)
+    logfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/python/mec.log','w')
+    at = ua.AssignTasks(setup_string,tasks,log=logfile,timelimit=10000,progress_bar=True,ignore_exception=True)
+    at(30)
+    ua.kill_mec()
+
+def MCrun():
+    for i in range(100):
+        cl.ponhists = sst.poisson.rvs(t1,1)
+        cl.pofhists = sst.poisson.rvs(t2,1)
+        cl.agnhists = sst.poisson.rvs(t3,1)
+
+        f0 = cl.fit(halomodel='')
+        f1 = cl.fit(halomodel=model,haloparams=[pt/rd,ebar,ctype,fitpars[1]/rd,fitpars[2]])
+        TS = 2*(f0-f1)
+        cl.TS=TS
+        TSs.append(TS)
+        cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s%s'%(emin,emax,ctype,maxr,bins,pt,psrs,cl.agnlist[0],model,i))
+        print TS

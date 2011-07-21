@@ -280,10 +280,10 @@ def getirfparams(irf='P6_v8_diff',out='P6_v10_diff'):
     r95bp = [12.423,0.2504,-0.81,0.9353,-0.0510]
 
     ######## P6_v12 5 pars cgv ###############
-    r68fp = [3.477,-0.0000,-0.8271,0.2207,-0.0525]
-    r95fp = [9.662,0.0126,-0.8254,0.5893,-0.0962]
-    r68bp = [6.658,0.0334,-0.8516,0.4959,-0.0642]
-    r95bp = [16.172,1.003,-0.8369,1.3854,-0.0490]
+    #r68fp = [3.477,-0.0000,-0.8271,0.2207,-0.0525]
+    #r95fp = [9.662,0.0126,-0.8254,0.5893,-0.0962]
+    #r68bp = [6.658,0.0334,-0.8516,0.4959,-0.0642]
+    #r95bp = [16.172,1.003,-0.8369,1.3854,-0.0490]
 
     pname = cdb+r'\bcf\psf\psf_%s_'%irf
     print pname
@@ -450,11 +450,13 @@ def getirfparams(irf='P6_v8_diff',out='P6_v10_diff'):
 def makeplots(irfs=['P6_v11_diff'],fact=1.,num=32.,cts=[34,68,95]):
     
     nms = [str(x)+'% '+y for x in cts for y in irfs]
-    clr = ['b','g','r']
-    sty = ['-','--','-.',':']
+    clr = ['b','k','g','r']
+    #sty = ['-','--','-.',':']
+    sty = ['solid','dashed','dashdot','dotted']
 
-    energy = N.arange(1.25,5.75,1./num)
+    energy = N.arange(1.75,5.75,1./num)
     energy=10**energy
+    energy_r = np.array([energy[-i-1] for i in range(len(energy))])
     py.ioff()
     py.hold(True)
     py.figure(figsize=(10.5,4.75))
@@ -465,8 +467,10 @@ def makeplots(irfs=['P6_v11_diff'],fact=1.,num=32.,cts=[34,68,95]):
     for it1,ct in enumerate(cts):
         for it2,irf in enumerate(irfs):
             psf = up.CALDBPsf(CALDBManager(irf=irf))
-            rct = [np.sqrt(psf.inverse_integral(x/fact,0,ct))*np.sqrt(psf.inverse_integral(x*fact,0,ct)) for x in energy]
-            p1 = py.plot(energy,rct,clr[it1]+sty[it2])
+            rct = [np.sqrt(psf.inverse_integral(x/fact,0,ct,ctbin=0))*np.sqrt(psf.inverse_integral(x*fact,0,ct,ctbin=0)) for x in energy]
+            rct60 = [np.sqrt(psf.inverse_integral(x/fact,0,ct,ctbin=5))*np.sqrt(psf.inverse_integral(x*fact,0,ct,ctbin=5)) for x in energy_r]
+            p1 = py.fill(np.hstack([energy,energy_r]),np.hstack([rct,rct60]),color=clr[it2])#,linestyle=sty[it2])#,alpha=0.4)
+            p1[0].set_alpha(0.4)
             #print rct
             ps.append(p1)
     py.grid()
@@ -482,8 +486,10 @@ def makeplots(irfs=['P6_v11_diff'],fact=1.,num=32.,cts=[34,68,95]):
     for it1,ct in enumerate(cts):
         for it2,irf in enumerate(irfs):
             psf = up.CALDBPsf(CALDBManager(irf=irf))
-            rct = [np.sqrt(psf.inverse_integral(x/fact,1,ct)*np.sqrt(psf.inverse_integral(x*fact,1,ct))) for x in energy]
-            p1 = py.plot(energy,rct,clr[it1]+sty[it2])
+            rct = [np.sqrt(psf.inverse_integral(x/fact,1,ct,ctbin=0))*np.sqrt(psf.inverse_integral(x*fact,1,ct,ctbin=0)) for x in energy]
+            rct60 = [np.sqrt(psf.inverse_integral(x/fact,1,ct,ctbin=5))*np.sqrt(psf.inverse_integral(x*fact,1,ct,ctbin=5)) for x in energy_r]
+            p1 = py.fill(np.hstack([energy,energy_r]),np.hstack([rct,rct60]),color=clr[it2])#,linestyle=sty[it2])#,alpha=0.4)
+            p1[0].set_alpha(0.4)
             ps.append(p1)
     py.grid()
     py.ylim(1e-2,1e2)
@@ -501,4 +507,177 @@ def makeplots(irfs=['P6_v11_diff'],fact=1.,num=32.,cts=[34,68,95]):
         it = it +1
     title2=(title.replace('__',', ')).replace('_',' ')
     py.suptitle(title2)
-    py.savefig(title.strip('_')+'.eps')
+    py.savefig(title.strip('_')+'.png')
+
+def newmethod(fname,irf):
+    out = 'P7SOURCE_V11'
+    ff1 = open(fname+'0.txt')
+    bf1 = open(fname+'1.txt')
+
+    offset = 3
+    copyabove = 13
+
+    febar = []
+    fsig = []
+    fgam = []
+    fms = []
+    fmg = []
+    bebar = []
+    bsig = []
+    bgam = []
+    bms = []
+    bmg = []
+    for lines in ff1:
+        line = lines.split()
+        febar.append(float(line[0]))
+        fsig.append(float(line[1])*rd)
+        fgam.append(float(line[2]))
+        fms.append(float(line[3]))
+        fmg.append(float(line[4]))
+    for lines in bf1:
+        line = lines.split()
+        bebar.append(float(line[0]))
+        bsig.append(float(line[1])*rd)
+        bgam.append(float(line[2]))
+        bms.append(float(line[3]))
+        bmg.append(float(line[4]))
+    ff1.close()
+    bf1.close()
+    fgam = np.array(fgam)
+    fsig = np.array(fsig)/trad
+    fsig2 = fsig/np.sqrt(1-1./fgam)
+    bgam = np.array(bgam)
+    bsig = np.array(bsig)/trad
+    bsig2 = bsig/np.sqrt(1-1./bgam)
+    pars = [1.8/trad,0.065/trad,1.8/trad,0.065/trad,-0.8]
+    minu = Minuit(lambda x: chisq2(fsig2,bsig2,febar,np.sqrt(fsig2),np.sqrt(bsig2),x[0],x[1],x[2],x[3],x[4]),pars)
+    minu.minimize()
+    pars = minu.params
+    print pars
+
+    pname = cdb+r'/bcf/psf/psf_%s_'%irf
+    print pname
+    cwd = os.getcwd()
+    cmd1 = r'cp %sfront.fits %s/psf_%s_front.fits'%(pname,cwd,out)
+    cmd2 = r'cp %sback.fits %s/psf_%s_back.fits'%(pname,cwd,out)
+    print cmd1
+    print cmd2
+    os.system(cmd1)
+    os.system(cmd2)
+    ff = pf.open('psf_%s_front.fits'%out,mode='update')
+    bf = pf.open('psf_%s_back.fits'%out,mode='update')
+
+    cth = ff[1].data.field('CTHETA_LO')[0]
+    cth2 = ff[1].data.field('CTHETA_HI')[0]
+    en = ff[1].data.field('ENERG_LO')[0]
+    ct = len(ff[1].data.field('CTHETA_LO')[0])
+    e = len(ff[1].data.field('ENERG_LO')[0])
+
+    psfsc = ff[2].data
+    for it,par in enumerate(pars):
+        psfsc.field('PSFSCALE')[0][it]=par
+    ff[2].data = psfsc
+    bf[2].data = psfsc
+
+    ftb = ff[1].data
+    btb = bf[1].data
+
+    for i in range(e-offset):
+        for j in range(ct):
+            ctbar = 0.5*(cth[j]+cth2[j])
+            idx = e*j+i+offset
+            ebar = np.sqrt(ff[1].data.field('ENERG_LO')[0][i+offset]*ff[1].data.field('ENERG_HI')[0][i+offset])
+            scf = scale2(ebar,pars[0],pars[1],pars[4])
+            scb = scale2(ebar,pars[2],pars[3],pars[4])
+            
+            if (i+offset)>copyabove:
+                it = len(fsig)-1
+            else:
+                it = i
+
+            fsfact=((1.-ctbar)*fms[it]+1.)
+            fgfact=((1.-ctbar)*fmg[it]+1.)
+            bsfact=((1.-ctbar)*bms[it]+1.)
+            bgfact=((1.-ctbar)*bmg[it]+1.)
+            ftb.field('SCORE')[0][idx]=fsig[it]/scf*fsfact
+            #ftb.field('SIGMA')[0][idx]=fsig[it]/scf*fsfact
+            ftb.field('STAIL')[0][idx]=fsig[it]/scf*fsfact
+            ftb.field('GCORE')[0][idx]=fgam[it]*fgfact
+            ftb.field('GTAIL')[0][idx]=fgam[it]*fgfact
+            ftb.field('NTAIL')[0][idx]=0
+
+            btb.field('SCORE')[0][idx]=bsig[it]/scb*bsfact
+            btb.field('STAIL')[0][idx]=bsig[it]/scb*bsfact
+            #btb.field('SIGMA')[0][idx]=bsig[it]/scb*bsfact
+            btb.field('GCORE')[0][idx]=bgam[it]*bgfact
+            btb.field('GTAIL')[0][idx]=bgam[it]*bgfact
+            btb.field('NTAIL')[0][idx]=0
+
+    ff[1].data = ftb
+    bf[1].data = btb
+    ff.flush()
+    bf.flush()
+
+def mergeresults(resdir):
+    flist = np.sort(glob.glob('%s/*[0-9]_0.txt'%resdir))
+    blist = np.sort(glob.glob('%s/*[0-9]_1.txt'%resdir))
+    fout = open('%s/summary_0.txt'%resdir,'w')
+    bout = open('%s/summary_1.txt'%resdir,'w')
+    ebars = []
+    sigs = []
+    gams = []
+    ms = []
+    mg = []
+    tbars = []
+    for fl in flist:
+        data = fl.split('/')[-1].split('_')
+        ebar = np.sqrt(int(data[0])*int(data[1]))
+        ebars.append(ebar)
+        ff = open(fl)
+        line = ff.readline().split()
+        sigs.append(float(line[0]))
+        gams.append(float(line[2]))
+        ms.append(float(line[4]))
+        mg.append(float(line[6]))
+        tbars.append(float(line[8]))
+        ff.close()
+    ebars = np.array(ebars)
+    sigs = np.array(sigs)
+    gams = np.array(gams)
+    ms = np.array(ms)
+    mg = np.array(mg)
+    tbars = np.array(tbars)
+    mask = np.argsort(ebars)
+    ebars = ebars[mask];sigs=sigs[mask];gams=gams[mask];ms=ms[mask];mg=mg[mask];tbars=tbars[mask];
+    for i in range(len(ebars)):
+        print >>fout,'%d    %1.6f    %1.6f    %1.6f    %1.6f    %1.6f'%(ebars[i],sigs[i],gams[i],ms[i],mg[i],tbars[i])
+    fout.close()
+    ebars = []
+    sigs = []
+    gams = []
+    ms = []
+    mg = []
+    tbars = []
+    for fl in blist:
+        data = fl.split('/')[-1].split('_')
+        ebar = np.sqrt(int(data[0])*int(data[1]))
+        ebars.append(ebar)
+        ff = open(fl)
+        line = ff.readline().split()
+        sigs.append(float(line[0]))
+        gams.append(float(line[2]))
+        ms.append(float(line[4]))
+        mg.append(float(line[6]))
+        tbars.append(float(line[8]))
+        ff.close()
+    ebars = np.array(ebars)
+    sigs = np.array(sigs)
+    gams = np.array(gams)
+    ms = np.array(ms)
+    mg = np.array(mg)
+    tbars = np.array(tbars)
+    mask = np.argsort(ebars)
+    ebars = ebars[mask];sigs=sigs[mask];gams=gams[mask];ms=ms[mask];mg=mg[mask];tbars=tbars[mask];
+    for i in range(len(ebars)):
+        print >>bout,'%d    %1.6f    %1.6f    %1.6f    %1.6f    %1.6f'%(ebars[i],sigs[i],gams[i],ms[i],mg[i],tbars[i])
+    fout.close()
