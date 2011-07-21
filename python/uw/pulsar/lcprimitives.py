@@ -583,8 +583,7 @@ class LCKernelDensity(LCPrimitive):
         self.bw = np.concatenate([self.bw,bw[lo_mask]])
 
         vals = self.__all_phases__(dom) #with new bandwidth
-        ip   = interp1d(dom,vals)
-        self.interpolator = ip
+        self.interpolator = interp1d(dom,vals)
         self.xvals,self.yvals = dom,vals
 
     def __all_phases__(self,phases):
@@ -613,6 +612,14 @@ class LCKernelDensity(LCPrimitive):
         f.write('# kernel\n')
         for i in xrange(len(self.xvals)):
             f.write('%s\t%s\n'%(self.xvals[i],self.yvals[i]))
+
+    def integrate(self,x0=0,x1=1):
+        if (x0==0) and (x1==1): return 1.
+        # crude nearest neighbor approximation
+        x = self.interpolator.x; y = self.interpolator.y
+        mask = (x >= x0) & (x <= x1)
+        return simps(y[mask],x=x[mask])
+        #return self.interpolator.y[mask].sum()/len(mask)
 
 #=====================================================================#
 
