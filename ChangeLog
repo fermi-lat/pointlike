@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Jul 21 12:21:03 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcprimitives.py 
+Log Message:
+Added integrate method to LCKernelDensity.
+
+    *
+------------------------------------------------------------
 User: paulr  Thu Jul 21 06:53:23 PDT 2011
 pointlike/python/uw/pulsar
 
