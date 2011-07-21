@@ -522,7 +522,7 @@ class LCKernelDensity(LCPrimitive):
         n = len(phases)
         # put in "ideal" HE bins after initial calculation of pulsed fraction
         # estimate pulsed fraction
-        h  = np.histogram(phases, bins = 100, new = True)
+        h  = np.histogram(phases, bins = 100)
         o  = np.sort(h[0])
         p  = float((o[o > o[15]] - o[15]).sum()) / o.sum() # based on ~30% clean offpulse
         b = o[15]

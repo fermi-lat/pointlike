@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.1 2011/04/27 18:32:03 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.2 2011/07/19 21:15:21 paulr Exp $
 
 Provide a method for interactively fitting a multi-gaussian template to data.
 
@@ -10,7 +10,7 @@ Authors: Paul S. Ray <paul.ray@nrl.navy.mil>
 import numpy as np
 import pylab as pl
 import pyfits
-from lcprimitives import LCGaussian
+from lcprimitives import LCGaussian,LCKernelDensity,LCEmpiricalFourier
 from lcfitters import LCTemplate,LCFitter
 from lcspeclike import light_curve
 from optparse import OptionParser
@@ -121,16 +121,53 @@ if __name__ == '__main__':
         print '%d of %d photons survive weight cut'%(len(phases),len(weights))
         weights = weights[weights > options.min_weight]
 
-    intf = InteractiveFitter(phases,nbins=options.nbins,weights=weights)
-    intf.do_fit()
+    print 'Welcome to the interactive unbinned template fitter!'
+    print 'What type of template would you like to fit (gauss=Gaussian, kd=Kernel Density, ef [NHARM]=Empirical Fourier):'
+    line = raw_input()
+    if line.startswith('gauss'):
+        intf = InteractiveFitter(phases,nbins=options.nbins,weights=weights)
+        intf.do_fit()
 
-    if options.prof is not None: out = options.prof
+        if options.prof is not None: out = options.prof
+        else:
+            out = ''
+            out = raw_input('Enter filename for gaussian profile output file, or just hit ENTER to exit...:  ')
+        if len(out) > 0:
+            print 'Writing Gaussian-style template to %s...'%(out)
+            intf.write_template(out)
+    elif line.startswith('kd'):
+        dom = np.linspace(0.0,1.0,100)
+        prim = LCKernelDensity(phases=phases)
+        template = LCTemplate([prim])
+        pl.hist(phases,options.nbins,normed=True,histtype='step',edgecolor='k')
+        pl.plot(dom,template(dom),color='red')
+        pl.title('Kernel Density Template Fit')
+        pl.show()
+        s = raw_input('Enter a filename here to save template for future use.  Just hit ENTER to skip the step.\n')
+        if len(s) > 0:
+            prim.to_file(s)
+        
+    elif line.startswith('ef'):
+        dom = np.linspace(0.0,1.0,100)
+        if len(line.split()) > 1:
+            nharm = int(line.split()[1])
+        else:
+            nharm = 16
+        lcf = LCEmpiricalFourier(phases=phases,nharm=nharm)
+        template = LCTemplate([lcf])
+        pl.hist(phases,options.nbins,normed=True,histtype='step',edgecolor='k')
+        pl.plot(dom,template(dom),color='red')
+        pl.title('Empirical Fourier Template with %d harmonics' % (nharm,))
+        pl.show()
+        s = raw_input('Enter a filename here to save template for future use.  Just hit ENTER to skip the step.\n')
+        if len(s) > 0:
+            lcf.to_file(s)
     else:
-        out = ''
-        out = raw_input('Enter filename for gaussian profile output file, or just hit ENTER to exit...:  ')
-    if len(out) > 0:
-        print 'Writing Gaussian-style template to %s...'%(out)
-        intf.write_template(out)
+        print "Unrecognized template: ",line
+        sys.exit(1)
+
+
+
     print 'Goodbye!'
     
     
