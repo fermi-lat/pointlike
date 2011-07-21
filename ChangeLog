@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jul 21 13:15:48 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Remove unsightly eval()
+    *
+------------------------------------------------------------
 User: paulr  Thu Jul 21 13:13:00 PDT 2011
 pointlike/python/uw/pulsar
 
