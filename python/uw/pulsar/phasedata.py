@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.84 2011/04/20 00:36:30 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/phasedata.py,v 1.1 2011/04/27 18:32:03 kerrm Exp $
 
 Handle loading of FT1 file and phase folding with polycos.
 
@@ -18,7 +18,7 @@ class PhaseData(object):
 
     defaults = (
         ('emin',100,'(MeV) minimum energy to accept'),
-        ('emax',10000,'(MeV) maximum energy to accept'),
+        ('emax',30000,'(MeV) maximum energy to accept'),
         ('we_col_name','WEIGHT','name for column with weight data in FT1 file'),
         ('use_weights',False,'load weights if available'),
         ('wmin',0,'minimum weight to use'),
@@ -50,14 +50,19 @@ class PhaseData(object):
         print >>sys.stderr, "Cuts left %d out of %d events." % (mask.sum(), len(mask))
 
     def write_phase(self,col_name='PULSE_PHASE'):
-        f = pyfits.open(self.ft1file); ph = self.ph
+        f = pyfits.open(self.ft1file)
+        mc = METConverter(self.ft1file)
+        mjds = mc(np.asarray(f['EVENTS'].data.field('TIME')))
+        ph = self.polyco.vec_evalphase(mjds)
+        
         try:
             # clobber old values if there
             f['EVENTS'].data.field(col_name)[:] = ph
             print 'Clobbered old %s column.'%(col_name)
         except KeyError:
             c    = pyfits.Column(name=col_name,format='D',array=ph)
-            cols = f['EVENTS'].columns + [c]
+            cols = f['EVENTS'].columns
+            newcols = cols.add_col(c)
             t = pyfits.new_table(newcols,header=f['EVENTS'].header)
             t.name = 'EVENTS'
             f[1] = t

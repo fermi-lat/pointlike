@@ -5,6 +5,8 @@ __author__  = 'Damien Parent'
 __version__ = 1.5
 
 import os, sys
+from os import access, F_OK
+from os.path import join
 import numpy, pyfits
 from numpy import array, vectorize, sqrt, exp, log10, power
 from itertools import izip
@@ -123,6 +125,8 @@ class PulsarLightCurve:
         self.__dict__.update(kwargs)
 
         self.ft1name = ft1name
+        if not access(ft1name,F_OK):
+            print "Cannot access to the ft1file. Exiting ..."; exit()
 
         print "================="
         print "  ", OKBLUE + self.psrname + ENDC
@@ -193,7 +197,7 @@ class PulsarLightCurve:
         except KeyError:
             print "\t You need to assign a phase for each event in the fits file. Exiting ..."
             exit()
-
+            
         event_iter = izip(ra,dec,time,energy,evtclass,phase,zenith_angle,angsep)
         self.eventlist = [Event(*item) for item in event_iter]
         # ===========================================================================================
@@ -204,7 +208,7 @@ class PulsarLightCurve:
         self.eventlist = [item for item in self.eventlist if (
             (item.angsep <= self.radius) and (self.emin <= item.energy <= self.emax) and
             (self.tmin <= item.time <= self.tmax) and (self.eclsmin <= item.evtclass <= self.eclsmax) and
-            (item.zenith_angle <= self.zenithcut) ) ]
+            (item.zenith_angle <= self.zenithcut) ) ]    
 
     def set_psf_param(self,psfpar0=5.12,psfpar1=0.8,psfpar2=0.07):
         '''Set PSF parameterization: sqrt( (psfpar0x(100/E)^psfpar1)^2 + psfpar2^2 )'''
@@ -566,7 +570,7 @@ class PulsarLightCurve:
 
     def plot_lightcurve( self, nbands=4, xdim=1100, ydim=1500, background=None,
                          zero_sup=False, inset=False, profile=None, profile2=None,
-                         outdir="", outfile=None):
+                         outfile=None):
         '''ROOT function to plot gamma-ray phaseograms + (radio,x-ray)
         ===========   ================================================
         keyword       description
@@ -578,8 +582,7 @@ class PulsarLightCurve:
         zero_sup      active the zero-suppress on the top panel [false]
         inset         add an inset on the top panel [false]
         xdim, ydim    plot dimensions
-        outdir        output directory
-        outfile       Name of the output file [None]
+        outfile       output file name
         '''
         print "___pending___: generating figure ..."
         root.initialization(batch=True)
@@ -761,23 +764,18 @@ class PulsarLightCurve:
                 sys.exit()
 
         # ===========> OUTPUT
-        if outfile is None: outfilename = self.psrname + "_phaseogram_gamma_" + str(nbands) + "bands"
-        else: outfilename = outfile
-        canvas.Print(os.path.join(outdir,outfilename+".eps"))
-        canvas.Print(os.path.join(outdir,outfilename+".root"))
-        canvas.Print(os.path.join(outdir,outfilename+".png"))
+        outfile = self.psrname + "_fermilat_lightcurve_" + str(nbands) + "bands.pdf" if outfile is None else outfile
+        canvas.Print(outfile)
         print ""
         
-    def plot_phase_time(self, which=0, background=None, zero_sup=False, xdim=500, ydim=900,
-                        outdir="", outfile=None):
+    def plot_phase_time(self, which=0, background=None, zero_sup=False, xdim=500, ydim=900, outfile=None):
         '''Plot phases as a function of the time.
         ___arguments___:
         which          : histogram number     Default: 0
         backgroung     : add a background level on the phaseogram [None]
         zero_sup       : active the zero-suppress on the top panel [False]
         xdim, ydim     : plot dimensions      Default: [500,800]
-        outdir         : output directory
-        outfile        : Name of the output file [None]   
+        outfile        : output file name   
         '''
         root.initialization()
         phaseogram = self.phaseogram
@@ -831,11 +829,8 @@ class PulsarLightCurve:
         phaseogram2D[which].Draw("CONT4 Z")
         
         # =======> OUTPUT
-        if outfile is None: outfilename = self.psrname + "_phaseogram2D"
-        else: outfilename = outfile
-        canvas.Print(os.path.join(outdir,outfilename+".eps"))
-        canvas.Print(os.path.join(outdir,outfilename+".root"))
-        canvas.Print(os.path.join(outdir,outfilename+".png"))
+        outfile = (self.psrname + "_fermilat_phaseogram2D.pdf") if outfile is None else outfile
+        canvas.Print(outfile)
         print ""
 
     def plot_ptest_time(self, phases, xdim=1000, ydim=600, outdir="."):
@@ -885,7 +880,7 @@ class PulsarLightCurve:
 
         # =======> OUTPUT
         outfilename = self.psrname + "_ptest_time.eps"
-        canvas.Print(os.path.join(outdir,outfilename))
+        canvas.Print(join(outdir,outfilename))
         
     def toASCII(self, outdir="."):
         '''Copy the pulse phase of each phaseogram to an ascii file.
@@ -895,7 +890,7 @@ class PulsarLightCurve:
         '''
         erange = __energy_range
         
-        filename = os.path.join(outdir,self.psrname+"_phaseogram.asc")
+        filename = join(outdir,self.psrname+"_phaseogram.asc")
         outfile = open(filename,"w")
         outfile.write("# ------------------------------------------------------------------ \n")
         outfile.write("# Private results: LAT Collaboration and PTC ONLY \n")
