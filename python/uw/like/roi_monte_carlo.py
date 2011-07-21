@@ -21,7 +21,7 @@ from skymaps import IsotropicSpectrum,IsotropicPowerLaw,DiffuseFunction,PySkyFun
 from . SpatialModels import Gaussian,EllipticalGaussian,RadiallySymmetricModel
 from . Models import PowerLaw,PowerLawFlux,Constant
 from . pointspec import DataSpecification,SpectralAnalysis
-from . pointspec_helpers import PointSource
+from . pointspec_helpers import PointSource,PointSourceCatalog
 from . roi_extended import ExtendedSource
 from . SpatialModels import Gaussian,EllipticalGaussian,SpatialModel,RadiallySymmetricModel
 
