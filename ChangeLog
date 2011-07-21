@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jul 21 13:59:11 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_catalogs.py 
+Log Message:
+Bugfix to Catalog2FGL.merge_lists. Improve PointSourceCatalog inheritance.
+    *
+------------------------------------------------------------
 User: lande  Thu Jul 21 13:57:31 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
