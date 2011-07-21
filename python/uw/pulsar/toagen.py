@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.2 2011/07/08 23:05:48 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.3 2011/07/19 00:30:23 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -122,8 +122,8 @@ class UnbinnedTOAGenerator(TOAGenerator):
             # this allows a good guess at the TOA to prevent a fit to the wrong peak
             
             fit  = fmin(f,[self.prev_peak],args=(phases,weights),disp=0,ftol=1e-9,full_output=True)
-            pl.hist(phases,bins=np.linspace(0,1,26),histtype='step')
-            pl.show()
+            #pl.hist(phases,bins=np.linspace(0,1,26),histtype='step')
+            #pl.show()
             jump = abs(self.prev_peak - fit[0][0])/self.mean_err
             if jump > 10:
                 print 'Found a jump, doing a blind search now.'
