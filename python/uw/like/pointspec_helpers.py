@@ -1,11 +1,10 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.45 2011/07/13 03:19:37 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.46 2011/07/21 20:17:54 lande Exp $
 
     author: Matthew Kerr
     """
 
 import numpy as N
-import glob
 from skymaps import SkyDir,CompositeSkySpectrum,DiffuseFunction,EffectiveArea,Exposure,IsotropicSpectrum,IsotropicPowerLaw
 from uw.like.Models import Model,Constant,PowerLaw,ExpCutoff,DefaultModelValues,LogParabola
 from roi_diffuse import DiffuseSource,ROIDiffuseModel_OTF
