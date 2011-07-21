@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Thu Jul 21 16:24:10 PDT 2011
+pointlike/python/uw/stacklike
+
+Modified Files:
+	CLHEP.py angularmodels.py binned.py fitsmooth.py stacklike.py 
+Log Message:
+halo analysis fixed
+    *
+------------------------------------------------------------
 User: lande  Thu Jul 21 16:02:54 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
