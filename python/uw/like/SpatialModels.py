@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.52 2011/07/13 03:10:12 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.53 2011/07/21 20:57:30 lande Exp $
 
    author: Joshua Lande
 
@@ -440,7 +440,7 @@ class SpatialModel(object):
         # is similar to the Catalog recommendations.
         diameter=2.0*(self.effective_edge()*6./5. if self.has_edge() else self.r99())
         pixelsize=diameter/npix
-        image=SkyImage(center,filename,pixelsize,diameter,1,"ZEA",
+        image=SkyImage(center,os.path.expandvars(filename),pixelsize,diameter,1,"ZEA",
                        True if self.coordsystem == SkyDir.GALACTIC else False,False)
         skyfunction=self.get_PySkyFunction()
         image.fill(skyfunction)
@@ -497,7 +497,7 @@ class SpatialModel(object):
 
     @abstractmethod
     def can_shrink(self): 
-        raise NotImplementedError('Cannot shrink PseudoGaussian!')
+        raise NotImplementedError('Cannot shrink %s!' % self.pretty_name)
         
 
 #===============================================================================================#
