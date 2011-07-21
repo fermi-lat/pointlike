@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jul 21 16:02:11 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+better error message + expand env. vars
+    *
+------------------------------------------------------------
 User: lande  Thu Jul 21 15:49:24 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
