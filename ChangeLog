@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Jul 21 16:02:23 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+Remove (now) unneeded import
+    *
+------------------------------------------------------------
 User: lande  Thu Jul 21 16:02:11 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
