@@ -81,8 +81,10 @@ class PSF(Model):
     #  @param sig sigma parameter in radians
     #  @param g gamma parameter
     def psf(self,diff,sig,g):
+        if g<=0:
+            print 'Caught bad gamma value'
         u = diff*diff/(2*sig*sig)
-        return (1-1/g)*(1+u/g)**-g
+        return (1-1/g)*(1+u/g)**(-g)
 
     ## return the integral for a photon based on self.lims
     #  @param photon CLHEP photon
@@ -205,7 +207,7 @@ class PSFTheta(Model):
         g = pars[1]
         ms = pars[2]
         mg = pars[3]
-        ct = photon.ct
+        ct = photon.time
         sig=((1.-ct)*ms+1.)*sig
         g = ((1.-ct)*mg+1.)*g
         diff = photon.srcdiff()
@@ -228,7 +230,7 @@ class PSFTheta(Model):
         g = pars[1]
         ms = pars[2]
         mg = pars[3]
-        ct = photon.ct
+        ct = photon.time
         sig=((1.-ct)*ms+1.)*sig
         g = ((1.-ct)*mg+1.)*g
         diff = photon.srcdiff()
@@ -372,6 +374,82 @@ class PSFAlign(PSF):
     #  @param pars psf parameters, fed in by fitter
     def integrate(self,photon,pars):
         return self.PSF.integrate(photon,self.PSF.model_par)
+
+    ## return the integral of the psf
+    #  @param delmin minimum angle in radians
+    #  @param delmax maximum angle in radians
+    def integral(self,delmin,delmax):
+        return self.PSF.integral(delmin,delmax)
+
+    ## updates King function parameters, through fitter
+    #  @param pars [sigma,gamma], sigma in radians
+    def update(self,pars):
+        self.model_par=pars
+
+################################################### END PSFALIGN CLASS  ###########################################
+
+################################################### PSFFISH CLASS      ###########################################
+
+## PSFFish class
+#
+#  Models the angular distribution of a single King function for fitting fisheye effect
+class PSFFish(PSF):
+
+    ## Constructor
+    #
+    #  @param lims [min,max], minimum and maximum angular deviations in radians
+    #  @param model_par [sig,gam], model parameters (sigma, gamma), with sigma in radians
+    #  @param free [sig,gam], frees parameters to be fit
+    def __init__(self,lims,model_par=[0.001,2.25,0],free=[False,False,False],rot=[0],ebar=1e4,ec=0,irf='P6_v11_diff'):
+        #super(Model,self).__init__(model_par,free)
+        self.mark='-'
+        self.rot = HepRotation(rot,False)
+        cdb = pypsf.CALDBPsf(CALDBManager(irf=irf))
+        if ec!=-1:
+            r68=cdb.inverse_integral(ebar,ec,68.)/rd
+            r95=cdb.inverse_integral(ebar,ec,95.)/rd
+        else:
+            r68=(cdb.inverse_integral(ebar,0,68.)+cdb.inverse_integral(ebar,1,68.))/rd/2.
+            r95=(cdb.inverse_integral(ebar,0,95.)+cdb.inverse_integral(ebar,1,95.))/rd/2.
+        self.PSF = PSF(lims=lims,model_par=[0.001,2.25],free=[free[0],free[1]])
+        self.PSF.fromcontain([r68,r95],[0.68,0.95])
+        for i in range(2):
+            model_par[i]=self.PSF.model_par[i]
+        self.model_par=model_par
+        self.free=free
+        self.lims=lims
+        self.ebar=ebar
+        self.steps=[self.PSF.steps[0],self.PSF.steps[1],20./3600./rd]
+        #print self.PSF.limits
+        self.limits=[self.PSF.limits[0],self.PSF.limits[1],[-np.pi,np.pi]]
+        self.name='psffish'
+        self.header=self.PSF.header+'dTh\t'
+
+    ## returns the value of the unnormalized psf for a photon
+    #  @param photon CLHEP photon
+    #  @params pars psf parameters, fed in by fitter
+    def value(self,photon,pars):
+        if len(pars)!=len(self.model_par):
+            print 'Wrong number of PSFAlign parameters, got %d instead of %d'%(len(pars),len(self.model_par))
+            raise
+        dTh = pars[2]
+        diff = photon.difftheta(dTh)
+        f = self.PSF.psf(diff,pars[0],pars[1])
+        return f
+    
+    ## returns the value of the unnormalized psf for a photon
+    #  @param diff angular deviation in radians
+    #  @param sig sigma parameter in radians
+    #  @param g gamma parameter
+    #def psf(self,diff,sig,g):
+    #    u = diff*diff/(2*sig*sig)
+    #    return (1-1/g)*(1+u/g)**-g
+
+    ## return the integral for a photon based on self.lims
+    #  @param photon CLHEP photon
+    #  @param pars psf parameters, fed in by fitter
+    def integrate(self,photon,pars):
+        return self.PSF.integrate(photon,[pars[0],pars[1]])
 
     ## return the integral of the psf
     #  @param delmin minimum angle in radians
@@ -551,8 +629,12 @@ class CDisk(Model):
         self.psf = pypsf.CALDBPsf(CALDBManager(irf='P6_v11_diff'))
         self.sp = SpatialModels.Disk(p=np.array([0,0,self.model_par[0]*rd]))
         self.ac = AnalyticConvolution(ExtendedSource(spatial_model=self.sp),self.psf)
-        pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1])
-        self.ac.do_convolution(pb,False,True)
+        if len(model_par)==3:
+            pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1])
+            self.ac.do_convolution(pb,False,True)
+        else:
+            pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1],fit_sigma=self.model_par[3],fit_gamma=self.model_par[4])
+            self.ac.do_convolution(pb,True,False)
         #delt = (lims[1]-lims[0])/100.
         #xr = np.arange(lims[0],lims[1],delt)
         #yr = np.array([self.ac(s.SkyDir((x*1.+0.5)*rd*delt,0)) for x in range(len(xr)-1)])
@@ -622,10 +704,15 @@ class CHalo(Model):
         self.name='chalo'
         self.header='theta\t'
         self.psf = pypsf.CALDBPsf(CALDBManager(irf='P6_v11_diff'))
-        self.sp = SpatialModels.GaussianR2(p=np.array([0,0,self.model_par[0]*rd]))
+
+        self.sp = SpatialModels.Gaussian(p=np.array([0,0,self.model_par[0]*rd]))
         self.ac = AnalyticConvolution(ExtendedSource(spatial_model=self.sp),self.psf)
-        pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1])
-        self.ac.do_convolution(pb,False,True)
+        if len(model_par)==3:
+            pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1])
+            self.ac.do_convolution(pb,False,True)
+        else:
+            pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1],fit_sigma=self.model_par[3],fit_gamma=self.model_par[4])
+            self.ac.do_convolution(pb,True,False)
         #delt = (lims[1]-lims[0])/100.
         #xr = np.arange(lims[0],lims[1],delt)
         #yr = np.array([self.ac(s.SkyDir((x*1.+0.5)*rd*delt,0)) for x in range(len(xr)-1)])
@@ -1148,7 +1235,7 @@ class CompositeModel(object):
             st = st+'%1.1f'%((ctime-self.clock)/self.calls)
             if not quiet:
                 print st
-        if np.isnan(sum(pars)) or np.isnan(acc):
+        if np.isnan(sum(pars)) or np.isnan(acc) or np.isinf(sum(pars)) or np.isinf(acc):
             return 1e40
         else:
             return acc
