@@ -1,11 +1,12 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.5 2011/07/11 21:15:53 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.6 2011/07/21 20:17:54 lande Exp $
 
 author: Joshua Lande
 """
 import os
+from copy import copy
 import numpy as np
 from os.path import expandvars, exists, join
 from textwrap import dedent
@@ -32,8 +33,7 @@ class SourceCatalog(object):
     def merge_lists(self,skydir,radius=15,user_point_list=None,user_diffuse_list=None):
         pass
 
-class PointSourceCatalog(SourceCatalog):
-    pass # For Backwards Compatability
+PointSourceCatalog=SourceCatalog # For Backwards Compatability
 
 class FermiCatalog(SourceCatalog):
     """Read a Jean Ballet catalogue and use it to set up a source list for a ROI.
@@ -344,7 +344,7 @@ class Catalog2FGL(SourceCatalog):
 
         catalog_sources = self.get_sources(skydir,radius)
 
-        merged_sources = []
+        merged_sources = copy(user_source_list)
 
         for cat in catalog_sources:
             merged_sources.append(cat)
