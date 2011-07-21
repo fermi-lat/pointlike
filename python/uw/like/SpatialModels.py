@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.51 2011/07/08 15:19:55 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.52 2011/07/13 03:10:12 lande Exp $
 
    author: Joshua Lande
 
@@ -168,10 +168,8 @@ class SpatialModel(object):
         means return the relative error (absolute error/parameter value)
         which is useful for printing percent error, etc. """
 
-    def __init__(self,p=None,center=None,log=None,iscopy=False,coordsystem=None,**kwargs):
+    def __init__(self,p=None,center=None,log=None,coordsystem=None,**kwargs):
         DefaultSpatialModelValues.setup(self)
-
-        if iscopy: return
 
         # first, set the log values of thigns:
         if log is not None: self.log = np.asarray(log)
@@ -264,7 +262,7 @@ class SpatialModel(object):
     def error(self,i, internal=False):
         """ get error for parameter # i """
         i=self.mapper(i)
-        return (N.diag(self.get_cov_matrix(absolute=not internal))**0.5)[i]
+        return (np.diag(self.get_cov_matrix(absolute=not internal))**0.5)[i]
 
     def setp(self, i, par, internal=False):
         """ set internal value, convert unless internal """
@@ -391,10 +389,9 @@ class SpatialModel(object):
 
     def copy(self):
         
-        a = eval(self.name)(iscopy=True, **self.__dict__) #create instance of same spectral model type
-        a.__dict__.update(self.__dict__)
-        
-        a.p           = np.asarray(self.p,dtype=float).copy() #copy in parameters
+        a = self.__class__(**self.__dict__) #create instance of same spectral model type
+
+        a.p           = np.asarray(self.p,dtype=float).copy() 
         a.free        = np.asarray(self.free,dtype=bool).copy() 
         a.param_names = np.asarray(self.param_names).copy() 
         a.limits      = np.asarray(self.limits,dtype=float).copy() 
