@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.31 2011/07/11 20:51:39 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.32 2011/07/13 03:11:09 lande Exp $
 
 author: Matthew Kerr
 """
@@ -240,7 +240,16 @@ def print_ellipse(roi, label=True, line=True):
 def get_ellipse(roi):
     """ Returns a dictionary specifying the elliptical 
         localiztion parameters. """
-    return dict(zip('ra dec a b ang qual'.split(),roi.qform.par[0:6]))
+    d={}
+    if hasattr(roi,'qform'):
+        q=roi.qform.par
+        d.update(
+            ra=float(q[0]), dec=float(q[1]),
+            a=float(q[2]), b=float(q[3]),
+            ang=float(q[4]), qual=float(q[5])
+            )
+    if hasattr(roi,'lsigma'): d['lsigma']=roi.lsigma
+    return d
 
 class ROILocalizerExtended(ROILocalizer):
 
