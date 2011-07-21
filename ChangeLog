@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: paulr  Thu Jul 21 06:50:17 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	toagen.py 
+Log Message:
+Commented code that plots a histogram every time it makes a TOA
+
+    *
+------------------------------------------------------------
 User: paulr  Thu Jul 21 06:48:49 PDT 2011
 pointlike/python/uw/pulsar
 
