@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 22 06:47:17 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	pipe.py 
+Log Message:
+implement possibility of using catalog associations; issue resets to ipengines at end of run
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 22 06:45:41 PDT 2011
 pointlike/python/uw/pipeline
 
