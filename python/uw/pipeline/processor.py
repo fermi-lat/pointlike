@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.15 2011/04/26 15:58:16 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.16 2011/06/24 04:54:49 burnett Exp $
 """
 import os, time
 import cPickle as pickle
@@ -92,7 +92,8 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwarg
         if prev_logl is None: prev_logl = []
         prev_logl.append(last_logl)
         output['prev_logl'] = prev_logl
-        print 'updating pickle file with pass %d' %(pass_number) 
+        print 'updating pickle file: log likelihood history:', \
+             ''.join(map(lambda x: '%.1f, '%x, prev_logl)) 
     else:
         output = dict()
         output['passes']=[pass_number]
@@ -148,7 +149,7 @@ def fname(name):
     return name.replace(' ','_').replace('+','p')
 
 def make_sed(roi, source, sedfig_dir, **kwargs):
-    plot_sed.PlotSED(source.sedrec)(source.model, source.name)
+    plot_sed.PlotSED(source.sedrec, use_ergs=False)(source.model, source.name)
     # add a galactic map if requested
     image.galactic_map(roi.roi_dir, color='lightblue', marker='s', markercolor='r')
     fout = os.path.join(sedfig_dir, ('%s_sed.png'%fname(source.name)) )
@@ -241,7 +242,7 @@ def process_sources(roi, sources, **kwargs):
  
     # add band info to the source objects
     for source in sources:
-        source.sedrec = plot_sed.SEDflux(roi, which=source.name).rec
+        source.sedrec = plot_sed.SEDflux(roi, which=source.name, use_ergs=False, merge=False).rec
         
     dirs = [kwargs.pop(dirname,None) for dirname in ('sedfig_dir', 'tsmap_dir')]
     procs = (make_sed, make_tsmap)
