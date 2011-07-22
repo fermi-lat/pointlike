@@ -1,7 +1,7 @@
 
 """
  Manage the catalog association tables
- $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pipeline/associate.py,v 1.4 2011/03/11 22:52:15 burnett Exp $
+ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/associate.py,v 1.5 2011/04/18 17:06:38 wallacee Exp $
  author: T. Burnett <tburnett@uw.edu>
 """
 import pyfits, os, glob
@@ -29,7 +29,7 @@ class Association():
                   get default catalog association
         """
         self.acat = acat 
-        self.hdu  = pyfits.open(acat)
+        self.hdu  = pyfits.open(os.path.expandvars(acat))
         self.id_cat= self.hdu[2].data
         self.sources=self.hdu[1].data
         self.n   = len(self.sources)
@@ -59,16 +59,18 @@ class Association():
         return np.rec.fromarrays([name,cat,ang,prob,ra,dec], names=fields)
 
 
-    def __call__(self, name, sdir, ellipse): # dummy for compatibility
+    def __call__(self, name, sdir=None, ellipse=None): # dummy for compatibility
         """ return None or a dict
         """
-        if name[0]=='J': name='1FGL '+name
+        if name[0]=='J': name='2FGL '+name
         if name[-1]=='c': name=name[:-1] # drop qualifier character
-        check = self.sources.Source_Name==name
-        if check.sum()!=1:
+        for fld in ('Source_Name', 'NickName'):
+            check = self.sources.field(fld)==name
+            if check.sum()==1: break
+        if check.sum()!=1:    
             text = 'failed to find source %s in catalog %s' %( name, self.acat)
             print text
-            raise Exception(text)
+            return None #raise Exception(text)
         i = np.arange(self.n)[check][0]
         d = dict()
         r = self[i]
