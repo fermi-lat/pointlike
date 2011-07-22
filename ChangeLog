@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 22 06:50:51 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+turn off ergs in SED plots
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 22 06:49:40 PDT 2011
 pointlike/python/uw/pipeline
 
