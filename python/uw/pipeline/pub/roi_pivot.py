@@ -1,11 +1,11 @@
 """
 
 Process the HEALpix ROI information into a pivot collection
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/roi_pivot.py,v 1.3 2011/03/07 00:07:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/roi_pivot.py,v 1.4 2011/04/06 00:42:41 burnett Exp $
 """
 import os, glob, pickle
 import numpy as np
-from uw.thb_roi import pivot
+from . import pivot
 from skymaps import Band
 
 def hp12_index(skydir):
