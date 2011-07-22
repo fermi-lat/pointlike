@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.29 2011/06/24 04:54:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skymodel.py,v 1.30 2011/07/01 02:13:18 kerrm Exp $
 
 """
 import os, pickle, glob, types
@@ -161,7 +161,7 @@ class SkyModel(object):
             p = pickle.load(open(file))
             index = int(os.path.splitext(file)[0][-4:])
             assert i==index, 'logic error: file name %s inconsistent with expected index %d' % (file, i)
-            roi_sources = p['sources']
+            roi_sources = p.get('sources',  {}) # don't know why this needed
             extended_names = {} if (self.__dict__.get('extended_catalog') is None) else self.extended_catalog.names
             for key,item in roi_sources.items():
                 if key in extended_names: continue
@@ -287,7 +287,6 @@ class SkyModel(object):
             s.smodel = s.model
             if '_p' not in s.model.__dict__:
                 s.model.__dict__['_p'] = s.model.__dict__.pop('p')  # if loaded from old representation
-            #assert False, 'breakpoint'
 
         extended = self._select_and_freeze(self.extended_sources, src_sel)
         for s in extended: # this seems redundant, but was necessary
@@ -358,8 +357,10 @@ class SkyModel(object):
             gs.append(sources.GlobalSource(name='limb_cube_v0.fits', model=con, skydir=None))
             cnt+=1
         if cnt>0: print 'Added the limb to %d rois above abs(dec)=%.1f' % (cnt, mindec)
-
-    
+    def find_source(self, name):
+        """ return local source reference by name, or None """
+        t = filter( lambda x: x.name==name, self.point_sources+self.extended_sources)
+        return t[0] if len(t)==1 else None
     
 class SourceSelector(object):
     """ Manage inclusion of sources in an ROI."""
