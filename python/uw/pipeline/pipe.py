@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.13 2011/04/26 18:00:55 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pipe.py,v 1.14 2011/06/24 04:54:49 burnett Exp $
 """
 import os, types, glob, time
 import cPickle as pickle
@@ -36,7 +36,10 @@ class Pipe(skyanalysis.SkyAnalysis):
         self.skymodel_kw= kwargs.pop('skymodel_kw', dict())
  
         associator = kwargs.pop('associate', 'all_but_gammas')
-        if associator is not None and associator!='None':
+        if associator is not None and associator[0]=='$':
+            print 'associations will come from the catalog %s' %associator
+            associator = associate.Association(associator)
+        elif associator is not None and associator!='None':
             associator = associate.SrcId('$FERMI/catalog', associator)
             #print 'will associate with catalogs %s' % associator.classes
         self.process_kw['associate'] = associator
@@ -364,8 +367,12 @@ def main( setup, mec=None, taskids=None, local=False,
         ignore_exception=ignore_exception,
          progress_bar=progress_bar)
     lc(15)
-    if not local and mec is None: 
-        get_mec().kill(True)
+    if not local:
+        if mec is None: 
+            get_mec().kill(True)
+        else:
+            get_mec().reset()
+        
     return lc
    
 
