@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 22 06:55:16 PDT 2011
+pointlike/python/uw/pipeline/pub
+
+Modified Files:
+	roi_pivot.py 
+Log Message:
+bug fix in import
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 22 06:54:31 PDT 2011
 pointlike/python/uw/pipeline
 
