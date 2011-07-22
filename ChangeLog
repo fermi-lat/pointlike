@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 22 06:45:41 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	skyanalysis.py 
+Log Message:
+do not convolve isotropic orif  resolution is set to zero
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 22 06:42:43 PDT 2011
 pointlike/python/uw/pipeline
 
