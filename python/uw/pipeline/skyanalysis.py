@@ -1,6 +1,6 @@
 """
 Basic ROI analysis
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.23 2011/06/24 04:54:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/skyanalysis.py,v 1.24 2011/06/30 21:11:38 kerrm Exp $
 """
 import os, pickle, glob, types
 import numpy as np
@@ -32,7 +32,7 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         irf          = 'P7SOURCE_V6',
         #fit_kw = dict(fit_bg_first = False, use_gradient = True, ),
         log          = None,
-        convolve_kw = dict( resolution=0.125, # applied to OTF convolution
+        convolve_kw = dict( resolution=0.125, # applied to OTF convolution: if zero, skip convolution
                         pixelsize=0.05, # ExtendedSourceConvolution
                         num_points=25), # AnalyticConvolution
         selector = skymodel.HEALPixSourceSelector, # this is a factory of SourceSelector objects
@@ -111,9 +111,18 @@ class SkyAnalysis(pointspec.SpectralAnalysis):
         globals, extended = self.skymodel.get_diffuse_sources(src_sel)
        
         # perform OTF convolutions with PSFs: first diffuse, then extended if any
-        def diffuse_mapper( source):
-            return roi_diffuse.ROIDiffuseModel_OTF(self, source, skydir, pixelsize=self.convolve_kw['resolution'])
-        global_models = map(diffuse_mapper, globals)
+        # note that the wrapper could be roi_diffuse.ROIDiffuseModel_PC (for pre-convolved) it takes a tolerance
+        # if resolution is zero, assume precompiled
+        def otf_diffuse_mapper( source):
+            res = self.convolve_kw['resolution']
+            if res>0:
+                return roi_diffuse.ROIDiffuseModel_OTF(self, source, skydir, pixelsize=res)
+            return roi_diffuse.ROIDiffuseModel_PC(self, source, skydir)
+        def diffuse_mapper(source): #pre-convolved if isotrop
+            if source.name=='isotrop':
+                return roi_diffuse.ROIDiffuseModel_PC(self, source, skydir)
+            return otf_diffuse_mapper(source)
+        global_models = map( diffuse_mapper, globals)
 
         def extended_mapper( source):
             return roi_extended.ROIExtendedModel.factory(self,source,skydir)
