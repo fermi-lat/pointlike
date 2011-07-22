@@ -1,8 +1,8 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/catrec.py,v 1.7 2011/04/18 17:06:38 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/catrec.py,v 1.8 2011/06/24 04:54:49 burnett Exp $
 """
-import os, glob
+import os, glob, types
 import cPickle as pickle
 import numpy as np
 from uw.utilities import makerec
@@ -15,6 +15,11 @@ def get_class(adict):
     """
     if adict is None: return '   '
     cat_list=adict['cat']
+    if type(cat_list[0])==np.typeDict['int16']:
+        # apparently from the catalog: don't know how to interpret this number yet, just pass it on: it will be a string
+        # suggest  class_index = lambda x: 0 if x=='' else int(x)
+        return cat_list[0]
+        
     priority = '''bllac bzcat cgrabs crates crates_fom seyfert seyfert_rl qso agn 
                 vcs galaxies pulsar_lat snr snr_ext pulsar_high pulsar_low pulsar_fom pulsar_nonATNF
                 msp pwn hmxb lmxb globular tev ibis lbv dwarfs
@@ -73,6 +78,7 @@ def create_catalog(outdir, **kwargs):
                 pnorm_unc pindex_unc cutoff_unc
                 e0 pivot_energy 
                 flux flux_unc
+                eflux eflux_unc
                 beta beta_unc
                 modelname 
                 bts1 bts10
@@ -104,6 +110,9 @@ def create_catalog(outdir, **kwargs):
                 
                 model  = entry['model']
                 if '_p' not in model.__dict__: model._p = model.p 
+                eflux = list(np.array(model.i_flux(e_weight=1, error=True, emax=1e5))*1e6) if ts>10 else [0.,0.]
+                #if np.isnan(eflux[0]):
+                #    import pdb; pdb.set_trace()
                 p,p_relunc = model.statistical()
                 if p[0]< self.minflux or np.any(np.isnan(p[:2])):
                     self.reject+=1
@@ -120,6 +129,8 @@ def create_catalog(outdir, **kwargs):
                 flux_unc = flux*p_relunc[0]
                 data += [e0, pivot_energy]
                 data += [flux, flux_unc]
+                # energy flux from model e < 1e5, 1e-6 MeV units
+                data += eflux
                 if psr_fit:
                     data += [cnan,cnan, 'ExpCutoff']
                 else:
