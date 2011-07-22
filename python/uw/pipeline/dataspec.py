@@ -1,7 +1,7 @@
 """
 Manage data specification
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/dataspec.py,v 1.10 2011/06/24 04:54:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/dataspec.py,v 1.11 2011/06/30 21:12:20 kerrm Exp $
 
 """
 import os, glob
@@ -26,8 +26,11 @@ class DataSpecification(object):
                 # need a check, but will fail if need to glob
                 #assert os.path.exists(data[key]), 'DataSpec: file %s not found' % data[key]
         self.__dict__.update(data)
-        print 'data spec:\n', str(self.__dict__)
+        #print 'data spec:\n', str(self.__dict__)
 
+    def __str__(self):
+        return self.data_name
+        
 class DataSpec(object):
     """
     This needs to be made local to an installation
