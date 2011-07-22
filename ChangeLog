@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 22 06:52:01 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	plot_sed.py 
+Log Message:
+tweak for MeV units
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 22 06:50:51 PDT 2011
 pointlike/python/uw/pipeline
 
