@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jul 22 06:49:40 PDT 2011
+pointlike/python/uw/pipeline
+
+Modified Files:
+	catrec.py 
+Log Message:
+add eflux to source tuple
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 22 06:48:35 PDT 2011
 pointlike/python/uw/pipeline
 
