@@ -1,7 +1,7 @@
 """
 Module to perfrom routine testing of pointlike's many features.'
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.6 2011/07/13 21:34:25 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.7 2011/07/15 18:34:26 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -29,16 +29,16 @@ class PointlikeTest(unittest.TestCase):
         self.assertTrue(os.environ.has_key('SIMDIR'),'$SIMDIR must be defiend.')
         self.assertTrue(os.path.exists(os.environ['SIMDIR']),'$SIMDIR must exist.')
 
-        self.MAX_ALLOWED_PULL = 2
+        self.MAX_ALLOWED_PULL = 3
 
     def compare_model(self,fit,true):
         norm_pull=(fit.model['Norm']-true.model['Norm'])/fit.model.error('Norm')
         #print 'norm_pull = ',norm_pull
-        self.assertLess(abs(norm_pull),self.MAX_ALLOWED_PULL,'norm pull=%.1f is bad.' % norm_pull)
+        self.assertTrue(abs(norm_pull)<self.MAX_ALLOWED_PULL,'norm pull=%.1f is bad.' % norm_pull)
 
         index_pull=(fit.model['Index']-true.model['Index'])/fit.model.error('Index')
         #print 'index_pull = ',index_pull
-        self.assertLess(abs(index_pull),self.MAX_ALLOWED_PULL,'index pull=%.1f is bad.' % index_pull)
+        self.assertTrue(abs(index_pull)<self.MAX_ALLOWED_PULL,'index pull=%.1f is bad.' % index_pull)
 
     def compare_spatial_model(self,fit,true,lsigma):
         """ Compare a source 'fit's spatial model to the source 'true's spatial model. """
@@ -46,11 +46,11 @@ class PointlikeTest(unittest.TestCase):
         if hasattr(true,'spatial_model') and hasattr(fit,'spatial_model'):
             sigma_pull = (fit.spatial_model['Sigma'] - true.spatial_model['Sigma'])/fit.spatial_model.error('Sigma')
             #print 'sigma_pull = ',sigma_pull
-            self.assertLess(abs(sigma_pull),self.MAX_ALLOWED_PULL,'sigma pull=%.1f is bad.' % sigma_pull)
+            self.assertTrue(abs(sigma_pull)<self.MAX_ALLOWED_PULL,'sigma pull=%.1f is bad.' % sigma_pull)
 
         dist_pull = np.degrees(true.skydir.difference(fit.skydir))/lsigma
         #print 'dist_pull = ',dist_pull
-        self.assertLess(abs(dist_pull),self.MAX_ALLOWED_PULL,'dist pull=%.1 is bad.' % dist_pull)
+        self.assertTrue(abs(dist_pull)<self.MAX_ALLOWED_PULL,'dist pull=%.1f is bad.' % dist_pull)
 
     @staticmethod
     def get_roi(name,center,point_sources,diffuse_sources,emin=1e2,emax=1e5):
@@ -72,7 +72,7 @@ class PointlikeTest(unittest.TestCase):
 
         sa=sa_object(ds,
                      irf='P7SOURCE_V6',
-                     binsperdec = 4,
+                     binsperdec = 2,
                      mc_energy=True,
                      tstart=0,
                      tstop=604800, # 7 days
@@ -81,7 +81,6 @@ class PointlikeTest(unittest.TestCase):
                     )
 
 
-        global roi # helps with debugging
         roi=sa.roi(roi_dir=center,
                    point_sources=point_sources,
                    diffuse_sources=diffuse_sources,
@@ -98,18 +97,18 @@ class PointlikeTest(unittest.TestCase):
         model=PowerLaw(p=[1e-7,2])
 
         self.assertAlmostEqual(1e-7,model['Norm'])
-        self.assertAlmostEqual(1e-7,model['norm'],'case insensitive')
+        self.assertAlmostEqual(1e-7,model['norm'],msg='case insensitive')
         model['Norm']=1e-6
         self.assertAlmostEqual(1e-6,model['Norm'])
 
         model=PowerLaw(index=1)
-        self.assertAlmostEqual(1,model['index'],"test kwargs passing to object")
-        self.assertAlmostEqual(1e-11,model['norm'], "test default value")
+        self.assertAlmostEqual(1,model['index'],msg="test kwargs passing to object")
+        self.assertAlmostEqual(1e-11,model['norm'], msg="test default value")
 
         copy_model=model.copy()
-        self.assertAlmostEqual(1e-11,copy_model['norm'], "test default value")
+        self.assertAlmostEqual(1e-11,copy_model['norm'], msg="test default value")
         model['norm'] = 1e-10
-        self.assertAlmostEqual(1e-11,copy_model['norm'], "unchanged by copy")
+        self.assertAlmostEqual(1e-11,copy_model['norm'], msg="unchanged by copy")
 
         model=PowerLaw(random_input=3)
         self.assertEqual(model.random_input,3,'test random kwarg')
@@ -206,7 +205,7 @@ class PointlikeTest(unittest.TestCase):
         ]
 
         model = PowerLaw(p=[1,2])
-        model.set_flux(1e-5)
+        model.set_flux(1e-4)
 
         spatial_model = Gaussian(p=[1],center=center)
 
@@ -215,8 +214,10 @@ class PointlikeTest(unittest.TestCase):
         diffuse_sources.append(es_fit)
 
         roi = PointlikeTest.get_roi('extended_test',center,point_sources,diffuse_sources, emin=1e4)
+        global roi_ext;roi_ext=roi # helps with debugging
 
-        roi.modify(which='source',sigma=0.3)
+        #roi.modify(which='source',sigma=0.3)
+        roi.modify(which='source',spatial_model=Gaussian(0.3))
 
         roi.fit(use_gradient=True)
         roi.fit_extension(which='source')
@@ -224,10 +225,10 @@ class PointlikeTest(unittest.TestCase):
         roi.fit(use_gradient=True)
 
         self.compare_model(es_fit,es_mc)
-        compare_spatial_model(es_fit,es_mc,roi.lsigma)
+        self.compare_spatial_model(es_fit,es_mc,roi.lsigma)
 
-        roi.assertGreater(roi.TS(which='source'),25,'The source should be significant')
-        roi.assertGreater(roi.TS_ext(which='source'),25,'And significantly extended')
+        self.assertTrue(roi.TS(which='source')>25,'The source should be significant')
+        self.assertTrue(roi.TS_ext(which='source')>25,'And significantly extended')
 
         es_mc.spatial_model.save_template('$SIMDIR/extended_template.fits')
 
@@ -238,14 +239,13 @@ class PointlikeTest(unittest.TestCase):
         )
 
         roi.del_source(which='source')
-        roi.add_source(which=template_source)
+        roi.add_source(template_source)
 
         roi.fit()
 
         self.compare_model(template_source,es_mc)
 
-        roi.assertGreater(roi.TS(which='source'),25,'Make sure these functions work similary with spatial_map')
-        roi.assertGreater(roi.TS_ext(which='source'),25,'ditto.')
+        self.assertTrue(roi.TS(which='template_source')>25,'Make sure these functions work similary with spatial_map')
 
 
     #@unittest.skip("skip")
@@ -267,14 +267,13 @@ class PointlikeTest(unittest.TestCase):
         point_sources=[ps_fit]
 
         roi = PointlikeTest.get_roi('point_test',center,point_sources,diffuse_sources)
+        global roi_pt;roi_pt=roi # helps with debugging
 
         roi.fit(use_gradient=True)
         roi.localize(update=True)
         roi.fit(use_gradient=True)
 
-
         self.compare_model(ps_fit,ps_mc)
-
         self.compare_spatial_model(ps_fit,ps_mc,roi.lsigma)
 
 if __name__ == '__main__':
