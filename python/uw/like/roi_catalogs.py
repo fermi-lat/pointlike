@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.7 2011/07/21 20:59:10 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.8 2011/07/21 23:02:54 lande Exp $
 
 author: Joshua Lande
 """
@@ -293,7 +293,7 @@ class Catalog2FGL(SourceCatalog):
 
             # remember the fits file template in case the XML needs to be saved out.
             # (for gtlike compatability)
-            self.extended_models[-1].original_template = template
+            self.extended_models[-1].original_template = os.path.join('$LATEXTDIR','Templates',template)
             self.extended_models[-1].original_parameters = self.extended_models[-1].p.copy()
 
         self.extended_models = np.asarray(self.extended_models)
