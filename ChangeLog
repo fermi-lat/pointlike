@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sat Jul 23 19:53:05 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_catalogs.py 
+Log Message:
+bugfix in loading in templates from 2FGL catalog
+    *
+------------------------------------------------------------
 User: burnett  Fri Jul 22 06:55:16 PDT 2011
 pointlike/python/uw/pipeline/pub
 
