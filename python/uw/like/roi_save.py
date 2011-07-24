@@ -1,7 +1,7 @@
 """
 Module to save an ROIAnalysis object to a file and to load it back in.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_save.py,v 1.5 2011/05/31 04:23:58 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_save.py,v 1.6 2011/07/10 09:10:39 lande Exp $
 
 author: Joshua Lande
 """
@@ -78,7 +78,7 @@ def load(filename,**kwargs):
         
         Any additional kwargs is used to modify DataSpecification, SpectralAnalysis,
         and ROIAnalysis objects."""
-    d=cPickle.load(open(filename,'r'))
+    d=cPickle.load(open(os.path.expandvars(filename),'r'))
 
     # restore previous LATEXTDIR if it is not already set
     if not os.environ.has_key('LATEXTDIR') and d['LATEXTDIR'] not in [None,{}]:
