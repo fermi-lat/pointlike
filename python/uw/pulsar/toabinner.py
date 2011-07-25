@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toabinner.py,v 1.1 2011/04/27 18:32:03 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toabinner.py,v 1.2 2011/06/18 00:17:10 kerrm Exp $
 
 handle binning of data for extraction of TOAs
 
@@ -38,11 +38,29 @@ class UniformLogBinner(TOABinner):
     """ Uses the information in the profile to bin the data in uniform "log drops".
         This is based on a likelihood ratio test for the pulsation significance
         and should do a good job of dividing the data up into regions that give
-        approximately equal power in estimating a TOA."""
+        approximately equal power in estimating a TOA.
+        
+        Note on the formulation below --
+        The null hypothesis is uniform emission, so the log likelihood for
+        this hypothesis is just n_photons*log(constant) = constant.  So the choice
+        of constant just sets the 0 point, and it's convenient to have
+        everything positive.  For an unweighted profile, this means taking the
+        log of the minimum of the alternate hypothesis, or 1 - norm.
+        
+        For the weighted likelihood, there isn't a closed form for the min,
+        so we just subtract off the empirical min."""
     
     def make_edges(self):
         phases,weights,mjds = self.data.ph,self.data.weights,self.data.mjds
-        logs = np.log(self.template(phases)) -np.log(1-self.template.norm())
+        if (weights is None): 
+            logs = np.log(self.template(phases))
+            if self.template.norm() < 1:
+                logs -= np.log(1-self.template.norm())
+            else: # for KD etc. where the DC component isn't analytic
+                logs -= logs.min()
+        else:
+            logs = np.log(1+weights*(self.template(phases)-1))
+            logs -= logs.min()
         delta = logs.sum()/self.ntoa
         my_delta = 0
         index = 1

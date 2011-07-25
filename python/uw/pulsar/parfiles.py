@@ -144,22 +144,32 @@ class ParFile(dict):
         return freq
 
     def eval_phase(self,times,degree=None,t0=None):
-        if degree is None:
-            degree = self.degree
-        if t0 is None:
-            t0 = self.get('PEPOCH',type=np.longdouble)
+        degree = degree or self.degree
+        if t0 is None: t0 = self.get('PEPOCH',type=np.longdouble)
         else: t0 = np.asarray(t0,dtype=np.longdouble)
         times = np.asarray(times,dtype=np.longdouble)
         dts = (times-t0)*86400
         multi = dts.copy()
         phase = np.zeros_like(times)
         for i in xrange(0,degree+1):
-            tterm = self.get('F%d'%i,type=np.longdouble)
-            print tterm,multi[0]
-            phase += tterm*multi
+            phase += self.get('F%d'%i,type=np.longdouble)*multi
             multi *= (dts/(i+2))
-        return phase
 
+        # glitch part
+        # NB -- no exponential recovery supported (yet)
+        for i in xrange(10):
+            if 'GLEP_%d'%i not in self.keys(): continue
+            g0 = np.asarray(self.get('GLEP_%d'%i,type=np.longdouble))
+            if 'GLPH_%d'%i in self.keys():
+                phase += self.get('GLPH_%d'%i,type=np.longdouble)
+            dts = (times - g0)*86400
+            multi = dts.copy()
+            for j in xrange(3):
+                key = 'GLF%d_%d'%(j,i)
+                if key in self.keys():
+                    phase += self.get(key,type=np.longdouble)*multi
+                    multi *= (dts/(j+2))
+        return phase
 
     def write(self,output):
         f = file(output,'w')
@@ -221,6 +231,60 @@ def shift_pepoch2(self,newepoch):
 
     return mat,phi
 
+def post_glitch(self,update=False):
+    """ Develop new parameters for a solution good only after a glitch.
+        Has a rather limited range of parameters it will work for."""
+    t0 = self.get('PEPOCH',type=float)
+    g0 = self.get('GLEP_1',type=float)
+    dt = float(g0-t0)
+    deg = self._calc_degree()
+    # TODO -- make sure it keeps phasing consistent
+    fact = lambda x: float(reduce(lambda x,y: x*y,xrange(1,1+x)))
+    # step 1 --- evolve the Taylor terms to glitch epoch
+    terms0 = np.asarray([self.get('F%i'%i,type=float) for i in xrange(deg+1)])
+    shifts = np.zeros(deg+1,dtype=float)
+    for i in xrange(deg+1):
+        for j in xrange(i+1,deg+1):
+            shifts[i] += terms0[j]*dt**(j-i)/fact(j-i)
+    # step 2 -- add in any glitch terms
+    for i in xrange(deg+1):
+        key = 'GLF%d_1'%(i)
+        if key in self.keys():
+            shifts[i] += self.get(key,type=float)
+    terms1 = terms0+shifts
+    # step 3 -- now evolve backwards to period epoch
+    shifts = np.zeros(deg+1,dtype=float)
+    dt = -dt
+    for i in xrange(deg+1):
+        for j in xrange(i+1,deg+1):
+            shifts[i] += terms1[j]*dt**(j-i)/fact(j-i)
+    terms2 = terms1+shifts
+    if update:
+        for i in xrange(deg+1):
+            self.set('F%d'%i,terms2[i])
+        for key in self.keys():
+            if key[:2]=='GL':
+                self.pop(key)
+                self.ordered_keys.remove(key)
+    return terms2
+        
+def post_glitch(self,index=1,update=False):
+    t0 = self.get('PEPOCH',type=np.longdouble)
+    g0 = self.get('GLEP_%d'%index,type=np.longdouble)
+    # sample degree # of points
+    #times = (g0-t0+np.arange(self.degree+2))*86400
+    times = (g0+np.arange(self.degree+2))
+    phases = self.eval_phase(times).astype(float)
+    times = (times - t0)*86400
+    coeffs = np.polyfit(times.astype(float),phases,self.degree+1)
+    if update:
+        for i in xrange(self.degree+1):
+            self.set('F%d'%(self.degree-i),coeffs[i])
+        for key in self.keys():
+            if key[:2]=='GL':
+                self.pop(key)
+                self.ordered_keys.remove(key)
+    return coeffs
 
 class TimFile(object):
 
