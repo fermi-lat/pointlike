@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jul 25 12:43:39 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py toabinner.py 
+Log Message:
+Fixed some bugs in toabinner for weighted and KD profiles.
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-36, operation: add
 Package: pointlike
