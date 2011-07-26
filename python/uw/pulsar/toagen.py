@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.3 2011/07/19 00:30:23 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.4 2011/07/21 13:50:17 paulr Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -57,6 +57,7 @@ class TOAGenerator(object):
         toas = np.empty(binner.ntoa)
         err_toas = np.empty(binner.ntoa)
         tim_strings = ['FORMAT 1']
+        self.counter = 0
 
         for ii,(mjdstart,mjdstop) in enumerate(binner):
 
@@ -85,6 +86,7 @@ class TOAGenerator(object):
             toas[ii] = toa
             err_toas[ii] = toa_err
             tim_strings.append(s)
+            self.counter += 1
 
         # Note TOAS in MJD, err_toas in microseconds, tim_strings a line for a FORMAT 1 .tim file
         return toas,err_toas,tim_strings
@@ -98,12 +100,15 @@ class UnbinnedTOAGenerator(TOAGenerator):
         self.prev_peak = self.phi0
         self.phase_drift = False
         self.weights = None
+        self.plot_stem = None
 
     def __toa_error__(self,val,*args):
         f      = self.__toa_loglikelihood__
         delta  = 0.01
-        #print f([val+delta]),f([val-delta])
-        d2 = (f( [val + delta], *args) - 2*f([val], *args) + f( [val - delta], *args))/(delta)**2 #check
+        d2 = (f( [val + delta], *args) - 2*f([val], *args) + f( [val - delta], *args))/(delta)**2
+        if d2 < 0:
+            print 'WARNING! Could not estimate error properly.  Setting to a large value...'
+            return 0.2
         return d2**-0.5
 
     def __toa_loglikelihood__(self,p,*args):
@@ -121,9 +126,8 @@ class UnbinnedTOAGenerator(TOAGenerator):
             # the ephemeris should be good enough that the TOAs don't drift by more than ~0.1 period
             # this allows a good guess at the TOA to prevent a fit to the wrong peak
             
-            fit  = fmin(f,[self.prev_peak],args=(phases,weights),disp=0,ftol=1e-9,full_output=True)
-            #pl.hist(phases,bins=np.linspace(0,1,26),histtype='step')
-            #pl.show()
+            seed = [self.prev_peak]
+            fit  = fmin(f,seed,args=(phases,weights),disp=0,ftol=1e-9,full_output=True)
             jump = abs(self.prev_peak - fit[0][0])/self.mean_err
             if jump > 10:
                 print 'Found a jump, doing a blind search now.'
@@ -137,6 +141,28 @@ class UnbinnedTOAGenerator(TOAGenerator):
                 tau_err = self.__toa_error__(fit[0][0],phases,weights)
                 print 'Peak Shift: %.5f +/- %.5f'%(peak_shift,tau_err)
                 self.phases.append(peak_shift)
+            if self.plot_stem is not None:
+                dom1 = np.linspace(0,1,100)
+                cod1 = np.asarray([f([x],phases,weights) for x in dom1])
+                dom2 = np.linspace(fit[0][0]-0.04,fit[0][0]+0.04,30)
+                cod2 = np.asarray([f([x],phases,weights) for x in dom2])
+                pl.figure(10); pl.clf();
+                ax1 = pl.gca()
+                # calculate coordinates for inset - could be more sophisticated with transAxes
+                ax2 = pl.axes([0.1+0.5*(fit[0][0]<0.5),0.15,0.25,0.25])
+                for i,(dom,cod,ax) in enumerate(zip([dom1,dom2],[cod1,cod2],[ax1,ax2])):
+                    ax.plot(dom,cod)
+                    ax.axvline(fit[0][0],color='red')
+                    ax.axvline(fit[0][0]-tau_err,color='red',ls='--')
+                    ax.axvline(fit[0][0]+tau_err,color='red',ls='--')
+                    if i==1:
+                        ax.xaxis.set_major_locator(pl.matplotlib.ticker.MaxNLocator(4))
+                        ax.axis([dom[0],dom[-1],cod.min(),cod.min()+5])
+                        ax.axhline(cod.min()+0.5,color='blue',ls='--')
+                name = ('%3d'%(self.counter+1)).replace(' ','0')
+                ax1.set_xlabel('(Relative) Phase')
+                ax1.set_ylabel('Negative Log Likelihood')
+                pl.savefig('%s%s.png'%(self.plot_stem,name))
             
         if (not self.good_ephemeris) or self.phase_drift or jump:
             # look for the absolute best fit without any prior information
