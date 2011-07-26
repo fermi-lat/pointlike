@@ -602,9 +602,11 @@ class LCKernelDensity(LCPrimitive):
         shift = self.p[0]
         if shift == 0:  return self.interpolator(phases)
         # think this sign convention consistent with other classes - check.
-        phc = phases.copy() - shift
+        phc = np.mod(phases.copy() - shift,1)
+        """ MTK changed 25 Jul 2011
         if shift >= 0 : phc[phc<0] += 1
         else: phc[phc > 1] -= 1
+        """
         return self.interpolator(phc) 
 
     def to_file(self,output_file):
