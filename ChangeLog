@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jul 25 18:00:12 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcprimitives.py toagen.py 
+Log Message:
+Added routine to plot likelihood surface for each TOA.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jul 25 12:43:39 PDT 2011
 pointlike/python/uw/pulsar
 
