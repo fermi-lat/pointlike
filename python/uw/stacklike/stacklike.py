@@ -1,1551 +1,1539 @@
-"""
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/stacklike/stacklike.py,v 1.8 2010/12/01 19:40:11 mar0 Exp $
-author: M.Roth <mar0@u.washington.edu>
-"""
-
-import numpy as np
-import pylab as py
 import skymaps as s
-import pointlike as pl
-import pyfits as pf
-import glob as glob
-import scipy.integrate as si
-import scipy.optimize as so
-import os as os
-from uw.like import pypsf
+import pylab as py
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+from uw.stacklike.stacklike import *
 from uw.stacklike.angularmodels import *
-from uw.stacklike.CLHEP import HepRotation,Hep3Vector,Photon
-import uw.thb_roi.roi_factory as uf
-import copy as cp
-import uw.like.SpatialModels as us
-import uw.utilities.convolution as uc
-import matplotlib.font_manager
+from uw.utilities.minuit import Minuit
+import uw.utilities.assigntasks as ua
 from uw.like.pycaldb import CALDBManager
+from uw.like.pypsf import CALDBPsf
+from uw.like.quadform import QuadForm,Ellipse
+from uw.stacklike.limits import BayesianLimit
+import scipy.optimize as so
+import scipy.misc as sm
+import scipy.stats as sst
+import scipy.special as spec
+import scipy.integrate as si
+import os as os
+import copy as cp
+import glob as glob
+import time as t
+from ROOT import Double
+import math
+import sys
+import string
+import uw.pulsar.py_exposure as pe
+
+def format_error(v,err):
+    if v>0 and err>0:
+        logz = math.floor(math.log10(err))-1
+        z = 10**logz
+        err = round(err/z)*z
+        v = round(v/z)*z
+        if v>0:
+            return '     %10s    (1 +/- %1.3f)'%(v,err/v)
+        else:
+            return '     %10s    (1 +/- %1.3f)'%(0,0)
+    else:
+        return '     %10s    (1 +/- %1.3f)'%(0,0)
 
 
-#################################################        STACKLIKE         ####################################################
+####################### PSR file naming conventions ######################
 #
-#                           Stacklike is an analysis suite which models angular distributions of photons
-#                           by stacking sources. The angular distributions are then fit to the models
-#                           by maximizing the extended likelihood with respect model parameters. This
-#                           includes the number of photons associated with each submodel (eg PSF parameters
-#                           and # of photons from the PSF). The submodels are defined in angularmodels.py,
-#                           and are combined into a composite model where the overall likelihood is calculated.
-#                           This makes it natural to add additional model components with different angular
-#                           distributions.
+#    pulsar source list text file:
 #
-#                           files:
-#                           stacklike.py     - this file
-#                           angularmodels.py - contains all models, composite models, and fitters
-#                           CLHEP.py         - contains implementation of matrix and vector classes for transforming 
-#                                              photon positions 
-#                           
+#    (psr).txt
+# name     ra     dec
+# PSR0835-4510    128.8357   -45.1863
+#
+#   ft1 files:
+#   (psr)on-ft1.fits
+#   (psr)off-ft1.fits
 #
 
+##############################################  Namespace Defaults #############################################
 
-################################################# HOWTO MAKE SOURCE LISTS #####################################################
-#
-#  simply make a new text file: 'test.txt'
-#
-#  the first line of the file will be ignored so feel free to make a header:
-#
-#         #name    ra    dec
-#         source1  128.8379  -45.1763
-#         source2  0.0000    0.0000
-#         .........................
-#         (und so weiter)
-#
+pulsdir = '/phys/groups/tev/scratch1/users/Fermi/mar0/data/pulsar/'               #directory with pulsar ft1 data
+agndir = '/phys/groups/tev/scratch1/users/Fermi/mar0/data/6.3/'                   #directory with agn ft1 data
+srcdir = '/phys/users/mar0/sourcelists/'                                          #directory with lists of source locations (name ra dec)
+cachedir = '/phys/groups/tev/scratch1/users/Fermi/mar0/cache/'
+pulsars = [('vela',1.0),('gem',1.0)]                                                          #pulsar sourcelist name 
+agnlist = ['agn-psf-study-bright']
+irf = 'P6_v8_diff'
+rd = 180./np.pi
+INFINITY = 1e80
 
+###############################################  CombinedLike Class ############################################
 
-
-################################################## ENVIRONMENT SETUP        ###################################################
-debug=False
-rd = 180./np.pi        #to radians
-monthlist = ['aug2008','sep2008','oct2008','nov2008','dec2008','jan2009','feb2009','mar2009','apr2009'\
-    ,'may2009','jun2009','jul2009','aug2009','sep2009','oct2009','nov2009','dec2009','jan2010','feb2010','mar2010'\
-    ,'apr2010','may2010','jun2010','jul2010']
-CALDBdir = r'd:\fermi/CALDB/v1r1/CALDB/data/glast/lat'
-datadir = r'd:\fermi\data\flight/'                             #directory for FT1 files
-ft2dir = r'd:\fermi\data\flight/'                              #directory for FT2 files
-srcdir = r'd:\common\mar0\sourcelists/'                        #directory for source lists
-files = []                                                     #default list of FT1 file names (minus '-ft1.fits')
-ft2s = []                                                      #default list of FT2 file names (minus '-ft2.fits')
-for month in monthlist:
-    files.append('%s'%month)
-    ft2s.append('%s'%month)
-pulsar=True
-###################################################  START STACKLOADER CLASS ##################################################
-
-##  StackLoader class
-#   
-#   loads a set of photons with instrument coordinate information and stacks them based on a list of sources
-#
-#   usage:
-#
-#   sl = Stackloader(args1)
-#   sl.loadphotons(args2)
-#   
-#
-#   StackLoader contains methods to solve alignment, PSF, and halo parameters
-#   ***************************************************************************
-#   solverot() - outputs the boresight alignment in arcseconds for Rx(x)*Ry(y)*Rz(z)
-#
-#   solvepsf() - fits the parameters of a single King function in a uniform backround
-#
-#   solvehalo() - fits the parameters of a gaussain halo with a PSF and uniform backround
-#
-#   solvedoublepsf() - fits the parameters of two King functions in a uniform backround
-#   !!!Warning: large degeneracy in on-orbit data, only works with very low uniform backround!!!
-class StackLoader(object):
+## Implements the likelihood analysis outlined by Matthew Wood
+## available here: http://fermi-ts.phys.washington.edu/pointlike/common/psf_lnl.pdf
+class CombinedLike(object):
 
 
-    ##  Constructor - sets up sources and pointing history file
-    #   @param lis text file with all the source names, ra's, and dec's
-    #   @param tev University of Washington flag for TEV machines
-    #   @param rot optional rotation information input beforehand (in radians)
-    #   @param files list of filenames in the form ['name1'] corresponding to 'name1-ft1.fits' and 'name1-ft2.fits'
-    #   @param CALDBdr CALDBdir pointlike dir (should be '......./glast/lat/')
-    #   @param ft2dr ft2 file directory
-    #   @param datadr ft1 file directory
-    #   @param srcdr source list directory (ascii file with 'name    ra     dec', first line is skipped)
-    #   @param irf response function of the form 'P?_v?'
+    ## constructor for Combinedlikelihood class
+    #  @param pulsdir pulsar ft1 data directory
+    #  @param agndir agn ft1 data directory
+    #  @param srcdir sourcelist directory (see Stacklike documentation)
+    #  @param pulsars (sourcelist,alpha) names of pulsar list and ratio of on/off pulse
+    #  @param agnlist list of agn sources
+    #  @param irf intial response function
     def __init__(self,**kwargs):
-        self.lis='strong'
-        self.rot=[0,0,0]
-        self.files=files
-        self.CALDBdir=CALDBdir
-        self.datadir=datadir
-        self.srcdir=srcdir
-        self.ft2dir=ft2dir
-        self.binfile=''
-        self.irf = 'P6_v3_diff'
-        self.ctmin=0.4
+        self.pulsdir = pulsdir
+        self.agndir = agndir
+        self.srcdir = srcdir
+        self.pulsars = pulsars
+        self.agnlist = agnlist
+        self.cachedir = cachedir
+        self.irf = irf
+        self.cache = True
+        self.verbose = False
+        self.veryverbose = False
+        self.pulse_ons = []         #pulsar on pulse angular distributions
+        self.pulse_offs = []        #pulsar off pulse angular distributions
+        self.agns = []              #agn angular distributions
+        self.angbins=[]             #angular bins
+        self.midpts = []            #midpoints of angular bins
+        self.ponhists=[]            #pulsar on pulse histograms
+        self.pofhists=[]            #pulsar off pulse histograms
+        self.agnhists=[]            #agn histograms
+        self.nbins = 0              #number of angular bins
+        self.halomodel=''
+        self.haloparams=[]
+        self.ctmin=0.3
         self.ctmax=1.0
-        self.quiet=True
-        self.firstlight = False
-        self.tev = False
-        self.bin=False
-        self.useft2s=True
-
+        self.mode=-1
         self.__dict__.update(kwargs)
-
-        print ''
-        print '**********************************************************'
-        print '*                                                        *'
-        print '*                       STACKLIKE                        *'
-        print '*                                                        *'
-        print '**********************************************************'
-        print 'Using irf: %s'%self.irf
-        print 'Using list: %s.txt'%self.lis
-        print 'Using boresight alignment (in arcsec): Rx=%1.0f Ry=%1.0f Rz=%1.0f'%(self.rot[0]*rd*3600,self.rot[1]*rd*3600,self.rot[2]*rd*3600)
-
-        self.rotang = self.rot
-        self.rot = HepRotation(self.rot,False)
-
-        if self.tev:
-            self.CALDBdir = r'/phys/groups/tev/scratch1/users/Fermi/CALDB/v1r1/CALDB/data/glast/lat/'
-            self.datadir = r'/phys/groups/tev/scratch1/users/Fermi/mar0/data/'
-            self.ft2dir = self.datadir
-            self.srcdir = r'/phys/users/mar0/sourcelists/'
-            self.logfile = open(r'/phys/users/mar0/python/alignment_log.txt','w')
-
-        if not self.firstlight:
-            ftemp = [self.datadir + fil+'-ft1.fits' for fil in self.files]
-            if self.useft2s:
-                self.ft2s = [self.ft2dir + fil+'-ft2.fits' for fil in self.files]
-            else:
-                self.ft2s = []
-            self.files=ftemp
-        else:
-            self.ft2dir = r'd:\common\mar0\data\firstlight/'
-            self.files = [self.ft2dir+'jul2008-ft1.fits']
-            self.ft2s = [self.ft2dir+'jul2008-ft2.fits']
-
-        if self.binfile != '':
-            self.bin = True
-
-        #s.IParams.set_CALDB(self.CALDBdir)
-        #s.IParams.init(self.irf)
-        self.atb = []
-
-        self.psf = pypsf.CALDBPsf(CALDBManager(irf=self.irf))
-        self.ds = []
-        self.diffs =[]
-        self.aeff = []
-        self.photons = []
-        self.offsrc = []
-        self.photoncount=0
-        self.Npsf =0
-        self.Nback =0
-        self.ebar=0
-        self.cls=0
-        self.loadsrclist(self.lis)
-
-    def loadsrclist(self,fname):
-        self.srcs = []
-        sf = file(self.srcdir+fname+'.txt')
-        header = sf.readline()
-        for lines in sf:
-            line = lines.split()
-            ra = float(line[1])
-            dec = float(line[2])
-            sd = s.SkyDir(ra,dec)
-            self.srcs.append(sd)
-
-    ##  loads photons from FT1 file near sources  
-    #   @param minroi min ROI in degrees
-    #   @param maxroi max ROI in degrees
-    #   @param emin minimum energy in MeV
-    #   @param emax maximum energy in MeV
-    #   @param start start time (MET)
-    #   @param stop end time (MET)
-    #   @param cls conversion type: 0=front,1=back,-1=all
-    def loadphotons(self,minroi,maxroi,emin,emax,start,stop,cls):
-        self.start = start
-        self.stop = stop
-        self.atb = []
-        self.ebar=self.ebar*len(self.photons)
-        self.emin=emin
-        self.emax=emax
-        self.minroi = minroi
-        self.maxroi = maxroi
-        self.cls = cls
-        self.eave = np.sqrt(self.emin*self.emax)
-        if self.bin:
-            print 'Applying masks to data'
-            print '**********************************************************'
-            print '%1.0f < Energy < %1.0f'%(self.emin,self.emax)
-            print 'Event class = %1.0f'%(cls)
-            print '**********************************************************'
-
-            self.bpd = s.BinnedPhotonData(self.datadir+self.binfile)
-            self.ebar = 0
-            for bnd in self.bpd:
-                if cls ==0:
-                    catchbad = bnd.event_class()==0 or bnd.event_class()==-2147483648
-                else:
-                    catchbad = bnd.event_class()==1
-                if bnd.emin()<self.eave and bnd.emax()>self.eave and (catchbad or cls==-1):
-                    ebar = np.sqrt(bnd.emin()*bnd.emax())
-                    for src in self.srcs:
-                        wsdl = s.WeightedSkyDirList(bnd,src,self.maxroi/rd)
-                        sds = len(wsdl)
-                        for wsd in wsdl:
-                            self.photons.append(Photon(wsd.ra(),wsd.dec(),ebar,0,cls,[],[],src,wsd.weight()))
-                            self.ebar = self.ebar + wsd.weight()*ebar
-            pcnts = sum([x.weight for x in self.photons])
-            self.photonscount = self.photoncount+pcnts
-            if len(self.photons)==0:
-                print 'No photons!'
-                raise 'No photons!'
-            else:
-                self.ebar = self.ebar/pcnts
-            print '%d photons remain'%pcnts
-            print '**********************************************************'
-        else:
-            print 'Applying masks to data'
-            print '**********************************************************'
-            print '%1.0f < Energy (MeV) < %1.0f'%(self.emin,self.emax)
-            print '%1.2f < Separation (deg) < %1.2f'%(self.minroi,self.maxroi)
-            print '%1.0f < Time < %1.0f'%(start,stop)
-            print 'Event class = %1.0f'%(cls)
-            print '%1.2f < costh < %1.2f'%(self.ctmin,self.ctmax)
-            print '**********************************************************'
-
-            #go through each fits file, mask unwanted events, and setup tables
-            tcuts = np.array([0,0,0,0,0,0,0,0])
-            for ff in self.files:
-                if not self.quiet:
-                    print ff
-                tff = pf.open(ff)
-                ttb = tff[1].data
-                ttb,ttcut = self.mask(ttb,self.srcs,emin,emax,start,stop,self.maxroi,cls)
-                tcuts=tcuts+ttcut
-                self.atb.append(ttb)
-                tff.close()
-            print 'Photon pruning information'
-            print '%d photons available'%tcuts[0]
-            print '---------------------------------------'
-            print '%d cut by time range'%tcuts[1]
-            print '%d cut by energy range'%tcuts[2]
-            print '%d cut by instrument theta'%tcuts[3]
-            print '%d cut by zenith angle'%tcuts[4]
-            print '%d cut by conversion type'%tcuts[5]
-            print '%d cut by proximity to sources'%tcuts[6]
-            print '---------------------------------------'
-            print '%d photons remain'%tcuts[7]
-            print '**********************************************************'
-
-
-            #go through each table and contruct Photon objects
-            for j,tb in enumerate(self.atb):
-                if not self.quiet:
-                    print 'Examining %d events'%len(tb)
-                if len(tb)>0:
-                    if not self.quiet:
-                        if self.useft2s:
-                            print '    *Loading pointing history'
-                            phist = pl.PointingHistory(self.ft2s[j])
-                    if not self.quiet:
-                        print '    *Loading events'
-                    
-                    #iterate over events for photons
-                    for k in range(len(tb)):
-                        event = tb[k]
-                        sd = s.SkyDir(float(event.field('RA')),float(event.field('DEC')))
-                        rsrc = self.srcs[0]
-                        diff = 1e40
-
-                        #associate with a particular source
-                        for src in self.srcs:
-                            diff = sd.difference(src)*rd
-                        
-                            #if photons is not too far away from any source
-                            #add it to the list
-                            if diff<self.maxroi and diff>self.minroi:
-                                time = event.field('TIME')/((stop-start)*1.)
-                                xv = []
-                                zv = []
-                                if self.useft2s:
-                                    pi = phist(time)
-                                    xv = Hep3Vector([])
-                                    zv = Hep3Vector([])
-                                    xax = pi.xAxis()
-                                    zax = pi.zAxis()
-                                    zen = pi.zenith()
-                                    xv(xax)
-                                    zv(zax)
-                                photon = Photon(sd.ra(),sd.dec(),event.field('ENERGY'),time,event.field('CONVERSION_TYPE'),xv,zv,src,ct=np.cos(event.field('THETA')/rd))
-                                self.ebar = self.ebar+event.field('ENERGY')
-                                self.photons.append(photon)
-                                self.photoncount = self.photoncount + 1
-                    if self.useft2s:
-                        del phist #free up memory from pointing history object
-            #del self.atb
-            if len(self.photons)>0:
-                self.ebar = self.ebar/len(self.photons)  #calculate mean energy of photons
-            else:
-                print 'No Photons!'
-                #raise 'No Photons!'
-
-    ## Bins all of the angular separations together in separation
-    def bindata(self):
-        self.getds()
-        hist = np.histogram(self.ds,bins=max(1,int(np.sqrt(len(self.photons)))))
-        diffs = np.sqrt((hist[1][1:]**2+hist[1][:len(hist[1])-1]**2)/2.)*rd   #average separation of each bin is determined by area
-        
-        #free up memory
-        del self.photons
-        del self.ds
-        del self.atb
-        self.photons=[]
-        self.ds=[]
-
-        #single source
-        self.srcs=[s.SkyDir(0,0)]
-        for it2,nums in enumerate(hist[0]):
-            if nums>0:
-                self.photons.append(Photon(diffs[it2],0,self.ebar,0,self.cls,[],[],self.srcs[0],nums))
-        self.bin=True
-        self.getds()
-
-    ## returns number of photons above isotropic component
-    #  @param exp number estimator for the isotropic component
-    def solvenonback(self,exp):
-        self.getds()
-        backd = rd*rd*exp/(self.maxroi*self.maxroi-self.minroi*self.minroi)
-        hexp = np.histogram(self.ds,bins=200)
-        ntot = 0
-        for it,nbin in enumerate(hexp[0]):
-            dA = (hexp[1][it+1]*hexp[1][it+1]-hexp[1][it]*hexp[1][it])
-            ntot = ntot + nbin - backd*dA
-        return ntot
-
-    ## estimates Isotropic component from PSF
-    #  @param func optional custom background component to fit [[angular separations],[counts]]
-    #  @param free free or fix model number estimators
-    #  @param exp specify number estimators
-    def solveback(self,func=[[],[]],free=[True,True],exp=[],model_par=[]):
-
-        #Try to estimate the number of Isotropic photons
-        #by looking at density near tails
-        self.getds()
-        frac = 0.98
-        area = 1-frac*frac
-        density = len(self.ds[self.ds>(frac*self.maxroi/rd)])
-        denback = density*(self.maxroi*self.maxroi-self.minroi*self.minroi)/((self.maxroi**2)*area)
-
-        if denback>len(self.ds):
-            denback = len(self.ds)
-        
-        # setup default or aligned PSF
-        if model_par==[]:
-            psf = self.getpsf()
-            if self.useft2s:
-                psf2 = PSFAlign(lims=[self.minroi/rd,self.maxroi/rd],model_par=self.rotang,free=[False,False,False])
-                psf2.PSF = cp.copy(psf)
-                psf = cp.copy(psf2)
-
-        # setup PSF or aligned PSF with specified parameters
-        else:
-            psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=model_par,free=[False,False])
-            if self.useft2s:
-                psf2 = PSFAlign(lims=[self.minroi/rd,self.maxroi/rd],model_par=self.rotang,free=[False,False,False])
-                psf2.PSF = cp.copy(psf)
-                psf = cp.copy(psf2)
-
-        # setup the models
-        bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
-        cm = CompositeModel()
-        cm.addModel(psf)
-        cm.addModel(bck)
-
-        #if custom background is specified, add it
-        if len(func[0])!=0:
-            bck2 = Custom(lims=[self.minroi/rd,self.maxroi/rd],func=func)
-            cm.addModel(bck2)
-
-        #check to see if number estimators are specified
-        if exp==[]: 
-            if len(cm.models)==2:
-                exp=[len(self.photons)-denback,denback]
-            else:
-                exp=[len(self.photons)-denback,0.,denback]
-        if len(free)!=len(cm.models):
-            free=[True,True,True]
-
-        #maximize the likelihood
-        cm.fit(self.photons,mode=0,quiet=self.quiet,free=free,exp=exp)
-
-        #get parameters and errors
-        self.Npsf = cm.minuit.params[0]
-        self.Nback = cm.minuit.params[1]
-        self.errs = cm.minuit.errors()
-        self.Npsfe = np.sqrt(self.errs[0][0])
-        self.Nbacke = np.sqrt(self.errs[1][1])
-        phs = (self.Npsf+self.Nback)
-        tr = sum([self.errs[i][i] for i in range(len(self.errs))])
-        f1 = self.Npsf/phs
-        f1e = f1*np.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
-        f2 = self.Nback/phs
-        f2e = f2*np.sqrt(self.errs[1][1]/(self.Nback**2)+tr/(phs**2))
-        nonback = self.solvenonback(self.Nback)
-        if not self.quiet:
-            print '**********************************************************'
-            print 'Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
-            print 'Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100)
-            print 'Nsource = %1.0f'%nonback
-            print '**********************************************************'
-        if len(cm.models)==2:
-            if len(psf.model_par)==2:
-                self.il=cm.extlikelihood([self.Npsf,self.Nback,psf.model_par[0],psf.model_par[1]],self.photons)
-            else:
-                self.il=cm.extlikelihood([self.Npsf,self.Nback,psf.model_par[0],psf.model_par[1],psf.model_par[2]],self.photons)
-        else:
-            self.Ncust = cm.minuit.params[2]
-            self.Ncuste = np.sqrt(self.errs[2][2])
-            self.il=cm.extlikelihood([self.Npsf,self.Nback,self.Ncust,psf.model_par[0],psf.model_par[1]],self.photons)
-        self.cm = cm
-
-    ## returns the TS for a point source in a uniform background
-    #  @param ct optionally define the PSF by [R68,R95] in radians, default is the self.irf
-    def TS(self,ct=[]):
-
-        if len(self.photons)==0:
-            return 0
-        if ct==[]:
-            psf = self.getpsf()
-        else:
-            psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25],free=[True,True])
-            psf.fromcontain([ct[0],ct[1]],[0.68,0.95])
-
-        self.solveback(model_par=psf.model_par)
-        cm = CompositeModel()
-
-        back = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
-        cm.addModel(psf)
-        cm.addModel(back)
-        f0 = cm.extlikelihood([0,self.Npsf+self.Nback,psf.model_par[0],psf.model_par[1]],self.photons)
-        f1 = cm.extlikelihood([self.Npsf,self.Nback,psf.model_par[0],psf.model_par[1]],self.photons)
-        return -2*(f1-f0)
-
-    ## Finds boresight alignment solution
-    def solverot(self):
-
-        #estimate Isotropic component
-        self.solveback()
-
-        psfa = PSFAlign(lims=[self.minroi/rd,self.maxroi/rd],free=[True,True,True],ebar=self.ebar,ec=self.cls,irf=self.irf)
-        bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
-        cm = CompositeModel()
-        cm.addModel(psfa)
-        cm.addModel(bck)
-        cm.fit(self.photons,free=[True,True],exp=[self.Npsf,self.Nback],mode=1,quiet=self.quiet)
-        fl = cm.minuit.fval
-        self.Npsf = cm.minuit.params[0]
-        self.Nback = cm.minuit.params[1]
-        self.errs = cm.minuit.errors()
-        self.Npsfe = np.sqrt(self.errs[0][0])
-        self.Nbacke = np.sqrt(self.errs[1][1])
-        self.params=[x*rd*3600 for x in cm.minuit.params[2:]]
-        self.errors=[np.sqrt(self.errs[x+2][x+2])*rd*3600 for x in range(3)]
-        self.il=cm.extlikelihood([self.Npsf,self.Nback,0,0,0],self.photons)
-        for x in range(3):
-            print 'R%d %3.0f +/-%3.0f arcsec'%(x+1,self.params[x],self.errors[x])
-        try:
-            TS = -2*(fl-self.il)
-            print 'Significance of rotation was TS = %d'%TS
-        except:
-            print 'Cannot determine improvement'
-        print 'Expected %d photons, got %d ( %d (%d) + %d (%d) )'%(len(self.photons),int(self.Npsf+self.Nback),int(self.Npsf),int(np.sqrt(self.Npsfe)),int(self.Nback),int(np.sqrt(self.Nbacke)))
-        print 'Called likelihood %d times'%cm.calls
-        self.cm=cm
-
-    ## Finds boresight alignment solution
-    def solvefish(self,freepsf=False):
-
-        #estimate Isotropic component
-        self.solveback()
-
-        psfa = PSFFish(lims=[self.minroi/rd,self.maxroi/rd],free=[freepsf,freepsf,True],ebar=self.ebar,ec=self.cls,irf=self.irf)
-        #print psfa.limits
-        bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
-        cm = CompositeModel()
-        cm.addModel(psfa)
-        cm.addModel(bck)
-        cm.fit(self.photons,free=[True,True],exp=[self.Npsf,self.Nback],mode=1,quiet=self.quiet)
-        fl = cm.minuit.fval
-        self.Npsf = cm.minuit.params[0]
-        self.Nback = cm.minuit.params[1]
-        self.errs = cm.minuit.errors()
-        self.Npsfe = np.sqrt(self.errs[0][0])
-        self.Nbacke = np.sqrt(self.errs[1][1])
-        self.params=[x*rd*3600 for x in cm.minuit.params[4:]]
-        self.errors=[np.sqrt(self.errs[x+2][x+2])*rd*3600 for x in range(1)]
-        self.il=cm.extlikelihood([self.Npsf,self.Nback,psfa.model_par[0],psfa.model_par[1],0],self.photons)
-        for x in range(1):
-            print 'dTh %3.0f +/-%3.0f arcsec'%(self.params[x],self.errors[x])
-        try:
-            TS = -2*(fl-self.il)
-            print 'Significance of rotation was TS = %d'%TS
-        except:
-            print 'Cannot determine improvement'
-        print 'Expected %d photons, got %d ( %d (%d) + %d (%d) )'%(len(self.photons),int(self.Npsf+self.Nback),int(self.Npsf),int(np.sqrt(self.Npsfe)),int(self.Nback),int(np.sqrt(self.Nbacke)))
-        print 'Called likelihood %d times'%cm.calls
-        self.cm=cm
-
-    ## tries to solve parameters for a single King function with Isotropic background
-    #  @param func optional custom background component to fit [[angular separations],[counts]]
-    #  @param free free or fix model number estimators
-    #  @param exp specify number estimators
-    #  @param theta fit theta dependence
-    def solvepsf(self,func=[[],[]],free=[True,True],exp=[],theta=False,outfile=None):
-
-        #estimate Isotropic component
-        self.solveback()
-
-        #solve for PSF parameters
-        psf = self.getpsf(True,theta)
-        sigma = psf.model_par[0]
-        gamma = psf.model_par[1]
-        bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
-        cm = CompositeModel()
-        cm.addModel(psf)
-        cm.addModel(bck)
-
-        #if custom background is specified, add it
-        if len(func[0])!=0:
-            bck2 = Custom(lims=[self.minroi/rd,self.maxroi/rd],func=func)
-            cm.addModel(bck2)
-
-        #check to see if number estimators are specified
-        if exp==[]: 
-            if len(cm.models)==2:
-                exp=[self.Npsf,self.Nback]
-            else:
-                exp=[self.Npsf,0.,self.Nback]
-                free=[True,True,True]
-
-        #check for nearby point sources, add to model
-        if self.offsrc!=[]:
-            for sr in self.offsrc:
-                exp.append(1.)
-                free.append(True)
-                off = OffPsf(lims=bck.lims,model_par=psf.model_par,off=sr)
-                for sr2 in self.srcs:
-                    diff = sr.difference(sr2)*rd
-                    if diff<self.maxroi:
-                        off.addsrc(sr2)
-                cm.addModel(off)
-
-        #fit all free parameters
-        cm.fit(self.photons,free=free,exp=exp,mode=1,quiet=self.quiet)
-
-        #get parameters and errors
-        nm = len(cm.models)
-        fl = cm.minuit.fval
-        self.Npsf = cm.minuit.params[0]
-        self.Nback = cm.minuit.params[1]
-        self.errs = cm.minuit.errors()
-        self.Npsfe = np.sqrt(self.errs[0][0])
-        self.Nbacke = np.sqrt(self.errs[1][1])
-        if nm==3:
-            self.Ncust = cm.minuit.params[2]
-            self.Ncuste = np.sqrt(self.errs[2][2])
-        self.sigma = cm.minuit.params[nm]
-        self.sigmae = np.sqrt(self.errs[nm][nm])
-        self.gamma = cm.minuit.params[nm+1]
-        self.gammae = np.sqrt(self.errs[nm+1][nm+1])
-        if theta:
-            self.ms = cm.minuit.params[nm+2]
-            self.mse = np.sqrt(self.errs[nm+2][nm+2])
-            self.mg = cm.minuit.params[nm+3]
-            self.mge = np.sqrt(self.errs[nm+3][nm+3])
-        self.cov = self.errs[nm][nm+1]
-        if len(cm.models)==2:
-            if theta:
-                self.il=cm.extlikelihood([self.Npsf,self.Nback,sigma,gamma,0.,0.],self.photons)
-            else:
-                self.il=cm.extlikelihood([self.Npsf,self.Nback,sigma,gamma],self.photons)
-        else:
-            if theta:
-                self.il=cm.extlikelihood([self.Npsf,self.Nback,0.,sigma,gamma,0.,0.],self.photons)
-            else:
-                self.il=cm.extlikelihood([self.Npsf,self.Nback,0.,sigma,gamma],self.photons)
-        self.r68 = cm.models[0].rcl(0.68)
-        self.r95 = cm.models[0].rcl(0.95)
-        self.r68e = cm.models[0].clerr(0.68,self.sigmae,self.gammae,self.cov)
-        self.r95e = cm.models[0].clerr(0.95,self.sigmae,self.gammae,self.cov)
-        if (self.r68+self.r68e)>self.r95:
-            self.r68e = self.r95-self.r68
-        if (self.r95-self.r95e)<self.r68:
-            self.r95e = self.r95-self.r68
-        r68o = cm.models[0].recl(0.68,sigma,gamma)
-        r95o = cm.models[0].recl(0.95,sigma,gamma)
-
-        phs = (self.Npsf+self.Nback)
-        tr = sum([self.errs[i][i] for i in range(len(self.errs))])
-        f1 = self.Npsf/phs
-        f1e = f1*np.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
-        f2 = self.Nback/phs
-        f2e = f2*np.sqrt(self.errs[1][1]/(self.Nback**2)+tr/(phs**2))
-        print '**********************************************************'
-        print 'Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
-        print 'Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100)
-        print 'Sigma = %1.3f [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.sigma*rd,self.sigmae/self.sigma,self.irf,self.sigma/sigma)
-        print 'Gamma = %1.2f  [1 +/- %1.2f]        Ratio to %s: (%1.2f)'%(self.gamma,self.gammae/self.gamma,self.irf,self.gamma/gamma)
-        print 'R68   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r68*rd,self.r68e/self.r68,self.irf,self.r68/r68o)
-        print 'R95   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r95*rd,self.r95e/self.r95,self.irf,self.r95/r95o)
-        if theta:
-            print 'ms = %1.4f [1 +/- %1.4f]'%(self.ms,self.mse/abs(cm.minuit.params[nm+2]))
-            print 'mg = %1.4f [1 +/- %1.4f]'%(self.mg,self.mge/abs(cm.minuit.params[nm+3]))
-        self.Ts = -2*(fl-self.il)
-        print 'Significance of psf change was TS = %d'%self.Ts
-        if outfile is not None:
-            print >>outfile,'**********************************************************'
-            print >>outfile,'Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
-            print >>outfile,'Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100)
-            print >>outfile,'Sigma = %1.4f [1 +/- %1.4f] (deg)  Ratio to %s: (%1.2f)'%(self.sigma*rd,self.sigmae/self.sigma,self.irf,self.sigma/sigma)
-            print >>outfile,'Gamma = %1.4f  [1 +/- %1.4f]        Ratio to %s: (%1.2f)'%(self.gamma,self.gammae/self.gamma,self.irf,self.gamma/gamma)
-            print >>outfile,'R68   = %1.4f  [1 +/- %1.4f] (deg)  Ratio to %s: (%1.2f)'%(self.r68*rd,self.r68e/self.r68,self.irf,self.r68/r68o)
-            print >>outfile,'R95   = %1.4f  [1 +/- %1.4f] (deg)  Ratio to %s: (%1.2f)'%(self.r95*rd,self.r95e/self.r95,self.irf,self.r95/r95o)
-            if theta:
-                print >> outfile, 'ms = %1.4f [1 +/- %1.4f]'%(cm.minuit.params[nm+2],np.sqrt(self.errs[nm+2][nm+2])/abs(cm.minuit.params[nm+2]))
-                print >>outfile, 'mg = %1.4f [1 +/- %1.4f]'%(cm.minuit.params[nm+3],np.sqrt(self.errs[nm+3][nm+3])/abs(cm.minuit.params[nm+3]))
-            self.Ts = -2*(fl-self.il)
-            print >>outfile,'Significance of psf change was TS = %d'%self.Ts
-        self.cm=cm
-        if theta:
-            for ct in np.linspace(0.,1.,24):
-                tsig,tgam = ((1-ct)*self.ms+1)*self.sigma*rd,((1-ct)*self.mg+1)*self.gamma
-                r68,r95 = cm.models[0].recl(0.68,tsig,tgam),cm.models[0].recl(0.95,tsig,tgam)
-                print '%1.2f %1.3f %1.2f %1.2f %1.2f'%(ct,tsig,tgam,r68,r95)
-
-    # tries to fit a halo component on top of a PSF defined by 'irf' in a Isotropic background
-    #  @param cust [sigma,gamma] of PSF, where sigma is in radians
-    def solvehalo(self,cust=[],opt=True):
-
-        #estimate Isotropic component
-        self.solvepsf()
-
-        #solve for Halo model component
-        if cust==[]:
-            psf = self.getpsf(opt)
-        else:
-            psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=cust,free=[opt,opt])
-        halo = Halo(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.2/rd])
-        halo.limits=[[psf.model_par[0],2./rd]]
-        bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
-
-        #setup model
-        cm = CompositeModel()
-        cm.addModel(psf)
-        cm.addModel(halo)
-        cm.addModel(bck)
-
-        #fit all free parameters
-        cm.fit(self.photons,free=[True,True,True],exp=[self.Npsf/2.,self.Npsf/2.,self.Nback],mode=1,quiet=self.quiet)
-
-        #get parameters and errors
-        self.errs = cm.minuit.errors()
-        self.Npsf = cm.minuit.params[0]
-        self.Npsfe = np.sqrt(self.errs[0][0])
-        self.Nhalo = cm.minuit.params[1]
-        self.Nhaloe = np.sqrt(self.errs[1][1])
-        self.Nback = cm.minuit.params[2]
-        self.Nbacke = np.sqrt(self.errs[2][2])
-        self.theta = cm.minuit.params[5]
-        self.thetae = np.sqrt(self.errs[5][5])/self.theta
-        self.frac = self.Nhalo*100./(self.Nhalo+self.Npsf)
-        ferr = self.frac*np.sqrt(self.Nhaloe**2/(self.Nhalo**2)+self.Npsfe**2/(self.Npsf**2))
-        self.frace = ferr/self.frac
-        phs = (self.Npsf+self.Nback+self.Nhalo)
-        tr = sum([self.errs[i][i] for i in range(len(self.errs))])
-        f1 = self.Npsf/phs
-        f1e = f1*np.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
-        f2 = self.Nhalo/phs
-        f2e = f2*np.sqrt(self.errs[1][1]/(self.Nhalo**2)+tr/(phs**2))
-        f3 = self.Nback/phs
-        f3e = f3*np.sqrt(self.errs[2][2]/(self.Nback**2)+tr/(phs**2))
-        print '**********************************************************'
-        print 'Npsf  = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
-        print 'Nhalo = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Nhalo,self.Nhaloe/self.Nhalo,f2*100,f2e*100)
-        print 'Nback = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f3*100,f3e*100)
-        print 'Halo width was %1.3f [1 +/- %1.2f] deg'%(self.theta*rd,self.thetae)
-        print 'Halo fraction was %1.0f [1 +/- %1.2f]'%(self.frac,self.frace)
-        fl = cm.minuit.fval
-        null = cm.extlikelihood([self.Npsf,0.,self.Nback,self.sigma,self.gamma,self.theta],self.photons)
-        print 'Significance of Halo was: %1.0f'%(-2*(fl-null))
-        self.cm=cm
-
-    ## tries to fit two King functions in an Isotropic background
-    #  @param func optional custom background component to fit [[angular separations],[counts]]
-    #  @param free free or fix model number estimators
-    #  @param exp specify number estimators
-    def solvedoublepsf(self,func=[[],[]],free=[True,True,True],exp=[]):
-        
-        #estimate uniform Isotropic component
-        self.solveback()
-
-        #solve two King function parameters
-        psf = self.getpsf(True)
-        sigma = psf.model_par[0]
-        gamma = psf.model_par[1]
-        psf2 = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[1.2*psf.model_par[0],0.7*psf.model_par[1]]) #try to separate psfs initially
-        bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
-
-        #setup models
-        cm = CompositeModel()
-        cm.addModel(psf)
-        cm.addModel(psf2)
-        cm.addModel(bck)
-
-        #check for custom background
-        if len(func[0])!=0:
-            bck2 = Custom(lims=[self.minroi/rd,self.maxroi/rd],func=func)
-            cm.addModel(bck2)
-
-        #check for specified estimators
-        if exp==[]: 
-            if cm.models==3:
-                exp=[self.Npsf/2.,self.Npsf/2.,self.Nback]
-                free = [True,True,True]
-            else:
-                exp=[self.Npsf/2.,self.Npsf/2.,self.Nback,0.]
-                free=[True,True,True,True]
-
-        #check for nearby sources, add to model
-        if self.offsrc!=[]:
-            for sr in self.offsrc:
-                exp.append(1.)
-                free.append(True)
-                off = OffPsf(lims=bck.lims,model_par=psf.model_par,off=sr)
-                for sr2 in self.srcs:
-                    diff = sr.difference(sr2)*rd
-                    if diff<self.maxroi:
-                        off.addsrc(sr2)
-                cm.addModel(off)
-
-        #maximize likelihood
-        cm.fit(self.photons,free=free,exp=exp,mode=1,quiet=self.quiet)
-
-        #get parameters and errors
-        nm = len(cm.models)
-        fl = cm.minuit.fval
-        self.Npsf = cm.minuit.params[0]
-        self.Npsf2 = cm.minuit.params[1]
-        self.Nback = cm.minuit.params[2]
-        self.errs = cm.minuit.errors()
-        self.Npsfe = np.sqrt(self.errs[0][0])
-        self.Npsf2e = np.sqrt(self.errs[1][1])
-        self.Nbacke = np.sqrt(self.errs[2][2])
-        if nm==4:
-            self.Ncust = cm.minuit.params[3]
-            self.Ncuste = np.sqrt(self.errs[3][3])
-        self.sigma = cm.minuit.params[nm]
-        self.sigmae = np.sqrt(self.errs[nm][nm])
-        self.gamma = cm.minuit.params[nm+1]
-        self.gammae = np.sqrt(self.errs[nm+1][nm+1])
-        self.sigma2 = cm.minuit.params[nm+2]
-        self.sigmae2 = np.sqrt(self.errs[nm+2][nm+2])
-        self.gamma2 = cm.minuit.params[nm+3]
-        self.gammae2 = np.sqrt(self.errs[nm+3][nm+3])
-        if nm==3:
-            self.il=cm.extlikelihood([self.Npsf,self.Npsf2,self.Nback,sigma,gamma,sigma,gamma],self.photons)
-        else:
-            self.il=cm.extlikelihood([self.Npsf,self.Npsf2,self.Nback,0.,sigma,gamma,sigma,gamma],self.photons)
-
-        if self.gamma>gamma:
-            gsign = '+'
-        else:
-            gsign = '-'
-        if self.sigma>sigma:
-            ssign = '+'
-        else:
-            ssign = '-'
-
-
-        if self.gamma2>gamma:
-            gsign2 = '+'
-        else:
-            gsign2 = '-'
-        if self.sigma2>sigma:
-            ssign2 = '+'
-        else:
-            ssign2 = '-'
-        phs = (self.Npsf+self.Nback+self.Npsf2)
-        tr = sum([self.errs[i][i] for i in range(len(self.errs))])
-        f1 = self.Npsf/phs
-        f1e = f1*np.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
-        f2 = self.Npsf2/phs
-        f2e = f2*np.sqrt(self.errs[1][1]/(self.Npsf2**2)+tr/(phs**2))
-        f3 = self.Nback/phs
-        f3e = f3*np.sqrt(self.errs[2][2]/(self.Nback**2)+tr/(phs**2))
-        print '***************************************'
-        print 'Npsf   = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
-        print 'Npsf2  = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Npsf2,self.Npsf2e/self.Npsf2,f2*100,f2e*100)
-        print 'Nback  = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f3*100,f3e*100)
-        print 'Sigma  = %1.3f [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.sigma*rd,self.sigmae/self.sigma,ssign,100*abs((self.sigma-sigma)/sigma))
-        print 'Gamma  = %1.2f  [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.gamma,self.gammae/self.gamma,gsign,100*abs((self.gamma-gamma)/gamma))
-        print 'Sigma2 = %1.3f [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.sigma2*rd,self.sigmae2/self.sigma2,ssign2,100*abs((self.sigma2-sigma)/sigma))
-        print 'Gamma2 = %1.2f  [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.gamma2,self.gammae2/self.gamma2,gsign2,100*abs((self.gamma2-gamma)/gamma))
-        TS = -2*(fl-self.il)
-        print 'Significance of psf change was TS = %d'%TS
-        self.cm=cm
-
-    ## solvediffuse - use the diffuse background information
-    #  @param fit optimize PSF
-    #  @param exp2 number estimators
-    #  @param free2 for offset point sources, free or fixed number estimators
-    #  @param ptfree free or fix the central PSF number estimator (only estimate diffuse/isotropic)
-    #  @param cust custom [sigma,gamma] for PSF
-    def solvediffuse(self,fit=False,exp2=[],free2=[],ptfree=True,cust=[]):
-        #Try to estimate the number of Isotropic photons
-        #by looking at density near tails
-        ct = ['front','back']
-        self.getds()
-        frac = 0.98
-        area = 1-frac*frac
-        density = len(self.ds[self.ds>(frac*self.maxroi/rd)])
-        denback = density*(self.maxroi*self.maxroi-self.minroi*self.minroi)/((self.maxroi**2)*area)
-        if denback>len(self.ds):
-            denback = len(self.ds)
-        exp=[len(self.ds)-denback,denback/2.,denback/2.]
-
-        diffusefile = '/phys/groups/tev/scratch1/users/Fermi/data/galprop/ring_21month_P6v11.fits'
-        s.EffectiveArea.set_CALDB('/phys/groups/tev/scratch1/users/Fermi/packages/ScienceTools-09-19-00/irfs/caldb/CALDB/data/glast/lat')
-        efa = 'P6_v11_diff_%s'%(ct[self.cls])
-        ltc = '/phys/groups/tev/scratch1/users/Fermi/data/2yr/2years_lt.fits'
-
-        #setup models: PSF, diffuse, and isotropic
-        if cust==[]:
-            psf = self.getpsf(opt=fit)
-        else:
-            psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=cust,free=[fit,fit])
-        sigma = psf.model_par[0]
-        gamma = psf.model_par[1]
-        bck = Diffuse(lims=[self.minroi/rd,self.maxroi/rd],diff=diffusefile,ebar=self.ebar,ltc=ltc,ea=efa)
-        bck2 = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
-        offs = []
-
-        #check for nearby sources
-        for off in self.offsrc:
-            toff = OffPsf(lims=[self.minroi/rd,self.maxroi/rd],model_par=[psf.model_par[0],psf.model_par[1]],off=off)
-            offs.append(toff)
-
-        #add sources to background
-        for src in self.srcs:
-            bck.addsrc(src)
-            for tof in offs:
-                tof.addsrc(src)
-        
-        #setup models
-        cm = CompositeModel()
-        cm.addModel(psf)
-        cm.addModel(bck)
-        cm.addModel(bck2)
-        for tof in offs:
-            cm.addModel(tof)
-        nm = len(cm.models)
-
-        #METHOD1 - no nearby point sources
-        if nm<=3:
-            print exp
-
-            #maximize likelihood
-            cm.fit(self.photons,mode=0,quiet=self.quiet,free=[True,True,True],exp=exp)
-
-            #get parameters and errors
-            self.Npsf = cm.minuit.params[0]
-            self.Nbacki = cm.minuit.params[1]
-            self.Nbackd = cm.minuit.params[2]
-            self.Nback = self.Nbacki+self.Nbackd
-            self.errs = cm.minuit.errors()
-            self.Npsfe = np.sqrt(self.errs[0][0])
-            self.Nbacke = np.sqrt(self.errs[1][1]+self.errs[2][2])
-            self.cm = cm
-            self.sigma = cm.minuit.params[nm]
-            self.sigmae = np.sqrt(self.errs[nm][nm])
-            self.gamma = cm.minuit.params[nm+1]
-            self.gammae = np.sqrt(self.errs[nm+1][nm+1])
-            self.cov = self.errs[nm][nm+1]
-            fl = cm.minuit.fval
-            self.il=cm.extlikelihood([self.Npsf,self.Nbackd,self.Nbacki,sigma,gamma],self.photons)
-            self.r68 = cm.models[0].rcl(0.68)
-            self.r95 = cm.models[0].rcl(0.95)
-            self.r68e = cm.models[0].clerr(0.68,self.sigmae,self.gammae,self.cov)
-            self.r95e = cm.models[0].clerr(0.95,self.sigmae,self.gammae,self.cov)
-            if (self.r68+self.r68e)>self.r95:
-                self.r68e = self.r95-self.r68
-            if (self.r95-self.r95e)<self.r68:
-                self.r95e = self.r95-self.r68
-            r68o = cm.models[0].recl(0.68,sigma,gamma)
-            r95o = cm.models[0].recl(0.95,sigma,gamma)
-
-            phs = (self.Npsf+self.Nback)
-            tr = sum([self.errs[i][i] for i in range(len(self.errs))])
-            f1 = self.Npsf/phs
-            f1e = f1*np.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
-            f2 = self.Nback/phs
-            f2e = f2*np.sqrt(self.errs[1][1]/(self.Nback**2)+tr/(phs**2))
-            print '**********************************************************'
-            print 'Npsf  = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
-            print 'Nback = %1.0f [1 +/- %1.2f]      Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f2*100,f2e*100)
-            print 'Sigma = %1.3f [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.sigma*rd,self.sigmae/self.sigma,self.irf,self.sigma/sigma)
-            print 'Gamma = %1.2f  [1 +/- %1.2f]        Ratio to %s: (%1.2f)'%(self.gamma,self.gammae/self.gamma,self.irf,self.gamma/gamma)
-            print 'R68   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r68*rd,self.r68e/self.r68,self.irf,self.r68/r68o)
-            print 'R95   = %1.2f  [1 +/- %1.2f] (deg)  Ratio to %s: (%1.2f)'%(self.r95*rd,self.r95e/self.r95,self.irf,self.r95/r95o)
-            TS = -2*(fl-self.il)
-            print 'Significance of psf change was TS = %d'%TS
-
-        #METHOD2 - nearby point sources
-        else:
-            left = len(self.ds)-denback
-
-            #get number estimators for nearby sources
-            #if exp == []:
-            #    exp = [left/(nm-2.) for x in range(nm)]
-            #    free = [True for x in range(nm)]
-            #    exp[1]=denback/2.
-            #    exp[2]=denback/2.
-            #    cm.fit(self.photons,mode=0,quiet=self.quiet,free=free,exp=exp)
-            
-            #number estimators are specified
-            #else:
-            #tfile = open('/phys/users/mar0/figures/%s_%d_%d.txt'%(self.lis,self.ebar,self.cls),'w')
-            
-            #calculate photons left for offset sources
-            npsfs = sum(exp2)
-            left = len(self.ds)-npsfs
-            exp2.insert(1,left)
-            exp2.insert(2,0)
-            texp = cp.copy(exp2)
-
-            #setup free estimators
-            free2.insert(0,ptfree)
-            free2.insert(1,True)
-            free2.insert(2,True)
-            print free2,exp2
-
-            #maximize likelihood
-            cm.fit(self.photons,mode=0,quiet=self.quiet,free=free2,exp=exp2)
-            exp2 = cm.minuit.params
-
-
-            #print >>tfile,'pred\tfit\tdiff'
-            #for it5 in range(len(texp)):
-            #    print >>tfile,'%1.4f\t%1.4f\t%1.4f'%(texp[it5],exp2[it5],(exp2[it5]-texp[it5]))
-            #tfile.close()
-
-
-            #get parameters
-            print cm.minuit.params
-            errs = cm.minuit.errors()
-            pars = len(cm.minuit.params)
-            sigma, gamma = cm.minuit.params[pars-2],cm.minuit.params[pars-1]
-            sige, game, cov = np.sqrt(errs[pars-2][pars-2]),np.sqrt(errs[pars-1][pars-1]),errs[pars-2][pars-1]
-            r68n,r95n = cm.models[0].rcl(0.68),cm.models[0].rcl(0.95)
-            r68e,r95e = cm.models[0].clerr(0.68,sige,game,cov),cm.models[0].clerr(0.95,sige,game,cov)
-            print r68n*rd,r68e*rd
-            print r95n*rd,r95e*rd
-
-
-            #for i in range(len(cm.minuit.params)):
-            #    outline = ''
-            #    for j in range(len(cm.minuit.params)):
-            #        outline = outline + '%1.6f\t'%errs[i][j]
-            #    print outline
-            #self.cm = cm
-
-
-    def solvehalolims(self,frac):
-        rf = uf.ROIfactory(binfile='/phys/groups/tev/scratch1/users/Fermi/data/2yr/2years_4bpd.fits',ltcube='/phys/groups/tev/scratch1/users/Fermi/data/2yr/2years_lt.fits',irf='P6_v11_diff')
-        roi = rf('vela')
-        for band in roi.bands:
-            if band.ec==self.cls and self.ebar>band.emin and self.ebar<band.emax:
-                eb = band
-        self.solveback()
-        psf = self.getpsf(False)
-        bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
-        #cm = CompositeModel()
-        #cm.addModel(psf)
-        #cm.addModel(bck)
-        #cm.fit(self.photons,free=[True,True],exp=[self.Npsf,self.Nback],quiet=self.quiet,mode=1)
-        psf2 = psf#PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=psf.model_par,free=[False,False])
-        initial = self.cm.minuit.fval
-
-        uplim=[]
-        thetas = np.arange(-16,6,1)
-        thetas = thetas/8.
-        thetas = 10**(thetas)
-        py.ioff()
-        py.figure(figsize=(8,8))
-        uthetas = []
-        for theta in thetas:
-            if theta>psf2.model_par[0]*rd and theta<self.maxroi:
-                halo = CHalo(lims=[self.minroi/rd,self.maxroi/rd],model_par=[theta/rd],free=[False],energy=self.ebar,ct=self.cls)
-                cm = CompositeModel()
-                cm.addModel(psf2)
-                cm.addModel(bck)
-                cm.addModel(halo)
-                cm.fit(self.photons,free=[True,True,True],exp=[self.Npsf,self.Nback,0],quiet=self.quiet,mode=0)
-                #self.il=cm.minuit.fval
-                #self.errors=cm.minuit.errors()
-                self.Nhalo=cm.minuit.params[2]
-                def like(x):
-                    if x<0 or x>self.Npsf:
-                        return 0.
-                    val = np.exp(cm.minuit.fval-cm.extlikelihood([self.Npsf-x,self.Nback,x,psf2.model_par[0],psf2.model_par[1]],self.photons,True))
-                    #print val
-                    return val
-                
-                def integ(x):
-                    val = si.quad(lambda y:like(y),0,x)[0]
-                    return val
-
-                def contain(x,fnt,ct,limit=False):
-                    ft = integ(x)
-                    if ft/fnt>ct:
-                        return 1.
-                    val = abs(ft/fnt-ct)
-                    print x,val
-                    return val
-
-                fint = integ(self.Npsf)
-                
-                best = so.fmin_powell(lambda x:contain(x,fint,frac),self.Nhalo,maxiter=2,full_output=1,disp=1)
-                upl = best[0]#self.Nhalo+np.sqrt(self.errors[2][2])*2
-                uplim.append(upl/(self.Npsf))
-                uthetas.append(theta)
-                print upl
-                cm.nest=[self.Npsf-best[0],self.Nback,best[0]]
-                self.cm=cm
-                self.makeplot('/phys/users/mar0/figures/uplims_%1.3f_%1.0f_%s_%s_%s.png'%(theta,self.ebar,self.lis,self.irf,halo.name),fig=1)
-        return uthetas,uplim
-
-    ## Makes a plot of all of the models and the angular distribution of photons
-    #  @param name filename of output file
-    #  @param fig fignum of pylab figure, default is 1
-    #  @param bin number of bins for unbinned data
-    #  @param scale makes the x-scale log/linear  ['log','linear']
-    #  @param jac either counts/deg or counts/(deg**2) ['square','linear']
-    #  @param xs x-scale either deg or deg**2 ['linear','square']
-    #  @param outhist creates an output histogram of all models and binned data
-    #  @param stats put statistics on right hand side of the plot
-    def makeplot(self,name='test',fig=-1,bin=25.,scale='log',jac='square',xs='linear',xlims=[],outhist=False,stats=False):
-        #calculate angular separations
-        self.getds()
-
-        if not xlims==[]:
-            self.ds = self.ds[(self.ds>(xlims[0]/rd))&(self.ds<(xlims[1]/rd))]
-
-        #plotting setup
-        bins = bin                       #angular bins
-
-        #figure out scales depending on scale/jacobian parameters
-        if scale == 'log':
-            if xs=='square':
-                jmin = min(self.ds)**2
-                jmax = max(self.ds)**2
-            else:
-                jmin = min(self.ds) 
-                jmax = max(self.ds)
-            mi = np.log10(jmin)
-            ma = np.log10(jmax)
-        else:
-            if xs=='square':
-                jmin = (self.minroi/rd)**2#min(self.ds)**2
-                jmax = (self.maxroi/rd)**2#max(self.ds)**2
-            else:
-                jmin = self.minroi/rd#min(self.ds) 
-                jmax = self.maxroi/rd#max(self.ds)
-            mi = jmin
-            ma = jmax
-        d2 = ma-mi
-        be = np.arange(mi,ma,d2/bins)
-        if be[len(be)-1]-ma<0:
-            be2 = np.append(be,ma)#be[len(be)-1]+d2/bins)
-        else:
-            be2 = np.append(be,ma+d2/bins)
-        if scale =='log':
-            if xs=='square':
-                be3 = np.sqrt(10**(be2))
-                be4 = (10**(be+d2/bins/2))*rd*rd
-            else:
-                be3 = 10**(be2)
-                be4 = (10**(be+d2/bins/2))*rd
-        else:
-            if xs=='square':
-                be3 = np.sqrt(be2)
-                be4 = (be+d2/bins/2)*rd*rd
-            else:
-                be3 = be2
-                be4 = (be+d2/bins/2)*rd
-        py.ioff()
-        if fig ==-1:
-            py.figure(figsize=(8,8))
-        else:
-            py.clf()
-        if scale == 'log':
-            if xs=='square':
-                binning = np.log10(self.ds*self.ds)
-            else:
-                binning = np.log10(self.ds)
-        else:
-            if xs=='square':
-                binning = self.ds*self.ds
-            else:
-                binning = self.ds
-        hist = py.hist(binning,bins=be2,fc='None')
-        py.clf()
-        fits=[]
-        hists=[]
-        errs=[]
-        names=[]                      #names of the various plots
-        ctn=[]
-        names.append('data')
-        
-        setoff = True
-        #retrieve all model names
-        for model in range(len(self.cm.models)):
-            fits.append([])
-            if self.cm.models[model].name=='offpsf':
-                if setoff:
-                    names.append('offpsf')
-                    setoff=False
-            else:
-                names.append(self.cm.models[model].name)
-            if self.cm.models[model].name=='psf':
-                names.append('psf r68')
-                names.append('psf r95')
-                if xs=='square':
-                    ctn.append((self.cm.models[model].rcl(0.68)*rd)**2)
-                    ctn.append((self.cm.models[model].rcl(0.95)*rd)**2)
-                else:
-                    ctn.append(self.cm.models[model].rcl(0.68)*rd)
-                    ctn.append(self.cm.models[model].rcl(0.95)*rd)
-
-
-        fits.append([])
-        names.append('total')
-
-        #fill all model plots
-        for it,ba in enumerate(be):
-            left=be3[it]
-            right=be3[it+1]
-            if jac=='square':
-                area = (right**2-left**2)/(rd**2)
-            else:
-                area = (right-left)/rd
-            for it2,model in enumerate(self.cm.models):
-                fits[it2].append(self.cm.nest[it2]*model.integral(left,right)/model.integral(self.minroi/rd,self.maxroi/rd)/area)
-            fits[len(fits)-1].append(self.cm.integral(left,right,self.minroi/rd,self.maxroi/rd)/area)
-            hists.append(hist[0][it]/area)
-            errs.append(max(min(np.sqrt(hist[0][it])/area,(hist[0][it]/area)*(1.-1.e-15)),1e-40))
-
-        pts=[]
-        pmin,pmax=0.01*min(fits[len(fits)-1]),100*max(fits[len(fits)-1])
-        if stats:
-            py.subplot(2,2,1)
-        else:
-            py.subplot(2,1,1)
-        #plot histogrammed events
-        py.errorbar(be4,hists,yerr=errs,ls='None',marker='None',ecolor='blue',capsize=80./bin)
-        p1 = py.step(be4,hists,where='mid')
-        pts.append(p1[0])
-
-        pcts=0
-
-        setoff = True
-        #plot all models
-        for model in range(len(self.cm.models)):
-            p1 = py.plot(be4,fits[model],self.cm.models[model].mark)
-            if self.cm.models[model].name=='offpsf':
-                if setoff:
-                    pts.append(p1)
-                    setoff=False
-            else:
-                pts.append(p1)
-            if self.cm.models[model].name=='psf':
-                p1 = py.plot([ctn[2*pcts],ctn[2*pcts]],[pmin,pmax],'-.')
-                pts.append(p1)
-                p1 = py.plot([ctn[2*pcts+1],ctn[2*pcts+1]],[pmin,pmax],'-.')
-                pts.append(p1)
-                pcts=pcts+1
-        p1 = py.plot(be4,fits[len(fits)-1],self.cm.mark)
-        pts.append(p1)
-
-        #calculate chisq
-        self.chisq=0.
-        total = fits[len(fits)-1]
-        for it,bin in enumerate(hists):
-            if errs[it]>1e-35:
-                self.chisq = self.chisq + ((bin-total[it])/errs[it])**2
-
-        prop = matplotlib.font_manager.FontProperties(size=9) 
-        #finish up plotting
-        py.legend(pts,names,bbox_to_anchor=(1.1, 1.0),prop=prop)
-        if scale=='log':
-            py.loglog()
-        else:
-            py.semilogy()
-        py.ylim(pmin,pmax)
-        if scale=='log':
-            py.xlim(0.8*min(be4),max(be4)*1.2)
-        else:
-            py.xlim(0,max(be4)*1.01)
-        if xs=='square':
-            py.xlabel(r'$\theta^2\/(\rm{deg^2})$')
-        else:
-            py.xlabel(r'$\theta\/(\rm{deg})$')
-        if jac=='square':
-            py.ylabel(r'$dN/d\theta^2$')
-        else:
-            py.ylabel(r'$dN/d\theta$')
-        py.grid()
-        clas = ['front','back']
-        py.suptitle('%s: Energy(MeV): [%1.0f,%1.0f]\nClass: %s    Costh: [%1.1f,%1.1f]\nChisq: %1.1f / %1.0f dof'%(self.lis,self.emin,self.emax,clas[self.cls],self.ctmin,self.ctmax,self.chisq,len(be2)-1))
-        if stats:
-            py.subplot(2,2,3)
-        else:
-            py.subplot(2,1,2)
-        if scale=='log':
-            py.semilogx()
-        py.plot([0.8*min(be4),max(be4)*1.2],[0,0],'r-')
-        py.errorbar(be4,(np.array(hists)-np.array(total))/np.array(errs),yerr=1,marker='o',ls='None')
-        if scale=='log':
-            py.xlim(0.8*min(be4),max(be4)*1.2)
-        else:
-            py.xlim(0,max(be4)*1.01)
-        py.ylim(-5,5)
-        py.grid()
-        if xs=='square':
-            py.xlabel(r'$\theta^2\/(\rm{deg^2})$')
-        else:
-            py.xlabel(r'$\theta\/(\rm{deg})$')
-        py.ylabel(r'$\frac{\rm{Data}-\rm{Model}}{\sigma}$')
-        head = ''
-        for md in self.cm.models:
-            head = head+'N'+md.name+'\n'
-        for md in self.cm.models:
-            head = head+md.header.replace('\t','\n')
-        data = ''
-        terrs = self.errs
-        for it,pm in enumerate(self.cm.minuit.params):
-            if it<len(self.cm.models):
-                data = data + '%1.0f (%1.0f)\n'%(pm,np.sqrt(terrs[it][it]))
-            else:
-                data = data +'%1.6f (%1.6f)\n'%(pm,np.sqrt(terrs[it][it]))
-        if stats:
-            py.figtext(0.55,0.5,head)
-            py.figtext(0.68,0.5,data)
-        py.savefig(name+'.png')
-
-        if outhist:
-            #dt = np.dtype([('name',np.str_),('values',np.float32,(2,))])
-            output = []
-            headertb = []
-            output.append(be4)
-            headertb.append('xbins')
-            output.append(hists)
-            headertb.append('density')
-            output.append(errs)
-            headertb.append('densunc')
-            for itfit,fit in enumerate(fits):
-                if itfit<(len(fits)-1):
-                    output.append(fit)
-                    headertb.append(self.cm.models[itfit].name)
-                else:
-                    output.append(fit)
-                    headertb.append('TOTAL')
-            output.append(1.*np.array(hist[0]))
-            headertb.append('hist')
-            #print output
-            #outa = np.array(output,dtype=dt)
-            np.save(name+'tb.npy',output)
-            np.save(name+'hdr.npy',headertb)
-
-    ## helper function - cuts unused data
-    #  @param table 'EVENTS' FITS table from FT1 data
-    #  @param srcs list of skymaps::SkyDirs of sources to stack
+        self.TS = 0
+        self.tol = 1e-1
+
+    def __str__(self):
+        verbose = '\n'
+        verbose = verbose + '--------- PSF    -------------\n'
+        verbose = verbose + 'l-edge(deg)  r-edge(deg)    fraction   fraction error\n'
+        for it, x in enumerate(self.psf):
+            tstr = '%8.3g   %8.3g'%(self.angbins[it],self.angbins[it+1]), format_error(self.psf[it],self.psfe[it])
+            verbose = verbose + string.join(tstr) + '\n'
+        verbose = verbose +'\n'
+        verbose = verbose + '--------- Pulsars-------------\n'
+        for it,nj in enumerate(self.Npj):
+            verbose =verbose + 'N(%s) = %1.0f (1 +/- %1.3f)\n'%(self.pulsars[it][0],nj,self.Npje[it]/nj)
+        verbose = verbose + '\n'
+        verbose = verbose + '--------- AGN    -------------\n'
+        for it,nj in enumerate(self.Naj):
+            verbose = verbose + 'Npsf(%s) = %1.0f (1 +/- %1.3f)\n'%(self.agnlist[it],nj,self.Naje[it]/nj)
+            verbose = verbose + 'Niso(%s) = %1.0f (1 +/- %1.3f)\n'%(self.agnlist[it],self.Ni[it],self.Nie[it]/self.Ni[it])
+            if self.halomodel!='' and it==(len(self.Naj)-1):
+                verbose = verbose + 'Nhalo = %1.0f (1 +/- %1.3f)\n'%(self.Nh[it],self.Nhe[it]/self.Nh[it])
+                verbose = verbose + 'Size(deg) = %1.3f\n'%(self.haloparams[0]*rd)
+                verbose = verbose + 'TS = -2(LogL(Nhalo) - LogL(0)) = %1.2f\n'%(self.TS)
+                tspval = self.tspval()
+                verbose = verbose + 'Significance = %1.1f    p-val = %1.4f\n'%(tspval[1],tspval[0])
+            verbose = verbose + '\n'
+        return verbose
+    
+    ######################################################################
+    #          Loads data from FT1 files for stacked sources             #
+    ######################################################################
+    ## loads photons from ft1 and bin the data
+    #  @param minroi minimum angular separation (degrees)
+    #  @param maxroi maximum angular separation (degrees)
     #  @param emin minimum energy (MeV)
     #  @param emax maximum energy (MeV)
-    #  @param start minimum MET
-    #  @param stop maximum MET
-    #  @param rad ROI in degrees around sources
-    #  @param cls conversion type: 0=front,1=back,-1=all
-    def mask(self,table,srcs,emin,emax,start,stop,rad,cls):
-        cuts = [0,0,0,0,0,0]
-        total = len(table)
-        tc = len(table)
+    #  @param tmin minimum time range (MET)
+    #  @param tmax maximum time range (MET)
+    #  @param ctype conversion type (0:front, 1:back, -1:all)
+    def loadphotons(self,minroi,maxroi,emin,emax,tmin,tmax,ctype):
+        self.minroi = minroi
+        self.maxroi = maxroi
+        self.ctype = ctype
+        self.emin=emin
+        self.emax=emax
+        self.ebar=np.sqrt(self.emin*self.emax)
 
-        #make time cuts
-        msk = (table.field('TIME')>start) & (table.field('TIME')<stop)
-        table = table[msk]
-        tc = tc - len(table)
-        cuts[0] = tc
-        tc = len(table)
-        if len(table)>0:
-            #make energy cuts
-            msk = (table.field('ENERGY')>emin) & (table.field('ENERGY')<emax)
-            table = table[msk]
-            tc = tc - len(table)
-            cuts[1] = tc
-            tc = len(table)
-            if len(table)>0:
-                #make instrument theta cuts
-                msk = (table.field('THETA')<(np.arccos(self.ctmin)*rd)) & (table.field('THETA')>(np.arccos(self.ctmax)*rd))
-                table = table[msk]
-                tc = tc - len(table)
-                cuts[2] = tc
-                tc = len(table)
-                if len(table)>0:
-                    #make zenith angle cuts to remove limb photons
-                    msk = table.field('ZENITH_ANGLE')<105
-                    table = table[msk]
-                    tc = tc - len(table)
-                    cuts[3] = tc
-                    tc = len(table)
-                    if len(table)>0:
-                        #optionally cut out conversion type
-                        if cls!=-1:
-                            msk = table.field('CONVERSION_TYPE')==cls
-                            table = table[msk]
-                            tc = tc - len(table)
-                            cuts[4] = tc
-                            tc = len(table)
-                        #make ROI cuts
-                        if len(table)>0:
-                            msk = self.dirmask(srcs[0],rad,table)
-                            for j in range(len(srcs)-1):
-                                msk = msk | self.dirmask(srcs[j+1],rad,table)
-                            table = table[msk]
-                            tc = tc - len(table)
-                            cuts[5] = tc
-        tc = len(table)
-        #display number of photons cut from each step and finally the number of photons examined
-        if not self.quiet:
-            print 'TOTAL: %d    TIMEC: %d    ENERGY: %d    THETA: %d    ZENITH: %d    ECLASS: %d    POS: %d    EXAM: %d'%(total,cuts[0],cuts[1],cuts[2],cuts[3],cuts[4],cuts[5],tc)
-        return table,np.array([total,cuts[0],cuts[1],cuts[2],cuts[3],cuts[4],cuts[5],tc])
-    
+        tag = '%1.2f%1.2f%1.2f%1.2f%1.0f%1.0f%1.0f%1.2f%1.2f'%(minroi,maxroi,emin,emax,tmin,tmax,ctype,self.ctmin,self.ctmax)
 
-    ## direction mask - masks area around sources to speed execution
-    #  @param sd skymaps::SkyDir of source location
-    #  @param deg radius in degrees
-    #  @param tb 'EVENTS' FITS table from FT1 file
-    def dirmask(self,sd,deg,tb):
-        ra,dec=sd.ra(),sd.dec()
+        #load pulsar data
+        thetabar = 0.
+        photons = 0
+        for psr in self.pulsars:
 
-        #does the region overlap the poles?
-        if deg+abs(dec)>90:
-            if dec<0:
-                ldec = dec+deg
-                mask = tb.field('DEC')<ldec
+            if os.path.exists(self.cachedir+'%son%s.npy'%(psr[0],tag)):
+                if self.verbose:
+                    print 'Loaded %s on pulse from cache'%(psr[0])
+                hist = np.load(self.cachedir+'%son%s.npy'%(psr[0],tag))
+                self.pulse_ons.append(hist)
             else:
-                ldec = dec-deg
-                mask = tb.field('DEC')>ldec
+                sl = StackLoader(lis=psr[0],irf=self.irf,srcdir=self.srcdir,useft2s=False,ctmin=self.ctmin,ctmax=self.ctmax)
+                sl.files = [self.pulsdir + psr[0]+ 'on-ft1.fits']
+                sl.loadphotons(minroi,maxroi,emin,emax,tmin,tmax,ctype)
+                sl.getds()
+                photons = photons+len(sl.photons)
+                thetabar = thetabar+sum([p.ct for p in sl.photons])
+                self.pulse_ons.append(np.array(cp.copy(sl.ds)))
+                if self.cache:
+                    np.save(self.cachedir+'%son%s.npy'%(psr[0],tag),np.array(cp.copy(sl.ds)))
+                del sl
+
+            if os.path.exists(self.cachedir+'%soff%s.npy'%(psr[0],tag)):
+                if self.verbose:
+                    print 'Loaded %s off pulse from cache'%(psr[0])
+                hist = np.load(self.cachedir+'%soff%s.npy'%(psr[0],tag))
+                self.pulse_offs.append(hist)
+            else:
+                sl = StackLoader(lis=psr[0],irf=self.irf,srcdir=self.srcdir,useft2s=False,ctmin=self.ctmin,ctmax=self.ctmax)
+                sl.files = [self.pulsdir + psr[0]+ 'off-ft1.fits']
+                sl.loadphotons(minroi,maxroi,emin,emax,tmin,tmax,ctype)
+                photons = photons+len(sl.photons)
+                thetabar = thetabar+sum([p.ct for p in sl.photons])
+                sl.getds()
+                self.pulse_offs.append(np.array(cp.copy(sl.ds)))
+                if self.cache:
+                    np.save(self.cachedir+'%soff%s.npy'%(psr[0],tag),np.array(cp.copy(sl.ds)))
+                del sl
+
+        #load agn data
+        for lists in self.agnlist:
+            if os.path.exists(self.cachedir+'%s%s.npy'%(lists,tag)):
+                if self.verbose:
+                    print 'Loaded %s from cache'%(lists)
+                hist = np.load(self.cachedir+'%s%s.npy'%(lists,tag))
+                self.agns.append(hist)
+            else:
+                sl = StackLoader(lis=lists,irf=self.irf,srcdir=self.srcdir,useft2s=False,ctmin=self.ctmin,ctmax=self.ctmax)
+                sl.files = glob.glob(self.agndir+'*.fits')
+                sl.loadphotons(minroi,maxroi,emin,emax,tmin,tmax,ctype)
+                photons = photons+len(sl.photons)
+                thetabar = thetabar+sum([p.ct for p in sl.photons])
+                sl.getds()
+                self.agns.append(np.array(cp.copy(sl.ds)))
+                if self.cache:
+                    np.save(self.cachedir+'%s%s.npy'%(lists,tag),np.array(cp.copy(sl.ds)))
+                del sl
+        self.thetabar = 0.5*(self.ctmin+self.ctmax) if photons==0 else thetabar/photons
+        self.photons=photons
+            
+
+    ######################################################################
+    #   Bins the FT1 data into angular bins that are adaptive or fixed   #
+    ######################################################################
+    ## adaptively bins angular distributions in angle or sqrt
+    #  @param bins number of angular bins, -1 for sqrt(N) bins
+    def bindata(self,bins=8):
+        alldata = []
+        
+        #determine needed bins by combining all data (except background)
+        chist=[]
+        for puls in self.pulse_ons:
+            for sep in puls:
+                alldata.append(sep)
+                chist.append(1.)
+        for it1,puls in enumerate(self.pulse_offs):
+            for sep in puls:
+                alldata.append(sep)
+                chist.append(-self.pulsars[it1][1])
+        #for sep in self.agns[0]:
+        #    alldata.append(sep)
+        alldata = np.array(alldata)
+        key = np.argsort(alldata)
+        chist = np.array(chist)[key]
+        alldata = alldata[key]
+
+
+        #adaptive binning
+        if bins>0 and len(alldata)>20:
+            chist = np.array([sum(chist[:x+1]) for x in range(len(chist))])
+            chist = chist/max(chist)
+            cumm = np.array([(1.*x+1.)/len(alldata) for x in range(len(alldata))])      #cumulative dist function
+            ct = (1.*np.arange(0,bins+1,1))/bins                                          #cumulative fractions, [0,1/bins,2/bins...(bins-1)/bins]
+            mask = np.array([max(0,len(chist[chist<x])-1) for x in ct])
+            xbins = alldata[mask]#np.array([alldata[max(0,len(chist[chist<x])-1)] for x in ct])         #bin edges corresponding to fractions
+            self.angbins = xbins
+
+        # sqrt(N) binning
         else:
-            if dec<0:
-                cdec = np.cos((dec-deg)/rd)
-                ramin = ra-deg/cdec
-                ramax = ra+deg/cdec
-                decmin = dec-deg
-                decmax = dec+deg
+            if len(alldata)>20:
+                bins = int(np.sqrt(len(alldata)))
             else:
-                cdec = np.cos((dec+deg)/rd)
-                ramin = ra-deg/cdec
-                ramax = ra+deg/cdec
-                decmin = dec-deg
-                decmax = dec+deg
-                   #ramin < 0 go to 360+ramin                              racut                                         deccut
-            mask = ( ((tb.field('RA')>360+ramin)&(ramin<0))  |  ((tb.field('RA')>ramin)&(tb.field('RA')<ramax))  )\
-            & ( (tb.field('DEC')>decmin)&(tb.field('DEC')<decmax) )
-        return mask
+                bins = min(32,int(np.sqrt(len(self.agns[0]))/1.5))
+            xbins = (np.arange(0,bins,1)/(1.*bins))**2
+            if len(alldata)>0:
+                minimum = min(min(alldata),min(self.agns[0]))*rd
+            else:
+                minimum = min(self.agns[0])*rd
+            xbins =  minimum + xbins*(self.maxroi-minimum)
+            self.angbins = xbins/rd
 
-    ##  sets scaled angular deviations for rotated events
-    #   @param x1 x-rotation
-    #   @param y1 y-rotation
-    #   @param z1 z-rotation
-    #def getus(self,x1,y1,z1):
-    #    self.us=[]
-    #    x,y,z=x1/rd/3600.,y1/rd/3600.,z1/rd/3600.
-    #    rot = HepRotation([x,y,z],False)
-    #    for photon in self.photons:
-    #        sig = s.IParams.sigma(float(photon.energy),int(photon.event_class))
-    #        umax = (self.maxroi/sig/rd)
-    #        umax = umax*umax/2
-    #        u = photon.diff(rot)/sig
-    #        u = u*u/2
-    #        self.us.append(u)
+        #did you already do it?
+        if self.ponhists==[]:
+            for it1,puls in enumerate(self.pulse_ons):
+                self.ponhists.append(np.histogram(puls,self.angbins)[0])
+                self.pofhists.append(np.histogram(self.pulse_offs[it1],self.angbins)[0])
+            for it1,agns in enumerate(self.agns):
+                self.agnhists.append(np.histogram(agns,self.angbins)[0])
 
-    #sets angular deviations
-    def getds(self):
-        if self.ds==[]:
-            for photon in self.photons:
-                if self.bin:
-                    u = photon.srcdiff()
-                    for k in range(int(photon.weight)):
-                        self.ds.append(u)
-                else:
-                    if self.useft2s:
-                        u = photon.diff(self.rot)
+        self.angbins = self.angbins*rd           #convert to degrees
+        self.nbins = len(self.angbins)-1         #lop of bin edge for bin center
+        self.iso = np.array([(self.angbins[it+1]**2-self.angbins[it]**2)/(max(self.angbins)**2-min(self.angbins)**2) for it in range(self.nbins)])  #isotropic model
+        self.midpts = np.array([(self.angbins[it+1]+self.angbins[it])/2. for it in range(self.nbins)])           #bin midpoint
+        self.widths = np.array([(self.angbins[it+1]-self.angbins[it])/2. for it in range(self.nbins)])           #bin widths
+        self.areas = np.array([self.angbins[it+1]**2-self.angbins[it]**2 for it in range(self.nbins)])           #jacobian
+        self.hmd = np.zeros(self.nbins)
+
+    ######################################################################
+    #    Generate the profile likelihood in one parameter                #
+    ######################################################################
+    def profile(self,ip,x,**kwargs):
+        self.__dict__.update(kwargs)
+        if np.isscalar(x):
+            params = cp.copy(self.params)
+            params[ip] = x
+            fixed = cp.copy(self.fixed)
+            fixed[ip] = True
+
+            self.minuit = Minuit(self.likelihood,params,#gradient=self.gradient,force_gradient=1,
+                                 fixed=fixed,limits=self.limits,strategy=2,tolerance=self.tol,printMode=self.mode)
+            self.minuit.minimize()
+            return self.minuit.fval
+        else:
+            params = cp.copy(self.params)
+            vals = []
+            for xval in x:
+                params[ip] = xval
+                fixed = cp.copy(self.fixed)
+                fixed[ip] = True
+
+                self.minuit = Minuit(self.likelihood,params,#gradient=self.gradient,force_gradient=1,
+                                     fixed=fixed,limits=self.limits,strategy=2,tolerance=self.tol,printMode=self.mode)
+                self.minuit.minimize()
+                vals.append(self.minuit.fval)
+            return np.array(vals)
+
+    ######################################################################
+    #    Sets up Minuit and determines maximum likelihood parameters     #
+    ######################################################################
+    ## maximizes likelihood
+    # possible keyword arguments
+    # @param halomodel string corresponding to any angular model in angularmodels.py
+    # @param haloparams array of model parameters for halomodel
+    def fit(self,**kwargs):
+        self.__dict__.update(kwargs)
+
+        psrs = ''
+        for psl in self.pulsars:
+            psrs = psrs + '%s\t'%psl[0]
+
+        agns = ''
+        for agnl in self.agnlist:
+            agns = agns + '%s\t'%agnl
+
+        pars = ''
+        for par in self.haloparams:
+            pars = pars + '%1.6f\t'%par
+
+        if self.verbose:
+            print ''
+            print '**********************************************************'
+            print '*                                                        *'
+            print '*             Combined Likelihood Analysis               *'
+            print '*                                                        *'
+            print '**********************************************************'
+            print 'Pulsars: %s'%psrs
+            print 'AGNs: %s'%agns
+            print 'Using halo model: %s'%self.halomodel
+            print 'Using parameters: %s'%pars
+            print '**********************************************************'
+
+        psf = CALDBPsf(CALDBManager(irf=self.irf))
+        fint = psf.integral(self.ebar,self.ctype,max(self.angbins)/rd,min(self.angbins)/rd)
+        self.psfm = np.array([psf.integral(self.ebar,self.ctype,self.angbins[it+1]/rd,self.angbins[it]/rd)/fint for it in range(self.nbins)])
+
+        #set up initial psf parameters (uniform)
+        self.params = [self.psfm[x] for x in range(self.nbins-1)]
+        self.limits = [[-1,1] for x in range(self.nbins-1)]
+        self.fixed = [False for x in range(self.nbins-1)]
+
+        alims = sum([sum(agnhist) for agnhist in self.agnhists])
+
+        psrs = len(self.ponhists)
+        agns = len(self.agnhists)
+
+        #pulsar estimators
+        for hist in self.ponhists:
+            self.params.append(sum(hist)/2.)
+            self.limits.append([0,sum(hist)*100])
+            self.fixed.append(False)
+
+        #agn estimators
+        for hist in self.agnhists:
+            self.params.append(alims/2.)
+            self.limits.append([0,alims*100])
+            self.fixed.append(False)
+
+            #iso estimator
+            self.params.append(1.)
+            self.limits.append([0,alims*100])
+            self.fixed.append(len(self.agnhists)==0)
+
+        self.Nh=[0 for agn in self.agnlist]
+        self.Nhe=[0 for agn in self.agnlist]
+        if self.halomodel=='':
+            self.hmd=np.zeros(self.nbins)
+        else:
+            halomodel = eval(self.halomodel)
+            if self.haloparams[0]<0:
+                return INFINITY
+            mod = halomodel(lims=[min(self.angbins)/rd,max(self.angbins)/rd],model_par=self.haloparams)
+            mint = mod.integral(min(self.angbins)/rd,max(self.angbins)/rd)
+            self.hmd = np.array([mod.integral(self.angbins[it]/rd,self.angbins[it+1]/rd)/mint for it in range(self.nbins)])
+            self.hmd = self.hmd/sum(self.hmd)
+
+        for it,agn in enumerate(self.agnlist):
+            self.params.append(self.Nh[it])
+            self.limits.append([0,alims*100])
+            self.fixed.append(not(self.halomodel!='' and it==(len(self.agnlist)-1)))
+        if self.verbose:
+            print 'Setting up Minuit and maximizing'
+        ############  setup Minuit and optimize  ###############
+        self.minuit = Minuit(self.likelihood,self.params,#gradient=self.gradient,force_gradient=1,
+                             fixed=self.fixed,limits=self.limits,strategy=2,tolerance=self.tol,printMode=self.mode)
+        self.minuit.minimize()
+        if self.verbose:
+            print 'Likelihood value: %1.1f'%self.minuit.fval
+            print '**********************************************************'
+        #self.gradient(self.minuit.params,True)
+        ###########  get parameters and errors #################
+
+        self.cov = self.minuit.errors()
+        self.errs = np.sqrt(np.diag(self.cov))
+        self.params = cp.copy(self.minuit.params)
+
+        """if any(self.errs<0):
+            self.minuit.minuit.mnmnos()
+            self.errs = []
+            for it in range(len(self.minuit.params)):
+                eplus,eminus,ecurv,gcc = Double(),Double(),Double(),Double()
+                self.minuit.minuit.mnerrs(it,eplus,eminus,ecurv,gcc)
+                self.errs.append(float(ecurv))
+            self.errs = np.array(self.errs)"""
+
+        #for i in range(len(self.minuit.params)):
+        #    print '%12.4g +/- %12.4g'%(self.minuit.params[i], self.errs[i])
+
+        #for i in range(len(self.cov)):
+        #    for j in range(len(self.cov[i])):
+        #        print '%12.4g'%self.cov[i][j],
+        #    print
+
+        #if any(self.errs<0):
+        self.errs2 = [self.errors(it) for it in range(len(self.minuit.params))]#self.errs[it][it] for it in range(len(self.minuit.params))]
+        #self.errs2 = self.errs
+        self.errs2 = [self.finderrs(it) for it in range(len(self.minuit.params))]
+        self.errs=np.sqrt(self.errs2)
+
+        #scale = sum(self.psf)                                                                                          #normalize psf
+        nmu = self.nbins - 1        
+        self.psf = self.params[:nmu]
+        self.psfe = np.array([self.errs[i] for i in range(nmu)])                             #PSF errors
+        # Compute the value and error of the nth PSF weight
+        self.psf = np.append(self.psf,[1-np.sum(self.psf)])
+        dxdmu = np.zeros(len(self.params))
+        dxdmu[:nmu] = -1
+        mun_err = np.sqrt(np.dot(np.dot(self.cov,dxdmu),dxdmu))        
+        self.psfe = np.append(self.psfe,[mun_err])
+
+        self.Npj  = self.params[nmu:nmu+psrs] #PSR number est
+        self.Npje = self.errs[nmu:nmu+psrs]         #PSR number est errors
+        self.Naj  = self.params[nmu+psrs:nmu+psrs+agns]   #AGN number est
+        self.Naje = self.errs[nmu+psrs:nmu+psrs+agns]           #AGN number errors
+        self.Ni   = self.params[nmu+psrs+agns:nmu+psrs+agns+agns] #isotropic number est
+        self.Nie  = self.errs[nmu+psrs+agns:nmu+psrs+agns+agns]         #isotropic number est errors
+        
+        if self.halomodel!='':
+            self.Nh  = self.params[nmu+psrs+agns+1:]  #halo est
+            self.Nhe = self.errs[nmu+psrs+agns+1:]           #halo err                               #halo err
+
+
+        #for it in range(len(self.params)):
+        #    print np.sqrt(self.errs[it][it]),np.sqrt(self.errs2[it])
+
+        """seps = np.arange(-2.0,2.1,0.1)
+        py.figure(figsize=(16,16))
+        rows = int(np.sqrt(len(self.params)))+1
+
+        for it in range(len(self.params)):
+            py.subplot(rows,rows,it+1)
+            er = np.zeros(len(self.params))
+            er[it] = np.sqrt(self.errs2[it])
+            like = []
+            for x in seps:
+                modif = self.params+er*x
+                tlike = self.minuit.fval-self.likelihood(modif)
+                like.append(tlike)
+            py.plot(seps,like)
+        py.savefig('likes.png')"""
+
+        ########  calculate background estimators  ###########
+        self.vij = []
+        self.vije = []
+
+        #loop over pulsars
+        for it1,row in enumerate(self.ponhists):
+
+            tvij = []
+            tvije = []
+            N = self.Npj[it1]               #pulsar number estimator
+            a = self.pulsars[it1][1]        #ratio of on-off
+
+            #loop over angular bins
+            for it2,n in enumerate(row):
+                #n on pulse in current bin
+                m = self.psf[it2]                                        #PSF in current bin
+                b = self.pofhists[it1][it2]                              #off pulse in current bin
+                v = self.backest(a,n,b,m,N)                              #background number estimator
+                tvij.append(v)
+
+                #estimate errors by propagation
+                dvdm = sm.derivative(lambda x: self.backest(a,n,b,x,N),m,m/10.)   #background/psf derivative
+                dvdN = sm.derivative(lambda x: self.backest(a,n,b,m,x),N,N/10.)   #background/psr number estimator derivative
+                cov = self.cov[it2][nmu+it1]                              #covariance of psf and number estimator
+                Ne = self.Npje[it1]
+                me = self.psfe[it2]
+                ve = np.sqrt((dvdm*me)**2+(dvdN*Ne)**2)      #naive error propagation
+                tvije.append(ve)
+
+            self.vij.append(tvij)
+            self.vije.append(tvije)
+
+        self.vij = np.array(self.vij)                                        #PSR background number estimator
+        self.vije = np.array(self.vije)                                      #PSR background number estimator errors
+
+        return self.minuit.fval
+
+    #######################################################################
+    #                  Summary of Likelihood Analysis                     #
+    #######################################################################
+    ## printResults() - summary
+    def printResults(self):
+        print str(self)
+
+    ######################################################################
+    #      Likelihood function from (3) in paper                         #
+    ######################################################################
+    ## likelihood function
+    #  @param params likelihood function parameters
+    def likelihood(self,params,verb=False):#npij,bpij,naij,mi,Npj,Naj,Ni,Nh=0):
+
+        psrs = len(self.ponhists)
+        agns = len(self.agnhists)
+
+        npij = self.ponhists
+        bpij = self.pofhists
+        naij = self.agnhists
+
+        nmu = self.nbins - 1
+
+        mi = params[:nmu]
+        Npj = params[nmu:nmu+psrs]
+        Naj = params[nmu+psrs:nmu+psrs+agns]
+        Ni = params[nmu+psrs+agns:nmu+psrs+agns+agns]
+        Nh = params[nmu+psrs+agns+agns:]
+        acc = 0
+        #set to true for slow,verbose output
+
+        mi = np.append(mi,[1-np.sum(mi)])
+        if self.veryverbose:
+            print '**************************************************************'
+            print '--------------------------------------------------------------'
+            print '                        Pulsars                               '
+            print '--------------------------------------------------------------'
+            print 'mu\tn\tb\tNi\tvi\tmod\tcont1\tcont2\tacc'
+
+        ########################################
+        #          first sum in (3)            #
+        ########################################
+        #loop over pulsars
+        for it1,row in enumerate(npij):
+            if self.veryverbose:
+                print '--------------------------------------------------------------'
+                print '                        %s                               '%self.pulsars[it1][0]
+                print '--------------------------------------------------------------'
+            N = Npj[it1]                    #pulsar number estimator
+            a = self.pulsars[it1][1]        #ratio of on-off
+
+            #loop over angular bins
+            for it2,n in enumerate(row):
+                #n on pulse in current bin
+                m = mi[it2]                                     #PSF in current bin
+                b = bpij[it1][it2]                              #off pulse in current bin
+
+                v = self.backest(a,n,b,m,N)                     #get background estimator
+
+                #catch negative log terms
+                lterm = N*m+a*v
+                if lterm <0. or v<0.:
+                    print lterm,v
+                    return INFINITY
+
+                cont1 = -n*np.log(lterm) if n>0 else 0
+                cont1 = cont1 + N*m + a*v
+                acc = acc + cont1
+
+                cont2 = -b*np.log(v) if b>0 else 0
+                cont2 = cont2 + v
+                acc = acc + cont2
+
+                if self.veryverbose:
+                    print '%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f'%(m,n,b,N*m,a*v,lterm,cont1,cont2,acc)
+                    t.sleep(0.25)
+        
+        if self.veryverbose:
+            print '--------------------------------------------------------------'
+            print '                        AGN                                   '
+            print '--------------------------------------------------------------'
+            print 'mu\tn\tNi\tIi\tHi\tlterm\tcont1\tacc'
+        ########################################
+        #         second sum in (3)            #
+        ########################################
+        #loop over agn
+        for it1,row in enumerate(naij):
+
+            if self.veryverbose:
+                print '--------------------------------------------------------------'
+                print '                        %s                               '%self.agnlist[it1]
+                print '--------------------------------------------------------------'
+            #loop over angular bins
+            for it2,bin in enumerate(row):
+
+                #make sure log term is proper
+                lterm = Naj[it1]*mi[it2]+Ni[it1]*self.iso[it2] + Nh[it1]*self.hmd[it2]
+                if lterm<0.:
+                    return INFINITY
+
+                cont1 = -bin*np.log(lterm) if bin>0 else 0
+                cont1 = cont1 + Naj[it1]*mi[it2] + Ni[it1]*self.iso[it2] + Nh[it1]*self.hmd[it2]
+                acc = acc + cont1
+
+                if self.veryverbose:
+                    print '%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f'%(mi[it2],bin,Naj[it1]*mi[it2],Ni[it1]*self.iso[it2],Nh*self.hmd[it2],lterm,cont1,acc)
+                    t.sleep(0.25)
+        return acc
+
+    ######################################################################
+    #      Find single or double PSF fits to fractions                   #
+    ######################################################################
+    ## finds sigma gamma and fraction
+    # @param double fits a double PSF
+    def fitpsf(self,double=False):
+        psf = CALDBPsf(CALDBManager(irf='P6_v11_diff'))
+        de = 0.45
+        if double:
+            if psf.newstyle:
+                nc,nt,gc,gt,sc,st,w = psf.get_p(self.ebar,self.ctype)
+                pars = [sc[0],gc[0],st[0],gt[0],nc[0]]
+                lims = [[0,100],[1,100],[0,100],[1,100],[0.5-de,0.5+de]]
+            else:
+                gc,si,w = psf.get_p(self.ebar,self.ctype)
+                pars = [si[0],gc[0]*1.2,si[0],gc[0]*0.8,0.5]
+                lims = [[0,100],[1,100],[0,100],[1,100],[0.5-de,0.5+de]]
+        else:
+            if psf.newstyle:
+                nc,nt,gc,gt,sc,st,w = psf.get_p(self.ebar,self.ctype)
+                pars = [sc[0],gc[0]]
+                lims = [[0,100],[1,100]]
+            else:
+                gc,si,w = psf.get_p(self.ebar,self.ctype)
+                pars = [si[0],gc[0]]
+                lims = [[0,100],[1,100]]
+        tmin = Minuit(lambda x: self.psfchisq(x),pars,limits=lims,printMode=-1,up=1,strategy=1)
+        tmin.minimize()
+        print tmin.params
+        print tmin.fval
+        if not double:
+            psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin.params)
+            print psf1.rcl(0.68),psf1.rcl(0.95)
+            print psf.inverse_integral(self.ebar,self.ctype,68.),psf.inverse_integral(self.ebar,self.ctype,95.)
+        else:
+            psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin.params[0:2])
+            psf2 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin.params[2:4])
+            alph = tmin.params[4]
+            #print psf1.rcl(0.68),psf1.rcl(0.95)
+            print alph*psf1.rcl(0.68)+(1-alph)*psf2.rcl(0.68),alph*psf1.rcl(0.95)+(1-alph)*psf2.rcl(0.95)
+            print psf.inverse_integral(self.ebar,self.ctype,68.),psf.inverse_integral(self.ebar,self.ctype,95.)
+        return np.insert(tmin.params,0,self.ebar)
+
+
+    ######################################################################
+    #      Find single or double PSF fits to fractions                   #
+    ######################################################################
+    ## finds sigma gamma and fraction
+    # @param double fits a double PSF
+    def psfchisq(self,pars):
+        psfs = []
+        fints = []
+        psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=[pars[0],pars[1]])
+        fint1 = psf1.integral(psf1.lims[0],psf1.lims[1])
+        psfs.append(psf1)
+        fints.append(fint1)
+        alphas = [1.,0]
+        if len(pars)>2:
+            alphas = [pars[4],1-pars[4]]
+            psf2 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=[pars[2],pars[3]])
+            fint2 = psf1.integral(psf2.lims[0],psf2.lims[1])
+            psfs.append(psf2)
+            fints.append(fint2)
+        tints = np.zeros(self.nbins)
+        for it,psf in enumerate(psfs):
+            cint = alphas[it]*np.array([psf.integral(self.angbins[it2],self.angbins[it2+1])/fints[it] for it2 in range(self.nbins)])
+            tints = tints + cint
+        chisqa = [((tints[it]-self.psf[it])/self.psfe[it])**2 if self.psfe[it]>0 else 0 for it in range(len(tints))]
+        chisq = sum(chisqa)
+        #print pars,chisqa,chisq
+        #t.sleep(0.25)
+        return chisq
+
+
+    ######################################################################
+    #      Makes plots of PSR, AGN fits, PSF and background residuals    #
+    ######################################################################
+    ## outputs a plot of the distributions
+    # @param name output PNG filename
+    def makeplot(self,name):
+        py.ioff()
+        py.figure(1,figsize=(32,16))
+        py.clf()
+    
+        scale = 0.25
+
+        #########  Pulsars  ############
+        ax = py.subplot(2,4,1)
+        ax.set_yscale("log", nonposy='clip')
+        ax.set_xscale("log", nonposx='clip')
+        py.title('Pulsars')
+        names = []
+        pts = []
+        mi = 1e40
+        ma = 0
+        amask = self.areas>0
+        for it,hist in enumerate(self.ponhists):
+            p1 = py.errorbar(self.midpts,(hist)/self.areas,xerr=self.widths,yerr=np.sqrt(hist)/self.areas,marker='o',ls='None')
+            p3 = py.errorbar(self.midpts,(self.Npj[it]*self.psf+self.pulsars[it][1]*self.vij[it])/self.areas,xerr=self.widths,yerr=np.sqrt((self.Npje[it]*self.psf)**2+(self.Npj[it]*self.psfe)**2)/self.areas,marker='o',ls='None')
+            p2 = py.errorbar(self.midpts,(self.pofhists[it])/self.areas,xerr=self.widths,yerr=np.sqrt(self.pofhists[it])/self.areas,marker='o',ls='None')
+            names.append(self.pulsars[it][0]+' ON')
+            pts.append(p1[0])
+            names.append(self.pulsars[it][0]+' model')
+            pts.append(p3[0])
+            names.append(self.pulsars[it][0]+' OFF')
+            pts.append(p2[0])
+            mi = min(mi,max((self.pofhists[it][amask])/self.areas[amask]))
+            ma = max(ma,max((self.Npj[it]*self.psf[amask]+self.pulsars[it][1]*self.vij[it][amask])/self.areas[amask]))
+        py.xlabel(r'$\theta\/(\rm{deg})$')
+        py.ylabel(r'$dN/d\theta^{2}$')
+        py.grid()
+        mi = max(mi,1./max(self.areas[amask]))
+        py.xlim(min(self.midpts-self.widths)*(1-scale),max(self.midpts+self.widths)*(1+scale))
+        py.ylim(0.25*mi,2*ma)
+        py.legend(pts,names,loc=3)
+
+        #########  AGN plots  #############
+        ax = py.subplot(2,4,2)
+        ax.set_yscale("log", nonposy='clip')
+        ax.set_xscale("log", nonposx='clip')
+        py.title('AGN')
+        names = []
+        pts = []
+        for it,hist in enumerate(self.agnhists):
+            model = self.Naj[it]*self.psf+self.Ni[it]*self.iso + self.Nh[it]*self.hmd
+            #print self.Naj[it],self.psf,self.Ni[it],self.iso,self.Nh[0],self.hmd
+            modelerrs = np.sqrt((self.Naj[it]*self.psf/sum(self.psf)*np.sqrt((self.psfe/self.psf)**2+(self.Naje[it]/self.Naj[it])**2))**2+(self.Nie[it]*self.iso)**2+(self.Nhe[it]*self.hmd)**2)
+            back = self.Ni[it]*self.iso
+            backerrs = self.Nie[it]*self.iso
+            p1 = py.errorbar(self.midpts,hist/self.areas,xerr=self.widths,yerr=np.sqrt(hist)/self.areas,marker='o',ls='None')
+            p2 = py.errorbar(self.midpts,(model)/self.areas,xerr=self.widths,yerr=np.sqrt(model)/self.areas,marker='o',ls='None')
+
+            names.append(self.agnlist[it]+' Data')
+            pts.append(p1[0])
+            names.append(self.agnlist[it]+' Model')
+            pts.append(p2[0])
+
+            if self.halomodel!='':
+                #p4 = py.errorbar(self.midpts,self.Nh*self.hmd,xerr=self.widths,yerr=(self.Nhe*self.hmd)/self.areas,marker='o',ls='None')
+                #names.append('Halo')
+                #pts.append(p4[0])
+                p5 = py.errorbar(self.midpts,(self.Nh[it]*self.hmd+self.Ni[it]*self.iso)/self.areas,xerr=self.widths,marker='o',ls='None')
+                names.append('Halo+Iso')
+                pts.append(p5[0])
+            else:
+                p3 = py.errorbar(self.midpts,back/self.areas,xerr=self.widths,yerr=backerrs/self.areas,marker='o',ls='None')
+                names.append(self.agnlist[it]+' Iso')
+                pts.append(p3[0])
+        py.xlabel(r'$\theta\/(\rm{deg})$')
+        py.ylabel(r'$dN/d\theta^{2}$')
+        py.xlim(min(self.midpts-self.widths)*(1-scale),max(self.midpts+self.widths)*(1+scale))
+        if mi==1e40:
+            mi = min(hist[amask]/self.areas[amask])
+        py.ylim(0.25*mi,2*max(hist[amask]/self.areas[amask]))
+        py.grid()
+        py.legend(pts,names,loc=3)
+
+        ############  PSF residuals plot  ###############
+        ax = py.subplot(2,4,3)
+        names = []
+        pts = []
+        ax.set_xscale("log", nonposx='clip')
+        err = np.ones(self.nbins)
+        p1 = py.errorbar(self.midpts,(self.psf-self.psfm)/self.psfm,xerr=self.widths,yerr=self.psfe/self.psfm,ls='None',marker='o')[0]
+        cmask = self.psfe>0
+        chisq = sum(((self.psf[cmask]-self.psfm[cmask])/self.psfe[cmask])**2)
+        
+        py.grid()
+        ma = max(abs((self.psf-self.psfm+self.psfe)/self.psfm))
+        ma = max(ma,max(abs((self.psf-self.psfm-self.psfe)/self.psfm)))
+        py.xlim(min(self.midpts-self.widths)*(1-scale),max(self.midpts+self.widths)*(1+scale))
+        py.ylim(-1.5*ma,1.5*ma)
+        py.legend([p1],['PSF estimator'])
+        py.title('PSF residuals from %s'%self.irf)
+        py.xlabel(r'$\theta\/(\rm{deg})$')
+        py.ylabel(r'$(\rm{Data - Model})/Model$')
+        py.figtext(0.54,0.6,'Chisq (dof) = %1.1f (%1.0f)'%(chisq,self.nbins))
+        
+        ##############  PSR Background estimators  ######
+        ax = py.subplot(2,4,5)
+        ax.set_xscale("log", nonposx='clip')
+        names = []
+        pts = []
+        ma = 0.
+        tchisq = 'Name: Chisq (%d)\n'%self.nbins
+        for it,psr in enumerate(self.pofhists):
+            try:
+                pt1 = py.errorbar(self.midpts,(psr-self.vij[it])/self.vij[it],xerr=self.widths,yerr=self.vije[it]/self.vij[it],ls='None',marker='o')[0]
+                names.append(self.pulsars[it][0])
+                pts.append(pt1)
+                mask = psr>0
+                up = max((psr[mask]-self.vij[it][mask]+self.vije[it][mask])/self.vij[it][mask])
+                down = min((psr[mask]-self.vij[it][mask]-self.vije[it][mask])/self.vij[it][mask])
+                ma = max(ma,up)
+                ma = max(ma,abs(down))
+                cmask = self.vije[it]>0
+                chisq = sum(((psr[cmask]-self.vij[it][cmask])/self.vije[it][cmask])**2)
+                tchisq = tchisq + '%s: %1.1f (%d)\n'%(self.pulsars[it][0],chisq,len(psr[cmask]))
+            except:
+                print 'Bad plotting' 
+        py.grid()
+        py.title('PSR Background Estimator Residuals')
+        py.xlabel(r'$\theta\/(\rm{deg})$')
+        py.ylabel(r'$(\rm{Data - Model})/Model$')
+        py.xlim(min(self.midpts-self.widths)*(1-scale),max(self.midpts+self.widths)*(1+scale))
+        py.ylim(-1.5*ma,1.5*ma)
+        py.figtext(0.15,0.15,tchisq)
+        py.legend(pts,names)
+
+        ##############  PSR model fractional differences  ######
+        ax = py.subplot(2,4,6)
+        ax.set_xscale("log", nonposx='clip')
+        names = []
+        pts = []
+        ma = 0.
+        tchisq='Name: Chisq (%d)\n'%self.nbins
+        for it,psr in enumerate(self.ponhists):
+            try:
+                model = self.Npj[it]*self.psf + self.pulsars[it][1]*self.vij[it]
+                modelerr = np.sqrt((self.Npj[it]*self.psfe)**2 + (self.Npje[it]*self.psf)**2 + (self.pulsars[it][1]*self.vije[it])**2)
+                pt1 = py.errorbar(self.midpts,(psr-model)/model,xerr=self.widths,yerr=modelerr/model,ls='None',marker='o')[0]
+                names.append(self.pulsars[it][0])
+                pts.append(pt1)
+                mask = psr>0
+                up = max((psr[mask]-model[mask]+modelerr[mask])/model[mask])
+                down = min((psr[mask]-model[mask]-modelerr[mask])/model[mask])
+                ma = max(ma,up)
+                ma = max(ma,abs(down))
+                cmask = modelerr>0
+                chisq = sum(((psr[cmask]-model[cmask])/modelerr[cmask])**2)
+                tchisq = tchisq + '%s: %1.1f (%d)\n'%(self.pulsars[it][0],chisq,len(psr[cmask]))
+            except:
+                print 'Bad plotting' 
+        py.grid()
+        py.title('PSR On-pulse Estimator Residuals')
+        py.xlabel(r'$\theta\/(\rm{deg})$')
+        py.ylabel(r'$(\rm{Data - Model})/Model$')
+        py.xlim(min(self.midpts-self.widths)*(1-scale),max(self.midpts+self.widths)*(1+scale))
+        py.ylim(-1.5*ma,1.5*ma)
+        py.figtext(0.35,0.15,tchisq)
+        py.legend(pts,names)
+
+        ##############  AGN model fractional differences  ######
+        ax = py.subplot(2,4,7)
+        ax.set_xscale("log", nonposx='clip')
+        names = []
+        pts = []
+        ma = 0.
+        tchisq='Name: Chisq (%d)\n'%self.nbins
+        for it,agn in enumerate(self.agnhists):
+            try:
+                model = self.Naj[it]*self.psf + self.Ni[it]*self.iso + self.Nh[it]*self.hmd
+                modelerr = np.sqrt((self.Naj[it]*self.psfe)**2 + (self.Naje[it]*self.psf)**2 + (self.Nie[it]*self.iso)**2 + (self.Nhe[it]*self.hmd)**2)
+                pt1 = py.errorbar(self.midpts,(agn-model)/model,xerr=self.widths,yerr=modelerr/model,ls='None',marker='o')[0]
+                names.append(self.agnlist[it])
+                pts.append(pt1)
+                mask = agn>0
+                up = max((agn[mask]-model[mask]+modelerr[mask])/model[mask])
+                down = min((agn[mask]-model[mask]-modelerr[mask])/model[mask])
+                ma = max(ma,up)
+                ma = max(ma,abs(down))
+                cmask = modelerr>0
+                chisq = sum(((agn[cmask]-model[cmask])/modelerr[cmask])**2)
+                tchisq = tchisq + '%s: %1.1f (%d)\n'%(self.agnlist[it],chisq,len(agn[cmask]))
+            except:
+                print 'Bad plotting' 
+        py.grid()
+        py.title('AGN Model Estimator Residuals')
+        py.xlabel(r'$\theta\/(\rm{deg})$')
+        py.ylabel(r'$(\rm{Data - Model})/Model$')
+        py.xlim(min(self.midpts-self.widths)*(1-scale),max(self.midpts+self.widths)*(1+scale))
+        py.ylim(-1.5*ma,1.5*ma)
+        py.legend(pts,names)
+        py.figtext(0.54,0.15,tchisq)
+        py.figtext(0.72,0.35,str(self),fontsize=18)
+        py.savefig(name+'.png')
+
+############################################   Helper functions  ##############################################################
+
+
+    ######################################################################
+    #    Determination of maximum likelihood estimator of vij from (3)   #
+    ######################################################################
+    ## the maximum likelhood estimator of the pulsar background
+    # @param a ratio of on/off phase window             (observation)
+    # @param n number of photons in on window bin       (observation)
+    # @param b bumber of photons in off window bin      (observation)
+    # @param m PSF in bin                               (derived)
+    # @param N number of photons associated with pulsar (derived)
+    def backest(self,a,n,b,m,N):
+
+        sterm = 4*a*(1+a)*b*m*N+(m*N-a*(b+n-m*N))**2    #discriminant
+        #catch negative discriminant
+        if sterm<0.:
+            print 'Unphysical Solution: %1.4f'%sterm
+
+        #calculate background estimator analytically
+        v = a*(b+n)-m*N-a*m*N+np.sqrt(sterm)
+        v = v/(2.*a*(1+a))
+        return v
+
+    ######################################################################
+    #    Gradient of maximum likelihood estimator of vij from (3)        #
+    ######################################################################
+    ## the maximum likelhood estimator of the pulsar background
+    # @param a ratio of on/off phase window             (observation)
+    # @param n number of photons in on window bin       (observation)
+    # @param b bumber of photons in off window bin      (observation)
+    # @param m PSF in bin                               (derived)
+    # @param N number of photons associated with pulsar (derived)
+    def gradback(self,a,n,b,m,N):
+        sterm = 4*a*(1+a)*b*m*N+(m*N-a*(b+n-m*N))**2    #discriminant
+        #catch negative discriminant
+        if sterm<0.:
+            print 'Unphysical Solution: %1.4f'%sterm
+
+        #calculate gradient of background estimator analytically
+        grad1 = -N-a*N+(4*a*(1+a)*b*N+2*(m*N-a*(b+n-m*N))*(N-a*(-N)))/(2*np.sqrt(sterm))    #psf derivative
+        grad2 = -m-a*m+(4*a*(1+a)*b*m+2*(m*N-a*(b+n-m*N))*(m-a*(-m)))/(2*np.sqrt(sterm))    #number estimator derivative
+        v = np.array([grad1,grad2])
+        v = v/(2.*a*(1+a))
+        return v
+
+    ######################################################################
+    #         Gradient of maximum likelihood from (3)                    #
+    ######################################################################
+    ## The gradient of the maximum likelhood estimator
+    # @param params likelihood parameters defined by likelihood function
+    # @param verb verbose slow output of gradient calculation
+    def gradient(self,params,verb=False):
+
+        psrs = len(self.ponhists)
+        agns = len(self.agnhists)
+
+        npij = self.ponhists
+        bpij = self.pofhists
+        naij = self.agnhists
+
+        nmu = self.nbins - 1
+
+        mi = params[:nmu]
+        Npj = params[nmu:nmu+psrs]
+        Naj = params[nmu+psrs:nmu+psrs+agns]
+        Ni = params[nmu+psrs+agns:nmu+psrs+agns+agns]
+        Nh = params[nmu+psrs+agns+agns:]
+
+        mun = 1-np.sum(mi)
+        mi = np.append(mi,[mun])
+        grad = []
+        if verb:
+            print 'Obs\tmod\tfact\tnum\tacc'
+            print '----------------------'
+
+        #PSF gradient
+        for it in range(nmu):
+            acc = 0
+            flag = False
+            
+            #loop over pulsars
+            for it2 in range(psrs):
+                alpha = self.pulsars[it2][1]                                                                                
+                backg = self.backest(alpha,npij[it2][it],bpij[it2][it],mi[it],Npj[it2])                                     #vij
+                denom = Npj[it2]*mi[it]+alpha*backg                                                                         #ith model
+                grad0 = self.gradback(alpha,npij[it2][it],bpij[it2][it],mi[it],Npj[it2])[0]                                 #d(vij)/d(mu_i)
+                estn = self.backest(alpha,npij[it2][nmu],bpij[it2][nmu],mi[nmu],Npj[it2])                                   #vnj
+                gradn = self.gradback(alpha,npij[it2][nmu],bpij[it2][nmu],mi[nmu],Npj[it2])[0]                              #d(vnj)/d(mu_n)
+                denomn = Npj[it2]*mi[nmu]+alpha*estn                                                                        #nth model
+                fact0 = 0 if npij[it2][it]==0 else (Npj[it2]+alpha*grad0)*(npij[it2][it]/(denom) - 1.)                      #ith signal contribution
+                fact1 = 0 if npij[it2][nmu]==0 else -(Npj[it2]+alpha*gradn)*(npij[it2][nmu]/denomn-1.)                      #nth signal contribution
+                fact2 = 0 if bpij[it2][it]==0 else grad0*(bpij[it2][it]/backg-1.)                                           #ith background contribution
+                
+                #catch bad gradients
+                if (denom <=0 and npij[it2][it]>0) or (backg<=0 and bpij[it2][it]>0) or (denomn<=0 and npij[it2][nmu]>0):
+                    flag=True
+                acc = acc + fact0 + fact1 + fact2
+                if verb:
+                    print npij[it2][it],denom,npij[it2][nmu],denomn,bpij[it2][it],backg,acc
+                    t.sleep(0.25)
+
+            #loop over AGN
+            for it2 in range(agns):
+                denom = Naj[it2]*mi[it]+Ni[it2]*self.iso[it]+Nh[it2]*self.hmd[it]                                             #ith model
+                denomn = Naj[it2]*mi[nmu]+Ni[it2]*self.iso[nmu]+Nh[it2]*self.hmd[nmu]                                         #nth model
+                fact0 = 0 if naij[it2][it]==0 else Naj[it2]*(naij[it2][it]/(denom) - 1.)                                    #ith contribution
+                fact1 = 0 if naij[it2][nmu]==0 else -Naj[it2]*(naij[it2][nmu]/denomn - 1.)                                  #nth contribution
+
+                #catch bad gradients
+                if (denom <=0 and naij[it2][it]>0) or (denomn<=0 and naij[it2][nmu]>0):
+                    flag=True
+                acc = acc + fact0 + fact1
+                if verb:
+                    print naij[it2][it],denom,naij[it2][nmu],denomn,acc
+                    t.sleep(0.25)
+
+            if flag:
+                grad.append(-Infinity)
+            else:
+                grad.append(-acc.item())
+            if verb:
+                print '----------------------'
+
+        #Pulsar Number estimator gradient
+        for it2 in range(psrs):
+            alpha = self.pulsars[it2][1]
+            flag = False
+            acc = 0
+            for it in range(self.nbins):
+                denom = Npj[it2]*mi[it]+alpha*self.backest(alpha,npij[it2][it],bpij[it2][it],mi[it],Npj[it2])               #ith model
+                grad1 = self.gradback(alpha,npij[it2][it],bpij[it2][it],mi[it],Npj[it2])[1]                                 #d(vij)/d(Npj)
+                
+                fact = 0 if npij[it2][it]==0 else (mi[it]+alpha*grad1)*(npij[it2][it]/denom - 1.)
+
+                if (denom <=0 and npij[it2][it]>0):
+                    flag=True
+                acc = acc + fact
+                if verb:
+                    print npij[it2][it],denom,mi[it],alpha*grad1,acc
+                    t.sleep(0.25)
+            if flag:
+                grad.append(-INFINITY)
+            else:
+                grad.append(-acc.item())
+            if verb:
+                print '----------------------'
+
+        #AGN number estimator gradient
+        for it2 in range(agns):
+            acc = 0
+            flag = False
+            for it in range(self.nbins):
+                denom = Naj[it2]*mi[it]+Ni[it2]*self.iso[it]+Nh*self.hmd[it]
+                fact = 0 if naij[it2][it]==0 else mi[it]*(naij[it2][it]/denom - 1.)
+                if (denom <=0 and naij[it2][it]>0):
+                    flag=True
+                acc = acc + fact
+                if verb:
+                    print naij[it2][it],denom,acc
+                    t.sleep(0.25)
+            if flag:
+                grad.append(-INFINITY)
+            else:
+                grad.append(-acc.item())
+            if verb:
+                print '----------------------'
+
+        #Isotropic number estimator gradient for AGN
+        for it2 in range(agns):
+            acc = 0
+            flag = False
+            for it in range(self.nbins):
+                denom = Naj[it2]*mi[it]+Ni[it2]*self.iso[it]+Nh*self.hmd[it]
+                fact = 0 if naij[it2][it]==0 else self.iso[it]*(naij[it2][it]/denom - 1.)
+                if (denom <=0 and naij[it2][it]>0):
+                    flag=True
+                acc = acc + fact
+                if verb:
+                    print naij[it2][it],denom,acc
+                    t.sleep(0.25)
+            if flag:
+                grad.append(-INFINITY)
+            else:
+                grad.append(-acc.item())
+            if verb:
+                print '----------------------'
+        
+
+        #Halo number estimator gradient for AGN
+        acc = 0
+        flag = False
+        for it2 in range(agns):
+            for it in range(self.nbins):
+                denom = Naj[it2]*mi[it]+Ni[it2]*self.iso[it]+Nh*self.hmd[it]
+                fact = 0 if naij[it2][it]==0 else self.hmd[it]*(naij[it2][it]/denom - 1.)
+                if (denom <=0 and naij[it2][it]>0):
+                    flag=True
+                acc = acc + fact
+                if verb:
+                    print naij[it2][it],denom,acc
+                    t.sleep(0.25)
+        if flag:
+            grad.append(-INFINITY)
+        else:
+            grad.append(-acc.item())
+        if verb:
+            print '----------------------'
+        
+        return np.array(grad)
+
+    ######################################################################
+    #        Simple Error calculation from likelihood (1D)               #
+    ######################################################################
+    ## Error calculation about the maximum for one parameter (no covariance)
+    # @param num number of parameter to find error
+    def errors(self,num):
+        eig = np.zeros(len(self.minuit.params))
+        eig[num]=1.
+        if self.mode>0:
+            disp = 1
+        else:
+            disp = 0
+        
+        #find points on either side of maximum where likelihood has decreased by 1/2
+        err1 = so.fmin_powell(lambda x: abs(self.likelihood(self.minuit.params+x[0]*eig)-self.minuit.fval-0.5),
+                              [self.minuit.params[num]*0.01],full_output=1,disp=disp)
+        err1 = abs(err1[0])
+        err2 = so.fmin_powell(lambda x: abs(self.likelihood(self.minuit.params-x[0]*eig)-self.minuit.fval-0.5),
+                              [self.minuit.params[num]*0.01],full_output=1,disp=disp)
+        err2 = abs(err2[0])
+
+        #try to catch badly formed likelihood surfaces
+        if self.likelihood(self.minuit.params-err1*eig)==INFINITY:
+            return err2*err2
+        if self.likelihood(self.minuit.params+err2*eig)==INFINITY:
+            return err1*err1
+        return err1*err2
+
+    ######################################################################
+    #      Covariant error estimation from the likelihood surface        #
+    ######################################################################
+    ## Estimates the true error by projecting the surface in multiple dimensions
+    # @param num number of parameter to find error
+    def finderrs(self,num):
+        ma = 0.
+        err = np.sqrt(self.errs2[num])
+        rt = np.sqrt(2)
+
+        #py.figure(2,figsize=(16,16))
+        #py.clf()
+        rows = int(np.sqrt(len(self.minuit.params)))+1
+        #go through all parameters
+        #find the quadratic form of the likelihood surface
+        #determine the increase in the variance from covariance of parameters
+        for it in range(len(self.minuit.params)):
+
+            if it!=num:
+                #py.subplot(rows,rows,it+1)
+                eigx = np.zeros(len(self.minuit.params))
+                eigx[num]=err
+                eigy = np.zeros(len(self.minuit.params))
+                eigy[it]=np.sqrt(self.errs2[it])
+
+                #calulate likelihood along ring around maximum (1-sigma in likelihood)
+                px = (self.likelihood(self.minuit.params+eigx)-self.minuit.fval)
+                pxpy = (self.likelihood(self.minuit.params+(eigx+eigy)/rt)-self.minuit.fval)
+                py1 = (self.likelihood(self.minuit.params+eigy)-self.minuit.fval)
+                mxpy = (self.likelihood(self.minuit.params+(-eigx+eigy)/rt)-self.minuit.fval)
+                mx = (self.likelihood(self.minuit.params-eigx)-self.minuit.fval)
+                mxmy = (self.likelihood(self.minuit.params+(-eigx-eigy)/rt)-self.minuit.fval)
+                my = (self.likelihood(self.minuit.params-eigy)-self.minuit.fval)
+                pxmy = (self.likelihood(self.minuit.params+(eigx-eigy)/rt)-self.minuit.fval)
+                q = [px,pxpy,py1,mxpy,mx,mxmy,my,pxmy]
+                
+                """gridpts = 12
+                minmax = 5.
+                vals = np.arange(-gridpts,gridpts+1,1)
+                vals = vals*minmax/gridpts
+                z = np.array([self.likelihood(self.minuit.params+eigx*x+eigy*y)-self.minuit.fval for x in vals for y in vals]).reshape(len(vals),-1)
+                py.contour(vals,vals,z,[0.5,2.,4.5,8.,12.5])
+                #py.colorbar()
+                py.xlim(-minmax,minmax)
+                py.ylim(-minmax,minmax)"""
+                #find quadratic fit to likelihood surface
+                try:
+                    el = Ellipse(q)
+                    """x,y=el.contour(1/np.sqrt(2))
+                    py.plot(x,y,'-')
+                    ma = max(max(x),max(y))*1.5
+                    py.xlim(min(-2,-ma),max(2,ma))
+                    py.ylim(min(-2,-ma),max(2,ma))"""
+
+
+                    pars = el.qf.p
+                    a,b,c = (pars[0]-pars[4]*pars[4]/(4.*pars[2])),pars[1],(-0.5-pars[3]*pars[3]/(4.*pars[2]))
+
+                    #parameter we're interested in is x-axis
+                    #find the x-value tangent at quadratic surface = 0.5
+                    xmin = abs(-b/(2*a)+np.sqrt(b**2-4*a*c)/(2*a))
+                    ymin = -(pars[3]+pars[4]*xmin)/(2*pars[2])
+                    terr = abs(xmin)
+
+                    #is it the largest?
+                    ma = max(ma,terr)
+
+                    #print xmin,ymin
+                    #t.sleep(0.25)
+                except:
+                    pass
+                    #print 'Caught poorly formed quad surface'
+        #py.savefig('likes%d.png'%num)
+
+        return (ma*err)**2
+
+    def tspval(self):
+        pval = 1-sst.stats.chisqprob(self.TS,2)/2.
+        bestp = so.fmin_powell(lambda x: (spec.erf(x[0]/np.sqrt(2))-pval)**2,[1.],full_output=1,disp=0)
+        return [1.-pval,bestp[0]]
+
+############################################   End of CombinedLike Class ######################################################
+
+
+
+
+############ unit test ##########################
+## test function
+# @param bins number of adaptive bins
+# @param ctype conversion type 0:front, 1:back
+# @param emin minimum energy
+# @param emax maximum energy
+# @param days number of days of data to examine from start of P6 data
+def test(bins=12,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,sel='[0:2]',agnlis=['agn-psf-study-bright'],double=False,ctlim=[0.4,1.0],tol=1e-1):
+    psf = CALDBPsf(CALDBManager(irf=irf))
+    ebar = np.sqrt(emin*emax)
+    psrs = ''
+
+    if maxr<0:
+        maxr = psf.inverse_integral(ebar,ctype,99.5)*1.5             #use 1.5 times the 99.5% containment as the maximum distance
+    cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''),agnlist=agnlis,verbose=True,ctmin=ctlim[0],ctmax=ctlim[1])
+    cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype)
+    cl.bindata(bins)
+    cl.tol=tol
+    f0 = cl.fit()
+    params = cp.copy(cl.fitpsf(double))
+    print str(cl)
+    for psr in cl.pulsars:
+        psrs = psrs + '%s_'%psr[0]
+    #cl.makeplot('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s'%(emin,emax,ctype,maxr,bins,psrs,('').join(cl.agnlist)))
+    # cl
+    return params,cl,f0
+
+def test2(bins=12,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,sel='[0:2]',agnlis=['agn-psf-study-bright'],model='CDisk'):
+    psf = CALDBPsf(CALDBManager(irf=irf))
+    ebar = np.sqrt(emin*emax)
+    if maxr<0:
+        maxr = psf.inverse_integral(ebar,ctype,99.5)*1.5             #use 1.5 times the 99.5% containment as the maximum distance
+    cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''),agnlist=agnlis,verbose=False)
+    cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype)
+    cl.bindata(bins)
+    f0 = cl.fit()
+    print cl
+    fitpars = cl.fitpsf()
+    psrs = ''
+    psfphotons = cl.Naj[0]
+    for psr in cl.pulsars:
+        psrs = psrs + '%s_'%psr[0]
+    agns  = ''
+    for agn in cl.agnlist:
+        agns = agns + '%s_'%agn
+    r05 = psf.inverse_integral(ebar,ctype,5.)
+    r34 = psf.inverse_integral(ebar,ctype,34.)
+    r68 = psf.inverse_integral(ebar,ctype,68.)
+    r95 = psf.inverse_integral(ebar,ctype,95.)
+    r99 = psf.inverse_integral(ebar,ctype,99.)
+    #testr = (r68+r99)/2.
+    nps = 10
+    pts = np.arange(0,nps+1,1)
+    pts = [0.1,0.5,1.0]
+    npars = len(cl.params)
+
+    uplims2 = []
+    uplims1 = []
+    detect = []
+    TSs = []
+    of = open('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/uplimemi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s_%s.txt'%(emin,emax,ctype,maxr,bins,psrs,agns,model),'w')
+    print >>of,'%1.3f'%f0
+    print >>of,'%1.1f'%psfphotons
+    print >>of,'size(rad)\tmaxL\tNha \tcl68\tcl95\tTS'
+    for pt in pts:
+        cl.fit(halomodel=model,haloparams=[pt/rd,ebar,ctype,fitpars[1]/rd,fitpars[2]])
+        print cl
+        lmax = cl.profile(npars-1,cl.Nh[-1])
+        cl.TS = 2*(f0-lmax)
+        TSs.append(cl.TS)
+        #norm = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x)),0,cl.Naj[0])[0]
+        #print norm
+
+        total = cl.Naj[0]+cl.Nh[-1]
+        newbest = so.fmin_powell(lambda x: cl.profile(npars-1,x[0]),[cl.Nh[-1]],disp=0,full_output=1)
+        cl.Nh[-1] = newbest[0]
+        lmax = newbest[1]
+        bestup = so.fmin_powell(lambda x: abs(cl.profile(npars-1,x[0])-lmax-12.5) if x[0]>cl.Nh[-1] else 1e40,[max(max(psfphotons,total),sum(cl.Ni))*100],disp=0,full_output=1)
+        bestlow = so.fmin_powell(lambda x: abs(cl.profile(npars-1,x[0])-lmax-12.5) if x[0]>0 and x[0]<cl.Nh[-1] else 1e40,[0],disp=0,full_output=1)
+        print bestlow[0],bestup[0]
+        fac = bestup[0]#cl.Nh/30. if cl.Nhe>cl.Nh else cl.Nhe
+        dtheta = abs(fac-cl.Nh[-1])/2
+        #xr = np.array([x for x in (cl.Nh+cl.Naj[0]+np.arange(-10,11,1)*fac) if (x>0) ])
+        #if len(xr)<10:
+        #xr = np.arange(0,21,1)
+        #if (cl.Nh+(-10)*(dtheta))<0:
+        #    xr = abs(fac)*xr
+        #else:
+        #    xr = cl.Nh+(xr-10)*(dtheta)
+        xr = np.linspace(bestlow[0] if bestlow[0]>0 else 0,bestup[0],20)
+        fx = np.array([lmax-cl.profile(npars-1,x) for x in xr])
+        print xr
+        print fx
+        cl1 = BayesianLimit(xr,fx).getLimit(0.32)
+        cl2 = BayesianLimit(xr,fx).getLimit(0.05)
+        detect.append(cl.Nh[-1]/(psfphotons))
+        uplims2.append(cl2[0]/(psfphotons))
+        uplims1.append(cl1[0]/(psfphotons))
+        print cl2[0],psfphotons,cl2[0]/(psfphotons)
+        #py.clf()
+        #py.plot(xr,np.exp(fx),'ro')
+        #py.savefig('figures/proftest%1.4f.png'%pt)
+        cl.makeplot('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model))
+        print >>of,'%1.5f\t%1.3f\t%1.4f\t%1.4f\t%1.4f\t%1.3f'%(pt/rd,lmax,cl.Nh[-1],cl1,cl2,cl.TS)
+        #sig1 = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x))/norm,0,cl.Nh+cl.Nhe)[0]
+        #print sig1
+        #sig2 = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x))/norm,0,cl.Nh+2*cl.Nhe)[0]
+        #print sig2
+        #sig3 = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x))/norm,0,cl.Nh+3*cl.Nhe)[0]
+        #print sig3
+        #print norm,sig1,sig2,sig3,cl.Nh,cl.Nhe
+
+    py.figure(10,figsize=(8,8))
+    py.clf()
+    maxts = max(TSs)*1.1
+    maxfrac = max(uplims2)
+    p2=py.plot(pts,np.array(uplims2),'v')
+    p1=py.plot(pts,np.array(uplims1),'v')
+    p5=py.plot(pts,np.array(detect),'o')
+    #p6=py.plot(pts,TSs,'d')
+    p3=py.plot([r68,r68],[0,maxfrac],'r--')
+    p4=py.plot([r95,r95],[0,maxfrac],'r-.')
+    #p7=py.plot([0,max(pts)*1.1],[1,1],'b--')
+    #p8=py.plot([0,max(pts)*1.1],[4,4],'b-.')
+    py.grid()
+    py.xlabel('%s halo size (deg)'%model)
+    py.ylabel('%s halo fraction'%model)
+    py.ylim(0,maxfrac)
+    py.xlim(0,max(pts)*1.1)
+    prop = mpl.font_manager.FontProperties(size=9) 
+    py.legend((p5,p1,p2,p3,p4),(r'hfract',r'68% CL',r'95% CL','%s R68'%irf,'%s R95'%irf),bbox_to_anchor=(1.1, 1.0),prop=prop)
+    py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/uplimemi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s_%s.png'%(emin,emax,ctype,maxr,bins,psrs,agns,model))
+    of.close()
+    #for pt in pts:
+    #    tval = cl.profile(npars-1,pt)
+    #    print pt,(lmax-tval)
+    """cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s'%(emin,emax,ctype,maxr,bins,psrs,cl.agnlist[0]))
+    f1=[]
+    cl.printResults()
+    halorange = np.arange(0.05,maxr,maxr/10.)
+    likes = []
+    nest = []
+    mi = 1e40
+    midx = 0
+    model = 'Gaussian'
+    for num,it in enumerate(halorange):
+        likes.append(cl.fit(halomodel=model,haloparams=[it/rd,ebar,ctype]))
+        nest.append(cl.Nh)
+        print it,nest[num],likes[num]
+        if likes[num]<mi:
+            mi = likes[num]
+            midx = num
+
+    #minu = Minuit(lambda x:cl.fit(halomodel=model,haloparams=[x[0]/rd,ebar,ctype]),[halorange[midx]],limits=[[0,maxr]],steps=[0.0001],printMode=0,strategy=0)
+    #minu.minimize()
+    #minu.errors()
+    bestp = so.fmin_powell(lambda x:cl.fit(halomodel=model,haloparams=[x[0]/rd,ebar,ctype]),(halorange[midx]),full_output=1)
+    cl.printResults()
+    print 'Halo size was: %1.3f'%bestp[0]
+    print 'TS was: %1.2f'%(2*(f0-bestp[1]))
+    cl.TS = 2*(f0-bestp[1])
+    #for it in (np.arange(1.,10.,1.)/10.):
+    #it=bestp[0]
+    #f1.append(cl.fit(halomodel='Halo',haloparams=[it/rd]))
+    cl.likelihood(cl.minuit.params,True)
+    cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s'%(emin,emax,ctype,maxr,bins,bestp[0],psrs,cl.agnlist[0],model))"""
+
+def runall(ctype,bins=12):
+    emins = [100,178,316,562,1000,1778,3162,5623,10000,17783,31623]
+    emaxs = [178,316,562,1000,1778,3162,5623,10000,17783,31623,100000]
+    ctypes = [0,1]
+    irfs = ['P6_v11_diff']#,'P6_v3_diff']
+    sels = ['[0:2]']
+    #models=['Halo','Gaussian']
+    #lists = ['agn_redshift2_lo_bzb','agn_redshift2_hi_bzb']#'tevbzb','1es0229p200','1es0347-121','1es1101-232']
+    lists = ['agn-psf-study-bright']
+    #for model in models:
+    ff = open('/phys/groups/tev/scratch1/users/Fermi/mar0/figures7c/output%d.txt'%ctype,'w')
+    for it,emin in enumerate(emins):
+        #for ctype in ctypes:
+        for sel in sels:
+            for irf in irfs:
+                if emin<10000:
+                    if (emin+ctype*179)<1778:
+                        lis = []
                     else:
-                        u = photon.srcdiff()
-                    self.ds.append(u)
-            self.ds = np.array(self.ds)
-
-    def saveds(self,fname='ds.npy'):
-        if self.ds==[]:
-            self.getds()
-        np.save(fname,self.ds)
-
-    def loadds(self,fname):
-        self.ds = np.load(fname)
-        self.srcs = [s.SkyDir(0,0)]
-        for ang in self.ds:
-            photon = Photon(ang*rd,0,0,0,0,[],[],self.srcs[0])
-            self.photons.append(photon)
-            self.photoncount = self.photoncount+1
-        self.maxroi = max(self.ds)*rd
-        self.minroi = min(self.ds)*rd
-
-    ## returns a PSF object based on containment specified by self.irf
-    #  @param opt frees or fixes PSF parameters
-    def getpsf(self,opt=False,theta=False):
-        self.psf = pypsf.CALDBPsf(CALDBManager(irf=self.irf))
-        if self.cls==-1:
-            r68f=self.psf.inverse_integral(self.ebar,0,68.)/rd
-            r95f=self.psf.inverse_integral(self.ebar,0,95.)/rd
-            r68b=self.psf.inverse_integral(self.ebar,1,68.)/rd
-            r95b=self.psf.inverse_integral(self.ebar,1,95.)/rd
-            r68=np.sqrt(r68f*r68b)
-            r95=np.sqrt(r95f*r95b)
-        else:
-            r68=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),68.)/rd
-            r95=self.psf.inverse_integral(self.ebar,int(self.photons[0].event_class),95.)/rd
-        psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25],free=[opt,opt])
-        factor = 2.
-        psf.fromcontain([1./factor,r95/r68/factor],[0.68,0.95])
-        psf.model_par[0]=psf.model_par[0]*r68*factor
-        if theta:
-            psf = PSFTheta(lims=psf.lims,model_par=[psf.model_par[0],psf.model_par[1],0.,0.],free=[opt,opt,True,True])
-        return psf
-
-    def writebpd(self,bpd=8):
-        binfile = s.BinnedPhotonData(bpd)
-        for photon in self.photons:
-            if self.bin:
-                u = photon.srcdiff()
-            else:
-                if self.useft2s:
-                    u = photon.diff(self.rot)
+                        lis = lists
+                    pars = test(bins=bins,ctype=ctype,emin=emin,emax=emaxs[it],days=730,irf=irf,sel=sel,agnlis=lis,double=False)
                 else:
-                    u = photon.srcdiff()
-            u = u*rd
-            binfile.addPhoton(s.Photon(s.SkyDir(u,0),float(photon.energy),float(photon.time),int(self.cls)))
-        binfile.write('%s_%1.0f_%1.0f_%1.0f.fits'%(self.lis,self.cls,self.emin,self.emax))
-
-
-################################################### END ALIGNMENT CLASS ###########################################
-
-################################################### TEST METHODS  #################################################
-
-
-##   alignment test program
-##   runs on a small set of flight data and uses Crab, Geminga, and Vela as sources
-##   if everything is ok, should return 0
-def test():
-    plr = ''#os.environ['POINTLIKEROOT']
-    fdir = plr+'/phys/users/mar0/pointlikedev/uw/stacklike/boresighttest/'
-    al = StackLoader(lis='cgv',files=['test'],datadir=fdir,ft2dir=fdir,srcdir=fdir,quiet=False,irf='P6_v8_diff')
-    al.loadphotons(0,4,1000,2e4,0,999999999,0)
-    al.solverot()
-    al.makeplot('aligntest')
-    ret = 0
-    if abs(al.params[0]+37)>10:
-        ret = ret + 1
-    if abs(al.params[1]-5)>10:
-        ret = ret + 2
-    if abs(al.params[2]+69)>10:
-        ret = ret + 4
-    if abs(al.errors[0]-54)>10:
-        ret = ret+8
-    if abs(al.errors[1]-51)>10:
-        ret = ret+16
-    if abs(al.errors[2]-84)>10:
-        ret = ret +32
-    return ret
-
-##   psf parameter test program
-##   runs on a small set of flight data and uses Crab, Geminga, and Vela as sources
-##   if everything is ok, should return 0
-def test2(bins=25.):
-    plr = ''#os.environ['POINTLIKEROOT']
-    fdir = plr+'/phys/users/mar0/pointlikedev/uw/stacklike/boresighttest/'
-    os.system('cd %s'%fdir)
-    al = StackLoader(lis='cgv',files=['test'],datadir=fdir,ft2dir=fdir,srcdir=fdir,quiet=False,useft2s=False)
-    al.loadphotons(0,10,1000,1770,0,999999999,0)
-    al.solvepsf()
-    ret=0
-    if (al.sigma*rd-0.149)>1e-3:
-        ret = ret + 1
-    if (al.gamma-1.63)>1e-2:
-        ret = ret + 2 
-    al.makeplot('psftest',bin=bins,scale='log',jac='square',xs='square')
-    return ret
+                    sl = StackLoader(lis=lists[0],irf=irf,srcdir=srcdir,useft2s=False)
+                    sl.files = glob.glob(agndir+'*.fits')
+                    sl.loadphotons(0,3,emin,emaxs[it],0,239557417+730*86400,ctype)
+                    sl.solvepsf()
+                    pars = [sl.ebar,sl.sigma*rd,sl.gamma]#,sl.sigma2*rd,sl.gamma2,sl.Npsf/(sl.Npsf+sl.Npsf2)]
+                print >>ff,'%1.6f\t%1.6f\t%1.6f'%(pars[0],pars[1],pars[2])
+    ff.close()
     
+def runconvolution(model=['CDisk','CHalo']):
+    machines = 'tev01 tev02 tev03 tev04 tev05 tev06 tev07 tev08 tev09 tev10 tev11'.split()
+    engines = 2
+    setup_string = 'import uw.stacklike.binned as ub;reload(ub);from uw.stacklike.binned import *'
+    emins = [1000,1778,3162,5623,10000,17783,31623]#[100,178,316,562,
+    emaxs = [1778,3162,5623,10000,17783,31623,100000]#178,316,562,1000,
+    tasks = ['ub.test2(bins=12,ctype=%d,emin=%d,emax=%d,days=730,irf=\'P6_v3_diff\',maxr=-1,sel=\'[0:2]\',agnlis=[\'%s\'],model=\'%s\')'%(0,emins[x],emaxs[x],lis,mod) for x in range(len(emins)) for lis in ['agn_redshift2_lo_bzb\',\'1es0229p200','agn_redshift2_lo_bzb\',\'1es0347-121','agn_redshift2_lo_bzb\',\'1es1101-232'] for mod in model]
+    print tasks
+    ua.setup_mec(engines=engines,machines=machines)
+    t.sleep(15)
+    logfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/python/mec.log','w')
+    at = ua.AssignTasks(setup_string,tasks,log=logfile,timelimit=10000,progress_bar=True,ignore_exception=True)
+    at(30)
+    ua.kill_mec()
 
-##   background parameter test program
-##   runs on a small set of flight data and uses Crab, Geminga, and Vela as sources
-##   if everything is ok, should return 0
-def test3(bins=25.,stats=True):
-    plr = ''#os.environ['POINTLIKEROOT']
-    fdir = plr+'/phys/users/mar0/pointlikedev/uw/stacklike/boresighttest/'
-    os.system('cd %s'%fdir)
-    al = StackLoader(lis='cgv',files=['test'],datadir=fdir,ft2dir=fdir,srcdir=fdir,quiet=False,useft2s=False)
-    al.loadphotons(0,10,1000,1770,0,999999999,0)
-    al.solveback()
-    ret=0
-    al.makeplot('backtest',bin=bins,scale='log',jac='square',xs='square',stats=stats)
-    return ret
-###################################################################################################
+def MCrun():
+    for i in range(100):
+        cl.ponhists = sst.poisson.rvs(t1,1)
+        cl.pofhists = sst.poisson.rvs(t2,1)
+        cl.agnhists = sst.poisson.rvs(t3,1)
+
+        f0 = cl.fit(halomodel='')
+        f1 = cl.fit(halomodel=model,haloparams=[pt/rd,ebar,ctype,fitpars[1]/rd,fitpars[2]])
+        TS = 2*(f0-f1)
+        cl.TS=TS
+        TSs.append(TS)
+        cl.makeplot('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s%s'%(emin,emax,ctype,maxr,bins,pt,psrs,cl.agnlist[0],model,i))
+        print TS
+
+def makeplots(name,exp=False,ext=''):
+    psf = CALDBPsf(CALDBManager(irf='P6_v11_diff'))
+    if exp:
+        s.EffectiveArea.set_CALDB(os.environ['CALDB']+'/data/glast/lat')
+        ea = s.EffectiveArea('P6_v11_diff_front')
+        ltc = s.LivetimeCube('/phys/groups/tev/scratch1/users/Fermi/mar0/data/pulsar/psr-livetime.fits')
+        exp = s.Exposure(ltc,ea)
+        slist = file('/phys/users/mar0/sourcelists/%s.txt'%name)
+        header = slist.readline()
+        sdlist = [s.SkyDir(float(line.split()[1]),float(line.split()[2])) for line in slist]
+    energy = [1000,1778,3162,5623,10000,17783,31623]
+    np.sort(files)
+    py.figure(9,figsize=(8,8))
+    ctype=0
+    name = ext+name
+    for emi,ema in zip(energy[:-1],energy[1:]):
+        try:
+            ebar = np.sqrt(emi*ema)
+            r05 = psf.inverse_integral(ebar,ctype,5.)
+            r34 = psf.inverse_integral(ebar,ctype,34.)
+            r68 = psf.inverse_integral(ebar,ctype,68.)
+            r95 = psf.inverse_integral(ebar,ctype,95.)
+            r99 = psf.inverse_integral(ebar,ctype,99.)
+            sizes = []
+            det = []
+            cl68 = []
+            cl95 = []
+            fild = glob.glob('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/uplimemi%d_ema%d_ec0_roi*_bins12_vela_gem_%s_CDisk.txt'%(emi,ema,name))[0]
+            filh = glob.glob('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/uplimemi%d_ema%d_ec0_roi*_bins12_vela_gem_%s_CHalo.txt'%(emi,ema,name))[0]
+            fld = file(fild)
+            h1 = fld.readline()
+            agnd = float(fld.readline())
+            h1 = fld.readline()
+            for lines in fld:
+                line = lines.split()
+                sizes.append(float(line[0])*rd)
+                det.append(float(line[2]))
+                cl68.append(float(line[3]))
+                cl95.append(float(line[4]))
+            flh = file(filh)
+            h1 = flh.readline()
+            agnh = float(flh.readline())
+            h1 = flh.readline()
+
+            for lines in flh:
+                line = lines.split()
+                sizes.append(float(line[0])*rd)
+                det.append(float(line[2]))
+                cl68.append(float(line[3]))
+                cl95.append(float(line[4]))
+            if exp:
+                texp = sum([exp.value(sds,ebar) for sds in sdlist])
+                agnh = texp
+                agnd = texp
+
+            maxfrac = max(max(det),max(max(cl68),max(cl95)))/min(agnd,agnh)
+            #except:
+            #print emi,det,cl68,cl95,fild,filh
+            #print sizes
+            sizes = np.array(sizes).reshape(2,-1)
+            det = np.array(det).reshape(2,-1)
+            cl68 = np.array(cl68).reshape(2,-1)
+            cl95 = np.array(cl95).reshape(2,-1)
+
+            py.clf()
+            p2=py.plot(sizes[0],cl95[0]/agnd,'-')
+            p1=py.plot(sizes[0],cl68[0]/agnd,'-')
+            p5=py.plot(sizes[0],det[0]/agnd,'o')
+            p6=py.plot(sizes[1],cl95[1]/agnh,'-')
+            p7=py.plot(sizes[1],cl68[1]/agnh,'-')
+            p8=py.plot(sizes[1],det[1]/agnh,'o')
+            #p6=py.plot(pts,TSs,'d')
+            p3=py.plot([r68,r68],[0,maxfrac],'r--')
+            p4=py.plot([r95,r95],[0,maxfrac],'r-.')
+            #p7=py.plot([0,max(pts)*1.1],[1,1],'b--')
+            #p8=py.plot([0,max(pts)*1.1],[4,4],'b-.')
+            py.grid()
+            py.xlabel('Extension size (deg)')
+            if exp:
+                py.ylabel(r'$\rm{Flux\/(MeV^{-1}s^{-1}cm^{-2})}\/$')
+            else:
+                py.ylabel('Fraction')
+            py.ylim(0,maxfrac)
+            py.xlim(0,max(max(sizes[0]),max(sizes[1]))*1.1)
+            prop = mpl.font_manager.FontProperties(size=9) 
+            py.legend((p5,p1,p2,p8,p7,p6,p3,p4),(r'Disk',r'68% CL D',r'95% CL D',r'Halo',r'68% CL H',r'95% CL H','P6_v11 R68','P6_v11 R95'),bbox_to_anchor=(1.1, 1.0),prop=prop)
+            py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/%s_upperlimits_%d_%d.eps'%(name,emi,ema))
+        except:
+            print 'Failed: %s'%(str(sys.exc_info()[0])+' - '+str(sys.exc_info()[1]))
