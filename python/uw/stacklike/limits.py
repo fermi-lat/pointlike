@@ -355,7 +355,7 @@ class BayesianLimit(object):
                 rf = lambda x: fn_cpdf(x)-p
 
                 while rf(xmax) < 0:
-                    xmax *= 1.5
+                    xmax *= 1.1
 
                 #print i, p, xmin, xmax, rf(xmin), rf(xmax), lnlx[-1]
                 xp = opt.brentq(rf,xmin,xmax)
