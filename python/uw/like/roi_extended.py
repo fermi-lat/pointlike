@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.62 2011/07/13 16:38:07 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.63 2011/07/13 21:34:52 lande Exp $
 
     author: Joshua Lande
 """
@@ -466,9 +466,6 @@ Arguments:
         if not sm.can_shrink():
             raise Exception("Unable to calculate ts_ext for %s source %s. No way to shrink to null hypothesis." % (sm.pretty_name,es.name))
 
-        old_sm_p       = sm.p.copy()
-        old_sm_cov     = sm.cov_matrix.copy()
-        old_sm_free    = sm.free.copy()
         old_roi_p   = roi.get_parameters().copy()
 
         def l():
@@ -501,16 +498,13 @@ Arguments:
 
         ts_ext = 2*(ll_disk - ll_point)
 
-        sm.set_parameters(p=old_sm_p,absolute=False)
-        sm.cov_matrix = old_sm_cov
-        sm.free = old_sm_free
+        sm.unshrink()
+        self.initialize_counts(roi.bands)
 
         roi.set_parameters(old_roi_p) 
         roi.__set_error__()
 
-        self.initialize_counts(roi.bands)
-        # reset point source
-
+        # reset model predictions
         roi.__update_state__()
 
         return ts_ext
