@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jul 27 22:15:31 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Improve shrink function
+    *
+------------------------------------------------------------
 User: mar0  Wed Jul 27 15:01:40 PDT 2011
 pointlike/python/uw/stacklike
 
