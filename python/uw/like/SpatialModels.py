@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.53 2011/07/21 20:57:30 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.54 2011/07/21 23:02:11 lande Exp $
 
    author: Joshua Lande
 
@@ -27,9 +27,6 @@ NFW_X68,NFW_X99=0.30801306,2.02082024
 
 SMALL_ANALYTIC_EXTENSION=1e-10
 SMALL_NUMERIC_EXTENSION=1e-3
-
-# for disk shapes
-SMALL_FRACTION = SMALL_ANALYTIC_EXTENSION
 
 class DefaultSpatialModelValues(object):
     """ Spatial Parameters:
@@ -490,10 +487,34 @@ class SpatialModel(object):
         return '%.3f, %.3f, %s' % (self.p[0],self.p[1],self.pretty_spatial_string())
 
     @abstractmethod
-    def shrink(self): 
+    def _shrink(self):
+        pass
+
+    def shrink(self,**kwarg): 
         """ Update the spatial model so that the source is very small. This
             is useful for null hypothesis testing. """
+        self.old_p       = self.p.copy()
+        self.old_cov     = self.cov_matrix.copy()
+        self.old_free    = self.free.copy()
+        self._shrink(**kwarg)
+        self.cache()
         pass
+
+    def unshrink(self,**kwargs):
+        if not hasattr(self,'old_p') or \
+           not hasattr(self,'old_free') or \
+           not hasattr(self,'old_free'): 
+            raise Exception("Unable to unshrink source which was not first shrunk")
+        
+        self.p    = self.old_p 
+        self.free = self.old_free
+        self.cov_matrix = self.old_cov
+
+        delattr(self,'old_p')
+        delattr(self,'old_free')
+        delattr(self,'old_cov')
+
+        self.cache()
 
     @abstractmethod
     def can_shrink(self): 
@@ -583,10 +604,10 @@ class Gaussian(RadiallySymmetricModel):
 
     def has_edge(self): return False
 
-    def shrink(self): 
-        self.p[2]=np.where(self.log[2],np.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
+    def _shrink(self,size=SMALL_ANALYTIC_EXTENSION): 
+        self.p[2]=np.where(self.log[2],np.log10(size),size)
         self.free[2]=False
-        self.cache()
+
     def can_shrink(self): return True
 
 #===============================================================================================#
@@ -645,7 +666,6 @@ class PseudoGaussian(PseudoSpatialModel,Gaussian):
         extended source."""
     def extension(self): return SMALL_ANALYTIC_EXTENSION
 
-    def shrink(): raise NotImplementedError('Cannot shrink PseudoGaussian!')
     def can_shrink(self): return False
 
 
@@ -678,10 +698,9 @@ class Disk(RadiallySymmetricModel):
     def pretty_spatial_string(self):
         return "%.3fd" % (self.sigma)
 
-    def shrink(self): 
-        self.p[2]=np.log10(SMALL_ANALYTIC_EXTENSION) if self.log[2] else SMALL_ANALYTIC_EXTENSION
+    def _shrink(self,size=SMALL_ANALYTIC_EXTENSION): 
+        self['sigma']=size
         self.free[2]=False
-        self.cache()
     def can_shrink(self): return True
 
 #===============================================================================================#
@@ -693,7 +712,6 @@ class PseudoDisk(PseudoSpatialModel,Disk):
         extended source with small extension."""
     def extension(self): return SMALL_ANALYTIC_EXTENSION
 
-    def shrink(): raise NotImplementedError('Cannot shrink PseudoDisk!')
     def can_shrink(self): return False
 
 #===============================================================================================#
@@ -727,11 +745,10 @@ class Ring(RadiallySymmetricModel):
     def pretty_spatial_string(self):
         return "%.3fd, %.3f" % (self.sigma,self.frac)
 
-    def shrink(self): 
-        self.p[2]=np.where(self.log[2],np.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
-        self.p[3]=np.where(self.log[3],np.log10(SMALL_FRACTION),SMALL_FRACTION)
+    def _shrink(self,size=SMALL_ANALYTIC_EXTENSION): 
+        self['sigma']=size
+        self['fraction']=0
         self.free[2:4]=False
-        self.cache()
     def can_shrink(self): return True
 
 #===============================================================================================#
@@ -762,10 +779,9 @@ class NFW(RadiallySymmetricModel):
     def pretty_spatial_string(self):
         return "%.3fd" % (self.sigma)
 
-    def shrink(self): 
-        self.p[2]=np.where(self.log[2],np.log10(SMALL_ANALYTIC_EXTENSION),SMALL_ANALYTIC_EXTENSION)
+    def _shrink(self,size=SMALL_ANALYTIC_EXTENSION): 
+        self.p['sigma']=size
         self.free[2]=False
-        self.cache()
     def can_shrink(self): return True
 
 #===============================================================================================#
@@ -774,7 +790,6 @@ class PseudoNFW(PseudoSpatialModel,NFW):
 
     def extension(self): return SMALL_ANALYTIC_EXTENSION
 
-    def shrink(): raise NotImplementedError('Cannot shrink PseudoNFW!')
     def can_shrink(self): return False
 
 #===============================================================================================#
@@ -931,11 +946,11 @@ class EllipticalSpatialModel(SpatialModel):
             encloses 68 percent of the intensity. """
         pass
 
-    def shrink(self): 
-        self.p[2:4]=np.where(self.log[2:4],np.log10(SMALL_NUMERIC_EXTENSION),SMALL_NUMERIC_EXTENSION)
-        self.p[4]=0
+    def _shrink(self,size=SMALL_NUMERIC_EXTENSION): 
+        self.p['Major_Axis']=size
+        self.p['Minor_Axis']=size
+        self.p['Pos_Angle']=0
         self.free[2:5]=False
-        self.cache()
     def can_shrink(self): return True
 
 #===============================================================================================#
@@ -967,7 +982,6 @@ class PseudoEllipticalGaussian(PseudoSpatialModel,EllipticalGaussian):
     def pretty_spatial_string(self):
         return "%.3fd" % (self.sigma_x)
 
-    def shrink(): raise NotImplementedError('Cannot shrink PseudoEllipticalGaussian!')
     def can_shrink(self): return False
 
 #===============================================================================================#
@@ -1014,8 +1028,6 @@ class PseudoEllipticalDisk(PseudoSpatialModel,EllipticalDisk):
     def extension(self):
         return SMALL_NUMERIC_EXTENSION,SMALL_NUMERIC_EXTENSION,0
 
-    def shrink():
-        raise NotImplementedError('Cannot shrink PseudoEllipticalDisk!')
     def can_shrink(self): return False
 
 #===============================================================================================#
@@ -1053,8 +1065,8 @@ class EllipticalRing(EllipticalSpatialModel):
                 (self.sigma_x,self.sigma_y,
                  self.theta,self.frac)
 
-    def shrink(self): 
-        self.p[5]=1
+    def _shrink(self): 
+        self.p['fraction']=0
         self.free[5]=False
 
         # this calls the cache function
