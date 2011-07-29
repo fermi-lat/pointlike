@@ -33,6 +33,7 @@ parser.add_option("-w","--weights",type="string",default=None,help="Specify colu
 parser.add_option("-r","--recalc-polycos",action="store_true",default=False,help="Recompute polycos using Tempo2")
 parser.add_option("-u","--uniform_sigma",action="store_true",default=False,help="Instead of fixed time bins, make a TOA each time the H-test gets to a sufficient sigma.")
 parser.add_option("-a","--addphase",action="store_true",default=False,help="Add PULSE_PHASE column to FT1 file using poly cos.")
+parser.add_option("","--blind",action="store_true",default=False,help="Force blind search for TOAs rather than tracking.")
 parser.add_option("-o","--output",type="string",default=None,help="File for output of .tim file.  Otherwise output to STDOUT.")
 
 ## Parse arguments
@@ -52,8 +53,7 @@ if options.addphase: data.write_phase()
 
 template = LCTemplate(template=options.template)
 
-tg = UnbinnedTOAGenerator(data,poly,template,plot_stem=options.plot)
-tg.good_ephemeris=True
+tg = UnbinnedTOAGenerator(data,poly,template,plot_stem=options.plot,good_ephemeris=(not options.blind))
 
 if options.uniform_sigma:
     binner = UniformLogBinner(options.ntoa,data,template)
