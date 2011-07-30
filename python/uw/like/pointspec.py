@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.39 2011/07/06 04:59:36 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.40 2011/07/11 21:17:28 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.39 $'.split()[1]
+version='$Revision: 1.40 $'.split()[1]
 import types
 import os
 from os.path import join
@@ -73,11 +73,15 @@ class DataSpecification(object):
         # If string, expand it out
         if isinstance(self.ft1files,types.StringType):
             self.ft1files = [os.path.expandvars(self.ft1files)]
+        elif self.ft1files is None:
+            pass
         else:
             self.ft1files = map(os.path.expandvars,self.ft1files)
 
         if isinstance(self.ft2files,types.StringType):
             self.ft2files = [os.path.expandvars(self.ft2files)]
+        elif self.ft2files is None:
+            pass
         else:
             self.ft2files = map(os.path.expandvars,self.ft2files)
 
