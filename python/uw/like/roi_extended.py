@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.63 2011/07/13 21:34:52 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.64 2011/07/28 05:15:49 lande Exp $
 
     author: Joshua Lande
 """
@@ -261,7 +261,7 @@ Arguments:
         roi.quiet = True
 
         if roi.TS(which=self.name,quick=True,bandfits=bandfits) < 1:
-            raise Exception("Unable to localize a source with initial TS<1")
+            print "Warning: initial (point) TS<1 so TS_ext will likely not be trustworthy"
 
         init_spectral = roi.parameters().copy()
         init_spatial  = sm.get_parameters(absolute=False)
