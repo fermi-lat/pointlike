@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.46 2011/06/22 18:53:50 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.47 2011/07/13 03:21:11 lande Exp $
 
    author: Matthew Kerr
 """
@@ -675,7 +675,7 @@ def process_diffuse_source(ds,convert_extended,expand_env_vars,filename):
                                                            spatial.pretty_name, 
                                                            spectral.pretty_name)
                 spatial = convert_spatial_map(spatial,template_name)
-                spatial.file = os.path.basename(template_name) # better format for xml file
+                spatial.file = template_name
         skyxml = makeExtendedSourceSpatialModel(spatial,expand_env_vars)
         if isinstance(spatial,SpatialMap) and not N.all(spatial.p==spatial.init_p):
             print 'Warning: When saving out SpatialMap object which has been localized, the original unmoved template is saved in the xml model.'
