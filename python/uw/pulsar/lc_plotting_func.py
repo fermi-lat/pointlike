@@ -20,11 +20,10 @@ import root_utils2 as root
 from phasetools import h_statistic, weighted_h_statistic, z2m, sig2sigma
 '''
 
-import root_utils as root 
 from uw.utilities.coords import sepangle_deg
 import uw.utilities.fits_utils as utilfits
-#import uw.utilities.root_utils as root
-from uw.utilities.phasetools import weighted_h_statistic, h_statistic, z2m, sig2sigma
+import uw.utilities.root_utils as root
+from uw.utilities.phasetools import weighted_h_statistic, h_statistic, z2m, sig2sigma, sigma_trials
 
 # ===================================================
 # print in colors
@@ -377,7 +376,7 @@ class PulsarLightCurve:
         evtlist = self.eventlist
         theta = get_theta(self.__psf_selection, evtlist["ENERGY"])
         ph = evtlist[self.phase_colname]
-
+        
         evtlist[self.phase_colname] += self.phase_shift
         evtlist[self.phase_colname][evtlist[self.phase_colname]>1] -= 1
         evtlist[self.phase_colname][evtlist[self.phase_colname]<0] += 1                        
@@ -442,6 +441,7 @@ class PulsarLightCurve:
         print "\tFT1 .................. %s" %self.ft1name
         print "\tra, dec (deg) ........ %.6f, %.6f" %(self.ra_src,self.dec_src)
         print "\ttmin, tmax (MET)...... %.0f, %.0f" %(self.tmin,self.tmax)
+        print "\ttmin, tmax (MJD)...... %.0f, %.0f" %(met2mjd(self.tmin),met2mjd(self.tmax))
         print "\temin, emax (MeV) ..... %.0f, %.0f" %(self.emin,self.emax)
         print "\tradius (deg) ......... %.1f"  %self.radius
         print "\teclsmin, eclsmax ..... %.0f, %.0f" %(self.eclsmin,self.eclsmax)
@@ -714,7 +714,6 @@ class PulsarLightCurve:
         
     def plot_phase_time( self, which=0, background=None, zero_sup=False, xdim=400,
                          ydim=900, xtitle='Pulse Phase', ytitle='Counts/bin', outfile=None ):
-
         '''Plot photon phase vs time
         ===========   ======================================================
         keyword       description
@@ -800,8 +799,6 @@ class PulsarLightCurve:
         # ==========> canvas and pad
         canvas = TCanvas("canvas","canvas",xdim,ydim);
         TextSize, LabelSize, Offset = 25, 25, 1
-        #text = TText()
-        #text.SetTextSize(TextSize)
         
         pad = TPad("pad","pad",0,0,1,1); pad.Draw()
         pad.cd()
@@ -831,6 +828,54 @@ class PulsarLightCurve:
         # =======> OUTPUT
         outfilename = self.psrname + "_ptest_time.eps"
         canvas.Print(join(outdir,outfilename))
+
+    def pulseopt(self, erange=[100,1000], ebins=10, rrange=[0.2,2], rbins=10):
+        '''
+        Find the optimum cuts for a ROI (i.e. over radius, energy) based on H-test
+        ===========   =============================================
+        keyword       description
+        ===========   =============================================
+        erange        Emin, Emax (MeV)                  [100,1000]
+        ebins         Number of energy bins             [10]
+        rrange        Minimum and Maximum radius (deg)  [0.2,2]
+        rbins         Number of radius bins             [10]
+        '''
+        emin, emax = erange[0], erange[1]
+        rmin, rmax = rrange[0], rrange[1]
+
+        # initialization of the list of events
+        evtlist = self.eventlist
+
+        if self.psfcut:
+            evtlist = evtlist[evtlist["ANGSEP"]<get_theta(self.__psf_selection, evtlist["ENERGY"])]
+                
+        energy  = np.logspace(np.log10(emin),np.log10(emax),ebins)
+        radius  = np.linspace(rmin,rmax,rbins)
+
+        ntrials = len(energy)*len(radius)
+        sigmax, bestE, bestR = -1, -1, -1
+
+        print "\nSearching for the optimal cut with R[%.1f,%.1f] deg, Emin[%.0f,%.0f] and Emax[%.0f] MeV" %(rmin,rmax,emin,emax,self.emax)
+        
+        for it_E in energy:
+            for it_R in radius:
+                emask = np.logical_and(it_E<=evtlist["ENERGY"],evtlist["ENERGY"]<=self.emax)
+                rmask = evtlist["ANGSEP"] <= it_R
+                mask = np.logical_and(emask,rmask)
+                phases = evtlist[self.phase_colname][mask]
+                sig = sig2sigma(h_sig(h_statistic(phases)))
+
+                if sig > sigmax:
+                    sigmax, bestE, bestR = sig, it_E, it_R
+
+        print "================================"
+        print "ntrials ............", ntrials
+        print "pre-sig (sigma)..... %.1f" %sigmax
+        print "post-sig (sigma) ... %.1f" %sigma_trials(sigmax,ntrials)
+        print "emin, emax (MeV) ... %.0f, %.0f" %(bestE,self.emax)
+        print "radius (deg) ....... %.1f" %bestR
+        print "================================"
+        
         
     def toASCII(self, outdir="."):
         '''Copy the pulse phase of each phaseogram into an ascii file
