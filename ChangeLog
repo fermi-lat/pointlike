@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Aug  4 20:29:19 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_modify.py 
+Log Message:
+require "which" parameter for modify function
+    *
+------------------------------------------------------------
 User: parent  Wed Aug  3 18:20:37 PDT 2011
 pointlike/python/uw/pulsar
 
