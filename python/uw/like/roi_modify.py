@@ -161,7 +161,7 @@ def modify_spatial_kwargs(roi,which,keep_old_center,kwargs):
 
         modify_spatial_model(roi,which,spatial_model,keep_old_center)
 
-def modify(roi,which=0,name=None, skydir=None,model=None,spatial_model=None,
+def modify(roi,which, name=None, skydir=None,model=None,spatial_model=None,
         keep_old_flux=True,keep_old_center=True,free=None,**kwargs):
     """ This is a just a glue function wich will call all of the required
         modification functions to fully modify the source.
