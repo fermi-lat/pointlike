@@ -4,7 +4,7 @@ Python module to plot phaseograms in different energy bands
 Author(s): Damien Parent, JCT
 '''
 
-__version__ = 1.6
+__version__ = 1.7
 
 import os, sys
 from os.path import join, isfile
