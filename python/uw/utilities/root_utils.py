@@ -5,27 +5,24 @@ Author: Damien Parent <dmnparent@gmail.com>
 """
 
 import numpy as np
-from ROOT import gROOT, gStyle, Double, kBlack
-# force the batch mode
-gROOT.SetBatch(True)
+from ROOT import gROOT, gStyle, TH1F, TH2F, TGraph, gPad, TGaxis, Double
+from ROOT import kWhite, kBlack, kRed, kGreen, kBlue, kYellow, kMagenta, kCyan
 
+gROOT.SetBatch(True) # force the batch mode
+
+# default font for text, label, ...
 default_font = 83
 
 def initialization(batch=True, font=default_font):
-    '''ROOT initialization.
-
-    parameters:
-    -----------
-    batch : Run ROOT in batch mode [True/False]
-    '''
+    '''-- ROOT initialization --'''
     
     print "Initializing ROOT ..."
-
+    
     # general
     gROOT.Reset()
     gROOT.SetBatch(batch)
     gROOT.SetStyle("Plain")
-
+    
     # gStyle
     gStyle.SetFillColor(0)
     gStyle.SetCanvasColor(10)
@@ -83,10 +80,20 @@ def initialization(batch=True, font=default_font):
     gStyle.SetLegendBorderSize(1);
 
     
-def set_axis_thx( hist, x_title = "", x_title_size = 0., x_title_offset = 0., x_label_size = 0., 
-                  y_title = "", y_title_size = 0., y_title_offset = 0., y_label_size = 0.,
-                  font=default_font, color=kBlack ):
+def SetHistoAxis( hist, x_title="", x_title_size=0, x_title_offset=0, x_label_size=0, 
+                  y_title="", y_title_size = 0, y_title_offset=0, y_label_size=0,
+                  font=default_font, color='black' ):
     
+    if color is 'black': kcolor = kBlack
+    elif color is 'white': kcolor = kWhite
+    elif color is 'red': kcolor = kRed+1
+    elif color is 'blue': kcolor = kBlue+1
+    elif color is 'green': kcolor = kGreen+2
+    elif color is 'gray': kcolor = kGray+2
+    elif color is 'orange': kcolor = kOrange+3
+    elif color is 'yellow': kcolor = kYellow
+    else: print "Warning: color %s is not implemented!"; kcolor = kBlack
+        
     hist.SetLineWidth(1)
     hist.SetLineColor(color)
 
@@ -110,7 +117,7 @@ def set_axis_thx( hist, x_title = "", x_title_size = 0., x_title_offset = 0., x_
     hist.GetYaxis().SetLabelFont(font)
     hist.GetYaxis().SetNdivisions(505);
 
-def set_axis( axis, title = "", title_size = 0., title_offset = 0., label_size = 0., font=default_font, div=510 ):
+def DrawAxis( axis, title="", title_size=0, title_offset=0, label_size=0, font=default_font, div=510 ):
     axis.SetTitle(title)
     axis.CenterTitle()
     axis.SetTitleSize(title_size)
@@ -120,6 +127,7 @@ def set_axis( axis, title = "", title_size = 0., title_offset = 0., label_size =
     axis.SetLabelOffset(0.01)
     axis.SetLabelFont(font)
     axis.SetNdivisions(div);
+    axis.Draw()
 
 def fit_lorentzian(x, par):
     return (0.5*par[0]*par[1]/np.pi) / np.max( 1.e-10,(x[0]-par[2]) * (x[0]-par[2]) + .25*par[1]*par[1])
