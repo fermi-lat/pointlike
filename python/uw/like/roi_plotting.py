@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.59 2011/07/15 02:45:49 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.60 2011/07/17 22:41:15 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -48,6 +48,8 @@ from matplotlib import rcParams,mpl,pyplot,ticker,font_manager,spines
 from matplotlib.ticker import FormatStrFormatter
 from matplotlib.patches import FancyArrow,Circle,Ellipse
 from matplotlib.patheffects import withStroke
+from matplotlib import mpl
+from matplotlib.axes import Axes
 
 def band_spectra(r,source=0):
     
@@ -450,7 +452,7 @@ class ROIDisplay(object):
         from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
         divider = make_axes_locatable(ax)
-        cax = divider.new_horizontal("5%", pad=0.1, axes_class=Axes)
+        cax = divider.new_horizontal("5%", pad="2%", axes_class=Axes)
         self.fig.add_axes(cax)
         cbar = P.colorbar(im, cax=cax)
 
@@ -523,10 +525,8 @@ class ROIDisplay(object):
     def show(self,filename=None):
 
         # taken from http://matplotlib.sourceforge.net/users/usetex.html
-        from mpl_toolkits.axes_grid1.axes_grid import ImageGrid
         import pywcsgrid2
-        from matplotlib import mpl
-        from matplotlib.gridspec import GridSpec,GridSpecFromSubplotSpec
+        from matplotlib.gridspec import GridSpec
 
         self.imshow_args = dict(interpolation='nearest', origin='lower')
 
@@ -539,7 +539,7 @@ class ROIDisplay(object):
 
         # first, divide the plot in 4
         gs = GridSpec(4, 4)
-        gs.update(wspace=0.75, hspace=0.75) # wspace=0.75,
+        gs.update(wspace=0.75, hspace=0.75)
         self.ax_model = pywcsgrid2.subplot(gs[0:2, 0:2], header=self.h)
         self.ax_counts = pywcsgrid2.subplot(gs[0:2,2:4], header=self.h)
         self.ax_res = pywcsgrid2.subplot(gs[2:4, 0:2], header=self.h)
@@ -642,9 +642,6 @@ class ROISlice(object):
             self.pretty_name = self.source.spatial_model.pretty_name
 
         self.center=self.source.skydir
-
-        fig = P.figure(self.fignum,self.figsize)
-        P.clf()
 
         self.get_counts()
         self.get_model()
@@ -750,47 +747,61 @@ class ROISlice(object):
 
     @staticmethod
     def get_styles(black_and_white):
-        return ['k-','k--','k.-'] if black_and_white else ['r-','b--','g-.']
+        return [
+            dict(color='k' if black_and_white \
+                 else 'red',linestyle='-'),
+            dict(color='k' if black_and_white \
+                 else 'blue',dashes=[5,3]),
+            dict(color='k' if black_and_white \
+                 else 'g',dashes=[5,3,1,3]),
+        ]
 
-    def plotx(self):
+    def plotx(self,axes,legend=True):
 
-        P.subplot(211)
+        ax = axes
 
         ROISlice.set_color_cycle()
 
         styles=ROISlice.get_styles(self.black_and_white)[0:len(self.names)]
         for name,model,style in zip(self.names,self.models_x,styles):
-            P.plot(self.model_dx,model,style,label=name)
+            ax.plot(self.model_dx,model,label=name,**style)
 
-        P.errorbar(self.counts_dx,self.counts_x,yerr=N.sqrt(self.counts_x),label='Counts', fmt='.')
+        ax.errorbar(self.counts_dx,self.counts_x,yerr=N.sqrt(self.counts_x),
+                    label='Counts', fmt='.', color='black')
 
-        P.gca().set_xlim(self.counts_dx[0],self.counts_dx[-1])
+        ax.set_xlim(self.counts_dx[0],self.counts_dx[-1])
+        ax.set_ylim(ymin=0)
 
-        P.legend(loc='upper right',numpoints=1)
+        if legend: ax.legend(loc='upper right',numpoints=1)
 
-        P.gca().xaxis.set_major_formatter(FormatStrFormatter('$%g^\circ$'))
+        ax.xaxis.set_major_formatter(FormatStrFormatter('$%g^\circ$'))
 
-        P.xlabel(r'$\Delta l$' if self.galactic else r'$\Delta \mathrm{RA}$')
-        P.ylabel('Counts')
+        ax.set_xlabel(r'$\Delta l$' if self.galactic else r'$\Delta \mathrm{RA}$')
+        ax.set_ylabel('Counts')
 
-    def ploty(self):
+    def ploty(self,axes,legend=False):
 
-        P.subplot(212)
+        ax = axes
 
         ROISlice.set_color_cycle()
 
         styles=ROISlice.get_styles(self.black_and_white)[0:len(self.names)]
         for name,model,style in zip(self.names,self.models_y,styles):
-            P.plot(self.model_dy,model,style,label=name)
+            ax.plot(self.model_dy,model,label=name,**style)
 
-        P.errorbar(self.counts_dy,self.counts_y,yerr=N.sqrt(self.counts_y),label='Counts', fmt='.')
+        ax.errorbar(self.counts_dy,self.counts_y,yerr=N.sqrt(self.counts_y),
+                    label='Counts', fmt='.', color='black')
 
-        P.gca().xaxis.set_major_formatter(FormatStrFormatter('$%g^\circ$'))
+        ax.set_xlim(self.counts_dy[0],self.counts_dy[-1])
+        ax.set_ylim(ymin=0)
 
-        P.xlabel(r'$\Delta b$' if self.galactic else r'$\Delta \mathrm{Dec}$')
-        P.ylabel('Counts')
+        if legend: ax.legend(loc='upper right',numpoints=1)
 
-        P.gca().set_xlim(self.counts_dy[0],self.counts_dy[-1])
+        ax.xaxis.set_major_formatter(FormatStrFormatter('$%g^\circ$'))
+
+        ax.set_xlabel(r'$\Delta b$' if self.galactic else r'$\Delta \mathrm{Dec}$')
+        ax.set_ylabel('Counts')
+
 
         # only need to show legend once
 
@@ -823,16 +834,26 @@ class ROISlice(object):
 
         file.close()
 
-    def show(self,filename=None, datafile=None):
+    def show(self,filename=None, datafile=None, axes=None):
 
-        self.plotx()
-        self.ploty()
+        if axes is None:
+
+            P.figure(self.fignum,self.figsize)
+            axes = P.axes()
+            P.clf()
+
+        ax = self.axes = axes
+
+        ax1=ax.subplot(211)
+        self.plotx(ax1)
+        ax2=ax.subplot(212)
+        self.ploty(ax2)
 
         if self.title is None:
             self.title = 'Counts Slice'
             if self.source is not None: self.title += ' for %s' % self.source.name
 
-        P.suptitle(self.title)
+        ax.suptitle(self.title)
 
         if datafile is not None: self.save_data(datafile)
 
@@ -845,7 +866,6 @@ class ROIRadialIntegral(object):
 
     defaults = (
             ('which',           None,                       'Source to analyze'),
-            ('figsize',        (7,6),                       'Size of the image'),
             ('size',               2,                'Size of image in degrees'), 
             ('pixelsize',     0.0625, """ size of each image pixel. This is a misleading because the
                                           size of each pixel varies, since the image is uniform in theta^2. 
@@ -853,7 +873,6 @@ class ROIRadialIntegral(object):
                                           the formula npix=size/pixelsize and represents something
                                           like an average pixelsize."""),
             ('npix',            None, """ If specified, use this value instead of pixelsize. """),
-            ('fignum',          None, 'matplotlib figure number'),
             ('conv_type',         -1, 'Conversion type'),
             ('just_diffuse',    True, """ Display the model predictions with all point + extended
                                           sources removed. The background is not refit. """),
@@ -865,9 +884,12 @@ class ROIRadialIntegral(object):
                                           to 1 if you want the model predictions to 'look like' the 
                                           data."""),
             ('use_gradient',    True, """Use gradient when refitting."""),
+            ('legend',          True, """Add a legend to the plot."""),
             ('title',           None,   'Title for the plot'),
             ('black_and_white',False, """If True, make the plot black and white (better for 
                                          printing/publishing)"""),
+            ('figsize',        (7,6),   'Size of the image'),
+            ('fignum',          None,   'matplotlib figure number'),
     )
 
     @keyword_options.decorate(defaults)
@@ -889,9 +911,6 @@ class ROIRadialIntegral(object):
             self.pretty_name = self.source.spatial_model.pretty_name
 
         self.center=self.source.skydir
-
-        fig = P.figure(self.fignum,self.figsize)
-        P.clf()
 
         self.get_counts()
         self.get_model()
@@ -984,26 +1003,38 @@ class ROIRadialIntegral(object):
             file.write(pprint.pformat(results_dict))
         file.close()
 
-    def show(self,filename=None,datafile=None):
+    def show(self,filename=None,datafile=None, axes=None):
+
+        if axes is None:
+            P.figure(self.fignum,self.figsize)
+            axes = P.axes()
+            P.clf()
+
+        ax = self.axes = axes
 
         ROISlice.set_color_cycle()
 
         styles=ROISlice.get_styles(self.black_and_white)[0:len(self.names)]
         for name,model,style in zip(self.names,self.models,styles):
-            P.plot(self.theta_sqr_mo,model,style,label=name)
+            ax.plot(self.theta_sqr_mo,model,label=name,**style)
 
-        P.errorbar(self.theta_sqr_co,self.counts,yerr=N.sqrt(self.counts),label='Counts', fmt='.')
+        ax.errorbar(self.theta_sqr_co,self.counts,yerr=N.sqrt(self.counts),
+                    label='Counts', fmt='.', color='black')
 
-        P.legend(loc='upper right',numpoints=1)
+        if self.legend:
+            ax.legend(loc='upper right',numpoints=1)
 
-        P.xlabel(r'$\Delta \theta^2 ([\mathrm{deg}]^2)$')
-        P.ylabel('Counts')
+        ax.set_xlabel(r'$\Delta \theta^2 ([\mathrm{deg}]^2)$')
+        ax.set_ylabel('Counts')
+        ax.set_ylim(ymin=0)
+
+        ax.set_ylim(ymin=0)
 
         if self.title is None:
             self.title = 'Radially Integrated Counts'
             if self.source is not None: self.title += ' for %s' % self.source.name
 
-        P.title(self.title)
+        ax.set_title(self.title)
 
         if datafile is not None: self.save_data(datafile)
 
@@ -1110,7 +1141,7 @@ class ROISignificance(object):
 
         # add colorbar axes
         divider = make_axes_locatable(ax)
-        cax = divider.new_horizontal("5%", pad=0.1, axes_class=Axes)
+        cax = divider.new_horizontal("5%", pad="2%", axes_class=Axes)
         self.fig.add_axes(cax)
 
         im = ax.imshow(d, origin="lower", interpolation='bilinear')
@@ -1134,10 +1165,9 @@ class ROISmoothedSource(object):
 
     defaults = (
             ('which',             None,    'Draw the smoothed point version of this source.'),
-            ('figsize',      (5.5,4.5),                                'Size of the image'),
-            ('fignum',            None,                           'Matplotlib figure number'),
             ('conv_type',           -1,                                    'Conversion type'),
             ('size',                 3,                          'Size of the field of view'),
+            ('override_center',   None,              'Center the image at a different point'),
             ('galactic',          True,                         'Coordinate system for plot'),
             ('overlay_psf',       True, 'Add a smoothed reference PSF on top of the counts.'),
             ('label_psf',         True,                        'Add a label on the PSF box.'),
@@ -1150,6 +1180,9 @@ class ROISmoothedSource(object):
             ('title',             None,                                 'Title for the plot'),
             ('show_extension',    True,                             'Overlay the extension.'),
             ('extension_color','black',                          'Color of extended sources'),
+            ('figsize',      (5.5,4.5),                                  'Size of the image'),
+            ('fignum',            None,                           'Matplotlib figure number'),
+            ('show_colorbar',     True,                                  'Show the colorbar'),
     )
 
     def get_residual(self,**kwargs):
@@ -1207,24 +1240,28 @@ class ROISmoothedSource(object):
         self.source = roi.get_source(which)
 
         smoothed_kwargs=dict(size=self.size,
-                    pixelsize=self.pixelsize,
-                    galactic=self.galactic,
-                    conv_type=self.conv_type,
-                    center=self.source.skydir,
-                    per_solid_angle=True,
-                    kerneltype=self.kerneltype,
-                    kernel_rad=self.kernel_rad)
+                             pixelsize=self.pixelsize,
+                             galactic=self.galactic,
+                             conv_type=self.conv_type,
+                             center=(self.source.skydir \
+                                     if self.override_center is None \
+                                     else self.override_center),
+                             per_solid_angle=True,
+                             kerneltype=self.kerneltype,
+                             kernel_rad=self.kernel_rad)
 
         if self.overlay_psf:
 
             # convert it to a point source placed at the origin
             point_version=PointSource(name=self.source.name,
-                                      skydir=self.source.skydir,
+                                      skydir=smoothed_kwargs['center'],
                                       model=self.source.model.copy())
         
         self.residual = self.get_residual(**smoothed_kwargs)
 
         self.residual_pyfits = self.residual.get_pyfits()
+
+        self.max_intensity = ROISmoothedSource.get_max_intensity(self.source,self.residual_pyfits,self.roi)
 
         if self.overlay_psf:
             # create an image of the PSF (for our model).
@@ -1236,33 +1273,41 @@ class ROISmoothedSource(object):
                     **psf_kwargs)
             self.psf_pyfits = self.psf_model.get_pyfits()
 
-    def show(self,filename=None):
+    def show(self,filename=None, axes=None, cax=None):
+        """ By default, make a new plot. If axes is specified,
+            plot the skymap in the axes. Note that 
+            axes must be pywcsgrid2.Axes object. 
+            
+            If cax is not None, plot colorbar on that axes."""
         import pywcsgrid2
         from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
-        from mpl_toolkits.axes_grid1.axes_grid import ImageGrid
+        from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
-        self.fig = P.figure(self.fignum,self.figsize)
-        P.clf()
-
+        # get data first
         h, d = self.residual_pyfits[0].header, self.residual_pyfits[0].data
 
-        self.grid = grid = ImageGrid(self.fig,
-            rect=(0.12,0.12,0.75,0.8),
-            nrows_ncols = (1, 1),
-            cbar_mode="single", cbar_pad="2%",
-            cbar_location="right",
-            axes_class=(pywcsgrid2.Axes, dict(header=h)))
+        from matplotlib.axes import Axes
+        if axes is None:
+            self.fig = P.figure(self.fignum,self.figsize)
+            P.clf()
+            self.fig.subplots_adjust(left=0.07,bottom=0.1,right=0.93,top=0.93)
+            axes = pywcsgrid2.subplot(111, header=h)
+        else:
+            self.fig = axes.get_figure()
 
-        self.ax = ax = grid[0]
-
-        self.max_intensity = ROISmoothedSource.get_max_intensity(self.source,self.residual_pyfits,self.roi)
+        self.axes = ax = axes
 
         im=ax.imshow(d, origin="lower", cmap=self.cmap, vmin=0, vmax=self.max_intensity)
 
-        cb_axes = grid.cbar_axes[0] # colorbar axes
+        if self.show_colorbar:
 
-        cbar = cb_axes.colorbar(im)
-        cbar.ax.set_ylabel(r'$\mathrm{counts}/[\mathrm{deg}]^2$')
+            if cax is None:
+                divider = make_axes_locatable(ax)
+                cax = divider.new_horizontal("5%", pad="2%", axes_class=Axes)
+                self.fig.add_axes(cax)
+
+            cbar = P.colorbar(im, cax=cax)
+            cbar.ax.set_ylabel(r'$\mathrm{counts}/[\mathrm{deg}]^2$')
 
         ax.grid()
 
@@ -1350,11 +1395,8 @@ class ROITSMapPlotter(object):
         import pylab as P
         import pywcsgrid2
         from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
-        from matplotlib.axes import Axes
-        from matplotlib import mpl
-        from uw.utilities import colormaps
 
-        self.fig =  fig = P.figure(self.fignum,self.figsize)
+        self.fig = fig = P.figure(self.fignum,self.figsize)
         P.clf()
 
         h, d = self.pf[0].header, self.pf[0].data
@@ -1363,7 +1405,7 @@ class ROITSMapPlotter(object):
 
         # add colorbar axes
         divider = make_axes_locatable(ax)
-        cax = divider.new_horizontal("5%", pad=0.1, axes_class=Axes)
+        cax = divider.new_horizontal("5%", pad="2%", axes_class=Axes)
         fig.add_axes(cax)
 
         # since this is a residual tsmap, never let the scale go below 25.
@@ -1488,3 +1530,52 @@ class ROISmoothedModel(object):
 
         if filename is not None: P.savefig(filename)
 
+class ROISmoothedBeforeAfter(object):
+    """ Make a 2x1 plot where the left plot
+        has the diffuse subtracted and the right plot has the diffuse
+        and all sources subtracted.
+
+        This plot is nice for seeing how well the background source
+        subtracting is doing. """
+    defaults=ROISmoothedSource.defaults
+
+    @keyword_options.decorate(defaults)
+    def __init__(self, roi, **kwargs):
+
+        if kwargs.has_key('show_colorbar') or \
+           kwargs.has_key('overlay_psf'):
+            raise Exception("This feature doesn't work, for now...")
+
+        keyword_options.process(self, kwargs)
+
+        self.roi = roi
+
+        # plot only one colorbar
+
+        self.smoothed_sources=ROISmoothedSources(roi,show_colorbar=False,**kwargs)
+        self.smoothed_source=ROISmoothedSource(roi,overlay_psf=False,**kwargs)
+
+        # use same color scale for each plot
+        max_intensity = max(self.smoothed_sources.max_intensity, self.smoothed_source.max_intensity)
+        self.smoothed_sources.max_intensity = max_intensity
+        self.smoothed_source.max_intensity  = max_intensity
+
+    def show(self):
+
+        from mpl_toolkits.axes_grid1.axes_grid import ImageGrid
+        import pywcsgrid2
+
+        self.fig = fig = P.figure(self.fignum,self.figsize)
+        P.clf()
+
+        header = self.smoothed_source.residual_pyfits[0].header
+
+        self.grid = grid = ImageGrid(fig, (1, 1, 1), nrows_ncols = (1, 2),
+                              axes_pad=0.1, share_all=True,
+                              cbar_mode="single", cbar_pad="2%",
+                              cbar_location="right",
+                              axes_class=(pywcsgrid2.Axes, 
+                                          dict(header=header)))
+
+        self.smoothed_sources.show(axes=self.grid[0])
+        self.smoothed_source.show(axes=self.grid[1],cax=grid.cbar_axes[0])
