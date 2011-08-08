@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.5 2011/07/26 01:00:12 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.6 2011/08/08 18:04:27 parent Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -180,7 +180,7 @@ class UnbinnedTOAGenerator(TOAGenerator):
 
             tau_err = self.__toa_error__(tau,phases,weights)         
             tau -= (self.phi0 + polyco_phase0)
-            self.display: print '(Blind) Peak Shift: %.5f +/- %.5f'%(tau+polyco_phase0,tau_err)
+            if self.display: print '(Blind) Peak Shift: %.5f +/- %.5f'%(tau+polyco_phase0,tau_err)
             self.phases.append(tau+polyco_phase0)        
 
         self.phase_errs.append(tau_err)
