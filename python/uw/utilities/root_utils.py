@@ -94,8 +94,8 @@ def SetHistoAxis( hist, x_title="", x_title_size=0, x_title_offset=0, x_label_si
     elif color is 'yellow': kcolor = kYellow
     else: print "Warning: color %s is not implemented!"; kcolor = kBlack
         
-    hist.SetLineWidth(1)
-    hist.SetLineColor(color)
+    # hist.SetLineWidth(1)
+    hist.SetLineColor(kcolor)
 
     hist.GetXaxis().SetTitle(x_title)
     hist.GetXaxis().CenterTitle()
