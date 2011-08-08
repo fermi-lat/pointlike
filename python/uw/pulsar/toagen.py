@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.4 2011/07/21 13:50:17 paulr Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.5 2011/07/26 01:00:12 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -101,6 +101,7 @@ class UnbinnedTOAGenerator(TOAGenerator):
         self.phase_drift = False
         self.weights = None
         self.plot_stem = None
+        self.display = True
 
     def __toa_error__(self,val,*args):
         f      = self.__toa_loglikelihood__
@@ -139,7 +140,7 @@ class UnbinnedTOAGenerator(TOAGenerator):
                 self.prev_peak = fit[0][0]
                 tau     = (peak_shift - polyco_phase0)
                 tau_err = self.__toa_error__(fit[0][0],phases,weights)
-                print 'Peak Shift: %.5f +/- %.5f'%(peak_shift,tau_err)
+                if self.display: print 'Peak Shift: %.5f +/- %.5f'%(peak_shift,tau_err)
                 self.phases.append(peak_shift)
             if self.plot_stem is not None:
                 dom1 = np.linspace(0,1,100)
@@ -179,7 +180,7 @@ class UnbinnedTOAGenerator(TOAGenerator):
 
             tau_err = self.__toa_error__(tau,phases,weights)         
             tau -= (self.phi0 + polyco_phase0)
-            print '(Blind) Peak Shift: %.5f +/- %.5f'%(tau+polyco_phase0,tau_err)
+            self.display: print '(Blind) Peak Shift: %.5f +/- %.5f'%(tau+polyco_phase0,tau_err)
             self.phases.append(tau+polyco_phase0)        
 
         self.phase_errs.append(tau_err)
