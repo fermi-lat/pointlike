@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Aug  8 10:42:18 PDT 2011
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Better error handling
+    *
+------------------------------------------------------------
 User: parent  Mon Aug  8 08:11:54 PDT 2011
 pointlike/python/uw/utilities
 
