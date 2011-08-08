@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.64 2011/07/28 05:15:49 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.65 2011/07/30 20:18:14 lande Exp $
 
     author: Joshua Lande
 """
@@ -204,7 +204,7 @@ class ROIExtendedModel(ROIDiffuseModel):
                  es.name,es.model.full_name(),
                  '\t'+es.model.__str__(indent='\t'))
 
-    def fit_extension(self,roi,tolerance=0.05, bandfits=False, error="UMINOS",init_grid=None, use_gradient=True, estimate_errors=True):
+    def fit_extension(self,roi,tolerance=0.05, bandfits=False, error="UMINOS",init_grid=None, estimate_errors=True, **kwargs):
         """ Fit the extension of this extended source by fitting all non-fixed spatial paraameters of 
             self.extended_source. The likelihood at the best position is returned.
 
@@ -218,9 +218,6 @@ Arguments:
                         extension parameters.
   bandfits      [False] Whether to use a spectral independent model when
                         fitting extension.
-  use_gradient  [False] If bandfits is False, whether to use the analytic
-                        gradient when fitting spectral parameters
-                        (during an iteration for a given extension).
   error       ["HESSE", "UMINOS"] 
                         The fitting algorithm to use when calculating
                         errors.  UMINOS will call uw.utilitites.minuit
@@ -237,6 +234,7 @@ Arguments:
                           should be measured relative to the spatial model's center: (0,0)
                         - The init_grid values should be absolute, none of them should
                           be given in log space.
+  **kwargs             Will be passed into the ROIAnalysis.fit() function.
   =========   =======================================================
 
         Implemenation notes, do not directly fit RA and Dec. Instead,
@@ -333,13 +331,13 @@ Arguments:
             if bandfits:
                 ll=roi.bandFit(es)
             else:
-                ll=roi.fit(estimate_errors=False,use_gradient=use_gradient)
+                ll=roi.fit(estimate_errors=False,**kwargs)
 
                 if ll < d['ll_best']:
                     prev_fit=roi.parameters().copy()
                     roi.set_parameters(d['best_spectral'].copy())
                     roi.__update_state__()
-                    ll_alt=roi.fit(estimate_errors=False,use_gradient=use_gradient)
+                    ll_alt=roi.fit(estimate_errors=False,**kwargs)
 
                     if ll_alt > ll: 
                         ll=ll_alt
@@ -351,7 +349,7 @@ Arguments:
                     prev_fit=roi.parameters().copy()
                     roi.set_parameters(init_spectral.copy())
                     roi.__update_state__()
-                    ll_alt=roi.fit(estimate_errors=False,use_gradient=use_gradient)
+                    ll_alt=roi.fit(estimate_errors=False,**kwargs)
 
                     if ll_alt > ll: 
                         ll=ll_alt
@@ -430,7 +428,7 @@ Arguments:
 
         # Fit once more at the end to get the right errors.
         try:
-            roi.fit(estimate_errors=True,use_gradient=use_gradient)
+            roi.fit(estimate_errors=True,**kwargs)
         except Exception, err:
             print err
 

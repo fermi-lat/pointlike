@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.60 2011/07/17 22:41:15 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.61 2011/08/07 23:49:02 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -47,9 +47,9 @@ import pylab as P
 from matplotlib import rcParams,mpl,pyplot,ticker,font_manager,spines
 from matplotlib.ticker import FormatStrFormatter
 from matplotlib.patches import FancyArrow,Circle,Ellipse
-from matplotlib.patheffects import withStroke
 from matplotlib import mpl
 from matplotlib.axes import Axes
+
 
 def band_spectra(r,source=0):
     
@@ -396,6 +396,19 @@ def plot_spectra(r, which=0, eweight=2,fignum=1,outfile=None,merge_bins=False,
 #-----------------------------------------------------------------------------#
 
 
+_path_error_already_printed=False
+def set_path_effects(object,**kwargs):
+    """ Print a nice warning if withStroke doesn't exist. """
+
+    try:
+        from matplotlib.patheffects import withStroke
+        object.set_path_effects([withStroke(**kwargs)])
+    except ImportError, er:
+        # Only print warning once.
+        global _path_error_already_printed
+        if _path_error_already_printed==False:
+            print 'Nicer plots require a newer version of matplotlib with patheffects.withStroke!'
+            _path_error_already_printed=True
 
 class ROIDisplay(object):
     """ Plotting a two dimensional map of the counts, model predicted,
@@ -511,7 +524,7 @@ class ROIDisplay(object):
         font=dict(size='small');
         at=AnchoredText('$95\%$ Conf.', loc=1, prop=font,frameon=False)
         self.ax_pvals.add_artist(at)
-        at.txt._text.set_path_effects([withStroke(foreground="w", linewidth=3)])
+        set_path_effects(at.txt._text,foreground="w", linewidth=3)
 
         self.ax_resplot.set_title('Weighted Residuals')
 
@@ -1101,10 +1114,10 @@ class ROISignificance(object):
         if label_sources: 
             names = [source.name for source in sources]
             for l,b,name in zip(glons,glats,names):
-                ax["gal"].annotate(name, (l,b), 
+                txt=ax["gal"].annotate(name, (l,b), 
                         ha='center', va='top',
-                        xytext=(0,markersize), textcoords='offset points',
-                        path_effects=[withStroke(foreground="w", linewidth=2)])
+                        xytext=(0,markersize), textcoords='offset points')
+                set_path_effects(txt,foreground="w", linewidth=2)
 
         if show_extension:
             try:
@@ -1118,7 +1131,7 @@ class ROISignificance(object):
                     # artist_list doesn't do anything
                     patch_list, artist_list = reg.get_mpl_patches_texts()
                     for p in patch_list: 
-                        p.set_path_effects([withStroke(foreground="w", linewidth=3)])
+                        set_path_effects(p,foreground="w", linewidth=3)
                         p.set_zorder(4)
                         ax.add_patch(p)
 
