@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: zimmer  Tue Aug  9 11:43:33 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+pass through keywords in MonteCarlo.simulate() directly to GtApp.run(), esp. dry_run=True
+    *
+------------------------------------------------------------
 User: cohen  Mon Aug  8 23:05:27 PDT 2011
 pointlike/python/uw/pulsar
 
