@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: zimmer  Tue Aug  9 12:37:38 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+put pfiles when written in tempdir, correct app.run() implementation
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-39, operation: add
 Package: pointlike
