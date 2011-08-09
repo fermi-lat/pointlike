@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: zimmer  Tue Aug  9 12:00:14 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+pass through keywords in MonteCarlo.simulate() directly to GtApp.run(), esp. dry_run=True, minor fix to 1.12
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-38, operation: add
 Package: pointlike
