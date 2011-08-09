@@ -518,7 +518,7 @@ class MonteCarlo(object):
         temp.close()
 
     def simulate(self,**kwargs):
-        ''' understands all keywords that GtApp can handle, especially dry_run=True and verbosity=X '''
+        ''' understands all keywords that GtApp.run() can handle, especially dry_run=True and verbosity=X '''
         old_dir=os.getcwd()
         self.tempdir=mkdtemp(prefix=self.tempbase)
         if not self.quiet: print 'working in tempdir',self.tempdir
@@ -541,7 +541,7 @@ class MonteCarlo(object):
             use_ac="no"
             ra,dec,radius=0,0,180
 
-        app=GtApp('gtobssim',**kwargs);
+        app=GtApp('gtobssim');
         if self.ltfrac is not None: app['ltfrac']=self.ltfrac
         app.run(infile=self.xmlfile,
                 srclist=self.srclist,
@@ -557,6 +557,7 @@ class MonteCarlo(object):
                 emin=self.emin,
                 emax=self.emax,
                 maxrows=200000000, # make sure all photons are in one file
+                **kwargs # to pass all keywords from simulate through to app.run();
        )
 
         os.chdir(old_dir)
