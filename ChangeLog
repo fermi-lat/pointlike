@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: cohen  Mon Aug  8 23:05:27 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_plotting_func.py 
+Log Message:
+replace sys.exit with exception raising
+    *
+------------------------------------------------------------
 User: parent  Mon Aug  8 12:16:16 PDT 2011
 pointlike/python/uw/pulsar
 
