@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.187 2011/07/31 20:17:40 lande Exp $
+$Id: release.notes,v 1.188 2011/08/09 18:50:30 lande Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-07-39 09-Aug-2011  lande better MC code
  pointlike-07-07-38 09-Aug-2011  lande better MC code
  pointlike-07-07-37 31-Jul-2011  lande smalll stuff
  pointlike-07-07-36 23-Jul-2011  lande Bugfixes
