@@ -540,7 +540,8 @@ class MonteCarlo(object):
         else:
             use_ac="no"
             ra,dec,radius=0,0,180
-
+        
+        os.environ['PFILES']=self.tempdir+';'+os.environ['PFILES'].split(';')[-1]; # to set the writing pfiles to the tempdir
         app=GtApp('gtobssim');
         if self.ltfrac is not None: app['ltfrac']=self.ltfrac
         app.run(infile=self.xmlfile,
