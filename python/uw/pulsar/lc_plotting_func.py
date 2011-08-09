@@ -370,10 +370,10 @@ class PulsarLightCurve:
         erange, rrange    = self.__energy_range, self.__radius_range
         
         if self.__psf_selection is None and self.psfcut:
-            print OKRED + "Error: you must fill histograms before. Exiting..." + ENDC; sys.exit()
+            raise Exception("you must fill histograms before. Exiting...")
             
         if self.radius<ring_range[1]:
-            print OKRED + "Error: maximum 'ring' radius is larger than PulsarLightCurve RADIUS. Exiting ..." + ENDC; sys.exit()
+            raise Exception("maximum 'ring' radius is larger than PulsarLightCurve RADIUS. Exiting ...")
         
         if self.psfcut and radius>theta_radmax:
             print "Warning your maximum PSF-cut radius is larger than your maximum radius."
@@ -591,7 +591,7 @@ class PulsarLightCurve:
             OffsetX, OffsetY, BottomMarginDefault = 4.5, 3.1, 0.18
             ylow, ystep = 0.7, 0.17
         else:
-            print "Error: nbands>5. Not implemented! Exiting ..."; exit()            
+            raise Exception("nbands>5. Not implemented! Exiting ...")            
             
         for N in range(nbands):
             padname = "pad" + str(N)
@@ -693,7 +693,7 @@ class PulsarLightCurve:
                     histo.Draw(); histo.Draw("Esame")
                     text.DrawText(0.1,histo.GetMaximum()*0.86,comment)
                 else:
-                    print "Error in format. Exiting ..."; sys.exit()
+                    raise Exception("Error in format. Exiting ...")
 
         # ===========> OUTPUT
         outfile = self.psrname + "_fermilat_profile_" + str(nbands) + ".eps" if outfile is None else outfile
