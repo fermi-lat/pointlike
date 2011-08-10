@@ -13,21 +13,14 @@ from numpy import array, vectorize, sqrt, exp, log10, power
 from itertools import izip
 from ROOT import *
 
-'''
-from coords import sepangle_deg
-import fits_utils as utilfits
-import root_utils2 as root
-from phasetools import h_statistic, weighted_h_statistic, z2m, sig2sigma
-'''
-
 from uw.utilities.coords import sepangle_deg
 import uw.utilities.fits_utils as utilfits
 import uw.utilities.root_utils as root
 from uw.utilities.phasetools import weighted_h_statistic, h_statistic, z2m, sig2sigma, sigma_trials
 
-# ===================================================
+# ===========================
 # print in colors
-# ===================================================
+# ===========================
 HEADER = '\033[95m'
 OKBLUE = '\033[94m'
 OKGREEN = '\033[92m'
@@ -63,7 +56,7 @@ def met2mjd(met):
     return met/86400. + MJDREF
 
 def progressbar( nentries, jentry ):
-    # step --> 10%                                                                                                                                                                                 
+    # step --> 10%
     step1 = int(0.101 * nentries)
     step2 = int(0.02 * nentries)
     progress = int(float(jentry) / float(nentries) * 100.)
@@ -133,25 +126,30 @@ class PulsarLightCurve:
         print "  ", OKBLUE + self.psrname + ENDC
         print "================="
 
-        # ====== time range =====
+        # time range
         ft1range = utilfits.ft1_time_range(ft1name)
         self.tmin = ft1range['START'] if self.tmin is None else self.tmin
         self.tmax = ft1range['STOP'] if self.tmax is None else self.tmax
 
-        # ===== energy range =====
+        # energy range
         self.__energy_range  = [ [100.,3e5] , [3000.,3e5], [1000.,3e3], [300.,1000.], [100.,300.], [3e3,3e5] ]
         self.emin = utilfits.get_header_erange(ft1name)[0] if self.emin is None else self.emin
         self.emax = utilfits.get_header_erange(ft1name)[1] if self.emax is None else self.emax
 
-        # ====== position of the source (ra,dec) ======
+        for E in self.__energy_range:
+            if E[0] < self.emin: E[0] = self.emin
+            if E[1] > self.emax: E[1] = self.emax
+            if E[0] > E[1]: E[1] = E[0]
+
+        # position of the source (ra,dec)
         self.ra_src = utilfits.get_header_position(ft1name)[0] if self.ra_src is None else self.ra_src
         self.dec_src = utilfits.get_header_position(ft1name)[1] if self.dec_src is None else self.dec_src
 
-        # ===== radius selection =====
+        # radius selection
         self.radius = utilfits.get_header_position(ft1name)[2] if self.radius is None else self.radius
         self.__radius_range = []
         
-        # === psf selection ===
+        # psf selection
         self.__psf_selection = [5.12,0.8,0.07]
         if self.convtype == -1: self.__psf_selection = [5.12,0.8,0.07]
         elif self.convtype ==  0: self.__psf_selection = [3.3,0.8,0.05]
@@ -159,10 +157,10 @@ class PulsarLightCurve:
         elif self.convtype == -2: self.__psf_selection = [5.3,0.745,0.09]
         else: print "The selected convtype does not exist. Use the default convtype -1."
 
-        # === weight information ===
+        # weight information
         self.weight = False
 
-        # ===== declaration of histograms (ROOT ...) =====
+        # declaration of histograms (ROOT ...)
         self.nbins = 32.
         self.phase_shift = 0.
         self.phaseogram = []
@@ -564,12 +562,11 @@ class PulsarLightCurve:
         erange = self.__energy_range
         if nbands == 1: substitute = False
         
-        # print "___pending___: generating figure ..."
         root.initialization()
         xdim, ydim = 550, 200    # in pixels
-        ydim += 150*nbands        
+        ydim += 150*nbands
         
-        # ==========> canvas and pad
+        # canvas and pad
         canvas = TCanvas("canvas","canvas",xdim,ydim);
             
         pad = []
@@ -601,7 +598,7 @@ class PulsarLightCurve:
             pad[N].SetBottomMargin(0.); pad[N].SetTopMargin(0.);
             if nbands == N+1: pad[N].SetBottomMargin(BottomMarginDefault)
             
-        # ====> Text and other stuff
+        # Text and other stuff
         TextSize, LabelSize = 16, 16
         text = TText()
         text.SetTextSize(TextSize)
@@ -639,13 +636,19 @@ class PulsarLightCurve:
                     
                 if inset:
                     phaseogram[-1].SetFillColor(14)
+                    phaseogram[-1].SetFillStyle(4050)
                     phaseogram[-1].Draw("same")
                     text.SetTextColor(14)
                     ecomment = "> " + str(erange[-1][0]/1e3) + " GeV"
                     ylevel = root.get_txtlevel(phaseogram[N],0.86)
                     text.DrawText(0.1,ylevel,ecomment); text.SetTextColor(1)
-        
-        # =============== TEMPLATES ============== #
+                    if zero_sup:
+                        root.zero_suppress(phaseogram[-1])
+                        phaseogram[N].SetMinimum(phaseogram[-1].GetMinimum())
+                    #  force a redraw of the axis
+                    gPad.RedrawAxis()
+                    
+        # ============== TEMPLATES ============== #
         if profile is not None:
 
             for i, prof in enumerate(profile):
@@ -695,7 +698,7 @@ class PulsarLightCurve:
                 else:
                     raise Exception("Error in format. Exiting ...")
 
-        # ===========> OUTPUT
+        # OUTPUT
         outfile = self.psrname + "_fermilat_profile_" + str(nbands) + ".eps" if outfile is None else outfile
         canvas.Print(outfile)
         canvas.Close()
@@ -794,7 +797,7 @@ class PulsarLightCurve:
         hframe.SetTickLength(0,'XY')
 
         #SigTime.SetLineColor(kRed)
-        SigTime.Draw("LP")
+        SigTime.Draw("L")
         
         axis = TGaxis(xmin,ymax,xmax,ymax,xmin,xmax,205,"-")
         #axis.SetLineColor(kRed); axis.SetLabelColor(kRed)
