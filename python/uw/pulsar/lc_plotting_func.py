@@ -120,7 +120,7 @@ class PulsarLightCurve:
 
         self.ft1name = ft1name
         if not isfile(ft1name):
-           print "Cannot access to the ft1file. Exiting ..."; exit()
+           raise IOError("Cannot access to the ft1file. Exiting ...")
 
         print "================="
         print "  ", OKBLUE + self.psrname + ENDC
