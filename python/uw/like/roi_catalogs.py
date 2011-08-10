@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.8 2011/07/21 23:02:54 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.9 2011/07/24 02:53:05 lande Exp $
 
 author: Joshua Lande
 """
@@ -78,15 +78,17 @@ class FermiCatalog(SourceCatalog):
 
         self.models = []
         for i,(n0,ind,pen) in enumerate(zip(n0s,inds,pens)):
-            if cutoffs is not None and not np.isnan(cutoffs[i]):
+            if cutoffs is not None and not np.isnan(cutoffs[i]) and not np.isinf(cutoffs[i]) :
                 cutoff=cutoffs[i]
                 self.models.append(ExpCutoff(p=[n0,ind,cutoff],e0=pen))
-            elif betas is not None and not np.isnan(betas[i]):
+            elif betas is not None and not np.isnan(betas[i]) and not np.isinf(betas[i]):
                 beta=betas[i]
                 self.models.append(LogParabola(p=[n0,ind,beta,pen]))
             else:
-                self.models.append(PowerLaw(p=[n0,ind],e0=pen))
-
+                try:
+                    self.models.append(PowerLaw(p=[n0,ind],e0=pen))
+                except AssertionError:
+                    print "Something went wrong with %s, discarding"%f[1].data.field(sname)[i]
         self.models = np.asarray(self.models)
 
         self.names  = np.chararray.strip(f[1].data.field(sname))
