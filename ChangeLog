@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Aug 11 14:13:16 PDT 2011
+pointlike/python/uw/pipeline/pub
+
+Modified Files:
+	healpix_map.py 
+Log Message:
+clean up for running stand-alone
+    *
+------------------------------------------------------------
 User: burnett  Thu Aug 11 13:51:02 PDT 2011
 pointlike/python/uw/pipeline/pub
 
