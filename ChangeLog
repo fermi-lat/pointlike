@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: parent  Thu Aug 11 09:01:52 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_plotting_func.py 
+Log Message:
+Fixed a bug. Changed SetParAxis to SetHistoAxis (function for setting ROOT histo axis). 
+
+    *
+------------------------------------------------------------
 User: cohen  Thu Aug 11 08:57:44 PDT 2011
 pointlike/python/uw/like
 
