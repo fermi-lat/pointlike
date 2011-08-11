@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/healpix_map.py,v 1.5 2011/06/24 04:53:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/healpix_map.py,v 1.6 2011/08/11 20:51:02 burnett Exp $
 """
 import os,glob,pickle, types
 import pylab as plt
@@ -448,24 +448,30 @@ class Setup(object):
     def __call__(self):
         return self.setup
 
-def getg(outdir, title='ts'):
+def get_outdir():
+    """ default outdir from local file"""
+    version= int(open('version.txt').read())
+    return 'uw%02d'%version
+
+def getg(outdir=None, title='ts'):
     """ for testing locally"""
+    if outdir is None: outdir=get_outdir()
     setup=Setup(outdir, title)
     exec(setup(), globals()) # should set g
     return g
+
  
-def make_maps(outdir, title='all', **kwargs):
+def make_maps(outdir=None, title='all', **kwargs):
+    if outdir is None: outdir=get_outdir()
     all = title=='all'
     if all or title=='kde':
         main(Setup(outdir,'kde'),logpath=None,  **kwargs)
     if all or title=='ts':
         main(Setup(outdir,'ts'), logpath=None,  **kwargs)
-    
+def main():   
+   from uw.pipeline.pipe import get_mec
+    make_maps(None, 'all', mec=get_mec())
+
 if __name__=='__main__':
-    version= int(open('version.txt').read())
-    outdir='uw%02d'%version
-    print 'outdir= %s ' % (outdir)
-
-    make_maps(outdir, 'all', mec=get_mec())
-
-    
+    main()
+     
