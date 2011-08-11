@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Aug 11 13:51:02 PDT 2011
+pointlike/python/uw/pipeline/pub
+
+Modified Files:
+	healpix_map.py 
+Log Message:
+Add code to create the maps in a skymodel folder
+    *
+------------------------------------------------------------
 User: parent  Thu Aug 11 13:06:29 PDT 2011
 pointlike/python/uw/pulsar
 
