@@ -44,6 +44,10 @@ class ParFile(dict):
             self[key][0] = v
         else: self[key] = v
 
+    def get_psrname(self):
+        try: return self.get('PSR')
+        except KeyError: return self.get("PSRJ")
+
     def get_ra(self): return ra2dec(self.get('RAJ'))
     def get_dec(self): return decl2dec(self.get('DECJ'))
     def get_skydir(self):
