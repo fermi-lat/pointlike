@@ -611,7 +611,7 @@ class PulsarLightCurve:
             pad[N].cd()
                     
             if N+1 == nbands: root.SetHistoAxis(phaseogram[N],xtitle,TextSize,OffsetX,LabelSize,ytitle,TextSize,OffsetY,LabelSize,color=color)
-            else: root.SetParAxis(phaseogram[N],"",0,0,0,ytitle,TextSize,OffsetY,LabelSize,color=color)
+            else: root.SetHistoAxis(phaseogram[N],"",0,0,0,ytitle,TextSize,OffsetY,LabelSize,color=color)
 
             # zero suppress
             if zero_sup: root.zero_suppress(phaseogram[N])
