@@ -1,4 +1,5 @@
 import numpy as np
+C = 29979245800.
 
 def sex2dec(s,mode='ra'):
     toks = s.split(':')
@@ -69,10 +70,14 @@ class ParFile(dict):
             return pdot,pdot_err
         return -f1/f0**2
 
-    def edot(self,mom=1e45):
+    def edot(self,mom=1e45,distance=None):
         om = self.get('F0',type=float)*(np.pi*2)
         omdot = self.get('F1',type=float)*(np.pi*2)
-        return -mom*om*omdot # say this without laughing
+        edot = -mom*om*omdot # say this without laughing
+        if distance is not None:
+            corr = 1-self.get_shklovskii_pdot(distance)/self.pdot()
+        else: corr = 1
+        return edot*corr
 
     def has_waves(self):
         return np.any(['WAVE' in key for key in self.keys()])
@@ -163,7 +168,8 @@ class ParFile(dict):
             if 'GLPH_%d'%i in self.keys():
                 phase += self.get('GLPH_%d'%i,type=np.longdouble)
             dts = (times - g0)*86400
-            multi = dts.copy()
+            mask = dts > 0
+            multi = dts.copy()*mask
             for j in xrange(3):
                 key = 'GLF%d_%d'%(j,i)
                 if key in self.keys():
@@ -181,110 +187,56 @@ class ParFile(dict):
             f.write('%s%s\n'%(key,val))
         f.close()
 
-def shift_pepoch(self,newepoch):
-    import pylab as pl
-    t0 = self.get('START',type=np.float128)
-    t1 = self.get('FINISH',type=np.float128)
-    T0 = self.get('PEPOCH',type=np.float128)
-    dom = np.linspace(t0,t1,100).astype(np.longdouble)
-    cod = self.eval_freq(dom)
-    #dom2 = dom-newepoch
-    cod2 = self.eval_freq(dom,t0=newepoch)
-    return cod,cod2
-    pl.plot(dom,cod2-cod)
-    """
-    p = np.polyfit(dom2.astype(float),cod.astype(float),self.degree)
-    print p
-    pl.plot(dom,(cod-np.polyval(p,dom2))*86400)
-    for i in xrange(self.degree+1):
-        self.set('F%d'%i,p[-(i+1)])     
-    self.set('PEPOCH',newepoch)
-    """
+    def get_pm(self):
+        """ Get the proper motion, return value is of form
+            PMRA, PMRA_ERR, PMDEC, PMDEC_ERR.  If no proper
+            motion is in ephemeris, all 0s are returned."""
+        vals = [0.]*4
+        for ikey,key in enumerate(['PMRA','PMDEC']):
+            if key in self.keys():
+                pmval = self.get(key,first_elem=False)
+                if hasattr(pmval,'__iter__'):
+                    vals[ikey*2] = float(pmval[0])
+                    vals[ikey*2+1] = float(pmval[-1])
+                else: vals[ikey*2] = float(pmval)
+        return vals
 
-def shift_pepoch2(self,newepoch):
-    N = self.degree + 1
-    SECSPERDAY = 86400.
-    if N == 1:
-        self.set('PEPOCH',newepoch)
-        return
-        
-    import pylab as pl
-    t0 = self.get('START',type=np.longdouble)
-    t1 = self.get('FINISH',type=np.longdouble)
-    T0 = self.get('PEPOCH',type=np.longdouble)
+    def get_comp_pm(self):
+        """ Return the composite proper motion."""
+        vals = self.get_pm()
+        v = (vals[0]**2+vals[2]**2)**0.5
+        e = ((vals[0]*vals[1])**2+(vals[2]*vals[3])**2)**0.5/v
+        return v,e
 
-    # sample phase on num points equal to num freqs
-    dom = np.linspace(t0,t1,N).astype(np.longdouble)
-    dt1 = SECSPERDAY*(dom - T0)
-    dt2 = SECSPERDAY*(dom - newepoch)
-    phi = np.zeros_like(dom)
+    def get_shklovskii_pdot(self,dist,velocity=None):
+        """ Given dist (kpc), try to compute Shklovskii from proper
+            motion.  Alternatively, if velocity (km/s) is set, use
+            this for computation.  Return the shift in Pdot expected
+            from Shklovskii."""
+        dist *= 3.08568025e21 # in cm
+        if velocity is not None:
+            velocty *= 1e5 # cm/2
+            return self.p()*velocity**2/dist/C
+        v,e = self.get_comp_pm()
+        if v == 0.: return 0.
+        v /= 365.*86400.*1000.*3600.*180/np.pi # rad/s
+        return self.p()*v**2*dist/C
 
-    # build matrix to invert
-    mat = np.empty([N,N],dtype=np.longdouble)
-    m1 = dt1.copy(); m2 = dt2.copy()
-    for i in xrange(N):
-        mat[:,i] = m2
-        tterm = self.get('F%d'%i,type=np.longdouble)
-        phi += tterm * m1
-        m1 *= dt1/(i+2)
-        m2 *= dt2/(i+2)
+    def get_bfield(self,distance=None):
+        """ Return characteristic surface field (G).  If distance (kpc)
+            is provided, correct for Shklovskii."""
+        pdot = self.pdot()
+        if distance is not None:
+            pdot -= self.get_shklovskii_pdot(distance)
+        return 3.2e19*(pdot*self.p())**0.5
 
-    return mat,phi
-
-def post_glitch(self,update=False):
-    """ Develop new parameters for a solution good only after a glitch.
-        Has a rather limited range of parameters it will work for."""
-    t0 = self.get('PEPOCH',type=float)
-    g0 = self.get('GLEP_1',type=float)
-    dt = float(g0-t0)
-    deg = self._calc_degree()
-    # TODO -- make sure it keeps phasing consistent
-    fact = lambda x: float(reduce(lambda x,y: x*y,xrange(1,1+x)))
-    # step 1 --- evolve the Taylor terms to glitch epoch
-    terms0 = np.asarray([self.get('F%i'%i,type=float) for i in xrange(deg+1)])
-    shifts = np.zeros(deg+1,dtype=float)
-    for i in xrange(deg+1):
-        for j in xrange(i+1,deg+1):
-            shifts[i] += terms0[j]*dt**(j-i)/fact(j-i)
-    # step 2 -- add in any glitch terms
-    for i in xrange(deg+1):
-        key = 'GLF%d_1'%(i)
-        if key in self.keys():
-            shifts[i] += self.get(key,type=float)
-    terms1 = terms0+shifts
-    # step 3 -- now evolve backwards to period epoch
-    shifts = np.zeros(deg+1,dtype=float)
-    dt = -dt
-    for i in xrange(deg+1):
-        for j in xrange(i+1,deg+1):
-            shifts[i] += terms1[j]*dt**(j-i)/fact(j-i)
-    terms2 = terms1+shifts
-    if update:
-        for i in xrange(deg+1):
-            self.set('F%d'%i,terms2[i])
-        for key in self.keys():
-            if key[:2]=='GL':
-                self.pop(key)
-                self.ordered_keys.remove(key)
-    return terms2
-        
-def post_glitch(self,index=1,update=False):
-    t0 = self.get('PEPOCH',type=np.longdouble)
-    g0 = self.get('GLEP_%d'%index,type=np.longdouble)
-    # sample degree # of points
-    #times = (g0-t0+np.arange(self.degree+2))*86400
-    times = (g0+np.arange(self.degree+2))
-    phases = self.eval_phase(times).astype(float)
-    times = (times - t0)*86400
-    coeffs = np.polyfit(times.astype(float),phases,self.degree+1)
-    if update:
-        for i in xrange(self.degree+1):
-            self.set('F%d'%(self.degree-i),coeffs[i])
-        for key in self.keys():
-            if key[:2]=='GL':
-                self.pop(key)
-                self.ordered_keys.remove(key)
-    return coeffs
+    def get_age(self,distance=None):
+        """ Return characteristic age in Myr.  If distance (kpc)
+            is provided, correct for Shklovskii."""
+        pdot = self.pdot()
+        if distance is not None:
+            pdot -= self.get_shklovskii_pdot(distance)
+        return self.p()/(2.*pdot)/(365*86400)/1e6
 
 class TimFile(object):
 
