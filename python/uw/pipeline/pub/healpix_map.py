@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/healpix_map.py,v 1.4 2011/03/07 00:07:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/healpix_map.py,v 1.5 2011/06/24 04:53:06 burnett Exp $
 """
 import os,glob,pickle, types
 import pylab as plt
@@ -447,5 +447,25 @@ class Setup(object):
             assert False, 'title %s not recognized' % title
     def __call__(self):
         return self.setup
+
+def getg(outdir, title='ts'):
+    """ for testing locally"""
+    setup=Setup(outdir, title)
+    exec(setup(), globals()) # should set g
+    return g
+ 
+def make_maps(outdir, title='all', **kwargs):
+    all = title=='all'
+    if all or title=='kde':
+        main(Setup(outdir,'kde'),logpath=None,  **kwargs)
+    if all or title=='ts':
+        main(Setup(outdir,'ts'), logpath=None,  **kwargs)
+    
+if __name__=='__main__':
+    version= int(open('version.txt').read())
+    outdir='uw%02d'%version
+    print 'outdir= %s ' % (outdir)
+
+    make_maps(outdir, 'all', mec=get_mec())
 
     
