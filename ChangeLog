@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: cohen  Thu Aug 11 08:57:44 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_catalogs.py 
+Log Message:
+turn index=0 into index=1.e-5
+    *
+------------------------------------------------------------
 User: cohen  Wed Aug 10 14:16:53 PDT 2011
 pointlike/python/uw/utilities
 
