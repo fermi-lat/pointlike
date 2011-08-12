@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: zimmer  Fri Aug 12 03:35:34 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+add pfile printout in non-quiet mode (for debugging)
+    *
+------------------------------------------------------------
 User: burnett  Thu Aug 11 14:13:16 PDT 2011
 pointlike/python/uw/pipeline/pub
 
