@@ -4,7 +4,7 @@ Python module to plot phaseograms in different energy bands
 Author(s): Damien Parent, JCT
 '''
 
-__version__ = 1.7
+__version__ = 1.8
 
 import os, sys
 from os.path import join, isfile
@@ -258,7 +258,7 @@ class PulsarLightCurve:
         '''Return an array of times in MJD'''
         return np.asarray(self.pulse_phase[which][:,2][0])
             
-    def fill_phaseogram(self, radius=None, nbins=32, bin_range=[0.,2.], phase_shift=0., weight=False):
+    def fill_phaseogram(self, radius=None, nbins=32, bin_range=[0.,2.], phase_shift=0, weight=False):
         '''Fill phaseograms (pulse profiles)
         ===========    ==================================================
         keyword        description
@@ -268,16 +268,15 @@ class PulsarLightCurve:
         bin_range      min and max phase interval             [0,2]
         phase_shift    add a shift to the pulse phase values  [0]
         weight         Use a weight for each photon           [False]
-        ===========    ==================================================
-        '''
+        ===========    ================================================== '''
         
-        print "\n___pending___: loading histograms ..."
+        #print "\n___pending___: loading histograms ..."
         self.nbins               = nbins
         self.phase_shift         = phase_shift
         self.binmin, self.binmax = bin_range[0], bin_range[1]
         self.weight              = weight
         erange, rrange           = self.__energy_range, self.__radius_range
-        ndays                    = 30
+        ndays                    = 20
 
         # radius
         if radius is None: radius = self.radius
@@ -294,11 +293,12 @@ class PulsarLightCurve:
         for item in self.phaseogram:
             item.Reset()
             item.SetBins(nbins*int(self.binmax-self.binmin),self.binmin,self.binmax)
+            item.SetMinimum(0.001)
 
         for item in self.phaseogram2D:
             item.Reset()
             tmin_mjd, tmax_mjd = met2mjd(self.tmin), met2mjd(self.tmax)
-            item.SetBins(nbins,self.binmin,self.binmax,int((tmax_mjd-tmin_mjd)/ndays),tmin_mjd,tmax_mjd+40)
+            item.SetBins(nbins,self.binmin,self.binmax,int((tmax_mjd-tmin_mjd)/ndays),tmin_mjd,tmax_mjd+30)
 
         if self.weight and self.psfcut:
             print OKRED + "You are using the weighting methog and applying an energy-dependent cut!" + ENDC
@@ -322,7 +322,7 @@ class PulsarLightCurve:
 
             P = evtlist[self.phase_colname][mask]; N = len(P)
             T = met2mjd(evtlist["TIME"][mask])
-            W = evtlist[self.weight_colname][mask] if self.weight else np.ones(P.size)
+            W = evtlist[self.weight_colname][mask] if self.weight else np.ones(N)
 
             if len(P)>0:
                 self.phaseogram[j].FillN(N,P,W); self.phaseogram[j].FillN(N,P+1,W)
@@ -335,19 +335,16 @@ class PulsarLightCurve:
         
 	# to make a better display due to errorbars
         for histo in self.phaseogram:
-            histo.SetMinimum(0.01)
-            max_histo = histo.GetBinContent(histo.GetMaximumBin())
-            if max_histo != 0:
-                if self.weight:
-                    factor = 1. + sqrt(max_histo)/max_histo
-                    histo.SetMaximum(int(max_histo*factor))
-                else:
-                    factor = 1.1 + sqrt(max_histo)/max_histo
-                    histo.SetMaximum(int(max_histo*factor))
-                    if histo.GetMaximum()%5 == 0: histo.SetMaximum(histo.GetMaximum()+3)
+            ymax = histo.GetBinContent(histo.GetMaximumBin())
+            
+            if ymax > 0:
+                if self.weight: ymax *= 1.2 if ymax>1 else ymax*1.4
+                else: ymax = ymax*1.1 + np.sqrt(ymax)                
+                histo.SetMaximum(int(ymax))
+                if histo.GetMaximum()%5 == 0: histo.SetMaximum(histo.GetMaximum()*1.05)
             else:
-                histo.SetMaximum(1.1)
-        
+                histo.SetMaximum(1.1)        
+
 
     def get_background(self, which=0, phase_range=[0.,1.], ring_range=[1.,2.], method='ring'):
         '''Return background/bin for a phaseogram.
@@ -438,7 +435,7 @@ class PulsarLightCurve:
 
     def print_selection(self):
         print "\n___selection___:"
-        print "\tFT1 .................. %s" %self.ft1name
+        print "\tFT1file .............. %s" %self.ft1name
         print "\tra, dec (deg) ........ %.6f, %.6f" %(self.ra_src,self.dec_src)
         print "\ttmin, tmax (MET,MJD).. %.0f, %.0f - %.4f, %4f" %(self.tmin,self.tmax,met2mjd(self.tmin),met2mjd(self.tmax))
         print "\temin, emax (MeV) ..... %.0f, %.0f" %(self.emin,self.emax)
@@ -494,45 +491,45 @@ class PulsarLightCurve:
         print ""
 
     def load_profile(self, profile, fidpt=0., norm=True, mean_sub=False, ncol=1,
-                     ytitle="Radio Flux Density (au)", comment=None, histo=False):
+                     ytitle="Radio Flux (au)", comment="", histo=False):
         '''Load radio/xray profiles
         ===========   ==============================================
         keyword       description
         ===========   ==============================================
-        profile       radio/x-ray template (ascii)  [necessary]
-        fidpt         fiducial point                [0]
-        ncol          column number for template    [1]
-        mean_sub      Substract                     [False]
-        norm          normalization                 [True]
-        ytitle        ytitle                        ["Radio Flux Density (au)"]
-        comment       comment on profile            [None]
-        histo         histo/graph                   [False]
+        profile       radio/x-ray template (ascii)      [necessary]
+        fidpt         fiducial point                    [0]
+        ncol          phase column number               [1]
+        mean_sub      Substract                         [False]
+        norm          normalized profile to 1           [True]
+        ytitle        ytitle                            ["Radio Flux (au)"]
+        comment       comment on profile                [""]
+        histo         if "True" plot profile like histo [False]
         '''
-        try:
-            phase_ext = np.loadtxt(profile,comments="#")[:,ncol-1]
-        except IndexError:
-            phase_ext = np.loadtxt(profile,comments="#")
-            
-        phase_ext = np.roll(phase_ext,-int(len(phase_ext)*fidpt))  # fiducial point
-        if mean_sub: phase_ext -= np.mean(phase_ext)
-        if norm: phase_ext /= np.max(phase_ext)   # normalization
+        try: phases = np.loadtxt(profile,comments="#")[:,ncol-1]
+        except IndexError: phases = np.loadtxt(profile,comments="#")
+
+        phlen = len(phases)            
+        phases = np.roll(phases,-int(phlen*fidpt))  # fiducial point
+        if mean_sub: phases -= np.mean(phases)
+        if norm: phases /= np.max(phases)           # normalization
 
         if histo:
             template = TH1F()
-            template.SetBins(len(phase_ext)*int(self.binmax-self.binmin),self.binmin,self.binmax)
-            for i, item in enumerate(phase_ext):
-                template.Fill(float(i)/len(phase_ext),item)
-                template.Fill(1+float(i)/len(phase_ext),item)
+            template.SetBins(phlen*int(self.binmax-self.binmin),self.binmin,self.binmax)
+            for i, p in enumerate(phases):
+                template.Fill(float(i)/phlen,p)
+                template.Fill(1+float(i)/phlen,p)
             template.SetMinimum(0.01)
             max_histo = template.GetBinContent(template.GetMaximumBin())
             factor = 1.12 + sqrt(max_histo)/max_histo
             template.SetMaximum(int(max_histo*factor))
         else:
-            template = TGraph(2*len(phase_ext))
-            for i, item in enumerate(phase_ext):
-                template.SetPoint(i,float(i)/len(phase_ext),item)
-                template.SetPoint(i+len(phase_ext),1.+float(i)/len(phase_ext),item)
-                template.GetXaxis().SetRangeUser(self.binmin,self.binmax)
+            phases = np.append(phases,phases)
+            phases = np.append(phases,phases[0])
+            template = TGraph(len(phases))
+            for i, p in enumerate(phases):
+                template.SetPoint(i,float(i)/phlen,p)
+            template.GetXaxis().SetLimits(self.binmin,self.binmax)
 
         return template, ytitle, comment
 
@@ -556,7 +553,7 @@ class PulsarLightCurve:
         xtitle        Title for x-axis                           [Pulse Phase]
         ytitle        title for y-axis                           [Counts/bin]
         outfile       output file name
-        '''
+        ===========   ====================================================== '''
 
         phaseogram = self.phaseogram
         erange = self.__energy_range
@@ -619,7 +616,7 @@ class PulsarLightCurve:
             # draw phaseogram
             phaseogram[N].Draw()
             if not self.weight: phaseogram[N].Draw("Esame")
-
+            
             # comments
             if erange[N][1] > 30000: ecomment = "> " + str(erange[N][0]/1e3) + " GeV"
             else: ecomment = str(erange[N][0]/1e3) + " - " + str(erange[N][1]/1e3) + " GeV"
@@ -636,15 +633,14 @@ class PulsarLightCurve:
                     
                 if inset:
                     phaseogram[-1].SetFillColor(14)
-                    phaseogram[-1].SetFillStyle(4050)
                     phaseogram[-1].Draw("same")
+                    if zero_sup:
+                        root.zero_suppress(phaseogram[-1])
+                        phaseogram[N].SetMinimum(phaseogram[-1].GetMinimum())
                     text.SetTextColor(14)
                     ecomment = "> " + str(erange[-1][0]/1e3) + " GeV"
                     ylevel = root.get_txtlevel(phaseogram[N],0.86)
                     text.DrawText(0.1,ylevel,ecomment); text.SetTextColor(1)
-                    if zero_sup:
-                        root.zero_suppress(phaseogram[-1])
-                        phaseogram[N].SetMinimum(phaseogram[-1].GetMinimum())
                     #  force a redraw of the axis
                     gPad.RedrawAxis()
                     
@@ -677,7 +673,7 @@ class PulsarLightCurve:
                     hframe.GetXaxis().SetLabelOffset(99); hframe.GetYaxis().SetLabelOffset(99)
                     hframe.SetTickLength(0,'XY')
                     
-                    if comment is not None: ytitle += " (" + comment + ")"
+                    if len(comment) != 0: ytitle += " (" + comment + ")"
                     axis = TGaxis(xmax,ymin,xmax,ymax,ymin,ymax,510,"+L")
                     # axis.SetLineColor(kRed); axis.SetLabelColor(kRed)
                     if nbands == 1: root.DrawAxis(axis,ytitle,TextSize,OffsetY,LabelSize)
@@ -685,8 +681,7 @@ class PulsarLightCurve:
                     n = -(i+1)
                     BM, TM = pad[n].GetBottomMargin(), pad[n].GetTopMargin()
                     pad[n].Clear(); pad[n].cd()
-                    pad[n].SetBottomMargin(BM)
-                    pad[n].SetTopMargin(TM)
+                    pad[n].SetBottomMargin(BM); pad[n].SetTopMargin(0.02)
                     root.SetHistoAxis(histo,xtitle,TextSize,OffsetX,LabelSize,ytitle,TextSize,OffsetY,LabelSize)
 
                 if histo.__class__.__name__ == 'TGraph':
@@ -699,12 +694,11 @@ class PulsarLightCurve:
                     raise Exception("Error in format. Exiting ...")
 
         # OUTPUT
-        outfile = self.psrname + "_fermilat_profile_" + str(nbands) + ".eps" if outfile is None else outfile
-        canvas.Print(outfile)
-        canvas.Close()
-        print ""
+        if outfile is None: outfile = "%s_fermilat_profile_%s.eps" %(self.psrname,str(nbands))
+        canvas.Print(outfile); canvas.Close()
+
         
-    def plot_phase_time( self, which=0, background=None, zero_sup=False, xdim=400, ydim=900,
+    def plot_phase_time( self, which=0, background=None, zero_sup=True, xdim=500, ydim=1000,
                          xtitle='Pulse Phase', ytitle='Counts/bin', color='black', outfile=None ):
         '''Plot photon phase vs time
         ===========   ======================================================
@@ -712,8 +706,8 @@ class PulsarLightCurve:
         ===========   ======================================================  
         which         histogram number                           [0]
         backgroung    add a background level on the phaseogram   [None]
-        zero_sup      active the zero-suppress on the top panel  [False]
-        xdim, ydim    plot dimensions in pixels                  [400,900]
+        zero_sup      active the zero-suppress on the top panel  [True]
+        xdim, ydim    plot dimensions in pixels                  [500,1000]
         xtitle        title for x-axis                           [Pulse Phase]
         ytitle        title for y-axis                           [Counts/bin]
         color         color profile                              ["black"] 
@@ -729,7 +723,7 @@ class PulsarLightCurve:
         pad2 = TPad("pad2","pad2",0,0,1,0.7); pad2.Draw()
 
         text = TText()
-        TextSize, LabelSize, Offset = 16, 14, 4
+        TextSize, LabelSize, Offset = 16, 16, 5
         text.SetTextSize(TextSize)
         
         LeftMarginDefault, RightMarginDefault = 0.15, 0.11
@@ -759,7 +753,7 @@ class PulsarLightCurve:
             line.SetLineStyle(2)
             line.Draw()
             
-        # =======> pad2: phase vs time 
+        # pad2: phase vs time 
         pad2.cd()
         pad2.SetTopMargin(TopMarginDefault); pad2.SetBottomMargin(0.06)
         pad2.SetLeftMargin(LeftMarginDefault); pad2.SetRightMargin(RightMarginDefault)
@@ -769,7 +763,7 @@ class PulsarLightCurve:
         phaseogram2D[which].GetZaxis().SetLabelSize(0.03)
         phaseogram2D[which].Draw("CONT4 Z")
 
-        # =======> superimpose a new pad: significance vs time
+        # superimpose a new pad: significance vs time
         times, phases, weights = self.get_times(which), self.get_phases(which), self.get_weights(which)
         tmin_mjd, tmax_mjd = met2mjd(self.tmin), met2mjd(self.tmax)
         timebins = np.linspace(tmin_mjd,tmax_mjd,20)
@@ -781,7 +775,7 @@ class PulsarLightCurve:
             W = weights[time_filter]
             H = weighted_h_statistic(P,W)
             SigTime.SetPoint(i,sig2sigma(h_sig(H)),T)
-
+            
         xmin, xmax = SigTime.GetXaxis().GetXmin(), SigTime.GetXaxis().GetXmax()        
         ymin, ymax = phaseogram2D[which].GetYaxis().GetXmin(), phaseogram2D[which].GetYaxis().GetXmax()
 
@@ -795,21 +789,19 @@ class PulsarLightCurve:
         hframe = overlay.DrawFrame(xmin,ymin,xmax,ymax)
         hframe.GetXaxis().SetLabelOffset(99); hframe.GetYaxis().SetLabelOffset(99)
         hframe.SetTickLength(0,'XY')
-
-        #SigTime.SetLineColor(kRed)
-        SigTime.Draw("L")
         
+        SigTime.Draw("L")
+
         axis = TGaxis(xmin,ymax,xmax,ymax,xmin,xmax,205,"-")
         #axis.SetLineColor(kRed); axis.SetLabelColor(kRed)
         # bug in ROOT - must fix font = 82 instead 83
         TextSize,Offset,LabelSize = 0.04,0.2,0.03
         root.DrawAxis(axis,"H-test statictics [#sigma]",TextSize,Offset,LabelSize,font=82)
         axis.SetLabelOffset(-0.05)
-        
+
         # OUTPUT
-        outfile = (self.psrname + "_fermilat_phaseogram2D.eps") if outfile is None else outfile
+        if outfile is None: outfile = self.psrname + "_fermilat_phaseogram2D.eps"
         canvas.Print(outfile)
-        print ""
 
     def plot_ptest_time(self, which=0, xdim=1000, ydim=600, outfile=None):
         '''Plot periodic test results as a funtion of the time
@@ -872,6 +864,8 @@ class PulsarLightCurve:
     def pulseopt(self, erange=[100,1000], ebins=10, rrange=[0.2,2], rbins=10):
         '''
         Find the optimum cuts for a ROI (i.e. over radius, energy) based on H-test
+        Return ntrials, pre-sig, post-sig, optimal minimum energy, optimal radius
+
         ===========   =============================================
         keyword       description
         ===========   =============================================
@@ -909,16 +903,19 @@ class PulsarLightCurve:
                 if sig > sigmax:
                     sigmax, bestE, bestR = sig, it_E, it_R
 
+        postsig = sigma_trials(sigmax,ntrials)
         print "================================"
         print "ntrials ............", ntrials
         print "pre-sig (sigma)..... %.1f" %sigmax
-        print "post-sig (sigma) ... %.1f" %sigma_trials(sigmax,ntrials)
+        print "post-sig (sigma) ... %.1f" %postsig
         print "emin, emax (MeV) ... %.0f, %.0f" %(bestE,self.emax)
         print "radius (deg) ....... %.1f" %bestR
         print "================================"
+
+        return ntrials, sigmax, postsig, bestE, bestR
         
         
-    def toASCII(self, outdir="."):
+    def toASCII(self, outdir=""):
         '''Copy the pulse phase of each phaseogram into an ascii file
            outdir      output directory
         '''
