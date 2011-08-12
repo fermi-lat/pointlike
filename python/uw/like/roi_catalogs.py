@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.10 2011/08/10 16:34:42 cohen Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.11 2011/08/11 15:57:44 cohen Exp $
 
 author: Joshua Lande
 """
@@ -228,7 +228,10 @@ class Catalog2FGL(SourceCatalog):
                 zip(names,extended_source_names,stypes,n0s,inds,pens,cutoffs,betas,f1000s,dirs):
 
             if stype == 'PowerLaw':
-                if not np.isinf(n0):
+                # note, np.isinf incorrectly raises annoying warning
+                # http://projects.scipy.org/numpy/ticket/1500
+                # This is a workaround.
+                if n0 not in [-np.inf, np.inf]:
                     model=PowerLaw(p=[n0,ind],e0=pen)
                 else:
                     # For some reason, the fixed extended sources don't have n0 set.
@@ -292,11 +295,11 @@ class Catalog2FGL(SourceCatalog):
                     self.extended_models.append(
                         EllipticalGaussian(p=[major/GAUSSIAN_X68,minor/GAUSSIAN_X68,posang],center=center))
             else:
-                self.extended_models.append(SpatialMap(file=os.path.join('$LATEXTDIR','Templates',template)))
+                self.extended_models.append(SpatialMap(file=os.path.join('$LATEXTDIR',template)))
 
             # remember the fits file template in case the XML needs to be saved out.
             # (for gtlike compatability)
-            self.extended_models[-1].original_template = os.path.join('$LATEXTDIR','Templates',template)
+            self.extended_models[-1].original_template = os.path.join('$LATEXTDIR',template)
             self.extended_models[-1].original_parameters = self.extended_models[-1].p.copy()
 
         self.extended_models = np.asarray(self.extended_models)
