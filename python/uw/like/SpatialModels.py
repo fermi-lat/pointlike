@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.54 2011/07/21 23:02:11 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.55 2011/07/28 05:15:31 lande Exp $
 
    author: Joshua Lande
 
@@ -27,6 +27,16 @@ NFW_X68,NFW_X99=0.30801306,2.02082024
 
 SMALL_ANALYTIC_EXTENSION=1e-10
 SMALL_NUMERIC_EXTENSION=1e-3
+
+def smart_log(p,log):
+    """ This function is functionally equivalen to
+
+            np.where(log, np.log10(p), p)
+
+        but will not raise errors by taking the log of
+        negative parameters when log=False
+    """
+    return np.where(log, np.log10(np.where(log, p, 1)), p)
 
 class DefaultSpatialModelValues(object):
     """ Spatial Parameters:
@@ -314,7 +324,7 @@ class SpatialModel(object):
         if len(p)!=len(self.p):
             raise Exception("SpatialModel.set_parameters given the wrong number of parameters.")
 
-        self.p = np.where(self.log,np.log10(p),p) if absolute else np.asarray(p,dtype=float)
+        self.p = smart_log(p,log=self.log) if absolute else np.asarray(p,dtype=float)
         self.cache()
 
     def mapper(self,i):
@@ -605,7 +615,7 @@ class Gaussian(RadiallySymmetricModel):
     def has_edge(self): return False
 
     def _shrink(self,size=SMALL_ANALYTIC_EXTENSION): 
-        self.p[2]=np.where(self.log[2],np.log10(size),size)
+        self.p[2]=smart_log(size,log=self.log[2])
         self.free[2]=False
 
     def can_shrink(self): return True
