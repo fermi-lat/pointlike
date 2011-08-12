@@ -5,7 +5,7 @@ Author: Damien Parent <dmnparent@gmail.com>
 """
 
 import numpy as np
-from ROOT import gROOT, gStyle, TH1F, TH2F, TGraph, gPad, TGaxis, Double
+from ROOT import gROOT, gStyle, TH1F, TH2F, TGraph, gPad, TGaxis, Double, TPad
 from ROOT import kWhite, kBlack, kRed, kGreen, kBlue, kYellow, kMagenta, kCyan
 
 gROOT.SetBatch(True) # force the batch mode
@@ -94,7 +94,7 @@ def SetHistoAxis( hist, x_title="", x_title_size=0, x_title_offset=0, x_label_si
     elif color is 'yellow': kcolor = kYellow
     else: print "Warning: color %s is not implemented!"; kcolor = kBlack
         
-    # hist.SetLineWidth(1)
+    hist.SetLineWidth(1)
     hist.SetLineColor(kcolor)
 
     hist.GetXaxis().SetTitle(x_title)
@@ -142,16 +142,21 @@ def ScaleGraphY(graph, factor):
 
 def zero_suppress(histo):
     '''Zoom on the histogram'''
-    min_histo = histo.GetBinContent(histo.GetMinimumBin())
-    if min_histo != 0:
-        factor = 0.8 - np.sqrt(min_histo)/min_histo
-        min_level = int(min_histo*factor)
-        if min_level%5 == 0 or min_level%5 == 4: min_level += 3
-    else: min_level = 0.01
-    histo.SetMinimum(min_level)
+    ymin = histo.GetBinContent(histo.GetMinimumBin())
+    if ymin > 0:
+        ymin = int(ymin*0.9 - np.sqrt(ymin))
+        if ymin%5 == 0: ymin *= 0.9
+    else: ymin = 0.01
+    histo.SetMinimum(ymin)
     
 def get_txtlevel(histo, factor):
     min = histo.GetMinimum()
     max = histo.GetMaximum()
     return (max-min) * factor + min
                                
+def eraselabel(pad, h):
+    pad.cd()
+    pe = TPad("pe","pe",0,0,pad.GetLeftMargin(),h)
+    pe.Draw()
+    pe.SetFillColor(pad.GetFillColor())
+    pe.SetBorderMode(0)
