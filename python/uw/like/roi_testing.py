@@ -1,7 +1,7 @@
 """
 Module to perfrom routine testing of pointlike's many features.'
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.7 2011/07/15 18:34:26 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.8 2011/07/24 02:53:35 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -281,6 +281,6 @@ if __name__ == '__main__':
     print '\nPerforming Automated tests of Pointlike\n'
 
     import numpy as np
-    np.seterr(all='ignore')
+    np.seterr(all='warn')
 
     unittest.main()
