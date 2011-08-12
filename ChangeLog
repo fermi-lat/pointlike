@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: parent  Fri Aug 12 14:17:40 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_plotting_func.py 
+Log Message:
+Return ntrials, pre-sig, post-sig, bestE, bestR in pulseopt. Fixed bug.
+
+    *
+------------------------------------------------------------
 User: zimmer  Fri Aug 12 03:35:34 PDT 2011
 pointlike/python/uw/like
 
