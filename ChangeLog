@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sat Aug 13 16:28:56 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+clean up modification in extended source fitting
+    *
+------------------------------------------------------------
 User: lande  Sat Aug 13 14:21:43 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
