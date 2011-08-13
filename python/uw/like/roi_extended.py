@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.65 2011/07/30 20:18:14 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.66 2011/08/08 18:41:25 lande Exp $
 
     author: Joshua Lande
 """
@@ -313,20 +313,10 @@ Arguments:
 
             # Now add the rotated spatial part back to the list.
             if cs == SkyDir.GALACTIC:
-                p[0:2]=new_dir.l(),new_dir.b()
+                roi.modify(which=self.name,l=new_dir.l(),b=new_dir.b())
             elif cs == SkyDir.EQUATORIAL:
+                roi.modify(which=self.name,l=new_dir.ra(),b=new_dir.dec())
                 p[0:2]=new_dir.ra(),new_dir.dec()
-
-            # Do the convolution here.
-            sm.set_parameters(p=p,absolute=False)
-
-            temp=self.quiet;self.quiet=True
-            self.initialize_counts(roi.bands)
-            self.quiet=temp
-
-            roi.update_counts()
-            # Note: roi.dsm.update_counts called by the fit function.
-
 
             if bandfits:
                 ll=roi.bandFit(es)
