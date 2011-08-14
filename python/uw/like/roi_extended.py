@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.66 2011/08/08 18:41:25 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.67 2011/08/13 23:28:56 lande Exp $
 
     author: Joshua Lande
 """
@@ -311,12 +311,9 @@ Arguments:
             # This rotation takes (0,0) back to the initial position
             new_dir().rotate(axis(),theta)
 
-            # Now add the rotated spatial part back to the list.
-            if cs == SkyDir.GALACTIC:
-                roi.modify(which=self.name,l=new_dir.l(),b=new_dir.b())
-            elif cs == SkyDir.EQUATORIAL:
-                roi.modify(which=self.name,l=new_dir.ra(),b=new_dir.dec())
-                p[0:2]=new_dir.ra(),new_dir.dec()
+            # update spatial model, then modify inside the ROI.
+            sm.set_parameters(p=p[2:],absolute=False, center=new_dir)
+            roi.modify(which=self.name,spatial_model=sm, keep_old_center=False)
 
             if bandfits:
                 ll=roi.bandFit(es)
