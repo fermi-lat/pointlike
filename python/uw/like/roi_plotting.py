@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.61 2011/08/07 23:49:02 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.62 2011/08/08 18:41:26 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1321,8 +1321,6 @@ class ROISmoothedSource(object):
 
             cbar = P.colorbar(im, cax=cax)
             cbar.ax.set_ylabel(r'$\mathrm{counts}/[\mathrm{deg}]^2$')
-
-        ax.grid()
 
         if self.title is None: 
             self.title = 'Smoothed Counts'
