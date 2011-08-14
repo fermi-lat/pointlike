@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Aug 14 01:22:54 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+Remove grid from smooth source maps (by default)
+    *
+------------------------------------------------------------
 User: lande  Sun Aug 14 01:22:33 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
