@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.67 2011/08/13 23:28:56 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.68 2011/08/14 08:22:33 lande Exp $
 
     author: Joshua Lande
 """
@@ -259,7 +259,7 @@ Arguments:
         roi.quiet = True
 
         if roi.TS(which=self.name,quick=True,bandfits=bandfits) < 1:
-            print "Warning: initial (point) TS<1 so TS_ext will likely not be trustworthy"
+            print "Warning: initial TS<1 (in point hypothesis) so TS_ext will likely not be trustworthy"
 
         init_spectral = roi.parameters().copy()
         init_spatial  = sm.get_parameters(absolute=False)
