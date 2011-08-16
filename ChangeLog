@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Aug 15 23:02:18 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+better warning
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-25-00, operation: add
 Package: pointlike
