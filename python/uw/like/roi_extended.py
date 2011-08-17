@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.68 2011/08/14 08:22:33 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.69 2011/08/16 06:02:17 lande Exp $
 
     author: Joshua Lande
 """
@@ -313,7 +313,11 @@ Arguments:
 
             # update spatial model, then modify inside the ROI.
             sm.set_parameters(p=p[2:],absolute=False, center=new_dir)
-            roi.modify(which=self.name,spatial_model=sm, keep_old_center=False)
+
+            temp=self.quiet;self.quiet=True
+            self.initialize_counts(roi.bands)
+            self.quiet=temp
+            roi.update_counts()
 
             if bandfits:
                 ll=roi.bandFit(es)
@@ -359,8 +363,9 @@ Arguments:
         ll_0 = d['ll_best'] = -f(init_spatial); 
         self.quiet = old_quiet
 
-        if not self.quiet: print 'Localizing %s source %s Using %s' % (sm.pretty_name,es.name,
-                                                    'BandFits' if bandfits else 'Spectral Fits')
+        if not self.quiet: 
+            print 'Localizing %s source %s Using %s' % (sm.pretty_name,es.name,
+                                                                       'BandFits' if bandfits else 'Spectral Fits')
 
         if init_grid is not None:
             print 'Testing initial grid values'
@@ -473,7 +478,7 @@ Arguments:
 
         if not roi.quiet: print 'Refitting position for the null hypothesis'
         f() # have to fit with shrunk spatial model to get a reasonable starting spectrum for extension fit.
-        if refit: self.fit_extension(roi,error=None,**kwargs)
+        if refit: self.fit_extension(roi,estimate_errors=False,**kwargs)
 
         if not roi.quiet: print 'Redoing spectral fit in the null hypothesis'
 
