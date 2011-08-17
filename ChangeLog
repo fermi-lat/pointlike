@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Aug 17 12:19:21 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+bug fix for extended source modification code
+    *
+------------------------------------------------------------
 User: lande  Mon Aug 15 23:02:18 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
