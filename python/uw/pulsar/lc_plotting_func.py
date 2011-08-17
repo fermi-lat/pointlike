@@ -161,15 +161,13 @@ class PulsarLightCurve:
         self.weight = False
 
         # declaration of histograms (ROOT ...)
-        self.nbins = 32.
-        self.phase_shift = 0.
-        self.phaseogram = []
-        self.pulse_phase = []
+        self.nhisto       = 6
+        self.nbins        = 32
+        self.phase_shift  = 0
+        self.phaseogram   = []
         self.phaseogram2D = []
-        for i in range(6):
-            histname = "phaseogram_" + str(i)
+        for i in range(self.nhisto):
             self.phaseogram.append(TH1F())
-            self.pulse_phase.append([])
             self.phaseogram2D.append(TH2F())
             self.__radius_range += [self.radius]
 
@@ -300,6 +298,10 @@ class PulsarLightCurve:
             tmin_mjd, tmax_mjd = met2mjd(self.tmin), met2mjd(self.tmax)
             item.SetBins(nbins,self.binmin,self.binmax,int((tmax_mjd-tmin_mjd)/ndays),tmin_mjd,tmax_mjd+30)
 
+        self.pulse_phase = []
+        for i in range(self.nhisto):
+            self.pulse_phase.append([])
+
         if self.weight and self.psfcut:
             print OKRED + "You are using the weighting methog and applying an energy-dependent cut!" + ENDC
 
@@ -332,7 +334,7 @@ class PulsarLightCurve:
         # switch to numpy.array
         for i, item in enumerate(self.pulse_phase):
             self.pulse_phase[i] = np.asarray(item)
-        
+
 	# to make a better display due to errorbars
         for histo in self.phaseogram:
             ymax = histo.GetBinContent(histo.GetMaximumBin())
@@ -533,7 +535,6 @@ class PulsarLightCurve:
 
         return template, ytitle, comment
 
-
     def plot_lightcurve( self, nbands=1, xdim=550, ydim=200, background=None, zero_sup=False,
                          inset=False, profile=None, color='black', outfile=None,
                          xtitle='Pulse Phase', ytitle='Counts/bin', substitute=True):
@@ -554,7 +555,6 @@ class PulsarLightCurve:
         ytitle        title for y-axis                           [Counts/bin]
         outfile       output file name
         ===========   ====================================================== '''
-
         phaseogram = self.phaseogram
         erange = self.__energy_range
         if nbands == 1: substitute = False
@@ -585,7 +585,7 @@ class PulsarLightCurve:
             OffsetX, OffsetY, BottomMarginDefault = 4.5, 3.1, 0.18
             ylow, ystep = 0.7, 0.17
         else:
-            raise Exception("nbands>5. Not implemented! Exiting ...")            
+            raise Exception("Number of energy bands is greater than 5. Not implemented! Exiting ...")            
             
         for N in range(nbands):
             padname = "pad" + str(N)
@@ -599,7 +599,8 @@ class PulsarLightCurve:
         TextSize, LabelSize = 16, 16
         text = TText()
         text.SetTextSize(TextSize)
-
+        if self.weight: ytitle = "W. Counts/bin"
+        
         pad[0].SetTopMargin(TopMarginDefault)
         
         # ============== G-RAY PANELS ============== #
@@ -913,7 +914,6 @@ class PulsarLightCurve:
         print "================================"
 
         return ntrials, sigmax, postsig, bestE, bestR
-        
         
     def toASCII(self, outdir=""):
         '''Copy the pulse phase of each phaseogram into an ascii file
