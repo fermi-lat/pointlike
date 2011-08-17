@@ -8,7 +8,7 @@ VERSION: 1.0
 
 AUTHORS: Tyrel, Aous, Damien
 
-This python file is a bunch of functions which includes fits issues.
+  downloadFT1 : download a FT1 from the astroserver
 
   get_header_position = return the Position keyword in the FT1 header and
                         extract the ra, dec, and radius values
@@ -16,6 +16,26 @@ This python file is a bunch of functions which includes fits issues.
   get_header_erange = return the energy range
 
 """
+
+def downloadFT1( ft1name, emin=100, emax=100000, tmin=0., tmax=0., ra=0., dec=0., rad=1.,
+                 data_version='P6_public_v2', zmax=100., evclsmin=0, evtclass='Diffuse' ):
+    '''Download FT1 file from the astroserver'''
+    cmd = '~glast/astroserver/prod/astro -b -q --output-ft1 %s --event-sample %s \
+--minEnergy %.2f --maxEnergy %.2f --minTimestamp %.2f --maxTimestamp %.2f --ra %.6f --dec %.6f \
+--radius %.2f --maxZenith %.2f --event-class-name "%s" store' \
+    %(ft1name,data_version,emin,emax,tmin,tmax,ra,dec,rad,zmax,evtclass)
+    return cmd
+
+def check_file(fname,display=False):
+    '''Check if the file exists'''
+    if not os.access(fname,os.F_OK):
+        print "\033[1;31m The file %s does not exist => exit \033[0m" %(fname)
+        sys.exit()
+    if os.access(fname,os.F_OK):
+        if display:
+            print '\tReading file: ', fname
+        return True
+                              
 
 def add_angsep_column(filename,ra=0.,dec=0.):
   '''Add a angular separation column between the photon direction and (ra,dec).
@@ -70,8 +90,13 @@ def get_header_position(filename):
     exit()
                 
   keyword='DSVAL%i' %keynum
-  ra,dec,rad=header[keyword].strip('CIRCLE()').split(',') #gets rid of the circle and parenthesis part and splits around the comma
-  return float(ra),float(dec),float(rad)
+
+  try:
+      ra,dec,rad=header[keyword].strip('circle()').split(',') #gets rid of the circle and parenthesis part and splits around the comma
+      return float(ra),float(dec),float(rad)
+  except ValueError:
+      ra,dec,rad=header[keyword].strip('CIRCLE()').split(',') #gets rid of the circle and parenthesis part and splits around the comma
+      return float(ra),float(dec),float(rad)
 
 
 def get_header_erange(filename):
