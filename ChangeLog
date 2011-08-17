@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: parent  Wed Aug 17 13:25:40 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_plotting_func.py 
+Log Message:
+Initialize the pulse_phase object in fill_histogram.
+
+    *
+------------------------------------------------------------
 User: parent  Wed Aug 17 13:20:43 PDT 2011
 pointlike/python/uw/utilities
 
