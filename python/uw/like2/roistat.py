@@ -1,6 +1,6 @@
 """
 Manage likelihood calculations for an ROI
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.1 2011/08/18 16:27:03 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 
@@ -13,6 +13,22 @@ from . import sourcelist
 class ROIstat(object):
     """ manage statistical analysis of an ROI
     Initialize from an existing ROIanalysis object, for now
+    
+    Contains two lists:
+       * all sources, in self.sources
+         order is, for now, the same as for ROIanlysis
+       * a list of BandModelStat objects, one per band
+          each manages the computation of the likelihood for its band
+    The constructor takes an existing ROIAnalysis object, 
+    from which it extracts the sources and bands.
+    the fit() method is equiavlent to the same method in ROIanalysis
+    
+    Not implemented yet: 
+        * fits for SED plots: that is, fits combining front and back for each band
+        * localization
+        * computation of TS
+        ...
+      
     """
     
     def __init__(self, roi, bandsel=lambda b: True):
@@ -74,6 +90,7 @@ class ROIstat(object):
             self.set_parameters(parameters)
         self.update()
         t = np.array([bstat.gradient() for bstat in self.bandstat]).sum(axis=0)
+        # this is required by the convention in all of the Models classes to use log10 for external
         jacobian= 10**self.get_parameters()/np.log10(np.e)
         return t*jacobian
         
@@ -96,7 +113,7 @@ class ROIstat(object):
     def dump(self, **kwargs):
         map(lambda bs: bs.dump(**kwargs), self.bandstat)
         
-
+##### these are for testing, some may turn into methods
 def test(roi):
     r= ROIstat(roi, lambda b: b.e<200)
     print r
@@ -172,12 +189,3 @@ class ROIfit(object):
         mm = fitter.Minimizer(self)
         return mm(**kwargs)
         
-def gradcheck(s,i=0, di = 1e-2):
-    par = s.get_parameters()
-    dpar = par.copy()
-    dpar[i]+=di
-    g_up = s.gradient(dpar)
-    dpar[i]-= di
-    g_dn = s.gradient(dpar)
-    s.set_parameters(par)
-    return (g_up-g_dn)/2*di
