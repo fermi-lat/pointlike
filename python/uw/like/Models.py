@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.54 2011/07/15 23:46:58 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.55 2011/07/21 20:15:48 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -913,7 +913,7 @@ class Constant(Model):
         return (emax-emin)*10**self._p[0]
 
     def gradient(self,e):
-        return np.ones_like(e)
+        return  np.array([np.ones_like(e)])
 
 #===============================================================================================#
 
