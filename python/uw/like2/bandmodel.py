@@ -1,8 +1,9 @@
 """
 Manage spectral and angular models for an energy band
-   Delegates computation to classes in modules like.roi_diffuse, like.roi_extended, like.roi_bands
+   Delegates some computation to classes in modules like.roi_diffuse, like.roi_extended
+   
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandmodel.py,v 1.1 2011/08/18 16:27:03 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -19,18 +20,21 @@ class BandModel(object):
 
     def dump(self, out=None):
         """ useful summary dump """
-        i = self.source_index
         b = self.band
         print >>out, self.__str__()
-        print >>out, 'exposure ratio, overlap %.3f %.3f:'%( b.er[i], b.overlaps[i])
+        if hasattr(self,'er'):
+            print >>out, '\texposure ratio, overlap: %.3f %.3f'%( self.er, self.overlap)
         pc = self.pix_counts
-        print >>out, ('pixel counts: min, max, sum: '+3*'%8.1f') % ( pc.min(), pc.max(), pc.sum())
-        print >>out, 'total counts %8.1f'%  self.counts # b.ps_counts[i]
+        print >>out, ('\tpixel counts: min, max, sum: '+3*'%8.1f') % ( pc.min(), pc.max(), pc.sum())
+        print >>out, '\ttotal counts %8.1f'%  self.counts 
 
 class BandDiffuse(BandModel):
     """ 
-        Use a ROIDiffuseModel or ROIExtendedModel to compute the expected distribution of pixel counts
-        for ROIBand
+        Use a ROIDiffuseModel or ROIExtendedModel to compute the expected 
+        distribution of pixel counts  for ROIBand
+        Convolving is done with a like.roi_diffuse.DiffuseModel subclass, 
+        usually ROIDiffuseModel_OTF, ROIDiffuseModel_PC for ring, isotropic resp. 
+        and like.roi_extended.ExtendedSource for extended sources
     """
     def __init__(self,  band, source): 
         """
@@ -39,6 +43,11 @@ class BandDiffuse(BandModel):
                     solid_angle,pixelArea(), 
                 sets:    bg_counts[source_index], bg_pix_counts[:,source_index]
             source : generalized Source with factory and manager_index
+                the factory sets up a ROIDiffuseModel object for this band: we
+                use the methods initialize_counts, update_counts, and gradient, 
+                which are designed to be called with a list of bands, but here
+                only the current band. A little klugy, may try to extract the code
+                on a future refactoring
         """
         
         self.source_index = source.manager_index 
@@ -46,7 +55,6 @@ class BandDiffuse(BandModel):
         self.model  = self.source.smodel
         self.source.quiet = True
         self.band = band
-        self.pix_counts = band.bg_pix_counts[:,self.source_index]
         self.initialize()
         self.update()
     
@@ -59,12 +67,12 @@ class BandDiffuse(BandModel):
         self.source.initialize_counts([self.band])
         
     def update(self):
-        """ sets the following members of the band:
-            bg_counts[source_index] -- the total counts expected for
-                    the model in the aperture
-            bg_pix_counts[:,source_index] -- if the band has pixels,
-                    an npixel vector with the expected counts from the
-                    model for each data pixel
+        """ sets the following attributes:
+            counts -- the total counts expected for the model in the aperture
+            pix_counts-- if the band has pixels, an npixel vector with the 
+                        expected counts from the model for each data pixel
+            actually use the ROIDiffuseModel object to modify the band, then we 
+            copy them here. 
         """
         self.source.update_counts([self.band], self.source_index)
         self.pix_counts = self.band.bg_pix_counts[:,self.source_index]
@@ -94,14 +102,12 @@ class BandPoint(BandModel):
         """
             point_source_factory : function that returns point source, roi_dir
             band : ROIBand object
-                reads: e, exp, wsdl, psf, b.pixelArea()
-                calls: expected
+                reads: e, exp, wsdl, psf, b.pixelArea(), sp_points, sp_vector
                 
         """
         self.source, self.roi_dir = source.factory(source.manager_index) 
         self.model = self.source.model
         self.band = band
-        self.pix_counts = np.zeros(band.npix) 
         self.initialize()
         self.update()
        
@@ -127,10 +133,14 @@ class BandPoint(BandModel):
         overlap_function = like.pypsf.PsfOverlap()
         self.overlap = overlap_function(band,roi_dir,self.source.skydir)  
 
-    def update(self):  
-        t= self.band.expected(self.source.model) * self.er
-        self.pix_counts = self.ps_pix_counts * t
-        self.counts = t*self.overlap
+    def update(self):
+        """ model parameters changed: integrate model over energy range, update 
+            pixel counts and total counts in ROI
+        """
+        b = self.band
+        expected = (self.model(b.sp_points)*b.sp_vector).sum() * self.er
+        self.pix_counts = self.ps_pix_counts * expected
+        self.counts = expected*self.overlap
 
     def grad(self, weights, phase_factor=1): 
         """ contribution to the overall gradient
@@ -152,14 +162,14 @@ class BandModelStat(object):
     def __init__(self, band, bandmodels, free):
         """
            band : ROIband object
+                only used here to get data and phase_factor
            bandmodels : list of BandModel objects associated with this band
            free : array of bool to select models
         """
         self.bandmodels = bandmodels
         self.band = band # for reference: no top-level access
-        self.phase_factor = band.phase_factor
-        #for b in bandmodels: self.append(b)
-        self.data = band.pix_counts
+        self.phase_factor = band.phase_factor #this should be global
+        self.data = band.pix_counts  # data from the band
         self.pixels=len(self.data)
         self.initialize(free)
         self.update()
