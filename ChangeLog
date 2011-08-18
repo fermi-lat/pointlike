@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Aug 18 09:27:03 PDT 2011
+pointlike/python/uw/like2
+
+Added Files:
+	.cvsignore __init__.py bandmodel.py roistat.py sourcelist.py 
+Log Message:
+Initial checkin of code to implement an alternative, band-based, implementation of ROI likelihood analysis
+    *
+------------------------------------------------------------
 User: burnett  Thu Aug 18 09:25:14 PDT 2011
 pointlike/python/uw/like2
 
