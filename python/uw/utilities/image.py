@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.37 2011/01/26 18:39:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.38 2011/06/24 04:36:45 burnett Exp $
 
 """
-version = '$Revision: 1.37 $'.split()[1]
+version = '$Revision: 1.38 $'.split()[1]
 
 import pylab
 import types
@@ -563,6 +563,8 @@ class ZEA(object):
         ('nocolorbar', False, 'set to suppress the colorbar'),
         50*'-',
         ('proj',     'ZEA', 'projection name: can change if desired'),
+        ('size2',    -1,    'vertical size, if specified' ),
+
     )
 
     @keyword_options.decorate(defaults)
@@ -575,7 +577,7 @@ class ZEA(object):
  
         self.center = center
         # set up, then create a SkyImage object to perform the projection to a grid and manage an image
-        self.skyimage = SkyImage(center, self.fitsfile, self.pixelsize, self.size, 1, self.proj, self.galactic, False)
+        self.skyimage = SkyImage(center, self.fitsfile, self.pixelsize, self.size, 1, self.proj, self.galactic, False, self.size2)
         
         # now extract stuff for the pylab image
         self.nx, self.ny = self.skyimage.naxis1(), self.skyimage.naxis2()
@@ -1027,6 +1029,13 @@ class TSplot(object):
         return self.zea.clicker(onclick)
     def noclicker(self):
         self.zea.noclicker()
+        
+    def saveto(self, filename):
+        """ (in progress)
+        more reliable way to save the image as is to a FITS file
+        """
+        self.skyimage.reimage(self.gcdir, filename, self.pixelsize, self.size, self.proj, True)
+    
 
 
 class GaussKernel(object):
