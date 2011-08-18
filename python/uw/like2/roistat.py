@@ -1,6 +1,6 @@
 """
 Manage likelihood calculations for an ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.1 2011/08/18 16:27:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.2 2011/08/18 16:46:41 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 
@@ -12,12 +12,13 @@ from . import sourcelist
          
 class ROIstat(object):
     """ manage statistical analysis of an ROI
-    Initialize from an existing ROIanalysis object, for now
+    Initialize from an existing ROIAnalysis object, for now. (Penalty in that
+    have to repeat the convolutions)
     
     Contains two lists:
        * all sources, in self.sources
-         order is, for now, the same as for ROIanlysis
-       * a list of BandModelStat objects, one per band
+         order is, for now, the same as for ROIAnlysis
+       * a list of BandModelStat objects, one per band, attribute all_bands
           each manages the computation of the likelihood for its band
     The constructor takes an existing ROIAnalysis object, 
     from which it extracts the sources and bands.
@@ -25,8 +26,10 @@ class ROIstat(object):
     
     Not implemented yet: 
         * fits for SED plots: that is, fits combining front and back for each band
-        * localization
-        * computation of TS
+        * localization - probably just use or adapt code in ROiAnalysis 
+        * computation of TS -- same
+        * modifying list of sources in place
+        * defining a subset of variables?
         ...
       
     """
@@ -40,12 +43,13 @@ class ROIstat(object):
         """
         self.name = roi.name
         self.sources = sourcelist.SourceList(roi) 
-        self.bandstat = bandmodel.factory(filter(bandsel, roi.bands), self.sources)
+        self.all_bands = bandmodel.factory(filter(bandsel, roi.bands), self.sources)
+        self.selected_bands = self.all_bands # the possible subset to analyze
         self.calls=0
     
     def __str__(self):
         return 'ROIstat for ROI %s: %d bands %d sources (%d free)' \
-                % (self.name, len(self.bandstat), len(self.sources), sum(self.sources.free))
+                % (self.name, len(self.all_bands), len(self.sources), sum(self.sources.free))
     @property
     def parameter_names(self):
         return self.sources.parameter_names
@@ -64,16 +68,25 @@ class ROIstat(object):
 
     def initialize(self):
         """ used only if free changes, to reinitialize all free models """
-        map(lambda s: s.initialize(self.sources.free), self.bandstat )
+        map(lambda s: s.initialize(self.sources.free), self.all_bands )
+
+    def select_bands(self, bandsel=lambda b: True):
+        """ select a subset of the bands for analysis
+        bandsel : function of a ROIBand that returns bool, like lambda b: b.e<200
+        To restore, call with no arg
+        Note that one could just replace selected_bands with a subset of all_bands
+        """
+        self.selected_bands = np.array([bs for bs in self.all_bands if bandsel(bs.band)])
+        print 'selected subset of %d bands for likelihood analysis' % len(self.selected_bands)
         
     def update(self):
-        map(lambda s: s.update(), self.bandstat)
+        map(lambda s: s.update(), self.selected_bands)
         
     def log_like(self):
         """ return sum of log likelihood for all bands
             (could easily set for a subset of the bands --TODO)
         """
-        return sum([bstat.log_like() for bstat in self.bandstat])
+        return sum([bstat.log_like() for bstat in self.selected_bands])
         
     def __call__(self, par):
         """ (negative) log likelihood as a function of the free (internal rep) parameters par """
@@ -84,18 +97,18 @@ class ROIstat(object):
 
     def gradient(self, parameters=None):
         """ gradient of -log(like), or the call interface, with respect to parameters
-            (note that the individual gradients assume -log(like)
+            (note that the individual gradients assume -log(like))
         """
         if parameters is not None: 
             self.set_parameters(parameters)
         self.update()
-        t = np.array([bstat.gradient() for bstat in self.bandstat]).sum(axis=0)
+        t = np.array([bstat.gradient() for bstat in self.selected_bands]).sum(axis=0)
         # this is required by the convention in all of the Models classes to use log10 for external
         jacobian= 10**self.get_parameters()/np.log10(np.e)
         return t*jacobian
         
     def chisq(self):
-        return sum([bstat.chisq() for bstat in self.bandstat])
+        return sum([bstat.chisq() for bstat in self.selected_bands])
         
     def fit(self, **kwargs):
         """ Perform fit, return fitter object to examine errors, or refit
@@ -111,7 +124,7 @@ class ROIstat(object):
         return mm
 
     def dump(self, **kwargs):
-        map(lambda bs: bs.dump(**kwargs), self.bandstat)
+        map(lambda bs: bs.dump(**kwargs), self.selected_bands)
         
 ##### these are for testing, some may turn into methods
 def test(roi):
@@ -147,7 +160,7 @@ def par_scan(s, i, q=0.1,  dom=None): #np.linspace(-0.05, 0.05, 11)):
 def compare(s, i=0):
     def delta(name, a, b):
         print '%-15s %10.1f%10.1f%10.2f' % (name, a, b, a-b)
-    bs = s.bandstat[i]
+    bs = s.all_bands[i]
     #bs.dump()
     b = bs.bandmodels[i].band
     print 'quantity           pointlike  roistat  difference'
