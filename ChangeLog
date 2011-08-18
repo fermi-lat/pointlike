@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Aug 17 18:06:20 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+fix bug in calculation of (trivial) gradient for the Conatant model
+    *
+------------------------------------------------------------
 User: parent  Wed Aug 17 13:25:40 PDT 2011
 pointlike/python/uw/pulsar
 
