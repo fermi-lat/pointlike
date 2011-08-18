@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Aug 18 09:21:42 PDT 2011
+pointlike/python/uw/utilities
+
+Added Files:
+	fitter.py 
+Log Message:
+fit utility generalizing and encapsulating code spread out in the like package
+    *
+------------------------------------------------------------
 User: burnett  Thu Aug 18 09:20:57 PDT 2011
 pointlike/python/uw/utilities
 
