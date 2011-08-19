@@ -1,6 +1,9 @@
 """
 Manage likelihood calculations for an ROI
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.2 2011/08/18 16:46:41 burnett Exp $
+
+mostly class ROIstat, which manages sources (see .sourcelist) and bands (see .bandmodel)
+
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.3 2011/08/18 20:55:46 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 
@@ -12,8 +15,9 @@ from . import sourcelist
          
 class ROIstat(object):
     """ manage statistical analysis of an ROI
+    
     Initialize from an existing ROIAnalysis object, for now. (Penalty in that
-    have to repeat the convolutions)
+    have to repeat the convolutions -- but see its skip_setup)
     
     Contains two lists:
        * all sources, in self.sources
@@ -29,9 +33,10 @@ class ROIstat(object):
         * localization - probably just use or adapt code in ROiAnalysis 
         * computation of TS -- same
         * modifying list of sources in place
-        * defining a subset of variables?
+        * defining a subset of variables? See utilities.fitter.AdaptFunc
         ...
-      
+    Note that almost all of these can, and should be implemented by client classes, and
+    not added here.
     """
     
     def __init__(self, roi, bandsel=lambda b: True):
@@ -74,7 +79,7 @@ class ROIstat(object):
         """ select a subset of the bands for analysis
         bandsel : function of a ROIBand that returns bool, like lambda b: b.e<200
         To restore, call with no arg
-        Note that one could just replace selected_bands with a subset of all_bands
+        Note that one could also replace selected_bands with a subset of all_bands
         """
         self.selected_bands = np.array([bs for bs in self.all_bands if bandsel(bs.band)])
         print 'selected subset of %d bands for likelihood analysis' % len(self.selected_bands)
@@ -118,7 +123,8 @@ class ROIstat(object):
         initial_value, self.calls = self.log_like(), 0
         mm = fitter.Minimizer(self)
         mm(**fit_kw)
-        print '%d calls, likelihood improvement: %.1f' % (self.calls, self.log_like() - initial_value)
+        print '%d calls, likelihood improvement: %.1f'\
+            % (self.calls, self.log_like() - initial_value)
         if fit_kw['estimate_errors']:
             self.sources.set_covariance_matrix(mm.cov_matrix)
         return mm

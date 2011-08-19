@@ -1,7 +1,7 @@
 """
-Manage sources
+Manage sources: single class SourceList
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.1 2011/08/18 16:27:03 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 
@@ -9,10 +9,18 @@ import numpy as np
 
 class SourceList(list):
     """ manage properties of the list of sources
+        
     """
 
     def __init__(self, roi):
-        """ initialization: get sources from the ROIAnalysis object
+        """ initialization: get sources from the ROIAnalysis object: creates a polymorphic list of the 
+            three types: point, global, and extended
+            
+            roi : a ROIAnalsis object:
+                expect to find attributes:
+                    dsm : a ROIDiffuseManager object, for the list of global and extended sources
+                    psm : a ROIPointSourceManager object, with a list of point sources
+                    roi_dir: the center of the ROI
         """
         class ConvolvedSourceFactory(object):
             """ klugy way to create new object from extended or diffuse source
@@ -33,7 +41,7 @@ class SourceList(list):
                 
         # note that sources are added in the order diffuse, point to agree with ROIAnalysis
         # also, add two attributes to ecach source object 
-        for i,source in enumerate(roi.bgm.diffuse_sources):
+        for i,source in enumerate(roi.dsm.diffuse_sources):
             source.factory = ConvolvedSourceFactory(roi)
             source.manager_index = i
             self.append(source)
@@ -77,7 +85,6 @@ class SourceList(list):
             m.set_cov_matrix(cov_matrix[cp:np,cp:np])
             current_position += np-cp
 
-    
     def get_external(self):
         return 10**self.get_parameters()
     

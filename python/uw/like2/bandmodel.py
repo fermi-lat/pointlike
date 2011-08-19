@@ -2,8 +2,15 @@
 Manage spectral and angular models for an energy band
    Delegates some computation to classes in modules like.roi_diffuse, like.roi_extended
    
+classes:
+    BandModel -- superclass for basic Band/Model association
+        BandDiffuse -- diffuse or extended
+        BandPoint  -- point source
+    BandModelStat -- manage a list of BandModel objects, implement likelihood
+functions:
+    factory -- create list of BandModelStat objects from bands and models
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandmodel.py,v 1.1 2011/08/18 16:27:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandmodel.py,v 1.2 2011/08/18 20:55:46 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -14,7 +21,7 @@ class BandModel(object):
     """ superclass for point or diffuse band models, used to implement printout"""
 
     def __str__(self):
-        return '%s for source %s (%s), band %.0f-%.0f, %s' \
+        return '%s for source %s (%s), band (%.0f-%.0f, %s)' \
             % (self.__class__.__name__, self.source.name, self.model.name, self.band.emin, self.band.emax, 
                 ('front back'.split()[self.band.b.event_class()]),)
 
@@ -29,7 +36,8 @@ class BandModel(object):
         print >>out, '\ttotal counts %8.1f'%  self.counts 
 
 class BandDiffuse(BandModel):
-    """ 
+    """  Apply diffuse or extended model to an ROIband
+    
         Use a ROIDiffuseModel or ROIExtendedModel to compute the expected 
         distribution of pixel counts  for ROIBand
         Convolving is done with a like.roi_diffuse.DiffuseModel subclass, 
@@ -155,7 +163,6 @@ class BandPoint(BandModel):
         pixterm = (weights*self.ps_pix_counts).sum() if b.has_pixels else 0
         return g * (apterm - pixterm)
    
-    
 class BandModelStat(object):
     """ manage the likelihood calculation for a band 
     """
@@ -225,7 +232,6 @@ class BandModelStat(object):
         map(lambda bm: bm.dump(**kwargs), self.bandmodels)
     
   
-
 def factory(bands, sources):
     """ return an array, one per band, of BandModelStat objects 
         bands : list of ROIBand objects
