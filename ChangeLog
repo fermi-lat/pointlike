@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Aug 19 12:53:20 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	sed_plotter.py 
+Log Message:
+fix default scale
+    *
+------------------------------------------------------------
 User: burnett  Fri Aug 19 07:03:33 PDT 2011
 pointlike/python/uw/like2
 
