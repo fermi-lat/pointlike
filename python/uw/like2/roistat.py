@@ -1,9 +1,10 @@
 """
 Manage likelihood calculations for an ROI
 
-mostly class ROIstat, which manages sources (see .sourcelist) and bands (see .bandmodel)
+mostly class ROIstat, which computes the likelihood and its derivative from the lists of
+sources (see .sourcelist) and bands (see .bandmodel)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.3 2011/08/18 20:55:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.4 2011/08/19 14:03:33 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 
@@ -24,16 +25,21 @@ class ROIstat(object):
          order is, for now, the same as for ROIAnlysis
        * a list of BandModelStat objects, one per band, attribute all_bands
           each manages the computation of the likelihood for its band
-    The constructor takes an existing ROIAnalysis object, 
-    from which it extracts the sources and bands.
-    the fit() method is equiavlent to the same method in ROIanalysis
+    Notes:
+        * the constructor takes an existing ROIAnalysis object, 
+          from which it extracts the sources and bands.
+        * computation of the likelihood and its derivative, the basic task for 
+          this class, is easily limited to a subset of the original set of bands,
+          see select_bands
+        * the fit() method is equiavlent to the same method in ROIanalysis,
+          except that it allows specification of a subset of parameters to use
+          for optimization
     
     Not implemented yet: 
         * fits for SED plots: that is, fits combining front and back for each band
         * localization - probably just use or adapt code in ROiAnalysis 
         * computation of TS -- same
         * modifying list of sources in place
-        * defining a subset of variables? See utilities.fitter.AdaptFunc
         ...
     Note that almost all of these can, and should be implemented by client classes, and
     not added here.
@@ -94,7 +100,9 @@ class ROIstat(object):
         return sum([bstat.log_like() for bstat in self.selected_bands])
         
     def __call__(self, par):
-        """ (negative) log likelihood as a function of the free (internal rep) parameters par """
+        """ (negative) log likelihood as a function of the free parameters par 
+        appropriate for minimizing
+        """
         self.set_parameters(par)
         self.update()
         self.calls +=1
@@ -115,17 +123,30 @@ class ROIstat(object):
     def chisq(self):
         return sum([bstat.chisq() for bstat in self.selected_bands])
         
-    def fit(self, **kwargs):
+    def fit(self, select=None, **kwargs):
         """ Perform fit, return fitter object to examine errors, or refit
+        parameters:
+            select : list type of int or None
+                if not None, the list is of paramter numbers to select for modification
+        kwargs :
+            passed to the fitter minimizer command. defaults are
+                estimate_errors = True
+                use_gradient = True
+        
+        notes:
+            if select is None, it will set the cov_matrix attributes of the corresponding Model
+            objects
         """
         fit_kw = dict(use_gradient=True, estimate_errors=True)
         fit_kw.update(kwargs)
         initial_value, self.calls = self.log_like(), 0
-        mm = fitter.Minimizer(self)
+        fn = self if select is None else fitter.AdaptFunc(self, select=select)
+        mm = fitter.Minimizer(fn)
         mm(**fit_kw)
         print '%d calls, likelihood improvement: %.1f'\
             % (self.calls, self.log_like() - initial_value)
-        if fit_kw['estimate_errors']:
+        if fit_kw['estimate_errors'] and select is None:
+            # tricky to do if fitting subset, punt for now
             self.sources.set_covariance_matrix(mm.cov_matrix)
         return mm
 
@@ -133,27 +154,10 @@ class ROIstat(object):
         map(lambda bs: bs.dump(**kwargs), self.selected_bands)
         
 ##### these are for testing, some may turn into methods
-def test(roi):
-    r= ROIstat(roi, lambda b: b.e<200)
-    print r
-    return r
     
-def source_scan(s, i=0, dom=np.linspace(0.5,1.5, 11)):
-    """ scan likelihood as a function of the relative normalization of model component"""
-    m = s.sources[i].model
-    a = s.log_like()
-    print s.sources[i].name, m
-    print 'nominal:',a
-    print 'factor  logl'
-    norm = m[0]
-    for r in dom:
-        m[0]=norm*r
-        s.update()
-        print '%5.2f %9.2f ' %(r,  s.log_like()-a)
-    m[0] = norm
-    s.update()
-
-def par_scan(s, i, q=0.1,  dom=None): #np.linspace(-0.05, 0.05, 11)):
+def par_scan(s, i, q=0.1,  dom=None): 
+    """ scam parameter i, showing relative likelihood and gradient
+    """
     if dom is None:
         dom = np.linspace(-q,q, 11)
     par = s.get_parameters().copy()
@@ -177,13 +181,13 @@ def compare(s, i=0):
     bscounts = np.array([bm.counts for bm in bs.bandmodels])
     numbg = len(b.bg_counts)
     delta('diffuse sources', b.bg_all_counts, bscounts[:numbg].sum())
-    delta('  galactic',     b.bg_counts[0], bscounts[0])
+    delta('  galactic',      b.bg_counts[0], bscounts[0])
     delta('  isotropic',     b.bg_counts[1], bscounts[1])
     if numbg>2:
-        delta('  extended',     b.bg_counts[2], bscounts[2])
-    delta('point sources', b.ps_all_counts, bscounts[numbg:].sum())
-    delta( 'model sum',  b.bg_all_counts + b.ps_all_counts, bs.counts)
-    delta( 'data sum',  sum(b.pix_counts), sum(bs.data))
+        delta('  extended',  b.bg_counts[2], bscounts[2])
+    delta('point sources',   b.ps_all_counts, bscounts[numbg:].sum())
+    delta( 'model sum',      b.bg_all_counts + b.ps_all_counts, bs.counts)
+    delta( 'data sum',       sum(b.pix_counts), sum(bs.data))
     return b, bs
     
 def pardump(self, eps=1e-1):
@@ -198,7 +202,7 @@ def pardump(self, eps=1e-1):
         self.set_parameters(par)
 
 class ROIfit(object):
-    """ adapt an ROI to my fitter interface """
+    """ adapt an ROI to the fitter interface """
     def __init__(self, roi):  self.roi = roi
     def __call__(self, par):  return self.roi.logLikelihood(par)
     def get_parameters(self): return self.roi.get_parameters()

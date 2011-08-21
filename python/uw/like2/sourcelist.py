@@ -1,7 +1,7 @@
 """
 Manage sources: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.1 2011/08/18 16:27:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.2 2011/08/19 14:03:33 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 
@@ -33,7 +33,12 @@ class SourceList(list):
                     return cm.__class__(cm.sa, cm.diffuse_source, self.roi.roi_dir, **kwargs)
                 else:
                     return cm.__class__(cm.sa, cm.extended_source, self.roi.roi_dir, **kwargs)
-
+        class ExtendedSourceFactory(object):
+            def __init__(self, roi):   self.roi = roi
+            def __call__(self, source_index, **kwargs):
+                cm = self.roi.dsm.bgmodels[source_index]
+                return cm.__class__(cm.sa, cm.extended_source, self.roi.roi_dir, **kwargs)
+        
         class PointSourceFactory(object):
             def __init__(self, roi):    self.roi =roi
             def __call__(self, source_index):
@@ -42,7 +47,9 @@ class SourceList(list):
         # note that sources are added in the order diffuse, point to agree with ROIAnalysis
         # also, add two attributes to ecach source object 
         for i,source in enumerate(roi.dsm.diffuse_sources):
-            source.factory = ConvolvedSourceFactory(roi)
+            spatialclassname = roi.dsm.bgmodels[i].__class__.__name__
+            source.factory = ExtendedSourceFactory(roi) if spatialclassname=='ROIExtendedModel'\
+                else ConvolvedSourceFactory(roi)
             source.manager_index = i
             self.append(source)
         for i,source in enumerate(roi.psm.point_sources):
