@@ -1,4 +1,6 @@
 import numpy as np
+from uw.utilities.coords import ec2eq
+
 C = 29979245800.
 
 def sex2dec(s,mode='ra'):
@@ -48,12 +50,25 @@ class ParFile(dict):
         try: return self.get('PSR')
         except KeyError: return self.get("PSRJ")
 
-    def get_ra(self): return ra2dec(self.get('RAJ'))
-    def get_dec(self): return decl2dec(self.get('DECJ'))
+    def get_ra(self):
+        try:
+            return ra2dec(self.get('RAJ'))
+        except KeyError:
+            elong, elat = self.get("ELONG",type=float), self.get("ELAT",type=float)
+            ra, dec = ec2eq(elong,elat)
+            return ra[0]
+        
+    def get_dec(self):
+        try:
+            return decl2dec(self.get('DECJ'))
+        except KeyError:
+            elong, elat = self.get("ELONG",type=float), self.get("ELAT",type=float)
+            ra, dec = ec2eq(elong,elat)
+            return dec[0]                                            
+        
     def get_skydir(self):
         from skymaps import SkyDir
-        ra = ra2dec(self.get('RAJ'))
-        dec = decl2dec(self.get('DECJ'))
+        ra,dec = self.get_ra(), self.get_dec()
         return SkyDir(ra,dec)
 
     def p(self,error=False):
