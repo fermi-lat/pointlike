@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.19 2011/08/19 19:53:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.20 2011/08/21 15:26:50 burnett Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -198,6 +198,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
             fit_kwargs =dict(lw=2,        color='r',),
             butterfly = True,
             use_ergs = False,
+            energy_flux_unit = None,
             gev_scale = True,
             outdir = None,
             galmap = True,
@@ -219,6 +220,8 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     fit_kwargs   a dict to pass to the fit part of the display
     butterfly    [True] plot model with a butterfly outline
     use_ergs     [True] convert to ergs in the flux units (instead of MeV)
+    energy_flux_unit    [None] If specified, one of 'erg', 'MeV', 'eV' or 'GeV': otherwise
+                  set to 'erg' or 'MeV' based on use_ergs
     gev_scale    [True] use GeV instead of MeV units on x-axis
     outdir       [None] if set, save sed into 
                  <outdir>/<source_name>_sed.png if outdir is a 
@@ -233,10 +236,12 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     
     """
     self = roi # temp.
-    energy_flux_unit = 'erg' if use_ergs else 'MeV'
-    energy_flux_factor = (1.602e-6 if use_ergs else 1.0)*(roi.phase_factor if phase_corr else 1)
+    if energy_flux_unit is None:
+        energy_flux_unit = 'erg' if use_ergs else 'MeV'
+    assert energy_flux_unit in ('erg', 'MeV', 'GeV', 'eV') , 'unrecognized energy flux unit'
+    energy_flux_factor = dict(erg=1.602e-6, MeV=1, eV=1e6, GeV=1e-3)[energy_flux_unit]
+    if phase_corr: energy_flux_factor *=roi.phase_factor
     # conversion 1.602E-19 * 1E6 eV/Mev * 1E7 erg/J * = 1.602E-6 erg/MeV
-    # conversion 1.602E-19 * 1E9 eV/Gev * 1E7 erg/J * = 1.602E-3 erg/GeV
     oldlw = plt.rcParams['axes.linewidth']
     plt.rcParams['axes.linewidth'] = 2
     if axes is None: 
@@ -246,7 +251,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     axes.set_xscale('log')
     axes.set_yscale('log')
     if axis is None:
-        axis = (1e2,1e6,1e-13,1e-8) if use_ergs else (1e2,1e6,1e-7,1e-2)
+        axis = (80, 5e5, 1e-7*energy_flux_factor,1e-2*energy_flux_factor) 
     axes.axis(axis)
     axes.grid(True)
     axes.set_autoscale_on(False)
