@@ -2,7 +2,7 @@
 Basic fitter utilities
 
 Authors: Matthew Kerr, Toby Burnett
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.1 2011/08/18 16:21:42 burnett Exp $
 """
 
 import numpy as np
@@ -14,7 +14,7 @@ class Minimizer(object):
     """ this is mostly extracted as is from uw.like.specfitter and turned into a utility
     """
 
-    def __init__(self, fn, parameters=None, args=(), quiet=False):
+    def __init__(self, fn, parameters=None, args=(), quiet=True):
         """ fn : function object
                 note that it will be minimized, so should be negative of log likelihood
         """
@@ -295,30 +295,54 @@ class Minimizer(object):
             return cov
 
 class AdaptFunc(object):
-    """ adapt a function to make it a function of a subset of its parameters
+    """ adapt a function obect to create a function of a subset of its parameters
+    Require that it has a methods __call__, set_parmeters, get_parameters, and perhaps gradient
     """
-    def __init__(self, fn, par, select=[0]):
-        """ par: array type
-                default parameters to use
-            fn: function of par: should be minimizable if use minimize
+    def __init__(self, fn, par=None, select=[0]):
+        """ 
+        
+        parameters:
+            fn: function of par: should be minimizable 
+            par: array type or None
+                default parameters to use: if None, get from fn.get_parameters9)
             select: list of free parameters
             TODO: use mask instead or optionally
         """
         self.fn=fn
-        self.par = par[:]
         self.select = select
+        self.mask = np.zeros(len(fn.get_parameters()),bool)
+        self.mask[select]=True
+        self.fpar= fn.get_parameters()
+        self.par = par[:] if par is not None else self.fpar[self.mask]
     def expand(self, x):
         p = self.par
         for i,j in enumerate(self.select): p[j]=x[i]
         return p
+    def get_parameters(self):
+        return self.par
+    def set_parameters(self,par):
+        self.fpar[self.mask]=par
     def __call__(self, x):
         """ len of x must be number of selected parameters"""
-        for i,j in enumerate(self.select): self.par[j]=x[i]
-        return self.fn(self.par)
+        for i,j in enumerate(self.select): self.fpar[j]=x[i]
+        return self.fn(self.fpar)
+    def gradient(self, x):
+        """ the function object may not support this
+        """
+        for i,j in enumerate(self.select): self.fpar[j]=x[i]
+        return self.fn.gradient(self.fpar)[self.mask]
         
-    def minimize(self, par0, **fit_kw):
-        self.fit = Minimizer(self, par0, **fit_kw)
-        c2, par, dpar = self.fit()
+    def minimize(self, par0=None, **fit_kw):
+        """ create  Minimizer of this, run it
+        parameters:
+            par0 : array type of float or None
+                pass to Minimizer
+                
+        return value, parameter values, errors
+        """
+        self.fitter = Minimizer(self, par0)
+        
+        c2, par, dpar = self.fitter(**fit_kw)
         return c2, par, dpar
 
 def test(x0=1.1, pars=[1.0, 1.5], **kwargs):
