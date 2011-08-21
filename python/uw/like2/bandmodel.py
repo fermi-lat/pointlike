@@ -1,22 +1,40 @@
 """
-Manage spectral and angular models for an energy band
+Manage spectral and angular models for an energy band to calculate the likelihood, gradient
    Delegates some computation to classes in modules like.roi_diffuse, like.roi_extended
    
 classes:
     BandModel -- superclass for basic Band/Model association
-        BandDiffuse -- diffuse or extended
+        BandDiffuse -- diffuse
+            BandExtended  -- extended
         BandPoint  -- point source
     BandModelStat -- manage a list of BandModel objects, implement likelihood
 functions:
     factory -- create list of BandModelStat objects from bands and models
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandmodel.py,v 1.2 2011/08/18 20:55:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandmodel.py,v 1.3 2011/08/19 14:03:33 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
 import numpy as np
 from uw import like # for pypsf
 
+# This is tested, ready to use for exposure integrals: ROIBand has that 16 wired in
+#from pointlike import DoubleVector
+#
+#class ExposureIntegral(object):
+#    def __init__(self,emin, emax, exposure, skydir, nsp_simps=16):
+#        """ emin, emax : floats
+#            exposure : SWIG-wrapped skymaps.Exposure object
+#            skydir : SkyDir object for exposure
+#        """
+#        self.points = sp = np.logspace(np.log10(emin),np.log10(emax),nsp_simps+1)
+#        exp_points     = np.asarray(exposure.vector_value(skydir,DoubleVector(sp)))
+#        simps_weights  = (np.log(sp[-1]/sp[0])/(3.*nsp_simps)) * \
+#                              np.asarray([1.] + ([4.,2.]*(nsp_simps/2))[:-1] + [1.])
+#        self.weights = sp * exp_points * simps_weights
+#    def __call__(self, funct, axis=None):
+#        return (funct(self.points)*self.weights).sum(axis)
+#        
 class BandModel(object):
     """ superclass for point or diffuse band models, used to implement printout"""
 
@@ -36,13 +54,13 @@ class BandModel(object):
         print >>out, '\ttotal counts %8.1f'%  self.counts 
 
 class BandDiffuse(BandModel):
-    """  Apply diffuse or extended model to an ROIband
+    """  Apply diffuse model to an ROIband
     
-        Use a ROIDiffuseModel or ROIExtendedModel to compute the expected 
+        Use a ROIDiffuseModel to compute the expected 
         distribution of pixel counts  for ROIBand
         Convolving is done with a like.roi_diffuse.DiffuseModel subclass, 
         usually ROIDiffuseModel_OTF, ROIDiffuseModel_PC for ring, isotropic resp. 
-        and like.roi_extended.ExtendedSource for extended sources
+        
     """
     def __init__(self,  band, source): 
         """
@@ -102,7 +120,30 @@ class BandDiffuse(BandModel):
             self.band.phase_factor = phase_factor
             g = self.source.gradient([self.band], self.source_index)
         return g
+
+class BandExtended(BandDiffuse):
+    """  Apply extended model to an ROIband
     
+        Use a ROIExtendedModel to compute the expected distribution of 
+        pixel counts for ROIBand  
+        Convolving is done with like.roi_extended.ExtendedSource 
+        Note that ExtendedSource implements the same interface as diffuse, so 
+        this is a subclass, but allowing for separate implemetation of its details
+    """
+    def initialize(self):
+        self.source.initialize_counts([self.band]) 
+        myband = self.source.bands[0]
+        self.er, self.overlap = myband.er, myband.overlaps # for info for now
+
+    def grad(self, weights, phase_factor=1):
+        """ contribution to the gradient
+        """
+        #  should be exactly the same code as for BandPoint -- try when have a variable extended source
+        if np.sum(self.model.free)==0 : return []
+        self.band.pix_weights = weights
+        self.band.phase_factor = phase_factor
+        return self.source.gradient([self.band], self.source_index)
+
 class BandPoint(BandModel):
     """ Compute the expected distribution of pixel counts from a point source in a ROIBand
     """
@@ -146,6 +187,8 @@ class BandPoint(BandModel):
             pixel counts and total counts in ROI
         """
         b = self.band
+        # TODO: use the Simpson guy: self.exposure_integral(self.model)*self.er
+        # where self.exposure_integral = ExposureIntegral(emin,emax, exposure,skydir)
         expected = (self.model(b.sp_points)*b.sp_vector).sum() * self.er
         self.pix_counts = self.ps_pix_counts * expected
         self.counts = expected*self.overlap
@@ -157,7 +200,8 @@ class BandPoint(BandModel):
         model = self.model
         if np.sum(model.free)==0 : return []
         # Calculate the gradient of a spectral model (wrt its parameters) integrated over the exposure.
-        ##TODO: encapsulate this simple Simpsons rule integral
+        ##TODO: encapsulate this  integral
+        ## g = self.exposure_integral(model.gradient, axis=1)[model.free] * self.er
         g = (model.gradient(b.sp_points)*b.sp_vector).sum(axis=1)[model.free] * self.er
         apterm = phase_factor* self.overlap
         pixterm = (weights*self.ps_pix_counts).sum() if b.has_pixels else 0
@@ -218,9 +262,7 @@ class BandModelStat(object):
     def chisq(self):  
         """ compute the chi squared
         """
-        M = self.model        # array of model predictions 
-        D = self.data         # array of data counts
-        return np.sum((M-D)**2/D)
+        return np.sum((self.model-self.data)**2/self.model)
     
     def gradient(self):
         """ gradient of the likelihood with resepect to the free parameters
@@ -241,10 +283,11 @@ def factory(bands, sources):
     def bandmodel_factory(band, source):
         """helper factory that returns a BandModel object appropriate for the source"""
         factory_name = source.factory.__class__.__name__
-        assert factory_name in ('PointSourceFactory', 'ConvolvedSourceFactory'),\
-            'source factory name %s not recognized' % factory_name 
-        B = BandPoint if factory_name=='PointSourceFactory' else BandDiffuse
+        B = dict(PointSourceFactory=BandPoint, 
+                ConvolvedSourceFactory=BandDiffuse,
+                ExtendedSourceFactory=BandExtended)[factory_name]
         return B(band, source)
+        
         
     return np.array(
         [ BandModelStat(band, 
