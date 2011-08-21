@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: parent  Sun Aug 21 08:13:44 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+get_ra and get_dec have been updated to handle elong, elat.
+
+    *
+------------------------------------------------------------
 User: burnett  Sat Aug 20 20:42:55 PDT 2011
 pointlike/python/uw/utilities
 
