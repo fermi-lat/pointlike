@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Aug 20 20:42:55 PDT 2011
+pointlike/python/uw/utilities
+
+Modified Files:
+	fitter.py 
+Log Message:
+fill out the AdaptFunc class, now used by ROIstat to allow fitting a subset of parameters
+    *
+------------------------------------------------------------
 User: burnett  Sat Aug 20 20:41:05 PDT 2011
 pointlike/python/uw/like2
 
