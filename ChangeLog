@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Aug 21 08:26:51 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	sed_plotter.py 
+Log Message:
+fix x-axis labelling bug; provide option to use GeV units.
+    *
+------------------------------------------------------------
 User: parent  Sun Aug 21 08:13:44 PDT 2011
 pointlike/python/uw/pulsar
 
