@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.18 2011/06/24 04:51:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.19 2011/08/19 19:53:19 burnett Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -198,6 +198,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
             fit_kwargs =dict(lw=2,        color='r',),
             butterfly = True,
             use_ergs = False,
+            gev_scale = True,
             outdir = None,
             galmap = True,
             phase_corr=False,
@@ -217,8 +218,8 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     data_kwargs  a dict to pass to the data part of the display
     fit_kwargs   a dict to pass to the fit part of the display
     butterfly    [True] plot model with a butterfly outline
-    use_ergs     [True] convert to ergs in the flux units and use 
-                 MeV on the x-axis
+    use_ergs     [True] convert to ergs in the flux units (instead of MeV)
+    gev_scale    [True] use GeV instead of MeV units on x-axis
     outdir       [None] if set, save sed into 
                  <outdir>/<source_name>_sed.png if outdir is a 
                  directory, save into filename=<outdir> if not.
@@ -266,11 +267,17 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
 
     # the axis labels
     plt.ylabel(r'$\mathsf{Energy\ Flux\ (%s\ cm^{-2}\ s^{-1})}$' % energy_flux_unit)
-    if use_ergs:
-        plt.xlabel(r'$\mathsf{Energy\ (GeV)}$')
-        axes.set_xticklabels(['','1','10','100', ''])
+    def gevticklabel(x):
+        if x<100 or x>1e5: return ''
+        elif x==100: return '0.1'
+        return '%d'% (x/1e3)
+    if gev_scale:
+        """ make it look nicer """
+        axes.set_xticklabels(map(gevticklabel, axes.get_xticks()))
+        axes.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
     else:
-        plt.xlabel(r'$\mathsf{Energy\ (MeV)}$')
+        axes.set_xlabel(r'$\mathsf{Energy\ (MeV)}$')
+
     plt.title(name if title is None else title)
     
     # a galactic map if requested
