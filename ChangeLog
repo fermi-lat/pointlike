@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Aug 21 08:55:22 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	sed_plotter.py 
+Log Message:
+allow specific selection of energy units for flux factor: erg, eV, MeV, or GeV; default scale adjusted accordingly
+    *
+------------------------------------------------------------
 User: burnett  Sun Aug 21 08:26:51 PDT 2011
 pointlike/python/uw/like
 
