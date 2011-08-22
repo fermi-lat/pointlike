@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.106 2011/07/13 18:06:59 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.107 2011/07/14 20:34:05 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -62,6 +62,7 @@ class ROIAnalysis(object):
         ("catalog_aperture",-1,"Pulsar catalog analysis only -- deprecate"),
         ("phase_factor",1.,"Pulsar phase. A correction that can be made if the data has undergone a phase selection -- between 0 and 1"),
         ("bracketing_function",None,"A function by which to multiply the counts in each band, e.g. 1.2 for a 20% 'high' IRF.  It should be a function taking as arguments energy and conversion type."),
+        ("skip_setup", False, "Set True to instantiate with data only" ),
     )
 
     @keyword_options.decorate(defaults)
@@ -87,10 +88,19 @@ class ROIAnalysis(object):
         self.bin_edges    = N.sort(list(set([b.emin for b in self.bands] + [b.emax for b in self.bands])))
 
         self.param_state, self.param_vals  = None,None
+        if self.skip_setup: 
+            if not self.quiet: print 'No likelihood setup done: skip_setup is set'
+            return
         self.__pre_fit__()
-
+        
         self.logl = self.prev_logl =-self.logLikelihood(self.get_parameters()) # make sure everything initialized
 
+    def setup(self):
+        """ stuff that would not be done if skip_setup was set"""
+        self.__setup_counts__()
+        self.__pre_fit__()
+        self.logl = self.prev_logl =-self.logLikelihood(self.get_parameters()) # make sure everything initialized
+        
     def __setup_bands__(self):
 
         if self.fit_emin is None: self.fit_emin = self.sa.emin
@@ -114,6 +124,9 @@ class ROIAnalysis(object):
 
         self.bands = N.asarray(self.bands)
 
+        if not self.skip_setup: self.__setup_counts__()
+        
+    def __setup_counts__(self):
         self.psm.setup_initial_counts(self.bands)
         self.dsm.setup_initial_counts(self.bands)
 
@@ -677,7 +690,8 @@ class ROIAnalysis(object):
     
     def get_sources(self):
         """ Returns all localizable sources in the ROI sorted by skydir. """
-        sources=self.psm.point_sources.tolist()+[i for i in self.dsm.diffuse_sources.tolist() if hasattr(i,'skydir')]
+        sources=self.psm.point_sources.tolist()+[i for i in self.dsm.diffuse_sources.tolist() 
+                if hasattr(i,'skydir') and i.skydir is not None]
         sources.sort(key=lambda s:s.skydir.difference(self.roi_dir))
         return sources
 
