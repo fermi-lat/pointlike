@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Aug 22 07:46:36 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+add capibility to deferr setup for likelihood calculation: kw skip_setup and function setup()
+    *
+------------------------------------------------------------
 User: burnett  Sun Aug 21 08:55:22 PDT 2011
 pointlike/python/uw/like
 
