@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Aug 22 23:48:47 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Bugfix in _shrink function
+    *
+------------------------------------------------------------
 User: burnett  Mon Aug 22 07:46:36 PDT 2011
 pointlike/python/uw/like
 
