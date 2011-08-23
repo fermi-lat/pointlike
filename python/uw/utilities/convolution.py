@@ -1,6 +1,6 @@
 """Module to support on-the-fly convolution of a mapcube for use in spectral fitting.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.40 2011/06/24 04:38:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/convolution.py,v 1.41 2011/07/13 03:20:49 lande Exp $
 
 authors: M. Kerr, J. Lande
 
@@ -9,7 +9,7 @@ from skymaps import SkyDir,BaseWeightedSkyDirList,Hep3Vector,SkyIntegrator,PySky
 from pointlike import DoubleVector
 import numpy as np
 from scipy.interpolate import interp1d
-from scipy.integrate import quad,romberg,cumtrapz,inf
+from scipy.integrate import quad,romberg,cumtrapz
 from scipy.special import hyp2f1
 from uw.like.pypsf import BandCALDBPsf,PretendBand
 from uw.like.SpatialModels import SpatialMap
@@ -451,7 +451,7 @@ class AnalyticConvolution(object):
             if np.isnan(pdf[i]) or np.isinf(pdf[i]) or pdf[i]<0:
 
                 # try integrating to infinity
-                pdf[i]=quad(integrand,0,inf,args=(u,),epsrel=1e-3,
+                pdf[i]=quad(integrand,0,np.inf,args=(u,),epsrel=1e-3,
                             epsabs=1e-3,full_output=True)[0]
 
                 if np.isnan(pdf[i]) or np.isinf(pdf[i]) or pdf[i]<0:
