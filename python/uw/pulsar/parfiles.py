@@ -19,8 +19,15 @@ class ParFile(dict):
         for line in file(parfile):
             tok = line.strip().split()
             if len(tok)==0: continue
-            self.ordered_keys.append(tok[0])
-            self[tok[0]] = tok[1:] if (len(tok[1:]) > 1) else tok[1:][0]
+            known_key = False
+            for key in self.ordered_keys:
+                if tok[0] == key: known_key = True
+            if known_key:
+                if len(self[tok[0]][-1]) == 1: self[tok[0]] = [self[tok[0]]]
+                self[tok[0]] += [tok[1:]]
+            else:
+                self.ordered_keys.append(tok[0])               
+                self[tok[0]] = tok[1:] if (len(tok[1:]) > 1) else tok[1:][0]
         self.degree = self._calc_degree()
     
     def _calc_degree(self):
