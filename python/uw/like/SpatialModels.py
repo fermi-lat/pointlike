@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.56 2011/08/12 21:58:12 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.57 2011/08/13 21:21:43 lande Exp $
 
    author: Joshua Lande
 
@@ -615,7 +615,7 @@ class Gaussian(RadiallySymmetricModel):
     def has_edge(self): return False
 
     def _shrink(self,size=SMALL_ANALYTIC_EXTENSION): 
-        self.p[2]=smart_log(size,log=self.log[2])
+        self['sigma']=size
         self.free[2]=False
 
     def can_shrink(self): return True
@@ -790,7 +790,7 @@ class NFW(RadiallySymmetricModel):
         return "%.3fd" % (self.sigma)
 
     def _shrink(self,size=SMALL_ANALYTIC_EXTENSION): 
-        self.p['sigma']=size
+        self['sigma']=size
         self.free[2]=False
     def can_shrink(self): return True
 
@@ -957,9 +957,9 @@ class EllipticalSpatialModel(SpatialModel):
         pass
 
     def _shrink(self,size=SMALL_NUMERIC_EXTENSION): 
-        self.p['Major_Axis']=size
-        self.p['Minor_Axis']=size
-        self.p['Pos_Angle']=0
+        self['Major_Axis']=size
+        self['Minor_Axis']=size
+        self['Pos_Angle']=0
         self.free[2:5]=False
     def can_shrink(self): return True
 
@@ -1077,7 +1077,7 @@ class EllipticalRing(EllipticalSpatialModel):
                  self.theta,self.frac)
 
     def _shrink(self): 
-        self.p['fraction']=0
+        self['fraction']=0
         self.free[5]=False
 
         # this calls the cache function
