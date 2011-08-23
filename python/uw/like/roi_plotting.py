@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.62 2011/08/08 18:41:26 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.63 2011/08/14 08:22:54 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -45,11 +45,20 @@ from scipy.optimize import fmin,fsolve
 
 import pylab as P
 from matplotlib import rcParams,mpl,pyplot,ticker,font_manager,spines
-from matplotlib.ticker import FormatStrFormatter
+from matplotlib.ticker import FuncFormatter
 from matplotlib.patches import FancyArrow,Circle,Ellipse
 from matplotlib import mpl
 from matplotlib.axes import Axes
 
+
+def format_degrees(x,*args):
+    r='%g' % x
+    if '.' in r:
+        return ('$%s$' % r).replace('.',r'.\!\!^\circ')
+    else:
+        return '$%s^\circ$' % r
+
+DegreesFormatter=FuncFormatter(format_degrees)
 
 def band_spectra(r,source=0):
     
@@ -566,9 +575,11 @@ class ROIDisplay(object):
         self.resids_plot()
         self.hist_plot()
 
+
         for ax in [self.ax_model, self.ax_counts, self.ax_res]:
-            ROISignificance.plot_sources(self.roi,ax,self.h,label_sources=self.label_sources,
-                                         show_extension=False, color='k')
+            ax.axis[:].set_zorder(100)
+            ROISmoothedSource.overlay_region(self.roi,ax,self.h,label_sources=self.label_sources,
+                                         show_extensions=False, color='k')
 
         if filename is not None: P.savefig(filename)
 
@@ -787,7 +798,8 @@ class ROISlice(object):
 
         if legend: ax.legend(loc='upper right',numpoints=1)
 
-        ax.xaxis.set_major_formatter(FormatStrFormatter('$%g^\circ$'))
+        ax.xaxis.set_major_formatter(DegreesFormatter)
+
 
         ax.set_xlabel(r'$\Delta l$' if self.galactic else r'$\Delta \mathrm{RA}$')
         ax.set_ylabel('Counts')
@@ -810,7 +822,7 @@ class ROISlice(object):
 
         if legend: ax.legend(loc='upper right',numpoints=1)
 
-        ax.xaxis.set_major_formatter(FormatStrFormatter('$%g^\circ$'))
+        ax.xaxis.set_major_formatter(DegreesFormatter)
 
         ax.set_xlabel(r'$\Delta b$' if self.galactic else r'$\Delta \mathrm{Dec}$')
         ax.set_ylabel('Counts')
@@ -1093,52 +1105,6 @@ class ROISignificance(object):
         self.pyfits = self.counts.get_pyfits()
         self.pyfits[0].data = self.significance
 
-    @staticmethod
-    def plot_sources(roi, ax, header, color='black', show_sources=True, white_edge=True, marker_scale=2, 
-            label_sources=True, show_extension=True, extension_color='black'):
-
-        sources = roi.get_sources()
-
-        if len(sources)<1: return
-
-        glons = [source.skydir.l() for source in sources]
-        glats = [source.skydir.b() for source in sources]
-
-        if show_sources:
-            
-            # plot sources
-            markersize=marker_scale*6
-            if white_edge: ax["gal"].plot(glons,glats,'x',color='white',markersize=markersize+1,markeredgewidth=3,zorder=5)
-            ax["gal"].plot(glons,glats,'x',color=color,markersize=markersize,markeredgewidth=2,zorder=6)
-
-        if label_sources: 
-            names = [source.name for source in sources]
-            for l,b,name in zip(glons,glats,names):
-                txt=ax["gal"].annotate(name, (l,b), 
-                        ha='center', va='top',
-                        xytext=(0,markersize), textcoords='offset points')
-                set_path_effects(txt,foreground="w", linewidth=2)
-
-        if show_extension:
-            try:
-                import pyregion
-                for source in roi.get_extended_sources():
-                    sm=source.spatial_model
-                    region_string='\n'.join(region_writer.unparse_extension(sm,extension_color=extension_color))
-                    if len(region_string) < 1: continue # happens for SpatialMap + PseudoSources.
-                    reg = pyregion.parse(region_string).as_imagecoord(header)
-
-                    # artist_list doesn't do anything
-                    patch_list, artist_list = reg.get_mpl_patches_texts()
-                    for p in patch_list: 
-                        set_path_effects(p,foreground="w", linewidth=3)
-                        p.set_zorder(4)
-                        ax.add_patch(p)
-
-            except ImportError, er:
-                print "To add extension information to plots, must install modules pyregion/pyparsing."
-
-
     def show(self,filename=None):
 
         import pywcsgrid2
@@ -1160,11 +1126,13 @@ class ROISignificance(object):
         im = ax.imshow(d, origin="lower", interpolation='bilinear')
         cbar = P.colorbar(im, cax=cax)
 
+        ax.axis[:].set_zorder(100)
+
         ax.set_title('Significance $(D-M)/\sqrt{M}$')
         
         ax.grid()
 
-        ROISignificance.plot_sources(self.roi,ax,h,label_sources=self.label_sources)
+        ROISmoothedSource.overlay_region(self.roi,ax,h,label_sources=self.label_sources)
 
         if filename is not None: P.savefig(filename)
 
@@ -1191,11 +1159,12 @@ class ROISmoothedSource(object):
             ('kerneltype',  'gaussian',                'Type of kernel to smooth image with'),
             ('kernel_rad',         0.1,            'Sum counts/model within radius degrees.'),
             ('title',             None,                                 'Title for the plot'),
-            ('show_extension',    True,                             'Overlay the extension.'),
+            ('show_extensions',   True,                             'Overlay the extension.'),
             ('extension_color','black',                          'Color of extended sources'),
             ('figsize',      (5.5,4.5),                                  'Size of the image'),
             ('fignum',            None,                           'Matplotlib figure number'),
             ('show_colorbar',     True,                                  'Show the colorbar'),
+            ('cmap',              None,                                  'Show the colorbar'),
     )
 
     def get_residual(self,**kwargs):
@@ -1245,7 +1214,7 @@ class ROISmoothedSource(object):
         
         self.roi = roi
 
-        self.cmap = colormaps.b
+        if self.cmap is None: self.cmap = colormaps.b 
 
         # Fit many pixels inside of the summing radius
         self.pixelsize=self.kernel_rad/5.0
@@ -1299,6 +1268,8 @@ class ROISmoothedSource(object):
         # get data first
         h, d = self.residual_pyfits[0].header, self.residual_pyfits[0].data
 
+        self.h = h
+
         from matplotlib.axes import Axes
         if axes is None:
             self.fig = P.figure(self.fignum,self.figsize)
@@ -1310,7 +1281,10 @@ class ROISmoothedSource(object):
 
         self.axes = ax = axes
 
+
         im=ax.imshow(d, origin="lower", cmap=self.cmap, vmin=0, vmax=self.max_intensity)
+
+        ax.axis[:].set_zorder(100)
 
         if self.show_colorbar:
 
@@ -1320,7 +1294,7 @@ class ROISmoothedSource(object):
                 self.fig.add_axes(cax)
 
             cbar = P.colorbar(im, cax=cax)
-            cbar.ax.set_ylabel(r'$\mathrm{counts}/[\mathrm{deg}]^2$')
+            cbar.ax.set_ylabel(r'$\mathrm{counts}\ [\mathrm{deg}]^{-2}$')
 
         if self.title is None: 
             self.title = 'Smoothed Counts'
@@ -1341,17 +1315,109 @@ class ROISmoothedSource(object):
 
             # Note, match color maps with parent.
             axins.imshow(d_psf, cmap=im.cmap, origin="lower")
+            axins.axis[:].set_zorder(100)
             axins.axis[:].toggle(all=False)
             axins.axis[:].line.set_color('white')
 
             if self.label_psf:
                 axins.add_inner_title("PSF", loc=3)
 
-        ROISignificance.plot_sources(self.roi,ax,h,
-                show_sources=self.show_sources,label_sources=self.label_sources,
-                show_extension=self.show_extension,extension_color=self.extension_color)
+        ROISmoothedSource.overlay_region(self.roi,ax,h,
+                                         show_sources=self.show_sources,
+                                         label_sources=self.label_sources,
+                                         show_extensions=self.show_extensions,
+                                         extension_color=self.extension_color)
 
         if filename is not None: P.savefig(filename)
+
+    @staticmethod
+    def overlay_sources(roi, ax, 
+                        white_edge=True,
+                        label_sources=False, 
+                        exclude_names=[], # don't plot these sources
+                        default_kwargs=dict(marker='x',color='black', 
+                                            markersize=12, zorder=2),
+                        override_kwargs = {} # override kwargs for particular sources
+                       ):
+
+        for source in roi.get_sources():
+
+            if source in exclude_names:
+                continue
+
+            l = source.skydir.l()
+            b = source.skydir.b()
+
+            
+            kwargs = default_kwargs.copy()
+            if source.name in override_kwargs.keys():
+                kwargs.update(override_kwargs[source.name])
+            
+            # plot sources
+            if white_edge and kwargs['marker'] in ['+', 'x']:
+                white_kwargs = kwargs.copy()
+                white_kwargs['color']='white'
+                white_kwargs['markersize']=kwargs['markersize']+1
+                white_kwargs['markeredgecolor']='white'
+                white_kwargs['markeredgewidth']=2
+                white_kwargs['zorder']=kwargs['zorder']-0.1
+
+                ax["gal"].plot([l],[b],**white_kwargs)
+
+            ax["gal"].plot([l],[b],**kwargs)
+
+        if label_sources: 
+            txt=ax["gal"].annotate(source.name, (l,b), 
+                    ha='center', va='top',
+                    xytext=(0,markersize), textcoords='offset points')
+            if white_edge: set_path_effects(txt,foreground="w", linewidth=2)
+
+    @staticmethod
+    def overlay_extension(roi, ax, header, white_edge=True, extension_color='black',
+                          extension_zorder=None):
+
+        import pyregion
+        for source in roi.get_extended_sources():
+            sm=source.spatial_model
+            region_string='\n'.join(region_writer.unparse_extension(sm,extension_color=extension_color))
+            if len(region_string) < 1: continue # happens for SpatialMap + PseudoSources.
+            reg = pyregion.parse(region_string).as_imagecoord(header)
+
+            # artist_list doesn't do anything
+            patch_list, artist_list = reg.get_mpl_patches_texts()
+            for p in patch_list: 
+
+                if white_edge: set_path_effects(p,foreground="w", linewidth=2)
+                if extension_zorder is not None:
+                    p.set_zorder(extension_zorder)
+                ax.add_patch(p)
+
+    @staticmethod
+    def overlay_region(roi, ax, header, 
+                       white_edge=True, # put a white edge around stuff
+                       show_sources=True,
+                       show_extensions=True, 
+                       extension_color='black',
+                       extension_zorder=None,
+                       **kwargs):
+
+        if show_extensions:
+            # plot extended sources first so markers show up on top
+            try:
+                ROISmoothedSource.overlay_extension(roi, ax, header, 
+                                                    white_edge=white_edge, 
+                                                    extension_color=extension_color,
+                                                    extension_zorder=extension_zorder)
+            except ImportError, er:
+                print "To add extension information to plots, must install modules pyregion/pyparsing."
+
+
+        if show_sources:
+            ROISmoothedSource.overlay_sources(roi, ax, 
+                                              white_edge=white_edge, 
+                                              **kwargs)
+
+
 
 class ROISmoothedSources(ROISmoothedSource):
     """ Subclass ROISmoothedSource, but add only the diffuse emission to the background. """
@@ -1423,13 +1489,14 @@ class ROITSMapPlotter(object):
         norm=mpl.colors.Normalize(vmin=0, vmax=25) if N.max(self.image.image) < 25 else None
 
         im = ax.imshow(d, interpolation='nearest', origin="lower", cmap=colormaps.b, norm=norm)
+        ax.axis[:].set_zorder(100)
         cbar = P.colorbar(im, cax=cax)
 
         ax.set_title(self.title)
 
         ax.grid(color='w',linestyle='-')
 
-        ROISignificance.plot_sources(self.roi,ax,h,label_sources=self.label_sources,color='black')
+        ROISmoothedSource.overlay_region(self.roi,ax,h,label_sources=self.label_sources,color='black')
 
         if filename is not None: P.savefig(filename)
 
@@ -1496,9 +1563,9 @@ class ROISmoothedModel(object):
         im=ax.imshow(d, origin="lower", cmap=self.cmap, vmin=0, vmax=self.max_intensity)
         ax.grid()
 
-        ROISignificance.plot_sources(self.roi,ax,h,
+        ROISmoothedSource.overlay_region(self.roi,ax,h,
                 show_sources=self.show_sources,label_sources=self.label_sources,
-                show_extension=False)
+                show_extensions=False)
 
         ax.add_inner_title("Counts", loc=2)
 
@@ -1510,11 +1577,11 @@ class ROISmoothedModel(object):
 
         cb_axes = self.grid.cbar_axes[0]
         cbar = cb_axes.colorbar(im)
-        cbar.ax.set_ylabel(r'$\mathrm{counts}/[\mathrm{deg}]^2$')
+        cbar.ax.set_ylabel(r'$\mathrm{counts}\ [\mathrm{deg}]^{-2}$')
 
-        ROISignificance.plot_sources(self.roi,ax,h,
+        ROISmoothedSource.overlay_region(self.roi,ax,h,
                 show_sources=self.show_sources,label_sources=self.label_sources,
-                show_extension=False)
+                show_extensions=False)
 
         ax.add_inner_title("Model", loc=2)
 
@@ -1590,3 +1657,5 @@ class ROISmoothedBeforeAfter(object):
 
         self.smoothed_sources.show(axes=self.grid[0])
         self.smoothed_source.show(axes=self.grid[1],cax=grid.cbar_axes[0])
+
+        self.h = [self.smoothed_sources.h,self.smoothed_source.h]
