@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.57 2011/08/13 21:21:43 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.55 2011/07/28 05:15:31 lande Exp $
 
    author: Joshua Lande
 
@@ -443,9 +443,9 @@ class SpatialModel(object):
             raise Exception("Unable to save template for energy dependent SpatialModel.")
         center=self.center
 
-        # The factor of 6/5 is to add a buffer at the edge of the template if
-        # there is a definite edge to it. This is similar to the Catalog recommendations.
-        diameter=2.0*self.effective_edge()*(6./5. if self.has_edge() else 1)
+        # The factor of 6/5 is to add a buffer at the edge of the template, which
+        # is similar to the Catalog recommendations.
+        diameter=2.0*(self.effective_edge()*6./5. if self.has_edge() else self.r99())
         pixelsize=diameter/npix
         image=SkyImage(center,os.path.expandvars(filename),pixelsize,diameter,1,"ZEA",
                        True if self.coordsystem == SkyDir.GALACTIC else False,False)
@@ -615,7 +615,7 @@ class Gaussian(RadiallySymmetricModel):
     def has_edge(self): return False
 
     def _shrink(self,size=SMALL_ANALYTIC_EXTENSION): 
-        self['sigma']=size
+        self.p[2]=smart_log(size,log=self.log[2])
         self.free[2]=False
 
     def can_shrink(self): return True
@@ -790,7 +790,7 @@ class NFW(RadiallySymmetricModel):
         return "%.3fd" % (self.sigma)
 
     def _shrink(self,size=SMALL_ANALYTIC_EXTENSION): 
-        self['sigma']=size
+        self.p['sigma']=size
         self.free[2]=False
     def can_shrink(self): return True
 
@@ -957,9 +957,9 @@ class EllipticalSpatialModel(SpatialModel):
         pass
 
     def _shrink(self,size=SMALL_NUMERIC_EXTENSION): 
-        self['Major_Axis']=size
-        self['Minor_Axis']=size
-        self['Pos_Angle']=0
+        self.p['Major_Axis']=size
+        self.p['Minor_Axis']=size
+        self.p['Pos_Angle']=0
         self.free[2:5]=False
     def can_shrink(self): return True
 
@@ -968,8 +968,7 @@ class EllipticalSpatialModel(SpatialModel):
 class EllipticalGaussian(EllipticalSpatialModel):
 
     def effective_edge(self,energy=None):
-        e68=self.ellipse_68()
-        return 5*max(e68[0],e68[1])
+        return 5*max(self.sigma_x,self.sigma_y)
 
     def has_edge(self): return False
 
@@ -1077,7 +1076,7 @@ class EllipticalRing(EllipticalSpatialModel):
                  self.theta,self.frac)
 
     def _shrink(self): 
-        self['fraction']=0
+        self.p['fraction']=0
         self.free[5]=False
 
         # this calls the cache function
