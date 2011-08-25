@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.63 2011/08/14 08:22:54 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.64 2011/08/23 07:01:42 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -846,8 +846,8 @@ class ROISlice(object):
         }
 
         for name,modelx,modely in zip(self.names,self.models_x,self.models_y):
-            results_dict[x][name]=[self.model_dx.tolist(), modelx]
-            results_dict[y][name]=[self.model_dy.tolist(), modely]
+            results_dict[x][name]=[self.model_dx.tolist(), modelx.tolist()]
+            results_dict[y][name]=[self.model_dy.tolist(), modely.tolist()]
 
         file = open(datafile,'w')
         try:
@@ -859,26 +859,25 @@ class ROISlice(object):
 
         file.close()
 
-    def show(self,filename=None, datafile=None, axes=None):
+    def show(self,filename=None, datafile=None, ax1=None, ax2=None):
 
-        if axes is None:
+        if ax1 is None and ax2 is None:
+            fig = P.figure(self.fignum,self.figsize)
+            ax1 = fig.add_subplot(211)
+            ax2 = fig.add_subplot(212)
+        elif ax1 is not None or ax2 is not None:
+            raise Exception("Both ax1 and ax2 must be specified.")
 
-            P.figure(self.fignum,self.figsize)
-            axes = P.axes()
-            P.clf()
+        self.ax1, self.ax2 = ax1, ax2
 
-        ax = self.axes = axes
-
-        ax1=ax.subplot(211)
         self.plotx(ax1)
-        ax2=ax.subplot(212)
         self.ploty(ax2)
 
         if self.title is None:
             self.title = 'Counts Slice'
-            if self.source is not None: self.title += ' for %s' % self.source.name
+            self.title += ' for %s' % self.source.name
 
-        ax.suptitle(self.title)
+        ax1.figure.suptitle(self.title)
 
         if datafile is not None: self.save_data(datafile)
 
@@ -1017,7 +1016,7 @@ class ROIRadialIntegral(object):
 
         results_dict['Counts']=[ self.theta_sqr_co.tolist(), self.counts.tolist() ]
         for name,model in zip(self.names,self.models):
-            results_dict[model]=[ self.theta_sqr_mo.tolist(), self.model.tolist() ]
+            results_dict[name]=[ self.theta_sqr_mo.tolist(), model.tolist() ]
 
         file = open(datafile,'w')
         try:
@@ -1031,11 +1030,10 @@ class ROIRadialIntegral(object):
     def show(self,filename=None,datafile=None, axes=None):
 
         if axes is None:
-            P.figure(self.fignum,self.figsize)
-            axes = P.axes()
-            P.clf()
+            fig = P.figure(self.fignum,self.figsize)
+            axes = fig.add_subplot(111)
 
-        ax = self.axes = axes
+        self.axes = ax = axes
 
         ROISlice.set_color_cycle()
 
