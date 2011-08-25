@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.33 2011/07/13 21:34:09 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.34 2011/07/13 22:05:49 lande Exp $
 
 author: Joshua Lande
 """
@@ -684,8 +684,10 @@ class RadialModel(RadialImage):
                 for band in self.selected_bands:
 
                     # this code requires a redundant call to overlap. Improve if time.
-                    fraction=overlap(band,self.center,ps.skydir,radius_in_rad=theta_max) - \
-                             overlap(band,self.center,ps.skydir,radius_in_rad=theta_min)
+                    # Note that ragged_edge is not appropriate here because our counts
+                    # are always sumed in the exact range.
+                    fraction=overlap(band,self.center,ps.skydir,radius_in_rad=theta_max, ragged_edge=np.inf) - \
+                             overlap(band,self.center,ps.skydir,radius_in_rad=theta_min, ragged_edge=np.inf)
 
                     model_counts += band.expected(ps.model)*fraction
 
