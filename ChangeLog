@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Thu Aug 25 16:30:19 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Fix problem with trying to take logs of negative numbers (e.g. declinations)
+
+    *
+------------------------------------------------------------
 User: wallacee  Thu Aug 25 11:11:03 PDT 2011
 ScienceTools-scons/pointlike/python/uw/utilities
 
