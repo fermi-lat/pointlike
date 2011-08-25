@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Aug 24 17:10:04 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+bugfix for slice / radial integral saving code
+    *
+------------------------------------------------------------
 User: lande  Wed Aug 24 17:09:43 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
