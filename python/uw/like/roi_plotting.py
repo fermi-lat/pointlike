@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.65 2011/08/25 00:10:04 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.66 2011/08/25 02:04:14 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1491,8 +1491,6 @@ class ROITSMapPlotter(object):
         cbar = P.colorbar(im, cax=cax)
 
         ax.set_title(self.title)
-
-        ax.grid(color='w',linestyle='-')
 
         ROISmoothedSource.overlay_region(self.roi,ax,h,label_sources=self.label_sources)
 
