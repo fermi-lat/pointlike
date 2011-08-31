@@ -1,7 +1,7 @@
 """
 Manage sources: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.2 2011/08/19 14:03:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.3 2011/08/21 03:41:05 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 
@@ -22,23 +22,18 @@ class SourceList(list):
                     psm : a ROIPointSourceManager object, with a list of point sources
                     roi_dir: the center of the ROI
         """
-        class ConvolvedSourceFactory(object):
-            """ klugy way to create new object from extended or diffuse source
-                encapsulates how to get such from an ROI
+        class DiffuseSourceFactory(object):
+            """ klugy way to create new object from diffuse source
             """
             def __init__(self, roi):   self.roi = roi
             def __call__(self, source_index, **kwargs):
                 cm = self.roi.dsm.bgmodels[source_index]
-                if hasattr(cm,'diffuse_source'):
-                    return cm.__class__(cm.sa, cm.diffuse_source, self.roi.roi_dir, **kwargs)
-                else:
-                    return cm.__class__(cm.sa, cm.extended_source, self.roi.roi_dir, **kwargs)
+                return cm.__class__(cm.sa, cm.diffuse_source, self.roi.roi_dir, **kwargs)
         class ExtendedSourceFactory(object):
             def __init__(self, roi):   self.roi = roi
             def __call__(self, source_index, **kwargs):
                 cm = self.roi.dsm.bgmodels[source_index]
                 return cm.__class__(cm.sa, cm.extended_source, self.roi.roi_dir, **kwargs)
-        
         class PointSourceFactory(object):
             def __init__(self, roi):    self.roi =roi
             def __call__(self, source_index):
@@ -49,7 +44,7 @@ class SourceList(list):
         for i,source in enumerate(roi.dsm.diffuse_sources):
             spatialclassname = roi.dsm.bgmodels[i].__class__.__name__
             source.factory = ExtendedSourceFactory(roi) if spatialclassname=='ROIExtendedModel'\
-                else ConvolvedSourceFactory(roi)
+                else DiffuseSourceFactory(roi)
             source.manager_index = i
             self.append(source)
         for i,source in enumerate(roi.psm.point_sources):
@@ -59,6 +54,15 @@ class SourceList(list):
         self.source_names = np.array([s.name for s in self])
         self.models= np.array([s.model for s in self])
         self.free  = np.array([np.any(model.free) for model in self.models])
+        
+        ## temporary kluge to ensure that bands are setup for current use by diffuse
+        ## this is needed if the ROI is generated without its setup, which adds these
+        ## attributes to the bands
+        nm  = len(roi.dsm.bgmodels)
+        for band in roi.bands:
+            band.bg_counts = np.empty(nm)
+            band.bg_pix_counts = np.empty([len(band.wsdl),nm]) if band.has_pixels else 0
+
 
     def __str__(self):
         return 'SoruceList, with %d sources, %d free parameters' %(len(self), sum(self.free))
@@ -72,12 +76,12 @@ class SourceList(list):
         return np.array(names)
     
     def get_parameters(self):
-        """ array of free parameters (internal rep)"""
+        """ array of free parameters (fitter rep)"""
         if len(self.models)==0: return []
         return np.concatenate([m.get_parameters() for m in self.models])
     
     def set_parameters(self,parameters):
-        """ set the (internal rep) parameters"""
+        """ set the (fitter rep) parameters"""
         current_position=0
         for m in self.models:
             cp,np = current_position, current_position+ sum(m.free)
@@ -92,10 +96,11 @@ class SourceList(list):
             m.set_cov_matrix(cov_matrix[cp:np,cp:np])
             current_position += np-cp
 
-    def get_external(self):
+    def get_model_parameters(self):
         return 10**self.get_parameters()
     
-    def set_external(self, par):
+    def set_model_parameters(self, par):
         self.set_parameters(np.log10(par))
-    parameters = property(get_external, set_external, doc='array of free parameters')
+    parameters = property(get_model_parameters, set_model_parameters,
+                doc='array of free model parameters')
 
