@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create list of BandModelStat objects from bands and models
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandmodel.py,v 1.3 2011/08/19 14:03:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandmodel.py,v 1.4 2011/08/21 03:41:05 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -52,6 +52,20 @@ class BandModel(object):
         pc = self.pix_counts
         print >>out, ('\tpixel counts: min, max, sum: '+3*'%8.1f') % ( pc.min(), pc.max(), pc.sum())
         print >>out, '\ttotal counts %8.1f'%  self.counts 
+
+    # maybe useful: not done yet
+    #def norm(self):
+    #    return self.model[0]
+    #    
+    #def norm_error(self):
+    #    # this is the uncertainty derived by taking the second derivative of the log likelihood
+    #    # wrt the normalization parameter; it is fractional (delta_v/v)
+    #    # this formulation is specifically for the flux density of a power law, which has such nice properties
+    #    if not self.band.has_pixels return 0 # no data
+    #    my_pix_counts = b.ps_pix_counts[:,which]*b.expected(self.m)*b.er[which]
+    #    all_pix_counts= b.bg_all_pix_counts + b.ps_all_pix_counts - b.ps_pix_counts[:,which]*b.ps_counts[which] + my_pix_counts
+    #    tot += (b.pix_counts * (my_pix_counts/all_pix_counts)**2).sum()
+    #    return tot**-0.5
 
 class BandDiffuse(BandModel):
     """  Apply diffuse model to an ROIband
@@ -218,7 +232,8 @@ class BandModelStat(object):
            free : array of bool to select models
         """
         self.bandmodels = bandmodels
-        self.band = band # for reference: no top-level access
+        self.band = band # for reference: not used after this 
+        self.energy = band.e # also for convenience: center of band
         self.phase_factor = band.phase_factor #this should be global
         self.data = band.pix_counts  # data from the band
         self.pixels=len(self.data)
@@ -232,7 +247,8 @@ class BandModelStat(object):
                  ('front back'.split()[b.b.event_class()]), self.pixels, sum(self.data))
         
     def initialize(self, free):
-        """ only call later if free array changes
+        """ should only call later if free array changes.
+            Saves the combined prediction from the models with fixed parameters
         """
         self.free = free
         self.freemodels = self.bandmodels[free]
@@ -244,12 +260,16 @@ class BandModelStat(object):
         for m in self.freemodels:
             self.model += m.pix_counts
         
-    def update(self):
-        """ assume that parameters have changed
+    def update(self, reset=False):
+        """ assume that parameters have changed. Update only contributions 
+        from models with free parameters. *must* be called before evaluating likelihood.
+        reset: bool
+            if True, need to reinitialize variable sources, for change of position or shape
         """
         self.model[:]=self.fixed
         self.counts = self.fixed_counts
         for m in self.freemodels:
+            if reset: m.initialize()
             m.update()
             self.model += m.pix_counts
             self.counts+= m.counts
@@ -257,11 +277,10 @@ class BandModelStat(object):
     def log_like(self):
         """ return the Poisson extended log likelihood """
         pix = np.sum( self.data * np.log(self.model) ) if self.pixels>0 else 0
-        return pix - self.counts*self.phase_factor
+        return pix - self.counts*self.phase_factor 
 
     def chisq(self):  
-        """ compute the chi squared
-        """
+        """ compute the chi squared  """
         return np.sum((self.model-self.data)**2/self.model)
     
     def gradient(self):
@@ -284,10 +303,9 @@ def factory(bands, sources):
         """helper factory that returns a BandModel object appropriate for the source"""
         factory_name = source.factory.__class__.__name__
         B = dict(PointSourceFactory=BandPoint, 
-                ConvolvedSourceFactory=BandDiffuse,
+                DiffuseSourceFactory=BandDiffuse,
                 ExtendedSourceFactory=BandExtended)[factory_name]
         return B(band, source)
-        
         
     return np.array(
         [ BandModelStat(band, 

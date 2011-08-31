@@ -4,7 +4,7 @@ Manage likelihood calculations for an ROI
 mostly class ROIstat, which computes the likelihood and its derivative from the lists of
 sources (see .sourcelist) and bands (see .bandmodel)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.4 2011/08/19 14:03:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.5 2011/08/21 03:41:05 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 
@@ -31,7 +31,7 @@ class ROIstat(object):
         * computation of the likelihood and its derivative, the basic task for 
           this class, is easily limited to a subset of the original set of bands,
           see select_bands
-        * the fit() method is equiavlent to the same method in ROIanalysis,
+        * the fit() method is equivalent to the same method in ROIanalysis,
           except that it allows specification of a subset of parameters to use
           for optimization
     
@@ -41,11 +41,11 @@ class ROIstat(object):
         * computation of TS -- same
         * modifying list of sources in place
         ...
-    Note that almost all of these can, and should be implemented by client classes, and
-    not added here.
+        Note that these can, and should be implemented by client classes, and
+        not added here.
     """
     
-    def __init__(self, roi, bandsel=lambda b: True):
+    def __init__(self, roi, bandsel=lambda b: True, quiet=False):
         """
         roi : ROIanalysis object
             use to setup sources, find bands
@@ -57,6 +57,7 @@ class ROIstat(object):
         self.all_bands = bandmodel.factory(filter(bandsel, roi.bands), self.sources)
         self.selected_bands = self.all_bands # the possible subset to analyze
         self.calls=0
+        self.quiet=quiet
     
     def __str__(self):
         return 'ROIstat for ROI %s: %d bands %d sources (%d free)' \
@@ -76,10 +77,18 @@ class ROIstat(object):
     def set_external(self, par):
         self.sources.set_parameters(np.log10(par))
     parameters = property(get_external, set_external, doc='array of free parameters')
-
-    def initialize(self):
-        """ used only if free changes, to reinitialize all free models """
-        map(lambda s: s.initialize(self.sources.free), self.all_bands )
+    @property
+    def energies(self):
+        """ array of energies for selected bands (may include front and back for a given energy)"""
+        return np.array(set([band.energy for band in self.selected_bands]))
+        
+    def initialize(self, freelist=None):
+        """ reinitialize a set of sources, setting up angular distributions
+        freelist : None or array of Bool
+            if None, use list of sources with at least one free spectral parameter
+        """
+        if freelist is None: freelist = self.sources.free
+        map(lambda s: s.initialize(freelist), self.all_bands )
 
     def select_bands(self, bandsel=lambda b: True):
         """ select a subset of the bands for analysis
@@ -88,10 +97,13 @@ class ROIstat(object):
         Note that one could also replace selected_bands with a subset of all_bands
         """
         self.selected_bands = np.array([bs for bs in self.all_bands if bandsel(bs.band)])
-        print 'selected subset of %d bands for likelihood analysis' % len(self.selected_bands)
+        if not self.quiet:print 'selected subset of %d bands for likelihood analysis' % len(self.selected_bands)
         
-    def update(self):
-        map(lambda s: s.update(), self.selected_bands)
+    def update(self, reset=False):
+        """ perform update on all selected bands, and variable sources
+        if reset is True, assume that must also reinitialize angular dependence of sources
+        """
+        map(lambda s: s.update(reset), self.selected_bands)
         
     def log_like(self):
         """ return sum of log likelihood for all bands
@@ -127,7 +139,8 @@ class ROIstat(object):
         """ Perform fit, return fitter object to examine errors, or refit
         parameters:
             select : list type of int or None
-                if not None, the list is of paramter numbers to select for modification
+                if not None, the list is a subset of the paramter numbers to select
+                to define a projected function to fit
         kwargs :
             passed to the fitter minimizer command. defaults are
                 estimate_errors = True
@@ -140,18 +153,24 @@ class ROIstat(object):
         fit_kw = dict(use_gradient=True, estimate_errors=True)
         fit_kw.update(kwargs)
         initial_value, self.calls = self.log_like(), 0
-        fn = self if select is None else fitter.AdaptFunc(self, select=select)
+        fn = self if select is None else fitter.Projector(self, select=select)
         mm = fitter.Minimizer(fn)
         mm(**fit_kw)
         print '%d calls, likelihood improvement: %.1f'\
             % (self.calls, self.log_like() - initial_value)
-        if fit_kw['estimate_errors'] and select is None:
+        if fit_kw['estimate_errors'] and select is not None:
             # tricky to do if fitting subset, punt for now
             self.sources.set_covariance_matrix(mm.cov_matrix)
         return mm
 
     def dump(self, **kwargs):
         map(lambda bs: bs.dump(**kwargs), self.selected_bands)
+        
+def summary(self, out=None):
+    """ summary table of free parameters"""
+    print >>out, '%-20s%10s'% tuple('Name value'.split())
+    for (name, value) in zip(self.parameter_names, self.parameters):
+        print >>out, '%-20s %10.4g' %(name,value)
         
 ##### these are for testing, some may turn into methods
     
