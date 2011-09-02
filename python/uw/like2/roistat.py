@@ -2,15 +2,14 @@
 Manage likelihood calculations for an ROI
 
 mostly class ROIstat, which computes the likelihood and its derivative from the lists of
-sources (see .sourcelist) and bands (see .bandmodel)
+sources (see .sourcelist) and bands (see .bandlike)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.5 2011/08/21 03:41:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.6 2011/08/31 23:11:19 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 
 import numpy as np
-from uw.utilities import fitter
-from . import bandmodel
+from . import bandlike
 from . import sourcelist
 
          
@@ -23,10 +22,12 @@ class ROIstat(object):
     Contains two lists:
        * all sources, in self.sources
          order is, for now, the same as for ROIAnlysis
-       * a list of BandModelStat objects, one per band, attribute all_bands
+       * a list of BandLike objects, one per band, attribute all_bands
           each manages the computation of the likelihood for its band
     Notes:
-        * the constructor takes an existing ROIAnalysis object, 
+        * This is not intended to be a replacement for ROIAnalysis: complete user-level
+          functionality will be the function of a client 
+        * the constructor takes, for now, an existing ROIAnalysis object, 
           from which it extracts the sources and bands.
         * computation of the likelihood and its derivative, the basic task for 
           this class, is easily limited to a subset of the original set of bands,
@@ -34,14 +35,15 @@ class ROIstat(object):
         * the fit() method is equivalent to the same method in ROIanalysis,
           except that it allows specification of a subset of parameters to use
           for optimization
-    
-    Not implemented yet: 
+        * localization and extended source fits are handled by clients of this class
+          by specifying a single source to be variable with the freelist parameter for
+          initialize and setting reset=True in the update method 
+        
+    Functionality planned, but yet implemented: 
         * fits for SED plots: that is, fits combining front and back for each band
-        * localization - probably just use or adapt code in ROiAnalysis 
-        * computation of TS -- same
         * modifying list of sources in place
         ...
-        Note that these can, and should be implemented by client classes, and
+        Note that these should be implemented by client classes, and
         not added here.
     """
     
@@ -54,7 +56,7 @@ class ROIstat(object):
         """
         self.name = roi.name
         self.sources = sourcelist.SourceList(roi) 
-        self.all_bands = bandmodel.factory(filter(bandsel, roi.bands), self.sources)
+        self.all_bands = bandlike.factory(filter(bandsel, roi.bands), self.sources)
         self.selected_bands = self.all_bands # the possible subset to analyze
         self.calls=0
         self.quiet=quiet
@@ -107,9 +109,8 @@ class ROIstat(object):
         
     def log_like(self):
         """ return sum of log likelihood for all bands
-            (could easily set for a subset of the bands --TODO)
         """
-        return sum([bstat.log_like() for bstat in self.selected_bands])
+        return sum([blike.log_like() for blike in self.selected_bands])
         
     def __call__(self, par):
         """ (negative) log likelihood as a function of the free parameters par 
@@ -127,50 +128,16 @@ class ROIstat(object):
         if parameters is not None: 
             self.set_parameters(parameters)
         self.update()
-        t = np.array([bstat.gradient() for bstat in self.selected_bands]).sum(axis=0)
+        t = np.array([blike.gradient() for blike in self.selected_bands]).sum(axis=0)
         # this is required by the convention in all of the Models classes to use log10 for external
         jacobian= 10**self.get_parameters()/np.log10(np.e)
         return t*jacobian
         
     def chisq(self):
-        return sum([bstat.chisq() for bstat in self.selected_bands])
+        return sum([blike.chisq() for blike in self.selected_bands])
         
-    def fit(self, select=None, **kwargs):
-        """ Perform fit, return fitter object to examine errors, or refit
-        parameters:
-            select : list type of int or None
-                if not None, the list is a subset of the paramter numbers to select
-                to define a projected function to fit
-        kwargs :
-            passed to the fitter minimizer command. defaults are
-                estimate_errors = True
-                use_gradient = True
-        
-        notes:
-            if select is None, it will set the cov_matrix attributes of the corresponding Model
-            objects
-        """
-        fit_kw = dict(use_gradient=True, estimate_errors=True)
-        fit_kw.update(kwargs)
-        initial_value, self.calls = self.log_like(), 0
-        fn = self if select is None else fitter.Projector(self, select=select)
-        mm = fitter.Minimizer(fn)
-        mm(**fit_kw)
-        print '%d calls, likelihood improvement: %.1f'\
-            % (self.calls, self.log_like() - initial_value)
-        if fit_kw['estimate_errors'] and select is not None:
-            # tricky to do if fitting subset, punt for now
-            self.sources.set_covariance_matrix(mm.cov_matrix)
-        return mm
-
     def dump(self, **kwargs):
         map(lambda bs: bs.dump(**kwargs), self.selected_bands)
-        
-def summary(self, out=None):
-    """ summary table of free parameters"""
-    print >>out, '%-20s%10s'% tuple('Name value'.split())
-    for (name, value) in zip(self.parameter_names, self.parameters):
-        print >>out, '%-20s %10.4g' %(name,value)
         
 ##### these are for testing, some may turn into methods
     

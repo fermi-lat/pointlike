@@ -1,12 +1,15 @@
 """
 Tools for ROI analysis
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.1 2011/08/31 23:13:18 burnett Exp $
 
 """
 import numpy as np
 from uw.utilities import fitter
-from scipy import optimize
+from scipy import optimize, interpolate
+from skymaps import SkyDir
+from uw.utilities import keyword_options
+
 
 class ProjectToLinear(fitter.Projector):
     """ accept a function object and convert from log to linear
@@ -144,8 +147,6 @@ class FluxFitter(object):
         t = fitter.Projector(self, select=[index], par=[self.par[index]])
         return lambda x : -t([x])
         
-            
-
 
 class SourceFlux(object):
     """ measure the energy-dependent flux for a given source
@@ -167,6 +168,17 @@ class SourceFlux(object):
             raise Exception('did not find parameter name, %s, for source flux'%parname)
         self.model=self.source.model
         self.energies = np.sort(list(set([ sm.band.e for sm in rstat.all_bands])))
+        self.projector = ProjectToLinear(self.rs, [self.pindex])
+        
+    def fitall(self):
+        """ fits for only this source, adjusting only the normalization, for each energy"""
+        self.norm= [self.fitone(energy) for energy in self.energies]
+    def fitone(self, energy):
+        self.rs.select_bands(lambda b: b.e==energy)
+        assert len(self.rs.selected_bands)==2, 'did not find two bands for energy %.1f' % energy
+        mm = fitter.Minimizer(self.projector)
+        #mm =self.rs.fit(select=[self.pindex], estimate_errors=False, quiet=True)
+        return mm(estimate_errors=False)
     
 def make_fits(self, **kwargs):
     self.rs.select_bands()
@@ -251,11 +263,19 @@ class NormFitter(object):
             tot += (b.pix_counts * (my_pix_counts/all_pix_counts)**2).sum()
         return tot**-0.5
  
-            
 
+        
 class Localization(object):
+    """ manage localization of a source
+    Implements a minimization interface
+    
+    """
 
     def __init__(self, roistat, source_name):
+        """ roistat : an ROIstat object
+            source_name : string
+                the name of a source
+        """
         self.rs = roistat
         self.source_mask = np.array([source.name==source_name for source in roistat.sources])
         if sum(self.source_mask)!=1:
@@ -266,8 +286,149 @@ class Localization(object):
         self.source = np.array(roistat.sources)[self.source_mask][0]
         self.skydir = self.source.skydir
    
-    def __call__(self, skydir):
+    def log_like(self, skydir):
+        """ return log likelihood at the given position"""
         self.source.skydir =skydir
         self.rs.update(True)
-        return 2*(self.rs.log_like()-self.maxlike)
+        return self.rs.log_like()
+   
+    def TS(self, skydir):
+        """ return the TS at given position, or 
+            2x the log(likelihood ratio) from the nominal position
+        """
+        return 2*(self.log_like(skydir)-self.maxlike)
+
+    def get_parameters(self):
+        return np.array([self.source.skydir.ra(), self.source.skydir.dec()])
+    
+    def set_parameters(self, par):
+        self.skydir = SkyDir(par[0],par[1])
+        self.source.skydir = self.skydir
+        
+    def __call__(self, par):
+        return -self.TS(SkyDir(par[0],par[1]))
+    
+    def reset(self):
+        """ restore modifications to the ROIstat
+        """
+        self.source.skydir=self.skydir
+        self.rs.update(True)
+        self.rs.initialize()
+        
+        
+class PoissLogLikelihood(object):
+    defaults = (
+        ('atol',0.5,'absolute maximum difference allowed between poly and interp'),
+        #('remove_offenders',False,'try to remove bad likelihood points'),
+        ('tstart',0,'optional start time'),
+        ('tstop',0,'optional stop time'),
+    )
+    
+    @keyword_options.decorate(defaults)
+    def _poiss(self,dom):
+        sp,e,b = self.poissp
+        b = abs(b) # this is a bit of a kluge to keep log argument positive
+        r = e*(dom+b)
+        r_peak = e*(sp+b)
+        if sp > 0:
+            const = r_peak*np.log(r_peak) - r_peak
+        else:
+           # const = r_peak*np.log(r_peak) - r_peak
+            t = e*b
+            const = r_peak*np.log(t) - t
+        f = r_peak*np.log(r) - r
+        return f - const
+
+    def _pre_process(self):
+        diffs = self.cod0[1:]-self.cod0[:-1]
+        signs = diffs > 0
+        divider = len(self.dom0)/2 - 1
+        mask = np.asarray([True]*len(self.cod0))
+        for i in xrange(len(diffs)-1):
+            if (signs[i+1]!=signs[i]) and (signs[i-1]!=signs[i]):
+                if i < divider:
+                    mask[:i] = False
+                else: mask[i:] = False
+        if mask.sum()!=len(mask):
+            print 'Removed %d entries'%(len(mask)-mask.sum())
+        self.premodcod0 = self.cod0.copy()
+        self.premoddom0 = self.dom0.copy()
+        self.cod0 = self.cod0[mask]
+        self.dom0 = self.dom0[mask]
+            
+    def _do_fit(self,exp_seed=3e11,bg_fac=1):
+        dom0 = self.dom0; cod0 = self.cod0
+        amax = np.argmax(cod0)
+        smax = dom0[amax]
+        # use just three (best?) points
+        #dom0 = np.asarray([dom0[1],dom0[amax],dom0[-1]])
+        #cod0 = np.asarray([cod0[1],cod0[amax],cod0[-1]])
+        def fitfunc(p):
+            self.poissp = p
+            return self._poiss(dom0)-cod0
+        if amax==0:
+            smax = -dom0[1]
+            #smax = 0.
+        #    e = -(cod0[-1]-cod0[0])/(dom0[-1]-dom0[0])
+        #    return leastsq(fitfunc,[1e-13,e,1e-13])[0]
+        return optimize.leastsq(fitfunc,[smax,exp_seed,dom0[-1]/bg_fac],maxfev=3600)[0]
+        
+    def __init__(self,dom0,cod0,**kwargs):
+        """
+        dom0 -- the sampled domain of the log likelihood surface
+        cod0 -- the log likelihood as a function of dom0
+        """
+        keyword_options.process(self,kwargs)
+        self.dom0 = dom0; self.cod0 = cod0-cod0.max();
+        self._pre_process()
+        self.interp = interpolate.interp1d(self.dom0,self.cod0,bounds_error=False,fill_value=self.cod0[-1])
+        for seed in [1e14,3e10,1e9]:
+            for bg_fac in [1.,10.,0.1]:
+                self.poissp = self._do_fit(exp_seed=seed,bg_fac=bg_fac)
+                self.ok = self._check_agreement()
+                if self.ok: break
+            if self.ok: break # use return instead?
+        if not self.ok:
+            print 'WARNING fit and interpolation are significantly different (%.2f)'%(self.agreement)
+    def _check_agreement(self):
+        v1 = self(self.dom0,use_fit=True); v2 = self(self.dom0,use_fit=False)
+        self.agreement = max_diff = (np.abs(v2-v1)).max()
+        return max_diff < self.atol
+
+    def __call__(self,dom,use_fit=True):
+        """ Return the likelihood as a function of the domain."""
+        if use_fit: return self._poiss(dom)
+        return self.interp(dom)
+
+    def show(self,use_fit=True):
+        import pylab as pl
+        pl.clf()
+        #pl.plot(self.dom0,self(self.dom0,use_fit=use_fit))
+        dom = np.linspace(0,self.dom0[-1],100)
+        pl.plot(dom,self(dom,use_fit=use_fit))
+        pl.plot(self.dom0,self.cod0,marker='o',ls=' ',color='red')
+        pl.axvline(self.find_max(use_fit=use_fit))
+
+    def find_max(self,use_fit=True):
+        if use_fit: return max(0,self.poissp[0])
+        return self.dom0[np.argmax(self.cod0)]
+
+    def ts(self,use_fit=True):
+        ll1 = self(self.find_max(use_fit=use_fit))
+        ll0 = self(0,use_fit=use_fit)#.cod0[0] # is this best?
+        return 2*(ll1-ll0)
+
+    def error_bars(self,delta_logl=0.5):
+        xmax = self.find_max()
+        ymax = self(xmax,use_fit=True)
+        def fitfunc(x):
+            return self(x)+delta_logl-ymax
+        r_lo = optimize.bisect(fitfunc,0,xmax)
+        r_hi = optimize.bisect(fitfunc,xmax,10*xmax)
+        roots = np.asarray([r_lo,r_hi])
+        mask = np.isreal(roots)
+        if (mask.sum() != 2) or (r_hi==r_lo):
+            print 'Could not find 2 roots!'
+            return None
+        return xmax-r_lo,r_hi-xmax
         
