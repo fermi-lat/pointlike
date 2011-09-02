@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Sep  2 16:43:34 PDT 2011
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+add DMFitFunction to xml parsing
+    *
+------------------------------------------------------------
 User: burnett  Fri Sep  2 09:30:43 PDT 2011
 pointlike/python/uw/like2
 
