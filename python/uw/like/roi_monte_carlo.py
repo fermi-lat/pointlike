@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header:
+$Header:$
 
 author: Joshua Lande
 """
