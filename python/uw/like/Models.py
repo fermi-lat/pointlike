@@ -1,11 +1,13 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.55 2011/07/21 20:15:48 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.56 2011/08/18 01:06:20 burnett Exp $
 
     author: Matthew Kerr, Joshua Lande
 
 """
+import os
 import copy
+import collections
 import operator
 import numpy as N
 import numpy as np
@@ -13,6 +15,7 @@ from abc import abstractmethod
 
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
+from SpatialModels import SpatialMap # for function expand
 
 #===============================================================================================#
 
@@ -36,6 +39,8 @@ class DefaultModelValues(object):
         'Constant'            : {'_p':[1.],                     'param_names':['Scale']},
         'InterpConstants'     : {'_p':[1.]*5,                   'param_names':['Scale_Vector'],'e_breaks':np.log10([100,300,1000,3000,3e5])},
         'FileFunction'        : {'_p':[],                       'param_names':[]},
+        'DMFitFunction'       : dict(_p=[1.0, 100.],             param_names=['sigmav','mass'], norm=1, bratio=1.0, channel0=1, channel1=1,
+                                     file='$(INST_DIR)/Likelihood/src/dmfit/gammamc_dif.dat'),
         }
 
     @staticmethod
@@ -962,6 +967,36 @@ class FileFunction(Model):
         """ recreate interp1d object. """
         self.__dict__ = state
         self.__make_interp__()
+
+class DMFitFunction(Model):
+    """ Wrap gtlike's DMFitFunction interface. """
+
+    def __init__(self,  *args, **kwargs):
+        import pyLikelihood
+
+        # the DMFitFunction must exist before __init__ is called because
+        # the __init__ will call setp().
+        self.dmf=pyLikelihood.DMFitFunction()
+        super(DMFitFunction,self).__init__(*args,**kwargs)
+        # on the other hand, we make sure now that DMFitFunction
+        # is consistently created with all of the parameters.
+        self.dmf=pyLikelihood.DMFitFunction(self.norm, self['sigmav'], self['mass'], 
+                                            self.bratio, self.channel0, self.channel1)
+        print self.file
+        self.dmf.readFunction(SpatialMap.expand(self.file))
+
+    def setp(self, i, par, internal=False):
+        super(DMFitFunction,self).setp(i, par, internal)
+        name=self.param_names[self.mapper(i)]
+        self.dmf.setParam(name,self[name])
+
+    def __call__(self,e):
+        """ Return energy in MeV. This could be vectorized. """
+        from pyLikelihood import dArg
+        if isinstance(e,collections.Iterable):
+            return np.asarray([self.dmf(dArg(i)) for i in e])
+        else:
+            return self.dmf(dArg(e))
 
 
 def convert_exp_cutoff(model):
