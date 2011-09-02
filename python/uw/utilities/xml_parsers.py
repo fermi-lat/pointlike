@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.49 2011/08/08 17:42:18 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.50 2011/08/10 21:16:52 cohen Exp $
 
    author: Matthew Kerr
 """
@@ -96,7 +96,8 @@ class XML_to_Model(object):
                 Constant             = Constant, # should this have been ConstantValue key?
                 ConstantValue        = Constant,
                 FileFunction         = Constant, # a big klugey
-                LogParabola          = LogParabola
+                LogParabola          = LogParabola,
+                DMFitFunction        = DMFitFunction,
                 )
 
         self.specdict = dict(
@@ -108,7 +109,8 @@ class XML_to_Model(object):
                 PLSuperExpCutoff     = ['Prefactor','Index1','Cutoff','Index2'],
                 ConstantValue        = ['Value'],
                 FileFunction         = ['Normalization'],
-                LogParabola          = ['norm', 'alpha', 'beta', 'Eb']
+                LogParabola          = ['norm', 'alpha', 'beta', 'Eb'],
+                DMFitFunction        = ['sigmav','mass'],
                 )
 
         self.kwargdict = dict(
@@ -120,7 +122,9 @@ class XML_to_Model(object):
                 PLSuperExpCutoff     = [ ['Scale','e0' ] ],
                 ConstantValue        = [],
                 FileFunction         = [],
-                LogParabola          = []
+                LogParabola          = [],
+                DMFitFunction        = [['norm','norm'], ['bratio','bratio'],
+                                        ['channel0','channel0'], ['channel0','channel1']],
                 )
 
     def get_model(self,xml_dict,source_name,index_offset=0):
@@ -133,7 +137,12 @@ class XML_to_Model(object):
         for p in params:
             d[p['name']] = p
 
-        model = self.modict[specname]()
+        # certain spectral models require the file to be set
+        kwargs = {}
+        if specname == 'DMFitFunction' and xml_dict.has_key('file'):
+            kwargs['file']=str(xml_dict['file'])
+
+        model = self.modict[specname](**kwargs)
 
         for ip,p in enumerate(self.specdict[specname]):
             try:
@@ -379,6 +388,16 @@ class Model_to_XML(object):
             self.pval   = [1,2,0,1e3]
             self.oomp   = [1,0,0,1]
 
+        elif name == 'DMFitFunction':
+            self.pname  = ['sigmav','mass', 'norm', 'bratio', 'channel0', 'channel1']
+            self.pfree  = [       1,     1,      0,        0,          0,          0]
+            self.perr   = [       0,     0,     -1,       -1,         -1,         -1]
+            self.pscale = [   1e-25,     1,      1,     1e17,          1,          1]
+            self.pmin   = [       0,     1,   1e-5,        0,          0,          0]
+            self.pmax   = [     1e6,   1e4,    1e5,        1,         10,         10]
+            self.pval   = [       1,   100,      1,        1,          1,          1]
+            self.oomp   = [       1,     0,      1,        0,          0,          0]
+
         else:
             raise Exception,'Unrecognized model %s'%(name)
 
@@ -394,7 +413,7 @@ class Model_to_XML(object):
 
     def getXML(self,tablevel=1,spec_attrs='',comment_string=None):
         cstring = [] if comment_string is None else [comment_string]
-        strings = ['<spectrum %s type="%s">'%(spec_attrs,self.name)] + \
+        strings = ['<spectrum %s type="%s">'%(spec_attrs+self.extra_attrs,self.name)] + \
                    cstring + self.param_strings() + ['</spectrum>']
         return ''.join([decorate(s,tablevel=tablevel) for s in strings])
 
@@ -483,6 +502,12 @@ class Model_to_XML(object):
             self.pmin[index] = self.pval[index]
             self.pmax[index] = self.pval[index]
             self.perr[index] = -1
+
+        # this will also be necessary for FileSpectrum objects.
+        if isinstance(model,DMFitFunction): 
+            self.extra_attrs='file="%s"' % model.file
+        else:
+            self.extra_attrs=''
 
 def get_skydir(elem):
     """convert a parsed SpatialModel into a SkyDir."""
