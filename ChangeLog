@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Sep  2 16:43:54 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Adding DMFitFunction
+    *
+------------------------------------------------------------
 User: lande  Fri Sep  2 16:43:34 PDT 2011
 ScienceTools-scons/pointlike/python/uw/utilities
 
