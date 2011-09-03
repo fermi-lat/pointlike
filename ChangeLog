@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Sep  2 18:44:17 PDT 2011
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+bugfix for DM stuff
+    *
+------------------------------------------------------------
 User: lande  Fri Sep  2 16:44:56 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
