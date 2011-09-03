@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Sep  3 11:21:47 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_bands.py 
+Log Message:
+add four convenience functions for like2
+    *
+------------------------------------------------------------
 User: lande  Fri Sep  2 18:44:17 PDT 2011
 ScienceTools-scons/pointlike/python/uw/utilities
 
