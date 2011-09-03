@@ -1,40 +1,22 @@
 """
 Manage spectral and angular models for an energy band to calculate the likelihood, gradient
-   Delegates some computation to classes in modules like.roi_diffuse, like.roi_extended
+   Currently delegates some computation to classes in modules like.roi_diffuse, like.roi_extended
    
 classes:
     BandSource -- superclass for basic Band/Source association
         BandDiffuse -- diffuse
             BandExtended  -- extended
         BandPoint  -- point source
-    BandLike -- manage a list of BandSource objects, implement likelihood calculation
+    BandLike -- manage likelihood calculation, using a list of BandSource objects
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.1 2011/09/02 16:30:43 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
 import numpy as np
-from uw import like # for pypsf
 
-# This is tested, ready to use for exposure integrals: ROIBand has that 16 wired in
-#from pointlike import DoubleVector
-#
-#class ExposureIntegral(object):
-#    def __init__(self,emin, emax, exposure, skydir, nsp_simps=16):
-#        """ emin, emax : floats
-#            exposure : SWIG-wrapped skymaps.Exposure object
-#            skydir : SkyDir object for exposure
-#        """
-#        self.points = sp = np.logspace(np.log10(emin),np.log10(emax),nsp_simps+1)
-#        exp_points     = np.asarray(exposure.vector_value(skydir,DoubleVector(sp)))
-#        simps_weights  = (np.log(sp[-1]/sp[0])/(3.*nsp_simps)) * \
-#                              np.asarray([1.] + ([4.,2.]*(nsp_simps/2))[:-1] + [1.])
-#        self.weights = sp * exp_points * simps_weights
-#    def __call__(self, funct, axis=None):
-#        return (funct(self.points)*self.weights).sum(axis)
-#        
 class BandSource(object):
     """ superclass for point or diffuse band models, used to implement printout
     subclasses implement code to compute prediction of the source model for the pixels in the band
@@ -50,7 +32,7 @@ class BandSource(object):
         b = self.band
         print >>out, self.__str__()
         if hasattr(self,'er'):
-            print >>out, '\texposure ratio, overlap: %.3f %.3f'%( self.er, self.overlap)
+            print >>out, '\texposure ratio, overlap: %.3f %.3f'%( self.exposure_ratio, self.overlap)
         pc = self.pix_counts
         print >>out, ('\tpixel counts: min, max, sum: '+3*'%8.1f') % ( pc.min(), pc.max(), pc.sum())
         print >>out, '\ttotal counts %8.1f'%  self.counts 
@@ -64,8 +46,8 @@ class BandSource(object):
     #    # wrt the normalization parameter; it is fractional (delta_v/v)
     #    # this formulation is specifically for the flux density of a power law, which has such nice properties
     #    if not self.band.has_pixels return 0 # no data
-    #    my_pix_counts = b.ps_pix_counts[:,which]*b.expected(self.m)*b.er[which]
-    #    all_pix_counts= b.bg_all_pix_counts + b.ps_all_pix_counts - b.ps_pix_counts[:,which]*b.ps_counts[which] + my_pix_counts
+    #    my_pix_counts = b.psf_pixel_values[:,which]*b.expected(self.m)*b.er[which]
+    #    all_pix_counts= b.bg_all_pix_counts + b.ps_all_pix_counts - b.psf_pixel_values[:,which]*b.ps_counts[which] + my_pix_counts
     #    tot += (b.pix_counts * (my_pix_counts/all_pix_counts)**2).sum()
     #    return tot**-0.5
 
@@ -108,7 +90,7 @@ class BandDiffuse(BandSource):
         """
         self.source.initialize_counts([self.band])
         
-    def update(self):
+    def update(self, fixed=False):
         """ sets the following attributes:
             counts -- the total counts expected for the model in the aperture
             pix_counts-- if the band has pixels, an npixel vector with the 
@@ -149,7 +131,7 @@ class BandExtended(BandDiffuse):
     def initialize(self):
         self.source.initialize_counts([self.band]) 
         myband = self.source.bands[0]
-        self.er, self.overlap = myband.er, myband.overlaps # for info for now
+        self.exposure_ratio, self.overlap = myband.er, myband.overlaps # for info for now
 
     def grad(self, weights, phase_factor=1):
         """ contribution to the gradient
@@ -177,36 +159,23 @@ class BandPoint(BandSource):
         self.update()
        
     def initialize(self):
+        """ setup values that depend on source position:
+            exposure_ratio, overlap, pixel values
+        """
         band = self.band
-        ps = self.source
-        roi_dir = self.roi_dir
- 
-        energy,exposure = band.e, band.exp.value
-
-        # make a first-order correction for exposure variation
-        denom = exposure(roi_dir,energy)
-        if denom==0:
-            raise Exception('BandPoint: exposure is zero for  energy %f'%en)
-        self.er = exposure(ps.skydir,energy)/denom 
+        self.exposure_ratio = band.exposure(self.source.skydir)/band.exposure(self.roi_dir)
+        self.overlap = band.psf_overlap(self.source.skydir)  
         
         #unnormalized PSF evaluated at each pixel
-        rvals  = np.empty(len(band.wsdl),dtype=float)
-        band.psf.cpsf.wsdl_val(rvals, ps.skydir, band.wsdl)
-        self.ps_pix_counts =rvals*band.b.pixelArea()
+        self.psf_pixel_values = band.pixels_from_psf(self.source.skydir)
 
-        # note this will use a numerical integration if the ragged edge is impt.
-        overlap_function = like.pypsf.PsfOverlap()
-        self.overlap = overlap_function(band,roi_dir,self.source.skydir)  
-
-    def update(self):
+    def update(self, fixed=False):
         """ model parameters changed: integrate model over energy range, update 
             pixel counts and total counts in ROI
         """
         b = self.band
-        # TODO: use the Simpson guy: self.exposure_integral(self.model)*self.er
-        # where self.exposure_integral = ExposureIntegral(emin,emax, exposure,skydir)
-        expected = (self.model(b.sp_points)*b.sp_vector).sum() * self.er
-        self.pix_counts = self.ps_pix_counts * expected
+        expected = b.exposure_integral(self.model) * self.exposure_ratio
+        self.pix_counts = self.psf_pixel_values * expected
         self.counts = expected*self.overlap
 
     def grad(self, weights, phase_factor=1): 
@@ -216,11 +185,9 @@ class BandPoint(BandSource):
         model = self.model
         if np.sum(model.free)==0 : return []
         # Calculate the gradient of a spectral model (wrt its parameters) integrated over the exposure.
-        ##TODO: encapsulate this  integral
-        ## g = self.exposure_integral(model.gradient, axis=1)[model.free] * self.er
-        g = (model.gradient(b.sp_points)*b.sp_vector).sum(axis=1)[model.free] * self.er
+        g = b.exposure_integral(model.gradient, axis=1)[model.free] * self.exposure_ratio
         apterm = phase_factor* self.overlap
-        pixterm = (weights*self.ps_pix_counts).sum() if b.has_pixels else 0
+        pixterm = (weights*self.psf_pixel_values).sum() if b.has_pixels else 0
         return g * (apterm - pixterm)
    
 class BandLike(object):
@@ -262,17 +229,19 @@ class BandLike(object):
         for m in self.free_sources:
             self.model_pixels += m.pix_counts
         
-    def update(self, reset=False):
+    def update(self, reset=False, fixed=False):
         """ assume that parameters have changed. Update only contributions 
         from models with free parameters. *must* be called before evaluating likelihood.
         reset: bool
             if True, need to reinitialize variable source(s), for change of position or shape
+        fixed : bool
+            if True, will not update prediction, for band_ts use
         """
         self.model_pixels[:]=self.fixed_pixels
         self.counts = self.fixed_counts
         for m in self.free_sources:
             if reset: m.initialize()
-            m.update()
+            m.update(fixed)
             self.model_pixels += m.pix_counts
             self.counts+= m.counts
 
