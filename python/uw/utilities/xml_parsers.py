@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.50 2011/08/10 21:16:52 cohen Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.51 2011/09/02 23:43:33 lande Exp $
 
    author: Matthew Kerr
 """
@@ -124,7 +124,7 @@ class XML_to_Model(object):
                 FileFunction         = [],
                 LogParabola          = [],
                 DMFitFunction        = [['norm','norm'], ['bratio','bratio'],
-                                        ['channel0','channel0'], ['channel0','channel1']],
+                                        ['channel0','channel0'], ['channel1','channel1']],
                 )
 
     def get_model(self,xml_dict,source_name,index_offset=0):
