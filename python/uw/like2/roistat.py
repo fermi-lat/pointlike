@@ -4,7 +4,7 @@ Manage likelihood calculations for an ROI
 mostly class ROIstat, which computes the likelihood and its derivative from the lists of
 sources (see .sourcelist) and bands (see .bandlike)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.7 2011/09/02 16:30:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.8 2011/09/05 18:58:04 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 
@@ -32,19 +32,10 @@ class ROIstat(object):
         * computation of the likelihood and its derivative, the basic task for 
           this class, is easily limited to a subset of the original set of bands,
           see select_bands
-        * the fit() method is equivalent to the same method in ROIanalysis,
-          except that it allows specification of a subset of parameters to use
-          for optimization
         * localization and extended source fits are handled by clients of this class
           by specifying a single source to be variable with the freelist parameter for
           initialize and setting reset=True in the update method 
         
-    Functionality planned, but yet implemented: 
-        * fits for SED plots: that is, fits combining front and back for each band
-        * modifying list of sources in place
-        ...
-        Note that these should be implemented by client classes, and
-        not added here.
     """
     
     def __init__(self, roi, bandsel=lambda b: True, quiet=False):
@@ -142,63 +133,4 @@ class ROIstat(object):
         
     def dump(self, **kwargs):
         map(lambda bs: bs.dump(**kwargs), self.selected_bands)
-        
-##### these are for testing, some may turn into methods
-    
-def par_scan(s, i, q=0.1,  dom=None): 
-    """ scam parameter i, showing relative likelihood and gradient
-    """
-    if dom is None:
-        dom = np.linspace(-q,q, 11)
-    par = s.get_parameters().copy()
-    d = np.zeros(len(par))
-    d[i]=1.0
-    for x in dom:  
-        print '%6.3f %8.4f %8.4f' % (x,s(par+x*d)-s(par),s.gradient(par+x*d)[i])
-    s.set_parameters(par)
-    
-def compare(s, i=0):
-    def delta(name, a, b):
-        print '%-15s %10.1f%10.1f%10.2f' % (name, a, b, a-b)
-    bs = s.all_bands[i]
-    #bs.dump()
-    b = bs.bandmodels[i].band
-    print 'quantity           pointlike  roistat  difference'
-    delta('log likelihood', -b.logLikelihood(), bs.log_like())
-    delta('pixel like',\
-        (b.pix_counts * np.log(b.bg_all_pix_counts + b.ps_all_pix_counts)).sum(),\
-         sum( bs.data * np.log(bs.model) ))
-    bscounts = np.array([bm.counts for bm in bs.bandmodels])
-    numbg = len(b.bg_counts)
-    delta('diffuse sources', b.bg_all_counts, bscounts[:numbg].sum())
-    delta('  galactic',      b.bg_counts[0], bscounts[0])
-    delta('  isotropic',     b.bg_counts[1], bscounts[1])
-    if numbg>2:
-        delta('  extended',  b.bg_counts[2], bscounts[2])
-    delta('point sources',   b.ps_all_counts, bscounts[numbg:].sum())
-    delta( 'model sum',      b.bg_all_counts + b.ps_all_counts, bs.counts)
-    delta( 'data sum',       sum(b.pix_counts), sum(bs.data))
-    return b, bs
-    
-def pardump(self, eps=1e-1):
-    print 'variable parameters'
-    par = self.get_parameters()
-    grad = self.gradient(par)
-    f0 = self(par)
-    for i, name in enumerate(self.parameter_names):
-        dpar = par.copy()
-        dpar[i] += eps/grad[i]
-        print '%-20s%10.2e%10.2e %10.2e'% (name, par[i], grad[i], (self(dpar)-f0)*grad[i]/eps)
-        self.set_parameters(par)
-
-class ROIfit(object):
-    """ adapt an ROI to the fitter interface """
-    def __init__(self, roi):  self.roi = roi
-    def __call__(self, par):  return self.roi.logLikelihood(par)
-    def get_parameters(self): return self.roi.get_parameters()
-    def set_parameters(self,par): self.roi.set_parameters(par)
-    def gradient(self, par):   return self.roi.gradient(par)
-    def fit(self, **kwargs):
-        mm = fitter.Minimizer(self)
-        return mm(**kwargs)
         
