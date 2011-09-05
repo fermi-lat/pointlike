@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Sep  5 11:53:09 PDT 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	sourcelist.py 
+Log Message:
+add find_source; set spectral_model attribute for all source objects
+    *
+------------------------------------------------------------
 User: burnett  Sat Sep  3 13:28:27 PDT 2011
 pointlike/python/uw/like2
 
