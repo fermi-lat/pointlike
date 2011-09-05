@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Sep  5 13:28:05 PDT 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	roistat.py 
+Log Message:
+clean up a bit, removing mostly obsolete testing code
+    *
+------------------------------------------------------------
 User: burnett  Mon Sep  5 11:59:26 PDT 2011
 pointlike/python/uw/like2
 
