@@ -24,6 +24,7 @@ from ROOT import Double
 import math
 import sys
 import string
+import uw.pulsar.py_exposure as pe
 
 def format_error(v,err):
     if v>0 and err>0:
@@ -57,11 +58,13 @@ def format_error(v,err):
 pulsdir = '/phys/groups/tev/scratch1/users/Fermi/mar0/data/pulsar/'               #directory with pulsar ft1 data
 agndir = '/phys/groups/tev/scratch1/users/Fermi/mar0/data/6.3/'                   #directory with agn ft1 data
 srcdir = '/phys/users/mar0/sourcelists/'                                          #directory with lists of source locations (name ra dec)
-cachedir = '/phys/users/mar0/cache/'
+cachedir = '/phys/groups/tev/scratch1/users/Fermi/mar0/cache/'
 pulsars = [('vela',1.0),('gem',1.0)]                                                          #pulsar sourcelist name 
 agnlist = ['agn-psf-study-bright']
 irf = 'P6_v8_diff'
 rd = 180./np.pi
+INFINITY = np.Infinity#1e80
+ergs = 1.602e-6
 
 ###############################################  CombinedLike Class ############################################
 
@@ -87,6 +90,7 @@ class CombinedLike(object):
         self.irf = irf
         self.cache = True
         self.verbose = False
+        self.veryverbose = False
         self.pulse_ons = []         #pulsar on pulse angular distributions
         self.pulse_offs = []        #pulsar off pulse angular distributions
         self.agns = []              #agn angular distributions
@@ -103,6 +107,7 @@ class CombinedLike(object):
         self.mode=-1
         self.__dict__.update(kwargs)
         self.TS = 0
+        self.tol = 1e-1
 
     def __str__(self):
         verbose = '\n'
@@ -120,13 +125,13 @@ class CombinedLike(object):
         for it,nj in enumerate(self.Naj):
             verbose = verbose + 'Npsf(%s) = %1.0f (1 +/- %1.3f)\n'%(self.agnlist[it],nj,self.Naje[it]/nj)
             verbose = verbose + 'Niso(%s) = %1.0f (1 +/- %1.3f)\n'%(self.agnlist[it],self.Ni[it],self.Nie[it]/self.Ni[it])
-        verbose = verbose + '\n'
-        if self.halomodel!='':
-            verbose = verbose + 'Nhalo = %1.0f (1 +/- %1.3f)\n'%(self.Nh,self.Nhe/self.Nh)
-            verbose = verbose + 'Size(deg) = %1.3f\n'%(self.haloparams[0]*rd)
-            verbose = verbose + 'TS = -2(LogL(Nhalo) - LogL(0)) = %1.2f\n'%(self.TS)
-            tspval = self.tspval()
-            verbose = verbose + 'Significance = %1.1f    p-val = %1.4f'%(tspval[1],tspval[0])
+            if self.halomodel!='' and it==(len(self.Naj)-1):
+                verbose = verbose + 'Nhalo = %1.0f (1 +/- %1.3f)\n'%(self.Nh[it],self.Nhe[it]/self.Nh[it])
+                verbose = verbose + 'Size(deg) = %1.3f\n'%(self.haloparams[0]*rd)
+                verbose = verbose + 'TS = -2(LogL(Nhalo) - LogL(0)) = %1.2f\n'%(self.TS)
+                tspval = self.tspval()
+                verbose = verbose + 'Significance = %1.1f    p-val = %1.4f\n'%(tspval[1],tspval[0])
+            verbose = verbose + '\n'
         return verbose
     
     ######################################################################
@@ -238,7 +243,7 @@ class CombinedLike(object):
 
 
         #adaptive binning
-        if bins>0 and len(alldata)>20:
+        if bins>0 and len(alldata)>50:
             chist = np.array([sum(chist[:x+1]) for x in range(len(chist))])
             chist = chist/max(chist)
             cumm = np.array([(1.*x+1.)/len(alldata) for x in range(len(alldata))])      #cumulative dist function
@@ -289,7 +294,7 @@ class CombinedLike(object):
             fixed[ip] = True
 
             self.minuit = Minuit(self.likelihood,params,#gradient=self.gradient,force_gradient=1,
-                                 fixed=fixed,limits=self.limits,strategy=2,tolerance=0.0001,printMode=self.mode)
+                                 fixed=fixed,limits=self.limits,strategy=1,tolerance=self.tol,printMode=self.mode)
             self.minuit.minimize()
             return self.minuit.fval
         else:
@@ -301,7 +306,7 @@ class CombinedLike(object):
                 fixed[ip] = True
 
                 self.minuit = Minuit(self.likelihood,params,#gradient=self.gradient,force_gradient=1,
-                                     fixed=fixed,limits=self.limits,strategy=2,tolerance=0.0001,printMode=self.mode)
+                                     fixed=fixed,limits=self.limits,strategy=1,tolerance=self.tol,printMode=self.mode)
                 self.minuit.minimize()
                 vals.append(self.minuit.fval)
             return np.array(vals)
@@ -350,7 +355,7 @@ class CombinedLike(object):
         self.limits = [[-1,1] for x in range(self.nbins-1)]
         self.fixed = [False for x in range(self.nbins-1)]
 
-        alims = sum([sum(agnhist) for agnhist in self.agnhists])
+        alims = [max(sum(agnhist),1) for agnhist in self.agnhists]
 
         psrs = len(self.ponhists)
         agns = len(self.agnhists)
@@ -362,37 +367,41 @@ class CombinedLike(object):
             self.fixed.append(False)
 
         #agn estimators
-        for hist in self.agnhists:
-            self.params.append(alims/2.)
-            self.limits.append([0,alims*100])
+        for it,hist in enumerate(self.agnhists):
+            self.params.append(alims[it]/2.)
+            self.limits.append([0,alims[it]*100])
             self.fixed.append(False)
 
         #iso estimator
-        self.params.append(1.)
-        self.limits.append([0,alims*100])
-        self.fixed.append(len(self.agnhists)==0)
+        for it,hist in enumerate(self.agnhists):
+            self.params.append(alims[it]/2.)
+            self.limits.append([0,alims[it]*100])
+            self.fixed.append(len(self.agnhists)==0)
 
-        self.Nh=0
-        self.Nhe=1e-40
+        self.Nh=[0 for agn in self.agnlist]
+        self.Nhe=[0 for agn in self.agnlist]
         if self.halomodel=='':
             self.hmd=np.zeros(self.nbins)
         else:
             halomodel = eval(self.halomodel)
             if self.haloparams[0]<0:
-                return np.Infinity
+                return INFINITY
             mod = halomodel(lims=[min(self.angbins)/rd,max(self.angbins)/rd],model_par=self.haloparams)
             mint = mod.integral(min(self.angbins)/rd,max(self.angbins)/rd)
             self.hmd = np.array([mod.integral(self.angbins[it]/rd,self.angbins[it+1]/rd)/mint for it in range(self.nbins)])
             self.hmd = self.hmd/sum(self.hmd)
 
-        self.params.append(self.Nh)
-        self.limits.append([0,alims*100])
-        self.fixed.append(self.halomodel=='')
+        for it,agn in enumerate(self.agnlist):
+            self.params.append(self.Nh[it])
+            self.limits.append([0,alims[it]*100])
+            self.fixed.append(not(self.halomodel!='' and it==(len(self.agnlist)-1)))
         if self.verbose:
             print 'Setting up Minuit and maximizing'
+            header = ''+string.join(['Np  \t' for nj in self.pulsars])+string.join(['Na  \t' for nj in self.agnlist])+string.join(['Ni  \t' for ni in self.agnlist])+string.join(['Nh  \t' for nh in self.agnlist])+'like'
+            print header
         ############  setup Minuit and optimize  ###############
         self.minuit = Minuit(self.likelihood,self.params,#gradient=self.gradient,force_gradient=1,
-                             fixed=self.fixed,limits=self.limits,strategy=2,tolerance=0.0001,printMode=self.mode)
+                             fixed=self.fixed,limits=self.limits,strategy=2,tolerance=self.tol,printMode=self.mode)
         self.minuit.minimize()
         if self.verbose:
             print 'Likelihood value: %1.1f'%self.minuit.fval
@@ -403,23 +412,6 @@ class CombinedLike(object):
         self.cov = self.minuit.errors()
         self.errs = np.sqrt(np.diag(self.cov))
         self.params = cp.copy(self.minuit.params)
-
-        """if any(self.errs<0):
-            self.minuit.minuit.mnmnos()
-            self.errs = []
-            for it in range(len(self.minuit.params)):
-                eplus,eminus,ecurv,gcc = Double(),Double(),Double(),Double()
-                self.minuit.minuit.mnerrs(it,eplus,eminus,ecurv,gcc)
-                self.errs.append(float(ecurv))
-            self.errs = np.array(self.errs)"""
-
-        #for i in range(len(self.minuit.params)):
-        #    print '%12.4g +/- %12.4g'%(self.minuit.params[i], self.errs[i])
-
-        #for i in range(len(self.cov)):
-        #    for j in range(len(self.cov[i])):
-        #        print '%12.4g'%self.cov[i][j],
-        #    print
 
         #if any(self.errs<0):
         self.errs2 = [self.errors(it) for it in range(len(self.minuit.params))]#self.errs[it][it] for it in range(len(self.minuit.params))]
@@ -446,8 +438,8 @@ class CombinedLike(object):
         self.Nie  = self.errs[nmu+psrs+agns:nmu+psrs+agns+agns]         #isotropic number est errors
         
         if self.halomodel!='':
-            self.Nh  = self.params[nmu+psrs+agns+1]  #halo est
-            self.Nhe = self.errs[nmu+psrs+agns+1]           #halo err                               #halo err
+            self.Nh  = self.params[nmu+psrs+agns+agns:]  #halo est
+            self.Nhe = self.errs[nmu+psrs+agns+agns:]           #halo err                               #halo err
 
 
         #for it in range(len(self.params)):
@@ -507,6 +499,19 @@ class CombinedLike(object):
         return self.minuit.fval
 
     #######################################################################
+    #                  Add Halo into data                                 #
+    #######################################################################
+    def addhalo(self,halomodel,haloparams,nhalo):
+        halomodel = eval(halomodel)
+        if haloparams[0]<0:
+            return INFINITY
+        mod = halomodel(lims=[min(self.angbins)/rd,max(self.angbins)/rd],model_par=haloparams)
+        mint = mod.integral(min(self.angbins)/rd,max(self.angbins)/rd)
+        hmd = np.array([mod.integral(self.angbins[it]/rd,self.angbins[it+1]/rd)/mint for it in range(self.nbins)])
+        hmd = hmd/sum(hmd)*nhalo
+        self.agnhists[-1]+=sst.poisson.rvs(hmd)
+
+    #######################################################################
     #                  Summary of Likelihood Analysis                     #
     #######################################################################
     ## printResults() - summary
@@ -533,24 +538,24 @@ class CombinedLike(object):
         Npj = params[nmu:nmu+psrs]
         Naj = params[nmu+psrs:nmu+psrs+agns]
         Ni = params[nmu+psrs+agns:nmu+psrs+agns+agns]
-        Nh = params[nmu+psrs+agns+agns:nmu+psrs+agns+agns+1][0]
+        Nh = params[nmu+psrs+agns+agns:]
         acc = 0
         #set to true for slow,verbose output
 
         mi = np.append(mi,[1-np.sum(mi)])
-        if verb:
+        if self.veryverbose:
             print '**************************************************************'
             print '--------------------------------------------------------------'
             print '                        Pulsars                               '
             print '--------------------------------------------------------------'
-            print 'n\tb\tNi\tvi\tmod\tcont1\tcont2\tacc'
+            print 'mu\tn\tb\tNi\tvi\tmod\tcont1\tcont2\tacc'
 
         ########################################
         #          first sum in (3)            #
         ########################################
         #loop over pulsars
         for it1,row in enumerate(npij):
-            if verb:
+            if self.veryverbose:
                 print '--------------------------------------------------------------'
                 print '                        %s                               '%self.pulsars[it1][0]
                 print '--------------------------------------------------------------'
@@ -568,8 +573,10 @@ class CombinedLike(object):
                 #catch negative log terms
                 lterm = N*m+a*v
                 if lterm <0. or v<0.:
-                    print lterm,v
-                    return np.Infinity
+                    #    print lterm,v
+                    #   lterm = 1 if lterm<0 else lterm
+                    #v = 1 if v<0 else v
+                    return INFINITY
 
                 cont1 = -n*np.log(lterm) if n>0 else 0
                 cont1 = cont1 + N*m + a*v
@@ -579,22 +586,22 @@ class CombinedLike(object):
                 cont2 = cont2 + v
                 acc = acc + cont2
 
-                if verb:
-                    print '%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f'%(n,b,N*m,a*v,lterm,cont1,cont2,acc)
+                if self.veryverbose:
+                    print '%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f'%(m,n,b,N*m,a*v,lterm,cont1,cont2,acc)
                     t.sleep(0.25)
         
-        if verb:
+        if self.veryverbose:
             print '--------------------------------------------------------------'
             print '                        AGN                                   '
             print '--------------------------------------------------------------'
-            print 'n\tNi\tIi\tHi\tlterm\tcont1\tacc'
+            print 'mu\tn\tNi\tIi\tHi\tlterm\tcont1\tacc'
         ########################################
         #         second sum in (3)            #
         ########################################
         #loop over agn
         for it1,row in enumerate(naij):
 
-            if verb:
+            if self.veryverbose:
                 print '--------------------------------------------------------------'
                 print '                        %s                               '%self.agnlist[it1]
                 print '--------------------------------------------------------------'
@@ -602,17 +609,23 @@ class CombinedLike(object):
             for it2,bin in enumerate(row):
 
                 #make sure log term is proper
-                lterm = Naj[it1]*mi[it2]+Ni[0]*self.iso[it2] + Nh*self.hmd[it2]
+                lterm = Naj[it1]*mi[it2]+Ni[it1]*self.iso[it2] + Nh[it1]*self.hmd[it2]
+                #lterm = 1 if lterm<0 else 
                 if lterm<0.:
-                    return np.Infinity
+                    #    lterm=1
+                    return INFINITY
 
                 cont1 = -bin*np.log(lterm) if bin>0 else 0
-                cont1 = cont1 + Naj[it1]*mi[it2] + Ni[it1]*self.iso[it2] + Nh*self.hmd[it2]
+                cont1 = cont1 + Naj[it1]*mi[it2] + Ni[it1]*self.iso[it2] + Nh[it1]*self.hmd[it2]
                 acc = acc + cont1
 
-                if verb:
-                    print '%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f'%(bin,Naj[it1]*mi[it2],Ni[it1]*self.iso[it2],Nh*self.hmd[it2],lterm,cont1,acc)
+                if self.veryverbose:
+                    print '%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f\t%1.4f'%(mi[it2],bin,Naj[it1]*mi[it2],Ni[it1]*self.iso[it2],Nh*self.hmd[it2],lterm,cont1,acc)
                     t.sleep(0.25)
+        if self.verbose:
+            vals = ''+string.join(['%1.0f\t'%nj for nj in Npj])+string.join(['%1.0f\t'%nj for nj in Naj])+string.join(['%1.0f\t'%nj for nj in Ni])+string.join(['%1.0f\t'%nj for nj in Nh])+'%1.2f'%(acc)
+            print vals
+            t.sleep(0.25)
         return acc
 
     ######################################################################
@@ -623,6 +636,7 @@ class CombinedLike(object):
     def fitpsf(self,double=False):
         psf = CALDBPsf(CALDBManager(irf='P6_v11_diff'))
         de = 0.45
+        stest = psf.inverse_integral(self.ebar,self.ctype,39.)
         if double:
             if psf.newstyle:
                 nc,nt,gc,gt,sc,st,w = psf.get_p(self.ebar,self.ctype)
@@ -635,29 +649,27 @@ class CombinedLike(object):
         else:
             if psf.newstyle:
                 nc,nt,gc,gt,sc,st,w = psf.get_p(self.ebar,self.ctype)
-                pars = [sc[0],gc[0]]
-                lims = [[0,100],[1,100]]
+                pars = [stest,gc[0]]
+                lims = [[0,10],[1,10]]
             else:
                 gc,si,w = psf.get_p(self.ebar,self.ctype)
-                pars = [si[0],gc[0]]
-                lims = [[0,100],[1,100]]
-        tmin = Minuit(lambda x: self.psfchisq(x),pars,limits=lims,printMode=-1,up=1,strategy=1)
-        tmin.minimize()
-        print tmin.params
-        print tmin.fval
+                pars = [stest,gc[0]]
+                lims = [[0,10],[1,10]]
+        tmin = so.fmin_powell(lambda x: self.psflikelihood(x) if x[0]>0 else 1e40,pars,full_output=1)
+        print tmin[0]
+
         if not double:
-            psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin.params)
+            psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin[0])
             print psf1.rcl(0.68),psf1.rcl(0.95)
             print psf.inverse_integral(self.ebar,self.ctype,68.),psf.inverse_integral(self.ebar,self.ctype,95.)
         else:
-            psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin.params[0:2])
-            psf2 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin.params[2:4])
+            psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin[0][0:2])
+            psf2 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=tmin[0][2:4])
             alph = tmin.params[4]
             #print psf1.rcl(0.68),psf1.rcl(0.95)
             print alph*psf1.rcl(0.68)+(1-alph)*psf2.rcl(0.68),alph*psf1.rcl(0.95)+(1-alph)*psf2.rcl(0.95)
             print psf.inverse_integral(self.ebar,self.ctype,68.),psf.inverse_integral(self.ebar,self.ctype,95.)
-        return np.insert(tmin.params,0,self.ebar)
-
+        return np.insert(tmin[0],0,self.ebar)
 
     ######################################################################
     #      Find single or double PSF fits to fractions                   #
@@ -684,10 +696,39 @@ class CombinedLike(object):
             tints = tints + cint
         chisqa = [((tints[it]-self.psf[it])/self.psfe[it])**2 if self.psfe[it]>0 else 0 for it in range(len(tints))]
         chisq = sum(chisqa)
-        #print pars,chisqa,chisq
+        #print string.join(['%1.6f '%par for par in pars]),chisq
         #t.sleep(0.25)
         return chisq
 
+    ######################################################################
+    #   Calculates the likelihood of a particular single King function   #
+    ######################################################################
+    ## 
+    # @param pars either 2 params [sigma,gamma] for single king, or 6 for double [score,gcore,ncore,stail,gtail,ntail]
+    def psflikelihood(self,pars):
+        if len(pars)==2:
+            psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=[pars[0],pars[1]])
+            fint = np.array([psf1.integral(self.angbins[it],self.angbins[it+1]) for it in range(self.nbins-1)])/psf1.integral(psf1.lims[0],psf1.lims[1])
+        else:
+            psf1 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=[pars[0],pars[1]])
+            psf2 = PSF(lims=[min(self.angbins),max(self.angbins)],model_par=[pars[3],pars[4]])
+            ftot = pars[2]*psf1.integral(psf1.lims[0],psf1.lims[1])+pars[5]*psf2.integral(psf1.lims[0],psf1.lims[1])
+            fint = np.array([pars[2]*psf1.integral(self.angbins[it],self.angbins[it+1])+pars[5]*psf2.integral(self.angbins[it],self.angbins[it+1]) for it in range(self.nbins-1)])/ftot
+        for it,fin in enumerate(fint):
+            self.fixed[it]=True
+            self.params[it]=fin
+            self.limits[it]=[fin,fin]
+
+        minuit = so.fmin_powell(lambda x: self.likelihood(np.hstack((self.params[:self.nbins-1],x))),self.params[self.nbins-1:],full_output=1,disp=0)#)
+        fval = minuit[1]
+
+        #memory issues?
+        del minuit
+        del fint
+        del psf1
+        if len(pars)!=2:
+            del psf2
+        return fval
 
     ######################################################################
     #      Makes plots of PSR, AGN fits, PSF and background residuals    #
@@ -713,7 +754,7 @@ class CombinedLike(object):
         amask = self.areas>0
         for it,hist in enumerate(self.ponhists):
             p1 = py.errorbar(self.midpts,(hist)/self.areas,xerr=self.widths,yerr=np.sqrt(hist)/self.areas,marker='o',ls='None')
-            p3 = py.errorbar(self.midpts,(self.Npj[it]*self.psf+self.pulsars[it][1]*self.vij[it])/self.areas,xerr=self.widths,yerr=np.sqrt((self.Npje[it]*self.psf)**2+(self.Npj[it]*self.psfe)**2)/self.areas,marker='o',ls='None')
+            p3 = py.errorbar(self.midpts,(self.Npj[it]*self.psf+self.pulsars[it][1]*self.vij[it])/self.areas,xerr=self.widths,marker='o',ls='None')
             p2 = py.errorbar(self.midpts,(self.pofhists[it])/self.areas,xerr=self.widths,yerr=np.sqrt(self.pofhists[it])/self.areas,marker='o',ls='None')
             names.append(self.pulsars[it][0]+' ON')
             pts.append(p1[0])
@@ -738,25 +779,30 @@ class CombinedLike(object):
         py.title('AGN')
         names = []
         pts = []
+        mi = 1e40
+        ma = 0
         for it,hist in enumerate(self.agnhists):
-            model = self.Naj[it]*self.psf+self.Ni[it]*self.iso + self.Nh*self.hmd
+            model = self.Naj[it]*self.psf+self.Ni[it]*self.iso + self.Nh[it]*self.hmd
             #print self.Naj[it],self.psf,self.Ni[it],self.iso,self.Nh[0],self.hmd
-            modelerrs = np.sqrt((self.Naj[it]*self.psf/sum(self.psf)*np.sqrt((self.psfe/self.psf)**2+(self.Naje[it]/self.Naj[it])**2))**2+(self.Nie[it]*self.iso)**2+(self.Nhe*self.hmd)**2)
+            modelerrs = np.sqrt((self.Naj[it]*self.psf/sum(self.psf)*np.sqrt((self.psfe/self.psf)**2+(self.Naje[it]/self.Naj[it])**2))**2+(self.Nie[it]*self.iso)**2+(self.Nhe[it]*self.hmd)**2)
             back = self.Ni[it]*self.iso
             backerrs = self.Nie[it]*self.iso
             p1 = py.errorbar(self.midpts,hist/self.areas,xerr=self.widths,yerr=np.sqrt(hist)/self.areas,marker='o',ls='None')
-            p2 = py.errorbar(self.midpts,(model)/self.areas,xerr=self.widths,yerr=np.sqrt(model)/self.areas,marker='o',ls='None')
+            p2 = py.errorbar(self.midpts,(model)/self.areas,xerr=self.widths,marker='o',ls='None')
 
             names.append(self.agnlist[it]+' Data')
             pts.append(p1[0])
             names.append(self.agnlist[it]+' Model')
             pts.append(p2[0])
 
+            mi = min(mi,min((hist[amask])/self.areas[amask])*0.25)
+            ma = max(ma,max((model[amask])/self.areas[amask]))
+
             if self.halomodel!='':
                 #p4 = py.errorbar(self.midpts,self.Nh*self.hmd,xerr=self.widths,yerr=(self.Nhe*self.hmd)/self.areas,marker='o',ls='None')
                 #names.append('Halo')
                 #pts.append(p4[0])
-                p5 = py.errorbar(self.midpts,(self.Nh*self.hmd+self.Ni[it]*self.iso)/self.areas,xerr=self.widths,marker='o',ls='None')
+                p5 = py.errorbar(self.midpts,(self.Nh[it]*self.hmd+self.Ni[it]*self.iso)/self.areas,xerr=self.widths,marker='o',ls='None')
                 names.append('Halo+Iso')
                 pts.append(p5[0])
             else:
@@ -768,7 +814,7 @@ class CombinedLike(object):
         py.xlim(min(self.midpts-self.widths)*(1-scale),max(self.midpts+self.widths)*(1+scale))
         if mi==1e40:
             mi = min(hist[amask]/self.areas[amask])
-        py.ylim(0.25*mi,2*max(hist[amask]/self.areas[amask]))
+        py.ylim(max(0.25/max(self.areas),mi),2*ma)
         py.grid()
         py.legend(pts,names,loc=3)
 
@@ -865,22 +911,22 @@ class CombinedLike(object):
         ma = 0.
         tchisq='Name: Chisq (%d)\n'%self.nbins
         for it,agn in enumerate(self.agnhists):
-            #try:
-            model = self.Naj[it]*self.psf + self.Ni[it]*self.iso + self.Nh*self.hmd
-            modelerr = np.sqrt((self.Naj[it]*self.psfe)**2 + (self.Naje[it]*self.psf)**2 + (self.Nie[it]*self.iso)**2 + (self.Nhe*self.hmd)**2)
-            pt1 = py.errorbar(self.midpts,(agn-model)/model,xerr=self.widths,yerr=modelerr/model,ls='None',marker='o')[0]
-            names.append(self.agnlist[it])
-            pts.append(pt1)
-            mask = agn>0
-            up = max((agn[mask]-model[mask]+modelerr[mask])/model[mask])
-            down = min((agn[mask]-model[mask]-modelerr[mask])/model[mask])
-            ma = max(ma,up)
-            ma = max(ma,abs(down))
-            cmask = modelerr>0
-            chisq = sum(((agn[cmask]-model[cmask])/modelerr[cmask])**2)
-            tchisq = tchisq + '%s: %1.1f (%d)\n'%(self.agnlist[it],chisq,len(agn[cmask]))
-            #except:
-            #print 'Bad plotting' 
+            try:
+                model = self.Naj[it]*self.psf + self.Ni[it]*self.iso + self.Nh[it]*self.hmd
+                modelerr = np.sqrt((self.Naj[it]*self.psfe)**2 + (self.Naje[it]*self.psf)**2 + (self.Nie[it]*self.iso)**2 + (self.Nhe[it]*self.hmd)**2)
+                pt1 = py.errorbar(self.midpts,(agn-model)/model,xerr=self.widths,yerr=modelerr/model,ls='None',marker='o')[0]
+                names.append(self.agnlist[it])
+                pts.append(pt1)
+                mask = agn>0
+                up = max((agn[mask]-model[mask]+modelerr[mask])/model[mask])
+                down = min((agn[mask]-model[mask]-modelerr[mask])/model[mask])
+                ma = max(ma,up)
+                ma = max(ma,abs(down))
+                cmask = modelerr>0
+                chisq = sum(((agn[cmask]-model[cmask])/modelerr[cmask])**2)
+                tchisq = tchisq + '%s: %1.1f (%d)\n'%(self.agnlist[it],chisq,len(agn[cmask]))
+            except:
+                print 'Bad plotting' 
         py.grid()
         py.title('AGN Model Estimator Residuals')
         py.xlabel(r'$\theta\/(\rm{deg})$')
@@ -959,7 +1005,7 @@ class CombinedLike(object):
         Npj = params[nmu:nmu+psrs]
         Naj = params[nmu+psrs:nmu+psrs+agns]
         Ni = params[nmu+psrs+agns:nmu+psrs+agns+agns]
-        Nh = params[nmu+psrs+agns+agns:nmu+psrs+agns+agns+1]
+        Nh = params[nmu+psrs+agns+agns:]
 
         mun = 1-np.sum(mi)
         mi = np.append(mi,[mun])
@@ -996,8 +1042,8 @@ class CombinedLike(object):
 
             #loop over AGN
             for it2 in range(agns):
-                denom = Naj[it2]*mi[it]+Ni[it2]*self.iso[it]+Nh*self.hmd[it]                                             #ith model
-                denomn = Naj[it2]*mi[nmu]+Ni[it2]*self.iso[nmu]+Nh*self.hmd[nmu]                                         #nth model
+                denom = Naj[it2]*mi[it]+Ni[it2]*self.iso[it]+Nh[it2]*self.hmd[it]                                             #ith model
+                denomn = Naj[it2]*mi[nmu]+Ni[it2]*self.iso[nmu]+Nh[it2]*self.hmd[nmu]                                         #nth model
                 fact0 = 0 if naij[it2][it]==0 else Naj[it2]*(naij[it2][it]/(denom) - 1.)                                    #ith contribution
                 fact1 = 0 if naij[it2][nmu]==0 else -Naj[it2]*(naij[it2][nmu]/denomn - 1.)                                  #nth contribution
 
@@ -1010,9 +1056,9 @@ class CombinedLike(object):
                     t.sleep(0.25)
 
             if flag:
-                grad.append(-np.Infinity)
+                grad.append(-Infinity)
             else:
-                grad.append(-acc.item())
+                grad.append(-acc)
             if verb:
                 print '----------------------'
 
@@ -1034,9 +1080,9 @@ class CombinedLike(object):
                     print npij[it2][it],denom,mi[it],alpha*grad1,acc
                     t.sleep(0.25)
             if flag:
-                grad.append(-np.Infinity)
+                grad.append(-INFINITY)
             else:
-                grad.append(-acc.item())
+                grad.append(-acc)
             if verb:
                 print '----------------------'
 
@@ -1054,9 +1100,9 @@ class CombinedLike(object):
                     print naij[it2][it],denom,acc
                     t.sleep(0.25)
             if flag:
-                grad.append(-np.Infinity)
+                grad.append(-INFINITY)
             else:
-                grad.append(-acc.item())
+                grad.append(-acc)
             if verb:
                 print '----------------------'
 
@@ -1074,9 +1120,9 @@ class CombinedLike(object):
                     print naij[it2][it],denom,acc
                     t.sleep(0.25)
             if flag:
-                grad.append(-np.Infinity)
+                grad.append(-INFINITY)
             else:
-                grad.append(-acc.item())
+                grad.append(-acc)
             if verb:
                 print '----------------------'
         
@@ -1095,9 +1141,9 @@ class CombinedLike(object):
                     print naij[it2][it],denom,acc
                     t.sleep(0.25)
         if flag:
-            grad.append(-np.Infinity)
+            grad.append(-INFINITY)
         else:
-            grad.append(-acc.item())
+            grad.append(-acc)
         if verb:
             print '----------------------'
         
@@ -1125,9 +1171,9 @@ class CombinedLike(object):
         err2 = abs(err2[0])
 
         #try to catch badly formed likelihood surfaces
-        if self.likelihood(self.minuit.params-err1*eig)==np.Infinity:
+        if self.likelihood(self.minuit.params-err1*eig)==INFINITY:
             return err2*err2
-        if self.likelihood(self.minuit.params+err2*eig)==np.Infinity:
+        if self.likelihood(self.minuit.params+err2*eig)==INFINITY:
             return err1*err1
         return err1*err2
 
@@ -1204,7 +1250,6 @@ class CombinedLike(object):
                     pass
                     #print 'Caught poorly formed quad surface'
         #py.savefig('likes%d.png'%num)
-
         return (ma*err)**2
 
     def tspval(self):
@@ -1224,40 +1269,63 @@ class CombinedLike(object):
 # @param emin minimum energy
 # @param emax maximum energy
 # @param days number of days of data to examine from start of P6 data
-def test(bins=8,ctype=0,emin=1000,emax=1778,days=30,irf='P6_v3_diff',maxr=-1,sel='[0]',agnlis=['agn-psf-study-bright'],double=False,ctlim=[0.4,1.0]):
+def test(bins=12,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,sel='[0:2]',agnlis=['agn-psf-study-bright'],double=False,ctlim=[0.4,1.0],tol=1e-1,verbose=False):
     psf = CALDBPsf(CALDBManager(irf=irf))
     ebar = np.sqrt(emin*emax)
     psrs = ''
-
     if maxr<0:
         maxr = psf.inverse_integral(ebar,ctype,99.5)*1.5             #use 1.5 times the 99.5% containment as the maximum distance
-    cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''),agnlist=agnlis,verbose=True,ctmin=ctlim[0],ctmax=ctlim[1])
+    cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''),agnlist=agnlis,verbose=verbose,ctmin=ctlim[0],ctmax=ctlim[1])
     cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype)
     cl.bindata(bins)
+    cl.tol=tol
     f0 = cl.fit()
     params = cp.copy(cl.fitpsf(double))
     print str(cl)
     for psr in cl.pulsars:
         psrs = psrs + '%s_'%psr[0]
-    cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s'%(emin,emax,ctype,maxr,bins,psrs,('').join(cl.agnlist)))
-    # cl
-    return params,cl
+    #cl.makeplot('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s'%(emin,emax,ctype,maxr,bins,psrs,('').join(cl.agnlist)))
+    return params,cl,f0
 
-def test2(bins=8,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,sel='[0]',agnlis='agn-psf-study-bright',model='Gaussian'):
+################# halo analysis ###################
+## halo runs the comparison between pulsars and AGN
+#  @param bins number of angular bins
+#  @param ctype conversion type 0-front,1-back
+#  @param emin minimum energy
+#  @param emax maximum energy
+#  @param days number of days since MET start to examine
+#  @param irf reference response function to start with
+#  @param maxr maxROI in degrees, -1 will choose based on IRF
+#  @param sel string to select subset of pulsars, default is all [vela,geminga]
+#  @param agnlis list of AGN to compare, if more than one specified, the last one will be examined for halos and the others will be calibration sources
+#  @param model angular model for halo to check ['CDisk','CHalo'], see uw.stacklike.angularmodels for more information
+def halo(bins=12,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,sel='[0:2]',agnlis=['agn-psf-study-bright'],model='CDisk'):
+
+    #setup the binned likelihood object
     psf = CALDBPsf(CALDBManager(irf=irf))
     ebar = np.sqrt(emin*emax)
     if maxr<0:
-        maxr = psf.inverse_integral(ebar,ctype,99.5)*1.5             #use 1.5 times the 99.5% containment as the maximum distance
-    cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''),agnlist=[agnlis],verbose=False)
+        maxr = psf.inverse_integral(ebar,ctype,99.5)*1.5                       #use 1.5 times the 99.5% containment as the maximum distance
+    cl = CombinedLike(irf=irf,mode=-1,pulsars = eval('pulsars'+sel+''),agnlist=agnlis,verbose=False)
     cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype)
     cl.bindata(bins)
+
+    #null likelihood - no halos!
     f0 = cl.fit()
     print cl
+
+    #find best single king fit parameters
     fitpars = cl.fitpsf()
     psrs = ''
-    psfphotons = cl.Naj[0]
+
+    #find the reference number of AGN photons for no halo
+    psfphotons = cl.Naj[-1]
     for psr in cl.pulsars:
         psrs = psrs + '%s_'%psr[0]
+    agns  = ''
+    for agn in cl.agnlist:
+        agns = agns + '%s_'%agn
+
     r05 = psf.inverse_integral(ebar,ctype,5.)
     r34 = psf.inverse_integral(ebar,ctype,34.)
     r68 = psf.inverse_integral(ebar,ctype,68.)
@@ -1266,113 +1334,131 @@ def test2(bins=8,ctype=0,emin=1000,emax=1778,days=730,irf='P6_v3_diff',maxr=-1,s
     #testr = (r68+r99)/2.
     nps = 10
     pts = np.arange(0,nps+1,1)
-    pts = (pts*(r99-r05)/nps+r05)
+    pts = [0.1,0.5,1.0]
     npars = len(cl.params)
-
+    agnback = cp.copy(cl.agnhists[-1])
     uplims2 = []
     uplims1 = []
     detect = []
-    TSs = []
-    of = open('figures/uplimemi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s_%s.txt'%(emin,emax,ctype,maxr,bins,psrs,cl.agnlist[0],model),'w')
+
+    of = open('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/uplimemi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s_%s.txt'%(emin,emax,ctype,maxr,bins,psrs,agns,model),'w')
     print >>of,'%1.3f'%f0
-    print >>of,'size(rad)\tmaxL\tNha \tcl68\tcl95\tTS'
+    print >>of,'%1.1f'%psfphotons
+    fracs = np.linspace(0.05,0.95,19)
+    #print >>of,string.join(['%1.2f'%(frac) for frac in fracs],'\t')
+    print >>of,'size(rad)\tmaxL\tNha \tcl68\tcl95\tTS\tNpsf'
+
+    #test different sizes of halos for the current likelihood
     for pt in pts:
+        
+        #find best parameters for the fit to the halo model 
         cl.fit(halomodel=model,haloparams=[pt/rd,ebar,ctype,fitpars[1]/rd,fitpars[2]])
         print cl
-        lmax = cl.minuit.fval
+        lmax = cl.profile(npars-1,cl.Nh[-1])
+
+        #get the TS of the halo 
         cl.TS = 2*(f0-lmax)
+        TSs = []
         TSs.append(cl.TS)
+
+        ################################## CHECK ON THE HALO SENSITIVITY ###############################
+        """
+        ########################### WARNING, YOU ARE MODIFYING THE DATA! ###############################
+
+        #                            Find the value for Nhalo which would be 3 sigma
+
+        ################################################################################################
+
+        for frac in fracs:
+            cl.addhalo(model,[pt/rd,ebar,ctype,fitpars[1]/rd,fitpars[2]],psfphotons/(1.-frac)*frac)
+            f0 = cl.fit(halomodel='')
+            f1 = cl.fit(halomodel=model,haloparams=[pt/rd,ebar,ctype,fitpars[1]/rd,fitpars[2]])
+            cl.agnhists[-1]=agnback
+            TSs.append(2*(f0-f1))
+        
+        print >>of,string.join(['%1.2f'%(frac) for frac in TSs],'\t')
+
+        ########################### WARNING, YOU ARE MODIFYING THE DATA! ###############################
+
+        #                            Find the value for Nhalo which would be 3 sigma
+
+        ################################################################################################
+
         #norm = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x)),0,cl.Naj[0])[0]
         #print norm
+        """
 
-        total = cl.Naj[0]+cl.Nh
-        bestp = so.fmin_powell(lambda x: abs(cl.profile(npars-1,x[0])-lmax-0.5) if x[0]>cl.Nh else 1e40,[cl.Nh+total/10.],disp=0,full_output=1)
+        #make sure that we're really at the max
+        total = cl.Naj[-1]+cl.Nh[-1]
+        newbest = so.fmin_powell(lambda x: cl.profile(npars-1,x[0]),[cl.Nh[-1]],disp=0,full_output=1)
+        cl.Nh[-1] = newbest[0]
+        lmax = newbest[1]
 
-        fac = bestp[0]#cl.Nh/30. if cl.Nhe>cl.Nh else cl.Nhe
-        #xr = np.array([x for x in (cl.Nh+cl.Naj[0]+np.arange(-10,11,1)*fac) if (x>0) ])
-        #if len(xr)<10:
-        xr = np.arange(0,11,1)
-        if (cl.Nh+(-5)*(fac-cl.Nh)/2.)<0:
-            xr = fac*xr
-        else:
-            xr = cl.Nh+(xr-5)*(fac-cl.Nh)/2.
+        #find the value of Nhalo which is at 5 sigma on the left of the maximum
+        def minup(x,cl,lmax,npars):
+            prf = cl.profile(npars-1,x)
+            val1 = abs(prf-lmax-12.5) if x>cl.Nh[-1] else 1e40
+            return val1
+
+        #find the value of Nhalo which is at 5 sigma on the right of the maximum
+        def minlow(x,cl,lmax,npars):
+            prf = cl.profile(npars-1,x)
+            val1 = abs(prf-lmax-12.5) if x<cl.Nh[-1] else 1e40
+            return val1
+        
+        #find the 5 sigma upper limit
+        bestup = so.fmin_powell(lambda x: minup(x[0],cl,lmax,npars),[newbest[0]+1],disp=1,full_output=1)
+        bestlow = [0]
+        fac = bestup[0]
+        dtheta = abs(fac-cl.Nh[-1])/2
+
+        #profile the likelihood near the maximum between +/- 5 sigma, if Nhalo is negative, stop at 0
+        xr = np.linspace(max(bestlow[0],0),abs(bestup[0]),20)
         fx = np.array([lmax-cl.profile(npars-1,x) for x in xr])
+
+        #max bad fits
+        mask = fx>-INFINITY
+        xr,fx=xr[mask],fx[mask]
+
         print xr
         print fx
+
+        #calculate the 68 and 95% upperlimits
         cl1 = BayesianLimit(xr,fx).getLimit(0.32)
         cl2 = BayesianLimit(xr,fx).getLimit(0.05)
-        detect.append(cl.Nh/(psfphotons))
+
+        #output Nhalo, and the two upper limits
+        detect.append(cl.Nh[-1]/(psfphotons))
         uplims2.append(cl2[0]/(psfphotons))
         uplims1.append(cl1[0]/(psfphotons))
         print cl2[0],psfphotons,cl2[0]/(psfphotons)
-        #py.clf()
-        #py.plot(xr,np.exp(fx),'ro')
-        #py.savefig('figures/proftest%1.4f.png'%pt)
-        cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s'%(emin,emax,ctype,maxr,bins,pt,psrs,cl.agnlist[0],model))
-        print >>of,'%1.5f\t%1.3f\t%1.1f\t%1.1f\t%1.1f\t%1.3f'%(pt/rd,lmax,cl.Nh,cl1,cl2,cl.TS)
-        #sig1 = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x))/norm,0,cl.Nh+cl.Nhe)[0]
-        #print sig1
-        #sig2 = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x))/norm,0,cl.Nh+2*cl.Nhe)[0]
-        #print sig2
-        #sig3 = si.quad(lambda x: np.exp(lmax-cl.profile(npars-1,x))/norm,0,cl.Nh+3*cl.Nhe)[0]
-        #print sig3
-        #print norm,sig1,sig2,sig3,cl.Nh,cl.Nhe
+        cl.makeplot('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s'%(emin,emax,ctype,maxr,bins,pt,psrs,agns,model))
+        print >>of,'%1.5f\t%1.3f\t%1.4f\t%1.4f\t%1.4f\t%1.3f'%(pt/rd,lmax,cl.Nh[-1],cl1,cl2,cl.TS)
 
+    #make some summary plots
     py.figure(10,figsize=(8,8))
     py.clf()
     maxts = max(TSs)*1.1
-    p2=py.plot(pts,np.array(uplims2)*maxts/1.1,'v')
-    p1=py.plot(pts,np.array(uplims1)*maxts/1.1,'v')
-    p5=py.plot(pts,np.array(detect)*maxts/1.1,'o')
-    p6=py.plot(pts,TSs,'d')
-    p3=py.plot([r68,r68],[0,maxts],'r--')
-    p4=py.plot([r95,r95],[0,maxts],'r-.')
-    p7=py.plot([0,max(pts)*1.1],[1,1],'b--')
-    p8=py.plot([0,max(pts)*1.1],[4,4],'b-.')
+    maxfrac = max(uplims2)
+    p2=py.plot(pts,np.array(uplims2),'v')
+    p1=py.plot(pts,np.array(uplims1),'v')
+    p5=py.plot(pts,np.array(detect),'o')
+    #p6=py.plot(pts,TSs,'d')
+    p3=py.plot([r68,r68],[0,maxfrac],'r--')
+    p4=py.plot([r95,r95],[0,maxfrac],'r-.')
+    #p7=py.plot([0,max(pts)*1.1],[1,1],'b--')
+    #p8=py.plot([0,max(pts)*1.1],[4,4],'b-.')
     py.grid()
     py.xlabel('%s halo size (deg)'%model)
     py.ylabel('%s halo fraction'%model)
-    py.ylim(0,maxts)
+    py.ylim(0,maxfrac)
     py.xlim(0,max(pts)*1.1)
     prop = mpl.font_manager.FontProperties(size=9) 
-    py.legend((p5,p1,p2,p3,p4,p6,p7,p8),(r'hfract',r'68% CL',r'95% CL','%s R68'%irf,'%s R95'%irf,'TS',r'$1 \sigma$',r'$2 \sigma$'),bbox_to_anchor=(1.1, 1.0),prop=prop)
-    py.savefig('figures/uplimemi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s_%s.png'%(emin,emax,ctype,maxr,bins,psrs,cl.agnlist[0],model))
+    py.legend((p5,p1,p2,p3,p4),(r'hfract',r'68% CL',r'95% CL','%s R68'%irf,'%s R95'%irf),bbox_to_anchor=(1.1, 1.0),prop=prop)
+    py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/uplimemi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s_%s.png'%(emin,emax,ctype,maxr,bins,psrs,agns,model))
     of.close()
-    #for pt in pts:
-    #    tval = cl.profile(npars-1,pt)
-    #    print pt,(lmax-tval)
-    """cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%s%s'%(emin,emax,ctype,maxr,bins,psrs,cl.agnlist[0]))
-    f1=[]
-    cl.printResults()
-    halorange = np.arange(0.05,maxr,maxr/10.)
-    likes = []
-    nest = []
-    mi = 1e40
-    midx = 0
-    model = 'Gaussian'
-    for num,it in enumerate(halorange):
-        likes.append(cl.fit(halomodel=model,haloparams=[it/rd,ebar,ctype]))
-        nest.append(cl.Nh)
-        print it,nest[num],likes[num]
-        if likes[num]<mi:
-            mi = likes[num]
-            midx = num
 
-    #minu = Minuit(lambda x:cl.fit(halomodel=model,haloparams=[x[0]/rd,ebar,ctype]),[halorange[midx]],limits=[[0,maxr]],steps=[0.0001],printMode=0,strategy=0)
-    #minu.minimize()
-    #minu.errors()
-    bestp = so.fmin_powell(lambda x:cl.fit(halomodel=model,haloparams=[x[0]/rd,ebar,ctype]),(halorange[midx]),full_output=1)
-    cl.printResults()
-    print 'Halo size was: %1.3f'%bestp[0]
-    print 'TS was: %1.2f'%(2*(f0-bestp[1]))
-    cl.TS = 2*(f0-bestp[1])
-    #for it in (np.arange(1.,10.,1.)/10.):
-    #it=bestp[0]
-    #f1.append(cl.fit(halomodel='Halo',haloparams=[it/rd]))
-    cl.likelihood(cl.minuit.params,True)
-    cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s'%(emin,emax,ctype,maxr,bins,bestp[0],psrs,cl.agnlist[0],model))"""
-
-def runall(ctype,bins=12):
+"""def runall(ctype,bins=12):
     emins = [100,178,316,562,1000,1778,3162,5623,10000,17783,31623]
     emaxs = [178,316,562,1000,1778,3162,5623,10000,17783,31623,100000]
     ctypes = [0,1]
@@ -1382,7 +1468,7 @@ def runall(ctype,bins=12):
     #lists = ['agn_redshift2_lo_bzb','agn_redshift2_hi_bzb']#'tevbzb','1es0229p200','1es0347-121','1es1101-232']
     lists = ['agn-psf-study-bright']
     #for model in models:
-    ff = open('figures7c/output%d.txt'%ctype,'w')
+    ff = open('/phys/groups/tev/scratch1/users/Fermi/mar0/figures7c/output%d.txt'%ctype,'w')
     for it,emin in enumerate(emins):
         #for ctype in ctypes:
         for sel in sels:
@@ -1400,24 +1486,27 @@ def runall(ctype,bins=12):
                     sl.solvepsf()
                     pars = [sl.ebar,sl.sigma*rd,sl.gamma]#,sl.sigma2*rd,sl.gamma2,sl.Npsf/(sl.Npsf+sl.Npsf2)]
                 print >>ff,'%1.6f\t%1.6f\t%1.6f'%(pars[0],pars[1],pars[2])
-    ff.close()
+    ff.close()"""
     
-def runconvolution(model=['CDisk','CHalo']):
+
+## runallhalos - runs the halo analysis on multiple engines
+#  @param model array of models to test
+def runallhalos(model=['CDisk','CHalo']):
     machines = 'tev01 tev02 tev03 tev04 tev05 tev06 tev07 tev08 tev09 tev10 tev11'.split()
-    engines = 2
     setup_string = 'import uw.stacklike.binned as ub;reload(ub);from uw.stacklike.binned import *'
     emins = [1000,1778,3162,5623,10000,17783,31623]#[100,178,316,562,
     emaxs = [1778,3162,5623,10000,17783,31623,100000]#178,316,562,1000,
-    tasks = ['ub.test2(bins=12,ctype=%d,emin=%d,emax=%d,days=730,irf=\'P6_v3_diff\',maxr=-1,sel=\'[0:2]\',agnlis=\'%s\',model=\'%s\')'%(y,emins[x],emaxs[x],lis,mod) for x in range(len(emins)) for y in range(2) for lis in ['agn_redshift2_lo_bzb','agn_redshift2_hi_bzb'] for mod in model]
+    tasks = ['ub.halo(bins=12,ctype=%d,emin=%d,emax=%d,days=730,irf=\'P6_v3_diff\',maxr=4,sel=\'[0:1]\',agnlis=[\'%s\'],model=\'%s\')'%(0,emins[x],emaxs[x],lis,mod) for x in range(len(emins)) for lis in ['crab'] for mod in model]
     print tasks
-    ua.setup_mec(engines=engines,machines=machines)
-    t.sleep(15)
+    engines = len(tasks)/len(machines)
+    ua.setup_mec(engines=engines,machines=machines,clobber=True)
+    t.sleep(30)
     logfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/python/mec.log','w')
     at = ua.AssignTasks(setup_string,tasks,log=logfile,timelimit=10000,progress_bar=True,ignore_exception=True)
     at(30)
     ua.kill_mec()
 
-def MCrun():
+"""def MCrun():
     for i in range(100):
         cl.ponhists = sst.poisson.rvs(t1,1)
         cl.pofhists = sst.poisson.rvs(t2,1)
@@ -1428,5 +1517,193 @@ def MCrun():
         TS = 2*(f0-f1)
         cl.TS=TS
         TSs.append(TS)
-        cl.makeplot('figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s%s'%(emin,emax,ctype,maxr,bins,pt,psrs,cl.agnlist[0],model,i))
-        print TS
+        cl.makeplot('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/emi%1.0f_ema%1.0f_ec%1.0f_roi%1.2f_bins%1.0f_%1.1f%s%s_%s%s'%(emin,emax,ctype,maxr,bins,pt,psrs,cl.agnlist[0],model,i))
+        print TS"""
+
+## makeplots - take output information from the halo() analysis and makes the upper limit plots
+#  @param iname name of sourcelist where halos were examined, ie 'agn-psf-study-bright'
+#  @param exp calculate halo components with respect to exposure, else fraction of PSF photons
+#  @param ext if there was an agnlist used as an additional calibration, needs to be added here
+def makeplots(iname,exp=False,ext=''):
+    psf = CALDBPsf(CALDBManager(irf='P6_v11_diff'))
+
+    #get list of sources and setup exposure calculation if desired
+    if exp:
+        s.EffectiveArea.set_CALDB(os.environ['CALDB']+'/data/glast/lat')
+        ea = s.EffectiveArea('P6_v11_diff_front')
+        ltc = s.LivetimeCube('/phys/groups/tev/scratch1/users/Fermi/mar0/data/pulsar/psr-livetime.fits')
+        exp = s.Exposure(ltc,ea)
+        slist = file('/phys/users/mar0/sourcelists/%s.txt'%iname)
+        header = slist.readline()
+        sdlist = [s.SkyDir(float(line.split()[1]),float(line.split()[2])) for line in slist]
+
+    #set up figures and energy binning for plots
+    energy = [1000,1778,3162,5623,10000,17783,31623,1e5]
+    energy2 = [1000,3162,10000,31623,1e5]
+    np.sort(files)
+    py.figure(9,figsize=(8,8))
+    ctype=0
+    name = ext+'_'+iname+'_' if ext!='' else iname+'_'
+    texfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/'+name+'.txt','w')
+    ebars = []
+    cl95lo = []
+    cl95up =[]
+    cldet = []
+    clpsf = []
+    TSs = []
+
+    #iterate through the energy bins of the analysis
+    for emi,ema in zip(energy[:-1],energy[1:]):
+        try:
+            ebar = np.sqrt(emi*ema)
+            r05 = psf.inverse_integral(ebar,ctype,5.)
+            r34 = psf.inverse_integral(ebar,ctype,34.)
+            r68 = psf.inverse_integral(ebar,ctype,68.)
+            r95 = psf.inverse_integral(ebar,ctype,95.)
+            r99 = psf.inverse_integral(ebar,ctype,99.)
+            sizes = []
+            det = []
+            cl68 = []
+            cl95 = []
+            tss = []
+            fild = glob.glob('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/uplimemi%d_ema%d_ec0_roi4.00_bins12_vela_gem_%s_CDisk.txt'%(emi,ema,name))[0]
+            filh = glob.glob('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/uplimemi%d_ema%d_ec0_roi4.00_bins12_vela_gem_%s_CHalo.txt'%(emi,ema,name))[0]
+            fld = file(fild)
+            h1 = fld.readline()
+            agnd = float(fld.readline())
+            Nagn = agnd
+
+            h1 = fld.readline()
+            for lines in fld:
+                line = lines.split()
+                #print line
+                sizes.append(float(line[0])*rd)
+                det.append(float(line[2]))
+                cl68.append(float(line[3]))
+                cl95.append(float(line[4]))
+                tss.append(float(line[5]))
+            flh = file(filh)
+            h1 = flh.readline()
+            agnh = float(flh.readline())
+            h1 = flh.readline()
+
+            for lines in flh:
+                line = lines.split()
+                sizes.append(float(line[0])*rd)
+                det.append(float(line[2]))
+                cl68.append(float(line[3]))
+                cl95.append(float(line[4]))
+                tss.append(float(line[5]))
+            
+            #calculate the total exposure of the list
+            #make it the denominator
+            if exp:
+                texp = sum([exp.value(sds,ebar) for sds in sdlist])
+                agnh = texp/(ebar*ergs)
+                agnd = texp/(ebar*ergs)
+            
+            #find the largest and smallest upper limits
+            clpsf.append(Nagn/min(agnd,agnh))
+            maxfrac = max(max(det),max(max(cl68),max(cl95)))/min(agnd,agnh)
+            minfrac = min(cl95)/max(agnd,agnh)
+            maxdet = max(det)/min(agnd,agnh)
+            cl95up.append(maxfrac)
+            cl95lo.append(minfrac)
+            cldet.append(maxdet)
+            TSs.append(max(tss))
+
+            sizes = np.array(sizes).reshape(2,-1)
+            det = np.array(det).reshape(2,-1)
+            cl68 = np.array(cl68).reshape(2,-1)
+            cl95 = np.array(cl95).reshape(2,-1)
+
+            #summary plot of single energy bin
+            py.clf()
+            p2=py.plot(sizes[0],cl95[0]/agnd,'v')
+            p1=py.plot(sizes[0],cl68[0]/agnd,'v')
+            p5=py.plot(sizes[0],det[0]/agnd,'o')
+            p6=py.plot(sizes[1],cl95[1]/agnh,'v')
+            p7=py.plot(sizes[1],cl68[1]/agnh,'v')
+            p8=py.plot(sizes[1],det[1]/agnh,'o')
+            p3=py.plot([r68,r68],[0,maxfrac],'r--')
+            p4=py.plot([r95,r95],[0,maxfrac],'r-.')
+            py.grid()
+            py.xlabel('Extension size (deg)')
+            if exp:
+                py.ylabel(r'$\rm{Flux\/(ergs\/s^{-1}cm^{-2})}\/$')
+            else:
+                py.ylabel('Fraction')
+            py.ylim(0,maxfrac)
+            py.xlim(0,max(max(sizes[0]),max(sizes[1]))*1.1)
+            prop = mpl.font_manager.FontProperties(size=9) 
+            py.legend((p5,p1,p2,p8,p7,p6,p3,p4),(r'Disk',r'68% CL D',r'95% CL D',r'Halo',r'68% CL H',r'95% CL H','P6_v11 R68','P6_v11 R95'),bbox_to_anchor=(1.1, 1.0),prop=prop)
+            py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/%s_upperlimits_%d_%d.eps'%(name,emi,ema))
+
+            #output the tex for this
+            for it,size in enumerate(sizes[0]):
+                tag = '%d-%d'%(emi,ema) if it==0 else ''
+                print >>texfile,'%s & %1.1f & Disk & %1.2e \\\\'%(tag,size,cl95[0][it]/agnh)
+                print >>texfile,' & %1.1f & Gaussian & %1.2e \\\\'%(size,cl95[1][it]/agnh)
+            ebars.append(ebar)
+        except:
+            print 'Failed: %s'%(str(sys.exc_info()[0])+' - '+str(sys.exc_info()[1]))
+    py.clf()
+
+    #setup summary plot
+    if exp:
+        py.loglog()
+        xstep = 2
+    else:
+        py.semilogx()
+        xstep = 2
+    py.grid()
+    print ebars,cl95up,cl95lo,cldet
+    clup = [sum(cl95up[i*xstep:(i+1)*xstep])/len(cl95up[i*xstep:(i+1)*xstep]) for i in range(len(cl95up)/xstep+1)]#sum(cl95up[:4])/len(cl95up[:4]),sum(cl95up[4:])/len(cl95up[4:])]
+    cllo = [sum(cl95lo[i*xstep:(i+1)*xstep])/len(cl95lo[i*xstep:(i+1)*xstep]) for i in range(len(cl95lo)/xstep+1)]#sum(cl95lo[:4])/len(cl95lo[:4]),sum(cl95lo[4:])/len(cl95lo[4:])]
+    dett = [sum(cldet[i*xstep:(i+1)*xstep])/len(cldet[i*xstep:(i+1)*xstep]) for i in range(len(cl95lo)/xstep+1)]
+    clag = [sum(clpsf[i*xstep:(i+1)*xstep])/len(clpsf[i*xstep:(i+1)*xstep]) for i in range(len(cl95lo)/xstep+1)]
+    print cllo
+    print clup
+    print dett
+    print clpsf
+    print TSs
+    if exp:
+        py.ylabel(r'$\rm{Flux\/(erg\/s^{-1}cm^{-2})}\/$')
+    else:
+        py.ylabel(r'$\rm{Fraction}$')
+    py.xlabel(r'$\rm{Energy\/(MeV)}$')
+    etemp2 = []
+
+    #make blocks for the upper limits
+    for i in range(len(cl95up)/xstep+1):
+        etemp2.append(np.sqrt(energy2[i]*energy2[min(i+1,len(energy2)-1)]))
+        etemp = np.hstack([energy2[i:(i+2)],energy2[i:i+2][::-1]])
+        p1 = py.fill(etemp,[clup[i],clup[i],cllo[i],cllo[i]],color=(1.,0.75,0.75))#np.hstack([ebars,ebars[::-1]]),np.hstack([cl95up,cl95lo[::-1]]),color='r')
+        #p2 = py.fill(np.hstack([energy2[1:],energy2[1:][::-1]]),[clup[1],clup[1],cllo[1],cllo[1]],color=(1.,0.75,0.75))
+        p3 = py.fill(etemp,[clup[i],clup[i],1,1],color=(1.,0.,0.))#np.hstack([ebars,ebars[::-1]]),np.hstack([cl95up,cl95lo[::-1]]),color='r')
+        #p4 = py.fill(np.hstack([energy2[1:],energy2[1:][::-1]]),[clup[1],clup[1],1,1],color=(1.,0.,0.))
+    if exp:
+        p4 = py.plot(etemp2,dett,'ko',linewidth=2,mfc='w')
+        p7 = py.plot(etemp2,clag,'kd',linewidth=2,mfc='w')
+
+    #plots specific to the HESS sources, with observations and models
+    if iname=='1es0229p200' or iname=='1es0347-121':
+        data = np.loadtxt('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/%s_spectrum.txt'%iname)
+        data = 10**data.transpose()
+        p5 = py.plot(data[0]*1000,data[1],'k',linewidth=2)
+        data = np.loadtxt('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/%s_tev.txt'%iname)
+        data = 10**data.transpose()
+        p6 = py.plot(data[0]*1000,data[1],'kd',linewidth=2,mfc='w')
+        py.legend((p1[0],p3[0],p5,p6),(r'$\theta_0=0.1^{o}$',r'$\theta_0=1.0^{o}$','SED model','HESS'))
+    else:
+        if exp:
+            py.legend((p1[0],p3[0],p7,p4),(r'$\theta_0=0.1^{o}$',r'$\theta_0=1.0^{o}$','PSF','Extension'))
+        else:
+            py.legend((p1[0],p3[0]),(r'$\theta_0=0.1^{o}$',r'$\theta_0=1.0^{o}$'))
+    if exp:
+        py.ylim(1e-14,1e-10)
+        py.xlim(1000,1e7)
+    else:
+        py.ylim(0,1)
+        py.xlim(1000,1e5)
+    py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/%s_upperlimits_summary.eps'%(name))

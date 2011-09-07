@@ -82,17 +82,19 @@ class Hep3Vector(object):
         if x>0 and y>0:
             return np.arctan(y/x)
         if x<0 and y>0:
-            return np.pi-np.arctan(y/x)
+            return np.pi+np.arctan(y/x)
         if x<0 and y<0:
             return np.pi+np.arctan(y/x)
         if x>0 and y<0:
-            return 2*np.pi-np.arctan(y/x)
+            return 2*np.pi+np.arctan(y/x)
         if x==0 and y>0:
             return np.pi/2
         if x==0 and y<0:
             return 3.*np.pi/2
-        if y==0:
+        if y==0 and x>0:
             return 0
+        if y==0:
+            return np.pi
 
     def dir(self):
         return s.SkyDir(self.ra(),self.dec())
