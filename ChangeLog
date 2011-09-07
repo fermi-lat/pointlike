@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Sep  7 14:58:14 PDT 2011
+pointlike/python/uw/stacklike
+
+Modified Files:
+	CLHEP.py angularmodels.py binned.py fitsmooth.py stacklike.py 
+Log Message:
+implemented theta dependent PSF analysis
+    *
+------------------------------------------------------------
 User: burnett  Mon Sep  5 13:28:05 PDT 2011
 pointlike/python/uw/like2
 
