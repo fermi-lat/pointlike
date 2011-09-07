@@ -50,7 +50,7 @@ class PSF(Model):
     #  @param free [sig,gam], frees parameters to be fit
 
     def __init__(self,lims,model_par,free=[True,True]):
-        super(PSF,self).__init__(model_par,free)
+        #super(PSF,self).__init__(model_par,free)
         self.mark='-'
         self.lims=lims
         self.model_par=model_par
@@ -631,10 +631,10 @@ class CDisk(Model):
         self.ac = AnalyticConvolution(ExtendedSource(spatial_model=self.sp),self.psf)
         if len(model_par)==3:
             pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1])
-            self.ac.do_convolution(pb,False,True)
+            self.ac.do_convolution(pb)#,False,True)
         else:
             pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1],fit_sigma=self.model_par[3],fit_gamma=self.model_par[4])
-            self.ac.do_convolution(pb,True,False)
+            self.ac.do_convolution(pb)#,True,False)
         #delt = (lims[1]-lims[0])/100.
         #xr = np.arange(lims[0],lims[1],delt)
         #yr = np.array([self.ac(s.SkyDir((x*1.+0.5)*rd*delt,0)) for x in range(len(xr)-1)])
@@ -709,10 +709,10 @@ class CHalo(Model):
         self.ac = AnalyticConvolution(ExtendedSource(spatial_model=self.sp),self.psf)
         if len(model_par)==3:
             pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1])
-            self.ac.do_convolution(pb,False,True)
+            self.ac.do_convolution(pb)#,False,True)
         else:
             pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1],fit_sigma=self.model_par[3],fit_gamma=self.model_par[4])
-            self.ac.do_convolution(pb,True,False)
+            self.ac.do_convolution(pb)#,True,False)
         #delt = (lims[1]-lims[0])/100.
         #xr = np.arange(lims[0],lims[1],delt)
         #yr = np.array([self.ac(s.SkyDir((x*1.+0.5)*rd*delt,0)) for x in range(len(xr)-1)])
@@ -742,6 +742,106 @@ class CHalo(Model):
     #  @param delmax maximum angle in radians
     def integral(self,delmin,delmax):
         return self.norm*self.ac.integral(delmax,delmin)
+
+    """def value(self,photon,pars):
+        return self.custom.value(photon,pars)
+    
+    def pdf(self,diff):
+        return self.custom.pdf(diff)
+
+    def integrate(self,photon,pars):
+        return self.custom.integrate(photon,pars)
+
+    def integral(self,delmin,delmax):
+        return self.custom.integral(delmin,delmax)"""
+
+    ## updates model parameters (none) 
+    def update(self,pars):
+        self.model_par=pars
+
+################################################### END CHALO CLASS         ###########################################
+
+################################################### PLCUTOFF CLASS    ###########################################
+
+## PLCutoff class
+#
+# Manages power law and exponential cutoff
+class PLCutoff(Model):
+
+    ## Constructor
+    #
+    #  @param lims [min,max], minimum and maximum angular deviations in radians
+    def __init__(self,lims,model_par,free=[True,True],irf='P6_v11_diff'):
+        #super(Model,self).__init__([],[])
+        psf = pypsf.CALDBPsf(CALDBManager(irf='P6_v11_diff'))
+        self.r68 = psf.inverse_integral(model_par[2],model_par[3],68.)/rd
+        self.mark=':'
+        self.model_par=model_par[:2]
+        self.free=free
+        self.lims=lims
+        self.steps=[0.01/rd,0.01]
+        self.limits=[[0.001/rd,10./rd],[-100,-1]]
+        self.name='plcut'
+        self.header='tcut\talph\t'
+        self.cache_pars = self.model_par
+        self.cache_value = self.integral(self.lims[0],self.lims[1])
+        """self.psf = pypsf.CALDBPsf(CALDBManager(irf='P6_v11_diff'))
+
+        self.sp = SpatialModels.Gaussian(p=np.array([0,0,self.model_par[0]*rd]))
+        self.ac = AnalyticConvolution(ExtendedSource(spatial_model=self.sp),self.psf)
+        if len(model_par)==3:
+            pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1])
+            self.ac.do_convolution(pb)#,False,True)
+        else:
+            pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1],fit_sigma=self.model_par[3],fit_gamma=self.model_par[4])
+            self.ac.do_convolution(pb)#,True,False)
+        #delt = (lims[1]-lims[0])/100.
+        #xr = np.arange(lims[0],lims[1],delt)
+        #yr = np.array([self.ac(s.SkyDir((x*1.+0.5)*rd*delt,0)) for x in range(len(xr)-1)])
+        #self.custom = Custom(lims,[xr,yr])
+        self.norm = si.quad(lambda x: x/rd/rd*self.ac(s.SkyDir(x,0)),lims[0]*rd,lims[1]*rd)[0]"""
+    
+    ## returns 1 since Isotropic is constant in (d)**2
+    def value(self,photon,pars):
+        diff = photon.srcdiff()
+        if diff>self.r68:
+            tcut,alph = pars
+            sc = diff/tcut
+            val = (sc)**(alph-1.)/tcut*np.exp(-sc)
+
+            #print 'f0=%1.8f'%val
+            return val
+        else:
+            return 0.
+
+    def pdf(self,diff,tcut=-1,alph=-1):
+        if diff>self.r68:
+            if tcut==-1 and alph==-1:
+                tcut,alph = self.model_par
+            sc = diff/tcut
+            val = (sc)**(alph-1.)/tcut*np.exp(-sc)
+            #print 'f0=%1.8f'%val
+            return val
+        else:
+            return 0.
+
+    ## returns integral of Isotropic for a photon between self.lims
+    def integrate(self,photon,pars):
+        if pars[0]!=self.cache_pars[0] and pars[1]!=self.cache_pars[1]:
+            tcut,alph = pars
+            val = si.quad(lambda x: x*self.pdf(x,tcut,alph),self.lims[0],self.lims[1])[0]
+            self.cache_pars=pars
+            self.cache_value = val
+            #print 'integral=%1.8f'%val
+        return self.cache_value
+
+    ## returns integral of Isotropic between delmin and delmax
+    #  @param delmin minimum angle in radians
+    #  @param delmax maximum angle in radians
+    def integral(self,delmin,delmax):
+        tcut,alph = self.model_par
+        val = si.quad(lambda x: x*self.pdf(x,tcut,alph),delmin,delmax)[0]
+        return val
 
     """def value(self,photon,pars):
         return self.custom.value(photon,pars)
