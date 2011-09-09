@@ -535,6 +535,19 @@ class PulsarLightCurve:
 
         return template, ytitle, comment
 
+    def get_phaseogram(self,emin,emax):
+        """ Returns a list of phase centers and a list of
+            counts for a pulsar in a given energy range. """
+        # This is not robust against floating point errors.
+        i = self.__energy_range.index([emin,emax])
+        p = self.phaseogram[i]
+
+        # The +2 adds one bin at the edge with 0 counts in it, 
+        # nice for plotting in matplotlib.
+        phase=np.asarray([p.GetBinCenter(i) for i in range(p.GetNbinsX()+2)])
+        counts=np.asarray([p.GetBinContent(i) for i in range(p.GetNbinsX()+2)])
+        return phase,counts
+
     def plot_lightcurve( self, nbands=1, xdim=550, ydim=200, background=None, zero_sup=False,
                          inset=False, profile=None, color='black', outfile=None,
                          xtitle='Pulse Phase', ytitle='Counts/bin', substitute=True):
