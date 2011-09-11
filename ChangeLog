@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: parent  Sat Sep 10 17:57:01 PDT 2011
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_plotting_func.py 
+Log Message:
+Added a reg option in plot_lightcurve to hightlight phase region.
+
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-25-01, operation: add
 Package: pointlike
