@@ -1,10 +1,9 @@
 '''
 Python module to plot phaseograms in different energy bands
-
-Author(s): Damien Parent, JCT
+Author(s): Damien Parent <dmnparent@gmail.com>, JCT
 '''
 
-__version__ = 1.8
+__version__ = 1.9
 
 import os, sys
 from os.path import join, isfile
@@ -16,7 +15,8 @@ from ROOT import *
 from uw.utilities.coords import sepangle_deg
 import uw.utilities.fits_utils as utilfits
 import uw.utilities.root_utils as root
-from uw.utilities.phasetools import weighted_h_statistic, h_statistic, z2m, sig2sigma, sigma_trials
+from uw.utilities.phasetools import weighted_h_statistic, h_statistic, z2m
+from uw.pulsar.stats import sf_hm as h_sig, hm, hmw, sigma_trials, sig2sigma
 
 # ===========================
 # print in colors
@@ -37,12 +37,6 @@ def get_theta(par,energy):
     else:
         return np.sqrt(par[0]**2 * np.power(100./energy,par[1]*2.) + par[2]**2)
 
-def h_sig(h):
-       """Convert the H-test statistic to a chance probability."""
-       prob = exp(-0.4*h)
-       if prob < 1e-130: prob = 1e-130 # to avoid saturation
-       return prob
-
 def get_searchpulsation_weights(energy,angsep,theta,logeref,logesig):
     '''Calculate the weight of a given event based on Philippe s tool (i.e. SearchPulsation)'''
     if np.isscalar(energy):
@@ -55,28 +49,32 @@ def met2mjd(met):
     MJDREF = 51910. + 7.428703703703703E-4
     return met/86400. + MJDREF
 
-def progressbar( nentries, jentry ):
-    # step --> 10%
-    step1 = int(0.101 * nentries)
-    step2 = int(0.02 * nentries)
-    progress = int(float(jentry) / float(nentries) * 100.)
+def SetHistoBox(histo,xmin,xmax,color=18):
+    xmin_histo = int(histo.GetXaxis().GetBinLowEdge(1))
+    xmax_histo = int(histo.GetXaxis().GetBinUpEdge(histo.GetNbinsX()))   
+    ymin, ymax = histo.GetMinimum(), histo.GetMaximum()
+    listbox = []
+    for i in range(xmax_histo-xmin_histo):
+        if xmin<xmax:
+            box = TBox(xmin+i,ymin,xmax+i,ymax); box.SetFillColor(color)
+            listbox += [box]
+        else:
+            box1 = TBox(xmin+i,ymin,1+i,ymax); box1.SetFillColor(color)
+            box2 = TBox(0+i,ymin,xmax+i,ymax); box2.SetFillColor(color)
+            listbox += [box1,box2]
+    return listbox
 
-    if( jentry%step1 == 0 ):
-        sys.stdout.write("|%i" %(progress)),
-        sys.stdout.write('%'),
-        sys.stdout.flush()
-
-    if( jentry%step2 == 0 and jentry%step1 != 0 ):
-        sys.stdout.write("."),; sys.stdout.flush()
-
-    if( jentry == (nentries-1) ):
-        print "|100% \n"
-        sys.stdout.flush()
+def SetHistoLine(histo,ymin,ymax,color=1):
+    xmin = int(histo.GetXaxis().GetBinLowEdge(1))
+    xmax = int(histo.GetXaxis().GetBinUpEdge(histo.GetNbinsX()))
+    line = TLine(xmin,ymin,xmax,ymax)
+    line.SetLineStyle(2); line.SetLineColor(color)
+    return line
 
 class PulsarLightCurve:
     '''Constructor of PulsarLightCurve'''
     def init(self):
-        self.psrname        = 'PSR'
+        self.psrname        = ''
         self.ra_src         = None
         self.dec_src        = None
         self.radius         = None
@@ -117,14 +115,14 @@ class PulsarLightCurve:
         '''
         self.init()
         self.__dict__.update(kwargs)
-
+        
         self.ft1name = ft1name
         if not isfile(ft1name):
-           raise IOError("Cannot access to the ft1file. Exiting ...")
-
-        print "================="
-        print "  ", OKBLUE + self.psrname + ENDC
-        print "================="
+            raise IOError("Cannot access to the ft1file. Exiting ...")
+       
+        #print "================="
+        #print "  ", OKBLUE + self.psrname + ENDC
+        #print "================="
 
         # time range
         ft1range = utilfits.ft1_time_range(ft1name)
@@ -132,7 +130,7 @@ class PulsarLightCurve:
         self.tmax = ft1range['STOP'] if self.tmax is None else self.tmax
 
         # energy range
-        self.__energy_range  = [ [100.,3e5] , [3000.,3e5], [1000.,3e3], [300.,1000.], [100.,300.], [3e3,3e5] ]
+        self.__energy_range  = [ [100.,3e5] , [3000.,3e5], [1000.,3e3], [300.,1000.], [100.,300.], [20., 100.], [3e3,3e5] ]
         self.emin = utilfits.get_header_erange(ft1name)[0] if self.emin is None else self.emin
         self.emax = utilfits.get_header_erange(ft1name)[1] if self.emax is None else self.emax
 
@@ -161,7 +159,7 @@ class PulsarLightCurve:
         self.weight = False
 
         # declaration of histograms (ROOT ...)
-        self.nhisto       = 6
+        self.nhisto       = len(self.__energy_range)
         self.nbins        = 32
         self.phase_shift  = 0
         self.phaseogram   = []
@@ -208,11 +206,14 @@ class PulsarLightCurve:
         eclscut    = np.logical_and( self.eclsmin<=evtclass, evtclass<=self.eclsmax )
         self.eventlist = tmp[np.logical_and(angularcut,np.logical_and(energycut,np.logical_and(timecut,eclscut)))]
 
-    def set_psf_param(self,psfpar0=5.12,psfpar1=0.8,psfpar2=0.07):
+    def set_psf_param(self,psfpar0=5.3,psfpar1=0.745,psfpar2=0.09):
         '''Set PSF parameterization: sqrt( (psfpar0x(100/E)^psfpar1)^2 + psfpar2^2 )'''
         self.__psf_selection = [psfpar0,psfpar1,psfpar2]
         print "Parameterization of the PSF has been modified:"
         print "PSF-cut: %.2f x (100/E)^%.2f ++ %.2f (++: in quadrature)\n" %(psfpar0,psfpar1,psfpar2)
+
+    def get_energy_range(self,which=0):
+        return self.__energy_range[which][0], self.__energy_range[which][1]
 
     def set_energy_range(self,which=0,emin=1e2,emax=3e5):
         if emin<self.emin:
@@ -223,6 +224,9 @@ class PulsarLightCurve:
             emax = self.emax
         self.__energy_range[which] = [emin,emax]
         print "Energy range for histo=%i has been changed: (%.0f,%.0f) MeV" %(which,emin,emax)
+
+    def get_radius_range(self,which=0):
+        return self.__radius_range[which]
 
     def set_radius_range(self,which=0,radius=100.):
         '''Set the radius (deg) for the histo [which]'''
@@ -245,33 +249,37 @@ class PulsarLightCurve:
         self.eventlist[self.weight_colname] = get_searchpulsation_weights(energy,angsep,theta,logeref,logesig)
                         
     def get_phases(self,which=0):
-        '''Return an array of pulse phases'''
+        '''Returns an array of pulse phases'''
         return np.asarray(self.pulse_phase[which][:,0][0])
 
+    def get_counts(self,which=0):
+        '''Returns an array of counts'''
+        histo = self.phaseogram[which]
+        return np.asarray([histo.GetBinContent(i+1) for i in range(histo.GetNbinsX()/2)])
+        
     def get_weights(self,which=0):
-        '''Return an array of weights'''
+        '''Returns an array of weights'''
         return np.asarray(self.pulse_phase[which][:,1][0])
 
     def get_times(self,which=0):
-        '''Return an array of times in MJD'''
+        '''Returns an array of times in MJD'''
         return np.asarray(self.pulse_phase[which][:,2][0])
             
-    def fill_phaseogram(self, radius=None, nbins=32, bin_range=[0.,2.], phase_shift=0, weight=False):
+    def fill_phaseogram(self, radius=None, nbins=32, phase_range=[0.,2.], phase_shift=0, weight=False):
         '''Fill phaseograms (pulse profiles)
         ===========    ==================================================
         keyword        description
         ===========    ==================================================
         nbins          number of bins in your histogram       [32]
         radius         Maximum radius (deg)                   [FT1 radius]
-        bin_range      min and max phase interval             [0,2]
+        phase_range    min and max phase interval             [0,2]
         phase_shift    add a shift to the pulse phase values  [0]
         weight         Use a weight for each photon           [False]
         ===========    ================================================== '''
         
-        #print "\n___pending___: loading histograms ..."
         self.nbins               = nbins
         self.phase_shift         = phase_shift
-        self.binmin, self.binmax = bin_range[0], bin_range[1]
+        self.binmin, self.binmax = phase_range[0], phase_range[1]
         self.weight              = weight
         erange, rrange           = self.__energy_range, self.__radius_range
         ndays                    = 20
@@ -335,48 +343,58 @@ class PulsarLightCurve:
         for i, item in enumerate(self.pulse_phase):
             self.pulse_phase[i] = np.asarray(item)
 
+            # calculate errors for weighted lightcurves
+            if self.weight:
+                phases = self.get_phases(i)
+                weights = self.get_weights(i)
+                nmc = 100
+                errors = np.empty([self.nbins,nmc])
+                for j in xrange(nmc):
+                    rweights = weights[np.argsort(np.random.rand(len(phases)))]
+                    errors[:,j] = np.histogram(phases,bins=self.nbins,weights=rweights,normed=False)[0]
+                errors = np.std(errors,axis=1)
+                for ibin, err in enumerate(errors):
+                    ibin = ibin+1
+                    self.phaseogram[i].SetBinError(ibin,err); self.phaseogram[i].SetBinError(ibin+self.nbins,err)
+                    
 	# to make a better display due to errorbars
         for histo in self.phaseogram:
             ymax = histo.GetBinContent(histo.GetMaximumBin())
             
             if ymax > 0:
-                if self.weight: ymax *= 1.2 if ymax>1 else ymax*1.4
-                else: ymax = ymax*1.1 + np.sqrt(ymax)                
+                if self.weight:
+                    if ymax>4: ymax*=1.15
+                    else: ymax = ymax*(1.05+np.log(ymax)/ymax)+np.sqrt(ymax)
+                else: ymax = ymax*(1.05+np.log(ymax)/ymax)+np.sqrt(ymax)
                 histo.SetMaximum(int(ymax))
                 if histo.GetMaximum()%5 == 0: histo.SetMaximum(histo.GetMaximum()*1.05)
+                if histo.GetMaximum()%5 == 1: histo.SetMaximum(histo.GetMaximum()*1.04)
+                if histo.GetMaximum()%5 == 2: histo.SetMaximum(histo.GetMaximum()*1.03)
             else:
                 histo.SetMaximum(1.1)        
 
 
-    def get_background(self, which=0, phase_range=[0.,1.], ring_range=[1.,2.], method='ring'):
+    def get_background(self, which=None, phase_range=[0.,1.], ring_range=[1.,2.], method='ring'):
         '''Return background/bin for a phaseogram.
         ===========   =============================
         keyword       description
         ===========   =============================
-        which         phaseogram number    [0]
+        which         phaseogram number    [None]
         phase_range   phase selection      [0,1]
-        ring_range    ring dimension       [1,2]
-        method        from a ring/weight   ["ring"]
+        ring_range    ring dimension(deg)  [1,2]
+        method        ring/weight          ["ring"]
         '''
         print "___pending___: evaluating background using %s ..." %method
 
-        roi_events, psf_events, ring_events = 0., 0., 0.
-        phmin, phmax      = phase_range
-        radius            = self.__radius_range[which]
-        theta_radmax      = get_theta(self.__psf_selection,self.__energy_range[which][0])
-        erange, rrange    = self.__energy_range, self.__radius_range
+        phmin, phmax   = phase_range
+        erange, rrange = self.__energy_range, self.__radius_range
         
         if self.__psf_selection is None and self.psfcut:
-            raise Exception("you must fill histograms before. Exiting...")
+            raise Exception("You must fill histograms before. Exiting...")
             
         if self.radius<ring_range[1]:
-            raise Exception("maximum 'ring' radius is larger than PulsarLightCurve RADIUS. Exiting ...")
+            raise Exception("Maximum 'ring' radius is larger than PulsarLightCurve RADIUS. Exiting ...")
         
-        if self.psfcut and radius>theta_radmax:
-            print "Warning your maximum PSF-cut radius is larger than your maximum radius."
-            print "Setting the radius to the maximum PSF-cut radius:", theta_radmax, "deg"
-            radius = theta_radmax
-
         # initialization of the list of events
         evtlist = self.eventlist
         theta = get_theta(self.__psf_selection, evtlist["ENERGY"])
@@ -387,28 +405,44 @@ class PulsarLightCurve:
         evtlist[self.phase_colname][evtlist[self.phase_colname]<0] += 1                        
 
         # Calculate background
-        radius_filter = evtlist["ANGSEP"] <= rrange[which]
-        energy_filter = np.logical_and(erange[which][0]<=evtlist["ENERGY"], evtlist["ENERGY"]<=erange[which][1] )
-        psf_filter    = evtlist["ANGSEP"] < theta if self.psfcut else np.ones(theta.size,dtype=np.bool)
-        ring_filter   = np.logical_and(ring_range[0]<=evtlist["ANGSEP"], evtlist["ANGSEP"]<=ring_range[1])
-        phase_filter  = np.logical_and(ph>=phmin,ph<=phmax) if phmin<phmax else np.logical_or(ph>=phmin,ph<=phmax)
+        bg_level = []
+        for N in range(self.nhisto):
+            
+            roi_events, psf_events, ring_events = 0., 0., 0.
+            radius = self.__radius_range[N]
+            theta_radmax = get_theta(self.__psf_selection,self.__energy_range[N][0])
+        
+            if self.psfcut and radius>theta_radmax:
+                print "Warning your maximum PSF-cut radius is larger than your maximum radius."
+                print "Setting the radius to the maximum PSF-cut radius:", theta_radmax, "deg"
+                radius = theta_radmax
 
-        if method is 'ring':
-            basic_mask  = np.logical_and(energy_filter,phase_filter)
-            roi_mask    = np.logical_and(basic_mask,radius_filter)
-            roi_events  = roi_mask.sum(dtype=np.float32)
-            psf_events  = np.logical_and(roi_mask,psf_filter).sum(dtype=np.float32)
-            ring_events = np.logical_and(basic_mask,ring_filter).sum(dtype=np.float32)
-            phase_norm  = (phmax-phmin) if phmin<phmax else (1.+phmax-phmin)
-            surf_norm   = (power(ring_range[1],2)-power(ring_range[0],2)) / power(radius,2)
-            return ring_events * ((psf_events/roi_events) / phase_norm / float(self.nbins) / surf_norm)
-        elif method is 'weight':
-            mask = np.logical_and(energy_filter,np.logical_and(radius_filter,psf_filter))
-            W = evtlist[self.weight_colname][mask]                                                
-            return (len(W)-W.sum()) / float(self.nbins)
-        else:
-            print "Selected method does not exist."
-            return 0.
+            radius_filter = evtlist["ANGSEP"] <= rrange[N]
+            energy_filter = np.logical_and(erange[N][0]<=evtlist["ENERGY"], evtlist["ENERGY"]<=erange[N][1] )
+            psf_filter    = evtlist["ANGSEP"] < theta if self.psfcut else np.ones(theta.size,dtype=np.bool)
+            ring_filter   = np.logical_and(ring_range[0]<=evtlist["ANGSEP"], evtlist["ANGSEP"]<=ring_range[1])
+            phase_filter  = np.logical_and(ph>=phmin,ph<=phmax) if phmin<phmax else np.logical_or(ph>=phmin,ph<=phmax)
+
+            if method is 'ring':
+                basic_mask  = np.logical_and(energy_filter,phase_filter)
+                roi_mask    = np.logical_and(basic_mask,radius_filter)
+                roi_events  = roi_mask.sum(dtype=np.float32)
+                psf_events  = np.logical_and(roi_mask,psf_filter).sum(dtype=np.float32)
+                ring_events = np.logical_and(basic_mask,ring_filter).sum(dtype=np.float32)
+                phase_norm  = (phmax-phmin) if phmin<phmax else (1.+phmax-phmin)
+                surf_norm   = (power(ring_range[1],2)-power(ring_range[0],2)) / power(radius,2)
+                bg_level += [ring_events * ((psf_events/roi_events) / phase_norm / float(self.nbins) / surf_norm)]
+            elif method is 'weight':
+                mask = np.logical_and(energy_filter,np.logical_and(radius_filter,psf_filter))
+                W = evtlist[self.weight_colname][mask]
+                if self.weight: bg_level += [(W.sum()-(W**2).sum()) / float(self.nbins)]
+                else: bg_level += [(len(W)-W.sum()) / float(self.nbins)]
+            else:
+                print "Selected method does not exist!"
+                bg_level += [0]
+                
+        if which is None: return bg_level
+        else: return bg_level[which]
 
     def add_weight_column(self,colname='WEIGHT',new_filename=None):
         '''Add a column with the weight information in your FT1 file'''
@@ -438,59 +472,54 @@ class PulsarLightCurve:
     def print_selection(self):
         print "\n___selection___:"
         print "\tFT1file .............. %s" %self.ft1name
+        print "\tpsrname .............. %s" %self.psrname
         print "\tra, dec (deg) ........ %.6f, %.6f" %(self.ra_src,self.dec_src)
         print "\ttmin, tmax (MET,MJD).. %.0f, %.0f - %.4f, %4f" %(self.tmin,self.tmax,met2mjd(self.tmin),met2mjd(self.tmax))
         print "\temin, emax (MeV) ..... %.0f, %.0f" %(self.emin,self.emax)
         print "\tradius (deg) ......... %.1f"  %self.radius
         print "\teclsmin, eclsmax ..... %.0f, %.0f" %(self.eclsmin,self.eclsmax)
         print "\tzenith angle (deg) ... %.0f" %self.zenithcut
-
         if self.psfcut:
             print "\tPSF-cut ..............",
-            self.print_psf()
-            
+            self.print_psf()            
         os = 'Yes' if self.weight else 'No'
         print  "\tweighted counts ...... %s" %os
 
     def print_summary(self):
         self.print_selection()
+        print "\n__parameters__| ",
+        for i in range(self.nhisto): print "PHASO:" +  str(i), "\t",
         print ""
-        print "__parameters__| ",
-        for i in range(len(self.phaseogram)): print "PHASO:" +  str(i), "\t",
-        print ""
-        for x in range(37): print "- ",
-        print ""
-        print "emin,emax(MeV)| ",
-        for it, histo in enumerate(self.phaseogram):
-            print '%(emin)d %(emax)d \t' %{'emin':self.__energy_range[it][0], 'emax':self.__energy_range[it][1]},
-        print ""
-        print "radius(deg)   | ",
-        for it, histo in enumerate(self.phaseogram):
+        for x in range(42): print "- ",
+        print "\nemin,emax(MeV)| ",
+        for it in range(self.nhisto):
+            s = '%(emin)d %(emax)d' %{'emin':self.__energy_range[it][0], 'emax':self.__energy_range[it][1]}
+            s += '\t' if len(s)>7 else '\t\t'; print s,
+        print "\nradius(deg)   | ",
+        for it in range(self.nhisto):
             print '%(radius).1f \t\t' %{'radius':self.__radius_range[it]},
-        print ""
-        print "number of evts| ",
+        print "\nnumber of evts| ",
         for histo in self.phaseogram:
-            print "%.0f \t \t" %(histo.GetEntries()/2),
-        print ""
+            s = "%.0f" %(histo.GetEntries()/2)
+            s += '\t' if len(s)>6 else '\t\t'; print s,
 
         # H-test statistics
         htest = []
         for pulse in self.pulse_phase:
             if len(pulse) > 0.:
-                H = weighted_h_statistic(pulse[:,0],pulse[:,1])
-                Hsig = sig2sigma(h_sig(H))
+                H = hmw(pulse[:,0],pulse[:,1])
+                prob = h_sig(H)                
+                Hsig = sig2sigma(prob) if prob > 1e-323 else sig2sigma(1e-323)
                 htest += [[H,Hsig]]
             else:
                 htest += [[0,0]]
-        print "H-test        | ",
+        print "\nH-test        | ",
         for item in htest:
             print "%.0f \t \t" %item[0],
-        print ""
-        print "H-test(sig)   | ",
+        print "\nH-test(sig)   | ",
         for item in htest:
             print "%.1f \t \t" %item[1],
-        print ""
-        print ""
+        print "\n\n"
 
     def load_profile(self, profile, fidpt=0., norm=True, mean_sub=False, ncol=1,
                      ytitle="Radio Flux (au)", comment="", histo=False):
@@ -549,20 +578,21 @@ class PulsarLightCurve:
         return phase,counts
 
     def plot_lightcurve( self, nbands=1, xdim=550, ydim=200, background=None, zero_sup=False,
-                         inset=False, profile=None, color='black', outfile=None,
+                         inset=False, profile=None, reg=None, color='black', outfile=None,
                          xtitle='Pulse Phase', ytitle='Counts/bin', substitute=True):
         
         '''ROOT function to plot gamma-ray phaseograms + (radio,x-ray)
         ===========   ======================================================
         keyword       description
         ===========   ======================================================
-        nbands        number of gamma-ray bands in the figure    [1,..,5]
+        nbands        number of gamma-ray bands in the figure    [1,..,6]
         xdim, ydim    plot dimensions in pixels                  [550,200]
         profile       radio or x-ray template (use load_profile) [[None]]
         substitute    substitute g-ray profile for r/x profile   [True]
-        backgroung    add a background level on the first panel  [None]
+        backgroung    add a background level                     [None]
         zero_sup      active the zero-suppress on the top panel  [false]
         inset         add an inset on the top panel              [false]
+        reg           highlight a phase region                   [None]  
         color         color profile                              [black]
         xtitle        Title for x-axis                           [Pulse Phase]
         ytitle        title for y-axis                           [Counts/bin]
@@ -580,7 +610,7 @@ class PulsarLightCurve:
         canvas = TCanvas("canvas","canvas",xdim,ydim);
             
         pad = []
-        ylow, yup, ystep = 0., 1., 1
+        ylow, yup, ystep = 0., 1., 1.
         BottomMarginDefault, TopMarginDefault, RightMarginDefault = 0.12, 0.02, 0.1
                         
         if nbands == 1:
@@ -597,8 +627,11 @@ class PulsarLightCurve:
         elif nbands == 5:
             OffsetX, OffsetY, BottomMarginDefault = 4.5, 3.1, 0.18
             ylow, ystep = 0.7, 0.17
+        elif nbands == 6:
+            OffsetX, OffsetY, BottomMarginDefault = 5.5, 3.6, 0.2
+            ylow, ystep = 0.78, 0.15
         else:
-            raise Exception("Number of energy bands is greater than 5. Not implemented! Exiting ...")            
+            raise Exception("Number of energy bands is greater than 6. Not implemented! Exiting ...")            
             
         for N in range(nbands):
             padname = "pad" + str(N)
@@ -613,51 +646,73 @@ class PulsarLightCurve:
         text = TText()
         text.SetTextSize(TextSize)
         if self.weight: ytitle = "W. Counts/bin"
-        
+
+        bkglevel = []
         pad[0].SetTopMargin(TopMarginDefault)
         
         # ============== G-RAY PANELS ============== #
-        for N in range(nbands):
+        for which in range(nbands):
 
-            pad[N].cd()
+            pad[which].cd()
                     
-            if N+1 == nbands: root.SetHistoAxis(phaseogram[N],xtitle,TextSize,OffsetX,LabelSize,ytitle,TextSize,OffsetY,LabelSize,color=color)
-            else: root.SetHistoAxis(phaseogram[N],"",0,0,0,ytitle,TextSize,OffsetY,LabelSize,color=color)
+            if which+1 == nbands: root.SetHistoAxis(phaseogram[which],xtitle,TextSize,OffsetX,LabelSize,ytitle,TextSize,OffsetY,LabelSize,color=color)
+            else: root.SetHistoAxis(phaseogram[which],"",0,0,0,ytitle,TextSize,OffsetY,LabelSize,color=color)
 
             # zero suppress
-            if zero_sup: root.zero_suppress(phaseogram[N])
-            
-            # draw phaseogram
-            phaseogram[N].Draw()
-            if not self.weight: phaseogram[N].Draw("Esame")
-            
-            # comments
-            if erange[N][1] > 30000: ecomment = "> " + str(erange[N][0]/1e3) + " GeV"
-            else: ecomment = str(erange[N][0]/1e3) + " - " + str(erange[N][1]/1e3) + " GeV"
-            ylevel = root.get_txtlevel(phaseogram[N],0.91)
-            text.DrawText(0.1,ylevel,ecomment) 
+            if zero_sup: root.zero_suppress(phaseogram[which])
 
+            # draw histogram
+            phaseogram[which].Draw("HIST E");
+
+            # comments
+            if erange[which][1] > 3e4: ecomment = "> " + str(erange[which][0]/1e3) + " GeV"
+            else: ecomment = str(erange[which][0]/1e3) + " - " + str(erange[which][1]/1e3) + " GeV"
+            ylevel = root.get_txtlevel(phaseogram[which],0.91)
+            text.DrawText(0.1,ylevel,ecomment)
+            
             # background level and inset
-            if N == 0:
-                text.DrawText(self.binmax-0.5,ylevel,self.psrname)
-                
-                if background is not None:
-                    line = TLine(0,background,2,background)
-                    line.SetLineStyle(2); line.Draw()
-                    
+            if which == 0:
+                if reg is not None:
+                    listbox = SetHistoBox(phaseogram[which],reg[0],reg[1])
+                    for box in listbox: box.Draw()
+                    phaseogram[which].Draw("Hist E same")
+                        
                 if inset:
                     phaseogram[-1].SetFillColor(14)
                     phaseogram[-1].Draw("same")
                     if zero_sup:
                         root.zero_suppress(phaseogram[-1])
-                        phaseogram[N].SetMinimum(phaseogram[-1].GetMinimum())
+                        phaseogram[which].SetMinimum(phaseogram[-1].GetMinimum())
                     text.SetTextColor(14)
                     ecomment = "> " + str(erange[-1][0]/1e3) + " GeV"
-                    ylevel = root.get_txtlevel(phaseogram[N],0.86)
+                    ylevel = root.get_txtlevel(phaseogram[which],0.86)
                     text.DrawText(0.1,ylevel,ecomment); text.SetTextColor(1)
-                    #  force a redraw of the axis
-                    gPad.RedrawAxis()
-                    
+
+                # text
+                text.DrawText(0.1,ylevel,ecomment)
+                text.DrawText(self.binmax-0.5,ylevel,self.psrname)
+                
+                #  force a redraw of the axis
+                gPad.RedrawAxis()
+                
+            # draw background level
+            if background is not None:
+                if isinstance(background[0],float):
+                    bkglevel += [SetHistoLine(phaseogram[which],background[which],background[which])]
+                    bkglevel[which].Draw()
+            '''
+                elif isinstance(background[0],list):
+                    list_bkglevel = []
+                    sublist = []
+                    for i, bkg in enumerate(background):
+                        #print bkg
+                        sublist += [SetHistoLine(phaseogram[which],bkg[which],bkg[which],color=(i+1))]
+                    list_bkglevel += [sublist]
+                    print list_bkglevel
+                    for b in list_bkglevel: b.Draw()
+                        #bkglevel[which].Draw()
+            '''
+            
         # ============== TEMPLATES ============== #
         if profile is not None:
 
@@ -681,7 +736,7 @@ class PulsarLightCurve:
                     overlay.Draw(""); overlay.cd()
                     
                     xmin, xmax = self.binmin, self.binmax
-                    ymin, ymax = histo.GetHistogram().GetMinimum(), histo.GetHistogram().GetMaximum()
+                    ymin, ymax = histo.GetHistogram().GetMinimum()*0.8, histo.GetHistogram().GetMaximum()
                                         
                     hframe = overlay.DrawFrame(xmin,ymin,xmax,ymax)
                     hframe.GetXaxis().SetLabelOffset(99); hframe.GetYaxis().SetLabelOffset(99)
@@ -712,7 +767,7 @@ class PulsarLightCurve:
         canvas.Print(outfile); canvas.Close()
 
         
-    def plot_phase_time( self, which=0, background=None, zero_sup=True, xdim=500, ydim=1000,
+    def plot_phase_time( self, which=0, background=None, zero_sup=True, reg=None, xdim=500, ydim=1000,
                          xtitle='Pulse Phase', ytitle='Counts/bin', color='black', outfile=None ):
         '''Plot photon phase vs time
         ===========   ======================================================
@@ -721,6 +776,7 @@ class PulsarLightCurve:
         which         histogram number                           [0]
         backgroung    add a background level on the phaseogram   [None]
         zero_sup      active the zero-suppress on the top panel  [True]
+        reg           highlight a phase region                   [None]  
         xdim, ydim    plot dimensions in pixels                  [500,1000]
         xtitle        title for x-axis                           [Pulse Phase]
         ytitle        title for y-axis                           [Counts/bin]
@@ -731,7 +787,7 @@ class PulsarLightCurve:
         phaseogram, phaseogram2D = self.phaseogram, self.phaseogram2D
         erange = self.__energy_range
         
-        # ==========> canvas and pad
+        # canvas and pad
         canvas = TCanvas("canvas","canvas",xdim,ydim);
         pad1 = TPad("pad1","pad1",0,0.7,1,1); pad1.Draw()        
         pad2 = TPad("pad2","pad2",0,0,1,0.7); pad2.Draw()
@@ -741,9 +797,9 @@ class PulsarLightCurve:
         text.SetTextSize(TextSize)
         
         LeftMarginDefault, RightMarginDefault = 0.15, 0.11
-        BottomMarginDefault, TopMarginDefault = 0.05, 0.02
+        BottomMarginDefault, TopMarginDefault = 0.05, 0.03
         
-        # ==========> pad1: pulse profile
+        # PAD1: pulse profile
         pad1.cd()
         pad1.SetBottomMargin(BottomMarginDefault); pad1.SetTopMargin(TopMarginDefault);
         pad1.SetLeftMargin(LeftMarginDefault); pad1.SetRightMargin(RightMarginDefault)
@@ -754,20 +810,26 @@ class PulsarLightCurve:
         if zero_sup:
             root.zero_suppress(phaseogram[which])
 
-        phaseogram[which].Draw()
-        #if not self.weight: phaseogram[which].Draw("Esame")
+        # draw histogram
+        phaseogram[which].Draw("HIST E")
         
-        tt = "> %.2f GeV" %(erange[which][0]/1e3)
-        ylevel = root.get_txtlevel(phaseogram[which],0.91)
-        text.DrawText(0.1,ylevel,tt)
-        text.DrawText(1.3,ylevel,self.psrname)
-
+        if reg is not None:
+            listbox = SetHistoBox(phaseogram[which],reg[0],reg[1])
+            for box in listbox: box.Draw() 
+            phaseogram[which].Draw("Hist E same")
+            gPad.RedrawAxis()                 
+            
         if background is not None:
             line = TLine(0,background,2,background)
             line.SetLineStyle(2)
             line.Draw()
-            
-        # pad2: phase vs time 
+
+        tt = "> %.2f GeV" %(erange[which][0]/1e3)
+        ylevel = root.get_txtlevel(phaseogram[which],0.91)
+        text.DrawText(0.1,ylevel,tt)
+        text.DrawText(1.3,ylevel,self.psrname)
+           
+        # PAD2: phase vs time 
         pad2.cd()
         pad2.SetTopMargin(TopMarginDefault); pad2.SetBottomMargin(0.06)
         pad2.SetLeftMargin(LeftMarginDefault); pad2.SetRightMargin(RightMarginDefault)
@@ -788,7 +850,9 @@ class PulsarLightCurve:
             P = phases[time_filter]
             W = weights[time_filter]
             H = weighted_h_statistic(P,W)
-            SigTime.SetPoint(i,sig2sigma(h_sig(H)),T)
+            prob = h_sig(H)
+            sig = sig2sigma(prob) if prob > 1e-323 else sig2sigma(1e-323)                            
+            SigTime.SetPoint(i,sig,T)
             
         xmin, xmax = SigTime.GetXaxis().GetXmin(), SigTime.GetXaxis().GetXmax()        
         ymin, ymax = phaseogram2D[which].GetYaxis().GetXmin(), phaseogram2D[which].GetYaxis().GetXmax()
@@ -808,8 +872,8 @@ class PulsarLightCurve:
 
         axis = TGaxis(xmin,ymax,xmax,ymax,xmin,xmax,205,"-")
         #axis.SetLineColor(kRed); axis.SetLabelColor(kRed)
-        # bug in ROOT - must fix font = 82 instead 83
-        TextSize,Offset,LabelSize = 0.04,0.2,0.03
+        # bug in ROOT - must fix the font to 82 instead 83
+        TextSize,Offset,LabelSize = 0.04,0.22,0.03
         root.DrawAxis(axis,"H-test statictics [#sigma]",TextSize,Offset,LabelSize,font=82)
         axis.SetLabelOffset(-0.05)
 
@@ -875,56 +939,59 @@ class PulsarLightCurve:
         canvas.Print(outfile)
         print ""
 
-    def pulseopt(self, erange=[100,1000], ebins=10, rrange=[0.2,2], rbins=10):
+    def pulseopt( self, erange=[100,1000], emax=None, ebins=10, rrange=[0.2,2], rbins=10, display=False ):
         '''
         Find the optimum cuts for a ROI (i.e. over radius, energy) based on H-test
         Return ntrials, pre-sig, post-sig, optimal minimum energy, optimal radius
-
         ===========   =============================================
         keyword       description
         ===========   =============================================
-        erange        Emin, Emax (MeV)                  [100,1000]
-        ebins         Number of energy bins             [10]
-        rrange        Minimum and Maximum radius (deg)  [0.2,2]
-        rbins         Number of radius bins             [10]
+        erange        Minimum Energy threshold(MeV)       [100,1000]
+        emax          Maximum Energy (MeV)                [None]
+        ebins         Number of energy bins               [10]
+        rrange        Minimum and Maximum radius (deg)    [0.2,2]
+        rbins         Number of radius bins               [10]
+        display       Show results                        [False]
         '''
-        emin, emax = erange[0], erange[1]
-        rmin, rmax = rrange[0], rrange[1]
-
         # initialization of the list of events
         evtlist = self.eventlist
 
         if self.psfcut:
             evtlist = evtlist[evtlist["ANGSEP"]<get_theta(self.__psf_selection, evtlist["ENERGY"])]
-                
-        energy  = np.logspace(np.log10(emin),np.log10(emax),ebins)
-        radius  = np.linspace(rmin,rmax,rbins)
+            thetamax = get_theta(self.__psf_selection, erange[0])
+            if rrange[1]>thetamax: rrange[1]=thetamax
+            
+        energy  = np.logspace(np.log10(erange[0]),np.log10(erange[1]),ebins)
+        radius  = np.linspace(rrange[1],rrange[0],rbins)
+        if emax is None: emax = self.emax
 
         ntrials = len(energy)*len(radius)
         sigmax, bestE, bestR = -1, -1, -1
 
         print "\nSearching for the optimal cut with R[%.1f,%.1f] deg, Emin[%.0f,%.0f] and Emax[%.0f] MeV"\
-              %(rmin,rmax,emin,emax,self.emax)
+              %(rrange[0],rrange[1],erange[0],erange[1],emax)
         
         for it_E in energy:
             for it_R in radius:
-                emask = np.logical_and(it_E<=evtlist["ENERGY"],evtlist["ENERGY"]<=self.emax)
+                emask = np.logical_and(it_E<=evtlist["ENERGY"],evtlist["ENERGY"]<=emax)
                 rmask = evtlist["ANGSEP"] <= it_R
                 mask = np.logical_and(emask,rmask)
                 phases = evtlist[self.phase_colname][mask]
-                sig = sig2sigma(h_sig(h_statistic(phases)))
-
+                if len(phases)>0:
+                    prob = h_sig(hm(phases))
+                    sig = sig2sigma(prob) if prob > 1e-323 else sig2sigma(1e-323)
                 if sig > sigmax:
                     sigmax, bestE, bestR = sig, it_E, it_R
 
         postsig = sigma_trials(sigmax,ntrials)
-        print "================================"
-        print "ntrials ............", ntrials
-        print "pre-sig (sigma)..... %.1f" %sigmax
-        print "post-sig (sigma) ... %.1f" %postsig
-        print "emin, emax (MeV) ... %.0f, %.0f" %(bestE,self.emax)
-        print "radius (deg) ....... %.1f" %bestR
-        print "================================"
+        if display:
+            print "================================"
+            print "ntrials ............", ntrials
+            print "pre-sig (sigma)..... %.1f" %sigmax
+            print "post-sig (sigma) ... %.1f" %postsig
+            print "emin, emax (MeV) ... %.0f, %.0f" %(bestE,emax)
+            print "radius (deg) ....... %.1f" %bestR
+            print "================================"
 
         return ntrials, sigmax, postsig, bestE, bestR
         
