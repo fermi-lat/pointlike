@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.108 2011/08/22 14:46:36 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.109 2011/08/25 00:09:43 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -709,8 +709,9 @@ class ROIAnalysis(object):
 
     @decorate_with(roi_image.ROITSMapImage,append_init=True)
     def tsmap(self,filename,**kwargs):
-        tsmap=roi_image.ROITSMapImage(self,**kwargs)
-        tsmap.get_pyfits().writeto(filename,clobber=True)
+        i=roi_image.ROITSMapImage(self,**kwargs)
+        i.get_pyfits().writeto(filename,clobber=True)
+        return i
 
     @decorate_with(sed_plotter.plot_sed)
     def plot_sed(self,which=None,filename=None,**kwargs):
@@ -718,7 +719,9 @@ class ROIAnalysis(object):
 
     @decorate_with(roi_plotting.ROIDisplay,append_init=True)
     def plot_counts_map(self,filename,**kwargs):
-        roi_plotting.ROIDisplay(self,**kwargs).show(filename=filename)
+        i=roi_plotting.ROIDisplay(self,**kwargs)
+        i.show(filename=filename)
+        return i
 
     @decorate_with(counts_plotter.roi_pipeline_counts_plot)
     def plot_counts_spectra(self,filename,**kwargs):
@@ -726,26 +729,38 @@ class ROIAnalysis(object):
 
     @decorate_with(roi_plotting.ROISlice,append_init=True)
     def plot_slice(self,which=None,filename=None,datafile=None,**kwargs):
-        roi_plotting.ROISlice(self,which=which,**kwargs).show(filename=filename,datafile=datafile)
+        i=roi_plotting.ROISlice(self,which=which,**kwargs)
+        i.show(filename=filename,datafile=datafile)
+        return i
 
     @decorate_with(roi_plotting.ROIRadialIntegral,append_init=True)
     def plot_radial_integral(self,which=None,filename=None,datafile=None,**kwargs):
-        roi_plotting.ROIRadialIntegral(self,which=which,**kwargs).show(filename=filename,datafile=datafile)
+        i=roi_plotting.ROIRadialIntegral(self,which=which,**kwargs)
+        i.show(filename=filename,datafile=datafile)
+        return i
 
     @decorate_with(roi_plotting.ROISmoothedSource,append_init=True)
     def plot_source(self,which=None,filename=None,**kwargs):
-        roi_plotting.ROISmoothedSource(self,which=which,**kwargs).show(filename=filename)
+        i=roi_plotting.ROISmoothedSource(self,which=which,**kwargs)
+        i.show(filename=filename)
+        return i
 
     @decorate_with(roi_plotting.ROISmoothedSources,append_init=True)
     def plot_sources(self,which=None,filename=None,**kwargs):
-        roi_plotting.ROISmoothedSources(self,which=which,**kwargs).show(filename=filename)
+        i=roi_plotting.ROISmoothedSources(self,which=which,**kwargs)
+        i.show(filename=filename)
+        return i
 
     @decorate_with(roi_plotting.ROITSMapPlotter,append_init=True)
     def plot_tsmap(self,filename,**kwargs):
-        roi_plotting.ROITSMapPlotter(self,**kwargs).show(filename=filename)
+        i=roi_plotting.ROITSMapPlotter(self,**kwargs)
+        i.show(filename=filename)
+        return i
 
     @decorate_with(roi_plotting.ROISmoothedModel,append_init=True)
     def plot_model(self,filename="model_counts.png",**kwargs):
-        roi_plotting.ROISmoothedModel(self,**kwargs).show(filename=filename)
+        i=roi_plotting.ROISmoothedModel(self,**kwargs)
+        i.show(filename=filename)
+        return i
 
 load=ROIAnalysis.load
