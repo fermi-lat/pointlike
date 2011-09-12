@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Sep 12 15:18:03 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+make plotting code return the objects used to make plot
+    *
+------------------------------------------------------------
 User: parent  Sat Sep 10 17:57:01 PDT 2011
 pointlike/python/uw/pulsar
 
