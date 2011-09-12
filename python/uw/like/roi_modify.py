@@ -42,13 +42,15 @@ def modify_spatial_model(roi,which,spatial_model,keep_old_center=True):
         """
     manager,index = roi.mapper(which)
     source = roi.get_source(which)
+    model = roi.get_model(which)
 
     if isinstance(spatial_model,SkyDir):
         if isinstance(source,PointSource):
             roi.modify_loc(which,spatial_model)
         else:
             roi.del_source(which)
-            ps=PointSource(name=source.name,model=source.model.copy(),skydir=spatial_model)
+            ps=PointSource(name=source.name,
+                           model=model.copy(),skydir=spatial_model)
             roi.add_source(ps)
 
     elif isinstance(spatial_model,SpatialModel):
@@ -58,7 +60,8 @@ def modify_spatial_model(roi,which,spatial_model,keep_old_center=True):
 
         if manager==roi.psm:
             roi.del_source(which)
-            es=ExtendedSource(name=source.name,model=source.model.copy(),spatial_model=spatial_model)
+            es=ExtendedSource(name=source.name,
+                              model=model.copy(),spatial_model=spatial_model)
             roi.add_source(es)
         else:
             if not isinstance(manager.diffuse_sources[index],ExtendedSource):
@@ -98,7 +101,7 @@ def modify_model(roi,which,model,free=None,keep_old_flux=True):
 
         if keep_old_flux: 
             emin,emax=roi.bin_edges[[0,-1]]
-            model.set_flux(source.model.i_flux(emin=emin,emax=emax),emin=emin,emax=emax)
+            model.set_flux(roi.get_model(which).i_flux(emin=emin,emax=emax),emin=emin,emax=emax)
 
         manager.models[index]=model
 
@@ -130,7 +133,7 @@ def modify_spectral_kwargs(roi,which,keep_old_flux,kwargs):
         specified by kwargs. """
 
     source = roi.get_source(which)
-    model = source.model
+    model = roi.get_model(which)
 
     if len([i for i in kwargs.keys() if i in model]) == 0:
         return
