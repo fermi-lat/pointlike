@@ -132,6 +132,8 @@ def modify_spectral_kwargs(roi,which,keep_old_flux,kwargs):
     """ Modify in the spectral model all of the parameters 
         specified by kwargs. """
 
+    if len(kwargs) == 0: return
+
     source = roi.get_source(which)
     model = roi.get_model(which)
 
@@ -147,6 +149,8 @@ def modify_spectral_kwargs(roi,which,keep_old_flux,kwargs):
 def modify_spatial_kwargs(roi,which,keep_old_center,kwargs):
     """ Modify in the spatial model all of the parameters 
         specified by kwargs. """
+
+    if len(kwargs) == 0: return
 
     source = roi.get_source(which)
 
