@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.56 2011/08/18 01:06:20 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.57 2011/09/02 23:43:53 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -793,6 +793,22 @@ Spectral parameters:
         return np.asarray([f/n0,f*np.log(self.e0/e),
                      f*(b/cutoff)*(e/cutoff)**b,f*(e/cutoff)**b*np.log(cutoff/e)])
 
+    def pivot_energy(self):
+        """ assuming a fit was done, estimate the pivot energy 
+              
+        """
+        if self._p[3]!=0. : print "WARNING: b is not 1, the pivot energy computation might be inaccurate"
+        A  = 10**self._p[0]
+        C = self.get_cov_matrix()
+        if C[1,1]==0:
+            raise Exception('%s fit required before calculating pivot energy' %self.name)
+        return self.e0*np.exp( C[0,1]/(A*C[1,1]) )
+        
+    def set_e0(self, e0p):
+        """ set a new reference energy, adjusting the norm parameter """
+        gamma = 10** self._p[1]
+        self._p[0] += gamma * np.log10(self.e0/e0p)
+        self.e0 = float(e0p) 
 #===============================================================================================#
 
 class CompositeModel(Model):
