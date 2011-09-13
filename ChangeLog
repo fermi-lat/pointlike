@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Sep 13 12:38:39 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_modify.py 
+Log Message:
+sanity check when modifying parameters
+    *
+------------------------------------------------------------
 User: cohen  Tue Sep 13 01:36:42 PDT 2011
 pointlike/python/uw/like
 
