@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: cohen  Tue Sep 13 01:36:42 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+add pivot_energy and set_e0 methods to the PWLExpCutoff model
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-43, operation: add
 Package: pointlike
