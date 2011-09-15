@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.33 2011/07/21 19:37:57 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.34 2011/07/21 22:49:24 lande Exp $
 
 author: Matthew Kerr
 """
@@ -408,19 +408,24 @@ class DualLocalizer():
         return DualLocalizer.anti_rotate_north(SkyDir(r2.ra(),45+r2.dec()/2),skydir1)
 
     @staticmethod
-    def approx_mid_point(*skydirs):
+    def symmetric_mod(a,b):
+        temp=a%b
+        if temp > b/2.: temp-=b
+        return temp
+
+    @staticmethod
+    def approx_mid_point(skydir1,skydir2):
         """ This method is only valid in the small distance limit, in which
             case space is approximatly flat and the rhomb line is equal
             to the great circle line. """
-        if abs(skydirs[0].b()) < abs(skydirs[0].dec()):
-            return SkyDir(N.average([i.l() for i in skydirs]),
-                          N.average([i.b() for i in skydirs]),
+        if abs(skydir1.b()) < abs(skydir1.dec()):
+            return SkyDir(skydir1.l() + DualLocalizer.symmetric_mod(skydir2.l()-skydir1.l(),360)/2,
+                          skydir1.b() + DualLocalizer.symmetric_mod(skydir2.b()-skydir1.b(),360)/2,
                           SkyDir.GALACTIC)
         else:
-            return SkyDir(N.average([i.ra() for i in skydirs]),
-                          N.average([i.dec() for i in skydirs]),
+            return SkyDir(skydir1.ra() + DualLocalizer.symmetric_mod(skydir2.ra()-skydir1.ra(),360)/2,
+                          skydir1.dec() + DualLocalizer.symmetric_mod(skydir2.dec()-skydir1.dec(),360)/2,
                           SkyDir.EQUATORIAL)
-        
 
 
     @keyword_options.decorate(defaults)
@@ -511,7 +516,7 @@ class DualLocalizer():
         # Fit average point and distance between them
         # Wrap coordiantes to vary between -180 and 180
         x1 = rot1.ra(); x1 = x1 - (x1>180)*360
-        x2 = rot1.ra(); x2 = x2 - (x2>180)*360
+        x2 = rot2.ra(); x2 = x2 - (x2>180)*360
         y1 = rot1.dec(); y2 = rot2.dec()
 
         m_x,m_y = (x2+x1)/2, (y2+y1)/2
