@@ -566,10 +566,18 @@ class PulsarLightCurve:
 
     def get_phaseogram(self,emin,emax):
         """ Returns a list of phase centers and a list of
-            counts for a pulsar in a given energy range. """
-        # This is not robust against floating point errors.
-        i = self.__energy_range.index([emin,emax])
-        p = self.phaseogram[i]
+            counts for a pulsar in a given energy range. 
+
+            Allow a tolerance of 1 MeV when finding energy range. """
+        i = [j for j,erange in enumerate(self.__energy_range) if
+             np.allclose([emin,emax], erange, rtol=0, atol=1)]
+        if len(i) < 1:
+            raise Exception("Cannot find energy range [%g,%g]. Choices are %s" % \
+                            (emin,emax,str(self.__energy_range)))
+        if len(i) > 1:
+            raise Exception("Multiple energy ranges found for [%g,%g]" % (emin,emax))
+
+        p = self.phaseogram[i[0]]
 
         # The +2 adds one bin at the edge with 0 counts in it, 
         # nice for plotting in matplotlib.
