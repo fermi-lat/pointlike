@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Sep 16 15:01:31 PDT 2011
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	results_writer.py 
+Log Message:
+adding new feature to get dictionary
+    *
+------------------------------------------------------------
 User: lande  Wed Sep 14 20:18:45 PDT 2011
 ScienceTools-scons/pointlike/python/uw/pulsar
 
