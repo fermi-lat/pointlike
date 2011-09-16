@@ -1,6 +1,6 @@
 """ Class to write out gtlike-style results files. 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/results_writer.py,v 1.4 2010/09/17 02:21:09 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/results_writer.py,v 1.5 2011/01/31 01:17:35 lande Exp $
 
 author: Joshua Lande
 """
@@ -66,20 +66,24 @@ def unparse_diffuse_sources(roi,diffuse_sources,emin,emax,**kwargs):
 
     return diffuse_dict
 
-def writeResults(roi,filename,**kwargs):
+def writeResults(roi,filename=None,**kwargs):
     """ Saves out an ROI to a gtlike style results file. """
     emin,emax=roi.bin_edges[[0,-1]]
     if not roi.quiet:
-        print "\nSaving ROI to results file %s" % filename
+        if filename is not None: print "\nSaving ROI to results file %s" % filename
+
         print "\nPhoton fluxes are computed for the energy range %d to %d" % (emin,emax)
 
     source_dict={}
     source_dict.update(unparse_point_sources(roi,roi.psm.point_sources,emin,emax,**kwargs))
     source_dict.update(unparse_diffuse_sources(roi,roi.dsm.diffuse_sources,emin,emax,**kwargs))
 
-    file=open(filename,'w')
-    file.write(pformat(source_dict))
-    file.close()
+    if filename is not None:
+        file=open(filename,'w')
+        file.write(pformat(source_dict))
+        file.close()
 
-    if not roi.quiet:
-        print "\nDone Saving ROI to results file %s" % filename
+        if not roi.quiet:
+            print "\nDone Saving ROI to results file %s" % filename
+    
+    return source_dict
