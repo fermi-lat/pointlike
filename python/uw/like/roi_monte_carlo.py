@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header:$
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.16 2011/09/02 23:44:55 lande Exp $
 
 author: Joshua Lande
 """
@@ -23,7 +23,7 @@ from . Models import PowerLaw,PowerLawFlux,Constant
 from . pointspec import DataSpecification,SpectralAnalysis
 from . pointspec_helpers import PointSource,PointSourceCatalog
 from . roi_extended import ExtendedSource
-from . SpatialModels import Gaussian,EllipticalGaussian,SpatialModel,RadiallySymmetricModel
+from . SpatialModels import Gaussian,EllipticalGaussian,SpatialModel,RadiallySymmetricModel,SpatialMap
 
 from uw.utilities import keyword_options 
 
@@ -207,20 +207,41 @@ class MonteCarlo(object):
 
         ra,dec=sm.center.ra(),sm.center.dec()
 
-        spatialfile=mkstemp(dir='.')[1]
-        sm.save_template(spatialfile)
-        specfile=self._make_specfile(es.model,mc_emin,mc_emax)
+        if isinstance(sm,SpatialMap):
+            spatialfile=sm.file
+        else:
+            spatialfile=mkstemp(dir='.')[1]
+            sm.save_template(spatialfile)
 
-        xml=[
-            '<source name="%s">' % MonteCarlo.strip(es.name),
-            '  <spectrum escale="MeV">',
-            '    <SpectrumClass name="FileSpectrumMap"',
-            '      params="flux=%s, fitsFile=%s, specFile=%s, emin=%s, emax=%s"/>' % \
-                    (flux,spatialfile,specfile,mc_emin,mc_emax),
-            '    <use_spectrum frame="galaxy"/>',
-            '  </spectrum>',
-            '</source>',
-        ]
+        if isinstance(es.model,PowerLaw) or isinstance(es.model,PowerLawFlux):
+
+            index = es.model['index']
+
+            xml=[
+                '<source name="%s">' % MonteCarlo.strip(es.name),
+                '  <spectrum escale="MeV">',
+                '    <SpectrumClass name="MapSource"',
+                '      params="%s,%s,%s,%s,%s"/>' % \
+                        (flux,index,spatialfile,mc_emin,mc_emax),
+                '    <use_spectrum frame="galaxy"/>',
+                '  </spectrum>',
+                '</source>',
+            ]
+
+        else:
+
+            specfile=self._make_specfile(es.model,mc_emin,mc_emax)
+
+            xml=[
+                '<source name="%s">' % MonteCarlo.strip(es.name),
+                '  <spectrum escale="MeV">',
+                '    <SpectrumClass name="FileSpectrumMap"',
+                '      params="flux=%s, fitsFile=%s, specFile=%s, emin=%s, emax=%s"/>' % \
+                        (flux,spatialfile,specfile,mc_emin,mc_emax),
+                '    <use_spectrum frame="galaxy"/>',
+                '  </spectrum>',
+                '</source>',
+            ]
         return indent+('\n'+indent).join(xml)
 
     def _make_powerlaw_gaussian(self,es,indent='  '):
