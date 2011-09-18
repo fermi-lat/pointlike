@@ -1,7 +1,7 @@
 """
 Manage sources: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.4 2011/08/31 23:12:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.5 2011/09/05 18:53:09 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 
@@ -28,12 +28,16 @@ class SourceList(list):
             def __init__(self, roi):   self.roi = roi
             def __call__(self, source_index, **kwargs):
                 cm = self.roi.dsm.bgmodels[source_index]
-                return cm.__class__(cm.sa, cm.diffuse_source, self.roi.roi_dir, **kwargs)
+                src = cm.__class__(cm.sa, cm.diffuse_source, self.roi.roi_dir, **kwargs)
+                src.spectral_model = src.smodel
+                return src
         class ExtendedSourceFactory(object):
             def __init__(self, roi):   self.roi = roi
             def __call__(self, source_index, **kwargs):
                 cm = self.roi.dsm.bgmodels[source_index]
-                return cm.__class__(cm.sa, cm.extended_source, self.roi.roi_dir, **kwargs)
+                src = cm.__class__(cm.sa, cm.extended_source, self.roi.roi_dir, **kwargs)
+                src.spectral_model = src.smodel
+                return src
         class PointSourceFactory(object):
             def __init__(self, roi):    self.roi =roi
             def __call__(self, source_index):
