@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Sep 18 08:17:48 PDT 2011
+pointlike/python/uw/utilities
+
+Modified Files:
+	image.py 
+Log Message:
+modify the fill functions to accept python skyfunction -- convert silently to a PySkyFunction
+    *
+------------------------------------------------------------
 User: lande  Fri Sep 16 19:23:51 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
