@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Sep 18 10:43:57 PDT 2011
+pointlike/python/uw/like2/plotting
+
+Added Files:
+	.cvsignore __init__.py sed.py tsmap.py 
+Log Message:
+Implement localization, sed plots, tsmaps
+    *
+------------------------------------------------------------
 User: burnett  Sun Sep 18 10:43:56 PDT 2011
 pointlike/python/uw/like2
 
