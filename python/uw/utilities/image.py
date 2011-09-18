@@ -5,10 +5,10 @@
           
      author: T. Burnett tburnett@u.washington.edu
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.38 2011/06/24 04:36:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/image.py,v 1.39 2011/08/18 16:20:57 burnett Exp $
 
 """
-version = '$Revision: 1.38 $'.split()[1]
+version = '$Revision: 1.39 $'.split()[1]
 
 import pylab
 import types
@@ -314,7 +314,13 @@ class AIT(object):
             
     def fill(self, skyfun):
         """ fill the image with the skyfunction"""
-        self.skyimage.fill(skyfun)
+        if skyfun.__class__.__name__ !='PySkyFunction':
+            def pyskyfun(v):
+                return skyfun(SkyDir(Hep3Vector(v[0],v[1],v[2])))
+            self.skyimage.fill(PySkyFunction(pyskyfun))
+        else:
+            self.skyimage.fill(skyfun)
+
             
     def setup_image(self, earth=False):
         # now extract stuff for the pylab image, creating a masked array to deal with the NaN values
@@ -609,7 +615,12 @@ class ZEA(object):
         """ fill the image from a SkyFunction
             sets self.image with numpy array appropriate for imshow
         """
-        self.skyimage.fill(skyfun)
+        if skyfun.__class__.__name__ !='PySkyFunction':
+            def pyskyfun(v):
+                return skyfun(SkyDir(Hep3Vector(v[0],v[1],v[2])))
+            self.skyimage.fill(PySkyFunction(pyskyfun))
+        else:
+            self.skyimage.fill(skyfun)
         self.image = np.array(self.skyimage.image()).reshape((self.ny, self.nx))
         self.vmin ,self.vmax = self.skyimage.minimum(), self.skyimage.maximum()
         return self.image
@@ -853,8 +864,9 @@ def ZEA_test(ra=90, dec=80, size=5, nticks=8, galactic=False, **kwargs):
     q.ellipse( SkyDir(ra,dec), (1, 0.25, 0))
     for dec in np.arange(-90, 91, 2):
         q.plot_source( '(%d,%d)'%(ra,dec), SkyDir(ra,dec), 'x')
-    def myfun(v): return v[0] # x-component of skydir to make a pattern
-    q.fill(PySkyFunction(myfun))
+    #def myfun(v): return v[0] # x-component of skydir to make a pattern
+    #q.fill(PySkyFunction(myfun))
+    q.fill(lambda sd: sd.ra())
     q.imshow()
     q.colorbar()
     q.axes.figure.show()
