@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Sep 19 15:00:05 PDT 2011
+pointlike/python/uw/like2
+
+Added Files:
+	roi.py 
+Log Message:
+initial: manages creation of roi info
+    *
+------------------------------------------------------------
 User: burnett  Mon Sep 19 14:57:03 PDT 2011
 pointlike/python/uw/like2
 
