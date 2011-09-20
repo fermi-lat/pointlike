@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.2 2011/09/03 20:28:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.3 2011/09/05 18:54:29 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -220,6 +220,7 @@ class BandLike(object):
         """ should only call if free array changes.
             Saves the combined prediction from the models with fixed parameters
         """
+        if sum(self.data)==0: return
         self.free = free
         self.free_sources = self.bandsources[free]
         self.fixed_pixels = np.zeros(self.pixels)
@@ -238,6 +239,7 @@ class BandLike(object):
         fixed : bool
             if True, will not update prediction, for band_ts use
         """
+        if sum(self.data)==0: return
         self.model_pixels[:]=self.fixed_pixels
         self.counts = self.fixed_counts
         for m in self.free_sources:
@@ -248,6 +250,7 @@ class BandLike(object):
 
     def log_like(self):
         """ return the Poisson extended log likelihood """
+        if sum(self.data)==0: return 0
         pix = np.sum( self.data * np.log(self.model_pixels) ) if self.pixels>0 else 0
         return pix - self.counts*self.phase_factor 
 
@@ -258,6 +261,7 @@ class BandLike(object):
     def gradient(self):
         """ gradient of the likelihood with resepect to the free parameters
         """
+        if sum(self.data)==0: return 0
         weights = self.data/self.model_pixels
         return np.concatenate([m.grad(weights, self.phase_factor) for m in self.bandsources])
        
