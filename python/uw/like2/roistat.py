@@ -4,7 +4,7 @@ Manage likelihood calculations for an ROI
 mostly class ROIstat, which computes the likelihood and its derivative from the lists of
 sources (see .sourcelist) and bands (see .bandlike)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.8 2011/09/05 18:58:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.9 2011/09/05 20:28:05 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 
@@ -73,7 +73,7 @@ class ROIstat(object):
     @property
     def energies(self):
         """ array of energies for selected bands (may include front and back for a given energy)"""
-        return np.array(set([band.energy for band in self.selected_bands]))
+        return sorted(list(set([band.energy for band in self.selected_bands])))
         
     def initialize(self, freelist=None):
         """ reinitialize a set of sources, setting up angular distributions
