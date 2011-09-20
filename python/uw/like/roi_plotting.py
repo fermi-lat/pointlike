@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.67 2011/08/27 01:21:22 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.68 2011/09/12 22:18:17 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1306,7 +1306,7 @@ class ROISmoothedSource(object):
             self.psf_pyfits[0].data *= self.max_intensity/N.max(self.psf_pyfits[0].data)
 
             h_psf, d_psf = self.psf_pyfits[0].header, self.psf_pyfits[0].data
-            axins = zoomed_inset_axes(ax, zoom=1, loc=self.psf_loc,
+            self.axins = axins = zoomed_inset_axes(ax, zoom=1, loc=self.psf_loc,
                               axes_class=pywcsgrid2.Axes,
                               axes_kwargs=dict(wcs=h_psf))
 
