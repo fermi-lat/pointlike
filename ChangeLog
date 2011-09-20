@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Tue Sep 20 15:58:13 PDT 2011
+pointlike/python/uw/stacklike
+
+Modified Files:
+	binned.py fitsmooth.py stacklike.py 
+Log Message:
+small fix in stacklike to the PSF smoothing code
+    *
+------------------------------------------------------------
 User: burnett  Tue Sep 20 08:57:06 PDT 2011
 pointlike/python/uw/like2
 
