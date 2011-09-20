@@ -1,24 +1,26 @@
 """
 Set up an ROI (transitional?)
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roi.py,v 1.1 2011/09/19 22:00:05 burnett Exp $
 
 """
 import os
 import numpy as np
 from . import dataset
-from .. pipeline import skymodel, dataspec
+from .. pipeline import skymodel
 from .. utilities import keyword_options
-from .. like import roi_managers, roi_diffuse, roi_extended
+from .. like import  roi_diffuse, roi_extended
 
 
 class ROIfactory(object):
     """
     combine the dataset and skymodel for an ROI
+    
+    N
     """
     defaults =(
         ('analysis_kw', dict(irf='P7SOURCE_V6',minROI=7,maxROI=7, emax=316277),'roi analysis'),
-        ('log',   None, ''),
+        ('skymodel_kw', {}, 'skymodel keywords'),
         ('convolve_kw', dict( resolution=0.125, # applied to OTF convolution: if zero, skip convolution
                         pixelsize=0.05, # ExtendedSourceConvolution
                         num_points=25), 'convolution'),# AnalyticConvolution
@@ -27,13 +29,13 @@ class ROIfactory(object):
         )
 
     @keyword_options.decorate(defaults)
-    def __init__(self, dataname, skymodel, **kwargs):
+    def __init__(self, dataname, indir, **kwargs):
         """ dataname : string
                 used to look up data specification
-            skymodel: object SkyModel object
+            indir: folder containing skymodel definition
         """
         keyword_options.process(self, kwargs)
-        self.skymodel = skymodel
+        self.skymodel = skymodel.SkyModel(indir,  **self.skymodel_kw)
         self.dataset = dataset.DataSet(dataname, **self.analysis_kw)
         self.exposure = self.dataset.exposure #needed by roi_diffuse
         self.psf  = self.dataset.psf
@@ -47,7 +49,7 @@ class ROIfactory(object):
         return s
 
     def _diffuse_sources(self, src_sel):
-        """ return a source manager for the diffuse,  global and extended sources
+        """ return  the diffuse, global and extended sources
         """
         skydir = src_sel.skydir()
         # get all diffuse models appropriate for this ROI
@@ -61,7 +63,7 @@ class ROIfactory(object):
             if res>0:
                 return roi_diffuse.ROIDiffuseModel_OTF(self, source, skydir, pixelsize=res)
             return roi_diffuse.ROIDiffuseModel_PC(self, source, skydir)
-        def diffuse_mapper(source): #pre-convolved if isotrop
+        def diffuse_mapper(source): #use pre-convolved if isotrop
             if source.name.startswith('iso'):
                 return roi_diffuse.ROIDiffuseModel_PC(self, source, skydir)
             return otf_diffuse_mapper(source)
@@ -70,16 +72,13 @@ class ROIfactory(object):
         def extended_mapper( source):
             return roi_extended.ROIExtendedModel.factory(self,source,skydir)
         extended_models = map(extended_mapper, extended)
-        
-        # create and return the manager
-        return roi_managers.ROIDiffuseManager(global_models+extended_models, skydir, quiet=self.quiet)
-        
+        return global_models+extended_models
+
     def _local_sources(self, src_sel):
-        """ return a manager for the local sources with significant overlap with the ROI
+        """ return the local sources with significant overlap with the ROI
         """
         ps = self.skymodel.get_point_sources(src_sel)
-        skydir = src_sel.skydir()
-        return roi_managers.ROIPointSourceManager(ps, skydir,quiet=self.quiet)
+        return np.asarray(ps)
 
     def roi(self, *pars, **kwargs):
         """ return an object based on the selector, with properties for creating full roi analysis
@@ -93,16 +92,11 @@ class ROIfactory(object):
             def __str__(self):
                 return 'ROIdef for %s' %self.name
         skydir = src_sel.skydir()   
-
-        bands=self.dataset(skydir)
-        psm = self._local_sources(src_sel)
-        dsm = self._diffuse_sources(src_sel)
-
         return ROIdef( name=src_sel.name() ,
-                    roi_dir = skydir, 
-                    bands=bands, 
-                    psm=psm, 
-                    dsm=dsm,)
+                    roi_dir=skydir, 
+                    bands=self.dataset(skydir), 
+                    bgmodels=self._diffuse_sources(src_sel),
+                    point_sources=self._local_sources(src_sel))
 
 def main(indir='uw26', dataname='P7_V4_SOURCE_4bpd', skymodel_kw={}):
     sm = skymodel.SkyModel(indir,  **skymodel_kw)
