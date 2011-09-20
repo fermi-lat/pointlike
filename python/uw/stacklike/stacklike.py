@@ -127,6 +127,7 @@ class StackLoader(object):
         self.tev = False
         self.bin=False
         self.useft2s=True
+        self.phasecut=[]
 
         self.__dict__.update(kwargs)
 
@@ -1402,6 +1403,13 @@ class StackLoader(object):
                             tc = tc - len(table)
                             cuts[4] = tc
                             tc = len(table)
+                        #optionally cut on pulse phase for pulsars
+                        if not self.phasecut==[] and len(table)>0:
+                            msk = []
+                            for it in range(len(self.phasecut)/2):
+                                tmsk = table.field('PULSE_PHASE')>self.phasecut[2*it] & table.field('PULSE_PHASE')<self.phasecut[2*it+1]
+                                msk = tmsk if it==0 else msk | tmsk
+                            table = table[msk]
                         #make ROI cuts
                         if len(table)>0:
                             msk = self.dirmask(srcs[0],rad,table)

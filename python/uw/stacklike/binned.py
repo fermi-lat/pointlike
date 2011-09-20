@@ -59,7 +59,7 @@ pulsdir = '/phys/groups/tev/scratch1/users/Fermi/mar0/data/pulsar/'             
 agndir = '/phys/groups/tev/scratch1/users/Fermi/mar0/data/6.3/'                   #directory with agn ft1 data
 srcdir = '/phys/users/mar0/sourcelists/'                                          #directory with lists of source locations (name ra dec)
 cachedir = '/phys/groups/tev/scratch1/users/Fermi/mar0/cache/'
-pulsars = [('vela',1.0),('gem',1.0)]                                                          #pulsar sourcelist name 
+pulsars = [('vela',2,[0.1,0.15,0.5,0.6],[0.7,1.0]),('gem',2,[0.1,0.17,0.6,0.68],[0.25,0.55])]                                       #pulsar sourcelist name 
 agnlist = ['agn-psf-study-bright']
 irf = 'P6_v8_diff'
 rd = 180./np.pi
@@ -166,8 +166,8 @@ class CombinedLike(object):
                 hist = np.load(self.cachedir+'%son%s.npy'%(psr[0],tag))
                 self.pulse_ons.append(hist)
             else:
-                sl = StackLoader(lis=psr[0],irf=self.irf,srcdir=self.srcdir,useft2s=False,ctmin=self.ctmin,ctmax=self.ctmax)
-                sl.files = [self.pulsdir + psr[0]+ 'on-ft1.fits']
+                sl = StackLoader(lis=psr[0],irf=self.irf,srcdir=self.srcdir,useft2s=False,ctmin=self.ctmin,ctmax=self.ctmax,phasecut=psr[2])
+                sl.files = [self.pulsdir + psr[0]+ '-ft1.fits']
                 sl.loadphotons(minroi,maxroi,emin,emax,tmin,tmax,ctype)
                 sl.getds()
                 photons = photons+len(sl.photons)
@@ -183,8 +183,8 @@ class CombinedLike(object):
                 hist = np.load(self.cachedir+'%soff%s.npy'%(psr[0],tag))
                 self.pulse_offs.append(hist)
             else:
-                sl = StackLoader(lis=psr[0],irf=self.irf,srcdir=self.srcdir,useft2s=False,ctmin=self.ctmin,ctmax=self.ctmax)
-                sl.files = [self.pulsdir + psr[0]+ 'off-ft1.fits']
+                sl = StackLoader(lis=psr[0],irf=self.irf,srcdir=self.srcdir,useft2s=False,ctmin=self.ctmin,ctmax=self.ctmax,phasecut=psr[3])
+                sl.files = [self.pulsdir + psr[0]+ '-ft1.fits']
                 sl.loadphotons(minroi,maxroi,emin,emax,tmin,tmax,ctype)
                 photons = photons+len(sl.photons)
                 thetabar = thetabar+sum([p.ct for p in sl.photons])
@@ -1496,7 +1496,7 @@ def runallhalos(model=['CDisk','CHalo']):
     setup_string = 'import uw.stacklike.binned as ub;reload(ub);from uw.stacklike.binned import *'
     emins = [1000,1778,3162,5623,10000,17783,31623]#[100,178,316,562,
     emaxs = [1778,3162,5623,10000,17783,31623,100000]#178,316,562,1000,
-    tasks = ['ub.halo(bins=12,ctype=%d,emin=%d,emax=%d,days=730,irf=\'P6_v3_diff\',maxr=4,sel=\'[0:1]\',agnlis=[\'%s\'],model=\'%s\')'%(0,emins[x],emaxs[x],lis,mod) for x in range(len(emins)) for lis in ['crab'] for mod in model]
+    tasks = ['ub.halo(bins=12,ctype=%d,emin=%d,emax=%d,days=730,irf=\'P6_v3_diff\',maxr=4,sel=\'[0:1]\',agnlis=[\'%s\'],model=\'%s\')'%(0,emins[x],emaxs[x],lis,mod) for x in range(len(emins)) for lis in ['agn_redshift2_lo_bzb\',\'1es0229p200','agn_redshift2_lo_bzb\',\'1es0347-121'] for mod in model]
     print tasks
     engines = len(tasks)/len(machines)
     ua.setup_mec(engines=engines,machines=machines,clobber=True)

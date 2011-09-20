@@ -553,7 +553,10 @@ def makeplots(irfs=['P6_v11_diff'],fact=1.,num=32.,cts=[34,68,95]):
 def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURCE_V4MC',out='P7SOURCE_V11',jg=False):
     import cPickle
     days =730      #number of days of data to use
+    bins = 15      #number of angular bins
     pname = os.environ['CALDB']+r'/data/glast/lat/bcf/psf/psf_%s_'%irf
+    pulsdir = r'/phys/groups/tev/scratch1/users/Fermi/mar0/data/pulsar7/source/'
+    agndir = r'/phys/groups/tev/scratch1/users/Fermi/mar0/data/7.3src/'
     print pname
 
     ######  get reference CALDB details  ###########
@@ -599,7 +602,7 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
 
             #make a new one
             else:
-                cl = ub.CombinedLike(irf=irf,mode=-1,pulsars=psrs,agnlist=agnlis,verbose=False,ctmin=ctmin,ctmax=ctmax)
+                cl = ub.CombinedLike(irf=irf,mode=-1,pulsars=psrs,agnlist=agnlis,verbose=False,ctmin=ctmin,ctmax=ctmax,agndir=agndir,pulsdir=pulsdir)
                 cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype)
                 cl.bindata(bins)
                 cl.fit()
@@ -634,7 +637,7 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
             #cosine theta iteration
             for j in range(len(likel[0])):
                 scb = scale2(a_ebars[i],spars[ct*2],spars[ct*2+1],spars[4])*rd  #calulate scale width at the mean bin energy in degrees
-                dist = (((ti-a_eidx[i])*scl)**2+((tj-a_cidx[j])*scl)**2)        #distance between current position and reference position
+                dist = (((ti-a_eidx[i])*scl)**2+((tj-a_cidx[j])*scl)**2)        #distance between current table position and reference table position
                 fact = np.exp(-dist/2.)                                         #weighting factor for likelihood is just the gaussian
                 tss=lin(pars[0:3],a_eidx[i],a_cidx[j])                          #SCORE linear approx
                 tsg=lin(pars[3:6],a_eidx[i],a_cidx[j])                          #GCORE linear approx
@@ -718,6 +721,8 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
         else:
             stail,gtail,score,gcore,ntail=lines
             ncore= 1-ntail
+        ncore = max(min(1,ncore),1e-4)
+        ntail = max(1./ncore-1.,0)
         ftb.field('SCORE')[0][idx]=score
         ftb.field('STAIL')[0][idx]=stail
         ftb.field('GCORE')[0][idx]=gcore
@@ -747,6 +752,8 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
         else:
             stail,gtail,score,gcore,ntail=lines
             ncore= 1-ntail
+        ncore = max(min(1,ncore),1e-4)
+        ntail = max(1./ncore-1.,0)
         btb.field('SCORE')[0][idx]=score
         btb.field('STAIL')[0][idx]=stail
         btb.field('GCORE')[0][idx]=gcore
