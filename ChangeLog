@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Sep 20 08:54:37 PDT 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	sourcelist.py 
+Log Message:
+change to initialize from object containing bgmodels and point_sources (not ROIAnalysis anymore)
+    *
+------------------------------------------------------------
 User: burnett  Tue Sep 20 08:52:54 PDT 2011
 pointlike/python/uw/like2
 
