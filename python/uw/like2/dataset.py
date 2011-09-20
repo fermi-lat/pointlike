@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header$
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.1 2011/09/19 21:57:03 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.41 $'.split()[1]
+version='$Revision: 1.1 $'.split()[1]
 import types
 import os
 import numpy as np
@@ -15,7 +15,7 @@ from .. pipeline import dataspec
 
 class DataSet(object):
     """ 
-    Manage the data, producing set of ROIbands with __call__
+    Manage the data, producing a set of ROIBand objects with __call__
     """
 
     defaults = (
@@ -61,7 +61,6 @@ class DataSet(object):
                             and/or binned data / livetime cube needed for analysis
                             (see docstring for that class) """
 
-        #self.dataspec = data_specification
         self.dataspec = self._process_dataset(dataset_name)
 
         self.__dict__.update(self.dataspec.__dict__)
@@ -75,6 +74,14 @@ class DataSet(object):
         self.exposure  = pointspec_helpers.ExposureManager(self)
         self.psf = pypsf.CALDBPsf(self.CALDBManager)
     
+    def __str__(self):
+        s = 'Data selection, class %s\n' %self.__class__.__name__
+        show = """CALDB irf minROI maxROI emin emax""".split()
+        for key in show:
+            s += '\t%-20s: %s\n' %(key,
+                self.__dict__[key] if key in self.__dict__.keys() else 'not in self.__dict__!')
+        return s
+
     def _process_dataset(self,dataset,month=None):
         """ Parse the dataset as either a DataSpecification object, a dict, or a string lookup key.
             month: sub spec.
@@ -101,8 +108,9 @@ class DataSet(object):
         # not found: this is deprecated, leave for backwards consisency
         return dataspec.DataSpec(dataset,month=month)
 
-
     def __call__(self, roi_dir, **kwargs):
+        """ return array of ROIBand objects for given direction, radius, emin, emax
+        """
         self.bands = []
         band_kwargs= dict()
         band_kwargs.update(kwargs)
@@ -112,11 +120,16 @@ class DataSet(object):
 
         return np.asarray(self.bands)
 
+    def info(self):
+        self.pixeldata.dmap.info()
+        
 
-def main(dataname='2years_z100', **kwargs):
+def main(dataname='2years_z100', irf='P7SOURCE_V6',**kwargs):
     """ for testing: must define a dataset, and and at least an IRF"""
     from uw.pipeline import dataspec
     ds = dataspec.DataSpec(dataname)
-    analysis_kw = dict(irf='P7SOURCE_V6', minROI=7, maxROI=7)
+    analysis_kw = dict(irf=irf, minROI=7, maxROI=7)
     analysis_kw.update(kwargs)
-    return DataSetup(ds, **analysis_kw)
+    ds = DataSet(ds, **analysis_kw)
+    print ds
+    return ds
