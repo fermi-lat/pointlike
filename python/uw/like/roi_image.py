@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.34 2011/07/13 22:05:49 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.35 2011/08/25 02:04:36 lande Exp $
 
 author: Joshua Lande
 """
@@ -85,6 +85,10 @@ class ROIImage(object):
         # set up, then create a SkyImage object to perform the projection
         # to a grid and manage an image
         if not isinstance(self.size,collections.Iterable):
+
+            # make sure size and pixelsize are commensurate (helpful for
+            # various downsampling code later).
+            self.size = int(self.size/self.pixelsize + 0.01)*self.pixelsize
             self.skyimage = SkyImage(self.center, '', self.pixelsize, 
                                      self.size, 1, self.proj, self.galactic, False)
         else:
