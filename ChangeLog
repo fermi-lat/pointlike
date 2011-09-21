@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: mar0  Wed Sep 21 11:49:25 PDT 2011
+pointlike/python/uw/stacklike
+
+Modified Files:
+	binned.py fitsmooth.py stacklike.py 
+Log Message:
+fixes to stacklike
+    *
+------------------------------------------------------------
 User: mar0  Tue Sep 20 15:58:13 PDT 2011
 pointlike/python/uw/stacklike
 
