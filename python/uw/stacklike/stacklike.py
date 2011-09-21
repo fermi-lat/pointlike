@@ -257,7 +257,7 @@ class StackLoader(object):
             print '**********************************************************'
 
             #go through each fits file, mask unwanted events, and setup tables
-            tcuts = np.array([0,0,0,0,0,0,0,0])
+            tcuts = np.array([0,0,0,0,0,0,0,0,0])
             for ff in self.files:
                 if not self.quiet:
                     print ff
@@ -276,8 +276,9 @@ class StackLoader(object):
             print '%d cut by zenith angle'%tcuts[4]
             print '%d cut by conversion type'%tcuts[5]
             print '%d cut by proximity to sources'%tcuts[6]
+            print '%d cut by phase'%tcuts[7]
             print '---------------------------------------'
-            print '%d photons remain'%tcuts[7]
+            print '%d photons remain'%tcuts[8]
             print '**********************************************************'
 
 
@@ -1364,7 +1365,7 @@ class StackLoader(object):
     #  @param rad ROI in degrees around sources
     #  @param cls conversion type: 0=front,1=back,-1=all
     def mask(self,table,srcs,emin,emax,start,stop,rad,cls):
-        cuts = [0,0,0,0,0,0]
+        cuts = [0,0,0,0,0,0,0]
         total = len(table)
         tc = len(table)
 
@@ -1403,13 +1404,6 @@ class StackLoader(object):
                             tc = tc - len(table)
                             cuts[4] = tc
                             tc = len(table)
-                        #optionally cut on pulse phase for pulsars
-                        if not self.phasecut==[] and len(table)>0:
-                            msk = []
-                            for it in range(len(self.phasecut)/2):
-                                tmsk = table.field('PULSE_PHASE')>self.phasecut[2*it] & table.field('PULSE_PHASE')<self.phasecut[2*it+1]
-                                msk = tmsk if it==0 else msk | tmsk
-                            table = table[msk]
                         #make ROI cuts
                         if len(table)>0:
                             msk = self.dirmask(srcs[0],rad,table)
@@ -1418,11 +1412,23 @@ class StackLoader(object):
                             table = table[msk]
                             tc = tc - len(table)
                             cuts[5] = tc
+                            tc = len(table)
+                        #optionally cut on pulse phase for pulsars
+                        if self.phasecut!=[] and len(table)>0:
+                            msk = []
+                            for it in range(len(self.phasecut)/2):
+                                print self.phasecut[2*it],self.phasecut[2*it+1]
+                                tmsk = (table.field('PULSE_PHASE')>self.phasecut[2*it]) & (table.field('PULSE_PHASE')<self.phasecut[2*it+1])
+                                msk = tmsk if it==0 else msk | tmsk
+                            table = table[msk]
+                            tc = tc - len(table)
+                            cuts[6] = tc
+
         tc = len(table)
         #display number of photons cut from each step and finally the number of photons examined
         if not self.quiet:
-            print 'TOTAL: %d    TIMEC: %d    ENERGY: %d    THETA: %d    ZENITH: %d    ECLASS: %d    POS: %d    EXAM: %d'%(total,cuts[0],cuts[1],cuts[2],cuts[3],cuts[4],cuts[5],tc)
-        return table,np.array([total,cuts[0],cuts[1],cuts[2],cuts[3],cuts[4],cuts[5],tc])
+            print 'TOTAL: %d    TIMEC: %d    ENERGY: %d    THETA: %d    ZENITH: %d    ECLASS: %d    POS: %d    PHASE: %d    EXAM: %d'%(total,cuts[0],cuts[1],cuts[2],cuts[3],cuts[4],cuts[5],cuts[6],tc)
+        return table,np.array([total,cuts[0],cuts[1],cuts[2],cuts[3],cuts[4],cuts[5],cuts[6],tc])
     
 
     ## direction mask - masks area around sources to speed execution

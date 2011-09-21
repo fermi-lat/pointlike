@@ -590,7 +590,7 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
             ebar = np.sqrt(emin*emax)
             maxr = psf.inverse_integral(ebar,ctype,99.5)*1.5                    #Go out to tails of angular distribution for the ROI cut
             agnlis = ['agn-psf-study-bright'] if ebar>1778 else []              #Use AGN information above 1.7 GeV
-            psrs = [('vela',1.0),('gem',1.0)] if ebar<10000 else []             #Use Pulsar information below 10 GeV
+            psrs = ub.pulsars if ebar<10000 else []             #Use Pulsar information below 10 GeV
 
             #set up pickle
             pickles = '/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/likelihoods%d%d%d%d%d.pickle'%(emin,emax,ctmin*10,ctmax*10,ctype)
@@ -602,7 +602,7 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
 
             #make a new one
             else:
-                cl = ub.CombinedLike(irf=irf,mode=-1,pulsars=psrs,agnlist=agnlis,verbose=False,ctmin=ctmin,ctmax=ctmax,agndir=agndir,pulsdir=pulsdir)
+                cl = ub.CombinedLike(irf=irf,mode=-1,pulsars=psrs[0:1],agnlist=agnlis,verbose=False,ctmin=ctmin,ctmax=ctmax,agndir=agndir,pulsdir=pulsdir)
                 cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype)
                 cl.bindata(bins)
                 cl.fit()
@@ -612,6 +612,7 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
                 pfile = open(pickles,'w')
                 cPickle.dump(cl,pfile)
                 pfile.close()
+            cl.makeplot('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/likelihoods%d%d%d%d%d.png'%(emin,emax,ctmin*10,ctmax*10,ctype))
             enlike.append(cp.copy(cl))
         likelihoods.append(enlike)
 
