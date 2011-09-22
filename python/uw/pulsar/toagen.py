@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.6 2011/08/08 18:04:27 parent Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.7 2011/08/08 18:08:51 parent Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -154,6 +154,7 @@ class UnbinnedTOAGenerator(TOAGenerator):
                 for i,(dom,cod,ax) in enumerate(zip([dom1,dom2],[cod1,cod2],[ax1,ax2])):
                     ax.plot(dom,cod)
                     ax.axvline(fit[0][0],color='red')
+                    ax.axvline(self.phi0,color='k',ls='-')
                     ax.axvline(fit[0][0]-tau_err,color='red',ls='--')
                     ax.axvline(fit[0][0]+tau_err,color='red',ls='--')
                     if i==1:

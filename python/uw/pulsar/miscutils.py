@@ -1,5 +1,4 @@
 import numpy as np
-from numpy import cos,sin
 
 EPS = np.radians(23+26./60+21.406/3600) # axial tilt J2000
 SEPS = np.sin(EPS); CEPS = np.cos(EPS)
@@ -41,10 +40,10 @@ def cel2ecl(skydir,inverse=False):
     mat = np.asarray([[1.,0,0],[0,CEPS,sign*SEPS],[0,-1*(sign)*SEPS,CEPS]])
     ra = np.radians(skydir.ra())
     de = np.radians(90-skydir.dec()) # convert from lat to co-lat
-    z_cel = cos(de)
-    sd = sin(de)
-    x_cel = sd*cos(ra)
-    y_cel = sd*sin(ra)
+    z_cel = np.cos(de)
+    sd = np.sin(de)
+    x_cel = sd*np.cos(ra)
+    y_cel = sd*np.sin(ra)
     vec_ecl = np.dot(mat,np.asarray([x_cel,y_cel,z_cel]))
     bet = np.arccos(vec_ecl[2])
     lam = np.arctan2(vec_ecl[1],vec_ecl[0])

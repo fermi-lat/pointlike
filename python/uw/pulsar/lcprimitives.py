@@ -175,7 +175,11 @@ class LCWrappedFunction2(LCWrappedFunction):
         self.lock_widths = False
 
     def fwhm(self):
-        raise ValueError,'Does not make sense!'
+        x0,left_p,right_p = self._equalize()
+        self.prim.p[:] = left_p
+        w_left = self.prim.fwhm()
+        self.prim.p[:] = right_p
+        return (w_left+self.prim.fwhm())/2
         
     def set_parameters(self,p):
         super(LCWrappedFunction2,self).set_parameters(p)

@@ -52,6 +52,10 @@ data = PhaseData(ft1name,poly,use_weights=(options.weights is not None),we_col_n
 if options.addphase: data.write_phase()
 
 template = LCTemplate(template=options.template)
+if options.weights is not None:
+    logl = np.log(1+data.weights*(template(data.ph)-1)).sum()
+else: logl = np.log(template(data.ph)).sum()
+print 'Total log likelihood:  %.2f'%(logl)
 
 tg = UnbinnedTOAGenerator(data,poly,template,plot_stem=options.plot,good_ephemeris=(not options.blind))
 

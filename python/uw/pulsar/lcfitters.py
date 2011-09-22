@@ -9,7 +9,7 @@ a maximum likielihood fit to determine the light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.10 2011/07/19 00:30:23 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.11 2011/07/21 13:43:38 paulr Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -227,6 +227,7 @@ class UnweightedLCFitter(object):
         else: self.template = template
         self.phases   = np.asarray(phases)
         self.times    = np.asarray(times) #times (MET) for phases
+        self.weights = None
 
         self.__hist_setup__()
         self.loglikelihood = self.unbinned_loglikelihood
@@ -322,11 +323,16 @@ class UnweightedLCFitter(object):
 
     def plot(self,nbins=50,fignum=2):
         import pylab as pl
+        weights = self.weights
         dom = np.linspace(0,1,200)
-        cod = self.template(dom,ignore_cache=True)
         pl.figure(fignum)
-        pl.hist(self.phases,bins=np.linspace(0,1,nbins+1),histtype='step',ec='red',normed=True,lw=1)
-        pl.plot(dom,cod,color='blue',lw=1)
+        pl.hist(self.phases,bins=np.linspace(0,1,nbins+1),histtype='step',ec='red',normed=True,lw=1,weights=weights)
+        if weights is not None:
+            bg_level = 1-(weights**2).sum()/weights.sum()
+            pl.axhline(bg_level,color=ec)
+            pl.plot(dom,self.template(dom)*(1-bg_level)+bg_level,color='blue')
+        else:
+            pl.plot(dom,self.template(dom),color='blue',lw=1)
         pl.ylabel('Normalized Profile')
         pl.xlabel('Phase')
         pl.grid(True)
@@ -364,6 +370,7 @@ class WeightedLCFitter(UnweightedLCFitter):
         args[0].set_parameters(p)
         return -np.log(1+self.weights*(self.template(self.phases)-1)).sum()
         #return -np.log(1+self.weights*(self.template(self.phases,suppress_bg=True)-1)).sum()
+
 
 #=======================================================================#
 
