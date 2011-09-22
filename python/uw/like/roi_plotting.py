@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.68 2011/09/12 22:18:17 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.69 2011/09/20 03:14:35 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1298,6 +1298,8 @@ class ROISmoothedSource(object):
             self.title = 'Smoothed Counts for %s' % self.source.name
 
         ax.set_title(self.title)
+
+        ax.tick_params(colors='white') # white ticks look nice
 
         if self.overlay_psf:
 
