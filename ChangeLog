@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Sep 22 14:53:39 PDT 2011
+ScienceTools-scons/pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+surpress_bg in integrate
+    *
+------------------------------------------------------------
 User: kerrm  Thu Sep 22 14:51:32 PDT 2011
 pointlike/python/uw/pulsar
 
