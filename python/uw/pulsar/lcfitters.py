@@ -9,7 +9,7 @@ a maximum likielihood fit to determine the light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.11 2011/07/21 13:43:38 paulr Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/lcfitters.py,v 1.12 2011/09/22 21:51:32 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -107,9 +107,11 @@ class LCTemplate(object):
         self.last_norm = sum( (prim.integrate() for prim in self.primitives) )
         return self.last_norm
 
-    def integrate(self,phi1,phi2):
+    def integrate(self,phi1,phi2, suppress_bg=False):
         norm = self.norm()
         dphi = (phi2-phi1)
+        if suppress_bg: return sum( (prim.integrate(phi1,phi2) for prim in self.primitives) )/norm
+
         return (1-norm)*dphi + sum( (prim.integrate(phi1,phi2) for prim in self.primitives) )
 
     def max(self,resolution=0.01):
