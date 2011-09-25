@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sat Sep 24 19:34:24 PDT 2011
+ScienceTools-scons/pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+New in function UnweightedLCFitter: allow optional axes argument into plot function + make object pickleable
+    *
+------------------------------------------------------------
 User: lande  Thu Sep 22 14:53:39 PDT 2011
 ScienceTools-scons/pointlike/python/uw/pulsar
 
