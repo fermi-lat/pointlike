@@ -9,7 +9,7 @@ a maximum likielihood fit to determine the light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/lcfitters.py,v 1.12 2011/09/22 21:51:32 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/lcfitters.py,v 1.13 2011/09/22 21:53:39 lande Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -323,21 +323,25 @@ class UnweightedLCFitter(object):
     def write_template(self,outputfile='template.gauss'):
         s = self.template.prof_string(outputfile=outputfile)
 
-    def plot(self,nbins=50,fignum=2):
+    def plot(self,nbins=50,fignum=2, axes=None):
         import pylab as pl
         weights = self.weights
         dom = np.linspace(0,1,200)
-        pl.figure(fignum)
-        pl.hist(self.phases,bins=np.linspace(0,1,nbins+1),histtype='step',ec='red',normed=True,lw=1,weights=weights)
+
+        if axes is None:
+            fig = pl.figure(fignum)
+            axes = fig.add_subplot(111)
+
+        axes.hist(self.phases,bins=np.linspace(0,1,nbins+1),histtype='step',ec='red',normed=True,lw=1,weights=weights)
         if weights is not None:
             bg_level = 1-(weights**2).sum()/weights.sum()
-            pl.axhline(bg_level,color=ec)
-            pl.plot(dom,self.template(dom)*(1-bg_level)+bg_level,color='blue')
+            axes.axhline(bg_level,color=ec)
+            axes.plot(dom,self.template(dom)*(1-bg_level)+bg_level,color='blue')
         else:
-            pl.plot(dom,self.template(dom),color='blue',lw=1)
-        pl.ylabel('Normalized Profile')
-        pl.xlabel('Phase')
-        pl.grid(True)
+            axes.plot(dom,self.template(dom),color='blue',lw=1)
+        axes.set_ylabel('Normalized Profile')
+        axes.set_xlabel('Phase')
+        axes.grid(True)
 
     def plot_residuals(self,nbins=50,fignum=3):
         import pylab as pl
@@ -351,6 +355,17 @@ class UnweightedLCFitter(object):
         pl.ylabel('Residuals (Data - Model)')
         pl.xlabel('Phase')
         pl.grid(True)
+
+    def __getstate__(self):
+        """ Cannot pickle self.loglikelihood. 
+            See: http://mail.python.org/pipermail/python-list/2000-October/054610.html """
+        result = self.__dict__.copy()
+        del result['loglikelihood']
+        return result
+
+    def __setstate__(self,state):
+        self.__dict__ = state
+        self.loglikelihood = self.unbinned_loglikelihood
 
 #=======================================================================#
 
