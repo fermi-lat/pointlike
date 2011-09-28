@@ -1,14 +1,13 @@
 """
 Set up an ROI (transitional?)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roi.py,v 1.1 2011/09/19 22:00:05 burnett Exp $
+$Header$
 
 """
 import os
 import numpy as np
-from . import dataset
-from .. pipeline import skymodel
-from .. utilities import keyword_options
+from . import dataset, skymodel
+from .. utilities import keyword_options, convolution
 from .. like import  roi_diffuse, roi_extended
 
 
@@ -16,20 +15,20 @@ class ROIfactory(object):
     """
     combine the dataset and skymodel for an ROI
     
-    N
     """
     defaults =(
         ('analysis_kw', dict(irf='P7SOURCE_V6',minROI=7,maxROI=7, emax=316277),'roi analysis'),
         ('skymodel_kw', {}, 'skymodel keywords'),
         ('convolve_kw', dict( resolution=0.125, # applied to OTF convolution: if zero, skip convolution
-                        pixelsize=0.05, # ExtendedSourceConvolution
-                        num_points=25), 'convolution'),# AnalyticConvolution
+                            pixelsize=0.05, # ExtendedSourceConvolution
+                            num_points=25), # AnalyticConvolution
+                                    'convolution parameters'),
         ('selector', skymodel.HEALPixSourceSelector,' factory of SourceSelector objects'),
         ('quiet', False, 'set to suppress most output'),
         )
 
     @keyword_options.decorate(defaults)
-    def __init__(self, dataname, indir, **kwargs):
+    def __init__(self, indir, dataname, **kwargs):
         """ dataname : string
                 used to look up data specification
             indir: folder containing skymodel definition
@@ -39,7 +38,9 @@ class ROIfactory(object):
         self.dataset = dataset.DataSet(dataname, **self.analysis_kw)
         self.exposure = self.dataset.exposure #needed by roi_diffuse
         self.psf  = self.dataset.psf
-        
+        convolution.AnalyticConvolution.set_points(self.convolve_kw['num_points'])
+        convolution.ExtendedSourceConvolution.set_pixelsize(self.convolve_kw['pixelsize'])
+
     def __str__(self):
         s = '%s configuration:\n'% self.__class__.__name__
         show = """analysis_kw selector""".split()
@@ -81,7 +82,10 @@ class ROIfactory(object):
         return np.asarray(ps)
 
     def roi(self, *pars, **kwargs):
-        """ return an object based on the selector, with properties for creating full roi analysis
+        """ return an object based on the selector, with attributes for creating  roi analysis:
+            list of ROIBand objects
+            list of models: point sources and diffuse
+        pars, kwargs : pass to the selector
         """
         roi_kw = kwargs.pop('roi_kw',None)
         src_sel = self.selector(*pars, **kwargs)
