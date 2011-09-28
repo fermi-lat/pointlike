@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Sep 28 10:39:11 PDT 2011
+pointlike/python/uw/like2/pipeline
+
+Added Files:
+	__init__.py pipe.py processor.py 
+Log Message:
+copy and modify pipeline code from uw.pipeline, to use like2 instead
+    *
+------------------------------------------------------------
 User: burnett  Wed Sep 28 10:37:50 PDT 2011
 pointlike/python/uw/like2/pipeline
 
