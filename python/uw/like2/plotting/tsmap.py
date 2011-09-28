@@ -1,7 +1,7 @@
 """
 Code to plot TS maps
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.1 2011/09/18 17:43:57 burnett Exp $
 
 """
 import math, os
@@ -108,10 +108,23 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
     if not nolegend: tsp.zea.axes.legend(loc=2, numpoints=1, bbox_to_anchor=(-0.15,1.0))
     plt.rcParams['font.size'] = fs
 
-    if outdir is not None: 
-      if os.path.isdir(outdir):
-        plt.savefig(os.path.join(outdir,'%s_tsmap.png'%name.strip()))
-      else :
-        plt.savefig(outdir)
-    return tsp
+    #if outdir is not None: 
+    #  if os.path.isdir(outdir):
+    #    plt.savefig(os.path.join(outdir,'%s_tsmap.png'%name.strip()))
+    #  else :
+    #    plt.savefig(outdir)
+    #return tsp
 
+    if hasattr(localizer,'qform') and localizer.qform is not None:
+        tsp.overplot(localizer.qform)
+    tsp.zea.axes.set_title('%s'% name, fontsize=16)  # big title
+    if outdir is not None:
+        filename = name.replace(' ','_').replace('+','p')
+        fout = os.path.join(outdir, ('%s_tsmap.png'%filename) )
+        plt.savefig(fout)
+        print 'saved tsplot to %s' % fout 
+        if kwargs.get('tsfits', False): 
+            fitsname = os.path.join(outdir, '%s_tsmap.fits' % filename)
+            tsp.zea.skyimage.reimage(tsm.zea.center,fitsname , pixelsize, tsize)
+            print 'saved fits format to %s' % fitsname
+    return tsp
