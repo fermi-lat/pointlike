@@ -1,17 +1,34 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.2 2011/09/05 18:59:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.3 2011/09/18 17:43:56 burnett Exp $
 
 """
 
 import numpy as np
-from . import roistat, tools, plotting
+from . import roistat, tools, printing, roisetup
+from . plotting import sed, tsmap, counts
 from uw.utilities import fitter
 
+# special function to replace or extend a docstring from that of another function
+def decorate_with(other_func, append=False, append_init=False):
+    """ append_init: If decorating with an object (which has an __init__ function),
+                     then append the doc for the __init__ after the doc for the
+                     overall class. """
+    def decorator(func):
+        if append: func.__doc__ += other_func.__doc__ 
+        else:      func.__doc__  = other_func.__doc__ 
 
-class Main(roistat.ROIstat):
-    """ subclass of ROIstat that adds user-interface tools
+        if append_init and hasattr(other_func,'__init__'):
+                func.__doc__ += other_func.__init__.__doc__
+        return func
+    return decorator
+
+
+#
+
+class ROI_user(roistat.ROIstat):
+    """ subclass of ROIstat that adds user-interface tools: fitting, localization, plotting sources, counts
     """
 
     def fit(self, select=None, **kwargs):
@@ -21,7 +38,9 @@ class Main(roistat.ROIstat):
                 if not None, the list is a subset of the paramter numbers to select
                 to define a projected function to fit
         kwargs :
-            passed to the fitter minimizer command. defaults are
+            ignore_exceptions : bool
+                if set, run the fit in a try block and return None
+            others passed to the fitter minimizer command. defaults are
                 estimate_errors = True
                 use_gradient = True
         
@@ -29,18 +48,24 @@ class Main(roistat.ROIstat):
             if select is None, it will set the cov_matrix attributes of the corresponding Model
             objects
         """
+        ignore_exception = kwargs.pop('ignore_exception', False)
         fit_kw = dict(use_gradient=True, estimate_errors=True)
         fit_kw.update(kwargs)
+        self.update()
         initial_value, self.calls = self.log_like(), 0
         fn = self if select is None else fitter.Projector(self, select=select)
-        mm = fitter.Minimizer(fn)
-        mm(**fit_kw)
-        print '%d calls, likelihood improvement: %.1f'\
-            % (self.calls, self.log_like() - initial_value)
-        if fit_kw['estimate_errors'] and select is None:
-            # tricky to do if fitting subset, punt for now
-            self.sources.set_covariance_matrix(mm.cov_matrix)
-        return mm
+        try:
+            mm = fitter.Minimizer(fn)
+            mm(**fit_kw)
+            print '%d calls, likelihood improvement: %.1f'\
+                % (self.calls, self.log_like() - initial_value)
+            if fit_kw['estimate_errors'] and select is None:
+                # tricky to do if fitting subset, punt for now
+                self.sources.set_covariance_matrix(mm.cov_matrix)
+            return mm
+        except Exception:
+            if ignore_exception: return None
+            else: raise
         
     def localize(self, source_name, **kwargs):
         """ localize the source: adding the localization info to the source object
@@ -51,23 +76,34 @@ class Main(roistat.ROIstat):
         if hasattr(source, 'loc') and not update:
             return source.loc
         loc= tools.Localization(self, source_name, **kwargs)
-        loc.localize()
-        source.loc = loc 
+        try: 
+            loc.localize()
+        except Exception, e:
+            print 'Failed localization for source %s: %s' % (source.name, e)
+        source.loc = loc
         return loc
+    
+    def get_sources(self):
+        return [ s for s in self.sources if s.skydir is not None]
+    def get_model(self, name):
+        return self.sources.find_source(name).spectral_model
         
-    def summary(self, out=None):
-        """ summary table of free parameters, values"""
-        print >>out, '%-20s%10s'% tuple('Name value'.split())
+    def summary(self, out=None, title=None):
+        """ summary table of free parameters, values uncertainties if any"""
+        if title is not None:
+            print >>out, title
+        print >>out, '%-20s%10s%10s'% tuple('Name value error(%)'.split())
         prev=''
-        for (name, value) in zip(self.parameter_names, self.parameters):
+        for (name, value, rsig) in zip(self.parameter_names, self.parameters, self.sources.uncertainties):
             sname,pname = name.split('_',1)
             if sname==prev: name = len(sname)*' '+'_'+pname
             prev = sname
-            print >>out, '%-20s%10.4g' %(name,value)
+            print >>out, '%-20s%10.4g%10.1f' %(name,value,rsig*100)
             
-    def TS(self, source_name, quick=True):
+    def TS(self, which, quick=True):
         """ measure the TS for the given source
         """
+        source_name=which
         source = self.sources.find_source(source_name)
         model = source.spectral_model
         norm =model[0]
@@ -93,6 +129,7 @@ class Main(roistat.ROIstat):
         source.sed_rec = tools.SED(sf).rec
         return source.sed_rec
 
+    @decorate_with(tsmap.plot)
     def plot_tsmap(self, source_name, **kwargs):
         """ create a TS map showing the source localization
         """
@@ -101,10 +138,28 @@ class Main(roistat.ROIstat):
         loc= self.localize( source_name)
         tsp = plotting.tsmap.plot(loc, **plot_kw)
         return tsp
-        
+    @decorate_with(sed.Plot, append_init=True)    
     def plot_sed(self, source_name, **kwargs):
         source = self.sources.find_source(source_name)
         self.get_sed(source_name)
         ps = plotting.sed.Plot(source)
         ps(**kwargs)
         return ps
+
+    @decorate_with(counts.stacked_plots)
+    def plot_counts(self, **kwargs):
+        return plotting.counts.stacked_plots(self, **kwargs)
+        
+    @decorate_with(printing.print_summary)
+    def print_summary(self, **kwargs):
+        return printing.print_summary(self, **kwargs)
+        
+class Factory(roisetup.ROIfactory):
+    def __call__(self, *pars, **kwargs):
+        return ROI_user(super(Factory,self).__call__(*pars, **kwargs))
+
+@decorate_with(roisetup.ROIfactory, append_init=True)
+def factory(dataname='P7_V4_SOURCE_4bpd', indir='uw26', 
+        analysis_kw={'minROI': 7, 'maxROI': 7, 'irf': 'P7SOURCE_V6', 'emin':100,},):
+    """ will then return a ROI_user object """
+    return Factory(dataname, indir, analysis_kw=analysis_kw)
