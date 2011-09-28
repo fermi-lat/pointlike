@@ -1,10 +1,10 @@
 """
 Manage sources: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.6 2011/09/18 17:43:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.7 2011/09/20 15:54:37 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
-
+import types
 import numpy as np
 
 class SourceList(list):
@@ -29,14 +29,12 @@ class SourceList(list):
             def __call__(self, source_index, **kwargs):
                 cm = self.roi.bgmodels[source_index]
                 src = cm.__class__(cm.sa, cm.diffuse_source, self.roi.roi_dir, **kwargs)
-                src.spectral_model = src.smodel
                 return src
         class ExtendedSourceFactory(object):
             def __init__(self, roi):   self.roi = roi
             def __call__(self, source_index, **kwargs):
                 cm = self.roi.bgmodels[source_index]
                 src = cm.__class__(cm.sa, cm.extended_source, self.roi.roi_dir, **kwargs)
-                src.spectral_model = src.smodel
                 return src
         class PointSourceFactory(object):
             def __init__(self, roi):    self.roi =roi
@@ -51,16 +49,13 @@ class SourceList(list):
             source.factory = ExtendedSourceFactory(roi) if spatialclassname=='ROIExtendedModel'\
                 else DiffuseSourceFactory(roi)
             source.manager_index = i
-            source.spectral_model = source.smodel
+            source.spectral_model = source.smodel.copy()
             self.append(source)
         for i,source in enumerate(roi.point_sources):
             source.manager_index = i
             source.factory = PointSourceFactory(roi)
             source.spectral_model = source.model
             self.append(source)
-        self.source_names = np.array([s.name for s in self])
-        self.models= np.array([s.model for s in self])
-        self.free  = np.array([np.any(model.free) for model in self.models])
         
         ## temporary kluge to ensure that bands are setup for current use by diffuse
         ## this is needed if the ROI is generated without its setup, which adds these
@@ -70,6 +65,14 @@ class SourceList(list):
             band.bg_counts = np.empty(nm)
             band.bg_pix_counts = np.empty([len(band.wsdl),nm]) if band.has_pixels else 0
 
+    # note that properties are dynamic, in case sources or their models change
+    @property
+    def source_names(self): return np.array([s.name for s in self])
+    @property
+    def models(self): return np.array([s.spectral_model for s in self])
+    @property
+    def free(self): return np.array([np.any(model.free) for model in self.models])
+    
     def __str__(self):
         return 'SourceList, with %d sources, %d free parameters' %(len(self), sum(self.free))
         
@@ -79,7 +82,7 @@ class SourceList(list):
             return self[names.index(source_name)]
         except:
             raise Exception('source %s not found' %source_name)
-
+    
     @property
     def parameter_names(self):
         """ array of free parameter names """
@@ -98,17 +101,17 @@ class SourceList(list):
         """ set the (fitter rep) parameters"""
         current_position=0
         for m in self.models:
-            cp,np = current_position, current_position+ sum(m.free)
-            m.set_parameters(parameters[cp:np])
-            current_position += np-cp
+            cp,nn = current_position, current_position+ sum(m.free)
+            m.set_parameters(parameters[cp:nn])
+            current_position += nn-cp
 
     def set_covariance_matrix(self,cov_matrix,):
         """ take over-all covariance matrix from a fit, give block-diagonal pieces to model objects"""
         current_position=0
         for m in self.models:
-            cp,np = current_position,current_position+len(m.get_parameters())
-            m.set_cov_matrix(cov_matrix[cp:np,cp:np])
-            current_position += np-cp
+            cp,nn = current_position,current_position+len(m.get_parameters())
+            m.set_cov_matrix(cov_matrix[cp:nn,cp:nn])
+            current_position += nn-cp
 
     def get_model_parameters(self):
         return 10**self.get_parameters()
@@ -118,3 +121,13 @@ class SourceList(list):
     parameters = property(get_model_parameters, set_model_parameters,
                 doc='array of free model parameters')
 
+    @property
+    def uncertainties(self):
+        """ return relative uncertainties 
+            just scale the log10 uncertaintes
+        """
+        variances = np.concatenate([m.cov_matrix.diagonal()[m.free] for m in self.models])
+        variances[variances<0] = 0
+        return np.sqrt(variances) /np.log10(np.e)
+
+ 
