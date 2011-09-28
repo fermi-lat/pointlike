@@ -1,14 +1,17 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.3 2011/09/05 18:56:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.4 2011/09/18 17:43:56 burnett Exp $
 
 """
+import os
 import numpy as np
 from scipy import optimize, integrate
 from skymaps import SkyDir
 from uw.like import Models, quadform
 from uw.utilities import makerec, keyword_options
+from . plotting import tsmap, sed
+
 
 
 def ufunc_decorator(f): # this adapts a bound function
@@ -49,7 +52,7 @@ class SourceFlux(object):
         self.source.spectral_model = self.saved_model
         self.source.spectral_model[0] = self.saved_flux
         self.rs.select_bands()
-        
+
     @ufunc_decorator # make this behave like a ufunc
     def __call__(self, eflux):
         """ eflux : double
@@ -66,7 +69,7 @@ class SourceFlux(object):
                 an index into the list of energies; if None, select all bands
                 and use the current spectral model, otherwise a powerlaw to 
                 represent an model-independent flux over the band.
-            class : None or integer
+            event_class : None or integer
                 if None, select both front and back, otherwise 0/1 for front/back
         Sets self.factor as conversion factor from flux to eflux in eV    
         """
@@ -112,13 +115,14 @@ class SED(object):
         self.loglikes = []
         for i,energy in enumerate(sf.energies):
             sf.select_band(i, event_class)
-            w = LogLikelihood(sf)
             xlo,xhi = sf.emin,sf.emax
-            bc  = energy
-            hw  = (xhi-xlo)/2.
-            #if eb.merged: hw /= eb.num
-            
-            lf,uf = w.errors()
+            try:
+                w = LogLikelihood(sf)
+                lf,uf = w.errors()
+            except Exception, e:
+                print 'Failed likelihood analysis for source %s energy %.0f: %s' %(sf.source.name, energy, e)
+                rec.append(xlo, xhi, np.nan, np.nan, np.nan, 0)
+                continue
             if lf>0 :
                 rec.append(xlo, xhi, w.maxl, lf, uf, w.TS())
             else:
@@ -145,7 +149,8 @@ class Localization(object):
         ('update',False,"Update the source position after localization"),
         ('max_iteration',10,"Number of iterations"),
         #('bandfits',True,"Default use bandfits"),
-        ('maxdist',1,"fail if try to move further than this")
+        ('maxdist',1,"fail if try to move further than this"),
+        ('quiet', False, 'set to suppress output'),
     )
 
     @keyword_options.decorate(defaults)
@@ -153,10 +158,12 @@ class Localization(object):
         """ roistat : an ROIstat object
             source_name : string
                 the name of a source
+        * Warning: sets the roistat to evaluate only likelihood changes for the given source 
+        * run its initialize() function after
+          *
         """
         keyword_options.process(self, kwargs)
         self.rs = roistat
-        self.quiet = kwargs.get('quiet', self.rs.quiet)
         self.source_mask = np.array([source.name==source_name for source in roistat.sources])
         if sum(self.source_mask)!=1:
             raise Exception('Localization: source %s not found'%source_name)
@@ -177,7 +184,10 @@ class Localization(object):
         """ return the TS at given position, or 
             2x the log(likelihood ratio) from the nominal position
         """
-        return 2*(self.log_like(skydir)-self.maxlike)
+        #print 'TS at ', skydir, ':',
+        val= 2*(self.log_like(skydir)-self.maxlike)
+        #print val
+        return val
 
     def get_parameters(self):
         return np.array([self.source.skydir.ra(), self.source.skydir.dec()])
@@ -265,7 +275,9 @@ class Localization(object):
         delt = np.degrees(l.dir.difference(self.skydir))
         if self.update:
             self.source.skydir = l.dir
-        return l.dir, i, delt, 2*(ll0-ll1)
+        self.delta_ts = 2*(ll0-ll1)
+        self.delt = delt
+        self.niter = i
 
         
 class LogLikelihood(object):
@@ -346,13 +358,10 @@ class LogLikelihood(object):
         try:
             yl= optimize.brentq( g, 0,         self.maxl,    xtol=xtol)
         except: pass
-        try:
-            assert g(self.maxl)*g(self.maxflux)<0, \
-                'bad: peak, max %.2e, %.2e,\n values: %.2e,%.2e' % \
-                (self.maxl,self.maxflux, self.logL(self.maxl),self.logL(self.maxflux))
-            yu= optimize.brentq( g, self.maxl, self.maxflux, xtol=xtol)
-        except: 
-            raise
+        assert g(self.maxl)*g(self.maxflux)<0, \
+            'bad: peak, max %.2e, %.2e, values: %.2e,%.2e' % \
+            (self.maxl,self.maxflux, self.logL(self.maxl),self.logL(self.maxflux))
+        yu= optimize.brentq( g, self.maxl, self.maxflux, xtol=xtol)
         return (yl,yu) 
             
     def integral(self, x):
@@ -402,3 +411,58 @@ class LogLikelihood(object):
         #print t
         return t
         
+
+    
+def makesed_all(roi, **kwargs):
+    """ add sed information to each free local source
+    """
+    sedfig_dir = kwargs.pop('sedfig_dir', None)
+    sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
+    for source in sources:
+        try:
+            sf = SourceFlux(roi, source.name, )
+            source.sedrec = SED(sf, merge=False).rec
+            if sedfig_dir is not None:
+                fig=sed.Plot(source, gev_scale=True, energy_flux_unit='eV')\
+                    (source.model, source.name, galmap=source.skydir, outdir=sedfig_dir)
+        except Exception,e:
+            print 'source %s failed flux measurement: %s' % (source.name, e)
+            raise
+            source.sedrec=None
+    roi.initialize() #restore state
+    roi.update()
+
+def localize_all(roi, **kwargs):
+    """ localize all variable local sources in the roi, make TSmaps if requested
+    """
+    sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
+    tsmap_dir = kwargs.pop('tsmap_dir', None)
+    tsfits = kwargs.pop('tsfits', False)
+    
+    
+    for source in sources:
+        loc =roi.localize(source.name, quiet=True, update=True, **kwargs)
+        source.ellipse = loc.qform.par[0:2]+loc.qform.par[3:7] +[loc.delta_ts] if hasattr(loc,'qform') else None
+        if not roi.quiet: 
+            print 'Localizating %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
+                (source.name, loc.niter, loc.delt, loc.delta_ts)
+            labels = 'ra dec a b ang qual'.split()
+            print (len(labels)*'%10s') % tuple(labels)
+            p = loc.qform.par[0:2]+loc.qform.par[3:7]
+            print len(p)*'%10.4f' % tuple(p)
+        if tsmap_dir is not None:
+            loc = source.loc
+            tsize = loc.ellipse['a']*15. if hasattr(loc,'ellipse') and loc.ellipse is not None else 1.1
+            pixelsize= tsize/15.;
+            tsm=tsmap.plot(loc, source.name, center=source.skydir, 
+                outdir=tsmap_dir, catsig=0, size=tsize, 
+                pixelsize= pixelsize, # was 14: desire to have central pixel
+                # todo: fix this
+                assoc=source.__dict__.get('adict', None), # either None or a dictionary
+                notitle=True, #don't do title
+                markersize=10,
+                primary_markersize=12,
+                )
+
+    roi.initialize() # this needed to restore state of the ROIstat
+    roi.update()
