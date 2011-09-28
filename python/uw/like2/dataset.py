@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.1 2011/09/19 21:57:03 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.2 2011/09/20 15:52:54 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.1 $'.split()[1]
+version='$Revision: 1.2 $'.split()[1]
 import types
 import os
 import numpy as np
@@ -116,6 +116,7 @@ class DataSet(object):
         band_kwargs.update(kwargs)
         for band in self.pixeldata.dmap:
             if (band.emin() + 1) >= self.emin and (band.emax() - 1) < self.emax:
+                # note: pass self to ctor for minROI, maxROI, exposure, psf.band_psf
                 self.bands.append(roi_bands.ROIBand(band, self, roi_dir, **band_kwargs))
 
         return np.asarray(self.bands)
