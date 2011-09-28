@@ -5,10 +5,12 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.1 2011/09/18 17:43:57 burnett Exp $
 """
+import os, types
 import numpy as np
 import pylab as plt
+from uw.utilities import image
 
      
 class Plot(object):
@@ -16,17 +18,16 @@ class Plot(object):
     
     """
     def __init__(self, source, energy_flux_unit='eV', gev_scale=True):
-        """ source: a source
+        """ source
         
         """
         self.name = source.name
         self.model = source.spectral_model
-        self.rec = source.sed_rec
+        self.rec = source.sedrec
         assert energy_flux_unit in ('erg', 'MeV', 'GeV', 'eV') , 'unrecognized energy flux unit'
         self.energy_flux_unit= energy_flux_unit
         self.scale_factor = dict(erg=1.602e-12, MeV=1e-6, eV=1., GeV=1e-9)[energy_flux_unit]
         self.gev_scale=gev_scale
-
 
     def plot_data(self, axes, **kwargs):
         if 'color' not in kwargs:
@@ -94,6 +95,7 @@ class Plot(object):
                 fit_kwargs =dict(lw=2,        color='r',),
                 butterfly = True,
                 outdir = None,
+                galmap=None,
                 ):
         """Plot the SED
         ========     ===================================================
@@ -108,6 +110,7 @@ class Plot(object):
         fit_kwargs   a dict to pass to the fit part of the display
         butterfly    [True] plot model with a butterfly outline
         outdir       [None] if set, save sed into <outdir>/<source_name>_sed.png if outdir is a directory, save into filename=<outdir> if not.
+        galmap       [None] if set to a SkyDir, create a little galactic map showing this position
         ========     ===================================================
         
         """
@@ -149,9 +152,15 @@ class Plot(object):
         else:
             axes.set_xlabel(r'$\mathsf{Energy\ (MeV)}$')
         plt.title(name)
+        # add a galactic map if requested
+        if galmap is not None:
+            image.galactic_map(galmap, color='lightblue', marker='s', markercolor='r')
+
         if outdir is not None: 
             if os.path.isdir(outdir):
                 fname = name.replace(' ','_').replace('+','p')
-                plt.savefig(os.path.join(outdir,'%s_sed.png'%fname))
+                outf = os.path.join(outdir,'%s_sed.png'%fname)
+                plt.savefig(outf)
+                print 'saved sedfig to %s' %outf
             else :
                 plt.savefig(outdir)
