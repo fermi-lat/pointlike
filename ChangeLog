@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Sep 28 09:07:49 PDT 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py 
+Log Message:
+reorganize access to spectral model to avoid multiple static references
+    *
+------------------------------------------------------------
 User: wallacee  Tue Sep 27 12:54:39 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
