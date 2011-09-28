@@ -4,10 +4,10 @@ Manage likelihood calculations for an ROI
 mostly class ROIstat, which computes the likelihood and its derivative from the lists of
 sources (see .sourcelist) and bands (see .bandlike)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.9 2011/09/05 20:28:05 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.10 2011/09/20 15:55:14 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
-
+import sys
 import numpy as np
 from . import bandlike
 from . import sourcelist
@@ -27,29 +27,29 @@ class ROIstat(object):
     Notes:
         * This is not intended to be a replacement for ROIAnalysis: complete user-level
           functionality will be the function of a client 
-        * the constructor takes, for now, an existing ROIAnalysis object, 
-          from which it extracts the sources and bands.
+        * the constructor takes an object containing a list of ROIBand objects and models, 
         * computation of the likelihood and its derivative, the basic task for 
           this class, is easily limited to a subset of the original set of bands,
           see select_bands
         * localization and extended source fits are handled by clients of this class
           by specifying a single source to be variable with the freelist parameter for
           initialize and setting reset=True in the update method 
-        
     """
     
     def __init__(self, roi, bandsel=lambda b: True, quiet=False):
         """
-        roi : ROIanalysis object
+        roi : ROIsetup object
             use to setup sources, find bands
         bandsel : function object returns bool
             returns True for a selected band
         """
         self.name = roi.name
+        self.roi_dir = roi.roi_dir
         self.sources = sourcelist.SourceList(roi) 
         self.all_bands = bandlike.factory(filter(bandsel, roi.bands), self.sources)
         self.selected_bands = self.all_bands # the possible subset to analyze
         self.calls=0
+        self.call_limit=1000
         self.quiet=quiet
     
     def __str__(self):
@@ -71,6 +71,8 @@ class ROIstat(object):
         self.sources.set_parameters(np.log10(par))
     parameters = property(get_external, set_external, doc='array of free parameters')
     @property
+    def uncertainties(self): return self.sources.uncertainties
+    @property
     def energies(self):
         """ array of energies for selected bands (may include front and back for a given energy)"""
         return sorted(list(set([band.energy for band in self.selected_bands])))
@@ -81,7 +83,11 @@ class ROIstat(object):
             if None, use list of sources with at least one free spectral parameter
         """
         if freelist is None: freelist = self.sources.free
-        map(lambda s: s.initialize(freelist), self.all_bands )
+        for i,band in enumerate(self.all_bands):
+            #if not self.quiet: 
+            #    status_string = '...initializing band %2d/%2d'%(i+1,len(self.all_bands))
+            #    print status_string;sys.stdout.flush()
+            band.initialize(freelist)
 
     def select_bands(self, bandsel=lambda b: True, indices=None):
         """ select a subset of the bands for analysis
@@ -114,6 +120,8 @@ class ROIstat(object):
         self.set_parameters(par)
         self.update()
         self.calls +=1
+        if self.calls>self.call_limit:
+            raise RuntimeError('function call limit, %d exceeded' %self.calls)
         return -self.log_like()
 
     def gradient(self, parameters=None):
@@ -124,8 +132,10 @@ class ROIstat(object):
             self.set_parameters(parameters)
         self.update()
         t = np.array([blike.gradient() for blike in self.selected_bands]).sum(axis=0)
+        par = self.get_parameters()
+        assert len(t)==len(par), 'inconsistent number of free parameters'
         # this is required by the convention in all of the Models classes to use log10 for external
-        jacobian= 10**self.get_parameters()/np.log10(np.e)
+        jacobian= 10**par/np.log10(np.e)
         return t*jacobian
         
     def chisq(self):
