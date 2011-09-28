@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Sep 28 09:56:26 PDT 2011
+pointlike/python/uw/like2
+
+Added Files:
+	catrec.py skymodel.py sources.py 
+Log Message:
+module copied, minor mods, from old pipeline
+    *
+------------------------------------------------------------
 User: burnett  Wed Sep 28 09:54:02 PDT 2011
 pointlike/python/uw/like2/plotting
 
