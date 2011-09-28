@@ -11,10 +11,11 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.3 2011/09/05 18:54:29 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.4 2011/09/20 15:52:01 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
+import sys
 import numpy as np
 
 class BandSource(object):
@@ -24,7 +25,7 @@ class BandSource(object):
 
     def __str__(self):
         return '%s for source %s (%s), band (%.0f-%.0f, %s)' \
-            % (self.__class__.__name__, self.source.name, self.source.spectral_model.name, self.band.emin, self.band.emax, 
+            % (self.__class__.__name__, self.source.name, self.spectral_model.name, self.band.emin, self.band.emax, 
                 ('front back'.split()[self.band.b.event_class()]),)
 
     def dump(self, out=None):
@@ -36,6 +37,9 @@ class BandSource(object):
         pc = self.pix_counts
         print >>out, ('\tpixel counts: min, max, sum: '+3*'%8.1f') % ( pc.min(), pc.max(), pc.sum())
         print >>out, '\ttotal counts %8.1f'%  self.counts 
+
+    @property 
+    def spectral_model(self):  return self.source.spectral_model
 
     # maybe useful: not done yet
     #def norm(self):
@@ -79,7 +83,9 @@ class BandDiffuse(BandSource):
         self.band = band
         self.initialize()
         self.update()
-    
+    @property 
+    def spectral_model(self):  return self.source.diffuse_source.spectral_model
+
     def initialize(self):
         """ establishs a state from
             which the model counts can be calculated.  E.g., evaluating
@@ -87,6 +93,7 @@ class BandDiffuse(BandSource):
             results for a later Simpson's rule.
         """
         self.source.quiet = True
+        self.source.smodel=self.spectral_model
         self.source.initialize_counts([self.band])
         
     def update(self, fixed=False):
@@ -97,14 +104,19 @@ class BandDiffuse(BandSource):
             actually use the ROIDiffuseModel object to modify the band, then we 
             copy them here. 
         """
+        self.source.smodel = self.spectral_model
         self.source.update_counts([self.band], self.source_index)
-        self.pix_counts = self.band.bg_pix_counts[:,self.source_index]
-        self.counts = self.band.bg_counts[self.source_index]
+        if self.band.has_pixels:
+            self.pix_counts = self.band.bg_pix_counts[:,self.source_index]
+            self.counts = self.band.bg_counts[self.source_index]
+        else:
+            self.pix_counts = []
+            self.counts=0
         
     def grad(self, weights, phase_factor=1):
         """ contribution to the gradient
         """
-        model = self.source.smodel # beware that this kind of source has a 'smodel'
+        model = self.spectral_model 
         nfree =np.sum(model.free)
         if nfree==0: return []
         if (nfree==1) and model.free[0]:
@@ -114,6 +126,7 @@ class BandDiffuse(BandSource):
             g = [(apterm - pixterm)/model.getp(0)]
         else:
             # this is only rarely needed and not carefully tested
+            self.source.smodel = self.spectral_model
             self.band.pix_weights = weights
             self.band.phase_factor = phase_factor
             g = self.source.gradient([self.band], self.source_index)
@@ -132,13 +145,24 @@ class BandExtended(BandDiffuse):
         #was: self.source.initialize_counts([self.band]) 
         super(BandExtended, self).initialize()
         myband = self.source.bands[0]
-        self.exposure_ratio, self.overlap = myband.er, myband.overlaps # for info for now
+        self.exposure_ratio, self.overlap = myband.er, myband.overlaps 
+        self.pixel_values = myband.es_pix_counts
+
+    @property
+    def spectral_model(self): return self.source.extended_source.spectral_model
+ 
+    def update(self, fixed=False):
+        """ use current spectral model to update counts, pix_counts """
+        b = self.band
+        expected = b.exposure_integral(self.spectral_model) * self.exposure_ratio
+        self.pix_counts = self.pixel_values * expected
+        self.counts = expected*self.overlap
 
     def grad(self, weights, phase_factor=1):
         """ contribution to the gradient
         """
         #  should be exactly the same code as for BandPoint -- try when have a variable extended source
-        model = self.source.smodel # beware that this kind of source has a 'smodel'
+        model = self.spectral_model 
         if np.sum(model.free)==0 : return []
         self.band.pix_weights = weights
         self.band.phase_factor = phase_factor
@@ -168,27 +192,27 @@ class BandPoint(BandSource):
         self.overlap = band.psf_overlap(self.source.skydir)  
         
         #unnormalized PSF evaluated at each pixel
-        self.psf_pixel_values = band.pixels_from_psf(self.source.skydir)
+        self.pixel_values = band.pixels_from_psf(self.source.skydir)
 
     def update(self, fixed=False):
         """ model parameters changed: integrate model over energy range, update 
             pixel counts and total counts in ROI
         """
         b = self.band
-        expected = b.exposure_integral(self.source.spectral_model) * self.exposure_ratio
-        self.pix_counts = self.psf_pixel_values * expected
+        expected = b.exposure_integral(self.spectral_model) * self.exposure_ratio
+        self.pix_counts = self.pixel_values * expected
         self.counts = expected*self.overlap
 
     def grad(self, weights, phase_factor=1): 
         """ contribution to the overall gradient
         """
         b = self.band
-        model = self.source.spectral_model
+        model = self.spectral_model
         if np.sum(model.free)==0 : return []
         # Calculate the gradient of a spectral model (wrt its parameters) integrated over the exposure.
         g = b.exposure_integral(model.gradient, axis=1)[model.free] * self.exposure_ratio
         apterm = phase_factor* self.overlap
-        pixterm = (weights*self.psf_pixel_values).sum() if b.has_pixels else 0
+        pixterm = (weights*self.pixel_values).sum() if b.has_pixels else 0
         return g * (apterm - pixterm)
    
 class BandLike(object):
@@ -205,7 +229,7 @@ class BandLike(object):
         self.band = band # for reference: not used after this 
         self.energy = band.e # also for convenience: center of band
         self.phase_factor = band.phase_factor #this should be global
-        self.data = band.pix_counts  # data from the band
+        self.data = band.pix_counts  if band.has_pixels else []# data from the band
         self.pixels=len(self.data)
         self.initialize(free)
         self.update()
@@ -215,12 +239,13 @@ class BandLike(object):
         return 'BandLike: %d models (%d free) applied to band %.0f-%.0f, %s with %d pixels, %d photons'\
                 % (len(self.bandsources), sum(self.free), b.emin, b.emax, 
                  ('front back'.split()[b.b.event_class()]), self.pixels, sum(self.data))
+                 
+    def __getitem__(self, i): return self.bandsources[i]
         
     def initialize(self, free):
         """ should only call if free array changes.
             Saves the combined prediction from the models with fixed parameters
         """
-        if sum(self.data)==0: return
         self.free = free
         self.free_sources = self.bandsources[free]
         self.fixed_pixels = np.zeros(self.pixels)
@@ -237,9 +262,8 @@ class BandLike(object):
         reset: bool
             if True, need to reinitialize variable source(s), for change of position or shape
         fixed : bool
-            if True, will not update prediction, for band_ts use
+            if True, will not update prediction, for band_ts use (not implemented??)
         """
-        if sum(self.data)==0: return
         self.model_pixels[:]=self.fixed_pixels
         self.counts = self.fixed_counts
         for m in self.free_sources:
@@ -250,7 +274,6 @@ class BandLike(object):
 
     def log_like(self):
         """ return the Poisson extended log likelihood """
-        if sum(self.data)==0: return 0
         pix = np.sum( self.data * np.log(self.model_pixels) ) if self.pixels>0 else 0
         return pix - self.counts*self.phase_factor 
 
@@ -261,7 +284,6 @@ class BandLike(object):
     def gradient(self):
         """ gradient of the likelihood with resepect to the free parameters
         """
-        if sum(self.data)==0: return 0
         weights = self.data/self.model_pixels
         return np.concatenate([m.grad(weights, self.phase_factor) for m in self.bandsources])
        
@@ -269,7 +291,7 @@ class BandLike(object):
         map(lambda bm: bm.dump(**kwargs), self.bandsources)
     
   
-def factory(bands, sources):
+def factory(bands, sources, quiet=False):
     """ return an array, one per band, of BandLike objects 
         bands : list of ROIBand objects
         sources : sourcelist.SourceList object
@@ -282,10 +304,19 @@ def factory(bands, sources):
                 DiffuseSourceFactory=BandDiffuse,
                 ExtendedSourceFactory=BandExtended)[factory_name]
         return B(band, source)
-        
-    return np.array(
-        [ BandLike(band, 
+    bandlist = []
+    for i,band in enumerate(bands):
+        if not quiet: 
+            status_string = '...initializing band %2d/%2d'%(i+1,len(bands))
+            print status_string,;sys.stdout.flush()
+
+        bandlist.append(BandLike(band, 
                     np.array( [bandsource_factory(band, source) for source in sources]),
                     sources.free)
-            for band in bands])
+                    )
+        if not quiet: 
+            print '\b'*(2+len(status_string)),;sys.stdout.flush()
+
+    if not quiet: print
+    return np.array(bandlist)
          
