@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Sep 28 09:57:33 PDT 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	tools.py 
+Log Message:
+mainly add wrappers to make seds and tsmaps
+    *
+------------------------------------------------------------
 User: burnett  Wed Sep 28 09:56:26 PDT 2011
 pointlike/python/uw/like2
 
