@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.109 2011/08/25 00:09:43 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.110 2011/09/12 22:18:03 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -752,7 +752,7 @@ class ROIAnalysis(object):
         return i
 
     @decorate_with(roi_plotting.ROITSMapPlotter,append_init=True)
-    def plot_tsmap(self,filename,**kwargs):
+    def plot_tsmap(self,filename=None,**kwargs):
         i=roi_plotting.ROITSMapPlotter(self,**kwargs)
         i.show(filename=filename)
         return i
