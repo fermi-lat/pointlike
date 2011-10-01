@@ -1,13 +1,13 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.3 2011/09/18 17:43:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.4 2011/09/28 17:35:52 burnett Exp $
 
 """
 
 import numpy as np
 from . import roistat, tools, printing, roisetup
-from . plotting import sed, tsmap, counts
+from . import plotting 
 from uw.utilities import fitter
 
 # special function to replace or extend a docstring from that of another function
@@ -35,11 +35,13 @@ class ROI_user(roistat.ROIstat):
         """ Perform fit, return fitter object to examine errors, or refit
         parameters:
             select : list type of int or None
-                if not None, the list is a subset of the paramter numbers to select
+                if not None, the list is a subset of the parameter numbers to select
                 to define a projected function to fit
         kwargs :
             ignore_exceptions : bool
                 if set, run the fit in a try block and return None
+            call_limit : int
+                if set, modify default limit on number of calls
             others passed to the fitter minimizer command. defaults are
                 estimate_errors = True
                 use_gradient = True
@@ -49,6 +51,7 @@ class ROI_user(roistat.ROIstat):
             objects
         """
         ignore_exception = kwargs.pop('ignore_exception', False)
+        self.call_limit = kwargs.pop('call_limit', self.call_limit)
         fit_kw = dict(use_gradient=True, estimate_errors=True)
         fit_kw.update(kwargs)
         self.update()
@@ -129,7 +132,7 @@ class ROI_user(roistat.ROIstat):
         source.sed_rec = tools.SED(sf).rec
         return source.sed_rec
 
-    @decorate_with(tsmap.plot)
+    @decorate_with(plotting.tsmap.plot)
     def plot_tsmap(self, source_name, **kwargs):
         """ create a TS map showing the source localization
         """
@@ -138,7 +141,7 @@ class ROI_user(roistat.ROIstat):
         loc= self.localize( source_name)
         tsp = plotting.tsmap.plot(loc, **plot_kw)
         return tsp
-    @decorate_with(sed.Plot, append_init=True)    
+    @decorate_with(plotting.sed.Plot, append_init=True)    
     def plot_sed(self, source_name, **kwargs):
         source = self.sources.find_source(source_name)
         self.get_sed(source_name)
@@ -146,7 +149,7 @@ class ROI_user(roistat.ROIstat):
         ps(**kwargs)
         return ps
 
-    @decorate_with(counts.stacked_plots)
+    @decorate_with(plotting.counts.stacked_plots)
     def plot_counts(self, **kwargs):
         return plotting.counts.stacked_plots(self, **kwargs)
         

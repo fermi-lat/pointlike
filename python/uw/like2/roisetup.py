@@ -1,7 +1,7 @@
 """
 Set up an ROI (transitional?)
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.1 2011/09/28 16:52:27 burnett Exp $
 
 """
 import os
@@ -73,7 +73,7 @@ class ROIfactory(object):
         def extended_mapper( source):
             return roi_extended.ROIExtendedModel.factory(self,source,skydir)
         extended_models = map(extended_mapper, extended)
-        return global_models+extended_models
+        return global_models, extended_models
 
     def _local_sources(self, src_sel):
         """ return the local sources with significant overlap with the ROI
@@ -95,11 +95,13 @@ class ROIfactory(object):
                 self.__dict__.update(kwargs)
             def __str__(self):
                 return 'ROIdef for %s' %self.name
-        skydir = src_sel.skydir()   
+        skydir = src_sel.skydir()  
+        global_sources, extended_sources = self._diffuse_sources(src_sel)
         return ROIdef( name=src_sel.name() ,
                     roi_dir=skydir, 
                     bands=self.dataset(skydir), 
-                    bgmodels=self._diffuse_sources(src_sel),
+                    global_sources=global_sources,
+                    extended_sources = extended_sources,
                     point_sources=self._local_sources(src_sel))
 
 def main(indir='uw26', dataname='P7_V4_SOURCE_4bpd', skymodel_kw={}):

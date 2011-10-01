@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.4 2011/09/20 15:52:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.5 2011/09/28 16:07:49 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -84,7 +84,7 @@ class BandDiffuse(BandSource):
         self.initialize()
         self.update()
     @property 
-    def spectral_model(self):  return self.source.diffuse_source.spectral_model
+    def spectral_model(self):  return self.source.spectral_model
 
     def initialize(self):
         """ establishs a state from
@@ -149,7 +149,7 @@ class BandExtended(BandDiffuse):
         self.pixel_values = myband.es_pix_counts
 
     @property
-    def spectral_model(self): return self.source.extended_source.spectral_model
+    def spectral_model(self): return self.source.spectral_model
  
     def update(self, fixed=False):
         """ use current spectral model to update counts, pix_counts """
@@ -289,8 +289,8 @@ class BandLike(object):
        
     def dump(self, **kwargs):
         map(lambda bm: bm.dump(**kwargs), self.bandsources)
-    
-  
+
+ 
 def factory(bands, sources, quiet=False):
     """ return an array, one per band, of BandLike objects 
         bands : list of ROIBand objects

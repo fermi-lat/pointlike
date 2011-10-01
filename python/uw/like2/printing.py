@@ -1,6 +1,6 @@
 """
 Implementation of various roi printing
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/printing.py,v 1.1 2011/09/28 17:37:12 burnett Exp $
 """
 import os, math
 import numpy as np
@@ -68,7 +68,7 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
     print 90*'-','\n\tDiffuse sources\n',90*'-'
     for source in self.sources:
         if  source.skydir is not None: continue
-        par, sigpar = source.smodel.statistical()
+        par, sigpar = source.spectral_model.statistical()
         n= len(par)
         freeflag = map(makefreeflag, source.smodel.free, sigpar)
         fmt ='%-22s' 
