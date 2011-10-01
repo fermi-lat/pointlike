@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Oct  1 06:35:07 PDT 2011
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+reorganize setup of extended sources
+    *
+------------------------------------------------------------
 User: burnett  Sat Oct  1 06:35:06 PDT 2011
 pointlike/python/uw/like2
 
