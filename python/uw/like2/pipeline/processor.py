@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/processor.py,v 1.17 2011/07/22 13:50:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.1 2011/09/28 17:39:11 burnett Exp $
 """
 import os, time
 import cPickle as pickle
@@ -10,7 +10,7 @@ from skymaps import SkyDir, Hep3Vector
 from uw.like import srcid  
 from uw.utilities import image
 from ..plotting import sed, counts 
-#from .. import tools
+from .. import tools
 
 def isextended(source):
     return source.__dict__.get(  'spatial_model', None) is not None
@@ -20,7 +20,9 @@ def fix_beta(roi, bts_min=30, qual_min=15,):
     refit=candidate=False
     print 'checking for beta fit...'
     models_to_fit=[]
-    for which, model in enumerate(roi.psm.models):
+    for source in roi.sources:
+        model = source.spectral_model
+        which = source.name
         if not np.any(model.free): break
         if model.name!='LogParabola': continue
         if model.free[2]: continue  # already free 
@@ -54,7 +56,7 @@ def fix_beta(roi, bts_min=30, qual_min=15,):
         if refit:
             print 'need to re-refit: beta too large'
             roi.fit()
-            roi.summary(title='re-refit after freeing one or more beta parameters')
+            roi.print_summary(title='re-refit after freeing one or more beta parameters')
     else:
         print 'none found'
     return refit    
@@ -116,10 +118,10 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwarg
     output['sources']= sources
     for s in fit_sources:
         try:
-            pivot_energy = s.model.pivot_energy()
+            pivot_energy = s.spectral_model.pivot_energy()
         except: # if not fit
             pivot_energy = None 
-        if pivot_energy is None: pivot_energy=s.model.e0 # could be a pulsar?
+        if pivot_energy is None: pivot_energy=s.spectral_model.e0 # could be a pulsar?
         
         if 'sedrec' not in s.__dict__ or s.sedrec is None:
             print 'warning: no sedrec in %s' %s.name
@@ -127,7 +129,7 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwarg
         sedrec = s.sedrec
         #band_info = source_band_info(roi, s.name)
         sources[s.name]=dict(skydir=s.skydir, 
-            model=s.model,
+            model=s.spectral_model,
             extent = s.__dict__.get('spatial_model', None),
             ts = roi.TS(s.name),
             sedrec = sedrec,
@@ -266,17 +268,21 @@ def process(roi, **kwargs):
     if outdir is not None: counts_dir = os.path.join(outdir,counts_dir)
     if not os.path.exists(counts_dir):os.makedirs(counts_dir)
     
-    roi.summary(title='before fit, logL=%0.f'%roi.log_like())#sdir=roi.roi_dir)#, )
-    #fit_sources = [s for s in roi.psm.point_sources if np.any(s.model.free)]\
-    #            + [s for s in roi.dsm.diffuse_sources if isextended(s) and np.any(s.model.free)]
+    roi.print_summary(title='before fit, logL=%0.f'%roi.log_like())#sdir=roi.roi_dir)#, )
+    #fit_sources = [s for s in roi.psm.point_sources if np.any(s.spectral_model.free)]\
+    #            + [s for s in roi.dsm.diffuse_sources if isextended(s) and np.any(s.spectral_model.free)]
     fit_sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
     if len(roi.get_parameters())==0:
         print '===================== nothing to fit========================'
     else:
         if dofit:
+            if np.any(roi.prior.gradient()!=0):
+                print 'adjusting parameters beyond limit'
+                print roi.prior.check()
+                roi.prior.limit_pars(True) # adjust parameters to limits
             try:
-                roi.fit(ignore_exception=False, use_gradient=False)
-                roi.summary(title='after global fit, logL=%0.f'% roi.log_like())#print_summary(sdir=roi.roi_dir,)
+                roi.fit(ignore_exception=False, use_gradient=True)
+                roi.print_summary(title='after global fit, logL=%0.f'% roi.log_like())#print_summary(sdir=roi.roi_dir,)
 
                 if repivot_flag:
                     repivot(roi, fit_sources)
@@ -285,7 +291,7 @@ def process(roi, **kwargs):
                     if not fix_beta(roi):
                         print 'fixbeta requested, but no refit needed, quitting'
                 if damp():
-                    roi.summary(title='after damping with factor=%.2f, logL=%0.f'%(dampen,roi.log_like()))#print_summary(sdir=roi.roi_dir, )
+                    roi.print_summary(title='after damping with factor=%.2f, logL=%0.f'%(dampen,roi.log_like()))#print_summary(sdir=roi.roi_dir, )
                 else:
                     print 'No damping requested, or no difference in log Likelihood'
             except Exception, msg:
@@ -358,7 +364,7 @@ def residual_processor(roi, **kwargs):
             energy, event_class = band.e, band.b.event_class()
             s = roistat.ROIstat(roi, lambda b: b.e==energy and b.b.event_class()==event_class)
             bm = s.all_bands[0]
-            resids = (bm.data-bm.model)/np.sqrt(bm.model)
+            resids = (bm.data-bm.spectral_model)/np.sqrt(bm.spectral_model)
             self.skyfun = bandplot.BandSkyFunction(band, resids)
         def __call__(self,v):
             skydir = SkyDir(Hep3Vector(v[0],v[1],v[2]))

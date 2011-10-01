@@ -1,7 +1,7 @@
 """
 Manage sources: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.7 2011/09/20 15:54:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.8 2011/09/28 16:59:12 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
@@ -27,14 +27,18 @@ class SourceList(list):
             """
             def __init__(self, roi):   self.roi = roi
             def __call__(self, source_index, **kwargs):
-                cm = self.roi.bgmodels[source_index]
+                cm = self.roi.global_sources[source_index]
                 src = cm.__class__(cm.sa, cm.diffuse_source, self.roi.roi_dir, **kwargs)
+                src.spectral_model = cm.spectral_model
+                src.skydir = None
                 return src
         class ExtendedSourceFactory(object):
             def __init__(self, roi):   self.roi = roi
             def __call__(self, source_index, **kwargs):
-                cm = self.roi.bgmodels[source_index]
+                cm = self.roi.extended_sources[source_index]
                 src = cm.__class__(cm.sa, cm.extended_source, self.roi.roi_dir, **kwargs)
+                src.spectral_model = cm.spectral_model
+                src.skydir = cm.extended_source.skydir
                 return src
         class PointSourceFactory(object):
             def __init__(self, roi):    self.roi =roi
@@ -43,13 +47,17 @@ class SourceList(list):
                 
         # note that sources are added in the order diffuse, point to agree with ROIAnalysis
         # also, add two attributes to each source object and define 'spectral_model'
-        for i, bgmodel in enumerate(roi.bgmodels):
-            spatialclassname = bgmodel.__class__.__name__
-            source = bgmodel.diffuse_source
-            source.factory = ExtendedSourceFactory(roi) if spatialclassname=='ROIExtendedModel'\
-                else DiffuseSourceFactory(roi)
+        for i, source in enumerate(roi.global_sources):
             source.manager_index = i
+            source.factory = DiffuseSourceFactory(roi)
             source.spectral_model = source.smodel.copy()
+            source.skydir=None
+            self.append(source)
+        for i, source in enumerate(roi.extended_sources):
+            source.manager_index = i#+len(roi.global_sources)
+            source.factory = ExtendedSourceFactory(roi)
+            source.spectral_model = source.smodel.copy()
+            source.skydir = source.extended_source.skydir
             self.append(source)
         for i,source in enumerate(roi.point_sources):
             source.manager_index = i
@@ -60,7 +68,7 @@ class SourceList(list):
         ## temporary kluge to ensure that bands are setup for current use by diffuse
         ## this is needed if the ROI is generated without its setup, which adds these
         ## attributes to the bands
-        nm  = len(roi.bgmodels)
+        nm  = len(roi.global_sources)+len(roi.extended_sources)
         for band in roi.bands:
             band.bg_counts = np.empty(nm)
             band.bg_pix_counts = np.empty([len(band.wsdl),nm]) if band.has_pixels else 0
