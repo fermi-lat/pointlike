@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Oct  2 16:37:22 PDT 2011
+ScienceTools-scons/pointlike/python/uw/pulsar
+
+Added Files:
+	lc_off_peak.py phase_range.py 
+Log Message:
+Josh adding two new files related to finding the off pulse
+    *
+------------------------------------------------------------
 User: burnett  Sat Oct  1 06:35:07 PDT 2011
 pointlike/python/uw/like2/pipeline
 
