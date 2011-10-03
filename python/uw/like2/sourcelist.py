@@ -1,12 +1,20 @@
 """
 Manage sources: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.8 2011/09/28 16:59:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.9 2011/10/01 13:35:06 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
 import numpy as np
 
+def set_extended_property(esource):
+    """ kluge until proper design for sources
+        create property 'spectral_model' with get, set methods do the original smodel of an extended source
+    """
+    def getter(source): return source.extended_source.smodel
+    def setter(source, newmodel): source.extended_source.smodel = newmodel
+    esource.__class__.spectral_model = property(getter, setter,doc='spectral model')
+    
 class SourceList(list):
     """ manage properties of the list of sources
         
@@ -37,7 +45,6 @@ class SourceList(list):
             def __call__(self, source_index, **kwargs):
                 cm = self.roi.extended_sources[source_index]
                 src = cm.__class__(cm.sa, cm.extended_source, self.roi.roi_dir, **kwargs)
-                src.spectral_model = cm.spectral_model
                 src.skydir = cm.extended_source.skydir
                 return src
         class PointSourceFactory(object):
@@ -56,8 +63,10 @@ class SourceList(list):
         for i, source in enumerate(roi.extended_sources):
             source.manager_index = i#+len(roi.global_sources)
             source.factory = ExtendedSourceFactory(roi)
-            source.spectral_model = source.smodel.copy()
+            # kluge: make a getter property for the spectral model
+            set_extended_property(source)
             source.skydir = source.extended_source.skydir
+            source.spatial_model = source.extended_source.spatial_model
             self.append(source)
         for i,source in enumerate(roi.point_sources):
             source.manager_index = i
