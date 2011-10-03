@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Oct  2 21:39:35 PDT 2011
+ScienceTools-scons/pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_off_peak.py 
+Log Message:
+improve second off pulse calculation
+    *
+------------------------------------------------------------
 User: lande  Sun Oct  2 21:39:22 PDT 2011
 ScienceTools-scons/pointlike/python/uw/pulsar
 
