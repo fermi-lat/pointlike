@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.4 2011/09/18 17:43:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.5 2011/09/28 16:57:33 burnett Exp $
 
 """
 import os
@@ -415,16 +415,26 @@ class LogLikelihood(object):
     
 def makesed_all(roi, **kwargs):
     """ add sed information to each free local source
+    
+    kwargs:
+        sedfig_dir : string or None
+            if string, a folder name in which to put the figures
+    other kwargs passed to sed.Plot().__call__
     """
     sedfig_dir = kwargs.pop('sedfig_dir', None)
+    showts = kwargs.pop('showts', False)
     sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
     for source in sources:
         try:
             sf = SourceFlux(roi, source.name, )
             source.sedrec = SED(sf, merge=False).rec
+            source.ts = roi.TS(source.name)
             if sedfig_dir is not None:
-                fig=sed.Plot(source, gev_scale=True, energy_flux_unit='eV')\
-                    (source.model, source.name, galmap=source.skydir, outdir=sedfig_dir)
+                annotation =(0.05,0.9, 'TS=%.0f'% source.ts) if showts else None 
+                sed.Plot(source, gev_scale=True, energy_flux_unit='eV')\
+                    ( galmap=source.skydir, outdir=sedfig_dir, 
+                        annotate=annotation, **kwargs)
+                    
         except Exception,e:
             print 'source %s failed flux measurement: %s' % (source.name, e)
             raise
