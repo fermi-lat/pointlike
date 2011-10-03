@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.1 2011/09/28 17:39:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.2 2011/10/01 13:35:07 burnett Exp $
 """
 import os, time
 import cPickle as pickle
@@ -61,16 +61,6 @@ def fix_beta(roi, bts_min=30, qual_min=15,):
         print 'none found'
     return refit    
         
-def source_band_info(roi, which):
-    """ return dictionary of the band ts values and photons, diffuse  
-        which:  source name
-    """
-    bands = roi.energy_bands
-    return dict(
-        ts =      np.asarray([band.bandFit(i) for band in bands],np.float32),
-        fit_ts =  roi.fit_ts_list(which),
-        signal_counts= roi.signal_counts(which),
-        )
 
 def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwargs):
     """ dump the source information from an ROI constructed from the sources here
@@ -97,11 +87,13 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwarg
     else:
         output = dict()
         output['passes']=[pass_number]
-    global_sources =  [s for s in roi.sources if s.skydir is None]
+    diffuse_sources =  [s for s in roi.sources if s.skydir is None]\
+                        +[s for s in roi.sources if isextended(s)]
     output['name'] = name
     output['skydir']  = roi.roi_dir
-    output['diffuse'] = [s.spectral_model for s in global_sources] #roi.dsm.models
-    output['diffuse_names'] = [s.name for s in global_sources]  #roi.dsm.names
+    # add extended sources to diffuse for backwards compatibilty: extended alos in the sources dict.
+    output['diffuse'] = [s.spectral_model for s in diffuse_sources] #roi.dsm.models
+    output['diffuse_names'] = [s.name for s in diffuse_sources]  #roi.dsm.names
     output['logl'] = roi.logl if not failed else 0
     output['parameters'] = roi.get_parameters() 
     output['time'] = time.asctime()
@@ -127,17 +119,17 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwarg
             print 'warning: no sedrec in %s' %s.name
             s.sedrec = None
         sedrec = s.sedrec
-        #band_info = source_band_info(roi, s.name)
-        sources[s.name]=dict(skydir=s.skydir, 
+        sources[s.name]=dict(
+            skydir=s.skydir, 
             model=s.spectral_model,
-            extent = s.__dict__.get('spatial_model', None),
+            isextended=isextended(s),
+            #extent = s.__dict__.get('spatial_model', None),
             ts = roi.TS(s.name),
             sedrec = sedrec,
-            #band_info = band_info, 
             band_ts=0 if sedrec is None else sedrec.ts.sum(),
             pivot_energy = pivot_energy,
             ellipse= None if sedrec is None or not hasattr(s.loc,'ellipse') else s.loc.ellipse,
-            associations = s.adict if 'adict' in s.__dict__ else None,
+            associations = s.__dict__.get('adict',None)
             )
     output.update(kwargs) # add additional entries from kwargs
     f = open(filename,'wb') #perhaps overwrite
@@ -280,8 +272,9 @@ def process(roi, **kwargs):
                 print 'adjusting parameters beyond limit'
                 print roi.prior.check()
                 roi.prior.limit_pars(True) # adjust parameters to limits
+                roi.prior.enabled=False
             try:
-                roi.fit(ignore_exception=False, use_gradient=True)
+                roi.fit(ignore_exception=False, use_gradient=True, call_limit=1000)
                 roi.print_summary(title='after global fit, logL=%0.f'% roi.log_like())#print_summary(sdir=roi.roi_dir,)
 
                 if repivot_flag:
