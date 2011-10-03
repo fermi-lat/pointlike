@@ -4,7 +4,7 @@ Manage likelihood calculations for an ROI
 mostly class ROIstat, which computes the likelihood and its derivative from the lists of
 sources (see .sourcelist) and bands (see .bandlike)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.11 2011/09/28 17:00:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.12 2011/10/01 13:35:06 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import sys
@@ -186,6 +186,7 @@ class ModelPrior(object):
         self.models = np.array([s.spectral_model for s in sources])
         self.initialize(free)
         self.update()
+        self.enabled=True
 
     def initialize(self, free):
         self.free = free if free is not None else self.sources.free
@@ -195,13 +196,13 @@ class ModelPrior(object):
         for model in self.free_models:
             for pname in np.array(model.param_names)[model.free]:
                 if pname=='Index':
-                   prior = LimitPrior(np.log10(1e-3), np.log10(3.0), 1e2)
+                   prior = LimitPrior(np.log10(1e-3), np.log10(3.0), 10.)
                 elif pname=='Norm':
                     if model.name =='PowerLaw': #for ring
-                        prior = LimitPrior(np.log10(1e-3), np.log10(2.0), 1e4)
-                    else: prior = LimitPrior(-16, -10, 1e4)
+                        prior = LimitPrior(np.log10(0.5), np.log10(1.5), 10.)
+                    else: prior = LimitPrior(-16, -8, 1e4)
                 elif pname=='Scale': # used by iso
-                   prior = LimitPrior(np.log10(1e-4), np.log10(1.5), 1e4)
+                   prior = LimitPrior(np.log10(1e-4), np.log10(1.5), 10.)
                 else:
                     prior = NoPrior()
                 self.priors.append(prior)
@@ -217,8 +218,9 @@ class ModelPrior(object):
             self.sources.set_parameters(self.pars)
         
     def log_like(self):
+        if not self.enabled: return 0
         t = np.sum(prior(x) for prior,x in zip(self.priors, self.pars))
-        if False: #t>10.0: 
+        if False: # t>10.0: 
             n = np.arange(len(self.pars))[np.abs(self.gradient())>0]
             print 'likelihood penalty: %.1f %s' % (t,n)
         return -t
@@ -230,4 +232,5 @@ class ModelPrior(object):
         return np.vstack([names[sel], self.pars[sel], deltas[sel]])
         
     def gradient(self):
-        return -np.array([prior.grad(x) for prior,x in zip(self.priors, self.pars)])
+        if not self.enabled: return np.zeros(len(self.pars))
+        return np.array([prior.grad(x) for prior,x in zip(self.priors, self.pars)])
