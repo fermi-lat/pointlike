@@ -6,13 +6,14 @@ See the docstring for usage information.
 
 This object has SymPy as a dependency.
 
-$Header: $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.1 2011/10/02 23:37:22 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
 """
 import sympy
 import numbers
+from operator import isNumberType
 
 class PhaseRange(object):
     """ This Object represents a (possibly non-contiguous) range  in pulsar 
@@ -83,7 +84,7 @@ class PhaseRange(object):
         The phase_fraction can be easily calulated:
 
             >>> print PhaseRange(1.5, 0.25).phase_fraction
-            0.750000000000000
+            0.75
 
 
         The 'in' operator has been simply defined:
@@ -133,11 +134,33 @@ class PhaseRange(object):
             >>> print PhaseRange().tolist()
             []
 
+        To get out a more verbose list of phases, which does not
+        have assumed automatic wraping and is always a list of lists:
+
+            >>> print PhaseRange(0.5, 0.25).tolist(dense=False)
+            [[0.0, 0.25], [0.5, 1.0]]
+            >>> print PhaseRange(0.25, 0.75).tolist(dense=False)
+            [[0.25, 0.75]]
+
         Note, tolist() can be used to convert from and back to this object:
 
             >>> p=PhaseRange(0.5, 0.2)
             >>> PhaseRange(p.tolist()) == p
             True
+
+        There is also the intersect and overlaps function: 
+
+            >>> print PhaseRange(.25,.75).intersect(PhaseRange(0.5,1)) 
+            [0.5, 0.75]
+
+            >>> print PhaseRange(.25,.5).intersect(PhaseRange(0.5,.75)) 
+            {0.5}
+
+            >>> PhaseRange(.25,.75).overlaps(PhaseRange(0.5,1)) 
+            True
+            >>> PhaseRange(.25,.5).overlaps(PhaseRange(0.5,.75)) 
+            False
+
     """
 
     # All input phases must be between 0 and 2
@@ -174,7 +197,7 @@ class PhaseRange(object):
     @property
     def phase_fraction(self):
         """ Fraction of pulsar phase that the range occupies. """
-        return self.range.measure
+        return float(self.range.measure)
 
     def __str__(self):
         return self.range.__str__()
@@ -207,8 +230,15 @@ class PhaseRange(object):
         else:
             raise Exception("Unrecognized type %s" % type(obj))
 
-    def tolist(self):
-        return PhaseRange._tolist(self.range)
+    def tolist(self,dense=True):
+        r = self.range
+        if dense:
+            return PhaseRange._tolist(r)
+        else:
+            if isinstance(r,sympy.Interval):
+                return [PhaseRange._tolist(r)]
+            else:
+                return [PhaseRange._tolist(i) for i in r.args]
 
     def __eq__(self, other):
         if isinstance(other,PhaseRange):
@@ -217,8 +247,8 @@ class PhaseRange(object):
             return self.range == other
 
     def __contains__(self, other):
-        if isinstance(other, numbers.Real):
-            return self.range.contains(other)
+        if isNumberType(other):
+            return self.range.contains(float(other))
         elif isinstance(other, sympy.Set):
             return self.range.intersect(other) == other
         elif isinstance(other, PhaseRange):
@@ -232,6 +262,17 @@ class PhaseRange(object):
         new.range += other.range
         return new
 
+    def intersect(self, other):
+        if isinstance(other, PhaseRange):
+            new = PhaseRange()
+            new.range = self.range.intersect(other.range)
+            return new
+        else:
+            raise Exception("Unknown type %s" % type(other))
+
+    def overlaps(self, other):
+        """ True if the two regions have overlaping range. """
+        return self.intersect(other).phase_fraction > 0
 
 if __name__ == "__main__":
     import doctest
