@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Oct  3 15:02:47 PDT 2011
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+required by like2 interface change
+    *
+------------------------------------------------------------
 User: burnett  Mon Oct  3 15:01:47 PDT 2011
 pointlike/python/uw/like2/plotting
 
