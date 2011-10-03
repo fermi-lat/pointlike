@@ -53,16 +53,16 @@ def SetHistoBox(histo,xmin,xmax,color=18):
     xmin_histo = int(histo.GetXaxis().GetBinLowEdge(1))
     xmax_histo = int(histo.GetXaxis().GetBinUpEdge(histo.GetNbinsX()))   
     ymin, ymax = histo.GetMinimum(), histo.GetMaximum()
-    listbox = []
+    boxes = []
     for i in range(xmax_histo-xmin_histo):
         if xmin<xmax:
             box = TBox(xmin+i,ymin,xmax+i,ymax); box.SetFillColor(color)
-            listbox += [box]
+            boxes += [box]
         else:
             box1 = TBox(xmin+i,ymin,1+i,ymax); box1.SetFillColor(color)
-            box2 = TBox(0+i,ymin,xmax+i,ymax); box2.SetFillColor(color)
-            listbox += [box1,box2]
-    return listbox
+            box2 = TBox(-1e-3+i,ymin,xmax+i,ymax); box2.SetFillColor(color)
+            boxes += [box1,box2]
+    return boxes
 
 def SetHistoLine(histo,ymin,ymax,color=1):
     xmin = int(histo.GetXaxis().GetBinLowEdge(1))
@@ -442,7 +442,7 @@ class PulsarLightCurve:
                 bg_level += [0]
                 
         if which is None: return bg_level
-        else: return bg_level[which]
+        else: return [bg_level[which]]
 
     def add_weight_column(self,colname='WEIGHT',new_filename=None):
         '''Add a column with the weight information in your FT1 file'''
@@ -586,7 +586,7 @@ class PulsarLightCurve:
         return phase,counts
 
     def plot_lightcurve( self, nbands=1, xdim=550, ydim=200, background=None, zero_sup=False,
-                         inset=False, profile=None, reg=None, color='black', outfile=None,
+                         inset=None, profile=None, reg=None, color='black', outfile=None,
                          xtitle='Pulse Phase', ytitle='Counts/bin', substitute=True):
         
         '''ROOT function to plot gamma-ray phaseograms + (radio,x-ray)
@@ -599,7 +599,7 @@ class PulsarLightCurve:
         substitute    substitute g-ray profile for r/x profile   [True]
         backgroung    add a background level                     [None]
         zero_sup      active the zero-suppress on the top panel  [false]
-        inset         add an inset on the top panel              [false]
+        inset         add an inset on the xth panel              [None]
         reg           highlight a phase region                   [None]  
         color         color profile                              [black]
         xtitle        Title for x-axis                           [Pulse Phase]
@@ -670,56 +670,46 @@ class PulsarLightCurve:
             if zero_sup: root.zero_suppress(phaseogram[which])
 
             # draw histogram
-            phaseogram[which].Draw("HIST E");
+            phaseogram[which].Draw("HIST E")
 
-            # comments
+            # overlap highlighted region
+            if reg is not None and which == 0:
+                if np.isscalar(reg[0]):
+                    boxes = SetHistoBox(phaseogram[which],reg[0],reg[1])
+                    [box.Draw() for box in boxes]
+                else:
+                    boxes = []
+                    for r in reg:
+                        boxes += [SetHistoBox(phaseogram[which],r[0],r[1])]
+                        for box in boxes: [b.Draw() for b in box]
+
+                phaseogram[which].Draw("HIST E SAME")
+                gPad.RedrawAxis()   #  force a redraw of the axis
+                
+            # comment + psrname
             if erange[which][1] > 3e4: ecomment = "> " + str(erange[which][0]/1e3) + " GeV"
             else: ecomment = str(erange[which][0]/1e3) + " - " + str(erange[which][1]/1e3) + " GeV"
             ylevel = root.get_txtlevel(phaseogram[which],0.91)
             text.DrawText(0.1,ylevel,ecomment)
+            if which==0: text.DrawText(self.binmax-0.5,ylevel,self.psrname)
             
-            # background level and inset
-            if which == 0:
-                if reg is not None:
-                    listbox = SetHistoBox(phaseogram[which],reg[0],reg[1])
-                    for box in listbox: box.Draw()
-                    phaseogram[which].Draw("Hist E same")
-                        
-                if inset:
-                    phaseogram[-1].SetFillColor(14)
-                    phaseogram[-1].Draw("same")
-                    if zero_sup:
-                        root.zero_suppress(phaseogram[-1])
-                        phaseogram[which].SetMinimum(phaseogram[-1].GetMinimum())
-                    text.SetTextColor(14)
-                    ecomment = "> " + str(erange[-1][0]/1e3) + " GeV"
-                    ylevel = root.get_txtlevel(phaseogram[which],0.86)
-                    text.DrawText(0.1,ylevel,ecomment); text.SetTextColor(1)
-
-                # text
-                text.DrawText(0.1,ylevel,ecomment)
-                text.DrawText(self.binmax-0.5,ylevel,self.psrname)
+            if inset == which:   
+                phaseogram[-1].SetFillColor(14)
+                phaseogram[-1].Draw("same")
+                if zero_sup:
+                    root.zero_suppress(phaseogram[-1])
+                    phaseogram[inset].SetMinimum(phaseogram[-1].GetMinimum())
+                text.SetTextColor(14)
+                ecomment = "> " + str(erange[-1][0]/1e3) + " GeV"
+                ylevel = root.get_txtlevel(phaseogram[which],0.84)
+                text.DrawText(0.1,ylevel,ecomment); text.SetTextColor(1)
                 
-                #  force a redraw of the axis
-                gPad.RedrawAxis()
-                
-            # draw background level
+            # draw a background level
             if background is not None:
-                if isinstance(background[0],float):
-                    bkglevel += [SetHistoLine(phaseogram[which],background[which],background[which])]
-                    bkglevel[which].Draw()
-            '''
-                elif isinstance(background[0],list):
-                    list_bkglevel = []
-                    sublist = []
-                    for i, bkg in enumerate(background):
-                        #print bkg
-                        sublist += [SetHistoLine(phaseogram[which],bkg[which],bkg[which],color=(i+1))]
-                    list_bkglevel += [sublist]
-                    print list_bkglevel
-                    for b in list_bkglevel: b.Draw()
-                        #bkglevel[which].Draw()
-            '''
+                for j, bkg in enumerate(background):
+                    if j == which:
+                        bkglevel += [SetHistoLine(phaseogram[j],bkg,bkg)]
+                        bkglevel[j].Draw()
             
         # ============== TEMPLATES ============== #
         if profile is not None:
