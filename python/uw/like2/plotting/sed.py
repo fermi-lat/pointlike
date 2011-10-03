@@ -5,7 +5,7 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.1 2011/09/18 17:43:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.2 2011/09/28 16:54:01 burnett Exp $
 """
 import os, types
 import numpy as np
@@ -96,6 +96,7 @@ class Plot(object):
                 butterfly = True,
                 outdir = None,
                 galmap=None,
+                annotate=None,
                 ):
         """Plot the SED
         ========     ===================================================
@@ -111,6 +112,7 @@ class Plot(object):
         butterfly    [True] plot model with a butterfly outline
         outdir       [None] if set, save sed into <outdir>/<source_name>_sed.png if outdir is a directory, save into filename=<outdir> if not.
         galmap       [None] if set to a SkyDir, create a little galactic map showing this position
+        annotate     [None] if set, a tuple of (x, y, text), in axes coords
         ========     ===================================================
         
         """
@@ -156,6 +158,8 @@ class Plot(object):
         if galmap is not None:
             image.galactic_map(galmap, color='lightblue', marker='s', markercolor='r')
 
+        if annotate is not None:
+            axes.text(annotate[0],annotate[1], annotate[2],transform=axes.transAxes)
         if outdir is not None: 
             if os.path.isdir(outdir):
                 fname = name.replace(' ','_').replace('+','p')
