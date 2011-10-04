@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Oct  4 15:03:04 PDT 2011
+ScienceTools-scons/pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+bugfix for plotting color
+    *
+------------------------------------------------------------
 User: lande  Tue Oct  4 15:02:41 PDT 2011
 ScienceTools-scons/pointlike/python/uw/utilities
 
