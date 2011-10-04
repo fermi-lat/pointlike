@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/sources.py,v 1.13 2011/06/24 04:54:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.1 2011/09/28 16:56:26 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -99,8 +99,8 @@ class DiffuseDict(dict):
         """ diffuse: a list, where each entry is a file name or a tuple of one or two file names, for front and back
         """
         assert len(diffuse)<4, 'expect 2 or 3 diffuse names, or front/back tuples'
-        # convert each single entry to a tuple: assume those not simple strings are tuples of strings
-        tuplelist = map( lambda x: (x,) if type(x)==types.StringType else x, diffuse)
+        # convert each single entry to a tuple: assume iterables are tuples of strings
+        tuplelist = map( lambda x: (x,) if not hasattr(x,'__iter__') else x, diffuse)
         keys = map( lambda x: x[0].split('_')[0], tuplelist) # key or name from first one
         for key, files in zip(keys, tuplelist):
             full_files = map( lambda f: os.path.expandvars(os.path.join('$FERMI','diffuse',f)), files)
