@@ -3,7 +3,7 @@ This module implements the class OffPeak that
 can be used to calculate the off-peak region
 of a pulsar.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/lc_off_peak.py,v 1.1 2011/10/02 23:37:22 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/lc_off_peak.py,v 1.2 2011/10/03 04:39:35 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -12,12 +12,13 @@ import numbers
 
 import sympy
 import numpy as np
-from scipy.optimize import fmin, brute
+from scipy.optimize import fmin, brute, brentq
 from scipy.stats import poisson
 
         
 from uw.utilities import keyword_options
 from . phase_range import PhaseRange
+from . lcfitters import WeightedLCFitter
 
 
 class OffPeak(object):
@@ -25,19 +26,26 @@ class OffPeak(object):
         window for a pulsar.
 
         This object requires an lcfitters object.
+
+        Usage:
+
+            off_peak = OffPeak(lcf)
+            region = off_peak.off_peak # phase_range.PhaseRange object
+            region_list = region.tolist()
     
-    
-    Note, in this implementation, the pulsar is defined
+        N.B. in this implementation, the pulsar is defined
         as anything above the lowest part of the light curve
         model. Even if the Pulsar model predicts emission
         at all phases, we zero the pulsar at the minimum
         value. This is, of course, a somewhat arbitrary choice,
-        but so is the 1% contaminuation criteria in the first place.
+        but so is the 1% contamination criteria in the first place.
     """
 
     defaults = (
-        ("contamination", 0.01,"fraction of pulsar allowed in off peak"),
-        ("quiet",False,"Don't print out"),
+        ("contamination",  0.01, "fraction of pulsar allowed in off peak"),
+#        ("TScontamination",   1, "fraction of pulsar allowed in off peak"),
+#        ("TSdc",           None, ""),
+        ("quiet",         False, "Don't print out"),
     )
 
     @keyword_options.decorate(defaults)
@@ -59,24 +67,28 @@ class OffPeak(object):
         c = center
         lct = self.lct
 
-        # Note, by definition lct.integrate(0, 1) = 1
-
         def integral(dphi):
+            """ Calculate the fraction of the pulsar
+                light curve within the phase range
+                dphi of the center.
+
+                N.B: this formula is true because by definition 
+                lct.integrate(0, 1) = 1. 
+                
+                N.B: the lct.integrate function does not work
+                well with wraping around when c+dphi/2 > 1,
+                so here we split up the integral into parts using
+                the PhaseRange object. """
             l=self.lowest_value
-            return (lct.integrate(c-dphi/2, c+dphi/2) - l*(dphi))/(1-l)
- 
-        # get a better starting guess
-        dphi_guess=0
-        while integral(dphi_guess) < self.contamination:
-            dphi_guess += .01
 
-        residual=lambda dphi: np.abs(integral(dphi) - self.contamination)
+            r=PhaseRange(c-dphi/2,c+dphi/2)
+            integral = sum(lct.integrate(a,b) for a,b in r.tolist(dense=False))
 
-        # N.B., the integral over all phase is equal to 1
-        dphi=fmin(residual, dphi_guess, disp=False)[0]
+            return (integral - l*(dphi))/(1-l)
 
-        if not self.quiet: 
-            print ' center = %s, dphi = %s (int=%s)' % (center,dphi,integral(dphi))
+        residual=lambda dphi: integral(dphi) - self.contamination
+
+        dphi=brentq(residual, 0, 1, disp=False, rtol=self.contamination/10)
 
         return PhaseRange(center-dphi/2,center+dphi/2)
 
@@ -102,7 +114,33 @@ class OffPeak(object):
             range = PhaseRange(b,a)
         return sum(peak in range for peak in peaks)
 
+    @staticmethod
+    def consistent(x,xphase,y,yphase,probability = 0.05, quiet=True):
+        """ Assuming x counts are observed in a phase range xphase
+            and y counts are observed in phase range yphase,
+            decides if the regions are consistent.
+            
+            The regions are consistent if the probability of obtaining 
+            as many or more counts in the second region compared to the first region
+            is > 5% (so there is a >5% probability that ht esecond region is
+            not unusually large). """
+            
+        y_predicted = x*(yphase/xphase)
+            
+        poisson_likelihood = poisson.sf(y,y_predicted)
+
+        if not quiet:
+            print 'poisson likelihood=%.2f' % poisson_likelihood
+
+        if poisson_likelihood > 0.05: return True
+        return False
+
     def _fit(self):
+
+#        if self.TSdc is not None:
+#            self.contamination = self.TScontamination/self.TSdc
+#            print 'TScontamination=%.1f, TSdc=%.1f, Allowed contamination=%.1e' % \
+#                    (self.TScontamination,self.TSdc,self.contamination)
 
         lct = self.lct
         lcf = self.lcf
@@ -112,7 +150,7 @@ class OffPeak(object):
 
         grid = (0,1, .001)
         lowest_phase = brute(lct, (grid,))
-        self.lowest_value = lct(lowest_phase)
+        self.lowest_value = float(lct(lowest_phase))
 
         # (*) Calculate the phase range for a grid of centers in phase.
 
@@ -123,7 +161,7 @@ class OffPeak(object):
         i = np.argmax(dphis)
         self.first_off_peak = ranges[i]
         self.first_center = centers[i]
-        self.first_dphi = centers[i]
+        self.first_dphi = dphis[i]
 
         if not self.quiet:
             print 'Best Off Peak region is ',self.first_off_peak
@@ -136,8 +174,8 @@ class OffPeak(object):
 
         good_region = (~overlaps) & \
                 (peaks_between > 0) & \
-                (len(peaks)>1)
-#                (dphis > self.first_dphi/8.0) & \
+                (len(peaks)>1) & \
+                (dphis > self.first_dphi/4.0)
 
         if len(peaks) < 2:
             print 'No good off pulse regions'
@@ -150,27 +188,19 @@ class OffPeak(object):
         if not self.quiet:
             print 'Second off pulse region candidate is', self.second_off_peak
 
+        if isinstance(lcf,WeightedLCFitter):
+            print 'Note, this may not be the optimal way to calculate number of counts (at least, when pulsar weighting...!'
+
         # (*) Test if second regions are statistically consistent with eachother
 
-        counts = self.get_counts(self.first_off_peak,lcf.phases)
-
-        # (*) Calculate total counts in the second region
-
-        print 'Note, this may not be the optimal way to calculate number of counts (at least, when pulsar weighting...!'
+        first_counts  = self.get_counts(self.first_off_peak,  lcf.phases)
         second_counts = self.get_counts(self.second_off_peak, lcf.phases)
 
-        # counts predicted in second region if no pulsed emission!
-        prediced_counts = counts*(self.second_off_peak.phase_fraction/self.first_off_peak.phase_fraction)
+        consistent = OffPeak.consistent(first_counts,self.first_off_peak.phase_fraction,
+                                        second_counts,self.second_off_peak.phase_fraction,
+                                        quiet=self.quiet)
 
-        poisson_likelihood = poisson.sf(second_counts,prediced_counts)
-
-        if not self.quiet:
-            print 'Poisson likelihood for second region is %.3f' % poisson_likelihood
-
-        # keep second region if probability of obtaining more counts than observed
-        # by the second region is > 5% (the second region is not unusually
-        # large).
-        if poisson_likelihood > 0.05:
+        if consistent:
             if not self.quiet: print 'Keeping second region'
             self.off_peak = self.first_off_peak + self.second_off_peak
         else:
