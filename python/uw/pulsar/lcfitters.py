@@ -9,7 +9,7 @@ a maximum likielihood fit to determine the light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/lcfitters.py,v 1.13 2011/09/22 21:53:39 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/lcfitters.py,v 1.14 2011/09/25 02:34:24 lande Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -335,7 +335,7 @@ class UnweightedLCFitter(object):
         axes.hist(self.phases,bins=np.linspace(0,1,nbins+1),histtype='step',ec='red',normed=True,lw=1,weights=weights)
         if weights is not None:
             bg_level = 1-(weights**2).sum()/weights.sum()
-            axes.axhline(bg_level,color=ec)
+            axes.axhline(bg_level,color='blue')
             axes.plot(dom,self.template(dom)*(1-bg_level)+bg_level,color='blue')
         else:
             axes.plot(dom,self.template(dom),color='blue',lw=1)
