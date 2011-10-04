@@ -6,13 +6,14 @@ See the docstring for usage information.
 
 This object has SymPy as a dependency.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.1 2011/10/02 23:37:22 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.2 2011/10/03 04:39:22 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
 """
 import sympy
 import numbers
+import numpy as np
 from operator import isNumberType
 
 class PhaseRange(object):
@@ -81,11 +82,16 @@ class PhaseRange(object):
             >>> print PhaseRange(0.5, 0.5)
             {0.5}
 
+            >>> print PhaseRange(-0.5, 0.5)
+            [0, 1]
+
         The phase_fraction can be easily calulated:
 
             >>> print PhaseRange(1.5, 0.25).phase_fraction
             0.75
 
+            >>> print PhaseRange(0, 1).phase_fraction
+            1.0
 
         The 'in' operator has been simply defined:
 
@@ -180,8 +186,12 @@ class PhaseRange(object):
                range[1] not in PhaseRange.allowed_phase_input:
                 raise Exception("Error, phase range %s is outside allowed range." % str(range))
 
-            for i in [0,1]: 
-                if range[i] != 1: range[i] %= 1
+            if np.allclose(range[0]-range[1],1) or \
+               np.allclose(range[1]-range[0],1):
+                range = [0,1]
+            else:
+                for i in [0,1]:
+                    if range[i] != 1: range[i] %= 1
 
             if range[0] > range[1]: 
                 # pulsar convention
@@ -237,6 +247,8 @@ class PhaseRange(object):
         else:
             if isinstance(r,sympy.Interval):
                 return [PhaseRange._tolist(r)]
+            elif isinstance(r, sympy.FiniteSet):
+                return []
             else:
                 return [PhaseRange._tolist(i) for i in r.args]
 
