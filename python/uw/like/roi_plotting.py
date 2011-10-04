@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.69 2011/09/20 03:14:35 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.70 2011/09/22 20:00:33 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -30,6 +30,7 @@ from . roi_bands import ROIEnergyBand
 from . roi_image import ModelImage,CountsImage,RadialCounts,RadialModel,SmoothedCounts,SmoothedModel,SmoothedResidual
 from . roi_extended import ExtendedSource
 from . pointspec_helpers import PointSource
+from . Models import PowerLaw
 from . SpatialModels import SpatialMap, PseudoSpatialModel, RadiallySymmetricModel, \
         EllipticalSpatialModel, Disk, EllipticalDisk, Ring, EllipticalRing
 from uw.utilities import colormaps
@@ -578,7 +579,7 @@ class ROIDisplay(object):
 
         for ax in [self.ax_model, self.ax_counts, self.ax_res]:
             ax.axis[:].set_zorder(100)
-            ROISmoothedSource.overlay_region(self.roi,ax,self.h,label_sources=self.label_sources,
+            ROISmoothedSources.overlay_region(self.roi,ax,self.h,label_sources=self.label_sources,
                                          show_extensions=False)
 
         if filename is not None: P.savefig(filename)
@@ -1130,14 +1131,12 @@ class ROISignificance(object):
         
         ax.grid()
 
-        ROISmoothedSource.overlay_region(self.roi,ax,h,label_sources=self.label_sources)
+        ROISmoothedSources.overlay_region(self.roi,ax,h,label_sources=self.label_sources)
 
         if filename is not None: P.savefig(filename)
 
-class ROISmoothedSource(object):
-    """ Make a smoothed residual plot to look at a particular source. 
-
-        To do so, subtract all backgorund sources.
+class ROISmoothedSources(object):
+    """ Make a smoothed residual plot which subtracts the diffuse emission
     
         This object requires pywcsgrid2. To get it, go to
         http://leejjoon.github.com/pywcsgrid2/users/overview.html """
@@ -1146,10 +1145,9 @@ class ROISmoothedSource(object):
             ('which',             None,    'Draw the smoothed point version of this source.'),
             ('conv_type',           -1,                                    'Conversion type'),
             ('size',                 3,                          'Size of the field of view'),
-            ('override_center',   None,              'Center the image at a different point'),
             ('galactic',          True,                         'Coordinate system for plot'),
             ('overlay_psf',       True, 'Add a smoothed reference PSF on top of the counts.'),
-            ('label_psf',         True,                        'Add a label on the PSF box.'),
+            ('label_psf',         False,                        'Add a label on the PSF box.'),
             ('psf_size',             1,                         'Size of the PSF insert box'), 
             ('psf_loc',              4,                       'Location to put the psf box.'), 
             ('show_sources',      True,                     'Put an x over all the sources.'),
@@ -1163,52 +1161,65 @@ class ROISmoothedSource(object):
             ('fignum',            None,                           'Matplotlib figure number'),
             ('show_colorbar',     True,                                  'Show the colorbar'),
             ('cmap',              None,                                  'Show the colorbar'),
+            ('colorbar_radius',   None,  """ If specified, calculate the intensity maximum
+                                             pixel to be the maximum of all pixels within
+                                             this radius. This is useful if you want to clip
+                                             out a very bright nearby sources. By default,
+                                             this radius will be the source size or the PSF
+                                             size (if which!=None). If which==None, the
+                                             default is that colorbar_radius=inf.        """),
     )
+
 
     def get_residual(self,**kwargs):
         """ Allow the particular method for getting the residual image to be overloaded. """
 
-        self.roi.zero_source(which=self.which)
-
-        residual = SmoothedResidual(self.roi,**kwargs)
-
-        self.roi.unzero_source(which=self.which)
+        residual = SmoothedResidual(self.roi,
+                override_diffuse_sources=[i for i in self.roi.dsm.diffuse_sources if not hasattr(i,'skydir')],
+                **kwargs)
 
         return residual
 
     @staticmethod
-    def get_max_intensity(source,pyfits,roi):
+    def get_max_intensity(source,pyfits,roi, colorbar_radius=None):
         """ Return the maximum value in the pyfits file either 
             within the extended source's size or otherwise
             within the 68% containment radius of the PSF (at
             the lowest energy). """
         try:
             import pyregion
-
-            if hasattr(source,'spatial_model'):
-                # Get the maximum intensity value inside
-                # the spatial model's extension
-                extension_string='\n'.join(region_writer.unparse_extension(source.spatial_model,r68=True))
-                reg = pyregion.parse(extension_string)
-            else:
-                # Get the maximum intensity inside
-                emin=roi.bin_edges[0]
-                ra,dec=source.skydir.ra(),source.skydir.dec()
-                r68=roi.sa.psf.inverse_integral(emin,1,68)
-                reg = pyregion.parse("fk5; circle(%.4f, %.4f, %.4f)" % (ra,dec,r68))
-
-            mask = reg.get_mask(pyfits[0])
-
-            return pyfits[0].data[mask].max()
         except:
             return pyfits[0].data.max()
 
+        if source is None and colorbar_radius is None:
+            return pyfits[0].data.max()
+
+        if colorbar_radius is not None:
+            ra,dec=roi.roi_dir.ra(),roi.roi_dir.dec()
+            reg = pyregion.parse("fk5; circle(%.4f, %.4f, %.4f)" % (ra,dec,colorbar_radius))
+
+        elif hasattr(source,'spatial_model'):
+            # For extended sources,
+            # Get the maximum intensity value inside
+            # the spatial model's extension
+            extension_string='\n'.join(region_writer.unparse_extension(source.spatial_model,r68=True))
+            reg = pyregion.parse(extension_string)
+        else:
+            # Get the maximum intensity inside the PSF
+            emin=roi.bin_edges[0]
+            ra,dec=source.skydir.ra(),source.skydir.dec()
+
+            r68=roi.sa.psf.inverse_integral(emin,1,68)
+            reg = pyregion.parse("fk5; circle(%.4f, %.4f, %.4f)" % (ra,dec,r68))
+
+        mask = reg.get_mask(pyfits[0])
+
+        return pyfits[0].data[mask].max()
+
 
     @keyword_options.decorate(defaults)
-    def __init__(self, roi, which, **kwargs):
+    def __init__(self, roi, **kwargs):
         keyword_options.process(self, kwargs)
-
-        self.which=which
         
         self.roi = roi
 
@@ -1217,31 +1228,43 @@ class ROISmoothedSource(object):
         # Fit many pixels inside of the summing radius
         self.pixelsize=self.kernel_rad/5.0
 
-        self.source = roi.get_source(which)
+        if self.which is not None:
+            self.source = roi.get_source(self.which)
+            center = self.source.skydir 
+        else:
+            self.source = None
+            center = roi.roi_dir
 
         smoothed_kwargs=dict(size=self.size,
                              pixelsize=self.pixelsize,
                              galactic=self.galactic,
                              conv_type=self.conv_type,
-                             center=(self.source.skydir \
-                                     if self.override_center is None \
-                                     else self.override_center),
+                             center=center,
                              per_solid_angle=True,
                              kerneltype=self.kerneltype,
                              kernel_rad=self.kernel_rad)
 
         if self.overlay_psf:
 
+            if self.source is not None:
+                model = self.source.model.copy()
+            else:
+                model = PowerLaw(index=2)
+
             # convert it to a point source placed at the origin
-            point_version=PointSource(name=self.source.name,
-                                      skydir=smoothed_kwargs['center'],
-                                      model=self.source.model.copy())
+            point_version=PointSource(name='PSF',
+                                      skydir=center,
+                                      model=model)
         
         self.residual = self.get_residual(**smoothed_kwargs)
 
         self.residual_pyfits = self.residual.get_pyfits()
 
-        self.max_intensity = ROISmoothedSource.get_max_intensity(self.source,self.residual_pyfits,self.roi)
+        self.max_intensity = ROISmoothedSources.get_max_intensity(self.source,self.residual_pyfits,self.roi, 
+                                                                  colorbar_radius = self.colorbar_radius)
+
+        # sanity check
+        self.max_intensity = max(self.max_intensity,1)
 
         if self.overlay_psf:
             # create an image of the PSF (for our model).
@@ -1266,7 +1289,7 @@ class ROISmoothedSource(object):
         # get data first
         h, d = self.residual_pyfits[0].header, self.residual_pyfits[0].data
 
-        self.h = h
+        self.h = self.header = h
 
         from matplotlib.axes import Axes
         if axes is None:
@@ -1295,7 +1318,10 @@ class ROISmoothedSource(object):
             cbar.ax.set_ylabel(r'$\mathrm{counts}\ [\mathrm{deg}]^{-2}$')
 
         if self.title is None: 
-            self.title = 'Smoothed Counts for %s' % self.source.name
+            if self.source is None:
+                self.title = 'Smoothed Counts'
+            else:
+                self.title = 'Smoothed Counts for %s' % self.source.name
 
         ax.set_title(self.title)
 
@@ -1321,7 +1347,7 @@ class ROISmoothedSource(object):
             if self.label_psf:
                 axins.add_inner_title("PSF", loc=3)
 
-        ROISmoothedSource.overlay_region(self.roi,ax,h,
+        ROISmoothedSources.overlay_region(self.roi,ax,h,
                                          show_sources=self.show_sources,
                                          label_sources=self.label_sources,
                                          show_extensions=self.show_extensions,
@@ -1331,39 +1357,54 @@ class ROISmoothedSource(object):
 
     @staticmethod
     def overlay_sources(roi, ax, 
-                        white_edge=True,
-                        label_sources=False, 
                         exclude_names=[], # don't plot these sources
-                        default_kwargs=dict(marker='x',color='black', 
-                                            markersize=12, zorder=2),
-                        override_kwargs = {} # override kwargs for particular sources
-                       ):
+                        override_kwargs = {}, # override kwargs for particular sources
+                        **kwargs):
+        """ Overlay sources in the ROI.
 
+            exclude_names is a list of names of sources to not to overlay.
+
+            override_kwargs is a dictionary where the keys are source
+            names and the values are dictionaries of kwargs to pass
+            into the overlay_source function. Useful if you want to
+            format certain source markers specially.
+        """
         for source in roi.get_sources():
+            if source.name not in exclude_names:
+                pass_kwargs = kwargs.copy()
 
-            if source in exclude_names:
-                continue
+                if override_kwargs.has_key(source.name):
+                    pass_kwargs.update(override_kwargs[source.name])
 
-            l = source.skydir.l()
-            b = source.skydir.b()
+                ROISmoothedSource.overlay_source(source, ax, **pass_kwargs)
 
-            
-            kwargs = default_kwargs.copy()
-            if source.name in override_kwargs.keys():
-                kwargs.update(override_kwargs[source.name])
-            
-            # plot sources
-            if white_edge and kwargs['marker'] in ['+', 'x']:
-                white_kwargs = kwargs.copy()
-                white_kwargs['color']='white'
-                white_kwargs['markersize']=kwargs['markersize']+1
-                white_kwargs['markeredgecolor']='white'
-                white_kwargs['markeredgewidth']=2
-                white_kwargs['zorder']=kwargs['zorder']-0.1
+    @staticmethod
+    def overlay_source(source, ax, 
+                       white_edge=True,
+                       label_sources=False, 
+                       marker='x',color='black', markersize=12, zorder=2,
+                       **kwargs
+                      ):
 
-                ax["gal"].plot([l],[b],**white_kwargs)
+        l = source.skydir.l()
+        b = source.skydir.b()
 
-            ax["gal"].plot([l],[b],**kwargs)
+        all_kwargs = dict(marker = marker, color = color,
+                      markersize=markersize, zorder=zorder)
+        all_kwargs.update(all_kwargs)
+        
+        # plot sources
+        if white_edge and all_kwargs['marker'] in ['+', 'x']:
+            white_kwargs = all_kwargs.copy()
+            white_kwargs['color']='white'
+            white_kwargs['markersize']=all_kwargs['markersize']+1
+            white_kwargs['markeredgecolor']='white'
+            white_kwargs['markeredgewidth']=2
+            white_kwargs['zorder']=all_kwargs['zorder']-0.1
+
+            ax["gal"].plot([l],[b],**white_kwargs)
+
+        ax["gal"].plot([l],[b],**all_kwargs)
 
         if label_sources: 
             txt=ax["gal"].annotate(source.name, (l,b), 
@@ -1372,24 +1413,29 @@ class ROISmoothedSource(object):
             if white_edge: set_path_effects(txt,foreground="w", linewidth=2)
 
     @staticmethod
-    def overlay_extension(roi, ax, header, white_edge=True, extension_color='black',
-                          extension_zorder=None):
-
-        import pyregion
+    def overlay_extensions(roi, **kwargs):
         for source in roi.get_extended_sources():
-            sm=source.spatial_model
-            region_string='\n'.join(region_writer.unparse_extension(sm,extension_color=extension_color))
-            if len(region_string) < 1: continue # happens for SpatialMap + PseudoSources.
-            reg = pyregion.parse(region_string).as_imagecoord(header)
+            ROISmoothedSource.overlay_extension(source, **kwargs)
 
-            # artist_list doesn't do anything
-            patch_list, artist_list = reg.get_mpl_patches_texts()
-            for p in patch_list: 
+    @staticmethod
+    def overlay_extension(source, axes, header, white_edge=True, extension_color='black',
+                          extension_zorder=None):
+        import pyregion
+        sm=source.spatial_model
 
-                if white_edge: set_path_effects(p,foreground="w", linewidth=2)
-                if extension_zorder is not None:
-                    p.set_zorder(extension_zorder)
-                ax.add_patch(p)
+        if isinstance(sm,PseudoSpatialModel) or isinstance(sm,SpatialMap):
+            return
+
+        region_string='\n'.join(region_writer.unparse_extension(sm,extension_color=extension_color))
+        reg = pyregion.parse(region_string).as_imagecoord(header)
+
+        # artist_list doesn't do anything
+        patch_list, artist_list = reg.get_mpl_patches_texts()
+        for p in patch_list: 
+            if white_edge: set_path_effects(p,foreground="w", linewidth=2)
+            if extension_zorder is not None:
+                p.set_zorder(extension_zorder)
+            axes.add_patch(p)
 
     @staticmethod
     def overlay_region(roi, ax, header, 
@@ -1403,7 +1449,7 @@ class ROISmoothedSource(object):
         if show_extensions:
             # plot extended sources first so markers show up on top
             try:
-                ROISmoothedSource.overlay_extension(roi, ax, header, 
+                ROISmoothedSources.overlay_extensions(roi, axes=ax, header=header, 
                                                     white_edge=white_edge, 
                                                     extension_color=extension_color,
                                                     extension_zorder=extension_zorder)
@@ -1412,21 +1458,25 @@ class ROISmoothedSource(object):
 
 
         if show_sources:
-            ROISmoothedSource.overlay_sources(roi, ax, 
+            ROISmoothedSources.overlay_sources(roi, ax, 
                                               white_edge=white_edge, 
                                               **kwargs)
 
 
 
-class ROISmoothedSources(ROISmoothedSource):
-    """ Subclass ROISmoothedSource, but add only the diffuse emission to the background. """
+class ROISmoothedSource(ROISmoothedSources):
+    """ Subclass ROISmoothedSources, but also subtract all background sources. """
 
 
     def get_residual(self,**kwargs):
 
-        residual = SmoothedResidual(self.roi,
-                override_diffuse_sources=[i for i in self.roi.dsm.diffuse_sources if not hasattr(i,'skydir')],
-                **kwargs)
+        if self.source is None: raise Exception("Unable to subtract background sources unless which points at a real source.")
+
+        self.roi.zero_source(which=self.source)
+
+        residual = SmoothedResidual(self.roi,**kwargs)
+
+        self.roi.unzero_source(which=self.source)
 
         return residual
 
@@ -1435,14 +1485,17 @@ class ROITSMapPlotter(object):
         on it all of the sources in the ROI."""
     
     defaults = (
-        ('size',                        5,                          ),
-        ('pixelsize',               0.125,                          ),
-        ('galactic',                 True,                          ),
-        ('figsize',               (5.5,4),'Size of figure in inches'),
-        ('fignum',                   None,'Matplotlib figure number'),
-        ('title',       'Residual TS Map',       'Title of the plot'),
-        ('label_sources',           False,                          ),
-        ('fitsfile',                 None,                          ), 
+        ('size',                        5,                                 ),
+        ('pixelsize',               0.125,                                 ),
+        ('galactic',                 True,                                 ),
+        ('figsize',             (5.5,4.5),       'Size of figure in inches'),
+        ('fignum',                   None,       'Matplotlib figure number'),
+        ('title',       'Residual TS Map',              'Title of the plot'),
+        ('fitsfile',                 None,                                 ), 
+        ('show_sources',      True,        'Put an x over all the sources.'),
+        ('label_sources',           False,                                 ),
+        ('show_extensions',   True,                'Overlay the extension.'),
+        ('extension_color','black',             'Color of extended sources'),
     )
 
     @keyword_options.decorate(defaults)
@@ -1476,8 +1529,9 @@ class ROITSMapPlotter(object):
         P.clf()
 
         h, d = self.pf[0].header, self.pf[0].data
+        self.header = h
 
-        ax = pywcsgrid2.subplot(111, header=h)
+        self.axes = ax = pywcsgrid2.subplot(111, header=h)
 
         # add colorbar axes
         divider = make_axes_locatable(ax)
@@ -1493,7 +1547,11 @@ class ROITSMapPlotter(object):
 
         ax.set_title(self.title)
 
-        ROISmoothedSource.overlay_region(self.roi,ax,h,label_sources=self.label_sources)
+        ROISmoothedSources.overlay_region(self.roi,ax,h,
+                                         show_sources=self.show_sources,
+                                         label_sources=self.label_sources,
+                                         show_extensions=self.show_extensions,
+                                         extension_color=self.extension_color)
 
         if filename is not None: P.savefig(filename)
 
@@ -1560,7 +1618,7 @@ class ROISmoothedModel(object):
         im=ax.imshow(d, origin="lower", cmap=self.cmap, vmin=0, vmax=self.max_intensity)
         ax.grid()
 
-        ROISmoothedSource.overlay_region(self.roi,ax,h,
+        ROISmoothedSources.overlay_region(self.roi,ax,h,
                 show_sources=self.show_sources,label_sources=self.label_sources,
                 show_extensions=False)
 
@@ -1576,7 +1634,7 @@ class ROISmoothedModel(object):
         cbar = cb_axes.colorbar(im)
         cbar.ax.set_ylabel(r'$\mathrm{counts}\ [\mathrm{deg}]^{-2}$')
 
-        ROISmoothedSource.overlay_region(self.roi,ax,h,
+        ROISmoothedSources.overlay_region(self.roi,ax,h,
                 show_sources=self.show_sources,label_sources=self.label_sources,
                 show_extensions=False)
 
@@ -1591,7 +1649,7 @@ class ROISmoothedModel(object):
         P.clf()
 
         self.max_intensity = max(
-                ROISmoothedSource.get_max_intensity(self.source,i,self.roi)
+                ROISmoothedSources.get_max_intensity(self.source,i,self.roi)
                 for i in [self.counts_pyfits,self.model_pyfits])
 
         self.grid = grid = ImageGrid(self.fig, (1, 1, 1), nrows_ncols = (1, 2),
@@ -1612,7 +1670,7 @@ class ROISmoothedBeforeAfter(object):
 
         This plot is nice for seeing how well the background source
         subtracting is doing. """
-    defaults=ROISmoothedSource.defaults
+    defaults=ROISmoothedSources.defaults
 
     @keyword_options.decorate(defaults)
     def __init__(self, roi, **kwargs):
@@ -1627,8 +1685,8 @@ class ROISmoothedBeforeAfter(object):
 
         # plot only one colorbar
 
-        self.smoothed_sources=ROISmoothedSources(roi,show_colorbar=False,**kwargs)
-        self.smoothed_source=ROISmoothedSource(roi,overlay_psf=False,**kwargs)
+        self.smoothed_sources=ROISmoothedSource(roi,show_colorbar=False,**kwargs)
+        self.smoothed_source=ROISmoothedSources(roi,overlay_psf=False,**kwargs)
 
         # use same color scale for each plot
         max_intensity = max(self.smoothed_sources.max_intensity, self.smoothed_source.max_intensity)
