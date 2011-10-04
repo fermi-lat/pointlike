@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Mon Oct  3 19:48:10 PDT 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	roistat.py 
+Added Files:
+	prior.py 
+Log Message:
+move prior likelihood code to new module
+    *
+------------------------------------------------------------
 User: burnett  Mon Oct  3 15:04:11 PDT 2011
 pointlike/python/uw/like2
 
