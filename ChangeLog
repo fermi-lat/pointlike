@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Tue Oct  4 13:00:44 PDT 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	sources.py 
+Log Message:
+Changed DiffuseDict to check for iterability instead of string type when
+making the list of tuples, to allow passing a numpy array instead of a list
+
+    *
+------------------------------------------------------------
 User: burnett  Mon Oct  3 19:48:10 PDT 2011
 pointlike/python/uw/like2
 
