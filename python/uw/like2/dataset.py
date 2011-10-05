@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.2 2011/09/20 15:52:54 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.3 2011/09/28 16:51:57 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.2 $'.split()[1]
+version='$Revision: 1.3 $'.split()[1]
 import types
 import os
 import numpy as np
@@ -75,12 +75,15 @@ class DataSet(object):
         self.psf = pypsf.CALDBPsf(self.CALDBManager)
     
     def __str__(self):
-        s = 'Data selection, class %s\n' %self.__class__.__name__
-        show = """CALDB irf minROI maxROI emin emax""".split()
+        #s = 'Data selection, class %s\n' %self.__class__.__name__
+        show = """data_name irf minROI maxROI emin emax""".split()
+        d = {}
         for key in show:
-            s += '\t%-20s: %s\n' %(key,
-                self.__dict__[key] if key in self.__dict__.keys() else 'not in self.__dict__!')
-        return s
+            d[key] = self.__dict__.get(key, 'not in self.__dict__!')
+        return str(d)
+            #s += '\t%-20s: %s\n' %(key,
+            #    self.__dict__[key] if key in self.__dict__.keys() else 'not in self.__dict__!')
+        #return s
 
     def _process_dataset(self,dataset,month=None):
         """ Parse the dataset as either a DataSpecification object, a dict, or a string lookup key.
