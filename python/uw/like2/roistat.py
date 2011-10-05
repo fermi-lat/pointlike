@@ -4,7 +4,7 @@ Manage likelihood calculations for an ROI
 mostly class ROIstat, which computes the likelihood and its derivative from the lists of
 sources (see .sourcelist) and bands (see .bandlike)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.13 2011/10/03 22:04:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.14 2011/10/04 02:48:10 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import sys
@@ -45,7 +45,7 @@ class ROIstat(object):
         self.name = roi.name
         self.roi_dir = roi.roi_dir
         self.sources = sourcelist.SourceList(roi) 
-        self.all_bands = bandlike.factory(filter(bandsel, roi.bands), self.sources)
+        self.all_bands = bandlike.factory(filter(bandsel, roi.bands), self.sources , quiet=quiet)
         self.selected_bands = self.all_bands # the possible subset to analyze
         self.calls=0
         self.call_limit=1000
