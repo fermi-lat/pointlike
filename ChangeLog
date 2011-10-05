@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Oct  5 14:34:15 PDT 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	skymodel.py 
+Log Message:
+check for duplicate source name, reject if found
+    *
+------------------------------------------------------------
 User: burnett  Wed Oct  5 14:33:19 PDT 2011
 pointlike/python/uw/like2
 
