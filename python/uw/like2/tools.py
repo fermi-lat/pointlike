@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.5 2011/09/28 16:57:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.6 2011/10/03 22:03:35 burnett Exp $
 
 """
 import os
@@ -171,22 +171,22 @@ class Localization(object):
         self.rs.update(True)
         self.maxlike=self.rs.log_like()
         self.source = np.array(roistat.sources)[self.source_mask][0]
-        self.skydir = self.source.skydir
+        self.skydir=self.saved_skydir = self.source.skydir #saved value
         self.name = self.source.name
 
     def log_like(self, skydir):
         """ return log likelihood at the given position"""
         self.source.skydir =skydir
         self.rs.update(True)
-        return self.rs.log_like()
+        w = self.rs.log_like()
+        self.source.skydir = self.saved_skydir
+        return w
    
     def TSmap(self, skydir):
         """ return the TS at given position, or 
             2x the log(likelihood ratio) from the nominal position
         """
-        #print 'TS at ', skydir, ':',
         val= 2*(self.log_like(skydir)-self.maxlike)
-        #print val
         return val
 
     def get_parameters(self):
@@ -473,6 +473,6 @@ def localize_all(roi, **kwargs):
                 markersize=10,
                 primary_markersize=12,
                 )
-
+        
     roi.initialize() # this needed to restore state of the ROIstat
     roi.update()
