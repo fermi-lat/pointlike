@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Oct  5 20:39:33 PDT 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	tools.py 
+Log Message:
+restore source position after modification for likelihood
+    *
+------------------------------------------------------------
 User: burnett  Wed Oct  5 14:37:49 PDT 2011
 pointlike/python/uw/like2/pipeline
 
