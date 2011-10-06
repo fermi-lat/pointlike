@@ -3,10 +3,10 @@ A suite of tools for making easy things easy with ROOT.
 
 Author: Damien Parent <dmnparent@gmail.com>
 """
-
-import numpy as np
 from ROOT import gROOT, gStyle, TH1F, TH2F, TGraph, gPad, TGaxis, Double, TPad
 from ROOT import kWhite, kBlack, kRed, kGreen, kBlue, kYellow, kMagenta, kCyan
+import numpy as np
+from numpy import array as sa
 
 gROOT.SetBatch(True) # force the batch mode
 
@@ -160,3 +160,19 @@ def eraselabel(pad, h):
     pe.Draw()
     pe.SetFillColor(pad.GetFillColor())
     pe.SetBorderMode(0)
+
+def BPalette():
+    r=sa([0.,0.0,1.0,1.0,1.0])
+    b=sa([0., 1.0, 0.0, 0.0, 1.0])
+    g=sa([0., 0.0, 0.0, 1.0, 1.0])
+    stop=sa([0.,.25,.50,.75,1.0])
+    TColor.CreateGradientColorTable(5,stop,r,g,b,100)
+    return
+
+def GrayPalette():
+    R=sa([0.,1.])
+    G=sa([0.,1.])
+    B=sa([0.,1.])
+    Stop=sa([0.,1.])
+    TColor.CreateGradientColorTable(2,Stop,R,G,B,100)
+    return
