@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Oct  5 20:40:54 PDT 2011
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+allow for no  localization info
+    *
+------------------------------------------------------------
 User: burnett  Wed Oct  5 20:39:33 PDT 2011
 pointlike/python/uw/like2
 
