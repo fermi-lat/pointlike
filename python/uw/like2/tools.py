@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.6 2011/10/03 22:03:35 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.7 2011/10/06 03:39:33 burnett Exp $
 
 """
 import os
@@ -447,8 +447,9 @@ def localize_all(roi, **kwargs):
     """
     sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
     tsmap_dir = kwargs.pop('tsmap_dir', None)
-    tsfits = kwargs.pop('tsfits', False)
+    tsfits = kwargs.pop('tsfits', False) #TODO: reimplement this to generate FITS maps
     
+    curw = roi.log_like()
     
     for source in sources:
         loc =roi.localize(source.name, quiet=True, update=True, **kwargs)
@@ -473,6 +474,5 @@ def localize_all(roi, **kwargs):
                 markersize=10,
                 primary_markersize=12,
                 )
-        
-    roi.initialize() # this needed to restore state of the ROIstat
-    roi.update()
+        loc.reset() # restore source position
+    assert roi.log_like()==curw, 'localize_all: unexpected change in roi state after localization'
