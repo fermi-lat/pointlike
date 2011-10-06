@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.2 2011/10/01 13:35:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.3 2011/10/03 22:02:47 burnett Exp $
 """
 import os, time
 import cPickle as pickle
@@ -119,6 +119,7 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwarg
             print 'warning: no sedrec in %s' %s.name
             s.sedrec = None
         sedrec = s.sedrec
+        loc = s.__dict__.get('loc', None)
         sources[s.name]=dict(
             skydir=s.skydir, 
             model=s.spectral_model,
@@ -128,7 +129,7 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwarg
             sedrec = sedrec,
             band_ts=0 if sedrec is None else sedrec.ts.sum(),
             pivot_energy = pivot_energy,
-            ellipse= None if sedrec is None or not hasattr(s.loc,'ellipse') else s.loc.ellipse,
+            ellipse= None if loc is None or not hasattr(loc,'ellipse') else s.loc.ellipse,
             associations = s.__dict__.get('adict',None)
             )
     output.update(kwargs) # add additional entries from kwargs
@@ -169,16 +170,6 @@ def make_association(source, tsf, associate):
     else:
         print '...None  found'
 
-def process_sources(roi, sources, **kwargs):
-    outdir     = kwargs.pop('outdir', '.')
-    associate= kwargs.pop('associate', None)
-    
-    if associate is not None and associate!='None':
-        for source in sources:
-            make_association(source, roi.tsmap(which=source.name), associate)
-    getdir = lambda x :  None if not kwargs.get(x,False) else os.path.join(outdir, kwargs.get(x))
-    tools.makesed_all(roi, sedfig_dir=getdir('sedfig_dir'))
-    tools.localize_all(roi, tsmap_dir=getdir('tsmap_dir'))
     
 
 def repivot(roi, fit_sources, min_ts = 16, max_beta=3.0):
@@ -261,8 +252,6 @@ def process(roi, **kwargs):
     if not os.path.exists(counts_dir):os.makedirs(counts_dir)
     
     roi.print_summary(title='before fit, logL=%0.f'%roi.log_like())#sdir=roi.roi_dir)#, )
-    #fit_sources = [s for s in roi.psm.point_sources if np.any(s.spectral_model.free)]\
-    #            + [s for s in roi.dsm.diffuse_sources if isextended(s) and np.any(s.spectral_model.free)]
     fit_sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
     if len(roi.get_parameters())==0:
         print '===================== nothing to fit========================'
@@ -297,16 +286,17 @@ def process(roi, **kwargs):
     if tables is not None:
         tables(roi)
     
-    #process_sources(roi, fit_sources, **kwargs)
     outdir     = kwargs.pop('outdir', '.')
     associate= kwargs.pop('associate', None)
-    
     if associate is not None and associate!='None':
         for source in sources:
             make_association(source, roi.tsmap(which=source.name), associate)
-    getdir = lambda x :  None if not kwargs.get(x,False) else os.path.join(outdir, kwargs.get(x))
+    def getdir(x ):
+        if not kwargs.get(x,False): return None
+        t = os.path.join(outdir, kwargs.get(x))
+        if not os.path.exists(t): os.mkdir(t)
+        return t
     tools.makesed_all(roi, sedfig_dir=getdir('sedfig_dir'))
-    #if kwargs.get('localize', False):
     tools.localize_all(roi, tsmap_dir=getdir('tsmap_dir'))
 
     ax = counts.stacked_plots(roi,None)
@@ -321,7 +311,6 @@ def process(roi, **kwargs):
         ax[1].figure.savefig(fout)
         print 'saved counts plot to %s' % fout
 
-    
     if outdir is None:  return True
     
     pickle_dir = os.path.join(outdir, 'pickle')
@@ -331,17 +320,6 @@ def process(roi, **kwargs):
         counts=cts,
         )
     return True
-#===========================================================================
-#def residual_processor(roi, **kwargs):
-#    from uw.like2 import roistat, bandplot
-#    print 'generating residual plots for', roi.name
-#    outdir = kwargs['outdir']
-#    rdir = os.path.join(outdir, 'residuals')
-#    if not os.path.exists(rdir):   os.mkdir(rdir)
-#    s = roistat.ROIstat(roi, lambda b: b.e<1000)
-#    saveto = '%s/%s.png'%(rdir,roi.name)
-#    bandplot.residual_plots(s.all_bands, roi.roi_dir, title=roi.name, saveto=saveto)
-#    print 'plots saved to ', saveto
 
 def residual_processor(roi, **kwargs):
     """ a roi processor that creates tables of residuals from the bands """
