@@ -6,7 +6,7 @@ See the docstring for usage information.
 
 This object has SymPy as a dependency.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.2 2011/10/03 04:39:22 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.3 2011/10/04 22:03:23 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -15,6 +15,7 @@ import sympy
 import numbers
 import numpy as np
 from operator import isNumberType
+import copy
 
 class PhaseRange(object):
     """ This Object represents a (possibly non-contiguous) range  in pulsar 
@@ -65,6 +66,11 @@ class PhaseRange(object):
         And this code can conveniently merge multiple phases
 
             >>> print PhaseRange([0.2, 0.5], [0.4, 0.7])
+            [0.2, 0.7]
+
+        Or, you can pass in a sigle list if this is easir:
+
+            >>> print PhaseRange([[0.2, 0.5], [0.4, 0.7]])
             [0.2, 0.7]
 
         If the first number is > the second number,
@@ -154,6 +160,12 @@ class PhaseRange(object):
             >>> PhaseRange(p.tolist()) == p
             True
 
+        You can make a copy easily of the object:
+
+            >>> p = PhaseRange(0.2, 0.5)
+            >>> print PhaseRange(p)
+            [0.2, 0.5]
+
         There is also the intersect and overlaps function: 
 
             >>> print PhaseRange(.25,.75).intersect(PhaseRange(0.5,1)) 
@@ -173,6 +185,14 @@ class PhaseRange(object):
     allowed_phase_input = sympy.Interval(-1,2,left_open=True, right_open=True)
 
     def __init__(self,*args):
+        if len(args) == 1 and isinstance(args[0],PhaseRange):
+
+            self.range = copy.deepcopy(args[0].range)
+            return
+
+        if len(args) == 1 and np.alltrue(len(i)==2 for i in args):
+            args = args[0]
+
         if len(args) == 2 and \
            isinstance(args[0],numbers.Real) and \
            isinstance(args[1],numbers.Real):
