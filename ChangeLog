@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Oct 10 10:09:40 PDT 2011
+ScienceTools-scons/pointlike/python/uw/pulsar
+
+Modified Files:
+	phase_range.py 
+Log Message:
+allow more flexible input
+    *
+------------------------------------------------------------
 User: lande  Mon Oct 10 09:12:23 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
