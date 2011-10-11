@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.1 2011/09/28 17:39:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.2 2011/10/05 21:37:49 burnett Exp $
 """
 import os, types, glob, time
 import cPickle as pickle
@@ -124,6 +124,8 @@ class Setup(dict):
                                 #  (ts_map.KdeMap, "kde", dict()),))
                 dampen = 1.0,
                 setup_cmds='',
+                minROI=7,
+                maxROI=7
                 ))
         self.update(kwargs)
         # first-order replace

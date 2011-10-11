@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.5 2011/10/01 13:35:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.6 2011/10/03 22:04:11 burnett Exp $
 
 """
 
@@ -158,6 +158,18 @@ class ROI_user(roistat.ROIstat):
     @decorate_with(printing.print_summary)
     def print_summary(self, **kwargs):
         return printing.print_summary(self, **kwargs)
+
+    def tsmap(self, source_name, **kwargs):
+        """ provided for the like2.processor
+            return function of likelihood in neighborhood of given source
+            tsm = roi.tsmap(which)
+            size=0.25
+            tsp = image.TSplot(tsm, center, size, pixelsize =size/20, axes=plt.gca())
+            tsp.plot(center, label=name)
+            tsp.show()
+        """
+        loc = self.localize(source_name,**kwargs)
+        return PySkyFunction(loc)
         
 class Factory(roisetup.ROIfactory):
     def __call__(self, *pars, **kwargs):
