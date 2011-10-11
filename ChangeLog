@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: wallacee  Tue Oct 11 12:05:33 PDT 2011
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py processor.py 
+Log Message:
+A few edits to make things work with the default settings.
+-Added minROI and maxROI kwargs to pipeline.Pipe
+-Added a tsmap function to ROI_user for pipeline.processor.process to call
+-A few miscellaneous typo corrections and similar
+
+    *
+------------------------------------------------------------
 User: wallacee  Tue Oct 11 12:05:32 PDT 2011
 pointlike/python/uw/like2
 
