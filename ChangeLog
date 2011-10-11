@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Oct 11 12:52:51 PDT 2011
+pointlike/python/uw/utilities
+
+Modified Files:
+	convolution.py 
+Log Message:
+fix bug that generated galactic diffuse asymmetry, a result of allowing isotropic to be front and back.
+    *
+------------------------------------------------------------
 User: wallacee  Tue Oct 11 12:05:33 PDT 2011
 pointlike/python/uw/like2/pipeline
 
