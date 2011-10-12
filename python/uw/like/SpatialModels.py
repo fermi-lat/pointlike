@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.59 2011/08/25 23:30:19 wallacee Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.60 2011/10/10 16:12:23 lande Exp $
 
    author: Joshua Lande
 
@@ -815,7 +815,7 @@ class RadialProfile(RadiallySymmetricModel):
 
         r  = np.linspace(0,self.r[-1],10000)
         dr = r[1]-r[0]
-        self.norm = self.interp(r)*2*np.pi*r*dr
+        self.norm = np.sum(self.interp(r)*2*np.pi*r*dr)
         self.pdf /= self.norm
 
         # redo normalized interpolation

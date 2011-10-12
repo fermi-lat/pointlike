@@ -10,7 +10,12 @@ from scipy import integrate
 from scipy.stats.distributions import chi2
 from scipy.optimize import fmin
 
-def upper_limit(roi,**kwargs):
+def upper_limit(roi, which=0,
+              confidence=0.95,
+              integral_min=-15,
+              integral_max =-8,
+              simps_points = 100,
+              **kwargs):
     """Compute an upper limit on the source flux, by the "PDG Method"
 
     This method computes an upper limit on the flux of a specified source
@@ -39,28 +44,15 @@ def upper_limit(roi,**kwargs):
             Upper limit of the likelihood integral *in log space*.
         simps_points: int [10]
             Number of evaluation points *per decade* for Simpson's rule.
-        e_weight: float [0]
-            Energy weight for the flux integral (see documentation for uw.like.Models)
-        cgs: bool [False]
-            If true return flux in cgs units (see documentation for uw.like.Models)
+
+    All other arguments are passed into the uw.like.Models.i_flux function,
+    including e_weight, cgs, emin, and emax.
     """
     self=roi
-    kw = dict(which=0,
-              confidence=0.95,
-              integral_min=-15,
-              integral_max =-8,
-              simps_points = 100,
-              e_weight = 0,
-              cgs = False)
-    for k,v in kw.items():
-        kw[k] = kwargs.pop(k,v)
-    if kwargs:
-        for k in kwargs.keys():
-            print("Invalid keyword argument for ROIAnalysis.upper_limit: %s"%k)
     params = self.parameters().copy()
     ll_0 = self.logLikelihood(self.parameters())
 
-    source = self.get_source(kw['which'])
+    source = self.get_source(which)
     if not source.__dict__.has_key('model'):
         raise Exception("upper_limit can only calculate upper limits of point and extended sources.")
     model=source.model
@@ -68,9 +60,8 @@ def upper_limit(roi,**kwargs):
     def like(norm):
         model.setp(0,norm,internal=True)
         return N.exp(ll_0-self.logLikelihood(self.parameters()))
-    npoints = kw['simps_points'] * (kw['integral_max'] - kw['integral_min'])
-    points = N.log10(N.logspace(kw['integral_min'],
-                                  kw['integral_max'],npoints*2+1))
+    npoints = simps_points * (integral_max - integral_min)
+    points = N.log10(N.logspace(integral_min, integral_max,npoints*2+1))
     y = N.array([like(x)*10**x for x in points])
     trapz1 = integrate.cumtrapz(y[::2])
     trapz2 = integrate.cumtrapz(y)[::2]
@@ -81,9 +72,9 @@ def upper_limit(roi,**kwargs):
     x1, x2 = points[::2][i1], points[::2][i2]
     y1, y2 = cumsimps[i1], cumsimps[i2]
     #Linear interpolation should be good enough at this point
-    limit = x1 + ((x2-x1)/(y2-y1))*(kw['confidence']-y1)
+    limit = x1 + ((x2-x1)/(y2-y1))*(confidence-y1)
     model.setp(0,limit,internal=True)
-    uflux = self.psm.models[0].i_flux(e_weight=kw['e_weight'],cgs=kw['cgs'])
+    uflux = model.i_flux(**kwargs)
     self.logLikelihood(params)
     return uflux
 
@@ -128,4 +119,15 @@ def upper_limit_quick(roi,which = 0,confidence = .95,e_weight = 0,cgs = False):
     uflux = self.psm.models[which].i_flux(e_weight = e_weight,cgs = cgs)
     self.set_parameters(params)
     return uflux
+
+
+def extension_upper_limit(roi, which=0,
+                          confidence=0.95,
+                          spatial_model=None,
+                          integral_min=0,
+                          integral_max=3, # degrees
+                          simps_points = 100):
+    """Compute an upper limit on the source extension, by the "PDG Method".
+       See function upper_limit ""
+    pass
 
