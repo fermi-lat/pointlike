@@ -3,9 +3,9 @@ Module to calculate upper limits.
 
 $Header:
 
-author:  Eric Wallace <ewallace@uw.edu>
+author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
-import numpy as N
+import numpy as np
 from scipy import integrate
 from scipy.stats.distributions import chi2
 from scipy.optimize import fmin
@@ -59,16 +59,16 @@ def upper_limit(roi, which=0,
 
     def like(norm):
         model.setp(0,norm,internal=True)
-        return N.exp(ll_0-self.logLikelihood(self.parameters()))
+        return np.exp(ll_0-self.logLikelihood(self.parameters()))
     npoints = simps_points * (integral_max - integral_min)
-    points = N.log10(N.logspace(integral_min, integral_max,npoints*2+1))
-    y = N.array([like(x)*10**x for x in points])
+    points = np.log10(np.logspace(integral_min, integral_max,npoints*2+1))
+    y = np.array([like(x)*10**x for x in points])
     trapz1 = integrate.cumtrapz(y[::2])
     trapz2 = integrate.cumtrapz(y)[::2]
     cumsimps = (4*trapz2 - trapz1)/3.
     cumsimps /= cumsimps[-1]
-    i1 = N.where(cumsimps<.95)[0][-1]
-    i2 = N.where(cumsimps>.95)[0][0]
+    i1 = np.where(cumsimps<.95)[0][-1]
+    i2 = np.where(cumsimps>.95)[0][0]
     x1, x2 = points[::2][i1], points[::2][i2]
     y1, y2 = cumsimps[i1], cumsimps[i2]
     #Linear interpolation should be good enough at this point
@@ -110,24 +110,56 @@ def upper_limit_quick(roi,which = 0,confidence = .95,e_weight = 0,cgs = False):
     zp = self.logLikelihood(self.parameters())
 
     def f(norm):
-        self.psm.models[which]._p[0] = N.log10(norm)
+        self.psm.models[which]._p[0] = np.log10(norm)
         ll = self.logLikelihood(self.parameters())
         return abs(ll - zp - delta_logl)
 
-    limit = fmin(f,N.array([10**-6]),disp=0)[0]
-    self.psm.models[which]._p[0] = N.log10(limit)
+    limit = fmin(f,np.array([10**-6]),disp=0)[0]
+    self.psm.models[which]._p[0] = np.log10(limit)
     uflux = self.psm.models[which].i_flux(e_weight = e_weight,cgs = cgs)
     self.set_parameters(params)
     return uflux
 
 
+from uw.like.roi_state import PointlikeState
+from uw.like.roi_extended import ExtendedSource
+from uw.like.SpatialModels import Disk
 def extension_upper_limit(roi, which=0,
                           confidence=0.95,
                           spatial_model=None,
                           integral_min=0,
                           integral_max=3, # degrees
-                          simps_points = 100):
-    """Compute an upper limit on the source extension, by the "PDG Method".
-       See function upper_limit ""
-    pass
+                          npoints = 100):
+    """ Compute an upper limit on the source extension, by the "PDG Method".
+        The function roi_upper_limits.upper_limit is similar, but computes
+        a flux upper limit. """
+    saved_state = PointlikeState(roi)
 
+    ll_0 = None
+
+    roi.old_quiet = roi.quiet
+    roi.quiet = True
+
+    source = roi.get_source(which)
+    if not isinstance(source,ExtendedSource):
+        if spatial_model is None: spatial_model = Disk()
+        roi.modify(which, spatial_model=spatial_model, keep_old_center=True)
+
+    def like(extension):
+        roi.modify(which, sigma=max(extension,1e-10))
+        roi.fit(estimate_errors=False)
+        ll=-roi.logLikelihood(roi.parameters())
+        if ll_0 is None: ll_0 = ll
+        if not roi.old_quiet: print 'sigma = %.2f, ll=%.2f, dll=%.2f' % (extension, ll, ll-ll_0)
+        return np.exp(ll-ll_0)
+
+    points = np.linspace(integral_min, integral_max,npoints+1)
+    y = map(like,points)
+    cumsims = integrate.cumtrapz(y)
+    cumsimps /= cumsimps[-1]
+    limit = np.interp(confidence, cumsimps, points)
+    saved_state.restore()
+
+    roi.quiet = roi.old_quiet
+
+    return limit
