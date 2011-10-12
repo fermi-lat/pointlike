@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: lande  Wed Oct 12 07:48:37 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py roi_upper_limits.py 
+Added Files:
+	PointlikeState.py 
+Log Message:
+adding new object
+    *
+------------------------------------------------------------
 User: burnett  Tue Oct 11 12:52:51 PDT 2011
 pointlike/python/uw/utilities
 
