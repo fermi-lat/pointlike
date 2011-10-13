@@ -132,10 +132,18 @@ def extension_upper_limit(roi, which=0,
                           npoints = 100):
     """ Compute an upper limit on the source extension, by the "PDG Method".
         The function roi_upper_limits.upper_limit is similar, but computes
-        a flux upper limit. """
+        a flux upper limit. 
+        
+        integral_min: Upper extension radius, in degrees 
+        integral_max: Upper extension radius, in degrees 
+        """
     saved_state = PointlikeState(roi)
 
-    ll_0 = None
+    # Until we update to python 3 and get the nonlocal keyword,
+    # This is a quick workaround.
+    # This bit of code was taken from
+    # http://www.saltycrane.com/blog/2008/01/python-variable-scope-notes/
+    extension_upper_limit.ll_0 = None
 
     roi.old_quiet = roi.quiet
     roi.quiet = True
@@ -149,17 +157,18 @@ def extension_upper_limit(roi, which=0,
         roi.modify(which, sigma=max(extension,1e-10))
         roi.fit(estimate_errors=False)
         ll=-roi.logLikelihood(roi.parameters())
-        if ll_0 is None: ll_0 = ll
-        if not roi.old_quiet: print 'sigma = %.2f, ll=%.2f, dll=%.2f' % (extension, ll, ll-ll_0)
-        return np.exp(ll-ll_0)
+        if extension_upper_limit.ll_0 is None: extension_upper_limit.ll_0 = ll
+        if not roi.old_quiet: print 'sigma = %.2f, ll=%.2f, dll=%.2f' % (extension, ll, ll-extension_upper_limit.ll_0)
+        return np.exp(ll-extension_upper_limit.ll_0)
 
-    points = np.linspace(integral_min, integral_max,npoints+1)
-    y = map(like,points)
-    cumsims = integrate.cumtrapz(y)
-    cumsimps /= cumsimps[-1]
-    limit = np.interp(confidence, cumsimps, points)
+    extensions = np.linspace(integral_min, integral_max,npoints+1)
+    extension_middles = 0.5*(extensions[1:] + extensions[:-1])
+    likelihood = map(like,extensions)
+    cdf = integrate.cumtrapz(x=extensions,y=likelihood)
+    cdf /= cdf[-1]
+    extension_limit = np.interp(confidence, cdf, extension_middles)
     saved_state.restore()
 
     roi.quiet = roi.old_quiet
 
-    return limit
+    return extension_limit
