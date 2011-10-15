@@ -3,7 +3,7 @@ This module implements the class OffPeak that
 can be used to calculate the off-peak region
 of a pulsar.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/lc_off_peak.py,v 1.2 2011/10/03 04:39:35 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/lc_off_peak.py,v 1.3 2011/10/04 22:03:39 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -106,13 +106,18 @@ class OffPeak(object):
             where peaks is a list of peaks. """
 
         # make sure a,b are from 0-1 and b>a
-        a,b=a%1,b%1
-        a,b=min(a,b),max(a,b)
-        if b-a < (a-0) + (1-b):
-            range = PhaseRange(a,b)
-        else:
-            range = PhaseRange(b,a)
+        range = PhaseRange(a,b)
+        alt_range = PhaseRange(b,a)
+        if alt_range.phase_fraction < range.phase_fraction:
+            range = alt_range
         return sum(peak in range for peak in peaks)
+
+    @staticmethod
+    def find_lowest_value(lct):
+        grid = (0,1, .001)
+        lowest_phase = brute(lct, (grid,))
+        lowest_value = float(lct(lowest_phase))
+        return lowest_value 
 
     @staticmethod
     def consistent(x,xphase,y,yphase,probability = 0.05, quiet=True):
@@ -148,9 +153,7 @@ class OffPeak(object):
         # (*) Calulate the lowest part of the light curve using a simple
         #     grid search.
 
-        grid = (0,1, .001)
-        lowest_phase = brute(lct, (grid,))
-        self.lowest_value = float(lct(lowest_phase))
+        self.lowest_value = OffPeak.find_lowest_value(lct)
 
         # (*) Calculate the phase range for a grid of centers in phase.
 
@@ -177,7 +180,7 @@ class OffPeak(object):
                 (len(peaks)>1) & \
                 (dphis > self.first_dphi/4.0)
 
-        if len(peaks) < 2:
+        if len(peaks) < 2 or np.sum(good_region) < 1:
             print 'No good off pulse regions'
             self.off_peak = self.first_off_peak
             return
