@@ -6,7 +6,7 @@ See the docstring for usage information.
 
 This object has SymPy as a dependency.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.3 2011/10/04 22:03:23 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.4 2011/10/10 17:09:40 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -305,6 +305,17 @@ class PhaseRange(object):
     def overlaps(self, other):
         """ True if the two regions have overlaping range. """
         return self.intersect(other).phase_fraction > 0
+
+    def axvspan(self, axes=None, **kwargs):
+        """ Overlay range on matplotlib axes. """
+        import pylab as P
+        if axes is None: axes=P.gca()
+        label=kwargs.pop('label',None)
+        for a,b in self.tolist(dense=False):
+            axes.axvspan(a, b, label=label, **kwargs)
+            label=None
+
+
 
 if __name__ == "__main__":
     import doctest
