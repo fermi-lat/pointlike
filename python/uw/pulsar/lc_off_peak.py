@@ -3,7 +3,7 @@ This module implements the class OffPeak that
 can be used to calculate the off-peak region
 of a pulsar.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/lc_off_peak.py,v 1.3 2011/10/04 22:03:39 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/lc_off_peak.py,v 1.4 2011/10/15 21:54:32 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -205,6 +205,7 @@ class OffPeak(object):
 
         if consistent:
             if not self.quiet: print 'Keeping second region'
+            print 'phase_fraction = %.2f, %.2f' % (self.first_off_peak.phase_fraction, self.second_off_peak.phase_fraction)
             self.off_peak = self.first_off_peak + self.second_off_peak
         else:
             if not self.quiet: print 'Rejecting second region'
