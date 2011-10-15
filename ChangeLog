@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sat Oct 15 16:02:07 PDT 2011
+ScienceTools-scons/pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_off_peak.py 
+Log Message:
+cleanup algorithm
+    *
+------------------------------------------------------------
 User: lande  Sat Oct 15 14:54:32 PDT 2011
 ScienceTools-scons/pointlike/python/uw/pulsar
 
