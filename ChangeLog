@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Oct 20 14:40:25 PDT 2011
+pointlike/python/uw/like2/plotting
+
+Modified Files:
+	sed.py 
+Log Message:
+move sed stuff to new module
+    *
+------------------------------------------------------------
 User: burnett  Thu Oct 20 14:38:00 PDT 2011
 pointlike/python/uw/like2/pipeline
 
