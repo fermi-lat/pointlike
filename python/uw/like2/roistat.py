@@ -4,7 +4,7 @@ Manage likelihood calculations for an ROI
 mostly class ROIstat, which computes the likelihood and its derivative from the lists of
 sources (see .sourcelist) and bands (see .bandlike)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.14 2011/10/04 02:48:10 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.15 2011/10/05 21:35:33 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import sys
@@ -35,7 +35,7 @@ class ROIstat(object):
           initialize and setting reset=True in the update method 
     """
     
-    def __init__(self, roi, bandsel=lambda b: True, quiet=False):
+    def __init__(self, roi, bandsel=lambda b: True, **kwargs):
         """
         roi : ROIsetup object
             use to setup sources, find bands
@@ -45,12 +45,15 @@ class ROIstat(object):
         self.name = roi.name
         self.roi_dir = roi.roi_dir
         self.sources = sourcelist.SourceList(roi) 
+        quiet = kwargs.pop('quiet', False)
         self.all_bands = bandlike.factory(filter(bandsel, roi.bands), self.sources , quiet=quiet)
         self.selected_bands = self.all_bands # the possible subset to analyze
+        self.saved_bands = None
         self.calls=0
         self.call_limit=1000
         self.quiet=quiet
         self.prior= prior.ModelPrior(self.sources, self.sources.free)
+        self.prior.enabled=kwargs.pop('enable_prior', False)
     
     def __str__(self):
         return 'ROIstat for ROI %s: %d bands %d sources (%d free)' \
@@ -89,20 +92,37 @@ class ROIstat(object):
             #    print status_string;sys.stdout.flush()
             band.initialize(freelist)
         self.prior.initialize(freelist)
+        self.update()
 
-    def select_bands(self, bandsel=lambda b: True, indices=None):
+    def select_bands(self, bandsel= None): 
         """ select a subset of the bands for analysis
-        bandsel : function of a ROIBand that returns bool, like lambda b: b.e<200
+        parameteters
+        ------------
+            bandsel : function of a ROIBand that returns bool, like lambda b: b.e<200
         To restore, call with no arg
         Note that one could also replace selected_bands with a subset of all_bands
-        
         """
-        if indices is not None:
-            self.selected_bands = self.all_bands[indices]
+        if bandsel is None:
+            self.selected_bands =  self.all_bands
+            print '*** restoring %d bands ***' % len(self.all_bands)
         else:
             self.selected_bands = np.array([bs for bs in self.all_bands if bandsel(bs.band)])
-        if not self.quiet:print 'selected subset of %d bands for likelihood analysis' % len(self.selected_bands)
+            if not self.quiet:print 'selected subset of %d bands for likelihood analysis' % len(self.selected_bands)
         
+    
+    def select_source(self, sourcename):
+        """ sourcename : string or None
+                if None, all variable sources are selected
+                otherwise will compute likelihood only for the given source
+        """
+        if sourcename is None:
+            self.initialize()
+            return
+        source_mask = np.array([source.name==source_name for source in self.sources])
+        if sum(source_mask)!=1:
+            raise Exception('Localization: source %s not found'%source_name)
+        self.initialize(self.source_mask)
+
     def update(self, reset=False):
         """ perform update on all selected bands, and variable sources
         if reset is True, assume that must also reinitialize angular dependence of sources
@@ -113,6 +133,7 @@ class ROIstat(object):
     def log_like(self):
         """ return sum of log likelihood for all bands
         """
+        self.update()
         return sum([blike.log_like() for blike in self.selected_bands]) + self.prior.log_like()
         
     def __call__(self, par):
@@ -120,7 +141,6 @@ class ROIstat(object):
         appropriate for minimizing
         """
         self.set_parameters(par)
-        self.update()
         self.calls +=1
         if self.calls>self.call_limit:
             raise RuntimeError('function call limit, %d exceeded' %self.calls)

@@ -1,7 +1,7 @@
 """
 Manage sources: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.9 2011/10/01 13:35:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.10 2011/10/03 22:04:11 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
@@ -14,7 +14,15 @@ def set_extended_property(esource):
     def getter(source): return source.extended_source.smodel
     def setter(source, newmodel): source.extended_source.smodel = newmodel
     esource.__class__.spectral_model = property(getter, setter,doc='spectral model')
-    
+def set_diffuse_property(dsource):
+    def getter(source): return source.diffuse_source.model
+    def setter(source, newmodel): source.diffuse_source.model = newmodel
+    dsource.__class__.spectral_model = property(getter, setter,doc='spectral model')
+def set_point_property(psource) : 
+    def getter(source): return source.model
+    def setter(source, newmodel): source.model = newmodel
+    psource.__class__.spectral_model = property(getter, setter,doc='spectral model')
+  
 class SourceList(list):
     """ manage properties of the list of sources
         
@@ -30,14 +38,24 @@ class SourceList(list):
                     point_sources : list of point sources
                     roi_dir: the center of the ROI
         """
+        def copy_defaults(a, b):
+            """ if object ahas a dict 'defaults' copy corresponding stuff to b
+            """
+            #if not hasattr(a, 'defaults'): return
+            for key,value,text in a.defaults:
+                b.__dict__[key]=a.__dict__[key]
+                #print key,a.__dict__[key]
+                
         class DiffuseSourceFactory(object):
             """ klugy way to create new object from diffuse source
             """
             def __init__(self, roi):   self.roi = roi
             def __call__(self, source_index, **kwargs):
                 cm = self.roi.global_sources[source_index]
+                kwargs.update(name=self.roi.name)
                 src = cm.__class__(cm.sa, cm.diffuse_source, self.roi.roi_dir, **kwargs)
-                src.spectral_model = cm.spectral_model
+                copy_defaults(cm, src)
+                #src = cm 
                 src.skydir = None
                 return src
         class ExtendedSourceFactory(object):
@@ -45,6 +63,7 @@ class SourceList(list):
             def __call__(self, source_index, **kwargs):
                 cm = self.roi.extended_sources[source_index]
                 src = cm.__class__(cm.sa, cm.extended_source, self.roi.roi_dir, **kwargs)
+                copy_defaults(cm, src)
                 src.skydir = cm.extended_source.skydir
                 return src
         class PointSourceFactory(object):
@@ -57,8 +76,8 @@ class SourceList(list):
         for i, source in enumerate(roi.global_sources):
             source.manager_index = i
             source.factory = DiffuseSourceFactory(roi)
-            source.spectral_model = source.smodel.copy()
             source.skydir=None
+            set_diffuse_property(source)
             self.append(source)
         for i, source in enumerate(roi.extended_sources):
             source.manager_index = i#+len(roi.global_sources)
@@ -71,7 +90,7 @@ class SourceList(list):
         for i,source in enumerate(roi.point_sources):
             source.manager_index = i
             source.factory = PointSourceFactory(roi)
-            source.spectral_model = source.model
+            set_point_property(source)
             self.append(source)
         
         ## temporary kluge to ensure that bands are setup for current use by diffuse

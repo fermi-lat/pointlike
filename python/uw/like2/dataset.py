@@ -1,13 +1,12 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.3 2011/09/28 16:51:57 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.4 2011/10/05 21:33:19 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.3 $'.split()[1]
-import types
-import os
+version='$Revision: 1.4 $'.split()[1]
+import os, glob, types
 import numpy as np
 from uw.like import pixeldata, pypsf, pycaldb, pointspec_helpers, roi_bands
 from uw.utilities import keyword_options
@@ -65,7 +64,7 @@ class DataSet(object):
 
         self.__dict__.update(self.dataspec.__dict__)
         keyword_options.process(self, kwargs)
-
+        assert self.irf is not None, 'Must provide the name of an IRF to use'
         self.CALDBManager = pycaldb.CALDBManager(irf=self.irf,psf_irf=self.psf_irf,
             CALDB=self.CALDB,custom_irf_dir=self.custom_irf_dir)
 
@@ -97,7 +96,8 @@ class DataSet(object):
             dataspec.DataSpec.datasets[id(dataset)] = dataset
             return dataspec.DataSpec(id(dataset),month=month)
         # it is a string, check dictionary in ., then $FERMI/data
-        for folder in  ('.',  os.path.join(os.path.expandvars('$FERMI'),'data')):
+        folders = ['.'] + glob.glob( os.path.join(os.path.expandvars('$FERMI'),'data*'))
+        for folder in folders :
             dict_file=os.path.join(folder, 'dataspec.py')
             if os.path.exists(dict_file):
                 try:
@@ -109,6 +109,7 @@ class DataSet(object):
                     print 'found dataset %s in $FERMI/data' % dataset
                     return dataspec.DataSpecification(folder, **ldict[dataset])
         # not found: this is deprecated, leave for backwards consisency
+        raise RuntimeError('dataset name %s not found in %s' % (dataset, folders))
         return dataspec.DataSpec(dataset,month=month)
 
     def __call__(self, roi_dir, **kwargs):
