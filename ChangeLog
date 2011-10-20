@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Thu Oct 20 14:40:26 PDT 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	tools.py 
+Added Files:
+	sedfuns.py 
+Log Message:
+move sed stuff to new module
+    *
+------------------------------------------------------------
 User: burnett  Thu Oct 20 14:40:25 PDT 2011
 pointlike/python/uw/like2/plotting
 
