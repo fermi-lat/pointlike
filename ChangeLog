@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Thu Oct 20 14:41:28 PDT 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py dataset.py main.py prior.py roisetup.py roistat.py 
+	sourcelist.py sources.py 
+Log Message:
+clean up, getting consistent reference to a unique Model for each source
+    *
+------------------------------------------------------------
 User: burnett  Thu Oct 20 14:40:26 PDT 2011
 pointlike/python/uw/like2
 
