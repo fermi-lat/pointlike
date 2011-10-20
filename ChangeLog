@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Oct 20 14:38:00 PDT 2011
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py processor.py 
+Log Message:
+updates for production; including other processors
+    *
+------------------------------------------------------------
 User: lande  Sat Oct 15 16:02:07 PDT 2011
 ScienceTools-scons/pointlike/python/uw/pulsar
 
