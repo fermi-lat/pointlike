@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.2 2011/10/05 21:37:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.3 2011/10/11 19:05:33 wallacee Exp $
 """
 import os, types, glob, time
 import cPickle as pickle
@@ -26,6 +26,8 @@ class Pipe(roisetup.ROIfactory):
     """
     def __init__(self, indir, dataset,  **kwargs):
         """
+        parameters
+        ----------
         indir : string
             name of a folder containing the sky model description, passed to 
                skymodel.SkyModel
@@ -39,15 +41,17 @@ class Pipe(roisetup.ROIfactory):
         self.fit_kw     = kwargs.pop('fit_kw', dict())
         self.skymodel_kw= kwargs.pop('skymodel_kw', dict())
         self.analysis_kw =kwargs.pop('analysis_kw', dict())
+        self.roi_kw      =kwargs.pop('roi_kw', dict())
  
-        associator = kwargs.pop('associate', 'all_but_gammas')
-        if associator is not None and associator[0]=='$':
-            print 'associations will come from the catalog %s' %associator
-            associator = associate.Association(associator)
-        elif associator is not None and associator!='None':
-            associator = associate.SrcId('$FERMI/catalog', associator)
+        # TODO: get association back in
+        #associator = kwargs.pop('associate', 'all_but_gammas')
+        #if associator is not None and associator[0]=='$':
+        #    print 'associations will come from the catalog %s' %associator
+        #    associator = associate.Association(associator)
+        #elif associator is not None and associator!='None':
+        #    associator = associate.SrcId('$FERMI/catalog', associator)
             #print 'will associate with catalogs %s' % associator.classes
-        self.process_kw['associate'] = associator
+        #self.process_kw['associate'] = associator
         self.selector = skymodel.HEALPixSourceSelector
         self.selector.nside = self.nside
 
@@ -67,13 +71,14 @@ class Pipe(roisetup.ROIfactory):
                 self.__dict__.get(key,'not in self.__dict__!'))
         return s
         
-    def __call__(self, index):
+    def __call__(self, index, **kwargs):
         """ perform analysis for the ROI
         Note that it is done by a function in the processor module
-        N.B. Running skip setup allows examination of models, but its likelihood calculation
         requires a setup call
         """
-        roi = self.roi(index , roi_kw=dict(quiet=False) )
+        roi_kw = self.roi_kw.copy()
+        roi_kw.update(**kwargs)
+        roi = self.roi(index , roi_kw=roi_kw )
         
         self.processor(roi, **self.process_kw)
 
