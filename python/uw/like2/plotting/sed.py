@@ -5,12 +5,13 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.2 2011/09/28 16:54:01 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.3 2011/10/03 22:01:47 burnett Exp $
 """
 import os, types
 import numpy as np
 import pylab as plt
 from uw.utilities import image
+from .. import sedfuns
 
      
 class Plot(object):
@@ -159,7 +160,7 @@ class Plot(object):
             image.galactic_map(galmap, color='lightblue', marker='s', markercolor='r')
 
         if annotate is not None:
-            axes.text(annotate[0],annotate[1], annotate[2],transform=axes.transAxes)
+            axes.text(annotate[0],annotate[1], annotate[2],transform=axes.transAxes, fontsize='small')
         if outdir is not None: 
             if os.path.isdir(outdir):
                 fname = name.replace(' ','_').replace('+','p')
