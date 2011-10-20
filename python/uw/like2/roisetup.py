@@ -1,12 +1,12 @@
 """
 Set up an ROI (transitional?)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.1 2011/09/28 16:52:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.2 2011/10/01 13:35:06 burnett Exp $
 
 """
 import os
 import numpy as np
-from . import dataset, skymodel
+from . import dataset, skymodel, diffuse
 from .. utilities import keyword_options, convolution
 from .. like import  roi_diffuse, roi_extended
 
@@ -24,12 +24,16 @@ class ROIfactory(object):
                             num_points=25), # AnalyticConvolution
                                     'convolution parameters'),
         ('selector', skymodel.HEALPixSourceSelector,' factory of SourceSelector objects'),
+        ('cache',   None, 'folder to look for cached diffuse'),
         ('quiet', False, 'set to suppress most output'),
         )
 
     @keyword_options.decorate(defaults)
     def __init__(self, indir, dataname, **kwargs):
-        """ dataname : string
+        """ 
+        parameters
+        ----------
+            dataname : string
                 used to look up data specification
             indir: folder containing skymodel definition
         """
@@ -56,19 +60,7 @@ class ROIfactory(object):
         # get all diffuse models appropriate for this ROI
         globals, extended = self.skymodel.get_diffuse_sources(src_sel)
        
-        # perform OTF convolutions with PSFs: first diffuse, then extended if any
-        # note that the wrapper could be roi_diffuse.ROIDiffuseModel_PC (for pre-convolved) it takes a tolerance
-        # if resolution is zero, assume preconvolved
-        def otf_diffuse_mapper( source):
-            res = self.convolve_kw['resolution']
-            if res>0:
-                return roi_diffuse.ROIDiffuseModel_OTF(self, source, skydir, pixelsize=res)
-            return roi_diffuse.ROIDiffuseModel_PC(self, source, skydir)
-        def diffuse_mapper(source): #use pre-convolved if isotrop
-            if source.name.startswith('iso'):
-                return roi_diffuse.ROIDiffuseModel_PC(self, source, skydir)
-            return otf_diffuse_mapper(source)
-        global_models = map( diffuse_mapper, globals)
+        global_models = [diffuse.mapper(self, src_sel.name(), skydir, source, cache=self.cache) for source in globals]
 
         def extended_mapper( source):
             return roi_extended.ROIExtendedModel.factory(self,source,skydir)
@@ -104,7 +96,6 @@ class ROIfactory(object):
                     extended_sources = extended_sources,
                     point_sources=self._local_sources(src_sel))
 
-def main(indir='uw26', dataname='P7_V4_SOURCE_4bpd', skymodel_kw={}):
-    sm = skymodel.SkyModel(indir,  **skymodel_kw)
-    rf = ROIfactory(dataname, sm)
-    return rf.roi(749)
+def main(indir='uw27', dataname='P7_V4_SOURCE_4bpd',irf='P7SOURCE_V6' ,skymodel_kw={}):
+    rf = ROIfactory(indir, dataname, **skymodel_kw)
+    return rf

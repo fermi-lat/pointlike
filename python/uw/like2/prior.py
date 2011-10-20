@@ -2,7 +2,7 @@
 Manage prior likelihood calculations 
 
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/prior.py,v 1.1 2011/10/04 02:48:10 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import numpy as np
@@ -38,7 +38,8 @@ class LimitPrior(NoPrior):
         return 0
            
 class ModelPrior(object):
-    """ manage addition of priors to the likelihood"""
+    """ manage addition of priors to the likelihood
+    """
 
     def __init__(self, sources, free=None):   
         self.sources = sources
@@ -55,13 +56,13 @@ class ModelPrior(object):
         for model in self.free_models:
             for pname in np.array(model.param_names)[model.free]:
                 if pname=='Index':
-                   prior = LimitPrior(np.log10(1e-3), np.log10(3.0), 10.)
+                   prior = LimitPrior(np.log10(1e-3), np.log10(3.0), 1.)
                 elif pname=='Norm':
                     if model.name =='PowerLaw': #for ring
-                        prior = LimitPrior(np.log10(0.5), np.log10(1.5), 10.)
+                        prior = LimitPrior(np.log10(0.5), np.log10(1.5), 1.)
                     else: prior = LimitPrior(-16, -8, 1e4)
                 elif pname=='Scale': # used by iso
-                   prior = LimitPrior(np.log10(1e-4), np.log10(1.5), 10.)
+                   prior = LimitPrior(np.log10(1e-4), np.log10(1.5), 1.)
                 else:
                     prior = NoPrior()
                 self.priors.append(prior)
@@ -93,3 +94,4 @@ class ModelPrior(object):
     def gradient(self):
         if not self.enabled: return np.zeros(len(self.pars))
         return np.array([prior.grad(x) for prior,x in zip(self.priors, self.pars)])
+        

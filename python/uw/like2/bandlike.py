@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.5 2011/09/28 16:07:49 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.6 2011/10/01 13:35:06 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -39,7 +39,7 @@ class BandSource(object):
         print >>out, '\ttotal counts %8.1f'%  self.counts 
 
     @property 
-    def spectral_model(self):  return self.source.spectral_model
+    def spectral_model(self):  return self.source.model
 
     # maybe useful: not done yet
     #def norm(self):
@@ -84,17 +84,16 @@ class BandDiffuse(BandSource):
         self.initialize()
         self.update()
     @property 
-    def spectral_model(self):  return self.source.spectral_model
+    def spectral_model(self):  return self.source.diffuse_source.smodel
 
     def initialize(self):
-        """ establishs a state from
+        """ establish a state from
             which the model counts can be calculated.  E.g., evaluating
             the model on a series of energy subplanes and storing the
             results for a later Simpson's rule.
         """
         self.source.quiet = True
-        self.source.smodel=self.spectral_model
-        self.source.initialize_counts([self.band])
+        self.source.initialize_counts(self.band)
         
     def update(self, fixed=False):
         """ sets the following attributes:
@@ -104,11 +103,10 @@ class BandDiffuse(BandSource):
             actually use the ROIDiffuseModel object to modify the band, then we 
             copy them here. 
         """
-        self.source.smodel = self.spectral_model
-        self.source.update_counts([self.band], self.source_index)
+        self.source.update_counts()
         if self.band.has_pixels:
-            self.pix_counts = self.band.bg_pix_counts[:,self.source_index]
-            self.counts = self.band.bg_counts[self.source_index]
+            self.pix_counts = self.source.pix_counts
+            self.counts = self.source.counts
         else:
             self.pix_counts = []
             self.counts=0
@@ -143,7 +141,10 @@ class BandExtended(BandDiffuse):
     """
     def initialize(self):
         #was: self.source.initialize_counts([self.band]) 
-        super(BandExtended, self).initialize()
+        self.source.quiet = True
+        self.source.smodel=self.spectral_model
+        self.source.initialize_counts([self.band])
+        #super(BandExtended, self).initialize()
         myband = self.source.bands[0]
         self.exposure_ratio, self.overlap = myband.er, myband.overlaps 
         self.pixel_values = myband.es_pix_counts
@@ -306,16 +307,15 @@ def factory(bands, sources, quiet=False):
         return B(band, source)
     bandlist = []
     for i,band in enumerate(bands):
-        if not quiet: 
-            status_string = '...initializing band %2d/%2d'%(i+1,len(bands))
-            print status_string,;sys.stdout.flush()
+        #if not quiet: 
+        #    print i,
 
         bandlist.append(BandLike(band, 
                     np.array( [bandsource_factory(band, source) for source in sources]),
                     sources.free)
                     )
-        if not quiet: 
-            print '\b'*(2+len(status_string)),;sys.stdout.flush()
+        #if not quiet: 
+        #    print 
 
     if not quiet: print
     return np.array(bandlist)

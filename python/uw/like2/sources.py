@@ -1,11 +1,12 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.1 2011/09/28 16:56:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.2 2011/10/04 20:00:43 wallacee Exp $
 
 """
 import os, pickle, glob, types, copy
 import numpy as np
-from skymaps import SkyDir, Band, IsotropicSpectrum, DiffuseFunction
+from skymaps import SkyDir, Band, IsotropicSpectrum
+import skymaps 
 from uw.like import  Models
 from uw.like import pointspec_helpers
 
@@ -86,7 +87,19 @@ class ExtendedSource(Source):
         ret = ExtendedSource(**self.__dict__)
         ret.model = self.model.copy()
         return ret
-    
+ 
+class DiffuseFunction(skymaps.DiffuseFunction):
+    """ wrapper for eventual invokation of skymaps.DiffuseFunction
+    """
+    def __init__(self, filename):
+        self.filename = filename
+        self.loaded = False
+    def load(self):
+        if  self.loaded: return
+        self.loaded=True
+        print 'loading diffuse file %s' %self.filename
+        super(DiffuseFunction,self).__init__(self.filename)
+        
 class DiffuseDict(dict):
     """ create a dictionary of global diffuse objects
         key:   a string defined by the filename preceding an underscore

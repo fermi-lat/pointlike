@@ -1,12 +1,12 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.6 2011/10/03 22:04:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.7 2011/10/11 19:05:32 wallacee Exp $
 
 """
 
 import numpy as np
-from . import roistat, tools, printing, roisetup
+from . import roistat, tools, printing, roisetup, sedfuns
 from . import plotting 
 from uw.utilities import fitter
 
@@ -130,8 +130,8 @@ class ROI_user(roistat.ROIstat):
         update = kwargs.pop('update', False)
         if hasattr(source, 'sed_rec') and not update:
             return source.sed_rec
-        sf =tools.SourceFlux(self, source_name, **kwargs)
-        source.sed_rec = tools.SED(sf).rec
+        sf = sedfuns.SourceFlux(self, source_name, **kwargs)
+        source.sed_rec = sedfuns.SED(sf).rec
         return source.sed_rec
 
     @decorate_with(plotting.tsmap.plot)
@@ -146,7 +146,7 @@ class ROI_user(roistat.ROIstat):
     @decorate_with(plotting.sed.Plot, append_init=True)    
     def plot_sed(self, source_name, **kwargs):
         source = self.sources.find_source(source_name)
-        self.get_sed(source_name)
+        source.sedrec = self.get_sed(source_name)
         ps = plotting.sed.Plot(source)
         ps(**kwargs)
         return ps
