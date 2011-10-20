@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.5 2011/10/06 13:00:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.6 2011/10/11 19:05:33 wallacee Exp $
 """
 import os, time
 import cPickle as pickle
@@ -10,8 +10,8 @@ from skymaps import SkyDir, Hep3Vector
 from uw.like import srcid  
 from uw.utilities import image
 from ..plotting import sed, counts 
-from .. import tools
-
+from .. import tools, sedfuns
+np.seterr(invalid='raise', divide='raise', over='raise')
 def isextended(source):
     return source.__dict__.get(  'spatial_model', None) is not None
     
@@ -216,11 +216,12 @@ def repivot(roi, fit_sources, min_ts = 16, max_beta=3.0):
 
 class Damper(object):
     """ manage adjustment of parameters for damping """
-    def __init__(self, roi, dampen):
+    def __init__(self, roi, dampen, tol=0.5):
         self.dampen=dampen
         self.roi = roi
         self.ipar = roi.get_parameters()[:] # get copy of initial parameters
         self.initial_logl = roi.logl =  -roi(self.ipar)
+        self.tol = tol
     def __call__(self):
         fpar = self.roi.get_parameters()
         if self.dampen!=1.0 and  len(fpar)==len(self.ipar): 
@@ -228,7 +229,7 @@ class Damper(object):
             self.roi.set_parameters(dpar)
             self.roi.logl=-self.roi(dpar)
             # check for change, at least 0.5
-            return abs(self.initial_logl-self.roi.logl)>0.5
+            return abs(self.initial_logl-self.roi.logl)>self.tol
         return False
     
 
@@ -275,7 +276,7 @@ def process(roi, **kwargs):
                 if damp():
                     roi.print_summary(title='after damping with factor=%.2f, logL=%0.f'%(dampen,roi.log_like()))#print_summary(sdir=roi.roi_dir, )
                 else:
-                    print 'No damping requested, or no difference in log Likelihood'
+                    print 'No damping requested, or difference in log Likelihood < %f' % damp.tol
             except Exception, msg:
                 print '============== fit failed, aborting!! %s'%msg
                 #pickle_dump(roi, fit_sources, os.path.join(outdir, 'pickle'), pass_number, failed=True)
@@ -296,7 +297,7 @@ def process(roi, **kwargs):
         t = os.path.join(outdir, kwargs.get(x))
         if not os.path.exists(t): os.mkdir(t)
         return t
-    tools.makesed_all(roi, sedfig_dir=getdir('sedfig_dir'))
+    sedfuns.makesed_all(roi, sedfig_dir=getdir('sedfig_dir'))
     tools.localize_all(roi, tsmap_dir=getdir('tsmap_dir'))
 
     ax = counts.stacked_plots(roi,None)
@@ -343,3 +344,95 @@ def residual_processor(roi, **kwargs):
     table = maps.ROItables(outdir, skyfuns= [
         [ResidualCounts, "residual_%02d"%iband, dict(iband=iband)] for iband in iband_range])
     table(roi)    
+
+def full_sed_processor(roi, **kwargs):
+    """ roi processor to include front and back sed info 
+    """
+    print 'processing ROI %s ' %roi.name
+    outdir   = kwargs.get('outdir')
+    ts_min   = kwargs.get('ts_min', 25)
+    sedinfo = os.path.join(outdir, 'sedinfo')
+    if not os.path.exists(sedinfo): os.mkdir(sedinfo)
+    ptsources = [(i,s) for i,s in enumerate(roi.sources) if s.skydir is not None and np.any(s.spectral_model.free)]
+    bgsources = [(j,s) for j,s in enumerate(roi.sources) if s.skydir is None]
+    for pti,source in ptsources:
+        try:
+            ts = roi.TS(source.name)
+            if ts<ts_min: continue
+            sf = tools.SourceFlux(roi, source.name, )
+            sedrecs = [tools.SED(sf, event_class).rec for event_class in (0,1,None)]
+                     
+        except Exception,e:
+            print 'source %s failed flux measurement: %s' % (source.name, e)
+            raise
+        fname = source.name.replace('+','p').replace(' ', '_')+'_sedinfo.pickle'
+        fullfname = os.path.join(sedinfo, fname)
+        bgdensity = []
+        try:
+            for j, bgsource in bgsources:
+                bgdensity.append(np.array([ 
+                    ( band[j].pix_counts * band[pti].pix_counts ).sum() / band[pti].counts\
+                                for band in roi.selected_bands],np.float32) )
+        except Exception, e:
+            print 'failed bgdensity for source %s: %s' % (source.name, e)
+        sdir = source.skydir
+        pickle.dump( dict(
+                ra=sdir.ra(), dec=sdir.dec(), 
+                glat=sdir.b(), glon=sdir.l(),
+                ts=ts, 
+                elow =sedrecs[0].elow,
+                ehigh=sedrecs[0].ehigh,
+                flux = np.vstack([sr.flux   for sr in sedrecs]),
+                lflux= np.vstack([sr.lflux  for sr in sedrecs]),
+                uflux= np.vstack([sr.uflux  for sr in sedrecs]),
+                bts   =np.vstack([sr.ts     for sr in sedrecs]),
+                bgdensity = bgdensity,
+                bgnames = [s.name for ii,s in bgsources],
+                ),
+            open(fullfname, 'w'))
+        print 'wrote sedinfo pickle file to %s' % fullfname
+            
+def roi_refit_processor(roi, **kwargs):
+    """ roi processor to refit diffuse for each energy band
+    """
+    def make_plot( d, labels=('front','back','both'), outdir=None):
+        plt.figure(99, figsize=(5,5));plt.clf()
+        data = [np.array(d[label]['values'])[:,0] for label in labels]
+        errors= [np.array(d[label]['errors'])[:,0] for label in labels]
+        energy = d['both']['energies']
+        name = d['name']
+        for y,yerr,label in zip(data,errors,labels):
+            plt.errorbar(energy[:8]/1e3, y[:8], yerr=yerr[:8], fmt='o-' , lw=2, label=label)
+        plt.xscale('log'); plt.ylim((0.5, 1.25 ))
+        plt.title('Galactic fits for ROI %s'%name, fontsize='medium')
+        plt.axhline(d['norms'][0], color='k', linestyle='--', label='full fit')
+        plt.xlabel('Energy (GeV)');plt.ylabel('normalization factor')
+        plt.grid(True);plt.legend(loc='upper left');
+        if outdir is not None:
+            filename = os.path.join(outdir,  '%s_galfitspec.png'%name)
+            plt.savefig(filename)
+            print 'saved figure to %s'%filename
+        
+    print 'processing ROI %s ' %roi.name
+    outdir   = kwargs.get('outdir')
+    diffusefits = os.path.join(outdir, 'galfits_all')
+    if not os.path.exists(diffusefits): os.mkdir(diffusefits)
+    dlike = sedfuns.DiffuseLikelihood(roi, names=kwargs.get('names', ('ring',)))
+    r = dict(name=roi.name, glon=roi.roi_dir.l(), glat=roi.roi_dir.b(), norms=dlike.saved_pars)
+    for event_class,name in ((0,'front'),(1,'back'),(None,'both')):
+        r[name] = dlike.multifit(event_class=event_class)
+    plot_dir = os.path.join(outdir, 'galfit_plots')
+    if not os.path.exists(plot_dir): os.mkdir(plot_dir)
+    make_plot(r, outdir=plot_dir)    
+    fullfname = os.path.join(diffusefits, roi.name+'_diffuse.pickle')
+    pickle.dump( r, open(fullfname, 'w'))
+    print 'wrote diffuse refit pickle file to %s' % fullfname
+
+def cache_diffuse(roi, **kwargs):
+    """ roi processor saves the convolved diffuse maps for an roi"""
+    print 'processing %s' %roi.name
+    outdir = kwargs.get('outdir')
+    diffuse_maps = os.path.join(outdir, 'diffuse_maps')
+    if not os.path.exists(diffuse_maps): os.mkdir(diffusemaps)
+    
+    bands = roi.all_bands
