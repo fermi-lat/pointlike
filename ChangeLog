@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Fri Oct 21 11:55:15 PDT 2011
+pointlike/python/uw/like2
+
+Added Files:
+	diffuse.py 
+Log Message:
+diffuse.py module required by other like2 stuff.
+
+    *
+------------------------------------------------------------
 User: burnett  Thu Oct 20 14:41:28 PDT 2011
 pointlike/python/uw/like2
 
