@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.11 2011/08/11 15:57:44 cohen Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.12 2011/08/12 21:52:35 lande Exp $
 
 author: Joshua Lande
 """
@@ -169,6 +169,7 @@ class Catalog2FGL(SourceCatalog):
         ("latextdir",    None, "Directory containing the spatial model templates."),
         ("prune_radius", 0.10, "[deg] consider sources closer than this duplicates"),
         ("free_radius",     2, "[deg] sources within this distance have free spectral parameters"),
+        ("max_free",     None, "Maximum number of sources to free (if there are more than that many sources within free_radius)."),
     )
 
     @keyword_options.decorate(defaults)
@@ -320,9 +321,11 @@ class Catalog2FGL(SourceCatalog):
         return next(source for source in self.sources if source.name == name)
 
     def get_sources(self,skydir,radius=15):
-        """ Returns all sources (point + diffuse combined) within radius.
+        """ Returns all catalog sources (point + diffuse combined) within radius.
             Sources only allowed to vary (their spectral paramters)
-            when distance from skydir is less than free_radius. """
+            when distance from skydir is less than free_radius.
+            
+            A maximum of max_free sources are allowed to be specified. """
         return_sources = []
 
         for source in self.sources:
@@ -334,6 +337,11 @@ class Catalog2FGL(SourceCatalog):
             return_sources[-1].model.free[:] = (distance <= self.free_radius)
 
         Catalog2FGL.sort(return_sources,skydir)
+
+        if self.max_free is not None:
+            if sum(np.all(source.model.free==True) for source in return_sources) > self.max_free:
+                for i,source in enumerate(return_sources):
+                    source.model.free[:] = i < self.max_free
 
         return return_sources
 
