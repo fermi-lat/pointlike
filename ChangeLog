@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: cohen  Wed Oct 26 03:46:16 PDT 2011
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+fix an oops
+    *
+------------------------------------------------------------
 User: lande  Mon Oct 24 05:43:20 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
