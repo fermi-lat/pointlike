@@ -6,7 +6,7 @@ See the docstring for usage information.
 
 This object has SymPy as a dependency.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.4 2011/10/10 17:09:40 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.5 2011/10/15 21:54:15 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -179,6 +179,16 @@ class PhaseRange(object):
             >>> PhaseRange(.25,.5).overlaps(PhaseRange(0.5,.75)) 
             False
 
+        There is a nice function phase_center:
+
+            >>> print PhaseRange(.25,.75).phase_center
+            0.5
+
+            >>> print PhaseRange(.75,.25).phase_center
+            0.0
+            >>> print PhaseRange(.25,.25).phase_center
+            0.25
+
     """
 
     # All input phases must be between 0 and 2
@@ -314,6 +324,17 @@ class PhaseRange(object):
         for a,b in self.tolist(dense=False):
             axes.axvspan(a, b, label=label, **kwargs)
             label=None
+
+    @property
+    def phase_center(self):
+        tolist = self.tolist()
+        if len(tolist) != 2 or \
+           not isinstance(tolist[0],numbers.Real) or \
+           not isinstance(tolist[1],numbers.Real):
+            raise Exception("unable to find phase center because multiple phase ranges.")
+        a,b=tolist
+        center = (a+((b-a)%1)/2) % 1
+        return center
 
 
 
