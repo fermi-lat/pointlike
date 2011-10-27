@@ -3,7 +3,7 @@ This module implements the class OffPeak that
 can be used to calculate the off-peak region
 of a pulsar.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/lc_off_peak.py,v 1.4 2011/10/15 21:54:32 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/lc_off_peak.py,v 1.5 2011/10/15 23:02:06 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -43,8 +43,6 @@ class OffPeak(object):
 
     defaults = (
         ("contamination",  0.01, "fraction of pulsar allowed in off peak"),
-#        ("TScontamination",   1, "fraction of pulsar allowed in off peak"),
-#        ("TSdc",           None, ""),
         ("quiet",         False, "Don't print out"),
     )
 
@@ -63,7 +61,7 @@ class OffPeak(object):
         """ Return the number of photons in the given phase range. """
         return sum(phase in phase_range for phase in phases)
 
-    def _find_range(self, center):
+    def _find_range(self, center, lowest_value):
         c = center
         lct = self.lct
 
@@ -79,7 +77,7 @@ class OffPeak(object):
                 well with wraping around when c+dphi/2 > 1,
                 so here we split up the integral into parts using
                 the PhaseRange object. """
-            l=self.lowest_value
+            l=lowest_value
 
             r=PhaseRange(c-dphi/2,c+dphi/2)
             integral = sum(lct.integrate(a,b) for a,b in r.tolist(dense=False))
@@ -113,11 +111,13 @@ class OffPeak(object):
         return sum(peak in range for peak in peaks)
 
     @staticmethod
-    def find_lowest_value(lct):
-        grid = (0,1, .001)
-        lowest_phase = brute(lct, (grid,))
-        lowest_value = float(lct(lowest_phase))
-        return lowest_value 
+    def _lowest_value(lct, exclude_phase=None):
+
+        phases=np.linspace(0,1,1001)
+        if exclude_phase is not None:
+            phases = [p for p in phases if p not in exclude_phase]
+
+        return min([lct(p) for p in phases])
 
     @staticmethod
     def consistent(x,xphase,y,yphase,probability = 0.05, quiet=True):
@@ -140,26 +140,32 @@ class OffPeak(object):
         if poisson_likelihood > 0.05: return True
         return False
 
-    def _fit(self):
-
-#        if self.TSdc is not None:
-#            self.contamination = self.TScontamination/self.TSdc
-#            print 'TScontamination=%.1f, TSdc=%.1f, Allowed contamination=%.1e' % \
-#                    (self.TScontamination,self.TSdc,self.contamination)
+    def _find_all_ranges(self, exclude_phase=None):
 
         lct = self.lct
-        lcf = self.lcf
 
         # (*) Calulate the lowest part of the light curve using a simple
         #     grid search.
 
-        self.lowest_value = OffPeak.find_lowest_value(lct)
+        lowest_value = OffPeak._lowest_value(lct, exclude_phase=exclude_phase)
 
         # (*) Calculate the phase range for a grid of centers in phase.
 
-        centers=np.linspace(0,1,101)
-        ranges = [self._find_range(c) for c in centers]
+
+        centers = np.linspace(0,1,101) 
+        if exclude_phase is not None:
+            centers=[c for c in centers if c not in exclude_phase]
+        ranges = [self._find_range(c, lowest_value) for c in centers]
         dphis = np.asarray([range.phase_fraction for range in ranges])
+        
+        return centers, ranges, dphis
+
+    def _fit(self):
+
+        lcf = self.lcf
+        lct = self.lct
+
+        centers, ranges, dphis = self._find_all_ranges()
         
         i = np.argmax(dphis)
         self.first_off_peak = ranges[i]
@@ -169,18 +175,28 @@ class OffPeak(object):
         if not self.quiet:
             print 'Best Off Peak region is ',self.first_off_peak
 
-        # (*) Find the largest good alternate region
+        # (*) Find the largest second region
 
+        # (*) Get a list of peaks
         peaks = OffPeak.peak_locations(lct)
+
+        if len(peaks) < 2:
+            print 'No good off pulse regions'
+            self.off_peak = self.first_off_peak
+            return
+
+        # define a new set of ranges subtracting a different minimum pulsar phase
+        centers, ranges, dphis = self._find_all_ranges(exclude_phase = self.first_off_peak)
+
         peaks_between = np.asarray([OffPeak.peaks_between(self.first_center,c,peaks) for c in centers])
         overlaps = np.asarray([self.first_off_peak.overlaps(r) for r in ranges])
 
         good_region = (~overlaps) & \
                 (peaks_between > 0) & \
                 (len(peaks)>1) & \
-                (dphis > self.first_dphi/4.0)
+                (dphis > self.first_dphi/2.0)
 
-        if len(peaks) < 2 or np.sum(good_region) < 1:
+        if np.sum(good_region) < 1:
             print 'No good off pulse regions'
             self.off_peak = self.first_off_peak
             return
