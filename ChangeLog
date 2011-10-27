@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Oct 27 07:11:36 PDT 2011
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	phasetools.py 
+Log Message:
+add ltcube phasing code
+    *
+------------------------------------------------------------
 User: lande  Thu Oct 27 07:10:47 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
