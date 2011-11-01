@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Nov  1 06:39:18 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_analysis.py 
+Log Message:
+new function change_binning
+    *
+------------------------------------------------------------
 User: lande  Tue Nov  1 06:38:57 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
