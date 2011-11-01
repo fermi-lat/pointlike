@@ -20,7 +20,10 @@ class PointlikeState(object):
         self.point_sources = self._copy_ps(roi.psm.point_sources)
         self.bgmodels = self._copy_bg(roi.dsm.bgmodels)
 
-    def restore(self, roi=None):
+        from uw.like.roi_analysis import ROIAnalysis
+        self.roi_kwargs=defaults_to_kwargs(roi,ROIAnalysis)
+
+    def restore(self, roi=None, **kwargs):
 
         if roi is None: roi = self.roi
 
@@ -32,7 +35,6 @@ class PointlikeState(object):
 
         sa=roi.sa
 
-        from uw.like.roi_analysis import ROIAnalysis
-        kwargs=defaults_to_kwargs(roi,ROIAnalysis)
+        self.roi_kwargs.update(kwargs)
 
-        roi.__init__(roi_dir,psm,dsm,sa, **kwargs)
+        roi.__init__(roi_dir,psm,dsm,sa, **self.roi_kwargs)
