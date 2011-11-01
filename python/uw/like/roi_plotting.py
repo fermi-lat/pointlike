@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.70 2011/09/22 20:00:33 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.71 2011/10/04 22:02:24 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1156,6 +1156,7 @@ class ROISmoothedSources(object):
             ('kernel_rad',         0.1,            'Sum counts/model within radius degrees.'),
             ('title',             None,                                 'Title for the plot'),
             ('show_extensions',   True,                             'Overlay the extension.'),
+            ('override_center',   None,                               'Pick a better center'),
             ('extension_color','black',                          'Color of extended sources'),
             ('figsize',      (5.5,4.5),                                  'Size of the image'),
             ('fignum',            None,                           'Matplotlib figure number'),
@@ -1235,6 +1236,8 @@ class ROISmoothedSources(object):
             self.source = None
             center = roi.roi_dir
 
+        if self.override_center is not None: center = self.override_center
+
         smoothed_kwargs=dict(size=self.size,
                              pixelsize=self.pixelsize,
                              galactic=self.galactic,
@@ -1276,6 +1279,8 @@ class ROISmoothedSources(object):
                     **psf_kwargs)
             self.psf_pyfits = self.psf_model.get_pyfits()
 
+        self.header = self.residual_pyfits[0].header
+
     def show(self,filename=None, axes=None, cax=None):
         """ By default, make a new plot. If axes is specified,
             plot the skymap in the axes. Note that 
@@ -1286,17 +1291,15 @@ class ROISmoothedSources(object):
         from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
         from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
-        # get data first
-        h, d = self.residual_pyfits[0].header, self.residual_pyfits[0].data
+        d = self.residual_pyfits[0].data
 
-        self.h = self.header = h
 
         from matplotlib.axes import Axes
         if axes is None:
             self.fig = P.figure(self.fignum,self.figsize)
             P.clf()
             self.fig.subplots_adjust(left=0.07,bottom=0.1,right=0.93,top=0.93)
-            axes = pywcsgrid2.subplot(111, header=h)
+            axes = pywcsgrid2.subplot(111, header=self.header)
         else:
             self.fig = axes.get_figure()
 
@@ -1314,7 +1317,7 @@ class ROISmoothedSources(object):
                 cax = divider.new_horizontal("5%", pad="2%", axes_class=Axes)
                 self.fig.add_axes(cax)
 
-            cbar = P.colorbar(im, cax=cax)
+            cbar = cax.colorbar(im)
             cbar.ax.set_ylabel(r'$\mathrm{counts}\ [\mathrm{deg}]^{-2}$')
 
         if self.title is None: 
@@ -1347,7 +1350,7 @@ class ROISmoothedSources(object):
             if self.label_psf:
                 axins.add_inner_title("PSF", loc=3)
 
-        ROISmoothedSources.overlay_region(self.roi,ax,h,
+        ROISmoothedSources.overlay_region(self.roi,ax,self.header,
                                          show_sources=self.show_sources,
                                          label_sources=self.label_sources,
                                          show_extensions=self.show_extensions,
@@ -1494,6 +1497,7 @@ class ROITSMapPlotter(object):
         ('fitsfile',                 None,                                 ), 
         ('show_sources',      True,        'Put an x over all the sources.'),
         ('label_sources',           False,                                 ),
+        ('show_colorbar',     True,                                  'Show the colorbar'),
         ('show_extensions',   True,                'Overlay the extension.'),
         ('extension_color','black',             'Color of extended sources'),
     )
@@ -1515,39 +1519,48 @@ class ROITSMapPlotter(object):
         )
 
         self.pf=self.image.get_pyfits()
+        
+        self.header = self.pf[0].header
 
         if self.fitsfile is not None:
             self.pf.writeto(self.fitsfile,clobber=True)
 
-    def show(self,filename=None):
+    def show(self,filename=None, axes=None, cax=None):
 
         import pylab as P
         import pywcsgrid2
         from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 
-        self.fig = fig = P.figure(self.fignum,self.figsize)
-        P.clf()
+        d = self.pf[0].data
 
-        h, d = self.pf[0].header, self.pf[0].data
-        self.header = h
+        if axes is None:
+            fig = P.figure(self.fignum,self.figsize)
+            P.clf()
+            axes = pywcsgrid2.subplot(111, header=self.header)
+        else:
+            self.fig = axes.get_figure()
 
-        self.axes = ax = pywcsgrid2.subplot(111, header=h)
+        self.axes = ax = axes
 
-        # add colorbar axes
-        divider = make_axes_locatable(ax)
-        cax = divider.new_horizontal("5%", pad="2%", axes_class=Axes)
-        fig.add_axes(cax)
 
         # since this is a residual tsmap, never let the scale go below 25.
         norm=mpl.colors.Normalize(vmin=0, vmax=25) if N.max(self.image.image) < 25 else None
 
         im = ax.imshow(d, interpolation='nearest', origin="lower", cmap=colormaps.b, norm=norm)
         ax.axis[:].set_zorder(100)
-        cbar = P.colorbar(im, cax=cax)
+
+        if self.show_colorbar:
+            if cax is None:
+                # add colorbar axes
+                divider = make_axes_locatable(ax)
+                cax = divider.new_horizontal("5%", pad="2%", axes_class=Axes)
+                fig.add_axes(cax)
+
+            cbar = cax.colorbar(im)
 
         ax.set_title(self.title)
 
-        ROISmoothedSources.overlay_region(self.roi,ax,h,
+        ROISmoothedSources.overlay_region(self.roi,ax,self.header,
                                          show_sources=self.show_sources,
                                          label_sources=self.label_sources,
                                          show_extensions=self.show_extensions,
@@ -1685,8 +1698,8 @@ class ROISmoothedBeforeAfter(object):
 
         # plot only one colorbar
 
-        self.smoothed_sources=ROISmoothedSource(roi,show_colorbar=False,**kwargs)
-        self.smoothed_source=ROISmoothedSources(roi,overlay_psf=False,**kwargs)
+        self.smoothed_sources=ROISmoothedSources(roi,show_colorbar=False,**kwargs)
+        self.smoothed_source=ROISmoothedSource(roi,overlay_psf=False,**kwargs)
 
         # use same color scale for each plot
         max_intensity = max(self.smoothed_sources.max_intensity, self.smoothed_source.max_intensity)
@@ -1713,4 +1726,4 @@ class ROISmoothedBeforeAfter(object):
         self.smoothed_sources.show(axes=self.grid[0])
         self.smoothed_source.show(axes=self.grid[1],cax=grid.cbar_axes[0])
 
-        self.h = [self.smoothed_sources.h,self.smoothed_source.h]
+        self.header = self.h = [self.smoothed_sources.header,self.smoothed_source.header]
