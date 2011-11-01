@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Nov  1 14:38:23 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py sed_plotter.py 
+Log Message:
+Refactor Model code so that e0 is handeled symmetricly with other parameters and is is only heild by parameters that use it. Aldso reomving the unneded flux_scale parameter and fixing the SED code to not assume that all models have an e0.
+    *
+------------------------------------------------------------
 User: zimmer  Tue Nov  1 14:08:24 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
