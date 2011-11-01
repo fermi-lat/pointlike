@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/sed_plotter.py,v 1.20 2011/08/21 15:26:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/sed_plotter.py,v 1.21 2011/08/21 15:55:22 burnett Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -9,6 +9,7 @@ author: Toby Burnett <tburnett@uw.edu>
 import os,sys
 from uw.like import roi_bands
 from uw.like.roi_extended import BandFitExtended
+from uw.like.Models import PowerLaw, LogParabola
 from uw.utilities import makerec, image
 import numpy as np
 import pylab as plt
@@ -166,24 +167,28 @@ class BandFlux(object):
         stat = m.statistical()
         err = stat[0]*stat[1]
         energy_flux_factor = self.scale_factor
-        # show position of e0 
-        e0 = m.e0 if m.name!='LogParabola' else 10**m._p[-1]
-        flux = m(e0); flux_unc = flux*stat[1][0]
-        axes.errorbar([e0], 
-                [energy_flux_factor*flux * m.e0**2], fmt='or', 
-            yerr=energy_flux_factor*flux_unc * m.e0**2, elinewidth=2, markersize=8)
+
+        if hasattr(m,'e0'):
+            # show position of e0 
+            e0 = m.e0
+            flux = m(e0); flux_unc = flux*stat[1][0]
+            axes.errorbar([e0], 
+                          [energy_flux_factor*flux * m.e0**2], fmt='or', 
+                          yerr=energy_flux_factor*flux_unc * m.e0**2, elinewidth=2, markersize=8)
+
         # plot the curve
         axes.plot( dom, energy_flux_factor*m(dom)*dom**2, **kwargs)
         #butterfly if powerlaw
-        if butterfly and m.name=='PowerLaw' or m.name=='LogParabola' and m[2]<=1e-3:
+        if butterfly and isinstance(m,PowerLaw) or isinstance(m,LogParabola) and m[2]<=1e-3:
             # 'butterfly' region
+            e0 = m.e0 if isinstance(m,PowerLaw) else m['e_break']
             dom_r = np.array([dom[-i-1] for i in range(len(dom))]) #crude reversal.
             a,gamma = stat[0][:2]
             var = err**2
             # r is e/e0
             bfun = lambda r: r**-gamma * np.sqrt(var[0] + (a*np.log(r))**2 * var[1])
-            upper = energy_flux_factor*(m(dom)  + bfun(dom/m.e0)  )*dom**2
-            lower = energy_flux_factor*(m(dom_r)/(1 +bfun(dom_r/m.e0)/m(dom_r)))*dom_r**2
+            upper = energy_flux_factor*(m(dom)  + bfun(dom/e0)  )*dom**2
+            lower = energy_flux_factor*(m(dom_r)/(1 +bfun(dom_r/e0)/m(dom_r)))*dom_r**2
             ymin, ymax = plt.gca().get_ylim()
             lower[lower<ymin] = ymin
             upper[upper>ymax] = ymax
