@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.112 2011/10/12 16:26:37 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.113 2011/10/27 14:10:46 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -701,7 +701,7 @@ class ROIAnalysis(object):
         return sources
 
     def get_names(self):
-        return [i.name for i in roi.get_sources()]
+        return [i.name for i in self.get_sources()]
 
     # get these functions from roi_save.py
     save=roi_save.save
@@ -762,5 +762,18 @@ class ROIAnalysis(object):
         i=roi_plotting.ROISmoothedModel(self,**kwargs)
         i.show(filename=filename)
         return i
+
+    def change_binning(self,fit_emin,fit_emax):
+        """ This function recreates the ROI using a new energy binning.  
+            Kind of inefficient, but easy. """
+        kwargs=keyword_options.defaults_to_kwargs(self,ROIAnalysis)
+        kwargs['fit_emin']=fit_emin
+        kwargs['fit_emax']=fit_emax
+        self.__init__(roi_dir=self.roi_dir,
+                      ps_manager=self.psm,
+                      ds_manager=self.dsm,
+                      spectral_analysis=self.sa,
+                      **kwargs)
+
 
 load=ROIAnalysis.load
