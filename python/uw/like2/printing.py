@@ -1,6 +1,6 @@
 """
 Implementation of various roi printing
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/printing.py,v 1.1 2011/09/28 17:37:12 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/printing.py,v 1.2 2011/10/01 13:35:06 burnett Exp $
 """
 import os, math
 import numpy as np
@@ -43,7 +43,7 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
     if galactic: colstring =colstring.replace('ra dec', 'l b')
     colnames = tuple(colstring.split())
     n = len(colnames)-1
-    print ('%-13s'+n*'%10s')% colnames
+    print ('%-13s'+4*'%10s'+' '+(n-4)*'%9s')% colnames
     sources = self.get_sources()
     sources.sort(key=lambda s:s.skydir.difference(self.roi_dir))
     for ps in sources:
@@ -60,8 +60,8 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
         freeflag = map(makefreeflag, model.free, sigpar)
         values = (ps.name.strip(), dist) +loc+ (ts,)+( model.i_flux(e_weight=1, emax=1e5)*1e6, freeflag[0], )
         for i in range(1,npar): # parameters beyond flux
-            if expcutoff and i==npar-1: fmt+=10*' '# gap if ExpCutoff to line up with cutoff 
-            fmt    += '%9.2f%1s' 
+            if expcutoff and i==npar-1: fmt+=9*' '# gap if ExpCutoff to line up with cutoff 
+            fmt    += '%8.2f%1s' 
             values += (par[i], freeflag[i]) 
         print fmt % values
         
