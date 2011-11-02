@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.72 2011/11/01 13:40:29 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.73 2011/11/02 11:18:42 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1560,8 +1560,6 @@ class ROITSMapPlotter(object):
             else:
                 # See comment for ROISmoothedSources's colobar code.
                 cbar = cax.colorbar(im)
-
-            cbar = cax.colorbar(im)
 
         ax.set_title(self.title)
 
