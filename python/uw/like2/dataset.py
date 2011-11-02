@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.4 2011/10/05 21:33:19 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.5 2011/10/20 21:41:27 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.4 $'.split()[1]
+version='$Revision: 1.5 $'.split()[1]
 import os, glob, types
 import numpy as np
 from uw.like import pixeldata, pypsf, pycaldb, pointspec_helpers, roi_bands
@@ -96,7 +96,7 @@ class DataSet(object):
             dataspec.DataSpec.datasets[id(dataset)] = dataset
             return dataspec.DataSpec(id(dataset),month=month)
         # it is a string, check dictionary in ., then $FERMI/data
-        folders = ['.'] + glob.glob( os.path.join(os.path.expandvars('$FERMI'),'data*'))
+        folders = ['.'] + glob.glob( os.path.join(os.path.expandvars('$FERMI'),'data'))
         for folder in folders :
             dict_file=os.path.join(folder, 'dataspec.py')
             if os.path.exists(dict_file):
@@ -106,7 +106,7 @@ class DataSet(object):
                     print 'Data dictionary file %s not valid' % ldict
                     raise
                 if dataset in ldict: 
-                    print 'found dataset %s in $FERMI/data' % dataset
+                    print 'found dataset %s in %s' % (dataset, folder)
                     return dataspec.DataSpecification(folder, **ldict[dataset])
         # not found: this is deprecated, leave for backwards consisency
         raise RuntimeError('dataset name %s not found in %s' % (dataset, folders))
