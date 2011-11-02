@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.1 2011/10/21 18:55:14 wallacee Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
@@ -11,6 +11,7 @@ from uw.utilities import keyword_options, convolution
 from uw.like import roi_diffuse #until not needed
 import skymaps #from Science Tools
 
+class DiffuseException(Exception):pass
 
 ###=========================================================================###
 class DiffuseModel(object):
@@ -66,8 +67,27 @@ class DiffuseModel(object):
 
 
 ###====================================================================================================###
-
 class DiffuseModelFromCache(DiffuseModel):
+    """ define the diffuse model by reading a grid of the flux values, then
+        applying exposure and convolution
+        """
+    cache = None
+    def __init__(self, roi_factory, source, skydir, **kwargs):
+        roiname = kwargs.pop('name')
+        self.filename = os.path.join(PreconvolvedDiffuseModelFromCache.cache, roiname+'_ring.pickle')
+        if not os.path.exists(self.filename):
+            raise DiffuseException( 'Diffuse cache file %s not found' %filename)
+        keyword_options.process(self, kwargs)
+
+        self.sa = roi_factory
+        self.diffuse_source = source
+        self.smodel = source.smodel
+        self.dmodel = source.dmodel
+        self.grid = None
+        self.name = source.name
+            
+class PreConvolvedDiffuseModelFromCache(DiffuseModel):
+    """ define the diffuse model by reading a pre-convolved grid """
     cache = None
     defaults = DiffuseModel.defaults + (
         ('pixelsize',0.25,'Pixel size for convolution grid'),
@@ -97,8 +117,9 @@ class DiffuseModelFromCache(DiffuseModel):
             
     def __init__(self, roi_factory, source, skydir, **kwargs):
         roiname = kwargs.pop('name')
-        self.filename = os.path.join(DiffuseModelFromCache.cache, roiname+'_ring.pickle')
-        assert os.path.exists(self.filename), 'Diffuse cache file %s not found' %filename
+        self.filename = os.path.join(PreconvolvedDiffuseModelFromCache.cache, roiname+'_ring.pickle')
+        if not os.path.exists(self.filename):
+            raise DiffuseException( 'Diffuse cache file %s not found' %filename)
         keyword_options.process(self, kwargs)
 
         self.sa = roi_factory
@@ -123,10 +144,10 @@ class DiffuseModelFromCache(DiffuseModel):
         dicts=pickle.load(open(self.filename))
         for d in dicts:
             if d['energy']!=energy or d['conversion_type']!=self.band.ct: continue
-            self.grid = DiffuseModelFromCache.GridFromDict(d)
+            self.grid = PreconvolvedDiffuseModelFromCache.GridFromDict(d)
             break
         if self.grid is None: 
-            raise Exception('Cached band convolution not found for energy %f type %d' %(energy,band.ct))
+            raise DiffuseException('Cached band convolution not found for energy %f type %d' %(energy,band.ct))
  
         self.ap_evals = self._ap_value(band.sd,band.radius_in_rad) * band.solid_angle * delta_e
         if not band.has_pixels: return
@@ -140,6 +161,16 @@ class DiffuseModelFromCache(DiffuseModel):
         
 
 ###====================================================================================================###
+class CacheDiffuseModel(convolution.Grid):
+    def __init__(self, *args, **kwargs):
+        super(CacheDiffuseModel,self).__init(*args, **kwargs)
+    def make_dict(self):
+        return dict(center=self.center, npix=self.npix, pixelsize=self.pixelsize,
+            # todo: add values at grid points and central energy
+        )
+    def dump(self,filename):
+        pickle.dump(self.makedict(), open(filename, 'w'))
+
 class CacheableBackgroundConvolution(convolution.BackgroundConvolution):
     """
     
@@ -163,7 +194,7 @@ class CacheableBackgroundConvolution(convolution.BackgroundConvolution):
 
     def dump(self,filename):
         pickle.dump( self.makedict(), open(filename, 'w') )
-        
+###====================================================================================================###
 class CacheDiffuseConvolution(object):
     """ 
     
@@ -218,6 +249,42 @@ class CacheDiffuseConvolution(object):
         pickle.dump(dicts, open(dumpto, 'w'))
         print 'wrote pickle file %s' %dumpto
 
+class CacheDiffuseModel(CacheDiffuseConvolution):
+    """
+    create a cache of the diffuse flux values, for later multiplication by exposure and convolution
+    """
+        
+    def process(self, band):
+        """ band : an ROIBand object
+        returns a convolution.Grid object
+        """
+        psf = band.psf.parent_psf # use this for compatibilty
+        roi_dir = band.sd
+        energy = band.e #only at geometric average energy
+        conversion_type = band.ct 
+        
+        multi = 1 + 0.01*(energy==band.emin) -0.01*(energy==band.emax)
+        r95 = psf.inverse_integral(energy*multi,conversion_type,95)
+        #r95 = psf.inverse_integral_on_axis(0.95)
+        rad = self.r_multi*r95 + np.degrees(band.radius_in_rad)
+        rad = max(min(self.r_max,rad),np.degrees(band.radius_in_rad)+2.5)
+        npix = int(round(2*rad/self.pixelsize))
+        npix += (npix%2 == 0)
+        bgc = CacheableDiffuse(roi_dir, self.bg, 
+                npix=npix, pixelsize=self.pixelsize)
+        bgc.setup_grid(npix,self.pixelsize)
+        return bgc
+        
+    def process_bands(self, bands, dumpto):
+        """ override method of super class to do flux values only """
+        dicts = []
+        for band in bands:
+            d = dict(energy=band.e, conversion_type=band.ct)
+            d.update( self.process(band).make_dict())
+            dicts.append(d)
+        pickle.dump(dicts, open(dumpto, 'w'))
+        print 'wrote pickle file %s' %dumpto
+
 class IsoDiffuseModel(roi_diffuse.ROIDiffuseModel_PC):
     def initialize_counts(self, band):
         self.band = band
@@ -251,9 +318,9 @@ def mapper(roi_factory, name, skydir, source, **kwargs):
     
     elif cache is not None and source.name.startswith('ring'):
         # cache only for ring
-        DiffuseModelFromCache.cache = cache
+        PreconvolvedDiffuseModelFromCache.cache = cache
         kwargs.update(name=name)
-        return DiffuseModelFromCache(roi_factory,  source, skydir, **kwargs)
+        return PreconvolvedDiffuseModelFromCache(roi_factory,  source, skydir, **kwargs)
     else:
         # here if not using cache or not ring (limb perhaps)
         for dmodel in source.dmodel:
