@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.8 2011/10/06 13:00:33 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.9 2011/10/20 21:40:26 burnett Exp $
 
 """
 import os
@@ -47,13 +47,10 @@ class Localization(object):
         """
         keyword_options.process(self, kwargs)
         self.rs = roistat
-        self.source_mask = np.array([source.name==source_name for source in roistat.sources])
-        if sum(self.source_mask)!=1:
-            raise Exception('Localization: source %s not found'%source_name)
-        self.rs.initialize(self.source_mask)
+        self.source = self.rs.select_source(source_name)
+        self.rs.select_source(source_name)
         self.rs.update(True)
         self.maxlike=self.rs.log_like()
-        self.source = np.array(roistat.sources)[self.source_mask][0]
         self.skydir=self.saved_skydir = self.source.skydir #saved value
         self.name = self.source.name
 
@@ -86,8 +83,7 @@ class Localization(object):
         """ restore modifications to the ROIstat
         """
         self.source.skydir=self.skydir
-        self.rs.update(True)
-        self.rs.initialize()
+        self.rs.select_source(None)
       
     def dir(self):
         return self.skydir
@@ -305,7 +301,7 @@ def localize_all(roi, **kwargs):
     initw = roi.log_like()
     
     for source in sources:
-        loc =roi.localize(source.name, quiet=True, update=True, **kwargs)
+        loc =roi.localize(source.name, quiet=True, update=False, **kwargs)
         source.ellipse = loc.qform.par[0:2]+loc.qform.par[3:7] +[loc.delta_ts] if hasattr(loc,'qform') else None
         if not roi.quiet: 
             print 'Localizating %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
@@ -330,5 +326,7 @@ def localize_all(roi, **kwargs):
         loc.reset() # restore source position
     #roi.initialize()
     curw= roi.log_like()
-    assert abs(initw-curw)<0.1, \
-        'localize_all: unexpected change in roi state after localization, from %.1f to %.1f' %(initw, curw)
+    if (initw-curw)>1.0:
+        print 'localize_all: unexpected change in roi state after localization, from %.1f to %.1f' %(initw, curw)
+        return False
+    else: return True
