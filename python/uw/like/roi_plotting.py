@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.71 2011/10/04 22:02:24 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.72 2011/11/01 13:40:29 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1316,8 +1316,12 @@ class ROISmoothedSources(object):
                 divider = make_axes_locatable(ax)
                 cax = divider.new_horizontal("5%", pad="2%", axes_class=Axes)
                 self.fig.add_axes(cax)
+                cbar = P.colorbar(im, cax=cax)
+            else:
+                # for some reason, this works better for AxesGrid colorbar axes
+                # without doing this, sidewasy colorbars were not showing up right.
+                cbar = cax.colorbar(im)
 
-            cbar = cax.colorbar(im)
             cbar.ax.set_ylabel(r'$\mathrm{counts}\ [\mathrm{deg}]^{-2}$')
 
         if self.title is None: 
@@ -1385,16 +1389,14 @@ class ROISmoothedSources(object):
     def overlay_source(source, ax, 
                        white_edge=True,
                        label_sources=False, 
-                       marker='x',color='black', markersize=12, zorder=2,
                        **kwargs
                       ):
 
         l = source.skydir.l()
         b = source.skydir.b()
 
-        all_kwargs = dict(marker = marker, color = color,
-                      markersize=markersize, zorder=zorder)
-        all_kwargs.update(all_kwargs)
+        all_kwargs = dict(marker='x',color='black', markersize=12, zorder=2)
+        all_kwargs.update(kwargs)
         
         # plot sources
         if white_edge and all_kwargs['marker'] in ['+', 'x']:
@@ -1554,7 +1556,10 @@ class ROITSMapPlotter(object):
                 # add colorbar axes
                 divider = make_axes_locatable(ax)
                 cax = divider.new_horizontal("5%", pad="2%", axes_class=Axes)
-                fig.add_axes(cax)
+                cbar = P.colorbar(im, cax=cax)
+            else:
+                # See comment for ROISmoothedSources's colobar code.
+                cbar = cax.colorbar(im)
 
             cbar = cax.colorbar(im)
 
