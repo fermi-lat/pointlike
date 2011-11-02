@@ -161,9 +161,10 @@ class PreConvolvedDiffuseModelFromCache(DiffuseModel):
         
 
 ###====================================================================================================###
-class CacheDiffuseModel(convolution.Grid):
+class CacheableDiffuse(convolution.Grid):
     def __init__(self, *args, **kwargs):
-        super(CacheDiffuseModel,self).__init(*args, **kwargs)
+        super(CacheableDiffuse,self).__init__(*args, **kwargs)
+    
     def make_dict(self):
         return dict(center=self.center, npix=self.npix, pixelsize=self.pixelsize,
             # todo: add values at grid points and central energy
@@ -270,8 +271,7 @@ class CacheDiffuseModel(CacheDiffuseConvolution):
         rad = max(min(self.r_max,rad),np.degrees(band.radius_in_rad)+2.5)
         npix = int(round(2*rad/self.pixelsize))
         npix += (npix%2 == 0)
-        bgc = CacheableDiffuse(roi_dir, self.bg, 
-                npix=npix, pixelsize=self.pixelsize)
+        bgc = CacheableDiffuse(roi_dir, npix=npix, pixelsize=self.pixelsize)
         bgc.setup_grid(npix,self.pixelsize)
         return bgc
         
