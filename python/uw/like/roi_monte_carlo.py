@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.17 2011/09/17 02:23:51 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.18 2011/11/01 21:08:23 zimmer Exp $
 
 author: Joshua Lande
 """
@@ -156,7 +156,10 @@ class MonteCarlo(object):
         energies=np.logspace(np.log10(emin),np.log10(emax),numpoints)
         fluxes=model(energies)
         # josh's fix to the clipping.../ thanks!
-        fluxes=np.where(fluxes>1e-50,fluxes,1e-50)
+        while fluxes[0] == 0: energies,fluxes=energies[1:],fluxes[1:]
+        while fluxes[-1] == 0: energies,fluxes=energies[:-1],fluxes[:-1]
+        # okay that's to check for local divergences
+        if np.any(fluxes==0): raise Exception("Error: 0s found in differential flux")
         temp.write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(energies,fluxes)]))
         temp.close()
         return temp.name
