@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: zimmer  Thu Nov  3 06:14:12 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+add store_output=False to defaults, if set to True, store tempdir in current path
+    *
+------------------------------------------------------------
 User: zimmer  Wed Nov  2 17:25:47 PDT 2011
 ScienceTools-scons/pointlike/python/uw/like
 
