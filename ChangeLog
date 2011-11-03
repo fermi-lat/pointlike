@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: zimmer  Wed Nov  2 17:25:47 PDT 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+clipping now works - both from beginning of spectrum and end; triggers exception if pathological spectrum occurs (should never happen)
+    *
+------------------------------------------------------------
 User: burnett  Wed Nov  2 15:04:25 PDT 2011
 pointlike/python/uw/like2
 
