@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.73 2011/11/02 11:18:42 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.74 2011/11/02 13:03:36 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1556,6 +1556,7 @@ class ROITSMapPlotter(object):
                 # add colorbar axes
                 divider = make_axes_locatable(ax)
                 cax = divider.new_horizontal("5%", pad="2%", axes_class=Axes)
+                fig.add_axes(cax)
                 cbar = P.colorbar(im, cax=cax)
             else:
                 # See comment for ROISmoothedSources's colobar code.
