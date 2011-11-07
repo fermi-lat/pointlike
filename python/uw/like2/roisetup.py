@@ -33,7 +33,7 @@ class ROIfactory(object):
         """ 
         parameters
         ----------
-            dataname : string
+        dataname : string
                 used to look up data specification
             indir: folder containing skymodel definition
         """
@@ -57,10 +57,11 @@ class ROIfactory(object):
         """ return  the diffuse, global and extended sources
         """
         skydir = src_sel.skydir()
+        assert skydir is not None, 'should use the ROI skydir'
         # get all diffuse models appropriate for this ROI
         globals, extended = self.skymodel.get_diffuse_sources(src_sel)
        
-        global_models = [diffuse.mapper(self, src_sel.name(), skydir, source, cache=self.cache) for source in globals]
+        global_models = [diffuse.mapper(self, src_sel.name(), skydir, source) for source in globals]
 
         def extended_mapper( source):
             return roi_extended.ROIExtendedModel.factory(self,source,skydir)
@@ -79,7 +80,7 @@ class ROIfactory(object):
             list of models: point sources and diffuse
         pars, kwargs : pass to the selector
         """
-        roi_kw = kwargs.pop('roi_kw',None)
+        roi_kw = kwargs.pop('roi_kw',dict())
         src_sel = self.selector(*pars, **kwargs)
 
         class ROIdef(object):
@@ -94,7 +95,7 @@ class ROIfactory(object):
                     bands=self.dataset(skydir), 
                     global_sources=global_sources,
                     extended_sources = extended_sources,
-                    point_sources=self._local_sources(src_sel))
+                    point_sources=self._local_sources(src_sel), **roi_kw)
 
 def main(indir='uw27', dataname='P7_V4_SOURCE_4bpd',irf='P7SOURCE_V6' ,skymodel_kw={}):
     rf = ROIfactory(indir, dataname, **skymodel_kw)

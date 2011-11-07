@@ -22,6 +22,13 @@ def set_point_property(psource) :
     def getter(source): return source.model
     def setter(source, newmodel): source.model = newmodel
     psource.__class__.spectral_model = property(getter, setter,doc='spectral model')
+
+class Parameter(object):
+    """ Manage a parameter """
+    def __init__(self, sourcelist, source, model, parname):
+        self.sourcelist=sourcelist
+        self.source = source
+        self.parname = parname
   
 class SourceList(list):
     """ manage properties of the list of sources
@@ -47,15 +54,13 @@ class SourceList(list):
                 #print key,a.__dict__[key]
                 
         class DiffuseSourceFactory(object):
-            """ klugy way to create new object from diffuse source
+            """ k create new object from diffuse source
             """
             def __init__(self, roi):   self.roi = roi
-            def __call__(self, source_index, **kwargs):
+            def __call__(self, **kwargs):
                 cm = self.roi.global_sources[source_index]
                 kwargs.update(name=self.roi.name)
-                src = cm.__class__(cm.sa, cm.diffuse_source, self.roi.roi_dir, **kwargs)
-                copy_defaults(cm, src)
-                #src = cm 
+                src = cm()
                 src.skydir = None
                 return src
         class ExtendedSourceFactory(object):
@@ -74,10 +79,6 @@ class SourceList(list):
         # note that sources are added in the order diffuse, point to agree with ROIAnalysis
         # also, add two attributes to each source object and define 'spectral_model'
         for i, source in enumerate(roi.global_sources):
-            source.manager_index = i
-            source.factory = DiffuseSourceFactory(roi)
-            source.skydir=None
-            set_diffuse_property(source)
             self.append(source)
         for i, source in enumerate(roi.extended_sources):
             source.manager_index = i#+len(roi.global_sources)
@@ -88,19 +89,11 @@ class SourceList(list):
             source.spatial_model = source.extended_source.spatial_model
             self.append(source)
         for i,source in enumerate(roi.point_sources):
-            source.manager_index = i
-            source.factory = PointSourceFactory(roi)
+            #source.manager_index = i
+            #source.factory = PointSourceFactory(roi)
             set_point_property(source)
             self.append(source)
         
-        ## temporary kluge to ensure that bands are setup for current use by diffuse
-        ## this is needed if the ROI is generated without its setup, which adds these
-        ## attributes to the bands
-        nm  = len(roi.global_sources)+len(roi.extended_sources)
-        for band in roi.bands:
-            band.bg_counts = np.empty(nm)
-            band.bg_pix_counts = np.empty([len(band.wsdl),nm]) if band.has_pixels else 0
-
     # note that properties are dynamic, in case sources or their models change
     @property
     def source_names(self): return np.array([s.name for s in self])
@@ -110,7 +103,7 @@ class SourceList(list):
     def free(self): return np.array([np.any(model.free) for model in self.models])
     
     def __str__(self):
-        return 'SourceList, with %d sources, %d free parameters' %(len(self), sum(self.free))
+        return 'Sourcelist, with %d sources, %d free parameters' %(len(self), sum(self.free))
         
     def find_source(self, source_name):
         names = [s.name for s in self]
