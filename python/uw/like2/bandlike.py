@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.6 2011/10/01 13:35:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.7 2011/10/20 21:41:27 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -69,8 +69,7 @@ class BandDiffuse(BandSource):
             band : a like.roi_bands.ROIBand object reference
                 depends on: emin,emax,e,radius_in_rad,wsdl,
                     solid_angle,pixelArea(), 
-                sets:    bg_counts[source_index], bg_pix_counts[:,source_index]
-            source : generalized Source with factory and manager_index
+            source : generalized Source with factory a
                 the factory sets up a ROIDiffuseModel object for this band: we
                 use the methods initialize_counts, update_counts, and gradient, 
                 which are designed to be called with a list of bands, but here
@@ -78,11 +77,13 @@ class BandDiffuse(BandSource):
                 on a future refactoring
         """
         
-        self.source_index = source.manager_index 
-        self.source = source.factory(self.source_index) 
+        self.source = source
         self.band = band
+        self.energy = band.e
+        self.setup=False
         self.initialize()
         self.update()
+        
     @property 
     def spectral_model(self):  return self.source.diffuse_source.smodel
 
@@ -92,8 +93,16 @@ class BandDiffuse(BandSource):
             the model on a series of energy subplanes and storing the
             results for a later Simpson's rule.
         """
-        self.source.quiet = True
-        self.source.initialize_counts(self.band)
+        assert self.setup==False, 'attempt to re-initialize global source'
+        self.setup=True
+        band = self.band
+        delta_e = band.emax - band.emin
+        self.grid = self.source.make_grid(band.emin, band.ct)
+        self.ap_evals = self.grid.ap_average(band.radius_in_rad) * band.solid_angle * delta_e
+
+        self.pi_evals = self.grid(band.wsdl, self.grid.cvals) if band.has_pixels else []
+        self.pi_evals *= band.b.pixelArea() * delta_e
+
         
     def update(self, fixed=False):
         """ sets the following attributes:
@@ -103,13 +112,9 @@ class BandDiffuse(BandSource):
             actually use the ROIDiffuseModel object to modify the band, then we 
             copy them here. 
         """
-        self.source.update_counts()
-        if self.band.has_pixels:
-            self.pix_counts = self.source.pix_counts
-            self.counts = self.source.counts
-        else:
-            self.pix_counts = []
-            self.counts=0
+        self.counts = self.ap_evals * self.spectral_model(self.energy)
+        self.pix_counts = self.pi_evals * self.spectral_model(self.energy) if self.band.has_pixels else []
+
         
     def grad(self, weights, phase_factor=1):
         """ contribution to the gradient
@@ -140,11 +145,9 @@ class BandExtended(BandDiffuse):
         this is a subclass, but allowing for separate implemetation of its details
     """
     def initialize(self):
-        #was: self.source.initialize_counts([self.band]) 
         self.source.quiet = True
         self.source.smodel=self.spectral_model
         self.source.initialize_counts([self.band])
-        #super(BandExtended, self).initialize()
         myband = self.source.bands[0]
         self.exposure_ratio, self.overlap = myband.er, myband.overlaps 
         self.pixel_values = myband.es_pix_counts
@@ -179,7 +182,7 @@ class BandPoint(BandSource):
                 reads: e, exp, wsdl, psf, b.pixelArea(), sp_points, sp_vector
                 
         """
-        self.source, self.roi_dir = source.factory(source.manager_index) 
+        self.source= source
         self.band = band
         self.initialize()
         self.update()
@@ -189,7 +192,7 @@ class BandPoint(BandSource):
             exposure_ratio, overlap, pixel values
         """
         band = self.band
-        self.exposure_ratio = band.exposure(self.source.skydir)/band.exposure(self.roi_dir)
+        self.exposure_ratio = band.exposure(self.source.skydir)/band.exposure(self.band.sd)
         self.overlap = band.psf_overlap(self.source.skydir)  
         
         #unnormalized PSF evaluated at each pixel
@@ -300,23 +303,18 @@ def factory(bands, sources, quiet=False):
     """
     def bandsource_factory(band, source):
         """helper factory that returns a BandModel object appropriate for the source"""
-        factory_name = source.factory.__class__.__name__
-        B = dict(PointSourceFactory=BandPoint, 
-                DiffuseSourceFactory=BandDiffuse,
-                ExtendedSourceFactory=BandExtended)[factory_name]
+        class_name = source.__class__.__name__
+        B = dict(PointSource=BandPoint, 
+                DiffuseModelFromCache=BandDiffuse,
+                IsotropicModel=BandDiffuse,
+                ROIExtendedModelAnalytic=BandExtended)[class_name]
         return B(band, source)
     bandlist = []
     for i,band in enumerate(bands):
-        #if not quiet: 
-        #    print i,
-
         bandlist.append(BandLike(band, 
                     np.array( [bandsource_factory(band, source) for source in sources]),
                     sources.free)
                     )
-        #if not quiet: 
-        #    print 
-
     if not quiet: print
     return np.array(bandlist)
          
