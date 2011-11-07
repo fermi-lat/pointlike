@@ -70,7 +70,7 @@ def print_summary(roi, sdir=None, galactic=False, maxdist=5, title=None, print_a
         if  source.skydir is not None: continue
         par, sigpar = source.spectral_model.statistical()
         n= len(par)
-        freeflag = map(makefreeflag, source.smodel.free, sigpar)
+        freeflag = map(makefreeflag, source.spectral_model.free, sigpar)
         fmt ='%-22s' 
         values = (source.name.strip(),)
         for v,f in zip(par, freeflag):
