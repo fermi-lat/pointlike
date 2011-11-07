@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Nov  7 11:45:30 PST 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py diffuse.py roisetup.py sourcelist.py 
+Log Message:
+Reorganized diffuse management, finally free of like.roi_diffuse
+    *
+------------------------------------------------------------
 User: burnett  Mon Nov  7 11:44:17 PST 2011
 pointlike/python/uw/like2
 
