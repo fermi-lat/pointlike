@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Tue Nov  8 12:04:38 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py roi_analysis.py 
+Log Message:
+Add a conversion type selection to ROIAnalysis to exclude front or back Bands
+from analysis, even if they're included in the data files used.
+
+    *
+------------------------------------------------------------
 User: burnett  Tue Nov  8 09:57:41 PST 2011
 pointlike/python/uw/like2
 
