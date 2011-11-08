@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Tue Nov  8 09:57:41 PST 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	main.py 
+Log Message:
+allow restoration of parameters if fit fails;
+summary function now has selection of parameters to display by a list of indices, and will show the gradient value
+    *
+------------------------------------------------------------
 User: burnett  Tue Nov  8 09:51:41 PST 2011
 pointlike/python/uw/like2
 
