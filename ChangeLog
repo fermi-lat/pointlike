@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Tue Nov  8 12:50:46 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	pointspec.py 
+Log Message:
+Make SpectralAnalysis.roi() use the value of conv_type specified in the
+constructor if not passed as a kwarg.
+
+    *
+------------------------------------------------------------
 User: wallacee  Tue Nov  8 12:04:38 PST 2011
 pointlike/python/uw/like
 
