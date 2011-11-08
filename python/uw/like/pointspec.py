@@ -293,6 +293,7 @@ class SpectralAnalysis(object):
         diffdir = None
         if kwargs.has_key('diffdir'): diffdir = kwargs.pop('diffdir')
         if not kwargs.has_key('quiet'): kwargs['quiet']=self.quiet 
+        if not kwargs.has_key("conv_type"): kwargs['conv_type'] = self.conv_type
         # determine ROI center
         if roi_dir is None:
             roi_dir = self.roi_dir if hasattr(self,'roi_dir') else point_sources[0].skydir
