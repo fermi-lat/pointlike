@@ -129,13 +129,16 @@ def extension_upper_limit(roi, which=0,
                           spatial_model=None,
                           integral_min=0,
                           integral_max=3, # degrees
-                          npoints = 100):
+                          npoints = 100,
+                          **kwargs):
     """ Compute an upper limit on the source extension, by the "PDG Method".
         The function roi_upper_limits.upper_limit is similar, but computes
         a flux upper limit. 
         
         integral_min: Upper extension radius, in degrees 
         integral_max: Upper extension radius, in degrees 
+
+        Extra kwargs are passed into ROIAnalysis.fit()
         """
     saved_state = PointlikeState(roi)
 
@@ -155,7 +158,7 @@ def extension_upper_limit(roi, which=0,
 
     def like(extension):
         roi.modify(which, sigma=max(extension,1e-10))
-        roi.fit(estimate_errors=False)
+        roi.fit(estimate_errors=False, **kwargs)
         ll=-roi.logLikelihood(roi.parameters())
         if extension_upper_limit.ll_0 is None: extension_upper_limit.ll_0 = ll
         if not roi.old_quiet: print 'sigma = %.2f, ll=%.2f, dll=%.2f' % (extension, ll, ll-extension_upper_limit.ll_0)
