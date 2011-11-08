@@ -18,13 +18,13 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.74 2011/11/02 13:03:36 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.75 2011/11/04 00:25:37 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
 import exceptions
 import pprint
-import numpy as N
+import numpy as np
 import copy
 from . roi_bands import ROIEnergyBand
 from . roi_image import ModelImage,CountsImage,RadialCounts,RadialModel,SmoothedCounts,SmoothedModel,SmoothedResidual
@@ -63,7 +63,7 @@ DegreesFormatter=FuncFormatter(format_degrees)
 
 def band_spectra(r,source=0):
     
-    en = N.asarray([band.e for band in r.bands])
+    en = np.asarray([band.e for band in r.bands])
 
     groupings = [deque() for x in xrange(len(r.bin_centers))]
 
@@ -74,13 +74,13 @@ def band_spectra(r,source=0):
                 groupings[i].append(band)
         groupings[i] = list(groupings[i])
 
-    scales     = N.zeros(len(groupings))
-    scales_hi = N.zeros(len(groupings))
-    scales_lo = N.zeros(len(groupings))
+    scales     = np.zeros(len(groupings))
+    scales_hi = np.zeros(len(groupings))
+    scales_lo = np.zeros(len(groupings))
 
     m        = r.psm.point_sources[source].model
-    ps      = N.asarray([sum([band.ps_counts[source] for band in g]) for g in groupings])
-    exp     = N.asarray([sum([band.expected(m)/m.i_flux(band.emin,band.emax) for band in g]) for g in groupings])
+    ps      = np.asarray([sum([band.ps_counts[source] for band in g]) for g in groupings])
+    exp     = np.asarray([sum([band.expected(m)/m.i_flux(band.emin,band.emax) for band in g]) for g in groupings])
 
     for i,gi in enumerate(groupings):
         obs = sum([band.photons for band in gi])
@@ -190,8 +190,8 @@ def band_fluxes(r,which=0,axes=None,axis=None,outfile=None,emin=[0,0], **kwargs)
             ax.plot([bc,bc]  ,[fac*eb.lflux,fac*eb.uflux],**plot_kwargs)
         else:
             ax.plot([xlo,xhi],[fac*eb.uflux,fac*eb.uflux],color='k')
-            dy = -(fac*eb.uflux - 10**(N.log10(fac*eb.uflux) - 0.6))
-            hl = 10**(N.log10(fac*eb.uflux) - 0.4) - 10**(N.log10(fac*eb.uflux) - 0.6)
+            dy = -(fac*eb.uflux - 10**(np.log10(fac*eb.uflux) - 0.6))
+            hl = 10**(np.log10(fac*eb.uflux) - 0.4) - 10**(np.log10(fac*eb.uflux) - 0.6)
             a = FancyArrow(bc,fac*eb.uflux,0,dy,width=(xhi-xlo)/100.,head_width=hw,
                                                       head_length=hl, length_includes_head=True,
                                                       facecolor='k',edgecolor='k',fill=False)
@@ -216,7 +216,7 @@ def make_sed(r,which=0,axes=None,axis=None,plot_model=True,
      axes.set_ylabel('Energy Flux (MeV/cm2/s)')
      if plot_model:
           try:
-                dom = N.logspace(N.log10(r.fit_emin[0]),N.log10(r.fit_emax[0]),51)
+                dom = np.logspace(np.log10(r.fit_emin[0]),np.log10(r.fit_emax[0]),51)
                 cod = r.psm.models[which](dom)*dom**2
                 axes.plot(dom,cod, **fit_kwargs)
           except exceptions.OverflowError:
@@ -245,11 +245,11 @@ def counts(r,integral=False):
                 groupings[i].append(band)
         groupings[i] = list(groupings[i])
 
-    #iso = N.asarray([ sum((band.bg_counts[1] for band in g)) for g in groupings]) * p
-    #gal = N.asarray([ sum((band.bg_counts[0] for band in g)) for g in groupings]) * p
-    dif = N.asarray([ N.asarray([band.phase_factor*band.bg_counts for band in g]).sum(axis=0) for g in groupings])
-    obs = N.asarray([ sum((band.photons for band in g)) for g in groupings])
-    src = N.asarray([ N.asarray([band.phase_factor*band.ps_counts*band.overlaps for band in g]).sum(axis=0) for g in groupings])
+    #iso = np.asarray([ sum((band.bg_counts[1] for band in g)) for g in groupings]) * p
+    #gal = np.asarray([ sum((band.bg_counts[0] for band in g)) for g in groupings]) * p
+    dif = np.asarray([ np.asarray([band.phase_factor*band.bg_counts for band in g]).sum(axis=0) for g in groupings])
+    obs = np.asarray([ sum((band.photons for band in g)) for g in groupings])
+    src = np.asarray([ np.asarray([band.phase_factor*band.ps_counts*band.overlaps for band in g]).sum(axis=0) for g in groupings])
     
     if integral:
         for i in xrange(len(iso)):
@@ -276,8 +276,8 @@ def plot_counts(r,fignum=1,outfile=None,integral=False,max_label=10,merge_non_fr
 
     # optionally merge all of the "frozen" sources for a cleaner plot
     if merge_non_free:
-        free_mask = N.asarray([N.any(m.free) for m in r.psm.models])
-        new_src    = N.zeros([len(en),free_mask.sum()+1])
+        free_mask = np.asarray([np.any(m.free) for m in r.psm.models])
+        new_src    = np.zeros([len(en),free_mask.sum()+1])
         counter = 0
         for i in xrange(len(free_mask)):
             if free_mask[i]:
@@ -299,14 +299,14 @@ def plot_counts(r,fignum=1,outfile=None,integral=False,max_label=10,merge_non_fr
         label = name if (i < max_label) else '_nolegend_'
         P.loglog(en,src[:,i],linestyle='-',marker='',label=label)
     for i,name in enumerate(bg_names):
-        if N.any(dif[:,i]==0): continue
+        if np.any(dif[:,i]==0): continue
         P.loglog(en,dif[:,i],linestyle='-',marker='',label=name)
 
     #tot = src.sum(axis=1)+iso+gal
     tot = src.sum(axis=1) + dif.sum(axis=1)
     P.loglog(en,tot,linestyle='steps-mid',color='black',label='Total Model')
     err = obs**0.5
-    low_err = N.where(obs-err <= 0, 0.99*obs, err)
+    low_err = np.where(obs-err <= 0, 0.99*obs, err)
     P.errorbar(en,obs,yerr=[low_err,err],linestyle=' ',marker='x',label='Counts',color='black')
     ax = P.axis()
     P.axis([ax[0],ax[1],max(0.1,ax[2]),ax[3]])
@@ -322,7 +322,7 @@ def plot_counts(r,fignum=1,outfile=None,integral=False,max_label=10,merge_non_fr
     P.subplot(122)
     P.gca().set_xscale('log')
     P.errorbar(en,(tot-obs)/(tot),yerr=tot**-0.5,linestyle=' ',marker='o',color='black')
-    P.plot(N.linspace(P.axis()[0],P.axis()[1],100),[0]*100,color='black')
+    P.plot(np.linspace(P.axis()[0],P.axis()[1],100),[0]*100,color='black')
     ax = P.axis()
     ybound = min( 0.5, max( abs(ax[2]), abs(ax[3]) ))
     P.axis([ax[0],ax[1],-ybound,ybound])
@@ -360,11 +360,11 @@ def plot_spectra(r, which=0, eweight=2,fignum=1,outfile=None,merge_bins=False,
             new_exp    += [(exp[i]*exp[i+(1 if i < (len(cts) - 1) else 0)])**0.5]
         new_en += [en[-1]]
 
-        en     = N.asarray(new_en)
-        cts    = N.asarray(new_cts)
-        ctslo = cts - N.asarray(new_ctslo)
-        ctshi = N.asarray(new_ctshi) + cts
-        exp    = N.asarray(new_exp)
+        en     = np.asarray(new_en)
+        cts    = np.asarray(new_cts)
+        ctslo = cts - np.asarray(new_ctslo)
+        ctshi = np.asarray(new_ctshi) + cts
+        exp    = np.asarray(new_exp)
     
     bc = (en[1:]*en[:-1])**0.5
 
@@ -378,7 +378,7 @@ def plot_spectra(r, which=0, eweight=2,fignum=1,outfile=None,merge_bins=False,
     fluxes_hi = bc**eweight*ctshi/exp/(en[1:]-en[:-1])
     P.gca().set_xscale('log')
     P.gca().set_yscale('log')
-    if N.all(fluxes==0):
+    if np.all(fluxes==0):
         axes.plot(bc[fluxes==0],fluxes_hi[fluxes==0],marker='v',ls=' ',mfc='black',mec='black')
     else:
         f    = fluxes[fluxes>0]
@@ -388,7 +388,7 @@ def plot_spectra(r, which=0, eweight=2,fignum=1,outfile=None,merge_bins=False,
         axes.errorbar(x=bc[fluxes>0],y=f,yerr=[f-flo,fhi-f],linestyle=' ',marker='o',mfc = 'white', mec = 'black',\
                               color='black',label='Band Fits',ms=10)
         axes.plot(bc[fluxes==0],fluxes_hi[fluxes==0],marker='v',ls=' ',mfc='black',mec='black')
-        domain = N.logspace(N.log10(en[0]),N.log10(en[-1]),50)
+        domain = np.logspace(np.log10(en[0]),np.log10(en[-1]),50)
         axes.plot(domain,domain**eweight*ps.model(domain),color='red',lw=2,label='Model')
         if use_legend: P.legend(loc=0,numpoints=1)
         axes.grid(b=True)
@@ -466,8 +466,8 @@ class ROIDisplay(object):
             self.mm_pf.writeto(self.modelfile,clobber=True)
 
         # Use same scale for the counts and model map
-        self.counts_max = N.ceil(max(N.max(self.cm.image),N.max(self.mm.image)))
-        self.counts_min = max(N.floor(min(N.min(self.cm.image),N.min(self.mm.image))),1.0)
+        self.counts_max = np.ceil(max(np.max(self.cm.image),np.max(self.mm.image)))
+        self.counts_min = max(np.floor(min(np.min(self.cm.image),np.min(self.mm.image))),1.0)
 
     def add_cbar(self,im,ax):
         from matplotlib.axes import Axes
@@ -496,7 +496,7 @@ class ROIDisplay(object):
         from uw.utilities import colormaps
         d=self.cm_d
         m=self.counts_min
-        im=self.ax_counts.imshow(N.where(d>m,d,m), norm=self.counts_norm,
+        im=self.ax_counts.imshow(np.where(d>m,d,m), norm=self.counts_norm,
                             cmap=colormaps.b,
                             **self.imshow_args)
         self.ax_counts.set_title('Observed Counts')
@@ -523,10 +523,10 @@ class ROIDisplay(object):
 
         nb = 20
         av = float(len(pvals)) / nb
-        self.ax_pvals.hist(pvals,bins=N.linspace(0,1,20),histtype='step')
+        self.ax_pvals.hist(pvals,bins=np.linspace(0,1,20),histtype='step')
         self.ax_pvals.axhline( av, color='red')  
         lo,hi = ppf( (50.-95/2)/100., av), ppf( (50. + 95/2)/100.,av)
-        self.ax_pvals.axhspan( lo , hi , facecolor='red', alpha=0.3)
+        self.ax_pvals.axhspan(lo , hi, facecolor='red', alpha=0.3)
 
         from matplotlib.offsetbox import AnchoredText
         from matplotlib.font_manager import FontProperties
@@ -538,8 +538,8 @@ class ROIDisplay(object):
 
         self.ax_resplot.set_title('Weighted Residuals')
 
-        self.ax_resplot.hist(rc, bins=N.linspace(-5,5,20), histtype='step',normed=True)
-        b=N.linspace(-5,5,100)
+        self.ax_resplot.hist(rc, bins=np.linspace(-5,5,20), histtype='step',normed=True)
+        b=np.linspace(-5,5,100)
         self.ax_resplot.plot(b,norm.pdf(b))
         self.ax_resplot.axvline(0,color='red')
         self.ax_resplot.grid(True)
@@ -678,7 +678,7 @@ class ROISlice(object):
         self.counts_x=self.ci_x.image.sum(axis=0)
         self.counts_dx=ROISlice.range(self.counts_x,self.pixelsize,x_axis=True)
 
-        if N.any(N.isnan(self.counts_x)):
+        if np.any(np.isnan(self.counts_x)):
             raise Exception("Error in calculating a slice, the x counts slice contains NaNs.")
 
         self.ci_y = CountsImage(self.roi,center=self.center,size=(self.int_width,self.size),
@@ -687,7 +687,7 @@ class ROISlice(object):
         self.counts_y=self.ci_y.image.sum(axis=1)
         self.counts_dy=ROISlice.range(self.counts_y,self.pixelsize,x_axis=False)
 
-        if N.any(N.isnan(self.counts_y)):
+        if np.any(np.isnan(self.counts_y)):
             raise Exception("Error in calculating a slice, the y counts slice contains NaNs.")
 
     @staticmethod
@@ -743,7 +743,7 @@ class ROISlice(object):
             sources = list(self.roi.psm.point_sources) + \
                     [ i for i in self.roi.dsm.diffuse_sources if isinstance(i,ExtendedSource) ]
             # don't zero already zeroed sources
-            sources = [ i for i in sources if i.model.getp(0,internal=True) != -100 ]
+            sources = [ i for i in sources if i.model.getp(0,internal=True) != -np.inf ]
 
             ROISlice.cache_roi(self.roi)
 
@@ -766,9 +766,9 @@ class ROISlice(object):
     @staticmethod
     def range(data,pixelsize,x_axis=False):
         if x_axis:
-            return (len(data)/2.0-N.arange(len(data)))*pixelsize - pixelsize/2
+            return (len(data)/2.0-np.arange(len(data)))*pixelsize - pixelsize/2
         else:
-            return (N.arange(len(data))-len(data)/2.0)*pixelsize + pixelsize/2
+            return (np.arange(len(data))-len(data)/2.0)*pixelsize + pixelsize/2
 
     @staticmethod
     def get_styles(black_and_white):
@@ -791,7 +791,7 @@ class ROISlice(object):
         for name,model,style in zip(self.names,self.models_x,styles):
             ax.plot(self.model_dx,model,label=name,**style)
 
-        ax.errorbar(self.counts_dx,self.counts_x,yerr=N.sqrt(self.counts_x),
+        ax.errorbar(self.counts_dx,self.counts_x,yerr=np.sqrt(self.counts_x),
                     label='Counts', fmt='.', color='black')
 
         ax.set_xlim(self.counts_dx[0],self.counts_dx[-1])
@@ -815,7 +815,7 @@ class ROISlice(object):
         for name,model,style in zip(self.names,self.models_y,styles):
             ax.plot(self.model_dy,model,label=name,**style)
 
-        ax.errorbar(self.counts_dy,self.counts_y,yerr=N.sqrt(self.counts_y),
+        ax.errorbar(self.counts_dy,self.counts_y,yerr=np.sqrt(self.counts_y),
                     label='Counts', fmt='.', color='black')
 
         ax.set_xlim(self.counts_dy[0],self.counts_dy[-1])
@@ -946,7 +946,7 @@ class ROIRadialIntegral(object):
 
         self.theta_sqr_co=self.ci.bin_centers_deg
 
-        if N.any(N.isnan(self.counts)):
+        if np.any(np.isnan(self.counts)):
             raise Exception("Error in calculating a radial integral plot, the counts contains NaNs.")
 
 
@@ -988,7 +988,7 @@ class ROIRadialIntegral(object):
             sources = list(self.roi.psm.point_sources) + \
                     [ i for i in self.roi.dsm.diffuse_sources if isinstance(i,ExtendedSource) ]
             # don't zero already zeroed sources
-            sources = [ i for i in sources if i.model.getp(0,internal=True) != -100 ]
+            sources = [ i for i in sources if i.model.getp(0,internal=True) != -np.inf ]
 
             ROISlice.cache_roi(self.roi)
 
@@ -1008,7 +1008,7 @@ class ROIRadialIntegral(object):
         self.models=[i.image for i in self.mi]
 
         for name,model in zip(self.names,self.models):
-            if N.any(N.isnan(model)):
+            if np.any(np.isnan(model)):
                 raise Exception("Error in calculating a radial integral, model %s contains NaNs." % name)
 
     def save_data(self,datafile):
@@ -1042,7 +1042,7 @@ class ROIRadialIntegral(object):
         for name,model,style in zip(self.names,self.models,styles):
             ax.plot(self.theta_sqr_mo,model,label=name,**style)
 
-        ax.errorbar(self.theta_sqr_co,self.counts,yerr=N.sqrt(self.counts),
+        ax.errorbar(self.theta_sqr_co,self.counts,yerr=np.sqrt(self.counts),
                     label='Counts', fmt='.', color='black')
 
         if self.legend:
@@ -1099,7 +1099,7 @@ class ROISignificance(object):
         self.counts=SmoothedCounts(self.roi,**kwargs)
         self.model=SmoothedModel(self.roi,**kwargs)
 
-        self.significance = (self.counts.image - self.model.image)/N.sqrt(self.model.image)
+        self.significance = (self.counts.image - self.model.image)/np.sqrt(self.model.image)
 
         self.pyfits = self.counts.get_pyfits()
         self.pyfits[0].data = self.significance
@@ -1205,17 +1205,19 @@ class ROISmoothedSources(object):
             # the spatial model's extension
             extension_string='\n'.join(region_writer.unparse_extension(source.spatial_model,r68=True))
             reg = pyregion.parse(extension_string)
+            extensionmask = reg.get_mask(pyfits[0])
         else:
-            # Get the maximum intensity inside the PSF
-            emin=roi.bin_edges[0]
-            ra,dec=source.skydir.ra(),source.skydir.dec()
+            extensionmask = 0 # no mask
 
-            r68=roi.sa.psf.inverse_integral(emin,1,68)
-            reg = pyregion.parse("fk5; circle(%.4f, %.4f, %.4f)" % (ra,dec,r68))
+        # Get the maximum intensity inside the PSF (in lowest bin)
+        emin=roi.bin_edges[0]
+        ra,dec=source.skydir.ra(),source.skydir.dec()
+        r68=roi.sa.psf.inverse_integral(emin,1,68) # 1=front entering events
+        reg = pyregion.parse("fk5; circle(%.4f, %.4f, %.4f)" % (ra,dec,r68))
+        psfmask = reg.get_mask(pyfits[0])
 
-        mask = reg.get_mask(pyfits[0])
-
-        return pyfits[0].data[mask].max()
+        # use whatever region mask is bigger
+        return pyfits[0].data[psfmask | extensionmask].max()
 
 
     @keyword_options.decorate(defaults)
@@ -1338,7 +1340,7 @@ class ROISmoothedSources(object):
 
             # Normalize psf to have same maximum pixel scale
             # as residual image.
-            self.psf_pyfits[0].data *= self.max_intensity/N.max(self.psf_pyfits[0].data)
+            self.psf_pyfits[0].data *= self.max_intensity/np.max(self.psf_pyfits[0].data)
 
             h_psf, d_psf = self.psf_pyfits[0].header, self.psf_pyfits[0].data
             self.axins = axins = zoomed_inset_axes(ax, zoom=1, loc=self.psf_loc,
@@ -1546,7 +1548,7 @@ class ROITSMapPlotter(object):
 
 
         # since this is a residual tsmap, never let the scale go below 25.
-        norm=mpl.colors.Normalize(vmin=0, vmax=25) if N.max(self.image.image) < 25 else None
+        norm=mpl.colors.Normalize(vmin=0, vmax=25) if np.max(self.image.image) < 25 else None
 
         im = ax.imshow(d, interpolation='nearest', origin="lower", cmap=colormaps.b, norm=norm)
         ax.axis[:].set_zorder(100)
