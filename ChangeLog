@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Nov  8 09:14:24 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+N->np in roi_plotting + better max_radius flag for smoothed counts map funtion
+    *
+------------------------------------------------------------
 User: lande  Tue Nov  8 09:13:19 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
