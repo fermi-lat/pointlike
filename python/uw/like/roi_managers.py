@@ -1,7 +1,7 @@
 """
 Provides classes for managing point sources and backgrounds for an ROI likelihood analysis.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.32 2011/07/13 03:11:27 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_managers.py,v 1.33 2011/07/13 04:21:03 lande Exp $
 
 author: Matthew Kerr
 """
@@ -226,9 +226,9 @@ class ROIPointSourceManager(ROIModelManager):
 
     def zero_source(self, which, bands):
         m = self.models[which]
-        if m.getp(0,internal=True)==-100: return #already zeroed
+        if m.getp(0,internal=True)==-np.inf: return #already zeroed
         m.old_flux = m.getp(0, internal=True) # get the internal value
-        m.setp(0,  -100, internal=True)
+        m.setp(0,  -np.inf, internal=True)
         m.old_free = m.free.copy()
         m.free[:] = False
         self.cache(bands)
@@ -236,7 +236,7 @@ class ROIPointSourceManager(ROIModelManager):
     def unzero_source(self, which, bands):
         m = self.models[which]
         try:
-            assert m.old_flux!=-100, 'attempt to unzero non-zeroed source %d ' % which
+            assert m.old_flux!=-np.inf, 'attempt to unzero non-zeroed source %d ' % which
             m.setp(0, m.old_flux, internal=True)
             m.free = m.old_free.copy()
             self.cache(bands)      
@@ -356,7 +356,7 @@ class ROIDiffuseManager(ROIModelManager):
     def zero_source(self, which, bands):
         m = self.models[which]
         m.old_flux = m[0]
-        m[0] = 1e-100
+        m.setp(0,  -np.inf, internal=True)
         m.old_free = m.free.copy()
         m.free[:] = False
         self.update_counts(bands)
