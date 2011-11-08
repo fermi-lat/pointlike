@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.113 2011/10/27 14:10:46 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.114 2011/11/01 13:39:18 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -58,6 +58,7 @@ class ROIAnalysis(object):
                             Independent energy ranges for front and back. 0th position is for event class 0.
                             If not specified, default is read from SpectralAnalysis."""),
         ("fit_emax",None,"A two-element list giving front/back maximum energy. Same qualifications as fit_emax."),
+        ("conv_type",-1,"Integer specifying front(0), back(1), or all(-1) events"),
         ("quiet",False,'Set True to suppress (some) output'),
         ("catalog_aperture",-1,"Pulsar catalog analysis only -- deprecate"),
         ("phase_factor",1.,"Pulsar phase. A correction that can be made if the data has undergone a phase selection -- between 0 and 1"),
@@ -119,8 +120,11 @@ class ROIAnalysis(object):
         for band in self.sa.pixeldata.dmap:
             evcl = band.event_class() & 1 # protect high bits
 
-            if (band.emin() + 1) >= self.fit_emin[evcl] and (band.emax() - 1) < self.fit_emax[evcl]:
-                self.bands.append(roi_bands.ROIBand(band,self.sa,self.roi_dir,**band_kwargs))
+            if ((band.emin() + 1) >= self.fit_emin[evcl] and
+                (band.emax() - 1) < self.fit_emax[evcl] and
+                (self.conv_type==-1 or self.conv_type==evcl)) :
+                self.bands.append(roi_bands.ROIBand(band,self.sa,
+                                                    self.roi_dir,**band_kwargs))
 
         self.bands = N.asarray(self.bands)
 
