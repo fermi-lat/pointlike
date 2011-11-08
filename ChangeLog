@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Nov  8 09:51:41 PST 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py diffuse.py 
+Log Message:
+further bug fixes, docs, organization, especially for extended sources
+    *
+------------------------------------------------------------
 User: lande  Tue Nov  8 09:14:24 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
