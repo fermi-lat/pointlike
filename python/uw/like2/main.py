@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.7 2011/10/11 19:05:32 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.8 2011/10/20 21:41:28 burnett Exp $
 
 """
 
@@ -56,6 +56,7 @@ class ROI_user(roistat.ROIstat):
         fit_kw.update(kwargs)
         self.update()
         initial_value, self.calls = self.log_like(), 0
+        saved_pars = self.get_parameters()
         fn = self if select is None else fitter.Projector(self, select=select)
         try:
             mm = fitter.Minimizer(fn)
@@ -66,6 +67,10 @@ class ROI_user(roistat.ROIstat):
                 # tricky to do if fitting subset, punt for now
                 self.sources.set_covariance_matrix(mm.cov_matrix)
             return mm
+        except FloatingPointError, e:
+            print 'Fit error: restoring parameters since  "%s"' %e 
+            self.set_parameters(saved_pars)
+        
         except Exception:
             if ignore_exception: return None
             else: raise
@@ -93,17 +98,26 @@ class ROI_user(roistat.ROIstat):
     def get_source(self, name):
         return self.sources.find_source(name)
         
-    def summary(self, out=None, title=None):
+    def summary(self, subset=None, out=None, title=None, gradient=True):
         """ summary table of free parameters, values uncertainties if any"""
         if title is not None:
             print >>out, title
-        print >>out, '%-20s%10s%10s'% tuple('Name value error(%)'.split())
+        fmt, tup = '%-20s%6s%10s%10s', tuple('Name index value error(%)'.split())
+        if gradient:
+            grad = self.gradient()
+            fmt +='%10s'; tup += ('gradient',)
+        print >>out, fmt %tup
         prev=''
-        for (name, value, rsig) in zip(self.parameter_names, self.parameters, self.sources.uncertainties):
+        for index, (name, value, rsig) in enumerate(zip(self.parameter_names, self.parameters, self.sources.uncertainties)):
+            if subset is not None and index not in subset: continue
             sname,pname = name.split('_',1)
             if sname==prev: name = len(sname)*' '+'_'+pname
             prev = sname
-            print >>out, '%-20s%10.4g%10.1f' %(name,value,rsig*100)
+            fmt = '%-20s%6d%10.4g%10.0f'
+            tup = (name,index, value,rsig*100)
+            if gradient:
+                fmt +='%10.1f'; tup += (grad[index],)
+            print >>out,  fmt % tup
             
     def TS(self, which, quick=True):
         """ measure the TS for the given source
