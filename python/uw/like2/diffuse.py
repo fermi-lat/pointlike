@@ -14,28 +14,37 @@ class DiffuseException(Exception):pass
 
 ###=========================================================================###
 class DiffuseModel(object):
-    """ Associate a SkySpectrum with a spectral model and an energy band
+    """ Base class to implement diffuse angular distributions for an ROI
     """
 
     defaults = (
-        ('quiet', False, 'Set True to quiet'),
+        ('quiet',   False,     'Set True to quiet'),
         ('efactor', 10**0.125, 'Energy factor for bin center'),
     )
 
     @keyword_options.decorate(defaults)
-    def __init__(self, roi_factory, skydir, diffuse_source, 
+    def __init__(self, psf, exposure, roi_dir, diffuse_source, 
                 **kwargs):
+        """
+        exposure : object
+            must provide psf and exposure
+        psf: object
         
-        self.roi_dir = skydir
-        self.skydir = None # (flag that this is global)
-        self.psf = roi_factory.psf
-        self.exposure = roi_factory.exposure.exposure
-        self.diffuse_source = diffuse_source
+        roi_dir : SkyDir object
+            center of the ROI 
+        diffuse_source :
+        """
         keyword_options.process(self, kwargs)
-        self.setup()
+        self.roi_dir = roi_dir
+        self.skydir = None # (flag that this is global)
+        self.psf, self.exposure = psf, exposure
+        self.diffuse_source = diffuse_source
         self.name = diffuse_source.name
+        self.setup()
         
     def setup(self): pass
+    
+    def make_grid(self, emin, conversion_type): pass
     
     @property
     def spectral_model(self):
@@ -84,7 +93,7 @@ class DiffuseModelFromCache(DiffuseModel):
         self.emins = [cd['emin'] for cd in self.cached_diffuse]
 
         
-    def make_grid(self, emin, conversion_type): #index, conversion_type):
+    def make_grid(self, emin, conversion_type):
         """ return a convovled grid
         
         parameters
@@ -125,7 +134,9 @@ class DiffuseModelFromCache(DiffuseModel):
   
   
 class IsotropicModel(DiffuseModel):
-    """ processing appropriate for Isotropic: no convolution needed"""
+    """ processing appropriate for Isotropic: no convolution needed
+    
+    """
 
     def __init__(self, *pars, **kwargs):
         super(IsotropicModel,self).__init__(*pars, **kwargs)
@@ -148,7 +159,6 @@ class IsotropicModel(DiffuseModel):
         
         grid.cvals = grid.fill(exp)* dm(self.roi_dir, energy)
         return grid
-        
         
 
 class CacheableDiffuse(convolution.Grid):
@@ -294,7 +304,6 @@ class CacheDiffuseModel(CacheDiffuseConvolution):
         print 'wrote pickle file %s' %dumpto
 
 
-
 def create_diffuse_cache(diffuse, outdir, name='ring', **kwargs):
     """
     Create a file for each healpixel containing grids for each energy
@@ -320,8 +329,10 @@ def mapper(roi_factory, roiname, skydir, source, **kwargs):
     """
     return a DiffuseModel appropriate for the source
     """
+    psf = roi_factory.psf
+    exposure = roi_factory.exposure.exposure
     if source.name.startswith('iso'):
-        return IsotropicModel(roi_factory,skydir, source)
-    return DiffuseModelFromCache(roi_factory,skydir, source)
+        return IsotropicModel(psf, exposure,skydir, source, **kwargs)
+    return DiffuseModelFromCache(psf, exposure,skydir, source, **kwargs)
         
    
