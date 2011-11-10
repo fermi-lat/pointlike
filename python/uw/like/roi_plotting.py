@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.76 2011/11/08 17:14:24 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.77 2011/11/10 04:05:19 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -637,7 +637,6 @@ class ROISlice(object):
                                           to 1 if you want the model 
                                           predictions to 'look like' the 
                                           data.                             """),
-            ('use_gradient',    True,            'Use gradient when refitting.'),
             ('title',           None,                      'Title for the plot'),
             ('black_and_white',False, """ If True, make the plot black and 
                                           white (better for printing and
@@ -726,7 +725,7 @@ class ROISlice(object):
             # only zero it after making a copy of the spectral part!
             self.roi.zero_source(es)
 
-            self.roi.fit(estimate_errors=False,use_gradient=self.use_gradient)
+            self.roi.fit(estimate_errors=False)
 
             self.names.append('Point')
             self.mi_x.append(ModelImage(self.roi,size=(self.size,self.int_width),**kwargs))
@@ -908,7 +907,6 @@ class ROIRadialIntegral(object):
                                           This will create a smoother plot of model predictions. Set 
                                           to 1 if you want the model predictions to 'look like' the 
                                           data."""),
-            ('use_gradient',    True, """Use gradient when refitting."""),
             ('legend',          True, """Add a legend to the plot."""),
             ('title',           None,   'Title for the plot'),
             ('black_and_white',False, """If True, make the plot black and white (better for 
@@ -973,7 +971,7 @@ class ROIRadialIntegral(object):
             # only zero it after making a copy of the spectral part!
             self.roi.zero_source(es)
 
-            self.roi.fit(estimate_errors=False,use_gradient=self.use_gradient)
+            self.roi.fit(estimate_errors=False)
 
             self.mi.append(RadialModel(self.roi,**kwargs))
             self.names.append('Point')
