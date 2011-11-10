@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.58 2011/09/13 08:36:41 cohen Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.59 2011/11/01 21:38:23 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -346,6 +346,7 @@ Optional keyword arguments:
         a._p = np.asarray(self._p).copy() #copy in log values
         a.free = np.asarray(self.free).copy()
         if hasattr(a,'cov_matrix'): a.cov_matrix = self.cov_matrix.__copy__()
+        if hasattr(a,'old_free'): a.old_free = self.old_free.__copy__()
         return a
 
     def fast_iflux(self,emin=100,emax=1e6):
@@ -399,7 +400,18 @@ Optional keyword arguments:
     def pivot_energy(self):
         """ default to indicate no such """
         return None 
-        
+
+    def zero(self):
+        if self.getp(0,internal=True)==-np.inf: return #already zeroed
+        self.old_flux = self.getp(0, internal=True) # get the internal value
+        self.setp(0,  -np.inf, internal=True)
+        self.old_free = self.free.copy()
+        self.free[:] = False
+
+    def unzero(self):
+        assert self.old_flux!=-np.inf, 'attempt to unzero non-zeroed source %d ' % which
+        self.setp(0, self.old_flux, internal=True)
+        self.free = self.old_free.copy()
 
 #===============================================================================================#
 
