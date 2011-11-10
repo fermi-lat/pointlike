@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.75 2011/11/04 00:25:37 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.76 2011/11/08 17:14:24 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1324,6 +1324,7 @@ class ROISmoothedSources(object):
                 # without doing this, sidewasy colorbars were not showing up right.
                 cbar = cax.colorbar(im)
 
+            self.cbar = cbar
             cbar.ax.set_ylabel(r'$\mathrm{counts}\ [\mathrm{deg}]^{-2}$')
 
         if self.title is None: 
