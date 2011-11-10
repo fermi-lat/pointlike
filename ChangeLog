@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Nov  9 20:05:19 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+save colorbar
+    *
+------------------------------------------------------------
 User: lande  Tue Nov  8 13:29:20 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
