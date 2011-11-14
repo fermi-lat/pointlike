@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.77 2011/11/10 04:05:19 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.78 2011/11/10 17:47:47 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1205,7 +1205,7 @@ class ROISmoothedSources(object):
             reg = pyregion.parse(extension_string)
             extensionmask = reg.get_mask(pyfits[0])
         else:
-            extensionmask = 0 # no mask
+            extensionmask = False # no mask
 
         # Get the maximum intensity inside the PSF (in lowest bin)
         emin=roi.bin_edges[0]
