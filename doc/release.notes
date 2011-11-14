@@ -2,11 +2,12 @@
     @brief pointlike package
     @author Toby Burnett
 
-$Id: release.notes,v 1.194 2011/09/13 19:38:57 lande Exp $
+$Id: release.notes,v 1.195 2011/09/16 22:01:55 lande Exp $
 @verbatim
  --------- -----   --- -----------------------------------------------------------------------
  * EOH *
 
+ pointlike-07-07-46 14-Nov-2011  lande patching pointlike
  pointlike-07-07-45 16-Sep-2011  lande Adding feature for gino
  pointlike-07-07-44 13-Sep-2011  lande bugfix
  pointlike-07-07-43 12-Sep-2011  lande tagging pointlike
