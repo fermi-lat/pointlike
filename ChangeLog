@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Nov 14 09:41:04 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+bugfix for plots
+    *
+------------------------------------------------------------
 User: wallacee  Thu Nov 10 16:11:16 PST 2011
 ScienceTools-scons/pointlike/python/uw/data
 
