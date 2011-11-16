@@ -101,7 +101,7 @@ class ROIstat(object):
         self.set_parameters(self.saved_pars)
         self.update()
 
-    def select_bands(self, bandsel= None): 
+    def select_bands(self, bandsel= None, emin=None): 
         """ select a subset of the bands for analysis
         parameteters
         ------------
@@ -109,12 +109,17 @@ class ROIstat(object):
         To restore, call with no arg
         Note that one could also replace selected_bands with a subset of all_bands
         """
-        if bandsel is None:
-            self.selected_bands =  self.all_bands
-            print '*** restoring %d bands ***' % len(self.all_bands)
-        else:
+        if bandsel is not None:
             self.selected_bands = np.array([bs for bs in self.all_bands if bandsel(bs.band)])
             if not self.quiet:print 'selected subset of %d bands for likelihood analysis' % len(self.selected_bands)
+        elif emin is not None:
+            self.selected_bands = np.array([bs for bs in self.all_bands if bs.band.emin>=emin])
+            if not self.quiet:
+                print 'selected subset of %d/%d bands for likelihood analysis'\
+                    % (len(self.selected_bands), len(self.all_bands))
+        else:
+            self.selected_bands =  self.all_bands
+            print '*** restoring %d bands ***' % len(self.all_bands)
         
     
     def select_source(self, sourcename):
@@ -163,8 +168,9 @@ class ROIstat(object):
         if parameters is not None: 
             self.set_parameters(parameters)
         self.update()
-        t = np.array([blike.gradient() for blike in self.selected_bands]).sum(axis=0)\
-                + self.prior.gradient()
+        t = np.array([blike.gradient() for blike in self.selected_bands]).sum(axis=0)
+        if self.prior.enabled:
+                t+= self.prior.gradient()
         par = self.get_parameters()
         assert len(t)==len(par), 'inconsistent number of free parameters'
         # this is required by the convention in all of the Models classes to use log10 for external
