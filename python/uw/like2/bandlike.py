@@ -92,6 +92,7 @@ class BandDiffuse(BandSource):
         self.band = band
         self.energy = band.e
         self.setup=False
+        self.exposure_ratio=self.overlap=1.0 #?
         self.initialize()
         self.update()
         
@@ -111,40 +112,27 @@ class BandDiffuse(BandSource):
         self.grid = self.source.make_grid(band.emin, band.ct)
         self.ap_evals = self.grid.ap_average(band.radius_in_rad) * band.solid_angle * delta_e
 
-        self.pi_evals = self.grid(band.wsdl, self.grid.cvals) if band.has_pixels else []
-        self.pi_evals *= band.b.pixelArea() * delta_e
-
+        if band.has_pixels:
+            self.pixel_values = self.grid(band.wsdl, self.grid.cvals) * band.b.pixelArea() * delta_e 
+        else: self.pix_counts=[]
         
     def update(self, fixed=False):
-        """ sets the following attributes:
-            counts -- the total counts expected for the model in the aperture
-            pix_counts-- if the band has pixels, an npixel vector with the 
-                        expected counts from the model for each data pixel
-            actually use the ROIDiffuseModel object to modify the band, then we 
-            copy them here. 
+        """ Update self.counts and self.pix_counts by multiplying by the value of the scaling spectral model
         """
-        self.counts = self.ap_evals * self.spectral_model(self.energy)
-        self.pix_counts = self.pi_evals * self.spectral_model(self.energy) if self.band.has_pixels else []
-
+        scale = self.spectral_model(self.energy)
+        self.counts = self.ap_evals * scale
+        if self.band.has_pixels:
+            self.pix_counts = self.pixel_values * scale
         
     def grad(self, weights, phase_factor=1):
         """ contribution to the gradient
         """
         model = self.spectral_model 
-        nfree =np.sum(model.free)
-        if nfree==0: return []
-        if (nfree==1) and model.free[0]:
-            # special case -- only normalization free 
-            apterm  =  phase_factor*self.counts
-            pixterm =  (self.pix_counts*weights).sum() 
-            g = [(apterm - pixterm)/model.getp(0)]
-        else:
-            # this is only rarely needed and not carefully tested
-            self.source.smodel = self.spectral_model
-            self.band.pix_weights = weights
-            self.band.phase_factor = phase_factor
-            g = self.source.gradient([self.band], self.source_index)
-        return g
+        if np.sum(model.free)==0: return []
+        apterm = phase_factor*self.counts
+        pixterm= (self.pix_counts*weights).sum()
+        return (apterm - pixterm) * model.gradient(self.energy)[model.free] 
+ 
 
  
 class BandPoint(BandSource):
@@ -236,8 +224,12 @@ class BandLike(object):
 
     def log_like(self):
         """ return the Poisson extended log likelihood """
-        pix = np.sum( self.data * np.log(self.model_pixels) ) if self.pixels>0 else 0
-        return pix - self.counts*self.phase_factor 
+        try:
+            pix = np.sum( self.data * np.log(self.model_pixels) ) if self.pixels>0 else 0
+            return pix - self.counts*self.phase_factor 
+        except FloatingPointError, e:
+            print 'Floating point error evaluating likelihood for band at %s' %self.__str__()
+            raise
 
     def chisq(self):  
         """ compute the chi squared  """
@@ -264,6 +256,7 @@ def factory(bands, sources, quiet=False):
         class_name = source.__class__.__name__
         B = dict(PointSource=BandPoint, 
                 DiffuseModelFromCache=BandDiffuse,
+                DiffuseModelFromFits=BandDiffuse,
                 IsotropicModel=BandDiffuse,
                 ROIExtendedModelAnalytic=BandExtended,
                 ROIExtendedModel=BandExtended)[class_name]
