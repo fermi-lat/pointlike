@@ -23,12 +23,8 @@ def set_point_property(psource) :
     def setter(source, newmodel): source.model = newmodel
     psource.__class__.spectral_model = property(getter, setter,doc='spectral model')
 
-class Parameter(object):
-    """ Manage a parameter """
-    def __init__(self, sourcelist, source, model, parname):
-        self.sourcelist=sourcelist
-        self.source = source
-        self.parname = parname
+class SourceListException(Exception):pass
+
   
 class SourceList(list):
     """ manage properties of the list of sources
@@ -106,12 +102,25 @@ class SourceList(list):
         return 'Sourcelist, with %d sources, %d free parameters' %(len(self), sum(self.free))
         
     def find_source(self, source_name):
+        """ Search for the source with the given name
+        if the first or last character is '*', perform a wild card search, return first match
+        """
         names = [s.name for s in self]
+        def not_found():
+            raise SourceListException('source %s not found' %source_name)
+        if source_name[-1]=='*':
+            for name in names:
+                if name.startswith(source_name[:-1]): return self[names.index(name)]
+            not_found()
+        if source_name[0]=='*':
+            for name in names:
+                if name.endswith(source_name[1:]): return self[names.index(name)]
+            not_found()
         try:
             return self[names.index(source_name)]
         except:
-            raise Exception('source %s not found' %source_name)
-    
+            not_found()
+   
     @property
     def parameter_names(self):
         """ array of free parameter names """
@@ -134,8 +143,21 @@ class SourceList(list):
             m.set_parameters(parameters[cp:nn])
             current_position += nn-cp
 
-    def set_covariance_matrix(self,cov_matrix,):
-        """ take over-all covariance matrix from a fit, give block-diagonal pieces to model objects"""
+    def set_covariance_matrix(self,cov_matrix, select=None):
+        """ take over-all covariance matrix from a fit, give block-diagonal pieces to model objects
+        if select is a list of variable indices, set diagonal elements only
+        
+        """
+        if select is not None:
+            #assert cov_matrix.shape[0] >= select[-1], 'cov_matrix.shape=%s'%cov_matrix.shape
+            # upack diagonal errors to corresponding elements in 
+            models = self.models
+            t = [(i,np.arange(len(m.free))[m.free] ) for i,m in enumerate(models) if sum(m.free)>0]
+            s = [ (i,j) for i,mf in t for j in mf]
+            for n,k in enumerate(select):
+                i,j = s[k]
+                models[i].cov_matrix[j,j] = cov_matrix[n,n]
+            return
         current_position=0
         for m in self.models:
             cp,nn = current_position,current_position+len(m.get_parameters())
@@ -158,5 +180,27 @@ class SourceList(list):
         variances = np.concatenate([m.cov_matrix.diagonal()[m.free] for m in self.models])
         variances[variances<0] = 0
         return np.sqrt(variances) /np.log10(np.e)
+
+    @property
+    def bounds(self):
+        ret = []
+        for source_name, model in zip(self.source_names, self.models):
+            for pname in np.array(model.param_names)[model.free]:
+                plim = (None,None)
+                try:
+                    plim = dict(
+                        Index=(-3, 0.6),
+                        Norm=(-15, -10),
+                        Scale=np.log10(np.array([0.1, 1.5])),
+                        beta=(-3, 1),
+                        Cutoff=(2,6),
+                        )[pname]
+                except: pass
+                # override for diffuse
+                if source_name.startswith('ring') and pname=='Norm': 
+                    plim = np.log10(np.array([0.5, 1.5]))
+                ret.append(plim)
+                
+        return ret
 
  
