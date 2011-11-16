@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Nov 15 21:45:19 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+improve print formatting of ROIDisplay.
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-47, operation: add
 Package: pointlike
