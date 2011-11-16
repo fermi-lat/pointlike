@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Nov 16 06:14:21 PST 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	roisetup.py 
+Log Message:
+remove roi_diffuse from imports; remove cache KW.
+    *
+------------------------------------------------------------
 User: burnett  Wed Nov 16 06:12:48 PST 2011
 pointlike/python/uw/like2
 
