@@ -159,7 +159,30 @@ class IsotropicModel(DiffuseModel):
         
         grid.cvals = grid.fill(exp)* dm(self.roi_dir, energy)
         return grid
+
+class DiffuseModelFromFits( DiffuseModel):
+    def __init__(self, *pars, **kwargs):
+        super(DiffuseModelFromFits,self).__init__(*pars, **kwargs)
         
+    def setup(self):
+        if not self.quiet:
+            print 'set up diffuse_model(s):'
+            for dm in self.diffuse_source.dmodel:
+                print '\t%s'% dm.name()
+                
+    def make_grid(self, energy, conversion_type, npix=61, pixelsize=0.25):
+        self.grid = ConvolvableGrid(self.roi_dir, npix, pixelsize) 
+        dmodels = self.diffuse_source.dmodel
+        dm = dmodels[conversion_type if len(dmodels)>1 else 0]
+        dm.setEnergy(energy)
+        exp = self.exposure[conversion_type]
+        exp.setEnergy(energy)
+        grid = ConvolvableGrid(self.roi_dir, None, self.psf, 
+            npix=npix, pixelsize=pixelsize)
+        
+        grid.cvals = grid.fill(exp)* dm(self.roi_dir, energy)
+        return grid
+       
 
 class CacheableDiffuse(convolution.Grid):
     def __init__(self, *args, **kwargs):
@@ -333,6 +356,10 @@ def mapper(roi_factory, roiname, skydir, source, **kwargs):
     exposure = roi_factory.exposure.exposure
     if source.name.startswith('iso'):
         return IsotropicModel(psf, exposure,skydir, source, **kwargs)
+    elif source.name.startswith('limb'):
+        for dmodel in source.dmodel:
+            if not getattr(dmodel,'loaded', False): dmodel.load()
+        return DiffuseModelFromFits(psf, exposure,skydir, source, **kwargs)
     return DiffuseModelFromCache(psf, exposure,skydir, source, **kwargs)
         
    
