@@ -25,7 +25,7 @@ class SourceFlux(object):
         self.rs = rstat
         self.rs.quiet=quiet
         self.source = rstat.sources.find_source(source_name)
-        parname = source_name+'_Norm'
+        parname = self.source.name+'_Norm'
         try:
             self.pindex = list(rstat.parameter_names).index(parname)
         except:
