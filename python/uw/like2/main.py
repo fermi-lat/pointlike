@@ -4,7 +4,7 @@ Top-level code for ROI analysis
 $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.8 2011/10/20 21:41:28 burnett Exp $
 
 """
-
+import types
 import numpy as np
 from . import roistat, tools, printing, roisetup, sedfuns
 from . import plotting 
@@ -27,21 +27,27 @@ def decorate_with(other_func, append=False, append_init=False):
 
 #
 
-class ROI_user(roistat.ROIstat):
+class ROI_user(roistat.ROIstat, fitter.Fitted):
     """ subclass of ROIstat that adds user-interface tools: fitting, localization, plotting sources, counts
     """
 
-    def fit(self, select=None, **kwargs):
+    def fit(self, select=None, source=None, summarize=True, quiet=True, **kwargs):
         """ Perform fit, return fitter object to examine errors, or refit
-        parameters:
-            select : list type of int or None
-                if not None, the list is a subset of the parameter numbers to select
-                to define a projected function to fit
+        Parameters
+        ----------
+        select : list type of int or None or string
+            if not None, the list is a subset of the parameter numbers to select
+            to define a projected function to fit
+            if a string: The name of a source (with possible wild cards) to select for fitting
+        
         kwargs :
+        ------
             ignore_exceptions : bool
                 if set, run the fit in a try block and return None
             call_limit : int
                 if set, modify default limit on number of calls
+            summarize : bool
+                if True (default) call summary after succesful fit
             others passed to the fitter minimizer command. defaults are
                 estimate_errors = True
                 use_gradient = True
@@ -57,23 +63,30 @@ class ROI_user(roistat.ROIstat):
         self.update()
         initial_value, self.calls = self.log_like(), 0
         saved_pars = self.get_parameters()
+        if type(select)==types.StringType:
+            src = self.get_source(select)
+            select = [i for i in range(len(saved_pars)) if self.parameter_names[i].startswith(src.name)]
         fn = self if select is None else fitter.Projector(self, select=select)
         try:
-            mm = fitter.Minimizer(fn)
+            mm = fitter.Minimizer(fn, quiet=quiet)
             mm(**fit_kw)
             print '%d calls, likelihood improvement: %.1f'\
                 % (self.calls, self.log_like() - initial_value)
-            if fit_kw['estimate_errors'] and select is None:
-                # tricky to do if fitting subset, punt for now
-                self.sources.set_covariance_matrix(mm.cov_matrix)
+            if fit_kw['estimate_errors'] :
+                self.sources.set_covariance_matrix(mm.cov_matrix, select)
+            if summarize: self.summary(select)
             return mm
         except FloatingPointError, e:
             print 'Fit error: restoring parameters since  "%s"' %e 
             self.set_parameters(saved_pars)
+            return mm
         
         except Exception:
             if ignore_exception: return None
             else: raise
+    
+    def cov_matrix(self, par=None):
+        return fitter.Minimizer.mycov(self, self.get_parameters() if par is None else par)
         
     def localize(self, source_name, **kwargs):
         """ localize the source: adding the localization info to the source object
@@ -98,8 +111,17 @@ class ROI_user(roistat.ROIstat):
     def get_source(self, name):
         return self.sources.find_source(name)
         
-    def summary(self, subset=None, out=None, title=None, gradient=True):
-        """ summary table of free parameters, values uncertainties if any"""
+    def summary(self, select=None, out=None, title=None, gradient=True):
+        """ summary table of free parameters, values uncertainties gradient
+        
+        Parameters:
+        ----------
+        select : list of integers or string
+            integers are indices of parameters
+            string is the wildcarded name of a source
+        out : open file or None
+            
+        """
         if title is not None:
             print >>out, title
         fmt, tup = '%-20s%6s%10s%10s', tuple('Name index value error(%)'.split())
@@ -108,12 +130,16 @@ class ROI_user(roistat.ROIstat):
             fmt +='%10s'; tup += ('gradient',)
         print >>out, fmt %tup
         prev=''
+        if type(select)==types.StringType:
+            src = self.get_source(select)
+            select = [i for i in range(len(saved_pars)) if self.parameter_names[i].startswith(src.name)]
+
         for index, (name, value, rsig) in enumerate(zip(self.parameter_names, self.parameters, self.sources.uncertainties)):
-            if subset is not None and index not in subset: continue
+            if select is not None and index not in select: continue
             sname,pname = name.split('_',1)
             if sname==prev: name = len(sname)*' '+'_'+pname
             prev = sname
-            fmt = '%-20s%6d%10.4g%10.0f'
+            fmt = '%-20s%6d%10.4g%10.1f'
             tup = (name,index, value,rsig*100)
             if gradient:
                 fmt +='%10.1f'; tup += (grad[index],)
@@ -137,16 +163,17 @@ class ROI_user(roistat.ROIstat):
         sed = self.get_sed(source_name)
         return np.sum(sed.ts)
         
-    def get_sed(self, source_name, **kwargs):
+    def get_sed(self, source_name, event_class=None, **kwargs):
         """ return the SED recarray for the source
+            event_class : None, or integer
         """
         source = self.sources.find_source(source_name)
         update = kwargs.pop('update', False)
-        if hasattr(source, 'sed_rec') and not update:
-            return source.sed_rec
+        if hasattr(source, 'sedrec') and not update:
+            return source.sedrec
         sf = sedfuns.SourceFlux(self, source_name, **kwargs)
-        source.sed_rec = sedfuns.SED(sf).rec
-        return source.sed_rec
+        source.sedrec = sedfuns.SED(sf, event_class=event_class).rec
+        return source.sedrec
 
     @decorate_with(plotting.tsmap.plot)
     def plot_tsmap(self, source_name, **kwargs):
@@ -157,10 +184,12 @@ class ROI_user(roistat.ROIstat):
         loc= self.localize( source_name)
         tsp = plotting.tsmap.plot(loc, **plot_kw)
         return tsp
+        
     @decorate_with(plotting.sed.Plot, append_init=True)    
     def plot_sed(self, source_name, **kwargs):
         source = self.sources.find_source(source_name)
-        source.sedrec = self.get_sed(source_name)
+        source.sedrec = self.get_sed(source_name, 
+            event_class=kwargs.pop('event_class', None), update=kwargs.pop('update',True))
         ps = plotting.sed.Plot(source)
         ps(**kwargs)
         return ps
@@ -184,6 +213,10 @@ class ROI_user(roistat.ROIstat):
         """
         loc = self.localize(source_name,**kwargs)
         return PySkyFunction(loc)
+      
+    @property
+    def bounds(self):
+        return self.sources.bounds
         
 class Factory(roisetup.ROIfactory):
     def __call__(self, *pars, **kwargs):
