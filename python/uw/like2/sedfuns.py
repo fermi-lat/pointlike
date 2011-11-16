@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.1 2011/10/20 21:40:26 burnett Exp $
 
 """
 import os
@@ -102,7 +102,6 @@ class SED(object):
         """
         sf = source_flux
         self.scale_factor=scale_factor
-
         rec = makerec.RecArray('elow ehigh flux lflux uflux ts'.split())
         self.loglikes = []
         for i,energy in enumerate(sf.energies):
@@ -257,6 +256,7 @@ def makesed_all(roi, **kwargs):
     other kwargs passed to sed.Plot().__call__
     """
     sedfig_dir = kwargs.pop('sedfig_dir', None)
+    if sedfig_dir is not None and not os.path.exists(sedfig_dir): os.mkdir(sedfig_dir)
     showts = kwargs.pop('showts', True)
     initw = roi.log_like()
 
