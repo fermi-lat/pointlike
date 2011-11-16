@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec.py,v 1.41 2011/07/30 20:17:48 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.43 2011/11/08 20:50:46 wallacee Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.41 $'.split()[1]
+version='$Revision: 1.43 $'.split()[1]
 import types
 import os
 from os.path import join
@@ -57,11 +57,11 @@ class DataSpecification(object):
 
         keyword_options.process(self, kwargs)
 
-        if self.binfile is not None: self.binfile = os.path.expandvars(self.binfile)
-        if self.ltcube is not None: self.ltcube = os.path.expandvars(self.ltcube)
-
-        if self.ft1files is None and self.binfile is None:
-            raise Exception,'No event data (FT1 or binfile) provided!  Must pass at least one of these.'
+        if self.binfile is None: raise Exception("binfile must be specified.")
+        if self.ltcube is None: raise Exception("ltcube must be specified.")
+            
+        self.binfile = os.path.expandvars(self.binfile)
+        self.ltcube = os.path.expandvars(self.ltcube)
 
         if self.ft1files is None and not os.path.exists(self.binfile):
             raise Exception,'An FT1 file must be specified if the binfile does not exist.'
