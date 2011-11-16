@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.78 2011/11/10 17:47:47 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.79 2011/11/14 17:41:04 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -46,7 +46,7 @@ from scipy.optimize import fmin,fsolve
 
 import pylab as P
 from matplotlib import rcParams,mpl,pyplot,ticker,font_manager,spines
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 from matplotlib.patches import FancyArrow,Circle,Ellipse
 from matplotlib import mpl
 from matplotlib.axes import Axes
@@ -538,9 +538,12 @@ class ROIDisplay(object):
 
         self.ax_resplot.set_title('Weighted Residuals')
 
-        self.ax_resplot.hist(rc, bins=np.linspace(-5,5,20), histtype='step',normed=True)
+        bins=np.linspace(-5,5,20)
+        dx=bins[1]-bins[0]
+        self.ax_resplot.hist(rc, bins=bins, histtype='step')
         b=np.linspace(-5,5,100)
-        self.ax_resplot.plot(b,norm.pdf(b))
+        # overlay gaussian with same normalization
+        self.ax_resplot.plot(b,(len(mc)*dx)*norm.pdf(b))
         self.ax_resplot.axvline(0,color='red')
         self.ax_resplot.grid(True)
         self.ax_resplot.set_xbound(lower=-5,upper=5)
@@ -562,14 +565,17 @@ class ROIDisplay(object):
 
         # first, divide the plot in 4
         gs = GridSpec(4, 4)
-        gs.update(wspace=0.75, hspace=0.75)
+        gs.update(wspace=1.5, hspace=1)
         self.ax_model = pywcsgrid2.subplot(gs[0:2, 0:2], header=self.h)
         self.ax_counts = pywcsgrid2.subplot(gs[0:2,2:4], header=self.h)
         self.ax_res = pywcsgrid2.subplot(gs[2:4, 0:2], header=self.h)
 
         # then divide the 4th space in two.
         self.ax_pvals = P.subplot(gs[2, 2:4])
+        self.ax_pvals.yaxis.set_major_locator(MaxNLocator(3))
+
         self.ax_resplot = P.subplot(gs[3, 2:4])
+        self.ax_resplot.yaxis.set_major_locator(MaxNLocator(3))
 
         self.model_plot()
         self.counts_plot()
