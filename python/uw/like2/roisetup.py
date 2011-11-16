@@ -1,5 +1,5 @@
 """
-Set up an ROI (transitional?)
+Set up an ROI 
 
 $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.2 2011/10/01 13:35:06 burnett Exp $
 
@@ -8,7 +8,7 @@ import os
 import numpy as np
 from . import dataset, skymodel, diffuse
 from .. utilities import keyword_options, convolution
-from .. like import  roi_diffuse, roi_extended
+from .. like import roi_extended
 
 
 class ROIfactory(object):
@@ -24,7 +24,6 @@ class ROIfactory(object):
                             num_points=25), # AnalyticConvolution
                                     'convolution parameters'),
         ('selector', skymodel.HEALPixSourceSelector,' factory of SourceSelector objects'),
-        ('cache',   None, 'folder to look for cached diffuse'),
         ('quiet', False, 'set to suppress most output'),
         )
 
@@ -40,7 +39,7 @@ class ROIfactory(object):
         keyword_options.process(self, kwargs)
         self.skymodel = skymodel.SkyModel(indir,  **self.skymodel_kw)
         self.dataset = dataset.DataSet(dataname, **self.analysis_kw)
-        self.exposure = self.dataset.exposure #needed by roi_diffuse
+        self.exposure = self.dataset.exposure 
         self.psf  = self.dataset.psf
         convolution.AnalyticConvolution.set_points(self.convolve_kw['num_points'])
         convolution.ExtendedSourceConvolution.set_pixelsize(self.convolve_kw['pixelsize'])
