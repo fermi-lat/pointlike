@@ -186,15 +186,16 @@ class SourceList(list):
         ret = []
         for source_name, model in zip(self.source_names, self.models):
             for pname in np.array(model.param_names)[model.free]:
+                pname = pname.split('_')[0]
                 plim = (None,None)
                 try:
                     plim = dict(
                         Index=(-3, 0.6),
                         Norm=(-15, -10),
-                        Scale=np.log10(np.array([0.1, 1.5])),
+                        Scale=np.log10(np.array([0.01, 2.0])),
                         beta=(-3, 1),
                         Cutoff=(2,6),
-                        )[pname]
+                        )[pname.split('_')[0]]
                 except: pass
                 # override for diffuse
                 if source_name.startswith('ring') and pname=='Norm': 

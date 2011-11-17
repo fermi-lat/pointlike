@@ -5,7 +5,7 @@ $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.1
 
 author: Matthew Kerr, Toby Burnett
 """
-import sys, os, types, pickle, glob
+import sys, os, types, pickle, glob, copy
 import numpy as np
 from uw.utilities import keyword_options, convolution
 import skymaps #from Science Tools
@@ -161,6 +161,7 @@ class IsotropicModel(DiffuseModel):
         return grid
 
 class DiffuseModelFromFits( DiffuseModel):
+    """ load pattern from a FITS file """
     def __init__(self, *pars, **kwargs):
         super(DiffuseModelFromFits,self).__init__(*pars, **kwargs)
         
@@ -182,7 +183,20 @@ class DiffuseModelFromFits( DiffuseModel):
         
         grid.cvals = grid.fill(exp)* dm(self.roi_dir, energy)
         return grid
-       
+     
+    def copy(self):
+        t = copy.copy(self)
+        t.diffuse_source.smodel = self.diffuse_source.smodel.copy()
+        return t
+    
+    @property
+    def spectral_model(self):
+        return self.diffuse_source.smodel
+
+class DiffuseModelFB(DiffuseModelFromFits): 
+    def __init__(self, *pars, **kwargs):
+        super(DiffuseModelFB,self).__init__(*pars, **kwargs)
+
 
 class CacheableDiffuse(convolution.Grid):
     def __init__(self, *args, **kwargs):
@@ -359,7 +373,7 @@ def mapper(roi_factory, roiname, skydir, source, **kwargs):
     elif source.name.startswith('limb'):
         for dmodel in source.dmodel:
             if not getattr(dmodel,'loaded', False): dmodel.load()
-        return DiffuseModelFromFits(psf, exposure,skydir, source, **kwargs)
+        return DiffuseModelFB(psf, exposure,skydir, source, **kwargs)
     return DiffuseModelFromCache(psf, exposure,skydir, source, **kwargs)
         
    
