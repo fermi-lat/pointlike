@@ -7,6 +7,7 @@ author: Matthew Kerr, Toby Burnett
 """
 import sys, os, types, pickle, glob, copy
 import numpy as np
+from . import models
 from uw.utilities import keyword_options, convolution
 import skymaps #from Science Tools
 
@@ -373,6 +374,9 @@ def mapper(roi_factory, roiname, skydir, source, **kwargs):
     elif source.name.startswith('limb'):
         for dmodel in source.dmodel:
             if not getattr(dmodel,'loaded', False): dmodel.load()
+        if source.smodel.name=='Constant':
+            # limb model must be separate front and back!
+            source.smodel = models.FrontBackConstant(0.001, 1.5)
         return DiffuseModelFB(psf, exposure,skydir, source, **kwargs)
     return DiffuseModelFromCache(psf, exposure,skydir, source, **kwargs)
         
