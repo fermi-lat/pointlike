@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Thu Nov 17 11:39:46 PST 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py 
+Added Files:
+	models.py 
+Log Message:
+Implement front/back for limb
+    *
+------------------------------------------------------------
 User: burnett  Thu Nov 17 11:28:08 PST 2011
 pointlike/python/uw/like2
 
