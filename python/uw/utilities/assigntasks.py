@@ -1,12 +1,12 @@
 """
   Assign a set of tasks to multiengine clients
 
-  $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/assigntasks.py,v 1.19 2011/03/30 17:36:58 wallacee Exp $
+  $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/assigntasks.py,v 1.20 2011/06/24 04:34:19 burnett Exp $
 
 """
 from IPython.kernel import client
 import time, os, pickle, subprocess
-version = '$Revision: 1.19 $'.split()[1]
+version = '$Revision: 1.20 $'.split()[1]
 
 class ProgressBar:
     def __init__(self, total=60, width=40):
@@ -76,7 +76,7 @@ class AssignTasks(object):
         if not local:
             try:
                 self.mec = mec if mec is not None else get_mec()
-            except:
+            except Exception:
                 print 'No connection available: you must run ipcluster'
                 raise
             time.sleep(0.5) 
@@ -178,14 +178,19 @@ class AssignTasks(object):
                         # todo: if this does not work, need to remove from list, since get_ids will keep getting it
                     return False
                 #if not self.quiet: print >>self.log, '%4d --> %s' %(index, result)
-                if self.usercallback is not None and index>=0: self.usercallback(index, result)
-                self.result[index]=result
-            except:
+            except Exception:
                 self.log("Engine %d raised exception executing task %d ('%s')" %(id, index, 'setup' if index<0 else self.tasks[index]) )
                 if not self.ignore_exception:                
                     raise
+                else:
+                    result=None
                 self.lost.add(index)
                 #raise #TODO: option to allow dropping the engine and continue? Probably a serious issue.
+            #pull callback outside try/except so that exceptions from it won't
+            #look like exceptions from the actual task
+            if result is not None:
+                if self.usercallback is not None and index>=0: self.usercallback(index, result)
+                self.result[index]=result
         else:
             self.result[index]=self.tasks[index]
 
