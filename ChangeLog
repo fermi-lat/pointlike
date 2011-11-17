@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Nov 17 11:28:08 PST 2011
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py sourcelist.py 
+Log Message:
+fix diffuse gradient; implement FB limb model
+    *
+------------------------------------------------------------
 User: burnett  Wed Nov 16 06:25:46 PST 2011
 pointlike/python/uw/like2
 
