@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.1 2011/09/19 20:47:54 burnett Exp $
 
 Author M. Kerr, T. Burnett
 
@@ -11,43 +11,54 @@ import pylab as plt
 from matplotlib import font_manager
 
 
-def get_counts(roi, event_class=None):
+def get_counts(roi, event_class=None, tsmin=10):
     """
     return a dictionary with counts information for plotting
     
     roi : an ROIstat object
     event_class : None or integer
         if integer, 0/1 for front/back
+    tsmin : float
+        used to select sources if bandts info in sedrec exists
+        the bandts values are in the dict, None if no info
     """
     bands = roi.selected_bands
     if event_class is not None:
         bands = [b for b in bands if b.band.ec==event_class]
     assert len(bands)>0, 'get_counts: no bands found'
     free_sources = np.array(roi.sources)[roi.sources.free]
-    names = np.array([s.name for s in free_sources])
+    good_ts = np.array([ s.sedrec.ts.sum()>tsmin if hasattr(s,'sedrec') else True for s in free_sources])
+    good_sources = free_sources[good_ts]
+    weak_sources = free_sources[~good_ts]
+    names = np.array([s.name for s in good_sources])
+    bandts = np.array([s.sedrec.ts.sum() if hasattr(s,'sedrec') else None for s in good_sources])
     energies = sorted(list(set([b.energy for b in bands])))
     nume = len(energies)
-    numsrc = len(free_sources)
+    numsrc = len(good_sources)
     observed = np.zeros(nume)
     fixed = np.zeros(nume)
+    weak = np.zeros(nume)
     model_counts = np.zeros((nume, numsrc))
     total = np.zeros(nume)
     for i, energy in enumerate(energies):
         for b in bands:
             if b.energy!=energy: continue
             observed[i] += sum(b.data)
-            fixed[i] += b.fixed_counts
-            model_counts[i,:]  += np.array([s.counts for s in b.free_sources])
+            fixed[i] += b.fixed_counts            
+            weak[i]  += np.array([s.counts for s in b.free_sources[~good_ts]]).sum()
+            model_counts[i,:]  += np.array([s.counts for s in b.free_sources[good_ts]])
             total[i] += b.counts
     models = [(names[j] , model_counts[:,j]) for j in range(numsrc)]
     models.append( ('(fixed)', fixed))
-    return dict(energies=energies, observed=observed, models=models, names=names, total=total)
+    models.append( ('(weak)', weak))
+    return dict(energies=energies, observed=observed, models=models, names=names, total=total, bandts=bandts)
     
 
 def plot_counts(roi,fignum=1, event_class=None, outfile=None,
         max_label=10, #merge_non_free=True,
         #merge_all=False,
         axes = None,
+        **kwargs
         ):
     """Make counts and residual plots for the ROI roi
     keyword parameters
@@ -117,7 +128,9 @@ def plot_counts(roi,fignum=1, event_class=None, outfile=None,
         plt.close(fignum) # close it if exists
         fig, axes = plt.subplots(1,2, sharex=True, num=fignum, figsize=(12,6))
 
-    count_data = get_counts(roi, event_class) #, integral=integral, merge_non_free=merge_non_free, merge_all=merge_all)
+    tsmin = kwargs.pop('tsmin', 10)
+    count_data = get_counts(roi, event_class, tsmin=tsmin
+    ) #, integral=integral, merge_non_free=merge_non_free, merge_all=merge_all)
 
     plot_counts_and_models(axes[0], count_data)
     if len(axes>1): plot_residuals(axes[1], count_data)
