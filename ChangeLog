@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Thu Nov 17 20:07:33 PST 2011
+ScienceTools-scons/pointlike/python/uw/data
+
+Modified Files:
+	dataman.py 
+Log Message:
+Add a helper class DataSet for retrieving datasets from a standardized
+file system location.
+
+    *
+------------------------------------------------------------
 User: wallacee  Thu Nov 17 13:26:36 PST 2011
 ScienceTools-scons/pointlike/python/uw/utilities
 
