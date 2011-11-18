@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Nov 18 06:19:23 PST 2011
+pointlike/python/uw/like2/plotting
+
+Modified Files:
+	counts.py 
+Log Message:
+ts threshold for plotting
+    *
+------------------------------------------------------------
 User: wallacee  Thu Nov 17 20:07:33 PST 2011
 ScienceTools-scons/pointlike/python/uw/data
 
