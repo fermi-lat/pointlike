@@ -1,23 +1,25 @@
 """
 Module implements classes and functions to specify data for use in pointlike analysis.
 
-author(s): Matthew Kerr
+author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.14 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/users/kerrm/tools/dataman.py,v 1.14 2011/11/10 23:30:15 wallacee Exp $
+__version__ = '$Revision: 1.1 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/data/dataman.py,v 1.1 2011/11/10 23:54:34 wallacee Exp $
 
-import numpy as np
-from uw.utilities import keyword_options,fitstools
-from uw.like.pixeldata import NsideMapper
-from glob import glob
 import os
-import dssman
-import pointlike
-import skymaps
-import pyfits
 from collections import deque
 from cPickle import dump,load
+from glob import glob
+
+import numpy as np
+import pyfits
+
+import pointlike
+import skymaps
+from uw.utilities import keyword_options,fitstools
+from uw.like.pixeldata import NsideMapper
+import dssman
 
 dataman_version=__version__.split()[1]
 # TODO energy sanity check on DSS keywords
@@ -457,6 +459,106 @@ class DataManager(object):
         if ds.weighted_livetime:
             self.weighted_lt = skymaps.LivetimeCube(ds.ltcube,weighted=True)
         self.gti = self.lt.gti() #Just to provide a reference.
+
+class DataSet(object):
+    """A helper class to manage DataSpecs
+
+    The basic function of this class is to retrieve pickled DataSpecs from a 
+    standard directory structure. If a dataset contains multiple DataSpecs
+    (e.g. for individual months), this class will store and provide access to
+    the list. It can also be used to manage one or more pre-loaded DataSpecs.
+    """
+    defaults = (('pickle',None,
+                 '''A filename, list of filenames, or wildcard expression
+                    indicating a set of pickled DataSpecs''')
+               ,('dataspec',None,'One or more DataSpec instances'))
+    @keyword_options.decorate(defaults)
+    def __init__(self,name=None,**kwargs):
+        """Instantiate a DataSet
+
+        If name is not None, it will be converted to a filename as
+        os.path.expandvars(os.path.join('$FERMI','data',name.replace(' ','_')+'.pickle')).
+        If this file exists, it will be taken to be a pickled DataSpec or
+        list of DataSpec pickles. If it does not exist, it will be created with
+        the appropriate format for reuse with this class. If the $FERMI
+        environment variable is not set, files will be looked up and saved in
+        the current working directory.
+        Passing a value for name is the preferred use. If name is None, the
+        user must provide a value for either pickle or dataspec but NOT both.
+        In this case, the instance will manage the DataSpecs specified by
+        whichever of those kwargs is used, but will not be saved for reuse.
+        A single file passed via the pickle kwarg should point to either a
+        pickled DataSpec, or a pickled list of DataSpec pickle files. A list of
+        filenames, or a wildcard that matches a list, should each point to
+        a pickled DataSpec.
+        """
+
+        keyword_options.process(self,kwargs)
+        self.name = name
+        if name is not None:
+            self.filename = self._parse_name(name)
+        if name is None or not os.path.exists(self.filename):
+            if self.pickle is None and self.dataspec is None:
+                raise DataError("Must specify either pickle files or DataSpecs")
+        if os.path.exists(self.filename):
+            self.dataspec = self._load_files(self.filename)
+        else:
+            if self.pickle is not None:
+                if self.dataspec is not None:
+                    raise DataError("Must specify dataspec OR pickle, not both.")
+                self.dataspec = self._load_files(self.pickle)
+            dump(self.dataspec,open(self.filename,'w'))
+
+    def _parse_name(self,name):
+        """Return the filename corresponding to a DataSet name"""
+        if os.environ.has_key("FERMI"):
+            data_dir = os.path.expandvars(os.path.join("$FERMI","data"))
+            if not os.path.exists(data_dir):
+                os.mkdir(data_dir)
+        else:
+            data_dir = os.getcwd()
+        basename = name.replace(' ','_')
+        #in case we're parsing the name of a pickle file
+        if not basename.endswith('.pickle'):
+            basename = '.'.join([basename,'pickle'])
+        return os.path.join(data_dir,basename)
+
+    def _load_files(self,pfile):
+        """Load a pickle file and return the resulting DataSpec(s)"""
+        if hasattr(pfile,'__iter__'):
+            return [self._load_files(pf) for pf in pfile]
+        pfile = os.path.expandvars(pfile)
+        if not os.path.isabs(pfile):
+            pfile = self._parse_name(pfile)
+        gfiles = sorted(glob(pfile))
+        if len(gfiles)==0:
+            raise DataError("No matches found for wildcard {0}".format(pfile))
+        elif len(gfiles)>1:
+            return [self._load_files(gf) for gf in gfiles]
+        else:
+            pfile = gfiles[0]
+        pdat = load(open(pfile))
+        if isinstance(pdat,DataSpec):
+            return pdat
+        elif hasattr(pdat,'__iter__'):
+            return self._load_files(pdat)
+        else:
+            #temporary kludge for my local version
+            try:
+                from users.kerrm import tools
+                if isinstance(pdat,tools.dataman.DataSpec):
+                    return pdat
+            except ImportError:
+                pass
+            raise DataError("Invalid DataSet pickle: {0}".format(pfile))
+
+    def __getitem__(self,i):
+        if hasattr(self.dataspec,'__iter__'):
+            return self.dataspec[i]
+        else:
+            raise DataError('DataSet only contains one DataSpec')
+    def __getattr__(self,x):
+        return getattr(self.dataspec,x)
 
 class DataError(Exception):
     """Exception class for data management errors"""
