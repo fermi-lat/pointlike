@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Fri Nov 18 14:10:16 PST 2011
+ScienceTools-scons/pointlike/python/uw/data
+
+Modified Files:
+	dataman.py 
+Log Message:
+Copied NsideMapper over from uw.like.pixeldata, removing the last dependence
+on the old code. Minor changes to import syntax.
+
+    *
+------------------------------------------------------------
 User: burnett  Fri Nov 18 06:19:23 PST 2011
 pointlike/python/uw/like2/plotting
 
