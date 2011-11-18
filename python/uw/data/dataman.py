@@ -4,13 +4,13 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.1 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/data/dataman.py,v 1.1 2011/11/10 23:54:34 wallacee Exp $
+__version__ = '$Revision: 1.2 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/data/dataman.py,v 1.2 2011/11/18 04:07:33 wallacee Exp $
 
 import os
-from collections import deque
+import collections
+import glob
 from cPickle import dump,load
-from glob import glob
 
 import numpy as np
 import pyfits
@@ -18,8 +18,7 @@ import pyfits
 import pointlike
 import skymaps
 from uw.utilities import keyword_options,fitstools
-from uw.like.pixeldata import NsideMapper
-import dssman
+from uw.data import dssman
 
 dataman_version=__version__.split()[1]
 # TODO energy sanity check on DSS keywords
@@ -52,6 +51,46 @@ def get_default(colname):
         return SimpleCut(None,66.4,'deg','THETA')
     if colname == 'EVENT_CLASS':
         return SimpleCut(3,None,'dimensionless','EVENT_CLASS')
+
+class NsideMapper(object):
+    """
+Manage the mapping between energy bands and pixel size, as parameterized
+by nside, the number of subdivisions of the base pixels in HEALPix scheme.
+
+Roughly, the side of a (quadrilateral) pixel is 1/Nside radians, or
+60/Nside degrees.
+
+The default scheme is hardwired based on the pre-scaling of the PSF
+for Pass 6.  This is a power law with slope -0.8.  This prescaling
+gives, approximately, r68.  The default pixelization is so that, at
+100 MeV, 5 pixels fit within the sigma pre-scale.
+
+This pixelization continues until about 1 GeV, when nside goes rapidly
+to 8192, the maximum value for 32-bit architecture, with a pixel size
+of 0.007 deg.  We do this because with pixels appropriate to the PSF
+the mean pixel occupation becomes 1 at about 1 GeV, so there is nothing
+to be gained by binning.  Using such small pixels means the data are
+essentially unbinned in position for E > a few GeV.
+    """
+
+    norms    = [0.0116,0.0192] # pix size at 100 MeV in radians
+    slopes   = [-0.8,-0.8]     # slope for pix size with energy
+    cuts     = [20.,20.]   # "cutoff" energy, 2 GeV = 20 in E_100 units
+    maxnside = [8192,8192]
+    minnside = [0,0]
+
+    @staticmethod
+    def nside(en,ct=0):
+        """Return nside for provide energy and conversion type.
+           en -- energy in MeV
+           ct -- conversion type (0/1)
+        """
+        en  = N.asarray(en)/100.
+        nsm = NsideMapper
+        mns = nsm.maxnside[ct]
+        t = nsm.norms[ct]*(en)**nsm.slopes[ct]*N.exp(-(en/nsm.cuts[ct])**2)
+        nside = N.round(float(mns)/(1+mns*t)).astype(int)
+        return N.maximum(nside,nsm.minnside[ct]).tolist()
 
 class DataSpec(object):
     """ Class to specify the data for use in a spectral analysis.
@@ -133,7 +172,7 @@ class DataSpec(object):
             
     def __str__(self):
         """ Pretty print of cuts/data."""
-        s = deque()
+        s = collections.deque()
         s.append('Bins per decade: {0}'.format(self.binsperdec))
         s.append('DSS keywords:\n{0}'.format(self.dss))
         def process_ft(files):
@@ -180,7 +219,7 @@ class DataSpec(object):
         if ft is None: return None
         if isinstance(ft,str):
             # parse as a wildcard; should work for any string
-            files = glob(os.path.expandvars(ft))
+            files = glob.glob(os.path.expandvars(ft))
         elif (isinstance(ft,list) or isinstance(ft,tuple)):
             files = list(ft)
         else:
@@ -530,7 +569,7 @@ class DataSet(object):
         pfile = os.path.expandvars(pfile)
         if not os.path.isabs(pfile):
             pfile = self._parse_name(pfile)
-        gfiles = sorted(glob(pfile))
+        gfiles = sorted(glob.glob(pfile))
         if len(gfiles)==0:
             raise DataError("No matches found for wildcard {0}".format(pfile))
         elif len(gfiles)>1:
