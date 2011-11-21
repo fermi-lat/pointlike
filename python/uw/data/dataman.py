@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.4 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/data/dataman.py,v 1.4 2011/11/21 14:39:44 burnett Exp $
+__version__ = '$Revision: 1.5 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/data/dataman.py,v 1.5 2011/11/21 20:01:04 wallacee Exp $
 
 import os
 import collections
@@ -136,7 +136,7 @@ class DataSpec(object):
         ('livetime_buffer',10,'radius in degrees by which livetime cube cone is larger than ROI cone'),
         ('livetime_pixelsize',1,'pixel size to use for livetime calculation'),
         ('data_name', '', 'descriptive name for the data set'),
-        ('legacy', False,  'relax DSS requirements for legacy files'),
+        ('legacy', False,  'relax DSS requirements for legacy files')
         # keyword controlling livetimecube pixel size? and buffer cone?
     )
     binner = None # static variable for PhotonBinner
@@ -202,6 +202,8 @@ class DataSpec(object):
         return self.__dict__
     def __setstate__(self,dict):
         """ Override default unpickle to perform a few sanity checks."""
+        for t in self.defaults:
+            self.__dict__[t[0]] = self.__dict__.pop(t[0],t[1])
         self.__dict__.update(dict)
         if not self._check_binfile():
             raise ValueError('Binned photon data not compatible!')
