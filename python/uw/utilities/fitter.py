@@ -2,14 +2,55 @@
 Basic fitter utilities
 
 Authors: Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.1 2011/08/18 16:21:42 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.2 2011/08/21 03:42:54 burnett Exp $
+
 """
 
 import numpy as np
 from scipy import optimize #for fmin,fmin_powell,fmin_bfgs
 from numpy import linalg  #for inv
 
+class FitterException(Exception): pass
 
+class Fitted(object):
+    """ base class to define fit properties """
+    @property
+    def bounds(self):
+        return None
+    def gradient(self,x):
+        return None
+    def get_parameters(self):
+        raise FitterException('get_parameters is not implemented')
+    def set_parameters(self, par):
+        raise FitterException('set_parameters is not implemented')
+        
+    def minimize(self, **kwargs):
+        """ minimize the function using optimize.fmin_l_bfgs_b
+        """
+        use_gradient = kwargs.pop('use_gradient', self.gradient(self.get_parameters()) is None)
+        print 'use_gradient', use_gradient
+        if not use_gradient: kwargs.update(approx_grad=True)
+        ret =optimize.fmin_l_bfgs_b(self, self.get_parameters(), 
+            bounds=self.bounds, 
+            fprime=self.gradient if use_gradient else None,  
+            **kwargs)
+        if ret[2]['warnflag']==0: 
+            self.set_parameters(ret[0])
+        else:
+            print 'Fit failure:\n%s' % ret[2]
+        return ret
+        
+    def hessian(self, pars=None, **kwargs):
+        if pars is None: pars = self.get_parameters()
+        return numdifftools.Hessian(self,  **kwargs)(pars)
+
+def test(fn = None, p0=None, pars=None):
+    if fn is None:
+        pars=[1.0, 2.]
+        fn = lambda p: 1.+ 0.5*((p[0]-pars[0])/pars[1])**2
+    return TestFunc(fn, [1.1])   
+ 
+       
 class Minimizer(object):
     """ this is mostly extracted as is from uw.like.specfitter and turned into a utility
     """
@@ -45,48 +86,28 @@ class Minimizer(object):
         """
         assert False, 'get_free_errors not implemented yet'
     
-    def __call__(self,method='simplex', tolerance = 0.01, save_values = True, 
+    def optimize(self, optimizer,  **kwargs):
+        return optimizer( self.fn, self.get_parameters(),  **kwargs)
+        
+    def __call__(self, method='simplex', tolerance = 0.01, save_values = True, 
                       estimate_errors=True, error_for_steps=False,
-                     use_gradient = False, gtol = 1e-1):
+                     use_gradient = True, gtol = 1e-1, **kwargs):
         """Maximize likelihood and estimate errors.
             method     -- ['simplex'] fitter; 'powell' or 'simplex' or 'minuit'
             tolerance -- (approximate) absolute tolerance 
-        """
-        if method not in ['simplex','powell','minuit']:
-            raise Exception('Unknown fitting method for F.fit(): "%s"' % method)
-        if method == 'minuit':
-            from uw.utilities.minuit import Minuit
-            temp_params = self.parameters()
-            npars = self.parameters().shape[0]
-            param_names = ['p%i'%i for i in xrange(npars)]
             
-            if use_gradient:
-                gradient         = self.gradient
-                force_gradient = 1
-            else:
-                gradient         = None
-                force_gradient = 0
+        """
+        if method.lower() not in ['simplex','powell','minuit', 'l-bfgs-b']:
+            raise Exception('Unknown fitting method for F.fit(): "%s"' % method)
 
-            if error_for_steps:
-                steps = self.get_free_errors()
-                steps[steps<1e-6] = 0.04 # for models without error estimates, put in the defaults
-                steps[steps > 1]  = 1     # probably don't want to step more than 100%...
-                m = Minuit(self.fn,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=-self.quiet,param_names=param_names,steps=steps)
-            else:
-                m = Minuit(self.fn,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=-self.quiet,param_names=param_names)
-
-            params,fval = m.minimize()
-
-            if save_values:
-                if estimate_errors == True:
-                    self.__set_error_minuit(m,'HESSE')
-                self.fn(params) # reset values to the ones found by minimization step
-            self.fitvalue= fval
-            return fval
+        use_gradient = use_gradient and hasattr(self.fn, 'gradient')
+        use_bounds = kwargs.pop('use_bounds', self.fn.bounds is not None)
+        if method == 'minuit':
+            return self.minuit()
         # scipy
         ll_0 = self.fn(self.get_parameters(), *self.args) 
         if ll_0==0: ll_0=1.0
-        if use_gradient:
+        if use_gradient and not use_bounds:
             f0 = optimize.fmin_bfgs(self.fn,self.get_parameters(),self.gradient,full_output=1,maxiter=500,gtol=gtol,disp=0)
             for i in xrange(10):
                 f = self._save_bfgs = optimize.fmin_bfgs(self.fn,self.get_parameters(),self.gradient,
@@ -96,57 +117,135 @@ class Minimizer(object):
                     print 'Did not converge on first gradient iteration.  Trying again.'
                     print f0[1],f[1],abs(f0[1]-f[1])
                 f0 = f
+        elif use_gradient:
+            if not self.quiet: print 'using optimize.fmin_l_bfgs_b with parameter bounds %s\n, kw= %s'% (self.fn.bounds, kwargs)
+            ret = optimize.fmin_l_bfgs_b(self.fn, self.get_parameters(), 
+                bounds=self.fn.bounds, 
+                fprime=self.gradient ,  
+                **kwargs)
+            if ret[2]['warnflag']>0: 
+                print 'Fit failure:\n%s' % ret[2]
+            if not self.quiet:
+                print ret[2]
+            f = ret 
         else:
             minimizer  = optimize.fmin_powell if method == 'powell' else optimize.fmin
             f = minimizer(self.fn, self.get_parameters(),full_output=1,
-                              maxiter=10000,maxfun=20000, ftol=0.01/abs(ll_0), disp=0 if self.quiet else 1)
+                              maxiter=10000, maxfun=20000, ftol=0.01/abs(ll_0), disp=0 if self.quiet else 1)
+        
         if not self.quiet: print 'Function value at minimum: %.8g'%f[1]
         self.set_parameters(f[0])
         self.fitvalue=f[1]
         if estimate_errors: 
             self.__set_error__(use_gradient)
-        return f[1], f[0], np.sqrt(self.cov_matrix.diagonal()) if estimate_errors else None
+        if estimate_errors:
+            diag = self.cov_matrix.diagonal()
+            bad = diag<0
+            if np.any(bad):
+                print 'Minimizer warning: bad errors for values %s' %np.arange(len(bad))[bad]
+                diag[bad]=np.nan
+            return f[1], f[0], np.sqrt(diag)
+        return f[1], f[0]
     
-    def correlations(self):
+    def minuit(self):
+        from uw.utilities.minuit import Minuit
+        temp_params = self.get_parameters()
+        npars = temp_params.shape[0]
+        param_names = ['p%i'%i for i in xrange(npars)]
+        
+        if use_gradient :
+            gradient         = self.gradient
+            force_gradient = 1
+        else:
+            gradient         = None
+            force_gradient = 0
+
+        if error_for_steps:
+            steps = self.get_free_errors()
+            steps[steps<1e-6] = 0.04 # for models without error estimates, put in the defaults
+            steps[steps > 1]  = 1     # probably don't want to step more than 100%...
+            m = Minuit(self.fn,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=-self.quiet,param_names=param_names,steps=steps)
+        else:
+            m = Minuit(self.fn,temp_params,up=.5,maxcalls=20000,tolerance=tolerance,printMode=-self.quiet,param_names=param_names)
+
+        params,fval = m.minimize()
+
+        if save_values:
+            if estimate_errors == True:
+                self.__set_error_minuit(m,'HESSE')
+            self.fn(params) # reset values to the ones found by minimization step
+        self.fitvalue= fval
+        return fval
+ 
+    def __set_error_minuit(self,m,method='HESSE'):
+        """Compute errors for minuit fit."""
+        #Not sure yet if there will be problems with including the backgrounds.
+        self.cov_matrix = m.errors(method=method)
+        print 'Minuit error not done?'
+        #self.bgm.set_covariance_matrix(self.cov_matrix,current_position = 0)
+        #self.psm.set_covariance_matrix(self.cov_matrix,current_position = len(self.bgm.parameters()))
+
+    def sigmas(self):
+        """ quietly return nan for negative diagonal terms """
+        diag = self.cov_matrix.diagonal()
+        bad = diag<0
+        if np.any(bad): diag[bad]=np.nan
+        return np.sqrt(diag)
+
+    def correlations(self, percent=False):
         """Return the linear correlation coefficients for the estimated covariance matrix."""
-        sigmas = np.diag(self.cov_matrix)**0.5
-        return self.cov_matrix / np.outer(sigmas,sigmas)
+        s = self.sigmas()
+        t =self.cov_matrix / np.outer(s,s)
+        return t*100. if percent else t
 
     def __set_error__(self,use_gradient=False):
 
+        npar = len(self.get_parameters())
         if use_gradient:
             hessian = Minimizer.mycov(self.gradient,self.get_parameters(),full_output=True)[1]
+            mask = hessian.diagonal()>0
         else:
-            hessian = Minimizer.hessian(self.fn, self.get_parameters())[0] 
+            hessian, bad_mask = Minimizer.hessian(self.fn, self.get_parameters(), quiet=self.quiet)
+            mask = bad_mask==0
+        if np.all(-mask):
+            self.cov_matrix = np.zeros([npar,npar])
+            success = False
+            return
+        full = np.all(mask)
+        if not full:
+            h = hessian[mask].T[mask]
+            hessian = h
         success = False
-        # TODO -- check the return code
-        full = True
         npar = len(self.get_parameters())
         try:
             if linalg.det(hessian)<=0:
                 full=False
-                #print 'singular? %s' %hessian
-                hessian = hessian[1:,1:] #for now, first one
                 
             if not self.quiet: print 'Attempting to invert full hessian...'
             self.cov_matrix =t = linalg.inv(hessian)
-            if not full:
-                self.cov_matrix = np.zeros((npar,npar))
-                self.cov_matrix[1:,1:] = t
             if np.any(np.isnan(self.cov_matrix)):
                 if not self.quiet: print 'Found NaN in covariance matrix!'
                 raise Exception('Found NaN in covariance matrix!')
-            if np.any(self.cov_matrix.diagonal()<0):
-                print 'bad covariance matrix: diagonals:', self.cov_matrix.diagonal()
+            # now expand if necesary
+            if not full:
+                # must be better way to expand a matrix
+                self.cov_matrix =np.zeros([npar,npar])
+                k = np.arange(npar)[mask]
+                for i in range(len(k)):
+                    ki = k[i]
+                    self.cov_matrix[k[i],k[i]] = t[i,i] 
+                    for j in range(i+1, len(k)):
+                        self.cov_matrix[ki,k[j]] =self.cov_matrix[k[j],ki] = t[i,j]
             success = True
-        except linalg.LinAlgError:
-            raise
+        except linalg.LinAlgError, e:
+            if not qself.quiet:
+                print 'Error generating cov matrix, %s' % e
             self.cov_matrix = np.zeros([npar,npar])
             success = False
         return success
 
     @staticmethod
-    def hessian(mf, pars, *args):
+    def hessian(mf, pars, quiet=True, *args):
         """Calculate the Hessian matrix using finite differences (adapted from specfitter.SpectralModelFitter.hessian)
         
          mf:   minimizing function
@@ -167,7 +266,7 @@ class Minimizer(object):
         #find good values with which to estimate the covariance matrix -- look at diagonal deviations
         #iterate until change in function consistent with ~1 sigma conditional error
         for i in xrange(npar):
-            #print 'Working on parameter %d'%(i)
+            if not quiet: print 'Working on parameter %d'%(i)
             h,l = p.copy(),p.copy()
             for j in xrange(10):
                 h[:] = p[:]; l[:] = p[:];
@@ -192,6 +291,8 @@ class Minimizer(object):
                 # not actually at maximum of likelihood -- upper limit condition
                 bad_mask[i] = True
                 return_code[i] = 3
+                if not quiet: print 'fail, need upper limit'
+                import pdb; pdb.set_trace()
 
         for i in xrange(npar):
             if bad_mask[i]:
@@ -207,7 +308,8 @@ class Minimizer(object):
                 xhyl[i] += xdelt;  xhyl[j] -= ydelt
                 xlyh[i] -= xdelt;  xlyh[j] += ydelt
                 xlyl[i] -= xdelt;  xlyl[j] -= ydelt
-                hessian[i][j]=hessian[j][i]=(mf(xhyh, *args)-mf(xhyl, *args)-mf(xlyh, *args)+mf(xlyl,*args))/\
+                hessian[i][j]=hessian[j][i]=(mf(xhyh, *args)-mf(xhyl, *args)
+                                            -mf(xlyh, *args)+mf(xlyl, *args))/\
                                                         (4*xdelt*ydelt)
 
         mf(p, *args) #call likelihood with original values; this resets model and any other values that might be used later
@@ -294,46 +396,59 @@ class Minimizer(object):
         else:
             return cov
 
-class AdaptFunc(object):
-    """ adapt a function obect to create a function of a subset of its parameters
+class Projector(Fitted):
+    """ adapt a function object to create a projection, a function of a subset of its parameters
     Require that it has a methods __call__, set_parmeters, get_parameters, and perhaps gradient
     """
-    def __init__(self, fn, par=None, select=[0]):
+    def __init__(self, fn, select=[0], par=None, ):
         """ 
         
         parameters:
             fn: function of par: should be minimizable 
             par: array type or None
                 default parameters to use: if None, get from fn.get_parameters9)
-            select: list of free parameters
+            select: list of free parameter 
             TODO: use mask instead or optionally
         """
         self.fn=fn
         self.select = select
         self.mask = np.zeros(len(fn.get_parameters()),bool)
         self.mask[select]=True
-        self.fpar= fn.get_parameters()
-        self.par = par[:] if par is not None else self.fpar[self.mask]
-    def expand(self, x):
-        p = self.par
-        for i,j in enumerate(self.select): p[j]=x[i]
-        return p
+        self.fpar= fn.get_parameters().copy()
+        self.par = np.asarray(par[:]) if par is not None else self.fpar[self.mask]
     def get_parameters(self):
         return self.par
-    def set_parameters(self,par):
-        self.fpar[self.mask]=par
+    def set_parameters(self,par=None):
+        p = par if par is not None else self.par
+        self.par = p
+        self.fpar[self.mask] = p
+        self.fn.set_parameters(self.fpar) # note this sets the original set
+        
     def __call__(self, x):
         """ len of x must be number of selected parameters"""
-        for i,j in enumerate(self.select): self.fpar[j]=x[i]
-        return self.fn(self.fpar)
+        self.fpar[self.mask]=x
+        ret= self.fn(self.fpar)
+        return ret
     def gradient(self, x):
         """ the function object may not support this
         """
-        for i,j in enumerate(self.select): self.fpar[j]=x[i]
+        self.fpar[self.mask]=x
         return self.fn.gradient(self.fpar)[self.mask]
+    
+    @property
+    def bounds(self):
+        return None if self.fn.bounds is None else np.array(self.fn.bounds)[self.mask]
+        
+    def fmin(self, x=None, **kwargs):
+        """ run simple fmin """
+        try:
+            par = optimize.fmin(self, [x] if x is not None else self.par, **kwargs)
+            self.set_parameters(par)
+        except:
+            raise
         
     def minimize(self, par0=None, **fit_kw):
-        """ create  Minimizer of this, run it
+        """ create  Minimizer of this, run it, update original parameters
         parameters:
             par0 : array type of float or None
                 pass to Minimizer
@@ -343,25 +458,35 @@ class AdaptFunc(object):
         self.fitter = Minimizer(self, par0)
         
         c2, par, dpar = self.fitter(**fit_kw)
+        self.par = par
+        self.set_parameters(par)
         return c2, par, dpar
 
-def test(x0=1.1, pars=[1.0, 1.5], **kwargs):
-    """ test with a parabola corresponding to a Gaussian with mean, sigma in pars
-    """
-    testf = lambda p: 1.+ 0.5*((p[0]-pars[0])/pars[1])**2
-    class Func(object):
-        def __init__(self, fn, pars):
-            self.fn = fn
-            self.pars = pars
-        def __call__(self, pars):
-            return self.fn(self.pars)
-        def parameters(self): return self.pars
-        def set_parameters(self,pars):
-            self.pars = pars
-    print 'input parameters:', pars
-    m =  Minimizer(testf, [x0], )
-    f = m(use_gradient=False)
-    print 'solution at %.2f, +/- %.2f ' % (m.par[0], np.sqrt(m.cov_matrix.diagonal()[0]))
-    return m, f
-    
+class TestFunc(Fitted):
+    def __init__(self, fn, pars):
+        self.fn = fn
+        self.pars = pars
+    @property 
+    def bounds(self):
+        return  [(0.9,2), ]
+    def __call__(self, pars):
+        return self.fn(pars)
+    def get_parameters(self): return self.pars
+    def set_parameters(self,pars):
+        self.pars = pars
+
+ 
+#def test(x0=1.1, pars=[1.0, 1.5], **kwargs):
+#    """ test with a parabola corresponding to a Gaussian with mean, sigma in pars
+#    """
+#    testf = lambda p: 1.+ 0.5*((p[0]-pars[0])/pars[1])**2
+#        
+#    print 'input parameters:', pars
+#    func = TestFunc(testf, [x0])
+#    m = Minimizer(func)
+#    #m =  Minimizer(testf, [x0], )
+#    f = m(use_gradient=False)
+#    print 'solution at %.2f, +/- %.2f ' % (m[1], np.sqrt(m.cov_matrix.diagonal()[0]))
+#    return func, m, f
+#    
     
