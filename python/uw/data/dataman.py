@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.2 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/data/dataman.py,v 1.2 2011/11/18 04:07:33 wallacee Exp $
+__version__ = '$Revision: 1.3 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.3 2011/11/18 22:10:16 wallacee Exp $
 
 import os
 import collections
@@ -85,12 +85,12 @@ essentially unbinned in position for E > a few GeV.
            en -- energy in MeV
            ct -- conversion type (0/1)
         """
-        en  = N.asarray(en)/100.
+        en  = np.asarray(en)/100.
         nsm = NsideMapper
         mns = nsm.maxnside[ct]
-        t = nsm.norms[ct]*(en)**nsm.slopes[ct]*N.exp(-(en/nsm.cuts[ct])**2)
-        nside = N.round(float(mns)/(1+mns*t)).astype(int)
-        return N.maximum(nside,nsm.minnside[ct]).tolist()
+        t = nsm.norms[ct]*(en)**nsm.slopes[ct]*np.exp(-(en/nsm.cuts[ct])**2)
+        nside = np.round(float(mns)/(1+mns*t)).astype(int)
+        return np.maximum(nside,nsm.minnside[ct]).tolist()
 
 class DataSpec(object):
     """ Class to specify the data for use in a spectral analysis.
@@ -134,7 +134,9 @@ class DataSpec(object):
         ('quiet',True,'control verbosity, ever so coarsely'),
         ('weighted_livetime',True,'if True, calculate the weighted livetime for use in livetime-dependent corrections to the effective area'),
         ('livetime_buffer',10,'radius in degrees by which livetime cube cone is larger than ROI cone'),
-        ('livetime_pixelsize',1,'pixel size to use for livetime calculation')
+        ('livetime_pixelsize',1,'pixel size to use for livetime calculation'),
+        ('data_name', '', 'descriptive name for the data set'),
+        ('legacy', False,  'relax DSS requirements for legacy files'),
         # keyword controlling livetimecube pixel size? and buffer cone?
     )
     binner = None # static variable for PhotonBinner
@@ -176,12 +178,15 @@ class DataSpec(object):
         s.append('Bins per decade: {0}'.format(self.binsperdec))
         s.append('DSS keywords:\n{0}'.format(self.dss))
         def process_ft(files):
+            if files is None: 
+                s.append('\t\tNone')
+                return
             if len(files) < 10:
-                s.append('\n'.join(files))
+                s.append('\n\t'.join(files))
             else:
-                s.append('\n'.join(files[:5]))
+                s.append('\n\t'.join(files[:5]))
                 s.append('...')
-                s.append('\n'.join(files[-5:]))
+                s.append('\n\t'.join(files[-5:]))
         s.append('FT1 files: ')
         process_ft(self.ft1files)
         s.append('FT2 files: ')
@@ -189,6 +194,7 @@ class DataSpec(object):
         s.append('Binned data:   {0}'.format(self.binfile))
         s.append('Livetime cube: {0}'.format(self.ltcube))
         return '\n'.join(s)
+        
     def __getstate__(self):
         #If you're pickling, you shouldn't be clobbering
         self.clobber = False
@@ -214,6 +220,7 @@ class DataSpec(object):
         b_nside = pointlike.IntVector(NsideMapper.nside(bins,1))
         DataSpec.binner = skymaps.PhotonBinner(pointlike.DoubleVector(bins),f_nside,b_nside)
         pointlike.Data.setPhotonBinner(DataSpec.binner)
+        
     def _parse_filename(self,ft):
         """ Convert the argument into a list of filenames."""
         if ft is None: return None
@@ -226,13 +233,16 @@ class DataSpec(object):
             raise ValueError('Unable to parse FT input')
         # now check for validity of files
         if len(files) < 1:
-            raise IOError('Unable to find indicated FT input')
+            print 'FT file(s) "%s" not found: assume None to test for valid binfile' % ft
+            return None
+            raise DataError('FT file(s) "%s" not found' % ft)
         files = [os.path.expandvars(f) for f in files]
         files.sort()
         for f in files:
             if not os.path.exists(f):
-                raise IOError('Unable to find file {0}'.format(f))
+                raise DataError('Unable to find file {0}'.format(f))
         return files
+        
     def _make_cuts(self):
         """ Check existing FT1 cuts and apply default cuts.
             Order of precedence: user specified cut, existing FT1 cut, default cuts."""
@@ -277,7 +287,7 @@ class DataSpec(object):
         #NOTE: this if statement causes a DataSpec created with clobber==True
         #to be unloadable from the pickle file! For now, fixed by setting
         #clobber=False in __set_state__.
-        if self.clobber or (not os.path.exists(self.binfile)): return False
+        if self.clobber or self.binfile is None or (not os.path.exists(self.binfile)): return False
         dss = dssman.DSSEntries(self.binfile,header_key=0)
         gti = skymaps.Gti(self.binfile)
         if (dss is None):
@@ -311,6 +321,9 @@ class DataSpec(object):
         self.dss.write(self.binfile,header_key=0)
     def _check_ltcube(self):
         """ Verify ltcube exists and is consistent with any existing data cuts."""
+        if os.path.exists(self.ltcube) and self.legacy : 
+            print('Accepting ltcube without dss checks since legacy specified')
+            return True
         if self.clobber or (not os.path.exists(self.ltcube or '')): return False
         # check for presence of important history
         # eew -- primary header doesn't have info about extensions, so just
