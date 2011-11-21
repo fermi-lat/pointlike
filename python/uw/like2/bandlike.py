@@ -105,11 +105,12 @@ class BandDiffuse(BandSource):
             the model on a series of energy subplanes and storing the
             results for a later Simpson's rule.
         """
+        
         assert self.setup==False, 'attempt to re-initialize global source'
         self.setup=True
         band = self.band
         delta_e = band.emax - band.emin
-        self.grid = self.source.make_grid(band.emin, band.ct)
+        self.grid = self.source.make_grid(band.e, band.ct)
         self.ap_evals = self.grid.ap_average(band.radius_in_rad) * band.solid_angle * delta_e
 
         if band.has_pixels:
@@ -129,10 +130,20 @@ class BandDiffuse(BandSource):
         """
         model = self.spectral_model 
         if np.sum(model.free)==0: return []
-        apterm = phase_factor*self.counts
-        pixterm= (self.pix_counts*weights).sum()
+        apterm  = phase_factor * self.ap_evals 
+        pixterm = ( self.pixel_values * weights ).sum() if self.band.has_pixels else 0
         return (apterm - pixterm) * model.gradient(self.energy)[model.free] 
  
+ 
+class BandDiffuseFB(BandDiffuse):
+    """ subclass of BandDiffuse that has different spectral models for front and back
+    """
+    @property 
+    def spectral_model(self):
+        # assume that the model has two states, and that we always update before returning the reference
+        t = self.source.diffuse_source.smodel
+        t.ct = self.band.ct
+        return t
 
  
 class BandPoint(BandSource):
@@ -257,6 +268,7 @@ def factory(bands, sources, quiet=False):
         B = dict(PointSource=BandPoint, 
                 DiffuseModelFromCache=BandDiffuse,
                 DiffuseModelFromFits=BandDiffuse,
+                DiffuseModelFB=BandDiffuseFB,
                 IsotropicModel=BandDiffuse,
                 ROIExtendedModelAnalytic=BandExtended,
                 ROIExtendedModel=BandExtended)[class_name]
