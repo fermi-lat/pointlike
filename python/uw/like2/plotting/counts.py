@@ -1,8 +1,8 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.1 2011/09/19 20:47:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.2 2011/11/18 14:19:22 burnett Exp $
 
-Author M. Kerr, T. Burnett
+Authors M. Kerr, T. Burnett
 
 """
 import os
@@ -26,7 +26,7 @@ def get_counts(roi, event_class=None, tsmin=10):
     if event_class is not None:
         bands = [b for b in bands if b.band.ec==event_class]
     assert len(bands)>0, 'get_counts: no bands found'
-    free_sources = np.array(roi.sources)[roi.sources.free]
+    free_sources = np.array(roi.sources)[roi.sources.free]# | [s.skydir is None for s in roi.sources] ]
     good_ts = np.array([ s.sedrec.ts.sum()>tsmin if hasattr(s,'sedrec') else True for s in free_sources])
     good_sources = free_sources[good_ts]
     weak_sources = free_sources[~good_ts]
@@ -49,9 +49,11 @@ def get_counts(roi, event_class=None, tsmin=10):
             model_counts[i,:]  += np.array([s.counts for s in b.free_sources[good_ts]])
             total[i] += b.counts
     models = [(names[j] , model_counts[:,j]) for j in range(numsrc)]
+    models.append( ('TS<%.0f'%tsmin, weak))
     models.append( ('(fixed)', fixed))
-    models.append( ('(weak)', weak))
-    return dict(energies=energies, observed=observed, models=models, names=names, total=total, bandts=bandts)
+    chisq = ((observed-total)**2/total).sum()
+    return dict(energies=energies, observed=observed, models=models, 
+        names=names, total=total, bandts=bandts, chisq=chisq)
     
 
 def plot_counts(roi,fignum=1, event_class=None, outfile=None,
@@ -85,7 +87,10 @@ def plot_counts(roi,fignum=1, event_class=None, outfile=None,
         for name, data in count_data['models']:
             assert len(en)==len(data), 'energy, data mismatch'
             if len(name)>20: name=name[:17]+'...'
-            ax.loglog(en, data, label=name, **model_kw)
+            tmodel_kw = model_kw.copy()
+            if name.startswith('iso'): tmodel_kw.update(linestyle=':', lw=2)
+            elif name.startswith('ring'):tmodel_kw.update(linestyle='--', lw=2)
+            ax.loglog(en, data, label=name, **tmodel_kw)
         ax.loglog( en, tot, label='Total Model', **total_kw)
         err = obs**0.5
         low_err = np.where(obs-err <= 0, 0.99*obs, err)
@@ -106,7 +111,8 @@ def plot_counts(roi,fignum=1, event_class=None, outfile=None,
         
     def plot_residuals(ax, count_data, 
                 ylabel='Fractional Residual',
-                plot_kw=dict( linestyle=' ', marker='o', color='black',)
+                plot_kw=dict( linestyle=' ', marker='o', color='black',),
+                show_chisq=True,
                 ):
         en,obs,tot = count_data['energies'],count_data['observed'],count_data['total']
         ax.set_xscale('log')
@@ -123,6 +129,9 @@ def plot_counts(roi,fignum=1, event_class=None, outfile=None,
         ax.set_xticklabels(map(gevticklabel, ax.get_xticks()))
         ax.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
         ax.grid(b=True)
+        if show_chisq :
+            ax.text(en[0]*1.1, 0.2,'chisq=%.1f'% count_data['chisq'])
+
 
     if axes is None:
         plt.close(fignum) # close it if exists
@@ -133,7 +142,7 @@ def plot_counts(roi,fignum=1, event_class=None, outfile=None,
     ) #, integral=integral, merge_non_free=merge_non_free, merge_all=merge_all)
 
     plot_counts_and_models(axes[0], count_data)
-    if len(axes>1): plot_residuals(axes[1], count_data)
+    if len(axes>1): plot_residuals(axes[1], count_data, kwargs.pop('show_chisq', True))
     if outfile is not None: plt.savefig(outfile)
 
 
@@ -151,7 +160,7 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
     plt.close(fignum)
     oldlw = plt.rcParams['axes.linewidth']
     plt.rcParams['axes.linewidth'] = 2
-    fig, axes = plt.subplots(2,1, sharex=True, num=fignum, figsize=(6,8))
+    fig, axes = plt.subplots(2,1, sharex=True, num=fignum, figsize=(5,6))
     fig.subplots_adjust(hspace=0)
     axes[0].tick_params(labelbottom='off')
     left, bottom, width, height = (0.15, 0.10, 0.75, 0.85)
@@ -160,6 +169,7 @@ def stacked_plots(roi, counts_dir=None, fignum=6, title=None, **kwargs):
     axes[0].set_position([left, bottom+(1-fraction)*height, width, fraction*height])
     axes[1].set_position([left, bottom, width, (1-fraction)*height])
     plot_counts(roi, axes=axes, outfile=None, **kwargs)
+    
     plt.rcParams['axes.linewidth'] = oldlw
 
     axes[0].set_xlabel('') 
