@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.1 2011/09/28 16:56:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.2 2011/10/05 21:34:15 burnett Exp $
 
 """
 import os, pickle, glob, types
@@ -202,10 +202,6 @@ class SkyModel(object):
                     model.__dict__['_p'] = model.__dict__.pop('p')  # if loaded from old representation
                 key = name.split('_')[0]
                 if key in self.diffuse_dict:
-                    #if model[0]<1e-2:
-                    #    model[0]=1e-2
-                    #print 'SkyModel warning: reset norm to 1e-2 for %s' % name
-                    ###### need to allow for front, back??? Allow for conversion??? 
                     gs = sources.GlobalSource(name=name, model=model, skydir=None, index=index)
                     self.global_check(gs)
                     t.append(gs)
@@ -289,13 +285,10 @@ class SkyModel(object):
         def iterable_check(x):
             return x if hasattr(x,'__iter__') else (x,x)
 
-
         for s in globals:
             prefix = s.name.split('_')[0]
             s.name, s.dmodel = prefix, self.diffuse_dict[prefix]
             s.smodel = s.model
-            if '_p' not in s.model.__dict__:
-                s.model.__dict__['_p'] = s.model.__dict__.pop('p')  # if loaded from old representation
 
         extended = self._select_and_freeze(self.extended_sources, src_sel)
         for s in extended: # this seems redundant, but was necessary
