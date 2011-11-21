@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Nov 21 06:37:54 PST 2011
+pointlike/python/uw/like2/plotting
+
+Modified Files:
+	counts.py 
+Log Message:
+option to annotate residual plot; implement tsmin to combine weak sources
+    *
+------------------------------------------------------------
 User: burnett  Mon Nov 21 06:35:04 PST 2011
 pointlike/python/uw/like2
 
