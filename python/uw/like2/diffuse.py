@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.1 2011/10/21 18:55:14 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.8 2011/11/17 19:39:45 burnett Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
@@ -10,8 +10,36 @@ import numpy as np
 from . import models
 from uw.utilities import keyword_options, convolution
 import skymaps #from Science Tools
+from scipy import optimize # for fsolve
 
 class DiffuseException(Exception):pass
+
+class Simpson(object):
+    """ implement quick simpson integral with log scale """
+    def __init__(self, emin, emax, nsimps=4):
+
+        # use a higher nsimps at low energy where effective area is jagged
+        ns= (2 if emin<200 else 1)*nsimps
+        if ns > 0:
+            self.points = sp = np.logspace(np.log10(emin),np.log10(emax),ns+1)
+            self.vector = sp * (np.log(sp[-1]/sp[0])/(3.*ns)) * \
+                                     np.asarray([1.] + ([4.,2.]*(ns/2))[:-1] + [1.])
+        else:
+            self.points = sp = np.asarray([np.sqrt(emin*emax)])
+            self.vector = sp * np.log(emax/emin)
+        
+        self.delta = emax-emin
+            
+    def __call__(self, fn):
+        vals = np.array([fn(x) for x in self.points]) # this might be inefficient
+        return np.sum( self.vector * vals)
+ 
+    def _mean_energy(self, roi_dir, dmodel, exp):
+        fcn = lambda e : dmodel.value(roi_dir, e) * exp(roi_dir,e)
+        w = self(fcn)/self.delta
+        print w, fcn(self.points[0]), fcn(self.points[-1]) 
+        return optimize.brentq(lambda x : fcn(x)-w, self.points[0], self.points[-1]) 
+       
 
 ###=========================================================================###
 class DiffuseModel(object):
@@ -94,21 +122,28 @@ class DiffuseModelFromCache(DiffuseModel):
         self.emins = [cd['emin'] for cd in self.cached_diffuse]
 
         
-    def make_grid(self, emin, conversion_type):
+    def make_grid(self, energy, conversion_type):
         """ return a convovled grid
         
         parameters
         ----------
-        emin : float
-            minimum energy for the band
+        energy : float
+            intermediate energy for the band
         conversion_type : int
             0 or 1 for front or back
+        
+        This needs some more care to deal with 8 bands/decade
         """
-        try:
-            index = self.emins.index(emin)
-        except:
-            raise DiffuseModelException(
-                'Specified emin, %.1f, not in list of cached values'%emin)
+        for index in range(len(self.emins)):
+            if energy>self.emins[index] and (index==len(self.emins)-1 or energy<self.emins[index+1])\
+                : break
+        emin = self.emins[index]    
+        assert energy/emin < 1.8 and energy> emin, 'too large a factor: energy, emin=%.0f,%.0f\nemins=%s' % (energy, emin, self.emins)
+        #try:
+        #    index = self.emins.index(emin)
+        #except:
+        #    raise DiffuseException(
+        #        'Specified emin, %.1f, not in list of cached values'%emin)
         cd = self.cached_diffuse[index]
         
         energy = cd['energy']
@@ -148,6 +183,7 @@ class IsotropicModel(DiffuseModel):
             for dm in self.diffuse_source.dmodel:
                 print '\t%s'% dm.name()
                 
+            
     def make_grid(self, energy, conversion_type, npix=61, pixelsize=0.25):
         self.grid = ConvolvableGrid(self.roi_dir, npix, pixelsize) 
         dmodels = self.diffuse_source.dmodel
@@ -158,7 +194,7 @@ class IsotropicModel(DiffuseModel):
         grid = ConvolvableGrid(self.roi_dir, None, self.psf, 
             npix=npix, pixelsize=pixelsize)
         
-        grid.cvals = grid.fill(exp)* dm(self.roi_dir, energy)
+        grid.cvals = grid.fill(exp) * dm(self.roi_dir, energy)
         return grid
 
 class DiffuseModelFromFits( DiffuseModel):
@@ -376,7 +412,7 @@ def mapper(roi_factory, roiname, skydir, source, **kwargs):
             if not getattr(dmodel,'loaded', False): dmodel.load()
         if source.smodel.name=='Constant':
             # limb model must be separate front and back!
-            source.smodel = models.FrontBackConstant(0.001, 1.5)
+            source.smodel = models.FrontBackConstant(0.001, 2.0)
         return DiffuseModelFB(psf, exposure,skydir, source, **kwargs)
     return DiffuseModelFromCache(psf, exposure,skydir, source, **kwargs)
         
