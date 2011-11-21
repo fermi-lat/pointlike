@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.3 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.3 2011/11/18 22:10:16 wallacee Exp $
+__version__ = '$Revision: 1.4 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/data/dataman.py,v 1.4 2011/11/21 14:39:44 burnett Exp $
 
 import os
 import collections
@@ -171,7 +171,7 @@ class DataSpec(object):
         # save version to allow custom processing for backwards compat.
         self.version = dataman_version
         if output is not None: self.dump(output)
-            
+
     def __str__(self):
         """ Pretty print of cuts/data."""
         s = collections.deque()
@@ -284,10 +284,8 @@ class DataSpec(object):
         return os.path.join(left,'{0}_{1}'.format(prefix,right))
     def _check_binfile(self):
         """ Verify binfile exists and is consistent with any existing data cuts."""
-        #NOTE: this if statement causes a DataSpec created with clobber==True
-        #to be unloadable from the pickle file! For now, fixed by setting
-        #clobber=False in __set_state__.
-        if self.clobber or self.binfile is None or (not os.path.exists(self.binfile)): return False
+        if (self.clobber or self.binfile is None or
+            (not os.path.exists(self.binfile))): return False
         dss = dssman.DSSEntries(self.binfile,header_key=0)
         gti = skymaps.Gti(self.binfile)
         if (dss is None):
@@ -445,7 +443,7 @@ class DataSpec(object):
             return DataError("DataSpec instances have inconsistent mc_src_id")
         return
 
-    def add(self,other,output,binfile,ltcube):
+    def add(self,others,output,binfile,ltcube):
         """Combine this DataSpec instance with another and return the result
 
         The two instances must have consistent definitions (DSS, binning,
@@ -453,27 +451,33 @@ class DataSpec(object):
         ltcubes will be combined and written to the provided destinations;
         perhaps in the future, I will come up with sensible defaults.
         """
-        exc = self.check_consistency(other)
-        if exc is not None:
-            raise(exc)
+        if not hasattr(others,'__iter__'):
+            others = [others]
+        for other in others:
+            exc = self.check_consistency(other)
+            if exc is not None:
+                raise(exc)
         gti = skymaps.Gti(self.gti)
-        gti.intersection(other.gti)
+        ft1 = self.ft1files
+        ft2 = self.ft2files
+        bpd = skymaps.BinnedPhotonData(self.binfile)
+        for other in others:
+            gti.intersection(other.gti)
+            ft1 += other.ft1files
+            ft2 += other.ft2files
+            bpd.add(skymaps.BinnedPhotonData(other.binfile))
         if gti.computeOntime()>0:
             raise DataError("DataSpec instances have overlapping GTIs")
-        ft1 = self.ft1files+other.ft1files
-        if self.ft2files == other.ft2files:
-            ft2 = self.ft2files
-        else:
-            ft2 = self.ft2files+other.ft2files
-        bpd = skymaps.BinnedPhotonData(self.binfile)
-        bpd.add(skymaps.BinnedPhotonData(other.binfile))
+        ft2 = sorted(list(set(ft2)))
         bpd.write(binfile)
+        fitstools.merge_lt([self.ltcube]+[other.ltcube for other in others],
+                            outfile=ltcube,weighted=self.weighted_livetime)
         dssman.DSSEntries(self.binfile,header_key=0).write(binfile,header_key=0)
-        fitstools.merge_lt([self.ltcube,other.ltcube],outfile=ltcube,weighted=self.weighted_livetime)
         dssman.DSSEntries(self.ltcube,header_key=0).write(ltcube,header_key=0)
         #TODO: move the copying of DSS entries into the merge_bpd and merge_lt functions
         gti_mask = skymaps.Gti(self.gti_mask)
-        gti_mask.combine(other.gti_mask)
+        for other in others:
+            gti_mask.combine(other.gti_mask)
         kwargs = dict(ft1=ft1,
                       ft2=ft2,
                       binfile=binfile,
@@ -523,7 +527,11 @@ class DataSet(object):
     defaults = (('pickle',None,
                  '''A filename, list of filenames, or wildcard expression
                     indicating a set of pickled DataSpecs''')
-               ,('dataspec',None,'One or more DataSpec instances'))
+               ,('dataspec',None,'One or more DataSpec instances')
+               ,('data_dir',os.path.join('$FERMI','data'),
+                 'Path to main data directory')
+               ,('clobber',False,'If True, overwrite existing DataSet pickle')
+               )
     @keyword_options.decorate(defaults)
     def __init__(self,name=None,**kwargs):
         """Instantiate a DataSet
@@ -552,7 +560,7 @@ class DataSet(object):
         if name is None or not os.path.exists(self.filename):
             if self.pickle is None and self.dataspec is None:
                 raise DataError("Must specify either pickle files or DataSpecs")
-        if os.path.exists(self.filename):
+        if os.path.exists(self.filename) and not self.clobber:
             self.dataspec = self._load_files(self.filename)
         else:
             if self.pickle is not None:
@@ -563,12 +571,13 @@ class DataSet(object):
 
     def _parse_name(self,name):
         """Return the filename corresponding to a DataSet name"""
-        if os.environ.has_key("FERMI"):
-            data_dir = os.path.expandvars(os.path.join("$FERMI","data"))
-            if not os.path.exists(data_dir):
-                os.mkdir(data_dir)
-        else:
+        data_dir = os.path.expandvars(self.data_dir)
+        if data_dir=="$FERMI/data":
+            #$FERMI undefined
+            print("$FERMI environment variable not set - using current directory")
             data_dir = os.getcwd()
+        if not os.path.exists(data_dir):
+            os.mkdir(data_dir)
         basename = name.replace(' ','_')
         #in case we're parsing the name of a pickle file
         if not basename.endswith('.pickle'):
@@ -611,6 +620,11 @@ class DataSet(object):
             raise DataError('DataSet only contains one DataSpec')
     def __getattr__(self,x):
         return getattr(self.dataspec,x)
+    def __call__(self):
+        if not hasattr(self.dataspec,'__iter__'):
+            return self.dataspec()
+        else:
+            raise TypeError('"DataSpec" object is not callable.')
 
 class DataError(Exception):
     """Exception class for data management errors"""
