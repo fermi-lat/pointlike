@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.8 2011/10/20 21:41:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.10 2011/11/16 14:09:28 burnett Exp $
 
 """
 import types
@@ -217,6 +217,18 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
     @property
     def bounds(self):
         return self.sources.bounds
+    @property
+    def cov_matrix(self):
+        """ the current covariance matrix, determined from the gradient """
+        return fitter.Minimizer.mycov(self.gradient, self.get_parameters())
+        
+    @property
+    def correlations(self):
+        """Return the linear correlation coefficients for the estimated covariance matrix."""
+        cm = self.cov_matrix
+        s = np.sqrt(cm.diagonal())
+        return cm / np.outer(s,s)
+
         
 class Factory(roisetup.ROIfactory):
     def __call__(self, *pars, **kwargs):
