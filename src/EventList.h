@@ -1,7 +1,7 @@
 /** @file EventList.h 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/src/EventList.h,v 1.9 2010/07/29 03:11:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.h,v 1.10 2011/05/30 03:06:44 heather Exp $
 */
 
 
@@ -70,12 +70,14 @@ private:
 class AddPhoton: public std::unary_function<astro::Photon, void> {
 public:
     AddPhoton (skymaps::BinnedPhotonData& map, int select, 
-        double start, double stop, int source,  skymaps::Gti gti=skymaps::Gti() )
+        double start, double stop, int source,  skymaps::Gti gti=skymaps::Gti(),
+        bool pass7=true)
         : m_map(map), m_select(select)
         , m_start(start), m_stop(stop), m_source(source)
         , m_found(0), m_kept(0)
         , m_gti(gti)
         , m_use_gti(gti.getNumIntervals()>0)
+        , m_pass7(pass7)
     {}
     void operator()(const Photon& gamma);
 
@@ -87,7 +89,7 @@ public:
     int m_source;
     int m_found, m_kept;
     skymaps::Gti m_gti;
-    bool m_use_gti;
+    bool m_use_gti,m_pass7;
 };
 
 /**
@@ -143,6 +145,7 @@ public:
 
     void close();
     static std::string root_names[];
+    bool pass7() {return m_pass7;}
 
     
 private:
