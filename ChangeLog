@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Nov 23 18:07:16 PST 2011
+pointlike/python/uw/data
+
+Modified Files:
+	dataman.py dssman.py 
+Log Message:
+Added code to deal with bit mask for EVENT_CLASS field in Pass7 data.
+
+    *
+------------------------------------------------------------
 User: wallacee  Mon Nov 21 15:26:51 PST 2011
 ScienceTools-scons/pointlike/python/uw/data
 
