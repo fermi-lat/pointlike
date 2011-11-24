@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Nov 23 18:08:35 PST 2011
+pointlike/src
+
+Modified Files:
+	Data.cxx EventList.cxx EventList.h 
+Log Message:
+Add code to handle bit mask selection of event class in Pass7 data.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Nov 23 18:07:16 PST 2011
 pointlike/python/uw/data
 
