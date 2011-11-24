@@ -9,7 +9,6 @@ import os, sys
 from os.path import join, isfile
 import numpy as np, pyfits
 from numpy import array, vectorize, sqrt, exp, log10, power
-from itertools import izip
 from ROOT import *
 
 from uw.utilities.coords import sepangle_deg
@@ -60,7 +59,7 @@ def SetHistoBox(histo,xmin,xmax,color=18):
             boxes += [box]
         else:
             box1 = TBox(xmin+i,ymin,1+i,ymax); box1.SetFillColor(color)
-            box2 = TBox(-1e-3+i,ymin,xmax+i,ymax); box2.SetFillColor(color)
+            box2 = TBox(-1e-2+i,ymin,xmax+i,ymax); box2.SetFillColor(color)
             boxes += [box1,box2]
     return boxes
 
@@ -98,7 +97,7 @@ class PulsarLightCurve:
         ft1name        FT1 filename                      (necessary)
         ra_src         Right Ascension (deg)             [FT1 header]
         dec_src        Declination (deg)                 [FT1 header]
-        psrname        source name                       ["PSR"]
+        psrname        source name                       ['']
         radius         Maximum radius (deg)              [FT1 header]
         emin           Minimum energy (MeV)              [FT1 header]
         emax           Maximum energy (MeV)              [FT1 header]
@@ -120,10 +119,6 @@ class PulsarLightCurve:
         if not isfile(ft1name):
             raise IOError("Cannot access to the ft1file. Exiting ...")
        
-        #print "================="
-        #print "  ", OKBLUE + self.psrname + ENDC
-        #print "================="
-
         # time range
         ft1range = utilfits.ft1_time_range(ft1name)
         self.tmin = ft1range['START'] if self.tmin is None else self.tmin
@@ -204,7 +199,8 @@ class PulsarLightCurve:
         energycut  = np.logical_and( self.emin<=energy, energy<=self.emax )
         timecut    = np.logical_and( self.tmin<=time, time<=self.tmax )
         eclscut    = np.logical_and( self.eclsmin<=evtclass, evtclass<=self.eclsmax )
-        self.eventlist = tmp[np.logical_and(angularcut,np.logical_and(energycut,np.logical_and(timecut,eclscut)))]
+        phasecut   = np.logical_and( phase>=0, phase<=1 )
+        self.eventlist = tmp[np.logical_and(phasecut,np.logical_and(angularcut,np.logical_and(energycut,np.logical_and(timecut,eclscut))))]
 
     def set_psf_param(self,psfpar0=5.3,psfpar1=0.745,psfpar2=0.09):
         '''Set PSF parameterization: sqrt( (psfpar0x(100/E)^psfpar1)^2 + psfpar2^2 )'''
@@ -250,7 +246,8 @@ class PulsarLightCurve:
                         
     def get_phases(self,which=0):
         '''Returns an array of pulse phases'''
-        return np.asarray(self.pulse_phase[which][:,0][0])
+        try: return np.asarray(self.pulse_phase[which][:,0][0])
+        except IndexError: return np.asarray([])
 
     def get_counts(self,which=0):
         '''Returns an array of counts'''
@@ -259,7 +256,8 @@ class PulsarLightCurve:
         
     def get_weights(self,which=0):
         '''Returns an array of weights'''
-        return np.asarray(self.pulse_phase[which][:,1][0])
+        try: return np.asarray(self.pulse_phase[which][:,1][0])
+        except IndexError: return np.asarray([])
 
     def get_times(self,which=0):
         '''Returns an array of times in MJD'''
@@ -323,7 +321,7 @@ class PulsarLightCurve:
             evtlist[self.phase_colname] += phase_shift
             evtlist[self.phase_colname][evtlist[self.phase_colname]>1] -= 1
             evtlist[self.phase_colname][evtlist[self.phase_colname]<0] += 1
-        
+
         # Fill histograms
         for j in range(len(self.phaseogram)):
             radius_filter = evtlist["ANGSEP"] <= rrange[j]
@@ -333,7 +331,7 @@ class PulsarLightCurve:
             P = evtlist[self.phase_colname][mask]; N = len(P)
             T = met2mjd(evtlist["TIME"][mask])
             W = evtlist[self.weight_colname][mask] if self.weight else np.ones(N)
-
+            
             if len(P)>0:
                 self.phaseogram[j].FillN(N,P,W); self.phaseogram[j].FillN(N,P+1,W)
                 self.phaseogram2D[j].FillN(N,P,T,W); self.phaseogram2D[j].FillN(N,P+1,T,W)
@@ -344,9 +342,9 @@ class PulsarLightCurve:
             self.pulse_phase[i] = np.asarray(item)
 
             # calculate errors for weighted lightcurves
-            if self.weight:
+            if self.weight and len(self.pulse_phase[i])>0:
                 phases = self.get_phases(i)
-                weights = self.get_weights(i)
+                weights = self.get_weights(i)                
                 nmc = 100
                 errors = np.empty([self.nbins,nmc])
                 for j in xrange(nmc):
@@ -359,11 +357,10 @@ class PulsarLightCurve:
                     
 	# to make a better display due to errorbars
         for histo in self.phaseogram:
-            ymax = histo.GetBinContent(histo.GetMaximumBin())
-            
-            if ymax > 0:
+            ymax = histo.GetBinContent(histo.GetMaximumBin())            
+            if ymax>0:
                 if self.weight:
-                    if ymax>4: ymax*=1.15
+                    if ymax>4: ymax*=1.04+(np.log(ymax)/ymax)
                     else: ymax = ymax*(1.05+np.log(ymax)/ymax)+np.sqrt(ymax)
                 else: ymax = ymax*(1.05+np.log(ymax)/ymax)+np.sqrt(ymax)
                 histo.SetMaximum(int(ymax))
@@ -372,7 +369,6 @@ class PulsarLightCurve:
                 if histo.GetMaximum()%5 == 2: histo.SetMaximum(histo.GetMaximum()*1.03)
             else:
                 histo.SetMaximum(1.1)        
-
 
     def get_background(self, which=None, phase_range=[0.,1.], ring_range=[1.,2.], method='ring'):
         '''Return background/bin for a phaseogram.
@@ -964,7 +960,7 @@ class PulsarLightCurve:
         if emax is None: emax = self.emax
 
         ntrials = len(energy)*len(radius)
-        sigmax, bestE, bestR = -1, -1, -1
+        sig, sigmax, bestE, bestR = -1, -1, -1, -1
 
         print "\nSearching for the optimal cut with R[%.1f,%.1f] deg, Emin[%.0f,%.0f] and Emax[%.0f] MeV"\
               %(rrange[0],rrange[1],erange[0],erange[1],emax)
