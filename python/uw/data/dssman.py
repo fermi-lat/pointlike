@@ -5,8 +5,8 @@ in FITS files.
 author(s): M. Kerr
 """
 
-__version__ = '$Revision: 1.7 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/users/kerrm/tools/dssman.py,v 1.7 2011/11/10 20:34:34 wallacee Exp $
+__version__ = '$Revision: 1.1 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dssman.py,v 1.1 2011/11/10 23:54:34 wallacee Exp $
 
 import pyfits
 from collections import deque
@@ -14,6 +14,7 @@ import numpy as np
 
 #TODO class(es) for other DSS types, e.g. Region type
 DSSKeys = ['TYP','UNI','VAL','REF']
+
 
 def isfloat(string):
     try:
@@ -108,6 +109,37 @@ class DSSSimpleRange(DSSEntry):
             print(min(self['upper'],other['upper']))
             print(self['upper'])
 
+class DSSBitMask(DSSSimpleRange):
+    """ The only current use for a bit mask is selecting on EVENT_CLASS
+        in Pass7+ data.  As such, only need is to keep DSS keywords
+        consistent and pass the single masked bit into Data.
+        
+        The single bit is stored in both the lower and upper field."""
+        # NOTES on EVENT_CLASS DSS format
+        # PASS 7 style
+        # DSTYP2 = 'BIT_MASK(EVENT_CLASS,2)'
+        # DSUNI2 = 'DIMENSIONLESS'
+        # DSVAL2 = '1:1 '
+        # Pass 6 style
+        # DSTYP3 = 'EVENT_CLASS'
+        # DSUNI3 = 'dimensionless'
+        # DSVAL3 = '3:10 ' 
+
+    def __init__(self,d):
+        super(DSSBitMask,self).__init__(d)
+        self['lower'] = self['upper'] = int((self['TYP']).split(',')[-1][:-1])
+
+    def intersection(self,other):
+        """ A bit mask intersection at the level we require is trivial --
+            the masked bit MUST be the same."""
+        if (other['lower'] is None) or (other['lower'] is None):
+            raise ValueError('Not DSSBitMask format')
+        if (self['lower'] is None) or (self['lower'] is None):
+            raise ValueError('Not DSSBitMask format')
+        if self['lower']!=other['lower'] or self['upper']!=other['upper']:
+            raise ValueError('Bit masks are not compatible!')
+        return
+
 def DSSFactory(keys,vals):
     """ Return the correct type of DSS subclass for header entries."""
 
@@ -117,6 +149,10 @@ def DSSFactory(keys,vals):
         d['index'] = int(k[-1])
         for l in d.keys():
             if l in k: d[l] = v
+
+    # determine if cut is a bitmask
+    if 'BIT_MASK' in d['TYP']:
+        return DSSBitMask(d)
 
     # determine if cut is of a simple type
     toks = d['VAL'].split(':')
@@ -181,18 +217,16 @@ class DSSEntries(list):
             tup = d.to_header_entries()
             for t in tup:
                 h.update(t[0],t[1])
-        """
         # convert unsigned ints to ints -- this is a kluge but perhaps necessary
         for hdu in f:
             if not isinstance(hdu,pyfits.core.BinTableHDU): continue
             for icol,col in enumerate(hdu.columns):
                 if col.format=='1J':
-                    print 'update %s'%col.name
+                    #print 'update %s'%col.name
                     data = hdu.data.field(col.name).astype(np.int32) # apply transform
                     # not sure why above line must be done -- delayed, perhaps?
                     hdu.columns.change_attrib(col.name,'bzero',0)
                     # above line is crucial
-        """
         f.writeto(fits_name,clobber=True)
         #f.writeto('/tmp/test.fits',clobber=True)
 
@@ -221,6 +255,8 @@ class DSSEntries(list):
         return roi_info
 
 def make_simple_dss(colname,unit,low,high,index=1):
+    """ Return a DSSSimpleRange object with bounds specified by low/high.
+        index gives the order of the DSS keyword, e.g. DSVAL1, DSVAL2, etc. """
     val = DSSSimpleRange.bounds_to_val(low,high)
     if val is None:
         raise ValueError('Could not interpret arguments as a simple cut.')
