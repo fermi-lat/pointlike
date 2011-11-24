@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.5 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/data/dataman.py,v 1.5 2011/11/21 20:01:04 wallacee Exp $
+__version__ = '$Revision: 1.6 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.6 2011/11/21 23:26:50 wallacee Exp $
 
 import os
 import collections
@@ -33,6 +33,17 @@ dataman_version=__version__.split()[1]
 # TODO -- check exposure radius against ROI kwargs...
 #      -- eew: perhaps better done in the ROI constructor?
 
+def get_pass(ft1):
+    """ Try to determine if the provided FT1 file is Pass6 or Pass7.
+        If the algo. can't figure it out, Pass7 is assumed."""
+    f = pyfits.open(ft1)
+    h = f[1]._header
+    v = h.get('PASS_VER')
+    if (v is not None):
+        if str(v).strip()[:2]=='P7': return 7
+    if 'CTBCLASSLEVEL' in h.keys(): return 6
+    return 7
+
 def SimpleCut(vmin,vmax,vuni,colname):
     """ Specify a simple (inclusive or exclusive) cut on a single
         FT1 column, e.g. ZENITH_ANGLE < 100 or 100 < ENERGY < 100000.
@@ -44,13 +55,18 @@ def SimpleCut(vmin,vmax,vuni,colname):
 
     return dssman.make_simple_dss(colname,vuni,vmin,vmax)
 
-def get_default(colname):
+def get_default(colname,pass7=True):
     if colname == 'ZENITH_ANGLE':
         return SimpleCut(None,100,'deg','ZENITH_ANGLE')
     if colname == 'THETA':
         return SimpleCut(None,66.4,'deg','THETA')
     if colname == 'EVENT_CLASS':
-        return SimpleCut(3,None,'dimensionless','EVENT_CLASS')
+        if pass7:
+            d = dict(TYP='BIT_MASK(EVENT_CLASS,2)',UNI='DIMENSIONLESS',
+                     VAL='1:1')
+            return DSSBitMask(d)
+        else:
+            return SimpleCut(3,None,'dimensionless','EVENT_CLASS')
 
 class NsideMapper(object):
     """
@@ -136,7 +152,8 @@ class DataSpec(object):
         ('livetime_buffer',10,'radius in degrees by which livetime cube cone is larger than ROI cone'),
         ('livetime_pixelsize',1,'pixel size to use for livetime calculation'),
         ('data_name', '', 'descriptive name for the data set'),
-        ('legacy', False,  'relax DSS requirements for legacy files')
+        ('legacy', False,  'relax DSS requirements for legacy files'),
+        ('data_pass',7,'the generation (Pass6, Pass7,...) of the data'),
         # keyword controlling livetimecube pixel size? and buffer cone?
     )
     binner = None # static variable for PhotonBinner
@@ -273,6 +290,7 @@ class DataSpec(object):
         """ Get existing DSS keywords from FT1 files.
             If there is more than one FT1 file present, the protocol
             is that all DSS entries must agree."""
+        self.data_pass = get_pass(self.ft1files[0])
         if len(self.ft1files) == 1:
             self.dss = dssman.DSSEntries(self.ft1files[0])
         else:
@@ -280,6 +298,10 @@ class DataSpec(object):
             if not np.all([all_dss[0] == x for x in all_dss]):
                 raise ValueError('DSS keywords are inconsistent for FT1 files.')
             self.dss = all_dss[0]
+            for ft1 in self.ft1files[1:]:
+                # sanity check that all files have same pass
+                if get_pass(ft1) != self.data_pass:
+                    raise DataError('%s is not Pass %d'%(ft1,self.data_pass))
     def _make_default_name(self,prefix='bpd'):
         """ Come up with a default name for binfile or ltcube."""
         left,right = os.path.split(self.ft1files[0])
