@@ -2,33 +2,34 @@
 Manage data and livetime information for an analysis
 
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.21 2011/03/11 22:46:48 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pixeldata.py,v 1.22 2011/06/24 04:45:04 burnett Exp $
 
 """
-version='$Revision: 1.21 $'.split()[1]
+version='$Revision: 1.22 $'.split()[1]
 import os, math, pyfits, types, glob
-import numpy as N
+import numpy as N; np = N
 import pointlike, skymaps
 
 class NsideMapper(object):
     """
-Manage the mapping between energy bands and pixel size, as parameterized
-by nside, the number of subdivisions of the base pixels in HEALPix scheme.
+    Manage the mapping between energy bands and pixel size, as parameterized
+    by nside, the number of subdivisions of the base pixels in HEALPix 
+    scheme.
 
-Roughly, the side of a (quadrilateral) pixel is 1/Nside radians, or
-60/Nside degrees.
+    Roughly, the side of a (quadrilateral) pixel is 1/Nside radians, or
+    60/Nside degrees.
 
-The default scheme is hardwired based on the pre-scaling of the PSF
-for Pass 6.  This is a power law with slope -0.8.  This prescaling
-gives, approximately, r68.  The default pixelization is so that, at
-100 MeV, 5 pixels fit within the sigma pre-scale.
+    The default scheme is hardwired based on the pre-scaling of the PSF
+    for Pass 6.  This is a power law with slope -0.8.  This prescaling
+    gives, approximately, r68.  The default pixelization is so that, at
+    100 MeV, 5 pixels fit within the sigma pre-scale.
 
-This pixelization continues until about 1 GeV, when nside goes rapidly
-to 8192, the maximum value for 32-bit architecture, with a pixel size
-of 0.007 deg.  We do this because with pixels appropriate to the PSF
-the mean pixel occupation becomes 1 at about 1 GeV, so there is nothing
-to be gained by binning.  Using such small pixels means the data are
-essentially unbinned in position for E > a few GeV.
+    This pixelization continues until about 1 GeV, when nside goes rapidly
+    to 8192, the maximum value for 32-bit architecture, with a pixel size
+    of 0.007 deg.  We do this because with pixels appropriate to the PSF
+    the mean pixel occupation becomes 1 at about 1 GeV, so there is nothing
+    to be gained by binning.  Using such small pixels means the data are
+    essentially unbinned in position for E > a few GeV.
     """
 
     norms    = [0.0116,0.0192] # pix size at 100 MeV in radians
@@ -202,7 +203,6 @@ Create a new PixelData instance, managing data and livetime.
             #######################################################
             """
 
-        from numpy import arccos,pi
         pointlike.Data.set_class_level(self.event_class)
         pointlike.Data.set_zenith_angle_cut(self.zenithcut)
         pointlike.Data.set_theta_cut(self.thetacut)
@@ -283,29 +283,6 @@ Create a new PixelData instance, managing data and livetime.
             if self.binfile is not None:
                 if not self.quiet: print '.....saving binfile %s for subsequent use' % self.binfile
                 data.write(self.binfile)
-
-                """
-                # a start on adding keywords -- not yet finished, but need to merge in CVS
-                # now, add the appropriate entries to the FITS header
-                f = pyfits.open(self.binfile)
-                h = f[1].header
-                pos = len(h.keys)
-                entries = []
-                entries += ['EMIN', self.emin, 'Minimum energy in MeV']
-                entries += ['EMAX', self.emax, 'Maximum energy in MeV']
-                entries += ['BINS_PER_DECADE', self.binsperdec, 'Number of (logarithmic) energy bins per decade']
-                entries += ['TMIN', self.tmin, 'Exclude all data before this MET']
-                entries += ['TMAX', self.tmax, 'Exclude all data after this MET']
-                entries += ['EVENT_CLASS', self.event_class, 'Exclude all data with class level < this value']
-                entries += ['CONVERSION_TYPE', self.event_class, '0 = Front only, 1 = Back only, -1 = Front + Back']
-
-                for entry in entries:
-                    k,v,c = entry
-                    h.update(k,str(v),c)
-
-                f.writeto(self.binfile,clobber=True)
-                f.close()
-                """
         if self.binfile is not None:
             if not self.quiet: print '.....loading binfile %s ...' % self.binfile ,
             self.dmap = skymaps.BinnedPhotonData(self.binfile)
@@ -315,11 +292,6 @@ Create a new PixelData instance, managing data and livetime.
         if self.verbose:
             self.dmap.info()
             print '---------------------'
-
-
-    def test_pixelfile_consistency(self):
-        """Check the keywords in a binned photon data header for consistency with the analysis environment."""
-        pass
 
     def get_livetime(self,pixelsize=1.0,weighted = False,clobber = True):
 
