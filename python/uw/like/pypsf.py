@@ -2,7 +2,7 @@
 A module to manage the PSF from CALDB and handle the integration over
 incidence angle and intepolation in energy required for the binned
 spectral analysis.
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pypsf.py,v 1.25 2011/02/22 00:26:56 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pypsf.py,v 1.26 2011/05/06 21:53:12 lande Exp $
 author: M. Kerr
 
 """
@@ -22,8 +22,6 @@ def scale_factor(e,c0,c1,exp):
 TWOPI = (2*np.pi)
 RAD2DEG = 180./np.pi
 DEG2RAD = np.pi/180
-
-###======================================================================###
 
 class Psf(object):
 
@@ -90,10 +88,6 @@ class Psf(object):
         else:
             return np.append(p[:,cthetabin],1)
 
-###======================================================================###
-###======================================================================###
-###======================================================================###
-
 class CALDBPsf(Psf):
     """Handle reading in the parameters from CALDB for multiple formats and implement the PSF functions."""
 
@@ -138,22 +132,6 @@ class CALDBPsf(Psf):
         u = 0.5 * np.outer(delta,1./s)**2
         y = (1-1./g)*(1+u/g)**(-g)
         return y / (TWOPI*s**2 if density else 1.)
-
-    """ Not sure these are in use -- if they are, update for old/new CALDB formats.
-    def set_cache(self,e,ct):
-        np = len(self.get_p(e[0],ct[0])[0])
-        self.cache = np.empty([3,len(e),np])
-        ca = self.cache; gp = self.get_p; sf = self.scale_func
-        for i,(mye,myct) in enumerate(zip(e,ct)):
-            ca[:,i,:]  = gp(mye,myct)
-            ca[1,i,:] *= sf[myct](mye)
-
-    def get_cache(self,delta,density = False):
-        g,s,w = self.cache
-        us     = 0.5 * (delta / s)**2
-        y      = y  = (1-1./g)*(1+us/g)**(-g)
-        return (w*(y / (TWOPI*s**2 if density else 1.))).sum(axis=1)
-    """
 
     def integral(self,e,ct,dmax,dmin=0):
         """ Note -- does *not* take a vector argument right now."""
@@ -206,10 +184,6 @@ class CALDBPsf(Psf):
 
     def band_psf(self,band,weightfunc=None,adjust_mean=False):
         return BandCALDBPsf(self,band,weightfunc=weightfunc,adjust_mean=adjust_mean,newstyle=self.newstyle)
-
-###======================================================================###
-###======================================================================###
-###======================================================================###
 
 class BandPsf(object):
 
@@ -308,10 +282,6 @@ class BandPsf(object):
             u1 = gc[0]*( (1-frac)**(1./(1-gc[0])) - 1)
             return RAD2DEG*(2*u1)**0.5*sc[0]
 
-###======================================================================###
-###======================================================================###
-###======================================================================###
-
 class BandCALDBPsf(BandPsf):
 
     def psf_base(self,g,s,delta,density=False):
@@ -348,10 +318,6 @@ class BandCALDBPsf(BandPsf):
             #return  ( w*( (1+u1/gc)**(1-gc)  - (1+u2/gc)**(1-gc)) ).sum()
             w,a,b = self.int_par
             return ( w*( (1+a*(dmin*dmin))**b - (1+a*(dmax*dmax))**b ) ).sum()
-
-###======================================================================###
-###======================================================================###
-###======================================================================###
 
 class PsfOverlap(object):
     """Routines to calculate how much of the emission of a point source falls onto an ROI."""
@@ -425,10 +391,6 @@ class PsfOverlap(object):
 
         return overlap
 
-###======================================================================###
-###======================================================================###
-###======================================================================###
-
 class PsfOverlapHealpix(object):
     """Routines to calculate how much of the emission of a point source falls onto an ROI."""
 
@@ -470,11 +432,6 @@ class PsfOverlapHealpix(object):
             last_overlap = overlap
         #print ('%.6f\t'*(len(overlaps)))%(tuple(overlaps))
         return overlaps[-1],sample_nside
-
-
-###======================================================================###
-###======================================================================###
-###======================================================================###
 
 class PretendBand(object):
 

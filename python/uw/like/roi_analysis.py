@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.114 2011/11/01 13:39:18 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.115 2011/11/08 20:04:38 wallacee Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -126,7 +126,7 @@ class ROIAnalysis(object):
                 self.bands.append(roi_bands.ROIBand(band,self.sa,
                                                     self.roi_dir,**band_kwargs))
 
-        self.bands = N.asarray(self.bands)
+        self.bands = np.asarray(self.bands)
 
         if not self.skip_setup: self.__setup_counts__()
         
