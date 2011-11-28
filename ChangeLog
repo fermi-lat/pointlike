@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Nov 28 14:27:41 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	pixeldata.py pointspec_helpers.py pypsf.py roi_analysis.py 
+Log Message:
+Primarily cosmetic changes.
+
+    *
+------------------------------------------------------------
 User: parent  Thu Nov 24 15:01:13 PST 2011
 pointlike/python/uw/pulsar
 
