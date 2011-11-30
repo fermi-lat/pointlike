@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.60 2011/11/10 04:05:40 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.61 2011/11/30 19:09:11 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -1000,7 +1000,30 @@ class DMFitFunction(Model):
             >>> model.set_flux(1e-7, emin=1e3, emax=1e5)
             >>> print '%g' % model.i_flux(emin=1e3, emax=1e5)
             1e-07
+
+        Test the getters and setters
+
+            >>> model['sigmav']=3.14
+            >>> print '%g' % model['sigmav']
+            3.14
+
+        There was previously a bug in set_parameters, 
+        lets see if its fixed:
+
+            >>> model.set_parameters(np.log10([5,500]))
+            >>> print '%g' % model['sigmav']
+            5
+            >>> print '%g' % model['mass']
+            500
     """
+
+    def _update(self):
+        """ Update the DMFitFunction internally.
+            This function should be called
+            automatically when necessary.
+        """
+        for i,param_name in enumerate(self.param_names):
+            self.dmf.setParam(param_name,self[param_name])
 
     def __init__(self,  *args, **kwargs):
         import pyLikelihood
@@ -1009,16 +1032,20 @@ class DMFitFunction(Model):
         # the __init__ will call setp().
         self.dmf=pyLikelihood.DMFitFunction()
         super(DMFitFunction,self).__init__(*args,**kwargs)
-        # on the other hand, we make sure now that DMFitFunction
-        # is consistently created with all of the parameters.
-        self.dmf=pyLikelihood.DMFitFunction(self.norm, self['sigmav'], self['mass'], 
-                                            self.bratio, self.channel0, self.channel1)
         self.dmf.readFunction(SpatialMap.expand(self.file))
+        self._update() # update all parameters in DMFitFunction
 
-    def setp(self, i, par, internal=False):
-        super(DMFitFunction,self).setp(i, par, internal)
-        name=self.param_names[self.mapper(i)]
-        self.dmf.setParam(name,self[name])
+    def setp(self, *args, **kwargs):
+        super(DMFitFunction,self).setp(*args, **kwargs)
+        self._update()
+
+    def set_parameters(self, *args, **kwargs):
+        super(DMFitFunction,self).set_parameters(*args, **kwargs)
+        self._update()
+
+    def set_all_parameters(self, *args, **kwargs):
+        super(DMFitFunction,self).set_all_parameters(*args, **kwargs)
+        self._update()
 
     def __call__(self,e):
         """ Return energy in MeV. This could be vectorized. """
