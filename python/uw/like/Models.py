@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.61 2011/11/30 19:09:11 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.62 2011/11/30 22:50:06 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -1016,6 +1016,10 @@ class DMFitFunction(Model):
             >>> print '%g' % model['mass']
             500
     """
+    def full_name(self):
+        return '%s, norm=%.1f, bratio=%.1f channel0=%d, channel1=%d' % (self.pretty_name,
+                                                                        self.norm, self.bratio, 
+                                                                        self.channel0, self.channel1)
 
     def _update(self):
         """ Update the DMFitFunction internally.
