@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: parent  Wed Nov 30 04:07:41 PST 2011
+pointlike/python/uw/utilities
+
+Added Files:
+	xml_utils.py 
+Log Message:
+New module to manage a xml catalog.
+
+    *
+------------------------------------------------------------
 User: parent  Tue Nov 29 10:14:02 PST 2011
 pointlike/python/uw/pulsar
 
