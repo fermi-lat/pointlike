@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.59 2011/11/01 21:38:23 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.60 2011/11/10 04:05:40 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -333,11 +333,19 @@ Optional keyword arguments:
     def set_flux(self,flux,*args,**kwargs):
         """ Set the flux of the source. 
                 
-            This function ensures that after the function, call,
+            This function ensures that after the function call,
                 flux == model.i_flux(**kwargs)
             where args and kwargs is consistently passed into i_flux and set_flux
+
+            For example:
+
+                >>> model = PowerLaw(index=2)
+                >>> model.set_flux(1e-7, emin=1e3, emax=1e5)
+                >>> print '%g' % model.i_flux(emin=1e3, emax=1e5)
+                1e-07
         """
-        self._p[0] += np.log10(flux/self.i_flux(*args,**kwargs))
+        new_prefactor = flux*(self.getp(0, internal=False)/self.i_flux(*args,**kwargs))
+        self.setp(0,new_prefactor,internal=False)
 
     def copy(self):
         
@@ -983,7 +991,16 @@ class FileFunction(Model):
         self.__make_interp__()
 
 class DMFitFunction(Model):
-    """ Wrap gtlike's DMFitFunction interface. """
+    """ Wrap gtlike's DMFitFunction interface. 
+    
+        N.B. The bug Sheridan reported that the set_flux function 
+        was not working should now be fixed:
+        
+            >>> model = DMFitFunction()
+            >>> model.set_flux(1e-7, emin=1e3, emax=1e5)
+            >>> print '%g' % model.i_flux(emin=1e3, emax=1e5)
+            1e-07
+    """
 
     def __init__(self,  *args, **kwargs):
         import pyLikelihood
@@ -996,7 +1013,6 @@ class DMFitFunction(Model):
         # is consistently created with all of the parameters.
         self.dmf=pyLikelihood.DMFitFunction(self.norm, self['sigmav'], self['mass'], 
                                             self.bratio, self.channel0, self.channel1)
-        print self.file
         self.dmf.readFunction(SpatialMap.expand(self.file))
 
     def setp(self, i, par, internal=False):
@@ -1025,5 +1041,6 @@ def convert_exp_cutoff(model):
     nm.e0 = model.e0
     return nm
     
-    
-    
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
