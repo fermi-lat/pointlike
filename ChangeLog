@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: parent  Wed Nov 30 04:20:41 PST 2011
+pointlike/python/uw/pulsar
+
+Added Files:
+	psue_manager.py 
+Log Message:
+New module for the PSUE analysis.
+
+    *
+------------------------------------------------------------
 User: parent  Wed Nov 30 04:16:15 PST 2011
 pointlike/python/uw/pulsar
 
