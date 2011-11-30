@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Nov 30 11:09:11 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+bugfix in set_flux function for models with overridden setp functions + improved documentation
+    *
+------------------------------------------------------------
 User: parent  Wed Nov 30 04:20:41 PST 2011
 pointlike/python/uw/pulsar
 
