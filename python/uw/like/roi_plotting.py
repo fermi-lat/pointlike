@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.79 2011/11/14 17:41:04 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.80 2011/11/16 05:45:18 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -31,11 +31,9 @@ from . roi_image import ModelImage,CountsImage,RadialCounts,RadialModel,Smoothed
 from . roi_extended import ExtendedSource
 from . pointspec_helpers import PointSource
 from . Models import PowerLaw
-from . SpatialModels import SpatialMap, PseudoSpatialModel, RadiallySymmetricModel, \
-        EllipticalSpatialModel, Disk, EllipticalDisk, Ring, EllipticalRing
+from . SpatialModels import SpatialMap, PseudoSpatialModel
 from uw.utilities import colormaps
-from uw.utilities.image import ZEA
-from uw.utilities import region_writer 
+from uw.utilities import region_writer
 from uw.utilities import keyword_options
 from skymaps import SkyDir
 
