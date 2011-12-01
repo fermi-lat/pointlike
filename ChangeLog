@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Dec  1 09:16:41 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+More robust set_flux function
+    *
+------------------------------------------------------------
 User: lande  Wed Nov 30 14:57:52 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
