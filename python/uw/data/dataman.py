@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.9 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.9 2011/12/02 05:47:00 kerrm Exp $
+__version__ = '$Revision: 1.10 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.10 2011/12/02 20:08:23 wallacee Exp $
 
 import os
 import collections
@@ -592,7 +592,7 @@ class DataSet(object):
         if name is None or not os.path.exists(self.filename):
             if self.pickle is None and self.dataspec is None:
                 raise DataError("Must specify either pickle files or DataSpecs")
-        if os.path.exists(self.filename) and not self.clobber:
+        if os.path.exists(self.filename or '') and not self.clobber:
             self.dataspec = self._load_files(self.filename)
         else:
             if self.pickle is not None:
