@@ -3,8 +3,8 @@
 Author: E. Wallace, M. Kerr
 """
 
-__version__="$Revision: $"
-#$Header: $
+__version__="$Revision: 1.1 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec2.py,v 1.1 2011/12/02 05:39:44 kerrm Exp $
 
 import os
 import warnings
@@ -15,7 +15,7 @@ import skymaps
 from uw.data import dataman
 from uw.like import pycaldb,pypsf
 from uw.utilities import keyword_options
-from uw.like.pointspec import SpectralAnalysis
+from uw.like.pointspec import SpectralAnalysis as OldSpectralAnalysis
 
 
 class ExposureManager(object):
@@ -52,14 +52,13 @@ class ExposureManager(object):
     def value(self, sdir, energy, event_class):
         return self.exposure[event_class].value(sdir, energy)
 
-class NewSpectralAnalysis(SpectralAnalysis):
+class SpectralAnalysis(OldSpectralAnalysis):
     """ Minimal inheritance from SpectralAnalysis to use new data interface."""
 
     # revised keywords to remove data specification from SpectralAnalysis interface
     defaults = (
         'keywords controlling data binning and livetime calculation',
         ('roi_dir',None,'aperture center; if None, assume all-sky analysis'),
-        #('conv_type',-1,'select conversion type (0 - front; 1 - back; -1 = front + back)'),
         ('use_weighted_livetime',False,'Use the weighted livetime'),
         'keywords controlling instrument response',
         ('irf',None,'Which IRF to use'),
@@ -93,7 +92,6 @@ class NewSpectralAnalysis(SpectralAnalysis):
                     print 'Invalid pickle file for DataSpecification.'
                     raise Exception
         self.ae = self.dataspec = data_specification
-        #self.__dict__.update(self.dataspec.__dict__)
         keyword_options.process(self, kwargs)
 
         #pixeldata name for backward compatibility
@@ -101,14 +99,8 @@ class NewSpectralAnalysis(SpectralAnalysis):
         self.CALDBManager = pycaldb.CALDBManager(irf=self.irf,psf_irf=self.psf_irf,
             CALDB=self.CALDB,custom_irf_dir=self.custom_irf_dir)
 
-        #self.exposure  = ExposureManager(self.dataman,self.caldb)
         self.exposure  = ExposureManager(self.dataman,self.CALDBManager,verbose=self.verbose)
         self.psf = pypsf.CALDBPsf(self.CALDBManager)
-
-        # these are added for compatibility
-        self.emin = 1e1 # this should be removed from all code
-        self.emax = 1e6 # this should be removed from all code
-        self.conv_type = -1 # this should be removed from all code
 
     @property
     def emin(self):
@@ -123,7 +115,7 @@ class NewSpectralAnalysis(SpectralAnalysis):
     @property
     def conv_type(self):
         """Alias for backward compatibility"""
-        warnings.warn(DeprecationWarning('CONV_TYPE SHOULD BE SPECIFICED AT FIT TYHME'))
+        warnings.warn(DeprecationWarning('CONV_TYPE SHOULD BE SPECIFICED AT FIT TIME'))
         return -1
 
     def set_psf_weights(self,skydir):
