@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Fri Dec  2 12:08:23 PST 2011
+pointlike/python/uw/data
+
+Modified Files:
+	dataman.py 
+Log Message:
+Fix DataSet for case where a DataSpec or pickle is passed without an output
+file name
+
+    *
+------------------------------------------------------------
 User: lande  Fri Dec  2 11:29:43 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
