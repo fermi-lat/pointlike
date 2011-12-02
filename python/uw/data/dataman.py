@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.7 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.7 2011/11/24 02:07:16 kerrm Exp $
+__version__ = '$Revision: 1.8 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.8 2011/12/01 23:52:52 wallacee Exp $
 
 import os
 import collections
@@ -149,7 +149,7 @@ class DataSpec(object):
         ('mc_energy',False,'bin on MC_ENERGY instead of ENERGY'),
         ('clobber',False,'if True, will attempt to produce new binfile and ltcube and replace any existing ones'),
         ('quiet',True,'control verbosity, ever so coarsely'),
-        ('weighted_livetime',True,'if True, calculate the weighted livetime for use in livetime-dependent corrections to the effective area'),
+        ('use_weighted_livetime',True,'if True, calculate the weighted livetime for use in livetime-dependent corrections to the effective area'),
         ('livetime_buffer',10,'radius in degrees by which livetime cube cone is larger than ROI cone'),
         ('livetime_pixelsize',1,'pixel size to use for livetime calculation'),
         ('data_name', '', 'descriptive name for the data set'),
@@ -358,7 +358,7 @@ class DataSpec(object):
             lt[0].header['RADIUS']; lt[0].header['PIXSIZE']
         except KeyError: pass #return False
         # check for weighted extension if we are using it
-        if self.weighted_livetime:
+        if self.use_weighted_livetime:
             #try: h['WEIGHTED_EXPOSURE']
             #except KeyError: return False
             try: assert(len(lt)>3)
@@ -376,7 +376,6 @@ class DataSpec(object):
         """ Generate the livetime cube."""
         #TODO -- unify weighted livetime
         import sys
-        weighted = self.weighted_livetime
         self.ltcube = self.ltcube or self._make_default_name(prefix='lt')
         roi_info = self.dss.roi_info()
         if (roi_info is None) or (roi_info[2] > 90):
@@ -389,7 +388,7 @@ class DataSpec(object):
         zenithcut = self.zenith_cut.get_bounds()[1]
         if not self.quiet:
             print('Constructing livetime cube about RA,decl = ({0:0.3f},{1:0.3f}) with a radius of {2:0.3f} deg.'.format(roi_dir.ra(),roi_dir.dec(),exp_radius))
-        for i in xrange(1+weighted):
+        for i in xrange(1+self.use_weighted_livetime):
             print('on iteration {0}'.format(i))
             sys.stdout.flush()
             lt = skymaps.LivetimeCube(
@@ -460,8 +459,8 @@ class DataSpec(object):
             return DataError("DataSpec instances have inconsistent livetime pixelsize")
         if self.livetime_buffer!=other.livetime_buffer:
             return DataError("DataSpec instances have inconsistent livetime buffer")
-        if self.weighted_livetime!=other.weighted_livetime:
-            return DataError("DataSpec instances have inconsistent weighted_livetime")
+        if self.use_weighted_livetime!=other.use_weighted_livetime:
+            return DataError("DataSpec instances have inconsistent use_weighted_livetime")
         if self.mc_energy!=other.mc_energy:
             return DataError("DataSpec instances have inconsistent mc_energy")
         if self.mc_src_id!=other.mc_src_id:
@@ -496,7 +495,7 @@ class DataSpec(object):
         ft2 = sorted(list(set(ft2)))
         bpd.write(binfile)
         fitstools.merge_lt([self.ltcube]+[other.ltcube for other in others],
-                            outfile=ltcube,weighted=self.weighted_livetime)
+                            outfile=ltcube,weighted=self.use_weighted_livetime)
         dssman.DSSEntries(self.binfile,header_key=0).write(binfile,header_key=0)
         dssman.DSSEntries(self.ltcube,header_key=0).write(ltcube,header_key=0)
         #TODO: move the copying of DSS entries into the merge_bpd and merge_lt functions
@@ -511,7 +510,7 @@ class DataSpec(object):
                       binsperdec=self.binsperdec,
                       mc_src_id=self.mc_src_id,
                       mc_energy=self.mc_energy,
-                      weighted_livetime = self.weighted_livetime,
+                      use_weighted_livetime = self.use_weighted_livetime,
                       livetime_buffer = self.livetime_buffer,
                       livetime_pixelsize = self.livetime_pixelsize,
                       clobber = False)
@@ -538,8 +537,10 @@ class DataManager(object):
         self.dataspec = ds
         self.bpd = skymaps.BinnedPhotonData(ds.binfile)
         self.lt = skymaps.LivetimeCube(ds.ltcube,weighted=False)
-        if ds.weighted_livetime:
+        if ds.use_weighted_livetime:
             self.weighted_lt = skymaps.LivetimeCube(ds.ltcube,weighted=True)
+        else:
+            self.weighted_lt = None
         self.gti = self.lt.gti() #Just to provide a reference.
 
     @property
