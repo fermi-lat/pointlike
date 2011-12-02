@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Dec  1 21:47:00 PST 2011
+pointlike/python/uw/data
+
+Modified Files:
+	dataman.py 
+Log Message:
+Changed weighted_livetime to use_weighted_livetime, some small bugfixes.
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Dec  1 21:45:02 PST 2011
 pointlike/python/uw/like
 
