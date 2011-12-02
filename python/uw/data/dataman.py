@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.8 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.8 2011/12/01 23:52:52 wallacee Exp $
+__version__ = '$Revision: 1.9 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.9 2011/12/02 05:47:00 kerrm Exp $
 
 import os
 import collections
@@ -588,8 +588,7 @@ class DataSet(object):
 
         keyword_options.process(self,kwargs)
         self.name = name
-        if name is not None:
-            self.filename = self._parse_name(name)
+        self.filename = self._parse_name(name)
         if name is None or not os.path.exists(self.filename):
             if self.pickle is None and self.dataspec is None:
                 raise DataError("Must specify either pickle files or DataSpecs")
@@ -600,10 +599,12 @@ class DataSet(object):
                 if self.dataspec is not None:
                     raise DataError("Must specify dataspec OR pickle, not both.")
                 self.dataspec = self._load_files(self.pickle)
-            dump(self.dataspec,open(self.filename,'w'))
+            if self.filename is not None:
+                dump(self.dataspec,open(self.filename,'w'))
 
     def _parse_name(self,name):
         """Return the filename corresponding to a DataSet name"""
+        if name is None: return name
         data_dir = os.path.expandvars(self.data_dir)
         if data_dir=="$FERMI/data":
             #$FERMI undefined
