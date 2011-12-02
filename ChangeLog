@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Fri Dec  2 12:12:52 PST 2011
+pointlike/python/uw/data
+
+Modified Files:
+	dataman.py 
+Log Message:
+Oops, can't pass None to os.path.exists.
+
+    *
+------------------------------------------------------------
 User: wallacee  Fri Dec  2 12:08:23 PST 2011
 pointlike/python/uw/data
 
