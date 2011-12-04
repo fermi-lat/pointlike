@@ -105,7 +105,7 @@ def SetHistoAxis( hist, x_title="", x_title_size=0, x_title_offset=0, x_label_si
     hist.GetXaxis().SetLabelSize(x_label_size)
     hist.GetXaxis().SetLabelOffset(0.)
     hist.GetXaxis().SetLabelFont(font)
-    hist.GetXaxis().SetNdivisions(510);
+    hist.GetXaxis().SetNdivisions(510)
     
     hist.GetYaxis().SetTitle(y_title)
     hist.GetYaxis().CenterTitle()
@@ -113,9 +113,9 @@ def SetHistoAxis( hist, x_title="", x_title_size=0, x_title_offset=0, x_label_si
     hist.GetYaxis().SetTitleOffset(y_title_offset)
     hist.GetYaxis().SetTitleFont(font)
     hist.GetYaxis().SetLabelSize(y_label_size)
-    hist.GetYaxis().SetLabelOffset(0.01)
+    hist.GetYaxis().SetLabelOffset(3e-3)
     hist.GetYaxis().SetLabelFont(font)
-    hist.GetYaxis().SetNdivisions(505);
+    hist.GetYaxis().SetNdivisions(505)
 
 def DrawAxis( axis, title="", title_size=0, title_offset=0, label_size=0, font=default_font, div=510 ):
     axis.SetTitle(title)
@@ -140,13 +140,16 @@ def ScaleGraphY(graph, factor):
         y *= factor
         graph.SetPoint(i,x,y)
 
-def zero_suppress(histo):
-    '''Zoom on the histogram'''
-    ymin = histo.GetBinContent(histo.GetMinimumBin())
-    if ymin > 0:
-        ymin = int(ymin*0.9 - np.sqrt(ymin))
-        if ymin%5 == 0: ymin *= 0.9
-    else: ymin = 0.01
+def zero_suppress(histo,force_ymin=None):
+    """Zero suppression for a histogram."""
+    if force_ymin is None:
+        ymin = histo.GetBinContent(histo.GetMinimumBin())    
+        if ymin>0:
+            ymin = int(ymin*0.9 - np.sqrt(ymin))
+            if ymin%5 == 0: ymin *= 0.9
+            if ymin <= 0: ymin = 0.01 
+        else: ymin = 0.01
+    else: ymin = force_ymin
     histo.SetMinimum(ymin)
     
 def get_txtlevel(histo, factor):
