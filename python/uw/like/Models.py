@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.63 2011/11/30 22:57:52 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.64 2011/12/01 17:16:41 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -344,8 +344,8 @@ Optional keyword arguments:
                 >>> print '%g' % model.i_flux(emin=1e3, emax=1e5)
                 1e-07
         """
-        prefactor = self.getp(0, internal=True) 
-        new_prefactor = prefactor + np.log10(flux/self.i_flux(*args,**kwargs))
+        self.setp(0, 0, internal=True)
+        new_prefactor = np.log10(flux/self.i_flux(*args,**kwargs))
         self.setp(0,new_prefactor,internal=True)
 
     def copy(self):
@@ -891,7 +891,15 @@ class SumModel(CompositeModel):
     """ Model is the sum of other models. 
     
         Easy to create: 
-            m = SumModel(PowerLaw(),BrokenPowerLaw()) """
+            >>> m1=PowerLaw(index=2);m1.set_flux(1)
+            >>> m2=LogParabola(beta=2); m1.set_flux(1)
+
+        The model is just the sum of the simpler modesl
+            >>> sum_model=SumModel(m1,m2)
+            >>> energy = np.asarray([1e2,1e3,1e4])
+            >>> np.allclose(sum_model(energy), m1(energy) + m2(energy))
+            True
+    """
     operator = '+'
     name = 'SumModel'
 
@@ -916,11 +924,19 @@ class ProductModel(CompositeModel):
     """ Model is the product of other Models.
 
         Easy to create: 
-            m = ProductModel(Powerlaw(),FileSpectrum()) 
-            
-            
+
+            >>> m1=PowerLaw(index=2);m1.set_flux(1)
+            >>> m2=LogParabola(beta=2); m1.set_flux(1)
+            >>> prod_model=ProductModel(m1,m2)
+
+        The model is just the product of the simpler modesl
+
+            >>> energy = np.asarray([1e2,1e3,1e4])
+            >>> np.allclose(prod_model(energy), m1(energy) * m2(energy))
+            True
+
         Note: set_flux function just adjusts normalziation of 
-              first parameter! """
+              first parameter, which should be correct! """
     operator = '*'
     name = 'ProductModel'
 
