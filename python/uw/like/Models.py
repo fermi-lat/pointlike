@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.64 2011/12/01 17:16:41 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.65 2011/12/04 04:07:17 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -342,6 +342,14 @@ Optional keyword arguments:
                 >>> model = PowerLaw(index=2)
                 >>> model.set_flux(1e-7, emin=1e3, emax=1e5)
                 >>> print '%g' % model.i_flux(emin=1e3, emax=1e5)
+                1e-07
+
+            Note that this implementation is robust even when the source
+            has an initial flux of 0:
+
+                >>> model.setp(0, -np.inf, internal=True)
+                >>> model.set_flux(1e-7)
+                >>> print '%g' % model.i_flux()
                 1e-07
         """
         self.setp(0, 0, internal=True)
