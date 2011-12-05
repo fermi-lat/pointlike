@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Dec  5 15:35:33 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_catalogs.py 
+Log Message:
+Revert chararrays for now, LogParabola ebreak fixed by default.
+
+    *
+------------------------------------------------------------
 User: lande  Sun Dec  4 22:34:13 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
