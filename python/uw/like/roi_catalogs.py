@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.12 2011/08/12 21:52:35 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.13 2011/10/24 12:43:19 lande Exp $
 
 author: Joshua Lande
 """
@@ -214,10 +214,12 @@ class Catalog2FGL(SourceCatalog):
         stypes    = point.field('SPECTRUMTYPE')
         f.close()
 
-        self.names = names = np.char.strip(names)
+        #self.names = names = np.char.strip(names)
+        self.names = names = np.asarray([x.strip() for x in names])
 
         # not sure why there is the naming inconsistency
-        extended_source_names = np.char.replace(extended_source_names,' ','')
+        #extended_source_names = np.char.replace(extended_source_names,' ','')
+        extended_source_names = np.asarray([x.replace(' ','') for x in extended_source_names])
 
         dirs   = map(SkyDir,np.asarray(ras).astype(float),np.asarray(decs).astype(float))
 
@@ -239,7 +241,7 @@ class Catalog2FGL(SourceCatalog):
                     # So create the source from is f1000 value.
                     model=PowerLawFlux(p=[f1000,ind],emin=1e3,emax=1e5)
             elif stype == 'LogParabola':
-                model=LogParabola(p=[n0,ind,beta,pen])
+                model=LogParabola(p=[n0,ind,beta,pen],free=[True,True,True,False])
             elif stype == 'PLExpCutoff':
                 # Following M. Kerr's suggestion, clip the index of pulsars which are too close to 0.
                 if ind >= 0 and ind < 1e-10: ind=1e-10
@@ -256,7 +258,7 @@ class Catalog2FGL(SourceCatalog):
                         )
                 )
             else:
-                self.sources.append(PointSource(dir,name,model))
+                self.sources.append(PointSource(dir,name,model,leave_parameters=True))
 
     def __extended_models__(self):
         """ Read in the extended source spatial models
@@ -264,8 +266,10 @@ class Catalog2FGL(SourceCatalog):
 
         f = pyfits.open(expandvars(self.catalog))
         extended = f['EXTENDEDSOURCES'].data
-        self.extended_names = np.char.strip(extended.field('Source_Name'))
-        self.extended_nicknames = np.char.replace(self.extended_names,' ','')
+        #self.extended_names = np.char.strip(extended.field('Source_Name'))
+        #self.extended_nicknames = np.char.replace(self.extended_names,' ','')
+        self.extended_names = np.asarray([x.strip() for x in extended.field('Source_Name')])
+        self.extended_nicknames = np.asarray([x.replace(' ','') for x in self.extended_names])
 
         ras   = extended.field('RAJ2000')
         decs  = extended.field('DEJ2000')
@@ -334,7 +338,9 @@ class Catalog2FGL(SourceCatalog):
                 continue
 
             return_sources.append(source.copy())
-            return_sources[-1].model.free[:] = (distance <= self.free_radius)
+            #return_sources[-1].model.free[:] = (distance <= self.free_radius)
+            if distance > self.free_radius:
+                return_sources[-1].model.free[:] = False
 
         Catalog2FGL.sort(return_sources,skydir)
 
