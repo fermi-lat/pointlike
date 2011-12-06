@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.10 2011/11/16 14:09:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.11 2011/11/21 14:35:04 burnett Exp $
 
 """
 import types
@@ -101,6 +101,8 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
             loc.localize()
         except Exception, e:
             print 'Failed localization for source %s: %s' % (source.name, e)
+            loc.reset()
+            loc = None
         source.loc = loc
         return loc
     
@@ -124,7 +126,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         """
         if title is not None:
             print >>out, title
-        fmt, tup = '%-20s%6s%10s%10s', tuple('Name index value error(%)'.split())
+        fmt, tup = '%-21s%6s%10s%10s', tuple('Name index value error(%)'.split())
         if gradient:
             grad = self.gradient()
             fmt +='%10s'; tup += ('gradient',)
@@ -139,7 +141,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
             sname,pname = name.split('_',1)
             if sname==prev: name = len(sname)*' '+'_'+pname
             prev = sname
-            fmt = '%-20s%6d%10.4g%10.1f'
+            fmt = '%-21s%6d%10.4g%10.1f'
             tup = (name,index, value,rsig*100)
             if gradient:
                 fmt +='%10.1f'; tup += (grad[index],)

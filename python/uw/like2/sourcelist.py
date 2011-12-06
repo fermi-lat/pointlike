@@ -1,7 +1,7 @@
 """
 Manage sources: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.10 2011/10/03 22:04:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.14 2011/11/17 19:28:07 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
@@ -74,21 +74,31 @@ class SourceList(list):
                 
         # note that sources are added in the order diffuse, point to agree with ROIAnalysis
         # also, add two attributes to each source object and define 'spectral_model'
-        for i, source in enumerate(roi.global_sources):
+        def append(source):
+            assert source.name not in self.source_names, 'attempt to add name %s twice' % source.name
             self.append(source)
+        for source in roi.global_sources:
+            append(source)
         for i, source in enumerate(roi.extended_sources):
-            source.manager_index = i#+len(roi.global_sources)
+            source.manager_index = i
             source.factory = ExtendedSourceFactory(roi)
-            # kluge: make a getter property for the spectral model
             set_extended_property(source)
             source.skydir = source.extended_source.skydir
             source.spatial_model = source.extended_source.spatial_model
-            self.append(source)
-        for i,source in enumerate(roi.point_sources):
-            #source.manager_index = i
-            #source.factory = PointSourceFactory(roi)
+            append(source)
+        for source in roi.point_sources:
             set_point_property(source)
-            self.append(source)
+            append(source)
+        
+    def add_source(self, source):
+        """ 
+        Parameters
+        ---------
+        source : object created by sources.PointSource, e.g.
+            sources.PointSource(name='test', skydir=SkyDir(100,2)) 
+        """
+        set_point_property(source)
+        self.append(source)
         
     # note that properties are dynamic, in case sources or their models change
     @property
@@ -96,7 +106,9 @@ class SourceList(list):
     @property
     def models(self): return np.array([s.spectral_model for s in self])
     @property
-    def free(self): return np.array([np.any(model.free) for model in self.models])
+    def free(self): 
+        """ actually all global and local sources """
+        return np.array([np.any(s.spectral_model.free) or s.skydir is None for s in self])
     
     def __str__(self):
         return 'Sourcelist, with %d sources, %d free parameters' %(len(self), sum(self.free))
@@ -191,8 +203,8 @@ class SourceList(list):
                 try:
                     plim = dict(
                         Index=(-3, 0.6),
-                        Norm=(-15, -10),
-                        Scale=np.log10(np.array([0.01, 2.0])),
+                        Norm=(-15, -7),
+                        Scale=np.log10(np.array([0.001, 4.0])),
                         beta=(-3, 1),
                         Cutoff=(2,6),
                         )[pname.split('_')[0]]
