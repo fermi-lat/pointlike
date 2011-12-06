@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.2 2011/10/05 21:34:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.3 2011/11/21 14:26:11 burnett Exp $
 
 """
 import os, pickle, glob, types
@@ -198,8 +198,6 @@ class SkyModel(object):
             t = []
             names = p.get('diffuse_names', self.diffuse )
             for name, model in zip(names, p['diffuse']):
-                if '_p' not in model.__dict__:
-                    model.__dict__['_p'] = model.__dict__.pop('p')  # if loaded from old representation
                 key = name.split('_')[0]
                 if key in self.diffuse_dict:
                     gs = sources.GlobalSource(name=name, model=model, skydir=None, index=index)
@@ -472,17 +470,18 @@ class RemoveByName(object):
     
 class UpdatePulsarModel(object):
     """ special filter to replace models if necessary"""
-    def __init__(self, infile=None, tol=0.2, ts_min=10):
+    def __init__(self,  tol=0.25, ts_min=10, version=682, rename=True):
         import pyfits
         self.tol=tol
         self.ts_min=ts_min
-        if infile is None:
-            infile = os.path.expandvars(os.path.join('$FERMI','catalog','srcid', 'cat','obj-pulsar-lat_v456.fits')) 
+        infile = os.path.expandvars(os.path.join('$FERMI','catalog','srcid', 'cat','obj-pulsar-lat_v%d.fits'%version)) 
         self.data = pyfits.open(infile)[1].data
         self.sdir = map(lambda x,y: SkyDir(float(x),float(y)), self.data.field('RAJ2000'), self.data.field('DEJ2000'))
-        self.names = self.data.field('Source_Name')
+        self.psr_names = self.data.field('Source_Name')
         self.tags = [False]*len(self.data)
-        self.assoc = [['',-1, -1]]*len(self.data) #associated names
+        self.assoc = [['',-1, -1]]*len(self.data) #associated psr_names
+        print 'Will check associations with LAT pulsar catalog %d' %version
+        self.rename = rename
         
     def get_pulsar_name(self, sdir):
         """ special to check for pulsar name"""
@@ -490,35 +489,40 @@ class UpdatePulsarModel(object):
             dist = np.degrees(t.difference(sdir))
             if dist<self.tol:
                 self.tags[i]=True
-                return self.names[i]
+                return self.psr_names[i]
                 break
         return None
         
     def __call__(self, s):
         sdir = s.skydir
+        if hasattr(s, 'spatial_model') and s.spatial_model is not None:
+            return True
         for i,t in enumerate(self.sdir):
             dist = np.degrees(t.difference(sdir))
             if dist<self.tol and s.ts>self.ts_min:
                 self.tags[i]=True
                 self.assoc[i]=(s.name, dist, s.ts)
+                if self.rename and s.name != self.psr_names[i]: 
+                    print 'Skymodel: renaming %s(%d) to %s' % (s.name, s.index, self.psr_names[i])
+                    s.name = self.psr_names[i]
                 if s.model.name=='ExpCutoff': return True
                 flux = s.model[0]
                 if flux>1e-18:
-                    print 'Skymodel: replacing model for: %s(%d): pulsar name: %s' % (s.name, s.index, self.names[i]) 
+                    print 'Skymodel: replacing model for: %s(%d): pulsar name: %s' % (s.name, s.index, self.psr_names[i]) 
                     s.model = Models.ExpCutoff()
                     s.free = s.model.free.copy()
                 else:
-                    print 'Apparent pulsar %s(%d), %s, is very weak, flux=%.2e <1e-13: leave as powerlaw' % (s.name, s.index, self.names[i], flux)
-                break
+                    print 'Apparent pulsar %s(%d), %s, is very weak, flux=%.2e <1e-13: leave as powerlaw' % (s.name, s.index, self.psr_names[i], flux)
+                return True
         if s.model.name=='ExpCutoff':
-            print 'Skymodel setup warning: %s (%d) not a pulsar, should not be expcutoff' % (s.name, s.index)
+            print 'Skymodel setup warning: %s (%d) not in LAT pulsar list, should not be expcutoff' % (s.name, s.index)
         return True
     def summary(self):
         n = len(self.tags)-sum(self.tags)
         if n==0: return
         print 'did not find %d sources ' % n
         for i in range(len(self.tags)):
-            if not self.tags[i]: print '%s %9.3f %9.3f ' % (self.names[i], self.sdir[i].ra(), self.sdir[i].dec())
+            if not self.tags[i]: print '%s %9.3f %9.3f ' % (self.psr_names[i], self.sdir[i].ra(), self.sdir[i].dec())
      
 class MultiFilter(list):
     """ filter that is a list of filters """
