@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.1 2011/10/20 21:40:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.3 2011/11/16 14:25:46 burnett Exp $
 
 """
 import os
@@ -163,7 +163,9 @@ def makesed_all(roi, **kwargs):
     assert abs(initw-curw)<0.1, \
         'makesed_all: unexpected change in roi state after localization, from %.1f to %.1f' %(initw, curw)
 
-class DiffuseLikelihood(object):
+class DiffuseLikelihood(fitter.Fitted):
+    """ implement likelihood function of diffuse normalization
+    """
     def __init__(self, rstat, names=('ring','isotrop'), quiet=True):
         """ rstat : ROIstat object
             source_name : name of one of the sources in the SourceList
@@ -180,8 +182,10 @@ class DiffuseLikelihood(object):
 
     def select_band(self, index, event_class=None):
         """ Select an energy band or bands
-        parameters:
-            index: None or integer
+        
+        Parameters
+        ----------
+        index: None or integer
                 an index into the list of energies; if None, select all bands
                 and use the current spectral model, otherwise a powerlaw to 
                 represent an model-independent flux over the band.
@@ -227,24 +231,26 @@ class DiffuseLikelihood(object):
         self.restore() 
         return (-t[0] - initial_loglike, t[1], t[2])
     
-    def multifit(self, event_class=None, **kwargs):
+    def multifit(self, event_class=None, emax=None, **kwargs):
         """ run fit for all energy bands, make dict to return with results
         """
         loglike=[]
         values = []
         errors = []
-        for index,energy in enumerate(self.energies):
+        energies = filter(lambda e:e<emax, self.energies) if emax is not None else self.energies
+        #print ' fitting energies', energies
+        for index,energy in enumerate(energies):
             try:
                 t = self.fit(index, event_class, **kwargs)
             except Exception, e:
                 # TODO: refit with only one parameter?
-                print 'Failed fit: %s' %e
+                print 'Failed fit for e=%.0f: %s' % (energy , e)
                 nm = len(self.models)
                 t = [0, np.zeros(nm), np.zeros(nm)]
             loglike.append(t[0])
             values.append(t[1])
             errors.append(t[2])
-        return dict(energies=self.energies, loglike=loglike, event_class=event_class, values=values, errors=errors)
+        return dict(energies=energies, loglike=loglike, event_class=event_class, values=values, errors=errors)
 
 def makesed_all(roi, **kwargs):
     """ add sed information to each free local source
