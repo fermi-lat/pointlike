@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.66 2011/12/05 06:34:12 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.67 2011/12/06 21:34:01 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -1049,6 +1049,21 @@ class DMFitFunction(Model):
             >>> model = DMFitFunction(bratio=3)
             >>> print model.dmf.getParam('bratio').getTrueValue()
             3.0
+
+        Test a few hard coded values, to make sure the function values are correct:
+
+            >>> model = DMFitFunction(sigmav=1e-26, mass=100,
+            ... channel0=4, channel1=1, bratio=1, norm=2.5e17)
+
+            >>> model =DMFitFunction(norm=2.5e17, sigmav=1e-26, channel0=4,channel1=1,mass=100,bratio=1.0)
+
+       
+        These points were computed based upon the fortran code.
+
+            >>> e = [1, 10, 100, 1000, 10000, 100000 , 1000000]
+            >>> dnde = [ 2.04105211e-16,  4.43719263e-16, 1.00123992e-16, 1.44911940e-18, 0.00000000e+00]
+            >>> print model(e),dnde
+            >>> print np.allclose(model(e), dnde)
     """
     def full_name(self):
         return '%s, norm=%.1f, bratio=%.1f channel0=%d, channel1=%d' % (self.pretty_name,
