@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.7 2011/10/20 21:41:27 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.11 2011/11/21 14:30:48 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -106,7 +106,8 @@ class BandDiffuse(BandSource):
             results for a later Simpson's rule.
         """
         
-        assert self.setup==False, 'attempt to re-initialize global source'
+        if self.setup : return # avoid recalculating fixed stuff
+        #assert self.setup==False, 'attempt to re-initialize global source'
         self.setup=True
         band = self.band
         delta_e = band.emax - band.emin
@@ -179,17 +180,19 @@ class BandExtended(BandPoint):
 class BandLike(object):
     """ manage the likelihood calculation for a band 
     """
-    def __init__(self, band, bandsources, free):
+    def __init__(self, band, bandsources, free, exposure):
         """
            band : ROIband object
                 only used here to get data and phase_factor
            bandsources : list of BandSource objects associated with this band
            free : array of bool to select models
+           exposure : ExposureManager object, access to possible correction
         """
         self.bandsources = bandsources
         self.band = band # for reference: not used after this 
         self.energy = band.e # also for convenience: center of band
         self.phase_factor = band.phase_factor #this should be global
+        self.exposure_correction = exposure.correction[band.ct](self.energy) # energy-dependent correction factor
         self.data = band.pix_counts  if band.has_pixels else []# data from the band
         self.pixels=len(self.data)
         self.initialize(free)
@@ -236,8 +239,9 @@ class BandLike(object):
     def log_like(self):
         """ return the Poisson extended log likelihood """
         try:
-            pix = np.sum( self.data * np.log(self.model_pixels) ) if self.pixels>0 else 0
-            return pix - self.counts*self.phase_factor 
+            ec = self.exposure_correction
+            pix = np.sum( self.data * (np.log(self.model_pixels)+np.log(ec) ) ) if self.pixels>0 else 0
+            return pix - self.counts*self.phase_factor * ec
         except FloatingPointError, e:
             print 'Floating point error evaluating likelihood for band at %s' %self.__str__()
             raise
@@ -249,14 +253,25 @@ class BandLike(object):
     def gradient(self):
         """ gradient of the likelihood with resepect to the free parameters
         """
-        weights = self.data/self.model_pixels
-        return np.concatenate([m.grad(weights, self.phase_factor) for m in self.bandsources])
+        weights = self.data / self.model_pixels
+        ec = self.exposure_correction
+        return np.concatenate([m.grad(weights, self.phase_factor*ec) for m in self.bandsources])
        
     def dump(self, **kwargs):
         map(lambda bm: bm.dump(**kwargs), self.bandsources)
 
+    def model_counts(self, sourcemask=None):
+        """ return the model predicted counts for all or a subset of the sources
+        sourcemask : array of bool
+            select a set of sources. In order of sources from factory
+        """
+        if sourcemask is not None:
+            assert len(sourcemask)==len(self), 'bad input to model_counts'
+        t = np.array([s.counts for s in self])
+        return sum(t) if sourcemask is None else sum(t[sourcemask])
+    
  
-def factory(bands, sources, quiet=False):
+def factory(bands, sources, exposure, quiet=False):
     """ return an array, one per band, of BandLike objects 
         bands : list of ROIBand objects
         sources : sourcelist.SourceList object
@@ -277,7 +292,7 @@ def factory(bands, sources, quiet=False):
     for i,band in enumerate(bands):
         bandlist.append(BandLike(band, 
                     np.array( [bandsource_factory(band, source) for source in sources]),
-                    sources.free)
+                    sources.free, exposure)
                     )
     if not quiet: print
     return np.array(bandlist)

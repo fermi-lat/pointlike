@@ -4,7 +4,7 @@ Manage likelihood calculations for an ROI
 mostly class ROIstat, which computes the likelihood and its derivative from the lists of
 sources (see .sourcelist) and bands (see .bandlike)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.16 2011/10/20 21:41:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.18 2011/11/16 14:12:00 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import sys
@@ -25,7 +25,7 @@ class ROIstat(object):
           each manages the computation of the likelihood for its band
     Notes:
         * This is not intended to be a replacement for ROIAnalysis: complete user-level
-          functionality will be the function of a client 
+          functionality is managed by a subclass, see main.py
         * the constructor takes an object containing a list of ROIBand objects and models, 
         * computation of the likelihood and its derivative, the basic task for 
           this class, is easily limited to a subset of the original set of bands,
@@ -44,9 +44,10 @@ class ROIstat(object):
         """
         self.name = roi.name
         self.roi_dir = roi.roi_dir
+        self.exposure = roi.exposure
         self.sources = sourcelist.SourceList(roi) 
         quiet = kwargs.pop('quiet', False)
-        self.all_bands = bandlike.factory(filter(bandsel, roi.bands), self.sources , quiet=quiet)
+        self.all_bands = bandlike.factory(filter(bandsel, roi.bands), self.sources , roi.exposure, quiet=quiet)
         self.selected_bands = self.all_bands # the possible subset to analyze
         self.saved_bands = None
         self.calls=0
@@ -132,7 +133,7 @@ class ROIstat(object):
             return None
         self.source_mask = np.array([source.name==sourcename for source in self.sources])
         if sum(self.source_mask)!=1:
-            raise Exception('Localization: source %s not found'%source_name)
+            raise Exception('Localization: source %s not found'%sourcename)
         self.initialize(self.source_mask)
         return np.array(self.sources)[self.source_mask][0]
 

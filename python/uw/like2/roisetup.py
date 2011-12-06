@@ -1,7 +1,7 @@
 """
 Set up an ROI 
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.5 2011/11/16 14:14:20 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.6 2011/11/21 14:33:13 burnett Exp $
 
 """
 import os
@@ -13,27 +13,69 @@ from .. like import roi_extended, pypsf
 
         
 class ExposureManager(object):
-    """A small class to handle the trivial combination of effective area and livetime."""
+    """A small class to handle the trivial combination of effective area and livetime.
+    
+    """
 
-    def __init__(self, sa):
+    def __init__(self, dataset, **datadict): 
+        """
+        Parameters
+        ----------
+        dataset :  DataSet object
+            for CALDB, aeff, some parameters
+            
+        datadict['exposure-correction'] : list of strings defining functions of energy
+            the correction factors to apply to front, back 
+        """
 
-        skymaps.EffectiveArea.set_CALDB(sa.CALDBManager.CALDB)
-        skymaps.Exposure.set_cutoff(np.cos(np.radians(sa.thetacut)))
+        skymaps.EffectiveArea.set_CALDB(dataset.CALDBManager.CALDB)
+        skymaps.Exposure.set_cutoff(np.cos(np.radians(dataset.thetacut)))
         inst = ['front', 'back']
-        aeff_files = sa.CALDBManager.get_aeff()
+        aeff_files = dataset.CALDBManager.get_aeff()
         ok = [os.path.exists(file) for file in aeff_files]
         if not all(ok):
             raise DataSetError('one of CALDB aeff files not found: %s' %aeff_files)
         self.ea  = [skymaps.EffectiveArea('', file) for file in aeff_files]
-        if sa.verbose: print ' -->effective areas at 1 GeV: ', ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
-        if sa.use_weighted_livetime:
-            self.exposure = [skymaps.Exposure(sa.lt,sa.weighted_lt,ea) for ea in self.ea]
+        if dataset.verbose: print ' -->effective areas at 1 GeV: ', \
+                ['%s: %6.1f'% (inst[i],self.ea[i](1000)) for i in range(len(inst))]
+        if dataset.use_weighted_livetime:
+            self.exposure = [skymaps.Exposure(dataset.lt,dataset.weighted_lt,ea) for ea in self.ea]
         else:
-            self.exposure = [skymaps.Exposure(sa.lt,ea) for ea in self.ea]
+            self.exposure = [skymaps.Exposure(dataset.lt,ea) for ea in self.ea]
 
+        correction = datadict.pop('exposure_correction', None)
+        if correction is not None:
+            self.correction = map(eval, correction)
+            energies = [100, 1000, 10000]
+            print 'Exposure correction: for energies %s ' % energies
+            for i,f in enumerate(self.correction):
+                print ('\tfront:','\tback: ')[i], map( f , energies)
+        else:
+            self.correction = lambda x: 1.0, lambda x: 1.0
+            
     def value(self, sdir, energy, event_class):
-        return self.exposure[event_class].value(sdir, energy)
-
+        return self.exposure[event_class].value(sdir, energy)*self.correction[event_class](energy)
+        
+class ExposureCorrection(object):
+    """ logarithmic interpolation function
+    """
+    def __init__(self, a,b, ea=100, eb=300):
+        self.c = (b-a)/np.log(eb/ea)
+        self.d =  a -self.c*np.log(ea)
+        self.a, self.b = a,b
+        self.ea,self.eb = ea,eb
+    def __call__(self, e):
+        if e>self.eb: return self.b
+        if e<self.ea: return self.a
+        return self.c*np.log(e) + self.d
+    def plot(self, ax=None, **kwargs):
+        import pylab as plt
+        if ax is None: 
+            ax = plt.gca()
+        dom = np.logspace(1.5, 2.5, 51) 
+        ax.plot(dom, map(self, dom), **kwargs)
+        ax.set_xscale('log')
+            
 
 class ROIfactory(object):
     """
@@ -52,7 +94,7 @@ class ROIfactory(object):
         )
 
     @keyword_options.decorate(defaults)
-    def __init__(self, indir, dataname, **kwargs):
+    def __init__(self, indir, datadict, **kwargs):
         """ 
         parameters
         ----------
@@ -61,13 +103,13 @@ class ROIfactory(object):
                 used to look up data specification
         """
         keyword_options.process(self, kwargs)
+        print 'ROIfactory setup: \n\tskymodel: ', indir
         self.skymodel = skymodel.SkyModel(indir,  **self.skymodel_kw)
-        self.dataset = dataset.DataSet(dataname, **self.analysis_kw)
-        self.exposure  = ExposureManager(self.dataset)
+        print '\tdatadict:', datadict
+        self.dataset = dataset.DataSet(datadict['dataname'], **self.analysis_kw)
+        self.exposure  = ExposureManager(self.dataset, **datadict)
         self.psf = pypsf.CALDBPsf(self.dataset.CALDBManager)
  
-        #self.exposure = self.dataset.exposure 
-        #self.psf  = self.dataset.psf
         convolution.AnalyticConvolution.set_points(self.convolve_kw['num_points'])
         convolution.ExtendedSourceConvolution.set_pixelsize(self.convolve_kw['pixelsize'])
 
@@ -121,7 +163,9 @@ class ROIfactory(object):
                     bands=self.dataset(self.psf, self.exposure, skydir), 
                     global_sources=global_sources,
                     extended_sources = extended_sources,
-                    point_sources=self._local_sources(src_sel), **roi_kw)
+                    point_sources=self._local_sources(src_sel), 
+                    exposure=self.exposure,
+                    **roi_kw)
 
 def main(indir='uw27', dataname='P7_V4_SOURCE_4bpd',irf='P7SOURCE_V6' ,skymodel_kw={}):
     rf = ROIfactory(indir, dataname, **skymodel_kw)
