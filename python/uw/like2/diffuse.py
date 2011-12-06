@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.8 2011/11/17 19:39:45 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.9 2011/11/21 14:29:43 burnett Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
@@ -52,11 +52,11 @@ class DiffuseModel(object):
     )
 
     @keyword_options.decorate(defaults)
-    def __init__(self, psf, exposure, roi_dir, diffuse_source, 
+    def __init__(self, psf, exposure_manager, roi_dir, diffuse_source, 
                 **kwargs):
         """
-        exposure : object
-            must provide psf and exposure
+        exposure_manager : ExposureManager object
+            provides exposure for front and back
         psf: object
         
         roi_dir : SkyDir object
@@ -66,7 +66,8 @@ class DiffuseModel(object):
         keyword_options.process(self, kwargs)
         self.roi_dir = roi_dir
         self.skydir = None # (flag that this is global)
-        self.psf, self.exposure = psf, exposure
+        self.psf, self.exposure = psf, exposure_manager.exposure
+        #self.exposure_correction = exposure.correction
         self.diffuse_source = diffuse_source
         self.name = diffuse_source.name
         self.setup()
@@ -153,7 +154,11 @@ class DiffuseModelFromCache(DiffuseModel):
         # determine the exposure for this energy and conversion type
         exp = self.exposure[conversion_type]
         exp.setEnergy(energy)
-        expgrid = grid.fill(exp)
+        expgrid = grid.fill(exp) 
+
+        # correction factor
+        #expgrid *= self.exposure_correction[conversion_type](energy)
+        
         # finally to the convolution on the product of exposure and diffuse map, 
         #  using the appropriate PSF
         grid.do_convolution(energy, conversion_type, override_vals=expgrid*cd['vals'] )
@@ -185,7 +190,6 @@ class IsotropicModel(DiffuseModel):
                 
             
     def make_grid(self, energy, conversion_type, npix=61, pixelsize=0.25):
-        self.grid = ConvolvableGrid(self.roi_dir, npix, pixelsize) 
         dmodels = self.diffuse_source.dmodel
         dm = dmodels[conversion_type if len(dmodels)>1 else 0]
         dm.setEnergy(energy)
@@ -194,7 +198,9 @@ class IsotropicModel(DiffuseModel):
         grid = ConvolvableGrid(self.roi_dir, None, self.psf, 
             npix=npix, pixelsize=pixelsize)
         
-        grid.cvals = grid.fill(exp) * dm(self.roi_dir, energy)
+        grid.cvals = grid.fill(exp) * dm(self.roi_dir, energy) 
+        assert not np.any(np.isnan(grid.cvals)), \
+            'Grid for %s has nan values' %dm.filename
         return grid
 
 class DiffuseModelFromFits( DiffuseModel):
@@ -209,16 +215,23 @@ class DiffuseModelFromFits( DiffuseModel):
                 print '\t%s'% dm.name()
                 
     def make_grid(self, energy, conversion_type, npix=61, pixelsize=0.25):
-        self.grid = ConvolvableGrid(self.roi_dir, npix, pixelsize) 
         dmodels = self.diffuse_source.dmodel
         dm = dmodels[conversion_type if len(dmodels)>1 else 0]
         dm.setEnergy(energy)
         exp = self.exposure[conversion_type]
         exp.setEnergy(energy)
+
         grid = ConvolvableGrid(self.roi_dir, None, self.psf, 
             npix=npix, pixelsize=pixelsize)
         
-        grid.cvals = grid.fill(exp)* dm(self.roi_dir, energy)
+        grid.cvals = grid.fill(exp) * grid.fill(dm) #product of exposure and map
+        # check for nans, replace with zeros if not full ROI
+        nans = np.isnan(grid.cvals)
+        if np.all(nans):
+            raise DiffuseException('Diffuse cube %s has no overlap with ROi' % dm.filename)
+        if np.any(nans):
+            grid.cvals[nans]=0
+
         return grid
      
     def copy(self):
@@ -404,7 +417,7 @@ def mapper(roi_factory, roiname, skydir, source, **kwargs):
     return a DiffuseModel appropriate for the source
     """
     psf = roi_factory.psf
-    exposure = roi_factory.exposure.exposure
+    exposure = roi_factory.exposure
     if source.name.startswith('iso'):
         return IsotropicModel(psf, exposure,skydir, source, **kwargs)
     elif source.name.startswith('limb'):
