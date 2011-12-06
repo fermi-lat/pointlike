@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Tue Dec  6 14:17:45 PST 2011
+ScienceTools-scons/pointlike/python/uw/data
+
+Modified Files:
+	dataman.py 
+Log Message:
+Fix a mistake in DataSet that prevented loading in a pickled DataSet with 
+multiple DataSpecs.
+
+    *
+------------------------------------------------------------
 User: burnett  Tue Dec  6 14:16:52 PST 2011
 pointlike/python/uw/like2
 
