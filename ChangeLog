@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Dec  6 14:09:57 PST 2011
+pointlike/python/uw/like2/pipeline
+
+Added Files:
+	parallel.py 
+Log Message:
+new file with support for ipython 0.12 version of parallel
+    *
+------------------------------------------------------------
 User: lande  Tue Dec  6 13:34:01 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
