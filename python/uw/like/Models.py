@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.68 2011/12/06 23:18:50 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.69 2011/12/06 23:30:11 kadrlica Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -1091,6 +1091,11 @@ class DMFitFunction(Model):
         # the __init__ will call setp().
         self.dmf=pyLikelihood.DMFitFunction()
         super(DMFitFunction,self).__init__(*args,**kwargs)
+
+        # unbound all parameters in gtlike
+        for n in np.append(self.param_names,['norm','bratio','channel0','channel1']):
+            self.dmf.getParam(n).setBounds(-float('inf'),float('inf'))
+
         self.dmf.readFunction(SpatialMap.expand(self.file))
         self._update() # update all parameters in DMFitFunction
 
