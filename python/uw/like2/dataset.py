@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.6 2011/11/02 19:17:06 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.7 2011/11/21 14:34:05 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.6 $'.split()[1]
+version='$Revision: 1.7 $'.split()[1]
 import os, glob, types
 import numpy as np
 import skymaps
@@ -105,8 +105,8 @@ class DataSet(dataman.DataSpec):
         if hasattr(dataset,'pop'): # dataset is a dict
             if 'data_name' not in dataset.keys():
                 dataset['data_name'] = 'Custom Dataset %d'%id(dataset)
-            dataspec.DataSpec.datasets[id(dataset)] = dataset
-            return dataspec.DataSpec(id(dataset),month=month)
+            dataman.DataSpec.datasets[id(dataset)] = dataset
+            return dataman.DataSpec(id(dataset),month=month)
         # it is a string, check dictionary in ., then $FERMI/data
         folders = ['.'] + glob.glob( os.path.join(os.path.expandvars('$FERMI'),'data'))
         for folder in folders :
@@ -141,7 +141,6 @@ class DataSet(dataman.DataSpec):
         forband = ForBand(self.minROI,self.maxROI)
         for band in self.dmap:
             if (band.emin() + 1) >= self.emin and (band.emax() - 1) < self.emax:
-                # note: pass self to ctor for minROI, maxROI, exposure, psf.band_psf
                 self.bands.append(roi_bands.ROIBand(band, forband, roi_dir, **band_kwargs))
         return np.asarray(self.bands)
 
