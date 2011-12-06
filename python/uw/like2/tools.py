@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.9 2011/10/20 21:40:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/tools.py,v 1.10 2011/11/02 19:13:45 burnett Exp $
 
 """
 import os
@@ -47,8 +47,8 @@ class Localization(object):
         """
         keyword_options.process(self, kwargs)
         self.rs = roistat
-        self.source = self.rs.select_source(source_name)
-        self.rs.select_source(source_name)
+        self.source = self.rs.sources.find_source(source_name)
+        self.rs.select_source(self.source.name)
         self.rs.update(True)
         self.maxlike=self.rs.log_like()
         self.skydir=self.saved_skydir = self.source.skydir #saved value
@@ -302,9 +302,10 @@ def localize_all(roi, **kwargs):
     
     for source in sources:
         loc =roi.localize(source.name, quiet=True, update=False, **kwargs)
+        if loc is None: continue
         source.ellipse = loc.qform.par[0:2]+loc.qform.par[3:7] +[loc.delta_ts] if hasattr(loc,'qform') else None
-        if not roi.quiet: 
-            print 'Localizating %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
+        if not roi.quiet and hasattr(loc, 'niter') and loc.niter>0: 
+            print 'Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
                 (source.name, loc.niter, loc.delt, loc.delta_ts)
             labels = 'ra dec a b ang qual'.split()
             print (len(labels)*'%10s') % tuple(labels)
@@ -326,7 +327,7 @@ def localize_all(roi, **kwargs):
         loc.reset() # restore source position
     #roi.initialize()
     curw= roi.log_like()
-    if (initw-curw)>1.0:
+    if abs(initw-curw)>1.0:
         print 'localize_all: unexpected change in roi state after localization, from %.1f to %.1f' %(initw, curw)
         return False
     else: return True
