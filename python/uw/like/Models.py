@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.65 2011/12/04 04:07:17 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.66 2011/12/05 06:34:12 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -1040,6 +1040,15 @@ class DMFitFunction(Model):
             5
             >>> print '%g' % model['mass']
             500
+
+        Note, the parameters which are not directly fit (like bratio) get set correctly:
+
+            >>> model = DMFitFunction(bratio=2)
+            >>> print model.dmf.getParam('bratio').getTrueValue()
+            2.0
+            >>> model = DMFitFunction(bratio=3)
+            >>> print model.dmf.getParam('bratio').getTrueValue()
+            3.0
     """
     def full_name(self):
         return '%s, norm=%.1f, bratio=%.1f channel0=%d, channel1=%d' % (self.pretty_name,
@@ -1053,6 +1062,13 @@ class DMFitFunction(Model):
         """
         for i,param_name in enumerate(self.param_names):
             self.dmf.setParam(param_name,self[param_name])
+
+        # Set the parameters which are not fix explicitly
+        self.dmf.setParam('norm',self.norm)
+        self.dmf.setParam('bratio',self.bratio)
+        self.dmf.setParam('channel0',self.channel0)
+        self.dmf.setParam('channel1', self.channel1)
+
 
     def __init__(self,  *args, **kwargs):
         import pyLikelihood
