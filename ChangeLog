@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Dec  6 14:23:34 PST 2011
+pointlike/python/uw/utilities
+
+Modified Files:
+	fitter.py 
+Log Message:
+gradient bug fix
+    *
+------------------------------------------------------------
 User: burnett  Tue Dec  6 14:18:51 PST 2011
 pointlike/python/uw/like2
 
