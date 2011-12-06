@@ -1,6 +1,6 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/catrec.py,v 1.9 2011/07/22 13:49:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/catrec.py,v 1.1 2011/09/28 16:56:26 burnett Exp $
 """
 import os, glob, types
 import cPickle as pickle
@@ -72,8 +72,6 @@ def create_catalog(outdir, **kwargs):
                 ts band_ts
                 id_prob aclass id_ts
                 hp12
-                counts counts1 counts10
-                extended
                 pnorm pindex cutoff 
                 pnorm_unc pindex_unc cutoff_unc
                 e0 pivot_energy 
@@ -81,7 +79,6 @@ def create_catalog(outdir, **kwargs):
                 eflux eflux_unc
                 beta beta_unc
                 modelname 
-                bts1 bts10
                 fit_ra fit_dec a b ang qual delta_ts
                 """.split() 
             if addtorec is not None:
@@ -101,18 +98,25 @@ def create_catalog(outdir, **kwargs):
                 data.append( cnan if adict is None else adict['prob'][0])
                 data.append('%-7s'%get_class(adict))
                 data.append( cnan if adict is None else adict['deltats'][0])
-                data.append(Band(12).index(skydir))
-                band_info = entry['band_info']
-                sig_counts=band_info['signal_counts'] if 'signal_counts' in band_info else None
-                for i in (0,4,8):
-                    data.append(sig_counts[i:,0].sum() if sig_counts is not None else cnan)
-                data.append( entry['extent'] is not None)
+                hp12 = Band(12).index(skydir)
+                data.append(hp12)
+                #band_info = entry.get('band_info', None)
+                #if band_info is None:
+                #    bts = sig_counts=0
+                #    sig_counts = None
+                #else:
+                #    sig_counts=band_info['signal_counts'] if 'signal_counts' in band_info else None
+                #    bts = band_info['ts']
+                #
+                #for i in (0,4,8):
+                #    data.append(sig_counts[i:,0].sum() if sig_counts is not None else cnan)
+                #data.append( entry['extent'] is not None)
                 
                 model  = entry['model']
-                if '_p' not in model.__dict__: model._p = model.p 
+                #if '_p' not in model.__dict__: model._p = model.p 
                 eflux = list(np.array(model.i_flux(e_weight=1, error=True, emax=1e5))*1e6) if ts>10 else [0.,0.]
                 if np.any(np.isnan(eflux)):
-                    print 'bad energy integral, source %s' %name
+                    print 'bad energy integral, source %s [%d]' % (name, hp12)
                 #if np.isnan(eflux[0]):
                 #    import pdb; pdb.set_trace()
                 p,p_relunc = model.statistical()
@@ -131,21 +135,23 @@ def create_catalog(outdir, **kwargs):
                 flux_unc = flux*p_relunc[0]
                 data += [e0, pivot_energy]
                 data += [flux, flux_unc]
+                
                 # energy flux from model e < 1e5, 1e-6 MeV units
                 data += eflux
                 if psr_fit:
                     data += [cnan,cnan, 'ExpCutoff']
                 else:
                     data += [cnan,cnan, 'PowerLaw'] if p[2]<=0.01 else [p[2], p_unc[2], 'LogParabola']
-                bts = band_info['ts']
-                data += [sum(bts[4:]), sum(bts[8:])] ### note assumptions that 1, 10 GeV start at 4,8
+                #data += [sum(bts[4:]), sum(bts[8:])] ### note assumptions that 1, 10 GeV start at 4,8
                 ellipse = entry.get('ellipse', None)
-                if ellipse is None or np.any(np.isnan(ellipse)):
+                if ellipse is None or np.any(np.isnan(np.array(ellipse))):
                     data += [np.nan]*7
                 else:
-                    data += ellipse 
+                    ### oops.
+                    #t = ellipse['ra'], ellipse['dec'],ellipse['a'],ellipse['b'],ellipse['ang'],ellipse['qual'], np.nan #ellipse['delta_ts'] 
+                    data += ellipse
                     if self.update_position and ts>self.ts_min:
-                        fit_ra, fit_dec, a, b, ang, qual, delta_ts = ellipse
+                        fit_ra, fit_dec, a, b, ang, qual, delta_ts =ellipse
                         #assert False, 'break'
                         if qual<5 and delta_ts<9 and a < 0.2 :
                             data[1:3] = [fit_ra, fit_dec]
@@ -170,7 +176,8 @@ def create_catalog(outdir, **kwargs):
         def __init__(self,  nside=12):
             self.colnames = """name galnorm galindex isonorm  limbnorm
                                 galnorm_unc galindex_unc isonorm_unc limbnorm_unc
-                                loglike chisq""".split()
+                                backlimb backlimb_unc
+                                loglike chisq glon glat ra dec""".split()
             self.rec = makerec.RecArray(self.colnames)
             self.nside=nside
             
@@ -178,19 +185,20 @@ def create_catalog(outdir, **kwargs):
             name = pk['name']
             diffuse_names = pk['diffuse_names']
             models = pk['diffuse'] 
-            # klugy fix to read in pre-_p model fix
-            for m in models: 
-                if '_p' not in m.__dict__: m._p = m.p
             norm, norm_relunc = [np.hstack([m.statistical()[i] for m in models] ) for i in range(2)]
             p = norm[:3]
             p_unc = p*norm_relunc[:3] 
             no_limb = len(diffuse_names)==2 or (diffuse_names[2]).split('_')[0]!='limb'
             limbnorm, limbnorm_unc = [0,0] if no_limb else [norm[3], norm[3]*norm_relunc[3]]
+            blimbnorm, blimbnorm_unc = [0,0] if no_limb else [norm[4], norm[4]*norm_relunc[4]]
             data = [name] + list(np.hstack((p,[limbnorm], p_unc, [limbnorm_unc])))
+            data += [blimbnorm,  blimbnorm_unc]
             data += [pk['logl']]
             counts = pk['counts']
             obs,mod = counts['observed'], counts['total']
             data += [((obs-mod)**2/mod).sum()]
+            skydir = pk['skydir']
+            data += [skydir.l(), skydir.b(), skydir.ra(), skydir.dec()]
             assert len(data)==len(self.colnames), 'mismatch between names, data'
             self.rec.append(*data)
             
