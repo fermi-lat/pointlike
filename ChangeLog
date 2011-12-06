@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Dec  6 13:34:01 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Bugfix for Dark Matter Models object  to set non-fit parameters
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-26-00, operation: add
 Package: pointlike
