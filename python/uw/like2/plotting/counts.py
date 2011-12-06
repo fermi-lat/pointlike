@@ -1,6 +1,6 @@
 """
 Code to generate an ROI counts plot 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.2 2011/11/18 14:19:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/counts.py,v 1.3 2011/11/21 14:37:54 burnett Exp $
 
 Authors M. Kerr, T. Burnett
 
@@ -26,15 +26,22 @@ def get_counts(roi, event_class=None, tsmin=10):
     if event_class is not None:
         bands = [b for b in bands if b.band.ec==event_class]
     assert len(bands)>0, 'get_counts: no bands found'
-    free_sources = np.array(roi.sources)[roi.sources.free]# | [s.skydir is None for s in roi.sources] ]
-    good_ts = np.array([ s.sedrec.ts.sum()>tsmin if hasattr(s,'sedrec') else True for s in free_sources])
-    good_sources = free_sources[good_ts]
-    weak_sources = free_sources[~good_ts]
-    names = np.array([s.name for s in good_sources])
-    bandts = np.array([s.sedrec.ts.sum() if hasattr(s,'sedrec') else None for s in good_sources])
+    all_sources = np.array(roi.sources)
+    global_mask = np.array([s.skydir is None for s in roi.sources])
+    free_mask = np.array([s.skydir is not None and np.any(s.spectral_model.free) for s in roi.sources])
+    
+    global_sources = np.array([ s for s in roi.sources if s.skydir is None])
+    free_sources = all_sources[free_mask] 
+    strong_filter= lambda s: s.sedrec.ts.sum()>tsmin if hasattr(s,'sedrec')\
+            else True if s in free_sources else False
+    strong_mask = np.array([strong_filter(s) for s in all_sources])
+    weak_mask = free_mask * (~strong_mask)
+    
+    names = np.array([s.name for s in np.hstack([global_sources,free_sources])])
+    bandts = np.array([s.sedrec.ts.sum() if hasattr(s,'sedrec') else None for s in free_sources])
     energies = sorted(list(set([b.energy for b in bands])))
     nume = len(energies)
-    numsrc = len(good_sources)
+    numsrc = sum(global_mask | strong_mask)
     observed = np.zeros(nume)
     fixed = np.zeros(nume)
     weak = np.zeros(nume)
@@ -43,13 +50,14 @@ def get_counts(roi, event_class=None, tsmin=10):
     for i, energy in enumerate(energies):
         for b in bands:
             if b.energy!=energy: continue
+            counts = np.array([s.counts for s in b]) # array of all model counts
             observed[i] += sum(b.data)
             fixed[i] += b.fixed_counts            
-            weak[i]  += np.array([s.counts for s in b.free_sources[~good_ts]]).sum()
-            model_counts[i,:]  += np.array([s.counts for s in b.free_sources[good_ts]])
+            weak[i]  += sum(counts[weak_mask]) 
+            model_counts[i,:]  += counts[global_mask | strong_mask]
             total[i] += b.counts
     models = [(names[j] , model_counts[:,j]) for j in range(numsrc)]
-    models.append( ('TS<%.0f'%tsmin, weak))
+    if sum(weak)>0: models.append( ('TS<%.0f'%tsmin, weak))
     models.append( ('(fixed)', fixed))
     chisq = ((observed-total)**2/total).sum()
     return dict(energies=energies, observed=observed, models=models, 
