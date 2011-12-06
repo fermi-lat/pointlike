@@ -2,7 +2,7 @@
 Basic fitter utilities
 
 Authors: Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.2 2011/08/21 03:42:54 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.3 2011/11/21 14:44:56 burnett Exp $
 
 """
 
@@ -17,8 +17,6 @@ class Fitted(object):
     @property
     def bounds(self):
         return None
-    def gradient(self,x):
-        return None
     def get_parameters(self):
         raise FitterException('get_parameters is not implemented')
     def set_parameters(self, par):
@@ -28,7 +26,6 @@ class Fitted(object):
         """ minimize the function using optimize.fmin_l_bfgs_b
         """
         use_gradient = kwargs.pop('use_gradient', self.gradient(self.get_parameters()) is None)
-        print 'use_gradient', use_gradient
         if not use_gradient: kwargs.update(approx_grad=True)
         ret =optimize.fmin_l_bfgs_b(self, self.get_parameters(), 
             bounds=self.bounds, 
