@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.10 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.10 2011/12/02 20:08:23 wallacee Exp $
+__version__ = '$Revision: 1.11 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/data/dataman.py,v 1.11 2011/12/02 20:12:52 wallacee Exp $
 
 import os
 import collections
@@ -636,6 +636,8 @@ class DataSet(object):
         if isinstance(pdat,DataSpec):
             return pdat
         elif hasattr(pdat,'__iter__'):
+            if isinstance(pdat[0],DataSpec):
+                return pdat
             return self._load_files(pdat)
         else:
             #temporary kludge for my local version
