@@ -1,17 +1,14 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.3 2011/10/11 19:05:33 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.2 2011/10/05 21:37:49 burnett Exp $
 """
 import os, types, glob, time
 import cPickle as pickle
 import numpy as np
-from . import processor
+from . import processor, parallel
 from .. import main, roisetup, skymodel
 from uw.utilities import makerec
-try:
-    from uw.utilities.assigntasks import setup_mec, AssignTasks, get_mec, kill_mec, free
-except:
-    print 'assigntasks failed to open'
+from .parallel import  AssignTasks, get_mec, kill_mec, free
 
 class Pipe(roisetup.ROIfactory):
     """ This is a subclass of ROIfactory,
@@ -19,10 +16,6 @@ class Pipe(roisetup.ROIfactory):
     IPython paralellization: the constructor defines the environment, and if called with
     an index, it will run a full analysis for that ROI.
     
-    indir : string
-        name of a folder containing the sky model description, passed to 
-           skymodel.SkyModel
-           
     """
     def __init__(self, indir, dataset,  **kwargs):
         """
@@ -80,16 +73,30 @@ class Pipe(roisetup.ROIfactory):
         roi_kw.update(**kwargs)
         roi = self.roi(index , roi_kw=roi_kw )
         
-        self.processor(roi, **self.process_kw)
+        return self.processor(roi, **self.process_kw)
 
     def roi(self, *pars, **kwargs):
-        return main.ROI_user(super(Pipe, self).roi(*pars, **kwargs))
+        try:
+            t = super(Pipe, self).roi(*pars, **kwargs)
+        except Exception, e:
+            print 'trying again after exception %s' %e
+            t = super(Pipe, self).roi(*pars, **kwargs)
+
+        return main.ROI_user(t)
         
     def names(self):
         return [self.selector(i).name() for i in range(12*self.nside**2)]
+        
+    def setup_mec(self, block=True):
+        mec = parallel.get_mec()
+        assert len(mec)>0, 'no engines to setup'
+        print 'setting up %d engines...' % len(mec)
+        ar = mec[:].execute(self(), block=block)
+        return ar
 
 class Setup(dict):
     """ Setup is a dictionary with variable run parameters
+    also will setup and run parallel
     """
 
     def __init__(self, version=None,  **kwargs):
@@ -97,26 +104,26 @@ class Setup(dict):
         if version is None: version = int(open('version.txt').read())
         indir=kwargs.pop('indir', 'uw%02d'%(version)) 
         self.outdir=outdir=kwargs.pop('outdir', 'uw%02d'%(version+1))
+        if not os.path.exists(outdir): os.mkdir(outdir)
         self.version=version
         if os.name=='nt':
             os.system('title %s %s'% (os.getcwd(), indir))
-        self.update(dict( cwd =os.getcwd(), 
+        self.update(dict( cwd='$HOME/analysis/'+os.path.split(os.getcwd())[-1], 
                 indir = indir,
                 auxcat='',
                 outdir=outdir,
                 pass_number=0,
-                dataset = 'P7_V4_SOURCE',
+                datadict = dict(dataname='P7_V4_SOURCE'),
                 diffuse = ('ring_24month_P76_v1.fits', 'isotrop_21month_P76_v2.txt'),
                 extended= None,
                 alias= {}, 
                 skymodel_extra = '',
-                irf = 'P7SOURCE_V4PSF',
+                irf = 'P7SOURCE_V6',
                 associator ='all_but_gammas',
                 sedfig_dir = None,
                 tsmap_dir  = None, tsfits=False,
                 localize=True,
-                emin=100,
-                emax=800000,
+                emin=100, emax=316227,
                 processor='processor.process',
                 fix_beta=False, dofit=True,
                 source_kw=dict(),
@@ -129,8 +136,6 @@ class Setup(dict):
                                 #  (ts_map.KdeMap, "kde", dict()),))
                 dampen = 1.0,
                 setup_cmds='',
-                minROI=7,
-                maxROI=7
                 ))
         self.update(kwargs)
         # first-order replace
@@ -140,14 +145,15 @@ class Setup(dict):
                 self['tables'] = self['tables']%self
                 #print 'fix key %s: %s' % (key, self[key])
         self.setup_string =  """\
-import os, pickle; os.chdir(r"%(cwd)s");%(setup_cmds)s
+import os, pickle; os.chdir(os.path.expandvars(r"%(cwd)s"));%(setup_cmds)s
 from uw.like2.pipeline import pipe; from uw.like2 import skymodel
-g=pipe.Pipe("%(indir)s", "%(dataset)s",  event_class=0, 
+g=pipe.Pipe("%(indir)s", %(datadict)s, 
         skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,
             extended_catalog_name="%(extended)s", update_positions=%(update_positions)s,
             free_index=%(free_index)s,
             alias =%(alias)s, %(skymodel_extra)s), 
         analysis_kw=dict(irf="%(irf)s", minROI=%(minROI)s, maxROI=%(maxROI)s, emin=%(emin)s,emax=%(emax)s),
+        cache="",
         processor="%(processor)s",
         associate="%(associator)s",
         process_kw=dict(outdir="%(outdir)s", pass_number=%(pass_number)s,
@@ -160,13 +166,57 @@ g=pipe.Pipe("%(indir)s", "%(dataset)s",  event_class=0,
             ),
         fit_kw = %(fit_kw)s,
     ) 
-""" %self
+n,chisq = len(g.names()), -1
+""" % self
+        self.mecsetup=False
         print 'Pipeline input, output: %s -> %s ' % (indir, outdir)
+        
     def __call__(self): return self.setup_string
     
     def g(self):
         exec(self(), globals()) # should set g
         return g
+
+    def setup_mec(self, block=True):
+        """ send our setup string to the current engines
+        """
+        mec = parallel.get_mec()
+        assert len(mec)>0, 'no engines to setup'
+        print 'setting up %d engines...' % len(mec)
+        ar = mec[:].execute(self(), block=block)
+        self.mecsetup=True
+        self.dump()
+        return ar
+        
+    def dump(self):
+        """ save the setup string, and dictionary """
+        open(self.outdir+'/setup_string.txt', 'w').write(self.setup_string)
+        open(self.outdir+'/config.txt', 'w').write(self.__str__())
+    
+    def run(self, fn=None, tasklist=None, **kwargs):
+        """ note: fn should be  lambda x:(x,g(x))
+        """
+        if not self.mecsetup:
+            self.setup_mec()
+        outdir = self.outdir
+        if outdir is not None:
+            if not os.path.exists(outdir): 
+                os.mkdir(outdir)
+        if fn is None:
+            fn = lambda x:(x,g(x))
+        print 'writing results to %s' %outdir
+        local = kwargs.pop('local', False)
+        ignore_exception = kwargs.pop('ignore_exception', False)
+        sleep_interval = kwargs.pop('sleep_interval', 60)
+        if tasklist is None:
+            mytasks =[ (864+i/2) if i%2==0 else (863-i/2) for i in range(1728)]
+        else: 
+            mytasks = tasklist[:]
+        lc= AssignTasks(fn, mytasks, 
+            timelimit=5000, local=local, ignore_exception=ignore_exception,  )
+        if sleep_interval>0:
+            lc(sleep_interval)
+        return lc
 
 
 def getg(setup_string):
@@ -225,7 +275,7 @@ def roirec(outdir, check=False):
         print 'no fit info in file(s) %s' % bad if len(bad)<10 else (str(bad[:10])+'...')
     return recarray()
 
-def check_converge(month, tol=10, log=None):
+def check_converge(month, tol=10, add_neighbors=True, log=None):
     """ check for convergence, ROI that have been updated
     month: int or string
         if int, intrepret as a month, else a folder
@@ -242,6 +292,7 @@ def check_converge(month, tol=10, log=None):
     rmin,rmax = list(diff).index(dmin), list(diff).index(dmax)
     changed = set(np.arange(1728)[np.abs(diff)>tol])
     print >>log, '\tpass %d:  %d changed > %d, min, max: %d(#%d) %d(#%d)' % (max(r.niter),len(changed), tol, dmin,rmin,dmax,rmax),
+    if not add_neighbors: return list(changed)
     nbrs = set()
     b12 = Band(12)
     for x in changed: 
@@ -254,50 +305,13 @@ def check_converge(month, tol=10, log=None):
     if log is not None: log.flush()
     return q
     
-def iterate_months(month, mec, make_setup, minpass=0, maxpass=7, log=None, tol=10, dampen=0.5, **kwargs):
-    """
-    run main for a given month or dataset. minpass is starting pass number:
-        0 : inital run from default skymodel
-        1 : update all ROIs in place
-        >1: update only changed ROIs and neighbors
-    loops until maxpass, or no ROIs to update
-    """
-   
-    outdir = 'month%02d'%month if type(month)==types.IntType else month
-    if log is None:
-        log = open(os.path.join(outdir, 'log.txt'), 'a')
-    converged=False
-    iterfilename = os.path.join(outdir, 'iteration.txt')
-    if  not os.path.exists(iterfilename):
-        iterfile = open(iterfilename, 'w').write('%d'%minpass)
-    minpass = int(open(iterfilename).read())
-    for pass_number in range(minpass, maxpass):
-        print >>log, time.asctime(), 'start iteration %d, damping factor=%.2f' % (pass_number, dampen)
-        log.flush()
-        if pass_number==0:
-            setup = make_setup(outdir, False, pass_number)
-            main(setup, mec=mec, **kwargs)
-        elif pass_number==1:
-            setup = make_setup(outdir, True, pass_number)
-            main(setup, mec=mec, **kwargs)
-        else:
-            taskids = check_converge(outdir, log=log, tol=tol)
-            if len(taskids)==0: 
-                converged=True; break
-            setup = make_setup(outdir, True, pass_number, dampen=dampen)
-            main(setup, mec=mec, taskids=taskids, **kwargs
-            )
-        open(iterfilename, 'w').write('%d'%pass_number);
-    
-    print >>log, time.asctime(), 'finished'
-    log.flush()
-    print 'done!' if converged else 'Warning: did not converge' 
- 
-#--------------------        
-def pmain( setup, mec=None, taskids=None, local=False,
+       
+def pmain( setup, fn, taskids=None, local=False,
         ignore_exception=False, 
         logpath='log',
-        progress_bar=False):
+        sleep_interval=60,
+        ):
+        
     """
     Parameters
         setup : Setup object, implements
@@ -306,7 +320,6 @@ def pmain( setup, mec=None, taskids=None, local=False,
                 a function g(n), n an integer
                 g.names() must return a list of task names
             outdir =setup.outidr : directory to save files
-        mec : None or a MultiEngineClient instance
         taskids : None or a list of integers
             the integers should be in range(0,len(g.names())
     """
@@ -316,58 +329,13 @@ def pmain( setup, mec=None, taskids=None, local=False,
         if not os.path.exists(outdir): 
             os.mkdir(outdir)
         print 'writing results to %s' %outdir
-    # create an instance as a test, and to get the number of tasks that it defines.
-    # executing the setup string must create an object g, where g(n) for 0<=n<len(g.names())
-    # will execute the task n
-    g = getg(setup_string)
-    if logpath is not None and outdir is not None:
-        print >> open(os.path.join(outdir, 'config.txt'), 'w'), str(g)
-        print >> open(os.path.join(outdir, 'setup_string.txt'), 'w'), setup_string
-    names = g.names(); 
-
-    if taskids is None: taskids = range(len(names))
-    if len(names)==0:
-        raise InvalidArgument('no tasks defined by Pipeline object')
-    else:
-        print 'found %d tasks, will process %d' % (len(names), len(taskids))
-
-    
-    # list of function calls to exec for all the tasks     
-    tasks = ['g(%d)'% i for i in taskids]
-    post = 'del g' #for cleanup
-    del g #do not need this instance
-    
-    def callback(id, result):
-        if logpath is None: return
-        try:
-            name = names[taskids[id]]
-            logdir = os.path.join(outdir, logpath) if outdir is not None else logpath
-            if not os.path.exists(logdir): os.mkdir(logdir)
-            out = open(os.path.join(logdir, '%s.txt' % name.strip().replace(' ','_').replace('+','p')), 'a')
-            print >>out, '='*80
-            print >>out, '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (name,))
-            print >>out, result
-            out.close()
-        except:
-            print 'got exception writing %s' % name
-            raise
             
-    if not local and mec is None: 
-        setup_mec()
-        time.sleep(20)
-        mec=get_mec()
-        assert len(mec.get_ids())>10, 'Failed to setup mec?'
-    lc= AssignTasks(setup_string, tasks, post=post, mec=mec, 
-        timelimit=5000, local=local, callback=callback, 
-        ignore_exception=ignore_exception,
-         progress_bar=progress_bar)
-    lc(15)
-    if not local:
-        if mec is None: 
-            get_mec().kill(True)
-        else:
-            get_mec().reset()
-        
+    lc= AssignTasks(fn, taskids, 
+        timelimit=5000, local=local, ignore_exception=ignore_exception,
+         )
+    if sleep_interval>0:
+        lc(sleep_interval)
+       
     return lc
    
 

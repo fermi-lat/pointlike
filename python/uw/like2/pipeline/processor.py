@@ -1,8 +1,8 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.6 2011/10/11 19:05:33 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.5 2011/10/06 13:00:32 burnett Exp $
 """
-import os, time
+import os, time, sys
 import cPickle as pickle
 import numpy as np
 import pylab as plt
@@ -11,10 +11,22 @@ from uw.like import srcid
 from uw.utilities import image
 from ..plotting import sed, counts 
 from .. import tools, sedfuns
-np.seterr(invalid='raise', divide='raise', over='raise')
+#np.seterr(invalid='raise', divide='raise', over='raise')
+np.seterr(invalid='raise', divide='raise', over='ignore')
 def isextended(source):
     return source.__dict__.get(  'spatial_model', None) is not None
-    
+  
+class OutputTee(object):
+    def __init__(self, logfile):
+        self.logstream = open(logfile, 'a')
+        self.stdout = sys.stdout
+        sys.stdout = self
+    def write(self, stuff):
+        self.logstream.write(stuff)
+        self.stdout.write(stuff)
+    def close(self):
+        sys.stdout =self.stdout
+        self.logstream.close()
         
 def fix_beta(roi, bts_min=30, qual_min=15,):
     refit=candidate=False
@@ -96,6 +108,7 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwarg
     output['diffuse_names'] = [s.name for s in diffuse_sources]  #roi.dsm.names
     output['logl'] = roi.logl if not failed else 0
     output['parameters'] = roi.get_parameters() 
+    output['gradient'] = np.asarray(roi.gradient(), np.float32)
     output['time'] = time.asctime()
 
     if failed:
@@ -129,8 +142,8 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwarg
             sedrec = sedrec,
             band_ts=0 if sedrec is None else sedrec.ts.sum(),
             pivot_energy = pivot_energy,
-            ellipse= None if loc is None or not hasattr(loc,'ellipse') else s.loc.ellipse,
-            associations = s.__dict__.get('adict',None)
+            ellipse= s.__dict__.get('ellipse', None), 
+            associations = s.__dict__.get('adict',None),
             )
     output.update(kwargs) # add additional entries from kwargs
     f = open(filename,'wb') #perhaps overwrite
@@ -243,13 +256,21 @@ def process(roi, **kwargs):
     dampen   = kwargs.pop('dampen', 1.0)  # factor to adjust parameters before writing out
     counts_dir = kwargs.pop('counts_dir', 'counts_dir')
     dofit   =  kwargs.pop('dofit', True)
-    pass_number=kwargs.pop('pass_number', 0)
+    pass_number= 0
     tables = kwargs.pop('tables', None)
     localize_kw = kwargs.pop('localize_kw', {}) # could have bandfits=False
-
+    diffuse_only = kwargs.pop('diffuse_only', False)
+    countsplot_tsmin = kwargs.pop('countsplot_tsmin', 100) # minimum for counts plot
     damp = Damper(roi, dampen)
     
-    if outdir is not None: counts_dir = os.path.join(outdir,counts_dir)
+    if outdir is not None: 
+        counts_dir = os.path.join(outdir,counts_dir)
+        logpath = os.path.join(outdir, 'log')
+        if not os.path.exists(logpath): os.mkdir(logpath)
+        outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
+        print  '='*80
+        print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
+
     if not os.path.exists(counts_dir):os.makedirs(counts_dir)
     
     roi.print_summary(title='before fit, logL=%0.f'%roi.log_like())#sdir=roi.roi_dir)#, )
@@ -264,8 +285,13 @@ def process(roi, **kwargs):
             #    roi.prior.limit_pars(True) # adjust parameters to limits
             #roi.prior.enabled=True
             try:
-                roi.fit(ignore_exception=False, use_gradient=True, call_limit=1000)
-                roi.print_summary(title='after global fit, logL=%0.f'% roi.log_like())#print_summary(sdir=roi.roi_dir,)
+                if diffuse_only:
+                    ndiff = len([n for n in roi.parameter_names if n.split('_')[0] in ('ring','isotrop')])
+                    roi.summary(range(ndiff), title='Before fit to diffuse components')
+                    roi.fit(range(ndiff))
+                else:
+                    roi.fit(ignore_exception=False, use_gradient=True, call_limit=2000)
+                    roi.print_summary(title='after global fit, logL=%0.f'% roi.log_like())#print_summary(sdir=roi.roi_dir,)
 
                 if repivot_flag:
                     repivot(roi, fit_sources)
@@ -290,29 +316,34 @@ def process(roi, **kwargs):
     outdir     = kwargs.pop('outdir', '.')
     associate= kwargs.pop('associate', None)
     if associate is not None and associate!='None':
-        for source in fit_sources:
-            make_association(source, roi.tsmap(source.name), associate)
+        for source in sources:
+            make_association(source, roi.tsmap(which=source.name), associate)
     def getdir(x ):
         if not kwargs.get(x,False): return None
         t = os.path.join(outdir, kwargs.get(x))
         if not os.path.exists(t): os.mkdir(t)
         return t
     sedfuns.makesed_all(roi, sedfig_dir=getdir('sedfig_dir'))
-    tools.localize_all(roi, tsmap_dir=getdir('tsmap_dir'))
+    if localize:
+        q, roi.quiet = roi.quiet,False
+        tools.localize_all(roi, tsmap_dir=getdir('tsmap_dir'))
+        roi.quiet=q
 
-    ax = counts.stacked_plots(roi,None)
-    cts=counts.get_counts(roi)
-    obs,mod = cts['observed'], cts['total']
-    chisq = ((obs-mod)**2/mod).sum()
-    print 'chisquared for counts plot: %.1f'% chisq
+    try:
+        ax = counts.stacked_plots(roi,None, tsmin=countsplot_tsmin)
+        cts=counts.get_counts(roi)
+        chisq = cts['chisq']
+        print 'chisquared for counts plot: %.1f'% chisq
+ 
+        if counts_dir is not None:
+            fout = os.path.join(counts_dir, ('%s_counts.png'%roi.name) )
+            ax[1].figure.savefig(fout, dpi=60)
+            print 'saved counts plot to %s' % fout
+    except Exception,e:
+        print 'Failed to analyze counts for roi %s: %s' %(roi.name,e)
+        chisq = -1
 
-    ax[1].text(roi.selected_bands[0].band.emin*1.1, 0.2,'chisq=%.1f'% chisq)
-    if counts_dir is not None:
-        fout = os.path.join(counts_dir, ('%s_counts.png'%roi.name) )
-        ax[1].figure.savefig(fout)
-        print 'saved counts plot to %s' % fout
-
-    if outdir is None:  return True
+    if outdir is None:  return chisq
     
     pickle_dir = os.path.join(outdir, 'pickle')
     if not os.path.exists(pickle_dir): os.makedirs(pickle_dir)
@@ -320,7 +351,8 @@ def process(roi, **kwargs):
         initial_logl=damp.initial_logl, 
         counts=cts,
         )
-    return True
+    outtee.close()
+    return chisq
 
 def residual_processor(roi, **kwargs):
     """ a roi processor that creates tables of residuals from the bands """
@@ -359,8 +391,8 @@ def full_sed_processor(roi, **kwargs):
         try:
             ts = roi.TS(source.name)
             if ts<ts_min: continue
-            sf = tools.SourceFlux(roi, source.name, )
-            sedrecs = [tools.SED(sf, event_class).rec for event_class in (0,1,None)]
+            sf = sedfuns.SourceFlux(roi, source.name, )
+            sedrecs = [sedfuns.SED(sf, event_class).rec for event_class in (0,1,None)]
                      
         except Exception,e:
             print 'source %s failed flux measurement: %s' % (source.name, e)
@@ -391,43 +423,86 @@ def full_sed_processor(roi, **kwargs):
                 ),
             open(fullfname, 'w'))
         print 'wrote sedinfo pickle file to %s' % fullfname
+    sys.stdout.flush()
             
 def roi_refit_processor(roi, **kwargs):
     """ roi processor to refit diffuse for each energy band
+    
+    kwargs
+    ------
+    outdir : string
+    emax : float 
+        maximum energy to fit (default 10000)
+    diffuse_names : list of diffuse names to refit
+        default ('ring',)
+    plot_dir : string
+        sub folder in outdir to save plots ['galfits_plots']
+    fit_dir : string
+        sub folder in outdir to save pickled fits ['galfits_all']
     """
-    def make_plot( d, labels=('front','back','both'), outdir=None):
+    outdir= kwargs.get('outdir')
+    emax =  kwargs.pop('emax', 10000)
+    names = kwargs.get('diffuse_names', ('ring',))
+    plot_dir =os.path.join(outdir, kwargs.pop('plot_dir', 'galfit_plots'))
+    fit_dir = os.path.join(outdir, kwargs.pop('fit_dir', 'galfits_all'))
+    ylim = kwargs.get('ylim', (0.75,1.25))
+    if not os.path.exists(fit_dir): os.mkdir(fit_dir)
+    if not os.path.exists(plot_dir): os.mkdir(plot_dir)
+
+    print 'processing ROI %s: refitting diffuse %s' % (roi.name, names)
+
+    def make_plot( d, labels=('front','back','both'), outdir=None, ylim=(0.75, 1.25)):
         plt.figure(99, figsize=(5,5));plt.clf()
         data = [np.array(d[label]['values'])[:,0] for label in labels]
         errors= [np.array(d[label]['errors'])[:,0] for label in labels]
-        energy = d['both']['energies']
-        name = d['name']
+        energy = np.array(d['both']['energies'])
+        name = d['roiname']
+        diffuse_name = d['diffuse_names'][0] #assume only one?
         for y,yerr,label in zip(data,errors,labels):
-            plt.errorbar(energy[:8]/1e3, y[:8], yerr=yerr[:8], fmt='o-' , lw=2, label=label)
-        plt.xscale('log'); plt.ylim((0.5, 1.25 ))
-        plt.title('Galactic fits for ROI %s'%name, fontsize='medium')
+            plt.errorbar(energy[:8]/1e3, y[:8], yerr=yerr[:8], 
+                fmt='o-' , ms=10, lw=2, label=label)
+        plt.xscale('log'); plt.ylim(ylim)
+        plt.title('Diffuse fits to %s for ROI %s'%(diffuse_name, name), fontsize='medium')
         plt.axhline(d['norms'][0], color='k', linestyle='--', label='full fit')
         plt.xlabel('Energy (GeV)');plt.ylabel('normalization factor')
-        plt.grid(True);plt.legend(loc='upper left');
+        plt.grid(True);plt.legend(loc='upper right');
         if outdir is not None:
-            filename = os.path.join(outdir,  '%s_galfitspec.png'%name)
-            plt.savefig(filename)
+            filename = os.path.join(outdir,  '%s_%s.png'%(name, diffuse_name))
+            plt.savefig(filename, dpi=60)
             print 'saved figure to %s'%filename
         
-    print 'processing ROI %s ' %roi.name
-    outdir   = kwargs.get('outdir')
-    diffusefits = os.path.join(outdir, 'galfits_all')
-    if not os.path.exists(diffusefits): os.mkdir(diffusefits)
-    dlike = sedfuns.DiffuseLikelihood(roi, names=kwargs.get('names', ('ring',)))
-    r = dict(name=roi.name, glon=roi.roi_dir.l(), glat=roi.roi_dir.b(), norms=dlike.saved_pars)
+    dlike = sedfuns.DiffuseLikelihood(roi, names=names)
+    r = dict(roiname=roi.name, glon=roi.roi_dir.l(), glat=roi.roi_dir.b(), 
+        diffuse_names=names, norms=dlike.saved_pars)
     for event_class,name in ((0,'front'),(1,'back'),(None,'both')):
-        r[name] = dlike.multifit(event_class=event_class)
-    plot_dir = os.path.join(outdir, 'galfit_plots')
-    if not os.path.exists(plot_dir): os.mkdir(plot_dir)
-    make_plot(r, outdir=plot_dir)    
-    fullfname = os.path.join(diffusefits, roi.name+'_diffuse.pickle')
+        r[name] = dlike.multifit(event_class=event_class, emax=emax)
+    make_plot(r, outdir=plot_dir, ylim = ylim)    
+    fullfname = os.path.join(fit_dir, roi.name+'_diffuse.pickle')
     pickle.dump( r, open(fullfname, 'w'))
     print 'wrote diffuse refit pickle file to %s' % fullfname
+    
+def iso_refit_processor(roi, **kwargs):
+    kwargs.update(diffuse_names=('isotrop',),
+            plot_dir='isofit_plots', fit_dir='isofits', ylim=(0,2))
+    return roi_refit_processor(roi, **kwargs)
 
+def limb_processor(roi, **kwargs):
+    outdir= kwargs.get('outdir')
+    limbdir = os.path.join(outdir, kwargs.get('limbdir', 'limb'))
+    if not os.path.exists(limbdir): os.mkdir(limbdir)
+    t = roi.all_bands[1][2]
+    fname = os.path.join(limbdir,'%s_limb.pickle' %roi.name)
+    pickle.dump( dict(ra=roi.roi_dir.ra(), dec=roi.roi_dir.dec(),
+        counts=t.counts, pixel_values=t.pixel_values), open(fname,'w'))
+    print 'wrote file to %s' %fname
+    
+    
+    
+def sed_roi(roi, **kwargs):
+    roi_refit_processor(roi, **kwargs)
+    full_sed_processor(roi, **kwargs)
+    
+    
 def cache_diffuse(roi, **kwargs):
     """ roi processor saves the convolved diffuse maps for an roi"""
     print 'processing %s' %roi.name
