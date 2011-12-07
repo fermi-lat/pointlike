@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: wallacee  Wed Dec  7 13:20:43 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	srcid.py 
+Log Message:
+Fix a problem with getting comments from a header card with pyfits.
+Clean up the machinery for importing source class modules.
+Fix __main__ to actually work, and exercise all counterpart classes.
+General code cleanup.
+
+    *
+------------------------------------------------------------
 User: wallacee  Tue Dec  6 17:17:53 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
