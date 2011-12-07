@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Tue Dec  6 17:17:53 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	specfitter.py 
+Log Message:
+Small change to the handling of an exception.
+
+
+    *
+------------------------------------------------------------
 User: lande  Tue Dec  6 15:37:33 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
