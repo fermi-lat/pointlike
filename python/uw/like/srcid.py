@@ -1,27 +1,42 @@
 """
 Python support for source association, equivalent to the Fermi Science Tool gtsrcid
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/srcid.py,v 1.28 2011/03/11 22:46:48 burnett Exp $
-author:  Eric Wallace <ewallace@uw.edu>
+author:  Eric Wallace <wallacee@uw.edu>
 """
+
+__version__ = "$Revision: 1.29 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/srcid.py,v 1.29 2011/03/20 23:24:52 wallacee Exp $
+
 import os
 import sys
 import math
 import re
-from operator import mul,add
-from glob import glob
+import operator
+
 import numpy as np
 import pyfits as pf
-from skymaps import SkyDir
-from uw.utilities.fitstools import rad_mask
+
+import skymaps
+from uw.utilities import fitstools,keyword_options
+
 
 class SrcidError(Exception): pass
 
 conv95 = (-2*np.log(0.05))**.5
 class SourceAssociation(object):
     """A class to associate LAT sources with multiwavelength counterparts."""
-    defaults = dict(catalog_dir = None,class_dir = None,verbosity=1,quiet=False)
 
-    def __init__(self,srcid_dir,**kwargs):
+    defaults = (('catalog_dir',None,
+                 'Path to counterpart catalogs, overriding "srcid_dir/cat"'),
+                ('class_dir',None,
+                 '''Path to directory containing class modules, overriding
+                    "srcid_dir/classes"'''),
+                ('verbosity',1,
+                 '''How verbose to be: 0 for no output, 1 for normal output,
+                    2 for extra output'''),
+                ('quiet',False,'Set verbosity=0. DEPRECATED'))
+
+    @keyword_options.decorate(defaults)
+    def __init__(self,srcid_dir='$FERMI/catalog/srcid',**kwargs):
         """
         Arguments:
            srcid_dir : Path to a directory containing a subfolders 'cat',
@@ -34,32 +49,28 @@ class SourceAssociation(object):
            verbosity : int, 0 for no output, 1 for normal output, 2 for extra output
            quiet: bool, deprecated, set verbosity = 0
         """
-        kw = self.defaults.copy()
-        for k,v in kw.items():
-            kw[k] = kwargs.pop(k,v)
-        if kwargs:
-            raise SrcidError('\n'.join(['Unrecognized kwargs:']+
-                            ["\t%s"%k for k in kwargs.keys()]+['']))
-        if kw['quiet']: kw['verbosity']=0
-        self.__dict__.update(kw)
-        if self.catalog_dir is None:
-            self.catalog_dir = os.path.join(srcid_dir,'cat')
-        if self.class_dir is None:
-            self.class_dir = os.path.join(srcid_dir,'classes')
-        if not srcid_dir in sys.path:
-            sys.path.insert(0,srcid_dir)
+        keyword_options.process(self,kwargs)
+        self.srcid_dir = os.path.expandvars(srcid_dir)
+        if self.catalog_dir is not None:
+            self.catalog_dir = os.path.expandvars(self.catalog_dir)
+        else:
+            self.catalog_dir = os.path.join(self.srcid_dir,'cat')
+        if self.class_dir is not None:
+            self.class_dir = os.path.expandvars(self.class_dir)
+        else:
+            self.class_dir = os.path.join(self.srcid_dir,'cat')
+        if self.quiet: self.verbosity=0
+        if not self.srcid_dir in sys.path:
+            sys.path.insert(0,self.srcid_dir)
         self.class_list=None
         try:
             global classes
             import classes
-            from classes import *
             self.class_list = classes.__all__
+            if self.verbosity:
+                print('Available counterpart classes are:\n%s'%(' '.join(self.class_list or [''])))
         except ImportError:
             raise SrcidError('Cannot find class modules to import.')
-
-        finally:
-            if self.verbosity:
-                print('Available counterpart classes are:\n%s'%(' '.join(self.class_list)))
         self.catalogs = {}
         self.sources = {}
 
@@ -83,15 +94,17 @@ class SourceAssociation(object):
                               computing local counterpart densities.
                               This is only included to get the same numbers
                               as gtsrcid, no reason to use it in general.
+            accept_in_r95[False]: bool, if True, accept sources within r95 as
+                                  associations, regardless of formal probability
         Return: a dictionary with keys=class, value = a list of (name, prob. skydir) tuples sorted by prob.
         """
-        kw = dict(cpt_class = None,name=None,trap_mask=False,unique = False)
+        kw = dict(cpt_class = None,name=None,trap_mask=False,unique = False,accept_in_r95=True)
         for k,v in kw.items():
             kw[k] = kwargs.pop(k,v)
         if kwargs:
             raise SrcidError('\n'.join(['Unrecognized kwargs for method "id":']+
                             ["\t%s"%k for k in kwargs.keys()]+['']))
-        if kw['cpt_class'] is None:
+        if kw['cpt_class'] is None or kw['cpt_class']=='all':
             kw['cpt_class'] = self.class_list
         if hasattr(kw['cpt_class'],'__iter__'):
             associations = dict()
@@ -102,14 +115,17 @@ class SourceAssociation(object):
                 if ass:
                     associations[c] = ass
             return associations
-        if not hasattr(classes,kw['cpt_class']):
+        try:
+            classes = __import__('classes',globals(),locals(),[kw['cpt_class']])
+            class_module = getattr(classes,kw['cpt_class'])
+        except ImportError, AttributeError:
             raise SrcidError("Counterpart class %s not found."%kw['cpt_class'])
-        class_module = eval('classes.%s'%kw['cpt_class'])
         if not self.catalogs.has_key(kw['cpt_class']):
             self.catalogs[kw['cpt_class']] = Catalog(class_module,self.catalog_dir,verbosity=self.verbosity)
         these = self.catalogs[kw['cpt_class']].associate(position,error,
                                                          trap_mask=kw['trap_mask'],
-                                                         unique = kw['unique'])
+                                                         unique = kw['unique'],
+                                                         accept_in_r95 = kw['accept_in_r95'])
         associations = [(a[0].name, a[1], a[0].skydir) for a in these if these]
         if kw['name'] is not None and associations!=[]:
             if not self.sources.has_key(kw['name']):
@@ -125,7 +141,7 @@ class SourceAssociation(object):
 
         associations = {}
         for s in r:
-            associations[s.name] = self.id(SkyDir(s.ra,s.dec),(s.a,s.b,s.ang),
+            associations[s.name] = self.id(skymaps.SkyDir(s.ra,s.dec),(s.a,s.b,s.ang),
                                            cpt_class = class_list,name = s.name,
                                            trap_mask=trap_mask,unique = False)
         return associations
@@ -154,29 +170,31 @@ class SourceAssociation(object):
                                      of the ellipse. Provided for compatibility
                                      with older versions of gtsrcid, no reason
                                      to use it otherwise.
+            accept_in_r95[False]: bool, if True, accept sources within r95 as
+                                  associations, regardless of formal probability
         Return: a dictionary with keys=names, values=dicts returned by id()
         """
         #Read in Fermi catalog
         kw = dict(cpt_class = None,unique=True,
-                  trap_mask=False,elliptical_errors=True)
+                  trap_mask=False,elliptical_errors=True,accept_in_r95=False)
         for k,v in kw.items():
             kw[k] = kwargs.pop(k,v)
         if kwargs:
             raise SrcidError('\n'.join(['Unrecognized kwargs for method "id":']+
                             ["\t%s"%k for k in kwargs.keys()]+['']))
-        locals().update(kw)
         _cat = pf.open(catalog)
         dat = _cat['LAT_POINT_SOURCE_CATALOG'].data
         names = dat.Source_Name if 'Source_Name' in dat.names else dat.NickName
-        ras,decs = dat.RA.astype('float'),dat.DEC.astype('float')
-        if kw['elliptical_errors']:
+        try:
+            ras,decs = dat.RA.astype('float'),dat.DEC.astype('float')
+        except AttributeError:
+            ras,decs = dat.RAJ2000.astype('float'),dat.DEJ2000.astype('float')
+        if kw.pop('elliptical_errors'):
             maj_axes,min_axes = dat.Conf_95_SemiMajor/conv95,dat.Conf_95_SemiMinor/conv95
             angles = dat.Conf_95_PosAng
         else:
             maj_axes=min_axes=angles = dat.Conf_95_SemiMajor/conv95
-        id_kw = kw.copy()
-        id_kw.pop('elliptical_errors')
-        return dict(((name,self.id(SkyDir(ra,dec),(a,b,ang),**id_kw))
+        return dict(((name,self.id(skymaps.SkyDir(ra,dec),(a,b,ang),**kw))
                       for name,ra,dec,a,b,ang in zip(names,ras,decs,maj_axes,min_axes,angles)))
 
     def __str__(self):
@@ -221,9 +239,8 @@ class Catalog(object):
     def init(self,class_module,catalog_dir,verbosity=1):
         self.verbosity = verbosity
         #self.class_module = self._get_class_module(class_file)
-        if type(class_module) == type(''):
-            exec('import %s'%class_module)
-            self.class_module = eval(class_module)
+        if isinstance(class_module,str):
+            self.class_module = __import__(class_module)
         else:
             self.class_module = class_module
         self.cat_file = os.path.join(catalog_dir,self.class_module.catname)
@@ -233,7 +250,7 @@ class Catalog(object):
             self.name_prefix = self.class_module.name_prefix
         else:
             self.name_prefix = ''
-        self.coords = SkyDir.EQUATORIAL
+        self.coords = skymaps.SkyDir.EQUATORIAL
         self.prior = self.class_module.prob_prior
         self.prob_threshold = self.class_module.prob_thres
         self.max_counterparts = self.class_module.max_counterparts
@@ -257,9 +274,9 @@ class Catalog(object):
     def __init__(self,class_module,catalog_dir,verbosity=1):
         self.names,lons,lats = self.init(class_module,catalog_dir,verbosity=verbosity)
         self.mask = self._make_selection()
-        self.sources = np.array([CatalogSource(self,name,SkyDir(lon,lat,self.coords))
+        self.sources = np.array([CatalogSource(self,name,skymaps.SkyDir(lon,lat,self.coords))
                         for name,lon,lat in zip(self.names,lons,lats)])[self.mask]
-        if self.coords == SkyDir.GALACTIC:
+        if self.coords == skymaps.SkyDir.GALACTIC:
             self.ras = np.array([source.skydir.ra() for source in self.sources])
             self.decs = np.array([source.skydir.dec() for source in self.sources])
         else:
@@ -271,11 +288,7 @@ class Catalog(object):
 
     def _get_class_module(self,class_module):
         """Import and return module class_file"""
-        #if not os.path.dirname(class_file) in sys.path:
-        #    sys.path.insert(0,os.path.dirname(class_file))
-        #cls = os.path.basename(class_file).split('.')[0]
-        exec('import %s'%class_module)
-        return eval(class_module)
+        return __import__(class_module)
 
     def _get_hdu(self,fits_cat):
         """Find and return HDU with catalog information."""
@@ -309,7 +322,7 @@ class Catalog(object):
                 break
             #Sometimes UCDs are declared in comments
             #May be fragile - depends on specific format for comments as in gamma-egr catalog
-            value_comment = card._getValueCommentString().split('/')
+            value_comment = card.ascardimage().split('/')
             if len(value_comment)>1:
                 comment = value_comment[1]
                 ucd_string = comment[comment.find('UCD'):].split()
@@ -358,7 +371,7 @@ class Catalog(object):
                 except ValueError:
                     lat_key = ttypes[ttypes.keys()[ttypes.values().index('DEC')]].value
         if not lon_key:
-            self.coords = SkyDir.GALACTIC
+            self.coords = skymaps.SkyDir.GALACTIC
             if 'POS_GAL_LON' in ucds.values():
                 lon_key = ucds.keys()[ucds.values().index('POS_GAL_LON')]
                 lat_key = ucds.keys()[ucds.values().index('POS_GAL_LAT')]
@@ -438,10 +451,10 @@ class Catalog(object):
         if trapezoid:
             tmask = trap_mask(self.ras,self.decs,position,radius)
             sources = self.sources[tmask]
-            rmask = rad_mask(self.ras[tmask],self.decs[tmask],position,radius,mask_only=True)
+            rmask = fitstools.rad_mask(self.ras[tmask],self.decs[tmask],position,radius,mask_only=True)
             return sources[rmask]
         else:
-            rmask = rad_mask(self.ras,self.decs,position,radius,mask_only=True)
+            rmask = fitstools.rad_mask(self.ras,self.decs,position,radius,mask_only=True)
             return self.sources[rmask]
 
     def local_density(self,position,radius=4,fom=1.0,trap_mask=False):
@@ -459,13 +472,14 @@ class Catalog(object):
         solid_angle = np.degrees(np.degrees(solid_angle))
         return n_sources/solid_angle
 
-    def associate(self,position,error_ellipse,unique = True,trap_mask=False):
+    def associate(self,position,error_ellipse,unique = True,trap_mask=False,accept_in_r95=False):
         """Given a skydir and error ellipse, return associations.
 
         Arguments:
             position      : A SkyDir representing the location of the source to be associated.
             error_ellipse : Sequence of length 3 representing major and minor axes and position angle of an
                           error ellipse in degrees
+            accept_in_r95 : If True, accept anything within r95 as an association
 
         Returns all sources with posterior probability greater than prob_threshold,
         sorted by probability.
@@ -500,7 +514,10 @@ class Catalog(object):
                 norm += phk[i]
             post_probs = phk/norm
         #return sources above threshold with posterior probability, sorted by posterior probability
-        source_list = [(source,prob) for prob,source in zip(post_probs,sources) if prob > self.prob_threshold]
+        if accept_in_r95:
+            source_list = [(source,prob) for prob,source in zip(post_probs,sources) if prob > self.prob_threshold or np.degrees(source.skydir.difference(position))<error_ellipse[0]*conv95]
+        else:
+            source_list = [(source,prob) for prob,source in zip(post_probs,sources) if prob > self.prob_threshold]
         source_list.sort(key = lambda x:-x[1])
         #source_dict = dict((el[1].name,el) for el in source_list[:self.max_counterparts])
         return source_list
@@ -513,10 +530,10 @@ class GammaCatalog(Catalog):
         errors = self.get_position_errors()
         self.source_mask_radius = 3*max(errors)
         self.mask = self._make_selection()
-        self.sources = np.array([GammaRaySource(self,name,SkyDir(lon,lat,self.coords),error)
+        self.sources = np.array([GammaRaySource(self,name,skymaps.SkyDir(lon,lat,self.coords),error)
                         for name,lon,lat,error in zip(self.names,lons,lats,errors)])[self.mask]
         #Save ras and decs for use in select_circle. MUCH faster than using the SkyDirs.
-        if self.coords == SkyDir.GALACTIC:
+        if self.coords == skymaps.SkyDir.GALACTIC:
             self.ras = np.array([source.skydir.ra() for source in self.sources])
             self.decs = np.array([source.skydir.dec() for source in self.sources])
         else:
@@ -543,9 +560,9 @@ class ExtendedCatalog(Catalog):
         radii = self.get_radii()
         self.source_mask_radius = max(radii)*3
         self.mask = self._make_selection()
-        self.sources = np.array([ExtendedSource(self,name,SkyDir(lon,lat,self.coords),radius)
+        self.sources = np.array([ExtendedSource(self,name,skymaps.SkyDir(lon,lat,self.coords),radius)
                                  for name,lon,lat,radius in zip(self.names,lons,lats,radii)])[self.mask]
-        if self.coords == SkyDir.GALACTIC:
+        if self.coords == skymaps.SkyDir.GALACTIC:
             self.ras = np.array([source.skydir.ra() for source in self.sources])
             self.decs = np.array([source.skydir.dec() for source in self.sources])
         else:
@@ -604,7 +621,7 @@ class CatalogSource(object):
             position : SkyDir representing position of other source
             error_ellipse : 3-tuple representing error ellipse of other source in degrees"""
 
-        norm = 2.*math.pi*mul(*error_ellipse[:2])
+        norm = 2.*math.pi*operator.mul(*error_ellipse[:2])
         return math.exp(-self.delta_logl(position,error_ellipse))/norm
 
     def chance_probability(self,position,radius = 4,trap_mask=False):
@@ -693,13 +710,14 @@ def trap_mask(ras,decs,cut_dir,radius):
     return np.logical_and(dec_mask,ra_mask)
 
 if __name__=='__main__':
-    assoc = SourceAssociation('/home/eric/smb/tev-scratch1/users/Fermi/catalog/srcid_catalog')
+    assoc = SourceAssociation()
     #3C 454.3
-    pos, error = SkyDir(343.495,16.149), .016/2.45*1.51
-    associations = assoc.id(pos,error,'all_agn','3C 454.3')
-    for cat,ass in associations.items():
-        print 'Associations in %s:'%cat
-        print ass
+    pos, error = skymaps.SkyDir(343.495,16.149), .016/2.45*1.51
+    associations = assoc.id(pos,[error,error,0],name = '3C 454.3')
+    print(associations)
+    #for cat,ass in associations.items():
+    #    print 'Associations in %s:'%cat
+    #    print ass
     #print('\n'.join([str(x[1]) for x in assoc.id(pos,error,'obj-blazar-crates',.33,.8)]))
     #Couldn't find elliptical errors, but want to test input for error.
     #error = (error,error,0.0)
