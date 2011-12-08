@@ -3,8 +3,8 @@ Python support for source association, equivalent to the Fermi Science Tool gtsr
 author:  Eric Wallace <wallacee@uw.edu>
 """
 
-__version__ = "$Revision: 1.29 $"
-#$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/srcid.py,v 1.29 2011/03/20 23:24:52 wallacee Exp $
+__version__ = "$Revision: 1.30 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.30 2011/12/07 21:20:42 wallacee Exp $
 
 import os
 import sys
@@ -427,12 +427,20 @@ class Catalog(object):
         for f in field_names:
             field = dat.field(f)
             fom = catid_pattern.sub(f,fom,1)
-            defnull_pattern = re.compile('DEFNULL\(%s,([0-9e\.\+]+)\)'%f)
+            #Treat DEFNULL in a log slightly differently
+            #This is an awful kludge to deal with the pulsar_fom catalog.
+            #Hopefully it won't break anything in the future.
+            defnull_pattern = re.compile('(?<!LOG10\()DEFNULL\(%s,([0-9e\.\+]+)\)'%f)
             dn_matches = defnull_pattern.findall(fom)
             for dnm in dn_matches:
                 field[np.isnan(field)] = dnm
+            defnull_pattern2 = re.compile('(?<=LOG10\()DEFNULL\(%s,([0-9e\.\+]+)\)'%f)
+            dn_matches2 = defnull_pattern2.findall(fom)
+            for dnm in dn_matches2:
+                field[np.logical_or(np.isnan(field),field==0)] = dnm
             fields[f] = field
             fom = defnull_pattern.sub(f,fom)
+            fom = defnull_pattern2.sub(f,fom)
             fom = fom.replace(f,'fields["%s"]'%f)
         fom = fom.replace('exp','np.exp')
         fom = fom.replace('LOG10','np.log10')
