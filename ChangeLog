@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Thu Dec  8 14:04:22 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_catalogs.py 
+Log Message:
+Remove a reference to an ExtendedSource kwarg that was removed months ago.
+
+    *
+------------------------------------------------------------
 User: wallacee  Thu Dec  8 13:28:00 PST 2011
 pointlike/python/uw/like
 
