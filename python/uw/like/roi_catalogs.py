@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.14 2011/12/05 23:35:33 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.15 2011/12/08 21:28:00 wallacee Exp $
 
 author: Joshua Lande
 """
@@ -502,7 +502,7 @@ class ExtendedSourceCatalog(SourceCatalog):
             if spatial is not None:
                 # replace the SpatialMap extended source with an analytic one.
                 analytic_source = ExtendedSource(name=source.name,model=source.model,
-                                                 spatial_model=spatial,leave_parameters=True)
+                                                 spatial_model=spatial)
                 analytic_source.original_template = source.spatial_model.file # for reference
                 sources.append(analytic_source)
             else:
