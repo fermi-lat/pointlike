@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Thu Dec  8 13:28:00 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	roi_catalogs.py 
+Log Message:
+Fix the handling of errors creating point sources from a Fermi catalog.
+
+    *
+------------------------------------------------------------
 User: wallacee  Wed Dec  7 16:11:53 PST 2011
 pointlike/python/uw/like
 
