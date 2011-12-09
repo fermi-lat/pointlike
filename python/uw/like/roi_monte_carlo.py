@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.20 2011/11/03 13:14:11 zimmer Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.21 2011/12/02 19:29:43 lande Exp $
 
 author: Joshua Lande
 """
@@ -19,7 +19,7 @@ import pyfits
 import numpy as np
 from skymaps import IsotropicSpectrum,IsotropicPowerLaw,DiffuseFunction,PySkyFunction,SkyImage,SkyDir
 from . SpatialModels import Gaussian,EllipticalGaussian,RadiallySymmetricModel
-from . Models import PowerLaw,PowerLawFlux,Constant
+from . Models import PowerLaw,PowerLawFlux,Constant,FileFunction
 from . pointspec import DataSpecification,SpectralAnalysis
 from . pointspec_helpers import PointSource,PointSourceCatalog
 from . roi_extended import ExtendedSource
@@ -139,7 +139,7 @@ class MonteCarlo(object):
             ]
             return indent+('\n'+indent).join(xml)
         else:
-            if isinstance(ps.model,FileSpectrum):
+            if isinstance(ps.model,FileFunction):
                 flux=ps.model.i_flux(self.energy[0],self.energy[-1],cgs=True)*1e4
                 specfile=ps.model.file
             else:
