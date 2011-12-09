@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Fri Dec  9 08:07:44 PST 2011
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py processor.py 
+Added Files:
+	associate.py 
+Log Message:
+updates for association, localization, tsmaps
+    *
+------------------------------------------------------------
 User: lande  Thu Dec  8 19:26:42 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
