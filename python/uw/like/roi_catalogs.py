@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.15 2011/12/08 21:28:00 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.16 2011/12/08 22:04:22 wallacee Exp $
 
 author: Joshua Lande
 """
@@ -178,13 +178,16 @@ class Catalog2FGL(SourceCatalog):
     def __init__(self,catalog,**kwargs):
         keyword_options.process(self, kwargs)
 
-        if self.latextdir is None and \
-                (not os.environ.has_key('LATEXTDIR') or not exists(expandvars(os.environ['LATEXTDIR']))):
+        if self.latextdir is None:
+            if (not os.environ.has_key('LATEXTDIR') or
+                    not exists(expandvars(os.environ['LATEXTDIR']))):
                     raise Exception(dedent("""
                             Since environment variable $LATEXTDIR does 
                             not exist, the paramter latextdir must
                             be passed into this object."""))
 
+            else:
+                self.latextdir=os.environ['LATEXTDIR']
         else:
             os.environ['LATEXTDIR']=expandvars(self.latextdir)
 
