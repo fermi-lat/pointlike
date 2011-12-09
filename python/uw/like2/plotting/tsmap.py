@@ -1,13 +1,14 @@
 """
 Code to plot TS maps
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.1 2011/09/18 17:43:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.2 2011/09/28 16:54:02 burnett Exp $
 
 """
 import math, os
 import numpy as np
 from uw.utilities import image
 import pylab as plt
+from skymaps import SkyDir
 
 def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=None, 
         which=0, catsig=99, axes=None, fignum=99, 
