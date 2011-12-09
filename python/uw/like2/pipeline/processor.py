@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.5 2011/10/06 13:00:32 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.8 2011/12/06 22:10:37 burnett Exp $
 """
 import os, time, sys
 import cPickle as pickle
@@ -9,8 +9,9 @@ import pylab as plt
 from skymaps import SkyDir, Hep3Vector
 from uw.like import srcid  
 from uw.utilities import image
+from . import associate
 from ..plotting import sed, counts 
-from .. import tools, sedfuns
+from .. import localization, sedfuns
 #np.seterr(invalid='raise', divide='raise', over='raise')
 np.seterr(invalid='raise', divide='raise', over='ignore')
 def isextended(source):
@@ -150,40 +151,7 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwarg
     pickle.dump(output,f)
     f.close()
     print 'saved pickle file to %s' % filename
-    
-
-
-def make_association(source, tsf, associate):
-    print ' %s association(s) ' % source.name,
-    try:    ell = source.ellipse
-    except: ell = None
-    if ell is None:
-        print '...no localization'
-        source.adict = None
-        return
-    assert len(ell)>6, 'invalid ellipse for source %s' % source.name
-    try:
-        adict = associate(source.name, SkyDir(ell[0],ell[1]), ell[2:5]) 
-    except srcid.SrcidError, msg:
-        print 'Association error %s' % msg
-        raise
-        adict=None
-    source.adict = adict 
-    if adict is not None:
-    
-        ts_local_max=tsf(source.tsmaxpos)
-        adict['deltats'] = [ts_local_max-tsf(d) for d in adict['dir']]
-        print '\n   cat         name                  ra        dec         ang     prob    Delta TS'
-        #       15 Mrk 501               253.4897   39.7527    0.0013      0.41
-        fmt = '   %-10s %-20s%10.4f%10.4f%10.4f%8.2f%8.1f' 
-        for i,id_name in enumerate(adict['name']):
-            tup = (adict['cat'][i], id_name, adict['ra'][i], adict['dec'][i], adict['ang'][i], 
-                    adict['prob'][i],adict['deltats'][i])
-            print fmt % tup
-    else:
-        print '...None  found'
-
-    
+        
 
 def repivot(roi, fit_sources, min_ts = 16, max_beta=3.0):
         print '\ncheck need to repivot sources with TS>%.0f, beta<%.1f: \n'\
@@ -279,11 +247,6 @@ def process(roi, **kwargs):
         print '===================== nothing to fit========================'
     else:
         if dofit:
-            #if np.any(roi.prior.gradient()!=0):
-            #    print 'adjusting parameters beyond limit'
-            #    print roi.prior.check()
-            #    roi.prior.limit_pars(True) # adjust parameters to limits
-            #roi.prior.enabled=True
             try:
                 if diffuse_only:
                     ndiff = len([n for n in roi.parameter_names if n.split('_')[0] in ('ring','isotrop')])
@@ -314,10 +277,7 @@ def process(roi, **kwargs):
         tables(roi)
     
     outdir     = kwargs.pop('outdir', '.')
-    associate= kwargs.pop('associate', None)
-    if associate is not None and associate!='None':
-        for source in sources:
-            make_association(source, roi.tsmap(which=source.name), associate)
+    associator= kwargs.pop('associate', None)
     def getdir(x ):
         if not kwargs.get(x,False): return None
         t = os.path.join(outdir, kwargs.get(x))
@@ -325,8 +285,10 @@ def process(roi, **kwargs):
         return t
     sedfuns.makesed_all(roi, sedfig_dir=getdir('sedfig_dir'))
     if localize:
+        if associator is not None and associate!='None':
+            associator = associate.SrcId('$FERMI/catalog', associator)
         q, roi.quiet = roi.quiet,False
-        tools.localize_all(roi, tsmap_dir=getdir('tsmap_dir'))
+        localization.localize_all(roi, tsmap_dir=getdir('tsmap_dir'), associator = associator)
         roi.quiet=q
 
     try:
