@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Sat Dec 10 15:09:51 PST 2011
+pointlike/python/uw/data
+
+Modified Files:
+	dataman.py 
+Log Message:
+Bugfix for pass 7 bitmask.
+
+    *
+------------------------------------------------------------
 User: burnett  Sat Dec 10 06:12:54 PST 2011
 pointlike/python/uw/like2
 
