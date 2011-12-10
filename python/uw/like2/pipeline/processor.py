@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.8 2011/12/06 22:10:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.9 2011/12/09 16:07:44 burnett Exp $
 """
 import os, time, sys
 import cPickle as pickle
@@ -273,9 +273,6 @@ def process(roi, **kwargs):
         else:
             print 'Refit not requested'
     
-    if tables is not None:
-        tables(roi)
-    
     outdir     = kwargs.pop('outdir', '.')
     associator= kwargs.pop('associate', None)
     def getdir(x ):
@@ -304,6 +301,10 @@ def process(roi, **kwargs):
     except Exception,e:
         print 'Failed to analyze counts for roi %s: %s' %(roi.name,e)
         chisq = -1
+    
+    if tables is not None:
+        tables(roi)
+    
 
     if outdir is None:  return chisq
     
