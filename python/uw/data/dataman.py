@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.11 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/data/dataman.py,v 1.11 2011/12/02 20:12:52 wallacee Exp $
+__version__ = '$Revision: 1.12 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.12 2011/12/06 22:17:45 wallacee Exp $
 
 import os
 import collections
@@ -65,7 +65,7 @@ def get_default(colname,pass7=True):
         if pass7:
             d = dict(TYP='BIT_MASK(EVENT_CLASS,2)',UNI='DIMENSIONLESS',
                      VAL='1:1')
-            return DSSBitMask(d)
+            return dssman.DSSBitMask(d)
         else:
             return SimpleCut(3,None,'dimensionless','EVENT_CLASS')
 
@@ -481,6 +481,8 @@ class DataSpec(object):
             exc = self.check_consistency(other)
             if exc is not None:
                 raise(exc)
+        binfile = os.path.expandvars(binfile)
+        ltcube = os.path.expandvars(ltcube)
         gti = skymaps.Gti(self.gti)
         ft1 = self.ft1files
         ft2 = self.ft2files
