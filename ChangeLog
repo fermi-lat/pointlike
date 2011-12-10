@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Sat Dec 10 06:09:18 PST 2011
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Added Files:
+	.cvsignore maps.py 
+Log Message:
+implement ts maps, etc.
+    *
+------------------------------------------------------------
 User: wallacee  Fri Dec  9 19:13:14 PST 2011
 pointlike/python/uw/data
 
