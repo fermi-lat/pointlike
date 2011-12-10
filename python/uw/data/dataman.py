@@ -4,8 +4,8 @@ Module implements classes and functions to specify data for use in pointlike ana
 author(s): Matthew Kerr, Eric Wallace
 """
 
-__version__ = '$Revision: 1.12 $'
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.12 2011/12/06 22:17:45 wallacee Exp $
+__version__ = '$Revision: 1.13 $'
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/data/dataman.py,v 1.13 2011/12/10 03:13:13 wallacee Exp $
 
 import os
 import collections
@@ -64,7 +64,7 @@ def get_default(colname,pass7=True):
     if colname == 'EVENT_CLASS':
         if pass7:
             d = dict(TYP='BIT_MASK(EVENT_CLASS,2)',UNI='DIMENSIONLESS',
-                     VAL='1:1')
+                     VAL='1:1', REF=None)
             return dssman.DSSBitMask(d)
         else:
             return SimpleCut(3,None,'dimensionless','EVENT_CLASS')
