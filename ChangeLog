@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Fri Dec  9 19:13:14 PST 2011
+pointlike/python/uw/data
+
+Modified Files:
+	dataman.py 
+Log Message:
+Fix an import, and make DataSpec.add recognize environment variables.
+
+    *
+------------------------------------------------------------
 User: wallacee  Fri Dec  9 12:58:35 PST 2011
 pointlike/python/uw/like
 
