@@ -1,7 +1,7 @@
 """
 Manage sources: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.14 2011/11/17 19:28:07 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.15 2011/12/06 22:14:08 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
@@ -215,5 +215,10 @@ class SourceList(list):
                 ret.append(plim)
                 
         return ret
-
+        
+    def add_source(self, source):
+        if source.name in self.source_names:
+            raise SourceListException('Attempt to add source "%s": already exists' % source.name)
+        set_point_property(source)
+        self.append(source)
  
