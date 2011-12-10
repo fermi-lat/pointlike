@@ -1,14 +1,14 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.11 2011/11/21 14:35:04 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.12 2011/12/06 22:14:08 burnett Exp $
 
 """
 import types
 import numpy as np
-from . import roistat, tools, printing, roisetup, sedfuns
-from . import plotting 
+from . import roistat, localization, printing, roisetup, sedfuns, sources, plotting
 from uw.utilities import fitter
+import skymaps
 
 # special function to replace or extend a docstring from that of another function
 def decorate_with(other_func, append=False, append_init=False):
@@ -89,22 +89,16 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         return fitter.Minimizer.mycov(self, self.get_parameters() if par is None else par)
         
     def localize(self, source_name, **kwargs):
-        """ localize the source: adding the localization info to the source object
-        If already done, just return the info (the tools.Localization object)
+        """ localize the source, return elliptical parameters 
         """
         source = self.sources.find_source(source_name)
-        update = kwargs.pop('update', False)
-        if hasattr(source, 'loc') and not update:
-            return source.loc
-        loc= tools.Localization(self, source_name, **kwargs)
-        try: 
-            loc.localize()
-        except Exception, e:
-            print 'Failed localization for source %s: %s' % (source.name, e)
-            loc.reset()
-            loc = None
-        source.loc = loc
-        return loc
+        with localization.Localization(self, source_name, **kwargs) as loc:
+            try: 
+                loc.localize()
+                return loc.ellipse
+            except Exception, e:
+                print 'Failed localization for source %s: %s' % (source.name, e)
+                return None
     
     def get_sources(self):
         return [ s for s in self.sources if s.skydir is not None]
@@ -204,18 +198,6 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
     def print_summary(self, **kwargs):
         return printing.print_summary(self, **kwargs)
 
-    def tsmap(self, source_name, **kwargs):
-        """ provided for the like2.processor
-            return function of likelihood in neighborhood of given source
-            tsm = roi.tsmap(which)
-            size=0.25
-            tsp = image.TSplot(tsm, center, size, pixelsize =size/20, axes=plt.gca())
-            tsp.plot(center, label=name)
-            tsp.show()
-        """
-        loc = self.localize(source_name,**kwargs)
-        return PySkyFunction(loc)
-      
     @property
     def bounds(self):
         return self.sources.bounds
@@ -230,7 +212,23 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         cm = self.cov_matrix
         s = np.sqrt(cm.diagonal())
         return cm / np.outer(s,s)
+        
+    def add_source(self, **kwargs):
 
+        newsource = sources.PointSource(**kwargs)
+        self.sources.add_source(newsource)
+        for band in self.all_bands:
+            band.add_source(newsource)
+        self.initialize()
+        return self.get_source(newsource.name)
+        
+    def del_source(self, source, **kwargs):
+        raise Exception('not implemented')
+        
+    def zero_source(self, source, **kwargs):
+        raise Exception('not implemented')
+    def unzero_source(self, source, **kwargs):
+        raise Exception('not implemented')
         
 class Factory(roisetup.ROIfactory):
     def __call__(self, *pars, **kwargs):
