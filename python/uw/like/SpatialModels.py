@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.61 2011/10/12 14:48:36 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.62 2011/10/15 16:33:09 lande Exp $
 
    author: Joshua Lande
 
@@ -11,6 +11,8 @@ import numbers
 
 import numpy as np
 from scipy import vectorize
+from scipy.interpolate import interp1d
+from scipy.integrate import quad
 from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
         SkyImage,SkyIntegrator,CompositeSkyFunction
 from abc import abstractmethod
@@ -800,29 +802,78 @@ class PseudoNFW(PseudoSpatialModel,NFW):
 
 #===============================================================================================#
 
-class RadialProfile(RadiallySymmetricModel):
-    def __init__(self,**kwargs):
+class InterpProfile(RadiallySymmetricModel):
 
-        super(RadiallySymmetricModel).__init__(**kwargs)
+    def __init__(self):
+        """ Assuming object has self.r_in_degrees, and self.pdf,
+            define a spatial model that interpolates
+            between the values in list.
+            
+            Note, the first column should be degrees and the second column
+            shoudl be perporitnal to flux per steradian.  The overal
+            normaliztion of the model will be set so that the spatial
+            model integrates to 1.
+        """
+        super(RadiallySymmetricModel,self).__init__()
 
-        if not self.dict.has_key('file') or not os.path.exists(self.file):
-            raise Exception("RadialProfile must be passed an existing file")
-
-        self.r,self.pdf=np.loadtxt(self.file,unpack=True)
+        assert hasattr(self,'r_in_degrees') and hasattr(self,'pdf')
 
         # Explicitly normalize the RadialProfile.
-        self.interp = np.interp1d(self.r.self.pdf,kind='cubic',bound_error=False,fill_value=0)
+        self.interp = interp1d(self.r_in_degrees,self.pdf,kind='cubic',bounds_error=False,fill_value=0)
 
-        r  = np.linspace(0,self.r[-1],10000)
-        dr = r[1]-r[0]
-        self.norm = np.sum(self.interp(r)*2*np.pi*r*dr)
-        self.pdf /= self.norm
+        integrand = lambda r: self.interp(np.degrees(r))*2*np.pi*r
+
+        # perform integral in radians b/c the PDF must integrate
+        # over solid angle (in units of steradians) to 1
+        rmax = np.radians(self.r_in_degrees)[-1]
+        self.normed_pdf = self.pdf/quad(integrand, 0, rmax)[0]
 
         # redo normalized interpolation
-        self.interp = np.interp1d(self.r*self.pdf,kind='cubic',bound_error=False,fill_value=0)
+        self.interp = interp1d(self.r_in_degrees,self.normed_pdf,kind='cubic',bounds_error=False,fill_value=0)
 
     def at_r_in_deg(self,r,energy=None):
-        return self.interp(r)
+        v=self.interp(r)
+        return np.where(v>=0,v,0)
+
+class RadialProfile(InterpProfile):
+    def __init__(self,file):
+        r""" Define an extended source spatial model from a text file.
+
+
+            Below is a simple example to demonstrate this spatial model.
+            First, we will generate a text file consistent with a gaussain.
+
+            First, define analytic shape
+            
+                >>> sigma = 1 # degrees
+                >>> gauss = Gaussian(sigma=sigma)
+
+            Next, define numeric shape
+
+                >>> r = np.linspace(0,10,100) # in degrees
+                >>> pdf = np.exp(-r**2/(2*sigma**2))
+                >>> from StringIO import StringIO
+                >>> file = StringIO('\n'.join('%s\t%s' % (i,j) for i,j in zip(r,pdf)))
+                >>> numeric_gauss = RadialProfile(file)
+
+            Note that the normalization of the numeric gaussian is wrong, but 
+            will be renormalized anyway.
+
+            Note that spatial model is the same as Gaussian:
+
+                >>> r_test = np.linspace(0,1,47) # sample odly
+                >>> np.allclose(gauss.at_r_in_deg(r_test), numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-5)
+                True
+        """
+        self.file=file
+
+        if not hasattr(self.file,'read') and not os.path.exists(self.file):
+            raise Exception("RadialProfile must be passed an existing file")
+
+        self.r_in_degrees,self.pdf=np.loadtxt(self.file,unpack=True)
+
+        super(RadialProfile,self).__init__()
+
 
 #===============================================================================================#
 
@@ -1199,3 +1250,7 @@ def convert_spatial_map(spatial,filename):
     spatial.save_template(filename)
     new_map = SpatialMap(file=filename)
     return new_map
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
