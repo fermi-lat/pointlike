@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Fri Dec 16 11:33:53 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Added some more things to InterpProfile. Changed default to linear interpolation (but kept cubic in doctest). First attempt to deal with profiles that diverge at r=0.
+    *
+------------------------------------------------------------
 User: burnett  Fri Dec 16 05:45:20 PST 2011
 pointlike/python/uw/like2
 
