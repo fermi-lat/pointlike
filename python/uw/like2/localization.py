@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.1 2011/12/09 16:09:39 burnett Exp $
 
 """
 import os
@@ -188,7 +188,7 @@ def make_association(source, tsf, associate):
         adict=None
     except Exception, msg:
         print 'Exception associating %s: %s' %( source.name, msg)
-        adict=none
+        adict=None
     source.adict = adict 
     if adict is not None:
     
@@ -236,15 +236,18 @@ def localize_all(roi, **kwargs):
             if tsmap_dir is not None:
                 tsize = loc.ellipse['a']*15. if hasattr(loc,'ellipse') and loc.ellipse is not None else 1.1
                 pixelsize= tsize/15.;
-                tsm=tsmap.plot(loc, source.name, center=source.skydir, 
-                    outdir=tsmap_dir, catsig=0, size=tsize, 
-                    pixelsize= pixelsize, # was 14: desire to have central pixel
-                    # todo: fix this
-                    assoc=source.__dict__.get('adict', None), # either None or a dictionary
-                    notitle=True, #don't do title
-                    markersize=10,
-                    primary_markersize=12,
-                    )
+                try:
+                    tsm=tsmap.plot(loc, source.name, center=source.skydir, 
+                        outdir=tsmap_dir, catsig=0, size=tsize, 
+                        pixelsize= pixelsize, # was 14: desire to have central pixel
+                        # todo: fix this
+                        assoc=source.__dict__.get('adict', None), # either None or a dictionary
+                        notitle=True, #don't do title
+                        markersize=10,
+                        primary_markersize=12,
+                        )
+                except Exception, msg:
+                    print 'Plot of %s failed: %s' % (source.name, msg)
     curw= roi.log_like()
     if abs(initw-curw)>1.0:
         print 'localize_all: unexpected change in roi state after localization, from %.1f to %.1f' %(initw, curw)
