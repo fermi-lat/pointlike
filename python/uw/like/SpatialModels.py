@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.63 2011/12/15 20:02:37 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.65 2011/12/16 06:04:20 lande Exp $
 
    author: Joshua Lande
 
@@ -814,11 +814,20 @@ class InterpProfile(RadiallySymmetricModel):
             normaliztion of the model will be set so that the spatial
             model integrates to 1.
         """
-        kind=kwargs.pop('kind','cubic')
+        super(RadiallySymmetricModel,self).__init__()
+
+        kind=kwargs.pop('kind','linear')
 
         self.r_in_degrees, self.pdf = self.get_r_pdf(**kwargs)
 
+        # If profile doesn't extend to zero, complain
+        if self.r_in_degrees[0] > 0:
+            raise Exception("Input profile must be defined at zero angular offset.")
+
         self.r_in_radians = np.radians(self.r_in_degrees)
+
+        # Rescale the pdf for the integrator
+        self.pdf /= max(self.pdf)
 
         # Explicitly normalize the RadialProfile.
         self.interp = interp1d(self.r_in_radians,self.pdf,kind=kind,bounds_error=False,fill_value=0)
@@ -831,7 +840,7 @@ class InterpProfile(RadiallySymmetricModel):
         self.normed_pdf = self.pdf/quad(integrand, 0, self.r_in_radians[-1])[0]
 
         # redo normalized interpolation
-        self.interp = interp1d(self.r_in_degrees,self.normed_pdf,kind='cubic',bounds_error=False,fill_value=0)
+        self.interp = interp1d(self.r_in_degrees,self.normed_pdf,kind=kind,bounds_error=False,fill_value=0)
 
     @abstractmethod
     def get_r_pdf(self, *args, **kwargs):
@@ -841,6 +850,12 @@ class InterpProfile(RadiallySymmetricModel):
     def at_r_in_deg(self,r,energy=None):
         v=self.interp(r)
         return np.where(v>=0,v,0)
+
+    def has_edge(self): return True
+
+    def effective_edge(self,energy=None):
+        """ Interpolation returns 0 outside of rmax, so no need to integrate past it. """
+        return self.r_in_degrees[-1]
 
 class RadialProfile(InterpProfile):
     r""" Define an extended source spatial model from a text file.
@@ -860,7 +875,7 @@ class RadialProfile(InterpProfile):
             >>> pdf = np.exp(-r**2/(2*sigma**2))
             >>> from StringIO import StringIO
             >>> file = StringIO('\n'.join('%s\t%s' % (i,j) for i,j in zip(r,pdf)))
-            >>> numeric_gauss = RadialProfile(file=file)
+            >>> numeric_gauss = RadialProfile(file=file,kind='cubic')
 
         Note that the normalization of the numeric gaussian is wrong, but 
         will be renormalized anyway.
@@ -877,6 +892,12 @@ class RadialProfile(InterpProfile):
             raise Exception("RadialProfile must be passed an existing file")
 
         r_in_degrees,pdf=np.loadtxt(file,unpack=True)
+
+        # Extend profile to r = 0 as a constant
+        if r_in_degrees[0] > 0:
+            r_in_degrees = np.concatenate( ( [0], r_in_degrees) )
+            pdf = np.concatenate( ( [pdf[0]], pdf) )
+
         return r_in_degrees,pdf
 
 
