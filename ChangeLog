@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Dec 16 05:38:50 PST 2011
+pointlike/python/uw/like2/pipeline
+
+Added Files:
+	ts_clusters.py 
+Log Message:
+performs cluster analysis to find seeds
+    *
+------------------------------------------------------------
 User: lande  Thu Dec 15 22:04:20 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
