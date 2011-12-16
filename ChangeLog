@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Dec 15 22:04:20 PST 2011
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+better radians conversion
+    *
+------------------------------------------------------------
 User: lande  Thu Dec 15 21:38:59 PST 2011
 ScienceTools-scons/pointlike/python/uw/like
 
