@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Dec 16 05:41:28 PST 2011
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+minor fixes, add table processor
+    *
+------------------------------------------------------------
 User: burnett  Fri Dec 16 05:38:50 PST 2011
 pointlike/python/uw/like2/pipeline
 
