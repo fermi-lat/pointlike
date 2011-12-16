@@ -1,6 +1,6 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/catrec.py,v 1.1 2011/09/28 16:56:26 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/catrec.py,v 1.2 2011/12/06 22:15:18 burnett Exp $
 """
 import os, glob, types
 import cPickle as pickle
@@ -144,12 +144,14 @@ def create_catalog(outdir, **kwargs):
                     data += [cnan,cnan, 'PowerLaw'] if p[2]<=0.01 else [p[2], p_unc[2], 'LogParabola']
                 #data += [sum(bts[4:]), sum(bts[8:])] ### note assumptions that 1, 10 GeV start at 4,8
                 ellipse = entry.get('ellipse', None)
-                if ellipse is None or np.any(np.isnan(np.array(ellipse))):
+                if ellipse is None:
                     data += [np.nan]*7
                 else:
-                    ### oops.
-                    #t = ellipse['ra'], ellipse['dec'],ellipse['a'],ellipse['b'],ellipse['ang'],ellipse['qual'], np.nan #ellipse['delta_ts'] 
-                    data += ellipse
+                    # check for temporary mistake
+                    if type(ellipse)==types.DictType:
+                        data += [ellipse['ra'], ellipse['dec'],ellipse['a'],ellipse['b'],ellipse['ang'],ellipse['qual'], np.nan] #ellipse['delta_ts'] 
+                    else: 
+                        data += ellipse
                     if self.update_position and ts>self.ts_min:
                         fit_ra, fit_dec, a, b, ang, qual, delta_ts =ellipse
                         #assert False, 'break'
