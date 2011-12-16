@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.3 2011/11/21 14:26:11 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.4 2011/12/06 22:16:13 burnett Exp $
 
 """
 import os, pickle, glob, types
@@ -64,7 +64,8 @@ class SkyModel(object):
             """ make a dictionary of (file, object) tuples with key the first part of the diffuse name"""
             assert len(self.diffuse)<4, 'expect 2 or 3 diffuse names'
         else:
-            self.diffuse = eval(self.config['diffuse'])
+            t = self.config['diffuse']
+            self.diffuse = eval(t) if type(t)==types.StringType else t 
         self.diffuse_dict = sources.DiffuseDict(self.diffuse)
         self._load_sources()
         self.load_auxcat()
@@ -82,7 +83,12 @@ class SkyModel(object):
         self.config={}
         fn = os.path.join(self.folder,fn)
         if not os.path.exists(fn): return
-        for line in open(fn):
+        txt = open(fn).read()
+        if txt[0]=='{':
+            # new format: just a dumped dict
+            self.config = eval(txt)        
+        # old format: more readable
+        for line in txt:
             item = line.split(':')
             if len(item)>1:
                 self.config[item[0].strip()]=item[1].strip()
