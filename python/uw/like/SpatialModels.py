@@ -818,15 +818,17 @@ class InterpProfile(RadiallySymmetricModel):
 
         self.r_in_degrees, self.pdf = self.get_r_pdf(**kwargs)
 
-        # Explicitly normalize the RadialProfile.
-        self.interp = interp1d(self.r_in_degrees,self.pdf,kind=kind,bounds_error=False,fill_value=0)
+        self.r_in_radians = np.radians(self.r_in_degrees)
 
-        integrand = lambda r: self.interp(np.degrees(r))*2*np.pi*r
+        # Explicitly normalize the RadialProfile.
+        self.interp = interp1d(self.r_in_radians,self.pdf,kind=kind,bounds_error=False,fill_value=0)
+
+        # integrand takes r in radians
+        integrand = lambda r: self.interp(r)*2*np.pi*r
 
         # perform integral in radians b/c the PDF must integrate
         # over solid angle (in units of steradians) to 1
-        rmax = np.radians(self.r_in_degrees)[-1]
-        self.normed_pdf = self.pdf/quad(integrand, 0, rmax)[0]
+        self.normed_pdf = self.pdf/quad(integrand, 0, self.r_in_radians[-1])[0]
 
         # redo normalized interpolation
         self.interp = interp1d(self.r_in_degrees,self.normed_pdf,kind='cubic',bounds_error=False,fill_value=0)
