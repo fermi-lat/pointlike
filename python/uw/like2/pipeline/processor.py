@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.9 2011/12/09 16:07:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.10 2011/12/10 14:09:18 burnett Exp $
 """
 import os, time, sys
 import cPickle as pickle
@@ -28,6 +28,10 @@ class OutputTee(object):
     def close(self):
         sys.stdout =self.stdout
         self.logstream.close()
+    def flush(self):
+        self.stdout.flush()
+    def set_parent(self, parent):
+        self.stdout.set_parent(parent) #needed??
         
 def fix_beta(roi, bts_min=30, qual_min=15,):
     refit=candidate=False
@@ -95,10 +99,12 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwarg
         if prev_logl is None: prev_logl = []
         prev_logl.append(last_logl)
         output['prev_logl'] = prev_logl
+        oldsrc = output.get('sources', dict())
         print 'updating pickle file: log likelihood history:', \
              ''.join(map(lambda x: '%.1f, '%x, prev_logl)) 
     else:
         output = dict()
+        oldsrc = dict()
         output['passes']=[pass_number]
     diffuse_sources =  [s for s in roi.sources if s.skydir is None]\
                         +[s for s in roi.sources if isextended(s)]
@@ -122,6 +128,14 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwarg
         
     sources=dict()
     output['sources']= sources
+    def getit(s, key):
+        t = s.__dict__.get(key, None)
+        if t is None and s.name in oldsrc:
+            t = oldsrc[s.name].get(key, None)
+            if t is not None:
+                print 'ROI pickle: keeping previous calculation of %s for %s' % (key, s.name)
+        return t
+        
     for s in fit_sources:
         try:
             pivot_energy = s.spectral_model.pivot_energy()
@@ -143,8 +157,9 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwarg
             sedrec = sedrec,
             band_ts=0 if sedrec is None else sedrec.ts.sum(),
             pivot_energy = pivot_energy,
-            ellipse= s.__dict__.get('ellipse', None), 
-            associations = s.__dict__.get('adict',None),
+            # if ellipse or adict not done, but already in pickle, keep them
+            ellipse= getit(s, 'ellipse'), #s.__dict__.get('ellipse', None), 
+            associations = getit(s, 'adict'), #s.__dict__.get('adict',None),
             )
     output.update(kwargs) # add additional entries from kwargs
     f = open(filename,'wb') #perhaps overwrite
@@ -317,6 +332,17 @@ def process(roi, **kwargs):
     outtee.close()
     return chisq
 
+def table_processor(roi, **kwargs):
+    """ do only tables """
+    outdir = kwargs.get('outdir')
+    tables = kwargs.get('tables')
+    logpath = os.path.join(outdir, 'log')
+    outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
+    print  '='*80
+    print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
+    tables(roi)
+    outtee.close()
+    
 def residual_processor(roi, **kwargs):
     """ a roi processor that creates tables of residuals from the bands """
     from uw.like2 import roistat, bandplot
@@ -411,6 +437,11 @@ def roi_refit_processor(roi, **kwargs):
     ylim = kwargs.get('ylim', (0.75,1.25))
     if not os.path.exists(fit_dir): os.mkdir(fit_dir)
     if not os.path.exists(plot_dir): os.mkdir(plot_dir)
+    logpath = os.path.join(outdir, 'log')
+    outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
+    print  '='*80
+    print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
+
 
     print 'processing ROI %s: refitting diffuse %s' % (roi.name, names)
 
@@ -443,6 +474,7 @@ def roi_refit_processor(roi, **kwargs):
     fullfname = os.path.join(fit_dir, roi.name+'_diffuse.pickle')
     pickle.dump( r, open(fullfname, 'w'))
     print 'wrote diffuse refit pickle file to %s' % fullfname
+    outtee.close()
     
 def iso_refit_processor(roi, **kwargs):
     kwargs.update(diffuse_names=('isotrop',),
