@@ -1,8 +1,8 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.10 2011/12/10 14:09:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.11 2011/12/16 13:41:28 burnett Exp $
 """
-import os, time, sys
+import os, time, sys, types
 import cPickle as pickle
 import numpy as np
 import pylab as plt
@@ -255,22 +255,24 @@ def process(roi, **kwargs):
         print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
 
     if not os.path.exists(counts_dir):os.makedirs(counts_dir)
-    
-    roi.print_summary(title='before fit, logL=%0.f'%roi.log_like())#sdir=roi.roi_dir)#, )
+    init_log_like = roi.log_like()
+    roi.print_summary(title='before fit, logL=%0.f'% init_log_like)
     fit_sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
     if len(roi.get_parameters())==0:
         print '===================== nothing to fit========================'
     else:
         if dofit:
+            fit_kw = kwargs.get('fit_kw')
             try:
                 if diffuse_only:
                     ndiff = len([n for n in roi.parameter_names if n.split('_')[0] in ('ring','isotrop')])
                     roi.summary(range(ndiff), title='Before fit to diffuse components')
-                    roi.fit(range(ndiff))
+                    fit_kw.update(select=range(ndiff))
+                    roi.fit(**fit_kw)
                 else:
-                    roi.fit(ignore_exception=False, use_gradient=True, call_limit=2000)
-                    roi.print_summary(title='after global fit, logL=%0.f'% roi.log_like())#print_summary(sdir=roi.roi_dir,)
-
+                    roi.fit(**fit_kw)
+                    if  abs(roi.log_like() - init_log_like)>1.0 :
+                        roi.print_summary(title='after global fit, logL=%0.f'% roi.log_like())
                 if repivot_flag:
                     repivot(roi, fit_sources)
                 
@@ -278,7 +280,7 @@ def process(roi, **kwargs):
                     if not fix_beta(roi):
                         print 'fixbeta requested, but no refit needed, quitting'
                 if damp():
-                    roi.print_summary(title='after damping with factor=%.2f, logL=%0.f'%(dampen,roi.log_like()))#print_summary(sdir=roi.roi_dir, )
+                    roi.print_summary(title='after damping with factor=%.2f, logL=%0.f'%(dampen,roi.log_like()))
                 else:
                     print 'No damping requested, or difference in log Likelihood < %f' % damp.tol
             except Exception, msg:
@@ -286,10 +288,11 @@ def process(roi, **kwargs):
                 #pickle_dump(roi, fit_sources, os.path.join(outdir, 'pickle'), pass_number, failed=True)
                 return False
         else:
-            print 'Refit not requested'
+            print 'No fit requested'
     
     outdir     = kwargs.pop('outdir', '.')
     associator= kwargs.pop('associate', None)
+    if type(associator)==types.StringType and associator=='None': associator=None
     def getdir(x ):
         if not kwargs.get(x,False): return None
         t = os.path.join(outdir, kwargs.get(x))
@@ -297,8 +300,8 @@ def process(roi, **kwargs):
         return t
     sedfuns.makesed_all(roi, sedfig_dir=getdir('sedfig_dir'))
     if localize:
-        if associator is not None and associate!='None':
-            associator = associate.SrcId('$FERMI/catalog', associator)
+        if associator is not None: 
+            associator = associate.SrcId('$FERMI/catalog', associator) 
         q, roi.quiet = roi.quiet,False
         localization.localize_all(roi, tsmap_dir=getdir('tsmap_dir'), associator = associator)
         roi.quiet=q
@@ -320,7 +323,6 @@ def process(roi, **kwargs):
     if tables is not None:
         tables(roi)
     
-
     if outdir is None:  return chisq
     
     pickle_dir = os.path.join(outdir, 'pickle')
