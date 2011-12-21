@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.12 2011/12/06 22:14:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.13 2011/12/10 14:12:53 burnett Exp $
 
 """
 import types
@@ -31,30 +31,36 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
     """ subclass of ROIstat that adds user-interface tools: fitting, localization, plotting sources, counts
     """
 
-    def fit(self, select=None, source=None, summarize=True, quiet=True, **kwargs):
+    def fit(self, select=None, exclude=None,  summarize=True, quiet=True, **kwargs):
         """ Perform fit, return fitter object to examine errors, or refit
+        
         Parameters
         ----------
-        select : list type of int or None or string
-            if not None, the list is a subset of the parameter numbers to select
-            to define a projected function to fit
-            if a string: The name of a source (with possible wild cards) to select for fitting
+        select : None, item or list of items, where item is an int or a string
+            if not None, it defines a subset of the parameter numbers to select
+                to define a projected function to fit
+            int:  select the corresponding parameter number
+            string: select parameters according to maching rules
+                The name of a source (with possible wild cards) to select for fitting
+                If initial character is '_', match the rest with parameter names
+                if initial character is '_' and last character is '*', treat as wild card
         
-        kwargs :
+        exclude : None, int, or list of int 
+            if specified, will remove parameter numbers from selection
+
+        summarize : bool
+            if True (default) call summary after succesful fit
+
+        kwargs 
         ------
             ignore_exceptions : bool
                 if set, run the fit in a try block and return None
             call_limit : int
                 if set, modify default limit on number of calls
-            summarize : bool
-                if True (default) call summary after succesful fit
             others passed to the fitter minimizer command. defaults are
                 estimate_errors = True
                 use_gradient = True
         
-        notes:
-            if select is None, it will set the cov_matrix attributes of the corresponding Model
-            objects
         """
         ignore_exception = kwargs.pop('ignore_exception', False)
         self.call_limit = kwargs.pop('call_limit', self.call_limit)
@@ -63,10 +69,43 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         self.update()
         initial_value, self.calls = self.log_like(), 0
         saved_pars = self.get_parameters()
-        if type(select)==types.StringType:
-            src = self.get_source(select)
-            select = [i for i in range(len(saved_pars)) if self.parameter_names[i].startswith(src.name)]
-        fn = self if select is None else fitter.Projector(self, select=select)
+        npars = len(saved_pars)
+        
+        # process select
+        selected= set() 
+        if select is not None:
+            selectpar = select
+            if not hasattr(select, '__iter__'): select = [select]
+            for item in select:
+                if type(item)==types.IntType:
+                    selected.add(item)
+                    if item>=npars:
+                        raise Exception('Selected parameter number, %d, not in range [0,%d)' %(item, npars))
+                elif type(item)==types.StringType:
+                    if item.startswith('_'):
+                        # look for parameters
+                        if item[-1] != '*':
+                            toadd = filter( lambda i: self.parameter_names[i].endswith(item), range(npars) )
+                        else:
+                            def filt(i):
+                                return self.parameter_names[i].find(item[:-1])!=-1
+                            toadd = filter( filt, range(npars) )
+                    else:
+                        src = self.get_source(item)
+                        toadd = filter(lambda i: self.parameter_names[i].startswith(src.name), range(npars))
+                    selected = selected.union(toadd )
+                else:
+                    raise Exception('fit parameter select list item %s must be either an integer or a string' %item)
+            select = sorted(list(selected))
+            if len(select)==0:
+                raise Exception('nothing selected for fit from selection "%s"' % selectpar)
+        
+        if exclude is not None:
+            if not hasattr(exclude, '__iter__'): exclude = [exclude]
+            all = set(range(npars)) if select is None else set(select)
+            select = list( all.difference(exclude))
+                
+        fn = self if select is None  else fitter.Projector(self, select=select)
         try:
             mm = fitter.Minimizer(fn, quiet=quiet)
             mm(**fit_kw)
@@ -132,7 +171,10 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
 
         for index, (name, value, rsig) in enumerate(zip(self.parameter_names, self.parameters, self.sources.uncertainties)):
             if select is not None and index not in select: continue
-            sname,pname = name.split('_',1)
+            t = name.split('_')
+            pname = t[-1]
+            sname = '_'.join(t[:-1])
+            #sname,pname = name.split('_',1)
             if sname==prev: name = len(sname)*' '+'_'+pname
             prev = sname
             fmt = '%-21s%6d%10.4g%10.1f'
