@@ -1,8 +1,8 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.5 2011/12/06 22:10:37 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.6 2011/12/09 16:07:44 burnett Exp $
 """
-import os, types, glob, time
+import os, types, glob, time, copy
 import cPickle as pickle
 import numpy as np
 from . import processor, parallel
@@ -101,7 +101,7 @@ class Setup(dict):
 
     def __init__(self, version=None,  **kwargs):
         """ generate setup string"""
-        if version is None: version = int(open('version.txt').read())
+        if version is None: version = int(open('version.txt').read()) if os.path.exists('version.txt') else -1
         indir=kwargs.pop('indir', 'uw%02d'%(version)) 
         self.outdir=outdir=kwargs.pop('outdir', 'uw%02d'%(version+1))
         if not os.path.exists(outdir): os.mkdir(outdir)
@@ -127,7 +127,7 @@ class Setup(dict):
                 processor='processor.process',
                 fix_beta=False, dofit=True,
                 source_kw=dict(),
-                fit_kw=dict(ignore_exception=False),
+                fit_kw=dict(ignore_exception=False, use_gradient=True, call_limit=1000),
                 repivot = False,
                 update_positions=None,
                 free_index=None,
@@ -156,6 +156,7 @@ g=pipe.Pipe("%(indir)s", %(datadict)s,
         cache="",
         processor="%(processor)s",
         process_kw=dict(outdir="%(outdir)s", pass_number=%(pass_number)s,
+            fit_kw = %(fit_kw)s,
             tsmap_dir=%(tsmap_dir)s,  tsfits=%(tsfits)s,
             sedfig_dir=%(sedfig_dir)s,
             localize=%(localize)s,
@@ -164,7 +165,6 @@ g=pipe.Pipe("%(indir)s", %(datadict)s,
             tables= %(tables)s,
             repivot=%(repivot)s, dampen=%(dampen)s,
             ),
-        fit_kw = %(fit_kw)s,
     ) 
 n,chisq = len(g.names()), -1
 """ % self
@@ -183,6 +183,7 @@ n,chisq = len(g.names()), -1
         mec = parallel.get_mec()
         assert len(mec)>0, 'no engines to setup'
         print 'setting up %d engines...' % len(mec)
+        mec[:].clear()
         ar = mec[:].execute(self(), block=block)
         self.mecsetup=True
         self.dump()
@@ -211,7 +212,7 @@ n,chisq = len(g.names()), -1
         if tasklist is None:
             mytasks =[ (864+i/2) if i%2==0 else (863-i/2) for i in range(1728)]
         else: 
-            mytasks = tasklist[:]
+            mytasks = [t for t in tasklist]
         lc= AssignTasks(fn, mytasks, 
             timelimit=5000, local=local, ignore_exception=ignore_exception,  )
         if sleep_interval>0:
@@ -245,6 +246,21 @@ def roirec(version=None, nside=12):
 
         recarray.append(p['name'], chisq, p['logl'])
     return recarray()
+
+def check_missing_files(folder):
+    roi_files = sorted(glob.glob(os.path.join(folder, '*.pickle')))
+    n = 1728
+    missing = []
+    if len(roi_files)<n:
+        t = map(lambda x : int(x[-11:-7]), roi_files)
+        missing = [x for x in xrange(n) if x not in t]
+        if len(missing)<10:
+            print '\tmisssing roi files: %s' % missing
+        else:
+            print '\tMissing %d roi files: %s...' %( len(missing), missing[:10])
+    return missing    
+
+
 
 def roirec(outdir, check=False):
     roi_files = sorted(glob.glob(os.path.join(outdir, 'pickle/*.pickle')))
