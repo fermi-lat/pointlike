@@ -1,7 +1,7 @@
 /** @file EventList.cxx 
 @brief declaration of the EventList wrapper class
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.18 2010/07/29 03:11:38 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/EventList.cxx,v 1.19 2011/11/24 02:08:35 kerrm Exp $
 */
 
 #include "EventList.h"
@@ -75,7 +75,7 @@ void AddPhoton::operator()(const Photon& gamma)
             if( class_level< pointlike::Data::class_level() ) return; // select class level
         }
         else {
-            if( class_level & pointlike::Data::class_level() == 0 ) return;
+            if(( class_level & (1<<pointlike::Data::class_level()) )== 0 ) return;
         }
         m_kept++;
 
