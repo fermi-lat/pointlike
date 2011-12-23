@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.69 2011/12/06 23:30:11 kadrlica Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.70 2011/12/06 23:37:32 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -15,7 +15,10 @@ from abc import abstractmethod
 
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
-from SpatialModels import SpatialMap # for function expand
+try:
+    from SpatialModels import SpatialMap # for function expand
+except:
+    print 'Warning: Models.py could not load SpatialMap, used by DMFitFunction, no idea why it is in this module'
 
 #===============================================================================================#
 
@@ -239,7 +242,7 @@ Optional keyword arguments:
             p[1]=p[1]-self.index_offset #Index is parameter 1
         if not self.background:
             if not np.all(self.cov_matrix==0):
-                f,fhi,flo    = self.i_flux(e_weight=0,two_sided=True,cgs=True,error=True)
+                f,fhi,flo    = self.i_flux(e_weight=0,emax=3e5,two_sided=True,cgs=True,error=True)
                 e,ehi,elo    = self.i_flux(e_weight=1,emax=3e5,two_sided=True,cgs=True,error=True)
                 if not absolute:
                     fhi /= f; flo /= f; ehi /= e; elo /= e;
@@ -286,7 +289,7 @@ Optional keyword arguments:
             
     def __repr__(self): return self.__str__()
 
-    def i_flux(self,emin=100,emax=np.inf,e_weight=0,cgs=False,error=False,two_sided=False):
+    def i_flux(self,emin=100,emax=np.inf,e_weight=0,cgs=False,error=False,two_sided=False, quiet=False):
         """Return the integral flux, \int_{emin}^{emax} dE E^{e_weight} dN/dE.
            e_weight = 0 gives the photon flux (ph cm^-2 s^-1)
            e_weight = 1 gives the energy flux (MeV cm^-2 s^-1) (see kwargs)
@@ -302,6 +305,7 @@ Optional keyword arguments:
   cgs          [False] if True, energy in ergs, else in MeV
   error        [False] if True, return value is a tuple with flux and estimated error
   two_sided    [False] if True, return value is a triple with flux, estimated high and low errors
+  quiet        [False] set to suppress error message
   =========    =======================================================
         """
 
@@ -314,10 +318,12 @@ Optional keyword arguments:
             epsabs = func(emin)*1e-4 # needed since epsrel does not seem to work
             flux    =  units*quad(func,emin,emax,epsabs=epsabs)[0]
             if error:
+                # will silently ignore 'free' parameters without errors
+                mask = (self.free) * (self.cov_matrix.diagonal()>0)
                 args = (emin,emax,e_weight,cgs,False)
-                d    = self.__flux_derivs__(*args)[self.free]
+                d    = self.__flux_derivs__(*args)[mask]
                 dt  = d.reshape( (d.shape[0],1) ) #transpose
-                err = (d * self.cov_matrix[self.free].transpose()[self.free] * dt).sum()**0.5
+                err = (d * self.cov_matrix[mask].transpose()[mask] * dt).sum()**0.5
                 if not two_sided:
                     return (flux,err)
                 else: #use log transform to estimate two-sided errors
@@ -326,9 +332,10 @@ Optional keyword arguments:
                     return (flux,np.exp(log_flux+log_err)-flux,flux-np.exp(log_flux-log_err))
 
             return flux
-        except Exception:
-            print 'Encountered a numerical error when attempting to calculate integral flux.'
-            return np.nan if not error else ([np.nan]*(3 if two_sided else 2))
+        except Exception, msg:
+            if not quiet:
+                print 'Encountered a numerical error, "%s", when attempting to calculate integral flux.'%msg
+            return np.nan if not error else ([flux, np.nan,np.nan] if two_sided else [flux, np.nan])
 
     def set_flux(self,flux,*args,**kwargs):
         """ Set the flux of the source. 
@@ -473,7 +480,9 @@ Spectral parameters:
         
     def full_name(self):
         return '%s, e0=%.0f'% (self.pretty_name,self.e0)
-
+    @property
+    def eflux(self):
+        return self.e0**2*10**self._p[0]
 #===============================================================================================#
 
 class PowerLawFlux(Model):
@@ -707,7 +716,6 @@ Spectral parameters:
         gamma = 10** self._p[1]
         self._p[0] += gamma * np.log10(ebreak/e0p)
         self._p[3] = np.log10(e0p)
-        self.e0 = e0p
  
     def create_powerlaw(self, beta_max=3e-2):
         """ if beta is small and fixed, return an equivalent PowerLaw, otherwise just return self """
@@ -716,6 +724,14 @@ Spectral parameters:
         nm.cov_matrix=self.cov_matrix[:-2,:-2]
         return nm
     
+    @property
+    def e0(self):
+        return 10**self._p[3]
+        
+    @property
+    def eflux(self):
+        n0, alpha,beta, ebreak = 10**self._p
+        return n0 * ebreak**2
 #===============================================================================================#
 
 class ExpCutoff(Model):
@@ -754,7 +770,12 @@ Spectral parameters:
         
     def full_name(self):
         return '%s, e0=%.0f'% (self.pretty_name,self.e0)
-        
+ 
+    @property
+    def eflux(self):
+        n0 = 10**self._p[0]
+        return n0 * self.e0**2
+    
 #===============================================================================================#
 
 class ExpCutoffPlusPL(Model):
