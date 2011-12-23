@@ -1,4 +1,17 @@
 ------------------------------------------------------------
+User: burnett  Fri Dec 23 14:58:38 PST 2011
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+minor changes needed by like2, that should not affect like: 
+ * allow import from SpatialModels to fail: DMFitFunction is not used by like2
+ * define propery e0 in LogParabola
+ * define property eflux to reflect normalization factor in energy rather than counts.
+ * improve i_flux behavior if cov_matrix is improper
+    *
+------------------------------------------------------------
 User: wallacee  Fri Dec 23 12:37:05 PST 2011
 pointlike/src
 
