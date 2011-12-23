@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Fri Dec 23 12:37:05 PST 2011
+pointlike/src
+
+Modified Files:
+	EventList.cxx 
+Log Message:
+Fix the implementation of the pass7 event class bitmask.
+
+    *
+------------------------------------------------------------
 User: burnett  Wed Dec 21 08:06:57 PST 2011
 pointlike/python/uw/like2/pipeline
 
