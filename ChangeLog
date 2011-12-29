@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Thu Dec 29 11:17:00 PST 2011
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py 
+Log Message:
+clean up; use @interactive to define function to pass to engiens
+    *
+------------------------------------------------------------
 User: burnett  Mon Dec 26 14:55:10 PST 2011
 pointlike/python/uw/like2/pub
 
