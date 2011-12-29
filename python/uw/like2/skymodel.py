@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.4 2011/12/06 22:16:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.5 2011/12/16 13:45:19 burnett Exp $
 
 """
 import os, pickle, glob, types
@@ -33,28 +33,25 @@ class SkyModel(object):
         ('auxcat', None, 'name of auxilliary catalog of point sources to append or names to remove',),
         ('newmodel', None, 'if not None, a string to eval\ndefault new model to apply to appended sources'),
         ('update_positions', None, 'set to minimum ts  update positions if localization information found in the database'),
-        ('free_index', None, 'Set to minimum TS to free photon index if fixed'),
+        #('free_index', None, 'Set to minimum TS to free photon index if fixed'),
         ('filter',   lambda s: True,   'selection filter: see examples at the end.'), 
         ('global_check', lambda s: None, 'check global sources: can modify parameters'),
-        ('rename_source',  lambda name: name, 'rename function'),
         ('closeness_tolerance', 0., 'if>0, check each point source for being too close to another, print warning'),
         ('quiet',  False,  'make quiet' ),
     )
     
     @keyword_options.decorate(defaults)
-    def __init__(self, folder=None,  **kwargs):
+    def __init__(self, folder,  **kwargs):
         """
-        folder : string or None
+        folder: string
             name of folder to find all files defining the sky model, including:
              a subfolder 'pickle' with files *.pickle describing each ROI, partitioned as a HEALpix set.
              a file 'config.txt' written by the pipeline
         """
         keyword_options.process(self, kwargs)
-        if self.free_index is not None: 
-            print 'will free photon indices for ts>%d' % self.free_index
+        #if self.free_index is not None: 
+        #    print 'will free photon indices for ts>%d' % self.free_index
 
-        if folder is None:
-            folder = 'uw%02d' % int(open('version.txt').read())
         self.folder = os.path.expandvars(folder)
         if not os.path.exists(self.folder):
             raise Exception('sky model folder %s not found' % folder)
@@ -189,14 +186,14 @@ class SkyModel(object):
                             moved +=1
                             self.tagged.add(i)
                 
-                ps = sources.PointSource(name=self.rename_source(key), 
+                ps = sources.PointSource(name=key, #name=self.rename_source(key), 
                     skydir=skydir, model= item['model'],
                     ts=item['ts'],band_ts=item['band_ts'], index=index)
-                if self.free_index is not None and not ps.free[1] and ps.ts>self.free_index:
-                    ps.free[1]=True
-                    nfreed +=1
-                    if nfreed<10: print 'Freed photon index for source %s'%ps.name
-                    elif nfreed==10: print ' [...]'
+                #if self.free_index is not None and not ps.free[1] and ps.ts>self.free_index:
+                #    ps.free[1]=True
+                #    nfreed +=1
+                #    if nfreed<10: print 'Freed photon index for source %s'%ps.name
+                #    elif nfreed==10: print ' [...]'
                 if sources.validate(ps,self.nside, self.filter):
                     self._check_position(ps) # check that it is not coincident with previous source(warning for now?)
                     self.point_sources.append( ps)
@@ -237,10 +234,13 @@ class SkyModel(object):
  
     def _check_for_extended(self):
         if self.__dict__.get('extended_catalog') is None: return
-        for name in self.extended_catalog.names:
+        for i,name in enumerate(self.extended_catalog.names):
             if name.replace(' ','') not in [g.name.replace(' ','') for g in self.extended_sources]:
-                print 'extended source %s added to model' % name
-                self.extended_sources.append(self.extended_catalog.lookup(name))
+                es = self.extended_catalog.sources[i]
+                print 'extended source %s [%d] added to model' % (name, self.hpindex(es.skydir))
+                t = self.extended_catalog.lookup(name)
+                assert t is not None, 'logic error?'
+                self.extended_sources.append(t)
 
     def _check_position(self, ps):
         if self.closeness_tolerance<0.: return
@@ -425,7 +425,7 @@ class HEALPixSourceSelector(SourceSelector):
         return 'HP%02d_%04d' % (self.nside, self.myindex)
 
     def skydir(self, index=None):
-        return Band(self.nside).dir(index) if index is not None else self.mskydir
+        return Band(self.nside).dir(int(index)) if index is not None else self.mskydir
         
     def index(self, skydir):
         return Band(self.nside).index(skydir)
@@ -556,6 +556,3 @@ class FluxFreeOnly(object):
             source.free[1:]=False
         return True
         
-
-
-            

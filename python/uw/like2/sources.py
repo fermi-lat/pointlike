@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.2 2011/10/04 20:00:43 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.3 2011/10/20 21:41:28 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -134,8 +134,8 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
         """ initialize by also filling an array with all source spectral models"""
         self.alias = kwargs.pop('alias', dict())
         super(ExtendedCatalog,self).__init__(*pars, **kwargs)
-        self.sources = self.get_sources(SkyDir(),180)
-        assert len(self.sources)==len(self.names), 'inconsistent list lengths'
+        # create list of sources using superclass, for lookup by name
+        self.sources = [self.get_sources(self.dirs[i], 0.1)[0] for i in range(len(self.names))]
 
     def realname(self, cname):
         """ cname was truncated"""
@@ -147,27 +147,26 @@ class ExtendedCatalog( pointspec_helpers.ExtendedSourceCatalog):
         assert 'compressed name %s not found in list of names, %s' %(cname,self.names)
 
     def lookup(self, name):
-        """ return an ExtendedSource object, None if not found """
+        """ return an ExtendedSource object by name, None if not found """
         aname = self.alias.get(name,name) #alias will be the new name
-        #if aname != name: print 'Renaming extended source %s to %s' % (name, aname)
-        for source in self.sources:
-            if source.name in (name, aname, aname.replace(' ',''), name.replace(' ','')):
-                #source.free = source.model.free.copy()
-                #if source.model.name=='LogParabola': source.free[-1]=False # E_break not free
-                #return source
-                # make a new object copied from original
-                if source.model.name=='BrokenPowerLaw': #convert this
-                    model = Models.LogParabola()
-                else: model = source.model
-                extsource= ExtendedSource(name=self.realname(aname), skydir=source.skydir,
-                    model = model, 
-                    spatial_model = source.spatial_model,
-                    smodel= source.smodel,      # these reference copies needed
-                    dmodel= source.spatial_model
-                    )
-                if extsource.model.name=='LogParabola': extsource.free[-1]=False # E_break not free
-                return extsource    
-        return None #raise Exception( ' extended source %s not found' % name)
+        try:
+            i = list(self.names).index(name)
+        except ValueError:
+            return None
+        source = self.sources[i]
+        # make a new object copied from original
+        if source.model.name=='BrokenPowerLaw': #convert this
+            model = Models.LogParabola()
+        else: model = source.model
+        extsource= ExtendedSource(name=self.realname(aname), skydir=source.skydir,
+            model = model, 
+            spatial_model = source.spatial_model,
+            smodel= source.smodel,      # these reference copies needed
+            dmodel= source.spatial_model
+            )
+        if extsource.model.name=='LogParabola': extsource.free[-1]=False # E_break not free
+        return extsource  
+
   
 def validate( ps, nside, filter):
     """ validate a Source: if not OK, reset to standard parameters, disable all but small flux level

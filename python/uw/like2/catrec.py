@@ -1,6 +1,6 @@
 """
 Support for generating output files
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/catrec.py,v 1.2 2011/12/06 22:15:18 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/catrec.py,v 1.3 2011/12/16 13:43:25 burnett Exp $
 """
 import os, glob, types
 import cPickle as pickle
@@ -72,6 +72,7 @@ def create_catalog(outdir, **kwargs):
                 ts band_ts
                 id_prob aclass id_ts
                 hp12
+                extended
                 pnorm pindex cutoff 
                 pnorm_unc pindex_unc cutoff_unc
                 e0 pivot_energy 
@@ -100,25 +101,15 @@ def create_catalog(outdir, **kwargs):
                 data.append( cnan if adict is None else adict['deltats'][0])
                 hp12 = Band(12).index(skydir)
                 data.append(hp12)
-                #band_info = entry.get('band_info', None)
-                #if band_info is None:
-                #    bts = sig_counts=0
-                #    sig_counts = None
-                #else:
-                #    sig_counts=band_info['signal_counts'] if 'signal_counts' in band_info else None
-                #    bts = band_info['ts']
-                #
-                #for i in (0,4,8):
-                #    data.append(sig_counts[i:,0].sum() if sig_counts is not None else cnan)
-                #data.append( entry['extent'] is not None)
+                data.append(entry['isextended'])
                 
                 model  = entry['model']
-                #if '_p' not in model.__dict__: model._p = model.p 
-                eflux = list(np.array(model.i_flux(e_weight=1, error=True, emax=1e5))*1e6) if ts>10 else [0.,0.]
-                if np.any(np.isnan(eflux)):
-                    print 'bad energy integral, source %s [%d]' % (name, hp12)
-                #if np.isnan(eflux[0]):
-                #    import pdb; pdb.set_trace()
+                eflux = list(np.array(model.i_flux(e_weight=1, error=True, emax=1e5, quiet=True))*1e6)\
+                                            if ts>10 else [0.,0.]
+                #if np.any(np.isnan(eflux)):
+                #    print 'bad energy integral, source %s [%d]' % (name, hp12)
+                if np.isnan(eflux[0]):
+                    import pdb; pdb.set_trace()
                 p,p_relunc = model.statistical()
                 if p[0]< self.minflux or np.any(np.isnan(p[:2])):
                     self.reject+=1
