@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Thu Dec 29 11:17:51 PST 2011
+pointlike/python/uw/like2/pub
+
+Added Files:
+	.cvsignore __init__.py combine_figures.py deepzoom.py 
+	display_map.py dz_collection.py healpix_map.py makecat.py 
+	pivot.py print_roi.py publish.py roi_pivot.py source_pivot.py 
+Log Message:
+updated copy of old pub
+    *
+------------------------------------------------------------
 User: burnett  Thu Dec 29 11:17:00 PST 2011
 pointlike/python/uw/like2/pipeline
 
