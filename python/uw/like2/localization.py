@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.1 2011/12/09 16:09:39 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.2 2011/12/16 13:44:21 burnett Exp $
 
 """
 import os
@@ -221,7 +221,6 @@ def localize_all(roi, **kwargs):
                 loc.localize()
             except Exception, msg:
                 print 'Localization of %s failed: %s' % (source.name, msg)
-                continue
             source.ellipse = loc.qform.par[0:2]+loc.qform.par[3:7] +[loc.delta_ts] if hasattr(loc,'qform') else None
             if not roi.quiet and hasattr(loc, 'niter') and loc.niter>0: 
                 print 'Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
