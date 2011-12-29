@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.6 2011/12/09 16:07:44 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.7 2011/12/21 16:06:57 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -9,6 +9,7 @@ from . import processor, parallel
 from .. import main, roisetup, skymodel
 from uw.utilities import makerec
 from .parallel import  AssignTasks, get_mec, kill_mec, free
+from IPython.parallel.util import interactive # decorator for function to run in an engine
 
 class Pipe(roisetup.ROIfactory):
     """ This is a subclass of ROIfactory,
@@ -112,25 +113,23 @@ class Setup(dict):
                 indir = indir,
                 auxcat='',
                 outdir=outdir,
-                pass_number=0,
                 datadict = dict(dataname='P7_V4_SOURCE'),
                 diffuse = ('ring_24month_P76_v1.fits', 'isotrop_21month_P76_v2.txt'),
+                emin=100, emax=316227, minROI=5, maxROI=5,
                 extended= None,
                 alias= {}, 
                 skymodel_extra = '',
                 irf = 'P7SOURCE_V6',
-                associator ='all_but_gammas',
+                associator =None,
                 sedfig_dir = None,
                 tsmap_dir  = None, tsfits=False,
-                localize=True,
-                emin=100, emax=316227,
+                localize=False,
                 processor='processor.process',
                 fix_beta=False, dofit=True,
                 source_kw=dict(),
                 fit_kw=dict(ignore_exception=False, use_gradient=True, call_limit=1000),
                 repivot = False,
                 update_positions=None,
-                free_index=None,
                 tables = None,  #roi_maps.ROItables("%(outdir)s", skyfuns=(
                                 # (roi_tsmap.TSCalc, 'ts', dict(photon_index=2.0),) 
                                 #  (ts_map.KdeMap, "kde", dict()),))
@@ -150,12 +149,11 @@ from uw.like2.pipeline import pipe; from uw.like2 import skymodel
 g=pipe.Pipe("%(indir)s", %(datadict)s, 
         skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,
             extended_catalog_name="%(extended)s", update_positions=%(update_positions)s,
-            free_index=%(free_index)s,
             alias =%(alias)s, %(skymodel_extra)s), 
         analysis_kw=dict(irf="%(irf)s", minROI=%(minROI)s, maxROI=%(maxROI)s, emin=%(emin)s,emax=%(emax)s),
         cache="",
         processor="%(processor)s",
-        process_kw=dict(outdir="%(outdir)s", pass_number=%(pass_number)s,
+        process_kw=dict(outdir="%(outdir)s", 
             fit_kw = %(fit_kw)s,
             tsmap_dir=%(tsmap_dir)s,  tsfits=%(tsfits)s,
             sedfig_dir=%(sedfig_dir)s,
@@ -184,6 +182,7 @@ n,chisq = len(g.names()), -1
         assert len(mec)>0, 'no engines to setup'
         print 'setting up %d engines...' % len(mec)
         mec[:].clear()
+        mec[:].execute('import gc; gc.collect()', block=True)
         ar = mec[:].execute(self(), block=block)
         self.mecsetup=True
         self.dump()
@@ -194,7 +193,7 @@ n,chisq = len(g.names()), -1
         open(self.outdir+'/setup_string.txt', 'w').write(self.setup_string)
         open(self.outdir+'/config.txt', 'w').write(self.__str__())
     
-    def run(self, fn=None, tasklist=None, **kwargs):
+    def run(self, tasklist=None, fn=None, **kwargs):
         """ note: fn should be  lambda x:(x,g(x))
         """
         if not self.mecsetup:
@@ -203,8 +202,11 @@ n,chisq = len(g.names()), -1
         if outdir is not None:
             if not os.path.exists(outdir): 
                 os.mkdir(outdir)
+        @interactive
+        def ifun(x):
+            return (x,g(x))
         if fn is None:
-            fn = lambda x:(x,g(x))
+            fn = ifun
         print 'writing results to %s' %outdir
         local = kwargs.pop('local', False)
         ignore_exception = kwargs.pop('ignore_exception', False)
@@ -212,7 +214,7 @@ n,chisq = len(g.names()), -1
         if tasklist is None:
             mytasks =[ (864+i/2) if i%2==0 else (863-i/2) for i in range(1728)]
         else: 
-            mytasks = [t for t in tasklist]
+            mytasks = [int(t) for t in tasklist]
         lc= AssignTasks(fn, mytasks, 
             timelimit=5000, local=local, ignore_exception=ignore_exception,  )
         if sleep_interval>0:
