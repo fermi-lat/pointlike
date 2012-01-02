@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Mon Jan  2 11:17:43 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Added Files:
+	engines.py 
+Log Message:
+New code more compactly wrapping the IPython 0.12 parallel interface
+    *
+------------------------------------------------------------
 User: burnett  Mon Jan  2 11:16:29 PST 2012
 pointlike/python/uw/like2/pipeline
 
