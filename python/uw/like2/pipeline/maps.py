@@ -1,13 +1,13 @@
 """
 Code to generate a set of maps for each ROI
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/maps.py,v 1.1 2011/12/10 14:09:18 burnett Exp $
 
 """
 import os, sys,  pickle, types
 import numpy as np
-from uw.like import Models, roi_tsmap
+from uw.like import Models
 from uw.utilities import fitter
-from skymaps import Band, SkyDir, PySkyFunction, Hep3Vector 
+from skymaps import Band, SkyDir, PySkyFunction, Hep3Vector, PythonUtilities 
 
 # convenience adapters for ResidualTS model
 def LogParabola(*pars):return Models.LogParabola(p=pars)
@@ -17,7 +17,7 @@ def ExpCutoff(*pars):  return Models.ExpCutoff(p=pars)
 class CountsMap(dict):
     """ A map with counts per HEALPix bin """
     
-    def __init__(self, roi, emin=1000., nside=512):
+    def __init__(self, roi, emin=1000., nside=256):
         """ roi : a region of interest object
             emin : float
                 minimum energy for constructing the counts map
@@ -26,38 +26,49 @@ class CountsMap(dict):
         Note that is is implemented as a dictionary, with the pixel index as key
         """
         self.indexfun = Band(nside).index
-        self.emin=emin
         self._get_photons(roi, emin)
         
     def _get_photons(self, roi, emin):
-        for band in roi.bands:
-            e = band.e
-            if e<emin: continue
-            t = band.b.event_class() & 3 # note: mask off high bits!
+        for bandlike in roi.selected_bands:
+            band = bandlike.band
+            if band.e < emin: continue
+            #t = band.b.event_class() & 3 # note: mask off high bits!
             for wsd in band.wsdl:
                 index, wt = self.indexfun(wsd), int(wsd.weight())
                 if index in self: self[index]+=wt
                 else: self[index] = wt
     def __call__(self,v):
         return self.get(self.indexfun(v), 0)
-    
-class KdeMap(dict):
+  
+
+class KdeMap(object):
     """ Implement a SkyFunction that returns KDE data for a given ROI"""
     
-    def __init__(self, roi, nside=12, factor=32, **kwargs):
-        """ roi: an ROIAnalysis object
-            nside: int 
-                HEALPix nside
-            factor: int
-                factor defining nside of subpixel
+    def __init__(self, roi, emin=[500,1000], **kwargs):
+        """ roi: an ROIstat object
+            emin: list of two minimum energies
         """
-        self.nside = nside
-        # invoke code in like/roi_tsmap that will create the full map
-        hr = roi_tsmap.ROIWrapper(roi,nside)
-        self.kde = roi_tsmap.HealpixKDEMap(hr,factor=factor, **kwargs)
-                
-    def __call__(self, v, isskydir=False):
-        return self.kde.call2(v)
+        # create local array of references corresponding to bands from ROI 
+        self.bands = []
+        self.r95 = []
+        for  bandlike in roi.selected_bands:
+            band = bandlike.band 
+            if band.emin < emin[band.ct & 3]: continue
+            self.r95.append( np.radians(band.psf.inverse_integral_on_axis(0.95)))
+            self.bands.append(band)
+    
+    def __call__(self,v,skydir = None):
+        """ copied from roi_tsmap.HealpixKDEMap """
+        sd = skydir or SkyDir(Hep3Vector(v[0],v[1],v[2]))
+        rval = 0
+        for i,band in enumerate(self.bands):
+            if band.photons==0: continue
+            rvals = np.empty(len(band.wsdl),dtype=float)
+            PythonUtilities.arclength(rvals, band.wsdl, sd)
+            mask = rvals < self.r95[i]
+            rval +=(band.psf(rvals[mask],density=True)*band.pix_counts[mask]).sum()
+        return rval
+
 
 class ResidualTS(object):
     """ manage a residual TS plot 
@@ -82,6 +93,11 @@ class ResidualTS(object):
         self.roi.select_source('tsmap')
         self.index = len(self.roi.get_parameters())-2
         self.model = self.source.spectral_model
+        
+    def __enter__(self):
+        return self
+    def __exit__(self,*pars):
+        self.reset()
         
     def reset(self):
         #self.roi.del_source('test')
@@ -115,11 +131,10 @@ class ROItables(object):
             If skyfunction is a string, evaluate it 
     """
     
-    def __init__(self, outdir, **kwargs):
-        nside = kwargs.pop('nside', 12)
-        subnside = kwargs.pop('subnside', 512)
-        self.make_index_table(nside,subnside)
-        self.subdirfun = Band(subnside).dir
+    def __init__(self, outdir, nside, roi_nside=12, **kwargs):
+        print 'creating index table for nside %d' % nside
+        self.make_index_table(roi_nside, nside)
+        self.subdirfun = Band(nside).dir
         self.skyfuns = kwargs.pop('skyfuns', 
               ( (ResidualTS, 'ts', dict(photon_index=2.2),) , 
                 #(KdeMap,    'kde', dict()),
@@ -162,13 +177,20 @@ class ROItables(object):
             self.process_table(skyfun(roi, **fun[2]), fun[1], pos_list, 
                 os.path.join(self.subdirs[i], roi.name+'.pickle'))
 
-def countmaps(g, outdir=None):
+def countmaps(g, outdir=None, nside=256, dom=range(1728)):
     """ generate all the roi tables for CountsMap """
     if outdir is None: outdir = g.process_kw['outdir']
     if not os.path.exists(outdir): os.mkdir(outdir)
-    table = ROItables(outdir, skyfuns= [["CountsMap", "counts", dict()]])
+    table = ROItables(outdir, nside, skyfuns= [[CountsMap, "counts", dict()]])
     quiet, g.quiet = g.quiet, True
-    for index in range(0,1728):
-        r = g.roi(index, roi_kw=dict(skip_setup=True)) 
-        table(r)
+    map(lambda i: table(g.roi(i)), dom)
+    g.quiet=quiet    
+    
+def kdemaps(g, outdir=None, nside=256, dom=range(1728)):
+    """ generate all the roi tables for KdeMap """
+    if outdir is None: outdir = g.process_kw['outdir']
+    if not os.path.exists(outdir): os.mkdir(outdir)
+    table = ROItables(outdir, nside, skyfuns= [[KdeMap, "kde", dict()]])
+    quiet, g.quiet = g.quiet, True
+    map(lambda i: table(g.roi(i)), dom)
     g.quiet=quiet    
