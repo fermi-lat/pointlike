@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.71 2010/06/02 23:43:49 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.72 2011/11/24 02:08:35 kerrm Exp $
 
 */
 
@@ -299,7 +299,8 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
     }else {
 
         EventList photons(inputFile, source_id>-1, s_use_mc_energy);
-        AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id, s_gti_mask, photons.pass7());
+        //AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id, s_gti_mask, photons.pass7());
+        AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id, m_data->gti(), photons.pass7());
 
         AddPhoton added =std::for_each(photons.begin(), photons.end(), adder );
         log() 
