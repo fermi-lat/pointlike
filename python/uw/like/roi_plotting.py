@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.80 2011/11/16 05:45:18 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.81 2011/11/30 19:40:24 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1200,6 +1200,7 @@ class ROISmoothedSources(object):
         if colorbar_radius is not None:
             ra,dec=roi.roi_dir.ra(),roi.roi_dir.dec()
             reg = pyregion.parse("fk5; circle(%.4f, %.4f, %.4f)" % (ra,dec,colorbar_radius))
+            extensionmask = reg.get_mask(pyfits[0])
 
         elif hasattr(source,'spatial_model'):
             # For extended sources,
