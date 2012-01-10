@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.65 2011/12/16 06:04:20 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.66 2011/12/16 19:33:52 kadrlica Exp $
 
    author: Joshua Lande
 
@@ -120,6 +120,7 @@ class DefaultSpatialModelValues(object):
     models['RadiallySymmetricEllipticalGaussian'] = models['Gaussian']
     models['PseudoEllipticalDisk'] = models['PseudoDisk']
     models['RadiallySymmetricEllipticalDisk'] = models['Disk']
+    models['RadialProfileFromArray'] = models['RadialProfile']
 
     @staticmethod
     def setup(the_model):
@@ -763,7 +764,11 @@ class Ring(RadiallySymmetricModel):
 
 class NFW(RadiallySymmetricModel):
     """ Ping's parameterization of the NFW Source is 
-        P(x,y)=2/(pi*r*s*(1+r/s)^5) """
+        P(x,y)=2/(pi*r*s*(1+r/s)^5) 
+        WARNING: This only works for sources with 
+        0.5 <~ sigma <~ 10. For more details, see:
+        https://confluence.slac.stanford.edu/display/SCIGRPS/Pointlike+DMFit+Validation
+        """
 
     def extension(self):
         return self.get_parameters(absolute=True)[2]
@@ -772,7 +777,9 @@ class NFW(RadiallySymmetricModel):
         super(NFW,self).cache()
 
         self.sigma=self.extension()
-        # Ask Alex DW if you don't understand where this came from
+        # This factor of 1.07 is a normalization constant
+        # coming from a comparison of the analytic form
+        # with the l.o.s. integral.
         self.factor=1.07
         self.scaled_sigma=self.sigma/self.factor
 
@@ -810,11 +817,11 @@ class InterpProfile(RadiallySymmetricModel):
             between the values in list.
             
             Note, the first column should be degrees and the second column
-            shoudl be perporitnal to flux per steradian.  The overal
+            should be proportional to flux per steradian.  The overall
             normaliztion of the model will be set so that the spatial
             model integrates to 1.
         """
-        super(RadiallySymmetricModel,self).__init__()
+        super(RadiallySymmetricModel,self).__init__(**kwargs)
 
         kind=kwargs.pop('kind','linear')
 
@@ -833,7 +840,9 @@ class InterpProfile(RadiallySymmetricModel):
         self.interp = interp1d(self.r_in_radians,self.pdf,kind=kind,bounds_error=False,fill_value=0)
 
         # integrand takes r in radians
-        integrand = lambda r: self.interp(r)*2*np.pi*r
+        # shouldn't this be solid angle instead of polar coords?
+        integrand = lambda r: self.interp(r)*2*np.pi*np.sin(r)
+        #integrand = lambda r: self.interp(r)*2*np.pi*r
 
         # perform integral in radians b/c the PDF must integrate
         # over solid angle (in units of steradians) to 1
@@ -860,7 +869,6 @@ class InterpProfile(RadiallySymmetricModel):
 class RadialProfile(InterpProfile):
     r""" Define an extended source spatial model from a text file.
 
-
         Below is a simple example to demonstrate this spatial model.
         First, we will generate a text file consistent with a gaussain.
 
@@ -886,7 +894,7 @@ class RadialProfile(InterpProfile):
             >>> np.allclose(gauss.at_r_in_deg(r_test), numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-5)
             True
     """
-    def get_r_pdf(self, file):
+    def get_r_pdf(self, file, **kwargs):
 
         if not hasattr(file,'read') and not os.path.exists(file):
             raise Exception("RadialProfile must be passed an existing file")
@@ -900,6 +908,41 @@ class RadialProfile(InterpProfile):
 
         return r_in_degrees,pdf
 
+class RadialProfileFromArray(InterpProfile):
+    r""" Define an extended source spatial model from an array.
+
+        First, define analytic shape
+        
+            >>> sigma = 1 # degrees
+            >>> gauss = Gaussian(sigma=sigma)
+
+        Next, define numeric shape
+
+            >>> r = np.linspace(0,10,100) # in degrees
+            >>> pdf = np.exp(-r**2/(2*sigma**2))
+            >>> numeric_gauss = RadialProfileFromArray(r_in_degrees=r,pdf=pdf,kind='cubic')
+
+        Note that the normalization of the numeric gaussian is wrong, but 
+        will be renormalized anyway.
+
+        Note that spatial model is the same as Gaussian:
+
+            >>> r_test = np.linspace(0,1,47) # sample odly
+            >>> np.allclose(gauss.at_r_in_deg(r_test), numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-5)
+            True
+    """
+    def get_r_pdf(self, r_in_degrees, pdf, **kwargs):
+        r_in_degrees,pdf = np.asarray(r_in_degrees),np.asarray(pdf)
+
+        if r_in_degrees.shape != pdf.shape or len(r_in_degrees) != len(pdf):
+            raise Exception("Size and shape of input arrays must be the same.")
+
+        # Extend profile to r = 0 as a constant
+        if r_in_degrees[0] > 0:
+            r_in_degrees = np.concatenate( ( [0], r_in_degrees) )
+            pdf = np.concatenate( ( [pdf[0]], pdf) )
+
+        return r_in_degrees,pdf
 
 #===============================================================================================#
 
