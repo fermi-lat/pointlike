@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Tue Jan 10 14:54:25 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Added RadialProfileFromArray
+    *
+------------------------------------------------------------
 User: lande  Tue Jan 10 14:18:14 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
