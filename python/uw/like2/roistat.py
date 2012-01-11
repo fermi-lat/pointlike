@@ -4,7 +4,7 @@ Manage likelihood calculations for an ROI
 mostly class ROIstat, which computes the likelihood and its derivative from the lists of
 sources (see .sourcelist) and bands (see .bandlike)
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.18 2011/11/16 14:12:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roistat.py,v 1.19 2011/12/06 22:14:08 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import sys
@@ -45,7 +45,12 @@ class ROIstat(object):
         self.name = roi.name
         self.roi_dir = roi.roi_dir
         self.exposure = roi.exposure
-        self.sources = sourcelist.SourceList(roi) 
+        try:
+            self.sources = sourcelist.SourceList(roi) 
+        except Exception,msg:
+            t = 'Failed to create ROI %s: %s' % (self.name, msg)
+            raise Exception(t) 
+            
         quiet = kwargs.pop('quiet', False)
         self.all_bands = bandlike.factory(filter(bandsel, roi.bands), self.sources , roi.exposure, quiet=quiet)
         self.selected_bands = self.all_bands # the possible subset to analyze
@@ -53,8 +58,8 @@ class ROIstat(object):
         self.calls=0
         self.call_limit=1000
         self.quiet=quiet
-        self.prior= prior.ModelPrior(self.sources, self.sources.free)
-        self.prior.enabled=kwargs.pop('enable_prior', False)
+        #self.prior= prior.ModelPrior(self.sources, self.sources.free)
+        #self.prior.enabled=kwargs.pop('enable_prior', False)
         self.saved_pars = self.get_parameters()
     
     def __str__(self):
@@ -88,12 +93,9 @@ class ROIstat(object):
             if None, use list of sources with at least one free spectral parameter
         """
         if freelist is None: freelist = self.sources.free
-        for i,band in enumerate(self.all_bands):
-            #if not self.quiet: 
-            #    status_string = '...initializing band %2d/%2d'%(i+1,len(self.all_bands))
-            #    print status_string;sys.stdout.flush()
+        for band in self.all_bands:
             band.initialize(freelist)
-        self.prior.initialize(freelist)
+        #self.prior.initialize(freelist)
         self.update()
         self.saved_pars = self.get_parameters()
         
@@ -144,13 +146,13 @@ class ROIstat(object):
         if reset:
             assert sum(self.source_mask)==1, 'expect only one source selected'
         map(lambda s: s.update(reset), self.selected_bands)
-        self.prior.update()
+        #self.prior.update()
         
     def log_like(self):
         """ return sum of log likelihood for all bands
         """
         self.update()
-        return sum([blike.log_like() for blike in self.selected_bands]) + self.prior.log_like()
+        return sum([blike.log_like() for blike in self.selected_bands]) #+ self.prior.log_like()
         
     def __call__(self, par):
         """ (negative) log likelihood as a function of the free parameters par 
@@ -170,8 +172,7 @@ class ROIstat(object):
             self.set_parameters(parameters)
         self.update()
         t = np.array([blike.gradient() for blike in self.selected_bands]).sum(axis=0)
-        if self.prior.enabled:
-                t+= self.prior.gradient()
+        #if self.prior.enabled:  t+= self.prior.gradient()
         par = self.get_parameters()
         assert len(t)==len(par), 'inconsistent number of free parameters'
         # this is required by the convention in all of the Models classes to use log10 for external
