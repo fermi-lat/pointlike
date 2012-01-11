@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Wed Jan 11 06:03:25 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py processor.py 
+Removed Files:
+	parallel.py 
+Log Message:
+updates for parallel processing
+    *
+------------------------------------------------------------
 User: burnett  Wed Jan 11 05:49:30 PST 2012
 pointlike/python/uw/like2/pipeline
 
