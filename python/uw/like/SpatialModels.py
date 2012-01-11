@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.66 2011/12/16 19:33:52 kadrlica Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.67 2012/01/10 22:54:25 kadrlica Exp $
 
    author: Joshua Lande
 
@@ -564,7 +564,6 @@ class RadiallySymmetricModel(SpatialModel):
     @abstractmethod
     def at_r_in_deg(self,r,energy=None):
         """ Should return the intensity at a distance r from the spatial model's center,
-
             r is in degrees. """
         pass
 
@@ -572,6 +571,13 @@ class RadiallySymmetricModel(SpatialModel):
         """ For analytic convolution, distance to be taken as the edge of the
             source. """
         return 5*self.r68()
+
+    def approximate_profile(self,numpoints=200):
+        """ For outputting radial profile with sufficient accuracy. Rapidly varying spatial
+            models should implement their own version of this function."""
+        radius = np.linspace(0,self.effective_edge(),numpoints)
+        pdf = self.at_r_in_deg(radius)
+        return radius,pdf
 
 #===============================================================================================#
 
@@ -865,6 +871,15 @@ class InterpProfile(RadiallySymmetricModel):
     def effective_edge(self,energy=None):
         """ Interpolation returns 0 outside of rmax, so no need to integrate past it. """
         return self.r_in_degrees[-1]
+
+    def approximate_profile(self,numpoints=200):
+        """ For outputting radial profile with sufficient accuracy. Rapidly varying spatial
+            models should implement their own version of this function."""
+        edge = self.effective_edge()
+        radius=np.logspace(np.log10(1e-6*edge),np.log10(edge),numpoints)
+        pdf = self.at_r_in_deg(radius)
+        return radius,pdf
+
 
 class RadialProfile(InterpProfile):
     r""" Define an extended source spatial model from a text file.
