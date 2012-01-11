@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.21 2011/12/02 19:29:43 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.22 2011/12/09 03:26:42 lande Exp $
 
 author: Joshua Lande
 """
@@ -172,9 +172,7 @@ class MonteCarlo(object):
 
     def _make_profile(self,spatial_model,numpoints=200):
         temp=NamedTemporaryFile(dir='.',delete=False)
-        edge=spatial_model.effective_edge()
-        radius=np.linspace(0,edge,numpoints)
-        pdf=spatial_model.at_r_in_deg(radius)
+        radius,pdf = spatial_model.approximate_profile()
         temp.write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(radius,pdf)]))
         temp.close()
         return temp.name
@@ -623,7 +621,7 @@ class SpectralAnalysisMC(SpectralAnalysis):
         but with the difference that it will go ahead and simulate the
         data for you.
 
-        When you create this object, you can pass in a DataSpecifciation
+        When you create this object, you can pass in a DataSpecification
         object with an existing ft2 file and a not existing ft1 file and
         the ft1 file will be created with the specified pointing history.
 
