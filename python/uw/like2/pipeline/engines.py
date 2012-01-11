@@ -1,7 +1,7 @@
 """
 Support for running multiple IPEngines on a cluster or machines
 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/engines.py,v 1.1 2012/01/02 19:17:43 burnett Exp $
 """
 
 import time, os, sys, types, subprocess
@@ -13,10 +13,18 @@ from IPython.parallel.util import interactive # decorator for function to run in
 version = '$Revision: 1.1 $'.split()[1]
 
 class Engines(object):
-    """ manage a set of IPengines
+    """ manage a set of IPEngines to simplify parallel processing
+    Expect that an IPController has been set up with a number of IPEngines
+    
+    Example:
+    mec = Engines()
+    mec.execute('f=lambda x: x')
+    n=1000
+    mec.submit('f', range(n) )
+    asset sum(mec.results.values()) ==n*(n-1)/2, 'failed test'
     """
 
-    def __init__(self, default='default', **kwargs):
+    def __init__(self, profile='default', **kwargs):
         """
         """
         self.logstream = kwargs.pop('log', None)
@@ -28,9 +36,9 @@ class Engines(object):
         self.results=dict()
 
         try:
-            self.rc = parallel.Client(default=default)
+            self.rc = parallel.Client(profile=profile)
         except:
-            raise Exception( 'No engines available: you must run IPcluster')
+            raise Exception( 'No controller available: you must run ipcluster')
         if not self.quiet: print '%d engines available' %len(self.rc)
         self.lview = self.rc.load_balanced_view()
         ncomp, nqueue, ntasks = self.status()
@@ -39,6 +47,7 @@ class Engines(object):
     def __getitem__(self, i): return self.rc[i]
     def len(self): return len(self.rc)
     
+       
     def clear(self, **kwargs):
         """
         Definition: self.rc.clear(self, targets=None, block=None)
@@ -55,19 +64,27 @@ class Engines(object):
         
     def execute(self, code):
         """ code: string to execute on all engines """
+        self.log('executing setup code')
         self._wait_to_finish(self.rc[:].execute(code, block=False))
 
-    def submit(self, code, *pars):
+    def submit(self, f, *pars):
         """ submit jobs to the engines
-        code : string to execute, should evaluate to a function that will be executed on the target machine
+        f : string  or function 
+            if string, should by the name of a function that will be executed on the target machine
         pars : one or more list of arguments
         """
-        self.log('submitting  %d tasks '%len(pars[0]))
+        assert len(pars)>0, 'no parameters'
+        self.log('submitting  %d tasks to %d engines'% (len(pars[0]), self.len()))
         starttime=time.time()
-        @interactive
-        def fn(f,x):
-            return eval(f,globals())(x)
-        self._wait_to_finish(self.lview.map( fn, len(pars[0])*[code], *pars))
+        self.results = dict()
+        
+        # suggestion from MinRK 
+        if isinstance(f, basestring):
+            name = f
+            f = parallel.Reference(name)
+            f.__name__ = name # workaround: not needed in next ipython version
+        self._wait_to_finish(self.lview.map( f, *pars))
+        
         self.log('Done: elapsed, total times=%4.0f, %.0f sec'\
                     %((time.time()-starttime), sum(self.elapsed.values())))
 
@@ -115,7 +132,7 @@ class Engines(object):
                 if self.usercallback is not None:
                     # this needs some way to associate msg_id with the input parameters.
                     self.usercallback(msg_id, ar.stdout.replace('\n', '\n    ').rstrip())
-            ncomp ,nqueue, ntasks  = self.status()
+            ncomp, nqueue, ntasks  = self.status()
             self.log('completed: %4d, queued: %4d tasks: %4d  pending: %4d' %(ncomp-nczero,nqueue, ntasks, len(pending)))
     
     def log(self, message):
@@ -124,3 +141,9 @@ class Engines(object):
                 '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (message,))
             if self.logstream is not None: self.logstream.flush()
             else: sys.stdout.flush()
+
+### TODO: utility functions to start/stop/kill a cluster
+# ssh -n -f tev10 " sh -c \"nohup ipcluster start --n=24 > /dev/null 2>&1 &\""
+# ssh -n -f tev09 " sh -c \"nohup ipcluster engines --n-24 > /dev/null 2>&1 &\""
+# ...
+#ssh -n -f user@host "sh -c \"cd /whereever; nohup ./whatever > /dev/null 2>&1 &\""
