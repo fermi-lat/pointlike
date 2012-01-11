@@ -1,16 +1,18 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.7 2011/11/21 14:34:05 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.8 2011/12/06 22:16:52 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.7 $'.split()[1]
-import os, glob, types
+version='$Revision: 1.8 $'.split()[1]
+import os, glob, types 
+import cPickle as pickle
 import numpy as np
 import skymaps
 from ..like import pycaldb, roi_bands
 from ..data import dataman
+from ..data.dataman import DataSpec
 
 from ..utilities import keyword_options
 
@@ -27,14 +29,20 @@ class DataSpecification(object):
             dictionary that contains entries sufficient to describe the data, and how to generate it
         """
         if folder=='.': folder = os.getcwd()
-        for key in 'ft1files ft2files binfile ltcube'.split():
-            if key in data and data[key] is not None:
-                data[key]=os.path.expandvars(data[key]) 
-                if not os.path.isabs(key):
-                    data[key] = os.path.join(folder,data[key])
-                # need a check, but will fail if need to glob
-                #assert os.path.exists(data[key]), 'DataSpec: file %s not found' % data[key]
-        self.__dict__.update(data)
+        if 'pickle' in data:
+            print 'found pickle %s' % data['pickle']
+            t = pickle.load(open(data['pickle']))
+            print t.__dict__
+            self.__dict__.update(data)
+        else:
+            for key in 'ft1files ft2files binfile ltcube'.split():
+                if key in data and data[key] is not None:
+                    data[key]=os.path.expandvars(data[key]) 
+                    if not os.path.isabs(key):
+                        data[key] = os.path.join(folder,data[key])
+                    # need a check, but will fail if need to glob
+                    #assert os.path.exists(data[key]), 'DataSpec: file %s not found' % data[key]
+            self.__dict__.update(data)
         #print 'data spec:\n', str(self.__dict__)
 
     def __str__(self):
@@ -54,7 +62,11 @@ class DataSet(dataman.DataSpec):
         ('zenithcut',105,'Maximum spacecraft pointing angle with respect to zenith to allow'),
         ('thetacut',66.4,'Cut on photon incidence angle'),
         ('use_weighted_livetime',False,'Use the weighted livetime'),
-
+        
+        ' new feature',
+        ('pickle', None, 'pickled dataspec'),
+        ('legacy', True, 'set True to read old files'),
+        
         'keywords controlling instrument response',
         ('irf',None,'Which IRF to use'),
         ('psf_irf',None,'specify a different IRF to use for the PSF; must be in same format/location as typical IRF file!'),
@@ -84,8 +96,8 @@ class DataSet(dataman.DataSpec):
         dataspec.update(
                 ft1=dataspec.pop('ft1files',None), 
                 ft2=dataspec.pop('ft2files',None),
-                binsperdec=4,
-                legacy=True,)
+                #binsperdec=4,
+                )
         dataspec.update(kwargs)
         super(DataSet,self).__init__( **dataspec)
         self.CALDBManager = pycaldb.CALDBManager(
@@ -114,8 +126,8 @@ class DataSet(dataman.DataSpec):
             if os.path.exists(dict_file):
                 try:
                     ldict = eval(open(dict_file).read())
-                except:
-                    raise DataSetError( 'Data dictionary file %s not valid' % ldict)
+                except Exception, msg:
+                    raise DataSetError( 'Data dictionary file %s not valid: %s' % (dict_file, msg))
                 if dataset in ldict: 
                     print 'found dataset %s in %s' % (dataset, folder)
                     return DataSpecification(folder, **ldict[dataset])
@@ -154,15 +166,25 @@ class DataSet(dataman.DataSpec):
             self.datainfo()
             print '---------------------'
             
-    def datainfo(self):
-        self.dmap.info()
+    def info(self, out=None):
+        """ formatted table of band contents """
+        print >>out, 'File: %s ' %self.binfile
+        print >>out, '\n  index    emin      emax  class nside     photons'
+        total = 0
+        def bignum(n):
+            t = '%9d' % n
+            return '  '+' '.join([t[0:3],t[3:6],t[6:]])
+        for i,band in enumerate(self.dmap):
+            fmt = '%5d'+2*'%10d'+2*'%6d'+'%12s'
+            print fmt % (i, round(band.emin()), round(band.emax()), 
+                    band.event_class()&3, band.nside(), bignum(band.photons()))
+            total += band.photons()
+        print >>out, 'total%45s'% bignum(total)
+
+        #self.dmap.info()
 
 
-def main(dataname='2years_z100', irf='P7SOURCE_V6',**kwargs):
+def main(datadict=dict(dataname='P7_V4_SOURCE_4bpd'), analysis_kw=dict(irf='P7SOURCE_V6')):
     """ for testing: must define a dataset, and and at least an IRF"""
-    ds = DataSet(dataname)
-    analysis_kw = dict(irf=irf, minROI=7, maxROI=7)
-    analysis_kw.update(kwargs)
-    ds = DataSet(ds, **analysis_kw)
-    print ds
-    return ds
+    dataset = DataSet(datadict['dataname'], **analysis_kw)
+    return dataset
