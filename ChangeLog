@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jan 11 06:10:22 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py 
+Log Message:
+change to all bounds error in defining grid
+    *
+------------------------------------------------------------
 User: burnett  Wed Jan 11 06:09:17 PST 2012
 pointlike/python/uw/like2
 
