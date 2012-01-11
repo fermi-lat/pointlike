@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.9 2011/11/21 14:29:43 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.10 2011/12/06 22:18:17 burnett Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
@@ -82,7 +82,16 @@ class DiffuseModel(object):
 
 
 class ConvolvableGrid(convolution.BackgroundConvolution):
-    
+    """ subclass of the basic convolution used by all classes below.
+    It
+      1) changes the default for a bounds error (to check)
+      2) provides useful show method
+      """
+    def __init__(self, *args, **kwargs):
+        defaults=dict(bounds_error=False)
+        defaults.update(kwargs)
+        super(ConvolvableGrid, self).__init__(*args, **defaults)
+        
     def show(self, fignum=None, **kwargs):
         import pylab as plt
         title = kwargs.pop('title', None)
