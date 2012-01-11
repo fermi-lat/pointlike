@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.2 2011/12/16 13:44:21 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.3 2011/12/29 19:19:13 burnett Exp $
 
 """
 import os
@@ -172,37 +172,37 @@ class Localization(object):
 
         
   
-def make_association(source, tsf, associate):
-    print ' %s association(s) ' % source.name,
+def make_association(source, tsf, associate, quiet=False):
+    if not quiet: print ' %s association(s) ' % source.name,
     try:    ell = source.ellipse
     except: ell = None
     if ell is None:
-        print '...no localization'
+        if not quiet: print '...no localization'
         source.adict = None
         return
     assert len(ell)>6, 'invalid ellipse for source %s' % source.name
     try:
         adict = associate(source.name, SkyDir(ell[0],ell[1]), ell[2:5]) 
     except srcid.SrcidError, msg:
-        print 'Association error for %s: %s' % (source.name, msg)
+        if not quiet: print 'Association error for %s: %s' % (source.name, msg)
         adict=None
     except Exception, msg:
-        print 'Exception associating %s: %s' %( source.name, msg)
+        if not quiet: print 'Exception associating %s: %s' %( source.name, msg)
         adict=None
     source.adict = adict 
     if adict is not None:
     
         ts_local_max=tsf( SkyDir(ell[0],ell[1]) )
         adict['deltats'] = [ts_local_max-tsf(d) for d in adict['dir']]
-        print '\n   cat         name                  ra        dec         ang     prob    Delta TS'
+        if not quiet: print '\n   cat         name                  ra        dec         ang     prob    Delta TS'
         #       15 Mrk 501               253.4897   39.7527    0.0013      0.41
         fmt = '   %-11s %-20s%10.4f%10.4f%10.4f%8.2f%8.1f' 
         for i,id_name in enumerate(adict['name']):
             tup = (adict['cat'][i], id_name, adict['ra'][i], adict['dec'][i], adict['ang'][i], 
                     adict['prob'][i],adict['deltats'][i])
-            print fmt % tup
+            if not quiet: print fmt % tup
     else:
-        print '...None  found'
+        if not quiet: print '...None  found'
       
 
 def localize_all(roi, **kwargs):
@@ -212,7 +212,6 @@ def localize_all(roi, **kwargs):
     tsmap_dir = kwargs.pop('tsmap_dir', None)
     associator = kwargs.pop('associator', None)
     tsfits = kwargs.pop('tsfits', False) #TODO: reimplement this to generate FITS maps
-    
     initw = roi.log_like()
     
     for source in sources:
@@ -230,7 +229,7 @@ def localize_all(roi, **kwargs):
                 p = loc.qform.par[0:2]+loc.qform.par[3:7]
                 print len(p)*'%10.4f' % tuple(p)
             if associator is not None:
-                make_association(source, loc.TSmap, associator)
+                make_association(source, loc.TSmap, associator, quiet=roi.quiet)
             
             if tsmap_dir is not None:
                 tsize = loc.ellipse['a']*15. if hasattr(loc,'ellipse') and loc.ellipse is not None else 1.1
