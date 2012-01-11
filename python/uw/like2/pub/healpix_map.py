@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/healpix_map.py,v 1.7 2011/08/11 21:13:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.1 2011/12/29 19:17:51 burnett Exp $
 """
 import os,glob,pickle, types, copy
 import pylab as plt
@@ -501,32 +501,17 @@ class Setup(pipe.Setup):
     def __call__(self):
         return self.setup
 
-## obsolete, but should look at re-implementing
-#def get_outdir():
-#    """ default outdir from local file"""
-#    version= int(open('version.txt').read())
-#    return 'uw%02d'%version
-#
-#def getg(outdir=None, title='ts'):
-#    """ for testing locally"""
-#    if outdir is None: outdir=get_outdir()
-#    setup=Setup(outdir, title)
-#    exec(setup(), globals()) # should set g
-#    return g
-#
-# 
-#def make_maps(outdir=None, title='all', **kwargs):
-#    from uw.like2.pipeline.pipe import pmain
-#    if outdir is None: outdir=get_outdir()
-#    all = title=='all'
-#    if all or title=='kde':
-#        pmain(Setup(outdir,'kde'),logpath=None,  **kwargs)
-#    if all or title=='ts':
-#        pmain(Setup(outdir,'ts'), logpath=None,  **kwargs)
-#def main():   
-#    from uw.like2.pipeline.pipe import get_mec
-#    make_maps(None, 'all', mec=get_mec())
-#
-#if __name__=='__main__':
-#    main()
-#     
+def make_maps(outdir, title='all',):
+    all = title=='all'
+    if all or title=='kde':
+        Setup(outdir,'kde').run()
+    if all or title=='ts':
+        Setup(outdir,'ts' ).run()
+def main(): 
+    outdir = sorted(glob.glob('uw*'))[-1]
+    print 'using outdir %s' % outdir
+    make_maps(outdir, 'all')
+
+if __name__=='__main__':
+    main()
+     
