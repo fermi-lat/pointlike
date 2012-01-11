@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.5 2011/12/16 13:45:19 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.6 2011/12/29 19:19:13 burnett Exp $
 
 """
 import os, pickle, glob, types
@@ -29,11 +29,9 @@ class SkyModel(object):
                                          'if "ignore", create model without extended sources'),
         ('alias', dict(), 'dictionary of aliases to use for lookup'),
         ('diffuse', None,   'set of diffuse file names; if None, expect config to have'),
-        ('use_limb',False,'whether to add the model for the limb emission'),
         ('auxcat', None, 'name of auxilliary catalog of point sources to append or names to remove',),
         ('newmodel', None, 'if not None, a string to eval\ndefault new model to apply to appended sources'),
         ('update_positions', None, 'set to minimum ts  update positions if localization information found in the database'),
-        #('free_index', None, 'Set to minimum TS to free photon index if fixed'),
         ('filter',   lambda s: True,   'selection filter: see examples at the end.'), 
         ('global_check', lambda s: None, 'check global sources: can modify parameters'),
         ('closeness_tolerance', 0., 'if>0, check each point source for being too close to another, print warning'),
@@ -66,9 +64,7 @@ class SkyModel(object):
         self.diffuse_dict = sources.DiffuseDict(self.diffuse)
         self._load_sources()
         self.load_auxcat()
-        if self.use_limb:
-            self.add_limb() #### temporary?
-      
+
     def __str__(self):
         return 'SkyModel %s' %self.folder\
                 +'\n\t\tdiffuse: %s' %list(self.diffuse)\
@@ -109,7 +105,9 @@ class SkyModel(object):
         toremove=[]
         print 'process auxcat %s' %cat
         for s in ss:
-            sname = s.name.replace('_',' ')
+            if not s.name.startswith('SEED'): # allow underscores
+                sname = s.name.replace('_',' ') 
+            else: sname=s.name
             if sname  not in names: 
                 skydir=SkyDir(float(s.ra), float(s.dec))
                 index=self.hpindex(skydir)
@@ -181,7 +179,7 @@ class SkyModel(object):
                     if ellipse is not None and not np.any(np.isnan(ellipse)) :
                         fit_ra, fit_dec, a, b, ang, qual, delta_ts = ellipse
                         if qual<5 and a < 0.2 and \
-                                ts>self.update_positions and delta_ts>0.2:
+                                ts>self.update_positions and delta_ts>0.1:
                             skydir = SkyDir(float(fit_ra),float(fit_dec))
                             moved +=1
                             self.tagged.add(i)
@@ -226,8 +224,6 @@ class SkyModel(object):
                         self.extended_sources.append(es)
             self.global_sources.append(t)
         # check for new extended sources not yet in model
-        if nfreed>0: 
-            print 'Freed photon index for %d sources' % nfreed
         self._check_for_extended()
         if self.update_positions and moved>0:
             print 'updated positions of %d sources, healpix ids in tagged' % moved
@@ -351,18 +347,6 @@ class SkyModel(object):
     def source_rec(self, reload=False):
         self._load_recfiles(reload)
         return self.sources
-    def add_limb(self, scale=1e-3, mindec=45):
-        from uw.like import Models
-        con = Models.Constant(p=[scale])
-        t = sources.GlobalSource(name='limb_cube_v0.fits', model=con, skydir=None)
-        cnt=0
-        for index in range(1728):
-            gs = self.global_sources[index]
-            if len(gs)==3: continue # if 3, already added
-            if np.abs(Band(self.nside).dir(index).dec())<mindec: continue
-            gs.append(sources.GlobalSource(name='limb_cube_v0.fits', model=con, skydir=None))
-            cnt+=1
-        if cnt>0: print 'Added the limb to %d rois above abs(dec)=%.1f' % (cnt, mindec)
     def find_source(self, name):
         """ return local source reference by name, or None """
         t = filter( lambda x: x.name==name, self.point_sources+self.extended_sources)
@@ -476,7 +460,7 @@ class RemoveByName(object):
     
 class UpdatePulsarModel(object):
     """ special filter to replace models if necessary"""
-    def __init__(self,  tol=0.25, ts_min=10, version=682, rename=True):
+    def __init__(self,  tol=0.25, ts_min=10, version=690, rename=True):
         import pyfits
         self.tol=tol
         self.ts_min=ts_min
