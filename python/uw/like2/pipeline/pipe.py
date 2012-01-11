@@ -1,15 +1,13 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.7 2011/12/21 16:06:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.8 2011/12/29 19:17:00 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
 import numpy as np
-from . import processor, parallel
+from . import processor,  engines
 from .. import main, roisetup, skymodel
 from uw.utilities import makerec
-from .parallel import  AssignTasks, get_mec, kill_mec, free
-from IPython.parallel.util import interactive # decorator for function to run in an engine
 
 class Pipe(roisetup.ROIfactory):
     """ This is a subclass of ROIfactory,
@@ -37,15 +35,6 @@ class Pipe(roisetup.ROIfactory):
         self.analysis_kw =kwargs.pop('analysis_kw', dict())
         self.roi_kw      =kwargs.pop('roi_kw', dict())
  
-        # TODO: get association back in
-        #associator = kwargs.pop('associate', 'all_but_gammas')
-        #if associator is not None and associator[0]=='$':
-        #    print 'associations will come from the catalog %s' %associator
-        #    associator = associate.Association(associator)
-        #elif associator is not None and associator!='None':
-        #    associator = associate.SrcId('$FERMI/catalog', associator)
-            #print 'will associate with catalogs %s' % associator.classes
-        #self.process_kw['associate'] = associator
         self.selector = skymodel.HEALPixSourceSelector
         self.selector.nside = self.nside
 
@@ -68,13 +57,14 @@ class Pipe(roisetup.ROIfactory):
     def __call__(self, index, **kwargs):
         """ perform analysis for the ROI
         Note that it is done by a function in the processor module
-        requires a setup call
+        requires a setup call to define the function on a remote machine
+        returns a tuple: (index, processor call return)
         """
         roi_kw = self.roi_kw.copy()
         roi_kw.update(**kwargs)
         roi = self.roi(index , roi_kw=roi_kw )
         
-        return self.processor(roi, **self.process_kw)
+        return index, self.processor(roi, **self.process_kw)
 
     def roi(self, *pars, **kwargs):
         try:
@@ -88,12 +78,6 @@ class Pipe(roisetup.ROIfactory):
     def names(self):
         return [self.selector(i).name() for i in range(12*self.nside**2)]
         
-    def setup_mec(self, block=True):
-        mec = parallel.get_mec()
-        assert len(mec)>0, 'no engines to setup'
-        print 'setting up %d engines...' % len(mec)
-        ar = mec[:].execute(self(), block=block)
-        return ar
 
 class Setup(dict):
     """ Setup is a dictionary with variable run parameters
@@ -120,7 +104,7 @@ class Setup(dict):
                 alias= {}, 
                 skymodel_extra = '',
                 irf = 'P7SOURCE_V6',
-                associator =None,
+                associator = None,
                 sedfig_dir = None,
                 tsmap_dir  = None, tsfits=False,
                 localize=False,
@@ -158,7 +142,7 @@ g=pipe.Pipe("%(indir)s", %(datadict)s,
             tsmap_dir=%(tsmap_dir)s,  tsfits=%(tsfits)s,
             sedfig_dir=%(sedfig_dir)s,
             localize=%(localize)s,
-            associate="%(associator)s",
+            associate=%(associator)s,
             fix_beta= %(fix_beta)s, dofit=%(dofit)s,
             tables= %(tables)s,
             repivot=%(repivot)s, dampen=%(dampen)s,
@@ -175,51 +159,41 @@ n,chisq = len(g.names()), -1
         exec(self(), globals()) # should set g
         return g
 
-    def setup_mec(self, block=True):
-        """ send our setup string to the current engines
+    def setup_mec(self, profile=None):
+        """ send our setup string to the engines associated with profile
         """
-        mec = parallel.get_mec()
-        assert len(mec)>0, 'no engines to setup'
-        print 'setting up %d engines...' % len(mec)
-        mec[:].clear()
-        mec[:].execute('import gc; gc.collect()', block=True)
-        ar = mec[:].execute(self(), block=block)
+        self.mec = engines.Engines(profile=profile, sleep_interval=60)
+        self.mec.clear()
+        self.mec.execute('import gc; gc.collect();'+self())
         self.mecsetup=True
         self.dump()
-        return ar
         
     def dump(self):
         """ save the setup string, and dictionary """
         open(self.outdir+'/setup_string.txt', 'w').write(self.setup_string)
         open(self.outdir+'/config.txt', 'w').write(self.__str__())
     
-    def run(self, tasklist=None, fn=None, **kwargs):
-        """ note: fn should be  lambda x:(x,g(x))
+    def run(self, tasklist=None,  **kwargs):
+        """ 
+        kwargs
+        ------
+
         """
+        profile = kwargs.pop('profile','default')
+        
         if not self.mecsetup:
-            self.setup_mec()
+            self.setup_mec(profile=profile)
         outdir = self.outdir
         if outdir is not None:
             if not os.path.exists(outdir): 
                 os.mkdir(outdir)
-        @interactive
-        def ifun(x):
-            return (x,g(x))
-        if fn is None:
-            fn = ifun
+
         print 'writing results to %s' %outdir
-        local = kwargs.pop('local', False)
-        ignore_exception = kwargs.pop('ignore_exception', False)
-        sleep_interval = kwargs.pop('sleep_interval', 60)
         if tasklist is None:
             mytasks =[ (864+i/2) if i%2==0 else (863-i/2) for i in range(1728)]
         else: 
             mytasks = [int(t) for t in tasklist]
-        lc= AssignTasks(fn, mytasks, 
-            timelimit=5000, local=local, ignore_exception=ignore_exception,  )
-        if sleep_interval>0:
-            lc(sleep_interval)
-        return lc
+        self.mec.submit( 'g', mytasks, **kwargs)
 
 
 def getg(setup_string):

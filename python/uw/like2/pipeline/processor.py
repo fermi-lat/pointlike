@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.11 2011/12/16 13:41:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.12 2011/12/21 16:06:57 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -79,7 +79,7 @@ def fix_beta(roi, bts_min=30, qual_min=15,):
     return refit    
         
 
-def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwargs):
+def pickle_dump(roi, fit_sources, pickle_dir, dampen, failed=False, **kwargs):
     """ dump the source information from an ROI constructed from the sources here
     """
     
@@ -89,23 +89,24 @@ def pickle_dump(roi, fit_sources, pickle_dir, pass_number, failed=False, **kwarg
     if os.path.exists(filename):
         # if the file exists
         output=pickle.load(open(filename))
-        curp = output.get('passes',None)
-        if curp is None: curp = []
-        curp.append(pass_number)
-        output['passes']=curp
+        #curp = output.get('passes',None)
+        #if curp is None: curp = []
+        #curp.append(pass_number)
+        #output['passes']=curp
         # update history of previous runs
-        last_logl = output.get('logl')
         prev_logl = output.get('prev_logl', [])
         if prev_logl is None: prev_logl = []
-        prev_logl.append(last_logl)
-        output['prev_logl'] = prev_logl
+        if dampen>0 : # update list only if a new fit
+            last_logl = output.get('logl')
+            prev_logl.append(last_logl)
+            output['prev_logl'] = prev_logl
         oldsrc = output.get('sources', dict())
         print 'updating pickle file: log likelihood history:', \
              ''.join(map(lambda x: '%.1f, '%x, prev_logl)) 
     else:
         output = dict()
         oldsrc = dict()
-        output['passes']=[pass_number]
+        #output['passes']=[pass_number]
     diffuse_sources =  [s for s in roi.sources if s.skydir is None]\
                         +[s for s in roi.sources if isextended(s)]
     output['name'] = name
@@ -253,6 +254,7 @@ def process(roi, **kwargs):
         outtee = OutputTee(os.path.join(logpath, roi.name+'.txt'))
         print  '='*80
         print '%4d-%02d-%02d %02d:%02d:%02d - %s' %(time.localtime()[:6]+ (roi.name,))
+    else: outtee=None
 
     if not os.path.exists(counts_dir):os.makedirs(counts_dir)
     init_log_like = roi.log_like()
@@ -300,8 +302,6 @@ def process(roi, **kwargs):
         return t
     sedfuns.makesed_all(roi, sedfig_dir=getdir('sedfig_dir'))
     if localize:
-        if associator is not None: 
-            associator = associate.SrcId('$FERMI/catalog', associator) 
         q, roi.quiet = roi.quiet,False
         localization.localize_all(roi, tsmap_dir=getdir('tsmap_dir'), associator = associator)
         roi.quiet=q
@@ -323,15 +323,14 @@ def process(roi, **kwargs):
     if tables is not None:
         tables(roi)
     
-    if outdir is None:  return chisq
-    
-    pickle_dir = os.path.join(outdir, 'pickle')
-    if not os.path.exists(pickle_dir): os.makedirs(pickle_dir)
-    pickle_dump(roi, fit_sources, pickle_dir, pass_number,
-        initial_logl=damp.initial_logl, 
-        counts=cts,
-        )
-    outtee.close()
+    if outdir is not None:  
+        pickle_dir = os.path.join(outdir, 'pickle')
+        if not os.path.exists(pickle_dir): os.makedirs(pickle_dir)
+        pickle_dump(roi, fit_sources, pickle_dir, dampen, 
+            initial_logl=damp.initial_logl, 
+            counts=cts,
+            )
+    if outtee is not None: outtee.close() 
     return chisq
 
 def table_processor(roi, **kwargs):
