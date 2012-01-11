@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Tue Jan 10 18:03:22 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Added approximate_profile
+    *
+------------------------------------------------------------
 User: kadrlica  Tue Jan 10 14:54:25 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
