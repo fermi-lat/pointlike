@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Wed Jan 11 06:09:17 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	dataset.py 
+Log Message:
+update to try to use pickled info
+    *
+------------------------------------------------------------
 User: burnett  Wed Jan 11 06:08:11 PST 2012
 pointlike/python/uw/like2
 
