@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.67 2012/01/10 22:54:25 kadrlica Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.68 2012/01/11 02:03:21 kadrlica Exp $
 
    author: Joshua Lande
 
@@ -145,7 +145,6 @@ class DefaultSpatialModelValues(object):
         the_model.free = np.asarray([True] * len(the_model.p))
         the_model.center = SkyDir(0,0,the_model.coordsystem)
 
-#===============================================================================================#
 
 class SpatialModel(object):
     """ This class represents a normalized spatial model which can be
@@ -530,7 +529,6 @@ class SpatialModel(object):
         raise NotImplementedError('Cannot shrink %s!' % self.pretty_name)
         
 
-#===============================================================================================#
 
 class RadiallySymmetricModel(SpatialModel):
 
@@ -579,12 +577,10 @@ class RadiallySymmetricModel(SpatialModel):
         pdf = self.at_r_in_deg(radius)
         return radius,pdf
 
-#===============================================================================================#
 
 class PseudoSpatialModel(SpatialModel):
     pass
 
-#===============================================================================================#
 
 class Gaussian(RadiallySymmetricModel):
     """ Defined as a gaussian in x with width sigma
@@ -625,7 +621,6 @@ class Gaussian(RadiallySymmetricModel):
 
     def can_shrink(self): return True
 
-#===============================================================================================#
 
 class SunExtended(RadiallySymmetricModel):
     """Representes the 1/r emission from the sun (up to a 
@@ -671,8 +666,6 @@ class SunExtended(RadiallySymmetricModel):
 
     def can_shrink(self): return False
 
-#===============================================================================================#
-
 
 class PseudoGaussian(PseudoSpatialModel,Gaussian):
     """ A PseudoGuassian is a Gaussian source with a fixed
@@ -684,10 +677,23 @@ class PseudoGaussian(PseudoSpatialModel,Gaussian):
     def can_shrink(self): return False
 
 
-#===============================================================================================#
-
 class Disk(RadiallySymmetricModel):
-    """ Defined as a constant value up to a distance Sigma away from the source. """
+    """ Defined as a constant value up to a distance Sigma away from the source. 
+    
+        Some simple testing to show how this class works:
+
+            >>> disk = Disk(sigma=1)
+
+        The disk is uniform inside the radius 'sigma' and has a value 1/(pi*r^2):
+
+            >>> np.allclose(disk.at_r_in_deg(np.asarray([0,0.25,0.5,0.75,1])), 1/(np.pi*np.radians(1)**2))
+            True
+
+        Outside 'sigma', the disk has a value of 0
+
+            >>> np.allclose(disk.at_r_in_deg(1.1),00)
+            True
+        """
     def extension(self):
         return self.get_parameters(absolute=True)[2]
 
@@ -718,7 +724,6 @@ class Disk(RadiallySymmetricModel):
         self.free[2]=False
     def can_shrink(self): return True
 
-#===============================================================================================#
 
 class PseudoDisk(PseudoSpatialModel,Disk):
     """ A PseudoDisk is a Disk with a fixed
@@ -729,7 +734,6 @@ class PseudoDisk(PseudoSpatialModel,Disk):
 
     def can_shrink(self): return False
 
-#===============================================================================================#
 
 class Ring(RadiallySymmetricModel):
     """ The ring is defined as a constant value between one radius and another. """
@@ -766,7 +770,6 @@ class Ring(RadiallySymmetricModel):
         self.free[2:4]=False
     def can_shrink(self): return True
 
-#===============================================================================================#
 
 class NFW(RadiallySymmetricModel):
     """ Ping's parameterization of the NFW Source is 
@@ -805,7 +808,6 @@ class NFW(RadiallySymmetricModel):
         self.free[2]=False
     def can_shrink(self): return True
 
-#===============================================================================================#
 
 class PseudoNFW(PseudoSpatialModel,NFW):
 
@@ -813,7 +815,6 @@ class PseudoNFW(PseudoSpatialModel,NFW):
 
     def can_shrink(self): return False
 
-#===============================================================================================#
 
 class InterpProfile(RadiallySymmetricModel):
 
@@ -903,10 +904,11 @@ class RadialProfile(InterpProfile):
         Note that the normalization of the numeric gaussian is wrong, but 
         will be renormalized anyway.
 
-        Note that spatial model is the same as Gaussian:
+        Note that spatial model is the same as Gaussian, even for oddly spaced points:
 
             >>> r_test = np.linspace(0,1,47) # sample odly
-            >>> np.allclose(gauss.at_r_in_deg(r_test), numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-5)
+            >>> np.allclose(gauss.at_r_in_deg(r_test),
+            ...             numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-5)
             True
     """
     def get_r_pdf(self, file, **kwargs):
@@ -940,10 +942,11 @@ class RadialProfileFromArray(InterpProfile):
         Note that the normalization of the numeric gaussian is wrong, but 
         will be renormalized anyway.
 
-        Note that spatial model is the same as Gaussian:
+        Note that spatial model is the same as Gaussian, even for oddly spaced points:
 
             >>> r_test = np.linspace(0,1,47) # sample odly
-            >>> np.allclose(gauss.at_r_in_deg(r_test), numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-5)
+            >>> np.allclose(gauss.at_r_in_deg(r_test), 
+            ...             numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-5)
             True
     """
     def get_r_pdf(self, r_in_degrees, pdf, **kwargs):
@@ -959,7 +962,6 @@ class RadialProfileFromArray(InterpProfile):
 
         return r_in_degrees,pdf
 
-#===============================================================================================#
 
 class EllipticalSpatialModel(SpatialModel):
     """  Defined as a gaussian in the major axis of width Major_Axis
@@ -1094,7 +1096,6 @@ class EllipticalSpatialModel(SpatialModel):
         self.free[2:5]=False
     def can_shrink(self): return True
 
-#===============================================================================================#
 
 class EllipticalGaussian(EllipticalSpatialModel):
 
@@ -1113,7 +1114,6 @@ class EllipticalGaussian(EllipticalSpatialModel):
     def ellipse_68(self): return GAUSSIAN_X68*self.sigma_x,GAUSSIAN_X68*self.sigma_y,self.theta
     def ellipse_99(self): return GAUSSIAN_X99*self.sigma_x,GAUSSIAN_X99*self.sigma_y,self.theta
 
-#===============================================================================================#
 
 class PseudoEllipticalGaussian(PseudoSpatialModel,EllipticalGaussian):
 
@@ -1125,7 +1125,6 @@ class PseudoEllipticalGaussian(PseudoSpatialModel,EllipticalGaussian):
 
     def can_shrink(self): return False
 
-#===============================================================================================#
 
 class RadiallySymmetricEllipticalGaussian(EllipticalGaussian):
 
@@ -1136,7 +1135,6 @@ class RadiallySymmetricEllipticalGaussian(EllipticalGaussian):
     def pretty_spatial_string(self):
         return "%.3fd" % (self.sigma_x)
 
-#===============================================================================================#
 
 class EllipticalDisk(EllipticalSpatialModel):
     """ The elliptical disk is defined as. """
@@ -1156,14 +1154,12 @@ class EllipticalDisk(EllipticalSpatialModel):
     def ellipse_68(self): return DISK_X68*self.sigma_x,DISK_X68*self.sigma_y,self.theta
     def ellipse_99(self): return DISK_X99*self.sigma_x,DISK_X99*self.sigma_y,self.theta
 
-#===============================================================================================#
 
 class RadiallySymmetricEllipticalDisk(EllipticalDisk):
     def extension(self):
         sigma=self.get_parameters(absolute=True)[2]
         return sigma,sigma,0
 
-#===============================================================================================#
 
 class PseudoEllipticalDisk(PseudoSpatialModel,EllipticalDisk):
     def extension(self):
@@ -1171,7 +1167,6 @@ class PseudoEllipticalDisk(PseudoSpatialModel,EllipticalDisk):
 
     def can_shrink(self): return False
 
-#===============================================================================================#
 
 class EllipticalRing(EllipticalSpatialModel):
 
@@ -1214,7 +1209,6 @@ class EllipticalRing(EllipticalSpatialModel):
         super(EllipticalRing,self).shrink()
     def can_shrink(self): return True
 
-#===============================================================================================#
 
 class SpatialMap(SpatialModel):
     """ Implement an extended source not as a simple geometric shape
@@ -1306,7 +1300,6 @@ class SpatialMap(SpatialModel):
         except:
             self.skyfun=None
 
-#===============================================================================================#
 
 class EnergyDependentSpatialModel(SpatialModel):
     """ This is the base class for all spatial models where the extended source
