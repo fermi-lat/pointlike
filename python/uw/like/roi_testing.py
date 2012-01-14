@@ -1,7 +1,7 @@
 """
 Module to perfrom routine testing of pointlike's many features.'
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.8 2011/07/24 02:53:35 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.9 2011/08/12 21:57:42 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -89,107 +89,6 @@ class PointlikeTest(unittest.TestCase):
 
         return roi
 
-    #@unittest.skip("skip")
-    def test_models(self):
-
-        print '\nTesting the uw.like.Models.Model object.\n'
-
-        model=PowerLaw(p=[1e-7,2])
-
-        self.assertAlmostEqual(1e-7,model['Norm'])
-        self.assertAlmostEqual(1e-7,model['norm'],msg='case insensitive')
-        model['Norm']=1e-6
-        self.assertAlmostEqual(1e-6,model['Norm'])
-
-        model=PowerLaw(index=1)
-        self.assertAlmostEqual(1,model['index'],msg="test kwargs passing to object")
-        self.assertAlmostEqual(1e-11,model['norm'], msg="test default value")
-
-        copy_model=model.copy()
-        self.assertAlmostEqual(1e-11,copy_model['norm'], msg="test default value")
-        model['norm'] = 1e-10
-        self.assertAlmostEqual(1e-11,copy_model['norm'], msg="unchanged by copy")
-
-        model=PowerLaw(random_input=3)
-        self.assertEqual(model.random_input,3,'test random kwarg')
-
-    #@unittest.skip("skip")
-    def test_sum_product_models(self):
-
-        print '\nTesting the uw.like.Models.Model object.\n'
-
-        m1=PowerLaw(index=2);m1.set_flux(1)
-        m2=LogParabola(beta=2); m1.set_flux(1)
-
-        sum_model=SumModel(m1,m2)
-        prod_model=ProductModel(m1,m2)
-
-        for energy in [1e2,1e3,1e4]:
-            self.assertAlmostEqual(sum_model(energy),m1(energy)+m2(energy))
-            self.assertAlmostEqual(prod_model(energy),m1(energy)*m2(energy))
-
-    #@unittest.skip("skip")
-    def test_spatial_models(self):
-
-        print '\nTesting the uw.like.SpatialModels.SpatialModel object.\n'
-
-        # test default values
-        spatial_model = Disk()
-        self.assertAlmostEqual(0.1,spatial_model['Sigma']) 
-        self.assertAlmostEqual(0,spatial_model['ra']) 
-        self.assertAlmostEqual(0,spatial_model['dec']) 
-
-        spatial_model = Disk(p=[1.5],center=SkyDir(22,22,SkyDir.GALACTIC))
-        self.assertAlmostEqual(1.5,spatial_model['Sigma']) # test getitem/setitem 
-        
-        spatial_model['Sigma'] = 0.5
-        self.assertAlmostEqual(0.5,spatial_model['Sigma']) 
-        spatial_model['sigma'] = 0.5
-        self.assertAlmostEqual(0.5,spatial_model['sigma']) # case insensitive
-        self.assertAlmostEqual(22,spatial_model.center.l())
-        self.assertAlmostEqual(22,spatial_model.center.b())
-
-        spatial_model = Disk(p=[1.5],center=SkyDir(22,22,SkyDir.GALACTIC),coordsystem=SkyDir.GALACTIC)
-        self.assertAlmostEqual(22,spatial_model['l'])
-        self.assertAlmostEqual(22,spatial_model['b'])
-
-        # test what happens when only center is specified
-        spatial_model = Disk(center=SkyDir(22,22))
-        self.assertAlmostEqual(0.1,spatial_model['sigma'])
-        self.assertAlmostEqual(22,spatial_model['ra'])
-        self.assertAlmostEqual(22,spatial_model['dec'])
-
-        spatial_model = Disk(sigma=1.5, l=22, b=22)
-        self.assertAlmostEqual(1.5,spatial_model['Sigma'])
-        self.assertAlmostEqual(22,spatial_model['l'])
-        self.assertAlmostEqual(22,spatial_model['b'])
-
-        self.assertRaises(Exception,spatial_model.__setitem__,['Sigma',-1])
-
-        spatial_model['l'] = -100
-        self.assertAlmostEqual(-100, spatial_model['l'])
-        for k in ['ra','dec']:
-            self.assertRaises(Exception,spatial_model.__getitem__,k)
-            self.assertRaises(Exception,spatial_model.__setitem__,[k,0])
-
-        spatial_model = Disk(p=1.5, ra=22, dec=22)
-        self.assertAlmostEqual(1.5,spatial_model['Sigma'])
-        self.assertAlmostEqual(22,spatial_model['ra'])
-        self.assertAlmostEqual(22,spatial_model['dec'])
-        for k in ['l','b']:
-            self.assertRaises(Exception,spatial_model.__getitem__,k)
-            self.assertRaises(Exception,spatial_model.__setitem__,[k,0])
-
-        spatial_model = Disk(p=[1.5], l=22, b=22)
-        self.assertAlmostEqual(1.5,spatial_model['Sigma'])
-
-        copy_model=spatial_model.copy()
-        self.assertAlmostEqual(1.5,copy_model['Sigma'])
-        spatial_model['Sigma'] = 0.5
-        self.assertAlmostEqual(1.5,copy_model['Sigma']) # unchanged by copy
-
-        model=Disk(random_input=3)
-        self.assertEqual(model.random_input,3,'test random kwarg')
 
     #@unittest.skip("skip")
     def test_extended_source(self):
