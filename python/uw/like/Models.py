@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.70 2011/12/06 23:37:32 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.71 2011/12/23 22:58:38 burnett Exp $
 
     author: Matthew Kerr, Joshua Lande
 
@@ -442,11 +442,40 @@ Optional keyword arguments:
 class PowerLaw(Model):
     """Implement a power law.  See constructor docstring for further keyword arguments.
 
-Spectral parameters:
+       Spectral parameters:
 
-  n0            differential flux at e0 MeV
-  gamma        (absolute value of) spectral index
-        """
+         n0            differential flux at e0 MeV
+         gamma        (absolute value of) spectral index
+
+       It is easy to create a PowerLaw and access and set it's values:
+
+            >>> model=PowerLaw(p=[1e-7,2])
+            >>> model['Norm'] == 1e-7 and model['norm'] == 1e-7
+            True
+
+        It is easy to set values internally
+            
+            >>> model['Norm'] = 1e-6
+            >>> model['Norm'] == 1e-6
+            True
+
+        When you create the object, you can specify the parameters by kwargs:
+
+           >>> model=PowerLaw(index=1)
+           >>> model['index'] == 1
+           True
+           >>> model['norm'] == 1e-11 # the default
+           True
+
+        You can also make deep copies of the spectral models:
+
+            >>> copy_model=model.copy()
+            >>> copy_model['norm'] == 1e-11
+            True
+            >>> model['norm'] = 1e-10
+            >>> copy_model['norm'] == 1e-11
+            True
+    """
     def __call__(self,e):
         n0,gamma=10**self._p
         return n0*(self.e0/e)**(gamma-self.index_offset)
