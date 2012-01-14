@@ -1,9 +1,8 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.71 2011/12/23 22:58:38 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.72 2012/01/14 00:14:14 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
-
 """
 import os
 import copy
@@ -15,15 +14,11 @@ from abc import abstractmethod
 
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
-try:
-    from SpatialModels import SpatialMap # for function expand
-except:
-    print 'Warning: Models.py could not load SpatialMap, used by DMFitFunction, no idea why it is in this module'
 
 #===============================================================================================#
 
 class DefaultModelValues(object):
-    """Static methods and class members to assign default values to the spectral models."""
+    """ Static methods and class members to assign default values to the spectral models. """
 
     simple_models = dict(
         PowerLaw            = dict(_p=[1e-11, 2.0],             param_names=['Norm','Index'],index_offset=0, e0=1e3),
@@ -60,7 +55,7 @@ class DefaultModelValues(object):
 
     @staticmethod
     def start(the_model):
-        """Common values independent of the model type."""
+        """ Common values independent of the model type."""
         the_model.background  = False
 
     @staticmethod
@@ -75,32 +70,30 @@ class DefaultModelValues(object):
 #===============================================================================================#
 
 class Model(object):
-    """Spectral model giving dN/dE for a point source.  Default units are ph/cm^2/s/MeV.
+    """ Spectral model giving dN/dE for a point source.  Default units are ph/cm^2/s/MeV.
         Note that parameters are stored internally in logarithmic format.  This allows
         unconstrained minimization of the naturally-positive parameters."""
     def __init__(self,  **kwargs):
-        """
-        pars: list of parameter values: Model.XX( a,b) equivalent to Model.XX(p=[a,b])
-Optional keyword arguments:
+        """ pars: list of parameter values: Model.XX( a,b) equivalent to Model.XX(p=[a,b])
 
-  =========    =======================================================
-  Keyword      Description
-  =========    =======================================================
-  p              [p1,p2,...] default values of spectral parameters; see docstring individual model classes
-  free           [True, True,...] a boolean list the same length as p giving the free (True) and fixed (False) parameters
-  =========    =======================================================
-      """
-        iscopy = kwargs.pop('iscopy', False)
+            Optional keyword arguments:
+
+                =========    =======================================================
+                Keyword      Description
+                =========    =======================================================
+                p              [p1,p2,...] default values of spectral parameters; see docstring individual model classes
+                free           [True, True,...] a boolean list the same length as p giving the free (True) and fixed (False) parameters
+                =========    =======================================================
+        """
         DefaultModelValues.setup(self) # if called from copy method, will set p
         self._p = np.asarray(kwargs.pop('p', self._p),float)
         assert len(self._p)==len(self.param_names), 'Model: wrong number of parameters set: %s' % self._p
 
-        if not iscopy:
-            # This has to come before the kwargs parsing
-            # incase the __getitem__ function is called
-            # with an input spectral parameter.
-            assert np.all(self._p>0), 'fail parameter positivity constraint' 
-            self._p = np.log10(self._p)
+        # This has to come before the kwargs parsing
+        # incase the __getitem__ function is called
+        # with an input spectral parameter.
+        assert np.all(self._p>0), 'fail parameter positivity constraint' 
+        self._p = np.log10(self._p)
 
         # deal with other kwargs. If they are in the list of spectral
         # parameters, update the corresponding value. Tag them to 
@@ -130,12 +123,12 @@ Optional keyword arguments:
         self.setp(index,value)
         
     def getp(self, i, internal=False):
-        """ get external value for parameter # i """
+        """ Get external value for parameter # i """
         i=self.mapper(i)
         return self._p[i] if internal else 10**(self._p[i])
     
     def get_all_parameters(self, internal=False):
-        """ get a copy of the full set of parameters (external representation)"""
+        """ Get a copy of the full set of parameters (external representation)"""
         return self._p.copy() if internal else 10**self._p
     
     def set_all_parameters(self, pars, internal=False):
@@ -145,19 +138,18 @@ Optional keyword arguments:
         self._p = t if internal else np.log10(t)
 
     def setp(self, i, par, internal=False):
-        """ set internal value, convert unless internal
-        """
+        """ set internal value, convert unless internal. """
         i=self.mapper(i)
         if not internal: 
             assert par>0, 'Model external parameter cannont be negative'
         self._p[i] = par if internal else  np.log10(par)
         
     def get_parameters(self):
-        """Return FREE internal parameters ; used for spectral fitting."""
+        """ Return FREE internal parameters ; used for spectral fitting."""
         return self._p[self.free]
 
     def set_parameters(self,new_vals):
-        """Set FREE internal parameters; new_vals should have length equal to number of free parameters."""
+        """ Set FREE internal parameters; new_vals should have length equal to number of free parameters."""
         assert(len(new_vals)==(self.free).sum())
         self._p[self.free] = new_vals.astype('f') # downcast to float needed?
 
@@ -173,10 +165,10 @@ Optional keyword arguments:
             return i
 
     def freeze(self,i,freeze=True):
-        """Freeze one of the spectral parameters from fitting.
+        """ Freeze one of the spectral parameters from fitting.
         
-            i: a parameter name or index.
-            freeze    : if True, freeze parameter; if False, free it
+                i: a parameter name or index.
+                freeze    : if True, freeze parameter; if False, free it
             """
         i=self.mapper(i)
         self.free[i] = not freeze
@@ -203,11 +195,12 @@ Optional keyword arguments:
         return self.cov_matrix / np.outer(sigmas,sigmas)
 
     def statistical(self,absolute=False,two_sided=False):
-        """Return the parameter values and fractional statistical errors.
+        """ Return the parameter values and fractional statistical errors.
             If no error estimates are present, return 0 for the fractional error.
-        two_sided : bool
-            if set, return 3 tuples: values, +errors, -errors    
-            """
+
+            two_sided : bool
+                if set, return 3 tuples: values, +errors, -errors    
+        """
         p = 10**self._p #convert from log format
         z = np.zeros_like(p)
         vars = np.diag(self.cov_matrix)
@@ -233,8 +226,8 @@ Optional keyword arguments:
         return (np.diag(self.get_cov_matrix(absolute=not internal))**0.5)[i]
 
     def __str__(self,absolute=False, indent=''):
-        """Return a pretty print version of parameter values and errors.
-          indent: string to prepend to each line (must be called explicitly)
+        """ Return a pretty print version of parameter values and errors.
+            indent: string to prepend to each line (must be called explicitly)
         """
         #p,avg         = self.statistical(absolute=absolute,two_sided=False)
         p,hi_p,lo_p = self.statistical(absolute=absolute,two_sided=True)
@@ -290,23 +283,23 @@ Optional keyword arguments:
     def __repr__(self): return self.__str__()
 
     def i_flux(self,emin=100,emax=np.inf,e_weight=0,cgs=False,error=False,two_sided=False, quiet=False):
-        """Return the integral flux, \int_{emin}^{emax} dE E^{e_weight} dN/dE.
-           e_weight = 0 gives the photon flux (ph cm^-2 s^-1)
-           e_weight = 1 gives the energy flux (MeV cm^-2 s^-1) (see kwargs)
+        """ Return the integral flux, \int_{emin}^{emax} dE E^{e_weight} dN/dE.
+            e_weight = 0 gives the photon flux (ph cm^-2 s^-1)
+            e_weight = 1 gives the energy flux (MeV cm^-2 s^-1) (see kwargs)
 
-Optional keyword arguments:
+            Optional keyword arguments:
 
-  =========    =======================================================
-  Keyword      Description
-  =========    =======================================================
-  emin         [100] lower bound in MeV
-  emax         [np.inf] upper bound in MeV
-  e_weight     [0] energy power by which to scale dN/dE
-  cgs          [False] if True, energy in ergs, else in MeV
-  error        [False] if True, return value is a tuple with flux and estimated error
-  two_sided    [False] if True, return value is a triple with flux, estimated high and low errors
-  quiet        [False] set to suppress error message
-  =========    =======================================================
+                =========    =======================================================
+                Keyword      Description
+                =========    =======================================================
+                emin         [100] lower bound in MeV
+                emax         [np.inf] upper bound in MeV
+                e_weight     [0] energy power by which to scale dN/dE
+                cgs          [False] if True, energy in ergs, else in MeV
+                error        [False] if True, return value is a tuple with flux and estimated error
+                two_sided    [False] if True, return value is a triple with flux, estimated high and low errors
+                quiet        [False] set to suppress error message
+                =========    =======================================================
         """
 
         # check for a divergent flux
@@ -358,20 +351,19 @@ Optional keyword arguments:
                 >>> model.set_flux(1e-7)
                 >>> print '%g' % model.i_flux()
                 1e-07
+
+            Just a simple example of a unitless powerlaw:
+
+                >>> model = PowerLaw(norm=1, index=2, e0=1)
+                >>> energies = np.logspace(0,6,100)
+                >>> np.allclose(model(energies), energies**-2)
+                True
         """
         self.setp(0, 0, internal=True)
         new_prefactor = np.log10(flux/self.i_flux(*args,**kwargs))
         self.setp(0,new_prefactor,internal=True)
 
-    def copy(self):
-        
-        a = self.__class__(iscopy=True, **self.__dict__) #create instance of same spectral model type
-        
-        a._p = np.asarray(self._p).copy() #copy in log values
-        a.free = np.asarray(self.free).copy()
-        if hasattr(a,'cov_matrix'): a.cov_matrix = self.cov_matrix.__copy__()
-        if hasattr(a,'old_free'): a.old_free = self.old_free.__copy__()
-        return a
+    def copy(self): return copy.deepcopy(self)
 
     def fast_iflux(self,emin=100,emax=1e6):
         """Return a quick calculation for photon flux for models where it is analytically available."""
@@ -379,7 +371,7 @@ Optional keyword arguments:
 
 
     def expected(self,emin,emax,exposure,skydir,event_class=-1,weighting_function=None):
-        """Calculate the expected counts under a particular model.
+        """ Calculate the expected counts under a particular model.
             Include an optional weighting_function to calculate, e.g., the average PSF
             parameters under this spectral model."""
         
@@ -401,7 +393,7 @@ Optional keyword arguments:
         return expec
         
     def __flux_derivs__(self,*args):
-        """Use finite differences to estimate the gradient of the integral flux wrt the spectral parameters."""
+        """ Use finite differences to estimate the gradient of the integral flux wrt the spectral parameters."""
 
         # note -- since spectral parameters are log transformed, just add/subtract a small amount in log space
         delta = 1e-5
@@ -440,14 +432,14 @@ Optional keyword arguments:
 #===============================================================================================#
 
 class PowerLaw(Model):
-    """Implement a power law.  See constructor docstring for further keyword arguments.
+    """ Implement a power law.  See constructor docstring for further keyword arguments.
 
-       Spectral parameters:
+        Spectral parameters:
 
-         n0            differential flux at e0 MeV
-         gamma        (absolute value of) spectral index
+            n0            differential flux at e0 MeV
+            gamma        (absolute value of) spectral index
 
-       It is easy to create a PowerLaw and access and set it's values:
+        It is easy to create a PowerLaw and access and set it's values:
 
             >>> model=PowerLaw(p=[1e-7,2])
             >>> model['Norm'] == 1e-7 and model['norm'] == 1e-7
@@ -456,25 +448,25 @@ class PowerLaw(Model):
         It is easy to set values internally
             
             >>> model['Norm'] = 1e-6
-            >>> model['Norm'] == 1e-6
-            True
+            >>> print model['Norm']
+            1e-06
 
         When you create the object, you can specify the parameters by kwargs:
 
-           >>> model=PowerLaw(index=1)
-           >>> model['index'] == 1
-           True
-           >>> model['norm'] == 1e-11 # the default
+           >>> model=PowerLaw(norm=1e-11, index=1)
+           >>> model['index'] == 1 and model['norm'] == 1e-11
            True
 
         You can also make deep copies of the spectral models:
 
             >>> copy_model=model.copy()
-            >>> copy_model['norm'] == 1e-11
-            True
+            >>> print copy_model['norm'] 
+            1e-11
             >>> model['norm'] = 1e-10
-            >>> copy_model['norm'] == 1e-11
-            True
+            >>> print copy_model['norm']
+            1e-11
+            >>> print model['norm']
+            1e-10
     """
     def __call__(self,e):
         n0,gamma=10**self._p
@@ -515,13 +507,19 @@ class PowerLaw(Model):
 #===============================================================================================#
 
 class PowerLawFlux(Model):
-    """Implement a power law.  See constructor docstring for further keyword arguments.
+    """ Implement a power law.  See constructor docstring for further keyword arguments.
 
-Spectral parameters:
+        Spectral parameters:
 
-  flux         integrated flux from emin to emax MeV
-  gamma        (absolute value of) spectral index
-        """
+            flux         integrated flux from emin to emax MeV
+            gamma        (absolute value of) spectral index
+
+        PowerLawFlux allows the flux to be set:
+
+            >>> model = PowerLawFlux(Int_Flux=15, emin=50, emax=1000)
+            >>> np.allclose([model.i_flux(50, 1000),model.fast_iflux(50, 1000)], [15,15])
+            True
+    """
     def __call__(self,e):
         flux,gamma=10**self._p
         return (flux*(1-gamma)/(self.emax**(1-gamma)-self.emin**(1-gamma)))*e**(-gamma)
@@ -545,15 +543,15 @@ Spectral parameters:
 #===============================================================================================#
 
 class BrokenPowerLaw(Model):
-    """Implement a broken power law.  See constructor docstring for further keyword arguments.
+    """ Implement a broken power law.  See constructor docstring for further keyword arguments.
 
-Spectral parameters:
+        Spectral parameters:
 
-  n0            differential flux at e0 MeV
-  gamma1      (absolute value of) spectral index for e < e_break
-  gamma2      (absolute value of) spectral index for e > e_break
-  e_break     break energy
-        """
+            n0            differential flux at e0 MeV
+            gamma1      (absolute value of) spectral index for e < e_break
+            gamma2      (absolute value of) spectral index for e > e_break
+            e_break     break energy
+    """
     def __call__(self,e):
         n0,gamma1,gamma2,e_break=10**self._p
         return n0*(e_break/e)**np.where(e<e_break,gamma1,gamma2)
@@ -570,15 +568,15 @@ Spectral parameters:
 
 class BrokenPowerLawFlux(Model):
     """ Similar to PowerLawFlux for BrokenPowerLaw spectrum, the integral 
-         flux is the free parameter rather than the Prefactor.
+        flux is the free parameter rather than the Prefactor.
 
-Spectral parameters:
+        Spectral parameters:
 
-     flux      integrated flux from emin to emax MeV
-     gamma1  (absolute value of) spectral index for e < e_break
-     gamma2  (absolute value of) spectral index for e > e_break
-     e_break break energy
-        """
+           flux      integrated flux from emin to emax MeV
+           gamma1  (absolute value of) spectral index for e < e_break
+           gamma2  (absolute value of) spectral index for e > e_break
+           e_break break energy
+    """
     def __call__(self,e):
         flux,gamma1,gamma2,e_break=10**self._p
         if self.emax < e_break:
@@ -597,15 +595,15 @@ Spectral parameters:
 #===============================================================================================#
 
 class BrokenPowerLawCutoff(Model):
-    """Implement a broken power law.  See constructor docstring for further keyword arguments.
+    """ Implement a broken power law.  See constructor docstring for further keyword arguments.
 
-Spectral parameters:
-
-  n0            differential flux at e0 MeV
-  gamma1      (absolute value of) spectral index for e < e_break
-  gamma2      (absolute value of) spectral index for e > e_break
-  e_break     break energy
-        """
+        Spectral parameters:
+        
+            n0            differential flux at e0 MeV
+            gamma1      (absolute value of) spectral index for e < e_break
+            gamma2      (absolute value of) spectral index for e > e_break
+            e_break     break energy
+    """
     def __call__(self,e):
         n0,gamma1,gamma2,e_break,cutoff=10**self._p
         return n0*np.where( e < e_break, (e_break/e)**gamma1, (e_break/e)**gamma2 )*np.exp(-e/cutoff)
@@ -613,25 +611,25 @@ Spectral parameters:
 #===============================================================================================#
 
 class SmoothBrokenPowerLaw(Model):
-    """Implement a smoothed broken power law. This is similar to a broken 
-       powerlaw but uses the parameter beta to smoothly interpolate between 
-       the two powerlaws.
+    """ Implement a smoothed broken power law. This is similar to a broken 
+        powerlaw but uses the parameter beta to smoothly interpolate between 
+        the two powerlaws.
 
-       Everything is defined exactly the same as gtlike except for the 
-       usual replacement that gamma1 and gamma2 are defined to be the 
-       negative of the gtlike definition. 
+        Everything is defined exactly the same as gtlike except for the 
+        usual replacement that gamma1 and gamma2 are defined to be the 
+        negative of the gtlike definition. 
 
-       Note that this function has a somewhat confusing feature that when
-       beta>0, the function always becomes softer for energies greater then
-       the break. For beta<0, the function always becomes harder for energies
-       greater than the break. So you need to pick beta in advance depending
-       upon whether you want your function to slope up or down.
+        Note that this function has a somewhat confusing feature that when
+        beta>0, the function always becomes softer for energies greater then
+        the break. For beta<0, the function always becomes harder for energies
+        greater than the break. So you need to pick beta in advance depending
+        upon whether you want your function to slope up or down.
 
-       For now, I am not allowing beta to be fit. It would be somewhat
-       ackward trying to fit it since it may need negative values.
+        For now, I am not allowing beta to be fit. It would be somewhat
+        ackward trying to fit it since it may need negative values.
 
-       Also note that e0 is used in the spectral function and can be set (but 
-       not fit) by passing in e0 when initialized. """
+        Also note that e0 is used in the spectral function and can be set (but 
+        not fit) by passing in e0 when initialized. """
     def __call__(self,e):
         n0,gamma1,gamma2,e_break=10**self._p
         return n0*(self.e0/e)**gamma1*\
@@ -664,15 +662,15 @@ class SmoothBrokenPowerLaw(Model):
 #===============================================================================================#
 
 class DoublePowerLaw(Model):
-    """Spectral model is the sum of two indepedendent power laws.  E.g., the Crab Nebula = IC + synch.
+    """ Spectral model is the sum of two indepedendent power laws.  E.g., the Crab Nebula = IC + synch.
 
-Spectral parameters:
-
-  n0             differential flux at e0 MeV for first power law
-  gamma1        (absolute value of) spectral index for first power law
-  gamma2        (absolute value of) spectral index for second power law
-  ratio         ratio of the differential fluxes of first and second power law at e0
-        """
+        Spectral parameters:
+        
+            n0             differential flux at e0 MeV for first power law
+            gamma1        (absolute value of) spectral index for first power law
+            gamma2        (absolute value of) spectral index for second power law
+            ratio         ratio of the differential fluxes of first and second power law at e0
+    """
     def __call__(self,e):
         n0,gamma1,gamma2,ratio=10**self._p
         return n0*((self.e0/e)**gamma1 + ratio*(self.e0/e)**gamma2)
@@ -680,16 +678,16 @@ Spectral parameters:
 #===============================================================================================#
 
 class DoublePowerLawCutoff(Model):
-    """Spectral model is the sum of two indepedendent power laws, one with a cutoff.  E.g., a pulsar + PWnp.
+    """ Spectral model is the sum of two indepedendent power laws, one with a cutoff.  E.g., a pulsar + PWnp.
 
-Spectral parameters:
-
-  n0             differential flux at e0 MeV for first power law
-  gamma1        (absolute value of) spectral index for first power law
-  gamma2        (absolute value of) spectral index for second power law
-  cutoff        cutoff -- note goes with gamma!
-  ratio         ratio of the differential fluxes of first and second power law at e0
-        """
+        Spectral parameters:
+        
+            n0             differential flux at e0 MeV for first power law
+            gamma1        (absolute value of) spectral index for first power law
+            gamma2        (absolute value of) spectral index for second power law
+            cutoff        cutoff -- note goes with gamma!
+            ratio         ratio of the differential fluxes of first and second power law at e0
+    """
     def __call__(self,e):
         n0,gamma1,gamma2,cutoff,ratio=10**self._p
         return n0*((self.e0/e)**gamma1*np.exp(-e/cutoff) + ratio*(self.e0/e)**gamma2)
@@ -699,15 +697,15 @@ Spectral parameters:
 
 
 class LogParabola(Model):
-    """Implement a log parabola (for blazars.)  See constructor docstring for further keyword arguments.
+    """ Implement a log parabola (for blazars.)  See constructor docstring for further keyword arguments.
 
-Spectral parameters:
-
-  n0            differential flux at e0 MeV
-  alpha        (absolute value of) constant spectral index
-  beta         co-efficient for energy-dependent spectral index
-  e_break     break energy
-        """
+        Spectral parameters:
+        
+            n0            differential flux at e0 MeV
+            alpha        (absolute value of) constant spectral index
+            beta         co-efficient for energy-dependent spectral index
+            e_break     break energy
+    """
     def __call__(self,e):
         n0,alpha,beta,e_break=10**self._p
         #alpha -= self.index_offset
@@ -764,14 +762,14 @@ Spectral parameters:
 #===============================================================================================#
 
 class ExpCutoff(Model):
-    """Implement a power law with exponential cutoff.  See constructor docstring for further keyword arguments.
+    """ Implement a power law with exponential cutoff.  See constructor docstring for further keyword arguments.
 
-Spectral parameters:
-
-  n0            differential flux at e0 MeV
-  gamma        (absolute value of) spectral index
-  cutoff      e-folding cutoff energy (MeV)
-        """
+        Spectral parameters:
+        
+            n0            differential flux at e0 MeV
+            gamma        (absolute value of) spectral index
+            cutoff      e-folding cutoff energy (MeV)
+    """
     def __call__(self,e):
         n0,gamma,cutoff=10**self._p
         return n0* (self.e0/e)**gamma * np.exp(-e/cutoff)
@@ -808,16 +806,16 @@ Spectral parameters:
 #===============================================================================================#
 
 class ExpCutoffPlusPL(Model):
-    """Implement a power law with exponential cutoff + an additional power law.  A la pulsar + PWnp.
+    """ Implement a power law with exponential cutoff + an additional power law.  A la pulsar + PWnp.
 
-Spectral parameters:
-
-  n0_1         differential flux at e0 MeV
-  gamma_1     (absolute value of) spectral index
-  cutoff_1    e-folding cutoff energy (MeV)
-  n0_2
-  gamma_2
-        """
+        Spectral parameters:
+        
+            n0_1         differential flux at e0 MeV
+            gamma_1     (absolute value of) spectral index
+            cutoff_1    e-folding cutoff energy (MeV)
+            n0_2
+            gamma_2
+    """
     def __call__(self,e):
         n0_1,gamma_1,cutoff_1,n0_2,gamma_2 = 10**self._p
         return n0_1*(self.e0/e)**gamma_1*np.exp(-e/cutoff_1) + n0_2*(self.e0/e)**gamma_2
@@ -825,14 +823,14 @@ Spectral parameters:
 #===============================================================================================#
 
 class AllCutoff(Model):
-    """Implement an exponential cutoff.  This for the case when cutoff too low to constrain index.
+    """ Implement an exponential cutoff.  This for the case when cutoff too low to constrain index.
         See constructor docstring for further keyword arguments.
 
-Spectral parameters:
-
-  n0            differential flux at e0 MeV
-  cutoff      e-folding cutoff energy (MeV)
-        """
+        Spectral parameters:
+        
+            n0            differential flux at e0 MeV
+            cutoff      e-folding cutoff energy (MeV)
+    """
     def __call__(self,e):
         n0,cutoff=10**self._p
         if cutoff < 0: return 0
@@ -843,12 +841,12 @@ Spectral parameters:
 class PLSuperExpCutoff(Model):
     """Implement a power law with hyper-exponential cutoff.  See constructor docstring for further keyword arguments.
 
-Spectral parameters:
-
-  n0            differential flux at e0 MeV
-  gamma        (absolute value of) spectral index
-  cutoff      e-folding cutoff energy (MeV)
-  b             additional power in the exponent
+        Spectral parameters:
+        
+            n0            differential flux at e0 MeV
+            gamma        (absolute value of) spectral index
+            cutoff      e-folding cutoff energy (MeV)
+            b             additional power in the exponent
         """
     def __call__(self,e):
         n0,gamma,cutoff,b=10**self._p
@@ -884,7 +882,6 @@ class CompositeModel(Model):
         how to join the models. """
 
     def __init__(self,*models):
-        
 
         if len(models) < 1:
             raise Exception("CompositeModel must be created with more than one spectral model")
@@ -1031,7 +1028,35 @@ class InterpConstants(Model):
 #===============================================================================================#
 
 class FileFunction(Model):
+    r""" Defines a spectral model from an ascii file with the same
+        convention as gtlike. Each point is connected with a power-law
+        interpolation.
+        
+        For example, we could create a file which defines a PowerLaw,
+        but very coarsely:
 
+            >>> model = PowerLaw()
+
+        Save out the model to a file
+            
+            >>> from tempfile import NamedTemporaryFile
+            >>> temp = NamedTemporaryFile()
+            >>> filename = temp.name
+            >>> e = np.logspace(0, 5, 3)
+            >>> pdf = model(e)
+            >>> temp.write('\n'.join('%s\t%s' % (i,j) for i,j in zip(e,pdf)))
+            >>> temp.seek(0)
+
+        Load the file into the FileFunction object
+
+            >>> file_function = FileFunction(file=filename)
+
+        And the power-law is restored, even between the saved points.
+
+            >>> energies = np.logspace(0.122, 4.83, 42)
+            >>> np.allclose(model(e), file_function(e))
+            True
+    """
     def __make_interp__(self):
         self.interp = interp1d(np.log10(self.energy),np.log10(self.flux),
                 bounds_error=False,fill_value=-np.inf)
@@ -1146,6 +1171,7 @@ class DMFitFunction(Model):
         for n in np.append(self.param_names,['norm','bratio','channel0','channel1']):
             self.dmf.getParam(n).setBounds(-float('inf'),float('inf'))
 
+        from SpatialModels import SpatialMap
         self.dmf.readFunction(SpatialMap.expand(self.file))
         self._update() # update all parameters in DMFitFunction
 
@@ -1171,7 +1197,7 @@ class DMFitFunction(Model):
 
 
 def convert_exp_cutoff(model):
-    # this function need for XML parsing
+    """ this function is need for XML parsing. """
     if model.name != 'ExpCutoff':
         raise Exception,'Cannot process %s into PLSuperExpCutoff'%(model.name)
     nm = PLSuperExpCutoff()
