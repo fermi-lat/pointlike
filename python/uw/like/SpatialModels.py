@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.68 2012/01/11 02:03:21 kadrlica Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.69 2012/01/13 22:42:18 lande Exp $
 
    author: Joshua Lande
 
@@ -591,7 +591,22 @@ class Gaussian(RadiallySymmetricModel):
        p = [ ra, dec, sigma ]
 
        sigma = one dimensional size of the spatial model, measured in degrees
+
+       The default sigma is 0.1 degrees:
+
+           >>> gauss = Gaussian()
+           >>> print gauss['sigma']
+           0.1
        """
+
+    default_p = [0.1]
+    param_names = ['Sigma']
+    limits = [[SMALL_ANALYTIC_EXTENSION,3]]
+    log = [True]
+    # Note that the step for sigma is a step in log space!
+    # As minuit.py's doc says, a step of .04 is about 10% in log space
+    steps = [0.04]
+
     def extension(self):
         # extension defined as a function so it is easy to overload
         # by the pseudo hypothesis.
@@ -672,6 +687,9 @@ class PseudoGaussian(PseudoSpatialModel,Gaussian):
         small radius. Useful to ensure that the null hypothesis
         of an extended source has the exact same PDF as the
         extended source."""
+
+    default_p, param_names, limits, log, steps = [], [], [], [], []
+
     def extension(self): return SMALL_ANALYTIC_EXTENSION
 
     def can_shrink(self): return False
@@ -679,13 +697,107 @@ class PseudoGaussian(PseudoSpatialModel,Gaussian):
 
 class Disk(RadiallySymmetricModel):
     """ Defined as a constant value up to a distance Sigma away from the source. 
-    
-        Some simple testing to show how this class works:
+
+        It is easy to create a Disk Spatial Model
+
+            >>> disk = Disk()
+
+        The default size is 0.1 degrees and the default RA and Dec are 0 and 0:
+
+            >>> disk['Sigma'] == 0.1 and disk['sigma'] == 0.1
+            True
+            >>> disk['RA'] == 0 and disk['Dec'] == 0
+            True
+
+        It is easy to create an object with custom parameters:
+
+            >>> disk = Disk(p=[1.5],center=SkyDir(22,22,SkyDir.EQUATORIAL))
+            >>> disk['Sigma'] == 1.5
+            True
+
+            >>> print disk.center.ra()
+            22.0
+            >>> print disk.center.dec()
+            22.0
+        
+        And it is easy to set the paramters of a spatial model:
+
+            >>> disk['Sigma'] = 0.5
+            >>> print disk['Sigma']
+            0.5
+
+        But extensions can not be negative
+
+            >>> disk['Sigma'] = -1
+            Traceback (most recent call last):
+                ...
+            Exception: Parameter 2 must be positive!
+
+
+        By default, the coordiante system is equatorial
+            >>> np.allclose([disk['ra'],disk['dec']], [22, 22])
+            True
+
+        But it can be set to galactic
+
+            >>> disk = Disk(center=SkyDir(22,22,SkyDir.GALACTIC),coordsystem=SkyDir.GALACTIC)
+
+            >>> np.allclose([disk['l'],disk['b']], [22, 22])
+            True
+
+        If the galactic coodinates l and b are passed into the object, the coordiante system will be set automatically
+
+            >>> disk = Disk(sigma=1.5, l=22, b=22)
+            >>> disk.coordsystem == SkyDir.GALACTIC
+            True
+            >>> np.allclose([disk['sigma'], disk['l'], disk['b']], [1.5, 22, 22])
+            True
+
+        And when the coordinatsystem is galacitc, you can not read out the RA or dec values
+
+            >>> disk['ra']
+            Traceback (most recent call last):
+                ...
+            Exception: Unknown parameter name ra
+
+            >>> disk['ra'] = 1
+            Traceback (most recent call last):
+                ...
+            Exception: Unknown parameter name ra
+
+        When you set instead the RA and Dec values, the coordiante system is equatorial
+
+            >>> disk = Disk(p=1.5, ra=22, dec=22)
+            >>> np.allclose([disk['sigma'],disk['ra'],disk['dec']], [1.5, 22, 22])
+            True
+            >>> disk['l']
+            Traceback (most recent call last):
+                ...
+            Exception: Unknown parameter name l
+
+            >>> disk['l'] = 1
+            Traceback (most recent call last):
+                ...
+            Exception: Unknown parameter name l
+
+
+        You can easily make deep copies of Spatial Modles
 
             >>> disk = Disk(sigma=1)
+            >>> copy = disk.copy()
+            >>> disk['sigma'] = 2
+            >>> copy['sigma'] == 1 
+            True
 
-        The disk is uniform inside the radius 'sigma' and has a value 1/(pi*r^2):
+        Spatialm models perform correct checking to see if the input is valid
+        
+            >>> model=Disk(random_input=3)
+            This should raise an exception...
 
+        The PDF for a disk spatial model is uniform inside the radius 'sigma' with a value 1/(pi*r^2):
+        Note that the value of a spatial model is reasonable:
+
+            >>> disk = Disk(sigma=1)
             >>> np.allclose(disk.at_r_in_deg(np.asarray([0,0.25,0.5,0.75,1])), 1/(np.pi*np.radians(1)**2))
             True
 
