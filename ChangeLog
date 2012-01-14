@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jan 13 16:13:58 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_testing.py 
+Log Message:
+remove duplicate tests
+    *
+------------------------------------------------------------
 User: lande  Fri Jan 13 16:13:21 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
