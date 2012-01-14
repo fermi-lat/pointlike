@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jan 13 16:14:14 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+better doctest for PowerLaw
+    *
+------------------------------------------------------------
 User: lande  Fri Jan 13 16:13:58 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
