@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jan 13 20:53:54 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Added Files:
+	dark_matter.py 
+Log Message:
+New dark matter module for dark matter analysis in pointlike
+    *
+------------------------------------------------------------
 User: lande  Fri Jan 13 20:53:00 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
