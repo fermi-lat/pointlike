@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.69 2012/01/13 22:42:18 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.70 2012/01/14 00:04:49 lande Exp $
 
    author: Joshua Lande
 
@@ -17,15 +17,6 @@ from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
         SkyImage,SkyIntegrator,CompositeSkyFunction
 from abc import abstractmethod
 
-
-# Mathematical constants. They are the ratio of r68 (or r99), the %68 (or %99) containment
-# radius, to sigma, the 'size' parameter of an extended source.
-# Therefore, sigma*x68=r68
-GAUSSIAN_X68,GAUSSIAN_X99=1.50959219,3.03485426
-DISK_X68,DISK_X99=0.824621125,0.994987437
-
-# I got this from Wolfram Alpha with: solve int 2/(pi*x/1.07*(1+x*1.07)^5)*2*pi*x for x from 0 to y=0.68
-NFW_X68,NFW_X99=0.30801306,2.02082024
 
 SMALL_ANALYTIC_EXTENSION=1e-10
 SMALL_NUMERIC_EXTENSION=1e-3
@@ -599,6 +590,12 @@ class Gaussian(RadiallySymmetricModel):
            0.1
        """
 
+    # x68 and x99 are mathematical constants. 
+    # They are the ratio of r68 (or r99), the %68 (or %99) containment
+    # radius, to sigma, the 'size' parameter of an extended source.
+    # Therefore, sigma*x68=r68
+    x68,x99=1.50959219,3.03485426
+
     default_p = [0.1]
     param_names = ['Sigma']
     limits = [[SMALL_ANALYTIC_EXTENSION,3]]
@@ -622,8 +619,8 @@ class Gaussian(RadiallySymmetricModel):
     def at_r_in_deg(self,r,energy=None):
         return self.pref*np.exp(-r**2/(2*self.sigma2))
 
-    def r68(self): return GAUSSIAN_X68*self.sigma
-    def r99(self): return GAUSSIAN_X99*self.sigma
+    def r68(self): return Gaussian.x68*self.sigma
+    def r99(self): return Gaussian.x99*self.sigma
 
     def pretty_spatial_string(self):
         return "%.3fd" % (self.sigma)
@@ -806,6 +803,10 @@ class Disk(RadiallySymmetricModel):
             >>> np.allclose(disk.at_r_in_deg(1.1),00)
             True
         """
+
+    # See documentation in Disk for description
+    x68,x99=0.824621125,0.994987437
+
     def extension(self):
         return self.get_parameters(absolute=True)[2]
 
@@ -819,8 +820,8 @@ class Disk(RadiallySymmetricModel):
     def at_r_in_deg(self,r,energy=None):
         return np.where(r<=self.sigma,self.pref,0)
 
-    def r68(self): return DISK_X68*self.sigma
-    def r99(self): return DISK_X99*self.sigma
+    def r68(self): return Disk.x68*self.sigma
+    def r99(self): return Disk.x99*self.sigma
 
     def effective_edge(self,energy=None):
         """ Disk has a well defined edge, so there is no reason to integrate past it. """
@@ -864,8 +865,8 @@ class Ring(RadiallySymmetricModel):
     def at_r_in_deg(self,r,energy=None):
         return np.where((r>=self.frac*self.sigma)&(r<=self.sigma),self.pref,0)
 
-    def r68(self): return DISK_X68*(1-self.frac2)+self.frac2
-    def r99(self): return DISK_X99*(1-self.frac2)+self.frac2
+    def r68(self): return Disk.x68*(1-self.frac2)+self.frac2
+    def r99(self): return Disk.x99*(1-self.frac2)+self.frac2
 
     def effective_edge(self,energy=None):
         """ Disk has a well defined edge, so there is no reason to integrate past it. """
@@ -891,6 +892,10 @@ class NFW(RadiallySymmetricModel):
         https://confluence.slac.stanford.edu/display/SCIGRPS/Pointlike+DMFit+Validation
         """
 
+    # See documentation in Disk for description
+    # I got this from Wolfram Alpha with: 'solve int 2/(pi*x/1.07*(1+x*1.07)^5)*2*pi*x for x from 0 to y=0.68'
+    x68,x99=0.30801306,2.02082024
+
     def extension(self):
         return self.get_parameters(absolute=True)[2]
 
@@ -907,8 +912,8 @@ class NFW(RadiallySymmetricModel):
     def at_r_in_deg(self,r,energy=None):
         return 2/(np.pi*r*self.scaled_sigma*(1+r/self.scaled_sigma)**5)
 
-    def r68(self): return NFW_X68*self.scaled_sigma
-    def r99(self): return NFW_X99*self.scaled_sigma
+    def r68(self): return NFW.x68*self.scaled_sigma
+    def r99(self): return NFW.x99*self.scaled_sigma
 
     def has_edge(self): return False
 
@@ -1223,8 +1228,8 @@ class EllipticalGaussian(EllipticalSpatialModel):
     def value_at(self,x):
         return self.pref*np.exp(-x/2)
 
-    def ellipse_68(self): return GAUSSIAN_X68*self.sigma_x,GAUSSIAN_X68*self.sigma_y,self.theta
-    def ellipse_99(self): return GAUSSIAN_X99*self.sigma_x,GAUSSIAN_X99*self.sigma_y,self.theta
+    def ellipse_68(self): return Gaussian.x68*self.sigma_x,Gaussian.x68*self.sigma_y,self.theta
+    def ellipse_99(self): return Gaussian.x99*self.sigma_x,Gaussian.x99*self.sigma_y,self.theta
 
 
 class PseudoEllipticalGaussian(PseudoSpatialModel,EllipticalGaussian):
@@ -1263,8 +1268,8 @@ class EllipticalDisk(EllipticalSpatialModel):
     def value_at(self,x):
         return np.where(x<1,self.pref,0)
 
-    def ellipse_68(self): return DISK_X68*self.sigma_x,DISK_X68*self.sigma_y,self.theta
-    def ellipse_99(self): return DISK_X99*self.sigma_x,DISK_X99*self.sigma_y,self.theta
+    def ellipse_68(self): return Disk.x68*self.sigma_x,Disk.x68*self.sigma_y,self.theta
+    def ellipse_99(self): return Disk.x99*self.sigma_x,Disk.x99*self.sigma_y,self.theta
 
 
 class RadiallySymmetricEllipticalDisk(EllipticalDisk):
@@ -1301,7 +1306,7 @@ class EllipticalRing(EllipticalSpatialModel):
         return np.where((x>self.frac2)&(x<1),self.pref,0)
 
     def ellipse_68(self):
-        x68=DISK_X68*(1-self.frac2)+self.frac2
+        x68=Disk.x68*(1-self.frac2)+self.frac2
         return x68*self.sigma_x,x68*self.sigma_y,self.theta
 
     def ellipse_99(self):
