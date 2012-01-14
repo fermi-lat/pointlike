@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jan 13 20:53:00 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Reorganize code to be more elegant
+    *
+------------------------------------------------------------
 User: lande  Fri Jan 13 16:14:14 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
