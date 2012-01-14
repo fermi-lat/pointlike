@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jan 13 21:51:52 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Clean up documation, simplify copy function, new unit testing.
+    *
+------------------------------------------------------------
 User: lande  Fri Jan 13 20:53:54 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
