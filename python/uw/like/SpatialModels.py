@@ -17,12 +17,11 @@ from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
         SkyImage,SkyIntegrator,CompositeSkyFunction
 from abc import abstractmethod
 
-
 SMALL_ANALYTIC_EXTENSION=1e-10
 SMALL_NUMERIC_EXTENSION=1e-3
 
 def smart_log(p,log):
-    """ This function is functionally equivalen to
+    """ This function is functionally equivalent to
 
             np.where(log, np.log10(p), p)
 
@@ -31,185 +30,187 @@ def smart_log(p,log):
     """
     return np.where(log, np.log10(np.where(log, p, 1)), p)
 
-class DefaultSpatialModelValues(object):
-    """ Spatial Parameters:
-            p: the spatial parameters. There values are all assumed to be absolute.
-            param_names: the names of the spatial parameters
-            limits: the limits imposed on the paraemters when fitting. 
+
+class SpatialModel(object):
+    """ This class represents a normalized spatial model which 
+        contains a list of spatial parameters
+
+        Any subclass must implement the __call__ function.
+        __call__ takes a SkyDir 
+        and returns the intensity at that
+        direction. The intensity is defined such that the integral
+        of intensity x solid angle = 1 when solid angle is measured
+        in steradians!  Each subclass is responsible for ensuring its correct normalization.
+
+        Any subclass must also define a list of spatial parameters by setting the following values:
+    
+            default_p: the values of the spatial parameters. 
+                There are all assumed to be absolute.
+            param_names: the names of each spatial parameters
+            limits: the limits imposed on the parameters when fitting. 
                 These values are absolute. Note that by and large, everything
                 is measured in degrees. The limits on relative movement of
                 longitude and latitude are measured in degrees.
-            log: Wheter or not the parameter should be mapped into log space.
-            steps: used by minuit when fitting the source. useful to make them comparable
+            log: For each paramter, whether or not it should be mapped into log space.
+            steps: Used by minuit when fitting the source. useful to make them comparable
                 to distance away from true values. These are not absolute. For log parameters,
                 the step is the step in the log of the parameter.
 
         By construction, the first two spatial parameters of all extended sources
-        is the center of the source. The limits on the first two parameters are
-        defined as a physical angular distance away from the source.
-        The first to parametesr (lon & lat) are forced to have log=False
-        The firs two parametesr are not defined in the models dict but always set
-        to defaults lower in the function. """
-    models = {
-        'Gaussian'           : {'p':[0.1],                 
-                                'param_names':['Sigma'],                        
-                                'limits':[[SMALL_ANALYTIC_EXTENSION,3]],
-                                'log':[True],
-                                'steps':[0.04]
-                                # Note that the step for sigma is a step in log space!
-                                # As minuit.py's doc says, a step of .04 is about 10% in log space
-                               }, 
-        'PseudoGaussian'     : {},
-        'SunExtended'        : {'rmax':20},
-        'Disk'               : {'p':[0.1],
-                                'param_names':['Sigma'],
-                                'limits':[[SMALL_ANALYTIC_EXTENSION,3]],
-                                'log':[True],
-                                'steps':[0.04]},
-        'PseudoDisk'         : {},
-        'Ring'               : {'p':[0.1,0.5],
-                                'param_names':['Sigma','Fraction'],
-                                'limits':[[SMALL_ANALYTIC_EXTENSION,3],[0,1]],
-                                'log':[True,False],
-                                'steps':[0.04,0.1]},
-        'NFW'                : {'p':[0.1],
-                                'param_names': ['Sigma'],
-                                'limits': [[SMALL_ANALYTIC_EXTENSION,9]], # constrain r68 to 9 degrees.
-                                'steps':[0.04],
-                                'log':[True]},
-        'PseudoNFW'          : {},
-        'RadialProfile'      : {},
-        # Note, angle is in degrees
-        'EllipticalGaussian' : {'p':[0.2,0.1,0], 
-                                'param_names':['Major_Axis','Minor_Axis','Pos_Angle'],
-                                'limits':[[1e-6,3],
-                                          [1e-6,3],
-                                          [-45,45]],
-                                # Note for elliptical shapes, theta > 45 is the same as a negative angle
-                                'log':[True,True,False],
-                                'steps':[0.04,0.04,5]},
-        # N,B limits or Non-radially symmetric sources dictated more by pixelization of grid.
-        'EllipticalDisk'     : {'p':[0.2,0.1,0], 
-                                'param_names':['Major_Axis','Minor_Axis','Pos_Angle'],
-                                'limits':[[SMALL_NUMERIC_EXTENSION,3],
-                                          [SMALL_NUMERIC_EXTENSION,3],
-                                           [-45,45]],
-                                'log':[True,True,False],
-                                'steps':[0.04,0.04,5]},
-        'EllipticalRing'     : {'p':[0.2,0.1,0,0.5], 
-                                'param_names':['Major_Axis','Minor_Axis','Pos_Angle','Fraction'],
-                                'limits':[[SMALL_NUMERIC_EXTENSION,3],
-                                          [SMALL_NUMERIC_EXTENSION,3],
-                                          [-45,45],
-                                          [0,1]],
-                                'log':[True,True,False,False],
-                                'steps':[0.04,0.04,5,0.1]},
-        'SpatialMap'         : {}
-    }
-
-    models['PseudoEllipticalGaussian'] = models['PseudoGaussian']
-    models['RadiallySymmetricEllipticalGaussian'] = models['Gaussian']
-    models['PseudoEllipticalDisk'] = models['PseudoDisk']
-    models['RadiallySymmetricEllipticalDisk'] = models['Disk']
-    models['RadialProfileFromArray'] = models['RadialProfile']
-
-    @staticmethod
-    def setup(the_model):
-        classname = the_model.name = the_model.pretty_name = the_model.__class__.__name__
-
-        the_model.p,the_model.log,the_model.param_names,the_model.steps=[],[],[],[]
-
-        for key,val in DefaultSpatialModelValues.models[classname].items():
-            exec('the_model.%s = val'%key)
-
-        # Add in point source parts.
-        the_model.p=np.append([0.,0.],the_model.p)
-        the_model.log=np.append([False,False],the_model.log)
-        the_model.param_names=np.append(['lon','lat'],the_model.param_names)
-        the_model.limits=np.append([[-1.,1.],[-1.,1.]],the_model.limits,axis=0) \
-                if the_model.__dict__.has_key('limits') else np.asarray([[-10.,10],[-10.,10.]])
-        the_model.steps=np.append([0.1,0.1],the_model.steps)
-
-        the_model.coordsystem = SkyDir.EQUATORIAL
-
-        the_model.cov_matrix = np.zeros([len(the_model.p),len(the_model.p)])
-        the_model.free = np.asarray([True] * len(the_model.p))
-        the_model.center = SkyDir(0,0,the_model.coordsystem)
-
-
-class SpatialModel(object):
-    """ This class represents a normalized spatial model which can be
-        parameterized by a a simple geometric function with a list of
-        free paraemters.
-    
-        All SpatialModel objects must implement the __call__ function,
-        which takes a skydir object and returns the intensity at that
-        direction. The intensity is defined such that the integral
-        of intensity x solid angle = 1 when solid angle is measured
-        in steradians!
+        is the center of the source. These paramters will be set automatically
+        and so do not need to be set in any subclass. For spatial models
+        which define only the position in the sky, set the above paramters
+        to empty lists.
         
-        One slight differnece between the SpatialModel and Model class
+        One slight difference between the SpatialModel and Model class
         has to do with absolute. Always, absolute=True has the same
         meanings, pass in the true value of the parameters. But
-        absolute=False has different meanings for different functions.
-        
-        For most functions, absolute=false means the values for which log=True
+        for some functions, absolute=False has a different meanings.
+        For most functions, absolute=False means the values for which log=True
         should be in log space. This is the calse for set_parameters, 
         get_parameters, and get_cov_matrix. This is different from
         how Models works where absolute=False means all parameters are
-        in log space.
-        
-        On the other hand, the function statistical has absolute=false
-        intepreted the same convention as absolute, where absolute=false
+        in log space. On the other hand, the function statistical has absolute=False
+        interpreted the same convention as absolute, where absolute=False
         means return the relative error (absolute error/parameter value)
-        which is useful for printing percent error, etc. """
+        which is useful for printing percent error, etc. 
+        Generally, the user should ignore these flags since it is
+        easier to use the array slicing operators to get always-absolute
+        paramters e.g. disk['sigma'] = 2.
+       
 
-    def __init__(self,p=None,center=None,log=None,coordsystem=None,**kwargs):
-        DefaultSpatialModelValues.setup(self)
+        The center of the extended source can be set in several ways:
 
-        # first, set the log values of thigns:
-        if log is not None: self.log = np.asarray(log)
+        By default, the center is the equatorial origin:
 
-        if coordsystem is not None: 
+            >>> disk = Disk()
+            >>> print np.allclose([disk.center.ra(),disk.center.dec()],[0,0])
+            True
+            >>> print np.allclose([disk['ra'],disk['dec']],[0,0])
+            True
+
+        But this can be overridden
+
+            >>> disk = Disk(coordsystem=SkyDir.GALACTIC)
+            >>> print np.allclose([disk.center.l(),disk.center.b()],[0,0])
+            True
+            >>> print np.allclose([disk['l'],disk['b']],[0,0])
+            True
+
+        The source center can be specified by defining the galactic origin
+
+            >>> disk = Disk(l=22, b=22)
+            >>> print np.allclose([disk.center.l(),disk.center.b()],[22,22])
+            True
+            >>> print disk.coordsystem == SkyDir.GALACTIC
+            True
+
+        Or the equatorial origin
+
+            >>> disk = Disk(ra=22, dec=22)
+            >>> print np.allclose([disk.center.ra(),disk.center.dec()],[22,22])
+            True
+            >>> print disk.coordsystem == SkyDir.EQUATORIAL
+            True
+
+        Or by specifying the center of the source
+
+            >>> disk = Disk(center=SkyDir(22, 22))
+            >>> print np.allclose([disk.center.ra(),disk.center.dec()],[22,22])
+            True
+            >>> print disk.coordsystem == SkyDir.EQUATORIAL
+            True
+
+        The names of the input paramters should be case insensitive:
+
+            >>> disk = Disk(rA=10, dEC=-10)
+            >>> print np.allclose([disk.center.ra(),disk.center.dec()],[10,-10])
+            True
+
+            >>> disk = Disk(L=33, B=10)
+            >>> print np.allclose([disk.center.l(),disk.center.b()],[33,10])
+            True
+
+        Ambiguous specifications should raise an exception:
+
+            >>> disk = Disk(center=SkyDir(), l=22, b=22)
+            Traceback (most recent call last):
+                ...
+            Exception: Only one of center, l and b, or RA and Dec can be set
+
+    """
+    def __init__(self, p=None, coordsystem=SkyDir.EQUATORIAL, **kwargs):
+
+        assert hasattr(self,'default_p') and \
+                hasattr(self,'param_names') and \
+                hasattr(self,'limits') and \
+                hasattr(self,'log') and \
+                hasattr(self,'steps')
+
+        # first, set center if specified
+
+        lower_case_kwargs = [i.lower() for i in kwargs.keys()]
+        center_in_kwargs = 'center' in kwargs
+        l_b_in_kwargs = 'l' in lower_case_kwargs and 'b' in lower_case_kwargs
+        ra_dec_in_kwargs = 'ra' in lower_case_kwargs and 'dec' in lower_case_kwargs
+
+        if sum([center_in_kwargs, l_b_in_kwargs, ra_dec_in_kwargs]) > 1:
+            raise Exception("Only one of center, l and b, or RA and Dec can be set")
+
+        if center_in_kwargs:
+            self.center = kwargs.pop('center')
             self.coordsystem = coordsystem
-        elif kwargs.has_key('l') and kwargs.has_key('b'):
-            if kwargs.has_key('RA') or kwargs.has_key('Dec'): 
-                raise Exception("Can only pass one of l & b or RA and Dec")
+        elif l_b_in_kwargs:
+            # acutal center will be set later in set_parameters
+            # here, we just need to get a defualt center and set 
+            # the right coord system. Kludge for now - J.L.
+            self.center = SkyDir() 
             self.coordsystem = SkyDir.GALACTIC
-
-        elif kwargs.has_key('RA') and kwargs.has_key('Dec'):
-            if kwargs.has_key('l') or kwargs.has_key('b'):
-                raise Exception("Can only pass one of l & b or RA and Dec")
-
+        elif ra_dec_in_kwargs:
+            # same disclaimer as above - J.L.
+            self.center = SkyDir() 
             self.coordsystem = SkyDir.EQUATORIAL
+        else:
+            self.center = SkyDir(0,0,coordsystem)
+            self.coordsystem = coordsystem
 
-        # rename coordsystem to properly reflect projection.
         if self.coordsystem == SkyDir.EQUATORIAL:
-            self.param_names[0:2] = ['RA','Dec']
+            self.param_names = np.append(['RA','Dec'], self.param_names)
         elif self.coordsystem == SkyDir.GALACTIC:
-            self.param_names[0:2] = ['l','b']
+            self.param_names = np.append(['l','b'], self.param_names)
 
-        if self.log[0] != False or self.log[1] != False:
-            raise Exception("Do not fit the position parameters in log space.")
 
-        if center is not None: self.modify_loc(center)
+        # The first two parameters (lon & lat) are forced to have log=False
+        self.log=np.append([False,False],self.log)
 
-        self.set_parameters(p if p is not None else self.p, absolute=True)
+        # note, self.log and self.param_names must be 
+        # correctly initialized before set_parameters is called.
+        self.set_parameters(p if p is not None else self.default_p, absolute=True)
 
-        # map the limits parameters into log space.
+        # The limits on the first two parameters are
+        # defined as the allowed physical angular distance away from the source.
+        if self.limits == []:
+            self.limits=np.asarray([[-1.,1.],[-1.,1.]])
+        else:
+            self.limits=np.append([[-1.,1.],[-1.,1.]],self.limits,axis=0)
+
+        self.steps=np.append([0.1,0.1],self.steps)
+
+        self.cov_matrix = np.zeros([len(self.p),len(self.p)])
+        self.free = np.ones_like(self.p,dtype=bool)
+
+        # map the parameters/limits into log space.
         for i in range(2,len(self.log)):
             if self.log[i]: 
                 self.limits[i,:] = np.log10(self.limits[i,:])
 
-        # deal with other kwargs. If they are in the list of spatial
-        # parameters, update the corresponding value. Tag them to 
-        # the class.
-        for k,v in kwargs.items():
-            if k in self: 
-                self[k]=v
-            else:
-                self.__dict__[k]=v
- 
+        for k in kwargs.keys():
+            if k in self:
+                self[k] = kwargs.pop(k)
+
+        if len(kwargs) > 0:
+            raise Exception("Unrecognized keyword arguments %s" % kwargs.keys())
+
         self.cache() # overloaded by subclasses
 
     def cache(self):
@@ -305,12 +306,12 @@ class SpatialModel(object):
                 p = np.append([center.ra(),center.dec()],p)
             elif self.coordsystem == SkyDir.GALACTIC:
                 p = np.append([center.l(),center.b()],p)
-        if isinstance(p,numbers.Real) and len(self.p)==3:
+        if isinstance(p,numbers.Real) and len(self.param_names)==3:
             return self.set_parameters([p],absolute,center=self.center)
-        elif len(p)==len(self.p)-2:
+        elif len(p)==len(self.param_names)-2:
             return self.set_parameters(p,absolute,center=self.center)
 
-        if len(p)!=len(self.p):
+        if len(p)!=len(self.param_names):
             raise Exception("SpatialModel.set_parameters given the wrong number of parameters.")
 
         self.p = smart_log(p,log=self.log) if absolute else np.asarray(p,dtype=float)
@@ -383,22 +384,7 @@ class SpatialModel(object):
                     hi_abs/(1. if absolute else p), \
                     lo_abs/(1. if absolute else p)
 
-    def copy(self):
-        
-        a = self.__class__(**self.__dict__) #create instance of same spectral model type
-
-        a.p           = np.asarray(self.p,dtype=float).copy() 
-        a.free        = np.asarray(self.free,dtype=bool).copy() 
-        a.param_names = np.asarray(self.param_names).copy() 
-        a.limits      = np.asarray(self.limits,dtype=float).copy() 
-        a.log         = np.asarray(self.log,dtype=bool).copy() 
-        a.steps       = np.asarray(self.steps,dtype=float).copy() 
-
-        if hasattr(a,'cov_matrix'): self.cov_matrix.__copy__()
-
-        a.cache()
-
-        return a
+    def copy(self): return copy.deepcopy(self)
 
     @abstractmethod
     def __call__(self,v,energy=None): pass
@@ -570,7 +556,11 @@ class RadiallySymmetricModel(SpatialModel):
 
 
 class PseudoSpatialModel(SpatialModel):
-    pass
+    """ PseudoSpatialModel are point-like SpatialModels.
+        i.e. they are SpatialModels which predict emission
+        only from a very small region of the sky. """
+
+    default_p, param_names, limits, log, steps = [], [], [], [], []
 
 
 class Gaussian(RadiallySymmetricModel):
@@ -600,8 +590,6 @@ class Gaussian(RadiallySymmetricModel):
     param_names = ['Sigma']
     limits = [[SMALL_ANALYTIC_EXTENSION,3]]
     log = [True]
-    # Note that the step for sigma is a step in log space!
-    # As minuit.py's doc says, a step of .04 is about 10% in log space
     steps = [0.04]
 
     def extension(self):
@@ -650,6 +638,12 @@ class SunExtended(RadiallySymmetricModel):
 
        p = [ ra, dec ] """
 
+    default_p, param_names, limits, log, steps = [], [], [], [], []
+
+    def __init__(self, rmax=20, **kwargs):
+        self.rmax = rmax
+        super(SunExtended,self).__init__(self, **kwargs)
+
     def cache(self):
         super(SunExtended,self).cache()
 
@@ -685,8 +679,6 @@ class PseudoGaussian(PseudoSpatialModel,Gaussian):
         of an extended source has the exact same PDF as the
         extended source."""
 
-    default_p, param_names, limits, log, steps = [], [], [], [], []
-
     def extension(self): return SMALL_ANALYTIC_EXTENSION
 
     def can_shrink(self): return False
@@ -716,8 +708,14 @@ class Disk(RadiallySymmetricModel):
             22.0
             >>> print disk.center.dec()
             22.0
+
+        You can also specify all parameters in a large list if you want:
+
+            >>> disk = Disk(p=[22, 22, 1.5],coordsystem=SkyDir.EQUATORIAL)
+            >>> print disk['ra']
+            22.0
         
-        And it is easy to set the paramters of a spatial model:
+        And it is easy to set the parameters of a spatial model:
 
             >>> disk['Sigma'] = 0.5
             >>> print disk['Sigma']
@@ -731,7 +729,7 @@ class Disk(RadiallySymmetricModel):
             Exception: Parameter 2 must be positive!
 
 
-        By default, the coordiante system is equatorial
+        By default, the coordinate system is equatorial
             >>> np.allclose([disk['ra'],disk['dec']], [22, 22])
             True
 
@@ -762,6 +760,13 @@ class Disk(RadiallySymmetricModel):
                 ...
             Exception: Unknown parameter name ra
 
+        The keywords to set a disk should be case insensitive
+
+            >>> disk = Disk(SIGMA=1.5)
+            >>> disk['SiGmA']
+            1.5
+
+
         When you set instead the RA and Dec values, the coordiante system is equatorial
 
             >>> disk = Disk(p=1.5, ra=22, dec=22)
@@ -778,7 +783,7 @@ class Disk(RadiallySymmetricModel):
             Exception: Unknown parameter name l
 
 
-        You can easily make deep copies of Spatial Modles
+        You can easily make deep copies of Spatial Models
 
             >>> disk = Disk(sigma=1)
             >>> copy = disk.copy()
@@ -786,10 +791,12 @@ class Disk(RadiallySymmetricModel):
             >>> copy['sigma'] == 1 
             True
 
-        Spatialm models perform correct checking to see if the input is valid
+        Spatial models perform correct checking to see if the input is valid
         
             >>> model=Disk(random_input=3)
-            This should raise an exception...
+            Traceback (most recent call last):
+                ...
+            Exception: Unrecognized keyword arguments ['random_input']
 
         The PDF for a disk spatial model is uniform inside the radius 'sigma' with a value 1/(pi*r^2):
         Note that the value of a spatial model is reasonable:
@@ -806,6 +813,12 @@ class Disk(RadiallySymmetricModel):
 
     # See documentation in Disk for description
     x68,x99=0.824621125,0.994987437
+
+    default_p = [0.1]
+    param_names = ['Sigma']
+    limits = [[SMALL_ANALYTIC_EXTENSION,3]]
+    log = [True]
+    steps = [0.04]
 
     def extension(self):
         return self.get_parameters(absolute=True)[2]
@@ -842,7 +855,20 @@ class PseudoDisk(PseudoSpatialModel,Disk):
     """ A PseudoDisk is a Disk with a fixed
         small radius. Useful to ensure that the null hypothesis
         of an extended source has the exact same PDF as the
-        extended source with small extension."""
+        extended source with small extension.
+        
+        A pseudodisk should be a disk with extension fixed to SMALL_ANALYTIC_EXTENSION:
+        
+            >>> x = PseudoDisk()
+            >>> print x.param_names
+            ['RA' 'Dec']
+            >>> print x.p
+            [ 0.  0.]
+            >>> print x.extension() == SMALL_ANALYTIC_EXTENSION
+            True
+
+    """
+
     def extension(self): return SMALL_ANALYTIC_EXTENSION
 
     def can_shrink(self): return False
@@ -850,6 +876,13 @@ class PseudoDisk(PseudoSpatialModel,Disk):
 
 class Ring(RadiallySymmetricModel):
     """ The ring is defined as a constant value between one radius and another. """
+
+    default_p = [0.1,0.5]
+    param_names = ['Sigma', 'Fraction']
+    limits = [[SMALL_ANALYTIC_EXTENSION,3],[0,1]]
+    log = [True,False]
+    steps = [0.04,0.1]
+
     def cache(self):
         super(Ring,self).cache()
 
@@ -884,58 +917,11 @@ class Ring(RadiallySymmetricModel):
     def can_shrink(self): return True
 
 
-class NFW(RadiallySymmetricModel):
-    """ Ping's parameterization of the NFW Source is 
-        P(x,y)=2/(pi*r*s*(1+r/s)^5) 
-        WARNING: This only works for sources with 
-        0.5 <~ sigma <~ 10. For more details, see:
-        https://confluence.slac.stanford.edu/display/SCIGRPS/Pointlike+DMFit+Validation
-        """
-
-    # See documentation in Disk for description
-    # I got this from Wolfram Alpha with: 'solve int 2/(pi*x/1.07*(1+x*1.07)^5)*2*pi*x for x from 0 to y=0.68'
-    x68,x99=0.30801306,2.02082024
-
-    def extension(self):
-        return self.get_parameters(absolute=True)[2]
-
-    def cache(self):
-        super(NFW,self).cache()
-
-        self.sigma=self.extension()
-        # This factor of 1.07 is a normalization constant
-        # coming from a comparison of the analytic form
-        # with the l.o.s. integral.
-        self.factor=1.07
-        self.scaled_sigma=self.sigma/self.factor
-
-    def at_r_in_deg(self,r,energy=None):
-        return 2/(np.pi*r*self.scaled_sigma*(1+r/self.scaled_sigma)**5)
-
-    def r68(self): return NFW.x68*self.scaled_sigma
-    def r99(self): return NFW.x99*self.scaled_sigma
-
-    def has_edge(self): return False
-
-    def pretty_spatial_string(self):
-        return "%.3fd" % (self.sigma)
-
-    def _shrink(self,size=SMALL_ANALYTIC_EXTENSION): 
-        self['sigma']=size
-        self.free[2]=False
-    def can_shrink(self): return True
-
-
-class PseudoNFW(PseudoSpatialModel,NFW):
-
-    def extension(self): return SMALL_ANALYTIC_EXTENSION
-
-    def can_shrink(self): return False
-
-
 class InterpProfile(RadiallySymmetricModel):
 
-    def __init__(self, **kwargs):
+    default_p, param_names, limits, log, steps = [], [], [], [], []
+
+    def __init__(self, r_in_degrees, pdf, kind='linear', **kwargs):
         """ Assuming object has self.r_in_degrees, and self.pdf,
             define a spatial model that interpolates
             between the values in list.
@@ -944,12 +930,40 @@ class InterpProfile(RadiallySymmetricModel):
             should be proportional to flux per steradian.  The overall
             normaliztion of the model will be set so that the spatial
             model integrates to 1.
+
+
+            First, define analytic shape
+            
+                >>> sigma = 1 # degrees
+                >>> gauss = Gaussian(sigma=sigma)
+
+            Next, define numeric shape
+
+                >>> r = np.linspace(0,10,100) # in degrees
+                >>> pdf = np.exp(-r**2/(2*sigma**2))
+                >>> numeric_gauss = InterpProfile(r_in_degrees=r,pdf=pdf,kind='cubic')
+
+            Note that the normalization of the numeric gaussian is wrong, but 
+            will be renormalized anyway.
+
+            Note that spatial model is the same as Gaussian, even for oddly spaced points:
+
+                >>> r_test = np.linspace(0,1,47) # sample odly
+                >>> np.allclose(gauss.at_r_in_deg(r_test), 
+                ...             numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-5)
+                True
         """
-        super(RadiallySymmetricModel,self).__init__(**kwargs)
+        super(InterpProfile,self).__init__(**kwargs)
 
-        kind=kwargs.pop('kind','linear')
+        if r_in_degrees.shape != pdf.shape or len(r_in_degrees) != len(pdf):
+            raise Exception("Size and shape of input arrays must be the same.")
 
-        self.r_in_degrees, self.pdf = self.get_r_pdf(**kwargs)
+        # Extend profile to r = 0 as a constant
+        if r_in_degrees[0] > 0:
+            r_in_degrees = np.concatenate( ( [0], r_in_degrees) )
+            pdf = np.concatenate( ( [pdf[0]], pdf) )
+
+        self.r_in_degrees, self.pdf = r_in_degrees, pdf
 
         # If profile doesn't extend to zero, complain
         if self.r_in_degrees[0] > 0:
@@ -963,10 +977,10 @@ class InterpProfile(RadiallySymmetricModel):
         # Explicitly normalize the RadialProfile.
         self.interp = interp1d(self.r_in_radians,self.pdf,kind=kind,bounds_error=False,fill_value=0)
 
-        # integrand takes r in radians
-        # shouldn't this be solid angle instead of polar coords?
-        integrand = lambda r: self.interp(r)*2*np.pi*np.sin(r)
-        #integrand = lambda r: self.interp(r)*2*np.pi*r
+        # Note that this formula assumes that space is flat, which
+        # is incorrect. But the rest of the objects in this file
+        # make that assumption, so this is kept for consistency.
+        integrand = lambda r: self.interp(r)*2*np.pi*r
 
         # perform integral in radians b/c the PDF must integrate
         # over solid angle (in units of steradians) to 1
@@ -974,11 +988,6 @@ class InterpProfile(RadiallySymmetricModel):
 
         # redo normalized interpolation
         self.interp = interp1d(self.r_in_degrees,self.normed_pdf,kind=kind,bounds_error=False,fill_value=0)
-
-    @abstractmethod
-    def get_r_pdf(self, *args, **kwargs):
-        """ Sublcasses must implement this. """
-        pass
 
     def at_r_in_deg(self,r,energy=None):
         v=self.interp(r)
@@ -1028,56 +1037,16 @@ class RadialProfile(InterpProfile):
             ...             numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-5)
             True
     """
-    def get_r_pdf(self, file, **kwargs):
+
+    def __init__(self, file, **kwargs):
+
 
         if not hasattr(file,'read') and not os.path.exists(file):
             raise Exception("RadialProfile must be passed an existing file")
 
         r_in_degrees,pdf=np.loadtxt(file,unpack=True)
 
-        # Extend profile to r = 0 as a constant
-        if r_in_degrees[0] > 0:
-            r_in_degrees = np.concatenate( ( [0], r_in_degrees) )
-            pdf = np.concatenate( ( [pdf[0]], pdf) )
-
-        return r_in_degrees,pdf
-
-class RadialProfileFromArray(InterpProfile):
-    r""" Define an extended source spatial model from an array.
-
-        First, define analytic shape
-        
-            >>> sigma = 1 # degrees
-            >>> gauss = Gaussian(sigma=sigma)
-
-        Next, define numeric shape
-
-            >>> r = np.linspace(0,10,100) # in degrees
-            >>> pdf = np.exp(-r**2/(2*sigma**2))
-            >>> numeric_gauss = RadialProfileFromArray(r_in_degrees=r,pdf=pdf,kind='cubic')
-
-        Note that the normalization of the numeric gaussian is wrong, but 
-        will be renormalized anyway.
-
-        Note that spatial model is the same as Gaussian, even for oddly spaced points:
-
-            >>> r_test = np.linspace(0,1,47) # sample odly
-            >>> np.allclose(gauss.at_r_in_deg(r_test), 
-            ...             numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-5)
-            True
-    """
-    def get_r_pdf(self, r_in_degrees, pdf, **kwargs):
-        r_in_degrees,pdf = np.asarray(r_in_degrees),np.asarray(pdf)
-
-        if r_in_degrees.shape != pdf.shape or len(r_in_degrees) != len(pdf):
-            raise Exception("Size and shape of input arrays must be the same.")
-
-        # Extend profile to r = 0 as a constant
-        if r_in_degrees[0] > 0:
-            r_in_degrees = np.concatenate( ( [0], r_in_degrees) )
-            pdf = np.concatenate( ( [pdf[0]], pdf) )
-
-        return r_in_degrees,pdf
+        super(RadialProfile,self).__init__(r_in_degrees=r_in_degrees, pdf=pdf, **kwargs)
 
 
 class EllipticalSpatialModel(SpatialModel):
@@ -1216,6 +1185,17 @@ class EllipticalSpatialModel(SpatialModel):
 
 class EllipticalGaussian(EllipticalSpatialModel):
 
+    # N,B limits or Non-radially symmetric sources dictated more by pixelization of grid.
+    # Note, angle is in degrees
+    p = [0.2,0.1,0]
+    param_names = ['Major_Axis','Minor_Axis','Pos_Angle']
+    limits = [[1e-6,3],
+              [1e-6,3],
+              [-45,45]]
+    # Note for elliptical shapes, theta > 45 is the same as a negative angle
+    log = [True,True,False]
+    steps = [0.04,0.04,5]
+
     def effective_edge(self,energy=None):
         return 5*max(self.sigma_x,self.sigma_y)
 
@@ -1256,6 +1236,14 @@ class RadiallySymmetricEllipticalGaussian(EllipticalGaussian):
 class EllipticalDisk(EllipticalSpatialModel):
     """ The elliptical disk is defined as. """
 
+    p = [0.2,0.1,0], 
+    param_names = ['Major_Axis','Minor_Axis','Pos_Angle']
+    limits = [[SMALL_NUMERIC_EXTENSION,3],
+              [SMALL_NUMERIC_EXTENSION,3],
+              [-45,45]]
+    log = [True,True,False]
+    steps = [0.04,0.04,5]
+
     def effective_edge(self,energy=None):
         return max(self.sigma_x,self.sigma_y)
 
@@ -1273,6 +1261,7 @@ class EllipticalDisk(EllipticalSpatialModel):
 
 
 class RadiallySymmetricEllipticalDisk(EllipticalDisk):
+
     def extension(self):
         sigma=self.get_parameters(absolute=True)[2]
         return sigma,sigma,0
@@ -1286,6 +1275,15 @@ class PseudoEllipticalDisk(PseudoSpatialModel,EllipticalDisk):
 
 
 class EllipticalRing(EllipticalSpatialModel):
+
+    p = [0.2,0.1,0,0.5]
+    param_names = ['Major_Axis','Minor_Axis','Pos_Angle','Fraction']
+    limits = [[SMALL_NUMERIC_EXTENSION,3],
+             [SMALL_NUMERIC_EXTENSION,3],
+             [-45,45],
+             [0,1]]
+    log = [True,True,False,False]
+    steps = [0.04,0.04,5,0.1]
 
     def effective_edge(self,energy=None):
         """ sqrt(2) s for case of theta=45deg with
@@ -1335,7 +1333,39 @@ class SpatialMap(SpatialModel):
         is different in that this template is explicity normalized.
         
         A Template still has two spatial parameters, which represent a rotation of 
-        the template away from the fits file's center."""
+        the template away from the fits file's center.
+
+
+        Using a spatial map is easy enough.
+
+        First, create a uniform disk spatial model
+
+            >>> center = SkyDir()
+            >>> disk = Disk(sigma=1, center=center)
+
+        Save it to a file:
+
+            >>> from tempfile import NamedTemporaryFile
+            >>> temp = NamedTemporaryFile()
+            >>> filename = temp.name
+            >>> disk.save_template(filename)
+
+        Then, create the spatial map:
+
+            >>> spatial_map = SpatialMap(file = filename)
+            
+        In the center, the values are the same:
+
+            >>> np.allclose(disk(center), spatial_map(center))
+            True
+
+        Outside the disk edge, the spatial map has intensity 0:
+
+            >>> print spatial_map(SkyDir(1.5,0))
+            0.0
+    """
+
+    default_p, param_names, limits, log, steps = [], [], [], [], []
 
     @staticmethod
     def expand(file):
@@ -1343,10 +1373,9 @@ class SpatialMap(SpatialModel):
         file = file.replace('(','{').replace(')','}')
         return os.path.expandvars(file)
 
-    def __init__(self,**kwargs):
+    def __init__(self, file, **kwargs):
 
-        if not kwargs.has_key('file'):
-            raise Exception("Object Template must be initialized with file=template.fits keyword.")
+        self.file = file
 
         super(SpatialMap,self).__init__(**kwargs)
 
@@ -1444,6 +1473,7 @@ def convert_spatial_map(spatial,filename):
     spatial.save_template(filename)
     new_map = SpatialMap(file=filename)
     return new_map
+
 
 if __name__ == "__main__":
     import doctest
