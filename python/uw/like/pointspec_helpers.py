@@ -1,5 +1,5 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.49 2011/11/28 22:27:40 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.50 2011/11/30 19:46:07 lande Exp $
 
     author: Matthew Kerr
     """
@@ -9,7 +9,6 @@ from skymaps import SkyDir,CompositeSkySpectrum,DiffuseFunction,EffectiveArea,Ex
 from uw.like.Models import Model,Constant,PowerLaw,ExpCutoff,DefaultModelValues,LogParabola
 from roi_diffuse import DiffuseSource,ROIDiffuseModel_OTF
 from roi_extended import ExtendedSource,ROIExtendedModel
-from SpatialModels import Disk,Gaussian,EllipticalDisk,EllipticalGaussian,SpatialMap,GAUSSIAN_X68
 from os.path import join
 import os
 from abc import abstractmethod
