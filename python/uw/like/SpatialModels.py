@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.70 2012/01/14 00:04:49 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.72 2012/01/14 04:53:00 lande Exp $
 
    author: Joshua Lande
 
@@ -147,6 +147,8 @@ class SpatialModel(object):
                 hasattr(self,'log') and \
                 hasattr(self,'steps')
 
+        self.name = self.pretty_name = self.__class__.__name__
+
         # first, set center if specified
 
         lower_case_kwargs = [i.lower() for i in kwargs.keys()]
@@ -291,7 +293,7 @@ class SpatialModel(object):
 
     def get_steps(self):
         if not self.__dict__.has_key('steps'):
-            raise Exception("Spatial model %s does not have fitting step sizes defined for it." % pretty_name)
+            raise Exception("Spatial model %s does not have fitting step sizes defined for it." % self.pretty_name)
         return self.steps
 
     def set_parameters(self,p,absolute=False,center=None):
@@ -1187,7 +1189,7 @@ class EllipticalGaussian(EllipticalSpatialModel):
 
     # N,B limits or Non-radially symmetric sources dictated more by pixelization of grid.
     # Note, angle is in degrees
-    p = [0.2,0.1,0]
+    default_p = [0.2,0.1,0]
     param_names = ['Major_Axis','Minor_Axis','Pos_Angle']
     limits = [[1e-6,3],
               [1e-6,3],
@@ -1236,7 +1238,7 @@ class RadiallySymmetricEllipticalGaussian(EllipticalGaussian):
 class EllipticalDisk(EllipticalSpatialModel):
     """ The elliptical disk is defined as. """
 
-    p = [0.2,0.1,0], 
+    default_p = [0.2,0.1,0]
     param_names = ['Major_Axis','Minor_Axis','Pos_Angle']
     limits = [[SMALL_NUMERIC_EXTENSION,3],
               [SMALL_NUMERIC_EXTENSION,3],
@@ -1276,7 +1278,7 @@ class PseudoEllipticalDisk(PseudoSpatialModel,EllipticalDisk):
 
 class EllipticalRing(EllipticalSpatialModel):
 
-    p = [0.2,0.1,0,0.5]
+    default_p = [0.2,0.1,0,0.5]
     param_names = ['Major_Axis','Minor_Axis','Pos_Angle','Fraction']
     limits = [[SMALL_NUMERIC_EXTENSION,3],
              [SMALL_NUMERIC_EXTENSION,3],
