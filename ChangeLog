@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: zimmer  Fri Jan 20 00:40:07 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+fix for numpy prior to 1.6.1 and scalefactor added as attribute to InnerpProfile
+    *
+------------------------------------------------------------
 User: lande  Tue Jan 17 14:26:12 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
