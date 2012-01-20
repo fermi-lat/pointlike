@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.72 2012/01/14 04:53:00 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.73 2012/01/17 22:26:12 lande Exp $
 
    author: Joshua Lande
 
@@ -199,7 +199,8 @@ class SpatialModel(object):
         self.steps=np.append([0.1,0.1],self.steps)
 
         self.cov_matrix = np.zeros([len(self.p),len(self.p)])
-        self.free = np.ones_like(self.p,dtype=bool)
+        # compatibility with older numpy
+        self.free = np.ones_like(self.p).astype(bool)
 
         # map the parameters/limits into log space.
         for i in range(2,len(self.log)):
@@ -928,11 +929,13 @@ class InterpProfile(RadiallySymmetricModel):
             define a spatial model that interpolates
             between the values in list.
             
-            Note, the first column should be degrees and the second column
-            should be proportional to flux per steradian.  The overall
-            normaliztion of the model will be set so that the spatial
-            model integrates to 1.
-
+            Note, the first column should be degrees corresponding to the extension
+            of the source while the second should be proportional to the intensity
+            of the emission per steradian. Furthermore it is assumed that the intensity
+            integral over the whole emission radius is 1. This integration is explicitly
+            performed. In addition the class provides a property scalefactor which should
+            be 1 if the model was normalized to 1. That scalefactor should always be
+            considered when calculating fluxes.
 
             First, define analytic shape
             
@@ -986,7 +989,10 @@ class InterpProfile(RadiallySymmetricModel):
 
         # perform integral in radians b/c the PDF must integrate
         # over solid angle (in units of steradians) to 1
-        self.normed_pdf = self.pdf/quad(integrand, 0, self.r_in_radians[-1])[0]
+        integral = quad(integrand, 0, self.r_in_radians[-1])[0]
+        # save the scalefactor for later use.
+        self.scalefactor = 1./integral;
+        self.normed_pdf = self.pdf/integral
 
         # redo normalized interpolation
         self.interp = interp1d(self.r_in_degrees,self.normed_pdf,kind=kind,bounds_error=False,fill_value=0)
