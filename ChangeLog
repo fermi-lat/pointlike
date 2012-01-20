@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Jan 20 14:02:16 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_catalogs.py 
+Log Message:
+bugfix for roi_catalogs x68 code
+    *
+------------------------------------------------------------
 User: zimmer  Fri Jan 20 09:37:55 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
