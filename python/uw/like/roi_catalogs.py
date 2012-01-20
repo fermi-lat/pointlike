@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.16 2011/12/08 22:04:22 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.17 2011/12/09 20:58:34 wallacee Exp $
 
 author: Joshua Lande
 """
@@ -16,7 +16,7 @@ from abc import abstractmethod
 import pyfits
 from skymaps import SkyDir
 
-from . SpatialModels import Disk,EllipticalDisk,Gaussian,EllipticalGaussian,GAUSSIAN_X68,SpatialMap
+from . SpatialModels import Disk,EllipticalDisk,Gaussian,EllipticalGaussian,SpatialMap
 from uw.utilities import keyword_options
 from . Models import PowerLaw,PowerLawFlux,LogParabola,ExpCutoff
 from . roi_extended import ExtendedSource
@@ -300,10 +300,10 @@ class Catalog2FGL(SourceCatalog):
                     self.extended_models.append(EllipticalDisk(p=[major,minor,posang],center=center))
             elif form == '2D Gaussian':
                 if major == minor and posang == 0:
-                    self.extended_models.append(Gaussian(p=[major/GAUSSIAN_X68],center=center))
+                    self.extended_models.append(Gaussian(p=[major/Gaussian.x68],center=center))
                 else:
                     self.extended_models.append(
-                        EllipticalGaussian(p=[major/GAUSSIAN_X68,minor/GAUSSIAN_X68,posang],center=center))
+                        EllipticalGaussian(p=[major/Gaussian.x68,minor/Gaussian.x68,posang],center=center))
             else:
                 self.extended_models.append(SpatialMap(file=os.path.join('$LATEXTDIR',template)))
 
@@ -451,10 +451,10 @@ class ExtendedSourceCatalog(SourceCatalog):
                     self.spatial_models.append(EllipticalDisk(p=[major[i],minor[i],posang[i]],center=self.dirs[i]))
             elif form[i] == '2D Gaussian':
                 if major[i] == minor[i] and posang[i] == 0:
-                    self.spatial_models.append(Gaussian(p=[major[i]/GAUSSIAN_X68],center=self.dirs[i]))
+                    self.spatial_models.append(Gaussian(p=[major[i]/Gaussian.x68],center=self.dirs[i]))
                 else:
                     self.spatial_models.append(
-                        EllipticalGaussian(p=[major[i]/GAUSSIAN_X68,minor[i]/GAUSSIAN_X68,posang[i]],
+                        EllipticalGaussian(p=[major[i]/Gaussian.x68,minor[i]/Gaussian.x68,posang[i]],
                                            center=self.dirs[i]))
             else:
                 self.spatial_models.append(
