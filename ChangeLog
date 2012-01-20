@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: zimmer  Fri Jan 20 09:37:55 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+minor fix, scalefactor gets contribution from rescaling the integrator
+    *
+------------------------------------------------------------
 User: zimmer  Fri Jan 20 00:40:07 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
