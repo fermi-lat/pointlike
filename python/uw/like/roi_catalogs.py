@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.17 2011/12/09 20:58:34 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.18 2012/01/20 22:02:15 lande Exp $
 
 author: Joshua Lande
 """
@@ -343,16 +343,19 @@ class Catalog2FGL(SourceCatalog):
                 continue
 
             return_sources.append(source.copy())
-            #return_sources[-1].model.free[:] = (distance <= self.free_radius)
             if distance > self.free_radius:
                 return_sources[-1].model.free[:] = False
 
         Catalog2FGL.sort(return_sources,skydir)
 
         if self.max_free is not None:
-            if sum(np.all(source.model.free==True) for source in return_sources) > self.max_free:
-                for i,source in enumerate(return_sources):
-                    source.model.free[:] = i < self.max_free
+            if sum(np.any(source.model.free==True) for source in return_sources) > self.max_free:
+                i=0
+                for source in return_sources:
+                    i+=1
+                    if np.any(source.model.free==True):
+                        if i > self.max_free:
+                            source.model.free[:] = False
 
         return return_sources
 
