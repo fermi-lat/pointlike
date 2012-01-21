@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sat Jan 21 15:05:01 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_catalogs.py 
+Log Message:
+bugfix for max_free parameter
+    *
+------------------------------------------------------------
 User: lande  Fri Jan 20 14:02:16 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
