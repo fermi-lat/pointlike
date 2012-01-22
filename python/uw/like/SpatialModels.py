@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.74 2012/01/20 08:40:07 zimmer Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.75 2012/01/20 17:37:55 zimmer Exp $
 
    author: Joshua Lande
 
@@ -13,6 +13,7 @@ import numpy as np
 from scipy import vectorize
 from scipy.interpolate import interp1d
 from scipy.integrate import quad
+from scipy.optimize import fmin
 from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
         SkyImage,SkyIntegrator,CompositeSkyFunction
 from abc import abstractmethod
@@ -991,13 +992,20 @@ class InterpProfile(RadiallySymmetricModel):
 
         # perform integral in radians b/c the PDF must integrate
         # over solid angle (in units of steradians) to 1
-        integral = quad(integrand, 0, self.r_in_radians[-1])[0]
+        integral = quad(integrand, 0, self.r_in_radians[-1],full_output=True)[0]
         # save the scalefactor for later use.
         self.scalefactor /= integral
         self.normed_pdf = self.pdf/integral
 
         # redo normalized interpolation
         self.interp = interp1d(self.r_in_degrees,self.normed_pdf,kind=kind,bounds_error=False,fill_value=0)
+
+        # calculate r68 and r99 (again assume flat space)
+        integrand = lambda r: self.at_r_in_deg(np.degrees(r))*2*np.pi*r
+        f68 = lambda x: (quad(integrand,0,x,full_output=True)[0] - 0.68)**2
+        f99 = lambda x: (quad(integrand,0,x,full_output=True)[0] - 0.99)**2
+        self._r68 = np.degrees(fmin( f68, np.radians(0.1*self.effective_edge()), disp=False )[0])
+        self._r99 = np.degrees(fmin( f99, np.radians(0.1*self.effective_edge()), disp=False )[0])
 
     def at_r_in_deg(self,r,energy=None):
         v=self.interp(r)
@@ -1016,6 +1024,12 @@ class InterpProfile(RadiallySymmetricModel):
         radius=np.logspace(np.log10(1e-6*edge),np.log10(edge),numpoints)
         pdf = self.at_r_in_deg(radius)
         return radius,pdf
+
+    def r68(self): 
+        return self._r68
+
+    def r99(self):
+        return self._r99
 
 
 class RadialProfile(InterpProfile):
