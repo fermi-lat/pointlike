@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Sat Jan 21 17:43:55 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Added calculations of r68 and r99 for InterpProfile. Also quieted warnings from integrator
+    *
+------------------------------------------------------------
 User: lande  Sat Jan 21 15:05:01 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
