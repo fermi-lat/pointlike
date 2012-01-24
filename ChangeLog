@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan 24 06:42:30 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	localization.py 
+Log Message:
+implement setting of initial position for fitting
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan 24 06:41:22 PST 2012
 pointlike/python/uw/like2
 
