@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.3 2011/12/29 19:19:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.4 2012/01/11 14:06:03 burnett Exp $
 
 """
 import os
@@ -35,7 +35,9 @@ class Localization(object):
         ('max_iteration',10,"Number of iterations"),
         #('bandfits',True,"Default use bandfits"),
         ('maxdist',1,"fail if try to move further than this"),
+        ('seedpos', None, 'if set, start from this position instead of the source position'),
         ('quiet', False, 'set to suppress output'),
+        
     )
 
     @keyword_options.decorate(defaults)
@@ -51,6 +53,7 @@ class Localization(object):
         self.rs.update(True)
         self.maxlike=self.rs.log_like()
         self.skydir=self.saved_skydir = self.source.skydir #saved value
+        if self.seedpos is not None: self.skydir = self.seedpos
         self.name = self.source.name
     
     def __enter__(self):
@@ -248,7 +251,8 @@ def localize_all(roi, **kwargs):
                     print 'Plot of %s failed: %s' % (source.name, msg)
     curw= roi.log_like()
     if abs(initw-curw)>1.0:
-        print 'localize_all: unexpected change in roi state after localization, from %.1f to %.1f' %(initw, curw)
+        print 'localize_all: unexpected change in roi state after localization, from %.1f to %.1f (%+.1f)'\
+            %(initw, curw, curw-initw)
         return False
     else: return True
 
