@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.12 2011/12/21 16:06:57 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.13 2012/01/11 14:03:25 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -366,6 +366,20 @@ def residual_processor(roi, **kwargs):
     table = maps.ROItables(outdir, skyfuns= [
         [ResidualCounts, "residual_%02d"%iband, dict(iband=iband)] for iband in iband_range])
     table(roi)    
+
+def background_density(roi, source_name):
+    bgsources = [(j,s) for j,s in enumerate(roi.sources) if s.skydir is None]
+    bgdensity = []
+    b0 = roi.selected_bands[0]
+    pti = list(roi.sources.source_names).index(source_name)
+    try:
+        for j, bgsource in bgsources:
+            bgdensity.append(np.array([ 
+                ( band[j].pix_counts * band[pti].pix_counts ).sum() / band[pti].counts\
+                            for band in roi.selected_bands],np.float32) )
+    except Exception, e:
+        print 'failed bgdensity for source %s: %s' % (source.name, e)
+    return bgdensity
 
 def full_sed_processor(roi, **kwargs):
     """ roi processor to include front and back sed info 
