@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan 24 06:44:06 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	processor.py 
+Log Message:
+make background density calculation available as a function
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan 24 06:42:30 PST 2012
 pointlike/python/uw/like2
 
