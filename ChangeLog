@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan 24 06:45:35 PST 2012
+pointlike/python/uw/like2/pub
+
+Modified Files:
+	publish.py 
+Log Message:
+implement (wired in for now) cuts on localization, index
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan 24 06:44:06 PST 2012
 pointlike/python/uw/like2/pipeline
 
