@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.12 2011/12/06 22:14:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.13 2011/12/10 14:10:40 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -76,9 +76,8 @@ class BandDiffuse(BandSource):
     """  Apply diffuse model to an ROIband
     
         Use a ROIDiffuseModel to compute the expected 
-        distribution of pixel counts  for ROIBand
+        distribution of pixel counts for ROIBand
         Convolving is done with 
-        
     """
     def __init__(self,  band, source): 
         """
@@ -138,6 +137,7 @@ class BandDiffuse(BandSource):
  
 class BandDiffuseFB(BandDiffuse):
     """ subclass of BandDiffuse that has different spectral models for front and back
+    (designed for the limb, which apparently only has contributions from the back)
     """
     @property 
     def spectral_model(self):
@@ -276,6 +276,16 @@ class BandLike(object):
         t = list(self.bandsources)
         t.append(BandPoint(self.band,source))
         self.bandsources = np.array(t)
+        
+    def del_source(self, source):
+        """ remove the source """
+        t = list(self.bandsources)
+        for bs in t:
+            if source.name==bs.source.name:
+                t.remove(bs)
+                self.bandsources = np.array(t)
+                return
+        raise Exception('source "%s" not found to delete' % source.name)
  
 def factory(bands, sources, exposure, quiet=False):
     """ return an array, one per band, of BandLike objects 
