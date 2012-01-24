@@ -1,6 +1,6 @@
 """
 manage publishing 
-$Header$
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/publish.py,v 1.1 2011/12/29 19:17:51 burnett Exp $
 """
 import sys, os, pickle, glob, types, time
 import Image
@@ -63,7 +63,8 @@ class Publish(object):
             ):
             
         """
-            outdir : 
+            outdir : string or pair of strings
+                either the output dir, or output, refdir, the latter for version-independent plots
             ts_min : float,or None
                 apply cut to sources
             catalog_name : string, or None
@@ -84,8 +85,15 @@ class Publish(object):
         self.rois = self.skymodel.roi_rec()
         self.sources = self.skymodel.source_rec()
         if ts_min is not None:
-            self.sources = self.sources[self.sources.ts>ts_min]
-            print 'Selected subset: %d sources with ts>%.0f' % (len(self.sources), ts_min)
+            s = self.sources
+            psr = np.array([name.startswith('PSR') for  name in s.name])
+            self.filter = lambda s: (s.ts>ts_min)*(-np.isnan(s.a))*(s.pindex<3.5) + s.name.startwith('PSR') + s.extended
+            
+            cut = self.filter(s) #(s.ts>ts_min)*(-np.isnan(s.a))*(s.pindex<3.5) + psr + s.extended
+            self.sources = s[cut]
+            print 'select %d/%d sources after applying cuts on TS, localization, pindex; includes all extended, PSR (%d)'\
+                % (sum(cut), len(cut), sum(s.extended+psr))
+           
         self.ts_min = ts_min
         self.name=catalog_name if catalog_name is not None else os.path.split(os.getcwd())[-1]+'_'+self.outdir
         print 'using name %s for files' % self.name
@@ -206,7 +214,7 @@ class Publish(object):
                 subdirs=(self.ref('kde_maps'),'ts_maps', 'counts_dir', 'pnglog'), #gtsmap_dir='gtsmap', 
                 layout_kw=dict(
                     hsize=(1800,1100), 
-                    sizes=     [(600,600), (600,600), None, None], 
+                    sizes=     [(600,600), None, None, None], 
                     positions= [(0,0),(0,500), (600, 50), (1250,0)],
                     crop=None, #(0,32, 1568, 1470), 
                     #title = (make_title, (800,0)), # pass function to make title, position
@@ -252,7 +260,7 @@ class Publish(object):
     def write_xml(self, catname=None):
         """ generate the xml a of the catalog in the folder with the pivots"""
         fn = os.path.join(self.pivot_dir, self.name+'.xml')
-        self.skymodel.toXML(fn, ts_min=self.ts_min, title='catalog %s sources'%self.name)
+        self.skymodel.toXML(fn, ts_min=self.ts_min, title='catalog %s sources'%self.name, filter=self.filter)
     
     def _check_exist(self, filename):
         """ return full filename, or None if the file exists and overwrite is not set"""
