@@ -1,7 +1,7 @@
 """
-Manage sources: single class SourceList
+Manage sources for likelihood: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.15 2011/12/06 22:14:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.16 2011/12/10 14:12:53 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
@@ -222,3 +222,8 @@ class SourceList(list):
         set_point_property(source)
         self.append(source)
  
+    def del_source(self, source_name):
+        source = self.find_source(source_name) # first get it
+        self.remove(source)
+        return source
+        
