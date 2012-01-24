@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Tue Jan 24 06:41:22 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	bandlike.py main.py sourcelist.py 
+Log Message:
+Implement del_source
+    *
+------------------------------------------------------------
 User: kadrlica  Sat Jan 21 17:43:55 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
