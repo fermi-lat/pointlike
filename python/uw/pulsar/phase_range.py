@@ -6,7 +6,7 @@ See the docstring for usage information.
 
 This object has SymPy as a dependency.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.5 2011/10/15 21:54:15 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.6 2011/10/27 14:11:58 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -14,7 +14,7 @@ author: J. Lande <joshualande@gmail.com>
 import sympy
 import numbers
 import numpy as np
-from operator import isNumberType
+from operator import add,isNumberType
 import copy
 
 class PhaseRange(object):
@@ -316,12 +316,30 @@ class PhaseRange(object):
         """ True if the two regions have overlaping range. """
         return self.intersect(other).phase_fraction > 0
 
-    def axvspan(self, axes=None, **kwargs):
-        """ Overlay range on matplotlib axes. """
+    def axvspan(self, axes=None, phase_offsets=[0], **kwargs):
+        """ Overlay range on matplotlib axes. 
+            N.B. set phase_offsets=[0,1] to overlay on
+            phaseogram that varies from 0 to 2 the phase
+            range both on the 0-1 and the 1-2 part of the plot. """
         import pylab as P
         if axes is None: axes=P.gca()
         label=kwargs.pop('label',None)
-        for a,b in self.tolist(dense=False):
+
+        if phase_offsets != [0]:
+            # kind of ugly, but create a larger PhaseRange object
+            # temporarily with the offsets. This allows for
+            # merging needed offsets.
+            # (a) create a giant list of all phases
+            all_phases = reduce(add,[[[a+o,b+o] for a,b in self.tolist(dense=False)] for o in phase_offsets])
+            # (b) turn the list of ranges into a sympy object
+            interval = sympy.Union([sympy.Interval(a,b) for a,b in all_phases])
+            # (c) cretae a temporary phase range object which spans all intervals
+            temp = PhaseRange()
+            temp.range = interval
+        else:
+            temp=self
+
+        for a,b in temp.tolist(dense=False):
             axes.axvspan(a, b, label=label, **kwargs)
             label=None
 
