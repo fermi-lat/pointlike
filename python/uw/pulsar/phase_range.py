@@ -6,7 +6,7 @@ See the docstring for usage information.
 
 This object has SymPy as a dependency.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.6 2011/10/27 14:11:58 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.7 2012/01/25 03:59:33 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -339,9 +339,11 @@ class PhaseRange(object):
         else:
             temp=self
 
+        ret = []
         for a,b in temp.tolist(dense=False):
-            axes.axvspan(a, b, label=label, **kwargs)
+            ret.append(axes.axvspan(a, b, label=label, **kwargs))
             label=None
+        return ret
 
     @property
     def phase_center(self):
