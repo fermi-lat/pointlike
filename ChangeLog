@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jan 24 19:59:33 PST 2012
+ScienceTools-scons/pointlike/python/uw/pulsar
+
+Modified Files:
+	phase_range.py 
+Log Message:
+new parameter phase_offsets for axvspan function
+    *
+------------------------------------------------------------
 User: burnett  Tue Jan 24 06:45:35 PST 2012
 pointlike/python/uw/like2/pub
 
