@@ -492,6 +492,11 @@ class LCEmpiricalFourier(LCPrimitive):
         bk = np.asarray([np.sin(phases*k) for k in harm]).transpose()
         return (1 + 2*(a*ak + b*bk).sum(axis=1))
 
+    def integrate(self):
+        """ The Fourier expansion by definition includes the entire signal, so
+        the norm is always unity."""
+        return 1
+
 #=====================================================================#
 
 class LCKernelDensity(LCPrimitive):
