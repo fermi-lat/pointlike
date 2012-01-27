@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Fri Jan 27 11:10:05 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcprimitives.py itemplate.py 
+Log Message:
+Added integrate method for Fourier profile.
+
+    *
+------------------------------------------------------------
 User: burnett  Fri Jan 27 07:21:17 PST 2012
 pointlike/python/uw/utilities
 
