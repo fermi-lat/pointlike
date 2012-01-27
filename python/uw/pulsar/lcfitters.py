@@ -9,7 +9,7 @@ a maximum likielihood fit to determine the light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/lcfitters.py,v 1.14 2011/09/25 02:34:24 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.15 2011/10/04 22:03:04 lande Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -377,8 +377,8 @@ class WeightedLCFitter(UnweightedLCFitter):
         template -- an instance of LCTemplate or a file with a pref-fit Gaussian template
         phases   -- a list or array of phase values
         """
-        self.weights = weights
         super(WeightedLCFitter,self).__init__(template,phases,times=times)
+        self.weights = weights
 
     def unbinned_loglikelihood(self,p,*args):
         if not self.template.shift_mode and np.any(p < 0):
