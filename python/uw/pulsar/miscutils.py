@@ -2,6 +2,7 @@ import numpy as np
 
 EPS = np.radians(23+26./60+21.406/3600) # axial tilt J2000
 SEPS = np.sin(EPS); CEPS = np.cos(EPS)
+MET_MJD_REF = 51910. + 7.428703703703703e-4  # MJD of Fermi MET = 0
 
 def nancay_zero(prof_name):
     # check for a fiducial_point in comment
@@ -54,8 +55,6 @@ def ecl2cel(skydir):
     """ NB -- SkyDir celestial coordinates are treated as ecliptic."""
     return cel2ecl(skydir,inverse=True)
     
-MET_MJD_REF = 51910. + 7.428703703703703e-4  # MJD
-
 def mjd2met(mjd):
     """ Convert MJD (TT) to MET (TT)."""
     return (np.asarray(mjd)-MET_MJD_REF)*86400
