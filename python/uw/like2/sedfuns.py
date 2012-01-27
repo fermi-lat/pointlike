@@ -1,7 +1,7 @@
 """
 Tools for ROI analysis - Spectral Energy Distribution functions
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.3 2011/11/16 14:25:46 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sedfuns.py,v 1.4 2011/12/06 22:12:40 burnett Exp $
 
 """
 import os
@@ -129,39 +129,39 @@ class SED(object):
 
 
 
-def makesed_all(roi, **kwargs):
-    """ add sed information to each free local source
-    
-    kwargs:
-        sedfig_dir : string or None
-            if string, a folder name in which to put the figures
-        showts : bool
-    other kwargs passed to sed.Plot().__call__
-    """
-    sedfig_dir = kwargs.pop('sedfig_dir', None)
-    showts = kwargs.pop('showts', True)
-    initw = roi.log_like()
-
-    sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
-    for source in sources:
-        try:
-            sf = SourceFlux(roi, source.name, )
-            source.sedrec = SED(sf, merge=False).rec
-            source.ts = roi.TS(source.name)
-            if sedfig_dir is not None:
-                annotation =(0.05,0.9, 'TS=%.0f'% source.ts) if showts else None 
-                sed.Plot(source, gev_scale=True, energy_flux_unit='eV')\
-                    ( galmap=source.skydir, outdir=sedfig_dir, 
-                        annotate=annotation, **kwargs)
-                    
-        except Exception,e:
-            print 'source %s failed flux measurement: %s' % (source.name, e)
-            raise
-            source.sedrec=None
-    #roi.initialize() #restore state?
-    curw= roi.log_like()
-    assert abs(initw-curw)<0.1, \
-        'makesed_all: unexpected change in roi state after localization, from %.1f to %.1f' %(initw, curw)
+#def makesed_all(roi, **kwargs):
+#    """ add sed information to each free local source
+#    
+#    kwargs:
+#        sedfig_dir : string or None
+#            if string, a folder name in which to put the figures
+#        showts : bool
+#    other kwargs passed to sed.Plot().__call__
+#    """
+#    sedfig_dir = kwargs.pop('sedfig_dir', None)
+#    showts = kwargs.pop('showts', True)
+#    initw = roi.log_like()
+#
+#    sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
+#    for source in sources:
+#        try:
+#            sf = SourceFlux(roi, source.name, )
+#            source.sedrec = SED(sf, merge=False).rec
+#            source.ts = roi.TS(source.name)
+#            if sedfig_dir is not None:
+#                annotation =(0.05,0.9, 'TS=%.0f'% source.ts) if showts else None 
+#                sed.Plot(source, gev_scale=True, energy_flux_unit='eV')\
+#                    ( galmap=source.skydir, outdir=sedfig_dir, 
+#                        annotate=annotation, **kwargs)
+#                    
+#        except Exception,e:
+#            print 'source %s failed flux measurement: %s' % (source.name, e)
+#            raise
+#            source.sedrec=None
+#    #roi.initialize() #restore state?
+#    curw= roi.log_like()
+#    assert abs(initw-curw)<0.1, \
+#        'makesed_all: unexpected change in roi state after localization, from %.1f to %.1f' %(initw, curw)
 
 class DiffuseLikelihood(fitter.Fitted):
     """ implement likelihood function of diffuse normalization

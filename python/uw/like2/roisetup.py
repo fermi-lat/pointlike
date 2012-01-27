@@ -1,10 +1,10 @@
 """
-Set up an ROI 
+Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.6 2011/11/21 14:33:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.7 2011/12/06 22:14:08 burnett Exp $
 
 """
-import os
+import os, types
 import numpy as np
 import skymaps
 from . import dataset, skymodel, diffuse
@@ -83,7 +83,7 @@ class ROIfactory(object):
     
     """
     defaults =(
-        ('analysis_kw', dict(irf='P7SOURCE_V6',minROI=7,maxROI=7, emax=316277, quiet=False),'roi analysis'),
+        ('analysis_kw', dict(irf='P7SOURCE_V6',minROI=7,maxROI=7, emin=100, emax=316277, quiet=False),'roi analysis keywords'),
         ('skymodel_kw', {}, 'skymodel keywords'),
         ('convolve_kw', dict( resolution=0.125, # applied to OTF convolution: if zero, skip convolution
                             pixelsize=0.05, # ExtendedSourceConvolution
@@ -94,17 +94,20 @@ class ROIfactory(object):
         )
 
     @keyword_options.decorate(defaults)
-    def __init__(self, indir, datadict, **kwargs):
+    def __init__(self, modeldir, dataspec, **kwargs):
         """ 
         parameters
         ----------
-        indir: folder containing skymodel definition
-        dataname : string
+        modeldir: folder containing skymodel definition
+        dataspec : string or dict
                 used to look up data specification
+                if string, equivalent to dict(dataname=dataspec); otherwise the dict must have
+                a dataname element
         """
         keyword_options.process(self, kwargs)
-        print 'ROIfactory setup: \n\tskymodel: ', indir
-        self.skymodel = skymodel.SkyModel(indir,  **self.skymodel_kw)
+        print 'ROIfactory setup: \n\tskymodel: ', modeldir
+        self.skymodel = skymodel.SkyModel(modeldir,  **self.skymodel_kw)
+        datadict = dict(dataname=dataspec) if type(dataspec)!=types.DictType else dataspec
         print '\tdatadict:', datadict
         self.dataset = dataset.DataSet(datadict['dataname'], **self.analysis_kw)
         self.exposure  = ExposureManager(self.dataset, **datadict)
@@ -166,6 +169,9 @@ class ROIfactory(object):
                     point_sources=self._local_sources(src_sel), 
                     exposure=self.exposure,
                     **roi_kw)
+    def __call__(self, *pars, **kwargs):
+        """ alias for roi() """
+        return self.roi(*pars, **kwargs)
 
 def main(indir='uw27', dataname='P7_V4_SOURCE_4bpd',irf='P7SOURCE_V6' ,skymodel_kw={}):
     rf = ROIfactory(indir, dataname, **skymodel_kw)

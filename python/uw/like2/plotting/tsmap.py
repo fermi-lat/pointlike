@@ -1,7 +1,7 @@
 """
 Code to plot TS maps
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.2 2011/09/28 16:54:02 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.3 2011/12/09 16:08:51 burnett Exp $
 
 """
 import math, os
@@ -13,12 +13,13 @@ from skymaps import SkyDir
 def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=None, 
         which=0, catsig=99, axes=None, fignum=99, 
         bandfits=True,
-        galmap=True, galactic=False,
+        galmap=True, galpos=(0.8,0.85),
+        galactic=False,
         assoc = None,
         notitle = False,
         nolegend = False,
-        markercolor='blue', markersize=12,
-        primary_markercolor='green', primary_markersize=14,
+        markercolor='blue', markersize=8,
+        primary_markercolor='green', primary_markersize=12,
          **kwargs):
     """ create a TS map for the source. These are localization style
         TS maps (where the source is not in the background model) and
@@ -42,7 +43,7 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
       assoc       [None] -- if set, a list of tuple of associated sources 
       notitle     [False] -- set to turn off (allows setting the current Axes object title)
       nolegend    [False]
-      markersize  [12]   -- set 0 to not plot nearby sources in the model
+      markersize  [10]   -- set 0 to not plot nearby sources in the model
       markercolor [blue]
       =========   =======================================================
 
@@ -55,7 +56,7 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
     
     tsp = image.TSplot(localizer.TSmap, sdir, size, 
                 pixelsize=pixelsize if pixelsize is not None else size/20. , 
-                axes=axes, galactic=galactic, galmap=galmap, **kwargs)
+                axes=axes, galactic=galactic, galmap=galmap, galpos=galpos, **kwargs)
     if hasattr(localizer, 'ellipse'): 
         loc = localizer.ellipse
         sigma = np.sqrt(loc['a']*loc['b']) #?? scale factor needed?
@@ -74,13 +75,13 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
     tsp.zea.axes.plot([x],[y], '*', color=primary_markercolor, label=name, markersize=primary_markersize)
     marker = 'ov^<>1234sphH'; i=k=0
     if markersize!=0:
-        pass
-        # plot nearby sources in the ROI -- disable for now
-        #for ps in roi.psm.point_sources: # skip 
-        #    x,y = tsp.zea.pixel(ps.skydir)
-        #    if ps.name==name or x<0 or x>tsp.zea.nx or y<0 or y>tsp.zea.ny: continue
-        #    tsp.zea.axes.plot([x],[y], marker[k%12], color=markercolor, label=ps.name, markersize=markersize)
-        #    k+=1
+        # plot nearby sources in the ROI 
+        for ps in localizer.rs.sources: 
+            if ps.skydir is None: continue
+            x,y = tsp.zea.pixel(ps.skydir)
+            if ps.name==name or x<0 or x>tsp.zea.nx or y<0 or y>tsp.zea.ny: continue
+            tsp.zea.axes.plot([x],[y], marker[k%12], color=markercolor, label=ps.name, markersize=markersize)
+            k+=1
     
     tsp.plot(tsp.tsmaxpos, symbol='+', color='k') # at the maximum
     if not notitle: plt.title( name, fontsize=24)
