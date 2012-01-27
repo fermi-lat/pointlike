@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jan 27 07:07:14 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	main.py roisetup.py sedfuns.py 
+Log Message:
+fix or improve  interactive plotting.
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-27-00, operation: add
 Package: pointlike
