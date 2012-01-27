@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.2 2011/07/19 21:15:21 paulr Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/itemplate.py,v 1.3 2011/07/21 20:13:00 paulr Exp $
 
 Provide a method for interactively fitting a multi-gaussian template to data.
 
@@ -109,10 +109,12 @@ if __name__ == '__main__':
     parser.add_option('-w','--weights',action='store_true',default=False,help='Use weighted light curve')
     parser.add_option('-c','--weightcol',type='string',default='WEIGHT',help='Column in FT1 file that holds the weight')
     parser.add_option('-p','--prof',type='string',default=None,help='Output name for profile')
-    parser.add_option('-m','--min_weight',type='float',default=0.1,help='Minimum weight to include in fit.')
+    parser.add_option('-m','--min_weight',type='float',default=1e-2,help='Minimum weight to include in fit.')
     
     ## Parse arguments
     (options,args) = parser.parse_args()
+    if len(args) < 1:
+        raise ValueError('Must provide an FT1 file!')
 
     phases,weights = get_phases(args[0],get_weights=options.weights,weightcol=options.weightcol)
 
