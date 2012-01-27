@@ -1,5 +1,14 @@
 ------------------------------------------------------------
 User: burnett  Fri Jan 27 07:07:14 PST 2012
+pointlike/python/uw/like2/plotting
+
+Modified Files:
+	__init__.py sed.py tsmap.py 
+Log Message:
+fix or improve  interactive plotting.
+    *
+------------------------------------------------------------
+User: burnett  Fri Jan 27 07:07:14 PST 2012
 pointlike/python/uw/like2
 
 Modified Files:
