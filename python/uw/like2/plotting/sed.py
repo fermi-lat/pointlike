@@ -5,13 +5,12 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.3 2011/10/03 22:01:47 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.4 2011/10/20 21:40:25 burnett Exp $
 """
 import os, types
 import numpy as np
 import pylab as plt
 from uw.utilities import image
-from .. import sedfuns
 
      
 class Plot(object):
@@ -82,7 +81,7 @@ class Plot(object):
             bfun = lambda r: r**-gamma * np.sqrt(var[0] + (a*np.log(r))**2 * var[1])
             upper = energy_flux_factor*(m(dom)  + bfun(dom/m.e0)  )*dom**2
             lower = energy_flux_factor*(m(dom_r)/(1 +bfun(dom_r/m.e0)/m(dom_r)))*dom_r**2
-            ymin, ymax = plt.gca().get_ylim()
+            ymin, ymax = axes.get_ylim()
             lower[lower<ymin] = ymin
             upper[upper>ymax] = ymax
             t =axes.fill(np.hstack( [dom,   dom_r] ), 
@@ -154,7 +153,7 @@ class Plot(object):
             axes.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
         else:
             axes.set_xlabel(r'$\mathsf{Energy\ (MeV)}$')
-        plt.title(name)
+        axes.set_title(name)
         # add a galactic map if requested
         if galmap is not None:
             image.galactic_map(galmap, color='lightblue', marker='s', markercolor='r')

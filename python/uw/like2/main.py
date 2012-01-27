@@ -1,12 +1,13 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.14 2011/12/21 16:05:59 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.15 2012/01/24 14:41:22 burnett Exp $
 
 """
 import types
 import numpy as np
-from . import roistat, localization, printing, roisetup, sedfuns, sources, plotting
+from . import roistat, localization, printing, roisetup, sedfuns, sources
+from . import plotting as pointlike_plotting
 from uw.utilities import fitter
 import skymaps
 
@@ -216,28 +217,37 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         source.sedrec = sedfuns.SED(sf, event_class=event_class).rec
         return source.sedrec
 
-    @decorate_with(plotting.tsmap.plot)
+    @decorate_with(pointlike_plotting.tsmap.plot)
     def plot_tsmap(self, source_name, **kwargs):
         """ create a TS map showing the source localization
         """
-        plot_kw = dict(size=0.25, pixelsize=0.25/15, outdir='plots')
+        plot_kw = dict(size=0.25, pixelsize=0.25/15, outdir=None) #outdir='plots')
         plot_kw.update(kwargs)
-        loc= self.localize( source_name)
-        tsp = plotting.tsmap.plot(loc, **plot_kw)
+        with localization.Localization(self, source_name) as loc:
+            try: 
+                loc.localize()
+                tsize = loc.ellipse['a']*15. if hasattr(loc,'ellipse') and loc.ellipse is not None else 1.1
+                plot_kw.update(size=tsize, pixelsize=tsize/15.)
+            except Exception, e:
+                print 'Failed localization for source %s: %s' % (source.name, e)
+            tsp = pointlike_plotting.tsmap.plot(loc, **plot_kw)
         return tsp
         
-    @decorate_with(plotting.sed.Plot, append_init=True)    
+    @decorate_with(pointlike_plotting.sed.Plot, append_init=True)    
     def plot_sed(self, source_name, **kwargs):
         source = self.sources.find_source(source_name)
-        source.sedrec = self.get_sed(source_name, 
+        source.sedrec = self.get_sed(source.name, 
             event_class=kwargs.pop('event_class', None), update=kwargs.pop('update',True))
-        ps = plotting.sed.Plot(source)
-        ps(**kwargs)
+        ps = pointlike_plotting.sed.Plot(source)
+        annotation =(0.05,0.9, 'TS=%.0f'% self.TS(source.name))
+        plot_kw = dict(annotate=annotation)
+        plot_kw.update(kwargs)
+        ps(**plot_kw)
         return ps
 
-    @decorate_with(plotting.counts.stacked_plots)
+    @decorate_with(pointlike_plotting.counts.stacked_plots)
     def plot_counts(self, **kwargs):
-        return plotting.counts.stacked_plots(self, **kwargs)
+        return pointlike_plotting.counts.stacked_plots(self, **kwargs)
         
     @decorate_with(printing.print_summary)
     def print_summary(self, **kwargs):
@@ -280,11 +290,16 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         raise Exception('not implemented')
         
 class Factory(roisetup.ROIfactory):
+    """ superclass of ROIfactory that sets up a ROI_user analysis object"""
     def __call__(self, *pars, **kwargs):
         return ROI_user(super(Factory,self).__call__(*pars, **kwargs))
 
 @decorate_with(roisetup.ROIfactory, append_init=True)
-def factory(dataname='P7_V4_SOURCE_4bpd', indir='uw26', 
-        analysis_kw={'minROI': 7, 'maxROI': 7, 'irf': 'P7SOURCE_V6', 'emin':100,},):
-    """ will then return a ROI_user object """
-    return Factory(dataname, indir, analysis_kw=analysis_kw)
+def factory( 
+        modeldir='uw05', 
+        dataspec='3years_4bpd',
+        **kwargs    ):
+    """ will then return a ROI_user object 
+        this has model and data defaults special for now
+    """
+    return Factory(modeldir,  dataspec,  **kwargs)
