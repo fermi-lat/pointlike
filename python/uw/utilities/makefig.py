@@ -1,34 +1,43 @@
 """ 
 Make combinded figures for Pivot, perhaps
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makefig.py,v 1.6 2010/10/13 12:23:50 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/makefig.py,v 1.7 2011/01/12 14:25:38 burnett Exp $
 
 """ 
 
-from PIL import Image
+import Image
 import glob, os, sys, exceptions
 import pylab  as plt
-version='$Revision: 1.6 $'.split()[1]
+version='$Revision: 1.7 $'.split()[1]
 
 class InvalidParameter(exceptions.Exception):
     pass
     
-def convert_log_to_png(outdir):
-    """ convert txt files to png """
+def convert_log_to_png(outdir, after='================'):
+    """ convert txt files to png 
+        only convert text found after last after
+    """
     path = os.path.join(outdir, 'log')
+    outpath = os.path.join(outdir, 'pnglog')
+    if not os.path.exists(outpath): os.mkdir(outpath)
     files = glob.glob(os.path.join(path, '*.txt'))
     if len(files)==0: raise InvalidParameter('no .txt files found in folder "%s"' % path)
     plt.figure(figsize=(7.0,10))
     for file in files:
         plt.clf()
         t = open(file).read()
-        plt.figtext(0.02,0.98,t,fontsize=8,va='top', fontname='monospace')
-        plt.savefig(file.replace('.txt', '.png'))
+        s =t.rfind(after)
+        if s<0: s=0
+        plt.figtext(0.02,0.98,t[s:],fontsize=8,va='top', fontname='monospace')
+        plt.savefig(file.replace('.txt', '.png').replace('log', 'pnglog'))
 
-def convert_one_log(filename):
+def convert_one_log(filename, after='================'):
+    """ only show the last log entry"""
     plt.figure(figsize=(7.0,10))
     plt.clf()
     t = open(filename).read()
-    plt.figtext(0.02,0.98,t,fontsize=8,va='top', fontname='monospace')
+    s =t.rfind(after)
+    if s<0: s=0
+    plt.figtext(0.02,0.98,t[s:],fontsize=8,va='top', fontname='monospace')
     plt.savefig(filename.replace('.txt', '.png'))
 
 class Holder(object):
@@ -37,6 +46,7 @@ class Holder(object):
     def insert(self, filename, size=None, pos=(0,0)):
         """
         """
+        if filename is None or not os.path.exists(filename): return # allow not to exist
         im = im2= Image.open(filename)
         if size is not None:
             im2 = im.resize(size)
