@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Fri Jan 27 07:21:17 PST 2012
+pointlike/python/uw/utilities
+
+Removed Files:
+	assigntasks.py 
+Log Message:
+obsolete: depends on IPython 0.11
+    *
+------------------------------------------------------------
 User: burnett  Fri Jan 27 07:20:45 PST 2012
 pointlike/python/uw/utilities
 
