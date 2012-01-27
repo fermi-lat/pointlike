@@ -248,6 +248,13 @@ class ParFile(dict):
         v /= 365.*86400.*1000.*3600.*180/np.pi # rad/s
         return self.p()*v**2*dist/C
 
+    def get_transverse_velocity(self,dist):
+        """ Given dist (kpc), return transverse velocity in km/s. """
+        dist *= 3.08568025e21 # in cm
+        v,e = self.get_comp_pm()
+        scale = (np.pi/180)/3600/(365.24*86400)*dist/1e5
+        return v*scale,e*scale
+
     def get_bfield(self,distance=None):
         """ Return characteristic surface field (G).  If distance (kpc)
             is provided, correct for Shklovskii."""
