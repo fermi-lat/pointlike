@@ -1,11 +1,11 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.8 2011/12/06 22:16:52 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.9 2012/01/11 14:09:17 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.8 $'.split()[1]
+version='$Revision: 1.9 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
@@ -100,6 +100,7 @@ class DataSet(dataman.DataSpec):
                 )
         dataspec.update(kwargs)
         super(DataSet,self).__init__( **dataspec)
+        assert self.irf is not None, 'irf was not specifed!'
         self.CALDBManager = pycaldb.CALDBManager(
                 irf=self.irf, 
                 psf_irf=self.psf_irf,

@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.6 2011/12/29 19:19:13 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.7 2012/01/11 14:07:03 burnett Exp $
 
 """
 import os, pickle, glob, types
@@ -298,11 +298,12 @@ class SkyModel(object):
             
         return globals, extended
 
-    def toXML(self,filename, ts_min=None, title=None):
+    def toXML(self,filename, ts_min=None, title=None, source_filter=None):
         """ generate a file with the XML version of the sources in the model
+        source_filter: if not None, a function to apply
         """
         catrec = self.source_rec()
-        point_sources = self.point_sources if ts_min is None else filter(lambda s: s.ts>ts_min, self.point_sources)
+        point_sources = filter(source_filter, self.point_sources)
         print 'SkyModel: writing XML representations of %d point sources %s and %d extended sources to %s' \
             %(len(point_sources), ('' if ts_min is None else '(with TS>%.f)'%ts_min), len(self.extended_sources), filename)
         from uw.utilities import  xml_parsers # isolate this import, which brings in full pointlike

@@ -1,7 +1,7 @@
 """
 source localization support
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.4 2012/01/11 14:06:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/localization.py,v 1.5 2012/01/24 14:42:30 burnett Exp $
 
 """
 import os
@@ -172,6 +172,18 @@ class Localization(object):
         self.delta_ts = 2*(ll0-ll1)
         self.delt = delt
         self.niter = i
+        # if successful, add a list representing the ellipse to the source
+        self.source.ellipse = self.qform.par[0:2]+self.qform.par[3:7] +[self.delta_ts] 
+        
+    def summary(self):
+        if hasattr(self, 'niter') and self.niter>0: 
+            print 'Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
+                (self.source.name, self.niter, self.delt, self.delta_ts)
+            labels = 'ra dec a b ang qual'.split()
+            print (len(labels)*'%10s') % tuple(labels)
+            p = self.qform.par[0:2]+self.qform.par[3:7]
+            print len(p)*'%10.4f' % tuple(p)
+
 
         
   
@@ -223,7 +235,7 @@ def localize_all(roi, **kwargs):
                 loc.localize()
             except Exception, msg:
                 print 'Localization of %s failed: %s' % (source.name, msg)
-            source.ellipse = loc.qform.par[0:2]+loc.qform.par[3:7] +[loc.delta_ts] if hasattr(loc,'qform') else None
+            #source.ellipse = loc.qform.par[0:2]+loc.qform.par[3:7] +[loc.delta_ts] if hasattr(loc,'qform') else None
             if not roi.quiet and hasattr(loc, 'niter') and loc.niter>0: 
                 print 'Localized %s: %d iterations, moved %.3f deg, deltaTS: %.1f' % \
                     (source.name, loc.niter, loc.delt, loc.delta_ts)

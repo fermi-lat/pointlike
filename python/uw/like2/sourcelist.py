@@ -1,7 +1,7 @@
 """
 Manage sources for likelihood: single class SourceList
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.16 2011/12/10 14:12:53 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sourcelist.py,v 1.17 2012/01/24 14:41:22 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu>
 """
 import types
@@ -89,6 +89,7 @@ class SourceList(list):
         for source in roi.point_sources:
             set_point_property(source)
             append(source)
+        self.selected_source = None
         
     def add_source(self, source):
         """ 
@@ -115,8 +116,14 @@ class SourceList(list):
         
     def find_source(self, source_name):
         """ Search for the source with the given name
-        if the first or last character is '*', perform a wild card search, return first match
+        source_name : string or None
+            if the first or last character is '*', perform a wild card search, return first match
+            if None, and a source has been selected, return it
         """
+        if source_name is None:
+            if self.selected_source is None:
+                raise SourceListException('No source is selected')
+            return self.selected_source
         names = [s.name for s in self]
         def not_found():
             raise SourceListException('source %s not found' %source_name)
@@ -129,8 +136,13 @@ class SourceList(list):
                 if name.endswith(source_name[1:]): return self[names.index(name)]
             not_found()
         try:
-            return self[names.index(source_name)]
+            selected_source = self[names.index(source_name)]
+            #if self.selected_source is None or self.selected_source != selected_source:
+            #    print 'selected source %s for analysis' % selected_source.name
+            self.selected_source = selected_source
+            return self.selected_source
         except:
+            self.selected_source = None
             not_found()
    
     @property
