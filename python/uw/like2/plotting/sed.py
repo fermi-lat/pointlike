@@ -5,7 +5,7 @@ Manage a SED plot
             sf an SourceFlux object, 
         Plot(sf)()
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.4 2011/10/20 21:40:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/sed.py,v 1.5 2012/01/27 15:07:14 burnett Exp $
 """
 import os, types
 import numpy as np
@@ -140,8 +140,8 @@ class Plot(object):
         self.plot_model(axes, model, dom, butterfly, **fit_kwargs)
         plt.rcParams['axes.linewidth'] = oldlw
 
-        # the axis labels
-        axes.set_ylabel(r'$\mathsf{Energy\ Flux\ (%s\ cm^{-2}\ s^{-1})}$' % self.energy_flux_unit)
+        # the axis labels (note reduced labelpad for y) 
+        axes.set_ylabel(r'$\mathsf{Energy\ Flux\ (%s\ cm^{-2}\ s^{-1})}$' % self.energy_flux_unit, labelpad=0)
         axes.set_xlabel(r'$\mathsf{Energy\ (GeV)}$')
         def gevticklabel(x):
             if x<100 or x>1e5: return ''

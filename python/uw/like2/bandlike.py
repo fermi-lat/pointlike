@@ -11,7 +11,7 @@ classes:
 functions:
     factory -- create a list of BandLike objects from bands and sources
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.13 2011/12/10 14:10:40 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/bandlike.py,v 1.14 2012/01/24 14:41:22 burnett Exp $
 Author: T.Burnett <tburnett@uw.edu> (based on pioneering work by M. Kerr)
 """
 
@@ -59,7 +59,7 @@ class BandSource(object):
         self.pix_counts = self.pixel_values * expected
         self.counts = expected*self.overlap
 
-    def grad(self, weights, phase_factor=1): 
+    def grad(self, weights, exposure_factor=1): 
         """ contribution to the overall gradient
         """
         b = self.band
@@ -67,7 +67,7 @@ class BandSource(object):
         if np.sum(model.free)==0 : return []
         # Calculate the gradient of a spectral model (wrt its parameters) integrated over the exposure.
         g = b.exposure_integral(model.gradient, axis=1)[model.free] * self.exposure_ratio
-        apterm = phase_factor* self.overlap
+        apterm = exposure_factor* self.overlap
         pixterm = (weights*self.pixel_values).sum() if b.has_pixels else 0
         return g * (apterm - pixterm)
 
@@ -125,12 +125,12 @@ class BandDiffuse(BandSource):
         if self.band.has_pixels:
             self.pix_counts = self.pixel_values * scale
         
-    def grad(self, weights, phase_factor=1):
+    def grad(self, weights, exposure_factor=1):
         """ contribution to the gradient
         """
         model = self.spectral_model 
         if np.sum(model.free)==0: return []
-        apterm  = phase_factor * self.ap_evals 
+        apterm  = exposure_factor * self.ap_evals 
         pixterm = ( self.pixel_values * weights ).sum() if self.band.has_pixels else 0
         return (apterm - pixterm) * model.gradient(self.energy)[model.free] 
  
@@ -183,16 +183,16 @@ class BandLike(object):
     def __init__(self, band, bandsources, free, exposure):
         """
            band : ROIband object
-                only used here to get data and phase_factor
+                only used here to get data 
            bandsources : list of BandSource objects associated with this band
            free : array of bool to select models
-           exposure : ExposureManager object, access to possible correction
+           exposure : ExposureManager object, access to exposure correction function
+                  which may include a phase factor component
         """
         self.bandsources = bandsources
         self.band = band # for reference: not used after this 
         self.energy = band.e # also for convenience: center of band
-        self.phase_factor = band.phase_factor #this should be global
-        self.exposure_correction = exposure.correction[band.ct](self.energy) # energy-dependent correction factor
+        self.exposure_factor = exposure.correction[band.ct](self.energy) 
         self.data = band.pix_counts  if band.has_pixels else []# data from the band
         self.pixels=len(self.data)
         self.initialize(free)
@@ -239,11 +239,11 @@ class BandLike(object):
     def log_like(self):
         """ return the Poisson extended log likelihood """
         try:
-            ec = self.exposure_correction
-            pix = np.sum( self.data * (np.log(self.model_pixels)+np.log(ec) ) ) if self.pixels>0 else 0
-            return pix - self.counts*self.phase_factor * ec
+            #pix = np.sum( self.data * (np.log(self.model_pixels)+np.log(ec) ) ) if self.pixels>0 else 0
+            pix = np.sum( self.data * np.log(self.model_pixels) )  if self.pixels>0 else 0
+            return pix - self.counts*self.exposure_factor 
         except FloatingPointError, e:
-            print 'Floating point error evaluating likelihood for band at %s' %self.__str__()
+            print 'Floating point error %s evaluating likelihood for band at %s' %(e, self.__str__())
             raise
 
     def chisq(self):  
@@ -254,8 +254,7 @@ class BandLike(object):
         """ gradient of the likelihood with resepect to the free parameters
         """
         weights = self.data / self.model_pixels
-        ec = self.exposure_correction
-        return np.concatenate([m.grad(weights, self.phase_factor*ec) for m in self.bandsources])
+        return np.concatenate([m.grad(weights, self.exposure_factor) for m in self.bandsources])
        
     def dump(self, **kwargs):
         map(lambda bm: bm.dump(**kwargs), self.bandsources)

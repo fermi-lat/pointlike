@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.15 2012/01/24 14:41:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.16 2012/01/27 15:07:14 burnett Exp $
 
 """
 import types
@@ -31,6 +31,10 @@ def decorate_with(other_func, append=False, append_init=False):
 class ROI_user(roistat.ROIstat, fitter.Fitted):
     """ subclass of ROIstat that adds user-interface tools: fitting, localization, plotting sources, counts
     """
+    def __init__(self, *pars, **kwargs):
+        source_name= kwargs.pop('source_name', None)
+        super(ROI_user, self).__init__(*pars, **kwargs)
+        self.selected_source = self.sources.find_source(source_name) if source_name is not None else None
 
     def fit(self, select=None, exclude=None,  summarize=True, quiet=True, **kwargs):
         """ Perform fit, return fitter object to examine errors, or refit
@@ -132,7 +136,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         """ localize the source, return elliptical parameters 
         """
         source = self.sources.find_source(source_name)
-        with localization.Localization(self, source_name, **kwargs) as loc:
+        with localization.Localization(self, source.name, **kwargs) as loc:
             try: 
                 loc.localize()
                 t = loc.ellipse
@@ -187,10 +191,9 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
                 fmt +='%10.1f'; tup += (grad[index],)
             print >>out,  fmt % tup
             
-    def TS(self, which, quick=True):
+    def TS(self, source_name=None, quick=True):
         """ measure the TS for the given source
         """
-        source_name=which
         source = self.sources.find_source(source_name)
         model = source.spectral_model
         norm =model[0]
@@ -201,32 +204,38 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         ts= 2*(self.log_like()-llzero)
         return max(ts, 0)
 
-    def band_ts(self, source_name):
+    def band_ts(self, source_name=None):
         sed = self.get_sed(source_name)
         return np.sum(sed.ts)
         
-    def get_sed(self, source_name, event_class=None, **kwargs):
+    def get_sed(self, source_name=None, event_class=None, **kwargs):
         """ return the SED recarray for the source
-            event_class : None, or integer
+        source_name : string
+            Name of a source in the ROI, with possible wildcards
+        event_class : None, or integer, 0/1 for front/back
         """
         source = self.sources.find_source(source_name)
         update = kwargs.pop('update', False)
         if hasattr(source, 'sedrec') and not update:
             return source.sedrec
-        sf = sedfuns.SourceFlux(self, source_name, **kwargs)
+        sf = sedfuns.SourceFlux(self, source.name, **kwargs)
         source.sedrec = sedfuns.SED(sf, event_class=event_class).rec
         return source.sedrec
 
     @decorate_with(pointlike_plotting.tsmap.plot)
-    def plot_tsmap(self, source_name, **kwargs):
+    def plot_tsmap(self, source_name=None, **kwargs):
         """ create a TS map showing the source localization
         """
-        plot_kw = dict(size=0.25, pixelsize=0.25/15, outdir=None) #outdir='plots')
+        source = self.sources.find_source(source_name)
+        plot_kw = dict(size=0.25, pixelsize=0.25/15, outdir=None, 
+            assoc=getattr(source, 'adict', None) ) 
         plot_kw.update(kwargs)
-        with localization.Localization(self, source_name) as loc:
+        with localization.Localization(self, source.name, quiet=True) as loc:
             try: 
-                loc.localize()
-                tsize = loc.ellipse['a']*15. if hasattr(loc,'ellipse') and loc.ellipse is not None else 1.1
+                if not hasattr(source,'ellipse'):
+                    loc.localize()
+                    loc.summary()
+                tsize = source.ellipse[2]*15. # scale according to major axis size
                 plot_kw.update(size=tsize, pixelsize=tsize/15.)
             except Exception, e:
                 print 'Failed localization for source %s: %s' % (source.name, e)
@@ -234,7 +243,7 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         return tsp
         
     @decorate_with(pointlike_plotting.sed.Plot, append_init=True)    
-    def plot_sed(self, source_name, **kwargs):
+    def plot_sed(self, source_name=None, **kwargs):
         source = self.sources.find_source(source_name)
         source.sedrec = self.get_sed(source.name, 
             event_class=kwargs.pop('event_class', None), update=kwargs.pop('update',True))
@@ -251,8 +260,22 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         
     @decorate_with(printing.print_summary)
     def print_summary(self, **kwargs):
-        return printing.print_summary(self, **kwargs)
+        selected_source= self.sources.selected_source
+        t = printing.print_summary(self, **kwargs)
+        self.sources.selected_source=selected_source
 
+    def find_associations(self, source_name=None, classes='all'):
+        """ find associations, using srcid object.
+        """
+        if not hasattr(self,'srcid'):
+            from uw.like2.pipeline import associate
+            self.srcid=associate.SrcId('$FERMI/catalog',classes)
+        source = self.sources.find_source(source_name)
+        with localization.Localization(self, source.name, quiet=True) as loc:
+            if not hasattr(source, 'ellipse'):
+                loc.localize()
+            localization.make_association(source, loc.TSmap, self.srcid)
+            
     @property
     def bounds(self):
         return self.sources.bounds
@@ -269,7 +292,12 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
         return cm / np.outer(s,s)
         
     def add_source(self, **kwargs):
-
+        """ add a source to the ROI
+        keywords:
+            name : string
+            model
+            skypos
+        """
         newsource = sources.PointSource(**kwargs)
         self.sources.add_source(newsource)
         for band in self.all_bands:
@@ -284,22 +312,35 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
             band.del_source(source)
         self.initialize()
         
-    def zero_source(self, source, **kwargs):
+    def zero_source(self, source_name, **kwargs):
         raise Exception('not implemented')
-    def unzero_source(self, source, **kwargs):
+    def unzero_source(self, source_name, **kwargs):
         raise Exception('not implemented')
+        
         
 class Factory(roisetup.ROIfactory):
     """ superclass of ROIfactory that sets up a ROI_user analysis object"""
-    def __call__(self, *pars, **kwargs):
-        return ROI_user(super(Factory,self).__call__(*pars, **kwargs))
+    def __call__(self, sel):
+        ### assume that this is a HEALPix selection
+        source_name=None
+        if type(sel)==types.IntType:
+            index = sel
+        elif type(sel)==skymaps.SkyDir:
+            index = self.skymodel.hpindex(sel)
+        elif type(sel)==types.StringType:
+            index = self.skymodel.hpindex(self.skymodel.find_source(sel).skydir)
+            source_name=sel
+        else:
+            raise Exception( 'factory argument "%s" not recognized.' %sel)
+        roi = ROI_user(super(Factory,self).__call__(index))
+        ## preselect the given source after setting up the ROI
+        if source_name is not None: roi.sources.find_source(source_name)
+        assert source_name==roi.sources.selected_source.name
+        return roi
+
 
 @decorate_with(roisetup.ROIfactory, append_init=True)
-def factory( 
-        modeldir='uw05', 
-        dataspec='3years_4bpd',
-        **kwargs    ):
+def factory(  modeldir, dataspec,     **kwargs    ):
     """ will then return a ROI_user object 
-        this has model and data defaults special for now
     """
     return Factory(modeldir,  dataspec,  **kwargs)

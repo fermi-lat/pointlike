@@ -1,7 +1,7 @@
 """
 Package containing likelihood analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/__init__,v 1.2 2011/09/28 17:35:52 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/__init__.py,v 1.3 2012/01/27 15:10:59 burnett Exp $
 Authors:  T. Burnett, M. Kerr, E. Wallace, M. Roth, J. Lande
 
 Modules in this package, and basic dependencies
@@ -26,5 +26,6 @@ contained packages
     plotting
     pub
 """
-
+# for interactive convenience
 from .main import factory
+from skymaps import SkyDir

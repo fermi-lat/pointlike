@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.10 2011/12/06 22:18:17 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/diffuse.py,v 1.11 2012/01/11 14:10:22 burnett Exp $
 
 author: Matthew Kerr, Toby Burnett
 """
@@ -16,6 +16,7 @@ class DiffuseException(Exception):pass
 
 class Simpson(object):
     """ implement quick simpson integral with log scale """
+    ## not used in this module yet.
     def __init__(self, emin, emax, nsimps=4):
 
         # use a higher nsimps at low energy where effective area is jagged
