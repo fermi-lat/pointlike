@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: burnett  Sat Jan 28 18:01:53 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	__init__.py bandlike.py dataset.py diffuse.py localization.py 
+	main.py skymodel.py sourcelist.py 
+Log Message:
+bring up to date for improved user interface.
+    *
+------------------------------------------------------------
 User: kerrm  Fri Jan 27 11:11:42 PST 2012
 pointlike/python/uw/pulsar
 
