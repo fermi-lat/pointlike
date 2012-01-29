@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sat Jan 28 18:05:17 PST 2012
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+avoid error with negative cov matrix diagonal
+    *
+------------------------------------------------------------
 User: burnett  Sat Jan 28 18:01:53 PST 2012
 pointlike/python/uw/like2/plotting
 
