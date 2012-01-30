@@ -3,14 +3,16 @@ Manage the sky model for the UW all-sky pipeline
 $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.7 2012/01/11 14:07:03 burnett Exp $
 
 """
-import os, pickle, glob, types
+import os, pickle, glob, types, collections
 import cPickle as pickle
+from xml import sax
 import numpy as np
 from skymaps import SkyDir, Band
-from uw.utilities import keyword_options, makerec
+from uw.utilities import keyword_options, makerec, xml_parsers
 #  this is below: only needed when want to create XML
 #from uw.utilities import  xml_parsers
-from ..like import Models
+from uw.like2 import models
+from ..like import Models, pointspec_helpers
 
 from . import sources, catrec
 
@@ -248,8 +250,8 @@ class SkyModel(object):
                 print  'SkyModel warning: appended source %s %.2f %.2f is %.2f deg (<%.2f) from %s (%d)'\
                     %(ps.name, ps.skydir.ra(), ps.skydir.dec(), np.degrees(delta), self.closeness_tolerance, s.name, s.index)
         
-    #def skydir(self, index):
-    #    return Band(self.nside).dir(index)
+    def skydir(self, index):
+        return Band(self.nside).dir(index)
     def hpindex(self, skydir):
         return Band(self.nside).index(skydir)
     
@@ -298,22 +300,51 @@ class SkyModel(object):
             
         return globals, extended
 
-    def toXML(self,filename, ts_min=None, title=None, source_filter=None):
+    def toXML(self,filename, ts_min=None, title=None):
         """ generate a file with the XML version of the sources in the model
-        source_filter: if not None, a function to apply
         """
         catrec = self.source_rec()
-        point_sources = filter(source_filter, self.point_sources)
+        point_sources = self.point_sources if ts_min is None else filter(lambda s: s.ts>ts_min, self.point_sources)
         print 'SkyModel: writing XML representations of %d point sources %s and %d extended sources to %s' \
             %(len(point_sources), ('' if ts_min is None else '(with TS>%.f)'%ts_min), len(self.extended_sources), filename)
         from uw.utilities import  xml_parsers # isolate this import, which brings in full pointlike
         def pointsource_properties(s):
-            return 'Pivot_Energy="%.1f" TS="%.1f"' % (s.model.e0, s.ts)
+            if hasattr(s.model,'e0'): e0 = s.model.e0
+            else: e0 = 10**s.model.getp(3)
+            return 'Pivot_Energy="%.1f" TS="%.1f"' % (e0, s.ts)
         stacks= [
-            xml_parsers.unparse_diffuse_sources(self.extended_sources,True,False,filename),
+            xml_parsers.unparse_diffuse_sources(self.extended_sources,convert_extended=True,filename=filename),
             xml_parsers.unparse_point_sources(point_sources,strict=True, properties=pointsource_properties),
         ]
-        xml_parsers.writeXML(stacks, filename, title=title)
+        gs_xml = self._global_sources_to_xml(filename)
+        with open(filename,'wb') as f:
+            f.write('<skymodel>\n')
+            f.write('<source_library title="%s">'% title)
+            for stack in stacks:
+                for elem in stack:
+                    f.write(elem)
+            f.write('\n</source_library>')
+            f.write('\n'.join(['\n<roi_info>',gs_xml,'</roi_info>']))
+            f.write('\n</skymodel>')
+
+    def _global_sources_to_xml(self,filename):
+        stacks = []
+        for i in xrange(1728):
+            stack = xml_parsers.Stack()
+            s1 = '<roi index="{0}">'.format(i)
+            s2 = '</roi>'
+            globals = self.global_sources[i]
+            for s in globals:
+                prefix = s.name.split('_')[0]
+                s.name, s.dmodel = prefix, self.diffuse_dict[prefix]
+                s.smodel = s.model
+            diffuse_xml = xml_parsers.unparse_diffuse_sources(globals,filename=filename)
+            for x in diffuse_xml:
+                x = '\t'+x
+            diffuse_xml.appendleft(s1)
+            diffuse_xml.append(s2)
+            stacks+=['\n'.join(diffuse_xml)]
+        return '\n'.join(stacks)
 
     def write_reg_file(self, filename, ts_min=None, color='green'):
         """ generate a 'reg' file from the catalog, write to filename
@@ -352,7 +383,130 @@ class SkyModel(object):
         """ return local source reference by name, or None """
         t = filter( lambda x: x.name==name, self.point_sources+self.extended_sources)
         return t[0] if len(t)==1 else None
-    
+
+class XMLSkyModel(SkyModel):
+    """A SkyModel initialized from a stored XML representation."""
+
+    defaults= (
+        ('extended_catalog_name', None,  'name of folder with extended info\n'
+                                         'if None, look it up in the config.txt file\n'
+                                         'if "ignore", create model without extended sources'),
+        ('alias', dict(), 'dictionary of aliases to use for lookup'),
+        ('diffuse', None,   'set of diffuse file names; if None, expect config to have'),
+        ('auxcat', None, 'name of auxilliary catalog of point sources to append or names to remove',),
+        ('newmodel', None, 'if not None, a string to eval\ndefault new model to apply to appended sources'),
+        ('update_positions', None, 'set to minimum ts  update positions if localization information found in the database'),
+        ('filter',   lambda s: True,   'selection filter: see examples at the end.'), 
+        ('global_check', lambda s: None, 'check global sources: can modify parameters'),
+        ('closeness_tolerance', 0., 'if>0, check each point source for being too close to another, print warning'),
+        ('quiet',  False,  'make quiet' ),
+    )
+    @keyword_options.decorate(defaults)
+    def __init__(self,xml,**kwargs):
+        keyword_options.process(self,kwargs)
+        self._parse_xml(xml)
+        self._load_sources()
+        self._load_globals()
+        self.nside = int(np.sqrt(len(self.global_sources)/12))
+        self.load_auxcat()
+
+    def _parse_xml(self,xml):
+        self.parser = sax.make_parser()
+        self.handler = SkyModelHandler()
+        self.parser.setContentHandler(self.handler)
+        self.parser.parse(xml)
+
+    def _parse_global_sources(self):
+        pass
+
+    def _load_sources(self):
+        self.point_sources = xml_parsers.parse_point_sources(self.handler,SkyDir(0,0),180)
+        #parse diffuse sources checks the sources list, so won't grab the globals
+        self.extended_sources = xml_parsers.parse_diffuse_sources(self.handler)
+
+    def _load_globals(self):
+        gds = pointspec_helpers.get_diffuse_source
+        xtm = xml_parsers.XML_to_Model()
+        self.global_sources = []
+        self.diffuse = []
+        self.diffuse_dict = {}
+        for roi in self.handler.rois:
+            index = int(roi['index'])
+            gss = []
+            for source in roi.children:
+                spatial = source.getChild("spatialModel")
+                spectral = source.getChild("spectrum")
+                name = str(source['name'])
+                if spatial['type'] == 'ConstantValue':
+                    if spectral['type'] == 'FileFunction':
+                        diffdir,fname = os.path.split(str(os.path.expandvars(spectral['file'])))
+                        mo = xtm.get_model(spectral,name)
+                        if not self.diffuse_dict.has_key(name):
+                            self.diffuse_dict[name] = [gds('ConstantValue',None,mo,fname,name,diffdir=diffdir)]
+                            self.diffuse += [fname]
+                        gss += [sources.GlobalSource(model=mo,index=index,skydir=None,name=name)]
+                    elif (spectral['type'] == 'PowerLaw' ) or (spectral['type'] == 'PowerLaw2'):
+                        mo = xtm.get_model(spectral,name)
+                        if not self.diffuse_dict.has_key(name):
+                            self.diffuse_dict[name] = [gds('ConstantValue',None,mo,None,name)]
+                        gss += [sources.GlobalSource(model=mo,index=index,skydir=None,name=name)]
+                    elif spectral['type']=='CompositeSpectrum':
+                        dss = []
+                        fnames = []
+                        for i,sp in enumerate(spectral.children):
+                            diffdir,fname = os.path.split(str(os.path.expandvars(sp['file'])))
+                            dss+=[gds('ConstantValue',None,mo,fname,name,diffdir=diffdir)]
+                            fnames += [fname]
+                            if i==0:
+                                mo = xtm.get_model(sp,name)
+                                gss += [sources.GlobalSource(model=mo,index=index,skydir=None,name=name)]
+                        if not self.diffuse_dict.has_key(name):
+                            self.diffuse_dict[name] = [dss]
+                            self.diffuse += [fnames]
+                    else:
+                        raise Exception,'Isotropic model not implemented'
+                elif spatial['type'] == 'MapCubeFunction':
+                    diffdir,fname = os.path.split(str(os.path.expandvars(spatial['file'])))
+                    if spectral['type'] == 'ConstantValue' or spectral['type'] == 'FrontBackConstant':
+                        mo = xtm.get_model(spectral,name)
+                        gss += [sources.GlobalSource(model=mo,index=index,skydir=None,name=name)]
+                    elif spectral['type'] == 'PowerLaw' or spectral['type'] == 'PowerLaw2':
+                        mo = xtm.get_model(spectral,name,index_offset=1)
+                        gss += [sources.GlobalSource(model=mo,index=index,skydir=None,name=name)]
+                    else:
+                        raise Exception('Non-isotropic model "%s" not implemented' % spatial['type'])
+                    if not self.diffuse_dict.has_key(name):
+                        self.diffuse+=[os.path.split(fname)[1]]
+                        self.diffuse_dict[name] = [gds('MapCubeFunction',fname,mo,None,name,diffdir=diffdir)]
+                else:
+                    raise Exception('Diffuse spatial model "%s" not recognized' % spatial['type'])
+            self.global_sources += [gss]
+
+
+class SkyModelHandler(sax.handler.ContentHandler,xml_parsers.Stack):
+    """ContentHandler for parsing the XML representation of a SkyModel"""
+    def __init__(self):
+        self.outerElements = collections.deque()
+        self.sources       = collections.deque()
+        self.rois = collections.deque()
+
+    def __call__(self): return self.lastOff
+
+    def startElement(self,name,attrs):
+        self.push(xml_parsers.XMLElement(name,attrs))
+
+    def endElement(self,name):
+        t = self.pop()
+        l = self.peek()
+        if l is not None:
+            l.addChild(t)
+            if l.name!='roi' and t.name == 'source':
+                self.sources.append(t)
+            elif t.name == 'roi':
+                self.rois.append(t)
+        else:
+            self.outerElements.append(t)
+
 class SourceSelector(object):
     """ Manage inclusion of sources in an ROI."""
     
@@ -540,4 +694,3 @@ class FluxFreeOnly(object):
         if np.any(source.free):
             source.free[1:]=False
         return True
-        
