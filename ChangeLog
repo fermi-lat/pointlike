@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Mon Jan 30 14:44:34 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	skymodel.py 
+Log Message:
+Added functionality to skymodel for saving out and reading in an XML representation, with some accompanying modifications to xml_parsers
+
+    *
+------------------------------------------------------------
 User: lande  Sun Jan 29 19:43:20 PST 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
