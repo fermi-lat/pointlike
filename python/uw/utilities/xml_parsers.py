@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.52 2011/09/03 01:44:17 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.52 2011/09/03 01:44:17 lande Exp $
 
    author: Matthew Kerr
 """
@@ -13,8 +13,8 @@ from uw.like.pointspec_helpers import PointSource,get_diffuse_source
 from uw.like.roi_diffuse import DiffuseSource
 from uw.like.roi_extended import ExtendedSource
 from uw.like.Models import *
+from uw.like2.models import *
 from uw.like.SpatialModels import *
-from uw.like.dark_matter import *
 from skymaps import SkyDir,DiffuseFunction,IsotropicSpectrum,IsotropicPowerLaw
 from os.path import join
 import os
@@ -42,9 +42,11 @@ class XMLElement(dict):
     def __init__(self,name,*args,**kwargs):
         self.name = name
         self.children = deque()
+        self.parent = None
         super(XMLElement,self).__init__(*args,**kwargs)
 
     def addChild(self,child):
+        child.parent = self
         self.children.append(child)
 
     def getChild(self,name):
@@ -96,6 +98,7 @@ class XML_to_Model(object):
                 PLSuperExpCutoff     = PLSuperExpCutoff,
                 Constant             = Constant, # should this have been ConstantValue key?
                 ConstantValue        = Constant,
+                FrontBackConstant    = FrontBackConstant,
                 FileFunction         = Constant, # a big klugey
                 LogParabola          = LogParabola,
                 DMFitFunction        = DMFitFunction,
@@ -109,6 +112,7 @@ class XML_to_Model(object):
                 SmoothBrokenPowerLaw = ['Prefactor', 'Index1', 'Index2', 'BreakValue'],
                 PLSuperExpCutoff     = ['Prefactor','Index1','Cutoff','Index2'],
                 ConstantValue        = ['Value'],
+                FrontBackConstant    = ['Scale_front','Scale_back'],
                 FileFunction         = ['Normalization'],
                 LogParabola          = ['norm', 'alpha', 'beta', 'Eb'],
                 DMFitFunction        = ['sigmav','mass'],
@@ -122,6 +126,7 @@ class XML_to_Model(object):
                 SmoothBrokenPowerLaw = [ ['Scale','e0' ], ['Beta','beta'] ],
                 PLSuperExpCutoff     = [ ['Scale','e0' ] ],
                 ConstantValue        = [],
+                FrontBackConstant    = [],
                 FileFunction         = [],
                 LogParabola          = [],
                 DMFitFunction        = [['norm','norm'], ['bratio','bratio'],
@@ -379,6 +384,16 @@ class Model_to_XML(object):
             self.perr   = [0]
             self.oomp   = [0]
 
+        elif name == 'FrontBackConstant':
+            self.pname  = ['Scale_front','Scale_back']
+            self.pfree  = [1,1]
+            self.pscale = [1,1]
+            self.pmin   = [0,0]
+            self.pmax   = [10,10]
+            self.pval   = [1,1]
+            self.perr   = [0,0]
+            self.oomp   = [0,0]
+
         elif name == 'LogParabola':
             self.pname  = ['norm', 'alpha', 'beta', 'Eb' ]
             self.pfree  = [1,1,1,1]
@@ -414,7 +429,7 @@ class Model_to_XML(object):
 
     def getXML(self,tablevel=1,spec_attrs='',comment_string=None):
         cstring = [] if comment_string is None else [comment_string]
-        strings = ['<spectrum %s type="%s">'%(spec_attrs+self.extra_attrs,self.name)] + \
+        strings = ['<spectrum %s type="%s">'%(" ".join([spec_attrs,self.extra_attrs]),self.name)] + \
                    cstring + self.param_strings() + ['</spectrum>']
         return ''.join([decorate(s,tablevel=tablevel) for s in strings])
 
@@ -609,6 +624,8 @@ def parse_diffuse_sources(handler,diffdir=None):
     ds = deque()
     xtm = XML_to_Model()
     for src in handler.sources:
+        #if src['type'] == 'CompositeDiffuseSource':
+        #    handler = SourceHandler()
         if src['type'] != 'DiffuseSource': continue
         spatial  = src.getChild('spatialModel')
         spectral = src.getChild('spectrum')
@@ -678,11 +695,11 @@ def unparse_point_sources(point_sources, strict=False, properties=lambda x:''):
     return xml_blurbs
 
 
-def process_diffuse_source(ds,convert_extended,expand_env_vars,filename):
+def process_diffuse_source(ds,convert_extended=False,expand_env_vars=True,filename=None,ctype=None):
     """Convert an instance of DiffuseSource into an XML blurb."""
     m2x = Model_to_XML()
     dm = ds.dmodel
-    if hasattr(dm,'__len__'):  dm = dm[0]
+    if hasattr(dm,'__len__') and len(dm)==1: dm = dm[0]
 
     if isinstance(ds,ExtendedSource) or hasattr(ds,'spatial_model'):
         m2x.process_model(ds.smodel,scaling=False)
@@ -696,7 +713,7 @@ def process_diffuse_source(ds,convert_extended,expand_env_vars,filename):
                 # out with the original template.
                 spatial=SpatialMap(file=spatial.original_template)
             else:
-                folder=os.path.dirname(filename)
+                folder=os.path.dirname(filename or os.getcwd())
                 template_name=folder+os.sep if folder != '' else ''
                 template_name+='template_%s_%s_%s.fits' % (ds.name.replace(' ','_'),
                                                            spatial.pretty_name, 
@@ -714,31 +731,48 @@ def process_diffuse_source(ds,convert_extended,expand_env_vars,filename):
         specxml = m2x.getXML()
     else:
         skyxml = makeDSConstantSpatialModel()
-        if isinstance(dm,IsotropicSpectrum):
-            filename = os.path.abspath(dm.name())
-            m2x.process_model(ds.smodel,xml_name='FileFunction',scaling=True)
-            specxml = m2x.getXML(spec_attrs='file=\"%s\"'%(filename.replace('\\','/')))
-        elif isinstance(dm,IsotropicPowerLaw):
-            sd = SkyDir()
-            iflux = dm.integral(sd,100,3e5)
-            spind = dm.value(sd,100)*100/iflux + 1
-            pl = PowerLawFlux()
-            pl.p[0] = ds.smodel.p[0] + N.log10(iflux)
-            pl.p[1] = N.log10(spind+10**(ds.smodel.p[1]-ds.smodel.index_offset))
-            pl.cov_matrix = ds.smodel.cov_matrix.copy() #correct?
-            m2x.process_model(pl,scaling=False)
-            specxml = m2x.getXML()
+        #Handle the case where the isotropic is specified by separate front and back components
+        if not hasattr(dm,'__len__'): dm = [dm]
+        if len(dm)==1:
+            ctypes=[-1]
+            specxml=''
+        elif len(dm)==2:
+            ctypes = [0,1]
+            specxml='\t<spectrum type="CompositeSpectrum">\n'
         else:
-            raise Exception('Did not recognize %s'%(ds.name))
+            raise Exception("Don't know how to handle isotropic model with >2 components")
+        for m,ct in zip(dm,ctypes):
+            if isinstance(m,IsotropicSpectrum):
+                filename = os.path.abspath(m.name())
+                m2x.process_model(ds.smodel,xml_name='FileFunction',scaling=True)
+                m2x.extra_attrs+='ctype="{0}"'.format(ct)
+                specxml += m2x.getXML(spec_attrs='file=\"%s\"'%(filename.replace('\\','/')),tablevel=len(dm))
+            elif isinstance(m,IsotropicPowerLaw):
+                sd = SkyDir()
+                iflux = m.integral(sd,100,3e5)
+                spind = m.value(sd,100)*100/iflux + 1
+                pl = PowerLawFlux()
+                pl.p[0] = ds.smodel.p[0] + N.log10(iflux)
+                pl.p[1] = N.log10(spind+10**(ds.smodel.p[1]-ds.smodel.index_offset))
+                pl.cov_matrix = ds.smodel.cov_matrix.copy() #correct?
+                m2x.process_model(pl,scaling=False)
+                specxml += m2x.getXML(tablevel=len(dm))
+            else:
+                raise Exception('Did not recognize %s'%(ds.name))
+        if len(dm)==2:
+            specxml+='\t</spectrum>\n'
     s1 = '\n<source name="%s" type="DiffuseSource">\n'%(ds.name)
     s2 = '</source>'
     return ''.join([s1,specxml,skyxml,s2])
     
-def unparse_diffuse_sources(diffuse_sources,convert_extended,expand_env_vars,filename):
+def unparse_diffuse_sources(diffuse_sources,convert_extended=False,expand_env_vars=True,filename=None):
     """Convert a list of DiffuseSources into XML blurbs."""
     xml_blurbs = Stack()
     for ds in diffuse_sources:
-        xml_blurbs.push(process_diffuse_source(ds,convert_extended,expand_env_vars,filename))
+        xml_blurbs.push(process_diffuse_source(ds,
+                                               convert_extended=convert_extended,
+                                               expand_env_vars=expand_env_vars,
+                                               filename=filename))
     return xml_blurbs
 
 def writeXML(stacks,filename, title='source_library'):
@@ -749,6 +783,7 @@ def writeXML(stacks,filename, title='source_library'):
         for elem in stack:
             f.write(elem)
     f.write('\n</source_library>')
+    f.close()
 
 def writeROI(roi,filename,strict=False,convert_extended=False,expand_env_vars=False):
     """ Out the contents of an ROIAnalysis source model
@@ -775,6 +810,7 @@ def writeROI(roi,filename,strict=False,convert_extended=False,expand_env_vars=Fa
     source_xml = [unparse_point_sources(roi.psm.point_sources, strict=strict)]
     if len(roi.dsm.diffuse_sources)>0:
         source_xml.append(unparse_diffuse_sources(roi.dsm.diffuse_sources,
-                                                  convert_extended,expand_env_vars,filename))
+                                                  convert_extended=convert_extended,
+                                                  expand_env_vars=expand_env_vars,
+                                                  filename=filename))
     writeXML(source_xml,filename)
-            
