@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.75 2012/01/20 17:37:55 zimmer Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.76 2012/01/22 01:43:55 kadrlica Exp $
 
    author: Joshua Lande
 
@@ -418,13 +418,12 @@ class SpatialModel(object):
                 https://confluence.slac.stanford.edu/x/Qw2JBQ
         
             npix is the number of pixels in tempalate in either dimension. """
-        if isinstance(self,EnergyDependentSpatialModel):
-            raise Exception("Unable to save template for energy dependent SpatialModel.")
+        if not hasattr(self,'template_diameter'):
+            raise Exception("Unable to save template because template_diameter is not defined.")
+
         center=self.center
 
-        # The factor of 6/5 is to add a buffer at the edge of the template, which
-        # is similar to the Catalog recommendations.
-        diameter=2.0*(self.effective_edge()*6./5. if self.has_edge() else self.r99())
+        diameter=self.template_diameter()
         pixelsize=diameter/npix
         image=SkyImage(center,os.path.expandvars(filename),pixelsize,diameter,1,"ZEA",
                        True if self.coordsystem == SkyDir.GALACTIC else False,False)
@@ -613,6 +612,7 @@ class Gaussian(RadiallySymmetricModel):
 
     def r68(self): return Gaussian.x68*self.sigma
     def r99(self): return Gaussian.x99*self.sigma
+    def template_diameter(self): return 2*self.r99()
 
     def pretty_spatial_string(self):
         return "%.3fd" % (self.sigma)
@@ -646,7 +646,7 @@ class SunExtended(RadiallySymmetricModel):
 
     def __init__(self, rmax=20, **kwargs):
         self.rmax = rmax
-        super(SunExtended,self).__init__(self, **kwargs)
+        super(SunExtended,self).__init__(**kwargs)
 
     def cache(self):
         super(SunExtended,self).cache()
@@ -665,6 +665,7 @@ class SunExtended(RadiallySymmetricModel):
 
     def r68(self): return 0.68*self.rmax
     def r99(self): return 0.99*self.rmax
+    def template_diameter(self): return 2*self.rmax*(6.0/5.0)
 
     def pretty_spatial_string(self): return ""
 
@@ -839,6 +840,7 @@ class Disk(RadiallySymmetricModel):
 
     def r68(self): return Disk.x68*self.sigma
     def r99(self): return Disk.x99*self.sigma
+    def template_diameter(self): return 2.0*(self['sigma']*6./5.)
 
     def effective_edge(self,energy=None):
         """ Disk has a well defined edge, so there is no reason to integrate past it. """
@@ -904,6 +906,7 @@ class Ring(RadiallySymmetricModel):
 
     def r68(self): return Disk.x68*(1-self.frac2)+self.frac2
     def r99(self): return Disk.x99*(1-self.frac2)+self.frac2
+    def template_diameter(self): return 2.0*(self['sigma']*6./5.)
 
     def effective_edge(self,energy=None):
         """ Disk has a well defined edge, so there is no reason to integrate past it. """
@@ -1031,6 +1034,7 @@ class InterpProfile(RadiallySymmetricModel):
     def r99(self):
         return self._r99
 
+    def template_diameter(self): return 2.0*self.r_in_degrees[-1]*(6.0/5.0)
 
 class RadialProfile(InterpProfile):
     r""" Define an extended source spatial model from a text file.
@@ -1234,6 +1238,7 @@ class EllipticalGaussian(EllipticalSpatialModel):
 
     def ellipse_68(self): return Gaussian.x68*self.sigma_x,Gaussian.x68*self.sigma_y,self.theta
     def ellipse_99(self): return Gaussian.x99*self.sigma_x,Gaussian.x99*self.sigma_y,self.theta
+    def template_diameter(self): return 2.0*max(*self.ellipse_99()[0:2])
 
 
 class PseudoEllipticalGaussian(PseudoSpatialModel,EllipticalGaussian):
@@ -1282,6 +1287,7 @@ class EllipticalDisk(EllipticalSpatialModel):
 
     def ellipse_68(self): return Disk.x68*self.sigma_x,Disk.x68*self.sigma_y,self.theta
     def ellipse_99(self): return Disk.x99*self.sigma_x,Disk.x99*self.sigma_y,self.theta
+    def template_diameter(self): return 2.0*max(self['Major_Axis'],self['Minor_Axis'])*(6.0/5.0)
 
 
 class RadiallySymmetricEllipticalDisk(EllipticalDisk):
@@ -1334,6 +1340,7 @@ class EllipticalRing(EllipticalSpatialModel):
     def ellipse_99(self):
         x99=DISK_X99*(1-self.frac2)+self.frac2
         return x99*self.sigma_x,x99*self.sigma_y,self.theta
+    def template_diameter(self): return 2.0*max(self['Major_Axis'],self['Minor_Axis'])*(6.0/5.0)
 
     def pretty_spatial_string(self):
         return "%.3fd, %.3fd, %.2fd, %.2f" % \
