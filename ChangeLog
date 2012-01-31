@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Jan 30 16:20:44 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+new function template_diameter
+    *
+------------------------------------------------------------
 User: wallacee  Mon Jan 30 14:44:35 PST 2012
 pointlike/python/uw/utilities
 
