@@ -1,6 +1,6 @@
 """
 Source descriptions for SkyModel
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.3 2011/10/20 21:41:28 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/sources.py,v 1.4 2011/12/29 19:19:13 burnett Exp $
 
 """
 import os, pickle, glob, types, copy
@@ -32,7 +32,7 @@ class Source(object):
             self.model = eval(self.model)
         if self.model.name=='PowerLaw':
             par,sig = self.model.statistical()
-            self.model = LogParabola(list(par)+[1e-3, self.model.e0])
+            self.model = LogParabola(*(list(par)+[1e-3, self.model.e0]))
             self.model.free[2:]=False
         elif self.model.name=='PLSuperExpCutoff':
             par,sig=self.model.statistical()
@@ -99,6 +99,8 @@ class DiffuseFunction(skymaps.DiffuseFunction):
         self.loaded=True
         print 'loading diffuse file %s' %self.filename
         super(DiffuseFunction,self).__init__(self.filename)
+    def name(self):
+        return self.filename
         
 class DiffuseDict(dict):
     """ create a dictionary of global diffuse objects
