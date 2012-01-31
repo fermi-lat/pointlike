@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Tue Jan 31 13:15:51 PST 2012
+pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Restore the import of the dark_matter module removed by mistake on the last commit.
+
+    *
+------------------------------------------------------------
 User: lande  Mon Jan 30 16:20:44 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
