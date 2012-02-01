@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Wed Feb  1 14:22:46 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Have InterpProfile work from a copy of input r_in_degrees and pdf
+    *
+------------------------------------------------------------
 User: wallacee  Tue Jan 31 13:44:07 PST 2012
 pointlike/python/uw/like2
 
