@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Feb  1 15:24:34 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+make DMFitFunctions copy-able and pickleable
+    *
+------------------------------------------------------------
 User: wallacee  Wed Feb  1 14:41:00 PST 2012
 pointlike/python/uw/utilities
 
