@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.73 2012/01/14 05:51:52 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.74 2012/01/29 02:05:17 burnett Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1146,11 +1146,33 @@ class DMFitFunction(Model):
                                                                         self.norm, self.bratio, 
                                                                         self.channel0, self.channel1)
 
+    def copy(self):
+        del sel.fmf
+        c = super(DMFitFunction,self).copy()
+        self._update()
+        c._update()
+        return c
+
+
+    def __getstate__(self):
+        d=copy.copy(self.__dict__)
+        del d['dmf']
+        return d
+
+
+    def __setstate__(self,state):
+        self.__dict__ = state
+        self._update()
+
+
     def _update(self):
         """ Update the DMFitFunction internally.
             This function should be called
             automatically when necessary.
         """
+        if not hasattr(self,'dmf'):
+            self.dmf=pyLikelihood.DMFitFunction()
+
         for i,param_name in enumerate(self.param_names):
             self.dmf.setParam(param_name,self[param_name])
 
