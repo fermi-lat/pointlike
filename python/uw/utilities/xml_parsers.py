@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.54 2012/01/30 22:44:35 wallacee Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.55 2012/01/31 21:15:51 wallacee Exp $
 
    author: Matthew Kerr
 """
@@ -379,7 +379,7 @@ class Model_to_XML(object):
             self.pname  = ['Value']
             self.pfree  = [1]
             self.pscale = [1]
-            self.pmin   = [0.1]
+            self.pmin   = [0.001]
             self.pmax   = [10]
             self.pval   = [1]
             self.perr   = [0]
