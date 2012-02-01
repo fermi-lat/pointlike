@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.76 2012/01/22 01:43:55 kadrlica Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.77 2012/01/31 00:20:43 lande Exp $
 
    author: Joshua Lande
 
@@ -967,12 +967,12 @@ class InterpProfile(RadiallySymmetricModel):
         if r_in_degrees.shape != pdf.shape or len(r_in_degrees) != len(pdf):
             raise Exception("Size and shape of input arrays must be the same.")
 
-        # Extend profile to r = 0 as a constant
-        if r_in_degrees[0] > 0:
-            r_in_degrees = np.concatenate( ( [0], r_in_degrees) )
-            pdf = np.concatenate( ( [pdf[0]], pdf) )
+        self.r_in_degrees, self.pdf = copy.copy(r_in_degrees), copy.copy(pdf)
 
-        self.r_in_degrees, self.pdf = r_in_degrees, pdf
+        # Extend profile to r = 0 as a constant
+        if self.r_in_degrees[0] > 0:
+            self.r_in_degrees = np.concatenate( ( [0], self.r_in_degrees) )
+            self.pdf = np.concatenate( ( [self.pdf[0]], self.pdf) )
 
         # If profile doesn't extend to zero, complain
         if self.r_in_degrees[0] > 0:
