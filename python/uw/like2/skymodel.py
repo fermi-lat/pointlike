@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.7 2012/01/11 14:07:03 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.9 2012/01/30 22:44:34 wallacee Exp $
 
 """
 import os, pickle, glob, types, collections
@@ -300,7 +300,7 @@ class SkyModel(object):
             
         return globals, extended
 
-    def toXML(self,filename, ts_min=None, title=None):
+    def toXML(self,filename, ts_min=None, title=None, gtlike = False):
         """ generate a file with the XML version of the sources in the model
         """
         catrec = self.source_rec()
@@ -318,14 +318,18 @@ class SkyModel(object):
         ]
         gs_xml = self._global_sources_to_xml(filename)
         with open(filename,'wb') as f:
-            f.write('<skymodel>\n')
+            if not gtlike:
+                f.write('<skymodel>\n')
             f.write('<source_library title="%s">'% title)
             for stack in stacks:
                 for elem in stack:
                     f.write(elem)
             f.write('\n</source_library>')
-            f.write('\n'.join(['\n<roi_info>',gs_xml,'</roi_info>']))
-            f.write('\n</skymodel>')
+            if not gtlike:
+                f.write('\n'.join(['\n<roi_info nside="{0}">'.format(self.nside),
+                                   gs_xml,
+                                   '</roi_info>']))
+                f.write('\n</skymodel>')
 
     def _global_sources_to_xml(self,filename):
         stacks = []
@@ -388,14 +392,8 @@ class XMLSkyModel(SkyModel):
     """A SkyModel initialized from a stored XML representation."""
 
     defaults= (
-        ('extended_catalog_name', None,  'name of folder with extended info\n'
-                                         'if None, look it up in the config.txt file\n'
-                                         'if "ignore", create model without extended sources'),
-        ('alias', dict(), 'dictionary of aliases to use for lookup'),
-        ('diffuse', None,   'set of diffuse file names; if None, expect config to have'),
         ('auxcat', None, 'name of auxilliary catalog of point sources to append or names to remove',),
         ('newmodel', None, 'if not None, a string to eval\ndefault new model to apply to appended sources'),
-        ('update_positions', None, 'set to minimum ts  update positions if localization information found in the database'),
         ('filter',   lambda s: True,   'selection filter: see examples at the end.'), 
         ('global_check', lambda s: None, 'check global sources: can modify parameters'),
         ('closeness_tolerance', 0., 'if>0, check each point source for being too close to another, print warning'),
@@ -405,9 +403,10 @@ class XMLSkyModel(SkyModel):
     def __init__(self,xml,**kwargs):
         keyword_options.process(self,kwargs)
         self._parse_xml(xml)
+        self.nside = self.handler.nside
         self._load_sources()
         self._load_globals()
-        self.nside = int(np.sqrt(len(self.global_sources)/12))
+        #self.nside = int(np.sqrt(len(self.global_sources)/12))
         self.load_auxcat()
 
     def _parse_xml(self,xml):
@@ -494,6 +493,8 @@ class SkyModelHandler(sax.handler.ContentHandler,xml_parsers.Stack):
 
     def startElement(self,name,attrs):
         self.push(xml_parsers.XMLElement(name,attrs))
+        if name=='roi_info':
+            self.nside = int(attrs.get('nside',12))
 
     def endElement(self,name):
         t = self.pop()
@@ -694,3 +695,4 @@ class FluxFreeOnly(object):
         if np.any(source.free):
             source.free[1:]=False
         return True
+
