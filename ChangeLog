@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: wallacee  Thu Feb  2 15:41:34 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	skymodel.py 
+Log Message:
+Add option to SkyModel.toXML to write just the gtlike-compatible source library.
+Remove unused kwargs from XMLSkyModel.
+Add nside to the roi_info element of the XML SkyModel representation.
+
+    *
+------------------------------------------------------------
 User: lande  Wed Feb  1 15:33:08 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
