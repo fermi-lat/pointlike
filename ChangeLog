@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Feb  3 15:30:38 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Putting cache() into InterpProfile
+    *
+------------------------------------------------------------
 User: lande  Fri Feb  3 14:55:11 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
