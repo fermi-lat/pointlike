@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.75 2012/02/01 23:24:34 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.76 2012/02/01 23:33:07 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -400,15 +400,14 @@ class Model(object):
         # note -- since spectral parameters are log transformed, just add/subtract a small amount in log space
         delta = 1e-5
         errs = np.asarray([delta] * len(self._p) )
-
         hi,lo = self.copy(),self.copy()
         derivs = []
         for i in xrange(len(self._p)):
-            hi._p[i] += errs[i]
-            lo._p[i] -= errs[i]
+            hi.setp(i,hi._p[i] + errs[i],internal=True)
+            lo.setp(i,lo._p[i] - errs[i],internal=True)
             derivs  += [(hi.i_flux(*args) - lo.i_flux(*args))/(2*errs[i])]
-            hi._p[i] -= errs[i]
-            lo._p[i] += errs[i]
+            lo.setp(i,hi._p[i] - errs[i],internal=True)
+            lo.setp(i,lo._p[i] + errs[i],internal=True)
 
         return np.asarray(derivs)
         
@@ -1155,7 +1154,6 @@ class DMFitFunction(Model):
         self.__dict__ = state
         self._update()
 
-
     def _update(self):
         """ Update the DMFitFunction internally.
             This function should be called
@@ -1168,12 +1166,11 @@ class DMFitFunction(Model):
         for i,param_name in enumerate(self.param_names):
             self.dmf.setParam(param_name,self[param_name])
 
-        # Set the parameters which are not fix explicitly
+        # Set the parameters which are not fixed explicitly
         self.dmf.setParam('norm',self.norm)
         self.dmf.setParam('bratio',self.bratio)
         self.dmf.setParam('channel0',self.channel0)
         self.dmf.setParam('channel1', self.channel1)
-
 
     def __init__(self,  *args, **kwargs):
         import pyLikelihood
