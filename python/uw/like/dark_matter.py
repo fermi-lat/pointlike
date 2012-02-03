@@ -1,13 +1,13 @@
 """A set of classes to implement dark matter analysis in pointlike
 
-    $Header: $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/dark_matter.py,v 1.1 2012/01/14 04:53:54 lande Exp $
 
     author: Joshua Lande, Alex Drlica-Wagner
 """
 import numpy as np
 from SpatialModels import RadiallySymmetricModel, SMALL_ANALYTIC_EXTENSION, PseudoSpatialModel
 
-class NFW(RadiallySymmetricModel):
+class PingNFW(RadiallySymmetricModel):
     """ Ping's parameterization of the NFW Source is 
         P(x,y)=2/(pi*r*s*(1+r/s)^5) 
         WARNING: This only works for sources with 
@@ -55,7 +55,7 @@ class NFW(RadiallySymmetricModel):
     def can_shrink(self): return True
 
 
-class PseudoNFW(PseudoSpatialModel,NFW):
+class PseudoPingNFW(PseudoSpatialModel,NFW):
     """ The Pseudo variant of the NFW profile.
 
             >>> x = PseudoNFW()
