@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Fri Feb  3 12:28:28 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Access parameters in __flux_derivs__ with setp instead of directly.
+    *
+------------------------------------------------------------
 User: wallacee  Thu Feb  2 15:41:34 PST 2012
 pointlike/python/uw/like2
 
