@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.77 2012/01/31 00:20:43 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.78 2012/02/01 22:22:45 kadrlica Exp $
 
    author: Joshua Lande
 
@@ -962,12 +962,18 @@ class InterpProfile(RadiallySymmetricModel):
                 ...             numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-5)
                 True
         """
-        super(InterpProfile,self).__init__(**kwargs)
 
         if r_in_degrees.shape != pdf.shape or len(r_in_degrees) != len(pdf):
             raise Exception("Size and shape of input arrays must be the same.")
 
         self.r_in_degrees, self.pdf = copy.copy(r_in_degrees), copy.copy(pdf)
+        self.kind = kind
+
+        super(InterpProfile,self).__init__(**kwargs)
+
+    def cache(self):
+
+        super(InterpProfile,self).cache()
 
         # Extend profile to r = 0 as a constant
         if self.r_in_degrees[0] > 0:
@@ -986,7 +992,7 @@ class InterpProfile(RadiallySymmetricModel):
         self.pdf /= max(self.pdf)
         
         # Explicitly normalize the RadialProfile.
-        self.interp = interp1d(self.r_in_radians,self.pdf,kind=kind,bounds_error=False,fill_value=0)
+        self.interp = interp1d(self.r_in_radians,self.pdf,kind=self.kind,bounds_error=False,fill_value=0)
 
         # Note that this formula assumes that space is flat, which
         # is incorrect. But the rest of the objects in this file
@@ -1001,7 +1007,7 @@ class InterpProfile(RadiallySymmetricModel):
         self.normed_pdf = self.pdf/integral
 
         # redo normalized interpolation
-        self.interp = interp1d(self.r_in_degrees,self.normed_pdf,kind=kind,bounds_error=False,fill_value=0)
+        self.interp = interp1d(self.r_in_degrees,self.normed_pdf,kind=self.kind,bounds_error=False,fill_value=0)
 
         # calculate r68 and r99 (again assume flat space)
         integrand = lambda r: self.at_r_in_deg(np.degrees(r))*2*np.pi*r
@@ -1035,6 +1041,7 @@ class InterpProfile(RadiallySymmetricModel):
         return self._r99
 
     def template_diameter(self): return 2.0*self.r_in_degrees[-1]*(6.0/5.0)
+
 
 class RadialProfile(InterpProfile):
     r""" Define an extended source spatial model from a text file.
