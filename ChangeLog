@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Feb  3 14:39:12 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+better handling of spectral models that predict one
+    *
+------------------------------------------------------------
 User: kadrlica  Fri Feb  3 12:28:28 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
