@@ -1,6 +1,6 @@
 """A set of classes to implement dark matter analysis in pointlike
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/dark_matter.py,v 1.2 2012/02/03 22:45:56 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/dark_matter.py,v 1.3 2012/02/03 22:51:24 szalewsk Exp $
 
     author: Joshua Lande, Alex Drlica-Wagner
 """
@@ -66,6 +66,36 @@ class PseudoPingNFW(PseudoSpatialModel,PingNFW):
     def extension(self): return SMALL_ANALYTIC_EXTENSION
 
     def can_shrink(self): return False
+
+
+"""
+from SpatialModels import InterpProfile
+class NFW(InterpProfile):
+
+    default_p = [0.1]
+    param_names = ['Sigma']
+    limits = [[SMALL_ANALYTIC_EXTENSION,3]]
+    log = [True]
+    steps = [0.04]
+
+   file='$(INST_DIR)/Likelihood/src/dmfit/gammamc_dif.dat'),
+
+    def __init__(self, file, **kwargs)
+        super(NFW,self).__init__(**kwargs)
+
+    def cache(self):
+
+        # setp was just called, so self['sigma'] has now been set
+
+        # if you want to do the calculation here
+        #self.r_in_degrees, self.pdf = self.log_and_tedious_calcuation(self['sigma'])
+
+        # if there is a table of values
+        self.r_in_degrees, self.pdf = self.short_and_not_tedious_calcuation(self['sigma'])
+
+        # This does all the fancy interpolation stuff
+        super(NFW,self).cache()
+"""
 
 
 if __name__ == "__main__":
