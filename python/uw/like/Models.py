@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.76 2012/02/01 23:33:07 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.77 2012/02/03 20:28:27 kadrlica Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -406,8 +406,6 @@ class Model(object):
             hi.setp(i,hi._p[i] + errs[i],internal=True)
             lo.setp(i,lo._p[i] - errs[i],internal=True)
             derivs  += [(hi.i_flux(*args) - lo.i_flux(*args))/(2*errs[i])]
-            lo.setp(i,hi._p[i] - errs[i],internal=True)
-            lo.setp(i,lo._p[i] + errs[i],internal=True)
 
         return np.asarray(derivs)
         
