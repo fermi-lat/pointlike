@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.23 2012/01/11 02:03:34 kadrlica Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.24 2012/02/03 22:39:11 lande Exp $
 
 author: Joshua Lande
 """
@@ -331,10 +331,10 @@ class MonteCarlo(object):
     @staticmethod
     def isone(model):
         """ Return 1 if model predicts 1 everywhere. """
-        if isinstance(sm,Constant) and sm['scale'] == 1:
+        if isinstance(model,Constant) and model['scale'] == 1:
             return 1
-        if isinstance(sm,PowerLaw) and sm['norm'] == 1 and sm['index'] == 0 and \
-           hasattr(sm,'index_offset') and sm.index_offset == 0:
+        if isinstance(model,PowerLaw) and model['norm'] == 1 and model['index'] == 0 and \
+           hasattr(model,'index_offset') and model.index_offset == 0:
             return 1
         return 0
 
