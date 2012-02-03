@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.22 2011/12/09 03:26:42 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.23 2012/01/11 02:03:34 kadrlica Exp $
 
 author: Joshua Lande
 """
@@ -328,6 +328,16 @@ class MonteCarlo(object):
             )
         )*4*np.pi*10**4
 
+    @staticmethod
+    def isone(model):
+        """ Return 1 if model predicts 1 everywhere. """
+        if isinstance(sm,Constant) and sm['scale'] == 1:
+            return 1
+        if isinstance(sm,PowerLaw) and sm['norm'] == 1 and sm['index'] == 0 and \
+           hasattr(sm,'index_offset') and sm.index_offset == 0:
+            return 1
+        return 0
+
     def _make_isotropic(self,ds,savedir,indent):
 
         dm=ds.dmodel[0]
@@ -335,8 +345,8 @@ class MonteCarlo(object):
 
         isotropic_spectrum=dm.name()
 
-        if not (isinstance(sm,Constant) and sm.getp(0) == 1):
-            raise Exception("Can only run gtobssim with IsotropicSpectrum diffuse models where the spectral model is a Constant with norm 1.")
+        if not MonteCarlo.isone(sm):
+            raise Exception("Can only run gtobssim with IsotropicSpectrum diffuse models if model predicts 1.")
 
         energies=np.genfromtxt(isotropic_spectrum,unpack=True)[0]
 
@@ -364,8 +374,8 @@ class MonteCarlo(object):
         dm=ds.dmodel[0]
         sm=ds.smodel
 
-        if not (isinstance(sm,PowerLaw) and np.all(sm._p==0) and sm.index_offset==1): 
-            raise Exception("Can only run gtobssim with DiffuseFunction diffuse models where the spectral model is a PowerLaw with norm and index 1.")
+        if not MonteCarlo.isone(sm):
+            raise Exception("Can only run gtobssim with DiffuseFunction diffuse models if model predicts 1.")
 
         # flux in ph/cm^2/s/sr b/n 100MeV & infinity
         flux_pointlike=dm.flux()
