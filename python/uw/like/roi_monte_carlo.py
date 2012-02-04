@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.30 2012/02/04 00:37:41 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.31 2012/02/04 01:30:47 lande Exp $
 
 author: Joshua Lande
 """
@@ -363,7 +363,7 @@ class MonteCarlo(object):
         isotropic_filename=os.path.join(savedir,'isotropic.fits')
 
         if self.roi_dir is not None and self.maxROI is not None:
-            radius=maxROI+20 
+            radius=self.maxROI+20 
             flux*=2*np.pi*(1-np.cos(np.radians(radius)))
             MonteCarlo.make_isotropic_fits(isotropic_filename, self.roi_dir, radius)
         else:
