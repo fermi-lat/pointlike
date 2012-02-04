@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.28 2012/02/04 00:30:57 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.29 2012/02/04 00:35:14 lande Exp $
 
 author: Joshua Lande
 """
@@ -362,14 +362,14 @@ class MonteCarlo(object):
         flux=MonteCarlo.isotropic_integrator(isotropic_spectrum)
 
 
-        filename=os.path.join(savedir,'isotropic.fits')
-        MonteCarlo.make_isotropic_fits(filename, self.roi_dir, self.maxROI)
+        isotropic_filename=os.path.join(savedir,'isotropic.fits')
+        MonteCarlo.make_isotropic_fits(isotropic_filename, self.roi_dir, self.maxROI)
 
         ds = [ 
             '<source name="%s">' % MonteCarlo.strip(ds.name),
             '  <spectrum escale="MeV">',
             '    <SpectrumClass name="FileSpectrumMap"',
-            '       params="flux=%s,fitsFile=%s,' % (flux,isotropic_allsky),
+            '       params="flux=%s,fitsFile=%s,' % (flux,isotropic_filename),
             '       specFile=%s,emin=%s,emax=%s"/>' % (isotropic_spectrum,emin,emax),
             '    <use_spectrum frame="galaxy"/>',
             '  </spectrum>',
