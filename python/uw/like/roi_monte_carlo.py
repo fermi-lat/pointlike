@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.27 2012/02/03 23:57:51 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.28 2012/02/04 00:30:57 lande Exp $
 
 author: Joshua Lande
 """
@@ -299,7 +299,7 @@ class MonteCarlo(object):
         if roi_dir is not None and maxROI is not None:
             radius=maxROI+20 
             diameter = float(radius*2)
-            img=SkyImage(skydir,filename,diameter/10,diameter,1,"CAR",True)
+            img=SkyImage(roi_dir,filename,diameter/10,diameter,1,"CAR",True)
         else:
             img=SkyImage(SkyDir(0,0,SkyDir.GALACTIC),filename,6,180,1,"CAR",True)
 
