@@ -37,19 +37,27 @@ def phase_cut(eventfile,outputfile=None,phaseranges=[[0,1]],phase_col_name='PULS
         ef.writeto(eventfile.replace('.fits','_PHASECUT.fits'),clobber=True)
     ef.close()
 
-def phase_ltcube(ltcube,outputfile,phase,phase_col_name='PULSE_PHASE'):
+def phase_ltcube(ltcube,outputfile,phase):
     """ Multiply the ltcube by the phase fraction. This is useful for studying
         the DC component in the off pulse window.
 
-        N.B. phase must be a instance of uw.pulsar.phase_range.PhaseRange
+        N.B. phase can be a float between 0 and 1 or must be an 
+        instance of uw.pulsar.phase_range.PhaseRange
 
-        Disclaimer: I have no proof that this is the correct way to weight
-        an exposure cube, but it feels right to me --Josh
+        Also, the 'EXPOSURE' and 'WEIGHTED_EXPOUSRE' table's header
+        is updated so PHASE=the weighted phase fraction
+
+        Disclaimer: I have no prove that this is the correct way to weight
+        an exposure cube, but it feels right to me (and has been tested
+        fairly well) --Josh
     """
+    from uw.pulsar.phase_range import PhaseRange
     ltcube = PF.open(ltcube)
     for table in ['exposure', 'weighted_exposure']:
         cb=ltcube[table].data.field('cosbins')
-        cb*=phase.phase_fraction
+        fraction=phase.phase_fraction if isinstance(phase,PhaseRange) else phase
+        cb*=fraction
+        ltcube[table].header.update('PHASE',fraction)
 
     ltcube.writeto(outputfile,clobber=True)
     ltcube.close()
