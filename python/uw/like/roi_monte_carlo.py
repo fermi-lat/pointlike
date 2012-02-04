@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.26 2012/02/03 22:55:11 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.27 2012/02/03 23:57:51 lande Exp $
 
 author: Joshua Lande
 """
@@ -292,21 +292,17 @@ class MonteCarlo(object):
         else:
             raise Exception("Can only parse PowerLaw gaussian sources.")
 
-
     @staticmethod
-    def make_isotropic_not_allsky(filename, skydir, radius):
-        diameter = float(radius*2)
-        img=SkyImage(skydir,filename,diameter/10,diameter,1,"CAR",True)
+    def make_isotropic_fits(filename, roi_dir, maxROI):
+        """ Note, if there is an ROI cut, we can make this
+            isotropic file not allsky. """
+        if roi_dir is not None and maxROI is not None:
+            radius=maxROI+20 
+            diameter = float(radius*2)
+            img=SkyImage(skydir,filename,diameter/10,diameter,1,"CAR",True)
+        else:
+            img=SkyImage(SkyDir(0,0,SkyDir.GALACTIC),filename,6,180,1,"CAR",True)
 
-        one=lambda x: 1
-        skyfun=PySkyFunction(one)
-        img.fill(skyfun)
-        del(img)
-
-    @staticmethod
-    def make_isotropic_allsky(filename):
-        img=SkyImage(SkyDir(0,0,SkyDir.GALACTIC),filename,6,180,1,"CAR",True)
-        
         one=lambda x: 1
         skyfun=PySkyFunction(one)
         img.fill(skyfun)
@@ -365,15 +361,9 @@ class MonteCarlo(object):
         # multiply by 4pi * 10^4 to convert from ph/cm^2/sr to ph/m^2
         flux=MonteCarlo.isotropic_integrator(isotropic_spectrum)
 
-        isotropic_allsky=os.path.join(savedir,'isotropic_allsky.fits')
 
-
-        if self.roi_dir is not None and self.maxROI is not None:
-            radius=self.maxROI+20 
-            MonteCarlo.make_isotropic_not_allsky(isotropic_allsky, self.roi_dir, radius)
-        else:
-            MonteCarlo.make_isotropic_allsky(isotropic_allsky)
-
+        filename=os.path.join(savedir,'isotropic.fits')
+        MonteCarlo.make_isotropic_fits(filename, self.roi_dir, self.maxROI)
 
         ds = [ 
             '<source name="%s">' % MonteCarlo.strip(ds.name),
