@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.29 2012/02/04 00:35:14 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.30 2012/02/04 00:37:41 lande Exp $
 
 author: Joshua Lande
 """
@@ -293,15 +293,14 @@ class MonteCarlo(object):
             raise Exception("Can only parse PowerLaw gaussian sources.")
 
     @staticmethod
-    def make_isotropic_fits(filename, roi_dir, maxROI):
+    def make_isotropic_fits(filename, skydir, radius):
         """ Note, if there is an ROI cut, we can make this
             isotropic file not allsky. """
-        if roi_dir is not None and maxROI is not None:
-            radius=maxROI+20 
-            diameter = float(radius*2)
-            img=SkyImage(roi_dir,filename,diameter/10,diameter,1,"CAR",True)
+        if radius >= 180:
+            img=SkyImage(skydir,filename,6,180,1,"CAR",True)
         else:
-            img=SkyImage(SkyDir(0,0,SkyDir.GALACTIC),filename,6,180,1,"CAR",True)
+            diameter = float(radius*2)
+            img=SkyImage(skydir,filename,diameter/10.0,diameter,1,"CAR",True)
 
         one=lambda x: 1
         skyfun=PySkyFunction(one)
@@ -316,7 +315,7 @@ class MonteCarlo(object):
             genericSources/src/FileSpectrum.cxx which is used by gtobssim
             to integrate the isotropic spectrum.
         
-            Returns a value suitable for gtobssim in units of ph/m^2 """
+            Returns the flux differential in solid angle: ph/m^2/sr """
         file=np.genfromtxt(filename,unpack=True)
         energy,flux=file[0],file[1]
 
@@ -332,7 +331,7 @@ class MonteCarlo(object):
                     n0/(gamma+1)*(e2**(gamma+1)-e1**(gamma+1)),
                     n0*np.log(e2/e1)
             )
-        )*4*np.pi*10**4
+        )*10**4
 
     @staticmethod
     def isone(model):
@@ -361,9 +360,16 @@ class MonteCarlo(object):
         # multiply by 4pi * 10^4 to convert from ph/cm^2/sr to ph/m^2
         flux=MonteCarlo.isotropic_integrator(isotropic_spectrum)
 
-
         isotropic_filename=os.path.join(savedir,'isotropic.fits')
-        MonteCarlo.make_isotropic_fits(isotropic_filename, self.roi_dir, self.maxROI)
+
+        if self.roi_dir is not None and self.maxROI is not None:
+            radius=maxROI+20 
+            flux*=2*np.pi*(1-np.cos(np.radians(radius)))
+            MonteCarlo.make_isotropic_fits(isotropic_filename, self.roi_dir, radius)
+        else:
+            # multiply by solid angle
+            flux*=4*np.pi
+            MonteCarlo.make_isotropic_fits(isotropic_filename, SkyDir(0,0,SkyDir.GALACTIC), 180)
 
         ds = [ 
             '<source name="%s">' % MonteCarlo.strip(ds.name),
