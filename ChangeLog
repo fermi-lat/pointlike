@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: wallacee  Mon Feb  6 13:47:41 PST 2012
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Merge uw.like2.models into uw.like.Models (this amounts to updating CompositeModel
+and adding the FrontBackConstant class), and remove the uw.like2.models import
+from uw.utilities.xml_parsers to eliminate a circular import.
+
+    *
+------------------------------------------------------------
 User: lande  Fri Feb  3 18:14:19 PST 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
