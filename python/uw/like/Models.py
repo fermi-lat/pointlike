@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.78 2012/02/03 22:51:50 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.79 2012/02/06 21:47:40 wallacee Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -887,7 +887,7 @@ class CompositeModel(Model):
         if len(models) < 1:
             raise Exception("CompositeModel must be created with more than one spectral model")
         for m in models:
-            if not isinstance(m,Models.Model):
+            if not isinstance(m,Model):
                 raise Exception("CompositeModel must be created with a list of models.")
 
         self.flux_scale = 1.
