@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.77 2012/02/03 20:28:27 kadrlica Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.78 2012/02/03 22:51:50 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -235,6 +235,8 @@ class Model(object):
         p,hi_p,lo_p = self.statistical(absolute=absolute,two_sided=True)
         if hasattr(self,'index_offset'):
             p[1]=p[1]-self.index_offset #Index is parameter 1
+            hi_p[1]-=self.index_offset
+            lo_p[1]-=self.index_offset
         if not self.background:
             if not np.all(self.cov_matrix==0):
                 f,fhi,flo    = self.i_flux(e_weight=0,emax=3e5,two_sided=True,cgs=True,error=True)
@@ -877,21 +879,22 @@ class PLSuperExpCutoff(Model):
 
 class CompositeModel(Model):
     """ A model which joins other models. Subclasses must
-        implement the __value__(e) function which says
+        implement the __call__(e) function which says
         how to join the models. """
 
-    def __init__(self,*models):
-
+    def __init__(self,*models, **kwargs):
+        iscopy = kwargs.pop('iscopy', False)
         if len(models) < 1:
             raise Exception("CompositeModel must be created with more than one spectral model")
         for m in models:
-            if not isinstance(m,Model):
+            if not isinstance(m,Models.Model):
                 raise Exception("CompositeModel must be created with a list of models.")
 
+        self.flux_scale = 1.
         self.models = models
         self.cov_matrix = np.zeros([self.npar,self.npar]) #default covariance matrix
+        self.e0 = 1000. # not sure why, but sed_plotter needs this
 
-    @abstractmethod
     def __call__(self,e): 
         """ Must be implemented by a subclass. """
         pass
@@ -909,6 +912,10 @@ class CompositeModel(Model):
         """ Seems like a reasonable test. """
         return np.any([i.background for i in self.models])
 
+    @background.setter
+    def background(self,b):
+        for m in self.models: m.background = b
+
     @property
     def n(self): 
         return np.asarray([len(i._p) for i in self.models])
@@ -924,6 +931,7 @@ class CompositeModel(Model):
     @_p.setter
     def _p(self, value):
         assert(len(self._p) == len(value))
+        counter=0
         for i in xrange(len(self.n)):
             self.models[i]._p = value[counter:counter+self.n[i]]
             counter += self.n[i]
@@ -935,9 +943,53 @@ class CompositeModel(Model):
     @free.setter
     def free(self, value):
         assert(len(self.free) == len(value))
+        counter=0
         for i in xrange(len(self.n)):
             self.models[i].free = value[counter:counter+self.n[i]]
             counter += self.n[i]
+      
+    def setp(self, i, par, internal=False):
+        """ set internal value, convert unless internal
+        """
+        i=self.mapper(i) #?
+        if not internal: 
+            assert par>0, 'Model external parameter cannont be negative'
+        counter=0
+        for k in xrange(len(self.n)):
+            if counter<i:
+                counter += self.n[k]
+                continue
+            self.models[k]._p[i-counter] = par if internal else  np.log10(par)
+            return       
+
+    def set_parameters(self,new_vals):
+        """Set FREE internal parameters; new_vals should have length equal to number of free parameters."""
+        assert len(new_vals)==(self.free).sum(), 'attempt to set wrong number of free parameters, model %s' %self
+        pars = self._p
+        pars[self.free] = new_vals.astype('f')
+        self._p = pars
+ 
+
+class FrontBackConstant(CompositeModel):
+    """ Composite model that is either/or, for front or back
+        select which constant based on value (0 or 1) of ct
+    """
+    name = 'FrontBackConstant'
+    operator='+'
+    def __init__(self, f=1, b=1, **kwargs):
+        super(FrontBackConstant, self).__init__(Models.Constant(),Models.Constant(), **kwargs)
+        self.models[0].param_names=['Scale_front']
+        self.models[1].param_names=['Scale_back']
+        self.models[0][0]=f
+        self.models[1][0]=b
+        self.ct = 0
+        
+    def __call__(self, e):
+        return self.models[self.ct](e)
+        
+    def gradient(self, e):
+        return np.hstack([(1-self.ct)*self.models[0].gradient(e).T, 
+                          self.ct*self.models[1].gradient(e).T])
 
 #===============================================================================================#
 

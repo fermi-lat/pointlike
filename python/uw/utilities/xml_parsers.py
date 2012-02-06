@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.55 2012/01/31 21:15:51 wallacee Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.54 2012/01/30 22:44:35 wallacee Exp $
 
    author: Matthew Kerr
 """
@@ -13,7 +13,6 @@ from uw.like.pointspec_helpers import PointSource,get_diffuse_source
 from uw.like.roi_diffuse import DiffuseSource
 from uw.like.roi_extended import ExtendedSource
 from uw.like.Models import *
-from uw.like2.models import *
 from uw.like.SpatialModels import *
 from uw.like.dark_matter import *
 from skymaps import SkyDir,DiffuseFunction,IsotropicSpectrum,IsotropicPowerLaw
