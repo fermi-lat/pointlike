@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.79 2012/02/06 21:47:40 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.80 2012/02/06 21:53:29 wallacee Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -977,7 +977,7 @@ class FrontBackConstant(CompositeModel):
     name = 'FrontBackConstant'
     operator='+'
     def __init__(self, f=1, b=1, **kwargs):
-        super(FrontBackConstant, self).__init__(Models.Constant(),Models.Constant(), **kwargs)
+        super(FrontBackConstant, self).__init__(Constant(),Constant(), **kwargs)
         self.models[0].param_names=['Scale_front']
         self.models[1].param_names=['Scale_back']
         self.models[0][0]=f
