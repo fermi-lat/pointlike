@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Tue Feb  7 12:22:25 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Added doctest to check that scalefactor is set correctly. This was broken in v1.79
+    *
+------------------------------------------------------------
 User: kadrlica  Tue Feb  7 10:45:08 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
