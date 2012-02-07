@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Tue Feb  7 13:00:55 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	skymodel.py 
+Log Message:
+remove an unneeded import
+
+    *
+------------------------------------------------------------
 User: lande  Tue Feb  7 12:42:30 PST 2012
 ScienceTools-scons/pointlike/python/uw/darkmatter
 
