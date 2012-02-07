@@ -11,7 +11,6 @@ from skymaps import SkyDir, Band
 from uw.utilities import keyword_options, makerec, xml_parsers
 #  this is below: only needed when want to create XML
 #from uw.utilities import  xml_parsers
-from uw.like2 import models
 from ..like import Models, pointspec_helpers
 
 from . import sources, catrec
