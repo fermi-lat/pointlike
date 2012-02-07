@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Feb  6 17:12:13 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Check for file exist.
+
+    *
+------------------------------------------------------------
 User: wallacee  Mon Feb  6 13:57:08 PST 2012
 pointlike/python/uw/like
 
