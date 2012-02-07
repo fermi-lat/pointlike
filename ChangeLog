@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Tue Feb  7 10:45:08 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Re-structured cache function in InterpProfile; added InterpProfile2D
+    *
+------------------------------------------------------------
 User: cohen  Tue Feb  7 06:42:16 PST 2012
 ScienceTools-scons/pointlike/src
 
