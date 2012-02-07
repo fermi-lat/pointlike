@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: cohen  Tue Feb  7 06:42:16 PST 2012
+ScienceTools-scons/pointlike/src
+
+Modified Files:
+	swig_setup.i 
+Log Message:
+fix cstd import for swig
+    *
+------------------------------------------------------------
 User: kerrm  Mon Feb  6 17:12:13 PST 2012
 pointlike/python/uw/pulsar
 
