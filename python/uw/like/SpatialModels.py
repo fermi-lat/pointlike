@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.78 2012/02/01 22:22:45 kadrlica Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.79 2012/02/03 23:30:38 lande Exp $
 
    author: Joshua Lande
 
@@ -11,7 +11,7 @@ import numbers
 
 import numpy as np
 from scipy import vectorize
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, griddata
 from scipy.integrate import quad
 from scipy.optimize import fmin
 from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
@@ -929,17 +929,15 @@ class InterpProfile(RadiallySymmetricModel):
     default_p, param_names, limits, log, steps = [], [], [], [], []
 
     def __init__(self, r_in_degrees, pdf, kind='linear', **kwargs):
-        """ Assuming object has self.r_in_degrees, and self.pdf,
-            define a spatial model that interpolates
-            between the values in list.
+        """ Define a spatial model from a 1D interpolation of pdf 
+            as a function of r_in_degrees.
             
-            Note, the first column should be degrees corresponding to the extension
-            of the source while the second should be proportional to the intensity
-            of the emission per steradian. Furthermore it is assumed that the intensity
-            integral over the whole emission radius is 1. This integration is explicitly
-            performed. In addition the class provides a property scalefactor which should
-            be 1 if the model was normalized to 1. That scalefactor should always be
-            considered when calculating fluxes.
+            Note, the first column should be the offset angle from the center of the source
+            in degrees while the second should be proportional to the intensity
+            of the emission per steradian. Furthermore, the intensity is explicitly integrated
+            and renormalized so that the integral over the whole emission radius is 1. 
+            Any difference between the renormalized intensity profile and the input profile 
+            is stored in the scalefactor property.
 
             First, define analytic shape
             
@@ -957,64 +955,63 @@ class InterpProfile(RadiallySymmetricModel):
 
             Note that spatial model is the same as Gaussian, even for oddly spaced points:
 
-                >>> r_test = np.linspace(0,1,47) # sample odly
+                >>> r_test = np.linspace(0,1,47) # sample oddly
                 >>> np.allclose(gauss.at_r_in_deg(r_test), 
                 ...             numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-5)
                 True
         """
-
-        if r_in_degrees.shape != pdf.shape or len(r_in_degrees) != len(pdf):
-            raise Exception("Size and shape of input arrays must be the same.")
-
-        self.r_in_degrees, self.pdf = copy.copy(r_in_degrees), copy.copy(pdf)
+        self.r_in_degrees, self.pdf = r_in_degrees, pdf
         self.kind = kind
-
         super(InterpProfile,self).__init__(**kwargs)
 
+        if self.r_in_degrees.shape != self.pdf.shape or len(self.r_in_degrees) != len(self.pdf):
+            raise Exception("Size and shape of input arrays must be the same.")
+        if self.r_in_degrees[0] != 0:
+            raise Exception("Profile must start at r=0")
+
     def cache(self):
+        self.pdf = self.get_pdf()
+        self.interp, self.normed_pdf = self.setup_interp()
 
-        super(InterpProfile,self).cache()
-
-        # Extend profile to r = 0 as a constant
-        if self.r_in_degrees[0] > 0:
-            self.r_in_degrees = np.concatenate( ( [0], self.r_in_degrees) )
-            self.pdf = np.concatenate( ( [self.pdf[0]], self.pdf) )
-
-        # If profile doesn't extend to zero, complain
-        if self.r_in_degrees[0] > 0:
-            raise Exception("Input profile must be defined at zero angular offset.")
-
-        self.r_in_radians = np.radians(self.r_in_degrees)
+        # Save the original scale
+        self.scalefactor = max(self.pdf)/max(self.normed_pdf)
+    
+    def setup_interp(self):
+        r_in_radians = np.radians(self.r_in_degrees)
 
         # Rescale the pdf for the integrator
-        # save the scalefactor for later use.
-        self.scalefactor = 1./max(self.pdf)
-        self.pdf /= max(self.pdf)
+        normed_pdf = self.pdf/max(self.pdf)
         
         # Explicitly normalize the RadialProfile.
-        self.interp = interp1d(self.r_in_radians,self.pdf,kind=self.kind,bounds_error=False,fill_value=0)
+        interp = interp1d(r_in_radians,normed_pdf,kind=self.kind,bounds_error=False,fill_value=0)
 
         # Note that this formula assumes that space is flat, which
         # is incorrect. But the rest of the objects in this file
         # make that assumption, so this is kept for consistency.
-        integrand = lambda r: self.interp(r)*2*np.pi*r
+        integrand = lambda r: interp(r)*2*np.pi*r
 
         # perform integral in radians b/c the PDF must integrate
         # over solid angle (in units of steradians) to 1
-        integral = quad(integrand, 0, self.r_in_radians[-1],full_output=True)[0]
-        # save the scalefactor for later use.
-        self.scalefactor /= integral
-        self.normed_pdf = self.pdf/integral
+        integral = quad(integrand, 0, r_in_radians[-1],full_output=True)[0]
+
+        normed_pdf /= integral
 
         # redo normalized interpolation
-        self.interp = interp1d(self.r_in_degrees,self.normed_pdf,kind=self.kind,bounds_error=False,fill_value=0)
+        interp = interp1d(self.r_in_degrees,normed_pdf,kind=self.kind,bounds_error=False,fill_value=0)
 
-        # calculate r68 and r99 (again assume flat space)
+        return interp, normed_pdf
+
+    def get_pdf(self):
+        """ Overloaded by subclasses """
+        return self.pdf
+
+    def quantile(self,quant):
+        """ Calculate the quantiles of a pdf. Assumes flat space. """
+        if quant > 1: raise Exception('Quantile must be <= 1')
+
         integrand = lambda r: self.at_r_in_deg(np.degrees(r))*2*np.pi*r
-        f68 = lambda x: (quad(integrand,0,x,full_output=True)[0] - 0.68)**2
-        f99 = lambda x: (quad(integrand,0,x,full_output=True)[0] - 0.99)**2
-        self._r68 = np.degrees(fmin( f68, np.radians(0.1*self.effective_edge()), disp=False )[0])
-        self._r99 = np.degrees(fmin( f99, np.radians(0.1*self.effective_edge()), disp=False )[0])
+        func = lambda x: (quad(integrand,0,x,full_output=True)[0] - quant)**2
+        return np.degrees(fmin( func, np.radians(0.1*self.effective_edge()), disp=False )[0])
 
     def at_r_in_deg(self,r,energy=None):
         v=self.interp(r)
@@ -1034,13 +1031,71 @@ class InterpProfile(RadiallySymmetricModel):
         pdf = self.at_r_in_deg(radius)
         return radius,pdf
 
-    def r68(self): 
-        return self._r68
-
-    def r99(self):
-        return self._r99
+    def r68(self): return self.quantile(0.68)
+    def r99(self): return self.quantile(0.99)
 
     def template_diameter(self): return 2.0*self.r_in_degrees[-1]*(6.0/5.0)
+
+class InterpProfile2D(InterpProfile):
+    default_p = [1]
+    param_names = ['Sigma']
+    limits = [[SMALL_ANALYTIC_EXTENSION,10]]
+    log = [True]
+    steps = [0.04]
+
+    def __init__(self, r_in_degrees, sigmas, pdf2d, kind='linear',**kwargs):
+        """ Define a spatial model from a 2D interpolation of a pdf 
+            as a function of the offset angle, r_in_degrees, and the extension, sigma.
+            
+            The interpolation in sigma is performed explicitly in this class while the
+            interpolation in r_in_degrees is passed of to the InterpProfile base class.
+
+            First, define analytic shape
+                >>> sigma = 1 # degrees
+                >>> gauss = Gaussian(sigma=sigma)
+
+            Next, define numeric shape
+
+                >>> r = np.linspace(0,10,100) # in degrees
+                >>> s = np.linspace(0.5,1.5,500) # in degrees
+                >>> rr,ss = np.meshgrid(r,s)
+                >>> pdf2d = np.exp(-rr**2/(2*ss**2))
+                >>> numeric_gauss = InterpProfile2D(r_in_degrees=r,sigmas=s,pdf2d=pdf2d,kind='cubic')
+
+            Note that the normalization of the numeric gaussian is wrong, but 
+            will be renormalized anyway.
+
+            Note that spatial model is the same as Gaussian, even for oddly spaced points:
+
+                >>> r_test = np.linspace(0,1,47) # sample oddly
+                >>> sigma_test = 1.032
+                >>> gauss.setp('sigma',sigma_test)
+                >>> numeric_gauss.setp('sigma',sigma_test)
+                >>> np.allclose(gauss.at_r_in_deg(r_test), 
+                ...             numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-5)
+                True
+        """
+        self.pdf2d, self.sigmas = pdf2d, sigmas
+
+        super(InterpProfile2D,self).__init__(r_in_degrees=r_in_degrees,pdf=None,kind=kind,**kwargs)
+
+    def cache(self):
+        self.sigma=self.extension()
+        super(InterpProfile2D,self).cache()
+
+    def extension(self):
+        return self.get_parameters(absolute=True)[2]
+        
+    def get_pdf(self):
+        """ Interpolates the sigma dimension linearly in logspace """
+        sigma_array = np.ones(len(self.r_in_degrees))*self.sigma
+
+        # Interpolate linearly in logspace
+        r_mesh,sigma_mesh = np.meshgrid(self.r_in_degrees,self.sigmas)
+        pts = np.array((r_mesh.ravel(),sigma_mesh.ravel())).T
+        vals = np.log10(self.pdf2d.ravel())
+
+        return 10**(griddata(pts,vals,(self.r_in_degrees,sigma_array),method='linear'))
 
 
 class RadialProfile(InterpProfile):
@@ -1074,7 +1129,6 @@ class RadialProfile(InterpProfile):
     """
 
     def __init__(self, file, **kwargs):
-
 
         if not hasattr(file,'read') and not os.path.exists(file):
             raise Exception("RadialProfile must be passed an existing file")
