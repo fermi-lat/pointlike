@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.79 2012/02/03 23:30:38 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.80 2012/02/07 18:45:07 kadrlica Exp $
 
    author: Joshua Lande
 
@@ -952,6 +952,10 @@ class InterpProfile(RadiallySymmetricModel):
 
             Note that the normalization of the numeric gaussian is wrong, but 
             will be renormalized anyway.
+
+                >>> np.allclose(gauss.at_r_in_deg(r),pdf/numeric_gauss.scalefactor,
+                ...             rtol=1e-5,atol=1e-5)
+                True
 
             Note that spatial model is the same as Gaussian, even for oddly spaced points:
 
