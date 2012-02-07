@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Feb  7 12:42:30 PST 2012
+ScienceTools-scons/pointlike/python/uw/darkmatter
+
+Added Files:
+	__init__.py 
+Log Message:
+Every module needs an __init__
+    *
+------------------------------------------------------------
 User: kadrlica  Tue Feb  7 12:22:25 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
