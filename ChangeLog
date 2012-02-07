@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Tue Feb  7 13:01:41 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	diffuse.py 
+Log Message:
+Handle an exception that arises in writing a skymodel to xml.
+
+    *
+------------------------------------------------------------
 User: wallacee  Tue Feb  7 13:00:55 PST 2012
 pointlike/python/uw/like2
 
