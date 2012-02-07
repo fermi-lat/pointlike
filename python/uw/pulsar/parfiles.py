@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from uw.utilities.coords import ec2eq
 
 C = 29979245800.
@@ -14,6 +15,8 @@ def decl2dec(s): return sex2dec(s,mode='decl')
 class ParFile(dict):
 
     def __init__(self,parfile):
+        if not os.path.exists(parfile):
+            raise IOError('Indicated file %s does not exist.'%parfile)
         self.parfile = parfile
         self.ordered_keys = []
         for line in file(parfile):
