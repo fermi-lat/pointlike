@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Tue Feb  7 13:03:51 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	roisetup.py 
+Log Message:
+Allow for setting up an roi from a data.dataman.DataSet instead of a like2.dataset.DataSet
+
+    *
+------------------------------------------------------------
 User: wallacee  Tue Feb  7 13:01:41 PST 2012
 pointlike/python/uw/like2
 
