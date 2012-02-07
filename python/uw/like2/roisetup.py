@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.7 2011/12/06 22:14:08 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.8 2012/01/27 15:07:14 burnett Exp $
 
 """
 import os, types
@@ -9,7 +9,8 @@ import numpy as np
 import skymaps
 from . import dataset, skymodel, diffuse
 from .. utilities import keyword_options, convolution
-from .. like import roi_extended, pypsf
+from .. like import roi_extended, pypsf, pycaldb, pointspec2, roi_bands
+from .. data import dataman
 
         
 class ExposureManager(object):
@@ -90,6 +91,7 @@ class ROIfactory(object):
                             num_points=25), # AnalyticConvolution
                                     'convolution parameters'),
         ('selector', skymodel.HEALPixSourceSelector,' factory of SourceSelector objects'),
+        ('interval', 0, 'Data interval (e.g., month) to use'),
         ('quiet', False, 'set to suppress most output'),
         )
 
@@ -107,10 +109,20 @@ class ROIfactory(object):
         keyword_options.process(self, kwargs)
         print 'ROIfactory setup: \n\tskymodel: ', modeldir
         self.skymodel = skymodel.SkyModel(modeldir,  **self.skymodel_kw)
-        datadict = dict(dataname=dataspec) if type(dataspec)!=types.DictType else dataspec
-        print '\tdatadict:', datadict
-        self.dataset = dataset.DataSet(datadict['dataname'], **self.analysis_kw)
-        self.exposure  = ExposureManager(self.dataset, **datadict)
+        if isinstance(dataspec,dataman.DataSet):
+            self.dataset = dataspec
+            self.dataset.CALDBManager = pycaldb.CALDBManager(irf = self.analysis_kw.get('irf',None),
+                                                             psf_irf = self.analysis_kw.get('psf_irf',None),
+                                                             CALDB = self.analysis_kw.get('CALDB',None),
+                                                             custom_irf_dir=self.analysis_kw.get("irfdir",None))
+            self.data_manager = self.dataset(self.interval) #need to save a reference to avoid a segfault
+            self.exposure = pointspec2.ExposureManager(self.data_manager,self.dataset.CALDBManager)
+
+            self.exposure.correction = [lambda e: 1,lambda e : 1] #TODO
+        else:
+            datadict = dict(dataname=dataspec) if type(dataspec)!=types.DictType else dataspec
+            self.dataset = dataset.DataSet(datadict['dataname'], **self.analysis_kw)
+            self.exposure  = ExposureManager(self.dataset, **datadict)
         self.psf = pypsf.CALDBPsf(self.dataset.CALDBManager)
  
         convolution.AnalyticConvolution.set_points(self.convolve_kw['num_points'])
@@ -161,9 +173,20 @@ class ROIfactory(object):
                 return 'ROIdef for %s' %self.name
         skydir = src_sel.skydir()  
         global_sources, extended_sources = self._diffuse_sources(src_sel)
+        if isinstance(self.dataset,dataman.DataSet):
+            bandsel = BandSelector(self.data_manager,
+                                   self.psf,
+                                   self.exposure,
+                                   skydir)
+            bands = bandsel(minROI = self.analysis_kw['minROI'],
+                            maxROI = self.analysis_kw['maxROI'],
+                            emin = self.analysis_kw['emin'],
+                            emax = self.analysis_kw['emax'])
+        else:
+            bands = self.dataset(self.psf,self.exposure,skydir)
         return ROIdef( name=src_sel.name() ,
                     roi_dir=skydir, 
-                    bands=self.dataset(self.psf, self.exposure, skydir), 
+                    bands=bands,
                     global_sources=global_sources,
                     extended_sources = extended_sources,
                     point_sources=self._local_sources(src_sel), 
@@ -172,6 +195,33 @@ class ROIfactory(object):
     def __call__(self, *pars, **kwargs):
         """ alias for roi() """
         return self.roi(*pars, **kwargs)
+
+class BandSelector(object):
+    """Class to handle selection of bands with new data management code.
+    
+    Should be moved somewhere more sensible."""
+
+    def __init__(self,data_manager,psf,exposure,roi_dir):
+        class SA(object):
+            def __init__(self,**kw):self.__dict__.update(kw)
+        #make sure exposure is the right kind of ExposureManager and that
+        #data_manager is the same one use for the exposure
+        assert(hasattr(exposure,'data_manager'))
+        data_manager.dataspec.check_consistency(exposure.data_manager.dataspec)
+        self.sa = SA(psf=psf,exposure=exposure)
+        self.data_manager = data_manager
+        self.roi_dir = roi_dir
+    
+    def __call__(self,minROI=7,maxROI=7,emin=100,emax=1e6,band_kw=dict()):
+        self.sa.minROI = minROI
+        self.sa.maxROI = maxROI
+        bands = []
+        for i,band in enumerate(self.data_manager.bpd):
+            if (band.emin() + 1) >= emin and (band.emax() - 1) < emax:
+                bands.append(roi_bands.ROIBand(band, self.sa, self.roi_dir,**band_kw))
+        return np.asarray(bands)
+
+        
 
 def main(indir='uw27', dataname='P7_V4_SOURCE_4bpd',irf='P7SOURCE_V6' ,skymodel_kw={}):
     rf = ROIfactory(indir, dataname, **skymodel_kw)
