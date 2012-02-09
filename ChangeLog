@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Wed Feb  8 18:12:30 PST 2012
+pointlike/python/uw/darkmatter
+
+Added Files:
+	jvalue_table.pkl 
+Log Message:
+Pickled python dictionary of jvalues for NFW, Einasto, and Burkert profiles as a function of offset angle and spatial extension
+    *
+------------------------------------------------------------
 User: kadrlica  Wed Feb  8 18:11:28 PST 2012
 pointlike/python/uw/darkmatter
 
