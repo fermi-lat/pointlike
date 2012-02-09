@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Wed Feb  8 18:11:28 PST 2012
+pointlike/python/uw/darkmatter
+
+Added Files:
+	spatial.py 
+Log Message:
+Added NFW, Einasto, and Burkert spatial models inheriting from InterpProfile2D
+    *
+------------------------------------------------------------
 User: wallacee  Tue Feb  7 13:03:51 PST 2012
 pointlike/python/uw/like2
 
