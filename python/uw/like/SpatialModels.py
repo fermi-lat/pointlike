@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.80 2012/02/07 18:45:07 kadrlica Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.81 2012/02/07 20:22:25 kadrlica Exp $
 
    author: Joshua Lande
 
@@ -987,7 +987,12 @@ class InterpProfile(RadiallySymmetricModel):
         normed_pdf = self.pdf/max(self.pdf)
         
         # Explicitly normalize the RadialProfile.
-        interp = interp1d(r_in_radians,normed_pdf,kind=self.kind,bounds_error=False,fill_value=0)
+        if self.kind == 'log':
+            log_interp = interp1d(r_in_radians,np.log10(normed_pdf),
+                                  kind='linear',bounds_error=False,fill_value=-np.inf)
+            interp = lambda r: 10**(log_interp(r))
+        else:
+            interp = interp1d(r_in_radians,normed_pdf,kind=self.kind,bounds_error=False,fill_value=0)
 
         # Note that this formula assumes that space is flat, which
         # is incorrect. But the rest of the objects in this file
@@ -1000,9 +1005,14 @@ class InterpProfile(RadiallySymmetricModel):
 
         normed_pdf /= integral
 
-        # redo normalized interpolation
-        interp = interp1d(self.r_in_degrees,normed_pdf,kind=self.kind,bounds_error=False,fill_value=0)
-
+        # redo normalized interpolation in degrees
+        if self.kind == 'log':
+            log_interp = interp1d(self.r_in_degrees,np.log10(normed_pdf),
+                                  kind='linear',bounds_error=False,fill_value=-np.inf)
+            interp = lambda r: 10**(log_interp(r))
+        else:
+            interp = interp1d(self.r_in_degrees,normed_pdf,kind=self.kind,bounds_error=False,fill_value=0)   
+            
         return interp, normed_pdf
 
     def get_pdf(self):
@@ -1042,12 +1052,11 @@ class InterpProfile(RadiallySymmetricModel):
 
 class InterpProfile2D(InterpProfile):
     default_p = [1]
-    param_names = ['Sigma']
-    limits = [[SMALL_ANALYTIC_EXTENSION,10]]
+    param_names = ['Sigma'] # limits set in __init__
     log = [True]
     steps = [0.04]
 
-    def __init__(self, r_in_degrees, sigmas, pdf2d, kind='linear',**kwargs):
+    def __init__(self, r_in_degrees, sigmas, pdf2d, kind='log',**kwargs):
         """ Define a spatial model from a 2D interpolation of a pdf 
             as a function of the offset angle, r_in_degrees, and the extension, sigma.
             
@@ -1080,7 +1089,7 @@ class InterpProfile2D(InterpProfile):
                 True
         """
         self.pdf2d, self.sigmas = pdf2d, sigmas
-
+        self.limits = [[min(self.sigmas),max(self.sigmas)]]
         super(InterpProfile2D,self).__init__(r_in_degrees=r_in_degrees,pdf=None,kind=kind,**kwargs)
 
     def cache(self):
