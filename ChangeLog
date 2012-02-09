@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Thu Feb  9 01:03:55 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Add log-space interpolation and make the default for InterpProfile2D
+    *
+------------------------------------------------------------
 User: kadrlica  Wed Feb  8 18:12:30 PST 2012
 pointlike/python/uw/darkmatter
 
