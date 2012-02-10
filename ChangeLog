@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Fri Feb 10 13:11:16 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+Option to run gtmktime after simulating photons.
+    *
+------------------------------------------------------------
 User: kerrm  Fri Feb 10 11:27:01 PST 2012
 pointlike/python/uw/pulsar
 
