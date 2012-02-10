@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.31 2012/02/04 01:30:47 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.32 2012/02/04 01:33:16 lande Exp $
 
 author: Joshua Lande
 """
@@ -25,7 +25,7 @@ from . pointspec_helpers import PointSource,PointSourceCatalog
 from . roi_extended import ExtendedSource
 from . SpatialModels import Gaussian,EllipticalGaussian,SpatialModel,RadiallySymmetricModel,SpatialMap
 
-from uw.utilities import keyword_options 
+from uw.utilities import keyword_options
 
 class NoSimulatedPhotons(Exception):
     pass
@@ -55,7 +55,8 @@ class MonteCarlo(object):
             ('maxROI',          None, "Maximum ROI Size. Gtobssim will use the use_ac flag if this is specified."),
             ('quiet',          False, "Surpress output."),
             ('mc_energy',      False, "Use MC Energy"),
-            ('store_output',   False, "store temporary output, for debugging"),
+            ('store_output',   False, "Store temporary output, for debugging"),
+            ('gti_filter',      None, "Run gtmktime to select GTIs, should be run for pre-existing ltcubs."),
     )
 
     @staticmethod
@@ -535,7 +536,7 @@ class MonteCarlo(object):
             else:
                 return self._make_extended_source(ds,indent)
         else:
-            raise Exception("Can not simulae diffuse source %s. Unknown diffuse source type %s." % (ds.name,type(ds)))
+            raise Exception("Can not simulate diffuse source %s. Unknown diffuse source type %s." % (ds.name,type(ds)))
             
     def _make_model(self,savedir,indent='  '):
 
@@ -569,6 +570,18 @@ class MonteCarlo(object):
         temp=open(self.srclist,'w')
         temp.write('\n'.join(src))
         temp.close()
+
+    def mktime(self,ft1,filter,roicut='no'):
+        if not self.quiet: print "Running gtmktime ..."
+        outfile=os.path.splitext(ft1)[0] + "_mktime" + os.path.splitext(ft1)[1]
+        app=GtApp('gtmktime')
+        app.run(evfile=ft1,
+                outfile=outfile,
+                scfile=self.ft2,
+                filter=filter,
+                roicut=roicut)
+        if not self.quiet: print "Running gtmktime ..."
+        return outfile
 
     def simulate(self,**kwargs):
         ''' understands all keywords that GtApp.run() can handle, especially dry_run=True and verbosity=X '''
@@ -624,6 +637,11 @@ class MonteCarlo(object):
 
         ft1=os.path.join(self.tempdir,'sim_events_0000.fits')
         if os.path.exists(ft1):
+            if self.ft2 is not None:
+                if self.gti_filter is not None:
+                    ft1 = self.mktime(ft1,self.gti_filter)
+                else:
+                    print "WARNING: No mktime cut with existing FT2 file. GTIs may not match an existing ltcube."
             shutil.copy(ft1,self.ft1)
         else:
             raise NoSimulatedPhotons()
@@ -632,6 +650,7 @@ class MonteCarlo(object):
         ft2=os.path.join(self.tempdir,'sim_scData_0000.fits')
         if self.ft2 is not None and not os.path.exists(self.ft2): 
             shutil.copy(ft2,self.ft2)
+
 
     def __del__(self):
         """ Remove folder with simulation stuff. """
