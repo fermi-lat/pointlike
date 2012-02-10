@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.32 2012/02/04 01:33:16 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.33 2012/02/10 21:11:16 kadrlica Exp $
 
 author: Joshua Lande
 """
@@ -22,6 +22,7 @@ from . SpatialModels import Gaussian,EllipticalGaussian,RadiallySymmetricModel
 from . Models import PowerLaw,PowerLawFlux,Constant,FileFunction
 from . pointspec import DataSpecification,SpectralAnalysis
 from . pointspec_helpers import PointSource,PointSourceCatalog
+from . roi_diffuse import DiffuseSource
 from . roi_extended import ExtendedSource
 from . SpatialModels import Gaussian,EllipticalGaussian,SpatialModel,RadiallySymmetricModel,SpatialMap
 
@@ -40,8 +41,6 @@ class MonteCarlo(object):
         history. Otherwise, a default rocking profile will be used.  """
 
     defaults = (
-            ('point_sources',     [], "List of Point Sources to use in the simulation.."),
-            ('diffuse_sources',   [], "List of Diffuse Sources to use in the simulation."),
             ('seed',               0, "Random number generator seen when running obssim. This should be varied for simulations."),
             ('tempbase', '/scratch/', "Directory to put temporary files in. Can be cleaned up with the cleanup function."),
             ('tstart',          None, "Required if ft2 does not point to a real file."),
@@ -64,12 +63,13 @@ class MonteCarlo(object):
         return re.sub('[ \.()]','',name)
 
     @keyword_options.decorate(defaults)
-    def __init__(self,ft1,irf,**kwargs):
+    def __init__(self,ft1,irf, sources, **kwargs):
         """ Constructor does not require a data_specification. """
         keyword_options.process(self, kwargs)
 
         self.ft1=ft1
         self.irf=irf
+        self.sources=sources
 
         if not isinstance(self.ft1,types.StringType):
             if len(self.ft1) != 1: raise Exception(dedent("""\
@@ -543,11 +543,18 @@ class MonteCarlo(object):
         xml = ['<source_library title="Library">']
         src = []
 
-        if not isinstance(self.point_sources,collections.Iterable):
-            self.point_sources=[self.point_sources]
+        self.point_sources = []
+        self.diffuse_sources = []
 
-        if not isinstance(self.diffuse_sources,collections.Iterable):
-            self.diffuse_sources=[self.diffuse_sources]
+        if not isinstance(self.sources,collections.Iterable): 
+            self.sources=[self.sources]
+
+        for source in self.sources:
+            assert isinstance(source,PointSource) or isinstance(source,DiffuseSource)
+            if isinstance(source,PointSource):
+                self.point_sources.append(source)
+            elif isinstance(source,DiffuseSource):
+                self.diffuse_sources.append(source)
 
         for ps in self.point_sources:
             if not self.quiet: print 'Processing source %s' % ps.name
@@ -655,6 +662,7 @@ class MonteCarlo(object):
     def __del__(self):
         """ Remove folder with simulation stuff. """
         if hasattr(self,'tempdir') and os.path.exists(self.tempdir):
+            if not self.quiet: print 'Removing tempdir',self.tempdir
             shutil.rmtree(self.tempdir)
 
 
@@ -720,8 +728,7 @@ class SpectralAnalysisMC(SpectralAnalysis):
 
         monte_carlo=MonteCarlo(
             ft1=self.dataspec.ft1files, 
-            point_sources=point_sources, 
-            diffuse_sources=diffuse_sources,
+            sources = point_sources + diffuse_sources,
             seed=self.seed, 
             tempbase=self.tempbase,
             tstart=self.tstart,
