@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Fri Feb 10 11:27:01 PST 2012
+pointlike/python/uw/pulsar
+
+Added Files:
+	radio_profile.py 
+Log Message:
+Added a module to handle 2PC radio profiles.
+
+    *
+------------------------------------------------------------
 User: lande  Fri Feb 10 09:03:37 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
