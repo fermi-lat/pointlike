@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.81 2012/02/07 20:22:25 kadrlica Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.82 2012/02/09 09:03:54 kadrlica Exp $
 
    author: Joshua Lande
 
@@ -15,7 +15,7 @@ from scipy.interpolate import interp1d, griddata
 from scipy.integrate import quad
 from scipy.optimize import fmin
 from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
-        SkyImage,SkyIntegrator,CompositeSkyFunction
+        SkyImage,SkyIntegrator,CompositeSkyFunction,PythonUtilities
 from abc import abstractmethod
 
 SMALL_ANALYTIC_EXTENSION=1e-10
@@ -429,6 +429,21 @@ class SpatialModel(object):
                        True if self.coordsystem == SkyDir.GALACTIC else False,False)
         skyfunction=self.get_PySkyFunction()
         image.fill(skyfunction)
+
+        # Here, explicitly renormalize template to account for issues due to
+        # coarse pixelization
+
+        data = np.asarray(image.image())
+
+        # This should be 1 if the template was correctly normalized
+        normalization = np.sum(data)*np.radians(pixelsize)**2
+
+        normed_data = data/normalization
+
+        wsdl = image.get_wsdl()
+        PythonUtilities.set_wsdl_weights(normed_data,wsdl)
+        image.set_wsdl(wsdl)
+
         image.save()
 
     def __str__(self, indent=''):
