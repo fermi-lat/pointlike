@@ -1,7 +1,7 @@
 """
 Code to plot TS maps
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.4 2012/01/27 15:07:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/plotting/tsmap.py,v 1.5 2012/01/29 02:01:53 burnett Exp $
 
 """
 import math, os
@@ -52,8 +52,9 @@ def plot(localizer, name=None, center=None, size=0.5, pixelsize=None, outdir=Non
     if name is None: name=localizer.source.name
     sdir = center if center is not None else localizer.skydir
     if axes is None: 
-        plt.figure(fignum,figsize=(4,4)); 
-        axes = plt.gca()
+        fig = plt.figure(fignum,figsize=(4,4)); 
+        fig.clf()
+        axes = fig.gca()
     
     tsp = image.TSplot(localizer.TSmap, sdir, size, 
                 pixelsize=pixelsize if pixelsize is not None else size/20. , 
