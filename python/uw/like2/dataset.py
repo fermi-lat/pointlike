@@ -1,18 +1,17 @@
 """  
  Setup the ROIband objects for an ROI
  
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.9 2012/01/11 14:09:17 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/dataset.py,v 1.10 2012/01/29 02:01:53 burnett Exp $
 
     authors: T Burnett, M Kerr, J. Lande
 """
-version='$Revision: 1.9 $'.split()[1]
+version='$Revision: 1.10 $'.split()[1]
 import os, glob, types 
 import cPickle as pickle
 import numpy as np
 import skymaps
 from ..like import pycaldb, roi_bands
 from ..data import dataman
-from ..data.dataman import DataSpec
 
 from ..utilities import keyword_options
 
@@ -65,7 +64,7 @@ class DataSet(dataman.DataSpec):
         
         ' new feature',
         ('pickle', None, 'pickled dataspec'),
-        ('legacy', True, 'set True to read old files'),
+        ('legacy', False, 'set True to read old files'),
         
         'keywords controlling instrument response',
         ('irf',None,'Which IRF to use'),
@@ -113,6 +112,7 @@ class DataSet(dataman.DataSpec):
         """ Parse the dataset as either a DataSpecification object, a dict, or a string lookup key.
             month: sub spec.
         """
+        self.name= ''
         if hasattr(dataset,'binfile'): # dataset is DataSpecification instance
             return dataset
         if hasattr(dataset,'pop'): # dataset is a dict
@@ -121,6 +121,7 @@ class DataSet(dataman.DataSpec):
             dataman.DataSpec.datasets[id(dataset)] = dataset
             return dataman.DataSpec(id(dataset),month=month)
         # it is a string, check dictionary in ., then $FERMI/data
+        self.name=dataset
         folders = ['.'] + glob.glob( os.path.join(os.path.expandvars('$FERMI'),'data'))
         for folder in folders :
             dict_file=os.path.join(folder, 'dataspec.py')
@@ -182,8 +183,39 @@ class DataSet(dataman.DataSpec):
             total += band.photons()
         print >>out, 'total%45s'% bignum(total)
 
-        #self.dmap.info()
-
+    def dss_info(self, indent=''):   
+        """ return a formatted table of the DSS keywords
+        """
+        s = indent+'DSS: %-15s  %-10s%-10s%-10s\n'% tuple('name value units ref'.split() )
+        s+= indent
+        s+= indent.join(['       %-15s  %-10s%-9s %s\n' %\
+            (dss['TYP'],dss['VAL'],dss['UNI'],dss['REF'] ) for dss in self.dss])
+        return s
+    
+    def __str__(self):
+        """ Pretty print of cuts/data."""
+        s = [] #collections.deque()
+        s.append('Bins per decade: {0}'.format(self.binsperdec))
+        def process_ft(label, files):
+            if files is None: 
+                s.append(label + '\tNone')
+                return
+            s.append(label)
+            if len(files) < 10:
+                s.append('\n\t'.join(files))
+            else:
+                s.append('\n\t'.join(files[:5]))
+                s.append('...')
+                s.append('\n\t'.join(files[-5:]))
+        process_ft('FT1 files: ',self.ft1files)
+        process_ft('FT2 files: ',self.ft2files)
+        s.append('Binned data:   {0}'.format(self.binfile))
+        s.append('           :  %d photons, %d energy bands from %d to %d MeV'\
+                % (self.dmap.photonCount(), len(self.dmap), self.dmap[1].emin(), self.dmap[len(self.dmap)-1].emax()))
+        s.append('Livetime cube: {0}'.format(self.ltcube))
+        s.append(self.gti.__str__())
+        s.append(self.dss_info())
+        return 'dataset "%s":\n  '%self.name+'\n  '.join(s)
 
 def main(datadict=dict(dataname='P7_V4_SOURCE_4bpd'), analysis_kw=dict(irf='P7SOURCE_V6')):
     """ for testing: must define a dataset, and and at least an IRF"""
