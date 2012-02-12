@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Feb 12 15:26:13 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	stats.py 
+Log Message:
+Modify functions to allow calcultion of sigma for ~arbitrarily large H.  Note that sf_hm is no longer vectorized, which may break code that relies on this interface.
+
+    *
+------------------------------------------------------------
 User: burnett  Sun Feb 12 12:22:45 PST 2012
 pointlike/python/uw/like
 
