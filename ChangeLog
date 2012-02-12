@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb 12 12:06:59 PST 2012
+pointlike/python/uw/like2/pub
+
+Modified Files:
+	healpix_map.py publish.py 
+Log Message:
+back to nside=512 default
+    *
+------------------------------------------------------------
 User: burnett  Sun Feb 12 12:05:42 PST 2012
 pointlike/python/uw/like2/plotting
 
