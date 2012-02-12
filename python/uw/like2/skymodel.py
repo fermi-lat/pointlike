@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.9 2012/01/30 22:44:34 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.11 2012/02/07 21:00:55 wallacee Exp $
 
 """
 import os, pickle, glob, types, collections
@@ -28,7 +28,6 @@ class SkyModel(object):
         ('extended_catalog_name', None,  'name of folder with extended info\n'
                                          'if None, look it up in the config.txt file\n'
                                          'if "ignore", create model without extended sources'),
-        ('alias', dict(), 'dictionary of aliases to use for lookup'),
         ('diffuse', None,   'set of diffuse file names; if None, expect config to have'),
         ('auxcat', None, 'name of auxilliary catalog of point sources to append or names to remove',),
         ('newmodel', None, 'if not None, a string to eval\ndefault new model to apply to appended sources'),
@@ -138,7 +137,7 @@ class SkyModel(object):
             os.path.expandvars(os.path.join('$FERMI','catalog',self.extended_catalog_name))
         if not os.path.exists(extended_catalog_name):
             raise Exception('extended source folder "%s" not found' % extended_catalog_name)
-        self.extended_catalog= sources.ExtendedCatalog(extended_catalog_name, alias=self.alias)
+        self.extended_catalog= sources.ExtendedCatalog(extended_catalog_name)
         #print 'Loaded extended catalog %s' % self.extended_catalog_name
         
     def _load_sources(self):
@@ -299,8 +298,9 @@ class SkyModel(object):
             
         return globals, extended
 
-    def toXML(self,filename, ts_min=None, title=None, gtlike = False):
+    def toXML(self,filename, ts_min=None, title=None, source_filter=lambda x:True, strict=False, gtlike = False):
         """ generate a file with the XML version of the sources in the model
+        source_filter:  a function to apply
         """
         catrec = self.source_rec()
         point_sources = self.point_sources if ts_min is None else filter(lambda s: s.ts>ts_min, self.point_sources)
@@ -313,7 +313,7 @@ class SkyModel(object):
             return 'Pivot_Energy="%.1f" TS="%.1f"' % (e0, s.ts)
         stacks= [
             xml_parsers.unparse_diffuse_sources(self.extended_sources,convert_extended=True,filename=filename),
-            xml_parsers.unparse_point_sources(point_sources,strict=True, properties=pointsource_properties),
+            xml_parsers.unparse_point_sources(point_sources,strict=strict, properties=pointsource_properties),
         ]
         gs_xml = self._global_sources_to_xml(filename)
         with open(filename,'wb') as f:
@@ -693,5 +693,15 @@ class FluxFreeOnly(object):
     def __call__(self, source):
         if np.any(source.free):
             source.free[1:]=False
+        return True
+  
+class FreeIndex(object):
+    """ make sure all spectral indices are free"""
+    def __init__(self):
+        pass
+    def __call__(self, ps):
+        model = ps.model
+        if ps.model.name=='LogParabola':
+            ps.free[1]=True
         return True
 
