@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb 12 12:09:29 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	main.py 
+Log Message:
+use source_name consistently to select a source
+    *
+------------------------------------------------------------
 User: burnett  Sun Feb 12 12:08:22 PST 2012
 pointlike/python/uw/like2/pipeline
 
