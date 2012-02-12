@@ -1,7 +1,7 @@
 """
 Top-level code for ROI analysis
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.16 2012/01/27 15:07:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/main.py,v 1.17 2012/01/29 02:01:53 burnett Exp $
 
 """
 import types
@@ -149,10 +149,10 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
     
     def get_sources(self):
         return [ s for s in self.sources if s.skydir is not None]
-    def get_model(self, name):
-        return self.get_source(name).spectral_model
-    def get_source(self, name):
-        return self.sources.find_source(name)
+    def get_model(self, source_name=None):
+        return self.get_source(source_name).spectral_model
+    def get_source(self, source_name=None):
+        return self.sources.find_source(source_name)
         
     def summary(self, select=None, out=None, title=None, gradient=True):
         """ summary table of free parameters, values uncertainties gradient
@@ -267,14 +267,17 @@ class ROI_user(roistat.ROIstat, fitter.Fitted):
     def find_associations(self, source_name=None, classes='all'):
         """ find associations, using srcid object.
         """
-        if not hasattr(self,'srcid'):
-            from uw.like2.pipeline import associate
-            self.srcid=associate.SrcId('$FERMI/catalog',classes)
-        source = self.sources.find_source(source_name)
-        with localization.Localization(self, source.name, quiet=True) as loc:
-            if not hasattr(source, 'ellipse'):
-                loc.localize()
-            localization.make_association(source, loc.TSmap, self.srcid)
+        try:
+            if not hasattr(self,'srcid'):
+                from uw.like2.pipeline import associate
+                self.srcid=associate.SrcId('$FERMI/catalog',classes)
+            source = self.sources.find_source(source_name)
+            with localization.Localization(self, source.name, quiet=True) as loc:
+                if not hasattr(source, 'ellipse'):
+                    loc.localize()
+                localization.make_association(source, loc.TSmap, self.srcid)
+        except Exception, msg:
+            print 'Failed to find associations for %s: %s' % (self.get_source().name, msg)
             
     @property
     def bounds(self):
@@ -334,13 +337,14 @@ class Factory(roisetup.ROIfactory):
             raise Exception( 'factory argument "%s" not recognized.' %sel)
         roi = ROI_user(super(Factory,self).__call__(index))
         ## preselect the given source after setting up the ROI
-        if source_name is not None: roi.sources.find_source(source_name)
-        assert source_name==roi.sources.selected_source.name
+        if source_name is not None: 
+            roi.sources.find_source(source_name)
+            assert source_name==roi.sources.selected_source.name
         return roi
 
 
 @decorate_with(roisetup.ROIfactory, append_init=True)
-def factory(  modeldir, dataspec,     **kwargs    ):
+def factory(  modeldir, dataspec=None,     **kwargs    ):
     """ will then return a ROI_user object 
     """
     return Factory(modeldir,  dataspec,  **kwargs)
