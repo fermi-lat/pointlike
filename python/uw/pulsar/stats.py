@@ -2,7 +2,7 @@
 A module collecting various routines for calculating pulsation test
 test statistics and helper functions.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/stats.py,v 1.3 2011/03/07 01:00:53 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/stats.py,v 1.4 2011/07/08 23:05:48 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 """
@@ -25,7 +25,7 @@ def from_array(x):
     return x
 
 
-def sig2sigma(sig,two_tailed=True):
+def sig2sigma(sig,two_tailed=True,logprob=False):
     """Convert tail probability to "sigma" units, i.e., find the value of the 
        argument for the normal distribution beyond which the integrated tail
        probability is sig.  Note that the default is to interpret this number
@@ -34,20 +34,25 @@ def sig2sigma(sig,two_tailed=True):
        
        args
        ----
-       sig     the change probability
+       sig     the chance probability
 
        kwargs
        ------
        two_tailed [True] interpret sig as two-tailed or one-tailed
                           probability in converting
+       logprob [False] if True, the argument is the natural logarithm
+                       of the probability
     """
     from scipy.special import erfc,erfcinv
     from scipy.optimize import fsolve
 
     sig     = to_array(sig)
+    if logprob:
+        logsig = sig.copy()
+        sig = np.exp(sig)
     results = np.empty_like(sig)
 
-    if np.any( (sig > 1) | (sig <= 0 ) ):
+    if np.any( (sig > 1) | (not logprob and sig <= 0 ) ):
         raise ValueError('Probability must be between 0 and 1.')
 
     if not two_tailed: sig *= 2
@@ -57,7 +62,10 @@ def sig2sigma(sig,two_tailed=True):
 
     for isig,mysig in enumerate(sig):
         if mysig < 1e-120: # approx on asymptotic erfc
-            x0 = (-2*np.log(mysig*(np.pi)**0.5))**0.5
+            if logprob:
+                x0 = (-2*(logsig + np.log(np.pi**0.5)))**0.5
+            else:
+                x0 = (-2*np.log(mysig*(np.pi)**0.5))**0.5
             results[isig] = x0 - np.log(x0)/(1+2*x0)
         elif mysig > 1e-15:
             results[isig] = erfcinv(mysig)*2**0.5
@@ -195,12 +203,16 @@ def hmw(phases,weights,m=20,c=4):
     return ( (2./(weights**2).sum()) * np.cumsum(s) - c*np.arange(0,m) ).max()
 
 
-@vec
-def sf_hm(h,m=20,c=4):
-    """Return (analytic, asymptotic) survival function (1-F(h))
-       for the generalized H-test.
-       See M. Kerr dissertation for more details and docstring
-       for hm.
+#@vec
+def sf_hm(h,m=20,c=4,logprob=False):
+    """ Return (analytic, asymptotic) survival function (1-F(h))
+        for the generalized H-test.
+        For more details see:
+            docstring for hm
+            M. Kerr dissertation (arXiv:1101.6072)
+            Kerr, ApJ 732, 38, 2011 (arXiv:1103.2128)
+
+        logprob [False] return natural logarithm of probability
     """
     if h < 1e-16: return 1.
     from numpy import exp,arange,log,empty
@@ -216,7 +228,15 @@ def sf_hm(h,m=20,c=4):
 
     # next, develop the integrals in the power series
     alpha = 0.5*exp(-0.5*c)
-    return exp(-0.5*h)*(alpha**arange(0,m)*ints).sum()
+    if not logprob:
+        return exp(-0.5*h)*(alpha**arange(0,m)*ints).sum()
+    else:
+        #NB -- this has NOT been tested for partial underflow
+        return (-0.5*h+np.log((alpha**arange(0,m)*ints).sum()))
+
+def h2sig(h):
+    """ Shortcut function for calculating sigma from the H-test."""
+    return sig2sigma(sf_hm(h,logprob=True),logprob=True)
 
 @vec
 def sf_h20_dj1989(h):
