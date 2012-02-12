@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb 12 12:20:19 PST 2012
+pointlike/python/uw/like
+
+Modified Files:
+	pycaldb.py 
+Log Message:
+robust treatment of custom irf dir
+    *
+------------------------------------------------------------
 User: burnett  Sun Feb 12 12:19:04 PST 2012
 pointlike/python/uw/like
 
