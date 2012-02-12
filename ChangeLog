@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb 12 12:08:22 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py processor.py 
+Log Message:
+updates for notebook convenience, improve defaults
+    *
+------------------------------------------------------------
 User: burnett  Sun Feb 12 12:06:59 PST 2012
 pointlike/python/uw/like2/pub
 
