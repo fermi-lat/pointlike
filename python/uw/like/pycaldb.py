@@ -1,5 +1,5 @@
 """  A module to handle finding irfs
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pycaldb.py,v 1.7 2011/04/24 02:40:17 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pycaldb.py,v 1.8 2011/05/02 20:45:47 lande Exp $
 
     author: Joshua Lande """
 import os
@@ -22,7 +22,7 @@ class CALDBManager(object):
     defaults=(
         ('psf_irf',None,'specify a different IRF to use for the PSF'),
         ('CALDB',None,'override the CALDB specified by the env. variable or by py_facilities'),
-        ('custom_irf_dir',None,'')
+        ('custom_irf_dir',None,'override the irf dir specified by the env. variable CUSTOM_IRF_DIR'),
     )
 
     @keyword_options.decorate(defaults)
@@ -46,11 +46,10 @@ class CALDBManager(object):
             if not os.path.exists(self.custom_irf_dir):
                 raise Exception("custom_irf_dir %s does not exist" % self.custom_irf_dir)
         else:
-            try:
-                self.custom_irf_dir = os.environ['CUSTOM_IRF_DIR']
-            except:
-                self.custom_irf_dir = None
-
+            self.custom_irf_dir = os.environ.get('CUSTOM_IRF_DIR', None)
+        if self.custom_irf_dir is not None:
+            print 'CALDBManager: using custom irf: %s' % self.custom_irf_dir
+            
         self.bcf = join(self.CALDB,'bcf')
 
         if not os.path.exists(self.bcf):
