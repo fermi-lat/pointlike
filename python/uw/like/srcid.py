@@ -3,8 +3,8 @@ Python support for source association, equivalent to the Fermi Science Tool gtsr
 author:  Eric Wallace <wallacee@uw.edu>
 """
 
-__version__ = "$Revision: 1.30 $"
-#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.30 2011/12/07 21:20:42 wallacee Exp $
+__version__ = "$Revision: 1.31 $"
+#$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/srcid.py,v 1.31 2011/12/08 00:11:52 wallacee Exp $
 
 import os
 import sys
@@ -122,6 +122,7 @@ class SourceAssociation(object):
             raise SrcidError("Counterpart class %s not found."%kw['cpt_class'])
         if not self.catalogs.has_key(kw['cpt_class']):
             self.catalogs[kw['cpt_class']] = Catalog(class_module,self.catalog_dir,verbosity=self.verbosity)
+            #print 'loaded catalog %s' %class_module
         these = self.catalogs[kw['cpt_class']].associate(position,error,
                                                          trap_mask=kw['trap_mask'],
                                                          unique = kw['unique'],
@@ -649,8 +650,10 @@ class CatalogSource(object):
         ring_rad = error_ellipse[0]*(-2*np.log(1-.95))**.5*5/2
         if ring_rad <4:
             ring_rad = 4
+        denom = self.positional_likelihood(position,error_ellipse)*self.prior_probability()
+        if denom==0: return 0
         arg = (self.chance_probability(position,radius=ring_rad,trap_mask=trap_mask)*
-               (1-self.prior_probability())/(self.positional_likelihood(position,error_ellipse)*self.prior_probability()))
+               (1-self.prior_probability())/denom)
         prob = self.fom/(1.+arg)
         if prob > 1e-8:
             return prob
@@ -717,7 +720,8 @@ def trap_mask(ras,decs,cut_dir,radius):
               np.logical_or(ras<min(ra_min,ra_max),ras>max(ra_min,ra_max)))
     return np.logical_and(dec_mask,ra_mask)
 
-if __name__=='__main__':
+def test():
+
     assoc = SourceAssociation()
     #3C 454.3
     pos, error = skymaps.SkyDir(343.495,16.149), .016/2.45*1.51
@@ -733,3 +737,6 @@ if __name__=='__main__':
     #Test for correct failure for wrong length list
     #error = [.5]*4
     #print(assoc.id(pos,error,'obj-agn',.039,.9735))
+    
+if __name__=='__main__':
+    test()
