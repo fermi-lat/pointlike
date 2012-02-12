@@ -1,11 +1,11 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.8 2011/12/29 19:17:00 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.9 2012/01/11 14:03:25 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
 import numpy as np
-from . import processor,  engines
+from . import processor,  engines, associate
 from .. import main, roisetup, skymodel
 from uw.utilities import makerec
 
@@ -80,36 +80,35 @@ class Pipe(roisetup.ROIfactory):
         
 
 class Setup(dict):
-    """ Setup is a dictionary with variable run parameters
+    """ Setup is a dictionary with variable run parameters.
+    It manages creation of Pipe object, either locally, or in parallel
     also will setup and run parallel
     """
 
-    def __init__(self, version=None,  **kwargs):
+    def __init__(self, indir,  **kwargs):
         """ generate setup string"""
-        if version is None: version = int(open('version.txt').read()) if os.path.exists('version.txt') else -1
-        indir=kwargs.pop('indir', 'uw%02d'%(version)) 
-        self.outdir=outdir=kwargs.pop('outdir', 'uw%02d'%(version+1))
+        self.outdir=outdir=kwargs.pop('outdir', indir)
+        self.indir=indir
+        self.quiet = kwargs.pop('quiet', False)
         if not os.path.exists(outdir): os.mkdir(outdir)
-        self.version=version
         if os.name=='nt':
             os.system('title %s %s'% (os.getcwd(), indir))
         self.update(dict( cwd='$HOME/analysis/'+os.path.split(os.getcwd())[-1], 
                 indir = indir,
                 auxcat='',
                 outdir=outdir,
-                datadict = dict(dataname='P7_V4_SOURCE'),
-                diffuse = ('ring_24month_P76_v1.fits', 'isotrop_21month_P76_v2.txt'),
+                datadict = None,
+                diffuse = None,
                 emin=100, emax=316227, minROI=5, maxROI=5,
-                extended= None,
-                alias= {}, 
+                extended= None, #flag to get from model
                 skymodel_extra = '',
-                irf = 'P7SOURCE_V6',
+                irf = None, # flag to get from model 'P7SOURCE_V6',
                 associator = None,
                 sedfig_dir = None,
                 tsmap_dir  = None, tsfits=False,
                 localize=False,
                 processor='processor.process',
-                fix_beta=False, dofit=True,
+                fix_beta=False, 
                 source_kw=dict(),
                 fit_kw=dict(ignore_exception=False, use_gradient=True, call_limit=1000),
                 repivot = False,
@@ -132,37 +131,53 @@ import os, pickle; os.chdir(os.path.expandvars(r"%(cwd)s"));%(setup_cmds)s
 from uw.like2.pipeline import pipe; from uw.like2 import skymodel
 g=pipe.Pipe("%(indir)s", %(datadict)s, 
         skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,
-            extended_catalog_name="%(extended)s", update_positions=%(update_positions)s,
-            alias =%(alias)s, %(skymodel_extra)s), 
-        analysis_kw=dict(irf="%(irf)s", minROI=%(minROI)s, maxROI=%(maxROI)s, emin=%(emin)s,emax=%(emax)s),
-        cache="",
+            extended_catalog_name=%(extended)s, update_positions=%(update_positions)s,
+             %(skymodel_extra)s), 
+        analysis_kw=dict(irf=%(irf)s, minROI=%(minROI)s, maxROI=%(maxROI)s, emin=%(emin)s,emax=%(emax)s),
         processor="%(processor)s",
-        process_kw=dict(outdir="%(outdir)s", 
+        process_kw=dict(outdir="%(outdir)s", dampen=%(dampen)s,
             fit_kw = %(fit_kw)s,
-            tsmap_dir=%(tsmap_dir)s,  tsfits=%(tsfits)s,
             sedfig_dir=%(sedfig_dir)s,
-            localize=%(localize)s,
-            associate=%(associator)s,
-            fix_beta= %(fix_beta)s, dofit=%(dofit)s,
+            tsmap_dir=%(tsmap_dir)s,  tsfits=%(tsfits)s,
+            localize=%(localize)s, associate=%(associator)s,
+            fix_beta= %(fix_beta)s, repivot=%(repivot)s,
             tables= %(tables)s,
-            repivot=%(repivot)s, dampen=%(dampen)s,
             ),
     ) 
 n,chisq = len(g.names()), -1
 """ % self
         self.mecsetup=False
-        print 'Pipeline input, output: %s -> %s ' % (indir, outdir)
+        self.mypipe = None
+        if not self.quiet:
+            print 'Pipeline input, output: %s -> %s ' % (indir, outdir)
         
+
+    def _repr_html_(self):
+        """ used by the notebook for display """
+        return '<h3>'+self.__class__.__name__+'</h3>'+'<ul><li>Setup: %s -> %s' % (self.indir, self.outdir)
+
     def __call__(self): return self.setup_string
     
     def g(self):
+        """
+        return an exec of self, the Pipe object
+        also save reference as mypipe
+        """
         exec(self(), globals()) # should set g
+        self.mypipe = g
         return g
+        
+    def process(self, hp12):
+        """ process locally
+        """
+        if self.mypipe is None: self.g()
+        roi =  self.mypipe.roi(hp12)
+        processor.process(roi, **self.mypipe.process_kw)
 
-    def setup_mec(self, profile=None):
+    def setup_mec(self, profile=None, sleep_interval=60):
         """ send our setup string to the engines associated with profile
         """
-        self.mec = engines.Engines(profile=profile, sleep_interval=60)
+        self.mec = engines.Engines(profile=profile, sleep_interval=sleep_interval)
         self.mec.clear()
         self.mec.execute('import gc; gc.collect();'+self())
         self.mecsetup=True
@@ -180,9 +195,11 @@ n,chisq = len(g.names()), -1
 
         """
         profile = kwargs.pop('profile','default')
+        sleep_interval = kwargs.pop('sleep_interval', 60)
+
         
         if not self.mecsetup:
-            self.setup_mec(profile=profile)
+            self.setup_mec(profile=profile, sleep_interval=sleep_iterval)
         outdir = self.outdir
         if outdir is not None:
             if not os.path.exists(outdir): 
@@ -196,14 +213,14 @@ n,chisq = len(g.names()), -1
         self.mec.submit( 'g', mytasks, **kwargs)
 
 
+
+
 def getg(setup_string):
     """ for testing"""
     exec(setup_string, globals()) # should set g
     return g
 
-def roirec(version=None, nside=12):
-    if version is None:
-        version = int(open('version.txt').read())
+def roirec(version, nside=12):
     roi_files = glob.glob('uw%02d/pickle/*.pickle'%version)
     roi_files.sort()
     n = 12*nside**2
