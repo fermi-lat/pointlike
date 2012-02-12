@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.13 2012/01/11 14:03:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.14 2012/01/24 14:44:06 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -234,12 +234,11 @@ def process(roi, **kwargs):
     """ process the roi object after being set up
     """
     outdir   = kwargs.get('outdir', None)
-    localize = kwargs.pop('localize', True)
-    repivot_flag  = kwargs.pop('repivot', True)
+    localize = kwargs.pop('localize', False)
+    repivot_flag  = kwargs.pop('repivot', False)
     fixbeta  = kwargs.pop('fix_beta', False)
-    dampen   = kwargs.pop('dampen', 1.0)  # factor to adjust parameters before writing out
+    dampen   = kwargs.pop('dampen', 1.0)  # factor to adjust parameters before writing out: if zero, no fit
     counts_dir = kwargs.pop('counts_dir', 'counts_dir')
-    dofit   =  kwargs.pop('dofit', True)
     pass_number= 0
     tables = kwargs.pop('tables', None)
     localize_kw = kwargs.pop('localize_kw', {}) # could have bandfits=False
@@ -263,8 +262,8 @@ def process(roi, **kwargs):
     if len(roi.get_parameters())==0:
         print '===================== nothing to fit========================'
     else:
-        if dofit:
-            fit_kw = kwargs.get('fit_kw')
+        if dampen>0:
+            fit_kw = kwargs.get('fit_kw', {})
             try:
                 if diffuse_only:
                     ndiff = len([n for n in roi.parameter_names if n.split('_')[0] in ('ring','isotrop')])
