@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb 12 12:03:48 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	dataset.py 
+Log Message:
+Format print string to show all relevant quantities.
+    *
+------------------------------------------------------------
 User: lande  Fri Feb 10 15:05:49 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
