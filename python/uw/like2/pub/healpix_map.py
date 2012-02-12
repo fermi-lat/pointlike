@@ -1,6 +1,6 @@
 """
 Utilities for managing Healpix arrays
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.1 2011/12/29 19:17:51 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/healpix_map.py,v 1.2 2012/01/11 14:04:22 burnett Exp $
 """
 import os,glob,pickle, types, copy
 import pylab as plt
@@ -464,7 +464,7 @@ def write_hpmaps(prefix='residual', fitsfile='residuals.fits', nside=512, averag
 
 def make_setup(outdir, title,
         imshow_kw,
-        label='', nside=256):
+        label='', nside=512):
     """
     Use this to setup for mec-generation combining the individual ROI tables to make images centered on the ROIs
     """
@@ -489,9 +489,14 @@ class Setup(pipe.Setup):
                 label = r'$\mathrm{\sqrt{TS_{max}-TS}}$',
                 )
         elif title=='kde':
-                self.setup= make_setup(outdir, title, 
+            self.setup= make_setup(outdir, title, 
                 imshow_kw='interpolation="bilinear",fun=np.log10',
                 label='log10(photon density)')
+        elif title=='counts':
+            self.setup=make_setup(outdir, title,
+                imshow_kw='interpolation="bilinear"',
+                label='r$\mathrm{counts}$'
+                )
         else:
             assert False, 'title %s not recognized' % title
         self.mecsetup=False #needed from inheritance
@@ -507,6 +512,9 @@ def make_maps(outdir, title='all',):
         Setup(outdir,'kde').run()
     if all or title=='ts':
         Setup(outdir,'ts' ).run()
+    if all or title=='counts':
+        Setup(outdir, 'counts').run()
+        
 def main(): 
     outdir = sorted(glob.glob('uw*'))[-1]
     print 'using outdir %s' % outdir
