@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb 12 12:22:45 PST 2012
+pointlike/python/uw/like
+
+Modified Files:
+	srcid.py 
+Log Message:
+protect against divide by zero
+    *
+------------------------------------------------------------
 User: burnett  Sun Feb 12 12:20:19 PST 2012
 pointlike/python/uw/like
 
