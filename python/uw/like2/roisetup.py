@@ -1,10 +1,10 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.8 2012/01/27 15:07:14 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.9 2012/02/07 21:03:51 wallacee Exp $
 
 """
-import os, types
+import os, sys, types
 import numpy as np
 import skymaps
 from . import dataset, skymodel, diffuse
@@ -96,19 +96,21 @@ class ROIfactory(object):
         )
 
     @keyword_options.decorate(defaults)
-    def __init__(self, modeldir, dataspec, **kwargs):
+    def __init__(self, modeldir, dataspec=None, **kwargs):
         """ 
         parameters
         ----------
         modeldir: folder containing skymodel definition
-        dataspec : string or dict
+        dataspec : string or dict or None
                 used to look up data specification
                 if string, equivalent to dict(dataname=dataspec); otherwise the dict must have
                 a dataname element
+                if None, use the data used to generate the skymodel
         """
         keyword_options.process(self, kwargs)
         print 'ROIfactory setup: \n\tskymodel: ', modeldir
         self.skymodel = skymodel.SkyModel(modeldir,  **self.skymodel_kw)
+
         if isinstance(dataspec,dataman.DataSet):
             self.dataset = dataspec
             self.dataset.CALDBManager = pycaldb.CALDBManager(irf = self.analysis_kw.get('irf',None),
@@ -120,8 +122,19 @@ class ROIfactory(object):
 
             self.exposure.correction = [lambda e: 1,lambda e : 1] #TODO
         else:
-            datadict = dict(dataname=dataspec) if type(dataspec)!=types.DictType else dataspec
+            if dataspec is None:
+                print 'dataspec is None: loading datadict from skymodel'; sys.stdout.flush()
+                datadict = self.skymodel.config['datadict']
+                assert datadict is not None, 'Bad skymodel.config'
+            else:
+                datadict = dict(dataname=dataspec) if type(dataspec)!=types.DictType else dataspec
+            print '\tdatadict: ', datadict
+            if self.analysis_kw.get('irf',None) is None:
+                self.analysis_kw['irf'] = self.skymodel.config['irf']
+            print '\tirf:\t%s' % self.analysis_kw['irf'] 
+            #datadict = dict(dataname=dataspec) if type(dataspec)!=types.DictType else dataspec
             self.dataset = dataset.DataSet(datadict['dataname'], **self.analysis_kw)
+            print self.dataset
             self.exposure  = ExposureManager(self.dataset, **datadict)
         self.psf = pypsf.CALDBPsf(self.dataset.CALDBManager)
  
