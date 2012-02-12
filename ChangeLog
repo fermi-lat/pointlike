@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb 12 12:19:04 PST 2012
+pointlike/python/uw/like
+
+Modified Files:
+	pixeldata.py 
+Log Message:
+define special exception class.
+    *
+------------------------------------------------------------
 User: burnett  Sun Feb 12 12:16:15 PST 2012
 pointlike/python/uw/like2
 
