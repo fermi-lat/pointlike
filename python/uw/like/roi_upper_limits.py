@@ -10,6 +10,10 @@ from scipy import integrate
 from scipy.stats.distributions import chi2
 from scipy.optimize import fmin
 
+from uw.like.roi_state import PointlikeState
+from uw.like.roi_extended import ExtendedSource
+from uw.like.SpatialModels import Disk
+
 def upper_limit(roi, which=0,
               confidence=0.95,
               integral_min=-15,
@@ -120,20 +124,25 @@ def upper_limit_quick(roi,which = 0,confidence = .95,e_weight = 0,cgs = False):
     self.set_parameters(params)
     return uflux
 
-
-from uw.like.roi_state import PointlikeState
-from uw.like.roi_extended import ExtendedSource
-from uw.like.SpatialModels import Disk
 def extension_upper_limit(roi, which=0,
                           confidence=0.95,
                           spatial_model=None,
                           integral_min=0,
                           integral_max=3, # degrees
                           npoints = 100,
+                          delta_log_like_limits=10,
                           **kwargs):
     """ Compute an upper limit on the source extension, by the "PDG Method".
         The function roi_upper_limits.upper_limit is similar, but computes
         a flux upper limit. 
+
+        delta_log_like_limits has same defintion as the parameter in
+        pyLikelihood.IntegralUpperLimit.py function calc_int.
+        Note, this corresponds to a change in the acutal likelihood by
+        exp(10 ~ 20,000 which is sufficiently large that this is
+        a pefectly fine threshold for stoping the integral.
+
+        This is just used to avoid wasting computing cycles.
         
         integral_min: Upper extension radius, in degrees 
         integral_max: Upper extension radius, in degrees 
@@ -161,12 +170,21 @@ def extension_upper_limit(roi, which=0,
         roi.fit(estimate_errors=False, **kwargs)
         ll=-roi.logLikelihood(roi.parameters())
         if extension_upper_limit.ll_0 is None: extension_upper_limit.ll_0 = ll
-        if not roi.old_quiet: print 'sigma = %.2f, ll=%.2f, dll=%.2f' % (extension, ll, ll-extension_upper_limit.ll_0)
-        return np.exp(ll-extension_upper_limit.ll_0)
+
+        dll = ll-extension_upper_limit.ll_0
+        if not roi.old_quiet: print 'sigma = %.2f, ll=%.2f, dll=%.2f' % (extension, ll, dll)
+        return dll
 
     extensions = np.linspace(integral_min, integral_max,npoints+1)
     extension_middles = 0.5*(extensions[1:] + extensions[:-1])
-    likelihood = map(like,extensions)
+
+    ll = -np.inf*np.ones_like(extensions)
+    for i in range(len(extensions)):
+        ll[i] = like(extensions[i])
+        if i > 0 and ll[i] < max(ll[0:i]) - delta_log_like_limits: break
+
+    likelihood = np.exp(ll)
+
     cdf = integrate.cumtrapz(x=extensions,y=likelihood)
     cdf /= cdf[-1]
     extension_limit = np.interp(confidence, cdf, extension_middles)
@@ -174,4 +192,9 @@ def extension_upper_limit(roi, which=0,
 
     roi.quiet = roi.old_quiet
 
-    return extension_limit
+    return dict(extension=extension_limit, 
+                spatial_model = spatial_model.name,
+                confidence=confidence,
+                emin=roi.bin_edges[0],
+                emax=roi.bin_edges[-1],
+                extension_units = 'degree')
