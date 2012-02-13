@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Feb 13 15:49:29 PST 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+fix import of dark matter stuff
+    *
+------------------------------------------------------------
 User: lande  Mon Feb 13 15:48:55 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
