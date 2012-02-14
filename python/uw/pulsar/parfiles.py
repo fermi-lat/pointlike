@@ -56,9 +56,14 @@ class ParFile(dict):
             self[key][0] = v
         else: self[key] = v
 
-    def get_psrname(self):
-        try: return self.get('PSR')
-        except KeyError: return self.get("PSRJ")
+    def get_psrname(self,add_j=True):
+        try:
+            name = self.get('PSR')
+        except KeyError:
+            name = self.get('PSRJ')
+        if (name[0] != 'J') and add_j:
+            name = 'J' + name
+        return name
 
     def get_ra(self):
         try:
