@@ -10,7 +10,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.16 2012/01/27 19:11:42 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.17 2012/02/14 01:39:21 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -65,7 +65,6 @@ def weighted_light_curve(nbins,phases,weights,normed=False):
     errors = np.where(counts > 1, (counts*(w2-w1**2))**0.5, counts)
     norm = counts.sum()/nbins if normed else 1.
     return bins,counts/norm,errors/norm
-
 
 #=======================================================================#
 class LCTemplate(object):
@@ -262,8 +261,8 @@ class UnweightedLCFitter(object):
         if len(hist[0])==nbins: raise ValueError,'Histogram too old!'
         x = ((hist[1][1:] + hist[1][:-1])/2.)[hist[0]>0]
         counts = (hist[0][hist[0]>0]).astype(float)
-        y    = counts / nbins / counts.sum()
-        yerr = counts**0.5 / nbins / counts.sum()
+        y    = counts / nbins
+        yerr = counts**0.5  / nbins
         self.chistuff = x,y,yerr
         # now set up binning for binned likelihood
         nbins = self.binned_bins+1
@@ -295,7 +294,7 @@ class UnweightedLCFitter(object):
         if not self.template.shift_mode and np.any(p < 0):
             return 2e100*np.ones_like(x)/len(x)
         args[0].set_parameters(p)
-        chi = (self.template(x,ignore_cache=True) - y)/y**0.5
+        chi = (self.template(x,ignore_cache=True) - y)/yerr
         if self.template.last_norm > 1:
             return 2e100*np.ones_like(x)/len(x)
         else: return chi
@@ -400,9 +399,11 @@ class WeightedLCFitter(UnweightedLCFitter):
         if h > 1000: nbins = 100
         bins,counts,errors = weighted_light_curve(nbins,self.phases,self.weights)
         mask = counts > 0
+        W = self.weights
+        self.bg_level = (W.sum()-(W**2).sum()) / nbins**2
         x = ((bins[1:]+bins[:-1])/2)
-        y    = counts / nbins / counts.sum()
-        yerr = errors / nbins / counts.sum()
+        y    = counts / nbins
+        yerr = errors / nbins
         self.chistuff = x[mask],y[mask],yerr[mask]
         # now set up binning for binned likelihood
         nbins = self.binned_bins
@@ -423,6 +424,17 @@ class WeightedLCFitter(UnweightedLCFitter):
                 self.counts_centers.append((w*p).sum()/w.sum())
                 self.slices.append(slice(indices[mask].min(),indices[mask].max()+1))
         self.counts_centers = np.asarray(self.counts_centers)
+
+    def chi(self,p,*args):
+        x,y,yerr = self.chistuff
+        bg = self.bg_level
+        if not self.template.shift_mode and np.any(p < 0):
+            return 2e100*np.ones_like(x)/len(x)
+        args[0].set_parameters(p)
+        chi = (bg + (1-bg)*self.template(x,ignore_cache=True) - y)/yerr
+        if self.template.last_norm > 1:
+            return 2e100*np.ones_like(x)/len(x)
+        else: return chi
 
     def unbinned_loglikelihood(self,p,*args):
         if not self.template.shift_mode and np.any(p < 0):
