@@ -1,15 +1,16 @@
 
 """
-A module implementing an unbinned maximum likelihood fit of phases from some aperture
-to a profile template.  The template is formed from an arbitrary number of components,
-each represented by its own class.
+A module implementing an unbinned maximum likelihood fit of phases 
+from some aperture to a profile template.  The template is formed 
+from an arbitrary number of components, each represented by its own class.
 
-LCPrimitives are combined to form a light curve (LCTemplate).  LCFitter then performs
-a maximum likielihood fit to determine the light curve parameters.
+LCPrimitives are combined to form a light curve (LCTemplate).  
+LCFitter then performs a maximum likielihood fit to determine the 
+light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.15 2011/10/04 22:03:04 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.16 2012/01/27 19:11:42 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -23,7 +24,7 @@ from lcprimitives import *
 from operator import mul
 from scipy.special import gamma
 from scipy.optimize import fmin,leastsq
-from uw.pulsar.stats import z2mw
+from uw.pulsar.stats import z2mw,hm,hmw
 
 SECSPERDAY = 86400.
 
@@ -53,6 +54,17 @@ def prim_io(template):
     elif 'kernel' in toks[0]:  return [LCKernelDensity(input_file=toks[1:])]
     elif 'fourier' in toks[0]: return [LCEmpiricalFourier(input_file=toks[1:])]
     raise ValueError,'Template format not recognized!'
+
+def weighted_light_curve(nbins,phases,weights,normed=False):
+    """ Return a set of bins, values, and errors to represent a
+        weighted light curve."""
+    bins = np.linspace(0,1,nbins+1)
+    counts = np.histogram(phases,bins=bins,normed=False)[0]
+    w1 = (np.histogram(phases,bins=bins,weights=weights,normed=False)[0]).astype(float)/counts
+    w2 = (np.histogram(phases,bins=bins,weights=weights**2,normed=False)[0]).astype(float)/counts
+    errors = np.where(counts > 1, (counts*(w2-w1**2))**0.5, counts)
+    norm = counts.sum()/nbins if normed else 1.
+    return bins,counts/norm,errors/norm
 
 
 #=======================================================================#
@@ -209,43 +221,52 @@ class LCTemplate(object):
 
 #=======================================================================#
 
-def LCFitter(template,phases,weights=None,**kwargs):
+def LCFitter(template,phases,weights=None,times=1,binned_bins=100):
+    """ Factory class for light curve fitters.
+        Arguments:
+        template -- an instance of LCTemplate
+        phases   -- list of photon phases
+
+        Keyword arguments:
+        weights     [None] optional photon weights
+        times       [None] optional photon arrival times
+        binned_bins [100]  # of bins to use in binned likelihood
+    """
+    kwargs = dict(times=np.asarray(times),binned_bins=binned_bins)
     if weights is None:
+        kwargs['weights'] = None
         return UnweightedLCFitter(template,phases,**kwargs)
-    return WeightedLCFitter(template,phases,weights,**kwargs)
+    kwargs['weights'] = np.asarray(weights)
+    return WeightedLCFitter(template,phases,**kwargs)
 
 #=======================================================================#
 
 class UnweightedLCFitter(object):
-    """Perform the maximum likelihood fit template to the unbinned phases."""
 
-    def __init__(self,template,phases,times=1):
-        """
-        template -- an instance of LCTemplate or a file with a pref-fit Gaussian template
-        phases   -- a list or array of phase values
-        """
+    def __init__(self,template,phases,**kwargs):
         if type(template) == type(""):
             self.template = LCTemplate(gaussian_template=template)
         else: self.template = template
-        self.phases   = np.asarray(phases)
-        self.times    = np.asarray(times) #times (MET) for phases
-        self.weights = None
-
-        self.__hist_setup__()
+        self.phases = np.asarray(phases)
+        self.__dict__.update(kwargs)
+        self._hist_setup()
         self.loglikelihood = self.unbinned_loglikelihood
 
-    def __hist_setup__(self):
+    def _hist_setup(self):
         """ Setup binning for a quick chi-squared fit."""
-        nbins = min(max( int( len(self.phases)/50. ) , 32),101)
+        h = hm(self.phases)
+        nbins = 25
+        if h > 100: nbins = 50
+        if h > 1000: nbins = 100
         hist = np.histogram(self.phases,bins=np.linspace(0,1,nbins))
         if len(hist[0])==nbins: raise ValueError,'Histogram too old!'
         x = ((hist[1][1:] + hist[1][:-1])/2.)[hist[0]>0]
-        counts = hist[0][hist[0]>0]
-        y    = counts / (x[1] - x[0]) / counts.sum()
-        yerr = counts**0.5 / (x[1] - x[0]) / counts.sum()
+        counts = (hist[0][hist[0]>0]).astype(float)
+        y    = counts / nbins / counts.sum()
+        yerr = counts**0.5 / nbins / counts.sum()
         self.chistuff = x,y,yerr
         # now set up binning for binned likelihood
-        nbins = 101
+        nbins = self.binned_bins+1
         hist = np.histogram(self.phases,bins=np.linspace(0,1,nbins))
         self.counts_centers = ((hist[1][1:] + hist[1][:-1])/2.)[hist[0]>0]
         self.counts = hist[0][hist[0]>0]
@@ -370,15 +391,38 @@ class UnweightedLCFitter(object):
 #=======================================================================#
 
 class WeightedLCFitter(UnweightedLCFitter):
-    """Perform the maximum likelihood fit template to the unbinned phases."""
 
-    def __init__(self,template,phases,weights,times=1):
-        """
-        template -- an instance of LCTemplate or a file with a pref-fit Gaussian template
-        phases   -- a list or array of phase values
-        """
-        super(WeightedLCFitter,self).__init__(template,phases,times=times)
-        self.weights = weights
+    def _hist_setup(self):
+        """ Setup binning for a quick chi-squared fit."""
+        h = hmw(self.phases,self.weights)
+        nbins = 25
+        if h > 100: nbins = 50
+        if h > 1000: nbins = 100
+        bins,counts,errors = weighted_light_curve(nbins,self.phases,self.weights)
+        mask = counts > 0
+        x = ((bins[1:]+bins[:-1])/2)
+        y    = counts / nbins / counts.sum()
+        yerr = errors / nbins / counts.sum()
+        self.chistuff = x[mask],y[mask],yerr[mask]
+        # now set up binning for binned likelihood
+        nbins = self.binned_bins
+        bins = np.linspace(0,1,nbins+1)
+        a = np.argsort(self.phases)
+        self.phases = self.phases[a]
+        self.weights = self.weights[a]
+        self.counts_centers = []
+        self.slices = []
+        self.phase_terms = np.empty_like(self.weights)
+        indices = np.arange(len(self.weights))
+        for i in xrange(nbins):
+            mask = (self.phases >= bins[i]) & (self.phases < bins[i+1])
+            if mask.sum() > 0:
+                w = self.weights[mask]
+                if w.sum()==0: continue
+                p = self.phases[mask]
+                self.counts_centers.append((w*p).sum()/w.sum())
+                self.slices.append(slice(indices[mask].min(),indices[mask].max()+1))
+        self.counts_centers = np.asarray(self.counts_centers)
 
     def unbinned_loglikelihood(self,p,*args):
         if not self.template.shift_mode and np.any(p < 0):
@@ -388,6 +432,15 @@ class WeightedLCFitter(UnweightedLCFitter):
         return -np.log(1+self.weights*(self.template(self.phases)-1)).sum()
         #return -np.log(1+self.weights*(self.template(self.phases,suppress_bg=True)-1)).sum()
 
+    def binned_loglikelihood(self,p,*args):
+        if not self.template.shift_mode and np.any(p < 0):
+         #guard against negative parameters
+            return 2e20
+        args[0].set_parameters(p)
+        template_terms = self.template(self.counts_centers)-1
+        for tt,sl in zip(template_terms,self.slices):
+            self.phase_terms[sl] = tt
+        return -np.log(1+self.weights*self.phase_terms).sum()
 
 #=======================================================================#
 
