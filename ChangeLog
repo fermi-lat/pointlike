@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Feb 13 22:47:42 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Fixed some bugs in normalization of chi^2.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Feb 13 21:53:37 PST 2012
 pointlike/python/uw/pulsar
 
