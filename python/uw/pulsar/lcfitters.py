@@ -10,7 +10,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.17 2012/02/14 01:39:21 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.18 2012/02/14 05:53:37 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -63,8 +63,9 @@ def weighted_light_curve(nbins,phases,weights,normed=False):
     w1 = (np.histogram(phases,bins=bins,weights=weights,normed=False)[0]).astype(float)/counts
     w2 = (np.histogram(phases,bins=bins,weights=weights**2,normed=False)[0]).astype(float)/counts
     errors = np.where(counts > 1, (counts*(w2-w1**2))**0.5, counts)
-    norm = counts.sum()/nbins if normed else 1.
-    return bins,counts/norm,errors/norm
+    w1 = (np.histogram(phases,bins=bins,weights=weights,normed=False)[0]).astype(float)
+    norm = w1.sum()/nbins if normed else 1.
+    return bins,w1/norm,errors/norm
 
 #=======================================================================#
 class LCTemplate(object):
@@ -261,8 +262,8 @@ class UnweightedLCFitter(object):
         if len(hist[0])==nbins: raise ValueError,'Histogram too old!'
         x = ((hist[1][1:] + hist[1][:-1])/2.)[hist[0]>0]
         counts = (hist[0][hist[0]>0]).astype(float)
-        y    = counts / nbins
-        yerr = counts**0.5  / nbins
+        y    = counts / counts.sum() * nbins
+        yerr = counts**0.5  / counts.sum() * nbins
         self.chistuff = x,y,yerr
         # now set up binning for binned likelihood
         nbins = self.binned_bins+1
@@ -399,11 +400,11 @@ class WeightedLCFitter(UnweightedLCFitter):
         if h > 1000: nbins = 100
         bins,counts,errors = weighted_light_curve(nbins,self.phases,self.weights)
         mask = counts > 0
-        W = self.weights
-        self.bg_level = (W.sum()-(W**2).sum()) / nbins**2
+        N = counts.sum()
+        self.bg_level = 1-(self.weights**2).sum()/N
         x = ((bins[1:]+bins[:-1])/2)
-        y    = counts / nbins
-        yerr = errors / nbins
+        y    = counts / N * nbins
+        yerr = errors / N * nbins
         self.chistuff = x[mask],y[mask],yerr[mask]
         # now set up binning for binned likelihood
         nbins = self.binned_bins
