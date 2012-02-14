@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Feb 13 17:39:21 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Added a "partially binned" (in phase) likelihood for template fitting.
+
+    *
+------------------------------------------------------------
 User: lande  Mon Feb 13 15:49:29 PST 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
