@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Feb 13 21:53:37 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Add a proper chi-squared for weights, improve binned fitting.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Feb 13 17:39:21 PST 2012
 pointlike/python/uw/pulsar
 
