@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Feb 14 12:08:59 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Fix get_psrname method to prepend a 'J' by default, if missing.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Feb 13 22:47:42 PST 2012
 pointlike/python/uw/pulsar
 
