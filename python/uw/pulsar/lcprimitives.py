@@ -81,7 +81,8 @@ class LCPrimitive(object):
         if error: return np.asarray([self.p[0],self.errors[0]])
         return self.p[0]
 
-    def get_width(self,error=False,fwhm=False):
+    def get_width(self,error=False,fwhm=False,twosided=False):
+        # NB twosided kwarg is ignored; for compatibility only 
         scale = self.fwhm()/self.p[1] if fwhm else 1
         if error: return np.asarray([self.p[1],self.errors[1]])*scale
         return self.p[1]*scale
@@ -174,12 +175,36 @@ class LCWrappedFunction2(LCWrappedFunction):
         self.two_sided = True
         self.lock_widths = False
 
+    def get_width(self,error=False,fwhm=False,twosided=False):
+        x0,left_p,right_p = self._equalize()
+        self.prim.p[:] = left_p
+        w_left,w_left_err = self.prim.get_width(fwhm=fwhm,error=True)
+        self.prim.p[:] = right_p
+        w_right,w_right_err = self.prim.get_width(fwhm=fwhm,error=True)
+        if not twosided:
+            # average left and right side...
+            rval1 = (w_left+w_right)/2
+            rval2 = (w_left_err**2+w_right_err**2)**0.5/2
+            if error:
+                return np.asarray([rval1,rval2])
+            else: return rval1
+        else:
+            # return separate values for left and right
+            if error:
+                return np.asarray([w_left,w_left_err,w_right,w_right_err])
+            else:
+                return np.asarray([w_left,w_right])
+                
+        if error: return np.asarray([self.p[1],self.errors[1]])*scale
+        return self.p[1]*scale
+
     def fwhm(self):
         x0,left_p,right_p = self._equalize()
         self.prim.p[:] = left_p
-        w_left = self.prim.fwhm()
+        w_left = self.prim.get_width(fwhm=True,error=False)
         self.prim.p[:] = right_p
-        return (w_left+self.prim.fwhm())/2
+        w_right = self.prim.get_width(fwhm=True,error=False)
+        return (w_left+w_right)/2
         
     def set_parameters(self,p):
         super(LCWrappedFunction2,self).set_parameters(p)
