@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Feb 14 18:44:39 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Remove norm check on chi-squared computation for weighted fitting.
+
+    *
+------------------------------------------------------------
 User: kerrm  Tue Feb 14 18:44:04 PST 2012
 pointlike/python/uw/pulsar
 
