@@ -15,7 +15,8 @@ from uw.utilities.coords import sepangle_deg
 import uw.utilities.fits_utils as utilfits
 import uw.utilities.root_utils as root
 from uw.utilities.phasetools import weighted_h_statistic, h_statistic, z2m
-from uw.pulsar.stats import sf_hm as h_sig, hm, hmw, sigma_trials, sig2sigma
+from uw.pulsar.stats import sf_hm as h_sig, hm, hmw, sigma_trials, sig2sigma,h2sig
+from uw.pulsar.radio_profile import Profile
 
 # ===========================
 # print in colors
@@ -263,19 +264,18 @@ class PulsarLightCurve:
         '''Returns an array of times in MJD'''
         return np.asarray(self.pulse_phase[which][:,2][0])
             
-    def fill_phaseogram(self, radius=None, nbins=32, phase_range=[0.,2.], phase_shift=0, weight=False):
+    def fill_phaseogram(self, radius=None, nbins=None, phase_range=[0.,2.], phase_shift=0, weight=False):
         '''Fill phaseograms (pulse profiles)
         ===========    ==================================================
         keyword        description
         ===========    ==================================================
-        nbins          number of bins in your histogram       [32]
+        nbins          number of bins in your histogram       [None]
         radius         Maximum radius (deg)                   [FT1 radius]
         phase_range    min and max phase interval             [0,2]
         phase_shift    add a shift to the pulse phase values  [0]
         weight         Use a weight for each photon           [False]
         ===========    ================================================== '''
         
-        self.nbins               = nbins
         self.phase_shift         = phase_shift
         self.binmin, self.binmax = phase_range[0], phase_range[1]
         self.weight              = weight
@@ -292,17 +292,6 @@ class PulsarLightCurve:
         if radius>self.radius:
             print OKRED + "warning: radius cannot be larger than PulsarLightCurve RADIUS" + ENDC
             radius = self.radius
-
-        # initialization of histograms
-        for item in self.phaseogram:
-            item.Reset()
-            item.SetBins(nbins*int(self.binmax-self.binmin),self.binmin,self.binmax)
-            item.SetMinimum(0.001)
-
-        for item in self.phaseogram2D:
-            item.Reset()
-            tmin_mjd, tmax_mjd = met2mjd(self.tmin), met2mjd(self.tmax)
-            item.SetBins(nbins,self.binmin,self.binmax,int((tmax_mjd-tmin_mjd)/ndays),tmin_mjd,tmax_mjd+30)
 
         self.pulse_phase = []
         for i in range(self.nhisto):
@@ -322,7 +311,7 @@ class PulsarLightCurve:
             evtlist[self.phase_colname][evtlist[self.phase_colname]>1] -= 1
             evtlist[self.phase_colname][evtlist[self.phase_colname]<0] += 1
 
-        # Fill histograms
+        # collection of pulse phase, etc.
         for j in range(len(self.phaseogram)):
             radius_filter = evtlist["ANGSEP"] <= rrange[j]
             energy_filter = np.logical_and( erange[j][0]<=evtlist["ENERGY"], evtlist["ENERGY"]<=erange[j][1] )
@@ -331,18 +320,57 @@ class PulsarLightCurve:
             P = evtlist[self.phase_colname][mask]; N = len(P)
             T = met2mjd(evtlist["TIME"][mask])
             W = evtlist[self.weight_colname][mask] if self.weight else np.ones(N)
+            #if len(P)>0:
+            self.pulse_phase[j] += [[P,W,T]]
+
+        if nbins is None:
+            # set # of bins
+            phases, weights, T = self.pulse_phase[0][0]
+            H = hmw(phases,weights)
+            sig = h2sig(H)
+            nbins = 25
+            if H > 100:
+                nbins = 50
+            if H > 1000:
+                nbins = 100
+            print 'Found H = %.2f, setting nbins = %d'%(H,nbins)
+        self.nbins = nbins
+
+        # initialization of histograms
+        for item in self.phaseogram:
+            item.Reset()
+            item.SetBins(nbins*int(self.binmax-self.binmin),self.binmin,self.binmax)
+            item.SetMinimum(0.001)
+
+        for item in self.phaseogram2D:
+            item.Reset()
+            tmin_mjd, tmax_mjd = met2mjd(self.tmin), met2mjd(self.tmax)
+            item.SetBins(nbins,self.binmin,self.binmax,int((tmax_mjd-tmin_mjd)/ndays),tmin_mjd,tmax_mjd+30)
+
+
+        # Fill histograms
+        for j in range(len(self.phaseogram)):
+            #radius_filter = evtlist["ANGSEP"] <= rrange[j]
+            #energy_filter = np.logical_and( erange[j][0]<=evtlist["ENERGY"], evtlist["ENERGY"]<=erange[j][1] )
+            #mask = np.logical_and(radius_filter,energy_filter)
+            P,W,T = self.pulse_phase[j][0]
+            N = len(P)
+
+            #P = evtlist[self.phase_colname][mask]; N = len(P)
+            #T = met2mjd(evtlist["TIME"][mask])
+            #W = evtlist[self.weight_colname][mask] if self.weight else np.ones(N)
             
             if len(P)>0:
                 self.phaseogram[j].FillN(N,P,W); self.phaseogram[j].FillN(N,P+1,W)
                 self.phaseogram2D[j].FillN(N,P,T,W); self.phaseogram2D[j].FillN(N,P+1,T,W)
-                self.pulse_phase[j] += [[P,W,T]]
+                #self.pulse_phase[j] += [[P,W,T]]
 
         # switch to numpy.array
         for i, item in enumerate(self.pulse_phase):
             self.pulse_phase[i] = np.asarray(item)
 
             # calculate errors for weighted lightcurves
-            if self.weight and len(self.pulse_phase[i])>0:
+            if self.weight and (self.pulse_phase[i].shape[2] > 0):
                 phases = self.get_phases(i)
                 weights = self.get_weights(i)                
                 nmc = 100
@@ -504,8 +532,9 @@ class PulsarLightCurve:
         for pulse in self.pulse_phase:
             if len(pulse) > 0.:
                 H = hmw(pulse[:,0],pulse[:,1])
-                prob = h_sig(H)                
-                Hsig = sig2sigma(prob) if prob > 1e-323 else sig2sigma(1e-323)
+                #prob = h_sig(H)                
+                #Hsig = sig2sigma(prob) if prob > 1e-323 else sig2sigma(1e-323)
+                Hsig = h2sig(H)
                 htest += [[H,Hsig]]
             else:
                 htest += [[0,0]]
@@ -517,28 +546,34 @@ class PulsarLightCurve:
             print "%.1f \t \t" %item[1],
         print "\n\n"
 
-    def load_profile(self, profile, fidpt=0., norm=True, mean_sub=False, ncol=1,
-                     ytitle="Radio Flux (au)", comment="", histo=False):
-        '''Load radio/xray profiles
-        ===========   ==============================================
-        keyword       description
-        ===========   ==============================================
-        profile       radio/x-ray template (ascii)      [necessary]
-        fidpt         fiducial point                    [0]
-        ncol          phase column number               [1]
-        mean_sub      Substract                         [False]
-        norm          normalized profile to 1           [True]
-        ytitle        ytitle                            ["Radio Flux (au)"]
-        comment       comment on profile                [""]
-        histo         if "True" plot profile like histo [False]
-        '''
-        try: phases = np.loadtxt(profile,comments="#")[:,ncol-1]
-        except IndexError: phases = np.loadtxt(profile,comments="#")
+#    def load_profile(self, profile, fidpt=0., norm=True, mean_sub=False, ncol=1,
+#                     ytitle="Radio Flux (au)", comment="", histo=False):
+#        '''Load radio/xray profiles
+#        ===========   ==============================================
+#        keyword       description
+#        ===========   ==============================================
+#        profile       radio/x-ray template (ascii)      [necessary]
+#        fidpt         fiducial point                    [0]
+#        ncol          phase column number               [1]
+#        mean_sub      Substract                         [False]
+#        norm          normalized profile to 1           [True]
+#        ytitle        ytitle                            ["Radio Flux (au)"]
+#        comment       comment on profile                [""]
+#        histo         if "True" plot profile like histo [False]
+#        '''
+#        try: phases = np.loadtxt(profile,comments="#")[:,ncol-1]
+#        except IndexError: phases = np.loadtxt(profile,comments="#")
+#
+#        phlen = len(phases)            
+#        phases = np.roll(phases,-int(phlen*fidpt))  # fiducial point
+#        if mean_sub: phases -= np.mean(phases)
+#        if norm: phases /= np.max(phases)           # normalization
 
-        phlen = len(phases)            
-        phases = np.roll(phases,-int(phlen*fidpt))  # fiducial point
-        if mean_sub: phases -= np.mean(phases)
-        if norm: phases /= np.max(phases)           # normalization
+    def load_profile(self, profile, ytitle="Radio Flux (au)", comment="", histo=False):
+
+        profile = Profile(profile)
+        phases = profile.get_amplitudes()
+        phlen = len(phases)
 
         if histo:
             template = TH1F()
@@ -844,8 +879,10 @@ class PulsarLightCurve:
             P = phases[time_filter]
             W = weights[time_filter]
             H = weighted_h_statistic(P,W)
-            prob = h_sig(H)
-            sig = sig2sigma(prob) if prob > 1e-323 else sig2sigma(1e-323)                            
+            #prob = h_sig(H)
+            #sig = sig2sigma(prob) if prob > 1e-323 else sig2sigma(1e-323)
+            sig = h2sig(H)
+
             SigTime.SetPoint(i,sig,T)
             
         xmin, xmax = SigTime.GetXaxis().GetXmin(), SigTime.GetXaxis().GetXmax()        
@@ -972,8 +1009,10 @@ class PulsarLightCurve:
                 mask = np.logical_and(emask,rmask)
                 phases = evtlist[self.phase_colname][mask]
                 if len(phases)>0:
-                    prob = h_sig(hm(phases))
-                    sig = sig2sigma(prob) if prob > 1e-323 else sig2sigma(1e-323)
+                    #prob = h_sig(hm(phases))
+                    #sig = sig2sigma(prob) if prob > 1e-323 else sig2sigma(1e-323)
+                    sig = h2sig(hm(phases))
+
                 if sig > sigmax:
                     sigmax, bestE, bestR = sig, it_E, it_R
 
