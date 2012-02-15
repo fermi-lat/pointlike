@@ -10,7 +10,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.18 2012/02/14 05:53:37 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.19 2012/02/14 06:47:41 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -433,9 +433,10 @@ class WeightedLCFitter(UnweightedLCFitter):
             return 2e100*np.ones_like(x)/len(x)
         args[0].set_parameters(p)
         chi = (bg + (1-bg)*self.template(x,ignore_cache=True) - y)/yerr
-        if self.template.last_norm > 1:
-            return 2e100*np.ones_like(x)/len(x)
-        else: return chi
+        #if self.template.last_norm > 1:
+        #    return 2e100*np.ones_like(x)/len(x)
+        #else: return chi
+        return chi
 
     def unbinned_loglikelihood(self,p,*args):
         if not self.template.shift_mode and np.any(p < 0):
