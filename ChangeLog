@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Feb 14 18:44:04 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcprimitives.py 
+Log Message:
+Added code to handle FWHM computation and error propagation for two-sided primitives.
+
+    *
+------------------------------------------------------------
 User: kerrm  Tue Feb 14 18:43:24 PST 2012
 pointlike/python/uw/pulsar
 
