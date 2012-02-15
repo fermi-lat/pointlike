@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Feb 14 18:42:59 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_plotting_func.py 
+Log Message:
+Added code to handle bin management.
+
+    *
+------------------------------------------------------------
 User: kerrm  Tue Feb 14 18:42:40 PST 2012
 pointlike/python/uw/pulsar
 
