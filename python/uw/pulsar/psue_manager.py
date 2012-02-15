@@ -7,7 +7,7 @@
 from os import system, remove, F_OK, mkdir, access, environ, chdir, linesep, getcwd
 from os.path import join, basename, abspath, isfile
 from sys import exit
-import pickle, glob
+import cPickle, glob
 from shutil import copy, copyfile, move
 import time, random
 import numpy as np, pyfits
@@ -19,7 +19,7 @@ import matplotlib.pyplot as pl
 from uw.utilities.xml_utils import xml_manager
 import uw.pulsar.lc_plotting_func as plot
 from uw.pulsar.parfiles import ParFile
-from uw.pulsar.stats import sf_h20_dj2010 as h_sig, hmw, sigma_trials, sig2sigma
+from uw.pulsar.stats import sf_h20_dj2010 as h_sig, hmw, sigma_trials, sig2sigma,h2sig
 
 # this function should be moved into fits_utils.py
 def SelectPhase(infile,outfile=None,phmin=0,phmax=1,phcolname='PULSE_PHASE'):
@@ -59,6 +59,19 @@ def SelectPhase(infile,outfile=None,phmin=0,phmax=1,phcolname='PULSE_PHASE'):
 # Class to manage the PSUE file
 # =============================
 class PSUEFile(dict):
+
+    def _switch_lc_format(self):
+        for key,postfix in zip(['PEAK1','PEAK2','BRIDGE'],['P1','P2','B']):
+            for ik,k in enumerate(self.ordered_keys):
+                if k==key:
+                    if self.ordered_keys[ik+2] == 'FWHM_%s'%postfix:
+                        old_key = self.ordered_keys.pop(ik+2)
+                        self.pop(old_key)
+                        self.ordered_keys.insert(ik+2,'FWHM_R_%s'%postfix)
+                        self.ordered_keys.insert(ik+2,'FWHM_L_%s'%postfix)
+        while ('FWHM' in self.ordered_keys[-1]):
+            self.ordered_keys.pop()
+
     def __init__(self,psuefile):
         self.ordered_keys = []
         if isfile(psuefile):
@@ -67,6 +80,7 @@ class PSUEFile(dict):
                 if len(tok)==0: continue
                 self.ordered_keys.append(tok[0])
                 self[tok[0]] = tok[1:] if (len(tok[1:]) > 1) else tok[1:][0]
+        self._switch_lc_format()
 
     def get(self,key,first_elem=True,type=str):
         try:
@@ -81,11 +95,9 @@ class PSUEFile(dict):
             return None
 
     def set(self,key,val):
-        if isinstance(val,list):
+        if isinstance(val,list) or isinstance(val,tuple):
             val = [str(x) for x in val]
-        try:
-            t = self[key]
-        except KeyError:
+        if key not in self.keys():
             self.ordered_keys.append(key)
         self[key] = val
 
@@ -172,8 +184,11 @@ class PSUEAnalysis():
                                %(self.psrname,self.radius,self.tmin,self.tmax,self.emin,self.emax,self.zmax,self.evtclass)
         self.ft1file_gtis    = join(self.outdir,'%s_%.0fDeg_%.0f_%.0fMET_%.0f_%.0fMeV_z%.0f_%s_gtis.fits') \
                                %(self.psrname,self.radius,self.tmin,self.tmax,self.emin,self.emax,self.zmax,self.evtclass)
+        self.ft1file_diffrsp = join(self.outdir,'%s_%.0fDeg_%.0f_%.0fMET_%.0f_%.0fMeV_z%.0f_%s_gtis_diffrsp.fits') \
+                               %(self.psrname,self.lc_radius,self.tmin,self.tmax,self.fit_emin,self.fit_emax,self.zmax,self.evtclass)
         self.ft1file_weights = join(self.outdir,'%s_%.0fDeg_%.0f_%.0fMET_%.0f_%.0fMeV_z%.0f_%s_gtis_weights.fits') \
                                %(self.psrname,self.lc_radius,self.tmin,self.tmax,self.fit_emin,self.fit_emax,self.zmax,self.evtclass)
+        self.gtltcube        = self.ft1file_gtis.replace('.fits','_gtltcube.fits')
         self.ft2file         = abspath(self.ft2file)
         self.srcmdl_in       = self.ft1file_gtis.replace('.fits','_srcmdl_input.xml')
         self.srcmdl_out      = self.ft1file_gtis.replace('.fits','_srcmdl_output.xml')
@@ -295,7 +310,7 @@ class PSUEAnalysis():
                 else: params += [{'name':n+"_"+tok[0],'value':val} for (n,val) in zip(names,tok)]
             return params
 
-    def TimingAnalysis( self, nbins=32, weight=False, offmin=0, offmax=1, background=None, 
+    def TimingAnalysis( self, nbins=None, weight=False, offmin=0, offmax=1, background=None, 
                         profile=None, ncol=1, fidpt=0, peakShape=None, peakPos=None, psrtype=None,
                         use_spw=False ):
         '''Generate gamma-ray pulse profiles.
@@ -303,7 +318,7 @@ class PSUEAnalysis():
         keyword         description
         ============    ============================================= 
         weight          if True, plot weighted counts       [False]
-        nbins           Number of bins for phaso            [32]
+        nbins           Number of bins for phaso            [None]
         profile         Name of the radio template          [None]
         use_spw         Use Weights from SearchPulsation    [False]
         '''
@@ -362,7 +377,7 @@ class PSUEAnalysis():
         else: reg=[offmin,offmax]
         
         # multi-energy band pulse profile
-        prof = None if profile is None else [plc.load_profile(profile=profile,ncol=ncol,fidpt=fidpt)]
+        prof = None if profile is None else [plc.load_profile(profile=profile)]
         plc.plot_lightcurve(nbands=6, profile=prof, background=bkg, zero_sup=True,
                             substitute=True, color='black', reg=reg, outfile=pulse_profile)
 
@@ -379,9 +394,8 @@ class PSUEAnalysis():
         # get the phase and weight values
         phases  = plc.get_phases(which=0)
         weights = plc.get_weights(which=0)
+        H = hmw(phases,weights); sig = h2sig(H)
 
-        prob = h_sig(hmw(phases,weights))
-        sig = sig2sigma(prob) if prob > 1e-323 else sig2sigma(1e-323)            
         if weight: self.PSUEoutfile.set('WHTEST',['%.1f'%sig,'sig'])
         else: self.PSUEoutfile.set('HTEST',['%.1f'%sig,'sig'])
 
@@ -430,13 +444,38 @@ class PSUEAnalysis():
                         print "Do not recognize the shape!"; continue
                         
                 lct = lf.LCTemplate(prims)
+                #if len(consts)==1:
+                #    pfile = join(self.outdir_local,'%s_profile.pickle'%(self.psrname))
+                #    if isfile(pfile):
+                #        print 'Using pickle file for template.'
+                #        lct = cPickle.load(file(pfile))['lct']
+                #        prims = lct.primitives
                 # now, do a maximum likelihood fit for the parameters
-                lcf = lf.LCFitter(lct,phases=phases,weights=weights)
-                lcf.fit(quick_fit_first=True)
-                # print lcf
+                binned_bins = 100 if (H < 1000) else 200
+                lcf = lf.LCFitter(lct,phases,weights,binned_bins=binned_bins)
+                unbinned = len(weights)<5000
+                if not unbinned:
+                    print 'We are using binned likelihood with %d bins.'%(binned_bins)
+                else:
+                    print 'We are using unbinned likelihood.'
+                t1 = time.time()
+                lcf.fit(quick_fit_first=True,unbinned=unbinned)
                 if twoside:
                     for prim in prims: prim.free[2] = True
-                lcf.fit(); print lcf
+                lcf.fit(unbinned=unbinned); print lcf
+                t2 = time.time()
+                print 'Required %ds for light curve fitting.'%(t2-t1)
+
+                def primitive_string(prim,postfix=''):
+                    l = prim.get_location(error=True)
+                    loc = ['%.4f'%l[0],'%.4f'%l[1]]
+                    w = prim.get_width(error=True,fwhm=True,twosided=True)
+                    w_l = ['%.4f'%w[0],'%.4f'%w[1]]
+                    w_r = w_l
+                    if len(w) > 2:
+                        w_l = ['%.4f'%w[2],'%.4f'%w[3]]
+                    return ( ['%s_%s'%(x,postfix) for x in ['LOC','FWHM_L','FWHM_R']],
+                             [loc, w_l, w_r] )
             
                 if loglike < lcf.ll:
                     loglike = lcf.ll
@@ -445,16 +484,16 @@ class PSUEAnalysis():
                     it_peak=1
                     for (shape,peak) in zip(peakShape,prims):
                         if shape == 'P':
-                            PEAK = 'PEAK'+str(it_peak); LOC = 'LOC_P'+str(it_peak); FWHM = 'FWHM_P'+str(it_peak)
-                            self.PSUEoutfile.set(PEAK,peak.name)
-                            loc = peak.get_location(error=True); self.PSUEoutfile.set(LOC,['%.4f'%loc[0],'%.4f'%loc[1]])
-                            width = peak.get_width(error=True,fwhm=True); self.PSUEoutfile.set(FWHM,['%.4f'%width[0],'%.4f'%width[1]])
-                            it_peak+=1
+                            label = 'PEAK%d'%it_peak; postfix = 'P%d'%it_peak
+                            it_peak += 1
                         elif shape == 'B':
-                            self.PSUEoutfile.set('BRIDGE',peak.name)
-                            loc = peak.get_location(error=True); self.PSUEoutfile.set('LOC_B',['%.4f'%loc[0],'%.4f'%loc[1]])
+                            label = 'BRIDGE'; postfix = 'B'
                         else:
-                            print "Do not recognize the shape!"; continue                                                       
+                            print "Do not recognize the shape!"; continue
+                        self.PSUEoutfile.set(label,peak.name)
+                        keys,vals = primitive_string(peak,postfix)
+                        for k,v in zip(keys,vals):
+                            self.PSUEoutfile.set(k,v)
                     
                     try: loc_p1, err_loc_p1 = self.PSUEoutfile.get('LOC_P1',first_elem=False,type=float)
                     except KeyError: loc_p1, err_loc_p1 = 0, 0
@@ -479,7 +518,7 @@ class PSUEAnalysis():
                     # save object to a file
                     outfile = open(join(self.outdir_local,'%s_profile.pickle'%(self.psrname)),'w')
                     outdata = dict(lct=lct,lcf=lcf,plc=plc)
-                    pickle.dump(outdata,outfile)
+                    cPickle.dump(outdata,outfile)
                     outfile.close()
 
 
@@ -687,6 +726,22 @@ class PSUEAnalysis():
             print "make a smoothed count map ..."
             roi.plot_source(which=srcname,filename=outfile.replace('.fits','_smoothed_counts.png'))
 
+    def LivetimeCube(self,clobber=False):
+        """ Generate a livetime cube with gtltcube."""
+        if (not clobber) and isfile(self.gtltcube):
+            print 'Livetime cube already exists; returning.'
+        if not isfile(self.ft1file_gtis):
+            raise IOError('Could not find gtmktimed FT1 file to make livetime cube.')
+
+        ft1file_gtis = join(self.outdir,basename(self.ft1file_gtis)) # potentially scratch
+        if self.batch and (not isfile(ft1file_gtis)):
+            copy(self.ft1file_gtis,self.outdir)
+        gtltcube = join(self.outdir,basename(self.gtltcube))
+        GtApp('gtltcube','Likelihood').run(evfile=ft1file_gtis,scfile=self.ft2file,
+            outfile=ltcube,dcostheta=0.025,binsz=1)
+        if self.batch:
+            copy(gtltcube,self.outdir_local) # copy the ft1 file to the local directory
+
     def WriteWeights(self, **kwargs):
         '''Add the weights into a FT1 file from a source model.
         =============    ===============================================
@@ -707,15 +762,20 @@ class PSUEAnalysis():
         xml.print_srclist()
         srcname = xml.get_srcname(which=0)        
 
-        # select a sub-ft1 file
-        ft1file_temp = join(self.outdir,'ft1file_temp.fits')
-        GtApp('gtselect').run(infile=self.ft1file_gtis,outfile=ft1file_temp,rad=self.lc_radius,ra=self.ra,
-                              dec=self.dec,emin=self.fit_emin,emax=self.fit_emax,tmin=self.tmin,
-                              tmax=self.tmax,zmax=self.zmax)
+        ft1file_diffrsp = join(self.outdir,basename(self.ft1file_diffrsp))
+        if not isfile(self.ft1file_diffrsp):
+            # select a sub-ft1 file
+            GtApp('gtselect').run(infile=self.ft1file_gtis,outfile=ft1file_diffrsp,
+                rad=self.lc_radius,ra=self.ra,dec=self.dec,emin=self.fit_emin,
+                emax=self.fit_emax,tmin=self.tmin,tmax=self.tmax,zmax=self.zmax)
+        elif self.batch:
+            copy(self.ft1file_diffrsp,ft1file_diffrsp)
             
         # check the diffuse response columns
-        GtApp('gtdiffrsp').run(convert='yes',evfile=ft1file_temp,evtable="EVENTS",
-                               scfile=self.ft2file,srcmdl=srcmdl,irfs=self.irfs,edisp='no')
+        GtApp('gtdiffrsp').run(convert='yes',evfile=ft1file_diffrsp,evtable="EVENTS",
+            scfile=self.ft2file,srcmdl=srcmdl,irfs=self.irfs,edisp='no')
+        if self.batch:
+            copy(ft1file_diffrsp,self.ft1file_diffrsp)
         
         # create a source list
         srclist = join(self.outdir_local,'srclist.txt')
@@ -725,8 +785,8 @@ class PSUEAnalysis():
         
         # run gsrcprob
         print "add weights into the FT1 file ..."
-        GtApp('gtsrcprob').run(evfile=ft1file_temp,scfile=self.ft2file,outfile=self.ft1file_weights,
-                               srcmdl=srcmdl,irfs=self.irfs,srclist=srclist)
+        GtApp('gtsrcprob').run(evfile=ft1file_diffrsp,scfile=self.ft2file,
+            outfile=self.ft1file_weights,srcmdl=srcmdl,irfs=self.irfs,srclist=srclist)
 
         # rename the weight column to WEIGHT
         hdulist = pyfits.open(self.ft1file_weights,mode='update')
@@ -738,5 +798,6 @@ class PSUEAnalysis():
         hdulist.close()
 
         # clean
-        remove(ft1file_temp)        
+        #if batch: # think this will happen in CleanFiles
+        #    remove(ft1file_diffrsp)
 
