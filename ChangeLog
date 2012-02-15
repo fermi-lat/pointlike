@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Feb 14 18:43:24 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Added code to compute phase alignment error from DM.
+
+    *
+------------------------------------------------------------
 User: kerrm  Tue Feb 14 18:42:59 PST 2012
 pointlike/python/uw/pulsar
 
