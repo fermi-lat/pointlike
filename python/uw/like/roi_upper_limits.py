@@ -1,7 +1,7 @@
 """
-Module to calculate upper limits.
+Module to calculate flux and extension upper limits.
 
-$Header:
+$Header:$
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -9,6 +9,8 @@ import numpy as np
 from scipy import integrate
 from scipy.stats.distributions import chi2
 from scipy.optimize import fmin
+
+from uw.utilities import keyword_options
 
 from uw.like.roi_state import PointlikeState
 from uw.like.roi_extended import ExtendedSource
@@ -124,77 +126,95 @@ def upper_limit_quick(roi,which = 0,confidence = .95,e_weight = 0,cgs = False):
     self.set_parameters(params)
     return uflux
 
-def extension_upper_limit(roi, which=0,
-                          confidence=0.95,
-                          spatial_model=None,
-                          integral_min=0,
-                          integral_max=3, # degrees
-                          npoints = 100,
-                          delta_log_like_limits=10,
-                          **kwargs):
-    """ Compute an upper limit on the source extension, by the "PDG Method".
-        The function roi_upper_limits.upper_limit is similar, but computes
-        a flux upper limit. 
 
-        delta_log_like_limits has same defintion as the parameter in
-        pyLikelihood.IntegralUpperLimit.py function calc_int.
-        Note, this corresponds to a change in the acutal likelihood by
-        exp(10 ~ 20,000 which is sufficiently large that this is
-        a pefectly fine threshold for stoping the integral.
+class ExtensionUpperLimit(object):
+    defaults = (
+        ("confidence", 0.95, "Convidence level of bayesian upper limit"),
+        ("spatial_model", None, "Spatial model to use for extnesion upper limit. Default is Disk"),
+        ("integral_min", 1e-10, "Minimum extension in integration (in degrees)"),
+        ("integral_max", 3, "Maximum extension in integration (in degrees)"),
+        ("npoints", 100, "Number of integration points"),
+        ("delta_log_like_limits", 10, """delta_log_like_limits has same defintion as the parameter in
+                                      pyLikelihood.IntegralUpperLimit.py function calc_int.
+                                      Note, this corresponds to a change in the acutal likelihood by
+                                      exp(10) ~ 20,000 which is sufficiently large that this is
+                                      a pefectly fine threshold for stoping the integral."""),
+        ("fit_kwargs", dict(), 'These kwargs are passed into ROIAnalysis.fit()'),
+    )
 
-        This is just used to avoid wasting computing cycles.
-        
-        integral_min: Upper extension radius, in degrees 
-        integral_max: Upper extension radius, in degrees 
+    @keyword_options.decorate(defaults)
+    def __init__(self, roi, which, **kwargs):
+        """ Compute an upper limit on the source extension, by the "PDG Method".
+            The function roi_upper_limits.upper_limit is similar, but computes
+            a extension upper limit. """
+        keyword_options.process(self, kwargs)
 
-        Extra kwargs are passed into ROIAnalysis.fit()
-        """
-    saved_state = PointlikeState(roi)
+        self.roi = roi
+        self.which = which
 
-    # Until we update to python 3 and get the nonlocal keyword,
-    # This is a quick workaround.
-    # This bit of code was taken from
-    # http://www.saltycrane.com/blog/2008/01/python-variable-scope-notes/
-    extension_upper_limit.ll_0 = None
 
-    roi.old_quiet = roi.quiet
-    roi.quiet = True
+        if self.spatial_model is None: 
+            self.spatial_model = Disk()
 
-    source = roi.get_source(which)
-    if not isinstance(source,ExtendedSource):
-        if spatial_model is None: spatial_model = Disk()
-        roi.modify(which, spatial_model=spatial_model, keep_old_center=True)
+        saved_state = PointlikeState(roi)
 
-    def like(extension):
-        roi.modify(which, sigma=max(extension,1e-10))
-        roi.fit(estimate_errors=False, **kwargs)
+        results = self._compute()
+
+        saved_state.restore()
+
+
+    def loglike(self, extension):
+        roi = self.roi
+        which = self.which
+        roi.modify(which, sigma=extension)
+        roi.fit(estimate_errors=False, **self.fit_kwargs)
         ll=-roi.logLikelihood(roi.parameters())
-        if extension_upper_limit.ll_0 is None: extension_upper_limit.ll_0 = ll
+        if self.ll_0 is None: self.ll_0 = ll
 
-        dll = ll-extension_upper_limit.ll_0
+        dll = ll-self.ll_0
         if not roi.old_quiet: print 'sigma = %.2f, ll=%.2f, dll=%.2f' % (extension, ll, dll)
         return dll
 
-    extensions = np.linspace(integral_min, integral_max,npoints+1)
-    extension_middles = 0.5*(extensions[1:] + extensions[:-1])
+    def _compute(self):
+        roi = self.roi
+        which = self.which
 
-    ll = -np.inf*np.ones_like(extensions)
-    for i in range(len(extensions)):
-        ll[i] = like(extensions[i])
-        if i > 0 and ll[i] < max(ll[0:i]) - delta_log_like_limits: break
+        if roi.TS(which)<4:
+            # Bunt on extension upper limits for completely insignificant sources
+            self.extension_limit = None
 
-    likelihood = np.exp(ll)
+        else:
+            self.ll_0 = None
 
-    cdf = integrate.cumtrapz(x=extensions,y=likelihood)
-    cdf /= cdf[-1]
-    extension_limit = np.interp(confidence, cdf, extension_middles)
-    saved_state.restore()
+            roi.old_quiet = roi.quiet
+            roi.quiet = True
 
-    roi.quiet = roi.old_quiet
+            source = roi.get_source(which)
+            if not isinstance(source,ExtendedSource):
+                roi.modify(which, spatial_model=self.spatial_model, keep_old_center=True)
 
-    return dict(extension=extension_limit, 
-                spatial_model = spatial_model.name,
-                confidence=confidence,
-                emin=roi.bin_edges[0],
-                emax=roi.bin_edges[-1],
-                extension_units = 'degree')
+
+            extensions = np.linspace(self.integral_min, self.integral_max, self.npoints+1)
+            extension_middles = 0.5*(extensions[1:] + extensions[:-1])
+
+            ll = -np.inf*np.ones_like(extensions)
+            for i in range(len(extensions)):
+                ll[i] = self.loglike(extensions[i])
+                if i > 0 and ll[i] < max(ll[0:i]) - self.delta_log_like_limits: break
+
+            likelihood = np.exp(ll)
+
+            cdf = integrate.cumtrapz(x=extensions,y=likelihood)
+            cdf /= cdf[-1]
+            self.extension_limit = np.interp(self.confidence, cdf, extension_middles)
+
+            roi.quiet = roi.old_quiet
+
+    def results(self):
+        return dict(extension=self.extension_limit, 
+                    spatial_model = self.spatial_model.name,
+                    confidence=self.confidence,
+                    emin=self.roi.bin_edges[0],
+                    emax=self.roi.bin_edges[-1],
+                    delta_log_like_limits=self.delta_log_like_limits,
+                    extension_units = 'degree')
