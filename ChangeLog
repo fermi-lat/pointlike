@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Feb 17 14:15:35 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_upper_limits.py 
+Log Message:
+reorganize extension upper limit code
+    *
+------------------------------------------------------------
 TAG
 Tag name: ScienceTools-09-27-01, operation: add
 Package: pointlike
