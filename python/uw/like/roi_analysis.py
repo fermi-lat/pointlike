@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.115 2011/11/08 20:04:38 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.116 2011/11/28 22:27:40 kerrm Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -608,7 +608,9 @@ class ROIAnalysis(object):
 
     upper_limit = roi_upper_limits.upper_limit
     upper_limit_quick = roi_upper_limits.upper_limit_quick
-    extension_upper_limit = roi_upper_limits.extension_upper_limit
+    def extension_upper_limit(self, *args, **kwargs):
+        e=roi_upper_limits.ExtensionUpperLimit(self, *args, **kwargs)
+        return e.results()
 
     def add_source(self,source,**kwargs):
          """Add a new source object to the model.
