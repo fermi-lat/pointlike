@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Feb 20 14:59:24 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_state.py 
+Log Message:
+new flag just_spectra for roi.restore
+    *
+------------------------------------------------------------
 User: lande  Mon Feb 20 14:47:05 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
