@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.81 2011/11/30 19:40:24 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.82 2012/01/10 22:18:14 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1184,7 +1184,7 @@ class ROISmoothedSources(object):
         return residual
 
     @staticmethod
-    def get_max_intensity(source,pyfits,roi, colorbar_radius=None):
+    def get_max_intensity(source, pyfits, roi, colorbar_radius=None):
         """ Return the maximum value in the pyfits file either 
             within the extended source's size or otherwise
             within the 68% containment radius of the PSF (at
