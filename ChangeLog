@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Feb 20 20:12:35 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+simplify interface to overlaying stuff on plots
+    *
+------------------------------------------------------------
 User: lande  Mon Feb 20 14:59:52 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
