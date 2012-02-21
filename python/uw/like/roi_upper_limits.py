@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.7 2012/02/17 22:15:35 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.8 2012/02/20 22:47:05 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -149,14 +149,14 @@ class ExtensionUpperLimit(object):
         self.roi = roi
         self.which = which
 
+        if self.spatial_model is None: self.spatial_model = Disk()
+
         if roi.TS(which)<4:
             # Bunt on extension upper limits for completely insignificant sources
             print 'Unable to compute extension upper limit for point-like source with too-small TS'
             self.extension_limit = None
 
         else:
-
-            if self.spatial_model is None: self.spatial_model = Disk()
 
             assert len(self.spatial_model.param_names) ==3 and \
                     self.spatial_model.param_names[2] == 'Sigma'
@@ -217,9 +217,14 @@ class ExtensionUpperLimit(object):
 
         f = lambda e: self.loglike(e, quiet=roi.old_quiet) - (self.ll_0 - self.delta_log_like_limits)
 
-        int_min = 0
-        int_max = brentq(f, self.spatial_low_lim, self.spatial_hi_lim, rtol=1e-4, xtol=1e-4)
-        return int_min, int_max
+        hi = self.spatial_hi_lim
+        try:
+            int_max = brentq(f, 0, hi, rtol=1e-4, xtol=1e-4)
+            return 0, int_max
+        except:
+            # Finding this intersect does not always work.
+            print 'WARNING: Unable to find an acceptable upper limit for the integration range so defaulting to %s. Extension upper limit could be unreliable'  % hi
+            return 0, hi
     
     def _compute(self):
 
