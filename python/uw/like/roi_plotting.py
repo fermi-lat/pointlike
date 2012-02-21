@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.82 2012/01/10 22:18:14 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.83 2012/02/20 22:59:52 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -424,16 +424,17 @@ class ROIDisplay(object):
         the weighted residuals and the p-values. """
 
     defaults = (
-            ('figsize',        (7,6.5),                    'Size of the image'),
-            ('fignum',          None,               'matplotlib figure number'),
-            ('pixelsize',       0.25,               'size of each image pixel'),
-            ('conv_type',         -1,                        'Conversion type'),
-            ('size',              10,              'Size of the field of view'),
-            ('nticks',             5,              'Number of axes tick marks'),
-            ('label_sources',  False,               'Label sources duing plot'),
-            ('galactic',        True,             'Coordinate system for plot'),
-            ('countsfile',      None, 'Fits file to save the counts map data.'),
-            ('modelfile',       None,  'Fits file to save the model map data.'),
+            ('figsize',       (7,6.5),                    'Size of the image'),
+            ('fignum',           None,               'matplotlib figure number'),
+            ('pixelsize',        0.25,               'size of each image pixel'),
+            ('conv_type',          -1,                        'Conversion type'),
+            ('size',               10,              'Size of the field of view'),
+            ('nticks',              5,              'Number of axes tick marks'),
+            ('galactic',         True,             'Coordinate system for plot'),
+            ('countsfile',       None, 'Fits file to save the counts map data.'),
+            ('modelfile',        None,  'Fits file to save the model map data.'),
+            ('extra_overlay',    None, 'Function which can be used to overlay stuff on the plot.'),
+            ('overlay_kwargs', dict(), 'kwargs passed into overlay_region'),
     )
 
 
@@ -486,7 +487,6 @@ class ROIDisplay(object):
 
         #self.grid[0].cax.colorbar(im)
         self.ax_model.set_title('Model Counts')
-        self.ax_model.grid(linestyle='-')
         self.add_cbar(im,self.ax_model)
         
     def counts_plot(self):
@@ -498,7 +498,6 @@ class ROIDisplay(object):
                             cmap=colormaps.b,
                             **self.imshow_args)
         self.ax_counts.set_title('Observed Counts')
-        self.ax_counts.grid(linestyle='-')
         self.add_cbar(im,self.ax_counts)
 
     def resids_plot(self):
@@ -507,7 +506,6 @@ class ROIDisplay(object):
                             norm=self.norm_res,
                             **self.imshow_args)
         self.ax_res.set_title('Weighted Residuals')
-        self.ax_res.grid(linestyle='-')
         self.add_cbar(im,self.ax_res)
 
     def hist_plot(self):
@@ -543,7 +541,6 @@ class ROIDisplay(object):
         # overlay gaussian with same normalization
         self.ax_resplot.plot(b,(len(mc)*dx)*norm.pdf(b))
         self.ax_resplot.axvline(0,color='red')
-        self.ax_resplot.grid(True)
         self.ax_resplot.set_xbound(lower=-5,upper=5)
 
     def show(self,filename=None):
@@ -583,8 +580,8 @@ class ROIDisplay(object):
 
         for ax in [self.ax_model, self.ax_counts, self.ax_res]:
             ax.axis[:].set_zorder(100)
-            ROISmoothedSources.overlay_region(self.roi,ax,self.h,label_sources=self.label_sources,
-                                         show_extensions=False)
+            ROISmoothedSources.overlay_region(self.roi,ax,self.h, **self.overlay_kwargs)
+            if self.extra_overlay is not None: self.extra_overlay(ax)
 
         if filename is not None: P.savefig(filename)
 
@@ -1079,7 +1076,8 @@ class ROISignificance(object):
             ('size',               5,                'Size of the field of view'),
             ('galactic',        True,               'Coordinate system for plot'),
             ('kernel_rad',       0.25, 'Sum counts/model within radius degrees.'),
-            ('label_sources',  False,                 'Label sources duing plot'),
+            ('extra_overlay',    None, 'Function which can be used to overlay stuff on the plot.'),
+            ('overlay_kwargs', dict(), 'kwargs passed into overlay_region'),
     )
 
     @keyword_options.decorate(defaults)
@@ -1131,9 +1129,8 @@ class ROISignificance(object):
 
         ax.set_title('Significance $(D-M)/\sqrt{M}$')
         
-        ax.grid()
-
-        ROISmoothedSources.overlay_region(self.roi,ax,h,label_sources=self.label_sources)
+        ROISmoothedSources.overlay_region(self.roi,ax,h,**self.overlay_kwargs)
+        if self.extra_overlay is not None: self.extra_overlay(ax)
 
         if filename is not None: P.savefig(filename)
 
@@ -1144,33 +1141,31 @@ class ROISmoothedSources(object):
         http://leejjoon.github.com/pywcsgrid2/users/overview.html """
 
     defaults = (
-            ('which',             None,    'Draw the smoothed point version of this source.'),
-            ('conv_type',           -1,                                    'Conversion type'),
-            ('size',                 3,                          'Size of the field of view'),
-            ('galactic',          True,                         'Coordinate system for plot'),
-            ('overlay_psf',       True, 'Add a smoothed reference PSF on top of the counts.'),
-            ('label_psf',         False,                        'Add a label on the PSF box.'),
-            ('psf_size',             1,                         'Size of the PSF insert box'), 
-            ('psf_loc',              4,                       'Location to put the psf box.'), 
-            ('show_sources',      True,                     'Put an x over all the sources.'),
-            ('label_sources',    False,                           'Label sources duing plot'),
-            ('kerneltype',  'gaussian',                'Type of kernel to smooth image with'),
-            ('kernel_rad',         0.1,            'Sum counts/model within radius degrees.'),
-            ('title',             None,                                 'Title for the plot'),
-            ('show_extensions',   True,                             'Overlay the extension.'),
-            ('override_center',   None,                               'Pick a better center'),
-            ('extension_color','black',                          'Color of extended sources'),
-            ('figsize',      (5.5,4.5),                                  'Size of the image'),
-            ('fignum',            None,                           'Matplotlib figure number'),
-            ('show_colorbar',     True,                                  'Show the colorbar'),
-            ('cmap',              None,                                  'Show the colorbar'),
-            ('colorbar_radius',   None,  """ If specified, calculate the intensity maximum
+        ('which',             None,    'Draw the smoothed point version of this source.'),
+        ('conv_type',           -1,                                    'Conversion type'),
+        ('size',                 3,                          'Size of the field of view'),
+        ('galactic',          True,                         'Coordinate system for plot'),
+        ('overlay_psf',       True, 'Add a smoothed reference PSF on top of the counts.'),
+        ('label_psf',         False,                        'Add a label on the PSF box.'),
+        ('psf_size',             1,                         'Size of the PSF insert box'), 
+        ('psf_loc',              4,                       'Location to put the psf box.'), 
+        ('kerneltype',  'gaussian',                'Type of kernel to smooth image with'),
+        ('kernel_rad',         0.1,            'Sum counts/model within radius degrees.'),
+        ('title',             None,                                 'Title for the plot'),
+        ('override_center',   None,                               'Pick a better center'),
+        ('figsize',      (5.5,4.5),                                  'Size of the image'),
+        ('fignum',            None,                           'Matplotlib figure number'),
+        ('show_colorbar',     True,                                  'Show the colorbar'),
+        ('cmap',              None,                                  'Show the colorbar'),
+        ('colorbar_radius',   None,  """ If specified, calculate the intensity maximum
                                              pixel to be the maximum of all pixels within
                                              this radius. This is useful if you want to clip
                                              out a very bright nearby sources. By default,
                                              this radius will be the source size or the PSF
                                              size (if which!=None). If which==None, the
                                              default is that colorbar_radius=inf.        """),
+        ('extra_overlay',     None, 'Function which can be used to overlay stuff on the plot.'),
+        ('overlay_kwargs',  dict(), 'kwargs passed into overlay_region'),
     )
 
 
@@ -1360,22 +1355,19 @@ class ROISmoothedSources(object):
             if self.label_psf:
                 axins.add_inner_title("PSF", loc=3)
 
-        ROISmoothedSources.overlay_region(self.roi,ax,self.header,
-                                         show_sources=self.show_sources,
-                                         label_sources=self.label_sources,
-                                         show_extensions=self.show_extensions,
-                                         extension_color=self.extension_color)
+        ROISmoothedSources.overlay_region(self.roi,ax,self.header, **self.overlay_kwargs)
+        if self.extra_overlay is not None: self.extra_overlay(ax)
 
         if filename is not None: P.savefig(filename)
 
     @staticmethod
     def overlay_sources(roi, ax, 
-                        exclude_names=[], # don't plot these sources
+                        exclude_sources=[], # don't plot these sources
                         override_kwargs = {}, # override kwargs for particular sources
                         **kwargs):
         """ Overlay sources in the ROI.
 
-            exclude_names is a list of names of sources to not to overlay.
+            exclude_sources is a list of sources or names of sources to not to overlay.
 
             override_kwargs is a dictionary where the keys are source
             names and the values are dictionaries of kwargs to pass
@@ -1383,11 +1375,13 @@ class ROISmoothedSources(object):
             format certain source markers specially.
         """
         for source in roi.get_sources():
-            if source.name not in exclude_names:
+            if source.name not in exclude_sources and source not in exclude_sources:
                 pass_kwargs = kwargs.copy()
 
                 if override_kwargs.has_key(source.name):
                     pass_kwargs.update(override_kwargs[source.name])
+                elif override_kwargs.has_key(source):
+                    pass_kwargs.update(override_kwargs[source])
 
                 ROISmoothedSource.overlay_source(source, ax, **pass_kwargs)
 
@@ -1409,11 +1403,13 @@ class ROISmoothedSources(object):
             white_kwargs = all_kwargs.copy()
             white_kwargs['color']='white'
             white_kwargs['markersize']=all_kwargs['markersize']+1
-            white_kwargs['markeredgecolor']='white'
             white_kwargs['markeredgewidth']=2
             white_kwargs['zorder']=all_kwargs['zorder']-0.1
 
             ax["gal"].plot([l],[b],**white_kwargs)
+        else:
+            if white_edge: 
+                all_kwargs['markeredgecolor'] = 'white'
 
         ax["gal"].plot([l],[b],**all_kwargs)
 
@@ -1496,18 +1492,17 @@ class ROITSMapPlotter(object):
         on it all of the sources in the ROI."""
     
     defaults = (
-        ('size',                        5,                                 ),
-        ('pixelsize',               0.125,                                 ),
-        ('galactic',                 True,                                 ),
-        ('figsize',             (5.5,4.5),       'Size of figure in inches'),
-        ('fignum',                   None,       'Matplotlib figure number'),
-        ('title',       'Residual TS Map',              'Title of the plot'),
-        ('fitsfile',                 None,                                 ), 
-        ('show_sources',      True,        'Put an x over all the sources.'),
-        ('label_sources',           False,                                 ),
-        ('show_colorbar',     True,                                  'Show the colorbar'),
-        ('show_extensions',   True,                'Overlay the extension.'),
-        ('extension_color','black',             'Color of extended sources'),
+        ('size',                        5, ),
+        ('pixelsize',               0.125, ),
+        ('galactic',                 True, ),
+        ('figsize',             (5.5,4.5), 'Size of figure in inches'),
+        ('fignum',                   None, 'Matplotlib figure number'),
+        ('title',       'Residual TS Map', 'Title of the plot'),
+        ('fitsfile',                 None, ), 
+        ('show_colorbar',            True, 'Show the colorbar'),
+        ('extra_overlay',            None, 'Function which can be used to overlay stuff on the plot.'),
+        ('overlay_kwargs',         dict(), 'kwargs passed into overlay_region'),
+
     )
 
     @keyword_options.decorate(defaults)
@@ -1570,11 +1565,8 @@ class ROITSMapPlotter(object):
 
         ax.set_title(self.title)
 
-        ROISmoothedSources.overlay_region(self.roi,ax,self.header,
-                                         show_sources=self.show_sources,
-                                         label_sources=self.label_sources,
-                                         show_extensions=self.show_extensions,
-                                         extension_color=self.extension_color)
+        ROISmoothedSources.overlay_region(self.roi,ax,self.header, **self.overlay_kwargs)
+        if self.extra_overlay is not None: self.extra_overlay(ax)
 
         if filename is not None: P.savefig(filename)
 
@@ -1586,16 +1578,16 @@ class ROISmoothedModel(object):
         the right source. """
 
     defaults = (
-            ('which',            None,                                   'Source to analyze'),
-            ('figsize',          (8,4),                                  'Size of the image'),
-            ('fignum',            None,                           'Matplotlib figure number'),
-            ('conv_type',           -1,                                    'Conversion type'),
-            ('size',                 3,                          'Size of the field of view'),
-            ('galactic',          True,                         'Coordinate system for plot'),
-            ('show_sources',      True,                     'Put an x over all the sources.'),
-            ('label_sources',    False,                           'Label sources duing plot'),
-            ('kerneltype',  'gaussian',                'Type of kernel to smooth image with'),
-            ('kernel_rad',         0.1,            'Sum counts/model within radius degrees.'),
+        ('which',            None,  'Source to analyze'),
+        ('figsize',          (8,4), 'Size of the image'),
+        ('fignum',            None, 'Matplotlib figure number'),
+        ('conv_type',           -1, 'Conversion type'),
+        ('size',                 3, 'Size of the field of view'),
+        ('galactic',          True, 'Coordinate system for plot'),
+        ('kerneltype',  'gaussian', 'Type of kernel to smooth image with'),
+        ('kernel_rad',         0.1, 'Sum counts/model within radius degrees.'),
+        ('extra_overlay',     None, 'Function which can be used to overlay stuff on the plot.'),
+        ('overlay_kwargs',  dict(), 'kwargs passed into overlay_region'),
     )
 
     @keyword_options.decorate(defaults)
@@ -1639,11 +1631,9 @@ class ROISmoothedModel(object):
         ax = self.grid[0]
         h, d = self.counts_pyfits[0].header, self.counts_pyfits[0].data
         im=ax.imshow(d, origin="lower", cmap=self.cmap, vmin=0, vmax=self.max_intensity)
-        ax.grid()
 
-        ROISmoothedSources.overlay_region(self.roi,ax,h,
-                show_sources=self.show_sources,label_sources=self.label_sources,
-                show_extensions=False)
+        ROISmoothedSources.overlay_region(self.roi,ax,h, **self.overlay_kwargs)
+        if self.extra_overlay is not None: self.extra_overlay(ax)
 
         ax.add_inner_title("Counts", loc=2)
 
@@ -1651,15 +1641,13 @@ class ROISmoothedModel(object):
         ax = self.grid[1]
         h, d = self.model_pyfits[0].header, self.model_pyfits[0].data
         im=ax.imshow(d, origin="lower", cmap=self.cmap, vmin=0, vmax=self.max_intensity)
-        ax.grid()
 
         cb_axes = self.grid.cbar_axes[0]
         cbar = cb_axes.colorbar(im)
         cbar.ax.set_ylabel(r'$\mathrm{counts}\ [\mathrm{deg}]^{-2}$')
 
-        ROISmoothedSources.overlay_region(self.roi,ax,h,
-                show_sources=self.show_sources,label_sources=self.label_sources,
-                show_extensions=False)
+        ROISmoothedSources.overlay_region(self.roi,ax,h, **self.overlay_kwargs)
+        if self.extra_overlay is not None: self.extra_overlay(ax)
 
         ax.add_inner_title("Model", loc=2)
 
