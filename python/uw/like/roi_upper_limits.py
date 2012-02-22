@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.8 2012/02/20 22:47:05 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.9 2012/02/21 04:12:52 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -253,12 +253,12 @@ class ExtensionUpperLimit(object):
         ll = np.asarray(self.all_ll)
         l = np.exp(ll - ll_0)
 
-        e_middles = 0.5*(e[1:] + e[:-1])
 
         # sort on extension
         indices = np.argsort(e)
         e, l = e[indices], l[indices]
 
+        e_middles = 0.5*(e[1:] + e[:-1])
         cdf = integrate.cumtrapz(x=e,y=l)
         cdf /= cdf[-1]
         self.extension_limit = np.interp(self.confidence, cdf, e_middles)
