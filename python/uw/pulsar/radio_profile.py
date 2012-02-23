@@ -104,16 +104,19 @@ class Profile(object):
             position of the fundamental peak."""
         TWOPI = 2*np.pi
         self.fidpt = 0
-        vals = self.get_amplitudes()
+        vals = self.get_amplitudes(align_to_peak=False)[0]
         ph = np.linspace(0,TWOPI,len(vals)+1)[:-1] # LEFT bin edges
         a1 = (np.sin(ph)*vals).sum()
         a2 = (np.cos(ph)*vals).sum()
         self.fidpt = np.arctan2(a1,a2)/TWOPI
 
-    def get_amplitudes(self,align_to_peak=False,bin_goal=None):
+    def get_amplitudes(self,align_to_peak=True,bin_goal=None):
         """ Produce an ordered list of amplitudes as a function of phase,
             rotated such that the fiducial point is at 0.  The profile 
             is re-binned with linear interpolation.
+
+            align_to_peak [True] -- will rotate the profile to place the
+            peak bin at zero, if not already there
             
             bin_goal [None] -- will attempt to average the light curve to
                 between between bin_goal and 2xbin_goal bins"""
@@ -124,16 +127,29 @@ class Profile(object):
         if len(phases.shape) > 1:
             raise ValueError('Could not read profile values.')
 
-        if self.fidpt != 0:
-            x0 = np.linspace(0,1,len(phases)+1)[:-1]
-            x = np.concatenate((x0,x0+1,[2]))
-            y = np.concatenate((phases,phases,[phases[0]]))
-            rvals = np.interp(x0+self.fidpt,x,y)
+        if align_to_peak:
+            a = np.argmax(phases)
+            align_shift = float(a) / len(phases) # NB -- really peak position
+            phases = np.roll(phases,-a)
         else:
-            rvals = phases
+            align_shift = 0
+
+        # this is obsolete -- now, profile will have peak at 0, and
+        # fiducial point will be computed only to shift gamma-ray profile
+        # accordingly
+        #if self.fidpt != 0:
+        #    # interpolate the profile so that the fiducial point is a zero
+        #    x0 = np.linspace(0,1,len(phases)+1)[:-1]
+        #    x = np.concatenate((x0,x0+1,[2]))
+        #    y = np.concatenate((phases,phases,[phases[0]]))
+        #    rvals = np.interp(x0+self.fidpt,x,y)
+        #else:
+        #    rvals = phases
+        rvals = phases
         if bin_goal > 0:
             if len(rvals) % 2 > 0: 
                 rvals = np.append(rvals,rvals[0])
             while len(rvals) > bin_goal:
                 rvals = (rvals[:-1:2]+rvals[1::2])/2
-        return rvals
+        #return rvals,self.fidpt+align_shift,self.fidpt-align_shift
+        return rvals,self.fidpt-align_shift

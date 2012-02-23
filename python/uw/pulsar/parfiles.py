@@ -279,10 +279,12 @@ class ParFile(dict):
             pdot -= self.get_shklovskii_pdot(distance)
         return self.p()/(2.*pdot)/(365*86400)/1e6
 
-    def get_dm_alignment_uncertainty(self,use_last_sig_fig=True):
+    def get_dm_alignment_uncertainty(self,use_last_sig_fig=True,dme=None):
         """ Attempt to determine an uncertainty on the gamma-ray phase based on
             the specified uncertainty in DM.  If no uncertainty is specified,
             return 0.
+
+            If dme is not None, use this value for alignment uncertainty.
             
             Return value is in rotational phase."""
         def get_error(x,factor=3):
@@ -294,18 +296,19 @@ class ParFile(dict):
             else:
                 return float(factor) / 10**len(r)
         try:
-            dm = self.get('DM',first_elem=False,type=float)
-            if not hasattr(dm,'__len__'):
-                if not use_last_sig_fig: return 0
-                dme = get_error(dm)
-                print 'Using %s as DM error for %s'%(dme,dm)
-            else:
-                dme = dm[-1] # should account for .par files with "1/0" in the line
+            if dme is None:
+                dm = self.get('DM',first_elem=False,type=float)
+                if not hasattr(dm,'__len__'):
+                    if not use_last_sig_fig: return 0
+                    dme = get_error(dm)
+                    print 'Using %s as DM error for %s'%(dme,dm)
+                else:
+                    dme = dm[-1] # should account for .par files with "1/0" in the line
             f0 = self.get('F0',type=float)
             freq = self.get('TZRFRQ',type=float) # in MHz
             if freq==0:
-                print 'TZRFRQ == 0!'
-                return 0
+                print 'TZRFRQ == 0!  Assuming 1400 MHz...'
+                freq = 1400.
         except KeyError:
             return 0
         return dme/2.41e-4/freq**2*f0

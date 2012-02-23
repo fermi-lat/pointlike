@@ -177,9 +177,12 @@ class LCWrappedFunction2(LCWrappedFunction):
 
     def get_width(self,error=False,fwhm=False,twosided=False):
         x0,left_p,right_p = self._equalize()
+        left_e,right_e = self._get_errors()
         self.prim.p[:] = left_p
+        self.prim.errors[:] = left_e
         w_left,w_left_err = self.prim.get_width(fwhm=fwhm,error=True)
         self.prim.p[:] = right_p
+        self.prim.errors[:] = right_e
         w_right,w_right_err = self.prim.get_width(fwhm=fwhm,error=True)
         if not twosided:
             # average left and right side...
@@ -217,6 +220,12 @@ class LCWrappedFunction2(LCWrappedFunction):
         norm,w1,w2,x0 = self.p
         n1 = 2*norm/(1+w2/w1); n2 = n1*(w2/w1)
         return x0,(n1,w1,x0),(n2,w2,x0)
+
+    def _get_errors(self):
+        """ Get errors for base primitives.  Default implementation
+            works for gaussians and lorentzians."""
+        e = self.errors
+        return (e[0],e[1],e[3]),(e[0],e[2],e[3])
 
     def base_func(self,phases,index=0):
         x0,left_p,right_p = self._equalize()

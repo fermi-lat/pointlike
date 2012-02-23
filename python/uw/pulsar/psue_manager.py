@@ -61,14 +61,20 @@ def SelectPhase(infile,outfile=None,phmin=0,phmax=1,phcolname='PULSE_PHASE'):
 class PSUEFile(dict):
 
     def _switch_lc_format(self):
+        """ Temporary function wihle adding support for asymmetric peak widths. """
         for key,postfix in zip(['PEAK1','PEAK2','BRIDGE'],['P1','P2','B']):
             for ik,k in enumerate(self.ordered_keys):
                 if k==key:
-                    if self.ordered_keys[ik+2] == 'FWHM_%s'%postfix:
+                    if (ik+2 < len(self.ordered_keys)) and (self.ordered_keys[ik+2] == 'FWHM_%s'%postfix):
                         old_key = self.ordered_keys.pop(ik+2)
-                        self.pop(old_key)
+                        old_val = self.pop(old_key)
                         self.ordered_keys.insert(ik+2,'FWHM_R_%s'%postfix)
                         self.ordered_keys.insert(ik+2,'FWHM_L_%s'%postfix)
+                        self['FWHM_R_%s'%postfix] = old_val
+                        self['FWHM_L_%s'%postfix] = old_val
+        # what a kluge....
+        while ('FWHM' in self.ordered_keys[-2]):
+            self.ordered_keys.pop(-2)
         while ('FWHM' in self.ordered_keys[-1]):
             self.ordered_keys.pop()
 
@@ -80,7 +86,8 @@ class PSUEFile(dict):
                 if len(tok)==0: continue
                 self.ordered_keys.append(tok[0])
                 self[tok[0]] = tok[1:] if (len(tok[1:]) > 1) else tok[1:][0]
-        self._switch_lc_format()
+            # NB -- to remove ASAP
+            self._switch_lc_format()
 
     def get(self,key,first_elem=True,type=str):
         try:
@@ -173,6 +180,7 @@ class PSUEAnalysis():
         ephem = ParFile(self.parfile[0])
         self.psrname = ephem.get_psrname()
         self.ra, self.dec = ephem.get_ra(), ephem.get_dec()
+        self.period = ephem.p()
 
         # outdir
         if self.outdir is None: self.outdir = abspath(join(getcwd(),self.psrname))            
@@ -312,7 +320,7 @@ class PSUEAnalysis():
 
     def TimingAnalysis( self, nbins=None, weight=False, offmin=0, offmax=1, background=None, 
                         profile=None, ncol=1, fidpt=0, peakShape=None, peakPos=None, psrtype=None,
-                        use_spw=False ):
+                        use_spw=False, dm_unc=0):
         '''Generate gamma-ray pulse profiles.
         ============    =============================================
         keyword         description
@@ -321,6 +329,7 @@ class PSUEAnalysis():
         nbins           Number of bins for phaso            [None]
         profile         Name of the radio template          [None]
         use_spw         Use Weights from SearchPulsation    [False]
+        dm_unc          Uncertainty on dispersion (DM)      [0]
         '''
 
         if weight: ft1file = self.ft1file_weights
@@ -360,7 +369,8 @@ class PSUEAnalysis():
             phaseogram2d = ft1file.replace('.fits','_phaseogram2D_spwc.eps')
 
         # Fill histograms
-        plc.fill_phaseogram(nbins=nbins,weight=weight)
+        phase_shift = plc.fill_phaseogram(nbins=nbins,weight=weight,profile=profile)
+        self.PSUEoutfile.set('PHASE_SHIFT','%.5f'%phase_shift)
         plc.print_summary()
 
         # background
@@ -375,14 +385,6 @@ class PSUEAnalysis():
         # off-pulse region
         if offmin==0 and offmax==1: reg=None
         else: reg=[offmin,offmax]
-        
-        # multi-energy band pulse profile
-        prof = None if profile is None else [plc.load_profile(profile=profile)]
-        plc.plot_lightcurve(nbands=6, profile=prof, background=bkg, zero_sup=True,
-                            substitute=True, color='black', reg=reg, outfile=pulse_profile)
-
-        plc.plot_lightcurve(nbands=6, profile=prof, background=bkg, zero_sup=True,
-                            substitute=True, color='black', reg=reg, outfile=pulse_profile.replace('.eps','.png'))
                         
         # phase vs time
         plc.plot_phase_time(which=0,outfile=phaseogram2d)
@@ -391,15 +393,15 @@ class PSUEAnalysis():
         # ascii
         plc.toASCII(outdir=self.outdir_local)
 
-        # get the phase and weight values
+        # H-test output
         phases  = plc.get_phases(which=0)
         weights = plc.get_weights(which=0)
         H = hmw(phases,weights); sig = h2sig(H)
-
         if weight: self.PSUEoutfile.set('WHTEST',['%.1f'%sig,'sig'])
         else: self.PSUEoutfile.set('HTEST',['%.1f'%sig,'sig'])
 
         # =========== FIT PULSE PROFILE =============
+        lct = None; # used for logic later
         if (peakShape is not None) and (peakPos is not None):
             
             import uw.pulsar.lcprimitives as lp; reload(lp)
@@ -462,7 +464,8 @@ class PSUEAnalysis():
                 lcf.fit(quick_fit_first=True,unbinned=unbinned)
                 if twoside:
                     for prim in prims: prim.free[2] = True
-                lcf.fit(unbinned=unbinned); print lcf
+                #lcf.fit(unbinned=unbinned); print lcf
+                lcf.fit(quick_fit_first=True,unbinned=unbinned); print lcf
                 t2 = time.time()
                 print 'Required %ds for light curve fitting.'%(t2-t1)
 
@@ -477,8 +480,9 @@ class PSUEAnalysis():
                     return ( ['%s_%s'%(x,postfix) for x in ['LOC','FWHM_L','FWHM_R']],
                              [loc, w_l, w_r] )
             
-                if loglike < lcf.ll:
-                    loglike = lcf.ll
+                if (loglike < lcf.ll) or loglike==-1: # always write at least one model
+                    if not np.isnan(lcf.ll):
+                        loglike = lcf.ll
                     self.PSUEoutfile.set('N_PEAKS','%0.f'%npeaks)
 
                     it_peak=1
@@ -496,10 +500,10 @@ class PSUEAnalysis():
                             self.PSUEoutfile.set(k,v)
                     
                     try: loc_p1, err_loc_p1 = self.PSUEoutfile.get('LOC_P1',first_elem=False,type=float)
-                    except KeyError: loc_p1, err_loc_p1 = 0, 0
+                    except (KeyError,TypeError): loc_p1, err_loc_p1 = 0, 0
                     
                     try: loc_p2, err_loc_p2 = self.PSUEoutfile.get('LOC_P2',first_elem=False,type=float)
-                    except KeyError: loc_p2, err_loc_p2 = 0, 0
+                    except (KeyError,TypeError): loc_p2, err_loc_p2 = 0, 0
 
                     # delta, DELTA
                     if psrtype == 'g': delta, err_delta = 0, 0
@@ -509,9 +513,17 @@ class PSUEAnalysis():
                     if len(peakPos)>1:
                         DELTA, err_DELTA = (loc_p2-loc_p1), np.sqrt(err_loc_p1**2+err_loc_p2**2)
                         self.PSUEoutfile.set('DELTA',['%.3f'%DELTA,'%.3f'%err_DELTA])
+                    # uncertainty from DM
+                    ephem = ParFile(self.parfile[0])
+                    self.PSUEoutfile.set('DM_delta_UNC',
+                        ephem.get_dm_alignment_uncertainty(dme=dm_unc))
 
                     # figure
-                    fig = pl.figure(1); lcf.plot(fignum=1); pl.show()
+                    nbins = 25
+                    if H > 100: nbins = 50
+                    if H > 1000: nbins = 100
+                    fig = pl.figure(1);
+                    lcf.plot(fignum=1,nbins=nbins); pl.show()
                     fig.savefig(ft1file.replace('.fits','_pulse_profile_template.png'))
                     pl.clf()
 
@@ -521,6 +533,15 @@ class PSUEAnalysis():
                     cPickle.dump(outdata,outfile)
                     outfile.close()
 
+        plc.plot_lightcurve(nbands=6, background=bkg, zero_sup=True,
+            substitute=True, color='black', reg=reg, template=lct,
+            outfile=pulse_profile,
+            period=self.period)
+
+        plc.plot_lightcurve(nbands=6, background=bkg, zero_sup=True,
+            substitute=True, color='black', reg=reg, template=lct,
+            outfile=pulse_profile.replace('.eps','.png'),
+            period=self.period)
 
     def PointlikeSpectralAnalysis( self, free_roi=5, phase_range=None, phname="", plot=False, **kwargs):
         '''Perform a full spectral analysis using pointlike
