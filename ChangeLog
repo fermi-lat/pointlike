@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: kerrm  Thu Feb 23 11:09:54 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_plotting_func.py lcfitters.py lcprimitives.py parfiles.py 
+	psue_manager.py radio_profile.py 
+Log Message:
+Big update -- sorry no helpful comments.
+
+    *
+------------------------------------------------------------
 User: lande  Tue Feb 21 16:13:21 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
