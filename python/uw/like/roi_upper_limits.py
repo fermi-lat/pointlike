@@ -1,14 +1,14 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.9 2012/02/21 04:12:52 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.10 2012/02/22 00:13:21 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
 import numpy as np
 from scipy import integrate
 from scipy.stats.distributions import chi2
-from scipy.optimize import fmin, brentq
+from scipy.optimize import fmin, fminbound, brentq
 
 from uw.utilities import keyword_options
 
@@ -176,12 +176,14 @@ class ExtensionUpperLimit(object):
             spectral paramaters to avoid situations
             where the previous fit totally
             failed to converge. """
+
+        roi = self.roi
+        which = self.which
+
         if extension in self.all_extensions:
             index = self.all_extensions.index(extension)
             ll = self.all_ll[index]
         else:
-            roi = self.roi
-            which = self.which
 
             if extension < self.spatial_low_lim: extension = self.spatial_low_lim
             roi.modify(which, sigma=extension)
@@ -194,37 +196,88 @@ class ExtensionUpperLimit(object):
             self.all_extensions.append(extension)
             self.all_ll.append(ll)
 
-        if not quiet: print 'sigma = %.2f, ll=%.2f, dll=%.2f' % (extension, ll, ll - self.ll_0)
+        if not roi.old_quiet and hasattr(self,'ll_0'):
+                print '... sigma = %.2f, ll=%.2f, ll-ll_0=%.2f' % (extension, ll, ll - self.ll_0)
 
         return ll
 
-    def like(self, extension):
-        roi = self.roi
-
-        ll = self.loglike(extension)
-        dll = ll-self.ll_0
-        l = np.exp(dll)
-
-        if not roi.old_quiet: print 'sigma = %.2f, ll=%.2f, dll=%.2f, l=%.2f' % (extension, ll, dll, l)
-
-        return l
-
-
-    def get_integration_range(self):
+    def _compute_integration_range(self):
         """ Estimate when the likelihood has fallen
             from the likelihood at Sigma=0 by an amount delta_log_like_limits. """
         roi = self.roi
 
-        f = lambda e: self.loglike(e, quiet=roi.old_quiet) - (self.ll_0 - self.delta_log_like_limits)
+        if not roi.old_quiet: print "Computing Integration range, delta_log_like_limits=%s:" % self.delta_log_like_limits
+
+        self.ll_0 = ll_0 = self.loglike(extension=0, quiet=True)
+
+        f = lambda e: self.loglike(e, quiet=roi.old_quiet) - (ll_0 - self.delta_log_like_limits)
+
+        self.int_min = 0
 
         hi = self.spatial_hi_lim
         try:
-            int_max = brentq(f, 0, hi, rtol=1e-4, xtol=1e-4)
-            return 0, int_max
+            self.int_max = brentq(f, 0, hi, rtol=1e-4, xtol=1e-3)
         except:
             # Finding this intersect does not always work.
             print 'WARNING: Unable to find an acceptable upper limit for the integration range so defaulting to %s. Extension upper limit could be unreliable'  % hi
-            return 0, hi
+            self.int_max = hi
+
+        if not roi.old_quiet: print "Integrating range is between %s and %s" % (self.int_min, self.int_max)
+
+
+    def _compute_max_loglikelihood(self):
+        """ Note, it is important to evalulate the maximum loglikelihood so that
+            the overall likelihood can be defined as exp(ll-ll_max) to avoid
+            computing the exponential of a very large number in the case where ll_0 is
+            much different from ll_max. Since the overal
+            function is normalized later, this is the most numerically stable
+            normalization.
+            """
+        roi = self.roi
+
+        if not roi.old_quiet: print "Computing maximum loglikelihood:"
+
+        # Note, maximum loglikelihood =  minimum -1*logLikelihood
+        # Note, this does not have to be very precise. The purpose of
+        # this function is just to get a reasonable guess at the best extension
+        # to avoid floating point issues in the likelihood l=exp(ll-ll_max).
+        self.sigma_max = fminbound(lambda e: -1*self.loglike(e), self.int_min, self.int_max, disp=0, xtol=1e-3)
+        self.ll_max = self.loglike(self.sigma_max)
+
+        if not roi.old_quiet: print "Maximum logLikelihood is %.2f" % self.ll_max
+
+    def _compute_extension_limit(self):
+        """ Compute the extnesion upper limit by
+                (a) Sampling the function
+                (b) Computing the CDF and normalizing
+                (c) Finding when the normalized CDF is equal to the desired confidence
+        
+            quad will do a nice job sampling the likelihood as a function
+            of extensions.  No reason to save out the output of the
+            integral since the data points are saved by the like
+            function. """
+        roi = self.roi
+
+        print "Sampling likelihood function:"
+
+        ll_to_l = lambda ll: np.exp(ll-self.ll_max)
+        like = lambda e: ll_to_l(self.loglike(e))
+
+        integrate.quad(like, self.int_min, self.int_max, epsabs=1e-4)
+
+        e = np.asarray(self.all_extensions)
+        l = ll_to_l(np.asarray(self.all_ll))
+
+        # sort on extension
+        indices = np.argsort(e)
+        e, l = e[indices], l[indices]
+
+        e_middles = 0.5*(e[1:] + e[:-1])
+        cdf = integrate.cumtrapz(x=e,y=l)
+        cdf /= cdf[-1]
+        self.extension_limit = np.interp(self.confidence, cdf, e_middles)
+
+        print "Extension upper limit is %.2f" % self.extension_limit
     
     def _compute(self):
 
@@ -236,33 +289,9 @@ class ExtensionUpperLimit(object):
 
         roi.modify(which=which, spatial_model=self.spatial_model, keep_old_center=True)
 
-        self.ll_0 = ll_0 = self.loglike(0, quiet=True)
-
-        if not roi.old_quiet: print "First, computing Integration range, delta_log_like_limits=%s:" % self.delta_log_like_limits
-        int_min, int_max = self.get_integration_range()
-        if not roi.old_quiet: print "Integrating in range between %s and %s" % (int_min, int_max)
-
-
-        # quad will do a nice job sampling
-        # the likelihood as a function of extensions.
-        # No reason to save out the output of the integral
-        # since the data points are saved by the like function.
-        integrate.quad(self.like, int_min, int_max, epsabs=1e-4)
-
-        e = np.asarray(self.all_extensions)
-        ll = np.asarray(self.all_ll)
-        l = np.exp(ll - ll_0)
-
-
-        # sort on extension
-        indices = np.argsort(e)
-        e, l = e[indices], l[indices]
-
-        e_middles = 0.5*(e[1:] + e[:-1])
-        cdf = integrate.cumtrapz(x=e,y=l)
-        cdf /= cdf[-1]
-        self.extension_limit = np.interp(self.confidence, cdf, e_middles)
-
+        self._compute_integration_range()
+        self._compute_max_loglikelihood()
+        self._compute_extension_limit()
 
     def results(self):
         return dict(extension=self.extension_limit, 
