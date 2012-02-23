@@ -115,6 +115,7 @@ class PulsarLightCurve:
         '''
         self.init()
         self.__dict__.update(kwargs)
+        self.align_shift = 0
         
         self.ft1name = ft1name
         if not isfile(ft1name):
@@ -263,8 +264,34 @@ class PulsarLightCurve:
     def get_times(self,which=0):
         '''Returns an array of times in MJD'''
         return np.asarray(self.pulse_phase[which][:,2][0])
+
+    def load_profile(self, profile, ytitle="Radio Flux (au)", comment="", histo=False):
+
+        profile = Profile(profile)
+        phases,align_shift,delta_corr = profile.get_amplitudes()
+        phlen = len(phases)
+
+        if histo:
+            template = TH1F()
+            template.SetBins(phlen*int(self.binmax-self.binmin),self.binmin,self.binmax)
+            for i, p in enumerate(phases):
+                template.Fill(float(i)/phlen,p)
+                template.Fill(1+float(i)/phlen,p)
+            template.SetMinimum(0.01)
+            max_histo = template.GetBinContent(template.GetMaximumBin())
+            factor = 1.12 + sqrt(max_histo)/max_histo
+            template.SetMaximum(int(max_histo*factor))
+        else:
+            phases = np.append(phases,phases)
+            phases = np.append(phases,phases[0])
+            template = TGraph(len(phases))
+            for i, p in enumerate(phases):
+                template.SetPoint(i,float(i)/phlen,p)
+            template.GetXaxis().SetLimits(self.binmin,self.binmax)
+
+        return template, ytitle, comment, align_shift, delta_corr
             
-    def fill_phaseogram(self, radius=None, nbins=None, phase_range=[0.,2.], phase_shift=0, weight=False):
+    def fill_phaseogram(self, radius=None, nbins=None, phase_range=[0.,2.], phase_shift=0, weight=False, profile=None, profile_kwargs={}):
         '''Fill phaseograms (pulse profiles)
         ===========    ==================================================
         keyword        description
@@ -275,12 +302,24 @@ class PulsarLightCurve:
         phase_shift    add a shift to the pulse phase values  [0]
         weight         Use a weight for each photon           [False]
         ===========    ================================================== '''
+
+        # NB -- PHASE SHIFT FROM RADIO LIGHT CURVE IS APPLIED TO 'RAW'
+        # PHASES FROM FT1, so e.g. \delta is CORRECT AS ESTIMATED
         
-        self.phase_shift         = phase_shift
+        #self.phase_shift         = phase_shift
+        self.phase_shift         = 0
         self.binmin, self.binmax = phase_range[0], phase_range[1]
         self.weight              = weight
         erange, rrange           = self.__energy_range, self.__radius_range
         ndays                    = 20
+
+        # radio profile (if any)
+        self.profile = None
+        if profile is not None:
+            #if not hasattr(profile,'__len__'): profile = [profile]
+            profile = self.load_profile(profile,**profile_kwargs)
+            phase_shift -= profile[-1] # correction to g-ray light curve
+            self.profile = [profile[:-1]]
 
         # radius
         if radius is None: radius = self.radius
@@ -310,8 +349,10 @@ class PulsarLightCurve:
             evtlist[self.phase_colname] += phase_shift
             evtlist[self.phase_colname][evtlist[self.phase_colname]>1] -= 1
             evtlist[self.phase_colname][evtlist[self.phase_colname]<0] += 1
+            self.phase_shift = 0
 
         # collection of pulse phase, etc.
+        self.renormalize = False
         for j in range(len(self.phaseogram)):
             radius_filter = evtlist["ANGSEP"] <= rrange[j]
             energy_filter = np.logical_and( erange[j][0]<=evtlist["ENERGY"], evtlist["ENERGY"]<=erange[j][1] )
@@ -320,6 +361,13 @@ class PulsarLightCurve:
             P = evtlist[self.phase_colname][mask]; N = len(P)
             T = met2mjd(evtlist["TIME"][mask])
             W = evtlist[self.weight_colname][mask] if self.weight else np.ones(N)
+            # here, an ad hoc renormalization if flux==0
+
+            if (j==0) and (len(W) > 0) and (W.sum() < 1):
+                self.renormalize = True
+                print 'RENORMALIZING WEIGHTS!!!'
+            if self.renormalize and (len(W) > 0): 
+                W /= W.max()
             #if len(P)>0:
             self.pulse_phase[j] += [[P,W,T]]
 
@@ -397,6 +445,8 @@ class PulsarLightCurve:
                 if histo.GetMaximum()%5 == 2: histo.SetMaximum(histo.GetMaximum()*1.03)
             else:
                 histo.SetMaximum(1.1)        
+
+        return phase_shift
 
     def get_background(self, which=None, phase_range=[0.,1.], ring_range=[1.,2.], method='ring'):
         '''Return background/bin for a phaseogram.
@@ -546,33 +596,10 @@ class PulsarLightCurve:
             print "%.1f \t \t" %item[1],
         print "\n\n"
 
-#    def load_profile(self, profile, fidpt=0., norm=True, mean_sub=False, ncol=1,
-#                     ytitle="Radio Flux (au)", comment="", histo=False):
-#        '''Load radio/xray profiles
-#        ===========   ==============================================
-#        keyword       description
-#        ===========   ==============================================
-#        profile       radio/x-ray template (ascii)      [necessary]
-#        fidpt         fiducial point                    [0]
-#        ncol          phase column number               [1]
-#        mean_sub      Substract                         [False]
-#        norm          normalized profile to 1           [True]
-#        ytitle        ytitle                            ["Radio Flux (au)"]
-#        comment       comment on profile                [""]
-#        histo         if "True" plot profile like histo [False]
-#        '''
-#        try: phases = np.loadtxt(profile,comments="#")[:,ncol-1]
-#        except IndexError: phases = np.loadtxt(profile,comments="#")
-#
-#        phlen = len(phases)            
-#        phases = np.roll(phases,-int(phlen*fidpt))  # fiducial point
-#        if mean_sub: phases -= np.mean(phases)
-#        if norm: phases /= np.max(phases)           # normalization
-
     def load_profile(self, profile, ytitle="Radio Flux (au)", comment="", histo=False):
 
         profile = Profile(profile)
-        phases = profile.get_amplitudes()
+        phases,align_shift = profile.get_amplitudes()
         phlen = len(phases)
 
         if histo:
@@ -593,7 +620,7 @@ class PulsarLightCurve:
                 template.SetPoint(i,float(i)/phlen,p)
             template.GetXaxis().SetLimits(self.binmin,self.binmax)
 
-        return template, ytitle, comment
+        return template, ytitle, comment, align_shift
 
     def get_phaseogram(self,emin,emax):
         """ Returns a list of phase centers and a list of
@@ -617,8 +644,9 @@ class PulsarLightCurve:
         return phase,counts
 
     def plot_lightcurve( self, nbands=1, xdim=550, ydim=200, background=None, zero_sup=False,
-                         inset=None, profile=None, reg=None, color='black', outfile=None,
-                         xtitle='Pulse Phase', ytitle='Counts/bin', substitute=True):
+                         inset=None, reg=None, color='black', outfile=None,
+                         xtitle='Pulse Phase', ytitle='Counts/bin', substitute=True,
+                         template=None,period=None):
         
         '''ROOT function to plot gamma-ray phaseograms + (radio,x-ray)
         ===========   ======================================================
@@ -626,7 +654,6 @@ class PulsarLightCurve:
         ===========   ======================================================
         nbands        number of gamma-ray bands in the figure    [1,..,6]
         xdim, ydim    plot dimensions in pixels                  [550,200]
-        profile       radio or x-ray template (use load_profile) [[None]]
         substitute    substitute g-ray profile for r/x profile   [True]
         backgroung    add a background level                     [None]
         zero_sup      active the zero-suppress on the top panel  [false]
@@ -637,6 +664,7 @@ class PulsarLightCurve:
         ytitle        title for y-axis                           [Counts/bin]
         outfile       output file name
         ===========   ====================================================== '''
+        profile = self.profile
         phaseogram = self.phaseogram
         erange = self.__energy_range
         if nbands == 1: substitute = False
@@ -698,7 +726,7 @@ class PulsarLightCurve:
             else: root.SetHistoAxis(phaseogram[which],"",0,0,0,ytitle,TextSize,OffsetY,LabelSize,color=color)
 
             # zero suppress
-            if zero_sup: root.zero_suppress(phaseogram[which])
+            if zero_sup: root.zero_suppress(phaseogram[which],background=background[which])
 
             # draw histogram
             phaseogram[which].Draw("HIST E")
@@ -717,12 +745,19 @@ class PulsarLightCurve:
                 phaseogram[which].Draw("HIST E SAME")
                 gPad.RedrawAxis()   #  force a redraw of the axis
                 
-            # comment + psrname
+            # comment + psrname + other info (e.g. period)
             if erange[which][1] > 3e4: ecomment = "> " + str(erange[which][0]/1e3) + " GeV"
             else: ecomment = str(erange[which][0]/1e3) + " - " + str(erange[which][1]/1e3) + " GeV"
             ylevel = root.get_txtlevel(phaseogram[which],0.91)
             text.DrawText(0.1,ylevel,ecomment)
-            if which==0: text.DrawText(self.binmax-0.5,ylevel,self.psrname)
+            if which==0:
+                name_comment = self.psrname if period is None else \
+                               '%s, P=%.4fs'%(self.psrname,period)
+                text.DrawText(self.binmax-0.8,ylevel,name_comment)
+                if self.renormalize:
+                    text.SetTextColor(2)
+                    text.DrawText(self.binmax-1.5,ylevel,'RENORMALIZED')
+                    text.SetTextColor(1)
             
             if inset == which:   
                 phaseogram[-1].SetFillColor(14)
@@ -733,14 +768,35 @@ class PulsarLightCurve:
                 text.SetTextColor(14)
                 ecomment = "> " + str(erange[-1][0]/1e3) + " GeV"
                 ylevel = root.get_txtlevel(phaseogram[which],0.84)
+
                 text.DrawText(0.1,ylevel,ecomment); text.SetTextColor(1)
                 
             # draw a background level
-            if background is not None:
+            if (background is not None) and (not self.renormalize):
                 for j, bkg in enumerate(background):
                     if j == which:
                         bkglevel += [SetHistoLine(phaseogram[j],bkg,bkg)]
                         bkglevel[j].Draw()
+
+        # draw (fitted) profile
+        if template is not None:
+            print 'Drawing template.'
+            weights = self.get_weights(which=0)
+            if len(weights)==0: 
+                bg_level = 0
+            else:
+                bg_level = 1-(weights**2).sum()/weights.sum()
+            dom = np.linspace(0,1,251)[:-1]
+            cod = template(dom+self.phase_shift)*(1-bg_level)+bg_level
+            cod *= weights.sum()/self.nbins
+            pad[0].cd()
+            t = TGraph(len(dom))
+            for i, (x,y) in enumerate(zip(dom,cod)):
+                t.SetPoint(i,x,y)
+            t.GetXaxis().SetLimits(self.binmin,self.binmax)
+            t.SetLineColor(4)
+            t.Draw("same");# text.DrawText(0.1,histo.GetHistogram().GetMaximum()*0.85,comment)
+                
             
         # ============== TEMPLATES ============== #
         if profile is not None:

@@ -10,7 +10,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.19 2012/02/14 06:47:41 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.20 2012/02/15 02:44:39 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -358,6 +358,9 @@ class UnweightedLCFitter(object):
             bg_level = 1-(weights**2).sum()/weights.sum()
             axes.axhline(bg_level,color='blue')
             axes.plot(dom,self.template(dom)*(1-bg_level)+bg_level,color='blue')
+            x,w1,errors = weighted_light_curve(nbins,self.phases,weights,normed=True)
+            x = (x[:-1]+x[1:])/2
+            axes.errorbar(x,w1,yerr=errors,capsize=0,marker=None,ls=' ')
         else:
             axes.plot(dom,self.template(dom),color='blue',lw=1)
         axes.set_ylabel('Normalized Profile')
@@ -505,37 +508,55 @@ class WeightedLCFitter_Approx(WeightedLCFitter):
 
 
 def hessian(m,mf,*args,**kwargs):
-   """Calculate the Hessian; mf is the minimizing function, m is the model,args additional arguments for mf."""
-   p = m.get_parameters().copy()
-   if 'delt' in kwargs.keys():
-      delta = kwargs['delt']
-   else: delta = [0.01]*len(p)
-   hessian=np.zeros([len(p),len(p)])
-   for i in xrange(len(p)):
-      delt = delta[i]
-      for j in xrange(i,len(p)): #Second partials by finite difference; could be done analytically in a future revision
+    """Calculate the Hessian; mf is the minimizing function, m is the model,args additional arguments for mf."""
+    p = m.get_parameters().copy()
+    if 'delt' in kwargs.keys():
+        delta = kwargs['delt']
+    else:
+        # try to estimate the correct diagonal elements
+        # NB -- quick and crude -- replace with real search later...
+        ll0 = mf(p,m,*args)
+        delta = [0.01]*len(p)
+        for i in xrange(len(p)):
+            for j in xrange(20):
+                if j==19:
+                    print 'Warning, did not converge on diagonal element %d.'%i
+                incr = delta[i]*p[i]
+                p[i] += incr
+                delta_ll = abs(ll0-mf(p,m,*args))
+                p[i] -= incr
+                if delta_ll > 3:
+                    delta[i] /= 2
+                elif delta_ll < 0.1:
+                    delta[i] *= 2
+                else:
+                    break 
+    hessian=np.zeros([len(p),len(p)])
+    for i in xrange(len(p)):
+        delt = delta[i]
+        for j in xrange(i,len(p)): #Second partials by finite difference; could be done analytically in a future revision
          
-         xhyh,xhyl,xlyh,xlyl=p.copy(),p.copy(),p.copy(),p.copy()
-         xdelt = delt if p[i] >= 0 else -delt
-         ydelt = delt if p[j] >= 0 else -delt
+            xhyh,xhyl,xlyh,xlyl=p.copy(),p.copy(),p.copy(),p.copy()
+            xdelt = delt if p[i] >= 0 else -delt
+            ydelt = delt if p[j] >= 0 else -delt
 
-         xhyh[i]*=(1+xdelt)
-         xhyh[j]*=(1+ydelt)
+            xhyh[i]*=(1+xdelt)
+            xhyh[j]*=(1+ydelt)
 
-         xhyl[i]*=(1+xdelt)
-         xhyl[j]*=(1-ydelt)
+            xhyl[i]*=(1+xdelt)
+            xhyl[j]*=(1-ydelt)
 
-         xlyh[i]*=(1-xdelt)
-         xlyh[j]*=(1+ydelt)
+            xlyh[i]*=(1-xdelt)
+            xlyh[j]*=(1+ydelt)
 
-         xlyl[i]*=(1-xdelt)
-         xlyl[j]*=(1-ydelt)
+            xlyl[i]*=(1-xdelt)
+            xlyl[j]*=(1-ydelt)
 
-         hessian[i][j]=hessian[j][i]=(mf(xhyh,m,*args)-mf(xhyl,m,*args)-mf(xlyh,m,*args)+mf(xlyl,m,*args))/\
+            hessian[i][j]=hessian[j][i]=(mf(xhyh,m,*args)-mf(xhyl,m,*args)-mf(xlyh,m,*args)+mf(xlyl,m,*args))/\
                                        (p[i]*p[j]*4*delt**2)
 
-   mf(p,m,*args) #call likelihood with original values; this resets model and any other values that might be used later
-   return hessian
+    mf(p,m,*args) #call likelihood with original values; this resets model and any other values that might be used later
+    return hessian
 
 #=======================================================================#
 
