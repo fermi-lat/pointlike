@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.69 2011/08/16 06:02:17 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.70 2011/08/17 19:19:21 lande Exp $
 
     author: Joshua Lande
 """
@@ -653,3 +653,26 @@ class BandFitExtended(object):
             alt_ll  = sum(self.bandLikelihoodExtended([b.expected(self.m)*mb.er],b,mb)
                     for b,mb in zip(self.bands,self.mybands))
             self.energy_band.ts = 2*(null_ll - alt_ll)
+
+
+def fit_extension_fast(roi, which, *args, **kwargs):
+    """ Perform an extension fit with all other
+        localizable sources in the ROI frozen. 
+        
+        This implementation will nevertheless
+        fit the diffuse background and the source
+        of interest during the extension fit 
+        so should be a bit faster without too much
+        loss of accuracy. """
+    name = roi.get_source(which).name
+
+    frozen_sources = dict()
+    for other_source in roi.get_sources():
+        if np.any(other_source.model.free) and other_source.name != name:
+            frozen_sources[other_source.name]=other_source.model.free.copy()
+            roi.modify(which=other_source,free=False)
+
+    roi.fit_extension(which=which, *args, **kwargs)
+    for other_name,other_free in frozen_sources.items():
+        roi.modify(which=other_name,free=other_free)
+
