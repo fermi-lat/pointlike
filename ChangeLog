@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Feb 24 10:33:36 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+new function fit_extension_fast
+    *
+------------------------------------------------------------
 User: lande  Fri Feb 24 10:33:23 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
