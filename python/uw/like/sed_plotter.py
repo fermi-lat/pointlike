@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/sed_plotter.py,v 1.21 2011/08/21 15:55:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/sed_plotter.py,v 1.22 2011/11/01 21:38:23 lande Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -300,4 +300,5 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
         else :
             plt.savefig(outdir)
 
+    return bf
 
