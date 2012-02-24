@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.82 2012/02/09 09:03:54 kadrlica Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.83 2012/02/10 17:03:36 lande Exp $
 
    author: Joshua Lande
 
@@ -48,7 +48,7 @@ class SpatialModel(object):
             default_p: the values of the spatial parameters. 
                 There are all assumed to be absolute.
             param_names: the names of each spatial parameters
-            limits: the limits imposed on the parameters when fitting. 
+            default_limits: the limits imposed on the parameters when fitting. 
                 These values are absolute. Note that by and large, everything
                 is measured in degrees. The limits on relative movement of
                 longitude and latitude are measured in degrees.
@@ -139,12 +139,24 @@ class SpatialModel(object):
                 ...
             Exception: Only one of center, l and b, or RA and Dec can be set
 
+        Testing setting the free:
+
+            >>> disk = Disk(free=[True,False,False])
+            >>> print disk.free.tolist()
+            [True, False, False]
+
+        Test setting limits:
+
+            >>> disk = Disk(limits=[[-.1, .1], [-.1, .1], [0,2]])
+            >>> disk.get_limits(absolute=True).tolist()
+            [[-0.1, 0.1], [-0.1, 0.1], [0.0, 2.0]]
+
     """
-    def __init__(self, p=None, coordsystem=SkyDir.EQUATORIAL, **kwargs):
+    def __init__(self, p=None, coordsystem=SkyDir.EQUATORIAL, free=None, limits=None, **kwargs):
 
         assert hasattr(self,'default_p') and \
                 hasattr(self,'param_names') and \
-                hasattr(self,'limits') and \
+                hasattr(self,'default_limits') and \
                 hasattr(self,'log') and \
                 hasattr(self,'steps')
 
@@ -182,7 +194,6 @@ class SpatialModel(object):
         elif self.coordsystem == SkyDir.GALACTIC:
             self.param_names = np.append(['l','b'], self.param_names)
 
-
         # The first two parameters (lon & lat) are forced to have log=False
         self.log=np.append([False,False],self.log)
 
@@ -192,16 +203,22 @@ class SpatialModel(object):
 
         # The limits on the first two parameters are
         # defined as the allowed physical angular distance away from the source.
-        if self.limits == []:
-            self.limits=np.asarray([[-1.,1.],[-1.,1.]])
+        if limits is not None:
+            self.limits = np.asarray(limits)
         else:
-            self.limits=np.append([[-1.,1.],[-1.,1.]],self.limits,axis=0)
+            if self.default_limits == []:
+                self.limits=np.asarray([[-1.,1.],[-1.,1.]])
+            else:
+                self.limits=np.append([[-1.,1.],[-1.,1.]],self.default_limits,axis=0)
 
         self.steps=np.append([0.1,0.1],self.steps)
 
         self.cov_matrix = np.zeros([len(self.p),len(self.p)])
         # compatibility with older numpy
-        self.free = np.ones_like(self.p).astype(bool)
+        if free is not None:
+            self.free = np.asarray(free)
+        else:
+            self.free = np.ones_like(self.p).astype(bool)
 
         # map the parameters/limits into log space.
         for i in range(2,len(self.log)):
@@ -578,7 +595,7 @@ class PseudoSpatialModel(SpatialModel):
         i.e. they are SpatialModels which predict emission
         only from a very small region of the sky. """
 
-    default_p, param_names, limits, log, steps = [], [], [], [], []
+    default_p, param_names, default_limits, log, steps = [], [], [], [], []
 
 
 class Gaussian(RadiallySymmetricModel):
@@ -606,7 +623,7 @@ class Gaussian(RadiallySymmetricModel):
 
     default_p = [0.1]
     param_names = ['Sigma']
-    limits = [[SMALL_ANALYTIC_EXTENSION,3]]
+    default_limits = [[SMALL_ANALYTIC_EXTENSION,3]]
     log = [True]
     steps = [0.04]
 
@@ -657,7 +674,7 @@ class SunExtended(RadiallySymmetricModel):
 
        p = [ ra, dec ] """
 
-    default_p, param_names, limits, log, steps = [], [], [], [], []
+    default_p, param_names, default_limits, log, steps = [], [], [], [], []
 
     def __init__(self, rmax=20, **kwargs):
         self.rmax = rmax
@@ -836,7 +853,7 @@ class Disk(RadiallySymmetricModel):
 
     default_p = [0.1]
     param_names = ['Sigma']
-    limits = [[SMALL_ANALYTIC_EXTENSION,3]]
+    default_limits = [[SMALL_ANALYTIC_EXTENSION,3]]
     log = [True]
     steps = [0.04]
 
@@ -900,7 +917,7 @@ class Ring(RadiallySymmetricModel):
 
     default_p = [0.1,0.5]
     param_names = ['Sigma', 'Fraction']
-    limits = [[SMALL_ANALYTIC_EXTENSION,3],[0,1]]
+    default_limits = [[SMALL_ANALYTIC_EXTENSION,3],[0,1]]
     log = [True,False]
     steps = [0.04,0.1]
 
@@ -941,7 +958,7 @@ class Ring(RadiallySymmetricModel):
 
 class InterpProfile(RadiallySymmetricModel):
 
-    default_p, param_names, limits, log, steps = [], [], [], [], []
+    default_p, param_names, default_limits, log, steps = [], [], [], [], []
 
     def __init__(self, r_in_degrees, pdf, kind='linear', **kwargs):
         """ Define a spatial model from a 1D interpolation of pdf 
@@ -1104,7 +1121,7 @@ class InterpProfile2D(InterpProfile):
                 True
         """
         self.pdf2d, self.sigmas = pdf2d, sigmas
-        self.limits = [[min(self.sigmas),max(self.sigmas)]]
+        self.default_limits = [[min(self.sigmas),max(self.sigmas)]]
         super(InterpProfile2D,self).__init__(r_in_degrees=r_in_degrees,pdf=None,kind=kind,**kwargs)
 
     def cache(self):
@@ -1302,11 +1319,11 @@ class EllipticalSpatialModel(SpatialModel):
 
 class EllipticalGaussian(EllipticalSpatialModel):
 
-    # N,B limits or Non-radially symmetric sources dictated more by pixelization of grid.
+    # N,B default_limits or Non-radially symmetric sources dictated more by pixelization of grid.
     # Note, angle is in degrees
     default_p = [0.2,0.1,0]
     param_names = ['Major_Axis','Minor_Axis','Pos_Angle']
-    limits = [[1e-6,3],
+    default_limits = [[1e-6,3],
               [1e-6,3],
               [-45,45]]
     # Note for elliptical shapes, theta > 45 is the same as a negative angle
@@ -1356,7 +1373,7 @@ class EllipticalDisk(EllipticalSpatialModel):
 
     default_p = [0.2,0.1,0]
     param_names = ['Major_Axis','Minor_Axis','Pos_Angle']
-    limits = [[SMALL_NUMERIC_EXTENSION,3],
+    default_limits = [[SMALL_NUMERIC_EXTENSION,3],
               [SMALL_NUMERIC_EXTENSION,3],
               [-45,45]]
     log = [True,True,False]
@@ -1397,7 +1414,7 @@ class EllipticalRing(EllipticalSpatialModel):
 
     default_p = [0.2,0.1,0,0.5]
     param_names = ['Major_Axis','Minor_Axis','Pos_Angle','Fraction']
-    limits = [[SMALL_NUMERIC_EXTENSION,3],
+    default_limits = [[SMALL_NUMERIC_EXTENSION,3],
              [SMALL_NUMERIC_EXTENSION,3],
              [-45,45],
              [0,1]]
@@ -1485,7 +1502,7 @@ class SpatialMap(SpatialModel):
             0.0
     """
 
-    default_p, param_names, limits, log, steps = [], [], [], [], []
+    default_p, param_names, default_limits, log, steps = [], [], [], [], []
 
     @staticmethod
     def expand(file):
