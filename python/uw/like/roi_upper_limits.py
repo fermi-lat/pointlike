@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.10 2012/02/22 00:13:21 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.11 2012/02/23 22:19:28 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -129,14 +129,16 @@ def upper_limit_quick(roi,which = 0,confidence = .95,e_weight = 0,cgs = False):
 
 class ExtensionUpperLimit(object):
     defaults = (
-        ("confidence", 0.95, "Convidence level of bayesian upper limit"),
-        ("spatial_model", None, "Spatial model to use for extnesion upper limit. Default is Disk"),
-        ("delta_log_like_limits", 10, """delta_log_like_limits has same defintion as the parameter in
-                                      pyLikelihood.IntegralUpperLimit.py function calc_int.
-                                      Note, this corresponds to a change in the acutal likelihood by
-                                      exp(10) ~ 20,000 which is sufficiently large that this is
-                                      a pefectly fine threshold for stoping the integral."""),
-        ("fit_kwargs", dict(), 'These kwargs are passed into ROIAnalysis.fit()'),
+        ("refit_position",          True, "Refit position of source for each extension"),
+        ("confidence",              0.95, "Convidence level of bayesian upper limit"),
+        ("spatial_model",           None, "Spatial model to use for extnesion upper limit. Default is Disk"),
+        ("delta_log_like_limits",   10,   """ delta_log_like_limits has same defintion as the parameter in
+                                              pyLikelihood.IntegralUpperLimit.py function calc_int.
+                                              Note, this corresponds to a change in the acutal likelihood by
+                                              exp(10) ~ 20,000 which is sufficiently large that this is
+                                              a pefectly fine threshold for stoping the integral."""),
+        ("fit_kwargs",              dict(), "These kwargs are passed into ROIAnalysis.fit()"),
+        ("spatial_model",           Disk, " Spatial model to assume during upper limit"),
     )
 
     @keyword_options.decorate(defaults)
@@ -149,8 +151,6 @@ class ExtensionUpperLimit(object):
         self.roi = roi
         self.which = which
 
-        if self.spatial_model is None: self.spatial_model = Disk()
-
         if roi.TS(which)<4:
             # Bunt on extension upper limits for completely insignificant sources
             print 'Unable to compute extension upper limit for point-like source with too-small TS'
@@ -158,19 +158,18 @@ class ExtensionUpperLimit(object):
 
         else:
 
-            assert len(self.spatial_model.param_names) ==3 and \
-                    self.spatial_model.param_names[2] == 'Sigma'
+            assert self.spatial_model.param_names == [ 'Sigma' ]
 
             self.saved_state = PointlikeState(roi)
 
             self.all_extensions, self.all_ll = [], []
-            self.spatial_low_lim, self.spatial_hi_lim = self.spatial_model.get_limits(absolute=True)[2]
+            self.spatial_low_lim, self.spatial_hi_lim = self.spatial_model.default_limits[0]
 
             results = self._compute()
 
             self.saved_state.restore()
 
-    def loglike(self, extension, quiet=True):
+    def loglike(self, extension):
         """ Perform a pointlike spectral fit.
             Note, most robust to start with initial
             spectral paramaters to avoid situations
@@ -186,18 +185,33 @@ class ExtensionUpperLimit(object):
         else:
 
             if extension < self.spatial_low_lim: extension = self.spatial_low_lim
-            roi.modify(which, sigma=extension)
+            roi.modify(which, 
+                       spatial_model=self.spatial_model(sigma=extension,
+                                                        center=self.init_position,
+                                                        free=np.asarray([True,True,False])),
+                       keep_old_center=False)
 
             self.saved_state.restore(just_spectra=True)
+
             roi.fit(estimate_errors=False, **self.fit_kwargs)
+
+            if self.refit_position:
+                roi.fit_extension_fast(which=which, estimate_errors=False)
+                roi.fit(estimate_errors=False, **self.fit_kwargs)
 
             ll = -roi.logLikelihood(roi.parameters()) 
 
             self.all_extensions.append(extension)
             self.all_ll.append(ll)
 
-        if not roi.old_quiet and hasattr(self,'ll_0'):
-                print '... sigma = %.2f, ll=%.2f, ll-ll_0=%.2f' % (extension, ll, ll - self.ll_0)
+        if not self.old_quiet and hasattr(self,'ll_0'):
+            if self.refit_position:
+                fit_position = roi.get_source(which).skydir
+                position_string = ' (l,b)=(%.2f,%.2f), dist=%.2f,' % (fit_position.l(), fit_position.b(), 
+                                                                 np.degrees(fit_position.difference(self.init_position)))
+            else:
+                position_string = ''
+            print '... sigma = %.2f,%s ll=%.2f, ll-ll_0=%.2f' % (extension, position_string, ll, ll - self.ll_0)
 
         return ll
 
@@ -206,11 +220,11 @@ class ExtensionUpperLimit(object):
             from the likelihood at Sigma=0 by an amount delta_log_like_limits. """
         roi = self.roi
 
-        if not roi.old_quiet: print "Computing Integration range, delta_log_like_limits=%s:" % self.delta_log_like_limits
+        if not self.old_quiet: print "Computing Integration range, delta_log_like_limits=%s:" % self.delta_log_like_limits
 
-        self.ll_0 = ll_0 = self.loglike(extension=0, quiet=True)
+        self.ll_0 = ll_0 = self.loglike(extension=0)
 
-        f = lambda e: self.loglike(e, quiet=roi.old_quiet) - (ll_0 - self.delta_log_like_limits)
+        f = lambda e: self.loglike(e) - (ll_0 - self.delta_log_like_limits)
 
         self.int_min = 0
 
@@ -222,20 +236,21 @@ class ExtensionUpperLimit(object):
             print 'WARNING: Unable to find an acceptable upper limit for the integration range so defaulting to %s. Extension upper limit could be unreliable'  % hi
             self.int_max = hi
 
-        if not roi.old_quiet: print "Integrating range is between %s and %s" % (self.int_min, self.int_max)
+        if not self.old_quiet: print "Integrating range is between %s and %s" % (self.int_min, self.int_max)
 
 
     def _compute_max_loglikelihood(self):
-        """ Note, it is important to evalulate the maximum loglikelihood so that
-            the overall likelihood can be defined as exp(ll-ll_max) to avoid
-            computing the exponential of a very large number in the case where ll_0 is
-            much different from ll_max. Since the overal
-            function is normalized later, this is the most numerically stable
-            normalization.
-            """
+        """ Note, it is important to evalulate the maximum loglikelihood
+            so that the overall likelihood can be defined as
+            exp(ll-ll_max) to avoid computing the exponential of a very
+            large number in the case where ll_0 is much different from
+            ll_max. Also, quad as an overall easier time since the maximum
+            function value is (by defintion) equal to 1.  Since the overal
+            function is normalized later, this is the most numerically
+            stable normalization without causing any future trouble. """
         roi = self.roi
 
-        if not roi.old_quiet: print "Computing maximum loglikelihood:"
+        if not self.old_quiet: print "Computing maximum loglikelihood:"
 
         # Note, maximum loglikelihood =  minimum -1*logLikelihood
         # Note, this does not have to be very precise. The purpose of
@@ -244,10 +259,11 @@ class ExtensionUpperLimit(object):
         self.sigma_max = fminbound(lambda e: -1*self.loglike(e), self.int_min, self.int_max, disp=0, xtol=1e-3)
         self.ll_max = self.loglike(self.sigma_max)
 
-        if not roi.old_quiet: print "Maximum logLikelihood is %.2f" % self.ll_max
+        if not self.old_quiet: print "Maximum logLikelihood is %.2f" % self.ll_max
 
     def _compute_extension_limit(self):
         """ Compute the extnesion upper limit by
+
                 (a) Sampling the function
                 (b) Computing the CDF and normalizing
                 (c) Finding when the normalized CDF is equal to the desired confidence
@@ -258,12 +274,12 @@ class ExtensionUpperLimit(object):
             function. """
         roi = self.roi
 
-        print "Sampling likelihood function:"
+        if not self.old_quiet: print "Sampling likelihood function:"
 
         ll_to_l = lambda ll: np.exp(ll-self.ll_max)
         like = lambda e: ll_to_l(self.loglike(e))
 
-        integrate.quad(like, self.int_min, self.int_max, epsabs=1e-4)
+        integrate.quad(like, self.int_min, self.int_max, epsabs=1e-2)
 
         e = np.asarray(self.all_extensions)
         l = ll_to_l(np.asarray(self.all_ll))
@@ -277,17 +293,16 @@ class ExtensionUpperLimit(object):
         cdf /= cdf[-1]
         self.extension_limit = np.interp(self.confidence, cdf, e_middles)
 
-        print "Extension upper limit is %.2f" % self.extension_limit
+        if not self.old_quiet: print "Extension upper limit is %.2f" % self.extension_limit
     
     def _compute(self):
 
         roi = self.roi
         which = self.which
 
-        roi.old_quiet = roi.quiet
+        self.old_quiet = roi.quiet
         roi.quiet = True
-
-        roi.modify(which=which, spatial_model=self.spatial_model, keep_old_center=True)
+        self.init_position = roi.get_source(which).skydir
 
         self._compute_integration_range()
         self._compute_max_loglikelihood()
@@ -295,7 +310,7 @@ class ExtensionUpperLimit(object):
 
     def results(self):
         return dict(extension=self.extension_limit, 
-                    spatial_model = self.spatial_model.name,
+                    spatial_model = self.spatial_model.__name__,
                     confidence=self.confidence,
                     emin=self.roi.bin_edges[0],
                     emax=self.roi.bin_edges[-1],
