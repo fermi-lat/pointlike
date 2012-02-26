@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb 26 15:43:49 PST 2012
+pointlike/python/uw/like2/pipeline
+
+Modified Files:
+	pipe.py processor.py 
+Added Files:
+	cluster.py 
+Log Message:
+new cluster; tweaks for pipeline processing
+    *
+------------------------------------------------------------
 User: burnett  Sun Feb 26 15:40:54 PST 2012
 pointlike/python/uw/like
 
