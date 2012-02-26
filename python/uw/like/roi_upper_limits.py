@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.11 2012/02/23 22:19:28 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.12 2012/02/24 18:33:23 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -151,7 +151,9 @@ class ExtensionUpperLimit(object):
         self.roi = roi
         self.which = which
 
-        if roi.TS(which)<4:
+        self.init_ts = roi.TS(which, quick=False)
+
+        if self.init_ts < 4:
             # Bunt on extension upper limits for completely insignificant sources
             print 'Unable to compute extension upper limit for point-like source with too-small TS'
             self.extension_limit = None
@@ -228,7 +230,8 @@ class ExtensionUpperLimit(object):
 
         self.int_min = 0
 
-        hi = self.spatial_hi_lim
+        # unreasonable to have a source larger then half the ROI size.
+        hi = roi.sa.maxROI/2.0 
         try:
             self.int_max = brentq(f, 0, hi, rtol=1e-4, xtol=1e-3)
         except:
@@ -271,7 +274,11 @@ class ExtensionUpperLimit(object):
             quad will do a nice job sampling the likelihood as a function
             of extensions.  No reason to save out the output of the
             integral since the data points are saved by the like
-            function. """
+            function. 
+            
+            Note, the quad accuracy parameters are roughly taken to be the same
+            as in the pyLikelihood.IntegralUpperLimit.py calc_int function
+            """
         roi = self.roi
 
         if not self.old_quiet: print "Sampling likelihood function:"
@@ -279,7 +286,10 @@ class ExtensionUpperLimit(object):
         ll_to_l = lambda ll: np.exp(ll-self.ll_max)
         like = lambda e: ll_to_l(self.loglike(e))
 
-        integrate.quad(like, self.int_min, self.int_max, epsabs=1e-2)
+        # setting points to sigma_max tells the integrator to be careful
+        # to integrate around the likelihood peak.
+        integrate.quad(like, self.int_min, self.int_max, 
+                       epsrel=1e-3, epsabs=1, points=[self.sigma_max])
 
         e = np.asarray(self.all_extensions)
         l = ll_to_l(np.asarray(self.all_ll))
