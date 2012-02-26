@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.9 2012/02/07 21:03:51 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.10 2012/02/12 20:16:15 burnett Exp $
 
 """
 import os, sys, types
@@ -50,7 +50,7 @@ class ExposureManager(object):
             energies = [100, 1000, 10000]
             print 'Exposure correction: for energies %s ' % energies
             for i,f in enumerate(self.correction):
-                print ('\tfront:','\tback: ')[i], map( f , energies)
+                print ('\tfront:','\tback: ','\tdfront:', '\tback')[i], map( f , energies)
         else:
             self.correction = lambda x: 1.0, lambda x: 1.0
             
@@ -132,7 +132,7 @@ class ROIfactory(object):
             if self.analysis_kw.get('irf',None) is None:
                 self.analysis_kw['irf'] = self.skymodel.config['irf']
             print '\tirf:\t%s' % self.analysis_kw['irf'] 
-            #datadict = dict(dataname=dataspec) if type(dataspec)!=types.DictType else dataspec
+            datadict = dict(dataname=dataspec) if type(dataspec)!=types.DictType else dataspec
             self.dataset = dataset.DataSet(datadict['dataname'], **self.analysis_kw)
             print self.dataset
             self.exposure  = ExposureManager(self.dataset, **datadict)
@@ -157,9 +157,16 @@ class ROIfactory(object):
         # get all diffuse models appropriate for this ROI
         globals, extended = self.skymodel.get_diffuse_sources(src_sel)
        
-        global_models = [diffuse.mapper(self, src_sel.name(), skydir, source) for source in globals]
+        try:
+            global_models = [diffuse.mapper(self, src_sel.name(), skydir, source, binsperdec=self.dataset.binsperdec) for source in globals]
+        except Exception, msg:
+            print self.dataset, msg
+            raise
 
         def extended_mapper( source):
+            if not self.quiet:
+                print 'constructing extended model for "%s", spatial model: %s' \
+                    %(source, source.spatial_model.__class__.__name__)
             return roi_extended.ROIExtendedModel.factory(self,source,skydir)
         extended_models = map(extended_mapper, extended)
         return global_models, extended_models
@@ -177,7 +184,22 @@ class ROIfactory(object):
         pars, kwargs : pass to the selector
         """
         roi_kw = kwargs.pop('roi_kw',dict())
-        src_sel = self.selector(*pars, **kwargs)
+        # allow parameter to be a name or a direction
+        sel = pars[0]
+        source_name=None
+        if type(sel)==types.IntType:
+            index = sel
+        elif type(sel)==skymaps.SkyDir:
+            index = self.skymodel.hpindex(sel)
+        elif type(sel)==types.StringType:
+            index = self.skymodel.hpindex(self.skymodel.find_source(sel).skydir)
+            source_name=sel
+        else:
+            raise Exception( 'factory argument "%s" not recognized.' %sel)
+        ## preselect the given source after setting up the ROI
+        ## (not implemented here)
+        #
+        src_sel = self.selector(index, **kwargs)
 
         class ROIdef(object):
             def __init__(self, **kwargs):
@@ -205,6 +227,7 @@ class ROIfactory(object):
                     point_sources=self._local_sources(src_sel), 
                     exposure=self.exposure,
                     **roi_kw)
+                    
     def __call__(self, *pars, **kwargs):
         """ alias for roi() """
         return self.roi(*pars, **kwargs)
