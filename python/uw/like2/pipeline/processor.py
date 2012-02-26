@@ -1,6 +1,6 @@
 """
 roi and source processing used by the roi pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.14 2012/01/24 14:44:06 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/processor.py,v 1.15 2012/02/12 20:08:22 burnett Exp $
 """
 import os, time, sys, types
 import cPickle as pickle
@@ -520,3 +520,69 @@ def cache_diffuse(roi, **kwargs):
     if not os.path.exists(diffuse_maps): os.mkdir(diffusemaps)
     
     bands = roi.all_bands
+
+cat = None
+def gtlike_compare(roi, **kwargs):
+    """
+    compare with gtlike
+    """
+    def cat_model(cs):
+        from uw.like import Models
+        st = cs.field('SpectrumType')
+        flux,index,cutoff,b,pivot,beta=[cs.field(f) for f in 'Flux_Density Spectral_Index Cutoff Index2 Pivot_Energy beta'.split()]
+        if st=='PowerLaw':
+            return Models.PowerLaw(p=[flux, index], e0=pivot)
+        elif st=='PLSuperExpCutoff':
+            prefactor = flux*np.exp((pivot/cutoff)**b)
+            return Models.PLSuperExpCutoff(p=[prefactor, index, cutoff,b], e0=pivot)
+        elif st=='LogParabola':
+            return Models.LogParabola(p=[flux, index, beta, pivot])
+        elif st=='PowerLaw2':   ### same as PowerLaw in table
+            return Models.PowerLaw(p=[flux, index], e0=pivot)
+        else:
+            raise Exception('unexpected spectrum type %s'%st)
+    global cat
+    if cat is None:
+        import pyfits
+        cat = pyfits.open(os.path.expandvars('$FERMI/catalog/gll_psc3yearclean_v1.fit'))[1].data
+    outdir = kwargs.pop('outdir')
+    sed_dir = os.path.join(outdir, kwargs.pop('sed_dir', 'gtlike/sed'))
+    model_dir=os.path.join(outdir, kwargs.pop('model_dir', 'gtlike/models'))
+    for t in (sed_dir,model_dir):
+        if not os.path.exists(t): os.makedirs(t)
+    sources = [s for s in roi.sources if s.skydir is not None and np.any(s.spectral_model.free)]
+    catmodels=[]
+    for source in sources:
+        cselect = np.array([np.any(s.field('NickName').startswith(source.name.replace(' ',''))) for s in cat])
+        if sum(cselect)!=1:
+            print 'did not find source %s' %source.name
+            continue
+        catsource = cat[cselect][0]
+        try:
+            catmodel = cat_model(catsource); 
+        except:
+            print 'Source %s failed' %source.name
+            catmodel = None
+        
+        ptts = roi.TS(source.name)
+        sed = roi.plot_sed(source.name, butterfly=False, annotate=None, fit_kwargs=dict(label='pointlike: %.0f'%ptts, color='orange', lw=2))
+        axes = plt.gca()
+        if catmodel is not None:
+            s = roi.get_source(source.name)
+            t=s.spectral_model
+            s.spectral_model = catmodel
+            gtts = roi.TS(source.name)
+            s.spectral_model = t
+            sed.plot_model(axes, catmodel, np.logspace(2, np.log10(3.16e4)), False, label='gtlike: %.0f'%gtts, color='g', lw=2)
+        else:
+            gtts=-1
+        axes.legend()
+        plt.setp(axes, xlim=(100, 31.6e3), ylim=(0.1,1000))
+        outfile = os.path.join(sed_dir, '%s_sed.png' % (source.name.replace(' ','_').replace('+','p')))
+        plt.savefig(outfile)
+        print 'wrote file %s' % outfile
+        catmodels.append(dict(name=source.name, m_gt=catmodel, m_pt=t, info=np.array(catsource), ts_pt=ptts, ts_gt=gtts))
+    outfile = os.path.join(model_dir, '%s.pickle'%roi.name)
+    pickle.dump(catmodels,open(outfile, 'w'))
+    print 'wrote file %s' %outfile
+                
