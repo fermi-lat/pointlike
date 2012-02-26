@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.18 2012/01/20 22:02:15 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.19 2012/01/21 23:05:01 lande Exp $
 
 author: Joshua Lande
 """
@@ -405,9 +405,12 @@ class ExtendedSourceCatalog(SourceCatalog):
             https://confluence.slac.stanford.edu/x/Qw2JBQ
 
         This code is, largely, depricated in fafor of the Catalog2FGL Object!
+        
+        But it *is* used by like2, which now requires map, for which there is a special kwarg to force use of a map
     '"""
 
-    def __init__(self,archive_directory):
+    def __init__(self,archive_directory, force_map=False):
+        self.force_map=force_map
         self.__open_catalog__(archive_directory)
 
     def __open_catalog__(self,archive_directory):
@@ -447,7 +450,10 @@ class ExtendedSourceCatalog(SourceCatalog):
         # build up a list of the analytic extended source shapes (when applicable)
         self.spatial_models = []
         for i in range(len(self.names)):
-            if form[i] == 'Disk':
+            if self.force_map:
+                self.spatial_models.append(
+                    SpatialMap(file=self.templates[i]))
+            elif form[i] == 'Disk':
                 if major[i] == minor[i] and posang[i] == 0:
                     self.spatial_models.append(Disk(p=[major[i]],center=self.dirs[i]))
                 else:
