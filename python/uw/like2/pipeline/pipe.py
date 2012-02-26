@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.9 2012/01/11 14:03:25 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.10 2012/02/12 20:08:22 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -126,9 +126,21 @@ class Setup(dict):
                 self[key]=self[key]%self
                 self['tables'] = self['tables']%self
                 #print 'fix key %s: %s' % (key, self[key])
-        self.setup_string =  """\
+        self.create_string()
+        self.mecsetup=False
+        self.mypipe = None
+        if not self.quiet:
+            print 'Pipeline input, output: %s -> %s ' % (indir, outdir)
+        if os.path.exists(indir+'/config.txt'):
+            input_config = eval(open(indir+'/config.txt').read())
+            for key in 'extended diffuse irf'.split():
+                if self[key] is None: self[key]=input_config[key]
+
+        
+    def create_string(self):
+        self.setup_string= """\
 import os, pickle; os.chdir(os.path.expandvars(r"%(cwd)s"));%(setup_cmds)s
-from uw.like2.pipeline import pipe; from uw.like2 import skymodel
+from uw.like2.pipeline import pipe,associate; from uw.like2 import skymodel;
 g=pipe.Pipe("%(indir)s", %(datadict)s, 
         skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,
             extended_catalog_name=%(extended)s, update_positions=%(update_positions)s,
@@ -146,12 +158,7 @@ g=pipe.Pipe("%(indir)s", %(datadict)s,
     ) 
 n,chisq = len(g.names()), -1
 """ % self
-        self.mecsetup=False
-        self.mypipe = None
-        if not self.quiet:
-            print 'Pipeline input, output: %s -> %s ' % (indir, outdir)
         
-
     def _repr_html_(self):
         """ used by the notebook for display """
         return '<h3>'+self.__class__.__name__+'</h3>'+'<ul><li>Setup: %s -> %s' % (self.indir, self.outdir)
@@ -183,10 +190,14 @@ n,chisq = len(g.names()), -1
         self.mecsetup=True
         self.dump()
         
-    def dump(self):
-        """ save the setup string, and dictionary """
+    def dump(self, override=False):
+        """ save the setup string, and dictionary 
+            TODO: make sure not to overwrite important info
+        """
         open(self.outdir+'/setup_string.txt', 'w').write(self.setup_string)
-        open(self.outdir+'/config.txt', 'w').write(self.__str__())
+        config_file=self.outdir+'/config.txt'
+        if not os.path.exists(config_file) or override:
+            open(config_file, 'w').write(self.__str__())
     
     def run(self, tasklist=None,  **kwargs):
         """ 
@@ -199,7 +210,7 @@ n,chisq = len(g.names()), -1
 
         
         if not self.mecsetup:
-            self.setup_mec(profile=profile, sleep_interval=sleep_iterval)
+            self.setup_mec(profile=profile, sleep_interval=sleep_interval)
         outdir = self.outdir
         if outdir is not None:
             if not os.path.exists(outdir): 
@@ -315,36 +326,110 @@ def check_converge(month, tol=10, add_neighbors=True, log=None):
     return q
     
        
-def pmain( setup, fn, taskids=None, local=False,
-        ignore_exception=False, 
-        logpath='log',
-        sleep_interval=60,
-        ):
-        
-    """
-    Parameters
-        setup : Setup object, implements
-            setup_string = setup()
-                Python code, must define an object "g". It must implement:
-                a function g(n), n an integer
-                g.names() must return a list of task names
-            outdir =setup.outidr : directory to save files
-        taskids : None or a list of integers
-            the integers should be in range(0,len(g.names())
-    """
-    setup_string = setup()
-    outdir = setup.outdir
-    if outdir is not None:
-        if not os.path.exists(outdir): 
-            os.mkdir(outdir)
-        print 'writing results to %s' %outdir
-            
-    lc= AssignTasks(fn, taskids, 
-        timelimit=5000, local=local, ignore_exception=ignore_exception,
-         )
-    if sleep_interval>0:
-        lc(sleep_interval)
-       
-    return lc
-   
+#def pmain( setup, fn, taskids=None, local=False,
+#        ignore_exception=False, 
+#        logpath='log',
+#        sleep_interval=60,
+#        ):
+#        
+#    """
+#    Parameters
+#        setup : Setup object, implements
+#            setup_string = setup()
+#                Python code, must define an object "g". It must implement:
+#                a function g(n), n an integer
+#                g.names() must return a list of task names
+#            outdir =setup.outidr : directory to save files
+#        taskids : None or a list of integers
+#            the integers should be in range(0,len(g.names())
+#    """
+#    setup_string = setup()
+#    outdir = setup.outdir
+#    if outdir is not None:
+#        if not os.path.exists(outdir): 
+#            os.mkdir(outdir)
+#        print 'writing results to %s' %outdir
+#            
+#    lc= AssignTasks(fn, taskids, 
+#        timelimit=5000, local=local, ignore_exception=ignore_exception,
+#         )
+#    if sleep_interval>0:
+#        lc(sleep_interval)
+#       
+#    return lc
 
+class NotebookPipe(object):
+
+    def __init__(self, analysisdir, indir, **kwargs):
+        self.analysisdir = os.path.expandvars(analysisdir)
+        self.indir=indir
+        outdir = kwargs.pop('outdir', None)
+        self.outdir = indir if outdir is None else outdir
+        if not os.path.exists(self.analysisdir):
+            os.makedirs(self.analysisdir)
+        os.chdir(self.analysisdir)
+        self.setup = Setup(self.indir, outdir=self.outdir, **kwargs)
+       
+    def __str__(self):
+        return 'Pipeline processing in %s: %s->%s' % (self.analysisdir,self.indir, self.outdir)
+
+    def _repr_html_(self):
+        return '<h3>'+time.asctime()+'</h3>'+'<ul><li>Pipeline %s %s -> %s' % (self.__class__.__name__,self.indir, self.outdir)
+   
+    def runcheck(self, older=3600):
+        """ check for jobs that did not finish within range
+        """
+        t = sorted(glob.glob(os.path.join(self.analysisdir, self.outdir, 'log', '*.txt')))
+        assert len(t)==1728, 'did not find all 1728 files'
+        ftimes = map(os.path.getmtime, t)
+        return [n for n,f in enumerate(t) if os.path.getmtime(f)<time.time() -older]
+
+  
+class Update(NotebookPipe):
+    """ Update a model """
+    def __init__(self, analysisdir, indir, outdir=None, **kwargs):
+        """
+        
+        """
+        self.analysisdir = os.path.expandvars(analysisdir)
+        self.indir=indir
+        self.outdir = indir if outdir is None else outdir
+        if not os.path.exists(self.analysisdir):
+            os.makedirs(self.analysisdir)
+        os.chdir(self.analysisdir)
+        kw = self.defaults()
+        kw.update(kwargs)
+        self.setup = Setup(self.indir, outdir=self.outdir, **kw)
+     
+    def defaults(self):
+        return dict(sedfig_dir='"sedfig"', quiet=True)
+    
+     
+    def __call__(self): return self.setup
+    def check(self):
+        self.t = check_converge(self.outdir)
+        
+    def g(self): return self.setup.g()
+    def run(self, **kwargs): 
+        rc=self.setup.run(**kwargs)
+        self.check()
+        return rc
+    def iterate(self, full=False):
+        self.setup.mecsetup=False
+        rc=elf.setup.run(tasklist=self.t if not full else None)
+        self.check()
+        return rc
+
+class Finish(Update):
+    """ finish processing with localizaion 
+    """
+    def __init__(self, *pars, **kwargs):
+        super(Finish, self).__init__(*pars, **kwargs)
+        
+    def defaults(self):
+        return dict(dampen=0,
+            localize=True, tsmap_dir='"tsmap"',  
+            setup_cmds = 'from uw.like2.pipeline import associate ',
+            associator="associate.SrcId('$FERMI/catalog','all_but_gammas')",quiet=True)
+            
+        
