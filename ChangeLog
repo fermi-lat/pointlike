@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb 26 15:50:48 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	roisetup.py 
+Log Message:
+mostly to allow specification of a source to load an ROI
+    *
+------------------------------------------------------------
 User: burnett  Sun Feb 26 15:47:49 PST 2012
 pointlike/python/uw/like2
 
