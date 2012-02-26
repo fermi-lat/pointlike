@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb 26 15:47:49 PST 2012
+pointlike/python/uw/like2
+
+Modified Files:
+	dataset.py 
+Log Message:
+changes to interface to  pickle
+    *
+------------------------------------------------------------
 User: burnett  Sun Feb 26 15:44:56 PST 2012
 pointlike/python/uw/like2/pub
 
