@@ -1,6 +1,6 @@
 """
 Manage the sky model for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.11 2012/02/07 21:00:55 wallacee Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/skymodel.py,v 1.12 2012/02/12 20:13:28 burnett Exp $
 
 """
 import os, pickle, glob, types, collections
@@ -36,6 +36,7 @@ class SkyModel(object):
         ('global_check', lambda s: None, 'check global sources: can modify parameters'),
         ('closeness_tolerance', 0., 'if>0, check each point source for being too close to another, print warning'),
         ('quiet',  False,  'make quiet' ),
+        ('force_spatial_map', True, 'Force the use of a SpatialMap for extended sources'),
     )
     
     @keyword_options.decorate(defaults)
@@ -61,6 +62,7 @@ class SkyModel(object):
         else:
             t = self.config['diffuse']
             self.diffuse = eval(t) if type(t)==types.StringType else t 
+            assert self.diffuse is not None, 'SkyModel: no diffuse in config'
         self.diffuse_dict = sources.DiffuseDict(self.diffuse)
         self._load_sources()
         self.load_auxcat()
@@ -137,7 +139,7 @@ class SkyModel(object):
             os.path.expandvars(os.path.join('$FERMI','catalog',self.extended_catalog_name))
         if not os.path.exists(extended_catalog_name):
             raise Exception('extended source folder "%s" not found' % extended_catalog_name)
-        self.extended_catalog= sources.ExtendedCatalog(extended_catalog_name)
+        self.extended_catalog= sources.ExtendedCatalog(extended_catalog_name, force_map=self.force_spatial_map)
         #print 'Loaded extended catalog %s' % self.extended_catalog_name
         
     def _load_sources(self):
@@ -554,6 +556,7 @@ class HEALPixSourceSelector(SourceSelector):
                 HEALPix nside parameter
         """
         keyword_options.process(self,kwargs)
+        assert type(index)==types.IntType, 'Expect int type'
         self.myindex = index
         self.mskydir =  self.skydir(index)
 
