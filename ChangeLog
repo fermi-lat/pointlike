@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: burnett  Sun Feb 26 15:40:54 PST 2012
+pointlike/python/uw/like
+
+Modified Files:
+	roi_catalogs.py 
+Log Message:
+special keyword for like2 use when creating extended sources from the FITS files, to force use of SpatialMap. Default is to use model as specified in the FITS file, of course.
+    *
+------------------------------------------------------------
 User: lande  Sat Feb 25 19:40:15 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
