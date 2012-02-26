@@ -1,7 +1,7 @@
 """
 Code to generate a standard Fermi-LAT catalog FITS file
 also, see to_xml, to generate XML for the sources
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pipeline/pub/makecat.py,v 1.2 2011/02/11 21:27:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pub/makecat.py,v 1.1 2011/12/29 19:17:51 burnett Exp $
 """
 import os
 import pyfits
@@ -151,8 +151,8 @@ class MakeCat(object):
         self.add('Test_Statistic',    z.ts)
         #self.check = True # rows for bad sources set to zero
         self.add('Pivot_Energy',      z.e0)  # note that pivot_energy is the measured value
-        self.add('Flux_Density',      z.pnorm)
-        self.add('Unc_Flux_Density',  z.pnorm_unc)
+        self.add('Flux_Density',      z.flux)
+        self.add('Unc_Flux_Density',  z.flux_unc)
         self.add('Spectral_Index',    z.pindex)
         self.add('Unc_Spectral_Index',z.pindex_unc)
         try:
@@ -160,6 +160,11 @@ class MakeCat(object):
             self.add('Unc_beta',          z.beta_unc)
         except:
             print 'attempt to add beta, Unc_beta failed'
+        try:
+            self.add('Index2',          z.index2)
+            self.add('Unc_Index2',      z.index2_unc)
+        except:
+            print 'attempt to add Index2, Unc_Index2 failed'
         self.add('Cutoff_Energy',     z.cutoff) ## need to get this from info
         self.add('Cutoff_Energy_Unc', z.cutoff_unc) ## need to get this from info
         self.add('SpectralFitQuality',    z.band_ts-z.ts)  # sort of an approximation?
