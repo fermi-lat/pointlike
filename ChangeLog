@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Feb 28 12:16:53 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py 
+Log Message:
+expand env vars in get_default_diffuse
+    *
+------------------------------------------------------------
 User: burnett  Sun Feb 26 15:51:37 PST 2012
 pointlike/python/uw/like2
 
