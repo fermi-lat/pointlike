@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Wed Feb 29 13:25:29 PST 2012
+pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Modify a type check to account for models that moved from uw.like2.models to uw.like.Models
+
+    *
+------------------------------------------------------------
 User: lande  Tue Feb 28 12:16:53 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
