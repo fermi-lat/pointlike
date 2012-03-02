@@ -1,4 +1,20 @@
 ------------------------------------------------------------
+User: lande  Thu Mar  1 22:06:04 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+Improvements:
+(a) shrink down diffuse background before simulating 
+(b) better filename for saved files 
+(c) savedir flag to save output to specified directory
+(d) Replace gti_filter flag with gtifile flag which is more useful.
+(e) New diffsue_pad and roi_pad flags. 
+
+
+    *
+------------------------------------------------------------
 User: lande  Thu Mar  1 22:03:37 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
