@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.33 2012/02/10 21:11:16 kadrlica Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.34 2012/02/10 21:23:18 lande Exp $
 
 author: Joshua Lande
 """
@@ -12,7 +12,7 @@ import types
 from textwrap import dedent
 import shutil
 import collections
-from tempfile import mkdtemp,mkstemp,NamedTemporaryFile
+from tempfile import mkdtemp
 from GtApp import GtApp
 
 import pyfits
@@ -28,6 +28,74 @@ from . SpatialModels import Gaussian,EllipticalGaussian,SpatialModel,RadiallySym
 
 from uw.utilities import keyword_options
 
+import pyLikelihood
+
+class DiffuseShrinker(object):
+    defaults = (
+        ('resample_factor', 2, "Create a shrunk fits file with a resolution this many times higher."),
+        ('galactic', True, "Save resulting fits file in galactic coordiantes"),
+        
+    )
+
+    @keyword_options.decorate(defaults)
+    def __init__(self, diffuse_model, skydir, radius, **kwargs):
+        """ Take in an allsky diffuse model and create a smaller diffuse model, which should
+            help make the simulation faster. """
+
+        keyword_options.process(self, kwargs)
+
+        assert type(diffuse_model) == str and os.path.exists(diffuse_model)
+
+        # I am not sure if this algorithm makes sense for very-larger areas of the sky
+        # For now, just crash
+        assert radius < 90
+
+        self.diffuse_model = diffuse_model
+        self.skydir = skydir
+        self.radius = radius
+
+        self.allsky_fits = pyfits.open(self.diffuse_model)
+
+        h = self.allsky_fits['PRIMARY'].header
+        # Here, make sure diffuse function is allsky
+        assert abs(abs(h['NAXIS1']*h['CDELT1'])-360) < 1
+        assert abs(abs(h['NAXIS2']*h['CDELT2']) -180) < 1
+
+        # make sure diffuse file has same
+        assert h['CDELT1'] == h['CDELT2']
+        self.pixelsize = h['CDELT1']
+
+        self.allsky_image = SkyImage(self.diffuse_model)
+
+        self.energies = np.asarray(self.allsky_fits['energies'].data.field('energy'))
+        self.layers = len(self.energies)
+
+    def shrink(self, smaller_file):
+
+        diameter = float(self.radius*2)
+        ps = self.pixelsize/self.resample_factor
+
+        img=SkyImage(self.skydir,smaller_file,ps,diameter,self.layers,"ZEA",self.galactic)
+
+        img.setEnergies(self.energies)
+        img.writeEnergies()
+
+        for i in range(self.layers):
+            self.allsky_image.setLayer(i)
+            img.fill(self.allsky_image, i)
+        del(img)
+
+        allsky_h = self.allsky_fits['PRIMARY'].header
+
+        # Fill in from the all sky file some header values which 
+        # are not saved out by SkyImage (not sure why not?)
+        temp = pyfits.open(smaller_file, mode='update')
+        h=temp['PRIMARY'].header
+        for key in ['CUNIT1', 'CUNIT2', 'CRVAL3', 'CDELT3', 'CRPIX3', 'CTYPE3', 'CUNIT3']:
+            h.update(key, allsky_h[key])
+        temp.flush()
+
+
 class NoSimulatedPhotons(Exception):
     pass
 
@@ -42,6 +110,7 @@ class MonteCarlo(object):
 
     defaults = (
             ('seed',               0, "Random number generator seen when running obssim. This should be varied for simulations."),
+            ('savedir',         None, "If specified, save temporary files to this directory."),
             ('tempbase', '/scratch/', "Directory to put temporary files in. Can be cleaned up with the cleanup function."),
             ('tstart',          None, "Required if ft2 does not point to a real file."),
             ('tstop',           None, "Required if ft2 does not point to a real file."),
@@ -54,8 +123,9 @@ class MonteCarlo(object):
             ('maxROI',          None, "Maximum ROI Size. Gtobssim will use the use_ac flag if this is specified."),
             ('quiet',          False, "Surpress output."),
             ('mc_energy',      False, "Use MC Energy"),
-            ('store_output',   False, "Store temporary output, for debugging"),
-            ('gti_filter',      None, "Run gtmktime to select GTIs, should be run for pre-existing ltcubs."),
+            ('gtifile',         None, "Make the simulated data have only the same GTIs as the GTIs in this file (typically an ft1 file or ltcube)."),
+            ('diffuse_pad',      10,  "How many area outside ROI should the diffuse emission be simulated to account for energy dispersion."),
+            ('roi_pad',           5,  "Include counts from this far ouside maxROI in the ft1 file to account for ragged edge effect in pointlike."),
     )
 
     @staticmethod
@@ -70,6 +140,18 @@ class MonteCarlo(object):
         self.ft1=ft1
         self.irf=irf
         self.sources=sources
+
+        if self.savedir is not None:
+            self.savedir=os.path.abspath(self.savedir)
+            if not os.path.exists(self.savedir):
+                os.makedirs(self.savedir)
+            self.save_output=True
+        else:
+            if not os.path.isdir(self.tempbase):
+                raise Exception("Argument tempbase must point to a directory where temporary files can be placed.")
+            self.savedir=mkdtemp(prefix=self.tempbase)
+            self.save_output=False
+
 
         if not isinstance(self.ft1,types.StringType):
             if len(self.ft1) != 1: raise Exception(dedent("""\
@@ -86,25 +168,28 @@ class MonteCarlo(object):
         if os.path.exists(self.ft1):
             raise Exception("Unable to run MC simulation because file %s already exists." % self.ft1)
 
-        if not os.path.isdir(self.tempbase):
-            raise Exception("Argument tempbase must point to a directory where temporary files can be placed.")
-
-        if self.ft2 is None:
-            if self.tstart is None or self.tstop is None:
-                raise Exception("tstart and tstop must be specified if ft2 is not set.")
-        else:
-            if os.path.exists(self.ft2):
-                if self.tstart is not None or self.tstop is not None:
-                    raise Exception("Since ft2 points to an existing file, tstart and tstop can not be set.")
-            else:
-                if self.tstart is None or self.tstop is None:
-                    raise Exception("Since ft2 does not point to an already existing file, tstart and tstop must be set.")
-
-        if self.tstop is not None and self.tstart is not None and (self.tstop - self.tstart < 1):
-            raise Exception("tstart and tstop must describe a real range.")
-
         if self.ft2 is not None and os.path.exists(self.ft2):
-            self.set_time_from_ft2()
+            self.use_existing_ft2 = True
+        else:
+            self.use_existing_ft2 = False
+
+        if self.use_existing_ft2:
+            if self.tstart is not None or self.tstop is not None:
+                raise Exception("Since simulating from exisitng ft2 file, tstart and tstop can not be set.")
+        else:
+            if self.tstart is None or self.tstop is None:
+                raise Exception("tstart and tstop must be specified since ft2 does not exist.")
+
+            if self.tstop - self.tstart < 1: raise Exception("tstart and tstop must describe a real range.")
+
+        if self.use_existing_ft2: self.set_time_from_ft2()
+
+        if self.use_existing_ft2:
+            if not self.gtifile: 
+                print "Since an already existing ft2 file is set, it is strongly recommended that you specify a file with the desired GTIs (typically the ft1 or ltcube file."
+        else:
+            if self.gtifile:
+                print "gtifile can only be set for existing ft2 files."
 
 
     def set_time_from_ft2(self):
@@ -145,7 +230,7 @@ class MonteCarlo(object):
                 specfile=ps.model.file
             else:
                 flux=ps.model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
-                specfile=self._make_specfile(ps.model,mc_emin,mc_emax)
+                specfile=MonteCarlo._make_specfile(es.name,ps.model,mc_emin,mc_emax)
 
             xml=[
                 '<source name="%s">' % MonteCarlo.strip(ps.name),
@@ -158,8 +243,9 @@ class MonteCarlo(object):
             ]
             return indent+('\n'+indent).join(xml)
 
-    def _make_specfile(self,model,emin,emax,numpoints=200):
-        temp=NamedTemporaryFile(dir='.',delete=False)
+    @staticmethod
+    def _make_specfile(name,model,emin,emax,numpoints=200):
+        temp='%s_spectra_%s.txt' % (name,model.name)
         energies=np.logspace(np.log10(emin),np.log10(emax),numpoints)
         fluxes=model(energies)
         # josh's fix to the clipping.../ thanks!
@@ -167,19 +253,19 @@ class MonteCarlo(object):
         while fluxes[-1] == 0: energies,fluxes=energies[:-1],fluxes[:-1]
         # okay that's to check for local divergences
         if np.any(fluxes==0): raise Exception("Error: 0s found in differential flux")
-        temp.write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(energies,fluxes)]))
-        temp.close()
-        return temp.name
+        open(temp,'w').write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(energies,fluxes)]))
+        return temp
 
-    def _make_profile(self,spatial_model,numpoints=200):
-        temp=NamedTemporaryFile(dir='.',delete=False)
+    @staticmethod
+    def _make_profile(self,name,spatial_model,numpoints=200):
+        temp='%s_extension_profile_%s.txt' % (name,spatial_model.name)
         radius,pdf = spatial_model.approximate_profile()
-        temp.write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(radius,pdf)]))
-        temp.close()
-        return temp.name
+        open(temp,'w').write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(radius,pdf)]))
+        return temp
 
     def _make_radially_symmetric(self,es,indent):
 
+        name=es.name
         sm=es.spatial_model
 
         assert isinstance(sm,RadiallySymmetricModel)
@@ -190,8 +276,8 @@ class MonteCarlo(object):
 
         ra,dec=sm.center.ra(),sm.center.dec()
 
-        profile=self._make_profile(sm)
-        specfile=self._make_specfile(es.model,mc_emin,mc_emax)
+        profile=MonteCarlo._make_profile(name,sm)
+        specfile=MonteCarlo._make_specfile(name,es.model,mc_emin,mc_emax)
 
         xml=[
             '<source name="%s">' % MonteCarlo.strip(es.name),
@@ -220,7 +306,7 @@ class MonteCarlo(object):
         if isinstance(sm,SpatialMap):
             spatialfile=sm.file
         else:
-            spatialfile=mkstemp(dir='.')[1]
+            spatialfile='%s_spatial_template_%s.fits' % (es.name,sm.name)
             sm.save_template(spatialfile)
 
         if isinstance(es.model,PowerLaw) or isinstance(es.model,PowerLawFlux):
@@ -240,7 +326,7 @@ class MonteCarlo(object):
 
         else:
 
-            specfile=self._make_specfile(es.model,mc_emin,mc_emax)
+            specfile=MonteCarlo._make_specfile(es.name,es.model,mc_emin,mc_emax)
 
             xml=[
                 '<source name="%s">' % MonteCarlo.strip(es.name),
@@ -298,10 +384,10 @@ class MonteCarlo(object):
         """ Note, if there is an ROI cut, we can make this
             isotropic file not allsky. """
         if radius >= 180:
-            img=SkyImage(skydir,filename,6,180,1,"CAR",True)
+            img=SkyImage(skydir,filename,6,180,1,"ZEA",True)
         else:
             diameter = float(radius*2)
-            img=SkyImage(skydir,filename,diameter/10.0,diameter,1,"CAR",True)
+            img=SkyImage(skydir,filename,diameter/10.0,diameter,1,"ZEA",True)
 
         one=lambda x: 1
         skyfun=PySkyFunction(one)
@@ -344,7 +430,7 @@ class MonteCarlo(object):
             return 1
         return 0
 
-    def _make_isotropic(self,ds,savedir,indent):
+    def _make_isotropic_diffuse(self,ds,indent):
 
         dm=ds.dmodel[0]
         sm=ds.smodel
@@ -361,10 +447,10 @@ class MonteCarlo(object):
         # multiply by 4pi * 10^4 to convert from ph/cm^2/sr to ph/m^2
         flux=MonteCarlo.isotropic_integrator(isotropic_spectrum)
 
-        isotropic_filename=os.path.join(savedir,'isotropic.fits')
+        isotropic_filename=os.path.join('isotropic.fits')
 
         if self.roi_dir is not None and self.maxROI is not None:
-            radius=self.maxROI+20 
+            radius=self.maxROI + self.diffuse_pad
             flux*=2*np.pi*(1-np.cos(np.radians(radius)))
             MonteCarlo.make_isotropic_fits(isotropic_filename, self.roi_dir, radius)
         else:
@@ -384,7 +470,7 @@ class MonteCarlo(object):
         ]
         return indent+('\n'+indent).join(ds)
 
-    def _make_powerlaw(self,ds,savedir,indent):
+    def _make_powerlaw_diffuse(self,ds,indent):
         dm=ds.dmodel[0]
         sm=ds.smodel
 
@@ -403,7 +489,7 @@ class MonteCarlo(object):
         if self.roi_dir is not None and self.maxROI is not None:
             ra,dec=self.roi_dir.ra(),self.roi_dir.dec()
             # just to be safe from the large low energy psf
-            radius=self.maxROI+20 
+            radius=self.maxROI + self.diffuse_pad
 
             # gtobssim wants ph/m^2/s, integrate over solid angle
             flux=x.i_flux(mc_emin,mc_emax)*(2*np.pi*(1-np.cos(np.radians(radius))))*10**4
@@ -454,7 +540,6 @@ class MonteCarlo(object):
 
         # get the solid angles from gtlike. Probably
         # could be rewritten in pointlike, but not necessary
-        import pyLikelihood
         mapcube=pyLikelihood.MapCubeFunction2(filename)
         wcsmap=mapcube.wcsmap()
         solid_angles=np.empty((nxpix,nypix))
@@ -498,7 +583,19 @@ class MonteCarlo(object):
         if not MonteCarlo.isone(sm):
             raise Exception("Can only run gtobssim with DiffuseFunction diffuse models where the spectral model is a PowerLaw with norm and index 1.")
 
-        filename=dm.name()
+        allsky_filename=dm.name()
+
+        if self.roi_dir is not None and self.maxROI is not None:
+            radius=self.maxROI + self.diffuse_pad
+
+            filename = os.path.basename(allsky_filename).replace('.fits','_shrunk.fits')
+
+            shrinker = DiffuseShrinker(allsky_filename, self.roi_dir, radius)
+            shrinker.shrink(filename)
+
+        else:
+            filename = allsky_filename
+
 
         flux = MonteCarlo.diffuse_integrator(filename)
 
@@ -513,15 +610,15 @@ class MonteCarlo(object):
         ]
         return indent+('\n'+indent).join(ds)
 
-    def _make_ds(self,ds,savedir,indent='  '):
+    def _make_ds(self,ds,indent='  '):
         if len(ds.dmodel) > 1:
             raise Exception("Can only run gtobssim for diffuse models with a combined front/back diffuse model.")
 
         if isinstance(ds.dmodel[0],IsotropicSpectrum):
-            return self._make_isotropic(ds,savedir,indent)
+            return self._make_isotropic_diffuse(ds,indent)
 
         elif isinstance(ds.dmodel[0],IsotropicPowerLaw):
-            return self._make_powerlaw(ds,savedir,indent)
+            return self._make_powerlaw_diffuse(ds,indent)
 
         elif isinstance(ds.dmodel[0],DiffuseFunction):
             return self._make_diffuse(ds,indent)
@@ -538,7 +635,7 @@ class MonteCarlo(object):
         else:
             raise Exception("Can not simulate diffuse source %s. Unknown diffuse source type %s." % (ds.name,type(ds)))
             
-    def _make_model(self,savedir,indent='  '):
+    def _make_model(self,indent='  '):
 
         xml = ['<source_library title="Library">']
         src = []
@@ -563,40 +660,51 @@ class MonteCarlo(object):
 
         for ds in self.diffuse_sources:
             if not self.quiet: print 'Processing source %s' % ds.name
-            xml.append(self._make_ds(ds,savedir,indent=indent))
+            xml.append(self._make_ds(ds,indent=indent))
             src.append(MonteCarlo.strip(ds.name))
 
         xml.append('</source_library>')
     
-        self.xmlfile=os.path.join(savedir,'source_library.xml')
+        self.xmlfile=os.path.join(self.savedir,'source_library.xml')
         temp=open(self.xmlfile,'w')
         temp.write('\n'.join(xml))
         temp.close()
 
-        self.srclist=os.path.join(savedir,'source_list.txt')
+        self.srclist=os.path.join(self.savedir,'source_list.txt')
         temp=open(self.srclist,'w')
         temp.write('\n'.join(src))
         temp.close()
 
-    def mktime(self,ft1,filter,roicut='no'):
-        if not self.quiet: print "Running gtmktime ..."
-        outfile=os.path.splitext(ft1)[0] + "_mktime" + os.path.splitext(ft1)[1]
+    def gtmktime_from_file(self, evfile, scfile, outfile, gtifile):
+        """ Apply the GTIs from gtifile to the file evfile. """
+
+        if not self.quiet: print 'Applying GTIs from file %s to simulated data' % gtifile
+
+        # Note, add on gtis to 'evfile'. This is a big distructive,
+        # but should cause no real harm.
+        e = pyfits.open(evfile, mode='update')
+        g = pyfits.open(gtifile)
+        e['GTI'] = g['GTI']
+        e.flush()
+
         app=GtApp('gtmktime')
-        app.run(evfile=ft1,
+        app.run(evfile=evfile,
                 outfile=outfile,
-                scfile=self.ft2,
-                filter=filter,
-                roicut=roicut)
-        if not self.quiet: print "Running gtmktime ..."
-        return outfile
+                scfile=scfile,
+                # Here, apply no additional gtmktime cuts
+                filter='T', 
+                roicut='no',
+                # This will cut on previously added GTI cuts
+                apply_filter='yes',
+               )
 
     def simulate(self,**kwargs):
         ''' understands all keywords that GtApp.run() can handle, especially dry_run=True and verbosity=X '''
         old_dir=os.getcwd()
-        self.tempdir=mkdtemp(prefix=self.tempbase)
-        if not self.quiet: print 'working in tempdir',self.tempdir
-        os.chdir(self.tempdir)
-        self._make_model(savedir=self.tempdir)
+
+        if not self.quiet: print 'working in directory',self.savedir
+        os.chdir(self.savedir)
+        self._make_model()
 
         irfs=self.irf
 
@@ -609,17 +717,13 @@ class MonteCarlo(object):
             use_ac="yes"
             ra=self.roi_dir.ra()
             dec=self.roi_dir.dec()
-            radius=self.maxROI
+            # Add an extra 5 degrees due to ragged edge healpix effect in pointlike
+            radius=self.maxROI + self.roi_pad
         else:
             use_ac="no"
             ra,dec,radius=0,0,180
-        # new feature, store_output
-        if self.store_output:
-            theFolder = os.getenv('PWD')+'/'+self.tempdir.replace(self.tempbase,''); # to remove the tempbase
-            shutil.copytree(self.tempdir,theFolder);
-            print '*INFO*: stored output in',theFolder
         
-        os.environ['PFILES']=self.tempdir+';'+os.environ['PFILES'].split(';')[-1]; # to set the writing pfiles to the tempdir
+        os.environ['PFILES']=self.savedir+';'+os.environ['PFILES'].split(';')[-1]; # to set the writing pfiles to the savedir
         if not self.quiet: print 'current pfile settings',os.getenv('PFILES'); #should add the output for debugging reasons
         app=GtApp('gtobssim');
         if self.ltfrac is not None: app['ltfrac']=self.ltfrac
@@ -642,28 +746,31 @@ class MonteCarlo(object):
 
         os.chdir(old_dir)
 
-        ft1=os.path.join(self.tempdir,'sim_events_0000.fits')
-        if os.path.exists(ft1):
-            if self.ft2 is not None:
-                if self.gti_filter is not None:
-                    ft1 = self.mktime(ft1,self.gti_filter)
-                else:
-                    print "WARNING: No mktime cut with existing FT2 file. GTIs may not match an existing ltcube."
-            shutil.copy(ft1,self.ft1)
+        ft1=os.path.join(self.savedir,'sim_events_0000.fits')
+
+        if not os.path.exists(ft1): raise NoSimulatedPhotons()
+
+        if self.use_existing_ft2:
+
+            if self.gtifile is not None:
+                self.gtmktime_from_file(evfile=ft1,scfile=self.ft2,outfile=self.ft1, gtifile=self.gtifile)
+            else:
+                shutil.move(ft1,self.ft1)
+
         else:
-            raise NoSimulatedPhotons()
+            ft2=os.path.join(self.savedir,'sim_scData_0000.fits')
+            shutil.move(ft2,self.ft2)
+
+            shutil.move(ft1,self.ft1)
 
 
-        ft2=os.path.join(self.tempdir,'sim_scData_0000.fits')
-        if self.ft2 is not None and not os.path.exists(self.ft2): 
-            shutil.copy(ft2,self.ft2)
 
 
     def __del__(self):
         """ Remove folder with simulation stuff. """
-        if hasattr(self,'tempdir') and os.path.exists(self.tempdir):
-            if not self.quiet: print 'Removing tempdir',self.tempdir
-            shutil.rmtree(self.tempdir)
+        if not self.save_output:
+            if not self.quiet: print 'Removing directory',self.savedir
+            shutil.rmtree(self.savedir)
 
 
 class SpectralAnalysisMC(SpectralAnalysis):
