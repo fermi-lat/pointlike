@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Mar  1 22:03:37 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_localize.py 
+Log Message:
+remove depricated code
+    *
+------------------------------------------------------------
 User: lande  Thu Mar  1 22:03:10 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
