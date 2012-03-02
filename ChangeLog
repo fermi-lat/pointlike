@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Mar  1 22:15:14 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_upper_limits.py 
+Log Message:
+bugfix for ext upper limiits
+    *
+------------------------------------------------------------
 User: lande  Thu Mar  1 22:06:14 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
