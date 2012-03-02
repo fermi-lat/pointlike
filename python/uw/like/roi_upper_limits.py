@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.12 2012/02/24 18:33:23 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.13 2012/02/26 03:40:14 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -160,7 +160,8 @@ class ExtensionUpperLimit(object):
 
         else:
 
-            assert self.spatial_model.param_names == [ 'Sigma' ]
+            n = self.spatial_model.param_names
+            assert len(n) == 1 and n[0] == 'Sigma'
 
             self.saved_state = PointlikeState(roi)
 
