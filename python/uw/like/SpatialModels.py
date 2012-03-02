@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.83 2012/02/10 17:03:36 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.84 2012/02/24 00:53:37 lande Exp $
 
    author: Joshua Lande
 
@@ -1315,6 +1315,12 @@ class EllipticalSpatialModel(SpatialModel):
         self['Pos_Angle']=0
         self.free[2:5]=False
     def can_shrink(self): return True
+
+    def __getstate__(self):
+        """ Cannot pickle the call_grid object. """
+        d=copy.copy(self.__dict__)
+        if d.has_key('call_grid'): del d['call_grid']
+        return d
 
 
 class EllipticalGaussian(EllipticalSpatialModel):
