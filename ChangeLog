@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Mar  1 22:03:10 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+cache elliptical models
+    *
+------------------------------------------------------------
 User: wallacee  Wed Feb 29 13:25:29 PST 2012
 pointlike/python/uw/utilities
 
