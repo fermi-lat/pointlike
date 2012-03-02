@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.84 2012/02/24 00:53:37 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.85 2012/03/02 06:03:09 lande Exp $
 
    author: Joshua Lande
 
@@ -1322,6 +1322,10 @@ class EllipticalSpatialModel(SpatialModel):
         if d.has_key('call_grid'): del d['call_grid']
         return d
 
+    def __setstate__(self,state):
+        """ When unpickling the object, afterwords recreate the skymaps.SkyImage object. """
+        self.__dict__ = state
+        self.call_grid = None
 
 class EllipticalGaussian(EllipticalSpatialModel):
 
