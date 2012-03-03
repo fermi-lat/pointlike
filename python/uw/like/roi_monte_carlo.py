@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.34 2012/02/10 21:23:18 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.35 2012/03/02 06:06:04 lande Exp $
 
 author: Joshua Lande
 """
@@ -34,13 +34,48 @@ class DiffuseShrinker(object):
     defaults = (
         ('resample_factor', 2, "Create a shrunk fits file with a resolution this many times higher."),
         ('galactic', True, "Save resulting fits file in galactic coordiantes"),
-        
     )
 
+    @staticmethod
+    def smaller_range(values, min, max):
+        """ values should be a sorted list of numbers.
+
+            This function will return a boolean array of the values
+            between min and max, but the list will be inclusive so that it will
+            include the first number smaller than min and the first number
+            larger than max.
+
+                >>> print DiffuseShrinker.smaller_range(np.asarray([1,2,3,5]), 2, 3)
+                [False  True  True  False]
+
+                >>> print DiffuseShrinker.smaller_range(np.asarray([1,2,3,5]), 1.9, 3.1)
+                [ True  True  True  True]
+
+            If there is no number smaller than min (or larger than max), it just includes
+            the whole list
+
+                >>> print DiffuseShrinker.smaller_range(np.asarray([1,2,3,5]), 0.9, 5.1)
+                [ True  True  True  True]
+        """
+        good = np.ones_like(values).astype(bool)
+        g = min < values
+        if sum(~g) > 1:
+            index = np.where(~g)[0][:-1]
+            good[index] = False
+        g = values < max
+        if sum(~g) > 1:
+            index = np.where(~g)[0][1:]
+            good[index] = False
+        return good
+
     @keyword_options.decorate(defaults)
-    def __init__(self, diffuse_model, skydir, radius, **kwargs):
+    def __init__(self, diffuse_model, skydir, radius, emin, emax, **kwargs):
         """ Take in an allsky diffuse model and create a smaller diffuse model, which should
-            help make the simulation faster. """
+            help make the simulation faster. 
+            
+            Do this by sampling the diffuse model only within a given radius
+            and only within a given energy range. This should make gtobssim
+            much faster. """
 
         keyword_options.process(self, kwargs)
 
@@ -53,6 +88,8 @@ class DiffuseShrinker(object):
         self.diffuse_model = diffuse_model
         self.skydir = skydir
         self.radius = radius
+        self.emin = emin
+        self.emax = emax
 
         self.allsky_fits = pyfits.open(self.diffuse_model)
 
@@ -67,22 +104,28 @@ class DiffuseShrinker(object):
 
         self.allsky_image = SkyImage(self.diffuse_model)
 
-        self.energies = np.asarray(self.allsky_fits['energies'].data.field('energy'))
-        self.layers = len(self.energies)
+        self.all_energies = np.asarray(self.allsky_fits['energies'].data.field('energy'))
+
+        # create a list of the indices in the self.all_energy array for energies
+        # that are allowed by the energy cut.
+        self.good_indices = np.where(DiffuseShrinker.smaller_range(self.all_energies, self.emin, self.emax))[0]
+        self.good_energies = self.all_energies[self.good_indices]
 
     def shrink(self, smaller_file):
 
         diameter = float(self.radius*2)
         ps = self.pixelsize/self.resample_factor
 
-        img=SkyImage(self.skydir,smaller_file,ps,diameter,self.layers,"ZEA",self.galactic)
+        layers = len(self.good_energies)
 
-        img.setEnergies(self.energies)
+        img=SkyImage(self.skydir,smaller_file,ps,diameter,layers,"ZEA",self.galactic)
+
+        img.setEnergies(self.good_energies)
         img.writeEnergies()
 
-        for i in range(self.layers):
-            self.allsky_image.setLayer(i)
-            img.fill(self.allsky_image, i)
+        for smaller_index, larger_index in enumerate(self.good_indices):
+            self.allsky_image.setLayer(int(larger_index))
+            img.fill(self.allsky_image, smaller_index)
         del(img)
 
         allsky_h = self.allsky_fits['PRIMARY'].header
@@ -109,23 +152,27 @@ class MonteCarlo(object):
         history. Otherwise, a default rocking profile will be used.  """
 
     defaults = (
-            ('seed',               0, "Random number generator seen when running obssim. This should be varied for simulations."),
-            ('savedir',         None, "If specified, save temporary files to this directory."),
-            ('tempbase', '/scratch/', "Directory to put temporary files in. Can be cleaned up with the cleanup function."),
-            ('tstart',          None, "Required if ft2 does not point to a real file."),
-            ('tstop',           None, "Required if ft2 does not point to a real file."),
-            ('ft2',             None, "If exists, simulate with this ft2 file. If not, create."),
-            ('ltfrac',          None, "If set, pass value into gtobssim."),
-            ('emin',             100, "Minimum energy"),
-            ('emax',          100000, "Maximum energy"),
-            ('conv_type',         -1, "Conversion Type"),
-            ('roi_dir',         None, "Center of ROI. Gtobssim will use the use_ac flag if this is specified."),
-            ('maxROI',          None, "Maximum ROI Size. Gtobssim will use the use_ac flag if this is specified."),
-            ('quiet',          False, "Surpress output."),
-            ('mc_energy',      False, "Use MC Energy"),
-            ('gtifile',         None, "Make the simulated data have only the same GTIs as the GTIs in this file (typically an ft1 file or ltcube)."),
-            ('diffuse_pad',      10,  "How many area outside ROI should the diffuse emission be simulated to account for energy dispersion."),
-            ('roi_pad',           5,  "Include counts from this far ouside maxROI in the ft1 file to account for ragged edge effect in pointlike."),
+            ('seed',               0, " Random number generator seen when running obssim. This should be varied for simulations."),
+            ('savedir',         None, " If specified, save temporary files to this directory."),
+            ('tempbase', '/scratch/', " Directory to put temporary files in. Can be cleaned up with the cleanup function."),
+            ('tstart',          None, " Required if ft2 does not point to a real file."),
+            ('tstop',           None, " Required if ft2 does not point to a real file."),
+            ('ft2',             None, " If exists, simulate with this ft2 file. If not, create."),
+            ('ltfrac',          None, " If set, pass value into gtobssim."),
+            ('emin',             100, " Minimum energy"),
+            ('emax',          100000, " Maximum energy"),
+            ('conv_type',         -1, " Conversion Type"),
+            ('roi_dir',         None, " Center of ROI. Gtobssim will use the use_ac flag if this is specified."),
+            ('maxROI',          None, " Maximum ROI Size. Gtobssim will use the use_ac flag if this is specified."),
+            ('quiet',          False, " Surpress output."),
+            ('mc_energy',      False, " Use MC Energy"),
+            ('gtifile',         None, " Make the simulated data have only the same GTIs as the GTIs in this file (typically an ft1 file or ltcube)."),
+            ('diffuse_pad',      10,  " How many area outside ROI should the diffuse emission be simulated to account for energy dispersion."),
+            ('roi_pad',           5,  " Include counts from this far ouside maxROI in the ft1 file to account for ragged edge effect in pointlike."),
+            ('energy_pad',      0.5,  """ Lower energy of simluated photons is energy_pad*emin and 
+                                          upper energy of simulated photos is (1+energy_pad)*emax.
+                                          This allows for energy dispersion effects to be 
+                                          naturally accounted for in the monte carlos simulation. """),
     )
 
     @staticmethod
@@ -203,14 +250,11 @@ class MonteCarlo(object):
     def larger_energy_range(self):
         """ Get an energy range larger then the desired simulated points
             (to correct for energy dispersion). """
-        return 0.5*self.emin,1.5*self.emax
+        return self.energy_pad*self.emin,(1+self.energy_pad)*self.emax
 
-    def _make_ps(self,ps,indent='  '):
+    def _make_ps(self,ps,mc_emin,mc_emax):
 
         assert isinstance(ps,PointSource)
-
-        # account for energy dispersion by conservative 50% oversimulation of events.
-        mc_emin,mc_emax=self.larger_energy_range()
 
         if isinstance(ps.model,PowerLaw) or isinstance(ps.model,PowerLawFlux):
             xml=[
@@ -263,15 +307,13 @@ class MonteCarlo(object):
         open(temp,'w').write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(radius,pdf)]))
         return temp
 
-    def _make_radially_symmetric(self,es,indent):
+    def _make_radially_symmetric(self,es,mc_emin, mc_emax, indent):
 
         name=es.name
         sm=es.spatial_model
 
         assert isinstance(sm,RadiallySymmetricModel)
  
-        mc_emin,mc_emax=self.larger_energy_range()
-
         flux=es.model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
 
         ra,dec=sm.center.ra(),sm.center.dec()
@@ -291,13 +333,11 @@ class MonteCarlo(object):
         ]
         return indent+('\n'+indent).join(xml)
 
-    def _make_extended_source(self,es,indent):
+    def _make_extended_source(self,es,mc_emin,mc_emax,indent):
 
         sm=es.spatial_model
 
         assert isinstance(sm,SpatialModel)
- 
-        mc_emin,mc_emax=self.larger_energy_range()
 
         flux=es.model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
 
@@ -340,13 +380,11 @@ class MonteCarlo(object):
             ]
         return indent+('\n'+indent).join(xml)
 
-    def _make_powerlaw_gaussian(self,es,indent='  '):
+    def _make_powerlaw_gaussian(self,es,mc_emin,mc_emax,indent):
         """ Make an extended source. """
 
         assert isinstance(es.spatial_model,Gaussian) or \
                isinstance(es.spatial_model,EllipticalGaussian)
-
-        mc_emin,mc_emax=self.larger_energy_range()
 
         if isinstance(es.model,PowerLaw) or isinstance(es.model,PowerLawFlux):
 
@@ -405,6 +443,7 @@ class MonteCarlo(object):
             Returns the flux differential in solid angle: ph/m^2/sr """
         file=np.genfromtxt(filename,unpack=True)
         energy,flux=file[0],file[1]
+        emin,emax = energy[0], energy[-1]
 
         e1,e2=energy[:-1],energy[1:]
         f1,f2=flux[:-1],flux[1:]
@@ -413,12 +452,13 @@ class MonteCarlo(object):
 
         n0 = f1/e1**gamma
 
-        return np.sum(
+        flux=np.sum(
             np.where(gamma != -1,
                     n0/(gamma+1)*(e2**(gamma+1)-e1**(gamma+1)),
                     n0*np.log(e2/e1)
             )
         )*10**4
+        return flux,emin,emax
 
     @staticmethod
     def isone(model):
@@ -430,47 +470,53 @@ class MonteCarlo(object):
             return 1
         return 0
 
-    def _make_isotropic_diffuse(self,ds,indent):
+    def _make_isotropic_diffuse(self,ds,mc_emin,mc_emax,indent):
 
         dm=ds.dmodel[0]
         sm=ds.smodel
 
-        isotropic_spectrum=dm.name()
-
         if not MonteCarlo.isone(sm):
             raise Exception("Can only run gtobssim with IsotropicSpectrum diffuse models if model predicts 1.")
 
-        energies=np.genfromtxt(isotropic_spectrum,unpack=True)[0]
+        spectral_file=dm.name()
+        energies,spectra=np.genfromtxt(spectral_file,unpack=True)[0:2]
 
-        emin,emax=energies[0],energies[-1]
+        smaller_range = DiffuseShrinker.smaller_range(energies, mc_emin, mc_emax)
+        if np.any(smaller_range == False):
+            # If any energies are outside the range, cut down spectral file.
+            cut_spectral_file = os.path.basename(spectral_file).replace('.txt','_shrunk.txt')
+            np.savetxt(cut_spectral_file, zip(energies[smaller_range], spectra[smaller_range]))
+        else:
+            cut_spectral_file = spectral_file
+
 
         # multiply by 4pi * 10^4 to convert from ph/cm^2/sr to ph/m^2
-        flux=MonteCarlo.isotropic_integrator(isotropic_spectrum)
+        flux, emin, emax = MonteCarlo.isotropic_integrator(cut_spectral_file)
 
-        isotropic_filename=os.path.join('isotropic.fits')
+        spatial_file=os.path.basename(spectral_file).replace('.txt','_spatial.fits')
 
         if self.roi_dir is not None and self.maxROI is not None:
             radius=self.maxROI + self.diffuse_pad
             flux*=2*np.pi*(1-np.cos(np.radians(radius)))
-            MonteCarlo.make_isotropic_fits(isotropic_filename, self.roi_dir, radius)
+            MonteCarlo.make_isotropic_fits(spatial_file, self.roi_dir, radius)
         else:
             # multiply by solid angle
             flux*=4*np.pi
-            MonteCarlo.make_isotropic_fits(isotropic_filename, SkyDir(0,0,SkyDir.GALACTIC), 180)
+            MonteCarlo.make_isotropic_fits(spatial_file, SkyDir(0,0,SkyDir.GALACTIC), 180)
 
         ds = [ 
             '<source name="%s">' % MonteCarlo.strip(ds.name),
             '  <spectrum escale="MeV">',
             '    <SpectrumClass name="FileSpectrumMap"',
-            '       params="flux=%s,fitsFile=%s,' % (flux,isotropic_filename),
-            '       specFile=%s,emin=%s,emax=%s"/>' % (isotropic_spectrum,emin,emax),
+            '       params="flux=%s,fitsFile=%s,' % (flux,spatial_file),
+            '       specFile=%s,emin=%s,emax=%s"/>' % (cut_spectral_file,emin,emax),
             '    <use_spectrum frame="galaxy"/>',
             '  </spectrum>',
             '</source>'
         ]
         return indent+('\n'+indent).join(ds)
 
-    def _make_powerlaw_diffuse(self,ds,indent):
+    def _make_powerlaw_diffuse(self,ds,mc_emin,mc_emaxindent):
         dm=ds.dmodel[0]
         sm=ds.smodel
 
@@ -482,9 +528,6 @@ class MonteCarlo(object):
         index=dm.index()
 
         x=PowerLawFlux(p=[flux_pointlike,index],emin=100,emax=np.inf)
-
-        mc_emin,mc_emax=self.larger_energy_range()
-
 
         if self.roi_dir is not None and self.maxROI is not None:
             ra,dec=self.roi_dir.ra(),self.roi_dir.dec()
@@ -574,7 +617,7 @@ class MonteCarlo(object):
         integral = np.where(gamma != 1., n0/gp1*(x2**gp1 - x1**gp1), n0*np.log(x2/x1))
         return np.transpose(integral)
 
-    def _make_diffuse(self,ds,indent):
+    def _make_diffuse(self,ds,mc_emin,mc_emax,indent):
 
         dm=ds.dmodel[0]
         sm=ds.smodel
@@ -590,7 +633,7 @@ class MonteCarlo(object):
 
             filename = os.path.basename(allsky_filename).replace('.fits','_shrunk.fits')
 
-            shrinker = DiffuseShrinker(allsky_filename, self.roi_dir, radius)
+            shrinker = DiffuseShrinker(allsky_filename, self.roi_dir, radius, mc_emin, mc_emax)
             shrinker.shrink(filename)
 
         else:
@@ -610,28 +653,28 @@ class MonteCarlo(object):
         ]
         return indent+('\n'+indent).join(ds)
 
-    def _make_ds(self,ds,indent='  '):
+    def _make_ds(self,ds,*args,**kwargs):
         if len(ds.dmodel) > 1:
             raise Exception("Can only run gtobssim for diffuse models with a combined front/back diffuse model.")
 
         if isinstance(ds.dmodel[0],IsotropicSpectrum):
-            return self._make_isotropic_diffuse(ds,indent)
+            return self._make_isotropic_diffuse(ds,*args,**kwargs)
 
         elif isinstance(ds.dmodel[0],IsotropicPowerLaw):
-            return self._make_powerlaw_diffuse(ds,indent)
+            return self._make_powerlaw_diffuse(ds,*args,**kwargs)
 
         elif isinstance(ds.dmodel[0],DiffuseFunction):
-            return self._make_diffuse(ds,indent)
+            return self._make_diffuse(ds,*args,**kwargs)
 
         elif isinstance(ds,ExtendedSource):
             if (isinstance(ds.spatial_model,Gaussian) or \
                     isinstance(ds.spatial_model,EllipticalGaussian)) and \
                     (isinstance(ds.model,PowerLaw) or isinstance(ds.model,PowerLawFlux)):
-                return self._make_powerlaw_gaussian(ds,indent)
+                return self._make_powerlaw_gaussian(ds,*args,**kwargs)
             elif isinstance(ds.spatial_model,RadiallySymmetricModel):
-                return self._make_radially_symmetric(ds,indent)
+                return self._make_radially_symmetric(ds,*args,**kwargs)
             else:
-                return self._make_extended_source(ds,indent)
+                return self._make_extended_source(ds,*args,**kwargs)
         else:
             raise Exception("Can not simulate diffuse source %s. Unknown diffuse source type %s." % (ds.name,type(ds)))
             
@@ -653,14 +696,16 @@ class MonteCarlo(object):
             elif isinstance(source,DiffuseSource):
                 self.diffuse_sources.append(source)
 
+        mc_emin,mc_emax=self.larger_energy_range()
+
         for ps in self.point_sources:
             if not self.quiet: print 'Processing source %s' % ps.name
-            xml.append(self._make_ps(ps,indent=indent))
+            xml.append(self._make_ps(ps,mc_emin, mc_emax,indent))
             src.append(MonteCarlo.strip(ps.name))
 
         for ds in self.diffuse_sources:
             if not self.quiet: print 'Processing source %s' % ds.name
-            xml.append(self._make_ds(ds,indent=indent))
+            xml.append(self._make_ds(ds,mc_emin,mc_emax,indent))
             src.append(MonteCarlo.strip(ds.name))
 
         xml.append('</source_library>')
@@ -866,3 +911,7 @@ class SpectralAnalysisMC(SpectralAnalysis):
                       point_sources=point_sources, 
                       diffuse_sources=diffuse_sources,**kwargs
                      )
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
