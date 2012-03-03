@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Mar  2 16:07:42 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+apply energy cut to isotropic and galacitc diffuse files to increase speed of simulation. New energy_pad flag.
+    *
+------------------------------------------------------------
 User: lande  Thu Mar  1 22:15:23 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
