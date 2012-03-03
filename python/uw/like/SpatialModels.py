@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.85 2012/03/02 06:03:09 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.86 2012/03/02 06:15:23 lande Exp $
 
    author: Joshua Lande
 
@@ -428,7 +428,7 @@ class SpatialModel(object):
             pure lazieness, since it is not needed elsewhere. """
         return PySkySpectrum(self,None)
 
-    def save_template(self,filename,npix=150):
+    def save_template(self,filename,npix=150, proj='ZEA'):
         """ Saves out a template following the recommendation of
             the page LAT-Detected Extended Sources for Catalog:
 
@@ -442,7 +442,7 @@ class SpatialModel(object):
 
         diameter=self.template_diameter()
         pixelsize=diameter/npix
-        image=SkyImage(center,os.path.expandvars(filename),pixelsize,diameter,1,"ZEA",
+        image=SkyImage(center,os.path.expandvars(filename),pixelsize,diameter,1,proj,
                        True if self.coordsystem == SkyDir.GALACTIC else False,False)
         skyfunction=self.get_PySkyFunction()
         image.fill(skyfunction)
