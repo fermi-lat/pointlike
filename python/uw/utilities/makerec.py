@@ -1,5 +1,5 @@
 """ Various useful utilities for creating, dumping numpy recarry objects
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/makerec.py,v 1.5 2010/12/09 17:56:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/makerec.py,v 1.6 2011/08/25 18:11:03 wallacee Exp $
 
 
 
@@ -8,8 +8,9 @@ import os, pyfits, pickle
 from pylab import mlab
 import numpy as np
 
-def makefits(r, filename=None):
-    """ convert a recarray to a pyfits object, write to filename if present
+def makefits(r, filename=None, **kwargs):
+    """ convert a recarray to a pyfits object, write to filename if present.
+        **kwargs can be used to pass clobber to the pyfits writeto function.
     """
     def convertformat(dtype):
         if dtype[:2]=='|S': return dtype[2:]+'A'
@@ -31,7 +32,7 @@ def makefits(r, filename=None):
     thdulist = pyfits.HDUList([ pyfits.PrimaryHDU(), 
                                 pyfits.new_table(pyfits.ColDefs(columns))])
     if filename is not None:
-        thdulist.writeto(filename)
+        thdulist.writeto(filename, **kwargs)
     return thdulist
     
 
