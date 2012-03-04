@@ -1,3 +1,5 @@
+from os.path import expandvars
+
 import numpy as N
 import pyfits as PF
 from types import FunctionType,MethodType
@@ -16,7 +18,7 @@ def phase_cut(eventfile,outputfile=None,phaseranges=[[0,1]],phase_col_name='PULS
               but check for consistency in output FITS file to be safe."""
 
     from numpy import array
-    ef = PF.open(eventfile)
+    ef = PF.open(expandvars(eventfile))
     ph = array(ef['EVENTS'].data.field(phase_col_name)).astype(float)
     mask = array([False]*len(ph))
     
@@ -52,7 +54,7 @@ def phase_ltcube(ltcube,outputfile,phase):
         fairly well) --Josh
     """
     from uw.pulsar.phase_range import PhaseRange
-    ltcube = PF.open(ltcube)
+    ltcube = PF.open(expandvars(ltcube))
     for table in ['exposure', 'weighted_exposure']:
         cb=ltcube[table].data.field('cosbins')
         fraction=phase.phase_fraction if isinstance(phase,PhaseRange) else phase
