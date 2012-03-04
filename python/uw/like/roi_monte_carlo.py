@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.36 2012/03/03 00:07:41 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.37 2012/03/04 02:23:57 lande Exp $
 
 author: Joshua Lande
 """
@@ -819,6 +819,9 @@ class MonteCarlo(object):
 
     def simulate(self,**kwargs):
         ''' understands all keywords that GtApp.run() can handle, especially dry_run=True and verbosity=X '''
+
+        if not self.quiet: print 'Simulating in energy range from %g MeV to %g MeV' % (self.emin, self.emax)
+
         old_dir=os.getcwd()
 
         if not self.quiet: print 'working in directory',self.savedir
