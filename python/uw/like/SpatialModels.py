@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.86 2012/03/02 06:15:23 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.87 2012/03/03 19:41:40 lande Exp $
 
    author: Joshua Lande
 
@@ -785,7 +785,7 @@ class Disk(RadiallySymmetricModel):
             >>> np.allclose([disk['sigma'], disk['l'], disk['b']], [1.5, 22, 22])
             True
 
-        And when the coordinatsystem is galacitc, you can not read out the RA or dec values
+        And when the coordinatsystem is galactic, you can not read out the RA or dec values
 
             >>> disk['ra']
             Traceback (most recent call last):
