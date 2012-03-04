@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Mar  4 15:35:56 PST 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	phasetools.py 
+Log Message:
+expandvars for a few filenames
+    *
+------------------------------------------------------------
 User: lande  Sat Mar  3 19:55:37 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
