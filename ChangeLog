@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Mar  4 15:37:22 PST 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	makerec.py 
+Log Message:
+allow clobbering output in makerec function
+    *
+------------------------------------------------------------
 User: lande  Sun Mar  4 15:35:56 PST 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
