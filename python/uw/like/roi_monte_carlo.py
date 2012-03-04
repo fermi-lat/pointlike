@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.35 2012/03/02 06:06:04 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.36 2012/03/03 00:07:41 lande Exp $
 
 author: Joshua Lande
 """
@@ -17,7 +17,7 @@ from GtApp import GtApp
 
 import pyfits
 import numpy as np
-from skymaps import IsotropicSpectrum,IsotropicPowerLaw,DiffuseFunction,PySkyFunction,SkyImage,SkyDir
+from skymaps import IsotropicSpectrum,IsotropicPowerLaw,DiffuseFunction,PySkyFunction,Hep3Vector,SkyImage,SkyDir,PythonUtilities
 from . SpatialModels import Gaussian,EllipticalGaussian,RadiallySymmetricModel
 from . Models import PowerLaw,PowerLawFlux,Constant,FileFunction
 from . pointspec import DataSpecification,SpectralAnalysis
@@ -30,10 +30,14 @@ from uw.utilities import keyword_options
 
 import pyLikelihood
 
+# I think this is the smallest possible float for 32 bit numbers
+# http://www.psc.edu/general/software/packages/ieee/ieee.php
+SMALL_NUMBER = 2**-149
+
 class DiffuseShrinker(object):
     defaults = (
-        ('resample_factor', 2, "Create a shrunk fits file with a resolution this many times higher."),
-        ('galactic', True, "Save resulting fits file in galactic coordiantes"),
+        ('galactic', False, "Save resulting fits file in galactic coordiantes"),
+        ('proj', 'CAR', "Projection"),
     )
 
     @staticmethod
@@ -46,7 +50,7 @@ class DiffuseShrinker(object):
             larger than max.
 
                 >>> print DiffuseShrinker.smaller_range(np.asarray([1,2,3,5]), 2, 3)
-                [False  True  True  False]
+                [False  True  True False]
 
                 >>> print DiffuseShrinker.smaller_range(np.asarray([1,2,3,5]), 1.9, 3.1)
                 [ True  True  True  True]
@@ -70,12 +74,8 @@ class DiffuseShrinker(object):
 
     @keyword_options.decorate(defaults)
     def __init__(self, diffuse_model, skydir, radius, emin, emax, **kwargs):
-        """ Take in an allsky diffuse model and create a smaller diffuse model, which should
-            help make the simulation faster. 
-            
-            Do this by sampling the diffuse model only within a given radius
-            and only within a given energy range. This should make gtobssim
-            much faster. """
+        """ Take in an allsky diffuse model and create a diffuse model which predicts
+            emission only inside the given radius and energy range. """
 
         keyword_options.process(self, kwargs)
 
@@ -108,35 +108,50 @@ class DiffuseShrinker(object):
 
         # create a list of the indices in the self.all_energy array for energies
         # that are allowed by the energy cut.
-        self.good_indices = np.where(DiffuseShrinker.smaller_range(self.all_energies, self.emin, self.emax))[0]
+        self.good_indices = DiffuseShrinker.smaller_range(self.all_energies, self.emin, self.emax)
         self.good_energies = self.all_energies[self.good_indices]
 
     def shrink(self, smaller_file):
 
-        diameter = float(self.radius*2)
-        ps = self.pixelsize/self.resample_factor
+        shutil.copyfile(self.diffuse_model, smaller_file)
 
-        layers = len(self.good_energies)
+        layers = sum(self.good_indices)
 
-        img=SkyImage(self.skydir,smaller_file,ps,diameter,layers,"ZEA",self.galactic)
+        # first, strip out unwanted energies
+        x = pyfits.open(smaller_file, mode='update')
+        x['PRIMARY'].data = x['PRIMARY'].data[self.good_indices]
+        x['ENERGIES'].data = x['ENERGIES'].data[self.good_indices]
 
-        img.setEnergies(self.good_energies)
-        img.writeEnergies()
+        x['ENERGIES'].header['NAXIS2'] = layers
 
-        for smaller_index, larger_index in enumerate(self.good_indices):
-            self.allsky_image.setLayer(int(larger_index))
-            img.fill(self.allsky_image, smaller_index)
+        x['PRIMARY'].header['NAXIS3'] = layers
+        x['PRIMARY'].header['CRVAL3'] = x['ENERGIES'].data.field('ENERGY')[0]
+
+        x.flush()
+        del(x)
+
+        # second, set to 0 pixels outside of desired region
+        img=SkyImage(smaller_file)
+        for i in range(layers):
+            wsdl = img.get_wsdl(i)
+
+            weights = np.zeros(len(wsdl),dtype=float)
+            arclength = np.zeros(len(wsdl),dtype=float)
+
+            PythonUtilities.get_wsdl_weights(weights, wsdl)
+            PythonUtilities.arclength(arclength,wsdl, self.skydir)
+
+            rad_cut = np.degrees(arclength) > self.radius
+            weights[rad_cut] = SMALL_NUMBER
+
+            PythonUtilities.set_wsdl_weights(weights, wsdl)
+
+            img.setLayer(i)
+            img.set_wsdl(wsdl)
+            
+        img.save()
         del(img)
 
-        allsky_h = self.allsky_fits['PRIMARY'].header
-
-        # Fill in from the all sky file some header values which 
-        # are not saved out by SkyImage (not sure why not?)
-        temp = pyfits.open(smaller_file, mode='update')
-        h=temp['PRIMARY'].header
-        for key in ['CUNIT1', 'CUNIT2', 'CRVAL3', 'CDELT3', 'CRPIX3', 'CTYPE3', 'CUNIT3']:
-            h.update(key, allsky_h[key])
-        temp.flush()
 
 
 class NoSimulatedPhotons(Exception):
@@ -344,10 +359,13 @@ class MonteCarlo(object):
         ra,dec=sm.center.ra(),sm.center.dec()
 
         if isinstance(sm,SpatialMap):
+            print 'WARNING: gtobssim can only use plate-carree projection fits files!'
             spatialfile=sm.file
         else:
             spatialfile='%s_spatial_template_%s.fits' % (es.name,sm.name)
-            sm.save_template(spatialfile)
+            # Allegedly simulated templates must only be in the plate-carree projection
+            # http://www.slac.stanford.edu/exp/glast/wb/prod/pages/sciTools_observationSimTutorial/obsSimTutorial.htm
+            sm.save_template(spatialfile, proj='CAR')
 
         if isinstance(es.model,PowerLaw) or isinstance(es.model,PowerLawFlux):
 
@@ -418,29 +436,42 @@ class MonteCarlo(object):
             raise Exception("Can only parse PowerLaw gaussian sources.")
 
     @staticmethod
-    def make_isotropic_fits(filename, skydir, radius):
+    def make_isotropic_fits(filename, radius, proj="CAR",  pixelsize=1, skydir=None):
         """ Note, if there is an ROI cut, we can make this
             isotropic file not allsky. """
-        if radius >= 180:
-            img=SkyImage(skydir,filename,6,180,1,"ZEA",True)
-        else:
-            diameter = float(radius*2)
-            img=SkyImage(skydir,filename,diameter/10.0,diameter,1,"ZEA",True)
+        galactic=True
+        gal_center=SkyDir(0,0,SkyDir.GALACTIC)
+        img=SkyImage(gal_center,filename,pixelsize,180,1,proj,galactic)
 
-        one=lambda x: 1
-        skyfun=PySkyFunction(one)
+        if radius >= 180:
+            fill=lambda v: 1
+        else:
+
+            assert skydir is not None
+
+            def fill(v):
+                sd = SkyDir(Hep3Vector(*v))
+                if np.degrees(sd.difference(skydir)) <= radius:
+                    return 1
+                else:
+                    return SMALL_NUMBER
+
+        skyfun=PySkyFunction(fill)
         img.fill(skyfun)
         del(img)
 
     @staticmethod
-    def isotropic_integrator(filename):
+    def isotropic_spectral_integrator(filename):
         """ Assume a powerlaw connecting each point. 
 
             This code is adopated from the function pl_integral in 
             genericSources/src/FileSpectrum.cxx which is used by gtobssim
             to integrate the isotropic spectrum.
         
-            Returns the flux differential in solid angle: ph/m^2/sr """
+            Returns the flux differential in solid angle: ph/m^2/sr 
+            
+            N.B. multiply by 10^4 to convert from ph/cm^2/sr to ph/m^2/sr
+            """
         file=np.genfromtxt(filename,unpack=True)
         energy,flux=file[0],file[1]
         emin,emax = energy[0], energy[-1]
@@ -459,6 +490,53 @@ class MonteCarlo(object):
             )
         )*10**4
         return flux,emin,emax
+
+    @staticmethod
+    def spatial_integrator_2d(filename):
+        """ Computes the spatial integral of a 2D fits file.
+
+
+                >>> from tempfile import NamedTemporaryFile
+                >>> from skymaps import SkyDir
+                >>> import numpy as np
+
+            If the file is allsky and has inside of it the value '1', then the integral should return
+            the total solid angle of a sphere (4*pi).
+
+                >>> tempfile = NamedTemporaryFile()
+                >>> MonteCarlo.make_isotropic_fits(tempfile.name, radius=180, pixelsize=1)
+                >>> map_area = MonteCarlo.spatial_integrator_2d(tempfile.name)
+                >>> np.allclose(map_area, 4*np.pi)
+                True
+
+            When the fits file contains the value '1' in it only within a given radius, the map 
+            integral should should be 4*pi*(1-cos(radius)). Note, we need smaller
+            pixel size to get a good agreement due to ragged edge effect at corner of circle.
+
+                >>> for radius in [10, 30, 50]:
+                ...     tempfile = NamedTemporaryFile()
+                ...     MonteCarlo.make_isotropic_fits(tempfile.name, skydir=SkyDir(134,83,SkyDir.GALACTIC), radius=radius, pixelsize=0.25)
+                ...     map_area = MonteCarlo.spatial_integrator_2d(tempfile.name)
+                ...     true_area = 2*np.pi*(1-np.cos(np.radians(radius)))
+                ...     np.allclose(map_area, true_area, atol=1e-2, rtol=1e-2)
+                True
+                True
+                True
+        """
+        fits=pyfits.open(filename)
+        data=fits[0].data
+        assert len(data.shape) == 2 or data.shape[0] == 1
+        if data.shape == 3: data = data[1]
+
+        nxpix,nypix=data.shape[1],data.shape[2]
+
+        # get the solid angles from gtlike. Probably
+        # could be rewritten in pointlike, but not necessary
+        mapcube=pyLikelihood.MapCubeFunction2(filename)
+        sa=np.asarray(mapcube.wcsmap().solidAngles()).transpose()
+        map_integral = np.sum(sa*data)
+
+        return map_integral
 
     @staticmethod
     def isone(model):
@@ -484,25 +562,26 @@ class MonteCarlo(object):
         smaller_range = DiffuseShrinker.smaller_range(energies, mc_emin, mc_emax)
         if np.any(smaller_range == False):
             # If any energies are outside the range, cut down spectral file.
-            cut_spectral_file = os.path.basename(spectral_file).replace('.txt','_shrunk.txt')
+            cut_spectral_file = os.path.basename(spectral_file).replace('.txt','_cut.txt')
             np.savetxt(cut_spectral_file, zip(energies[smaller_range], spectra[smaller_range]))
         else:
             cut_spectral_file = spectral_file
 
-
-        # multiply by 4pi * 10^4 to convert from ph/cm^2/sr to ph/m^2
-        flux, emin, emax = MonteCarlo.isotropic_integrator(cut_spectral_file)
-
         spatial_file=os.path.basename(spectral_file).replace('.txt','_spatial.fits')
-
         if self.roi_dir is not None and self.maxROI is not None:
             radius=self.maxROI + self.diffuse_pad
-            flux*=2*np.pi*(1-np.cos(np.radians(radius)))
-            MonteCarlo.make_isotropic_fits(spatial_file, self.roi_dir, radius)
+            MonteCarlo.make_isotropic_fits(spatial_file, skydir=self.roi_dir, radius=radius)
         else:
             # multiply by solid angle
-            flux*=4*np.pi
-            MonteCarlo.make_isotropic_fits(spatial_file, SkyDir(0,0,SkyDir.GALACTIC), 180)
+            MonteCarlo.make_isotropic_fits(spatial_file, radius=180)
+
+
+        # flux is ph/cm^2/sr to ph/m^2
+        flux, emin, emax = MonteCarlo.isotropic_spectral_integrator(cut_spectral_file)
+
+        # multiply by solid angle to convert to ph/m^2
+        flux*=MonteCarlo.spatial_integrator_2d(spatial_file)
+
 
         ds = [ 
             '<source name="%s">' % MonteCarlo.strip(ds.name),
@@ -516,7 +595,7 @@ class MonteCarlo(object):
         ]
         return indent+('\n'+indent).join(ds)
 
-    def _make_powerlaw_diffuse(self,ds,mc_emin,mc_emaxindent):
+    def _make_powerlaw_diffuse(self,ds,mc_emin,mc_emax,indent):
         dm=ds.dmodel[0]
         sm=ds.smodel
 
@@ -581,16 +660,11 @@ class MonteCarlo(object):
 
         nxpix,nypix=data.shape[1],data.shape[2]
 
-        # get the solid angles from gtlike. Probably
-        # could be rewritten in pointlike, but not necessary
         mapcube=pyLikelihood.MapCubeFunction2(filename)
-        wcsmap=mapcube.wcsmap()
-        solid_angles=np.empty((nxpix,nypix))
-        sa=wcsmap.solidAngles()
-        for i in xrange(nypix): solid_angles[:,i]=sa[i]
+        sa=np.asarray(mapcube.wcsmap().solidAngles()).transpose()
 
         map_integral = \
-                np.sum(solid_angles*\
+                np.sum(sa*\
                     MonteCarlo.powerLawIntegral(energies[0:-1],energies[1:],
                     data[0:-1,:,:],data[1:,:,:]).sum(axis=0))
 
@@ -631,7 +705,7 @@ class MonteCarlo(object):
         if self.roi_dir is not None and self.maxROI is not None:
             radius=self.maxROI + self.diffuse_pad
 
-            filename = os.path.basename(allsky_filename).replace('.fits','_shrunk.fits')
+            filename = os.path.basename(allsky_filename).replace('.fits','_cut.fits')
 
             shrinker = DiffuseShrinker(allsky_filename, self.roi_dir, radius, mc_emin, mc_emax)
             shrinker.shrink(filename)
@@ -808,9 +882,6 @@ class MonteCarlo(object):
 
             shutil.move(ft1,self.ft1)
 
-
-
-
     def __del__(self):
         """ Remove folder with simulation stuff. """
         if not self.save_output:
@@ -853,10 +924,7 @@ class SpectralAnalysisMC(SpectralAnalysis):
         if self.event_class != 0:
             raise Exception("event_class must be set to 0 for MC data.")
 
-    def roi(self, roi_dir,
-            point_sources = [], catalogs = [], catalog_mapper = None,
-            diffuse_sources = [], catalog_include_radius = None,
-            **kwargs):
+    def roi(self, roi_dir, point_sources = [], diffuse_sources = [], **kwargs):
         """ First, simulate the requested data. 
             Then properly create a new spectral analysis object.
             And use it to return an ROI. 
@@ -869,17 +937,9 @@ class SpectralAnalysisMC(SpectralAnalysis):
             Also note that roi_from_xml will correctly be inherited from
             SpectralAnalysis and call this function. """
 
-        if not isinstance(catalogs,collections.Iterable): catalogs = [catalogs]
-        for cat in catalogs:
-            if not isinstance(cat,PointSourceCatalog):
-                cat = catalog_mapper(cat)
-                point_sources,diffuse_sources = \
-                        cat.merge_lists(roi_dir,
-                                        self.maxROI+5 if catalog_include_radius is None else catalog_include_radius,
-                                        point_sources,diffuse_sources)
-
         monte_carlo=MonteCarlo(
             ft1=self.dataspec.ft1files, 
+            gtifile = self.dataspec.ltcube if os.path.exists(self.dataspec.ltcube) else None,
             sources = point_sources + diffuse_sources,
             seed=self.seed, 
             tempbase=self.tempbase,
@@ -901,16 +961,16 @@ class SpectralAnalysisMC(SpectralAnalysis):
         ds=DataSpecification(ft1files=monte_carlo.ft1,
                              ft2files=monte_carlo.ft2,
                              binfile=self.dataspec.binfile,
-                             ltcube=self.dataspec.ltcube
-                            )
+                             ltcube=self.dataspec.ltcube)
 
         # Create a new SpectralAnalysis object with
         # the now existing ft1/ft2 files (Yo Dawg!)
+        if self.tstart is None: self.tstart = 0
+        if self.tstop is None: self.tstop = 0
         sa=SpectralAnalysis(ds,**keyword_options.defaults_to_kwargs(self,SpectralAnalysis))
         return sa.roi(roi_dir=roi_dir,
                       point_sources=point_sources, 
-                      diffuse_sources=diffuse_sources,**kwargs
-                     )
+                      diffuse_sources=diffuse_sources,**kwargs)
 
 if __name__ == "__main__":
     import doctest
