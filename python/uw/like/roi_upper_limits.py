@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.14 2012/03/02 06:06:14 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.15 2012/03/02 06:15:13 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -159,9 +159,13 @@ class ExtensionUpperLimit(object):
             self.extension_limit = None
 
         else:
+            if not isinstance(self.spatial_model,type):
+                raise Exception("The spatial model bust be a type, like Gaussian, not an instance, like Gaussian()")
 
+            # Note, since the input is the class, not the instance, the
+            # position parmaeters have not yet been added on.
             n = self.spatial_model.param_names
-            assert len(n) == 3 and n[2] == 'Sigma'
+            assert len(n) == 1 and n[0] == 'Sigma'
 
             self.saved_state = PointlikeState(roi)
 
