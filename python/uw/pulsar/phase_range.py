@@ -6,7 +6,7 @@ See the docstring for usage information.
 
 This object has SymPy as a dependency.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.7 2012/01/25 03:59:33 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.8 2012/01/25 04:14:01 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -325,7 +325,7 @@ class PhaseRange(object):
         if axes is None: axes=P.gca()
         label=kwargs.pop('label',None)
 
-        if phase_offsets != [0]:
+        if phase_offsets != [0] and phase_offsets !=0:
             # kind of ugly, but create a larger PhaseRange object
             # temporarily with the offsets. This allows for
             # merging needed offsets.
