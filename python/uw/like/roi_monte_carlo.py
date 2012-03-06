@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.37 2012/03/04 02:23:57 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.38 2012/03/04 03:55:37 lande Exp $
 
 author: Joshua Lande
 """
@@ -316,7 +316,7 @@ class MonteCarlo(object):
         return temp
 
     @staticmethod
-    def _make_profile(self,name,spatial_model,numpoints=200):
+    def _make_profile(name,spatial_model,numpoints=200):
         temp='%s_extension_profile_%s.txt' % (name,spatial_model.name)
         radius,pdf = spatial_model.approximate_profile()
         open(temp,'w').write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(radius,pdf)]))
