@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.87 2012/03/03 19:41:40 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.88 2012/03/04 02:23:14 lande Exp $
 
    author: Joshua Lande
 
@@ -8,15 +8,19 @@
 import os
 import copy
 import numbers
+from abc import abstractmethod
 
 import numpy as np
+
 from scipy import vectorize
 from scipy.interpolate import interp1d, griddata
 from scipy.integrate import quad
 from scipy.optimize import fmin
 from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
         SkyImage,SkyIntegrator,CompositeSkyFunction,PythonUtilities
-from abc import abstractmethod
+from uw.utilities.quantile import Quantile
+from uw.utilities.rotations import anti_rotate_equator
+
 
 SMALL_ANALYTIC_EXTENSION=1e-10
 SMALL_NUMERIC_EXTENSION=1e-3
@@ -30,6 +34,55 @@ def smart_log(p,log):
         negative parameters when log=False
     """
     return np.where(log, np.log10(np.where(log, p, 1)), p)
+
+class SpatialQuantile(object):
+    """ Numerically compute the radial quantile for a spatial model, 
+        assuming that space is flat. 
+        
+        It is easy to test this code against the values computed
+        analytically for the disk and gauss.
+
+            >>> tol = dict(rtol=1e-3, atol=1e-3)
+
+            >>> disk = Disk(sigma=0.1, center=SkyDir(333, -50))
+            >>> gauss = Gaussian(sigma=1, center=SkyDir(0,0, SkyDir.GALACTIC))
+            >>> for i in [disk, gauss]:
+            ...     np.allclose(i.r68(),  i.numeric_r68(), **tol)
+            ...     np.allclose(i.r99(),  i.numeric_r99(), **tol)
+            True
+            True
+            True
+            True
+    """
+
+    def __init__(self, spatial_model):
+        self.spatial_model = spatial_model
+        self.center = self.spatial_model.center
+
+        # Set the accuracy very high. Seems to help the tests
+        self.quad_kwargs = dict(epsabs=1e-15, epsrel=1e-15)
+
+        rmax = self.spatial_model.effective_edge()
+        self.quantile = Quantile(self.integrand, 0, rmax,
+                                quad_kwargs=self.quad_kwargs)
+
+    def pdf(self, r,theta):
+        """ Evaluate the the """
+        x = r*np.cos(theta)
+        y = r*np.sin(theta)
+
+        # this function should probably be moved into utilities to avoid circular imports
+        sd=anti_rotate_equator(SkyDir(x,y),self.center)
+        return self.spatial_model(sd)
+
+    def integrand(self, r):
+        #return self.spatial_model.at_r_in_deg(r)*2*np.pi*r
+        return quad(lambda theta: self.pdf(r, theta), 0, 2*np.pi, **self.quad_kwargs)[0]*r
+
+    def r68(self): return self.quantile(0.68)
+    def r99(self): return self.quantile(0.99)
+
+
 
 
 class SpatialModel(object):
@@ -276,6 +329,10 @@ class SpatialModel(object):
         """ get external value for parameter # i """
         i=self.mapper(i)
         return np.where((not internal) & self.log,10**self.p,self.p)[i]
+
+    def numeric_r68(self): return SpatialQuantile(self).r68()
+    def numeric_r99(self): return SpatialQuantile(self).r99()
+
 
     def error(self,i, internal=False):
         """ get error for parameter # i """
@@ -1503,7 +1560,7 @@ class SpatialMap(SpatialModel):
             
         In the center, the values are the same:
 
-            >>> np.allclose(disk(center), spatial_map(center))
+            >>> np.allclose(disk(center), spatial_map(center), atol=1e-2, rtol=1e-2)
             True
 
         Outside the disk edge, the spatial map has intensity 0:
