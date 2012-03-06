@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Mar  5 19:58:36 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_localize.py 
+Log Message:
+remove unused function. Add some doctests. Clean up numpy import
+    *
+------------------------------------------------------------
 User: lande  Sun Mar  4 15:37:22 PST 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
