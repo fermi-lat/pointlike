@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.38 2012/03/04 03:55:37 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.39 2012/03/06 05:36:24 lande Exp $
 
 author: Joshua Lande
 """
@@ -267,7 +267,7 @@ class MonteCarlo(object):
             (to correct for energy dispersion). """
         return self.energy_pad*self.emin,(1+self.energy_pad)*self.emax
 
-    def _make_ps(self,ps,mc_emin,mc_emax):
+    def _make_ps(self,ps,mc_emin,mc_emax,indent):
 
         assert isinstance(ps,PointSource)
 
