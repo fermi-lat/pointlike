@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.15 2012/03/02 06:15:13 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.16 2012/03/04 02:23:04 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -11,6 +11,7 @@ from scipy.stats.distributions import chi2
 from scipy.optimize import fmin, fminbound, brentq
 
 from uw.utilities import keyword_options
+from uw.utilities.quantile import Quantile
 
 from uw.like.roi_state import PointlikeState
 from uw.like.roi_extended import ExtendedSource
@@ -143,9 +144,7 @@ class ExtensionUpperLimit(object):
 
     @keyword_options.decorate(defaults)
     def __init__(self, roi, which, **kwargs):
-        """ Compute an upper limit on the source extension, by the "PDG Method".
-            The function roi_upper_limits.upper_limit is similar, but computes
-            a extension upper limit. """
+        """ Compute an upper limit on the source extension, by the "PDG Method". """
         keyword_options.process(self, kwargs)
 
         self.roi = roi
@@ -169,7 +168,6 @@ class ExtensionUpperLimit(object):
 
             self.saved_state = PointlikeState(roi)
 
-            self.all_extensions, self.all_ll = [], []
             self.spatial_low_lim, self.spatial_hi_lim = self.spatial_model.default_limits[0]
 
             results = self._compute()
@@ -177,39 +175,31 @@ class ExtensionUpperLimit(object):
             self.saved_state.restore()
 
     def loglike(self, extension):
-        """ Perform a pointlike spectral fit.
-            Note, most robust to start with initial
-            spectral paramaters to avoid situations
-            where the previous fit totally
-            failed to converge. """
+        """ Perform a pointlike spectral fit for a
+            given extension and return the logLikelihood.  Note,
+            most robust to start with initial spectral paramaters to
+            avoid situations where the previous fit totally failed to
+            converge. """
 
         roi = self.roi
         which = self.which
 
-        if extension in self.all_extensions:
-            index = self.all_extensions.index(extension)
-            ll = self.all_ll[index]
-        else:
+        if extension < self.spatial_low_lim: extension = self.spatial_low_lim
+        roi.modify(which, 
+                   spatial_model=self.spatial_model(sigma=extension,
+                                                    center=self.init_position,
+                                                    free=np.asarray([True,True,False])),
+                   keep_old_center=False)
 
-            if extension < self.spatial_low_lim: extension = self.spatial_low_lim
-            roi.modify(which, 
-                       spatial_model=self.spatial_model(sigma=extension,
-                                                        center=self.init_position,
-                                                        free=np.asarray([True,True,False])),
-                       keep_old_center=False)
+        self.saved_state.restore(just_spectra=True)
 
-            self.saved_state.restore(just_spectra=True)
+        roi.fit(estimate_errors=False, **self.fit_kwargs)
 
+        if self.refit_position:
+            roi.fit_extension_fast(which=which, estimate_errors=False)
             roi.fit(estimate_errors=False, **self.fit_kwargs)
 
-            if self.refit_position:
-                roi.fit_extension_fast(which=which, estimate_errors=False)
-                roi.fit(estimate_errors=False, **self.fit_kwargs)
-
-            ll = -roi.logLikelihood(roi.parameters()) 
-
-            self.all_extensions.append(extension)
-            self.all_ll.append(ll)
+        ll = -roi.logLikelihood(roi.parameters()) 
 
         if not self.old_quiet and hasattr(self,'ll_0'):
             if self.refit_position:
@@ -253,7 +243,7 @@ class ExtensionUpperLimit(object):
             exp(ll-ll_max) to avoid computing the exponential of a very
             large number in the case where ll_0 is much different from
             ll_max. Also, quad as an overall easier time since the maximum
-            function value is (by defintion) equal to 1.  Since the overal
+            function value is (by defintion) equal to 1.  Since the overall
             function is normalized later, this is the most numerically
             stable normalization without causing any future trouble. """
         roi = self.roi
@@ -276,37 +266,19 @@ class ExtensionUpperLimit(object):
                 (b) Computing the CDF and normalizing
                 (c) Finding when the normalized CDF is equal to the desired confidence
         
-            quad will do a nice job sampling the likelihood as a function
-            of extensions.  No reason to save out the output of the
-            integral since the data points are saved by the like
-            function. 
-            
             Note, the quad accuracy parameters are roughly taken to be the same
             as in the pyLikelihood.IntegralUpperLimit.py calc_int function
             """
         roi = self.roi
 
-        if not self.old_quiet: print "Sampling likelihood function:"
+        if not self.old_quiet: print "Finding the %s quantile of the likelihood" % self.confidence
 
         ll_to_l = lambda ll: np.exp(ll-self.ll_max)
         like = lambda e: ll_to_l(self.loglike(e))
 
-        # setting points to sigma_max tells the integrator to be careful
-        # to integrate around the likelihood peak.
-        integrate.quad(like, self.int_min, self.int_max, 
-                       epsrel=1e-3, epsabs=1, points=[self.sigma_max])
-
-        e = np.asarray(self.all_extensions)
-        l = ll_to_l(np.asarray(self.all_ll))
-
-        # sort on extension
-        indices = np.argsort(e)
-        e, l = e[indices], l[indices]
-
-        e_middles = 0.5*(e[1:] + e[:-1])
-        cdf = integrate.cumtrapz(x=e,y=l)
-        cdf /= cdf[-1]
-        self.extension_limit = np.interp(self.confidence, cdf, e_middles)
+        quantile = Quantile(like, self.int_min, self.int_max, 
+                            quad_kwargs=dict(epsrel=1e-3, epsabs=1))
+        self.extension_limit = quantile(self.confidence)
 
         if not self.old_quiet: print "Extension upper limit is %.2f" % self.extension_limit
     
