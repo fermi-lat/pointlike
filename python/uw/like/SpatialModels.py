@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.89 2012/03/06 04:52:17 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.90 2012/03/06 05:26:35 lande Exp $
 
    author: Joshua Lande
 
@@ -16,8 +16,10 @@ from scipy import vectorize
 from scipy.interpolate import interp1d, griddata
 from scipy.integrate import quad
 from scipy.optimize import fmin
+
 from skymaps import PySkySpectrum,PySkyFunction,SkyDir,Hep3Vector,\
         SkyImage,SkyIntegrator,CompositeSkyFunction,PythonUtilities
+
 from uw.utilities.quantile import Quantile
 from uw.utilities.rotations import anti_rotate_equator
 
@@ -402,13 +404,29 @@ class SpatialModel(object):
         self.cache()
 
     def mapper(self,i):
-        """ Maps a parameter to an index. """
+        """ Maps a parameter to an index. 
+
+                >>> d = Disk()
+                >>> d.mapper('RA')
+                0
+                >>> d.mapper(['RA','DEC'])
+                array([0, 1])
+
+                >>> d = Disk(coordsystem=SkyDir.GALACTIC)
+                >>> d.mapper('b')
+                1
+
+            """
         if isinstance(i,str):
             if i.lower() not in np.char.lower(self.param_names):
                 raise Exception("Unknown parameter name %s" % i)
             return np.where(np.char.lower(self.param_names)==i.lower())[0][0]
-        else:
+        elif type(i) == int:
             return i
+        elif type(i) == list:
+            return np.asarray(map(self.mapper,i), dtype=int)
+        else:
+            raise Exception("Unknown parameter name %s" % i)
     
     def modify_loc(self,center):
         self.center = center
@@ -420,18 +438,39 @@ class SpatialModel(object):
         self.cache()
 
     def freeze_position(self,freeze=True):
-        """Freeze the source position. """
+        """ Freeze the source position. 
+
+                >>> d = Disk()
+                >>> print d.free
+                [ True  True  True]
+                >>> d.freeze_position()
+                >>> print d.free
+                [False False  True]
+        """
         self.freeze([0,1],freeze)
 
-    def freeze(self,parameter,freeze=True):
-        """Freeze one of the spatial parameters from fitting.
+    def freeze(self,i,freeze=True):
+        """ Freeze one of the spatial parameters from fitting.
       
-            parameter: a parameter name or index.
-            freeze   : if True, freeze parameter; if False, free it """
-        if type(parameter) == str:
-            for n,name in enumerate(self.param_names):
-                if parameter == name: parameter = n; break
-        self.free[parameter] = not freeze
+            i: a parameter name or index.
+            freeze   : if True, freeze parameter; if False, free it 
+
+            Previously, this function did not accept the case insensitive
+            nature of input parameter names. So test both 'sigma' 
+            and 'Sigma' for a disk source:
+
+                >>> d = Disk()
+                >>> print d.free
+                [ True  True  True]
+                >>> d.freeze('Sigma')
+                >>> print d.free
+                [ True  True False]
+                >>> d.freeze('sigma', freeze=False)
+                >>> print d.free
+                [ True  True  True]
+            """
+        i=self.mapper(i)
+        self.free[i] = not freeze
 
     def set_cov_matrix(self,new_cov_matrix):
         self.cov_matrix = new_cov_matrix
