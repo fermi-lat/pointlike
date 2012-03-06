@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Mar  6 08:16:19 PST 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Added Files:
+	quantile.py 
+Log Message:
+new module
+    *
+------------------------------------------------------------
 User: lande  Mon Mar  5 21:47:39 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
