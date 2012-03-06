@@ -1,13 +1,13 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.35 2011/09/15 03:02:56 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.36 2012/03/02 06:03:37 lande Exp $
 
 author: Matthew Kerr
 """
 
 import quadform
-import numpy as N
+import numpy as np
 from skymaps import SkyDir,Hep3Vector
 from . import pypsf, roi_extended
 from uw.utilities import keyword_options
@@ -67,7 +67,7 @@ class ROILocalizer(object):
         roi=self.roi
         if 'energy_bands' not in roi.__dict__.keys(): roi.setup_energy_bands()
         for eb in roi.energy_bands: eb.bandFit(which=self.which,saveto='bandfits')
-        if N.all(N.asarray([b.bandfits for b in roi.bands]) < 0):
+        if np.all(np.asarray([b.bandfits for b in roi.bands]) < 0):
             if not self.quiet: print 'Warning! No good band fits.  Reverting to broadband fit...'
             self.bandfits = False
 
@@ -106,7 +106,7 @@ class ROILocalizer(object):
             tup = (self.name, tolerance,)+tuple('moved delta ra     dec    a     b  qual'.split())
             print fmt % tup
             print ('\t'+4*'%10.4f')% (0,0,self.sd.ra(), self.sd.dec())
-            diff = l.dir.difference(self.sd)*180/N.pi
+            diff = l.dir.difference(self.sd)*180/np.pi
             print ('\t'+7*'%10.4f')% (diff,diff, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
         
         old_sigma=1.0
@@ -119,8 +119,8 @@ class ROILocalizer(object):
                 l.recenter()
                 if not self.quiet: print 'trying a recenter...'
                 continue
-            diff = l.dir.difference(ld)*180/N.pi
-            delt = l.dir.difference(self.sd)*180/N.pi
+            diff = l.dir.difference(ld)*180/np.pi
+            delt = l.dir.difference(self.sd)*180/np.pi
             sigma = l.par[3]
             if not self.quiet: print ('\t'+7*'%10.4f')% (diff, delt, l.par[0],l.par[1],l.par[3],l.par[4], l.par[6])
             if delt>self.maxdist:
@@ -141,7 +141,7 @@ class ROILocalizer(object):
         roi.delta_loc_logl = (ll0 - ll1)
 
         # this is necessary in case the fit always fails.
-        delt = l.dir.difference(self.sd)*180/N.pi
+        delt = l.dir.difference(self.sd)*180/np.pi
 
         return l.dir, i, delt, 2*(ll0-ll1)
 
@@ -174,11 +174,11 @@ class ROILocalizer(object):
 
             if band.has_pixels:
                 
-                rvals = N.empty(len(band.wsdl))
+                rvals = np.empty(len(band.wsdl))
                 band.psf.cpsf.wsdl_val(rvals,skydir,band.wsdl)
                 ps_pix_counts = rvals*band.b.pixelArea()
 
-                pix_term = (band.pix_counts * N.log(
+                pix_term = (band.pix_counts * np.log(
                                 band.bg_all_pix_counts + band.ps_all_pix_counts -
                                 psoc*band.ps_pix_counts[:,wh] + psnc*ps_pix_counts
                             ) ).sum()
@@ -186,7 +186,7 @@ class ROILocalizer(object):
             else: pix_term = 0
 
             ll += tot_term - pix_term
-            if N.isnan(ll):
+            if np.isnan(ll):
                 raise Exception('ROIAnalysis.spatialLikelihood failure at %.3f,%.3f, band %d' %(skydir.ra(),skydir.dec(),i))
 
             if update:
@@ -208,7 +208,7 @@ class ROILocalizer(object):
             # update source position
             roi.psm.point_sources[wh].skydir = skydir
 
-        if N.isnan(ll):
+        if np.isnan(ll):
             raise Exception('ROIAnalysis.spatialLikelihood failure at %.3f,%.3f' %(skydir.ra(),skydir.dec()))
         return ll
 
@@ -256,7 +256,7 @@ class ROILocalizerExtended(ROILocalizer):
         for eb in self.roi.energy_bands: 
             bfe=roi_extended.BandFitExtended(self.which,eb,self.roi)
             bfe.fit(saveto='bandfits')
-        if N.all(N.asarray([b.bandfits for b in self.roi.bands]) < 0):
+        if np.all(np.asarray([b.bandfits for b in self.roi.bands]) < 0):
             if not self.quiet: print 'Warning! No good band fits.  Reverting to broadband fit...'
             self.bandfits = False
 
@@ -297,7 +297,7 @@ class ROILocalizerExtended(ROILocalizer):
                 
                 es_pix_counts = es._pix_value(band.wsdl)*band.b.pixelArea()
 
-                pix_term = (band.pix_counts * N.log(
+                pix_term = (band.pix_counts * np.log(
                                 band.bg_all_pix_counts + band.ps_all_pix_counts -
                                 esoc*myband.es_pix_counts + esnc*es_pix_counts
                             ) ).sum()
@@ -305,7 +305,7 @@ class ROILocalizerExtended(ROILocalizer):
             else: pix_term = 0
 
             ll += tot_term - pix_term
-            if N.isnan(ll):
+            if np.isnan(ll):
                 raise Exception('ROIAnalysis.spatialLikelihood failure at %.3f,%.3f, band %d' %(skydir.ra(),skydir.dec(),i))
 
 
@@ -360,7 +360,7 @@ class DualLocalizer():
         """ Transformation that will rotate target to celestial north """
 
         axis=SkyDir(target.ra()-90,0)
-        theta=N.radians(90-target.dec())
+        theta=np.radians(90-target.dec())
         if anti: theta*=-1
 
         newdir=SkyDir(skydir.ra(),skydir.dec())
@@ -374,7 +374,41 @@ class DualLocalizer():
     @staticmethod 
     def rotate_equator(skydir,target,anti=False):
         """ Rotate skydir such that target would be rotated 
-            to the celestial equator. """
+            to the celestial equator. 
+            
+            A few simple tests:
+
+                >>> a = SkyDir(0,0)
+                >>> b = SkyDir(30,30)
+                >>> DualLocalizer.rotate_equator(a, b)
+                SkyDir(330.000,-30.000)
+                >>> DualLocalizer.anti_rotate_equator(a, b)
+                SkyDir(30.000,30.000)
+
+            There was previously a bug when the 'target' was the equator.
+            I think it is fixed now:
+
+                >>> DualLocalizer.rotate_equator(b, a)
+                SkyDir(30.000,30.000)
+                >>> DualLocalizer.anti_rotate_equator(b, a)
+                SkyDir(30.000,30.000)
+
+
+            Another test: 
+
+                >>> sd = SkyDir(-.2,-.2)
+                >>> target = SkyDir(5,5)
+                >>> l=DualLocalizer.rotate_equator(sd, target)
+                >>> print '%.2f, %.2f' % (l.ra(), l.dec())
+                354.80, -5.20
+                >>> l=DualLocalizer.anti_rotate_equator(sd, target)
+                >>> print '%.2f, %.2f' % (l.ra(), l.dec())
+                4.80, 4.80
+        """
+        if np.allclose([target.ra(), target.dec()], [0,0]):
+            return skydir
+
+
         equator=SkyDir(0,0)
 
         axis=target.cross(equator)
@@ -388,18 +422,8 @@ class DualLocalizer():
 
     @staticmethod 
     def anti_rotate_equator(skydir,target):
+        """ Performs the opposite rotation of the rotate_equator function. """
         return DualLocalizer.rotate_equator(skydir,target,anti=True)
-
-    @staticmethod
-    def mid_point(skydir1,skydir2):
-        """ Return the a SkyDir an equadistance between two points. 
-            This method does not seem numerically robust and sometimes
-            returns NaNs, so I discourage using it. approx_mid_point
-            was developed instead to provide a simpler formula which 
-            should work fine 
-        """
-        r2=DualLocalizer.rotate_north(skydir2,skydir1)
-        return DualLocalizer.anti_rotate_north(SkyDir(r2.ra(),45+r2.dec()/2),skydir1)
 
     @staticmethod
     def symmetric_mod(a,b):
@@ -486,7 +510,7 @@ class DualLocalizer():
         if self.verbose: print 'd=%s f=%.1e, d2=%s, f=%.1e, dist=%.3f logL=%.3f dlogL=%.3f' % \
                 (rot_back_1, DualLocalizer.print_flux(self.p1,roi), 
                  rot_back_2, DualLocalizer.print_flux(self.p2,roi), 
-                 N.degrees(rot_back_1.difference(rot_back_2)),
+                 np.degrees(rot_back_1.difference(rot_back_2)),
                  ll,ll-self.ll_0)
 
         return -ll # minimize negative log likelihood
@@ -539,3 +563,6 @@ class DualLocalizer():
 
         return
 
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
