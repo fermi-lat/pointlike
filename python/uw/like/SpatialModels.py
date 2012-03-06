@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.90 2012/03/06 05:26:35 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.91 2012/03/06 17:08:51 lande Exp $
 
    author: Joshua Lande
 
@@ -44,13 +44,14 @@ class SpatialQuantile(object):
         It is easy to test this code against the values computed
         analytically for the disk and gauss.
 
-            >>> tol = dict(rtol=1e-3, atol=1e-3)
+            >>> q_kwargs = dict(quad_kwargs=dict(epsabs=1e-8, epsrel=1e-8, limit=50))
+            >>> tol = dict(rtol=1e-2, atol=1e-2, )
 
             >>> disk = Disk(sigma=0.1, center=SkyDir(333, -50))
             >>> gauss = Gaussian(sigma=1, center=SkyDir(0,0, SkyDir.GALACTIC))
             >>> for i in [disk, gauss]:
-            ...     np.allclose(i.r68(),  i.numeric_r68(), **tol)
-            ...     np.allclose(i.r99(),  i.numeric_r99(), **tol)
+            ...     np.allclose(i.r68(),  i.numeric_r68(**q_kwargs), **tol)
+            ...     np.allclose(i.r99(),  i.numeric_r99(**q_kwargs), **tol)
             True
             True
             True
@@ -59,18 +60,19 @@ class SpatialQuantile(object):
         Good to make sure the less-analytically defined extended sources are also correct:
 
             >>> elliptical_gauss = EllipticalGaussian(major_axis=1, minor_axis=1, center=SkyDir(0,0, SkyDir.GALACTIC))
-            >>> np.allclose(gauss.r68(),  elliptical_gauss.numeric_r68(), **tol)
+            >>> np.allclose(gauss.r68(),  elliptical_gauss.numeric_r68(**q_kwargs), **tol)
             True
-            >>> np.allclose(gauss.r99(),  elliptical_gauss.numeric_r99(), **tol)
+            >>> np.allclose(gauss.r99(),  elliptical_gauss.numeric_r99(**q_kwargs), **tol)
             True
     """
 
-    def __init__(self, spatial_model):
+    def __init__(self, spatial_model, quad_kwargs=dict()):
         self.spatial_model = spatial_model
         self.center = self.spatial_model.center
 
         # Set the accuracy very high. Seems to help the tests
-        self.quad_kwargs = dict(epsabs=1e-15, epsrel=1e-15)
+        self.quad_kwargs = dict(epsabs=1e-15, epsrel=1e-15, limit=100)
+        self.quad_kwargs.update(quad_kwargs)
 
         rmax = self.spatial_model.effective_edge()
         self.quantile = Quantile(self.integrand, 0, rmax,
@@ -338,8 +340,8 @@ class SpatialModel(object):
         i=self.mapper(i)
         return np.where((not internal) & self.log,10**self.p,self.p)[i]
 
-    def numeric_r68(self): return SpatialQuantile(self).r68()
-    def numeric_r99(self): return SpatialQuantile(self).r99()
+    def numeric_r68(self, *args, **kwargs): return SpatialQuantile(self, *args, **kwargs).r68()
+    def numeric_r99(self, *args, **kwargs): return SpatialQuantile(self, *args, **kwargs).r99()
 
 
     def error(self,i, internal=False):
