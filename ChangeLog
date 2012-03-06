@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Mar  5 19:58:48 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_image.py 
+Log Message:
+move memoize
+    *
+------------------------------------------------------------
 User: lande  Mon Mar  5 19:58:36 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
