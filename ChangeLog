@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Mar  6 10:06:26 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+speed up doctest
+    *
+------------------------------------------------------------
 User: lande  Tue Mar  6 09:08:51 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
