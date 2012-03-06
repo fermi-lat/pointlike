@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.36 2011/09/20 04:38:01 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.37 2012/01/10 22:17:55 lande Exp $
 
 author: Joshua Lande
 """
@@ -25,26 +25,12 @@ from . pointspec_helpers import get_default_diffuse_mapper
 from . roi_tsmap import TSCalc,TSCalcPySkyFunction
 from uw.utilities import keyword_options
 from uw.utilities.fitstools import get_fields
+from uw.utilities.decorators import memoize
 from pypsf import PsfOverlap
 import collections
 from abc import abstractmethod
 import numbers
 
-def memoize(function):
-    """ This decorator allows painless caching of a function.
-        
-        From http://programmingzen.com/2009/05/18/memoization-in-ruby-and-python/,
-
-        It should probably be placed somewhere more generally accessible. """
-    cache = {}
-    def decorated_function(*args):
-        try:
-            return cache[args]
-        except KeyError:
-            val = function(*args)
-            cache[args] = val
-            return val
-    return decorated_function
 
 
 class ROIImage(object):
