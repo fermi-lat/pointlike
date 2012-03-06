@@ -1,7 +1,7 @@
 """
 Module implements localization based on both broadband spectral models and band-by-band fits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.36 2012/03/02 06:03:37 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_localize.py,v 1.37 2012/03/06 03:58:36 lande Exp $
 
 author: Matthew Kerr
 """
@@ -10,6 +10,7 @@ import quadform
 import numpy as np
 from skymaps import SkyDir,Hep3Vector
 from . import pypsf, roi_extended
+from uw.utilities import rotations
 from uw.utilities import keyword_options
 
 def localizer(roi, which, **kwargs):
@@ -355,78 +356,19 @@ class DualLocalizer():
             ('verbose',          True, "Print more stuff during fit.")
     )
 
-    @staticmethod 
-    def rotate_north(skydir,target,anti=False):
-        """ Transformation that will rotate target to celestial north """
-
-        axis=SkyDir(target.ra()-90,0)
-        theta=np.radians(90-target.dec())
-        if anti: theta*=-1
-
-        newdir=SkyDir(skydir.ra(),skydir.dec())
-        newdir().rotate(axis(),theta)
-        return newdir
-
-    @staticmethod 
-    def anti_rotate_north(skydir,target):
-        return DualLocalizer.rotate_north(skydir,target,anti=True)
-
-    @staticmethod 
-    def rotate_equator(skydir,target,anti=False):
-        """ Rotate skydir such that target would be rotated 
-            to the celestial equator. 
-            
-            A few simple tests:
-
-                >>> a = SkyDir(0,0)
-                >>> b = SkyDir(30,30)
-                >>> DualLocalizer.rotate_equator(a, b)
-                SkyDir(330.000,-30.000)
-                >>> DualLocalizer.anti_rotate_equator(a, b)
-                SkyDir(30.000,30.000)
-
-            There was previously a bug when the 'target' was the equator.
-            I think it is fixed now:
-
-                >>> DualLocalizer.rotate_equator(b, a)
-                SkyDir(30.000,30.000)
-                >>> DualLocalizer.anti_rotate_equator(b, a)
-                SkyDir(30.000,30.000)
-
-
-            Another test: 
-
-                >>> sd = SkyDir(-.2,-.2)
-                >>> target = SkyDir(5,5)
-                >>> l=DualLocalizer.rotate_equator(sd, target)
-                >>> print '%.2f, %.2f' % (l.ra(), l.dec())
-                354.80, -5.20
-                >>> l=DualLocalizer.anti_rotate_equator(sd, target)
-                >>> print '%.2f, %.2f' % (l.ra(), l.dec())
-                4.80, 4.80
-        """
-        if np.allclose([target.ra(), target.dec()], [0,0]):
-            return skydir
-
-
-        equator=SkyDir(0,0)
-
-        axis=target.cross(equator)
-
-        theta=equator.difference(target)
-        if anti: theta*=-1
-
-        newdir=SkyDir(skydir.ra(),skydir.dec())
-        newdir().rotate(axis(),theta)
-        return newdir
-
-    @staticmethod 
-    def anti_rotate_equator(skydir,target):
-        """ Performs the opposite rotation of the rotate_equator function. """
-        return DualLocalizer.rotate_equator(skydir,target,anti=True)
-
     @staticmethod
     def symmetric_mod(a,b):
+        """ Just like mod, but is symmetric for + and - values
+            
+            >>> DualLocalizer.symmetric_mod(10, 360)
+            10
+            >>> DualLocalizer.symmetric_mod(-10, 360)
+            -10
+            >>> DualLocalizer.symmetric_mod(370, 360)
+            10
+            >>> DualLocalizer.symmetric_mod(-370, 360)
+            -10
+        """
         temp=a%b
         if temp > b/2.: temp-=b
         return temp
@@ -466,8 +408,8 @@ class DualLocalizer():
         s2 = SkyDir(m_x+d_x,m_y+d_y)
         s1 = SkyDir(m_x-d_x,m_y-d_y)
 
-        rot_back_1=DualLocalizer.anti_rotate_equator(s1,self.middle)
-        rot_back_2=DualLocalizer.anti_rotate_equator(s2,self.middle)
+        rot_back_1=rotations.anti_rotate_equator(s1,self.middle)
+        rot_back_2=rotations.anti_rotate_equator(s2,self.middle)
 
         roi.modify(which=self.p1,skydir=rot_back_1)
         roi.modify(which=self.p2,skydir=rot_back_2)
@@ -508,8 +450,8 @@ class DualLocalizer():
             self.best_spectral = roi.parameters().copy()
 
         if self.verbose: print 'd=%s f=%.1e, d2=%s, f=%.1e, dist=%.3f logL=%.3f dlogL=%.3f' % \
-                (rot_back_1, DualLocalizer.print_flux(self.p1,roi), 
-                 rot_back_2, DualLocalizer.print_flux(self.p2,roi), 
+                (rot_back_1, rotations.print_flux(self.p1,roi), 
+                 rot_back_2, rotations.print_flux(self.p2,roi), 
                  np.degrees(rot_back_1.difference(rot_back_2)),
                  ll,ll-self.ll_0)
 
@@ -525,11 +467,11 @@ class DualLocalizer():
         d1=self.p1.skydir
         d2=self.p2.skydir
 
-        self.middle=DualLocalizer.approx_mid_point(d1,d2)
+        self.middle=rotations.approx_mid_point(d1,d2)
 
         # Points rotated so that the middle is at the equator
-        rot1=DualLocalizer.rotate_equator(d1,self.middle)
-        rot2=DualLocalizer.rotate_equator(d2,self.middle)
+        rot1=rotations.rotate_equator(d1,self.middle)
+        rot2=rotations.rotate_equator(d2,self.middle)
 
         # Fit average point and distance between them
         # Wrap coordiantes to vary between -180 and 180
