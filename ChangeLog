@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Mar  5 20:53:35 PST 2012
+ScienceTools-scons/pointlike/python/uw/pulsar
+
+Modified Files:
+	phase_range.py 
+Log Message:
+more robust phase_offsets flag
+    *
+------------------------------------------------------------
 User: lande  Mon Mar  5 20:52:45 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
