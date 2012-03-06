@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.88 2012/03/04 02:23:14 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.89 2012/03/06 04:52:17 lande Exp $
 
    author: Joshua Lande
 
@@ -53,6 +53,14 @@ class SpatialQuantile(object):
             True
             True
             True
+
+        Good to make sure the less-analytically defined extended sources are also correct:
+
+            >>> elliptical_gauss = EllipticalGaussian(major_axis=1, minor_axis=1, center=SkyDir(0,0, SkyDir.GALACTIC))
+            >>> np.allclose(gauss.r68(),  elliptical_gauss.numeric_r68(), **tol)
+            True
+            >>> np.allclose(gauss.r99(),  elliptical_gauss.numeric_r99(), **tol)
+            True
     """
 
     def __init__(self, spatial_model):
@@ -71,12 +79,10 @@ class SpatialQuantile(object):
         x = r*np.cos(theta)
         y = r*np.sin(theta)
 
-        # this function should probably be moved into utilities to avoid circular imports
         sd=anti_rotate_equator(SkyDir(x,y),self.center)
         return self.spatial_model(sd)
 
     def integrand(self, r):
-        #return self.spatial_model.at_r_in_deg(r)*2*np.pi*r
         return quad(lambda theta: self.pdf(r, theta), 0, 2*np.pi, **self.quad_kwargs)[0]*r
 
     def r68(self): return self.quantile(0.68)
@@ -1391,14 +1397,14 @@ class EllipticalGaussian(EllipticalSpatialModel):
     default_p = [0.2,0.1,0]
     param_names = ['Major_Axis','Minor_Axis','Pos_Angle']
     default_limits = [[1e-6,3],
-              [1e-6,3],
-              [-45,45]]
+                      [1e-6,3],
+                      [-45,45]]
     # Note for elliptical shapes, theta > 45 is the same as a negative angle
     log = [True,True,False]
     steps = [0.04,0.04,5]
 
     def effective_edge(self,energy=None):
-        return 5*max(self.sigma_x,self.sigma_y)
+        return 5*Gaussian.x68*max(self.sigma_x,self.sigma_y)
 
     def has_edge(self): return False
 
