@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Mar  7 14:02:00 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Added some likelihood bounds checks and weights to Monte Carlo methods.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Mar  7 11:34:24 PST 2012
 pointlike/python/uw/pulsar
 
