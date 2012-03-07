@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.92 2012/03/06 18:06:25 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.93 2012/03/07 00:17:58 lande Exp $
 
    author: Joshua Lande
 
@@ -200,7 +200,7 @@ class SpatialModel(object):
             >>> disk = Disk(center=SkyDir(), l=22, b=22)
             Traceback (most recent call last):
                 ...
-            Exception: Only one of center, l and b, or RA and Dec can be set
+            Exception: Only one of center, l and b, or RA and DEC can be set
 
         Testing setting the free:
 
@@ -233,7 +233,7 @@ class SpatialModel(object):
         ra_dec_in_kwargs = 'ra' in lower_case_kwargs and 'dec' in lower_case_kwargs
 
         if sum([center_in_kwargs, l_b_in_kwargs, ra_dec_in_kwargs]) > 1:
-            raise Exception("Only one of center, l and b, or RA and Dec can be set")
+            raise Exception("Only one of center, l and b, or RA and DEC can be set")
 
         if center_in_kwargs:
             self.center = kwargs.pop('center')
@@ -253,7 +253,7 @@ class SpatialModel(object):
             self.coordsystem = coordsystem
 
         if self.coordsystem == SkyDir.EQUATORIAL:
-            self.param_names = np.append(['RA','Dec'], self.param_names)
+            self.param_names = np.append(['RA','DEC'], self.param_names)
         elif self.coordsystem == SkyDir.GALACTIC:
             self.param_names = np.append(['l','b'], self.param_names)
 
@@ -310,7 +310,7 @@ class SpatialModel(object):
             changes what the errors are estimates of. """
         self.coordsystem = cs
         if cs  == SkyDir.EQUATORIAL:
-            self.param_names[0:2] = ['RA','Dec']
+            self.param_names[0:2] = ['RA','DEC']
             self.p[0:2] = [center.ra(),center.dec()]
         elif cs == SkyDir.GALACTIC:
             self.param_names[0:2] = ['l','b']
@@ -369,7 +369,7 @@ class SpatialModel(object):
         else:
             # Can't fit l or dec in log space.
             return ["log10(%s)" % n if log \
-                    else n.replace('Dec','Dec (rotated)').replace('b','b (rotated)') \
+                    else n.replace('DEC','DEC (rotated)').replace('b','b (rotated)') \
                     for n,log in zip(self.param_names,self.log)]
 
     def get_limits(self,absolute=False):
@@ -467,12 +467,30 @@ class SpatialModel(object):
                 >>> d.freeze('Sigma')
                 >>> print d.free
                 [ True  True False]
-                >>> d.freeze('sigma', freeze=False)
+                >>> d.set_free('sigma')
                 >>> print d.free
                 [ True  True  True]
             """
         i=self.mapper(i)
         self.free[i] = not freeze
+        self.cache()
+
+    def set_free(self, i, free=True):
+        self.freeze(i, freeze=not free)
+
+    def get_free(self, i):
+        """ Figure out of a parameter is free or not
+
+                >>> d = Disk()
+                >>> d.set_free('sigma', False)
+                >>> print d.get_free('sigma')
+                False
+                >>> d.set_free('sigma', True)
+                >>> print d.get_free('sigma')
+                True
+        """
+        i=self.mapper(i)
+        return self.free[i]
 
     def set_cov_matrix(self,new_cov_matrix):
         self.cov_matrix = new_cov_matrix
@@ -902,11 +920,11 @@ class Disk(RadiallySymmetricModel):
 
             >>> disk = Disk()
 
-        The default size is 0.1 degrees and the default RA and Dec are 0 and 0:
+        The default size is 0.1 degrees and the default RA and DEC are 0 and 0:
 
             >>> disk['Sigma'] == 0.1 and disk['sigma'] == 0.1
             True
-            >>> disk['RA'] == 0 and disk['Dec'] == 0
+            >>> disk['RA'] == 0 and disk['DEC'] == 0
             True
 
         It is easy to create an object with custom parameters:
@@ -978,7 +996,7 @@ class Disk(RadiallySymmetricModel):
             1.5
 
 
-        When you set instead the RA and Dec values, the coordiante system is equatorial
+        When you set instead the RA and DEC values, the coordiante system is equatorial
 
             >>> disk = Disk(p=1.5, ra=22, dec=22)
             >>> np.allclose([disk['sigma'],disk['ra'],disk['dec']], [1.5, 22, 22])
@@ -1073,7 +1091,7 @@ class PseudoDisk(PseudoSpatialModel,Disk):
         
             >>> x = PseudoDisk()
             >>> print x.param_names
-            ['RA' 'Dec']
+            ['RA' 'DEC']
             >>> print x.p
             [ 0.  0.]
             >>> print x.extension() == SMALL_ANALYTIC_EXTENSION
@@ -1180,11 +1198,23 @@ class InterpProfile(RadiallySymmetricModel):
             raise Exception("Profile must start at r=0")
 
     def cache(self):
+        """ Previously there was a bug in this function. 
+            
+                >>> x = np.linspace(0,1,10)
+                >>> i = InterpProfile(r_in_degrees=x, pdf=x**2)
+                >>> print i.center.ra(), i.center.dec()
+                0.0 0.0
+                >>> i['ra'] = 10; i['dec'] = -10
+                >>> print i.center.ra(), i.center.dec()
+                10.0 -10.0
+        """
         self.pdf = self.get_pdf()
         self.interp, self.normed_pdf = self.setup_interp()
 
         # Save the original scale
         self.scalefactor = max(self.pdf)/max(self.normed_pdf)
+
+        super(InterpProfile, self).cache()
     
     def setup_interp(self):
         r_in_radians = np.radians(self.r_in_degrees)
@@ -1192,7 +1222,7 @@ class InterpProfile(RadiallySymmetricModel):
         # Rescale the pdf for the integrator
         normed_pdf = self.pdf/max(self.pdf)
         
-        # Explicitly normalize the RadialProfile.
+        # Explicitly normalize the InterpProfile.
         if self.kind == 'log':
             log_interp = interp1d(r_in_radians,np.log10(normed_pdf),
                                   kind='linear',bounds_error=False,fill_value=-np.inf)
@@ -1348,6 +1378,8 @@ class RadialProfile(InterpProfile):
     """
 
     def __init__(self, file, **kwargs):
+
+        self.file = file
 
         if not hasattr(file,'read') and not os.path.exists(file):
             raise Exception("RadialProfile must be passed an existing file")
