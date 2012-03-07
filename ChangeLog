@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Mar  6 19:47:20 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+Move profile saving to SpatialModels. Cleanup defaults for SpectralAnalysisMC
+    *
+------------------------------------------------------------
 User: lande  Tue Mar  6 19:46:43 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
