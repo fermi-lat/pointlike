@@ -10,7 +10,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.22 2012/03/07 02:40:55 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.23 2012/03/07 19:34:24 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -137,8 +137,7 @@ class LCTemplate(object):
         for prim in self.primitives:
             rval += prim(phases)
         if suppress_bg: return rval/n
-        else          : return (1-n) + rval
-        #return (1.-n) + rval
+        return (1-n) + rval
 
     def gradient(self,phases):
         r = np.empty([len(self.get_parameters()),len(phases)])
@@ -220,30 +219,46 @@ class LCTemplate(object):
             for s in rstring: f.write(s+'\n')
         return '\n'.join(rstring)
        
-    def random(self,n):
-        """ Return n random variables drawn from the distribution given
-            by this light curve template.
+    def random(self,n,weights=None):
+        """ Return n pseudo-random variables drawn from the distribution 
+            given by this light curve template.
 
             Uses a mulitinomial to divvy the n phases up amongs the various
             components, which then each generate MC phases from their own
             distributions.
 
+            If a vector of weights is provided, the weight in interpreted
+            as the probability that a photon comes from the template.  A
+            random check is done according to this probability to
+            determine whether to draw the photon from the template or from
+            a uniform distribution.
         """
-        # multinomial implementation
+        rvals = np.empty(n)
+        if weights is not None:
+            if len(weights) != n:
+                raise Exception('Provided weight vector does not provide a weight for each photon.')
+            t = np.random.rand(n)
+            m = t <= weights
+            t_indices = np.arange(n)[m]
+            n = m.sum()
+            rvals[~m] = np.random.rand(len(m)-n)
+        else:
+            t_indices = np.arange(n)
+
+        # multinomial implementation -- draw from the template components
         if len(self.primitives)==0: return np.random.rand(n)
         norms = [prim.get_norm() for prim in self.primitives]
         norms = np.append(norms,[1-sum(norms)])
         a = np.argsort(norms)[::-1]
         boundaries = np.cumsum(norms[a])
         components = np.searchsorted(boundaries,np.random.rand(n))
-        rvals = np.empty(n)
         counter = 0
         for mapped_comp,comp in zip(a,np.arange(len(norms))):
             n = (components==comp).sum()
             if mapped_comp == len(norms)-1:
-                rvals[counter:counter+n] = np.random.rand(n) 
+                rvals[t_indices[counter:counter+n]] = np.random.rand(n) 
             else:
-                rvals[counter:counter+n] = self.primitives[mapped_comp].random(n)
+                rvals[t_indices[counter:counter+n]] = self.primitives[mapped_comp].random(n)
             counter += n
         return rvals
 
@@ -303,26 +318,28 @@ class UnweightedLCFitter(object):
         self.counts = hist[0][hist[0]>0]
 
     def unbinned_loglikelihood(self,p,*args):
-        if (not self.template.shift_mode and np.any(p < 0)):
-         #guard against negative parameters
+        args[0].set_parameters(p); t = self.template
+        if (t.norm()>1) or (not t.shift_mode and np.any(p<0)):
             return 2e20
         args[0].set_parameters(p)
-        rvals = -np.log(self.template(self.phases)).sum()
+        rvals = -np.log(t(self.phases)).sum()
         if np.isnan(rvals): return 2e20 # NB need to do better accounting of norm
         return rvals
 
     def binned_loglikelihood(self,p,*args):
-        if not self.template.shift_mode and np.any(p<0):
+        args[0].set_parameters(p); t = self.template
+        if (t.norm()>1) or (not t.shift_mode and np.any(p<0)):
             return 2e20
-        args[0].set_parameters(p)
-        return -(self.counts*np.log(self.template(self.counts_centers))).sum()
+        return -(self.counts*np.log(t(self.counts_centers))).sum()
       
     def unbinned_gradient(self,p,*args):
         args[0].set_parameters(p); t = self.template
+        if t.norm() > 1: return np.ones_like(p)*2e20
         return -(t.gradient(self.phases)/t(self.phases)).sum(axis=1)
 
     def binned_gradient(self,p,*args):
         args[0].set_parameters(p); t = self.template
+        if t.norm() > 1: return np.ones_like(p)*2e20
         return -(self.counts*t.gradient(self.counts_centers)/t(self.counts_centers)).sum(axis=1)
 
     def chi(self,p,*args):
@@ -520,19 +537,17 @@ class WeightedLCFitter(UnweightedLCFitter):
         return chi
 
     def unbinned_loglikelihood(self,p,*args):
-        if not self.template.shift_mode and np.any(p < 0):
-         #guard against negative parameters
+        args[0].set_parameters(p); t = self.template
+        if (t.norm()>1) or (not t.shift_mode and np.any(p<0)):
             return 2e20
-        args[0].set_parameters(p)
-        return -np.log(1+self.weights*(self.template(self.phases)-1)).sum()
+        return -np.log(1+self.weights*(t(self.phases)-1)).sum()
         #return -np.log(1+self.weights*(self.template(self.phases,suppress_bg=True)-1)).sum()
 
     def binned_loglikelihood(self,p,*args):
-        if not self.template.shift_mode and np.any(p < 0):
-         #guard against negative parameters
+        args[0].set_parameters(p); t = self.template
+        if (t.norm()>1) or (not t.shift_mode and np.any(p<0)):
             return 2e20
-        args[0].set_parameters(p);
-        template_terms = self.template(self.counts_centers)-1
+        template_terms = t(self.counts_centers)-1
         phase_template_terms = np.empty_like(self.weights)
         for tt,sl in zip(template_terms,self.slices):
             phase_template_terms[sl] = tt
@@ -540,12 +555,14 @@ class WeightedLCFitter(UnweightedLCFitter):
 
     def unbinned_gradient(self,p,*args):
         args[0].set_parameters(p); t = self.template
+        if t.norm()>1: return np.ones_like(p)*2e20
         numer = self.weights*t.gradient(self.phases)
         denom = 1+self.weights*(t(self.phases)-1)
         return -(numer/denom).sum(axis=1)
 
     def binned_gradient(self,p,*args):
         args[0].set_parameters(p); t = self.template
+        if t.norm()>1: return np.ones_like(p)*2e20
         nump = len(p)
         template_terms = t(self.counts_centers)-1
         gradient_terms = t.gradient(self.counts_centers)
@@ -631,6 +648,13 @@ def get_gauss22(pulse_frac=1,x1=0.1,x2=0.55,ratio=1.5,width1=0.01,width2=0.02,
 def get_gauss1(pulse_frac=1,x1=0.5,width1=0.01):
     """Return a one-gaussian template.  Convenience function."""
     return LCTemplate(primitives=[LCGaussian(p=[pulse_frac,width1,x1])])
+
+def get_mixed_lorentzian(pulse_frac=0.5):
+    """ Convenience function to get a 2 Lorentzian + Gaussian bridge template."""
+    p1 = LCLorentzian(p=[0.3*pulse_frac,0.03,0.1])
+    b = LCGaussian(p=[0.4*pulse_frac,0.15,0.3])
+    p2 = LCLorentzian(p=[0.3*pulse_frac,0.03,0.55])
+    return LCTemplate(primitives=[p1,b,p2])
 
 def make_twoside_gaussian(one_side_gaussian):
     """ Make a two-sided gaussian with the same initial shape as the
