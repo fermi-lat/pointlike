@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Mar  7 11:34:24 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Fixed pickling of LCFitter objects.
+
+    *
+------------------------------------------------------------
 User: lande  Tue Mar  6 19:47:20 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
