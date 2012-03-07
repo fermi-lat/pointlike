@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Mar  6 19:45:11 PST 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+lots of doctests + simplifying extended source saveout + implementing extended source RadialProfile
+    *
+------------------------------------------------------------
 User: kerrm  Tue Mar  6 18:41:07 PST 2012
 pointlike/python/uw/pulsar
 
