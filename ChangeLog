@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Mar  7 14:02:45 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcprimitives.py 
+Log Message:
+Moved eps to global WRAPEPS.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Mar  7 14:02:00 PST 2012
 pointlike/python/uw/pulsar
 
