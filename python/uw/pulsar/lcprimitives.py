@@ -11,21 +11,40 @@ author: M. Kerr <matthew.kerr@gmail.com>
 
 """
 
-#=====================================================================#
-
 import numpy as np
 from scipy.special import erf,i0
-from scipy.integrate import simps
+from scipy.integrate import simps,quad
 from scipy.interpolate import interp1d
-from scipy.stats import norm
-from math import sin,cos
+from scipy.stats import norm,cauchy
+from math import sin,cos,sinh,cosh
 ROOT2PI  = (2*np.pi)**0.5
+R2DI     = (2/np.pi)**0.5
 ROOT2    = 2**0.5
 TWOPI    = (2*np.pi)
 PI       = np.pi*1
-MAXWRAPS = 15
+MAXWRAPS = 100
+MINWRAPS = 3
+WRAPEPS  = 1e-8
 
-#=====================================================================#
+# TODO -- possible "LCBase" class with certain method common to LCPrimitive and LCTemplate
+
+def two_comp_mc(n,w1,w2,loc,func):
+    """ Helper function to generate MC photons from a two-peaked distribution.
+        n -- total number of photons
+        w1 -- scale parameter for func, lefthand peak
+        w2 -- scale parameter for func, righthand peak
+        loc -- position of peak
+        func -- an 'rvs' function from scipy
+    """
+    frac1 = w1/(w1+w2)
+    # number of photons required from left side
+    n1 = (np.random.rand(n) < frac1).sum()
+    r1 = func(loc=0,scale=w1,size=n1)
+    # reflect and relocate photons to right or lef side
+    r1 = loc + np.where(r1<=0,r1,-r1)
+    r2 = func(loc=0,scale=w2,size=n-n1)
+    r2 = loc + np.where(r2>0,r2,-r2)
+    return np.mod(np.append(r1,r2),1)
 
 class LCPrimitive(object):
     """ Base class for various components of a light curve.  All "analytic"
@@ -36,10 +55,15 @@ class LCPrimitive(object):
         raise NotImplementedError('Virtual function must be implemented by child class.')
 
     def integrate(self,x0=0,x1=1):
-        raise NotImplementedError('Virtual function must be implemented by child class.')
+        """ Base implemention with scipy quad."""
+        return quad(self,x0,x1)[0]
 
     def fwhm(self):
         """Return the full-width at half-maximum of the light curve model."""
+        return self.hwhm(0)+self.hwhm(1)
+
+    def hwhm(self,right=False):
+        """Return the half-width at half-maximum of the light curve model."""
         raise NotImplementedError('Virtual function must be implemented by child class.')
 
     def init(self):
@@ -50,25 +74,20 @@ class LCPrimitive(object):
          
     def __init__(self,**kwargs):
         self.init()
+        if not hasattr(self,'bounds'):
+            self.bounds = [[None,None]*len(self.p)] # default
         self.__dict__.update(kwargs)
         self.p = np.asarray(self.p)
         self.free = np.asarray(self.free)
+        self.bounds = np.asarray(self.bounds)
         self.errors = np.zeros_like(self.p)
         self.shift_mode = False
-        self.cache = False
-
-    def enable_cache(self,phases):
-        self.free  = np.asarray([False] * len(self.p))
-        self.cache_vals = self(phases)
-        self.cache = True
-
-    def disable_cache(self):
-        self.cache_vals = None
-        self.cache      = False
 
     def set_parameters(self,p): self.p[self.free] = p
 
     def get_parameters(self): return self.p[self.free]
+
+    def get_bounds(self): return self.bounds[self.free]
 
     def get_location(self,error=False):
         if error: return np.asarray([self.p[-1],self.errors[-1]])
@@ -81,11 +100,18 @@ class LCPrimitive(object):
         if error: return np.asarray([self.p[0],self.errors[0]])
         return self.p[0]
 
-    def get_width(self,error=False,fwhm=False,twosided=False):
-        # NB twosided kwarg is ignored; for compatibility only 
-        scale = self.fwhm()/self.p[1] if fwhm else 1
-        if error: return np.asarray([self.p[1],self.errors[1]])*scale
-        return self.p[1]*scale
+    def get_width(self,error=False,hwhm=False,right=False):
+        """ Return the width of the distribution.
+            Keyword arguments:
+            -----------------
+            error   [False] if True, return tuple with value and error
+            hwhm    [False] if True, scale width to be HWHM
+            right   [False] if True, return "right" component, else "left".
+                            There is no distinction for symmetric dists.
+        """
+        scale = self.hwhm()/self.p[1+right] if hwhm else 1
+        if error: return np.asarray([self.p[1+right],self.errors[1+right]])*scale
+        return self.p[1+right]*scale
     
     def get_gradient(self,phases):
         g = self.gradient(phases)
@@ -99,7 +125,7 @@ class LCPrimitive(object):
     def random(self,n):
         """ Default is accept/reject.""" 
         if n < 1: return 0
-        M = self(self.p[-1])
+        M = self(np.asarray([self.p[-1]])) # peak amplitude
         rvals    = np.empty(n)
         position = 0
         rfunc    = np.random.rand
@@ -124,7 +150,64 @@ class LCPrimitive(object):
         l = [self.name+'\n------------------'] + l
         return '\n'.join(l)
 
-#=====================================================================#
+    def approx_gradient(self,phases,eps=1e-5):
+        orig_p = self.get_parameters().copy()
+        g = np.zeros([len(orig_p),len(phases)])
+        weights = np.asarray([-1,8,-8,1])/(12*eps)
+
+        def do_step(which,eps):
+            p0 = orig_p.copy()
+            p0[which] += eps
+            self.set_parameters(p0)
+            return self(phases)
+
+        for i in xrange(len(orig_p)):
+            # use a 4th-order central difference scheme
+            for j,w in zip([2,1,-1,-2],weights):
+                g[i,:] += w*do_step(i,j*eps)
+
+        self.set_parameters(orig_p)
+        return g
+
+    def check_gradient(self,tol=1e-6,eps=1e-5,quiet=False):
+        """ Test gradient function with a set of MC photons."""
+        ph = self.random(1000)
+        g1 = self.gradient(ph)
+        g2 = self.approx_gradient(ph,eps=eps)
+        anyfail = False
+        for i in xrange(g1.shape[0]):
+            d1 = np.abs(g1[i]-g2[i])
+            d2 = d1/g1
+            fail = np.any((d1>tol) | (d2>tol))
+            if not quiet:
+                pass_string = 'failed' if fail else 'passed'
+                print 'Checking gradient component %d (%s)\nLargest discrepancy: %.3g absolute / %.3g fractional'%(i,pass_string,d1.max(),d2.max())
+            anyfail = anyfail or fail
+        return not anyfail
+
+    def sanity_checks(self,eps=1e-6):
+        """ A few checks on normalization, integration, etc. """
+        from scipy.integrate import quad
+        errfac = 1
+        # Normalization test
+        y,ye = quad(self,0,1)
+        t1 = abs(self.p[0]-y)<(ye*errfac)
+        # integrate method test
+        t2 = abs(self.p[0]-self.integrate(0,1))<eps
+        # FWHM test
+        t3 = (self(self.p[-1])*0.5-self(self.p[-1]-self.fwhm()/2))<eps
+        # gradient test
+        try:
+            t4 = self.check_gradient(quiet=True)
+        except: t4 = False
+        # boundary conditions
+        t5 = abs(self(0)-self(1-eps))<eps
+        if not t1: print 'Failed Normalization test'
+        if not t2: print 'Failed integrate method test'
+        if not t3: print 'Failed FWHM test'
+        if not t4: print 'Failed gradient test'
+        if not t5: print 'Did not pass boundary conditions'
+        return np.all([t1,t2,t3,t4,t5])
 
 class LCWrappedFunction(LCPrimitive):
     """ Super-class for profiles derived from wrapped functions."""
@@ -132,26 +215,44 @@ class LCWrappedFunction(LCPrimitive):
     def __call__(self,phases):
         results = self.base_func(phases)
         for i in xrange(1,MAXWRAPS+1):
-            results += self.base_func(phases,index= i)
-            results += self.base_func(phases,index=-i)
+            t = self.base_func(phases,index= i)
+            t += self.base_func(phases,index=-i)
+            results += t
+            if (i>=MINWRAPS) and (np.all(t < WRAPEPS)): 
+                #print 'Converged after %d cycles.'%i
+                break
+        if i == MAXWRAPS:
+            print 'WARNING! Wrapped function (profile) did not converge to eps=%g'%(eps)
         return results
 
-    def gradient(self,phases):
+    def gradient(self,phases,eps=1e-6):
         """ Return the gradient evaluated at a vector of phases.
 
             output : a 3xlen(phases) ndarray, the 3-dim gradient at each phase
         """
         results = self.base_grad(phases)
         for i in xrange(1,MAXWRAPS+1):
-            for j in [i,-i]:
-                results += self.base_grad(phases,index=j)
+            t = self.base_grad(phases,index=i)
+            t += self.base_grad(phases,index=-i)
+            results += t
+            if (i >= MINWRAPS) and (np.all(t < WRAPEPS)): 
+                #print 'Converged after %d cycles.'%i
+                break
+        if i == MAXWRAPS:
+            print 'WARNING! Wrapped function (gradient) did not converge to eps=%g'%(eps)
         return results
 
-    def integrate(self,x1=0,x2=1):
+    def integrate(self,x1=0,x2=1,eps=1e-6):
         results = self.base_int(x1,x2,index=0)
         for i in xrange(1,MAXWRAPS+1):
-            for j in [i,-i]:
-                results += self.base_int(x1,x2,index=j)
+            t = self.base_int(x1,x2,index=i)
+            t += self.base_int(x1,x2,index=-i)
+            results += t
+            if np.all(t < WRAPEPS): 
+                #print 'Converged after %d cycles.'%i
+                break
+        if i == MAXWRAPS:
+            print 'WARNING! Did not converge.'
         return results
 
     def base_func(self,phases,index=0):
@@ -162,107 +263,6 @@ class LCWrappedFunction(LCPrimitive):
         
     def base_int(self,phases,index=0):
         raise NotImplementedError('No base_int function found for this object.')
-
-#=====================================================================#
-
-class LCWrappedFunction2(LCWrappedFunction):
-    """ Super class for two-sided wrapped functions. """
-
-    def init(self):
-        self.p    = np.asarray([1,0.03,0.03,0.5])
-        self.free = np.asarray([True]*len(self.p))
-        self.pnames = ['Norm','Width1','Width2','Location']
-        self.two_sided = True
-        self.lock_widths = False
-
-    def get_width(self,error=False,fwhm=False,twosided=False):
-        x0,left_p,right_p = self._equalize()
-        left_e,right_e = self._get_errors()
-        self.prim.p[:] = left_p
-        self.prim.errors[:] = left_e
-        w_left,w_left_err = self.prim.get_width(fwhm=fwhm,error=True)
-        self.prim.p[:] = right_p
-        self.prim.errors[:] = right_e
-        w_right,w_right_err = self.prim.get_width(fwhm=fwhm,error=True)
-        if not twosided:
-            # average left and right side...
-            rval1 = (w_left+w_right)/2
-            rval2 = (w_left_err**2+w_right_err**2)**0.5/2
-            if error:
-                return np.asarray([rval1,rval2])
-            else: return rval1
-        else:
-            # return separate values for left and right
-            if error:
-                return np.asarray([w_left,w_left_err,w_right,w_right_err])
-            else:
-                return np.asarray([w_left,w_right])
-                
-        if error: return np.asarray([self.p[1],self.errors[1]])*scale
-        return self.p[1]*scale
-
-    def fwhm(self):
-        x0,left_p,right_p = self._equalize()
-        self.prim.p[:] = left_p
-        w_left = self.prim.get_width(fwhm=True,error=False)
-        self.prim.p[:] = right_p
-        w_right = self.prim.get_width(fwhm=True,error=False)
-        return (w_left+w_right)/2
-        
-    def set_parameters(self,p):
-        super(LCWrappedFunction2,self).set_parameters(p)
-        if (not self.free[2]) and self.lock_widths:
-            self.p[2] = self.p[1]
-
-    def _equalize(self):
-        """ Enforce continuity at x0.  This base implementation
-            works for gaussians and lorentzians."""
-        norm,w1,w2,x0 = self.p
-        n1 = 2*norm/(1+w2/w1); n2 = n1*(w2/w1)
-        return x0,(n1,w1,x0),(n2,w2,x0)
-
-    def _get_errors(self):
-        """ Get errors for base primitives.  Default implementation
-            works for gaussians and lorentzians."""
-        e = self.errors
-        return (e[0],e[1],e[3]),(e[0],e[2],e[3])
-
-    def base_func(self,phases,index=0):
-        x0,left_p,right_p = self._equalize()
-        mask = (phases - x0 + index) < 0
-        if ((index < 0) or np.all(mask)):
-            self.prim.p[:] = left_p
-            return self.prim.base_func(phases,index=index)
-        elif ((index > 0) or np.all(~mask)):
-            self.prim.p[:] = right_p
-            return self.prim.base_func(phases,index=index)
-        else:
-            rvals = np.empty_like(phases)
-            self.prim.p[:] = left_p
-            rvals[mask] = self.prim.base_func(phases[mask],index=index)
-            self.prim.p[:] = right_p
-            rvals[~mask] = self.prim.base_func(phases[~mask],index=index)
-            return rvals
-            
-    def base_grad(self,phases,index=0):
-        raise NotImplementedError,'Have not done gradient yet...'
-
-    def base_int(self,x1,x2,index=0):
-        x0,left_p,right_p = self._equalize()
-        left = x1+index; right = x2+index
-        if right <= x0:
-            self.prim.p[:] = left_p
-            return self.prim.base_int(x1,x2,index=index)
-        elif left >= x0:
-            self.prim.p[:] = right_p
-            return self.prim.base_int(x1,x2,index=index)
-        else:
-            self.prim.p[:] = left_p
-            rval = self.prim.base_int(x1,x0,index=index)
-            self.prim.p[:] = right_p
-            return rval + self.prim.base_int(x0,x2,index=index)
-
-#=====================================================================#
 
 class LCGaussian(LCWrappedFunction):
     """ Represent a (wrapped) Gaussian peak.
@@ -275,60 +275,184 @@ class LCGaussian(LCWrappedFunction):
 
     def init(self):
         self.p    = np.asarray([1,0.03,0.5])
+        self.bounds = [ [0,None], [0.005,0.5], [0,1] ]
         self.free = np.asarray([True]*len(self.p))
         self.pnames = ['Norm','Width','Location']
         self.name = 'Gaussian'
 
-    def fwhm(self): return self.p[1]*(8 * np.log(2))**0.5
+    def hwhm(self,right=False):
+        return self.p[1]*(2 * np.log(2))**0.5
 
     def base_func(self,phases,index=0):
         norm,width,x0 = self.p
-        z = (phases - x0 + index)/width
-        return (norm/(width*ROOT2PI))*np.exp( - 0.5*z**2 )
+        z = (phases + index - x0)/width
+        return (norm/(width*ROOT2PI))*np.exp(-0.5*z**2 )
 
     def base_grad(self,phases,index=0):
         norm,width,x0 = self.p
-        z      = (phases - x0 + index)/width
-        fvals  = self.base_func(phases,index=index)
-        return np.asarray([fvals/norm,fvals/width*(z**2 - 1.),fvals/width*z])
+        z = (phases + index - x0)/width
+        f = (norm/(width*ROOT2PI))*np.exp(-0.5*z**2 )
+        return np.asarray([f/norm,f/width*(z**2 - 1.),f/width*z])
 
     def base_int(self,x1,x2,index=0):
         norm,width,x0 = self.p
-        z1 = (x1 - x0 + index)/width; z2 = (x2 - x0 + index)/width;
+        z1 = (x1 + index - x0)/width
+        z2 = (x2 + index - x0)/width
         return 0.5*norm*(erf(z2/ROOT2)-erf(z1/ROOT2))
 
     def random(self,n):
         return np.mod(norm.rvs(loc=self.p[-1],scale=self.p[1],size=n),1)
 
-#=====================================================================#
-
-class LCLorentzian(LCWrappedFunction):
-    """ Represent a Lorentzian peak.
-   
+class LCGaussian2(LCWrappedFunction):
+    """ Represent a (wrapped) two-sided Gaussian peak.
         Parameters
-        Norm      :     fraction of photons belonging to peak
-        Width     :     the standard width paramater of Cauchy distribution, HWHM
-        Location  :     the center of the peak in phase
+        Norm      :  fraction of photons belonging to peak
+        Width1    :  the standard deviation parameter of the norm dist.
+        Width2    :  the standard deviation parameter of the norm dist.
+        Location  :  the mode of the distribution
     """
 
     def init(self):
-        self.p = np.asarray([1,0.1,0.1])
+        self.p    = np.asarray([1,0.03,0.03,0.5])
+        self.bounds = [ [0,None], [0.005,0.5], [0.005,0.5], [0,1] ]
+        self.free = np.asarray([True]*len(self.p))
+        self.pnames = ['Norm','Width1','Width2','Location']
+        self.name = 'Gaussian2'
+
+    def hwhm(self,right=False):
+        return (self.p[1+right])*(2 * np.log(2))**0.5
+
+    def base_func(self,phases,index=0):
+        norm,width1,width2,x0 = self.p
+        z = (phases + (index - x0))
+        z *= np.where(z <= 0, 1./width1, 1./width2)
+        return (R2DI*norm/(width1+width2)) * np.exp(-0.5*z**2 )
+
+    def base_grad(self,phases,index=0):
+        norm,width1,width2,x0 = self.p
+        z = (phases + (index - x0))
+        m = (z <= 0)
+        w = np.where(m, width1, width2)
+        z /= w
+        f = (R2DI*norm/(width1+width2)) * np.exp(-0.5*z**2 )
+        k = 1./(width1+width2)
+        z2w = z**2/w
+        t = f*(z2w-k)
+        g0 = f/norm
+        g1 = f*(z2w*( m)-k)
+        g2 = f*(z2w*(~m)-k)
+        g3 = f*z/w
+        return np.asarray([g0,g1,g2,g3])
+
+    def base_int(self,x1,x2,index=0):
+        norm,width1,width2,x0 = self.p
+        if index==0 and (x1 < x0) and (x2 > x0):
+            z1 = (x1 + index - x0)/width1
+            z2 = (x2 + index - x0)/width2
+            k1 = 2*width1/(width1+width2)
+            k2 = 2*width2/(width1+width2)
+            return 0.5*norm*(k2*erf(z2/ROOT2)-k1*erf(z1/ROOT2))
+        w = width1 if ((x1+index) < x0) else width2
+        z1 = (x1 + index - x0)/w
+        z2 = (x2 + index - x0)/w
+        k = 2*w/(width1+width2)
+        return 0.5*k*norm*(erf(z2/ROOT2)-erf(z1/ROOT2))
+
+    def random(self,n):
+        """ Use multinomial technique to return random photons from
+            both components."""
+        return two_comp_mc(n,self.p[1],self.p[2],self.p[-1],norm.rvs)
+
+class LCLorentzian(LCPrimitive):
+    """ Represent a (wrapped) Lorentzian peak.
+   
+        Parameters
+        Norm      :     fraction of photons belonging to peak
+        Width     :     the width paramater of the wrapped Cauchy distribution,
+                        namely HWHM*2PI for narrow distributions
+        Location  :     the center of the peak in phase
+    """
+    def init(self):
+        self.p = np.asarray([1,0.1,0.5])
+        self.bounds = [ [0,None], [0.005,0.5], [0,1] ]
         self.free = np.asarray([True]*len(self.p))
         self.pnames = ['Norm','Width','Location']
         self.name = 'Lorentzian'
 
-    def fwhm(self): return self.p[1]*2
+    def hwhm(self,right=False):
+        # NB -- bounds on p[1] set such that this is well-defined
+        return np.arccos( 2-cosh(self.p[1]) )/TWOPI
+
+    def __call__(self,phases):
+        norm,gamma,loc = self.p
+        z = TWOPI*(phases-loc)
+        return (norm*sinh(gamma))/(cosh(gamma)-np.cos(z))
+
+    def gradient(self,phases):
+        norm,gamma,loc = self.p
+        z = TWOPI*(phases-loc)
+        s1 = sinh(gamma); c1 = cosh(gamma)
+        c = np.cos(z); s = np.sin(z)
+        f = (norm*s1)/(c1-c)
+        g0 = f/norm
+        g1 = f*(c1/s1-g0)
+        g2 = f*g0*(TWOPI/s1)*s
+        return np.asarray([g0,g1,g2])
+
+    def random(self,n):
+        return np.mod(cauchy.rvs(loc=self.p[-1],scale=self.p[1]/TWOPI,size=n),1)
+
+class LCLorentzian2(LCWrappedFunction):
+    """ Represent a (wrapped) two-sided Lorentzian peak.
+        Parameters
+        Norm      :  fraction of photons belonging to peak
+        Width1    :  the HWHM of the distribution (left)
+        Width2    :  the HWHM of the distribution (right)
+        Location  :  the mode of the distribution
+    """
+
+    def init(self):
+        self.p    = np.asarray([1,0.03,0.03,0.5])
+        self.bounds = [ [0,None], [0.005,0.5], [0.005,0.5], [0,1] ]
+        self.free = np.asarray([True]*len(self.p))
+        self.pnames = ['Norm','Width1','Width2','Location']
+        self.name = 'Lorentzian2'
+
+    def hwhm(self,right=False):
+        return self.p[1+right]
 
     def base_func(self,phases,index=0):
-        norm,gamma,x0 = self.p
-        return (gamma/np.pi*norm) / ( (phases - x0 + index)**2 + gamma**2)
+        norm,gamma1,gamma2,x0 = self.p
+        z = (phases + (index - x0))
+        z /= np.where(z<=0, gamma1, gamma2)
+        k = 2*norm/(gamma1+gamma2)/PI
+        return k/(1+z**2)
+
+    def base_grad(self,phases,index=0):
+        pass
 
     def base_int(self,x1,x2,index=0):
-        norm,gamma,x0 = self.p
-        z1 = (x1 - x0 + index)/gamma; z2 = (x2 - x0 + index)/gamma
-        return norm/np.pi * (np.arctan(z2) - np.arctan(z1))
+#        norm,gamma,x0 = self.p
+#        z1 = (x1 + index - x0)/gamma
+#        z2 = (x2 + index - x0)/gamma
+#        return norm/np.pi * (np.arctan(z2) - np.arctan(z1))
+        norm,width1,width2,x0 = self.p
+        if index==0 and (x1 < x0) and (x2 > x0):
+            z1 = (x1 + index - x0)
+            z2 = (x2 + index - x0)
+            k1 = 2*width1/(width1+width2)
+            k2 = 2*width2/(width1+width2)
+            return (norm/PI)*(k2*np.arctan(z2)-k1*np.arctan(z1))
+        w = width1 if ((x1+index) < x0) else width2
+        z1 = (x1 + index - x0)
+        z2 = (x2 + index - x0)
+        k = 2*w/(width1+width2)
+        return k*(norm/PI)*(np.arctan(z2)-np.arctan(z1))
 
-#=====================================================================#
+    def random(self,n):
+        """ Use multinomial technique to return random photons from
+            both components."""
+        return two_comp_mc(n,self.p[1],self.p[2],self.p[-1],cauchy.rvs)
 
 class LCVonMises(LCPrimitive):
     """ Represent a peak from the von Mises distribution.  This function is
@@ -347,82 +471,38 @@ class LCVonMises(LCPrimitive):
         self.name = 'VonMises'
 
     def fwhm(self):
-        return np.arccos(self.p[1]*np.log(0.5)+1)/PI
+        return np.arccos(self.p[1]*np.log(0.5)+1)/TWOPI
 
     def __call__(self,phases):
         norm,width,loc = self.p
-        return norm*np.exp(np.cos(TWOPI*(phases-loc))/width)/i0(1./width)
-
-    def integrate(self,x0=0,x1=1):
-        if (x0==0) and (x1==1): return self.p[0]
-                
-        dom = np.linspace(0,1,min(500,max(100,5./self.p[1])))
-        cod = self(dom)
-        return simps(cod,x=dom)
-
-#=====================================================================#
-
-class LCGaussian2(LCWrappedFunction2):
-    """ Represent a (wrapped) Gaussian peak with two sides.
-        Parameters
-        Norm      :  fraction of photons belonging to peak
-        Width1    :  the standard deviation parameter of the norm dist.
-        Width2    :  the standard deviation parameter of the norm dist.
-        Location  :  the mode of the Gaussian distribution
-    """
-
-    def init(self):
-        super(LCGaussian2,self).init()
-        self.p    = np.asarray([1,0.03,0.03,0.5])
-        self.name = 'Gaussian2'
-        self.prim = LCGaussian()
-
-#=====================================================================#
-
-class LCLorentzian2(LCWrappedFunction2):
-    """ Represent a (wrapped) Lorentzian peak with two sides.
-        Parameters
-        Norm      :  fraction of photons belonging to peak
-        Width1    :  the HWHM of Cauchy distribution
-        Width2    :  the HWHM of Cauchy distribution
-        Location  :  the center of the peak in phase
-    """
-
-    def init(self):
-        super(LCLorentzian2,self).init()
-        self.p = np.asarray([1,0.05,0.05,0.5])
-        self.name = 'Lorentzian2'
-        self.prim = LCLorentzian()
-
-#=====================================================================#
+        z = TWOPI*(phases-loc)
+        return norm*np.exp(np.cos(z)/width)/i0(1./width)
 
 class LCTopHat(LCPrimitive):
-   """Represent a top hat function.
+    """ Represent a top hat function.
    
-      Parameters:
-         Norm      :     fraction of photons belonging to peak
-         Width     :     right edge minus left edge
-         Location  :     center of top hat
-   """
+        Parameters:
+            Norm      :     fraction of photons belonging to peak
+            Width     :     right edge minus left edge
+            Location  :     center of top hat
+    """
 
-   def init(self):
-      self.p    = np.asarray([1,0.03,0.5])
-      self.free = np.asarray([True]*len(self.p))
-      self.pnames = ['Norm','Width','Location']
-      self.name = 'TopHat'
-      self.fwhm_scale = 1
+    def init(self):
+        self.p    = np.asarray([1,0.03,0.5])
+        self.free = np.asarray([True]*len(self.p))
+        self.pnames = ['Norm','Width','Location']
+        self.name = 'TopHat'
+        self.fwhm_scale = 1
 
-   def __call__(self,phases,wrap=True):
-      norm,width,x0 = self.p
-      v = norm/width
-      return np.where(np.abs(phases - x0%1) < width/2,v,0)
+    def __call__(self,phases,wrap=True):
+        norm,width,x0 = self.p
+        v = norm/width
+        return np.where(np.abs(phases - x0%1) < width/2,v,0)
 
-   def integrate(self,x1=-np.inf,x2=np.inf):
+    def integrate(self,x1=-np.inf,x2=np.inf):
       # achtung -- kluge for now
-      norm,width,x0 = self.p
-      return norm
-
-#=====================================================================#
+        norm,width,x0 = self.p
+        return norm
 
 class LCHarmonic(LCPrimitive):
     """Represent a sinusoidal shape corresponding to a harmonic in a Fourier expansion.
@@ -449,8 +529,6 @@ class LCHarmonic(LCPrimitive):
         else:
             # not yet implemented
             raise Exception
-
-#=====================================================================#
 
 class LCEmpiricalFourier(LCPrimitive):
     """ Calculate a Fourier representation of the light curve.
@@ -530,8 +608,6 @@ class LCEmpiricalFourier(LCPrimitive):
         """ The Fourier expansion by definition includes the entire signal, so
         the norm is always unity."""
         return 1
-
-#=====================================================================#
 
 class LCKernelDensity(LCPrimitive):
     """ Calculate a kernel density estimate of the light curve.
@@ -666,8 +742,6 @@ class LCKernelDensity(LCPrimitive):
         return simps(y[mask],x=x[mask])
         #return self.interpolator.y[mask].sum()/len(mask)
 
-#=====================================================================#
-
 def convert_primitive(p1,ptype='LCLorentzian'):
     """ Attempt to set the parameters of p2 to give a comparable primitive
         to p1."""
@@ -675,3 +749,4 @@ def convert_primitive(p1,ptype='LCLorentzian'):
     p2.p[:] = p1.p[:]
     p2.p[1] = p1.fwhm()/p2.fwhm()*p2.p[1]
     return p2
+

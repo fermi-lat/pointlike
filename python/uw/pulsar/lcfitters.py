@@ -10,7 +10,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.20 2012/02/15 02:44:39 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.21 2012/02/23 19:09:53 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -67,7 +67,6 @@ def weighted_light_curve(nbins,phases,weights,normed=False):
     norm = w1.sum()/nbins if normed else 1.
     return bins,w1/norm,errors/norm
 
-#=======================================================================#
 class LCTemplate(object):
     """Manage a lightcurve template (collection of LCPrimitive objects).
    
@@ -102,6 +101,9 @@ class LCTemplate(object):
     def get_parameters(self):
         return np.concatenate( [prim.get_parameters() for prim in self.primitives] )
 
+    def get_bounds(self):
+        return np.concatenate( [prim.get_bounds() for prim in self.primitives] ).tolist()
+
     def set_overall_phase(self,ph):
         """Put the peak of the first component at phase ph."""
         if self.shift_mode:
@@ -129,11 +131,10 @@ class LCTemplate(object):
     def max(self,resolution=0.01):
         return self(np.arange(0,1,resolution)).max()
 
-    def __call__(self,phases,ignore_cache=False,suppress_bg=False):
+    def __call__(self,phases,suppress_bg=False):
         n = self.norm()
         rval = np.zeros_like(phases)
         for prim in self.primitives:
-            #rval += prim.cache_vals if (prim.cache and not ignore_cache) else prim(phases)
             rval += prim(phases)
         if suppress_bg: return rval/n
         else          : return (1-n) + rval
@@ -147,6 +148,38 @@ class LCTemplate(object):
             r[c:c+n,:] = prim.get_gradient(phases)
             c += n
         return r
+
+    def approx_gradient(self,phases,eps=1e-5):
+        orig_p = self.get_parameters().copy()
+        g = np.zeros([len(orig_p),len(phases)])
+        weights = np.asarray([-1,8,-8,1])/(12*eps)
+
+        def do_step(which,eps):
+            p0 = orig_p.copy()
+            p0[which] += eps
+            self.set_parameters(p0)
+            return self(phases)
+
+        for i in xrange(len(orig_p)):
+            # use a 4th-order central difference scheme
+            for j,w in zip([2,1,-1,-2],weights):
+                g[i,:] += w*do_step(i,j*eps)
+
+        self.set_parameters(orig_p)
+        return g
+
+    def check_gradient(self,tol=1e-6,quiet=False):
+        """ Test gradient function with a set of MC photons."""
+        ph = self.random(1000)
+        g1 = self.gradient(ph)
+        g2 = self.approx_gradient(ph)
+        d1 = np.abs(g1-g2)
+        d2 = d1/g1
+        fail = np.any((d1>tol) | (d2>tol))
+        if not quiet:
+            pass_string = 'failed' if fail else 'passed'
+            print 'Completed gradient check (%s)\nLargest discrepancy: %.3g absolute / %.3g fractional'%(pass_string,d1.max(),d2.max())
+        return not fail
 
     def __sort__(self):
         def cmp(p1,p2):
@@ -219,8 +252,6 @@ class LCTemplate(object):
            that match the old one as closely as possible."""
        self.primitives[index] = convert_primitive(self.primitives[index],ptype)
 
-#=======================================================================#
-
 def LCFitter(template,phases,weights=None,times=1,binned_bins=100):
     """ Factory class for light curve fitters.
         Arguments:
@@ -239,8 +270,6 @@ def LCFitter(template,phases,weights=None,times=1,binned_bins=100):
     kwargs['weights'] = np.asarray(weights)
     return WeightedLCFitter(template,phases,**kwargs)
 
-#=======================================================================#
-
 class UnweightedLCFitter(object):
 
     def __init__(self,template,phases,**kwargs):
@@ -250,7 +279,9 @@ class UnweightedLCFitter(object):
         self.phases = np.asarray(phases)
         self.__dict__.update(kwargs)
         self._hist_setup()
+        # default is unbinned likelihood
         self.loglikelihood = self.unbinned_loglikelihood
+        self.gradient = self.unbinned_gradient
 
     def _hist_setup(self):
         """ Setup binning for a quick chi-squared fit."""
@@ -286,16 +317,20 @@ class UnweightedLCFitter(object):
         args[0].set_parameters(p)
         return -(self.counts*np.log(self.template(self.counts_centers))).sum()
       
-    def gradient(self,p,*args):
+    def unbinned_gradient(self,p,*args):
         args[0].set_parameters(p); t = self.template
         return -(t.gradient(self.phases)/t(self.phases)).sum(axis=1)
+
+    def binned_gradient(self,p,*args):
+        args[0].set_parameters(p); t = self.template
+        return -(self.counts*t.gradient(self.counts_centers)/t(self.counts_centers)).sum(axis=1)
 
     def chi(self,p,*args):
         x,y,yerr = self.chistuff
         if not self.template.shift_mode and np.any(p < 0):
             return 2e100*np.ones_like(x)/len(x)
         args[0].set_parameters(p)
-        chi = (self.template(x,ignore_cache=True) - y)/yerr
+        chi = (self.template(x) - y)/yerr
         if self.template.last_norm > 1:
             return 2e100*np.ones_like(x)/len(x)
         else: return chi
@@ -303,26 +338,62 @@ class UnweightedLCFitter(object):
     def quick_fit(self):
         f = leastsq(self.chi,self.template.get_parameters(),args=(self.template))
          
-    def fit(self,quick_fit_first=False, estimate_errors=True, unbinned=True):
+    def fit(self,quick_fit_first=False, estimate_errors=True, unbinned=True, use_gradient=True):
       # an initial chi squared fit to find better seed values
         if quick_fit_first: self.quick_fit()
 
-        self.loglikelihood = self.unbinned_loglikelihood if unbinned else self.binned_loglikelihood
-        f = fmin(self.loglikelihood,self.template.get_parameters(),args=(self.template,),disp=0,ftol=1e-6,full_output=True)
-        self.fitval = f[0]
-        self.ll  = -f[1]
+        if unbinned:
+            self.loglikelihood = self.unbinned_loglikelihood
+            self.gradient = self.unbinned_gradient
+        else:
+            self.loglikelihood = self.binned_loglikelihood
+            self.gradient = self.binned_gradient
+        if use_gradient:
+            f = self.fit_tnc()
+            #f = self.fit_bfgs() # this step calculates hessian/covariance
+        else:
+            f = self.fit_fmin()
         if estimate_errors:
-            self.__errors__()
+            self._errors()
             self.template.set_errors(np.diag(self.cov_matrix)**0.5)
             return self.fitval,np.diag(self.cov_matrix)**0.5
-        else: return self.fitval
+        return self.fitval
+
+    def fit_fmin(self,ftol=1e-5):
+        fit = fmin(self.loglikelihood,self.template.get_parameters(),args=(self.template,),disp=0,ftol=ftol,full_output=True)
+        self.fitval = fit[0]
+        self.ll  = -fit[1]
+        return fit
 
     def fit_cg(self):
         from scipy.optimize import fmin_cg
         fit = fmin_cg(self.loglikelihood,self.template.get_parameters(),fprime=self.gradient,args=(self.template,),full_output=1,disp=1)
         return fit
 
-    def __errors__(self):
+    def fit_bfgs(self):
+        from scipy.optimize import fmin_bfgs
+        #bounds = self.template.get_bounds()
+        fit = fmin_bfgs(self.loglikelihood,self.template.get_parameters(),fprime=self.gradient,args=(self.template,),full_output=1,disp=1,gtol=1e-5,norm=2)
+        self.template.set_errors(np.diag(fit[3])**0.5)
+        self.fitval = fit[0]
+        self.ll  = -fit[1]
+        self.cov_matrix = fit[3]
+        return fit
+
+    def fit_tnc(self,ftol=1e-5):
+        from scipy.optimize import fmin_tnc
+        bounds = self.template.get_bounds()
+        fit = fmin_tnc(self.loglikelihood,self.template.get_parameters(),fprime=self.gradient,args=(self.template,),ftol=ftol,pgtol=1e-5,bounds=bounds,maxfun=2000)
+        self.fitval = fit[0]
+        self.ll = -self.loglikelihood(self.template.get_parameters(),self.template)
+        return fit
+
+    def fit_l_bfgs_b(self):
+        from scipy.optimize import fmin_l_bfgs_b
+        fit = fmin_l_bfgs_b(self.loglikelihood,self.template.get_parameters(),fprime=self.gradient,args=(self.template,),bounds=self.template.get_bounds(),factr=1e-5)
+        return fit
+
+    def _errors(self):
         from numpy.linalg import inv
         h1 = hessian(self.template,self.loglikelihood)
         try: 
@@ -357,12 +428,19 @@ class UnweightedLCFitter(object):
         if weights is not None:
             bg_level = 1-(weights**2).sum()/weights.sum()
             axes.axhline(bg_level,color='blue')
-            axes.plot(dom,self.template(dom)*(1-bg_level)+bg_level,color='blue')
+            cod = self.template(dom)*(1-bg_level)+bg_level
+            axes.plot(dom,cod,color='blue')
             x,w1,errors = weighted_light_curve(nbins,self.phases,weights,normed=True)
             x = (x[:-1]+x[1:])/2
-            axes.errorbar(x,w1,yerr=errors,capsize=0,marker=None,ls=' ')
+            axes.errorbar(x,w1,yerr=errors,capsize=0,marker='',ls=' ',color='red')
         else:
-            axes.plot(dom,self.template(dom),color='blue',lw=1)
+            cod = self.template(dom)
+            axes.plot(dom,cod,color='blue',lw=1)
+            h = np.histogram(self.phases,bins=np.linspace(0,1,nbins+1))
+            x = (h[1][:-1]+h[1][1:])/2
+            n = float(h[0].sum())/nbins
+            axes.errorbar(x,h[0]/n,yerr=h[0]**0.5/n,capsize=0,marker='',ls=' ',color='red')
+        pl.axis([0,1,pl.axis()[2],max(pl.axis()[3],cod.max()*1.05)])
         axes.set_ylabel('Normalized Profile')
         axes.set_xlabel('Phase')
         axes.grid(True)
@@ -391,8 +469,6 @@ class UnweightedLCFitter(object):
         self.__dict__ = state
         self.loglikelihood = self.unbinned_loglikelihood
 
-#=======================================================================#
-
 class WeightedLCFitter(UnweightedLCFitter):
 
     def _hist_setup(self):
@@ -417,7 +493,6 @@ class WeightedLCFitter(UnweightedLCFitter):
         self.weights = self.weights[a]
         self.counts_centers = []
         self.slices = []
-        self.phase_terms = np.empty_like(self.weights)
         indices = np.arange(len(self.weights))
         for i in xrange(nbins):
             mask = (self.phases >= bins[i]) & (self.phases < bins[i+1])
@@ -435,7 +510,7 @@ class WeightedLCFitter(UnweightedLCFitter):
         if not self.template.shift_mode and np.any(p < 0):
             return 2e100*np.ones_like(x)/len(x)
         args[0].set_parameters(p)
-        chi = (bg + (1-bg)*self.template(x,ignore_cache=True) - y)/yerr
+        chi = (bg + (1-bg)*self.template(x) - y)/yerr
         #if self.template.last_norm > 1:
         #    return 2e100*np.ones_like(x)/len(x)
         #else: return chi
@@ -453,59 +528,34 @@ class WeightedLCFitter(UnweightedLCFitter):
         if not self.template.shift_mode and np.any(p < 0):
          #guard against negative parameters
             return 2e20
-        args[0].set_parameters(p)
+        args[0].set_parameters(p);
         template_terms = self.template(self.counts_centers)-1
+        phase_template_terms = np.empty_like(self.weights)
         for tt,sl in zip(template_terms,self.slices):
-            self.phase_terms[sl] = tt
-        return -np.log(1+self.weights*self.phase_terms).sum()
+            phase_template_terms[sl] = tt
+        return -np.log(1+self.weights*phase_template_terms).sum()
 
-#=======================================================================#
+    def unbinned_gradient(self,p,*args):
+        args[0].set_parameters(p); t = self.template
+        numer = self.weights*t.gradient(self.phases)
+        denom = 1+self.weights*(t(self.phases)-1)
+        return -(numer/denom).sum(axis=1)
 
-class WeightedLCFitter_Approx(WeightedLCFitter):
-    """Perform the maximum likelihood fit template to the unbinned phases."""
-
-    def __init__(self,template,phases,weights,times=1,stride=1000,min_chi=15):
-        """
-        template -- an instance of LCTemplate or a file with a pref-fit Gaussian template
-        phases   -- a list or array of phase values
-        """
-        super(WeightedLCFitter_Approx,self).__init__(template,phases,weights,times=times)
-        self.stride = stride
-        self.min_chi = min_chi
-        #self.logl_accuracy = logl_accuracy
-        #self.bes = np.linspace(0,1,nbins+1)
-        #self.bcs = (self.bes[:-1]+self.bes[1:])/2
-        a = np.argsort(weights)
-        self.weights = weights[a]
-        self.phases = phases[a]
-        self.prep_approx()
-
-    def fit(self,*args,**kwargs):
-        #self.prep_approx()
-        super(WeightedLCFitter_Approx,self).fit(*args,**kwargs)
-
-    def prep_approx(self):
-        min_n = self.weights.sum()
-        for i in xrange(int(float(len(self.phases))/self.stride)+1):
-            stat = z2mw(self.phases[:(i+1)*self.stride],self.weights[:(i+1)*self.stride])
-            if stat[0] > self.min_chi:
-                break
-        nphotons = max(min_n,len(self.phases)-(i+1)*self.stride)
-        self.sig_weights = self.weights[-nphotons+1:]
-        self.sig_phases  = self.phases[-nphotons+1:]
-        print 'using %d photons'%(nphotons)
-
-    def unbinned_loglikelihood(self,p,*args):
-        if not self.template.shift_mode and np.any(p < 0):
-         #guard against negative parameters
-            return 2e20
-        #self.approx_ok()
-        args[0].set_parameters(p)
-        sig_logl = np.log(1+self.sig_weights*(self.template(self.sig_phases)-1)).sum()
-        return -sig_logl
- 
-#=======================================================================#
-
+    def binned_gradient(self,p,*args):
+        args[0].set_parameters(p); t = self.template
+        nump = len(p)
+        template_terms = t(self.counts_centers)-1
+        gradient_terms = t.gradient(self.counts_centers)
+        phase_template_terms = np.empty_like(self.weights)
+        phase_gradient_terms = np.empty([nump,len(self.weights)])
+        # distribute the central values to the unbinned phases/weights
+        for tt,gt,sl in zip(template_terms,gradient_terms.transpose(),self.slices):
+            phase_template_terms[sl] = tt
+            for j in xrange(nump):
+                phase_gradient_terms[j,sl] = gt[j]
+        numer = self.weights*phase_gradient_terms
+        denom = 1+self.weights*(phase_template_terms)
+        return -(numer/denom).sum(axis=1)
 
 def hessian(m,mf,*args,**kwargs):
     """Calculate the Hessian; mf is the minimizing function, m is the model,args additional arguments for mf."""
@@ -558,13 +608,22 @@ def hessian(m,mf,*args,**kwargs):
     mf(p,m,*args) #call likelihood with original values; this resets model and any other values that might be used later
     return hessian
 
-#=======================================================================#
-
-def get_gauss2(pulse_frac=1,x1=0.1,x2=0.55,ratio=1.5,width1=0.01,width2=0.02):
+def get_gauss2(pulse_frac=1,x1=0.1,x2=0.55,ratio=1.5,width1=0.01,width2=0.02,
+               lorentzian=False):
     """Return a two-gaussian template.  Convenience function."""
     n1,n2 = np.asarray([ratio,1.])*(pulse_frac/(1.+ratio))
-    return LCTemplate(primitives=[LCGaussian(p=[n1,width1,x1]),
-                                  LCGaussian(p=[n2,width2,x2])])
+    prim = LCLorentzian if lorentzian else LCGaussian
+    return LCTemplate(primitives=[prim(p=[n1,width1,x1]),
+                                  prim(p=[n2,width2,x2])])
+
+def get_gauss22(pulse_frac=1,x1=0.1,x2=0.55,ratio=1.5,width1=0.01,width2=0.02,
+               lorentzian=False,skew=True):
+    """Return a two-gaussian template.  Convenience function."""
+    n1,n2 = np.asarray([ratio,1.])*(pulse_frac/(1.+ratio))
+    prim = LCLorentzian2 if lorentzian else LCGaussian2
+    skew += 1
+    return LCTemplate(primitives=[prim(p=[n1,width1,width1*(1+skew),x1]),
+                                  prim(p=[n2,width2*(1+skew),width2,x2])])
 
 def get_gauss1(pulse_frac=1,x1=0.5,width1=0.01):
     """Return a one-gaussian template.  Convenience function."""
