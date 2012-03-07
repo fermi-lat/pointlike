@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/xml_parsers.py,v 1.58 2012/02/13 23:49:29 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.59 2012/02/29 21:25:28 wallacee Exp $
 
    author: Matthew Kerr
 """
@@ -187,29 +187,17 @@ class XML_to_Model(object):
 
 class XML_to_SpatialModel(object):
 
-    def __init__(self):
+    extended_sources = [Gaussian, PseudoGaussian, Disk,
+                             PseudoDisk, Ring, NFW, PingNFW,
+                             PseudoPingNFW,
+                             EllipticalGaussian, EllipticalDisk, 
+                             EllipticalRing, SpatialMap,
+                             RadialProfile]
 
-        # exclude position from spatialdict
-        self.spatialdict = dict({
-            'Gaussian'           : ['Sigma'],
-            'PseudoGaussian'     : [],
-            'Disk'               : ['Sigma'],
-            'PseudoDisk'         : [],
-            'Ring'               : ['Sigma','Fraction'],
-            'NFW'                : ['Sigma'],
-            'PseudoNFW'          : [],
-            'EllipticalGaussian' : ['MajorAxis','MinorAxis','PositionAngle'],
-            'EllipticalDisk'     : ['MajorAxis','MinorAxis','PositionAngle'],
-            'EllipticalRing'     : ['MajorAxis','MinorAxis','PositionAngle','Fraction'],
-            'SpatialMap'         : [],
-            })
+    spatialdict = {i.__name__:i for i in extended_sources}
 
-        self.spatialdict['PseudoEllipticalGaussian'] = self.spatialdict['PseudoGaussian']
-        self.spatialdict['RadiallySymmetricEllipticalGaussian'] = self.spatialdict['Gaussian']
-        self.spatialdict['PseudoEllipticalDisk'] = self.spatialdict['PseudoDisk']
-        self.spatialdict['RadiallySymmetricEllipticalDisk'] = self.spatialdict['Disk']
-
-    def get_spatial_model(self,xml_dict,diffdir=None):
+    @staticmethod
+    def get_spatial_model(xml_dict,diffdir=None):
         """ Kind of like getting a spectral model, but
             instead returns a SpatialModel object. 
             
@@ -221,68 +209,42 @@ class XML_to_SpatialModel(object):
         spatialname = xml_dict['type']
         params      = xml_dict.children
 
-        if spatialname == 'SpatialMap':
+
+        d = dict()
+        for p in params: d[p['name']] = p
+
+        input_kwargs = dict()
+
+        if spatialname == 'SpatialMap' or spatialname == 'RadialProfile':
             # For spatial maps, ignore any of the parameters.
             if diffdir:
                 file = join(diffdir,os.path.basename(str(xml_dict['file'])))
             else:
                 file = str(xml_dict['file'])
-            return SpatialMap(file=file)
+            input_kwargs['file'] = file
 
-        d = dict()
-        for p in params: d[p['name']] = p
+        input_kwargs['coordsystem']=SkyDir.EQUATORIAL
+    
+        if not spatialname in XML_to_SpatialModel.spatialdict:                                
+            raise Excception("Unrecognized spatial model %s" % spatialname)
 
-        if d.has_key('RA') and d.has_key('DEC') and not (d.has_key('L') or d.has_key('B')):
-            coordsystem="SkyDir.EQUATORIAL"
-            self.spatialdict[spatialname]=['RA','DEC']+self.spatialdict[spatialname]
-        elif d.has_key('L') and d.has_key('B') and not (d.has_key('RA') or d.has_key('DEC')):
-            coordsystem="SkyDir.GALACTIC"
-            self.spatialdict[spatialname]=['L','B']+self.spatialdict[spatialname]
-        else: raise Exception("Unable to parse spatial model %s. Either RA and Dec or L and B must be parameters." % spatialname)
+        spatial_model = XML_to_SpatialModel.spatialdict[spatialname](**input_kwargs)
 
-        spatial_model = eval('%s(coordsystem=%s)' % (spatialname,coordsystem))
+        if spatialname == 'SpatialMap':
+            return spatial_model
 
-        for ip,p in enumerate(self.spatialdict[spatialname]):
-            pdict = d[p]
+        for p in spatial_model.param_names:
+            pdict =d[p]
 
             scale = float(pdict['scale'])
-            value = float(pdict['value'])*scale
+            value = float(pdict['value'])
 
-            if spatial_model.log[ip]:
-                if value<=0: 
-                    raise Exception("Unable to parse %s's parameter %s. Value must be greater than 0" % (spatialname,pdict['name']))
-                spatial_model.p[ip] = N.log10(value) 
-                if pdict.has_key('min'):
-                    minimum=float(pdict['min'])*scale
-                    if minimum<=0: 
-                        raise Exception("Unable to parse %s's parameter %s. Minimum fit range must be greater than 0" % (spatialname,pdict['name']))
-                    spatial_model.limits[ip,0] = N.log10(minimum) 
-                if pdict.has_key('max'):
-                    maximum=float(pdict['max'])*scale
-                    if maximum<=0: 
-                        raise Exception("Unable to parse %s's parameter %s. Maximum fit range must be greater than 0" % (spatialname,pdict['name']))
-                    spatial_model.limits[ip,1] = N.log10(maximum) 
 
-            else:
-                spatial_model.p[ip] = value
-                if pdict.has_key('min'):
-                    spatial_model.limits[ip,0] = float(pdict['min'])*scale
-                if pdict.has_key('max'):
-                    spatial_model.limits[ip,1] = float(pdict['max'])*scale
+            spatial_model[p] = scale*value
 
-            if spatial_model.limits[ip][0] >= spatial_model.limits[ip][1]:
-                raise Exception("Unable to parse %s's parameter %s. Maximum fit range must be greater minimum fit range." % (spatialname,pdict['name']))
+            free = pdict['free'] == '1'
+            spatial_model.set_free(p, free)
 
-            spatial_model.free[ip] = (pdict['free'] == '1')
-
-            if 'error' in pdict.keys():
-                err = float(pdict['error'])*scale
-                if spatial_model.log[ip]: 
-                    spatial_model.cov_matrix[ip,ip] = (err/value*JAC)**2
-                else:
-                    spatial_model.cov_matrix[ip,ip] = err**2
-
-        spatial_model.cache()
         return spatial_model
 
 
@@ -535,15 +497,18 @@ def get_skydir(elem):
         d[p['name']] = float(p['value'])
     return SkyDir(d['RA'],d['DEC'])
 
-def makePSSpatialModel(ra,dec,tablevel=1):
+def make_position_params(skydir, ra_free=False, dec_free=False):
+    ra = skydir.ra()
+    dec = skydir.dec()
+    return ['\t<parameter name="RA"  value="%s" free="%s" max="360.0" min="-360.0" scale="1.0" />' %(ra, int(ra_free)),
+            '\t<parameter name="DEC" value="%s" free="%s" max="90" min="-90" scale="1.0" />' %(dec, int(ra_free))]
+
+def makePSSpatialModel(skydir, tablevel=1):
     """Encode the spatial model in XML for a point source at ra,dec."""
 
-    strings = [
-        '<spatialModel type="SkyDirFunction">',
-        '\t<parameter name="RA"  value="%s" free="0" max="360.0" min="-360.0" scale="1.0" />' %(ra),
-        '\t<parameter name="DEC" value="%s" free="0" max="90" min="-90" scale="1.0" />' %(dec),
-        '</spatialModel>'
-        ]
+    strings = [ '<spatialModel type="SkyDirFunction">', ] + \
+            make_position_params(skydir) + \
+            [ '</spatialModel>' ]
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
 
 def makeDSConstantSpatialModel(tablevel=1):
@@ -566,34 +531,80 @@ def makeDSMapcubeSpatialModel(filename='ERROR',tablevel=1):
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
 
 def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
-    """Encode a spatial model."""
-    if es.name != 'SpatialMap':
-        strings = [
-            '<spatialModel type="%s">' % es.pretty_name,
-        ]
-        xtsm = XML_to_SpatialModel()
-        param_names = xtsm.spatialdict[es.pretty_name]
-        if es.coordsystem == SkyDir.GALACTIC:
-            param_names=['L','B']+param_names
-        if es.coordsystem == SkyDir.EQUATORIAL:
-            param_names=['RA','DEC']+param_names
+    """ Create a spatial model.
 
-        params,param_errors=es.statistical(absolute=True)
-        err_strings = ['error="%s" '%(e) if (e>0) else '' for e in param_errors]
-        min_params,max_params=N.transpose(es.get_limits(absolute=True))
-        min_params[0],max_params[0]=[-360,360]
-        min_params[1],max_params[1]=[-90,90]
-        for param,err,free,min,max,name in zip(params,err_strings,
-                                           es.free,min_params,max_params,
-                                           param_names):
-            strings.append('\t<parameter name="%s" value="%g" %sfree="%d" max="%g" min="%g" scale="1.0" />' % \
-                           (name,param,err,free,max,min))
-    else:
+        Test saving out extended source:
+
+            >>> def make(ds):
+            ...     # remove newlines and convert tabs to spaces.
+            ...     m=makeExtendedSourceSpatialModel(ds,expand_env_vars=False, tablevel=0)
+            ...     return m.replace('\\t',' '*4).strip()
+
+        Save Disk source:
+    
+            >>> disk = Disk(p=0.5, ra=244, dec=57)
+                    
+            >>> print make(disk)
+            <spatialModel type="Disk">
+                <parameter name="RA"  value="244.0" free="1" max="360.0" min="-360.0" scale="1.0" />
+                <parameter name="DEC" value="57.0" free="1" max="90" min="-90" scale="1.0" />
+                <parameter name="Sigma" value="0.5" 0.0free="1" max="3" min="1e-10" scale="1.0" />
+            </spatialModel>
+
+        Save SpatialModel source:
+
+            >>> from tempfile import NamedTemporaryFile
+            >>> temp = NamedTemporaryFile(delete=True)
+            >>> disk.save_template(temp.name)
+            >>> map=SpatialMap(file=temp.name)
+            >>> print make(map).replace(temp.name, '<FILENAME>')
+            <spatialModel type="SpatialMap" file="<FILENAME>" >
+                <parameter name="Prefactor" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />
+            </spatialModel>
+
+        Save RadialProfile source:
+
+            >>> temp = NamedTemporaryFile(delete=True)
+            >>> disk.save_profile(temp.name)
+            >>> profile=RadialProfile(file=temp.name)
+            >>> print make(profile).replace(temp.name, '<FILENAME>')
+            <spatialModel type="RadialProfile" file="<FILENAME>" >
+                <parameter name="Normalization" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />
+                <parameter name="RA"  value="0.0" free="1" max="360.0" min="-360.0" scale="1.0" />
+                <parameter name="DEC" value="0.0" free="1" max="90" min="-90" scale="1.0" />
+            </spatialModel>
+
+    """
+    if es.name == 'SpatialMap' or es.name == 'RadialProfile':
         file=os.path.expandvars(es.file) if expand_env_vars else es.file
         strings = [
             '<spatialModel type="%s" file="%s" >' % (es.pretty_name,file),
-            '\t<parameter name="Prefactor" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />'
         ]
+
+    else:
+        strings = [ '<spatialModel type="%s">' % es.pretty_name, ]
+
+    if es.name == 'SpatialMap':
+        strings += [ '\t<parameter name="Prefactor" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />' ]
+
+    if es.name == 'RadialProfile':
+        strings += [ '\t<parameter name="Normalization" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />' ]
+
+    if es.name != 'SpatialMap':
+        # All spatialm models but SpatialMap have RA & DEC
+
+        if es.coordsystem == SkyDir.EQUATORIAL:
+            strings += make_position_params(es.center, ra_free=es.get_free('ra'), dec_free=es.get_free('dec'))
+        else:
+            strings += make_position_params(es.center)
+
+    for name in es.param_names[2:]:
+        param = es[name]
+        err = es.error(name)
+        free = es.get_free(name)
+        min,max=es.get_limits(absolute=True)[es.mapper(name)]
+        strings.append('\t<parameter name="%s" value="%g" %sfree="%d" max="%g" min="%g" scale="1.0" />' % \
+                       (name,param,err,free,max,min))
 
     strings.append('</spatialModel>')
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
@@ -609,6 +620,39 @@ def parse_sourcelib(xml):
     return handler
 
 def parse_point_sources(handler,roi_dir,max_roi):
+    """ Some simple testing. 
+
+        In pointlike, we can load in the example point-like source.
+
+        (XML from http://www.slac.stanford.edu/exp/glast/wb/prod/pages/sciTools_likelihoodTutorial/xmlModelDefinitions.htm)
+
+            >>> from StringIO import StringIO
+            >>> def l(xml): 
+            ...     ps = parse_point_sources(parse_sourcelib(StringIO(xml)),roi_dir=None,max_roi=None)
+            ...     assert len(ps) == 1
+            ...     return ps[0]
+
+            >>> ps=l('''<source name="PowerLaw_source" type="PointSource">  
+            ...           <spectrum type="PowerLaw">
+            ...             <parameter free="1" max="1000.0" min="0.001" name="Prefactor" scale="1e-09" value="1"/>
+            ...             <parameter free="1" max="-1.0" min="-5." name="Index" scale="1.0" value="-2.1"/>
+            ...             <parameter free="0" max="2000.0" min="30.0" name="Scale" scale="1.0" value="100.0"/>
+            ...           </spectrum>      
+            ...           <spatialModel type="SkyDirFunction">
+            ...             <parameter free="0" max="360." min="-360." name="RA" scale="1.0" value="83.45"/>
+            ...             <parameter free="0" max="90." min="-90." name="DEC" scale="1.0" value="21.72"/>
+            ...           </spatialModel>    
+            ...         </source>''')
+            >>> print ps.name
+            PowerLaw_source
+            >>> print ps.skydir.ra(), ps.skydir.dec()
+            83.45 21.72
+            >>> print ps.model.name
+            PowerLaw
+            >>> print ps.model['Norm'], ps.model['Index']
+            1e-09 2.1
+
+    """
     point_sources = deque()
     xtm = XML_to_Model()
     for src in handler.sources:
@@ -621,6 +665,170 @@ def parse_point_sources(handler,roi_dir,max_roi):
     return list(point_sources)
 
 def parse_diffuse_sources(handler,diffdir=None):
+    """ 
+        Some simple testing:
+
+        First, we define a simpler helper function
+
+            >>> from StringIO import StringIO
+            >>> def l(xml): 
+            ...     ds = parse_diffuse_sources(parse_sourcelib(StringIO(xml)))
+            ...     assert len(ds) == 1
+            ...     return ds[0]
+
+
+        Example loading in the galactic diffuse emission
+
+        (XML from http://www.slac.stanford.edu/exp/glast/wb/prod/pages/sciTools_binnedLikelihoodTutorial/binnedLikelihood_v01archived.htm)
+    
+            >>> ds=l('''
+            ...   <source name="Galpro Diffuse" type="DiffuseSource">
+            ...     <spectrum type="ConstantValue">
+            ...       <parameter free="0" max="10.0" min="0.0" name="Value" scale="1.0" value="1.0"/>
+            ...     </spectrum>
+            ...     <spatialModel file="$GLAST_EXT/diffuseModels/v2r0p1/ring_2year_P76_v0.fits" type="MapCubeFunction">
+            ...       <parameter free="0" max="1000.0" min="0.001" name="Normalization" scale="1.0" value="1.0"/>
+            ...     </spatialModel>
+            ...   </source>''')
+            >>> print ds.smodel.name
+            Constant
+            >>> print ds.smodel['scale']
+            1.0
+            >>> type(ds.dmodel) == list and len(ds.dmodel) == 1
+            True
+            >>> dm=ds.dmodel[0]
+            >>> print type(dm)
+            <class 'skymaps.DiffuseFunction'>
+
+        Example loading an isotropic powerLaw source. This code is a klugey, and could be improved
+
+        (XML from http://www.slac.stanford.edu/exp/glast/wb/prod/pages/sciTools_binnedLikelihoodTutorial/binnedLikelihood_v01archived.htm)
+
+            >>> ds=l('''
+            ...   <source name="Extragalactic Diffuse" type="DiffuseSource">
+            ...     <spectrum type="PowerLaw">
+            ...       <parameter free="1" max="100.0" min="1e-05" name="Prefactor" scale="1e-07" value="1.6"/>
+            ...       <parameter free="0" max="-1.0" min="-3.5" name="Index" scale="1.0" value="-2.1"/>
+            ...       <parameter free="0" max="200.0" min="50.0" name="Scale" scale="1.0" value="100.0"/>
+            ...     </spectrum>
+            ...     <spatialModel type="ConstantValue">
+            ...       <parameter free="0" max="10.0" min="0.0" name="Value" scale="1.0" value="1.0"/>
+            ...     </spatialModel>
+            ...   </source>''')
+            >>> print ds.smodel.name
+            PowerLaw
+            >>> print ds.smodel['norm']
+            1.0
+            >>> print ds.smodel['index']
+            1.0
+            >>> type(ds.dmodel) == list and len(ds.dmodel) == 1
+            True
+            >>> dm=ds.dmodel[0]
+            >>> print type(dm)
+            <class 'skymaps.IsotropicPowerLaw'>
+            >>> print dm.index()
+            2.1
+            >>> np.allclose(PowerLaw(norm=1.6e-7, index=2.1, e0=1e2).i_flux(1e2, np.inf), dm.flux())
+            True
+
+        Example loading an isotropic source from a file
+    
+        (xml from http://fermi.gsfc.nasa.gov/ssc/data/analysis/scitools/likelihood_tutorial.html)
+
+            >>> ds=l('''
+            ...   <source name="iso_p7v6source" type="DiffuseSource">
+            ...     <spectrum file="$GLAST_EXT/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt" type="FileFunction">
+            ...       <parameter free="1" max="1000" min="1e-05" name="Normalization" scale="1" value="1" />
+            ...     </spectrum>
+            ...     <spatialModel type="ConstantValue">
+            ...       <parameter free="0" max="10.0" min="0.0" name="Value" scale="1.0" value="1.0"/>
+            ...     </spatialModel>
+            ...   </source>''')
+            >>> print ds.smodel.name
+            Constant
+            >>> print ds.smodel['scale']
+            1.0
+            >>> type(ds.dmodel) == list and len(ds.dmodel) == 1
+            True
+            >>> dm=ds.dmodel[0]
+            >>> print type(dm)
+            <class 'skymaps.IsotropicSpectrum'>
+
+            
+        Now, we are going to test loading extended sources:
+
+        First, create the profile from a simple Gaussian
+
+            >>> from tempfile import NamedTemporaryFile
+            >>> gaussian = Gaussian(center=SkyDir(82.73, 13.38))
+
+        First, create & load a new Disk extended soure
+
+            >>> ds=l('''
+            ...   <source name="test_map" type="DiffuseSource">
+            ...      <spectrum type="ConstantValue">
+            ...        <parameter free="1" max="1000.0" min="0.001" name="Value" scale="1" value="1.0"/>
+            ...      </spectrum>
+            ...      <spatialModel type="Gaussian">
+            ...        <parameter free="0" name="RA" scale="1.0" value="%s"/>
+            ...        <parameter free="1" name="DEC" scale="1.0" value="%s"/>
+            ...        <parameter free="1" name="Sigma" scale="1.0" value="%s"/>
+            ...      </spatialModel>
+            ...    </source>''' % (gaussian['ra'], gaussian['dec'],gaussian['sigma']))
+            >>> new_gauss =  ds.spatial_model
+            >>> np.allclose(new_gauss.p, gaussian.p)
+            True
+            >>> print new_gauss.free
+            [False  True  True]
+
+        Now, create & load an xml file for a SpatialMap
+
+            >>> temp = NamedTemporaryFile(delete=True)
+            >>> gaussian.save_template(temp.name)
+
+            >>> ds=l('''
+            ...   <source name="test_map" type="DiffuseSource">
+            ...      <spectrum type="ConstantValue">
+            ...        <parameter free="1" name="Value" scale="1" value="1.0"/>
+            ...      </spectrum>
+            ...      <spatialModel type="SpatialMap" file="%s">
+            ...        <parameter free="0" name="Prefactor" scale="1.0" value="1"/>
+            ...      </spatialModel>
+            ...    </source>''' % temp.name)
+            >>> print ds.model['scale']
+            1.0
+            >>> map=ds.spatial_model
+            >>> print map.name
+            SpatialMap
+            >>> np.allclose([map.center.ra(), map.center.dec()], [gaussian.center.ra(), gaussian.center.dec()], atol=1e-2, rtol=1e-2)
+            True
+            >>> np.allclose(map(map.center),gaussian(map.center), atol=1e-2, rtol=1e-2)
+            True
+
+        Now, create & load a an xml file for a RadialProfile
+
+            >>> temp = NamedTemporaryFile(delete=True)
+            >>> gaussian.save_profile(temp.name, numpoints=1000)
+
+            >>> ds=l('''
+            ...   <source name="test_profile" type="DiffuseSource">
+            ...      <spectrum type="ConstantValue">
+            ...        <parameter free="1" name="Value" scale="1" value="1.0"/>
+            ...      </spectrum>
+            ...      <spatialModel type="RadialProfile" file="%s">
+            ...        <parameter free="0" name="Normalization" scale="1.0" value="1"/>
+            ...        <parameter free="0" name="RA" scale="1.0" value="%s"/>
+            ...        <parameter free="0" name="DEC" scale="1.0" value="%s"/>
+            ...      </spatialModel>
+            ...    </source>''' % (temp.name, gaussian.center.ra(), gaussian.center.dec()))
+            >>> profile=ds.spatial_model
+            >>> print profile.name
+            RadialProfile
+            >>> np.allclose([profile.center.ra(), profile.center.dec()], [gaussian.center.ra(), gaussian.center.dec()])
+            True
+            >>> np.allclose(profile(profile.center),gaussian(profile.center), atol=1e-5, rtol=1e-5)
+            True
+    """
     gds = get_diffuse_source
     ds = deque()
     xtm = XML_to_Model()
@@ -653,11 +861,10 @@ def parse_diffuse_sources(handler,diffdir=None):
             ds.append(gds('MapCubeFunction',fname,mo,None,name,diffdir=diffdir))
             
         else:
-            xtsm = XML_to_SpatialModel()
 
-            if spatial['type'] in xtsm.spatialdict.keys():
+            if spatial['type'] in XML_to_SpatialModel.spatialdict.keys():
 
-                spatial_model=xtsm.get_spatial_model(spatial,diffdir=diffdir)
+                spatial_model=XML_to_SpatialModel.get_spatial_model(spatial,diffdir=diffdir)
                 spectral_model=xtm.get_model(spectral,name)
                 ds.append(ExtendedSource(name=name,
                                          model=spectral_model,
@@ -667,24 +874,39 @@ def parse_diffuse_sources(handler,diffdir=None):
     return list(ds)
 
 def parse_sources(xmlfile,diffdir=None,roi_dir=None,max_roi=None):
-    """Convenience function to parse an entire file into
-       point sources and diffuse sources."""
+    """ Convenience function to parse an entire file into
+        point sources and diffuse sources. """
     handler = parse_sourcelib(xmlfile)
     ps = parse_point_sources(handler,roi_dir,max_roi)
     ds = parse_diffuse_sources(handler,diffdir=diffdir)
     return ps,ds
 
 def unparse_point_sources(point_sources, strict=False, properties=lambda x:''):
-    """Convert a list (or other iterable) of PointSource objects into XML.
+    """ Convert a list (or other iterable) of PointSource objects into XML.
         strict : bool
             set True to generate exception, error message identifying offending source, reason
         properties : a function
             the function, if specified, returns a string for the source element with properties, like TS
+
+            >>> ps = PointSource(name='test', model=Constant(), skydir=SkyDir(-30,30))
+            >>> ret=unparse_point_sources([ps])
+            >>> print len(ret)
+            1
+            >>> print ret[0].strip().replace('\\t', ' '*4)
+            <source name="test" type="PointSource"  >
+                <spectrum   type="ConstantValue">
+                    <parameter name="Value" value="1.0" free="1" max="10" min="0.001" scale="1" />
+                </spectrum>
+                <spatialModel type="SkyDirFunction">
+                    <parameter name="RA"  value="330.0" free="0" max="360.0" min="-360.0" scale="1.0" />
+                    <parameter name="DEC" value="30.0" free="0" max="90" min="-90" scale="1.0" />
+                </spatialModel>
+            </source>
     """
     xml_blurbs = Stack()
     m2x = Model_to_XML(strict=strict)
     for ps in point_sources:
-        skyxml = makePSSpatialModel(ps.skydir.ra(),ps.skydir.dec())
+        skyxml = makePSSpatialModel(ps.skydir)
         try:
             m2x.process_model(ps.model)
         except Exception, emsg:
@@ -697,7 +919,38 @@ def unparse_point_sources(point_sources, strict=False, properties=lambda x:''):
 
 
 def process_diffuse_source(ds,convert_extended=False,expand_env_vars=True,filename=None,ctype=None):
-    """Convert an instance of DiffuseSource into an XML blurb."""
+    """ Convert an instance of DiffuseSource into an XML blurb.
+        
+        Some simple testing of saving out diffuse sources:
+
+            >>> from uw.like.pointspec_helpers import get_default_diffuse
+            >>> from os.path import expandvars
+            >>> diffdir=expandvars('$GLAST_EXT/diffuseModels/v2r0p1/')
+            >>> ds = get_default_diffuse(diffdir=diffdir,
+            ...     gfile="ring_2year_P76_v0.fits",
+            ...     ifile="isotrop_2year_P76_source_v1.txt")
+            >>> p = lambda d: process_diffuse_source(d).replace(diffdir,'').replace('\\t',' '*4).strip()
+            >>> print p(ds[0])
+            <source name="Galactic Diffuse (ring_2year_P76_v0.fits)" type="DiffuseSource">
+                <spectrum   type="PowerLaw">
+                    <parameter name="Prefactor" value="1.0" free="1" max="10" min="0.1" scale="1" />
+                    <parameter name="Index" value="0.0" free="1" max="1" min="-1" scale="-1" />
+                    <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
+                </spectrum>
+                <spatialModel file="ring_2year_P76_v0.fits" type="MapCubeFunction">
+                    <parameter name="Normalization" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />
+                </spatialModel>
+            </source>
+            >>> print p(ds[1])
+            <source name="Isotropic Diffuse (isotrop_2year_P76_source_v1.txt)" type="DiffuseSource">
+                <spectrum file="isotrop_2year_P76_source_v1.txt" ctype="-1" type="FileFunction">
+                    <parameter name="Normalization" value="1.0" free="1" max="10" min="0.1" scale="1" />
+                </spectrum>
+                <spatialModel type="ConstantValue">
+                    <parameter  name="Value" value="1.0" free="0" max="10.0" min="0.0" scale="1.0" />
+                </spatialModel>
+            </source>
+    """
     m2x = Model_to_XML()
     dm = ds.dmodel
     if hasattr(dm,'__len__') and len(dm)==1: dm = dm[0]
@@ -815,3 +1068,8 @@ def writeROI(roi,filename,strict=False,convert_extended=False,expand_env_vars=Fa
                                                   expand_env_vars=expand_env_vars,
                                                   filename=filename))
     writeXML(source_xml,filename)
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
