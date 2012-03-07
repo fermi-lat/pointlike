@@ -10,7 +10,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.23 2012/03/07 19:34:24 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.24 2012/03/07 22:02:00 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -60,10 +60,9 @@ def weighted_light_curve(nbins,phases,weights,normed=False):
         weighted light curve."""
     bins = np.linspace(0,1,nbins+1)
     counts = np.histogram(phases,bins=bins,normed=False)[0]
-    w1 = (np.histogram(phases,bins=bins,weights=weights,normed=False)[0]).astype(float)/counts
-    w2 = (np.histogram(phases,bins=bins,weights=weights**2,normed=False)[0]).astype(float)/counts
-    errors = np.where(counts > 1, (counts*(w2-w1**2))**0.5, counts)
     w1 = (np.histogram(phases,bins=bins,weights=weights,normed=False)[0]).astype(float)
+    w2 = (np.histogram(phases,bins=bins,weights=weights**2,normed=False)[0]).astype(float)
+    errors = np.where(counts > 1, w2**0.5, counts)
     norm = w1.sum()/nbins if normed else 1.
     return bins,w1/norm,errors/norm
 
