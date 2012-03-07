@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Mar  7 15:14:44 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Correct the error bars on weighted light curve / chi^2.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Mar  7 14:02:45 PST 2012
 pointlike/python/uw/pulsar
 
