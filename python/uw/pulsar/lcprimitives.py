@@ -222,10 +222,10 @@ class LCWrappedFunction(LCPrimitive):
                 #print 'Converged after %d cycles.'%i
                 break
         if i == MAXWRAPS:
-            print 'WARNING! Wrapped function (profile) did not converge to eps=%g'%(eps)
+            print 'WARNING! Wrapped function (profile) did not converge to eps=%g'%(WRAPEPS)
         return results
 
-    def gradient(self,phases,eps=1e-6):
+    def gradient(self,phases):
         """ Return the gradient evaluated at a vector of phases.
 
             output : a 3xlen(phases) ndarray, the 3-dim gradient at each phase
@@ -239,10 +239,10 @@ class LCWrappedFunction(LCPrimitive):
                 #print 'Converged after %d cycles.'%i
                 break
         if i == MAXWRAPS:
-            print 'WARNING! Wrapped function (gradient) did not converge to eps=%g'%(eps)
+            print 'WARNING! Wrapped function (gradient) did not converge to eps=%g'%(WRAPEPS)
         return results
 
-    def integrate(self,x1=0,x2=1,eps=1e-6):
+    def integrate(self,x1=0,x2=1):
         results = self.base_int(x1,x2,index=0)
         for i in xrange(1,MAXWRAPS+1):
             t = self.base_int(x1,x2,index=i)
