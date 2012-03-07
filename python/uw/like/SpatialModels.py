@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.91 2012/03/06 17:08:51 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.92 2012/03/06 18:06:25 lande Exp $
 
    author: Joshua Lande
 
@@ -538,7 +538,39 @@ class SpatialModel(object):
 
                 https://confluence.slac.stanford.edu/x/Qw2JBQ
         
-            npix is the number of pixels in tempalate in either dimension. """
+            npix is the number of pixels in tempalate in either dimension. 
+            
+            
+            When we save an analytic shape to a fits file and then load 
+            it as a SpatialMap, we end up with a spatial model that
+            is almost identical:
+
+            First, create a uniform disk spatial model
+
+                >>> center = SkyDir()
+                >>> disk = Disk(sigma=1, center=center)
+
+            Save it to a file:
+
+                >>> from tempfile import NamedTemporaryFile
+                >>> temp = NamedTemporaryFile()
+                >>> filename = temp.name
+                >>> disk.save_template(filename, npix=1000)
+
+            Then, create the spatial map:
+
+                >>> spatial_map = SpatialMap(file = filename)
+                
+            In the center, the values are the same:
+
+                >>> np.allclose(disk(center), spatial_map(center), atol=1e-4, rtol=1e-4)
+                True
+
+            Outside the disk edge, the spatial map has intensity 0:
+
+                >>> print spatial_map(SkyDir(1.5,0))
+                0.0
+        """
         if not hasattr(self,'template_diameter'):
             raise Exception("Unable to save template because template_diameter is not defined.")
 
@@ -692,6 +724,44 @@ class RadiallySymmetricModel(SpatialModel):
         radius = np.linspace(0,self.effective_edge(),numpoints)
         pdf = self.at_r_in_deg(radius)
         return radius,pdf
+
+    def save_profile(self, filename, *args, **kwarsg):
+        """ Save out 1 1D text file with the profile.
+
+            When we save an analytic shape to a text file and then load 
+            it as a SpatialMap, we end up with a spatial model that
+            is almost identical:
+
+            First, create a uniform disk spatial model
+
+                >>> center = SkyDir()
+                >>> disk = Disk(sigma=1, center=center)
+
+            Save it to a file:
+
+                >>> from tempfile import NamedTemporaryFile
+                >>> temp = NamedTemporaryFile()
+                >>> filename = temp.name
+                >>> disk.save_profile(filename)
+
+            Then, create the spatial map:
+
+                >>> profile = RadialProfile(file = filename)
+                
+            In the center, the values are the same:
+
+                >>> np.allclose(disk(center), profile(center))
+                True
+
+            Outside the disk edge, the spatial map has intensity 0:
+
+                >>> print profile(SkyDir(1.5,0))
+                0
+
+            """
+        radius,pdf = self.approximate_profile(*args, **kwarsg)
+        open(filename,'w').write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(radius,pdf)]))
+
 
 
 class PseudoSpatialModel(SpatialModel):
@@ -1586,34 +1656,6 @@ class SpatialMap(SpatialModel):
         A Template still has two spatial parameters, which represent a rotation of 
         the template away from the fits file's center.
 
-
-        Using a spatial map is easy enough.
-
-        First, create a uniform disk spatial model
-
-            >>> center = SkyDir()
-            >>> disk = Disk(sigma=1, center=center)
-
-        Save it to a file:
-
-            >>> from tempfile import NamedTemporaryFile
-            >>> temp = NamedTemporaryFile()
-            >>> filename = temp.name
-            >>> disk.save_template(filename)
-
-        Then, create the spatial map:
-
-            >>> spatial_map = SpatialMap(file = filename)
-            
-        In the center, the values are the same:
-
-            >>> np.allclose(disk(center), spatial_map(center), atol=1e-2, rtol=1e-2)
-            True
-
-        Outside the disk edge, the spatial map has intensity 0:
-
-            >>> print spatial_map(SkyDir(1.5,0))
-            0.0
     """
 
     default_p, param_names, default_limits, log, steps = [], [], [], [], []
