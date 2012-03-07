@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.39 2012/03/06 05:36:24 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.40 2012/03/06 05:47:38 lande Exp $
 
 author: Joshua Lande
 """
@@ -27,6 +27,7 @@ from . roi_extended import ExtendedSource
 from . SpatialModels import Gaussian,EllipticalGaussian,SpatialModel,RadiallySymmetricModel,SpatialMap
 
 from uw.utilities import keyword_options
+from uw.utilities.keyword_options import decorate, process, change_defaults, get_default, get_row
 
 import pyLikelihood
 
@@ -72,12 +73,12 @@ class DiffuseShrinker(object):
             good[index] = False
         return good
 
-    @keyword_options.decorate(defaults)
+    @decorate(defaults)
     def __init__(self, diffuse_model, skydir, radius, emin, emax, **kwargs):
         """ Take in an allsky diffuse model and create a diffuse model which predicts
             emission only inside the given radius and energy range. """
 
-        keyword_options.process(self, kwargs)
+        process(self, kwargs)
 
         assert type(diffuse_model) == str and os.path.exists(diffuse_model)
 
@@ -194,10 +195,10 @@ class MonteCarlo(object):
     def strip(name):
         return re.sub('[ \.()]','',name)
 
-    @keyword_options.decorate(defaults)
+    @decorate(defaults)
     def __init__(self,ft1,irf, sources, **kwargs):
         """ Constructor does not require a data_specification. """
-        keyword_options.process(self, kwargs)
+        process(self, kwargs)
 
         self.ft1=ft1
         self.irf=irf
@@ -333,7 +334,9 @@ class MonteCarlo(object):
 
         ra,dec=sm.center.ra(),sm.center.dec()
 
-        profile=MonteCarlo._make_profile(name,sm)
+        profile_name='%s_extension_profile_%s.txt' % (name,self.name)
+        sm.save_profile(profile_name)
+
         specfile=MonteCarlo._make_specfile(name,es.model,mc_emin,mc_emax)
 
         xml=[
@@ -341,7 +344,7 @@ class MonteCarlo(object):
             '  <spectrum escale="MeV">',
             '    <SpectrumClass name="RadialSource"',
             '      params="flux=%s, profileFile=%s, specFile=%s, ra=%s, dec=%s"/>' % \
-                    (flux,profile,specfile,ra,dec),
+                    (flux,profile_name,specfile,ra,dec),
             '    <use_spectrum frame="galaxy"/>',
             '  </spectrum>',
             '</source>',
@@ -909,20 +912,22 @@ class SpectralAnalysisMC(SpectralAnalysis):
         and the resulting ROI with simulated data is returned. """
 
     defaults = SpectralAnalysis.defaults + (
-            ('seed',               0, "See MonteCarlo."),
-            ('ltfrac',          None, "See MonteCarlo."),
-            ('tempbase', '/scratch/', "See MonteCarlo.")
+        'keywords for gtobssim simulation',
     )
-    defaults=keyword_options.change_defaults(defaults,'event_class',0)
-    defaults=keyword_options.change_defaults(defaults,'tstart',None)
-    defaults=keyword_options.change_defaults(defaults,'tstop',None)
 
-    @keyword_options.decorate(defaults)
+    defaults += tuple(get_row(MonteCarlo.defaults,i) for i in ['seed', 'ltfrac', 'tempbase'])
+
+    for i in ['tstart', 'tstop']:
+        defaults=change_defaults(defaults, i, get_default(MonteCarlo.defaults,i))
+
+    defaults=change_defaults(defaults,'event_class',0)
+
+    @decorate(defaults)
     def __init__(self, data_specification, **kwargs):
         """ Don't do anything here. """
         self.dataspec = data_specification
 
-        keyword_options.process(self, kwargs)
+        process(self, kwargs)
 
         if self.event_class != 0:
             raise Exception("event_class must be set to 0 for MC data.")
