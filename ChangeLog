@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Mar  6 18:41:07 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcprimitives.py 
+Log Message:
+Major updates for gradient fitting.
+
+    *
+------------------------------------------------------------
 User: kerrm  Tue Mar  6 18:40:55 PST 2012
 pointlike/python/uw/pulsar
 
