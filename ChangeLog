@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Mar  6 19:46:43 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+make RA & DEC upper case (gtlike compatability). Bugfix in InterpProfile's cache function. RadialProfile store filename. New get_free and set_free functions.
+    *
+------------------------------------------------------------
 User: lande  Tue Mar  6 19:45:32 PST 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
