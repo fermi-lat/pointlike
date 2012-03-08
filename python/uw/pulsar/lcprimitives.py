@@ -743,10 +743,10 @@ class LCKernelDensity(LCPrimitive):
         return simps(y[mask],x=x[mask])
         #return self.interpolator.y[mask].sum()/len(mask)
 
-def convert_primitive(p1,ptype='LCLorentzian'):
+def convert_primitive(p1,ptype=LCLorentzian):
     """ Attempt to set the parameters of p2 to give a comparable primitive
         to p1."""
-    p2 = eval('%s()'%ptype)
+    p2 = ptype()
     p2.p[:2] = p1.p[:2]
     p2.p[-1] = p1.p[-1]
     width_scale = p1.hwhm()/p2.hwhm()
