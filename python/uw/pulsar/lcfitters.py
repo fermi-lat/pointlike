@@ -10,7 +10,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.24 2012/03/07 22:02:00 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.25 2012/03/07 23:14:44 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -353,9 +353,29 @@ class UnweightedLCFitter(object):
 
     def quick_fit(self):
         f = leastsq(self.chi,self.template.get_parameters(),args=(self.template))
+
+    def _fix_state(self,restore_state=None):
+        old_state = []
+        counter = 0
+        for p in self.template.primitives:
+            for i in xrange(len(p.p)):
+                old_state.append(p.free[i])
+                if restore_state is not None:
+                    p.free[i] = restore_state[counter]
+                else:
+                    if i<(len(p.p)-1):
+                        p.free[i] = False
+                counter += 1
+        return old_state
          
-    def fit(self,quick_fit_first=False, estimate_errors=True, unbinned=True, use_gradient=True):
-      # an initial chi squared fit to find better seed values
+    def fit(self,quick_fit_first=False, estimate_errors=True, unbinned=True, use_gradient=True, positions_first=False):
+
+        if positions_first:
+            restore_state = self._fix_state()
+            self.fit(quick_fit_first=quick_fit_first,estimate_errors=False, unbinned=unbinned, use_gradient=use_gradient, positions_first=False)
+            self._fix_state(restore_state)
+
+        # an initial chi squared fit to find better seed values
         if quick_fit_first: self.quick_fit()
 
         if unbinned:
@@ -627,32 +647,33 @@ def hessian(m,mf,*args,**kwargs):
     mf(p,m,*args) #call likelihood with original values; this resets model and any other values that might be used later
     return hessian
 
-def get_gauss2(pulse_frac=1,x1=0.1,x2=0.55,ratio=1.5,width1=0.01,width2=0.02,
-               lorentzian=False):
+def get_gauss2(pulse_frac=1,x1=0.1,x2=0.55,ratio=1.5,width1=0.01,width2=0.02,lorentzian=False,bridge_frac=0,skew=False):
     """Return a two-gaussian template.  Convenience function."""
-    n1,n2 = np.asarray([ratio,1.])*(pulse_frac/(1.+ratio))
-    prim = LCLorentzian if lorentzian else LCGaussian
-    return LCTemplate(primitives=[prim(p=[n1,width1,x1]),
-                                  prim(p=[n2,width2,x2])])
-
-def get_gauss22(pulse_frac=1,x1=0.1,x2=0.55,ratio=1.5,width1=0.01,width2=0.02,
-               lorentzian=False,skew=True):
-    """Return a two-gaussian template.  Convenience function."""
-    n1,n2 = np.asarray([ratio,1.])*(pulse_frac/(1.+ratio))
-    prim = LCLorentzian2 if lorentzian else LCGaussian2
-    skew += 1
-    return LCTemplate(primitives=[prim(p=[n1,width1,width1*(1+skew),x1]),
-                                  prim(p=[n2,width2*(1+skew),width2,x2])])
+    n1,n2 = np.asarray([ratio,1.])*(1-bridge_frac)*(pulse_frac/(1.+ratio))
+    if skew:
+        prim = LCGaussian2
+        p1,p2 = [n1,width1,width1*(1+skew),x1],[n2,width2*(1+skew),width2,x2]
+    else:
+        if lorentzian:
+            prim = LCLorentzian; width1 *= (2*np.pi); width2 *= (2*np.pi)
+        else:
+            prim = LCGaussian
+        p1,p2 = [n1,width1,x1],[n2,width2,x2]
+    if bridge_frac > 0:
+        b = LCGaussian(p=[bridge_frac*pulse_frac,0.1,(x2-x1)/2])
+        return LCTemplate(primitives=[prim(p=p1),b,prim(p=p2)])
+    return LCTemplate(primitives=[prim(p=p1),prim(p=p2)])
 
 def get_gauss1(pulse_frac=1,x1=0.5,width1=0.01):
     """Return a one-gaussian template.  Convenience function."""
     return LCTemplate(primitives=[LCGaussian(p=[pulse_frac,width1,x1])])
 
-def get_mixed_lorentzian(pulse_frac=0.5):
+def get_2pb(pulse_frac=0.5,lorentzian=False):
     """ Convenience function to get a 2 Lorentzian + Gaussian bridge template."""
-    p1 = LCLorentzian(p=[0.3*pulse_frac,0.03,0.1])
+    prim = LCLorentzian if lorentzian else LCGaussian
+    p1 = prim(p=[0.3*pulse_frac,0.03,0.1])
     b = LCGaussian(p=[0.4*pulse_frac,0.15,0.3])
-    p2 = LCLorentzian(p=[0.3*pulse_frac,0.03,0.55])
+    p2 = prim(p=[0.3*pulse_frac,0.03,0.55])
     return LCTemplate(primitives=[p1,b,p2])
 
 def make_twoside_gaussian(one_side_gaussian):
