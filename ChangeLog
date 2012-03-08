@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Mar  7 16:18:43 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Added code to allow an initial fit of peak positions only.
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Mar  7 15:14:44 PST 2012
 pointlike/python/uw/pulsar
 
