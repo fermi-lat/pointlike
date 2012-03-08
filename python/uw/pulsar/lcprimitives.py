@@ -144,9 +144,10 @@ class LCPrimitive(object):
         l = []
         errors = self.errors if hasattr(self,'errors') else [0]*len(self.pnames)
         for i in xrange(len(self.pnames)):
+            fstring = '' if self.free[i] else ' [FIXED]'
             n=self.pnames[i][:m]
             t_n = n+(m-len(n))*' '
-            l += [t_n + ': %.4f +\- %.4f'%(self.p[i],errors[i])]
+            l += [t_n + ': %.4f +\- %.4f%s'%(self.p[i],errors[i],fstring)]
         l = [self.name+'\n------------------'] + l
         return '\n'.join(l)
 
@@ -746,7 +747,12 @@ def convert_primitive(p1,ptype='LCLorentzian'):
     """ Attempt to set the parameters of p2 to give a comparable primitive
         to p1."""
     p2 = eval('%s()'%ptype)
-    p2.p[:] = p1.p[:]
-    p2.p[1] = p1.fwhm()/p2.fwhm()*p2.p[1]
+    p2.p[:2] = p1.p[:2]
+    p2.p[-1] = p1.p[-1]
+    width_scale = p1.hwhm()/p2.hwhm()
+    p2.p[1] = p1.p[1]*width_scale
+    if len(p2.p) > 3:
+        p = p1.p[1] if (len(p1.p) == 3) else p1.p[2]
+        p2.p[2] = p*width_scale
     return p2
 
