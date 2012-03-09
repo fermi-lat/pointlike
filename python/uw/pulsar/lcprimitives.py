@@ -16,13 +16,13 @@ from scipy.special import erf,i0
 from scipy.integrate import simps,quad
 from scipy.interpolate import interp1d
 from scipy.stats import norm,cauchy
-from math import sin,cos,sinh,cosh
+from math import sin,cos,sinh,cosh,atan,tan
 ROOT2PI  = (2*np.pi)**0.5
 R2DI     = (2/np.pi)**0.5
 ROOT2    = 2**0.5
 TWOPI    = (2*np.pi)
 PI       = np.pi*1
-MAXWRAPS = 100
+MAXWRAPS = 15
 MINWRAPS = 3
 WRAPEPS  = 1e-8
 
@@ -181,8 +181,8 @@ class LCPrimitive(object):
             d2 = d1/g1
             fail = np.any((d1>tol) | (d2>tol))
             if not quiet:
-                pass_string = 'failed' if fail else 'passed'
-                print 'Checking gradient component %d (%s)\nLargest discrepancy: %.3g absolute / %.3g fractional'%(i,pass_string,d1.max(),d2.max())
+                pass_string = 'FAILED' if fail else 'passed'
+                print '%d (%s) %.3g (abs) %.3g (frac)'%(i,pass_string,d1.max(),d2.max())
             anyfail = anyfail or fail
         return not anyfail
 
@@ -211,50 +211,71 @@ class LCPrimitive(object):
         return np.all([t1,t2,t3,t4,t5])
 
 class LCWrappedFunction(LCPrimitive):
-    """ Super-class for profiles derived from wrapped functions."""
+    """ Super-class for profiles derived from wrapped functions.
+        
+        While some distributions (e.g. the wrapped normal) converge
+        quickly, others (e.g. the wrapped Lorentzian) converge very slowly
+        and must be truncated before machine precision is reached.
+
+        In order to preserve normalization, the pdf is slightly adjusted:
+        f(phi) = sum_(i,-N,N,g(phi+i)) + (1 - int(phi,-N,N,g(phi)) ).
+
+        This introduces an additional parameteric dependence which must
+        be accounted for by computation of the gradient.
+    """
+
+    def _norm(self,nwraps):
+        """ Compute the truncated portion of the template."""
+        return self.p[0]-self.base_int(-nwraps,nwraps+1)
+
+    def _grad_norm(self,nwraps):
+        """ Compute the gradient terms due to truncated portion.
+            Default implementation is to ignore these terms, applicable
+            for rapidly-converging distributions (e.g. wrapped normal with
+            small width parameter)."""
+        return None
 
     def __call__(self,phases):
+        """ Return wrapped template + DC component corresponding to truncation."""
         results = self.base_func(phases)
         for i in xrange(1,MAXWRAPS+1):
             t = self.base_func(phases,index= i)
             t += self.base_func(phases,index=-i)
             results += t
-            if (i>=MINWRAPS) and (np.all(t < WRAPEPS)): 
-                #print 'Converged after %d cycles.'%i
-                break
-        if i == MAXWRAPS:
-            print 'WARNING! Wrapped function (profile) did not converge to eps=%g'%(WRAPEPS)
-        return results
+            if (i>=MINWRAPS) and (np.all(t < WRAPEPS)): break
+        #return results
+        #print self._norm(i)
+        return results+self._norm(i)
 
     def gradient(self,phases):
         """ Return the gradient evaluated at a vector of phases.
 
-            output : a 3xlen(phases) ndarray, the 3-dim gradient at each phase
+            output : a num_parameter x len(phases) ndarray, 
+                     the num_parameter-dim gradient at each phase
         """
         results = self.base_grad(phases)
         for i in xrange(1,MAXWRAPS+1):
             t = self.base_grad(phases,index=i)
             t += self.base_grad(phases,index=-i)
             results += t
-            if (i >= MINWRAPS) and (np.all(t < WRAPEPS)): 
-                #print 'Converged after %d cycles.'%i
-                break
-        if i == MAXWRAPS:
-            print 'WARNING! Wrapped function (gradient) did not converge to eps=%g'%(WRAPEPS)
+            if (i >= MINWRAPS) and (np.all(t < WRAPEPS)): break
+        gn = self._grad_norm(i) 
+        if gn is not None:
+            for i in xrange(len(gn)):
+                results[i,:] += gn[i]
         return results
 
     def integrate(self,x1=0,x2=1):
+        if(x1==0) and (x2==0): return self.p[0] # this is true by definition, now
+        # NB -- this method is probably overkill now.
         results = self.base_int(x1,x2,index=0)
         for i in xrange(1,MAXWRAPS+1):
             t = self.base_int(x1,x2,index=i)
             t += self.base_int(x1,x2,index=-i)
             results += t
             if np.all(t < WRAPEPS): 
-                #print 'Converged after %d cycles.'%i
                 break
-        if i == MAXWRAPS:
-            print 'WARNING! Did not converge.'
-        return results
+        return results+(x2-x1)*self._norm(i)
 
     def base_func(self,phases,index=0):
         raise NotImplementedError('No base_func function found for this object.')
@@ -276,7 +297,7 @@ class LCGaussian(LCWrappedFunction):
 
     def init(self):
         self.p    = np.asarray([1,0.03,0.5])
-        self.bounds = [ [0,None], [0.005,0.5], [0,1] ]
+        self.bounds = [ [0.001,1], [0.005,0.5], [0,1] ]
         self.free = np.asarray([True]*len(self.p))
         self.pnames = ['Norm','Width','Location']
         self.name = 'Gaussian'
@@ -315,7 +336,7 @@ class LCGaussian2(LCWrappedFunction):
 
     def init(self):
         self.p    = np.asarray([1,0.03,0.03,0.5])
-        self.bounds = [ [0,None], [0.005,0.5], [0.005,0.5], [0,1] ]
+        self.bounds = [ [0.001,1], [0.005,0.5], [0.005,0.5], [0,1] ]
         self.free = np.asarray([True]*len(self.p))
         self.pnames = ['Norm','Width1','Width2','Location']
         self.name = 'Gaussian2'
@@ -375,7 +396,7 @@ class LCLorentzian(LCPrimitive):
     """
     def init(self):
         self.p = np.asarray([1,0.1,0.5])
-        self.bounds = [ [0,None], [0.005,0.5], [0,1] ]
+        self.bounds = [ [0.001,1], [0.005,0.5], [0,1] ]
         self.free = np.asarray([True]*len(self.p))
         self.pnames = ['Norm','Width','Location']
         self.name = 'Lorentzian'
@@ -403,6 +424,14 @@ class LCLorentzian(LCPrimitive):
     def random(self,n):
         return np.mod(cauchy.rvs(loc=self.p[-1],scale=self.p[1]/TWOPI,size=n),1)
 
+    def integrate(self,x0=0,x1=1):
+        norm,gamma,loc = self.p
+        if (x0==0) and (x1==1): return self.p[0]
+        x0 = PI*(x0-loc)
+        x1 = PI*(x1-loc)
+        t = cosh(gamma/2)/sinh(gamma/2)
+        return norm/PI*(atan(t*tan(x1))-atan(t*tan(x0)))
+
 class LCLorentzian2(LCWrappedFunction):
     """ Represent a (wrapped) two-sided Lorentzian peak.
         Parameters
@@ -414,7 +443,7 @@ class LCLorentzian2(LCWrappedFunction):
 
     def init(self):
         self.p    = np.asarray([1,0.03,0.03,0.5])
-        self.bounds = [ [0,None], [0.005,0.5], [0.005,0.5], [0,1] ]
+        self.bounds = [ [0.001,1], [0.005,0.5], [0.005,0.5], [0,1] ]
         self.free = np.asarray([True]*len(self.p))
         self.pnames = ['Norm','Width1','Width2','Location']
         self.name = 'Lorentzian2'
@@ -422,33 +451,50 @@ class LCLorentzian2(LCWrappedFunction):
     def hwhm(self,right=False):
         return self.p[1+right]
 
+    def _grad_norm(self,nwraps):
+        norm,gamma1,gamma2,x0 = self.p
+        z1 = (-nwraps-x0)/gamma1
+        z2 = (nwraps+1-x0)/gamma2
+        t = gamma2*atan(z2)-gamma1*atan(z1)
+        t1 = 1./(1+z1**2)
+        t2 = 1./(1+z2**2)
+        k = 2*norm/(gamma1+gamma2)/PI
+        f = k*t
+        g1 = -1./(gamma1+gamma2)-(atan(z1)-z1*t1)/t
+        g2 = -1./(gamma1+gamma2)+(atan(z2)-z2*t2)/t
+        g3 = (t1-t2)/t
+        return [1-f/norm,-f*g1,-f*g2,-f*g3]
+
     def base_func(self,phases,index=0):
         norm,gamma1,gamma2,x0 = self.p
         z = (phases + (index - x0))
-        z /= np.where(z<=0, gamma1, gamma2)
+        z *= np.where(z<=0, 1./gamma1, 1./gamma2)
         k = 2*norm/(gamma1+gamma2)/PI
         return k/(1+z**2)
 
     def base_grad(self,phases,index=0):
-        pass
+        norm,gamma1,gamma2,x0 = self.p
+        z = (phases + (index - x0))
+        m = z < 0
+        g = np.where(m,1./gamma1,1./gamma2)
+        t1 = 1+(z*g)**2
+        t2 = 2*(z*g)/t1
+        g1 = -1/(gamma1+gamma2)+t2*((m*z)/gamma1**2)
+        g2 = -1/(gamma1+gamma2)+t2*((~m*z)/gamma2**2)
+        g3 = t2*g
+        f = (2*norm/(gamma1+gamma2)/PI)/t1
+        return np.asarray([f/norm,f*g1,f*g2,f*g3])
 
     def base_int(self,x1,x2,index=0):
-#        norm,gamma,x0 = self.p
-#        z1 = (x1 + index - x0)/gamma
-#        z2 = (x2 + index - x0)/gamma
-#        return norm/np.pi * (np.arctan(z2) - np.arctan(z1))
-        norm,width1,width2,x0 = self.p
+        norm,gamma1,gamma2,x0 = self.p
         if index==0 and (x1 < x0) and (x2 > x0):
-            z1 = (x1 + index - x0)
-            z2 = (x2 + index - x0)
-            k1 = 2*width1/(width1+width2)
-            k2 = 2*width2/(width1+width2)
-            return (norm/PI)*(k2*np.arctan(z2)-k1*np.arctan(z1))
-        w = width1 if ((x1+index) < x0) else width2
-        z1 = (x1 + index - x0)
-        z2 = (x2 + index - x0)
-        k = 2*w/(width1+width2)
-        return k*(norm/PI)*(np.arctan(z2)-np.arctan(z1))
+            g1,g2 = gamma1,gamma2
+        else:
+            g1,g2 = [gamma1]*2 if ((x1+index) < x0) else [gamma2]*2
+        z1 = (x1 + index - x0)/g1
+        z2 = (x2 + index - x0)/g2
+        k = (2*norm/(gamma1+gamma2)/PI)
+        return k*(g2*atan(z2)-g1*atan(z1))
 
     def random(self,n):
         """ Use multinomial technique to return random photons from

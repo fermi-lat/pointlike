@@ -10,7 +10,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.25 2012/03/07 23:14:44 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.26 2012/03/08 00:18:43 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -23,7 +23,7 @@ import numpy as np
 from lcprimitives import *
 from operator import mul
 from scipy.special import gamma
-from scipy.optimize import fmin,leastsq
+from scipy.optimize import fmin,leastsq,fmin_slsqp
 from uw.pulsar.stats import z2mw,hm,hmw
 
 SECSPERDAY = 86400.
@@ -81,6 +81,8 @@ class LCTemplate(object):
         if self.primitives is None:
             raise ValueError,'No light curve components or template provided!'
         self.shift_mode = np.any([p.shift_mode for p in self.primitives])
+
+    def __getitem__(self,index): return self.primitives[index]
 
     def set_parameters(self,p):
         start = 0
@@ -367,8 +369,19 @@ class UnweightedLCFitter(object):
                         p.free[i] = False
                 counter += 1
         return old_state
+
+    def _set_unbinned(self,unbinned=True):
+        if unbinned:
+            self.loglikelihood = self.unbinned_loglikelihood
+            self.gradient = self.unbinned_gradient
+        else:
+            self.loglikelihood = self.binned_loglikelihood
+            self.gradient = self.binned_gradient
+
          
     def fit(self,quick_fit_first=False, estimate_errors=True, unbinned=True, use_gradient=True, positions_first=False):
+
+        self._set_unbinned(unbinned)
 
         if positions_first:
             restore_state = self._fix_state()
@@ -376,24 +389,29 @@ class UnweightedLCFitter(object):
             self._fix_state(restore_state)
 
         # an initial chi squared fit to find better seed values
-        if quick_fit_first: self.quick_fit()
+        if quick_fit_first:
+            p0 = self.template.get_parameters().copy()
+            chi0 = (self.chi(p0,self.template)**2).sum()
+            self.quick_fit()
+            chi1 = (self.chi(self.template.get_parameters(),self.template)**2).sum()
+            if (chi1 > chi0):
+                print 'Failed least squares fit -- reset and proceed to likelihood.'
+                self.template.set_parameters(p0)
 
-        if unbinned:
-            self.loglikelihood = self.unbinned_loglikelihood
-            self.gradient = self.unbinned_gradient
-        else:
-            self.loglikelihood = self.binned_loglikelihood
-            self.gradient = self.binned_gradient
+        ll0 = -self.loglikelihood(self.template.get_parameters(),self.template)
+        p0 = self.template.get_parameters().copy()
         if use_gradient:
             f = self.fit_tnc()
-            #f = self.fit_bfgs() # this step calculates hessian/covariance
         else:
             f = self.fit_fmin()
         if estimate_errors:
             self._errors()
             self.template.set_errors(np.diag(self.cov_matrix)**0.5)
-            return self.fitval,np.diag(self.cov_matrix)**0.5
-        return self.fitval
+        print ll0,self.ll
+        if ll0 > self.ll:
+            print 'Failed likelihood fit -- resetting parameters.'
+            self.template.set_parameters(p0)
+            self.ll = ll0; self.fitvals = p0
 
     def fit_fmin(self,ftol=1e-5):
         fit = fmin(self.loglikelihood,self.template.get_parameters(),args=(self.template,),disp=0,ftol=ftol,full_output=True)
@@ -419,7 +437,7 @@ class UnweightedLCFitter(object):
     def fit_tnc(self,ftol=1e-5):
         from scipy.optimize import fmin_tnc
         bounds = self.template.get_bounds()
-        fit = fmin_tnc(self.loglikelihood,self.template.get_parameters(),fprime=self.gradient,args=(self.template,),ftol=ftol,pgtol=1e-5,bounds=bounds,maxfun=2000)
+        fit = fmin_tnc(self.loglikelihood,self.template.get_parameters(),fprime=self.gradient,args=(self.template,),ftol=ftol,pgtol=1e-5,bounds=bounds,maxfun=2000,messages=8)
         self.fitval = fit[0]
         self.ll = -self.loglikelihood(self.template.get_parameters(),self.template)
         return fit
@@ -651,7 +669,7 @@ def get_gauss2(pulse_frac=1,x1=0.1,x2=0.55,ratio=1.5,width1=0.01,width2=0.02,lor
     """Return a two-gaussian template.  Convenience function."""
     n1,n2 = np.asarray([ratio,1.])*(1-bridge_frac)*(pulse_frac/(1.+ratio))
     if skew:
-        prim = LCGaussian2
+        prim = LCLorentzian2 if lorentzian else LCGaussian2
         p1,p2 = [n1,width1,width1*(1+skew),x1],[n2,width2*(1+skew),width2,x2]
     else:
         if lorentzian:
