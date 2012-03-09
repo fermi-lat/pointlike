@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Mar  9 08:32:10 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+better filenames, better energy range formula.
+    *
+------------------------------------------------------------
 User: cohen  Fri Mar  9 04:04:27 PST 2012
 pointlike/python/uw/like
 
