@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.41 2012/03/07 03:47:20 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.42 2012/03/09 00:40:44 lande Exp $
 
 author: Joshua Lande
 """
@@ -184,17 +184,18 @@ class MonteCarlo(object):
             ('quiet',          False, " Surpress output."),
             ('mc_energy',      False, " Use MC Energy"),
             ('gtifile',         None, " Make the simulated data have only the same GTIs as the GTIs in this file (typically an ft1 file or ltcube)."),
-            ('diffuse_pad',      10,  " How many area outside ROI should the diffuse emission be simulated to account for energy dispersion."),
-            ('roi_pad',           5,  " Include counts from this far ouside maxROI in the ft1 file to account for ragged edge effect in pointlike."),
-            ('energy_pad',      0.5,  """ Lower energy of simluated photons is energy_pad*emin and 
-                                          upper energy of simulated photos is (1+energy_pad)*emax.
+            ('diffuse_pad',     10.0,  " How many area outside ROI should the diffuse emission be simulated to account for energy dispersion."),
+            ('roi_pad',          5.0,  " Include counts from this far ouside maxROI in the ft1 file to account for ragged edge effect in pointlike."),
+            ('energy_pad',       2.0,  """ Lower energy of simluated photons is emin/energy_bad and 
+                                          upper energy of simulated photos is energy_pad*emax.
                                           This allows for energy dispersion effects to be 
                                           naturally accounted for in the monte carlos simulation. """),
     )
 
     @staticmethod
     def strip(name):
-        return re.sub('[ \.()]','',name)
+        name = name.replace(' ', '_').replace('+','p').replace('-','m')
+        return re.sub('[\.()]','',name)
 
     @decorate(defaults)
     def __init__(self,ft1,irf, sources, **kwargs):
@@ -267,7 +268,7 @@ class MonteCarlo(object):
     def larger_energy_range(self):
         """ Get an energy range larger then the desired simulated points
             (to correct for energy dispersion). """
-        return self.energy_pad*self.emin,(1+self.energy_pad)*self.emax
+        return self.emin/self.energy_pad,self.energy_pad*self.emax
 
     def _make_ps(self,ps,mc_emin,mc_emax,indent):
 
