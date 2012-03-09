@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.82 2012/02/21 19:15:16 kadrlica Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.83 2012/03/09 00:41:36 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -14,6 +14,7 @@ from abc import abstractmethod
 
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
+from scipy import roots
 
 #===============================================================================================#
 
@@ -727,22 +728,48 @@ class LogParabola(Model):
         return np.asarray([f/n0, f*x, -f*x**2, f*alpha/e_break])
 
     def pivot_energy(self):
-        """  estimate the pivot energy, assuming that the beta part is not so important
+        """  
+        Estimate the pivot energy
+        Warning, there are potentially 3 real solutions to the pivot energy equation, and
+        the code does not try to choose one : it returns all the real the roots.
         """
-        #if sum(self.free) != 2 or self._p[2]>-2:
-        #    raise Exception( 'Cannot calculate pivot energy for LogParabola unless in power-law mode')
         A  = 10**self._p[0]
         C = self.get_cov_matrix()
-        if C[1,1]==0:
-            raise Exception('Models.LogParabola: Fit required before calculating pivot energy')
-        ebreak = 10**self._p[3]
-        return ebreak*np.exp( C[0,1]/(A*C[1,1]) )
-        
+        if not self.free[2]:
+        # the case beta fixed is equivalent to a PWL for the determination of the pivot energy.
+            if C[1,1]==0:
+                raise Exception('Models.LogParabola: Fit required before calculating pivot energy')
+            ebreak = 10**self._p[3]
+            return ebreak*np.exp( C[0,1]/(A*C[1,1]) )
+        #the solution in the general case comes from the resolution of a cubic equation.
+        #We assume here that Norm, alpha, and beta are the free parameter of the fit.
+        #Indeed E_break should never be set to free anyway
+        a= 2.*C[2,2]
+        b= 3.*C[1,2]
+        c= C[1,1]-2.*C[0,2]/A
+        d= -C[0,1]/A
+        results = roots([a,b,c,d])
+        results = 10**self._p[3]*np.exp(results)
+        print "Pivot energy solutions for the LogParabola : ",results
+        return np.real(results[np.isreal(results)])
+
     def set_e0(self, e0p):
-        """ set a new break energy, adjusting the norm parameter """
+        """ set a new break energy, adjusting the Norm and Index parameter,
+        so that the differential flux remains the same. Beta remains unchanged in this
+        transformation.
+        """
         ebreak = 10** self._p[3]
         gamma = 10** self._p[1]
-        self._p[0] += gamma * np.log10(ebreak/e0p)
+        beta = 10** self._p[2] 
+        # there is a non-negative condition here to check on Index
+        if e0p<ebreak*10**(-gamma/2./beta):
+            e0p=ebreak*10**(-gamma/2./beta)
+            print "Index>0 is not preserved by the transformation with input e0. Setting e0 to %g"%e0p
+        x=np.log10(ebreak/e0p)
+        self._p[0] += gamma * x + beta*x*x
+        gamma -= 2*beta*x
+        self._p[1] = np.log10(gamma)
+        # beta is unchanged in this e0p->ebreak transformation
         self._p[3] = np.log10(e0p)
  
     def create_powerlaw(self, beta_max=3e-2):
