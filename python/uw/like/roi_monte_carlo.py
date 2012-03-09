@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.42 2012/03/09 00:40:44 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.43 2012/03/09 16:32:09 lande Exp $
 
 author: Joshua Lande
 """
@@ -194,8 +194,15 @@ class MonteCarlo(object):
 
     @staticmethod
     def strip(name):
+        """ Create source names that can be used in files and gtobssim's xml.
+            strip out periods and parenthesis.
+            Replace sapces with underbars, pluses and minumes with p & m,
+            and put an underbar in the front of the name if it begins
+            with a digit. """
         name = name.replace(' ', '_').replace('+','p').replace('-','m')
-        return re.sub('[\.()]','',name)
+        name = re.sub('[\.()]','',name)
+        if name[0].isdigit(): name = '_' + name
+        return name
 
     @decorate(defaults)
     def __init__(self,ft1,irf, sources, **kwargs):
@@ -641,6 +648,16 @@ class MonteCarlo(object):
 
     @staticmethod
     def diffuse_integrator(filename):
+        """ A simpel test, this file $GLAST_EXT/diffuseModels/v1r0/obssim_v02_P6_V11_DIFFUSE.xml
+            claims that the normaliztiano of gll_iem_v02_P6_V11_DIFFUSE.fit
+            should be 8.423. The value we find is a little bit different, but
+            not by very much (8.409):
+
+                >>> from os.path import expandvars
+                >>> filename = expandvars('$GLAST_EXT/diffuseModels/v1r0/gll_iem_v02_P6_V11_DIFFUSE.fit')
+                >>> np.allclose(MonteCarlo.diffuse_integrator(filename), 8.423, rtol=1e-2)
+                True
+        """
         flux = MonteCarlo.mapIntegral(filename)*10**4
         return flux
 
@@ -657,6 +674,7 @@ class MonteCarlo(object):
 
             This function is an ugly mess and could probably be properly rewritten
             as a fully vecotrized numpy function, but this is good enough, for now.
+
         """
 
         fits=pyfits.open(filename)
@@ -668,10 +686,20 @@ class MonteCarlo(object):
         mapcube=pyLikelihood.MapCubeFunction2(filename)
         sa=np.asarray(mapcube.wcsmap().solidAngles()).transpose()
 
-        map_integral = \
-                np.sum(sa*\
-                    MonteCarlo.powerLawIntegral(energies[0:-1],energies[1:],
-                    data[0:-1,:,:],data[1:,:,:]).sum(axis=0))
+        # First, integrate the spatial part
+        d = (sa*data).sum(axis=2).sum(axis=1)
+
+        # now, free up the otherwise very costly memory
+        del(data)
+        del(mapcube)
+        del(sa)
+        fits.close()
+
+        # Then integrate the spectral part connecting each point
+        # with a powerlaw
+        p = MonteCarlo.powerLawIntegral
+        map_integral = np.sum(p(energies[0:-1],energies[1:],
+                                d[0:-1],d[1:]).sum(axis=0))
 
         return map_integral
 
@@ -679,22 +707,14 @@ class MonteCarlo(object):
     def powerLawIntegral(x1, x2, y1, y2):
         """ This function is blatently stolen from
             MapCubeFunction::powerLawIntegral
-            in MapCubeFunction.cxx
-
-            http://www-glast.stanford.edu/cgi-bin/viewcvs/Likelihood/src/MapCubeFunction.cxx
+            in MapCubeFunction.cxx:
+                http://www-glast.stanford.edu/cgi-bin/viewcvs/Likelihood/src/MapCubeFunction.cxx
         """
-        # transpose to make energy the third dimension so that vector oprations will
-        # work seamlessly with the 1 dimesnional energy arrays
-        y1=y1.transpose()
-        y2=y2.transpose()
-        #return np.transpose((y1+y2)/2 * (x2-x1))
-
         gamma = np.log(y2/y1)/np.log(x2/x1)
         n0 = y1/x1**gamma
-
         gp1 = gamma + 1.;
         integral = np.where(gamma != 1., n0/gp1*(x2**gp1 - x1**gp1), n0*np.log(x2/x1))
-        return np.transpose(integral)
+        return integral
 
     def _make_isotropic_constant(self,ds,mc_emin,mc_emax,indent):
 
