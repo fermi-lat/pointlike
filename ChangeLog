@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: cohen  Fri Mar  9 04:04:27 PST 2012
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Fix the LogParabola pivot energy calculation, and e0_setting, following what Jean is doing in the pipeline. This makes use of scipy.roots, and does not try to choose one solutions if there are 3.
+    *
+------------------------------------------------------------
 User: kerrm  Thu Mar  8 18:36:13 PST 2012
 pointlike/python/uw/pulsar
 
