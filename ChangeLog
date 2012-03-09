@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Mar  8 16:41:36 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+remove possibly harmful *args in FileFunction
+    *
+------------------------------------------------------------
 User: lande  Thu Mar  8 16:40:45 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
