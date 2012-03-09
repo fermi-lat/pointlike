@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Mar  8 16:40:45 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+Allow IsotropicConstant spatial model, bugfix for filenames with spaces, other minor bugs
+    *
+------------------------------------------------------------
 User: kerrm  Wed Mar  7 21:57:18 PST 2012
 pointlike/python/uw/pulsar
 
