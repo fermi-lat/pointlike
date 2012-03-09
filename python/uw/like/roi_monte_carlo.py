@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.40 2012/03/06 05:47:38 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.41 2012/03/07 03:47:20 lande Exp $
 
 author: Joshua Lande
 """
@@ -17,7 +17,8 @@ from GtApp import GtApp
 
 import pyfits
 import numpy as np
-from skymaps import IsotropicSpectrum,IsotropicPowerLaw,DiffuseFunction,PySkyFunction,Hep3Vector,SkyImage,SkyDir,PythonUtilities
+from skymaps import IsotropicSpectrum,IsotropicPowerLaw,DiffuseFunction,\
+        PySkyFunction,Hep3Vector,SkyImage,SkyDir,PythonUtilities,IsotropicConstant
 from . SpatialModels import Gaussian,EllipticalGaussian,RadiallySymmetricModel
 from . Models import PowerLaw,PowerLawFlux,Constant,FileFunction
 from . pointspec import DataSpecification,SpectralAnalysis
@@ -290,7 +291,7 @@ class MonteCarlo(object):
                 specfile=ps.model.file
             else:
                 flux=ps.model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
-                specfile=MonteCarlo._make_specfile(es.name,ps.model,mc_emin,mc_emax)
+                specfile=MonteCarlo._make_specfile(ps.name,ps.model,mc_emin,mc_emax)
 
             xml=[
                 '<source name="%s">' % MonteCarlo.strip(ps.name),
@@ -305,7 +306,7 @@ class MonteCarlo(object):
 
     @staticmethod
     def _make_specfile(name,model,emin,emax,numpoints=200):
-        temp='%s_spectra_%s.txt' % (name,model.name)
+        temp='%s_spectra_%s.txt' % (MonteCarlo.strip(name),model.name)
         energies=np.logspace(np.log10(emin),np.log10(emax),numpoints)
         fluxes=model(energies)
         # josh's fix to the clipping.../ thanks!
@@ -318,7 +319,7 @@ class MonteCarlo(object):
 
     @staticmethod
     def _make_profile(name,spatial_model,numpoints=200):
-        temp='%s_extension_profile_%s.txt' % (name,spatial_model.name)
+        temp='%s_extension_profile_%s.txt' % (MonteCarlo.strip(name),spatial_model.name)
         radius,pdf = spatial_model.approximate_profile()
         open(temp,'w').write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(radius,pdf)]))
         return temp
@@ -334,7 +335,7 @@ class MonteCarlo(object):
 
         ra,dec=sm.center.ra(),sm.center.dec()
 
-        profile_name='%s_extension_profile_%s.txt' % (name,self.name)
+        profile_name='%s_extension_profile_%s.txt' % (MonteCarlo.strip(name),sm.name)
         sm.save_profile(profile_name)
 
         specfile=MonteCarlo._make_specfile(name,es.model,mc_emin,mc_emax)
@@ -365,7 +366,7 @@ class MonteCarlo(object):
             print 'WARNING: gtobssim can only use plate-carree projection fits files!'
             spatialfile=sm.file
         else:
-            spatialfile='%s_spatial_template_%s.fits' % (es.name,sm.name)
+            spatialfile='%s_spatial_template_%s.fits' % (MonteCarlo.strip(es.name),sm.name)
             # Allegedly simulated templates must only be in the plate-carree projection
             # http://www.slac.stanford.edu/exp/glast/wb/prod/pages/sciTools_observationSimTutorial/obsSimTutorial.htm
             sm.save_template(spatialfile, proj='CAR')
@@ -694,6 +695,48 @@ class MonteCarlo(object):
         integral = np.where(gamma != 1., n0/gp1*(x2**gp1 - x1**gp1), n0*np.log(x2/x1))
         return np.transpose(integral)
 
+    def _make_isotropic_constant(self,ds,mc_emin,mc_emax,indent):
+
+        dm=ds.dmodel[0]
+        sm=ds.smodel
+
+        if dm.constant() != 1:
+            raise Exception("When simulation IsotropicConstant source, the constant must be 1")
+
+        if isinstance(sm,PowerLaw) or isinstance(sm,PowerLawFlux):
+            index=sm['index']
+
+            if self.roi_dir is not None and self.maxROI is not None:
+                ra,dec=self.roi_dir.ra(),self.roi_dir.dec()
+                # just to be safe from the large low energy psf
+                radius=self.maxROI + self.diffuse_pad
+
+                # gtobssim wants ph/m^2/s, integrate over solid angle
+                flux=sm.i_flux(mc_emin,mc_emax)*(2*np.pi*(1-np.cos(np.radians(radius))))*10**4
+            else:
+                ra,dec,radius=0,0,180
+
+                # gtobssim wants ph/m^2/s
+                flux=sm.i_flux(mc_emin,mc_emax)*4*np.pi*10**4
+
+            ds = [
+                '<source name="%s">' % MonteCarlo.strip(ds.name),
+                '   <spectrum escale="MeV">',
+                '      <SpectrumClass name="Isotropic"',
+                '                     params="flux=%g,gamma=%g,emin=%g,emax=%g,ra=%g,dec=%g,radius=%g"/>' % (flux,index,mc_emin,mc_emax,ra,dec,radius),
+                '      <use_spectrum frame="galaxy"/>',
+                '   </spectrum>',
+                '</source>',
+            ]
+        else:
+            raise Exception("Unable to create XML for source %s" % ds.name)
+
+        return indent+('\n'+indent).join(ds)
+
+
+
+
+
     def _make_diffuse(self,ds,mc_emin,mc_emax,indent):
 
         dm=ds.dmodel[0]
@@ -734,7 +777,10 @@ class MonteCarlo(object):
         if len(ds.dmodel) > 1:
             raise Exception("Can only run gtobssim for diffuse models with a combined front/back diffuse model.")
 
-        if isinstance(ds.dmodel[0],IsotropicSpectrum):
+        if isinstance(ds.dmodel[0],IsotropicConstant):
+            return self._make_isotropic_constant(ds,*args,**kwargs)
+
+        elif isinstance(ds.dmodel[0],IsotropicSpectrum):
             return self._make_isotropic_diffuse(ds,*args,**kwargs)
 
         elif isinstance(ds.dmodel[0],IsotropicPowerLaw):
@@ -753,7 +799,7 @@ class MonteCarlo(object):
             else:
                 return self._make_extended_source(ds,*args,**kwargs)
         else:
-            raise Exception("Can not simulate diffuse source %s. Unknown diffuse source type %s." % (ds.name,type(ds)))
+            raise Exception("Can not simulate diffuse source %s. Unknown diffuse source type %s." % (ds.name,type(ds.dmodel[0])))
             
     def _make_model(self,indent='  '):
 
