@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.81 2012/02/06 21:57:08 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.82 2012/02/21 19:15:16 kadrlica Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1112,9 +1112,9 @@ class FileFunction(Model):
         self.interp = interp1d(np.log10(self.energy),np.log10(self.flux),
                 bounds_error=False,fill_value=-np.inf)
 
-    def __init__(self,*args,**kwargs):
+    def __init__(self,**kwargs):
 
-        super(FileFunction,self).__init__(*args,**kwargs)
+        super(FileFunction,self).__init__(**kwargs)
 
         if not hasattr(self,'file'):
             raise Exception("FileFunction must be created with a file.")
