@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Mar  9 15:08:44 PST 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+make map integral more efficient + include new doctest. Improve saveout of filenames
+    *
+------------------------------------------------------------
 User: lande  Fri Mar  9 08:32:10 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
