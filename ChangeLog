@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Mar  8 18:36:13 PST 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py lcprimitives.py 
+Log Message:
+Reworking of wrapped functions to be normalized in face of truncation.  Gradients reflect this.
+
+    *
+------------------------------------------------------------
 User: lande  Thu Mar  8 16:41:36 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
