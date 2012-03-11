@@ -803,12 +803,11 @@ def convert_primitive(p1,ptype=LCLorentzian):
     """ Attempt to set the parameters of p2 to give a comparable primitive
         to p1."""
     p2 = ptype()
-    p2.p[:2] = p1.p[:2]
     p2.p[-1] = p1.p[-1]
     width_scale = p1.hwhm()/p2.hwhm()
-    p2.p[1] = p1.p[1]*width_scale
-    if len(p2.p) > 3:
-        p = p1.p[1] if (len(p1.p) == 3) else p1.p[2]
-        p2.p[2] = p*width_scale
+    p2.p[0] = p1.p[0]*width_scale
+    if len(p2.p) > 2:
+        p = p1.p[0] if (len(p1.p) == 2) else p1.p[1]
+        p2.p[1] = p*width_scale
     return p2
 
