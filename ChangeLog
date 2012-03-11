@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Mar 11 16:00:38 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcprimitives.py 
+Log Message:
+Fix OBO in convert_primitives.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sun Mar 11 15:49:17 PDT 2012
 pointlike/python/uw/pulsar
 
