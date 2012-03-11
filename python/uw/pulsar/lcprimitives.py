@@ -97,8 +97,9 @@ class LCPrimitive(object):
         self.p[-1] = loc
 
     def get_norm(self,error=False):
-        if error: return np.asarray([self.p[0],self.errors[0]])
-        return self.p[0]
+        #if error: return np.asarray([self.p[0],self.errors[0]])
+        #return self.p[0]
+        return 1
 
     def get_width(self,error=False,hwhm=False,right=False):
         """ Return the width of the distribution.
@@ -116,7 +117,7 @@ class LCPrimitive(object):
     def get_gradient(self,phases):
         g = self.gradient(phases)
         ###N.B. -- the "-1" comes from the normalization constraint!
-        g[0] -= 1 
+        #g[0] -= 1 
         return g[self.free]
 
     def gradient(self):
@@ -192,9 +193,11 @@ class LCPrimitive(object):
         errfac = 1
         # Normalization test
         y,ye = quad(self,0,1)
-        t1 = abs(self.p[0]-y)<(ye*errfac)
+        #t1 = abs(self.p[0]-y)<(ye*errfac)
+        t1 = abs(1-y)<(ye*errfac)
         # integrate method test
-        t2 = abs(self.p[0]-self.integrate(0,1))<eps
+        #t2 = abs(self.p[0]-self.integrate(0,1))<eps
+        t2 = abs(1-self.integrate(0,1))<eps
         # FWHM test
         t3 = (self(self.p[-1])*0.5-self(self.p[-1]-self.fwhm()/2))<eps
         # gradient test
@@ -226,7 +229,8 @@ class LCWrappedFunction(LCPrimitive):
 
     def _norm(self,nwraps):
         """ Compute the truncated portion of the template."""
-        return self.p[0]-self.base_int(-nwraps,nwraps+1)
+        #return self.p[0]-self.base_int(-nwraps,nwraps+1)
+        return 1-self.base_int(-nwraps,nwraps+1)
 
     def _grad_norm(self,nwraps):
         """ Compute the gradient terms due to truncated portion.
@@ -266,7 +270,8 @@ class LCWrappedFunction(LCPrimitive):
         return results
 
     def integrate(self,x1=0,x2=1):
-        if(x1==0) and (x2==0): return self.p[0] # this is true by definition, now
+        #if(x1==0) and (x2==0): return self.p[0] # this is true by definition, now
+        if(x1==0) and (x2==0): return 1. # this is true by definition, now
         # NB -- this method is probably overkill now.
         results = self.base_int(x1,x2,index=0)
         for i in xrange(1,MAXWRAPS+1):
@@ -296,34 +301,42 @@ class LCGaussian(LCWrappedFunction):
     """
 
     def init(self):
-        self.p    = np.asarray([1,0.03,0.5])
-        self.bounds = [ [0.001,1], [0.005,0.5], [0,1] ]
+        #self.p    = np.asarray([1,0.03,0.5])
+        self.p    = np.asarray([0.03,0.5])
+        #self.bounds = [ [0.001,1], [0.005,0.5], [0,1] ]
+        self.bounds = [ [0.005,0.5], [0,1] ]
         self.free = np.asarray([True]*len(self.p))
-        self.pnames = ['Norm','Width','Location']
+        #self.pnames = ['Norm','Width','Location']
+        self.pnames = ['Width','Location']
         self.name = 'Gaussian'
 
     def hwhm(self,right=False):
-        return self.p[1]*(2 * np.log(2))**0.5
+        #return self.p[1]*(2 * np.log(2))**0.5
+        return self.p[0]*(2 * np.log(2))**0.5
 
     def base_func(self,phases,index=0):
-        norm,width,x0 = self.p
+        #norm,width,x0 = self.p
+        width,x0 = self.p
         z = (phases + index - x0)/width
-        return (norm/(width*ROOT2PI))*np.exp(-0.5*z**2 )
+        return (1./(width*ROOT2PI))*np.exp(-0.5*z**2 )
 
     def base_grad(self,phases,index=0):
-        norm,width,x0 = self.p
+        #norm,width,x0 = self.p
+        width,x0 = self.p
         z = (phases + index - x0)/width
-        f = (norm/(width*ROOT2PI))*np.exp(-0.5*z**2 )
-        return np.asarray([f/norm,f/width*(z**2 - 1.),f/width*z])
+        f = (1./(width*ROOT2PI))*np.exp(-0.5*z**2 )
+        return np.asarray([f/width*(z**2 - 1.),f/width*z])
 
     def base_int(self,x1,x2,index=0):
-        norm,width,x0 = self.p
+        #norm,width,x0 = self.p
+        width,x0 = self.p
         z1 = (x1 + index - x0)/width
         z2 = (x2 + index - x0)/width
-        return 0.5*norm*(erf(z2/ROOT2)-erf(z1/ROOT2))
+        return 0.5*1.*(erf(z2/ROOT2)-erf(z1/ROOT2))
 
     def random(self,n):
-        return np.mod(norm.rvs(loc=self.p[-1],scale=self.p[1],size=n),1)
+        #return np.mod(norm.rvs(loc=self.p[-1],scale=self.p[1],size=n),1)
+        return np.mod(norm.rvs(loc=self.p[-1],scale=self.p[0],size=n),1)
 
 class LCGaussian2(LCWrappedFunction):
     """ Represent a (wrapped) two-sided Gaussian peak.
@@ -335,70 +348,68 @@ class LCGaussian2(LCWrappedFunction):
     """
 
     def init(self):
-        self.p    = np.asarray([1,0.03,0.03,0.5])
-        self.bounds = [ [0.001,1], [0.005,0.5], [0.005,0.5], [0,1] ]
+        self.p    = np.asarray([0.03,0.03,0.5])
+        self.bounds = [ [0.005,0.5], [0.005,0.5], [0,1] ]
         self.free = np.asarray([True]*len(self.p))
-        self.pnames = ['Norm','Width1','Width2','Location']
+        self.pnames = ['Width1','Width2','Location']
         self.name = 'Gaussian2'
 
     def hwhm(self,right=False):
-        return (self.p[1+right])*(2 * np.log(2))**0.5
+        return (self.p[right])*(2 * np.log(2))**0.5
 
     def base_func(self,phases,index=0):
-        norm,width1,width2,x0 = self.p
+        width1,width2,x0 = self.p
         z = (phases + (index - x0))
         z *= np.where(z <= 0, 1./width1, 1./width2)
-        return (R2DI*norm/(width1+width2)) * np.exp(-0.5*z**2 )
+        return (R2DI/(width1+width2)) * np.exp(-0.5*z**2 )
 
     def base_grad(self,phases,index=0):
-        norm,width1,width2,x0 = self.p
+        width1,width2,x0 = self.p
         z = (phases + (index - x0))
         m = (z <= 0)
         w = np.where(m, width1, width2)
         z /= w
-        f = (R2DI*norm/(width1+width2)) * np.exp(-0.5*z**2 )
+        f = (R2DI/(width1+width2)) * np.exp(-0.5*z**2 )
         k = 1./(width1+width2)
         z2w = z**2/w
         t = f*(z2w-k)
-        g0 = f/norm
         g1 = f*(z2w*( m)-k)
         g2 = f*(z2w*(~m)-k)
         g3 = f*z/w
-        return np.asarray([g0,g1,g2,g3])
+        return np.asarray([g1,g2,g3])
 
     def base_int(self,x1,x2,index=0):
-        norm,width1,width2,x0 = self.p
+        width1,width2,x0 = self.p
         if index==0 and (x1 < x0) and (x2 > x0):
             z1 = (x1 + index - x0)/width1
             z2 = (x2 + index - x0)/width2
             k1 = 2*width1/(width1+width2)
             k2 = 2*width2/(width1+width2)
-            return 0.5*norm*(k2*erf(z2/ROOT2)-k1*erf(z1/ROOT2))
+            return 0.5*(k2*erf(z2/ROOT2)-k1*erf(z1/ROOT2))
         w = width1 if ((x1+index) < x0) else width2
         z1 = (x1 + index - x0)/w
         z2 = (x2 + index - x0)/w
         k = 2*w/(width1+width2)
-        return 0.5*k*norm*(erf(z2/ROOT2)-erf(z1/ROOT2))
+        return 0.5*k*(erf(z2/ROOT2)-erf(z1/ROOT2))
 
     def random(self,n):
         """ Use multinomial technique to return random photons from
             both components."""
-        return two_comp_mc(n,self.p[1],self.p[2],self.p[-1],norm.rvs)
+        return two_comp_mc(n,self.p[0],self.p[1],self.p[-1],norm.rvs)
 
 class LCLorentzian(LCPrimitive):
     """ Represent a (wrapped) Lorentzian peak.
    
         Parameters
-        Norm      :     fraction of photons belonging to peak
         Width     :     the width paramater of the wrapped Cauchy distribution,
                         namely HWHM*2PI for narrow distributions
         Location  :     the center of the peak in phase
     """
     def init(self):
-        self.p = np.asarray([1,0.1,0.5])
-        self.bounds = [ [0.001,1], [0.005,0.5], [0,1] ]
+        self.p = np.asarray([0.1,0.5])
+        self.bounds = [ [0.005,0.5], [0,1] ]
         self.free = np.asarray([True]*len(self.p))
-        self.pnames = ['Norm','Width','Location']
+        self.pnames = ['Width','Location']
         self.name = 'Lorentzian'
 
     def hwhm(self,right=False):
@@ -406,74 +417,73 @@ class LCLorentzian(LCPrimitive):
         return np.arccos( 2-cosh(self.p[1]) )/TWOPI
 
     def __call__(self,phases):
-        norm,gamma,loc = self.p
+        gamma,loc = self.p
         z = TWOPI*(phases-loc)
-        return (norm*sinh(gamma))/(cosh(gamma)-np.cos(z))
+        return sinh(gamma)/(cosh(gamma)-np.cos(z))
 
     def gradient(self,phases):
-        norm,gamma,loc = self.p
+        gamma,loc = self.p
         z = TWOPI*(phases-loc)
         s1 = sinh(gamma); c1 = cosh(gamma)
         c = np.cos(z); s = np.sin(z)
-        f = (norm*s1)/(c1-c)
-        g0 = f/norm
-        g1 = f*(c1/s1-g0)
-        g2 = f*g0*(TWOPI/s1)*s
-        return np.asarray([g0,g1,g2])
+        f = s1/(c1-c)
+        f2 = f**2
+        g1 = f*(c1/s1) - f2
+        g2 = f2*(TWOPI/s1)*s
+        return np.asarray([g1,g2])
 
     def random(self,n):
-        return np.mod(cauchy.rvs(loc=self.p[-1],scale=self.p[1]/TWOPI,size=n),1)
+        return np.mod(cauchy.rvs(loc=self.p[-1],scale=self.p[0]/TWOPI,size=n),1)
 
     def integrate(self,x0=0,x1=1):
-        norm,gamma,loc = self.p
+        gamma,loc = self.p
         if (x0==0) and (x1==1): return self.p[0]
         x0 = PI*(x0-loc)
         x1 = PI*(x1-loc)
         t = cosh(gamma/2)/sinh(gamma/2)
-        return norm/PI*(atan(t*tan(x1))-atan(t*tan(x0)))
+        return (atan(t*tan(x1))-atan(t*tan(x0)))/PI
 
 class LCLorentzian2(LCWrappedFunction):
     """ Represent a (wrapped) two-sided Lorentzian peak.
         Parameters
-        Norm      :  fraction of photons belonging to peak
         Width1    :  the HWHM of the distribution (left)
         Width2    :  the HWHM of the distribution (right)
         Location  :  the mode of the distribution
     """
 
     def init(self):
-        self.p    = np.asarray([1,0.03,0.03,0.5])
-        self.bounds = [ [0.001,1], [0.005,0.5], [0.005,0.5], [0,1] ]
+        self.p    = np.asarray([0.03,0.03,0.5])
+        self.bounds = [ [0.005,0.5], [0.005,0.5], [0,1] ]
         self.free = np.asarray([True]*len(self.p))
-        self.pnames = ['Norm','Width1','Width2','Location']
+        self.pnames = ['Width1','Width2','Location']
         self.name = 'Lorentzian2'
 
     def hwhm(self,right=False):
-        return self.p[1+right]
+        return self.p[right]
 
     def _grad_norm(self,nwraps):
-        norm,gamma1,gamma2,x0 = self.p
+        gamma1,gamma2,x0 = self.p
         z1 = (-nwraps-x0)/gamma1
         z2 = (nwraps+1-x0)/gamma2
         t = gamma2*atan(z2)-gamma1*atan(z1)
         t1 = 1./(1+z1**2)
         t2 = 1./(1+z2**2)
-        k = 2*norm/(gamma1+gamma2)/PI
+        k = 2/(gamma1+gamma2)/PI
         f = k*t
         g1 = -1./(gamma1+gamma2)-(atan(z1)-z1*t1)/t
         g2 = -1./(gamma1+gamma2)+(atan(z2)-z2*t2)/t
         g3 = (t1-t2)/t
-        return [1-f/norm,-f*g1,-f*g2,-f*g3]
+        return [-f*g1,-f*g2,-f*g3]
 
     def base_func(self,phases,index=0):
-        norm,gamma1,gamma2,x0 = self.p
+        gamma1,gamma2,x0 = self.p
         z = (phases + (index - x0))
         z *= np.where(z<=0, 1./gamma1, 1./gamma2)
-        k = 2*norm/(gamma1+gamma2)/PI
+        k = 2/(gamma1+gamma2)/PI
         return k/(1+z**2)
 
     def base_grad(self,phases,index=0):
-        norm,gamma1,gamma2,x0 = self.p
+        gamma1,gamma2,x0 = self.p
         z = (phases + (index - x0))
         m = z < 0
         g = np.where(m,1./gamma1,1./gamma2)
@@ -482,24 +492,24 @@ class LCLorentzian2(LCWrappedFunction):
         g1 = -1/(gamma1+gamma2)+t2*((m*z)/gamma1**2)
         g2 = -1/(gamma1+gamma2)+t2*((~m*z)/gamma2**2)
         g3 = t2*g
-        f = (2*norm/(gamma1+gamma2)/PI)/t1
-        return np.asarray([f/norm,f*g1,f*g2,f*g3])
+        f = (2./(gamma1+gamma2)/PI)/t1
+        return np.asarray([f*g1,f*g2,f*g3])
 
     def base_int(self,x1,x2,index=0):
-        norm,gamma1,gamma2,x0 = self.p
+        gamma1,gamma2,x0 = self.p
         if index==0 and (x1 < x0) and (x2 > x0):
             g1,g2 = gamma1,gamma2
         else:
             g1,g2 = [gamma1]*2 if ((x1+index) < x0) else [gamma2]*2
         z1 = (x1 + index - x0)/g1
         z2 = (x2 + index - x0)/g2
-        k = (2*norm/(gamma1+gamma2)/PI)
+        k = (2./(gamma1+gamma2)/PI)
         return k*(g2*atan(z2)-g1*atan(z1))
 
     def random(self,n):
         """ Use multinomial technique to return random photons from
             both components."""
-        return two_comp_mc(n,self.p[1],self.p[2],self.p[-1],cauchy.rvs)
+        return two_comp_mc(n,self.p[0],self.p[1],self.p[-1],cauchy.rvs)
 
 class LCVonMises(LCPrimitive):
     """ Represent a peak from the von Mises distribution.  This function is
@@ -512,18 +522,18 @@ class LCVonMises(LCPrimitive):
     """
 
     def init(self):
-        self.p    = np.asarray([1,0.05,0.5])
+        self.p    = np.asarray([0.05,0.5])
         self.free = np.asarray([True]*len(self.p))
-        self.pnames = ['Norm','Width','Location']
+        self.pnames = ['Width','Location']
         self.name = 'VonMises'
 
-    def fwhm(self):
-        return np.arccos(self.p[1]*np.log(0.5)+1)/TWOPI
+    def hwhm(self,right=False):
+        return 0.5*np.arccos(self.p[0]*np.log(0.5)+1)/TWOPI
 
     def __call__(self,phases):
-        norm,width,loc = self.p
+        width,loc = self.p
         z = TWOPI*(phases-loc)
-        return norm*np.exp(np.cos(z)/width)/i0(1./width)
+        return np.exp(np.cos(z)/width)/i0(1./width)
 
 class LCTopHat(LCPrimitive):
     """ Represent a top hat function.
