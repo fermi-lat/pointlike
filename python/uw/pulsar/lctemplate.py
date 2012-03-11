@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.27 2012/03/09 02:36:12 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.1 2012/03/11 22:20:21 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -185,7 +185,7 @@ class LCTemplate(object):
         prims = self.primitives
         def norm_string(i):
             fstring = '' if self.norms.free[i] else ' [FIXED]'
-            return 'P%d : %.4f +\- %.4f%s'%(i,self.norms()[i],0,fstring)
+            return 'P%d : %.4f +\- %.4f%s'%(i+1,self.norms()[i],0,fstring)
         s0 = '\nMixture Amplitudes\n------------------\n'+\
              '\n'.join([norm_string(i) for i in xrange(len(prims))])+\
              '\nDC : %.4f +\- %.4f'%(1-self.norms.get_total(),0)
