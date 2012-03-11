@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Mar 11 15:49:17 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcprimitives.py 
+Log Message:
+Fixed OBO bug in get_width.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sun Mar 11 15:20:21 PDT 2012
 pointlike/python/uw/pulsar
 
