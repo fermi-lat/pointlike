@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: kerrm  Sun Mar 11 15:20:21 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py lcprimitives.py 
+Added Files:
+	lctemplate.py lcnorm.py 
+Log Message:
+Major overhaul of normalization system -- see lcnorms.py.  Factor lcfitters into two modules (new lctemplate) module.
+
+    *
+------------------------------------------------------------
 User: lande  Fri Mar  9 15:08:44 PST 2012
 ScienceTools-scons/pointlike/python/uw/like
 
