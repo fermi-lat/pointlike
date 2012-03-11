@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Sun Mar 11 16:00:52 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lctemplate.py 
+Log Message:
+Fix OBO in __str__ labelling.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sun Mar 11 16:00:38 PDT 2012
 pointlike/python/uw/pulsar
 
