@@ -110,8 +110,8 @@ class LCPrimitive(object):
             right   [False] if True, return "right" component, else "left".
                             There is no distinction for symmetric dists.
         """
-        scale = self.hwhm()/self.p[1+right] if hwhm else 1
-        if error: return np.asarray([self.p[1+right],self.errors[1+right]])*scale
+        scale = self.hwhm()/self.p[right] if hwhm else 1
+        if error: return np.asarray([self.p[right],self.errors[right]])*scale
         return self.p[1+right]*scale
     
     def get_gradient(self,phases):
