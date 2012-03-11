@@ -1,8 +1,7 @@
-
 """
-A module implementing an unbinned maximum likelihood fit of phases 
-from some aperture to a profile template.  The template is formed 
-from an arbitrary number of components, each represented by its own class.
+A module implementing binned and unbinned likelihood for weighted and
+unweighted sets of photon phases.  The model is encapsulated in LCTemplate,
+a mixture model.
 
 LCPrimitives are combined to form a light curve (LCTemplate).  
 LCFitter then performs a maximum likielihood fit to determine the 
@@ -10,19 +9,13 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.26 2012/03/08 00:18:43 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.27 2012/03/09 02:36:12 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
 """
 
-#TODO -- remove TOA stuff from LCFitter
-
 import numpy as np
-
-from lcprimitives import *
-from operator import mul
-from scipy.special import gamma
 from scipy.optimize import fmin,leastsq,fmin_slsqp
 from uw.pulsar.stats import z2mw,hm,hmw
 
@@ -66,207 +59,6 @@ def weighted_light_curve(nbins,phases,weights,normed=False):
     norm = w1.sum()/nbins if normed else 1.
     return bins,w1/norm,errors/norm
 
-class LCTemplate(object):
-    """Manage a lightcurve template (collection of LCPrimitive objects).
-   
-       IMPORTANT: a constant background is assumed in the overall model, so there is
-                 no need to furnish this separately.
-    """
-
-    def __init__(self,primitives=None,template=None):
-        """primitives -- a list of LCPrimitive instances."""
-        self.primitives = primitives
-        if template is not None:
-            self.primitives = prim_io(template)
-        if self.primitives is None:
-            raise ValueError,'No light curve components or template provided!'
-        self.shift_mode = np.any([p.shift_mode for p in self.primitives])
-
-    def __getitem__(self,index): return self.primitives[index]
-
-    def set_parameters(self,p):
-        start = 0
-        for prim in self.primitives:
-            n = int(prim.free.sum())
-            prim.set_parameters(p[start:start+n])
-            start += n
-
-    def set_errors(self,errs):
-        start = 0
-        for prim in self.primitives:
-            n = int(prim.free.sum())
-            prim.errors = np.zeros_like(prim.p)
-            prim.errors[prim.free] = errs[start:start+n]
-            start += n
-
-    def get_parameters(self):
-        return np.concatenate( [prim.get_parameters() for prim in self.primitives] )
-
-    def get_bounds(self):
-        return np.concatenate( [prim.get_bounds() for prim in self.primitives] ).tolist()
-
-    def set_overall_phase(self,ph):
-        """Put the peak of the first component at phase ph."""
-        if self.shift_mode:
-            self.primitives[0].p[0] = ph
-            return
-        shift = ph - self.primitives[0].get_location()
-        for prim in self.primitives:
-            new_location = (prim.get_location() + shift)%1
-            prim.set_location(new_location)
-
-    def get_location(self):
-        return self.primitives[0].get_location()
-
-    def norm(self):
-        self.last_norm = sum( (prim.integrate() for prim in self.primitives) )
-        return self.last_norm
-
-    def integrate(self,phi1,phi2, suppress_bg=False):
-        norm = self.norm()
-        dphi = (phi2-phi1)
-        if suppress_bg: return sum( (prim.integrate(phi1,phi2) for prim in self.primitives) )/norm
-
-        return (1-norm)*dphi + sum( (prim.integrate(phi1,phi2) for prim in self.primitives) )
-
-    def max(self,resolution=0.01):
-        return self(np.arange(0,1,resolution)).max()
-
-    def __call__(self,phases,suppress_bg=False):
-        n = self.norm()
-        rval = np.zeros_like(phases)
-        for prim in self.primitives:
-            rval += prim(phases)
-        if suppress_bg: return rval/n
-        return (1-n) + rval
-
-    def gradient(self,phases):
-        r = np.empty([len(self.get_parameters()),len(phases)])
-        c = 0
-        for prim in self.primitives:
-            n = prim.free.sum()
-            r[c:c+n,:] = prim.get_gradient(phases)
-            c += n
-        return r
-
-    def approx_gradient(self,phases,eps=1e-5):
-        orig_p = self.get_parameters().copy()
-        g = np.zeros([len(orig_p),len(phases)])
-        weights = np.asarray([-1,8,-8,1])/(12*eps)
-
-        def do_step(which,eps):
-            p0 = orig_p.copy()
-            p0[which] += eps
-            self.set_parameters(p0)
-            return self(phases)
-
-        for i in xrange(len(orig_p)):
-            # use a 4th-order central difference scheme
-            for j,w in zip([2,1,-1,-2],weights):
-                g[i,:] += w*do_step(i,j*eps)
-
-        self.set_parameters(orig_p)
-        return g
-
-    def check_gradient(self,tol=1e-6,quiet=False):
-        """ Test gradient function with a set of MC photons."""
-        ph = self.random(1000)
-        g1 = self.gradient(ph)
-        g2 = self.approx_gradient(ph)
-        d1 = np.abs(g1-g2)
-        d2 = d1/g1
-        fail = np.any((d1>tol) | (d2>tol))
-        if not quiet:
-            pass_string = 'failed' if fail else 'passed'
-            print 'Completed gradient check (%s)\nLargest discrepancy: %.3g absolute / %.3g fractional'%(pass_string,d1.max(),d2.max())
-        return not fail
-
-    def __sort__(self):
-        def cmp(p1,p2):
-            if   p1.p[-1] <  p2.p[-1]: return -1
-            elif p1.p[-1] == p2.p[-1]: return 0
-            else: return 1
-        self.primitives.sort(cmp=cmp)
-
-    def __str__(self):
-        self.__sort__()
-        s1 = '\n'+'\n\n'.join( ['P%d -- '%(i+1)+str(prim) for i,prim in enumerate(self.primitives)] ) + '\n'
-        if len(self.primitives)==2:
-            p1,e1 = self.primitives[0].get_location(error=True) 
-            p2,e2 = self.primitives[1].get_location(error=True)
-            s1 +=  '\nDelta   : %.4f +\- %.4f\n'%(p2-p1,(e1**2+e2**2)**0.5)
-        return s1
-
-    def prof_string(self,outputfile=None):
-        """ Return a string compatible with the format used by pygaussfit.
-            Assume all primitives are gaussians."""
-        rstrings = []
-        dashes = '-'*25
-        norm,errnorm = 0,0
-      
-        for nprim,prim in enumerate(self.primitives):
-            phas = prim.get_location(error=True)
-            fwhm = prim.get_width(error=True,fwhm=True)
-            ampl = prim.get_norm(error=True)
-            norm += ampl[0]
-            errnorm += (ampl[1]**2)
-            for st,va in zip(['phas','fwhm','ampl'],[phas,fwhm,ampl]):
-                rstrings += ['%s%d = %.5f +/- %.5f'%(st,nprim+1,va[0],va[1])]
-        const = 'const = %.5f +/- %.5f'%(1-norm,errnorm**0.5)
-        rstring = [dashes] + [const] + rstrings + [dashes]
-        if outputfile is not None:
-            f = open(outputfile,'w')
-            f.write('# gauss\n')
-            for s in rstring: f.write(s+'\n')
-        return '\n'.join(rstring)
-       
-    def random(self,n,weights=None):
-        """ Return n pseudo-random variables drawn from the distribution 
-            given by this light curve template.
-
-            Uses a mulitinomial to divvy the n phases up amongs the various
-            components, which then each generate MC phases from their own
-            distributions.
-
-            If a vector of weights is provided, the weight in interpreted
-            as the probability that a photon comes from the template.  A
-            random check is done according to this probability to
-            determine whether to draw the photon from the template or from
-            a uniform distribution.
-        """
-        rvals = np.empty(n)
-        if weights is not None:
-            if len(weights) != n:
-                raise Exception('Provided weight vector does not provide a weight for each photon.')
-            t = np.random.rand(n)
-            m = t <= weights
-            t_indices = np.arange(n)[m]
-            n = m.sum()
-            rvals[~m] = np.random.rand(len(m)-n)
-        else:
-            t_indices = np.arange(n)
-
-        # multinomial implementation -- draw from the template components
-        if len(self.primitives)==0: return np.random.rand(n)
-        norms = [prim.get_norm() for prim in self.primitives]
-        norms = np.append(norms,[1-sum(norms)])
-        a = np.argsort(norms)[::-1]
-        boundaries = np.cumsum(norms[a])
-        components = np.searchsorted(boundaries,np.random.rand(n))
-        counter = 0
-        for mapped_comp,comp in zip(a,np.arange(len(norms))):
-            n = (components==comp).sum()
-            if mapped_comp == len(norms)-1:
-                rvals[t_indices[counter:counter+n]] = np.random.rand(n) 
-            else:
-                rvals[t_indices[counter:counter+n]] = self.primitives[mapped_comp].random(n)
-            counter += n
-        return rvals
-
-    def swap_primitive(self,index,ptype='LCLorentzian'):
-       """ Swap the specified primitive for a new one with the parameters
-           that match the old one as closely as possible."""
-       self.primitives[index] = convert_primitive(self.primitives[index],ptype)
 
 def LCFitter(template,phases,weights=None,times=1,binned_bins=100):
     """ Factory class for light curve fitters.
@@ -289,9 +81,7 @@ def LCFitter(template,phases,weights=None,times=1,binned_bins=100):
 class UnweightedLCFitter(object):
 
     def __init__(self,template,phases,**kwargs):
-        if type(template) == type(""):
-            self.template = LCTemplate(gaussian_template=template)
-        else: self.template = template
+        self.template = template
         self.phases = np.asarray(phases)
         self.__dict__.update(kwargs)
         self._hist_setup()
@@ -320,7 +110,7 @@ class UnweightedLCFitter(object):
 
     def unbinned_loglikelihood(self,p,*args):
         args[0].set_parameters(p); t = self.template
-        if (t.norm()>1) or (not t.shift_mode and np.any(p<0)):
+        if (not t.shift_mode) and np.any(p<0):
             return 2e20
         args[0].set_parameters(p)
         rvals = -np.log(t(self.phases)).sum()
@@ -329,18 +119,16 @@ class UnweightedLCFitter(object):
 
     def binned_loglikelihood(self,p,*args):
         args[0].set_parameters(p); t = self.template
-        if (t.norm()>1) or (not t.shift_mode and np.any(p<0)):
+        if (not t.shift_mode) and np.any(p<0):
             return 2e20
         return -(self.counts*np.log(t(self.counts_centers))).sum()
       
     def unbinned_gradient(self,p,*args):
         args[0].set_parameters(p); t = self.template
-        if t.norm() > 1: return np.ones_like(p)*2e20
         return -(t.gradient(self.phases)/t(self.phases)).sum(axis=1)
 
     def binned_gradient(self,p,*args):
         args[0].set_parameters(p); t = self.template
-        if t.norm() > 1: return np.ones_like(p)*2e20
         return -(self.counts*t.gradient(self.counts_centers)/t(self.counts_centers)).sum(axis=1)
 
     def chi(self,p,*args):
@@ -349,12 +137,18 @@ class UnweightedLCFitter(object):
             return 2e100*np.ones_like(x)/len(x)
         args[0].set_parameters(p)
         chi = (self.template(x) - y)/yerr
-        if self.template.last_norm > 1:
-            return 2e100*np.ones_like(x)/len(x)
-        else: return chi
+        return chi
 
     def quick_fit(self):
-        f = leastsq(self.chi,self.template.get_parameters(),args=(self.template))
+        t = self.template
+        p0 = t.get_parameters().copy()
+        chi0 = (self.chi(t.get_parameters(),t)**2).sum()
+        f = leastsq(self.chi,t.get_parameters(),args=(t))
+        chi1 = (self.chi(t.get_parameters(),t)**2).sum()
+        print chi0,chi1,' chi numbers'
+        if (chi1 > chi0):
+            print 'Failed least squares fit -- reset and proceed to likelihood.'
+            t.set_parameters(p0)
 
     def _fix_state(self,restore_state=None):
         old_state = []
@@ -384,19 +178,13 @@ class UnweightedLCFitter(object):
         self._set_unbinned(unbinned)
 
         if positions_first:
+            print 'Running positions first'
             restore_state = self._fix_state()
             self.fit(quick_fit_first=quick_fit_first,estimate_errors=False, unbinned=unbinned, use_gradient=use_gradient, positions_first=False)
             self._fix_state(restore_state)
 
         # an initial chi squared fit to find better seed values
-        if quick_fit_first:
-            p0 = self.template.get_parameters().copy()
-            chi0 = (self.chi(p0,self.template)**2).sum()
-            self.quick_fit()
-            chi1 = (self.chi(self.template.get_parameters(),self.template)**2).sum()
-            if (chi1 > chi0):
-                print 'Failed least squares fit -- reset and proceed to likelihood.'
-                self.template.set_parameters(p0)
+        if quick_fit_first: self.quick_fit()
 
         ll0 = -self.loglikelihood(self.template.get_parameters(),self.template)
         p0 = self.template.get_parameters().copy()
@@ -404,14 +192,15 @@ class UnweightedLCFitter(object):
             f = self.fit_tnc()
         else:
             f = self.fit_fmin()
-        if estimate_errors:
-            self._errors()
-            self.template.set_errors(np.diag(self.cov_matrix)**0.5)
         print ll0,self.ll
-        if ll0 > self.ll:
+        if (ll0 > self.ll) or (self.ll==-2e20) or (np.isnan(self.ll)):
+            self.bad_p = self.template.get_parameters().copy()
             print 'Failed likelihood fit -- resetting parameters.'
             self.template.set_parameters(p0)
             self.ll = ll0; self.fitvals = p0
+        elif estimate_errors:
+            self._errors()
+            self.template.set_errors(np.diag(self.cov_matrix)**0.5)
 
     def fit_fmin(self,ftol=1e-5):
         fit = fmin(self.loglikelihood,self.template.get_parameters(),args=(self.template,),disp=0,ftol=ftol,full_output=True)
@@ -568,9 +357,6 @@ class WeightedLCFitter(UnweightedLCFitter):
             return 2e100*np.ones_like(x)/len(x)
         args[0].set_parameters(p)
         chi = (bg + (1-bg)*self.template(x) - y)/yerr
-        #if self.template.last_norm > 1:
-        #    return 2e100*np.ones_like(x)/len(x)
-        #else: return chi
         return chi
 
     def unbinned_loglikelihood(self,p,*args):
@@ -665,46 +451,8 @@ def hessian(m,mf,*args,**kwargs):
     mf(p,m,*args) #call likelihood with original values; this resets model and any other values that might be used later
     return hessian
 
-def get_gauss2(pulse_frac=1,x1=0.1,x2=0.55,ratio=1.5,width1=0.01,width2=0.02,lorentzian=False,bridge_frac=0,skew=False):
-    """Return a two-gaussian template.  Convenience function."""
-    n1,n2 = np.asarray([ratio,1.])*(1-bridge_frac)*(pulse_frac/(1.+ratio))
-    if skew:
-        prim = LCLorentzian2 if lorentzian else LCGaussian2
-        p1,p2 = [n1,width1,width1*(1+skew),x1],[n2,width2*(1+skew),width2,x2]
-    else:
-        if lorentzian:
-            prim = LCLorentzian; width1 *= (2*np.pi); width2 *= (2*np.pi)
-        else:
-            prim = LCGaussian
-        p1,p2 = [n1,width1,x1],[n2,width2,x2]
-    if bridge_frac > 0:
-        b = LCGaussian(p=[bridge_frac*pulse_frac,0.1,(x2-x1)/2])
-        return LCTemplate(primitives=[prim(p=p1),b,prim(p=p2)])
-    return LCTemplate(primitives=[prim(p=p1),prim(p=p2)])
-
-def get_gauss1(pulse_frac=1,x1=0.5,width1=0.01):
-    """Return a one-gaussian template.  Convenience function."""
-    return LCTemplate(primitives=[LCGaussian(p=[pulse_frac,width1,x1])])
-
-def get_2pb(pulse_frac=0.5,lorentzian=False):
-    """ Convenience function to get a 2 Lorentzian + Gaussian bridge template."""
-    prim = LCLorentzian if lorentzian else LCGaussian
-    p1 = prim(p=[0.3*pulse_frac,0.03,0.1])
-    b = LCGaussian(p=[0.4*pulse_frac,0.15,0.3])
-    p2 = prim(p=[0.3*pulse_frac,0.03,0.55])
-    return LCTemplate(primitives=[p1,b,p2])
-
-def make_twoside_gaussian(one_side_gaussian):
-    """ Make a two-sided gaussian with the same initial shape as the
-        input one-sided gaussian."""
-    g2 = LCGaussian2() 
-    g1 = one_side_gaussian
-    g2.p[0] = g1.p[0]
-    g2.p[-1] = g1.p[-1]
-    g2.p[1:3] = g1.p[1]
-    return g2
-
 def get_errors(template,total,n=100):
+    """ This is, I think, for making MC estimates of TOA errors."""
     from scipy.optimize import fmin
     ph0 = template.get_location()
     def logl(phi,*args):
