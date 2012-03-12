@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Mar 12 15:14:03 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Small change in hessian calculation.
+
+    *
+------------------------------------------------------------
 User: mar0  Mon Mar 12 13:31:59 PDT 2012
 pointlike/python/uw/stacklike
 
