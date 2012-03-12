@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Mar 12 11:42:05 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+new save_profile function, SmoothDoubleBrokenPowerLaw object, and better doctests.
+    *
+------------------------------------------------------------
 User: wallacee  Mon Mar 12 10:40:58 PDT 2012
 pointlike/python/uw/utilities
 
