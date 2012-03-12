@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.27 2012/03/09 02:36:12 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.28 2012/03/11 22:20:21 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -147,6 +147,7 @@ class UnweightedLCFitter(object):
         chi1 = (self.chi(t.get_parameters(),t)**2).sum()
         print chi0,chi1,' chi numbers'
         if (chi1 > chi0):
+            print self
             print 'Failed least squares fit -- reset and proceed to likelihood.'
             t.set_parameters(p0)
 
@@ -241,9 +242,11 @@ class UnweightedLCFitter(object):
         h1 = hessian(self.template,self.loglikelihood)
         try: 
             c1 = inv(h1)
-            h2 = hessian(self.template,self.loglikelihood,delt=np.diag(c1)**0.5)
-            c2 = inv(h2)
-            if np.all(np.diag(c2)>0): self.cov_matrix = c2
+            d = np.diag(c1)
+            if np.all(d>0):
+                h2 = hessian(self.template,self.loglikelihood,delt=d**0.5)
+                c2 = inv(h2)
+                if np.all(np.diag(c2)>0): self.cov_matrix = c2
             elif np.all(np.diag(c1)>0): self.cov_matrix = c1
             else: raise ValueError
         except:
