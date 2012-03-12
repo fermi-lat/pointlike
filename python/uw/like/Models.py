@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.83 2012/03/09 00:41:36 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.84 2012/03/09 12:04:27 cohen Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -40,6 +40,11 @@ class DefaultModelValues(object):
         FileFunction        = dict(_p=[],                       param_names=[]),
         DMFitFunction       = dict(_p=[1.0, 100.],              param_names=['sigmav','mass'], norm=1, bratio=1.0, channel0=1, channel1=1,
                                    file='$(INST_DIR)/Likelihood/src/dmfit/gammamc_dif.dat'),
+        SmoothDoubleBrokenPowerLaw = dict(_p=[ 1e-11, 1.0, 1e3, 2.0, 1e4, 3.0, ], 
+                                          param_names=[ 'Prefactor', 'Index1', 'BreakValue12', 'Index2', 'BreakValue23', 'Index3' ],
+                                          Beta12=0.05, Beta23=0.05, Scale=1e3)
+
+
         )
 
     @staticmethod
@@ -334,6 +339,20 @@ class Model(object):
             if not quiet:
                 print 'Encountered a numerical error, "%s", when attempting to calculate integral flux.'%msg
             return np.nan if not error else ([flux, np.nan,np.nan] if two_sided else [flux, np.nan])
+
+    def save_profile(self, filename, emin, emax, numpoints=200):
+        """ Create a textfile of the spectral model. Useful for running
+            gtobssim or gtlike with weird spectra. Also useful
+            for creating a numeric representation of a spectral
+            model using the FileFunction object. """
+        energies=np.logspace(np.log10(emin),np.log10(emax),numpoints)
+        fluxes=self(energies)
+        # Clip out 0s on either end of spectral file. Otherwise gtobbsim gets angry.
+        while fluxes[0] == 0: energies,fluxes=energies[1:],fluxes[1:]
+        while fluxes[-1] == 0: energies,fluxes=energies[:-1],fluxes[:-1]
+        # okay that's to check for local divergences
+        if np.any(fluxes==0): raise Exception("Error: 0s found in differential flux")
+        open(filename,'w').write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(energies,fluxes)]))
 
     def set_flux(self,flux,*args,**kwargs):
         """ Set the flux of the source. 
@@ -922,6 +941,7 @@ class CompositeModel(Model):
         self.cov_matrix = np.zeros([self.npar,self.npar]) #default covariance matrix
         self.e0 = 1000. # not sure why, but sed_plotter needs this
 
+    @abstractmethod
     def __call__(self,e): 
         """ Must be implemented by a subclass. """
         pass
@@ -1056,7 +1076,10 @@ class SumModel(CompositeModel):
 class ProductModel(CompositeModel):
     """ Model is the product of other Models.
 
-        Easy to create: 
+        Note: set_flux function just adjusts normalziation of 
+              first parameter, which should be correct! 
+              
+        These things are Easy to create: 
 
             >>> m1=PowerLaw(index=2);m1.set_flux(1)
             >>> m2=LogParabola(beta=2); m1.set_flux(1)
@@ -1067,9 +1090,7 @@ class ProductModel(CompositeModel):
             >>> energy = np.asarray([1e2,1e3,1e4])
             >>> np.allclose(prod_model(energy), m1(energy) * m2(energy))
             True
-
-        Note: set_flux function just adjusts normalziation of 
-              first parameter, which should be correct! """
+    """
     operator = '*'
     name = 'ProductModel'
 
@@ -1120,9 +1141,7 @@ class FileFunction(Model):
             >>> from tempfile import NamedTemporaryFile
             >>> temp = NamedTemporaryFile()
             >>> filename = temp.name
-            >>> e = np.logspace(0, 5, 3)
-            >>> pdf = model(e)
-            >>> temp.write('\n'.join('%s\t%s' % (i,j) for i,j in zip(e,pdf)))
+            >>> model.save_profile(filename, emin=1, emax=1e5)
             >>> temp.seek(0)
 
         Load the file into the FileFunction object
@@ -1132,8 +1151,17 @@ class FileFunction(Model):
         And the power-law is restored, even between the saved points.
 
             >>> energies = np.logspace(0.122, 4.83, 42)
-            >>> np.allclose(model(e), file_function(e))
+            >>> np.allclose(model(energies), file_function(energies))
             True
+
+        If you want to create a FileSpectrum that is multiplied
+        by a unitless-constant or powerlaw, you can use the ProductModel
+        objct:
+
+            >>> composite = ProductModel(Constant(scale=50), file_function)
+            >>> np.allclose(composite(energies), 50*file_function(energies))
+            True
+            
     """
     def __make_interp__(self):
         self.interp = interp1d(np.log10(self.energy),np.log10(self.flux),
@@ -1208,7 +1236,7 @@ class DMFitFunction(Model):
             >>> model = DMFitFunction(sigmav=1e-26, mass=100,
             ... channel0=4, channel1=1, bratio=1, norm=2.5e17)
 
-            >>> model =DMFitFunction(norm=2.5e17, sigmav=1e-26, channel0=4,channel1=1,mass=100,bratio=1.0)
+            >>> model = DMFitFunction(norm=2.5e17, sigmav=1e-26, channel0=4,channel1=1,mass=100,bratio=1.0)
 
         These points agree with the fortran code.
 
@@ -1277,13 +1305,54 @@ class DMFitFunction(Model):
         super(DMFitFunction,self).set_all_parameters(*args, **kwargs)
         self._update()
 
-    def __call__(self,e):
-        """ Return energy in MeV. This could be vectorized. """
+    @staticmethod
+    def call_pylike_spectrum(spectrum, e):
+        """ Method to call a pylikelihood spectrum given
+            either a python numer or a numpy array. """
         from pyLikelihood import dArg
         if isinstance(e,collections.Iterable):
-            return np.asarray([self.dmf(dArg(i)) for i in e])
+            return np.asarray([spectrum(dArg(i)) for i in e])
         else:
-            return self.dmf(dArg(e))
+            return spectrum(dArg(e))
+
+    def __call__(self,e):
+        """ Return energy in MeV. This could be vectorized. """
+        return DMFitFunction.call_pylike_spectrum(self.dmf, e)
+        
+
+class SmoothDoubleBrokenPowerLaw(Model):
+    """ Spectral Model Taken to be the same as:
+
+            http://glast.stanford.edu/cgi-bin/viewcvs/Likelihood/src/SmoothDoubleBrokenPowerLaw.cxx
+
+        but with the indices the negative of the pointlike indices
+            
+            >>> pointlike_model = SmoothDoubleBrokenPowerLaw(beta12=0.5, beta23=0.25)
+            >>> import pyLikelihood
+            >>> _funcFactory = pyLikelihood.SourceFactory_funcFactory()
+            >>> gtlike_model = _funcFactory.create('SmoothDoubleBrokenPowerLaw')
+            >>> for n in pointlike_model.param_names:
+            ...     gtlike_model.setParam(n,(-1 if 'index' in n else 1)*pointlike_model[n])
+            >>> for n in ['Beta23', 'Beta12', 'Scale']:
+            ...     gtlike_model.setParam(n,getattr(pointlike_model,n))
+            >>> energies = np.logspace(1, 6, 10000)
+            >>> np.allclose(DMFitFunction.call_pylike_spectrum(gtlike_model, energies), pointlike_model(energies))
+            True
+    """
+    def __call__(self,e):
+        """
+        """
+        prefactor, index1, index2, breakvalue12, index3, breakvalue23 = 10**self._p
+
+        index1, index2, index3 = -index1, -index2, -index3
+
+        return prefactor*(e/self.Scale)**index1*\
+            (1 + (e/breakvalue12)**((index1 - index2)/self.Beta12))**-self.Beta12*\
+            (1 + (e/breakvalue23)**((index2 - index3)/self.Beta23))**-self.Beta23
+
+    def full_name(self):
+        return '%s, scale=%.0f, beta12=%.3g, beta23=%.3g'% (self.pretty_name,self.Scale,self.Beta12,self.Beta23)
+
 
 
 def convert_exp_cutoff(model):
