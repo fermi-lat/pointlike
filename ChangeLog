@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: wallacee  Mon Mar 12 10:12:55 PDT 2012
+pointlike/python/uw/utilities
+
+Modified Files:
+	fitter.py 
+Log Message:
+A couple changes to Minimizer.__set_error__ to skip a redundant inversion of
+the Hessian, and to reset the parameters after calculation of the covariance
+matrix. Both only relevant to cases where the analytical gradient is used.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sun Mar 11 16:00:52 PDT 2012
 pointlike/python/uw/pulsar
 
