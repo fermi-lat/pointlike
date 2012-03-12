@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Mon Mar 12 10:40:58 PDT 2012
+pointlike/python/uw/utilities
+
+Modified Files:
+	fitter.py 
+Log Message:
+Fix a minor problem with the last commit.
+
+    *
+------------------------------------------------------------
 User: wallacee  Mon Mar 12 10:12:55 PDT 2012
 pointlike/python/uw/utilities
 
