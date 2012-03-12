@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: mar0  Mon Mar 12 13:31:59 PDT 2012
+pointlike/python/uw/stacklike
+
+Modified Files:
+	CLHEP.py angularmodels.py binned.py fitsmooth.py stacklike.py 
+Added Files:
+	stcaldb.py 
+Log Message:
+changed from minuit to fmin_powell for fitter in stacklike/binned, added caldb support
+    *
+------------------------------------------------------------
 User: kerrm  Mon Mar 12 12:59:41 PDT 2012
 pointlike/python/uw/pulsar
 
