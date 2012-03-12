@@ -2,7 +2,7 @@
 Basic fitter utilities
 
 Authors: Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.4 2011/12/06 22:23:34 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.5 2012/03/12 17:12:55 wallacee Exp $
 
 """
 
@@ -222,7 +222,7 @@ class Minimizer(object):
                 full=False
                 
             if not self.quiet: print 'Attempting to invert full hessian...'
-            self.cov_matrix =t = cov_matrix or linalg.inv(hessian)
+            self.cov_matrix =t = cov_matrix if cov_matrix is not None else linalg.inv(hessian)
             if np.any(np.isnan(self.cov_matrix)):
                 if not self.quiet: print 'Found NaN in covariance matrix!'
                 raise Exception('Found NaN in covariance matrix!')
