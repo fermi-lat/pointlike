@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Mar 12 12:59:41 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcprimitives.py lctemplate.py 
+Log Message:
+Fix some bugs in conversion of primitives.
+
+    *
+------------------------------------------------------------
 User: lande  Mon Mar 12 12:28:01 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
