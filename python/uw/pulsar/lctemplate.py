@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.1 2012/03/11 22:20:21 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.2 2012/03/11 23:00:52 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -35,6 +35,7 @@ class LCTemplate(object):
         self.norms = NormAngles(norms)
 
     def __getitem__(self,index): return self.primitives[index]
+    def __setitem__(self,index,value): self.primitives[index]=value
 
     def set_parameters(self,p):
         start = 0
