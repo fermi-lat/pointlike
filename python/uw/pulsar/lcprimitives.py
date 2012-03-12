@@ -414,7 +414,7 @@ class LCLorentzian(LCPrimitive):
 
     def hwhm(self,right=False):
         # NB -- bounds on p[1] set such that this is well-defined
-        return np.arccos( 2-cosh(self.p[1]) )/TWOPI
+        return np.arccos( 2-cosh(self.p[0]) )/TWOPI
 
     def __call__(self,phases):
         gamma,loc = self.p
@@ -803,11 +803,17 @@ def convert_primitive(p1,ptype=LCLorentzian):
     """ Attempt to set the parameters of p2 to give a comparable primitive
         to p1."""
     p2 = ptype()
+    p2_scale = p2.p[0]/p2.hwhm()
+    # set position
     p2.p[-1] = p1.p[-1]
-    width_scale = p1.hwhm()/p2.hwhm()
-    p2.p[0] = p1.p[0]*width_scale
-    if len(p2.p) > 2:
-        p = p1.p[0] if (len(p1.p) == 2) else p1.p[1]
-        p2.p[1] = p*width_scale
+    # set width
+    # default, 2->2 conversion
+    p2.p[0] = p2_scale*p1.hwhm()
+    # if we are going from 2->1, use mean of widths
+    if (len(p2.p)==2) and (len(p1.p)==3):
+        p2.p[0] = p2_scale*(p1.hwhm(right=False)+p1.hwhm(right=True))/2
+    # if we are going from 1->2, duplicate
+    elif (len(p2.p)==3) and (len(p1.p)==2):
+        p2.p[1] = p2.p[0]
     return p2
 
