@@ -9,6 +9,7 @@ from uw.like.pycaldb import CALDBManager
 from uw.like.pypsf import CALDBPsf
 import uw.stacklike.angularmodels as ua
 import uw.utilities.assigntasks as uta
+from uw.stacklike.stcaldb import scale2
 import pyfits as pf
 import pylab as py
 import numpy as N
@@ -17,24 +18,28 @@ import matplotlib
 import os as os
 import time as t
 import string
+import scipy.interpolate as intp
 from uw.stacklike.CLHEP import Photon
 import uw.stacklike.binned as ub
-import pickle
+import cPickle
+from uw.utilities.minuit import Minuit
 
 
 rd = 180/np.pi   #DEG2RAD
 inf = 1e40
 trad = rd
-ft1dir = r'/phys/groups/tev/scratch1/users/Fermi/mar0/data/6.3/'          #ft1 fits files directory
-stacklist = 'cgv'                    #text file containing 'name ra dec' for each stacked source
+ft1dir = r'/phys/groups/tev/scratch1/users/Fermi/mar0/data/7.6src/'          #ft1 fits files directory
+stacklist = 'agn-psf-study-bright'                    #text file containing 'name ra dec' for each stacked source
 cdb = r'/phys/groups/tev/scratch1/users/Fermi/CALDB/v1r1/CALDB/data/glast/lat'     #CALDB directory
 sdir='/phys/users/mar0/sourcelists/'
+cachedir = '/phys/groups/tev/scratch1/users/Fermi/mar0/cache/'
+np.seterr(all='ignore')
 
 def doublepsfint(dm,s1,g1,n1,s2,g2,n2):
     return n1*intg(dm,s1,g1)+n2*intg(dm,s2,g2)
 
 def intg(dm,s1,g1):
-    return 1.-(1+1/g1*(dm/s1)**2)**(-g1)
+    return 1.-(1+(dm/s1)**2/(2*g1))**(-g1+1)
 
 def double2single(s1,g1,n1,s2,g2,n2):
     norm = doublepsfint(inf,s1,g1,n1,s2,g2,n2)
@@ -49,8 +54,9 @@ def double2single(s1,g1,n1,s2,g2,n2):
 
 ## Main method
 # @param ec Conversion Type (0-front 1-back)
-def main(ec):
-    f = Fitter(ec,ft1dir,stacklist)
+def main(ec,name,verbose=0):
+    f = Fitter(ec,ft1dir,stacklist,name,single=True,verbose=verbose)
+    return f
 
 
 ################################## BEGIN FITTER CLASS ####################################
@@ -70,28 +76,29 @@ class Fitter(object):
     ## Constructor
     #  runs optimization
     #  energy bins (GeV): [1.0-1.7],[1.7-3.2],[3.2-5.6],[5.6-10],[10-17],[17-32],[32-100]
-    def __init__(self,ec,ftdir,slist):
+    def __init__(self,ec,ftdir,slist,name,single=True,verbose=0):
+        self.single=single
         self.lastlike=0
         self.lastbin=[]
         self.iterations=0
+        self.verbose=verbose
+        self.ec = ec
+        self.ftdir=ftdir
+        self.name=name
+        self.slist = slist
+        #set up the initial condition based on P6v3  
+        self.loaddata()
+        #self.solve()
 
-        #set up the initial condition based on P6v3
-        if ec==0:
-            pars = [4.0,0.11,-0.84,0.25,-0.05,11.,0.3,-0.84,0.6,-0.05]
-        else:
-            pars = [6.7,0.26,-0.79,0.6,-0.05,21.,0.76,-0.79,1.,-0.05]
-
-        
-        steps = abs(np.array(pars))*0.2
-        lims = [[0.01,20.],[0.00001,1.],[-2.,-0.001],[0.01,40.],[0.00001,1.],[-2.,-0.001]]
-
+    def loaddata(self):
+        #print len(pars),len(steps),len(lims)
         emin=[]
         emax=[]
-        irf = 'P6_v3_diff'
+        irf = 'P6_v11_diff'
         st1=0.25
         st2=0.25
         st3=0.5
-        sc1 = np.arange(3.,4.,st1)
+        sc1 = np.arange(2.75,4.,st1)
         sc2 = np.arange(4.,4.5,st2)
         sc3 = np.arange(4.5,5.,st3)
 
@@ -105,27 +112,98 @@ class Fitter(object):
             emin.append(10**(i))
             emax.append(10**(i+st3))
         
-        altb=[]
+        self.altb=[]
 
-        files = glob.glob(ftdir+'*-ft1.fits')
-
+        files = np.sort(glob.glob(self.ftdir+'*.fit*'))
+        template = 'fitter_%s_%s_ec%d_'%(self.name,self.slist,self.ec)
         ## setup the stacker for each energy bin
+        gacc = 0
         for it,en in enumerate(emin):
-            al = b.StackLoader(lis=slist,quiet=False,useft2s=False,irf=irf,ctmin=0.4,srcdir=sdir,ft1dir=ft1dir)
+            temp2 = 'emin_%d_emax_%d.npy'%(en,emax[it])
+            al = b.StackLoader(lis=self.slist,quiet=self.verbose<2,useft2s=False,irf=irf,ctmin=0.4,srcdir=sdir,ft1dir=ft1dir)
+            al.emin,al.emax,al.ebar=en,emax[it],np.sqrt(en*emax[it])
+            al.minroi,al.maxroi=0.,4.
+            al.cls=self.ec
             al.files=files
-            al.loadphotons(0.,4.,en,emax[it],0,999999999,ec)
-            events = len(al.photons)
-            al.bindata()
+            if not os.path.exists(cachedir+template+temp2):
+                al.loadphotons(0.,4.,en,emax[it],0,999999999,self.ec)
+                events = len(al.photons)
+                #del al.cm.minuit
+                al.saveds(cachedir+template+temp2)
+            else:
+                al.loadds(cachedir+template+temp2)
+            #al.bindata()
             al.solveback()
-            altb.append(al)
+            #al.solvepsf()
+            self.altb.append(al)
+
+    def profilelikelihoods(self,grid=21):
+        fdir='/phys/groups/tev/scratch1/users/Fermi/mar0/figures/'
+        py.figure(figsize=(8,8))
+        for tb in self.altb:
+            tb.solvepsf()
+            py.clf()
+            l0 = tb.cm.minuit.fval
+            sran = np.linspace(max(tb.sigma-5*tb.sigmae,0),tb.sigma+5*tb.sigmae,grid)
+            gran = np.linspace(max(tb.gamma-5*tb.gammae,0),tb.gamma+5*tb.gammae,grid)
+            surf = np.array([tb.solveback(model_par=[sra,gra])-l0 for gra in gran for sra in sran]).reshape(grid,-1)
+            py.contourf(sran/tb.sigma,gran/tb.gamma,surf,levels=[0.5,2,4.5,8,12.5,18])
+            py.xlim(0,2)
+            py.ylim(0,2)
+            py.colorbar()
+            py.savefig(fdir+'%d%d.png'%(tb.ebar,tb.cls))
+
+
+    def solve(self,**kwargs):
+        self.__dict__.update(kwargs)
+        if self.single:
+            if self.ec==0:
+                pars = [3.88,0.06,0.81,10.62,0.16,0.85]
+            else:
+                pars = [5.74,0.11,0.76,17.67,0.47,0.87]
+            lims = np.array([[0.01,20.],[0.00001,1.],[0.001,2.],[0.01,40.],[0.00001,1.],[0.001,2.]])
+        else:
+            if self.ec==0:
+                pars = [4.0,0.11,0.84,0.25,0.05,11.,0.3,0.84,0.6,0.05]
+            else:
+                pars = [6.7,0.26,0.79,0.6,0.05,21.,0.76,0.79,1.,0.05]
+            lims = np.array([[0.01,20.],[0.00001,1.],[0.001,2.],[0.00001,1.],[0.001,2.],[0.01,40.],[0.00001,1.],[0.001,2.],[0.00001,1.],[0.001,2.]])
+
+        
+        #pars = np.log10(np.array(pars))
+        pars = np.array(pars)
+        steps = abs(np.array(pars))*0.0001
+        lims = np.log10(lims)
+
+
             #al.makeplot(name='/phys/users/mar0/figures/%s%d%d'%(slist,al.ebar,al.cls),scale='linear',bin=len(hist[0]))
 
+        fixed = [True for x in pars]
+        fixed[0]=False
         ## optimize curves
-        almin = so.fmin_powell(lambda x:self.likelihood(altb,x[0],x[1],x[2],x[3],x[4],x[5],x[6],x[7],x[8],x[9]),pars,disp=1,full_output=1)
+        #minuit = Minuit(lambda x:self.likelihood(x),pars,fixed=fixed,printMode=2)#limits=lims,steps=steps,
+        #minuit.minimize()
+        self.best=0
+        sample = abs(self.likelihood(pars))
+        self.best=sample
+        ftol = 0.5/sample
+        if self.verbose>0:
+            print 'Using function tolerance: %1.2g (%1.1f)'%(ftol,sample)
+        almin = so.fmin_powell(lambda x:self.likelihood(x),pars,ftol=ftol,disp=1,full_output=1,callback=self.update(self.lastlike))
         
         ## print out fit parameters
+        #print 10**almin[0]
+        #self.pars = 10**almin[0]
         print almin[0]
+        self.pars = almin[0]
+        #print 10**minuit.params
+        #self.pars = 10**minuit.params
+        self.fval = almin[1]
+        return self.pars
 
+        
+    def update(self,last):
+        self.best=last
 
     ## likelihood function
     #  make a king function from the 68 and 95% containment calculated from the smooth
@@ -134,43 +212,90 @@ class Fitter(object):
     #  fit a combination of point-source and isotropic background
     #  and return likelihood
     
-    def likelihood(self,altb,c068,c168,b68,c268,b168,c095,c195,b95,c295,b195):
-        print c068,c168,b68,c268,b168,c095,c195,b95,c295,b195
+    def likelihood(self,pars):#c068,c168,b68,c268,b168,c095,c195,b95,c295,b195):
+        #pars = 10**np.array(pars)
+        #print pars
 
         #catch garbage values
-        if np.isnan(c068) or np.isnan(c095):
+        if np.any(np.isnan(pars)):# or np.isnan(c095):
             return 1e40
         acc=0.
-        print '######################################'
         self.iterations=self.iterations+1
-        print 'iteration: %d'%self.iterations
+        if self.verbose>1:
+            print '######################################'
+
+            print 'iteration: %d'%self.iterations
         
         ## calculate the likelihood of the parameterization for each energy bin
-        for it,tb in enumerate(altb):
+        for it,tb in enumerate(self.altb):
             eb = tb.ebar
-            r68 = self.scale(eb,c068,c168,b68,c268,b168)/rd
-            r95 = self.scale(eb,c095,c195,b95,c295,b195)/rd
+            if self.single:
+                c068,c168,b68,c095,c195,b95 = pars
+                r68 = scale2(eb,c068,c168,-b68)/rd
+                r95 = scale2(eb,c095,c195,-b95)/rd
+            else:
+                c068,c168,b68,c268,b168,c095,c195,b95,c295,b195 = pars
+                r68 = self.scale(eb,c068,c168,-b68,c268,-b168)/rd
+                r95 = self.scale(eb,c095,c195,-b95,c295,-b195)/rd
 
             #R68 should always be less than R95!
-            if r95<=r68:
-                like = -1.e40
+            if self.single:
+                check = (r95<=r68 or c068<0 or c095<0 or c168<0 or c195<0)
             else:
-                if c068<(10.*c268) or c095<(10.*c295):
-                    like=-1.e40
+                check = (r95<=r68 or c068<0 or c095<0 or c168<0 or c195<0 or c268<0 or c295<0)
+
+            if check:
+                continue
+            else:
+                if not self.single:
+                    if c068<(10.*c268) or c095<(10.*c295):
+                        continue
+                    else:
+                        like = tb.rcontainlike(ct=[r68,r95])
                 else:
-                    like = tb.TS(ct=[r68,r95])/2.
+                    like = tb.rcontainlike(ct=[r68,r95])
             if self.iterations==1:
                 self.lastbin.append(like)
-            acc = acc-like
-            print 'Energy: %1.0f  R68: %1.2f  R95: %1.2f  like: %1.0f  diff= %1.0f'%(eb,r68*rd,r95*rd,like,self.lastbin[it]-like)
+            acc = acc+like
+            if self.verbose>1:
+                print 'Energy: %1.0f  R68: %1.2f  R95: %1.2f  like: %1.0f  diff= %1.0f'%(eb,r68*rd,r95*rd,like,self.lastbin[it]-like)
             self.lastbin[it]=like
-        print '--------------------------------------'
-        print '68  c0: %1.2f  c1: %1.2f  b: %1.2f  c2: %1.2f  b1: %1.2f'%(c068,c168,b68,c268,b168)
-        print '95  c0: %1.2f  c1: %1.2f  b: %1.2f  c2: %1.2f  b1: %1.2f'%(c095,c195,b95,c295,b195)
-        print ' Total: %1.2f      Diff: %1.2f'%(acc,acc-self.lastlike)
-        print '######################################'
+        if self.verbose>1:
+            print '--------------------------------------'
+            if self.single:
+                print '68  c0: %1.2f  c1: %1.2f  b: %1.2f'%(c068,c168,b68)
+                print '95  c0: %1.2f  c1: %1.2f  b: %1.2f'%(c095,c195,b95)
+            else:
+                print '68  c0: %1.2f  c1: %1.2f  b: %1.2f  c2: %1.2f  b1: %1.2f'%(c068,c168,b68,c268,b168)
+                print '95  c0: %1.2f  c1: %1.2f  b: %1.2f  c2: %1.2f  b1: %1.2f'%(c095,c195,b95,c295,b195)
+            print ' Total: %1.2f      Diff: %1.2f'%(acc,acc-self.lastlike)
+            print '######################################'
+        pstring = ''
+        for par in pars:
+            pstring += '%1.3e   '%(par)
+        pstring += '%1.2f'%(acc-self.best)
+        if self.verbose>0:
+            print pstring
         self.lastlike=acc
         return acc
+
+    def qprofile(self,it):
+        ftol = 0.01/0.25
+        almin = so.fmin_powell(lambda x: (self.fval-self.likelihood([x[0] if it==it2 else self.pars[it2] for it2 in range(len(self.pars))])+0.5)**2,[self.pars[it]],disp=1,full_output=1,ftol=ftol)
+        return almin
+
+    def solveerrs(self):
+        self.r68e,self.r95e = [],[]
+        for tb in self.altb:
+            tb.solvepsf()
+            self.r68e.append(tb.r68e)
+            self.r95e.append(tb.r95e)
+
+    def getuncs(self):
+        self.uncs=[]
+        for it,par in enumerate(self.pars):
+            sig1 = self.qprofile(it)
+            self.uncs.append(np.sqrt((sig1[0].item()-par)**2))
 
     ## function that describes the smoothed R68 and R95
     def scale(self,e,c0,c1,b,c2,b1):
@@ -190,6 +315,19 @@ def chisq(sigmal,el,erl,c0,c1,b):
         return 1e40
     return sum([(sigmal[x]-scale2(el[x],c0,c1,b))**2/(erl[x]**2) for x in range(len(el))])
    
+
+def scale2unc(en,pars,uncs):
+    t0,t1,b0 = pars
+    st0,st1,sb0 = uncs
+
+    fv = scale2(en,t0,t1,-b0)
+    ex = fv**2-t1**2
+    err1 = (np.sqrt(ex)/fv*st0)**2
+    err2 = (t1/fv*st1)**2
+    err3 = (ex*np.log(en/100.)/fv*sb0)**2
+    func = err1+err2+err3
+    #print np.sqrt(err1),np.sqrt(err2),np.sqrt(err3),np.sqrt(ex),fv
+    return np.sqrt(func)
 
 ## calculates the chisq for a both front and parameter scale function and the sigma parameter
 #  helps set up the scaling function paramters
@@ -225,13 +363,7 @@ def scale(e,cl):
 def scale3(e,c0,c1,b,c2,b1):
     return N.sqrt((c0*((e/100.)**b))**2+c1**2+(c2*((e/100.)**b1))**2)
 
-## 3 parameter scale function
-#  @param e energy in MeV
-#  @param c0 sigma at 100 MeV
-#  @param c1 sigma from instrument pitch
-#  @param b power law of multiple scattering
-def scale2(e,c0,c1,b):
-    return N.sqrt((c0*((e/100.)**b))**2+c1**2)
+
 
 ## makes a CALDB PSF output from the uncommented parameter sets 
 #  for 5 parameter containment function
@@ -552,8 +684,8 @@ def makeplots(irfs=['P6_v11_diff'],fact=1.,num=32.,cts=[34,68,95]):
 
 def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURCE_V4MC',out='P7SOURCE_V11',jg=False):
     import cPickle
-    days =730      #number of days of data to use
-    bins = 15      #number of angular bins
+    days =1187      #number of days of data to use
+    bins = 12      #number of angular bins
     pname = os.environ['CALDB']+r'/data/glast/lat/bcf/psf/psf_%s_'%irf
     pulsdir = r'/phys/groups/tev/scratch1/users/Fermi/mar0/data/pulsar7/source/'
     agndir = r'/phys/groups/tev/scratch1/users/Fermi/mar0/data/7.3src/'
@@ -592,8 +724,11 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
             agnlis = ['agn-psf-study-bright'] if ebar>1778 else []              #Use AGN information above 1.7 GeV
             psrs = ub.pulsars if ebar<10000 else []             #Use Pulsar information below 10 GeV
 
+            def formatint(pint,num):
+                return (num-len(str(pint)))*'0'+str(pint)
+
             #set up pickle
-            pickles = '/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/likelihoods%d%d%d%d%d.pickle'%(emin,emax,ctmin*10,ctmax*10,ctype)
+            pickles = '/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/likelihoods%s%s%s%s%d%s.pickle'%(formatint(emin,6),formatint(emax,6),formatint(int(ctmin*10),2),formatint(int(ctmax*10),2),ctype,irf)
 
             #load pickle if it exists
             if os.path.exists(pickles):
@@ -602,17 +737,17 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
 
             #make a new one
             else:
-                cl = ub.CombinedLike(irf=irf,mode=-1,pulsars=psrs[0:1],agnlist=agnlis,verbose=False,ctmin=ctmin,ctmax=ctmax,agndir=agndir,pulsdir=pulsdir)
-                cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype)
+                cl = ub.CombinedLike(irf=irf,mode=-1,pulsars=psrs[0:2],agnlist=agnlis,verbose=False,ctmin=ctmin,ctmax=ctmax,agndir=agndir,pulsdir=pulsdir)
+                cl.loadphotons(0,maxr,emin,emax,239557417,239517417+days*86400,ctype,'p*.fits')
                 cl.bindata(bins)
-                cl.fit()
+                cl.fit(qandd=True)
 
                 #Minuit objects cannot be pickled!
                 del cl.minuit
                 pfile = open(pickles,'w')
                 cPickle.dump(cl,pfile)
                 pfile.close()
-            cl.makeplot('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/likelihoods%d%d%d%d%d.png'%(emin,emax,ctmin*10,ctmax*10,ctype))
+                cl.makeplot('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/likelihoods%s%s%s%s%d%s.png'%(formatint(emin,6),formatint(emax,6),formatint(int(ctmin*10),2),formatint(int(ctmax*10),2),ctype,cl.irf))
             enlike.append(cp.copy(cl))
         likelihoods.append(enlike)
 
@@ -639,21 +774,22 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
             for j in range(len(likel[0])):
                 scb = scale2(a_ebars[i],spars[ct*2],spars[ct*2+1],spars[4])*rd  #calulate scale width at the mean bin energy in degrees
                 dist = (((ti-a_eidx[i])*scl)**2+((tj-a_cidx[j])*scl)**2)        #distance between current table position and reference table position
-                fact = np.exp(-dist/2.)                                         #weighting factor for likelihood is just the gaussian
+                fact = np.exp(-dist/2.)/np.sqrt(2*np.pi)/scl                                         #weighting factor for likelihood is just the gaussian
                 tss=lin(pars[0:3],a_eidx[i],a_cidx[j])                          #SCORE linear approx
                 tsg=lin(pars[3:6],a_eidx[i],a_cidx[j])                          #GCORE linear approx
-                tss2 = tss                                                      #set STAIL = SCORE for the time
-                tsg2 = lin(pars[6:9],a_eidx[i],a_cidx[j])                       #GTAIL linear approx
-                tsf = lin(pars[9:12],a_eidx[i],a_cidx[j])                       #NCORE/NTAIL linear approx, will be determined by min(GCORE,GTAIL)
+                tss2 = lin(pars[6:9],a_eidx[i],a_cidx[j])#tss                                                      #set STAIL = SCORE for the time
+                tsg2 = lin(pars[9:12],a_eidx[i],a_cidx[j])                       #GTAIL linear approx
+                tsf = lin(pars[12:15],a_eidx[i],a_cidx[j])                       #NCORE/NTAIL linear approx, will be determined by min(GCORE,GTAIL)
 
                 #make sure parameters are bounded, otherwise they don't contribute to the likelihood
-                if tss<0 or tsg<1 or tsg2<1 or tss2<0 or tsf>1 or tsf<0:
+                if tss<0 or tsg<1 or tsg2<1 or tss2<0 or tsf>1 or tsf<0 or tsg>5. or tsg2>5.:
                     continue
                 
                 #evaluate the likelihood of the parameterization in this bin, weight it, and sum
                 tlike = likel[i][j].psflikelihood([scb*tss,tsg,tsf,scb*tss2,tsg2,(1.-tsf)])#[scb*tss,tsg])
                 acc += tlike*fact
                 #print '%d %d %1.0f %1.1f %1.3f %1.3f %1.1f %1.2f %1.1f %1.1f'%(a_eidx[i],a_cidx[j],a_ebars[i],dist,tss,tsg,fact,tlike,tlike*fact,acc)
+                #t.sleep(0.1)
         print string.join(['%1.4f'%(prs) for prs in pars],' ') + ' %1.1f'%acc
         #print '#################################################'
         return acc
@@ -663,13 +799,13 @@ def likelihoodtable(enr1,ctr1,ctype,weight=0.5,irf ='P7SOURCE_V6',mcirf='P7SOURC
         idx = ebins*ctr1+enr1             #determine unique index for entry in table
 
         #calcuate best parameters
-        minuit = so.fmin_powell(lambda x: weightedlike(likelihoods,enr1,ctr1,x,weight,psfsc,ctype),[1.0,0,0,2.,0,0,2.,0,0,0.5,0,0],full_output=1,disp=1) 
+        minuit = so.fmin_powell(lambda x: weightedlike(likelihoods,enr1,ctr1,x,weight,psfsc,ctype),[1.0,0,0,2.,0,0,1.0,0,0,2.,0,0,0.5,0,0],full_output=1,disp=1) 
         prs = minuit[0]                   
         bests = lin(prs[0:3],enr1,ctr1)
         bestg = lin(prs[3:6],enr1,ctr1)
-        bests2 = bests#lin(prs[6:9],enr1,ctr1)
-        bestg2 = lin(prs[6:9],enr1,ctr1)
-        bestf = lin(prs[9:12],enr1,ctr1)
+        bests2 = lin(prs[6:9],enr1,ctr1)
+        bestg2 = lin(prs[9:12],enr1,ctr1)
+        bestf = lin(prs[12:15],enr1,ctr1)
         outfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/%d_%d.txt'%(idx,ctype),'w')
 
         #output the best fit parameters for this table entry
@@ -723,7 +859,7 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
             stail,gtail,score,gcore,ntail=lines
             ncore= 1-ntail
         ncore = max(min(1,ncore),1e-4)
-        ntail = max(1./ncore-1.,0)
+        ntail = max((1-ncore)/ncore*(score/stail)**2,0)
         ftb.field('SCORE')[0][idx]=score
         ftb.field('STAIL')[0][idx]=stail
         ftb.field('GCORE')[0][idx]=gcore
@@ -754,7 +890,7 @@ def makelikeirfs(irf='P7SOURCE_V6',out='P7SOURCE_V11'):
             stail,gtail,score,gcore,ntail=lines
             ncore= 1-ntail
         ncore = max(min(1,ncore),1e-4)
-        ntail = max(1./ncore-1.,0)
+        ntail = max((1-ncore)/ncore*(score/stail)**2,0)
         btb.field('SCORE')[0][idx]=score
         btb.field('STAIL')[0][idx]=stail
         btb.field('GCORE')[0][idx]=gcore
@@ -790,15 +926,78 @@ def psftable():
     mcff = pf.open(os.environ['CALDB']+r'/data/glast/lat/bcf/psf/psf_P7SOURCE_V4MC_front.fits')
     ctbins = len(mcff[1].data.field('CTHETA_LO')[0])
     ebins = len(mcff[1].data.field('ENERG_LO')[0])
-    tasks = ['uf.likelihoodtable(%d,%d,%d)'%(enr,ctr,y) for enr in range(ebins) for ctr in range(ctbins) for y in range(2)]
+    tasks = ['uf.likelihoodtable(%d,%d,%d,0.15)'%(enr,ctr,y) for enr in range(ebins) for ctr in range(ctbins) for y in range(2)]
     clfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/_ipython/calcpsf.txt','w')
     clfile.close()
     uta.setup_mec(engines=len(tasks)/len(machines)/2,machines=machines,clobber=True,clusterfile='/phys/groups/tev/scratch1/users/Fermi/mar0/_ipython/calcpsf.txt')
-    t.sleep(30)
+    t.sleep(60)
     logfile = open('/phys/groups/tev/scratch1/users/Fermi/mar0/python/mec.log','w')
     at = uta.AssignTasks(setup_string,tasks,log=logfile,timelimit=86400,progress_bar=False,ignore_exception=True)
     at(30)
 
     #shut down engines and make new PSF
     uta.kill_mec()
-    makelikeirfs()
+    #makelikeirfs(irf='P6_v7_diff',out='P6_v12_diff')
+
+def plot_params():
+    ffiles = glob.glob('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/*_0.txt')
+    bfiles = glob.glob('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/*_1.txt')
+    frn = range(len(ffiles))
+
+    ffiles = np.array(['/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/%d_0.txt'%ran for ran in frn])
+    bfiles = np.array(['/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/%d_1.txt'%ran for ran in frn])
+    enr = np.arange(0,18,1)
+    ctr = np.arange(0,8,1)
+    fpars = []
+    bpars = []
+    for fil in ffiles:
+        fpars.append(np.loadtxt(fil))
+    for fil in bfiles:
+        bpars.append(np.loadtxt(fil))
+    fpars = np.array(fpars).transpose()
+    bpars = np.array(bpars).transpose()
+    mi=[0.5,1.,0.5,1.,0.,0.]
+    ma=[1.5,3.,1.5,3.,1.,1.]
+
+    cts = [0.34,0.68,0.90,0.95,0.99]
+
+    py.figure(figsize =(36,9))
+    for it,ct in enumerate(cts):
+        py.subplot(2,3,it+1)
+        par = np.array([fcontain(ct,fpars[0][it2],fpars[1][it2],fpars[2][it2],fpars[3][it2],fpars[4][it2]) for it2 in range(len(fpars[0]))])
+        py.pcolor(enr,ctr,par.reshape(-1,18),cmap=py.cm.hot)#,vmin=0.,vmax=10)
+        py.colorbar()
+        py.xlabel(r'$\rm{Energy \/Bin}$')
+        py.ylabel(r'$cos(\theta)\/\rm{bin}$')
+        py.title(ct)
+        #py.xlim(0,17)
+        #py.ylim(0,7)
+    py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/pars_f.png')
+    py.clf()
+    for it,ct in enumerate(cts):
+        py.subplot(2,3,it+1)
+        par = np.array([fcontain(ct,bpars[0][it2],bpars[1][it2],bpars[2][it2],bpars[3][it2],bpars[4][it2]) for it2 in range(len(bpars[0]))])
+        py.pcolor(enr,ctr,par.reshape(-1,18),cmap=py.cm.hot)#,vmin=0.,vmax=10)
+        py.colorbar()
+        py.xlabel(r'$\rm{Energy \/Bin}$')
+        py.ylabel(r'$cos(\theta)\/\rm{bin}$')
+        py.title(ct)
+        #py.xlim(0,17)
+        #py.ylim(0,7)
+    py.savefig('/phys/groups/tev/scratch1/users/Fermi/mar0/figures/psftable/pars_b.png')
+
+def fcontain(frac,s1,g1,s2,g2,n1):
+    n1 = min(n1,1.0)
+    n2 = 1-n1
+    fint = doublepsfint(inf,s1,g1,n1,s2,g2,n2)
+    xr = np.logspace(-2,1.5,1001)
+    #print xr
+    yr = np.array([doublepsfint(x,s1,g1,n1,s2,g2,n2) for x in xr])/fint
+    #print yr
+    fnc = intp.UnivariateSpline(np.log(yr),np.log(xr),s=0)
+    ret = fnc(np.log(frac))
+    #print frac,np.exp(ret)
+    #for it in range(len(yr[:-1])):
+    #    print 0.5*(yr[it]+yr[it+1]),0.5*(xr[it]+xr[it+1]),np.exp(fnc(np.log(0.5*(yr[it]+yr[it+1]))))[0]
+    #print fnc1
+    return np.exp(ret)

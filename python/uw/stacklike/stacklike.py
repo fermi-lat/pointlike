@@ -15,14 +15,16 @@ import os as os
 from uw.like import pypsf
 from uw.stacklike.angularmodels import *
 from uw.stacklike.CLHEP import HepRotation,Hep3Vector,Photon
+from uw.stacklike.stcaldb import IrfLoader
 import uw.thb_roi.roi_factory as uf
 import copy as cp
 import uw.like.SpatialModels as us
 import uw.utilities.convolution as uc
+from uw.utilities.minuit import Minuit
 import matplotlib.font_manager
 from uw.like.pycaldb import CALDBManager
 from time import sleep
-
+import copy as cp
 
 #################################################        STACKLIKE         ####################################################
 #
@@ -65,10 +67,21 @@ rd = 180./np.pi        #to radians
 monthlist = ['aug2008','sep2008','oct2008','nov2008','dec2008','jan2009','feb2009','mar2009','apr2009'\
     ,'may2009','jun2009','jul2009','aug2009','sep2009','oct2009','nov2009','dec2009','jan2010','feb2010','mar2010'\
     ,'apr2010','may2010','jun2010','jul2010']
-CALDBdir = r'd:\fermi/CALDB/v1r1/CALDB/data/glast/lat'
-datadir = r'd:\fermi\data\flight/'                             #directory for FT1 files
-ft2dir = r'd:\fermi\data\flight/'                              #directory for FT2 files
-srcdir = r'd:\common\mar0\sourcelists/'                        #directory for source lists
+
+environ = 'TEV'
+
+if environ=='FERMITS'
+    basedir = r'd:\common\mar0\stacklike\'
+    CALDBdir = r'd:\fermi/CALDB/v1r1/CALDB/data/glast/lat'
+    datadir = r'd:\fermi\data\flight/'                             #directory for FT1 files
+    ft2dir = r'd:\fermi\data\flight/'                              #directory for FT2 files
+    srcdir = r'd:\common\mar0\sourcelists/'                        #directory for source lists
+if environ=='TEV'
+    basedir = r'/phys/groups/tev/scratch1/users/Fermi/'
+    CALDBdir = basedir+'packages/ScienceTools-09-20-00/irfs/caldb/CALDB/data/glast/lat'
+    datadir = basedir+'mar0/data/7.3src/'                             #directory for FT1 files
+    ft2dir = basedir+r'mar0/data/6.3/'                              #directory for FT2 files
+    srcdir = r'/phys/users/mar0/sourcelists/'                        #directory for source lists
 files = []                                                     #default list of FT1 file names (minus '-ft1.fits')
 ft2s = []                                                      #default list of FT2 file names (minus '-ft2.fits')
 for month in monthlist:
@@ -131,15 +144,16 @@ class StackLoader(object):
 
         self.__dict__.update(kwargs)
 
-        print ''
-        print '**********************************************************'
-        print '*                                                        *'
-        print '*                       STACKLIKE                        *'
-        print '*                                                        *'
-        print '**********************************************************'
-        print 'Using irf: %s'%self.irf
-        print 'Using list: %s.txt'%self.lis
-        print 'Using boresight alignment (in arcsec): Rx=%1.0f Ry=%1.0f Rz=%1.0f'%(self.rot[0]*rd*3600,self.rot[1]*rd*3600,self.rot[2]*rd*3600)
+        if not self.quiet:
+            print ''
+            print '**********************************************************'
+            print '*                                                        *'
+            print '*                       STACKLIKE                        *'
+            print '*                                                        *'
+            print '**********************************************************'
+            print 'Using irf: %s'%self.irf
+            print 'Using list: %s.txt'%self.lis
+            print 'Using boresight alignment (in arcsec): Rx=%1.0f Ry=%1.0f Rz=%1.0f'%(self.rot[0]*rd*3600,self.rot[1]*rd*3600,self.rot[2]*rd*3600)
 
         self.rotang = self.rot
         self.rot = HepRotation(self.rot,False)
@@ -152,7 +166,7 @@ class StackLoader(object):
             self.logfile = open(r'/phys/users/mar0/python/alignment_log.txt','w')
 
         if not self.firstlight:
-            if self.files==[]:
+            if self.files!=[]:
                 ftemp = [self.datadir + fil+'-ft1.fits' for fil in self.files]
                 if self.useft2s:
                     self.ft2s = [self.ft2dir + fil+'-ft2.fits' for fil in self.files]
@@ -229,13 +243,13 @@ class StackLoader(object):
                     catchbad = bnd.event_class()==0 or bnd.event_class()==-2147483648
                 else:
                     catchbad = bnd.event_class()==1
-                if bnd.emin()<self.eave and bnd.emax()>self.eave and (catchbad or cls==-1):
+                if bnd.emax()>self.emin and bnd.emin()<self.emax and (catchbad or cls==-1):
                     ebar = np.sqrt(bnd.emin()*bnd.emax())
                     for src in self.srcs:
                         wsdl = s.WeightedSkyDirList(bnd,src,self.maxroi/rd)
                         sds = len(wsdl)
                         for wsd in wsdl:
-                            self.photons.append(Photon(wsd.ra(),wsd.dec(),ebar,0,cls,[],[],src,wsd.weight()))
+                            self.photons.append(Photon(wsd.ra(),wsd.dec(),ebar,0,cls,[],[],src,weight=wsd.weight()))
                             self.ebar = self.ebar + wsd.weight()*ebar
             pcnts = sum([x.weight for x in self.photons])
             self.photonscount = self.photoncount+pcnts
@@ -256,17 +270,23 @@ class StackLoader(object):
             print '%1.2f < costh < %1.2f'%(self.ctmin,self.ctmax)
             print '**********************************************************'
 
-            #go through each fits file, mask unwanted events, and setup tables
+            """#go through each fits file, mask unwanted events, and setup tables
             tcuts = np.array([0,0,0,0,0,0,0,0,0])
-            for ff in self.files:
+            for j,ff in enumerate(self.files):
                 if not self.quiet:
                     print ff
                 tff = pf.open(ff)
                 ttb = tff[1].data
                 ttb,ttcut = self.mask(ttb,self.srcs,emin,emax,start,stop,self.maxroi,cls)
                 tcuts=tcuts+ttcut
-                self.atb.append(ttb)
-                tff.close()
+                if len(ttb)>0:
+                    self.atb.append(ttb)
+                else:
+                    if self.useft2s:
+                        del self.ft2s[j]
+                    del self.files[j]
+                    del ttb
+
             print 'Photon pruning information'
             print '%d photons available'%tcuts[0]
             print '---------------------------------------'
@@ -279,28 +299,54 @@ class StackLoader(object):
             print '%d cut by phase'%tcuts[7]
             print '---------------------------------------'
             print '%d photons remain'%tcuts[8]
-            print '**********************************************************'
+            print '**********************************************************'"""
 
 
             #go through each table and contruct Photon objects
-            for j,tb in enumerate(self.atb):
+            for j,ff in enumerate(self.files):
+                tff = pf.open(ff)
+                tb = tff[1].data
+                try:
+                    tb.field('THETA');tb.field('RA');tb.field('TIME');
+                except:
+                    continue
+                tb,ttcut = self.mask(tb,self.srcs,emin,emax,start,stop,self.maxroi,cls)
+                try:
+                    tb.field('CTBCLASSLEVEL')
+                    pass7=False
+                except:
+                    pass7=True
                 if not self.quiet:
                     print 'Examining %d events'%len(tb)
-                if len(tb)>0:
+                if self.useft2s:
                     if not self.quiet:
-                        if self.useft2s:
-                            print '    *Loading pointing history'
-                            phist = pl.PointingHistory(self.ft2s[j])
-                    if not self.quiet:
-                        print '    *Loading events'
-                    
-                    #iterate over events for photons
+                        print '    *Loading pointing history'
+                    try:
+                        phist = pl.PointingHistory(self.ft2s[j])
+                    except:
+                        print 'Failed pointing history file: %s'%self.ft2s[j]
+                        phist = None
+                else:
+                    phist=None
+                if not self.quiet:
+                    print '    *Loading events'
+                try:
+                    gti = s.Gti(self.files[j])
+                    print 'Loaded GTI: %d - %d'%(gti.minValue(),gti.maxValue())
+                except:
+                    print 'Failed GTI in file: %s'%self.ft2s[j]
+                    gti = None
+                #iterate over events for photons
+
+                if gti is not None and ((phist is not None and self.useft2s) or not self.useft2s):
                     for k in range(len(tb)):
                         event = tb[k]
                         sd = s.SkyDir(float(event.field('RA')),float(event.field('DEC')))
                         rsrc = self.srcs[0]
                         diff = 1e40
-
+                        if pass7:
+                            if event.field('EVENT_CLASS')%16 < 4:
+                                continue
                         #associate with a particular source
                         for src in self.srcs:
                             diff = sd.difference(src)*rd
@@ -320,16 +366,23 @@ class StackLoader(object):
                                     zen = pi.zenith()
                                     xv(xax)
                                     zv(zax)
-                                photon = Photon(sd.ra(),sd.dec(),event.field('ENERGY'),time,event.field('CONVERSION_TYPE'),xv,zv,src,ct=np.cos(event.field('THETA')/rd))
-                                #print '%1.2e'%(np.cos(zv.dir().difference(sd))-photon.ct)
-                                #t.sleep(0.1)
-                                self.ebar = self.ebar+event.field('ENERGY')
-                                self.photons.append(photon)
-                                self.photoncount = self.photoncount + 1
-                    if self.useft2s:
-                        del phist #free up memory from pointing history object
+
+                                accept = gti.accept(time)
+                                if accept:
+                                    photon = Photon(sd.ra(),sd.dec(),event.field('ENERGY'),time,event.field('CONVERSION_TYPE'),xv,zv,src,ct=np.cos(event.field('THETA')/rd))
+                                    #print '%1.2e'%(np.cos(zv.dir().difference(sd))-photon.ct)
+                                    #t.sleep(0.1)
+                                    self.ebar = self.ebar+event.field('ENERGY')
+                                    self.photons.append(photon)
+                                    self.photoncount = self.photoncount + 1
+                if self.useft2s:
+                    del phist #free up memory from pointing history object
+                tff.close()
+                del tb
+                del gti
             #del self.atb
             if len(self.photons)>0:
+                #print '%d of %d were in a GTI'%(len(self.photons),tcuts[8])
                 self.ebar = self.ebar/len(self.photons)  #calculate mean energy of photons
             else:
                 print 'No Photons!'
@@ -338,8 +391,10 @@ class StackLoader(object):
     ## Bins all of the angular separations together in separation
     def bindata(self):
         self.getds()
-        hist = np.histogram(self.ds,bins=max(1,int(np.sqrt(len(self.photons)))))
-        diffs = np.sqrt((hist[1][1:]**2+hist[1][:len(hist[1])-1]**2)/2.)*rd   #average separation of each bin is determined by area
+        nbins = 2*max(1,int(np.sqrt(self.photoncount)))
+        print nbins
+        hist = np.histogram(np.log10(self.ds),bins=nbins)
+        diffs = np.sqrt((10**(2*hist[1][1:])+10**(2*hist[1][:len(hist[1])-1]))/2.)*rd   #average separation of each bin is determined by area
         
         #free up memory
         del self.photons
@@ -352,8 +407,9 @@ class StackLoader(object):
         self.srcs=[s.SkyDir(0,0)]
         for it2,nums in enumerate(hist[0]):
             if nums>0:
-                self.photons.append(Photon(diffs[it2],0,self.ebar,0,self.cls,[],[],self.srcs[0],nums))
+                self.photons.append(Photon(diffs[it2],0,self.ebar,0,self.cls,[],[],self.srcs[0],weight=nums))
         self.bin=True
+        self.photoncounts = sum([photon.weight for photon in self.photons])
         self.getds()
 
     ## returns number of photons above isotropic component
@@ -377,17 +433,17 @@ class StackLoader(object):
         denback = density*(self.maxroi*self.maxroi-self.minroi*self.minroi)/((self.maxroi**2)*area)
         return denback
 
-    def excessdist(self):
-        back = self.estback(0.75)
+    def excessdist(self,perc=0.75):
+        back = self.estback(perc)
         self.getds()
         self.ds = np.sort(self.ds)
         excess = np.array([(i+1)-((ds*rd)**2)*back/(self.maxroi*self.maxroi-self.minroi*self.minroi) for i,ds in enumerate(self.ds)])
         self.excess = excess/max(excess)
         return excess/max(excess)
 
-    def rcontainext(self,frac):
-        if len(self.excess)==0 or len(self.ds)==0:
-            self.excessdist()
+    def rcontainext(self,frac,perc=0.75):
+        if True:#len(self.excess)==0 or len(self.ds)==0:
+            self.excessdist(perc)
         best = 1.0
         for it,exc in enumerate(self.excess):
             if abs(exc-frac)<best:
@@ -395,15 +451,23 @@ class StackLoader(object):
                 best=abs(exc-frac)
         return dis*rd
 
+    def modelprofile(self,which,val):
+        pars = cp.copy(self.cm.minuit.params)
+        pars[which]=val
+        fixed = [i==which for i in range(len(pars))]
+        prof = Minuit(lambda x: self.cm.extlikelihood(x,self.photons),pars,fixed=fixed,printMode=-1)
+        prof.minimize()
+        return prof.fval
+
     ## estimates Isotropic component from PSF
     #  @param func optional custom background component to fit [[angular separations],[counts]]
     #  @param free free or fix model number estimators
     #  @param exp specify number estimators
     def solveback(self,func=[[],[]],free=[True,True],exp=[],model_par=[]):
 
-        denback = self.estback(0.75)
-        if denback>len(self.ds):
-            denback = len(self.ds)
+        #denback = self.estback(0.75)
+        #if denback>self.photoncount:
+        denback =self.photoncount/2
         
         # setup default or aligned PSF
         if model_par==[]:
@@ -415,7 +479,10 @@ class StackLoader(object):
 
         # setup PSF or aligned PSF with specified parameters
         else:
-            psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=model_par,free=[False,False])
+            if len(model_par)==2:
+                psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=model_par,free=[False for x in range(len(model_par))])
+            else:
+                psf = PSFDouble(lims=[self.minroi/rd,self.maxroi/rd],model_par=model_par,free=[False for x in range(len(model_par))])
             if self.useft2s:
                 psf2 = PSFAlign(lims=[self.minroi/rd,self.maxroi/rd],model_par=self.rotang,free=[False,False,False])
                 psf2.PSF = cp.copy(psf)
@@ -435,9 +502,9 @@ class StackLoader(object):
         #check to see if number estimators are specified
         if exp==[]: 
             if len(cm.models)==2:
-                exp=[len(self.photons)-denback,denback]
+                exp=[self.photoncount-denback,denback]
             else:
-                exp=[len(self.photons)-denback,0.,denback]
+                exp=[self.photoncount-denback,0.,denback]
         if len(free)!=len(cm.models):
             free=[True,True,True]
 
@@ -466,13 +533,27 @@ class StackLoader(object):
         if len(cm.models)==2:
             if len(psf.model_par)==2:
                 self.il=cm.extlikelihood([self.Npsf,self.Nback,psf.model_par[0],psf.model_par[1]],self.photons)
-            else:
+            if len(psf.model_par)==3:
                 self.il=cm.extlikelihood([self.Npsf,self.Nback,psf.model_par[0],psf.model_par[1],psf.model_par[2]],self.photons)
+            if len(psf.model_par)==5:
+                self.il=cm.extlikelihood([self.Npsf,self.Nback,psf.model_par[0],psf.model_par[1],psf.model_par[2],psf.model_par[3],psf.model_par[4]],self.photons)
         else:
             self.Ncust = cm.minuit.params[2]
             self.Ncuste = np.sqrt(self.errs[2][2])
             self.il=cm.extlikelihood([self.Npsf,self.Nback,self.Ncust,psf.model_par[0],psf.model_par[1]],self.photons)
         self.cm = cm
+        return cm.minuit.fval
+
+    def rcontainlike(self,ct=[]):
+        if len(self.photons)==0:
+            return 0
+        if ct==[]:
+            psf = self.getpsf()
+        else:
+            psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25],free=[True,True])
+            psf.fromcontain([ct[0],ct[1]],[0.68,0.95])
+
+        return self.solveback(model_par=psf.model_par,exp=[self.Npsf,self.Nback])
 
     ## returns the TS for a point source in a uniform background
     #  @param ct optionally define the PSF by [R68,R95] in radians, default is the self.irf
@@ -486,7 +567,7 @@ class StackLoader(object):
             psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.001,2.25],free=[True,True])
             psf.fromcontain([ct[0],ct[1]],[0.68,0.95])
 
-        self.solveback(model_par=psf.model_par)
+        self.solveback()#model_par=psf.model_par)
         cm = CompositeModel()
 
         back = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
@@ -566,13 +647,21 @@ class StackLoader(object):
     #  @param free free or fix model number estimators
     #  @param exp specify number estimators
     #  @param theta fit theta dependence
-    def solvepsf(self,func=[[],[]],free=[True,True],exp=[],theta=False,outfile=None):
+    def solvepsf(self,func=[[],[]],free=[True,True],exp=[],theta=False,outfile=None,model_par=[]):
 
         #estimate Isotropic component
-        self.solveback()
+        self.solveback(model_par=model_par)
 
+        cpars = cp.copy(model_par)
         #solve for PSF parameters
-        psf = self.getpsf(True,theta)
+        psf = self.getpsf(True,theta,False)
+        
+        #print model_par
+        if not model_par==[]:
+            psf.model_par=model_par
+            #print psf.model_par
+
+
         sigma = psf.model_par[0]
         gamma = psf.model_par[1]
         bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
@@ -623,6 +712,13 @@ class StackLoader(object):
         self.sigmae = np.sqrt(self.errs[nm][nm])
         self.gamma = cm.minuit.params[nm+1]
         self.gammae = np.sqrt(self.errs[nm+1][nm+1])
+        if len(psf.model_par)>2:
+            self.sigma2 = cm.minuit.params[nm+2]
+            self.sigma2e = np.sqrt(self.errs[nm+2][nm+2])
+            self.gamma2 = cm.minuit.params[nm+3]
+            self.gamma2e = np.sqrt(self.errs[nm+3][nm+3])
+            self.frac = cm.minuit.params[nm+4]
+            self.frace = np.sqrt(self.errs[nm+4][nm+4])
         if theta:
             self.ms = cm.minuit.params[nm+2]
             self.mse = np.sqrt(self.errs[nm+2][nm+2])
@@ -631,9 +727,12 @@ class StackLoader(object):
         self.cov = self.errs[nm][nm+1]
         if len(cm.models)==2:
             if theta:
-                self.il=cm.extlikelihood([self.Npsf,self.Nback,sigma,gamma,0.,0.],self.photons)
+                self.il=cm.extlikelihood([self.Npsf,self.Nback,self.sigma,self.gamma,0.,0.],self.photons)
             else:
-                self.il=cm.extlikelihood([self.Npsf,self.Nback,sigma,gamma],self.photons)
+                if len(psf.model_par)>2:
+                    self.il=cm.extlikelihood([self.Npsf,self.Nback,self.sigma,self.gamma,self.sigma2,self.gamma2,self.frac],self.photons)
+                else:
+                    self.il=cm.extlikelihood([self.Npsf,self.Nback,self.sigma,self.gamma],self.photons)
         else:
             if theta:
                 self.il=cm.extlikelihood([self.Npsf,self.Nback,0.,sigma,gamma,0.,0.],self.photons)
@@ -641,6 +740,10 @@ class StackLoader(object):
                 self.il=cm.extlikelihood([self.Npsf,self.Nback,0.,sigma,gamma],self.photons)
         self.r68 = cm.models[0].rcl(0.68)
         self.r95 = cm.models[0].rcl(0.95)
+        #if len(psf.model_par)>2:
+        #    self.r68e = self.r68*np.sqrt((self.sigmae/self.sigma)**2+(self.sigma2e/self.sigma2)**2)#cm.models[0].clerr(0.68,self.sigmae,self.gammae,self.cov)
+        #    self.r95e = self.r95*np.sqrt((self.sigmae/self.sigma)**2+(self.sigma2e/self.sigma2)**2)#cm.models[0].clerr(0.95,self.sigmae,self.gammae,self.cov)
+        #else:
         self.r68e = cm.models[0].clerr(0.68,self.sigmae,self.gammae,self.cov)
         self.r95e = cm.models[0].clerr(0.95,self.sigmae,self.gammae,self.cov)
         if (self.r68+self.r68e)>self.r95:
@@ -702,7 +805,7 @@ class StackLoader(object):
             psf = self.getpsf(opt)
         else:
             psf = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=cust,free=[opt,opt])
-        halo = PLCutoff(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.2/rd,-2.,self.ebar,self.cls])
+        halo = Halo(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.2/rd])#PLCutoff(lims=[self.minroi/rd,self.maxroi/rd],model_par=[0.2/rd,-2.,self.ebar,self.cls])
         bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
 
         #setup model
@@ -743,7 +846,7 @@ class StackLoader(object):
         print 'Nhalo = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Nhalo,self.Nhaloe/self.Nhalo,f2*100,f2e*100)
         print 'Nback = %1.0f [1 +/- %1.2f]  Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f3*100,f3e*100)
         print 'Halo width was %1.3f [1 +/- %1.2f] deg'%(self.theta*rd,self.thetae)
-        print 'Halo PL was %1.3f [1 +/- %1.2f] deg'%(self.alph,self.alphe)
+        #print 'Halo PL was %1.3f [1 +/- %1.2f] deg'%(self.alph,self.alphe)
         print 'Halo fraction was %1.0f [1 +/- %1.2f]'%(self.frac,self.frace)
 
         fl = cm.minuit.fval
@@ -755,7 +858,7 @@ class StackLoader(object):
     #  @param func optional custom background component to fit [[angular separations],[counts]]
     #  @param free free or fix model number estimators
     #  @param exp specify number estimators
-    def solvedoublepsf(self,func=[[],[]],free=[True,True,True],exp=[]):
+    def solvedoublepsf(self,func=[[],[]],free=[True,True],exp=[]):
         
         #estimate uniform Isotropic component
         self.solveback()
@@ -764,12 +867,12 @@ class StackLoader(object):
         psf = self.getpsf(True)
         sigma = psf.model_par[0]
         gamma = psf.model_par[1]
-        psf2 = PSF(lims=[self.minroi/rd,self.maxroi/rd],model_par=[1.2*psf.model_par[0],0.7*psf.model_par[1]]) #try to separate psfs initially
+        psf2 = PSFDouble(lims=[self.minroi/rd,self.maxroi/rd],model_par=[psf.model_par[0],psf.model_par[1],1.2*psf.model_par[0],0.7*psf.model_par[1],0.5]) #try to separate psfs initially
         bck = Isotropic(lims=[self.minroi/rd,self.maxroi/rd])
 
         #setup models
         cm = CompositeModel()
-        cm.addModel(psf)
+        #cm.addModel(psf)
         cm.addModel(psf2)
         cm.addModel(bck)
 
@@ -781,11 +884,11 @@ class StackLoader(object):
         #check for specified estimators
         if exp==[]: 
             if cm.models==3:
-                exp=[self.Npsf/2.,self.Npsf/2.,self.Nback]
-                free = [True,True,True]
+                exp=[self.Npsf,self.Nback]
+                free = [True,True]
             else:
-                exp=[self.Npsf/2.,self.Npsf/2.,self.Nback,0.]
-                free=[True,True,True,True]
+                exp=[self.Npsf,self.Nback,0.]
+                free=[True,True,True]
 
         #check for nearby sources, add to model
         if self.offsrc!=[]:
@@ -806,15 +909,15 @@ class StackLoader(object):
         nm = len(cm.models)
         fl = cm.minuit.fval
         self.Npsf = cm.minuit.params[0]
-        self.Npsf2 = cm.minuit.params[1]
-        self.Nback = cm.minuit.params[2]
+        #self.Npsf2 = cm.minuit.params[1]
+        self.Nback = cm.minuit.params[1]
         self.errs = cm.minuit.errors()
         self.Npsfe = np.sqrt(self.errs[0][0])
-        self.Npsf2e = np.sqrt(self.errs[1][1])
-        self.Nbacke = np.sqrt(self.errs[2][2])
+        #self.Npsf2e = np.sqrt(self.errs[1][1])
+        self.Nbacke = np.sqrt(self.errs[1][1])
         if nm==4:
-            self.Ncust = cm.minuit.params[3]
-            self.Ncuste = np.sqrt(self.errs[3][3])
+            self.Ncust = cm.minuit.params[2]
+            self.Ncuste = np.sqrt(self.errs[2][2])
         self.sigma = cm.minuit.params[nm]
         self.sigmae = np.sqrt(self.errs[nm][nm])
         self.gamma = cm.minuit.params[nm+1]
@@ -823,10 +926,12 @@ class StackLoader(object):
         self.sigmae2 = np.sqrt(self.errs[nm+2][nm+2])
         self.gamma2 = cm.minuit.params[nm+3]
         self.gammae2 = np.sqrt(self.errs[nm+3][nm+3])
+        self.frac = cm.minuit.params[nm+4]
+        self.frace = np.sqrt(self.errs[nm+4][nm+4])
         if nm==3:
-            self.il=cm.extlikelihood([self.Npsf,self.Npsf2,self.Nback,sigma,gamma,sigma,gamma],self.photons)
+            self.il=cm.extlikelihood([self.Npsf,self.Nback,sigma,gamma,sigma,gamma,0.5],self.photons)
         else:
-            self.il=cm.extlikelihood([self.Npsf,self.Npsf2,self.Nback,0.,sigma,gamma,sigma,gamma],self.photons)
+            self.il=cm.extlikelihood([self.Npsf,self.Nback,0.,sigma,gamma,sigma,gamma,0.5],self.photons)
 
         if self.gamma>gamma:
             gsign = '+'
@@ -846,14 +951,14 @@ class StackLoader(object):
             ssign2 = '+'
         else:
             ssign2 = '-'
-        phs = (self.Npsf+self.Nback+self.Npsf2)
+        phs = (self.Npsf+self.Nback)#+self.Npsf2)
         tr = sum([self.errs[i][i] for i in range(len(self.errs))])
         f1 = self.Npsf/phs
         f1e = f1*np.sqrt(self.errs[0][0]/(self.Npsf**2)+tr/(phs**2))
-        f2 = self.Npsf2/phs
-        f2e = f2*np.sqrt(self.errs[1][1]/(self.Npsf2**2)+tr/(phs**2))
+        #f2 = self.Npsf2/phs
+        #f2e = f2*np.sqrt(self.errs[1][1]/(self.Npsf2**2)+tr/(phs**2))
         f3 = self.Nback/phs
-        f3e = f3*np.sqrt(self.errs[2][2]/(self.Nback**2)+tr/(phs**2))
+        f3e = f3*np.sqrt(self.errs[1][1]/(self.Nback**2)+tr/(phs**2))
 
         def integrate(d1,d2,s,g):
             return ((1+(d1/s)**2/(2*g))**(-g+1)-(1+(d2/s)**2/(2*g))**(-g+1))*(s**2)
@@ -866,17 +971,18 @@ class StackLoader(object):
             best = so.fmin_powell(lambda x: (cintegrate(0,x[0],s1,g1,n1,s2,g2,n2)/fint-frac)**2,[s1],full_output=1,disp=1)
             return best[0]
 
-        self.r68 = findcontain(0.68,self.sigma*rd,self.gamma,self.Npsf,self.sigma2*rd,self.gamma2,self.Npsf2)
-        self.r95 = findcontain(0.95,self.sigma*rd,self.gamma,self.Npsf,self.sigma2*rd,self.gamma2,self.Npsf2)
+        self.r68 = findcontain(0.68,self.sigma*rd,self.gamma,self.Npsf,self.sigma2*rd,self.gamma2,(1-self.frac)*self.Npsf)
+        self.r95 = findcontain(0.95,self.sigma*rd,self.gamma,self.Npsf,self.sigma2*rd,self.gamma2,(1-self.frac)*self.Npsf)
 
         print '***************************************'
         print 'Npsf   = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Npsf,self.Npsfe/self.Npsf,f1*100,f1e*100)
-        print 'Npsf2  = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Npsf2,self.Npsf2e/self.Npsf2,f2*100,f2e*100)
+        #print 'Npsf2  = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Npsf2,self.Npsf2e/self.Npsf2,f2*100,f2e*100)
         print 'Nback  = %1.0f  [1 +/- %1.2f]     Fraction: %1.0f +/- %1.0f'%(self.Nback,self.Nbacke/self.Nback,f3*100,f3e*100)
         print 'Sigma  = %1.3f [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.sigma*rd,self.sigmae/self.sigma,ssign,100*abs((self.sigma-sigma)/sigma))
         print 'Gamma  = %1.2f  [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.gamma,self.gammae/self.gamma,gsign,100*abs((self.gamma-gamma)/gamma))
         print 'Sigma2 = %1.3f [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.sigma2*rd,self.sigmae2/self.sigma2,ssign2,100*abs((self.sigma2-sigma)/sigma))
         print 'Gamma2 = %1.2f  [1 +/- %1.2f]      Fractional Change: (%s%1.0f)'%(self.gamma2,self.gammae2/self.gamma2,gsign2,100*abs((self.gamma2-gamma)/gamma))
+        #print 'frac   = %1.3f  []
         print 'R68 = %1.3f'%(self.r68)
         print 'R95 = %1.3f'%(self.r95)
         TS = -2*(fl-self.il)
@@ -902,10 +1008,10 @@ class StackLoader(object):
             denback = len(self.ds)
         exp=[len(self.ds)-denback,denback/2.,denback/2.]
 
-        diffusefile = '/phys/groups/tev/scratch1/users/Fermi/data/galprop/ring_21month_P6v11.fits'
-        s.EffectiveArea.set_CALDB('/phys/groups/tev/scratch1/users/Fermi/packages/ScienceTools-09-19-00/irfs/caldb/CALDB/data/glast/lat')
+        diffusefile = basedir+'data/galprop/ring_21month_P6v11.fits'
+        s.EffectiveArea.set_CALDB(basedir+'packages/ScienceTools-09-19-00/irfs/caldb/CALDB/data/glast/lat')
         efa = 'P6_v11_diff_%s'%(ct[self.cls])
-        ltc = '/phys/groups/tev/scratch1/users/Fermi/data/2yr/2years_lt.fits'
+        ltc = basedir+'data/2yr/2years_lt.fits'
 
         #setup models: PSF, diffuse, and isotropic
         if cust==[]:
@@ -1049,7 +1155,7 @@ class StackLoader(object):
 
 
     def solvehalolims(self,frac):
-        rf = uf.ROIfactory(binfile='/phys/groups/tev/scratch1/users/Fermi/data/2yr/2years_4bpd.fits',ltcube='/phys/groups/tev/scratch1/users/Fermi/data/2yr/2years_lt.fits',irf='P6_v11_diff')
+        rf = uf.ROIfactory(binfile=basedir+'data/2yr/2years_4bpd.fits',ltcube=basedir+'data/2yr/2years_lt.fits',irf='P6_v11_diff')
         roi = rf('vela')
         for band in roi.bands:
             if band.ec==self.cls and self.ebar>band.emin and self.ebar<band.emax:
@@ -1205,7 +1311,7 @@ class StackLoader(object):
                     setoff=False
             else:
                 names.append(self.cm.models[model].name)
-            if self.cm.models[model].name=='psf':
+            if self.cm.models[model].name=='psf' or self.cm.models[model].name=='psf2':
                 names.append('psf r68')
                 names.append('psf r95')
                 if xs=='square':
@@ -1256,7 +1362,7 @@ class StackLoader(object):
                     setoff=False
             else:
                 pts.append(p1)
-            if self.cm.models[model].name=='psf':
+            if self.cm.models[model].name=='psf' or self.cm.models[model].name=='psf2':
                 p1 = py.plot([ctn[2*pcts],ctn[2*pcts]],[pmin,pmax],'-.')
                 pts.append(p1)
                 p1 = py.plot([ctn[2*pcts+1],ctn[2*pcts+1]],[pmin,pmax],'-.')
@@ -1510,11 +1616,14 @@ class StackLoader(object):
             self.photoncount = self.photoncount+1
         self.maxroi = max(self.ds)*rd
         self.minroi = min(self.ds)*rd
+        self.bin=True
 
     ## returns a PSF object based on containment specified by self.irf
     #  @param opt frees or fixes PSF parameters
-    def getpsf(self,opt=False,theta=False):
+    def getpsf(self,opt=False,theta=False,double=False):
+        dmask = [True,True,False,False,False]
         self.psf = pypsf.CALDBPsf(CALDBManager(irf=self.irf))
+        self.irfloader = IrfLoader(self.irf)
         if self.cls==-1:
             r68f=self.psf.inverse_integral(self.ebar,0,68.)/rd
             r95f=self.psf.inverse_integral(self.ebar,0,95.)/rd
@@ -1529,6 +1638,11 @@ class StackLoader(object):
         factor = 2.
         psf.fromcontain([1./factor,r95/r68/factor],[0.68,0.95])
         psf.model_par[0]=psf.model_par[0]*r68*factor
+        pars = self.irfloader.params(self.ebar,self.cls)
+        pars = [pars[0],pars[1],pars[3],pars[4],pars[2] if double else 1.0]
+        if double:
+            psf = PSFDouble(lims=[self.minroi/rd,self.maxroi/rd],model_par=pars,free=[(opt and dmask[x]) or double for x in range(len(pars))])
+
         if theta:
             psf = PSFTheta(lims=psf.lims,model_par=[psf.model_par[0],psf.model_par[1],0.,0.],free=[opt,opt,True,True])
         return psf
@@ -1558,7 +1672,7 @@ class StackLoader(object):
 ##   if everything is ok, should return 0
 def test():
     plr = ''#os.environ['POINTLIKEROOT']
-    fdir = plr+'/phys/groups/tev/scratch1/users/Fermi/mar0/pointlikedev/uw/stacklike/boresighttest/'
+    fdir = plr+basedir+'mar0/pointlikedev/uw/stacklike/boresighttest/'
     al = StackLoader(lis='cgv',files=['test'],datadir=fdir,ft2dir=fdir,srcdir=fdir,quiet=False,irf='P6_v8_diff')
     al.loadphotons(0,4,1000,2e4,0,999999999,0)
     al.solverot()
@@ -1583,7 +1697,7 @@ def test():
 ##   if everything is ok, should return 0
 def test2(bins=25.):
     plr = ''#os.environ['POINTLIKEROOT']
-    fdir = plr+'/phys/groups/tev/scratch1/users/Fermi/mar0/pointlikedev/uw/stacklike/boresighttest/'
+    fdir = plr+basedir+'mar0/pointlikedev/uw/stacklike/boresighttest/'
     os.system('cd %s'%fdir)
     al = StackLoader(lis='cgv',files=['test'],datadir=fdir,ft2dir=fdir,srcdir=fdir,quiet=False,useft2s=False)
     al.loadphotons(0,10,1000,1770,0,999999999,0)
@@ -1602,7 +1716,7 @@ def test2(bins=25.):
 ##   if everything is ok, should return 0
 def test3(bins=25.,stats=True):
     plr = ''#os.environ['POINTLIKEROOT']
-    fdir = plr+'/phys/groups/tev/scratch1/users/Fermi/mar0/pointlikedev/uw/stacklike/boresighttest/'
+    fdir = plr+basedir+'mar0/pointlikedev/uw/stacklike/boresighttest/'
     os.system('cd %s'%fdir)
     al = StackLoader(lis='cgv',files=['test'],datadir=fdir,ft2dir=fdir,srcdir=fdir,quiet=False,useft2s=False)
     al.loadphotons(0,10,1000,1770,0,999999999,0)
@@ -1616,7 +1730,7 @@ def test3(bins=25.,stats=True):
 ##   if everything is ok, should return 0
 def test4(bins=25.,stats=True):
     plr = ''#os.environ['POINTLIKEROOT']
-    fdir = plr+'/phys/groups/tev/scratch1/users/Fermi/mar0/pointlikedev/uw/stacklike/boresighttest/'
+    fdir = plr+basedir+'mar0/pointlikedev/uw/stacklike/boresighttest/'
     os.system('cd %s'%fdir)
     al = StackLoader(lis='cgv',files=['test'],datadir=fdir,ft2dir=fdir,srcdir=fdir,quiet=False,useft2s=False)
     al.loadphotons(0,10,1000,1770,0,999999999,0)
