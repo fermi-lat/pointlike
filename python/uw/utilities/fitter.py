@@ -2,7 +2,7 @@
 Basic fitter utilities
 
 Authors: Matthew Kerr, Toby Burnett
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.3 2011/11/21 14:44:56 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitter.py,v 1.4 2011/12/06 22:23:34 burnett Exp $
 
 """
 
@@ -199,10 +199,13 @@ class Minimizer(object):
 
         npar = len(self.get_parameters())
         if use_gradient:
-            hessian = Minimizer.mycov(self.gradient,self.get_parameters(),full_output=True)[1]
+            save_pars = self.get_parameters().copy()
+            cov_matrix,hessian = Minimizer.mycov(self.gradient,self.get_parameters(),full_output=True)[:2]
+            self.set_parameters(save_pars)
             mask = hessian.diagonal()>0
         else:
             hessian, bad_mask = Minimizer.hessian(self.fn, self.get_parameters(), quiet=self.quiet)
+            cov_matrix = None
             mask = bad_mask==0
         if np.all(-mask):
             self.cov_matrix = np.zeros([npar,npar])
@@ -219,7 +222,7 @@ class Minimizer(object):
                 full=False
                 
             if not self.quiet: print 'Attempting to invert full hessian...'
-            self.cov_matrix =t = linalg.inv(hessian)
+            self.cov_matrix =t = cov_matrix or linalg.inv(hessian)
             if np.any(np.isnan(self.cov_matrix)):
                 if not self.quiet: print 'Found NaN in covariance matrix!'
                 raise Exception('Found NaN in covariance matrix!')
@@ -381,7 +384,6 @@ class Minimizer(object):
             hess[i,:] = (g_up - g_dn) / (2*di)  # central difference
             if not converged:
                 print 'Warning: step size for parameter %d (%.2g) did not result in convergence.'%(i,di)
-        
         try:
             cov = np.linalg.inv(hess)
         except:
