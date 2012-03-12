@@ -77,6 +77,12 @@ class Hep3Vector(object):
         phi,theta = sd.ra()*np.pi/180,sd.dec()*np.pi/180
         self.vec = np.matrix([[np.cos(phi)*np.cos(theta)],[np.sin(phi)*np.cos(theta)],[np.sin(theta)]])
 
+    def add(self,other):
+        return Hep3Vector([self.x()+other.x(),self.y()+other.y(),self.z()+other.z()])
+
+    def subt(self,other):
+        return Hep3Vector([self.x()-other.x(),self.y()-other.y(),self.z()-other.z()])
+
     def phi(self):
         x,y=self.x(),self.y()
         if x>0 and y>0:

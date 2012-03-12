@@ -12,6 +12,7 @@ from uw.like import pypsf
 import numpy as np
 import pylab as py
 import uw.utilities.image as im
+import scipy.optimize as so
 import scipy.integrate as si
 import scipy.special as sp
 import scipy.misc as sm
@@ -81,6 +82,7 @@ class PSF(Model):
     #  @param sig sigma parameter in radians
     #  @param g gamma parameter
     def psf(self,diff,sig,g):
+        sig = max(sig,1e-40)
         if g<=0:
             print 'Caught bad gamma value'
         u = diff*diff/(2*sig*sig)
@@ -90,7 +92,7 @@ class PSF(Model):
     #  @param photon CLHEP photon
     #  @param pars psf parameters, fed in by fitter
     def integrate(self,photon,pars):
-        sig = pars[0]
+        sig = max(pars[0],1e-40)
         g = pars[1]
         um = self.lims[0]*self.lims[0]/(2.*sig*sig)
         ua = self.lims[1]*self.lims[1]/(2.*sig*sig)
@@ -328,13 +330,13 @@ class PSFAlign(PSF):
         #super(Model,self).__init__(model_par,free)
         self.mark='-'
         self.rot = HepRotation(rot,False)
-        cdb = pypsf.CALDBPsf(CALDBManager(irf=irf))
+        self.cdb = pypsf.CALDBPsf(CALDBManager(irf=irf))
         if ec!=-1:
-            r68=cdb.inverse_integral(ebar,ec,68.)/rd
-            r95=cdb.inverse_integral(ebar,ec,95.)/rd
+            r68=self.cdb.inverse_integral(ebar,ec,68.)/rd
+            r95=self.cdb.inverse_integral(ebar,ec,95.)/rd
         else:
-            r68=(cdb.inverse_integral(ebar,0,68.)+cdb.inverse_integral(ebar,1,68.))/rd/2.
-            r95=(cdb.inverse_integral(ebar,0,95.)+cdb.inverse_integral(ebar,1,95.))/rd/2.
+            r68=(self.cdb.inverse_integral(ebar,0,68.)+self.cdb.inverse_integral(ebar,1,68.))/rd/2.
+            r95=(self.cdb.inverse_integral(ebar,0,95.)+self.cdb.inverse_integral(ebar,1,95.))/rd/2.
         self.PSF = PSF(lims=lims,model_par=[0.001,2.25],free=[False,False])
         self.PSF.fromcontain([r68,r95],[0.68,0.95])
         self.model_par=model_par
@@ -358,7 +360,7 @@ class PSFAlign(PSF):
         rz = pars[2]
         rot = HepRotation([rx,ry,rz],False).m(self.rot)
         diff = photon.diff(rot)
-        f = self.PSF(diff)
+        f = self.PSF(diff)#self.cdb(photon.energy,photon.event_class,diff)#
         return f
     
     ## returns the value of the unnormalized psf for a photon
@@ -373,7 +375,7 @@ class PSFAlign(PSF):
     #  @param photon CLHEP photon
     #  @param pars psf parameters, fed in by fitter
     def integrate(self,photon,pars):
-        return self.PSF.integrate(photon,self.PSF.model_par)
+        return self.PSF.integrate(photon,self.PSF.model_par)#self.cdb.integral(photon.energy,photon.event_class,self.lims[1],self.lims[0])#
 
     ## return the integral of the psf
     #  @param delmin minimum angle in radians
@@ -463,6 +465,109 @@ class PSFFish(PSF):
         self.model_par=pars
 
 ################################################### END PSFALIGN CLASS  ###########################################
+
+################################################### END PSF2 CLASS  ###########################################
+
+## PSFDouble class
+#
+#  Models the angular distribution of a double King function for fitting width and tails
+
+class PSFDouble(Model):
+    ## Constructor
+    #
+    #  @param lims [min,max], minimum and maximum angular deviations in radians
+    #  @param model_par [sig1,gam1,sig2,gam2,n1], model parameters (sigma, gamma), with sigma in radians
+    #  @param free [sig1,gam1,sig2,gam2,n1], frees parameters to be fit
+
+    def __init__(self,lims,model_par,free=[True,True,True,True,True]):
+        #super(PSF,self).__init__(model_par,free)
+        self.mark='-'
+        self.lims=lims
+        self.model_par=model_par
+        self.free=free
+        self.steps=[0.001/rd,0.01,0.001/rd,0.01,0.01]                 #size of step taken by fitter
+        self.limits=[[0.0001/rd,360./rd],[1.000000001,1000.],[0.0001/rd,360./rd],[1.000000001,1000.],[0.,1.0]]   #limits of fitter (gamma>1)
+        self.name='psf2'
+        self.header='sigma\tgamma\t'
+        self.PSF = PSF(lims,model_par[:2])
+        self.PSF2 = PSF(lims,model_par[2:4])
+        self.frac = model_par[4]
+    
+    def __call__(self,diff):
+        return self.psf(diff)
+
+    ## returns the value of the unnormalized psf for a photon
+    #  @param photon CLHEP photon
+    #  @params pars psf parameters, fed in by fitter
+    def value(self,photon,pars):
+        if len(pars)!=len(self.model_par):
+            print 'Wrong number of PSF parameters, got %d instead of %d'%(len(pars),len(self.model_par))
+            raise
+        sig = pars[0]
+        g = pars[1]
+        sig2 = pars[2]
+        g2 = pars[3]
+        frac = pars[4]
+        diff = photon.srcdiff()
+        f1 = self.PSF.psf(diff,sig,g)
+        f2 = self.PSF2.psf(diff,sig2,g2)
+        return frac*f1+(1-frac)*f2
+    
+    ## returns the value of the unnormalized psf for a photon
+    #  @param diff angular deviation in radians
+    #  @param sig sigma parameter in radians
+    #  @param g gamma parameter
+    def psf(self,diff):
+        return self.frac*self.PSF(diff)+(1-self.frac)*self.PSF2(diff)
+
+    ## return the integral for a photon based on self.lims
+    #  @param photon CLHEP photon
+    #  @param pars psf parameters, fed in by fitter
+    def integrate(self,photon,pars):
+        frac = pars[4]
+        """sig = pars[0]
+        g = pars[1]
+        um = self.lims[0]*self.lims[0]/(2.*sig*sig)
+        ua = self.lims[1]*self.lims[1]/(2.*sig*sig)
+        f0 = (1+um/g)**(-g+1)
+        f1 = (1+ua/g)**(-g+1)"""
+        return frac*self.PSF.integrate(photon,pars[:2])+(1-frac)*self.PSF2.integrate(photon,pars[2:4])
+    
+    ## return the integral of the psf
+    #  @param delmin minimum angle in radians
+    #  @param delmax maximum angle in radians
+    def integral(self,delmin,delmax):
+        """sig = self.model_par[0]
+        g = self.model_par[1]
+        um = delmin*delmin/(2.*sig*sig)
+        ua = delmax*delmax/(2.*sig*sig)
+        f0 = (1+um/g)**(-g+1)
+        f1 = (1+ua/g)**(-g+1)"""
+        self.PSF.model_par = self.model_par[:2]
+        self.PSF2.model_par = self.model_par[2:4]
+        self.frac=self.model_par[4]
+        return self.frac*self.PSF.integral(delmin,delmax)+(1-self.frac)*self.PSF2.integral(delmin,delmax)
+    
+    ## updates King function parameters, through fitter
+    #  @param pars [sigma,gamma], sigma in radians
+    def update(self,pars):
+        self.model_par=pars
+
+    def rcl(self,frac):
+        fint = self.integral(0,1e40)
+        rc = so.fmin_powell(lambda x: (self.integral(0,x)/fint-frac)**2 if x>0 else np.Infinity,[1.57*self.model_par[0]],full_output=0,disp=0)
+        return rc
+
+    def recl(self,frac,pars):
+        tpars = cp.copy(self.model_par)
+        self.model_par = pars
+        fint = self.integral(0,1e40)
+        rc = so.fmin_powell(lambda x: (self.integral(0,x)/fint-frac)**2 if x>0 else np.Infinity,[1.57*self.model_par[0]],full_output=0,disp=0)
+        self.model_par = tpars
+        return rc
+
+################################################### END PSF2 CLASS  ###########################################
+
 
 ################################################### Isotropic CLASS         ###########################################
 
@@ -627,8 +732,8 @@ class CDisk(Model):
         self.name='cdisk'
         self.header=''
         self.psf = pypsf.CALDBPsf(CALDBManager(irf='P6_v11_diff'))
-        self.sp = SpatialModels.Disk(p=np.array([0,0,self.model_par[0]*rd]))
-        self.ac = AnalyticConvolution(ExtendedSource(spatial_model=self.sp),self.psf)
+        self.sp = SpatialModels.Disk(p=np.array([1e-40,1e-40,self.model_par[0]*rd]))
+        self.ac = AnalyticConvolution(ExtendedSource(spatial_model=self.sp),self.psf,num_points=400)
         if len(model_par)==3:
             pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1])
             self.ac.do_convolution(pb)#,False,True)
@@ -705,8 +810,8 @@ class CHalo(Model):
         self.header='theta\t'
         self.psf = pypsf.CALDBPsf(CALDBManager(irf='P6_v11_diff'))
 
-        self.sp = SpatialModels.Gaussian(p=np.array([0,0,self.model_par[0]*rd]))
-        self.ac = AnalyticConvolution(ExtendedSource(spatial_model=self.sp),self.psf)
+        self.sp = SpatialModels.Gaussian(p=np.array([1e-40,1e-40,self.model_par[0]*rd]))
+        self.ac = AnalyticConvolution(ExtendedSource(spatial_model=self.sp),self.psf,num_points=400)
         if len(model_par)==3:
             pb = pypsf.PretendBand(self.model_par[1],int(self.model_par[2]),psf=self.psf,sd=s.SkyDir(0,0),radius_in_rad=self.lims[1])
             self.ac.do_convolution(pb)#,False,True)
@@ -1279,7 +1384,8 @@ class CompositeModel(object):
         self.initial = self.extlikelihood(pars,photons,quiet)
         #minimize likelihood for parameters with respect to the parameters
         #gradient=(lambda x:self.gradient(x,photons,quiet)),
-        self.minuit = Minuit(lambda x: self.extlikelihood(x,photons,quiet),pars,fixed=frees,limits=lims,tolerance=1e-3,strategy=mode,printMode=-1)
+        tolerance = abs(0.001/self.initial)
+        self.minuit = Minuit(lambda x: self.extlikelihood(x,photons,quiet),pars,fixed=frees,limits=lims,tolerance=tolerance,strategy=mode,printMode=-1)
         self.minuit.minimize()
 
         self.nest = self.minuit.params[:len(self.models)] # first parameters are the number estimators
@@ -1316,7 +1422,11 @@ class CompositeModel(object):
                 fint = model.integrate(photon,mpars[lastp:lastp+prs])
                 tacc = tacc + nest[i]*f0/fint
                 lastp=lastp+prs
-            acc = acc - np.log(tacc)*photon.weight
+
+            if tacc<0:
+                return np.Infinity
+            lterm = np.log(tacc) if tacc>=0 else 0
+            acc = acc - lterm*photon.weight
         acc = acc + sum(nest)
         self.calls=self.calls+1
 
