@@ -6,7 +6,7 @@ This is done by treating each primitives' normalization parameter as
 the square of a cartesian variable lying within or on an
 n-dimensional ball of unit radius.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.27 2012/03/09 02:36:12 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcnorm.py,v 1.1 2012/03/11 22:20:21 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 """
@@ -102,6 +102,11 @@ class NormAngles(object):
     def get_total(self):
         """ Return the amplitude of all norms."""
         return sin(self.p[0])**2
+
+    def set_total(self,val):
+        """ Set overall normalization of the represented components."""
+        norms = self()
+        self.p = self._get_angles(norms*(val/norms.sum()))
 
             
 
