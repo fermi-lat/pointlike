@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.43 2012/03/09 16:32:09 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.44 2012/03/09 23:08:44 lande Exp $
 
 author: Joshua Lande
 """
@@ -17,6 +17,8 @@ from GtApp import GtApp
 
 import pyfits
 import numpy as np
+import pywcs
+
 from skymaps import IsotropicSpectrum,IsotropicPowerLaw,DiffuseFunction,\
         PySkyFunction,Hep3Vector,SkyImage,SkyDir,PythonUtilities,IsotropicConstant
 from . SpatialModels import Gaussian,EllipticalGaussian,RadiallySymmetricModel
@@ -29,6 +31,7 @@ from . SpatialModels import Gaussian,EllipticalGaussian,SpatialModel,RadiallySym
 
 from uw.utilities import keyword_options
 from uw.utilities.keyword_options import decorate, process, change_defaults, get_default, get_row
+from uw.utilities.fitstools import rad_mask
 
 import pyLikelihood
 
@@ -36,11 +39,103 @@ import pyLikelihood
 # http://www.psc.edu/general/software/packages/ieee/ieee.php
 SMALL_NUMBER = 2**-149
 
-class DiffuseShrinker(object):
-    defaults = (
-        ('galactic', False, "Save resulting fits file in galactic coordiantes"),
-        ('proj', 'CAR', "Projection"),
-    )
+class FitsShrinker(object):
+
+    def __init__(self, diffuse_model, skydir, radius):
+
+        self.diffuse_model = diffuse_model
+        self.skydir = skydir
+        self.radius = radius
+
+        self.test_good_file()
+
+
+    def test_good_file(self):
+
+        diffuse_model = self.diffuse_model
+        assert isinstance(diffuse_model, pyfits.core.HDUList)
+
+        h = diffuse_model['PRIMARY'].header
+        # make sure 2 or 3 dimesional data
+        assert h['NAXIS'] in [2, 3]
+
+        # Here, make sure diffuse function is allsky
+        assert abs(abs(h['NAXIS1']*h['CDELT1'])-360) < 1
+        assert abs(abs(h['NAXIS2']*h['CDELT2']) -180) < 1
+
+        # make sure diffuse file has same binning
+        assert abs(h['CDELT1']) == abs(h['CDELT2'])
+
+    @staticmethod
+    def rad_cut(lons,lats,galactic,skydir, radius):
+        """ Return a boolean array that is true when the distance from the 
+            skydir is less than the radius (in degrees). """
+        if galactic:
+            lon0,lat0 = skydir.l(),skydir.b()
+        else:
+            lon0,lat0 = skydir.ra(),skydir.dec()
+
+        lon0,lat0=np.radians(lon0),np.radians(lat0)
+        lons,lats = np.radians(lons),np.radians(lats)
+
+        cos_diffs = np.sin(lats)*np.sin(lat0)+np.cos(lats)*np.cos(lat0)*np.cos(lons-lon0)
+
+        # remember, increasing angle, decreasing cos(angle)
+        mask = -cos_diffs < -np.cos(np.radians(radius))
+        return mask
+
+
+    @staticmethod
+    def pyfits_to_sky(fits):
+        """ Return two arrays with the same dimensions as data but
+            containing either RA & Dec or L & B for the data. 
+        """
+        data, header = fits['PRIMARY'].data, fits['PRIMARY'].header
+        wcs = pywcs.WCS(header)
+
+        dataT = data.transpose()
+        if len(data.shape) == 3:
+            xlen,ylen,zlen = dataT.shape
+            x,y,z = np.mgrid[0:xlen, 0:ylen, 0:zlen]
+
+            length = len(x.flatten())
+            indices = np.hstack((x.reshape((length,1)),
+                                 y.reshape((length,1)),
+                                 z.reshape((length,1))))
+
+            lons,lats,energy=wcs.all_pix2sky(indices, 1).transpose()
+
+            lons=lons.reshape(dataT.shape).transpose()
+            lats=lats.reshape(dataT.shape).transpose()
+            energy=energy.reshape(dataT.shape).transpose()
+
+            if data.shape[0] == 1:
+                # Sometimes the energy axis is empty, in which case
+                # dont' return energies
+                return lons,lats
+            else:
+                return lons,lats,energy
+
+        elif len(data.shape) == 2:
+
+            dataT = data.transpose()
+
+            xlen,ylen = dataT.shape
+            x,y = np.mgrid[0:xlen, 0:ylen]
+
+            length = len(x.flatten())
+            indices = np.hstack((x.reshape((length,1)),
+                                 y.reshape((length,1))))
+
+            lons,lats=wcs.all_pix2sky(indices, 1).transpose()
+
+            lons=lons.reshape(dataT.shape).transpose()
+            lats=lats.reshape(dataT.shape).transpose()
+
+            return lons,lats
+        else:
+            raise Exception("Algorithm only defiend for length 2 or 3 arrays.")
+
 
     @staticmethod
     def smaller_range(values, min, max):
@@ -51,16 +146,16 @@ class DiffuseShrinker(object):
             include the first number smaller than min and the first number
             larger than max.
 
-                >>> print DiffuseShrinker.smaller_range(np.asarray([1,2,3,5]), 2, 3)
+                >>> print FitsShrinker.smaller_range(np.asarray([1,2,3,5]), 2, 3)
                 [False  True  True False]
 
-                >>> print DiffuseShrinker.smaller_range(np.asarray([1,2,3,5]), 1.9, 3.1)
+                >>> print FitsShrinker.smaller_range(np.asarray([1,2,3,5]), 1.9, 3.1)
                 [ True  True  True  True]
 
             If there is no number smaller than min (or larger than max), it just includes
             the whole list
 
-                >>> print DiffuseShrinker.smaller_range(np.asarray([1,2,3,5]), 0.9, 5.1)
+                >>> print FitsShrinker.smaller_range(np.asarray([1,2,3,5]), 0.9, 5.1)
                 [ True  True  True  True]
         """
         good = np.ones_like(values).astype(bool)
@@ -74,86 +169,95 @@ class DiffuseShrinker(object):
             good[index] = False
         return good
 
-    @decorate(defaults)
-    def __init__(self, diffuse_model, skydir, radius, emin, emax, **kwargs):
+
+class MapShrinker(FitsShrinker):
+
+    def shrink(self, **kwargs):
+
+        x = self.diffuse_model
+
+        lons,lats = FitsShrinker.pyfits_to_sky(x)
+
+        galactic=True
+        inside_cut = FitsShrinker.rad_cut(lons,lats,galactic,self.skydir, self.radius)
+
+        x['PRIMARY'].data[~inside_cut] = SMALL_NUMBER
+
+
+class DiffuseShrinker(FitsShrinker):
+    def __init__(self, diffuse_model, skydir, radius, emin, emax):
         """ Take in an allsky diffuse model and create a diffuse model which predicts
-            emission only inside the given radius and energy range. """
+            emission only inside the given radius and energy range. 
+            
 
-        process(self, kwargs)
+            A simple test that creates a shrunk file and shows that the pixes are 0 far away
+            from the center
+            
+                >>> from os.path import expandvars
+                >>> galname=expandvars('$GLAST_EXT/diffuseModels/v0r0/gll_iem_v02.fit')
+                >>> diff=pyfits.open(galname)
+                >>> shrinker = DiffuseShrinker(diff, skydir=SkyDir(55,60, SkyDir.GALACTIC), radius=10, emin=1e3, emax=1e5)
+                >>> shrinker.shrink()
+                >>> from tempfile import NamedTemporaryFile
+                >>> tempfile = NamedTemporaryFile()
+                >>> diff.writeto(tempfile.name)
+                >>> cut = DiffuseFunction(tempfile.name)
+                >>> uncut = DiffuseFunction(galname)
 
-        assert type(diffuse_model) == str and os.path.exists(diffuse_model)
+            First, test at the skydir:
 
-        # I am not sure if this algorithm makes sense for very-larger areas of the sky
-        # For now, just crash
-        assert radius < 90
+                >>> sd = SkyDir(55,60, SkyDir.GALACTIC)
+                >>> np.allclose(cut(sd, 1e4), uncut(sd, 1e4))
+                True
 
-        self.diffuse_model = diffuse_model
-        self.skydir = skydir
-        self.radius = radius
+            Note, we appleid a 1 GeV energy cut, so in teh cut file we cannot access very small eneriges:
+
+                >>> not np.allclose(uncut(sd, 1e2),0)
+                True
+                >>> cut(sd, 1e2)
+                Traceback (most recent call last):
+                    ...
+                RuntimeError: Diffuse function: energy out of range: 100
+
+            Then test at a point far away, it should be 0:
+
+                >>> sd = SkyDir(100,60, SkyDir.GALACTIC)
+                >>> np.allclose(cut(sd, 1e4), 0)
+                True
+        """
+
+        super(DiffuseShrinker,self).__init__(diffuse_model, skydir, radius)
         self.emin = emin
         self.emax = emax
 
-        self.allsky_fits = pyfits.open(self.diffuse_model)
+    def shrink(self):
 
-        h = self.allsky_fits['PRIMARY'].header
-        # Here, make sure diffuse function is allsky
-        assert abs(abs(h['NAXIS1']*h['CDELT1'])-360) < 1
-        assert abs(abs(h['NAXIS2']*h['CDELT2']) -180) < 1
+        d = self.diffuse_model
 
-        # make sure diffuse file has same
-        assert h['CDELT1'] == h['CDELT2']
-        self.pixelsize = h['CDELT1']
-
-        self.allsky_image = SkyImage(self.diffuse_model)
-
-        self.all_energies = np.asarray(self.allsky_fits['energies'].data.field('energy'))
+        self.all_energies = np.asarray(d['energies'].data.field('energy'))
 
         # create a list of the indices in the self.all_energy array for energies
         # that are allowed by the energy cut.
-        self.good_indices = DiffuseShrinker.smaller_range(self.all_energies, self.emin, self.emax)
+        self.good_indices = FitsShrinker.smaller_range(self.all_energies, self.emin, self.emax)
         self.good_energies = self.all_energies[self.good_indices]
-
-    def shrink(self, smaller_file):
-
-        shutil.copyfile(self.diffuse_model, smaller_file)
 
         layers = sum(self.good_indices)
 
         # first, strip out unwanted energies
-        x = pyfits.open(smaller_file, mode='update')
-        x['PRIMARY'].data = x['PRIMARY'].data[self.good_indices]
-        x['ENERGIES'].data = x['ENERGIES'].data[self.good_indices]
+        d['PRIMARY'].data = d['PRIMARY'].data[self.good_indices]
+        d['ENERGIES'].data = d['ENERGIES'].data[self.good_indices]
 
-        x['ENERGIES'].header['NAXIS2'] = layers
+        d['ENERGIES'].header['NAXIS2'] = layers
 
-        x['PRIMARY'].header['NAXIS3'] = layers
-        x['PRIMARY'].header['CRVAL3'] = x['ENERGIES'].data.field('ENERGY')[0]
+        d['PRIMARY'].header['NAXIS3'] = layers
+        d['PRIMARY'].header['CRVAL3'] = d['ENERGIES'].data.field('ENERGY')[0]
 
-        x.flush()
-        del(x)
+        lons,lats,energies = FitsShrinker.pyfits_to_sky(d)
 
-        # second, set to 0 pixels outside of desired region
-        img=SkyImage(smaller_file)
-        for i in range(layers):
-            wsdl = img.get_wsdl(i)
+        galactic=True
+        inside_cut = FitsShrinker.rad_cut(lons,lats,galactic,self.skydir, self.radius)
 
-            weights = np.zeros(len(wsdl),dtype=float)
-            arclength = np.zeros(len(wsdl),dtype=float)
-
-            PythonUtilities.get_wsdl_weights(weights, wsdl)
-            PythonUtilities.arclength(arclength,wsdl, self.skydir)
-
-            rad_cut = np.degrees(arclength) > self.radius
-            weights[rad_cut] = SMALL_NUMBER
-
-            PythonUtilities.set_wsdl_weights(weights, wsdl)
-
-            img.setLayer(i)
-            img.set_wsdl(wsdl)
-            
-        img.save()
-        del(img)
-
+        d['PRIMARY'].data[~inside_cut] = SMALL_NUMBER
 
 
 class NoSimulatedPhotons(Exception):
@@ -263,14 +367,14 @@ class MonteCarlo(object):
             if self.gtifile:
                 print "gtifile can only be set for existing ft2 files."
 
-
     def set_time_from_ft2(self):
         # Note, get the start & stop times from the actual
         # data instead of the fits header
         # See https://jira.slac.stanford.edu/browse/OBS-18
-        ft2 = pyfits.open(self.ft2)[1]
-        self.tstart = ft2.data.field('START')[0]
-        self.tstop = ft2.data.field('STOP')[-1]
+        ft2 = pyfits.open(self.ft2)
+        self.tstart = ft2['SC_DATA'].data.field('START')[0]
+        self.tstop = ft2['SC_DATA'].data.field('STOP')[-1]
+        ft2.close()
 
     def larger_energy_range(self):
         """ Get an energy range larger then the desired simulated points
@@ -281,12 +385,16 @@ class MonteCarlo(object):
 
         assert isinstance(ps,PointSource)
 
-        if isinstance(ps.model,PowerLaw) or isinstance(ps.model,PowerLawFlux):
+        if not self.quiet: print 'Processing source %s' % ps.name
+
+        model = ps.model
+
+        if isinstance(model,PowerLaw) or isinstance(model,PowerLawFlux):
             xml=[
-                '<source name="%s" flux="%s">' % (MonteCarlo.strip(ps.name),ps.model.i_flux(mc_emin,mc_emax,cgs=True)*1e4),
+                '<source name="%s" flux="%s">' % (MonteCarlo.strip(ps.name),model.i_flux(mc_emin,mc_emax,cgs=True)*1e4),
                 '  <spectrum escale="MeV">',
                 '  <particle name="gamma">',
-                '    <power_law emin="%s" emax="%s" gamma="%s"/>' % (mc_emin,mc_emax,ps.model.getp(1)),
+                '    <power_law emin="%s" emax="%s" gamma="%s"/>' % (mc_emin,mc_emax,model.getp(1)),
                 '  </particle>',
                 '  <celestial_dir ra="%s" dec="%s"/>' % (ps.skydir.ra(),ps.skydir.dec()),
                 '  </spectrum>',
@@ -294,36 +402,26 @@ class MonteCarlo(object):
             ]
             return indent+('\n'+indent).join(xml)
         else:
-            if isinstance(ps.model,FileFunction):
-                flux=ps.model.i_flux(self.energy[0],self.energy[-1],cgs=True)*1e4
-                specfile=ps.model.file
+            if isinstance(model,FileFunction):
+                flux=model.i_flux(self.energy[0],self.energy[-1],cgs=True)*1e4
+                spectral_filename=model.file
             else:
-                flux=ps.model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
-                specfile=MonteCarlo._make_specfile(ps.name,ps.model,mc_emin,mc_emax)
+                flux=model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
+
+                spectral_filename = '%s_spectra_%s.txt' % (MonteCarlo.strip(ps.name),model.name)
+                model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
 
             xml=[
                 '<source name="%s">' % MonteCarlo.strip(ps.name),
                 '  <spectrum escale="MeV">',
                 '    <SpectrumClass name="FileSpectrum"',
-                '      params="flux=%g,specFile=%s"/>' % (flux,specfile),
+                '      params="flux=%g,specFile=%s"/>' % (flux,spectral_filename),
                 '    <celestial_dir ra="%s" dec="%s"/>' % (ps.skydir.ra(),ps.skydir.dec()),
                 '  </spectrum>',
                 '</source>'
             ]
             return indent+('\n'+indent).join(xml)
 
-    @staticmethod
-    def _make_specfile(name,model,emin,emax,numpoints=200):
-        temp='%s_spectra_%s.txt' % (MonteCarlo.strip(name),model.name)
-        energies=np.logspace(np.log10(emin),np.log10(emax),numpoints)
-        fluxes=model(energies)
-        # josh's fix to the clipping.../ thanks!
-        while fluxes[0] == 0: energies,fluxes=energies[1:],fluxes[1:]
-        while fluxes[-1] == 0: energies,fluxes=energies[:-1],fluxes[:-1]
-        # okay that's to check for local divergences
-        if np.any(fluxes==0): raise Exception("Error: 0s found in differential flux")
-        open(temp,'w').write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(energies,fluxes)]))
-        return temp
 
     @staticmethod
     def _make_profile(name,spatial_model,numpoints=200):
@@ -336,24 +434,26 @@ class MonteCarlo(object):
 
         name=es.name
         sm=es.spatial_model
+        model = es.model
 
         assert isinstance(sm,RadiallySymmetricModel)
  
-        flux=es.model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
+        flux=model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
 
         ra,dec=sm.center.ra(),sm.center.dec()
 
-        profile_name='%s_extension_profile_%s.txt' % (MonteCarlo.strip(name),sm.name)
-        sm.save_profile(profile_name)
+        spatial_filename='%s_extension_profile_%s.txt' % (MonteCarlo.strip(name),sm.name)
+        sm.save_profile(spatial_filename)
 
-        specfile=MonteCarlo._make_specfile(name,es.model,mc_emin,mc_emax)
+        spectral_filename = '%s_spectra_%s.txt' % (MonteCarlo.strip(es.name),model.name)
+        model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
 
         xml=[
             '<source name="%s">' % MonteCarlo.strip(es.name),
             '  <spectrum escale="MeV">',
             '    <SpectrumClass name="RadialSource"',
             '      params="flux=%s, profileFile=%s, specFile=%s, ra=%s, dec=%s"/>' % \
-                    (flux,profile_name,specfile,ra,dec),
+                    (flux,spatial_filename,spectral_filename,ra,dec),
             '    <use_spectrum frame="galaxy"/>',
             '  </spectrum>',
             '</source>',
@@ -363,32 +463,33 @@ class MonteCarlo(object):
     def _make_extended_source(self,es,mc_emin,mc_emax,indent):
 
         sm=es.spatial_model
+        model = es.model
 
         assert isinstance(sm,SpatialModel)
 
-        flux=es.model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
+        flux=model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
 
         ra,dec=sm.center.ra(),sm.center.dec()
 
         if isinstance(sm,SpatialMap):
             print 'WARNING: gtobssim can only use plate-carree projection fits files!'
-            spatialfile=sm.file
+            spatial_filename=sm.file
         else:
-            spatialfile='%s_spatial_template_%s.fits' % (MonteCarlo.strip(es.name),sm.name)
+            spatial_filename='%s_spatial_template_%s.fits' % (MonteCarlo.strip(es.name),sm.name)
             # Allegedly simulated templates must only be in the plate-carree projection
             # http://www.slac.stanford.edu/exp/glast/wb/prod/pages/sciTools_observationSimTutorial/obsSimTutorial.htm
-            sm.save_template(spatialfile, proj='CAR')
+            sm.save_template(spatial_filename, proj='CAR')
 
-        if isinstance(es.model,PowerLaw) or isinstance(es.model,PowerLawFlux):
+        if isinstance(model,PowerLaw) or isinstance(model,PowerLawFlux):
 
-            index = es.model['index']
+            index = model['index']
 
             xml=[
                 '<source name="%s">' % MonteCarlo.strip(es.name),
                 '  <spectrum escale="MeV">',
                 '    <SpectrumClass name="MapSource"',
                 '      params="%s,%s,%s,%s,%s"/>' % \
-                        (flux,index,spatialfile,mc_emin,mc_emax),
+                        (flux,index,spatial_filename,mc_emin,mc_emax),
                 '    <use_spectrum frame="galaxy"/>',
                 '  </spectrum>',
                 '</source>',
@@ -396,14 +497,15 @@ class MonteCarlo(object):
 
         else:
 
-            specfile=MonteCarlo._make_specfile(es.name,es.model,mc_emin,mc_emax)
+            spectral_filename='%s_spectra_%s.txt' % (MonteCarlo.strip(es.name),model.name)
+            model.save_profile(filename=spectral_filename, emin=mc_emin, emax=mc_emax)
 
             xml=[
                 '<source name="%s">' % MonteCarlo.strip(es.name),
                 '  <spectrum escale="MeV">',
                 '    <SpectrumClass name="FileSpectrumMap"',
                 '      params="flux=%s, fitsFile=%s, specFile=%s, emin=%s, emax=%s"/>' % \
-                        (flux,spatialfile,specfile,mc_emin,mc_emax),
+                        (flux,spatial_filename,spectral_filename,mc_emin,mc_emax),
                 '    <use_spectrum frame="galaxy"/>',
                 '  </spectrum>',
                 '</source>',
@@ -412,14 +514,15 @@ class MonteCarlo(object):
 
     def _make_powerlaw_gaussian(self,es,mc_emin,mc_emax,indent):
         """ Make an extended source. """
+        model = es.model
 
         assert isinstance(es.spatial_model,Gaussian) or \
                isinstance(es.spatial_model,EllipticalGaussian)
 
-        if isinstance(es.model,PowerLaw) or isinstance(es.model,PowerLawFlux):
+        if isinstance(model,PowerLaw) or isinstance(model,PowerLawFlux):
 
-            flux=es.model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
-            gamma=es.model.getp('Index')
+            flux=model.i_flux(mc_emin,mc_emax,cgs=True)*1e4
+            gamma=model.getp('Index')
             center=es.spatial_model.center
             ra,dec=center.ra(),center.dec()
             
@@ -448,29 +551,41 @@ class MonteCarlo(object):
             raise Exception("Can only parse PowerLaw gaussian sources.")
 
     @staticmethod
-    def make_isotropic_fits(filename, radius, proj="CAR",  pixelsize=1, skydir=None):
+    def make_isotropic_fits(radius, skydir=None, **kwargs):
         """ Note, if there is an ROI cut, we can make this
             isotropic file not allsky. """
-        galactic=True
-        gal_center=SkyDir(0,0,SkyDir.GALACTIC)
-        img=SkyImage(gal_center,filename,pixelsize,180,1,proj,galactic)
 
-        if radius >= 180:
-            fill=lambda v: 1
-        else:
+        allsky = MonteCarlo.make_allsky_isotropic_fits(**kwargs)
+        if radius < 180:
+            shrinker = MapShrinker(allsky, skydir, radius)
+            shrinker.shrink()
+        return allsky
 
-            assert skydir is not None
+    @staticmethod
+    def make_allsky_isotropic_fits(pixelsize=1):
+        """ Create an allsky pyfits file with 1s in it.  """
 
-            def fill(v):
-                sd = SkyDir(Hep3Vector(*v))
-                if np.degrees(sd.difference(skydir)) <= radius:
-                    return 1
-                else:
-                    return SMALL_NUMBER
+        assert 180 % pixelsize == 0
+        import pywcs
 
-        skyfun=PySkyFunction(fill)
-        img.fill(skyfun)
-        del(img)
+        wcs = pywcs.WCS(naxis=2)
+
+        nxpix = 360/pixelsize
+        nypix = 180/pixelsize
+
+        wcs.wcs.crpix = [nxpix/2.0 + 0.5, nypix/2.0 + 0.5]
+        wcs.wcs.cdelt = [-pixelsize, pixelsize]
+        wcs.wcs.crval = [0,0]
+        wcs.wcs.ctype = ["GLON-CAR", "GLAT-CAR"]
+
+        header = wcs.to_header()
+
+        data = np.ones((nypix,nxpix), dtype=float)
+        hdu = pyfits.PrimaryHDU(header=header, data=data)
+
+        hdulist = pyfits.HDUList([hdu])
+        return hdulist
+
 
     @staticmethod
     def isotropic_spectral_integrator(filename):
@@ -515,8 +630,9 @@ class MonteCarlo(object):
             If the file is allsky and has inside of it the value '1', then the integral should return
             the total solid angle of a sphere (4*pi).
 
+                >>> allsky=MonteCarlo.make_isotropic_fits(radius=180, pixelsize=1)
                 >>> tempfile = NamedTemporaryFile()
-                >>> MonteCarlo.make_isotropic_fits(tempfile.name, radius=180, pixelsize=1)
+                >>> allsky.writeto(tempfile.name, clobber=True)
                 >>> map_area = MonteCarlo.spatial_integrator_2d(tempfile.name)
                 >>> np.allclose(map_area, 4*np.pi)
                 True
@@ -525,14 +641,15 @@ class MonteCarlo(object):
             integral should should be 4*pi*(1-cos(radius)). Note, we need smaller
             pixel size to get a good agreement due to ragged edge effect at corner of circle.
 
-                >>> for radius in [10, 30, 50]:
+                >>> def map_area(radius):
                 ...     tempfile = NamedTemporaryFile()
-                ...     MonteCarlo.make_isotropic_fits(tempfile.name, skydir=SkyDir(134,83,SkyDir.GALACTIC), radius=radius, pixelsize=0.25)
+                ...     allsky=MonteCarlo.make_isotropic_fits(skydir=SkyDir(134,83,SkyDir.GALACTIC), radius=radius, pixelsize=0.25)
+                ...     allsky.writeto(tempfile.name, clobber=True)
                 ...     map_area = MonteCarlo.spatial_integrator_2d(tempfile.name)
-                ...     true_area = 2*np.pi*(1-np.cos(np.radians(radius)))
-                ...     np.allclose(map_area, true_area, atol=1e-2, rtol=1e-2)
-                True
-                True
+                ...     return map_area
+                >>> map_area = np.vectorize(map_area)
+                >>> true_area = lambda radius: 2*np.pi*(1-np.cos(np.radians(radius)))
+                >>> np.allclose(map_area([10,30,50]), true_area([10,30,50]), atol=1e-3, rtol=1e-3)
                 True
         """
         fits=pyfits.open(filename)
@@ -540,14 +657,12 @@ class MonteCarlo(object):
         assert len(data.shape) == 2 or data.shape[0] == 1
         if data.shape == 3: data = data[1]
 
-        nxpix,nypix=data.shape[1],data.shape[2]
-
         # get the solid angles from gtlike. Probably
         # could be rewritten in pointlike, but not necessary
         mapcube=pyLikelihood.MapCubeFunction2(filename)
         sa=np.asarray(mapcube.wcsmap().solidAngles()).transpose()
         map_integral = np.sum(sa*data)
-
+        fits.close()
         return map_integral
 
     @staticmethod
@@ -571,7 +686,7 @@ class MonteCarlo(object):
         spectral_file=dm.name()
         energies,spectra=np.genfromtxt(spectral_file,unpack=True)[0:2]
 
-        smaller_range = DiffuseShrinker.smaller_range(energies, mc_emin, mc_emax)
+        smaller_range = FitsShrinker.smaller_range(energies, mc_emin, mc_emax)
         if np.any(smaller_range == False):
             # If any energies are outside the range, cut down spectral file.
             cut_spectral_file = os.path.basename(spectral_file).replace('.txt','_cut.txt')
@@ -582,10 +697,10 @@ class MonteCarlo(object):
         spatial_file=os.path.basename(spectral_file).replace('.txt','_spatial.fits')
         if self.roi_dir is not None and self.maxROI is not None:
             radius=self.maxROI + self.diffuse_pad
-            MonteCarlo.make_isotropic_fits(spatial_file, skydir=self.roi_dir, radius=radius)
         else:
-            # multiply by solid angle
-            MonteCarlo.make_isotropic_fits(spatial_file, radius=180)
+            radius=180
+        allsky=MonteCarlo.make_isotropic_fits(skydir=self.roi_dir, radius=radius)
+        allsky.writeto(spatial_file)
 
 
         # flux is ph/cm^2/sr to ph/m^2
@@ -770,17 +885,21 @@ class MonteCarlo(object):
         allsky_filename=dm.name()
 
         if self.roi_dir is not None and self.maxROI is not None:
+            print 'Shrinking diffuse model %s' % ds.name
             radius=self.maxROI + self.diffuse_pad
 
+            allsky = pyfits.open(allsky_filename)
+            shrinker = DiffuseShrinker(allsky, skydir=self.roi_dir, radius=radius, emin=mc_emin, emax=mc_emax)
+            shrinker.shrink()
             filename = os.path.basename(allsky_filename).replace('.fits','_cut.fits')
+            allsky.writeto(filename)
 
-            shrinker = DiffuseShrinker(allsky_filename, self.roi_dir, radius, mc_emin, mc_emax)
-            shrinker.shrink(filename)
 
         else:
             filename = allsky_filename
 
 
+        print 'Integrating diffuse model %s' % ds.name
         flux = MonteCarlo.diffuse_integrator(filename)
 
 
@@ -795,6 +914,8 @@ class MonteCarlo(object):
         return indent+('\n'+indent).join(ds)
 
     def _make_ds(self,ds,*args,**kwargs):
+        if not self.quiet: print 'Processing source %s' % ds.name
+
         if len(ds.dmodel) > 1:
             raise Exception("Can only run gtobssim for diffuse models with a combined front/back diffuse model.")
 
@@ -843,12 +964,10 @@ class MonteCarlo(object):
         mc_emin,mc_emax=self.larger_energy_range()
 
         for ps in self.point_sources:
-            if not self.quiet: print 'Processing source %s' % ps.name
             xml.append(self._make_ps(ps,mc_emin, mc_emax,indent))
             src.append(MonteCarlo.strip(ps.name))
 
         for ds in self.diffuse_sources:
-            if not self.quiet: print 'Processing source %s' % ds.name
             xml.append(self._make_ds(ds,mc_emin,mc_emax,indent))
             src.append(MonteCarlo.strip(ds.name))
 
@@ -887,8 +1006,10 @@ class MonteCarlo(object):
                 apply_filter='yes',
                )
 
-    def simulate(self,**kwargs):
-        ''' understands all keywords that GtApp.run() can handle, especially dry_run=True and verbosity=X '''
+    def simulate(self, dry_run=False):
+        """ dry_run: make all the tempfiles and print out gtobssim command, but 
+                     don't acutally run it.
+        """
 
         if not self.quiet: print 'Simulating in energy range from %g MeV to %g MeV' % (self.emin, self.emax)
 
@@ -933,10 +1054,12 @@ class MonteCarlo(object):
                 emin=self.emin,
                 emax=self.emax,
                 maxrows=200000000, # make sure all photons are in one file
-                **kwargs # to pass all keywords from simulate through to app.run();
+                dry_run=dry_run, # to pass all keywords from simulate through to app.run();
        )
 
         os.chdir(old_dir)
+
+        if dry_run: return
 
         ft1=os.path.join(self.savedir,'sim_events_0000.fits')
 
@@ -982,7 +1105,7 @@ class SpectralAnalysisMC(SpectralAnalysis):
         'keywords for gtobssim simulation',
     )
 
-    defaults += tuple(get_row(MonteCarlo.defaults,i) for i in ['seed', 'ltfrac', 'tempbase'])
+    defaults += tuple(get_row(MonteCarlo.defaults,i) for i in ['seed', 'ltfrac', 'tempbase', 'savedir'])
 
     for i in ['tstart', 'tstop']:
         defaults=change_defaults(defaults, i, get_default(MonteCarlo.defaults,i))
@@ -1029,20 +1152,23 @@ class SpectralAnalysisMC(SpectralAnalysis):
             roi_dir=roi_dir,
             maxROI=self.maxROI,
             mc_energy=self.mc_energy,
-            quiet=self.quiet)
+            quiet=self.quiet,
+            savedir=self.savedir)
 
         monte_carlo.simulate()
 
-        ds=DataSpecification(ft1files=monte_carlo.ft1,
-                             ft2files=monte_carlo.ft2,
-                             binfile=self.dataspec.binfile,
-                             ltcube=self.dataspec.ltcube)
+        new_ds=DataSpecification(ft1files=monte_carlo.ft1,
+                                 ft2files=monte_carlo.ft2,
+                                 binfile=self.dataspec.binfile,
+                                 ltcube=self.dataspec.ltcube)
+
+        del(monte_carlo)
 
         # Create a new SpectralAnalysis object with
         # the now existing ft1/ft2 files (Yo Dawg!)
         if self.tstart is None: self.tstart = 0
         if self.tstop is None: self.tstop = 0
-        sa=SpectralAnalysis(ds,**keyword_options.defaults_to_kwargs(self,SpectralAnalysis))
+        sa=SpectralAnalysis(new_ds,**keyword_options.defaults_to_kwargs(self,SpectralAnalysis))
         return sa.roi(roi_dir=roi_dir,
                       point_sources=point_sources, 
                       diffuse_sources=diffuse_sources,**kwargs)
