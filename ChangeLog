@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Mar 13 19:48:52 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+Bugfix in xml savout of IsotropicPowerlaw + allow xml saving of the SkySpectrum object IsotropicConstant.
+    *
+------------------------------------------------------------
 User: lande  Tue Mar 13 19:47:20 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
