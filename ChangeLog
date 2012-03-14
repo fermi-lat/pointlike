@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Mar 14 16:32:36 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+new clip_ends flag to the save_profile function
+    *
+------------------------------------------------------------
 User: kerrm  Wed Mar 14 12:40:21 PDT 2012
 pointlike/python/uw/pulsar
 
