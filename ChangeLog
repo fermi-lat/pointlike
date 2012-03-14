@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Mar 14 11:54:13 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+more memory efficeint mapcube cutting algorithm performing a python loop over energy bins
+    *
+------------------------------------------------------------
 User: lande  Tue Mar 13 19:48:52 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
