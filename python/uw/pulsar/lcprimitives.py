@@ -3,7 +3,7 @@ components of a pulsar light curve.  Includes primitives (Gaussian,
 Lorentzian), etc.  as well as more sophisticated holistic templates that
 provide single-parameter (location) representations of the light curve.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.3 2010/12/17 18:19:16 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.21 2012/03/12 22:14:12 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -543,21 +543,19 @@ class LCTopHat(LCPrimitive):
     """
 
     def init(self):
-        self.p    = np.asarray([1,0.03,0.5])
+        self.p    = np.asarray([0.03,0.5])
         self.free = np.asarray([True]*len(self.p))
-        self.pnames = ['Norm','Width','Location']
+        self.pnames = ['Width','Location']
         self.name = 'TopHat'
         self.fwhm_scale = 1
 
-    def __call__(self,phases,wrap=True):
-        norm,width,x0 = self.p
-        v = norm/width
-        return np.where(np.abs(phases - x0%1) < width/2,v,0)
+    def hwhm(self,right=False):
+        return self.p[0]/2
 
-    def integrate(self,x1=-np.inf,x2=np.inf):
-      # achtung -- kluge for now
-        norm,width,x0 = self.p
-        return norm
+    def __call__(self,phases,wrap=True):
+        width,x0 = self.p
+        return np.where(np.mod(phases - x0 + width/2,1) < width,1./width,0)
+
 
 class LCHarmonic(LCPrimitive):
     """Represent a sinusoidal shape corresponding to a harmonic in a Fourier expansion.
@@ -569,21 +567,20 @@ class LCHarmonic(LCPrimitive):
     """
 
     def init(self):
-        self.p    = np.asarray([1.,0.])
+        self.p    = np.asarray([0.])
         self.free = np.asarray([True]*len(self.p))
         self.order= 1
-        self.pnames = ['Norm','Location']
+        self.pnames = ['Location']
         self.name = 'Harmonic'
 
     def __call__(self,phases):
-        norm,x0 = self.p
-        return norm*np.cos( (TWOPI*self.order) * (phases - x0 ) )
+        x0 = self.p
+        return 1+np.cos( (TWOPI*self.order) * (phases - x0 ) )
 
     def integrate(self,x1=0,x2=1):
-        if x1 == 0 and x2 == 1: return 0
-        else:
-            # not yet implemented
-            raise Exception
+        if x1 == 0 and x2 == 1: return 1
+        t = self.order*TWOPI
+        return (x2-x1)+(sin(t*x2)-sin(t*x1))/t
 
 class LCEmpiricalFourier(LCPrimitive):
     """ Calculate a Fourier representation of the light curve.
