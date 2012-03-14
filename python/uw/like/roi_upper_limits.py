@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.16 2012/03/04 02:23:04 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.17 2012/03/06 05:15:41 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -130,7 +130,7 @@ def upper_limit_quick(roi,which = 0,confidence = .95,e_weight = 0,cgs = False):
 
 class ExtensionUpperLimit(object):
     defaults = (
-        ("refit_position",          True, "Refit position of source for each extension"),
+        ("refit_position",         False, "Refit position of source for each extension"),
         ("confidence",              0.95, "Convidence level of bayesian upper limit"),
         ("spatial_model",           None, "Spatial model to use for extnesion upper limit. Default is Disk"),
         ("delta_log_like_limits",   10,   """ delta_log_like_limits has same defintion as the parameter in
