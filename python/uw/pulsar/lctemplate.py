@@ -1,7 +1,7 @@
 """
 A module implementing a mixture model of LCPrimitives to form a
 normalized template representing directional data.
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.2 2012/03/11 23:00:52 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lctemplate.py,v 1.3 2012/03/12 19:59:41 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -164,7 +164,7 @@ class LCTemplate(object):
             between the first and final component locations.
             
             delta [False] -- if True, return the first peak position"""
-        if len(self.primitives)==1: return -1
+        if len(self.primitives)==1: return -1,0
         prim0,prim1 = self[0],self[-1]
         for p in self.primitives:
             if p.get_location() < prim0.get_location(): prim0 = p
