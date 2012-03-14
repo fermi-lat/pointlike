@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.84 2012/03/09 12:04:27 cohen Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.85 2012/03/12 18:42:05 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -340,18 +340,30 @@ class Model(object):
                 print 'Encountered a numerical error, "%s", when attempting to calculate integral flux.'%msg
             return np.nan if not error else ([flux, np.nan,np.nan] if two_sided else [flux, np.nan])
 
-    def save_profile(self, filename, emin, emax, numpoints=200):
+    def save_profile(self, filename, emin, emax, numpoints=200, clip_ends=True, clip_fraction=1e-20):
         """ Create a textfile of the spectral model. Useful for running
             gtobssim or gtlike with weird spectra. Also useful
             for creating a numeric representation of a spectral
-            model using the FileFunction object. """
+            model using the FileFunction object. 
+
+            if clip_ends is True, the file will clip spectral points a fraction clip_fraction less than
+            the maximum at either end of the spectrum. This is to avoid having numerically small (or 0)
+            values in the spectral file which can cause trouble in gtobssim, which does a powerlaw
+            interpolation of the points.
+        """
         energies=np.logspace(np.log10(emin),np.log10(emax),numpoints)
         fluxes=self(energies)
-        # Clip out 0s on either end of spectral file. Otherwise gtobbsim gets angry.
-        while fluxes[0] == 0: energies,fluxes=energies[1:],fluxes[1:]
-        while fluxes[-1] == 0: energies,fluxes=energies[:-1],fluxes[:-1]
-        # okay that's to check for local divergences
+
+        if clip_ends:
+            max_flux = max(fluxes)
+            clip_flux = clip_fraction*max_flux
+            # Clip out 0s on either end of spectral file. Otherwise gtobbsim gets angry.
+            while fluxes[0] < clip_flux: energies,fluxes=energies[1:],fluxes[1:]
+            while fluxes[-1] < clip_flux: energies,fluxes=energies[:-1],fluxes[:-1]
+
+        # Paranoid check:
         if np.any(fluxes==0): raise Exception("Error: 0s found in differential flux")
+
         open(filename,'w').write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(energies,fluxes)]))
 
     def set_flux(self,flux,*args,**kwargs):
