@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.59 2012/02/29 21:25:28 wallacee Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.60 2012/03/07 03:45:11 lande Exp $
 
    author: Matthew Kerr
 """
@@ -15,7 +15,7 @@ from uw.like.roi_extended import ExtendedSource
 from uw.like.Models import *
 from uw.like.SpatialModels import *
 from uw.darkmatter.spatial import *
-from skymaps import SkyDir,DiffuseFunction,IsotropicSpectrum,IsotropicPowerLaw
+from skymaps import SkyDir,DiffuseFunction,IsotropicSpectrum,IsotropicPowerLaw,IsotropicConstant
 from os.path import join
 import os
 
@@ -511,12 +511,12 @@ def makePSSpatialModel(skydir, tablevel=1):
             [ '</spatialModel>' ]
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
 
-def makeDSConstantSpatialModel(tablevel=1):
+def makeDSConstantSpatialModel(value=1.0, tablevel=1):
     """Encode an isotropic model."""
     
     strings = [
         '<spatialModel type="ConstantValue">',
-        '\t<parameter  name="Value" value="1.0" free="0" max="10.0" min="0.0" scale="1.0" />',
+        '\t<parameter  name="Value" value="%s" free="0" max="10.0" min="0.0" scale="1.0" />' % value,
         '</spatialModel>'
     ]
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
@@ -983,6 +983,14 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=True,filena
         skyxml = makeDSMapcubeSpatialModel(filename=filename)
         m2x.process_model(ds.smodel,scaling=True)
         specxml = m2x.getXML()
+    elif isinstance(dm,IsotropicConstant):
+
+        value = dm.constant()
+        skyxml = makeDSConstantSpatialModel(value)
+
+        m2x.process_model(ds.smodel,scaling=False)
+        specxml = m2x.getXML()
+
     else:
         skyxml = makeDSConstantSpatialModel()
         #Handle the case where the isotropic is specified by separate front and back components
@@ -1002,12 +1010,14 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=True,filena
                 m2x.extra_attrs+='ctype="{0}"'.format(ct)
                 specxml += m2x.getXML(spec_attrs='file=\"%s\"'%(filename.replace('\\','/')),tablevel=len(dm))
             elif isinstance(m,IsotropicPowerLaw):
-                sd = SkyDir()
-                iflux = m.integral(sd,100,3e5)
-                spind = m.value(sd,100)*100/iflux + 1
-                pl = PowerLawFlux()
-                pl.p[0] = ds.smodel.p[0] + N.log10(iflux)
-                pl.p[1] = N.log10(spind+10**(ds.smodel.p[1]-ds.smodel.index_offset))
+                flux,index=m.flux(),m.index()
+                pl=PowerLawFlux(index=index)
+                pl.set_flux(flux,100,np.inf)
+
+                if isinstance(ds.smodel,Constant):
+                    pl['Int_Flux'] *= ds.smodel['Scale']
+                else:
+                    raise Exception("...")
                 pl.cov_matrix = ds.smodel.cov_matrix.copy() #correct?
                 m2x.process_model(pl,scaling=False)
                 specxml += m2x.getXML(tablevel=len(dm))
