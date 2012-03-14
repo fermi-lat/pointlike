@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Mar 13 17:17:55 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lctemplate.py 
+Log Message:
+Small bugfix to Delta method for one-peakers.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Mar 12 15:14:13 PDT 2012
 pointlike/python/uw/pulsar
 
