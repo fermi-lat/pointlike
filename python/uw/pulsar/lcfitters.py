@@ -9,14 +9,14 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.29 2012/03/12 22:14:02 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.30 2012/03/14 00:18:45 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
 """
 
 import numpy as np
-from scipy.optimize import fmin,leastsq,fmin_slsqp
+from scipy.optimize import fmin,fmin_tnc,leastsq
 from uw.pulsar.stats import z2mw,hm,hmw
 
 SECSPERDAY = 86400.
@@ -225,7 +225,6 @@ class UnweightedLCFitter(object):
         return fit
 
     def fit_tnc(self,ftol=1e-5):
-        from scipy.optimize import fmin_tnc
         bounds = self.template.get_bounds()
         fit = fmin_tnc(self.loglikelihood,self.template.get_parameters(),fprime=self.gradient,args=(self.template,),ftol=ftol,pgtol=1e-5,bounds=bounds,maxfun=2000,messages=8)
         self.fitval = fit[0]
@@ -241,8 +240,8 @@ class UnweightedLCFitter(object):
         from numpy.linalg import inv
         nump = len(self.template.get_parameters())
         self.cov_matrix = np.zeros([nump,nump],dtype=float)
-        h1 = hessian(self.template,self.loglikelihood)
         try: 
+            h1 = hessian(self.template,self.loglikelihood)
             c1 = inv(h1)
             d = np.diag(c1)
             if np.all(d>0):
@@ -408,27 +407,39 @@ class WeightedLCFitter(UnweightedLCFitter):
 def hessian(m,mf,*args,**kwargs):
     """Calculate the Hessian; mf is the minimizing function, m is the model,args additional arguments for mf."""
     p = m.get_parameters().copy()
+    p0 = p.copy() # sacrosanct copy
+    print 'These are the parameters in the hessian call.'
+    print p0
     if 'delt' in kwargs.keys():
         delta = kwargs['delt']
     else:
         # try to estimate the correct diagonal elements
-        # NB -- quick and crude -- replace with real search later...
+        # NB -- this relies on reasonable parameter bounds to perform 
+        # a bisection search; also note that we only consider an upper
+        # interval, whereas the hessian performs a two-sided derivative
         ll0 = mf(p,m,*args)
         delta = [0.01]*len(p)
         for i in xrange(len(p)):
+            p_orig = p[i]
+            p_lo = p[i]; p_hi = m.get_bounds()[i][1]
             for j in xrange(20):
                 if j==19:
                     print 'Warning, did not converge on diagonal element %d.'%i
-                incr = delta[i]*p[i]
-                p[i] += incr
-                delta_ll = abs(ll0-mf(p,m,*args))
-                p[i] -= incr
-                if delta_ll > 3:
-                    delta[i] /= 2
-                elif delta_ll < 0.1:
-                    delta[i] *= 2
+                p_mean = (p_hi+p_lo)/2
+                p[i] = p_mean
+                target = mf(p,m,*args)-ll0-0.5
+                if abs(target) < 0.2:
+                    # close enough
+                    delta[i] = p_mean-p_orig
+                    break
+                elif target < 0:
+                    p_lo = p_mean
                 else:
-                    break 
+                    p_hi = p_mean
+            p[i] = p_orig
+    assert(np.all(p==p0))
+    print delta
+
     hessian=np.zeros([len(p),len(p)])
     for i in xrange(len(p)):
         delt = delta[i]
@@ -453,7 +464,7 @@ def hessian(m,mf,*args,**kwargs):
             hessian[i][j]=hessian[j][i]=(mf(xhyh,m,*args)-mf(xhyl,m,*args)-mf(xlyh,m,*args)+mf(xlyl,m,*args))/\
                                        (p[i]*p[j]*4*delt**2)
 
-    mf(p,m,*args) #call likelihood with original values; this resets model and any other values that might be used later
+    mf(p0,m,*args) #call likelihood with original values; this resets model and any other values that might be used later
     return hessian
 
 def get_errors(template,total,n=100):
