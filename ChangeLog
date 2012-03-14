@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Mar 13 19:47:01 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+Complete rewrite of DiffuseShrinker to avoid memory leak and fully vectorize calculation. Make set_time_from_ft2 more robust. Move specfile creation to uw.like.Models. Rewrite the isotropic files file creation code to be done with pywcs instead of skymaps.
+    *
+------------------------------------------------------------
 User: kerrm  Tue Mar 13 18:18:58 PDT 2012
 pointlike/python/uw/pulsar
 
