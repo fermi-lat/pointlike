@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Tue Mar 13 17:18:46 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Fix to cov. matrix calc in pathological cases.
+
+    *
+------------------------------------------------------------
 User: kerrm  Tue Mar 13 17:17:55 PDT 2012
 pointlike/python/uw/pulsar
 
