@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Mar 13 19:47:20 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_upper_limits.py 
+Log Message:
+change extension upper limit default to be faster
+    *
+------------------------------------------------------------
 User: lande  Tue Mar 13 19:47:01 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
