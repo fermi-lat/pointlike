@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.44 2012/03/09 23:08:44 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.45 2012/03/14 02:47:01 lande Exp $
 
 author: Joshua Lande
 """
@@ -86,15 +86,14 @@ class FitsShrinker(object):
 
 
     @staticmethod
-    def pyfits_to_sky(fits):
+    def pyfits_to_sky(data, header):
         """ Return two arrays with the same dimensions as data but
             containing either RA & Dec or L & B for the data. 
         """
-        data, header = fits['PRIMARY'].data, fits['PRIMARY'].header
         wcs = pywcs.WCS(header)
 
         dataT = data.transpose()
-        if len(data.shape) == 3:
+        if len(data.shape) == 3 and header['naxis'] == 3:
             xlen,ylen,zlen = dataT.shape
             x,y,z = np.mgrid[0:xlen, 0:ylen, 0:zlen]
 
@@ -116,7 +115,7 @@ class FitsShrinker(object):
             else:
                 return lons,lats,energy
 
-        elif len(data.shape) == 2:
+        elif len(data.shape) == 2 and header['naxis'] == 2:
 
             dataT = data.transpose()
 
@@ -176,7 +175,7 @@ class MapShrinker(FitsShrinker):
 
         x = self.diffuse_model
 
-        lons,lats = FitsShrinker.pyfits_to_sky(x)
+        lons,lats = FitsShrinker.pyfits_to_sky(x['PRIMARY'].data, x['PRIMARY'].header)
 
         galactic=True
         inside_cut = FitsShrinker.rad_cut(lons,lats,galactic,self.skydir, self.radius)
@@ -244,20 +243,30 @@ class DiffuseShrinker(FitsShrinker):
         layers = sum(self.good_indices)
 
         # first, strip out unwanted energies
-        d['PRIMARY'].data = d['PRIMARY'].data[self.good_indices]
+        d['PRIMARY'].data = data = d['PRIMARY'].data[self.good_indices]
         d['ENERGIES'].data = d['ENERGIES'].data[self.good_indices]
 
         d['ENERGIES'].header['NAXIS2'] = layers
 
-        d['PRIMARY'].header['NAXIS3'] = layers
-        d['PRIMARY'].header['CRVAL3'] = d['ENERGIES'].data.field('ENERGY')[0]
+        header = d['PRIMARY'].header
+        header['NAXIS3'] = layers
+        header['CRVAL3'] = d['ENERGIES'].data.field('ENERGY')[0]
 
-        lons,lats,energies = FitsShrinker.pyfits_to_sky(d)
+        # Create a 2 dimensinoal header from the 3d header
+        header_2d = header.copy()
+        header_2d['NAXIS'] = 2
+        for i in ['NAXIS3', 'CRVAL3', 'CDELT3', 'CRPIX3', 'CTYPE3', 'CUNIT3']:
+            del header_2d[i]
 
-        galactic=True
-        inside_cut = FitsShrinker.rad_cut(lons,lats,galactic,self.skydir, self.radius)
+        for i in range(data.shape[0]):
+            # Cut each energy level separately, less memory intensive
+            # for large galactic diffuse models
+            lons,lats = FitsShrinker.pyfits_to_sky(data[i], header_2d)
 
-        d['PRIMARY'].data[~inside_cut] = SMALL_NUMBER
+            galactic=True
+            inside_cut = FitsShrinker.rad_cut(lons,lats,galactic,self.skydir, self.radius)
+
+            d['PRIMARY'].data[i][~inside_cut] = SMALL_NUMBER
 
 
 class NoSimulatedPhotons(Exception):
@@ -885,7 +894,7 @@ class MonteCarlo(object):
         allsky_filename=dm.name()
 
         if self.roi_dir is not None and self.maxROI is not None:
-            print 'Shrinking diffuse model %s' % ds.name
+            print '.. Shrinking diffuse model %s' % ds.name
             radius=self.maxROI + self.diffuse_pad
 
             allsky = pyfits.open(allsky_filename)
@@ -899,7 +908,7 @@ class MonteCarlo(object):
             filename = allsky_filename
 
 
-        print 'Integrating diffuse model %s' % ds.name
+        print '.. Integrating diffuse model %s' % ds.name
         flux = MonteCarlo.diffuse_integrator(filename)
 
 
