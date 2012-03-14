@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.28 2012/03/11 22:20:21 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.29 2012/03/12 22:14:02 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -239,19 +239,21 @@ class UnweightedLCFitter(object):
 
     def _errors(self):
         from numpy.linalg import inv
+        nump = len(self.template.get_parameters())
+        self.cov_matrix = np.zeros([nump,nump],dtype=float)
         h1 = hessian(self.template,self.loglikelihood)
         try: 
             c1 = inv(h1)
             d = np.diag(c1)
             if np.all(d>0):
+                self.cov_matrix = c1
+                # attempt to refine
                 h2 = hessian(self.template,self.loglikelihood,delt=d**0.5)
                 c2 = inv(h2)
                 if np.all(np.diag(c2)>0): self.cov_matrix = c2
-            elif np.all(np.diag(c1)>0): self.cov_matrix = c1
             else: raise ValueError
         except:
             print 'Unable to invert hessian!'
-            self.cov_matrix = np.zeros_like(h1)
 
     def __str__(self):
         if 'll' in self.__dict__.keys():
