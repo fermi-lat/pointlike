@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Mar 15 12:29:19 PDT 2012
+pointlike/python/uw/utilities
+
+Modified Files:
+	root_utils.py 
+Log Message:
+Add background info to zero_suppress so the DC emission won't be suppressed.
+
+    *
+------------------------------------------------------------
 User: lande  Thu Mar 15 09:56:14 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
