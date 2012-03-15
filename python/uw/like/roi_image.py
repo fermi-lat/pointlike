@@ -6,7 +6,7 @@ the data, and the image.ZEA object for plotting.  The high level object
 roi_plotting.ROIDisplay can use to access these objects form a high
 level plotting interface.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.38 2012/03/06 03:58:48 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_image.py,v 1.39 2012/03/12 19:28:01 lande Exp $
 
 author: Joshua Lande
 """
@@ -888,10 +888,12 @@ class SmoothedImage(ROIImage):
             rr = np.sqrt((xx-kernel.shape[0]/2.)**2+(yy-kernel.shape[1]/2.)**2)
             kernel = np.exp(-(rr**2)/(2*width**2))
 
+            # Gaussian kernels should be normalized so they don't change overall normalization
+            kernel /= kernel.sum()
+
         else:
             raise Exception("...")
 
-        kernel /= kernel.sum()
         return kernel
 
 
