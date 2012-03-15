@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Mar 14 21:11:15 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_plotting.py 
+Log Message:
+refactor tsmap + significance code
+    *
+------------------------------------------------------------
 User: lande  Wed Mar 14 18:07:58 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
