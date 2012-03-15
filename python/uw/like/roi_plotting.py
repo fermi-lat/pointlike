@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.84 2012/02/21 04:12:35 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.85 2012/03/15 01:07:58 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -27,7 +27,7 @@ import pprint
 import numpy as np
 import copy
 from . roi_bands import ROIEnergyBand
-from . roi_image import ModelImage,CountsImage,RadialCounts,RadialModel,SmoothedCounts,SmoothedModel,SmoothedResidual
+from . roi_image import ModelImage,CountsImage,RadialCounts,RadialModel,SmoothedCounts,SmoothedModel,SmoothedResidual,ROITSMapImage
 from . roi_extended import ExtendedSource
 from . pointspec_helpers import PointSource
 from . Models import PowerLaw
@@ -1063,105 +1063,6 @@ class ROIRadialIntegral(object):
         if filename is not None: P.savefig(filename)
 
 
-class ROISignificance(object):
-    """ Make a plot of the statistical significance (D-M)/sqrt(M)
-        where D and M are the measured counts and the model predicted
-        counts integrated within a circual aperature of radius . """
-
-    @staticmethod
-    def poisson_sigma(obs,pred):
-        """ Compute the sigma of the detection if you observe 
-            a given number (obs) of counts and predict a 
-            given number (pred) of counts.
-
-            Note, it is numerically easier to deal with numbers close to 0
-            then close to 1, so compute the sigma from the cdf or the sf
-            depending upon which is smaller. """
-        cdf=poisson.cdf(obs,pred)
-        sf=poisson.sf(obs,pred)
-
-        return np.where(cdf < 0.5, norm.ppf(cdf), norm.isf(sf))
-
-    defaults = (
-            ('figsize',        (6,5),                        'Size of the image'),
-            ('fignum',          None,                 'matplotlib figure number'),
-            ('conv_type',         -1,                          'Conversion type'),
-            ('size',               5,                'Size of the field of view'),
-            ('galactic',        True,               'Coordinate system for plot'),
-            ('kernel_rad',       0.25, 'Sum counts/model within radius degrees.'),
-            ('extra_overlay',    None, 'Function which can be used to overlay stuff on the plot.'),
-            ('overlay_kwargs', dict(), 'kwargs passed into overlay_region'),
-            ('title',            None,                                 'Title for the plot'),
-    )
-
-    @keyword_options.decorate(defaults)
-    def __init__(self, roi, **kwargs):
-        keyword_options.process(self, kwargs)
-        
-        self.roi = roi
-
-        # Fit many pixels inside of the summing radius
-        self.pixelsize=self.kernel_rad/10.0
-
-        kwargs=dict(size=self.size,
-                    pixelsize=self.pixelsize,
-                    galactic=self.galactic,
-                    conv_type=self.conv_type,
-                    kerneltype='tophat',
-                    kernel_rad=self.kernel_rad)
-
-        self.counts=SmoothedCounts(self.roi,**kwargs)
-        self.model=SmoothedModel(self.roi,**kwargs)
-
-        #self.significance = (self.counts.image - self.model.image)/np.sqrt(self.model.image)
-        self.significance = ROISignificance.poisson_sigma(self.counts.image,self.model.image)
-
-        self.pyfits = self.counts.get_pyfits()
-        self.pyfits[0].data = self.significance
-
-        self.header = self.pyfits[0].header
-        self.data = self.pyfits[0].data
-
-    def show(self, filename=None, axes=None, cax=None):
-
-        h, d = self.header, self.data
-
-        import pywcsgrid2
-        from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
-        from matplotlib.axes import Axes
-
-        if axes is None:
-            self.fig = P.figure(self.fignum,self.figsize)
-            P.clf()
-            axes = pywcsgrid2.subplot(111, header=self.header)
-        else:
-            self.fig = axes.get_figure()
-
-        self.axes = ax = axes
-
-        im = ax.imshow(d, origin="lower", interpolation='bilinear')
-
-        if cax is None:
-            divider = make_axes_locatable(ax)
-            cax = divider.new_horizontal("5%", pad="2%", axes_class=Axes)
-            self.fig.add_axes(cax)
-            cbar = P.colorbar(im, cax=cax)
-        else:
-            # for some reason, this works better for AxesGrid colorbar axes
-            # without doing this, sidewasy colorbars were not showing up right.
-            cbar = cax.colorbar(im)
-
-
-        ax.axis[:].set_zorder(100)
-
-        if self.title is None:
-            self.title = 'Significance $(D-M)/\sqrt{M}$'
-        ax.set_title(self.title)
-        
-        ROISmoothedSources.overlay_region(self.roi,ax,h,**self.overlay_kwargs)
-        if self.extra_overlay is not None: self.extra_overlay(ax)
-
-        if filename is not None: P.savefig(filename)
 
 class ROISmoothedSources(object):
     """ Make a smoothed residual plot which subtracts the diffuse emission
@@ -1516,22 +1417,19 @@ class ROISmoothedSource(ROISmoothedSources):
 
         return residual
 
-class ROITSMapPlotter(object):
-    """ Create a residual TS map plot and overlay
-        on it all of the sources in the ROI."""
-    
+class ROIPlotter(object):
+    """ Base class for making a single plot. """
+
     defaults = (
         ('size',                        5, ),
-        ('pixelsize',               0.125, ),
         ('galactic',                 True, ),
         ('figsize',             (5.5,4.5), 'Size of figure in inches'),
         ('fignum',                   None, 'Matplotlib figure number'),
-        ('title',       'Residual TS Map', 'Title of the plot'),
+        ('title',                    None, 'Title of the plot'),
         ('fitsfile',                 None, ), 
         ('show_colorbar',            True, 'Show the colorbar'),
         ('extra_overlay',            None, 'Function which can be used to overlay stuff on the plot.'),
         ('overlay_kwargs',         dict(), 'kwargs passed into overlay_region'),
-
     )
 
     @keyword_options.decorate(defaults)
@@ -1541,17 +1439,9 @@ class ROITSMapPlotter(object):
 
         keyword_options.process(self, kwargs)
 
-        from uw.like.roi_image import ROITSMapImage
+        self.pf = self.create_pyfits()
 
-        self.image=ROITSMapImage(roi,
-                center=self.roi.roi_dir,
-                pixelsize=self.pixelsize,
-                size=self.size,
-                galactic=self.galactic,
-        )
-
-        self.pf=self.image.get_pyfits()
-        
+        self.data = self.pf[0].data
         self.header = self.pf[0].header
 
         if self.fitsfile is not None:
@@ -1574,11 +1464,9 @@ class ROITSMapPlotter(object):
 
         self.axes = ax = axes
 
+        kwargs = self.imshow_kwags()
+        im = ax.imshow(d, interpolation='nearest', origin="lower", **kwargs)
 
-        # since this is a residual tsmap, never let the scale go below 25.
-        norm=mpl.colors.Normalize(vmin=0, vmax=25) if np.max(self.image.image) < 25 else None
-
-        im = ax.imshow(d, interpolation='nearest', origin="lower", cmap=colormaps.b, norm=norm)
         ax.axis[:].set_zorder(100)
 
         if self.show_colorbar:
@@ -1598,6 +1486,81 @@ class ROITSMapPlotter(object):
         if self.extra_overlay is not None: self.extra_overlay(ax)
 
         if filename is not None: P.savefig(filename)
+
+    def imshow_kwags(self):
+        return dict()
+
+class ROITSMapPlotter(ROIPlotter):
+    """ Create a residual TS map plot and overlay
+        on it all of the sources in the ROI."""
+
+    defaults = ROIPlotter.defaults + (
+        ('pixelsize',               0.125, ),
+    )
+    defaults = keyword_options.change_defaults(defaults,'title','Residual TS Map')
+
+    def imshow_kwags(self):
+        # since this is a residual tsmap, never let the scale go below 25.
+        norm=mpl.colors.Normalize(vmin=0, vmax=25) if np.max(self.pf['PRIMARY'].data) < 25 else None
+        cmap=colormaps.b
+        return dict(norm=norm, cmap=cmap)
+    
+    def create_pyfits(self):
+
+        image=ROITSMapImage(self.roi,
+                center=self.roi.roi_dir,
+                pixelsize=self.pixelsize,
+                size=self.size,
+                galactic=self.galactic,
+        )
+        pf=image.get_pyfits()
+
+        return pf
+
+class ROISignificance(ROIPlotter):
+    """ Make a plot of the poisson significance for the observed
+        counts within a circual aperature of radius . """
+
+    defaults = ROIPlotter.defaults + (
+        ('kernel_rad',       0.25, 'Sum counts/model within radius degrees.'),
+        ('conv_type',          -1,                        'Conversion type'),
+    )
+    defaults = keyword_options.change_defaults(defaults,'title','Poisson Significance')
+
+    def create_pyfits(self):
+
+        # Fit many pixels inside of the summing radius
+        pixelsize=self.kernel_rad/10.0
+
+        kwargs=dict(size=self.size,
+                    pixelsize=pixelsize,
+                    galactic=self.galactic,
+                    conv_type=self.conv_type,
+                    kerneltype='tophat',
+                    kernel_rad=self.kernel_rad)
+
+        counts=SmoothedCounts(self.roi,**kwargs)
+        model=SmoothedModel(self.roi,**kwargs)
+
+
+        pyfits = counts.get_pyfits()
+        pyfits['PRIMARY'].data = ROISignificance.poisson_sigma(counts.image,model.image)
+
+        return pyfits
+
+    @staticmethod
+    def poisson_sigma(obs,pred):
+        """ Compute the sigma of the detection if you observe 
+            a given number (obs) of counts and predict a 
+            given number (pred) of counts.
+
+            Note, it is numerically easier to deal with numbers close to 0
+            then close to 1, so compute the sigma from the cdf or the sf
+            depending upon which is smaller. """
+        cdf=poisson.cdf(obs,pred)
+        sf=poisson.sf(obs,pred)
+
+        return np.where(cdf < 0.5, norm.ppf(cdf), norm.isf(sf))
 
 
 class ROISmoothedModel(object):
