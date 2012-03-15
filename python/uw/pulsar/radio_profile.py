@@ -45,6 +45,9 @@ class Profile(object):
         #4 -- a Camilo/GBT style bestprof file
         elif pfile.endswith('bestprof'):
             self._process_bestprof()
+        elif 'J0102+4839' in pfile:
+            # profile from Megan, unknown convention
+            self._process_pks()
         else:
             raise ValueError('Could not discern type of %s'%pfile)
         self.fitpt = self.fidpt % 1 # just in case
