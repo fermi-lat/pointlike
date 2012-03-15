@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Mar 15 09:56:14 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_image.py 
+Log Message:
+bugfix in tophat kernel
+    *
+------------------------------------------------------------
 User: lande  Wed Mar 14 21:11:15 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
