@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.83 2012/02/20 22:59:52 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.84 2012/02/21 04:12:35 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -551,14 +551,13 @@ class ROIDisplay(object):
 
         self.imshow_args = dict(interpolation='nearest', origin='lower')
 
-        self.fig = P.figure(self.fignum,self.figsize)
-        P.clf()
 
         self.counts_norm = mpl.colors.LogNorm(vmin=self.counts_min,vmax=self.counts_max)
         self.norm_res = mpl.colors.Normalize(vmin=-5,vmax=5)
 
-
-        # first, divide the plot in 4
+        # first, divide the plot in 4x4
+        self.fig = P.figure(self.fignum,self.figsize)
+        P.clf()
         gs = GridSpec(4, 4)
         gs.update(wspace=1.5, hspace=1)
         self.ax_model = pywcsgrid2.subplot(gs[0:2, 0:2], header=self.h)
@@ -1069,6 +1068,20 @@ class ROISignificance(object):
         where D and M are the measured counts and the model predicted
         counts integrated within a circual aperature of radius . """
 
+    @staticmethod
+    def poisson_sigma(obs,pred):
+        """ Compute the sigma of the detection if you observe 
+            a given number (obs) of counts and predict a 
+            given number (pred) of counts.
+
+            Note, it is numerically easier to deal with numbers close to 0
+            then close to 1, so compute the sigma from the cdf or the sf
+            depending upon which is smaller. """
+        cdf=poisson.cdf(obs,pred)
+        sf=poisson.sf(obs,pred)
+
+        return np.where(cdf < 0.5, norm.ppf(cdf), norm.isf(sf))
+
     defaults = (
             ('figsize',        (6,5),                        'Size of the image'),
             ('fignum',          None,                 'matplotlib figure number'),
@@ -1078,6 +1091,7 @@ class ROISignificance(object):
             ('kernel_rad',       0.25, 'Sum counts/model within radius degrees.'),
             ('extra_overlay',    None, 'Function which can be used to overlay stuff on the plot.'),
             ('overlay_kwargs', dict(), 'kwargs passed into overlay_region'),
+            ('title',            None,                                 'Title for the plot'),
     )
 
     @keyword_options.decorate(defaults)
@@ -1099,35 +1113,50 @@ class ROISignificance(object):
         self.counts=SmoothedCounts(self.roi,**kwargs)
         self.model=SmoothedModel(self.roi,**kwargs)
 
-        self.significance = (self.counts.image - self.model.image)/np.sqrt(self.model.image)
+        #self.significance = (self.counts.image - self.model.image)/np.sqrt(self.model.image)
+        self.significance = ROISignificance.poisson_sigma(self.counts.image,self.model.image)
 
         self.pyfits = self.counts.get_pyfits()
         self.pyfits[0].data = self.significance
 
-    def show(self,filename=None):
+        self.header = self.pyfits[0].header
+        self.data = self.pyfits[0].data
+
+    def show(self, filename=None, axes=None, cax=None):
+
+        h, d = self.header, self.data
 
         import pywcsgrid2
         from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
         from matplotlib.axes import Axes
 
-        self.fig = P.figure(self.fignum,self.figsize)
-        P.clf()
+        if axes is None:
+            self.fig = P.figure(self.fignum,self.figsize)
+            P.clf()
+            axes = pywcsgrid2.subplot(111, header=self.header)
+        else:
+            self.fig = axes.get_figure()
 
-        h, d = self.pyfits[0].header, self.pyfits[0].data
-
-        ax = pywcsgrid2.subplot(111, header=h)
-
-        # add colorbar axes
-        divider = make_axes_locatable(ax)
-        cax = divider.new_horizontal("5%", pad="2%", axes_class=Axes)
-        self.fig.add_axes(cax)
+        self.axes = ax = axes
 
         im = ax.imshow(d, origin="lower", interpolation='bilinear')
-        cbar = P.colorbar(im, cax=cax)
+
+        if cax is None:
+            divider = make_axes_locatable(ax)
+            cax = divider.new_horizontal("5%", pad="2%", axes_class=Axes)
+            self.fig.add_axes(cax)
+            cbar = P.colorbar(im, cax=cax)
+        else:
+            # for some reason, this works better for AxesGrid colorbar axes
+            # without doing this, sidewasy colorbars were not showing up right.
+            cbar = cax.colorbar(im)
+
 
         ax.axis[:].set_zorder(100)
 
-        ax.set_title('Significance $(D-M)/\sqrt{M}$')
+        if self.title is None:
+            self.title = 'Significance $(D-M)/\sqrt{M}$'
+        ax.set_title(self.title)
         
         ROISmoothedSources.overlay_region(self.roi,ax,h,**self.overlay_kwargs)
         if self.extra_overlay is not None: self.extra_overlay(ax)
