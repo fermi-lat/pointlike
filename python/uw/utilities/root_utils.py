@@ -140,10 +140,15 @@ def ScaleGraphY(graph, factor):
         y *= factor
         graph.SetPoint(i,x,y)
 
-def zero_suppress(histo,force_ymin=None):
-    """Zero suppression for a histogram."""
+def zero_suppress(histo,force_ymin=None,background=None):
+    """Zero suppression for a histogram.
+    
+        background [None] -- if not none, specify the background level,
+        and make sure the minimum is below this level"""
     if force_ymin is None:
         ymin = histo.GetBinContent(histo.GetMinimumBin())    
+        if (background is not None):
+            ymin = min(background,ymin)
         if ymin>0:
             ymin = int(ymin*0.9 - np.sqrt(ymin))
             if ymin%5 == 0: ymin *= 0.9
