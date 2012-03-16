@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Mar 15 18:29:34 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+refactor quantile function of SpatialModels + make r68 generally accessible
+    *
+------------------------------------------------------------
 User: kerrm  Thu Mar 15 14:13:37 PDT 2012
 pointlike/python/uw/pulsar
 
