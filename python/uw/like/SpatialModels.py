@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.93 2012/03/07 00:17:58 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.94 2012/03/07 03:46:43 lande Exp $
 
    author: Joshua Lande
 
@@ -50,8 +50,8 @@ class SpatialQuantile(object):
             >>> disk = Disk(sigma=0.1, center=SkyDir(333, -50))
             >>> gauss = Gaussian(sigma=1, center=SkyDir(0,0, SkyDir.GALACTIC))
             >>> for i in [disk, gauss]:
-            ...     np.allclose(i.r68(),  i.numeric_r68(**q_kwargs), **tol)
-            ...     np.allclose(i.r99(),  i.numeric_r99(**q_kwargs), **tol)
+            ...     np.allclose(i.analytic_r68(),  i.numeric_r68(**q_kwargs), **tol)
+            ...     np.allclose(i.analytic_r99(),  i.numeric_r99(**q_kwargs), **tol)
             True
             True
             True
@@ -60,9 +60,9 @@ class SpatialQuantile(object):
         Good to make sure the less-analytically defined extended sources are also correct:
 
             >>> elliptical_gauss = EllipticalGaussian(major_axis=1, minor_axis=1, center=SkyDir(0,0, SkyDir.GALACTIC))
-            >>> np.allclose(gauss.r68(),  elliptical_gauss.numeric_r68(**q_kwargs), **tol)
+            >>> np.allclose(gauss.analytic_r68(),  elliptical_gauss.numeric_r68(**q_kwargs), **tol)
             True
-            >>> np.allclose(gauss.r99(),  elliptical_gauss.numeric_r99(**q_kwargs), **tol)
+            >>> np.allclose(gauss.analytic_r99(),  elliptical_gauss.numeric_r99(**q_kwargs), **tol)
             True
     """
 
@@ -693,7 +693,25 @@ class SpatialModel(object):
     @abstractmethod
     def can_shrink(self): 
         raise NotImplementedError('Cannot shrink %s!' % self.pretty_name)
-        
+
+    def r68(self,*args, **kwargs): 
+        """ 68% containment radius, in degrees. """
+        if hasattr(self, 'analytic_r68'):
+            return self.analytic_r68(*args, **kwargs)
+        else:
+            return self.numeric_r68(*args, **kwargs)
+
+    def r99(self, *args, **kwargs): 
+        """ 99% containment radius, in degrees. """
+        if hasattr(self, 'analytic_r99'):
+            return self.analytic_r99(*args, **kwargs)
+        else:
+            return self.numeric_r99(*args, **kwargs)
+
+    def effective_edge(self,energy=None):
+        """ For analytic convolution, distance to be taken as the edge of the
+            source. """
+        return 5*self.r68()
 
 
 class RadiallySymmetricModel(SpatialModel):
@@ -711,16 +729,6 @@ class RadiallySymmetricModel(SpatialModel):
 
         return self.at_r(skydir.difference(self.center),energy)
 
-    @abstractmethod
-    def r68(self): 
-        """ 68% containment radius, in degrees. """
-        pass
-
-    @abstractmethod
-    def r99(self): 
-        """ 99% containment radius, in degrees. """
-        pass
-
     def at_r(self,r,energy=None):
         """ r is in radians. """
         return self.at_r_in_deg(np.degrees(r),energy)
@@ -730,11 +738,6 @@ class RadiallySymmetricModel(SpatialModel):
         """ Should return the intensity at a distance r from the spatial model's center,
             r is in degrees. """
         pass
-
-    def effective_edge(self,energy=None):
-        """ For analytic convolution, distance to be taken as the edge of the
-            source. """
-        return 5*self.r68()
 
     def approximate_profile(self,numpoints=200):
         """ For outputting radial profile with sufficient accuracy. Rapidly varying spatial
@@ -834,8 +837,8 @@ class Gaussian(RadiallySymmetricModel):
     def at_r_in_deg(self,r,energy=None):
         return self.pref*np.exp(-r**2/(2*self.sigma2))
 
-    def r68(self): return Gaussian.x68*self.sigma
-    def r99(self): return Gaussian.x99*self.sigma
+    def analytic_r68(self): return Gaussian.x68*self.sigma
+    def analytic_r99(self): return Gaussian.x99*self.sigma
     def template_diameter(self): return 2*self.r99()
 
     def pretty_spatial_string(self):
@@ -887,8 +890,8 @@ class SunExtended(RadiallySymmetricModel):
         """ r is in radians. """
         return self.at_r(np.radians(r),energy)
 
-    def r68(self): return 0.68*self.rmax
-    def r99(self): return 0.99*self.rmax
+    def analytic_r68(self): return 0.68*self.rmax
+    def analytic_r99(self): return 0.99*self.rmax
     def template_diameter(self): return 2*self.rmax*(6.0/5.0)
 
     def pretty_spatial_string(self): return ""
@@ -1062,8 +1065,8 @@ class Disk(RadiallySymmetricModel):
     def at_r_in_deg(self,r,energy=None):
         return np.where(r<=self.sigma,self.pref,0)
 
-    def r68(self): return Disk.x68*self.sigma
-    def r99(self): return Disk.x99*self.sigma
+    def analytic_r68(self): return Disk.x68*self.sigma
+    def analytic_r99(self): return Disk.x99*self.sigma
     def template_diameter(self): return 2.0*(self['sigma']*6./5.)
 
     def effective_edge(self,energy=None):
@@ -1128,8 +1131,8 @@ class Ring(RadiallySymmetricModel):
     def at_r_in_deg(self,r,energy=None):
         return np.where((r>=self.frac*self.sigma)&(r<=self.sigma),self.pref,0)
 
-    def r68(self): return Disk.x68*(1-self.frac2)+self.frac2
-    def r99(self): return Disk.x99*(1-self.frac2)+self.frac2
+    def analytic_r68(self): return Disk.x68*(1-self.frac2)+self.frac2
+    def analytic_r99(self): return Disk.x99*(1-self.frac2)+self.frac2
     def template_diameter(self): return 2.0*(self['sigma']*6./5.)
 
     def effective_edge(self,energy=None):
@@ -1186,6 +1189,8 @@ class InterpProfile(RadiallySymmetricModel):
                 >>> r_test = np.linspace(0,1,47) # sample oddly
                 >>> np.allclose(gauss.at_r_in_deg(r_test), 
                 ...             numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-5)
+                True
+                >>> np.allclose([gauss.r68(),gauss.r99()], [numeric_gauss.r68(),numeric_gauss.r99()], atol=1e-3, rtol=1e-3)
                 True
         """
         self.r_in_degrees, self.pdf = r_in_degrees, pdf
@@ -1255,13 +1260,15 @@ class InterpProfile(RadiallySymmetricModel):
         """ Overloaded by subclasses """
         return self.pdf
 
-    def quantile(self,quant):
+    def quantile(self,quant, quad_kwargs=None):
         """ Calculate the quantiles of a pdf. Assumes flat space. """
-        if quant > 1: raise Exception('Quantile must be <= 1')
 
-        integrand = lambda r: self.at_r_in_deg(np.degrees(r))*2*np.pi*r
-        func = lambda x: (quad(integrand,0,x,full_output=True)[0] - quant)**2
-        return np.degrees(fmin( func, np.radians(0.1*self.effective_edge()), disp=False )[0])
+        if quad_kwargs==None: quad_kwargs=dict(epsabs=1e-10, epsrel=1e-10)
+
+        integrand = lambda r: self.at_r_in_deg(r)*2*np.pi*np.radians(r)
+        quantile=Quantile(integrand, 0, self.effective_edge(), 
+                          quad_kwargs=quad_kwargs)
+        return quantile(quant)
 
     def at_r_in_deg(self,r,energy=None):
         v=self.interp(r)
@@ -1281,8 +1288,8 @@ class InterpProfile(RadiallySymmetricModel):
         pdf = self.at_r_in_deg(radius)
         return radius,pdf
 
-    def r68(self): return self.quantile(0.68)
-    def r99(self): return self.quantile(0.99)
+    def numeric_r68(self): return self.quantile(0.68)
+    def numeric_r99(self): return self.quantile(0.99)
 
     def template_diameter(self): return 2.0*self.r_in_degrees[-1]*(6.0/5.0)
 
