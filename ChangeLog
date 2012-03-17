@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Mar 16 17:10:17 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+work around minor gtobssim bug + better support in SpectralAnalysisMC
+    *
+------------------------------------------------------------
 User: lande  Fri Mar 16 17:07:23 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
