@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Fri Mar 16 17:07:23 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+better defaults for r68 calculation
+    *
+------------------------------------------------------------
 User: lande  Thu Mar 15 18:29:34 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
