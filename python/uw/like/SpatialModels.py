@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.94 2012/03/07 03:46:43 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.95 2012/03/16 01:29:33 lande Exp $
 
    author: Joshua Lande
 
@@ -44,14 +44,13 @@ class SpatialQuantile(object):
         It is easy to test this code against the values computed
         analytically for the disk and gauss.
 
-            >>> q_kwargs = dict(quad_kwargs=dict(epsabs=1e-8, epsrel=1e-8, limit=50))
-            >>> tol = dict(rtol=1e-2, atol=1e-2, )
+            >>> tol = dict(rtol=3e-2, atol=3e-2)
 
-            >>> disk = Disk(sigma=0.1, center=SkyDir(333, -50))
-            >>> gauss = Gaussian(sigma=1, center=SkyDir(0,0, SkyDir.GALACTIC))
+            >>> disk = Disk(sigma=1, center=SkyDir(0, 0))
+            >>> gauss = Gaussian(sigma=0.5, center=SkyDir(0,0, SkyDir.GALACTIC))
             >>> for i in [disk, gauss]:
-            ...     np.allclose(i.analytic_r68(),  i.numeric_r68(**q_kwargs), **tol)
-            ...     np.allclose(i.analytic_r99(),  i.numeric_r99(**q_kwargs), **tol)
+            ...     np.allclose(i.analytic_r68(),  i.numeric_r68(), **tol)
+            ...     np.allclose(i.analytic_r99(),  i.numeric_r99(), **tol)
             True
             True
             True
@@ -59,24 +58,26 @@ class SpatialQuantile(object):
 
         Good to make sure the less-analytically defined extended sources are also correct:
 
-            >>> elliptical_gauss = EllipticalGaussian(major_axis=1, minor_axis=1, center=SkyDir(0,0, SkyDir.GALACTIC))
-            >>> np.allclose(gauss.analytic_r68(),  elliptical_gauss.numeric_r68(**q_kwargs), **tol)
+            >>> elliptical_gauss = EllipticalGaussian(major_axis=0.5, minor_axis=0.5, center=SkyDir(0,0, SkyDir.GALACTIC))
+            >>> np.allclose(gauss.analytic_r68(),  elliptical_gauss.numeric_r68(), **tol)
             True
-            >>> np.allclose(gauss.analytic_r99(),  elliptical_gauss.numeric_r99(**q_kwargs), **tol)
+            >>> np.allclose(gauss.analytic_r99(),  elliptical_gauss.numeric_r99(), **tol)
             True
+            >>> a,b=gauss.analytic_r68(),  elliptical_gauss.numeric_r68()
     """
 
     def __init__(self, spatial_model, quad_kwargs=dict()):
         self.spatial_model = spatial_model
         self.center = self.spatial_model.center
 
-        # Set the accuracy very high. Seems to help the tests
-        self.quad_kwargs = dict(epsabs=1e-15, epsrel=1e-15, limit=100)
+        # These tolerances get a 1% error in unittests.
+        # full_output surpresses errors.
+        self.quad_kwargs = dict(epsabs=np.inf, epsrel=1e-40, limit=200)
         self.quad_kwargs.update(quad_kwargs)
 
         rmax = self.spatial_model.effective_edge()
         self.quantile = Quantile(self.integrand, 0, rmax,
-                                quad_kwargs=self.quad_kwargs)
+                                 quad_kwargs=self.quad_kwargs)
 
     def pdf(self, r,theta):
         """ Evaluate the the """
@@ -573,7 +574,7 @@ class SpatialModel(object):
                 >>> from tempfile import NamedTemporaryFile
                 >>> temp = NamedTemporaryFile()
                 >>> filename = temp.name
-                >>> disk.save_template(filename, npix=1000)
+                >>> disk.save_template(filename, npix=300)
 
             Then, create the spatial map:
 
@@ -581,7 +582,7 @@ class SpatialModel(object):
                 
             In the center, the values are the same:
 
-                >>> np.allclose(disk(center), spatial_map(center), atol=1e-4, rtol=1e-4)
+                >>> np.allclose(disk(center), spatial_map(center), atol=1e-3, rtol=1e-3)
                 True
 
             Outside the disk edge, the spatial map has intensity 0:
@@ -1592,7 +1593,15 @@ class RadiallySymmetricEllipticalGaussian(EllipticalGaussian):
 
 
 class EllipticalDisk(EllipticalSpatialModel):
-    """ The elliptical disk is defined as. """
+    """ The elliptical disk is defined as. 
+    
+        Sanity check:
+
+            >>> disk = Disk(sigma=1)
+            >>> elliptical_disk = EllipticalDisk(major_axis=1, minor_axis=1, pos_angle=0)
+            >>> np.allclose(disk(disk.center), elliptical_disk(disk.center))
+            True
+        """
 
     default_p = [0.2,0.1,0]
     param_names = ['Major_Axis','Minor_Axis','Pos_Angle']
