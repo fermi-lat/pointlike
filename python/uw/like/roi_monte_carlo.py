@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.45 2012/03/14 02:47:01 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.46 2012/03/14 18:54:13 lande Exp $
 
 author: Joshua Lande
 """
@@ -708,12 +708,16 @@ class MonteCarlo(object):
             radius=self.maxROI + self.diffuse_pad
         else:
             radius=180
+
+        if not self.quiet: print '.. Making isotropic model for %s' % ds.name
         allsky=MonteCarlo.make_isotropic_fits(skydir=self.roi_dir, radius=radius)
         allsky.writeto(spatial_file)
 
 
         # flux is ph/cm^2/sr to ph/m^2
         flux, emin, emax = MonteCarlo.isotropic_spectral_integrator(cut_spectral_file)
+
+        if not self.quiet: print '.. Integrating isotropic model for %s' % ds.name
 
         # multiply by solid angle to convert to ph/m^2
         flux*=MonteCarlo.spatial_integrator_2d(spatial_file)
@@ -1000,6 +1004,11 @@ class MonteCarlo(object):
         # Note, add on gtis to 'evfile'. This is a big distructive,
         # but should cause no real harm.
         e = pyfits.open(evfile, mode='update')
+
+        # Temporarily address issue https://jira.slac.stanford.edu/browse/OBS-20
+        if len(e) == 4 and e[2].name == 'GTI' and e[3].name == 'GTI' and e[3].data == None:
+            del(e[3])
+        
         g = pyfits.open(gtifile)
         e['GTI'] = g['GTI']
         e.flush()
@@ -1144,6 +1153,12 @@ class SpectralAnalysisMC(SpectralAnalysis):
             Also note that roi_from_xml will correctly be inherited from
             SpectralAnalysis and call this function. """
 
+        if len(self.dataspec.ft1files)==1 and os.path.exists(self.dataspec.ft1files[0]):
+            return super(SpectralAnalysisMC, self).roi(roi_dir=roi_dir, 
+                                                       point_sources=point_sources, 
+                                                       diffuse_sources=diffuse_sources,
+                                                       **kwargs)
+
         monte_carlo=MonteCarlo(
             ft1=self.dataspec.ft1files, 
             gtifile = self.dataspec.ltcube if os.path.exists(self.dataspec.ltcube) else None,
@@ -1165,19 +1180,13 @@ class SpectralAnalysisMC(SpectralAnalysis):
             savedir=self.savedir)
 
         monte_carlo.simulate()
-
-        new_ds=DataSpecification(ft1files=monte_carlo.ft1,
-                                 ft2files=monte_carlo.ft2,
-                                 binfile=self.dataspec.binfile,
-                                 ltcube=self.dataspec.ltcube)
-
         del(monte_carlo)
 
         # Create a new SpectralAnalysis object with
         # the now existing ft1/ft2 files (Yo Dawg!)
         if self.tstart is None: self.tstart = 0
         if self.tstop is None: self.tstop = 0
-        sa=SpectralAnalysis(new_ds,**keyword_options.defaults_to_kwargs(self,SpectralAnalysis))
+        sa=SpectralAnalysis(self.dataspec,**keyword_options.defaults_to_kwargs(self,SpectralAnalysis))
         return sa.roi(roi_dir=roi_dir,
                       point_sources=point_sources, 
                       diffuse_sources=diffuse_sources,**kwargs)
