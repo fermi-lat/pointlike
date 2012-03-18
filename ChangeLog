@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Mar 18 13:01:44 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+better assert for setting flux of models with no parameters
+    *
+------------------------------------------------------------
 User: lande  Fri Mar 16 17:10:17 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
