@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.85 2012/03/12 18:42:05 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.86 2012/03/14 23:32:35 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -395,6 +395,7 @@ class Model(object):
                 >>> np.allclose(model(energies), energies**-2)
                 True
         """
+        assert len(self._p) > 0
         self.setp(0, 0, internal=True)
         new_prefactor = np.log10(flux/self.i_flux(*args,**kwargs))
         self.setp(0,new_prefactor,internal=True)
@@ -1173,7 +1174,14 @@ class FileFunction(Model):
             >>> composite = ProductModel(Constant(scale=50), file_function)
             >>> np.allclose(composite(energies), 50*file_function(energies))
             True
-            
+
+
+        Note, you cannot set the flux of models with no parameters like filefunction:
+
+            >>> file_function.set_flux(1)
+            Traceback (most recent call last):
+                ...
+            AssertionError
     """
     def __make_interp__(self):
         self.interp = interp1d(np.log10(self.energy),np.log10(self.flux),
