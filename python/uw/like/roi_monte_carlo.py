@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.46 2012/03/14 18:54:13 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.47 2012/03/17 00:10:17 lande Exp $
 
 author: Joshua Lande
 """
@@ -1153,34 +1153,31 @@ class SpectralAnalysisMC(SpectralAnalysis):
             Also note that roi_from_xml will correctly be inherited from
             SpectralAnalysis and call this function. """
 
-        if len(self.dataspec.ft1files)==1 and os.path.exists(self.dataspec.ft1files[0]):
-            return super(SpectralAnalysisMC, self).roi(roi_dir=roi_dir, 
-                                                       point_sources=point_sources, 
-                                                       diffuse_sources=diffuse_sources,
-                                                       **kwargs)
+        assert len(self.dataspec.ft1files) == 1
 
-        monte_carlo=MonteCarlo(
-            ft1=self.dataspec.ft1files, 
-            gtifile = self.dataspec.ltcube if os.path.exists(self.dataspec.ltcube) else None,
-            sources = point_sources + diffuse_sources,
-            seed=self.seed, 
-            tempbase=self.tempbase,
-            tstart=self.tstart,
-            tstop=self.tstop, 
-            ft2=self.dataspec.ft2files,
-            ltfrac=self.ltfrac, 
-            emin=self.emin,
-            emax=self.emax,
-            conv_type=self.conv_type,
-            irf=self.irf,
-            roi_dir=roi_dir,
-            maxROI=self.maxROI,
-            mc_energy=self.mc_energy,
-            quiet=self.quiet,
-            savedir=self.savedir)
+        if not os.path.exists(self.dataspec.ft1files[0]):
+            monte_carlo=MonteCarlo(
+                ft1=self.dataspec.ft1files, 
+                gtifile = self.dataspec.ltcube if os.path.exists(self.dataspec.ltcube) else None,
+                sources = point_sources + diffuse_sources,
+                seed=self.seed, 
+                tempbase=self.tempbase,
+                tstart=self.tstart,
+                tstop=self.tstop, 
+                ft2=self.dataspec.ft2files,
+                ltfrac=self.ltfrac, 
+                emin=self.emin,
+                emax=self.emax,
+                conv_type=self.conv_type,
+                irf=self.irf,
+                roi_dir=roi_dir,
+                maxROI=self.maxROI,
+                mc_energy=self.mc_energy,
+                quiet=self.quiet,
+                savedir=self.savedir)
 
-        monte_carlo.simulate()
-        del(monte_carlo)
+            monte_carlo.simulate()
+            del(monte_carlo)
 
         # Create a new SpectralAnalysis object with
         # the now existing ft1/ft2 files (Yo Dawg!)
