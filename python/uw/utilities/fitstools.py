@@ -1,6 +1,6 @@
 """A suite of tools for processing FITS files.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.17 2011/02/16 02:14:09 kerrm Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/fitstools.py,v 1.18 2011/06/17 18:42:17 cohen Exp $
 
    author: Matthew Kerr
 
@@ -421,13 +421,15 @@ def merge_lt(lt_files,outfile = 'merged_lt.fits',weighted = True):
     primary = pf.PrimaryHDU(data=None,header = p_header)
     hdulist = pf.HDUList([primary])
     summed_exposure = N.array(exposures).sum(axis=0)
-    coldef = pf.ColDefs([pf.Column(name='COSBINS',format=header['TFORM1'],null=header['TNULL1'],array=summed_exposure)])
+    null = header.get('TNULL1',None)
+    coldef = pf.ColDefs([pf.Column(name='COSBINS',format=header['TFORM1'],null=null,array=summed_exposure)])
     exp_table = pf.new_table(coldef,header=header,nrows=exposures[0].shape[0])
     hdulist.append(exp_table)
     if weighted:
         summed_w_exposure = N.array(w_exposures).sum(axis=0)
-        coldef_w = pf.ColDefs([pf.Column(name='COSBINS',format=w_header['TFORM1'],null=w_header['TNULL1'],array=summed_w_exposure)])
-        w_exp_table = pf.new_table(coldef,header=w_header,nrows=w_exposures[0].shape[0])
+        null = w_header.get('TNULL1',None)
+        coldef_w = pf.ColDefs([pf.Column(name='COSBINS',format=w_header['TFORM1'],null=null,array=summed_w_exposure)])
+        w_exp_table = pf.new_table(coldef_w,header=w_header,nrows=w_exposures[0].shape[0])
         hdulist.append(w_exp_table)
     hdulist.writeto(outfile,clobber=True)
     gti = merge_gti(files)
