@@ -1,4 +1,15 @@
 ------------------------------------------------------------
+User: wallacee  Tue Mar 20 14:33:03 PDT 2012
+pointlike/python/uw/utilities
+
+Modified Files:
+	fitstools.py 
+Log Message:
+Fix a bug in merge_lt, causing the WEIGHTED_EXPOSURE extension to be written
+out with the unweighted values.
+
+    *
+------------------------------------------------------------
 User: lande  Sun Mar 18 13:01:44 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
