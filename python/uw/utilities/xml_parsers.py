@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style source libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.60 2012/03/07 03:45:11 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.61 2012/03/14 02:48:52 lande Exp $
 
    author: Matthew Kerr
 """
@@ -548,7 +548,7 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
             <spatialModel type="Disk">
                 <parameter name="RA"  value="244.0" free="1" max="360.0" min="-360.0" scale="1.0" />
                 <parameter name="DEC" value="57.0" free="1" max="90" min="-90" scale="1.0" />
-                <parameter name="Sigma" value="0.5" 0.0free="1" max="3" min="1e-10" scale="1.0" />
+                <parameter name="Sigma" value="0.5" free="1" max="3" min="1e-10" scale="1.0" />
             </spatialModel>
 
         Save SpatialModel source:
@@ -601,6 +601,7 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
     for name in es.param_names[2:]:
         param = es[name]
         err = es.error(name)
+        err = 'error="%s"' % err if err > 0 else ''
         free = es.get_free(name)
         min,max=es.get_limits(absolute=True)[es.mapper(name)]
         strings.append('\t<parameter name="%s" value="%g" %sfree="%d" max="%g" min="%g" scale="1.0" />' % \
