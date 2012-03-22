@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Mar 22 15:54:10 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+more options to make_allsky_isotropic_pyfits
+    *
+------------------------------------------------------------
 User: lande  Thu Mar 22 09:24:23 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
