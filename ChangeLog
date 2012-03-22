@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu Mar 22 09:24:23 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+bugfix for xml writing of extended source errors
+    *
+------------------------------------------------------------
 User: wallacee  Tue Mar 20 14:33:03 PDT 2012
 pointlike/python/uw/utilities
 
