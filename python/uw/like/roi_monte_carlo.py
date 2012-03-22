@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.47 2012/03/17 00:10:17 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.48 2012/03/20 21:17:57 lande Exp $
 
 author: Joshua Lande
 """
@@ -564,14 +564,14 @@ class MonteCarlo(object):
         """ Note, if there is an ROI cut, we can make this
             isotropic file not allsky. """
 
-        allsky = MonteCarlo.make_allsky_isotropic_fits(**kwargs)
+        allsky = MonteCarlo.make_allsky_isotropic_pyfits(**kwargs)
         if radius < 180:
             shrinker = MapShrinker(allsky, skydir, radius)
             shrinker.shrink()
         return allsky
 
     @staticmethod
-    def make_allsky_isotropic_fits(pixelsize=1):
+    def make_allsky_isotropic_pyfits(pixelsize=1, proj='CAR', galactic=True):
         """ Create an allsky pyfits file with 1s in it.  """
 
         assert 180 % pixelsize == 0
@@ -585,7 +585,12 @@ class MonteCarlo(object):
         wcs.wcs.crpix = [nxpix/2.0 + 0.5, nypix/2.0 + 0.5]
         wcs.wcs.cdelt = [-pixelsize, pixelsize]
         wcs.wcs.crval = [0,0]
-        wcs.wcs.ctype = ["GLON-CAR", "GLAT-CAR"]
+
+        if galactic:
+            wcs.wcs.ctype = ["GLON-%s" % proj, "GLAT-%s" % proj]
+        else:
+            wcs.wcs.ctype = ["RA---%s" % proj, "DEC--%s" % proj]
+            wcs.wcs.equinox = 2000 # fk5
 
         header = wcs.to_header()
 
