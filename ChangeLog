@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Mar 25 00:41:43 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+bugfix for spatial models with only position parameters
+    *
+------------------------------------------------------------
 User: lande  Thu Mar 22 15:54:10 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
