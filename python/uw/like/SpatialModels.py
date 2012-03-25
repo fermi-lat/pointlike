@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.95 2012/03/16 01:29:33 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.96 2012/03/17 00:07:22 lande Exp $
 
    author: Joshua Lande
 
@@ -259,7 +259,8 @@ class SpatialModel(object):
             self.param_names = np.append(['l','b'], self.param_names)
 
         # The first two parameters (lon & lat) are forced to have log=False
-        self.log=np.append([False,False],self.log)
+        # cast to bool, just to be safe
+        self.log=np.append([False,False],self.log).astype(bool)
 
         # note, self.log and self.param_names must be 
         # correctly initialized before set_parameters is called.
@@ -314,7 +315,7 @@ class SpatialModel(object):
             self.param_names[0:2] = ['RA','DEC']
             self.p[0:2] = [center.ra(),center.dec()]
         elif cs == SkyDir.GALACTIC:
-            self.param_names[0:2] = ['l','b']
+            self.param_names[0:2] = ['L','B']
             self.p[0:2] = [center.l(),center.b()]
 
         # Errors are no longer valid, so reset cov matrix.
@@ -1193,6 +1194,11 @@ class InterpProfile(RadiallySymmetricModel):
                 True
                 >>> np.allclose([gauss.r68(),gauss.r99()], [numeric_gauss.r68(),numeric_gauss.r99()], atol=1e-3, rtol=1e-3)
                 True
+
+            This is just a doctest to test against a previous bug
+
+                >>> print numeric_gauss.log
+                [False False]
         """
         self.r_in_degrees, self.pdf = r_in_degrees, pdf
         self.kind = kind
