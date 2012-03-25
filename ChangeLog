@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Sun Mar 25 00:51:14 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+bugfix for reading and writing extended sources
+    *
+------------------------------------------------------------
 User: lande  Sun Mar 25 00:41:43 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
