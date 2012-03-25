@@ -1,7 +1,7 @@
-"""Class for parsing and writing gtlike-style source libraries.
+"""Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.61 2012/03/14 02:48:52 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.62 2012/03/22 16:24:23 lande Exp $
 
    author: Matthew Kerr
 """
@@ -223,7 +223,10 @@ class XML_to_SpatialModel(object):
                 file = str(xml_dict['file'])
             input_kwargs['file'] = file
 
-        input_kwargs['coordsystem']=SkyDir.EQUATORIAL
+        if d.has_key('RA') and d.has_key('DEC'):
+            input_kwargs['coordsystem']=SkyDir.EQUATORIAL
+        elif d.has_key('L') and d.has_key('B'):
+            input_kwargs['coordsystem']=SkyDir.GALACTIC
     
         if not spatialname in XML_to_SpatialModel.spatialdict:                                
             raise Excception("Unrecognized spatial model %s" % spatialname)
@@ -542,14 +545,35 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
 
         Save Disk source:
     
-            >>> disk = Disk(p=0.5, ra=244, dec=57)
+            >>> disk = Disk(sigma=1, ra=244, dec=57)
                     
             >>> print make(disk)
             <spatialModel type="Disk">
-                <parameter name="RA"  value="244.0" free="1" max="360.0" min="-360.0" scale="1.0" />
-                <parameter name="DEC" value="57.0" free="1" max="90" min="-90" scale="1.0" />
-                <parameter name="Sigma" value="0.5" free="1" max="3" min="1e-10" scale="1.0" />
+                <parameter name="RA" value="244" free="1" max="360" min="-360" scale="1.0" />
+                <parameter name="DEC" value="57" free="1" max="180" min="-180" scale="1.0" />
+                <parameter name="Sigma" value="1" free="1" max="3" min="1e-10" scale="1.0" />
             </spatialModel>
+
+            >>> disk.set_cov_matrix(np.asarray([[1,0,0],[0,1,0],[0,0,1]]))
+            >>> print disk.error('sigma')
+            2.30258509299
+            >>> print make(disk)
+            <spatialModel type="Disk">
+                <parameter name="RA" value="244" error="1.0" free="1" max="360" min="-360" scale="1.0" />
+                <parameter name="DEC" value="57" error="1.0" free="1" max="180" min="-180" scale="1.0" />
+                <parameter name="Sigma" value="1" error="2.30258509299" free="1" max="3" min="1e-10" scale="1.0" />
+            </spatialModel>
+
+        When the coordsystem is GALACTIC, the output will be in L & B:
+
+            >>> disk = Disk(sigma=1, l=244, b=57)
+            >>> print make(disk)
+            <spatialModel type="Disk">
+                <parameter name="L" value="244" free="1" max="360" min="-360" scale="1.0" />
+                <parameter name="B" value="57" free="1" max="180" min="-180" scale="1.0" />
+                <parameter name="Sigma" value="1" free="1" max="3" min="1e-10" scale="1.0" />
+            </spatialModel>
+
 
         Save SpatialModel source:
 
@@ -570,8 +594,8 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
             >>> print make(profile).replace(temp.name, '<FILENAME>')
             <spatialModel type="RadialProfile" file="<FILENAME>" >
                 <parameter name="Normalization" value="1.0" free="0" max="1e3" min="1e-3" scale="1.0" />
-                <parameter name="RA"  value="0.0" free="1" max="360.0" min="-360.0" scale="1.0" />
-                <parameter name="DEC" value="0.0" free="1" max="90" min="-90" scale="1.0" />
+                <parameter name="RA" value="0" free="1" max="360" min="-360" scale="1.0" />
+                <parameter name="DEC" value="0" free="1" max="180" min="-180" scale="1.0" />
             </spatialModel>
 
     """
@@ -593,19 +617,21 @@ def makeExtendedSourceSpatialModel(es,expand_env_vars,tablevel=1):
     if es.name != 'SpatialMap':
         # All spatialm models but SpatialMap have RA & DEC
 
-        if es.coordsystem == SkyDir.EQUATORIAL:
-            strings += make_position_params(es.center, ra_free=es.get_free('ra'), dec_free=es.get_free('dec'))
-        else:
-            strings += make_position_params(es.center)
+        for name in es.param_names:
+            param = es[name]
+            err = es.error(name)
+            err = 'error="%s" ' % err if err > 0 else ''
+            free = es.get_free(name)
 
-    for name in es.param_names[2:]:
-        param = es[name]
-        err = es.error(name)
-        err = 'error="%s"' % err if err > 0 else ''
-        free = es.get_free(name)
-        min,max=es.get_limits(absolute=True)[es.mapper(name)]
-        strings.append('\t<parameter name="%s" value="%g" %sfree="%d" max="%g" min="%g" scale="1.0" />' % \
-                       (name,param,err,free,max,min))
+            if name == 'L' or name == 'RA':
+                min,max=-360,360
+            elif name == 'B' or name == 'DEC':
+                min,max=-180,180
+            else:
+                min,max=es.get_limits(absolute=True)[es.mapper(name)]
+
+            strings.append('\t<parameter name="%s" value="%g" %sfree="%d" max="%g" min="%g" scale="1.0" />' % \
+                           (name,param,err,free,max,min))
 
     strings.append('</spatialModel>')
     return ''.join([decorate(st,tablevel=tablevel) for st in strings])
@@ -828,6 +854,26 @@ def parse_diffuse_sources(handler,diffdir=None):
             >>> np.allclose([profile.center.ra(), profile.center.dec()], [gaussian.center.ra(), gaussian.center.dec()])
             True
             >>> np.allclose(profile(profile.center),gaussian(profile.center), atol=1e-5, rtol=1e-5)
+            True
+
+        You should also be able to load in extended soruces in galactic coordinates
+
+            >>> ds=l('''
+            ...   <source name="test_map" type="DiffuseSource">
+            ...      <spectrum type="ConstantValue">
+            ...        <parameter free="1" max="1000.0" min="0.001" name="Value" scale="1" value="1.0"/>
+            ...      </spectrum>
+            ...      <spatialModel type="Gaussian">
+            ...        <parameter free="0" name="L" scale="1.0" value="0"/>
+            ...        <parameter free="1" name="B" scale="1.0" value="0"/>
+            ...        <parameter free="1" name="Sigma" scale="1.0" value="1"/>
+            ...      </spatialModel>
+            ...    </source>''')
+            >>> ds.spatial_model['l']
+            0.0
+            >>> ds.spatial_model['b']
+            0.0
+            >>> ds.spatial_model.coordsystem == SkyDir.GALACTIC
             True
     """
     gds = get_diffuse_source
