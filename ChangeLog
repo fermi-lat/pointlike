@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Mar 27 09:41:34 PDT 2012
+ScienceTools-scons/pointlike/python/uw/utilities
+
+Modified Files:
+	xml_parsers.py 
+Log Message:
+new doctests to test creating and saving xmls for spectral models
+    *
+------------------------------------------------------------
 User: lande  Sun Mar 25 00:51:14 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
