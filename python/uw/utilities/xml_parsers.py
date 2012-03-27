@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.62 2012/03/22 16:24:23 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.63 2012/03/25 07:51:13 lande Exp $
 
    author: Matthew Kerr
 """
@@ -63,9 +63,10 @@ class XMLElement(dict):
 
 class SourceHandler(x.ContentHandler,Stack):
     
-    def __init__(self):
+    def __init__(self, pattern = 'source'):
         self.outerElements = deque()
         self.sources       = deque()
+        self.pattern       = pattern
 
     def __call__(self): return self.lastOff
 
@@ -79,13 +80,39 @@ class SourceHandler(x.ContentHandler,Stack):
             l.addChild(t)
         else:
             self.outerElements.append(t)
-        if t.name == 'source':
+        if t.name == self.pattern:
             self.sources.append(t)
 
 class XML_to_Model(object):
-    """Map a parsed XML model onto the Model classes.
+    """ Map a parsed XML model onto the Model classes.
     
-       This class should be extended as more use cases arise."""
+        This class should be extended as more use cases arise.
+
+        Here is a simple example to load in a point source.
+        First, we have to setup the xml parser:
+
+            >>> def xml2model(xml):
+            ...     from StringIO import StringIO
+            ...     parser = x.make_parser()
+            ...     xtm = XML_to_Model()
+            ...     handler = SourceHandler(pattern='spectrum')
+            ...     parser.setContentHandler(handler)
+            ...     parser.parse(StringIO(xml))
+            ...     return xtm.get_model(handler.sources[0],'source')
+
+        Now, we can parse spectral models:
+
+            >>> model=xml2model('''
+            ...     <spectrum   type="PowerLaw">
+            ...         <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-11" />
+            ...         <parameter name="Index" value="2.0" free="1" max="5" min="0" scale="-1" />
+            ...         <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
+            ...     </spectrum>''')
+            >>> real_model=PowerLaw()
+            >>> np.allclose(model.get_all_parameters(), real_model.get_all_parameters())
+            True
+
+"""
 
     def __init__(self):
 
@@ -254,7 +281,20 @@ class XML_to_SpatialModel(object):
 class Model_to_XML(object):
     """Convert a Model instance to an XML entry.
        
-       This class should be extended as more use cases arise."""
+       This class should be extended as more use cases arise.
+       
+        Here is a simple test making a PowerLaw model:
+
+            >>> m2x = Model_to_XML()
+            >>> m2x.process_model(PowerLaw())
+            >>> print m2x.getXML(tablevel=0).replace('\\t',' '*4).strip()
+            <spectrum   type="PowerLaw">
+                <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-11" />
+                <parameter name="Index" value="2.0" free="1" max="5" min="0" scale="-1" />
+                <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
+            </spectrum>
+
+   """
     
     def __init__(self,debug=False, strict=False):
         self.x2m = XML_to_Model()
