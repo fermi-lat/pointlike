@@ -1,6 +1,6 @@
 """
 Main entry for the UW all-sky pipeline
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.10 2012/02/12 20:08:22 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/pipeline/pipe.py,v 1.11 2012/02/26 23:43:49 burnett Exp $
 """
 import os, types, glob, time, copy
 import cPickle as pickle
@@ -34,6 +34,7 @@ class Pipe(roisetup.ROIfactory):
         self.skymodel_kw= kwargs.pop('skymodel_kw', dict())
         self.analysis_kw =kwargs.pop('analysis_kw', dict())
         self.roi_kw      =kwargs.pop('roi_kw', dict())
+        self.data_interval    =kwargs.pop('data_interval',0)
  
         self.selector = skymodel.HEALPixSourceSelector
         self.selector.nside = self.nside
@@ -43,7 +44,7 @@ class Pipe(roisetup.ROIfactory):
         if type(self.processor)==types.StringType:
             self.processor = eval(self.processor)
 
-        super(Pipe, self).__init__(indir, dataset, 
+        super(Pipe, self).__init__(indir, dataset,data_interval = self.data_interval, 
             analysis_kw=self.analysis_kw, skymodel_kw=self.skymodel_kw)
        
     def __str__(self):
@@ -98,6 +99,7 @@ class Setup(dict):
                 auxcat='',
                 outdir=outdir,
                 datadict = None,
+                data_interval = 0,
                 diffuse = None,
                 emin=100, emax=316227, minROI=5, maxROI=5,
                 extended= None, #flag to get from model
@@ -141,7 +143,8 @@ class Setup(dict):
         self.setup_string= """\
 import os, pickle; os.chdir(os.path.expandvars(r"%(cwd)s"));%(setup_cmds)s
 from uw.like2.pipeline import pipe,associate; from uw.like2 import skymodel;
-g=pipe.Pipe("%(indir)s", %(datadict)s, 
+g=pipe.Pipe("%(indir)s", %(datadict)s,
+        data_interval = %(data_interval)i, 
         skymodel_kw=dict(auxcat="%(auxcat)s",diffuse=%(diffuse)s,
             extended_catalog_name=%(extended)s, update_positions=%(update_positions)s,
              %(skymodel_extra)s), 

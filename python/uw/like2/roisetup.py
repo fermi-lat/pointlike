@@ -1,7 +1,7 @@
 """
 Set up an ROI factory object
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.10 2012/02/12 20:16:15 burnett Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like2/roisetup.py,v 1.11 2012/02/26 23:50:48 burnett Exp $
 
 """
 import os, sys, types
@@ -91,7 +91,7 @@ class ROIfactory(object):
                             num_points=25), # AnalyticConvolution
                                     'convolution parameters'),
         ('selector', skymodel.HEALPixSourceSelector,' factory of SourceSelector objects'),
-        ('interval', 0, 'Data interval (e.g., month) to use'),
+        ('data_interval', 0, 'Data interval (e.g., month) to use'),
         ('quiet', False, 'set to suppress most output'),
         )
 
@@ -117,10 +117,10 @@ class ROIfactory(object):
                                                              psf_irf = self.analysis_kw.get('psf_irf',None),
                                                              CALDB = self.analysis_kw.get('CALDB',None),
                                                              custom_irf_dir=self.analysis_kw.get("irfdir",None))
-            self.data_manager = self.dataset(self.interval) #need to save a reference to avoid a segfault
+            self.data_manager = self.dataset(self.data_interval) #need to save a reference to avoid a segfault
             self.exposure = pointspec2.ExposureManager(self.data_manager,self.dataset.CALDBManager)
 
-            self.exposure.correction = [lambda e: 1,lambda e : 1] #TODO
+            self.exposure.correction = [ExposureCorrection(0.97, 1.02), lambda e: 0.98] #TODO
         else:
             if dataspec is None:
                 print 'dataspec is None: loading datadict from skymodel'; sys.stdout.flush()
@@ -156,9 +156,13 @@ class ROIfactory(object):
         assert skydir is not None, 'should use the ROI skydir'
         # get all diffuse models appropriate for this ROI
         globals, extended = self.skymodel.get_diffuse_sources(src_sel)
-       
+
         try:
-            global_models = [diffuse.mapper(self, src_sel.name(), skydir, source, binsperdec=self.dataset.binsperdec) for source in globals]
+            if hasattr(self,'data_manager'):
+                bpd = self.data_manager.dataspec.binsperdec
+            else:
+                bpd = self.dataset.binsperdec
+            global_models = [diffuse.mapper(self, src_sel.name(), skydir, source, binsperdec = bpd) for source in globals]
         except Exception, msg:
             print self.dataset, msg
             raise
