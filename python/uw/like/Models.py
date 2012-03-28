@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.86 2012/03/14 23:32:35 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.87 2012/03/18 20:01:44 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1352,17 +1352,15 @@ class SmoothDoubleBrokenPowerLaw(Model):
             >>> _funcFactory = pyLikelihood.SourceFactory_funcFactory()
             >>> gtlike_model = _funcFactory.create('SmoothDoubleBrokenPowerLaw')
             >>> for n in pointlike_model.param_names:
-            ...     gtlike_model.setParam(n,(-1 if 'index' in n else 1)*pointlike_model[n])
+            ...     gtlike_model.setParam(n,(-1 if 'index' in n.lower() else 1)*pointlike_model[n])
             >>> for n in ['Beta23', 'Beta12', 'Scale']:
             ...     gtlike_model.setParam(n,getattr(pointlike_model,n))
             >>> energies = np.logspace(1, 6, 10000)
-            >>> np.allclose(DMFitFunction.call_pylike_spectrum(gtlike_model, energies), pointlike_model(energies))
+            >>> np.allclose(DMFitFunction.call_pylike_spectrum(gtlike_model, energies), pointlike_model(energies), rtol=1e-20, atol=1e-20)
             True
     """
     def __call__(self,e):
-        """
-        """
-        prefactor, index1, index2, breakvalue12, index3, breakvalue23 = 10**self._p
+        prefactor, index1, breakvalue12, index2, breakvalue23, index3 = 10**self._p
 
         index1, index2, index3 = -index1, -index2, -index3
 
