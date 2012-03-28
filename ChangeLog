@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Mar 28 12:48:53 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Make L&B uppercase to be consistent with gtlike
+    *
+------------------------------------------------------------
 User: lande  Wed Mar 28 12:48:32 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
