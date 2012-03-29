@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Mar 29 15:23:25 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	specfitter.py 
+Log Message:
+Set covariance matrix to 0 when unable to invert hessian (rather than raising exception.)
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Mar 29 15:21:55 PDT 2012
 pointlike/python/uw/utilities
 
