@@ -335,8 +335,7 @@ class PulsarLightCurve:
         if profile is not None:
             profile_kwargs['phase_shift'] = phase_shift
             profile = self.load_profile(profile,**profile_kwargs)
-            #phase_shift -= profile[-1] # correction to g-ray light curve
-            phase_shift += profile[-1]
+            phase_shift += profile[-1] # correction to g-ray light curve
             self.profile = [profile[:-1]]
 
         # radius
