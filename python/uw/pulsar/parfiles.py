@@ -313,6 +313,9 @@ class ParFile(dict):
             return 0
         return dme/2.41e-4/freq**2*f0
 
+    def is_binary(self):
+        return 'BINARY' in self.keys()
+
 class TimFile(object):
 
     def __init__(self,timfile):
