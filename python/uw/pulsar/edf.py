@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_analysis.py,v 1.84 2011/04/20 00:36:30 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/edf.py,v 1.1 2011/04/27 18:32:03 kerrm Exp $
 
 a module for implementing EDF (empirical distribution function) TOA determination; heavily beta
 
@@ -8,7 +8,7 @@ Authors: Matthew Kerr <matthew.kerr@gmail.com>
 
 import numpy as np
 import pylab as pl
-from lcfitters import get_gauss2,get_gauss1
+#from lcfitters import get_gauss2,get_gauss1
 from scipy.interpolate import interp1d
 from scipy.optimize import fmin
 
