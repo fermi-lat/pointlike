@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.30 2012/03/14 00:18:45 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.31 2012/03/14 19:40:20 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -413,32 +413,7 @@ def hessian(m,mf,*args,**kwargs):
     if 'delt' in kwargs.keys():
         delta = kwargs['delt']
     else:
-        # try to estimate the correct diagonal elements
-        # NB -- this relies on reasonable parameter bounds to perform 
-        # a bisection search; also note that we only consider an upper
-        # interval, whereas the hessian performs a two-sided derivative
-        ll0 = mf(p,m,*args)
         delta = [0.01]*len(p)
-        for i in xrange(len(p)):
-            p_orig = p[i]
-            p_lo = p[i]; p_hi = m.get_bounds()[i][1]
-            for j in xrange(20):
-                if j==19:
-                    print 'Warning, did not converge on diagonal element %d.'%i
-                p_mean = (p_hi+p_lo)/2
-                p[i] = p_mean
-                target = mf(p,m,*args)-ll0-0.5
-                if abs(target) < 0.2:
-                    # close enough
-                    delta[i] = p_mean-p_orig
-                    break
-                elif target < 0:
-                    p_lo = p_mean
-                else:
-                    p_hi = p_mean
-            p[i] = p_orig
-    assert(np.all(p==p0))
-    print delta
 
     hessian=np.zeros([len(p),len(p)])
     for i in xrange(len(p)):
