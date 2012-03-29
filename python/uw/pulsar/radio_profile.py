@@ -113,7 +113,7 @@ class Profile(object):
         a2 = (np.cos(ph)*vals).sum()
         self.fidpt = np.arctan2(a1,a2)/TWOPI
 
-    def get_amplitudes(self,align_to_peak=True,bin_goal=None):
+    def get_amplitudes(self,align_to_peak=True,bin_goal=None,phase_shift=0):
         """ Produce an ordered list of amplitudes as a function of phase,
             rotated such that the fiducial point is at 0.  The profile 
             is re-binned with linear interpolation.
@@ -137,18 +137,14 @@ class Profile(object):
         else:
             align_shift = 0
 
-        # this is obsolete -- now, profile will have peak at 0, and
-        # fiducial point will be computed only to shift gamma-ray profile
-        # accordingly
-        #if self.fidpt != 0:
-        #    # interpolate the profile so that the fiducial point is a zero
-        #    x0 = np.linspace(0,1,len(phases)+1)[:-1]
-        #    x = np.concatenate((x0,x0+1,[2]))
-        #    y = np.concatenate((phases,phases,[phases[0]]))
-        #    rvals = np.interp(x0+self.fidpt,x,y)
-        #else:
-        #    rvals = phases
         rvals = phases
+        if phase_shift != 0:
+            # interpolate the profile so that the fiducial point is a zero
+            x0 = np.linspace(0,1,len(phases)+1)[:-1]
+            x = np.concatenate((x0-1,x0,x0+1,[2]))
+            y = np.concatenate((phases,phases,phases,[phases[0]]))
+            rvals = np.interp(x0-phase_shift,x,y)
+
         if bin_goal > 0:
             if len(rvals) % 2 > 0: 
                 rvals = np.append(rvals,rvals[0])
