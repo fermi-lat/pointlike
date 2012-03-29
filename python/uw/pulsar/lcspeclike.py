@@ -24,19 +24,63 @@ def calc_ratios(roi,edict,which=0):
     backs   = np.empty(len(en))
     psf = roi.sa.psf
     skydir = psm.point_sources[which].skydir
-    psf.set_weights(roi.sa.ltcube,skydir)
+    if not hasattr(roi.sa,'ltcube'):
+        psf.set_weights(roi.sa.dataspec.ltcube,skydir)
+    else:
+        psf.set_weights(roi.sa.ltcube,skydir)
 
     for i,(e,c,d) in enumerate(zip(en,ct,dirs)):
         psfluxes  = np.asarray([m(e) for m in psm.models])
         psdiffs   = np.asarray([d.difference(ps.skydir) for ps in psm.point_sources])
         psrates   = psfluxes * psf(e,c,psdiffs,density=True)
+        # NB preconvolved diffuse models -- something of a kluge
         bgrates   = np.asarray([m.get_dmodel(c).value(d,e)*m.smodel(e) for m in bgm.bgmodels])
         signals[i] = psrates[which]
         backs[i]   = (psrates.sum() - psrates[which] + bgrates.sum())
 
     return signals,backs
 
-def write_weights(roi,ft1files,colnames=['WEIGHT','TOTAL'],emin=100,which=0):
+def calc_ratios2(roi,edict,which=0):
+    """ edict is a dictionary containing the event information.
+        Calculate for each photon the ratio of the source to the background.
+    """
+
+    ens = [[b.emax for b in roi.bands if b.ct==0],[b.emax for b in roi.bands if b.ct==1]]
+    bands = [[b for b in roi.bands if b.ct==0],[b for b in roi.bands if b.ct==1]]
+    pix_indices = [[np.asarray([b.b.index(x) for x in b.wsdl]) for b in roi.bands if b.ct==0],
+                   [np.asarray([b.b.index(x) for x in b.wsdl]) for b in roi.bands if b.ct==1]]
+    pix_helpers = [[np.arange(len(x)) for x in pix_indices[0]],[np.arange(len(x)) for x in pix_indices[1]]]
+
+    def find(e,c,d):
+        idx = np.searchsorted(ens[c],e)
+        if idx == len(ens[c]):
+            raise IndexError('I did not find the right energy')
+        band = bands[c][idx]
+        mask = band.b.index(d)==pix_indices[c][idx]
+        if not np.any(mask):
+            raise IndexError('Requested photon position not in ROI.')
+        return band,(pix_helpers[c][idx])[mask]
+
+    en = edict['ENERGY']
+    ct = edict['CONVERSION_TYPE']
+    dirs = map(SkyDir,edict['RA'],edict['DEC'])
+    signals = np.empty(len(en))
+    backs   = np.empty(len(en))
+
+    for i,(e,c,d) in enumerate(zip(en,ct,dirs)):
+        try:
+            band,pix_idx = find(e,c,d)
+        except IndexError: # this will happen if using an FT1 file with a superset of photons for ROI
+            signals[i] = 0
+            backs[i] = -1
+            continue
+        bgrates = band.bg_all_pix_counts[pix_idx] + band.ps_all_pix_counts[pix_idx]
+        signals[i] = band.ps_counts[which]*band.ps_pix_counts[pix_idx,which]
+        backs[i] = bgrates - signals[i]
+
+    return signals,backs
+
+def write_weights(roi,ft1files,colnames=['WEIGHT','TOTAL'],emin=100,which=0,subset_method=False):
     """ Write the signal and the total rates using the current state."""
     import pyfits
     if not hasattr(ft1files,'__iter__'):  ft1files = [ft1files]
@@ -48,7 +92,10 @@ def write_weights(roi,ft1files,colnames=['WEIGHT','TOTAL'],emin=100,which=0):
             d[key] = np.asarray(f[1].data.field(key),dtype=float if key!='CONVERSION_TYPE' else int)
         mask = d['ENERGY'] > emin
         for key in keys: d[key] = d[key][mask] 
-        pre_signals,pre_backs = calc_ratios(roi,d,which=which)
+        if not subset_method:
+            pre_signals,pre_backs = calc_ratios(roi,d,which=which)
+        else:
+            pre_signals,pre_backs = calc_ratios2(roi,d,which=which)
         signals = np.empty(len(mask))
         backs = np.empty(len(mask))
         signals[~mask] = 0; backs[~mask] = 1
