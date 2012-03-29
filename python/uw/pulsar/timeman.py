@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.1 2011/04/27 18:32:03 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/timeman.py,v 1.2 2011/07/08 23:05:48 kerrm Exp $
 
 Handle MET(TT) to MJD(UTC) conversions.
 
@@ -42,13 +42,31 @@ class ClockCorr(object):
         tai = utc + corr/SECSPERDAY
         return(tai)
 
+class GeoConverter(object):
+    def __init__(self,ft2,ra,dec):
+        self.ft2 = ft2
+        self.ra = ra
+        self.dec = dec
+    def __call__(self,times):
+        if not self.can_geo():
+            raise Exception('Cannot geocenter!  Must provide FT2 and position.')
+        else:
+            print 'Attempting to geocenter on-the-fly.'
+        from skymaps import PythonUtilities
+        times = times.astype(np.float64)
+        PythonUtilities.met2geo(times,self.ra,self.dec,self.ft2)
+        return times
+    def can_geo(self):
+        return (self.ft2 is not None) and \
+               (self.ra is not None) and \
+               (self.dec is not None)
 
 class METConverter(object):
     """Convert LAT arrival times (in Mission Elapsed Time) to MJD(UTC)."""
 
-    def __init__(self,ft1file):
+    def __init__(self,ft1file,ft2=None,ra=None,dec=None):
 
-        clockcorr = ClockCorr()
+        self.clockcorr = ClockCorr()
 
         # Read FT1 file
         hdulist = pyfits.open(ft1file)
@@ -56,9 +74,15 @@ class METConverter(object):
         ft1dat  = hdulist['EVENTS'].data
 
         if ft1hdr['TIMEREF'] != 'GEOCENTRIC':
-              print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-              print "# !!!!!!!!! WARNING !!!!!!!!!! TIMEREF is not GEOCENTRIC! This code is intended for GEOCENTERED times!"
-              print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            self.geocon = GeoConverter(ft2,ra,dec)
+            if not self.geocon.can_geo():
+                print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                print "# !!!!!!!!! WARNING !!!!!!!!!! TIMEREF is not GEOCENTRIC! This code is intended for GEOCENTERED times!"
+                print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            else:
+                print 'TIMEREF is not GEOCENTRIC! But will attempt to correct times on-the-fly.'
+        else:
+            self.geocon = lambda x: x
 
         if ft1hdr['TIMESYS'] != 'TT':
               print "# !!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -67,34 +91,30 @@ class METConverter(object):
 
        # Collect TIMEZERO and MJDREF
         try:
-            TIMEZERO = ft1hdr['TIMEZERO']
+            self.TIMEZERO = ft1hdr['TIMEZERO']
         except KeyError:
-            TIMEZERO = ft1hdr['TIMEZERI'] + ft1hdr['TIMEZERF']
+            self.TIMEZERO = ft1hdr['TIMEZERI'] + ft1hdr['TIMEZERF']
         #print"# TIMEZERO = ",TIMEZERO
         try:
-            MJDREF = ft1hdr['MJDREF']
+            self.MJDREF = ft1hdr['MJDREF']
         except KeyError:
             # Here I have to work around an issue where the MJDREFF key is stored
             # as a string in the header and uses the "1.234D-5" syntax for floats, which
             # is not supported by Python
-            MJDREF = ft1hdr['MJDREFI'] + \
-            float(ft1hdr['MJDREFF'].replace('D','E'))
-
-        self.clockcorr = clockcorr
-        self.MJDREF    = MJDREF
-        self.TIMEZERO  = TIMEZERO
+            self.MJDREF = ft1hdr['MJDREFI'] + float(ft1hdr['MJDREFF'].replace('D','E'))
 
         TSTART = float(ft1hdr['TSTART'])
         TSTOP = float(ft1hdr['TSTOP'])
 
         # Compute MJDSTART and MJDSTOP in MJD(UTC)
-        self.MJDSTART = clockcorr.tt2utc(TSTART/86400.0 + MJDREF + TIMEZERO)
-        self.MJDSTOP  = clockcorr.tt2utc(TSTOP/86400.0 + MJDREF + TIMEZERO)
+        self.MJDSTART = self.clockcorr.tt2utc(TSTART/86400.0 + self.MJDREF + self.TIMEZERO)
+        self.MJDSTOP  = self.clockcorr.tt2utc(TSTOP/86400.0 + self.MJDREF + self.TIMEZERO)
 
         hdulist.close()
 
     def __call__(self,times):
         times = np.asarray([times] if not hasattr(times,'__iter__') else times)
+        times = self.geocon(times)
         times = times/SECSPERDAY + self.MJDREF + self.TIMEZERO
         for i in xrange(len(times)):
             times[i] = self.clockcorr.tt2utc(times[i])
