@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.7 2011/08/08 18:08:51 parent Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/toagen.py,v 1.8 2011/09/22 21:51:32 kerrm Exp $
 
 Calculate TOAs with a variety of methods.
 
@@ -82,7 +82,10 @@ class TOAGenerator(object):
             # Prepare a string to write to a .tim file or to send to STDOUT
             toa = phase_time + (tau*period)/SECSPERDAY
             toa_err = tau_err*period*1.0e6
-            s = " %s 0.0 %.12f %.2f %s -i LAT -np %d -chanceprob %.2e" % ("GEO",toa,toa_err,pe.obs,len(phases),prob)
+            if weights is None:
+                s = " %s 0.0 %.12f %.2f %s -i LAT -np %d -chanceprob %.2e" % ("GEO",toa,toa_err,pe.obs,len(phases),prob)
+            else:
+                s = " %s 0.0 %.12f %.2f %s -i LAT -np %d -nwp %.2f -chanceprob %.2e" % ("GEO",toa,toa_err,pe.obs,len(phases),weights.sum(),prob)
             toas[ii] = toa
             err_toas[ii] = toa_err
             tim_strings.append(s)
@@ -132,6 +135,7 @@ class UnbinnedTOAGenerator(TOAGenerator):
             jump = abs(self.prev_peak - fit[0][0])/self.mean_err
             if jump > 10:
                 print 'Found a jump, doing a blind search now.'
+                print self.prev_peak,fit[0][0],self.mean_err
             jump = jump > 10
             peak_shift = (fit[0][0] - self.phi0)
             if abs(peak_shift) > 0.25:
@@ -142,7 +146,9 @@ class UnbinnedTOAGenerator(TOAGenerator):
                 tau_err = self.__toa_error__(fit[0][0],phases,weights)
                 if self.display: print 'Peak Shift: %.5f +/- %.5f'%(peak_shift,tau_err)
                 self.phases.append(peak_shift)
-            if self.plot_stem is not None:
+            """
+            if (self.plot_stem is not None) and (not jump):
+                # NB -- this is kludgey -- need to make plots for jump case, too
                 dom1 = np.linspace(0,1,100)
                 cod1 = np.asarray([f([x],phases,weights) for x in dom1])
                 dom2 = np.linspace(fit[0][0]-0.04,fit[0][0]+0.04,30)
@@ -165,6 +171,7 @@ class UnbinnedTOAGenerator(TOAGenerator):
                 ax1.set_xlabel('(Relative) Phase')
                 ax1.set_ylabel('Negative Log Likelihood')
                 pl.savefig('%s%s.png'%(self.plot_stem,name))
+            """
             
         if (not self.good_ephemeris) or self.phase_drift or jump:
             # look for the absolute best fit without any prior information
@@ -184,8 +191,32 @@ class UnbinnedTOAGenerator(TOAGenerator):
             if self.display: print '(Blind) Peak Shift: %.5f +/- %.5f'%(tau+polyco_phase0,tau_err)
             self.phases.append(tau+polyco_phase0)        
 
+        if (self.plot_stem is not None):
+            dom1 = np.linspace(0,1,100)
+            cod1 = np.asarray([f([x],phases,weights) for x in dom1])
+            dom2 = np.linspace(fit[0][0]-0.04,fit[0][0]+0.04,30)
+            cod2 = np.asarray([f([x],phases,weights) for x in dom2])
+            pl.figure(10); pl.clf();
+            ax1 = pl.gca()
+            # calculate coordinates for inset - could be more sophisticated with transAxes
+            ax2 = pl.axes([0.1+0.5*(fit[0][0]<0.5),0.15,0.25,0.25])
+            for i,(dom,cod,ax) in enumerate(zip([dom1,dom2],[cod1,cod2],[ax1,ax2])):
+                ax.plot(dom,cod)
+                ax.axvline(fit[0][0],color='red')
+                ax.axvline(self.phi0,color='k',ls='-')
+                ax.axvline(fit[0][0]-tau_err,color='red',ls='--')
+                ax.axvline(fit[0][0]+tau_err,color='red',ls='--')
+                if i==1:
+                    ax.xaxis.set_major_locator(pl.matplotlib.ticker.MaxNLocator(4))
+                    ax.axis([dom[0],dom[-1],cod.min(),cod.min()+5])
+                    ax.axhline(cod.min()+0.5,color='blue',ls='--')
+            name = ('%3d'%(self.counter+1)).replace(' ','0')
+            ax1.set_xlabel('(Relative) Phase')
+            ax1.set_ylabel('Negative Log Likelihood')
+            pl.savefig('%s%s.png'%(self.plot_stem,name))
+
         self.phase_errs.append(tau_err)
-        return tau,tau_err,sf_hm(hm(phases) if (self.weights is None) else hmw(phases,weights))
+        return tau,tau_err,sf_hm(hm(phases) if (weights is None) else hmw(phases,weights))
 
 
 class BinnedTOAGenerator(TOAGenerator):

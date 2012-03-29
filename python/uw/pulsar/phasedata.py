@@ -1,5 +1,5 @@
 """
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/phasedata.py,v 1.1 2011/04/27 18:32:03 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/phasedata.py,v 1.2 2011/07/21 13:48:49 paulr Exp $
 
 Handle loading of FT1 file and phase folding with polycos.
 
@@ -13,15 +13,27 @@ import sys
 from uw.utilities import keyword_options
 from timeman import METConverter
 
+def rad_mask(ras,decs,ra,dec,radius,mask_only=False):
+    # make a cut on radius
+    ra0,dec0 = np.radians(ra),np.radians(dec)
+    ras,decs = np.radians(ras),np.radians(decs)
+    cos_diffs = np.sin(decs)*np.sin(dec0)+np.cos(decs)*np.cos(dec0)*np.cos(ras-ra0)
+    mask = cos_diffs > np.cos(np.radians(radius))
+    return mask
+
 class PhaseData(object):
     """ Object to manage loading data. """
 
     defaults = (
         ('emin',100,'(MeV) minimum energy to accept'),
         ('emax',30000,'(MeV) maximum energy to accept'),
+        ('tmin',0,'Minimum time (MET) to use; 0 is no cut'),
+        ('tmax',0,'Maximum time (MET) to use; 0 is no cut'),
+        ('rmax',0,'Maximum radius (deg) to use; 0 is no cut.'),
         ('we_col_name','WEIGHT','name for column with weight data in FT1 file'),
         ('use_weights',False,'load weights if available'),
         ('wmin',0,'minimum weight to use'),
+        ('ft2',None,'an FT2 file that can be used for on-the-fly time correction')
     )
 
     @keyword_options.decorate(defaults)
@@ -32,11 +44,22 @@ class PhaseData(object):
         self.process_ft1()
 
     def process_ft1(self):
-        mc = METConverter(self.ft1file)
+        mc = METConverter(self.ft1file,ft2=self.ft2,ra=self.polyco.ra,dec=self.polyco.dec)
         self.mjd_start = mc.MJDSTART; self.mjd_stop = mc.MJDSTOP
         f    = pyfits.open(self.ft1file)
         ens  = np.asarray(f['EVENTS'].data.field('ENERGY'))
         mask = (ens >= self.emin) & (ens < self.emax)
+        if self.tmin > 0:
+            mask &= np.asarray(f['EVENTS'].data.field('TIME')) >= self.tmin
+        if self.tmax > 0:
+            mask &= np.asarray(f['EVENTS'].data.field('TIME')) < self.tmax
+        if self.rmax > 0:
+            ra = self.polyco.ra; dec = self.polyco.dec
+            if (ra is None) or (dec is None):
+                raise ValueError('Cannot make cut without position!')    
+            ras = np.asarray(f['EVENTS'].data.field('RA'))
+            decs = np.asarray(f['EVENTS'].data.field('Dec'))
+            mask &= rad_mask(ras,decs,ra,dec,self.rmax)
         if self.use_weights:
             weights = np.asarray(f['EVENTS'].data.field(self.we_col_name))
             mask = mask & (weights > self.wmin)
@@ -47,7 +70,7 @@ class PhaseData(object):
         self.ph = self.polyco.vec_evalphase(self.mjds)
         f.close()
 
-        print >>sys.stderr, "Cuts left %d out of %d events." % (mask.sum(), len(mask))
+        print >>sys.stderr, "PhaseData: Cuts left %d out of %d events." % (mask.sum(), len(mask))
 
     def write_phase(self,col_name='PULSE_PHASE'):
         f = pyfits.open(self.ft1file)
