@@ -1,6 +1,6 @@
 """ Scripts for interfacing with the ScienceTools.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/pointspec_helpers.py,v 1.21 2010/08/10 23:03:33 burnett Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/utilities/gt_scripts.py,v 1.1 2010/12/06 21:45:51 kerrm Exp $
 
     author: Matthew Kerr
 """
@@ -18,10 +18,8 @@ def get_coords(ft1):
             pass
     return [None]*3
 
-###=========================================================================###
-
 def do_gtselect(ft1,outfile=None,ra=None,dec=None,rad=180,tmin=0,tmax=0,
-                emin=100,emax=1e5,zmax=105,opt_strings=[]):
+                emin=100,emax=1e5,zmax=100,opt_strings=[]):
     if ((ra is None) or (dec is None)) and (rad != 180):
         ra,dec,orig_rad = get_coords(ft1)
     if ra is None and (rad != 180):
@@ -41,8 +39,6 @@ def do_gtselect(ft1,outfile=None,ra=None,dec=None,rad=180,tmin=0,tmax=0,
                         ] + opt_strings)
     return command            
             
-###=========================================================================###
-
 def do_gtmktime(ft1,ft2,filter_expr=None,outfile=None,roicut='yes',opt_strings=[]):
     if outfile is None: outfile = ft1[:-5] + '_gtmktime.fits'
     if filter_expr is None:
@@ -59,8 +55,6 @@ def do_gtmktime(ft1,ft2,filter_expr=None,outfile=None,roicut='yes',opt_strings=[
                         ] + opt_strings)
     return command
 
-###=========================================================================###
-
 def do_gtltcube(ft1,ft2,outfile=None,dcostheta=0.025,pixelsize=1,opt_strings=[]):
     if outfile is None:
         outfile = ft1[:-5] + '-LTCUBE.fits'
@@ -73,10 +67,9 @@ def do_gtltcube(ft1,ft2,outfile=None,dcostheta=0.025,pixelsize=1,opt_strings=[])
                         ] + opt_strings)
     return command
 
-###=========================================================================###
-
 def do_gtbin(ft1,ft2,outfile=None,algorithm='CCUBE',pixelsize=0.1,numpix=200,
-             ra=None,dec=None,emin=177.82794100389228,emax=100000,enumbins=22,
+             #ra=None,dec=None,emin=177.82794100389228,emax=100000,enumbins=22,
+             ra=None,dec=None,emin=100,emax=100000,enumbins=24,
              opt_strings=[]):
     if outfile is None:
         outfile = ft1[:-5] + '-%s.fits'%(algorithm)
@@ -104,8 +97,6 @@ def do_gtbin(ft1,ft2,outfile=None,algorithm='CCUBE',pixelsize=0.1,numpix=200,
                         ] + opt_strings)
     return command
 
-###=========================================================================###
-# N.B. -- for unbinned analysis
 def do_gtexpcube(ltcube,ccube,ft1,outfile=None,irf='P6_V3_DIFFUSE',opt_strings=[]):
     if outfile is None:
         outfile = ft1[:-5] + '-EXPCUBE.fits'
@@ -119,10 +110,18 @@ def do_gtexpcube(ltcube,ccube,ft1,outfile=None,irf='P6_V3_DIFFUSE',opt_strings=[
                         ] + opt_strings)
     return command
 
-###=========================================================================###
-# N.B. -- for unbinned analysis
+def do_gtexpcube2(ltcube,ccube,ft1,outfile=None,irf='P6_V3_DIFFUSE',opt_strings=[]):
+    if outfile is None: outfile = ft1[:-5] + '-EXPCUBE.fits'
+    command = ' '.join(['gtexpcube2',
+                        'infile=%s'%(ltcube),
+                        'cmap=%s'%(ccube),
+                        'outfile=%s'%(outfile),
+                        'irfs=%s'%(irf),
+                        ] + opt_strings)
+    return command
+
 def do_gtsrcmaps(xml,ft2,ltcube,ccube,binned_expmap,outfile=None,
-                 irf='P6_V3_DIFFUSE',do_ptsrcs=False):
+                 irf='P6_V3_DIFFUSE',do_ptsrcs=False,no_outer=False):
     if outfile is None:
         outfile = ccube[:-11] + '-SRCMAPS.fits' # fragile
     command = ' '.join(['gtsrcmaps',
@@ -133,12 +132,11 @@ def do_gtsrcmaps(xml,ft2,ltcube,ccube,binned_expmap,outfile=None,
                         'bexpmap=%s'%(binned_expmap),
                         'outfile=%s'%(outfile),
                         'irfs=%s'%(irf),
-                        'ptsrc=%s'%('yes' if do_ptsrcs else 'no')
+                        'ptsrc=%s'%('yes' if do_ptsrcs else 'no'),
+                        'emapbnds=%s'%('no' if no_outer else 'yes')
                         ])
     return command
 
-###=========================================================================###
-# N.B. -- for unbinned analysis
 def do_gtmodel(outfile,xml,srcmaps,ltcube,binned_expmap,irf='P6_V3_DIFFUSE'):
     command = ' '.join(['gtmodel',
                         'srcmaps=%s'%(srcmaps),
@@ -150,15 +148,33 @@ def do_gtmodel(outfile,xml,srcmaps,ltcube,binned_expmap,irf='P6_V3_DIFFUSE'):
                         ])
     return command
 
-###=========================================================================###
-# N.B. -- for unbinned analysis
+def do_gtsrcprob(ft1,ft2,xml,outfile=None,irf='P7SOURCE_V6',srclist=None):
+    if outfile is None: outfile = ft1[:-5]+'_gtsrcprob.fits'
+    command = ' '.join(['gtsrcprob',
+                        'evfile=%s'%(ft1),
+                        'scfile=%s'%(ft2),
+                        'outfile=%s'%(outfile),
+                        'srcmdl=%s'%(xml),
+                        'irfs=%s'%(irf),
+                        'srclist=%s'%(srclist or 'none')
+                        ])
+    return command
+
+def do_gtdiffrsp(ft1,ft2,xml,irf='P7SOURCE_V6'):
+    command = ' '.join(['gtdiffrsp',
+                        'evfile=%s'%(ft1),
+                        'scfile=%s'%(ft2),
+                        'srcmdl=%s'%(xml),
+                        'irfs=%s'%(irf),
+                        ])
+    return command
+
 def get_binned_obs(ltcube,binned_expmap,irf='P6_V3_DIFFUSE',srcmaps=None):
     import BinnedAnalysis
     bo = BinnedAnalysis.BinnedObs(srcMaps=srcmaps,expCube=ltcube,
                                   binnedExpMap=binned_expmap,irfs=irf)
     return bo
 
-###=========================================================================###
 # N.B. -- for unbinned analysis
 def make_resids(cmap,mmap,outfile=None,weighted=False,renormalize=False):
     if outfile is None:
@@ -176,9 +192,6 @@ def make_resids(cmap,mmap,outfile=None,weighted=False,renormalize=False):
     if renormalize:
         print 'Renormalizing model counts for mean 0 residuals...(multiplying model by %.3f)'%(float(ocounts)/mcounts)
     f1.writeto(outfile,clobber=True)
-
-
-###=========================================================================###
 
 def do_gtbary(ft1,ft2,outfile=None,ra=None,dec=None,tcorrect='BARY'):
     if ((ra is None) or (dec is None)):
