@@ -3,7 +3,7 @@ components of a pulsar light curve.  Includes primitives (Gaussian,
 Lorentzian), etc.  as well as more sophisticated holistic templates that
 provide single-parameter (location) representations of the light curve.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.21 2012/03/12 22:14:12 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcprimitives.py,v 1.22 2012/03/14 00:45:52 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -69,11 +69,21 @@ class LCPrimitive(object):
         self.free = np.asarray([True])
         self.pnames = []
         self.name = 'Default'
+
+    def _default_bounds(self):
+        bounds = [[]] *len(self.p) 
+        # this order works for LCHarmonic, too
+        bounds[0] = [0.005,0.5] # width
+        bounds[-1] = [-1,1] # position
+        if len(bounds) > 2:
+            bounds[1] = [0.005,0.5] # width
+        return bounds
          
     def __init__(self,**kwargs):
         self.init()
         if not hasattr(self,'bounds'):
-            self.bounds = [[None,None]*len(self.p)] # default
+            self.bounds = self._default_bounds() # default
+        self.free = np.asarray([True]*len(self.p))
         self.__dict__.update(kwargs)
         self.p = np.asarray(self.p)
         self.free = np.asarray(self.free)
@@ -81,7 +91,10 @@ class LCPrimitive(object):
         self.errors = np.zeros_like(self.p)
         self.shift_mode = False
 
-    def set_parameters(self,p): self.p[self.free] = p
+    def set_parameters(self,p):
+        self.p[self.free] = p
+        # adjust position to be between 0 and 1
+        self.p[-1] = self.p[-1] % 1
 
     def get_parameters(self): return self.p[self.free]
 
@@ -299,41 +312,31 @@ class LCGaussian(LCWrappedFunction):
     """
 
     def init(self):
-        #self.p    = np.asarray([1,0.03,0.5])
         self.p    = np.asarray([0.03,0.5])
-        #self.bounds = [ [0.001,1], [0.005,0.5], [0,1] ]
-        self.bounds = [ [0.005,0.5], [0,1] ]
-        self.free = np.asarray([True]*len(self.p))
-        #self.pnames = ['Norm','Width','Location']
         self.pnames = ['Width','Location']
         self.name = 'Gaussian'
 
     def hwhm(self,right=False):
-        #return self.p[1]*(2 * np.log(2))**0.5
         return self.p[0]*(2 * np.log(2))**0.5
 
     def base_func(self,phases,index=0):
-        #norm,width,x0 = self.p
         width,x0 = self.p
         z = (phases + index - x0)/width
         return (1./(width*ROOT2PI))*np.exp(-0.5*z**2 )
 
     def base_grad(self,phases,index=0):
-        #norm,width,x0 = self.p
         width,x0 = self.p
         z = (phases + index - x0)/width
         f = (1./(width*ROOT2PI))*np.exp(-0.5*z**2 )
         return np.asarray([f/width*(z**2 - 1.),f/width*z])
 
     def base_int(self,x1,x2,index=0):
-        #norm,width,x0 = self.p
         width,x0 = self.p
         z1 = (x1 + index - x0)/width
         z2 = (x2 + index - x0)/width
         return 0.5*1.*(erf(z2/ROOT2)-erf(z1/ROOT2))
 
     def random(self,n):
-        #return np.mod(norm.rvs(loc=self.p[-1],scale=self.p[1],size=n),1)
         return np.mod(norm.rvs(loc=self.p[-1],scale=self.p[0],size=n),1)
 
 class LCGaussian2(LCWrappedFunction):
@@ -347,8 +350,6 @@ class LCGaussian2(LCWrappedFunction):
 
     def init(self):
         self.p    = np.asarray([0.03,0.03,0.5])
-        self.bounds = [ [0.005,0.5], [0.005,0.5], [0,1] ]
-        self.free = np.asarray([True]*len(self.p))
         self.pnames = ['Width1','Width2','Location']
         self.name = 'Gaussian2'
 
@@ -405,8 +406,6 @@ class LCLorentzian(LCPrimitive):
     """
     def init(self):
         self.p = np.asarray([0.1,0.5])
-        self.bounds = [ [0.005,0.5], [0,1] ]
-        self.free = np.asarray([True]*len(self.p))
         self.pnames = ['Width','Location']
         self.name = 'Lorentzian'
 
@@ -451,8 +450,6 @@ class LCLorentzian2(LCWrappedFunction):
 
     def init(self):
         self.p    = np.asarray([0.03,0.03,0.5])
-        self.bounds = [ [0.005,0.5], [0.005,0.5], [0,1] ]
-        self.free = np.asarray([True]*len(self.p))
         self.pnames = ['Width1','Width2','Location']
         self.name = 'Lorentzian2'
 
@@ -521,7 +518,6 @@ class LCVonMises(LCPrimitive):
 
     def init(self):
         self.p    = np.asarray([0.05,0.5])
-        self.free = np.asarray([True]*len(self.p))
         self.pnames = ['Width','Location']
         self.name = 'VonMises'
 
@@ -544,7 +540,6 @@ class LCTopHat(LCPrimitive):
 
     def init(self):
         self.p    = np.asarray([0.03,0.5])
-        self.free = np.asarray([True]*len(self.p))
         self.pnames = ['Width','Location']
         self.name = 'TopHat'
         self.fwhm_scale = 1
@@ -568,8 +563,7 @@ class LCHarmonic(LCPrimitive):
 
     def init(self):
         self.p    = np.asarray([0.])
-        self.free = np.asarray([True]*len(self.p))
-        self.order= 1
+        self.order = 1
         self.pnames = ['Location']
         self.name = 'Harmonic'
 
