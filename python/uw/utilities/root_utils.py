@@ -140,22 +140,74 @@ def ScaleGraphY(graph, factor):
         y *= factor
         graph.SetPoint(i,x,y)
 
+def histo_extrema(histo):
+    """ Find minimum of histogram, including error."""
+    y,ye = get_histo_content(histo)
+    #if len(y)==0: return 0,0
+    m = y > 0
+    if m.sum()==0: return 0,0
+    minim = ((y-ye)[m]).min()
+    maxim = ((y+ye)[m]).max()
+    return minim,maxim
+
 def zero_suppress(histo,force_ymin=None,background=None):
     """Zero suppression for a histogram.
     
         background [None] -- if not none, specify the background level,
         and make sure the minimum is below this level"""
     if force_ymin is None:
-        ymin = histo.GetBinContent(histo.GetMinimumBin())    
+        ymin = histo_extrema(histo)[0]
         if (background is not None):
             ymin = min(background,ymin)
         if ymin>0:
-            ymin = int(ymin*0.9 - np.sqrt(ymin))
-            if ymin%5 == 0: ymin *= 0.9
+            #ymin = int(ymin*0.9 - np.sqrt(ymin))
+            #ymin = int(ymin*0.9)
+            ymin = int(ymin)
+            #if ymin%5 == 0: ymin *= 0.9
+            if ymin%5 == 0: ymin -= 1
             if ymin <= 0: ymin = 0.01 
         else: ymin = 0.01
     else: ymin = force_ymin
     histo.SetMinimum(ymin)
+
+def scale_radio_profile(tgraph,tmin,tmax,bkg_bin=0.1):
+    bkg_bin = 0.15*tgraph.GetN()
+    x = np.empty(tgraph.GetN());
+    y = np.empty_like(x)
+    for i in xrange(len(x)):
+        xt=Double();yt=Double()
+        tgraph.GetPoint(i,xt,yt)
+        x[i] = float(xt)
+        y[i] = float(yt)
+    y -= np.sort(y)[bkg_bin]
+    y *= (tmax-tmin)/y.max()
+    y += tmin
+    for i in xrange(len(x)):
+        tgraph.SetPoint(i,x[i],y[i])
+
+def get_tgraph_content(tgraph):
+    y = np.empty(tgraph.GetN())
+    x = np.empty(tgraph.GetN())
+    for i in xrange(len(y)):
+        xt=Double();yt=Double()
+        tgraph.GetPoint(i,xt,yt)
+        y[i] = float(yt)
+        x[i] = float(xt)
+    return x,y
+
+def tgraph_min_max(tgraph):
+    x,y = get_tgraph_content(tgraph)
+    return y.min(),y.max()
+
+def get_histo_content(histo,first_half=False):
+    n = histo.GetNbinsX()
+    if first_half: n /= 2
+    y = np.empty(n)
+    yerr = np.empty(n)
+    for i in xrange(n):
+        y[i] = histo.GetBinContent(i)
+        yerr[i] = histo.GetBinError(i)
+    return y,yerr
     
 def get_txtlevel(histo, factor):
     min = histo.GetMinimum()
