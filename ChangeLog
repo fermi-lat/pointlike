@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Mar 29 16:57:10 PDT 2012
+pointlike/python/uw/utilities
+
+Modified Files:
+	root_utils.py 
+Log Message:
+Add kwargs for histogram line width.
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Mar 29 15:48:21 PDT 2012
 pointlike/python/uw/pulsar
 
