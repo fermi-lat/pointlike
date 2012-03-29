@@ -82,19 +82,20 @@ def initialization(batch=True, font=default_font):
     
 def SetHistoAxis( hist, x_title="", x_title_size=0, x_title_offset=0, x_label_size=0, 
                   y_title="", y_title_size = 0, y_title_offset=0, y_label_size=0,
-                  font=default_font, color='black' ):
+                  font=default_font, color='black', line_width=1 ):
     
     if color is 'black': kcolor = kBlack
     elif color is 'white': kcolor = kWhite
     elif color is 'red': kcolor = kRed+1
-    elif color is 'blue': kcolor = kBlue+1
+    #elif color is 'blue': kcolor = kBlue+1
+    elif color is 'blue': kcolor = kBlue
     elif color is 'green': kcolor = kGreen+2
     elif color is 'gray': kcolor = kGray+2
     elif color is 'orange': kcolor = kOrange+3
     elif color is 'yellow': kcolor = kYellow
     else: print "Warning: color %s is not implemented!"; kcolor = kBlack
         
-    hist.SetLineWidth(1)
+    hist.SetLineWidth(line_width)
     hist.SetLineColor(kcolor)
 
     hist.GetXaxis().SetTitle(x_title)
