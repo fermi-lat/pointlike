@@ -647,7 +647,7 @@ class PulsarLightCurve:
     def plot_lightcurve( self, nbands=1, xdim=550, ydim=200, background=None, zero_sup=False,
                          inset=None, reg=None, color='black', outfile=None,
                          xtitle='Pulse Phase', ytitle='Counts/bin', substitute=True,
-                         template=None,period=None,font=133,outascii=None):
+                         template=None,period=None,font=133,outascii=None,line_width=1):
         
         '''ROOT function to plot gamma-ray phaseograms + (radio,x-ray)
         ===========   ======================================================
@@ -688,6 +688,7 @@ class PulsarLightCurve:
         if nbands == 1:
             OffsetX, OffsetY, BottomMarginDefault = 1.1, 1.05, 0.11
         elif nbands == 2:
+            #OffsetX, OffsetY, BottomMarginDefault = 1.6, 1.6, 0.12
             OffsetX, OffsetY, BottomMarginDefault = 1.6, 1.6, 0.12
             ylow, ystep = 0.52, 1
         elif nbands == 3:
@@ -727,19 +728,13 @@ class PulsarLightCurve:
 
             pad[which].cd()
                     
-            if which+1 == nbands: root.SetHistoAxis(phaseogram[which],xtitle,TextSize,OffsetX,LabelSize,ytitle,TextSize,OffsetY,LabelSize,color=color,font=font)
-            else: root.SetHistoAxis(phaseogram[which],"",0,0,0,ytitle,TextSize,OffsetY,LabelSize,color=color,font=font)
+            x1,x2,x3,x4 = [("",0,0,0),(xtitle,TextSize,OffsetX,LabelSize)][which+1==nbands]
+            root.SetHistoAxis(phaseogram[which],x1,x2,x3,x4,ytitle,TextSize,OffsetY,LabelSize,color=color,font=font,line_width=line_width)
 
             # zero suppress
             if zero_sup: root.zero_suppress(phaseogram[which],background=background[which])
 
             # draw histogram
-            #if which==0:
-            phaseogram[which].SetLineColor(4)
-            phaseogram[which].SetLineWidth(2)
-            #phaseogram[0].GetYaxis().SetAxisColor(4)
-            #phaseogram[0].GetYaxis().SetLineColor(4)
-            #pad[0].GetXaxis().SetLineColor(4)
             phaseogram[which].Draw("HIST E")
 
             # overlap highlighted region
@@ -819,15 +814,16 @@ class PulsarLightCurve:
                 histo, ytitle, comment = prof   # get the profile
 
                 if (nbands == 1 or not substitute) and i == 0:
-                    pad[0].cd()
+                    pad[i].cd()
                     overlay = TPad("overlay","",0,0,1,1)
                     overlay.SetBottomMargin(0)
                 
-                    if nbands == 1:
-                        overlay.SetBottomMargin(BottomMarginDefault)
+                    for j in xrange(len(pad)):
+                        if nbands == 1:
+                            overlay.SetBottomMargin(BottomMarginDefault)
                         overlay.SetRightMargin(RightMarginDefault)
-                        pad[0].SetRightMargin(RightMarginDefault)
-                        pad[0].SetTicky(0)
+                        pad[j].SetRightMargin(RightMarginDefault)
+                        pad[j].SetTicky(0)
 
                     overlay.SetTopMargin(TopMarginDefault)
                     overlay.SetFillStyle(0); overlay.SetFrameFillStyle(0)
@@ -848,7 +844,8 @@ class PulsarLightCurve:
                     if len(comment) != 0: ytitle += " (" + comment + ")"
                     axis = TGaxis(xmax,ymin,xmax,ymax,ymin,ymax,510,"+L")
                     axis.SetLineColor(kRed); axis.SetLabelColor(kRed)
-                    if nbands == 1: root.DrawAxis(axis,ytitle,TextSize,OffsetY,LabelSize,font=font)
+                    #if nbands == 1: root.DrawAxis(axis,ytitle,TextSize,OffsetY,LabelSize,font=font)
+                    root.DrawAxis(axis,ytitle,TextSize,OffsetY,LabelSize,font=font)
                 else:
                     n = -(i+1)
                     BM, TM = pad[n].GetBottomMargin(), pad[n].GetTopMargin()
@@ -859,7 +856,7 @@ class PulsarLightCurve:
                 if histo.__class__.__name__ == 'TGraph':
                     if nbands == 1 or (not substitute):
                         histo.SetLineColor(2)
-                        histo.SetLineWidth(2)
+                        histo.SetLineWidth(line_width)
                         histo.Draw("lp")
                     else:
                         histo.Draw("al"); text.DrawText(0.1,histo.GetHistogram().GetMaximum()*0.85,comment)
