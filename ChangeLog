@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Mar 29 15:17:38 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	radio_profile.py 
+Log Message:
+Refinements to phase shift calculation.
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Mar 29 15:17:14 PDT 2012
 pointlike/python/uw/pulsar
 
