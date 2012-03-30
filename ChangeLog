@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Mar 29 18:00:04 PDT 2012
+pointlike/python/uw/utilities
+
+Modified Files:
+	root_utils.py 
+Log Message:
+Encapsulate color mapping.
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Mar 29 17:53:42 PDT 2012
 pointlike/python/uw/pulsar
 
