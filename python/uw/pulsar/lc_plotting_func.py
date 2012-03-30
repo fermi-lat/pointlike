@@ -647,7 +647,7 @@ class PulsarLightCurve:
     def plot_lightcurve( self, nbands=1, xdim=550, ydim=200, background=None, zero_sup=False,
                          inset=None, reg=None, color='black', outfile=None,
                          xtitle='Pulse Phase', ytitle='Counts/bin', substitute=True,
-                         template=None,period=None,font=133,outascii=None,line_width=1):
+                         template=None,template_color='black',period=None,font=133,outascii=None,line_width=1):
         
         '''ROOT function to plot gamma-ray phaseograms + (radio,x-ray)
         ===========   ======================================================
@@ -686,10 +686,11 @@ class PulsarLightCurve:
         BottomMarginDefault, TopMarginDefault, RightMarginDefault = 0.12, 0.02, 0.1
                         
         if nbands == 1:
-            OffsetX, OffsetY, BottomMarginDefault = 1.1, 1.05, 0.11
+            #OffsetX, OffsetY, BottomMarginDefault = 1.1, 1.05, 0.11
+            OffsetX, OffsetY, BottomMarginDefault = 1.1, 0.75, 0.11
         elif nbands == 2:
             #OffsetX, OffsetY, BottomMarginDefault = 1.6, 1.6, 0.12
-            OffsetX, OffsetY, BottomMarginDefault = 1.6, 1.6, 0.12
+            OffsetX, OffsetY, BottomMarginDefault = 1.6, 1.1, 0.12
             ylow, ystep = 0.52, 1
         elif nbands == 3:
             OffsetX, OffsetY, BottomMarginDefault = 2.2, 2.1, 0.13
@@ -736,6 +737,15 @@ class PulsarLightCurve:
 
             # draw histogram
             phaseogram[which].Draw("HIST E")
+
+            """
+            # make x-axis have same color as hist
+            xmin, xmax = self.binmin, self.binmax
+            ymin, ymax = phaseogram[which].GetMinimum(), phaseogram[which].GetMaximum()
+            axis = TGaxis(xmin,ymin,xmin,ymax,ymin,ymax,510,"+R")
+            axis.SetLineColor(root.map_color(color)); axis.SetLabelColor(root.map_color(color))
+            root.DrawAxis(axis,xtitle,TextSize,OffsetX,LabelSize,font=font)
+            """
 
             # overlap highlighted region
             if reg is not None and which == 0:
@@ -830,7 +840,7 @@ class PulsarLightCurve:
                     overlay.Draw(""); overlay.cd()
                     
                     xmin, xmax = self.binmin, self.binmax
-                    ymin, ymax = histo.GetHistogram().GetMinimum()*0.8, histo.GetHistogram().GetMaximum()
+                    ymin, ymax = histo.GetHistogram().GetMinimum(), histo.GetHistogram().GetMaximum()
                     if background is not None:
                         ymin,ymax = root.tgraph_min_max(histo)
                         ymax *= 1.1 # typical peak is at 1
@@ -843,9 +853,9 @@ class PulsarLightCurve:
                     
                     if len(comment) != 0: ytitle += " (" + comment + ")"
                     axis = TGaxis(xmax,ymin,xmax,ymax,ymin,ymax,510,"+L")
-                    axis.SetLineColor(kRed); axis.SetLabelColor(kRed)
+                    axis.SetLineColor(root.map_color(template_color)); axis.SetLabelColor(root.map_color(template_color))
                     #if nbands == 1: root.DrawAxis(axis,ytitle,TextSize,OffsetY,LabelSize,font=font)
-                    root.DrawAxis(axis,ytitle,TextSize,OffsetY,LabelSize,font=font)
+                    root.DrawAxis(axis,ytitle,TextSize,OffsetY+0.05,LabelSize,font=font)
                 else:
                     n = -(i+1)
                     BM, TM = pad[n].GetBottomMargin(), pad[n].GetTopMargin()
