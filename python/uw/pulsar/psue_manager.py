@@ -291,6 +291,13 @@ class PSUEAnalysis():
 
             # copy the ft1 file to the local directory
             if self.batch: copy(ft1file,self.outdir_local)
+
+            # regenerate gtmktime-processed file if it already exists
+            ft1file_gtis = join(self.outdir,basename(self.ft1file_gtis))
+            if isfile(ft1file_gtis):
+                filter = "DATA_QUAL==1 && LAT_CONFIG==1 && ABS(ROCK_ANGLE)<52"
+                GtApp('gtmktime').run(evfile=ft1file,outfile=ft1file_gtis,scfile=self.ft2file,filter=filter,roicut='no',chatter=4)
+                if self.batch: copy(ft1file_gtis,self.outdir_local)
                 
     def SearchPulsation(self):
         '''Run SearchPulsation (Philippe macro)'''
@@ -343,6 +350,14 @@ class PSUEAnalysis():
         #   initiatilize the PulsarLightCurve object
         # ==============================================
         plc = plot.PulsarLightCurve(ft1file,psrname=self.psrname,radius=self.lc_radius,emin=self.emin,emax=self.emax)
+
+        # default energy bands
+        plc.set_energy_range(0,1e2,1e5)
+        plc.set_energy_range(1,3e3,1e5)
+        plc.set_energy_range(2,1e3,3e3)
+        plc.set_energy_range(3,3e2,1e3)
+        plc.set_energy_range(4,1e2,3e2)
+        plc.set_energy_range(-1,1e4,1e5)
 
         if not weight:  # counts 
             plc.psfcut=True
@@ -401,88 +416,103 @@ class PSUEAnalysis():
         else: self.PSUEoutfile.set('HTEST',['%.1f'%sig,'sig'])
 
         # =========== FIT PULSE PROFILE =============
-        lct = None; # used for logic later
+        best_template = None # "forward declaration"
         if (peakShape is not None) and (peakPos is not None):
             
-            import uw.pulsar.lcprimitives as lp; reload(lp)
-            import uw.pulsar.lcfitters as lf; reload(lf)
+            import uw.pulsar.lcprimitives as lp
+            import uw.pulsar.lcfitters as lf
+            import uw.pulsar.lctemplate as lt
 
-            loglike = -1
-            consts = [lp.LCGaussian,lp.LCLorentzian,lp.LCGaussian2,lp.LCLorentzian2]
+            loglike = -np.inf
+            #consts = [lp.LCGaussian,lp.LCLorentzian,lp.LCGaussian2,lp.LCLorentzian2]
+            consts = [lp.LCGaussian,lp.LCGaussian2,lp.LCLorentzian,lp.LCLorentzian2]
 
-            try:
-                m_name = self.PSUEoutfile.get('PEAK1')
+            # use previous peak shape if available
+            """
+            m_name = self.PSUEoutfile.get('PEAK1')
+            if m_name is not None:
                 if m_name == 'Gaussian': consts = [lp.LCGaussian]
                 elif m_name == 'Lorentzian': consts = [lp.LCLorentzian]
                 elif m_name == 'Gaussian2': consts = [lp.LCGaussian2]
                 elif m_name == 'Lorentzian2': consts = [lp.LCLorentzian2]
                 else: print "Error. Unknown model!"
-            except KeyError:
-                pass
+            """
+            # use seed values for initial Gaussian fit
+            npeaks = 0
+            prims = []
+            norms = [0.9/len(peakShape)]*len(peakShape)
+            const = consts[0]
+            for (shape,pos) in zip(peakShape,peakPos):
+                prim = const()
+                if shape == 'P':
+                    # normalization, width (standard dev), position
+                    prim.p[:3] = [0.03,pos]
+                    #norms.append(0.9/len(peakShape))
+                    twoside = len(prim.p) > 2
+                    if twoside:
+                        prim.p[1:] = [0.03,pos]
+                        prim.free[1] = False
+                        prim.lock_widths = True
+                    prim.peak = True # definition
+                    prims += [prim]
+                    npeaks += 1
+                elif shape == 'B':
+                    prims += [lp.LCGaussian(p=[0.2,pos])]
+                    prims[-1].peak = False
+                    #norms.append(0.3)
+                else:
+                    print "Do not recognize the shape!"; continue
 
             for const in consts:
-                npeaks = 0 
-                prims  = []
                 dummy  = const()
                 twoside = len(dummy.p) > 3
+                # replace initial gaussian shapes with proper ones
+                for iprim,prim in enumerate(prims):
+                    if prim.peak:
+                        prims[iprim] = lp.convert_primitive(prim,ptype=const)
+                        prims[iprim].peak = True
+                    else:
+                        # make a copy of the bridge component
+                        prims[iprim] = lp.LCGaussian(p=prim.p.copy())
+                        prims[iprim].peak = False
                 print 'Fitting with %s'%(dummy.name)
 
-                # for i, (shape,pos) in enumerate(zip(peakShape,peakPos)):
-                for (shape,pos) in zip(peakShape,peakPos):
-                    prim = const()
-                    if shape == 'P':
-                        # normalization, width (standard dev), position
-                        prim.p[:3] = [0.3/len(peakShape),0.03,pos]
-                        twoside = len(prim.p) > 3
-                        if twoside:
-                            prim.p[2:] = [0.03,pos]
-                            prim.free[2] = False
-                            prim.lock_widths = True
-                        prims += [prim]
-                        npeaks += 1
-                    elif shape == 'B':
-                        prims += [lp.LCGaussian(p=[0.3,0.2,pos])]
-                    else:
-                        print "Do not recognize the shape!"; continue
-                        
-                lct = lf.LCTemplate(prims)
-                #if len(consts)==1:
-                #    pfile = join(self.outdir_local,'%s_profile.pickle'%(self.psrname))
-                #    if isfile(pfile):
-                #        print 'Using pickle file for template.'
-                #        lct = cPickle.load(file(pfile))['lct']
-                #        prims = lct.primitives
-                # now, do a maximum likelihood fit for the parameters
-                binned_bins = 100 if (H < 1000) else 200
+                lct = lt.LCTemplate(prims[:],norms[:]) # shallow copy
+                binned_bins = 512 # perhaps overkill
                 lcf = lf.LCFitter(lct,phases,weights,binned_bins=binned_bins)
-                unbinned = len(weights)<5000
+                #unbinned = len(weights)<20000
+                unbinned = False
                 if not unbinned:
                     print 'We are using binned likelihood with %d bins.'%(binned_bins)
                 else:
                     print 'We are using unbinned likelihood.'
                 t1 = time.time()
-                lcf.fit(quick_fit_first=True,unbinned=unbinned)
+                print 'Initial values'
+                print lcf
+                lcf.fit(quick_fit_first=False,unbinned=unbinned,estimate_errors=False)
                 if twoside:
                     for prim in prims: prim.free[2] = True
-                #lcf.fit(unbinned=unbinned); print lcf
-                lcf.fit(quick_fit_first=True,unbinned=unbinned); print lcf
+                lcf.fit(quick_fit_first=False,unbinned=unbinned,estimate_errors=True)
+                print 'Fitted values'
+                print lcf
                 t2 = time.time()
                 print 'Required %ds for light curve fitting.'%(t2-t1)
 
                 def primitive_string(prim,postfix=''):
                     l = prim.get_location(error=True)
                     loc = ['%.4f'%l[0],'%.4f'%l[1]]
-                    w = prim.get_width(error=True,fwhm=True,twosided=True)
+                    w = prim.get_width(error=True,hwhm=True,right=False)
                     w_l = ['%.4f'%w[0],'%.4f'%w[1]]
-                    w_r = w_l
-                    if len(w) > 2:
-                        w_l = ['%.4f'%w[2],'%.4f'%w[3]]
-                    return ( ['%s_%s'%(x,postfix) for x in ['LOC','FWHM_L','FWHM_R']],
+                    w = prim.get_width(error=True,hwhm=True,right=True)
+                    w_r = ['%.4f'%w[0],'%.4f'%w[1]]
+                    return ( ['%s_%s'%(x,postfix) for x in ['LOC','HWHM_L','HWHM_R']],
                              [loc, w_l, w_r] )
             
-                if (loglike < lcf.ll) or loglike==-1: # always write at least one model
-                    if not np.isnan(lcf.ll):
-                        loglike = lcf.ll
+                if (loglike < lcf.ll) or (loglike==-np.inf): # always write at least one model
+                    norms[:] = lcf.template.norms()
+                    print 'Saving values for %s'%(dummy.name),loglike,lcf.ll
+                    if not np.isnan(lcf.ll): loglike = lcf.ll
+                    best_template = lcf.template
                     self.PSUEoutfile.set('N_PEAKS','%0.f'%npeaks)
 
                     it_peak=1
@@ -533,15 +563,20 @@ class PSUEAnalysis():
                     cPickle.dump(outdata,outfile)
                     outfile.close()
 
-        plc.plot_lightcurve(nbands=6, background=bkg, zero_sup=True,
-            substitute=True, color='black', reg=reg, template=lct,
+        print 'Here there be odd stuff.'
+        print best_template
+        nbands = 5
+        plc.plot_lightcurve(nbands=nbands, background=bkg, zero_sup=True,
+            substitute=False, color='black', reg=reg, template=best_template,
             outfile=pulse_profile,
-            period=self.period)
+            period=self.period,inset=1,suppress_template_axis=True,
+            htest=H)
 
-        plc.plot_lightcurve(nbands=6, background=bkg, zero_sup=True,
-            substitute=True, color='black', reg=reg, template=lct,
+        plc.plot_lightcurve(nbands=nbands, background=bkg, zero_sup=True,
+            substitute=False, color='black', reg=reg, template=best_template,
             outfile=pulse_profile.replace('.eps','.png'),
-            period=self.period)
+            period=self.period,inset=1,suppress_template_axis=True,
+            htest=H)
 
     def PointlikeSpectralAnalysis( self, free_roi=5, phase_range=None, phname="", plot=False, **kwargs):
         '''Perform a full spectral analysis using pointlike
@@ -767,6 +802,7 @@ class PSUEAnalysis():
         '''Add the weights into a FT1 file from a source model.
         =============    ===============================================
         keyword          description
+            if isfile(ft1file_gtis
         =============    ===============================================
         fit_emin         Minimum energy to fit (MeV)         [100]
         fit_emax         Maximum energy to fit (MeV)         [100000]
