@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Apr  2 15:17:03 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	parfiles.py 
+Log Message:
+Modified is_msp method to catch 1823-3021A.
+
+    *
+------------------------------------------------------------
 User: kerrm  Sat Mar 31 17:34:33 PDT 2012
 pointlike/python/uw/pulsar
 
