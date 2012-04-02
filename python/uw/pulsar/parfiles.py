@@ -117,6 +117,9 @@ class ParFile(dict):
         return np.any(['WAVE' in key for key in self.keys()])
 
     def is_msp(self,maxp=0.03,maxpdot=1e-18):
+        # hard cut on period to catch energetic msps
+        if self.p() < 0.018: return True
+        # otherwise, restrict to lower rectangle of P/Pdot space
         return (self.p() < maxp) and (self.pdot() < maxpdot) and (not self.has_waves())
 
     def get_time_cuts(self):
