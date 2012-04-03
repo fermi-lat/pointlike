@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.63 2012/03/25 07:51:13 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.64 2012/03/27 16:41:34 lande Exp $
 
    author: Matthew Kerr
 """
@@ -1136,7 +1136,16 @@ def writeXML(stacks,filename, title='source_library'):
     f.write('\n</source_library>')
     f.close()
 
-def writeROI(roi,filename,strict=False,convert_extended=False,expand_env_vars=False):
+def write_sources(point_sources, diffuse_sources, filename, strict=False,convert_extended=False,expand_env_vars=False):
+    source_xml = [unparse_point_sources(point_sources, strict=strict)]
+    if len(diffuse_sources)>0:
+        source_xml.append(unparse_diffuse_sources(diffuse_sources,
+                                                  convert_extended=convert_extended,
+                                                  expand_env_vars=expand_env_vars,
+                                                  filename=filename))
+    writeXML(source_xml,filename)
+
+def writeROI(roi,*args, **kwargs):
     """ Out the contents of an ROIAnalysis source model
         to a gtlike XML file.
 
@@ -1158,13 +1167,7 @@ def writeROI(roi,filename,strict=False,convert_extended=False,expand_env_vars=Fa
         sources. There really isn't a good way in pointlike to have
         diffuse sources mantain a memory of environment varaibles in their
         pathname, but this would be a nice addition in the future. """
-    source_xml = [unparse_point_sources(roi.psm.point_sources, strict=strict)]
-    if len(roi.dsm.diffuse_sources)>0:
-        source_xml.append(unparse_diffuse_sources(roi.dsm.diffuse_sources,
-                                                  convert_extended=convert_extended,
-                                                  expand_env_vars=expand_env_vars,
-                                                  filename=filename))
-    writeXML(source_xml,filename)
+    write_sources(roi.psm.point_sources, roi.dsm.diffuse_sources, *args, **kwargs)
 
 
 if __name__ == "__main__":
