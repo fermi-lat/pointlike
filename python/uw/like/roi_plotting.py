@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.85 2012/03/15 01:07:58 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.86 2012/03/15 04:11:15 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -1566,7 +1566,7 @@ class ROISignificance(ROIPlotter):
 class ROISmoothedModel(object):
     """ Plot (on the left) the diffuse subtracted smoothed counts and
         (on the right) the diffuse subtrcted smoothed model predicted
-        counts Useful to see if your model (qualitativly) looks like
+        counts. Useful to see if your model (qualitativly) looks like
         the right source. """
 
     defaults = (
