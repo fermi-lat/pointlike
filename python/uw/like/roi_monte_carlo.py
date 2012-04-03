@@ -2,17 +2,18 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.48 2012/03/20 21:17:57 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.49 2012/03/22 22:54:09 lande Exp $
 
 author: Joshua Lande
 """
 import os
+from os.path import join, expandvars
 import re
 import types
 from textwrap import dedent
 import shutil
 import collections
-from tempfile import mkdtemp
+from tempfile import mkdtemp,NamedTemporaryFile
 from GtApp import GtApp
 
 import pyfits
@@ -192,12 +193,10 @@ class DiffuseShrinker(FitsShrinker):
             A simple test that creates a shrunk file and shows that the pixes are 0 far away
             from the center
             
-                >>> from os.path import expandvars
                 >>> galname=expandvars('$GLAST_EXT/diffuseModels/v0r0/gll_iem_v02.fit')
                 >>> diff=pyfits.open(galname)
                 >>> shrinker = DiffuseShrinker(diff, skydir=SkyDir(55,60, SkyDir.GALACTIC), radius=10, emin=1e3, emax=1e5)
                 >>> shrinker.shrink()
-                >>> from tempfile import NamedTemporaryFile
                 >>> tempfile = NamedTemporaryFile()
                 >>> diff.writeto(tempfile.name)
                 >>> cut = DiffuseFunction(tempfile.name)
@@ -297,12 +296,13 @@ class MonteCarlo(object):
             ('quiet',          False, " Surpress output."),
             ('mc_energy',      False, " Use MC Energy"),
             ('gtifile',         None, " Make the simulated data have only the same GTIs as the GTIs in this file (typically an ft1 file or ltcube)."),
-            ('diffuse_pad',     10.0,  " How many area outside ROI should the diffuse emission be simulated to account for energy dispersion."),
-            ('roi_pad',          5.0,  " Include counts from this far ouside maxROI in the ft1 file to account for ragged edge effect in pointlike."),
-            ('energy_pad',       2.0,  """ Lower energy of simluated photons is emin/energy_bad and 
+            ('diffuse_pad',     10.0, " How many area outside ROI should the diffuse emission be simulated to account for energy dispersion."),
+            ('roi_pad',          5.0, " Include counts from this far ouside maxROI in the ft1 file to account for ragged edge effect in pointlike."),
+            ('energy_pad',       2.0, """ Lower energy of simluated photons is emin/energy_bad and 
                                           upper energy of simulated photos is energy_pad*emax.
                                           This allows for energy dispersion effects to be 
                                           naturally accounted for in the monte carlos simulation. """),
+            ('zmax',            None, "Apply a gtselect zenith angle cut with gtselect to the simulated ft1 files."),
     )
 
     @staticmethod
@@ -350,6 +350,9 @@ class MonteCarlo(object):
                                                    (%s were acutally specified)""" % len(self.ft2)))
             self.ft2=self.ft2[0]
 
+        self.ft1 = expandvars(self.ft1)
+        self.ft2 = expandvars(self.ft2)
+
         if os.path.exists(self.ft1):
             raise Exception("Unable to run MC simulation because file %s already exists." % self.ft1)
 
@@ -367,23 +370,28 @@ class MonteCarlo(object):
 
             if self.tstop - self.tstart < 1: raise Exception("tstart and tstop must describe a real range.")
 
-        if self.use_existing_ft2: self.set_time_from_ft2()
+        if self.use_existing_ft2: 
+            self.tstart, self.tstop = self.get_time_from_ft2(self.ft2)
 
         if self.use_existing_ft2:
-            if not self.gtifile: 
+            if self.gtifile: 
+                self.gtifile = expandvars(self.gtifile)
+            else:
                 print "Since an already existing ft2 file is set, it is strongly recommended that you specify a file with the desired GTIs (typically the ft1 or ltcube file."
         else:
             if self.gtifile:
-                print "gtifile can only be set for existing ft2 files."
+                raise Exception("gtifile can only be set for existing ft2 files.")
 
-    def set_time_from_ft2(self):
+    @staticmethod
+    def get_time_from_ft2(ft2):
         # Note, get the start & stop times from the actual
         # data instead of the fits header
         # See https://jira.slac.stanford.edu/browse/OBS-18
-        ft2 = pyfits.open(self.ft2)
-        self.tstart = ft2['SC_DATA'].data.field('START')[0]
-        self.tstop = ft2['SC_DATA'].data.field('STOP')[-1]
+        ft2 = pyfits.open(ft2)
+        tstart = ft2['SC_DATA'].data.field('START')[0]
+        tstop = ft2['SC_DATA'].data.field('STOP')[-1]
         ft2.close()
+        return tstart, tstop
 
     def larger_energy_range(self):
         """ Get an energy range larger then the desired simulated points
@@ -786,7 +794,6 @@ class MonteCarlo(object):
             should be 8.423. The value we find is a little bit different, but
             not by very much (8.409):
 
-                >>> from os.path import expandvars
                 >>> filename = expandvars('$GLAST_EXT/diffuseModels/v1r0/gll_iem_v02_P6_V11_DIFFUSE.fit')
                 >>> np.allclose(MonteCarlo.diffuse_integrator(filename), 8.423, rtol=1e-2)
                 True
@@ -1001,10 +1008,10 @@ class MonteCarlo(object):
         temp.write('\n'.join(src))
         temp.close()
 
-    def gtmktime_from_file(self, evfile, scfile, outfile, gtifile):
+    @staticmethod
+    def gtmktime_from_file(evfile, scfile, outfile, gtifile):
         """ Apply the GTIs from gtifile to the file evfile. """
 
-        if not self.quiet: print 'Applying GTIs from file %s to simulated data' % gtifile
 
         # Note, add on gtis to 'evfile'. This is a big distructive,
         # but should cause no real harm.
@@ -1085,21 +1092,34 @@ class MonteCarlo(object):
         if dry_run: return
 
         ft1=os.path.join(self.savedir,'sim_events_0000.fits')
+        ft2=os.path.join(self.savedir,'sim_scData_0000.fits')
 
         if not os.path.exists(ft1): raise NoSimulatedPhotons()
 
-        if self.use_existing_ft2:
+        if self.zmax is not None:
+            print 'Applying zenith angle cut (zmax=%s) to simulated data' % self.zmax
+            old_ft1 = ft1
+            ft1 = join(self.savedir, 'ft1_zcut.fits')
 
-            if self.gtifile is not None:
-                self.gtmktime_from_file(evfile=ft1,scfile=self.ft2,outfile=self.ft1, gtifile=self.gtifile)
-            else:
-                shutil.move(ft1,self.ft1)
+            app=GtApp('gtselect')
+            app.run(infile=old_ft1,
+                    outfile=ft1,
+                    ra=ra, dec=dec, rad=radius,
+                    tmin=0, tmax=0,
+                    emin=self.emin, 
+                    emax=self.emax,
+                    zmax=self.zmax)
 
-        else:
-            ft2=os.path.join(self.savedir,'sim_scData_0000.fits')
+        if self.gtifile is not None:
+            if not self.quiet: print 'Applying GTIs from file %s to simulated data' % self.gtifile
+            old_ft1=ft1
+            ft1 = join(self.savedir, 'ft1_gticut.fits')
+            MonteCarlo.gtmktime_from_file(evfile=old_ft1,scfile=self.ft2,outfile=ft1, gtifile=self.gtifile)
+
+        shutil.move(ft1,self.ft1)
+
+        if not self.use_existing_ft2:
             shutil.move(ft2,self.ft2)
-
-            shutil.move(ft1,self.ft1)
 
     def __del__(self):
         """ Remove folder with simulation stuff. """
@@ -1179,6 +1199,7 @@ class SpectralAnalysisMC(SpectralAnalysis):
                 maxROI=self.maxROI,
                 mc_energy=self.mc_energy,
                 quiet=self.quiet,
+                zmax=self.zenithcut,
                 savedir=self.savedir)
 
             monte_carlo.simulate()
