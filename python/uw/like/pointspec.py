@@ -1,11 +1,11 @@
 """  A module to provide simple and standard access to pointlike fitting and spectral analysis.  The
      relevant parameters are fully described in the docstring of the constructor of the SpectralAnalysis
      class.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.43 2011/11/08 20:50:46 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec.py,v 1.44 2011/11/16 04:27:03 lande Exp $
 
     author: Matthew Kerr
 """
-version='$Revision: 1.43 $'.split()[1]
+version='$Revision: 1.44 $'.split()[1]
 import types
 import os
 from os.path import join
@@ -22,6 +22,7 @@ from pointspec_helpers import *
 from roi_managers import ROIPointSourceManager,ROIBackgroundManager,ROIDiffuseManager
 from roi_analysis import ROIAnalysis
 from roi_extended import ExtendedSource,ROIExtendedModel
+from . roi_diffuse import DiffuseSource
 from uw.utilities.fitstools import merge_bpd,merge_lt
 from uw.utilities.fermitime import MET,utc_to_met
 from uw.utilities.utils import get_data
@@ -302,6 +303,14 @@ class SpectralAnalysis(object):
 
         # set the PSF for the ROI center (important that this happens first)
         self.set_psf_weights(roi_dir)
+
+        for ps in point_sources: 
+            if not isinstance(ps, PointSource):
+                raise Exception("Source %s is not a point source" % ps.name)
+        if diffuse_sources is not None:
+            for ds in diffuse_sources:
+                if not isinstance(ds, DiffuseSource):
+                    raise Exception("Source %s is not a diffuse source" % ds.name)
 
         # process point sources
         if catalog_mapper is None:
