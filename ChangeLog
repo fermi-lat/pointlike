@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Apr  4 14:48:49 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+cleanup pyfits_to_sky function
+    *
+------------------------------------------------------------
 User: kerrm  Mon Apr  2 15:17:03 PDT 2012
 pointlike/python/uw/pulsar
 
