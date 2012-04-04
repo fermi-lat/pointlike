@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Wed Apr  4 15:43:06 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Fix the freeze() method for CompositeModel.
+
+    *
+------------------------------------------------------------
 User: lande  Wed Apr  4 14:48:49 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
