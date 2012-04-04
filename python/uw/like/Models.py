@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.87 2012/03/18 20:01:44 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.88 2012/03/28 19:48:32 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -1028,6 +1028,15 @@ class CompositeModel(Model):
         pars = self._p
         pars[self.free] = new_vals.astype('f')
         self._p = pars
+
+    def freeze(self,i,freeze=True):
+        free = self.free
+        j=0
+        while i>=len(self.models[j]._p):
+            i-=len(self.models[j]._p)
+            j+=1
+        self.models[j].free[i] = not freeze
+
  
 
 class FrontBackConstant(CompositeModel):
