@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.50 2012/04/03 02:28:11 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.51 2012/04/04 21:48:49 lande Exp $
 
 author: Joshua Lande
 """
@@ -149,6 +149,25 @@ class FitsShrinker(object):
         else:
             raise Exception("Algorithm only defiend for length 2 or 3 arrays.")
 
+    @staticmethod
+    def is_header_galactic(header):
+        ctype1=header['CTYPE1']
+        ctype2=header['CTYPE2']
+        if 'GLON' in ctype1 and 'GLAT' in ctype2: 
+            return True
+        if 'RA' in ctype1 and 'DEC' in ctype2:
+            return False
+        raise Exception("Unrecognized ctype1=%s and ctype2=%s" % (ctype1,ctype2))
+
+    @staticmethod
+    def convert_header_2d(header):
+        # Create a 2 dimensinoal header from the 3d header
+        header_2d = header.copy()
+        header_2d['NAXIS'] = 2
+        for i in ['NAXIS3', 'CRVAL3', 'CDELT3', 'CRPIX3', 'CTYPE3', 'CUNIT3']:
+            del header_2d[i]
+        return header_2d
+
 
     @staticmethod
     def smaller_range(values, min, max):
@@ -241,24 +260,6 @@ class DiffuseShrinker(FitsShrinker):
         self.emin = emin
         self.emax = emax
 
-    @staticmethod
-    def convert_header_2d(header):
-        # Create a 2 dimensinoal header from the 3d header
-        header_2d = header.copy()
-        header_2d['NAXIS'] = 2
-        for i in ['NAXIS3', 'CRVAL3', 'CDELT3', 'CRPIX3', 'CTYPE3', 'CUNIT3']:
-            del header_2d[i]
-        return header_2d
-
-    @staticmethod
-    def is_header_galactic(header):
-        ctype1=header['CTYPE1']
-        ctype2=header['CTYPE2']
-        if 'GLON' in ctype1 and 'GLAT' in ctype2: 
-            return True
-        if 'RA' in ctype1 and 'DEC' in ctype2:
-            return False
-        raise Exception("Unrecognized ctype1=%s and ctype2=%s" % (ctype1,ctype2))
 
     def shrink(self):
 
@@ -283,11 +284,11 @@ class DiffuseShrinker(FitsShrinker):
         header['NAXIS3'] = layers
         header['CRVAL3'] = d['ENERGIES'].data.field('ENERGY')[0]
 
-        header_2d = DiffuseShrinker.convert_header_2d(header)
+        header_2d = FitsShrinker.convert_header_2d(header)
 
         lons,lats = FitsShrinker.pyfits_to_sky(header_2d)
 
-        galactic=DiffuseShrinker.is_header_galactic(header_2d)
+        galactic=FitsShrinker.is_header_galactic(header_2d)
         inside_cut = FitsShrinker.rad_cut(lons,lats,galactic,self.skydir, self.radius)
 
         for i in range(data.shape[0]):
@@ -753,7 +754,7 @@ class MonteCarlo(object):
 
         if not self.quiet: print '.. Making isotropic model for %s' % ds.name
         allsky=MonteCarlo.make_isotropic_fits(skydir=self.roi_dir, radius=radius)
-        allsky.writeto(spatial_file)
+        allsky.writeto(spatial_file, clobber=True)
 
 
         # flux is ph/cm^2/sr to ph/m^2
@@ -946,7 +947,7 @@ class MonteCarlo(object):
             shrinker = DiffuseShrinker(allsky, skydir=self.roi_dir, radius=radius, emin=mc_emin, emax=mc_emax)
             shrinker.shrink()
             filename = os.path.basename(allsky_filename).replace('.fits','_cut.fits')
-            allsky.writeto(filename)
+            allsky.writeto(filename, clobber=True)
 
 
         else:
