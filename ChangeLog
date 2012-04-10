@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Apr 10 13:12:10 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_extended.py 
+Log Message:
+make smodel a @property so there are not duplicate references to it
+    *
+------------------------------------------------------------
 TAG
 Tag name: pointlike-07-07-48, operation: add
 Package: pointlike
