@@ -2,7 +2,7 @@
 
     This code all derives from objects in roi_diffuse.py
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.70 2011/08/17 19:19:21 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_extended.py,v 1.71 2012/02/24 18:33:36 lande Exp $
 
     author: Joshua Lande
 """
@@ -55,6 +55,15 @@ class ExtendedSource(DiffuseSource):
 
     @property
     def skydir(self): return self.spatial_model.center
+
+    @property
+    def smodel(self): 
+        """ No reason to keep a model & smodel. """
+        return self.model
+
+    @smodel.setter
+    def smodel(self, value): self.model = value
+
 
     def __str__(self,indent=''):
         return indent+('\n'+indent).join(['\n',
