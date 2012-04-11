@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.88 2012/03/28 19:48:32 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.89 2012/04/04 22:43:06 wallacee Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -15,8 +15,6 @@ from abc import abstractmethod
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
 from scipy import roots
-
-#===============================================================================================#
 
 class DefaultModelValues(object):
     """ Static methods and class members to assign default values to the spectral models. """
@@ -72,8 +70,6 @@ class DefaultModelValues(object):
         the_model.free = np.asarray([True] * npar)
         the_model._p = np.asarray(the_model._p) #redundant now
         
-
-#===============================================================================================#
 
 class Model(object):
     """ Spectral model giving dN/dE for a point source.  Default units are ph/cm^2/s/MeV.
@@ -406,7 +402,6 @@ class Model(object):
         """Return a quick calculation for photon flux for models where it is analytically available."""
         return self.i_flux(emin=emin,emax=emax)
 
-
     def expected(self,emin,emax,exposure,skydir,event_class=-1,weighting_function=None):
         """ Calculate the expected counts under a particular model.
             Include an optional weighting_function to calculate, e.g., the average PSF
@@ -441,6 +436,9 @@ class Model(object):
             hi.setp(i,hi._p[i] + errs[i],internal=True)
             lo.setp(i,lo._p[i] - errs[i],internal=True)
             derivs  += [(hi.i_flux(*args) - lo.i_flux(*args))/(2*errs[i])]
+            # reset parameters
+            hi.setp(i,hi._p[i] - errs[i],internal=True)
+            lo.setp(i,lo._p[i] + errs[i],internal=True)
 
         return np.asarray(derivs)
         
@@ -462,8 +460,6 @@ class Model(object):
         assert self.old_flux!=-np.inf, 'attempt to unzero non-zeroed source %d ' % which
         self.setp(0, self.old_flux, internal=True)
         self.free = self.old_free.copy()
-
-#===============================================================================================#
 
 class PowerLaw(Model):
     """ Implement a power law.  See constructor docstring for further keyword arguments.
@@ -538,7 +534,6 @@ class PowerLaw(Model):
     @property
     def eflux(self):
         return self.e0**2*10**self._p[0]
-#===============================================================================================#
 
 class PowerLawFlux(Model):
     """ Implement a power law.  See constructor docstring for further keyword arguments.
@@ -574,8 +569,6 @@ class PowerLawFlux(Model):
     def full_name(self):
         return '%s, emin=%.0f emax=%.0f'% (self.pretty_name,self.emin,self.emax)
 
-#===============================================================================================#
-
 class BrokenPowerLaw(Model):
     """ Implement a broken power law.  See constructor docstring for further keyword arguments.
 
@@ -598,7 +591,6 @@ class BrokenPowerLaw(Model):
         g = np.where(mask,gamma1,gamma2)
         f = n0*x**g
         return np.asarray([f/n0,f*lx*mask,f*lx*(~mask),f/e_break*g])
-#===============================================================================================#
 
 class BrokenPowerLawFlux(Model):
     """ Similar to PowerLawFlux for BrokenPowerLaw spectrum, the integral 
@@ -626,8 +618,6 @@ class BrokenPowerLawFlux(Model):
     def full_name(self):
         return '%s, emin=%.0f emax=%.0f'% (self.pretty_name,self.emin,self.emax)
 
-#===============================================================================================#
-
 class BrokenPowerLawCutoff(Model):
     """ Implement a broken power law.  See constructor docstring for further keyword arguments.
 
@@ -641,8 +631,6 @@ class BrokenPowerLawCutoff(Model):
     def __call__(self,e):
         n0,gamma1,gamma2,e_break,cutoff=10**self._p
         return n0*np.where( e < e_break, (e_break/e)**gamma1, (e_break/e)**gamma2 )*np.exp(-e/cutoff)
-
-#===============================================================================================#
 
 class SmoothBrokenPowerLaw(Model):
     """ Implement a smoothed broken power law. This is similar to a broken 
@@ -693,8 +681,6 @@ class SmoothBrokenPowerLaw(Model):
     def full_name(self):
         return '%s, e0=%.0f, beta=%.3g'% (self.pretty_name,self.e0,self.beta)
 
-#===============================================================================================#
-
 class DoublePowerLaw(Model):
     """ Spectral model is the sum of two indepedendent power laws.  E.g., the Crab Nebula = IC + synch.
 
@@ -708,8 +694,6 @@ class DoublePowerLaw(Model):
     def __call__(self,e):
         n0,gamma1,gamma2,ratio=10**self._p
         return n0*((self.e0/e)**gamma1 + ratio*(self.e0/e)**gamma2)
-
-#===============================================================================================#
 
 class DoublePowerLawCutoff(Model):
     """ Spectral model is the sum of two indepedendent power laws, one with a cutoff.  E.g., a pulsar + PWnp.
@@ -725,10 +709,6 @@ class DoublePowerLawCutoff(Model):
     def __call__(self,e):
         n0,gamma1,gamma2,cutoff,ratio=10**self._p
         return n0*((self.e0/e)**gamma1*np.exp(-e/cutoff) + ratio*(self.e0/e)**gamma2)
-
-
-#===============================================================================================#
-
 
 class LogParabola(Model):
     """ Implement a log parabola (for blazars.)  See constructor docstring for further keyword arguments.
@@ -819,7 +799,6 @@ class LogParabola(Model):
     def eflux(self):
         n0, alpha,beta, ebreak = 10**self._p
         return n0 * ebreak**2
-#===============================================================================================#
 
 class ExpCutoff(Model):
     """ Implement a power law with exponential cutoff.  See constructor docstring for further keyword arguments.
@@ -863,8 +842,6 @@ class ExpCutoff(Model):
         n0 = 10**self._p[0]
         return n0 * self.e0**2
     
-#===============================================================================================#
-
 class ExpCutoffPlusPL(Model):
     """ Implement a power law with exponential cutoff + an additional power law.  A la pulsar + PWnp.
 
@@ -880,8 +857,6 @@ class ExpCutoffPlusPL(Model):
         n0_1,gamma_1,cutoff_1,n0_2,gamma_2 = 10**self._p
         return n0_1*(self.e0/e)**gamma_1*np.exp(-e/cutoff_1) + n0_2*(self.e0/e)**gamma_2
 
-#===============================================================================================#
-
 class AllCutoff(Model):
     """ Implement an exponential cutoff.  This for the case when cutoff too low to constrain index.
         See constructor docstring for further keyword arguments.
@@ -895,8 +870,6 @@ class AllCutoff(Model):
         n0,cutoff=10**self._p
         if cutoff < 0: return 0
         return n0*np.exp(-e/cutoff)
-
-#===============================================================================================#
 
 class PLSuperExpCutoff(Model):
     """Implement a power law with hyper-exponential cutoff.  See constructor docstring for further keyword arguments.
@@ -934,7 +907,6 @@ class PLSuperExpCutoff(Model):
         gamma = 10** self._p[1]
         self._p[0] += gamma * np.log10(self.e0/e0p)
         self.e0 = float(e0p) 
-#===============================================================================================#
 
 class CompositeModel(Model):
     """ A model which joins other models. Subclasses must
@@ -1037,8 +1009,6 @@ class CompositeModel(Model):
             j+=1
         self.models[j].free[i] = not freeze
 
- 
-
 class FrontBackConstant(CompositeModel):
     """ Composite model that is either/or, for front or back
         select which constant based on value (0 or 1) of ct
@@ -1059,8 +1029,6 @@ class FrontBackConstant(CompositeModel):
     def gradient(self, e):
         return np.hstack([(1-self.ct)*self.models[0].gradient(e).T, 
                           self.ct*self.models[1].gradient(e).T])
-
-#===============================================================================================#
 
 class SumModel(CompositeModel):
     """ Model is the sum of other models. 
@@ -1093,8 +1061,6 @@ class SumModel(CompositeModel):
         change = np.log10(flux/self.i_flux(*args,**kwargs))
         for m in self.models: m._p[0] += change
 
-#===============================================================================================#
-
 class ProductModel(CompositeModel):
     """ Model is the product of other Models.
 
@@ -1123,8 +1089,6 @@ class ProductModel(CompositeModel):
         """ Assume all models have a gradient! """
         return np.append([i.gradient(e)/i.__call__(e) for i in self.models])*self.__call__(e)
 
-#===============================================================================================#
-
 class Constant(Model):
     def __call__(self,e):
         return np.ones_like(e)*10**self._p[0]
@@ -1135,8 +1099,6 @@ class Constant(Model):
     def gradient(self,e):
         return  np.array([np.ones_like(e)])
 
-#===============================================================================================#
-
 class InterpConstants(Model):
 
     def __call__(self,e):
@@ -1145,8 +1107,6 @@ class InterpConstants(Model):
 
     def set_flux(self,flux,**kwargs):
         raise NotImplementedError("No way to set flux for InterpConstants spectral model")
-
-#===============================================================================================#
 
 class FileFunction(Model):
     r""" Defines a spectral model from an ascii file with the same
@@ -1348,7 +1308,6 @@ class DMFitFunction(Model):
         """ Return energy in MeV. This could be vectorized. """
         return DMFitFunction.call_pylike_spectrum(self.dmf, e)
         
-
 class SmoothDoubleBrokenPowerLaw(Model):
     """ Spectral Model Taken to be the same as:
 
@@ -1379,8 +1338,6 @@ class SmoothDoubleBrokenPowerLaw(Model):
 
     def full_name(self):
         return '%s, scale=%.0f, beta12=%.3g, beta23=%.3g'% (self.pretty_name,self.Scale,self.Beta12,self.Beta23)
-
-
 
 def convert_exp_cutoff(model):
     """ this function is need for XML parsing. """
