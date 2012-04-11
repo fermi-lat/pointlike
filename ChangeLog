@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Wed Apr 11 13:03:36 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Fixed a bug in __flux_derivs__ where parmaeters were not being reset.
+
+    *
+------------------------------------------------------------
 User: lande  Tue Apr 10 13:12:10 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
