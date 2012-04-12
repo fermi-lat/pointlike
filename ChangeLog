@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Apr 12 15:33:05 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	stats.py 
+Log Message:
+Add method for determining "best" harmonic.
+
+    *
+------------------------------------------------------------
 User: kerrm  Thu Apr 12 14:12:27 PDT 2012
 pointlike/python/uw/pulsar
 
