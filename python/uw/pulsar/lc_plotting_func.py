@@ -15,7 +15,7 @@ from uw.utilities.coords import sepangle_deg
 import uw.utilities.fits_utils as utilfits
 import uw.utilities.root_utils as root
 from uw.utilities.phasetools import weighted_h_statistic, h_statistic, z2m
-from uw.pulsar.stats import sf_hm as h_sig, hm, hmw, sigma_trials, sig2sigma,h2sig
+from uw.pulsar.stats import sf_hm as h_sig, hm, hmw, sigma_trials, sig2sigma,h2sig, best_m
 from uw.pulsar.radio_profile import Profile
 
 # ===========================
@@ -282,10 +282,10 @@ class PulsarLightCurve:
         '''Returns an array of times in MJD'''
         return np.asarray(self.pulse_phase[which][:,2][0])
 
-    def load_profile(self, profile, ytitle="Radio Flux (au)", comment="", histo=False,phase_shift=0):
+    def load_profile(self, profile, ytitle="Radio Flux (au)", comment="", histo=False,phase_shift=0,bin_goal=256):
         profile = Profile(profile)
         #phases,align_shift,delta_corr = profile.get_amplitudes()
-        phases,align_shift = profile.get_amplitudes(phase_shift=phase_shift)
+        phases,align_shift = profile.get_amplitudes(phase_shift=phase_shift,bin_goal=bin_goal)
         phlen = len(phases)
 
         if histo:
@@ -392,6 +392,9 @@ class PulsarLightCurve:
             # set # of bins
             phases, weights, T = self.pulse_phase[0][0]
             H = hmw(phases,weights)
+            bm = best_m(phases,weights,m=100)
+            mbins = 2*bm
+            print 'Mbins estimate: %d'%mbins
             sig = h2sig(H)
             nbins = 25
             if H > 100:
@@ -644,10 +647,12 @@ class PulsarLightCurve:
         counts=np.asarray([p.GetBinContent(i) for i in range(p.GetNbinsX()+2)])
         return phase,counts
 
-    def plot_lightcurve( self, nbands=1, xdim=550, ydim=200, background=None, zero_sup=False,
-                         inset=None, reg=None, color='black', outfile=None,
-                         xtitle='Pulse Phase', ytitle='Counts/bin', substitute=True,
-                         template=None,template_color='black',period=None,font=133,outascii=None,line_width=1):
+    def plot_lightcurve( self, nbands=1, xdim=550, ydim=200, background=None, 
+                         zero_sup=False, inset=None, reg=None, color='black', 
+                         outfile=None, xtitle='Pulse Phase', ytitle='Counts/bin', 
+                         substitute=True,template=None,template_color='black',
+                         period=None,font=133,outascii=None,line_width=1,
+                         suppress_template_axis=False,htest=None):
         
         '''ROOT function to plot gamma-ray phaseograms + (radio,x-ray)
         ===========   ======================================================
@@ -668,6 +673,7 @@ class PulsarLightCurve:
         period        display pulsar period on plot              [None]
         font          specify a plot font (default Times)        [133]
         outascii      write out the 0th phaseogram to ascii      [None]
+        htest         write an htest in the legend               [None]
         ===========   ====================================================== '''
         profile = self.profile
         phaseogram = self.phaseogram
@@ -769,7 +775,9 @@ class PulsarLightCurve:
             if which==0:
                 name_comment = self.psrname if period is None else \
                                '%s, P=%.4fs'%(self.psrname,period)
-                text.DrawText(self.binmax-0.5,ylevel,name_comment)
+                text.DrawText(self.binmax-0.8,ylevel,name_comment)
+                if htest is not None:
+                    text.DrawText(self.binmax-1.2,ylevel,'H=%d'%(round(htest)))
                 if self.renormalize:
                     text.SetTextColor(2)
                     text.DrawText(self.binmax-1.5,ylevel,'RENORMALIZED')
@@ -829,6 +837,7 @@ class PulsarLightCurve:
                     overlay.SetBottomMargin(0)
                 
                     for j in xrange(len(pad)):
+                        if suppress_template_axis: break
                         if nbands == 1:
                             overlay.SetBottomMargin(BottomMarginDefault)
                         overlay.SetRightMargin(RightMarginDefault)
@@ -854,8 +863,8 @@ class PulsarLightCurve:
                     if len(comment) != 0: ytitle += " (" + comment + ")"
                     axis = TGaxis(xmax,ymin,xmax,ymax,ymin,ymax,510,"+L")
                     axis.SetLineColor(root.map_color(template_color)); axis.SetLabelColor(root.map_color(template_color))
-                    #if nbands == 1: root.DrawAxis(axis,ytitle,TextSize,OffsetY,LabelSize,font=font)
-                    root.DrawAxis(axis,ytitle,TextSize,OffsetY+0.05,LabelSize,font=font)
+                    if not suppress_template_axis: 
+                        root.DrawAxis(axis,ytitle,TextSize,OffsetY+0.05,LabelSize,font=font)
                 else:
                     n = -(i+1)
                     BM, TM = pad[n].GetBottomMargin(), pad[n].GetTopMargin()
@@ -866,6 +875,7 @@ class PulsarLightCurve:
                 if histo.__class__.__name__ == 'TGraph':
                     if nbands == 1 or (not substitute):
                         histo.SetLineColor(2)
+                        histo.SetMarkerColor(2)
                         histo.SetLineWidth(line_width)
                         histo.Draw("lp")
                     else:
