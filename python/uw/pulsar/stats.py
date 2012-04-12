@@ -2,7 +2,7 @@
 A module collecting various routines for calculating pulsation test
 test statistics and helper functions.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/stats.py,v 1.4 2011/07/08 23:05:48 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/stats.py,v 1.5 2012/02/12 23:26:13 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 """
@@ -148,6 +148,9 @@ def sf_z2m(ts,m=2):
     from scipy.stats import chi2
     return chi2.sf(ts,2*m)
 
+def best_m(phases,weights=None,m=100):
+    z = z2mw(phases,np.ones_like(phases) if weights is None else weights,m=m) 
+    return np.arange(1,m+1)[np.argmax(z-4*np.arange(0,m))]
 
 def em_four(phases,m=2,weights=None):
     """ Return the empirical Fourier coefficients up to the mth harmonic.
