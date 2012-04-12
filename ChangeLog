@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Thu Apr 12 14:12:27 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lc_plotting_func.py 
+Log Message:
+Add a few capabilities (e.g. H-test in the legend).
+
+    *
+------------------------------------------------------------
 User: kerrm  Wed Apr 11 13:03:36 PDT 2012
 pointlike/python/uw/like
 
