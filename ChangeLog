@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Apr 16 11:05:38 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+nogtifile flag (could be useful in edge cases)
+    *
+------------------------------------------------------------
 User: kerrm  Thu Apr 12 15:33:05 PDT 2012
 pointlike/python/uw/pulsar
 
