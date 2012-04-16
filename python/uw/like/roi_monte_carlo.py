@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.51 2012/04/04 21:48:49 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.52 2012/04/06 15:40:13 lande Exp $
 
 author: Joshua Lande
 """
@@ -520,7 +520,7 @@ class MonteCarlo(object):
 
         if isinstance(sm,SpatialMap):
             print 'WARNING: gtobssim can only use plate-carree projection fits files!'
-            spatial_filename=sm.file
+            spatial_filename=expandvars(sm.file)
         else:
             spatial_filename='%s_spatial_template_%s.fits' % (MonteCarlo.strip(es.name),sm.name)
             # Allegedly simulated templates must only be in the plate-carree projection
@@ -1176,6 +1176,7 @@ class SpectralAnalysisMC(SpectralAnalysis):
 
     defaults = SpectralAnalysis.defaults + (
         'keywords for gtobssim simulation',
+        ('nogtifile',False,'...'),
     )
 
     defaults += tuple(get_row(MonteCarlo.defaults,i) for i in ['seed', 'ltfrac', 'tempbase', 'savedir'])
@@ -1213,7 +1214,7 @@ class SpectralAnalysisMC(SpectralAnalysis):
         if not os.path.exists(self.dataspec.ft1files[0]):
             monte_carlo=MonteCarlo(
                 ft1=self.dataspec.ft1files, 
-                gtifile = self.dataspec.ltcube if os.path.exists(self.dataspec.ltcube) else None,
+                gtifile = self.dataspec.ltcube if (os.path.exists(self.dataspec.ltcube) and not self.nogtifile) else None,
                 sources = point_sources + diffuse_sources,
                 seed=self.seed, 
                 tempbase=self.tempbase,
