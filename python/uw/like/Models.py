@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.89 2012/04/04 22:43:06 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.90 2012/04/11 20:03:36 kerrm Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -314,7 +314,7 @@ class Model(object):
         try:
             func    = self if e_weight == 0 else lambda e: self(e)*e**e_weight
             units  = 1.60218e-6**(e_weight) if cgs else 1. #extra factor from integral!
-            epsabs = func(emin)*1e-4 # needed since epsrel does not seem to work
+            epsabs = min(func(emin),func(emax))*1e-10 # needed since epsrel does not seem to work
             flux    =  units*quad(func,emin,emax,epsabs=epsabs,full_output=True)[0]
             if error:
                 # will silently ignore 'free' parameters without errors
