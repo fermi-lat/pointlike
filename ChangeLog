@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Apr 16 17:18:43 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+improve tolerance in integration to avoid possible negative fluxes
+    *
+------------------------------------------------------------
 User: lande  Mon Apr 16 11:05:38 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
