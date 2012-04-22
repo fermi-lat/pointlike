@@ -1,7 +1,7 @@
 /** @file Data.cxx
 @brief implementation of Data
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.72 2011/11/24 02:08:35 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/src/Data.cxx,v 1.73 2012/01/06 02:41:56 wallacee Exp $
 
 */
 
@@ -100,7 +100,9 @@ bool Data::use_mc_energy(){return s_use_mc_energy;}
 void Data::set_use_mc_energy(bool use_it){s_use_mc_energy = use_it;}
 
 skymaps::Gti Data::s_gti_mask;   // default constructor is empty
-void Data::set_Gti_mask(skymaps::Gti gti){ s_gti_mask = gti;}
+void Data::set_Gti_mask(skymaps::Gti gti){
+    s_gti_mask = gti;
+}
 
 // default alignment object
 pointlike::Alignment* Data::s_alignment=new Alignment();
@@ -299,8 +301,8 @@ void Data::add(const std::string& inputFile, int event_type, int source_id)
     }else {
 
         EventList photons(inputFile, source_id>-1, s_use_mc_energy);
-        //AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id, s_gti_mask, photons.pass7());
-        AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id, m_data->gti(), photons.pass7());
+        AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id, s_gti_mask, photons.pass7());
+        //AddPhoton adder(*m_data, event_type, m_start, m_stop, source_id, m_data->gti(), photons.pass7());
 
         AddPhoton added =std::for_each(photons.begin(), photons.end(), adder );
         log() 
@@ -380,8 +382,9 @@ Data::Data(const std::string& inputFile, int event_type, double tstart, double t
 , m_log(0)
 {
     if(!irf.empty()) skymaps::IParams::init(irf);
-    add(inputFile, event_type, source_id);
-    addgti(inputFile);
+    if( addgti(inputFile)){
+    	add(inputFile, event_type, source_id);
+    }
 }
 
 Data::Data(std::vector<std::string> inputfiles, int event_type, double tstart, double tstop, int source_id, std::string ft2file, std::string irf)
