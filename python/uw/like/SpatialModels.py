@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.97 2012/03/25 07:41:43 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.98 2012/03/28 19:48:53 lande Exp $
 
    author: Joshua Lande
 
@@ -748,6 +748,12 @@ class RadiallySymmetricModel(SpatialModel):
         pdf = self.at_r_in_deg(radius)
         return radius,pdf
 
+    def template_npix(self):
+        """ For outputting radial profile with sufficient accuracy. Rapidly varying spatial
+            models should implement their own version of this function."""
+        npix = 150
+        return npix
+
     def save_profile(self, filename, *args, **kwarsg):
         """ Save out 1 1D text file with the profile.
 
@@ -784,8 +790,6 @@ class RadiallySymmetricModel(SpatialModel):
             """
         radius,pdf = self.approximate_profile(*args, **kwarsg)
         open(filename,'w').write('\n'.join(['%g\t%g' % (i,j) for i,j in zip(radius,pdf)]))
-
-
 
 class PseudoSpatialModel(SpatialModel):
     """ PseudoSpatialModel are point-like SpatialModels.
@@ -1249,19 +1253,11 @@ class InterpProfile(RadiallySymmetricModel):
 
         # perform integral in radians b/c the PDF must integrate
         # over solid angle (in units of steradians) to 1
-        integral = quad(integrand, 0, r_in_radians[-1],full_output=True)[0]
-
+        integral = quad(integrand, 0, r_in_radians[-1], full_output=True, epsabs=0)[0]
         normed_pdf /= integral
+        normed_interp = lambda r: interp(np.radians(r))/integral
 
-        # redo normalized interpolation in degrees
-        if self.kind == 'log':
-            log_interp = interp1d(self.r_in_degrees,np.log10(normed_pdf),
-                                  kind='linear',bounds_error=False,fill_value=-np.inf)
-            interp = lambda r: 10**(log_interp(r))
-        else:
-            interp = interp1d(self.r_in_degrees,normed_pdf,kind=self.kind,bounds_error=False,fill_value=0)   
-            
-        return interp, normed_pdf
+        return normed_interp, normed_pdf
 
     def get_pdf(self):
         """ Overloaded by subclasses """
@@ -1270,7 +1266,7 @@ class InterpProfile(RadiallySymmetricModel):
     def quantile(self,quant, quad_kwargs=None):
         """ Calculate the quantiles of a pdf. Assumes flat space. """
 
-        if quad_kwargs==None: quad_kwargs=dict(epsabs=1e-10, epsrel=1e-10)
+        if quad_kwargs==None: quad_kwargs=dict(epsabs=0., epsrel=0.)
 
         integrand = lambda r: self.at_r_in_deg(r)*2*np.pi*np.radians(r)
         quantile=Quantile(integrand, 0, self.effective_edge(), 
@@ -1294,6 +1290,8 @@ class InterpProfile(RadiallySymmetricModel):
         radius=np.logspace(np.log10(1e-6*edge),np.log10(edge),numpoints)
         pdf = self.at_r_in_deg(radius)
         return radius,pdf
+
+    def template_npix(self): return 1000
 
     def numeric_r68(self): return self.quantile(0.68)
     def numeric_r99(self): return self.quantile(0.99)
@@ -1817,7 +1815,7 @@ def convert_spatial_map(spatial,filename):
     if isinstance(spatial,SpatialMap):
         return spatial
 
-    spatial.save_template(filename)
+    spatial.save_template(filename,spatial.template_npix())
     new_map = SpatialMap(file=filename)
     return new_map
 
