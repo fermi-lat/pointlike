@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Thu Apr 26 16:18:17 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Change absolute tolerance in the InterpProfile normalization
+    *
+------------------------------------------------------------
 User: lande  Thu Apr 26 13:35:26 PDT 2012
 ScienceTools-scons/pointlike/python/uw/darkmatter
 
