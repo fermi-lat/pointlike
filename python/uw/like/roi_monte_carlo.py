@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.52 2012/04/06 15:40:13 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.53 2012/04/16 18:05:38 lande Exp $
 
 author: Joshua Lande
 """
@@ -411,6 +411,10 @@ class MonteCarlo(object):
         else:
             if self.gtifile:
                 raise Exception("gtifile can only be set for existing ft2 files.")
+
+        if self.maxROI is not None and self.roi_dir is None or \
+           self.maxROI is None and self.roi_dir is not None:
+            raise Exception("maxROI and roi_dir must both be set.")
 
     @staticmethod
     def get_time_from_ft2(ft2):
