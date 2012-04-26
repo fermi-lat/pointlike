@@ -1,6 +1,6 @@
 """A set dark matter spatial models for pointlike analyses
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/dark_matter.py,v 1.4 2012/02/03 23:58:38 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spatial.py,v 1.1 2012/02/09 02:11:28 kadrlica Exp $
 
     author: Joshua Lande, Alex Drlica-Wagner
 """
@@ -133,7 +133,7 @@ class PingNFW(RadiallySymmetricModel):
 
     default_p = [0.1]
     param_names = ['Sigma']
-    limits = [[SMALL_ANALYTIC_EXTENSION,9]] # constrain r68 to 9 degrees.
+    default_limits = [[SMALL_ANALYTIC_EXTENSION,9]] # constrain r68 to 9 degrees.
     steps = [0.04]
     log = [True]
 
