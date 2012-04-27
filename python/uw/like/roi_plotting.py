@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.86 2012/03/15 04:11:15 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.87 2012/04/03 02:28:27 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -641,6 +641,7 @@ class ROISlice(object):
             ('black_and_white',False, """ If True, make the plot black and 
                                           white (better for printing and
                                           publishing)                       """),
+            ('legend',         True,  """ Show legend. """),
     )
 
     @staticmethod
@@ -780,7 +781,7 @@ class ROISlice(object):
                  else 'g',dashes=[5,3,1,3]),
         ]
 
-    def plotx(self,axes,legend=True):
+    def plotx(self,axes,legend=False):
 
         ax = axes
 
@@ -870,7 +871,7 @@ class ROISlice(object):
 
         self.ax1, self.ax2 = ax1, ax2
 
-        self.plotx(ax1)
+        self.plotx(ax1, legend=self.legend)
         self.ploty(ax2)
 
         if self.title is None:
