@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Thu Apr 26 19:19:12 PDT 2012
+pointlike/src
+
+Modified Files:
+	EventList.cxx 
+Log Message:
+Fix an oops in the last change.
+
+    *
+------------------------------------------------------------
 User: wallacee  Thu Apr 26 19:04:31 PDT 2012
 pointlike/src
 
