@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: wallacee  Thu Apr 26 19:04:31 PDT 2012
+pointlike/src
+
+Modified Files:
+	EventList.cxx 
+Log Message:
+Fix the pass7 event class selection to handle Monte Carlo.
+
+    *
+------------------------------------------------------------
 User: kadrlica  Thu Apr 26 16:18:17 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
