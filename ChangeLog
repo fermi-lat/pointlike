@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Apr 30 13:32:50 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_monte_carlo.py 
+Log Message:
+allow diffuse_sources=None
+    *
+------------------------------------------------------------
 User: lande  Mon Apr 30 13:32:32 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
