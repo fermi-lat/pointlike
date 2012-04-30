@@ -1,4 +1,16 @@
 ------------------------------------------------------------
+User: wallacee  Mon Apr 30 16:53:24 PDT 2012
+pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Change the default upper limit of integration for Model.i_flux from np.inf
+to 1e5, which works for LogParabola models (as inf does not), and more
+accurately represents the expected domain of validity for spectral models of LAT sources.
+
+    *
+------------------------------------------------------------
 User: lande  Mon Apr 30 13:33:21 PDT 2012
 ScienceTools-scons/pointlike/python/uw/darkmatter
 
