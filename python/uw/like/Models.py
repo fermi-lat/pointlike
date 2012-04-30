@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.90 2012/04/11 20:03:36 kerrm Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.91 2012/04/17 00:18:42 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -288,7 +288,7 @@ class Model(object):
             
     def __repr__(self): return self.__str__()
 
-    def i_flux(self,emin=100,emax=np.inf,e_weight=0,cgs=False,error=False,two_sided=False, quiet=False):
+    def i_flux(self,emin=100,emax=1e5,e_weight=0,cgs=False,error=False,two_sided=False, quiet=False):
         """ Return the integral flux, \int_{emin}^{emax} dE E^{e_weight} dN/dE.
             e_weight = 0 gives the photon flux (ph cm^-2 s^-1)
             e_weight = 1 gives the energy flux (MeV cm^-2 s^-1) (see kwargs)
@@ -299,7 +299,7 @@ class Model(object):
                 Keyword      Description
                 =========    =======================================================
                 emin         [100] lower bound in MeV
-                emax         [np.inf] upper bound in MeV
+                emax         [1e5] upper bound in MeV
                 e_weight     [0] energy power by which to scale dN/dE
                 cgs          [False] if True, energy in ergs, else in MeV
                 error        [False] if True, return value is a tuple with flux and estimated error
@@ -398,7 +398,7 @@ class Model(object):
 
     def copy(self): return copy.deepcopy(self)
 
-    def fast_iflux(self,emin=100,emax=1e6):
+    def fast_iflux(self,emin=100,emax=1e5):
         """Return a quick calculation for photon flux for models where it is analytically available."""
         return self.i_flux(emin=emin,emax=emax)
 
