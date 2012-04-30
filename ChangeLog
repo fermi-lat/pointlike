@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Mon Apr 30 13:23:19 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Revamp of InterpProfile to increase speed
+    *
+------------------------------------------------------------
 User: lande  Fri Apr 27 15:32:05 PDT 2012
 pointlike/cmt
 
