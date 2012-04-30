@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.98 2012/03/28 19:48:53 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.99 2012/04/26 23:18:17 kadrlica Exp $
 
    author: Joshua Lande
 
@@ -13,7 +13,7 @@ from abc import abstractmethod
 import numpy as np
 
 from scipy import vectorize
-from scipy.interpolate import interp1d, griddata
+from scipy.interpolate import interp1d, griddata, UnivariateSpline, SmoothBivariateSpline, LinearNDInterpolator
 from scipy.integrate import quad
 from scipy.optimize import fmin
 
@@ -1160,7 +1160,7 @@ class Ring(RadiallySymmetricModel):
 class InterpProfile(RadiallySymmetricModel):
 
     default_p, param_names, default_limits, log, steps = [], [], [], [], []
-
+    kind_dict = {'linear':1,'cubic':3}
     def __init__(self, r_in_degrees, pdf, kind='linear', **kwargs):
         """ Define a spatial model from a 1D interpolation of pdf 
             as a function of r_in_degrees.
@@ -1204,84 +1204,68 @@ class InterpProfile(RadiallySymmetricModel):
                 >>> print numeric_gauss.log
                 [False False]
         """
-        self.r_in_degrees, self.pdf = r_in_degrees, pdf
-        self.kind = kind
+        self.r_in_degrees, self.pdf, self.kind = r_in_degrees, pdf, kind
+        self.r_in_radians = np.radians(self.r_in_degrees)
+
         super(InterpProfile,self).__init__(**kwargs)
 
         if self.r_in_degrees.shape != self.pdf.shape or len(self.r_in_degrees) != len(self.pdf):
             raise Exception("Size and shape of input arrays must be the same.")
         if self.r_in_degrees[0] != 0:
-            raise Exception("Profile must start at r=0")
+            pass
+            #raise Exception("Profile must start at r=0")
 
     def cache(self):
-        """ Previously there was a bug in this function. 
-            
-                >>> x = np.linspace(0,1,10)
-                >>> i = InterpProfile(r_in_degrees=x, pdf=x**2)
-                >>> print i.center.ra(), i.center.dec()
-                0.0 0.0
-                >>> i['ra'] = 10; i['dec'] = -10
-                >>> print i.center.ra(), i.center.dec()
-                10.0 -10.0
-        """
-        self.pdf = self.get_pdf()
-        self.interp, self.normed_pdf = self.setup_interp()
-
-        # Save the original scale
-        self.scalefactor = max(self.pdf)/max(self.normed_pdf)
-
-        super(InterpProfile, self).cache()
-    
-    def setup_interp(self):
-        r_in_radians = np.radians(self.r_in_degrees)
-
-        # Rescale the pdf for the integrator
-        normed_pdf = self.pdf/max(self.pdf)
+        self.setup_spline()
+        self.normalize()
+        super(InterpProfile,self).cache()
         
-        # Explicitly normalize the InterpProfile.
+    def setup_spline(self):
+        """ Create a UnivariateSpline to interpolate in 1D. """
+        # Create the 1D spline (in logspace if asked for)
         if self.kind == 'log':
-            log_interp = interp1d(r_in_radians,np.log10(normed_pdf),
-                                  kind='linear',bounds_error=False,fill_value=-np.inf)
-            interp = lambda r: 10**(log_interp(r))
+            log_spline = UnivariateSpline(self.r_in_degrees,np.log10(self.pdf),k=1,s=0)
+            spline = lambda r: 10**(log_spline(r))
         else:
-            interp = interp1d(r_in_radians,normed_pdf,kind=self.kind,bounds_error=False,fill_value=0)
+            spline = UnivariateSpline(self.r_in_degrees,self.pdf,k=self.kind_dict[self.kind],s=0)
+
+        self.spline = spline
+
+    def normalize(self):
+        # Keep track of the various scalings
+        self.scalefactor = max(self.pdf)
 
         # Note that this formula assumes that space is flat, which
         # is incorrect. But the rest of the objects in this file
         # make that assumption, so this is kept for consistency.
-        integrand = lambda r: interp(r)*2*np.pi*r
+        integrand = lambda r: self.spline(np.degrees(r))/self.scalefactor * 2*np.pi*r
 
         # perform integral in radians b/c the PDF must integrate
         # over solid angle (in units of steradians) to 1
-        integral = quad(integrand, 0, r_in_radians[-1], full_output=True, epsabs=0)[0]
-        normed_pdf /= integral
-        normed_interp = lambda r: interp(np.radians(r))/integral
+        integral = quad(integrand, 0, self.r_in_radians[-1], full_output=True, epsabs=0)[0]
 
-        return normed_interp, normed_pdf
+        self.scalefactor *= integral
 
-    def get_pdf(self):
-        """ Overloaded by subclasses """
-        return self.pdf
+    def at_r_in_deg(self,r,energy=None):
+        return self.spline(r)/self.scalefactor
+
+    def extension(self):
+        return self.get_parameters(absolute=True)[2]
 
     def quantile(self,quant, quad_kwargs=None):
         """ Calculate the quantiles of a pdf. Assumes flat space. """
 
-        if quad_kwargs==None: quad_kwargs=dict(epsabs=0., epsrel=0.)
+        if quad_kwargs==None: quad_kwargs=dict(epsabs=0., epsrel=1e-10)
 
         integrand = lambda r: self.at_r_in_deg(r)*2*np.pi*np.radians(r)
-        quantile=Quantile(integrand, 0, self.effective_edge(), 
+        quantile=Quantile(integrand, 0, self.r_in_degrees[-1], 
                           quad_kwargs=quad_kwargs)
         return quantile(quant)
 
-    def at_r_in_deg(self,r,energy=None):
-        v=self.interp(r)
-        return np.where(v>=0,v,0)
-
-    def has_edge(self): return True
-
     def effective_edge(self,energy=None):
         """ Interpolation returns 0 outside of rmax, so no need to integrate past it. """
-        return self.r_in_degrees[-1]
+        return self.quantile(.99)
+        #return self.r_in_degrees[-1]
 
     def approximate_profile(self,numpoints=200):
         """ For outputting radial profile with sufficient accuracy. Rapidly varying spatial
@@ -1332,31 +1316,34 @@ class InterpProfile2D(InterpProfile):
                 >>> sigma_test = 1.032
                 >>> gauss.setp('sigma',sigma_test)
                 >>> numeric_gauss.setp('sigma',sigma_test)
-                >>> np.allclose(gauss.at_r_in_deg(r_test), 
-                ...             numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-5)
+                >>> np.allclose(gauss.at_r_in_deg(r_test),
+                ...             numeric_gauss.at_r_in_deg(r_test),rtol=1e-5,atol=1e-4)
                 True
         """
-        self.pdf2d, self.sigmas = pdf2d, sigmas
+        self.pdf2d, self.sigmas, self.kind = pdf2d, sigmas, kind
         self.default_limits = [[min(self.sigmas),max(self.sigmas)]]
-        super(InterpProfile2D,self).__init__(r_in_degrees=r_in_degrees,pdf=None,kind=kind,**kwargs)
+        self.r_in_degrees,self.r_in_radians = r_in_degrees,np.radians(r_in_degrees)
+        self.setup_interp()
+        super(InterpProfile,self).__init__(**kwargs)
 
     def cache(self):
         self.sigma=self.extension()
+        self.pdf = self.interp(self.r_in_degrees,self.sigma)
         super(InterpProfile2D,self).cache()
 
-    def extension(self):
-        return self.get_parameters(absolute=True)[2]
-        
-    def get_pdf(self):
-        """ Interpolates the sigma dimension linearly in logspace """
-        sigma_array = np.ones(len(self.r_in_degrees))*self.sigma
-
+    def setup_interp(self):
+        """ Create the 2D interpolation from a table of values. 
+        This only needs to be called at initialization."""
         # Interpolate linearly in logspace
         r_mesh,sigma_mesh = np.meshgrid(self.r_in_degrees,self.sigmas)
         pts = np.array((r_mesh.ravel(),sigma_mesh.ravel())).T
         vals = np.log10(self.pdf2d.ravel())
 
-        return 10**(griddata(pts,vals,(self.r_in_degrees,sigma_array),method='linear'))
+        # Out of range, set interp to zero (log to -np.inf)
+        log_interp = LinearNDInterpolator(pts,vals,fill_value=-np.inf)
+        self.interp = lambda r,sigma: 10**(log_interp(r,sigma))
+
+        return self.interp
 
 
 class RadialProfile(InterpProfile):
