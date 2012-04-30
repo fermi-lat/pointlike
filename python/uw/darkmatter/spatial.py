@@ -1,6 +1,6 @@
 """A set dark matter spatial models for pointlike analyses
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spatial.py,v 1.1 2012/02/09 02:11:28 kadrlica Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/darkmatter/spatial.py,v 1.2 2012/04/26 20:35:26 lande Exp $
 
     author: Joshua Lande, Alex Drlica-Wagner
 """
@@ -153,8 +153,8 @@ class PingNFW(RadiallySymmetricModel):
     def at_r_in_deg(self,r,energy=None):
         return 2/(np.pi*r*self.scaled_sigma*(1+r/self.scaled_sigma)**5)
 
-    def r68(self): return NFW.x68*self.scaled_sigma
-    def r99(self): return NFW.x99*self.scaled_sigma
+    def analytic_r68(self): return NFW.x68*self.scaled_sigma
+    def analytic_r99(self): return NFW.x99*self.scaled_sigma
 
     def has_edge(self): return False
 
