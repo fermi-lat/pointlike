@@ -1,6 +1,6 @@
 """A set of classes to implement spatial models.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.99 2012/04/26 23:18:17 kadrlica Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/SpatialModels.py,v 1.100 2012/04/30 20:23:19 kadrlica Exp $
 
    author: Joshua Lande
 
@@ -90,8 +90,10 @@ class SpatialQuantile(object):
     def integrand(self, r):
         return quad(lambda theta: self.pdf(r, theta), 0, 2*np.pi, **self.quad_kwargs)[0]*r
 
-    def r68(self): return self.quantile(0.68)
-    def r99(self): return self.quantile(0.99)
+    def r68(self): return self(0.68)
+    def r99(self): return self(0.99)
+
+    def __call__(self, *args, **kwargs): return self.quantile(*args, **kwargs)
 
 
 
