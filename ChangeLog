@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Mon Apr 30 13:32:32 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+new __call__ in SpatialQuantile
+    *
+------------------------------------------------------------
 User: kadrlica  Mon Apr 30 13:23:19 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
