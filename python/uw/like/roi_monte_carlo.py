@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.53 2012/04/16 18:05:38 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.54 2012/04/26 23:08:18 lande Exp $
 
 author: Joshua Lande
 """
@@ -1215,11 +1215,16 @@ class SpectralAnalysisMC(SpectralAnalysis):
 
         assert len(self.dataspec.ft1files) == 1
 
+        if diffuse_sources is None:
+            sources = point_sources 
+        else:
+            sources = point_sources + diffuse_sources
+
         if not os.path.exists(self.dataspec.ft1files[0]):
             monte_carlo=MonteCarlo(
                 ft1=self.dataspec.ft1files, 
                 gtifile = self.dataspec.ltcube if (os.path.exists(self.dataspec.ltcube) and not self.nogtifile) else None,
-                sources = point_sources + diffuse_sources,
+                sources = sources,
                 seed=self.seed, 
                 tempbase=self.tempbase,
                 tstart=self.tstart,
