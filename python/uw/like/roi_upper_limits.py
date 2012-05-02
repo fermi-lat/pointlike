@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.18 2012/03/14 02:47:20 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.19 2012/05/02 04:41:00 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -297,7 +297,7 @@ class ExtensionUpperLimit(object):
 
     def results(self):
         return dict(extension=self.extension_limit, 
-                    spatial_model = self.spatial_model.name,
+                    spatial_model = self.spatial_model.__name__,
                     confidence=self.confidence,
                     emin=self.roi.bin_edges[0],
                     emax=self.roi.bin_edges[-1],
