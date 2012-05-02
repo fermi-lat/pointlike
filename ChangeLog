@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue May  1 21:41:00 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_upper_limits.py 
+Log Message:
+bugfix
+    *
+------------------------------------------------------------
 User: kadrlica  Tue May  1 18:47:56 PDT 2012
 pointlike/python/uw/darkmatter
 
