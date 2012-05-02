@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Tue May  1 18:47:56 PDT 2012
+pointlike/python/uw/darkmatter
+
+Modified Files:
+	spatial.py 
+Log Message:
+Call cache when shrinking model
+    *
+------------------------------------------------------------
 User: wallacee  Mon Apr 30 16:53:24 PDT 2012
 pointlike/python/uw/like
 
