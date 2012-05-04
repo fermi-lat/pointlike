@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu May  3 17:25:21 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_save.py 
+Log Message:
+save roi.extra to the file
+    *
+------------------------------------------------------------
 User: lande  Wed May  2 09:15:48 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
