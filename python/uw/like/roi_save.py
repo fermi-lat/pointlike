@@ -1,7 +1,7 @@
 """
 Module to save an ROIAnalysis object to a file and to load it back in.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_save.py,v 1.6 2011/07/10 09:10:39 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_save.py,v 1.7 2011/07/24 02:53:23 lande Exp $
 
 author: Joshua Lande
 """
@@ -45,6 +45,9 @@ def save(roi,filename):
     d['roi_dir']=self.roi_dir
     d['point_sources']=self.psm.point_sources.tolist()
     d['diffuse_sources']=self.dsm.diffuse_sources.tolist()
+
+    # allow storing extra stuff for custom analysis
+    if hasattr(roi,'extra'): d['extra'] = roi.extra
 
     if self.__dict__.has_key('qform') and \
             self.__dict__.has_key('ldir') and \
@@ -128,6 +131,9 @@ def load(filename,**kwargs):
         roi.ldir=d['localization']['ldir']
         roi.lsigma=d['localization']['lsigma']
         roi.delta_loc_logl=d['localization']['delta_loc_logl']
+
+    # load back any potential custom stuff
+    if d.has_key('extra'): roi.extra = d['extra']
 
     # just to be safe
     roi.__update_state__()
