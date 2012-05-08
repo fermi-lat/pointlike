@@ -6,7 +6,7 @@ See the docstring for usage information.
 
 This object has SymPy as a dependency.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.8 2012/01/25 04:14:01 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.9 2012/03/06 04:53:35 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -345,16 +345,46 @@ class PhaseRange(object):
             label=None
         return ret
 
-    @property
-    def phase_center(self):
+    def is_continuous(self):
+        """ Returns True if phase range is continuous
+
+                >>> PhaseRange(0,0.5).is_continuous()
+                True
+                >>> (PhaseRange(0,0.25)+PhaseRange(0.5,0.75)).is_continuous()
+                False
+        """
         tolist = self.tolist()
         if len(tolist) != 2 or \
            not isinstance(tolist[0],numbers.Real) or \
            not isinstance(tolist[1],numbers.Real):
-            raise Exception("unable to find phase center because multiple phase ranges.")
-        a,b=tolist
+            return False
+        return True
+            
+
+    @property
+    def phase_center(self):
+        if not self.is_continuous(): raise Exception("unable to find phase center because multiple phase ranges.")
+        a,b=self.tolist()
         center = (a+((b-a)%1)/2) % 1
         return center
+
+    def trim(self,fraction):
+        """ Remove a fraction from the edge of a phase range
+                
+                >>> range=PhaseRange(0,0.5)
+                >>> print range
+                [0, 0.5]
+                >>> range.trim(fraction=0.1)
+                >>> print range
+                [0.05, 0.45]
+        """
+        assert self.is_continuous()
+        lower, upper=self.tolist()
+        if upper < lower: lower += 1
+
+        phase_fraction = self.phase_fraction
+        self.range = PhaseRange(lower + fraction*phase_fraction, upper - fraction*phase_fraction).range
+
 
 
 
