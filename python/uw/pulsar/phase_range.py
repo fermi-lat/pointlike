@@ -6,7 +6,7 @@ See the docstring for usage information.
 
 This object has SymPy as a dependency.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.9 2012/03/06 04:53:35 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.10 2012/05/08 01:54:47 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -377,13 +377,18 @@ class PhaseRange(object):
                 >>> range.trim(fraction=0.1)
                 >>> print range
                 [0.05, 0.45]
+                >>> range=PhaseRange(0.95,0.45)
+                >>> range.trim(fraction=0.2)
+                >>> print range.tolist(dense=True)
+                [0.04999999999999982, 0.35]
         """
         assert self.is_continuous()
         lower, upper=self.tolist()
         if upper < lower: lower += 1
 
         phase_fraction = self.phase_fraction
-        self.range = PhaseRange(lower + fraction*phase_fraction, upper - fraction*phase_fraction).range
+        self.range = PhaseRange((lower + fraction*phase_fraction)%1,
+                                (upper - fraction*phase_fraction)%1).range
 
 
 
