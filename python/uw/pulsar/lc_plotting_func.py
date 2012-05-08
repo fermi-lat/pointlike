@@ -1025,7 +1025,7 @@ class PulsarLightCurve:
         #axis.SetLineColor(kRed); axis.SetLabelColor(kRed)
         # bug in ROOT - must fix the font to 82 instead 83
         TextSize,Offset,LabelSize = 0.04,0.22,0.03
-        root.DrawAxis(axis,"H-test statictics [#sigma]",TextSize,Offset,LabelSize,font=82)
+        root.DrawAxis(axis,"H-test statistic [#sigma]",TextSize,Offset,LabelSize,font=82)
         axis.SetLabelOffset(-0.05)
 
         # OUTPUT
