@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Wed May  9 16:17:19 PDT 2012
+pointlike/python/uw/darkmatter
+
+Modified Files:
+	spatial.py 
+Log Message:
+Bug fix in effective_edge
+    *
+------------------------------------------------------------
 User: lande  Wed May  9 12:13:01 PDT 2012
 ScienceTools-scons/pointlike/python/uw/pulsar
 
