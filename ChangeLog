@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed May  9 12:13:01 PDT 2012
+ScienceTools-scons/pointlike/python/uw/pulsar
+
+Modified Files:
+	phase_range.py 
+Log Message:
+update trim function+ new tests
+    *
+------------------------------------------------------------
 User: lande  Mon May  7 20:12:16 PDT 2012
 ScienceTools-scons/pointlike/python/uw/pulsar
 
