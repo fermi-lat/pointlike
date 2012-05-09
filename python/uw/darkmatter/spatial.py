@@ -1,6 +1,6 @@
 """A set dark matter spatial models for pointlike analyses
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/darkmatter/spatial.py,v 1.3 2012/04/30 20:33:21 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/darkmatter/spatial.py,v 1.4 2012/05/02 01:47:56 kadrlica Exp $
 
     author: Joshua Lande, Alex Drlica-Wagner
 """
@@ -45,6 +45,10 @@ class NFW(InterpProfile2D):
 
     def can_shrink(self): return True
 
+    def effective_edge(self,energy=None):
+        """ Clip at the 99% quantile """
+        return self.quantile(.99)
+
 
 class Einasto(InterpProfile2D):
     def __init__(self, file='$(INST_DIR)/pointlike/python/uw/darkmatter/jvalue_table.pkl', **kwargs):
@@ -80,6 +84,10 @@ class Einasto(InterpProfile2D):
         self.freeze('Sigma')
 
     def can_shrink(self): return True
+
+    def effective_edge(self,energy=None):
+        """ Clip at the 99% quantile """
+        return self.quantile(.99)
 
 
 class Burkert(InterpProfile2D):
@@ -117,6 +125,9 @@ class Burkert(InterpProfile2D):
 
     def can_shrink(self): return True
 
+    def effective_edge(self,energy=None):
+        """ Clip at the 99% quantile """
+        return self.quantile(.99)
 
 ### DEPRICATED: Spatial models using an approximate formulation.
 class PingNFW(RadiallySymmetricModel):
