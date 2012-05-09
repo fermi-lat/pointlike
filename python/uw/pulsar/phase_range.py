@@ -6,7 +6,7 @@ See the docstring for usage information.
 
 This object has SymPy as a dependency.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.10 2012/05/08 01:54:47 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.11 2012/05/08 03:12:16 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -14,7 +14,7 @@ author: J. Lande <joshualande@gmail.com>
 import sympy
 import numbers
 import numpy as np
-from operator import add,isNumberType
+from operator import add,isNumberType,add
 import copy
 
 class PhaseRange(object):
@@ -151,8 +151,17 @@ class PhaseRange(object):
 
             >>> print PhaseRange(0.5, 0.25).tolist(dense=False)
             [[0.0, 0.25], [0.5, 1.0]]
+
             >>> print PhaseRange(0.25, 0.75).tolist(dense=False)
             [[0.25, 0.75]]
+
+            >>> z=(PhaseRange(0.9, 0.1) + PhaseRange(.2,.3))
+            >>> z.tolist(dense=True)
+            [[0.9, 0.1], [0.2, 0.3]]
+            >>> z.tolist(dense=False)
+            [[0.0, 0.1], [0.2, 0.3], [0.9, 1.0]]
+
+
 
         Note, tolist() can be used to convert from and back to this object:
 
@@ -250,12 +259,16 @@ class PhaseRange(object):
             list representing the phase range. """
         if isinstance(obj,sympy.Union):
             # special case if range is [[0, x], [y, 1]] -> return [y, x]
-            if len(obj.args) == 2 and \
+            if len(obj.args) >=2 and \
                isinstance(obj.args[0],sympy.Interval) and \
-               isinstance(obj.args[1],sympy.Interval) and \
+               isinstance(obj.args[-1],sympy.Interval) and \
                obj.args[0].start == 0 and \
-               obj.args[1].end == 1:
-                return map(float,[obj.args[1].start,obj.args[0].end])
+               obj.args[-1].end == 1:
+                interval=map(float,[obj.args[-1].start,obj.args[0].end])
+                if len(obj.args) == 2: 
+                    return interval
+                else:
+                    return [interval] + map(PhaseRange._tolist, obj.args[1:-1])
 
             return map(PhaseRange._tolist, obj.args)
         elif isinstance(obj,sympy.Interval):
@@ -368,27 +381,49 @@ class PhaseRange(object):
         center = (a+((b-a)%1)/2) % 1
         return center
 
+    def split_ranges(self):
+        """
+            >>> a,b = (PhaseRange(0.2, 0.5) + PhaseRange(0.6, 0.8)).split_ranges()
+            >>> print a
+            [0.2, 0.5]
+            >>> print b
+            [0.6, 0.8]
+            >>> a,b = (PhaseRange(0.9, 0.1) + PhaseRange(.2,.3)).split_ranges()
+            >>> print a
+            [0, 0.1] U [0.9, 1]
+            >>> print b
+            [0.2, 0.3]
+        """
+        if self.is_continuous(): 
+            return [PhaseRange(self)]
+        else:
+            ranges = self.tolist(dense=True)
+            return [PhaseRange(*r) for r in ranges]
+
     def trim(self,fraction):
         """ Remove a fraction from the edge of a phase range
                 
                 >>> range=PhaseRange(0,0.5)
                 >>> print range
                 [0, 0.5]
-                >>> range.trim(fraction=0.1)
-                >>> print range
+                >>> print range.trim(fraction=0.1)
                 [0.05, 0.45]
                 >>> range=PhaseRange(0.95,0.45)
-                >>> range.trim(fraction=0.2)
-                >>> print range.tolist(dense=True)
-                [0.04999999999999982, 0.35]
+                >>> print range.trim(fraction=0.2)
+                [0.0499999999999998, 0.35]
+                >>> range=(PhaseRange(0,0.25) + PhaseRange(.5,.75))
+                >>> print range.trim(0.20)
+                [0.05, 0.2] U [0.55, 0.7]
         """
-        assert self.is_continuous()
-        lower, upper=self.tolist()
-        if upper < lower: lower += 1
+        if not self.is_continuous():
+            return reduce(add,[i.trim(fraction) for i in self.split_ranges()])
+        else:
+            lower, upper=self.tolist()
+            if upper < lower: lower += 1
 
-        phase_fraction = self.phase_fraction
-        self.range = PhaseRange((lower + fraction*phase_fraction)%1,
-                                (upper - fraction*phase_fraction)%1).range
+            phase_fraction = self.phase_fraction
+            return PhaseRange((lower + fraction*phase_fraction)%1,
+                              (upper - fraction*phase_fraction)%1)
 
 
 
