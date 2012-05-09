@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: kadrlica  Wed May  9 16:17:58 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	SpatialModels.py 
+Log Message:
+Moved effective_edge clipping into dark matter models
+    *
+------------------------------------------------------------
 User: kadrlica  Wed May  9 16:17:19 PDT 2012
 pointlike/python/uw/darkmatter
 
