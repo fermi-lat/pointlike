@@ -6,7 +6,7 @@ See the docstring for usage information.
 
 This object has SymPy as a dependency.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.11 2012/05/08 03:12:16 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/pulsar/phase_range.py,v 1.12 2012/05/09 19:13:01 lande Exp $
 
 author: J. Lande <joshualande@gmail.com>
 
@@ -426,6 +426,26 @@ class PhaseRange(object):
                               (upper - fraction*phase_fraction)%1)
 
 
+    def pretty_format(self, 
+                      formatter=lambda x: '%g' % x,
+                      range_symbol = ' - ',separator=', '):
+        """ Make the phase range output look nice
+
+                >>> print PhaseRange(.25,.5).pretty_format()
+                0.25 - 0.5
+
+                >>> print PhaseRange(.5,.25).pretty_format()
+                0.5 - 0.25
+
+                >>> print (PhaseRange(.25,.5) + PhaseRange(.75,1)).pretty_format()
+                0.25 - 0.5, 0.75 - 1
+        """
+        if self.is_continuous():
+            a,b=self.tolist(dense=True)
+            a,b=map(formatter,[a,b])
+            return a+range_symbol+b
+        
+        return separator.join([a.pretty_format() for a in self.split_ranges()])
 
 
 if __name__ == "__main__":
