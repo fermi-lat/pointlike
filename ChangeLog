@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Thu May 10 08:48:23 PDT 2012
+ScienceTools-scons/pointlike/python/uw/pulsar
+
+Modified Files:
+	phase_range.py 
+Log Message:
+pretty format parameter
+    *
+------------------------------------------------------------
 User: kadrlica  Wed May  9 16:17:58 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
