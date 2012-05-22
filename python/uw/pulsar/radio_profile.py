@@ -30,9 +30,26 @@ class Profile(object):
 
     def _process(self):
         """ Determine properties of profiles. """
-        #1 -- if file name ends with '.asc', it's a Nancay profile
         pfile = os.path.split(self.pfile)[-1]
-        if pfile.endswith('.asc'):
+        #0 -- special cases
+        if 'J1446-4701' in pfile:
+            # oddball parfile -- must be PKS?
+            self.ncol = 4
+            self.obs = 'PKS'
+        elif 'J0102+4839' in pfile:
+            # profile from Megan, unknown convention
+            self.ncol = 3
+            self.obs = 'GBT'
+        elif '2051-0827' in pfile:
+            # WSRT profile from Cristobal, fiducial point at center
+            self.ncol = 4
+            self.fidpt = 0.5
+        elif '1741+1351' in pfile:
+            # AO profile from Cristobal, first harmonic convention
+            self.ncol = 2
+            self._first_harmonic()
+        #1 -- if file name ends with '.asc', it's a Nancay profile
+        elif pfile.endswith('.asc'):
             self._process_nan()
         #2 -- JBO/PKS in the file name are giveaways
         elif 'JBO' in pfile:
@@ -41,13 +58,11 @@ class Profile(object):
             self._process_pks()
         #3 -- one instance of DFB2 (parkes)
         elif 'PDFB2' in pfile:
+            self.ncol = 4
             self._process_pks()
         #4 -- a Camilo/GBT style bestprof file
         elif pfile.endswith('bestprof'):
             self._process_bestprof()
-        elif 'J0102+4839' in pfile:
-            # profile from Megan, unknown convention
-            self._process_pks()
         else:
             raise ValueError('Could not discern type of %s'%pfile)
         self.fitpt = self.fidpt % 1 # just in case
@@ -60,6 +75,8 @@ class Profile(object):
             oo amplitude given by 2nd column
         """
         self.obs = 'NAN'
+        if 'J2241-5236' in self.pfile: # special case -- why?
+            self.ncol = 4; self.fidpt = 0; return
         for line in file(self.pfile):
             if 'fiducial_point' in line: break
         line = line.strip().split()[-2]
