@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon May 21 22:24:30 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	radio_profile.py 
+Log Message:
+More special cases.
+
+    *
+------------------------------------------------------------
 User: lande  Thu May 10 08:48:23 PDT 2012
 ScienceTools-scons/pointlike/python/uw/pulsar
 
