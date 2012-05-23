@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed May 23 14:01:04 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+update FileFunction object to be moduled by a Normalization
+    *
+------------------------------------------------------------
 User: falletti  Wed May 23 06:16:27 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
