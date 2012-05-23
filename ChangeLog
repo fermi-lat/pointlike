@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: falletti  Wed May 23 06:16:27 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+Fix the PLSuperExpCutoff pivot energy calculation following what Jean is doing in the pipeline. This calculation assumed that the aprameter b is set to 1.
+    *
+------------------------------------------------------------
 User: kerrm  Mon May 21 22:24:30 PDT 2012
 pointlike/python/uw/pulsar
 
