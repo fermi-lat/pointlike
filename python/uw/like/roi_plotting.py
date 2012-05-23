@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.87 2012/04/03 02:28:27 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.88 2012/04/27 23:40:03 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -435,6 +435,7 @@ class ROIDisplay(object):
             ('modelfile',        None,  'Fits file to save the model map data.'),
             ('extra_overlay',    None, 'Function which can be used to overlay stuff on the plot.'),
             ('overlay_kwargs', dict(), 'kwargs passed into overlay_region'),
+            ('title',            None),
     )
 
 
@@ -582,6 +583,7 @@ class ROIDisplay(object):
             ROISmoothedSources.overlay_region(self.roi,ax,self.h, **self.overlay_kwargs)
             if self.extra_overlay is not None: self.extra_overlay(ax)
 
+        if self.title is not None: self.fig.suptitle(self.title)
         if filename is not None: P.savefig(filename)
 
 
@@ -868,6 +870,8 @@ class ROISlice(object):
             ax2 = fig.add_subplot(212)
         elif ax1 is not None or ax2 is not None:
             raise Exception("Both ax1 and ax2 must be specified.")
+        else:
+            fig = ax1.get_figure()
 
         self.ax1, self.ax2 = ax1, ax2
 
@@ -878,7 +882,8 @@ class ROISlice(object):
             self.title = 'Counts Slice'
             self.title += ' for %s' % self.source.name
 
-        ax1.figure.suptitle(self.title)
+        fig.suptitle(self.title)
+        fig.tight_layout()
 
         if datafile is not None: self.save_data(datafile)
 
@@ -1032,6 +1037,8 @@ class ROIRadialIntegral(object):
         if axes is None:
             fig = P.figure(self.fignum,self.figsize)
             axes = fig.add_subplot(111)
+        else:
+            fig = ax.get_figure()
 
         self.axes = ax = axes
 
@@ -1058,6 +1065,7 @@ class ROIRadialIntegral(object):
             if self.source is not None: self.title += ' for %s' % self.source.name
 
         ax.set_title(self.title)
+        fig.tight_layout()
 
         if datafile is not None: self.save_data(datafile)
 
@@ -1289,6 +1297,8 @@ class ROISmoothedSources(object):
         ROISmoothedSources.overlay_region(self.roi,ax,self.header, **self.overlay_kwargs)
         if self.extra_overlay is not None: self.extra_overlay(ax)
 
+        self.fig.tight_layout()
+
         if filename is not None: P.savefig(filename)
 
     @staticmethod
@@ -1461,7 +1471,7 @@ class ROIPlotter(object):
             P.clf()
             axes = pywcsgrid2.subplot(111, header=self.header)
         else:
-            self.fig = axes.get_figure()
+            fig = axes.get_figure()
 
         self.axes = ax = axes
 
@@ -1485,6 +1495,8 @@ class ROIPlotter(object):
 
         ROISmoothedSources.overlay_region(self.roi,ax,self.header, **self.overlay_kwargs)
         if self.extra_overlay is not None: self.extra_overlay(ax)
+
+        fig.tight_layout()
 
         if filename is not None: P.savefig(filename)
 
@@ -1657,13 +1669,16 @@ class ROISmoothedModel(object):
                 for i in [self.counts_pyfits,self.model_pyfits])
 
         self.grid = grid = ImageGrid(self.fig, (1, 1, 1), nrows_ncols = (1, 2),
-                         axes_pad=0.1, share_all=True,
-                         cbar_mode="single", cbar_pad="2%",
-                         cbar_location="right",
-                         axes_class=(pywcsgrid2.Axes, dict(header=self.counts_pyfits[0].header)))
+                                     axes_pad=0.1, share_all=True,
+                                     cbar_mode="single", cbar_pad="2%",
+                                     cbar_location="right",
+                                     axes_class=(pywcsgrid2.Axes, 
+                                                 dict(header=self.counts_pyfits[0].header)))
 
         self.plot_counts()
         self.plot_model()
+
+        self.fig.tight_layout()
 
         if filename is not None: P.savefig(filename)
 
@@ -1716,5 +1731,7 @@ class ROISmoothedBeforeAfter(object):
 
         self.smoothed_sources.show(axes=self.grid[0])
         self.smoothed_source.show(axes=self.grid[1],cax=grid.cbar_axes[0])
+
+        self.fig.tight_layout()
 
         self.header = self.h = [self.smoothed_sources.header,self.smoothed_source.header]
