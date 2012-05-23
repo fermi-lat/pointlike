@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.92 2012/04/30 23:53:24 wallacee Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.93 2012/05/23 13:16:27 falletti Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -36,7 +36,7 @@ class DefaultModelValues(object):
         PLSuperExpCutoff    = dict(_p=[1e-11, 2.0, 2e3 ,1.],    param_names=['Norm','Index','Cutoff', 'b'], e0=1e3),
         Constant            = dict(_p=[1.],                     param_names=['Scale']),
         InterpConstants     = dict(_p=[1.]*5,                   param_names=['Scale_Vector'],e_breaks=np.log10([100,300,1000,3000,3e5])),
-        FileFunction        = dict(_p=[],                       param_names=[]),
+        FileFunction        = dict(_p=[1],                      param_names=['Normalization']),
         DMFitFunction       = dict(_p=[1.0, 100.],              param_names=['sigmav','mass'], norm=1, bratio=1.0, channel0=1, channel1=1,
                                    file='$(INST_DIR)/Likelihood/src/dmfit/gammamc_dif.dat'),
         SmoothDoubleBrokenPowerLaw = dict(_p=[ 1e-11, 1.0, 1e3, 2.0, 1e4, 3.0, ], 
@@ -1145,7 +1145,7 @@ class FileFunction(Model):
 
         Load the file into the FileFunction object
 
-            >>> file_function = FileFunction(file=filename)
+            >>> file_function = FileFunction(normalization=1, file=filename)
 
         And the power-law is restored, even between the saved points.
 
@@ -1153,21 +1153,17 @@ class FileFunction(Model):
             >>> np.allclose(model(energies), file_function(energies))
             True
 
-        If you want to create a FileSpectrum that is multiplied
-        by a unitless-constant or powerlaw, you can use the ProductModel
-        objct:
-
-            >>> composite = ProductModel(Constant(scale=50), file_function)
-            >>> np.allclose(composite(energies), 50*file_function(energies))
-            True
-
-
-        Note, you cannot set the flux of models with no parameters like filefunction:
+        Note, you cannot set the flux of a file function:
 
             >>> file_function.set_flux(1)
-            Traceback (most recent call last):
-                ...
-            AssertionError
+            >>> print file_function.i_flux()
+            1.0
+
+        Previously, pickling file_function objects failed:
+            
+            >>> import pickle
+            >>> import os
+            >>> pickle.dump(file_function, open(os.devnull,'w'))
     """
     def __make_interp__(self):
         self.interp = interp1d(np.log10(self.energy),np.log10(self.flux),
@@ -1180,16 +1176,16 @@ class FileFunction(Model):
         if not hasattr(self,'file'):
             raise Exception("FileFunction must be created with a file.")
 
-        file=np.genfromtxt(self.file,unpack=True)
+        file=np.genfromtxt(os.path.expandvars(self.file),unpack=True)
         self.energy,self.flux=file[0],file[1]
 
         self.__make_interp__()
 
     def __call__(self,e):
-        return 10**self.interp(np.log10(e))
-    
+        return self['Normalization']*10**self.interp(np.log10(e))
+
     def gradient(self,e):
-        return np.asarray([])
+        return  np.array([np.ones_like(e)])
 
     def __getstate__(self):
         """ You cannot pickle an interp1d object. """
