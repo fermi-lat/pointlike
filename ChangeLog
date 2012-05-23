@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed May 23 14:01:32 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	counts_plotter.py 
+Log Message:
+allow setting title
+    *
+------------------------------------------------------------
 User: lande  Wed May 23 14:01:04 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
