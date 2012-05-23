@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/Models.py,v 1.91 2012/04/17 00:18:42 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.92 2012/04/30 23:53:24 wallacee Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -14,7 +14,8 @@ from abc import abstractmethod
 
 from scipy.integrate import quad
 from scipy.interpolate import interp1d
-from scipy import roots
+from scipy import roots, optimize
+
 
 class DefaultModelValues(object):
     """ Static methods and class members to assign default values to the spectral models. """
@@ -892,15 +893,31 @@ class PLSuperExpCutoff(Model):
                      f*(b/cutoff)*(e/cutoff)**b,f*(e/cutoff)**b*np.log(cutoff/e)])
 
     def pivot_energy(self):
-        """ assuming a fit was done, estimate the pivot energy 
-              
+        """  
+        Assuming a fit was done, estimate the pivot energy. The parameter b is assumed to be fixed at 1.
         """
         if self._p[3]!=0. : print "WARNING: b is not 1, the pivot energy computation might be inaccurate"
-        A  = 10**self._p[0]
+        N0, gamma, Ecut, beta = 10**self._p
+        E0 = self.e0
         C = self.get_cov_matrix()
         if C[1,1]==0:
             raise Exception('%s fit required before calculating pivot energy' %self.name)
-        return self.e0*np.exp( C[0,1]/(A*C[1,1]) )
+        if not self.free[2]:
+            # The case b and Ecut fixed is equivalent to a PWL for the determination of the pivot energy.
+            return E0*np.exp( C[0,1]/(N0*C[1,1]) )
+        # We assume here that Norm, gamma, and Ecut are the free parameter of the fit.
+        # To estimate Epivot we need to minimize the relative uncertainty on the flux, i.e. we want that the function "func"=0. 
+        # x=log(Epivot/E0)
+        a = C[0,1]/N0
+        b = C[1,1]
+        c = E0**2./Ecut**(4.)*C[2,2]
+        d = E0/N0/Ecut**2.*C[0,2]
+        f = E0/Ecut**2.*C[1,2]
+        func = lambda x : a + b*x + c*np.exp(2.*x) + np.exp(x)*(d-f*(1+x))
+        result = optimize.newton(func, 1)
+        result = E0*np.exp(result)
+        print "Pivot energy solution (in MeV) for the PLSuperExpCutoff : ",result
+        return result
         
     def set_e0(self, e0p):
         """ set a new reference energy, adjusting the norm parameter """
