@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed May 30 13:03:30 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	pointspec_helpers.py roi_diffuse.py roi_monte_carlo.py 
+Log Message:
+Improve handling of isotropic sources in pointlike
+    *
+------------------------------------------------------------
 User: lande  Wed May 23 14:03:37 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
