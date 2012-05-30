@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.64 2012/03/27 16:41:34 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.65 2012/04/03 02:29:53 lande Exp $
 
    author: Matthew Kerr
 """
@@ -103,7 +103,7 @@ class XML_to_Model(object):
         Now, we can parse spectral models:
 
             >>> model=xml2model('''
-            ...     <spectrum   type="PowerLaw">
+            ...     <spectrum  type="PowerLaw">
             ...         <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-11" />
             ...         <parameter name="Index" value="2.0" free="1" max="5" min="0" scale="-1" />
             ...         <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
@@ -123,13 +123,14 @@ class XML_to_Model(object):
                 BrokenPowerLaw2      = BrokenPowerLawFlux,
                 SmoothBrokenPowerLaw = SmoothBrokenPowerLaw,
                 PLSuperExpCutoff     = PLSuperExpCutoff,
-                Constant             = Constant, # should this have been ConstantValue key?
                 ConstantValue        = Constant,
                 FrontBackConstant    = FrontBackConstant,
-                FileFunction         = Constant, # a big klugey
                 LogParabola          = LogParabola,
                 DMFitFunction        = DMFitFunction,
+                FileFunction         = FileFunction
                 )
+        
+        self.inverse_modict = {v.__name__:k for k,v in self.modict.items()}
 
         self.specdict = dict(
                 PowerLaw             = ['Prefactor','Index'],
@@ -172,7 +173,7 @@ class XML_to_Model(object):
 
         # certain spectral models require the file to be set
         kwargs = {}
-        if specname == 'DMFitFunction' and xml_dict.has_key('file'):
+        if specname in [ 'DMFitFunction', 'FileFunction' ] and xml_dict.has_key('file'):
             kwargs['file']=str(xml_dict['file'])
 
         model = self.modict[specname](**kwargs)
@@ -285,13 +286,26 @@ class Model_to_XML(object):
        
         Here is a simple test making a PowerLaw model:
 
+            >>> pl = PowerLaw()
+
             >>> m2x = Model_to_XML()
-            >>> m2x.process_model(PowerLaw())
+            >>> m2x.process_model(pl)
             >>> print m2x.getXML(tablevel=0).replace('\\t',' '*4).strip()
-            <spectrum   type="PowerLaw">
+            <spectrum  type="PowerLaw">
                 <parameter name="Prefactor" value="1.0" free="1" max="100.0" min="0.01" scale="1e-11" />
                 <parameter name="Index" value="2.0" free="1" max="5" min="0" scale="-1" />
                 <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
+            </spectrum>
+
+            >>> from tempfile import NamedTemporaryFile
+            >>> temp = NamedTemporaryFile(delete=True)
+            >>> pl.save_profile(temp.name, emin=1, emax=1e6)
+            >>> fs = FileFunction(Normalization=1,file=temp.name)
+            >>> m2x = Model_to_XML()
+            >>> m2x.process_model(fs)
+            >>> print m2x.getXML(tablevel=0).replace('\\t',' '*4).strip().replace(temp.name, '<FILENAME>')
+            <spectrum file="<FILENAME>" type="FileFunction">
+                <parameter name="Normalization" value="1.0" free="1" max="10" min="0.1" scale="1" />
             </spectrum>
 
    """
@@ -300,6 +314,7 @@ class Model_to_XML(object):
         self.x2m = XML_to_Model()
         self.debug = debug
         self.strict = strict
+        self.extra_attrs=' '
 
     def update(self,name,scaling=False):
         self.name = name
@@ -420,7 +435,7 @@ class Model_to_XML(object):
             self.oomp   = [       1,     0,      1,        0,          0,          0]
 
         else:
-            raise Exception,'Unrecognized model %s'%(name)
+            raise Exception('Unrecognized model %s'%(name))
 
     def find_param(self,pname):
         for iparam,param in enumerate(self.pname):
@@ -432,9 +447,9 @@ class Model_to_XML(object):
         return ['\t<parameter name="%s" value="%s" %sfree="%d" max="%s" min="%s" scale="%s" />'%(e,f,m1,m2,n,s,v)
             for e,f,m1,m2,n,s,v in zip(self.pname,self.pval, err_strings,self.pfree,self.pmax,self.pmin,self.pscale,)]
 
-    def getXML(self,tablevel=1,spec_attrs='',comment_string=None):
+    def getXML(self,tablevel=1,comment_string=None):
         cstring = [] if comment_string is None else [comment_string]
-        strings = ['<spectrum %s type="%s">'%(" ".join([spec_attrs,self.extra_attrs]),self.name)] + \
+        strings = ['<spectrum%s type="%s">'%(self.extra_attrs,self.name)] + \
                    cstring + self.param_strings() + ['</spectrum>']
         return ''.join([decorate(s,tablevel=tablevel) for s in strings])
 
@@ -459,40 +474,33 @@ class Model_to_XML(object):
         self.pmin[index] = 1e-2
         self.pmax[index] = 1e2
 
-    def process_model(self,model,xml_name=None,scaling=False):
-        """model an instance of Model
-        
-           Allow an override of the xml_name to map the model on
-           when there is ambiguity (i.e. for ConstantValue vs.
-           FileFunction). """
+    def process_model(self,model,scaling=False):
+        """ Model an instance of Model """
 
-        my_xml_name = xml_name # fix scope issue
         if model.name == 'ExpCutoff':
             model = convert_exp_cutoff(model)
         elif model.name == 'LogParabola' and model[2]<= 2e-3 and not model.free[2]:
             # convert to equivalent powerlaw
             model = model.create_powerlaw()
+        elif isinstance(model,DMFitFunction) or isinstance(model,FileFunction):
+            self.extra_attrs+='file="%s"' % model.file
 
-        # map the Model instance onto an xml-style model
-        if xml_name == None:
-            if model.name == 'Constant': my_xml_name='ConstantValue'
-            else:
-                for l_xml_name,v in self.x2m.modict.iteritems():
-                    #Check the class name instead of the class, to account for FrontBackConstant moving from like2.models to like.Models
-                    if v.__name__ == model.__class__.__name__: 
-                        my_xml_name = l_xml_name;break
-                if v.__name__ != model.__class__.__name__:
-                    raise Exception,'Unable to find an XML model for %s'%(model.name)
-        self.update(my_xml_name,scaling=scaling)
+        n = model.__class__.__name__
+        if not n in self.x2m.inverse_modict:
+            raise Exception('Unable to find an XML model for %s'%n)
+
+        xml_name = self.x2m.inverse_modict[n]
+
+        self.update(xml_name,scaling=scaling)
 
         # replace spectral parameters
-        specparams = self.x2m.specdict[my_xml_name]
+        specparams = self.x2m.specdict[xml_name]
         vals,errs  = model.statistical(absolute=True)
         for iparam,param in enumerate(specparams):
             if self.debug: print 'Processing %s'%(param)
             index = self.find_param(param)
             if index is None:
-                raise Exception,'Unrecognized parameter %s'%(param)
+                raise Exception('Unrecognized parameter %s'%(param))
             self.process_scale(vals[iparam],index)
             self.pfree[index] = model.free[iparam]
             self.pval[index] = vals[iparam] / self.pscale[index]
@@ -512,12 +520,12 @@ class Model_to_XML(object):
                 self.pval[index] = self.pmax[index]
 
         # replace non-variable parameters
-        kwargparams = self.x2m.kwargdict[my_xml_name]
+        kwargparams = self.x2m.kwargdict[xml_name]
         for xml_key,mod_key in kwargparams:
             if self.debug: print 'Processing %s'%(xml_key)
             index = self.find_param(xml_key)
             if index is None:
-                raise Exception,'Unrecognized parameter %s'%(param)
+                raise Exception('Unrecognized parameter %s'%(param))
             self.pfree[index] = False
             self.pval[index]  = model.__dict__[mod_key]
             self.pscale[index] = 1
@@ -525,11 +533,6 @@ class Model_to_XML(object):
             self.pmax[index] = self.pval[index]
             self.perr[index] = -1
 
-        # this will also be necessary for FileSpectrum objects.
-        if isinstance(model,DMFitFunction): 
-            self.extra_attrs='file="%s"' % model.file
-        else:
-            self.extra_attrs=''
 
 def get_skydir(elem):
     """convert a parsed SpatialModel into a SkyDir."""
@@ -785,18 +788,18 @@ def parse_diffuse_sources(handler,diffdir=None):
             >>> print ds.smodel.name
             PowerLaw
             >>> print ds.smodel['norm']
-            1.0
+            1.6e-07
             >>> print ds.smodel['index']
-            1.0
+            2.1
+            >>> print ds.smodel.e0
+            100.0
             >>> type(ds.dmodel) == list and len(ds.dmodel) == 1
             True
             >>> dm=ds.dmodel[0]
             >>> print type(dm)
-            <class 'skymaps.IsotropicPowerLaw'>
-            >>> print dm.index()
-            2.1
-            >>> np.allclose(PowerLaw(norm=1.6e-7, index=2.1, e0=1e2).i_flux(1e2, np.inf), dm.flux())
-            True
+            <class 'skymaps.IsotropicConstant'>
+            >>> print dm.constant()
+            1.0
 
         Example loading an isotropic source from a file
     
@@ -812,14 +815,18 @@ def parse_diffuse_sources(handler,diffdir=None):
             ...     </spatialModel>
             ...   </source>''')
             >>> print ds.smodel.name
-            Constant
-            >>> print ds.smodel['scale']
+            FileFunction
+            >>> print ds.smodel['normalization']
             1.0
+            >>> print ds.smodel.file
+            $GLAST_EXT/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt
             >>> type(ds.dmodel) == list and len(ds.dmodel) == 1
             True
             >>> dm=ds.dmodel[0]
             >>> print type(dm)
-            <class 'skymaps.IsotropicSpectrum'>
+            <class 'skymaps.IsotropicConstant'>
+            >>> print dm.constant()
+            1.0
 
             
         Now, we are going to test loading extended sources:
@@ -928,9 +935,8 @@ def parse_diffuse_sources(handler,diffdir=None):
         name = str(src['name'])
         if spatial['type'] == 'ConstantValue':
             if spectral['type'] == 'FileFunction':
-                fname = str(os.path.expandvars(spectral['file']))
                 mo = xtm.get_model(spectral,name)
-                ds.append(gds('ConstantValue',None,mo,fname,name,diffdir=diffdir))
+                ds.append(gds('ConstantValue',None,mo,None,name,diffdir=diffdir))
             elif (spectral['type'] == 'PowerLaw' ) or (spectral['type'] == 'PowerLaw2'):
                 mo = xtm.get_model(spectral,name)
                 ds.append(gds('ConstantValue',None,mo,None,name))
@@ -981,7 +987,7 @@ def unparse_point_sources(point_sources, strict=False, properties=lambda x:''):
             1
             >>> print ret[0].strip().replace('\\t', ' '*4)
             <source name="test" type="PointSource"  >
-                <spectrum   type="ConstantValue">
+                <spectrum  type="ConstantValue">
                     <parameter name="Value" value="1.0" free="1" max="10" min="0.001" scale="1" />
                 </spectrum>
                 <spatialModel type="SkyDirFunction">
@@ -1019,7 +1025,7 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=True,filena
             >>> p = lambda d: process_diffuse_source(d).replace(diffdir,'').replace('\\t',' '*4).strip()
             >>> print p(ds[0])
             <source name="Galactic Diffuse (ring_2year_P76_v0.fits)" type="DiffuseSource">
-                <spectrum   type="PowerLaw">
+                <spectrum  type="PowerLaw">
                     <parameter name="Prefactor" value="1.0" free="1" max="10" min="0.1" scale="1" />
                     <parameter name="Index" value="0.0" free="1" max="1" min="-1" scale="-1" />
                     <parameter name="Scale" value="1000.0" free="0" max="1000.0" min="1000.0" scale="1" />
@@ -1070,14 +1076,6 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=True,filena
         skyxml = makeDSMapcubeSpatialModel(filename=filename)
         m2x.process_model(ds.smodel,scaling=True)
         specxml = m2x.getXML()
-    elif isinstance(dm,IsotropicConstant):
-
-        value = dm.constant()
-        skyxml = makeDSConstantSpatialModel(value)
-
-        m2x.process_model(ds.smodel,scaling=False)
-        specxml = m2x.getXML()
-
     else:
         skyxml = makeDSConstantSpatialModel()
         #Handle the case where the isotropic is specified by separate front and back components
@@ -1091,11 +1089,25 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=True,filena
         else:
             raise Exception("Don't know how to handle isotropic model with >2 components")
         for m,ct in zip(dm,ctypes):
-            if isinstance(m,IsotropicSpectrum):
-                filename = os.path.abspath(m.name())
-                m2x.process_model(ds.smodel,xml_name='FileFunction',scaling=True)
-                m2x.extra_attrs+='ctype="{0}"'.format(ct)
-                specxml += m2x.getXML(spec_attrs='file=\"%s\"'%(filename.replace('\\','/')),tablevel=len(dm))
+            if isinstance(m,IsotropicSpectrum) or isinstance(m,IsotropicConstant):
+
+                if isinstance(m,IsotropicSpectrum):
+
+                    if not isinstance(ds.smodel,Constant):
+                        raise Exception("Can only save out ConstantValue with FileFunction if it is modulated by a constant value.")
+
+                    filename = os.path.abspath(m.name())
+                    model = FileFunction(
+                        normalization=ds.smodel['Scale'],
+                        file=filename)
+
+                elif isinstance(m,IsotropicConstant):
+                    model = ds.smodel
+
+                m2x.process_model(model,scaling=True)
+
+                m2x.extra_attrs+=' ctype="{0}"'.format(ct)
+                specxml += m2x.getXML(tablevel=len(dm))
             elif isinstance(m,IsotropicPowerLaw):
                 flux,index=m.flux(),m.index()
                 pl=PowerLawFlux(index=index)

@@ -1,7 +1,7 @@
 """
 Provides classes to encapsulate and manipulate diffuse sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.26 2011/07/06 05:00:28 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_diffuse.py,v 1.27 2011/07/11 21:16:05 lande Exp $
 
 author: Matthew Kerr
 """
@@ -9,7 +9,7 @@ import sys
 import numpy as N; np = N
 from uw.utilities.convolution import BackgroundConvolution
 from uw.utilities import keyword_options
-from skymaps import SkyIntegrator,Background,IsotropicSpectrum,DiffuseFunction
+from skymaps import SkyIntegrator,Background,IsotropicSpectrum,IsotropicConstant,IsotropicPowerLaw,DiffuseFunction
 import copy
 import collections
 
@@ -42,20 +42,88 @@ class DiffuseSource(object):
 
     def __getstate__(self):
         """ this is a poor man's pickeling. Convert all the IsotropicSpectrum and DiffuseFunction
-            objects into pickelable filenames. This implementation should be more robust. """
+            objects into pickelable filenames. This implementation should be more robust. 
+            
+            You should be able to pickle Diffuse sources:
 
+                >>> import pickle
+                >>> import os
+                >>> from uw.like.Models import Constant
+                >>> from skymaps import IsotropicPowerLaw
+                >>> from os.path import expandvars
+
+            Pickle isotropic:
+
+                >>> iso = expandvars('$GLAST_EXT/diffuseModels/v2r0p1/isotrop_2year_P76_source_v1.txt')
+                >>> ds = DiffuseSource(IsotropicSpectrum(iso),Constant())
+                >>> pickle.dump(ds, open(os.devnull,'w'))
+
+            After pickling the object, the original object should be uncahgned:
+
+                >>> print type(ds.dmodel[0])
+                <class 'skymaps.IsotropicSpectrum'>
+            
+            Pickle galactic diffuse:
+
+                >>> gal = expandvars('$GLAST_EXT/diffuseModels/v2r0p1/ring_2year_P76_v0.fits')
+                >>> ds = DiffuseSource(DiffuseFunction(gal),Constant())
+                >>> pickle.dump(ds, open(os.devnull,'w'))
+            
+            Pickle Isotropic PowerLaw:
+
+                >>> ds = DiffuseSource(IsotropicPowerLaw(),Constant())
+                >>> pickle.dump(ds, open(os.devnull,'w'))
+
+            Pickle Isotropic Constant:
+
+                >>> ds = DiffuseSource(IsotropicConstant(),Constant())
+                >>> pickle.dump(ds, open(os.devnull,'w'))
+            
+        """
         d=copy.copy(self.__dict__)
-        d['dmodel'] = [ (type(i),i.name()) if \
-                        (isinstance(i,IsotropicSpectrum) or isinstance(i,DiffuseFunction)) else i for i in d['dmodel'] ]
+
+        def convert_spectrum(spectrum):
+            if isinstance(spectrum,IsotropicSpectrum) or isinstance(spectrum,DiffuseFunction):
+                return (type(spectrum),spectrum.name())
+            elif isinstance(spectrum,IsotropicPowerLaw):
+                return (type(spectrum),spectrum.flux(),spectrum.index())
+            elif isinstance(spectrum,IsotropicConstant):
+                return (type(spectrum),spectrum.constant())
+            else:
+                # unrecognized type
+                return spectrum
+
+        d['dmodel'] = map(convert_spectrum,d['dmodel'])
         return d
 
     def __setstate__(self,state):
         """ recreate the dmodel. """
         self.__dict__ = state
-        self.dmodel = [ i[0](i[1]) if type(i)==tuple else i for i in self.dmodel]
+        def unconvert_spectrum(spectrum):
+            if type(spectrum) == tuple:
+                return spectrum[0](*spectrum[1:])
+            else:
+                return spectrum
+
+        self.dmodel = map(unconvert_spectrum,self.dmodel)
 
     def copy(self):
-        """ Make a copy of a diffuse source. """
+        """ Make a copy of a diffuse source. 
+        
+            First, create the DS
+
+                >>> from uw.like.Models import Constant
+                >>> from skymaps import IsotropicPowerLaw
+                >>> ds = DiffuseSource(IsotropicConstant(),Constant())
+
+            Nowe, we can copy it:
+
+                >>> ds_copy = ds.copy()
+                >>> print type(ds.dmodel[0])
+                <class 'skymaps.IsotropicConstant'>
+                >>> print type(ds_copy.dmodel[0])
+                <class 'skymaps.IsotropicConstant'>
+        """
         return DiffuseSource(
             name = self.name,
             diffuse_model = self.dmodel,
@@ -331,3 +399,6 @@ class ROIDiffuseModel_PC(ROIDiffuseModel_OTF):
         return N.asarray(self.active_bg.wsdl_vector_value(pixlist))
 
 
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()

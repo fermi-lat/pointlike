@@ -1,12 +1,12 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.51 2012/01/17 00:50:13 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.52 2012/02/28 20:16:52 lande Exp $
 
     author: Matthew Kerr
     """
 
 import numpy as N
-from skymaps import SkyDir,CompositeSkySpectrum,DiffuseFunction,EffectiveArea,Exposure,IsotropicSpectrum,IsotropicPowerLaw
-from uw.like.Models import Model,Constant,PowerLaw,ExpCutoff,DefaultModelValues,LogParabola
+from skymaps import SkyDir,CompositeSkySpectrum,DiffuseFunction,EffectiveArea,Exposure,IsotropicSpectrum,IsotropicConstant
+from uw.like.Models import Model,Constant,PowerLaw,ExpCutoff,DefaultModelValues,LogParabola,FileFunction
 from roi_diffuse import DiffuseSource,ROIDiffuseModel_OTF
 from roi_extended import ExtendedSource,ROIExtendedModel
 from os.path import join, expandvars
@@ -163,24 +163,21 @@ def get_diffuse_source(spatialModel='ConstantValue',
     ston = Singleton2()
     dmodel = None; smodel = None
 
+
     # deal with isotropic models
     if spatialModel=='ConstantValue':
-        if spectralModelFile is not None:
-            dmodel = IsotropicSpectrum(spectralModelFile)
-            if isinstance(spectralModel,Model):
-                smodel = spectralModel
-            else:
-                smodel = Constant()
+        if isinstance(spectralModel,Model):
+            smodel=spectralModel
+            dmodel=IsotropicConstant()
+        elif spectralModelFile is not None:
+            smodel = FileFunction(normalization=1, file=spectralModelFile)
+            dmodel = IsotropicConstant()
         elif spectralModel == 'PowerLaw':
             # use Sreekumar-like defaults
-            dmodel = IsotropicPowerLaw(1.5e-5,2.1)
-            smodel = PowerLaw(p=[1,1],index_offset=1)
+            dmodel = PowerLaw(norm=1.5e-5,index=2.1)
+            smodel = IsotropicConstant()
         else:
-            # interpret the Model object as power law
-            flux = spectralModel.i_flux(emin=100)
-            index= 10**spectralModel._p[1]
-            dmodel = IsotropicPowerLaw(flux,index)
-            smodel = PowerLaw(p=[1,1],index_offset=1)
+            raise Exception("Unable to parse input.")
 
     # deal with mapcubes
     else:
@@ -200,7 +197,7 @@ def get_diffuse_source(spatialModel='ConstantValue',
                 smodel = spectralModel
 
     if (dmodel is None) or (smodel is None):
-         raise Exception,'Was unable to parse input.'
+         raise Exception('Was unable to parse input.')
 
     return DiffuseSource(dmodel,smodel,name)
 
