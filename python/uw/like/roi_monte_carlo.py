@@ -2,7 +2,7 @@
 Module implements a wrapper around gtobssim to allow
 less painful simulation of data.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.54 2012/04/26 23:08:18 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_monte_carlo.py,v 1.55 2012/04/30 20:32:50 lande Exp $
 
 author: Joshua Lande
 """
@@ -311,7 +311,6 @@ class MonteCarlo(object):
         history. Otherwise, a default rocking profile will be used.  """
 
     defaults = (
-            ('seed',               0, " Random number generator seen when running obssim. This should be varied for simulations."),
             ('savedir',         None, " If specified, save temporary files to this directory."),
             ('tempbase', '/scratch/', " Directory to put temporary files in. Can be cleaned up with the cleanup function."),
             ('tstart',          None, " Required if ft2 does not point to a real file."),
@@ -348,13 +347,14 @@ class MonteCarlo(object):
         return name
 
     @decorate(defaults)
-    def __init__(self,ft1,irf, sources, **kwargs):
+    def __init__(self,ft1,irf, sources, seed, **kwargs):
         """ Constructor does not require a data_specification. """
         process(self, kwargs)
 
         self.ft1=ft1
         self.irf=irf
         self.sources=sources
+        self.seed=seed
 
         if self.savedir is not None:
             self.savedir=os.path.abspath(self.savedir)
@@ -731,56 +731,18 @@ class MonteCarlo(object):
             return 1
         return 0
 
-    def _make_isotropic_diffuse(self,ds,mc_emin,mc_emax,indent):
-
-        dm=ds.dmodel[0]
-        sm=ds.smodel
+    def _make_isotropic_diffuse(self,ds,*args, **kwargs):
 
         if not MonteCarlo.isone(sm):
             raise Exception("Can only run gtobssim with IsotropicSpectrum diffuse models if model predicts 1.")
 
         spectral_file=dm.name()
-        energies,spectra=np.genfromtxt(spectral_file,unpack=True)[0:2]
+        new_ds = DiffuseSource(
+            diffuse_model=FileFunction(file=spectral_file),
+            scaling_model=IsotropicConstant(),
+            name=ds.name)
 
-        smaller_range = FitsShrinker.smaller_range(energies, mc_emin, mc_emax)
-        if np.any(smaller_range == False):
-            # If any energies are outside the range, cut down spectral file.
-            cut_spectral_file = os.path.basename(spectral_file).replace('.txt','_cut.txt')
-            np.savetxt(cut_spectral_file, zip(energies[smaller_range], spectra[smaller_range]))
-        else:
-            cut_spectral_file = spectral_file
-
-        spatial_file=os.path.basename(spectral_file).replace('.txt','_spatial.fits')
-        if self.roi_dir is not None and self.maxROI is not None:
-            radius=self.maxROI + self.diffuse_pad
-        else:
-            radius=180
-
-        if not self.quiet: print '.. Making isotropic model for %s' % ds.name
-        allsky=MonteCarlo.make_isotropic_fits(skydir=self.roi_dir, radius=radius)
-        allsky.writeto(spatial_file, clobber=True)
-
-
-        # flux is ph/cm^2/sr to ph/m^2
-        flux, emin, emax = MonteCarlo.isotropic_spectral_integrator(cut_spectral_file)
-
-        if not self.quiet: print '.. Integrating isotropic model for %s' % ds.name
-
-        # multiply by solid angle to convert to ph/m^2
-        flux*=MonteCarlo.spatial_integrator_2d(spatial_file)
-
-
-        ds = [ 
-            '<source name="%s">' % MonteCarlo.strip(ds.name),
-            '  <spectrum escale="MeV">',
-            '    <SpectrumClass name="FileSpectrumMap"',
-            '       params="flux=%s,fitsFile=%s,' % (flux,spatial_file),
-            '       specFile=%s,emin=%s,emax=%s"/>' % (cut_spectral_file,emin,emax),
-            '    <use_spectrum frame="galaxy"/>',
-            '  </spectrum>',
-            '</source>'
-        ]
-        return indent+('\n'+indent).join(ds)
+        return self._make_isotropic_constant(new_ds, *args, **kwargs)
 
     def _make_powerlaw_diffuse(self,ds,mc_emin,mc_emax,indent):
         dm=ds.dmodel[0]
@@ -923,6 +885,54 @@ class MonteCarlo(object):
                 '   </spectrum>',
                 '</source>',
             ]
+        elif isinstance(sm,FileFunction):
+
+            if sm['Normalization'] != 1:
+                raise Exception("When simulationg IsotropicConstant source with FileFunction spectrum, the constant must be 1")
+
+            spectral_file=sm.file
+            energies,spectra=np.genfromtxt(spectral_file,unpack=True)[0:2]
+
+            smaller_range = FitsShrinker.smaller_range(energies, mc_emin, mc_emax)
+            if np.any(smaller_range == False):
+                # If any energies are outside the range, cut down spectral file.
+                cut_spectral_file = os.path.basename(spectral_file).replace('.txt','_cut.txt')
+                np.savetxt(cut_spectral_file, zip(energies[smaller_range], spectra[smaller_range]))
+            else:
+                cut_spectral_file = spectral_file
+
+            spatial_file=os.path.basename(spectral_file).replace('.txt','_spatial.fits')
+            if self.roi_dir is not None and self.maxROI is not None:
+                radius=self.maxROI + self.diffuse_pad
+            else:
+                radius=180
+
+            if not self.quiet: print '.. Making isotropic model for %s' % ds.name
+            allsky=MonteCarlo.make_isotropic_fits(skydir=self.roi_dir, radius=radius)
+            allsky.writeto(spatial_file, clobber=True)
+
+
+            # flux is ph/cm^2/sr to ph/m^2
+            flux, emin, emax = MonteCarlo.isotropic_spectral_integrator(cut_spectral_file)
+
+            if not self.quiet: print '.. Integrating isotropic model for %s' % ds.name
+
+            # multiply by solid angle to convert to ph/m^2
+            flux*=MonteCarlo.spatial_integrator_2d(spatial_file)
+
+
+            ds = [ 
+                '<source name="%s">' % MonteCarlo.strip(ds.name),
+                '  <spectrum escale="MeV">',
+                '    <SpectrumClass name="FileSpectrumMap"',
+                '       params="flux=%s,fitsFile=%s,' % (flux,spatial_file),
+                '       specFile=%s,emin=%s,emax=%s"/>' % (cut_spectral_file,emin,emax),
+                '    <use_spectrum frame="galaxy"/>',
+                '  </spectrum>',
+                '</source>'
+            ]
+            return indent+('\n'+indent).join(ds)
+
         else:
             raise Exception("Unable to create XML for source %s" % ds.name)
 
@@ -1183,7 +1193,7 @@ class SpectralAnalysisMC(SpectralAnalysis):
         ('nogtifile',False,'...'),
     )
 
-    defaults += tuple(get_row(MonteCarlo.defaults,i) for i in ['seed', 'ltfrac', 'tempbase', 'savedir'])
+    defaults += tuple(get_row(MonteCarlo.defaults,i) for i in ['ltfrac', 'tempbase', 'savedir'])
 
     for i in ['tstart', 'tstop']:
         defaults=change_defaults(defaults, i, get_default(MonteCarlo.defaults,i))
@@ -1191,9 +1201,10 @@ class SpectralAnalysisMC(SpectralAnalysis):
     defaults=change_defaults(defaults,'event_class',0)
 
     @decorate(defaults)
-    def __init__(self, data_specification, **kwargs):
+    def __init__(self, data_specification, seed, **kwargs):
         """ Don't do anything here. """
         self.dataspec = data_specification
+        self.seed = seed
 
         process(self, kwargs)
 
