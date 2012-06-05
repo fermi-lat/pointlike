@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jun  4 17:58:48 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Add a method for estimating bootstrap errors.
+
+    *
+------------------------------------------------------------
 User: lande  Wed May 30 13:03:30 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
