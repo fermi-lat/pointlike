@@ -1,11 +1,12 @@
 """
 Module to perfrom routine testing of pointlike's many features.'
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.10 2012/01/14 00:13:57 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.11 2012/06/05 20:13:57 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
 import os
+import sys
 import unittest
 
 import numpy as np
@@ -34,7 +35,7 @@ class PointlikeTest(unittest.TestCase):
     def setUp(self):
 
         # Create/store files in $SIMDIR
-        self.assertTrue(os.environ.has_key('SIMDIR'),'$SIMDIR must be defiend.')
+        self.assertTrue(os.environ.has_key('SIMDIR'),"""$SIMDIR must be defiend. If it does not exist, please make a new folder and set $SIMDIR to point to it. All simulated data will be put into it.""")
         self.assertTrue(os.path.exists(os.environ['SIMDIR']),'$SIMDIR must exist.')
 
     def compare_model(self,fit,true):
@@ -96,7 +97,7 @@ class PointlikeTest(unittest.TestCase):
         return roi
 
 
-    #@unittest.skip("skip")
+    @unittest.skipIf("--skip-extended" in sys.argv,'Skip time consuming extended source test')
     def test_extended_source(self):
 
         PointlikeTest.p('USE_GRADIENT=%s' % PointlikeTest.USE_GRADIENT)
@@ -148,16 +149,19 @@ class PointlikeTest(unittest.TestCase):
 
         es_mc.spatial_model.save_template('$SIMDIR/extended_template.fits')
 
+        if PointlikeTest.VERBOSE:
+                PointlikeTest.p('Now, switching from Disk soruce to template source.')
+
+        roi.del_source(which='source')
         template_source=ExtendedSource(
             name='template_source',
             model=es_mc.model,
             spatial_model=SpatialMap(file='$SIMDIR/extended_template.fits')
         )
 
-        roi.del_source(which='source')
         roi.add_source(template_source)
 
-        roi.fit()
+        roi.fit(use_gradient=PointlikeTest.USE_GRADIENT)
 
         self.compare_model(template_source,es_mc)
 
@@ -202,11 +206,11 @@ class PointlikeTest(unittest.TestCase):
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
-    import sys
 
     parser = ArgumentParser()
     parser.add_argument("-v", "--verbose", action="store_true", default=False,help="Output more verbosely")
     parser.add_argument("--use-gradient", default=False, action='store_true')
+    parser.add_argument("--skip-extended", default=False, action='store_true')
     args=parser.parse_args()
     sys.argv = sys.argv[0:1]
 
@@ -219,4 +223,4 @@ if __name__ == '__main__':
     import numpy as np
     np.seterr(all='ignore')
 
-    unittest.main()
+    unittest.main(verbosity=2 if args.verbose else 0)
