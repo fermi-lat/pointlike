@@ -1,5 +1,16 @@
 ------------------------------------------------------------
 User: lande  Tue Jun  5 16:02:27 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py pointspec_helpers.py roi_analysis.py 
+	roi_monte_carlo.py roi_plotting.py roi_tsmap.py 
+	roi_upper_limits.py 
+Log Message:
+Commiting new implemenation of parameter mapping in pointlike. This allows fitting parameters internally not in log space.
+    *
+------------------------------------------------------------
+User: lande  Tue Jun  5 16:02:27 PDT 2012
 ScienceTools-scons/pointlike/python/uw/darkmatter
 
 Added Files:
