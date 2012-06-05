@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun  5 16:01:19 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	sed_plotter.py 
+Log Message:
+allow not-merging of upper limits as flag into SED code
+    *
+------------------------------------------------------------
 User: lande  Tue Jun  5 14:50:00 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
