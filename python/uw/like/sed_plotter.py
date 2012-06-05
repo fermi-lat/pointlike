@@ -1,7 +1,7 @@
 """
 Manage plotting of the band energy flux and model
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/sed_plotter.py,v 1.22 2011/11/01 21:38:23 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/sed_plotter.py,v 1.23 2012/02/24 21:50:22 lande Exp $
 
 author: Toby Burnett <tburnett@uw.edu>
 
@@ -210,6 +210,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
             phase_corr=False,
             printout=False,
             title=None,
+            merge=True,
             ):
     """Plot a SED
     ========     ===================================================
@@ -237,6 +238,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     printout     [False] if True, print the sed points to stdout
     title        [None] Title for the plot, if specified. Otherwise, 
                  use source name
+    merge        merge upper limits on edge.
     ========     ===================================================
     
     """
@@ -262,7 +264,7 @@ def plot_sed(roi, which=0, fignum=5, axes=None,
     axes.set_autoscale_on(False)
    
     #  create a BandFlux, and have it plot the band fluxes, merging adjacent limits at the ends
-    bf = BandFlux(self, which=which, merge=True, scale_factor= energy_flux_factor)
+    bf = BandFlux(self, which=which, merge=merge, scale_factor= energy_flux_factor)
     data_kwargs['printout'] = printout
     bf.plot_data(axes, **data_kwargs)
 
