@@ -1,7 +1,7 @@
 """
 Module implements New modules to read in Catalogs of sources.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/like/roi_catalogs.py,v 1.19 2012/01/21 23:05:01 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_catalogs.py,v 1.20 2012/02/26 23:40:54 burnett Exp $
 
 author: Joshua Lande
 """
@@ -165,7 +165,12 @@ class Catalog2FGL(SourceCatalog):
         Does extended sources, different spectral models.  To create
         the extended soures, this object requires either the LATEXTDIR
         environment variable to be set or the paramter latextdir to be
-        passed into the object. """
+        passed into the object. 
+
+            >>> x=Catalog2FGL('/afs/slac/g/glast/groups/catalog/2FGL/gll_psc_v05.fit',
+            ...               latextdir='/afs/slac/g/glast/groups/catalog/2FGL/gll_psc_v05_templates')
+        
+    """
 
     defaults = (
         ("latextdir",    None, "Directory containing the spatial model templates."),
@@ -534,3 +539,7 @@ class ExtendedSourceCatalog(SourceCatalog):
 
 
 CatalogManager=FermiCatalog # For backwards compatability.
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()
