@@ -1,7 +1,7 @@
 """
 Module to perfrom routine testing of pointlike's many features.'
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.9 2011/08/12 21:57:42 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.10 2012/01/14 00:13:57 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -12,7 +12,7 @@ import numpy as np
 
 from skymaps import SkyDir
 from uw.like.pointspec import DataSpecification,SpectralAnalysis
-from uw.like.pointspec_helpers import PointSource,get_diffuse_source
+from uw.like.pointspec_helpers import PointSource,get_diffuse_source,get_default_diffuse
 from uw.like.Models import PowerLaw,LogParabola,SumModel,ProductModel
 from uw.like.SpatialModels import Disk,Gaussian,SpatialMap
 from uw.like.roi_extended import ExtendedSource
@@ -23,21 +23,29 @@ from uw.like.roi_monte_carlo import SpectralAnalysisMC
 class PointlikeTest(unittest.TestCase):
 
 
+    MAX_ALLOWED_PULL = 3
+    USE_GRADIENT = False
+    VERBOSE = False
+    
+    @staticmethod
+    def p(str):
+        print '\n\n%s %s %s\n\n' % ('#'*5,str,'#'*5)
+
     def setUp(self):
 
         # Create/store files in $SIMDIR
         self.assertTrue(os.environ.has_key('SIMDIR'),'$SIMDIR must be defiend.')
         self.assertTrue(os.path.exists(os.environ['SIMDIR']),'$SIMDIR must exist.')
 
-        self.MAX_ALLOWED_PULL = 3
-
     def compare_model(self,fit,true):
         norm_pull=(fit.model['Norm']-true.model['Norm'])/fit.model.error('Norm')
-        #print 'norm_pull = ',norm_pull
+        if PointlikeTest.VERBOSE:
+            print 'norm_pull = ',norm_pull
         self.assertTrue(abs(norm_pull)<self.MAX_ALLOWED_PULL,'norm pull=%.1f is bad.' % norm_pull)
 
         index_pull=(fit.model['Index']-true.model['Index'])/fit.model.error('Index')
-        #print 'index_pull = ',index_pull
+        if PointlikeTest.VERBOSE:
+            print 'index_pull = ',index_pull
         self.assertTrue(abs(index_pull)<self.MAX_ALLOWED_PULL,'index pull=%.1f is bad.' % index_pull)
 
     def compare_spatial_model(self,fit,true,lsigma):
@@ -45,11 +53,13 @@ class PointlikeTest(unittest.TestCase):
 
         if hasattr(true,'spatial_model') and hasattr(fit,'spatial_model'):
             sigma_pull = (fit.spatial_model['Sigma'] - true.spatial_model['Sigma'])/fit.spatial_model.error('Sigma')
-            #print 'sigma_pull = ',sigma_pull
+            if PointlikeTest.VERBOSE:
+                print 'sigma_pull = ',sigma_pull
             self.assertTrue(abs(sigma_pull)<self.MAX_ALLOWED_PULL,'sigma pull=%.1f is bad.' % sigma_pull)
 
         dist_pull = np.degrees(true.skydir.difference(fit.skydir))/lsigma
-        #print 'dist_pull = ',dist_pull
+        if PointlikeTest.VERBOSE:
+            print 'dist_pull = ',dist_pull
         self.assertTrue(abs(dist_pull)<self.MAX_ALLOWED_PULL,'dist pull=%.1f is bad.' % dist_pull)
 
     @staticmethod
@@ -58,34 +68,30 @@ class PointlikeTest(unittest.TestCase):
         ft1='$SIMDIR/%s_ft1.fits' % name
         ft2='$SIMDIR/%s_ft2.fits' % name
 
-        if os.path.exists(os.path.expandvars(ft1)) and \
-           os.path.exists(os.path.expandvars(ft2)):
-            sa_object=SpectralAnalysis
-        else:
-            sa_object=SpectralAnalysisMC
-
         ds=DataSpecification(ft1files=ft1,
                              ft2files=ft2,
                              ltcube='$SIMDIR/%s_ltcube.fits' % name, 
                              binfile='$SIMDIR/%s_binfile.fits' % name
                             )
 
-        sa=sa_object(ds,
-                     irf='P7SOURCE_V6',
-                     binsperdec = 2,
-                     mc_energy=True,
-                     tstart=0,
-                     tstop=604800, # 7 days
-                     quiet=True,
-                     maxROI =5, minROI = 5,
-                    )
+        sa=SpectralAnalysisMC(ds,
+                              seed=0,
+                              emin=emin,
+                              emax=emax,
+                              irf='P7SOURCE_V6',
+                              binsperdec = 2,
+                              mc_energy=True,
+                              tstart=0,
+                              tstop=604800, # 7 days
+                              quiet=not PointlikeTest.VERBOSE,
+                              roi_dir=center,
+                              maxROI=5, minROI=5,
+                             )
 
 
         roi=sa.roi(roi_dir=center,
                    point_sources=point_sources,
-                   diffuse_sources=diffuse_sources,
-                   fit_emin = emin, fit_emax = emax,
-                  )
+                   diffuse_sources=diffuse_sources)
 
         return roi
 
@@ -93,7 +99,10 @@ class PointlikeTest(unittest.TestCase):
     #@unittest.skip("skip")
     def test_extended_source(self):
 
-        print '\nAnalyze a simulated extended source against an isotropic background (E>10GeV)\n'
+        PointlikeTest.p('USE_GRADIENT=%s' % PointlikeTest.USE_GRADIENT)
+
+        if PointlikeTest.VERBOSE:
+            PointlikeTest.p('Analyze a simulated extended source against an isotropic background (E>10GeV)')
 
         center=SkyDir(0,0,SkyDir.GALACTIC)
 
@@ -106,6 +115,8 @@ class PointlikeTest(unittest.TestCase):
         model = PowerLaw(p=[1,2])
         model.set_flux(1e-4)
 
+        if PointlikeTest.VERBOSE:
+            PointlikeTest.p('Simulating gaussian source with sigma=1 degrees')
         spatial_model = Gaussian(p=[1],center=center)
 
         es_mc = ExtendedSource(name='source',spatial_model=spatial_model,model=model)
@@ -115,13 +126,19 @@ class PointlikeTest(unittest.TestCase):
         roi = PointlikeTest.get_roi('extended_test',center,point_sources,diffuse_sources, emin=1e4)
         global roi_ext;roi_ext=roi # helps with debugging
 
-        #roi.modify(which='source',sigma=0.3)
+        if PointlikeTest.VERBOSE:
+            print roi
+
+        if PointlikeTest.VERBOSE:
+            PointlikeTest.p('Setting initial spatial model to 0.3 degrees')
         roi.modify(which='source',spatial_model=Gaussian(0.3))
 
-        roi.fit(use_gradient=True)
-        roi.fit_extension(which='source')
+        if PointlikeTest.VERBOSE: print roi
+        roi.fit(use_gradient=PointlikeTest.USE_GRADIENT)
+        if PointlikeTest.VERBOSE: print roi
+        roi.fit_extension(which='source', use_gradient=PointlikeTest.USE_GRADIENT)
         roi.localize(update=True)
-        roi.fit(use_gradient=True)
+        roi.fit(use_gradient=PointlikeTest.USE_GRADIENT)
 
         self.compare_model(es_fit,es_mc)
         self.compare_spatial_model(es_fit,es_mc,roi.lsigma)
@@ -150,14 +167,15 @@ class PointlikeTest(unittest.TestCase):
     #@unittest.skip("skip")
     def test_point_source(self):
 
-        print '\nAnalyze a simulated point source against an isotropic background\n'
+        if PointlikeTest.VERBOSE:
+            print '\nAnalyze a simulated point source against the galactic + isotropic diffuse\n'
 
         center=SkyDir(0,0)
 
-        # Sreekumar-like isotropic
-        diffuse_sources=[
-            get_diffuse_source('ConstantValue',None,'PowerLaw',None,'Isotropic Diffuse')
-        ]
+        diffuse_sources=get_default_diffuse(
+            diffdir='$GLAST_EXT/diffuseModels/v2r0p1/',
+            gfile='ring_2year_P76_v0.fits',
+            ifile='isotrop_2year_P76_source_v1.txt')
 
         model = PowerLaw(p=[1,2])
         model.set_flux(1e-6)
@@ -168,18 +186,37 @@ class PointlikeTest(unittest.TestCase):
         roi = PointlikeTest.get_roi('point_test',center,point_sources,diffuse_sources)
         global roi_pt;roi_pt=roi # helps with debugging
 
-        roi.fit(use_gradient=True)
+        if PointlikeTest.VERBOSE:
+            print roi
+
+        roi.fit(use_gradient=PointlikeTest.USE_GRADIENT)
+        if PointlikeTest.VERBOSE: print roi
         roi.localize(update=True)
-        roi.fit(use_gradient=True)
+        roi.fit(use_gradient=PointlikeTest.USE_GRADIENT)
+        if PointlikeTest.VERBOSE: 
+            roi.print_summary()
+            print roi
 
         self.compare_model(ps_fit,ps_mc)
         self.compare_spatial_model(ps_fit,ps_mc,roi.lsigma)
 
 if __name__ == '__main__':
+    from argparse import ArgumentParser
+    import sys
 
-    print '\nPerforming Automated tests of Pointlike\n'
+    parser = ArgumentParser()
+    parser.add_argument("-v", "--verbose", action="store_true", default=False,help="Output more verbosely")
+    parser.add_argument("--use-gradient", default=False, action='store_true')
+    args=parser.parse_args()
+    sys.argv = sys.argv[0:1]
+
+    PointlikeTest.USE_GRADIENT = args.use_gradient
+    PointlikeTest.VERBOSE = args.verbose
+
+    if PointlikeTest.VERBOSE: 
+        PointlikeTest.p('Performing Automated tests of Pointlike')
 
     import numpy as np
-    np.seterr(all='warn')
+    np.seterr(all='ignore')
 
     unittest.main()
