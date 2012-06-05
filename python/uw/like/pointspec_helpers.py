@@ -1,12 +1,12 @@
 """Contains miscellaneous classes for background and exposure management.
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.52 2012/02/28 20:16:52 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/pointspec_helpers.py,v 1.53 2012/05/30 20:03:29 lande Exp $
 
     author: Matthew Kerr
     """
 
 import numpy as N
 from skymaps import SkyDir,CompositeSkySpectrum,DiffuseFunction,EffectiveArea,Exposure,IsotropicSpectrum,IsotropicConstant
-from uw.like.Models import Model,Constant,PowerLaw,ExpCutoff,DefaultModelValues,LogParabola,FileFunction
+from uw.like.Models import Model,Constant,PowerLaw,ExpCutoff,LogParabola,FileFunction
 from roi_diffuse import DiffuseSource,ROIDiffuseModel_OTF
 from roi_extended import ExtendedSource,ROIExtendedModel
 from os.path import join, expandvars
@@ -174,8 +174,8 @@ def get_diffuse_source(spatialModel='ConstantValue',
             dmodel = IsotropicConstant()
         elif spectralModel == 'PowerLaw':
             # use Sreekumar-like defaults
-            dmodel = PowerLaw(norm=1.5e-5,index=2.1)
-            smodel = IsotropicConstant()
+            smodel = PowerLaw(norm=1.5e-5,index=2.1)
+            dmodel = IsotropicConstant()
         else:
             raise Exception("Unable to parse input.")
 
@@ -190,7 +190,7 @@ def get_diffuse_source(spatialModel='ConstantValue',
         else:
             dmodel = ston.add(DiffuseFunction,spatialModelFile,spatialModelFile)
             if spectralModel == 'PowerLaw':
-                smodel = PowerLaw(p=[1,1],index_offset=1)
+                smodel = PowerLaw(norm=1, index=0)
             elif spectralModel == 'Constant':
                 smodel = Constant()
             else:

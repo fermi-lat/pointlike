@@ -1,7 +1,7 @@
 """Class for parsing and writing gtlike-style sourceEQUATORIAL libraries.
    Barebones implementation; add additional capabilities as users need.
 
-   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.65 2012/04/03 02:29:53 lande Exp $
+   $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/utilities/xml_parsers.py,v 1.66 2012/05/30 20:03:30 lande Exp $
 
    author: Matthew Kerr
 """
@@ -15,6 +15,7 @@ from uw.like.roi_extended import ExtendedSource
 from uw.like.Models import *
 from uw.like.SpatialModels import *
 from uw.darkmatter.spatial import *
+from uw.darkmatter.spectral import *
 from skymaps import SkyDir,DiffuseFunction,IsotropicSpectrum,IsotropicPowerLaw,IsotropicConstant
 from os.path import join
 import os
@@ -209,7 +210,7 @@ class XML_to_Model(object):
                 # Sanity check on validity of xml 
                 raise Exception('For source %s, %s parameter %s cannot be fit (must be free="0")' % (source_name,specname,p[0]))
 
-            model.__dict__[p[1]] = float(pdict['value'])*float(pdict['scale'])
+            setattr(model,p[1],float(pdict['value'])*float(pdict['scale'])),
 
         return model
 
@@ -527,7 +528,7 @@ class Model_to_XML(object):
             if index is None:
                 raise Exception('Unrecognized parameter %s'%(param))
             self.pfree[index] = False
-            self.pval[index]  = model.__dict__[mod_key]
+            self.pval[index]  = getattr(model,mod_key)
             self.pscale[index] = 1
             self.pmin[index] = self.pval[index]
             self.pmax[index] = self.pval[index]
@@ -1054,7 +1055,7 @@ def process_diffuse_source(ds,convert_extended=False,expand_env_vars=True,filena
         spatial  = ds.spatial_model
         spectral = ds.smodel
         if convert_extended and not isinstance(spatial,SpatialMap): 
-            if spatial.__dict__.has_key('original_template') and N.all(spatial.original_parameters == spatial.p):
+            if hasattr(spatial,'original_template') and N.all(spatial.original_parameters == spatial.p):
                 # Kludge! this is incase the xml was read in from the 
                 # pointspec_helpers.ExtendedSourceArchive and should be saved 
                 # out with the original template.

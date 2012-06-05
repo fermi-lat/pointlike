@@ -1,7 +1,7 @@
 """
 Module to calculate flux and extension upper limits.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.19 2012/05/02 04:41:00 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_upper_limits.py,v 1.20 2012/05/02 16:15:48 lande Exp $
 
 author:  Eric Wallace <ewallace@uw.edu>, Joshua Lande <joshualande@gmail.com>
 """
@@ -65,10 +65,10 @@ def upper_limit(roi, which=0,
     model=source.model
 
     def like(norm):
-        model.setp(0,norm,internal=True)
+        model.setp(0,norm)
         return np.exp(ll_0-self.logLikelihood(self.parameters()))
     npoints = simps_points * (integral_max - integral_min)
-    points = np.log10(np.logspace(integral_min, integral_max,npoints*2+1))
+    points = np.logspace(integral_min, integral_max,npoints*2+1)
     y = np.array([like(x)*10**x for x in points])
     trapz1 = integrate.cumtrapz(y[::2])
     trapz2 = integrate.cumtrapz(y)[::2]
@@ -80,7 +80,7 @@ def upper_limit(roi, which=0,
     y1, y2 = cumsimps[i1], cumsimps[i2]
     #Linear interpolation should be good enough at this point
     limit = x1 + ((x2-x1)/(y2-y1))*(confidence-y1)
-    model.setp(0,limit,internal=True)
+    model.setp(0,limit)
     uflux = model.i_flux(**kwargs)
     self.logLikelihood(params)
     return uflux
