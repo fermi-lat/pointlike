@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.31 2012/03/14 19:40:20 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.32 2012/03/29 22:20:46 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -199,9 +199,11 @@ class UnweightedLCFitter(object):
             print 'Failed likelihood fit -- resetting parameters.'
             self.template.set_parameters(p0)
             self.ll = ll0; self.fitvals = p0
-        elif estimate_errors:
+            return False
+        if estimate_errors:
             self._errors()
             self.template.set_errors(np.diag(self.cov_matrix)**0.5)
+        return True
 
     def fit_fmin(self,ftol=1e-5):
         fit = fmin(self.loglikelihood,self.template.get_parameters(),args=(self.template,),disp=0,ftol=ftol,full_output=True)
@@ -253,6 +255,34 @@ class UnweightedLCFitter(object):
             else: raise ValueError
         except:
             print 'Unable to invert hessian!'
+
+    def bootstrap_errors(self,nsamp=100,fit_kwargs={},nphot=None):
+        p0 = self.phases; w0 = self.weights
+        param0 = self.template.get_parameters().copy()
+        n = len(p0)
+        nphot = nphot or n
+        results = np.empty([nsamp,len(self.template.get_parameters())])
+        fit_kwargs['estimate_errors'] = False # never estimate errors
+        if 'unbinned' not in fit_kwargs.keys():
+            fit_kwargs['unbinned'] = True
+        counter = 0
+        for i in xrange(nsamp*2):
+            print i,counter
+            if counter == nsamp:
+                break
+            if i == (2*nsamp-1):
+                self.phases = p0; self.weights = w0
+                raise ValueError('Could not construct bootstrap sample.  Giving up.')
+            a = (np.random.rand(nphot)*n).astype(int)
+            self.phases = p0[a]
+            if w0 is not None:
+                self.weights = w0[a]
+            if self.fit(**fit_kwargs):
+                results[counter,:] = self.template.get_parameters()
+                counter += 1
+            self.template.set_parameters(param0)
+        self.phases = p0; self.weights = w0
+        return results
 
     def __str__(self):
         if 'll' in self.__dict__.keys():
@@ -481,5 +511,4 @@ def make_err_plot(template,totals=[10,20,50,100,500],n=1000):
     pl.plot(dom,g(dom),color='k')
     pl.legend()
     pl.axis([-5,5,0,0.5])
-
 
