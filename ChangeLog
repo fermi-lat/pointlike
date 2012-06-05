@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun  5 13:13:58 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_testing.py 
+Log Message:
+improve unit test framework
+    *
+------------------------------------------------------------
 User: lande  Tue Jun  5 09:57:53 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
