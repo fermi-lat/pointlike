@@ -1,7 +1,7 @@
 """
 Module implements a TS calculation, primarily for source finding / fit verification.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_tsmap.py,v 1.15 2011/04/04 22:56:25 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_tsmap.py,v 1.16 2011/05/02 20:48:19 lande Exp $
 
 author: Matthew Kerr
 """
@@ -38,10 +38,10 @@ def my_newton(func,x0,fprime,tol=1e-2):
     return x0,False
 
 def get_logflux(model):
-    """ local convenience to get the flux, in internal (log10 for now) representation"""
-    return model.getp(0, internal=True)
+    """ local convenience to get the log of the flux"""
+    return np.log10(model.getp(0))
 def set_logflux(model, value):
-    model.setp(0, value, internal=True)
+    model.setp(0, np.log10(value))
 ###====================================================================================================###
 class TSCalc(object):
     """Extract a TS as a function of position on the sky.

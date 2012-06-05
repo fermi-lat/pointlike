@@ -1,12 +1,11 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.93 2012/05/23 13:16:27 falletti Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.94 2012/05/23 21:01:03 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
 import os
 import copy
-import collections
 import operator
 import numpy as N
 import numpy as np
@@ -16,68 +15,16 @@ from scipy.integrate import quad
 from scipy.interpolate import interp1d
 from scipy import roots, optimize
 
+from uw.utilities.parmap import LinearMapper, LogMapper
 
-class DefaultModelValues(object):
-    """ Static methods and class members to assign default values to the spectral models. """
-
-    simple_models = dict(
-        PowerLaw            = dict(_p=[1e-11, 2.0],             param_names=['Norm','Index'],index_offset=0, e0=1e3),
-        PowerLawFlux        = dict(_p=[1e-7 , 2.0],             param_names=['Int_Flux','Index'],emin=100,emax=1e6),
-        BrokenPowerLaw      = dict(_p=[1e-11, 2.0, 2.0 ,1e3],   param_names=['Norm','Index_1','Index_2', 'E_break']),
-        BrokenPowerLawFlux  = dict(_p=[1e-7, 2.0, 2.0 ,1e3],    param_names=['Int_Flux','Index_1','Index_2', 'E_break'],emin=100,emax=1e6),
-        BrokenPowerLawCutoff= dict(_p=[1e-11,2,2,1e3,3e3],      param_names=['Norm','Index_1','Index_2','E_break','Cutoff']),
-        SmoothBrokenPowerLaw= dict(_p=[1e-11,2.0,2.0, 1e3],     param_names=['Norm','Index_1','Index_2','E_break'],beta=0.1, e0=1e3),
-        DoublePowerLaw      = dict(_p=[5e-12, 2.0, 2.0, 1],     param_names=['Norm','Index_1','Index_2','Ratio'], e0=1e3),
-        DoublePowerLawCutoff= dict(_p=[5e-12,2,2,1e3,1],        param_names=['Norm','Index_1','Index_2','Cutoff','Ratio'], e0=1e3),
-        LogParabola         = dict(_p=[1e-11, 2.0, 1e-5,2e3],   param_names=['Norm','Index','beta','E_break']),
-        ExpCutoff           = dict(_p=[1e-11, 2.0, 2e3],        param_names=['Norm','Index','Cutoff'], e0=1e3),
-        ExpCutoffPlusPL     = dict(_p=[1e-11,2.0,2e3,1e-12,1.5],param_names=['Norm1','Index1','Cutoff1','Norm2','Index2'], e0=1e3),
-        AllCutoff           = dict(_p=[1e-11, 1e3],             param_names=['Norm','Cutoff']),
-        PLSuperExpCutoff    = dict(_p=[1e-11, 2.0, 2e3 ,1.],    param_names=['Norm','Index','Cutoff', 'b'], e0=1e3),
-        Constant            = dict(_p=[1.],                     param_names=['Scale']),
-        InterpConstants     = dict(_p=[1.]*5,                   param_names=['Scale_Vector'],e_breaks=np.log10([100,300,1000,3000,3e5])),
-        FileFunction        = dict(_p=[1],                      param_names=['Normalization']),
-        DMFitFunction       = dict(_p=[1.0, 100.],              param_names=['sigmav','mass'], norm=1, bratio=1.0, channel0=1, channel1=1,
-                                   file='$(INST_DIR)/Likelihood/src/dmfit/gammamc_dif.dat'),
-        SmoothDoubleBrokenPowerLaw = dict(_p=[ 1e-11, 1.0, 1e3, 2.0, 1e4, 3.0, ], 
-                                          param_names=[ 'Prefactor', 'Index1', 'BreakValue12', 'Index2', 'BreakValue23', 'Index3' ],
-                                          Beta12=0.05, Beta23=0.05, Scale=1e3)
-
-
-        )
-
-    @staticmethod
-    def setup(the_model):
-        
-        DefaultModelValues.start(the_model)
-        classname = the_model.name = the_model.pretty_name = the_model.__class__.__name__
-        
-        if classname in DefaultModelValues.simple_models:
-            for key,val in DefaultModelValues.simple_models[classname].items():
-                the_model.__dict__[key]=val
-
-        DefaultModelValues.finish(the_model)
-
-    @staticmethod
-    def start(the_model):
-        """ Common values independent of the model type."""
-        the_model.background  = False
-
-    @staticmethod
-    def finish(the_model):
-        """Common values that can be written once the model type has been sussed out."""
-        npar = len(the_model._p)
-        the_model.cov_matrix = np.zeros([npar,npar]) #default covariance matrix
-        the_model.free = np.asarray([True] * npar)
-        the_model._p = np.asarray(the_model._p) #redundant now
-        
 
 class Model(object):
-    """ Spectral model giving dN/dE for a point source.  Default units are ph/cm^2/s/MeV.
-        Note that parameters are stored internally in logarithmic format.  This allows
-        unconstrained minimization of the naturally-positive parameters."""
-    def __init__(self,  **kwargs):
-        """ pars: list of parameter values: Model.XX( a,b) equivalent to Model.XX(p=[a,b])
+    """ Spectral model giving dN/dE for a point source.  
+
+        Default units are ph/cm^2/s/MeV.
+    """
+    def __init__(self, p=None, free=None, **kwargs):
+        """ 
 
             Optional keyword arguments:
 
@@ -87,32 +34,62 @@ class Model(object):
                 p              [p1,p2,...] default values of spectral parameters; see docstring individual model classes
                 free           [True, True,...] a boolean list the same length as p giving the free (True) and fixed (False) parameters
                 =========    =======================================================
-        """
-        DefaultModelValues.setup(self) # if called from copy method, will set p
-        self._p = np.asarray(kwargs.pop('p', self._p),float)
-        assert len(self._p)==len(self.param_names), 'Model: wrong number of parameters set: %s' % self._p
 
-        # This has to come before the kwargs parsing
-        # incase the __getitem__ function is called
-        # with an input spectral parameter.
-        assert np.all(self._p>0), 'fail parameter positivity constraint' 
-        self._p = np.log10(self._p)
+            The input to this object should be fairly flexible:
+                
+                >>> model = PowerLaw(e0=100)
+                >>> print model.e0
+                100
+        """
+        self.background = False
+        self.name = self.pretty_name = self.__class__.__name__
+
+        self.npar = len(self.param_names)
+        self.internal_cov_matrix = np.zeros([self.npar,self.npar]) #default covariance matrix
+
+        if free is None:
+            free = np.ones(self.npar)
+        self.free = np.asarray(free, dtype=bool)
+
+        if kwargs.has_key('mappers'):
+            self.mappers = kwargs.pop('mappers')
+        else:
+            self.mappers = self.default_mappers
+
+        self._p = np.empty(self.npar, dtype=float)
+        if p is None:
+            p = self.default_p
+        self.set_all_parameters(p)
+
+        for k,v in self.default_extra_params.items(): 
+            setattr(self,k,v)
 
         # deal with other kwargs. If they are in the list of spectral
         # parameters, update the corresponding value. Tag them to 
         # the class.
         for k,v in kwargs.items():
-            if k in self: 
+            if k in self:
+                # if k is a param name
                 self[k]=v
             else:
-                self.__dict__[k]=v
-
-        self.free = np.asarray(self.free)
-
-    def len(self):
-        return len(self._p)
+                raise Exception("Unable to set parameter unknown parameter %s"  % k)
+    
+    def len(self): 
+        """ Exmaple:
+                >>> model = PowerLaw()
+                >>> print model.len()
+                2
+        """
+        return self.npar
 
     def __contains__(self, item):
+        """ Example:
+                >>> model = PowerLaw()
+                >>> print 'Norm' in model
+                True
+                >>> print 'Normalization' in model
+                False
+        """
         try:
             self.__getitem__(item)
             return True
@@ -120,32 +97,71 @@ class Model(object):
             return False
         
     def __getitem__(self, index):
+        """ Wrapper around getp:
+                
+                >>> model=PowerLaw()
+                >>> print model['index']
+                2.0
+        """
         return self.getp(index)
         
     def __setitem__(self, index, value):
         self.setp(index,value)
         
     def getp(self, i, internal=False):
-        """ Get external value for parameter # i """
-        i=self.mapper(i)
-        return self._p[i] if internal else 10**(self._p[i])
+        """ Get external value for parameter # i 
+
+                >>> model=PowerLaw()
+                >>> print model['index']
+                2.0
+        
+            You can also get the non-fit extra_params using getp:
+                
+                >>> print model['e0']
+                1000.0
+
+            """
+        if i in self.default_extra_params.keys():
+            return getattr(self,i)
+        i=self.name_mapper(i)
+        return self._p[i] if internal else self.mappers[i].toexternal(self._p[i])
     
     def get_all_parameters(self, internal=False):
         """ Get a copy of the full set of parameters (external representation)"""
-        return self._p.copy() if internal else 10**self._p
+        if internal:
+            return self._p.copy() 
+        else:
+            return np.asarray(map(self.getp,np.arange(self.npar)))
     
     def set_all_parameters(self, pars, internal=False):
         """ set all parameters (external representation)"""
-        assert len(pars)== len(self._p)
-        t = np.asarray(pars, float)
-        self._p = t if internal else np.log10(t)
+        assert len(pars)==self.npar
+        pars  = np.asarray(pars, dtype=float)
+        if internal:
+            self._p = pars
+        else:
+            for i,p in enumerate(pars):
+                self.setp(i,p)
 
     def setp(self, i, par, internal=False):
-        """ set internal value, convert unless internal. """
-        i=self.mapper(i)
-        if not internal: 
-            assert par>0, 'Model external parameter cannont be negative'
-        self._p[i] = par if internal else  np.log10(par)
+        """ set internal value, convert unless internal. 
+            
+                >>> model=PowerLaw()
+                >>> model['index'] = 1
+                >>> print model['index'] 
+                1.0
+
+            You can also set the non-fit extra_params using setp:
+
+                >>> model['e0'] = 100
+                >>> print model.e0
+                100
+        
+        """
+        if i in self.default_extra_params.keys():
+            return setattr(self,i,par)
+        i=self.name_mapper(i)
+        self._p[i] = par if internal else self.mappers[i].tointernal(par)
         
     def get_parameters(self):
         """ Return FREE internal parameters ; used for spectral fitting."""
@@ -154,12 +170,21 @@ class Model(object):
     def set_parameters(self,new_vals):
         """ Set FREE internal parameters; new_vals should have length equal to number of free parameters."""
         assert(len(new_vals)==(self.free).sum())
-        self._p[self.free] = new_vals.astype('f') # downcast to float needed?
+        self._p[self.free] = new_vals.astype(float) # downcast to float needed?
 
-    def mapper(self,i):
+    def name_mapper(self,i):
         """ This object takes in a parameter and maps it to an index.
             Currently, this function is not particularly useful, but it
-            could be generalized to allow lazier parameter selection. """
+            could be generalized to allow lazier parameter selection. 
+
+            For example:
+
+                >>> model = PowerLaw()
+                >>> model.name_mapper('norm')
+                0
+                >>> model.name_mapper('index')
+                1
+            """
         if isinstance(i,str):
             if i.lower() not in np.char.lower(self.param_names):
                 raise Exception("Unknown parameter name %s" % i)
@@ -172,30 +197,42 @@ class Model(object):
         
                 i: a parameter name or index.
                 freeze    : if True, freeze parameter; if False, free it
+
+            For example:
+
+                >>> model = PowerLaw()
+                >>> print model.free
+                [ True  True]
+                >>> model.freeze('index')
+                >>> print model.free
+                [ True False]
             """
-        i=self.mapper(i)
+        i=self.name_mapper(i)
         self.free[i] = not freeze
 
     def thaw(self,i): self.freeze(i,freeze=False)
 
     def set_cov_matrix(self,new_cov_matrix):
-        self.cov_matrix[np.outer(self.free,self.free)] = np.ravel(new_cov_matrix)
+        self.internal_cov_matrix[np.outer(self.free,self.free)] = np.ravel(new_cov_matrix)
 
-    def get_cov_matrix(self,absolute=True):
+    def dexternaldinternal(self):
+        """ Return the derivative of the external parameters with repsect to the internal parametesr. """
+        return np.asarray([m.dexternaldinternal(p) for m,p in zip(self.mappers,self.get_all_parameters())])
+
+    def get_cov_matrix(self):
         """Return covariance matrix transformed out of log space."""
-        p = 10**self._p if absolute else np.ones_like(self._p)
-        jac = np.log10(np.exp(1)) #log_10(e)
-        pt=p.reshape((p.shape[0],1)) #transpose
-        return p*self.cov_matrix*pt/jac**2
+        p = self.dexternaldinternal()
+        pt=p.reshape((p.shape[0],1))
+        return p*self.internal_cov_matrix*pt
 
     def get_free_errors(self):
         """Return the diagonal elements of the (log space) covariance matrix for free parameters."""
-        return np.diag(self.cov_matrix)[self.free]**0.5
+        return np.diag(self.internal_cov_matrix)[self.free]**0.5
 
     def corr_coef(self):
         """Return the linear correlation coefficients for the estimated covariance matrix."""
-        sigmas = np.diag(self.cov_matrix)**0.5
-        return self.cov_matrix / np.outer(sigmas,sigmas)
+        sigmas = np.diag(self.internal_cov_matrix)**0.5
+        return self.internal_cov_matrix / np.outer(sigmas,sigmas)
 
     def statistical(self,absolute=False,two_sided=False):
         """ Return the parameter values and fractional statistical errors.
@@ -204,44 +241,57 @@ class Model(object):
             two_sided : bool
                 if set, return 3 tuples: values, +errors, -errors    
         """
-        p = 10**self._p #convert from log format
-        z = np.zeros_like(p)
-        vars = np.diag(self.cov_matrix)
-        vars[vars<0]=0
-        # this check for valid covariance matrix
-        if np.all(self.cov_matrix==0) :
+        p = self.get_all_parameters()
+        if np.all(self.internal_cov_matrix==0) :
+            # covariance matrix is invalid
+            z = np.zeros_like(p)
             return (p,z,z) if two_sided else (p,z) 
-        try: #see if error estimates are present
-            if not two_sided:
-                vars = np.diag(self.get_cov_matrix(absolute=False))
-                vars[vars<0]=0
-                errs = vars**0.5 
-                return p,errs*(p if absolute else np.ones_like(p))
-            else:
-                errs = vars**0.5
-                lo_rat = (p-10**(self._p-errs))/(1. if absolute else p)
-                hi_rat = (10**(self._p+errs)-p)/(1. if absolute else p)
-                return p,hi_rat,lo_rat
-        except:
-            return (p,z,z) if two_sided else (p,z) 
+        elif not two_sided:
+            vars = np.diag(self.get_cov_matrix())
+            vars[vars<0]=0
+            errs = vars**0.5 
+            return p,errs/(1 if absolute else p)
+        else:
+            vars = np.diag(self.internal_cov_matrix)
+            vars[vars<0]=0
+            errs = vars**0.5
+            lo_rat = p - np.asarray([self.mappers[i].toexternal(self.getp(i,internal=True) - errs[i]) 
+                                     for i in range(self.npar)])
+            hi_rat = np.asarray([self.mappers[i].toexternal(self.getp(i,internal=True) + errs[i]) 
+                                 for i in range(self.npar)]) - p
+            return p,hi_rat/(1 if absolute else p),lo_rat/(1 if absolute else p)
 
-    def error(self,i, internal=False):
+    @abstractmethod
+    def external_gradient(self,e):
+        """ Return gradient with respect to external parameters. """
+        pass
+
+    @abstractmethod
+    def gradient(self,e):
+        """ Return gradient with respect to internal parameters. """
+        dextdint=self.dexternaldinternal().reshape((2,1))
+        return self.external_gradient(e)*dextdint
+
+    def error(self,i):
         """ get error for parameter # i """
-        i=self.mapper(i)
-        return (np.diag(self.get_cov_matrix(absolute=not internal))**0.5)[i]
+        i=self.name_mapper(i)
+        return (np.diag(self.get_cov_matrix())**0.5)[i]
+
 
     def __str__(self,absolute=False, indent=''):
         """ Return a pretty print version of parameter values and errors.
             indent: string to prepend to each line (must be called explicitly)
+
+                >>> model = PowerLaw()
+                >>> print model
+                Norm      : 1e-11 
+                Index     : 2 
+                Ph. Flux  : 9.99e-08 (DERIVED)
+                En. Flux  : 1.11e-10 (DERIVED)
         """
-        #p,avg         = self.statistical(absolute=absolute,two_sided=False)
         p,hi_p,lo_p = self.statistical(absolute=absolute,two_sided=True)
-        if hasattr(self,'index_offset'):
-            p[1]=p[1]-self.index_offset #Index is parameter 1
-            hi_p[1]-=self.index_offset
-            lo_p[1]-=self.index_offset
         if not self.background:
-            if not np.all(self.cov_matrix==0):
+            if not np.all(self.internal_cov_matrix==0):
                 f,fhi,flo    = self.i_flux(e_weight=0,emax=3e5,two_sided=True,cgs=True,error=True)
                 e,ehi,elo    = self.i_flux(e_weight=1,emax=3e5,two_sided=True,cgs=True,error=True)
                 if not absolute:
@@ -261,7 +311,7 @@ class Model(object):
                  (self.background and np.any(lo_p!=0)): #if statistical errors are present    
             for i in xrange(len(pnames)):
                 t_n = '%-10s' % pnames[i]
-                if i < len(self._p):
+                if i < self.npar:
                     # if free is empty (shouldn't happen normally) treat as all False
                     frozen = '' if len(self.free)>i and self.free[i] else '(FROZEN)'
                 else:
@@ -280,7 +330,7 @@ class Model(object):
         else: #if no errors are present
             for i in xrange(len(pnames)):
                 t_n = '%-10s' % pnames[i]
-                if i < len(self._p):
+                if i < self.npar:
                     frozen = '' if self.free[i] else '(FROZEN)'
                 else:
                     frozen = '(DERIVED)'
@@ -319,11 +369,11 @@ class Model(object):
             flux    =  units*quad(func,emin,emax,epsabs=epsabs,full_output=True)[0]
             if error:
                 # will silently ignore 'free' parameters without errors
-                mask = (self.free) * (self.cov_matrix.diagonal()>0)
+                mask = (self.free) * (self.internal_cov_matrix.diagonal()>0)
                 args = (emin,emax,e_weight,cgs,False)
                 d    = self.__flux_derivs__(*args)[mask]
                 dt  = d.reshape( (d.shape[0],1) ) #transpose
-                err = (d * self.cov_matrix[mask].transpose()[mask] * dt).sum()**0.5
+                err = (d * self.internal_cov_matrix[mask].transpose()[mask] * dt).sum()**0.5
                 if not two_sided:
                     return (flux,err)
                 else: #use log transform to estimate two-sided errors
@@ -392,10 +442,9 @@ class Model(object):
                 >>> np.allclose(model(energies), energies**-2)
                 True
         """
-        assert len(self._p) > 0
-        self.setp(0, 0, internal=True)
-        new_prefactor = np.log10(flux/self.i_flux(*args,**kwargs))
-        self.setp(0,new_prefactor,internal=True)
+        self.setp(0, 1) # First, set prefactor to 1
+        new_prefactor = flux/self.i_flux(*args,**kwargs)
+        self.setp(0,new_prefactor)
 
     def copy(self): return copy.deepcopy(self)
 
@@ -446,21 +495,54 @@ class Model(object):
     def full_name(self):
         return self.pretty_name
         
+    @abstractmethod
     def pivot_energy(self):
-        """ default to indicate no such """
-        return None 
+        pass
 
     def zero(self):
-        if self.getp(0,internal=True)==-np.inf: return #already zeroed
-        self.old_flux = self.getp(0, internal=True) # get the internal value
-        self.setp(0,  -np.inf, internal=True)
+        """ Set source's flux to 0:
+
+                >>> model = PowerLaw()
+                >>> print model.iszero()
+                False
+                >>> print model['norm']
+                1e-11
+                >>> model.zero()
+                >>> print model.iszero()
+                True
+                >>> print model['norm']
+                0.0
+                >>> model.unzero()
+                >>> print model['norm']
+                1e-11
+                >>> print model.iszero()
+                False
+        """
+        if self.iszero(): return #already zeroed
+        self.old_flux = self.getp(0) # get the internal value
+        self.setp(0, 0)
         self.old_free = self.free.copy()
         self.free[:] = False
+    
+    def iszero(self):
+        return self.getp(0)==0
 
     def unzero(self):
-        assert self.old_flux!=-np.inf, 'attempt to unzero non-zeroed source %d ' % which
-        self.setp(0, self.old_flux, internal=True)
+        self.setp(0, self.old_flux)
         self.free = self.old_free.copy()
+
+    def set_prefactor(self,  prefactor, energy):
+        """ Set the prefactor of the source (at a given energy).
+            Useful if you want to specify dN/dE for a source at a 
+            particular energy. 
+
+                >>> model = PowerLaw(e0=1000)
+                >>> model.set_prefactor(1e-10, 100)
+                >>> print model(100)
+                1e-10
+        """
+        self.setp(0,1) #set prefactor to 1
+        self.setp(0, prefactor/self(energy))
 
 class PowerLaw(Model):
     """ Implement a power law.  See constructor docstring for further keyword arguments.
@@ -499,42 +581,52 @@ class PowerLaw(Model):
             >>> print model['norm']
             1e-10
     """
+    default_p=[1e-11, 2.0]
+    default_extra_params=dict(e0=1e3)
+    param_names=['Norm','Index']
+    default_mappers=[LogMapper,LinearMapper]
+
     def __call__(self,e):
-        n0,gamma=10**self._p
-        return n0*(self.e0/e)**(gamma-self.index_offset)
+        n0,gamma=self['Norm'],self['Index']
+        return n0*(self.e0/e)**gamma
 
     def fast_iflux(self,emin=100,emax=1e6):
-        n0,gamma = 10**self._p
-        gamma -= self.index_offset
+        n0,gamma=self['Norm'],self['Index']
         return n0/(1-gamma)*self.e0**gamma*(emax**(1-gamma)-emin**(1-gamma))
 
-    def gradient(self,e):
-        n0,gamma = 10**self._p
-        f = n0*(self.e0/e)**(gamma-self.index_offset)
+    def external_gradient(self,e):
+        n0,gamma=self['Norm'],self['Index']
+        f = n0*(self.e0/e)**gamma
         return np.asarray([f/n0,f*np.log(self.e0/e)])
 
     def pivot_energy(self):
         """ assuming a fit was done, estimate the pivot energy 
               (This only implemented for this model)
         """
-        A  = 10**self._p[0]
+        A  = self['Norm']
         C = self.get_cov_matrix()
         if C[1,1]==0:
             raise Exception('PowerLaw fit required before calculating pivot energy')
         return self.e0*np.exp( C[0,1]/(A*C[1,1]) )
         
     def set_e0(self, e0p):
-        """ set a new reference energy, adjusting the norm parameter """
-        # TODO: move this upstream
-        gamma = 10** self._p[1]
-        self._p[0] += gamma * np.log10(self.e0/e0p)
+        """ Set a new reference energy, adjusting the norm parameter 
+        
+            >>> model1=PowerLaw(e0=1e2)
+            >>> model2=model1.copy()
+            >>> model2.set_e0(1e3)
+            >>> np.allclose(model1(np.logspace(1,7,8)),model2(np.logspace(1,7,8)))
+            True
+        """
+        gamma = self['Index']
+        self['norm'] *= (e0p/self.e0)**-gamma
         self.e0 = e0p
         
     def full_name(self):
         return '%s, e0=%.0f'% (self.pretty_name,self.e0)
     @property
     def eflux(self):
-        return self.e0**2*10**self._p[0]
+        return self.e0**2*self['Norm']
 
 class PowerLawFlux(Model):
     """ Implement a power law.  See constructor docstring for further keyword arguments.
@@ -550,16 +642,21 @@ class PowerLawFlux(Model):
             >>> np.allclose([model.i_flux(50, 1000),model.fast_iflux(50, 1000)], [15,15])
             True
     """
+    default_p=[1e-7 , 2.0]
+    default_extra_params=dict(emin=100, emax=1e6)
+    param_names=['Int_Flux','Index']
+    default_mappers=[LogMapper,LinearMapper]
+
     def __call__(self,e):
-        flux,gamma=10**self._p
+        flux,gamma=self.get_all_parameters()
         return (flux*(1-gamma)/(self.emax**(1-gamma)-self.emin**(1-gamma)))*e**(-gamma)
 
     def fast_iflux(self,emin=100,emax=np.inf):
-        n0,gamma = 10**self._p
-        return n0*(emax**(1-gamma) - emin**(1-gamma)) / (self.emax**(1-gamma) - self.emin**(1-gamma))
+        flux,gamma=self.get_all_parameters()
+        return flux*(emax**(1-gamma) - emin**(1-gamma)) / (self.emax**(1-gamma) - self.emin**(1-gamma))
 
-    def gradient(self,e):
-        flux,gamma = 10**self._p
+    def external_gradient(self,e):
+        flux,gamma=self.get_all_parameters()
         e1 = self.emax; e0 = self.emin
         d1 = e1**(1-gamma)
         d0 = e0**(1-gamma)
@@ -580,12 +677,17 @@ class BrokenPowerLaw(Model):
             gamma2      (absolute value of) spectral index for e > e_break
             e_break     break energy
     """
+    default_p=[1e-11, 2.0, 2.0 ,1e3]
+    default_extra_params=dict()
+    param_names=['Norm','Index_1','Index_2', 'E_break']
+    default_mappers=[LogMapper,LinearMapper,LinearMapper,LogMapper]
+
     def __call__(self,e):
-        n0,gamma1,gamma2,e_break=10**self._p
+        n0,gamma1,gamma2,e_break=self.get_all_parameters()
         return n0*(e_break/e)**np.where(e<e_break,gamma1,gamma2)
 
-    def gradient(self,e):
-        n0,gamma1,gamma2,e_break=10**self._p
+    def external_gradient(self,e):
+        n0,gamma1,gamma2,e_break=self.get_all_parameters()
         mask = e < e_break
         x = e_break/e
         lx = np.log(x)
@@ -604,8 +706,13 @@ class BrokenPowerLawFlux(Model):
            gamma2  (absolute value of) spectral index for e > e_break
            e_break break energy
     """
+    default_p=[1e-7, 2.0, 2.0 , 1e3]
+    default_extra_params=dict(emin=100, emax=1e6)
+    param_names=['Int_Flux','Index_1','Index_2', 'E_break']
+    default_mappers=[LogMapper,LinearMapper,LinearMapper,LogMapper]
+
     def __call__(self,e):
-        flux,gamma1,gamma2,e_break=10**self._p
+        flux,gamma1,gamma2,e_break=self.get_all_parameters()
         if self.emax < e_break:
              norm=(1-gamma1)*e_break**(-gamma1)/(self.emax**(1-gamma1)-self.emin**(1-gamma1))
         elif self.emin > e_break:
@@ -629,14 +736,25 @@ class BrokenPowerLawCutoff(Model):
             gamma2      (absolute value of) spectral index for e > e_break
             e_break     break energy
     """
+    default_p=[1e-11,2,2,1e3,3e3]
+    default_extra_params=dict()
+    param_names=['Norm','Index_1','Index_2','E_break','Cutoff']
+    default_mappers=[LogMapper,LinearMapper,LinearMapper,LogMapper]
+
     def __call__(self,e):
-        n0,gamma1,gamma2,e_break,cutoff=10**self._p
+        n0,gamma1,gamma2,e_break,cutoff=self.get_all_parameters()
         return n0*np.where( e < e_break, (e_break/e)**gamma1, (e_break/e)**gamma2 )*np.exp(-e/cutoff)
 
 class SmoothBrokenPowerLaw(Model):
     """ Implement a smoothed broken power law. This is similar to a broken 
         powerlaw but uses the parameter beta to smoothly interpolate between 
         the two powerlaws.
+
+        The implemenation is exactly the same as the gtlike implementation:
+            http://glast.stanford.edu/cgi-bin/viewcvs/Likelihood/src/SmoothBrokenPowerLaw.cxx
+
+        but with the indices the negative of the gtlike indices for internal consistency.
+            
 
         Everything is defined exactly the same as gtlike except for the 
         usual replacement that gamma1 and gamma2 are defined to be the 
@@ -648,21 +766,32 @@ class SmoothBrokenPowerLaw(Model):
         greater than the break. So you need to pick beta in advance depending
         upon whether you want your function to slope up or down.
 
-        For now, I am not allowing beta to be fit. It would be somewhat
-        ackward trying to fit it since it may need negative values.
+        For now, I am not allowing beta to be fit. I am not sure anybody ever fits its.
 
         Also note that e0 is used in the spectral function and can be set (but 
         not fit) by passing in e0 when initialized. """
-    def __call__(self,e):
-        n0,gamma1,gamma2,e_break=10**self._p
-        return n0*(self.e0/e)**gamma1*\
-               (1+(e_break/e)**((gamma1-gamma2)/self.beta))**(-self.beta)
 
-    def gradient(self,e):
+    default_p=[1e-11,2.0,2.0, 1e3]
+    default_extra_params=dict(beta=0.1, e0=1e3)
+    param_names=['Norm','Index_1','Index_2','E_break']
+    default_mappers=[LogMapper,LinearMapper,LinearMapper,LogMapper]
+
+    def __call__(self,e):
+        n0,gamma1,gamma2,e_break=self.get_all_parameters()
+
+        # switch from pointlike to gltike convention
+        gamma1 =-gamma1
+        gamma2=-gamma2
+
+        # This is exactly the gtlike formula
+        return n0*(e/self.e0)**gamma1*\
+               (1+(e/self.e0)**((gamma1-gamma2)/self.beta))**(-self.beta)
+
+    def external_gradient(self,e):
         """ lots of derivatives. You can derive them all by hitting the 
             derivative on log(dN/dE). """
 
-        n0,gamma1,gamma2,e_break=10**self._p
+        n0,gamma1,gamma2,e_break=self.get_all_parameters()
 
         f=self(e)
         df_n0=f/n0
@@ -682,34 +811,6 @@ class SmoothBrokenPowerLaw(Model):
     def full_name(self):
         return '%s, e0=%.0f, beta=%.3g'% (self.pretty_name,self.e0,self.beta)
 
-class DoublePowerLaw(Model):
-    """ Spectral model is the sum of two indepedendent power laws.  E.g., the Crab Nebula = IC + synch.
-
-        Spectral parameters:
-        
-            n0             differential flux at e0 MeV for first power law
-            gamma1        (absolute value of) spectral index for first power law
-            gamma2        (absolute value of) spectral index for second power law
-            ratio         ratio of the differential fluxes of first and second power law at e0
-    """
-    def __call__(self,e):
-        n0,gamma1,gamma2,ratio=10**self._p
-        return n0*((self.e0/e)**gamma1 + ratio*(self.e0/e)**gamma2)
-
-class DoublePowerLawCutoff(Model):
-    """ Spectral model is the sum of two indepedendent power laws, one with a cutoff.  E.g., a pulsar + PWnp.
-
-        Spectral parameters:
-        
-            n0             differential flux at e0 MeV for first power law
-            gamma1        (absolute value of) spectral index for first power law
-            gamma2        (absolute value of) spectral index for second power law
-            cutoff        cutoff -- note goes with gamma!
-            ratio         ratio of the differential fluxes of first and second power law at e0
-    """
-    def __call__(self,e):
-        n0,gamma1,gamma2,cutoff,ratio=10**self._p
-        return n0*((self.e0/e)**gamma1*np.exp(-e/cutoff) + ratio*(self.e0/e)**gamma2)
 
 class LogParabola(Model):
     """ Implement a log parabola (for blazars.)  See constructor docstring for further keyword arguments.
@@ -721,20 +822,19 @@ class LogParabola(Model):
             beta         co-efficient for energy-dependent spectral index
             e_break     break energy
     """
+    default_p=[1e-11, 2.0, 1e-5,2e3]
+    default_extra_params=dict()
+    param_names=['Norm','Index','beta','E_break']
+    default_mappers=[LogMapper,LinearMapper,LinearMapper,LogMapper]
+
     def __call__(self,e):
-        n0,alpha,beta,e_break=10**self._p
-        #alpha -= self.index_offset
-#        return n0*(e_break/e)**(alpha - beta*np.log(e_break/e))
+        n0,alpha,beta,e_break=self.get_all_parameters()
         x = np.log(e_break/e)
         y = (alpha - beta*x)*x
-        return n0*np.exp(y) #np.clip(y, -10, 100)) #protect over, underflows
+        return n0*np.exp(y)
 
-    def gradient(self,e):
-        n0,alpha,beta,e_break=10**self._p
-        #alpha -= self.index_offset
-        #f  = n0*(e_break/e)**(alpha - beta*np.log(e_break/e))
-        #log_term = np.log(e_break/e)
-        #return np.asarray([f/n0,f*log_term,-f*log_term**2,f*alpha/e_break])
+    def external_gradient(self,e):
+        n0,alpha,beta,e_break=self.get_all_parameters()
         x =np.log(e_break/e)
         y = (alpha - beta*x)*x
         f = n0*np.exp(y) # np.clip(y, -10, 100))
@@ -744,12 +844,12 @@ class LogParabola(Model):
         """  
         Estimate the pivot energy
         Warning, there are potentially 3 real solutions to the pivot energy equation, and
-        the code does not try to choose one : it returns all the real the roots.
+        the code does not try to choose one : it returns all the real roots.
         """
         A  = 10**self._p[0]
         C = self.get_cov_matrix()
         if not self.free[2]:
-        # the case beta fixed is equivalent to a PWL for the determination of the pivot energy.
+            # the case beta fixed is equivalent to a PWL for the determination of the pivot energy.
             if C[1,1]==0:
                 raise Exception('Models.LogParabola: Fit required before calculating pivot energy')
             ebreak = 10**self._p[3]
@@ -768,8 +868,10 @@ class LogParabola(Model):
 
     def set_e0(self, e0p):
         """ set a new break energy, adjusting the Norm and Index parameter,
-        so that the differential flux remains the same. Beta remains unchanged in this
-        transformation.
+            so that the differential flux remains the same. Beta remains unchanged in this
+            transformation.
+
+                >>> raise Exception("...")
         """
         ebreak = 10** self._p[3]
         gamma = 10** self._p[1]
@@ -786,19 +888,22 @@ class LogParabola(Model):
         self._p[3] = np.log10(e0p)
  
     def create_powerlaw(self, beta_max=3e-2):
-        """ if beta is small and fixed, return an equivalent PowerLaw, otherwise just return self """
+        """ if beta is small and fixed, return an equivalent PowerLaw, otherwise just return self 
+
+                >>> raise Exception("...")
+        
+        """
         if self[2]>beta_max or self.free[2]: return self
-        nm = PowerLaw(p=self[0:2], e0=self[3])
-        nm.cov_matrix=self.cov_matrix[:-2,:-2]
+        nm = PowerLaw(p=self[0:2], e0=self[3], mappers=self.mappers[:-2])
+        nm.internal_cov_matrix=self.internal_cov_matrix[:-2,:-2]
         return nm
     
     @property
-    def e0(self):
-        return 10**self._p[3]
+    def e0(self): return self['e_break']
         
     @property
     def eflux(self):
-        n0, alpha,beta, ebreak = 10**self._p
+        n0, alpha,beta, ebreak = self.get_all_parameters()
         return n0 * ebreak**2
 
 class ExpCutoff(Model):
@@ -806,16 +911,21 @@ class ExpCutoff(Model):
 
         Spectral parameters:
         
-            n0            differential flux at e0 MeV
-            gamma        (absolute value of) spectral index
-            cutoff      e-folding cutoff energy (MeV)
+            Norm       differential flux at e0 MeV
+            Index      (absolute value of) spectral index
+            Cutoff      e-folding cutoff energy (MeV)
     """
+    default_p=[1e-11, 2.0, 2e3]
+    default_extra_params=dict(e0=1e3)
+    param_names=['Norm','Index','Cutoff']
+    default_mappers=[LogMapper,LinearMapper,LogMapper]
+
     def __call__(self,e):
-        n0,gamma,cutoff=10**self._p
+        n0,gamma,cutoff=self.get_all_parameters()
         return n0* (self.e0/e)**gamma * np.exp(-e/cutoff)
 
-    def gradient(self,e):
-        n0,gamma,cutoff = 10**self._p
+    def external_gradient(self,e):
+        n0,gamma,cutoff=self.get_all_parameters()
         f = n0* (self.e0/e)**gamma * np.exp(-e/cutoff)
         return np.asarray([f/n0,f*np.log(self.e0/e),f*e/cutoff**2])
 
@@ -823,40 +933,36 @@ class ExpCutoff(Model):
         """ assuming a fit was done, estimate the pivot energy 
               
         """
-        A  = 10**self._p[0]
+        A  = self['Norm']
         C = self.get_cov_matrix()
         if C[1,1]==0:
             raise Exception('%s fit required before calculating pivot energy' %self.name)
         return self.e0*np.exp( C[0,1]/(A*C[1,1]) )
         
     def set_e0(self, e0p):
-        """ set a new reference energy, adjusting the norm parameter """
-        gamma = 10** self._p[1]
-        self._p[0] += gamma * np.log10(self.e0/e0p)
-        self.e0 = float(e0p) 
+        """ Set a new reference energy, adjusting the norm parameter 
+
+                >>> model1 = ExpCutoff(e0=1e2)
+                >>> model2 = model1.copy()
+                >>> model2.set_e0(1e3)
+                >>> model2.e0
+                1000.0
+                >>> np.allclose(model1(np.logspace(1,7,8)),model2(np.logspace(1,7,8)))
+                True
+        """
+        gamma = self['Index']
+        self['norm'] *= (e0p/self.e0)**-gamma
+        self.e0 = e0p
+
         
     def full_name(self):
         return '%s, e0=%.0f'% (self.pretty_name,self.e0)
  
     @property
     def eflux(self):
-        n0 = 10**self._p[0]
+        n0 = self['n0']
         return n0 * self.e0**2
     
-class ExpCutoffPlusPL(Model):
-    """ Implement a power law with exponential cutoff + an additional power law.  A la pulsar + PWnp.
-
-        Spectral parameters:
-        
-            n0_1         differential flux at e0 MeV
-            gamma_1     (absolute value of) spectral index
-            cutoff_1    e-folding cutoff energy (MeV)
-            n0_2
-            gamma_2
-    """
-    def __call__(self,e):
-        n0_1,gamma_1,cutoff_1,n0_2,gamma_2 = 10**self._p
-        return n0_1*(self.e0/e)**gamma_1*np.exp(-e/cutoff_1) + n0_2*(self.e0/e)**gamma_2
 
 class AllCutoff(Model):
     """ Implement an exponential cutoff.  This for the case when cutoff too low to constrain index.
@@ -867,8 +973,13 @@ class AllCutoff(Model):
             n0            differential flux at e0 MeV
             cutoff      e-folding cutoff energy (MeV)
     """
+    default_p=[1e-11, 1e3]
+    default_extra_params=dict()
+    param_names=['Norm','Cutoff']
+    default_mappers=[LogMapper,LogMapper]
+
     def __call__(self,e):
-        n0,cutoff=10**self._p
+        n0,cutoff=self.get_all_parameters()
         if cutoff < 0: return 0
         return n0*np.exp(-e/cutoff)
 
@@ -882,12 +993,17 @@ class PLSuperExpCutoff(Model):
             cutoff      e-folding cutoff energy (MeV)
             b             additional power in the exponent
         """
+    default_p=[1e-11, 2.0, 2e3 ,1.]
+    default_extra_params=dict(e0=1e3)
+    param_names=['Norm','Index','Cutoff', 'b']
+    default_mappers=[LogMapper,LinearMapper,LogMapper,LinearMapper]
+
     def __call__(self,e):
-        n0,gamma,cutoff,b=10**self._p
+        n0,gamma,cutoff,b=self.get_all_parameters()
         return n0*(self.e0/e)**gamma*np.exp(-(e/cutoff)**b)
 
-    def gradient(self,e):
-        n0,gamma,cutoff,b = 10**self._p
+    def external_gradient(self,e):
+        n0,gamma,cutoff,b=self.get_all_parameters()
         f = n0*(self.e0/e)**gamma*np.exp(-(e/cutoff)**b)
         return np.asarray([f/n0,f*np.log(self.e0/e),
                      f*(b/cutoff)*(e/cutoff)**b,f*(e/cutoff)**b*np.log(cutoff/e)])
@@ -897,7 +1013,7 @@ class PLSuperExpCutoff(Model):
         Assuming a fit was done, estimate the pivot energy. The parameter b is assumed to be fixed at 1.
         """
         if self._p[3]!=0. : print "WARNING: b is not 1, the pivot energy computation might be inaccurate"
-        N0, gamma, Ecut, beta = 10**self._p
+        N0, gamma, Ecut, beta = self.get_all_parameters()
         E0 = self.e0
         C = self.get_cov_matrix()
         if C[1,1]==0:
@@ -920,10 +1036,19 @@ class PLSuperExpCutoff(Model):
         return result
         
     def set_e0(self, e0p):
-        """ set a new reference energy, adjusting the norm parameter """
-        gamma = 10** self._p[1]
-        self._p[0] += gamma * np.log10(self.e0/e0p)
-        self.e0 = float(e0p) 
+        """ set a new reference energy, adjusting the norm parameter:
+
+                >>> model1=PLSuperExpCutoff(e0=1e2)
+                >>> model2=model1.copy()
+                >>> model2.set_e0(1e3)
+                >>> model1['Index'] = model2['Index']
+                >>> np.allclose(model1(np.logspace(1,7,8)),model2(np.logspace(1,7,8)))
+                True
+        """
+        gamma = self['Index']
+        self['norm'] *= (e0p/self.e0)**-gamma
+        self.e0 = e0p
+
 
 class CompositeModel(Model):
     """ A model which joins other models. Subclasses must
@@ -940,7 +1065,7 @@ class CompositeModel(Model):
 
         self.flux_scale = 1.
         self.models = models
-        self.cov_matrix = np.zeros([self.npar,self.npar]) #default covariance matrix
+        self.internal_cov_matrix = np.zeros([self.npar,self.npar]) #default covariance matrix
         self.e0 = 1000. # not sure why, but sed_plotter needs this
 
     @abstractmethod
@@ -1000,7 +1125,7 @@ class CompositeModel(Model):
     def setp(self, i, par, internal=False):
         """ set internal value, convert unless internal
         """
-        i=self.mapper(i) #?
+        i=self.name_mapper(i) #?
         if not internal: 
             assert par>0, 'Model external parameter cannont be negative'
         counter=0
@@ -1043,9 +1168,9 @@ class FrontBackConstant(CompositeModel):
     def __call__(self, e):
         return self.models[self.ct](e)
         
-    def gradient(self, e):
-        return np.hstack([(1-self.ct)*self.models[0].gradient(e).T, 
-                          self.ct*self.models[1].gradient(e).T])
+    def external_gradient(self, e):
+        return nexternal_p.hstack([(1-self.ct)*self.models[0].external_gradient(e).T, 
+                          self.ct*self.models[1].external_gradient(e).T])
 
 class SumModel(CompositeModel):
     """ Model is the sum of other models. 
@@ -1066,17 +1191,25 @@ class SumModel(CompositeModel):
     def __call__(self,e):
         return np.array([model(e) for model in self.models]).sum(axis=0)
 
-    def gradient(self,e):
+    def external_gradient(self,e):
         """ Assume all models have a gradient! """
-        return np.append([i.gradient(e) for i in self.models])
+        return np.append([i.external_gradient(e) for i in self.models])
 
     def set_flux(self,flux,*args,**kwargs):
         """ Set the flux of the source. 
 
             Makes sure relative normalization of each component is unchanged
+                
+                >>> model = SumModel(PowerLaw(),PowerLaw())
+                >>> np.allclose(model.i_flux(),PowerLaw().i_flux()*2)
+                True
+                >>> model.set_flux(1)
+                >>> print model.i_flux()
+                1.0
         """
-        change = np.log10(flux/self.i_flux(*args,**kwargs))
-        for m in self.models: m._p[0] += change
+        change = flux/self.i_flux(*args,**kwargs)
+        for m in self.models: 
+            m.setp(0, m.getp(0)*change)
 
 class ProductModel(CompositeModel):
     """ Model is the product of other Models.
@@ -1102,24 +1235,32 @@ class ProductModel(CompositeModel):
     def __call__(self,e):
         return np.array([model(e) for model in self.models]).prod(axis=0)
 
-    def gradient(self,e):
+    def external_gradient(self,e):
         """ Assume all models have a gradient! """
-        return np.append([i.gradient(e)/i.__call__(e) for i in self.models])*self.__call__(e)
+        return np.append([i.external_gradient(e)/i.__call__(e) for i in self.models])*self.__call__(e)
 
 class Constant(Model):
+    default_p=[1.]
+    default_extra_params=dict()
+    param_names=['Scale']
+    default_mappers=[LogMapper]
     def __call__(self,e):
-        return np.ones_like(e)*10**self._p[0]
+        return np.ones_like(e)*self['scale']
     
     def fast_iflux(self,emin=100,emax=1e6):
-        return (emax-emin)*10**self._p[0]
+        return (emax-emin)*self['scale']
 
-    def gradient(self,e):
+    def external_gradient(self,e):
         return  np.array([np.ones_like(e)])
 
 class InterpConstants(Model):
+    default_p=[1.]*5
+    default_extra_params=dict(e_breaks=np.log10([100,300,1000,3000,3e5]))
+    param_names=['Scale_Vector']
+    default_mappers=[LogMapper,LogMapper,LogMapper,LogMapper,LogMapper]
 
     def __call__(self,e):
-        interp = interp1d(self.e_breaks,10**self._p)
+        interp = interp1d(self.e_breaks,self.get_all_parameters())
         return interp(np.log10(e))
 
     def set_flux(self,flux,**kwargs):
@@ -1165,15 +1306,16 @@ class FileFunction(Model):
             >>> import os
             >>> pickle.dump(file_function, open(os.devnull,'w'))
     """
-    def __make_interp__(self):
-        self.interp = interp1d(np.log10(self.energy),np.log10(self.flux),
-                bounds_error=False,fill_value=-np.inf)
+    default_p=[1]
+    default_extra_params=dict(file=None)
+    param_names=['Normalization']
+    default_mappers=[LogMapper]
 
     def __init__(self,**kwargs):
 
         super(FileFunction,self).__init__(**kwargs)
 
-        if not hasattr(self,'file'):
+        if self.file is None:
             raise Exception("FileFunction must be created with a file.")
 
         file=np.genfromtxt(os.path.expandvars(self.file),unpack=True)
@@ -1181,10 +1323,14 @@ class FileFunction(Model):
 
         self.__make_interp__()
 
+    def __make_interp__(self):
+        self.interp = interp1d(np.log10(self.energy),np.log10(self.flux),
+                bounds_error=False,fill_value=-np.inf)
+
     def __call__(self,e):
         return self['Normalization']*10**self.interp(np.log10(e))
 
-    def gradient(self,e):
+    def external_gradient(self,e):
         return  np.array([np.ones_like(e)])
 
     def __getstate__(self):
@@ -1198,137 +1344,14 @@ class FileFunction(Model):
         self.__dict__ = state
         self.__make_interp__()
 
-class DMFitFunction(Model):
-    """ Wrap gtlike's DMFitFunction interface. 
-    
-        N.B. The bug Sheridan reported that the set_flux function 
-        was not working should now be fixed:
-        
-            >>> model = DMFitFunction()
-            >>> model.set_flux(1e-7, emin=1e3, emax=1e5)
-            >>> print '%g' % model.i_flux(emin=1e3, emax=1e5)
-            1e-07
-
-        Test the getters and setters
-
-            >>> model['sigmav']=3.14
-            >>> print '%g' % model['sigmav']
-            3.14
-
-        There was previously a bug in set_parameters, 
-        lets see if its fixed:
-
-            >>> model.set_parameters(np.log10([5,500]))
-            >>> print '%g' % model['sigmav']
-            5
-            >>> print '%g' % model['mass']
-            500
-
-        Note, the parameters which are not directly fit (like bratio) get set correctly:
-
-            >>> model = DMFitFunction(bratio=2)
-            >>> print model.dmf.getParam('bratio').getTrueValue()
-            2.0
-            >>> model = DMFitFunction(bratio=3)
-            >>> print model.dmf.getParam('bratio').getTrueValue()
-            3.0
-
-        Test a few hard coded values, to make sure the function values are correct:
-
-            >>> model = DMFitFunction(sigmav=1e-26, mass=100,
-            ... channel0=4, channel1=1, bratio=1, norm=2.5e17)
-
-            >>> model = DMFitFunction(norm=2.5e17, sigmav=1e-26, channel0=4,channel1=1,mass=100,bratio=1.0)
-
-        These points agree with the fortran code.
-
-            >>> e = [1, 10, 100, 1000, 10000, 100000 , 1000000]
-            >>> dnde = [ 9.55801576e-18, 2.04105211e-16,  4.43719263e-16, 1.00123992e-16, 1.44911940e-18, 0.0, 0.0 ]
-            >>> print np.allclose(model(e), dnde)
-            True
-    """
-    def full_name(self):
-        return '%s, norm=%.1f, bratio=%.1f channel0=%d, channel1=%d' % (self.pretty_name,
-                                                                        self.norm, self.bratio, 
-                                                                        self.channel0, self.channel1)
-
-    def __getstate__(self):
-        d=copy.copy(self.__dict__)
-        del d['dmf']
-        return d
-
-    def __setstate__(self,state):
-        self.__dict__ = state
-        self._update()
-
-    def _update(self):
-        """ Update the DMFitFunction internally.
-            This function should be called
-            automatically when necessary.
-        """
-        if not hasattr(self,'dmf'):
-            import pyLikelihood
-            self.dmf=pyLikelihood.DMFitFunction()
-
-        for i,param_name in enumerate(self.param_names):
-            self.dmf.setParam(param_name,self[param_name])
-
-        # Set the parameters which are not fixed explicitly
-        self.dmf.setParam('norm',self.norm)
-        self.dmf.setParam('bratio',self.bratio)
-        self.dmf.setParam('channel0',self.channel0)
-        self.dmf.setParam('channel1', self.channel1)
-
-    def __init__(self,  *args, **kwargs):
-        import pyLikelihood
-
-        # the DMFitFunction must exist before __init__ is called because
-        # the __init__ will call setp().
-        self.dmf=pyLikelihood.DMFitFunction()
-        super(DMFitFunction,self).__init__(*args,**kwargs)
-
-        # unbound all parameters in gtlike
-        for n in np.append(self.param_names,['norm','bratio','channel0','channel1']):
-            self.dmf.getParam(n).setBounds(-float('inf'),float('inf'))
-
-        from SpatialModels import SpatialMap
-        self.dmf.readFunction(SpatialMap.expand(self.file))
-        self._update() # update all parameters in DMFitFunction
-
-    def setp(self, *args, **kwargs):
-        super(DMFitFunction,self).setp(*args, **kwargs)
-        self._update()
-
-    def set_parameters(self, *args, **kwargs):
-        super(DMFitFunction,self).set_parameters(*args, **kwargs)
-        self._update()
-
-    def set_all_parameters(self, *args, **kwargs):
-        super(DMFitFunction,self).set_all_parameters(*args, **kwargs)
-        self._update()
-
-    @staticmethod
-    def call_pylike_spectrum(spectrum, e):
-        """ Method to call a pylikelihood spectrum given
-            either a python numer or a numpy array. """
-        from pyLikelihood import dArg
-        if isinstance(e,collections.Iterable):
-            return np.asarray([spectrum(dArg(i)) for i in e])
-        else:
-            return spectrum(dArg(e))
-
-    def __call__(self,e):
-        """ Return energy in MeV. This could be vectorized. """
-        return DMFitFunction.call_pylike_spectrum(self.dmf, e)
-        
 class SmoothDoubleBrokenPowerLaw(Model):
     """ Spectral Model Taken to be the same as:
 
             http://glast.stanford.edu/cgi-bin/viewcvs/Likelihood/src/SmoothDoubleBrokenPowerLaw.cxx
 
-        but with the indices the negative of the pointlike indices
+        but with the indices the negative of the gtlike indices for internal consistency.
             
-            >>> pointlike_model = SmoothDoubleBrokenPowerLaw(beta12=0.5, beta23=0.25)
+            >>> pointlike_model = SmoothDoubleBrokenPowerLaw(Beta12=0.5, Beta23=0.25)
             >>> import pyLikelihood
             >>> _funcFactory = pyLikelihood.SourceFactory_funcFactory()
             >>> gtlike_model = _funcFactory.create('SmoothDoubleBrokenPowerLaw')
@@ -1337,14 +1360,22 @@ class SmoothDoubleBrokenPowerLaw(Model):
             >>> for n in ['Beta23', 'Beta12', 'Scale']:
             ...     gtlike_model.setParam(n,getattr(pointlike_model,n))
             >>> energies = np.logspace(1, 6, 10000)
+            >>> from uw.darkmatter.spectral import DMFitFunction
             >>> np.allclose(DMFitFunction.call_pylike_spectrum(gtlike_model, energies), pointlike_model(energies), rtol=1e-20, atol=1e-20)
             True
     """
-    def __call__(self,e):
-        prefactor, index1, breakvalue12, index2, breakvalue23, index3 = 10**self._p
+    default_p=[ 1e-11, 1.0, 1e3, 2.0, 1e4, 3.0, ]
+    default_extra_params=dict(Beta12=0.05, Beta23=0.05, Scale=1e3)
+    param_names=[ 'Prefactor', 'Index1', 'BreakValue12', 'Index2', 'BreakValue23', 'Index3' ]
+    default_mappers=[LogMapper,LinearMapper,LogMapper,LinearMapper,LogMapper,LinearMapper]
 
+    def __call__(self,e):
+        prefactor, index1, breakvalue12, index2, breakvalue23, index3 = self.get_all_parameters()
+
+        # convert from pointlike to gtlike definition
         index1, index2, index3 = -index1, -index2, -index3
 
+        # This is exactly the formula from gtlike
         return prefactor*(e/self.Scale)**index1*\
             (1 + (e/breakvalue12)**((index1 - index2)/self.Beta12))**-self.Beta12*\
             (1 + (e/breakvalue23)**((index2 - index3)/self.Beta23))**-self.Beta23
@@ -1359,8 +1390,8 @@ def convert_exp_cutoff(model):
     nm = PLSuperExpCutoff()
     nm._p    = np.append(model._p,0)
     nm.free = np.append(model.free,False)
-    nm.cov_matrix[:,:] = 0
-    nm.cov_matrix[:-1,:-1] = model.cov_matrix[:,:]
+    nm.internal_cov_matrix[:,:] = 0
+    nm.internal_cov_matrix[:-1,:-1] = model.internal_cov_matrix[:,:]
     nm.e0 = model.e0
     return nm
     

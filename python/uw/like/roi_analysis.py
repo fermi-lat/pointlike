@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.117 2012/02/20 22:59:37 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.118 2012/02/24 18:33:00 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -317,8 +317,9 @@ class ROIAnalysis(object):
         # add in diffuse components
         gradient  = N.append(self.bgm.gradient(bands),gradient)
         
-        # transform into log space and return
-        return gradient * 10**parameters * LOG_JACOBIAN
+        # Note, no need to transform gradient into log space because
+        # gradient now returns the gradient with respect to internal parameters.
+        return gradient
          
 
     def parameters(self):

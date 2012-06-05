@@ -18,7 +18,7 @@ Given an ROIAnalysis object roi:
      ROIRadialIntegral(roi).show()
 
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.88 2012/04/27 23:40:03 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_plotting.py,v 1.89 2012/05/23 21:03:37 lande Exp $
 
 author: Matthew Kerr, Joshua Lande
 """
@@ -745,7 +745,7 @@ class ROISlice(object):
             sources = list(self.roi.psm.point_sources) + \
                     [ i for i in self.roi.dsm.diffuse_sources if isinstance(i,ExtendedSource) ]
             # don't zero already zeroed sources
-            sources = [ i for i in sources if i.model.getp(0,internal=True) != -np.inf ]
+            sources = [ i for i in sources if not self.model.iszero() ]
 
             ROISlice.cache_roi(self.roi)
 
@@ -992,7 +992,7 @@ class ROIRadialIntegral(object):
             sources = list(self.roi.psm.point_sources) + \
                     [ i for i in self.roi.dsm.diffuse_sources if isinstance(i,ExtendedSource) ]
             # don't zero already zeroed sources
-            sources = [ i for i in sources if i.model.getp(0,internal=True) != -np.inf ]
+            sources = [ i for i in sources if not i.model.iszero() ]
 
             ROISlice.cache_roi(self.roi)
 
