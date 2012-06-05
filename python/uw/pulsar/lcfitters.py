@@ -9,7 +9,7 @@ light curve parameters.
 
 LCFitter also allows fits to subsets of the phases for TOA calculation.
 
-$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.32 2012/03/29 22:20:46 kerrm Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/pointlike/python/uw/pulsar/lcfitters.py,v 1.33 2012/06/05 00:58:47 kerrm Exp $
 
 author: M. Kerr <matthew.kerr@gmail.com>
 
@@ -174,7 +174,7 @@ class UnweightedLCFitter(object):
             self.gradient = self.binned_gradient
 
          
-    def fit(self,quick_fit_first=False, estimate_errors=True, unbinned=True, use_gradient=True, positions_first=False):
+    def fit(self,quick_fit_first=False, unbinned=True, use_gradient=True, positions_first=False, estimate_errors=False):
 
         self._set_unbinned(unbinned)
 
@@ -193,7 +193,6 @@ class UnweightedLCFitter(object):
             f = self.fit_tnc()
         else:
             f = self.fit_fmin()
-        print ll0,self.ll
         if (ll0 > self.ll) or (self.ll==-2e20) or (np.isnan(self.ll)):
             self.bad_p = self.template.get_parameters().copy()
             print 'Failed likelihood fit -- resetting parameters.'
@@ -201,8 +200,8 @@ class UnweightedLCFitter(object):
             self.ll = ll0; self.fitvals = p0
             return False
         if estimate_errors:
-            self._errors()
-            self.template.set_errors(np.diag(self.cov_matrix)**0.5)
+            if not self.hess_errors():
+                self.bootstrap_errors(set_errors=True)
         return True
 
     def fit_fmin(self,ftol=1e-5):
@@ -238,7 +237,8 @@ class UnweightedLCFitter(object):
         fit = fmin_l_bfgs_b(self.loglikelihood,self.template.get_parameters(),fprime=self.gradient,args=(self.template,),bounds=self.template.get_bounds(),factr=1e-5)
         return fit
 
-    def _errors(self):
+    def hess_errors(self):
+        """ Set errors from hessian.  Fit should be called first...""" 
         from numpy.linalg import inv
         nump = len(self.template.get_parameters())
         self.cov_matrix = np.zeros([nump,nump],dtype=float)
@@ -251,29 +251,31 @@ class UnweightedLCFitter(object):
                 # attempt to refine
                 h2 = hessian(self.template,self.loglikelihood,delt=d**0.5)
                 c2 = inv(h2)
-                if np.all(np.diag(c2)>0): self.cov_matrix = c2
+                if np.all(np.diag(c2)>0):
+                    self.cov_matrix = c2
             else: raise ValueError
+            self.template.set_errors(np.diag(self.cov_matrix)**0.5)
+            return True
         except:
             print 'Unable to invert hessian!'
+            return False
 
-    def bootstrap_errors(self,nsamp=100,fit_kwargs={},nphot=None):
+    def bootstrap_errors(self,nsamp=100,fit_kwargs={},set_errors=False):
         p0 = self.phases; w0 = self.weights
         param0 = self.template.get_parameters().copy()
         n = len(p0)
-        nphot = nphot or n
         results = np.empty([nsamp,len(self.template.get_parameters())])
         fit_kwargs['estimate_errors'] = False # never estimate errors
         if 'unbinned' not in fit_kwargs.keys():
             fit_kwargs['unbinned'] = True
         counter = 0
         for i in xrange(nsamp*2):
-            print i,counter
             if counter == nsamp:
                 break
             if i == (2*nsamp-1):
                 self.phases = p0; self.weights = w0
                 raise ValueError('Could not construct bootstrap sample.  Giving up.')
-            a = (np.random.rand(nphot)*n).astype(int)
+            a = (np.random.rand(n)*n).astype(int)
             self.phases = p0[a]
             if w0 is not None:
                 self.weights = w0[a]
@@ -281,6 +283,8 @@ class UnweightedLCFitter(object):
                 results[counter,:] = self.template.get_parameters()
                 counter += 1
             self.template.set_parameters(param0)
+        if set_errors:
+            self.template.set_errors(np.std(results,axis=0))
         self.phases = p0; self.weights = w0
         return results
 
@@ -438,8 +442,6 @@ def hessian(m,mf,*args,**kwargs):
     """Calculate the Hessian; mf is the minimizing function, m is the model,args additional arguments for mf."""
     p = m.get_parameters().copy()
     p0 = p.copy() # sacrosanct copy
-    print 'These are the parameters in the hessian call.'
-    print p0
     if 'delt' in kwargs.keys():
         delta = kwargs['delt']
     else:
