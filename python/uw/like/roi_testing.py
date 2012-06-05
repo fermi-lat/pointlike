@@ -1,7 +1,7 @@
 """
 Module to perfrom routine testing of pointlike's many features.'
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.11 2012/06/05 20:13:57 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_testing.py,v 1.12 2012/06/05 20:37:14 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -14,7 +14,7 @@ import numpy as np
 from skymaps import SkyDir
 from uw.like.pointspec import DataSpecification,SpectralAnalysis
 from uw.like.pointspec_helpers import PointSource,get_diffuse_source,get_default_diffuse
-from uw.like.Models import PowerLaw,LogParabola,SumModel,ProductModel
+from uw.like.Models import PowerLaw,PowerLawFlux,LogParabola,SumModel,ProductModel
 from uw.like.SpatialModels import Disk,Gaussian,SpatialMap
 from uw.like.roi_extended import ExtendedSource
 from uw.like.roi_monte_carlo import SpectralAnalysisMC
@@ -64,7 +64,7 @@ class PointlikeTest(unittest.TestCase):
         self.assertTrue(abs(dist_pull)<self.MAX_ALLOWED_PULL,'dist pull=%.1f is bad.' % dist_pull)
 
     @staticmethod
-    def get_roi(name,center,point_sources,diffuse_sources,emin=1e2,emax=1e5):
+    def get_roi(name,center,point_sources,diffuse_sources,emin=1e2,emax=1e5,binsperdec=2):
 
         ft1='$SIMDIR/%s_ft1.fits' % name
         ft2='$SIMDIR/%s_ft2.fits' % name
@@ -80,7 +80,7 @@ class PointlikeTest(unittest.TestCase):
                               emin=emin,
                               emax=emax,
                               irf='P7SOURCE_V6',
-                              binsperdec = 2,
+                              binsperdec = binsperdec,
                               mc_energy=True,
                               tstart=0,
                               tstop=604800, # 7 days
@@ -168,8 +168,8 @@ class PointlikeTest(unittest.TestCase):
         self.assertTrue(roi.TS(which='template_source')>25,'Make sure these functions work similary with spatial_map')
 
 
-    #@unittest.skip("skip")
-    def test_point_source(self):
+    @unittest.skipIf("--skip-ps1" in sys.argv,'skip')
+    def test_ps1(self):
 
         if PointlikeTest.VERBOSE:
             print '\nAnalyze a simulated point source against the galactic + isotropic diffuse\n'
@@ -181,13 +181,13 @@ class PointlikeTest(unittest.TestCase):
             gfile='ring_2year_P76_v0.fits',
             ifile='isotrop_2year_P76_source_v1.txt')
 
-        model = PowerLaw(p=[1,2])
+        model = PowerLaw(index=2)
         model.set_flux(1e-6)
         ps_mc = PointSource(name='source',skydir=center,model=model)
         ps_fit = ps_mc.copy()
         point_sources=[ps_fit]
 
-        roi = PointlikeTest.get_roi('point_test',center,point_sources,diffuse_sources)
+        roi = PointlikeTest.get_roi('ps1',center,point_sources,diffuse_sources)
         global roi_pt;roi_pt=roi # helps with debugging
 
         if PointlikeTest.VERBOSE:
@@ -204,6 +204,50 @@ class PointlikeTest(unittest.TestCase):
         self.compare_model(ps_fit,ps_mc)
         self.compare_spatial_model(ps_fit,ps_mc,roi.lsigma)
 
+
+    @unittest.skipIf("--skip-ps2" in sys.argv,'skip')
+    def test_ps2(self):
+
+        if PointlikeTest.VERBOSE:
+            PointlikeTest.p('\nAnalyze a simulated point source\n')
+
+        center=SkyDir(0,0)
+
+        model = PowerLawFlux(int_flux=1e-5, index=3, emin=1e2, emax=1e5)
+        ps = PointSource(name='source',skydir=center,model=model)
+        point_sources=[ps]
+        diffuse_sources=None
+
+        roi = PointlikeTest.get_roi('ps2',center,point_sources,diffuse_sources, emin=1e2, emax=1e5, binsperdec=4)
+        global roi_pt;roi_pt=roi # helps with debugging
+
+        if PointlikeTest.VERBOSE:
+            print roi
+
+        if PointlikeTest.VERBOSE:
+            PointlikeTest.p('\nTesting if SED points are within errors\n')
+
+        bf=roi.plot_sed(which='source', filename='sed.pdf', merge=False)
+
+        elow=bf.rec.elow
+        ehigh=bf.rec.ehigh
+        e = np.sqrt(elow*ehigh) # geometric mean
+
+        flux=bf.rec.flux
+        significant=bf.rec.flux > 0 # pointlike convention for upper limit
+        uflux = bf.rec.uflux
+        lflux = bf.rec.lflux
+        true_flux=e**2*model(e)
+        pull = np.where(flux>true_flux, (flux-true_flux)/uflux, (true_flux-flux)/lflux)
+
+        self.assertTrue(np.all(pull[significant] < PointlikeTest.MAX_ALLOWED_PULL), 'All SED points within errors of true value')
+        if PointlikeTest.VERBOSE:
+            PointlikeTest.p('\nPull for SED points is %s\n' % pull[significant])
+
+        # I am not sure this strictly has to always be true. Maybe there is a better test - J.L.
+        self.assertTrue(np.all(uflux[~significant] > true_flux[~significant]), 'All SED upper limits must be above spectra')
+
+
 if __name__ == '__main__':
     from argparse import ArgumentParser
 
@@ -211,6 +255,8 @@ if __name__ == '__main__':
     parser.add_argument("-v", "--verbose", action="store_true", default=False,help="Output more verbosely")
     parser.add_argument("--use-gradient", default=False, action='store_true')
     parser.add_argument("--skip-extended", default=False, action='store_true')
+    parser.add_argument("--skip-ps1", default=False, action='store_true')
+    parser.add_argument("--skip-ps2", default=False, action='store_true')
     args=parser.parse_args()
     sys.argv = sys.argv[0:1]
 
