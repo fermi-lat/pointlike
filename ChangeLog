@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun  5 16:02:27 PDT 2012
+ScienceTools-scons/pointlike/python/uw/darkmatter
+
+Added Files:
+	spectral.py 
+Log Message:
+Commiting new implemenation of parameter mapping in pointlike. This allows fitting parameters internally not in log space.
+    *
+------------------------------------------------------------
 User: lande  Tue Jun  5 16:01:19 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
