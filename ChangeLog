@@ -1,4 +1,14 @@
 ------------------------------------------------------------
+User: kerrm  Mon Jun  4 18:20:48 PDT 2012
+pointlike/python/uw/pulsar
+
+Modified Files:
+	lcfitters.py 
+Log Message:
+Make bootstrap backup when errors fail.
+
+    *
+------------------------------------------------------------
 User: kerrm  Mon Jun  4 17:58:48 PDT 2012
 pointlike/python/uw/pulsar
 
