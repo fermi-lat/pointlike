@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Tue Jun  5 16:19:58 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	Models.py 
+Log Message:
+better doctests
+    *
+------------------------------------------------------------
 User: lande  Tue Jun  5 16:02:28 PDT 2012
 ScienceTools-scons/pointlike/python/uw/utilities
 
