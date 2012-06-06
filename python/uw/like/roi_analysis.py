@@ -2,7 +2,7 @@
 Module implements a binned maximum likelihood analysis with a flexible, energy-dependent ROI based
 on the PSF.
 
-$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.118 2012/02/24 18:33:00 lande Exp $
+$Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/roi_analysis.py,v 1.119 2012/06/05 23:02:27 lande Exp $
 
 author: Matthew Kerr, Toby Burnett, Joshua Lande
 """
@@ -31,9 +31,6 @@ from scipy.optimize import fmin,fmin_powell,fmin_bfgs
 
 from . import roi_plotting 
 from . import counts_plotter
-
-EULER_CONST  = N.exp(1)
-LOG_JACOBIAN = 1./N.log10(EULER_CONST)
 
 # special function to replace or extend a docstring from that of another function
 def decorate_with(other_func, append=False, append_init=False):
