@@ -1,6 +1,6 @@
 """A set of classes to implement spectral models.
 
-    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.96 2012/06/05 23:19:58 lande Exp $
+    $Header: /nfs/slac/g/glast/ground/cvs/ScienceTools-scons/pointlike/python/uw/like/Models.py,v 1.97 2012/06/06 16:14:50 lande Exp $
 
     author: Matthew Kerr, Joshua Lande
 """
@@ -292,10 +292,32 @@ class Model(object):
         return self.external_gradient(e)*dextdint
 
     def error(self,i):
-        """ get error for parameter # i """
+        """ Get the EXTERNAL error for parameter i """
         i=self.name_mapper(i)
         return (np.diag(self.get_cov_matrix())**0.5)[i]
 
+    def set_error(self,i,error):
+        """ Set the INTERNAL error for parameter i 
+
+                >>> model = PowerLaw(mappers=[LogMapper,LogMapper])
+                >>> print model.error('norm')
+                0.0
+                >>> model.set_error('norm',1)
+                >>> print model.error('norm')
+                1.0
+
+                >>> model = PowerLaw(mappers=[LinearMapper,LinearMapper])
+                >>> model.set_error('norm',1)
+                >>> print model.error('norm')
+                1.0
+        """
+        i=self.name_mapper(i)
+
+        # delete any covariance
+        self.internal_cov_matrix[i,:]=self.internal_cov_matrix[:,i]=0
+        dextdint=self.mappers[i].dexternaldinternal(self.getp(i))
+        dintdext=1/dextdint
+        self.internal_cov_matrix[i,i]=(error*dintdext)**2
 
     def __str__(self,absolute=False, indent=''):
         """ Return a pretty print version of parameter values and errors.
