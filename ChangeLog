@@ -1,4 +1,13 @@
 ------------------------------------------------------------
+User: lande  Wed Jun  6 16:10:19 PDT 2012
+ScienceTools-scons/pointlike/python/uw/like
+
+Modified Files:
+	roi_testing.py 
+Log Message:
+new test for FileFunction point sources
+    *
+------------------------------------------------------------
 User: lande  Wed Jun  6 15:49:56 PDT 2012
 ScienceTools-scons/pointlike/python/uw/like
 
